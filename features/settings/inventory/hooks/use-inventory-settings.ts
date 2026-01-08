@@ -2,7 +2,7 @@
  * Inventory Settings React Query Hooks
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import * as api from '../api/inventory-settings-api';
 import type { ProductType, ProductCategory, Brand, Importer } from '@/lib/types/prisma-extended';
 
@@ -16,7 +16,7 @@ export const inventorySettingsKeys = {
 
 // Product Types
 export function useProductTypes() {
-  return useQuery({ queryKey: inventorySettingsKeys.productTypes(), queryFn: api.fetchProductTypes, staleTime: 1000 * 60 * 10 });
+  return useQuery({ queryKey: inventorySettingsKeys.productTypes(), queryFn: api.fetchProductTypes, staleTime: 1000 * 60 * 10, gcTime: 10 * 60 * 1000, placeholderData: keepPreviousData });
 }
 
 export function useProductTypeMutations(opts?: { onSuccess?: () => void }) {
@@ -31,7 +31,7 @@ export function useProductTypeMutations(opts?: { onSuccess?: () => void }) {
 
 // Product Categories
 export function useProductCategories() {
-  return useQuery({ queryKey: inventorySettingsKeys.categories(), queryFn: api.fetchProductCategories, staleTime: 1000 * 60 * 10 });
+  return useQuery({ queryKey: inventorySettingsKeys.categories(), queryFn: api.fetchProductCategories, staleTime: 1000 * 60 * 10, gcTime: 10 * 60 * 1000, placeholderData: keepPreviousData });
 }
 
 export function useProductCategoryMutations(opts?: { onSuccess?: () => void }) {
@@ -46,7 +46,7 @@ export function useProductCategoryMutations(opts?: { onSuccess?: () => void }) {
 
 // Brands
 export function useInventoryBrands() {
-  return useQuery({ queryKey: inventorySettingsKeys.brands(), queryFn: api.fetchBrands, staleTime: 1000 * 60 * 10 });
+  return useQuery({ queryKey: inventorySettingsKeys.brands(), queryFn: api.fetchBrands, staleTime: 1000 * 60 * 10, gcTime: 10 * 60 * 1000, placeholderData: keepPreviousData });
 }
 
 export function useBrandMutations(opts?: { onSuccess?: () => void }) {
@@ -61,7 +61,7 @@ export function useBrandMutations(opts?: { onSuccess?: () => void }) {
 
 // Importers
 export function useImporters() {
-  return useQuery({ queryKey: inventorySettingsKeys.importers(), queryFn: api.fetchImporters, staleTime: 1000 * 60 * 10 });
+  return useQuery({ queryKey: inventorySettingsKeys.importers(), queryFn: api.fetchImporters, staleTime: 1000 * 60 * 10, gcTime: 10 * 60 * 1000, placeholderData: keepPreviousData });
 }
 
 export function useImporterMutations(opts?: { onSuccess?: () => void }) {

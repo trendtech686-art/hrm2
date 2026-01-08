@@ -1,4 +1,14 @@
-﻿import { create } from 'zustand';
+﻿/**
+ * @deprecated Use React Query hooks instead:
+ * - `useWikiArticles()` for list
+ * - `useWikiArticle(id)` for single
+ * - `useWikiMutations()` for create/update/delete
+ * 
+ * Import from: `@/features/wiki/hooks/use-wiki`
+ * 
+ * This store will be removed in a future version.
+ */
+import { create } from 'zustand';
 import { getCurrentDate, toISODate } from '../../lib/date-utils';
 import type { WikiArticle } from '@/lib/types/prisma-extended';
 import { asSystemId, asBusinessId } from '../../lib/id-types';

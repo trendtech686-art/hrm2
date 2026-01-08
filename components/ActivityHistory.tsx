@@ -31,6 +31,40 @@ import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { formatDateForDisplay, formatDateTimeForDisplay } from '@/lib/date-utils';
 
+// Separate component for metadata to avoid TS2322 with unknown types
+function MetadataDisplay({ showMetadata, metadata }: { showMetadata: boolean; metadata?: HistoryEntry['metadata'] }) {
+  if (!showMetadata || !metadata) return null;
+  
+  const hasOldNew = metadata.oldValue != null || metadata.newValue != null;
+  
+  return (
+    <>
+      {metadata.note != null && (
+        <div className="text-sm text-muted-foreground italic border-l-2 border-muted pl-3 mt-1">
+          {String(metadata.note)}
+        </div>
+      )}
+      {hasOldNew && (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          {metadata.oldValue != null && (
+            <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded">
+              {String(metadata.oldValue)}
+            </span>
+          )}
+          {metadata.oldValue != null && metadata.newValue != null && (
+            <ArrowRight className="h-3 w-3" />
+          )}
+          {metadata.newValue != null && (
+            <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded">
+              {String(metadata.newValue)}
+            </span>
+          )}
+        </div>
+      )}
+    </>
+  );
+}
+
 export interface HistoryEntry {
   id: string;
   action:
@@ -212,6 +246,7 @@ export function ActivityHistory({
   const renderHistoryEntry = (entry: HistoryEntry, showDate: boolean = false) => {
     const style = getActionStyle(entry.action);
     const Icon = style.icon;
+    const _hasNote = Boolean(entry.metadata?.note != null);
 
     return (
       <div key={entry.id} className="flex gap-3 pb-4 last:pb-0">
@@ -223,33 +258,13 @@ export function ActivityHistory({
         {/* Content */}
         <div className="flex-1 min-w-0 space-y-1">
           {/* Description */}
-          <div className="text-sm">{entry.content ?? entry.description}</div>
+          <div className="text-sm">{String(entry.content ?? entry.description ?? '')}</div>
 
-          {/* Metadata - Note (e.g. reopen reason) */}
-          {showMetadata && entry.metadata?.note && (
-            <div className="text-sm text-muted-foreground italic border-l-2 border-muted pl-3 mt-1">
-              {String(entry.metadata.note)}
-            </div>
-          )}
-
-          {/* Metadata - old/new values */}
-          {showMetadata && entry.metadata && (entry.metadata.oldValue || entry.metadata.newValue) && (
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              {entry.metadata.oldValue && (
-                <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded">
-                  {String(entry.metadata.oldValue)}
-                </span>
-              )}
-              {entry.metadata.oldValue && entry.metadata.newValue && (
-                <ArrowRight className="h-3 w-3" />
-              )}
-              {entry.metadata.newValue && (
-                <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded">
-                  {String(entry.metadata.newValue)}
-                </span>
-              )}
-            </div>
-          )}
+          {/* Metadata section - temporarily extracted to separate component */}
+          <MetadataDisplay 
+            showMetadata={showMetadata}
+            metadata={entry.metadata}
+          />
 
           {/* User & Timestamp */}
           <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">

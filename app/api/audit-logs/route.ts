@@ -1,21 +1,22 @@
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import type { Prisma } from '@/generated/prisma/client'
+import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
+import { createAuditLogSchema } from './validation'
 
 // GET /api/audit-logs - List audit logs
 export async function GET(request: Request) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { searchParams } = new URL(request.url)
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '50')
+    const { page, limit, skip } = parsePagination(searchParams)
     const entity = searchParams.get('entity')
     const entityId = searchParams.get('entityId')
     const action = searchParams.get('action')
     const userId = searchParams.get('userId')
     const fromDate = searchParams.get('fromDate')
     const toDate = searchParams.get('toDate')
-
-    const skip = (page - 1) * limit
 
     const where: Prisma.AuditLogWhereInput = {}
 
@@ -51,29 +52,25 @@ export async function GET(request: Request) {
       prisma.auditLog.count({ where }),
     ])
 
-    return NextResponse.json({
-      data: logs,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
-    })
+    return apiPaginated(logs, { page, limit, total })
   } catch (error) {
     console.error('Error fetching audit logs:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch audit logs' },
-      { status: 500 }
-    )
+    return apiError('Failed to fetch audit logs', 500)
   }
 }
 
 // POST /api/audit-logs - Create audit log entry
 export async function POST(request: Request) {
-  try {
-    const body = await request.json()
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
 
+  const validation = await validateBody(request, createAuditLogSchema)
+  if (!validation.success) {
+    return apiError(validation.error, 400)
+  }
+  const body = validation.data
+
+  try {
     const log = await prisma.auditLog.create({
       data: {
         systemId: `ACT${String(Date.now()).slice(-6).padStart(6, '0')}`,
@@ -90,12 +87,9 @@ export async function POST(request: Request) {
       },
     })
 
-    return NextResponse.json(log, { status: 201 })
+    return apiSuccess(log, 201)
   } catch (error) {
     console.error('Error creating audit log:', error)
-    return NextResponse.json(
-      { error: 'Failed to create audit log' },
-      { status: 500 }
-    )
+    return apiError('Failed to create audit log', 500)
   }
 }

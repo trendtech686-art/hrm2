@@ -2,23 +2,22 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
+import { validateBody, apiError } from '@/lib/api-utils'
+import { loginSchema } from './validation'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production'
 const TOKEN_COOKIE_NAME = 'auth_token'
 const TOKEN_MAX_AGE = 7 * 24 * 60 * 60 // 7 days in seconds
 
-// POST /api/auth/login
+// POST /api/auth/login - No auth required
 export async function POST(request: Request) {
+  const validation = await validateBody(request, loginSchema)
+  if (!validation.success) {
+    return apiError(validation.error, 400)
+  }
+  const { email, password } = validation.data
+
   try {
-    const { email, password } = await request.json()
-
-    if (!email || !password) {
-      return NextResponse.json(
-        { error: 'Email và mật khẩu là bắt buộc' },
-        { status: 400 }
-      )
-    }
-
     // Find user by email
     const user = await prisma.user.findUnique({
       where: { email },
@@ -34,26 +33,17 @@ export async function POST(request: Request) {
     })
 
     if (!user) {
-      return NextResponse.json(
-        { error: 'Email hoặc mật khẩu không đúng' },
-        { status: 401 }
-      )
+      return apiError('Email hoặc mật khẩu không đúng', 401)
     }
 
     if (!user.isActive) {
-      return NextResponse.json(
-        { error: 'Tài khoản đã bị vô hiệu hóa' },
-        { status: 401 }
-      )
+      return apiError('Tài khoản đã bị vô hiệu hóa', 401)
     }
 
     // Check password
     const isValidPassword = await bcrypt.compare(password, user.password)
     if (!isValidPassword) {
-      return NextResponse.json(
-        { error: 'Email hoặc mật khẩu không đúng' },
-        { status: 401 }
-      )
+      return apiError('Email hoặc mật khẩu không đúng', 401)
     }
 
     // Generate JWT token
@@ -105,9 +95,6 @@ export async function POST(request: Request) {
     return response
   } catch (error) {
     console.error('Login error:', error)
-    return NextResponse.json(
-      { error: 'Đăng nhập thất bại' },
-      { status: 500 }
-    )
+    return apiError('Đăng nhập thất bại', 500)
   }
 }

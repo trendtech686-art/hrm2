@@ -35,7 +35,6 @@ export interface TaxCreateInput {
 export interface TaxUpdateInput extends Partial<TaxCreateInput> {}
 
 const BASE_URL = '/api/settings/taxes';
-const LEGACY_URL = '/api/settings/data?type=tax';
 
 /**
  * Fetch taxes with filters
@@ -50,21 +49,15 @@ export async function fetchTaxes(
   if (filters.isDefaultSale !== undefined) params.set('isDefaultSale', String(filters.isDefaultSale));
   if (filters.isDefaultPurchase !== undefined) params.set('isDefaultPurchase', String(filters.isDefaultPurchase));
 
-  // Try new endpoint first, fallback to legacy
-  let url = params.toString() ? `${BASE_URL}?${params}` : BASE_URL;
-  let response = await fetch(url);
-  
-  // Fallback to legacy endpoint
-  if (!response.ok && response.status === 404) {
-    url = `${LEGACY_URL}${params.toString() ? '&' + params : ''}`;
-    response = await fetch(url);
-  }
+  const url = params.toString() ? `${BASE_URL}?${params}` : BASE_URL;
+  const response = await fetch(url);
   
   if (!response.ok) {
-    throw new Error('Failed to fetch taxes');
+    throw new Error('Không thể tải danh sách thuế');
   }
   
-  return response.json();
+  const json = await response.json();
+  return json.data ? json : { data: json, pagination: { page: 1, limit: 50, total: json.length, totalPages: 1 } };
 }
 
 /**

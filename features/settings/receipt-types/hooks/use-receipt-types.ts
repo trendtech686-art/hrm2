@@ -2,7 +2,7 @@
  * Receipt Types React Query Hooks
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import {
   fetchReceiptTypes,
   fetchReceiptTypeById,
@@ -30,6 +30,8 @@ export function useReceiptTypes(filters: ReceiptTypeFilters = {}) {
     queryKey: receiptTypeKeys.list(filters),
     queryFn: () => fetchReceiptTypes(filters),
     staleTime: 1000 * 60 * 10,
+    gcTime: 10 * 60 * 1000,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -39,6 +41,7 @@ export function useReceiptTypeById(systemId: string | undefined) {
     queryFn: () => fetchReceiptTypeById(systemId!),
     enabled: !!systemId,
     staleTime: 1000 * 60 * 10,
+    gcTime: 10 * 60 * 1000,
   });
 }
 
@@ -47,6 +50,8 @@ export function useActiveReceiptTypes() {
     queryKey: receiptTypeKeys.active(),
     queryFn: fetchActiveReceiptTypes,
     staleTime: 1000 * 60 * 10,
+    gcTime: 10 * 60 * 1000,
+    placeholderData: keepPreviousData,
   });
 }
 

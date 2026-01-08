@@ -2,9 +2,12 @@
  * Purchase Returns API Route
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import type { Prisma } from '@/generated/prisma/client';
+import { PurchaseReturnStatus } from '@/generated/prisma/client';
+import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils';
+import { createPurchaseReturnSchema } from './validation';
 
 // Interface for purchase return item input
 interface PurchaseReturnItemInput {
@@ -18,13 +21,13 @@ interface PurchaseReturnItemInput {
 
 // GET - List purchase returns
 export async function GET(request: NextRequest) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
+
   try {
     const searchParams = request.nextUrl.searchParams;
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '20');
+    const { page, limit, skip } = parsePagination(searchParams);
     const search = searchParams.get('search') || '';
-    
-    const skip = (page - 1) * limit;
 
     const where: Prisma.PurchaseReturnWhereInput = {};
     
@@ -49,29 +52,22 @@ export async function GET(request: NextRequest) {
       prisma.purchaseReturn.count({ where }),
     ]);
 
-    return NextResponse.json({
-      data,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
-    });
+    return apiPaginated(data, { page, limit, total });
   } catch (error) {
     console.error('[Purchase Returns API] GET error:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch purchase returns' },
-      { status: 500 }
-    );
+    return apiError('Failed to fetch purchase returns', 500);
   }
 }
 
 // POST - Create new purchase return
 export async function POST(request: NextRequest) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
+
+  const result = await validateBody(request, createPurchaseReturnSchema);
+  if (!result.success) return apiError(result.error, 400);
+
   try {
-    const body = await request.json();
-    
     const {
       systemId,
       id,
@@ -86,7 +82,7 @@ export async function POST(request: NextRequest) {
       total,
       items,
       createdBy,
-    } = body;
+    } = result.data;
 
     const purchaseReturn = await prisma.purchaseReturn.create({
       data: {
@@ -97,7 +93,7 @@ export async function POST(request: NextRequest) {
         branchId: branchId || null,
         employeeId: employeeId || null,
         returnDate: returnDate ? new Date(returnDate) : new Date(),
-        status: status || 'DRAFT',
+        status: (status || 'DRAFT') as PurchaseReturnStatus,
         reason: reason || null,
         subtotal: subtotal || 0,
         total: total || 0,
@@ -108,7 +104,7 @@ export async function POST(request: NextRequest) {
             productId: item.productId,
             quantity: item.quantity || 1,
             unitPrice: item.unitPrice || 0,
-            returnValue: item.returnValue || 0,
+            total: item.returnValue || 0,
             reason: item.reason || null,
           })),
         } : undefined,
@@ -119,12 +115,9 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return NextResponse.json(purchaseReturn, { status: 201 });
+    return apiSuccess(purchaseReturn, 201);
   } catch (error) {
     console.error('[Purchase Returns API] POST error:', error);
-    return NextResponse.json(
-      { error: 'Failed to create purchase return' },
-      { status: 500 }
-    );
+    return apiError('Failed to create purchase return', 500);
   }
 }

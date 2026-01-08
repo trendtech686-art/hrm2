@@ -2,15 +2,18 @@
  * Leave Detail API Route
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/prisma'
+import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
 
 type RouteParams = {
   params: Promise<{ systemId: string }>;
 };
 
 // GET - Get single leave
-export async function GET(request: NextRequest, { params }: RouteParams) {
+export async function GET(request: Request, { params }: RouteParams) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { systemId } = await params;
 
@@ -28,24 +31,21 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     });
 
     if (!leave) {
-      return NextResponse.json(
-        { error: 'Leave request not found' },
-        { status: 404 }
-      );
+      return apiNotFound('Leave request');
     }
 
-    return NextResponse.json(leave);
+    return apiSuccess(leave);
   } catch (error) {
     console.error('[Leaves API] GET by ID error:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch leave request' },
-      { status: 500 }
-    );
+    return apiError('Failed to fetch leave request', 500);
   }
 }
 
 // PATCH - Update leave (approve/reject)
-export async function PATCH(request: NextRequest, { params }: RouteParams) {
+export async function PATCH(request: Request, { params }: RouteParams) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
+
   try {
     const { systemId } = await params;
     const body = await request.json();
@@ -87,18 +87,18 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       },
     });
 
-    return NextResponse.json(leave);
+    return apiSuccess(leave);
   } catch (error) {
     console.error('[Leaves API] PATCH error:', error);
-    return NextResponse.json(
-      { error: 'Failed to update leave request' },
-      { status: 500 }
-    );
+    return apiError('Failed to update leave request', 500);
   }
 }
 
 // DELETE - Soft or hard delete leave
-export async function DELETE(request: NextRequest, { params }: RouteParams) {
+export async function DELETE(request: Request, { params }: RouteParams) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
+
   try {
     const { systemId } = await params;
     const body = await request.json().catch(() => ({}));
@@ -115,12 +115,9 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       });
     }
 
-    return NextResponse.json({ success: true });
+    return apiSuccess({ success: true });
   } catch (error) {
     console.error('[Leaves API] DELETE error:', error);
-    return NextResponse.json(
-      { error: 'Failed to delete leave request' },
-      { status: 500 }
-    );
+    return apiError('Failed to delete leave request', 500);
   }
 }

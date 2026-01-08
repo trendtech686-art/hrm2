@@ -1,13 +1,16 @@
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@/generated/prisma/client'
+import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
+import { createDepartmentSchema } from './validation'
 
 // GET /api/departments - List all departments
 export async function GET(request: Request) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { searchParams } = new URL(request.url)
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '50')
+    const { page, limit, skip } = parsePagination(searchParams)
     const search = searchParams.get('search') || ''
     const all = searchParams.get('all') === 'true'
 
@@ -31,10 +34,8 @@ export async function GET(request: Request) {
           _count: { select: { employees: true, children: true } },
         },
       })
-      return NextResponse.json({ data: departments })
+      return apiSuccess({ data: departments })
     }
-
-    const skip = (page - 1) * limit
 
     const [departments, total] = await Promise.all([
       prisma.department.findMany({
@@ -50,36 +51,25 @@ export async function GET(request: Request) {
       prisma.department.count({ where }),
     ])
 
-    return NextResponse.json({
-      data: departments,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
-    })
+    return apiPaginated(departments, { page, limit, total })
   } catch (error) {
     console.error('Error fetching departments:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch departments' },
-      { status: 500 }
-    )
+    return apiError('Failed to fetch departments', 500)
   }
 }
 
 // POST /api/departments - Create new department
 export async function POST(request: Request) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
+  const validation = await validateBody(request, createDepartmentSchema)
+  if (!validation.success) {
+    return apiError(validation.error, 400)
+  }
+  const body = validation.data
+
   try {
-    const body = await request.json()
-
-    if (!body.id || !body.name) {
-      return NextResponse.json(
-        { error: 'Mã và tên phòng ban là bắt buộc' },
-        { status: 400 }
-      )
-    }
-
     const department = await prisma.department.create({
       data: {
         systemId: `DEPT${String(Date.now()).slice(-6).padStart(6, '0')}`,
@@ -93,18 +83,12 @@ export async function POST(request: Request) {
       },
     })
 
-    return NextResponse.json(department, { status: 201 })
+    return apiSuccess(department, 201)
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-      return NextResponse.json(
-        { error: 'Mã phòng ban đã tồn tại' },
-        { status: 400 }
-      )
+      return apiError('Mã phòng ban đã tồn tại', 400)
     }
     console.error('Error creating department:', error)
-    return NextResponse.json(
-      { error: 'Failed to create department' },
-      { status: 500 }
-    )
+    return apiError('Failed to create department', 500)
   }
 }

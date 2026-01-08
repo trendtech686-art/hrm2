@@ -6,7 +6,9 @@
  * and full order payload formatting per GHTK API spec
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils';
+import { submitOrderSchema } from './validation';
 
 const GHTK_API_BASE = 'https://services.giaohangtietkiem.vn';
 
@@ -18,19 +20,23 @@ interface Product {
 }
 
 export async function POST(request: NextRequest) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
+
+  const validation = await validateBody(request, submitOrderSchema);
+  if (!validation.success) {
+    return apiError(validation.error, 400);
+  }
+
   const startTime = Date.now();
   const requestId = Math.random().toString(36).substring(2, 11);
 
   try {
-    const body = await request.json();
-    const { apiToken, partnerCode, ...orderParams } = body;
+    const { apiToken, partnerCode, ...orderParams } = validation.data;
 
 
     if (!apiToken) {
-      return NextResponse.json({ 
-        success: false,
-        error: 'API Token is required' 
-      }, { status: 400 });
+      return apiError('API Token is required', 400);
     }
 
     // ⚠️ IMPORTANT: GHTK Submit Order API uses KG, not GRAM!
@@ -141,26 +147,18 @@ export async function POST(request: NextRequest) {
         responsePreview: responseText.substring(0, 500)
       });
       
-      return NextResponse.json({ 
-        success: false,
-        error: 'GHTK API returned invalid response',
-        details: responseText.substring(0, 500)
-      }, { status: 500 });
+      return apiError('GHTK API returned invalid response', 500);
     }
     
     const _duration = Date.now() - startTime;
     
 
-    return NextResponse.json(data);
+    return apiSuccess(data);
     
   } catch (error) {
     const duration = Date.now() - startTime;
     console.error(`[GHTK-SUBMIT-${requestId}] ❌ Submit order error (${duration}ms):`, error);
     
-    return NextResponse.json({ 
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-      details: 'Check server logs for full error details'
-    }, { status: 500 });
+    return apiError(error instanceof Error ? error.message : 'Unknown error', 500);
   }
 }

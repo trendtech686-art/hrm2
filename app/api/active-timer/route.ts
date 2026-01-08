@@ -1,17 +1,17 @@
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
 
 // GET /api/active-timer?userId=xxx - Get active timer for user
 export async function GET(request: Request) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { searchParams } = new URL(request.url)
     const userId = searchParams.get('userId')
 
     if (!userId) {
-      return NextResponse.json(
-        { error: 'userId là bắt buộc' },
-        { status: 400 }
-      )
+      return apiError('userId là bắt buộc', 400)
     }
 
     const timer = await prisma.activeTimer.findUnique({
@@ -19,29 +19,26 @@ export async function GET(request: Request) {
     })
 
     if (!timer) {
-      return NextResponse.json(null)
+      return apiSuccess(null)
     }
 
-    return NextResponse.json(timer)
+    return apiSuccess(timer)
   } catch (error) {
     console.error('Error fetching active timer:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch active timer' },
-      { status: 500 }
-    )
+    return apiError('Failed to fetch active timer', 500)
   }
 }
 
 // POST /api/active-timer - Start new timer (replaces any existing)
 export async function POST(request: Request) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const body = await request.json()
 
     if (!body.userId || !body.taskId) {
-      return NextResponse.json(
-        { error: 'userId và taskId là bắt buộc' },
-        { status: 400 }
-      )
+      return apiError('userId và taskId là bắt buộc', 400)
     }
 
     // Upsert - replace existing timer if any
@@ -61,27 +58,24 @@ export async function POST(request: Request) {
       },
     })
 
-    return NextResponse.json(timer, { status: 201 })
+    return apiSuccess(timer, 201)
   } catch (error) {
     console.error('Error creating active timer:', error)
-    return NextResponse.json(
-      { error: 'Failed to create active timer' },
-      { status: 500 }
-    )
+    return apiError('Failed to create active timer', 500)
   }
 }
 
 // DELETE /api/active-timer?userId=xxx - Stop/delete timer
 export async function DELETE(request: Request) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { searchParams } = new URL(request.url)
     const userId = searchParams.get('userId')
 
     if (!userId) {
-      return NextResponse.json(
-        { error: 'userId là bắt buộc' },
-        { status: 400 }
-      )
+      return apiError('userId là bắt buộc', 400)
     }
 
     try {
@@ -95,12 +89,9 @@ export async function DELETE(request: Request) {
       }
     }
 
-    return NextResponse.json({ success: true })
+    return apiSuccess({ success: true })
   } catch (error) {
     console.error('Error deleting active timer:', error)
-    return NextResponse.json(
-      { error: 'Failed to delete active timer' },
-      { status: 500 }
-    )
+    return apiError('Failed to delete active timer', 500)
   }
 }

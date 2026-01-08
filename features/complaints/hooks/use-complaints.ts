@@ -49,6 +49,7 @@ export function useComplaintStats() {
     queryKey: complaintKeys.stats(),
     queryFn: fetchComplaintStats,
     staleTime: 60_000,
+    gcTime: 10 * 60 * 1000, // 10 minutes
   });
 }
 

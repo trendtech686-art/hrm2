@@ -184,8 +184,8 @@ export const WarrantyCard = React.memo(function WarrantyCard({ ticket, onClick }
             {summary && (
               <>
                 {summary.totalReplaced > 0 && <span className="text-green-600 font-medium">• {summary.totalReplaced}đổi mới</span>}
-                {summary.totalReturned > 0 && <span className="text-blue-600 font-medium">• {summary.totalReturned}trả lại</span>}
-                {summary.totalOutOfStock > 0 && <span className="text-orange-600 font-medium">• {summary.totalOutOfStock}hết hàng</span>}
+                {(summary.totalReturned ?? 0) > 0 && <span className="text-blue-600 font-medium">• {summary.totalReturned}trả lại</span>}
+                {(summary.totalOutOfStock ?? 0) > 0 && <span className="text-orange-600 font-medium">• {summary.totalOutOfStock}hết hàng</span>}
                 {summary.totalDeduction > 0 && (
                   <span className="text-red-600 font-medium ml-auto">
                     Bù trừ {new Intl.NumberFormat('vi-VN').format(summary.totalDeduction)}₫

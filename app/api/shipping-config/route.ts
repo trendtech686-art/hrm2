@@ -3,9 +3,8 @@
  * Stores shipping partners configuration
  */
 
-import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
 
 const SETTING_KEY = 'shipping_partners_config'
 const GROUP = 'shipping'
@@ -36,13 +35,11 @@ const DEFAULT_CONFIG = {
 }
 
 // GET /api/shipping-config
-export async function GET(_request: NextRequest) {
-  try {
-    const session = await auth()
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+export async function GET(_request: Request) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
 
+  try {
     const setting = await prisma.setting.findUnique({
       where: {
         key_group: {
@@ -53,28 +50,26 @@ export async function GET(_request: NextRequest) {
     })
 
     if (!setting) {
-      return NextResponse.json(DEFAULT_CONFIG)
+      return apiSuccess(DEFAULT_CONFIG)
     }
 
-    return NextResponse.json(setting.value)
+    return apiSuccess(setting.value)
   } catch (error) {
     console.error('[SHIPPING-CONFIG] GET error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return apiError('Internal server error', 500)
   }
 }
 
 // POST /api/shipping-config
-export async function POST(request: NextRequest) {
-  try {
-    const session = await auth()
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+export async function POST(request: Request) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
 
+  try {
     const config = await request.json()
     
     if (!config) {
-      return NextResponse.json({ error: 'Config is required' }, { status: 400 })
+      return apiError('Config is required', 400)
     }
 
     // Update lastUpdated
@@ -101,9 +96,9 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    return NextResponse.json({ success: true, lastUpdated: config.lastUpdated })
+    return apiSuccess({ success: true, lastUpdated: config.lastUpdated })
   } catch (error) {
     console.error('[SHIPPING-CONFIG] POST error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return apiError('Internal server error', 500)
   }
 }

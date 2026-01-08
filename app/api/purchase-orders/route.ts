@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { Prisma, PurchaseOrderStatus } from '@/generated/prisma/client'
+import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
+import { createPurchaseOrderSchema } from './validation'
 
 // Interface for purchase order item input
 interface PurchaseOrderItemInput {
@@ -13,15 +14,15 @@ interface PurchaseOrderItemInput {
 
 // GET /api/purchase-orders - List all purchase orders
 export async function GET(request: Request) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { searchParams } = new URL(request.url)
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '20')
+    const { page, limit, skip } = parsePagination(searchParams)
     const search = searchParams.get('search') || ''
     const status = searchParams.get('status')
     const supplierId = searchParams.get('supplierId')
-
-    const skip = (page - 1) * limit
 
     const where: Prisma.PurchaseOrderWhereInput = {
       isDeleted: false,
@@ -63,28 +64,23 @@ export async function GET(request: Request) {
       prisma.purchaseOrder.count({ where }),
     ])
 
-    return NextResponse.json({
-      data: orders,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
-    })
+    return apiPaginated(orders, { page, limit, total })
   } catch (error) {
     console.error('Error fetching purchase orders:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch purchase orders' },
-      { status: 500 }
-    )
+    return apiError('Failed to fetch purchase orders', 500)
   }
 }
 
 // POST /api/purchase-orders - Create new purchase order
 export async function POST(request: Request) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
+  const result = await validateBody(request, createPurchaseOrderSchema)
+  if (!result.success) return apiError(result.error, 400)
+
   try {
-    const body = await request.json()
+    const body = result.data
 
     // Generate business ID
     if (!body.id) {
@@ -105,22 +101,30 @@ export async function POST(request: Request) {
         supplier: { connect: { systemId: body.supplierId } },
         orderDate: body.orderDate ? new Date(body.orderDate) : new Date(),
         expectedDate: body.expectedDate ? new Date(body.expectedDate) : null,
-        status: body.status || 'DRAFT',
+        status: (body.status || 'DRAFT') as PurchaseOrderStatus,
         subtotal: body.subtotal || 0,
         tax: body.tax || 0,
         discount: body.discount || 0,
         total: body.total || 0,
         notes: body.notes,
         items: {
-          create: body.items?.map((item: PurchaseOrderItemInput) => ({
-            systemId: `POI${String(Date.now()).slice(-8)}${Math.random().toString(36).slice(2, 6)}`,
-            id: `POI${String(Date.now()).slice(-6)}`,
-            product: { connect: { systemId: item.productId } },
-            quantity: item.quantity,
-            unitPrice: item.unitPrice,
-            discount: item.discount || 0,
-            total: item.total,
-          })) || [],
+          create: await Promise.all(body.items?.map(async (item: PurchaseOrderItemInput) => {
+            const product = await prisma.product.findUnique({
+              where: { systemId: item.productId },
+              select: { systemId: true, id: true, name: true }
+            })
+            if (!product) throw new Error(`Product ${item.productId} not found`)
+            return {
+              systemId: `POI${String(Date.now()).slice(-8)}${Math.random().toString(36).slice(2, 6)}`,
+              productId: product.systemId,
+              productName: product.name,
+              productSku: product.id,
+              quantity: item.quantity,
+              unitPrice: item.unitPrice,
+              discount: item.discount || 0,
+              total: item.total || (item.quantity * item.unitPrice - (item.discount || 0)),
+            }
+          }) || []),
         },
       },
       include: {
@@ -131,12 +135,9 @@ export async function POST(request: Request) {
       },
     })
 
-    return NextResponse.json(order, { status: 201 })
+    return apiSuccess(order, 201)
   } catch (error) {
     console.error('Error creating purchase order:', error)
-    return NextResponse.json(
-      { error: 'Failed to create purchase order' },
-      { status: 500 }
-    )
+    return apiError('Failed to create purchase order', 500)
   }
 }

@@ -5,21 +5,23 @@
  * POST   /api/leaves       - Create new leave request
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { Prisma, LeaveStatus } from '@/generated/prisma/client';
+import { Prisma, LeaveStatus, LeaveType } from '@/generated/prisma/client';
+import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
+import { createLeaveSchema } from './validation'
 
 // GET - List leaves
 export async function GET(request: NextRequest) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const searchParams = request.nextUrl.searchParams;
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '20');
+    const { page, limit, skip } = parsePagination(searchParams)
     const employeeId = searchParams.get('employeeId') || '';
     const status = searchParams.get('status') || '';
     const _includeDeleted = searchParams.get('includeDeleted') === 'true';
-    
-    const skip = (page - 1) * limit;
 
     const where: Prisma.LeaveWhereInput = {};
     
@@ -52,57 +54,51 @@ export async function GET(request: NextRequest) {
       prisma.leave.count({ where }),
     ]);
 
-    return NextResponse.json({
-      data,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
-    });
+    return apiPaginated(data, { page, limit, total })
   } catch (error) {
     console.error('[Leaves API] GET error:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch leaves' },
-      { status: 500 }
-    );
+    return apiError('Failed to fetch leaves', 500)
   }
 }
 
 // POST - Create new leave request
 export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    
-    const {
-      systemId,
-      id,
-      employeeId,
-      leaveType,
-      startDate,
-      endDate,
-      totalDays,
-      reason,
-      status,
-      approvedBy,
-      approvedAt,
-      rejectedBy,
-      rejectedAt,
-      rejectionReason,
-    } = body;
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
 
+  const validation = await validateBody(request, createLeaveSchema)
+  if (!validation.success) {
+    return apiError(validation.error, 400)
+  }
+  const {
+    systemId,
+    id,
+    employeeId,
+    leaveType,
+    startDate,
+    endDate,
+    totalDays,
+    reason,
+    status,
+    approvedBy,
+    approvedAt,
+    rejectedBy,
+    rejectedAt,
+    rejectionReason,
+  } = validation.data
+
+  try {
     const leave = await prisma.leave.create({
       data: {
         systemId,
         id,
         employeeId,
-        leaveType: leaveType || 'ANNUAL',
+        leaveType: (leaveType || 'ANNUAL') as LeaveType,
         startDate: startDate ? new Date(startDate) : new Date(),
         endDate: endDate ? new Date(endDate) : new Date(),
         totalDays: totalDays || 1,
         reason: reason || null,
-        status: status || 'PENDING',
+        status: (status || 'PENDING') as LeaveStatus,
         approvedBy: approvedBy || null,
         approvedAt: approvedAt ? new Date(approvedAt) : null,
         rejectedBy: rejectedBy || null,
@@ -120,12 +116,9 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return NextResponse.json(leave, { status: 201 });
+    return apiSuccess(leave, 201)
   } catch (error) {
     console.error('[Leaves API] POST error:', error);
-    return NextResponse.json(
-      { error: 'Failed to create leave request' },
-      { status: 500 }
-    );
+    return apiError('Failed to create leave request', 500)
   }
 }

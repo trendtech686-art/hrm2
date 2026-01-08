@@ -6,11 +6,15 @@
  * Query params: province, district, ward_street, apiToken
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils';
 
 const GHTK_API_BASE = 'https://services.giaohangtietkiem.vn';
 
 export async function GET(request: NextRequest) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
+
   const requestId = Math.random().toString(36).substring(2, 11);
 
   try {
@@ -22,17 +26,11 @@ export async function GET(request: NextRequest) {
 
 
     if (!province || !district || !ward_street) {
-      return NextResponse.json({ 
-        success: false,
-        error: 'Province, district, and ward_street are required' 
-      }, { status: 400 });
+      return apiError('Province, district, and ward_street are required', 400);
     }
 
     if (!apiToken) {
-      return NextResponse.json({ 
-        success: false,
-        error: 'API Token is required' 
-      }, { status: 400 });
+      return apiError('API Token is required', 400);
     }
 
     const url = `${GHTK_API_BASE}/services/address/getAddressLevel4?province=${encodeURIComponent(province)}&district=${encodeURIComponent(district)}&ward_street=${encodeURIComponent(ward_street)}`;
@@ -49,12 +47,9 @@ export async function GET(request: NextRequest) {
     const data = await response.json();
     
 
-    return NextResponse.json(data);
+    return apiSuccess(data);
   } catch (error) {
     console.error(`[GHTK-ADDR-${requestId}] ❌ Get specific addresses error:`, error);
-    return NextResponse.json({ 
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
+    return apiError(error instanceof Error ? error.message : 'Unknown error', 500);
   }
 }

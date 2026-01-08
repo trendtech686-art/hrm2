@@ -1,6 +1,6 @@
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import type { Prisma } from '@/generated/prisma/client'
+import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
 
 const SETTING_KEY = 'employee-documents'
 const SETTING_GROUP = 'hrm'
@@ -16,6 +16,9 @@ interface EmployeeDocument {
 
 // GET /api/employee-documents - Get employee documents metadata
 export async function GET(request: Request) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { searchParams } = new URL(request.url)
     const employeeSystemId = searchParams.get('employeeSystemId')
@@ -28,7 +31,7 @@ export async function GET(request: Request) {
     })
 
     if (!setting || !setting.value) {
-      return NextResponse.json({ data: [] })
+      return apiSuccess({ data: [] })
     }
 
     let documents = setting.value as EmployeeDocument[]
@@ -37,18 +40,18 @@ export async function GET(request: Request) {
       documents = documents.filter((d) => d.employeeSystemId === employeeSystemId)
     }
 
-    return NextResponse.json({ data: documents })
+    return apiSuccess({ data: documents })
   } catch (error) {
     console.error('Error fetching employee documents:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch employee documents' },
-      { status: 500 }
-    )
+    return apiError('Failed to fetch employee documents', 500)
   }
 }
 
 // POST /api/employee-documents - Create document metadata
 export async function POST(request: Request) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const body = await request.json()
 
@@ -85,18 +88,18 @@ export async function POST(request: Request) {
       },
     })
 
-    return NextResponse.json({ data: body })
+    return apiSuccess({ data: body })
   } catch (error) {
     console.error('Error creating employee document:', error)
-    return NextResponse.json(
-      { error: 'Failed to create employee document' },
-      { status: 500 }
-    )
+    return apiError('Failed to create employee document', 500)
   }
 }
 
 // PUT /api/employee-documents - Bulk update documents
 export async function PUT(request: Request) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { documents } = await request.json()
 
@@ -122,12 +125,9 @@ export async function PUT(request: Request) {
       },
     })
 
-    return NextResponse.json({ data: documents })
+    return apiSuccess({ data: documents })
   } catch (error) {
     console.error('Error updating employee documents:', error)
-    return NextResponse.json(
-      { error: 'Failed to update employee documents' },
-      { status: 500 }
-    )
+    return apiError('Failed to update employee documents', 500)
   }
 }

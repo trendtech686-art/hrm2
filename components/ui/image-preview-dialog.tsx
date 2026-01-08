@@ -313,7 +313,7 @@ export function ImagePreviewDialog({
         </div>
 
         {/* Controls */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 sm:gap-0 pt-3 sm:pt-4 border-t">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 sm:gap-0 pt-3 sm:pt-4 border-t border-border">
           <div className="flex items-center gap-1 sm:gap-2 justify-center sm:justify-start">
             <Button variant="outline" size="sm" onClick={handleZoomOut} disabled={zoom <= 0.5} className="h-8 sm:h-9 px-2 sm:px-3">
               <ZoomOut className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -355,8 +355,8 @@ export function ImagePreviewDialog({
                   setPosition({ x: 0, y: 0 });
                   setIsImageLoading(true);
                 }}
-                className={`shrink-0 w-12 h-12 sm:w-16 sm:h-16 rounded border-2 overflow-hidden transition-all ${
-                  idx === currentIndex ? 'border-primary ring-2 ring-primary/20' : 'border-gray-300 hover:border-gray-400'
+                className={`shrink-0 w-12 h-12 sm:w-16 sm:h-16 rounded border-2 border-border overflow-hidden transition-all ${
+                  idx === currentIndex ? 'border-primary ring-2 ring-primary/20' : 'hover:border-gray-400'
                 }`}
               >
                 <img

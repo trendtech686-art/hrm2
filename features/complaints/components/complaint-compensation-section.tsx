@@ -50,12 +50,12 @@ export const ComplaintCompensationSection: React.FC<Props> = ({ complaint, actio
            new Date(a.performedAt).getTime() === new Date(actionTimestamp).getTime()
     );
     verificationNote = matchingAction?.note || "";
-    actionMetadata = matchingAction?.metadata;
+    actionMetadata = (matchingAction?.metadata ?? null) as { paymentSystemId?: string; receiptSystemId?: string; inventoryCheckSystemId?: string } | null;
   } else {
     // Tim action verified-correct dau tien (backward compatibility)
     const firstVerifyAction = complaint.timeline.find(a => a.actionType === "verified-correct");
     verificationNote = firstVerifyAction?.note || "";
-    actionMetadata = firstVerifyAction?.metadata;
+    actionMetadata = (firstVerifyAction?.metadata ?? null) as { paymentSystemId?: string; receiptSystemId?: string; inventoryCheckSystemId?: string } | null;
     compensationDateTime = firstVerifyAction
       ? new Date(firstVerifyAction.performedAt).toLocaleString("vi-VN", {
           year: 'numeric',

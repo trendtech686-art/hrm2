@@ -14,7 +14,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials, _request) {
+        console.log("[Auth] authorize called with:", { email: credentials?.email });
+        
         if (!credentials?.email || !credentials?.password) {
+          console.log("[Auth] Missing credentials");
           return null
         }
 
@@ -22,6 +25,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const password = credentials.password as string
 
         try {
+          console.log("[Auth] Looking up user:", email);
           const user = await prisma.user.findUnique({
             where: { email },
             include: {
@@ -37,12 +41,18 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             },
           })
 
+          console.log("[Auth] User found:", user ? { email: user.email, isActive: user.isActive } : null);
+
           if (!user || !user.isActive) {
+            console.log("[Auth] User not found or inactive");
             return null
           }
 
           const isValidPassword = await bcrypt.compare(password, user.password)
+          console.log("[Auth] Password valid:", isValidPassword);
+          
           if (!isValidPassword) {
+            console.log("[Auth] Invalid password");
             return null
           }
 
@@ -53,7 +63,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           })
 
           // Return only serializable data (no Decimal, Date objects etc.)
-          return {
+          const returnUser = {
             id: user.systemId,
             email: user.email,
             name: user.employee?.fullName || user.email,
@@ -63,13 +73,15 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               systemId: user.employee.systemId,
               name: user.employee.fullName,
               fullName: user.employee.fullName,
-              departmentName: user.employee.department?.name || null,
-              branchName: user.employee.branch?.name || null,
-              jobTitleName: user.employee.jobTitle?.name || null,
-            } : null,
+              departmentName: user.employee.department?.name ?? null,
+              branchName: user.employee.branch?.name ?? null,
+              jobTitleName: user.employee.jobTitle?.name ?? null,
+            } : undefined,
           }
+          console.log("[Auth] Returning user:", { id: returnUser.id, email: returnUser.email, role: returnUser.role });
+          return returnUser
         } catch (error) {
-          console.error("Auth error:", error)
+          console.error("[Auth] Auth error:", error)
           return null
         }
       },

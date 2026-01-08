@@ -41,7 +41,6 @@ import { toISODateTime } from '../../../../lib/date-utils';
 import { searchOrders, type OrderSearchResult } from '../../../orders/order-search-api';
 import { VirtualizedCombobox } from '../../../../components/ui/virtualized-combobox';
 import type { Payment } from '../../../payments/types';
-import type { PaymentMethod } from '../../../settings/payments/methods/types';
 import { useAuth } from '../../../../contexts/auth-context';
 import { asSystemId, asBusinessId } from '@/lib/id-types';
 import { calculateWarrantyProcessingState } from '../logic/processing';

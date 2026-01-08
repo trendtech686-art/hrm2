@@ -48,7 +48,10 @@ export function LoginPage() {
         redirect: false,
       });
       
+      console.log('[Login] signIn result:', result);
+      
       if (result?.error) {
+        console.log('[Login] Error from signIn:', result.error);
         toast.error('Email hoặc mật khẩu không đúng');
       } else {
         toast.success('Đăng nhập thành công!');

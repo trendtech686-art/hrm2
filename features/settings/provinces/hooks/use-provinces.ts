@@ -3,7 +3,7 @@
  * Provides data fetching for provinces, districts, wards
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import {
   fetchProvinces,
   fetchProvinceById,
@@ -55,6 +55,8 @@ export function useProvinces(filters: ProvinceFilters = {}) {
     queryKey: locationKeys.provinceList(filters),
     queryFn: () => fetchProvinces(filters),
     staleTime: 1000 * 60 * 60, // 1 hour - provinces rarely change
+    gcTime: 10 * 60 * 1000,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -63,6 +65,8 @@ export function useAllProvinces() {
     queryKey: locationKeys.allProvinces(),
     queryFn: fetchAllProvinces,
     staleTime: 1000 * 60 * 60 * 24, // 24 hours
+    gcTime: 10 * 60 * 1000,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -72,6 +76,7 @@ export function useProvinceById(systemId: string | undefined) {
     queryFn: () => fetchProvinceById(systemId!),
     enabled: !!systemId,
     staleTime: 1000 * 60 * 60,
+    gcTime: 10 * 60 * 1000,
   });
 }
 
@@ -82,6 +87,8 @@ export function useDistricts(filters: DistrictFilters = {}) {
     queryKey: locationKeys.districtList(filters),
     queryFn: () => fetchDistricts(filters),
     staleTime: 1000 * 60 * 60,
+    gcTime: 10 * 60 * 1000,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -91,6 +98,8 @@ export function useDistrictsByProvince(provinceId: string | undefined) {
     queryFn: () => fetchDistrictsByProvince(provinceId!),
     enabled: !!provinceId,
     staleTime: 1000 * 60 * 60,
+    gcTime: 10 * 60 * 1000,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -101,6 +110,8 @@ export function useWards(filters: WardFilters = {}) {
     queryKey: locationKeys.wardList(filters),
     queryFn: () => fetchWards(filters),
     staleTime: 1000 * 60 * 60,
+    gcTime: 10 * 60 * 1000,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -110,6 +121,8 @@ export function useWardsByDistrict(districtId: number | undefined) {
     queryFn: () => fetchWardsByDistrict(districtId!),
     enabled: !!districtId,
     staleTime: 1000 * 60 * 60,
+    gcTime: 10 * 60 * 1000,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -119,6 +132,8 @@ export function useWardsByProvince(provinceId: string | undefined) {
     queryFn: () => fetchWardsByProvince(provinceId!),
     enabled: !!provinceId,
     staleTime: 1000 * 60 * 60,
+    gcTime: 10 * 60 * 1000,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -127,6 +142,8 @@ export function useAllWards() {
     queryKey: locationKeys.allWards(),
     queryFn: fetchAllWards,
     staleTime: 1000 * 60 * 60 * 24, // 24 hours - wards rarely change
+    gcTime: 10 * 60 * 1000,
+    placeholderData: keepPreviousData,
   });
 }
 

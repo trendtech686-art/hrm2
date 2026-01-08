@@ -5,10 +5,13 @@
  * API này tính toán trực tiếp trên database.
  */
 
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
 
 export async function GET(request: Request) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { searchParams } = new URL(request.url)
     const startDate = searchParams.get('startDate') || new Date().toISOString().split('T')[0]
@@ -107,7 +110,7 @@ interface TodayStatsResult {
   shipping_orders: bigint | number;
 }
 
-    return NextResponse.json({
+    return apiSuccess({
       success: true,
       data: {
         summary: {
@@ -128,9 +131,6 @@ interface TodayStatsResult {
     })
   } catch (error) {
     console.error('Dashboard API error:', error)
-    return NextResponse.json(
-      { success: false, error: 'Failed to fetch dashboard data' },
-      { status: 500 }
-    )
+    return apiError('Failed to fetch dashboard data', 500)
   }
 }

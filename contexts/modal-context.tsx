@@ -151,12 +151,22 @@ export function useModal(
   type: ModalType = 'dialog', 
   metadata?: Omit<ModalMetadata, 'type'>
 ) {
+  const context = React.useContext(ModalContext);
+  
+  // Return safe defaults if context is not available (SSR or outside provider)
+  const safeContext = context || {
+    registerModal: () => {},
+    unregisterModal: () => {},
+    getZIndex: () => BASE_Z_INDEX,
+    isModalActive: () => false,
+  };
+  
   const { 
     registerModal, 
     unregisterModal, 
     getZIndex, 
     isModalActive 
-  } = React.useContext(ModalContext);
+  } = safeContext;
 
   React.useEffect(() => {
     if (isOpen) {
@@ -178,6 +188,27 @@ export function useModal(
   };
 }
 
+/**
+ * Hook to access modal context
+ * @throws Error if used outside ModalProvider in strict mode
+ */
 export function useModalContext() {
-  return React.useContext(ModalContext);
+  const context = React.useContext(ModalContext);
+  if (!context) {
+    // Development warning only - return safe defaults for production
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('useModalContext must be used within ModalProvider');
+    }
+    return {
+      openModals: [],
+      activeModal: null,
+      registerModal: () => {},
+      unregisterModal: () => {},
+      shouldShowOverlay: false,
+      modalMetadata: {},
+      getZIndex: () => BASE_Z_INDEX,
+      isModalActive: () => false,
+    };
+  }
+  return context;
 }

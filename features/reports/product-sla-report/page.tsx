@@ -111,14 +111,17 @@ export function ProductSlaReportPage() {
         const sorted = [...filteredData];
         if (sorting.id) {
           sorted.sort((a, b) => {
-            const aValue = (a as unknown as Record<string, unknown>)[sorting.id];
-            const bValue = (b as unknown as Record<string, unknown>)[sorting.id];
+            const aValue = (a as unknown as Record<string, unknown>)[sorting.id] as string | number | null | undefined;
+            const bValue = (b as unknown as Record<string, unknown>)[sorting.id] as string | number | null | undefined;
             // Special handling for date columns
             if (sorting.id === 'createdAt') {
               const aTime = aValue ? new Date(aValue as string | number | Date).getTime() : 0;
               const bTime = bValue ? new Date(bValue as string | number | Date).getTime() : 0;
               return sorting.desc ? bTime - aTime : aTime - bTime;
             }
+            if (aValue == null && bValue == null) return 0;
+            if (aValue == null) return 1;
+            if (bValue == null) return -1;
             if (aValue < bValue) return sorting.desc ? 1 : -1;
             if (aValue > bValue) return sorting.desc ? -1 : 1;
             return 0;

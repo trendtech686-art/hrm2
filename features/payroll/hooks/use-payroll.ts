@@ -69,6 +69,7 @@ export function usePayrolls(filters: PayrollFilters = {}) {
     queryKey: payrollKeys.list(filters),
     queryFn: () => fetchPayrolls(filters),
     staleTime: 1000 * 60 * 2, // 2 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
     placeholderData: keepPreviousData,
   });
 }
@@ -82,6 +83,7 @@ export function usePayrollById(systemId: string | undefined) {
     queryFn: () => fetchPayrollById(systemId!),
     enabled: !!systemId,
     staleTime: 1000 * 60,
+    gcTime: 10 * 60 * 1000, // 10 minutes
   });
 }
 

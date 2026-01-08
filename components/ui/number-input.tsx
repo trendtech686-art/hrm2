@@ -107,7 +107,7 @@ const NumberInput = React.forwardRef<HTMLInputElement, NumberInputProps>(
           )}
           {...props}
         />
-        <div className="absolute right-0 top-0 h-full flex flex-col items-center justify-center border-l">
+        <div className="absolute right-0 top-0 h-full flex flex-col items-center justify-center border-l border-border">
           <Button
             type="button"
             variant="ghost"

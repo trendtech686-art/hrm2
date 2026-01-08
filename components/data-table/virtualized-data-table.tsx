@@ -156,11 +156,11 @@ export function VirtualizedDataTable<TData extends { systemId: string }>({
   return (
     <div className={cn("w-full", className)}>
       {/* Header table - fixed */}
-      <div className="rounded-t-md border border-b-0 bg-background overflow-hidden">
+      <div className="rounded-t-md border border-border border-b-0 bg-background overflow-hidden">
         <Table ref={headerTableRef}>
           <TableHeader>
             {numSelected > 0 && (
-              <tr className="bg-muted/50 border-b">
+              <tr className="bg-muted/50 border-b border-border">
                 <th colSpan={displayColumns.length} className="p-0">
                   <div className="h-9 px-4 flex items-center gap-2">
                     {onBulkDelete && showBulkDeleteButton && (
@@ -270,7 +270,7 @@ export function VirtualizedDataTable<TData extends { systemId: string }>({
       {/* Body table - natural height, scroll entire page */}
       <div 
         ref={tableContainerRef}
-        className="rounded-b-md border border-t-0 bg-background"
+        className="rounded-b-md border border-border border-t-0 bg-background"
       >
         <Table ref={bodyTableRef}>
           <TableBody>

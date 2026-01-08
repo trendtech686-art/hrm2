@@ -249,12 +249,12 @@ export function BrandMappingTab() {
           const hrmData: HrmBrandData = {
             systemId: hrmBrand.systemId,
             name: hrmBrand.name,
-            website: hrmBrand.website,
-            seoKeywords: hrmBrand.seoKeywords,
-            seoTitle: hrmBrand.seoTitle,
-            metaDescription: hrmBrand.metaDescription,
-            shortDescription: hrmBrand.shortDescription,
-            longDescription: hrmBrand.longDescription,
+            website: hrmBrand.website ?? undefined,
+            seoKeywords: hrmBrand.seoKeywords ?? undefined,
+            seoTitle: hrmBrand.seoTitle ?? undefined,
+            metaDescription: hrmBrand.metaDescription ?? undefined,
+            shortDescription: hrmBrand.shortDescription ?? undefined,
+            longDescription: hrmBrand.longDescription ?? undefined,
             websiteSeo: hrmBrand.websiteSeo as HrmBrandData['websiteSeo'],
           };
           entitySync.triggerSyncAction(actionKey, row.id, hrmData, row.name);

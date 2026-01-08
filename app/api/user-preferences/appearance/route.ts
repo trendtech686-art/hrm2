@@ -1,16 +1,21 @@
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@/generated/prisma/client'
 import { auth } from '@/auth'
+import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
+import { updateAppearanceSchema } from './validation'
 
 const PREFERENCE_KEY = 'appearance'
 const PREFERENCE_CATEGORY = 'ui'
 
 // GET /api/user-preferences/appearance
 export async function GET() {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const session = await auth()
     if (!session?.user?.id) {
-      return NextResponse.json({ data: null })
+      return apiSuccess({ data: null })
     }
 
     const preference = await prisma.userPreference.findUnique({
@@ -23,31 +28,32 @@ export async function GET() {
     })
 
     if (!preference) {
-      return NextResponse.json({ data: null })
+      return apiSuccess({ data: null })
     }
 
-    return NextResponse.json({ data: preference.value })
+    return apiSuccess({ data: preference.value })
   } catch (error) {
     console.error('Error fetching appearance preferences:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch appearance preferences' },
-      { status: 500 }
-    )
+    return apiError('Failed to fetch appearance preferences', 500)
   }
 }
 
 // PUT /api/user-preferences/appearance
 export async function PUT(request: Request) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
+  const validation = await validateBody(request, updateAppearanceSchema)
+  if (!validation.success) {
+    return apiError(validation.error, 400)
+  }
+  const settings = validation.data
+
   try {
     const session = await auth()
     if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
+      return apiError('Unauthorized', 401)
     }
-
-    const settings = await request.json()
 
     // Get existing preference to merge
     const existing = await prisma.userPreference.findUnique({
@@ -72,23 +78,20 @@ export async function PUT(request: Request) {
         },
       },
       update: {
-        value: mergedValue,
+        value: mergedValue as Prisma.InputJsonValue,
         updatedAt: new Date(),
       },
       create: {
         userId: session.user.id,
         key: PREFERENCE_KEY,
         category: PREFERENCE_CATEGORY,
-        value: mergedValue,
+        value: mergedValue as Prisma.InputJsonValue,
       },
     })
 
-    return NextResponse.json({ data: preference.value })
+    return apiSuccess({ data: preference.value })
   } catch (error) {
     console.error('Error saving appearance preferences:', error)
-    return NextResponse.json(
-      { error: 'Failed to save appearance preferences' },
-      { status: 500 }
-    )
+    return apiError('Failed to save appearance preferences', 500)
   }
 }

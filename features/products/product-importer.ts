@@ -121,7 +121,7 @@ export function transformImportedRows(rows: Record<string, unknown>[], options: 
       name: item.name,
       sku: item.sku || '',
       type: item.type || 'physical',
-      status: item.status || 'active',
+      status: (item.status as Product['status']) || 'active',
       unit: item.unit || '',
       defaultPrice: Number(item.defaultPrice) || 0,
       costPrice: Number(item.costPrice) || 0,
@@ -138,6 +138,6 @@ export function transformImportedRows(rows: Record<string, unknown>[], options: 
       createdBy: options.currentEmployeeSystemId,
       updatedAt: new Date().toISOString(),
       updatedBy: options.currentEmployeeSystemId,
-    } as Omit<Product, 'systemId'>;
+    } as unknown as Omit<Product, 'systemId'>;
   });
 }

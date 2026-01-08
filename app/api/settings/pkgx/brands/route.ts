@@ -1,9 +1,13 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { auth } from '@/auth'
+import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
+import { syncBrandsSchema } from './validation'
 
 // GET /api/settings/pkgx/brands - List all PKGX brands
 export async function GET(_request: NextRequest) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const brands = await prisma.pkgxBrand.findMany({
       orderBy: [
@@ -15,36 +19,32 @@ export async function GET(_request: NextRequest) {
       },
     })
 
-    return NextResponse.json({ 
+    return apiSuccess({ 
       data: brands,
       total: brands.length,
     })
   } catch (error) {
     console.error('Error fetching PKGX brands:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch PKGX brands' },
-      { status: 500 }
-    )
+    return apiError('Failed to fetch PKGX brands', 500)
   }
 }
 
 // POST /api/settings/pkgx/brands - Sync brands from PKGX API
 export async function POST(request: NextRequest) {
-  try {
-    const _session = await auth()
-    const body = await request.json()
-    const { brands } = body
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
 
-    if (!Array.isArray(brands)) {
-      return NextResponse.json(
-        { error: 'brands must be an array' },
-        { status: 400 }
-      )
-    }
+  const validation = await validateBody(request, syncBrandsSchema)
+  if (!validation.success) {
+    return apiError(validation.error, 400)
+  }
+
+  try {
+    const { brands } = validation.data
 
     // Upsert brands
     const results = await Promise.all(
-      brands.map(async (brand: { id: number; name: string; logo?: string; description?: string; siteUrl?: string; sortOrder?: number; isShow?: number; keywords?: string; metaTitle?: string; metaDesc?: string; shortDescription?: string; longDescription?: string }) => {
+      brands.map(async (brand) => {
         return prisma.pkgxBrand.upsert({
           where: { id: brand.id },
           update: {
@@ -79,15 +79,12 @@ export async function POST(request: NextRequest) {
       })
     )
 
-    return NextResponse.json({ 
+    return apiSuccess({ 
       data: results,
       synced: results.length,
     })
   } catch (error) {
     console.error('Error syncing PKGX brands:', error)
-    return NextResponse.json(
-      { error: 'Failed to sync PKGX brands' },
-      { status: 500 }
-    )
+    return apiError('Failed to sync PKGX brands', 500)
   }
 }

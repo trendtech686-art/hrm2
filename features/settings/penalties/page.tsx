@@ -66,11 +66,12 @@ export function PenaltiesPage() {
   const handleCancel = React.useCallback((p: Penalty) => { update(p.systemId, { ...p, status: "Đã hủy" as PenaltyStatus, updatedAt: new Date().toISOString() }); toast.success("Đã hủy phiếu phạt", { description: `Phiếu phạt ${p.id} đã bị hủy` }) }, [update])
   const columns = React.useMemo(() => getColumns(handleMarkPaid, handleCancel, router), [handleMarkPaid, handleCancel, router])
 
-  const defaultVisibleCols = new Set(['select', 'id', 'employeeName', 'penaltyTypeName', 'reason', 'amount', 'issueDate', 'issuerName', 'status', 'category', 'linkedComplaintSystemId', 'linkedOrderSystemId', 'deductedInPayrollId', 'createdAt', 'actions'])
-  const buildDefaultVisibility = React.useCallback(() => Object.fromEntries(columns.map(c => [c.id, c.id === 'select' || c.id === 'actions' || defaultVisibleCols.has(c.id!)])), [columns])
+  const defaultVisibleCols = React.useMemo(() => new Set(['select', 'id', 'employeeName', 'penaltyTypeName', 'reason', 'amount', 'issueDate', 'issuerName', 'status', 'category', 'linkedComplaintSystemId', 'linkedOrderSystemId', 'deductedInPayrollId', 'createdAt', 'actions']), [])
+  const buildDefaultVisibility = React.useCallback(() => Object.fromEntries(columns.map(c => [c.id, c.id === 'select' || c.id === 'actions' || defaultVisibleCols.has(c.id!)])), [columns, defaultVisibleCols])
   const buildDefaultOrder = React.useCallback(() => columns.map(c => c.id).filter(Boolean) as string[], [columns])
   const defaultsInitialized = React.useRef(false)
   
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   React.useEffect(() => { if (columns.length === 0 || defaultsInitialized.current) return; defaultsInitialized.current = true; setColumnVisibility(buildDefaultVisibility()); setColumnOrder(buildDefaultOrder()) }, [])
   const resetColumnLayout = React.useCallback(() => { setColumnVisibility(buildDefaultVisibility()); setColumnOrder(buildDefaultOrder()); setPinnedColumns([]); toast.success('Đã khôi phục bố cục cột mặc định') }, [buildDefaultVisibility, buildDefaultOrder, setColumnVisibility, setColumnOrder, setPinnedColumns])
 

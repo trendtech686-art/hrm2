@@ -125,8 +125,9 @@ export function OrdersPage() {
   const sortedData = React.useMemo(() => {
     const sorted = [...filteredData];
     if (sorting.id) sorted.sort((a, b) => {
-      const aV = (a as Record<string, unknown>)[sorting.id], bV = (b as Record<string, unknown>)[sorting.id];
+      const aV = (a as Record<string, unknown>)[sorting.id] as string | number | null | undefined, bV = (b as Record<string, unknown>)[sorting.id] as string | number | null | undefined;
       if (sorting.id === 'createdAt' || sorting.id === 'orderDate') { const aT = aV ? new Date(aV as string).getTime() : 0, bT = bV ? new Date(bV as string).getTime() : 0; return sorting.desc ? bT - aT : aT - bT; }
+      if (aV == null && bV == null) return 0; if (aV == null) return 1; if (bV == null) return -1;
       return aV < bV ? (sorting.desc ? 1 : -1) : aV > bV ? (sorting.desc ? -1 : 1) : 0;
     });
     return sorted;

@@ -214,6 +214,7 @@ export function PrintTemplatesPage() {
       Image,
     ],
     content: '',
+    immediatelyRender: false,
     onUpdate: ({ editor }) => {
       if (!isHtmlMode) {
         const newContent = editor.getHTML();

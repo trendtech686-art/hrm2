@@ -1,3 +1,10 @@
+/**
+ * Appearance Settings Store
+ * UI configuration only - theme, fonts, colors
+ * 
+ * ✅ KEEP IN ZUSTAND - This is pure UI state
+ * Used by: `@/features/settings/appearance/hooks/use-appearance`
+ */
 import { create } from 'zustand'
 import { subscribeWithSelector } from 'zustand/middleware'
 
@@ -191,19 +198,23 @@ export function syncAppearanceToDatabase(): void {
 export async function loadAppearanceFromDatabase() {
   try {
     const response = await fetch(APPEARANCE_API);
-    if (!response.ok) return;
+    if (!response.ok) {
+      // Even if no data, mark initialized so first save can persist
+      isInitialized = true;
+      return;
+    }
     
     const { data } = await response.json();
-    if (!data) return;
-    
-    useAppearanceStore.setState({
-      theme: data.theme ?? useAppearanceStore.getState().theme,
-      colorMode: data.colorMode ?? useAppearanceStore.getState().colorMode,
-      font: data.font ?? useAppearanceStore.getState().font,
-      fontSize: data.fontSize ?? useAppearanceStore.getState().fontSize,
-      customThemeConfig: data.customThemeConfig ?? useAppearanceStore.getState().customThemeConfig,
-    });
-    
+    if (data) {
+      useAppearanceStore.setState({
+        theme: data.theme ?? useAppearanceStore.getState().theme,
+        colorMode: data.colorMode ?? useAppearanceStore.getState().colorMode,
+        font: data.font ?? useAppearanceStore.getState().font,
+        fontSize: data.fontSize ?? useAppearanceStore.getState().fontSize,
+        customThemeConfig: data.customThemeConfig ?? useAppearanceStore.getState().customThemeConfig,
+      });
+    }
+    // Mark initialized even when no data so later changes can sync
     isInitialized = true;
   } catch (error) {
     console.warn('Error loading appearance from database:', error);

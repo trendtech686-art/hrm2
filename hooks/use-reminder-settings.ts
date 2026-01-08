@@ -1,13 +1,25 @@
 /**
  * Hooks để quản lý reminder settings và templates
- * Sử dụng database (user preferences) làm source of truth
+ * Sử dụng React Query với database làm source of truth
+ * 
+ * @see docs/LOCALSTORAGE-TO-DATABASE-MIGRATION.md
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useCallback } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/contexts/auth-context'
 
 const API_BASE = '/api/user-preferences'
-const SAVE_DEBOUNCE_DELAY = 1000
+
+// ============================================================================
+// Query Keys Factory
+// ============================================================================
+
+export const reminderSettingsKeys = {
+  all: ['reminder-settings'] as const,
+  warrantyTemplates: (userId: string) => [...reminderSettingsKeys.all, 'warranty-templates', userId] as const,
+  complaintSettings: (userId: string) => [...reminderSettingsKeys.all, 'complaint-settings', userId] as const,
+}
 
 // ==================== Warranty Reminder Templates ====================
 
@@ -48,7 +60,7 @@ export const DEFAULT_WARRANTY_REMINDER_TEMPLATES: ReminderTemplate[] = [
 const WARRANTY_REMINDER_TEMPLATES_KEY = 'warranty-reminder-templates'
 
 /**
- * Hook để quản lý warranty reminder templates
+ * Hook để quản lý warranty reminder templates với React Query
  */
 export function useWarrantyReminderTemplates(): [
   ReminderTemplate[],
@@ -56,86 +68,70 @@ export function useWarrantyReminderTemplates(): [
   boolean
 ] {
   const { user } = useAuth()
-  const [customTemplates, setCustomTemplatesState] = useState<ReminderTemplate[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const lastSavedRef = useRef<string>('')
+  const queryClient = useQueryClient()
+  const queryKey = reminderSettingsKeys.warrantyTemplates(user?.systemId ?? '')
 
-  // Load from database
-  useEffect(() => {
-    const loadTemplates = async () => {
-      try {
-        if (user?.systemId) {
-          const res = await fetch(
-            `${API_BASE}?userId=${user.systemId}&key=${encodeURIComponent(WARRANTY_REMINDER_TEMPLATES_KEY)}`
-          )
-          
-          if (res.ok) {
-            const data = await res.json()
-            if (data && data.value && Array.isArray(data.value)) {
-              setCustomTemplatesState(data.value)
-              lastSavedRef.current = JSON.stringify(data.value)
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Error loading warranty reminder templates:', error)
-      } finally {
-        setIsLoading(false)
+  // Query for loading custom templates
+  const { data: customTemplates = [], isLoading } = useQuery({
+    queryKey,
+    queryFn: async (): Promise<ReminderTemplate[]> => {
+      if (!user?.systemId) return []
+      const res = await fetch(
+        `${API_BASE}?userId=${user.systemId}&key=${encodeURIComponent(WARRANTY_REMINDER_TEMPLATES_KEY)}`
+      )
+      if (!res.ok) throw new Error('Failed to load templates')
+      const data = await res.json()
+      return data?.value && Array.isArray(data.value) ? data.value : []
+    },
+    enabled: !!user?.systemId,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 30 * 60 * 1000, // 30 minutes
+  })
+
+  // Mutation for saving templates
+  const mutation = useMutation({
+    mutationFn: async (newTemplates: ReminderTemplate[]) => {
+      if (!user?.systemId) throw new Error('User not authenticated')
+      const customOnly = newTemplates.filter(t => !t.isDefault)
+      const res = await fetch(API_BASE, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.systemId,
+          key: WARRANTY_REMINDER_TEMPLATES_KEY,
+          value: customOnly,
+          category: 'templates',
+        }),
+      })
+      if (!res.ok) throw new Error('Failed to save templates')
+      return customOnly
+    },
+    onMutate: async (newTemplates) => {
+      await queryClient.cancelQueries({ queryKey })
+      const previous = queryClient.getQueryData<ReminderTemplate[]>(queryKey)
+      const customOnly = newTemplates.filter(t => !t.isDefault)
+      queryClient.setQueryData<ReminderTemplate[]>(queryKey, customOnly)
+      return { previous }
+    },
+    onError: (_err, _newTemplates, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData<ReminderTemplate[]>(queryKey, context.previous)
       }
-    }
-
-    loadTemplates()
-  }, [user?.systemId])
-
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current)
-      }
-    }
-  }, [])
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey })
+    },
+  })
 
   // Combined templates (default + custom)
   const allTemplates = [...DEFAULT_WARRANTY_REMINDER_TEMPLATES, ...customTemplates]
 
-  // Save custom templates
+  // Save templates
   const setTemplates = useCallback(
     (newTemplates: ReminderTemplate[]) => {
-      // Filter out default templates
-      const customOnly = newTemplates.filter(t => !t.isDefault)
-      setCustomTemplatesState(customOnly)
-
-      if (user?.systemId) {
-        const newValueStr = JSON.stringify(customOnly)
-        
-        if (newValueStr === lastSavedRef.current) {
-          return
-        }
-
-        if (saveTimeoutRef.current) {
-          clearTimeout(saveTimeoutRef.current)
-        }
-
-        saveTimeoutRef.current = setTimeout(() => {
-          lastSavedRef.current = newValueStr
-          fetch(API_BASE, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              userId: user.systemId,
-              key: WARRANTY_REMINDER_TEMPLATES_KEY,
-              value: customOnly,
-              category: 'templates',
-            }),
-          }).catch(error => {
-            console.error('Error saving warranty reminder templates:', error)
-          })
-        }, SAVE_DEBOUNCE_DELAY)
-      }
+      mutation.mutate(newTemplates)
     },
-    [user?.systemId]
+    [mutation]
   )
 
   return [allTemplates, setTemplates, isLoading]
@@ -170,7 +166,7 @@ const DEFAULT_COMPLAINT_REMINDER_SETTINGS: ComplaintReminderSettings = {
 }
 
 /**
- * Hook để quản lý complaint reminder settings
+ * Hook để quản lý complaint reminder settings với React Query
  */
 export function useComplaintReminderSettings(): [
   ComplaintReminderSettings,
@@ -178,81 +174,65 @@ export function useComplaintReminderSettings(): [
   boolean
 ] {
   const { user } = useAuth()
-  const [settings, setSettingsState] = useState<ComplaintReminderSettings>(DEFAULT_COMPLAINT_REMINDER_SETTINGS)
-  const [isLoading, setIsLoading] = useState(true)
-  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const lastSavedRef = useRef<string>('')
+  const queryClient = useQueryClient()
+  const queryKey = reminderSettingsKeys.complaintSettings(user?.systemId ?? '')
 
-  // Load from database
-  useEffect(() => {
-    const loadSettings = async () => {
-      try {
-        if (user?.systemId) {
-          const res = await fetch(
-            `${API_BASE}?userId=${user.systemId}&key=${encodeURIComponent(COMPLAINT_REMINDER_SETTINGS_KEY)}`
-          )
-          
-          if (res.ok) {
-            const data = await res.json()
-            if (data && data.value) {
-              setSettingsState({ ...DEFAULT_COMPLAINT_REMINDER_SETTINGS, ...data.value })
-              lastSavedRef.current = JSON.stringify(data.value)
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Error loading complaint reminder settings:', error)
-      } finally {
-        setIsLoading(false)
+  // Query for loading settings
+  const { data: settings = DEFAULT_COMPLAINT_REMINDER_SETTINGS, isLoading } = useQuery({
+    queryKey,
+    queryFn: async (): Promise<ComplaintReminderSettings> => {
+      if (!user?.systemId) return DEFAULT_COMPLAINT_REMINDER_SETTINGS
+      const res = await fetch(
+        `${API_BASE}?userId=${user.systemId}&key=${encodeURIComponent(COMPLAINT_REMINDER_SETTINGS_KEY)}`
+      )
+      if (!res.ok) throw new Error('Failed to load settings')
+      const data = await res.json()
+      return data?.value ? { ...DEFAULT_COMPLAINT_REMINDER_SETTINGS, ...data.value } : DEFAULT_COMPLAINT_REMINDER_SETTINGS
+    },
+    enabled: !!user?.systemId,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 30 * 60 * 1000, // 30 minutes
+  })
+
+  // Mutation for saving settings
+  const mutation = useMutation({
+    mutationFn: async (newSettings: ComplaintReminderSettings) => {
+      if (!user?.systemId) throw new Error('User not authenticated')
+      const res = await fetch(API_BASE, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.systemId,
+          key: COMPLAINT_REMINDER_SETTINGS_KEY,
+          value: newSettings,
+          category: 'settings',
+        }),
+      })
+      if (!res.ok) throw new Error('Failed to save settings')
+      return newSettings
+    },
+    onMutate: async (newSettings) => {
+      await queryClient.cancelQueries({ queryKey })
+      const previous = queryClient.getQueryData<ComplaintReminderSettings>(queryKey)
+      queryClient.setQueryData<ComplaintReminderSettings>(queryKey, newSettings)
+      return { previous }
+    },
+    onError: (_err, _newSettings, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData<ComplaintReminderSettings>(queryKey, context.previous)
       }
-    }
-
-    loadSettings()
-  }, [user?.systemId])
-
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current)
-      }
-    }
-  }, [])
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey })
+    },
+  })
 
   // Update settings
   const setSettings = useCallback(
     (newSettings: ComplaintReminderSettings) => {
-      setSettingsState(newSettings)
-
-      if (user?.systemId) {
-        const newValueStr = JSON.stringify(newSettings)
-        
-        if (newValueStr === lastSavedRef.current) {
-          return
-        }
-
-        if (saveTimeoutRef.current) {
-          clearTimeout(saveTimeoutRef.current)
-        }
-
-        saveTimeoutRef.current = setTimeout(() => {
-          lastSavedRef.current = newValueStr
-          fetch(API_BASE, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              userId: user.systemId,
-              key: COMPLAINT_REMINDER_SETTINGS_KEY,
-              value: newSettings,
-              category: 'settings',
-            }),
-          }).catch(error => {
-            console.error('Error saving complaint reminder settings:', error)
-          })
-        }, SAVE_DEBOUNCE_DELAY)
-      }
+      mutation.mutate(newSettings)
     },
-    [user?.systemId]
+    [mutation]
   )
 
   return [settings, setSettings, isLoading]

@@ -85,6 +85,7 @@ export function useProductSearch(query: string, limit = 20) {
     queryFn: () => searchProducts(query, limit),
     enabled: query.length >= 2,
     staleTime: 30_000,
+    gcTime: 5 * 60 * 1000, // 5 minutes
   });
 }
 
@@ -97,6 +98,7 @@ export function useProductInventory(productId: string | null | undefined) {
     queryFn: () => fetchProductInventory(productId!),
     enabled: !!productId,
     staleTime: 30_000, // Inventory can change more frequently
+    gcTime: 5 * 60 * 1000, // 5 minutes
   });
 }
 

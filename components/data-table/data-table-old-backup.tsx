@@ -202,13 +202,13 @@ export function DataTable<TData extends { systemId: string }>({
 
   return (
      <div className={cn("flex flex-col h-full w-full min-h-0", className)}>
-      <div className="border rounded-md flex-1 flex flex-col min-h-0 bg-background">
+      <div className="border border-border rounded-md flex-1 flex flex-col min-h-0 bg-background">
         <div className="flex-1 overflow-auto">
           <Table className="relative w-full" style={{ minWidth: '100%' }}>
-            <TableHeader className="sticky top-0 z-30 bg-background border-b" style={{ boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)' }}>
+            <TableHeader className="sticky top-0 z-30 bg-background border-b border-border" style={{ boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)' }}>
             {/* Bulk actions overlay - absolute positioned */}
             {numSelected > 0 && (
-              <tr className="absolute inset-x-0 top-0 z-50 h-12 bg-background border-b" style={{ boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)' }}>
+              <tr className="absolute inset-x-0 top-0 z-50 h-12 bg-background border-b border-border" style={{ boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)' }}>
                 <th className="sticky left-0 z-50 bg-background px-3 w-[48px]">
                   {columns.find(c => c.id === 'select') &&
                     typeof columns.find(c => c.id === 'select')!.header === 'function' &&
@@ -428,7 +428,7 @@ export function DataTable<TData extends { systemId: string }>({
       </div>
       
       {/* Pagination - Fixed at bottom, outside scroll container */}
-      <div className="flex-shrink-0 border-t bg-background px-6 py-3">
+      <div className="flex-shrink-0 border-t border-border bg-background px-6 py-3">
         <DataTablePagination 
           pageIndex={pagination.pageIndex}
           pageSize={pagination.pageSize}

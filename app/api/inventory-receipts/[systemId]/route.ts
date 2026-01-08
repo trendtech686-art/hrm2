@@ -2,15 +2,18 @@
  * Inventory Receipt Detail API Route
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/prisma'
+import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
 
 type RouteParams = {
   params: Promise<{ systemId: string }>;
 };
 
 // GET - Get single inventory receipt
-export async function GET(request: NextRequest, { params }: RouteParams) {
+export async function GET(request: Request, { params }: RouteParams) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { systemId } = await params;
 
@@ -22,24 +25,21 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     });
 
     if (!inventoryReceipt) {
-      return NextResponse.json(
-        { error: 'Inventory receipt not found' },
-        { status: 404 }
-      );
+      return apiNotFound('Inventory receipt');
     }
 
-    return NextResponse.json(inventoryReceipt);
+    return apiSuccess(inventoryReceipt);
   } catch (error) {
     console.error('[Inventory Receipts API] GET by ID error:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch inventory receipt' },
-      { status: 500 }
-    );
+    return apiError('Failed to fetch inventory receipt', 500);
   }
 }
 
 // PATCH - Update inventory receipt
-export async function PATCH(request: NextRequest, { params }: RouteParams) {
+export async function PATCH(request: Request, { params }: RouteParams) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
+
   try {
     const { systemId } = await params;
     const body = await request.json();
@@ -59,18 +59,18 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       },
     });
 
-    return NextResponse.json(inventoryReceipt);
+    return apiSuccess(inventoryReceipt);
   } catch (error) {
     console.error('[Inventory Receipts API] PATCH error:', error);
-    return NextResponse.json(
-      { error: 'Failed to update inventory receipt' },
-      { status: 500 }
-    );
+    return apiError('Failed to update inventory receipt', 500);
   }
 }
 
 // DELETE - Delete inventory receipt
-export async function DELETE(request: NextRequest, { params }: RouteParams) {
+export async function DELETE(request: Request, { params }: RouteParams) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
+
   try {
     const { systemId } = await params;
     const body = await request.json().catch(() => ({}));
@@ -95,12 +95,9 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       });
     }
 
-    return NextResponse.json({ success: true });
+    return apiSuccess({ success: true });
   } catch (error) {
     console.error('[Inventory Receipts API] DELETE error:', error);
-    return NextResponse.json(
-      { error: 'Failed to delete inventory receipt' },
-      { status: 500 }
-    );
+    return apiError('Failed to delete inventory receipt', 500);
   }
 }

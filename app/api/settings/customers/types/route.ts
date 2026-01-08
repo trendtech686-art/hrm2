@@ -1,10 +1,16 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@/generated/prisma/client';
+import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils';
+import { createCustomerTypeSchema } from './validation';
 
 const TYPE = 'customer-type';
 
 // GET - List all customer types
 export async function GET() {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
+
   try {
     const settings = await prisma.customerSetting.findMany({
       where: { type: TYPE, isDeleted: false },
@@ -28,18 +34,25 @@ export async function GET() {
       ...(s.metadata as Record<string, unknown> || {}),
     }));
 
-    return NextResponse.json(transformed);
+    return apiSuccess(transformed);
   } catch (error) {
     console.error('[Customer Types API] GET error:', error);
-    return NextResponse.json({ error: 'Failed to fetch customer types' }, { status: 500 });
+    return apiError('Failed to fetch customer types', 500);
   }
 }
 
 // POST - Create a new customer type
 export async function POST(request: NextRequest) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
+
+  const validation = await validateBody(request, createCustomerTypeSchema);
+  if (!validation.success) {
+    return apiError(validation.error, 400);
+  }
+
   try {
-    const body = await request.json();
-    const { name, description, color, isDefault, isActive, orderIndex, ...rest } = body;
+    const { name, description, color, isDefault, isActive, orderIndex, ...rest } = validation.data;
 
     const setting = await prisma.customerSetting.create({
       data: {
@@ -51,11 +64,11 @@ export async function POST(request: NextRequest) {
         isDefault: isDefault ?? false,
         isActive: isActive ?? true,
         orderIndex: orderIndex ?? 0,
-        metadata: rest,
+        metadata: rest as Prisma.InputJsonValue,
       },
     });
 
-    return NextResponse.json({
+    return apiSuccess({
       systemId: setting.systemId,
       id: setting.id,
       name: setting.name,
@@ -68,9 +81,9 @@ export async function POST(request: NextRequest) {
       createdAt: setting.createdAt.toISOString(),
       updatedAt: setting.updatedAt.toISOString(),
       ...(setting.metadata as Record<string, unknown> || {}),
-    }, { status: 201 });
+    }, 201);
   } catch (error) {
     console.error('[Customer Types API] POST error:', error);
-    return NextResponse.json({ error: 'Failed to create customer type' }, { status: 500 });
+    return apiError('Failed to create customer type', 500);
   }
 }

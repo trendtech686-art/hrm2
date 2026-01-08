@@ -244,10 +244,10 @@ export function DataTableImportDialog<TData>({ children, config }: DataTableImpo
 
             <div 
               className={cn(
-                  "flex flex-col items-center justify-center w-full h-40 border-2 border-dashed rounded-lg cursor-pointer transition-all",
+                  "flex flex-col items-center justify-center w-full h-40 border-2 border-dashed border-border rounded-lg cursor-pointer transition-all",
                   isDragging 
                     ? "border-primary bg-primary/10 scale-[1.02]" 
-                    : "bg-muted/30 hover:bg-muted/50 hover:border-muted-foreground/50"
+                    : "bg-muted/30 hover:bg-muted/50"
               )}
               onClick={() => fileInputRef.current?.click()}
               onDragEnter={handleDragEnter}
@@ -298,19 +298,19 @@ export function DataTableImportDialog<TData>({ children, config }: DataTableImpo
           <div className="py-4 space-y-4">
             {/* Statistics */}
             <div className="grid grid-cols-3 gap-3">
-              <div className="rounded-lg border bg-card p-3">
+              <div className="rounded-lg border border-border bg-card p-3">
                 <div className="text-2xl font-bold text-green-600">
                   {previewData.filter(r => r.status === 'new').length}
                 </div>
                 <div className="text-xs text-muted-foreground">Dữ liệu mới</div>
               </div>
-              <div className="rounded-lg border bg-card p-3">
+              <div className="rounded-lg border border-border bg-card p-3">
                 <div className="text-2xl font-bold text-yellow-600">
                   {previewData.filter(r => r.status === 'update').length}
                 </div>
                 <div className="text-xs text-muted-foreground">Cập nhật</div>
               </div>
-              <div className="rounded-lg border bg-card p-3">
+              <div className="rounded-lg border border-border bg-card p-3">
                 <div className="text-2xl font-bold text-blue-600">
                   {selectedRows.size}
                 </div>
@@ -342,7 +342,7 @@ export function DataTableImportDialog<TData>({ children, config }: DataTableImpo
               </Button>
             </div>
             
-            <ScrollArea className="h-[420px] border rounded-lg">
+            <ScrollArea className="h-[420px] border border-border rounded-lg">
               <div className="p-4 space-y-2">
                 {previewData.length === 0 ? (
                   <div className="text-center py-12 text-muted-foreground">
@@ -354,7 +354,7 @@ export function DataTableImportDialog<TData>({ children, config }: DataTableImpo
                     <div
                       key={row.id}
                       className={cn(
-                        "flex items-start gap-3 p-3 rounded-lg border transition-all",
+                        "flex items-start gap-3 p-3 rounded-lg border border-border transition-all",
                         selectedRows.has(row.id) 
                           ? "bg-primary/5 border-primary/50 shadow-sm" 
                           : "bg-background hover:bg-muted/50"

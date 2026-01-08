@@ -211,7 +211,7 @@ export function MonthPicker({
         </div>
 
         {/* Actions */}
-        <div className="flex justify-between mt-3 pt-3 border-t">
+        <div className="flex justify-between mt-3 pt-3 border-t border-border">
           <Button type="button" variant="ghost" size="sm" onClick={handleClear}>
             Xóa
           </Button>

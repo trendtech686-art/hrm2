@@ -1,3 +1,11 @@
+/**
+ * Print Template Settings Store
+ * UI configuration only - template configs, paper sizes
+ * 
+ * ✅ KEEP IN ZUSTAND - This is pure UI state
+ * For server-side templates, use React Query hooks from:
+ * `@/features/settings/printer/hooks/use-print-templates`
+ */
 import { create } from 'zustand';
 import { PrintTemplate, TemplateType, PaperSize } from './types';
 import { getDefaultTemplate } from './default-templates';

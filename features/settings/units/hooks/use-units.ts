@@ -39,6 +39,7 @@ export function useUnit(id: string | null | undefined) {
     queryFn: () => fetchUnit(id!),
     enabled: !!id,
     staleTime: 10 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
   });
 }
 

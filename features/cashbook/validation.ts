@@ -2,7 +2,7 @@
  * Zod validation schemas for cashbook module
  */
 import { z } from 'zod';
-import type { SystemId } from '@/lib/id-types';
+import { systemIdSchema } from '@/lib/id-types';
 
 // Account type enum
 export const cashAccountTypeSchema = z.enum([
@@ -17,7 +17,7 @@ export const cashAccountTypeSchema = z.enum([
 export const createCashAccountSchema = z.object({
   name: z.string().min(1, 'Tên tài khoản không được để trống'),
   type: cashAccountTypeSchema,
-  branchSystemId: z.string().min(1, 'Vui lòng chọn chi nhánh') as z.ZodType<SystemId>,
+  branchSystemId: systemIdSchema.refine(v => v.length >= 1, 'Vui lòng chọn chi nhánh'),
   branchName: z.string().optional(),
   accountNumber: z.string().optional(),
   bankName: z.string().optional(),
@@ -41,7 +41,7 @@ export const transactionTypeSchema = z.enum([
 
 // Create transaction schema
 export const createCashTransactionSchema = z.object({
-  accountSystemId: z.string() as z.ZodType<SystemId>,
+  accountSystemId: systemIdSchema,
   type: transactionTypeSchema,
   amount: z.number().min(0, 'Số tiền phải >= 0'),
   date: z.string().min(1, 'Ngày giao dịch không được để trống'),

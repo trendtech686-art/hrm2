@@ -41,33 +41,33 @@ type ToggleGroupProps = React.HTMLAttributes<HTMLDivElement> &
   (ToggleGroupSingleProps | ToggleGroupMultipleProps)
 
 const ToggleGroup = React.forwardRef<HTMLDivElement, ToggleGroupProps>(
-    ({ className, variant, size, children, ...props }, ref) => {
-        const [internalValue, setInternalValue] = React.useState(props.defaultValue)
-        const isControlled = props.value !== undefined
-        const value = isControlled ? props.value : internalValue
+    ({ className, variant, size, children, type, value, defaultValue, onValueChange, ...divProps }, ref) => {
+        const [internalValue, setInternalValue] = React.useState(defaultValue)
+        const isControlled = value !== undefined
+        const currentValue = isControlled ? value : internalValue
 
         const handleValueChange = (itemValue: string) => {
-            if (props.type === "single") {
-                const newValue = value === itemValue ? "" : itemValue
+            if (type === "single") {
+                const newValue = currentValue === itemValue ? "" : itemValue
                 if (!isControlled) {
                     setInternalValue(newValue)
                 }
-                ;(props.onValueChange as (value: string) => void)?.(newValue)
+                ;(onValueChange as (value: string) => void)?.(newValue)
             } else { // multiple
-                const currentValues = (value as string[] | undefined) || []
+                const currentValues = (currentValue as string[] | undefined) || []
                 const newValue = currentValues.includes(itemValue)
                   ? currentValues.filter((v) => v !== itemValue)
                   : [...currentValues, itemValue]
                 if (!isControlled) {
                     setInternalValue(newValue)
                 }
-                ;(props.onValueChange as (value: string[]) => void)?.(newValue)
+                ;(onValueChange as (value: string[]) => void)?.(newValue)
             }
         }
 
         return (
-            <ToggleGroupContext.Provider value={{ variant, size, value: value || (props.type === "multiple" ? [] : ""), onValueChange: handleValueChange }}>
-                <div ref={ref} role="group" className={cn("flex items-center justify-center gap-1", className)} {...props}>
+            <ToggleGroupContext.Provider value={{ variant, size, value: currentValue || (type === "multiple" ? [] : ""), onValueChange: handleValueChange }}>
+                <div ref={ref} role="group" className={cn("flex items-center justify-center gap-1", className)} {...divProps}>
                     {children}
                 </div>
             </ToggleGroupContext.Provider>

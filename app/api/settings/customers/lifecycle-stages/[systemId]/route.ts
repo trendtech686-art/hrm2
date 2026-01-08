@@ -1,13 +1,16 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils';
 
 const TYPE = 'lifecycle-stage';
 
 // GET - Get a single lifecycle stage
 export async function GET(
-  request: NextRequest,
+  _request: Request,
   { params }: { params: Promise<{ systemId: string }> }
 ) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
+
   const { systemId } = await params;
   try {
     const setting = await prisma.customerSetting.findUnique({
@@ -15,10 +18,10 @@ export async function GET(
     });
 
     if (!setting || setting.isDeleted) {
-      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+      return apiNotFound('LifecycleStage');
     }
 
-    return NextResponse.json({
+    return apiSuccess({
       systemId: setting.systemId,
       id: setting.id,
       name: setting.name,
@@ -34,15 +37,18 @@ export async function GET(
     });
   } catch (error) {
     console.error('[Lifecycle Stages API] GET by ID error:', error);
-    return NextResponse.json({ error: 'Failed to fetch lifecycle stage' }, { status: 500 });
+    return apiError('Failed to fetch lifecycle stage', 500);
   }
 }
 
 // PATCH - Update a lifecycle stage
 export async function PATCH(
-  request: NextRequest,
+  request: Request,
   { params }: { params: Promise<{ systemId: string }> }
 ) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
+
   const { systemId } = await params;
   try {
     const body = await request.json();
@@ -61,7 +67,7 @@ export async function PATCH(
       },
     });
 
-    return NextResponse.json({
+    return apiSuccess({
       systemId: setting.systemId,
       id: setting.id,
       name: setting.name,
@@ -77,15 +83,18 @@ export async function PATCH(
     });
   } catch (error) {
     console.error('[Lifecycle Stages API] PATCH error:', error);
-    return NextResponse.json({ error: 'Failed to update lifecycle stage' }, { status: 500 });
+    return apiError('Failed to update lifecycle stage', 500);
   }
 }
 
 // DELETE - Soft delete a lifecycle stage
 export async function DELETE(
-  request: NextRequest,
+  _request: Request,
   { params }: { params: Promise<{ systemId: string }> }
 ) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
+
   const { systemId } = await params;
   try {
     await prisma.customerSetting.update({
@@ -93,9 +102,9 @@ export async function DELETE(
       data: { isDeleted: true },
     });
 
-    return new NextResponse(null, { status: 204 });
+    return apiSuccess(null, 204);
   } catch (error) {
     console.error('[Lifecycle Stages API] DELETE error:', error);
-    return NextResponse.json({ error: 'Failed to delete lifecycle stage' }, { status: 500 });
+    return apiError('Failed to delete lifecycle stage', 500);
   }
 }

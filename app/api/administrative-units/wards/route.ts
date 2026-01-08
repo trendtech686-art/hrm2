@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { requireAuth, apiError } from '@/lib/api-utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,6 +16,9 @@ export const dynamic = 'force-dynamic';
  * Returns wards (~10,000+ total, filtered by params)
  */
 export async function GET(request: NextRequest) {
+  const session = await requireAuth();
+  if (!session) return apiError('Vui lòng đăng nhập', 401);
+
   try {
     const { searchParams } = new URL(request.url);
     const provinceId = searchParams.get('provinceId');
@@ -51,7 +55,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Failed to fetch wards:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to fetch wards' },
+      { success: false, error: 'Không thể tải danh sách phường/xã' },
       { status: 500 }
     );
   }

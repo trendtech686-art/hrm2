@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
 import { DeliveryMethodCard } from './shipping/delivery-method-card';
-import { useDebounce } from '@/features/orders/hooks/use-debounce';
+import { useDebounce } from '@/hooks/use-debounce';
 import { GHTKService, type GHTKCreateOrderParams } from '@/features/settings/shipping/integrations/ghtk-service';
 import { useAllShippingPartners } from '@/features/settings/shipping/hooks/use-all-shipping-partners';
 import { loadShippingConfig } from '@/lib/utils/shipping-config-migration';
@@ -170,22 +170,22 @@ function buildPickupParams(
     // Even with warehouse ID, we still need to send full address
     return {
       pickAddressId,
-      pickName: currentBranch.name || pickupAddress.name,
-      pickAddress: pickupAddress.address || currentBranch.address || '', // ✅ REQUIRED!
-      pickProvince: pickupAddress.province || '', // ✅ REQUIRED!
-      pickDistrict: pickupAddress.district || '', // ✅ REQUIRED!
-      pickWard: pickupAddress.ward || '',
-      pickTel: currentBranch.phone || pickupAddress.phone || '',
+      pickName: currentBranch?.name || pickupAddress?.name,
+      pickAddress: pickupAddress?.address || currentBranch?.address || '', // ✅ REQUIRED!
+      pickProvince: pickupAddress?.province || '', // ✅ REQUIRED!
+      pickDistrict: pickupAddress?.district || '', // ✅ REQUIRED!
+      pickWard: pickupAddress?.ward || '',
+      pickTel: currentBranch?.phone || pickupAddress?.phone || '',
     };
   } else {
     // ✅ Send full manual pickup address
     return {
-      pickName: currentBranch.name,
-      pickAddress: pickupAddress.address,
-      pickProvince: pickupAddress.province,
-      pickDistrict: pickupAddress.district || '',
-      pickWard: pickupAddress.ward || '',
-      pickTel: currentBranch.phone || '',
+      pickName: currentBranch?.name,
+      pickAddress: pickupAddress?.address,
+      pickProvince: pickupAddress?.province,
+      pickDistrict: pickupAddress?.district || '',
+      pickWard: pickupAddress?.ward || '',
+      pickTel: currentBranch?.phone || '',
     };
   }
 }
@@ -1079,7 +1079,7 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
           onServiceConfigChange={handleServiceConfigChange}
           onNoteChange={(note) => setValue('shippingNote', note)}
           grandTotal={grandTotal}
-          previewData={previewParams} // ✅ Use auto-generated preview params
+          previewData={previewParams ?? undefined} // ✅ Use auto-generated preview params
           onChangeDeliveryAddress={onChangeDeliveryAddress || (() => {
             toast.info('Cập nhật địa chỉ', { 
               description: 'Vui lòng cập nhật địa chỉ khách hàng ở mục "Thông tin khách hàng" bên trên' 
@@ -1107,7 +1107,7 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
               onServiceConfigChange={handleServiceConfigChange}
               onNoteChange={(note) => setValue('shippingNote', note)}
               grandTotal={grandTotal}
-              previewData={previewParams} // ✅ Use auto-generated preview params
+              previewData={previewParams ?? undefined} // ✅ Use auto-generated preview params
               onChangeDeliveryAddress={onChangeDeliveryAddress || (() => {
                 toast.info('Cập nhật địa chỉ', { 
                   description: 'Vui lòng cập nhật địa chỉ khách hàng ở mục "Thông tin khách hàng" bên trên' 

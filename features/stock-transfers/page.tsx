@@ -92,14 +92,15 @@ export function StockTransfersPage() {
   }, [transfers]);
 
   const columns = React.useMemo(() => getColumns(handlePrint), [handlePrint]);
-  const buildDefaultVisibility = React.useCallback(() => { const dv = new Set(['id', 'createdDate', 'fromBranchName', 'toBranchName', 'itemCount', 'totalQuantity', 'totalValue', 'status', 'createdByName', 'note']); return Object.fromEntries(columns.map(c => [c.id, c.id === 'select' || c.id === 'actions' || dv.has(c.id!)])); }, []);
-  const buildDefaultOrder = React.useCallback(() => columns.map(c => c.id).filter(Boolean) as string[], []);
+  const buildDefaultVisibility = React.useCallback(() => { const dv = new Set(['id', 'createdDate', 'fromBranchName', 'toBranchName', 'itemCount', 'totalQuantity', 'totalValue', 'status', 'createdByName', 'note']); return Object.fromEntries(columns.map(c => [c.id, c.id === 'select' || c.id === 'actions' || dv.has(c.id!)])); }, [columns]);
+  const buildDefaultOrder = React.useCallback(() => columns.map(c => c.id).filter(Boolean) as string[], [columns]);
 
   React.useEffect(() => {
     if (columns.length === 0 || defaultsInitialized.current) return; defaultsInitialized.current = true;
     const dv = new Set(['id', 'createdDate', 'fromBranchName', 'toBranchName', 'itemCount', 'totalQuantity', 'totalValue', 'status', 'createdByName', 'note']);
     setColumnVisibility(Object.fromEntries(columns.map(c => [c.id, c.id === 'select' || c.id === 'actions' || dv.has(c.id!)]))); setColumnOrder(columns.map(c => c.id).filter(Boolean) as string[]);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [columns.length]);
 
   const resetColumnLayout = React.useCallback(() => { setColumnVisibility(buildDefaultVisibility()); setColumnOrder(buildDefaultOrder()); setPinnedColumns([]); toast.success('Đã khôi phục bố cục cột mặc định'); }, [buildDefaultVisibility, buildDefaultOrder, setColumnVisibility, setColumnOrder, setPinnedColumns]);
   const searchedData = useFuseFilter(transfers, debouncedGlobalFilter, React.useMemo(() => ({ keys: ['id', 'fromBranchName', 'toBranchName', 'createdByName', 'note', 'referenceCode'], threshold: 0.3, ignoreLocation: true }), []));

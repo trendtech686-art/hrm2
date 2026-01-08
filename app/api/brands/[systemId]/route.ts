@@ -1,6 +1,6 @@
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@/generated/prisma/client'
+import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
 
 interface RouteParams {
   params: Promise<{ systemId: string }>
@@ -8,6 +8,9 @@ interface RouteParams {
 
 // GET /api/brands/[systemId]
 export async function GET(_request: Request, { params }: RouteParams) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { systemId } = await params
 
@@ -29,24 +32,21 @@ export async function GET(_request: Request, { params }: RouteParams) {
     })
 
     if (!brand) {
-      return NextResponse.json(
-        { error: 'Thương hiệu không tồn tại' },
-        { status: 404 }
-      )
+      return apiNotFound('Thương hiệu')
     }
 
-    return NextResponse.json(brand)
+    return apiSuccess(brand)
   } catch (error) {
     console.error('Error fetching brand:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch brand' },
-      { status: 500 }
-    )
+    return apiError('Failed to fetch brand', 500)
   }
 }
 
 // PUT /api/brands/[systemId]
 export async function PUT(request: Request, { params }: RouteParams) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { systemId } = await params
     const body = await request.json()
@@ -61,24 +61,21 @@ export async function PUT(request: Request, { params }: RouteParams) {
       },
     })
 
-    return NextResponse.json(brand)
+    return apiSuccess(brand)
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
-      return NextResponse.json(
-        { error: 'Thương hiệu không tồn tại' },
-        { status: 404 }
-      )
+      return apiNotFound('Thương hiệu')
     }
     console.error('Error updating brand:', error)
-    return NextResponse.json(
-      { error: 'Failed to update brand' },
-      { status: 500 }
-    )
+    return apiError('Failed to update brand', 500)
   }
 }
 
 // PATCH /api/brands/[systemId] - Same as PUT for partial updates
 export async function PATCH(request: Request, { params }: RouteParams) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { systemId } = await params
     const body = await request.json()
@@ -94,24 +91,21 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       },
     })
 
-    return NextResponse.json(brand)
+    return apiSuccess(brand)
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
-      return NextResponse.json(
-        { error: 'Thương hiệu không tồn tại' },
-        { status: 404 }
-      )
+      return apiNotFound('Thương hiệu')
     }
     console.error('Error updating brand:', error)
-    return NextResponse.json(
-      { error: 'Failed to update brand' },
-      { status: 500 }
-    )
+    return apiError('Failed to update brand', 500)
   }
 }
 
 // DELETE /api/brands/[systemId]
 export async function DELETE(_request: Request, { params }: RouteParams) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { systemId } = await params
 
@@ -120,18 +114,12 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
       data: { isDeleted: true },
     })
 
-    return NextResponse.json({ success: true })
+    return apiSuccess({ success: true })
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
-      return NextResponse.json(
-        { error: 'Thương hiệu không tồn tại' },
-        { status: 404 }
-      )
+      return apiNotFound('Thương hiệu')
     }
     console.error('Error deleting brand:', error)
-    return NextResponse.json(
-      { error: 'Failed to delete brand' },
-      { status: 500 }
-    )
+    return apiError('Failed to delete brand', 500)
   }
 }

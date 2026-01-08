@@ -65,9 +65,13 @@ export function PurchaseReturnsPage() {
     toast.success('Đã gửi lệnh in', { description: `Đang in phiếu trả ${entry.id}.` });
   }, [branches, storeInfo, print]);
 
+  const headerActions = React.useMemo(() => [
+    <Button key="create" size="sm" className="h-9" onClick={() => router.push(ROUTES.PROCUREMENT.PURCHASE_RETURN_NEW)}><Plus className="mr-2 h-4 w-4" />Tạo phiếu trả hàng</Button>
+  ], [router]);
+
   usePageHeader({
     title: 'Danh sách phiếu trả NCC',
-    actions: [<Button key="create" size="sm" className="h-9" onClick={() => router.push(ROUTES.PROCUREMENT.PURCHASE_RETURN_NEW)}><Plus className="mr-2 h-4 w-4" />Tạo phiếu trả hàng</Button>],
+    actions: headerActions,
     breadcrumb: [{ label: 'Trang chủ', href: '/', isCurrent: false }, { label: 'Trả hàng nhập', href: ROUTES.PROCUREMENT.PURCHASE_RETURNS, isCurrent: true }],
     showBackButton: false
   });
@@ -119,12 +123,14 @@ export function PurchaseReturnsPage() {
   const sortedData = React.useMemo(() => {
     const sorted = [...filteredData];
     if (sorting.id) sorted.sort((a, b) => {
-      const aVal = (a as Record<string, unknown>)[sorting.id], bVal = (b as Record<string, unknown>)[sorting.id];
+      const aVal = (a as Record<string, unknown>)[sorting.id] as string | number | null | undefined, bVal = (b as Record<string, unknown>)[sorting.id] as string | number | null | undefined;
       if (sorting.id === 'createdAt' || sorting.id === 'returnDate') {
         const aTime = aVal ? new Date(aVal as string | number | Date).getTime() : 0, bTime = bVal ? new Date(bVal as string | number | Date).getTime() : 0;
         return sorting.desc ? bTime - aTime : aTime - bTime;
       }
-      if (aVal === bVal) return 0;
+      if (aVal == null && bVal == null) return 0;
+      if (aVal == null) return 1;
+      if (bVal == null) return -1;
       return aVal < bVal ? (sorting.desc ? 1 : -1) : (sorting.desc ? -1 : 1);
     });
     return sorted;

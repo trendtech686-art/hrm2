@@ -1,7 +1,6 @@
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import type { NextRequest } from 'next/server'
 import type { Prisma } from '@/generated/prisma/client'
+import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
 
 const SETTING_KEY = 'employee-payroll-profiles'
 const SETTING_GROUP = 'hrm'
@@ -14,7 +13,10 @@ interface PayrollProfile {
 type RouteParams = { params: Promise<{ employeeSystemId: string }> }
 
 // PATCH /api/employee-payroll-profiles/[employeeSystemId]
-export async function PATCH(request: NextRequest, { params }: RouteParams) {
+export async function PATCH(request: Request, { params }: RouteParams) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { employeeSystemId } = await params
     const body = await request.json()
@@ -58,18 +60,18 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       },
     })
 
-    return NextResponse.json({ data: profiles.find((p) => p.employeeSystemId === employeeSystemId) })
+    return apiSuccess({ data: profiles.find((p) => p.employeeSystemId === employeeSystemId) })
   } catch (error) {
     console.error('Error updating payroll profile:', error)
-    return NextResponse.json(
-      { error: 'Failed to update payroll profile' },
-      { status: 500 }
-    )
+    return apiError('Failed to update payroll profile', 500)
   }
 }
 
 // DELETE /api/employee-payroll-profiles/[employeeSystemId]
-export async function DELETE(request: NextRequest, { params }: RouteParams) {
+export async function DELETE(_request: Request, { params }: RouteParams) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { employeeSystemId } = await params
 
@@ -97,12 +99,9 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       },
     })
 
-    return NextResponse.json({ success: true })
+    return apiSuccess({ success: true })
   } catch (error) {
     console.error('Error deleting payroll profile:', error)
-    return NextResponse.json(
-      { error: 'Failed to delete payroll profile' },
-      { status: 500 }
-    )
+    return apiError('Failed to delete payroll profile', 500)
   }
 }

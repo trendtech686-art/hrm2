@@ -2,9 +2,12 @@
  * Cost Adjustments API Route
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import type { Prisma } from '@/generated/prisma/client';
+import { CostAdjustmentStatus } from '@/generated/prisma/client';
+import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
+import { createCostAdjustmentSchema } from './validation'
 
 // Interface for cost adjustment item input
 interface CostAdjustmentItemInput {
@@ -17,13 +20,13 @@ interface CostAdjustmentItemInput {
 
 // GET - List cost adjustments
 export async function GET(request: NextRequest) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const searchParams = request.nextUrl.searchParams;
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '20');
+    const { page, limit, skip } = parsePagination(searchParams)
     const search = searchParams.get('search') || '';
-    
-    const skip = (page - 1) * limit;
 
     const where: Prisma.CostAdjustmentWhereInput = {};
     
@@ -47,41 +50,39 @@ export async function GET(request: NextRequest) {
       prisma.costAdjustment.count({ where }),
     ]);
 
-    return NextResponse.json({
-      data,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
-    });
+    return apiPaginated(data, { page, limit, total })
   } catch (error) {
     console.error('[Cost Adjustments API] GET error:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch cost adjustments' },
-      { status: 500 }
-    );
+    return apiError('Failed to fetch cost adjustments', 500)
   }
 }
 
 // POST - Create new cost adjustment
 export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    
-    const {
-      systemId,
-      id,
-      branchId,
-      employeeId,
-      adjustmentDate,
-      status,
-      reason,
-      items,
-      createdBy,
-    } = body;
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
 
+  const validation = await validateBody(request, createCostAdjustmentSchema)
+  if (!validation.success) {
+    return apiError(validation.error, 400)
+  }
+  const {
+    systemId,
+    id,
+    branchId,
+    employeeId,
+    adjustmentDate,
+    status,
+    reason,
+    items,
+    createdBy,
+  } = validation.data
+
+  if (!branchId) {
+    return apiError('Branch ID is required', 400)
+  }
+
+  try {
     const costAdjustment = await prisma.costAdjustment.create({
       data: {
         systemId,
@@ -89,16 +90,15 @@ export async function POST(request: NextRequest) {
         branchId,
         employeeId: employeeId || null,
         adjustmentDate: adjustmentDate ? new Date(adjustmentDate) : new Date(),
-        status: status || 'DRAFT',
+        status: (status || 'DRAFT') as CostAdjustmentStatus,
         reason: reason || null,
         createdBy: createdBy || null,
         items: items?.length ? {
           create: items.map((item: CostAdjustmentItemInput) => ({
-            systemId: item.systemId,
             productId: item.productId,
             oldCost: item.oldCost || 0,
             newCost: item.newCost || 0,
-            notes: item.notes || null,
+            quantity: 1,
           })),
         } : undefined,
       },
@@ -107,12 +107,9 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return NextResponse.json(costAdjustment, { status: 201 });
+    return apiSuccess(costAdjustment, 201)
   } catch (error) {
     console.error('[Cost Adjustments API] POST error:', error);
-    return NextResponse.json(
-      { error: 'Failed to create cost adjustment' },
-      { status: 500 }
-    );
+    return apiError('Failed to create cost adjustment', 500)
   }
 }

@@ -1,13 +1,18 @@
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@/generated/prisma/client'
+import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
+import { createStockLocationSchema } from './validation'
 
 // GET /api/stock-locations - List all stock locations
 export async function GET(request: Request) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { searchParams } = new URL(request.url)
     const all = searchParams.get('all') === 'true'
 
-    const where: Parameters<typeof prisma.stockLocation.findMany>[0]['where'] = {
+    const where: Prisma.StockLocationWhereInput = {
       isActive: true,
     }
 
@@ -19,7 +24,7 @@ export async function GET(request: Request) {
           _count: { select: { inventoryRecords: true } },
         },
       })
-      return NextResponse.json({ data: locations })
+      return apiSuccess({ data: locations })
     }
 
     const locations = await prisma.stockLocation.findMany({
@@ -30,52 +35,42 @@ export async function GET(request: Request) {
       },
     })
 
-    return NextResponse.json({ data: locations })
+    return apiSuccess({ data: locations })
   } catch (error) {
     console.error('Error fetching stock locations:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch stock locations' },
-      { status: 500 }
-    )
+    return apiError('Failed to fetch stock locations', 500)
   }
 }
 
 // POST /api/stock-locations - Create new stock location
 export async function POST(request: Request) {
-  try {
-    const body = await request.json()
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
 
-    if (!body.id || !body.name) {
-      return NextResponse.json(
-        { error: 'Mã và tên kho là bắt buộc' },
-        { status: 400 }
-      )
-    }
+  const result = await validateBody(request, createStockLocationSchema)
+  if (!result.success) return apiError(result.error, 400)
+
+  try {
+    const body = result.data
 
     const location = await prisma.stockLocation.create({
       data: {
         systemId: `SLOC${String(Date.now()).slice(-6).padStart(6, '0')}`,
-        id: body.id,
-        name: body.name,
-        code: body.code || body.id,
+        id: body.id || '',
+        name: body.name || '',
+        code: body.code || body.id || '',
         description: body.address || body.description,
-        branchId: body.branchId,
+        branchId: body.branchId || '',
         isActive: body.isActive ?? true,
       },
     })
 
-    return NextResponse.json(location, { status: 201 })
+    return apiSuccess(location, 201)
   } catch (error) {
     if (error instanceof Error && 'code' in error && error.code === 'P2002') {
-      return NextResponse.json(
-        { error: 'Mã kho đã tồn tại' },
-        { status: 400 }
-      )
+      return apiError('Mã kho đã tồn tại', 400)
     }
     console.error('Error creating stock location:', error)
-    return NextResponse.json(
-      { error: 'Failed to create stock location' },
-      { status: 500 }
-    )
+    return apiError('Failed to create stock location', 500)
   }
 }

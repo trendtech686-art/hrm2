@@ -4163,6 +4163,57 @@ export interface SalesReportSummary {
 export type ReportSummary = SlaReportSummary;
 
 // ============================================
+// PAYROLL TYPES
+// ============================================
+
+export type PayrollStatus = 'DRAFT' | 'PROCESSING' | 'COMPLETED' | 'PAID' | 'CANCELLED';
+
+export type Payroll = {
+  systemId: SystemId;
+  id: BusinessId;
+  year: number;
+  month: number;
+  branchId?: SystemId;
+  status: PayrollStatus;
+  totalEmployees: number;
+  totalGross: number;
+  totalDeductions: number;
+  totalNet: number;
+  processedAt?: string;
+  processedBy?: SystemId;
+  paidAt?: string;
+  paidBy?: SystemId;
+  createdAt?: string;
+  updatedAt?: string;
+  createdBy?: SystemId;
+  items?: PayrollItem[];
+};
+
+export type PayrollItem = {
+  systemId: SystemId;
+  payrollId: SystemId;
+  employeeId: SystemId;
+  employeeName: string;
+  employeeCode: string;
+  workDays: number;
+  otHours: number;
+  leaveDays: number;
+  baseSalary: number;
+  otPay: number;
+  allowances: number;
+  bonus: number;
+  grossSalary: number;
+  socialInsurance: number;
+  healthInsurance: number;
+  unemploymentIns: number;
+  tax: number;
+  otherDeductions: number;
+  totalDeductions: number;
+  netSalary: number;
+  notes?: string;
+};
+
+// ============================================
 // REPORTS - TABS
 // ============================================
 

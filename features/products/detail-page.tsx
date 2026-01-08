@@ -406,10 +406,10 @@ export function ProductDetailPage() {
   const { print: printLabel } = usePrint();
   const { info: storeInfo } = useStoreInfoData();
   const storeSettings = React.useMemo(() => ({
-    name: storeInfo.brandName || storeInfo.companyName,
-    address: storeInfo.headquartersAddress,
-    phone: storeInfo.hotline,
-    email: storeInfo.email,
+    name: storeInfo?.brandName || storeInfo?.companyName || '',
+    address: storeInfo?.headquartersAddress,
+    phone: storeInfo?.hotline,
+    email: storeInfo?.email,
   }), [storeInfo]);
 
   // Default selling policy for price lookup

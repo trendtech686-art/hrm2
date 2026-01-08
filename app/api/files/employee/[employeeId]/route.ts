@@ -5,11 +5,12 @@
  * Delete all files for a specific employee
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { prisma } from '@/lib/prisma';
 import { getUploadDir } from '@/lib/upload-utils';
+import { requireAuth, apiError, apiSuccess } from '@/lib/api-utils';
 
 const UPLOAD_DIR = getUploadDir();
 
@@ -21,6 +22,9 @@ export async function DELETE(
   request: NextRequest,
   { params }: Props
 ) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
+
   try {
     const { employeeId } = await params;
 
@@ -41,16 +45,12 @@ export async function DELETE(
       // Directory might not exist
     }
 
-    return NextResponse.json({
-      success: true,
+    return apiSuccess({
       message: `Đã xóa ${deletedFiles.count} file của nhân viên ${employeeId}`,
       deletedCount: deletedFiles.count,
     });
   } catch (error) {
     console.error('❌ Delete employee files error:', error);
-    return NextResponse.json(
-      { success: false, message: 'Lỗi khi xóa file nhân viên', error: error instanceof Error ? error.message : 'Unknown error' },
-      { status: 500 }
-    );
+    return apiError('Lỗi khi xóa file nhân viên', 500);
   }
 }

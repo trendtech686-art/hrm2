@@ -1,13 +1,99 @@
 /**
  * Hooks để quản lý SLA settings và Notification settings
- * Sử dụng database (user preferences) làm source of truth
+ * Sử dụng React Query với database làm source of truth
+ * 
+ * @see docs/LOCALSTORAGE-TO-DATABASE-MIGRATION.md
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useCallback } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/contexts/auth-context'
 
 const API_BASE = '/api/user-preferences'
-const SAVE_DEBOUNCE_DELAY = 1000
+
+// ============================================================================
+// Query Keys Factory
+// ============================================================================
+
+export const slaNotificationKeys = {
+  all: ['sla-notification-settings'] as const,
+  setting: (key: string, userId: string) => [...slaNotificationKeys.all, key, userId] as const,
+}
+
+// ============================================================================
+// Generic Settings Hook Factory (React Query)
+// ============================================================================
+
+function createUserPreferenceHook<T extends object>(
+  preferenceKey: string,
+  defaultValue: T
+) {
+  return function usePreference(): [T, (value: T) => void, boolean] {
+    const { user } = useAuth()
+    const queryClient = useQueryClient()
+    const queryKey = slaNotificationKeys.setting(preferenceKey, user?.systemId ?? '')
+
+    // Query for loading
+    const { data = defaultValue, isLoading } = useQuery({
+      queryKey,
+      queryFn: async (): Promise<T> => {
+        if (!user?.systemId) return defaultValue
+        const res = await fetch(
+          `${API_BASE}?userId=${user.systemId}&key=${encodeURIComponent(preferenceKey)}`
+        )
+        if (!res.ok) throw new Error('Failed to load settings')
+        const data = await res.json()
+        return data?.value ? { ...defaultValue, ...data.value } : defaultValue
+      },
+      enabled: !!user?.systemId,
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      gcTime: 30 * 60 * 1000, // 30 minutes
+    })
+
+    // Mutation for saving with optimistic updates
+    const mutation = useMutation({
+      mutationFn: async (newValue: T) => {
+        if (!user?.systemId) throw new Error('User not authenticated')
+        const res = await fetch(API_BASE, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: user.systemId,
+            key: preferenceKey,
+            value: newValue,
+            category: 'settings',
+          }),
+        })
+        if (!res.ok) throw new Error('Failed to save settings')
+        return newValue
+      },
+      onMutate: async (newValue) => {
+        await queryClient.cancelQueries({ queryKey })
+        const previous = queryClient.getQueryData<T>(queryKey)
+        queryClient.setQueryData<T>(queryKey, newValue)
+        return { previous }
+      },
+      onError: (_err, _newValue, context) => {
+        if (context?.previous) {
+          queryClient.setQueryData<T>(queryKey, context.previous)
+        }
+      },
+      onSettled: () => {
+        queryClient.invalidateQueries({ queryKey })
+      },
+    })
+
+    // Setter
+    const setValue = useCallback(
+      (newValue: T) => {
+        mutation.mutate(newValue)
+      },
+      [mutation]
+    )
+
+    return [data, setValue, isLoading]
+  }
+}
 
 // ==================== Warranty SLA Settings ====================
 
@@ -17,99 +103,16 @@ export interface WarrantySLATargets {
   return: number;      // minutes
 }
 
-const WARRANTY_SLA_SETTINGS_KEY = 'warranty-sla-targets'
-
 export const DEFAULT_WARRANTY_SLA_TARGETS: WarrantySLATargets = {
   response: 2 * 60,      // 2 hours
   processing: 24 * 60,   // 24 hours
   return: 48 * 60,       // 48 hours
 }
 
-/**
- * Hook để quản lý warranty SLA targets
- */
-export function useWarrantySLASettings(): [
-  WarrantySLATargets,
-  (targets: WarrantySLATargets) => void,
-  boolean
-] {
-  const { user } = useAuth()
-  const [targets, setTargetsState] = useState<WarrantySLATargets>(DEFAULT_WARRANTY_SLA_TARGETS)
-  const [isLoading, setIsLoading] = useState(true)
-  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const lastSavedRef = useRef<string>('')
-
-  useEffect(() => {
-    const loadTargets = async () => {
-      try {
-        if (user?.systemId) {
-          const res = await fetch(
-            `${API_BASE}?userId=${user.systemId}&key=${encodeURIComponent(WARRANTY_SLA_SETTINGS_KEY)}`
-          )
-          
-          if (res.ok) {
-            const data = await res.json()
-            if (data && data.value) {
-              setTargetsState({ ...DEFAULT_WARRANTY_SLA_TARGETS, ...data.value })
-              lastSavedRef.current = JSON.stringify(data.value)
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Error loading warranty SLA settings:', error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    loadTargets()
-  }, [user?.systemId])
-
-  useEffect(() => {
-    return () => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current)
-      }
-    }
-  }, [])
-
-  const setTargets = useCallback(
-    (newTargets: WarrantySLATargets) => {
-      setTargetsState(newTargets)
-
-      if (user?.systemId) {
-        const newValueStr = JSON.stringify(newTargets)
-        
-        if (newValueStr === lastSavedRef.current) {
-          return
-        }
-
-        if (saveTimeoutRef.current) {
-          clearTimeout(saveTimeoutRef.current)
-        }
-
-        saveTimeoutRef.current = setTimeout(() => {
-          lastSavedRef.current = newValueStr
-          fetch(API_BASE, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              userId: user.systemId,
-              key: WARRANTY_SLA_SETTINGS_KEY,
-              value: newTargets,
-              category: 'settings',
-            }),
-          }).catch(error => {
-            console.error('Error saving warranty SLA settings:', error)
-          })
-        }, SAVE_DEBOUNCE_DELAY)
-      }
-    },
-    [user?.systemId]
-  )
-
-  return [targets, setTargets, isLoading]
-}
+export const useWarrantySLASettings = createUserPreferenceHook<WarrantySLATargets>(
+  'warranty-sla-targets',
+  DEFAULT_WARRANTY_SLA_TARGETS
+)
 
 // ==================== Complaints SLA Settings ====================
 
@@ -120,8 +123,6 @@ export interface ComplaintsSLASettings {
   urgent: { responseTime: number; resolveTime: number };
 }
 
-const COMPLAINTS_SLA_SETTINGS_KEY = 'complaints-sla-settings'
-
 export const DEFAULT_COMPLAINTS_SLA_SETTINGS: ComplaintsSLASettings = {
   low: { responseTime: 240, resolveTime: 48 },
   medium: { responseTime: 120, resolveTime: 24 },
@@ -129,91 +130,10 @@ export const DEFAULT_COMPLAINTS_SLA_SETTINGS: ComplaintsSLASettings = {
   urgent: { responseTime: 30, resolveTime: 4 },
 }
 
-/**
- * Hook để quản lý complaints SLA settings
- */
-export function useComplaintsSLASettings(): [
-  ComplaintsSLASettings,
-  (settings: ComplaintsSLASettings) => void,
-  boolean
-] {
-  const { user } = useAuth()
-  const [settings, setSettingsState] = useState<ComplaintsSLASettings>(DEFAULT_COMPLAINTS_SLA_SETTINGS)
-  const [isLoading, setIsLoading] = useState(true)
-  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const lastSavedRef = useRef<string>('')
-
-  useEffect(() => {
-    const loadSettings = async () => {
-      try {
-        if (user?.systemId) {
-          const res = await fetch(
-            `${API_BASE}?userId=${user.systemId}&key=${encodeURIComponent(COMPLAINTS_SLA_SETTINGS_KEY)}`
-          )
-          
-          if (res.ok) {
-            const data = await res.json()
-            if (data && data.value) {
-              setSettingsState({ ...DEFAULT_COMPLAINTS_SLA_SETTINGS, ...data.value })
-              lastSavedRef.current = JSON.stringify(data.value)
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Error loading complaints SLA settings:', error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    loadSettings()
-  }, [user?.systemId])
-
-  useEffect(() => {
-    return () => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current)
-      }
-    }
-  }, [])
-
-  const setSettings = useCallback(
-    (newSettings: ComplaintsSLASettings) => {
-      setSettingsState(newSettings)
-
-      if (user?.systemId) {
-        const newValueStr = JSON.stringify(newSettings)
-        
-        if (newValueStr === lastSavedRef.current) {
-          return
-        }
-
-        if (saveTimeoutRef.current) {
-          clearTimeout(saveTimeoutRef.current)
-        }
-
-        saveTimeoutRef.current = setTimeout(() => {
-          lastSavedRef.current = newValueStr
-          fetch(API_BASE, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              userId: user.systemId,
-              key: COMPLAINTS_SLA_SETTINGS_KEY,
-              value: newSettings,
-              category: 'settings',
-            }),
-          }).catch(error => {
-            console.error('Error saving complaints SLA settings:', error)
-          })
-        }, SAVE_DEBOUNCE_DELAY)
-      }
-    },
-    [user?.systemId]
-  )
-
-  return [settings, setSettings, isLoading]
-}
+export const useComplaintsSLASettings = createUserPreferenceHook<ComplaintsSLASettings>(
+  'complaints-sla-settings',
+  DEFAULT_COMPLAINTS_SLA_SETTINGS
+)
 
 // ==================== Warranty Notification Settings ====================
 
@@ -229,8 +149,6 @@ export interface WarrantyNotificationSettings {
   reminderNotifications: boolean;
 }
 
-const WARRANTY_NOTIFICATION_SETTINGS_KEY = 'warranty-notification-settings'
-
 export const DEFAULT_WARRANTY_NOTIFICATION_SETTINGS: WarrantyNotificationSettings = {
   emailOnCreate: true,
   emailOnAssign: true,
@@ -243,91 +161,10 @@ export const DEFAULT_WARRANTY_NOTIFICATION_SETTINGS: WarrantyNotificationSetting
   reminderNotifications: true,
 }
 
-/**
- * Hook để quản lý warranty notification settings
- */
-export function useWarrantyNotificationSettings(): [
-  WarrantyNotificationSettings,
-  (settings: WarrantyNotificationSettings) => void,
-  boolean
-] {
-  const { user } = useAuth()
-  const [settings, setSettingsState] = useState<WarrantyNotificationSettings>(DEFAULT_WARRANTY_NOTIFICATION_SETTINGS)
-  const [isLoading, setIsLoading] = useState(true)
-  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const lastSavedRef = useRef<string>('')
-
-  useEffect(() => {
-    const loadSettings = async () => {
-      try {
-        if (user?.systemId) {
-          const res = await fetch(
-            `${API_BASE}?userId=${user.systemId}&key=${encodeURIComponent(WARRANTY_NOTIFICATION_SETTINGS_KEY)}`
-          )
-          
-          if (res.ok) {
-            const data = await res.json()
-            if (data && data.value) {
-              setSettingsState({ ...DEFAULT_WARRANTY_NOTIFICATION_SETTINGS, ...data.value })
-              lastSavedRef.current = JSON.stringify(data.value)
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Error loading warranty notification settings:', error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    loadSettings()
-  }, [user?.systemId])
-
-  useEffect(() => {
-    return () => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current)
-      }
-    }
-  }, [])
-
-  const setSettings = useCallback(
-    (newSettings: WarrantyNotificationSettings) => {
-      setSettingsState(newSettings)
-
-      if (user?.systemId) {
-        const newValueStr = JSON.stringify(newSettings)
-        
-        if (newValueStr === lastSavedRef.current) {
-          return
-        }
-
-        if (saveTimeoutRef.current) {
-          clearTimeout(saveTimeoutRef.current)
-        }
-
-        saveTimeoutRef.current = setTimeout(() => {
-          lastSavedRef.current = newValueStr
-          fetch(API_BASE, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              userId: user.systemId,
-              key: WARRANTY_NOTIFICATION_SETTINGS_KEY,
-              value: newSettings,
-              category: 'settings',
-            }),
-          }).catch(error => {
-            console.error('Error saving warranty notification settings:', error)
-          })
-        }, SAVE_DEBOUNCE_DELAY)
-      }
-    },
-    [user?.systemId]
-  )
-
-  return [settings, setSettings, isLoading]
-}
+export const useWarrantyNotificationSettings = createUserPreferenceHook<WarrantyNotificationSettings>(
+  'warranty-notification-settings',
+  DEFAULT_WARRANTY_NOTIFICATION_SETTINGS
+)
 
 // ==================== Complaints Notification Settings ====================
 
@@ -341,8 +178,6 @@ export interface ComplaintsNotificationSettings {
   inAppNotifications: boolean;
 }
 
-const COMPLAINTS_NOTIFICATION_SETTINGS_KEY = 'complaints-notification-settings'
-
 export const DEFAULT_COMPLAINTS_NOTIFICATION_SETTINGS: ComplaintsNotificationSettings = {
   emailOnCreate: true,
   emailOnAssign: true,
@@ -353,88 +188,7 @@ export const DEFAULT_COMPLAINTS_NOTIFICATION_SETTINGS: ComplaintsNotificationSet
   inAppNotifications: true,
 }
 
-/**
- * Hook để quản lý complaints notification settings
- */
-export function useComplaintsNotificationSettings(): [
-  ComplaintsNotificationSettings,
-  (settings: ComplaintsNotificationSettings) => void,
-  boolean
-] {
-  const { user } = useAuth()
-  const [settings, setSettingsState] = useState<ComplaintsNotificationSettings>(DEFAULT_COMPLAINTS_NOTIFICATION_SETTINGS)
-  const [isLoading, setIsLoading] = useState(true)
-  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const lastSavedRef = useRef<string>('')
-
-  useEffect(() => {
-    const loadSettings = async () => {
-      try {
-        if (user?.systemId) {
-          const res = await fetch(
-            `${API_BASE}?userId=${user.systemId}&key=${encodeURIComponent(COMPLAINTS_NOTIFICATION_SETTINGS_KEY)}`
-          )
-          
-          if (res.ok) {
-            const data = await res.json()
-            if (data && data.value) {
-              setSettingsState({ ...DEFAULT_COMPLAINTS_NOTIFICATION_SETTINGS, ...data.value })
-              lastSavedRef.current = JSON.stringify(data.value)
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Error loading complaints notification settings:', error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    loadSettings()
-  }, [user?.systemId])
-
-  useEffect(() => {
-    return () => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current)
-      }
-    }
-  }, [])
-
-  const setSettings = useCallback(
-    (newSettings: ComplaintsNotificationSettings) => {
-      setSettingsState(newSettings)
-
-      if (user?.systemId) {
-        const newValueStr = JSON.stringify(newSettings)
-        
-        if (newValueStr === lastSavedRef.current) {
-          return
-        }
-
-        if (saveTimeoutRef.current) {
-          clearTimeout(saveTimeoutRef.current)
-        }
-
-        saveTimeoutRef.current = setTimeout(() => {
-          lastSavedRef.current = newValueStr
-          fetch(API_BASE, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              userId: user.systemId,
-              key: COMPLAINTS_NOTIFICATION_SETTINGS_KEY,
-              value: newSettings,
-              category: 'settings',
-            }),
-          }).catch(error => {
-            console.error('Error saving complaints notification settings:', error)
-          })
-        }, SAVE_DEBOUNCE_DELAY)
-      }
-    },
-    [user?.systemId]
-  )
-
-  return [settings, setSettings, isLoading]
-}
+export const useComplaintsNotificationSettings = createUserPreferenceHook<ComplaintsNotificationSettings>(
+  'complaints-notification-settings',
+  DEFAULT_COMPLAINTS_NOTIFICATION_SETTINGS
+)

@@ -1,3 +1,13 @@
+/**
+ * @deprecated Use React Query hooks instead:
+ * - `useInventoryReceipts()` for list
+ * - `useInventoryReceipt(id)` for single
+ * - `useInventoryReceiptMutations()` for create/update/delete
+ * 
+ * Import from: `@/features/inventory-receipts/hooks/use-inventory-receipts`
+ * 
+ * This store will be removed in a future version.
+ */
 import { createCrudStore, CrudState } from '../../lib/store-factory';
 import type { InventoryReceipt, InventoryReceiptLineItem } from '@/lib/types/prisma-extended';
 import type { SystemId, BusinessId } from '../../lib/id-types';

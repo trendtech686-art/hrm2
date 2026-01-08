@@ -1,17 +1,19 @@
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { Prisma, CustomerStatus } from '@/generated/prisma/client'
+import { Prisma, CustomerStatus, CustomerLifecycle } from '@/generated/prisma/client'
+import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
+import { createCustomerSchema } from './validation'
 
 // GET /api/customers - List all customers
 export async function GET(request: Request) {
   try {
+    // Auth check
+    const session = await requireAuth()
+    if (!session) return apiError('Unauthorized', 401)
+
     const { searchParams } = new URL(request.url)
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '20')
+    const { page, limit, skip } = parsePagination(searchParams)
     const search = searchParams.get('search') || ''
     const status = searchParams.get('status')
-
-    const skip = (page - 1) * limit
 
     const where: Prisma.CustomerWhereInput = {
       isDeleted: false,
@@ -41,28 +43,25 @@ export async function GET(request: Request) {
       prisma.customer.count({ where }),
     ])
 
-    return NextResponse.json({
-      data: customers,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
-    })
+    return apiPaginated(customers, { page, limit, total })
   } catch (error) {
     console.error('Error fetching customers:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch customers' },
-      { status: 500 }
-    )
+    return apiError('Failed to fetch customers', 500)
   }
 }
 
 // POST /api/customers - Create new customer
 export async function POST(request: Request) {
   try {
-    const body = await request.json()
+    // Auth check
+    const session = await requireAuth()
+    if (!session) return apiError('Unauthorized', 401)
+
+    // Validate body
+    const result = await validateBody(request, createCustomerSchema)
+    if (!result.success) return apiError(result.error, 400)
+    
+    const body = result.data
 
     // Generate business ID if not provided
     if (!body.id) {
@@ -89,26 +88,20 @@ export async function POST(request: Request) {
         representative: body.representative || body.contactPerson,
         addresses: body.addresses,
         maxDebt: body.maxDebt || body.creditLimit,
-        lifecycleStage: body.lifecycleStage || body.customerType,
+        lifecycleStage: (body.lifecycleStage || body.customerType) as CustomerLifecycle | undefined,
         notes: body.notes,
-        createdBy: body.createdBy,
+        createdBy: session.user.id,
       },
     })
 
-    return NextResponse.json(customer, { status: 201 })
+    return apiSuccess(customer, 201)
   } catch (error) {
     console.error('Error creating customer:', error)
     
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-      return NextResponse.json(
-        { error: 'Customer ID already exists' },
-        { status: 400 }
-      )
+      return apiError('Customer ID already exists', 400)
     }
 
-    return NextResponse.json(
-      { error: 'Failed to create customer' },
-      { status: 500 }
-    )
+    return apiError('Failed to create customer', 500)
   }
 }

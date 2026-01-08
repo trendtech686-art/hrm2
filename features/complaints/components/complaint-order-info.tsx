@@ -10,20 +10,21 @@ import { formatDateForDisplay } from '@/lib/date-utils';
 
 interface Props {
   complaint: Complaint;
-  relatedOrder: { 
+  relatedOrder?: { 
     shippingAddress?: unknown; 
     packagings?: Array<{ systemId: string; trackingCode?: string; requestDate?: Date | string }>; 
     salesperson?: string; 
     orderDate?: Date | string; 
     grandTotal?: number;
     expectedDeliveryDate?: Date | string;
-  } | null;
+  };
   employees: Array<{ systemId: string; fullName: string }>;
 }
 
 export const ComplaintOrderInfo: React.FC<Props> = React.memo(({ complaint, relatedOrder, employees }) => {
   const router = useRouter();
-  const displayedShippingAddress = formatOrderAddress(relatedOrder?.shippingAddress) || "Chưa có";
+  const displayedShippingAddress = formatOrderAddress(relatedOrder?.shippingAddress as Parameters<typeof formatOrderAddress>[0]) || "Chưa có";
+  const firstPackaging = relatedOrder?.packagings?.[0];
 
   return (
     <Card>
@@ -43,12 +44,12 @@ export const ComplaintOrderInfo: React.FC<Props> = React.memo(({ complaint, rela
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">Mã vận đơn:</span>
-            {relatedOrder?.packagings?.[0]?.trackingCode ? (
+            {firstPackaging?.trackingCode ? (
               <button
-                onClick={() => router.push(`/shipments/${relatedOrder.packagings[0].systemId}`)}
+                onClick={() => router.push(`/shipments/${firstPackaging.systemId}`)}
                 className="font-medium text-primary hover:underline"
               >
-                {relatedOrder.packagings[0].trackingCode}
+                {firstPackaging.trackingCode}
               </button>
             ) : (
               <span className="font-medium">Chưa có</span>

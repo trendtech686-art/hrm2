@@ -2,7 +2,7 @@
  * Zod validation schemas for receipts module
  */
 import { z } from 'zod';
-import type { SystemId, BusinessId } from '@/lib/id-types';
+import { systemIdSchema, businessIdSchema } from '@/lib/id-types';
 
 // Status enum
 export const receiptStatusSchema = z.enum([
@@ -25,23 +25,23 @@ export const receiptCategorySchema = z.enum([
 export const createReceiptSchema = z.object({
   date: z.string().min(1, 'Ngày thu không được để trống'),
   amount: z.number().min(0, 'Số tiền phải >= 0'),
-  payerTypeSystemId: z.string() as z.ZodType<SystemId>,
+  payerTypeSystemId: systemIdSchema,
   payerTypeName: z.string().optional(),
   payerName: z.string().min(1, 'Tên người nộp không được để trống'),
-  payerSystemId: z.string().optional() as z.ZodType<SystemId | undefined>,
+  payerSystemId: systemIdSchema.optional(),
   description: z.string().optional(),
-  paymentMethodSystemId: z.string() as z.ZodType<SystemId>,
+  paymentMethodSystemId: systemIdSchema,
   paymentMethodName: z.string().optional(),
-  accountSystemId: z.string() as z.ZodType<SystemId>,
-  receiptTypeSystemId: z.string().optional() as z.ZodType<SystemId | undefined>,
+  accountSystemId: systemIdSchema,
+  receiptTypeSystemId: systemIdSchema.optional(),
   receiptTypeName: z.string().optional(),
-  branchSystemId: z.string().min(1, 'Vui lòng chọn chi nhánh') as z.ZodType<SystemId>,
+  branchSystemId: systemIdSchema.refine(v => v.length >= 1, 'Vui lòng chọn chi nhánh'),
   branchName: z.string().optional(),
   status: receiptStatusSchema.default('completed'),
   category: receiptCategorySchema,
   affectsDebt: z.boolean().default(true),
-  orderSystemId: z.string().optional() as z.ZodType<SystemId | undefined>,
-  orderId: z.string().optional() as z.ZodType<BusinessId | undefined>,
+  orderSystemId: systemIdSchema.optional(),
+  orderId: businessIdSchema.optional(),
   originalDocumentId: z.string().optional(),
 });
 

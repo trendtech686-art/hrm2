@@ -2,7 +2,7 @@
  * Zod validation schemas for stock-transfers module
  */
 import { z } from 'zod';
-import type { SystemId, BusinessId } from '@/lib/id-types';
+import { systemIdSchema, businessIdSchema } from '@/lib/id-types';
 
 // Status enum
 export const stockTransferStatusSchema = z.enum([
@@ -15,8 +15,8 @@ export const stockTransferStatusSchema = z.enum([
 
 // Item schema
 export const stockTransferItemSchema = z.object({
-  productSystemId: z.string() as z.ZodType<SystemId>,
-  productId: z.string().optional() as z.ZodType<BusinessId | undefined>,
+  productSystemId: systemIdSchema,
+  productId: businessIdSchema.optional(),
   productName: z.string().min(1, 'Tên sản phẩm không được để trống'),
   quantity: z.number().int().min(1, 'Số lượng phải >= 1'),
   unitPrice: z.number().min(0).optional(),
@@ -25,9 +25,9 @@ export const stockTransferItemSchema = z.object({
 
 // Create schema
 export const createStockTransferSchema = z.object({
-  fromBranchSystemId: z.string().min(1, 'Vui lòng chọn chi nhánh xuất') as z.ZodType<SystemId>,
+  fromBranchSystemId: systemIdSchema.refine(v => v.length >= 1, 'Vui lòng chọn chi nhánh xuất'),
   fromBranchName: z.string().optional(),
-  toBranchSystemId: z.string().min(1, 'Vui lòng chọn chi nhánh nhận') as z.ZodType<SystemId>,
+  toBranchSystemId: systemIdSchema.refine(v => v.length >= 1, 'Vui lòng chọn chi nhánh nhận'),
   toBranchName: z.string().optional(),
   transferDate: z.string().min(1, 'Ngày chuyển không được để trống'),
   notes: z.string().optional(),

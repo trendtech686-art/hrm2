@@ -1,3 +1,13 @@
+/**
+ * @deprecated Use React Query hooks instead:
+ * - `usePurchaseReturns()` for list
+ * - `usePurchaseReturn(id)` for single
+ * - `usePurchaseReturnMutations()` for create/update/delete
+ * 
+ * Import from: `@/features/purchase-returns/hooks/use-purchase-returns`
+ * 
+ * This store will be removed in a future version.
+ */
 import { formatDateCustom, getCurrentDate } from '../../lib/date-utils';
 import { createCrudStore, type CrudState } from '../../lib/store-factory';
 import type { PurchaseReturn } from '@/lib/types/prisma-extended';

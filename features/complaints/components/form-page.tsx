@@ -162,7 +162,7 @@ export function ComplaintFormPage() {
       const productType = findProductTypeById(product.productTypeSystemId);
       if (productType?.name) return productType.name;
     }
-    return productTypeFallbackLabels[product.type] || 'Hàng hóa';
+    return (product.type && productTypeFallbackLabels[product.type]) || 'Hàng hóa';
   }, [findProductTypeById]);
   
   const isEditing = !!systemId;

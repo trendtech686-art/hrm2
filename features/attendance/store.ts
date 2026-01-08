@@ -1,3 +1,12 @@
+/**
+ * @deprecated Use React Query hooks instead:
+ * - `useAttendance()` for list
+ * - `useAttendanceMutations()` for create/update/delete
+ * 
+ * Import from: `@/features/attendance/hooks/use-attendance`
+ * 
+ * This store will be removed in a future version.
+ */
 import { create } from 'zustand';
 import type { AttendanceDataRow, AttendanceDayKey, DailyRecord } from './types';
 import type { SystemId } from '../../lib/id-types';

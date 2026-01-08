@@ -1,3 +1,14 @@
+/**
+ * @deprecated Use React Query hooks instead:
+ * - `useProvinces()` for provinces
+ * - `useDistricts()` for districts
+ * - `useWards()` for wards
+ * 
+ * Import from: `@/features/settings/provinces/hooks/use-provinces`
+ * or `@/features/settings/provinces/hooks/use-administrative-units`
+ * 
+ * This store will be removed in a future version.
+ */
 import { create } from 'zustand';
 import { type SystemId, type BusinessId } from '@/lib/id-types';
 import { createCrudStore } from '../../../lib/store-factory';

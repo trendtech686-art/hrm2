@@ -5,30 +5,28 @@
 // Called when user saves the form (e.g., creating/updating employee)
 // ═══════════════════════════════════════════════════════════════
 
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
+import { confirmFilesSchema } from './validation'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-interface ConfirmRequest {
-  fileIds?: string[]        // Specific file IDs to confirm
-  sessionId?: string        // Confirm all files with this sessionId
-  entityType?: string       // Update entityType when confirming
-  entityId?: string         // Update entityId when confirming
-}
-
 // POST /api/upload/confirm - Confirm staging files
 export async function POST(request: NextRequest) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
+  const validation = await validateBody(request, confirmFilesSchema)
+  if (!validation.success) {
+    return apiError(validation.error, 400)
+  }
+  const { fileIds, sessionId, entityType, entityId } = validation.data
+
   try {
-    const body: ConfirmRequest = await request.json()
-    const { fileIds, sessionId, entityType, entityId } = body
-    
     if (!fileIds?.length && !sessionId) {
-      return NextResponse.json(
-        { success: false, message: 'Cần cung cấp fileIds hoặc sessionId' },
-        { status: 400 }
-      )
+      return apiError('Cần cung cấp fileIds hoặc sessionId', 400)
     }
     
     // Build where clause
@@ -72,37 +70,34 @@ export async function POST(request: NextRequest) {
           : {},
     })
     
-    return NextResponse.json({
-      success: true,
+    return apiSuccess({
       message: `Đã xác nhận ${result.count} file`,
-      data: {
-        confirmedCount: result.count,
-        files: confirmedFiles.map(f => ({
-          id: f.systemId,
-          fileName: f.filename,
-          originalName: f.originalName,
-          mimeType: f.mimetype,
-          fileSize: f.filesize,
-          url: `/uploads/${f.filepath}`,
-          entityType: f.entityType,
-          entityId: f.entityId,
-          status: f.status,
-        })),
-      },
+      confirmedCount: result.count,
+      files: confirmedFiles.map(f => ({
+        id: f.systemId,
+        fileName: f.filename,
+        originalName: f.originalName,
+        mimeType: f.mimetype,
+        fileSize: f.filesize,
+        url: `/uploads/${f.filepath}`,
+        entityType: f.entityType,
+        entityId: f.entityId,
+        status: f.status,
+      })),
     })
     
   } catch (error) {
     console.error('Confirm staging files error:', error)
-    return NextResponse.json(
-      { success: false, message: 'Lỗi khi xác nhận file' },
-      { status: 500 }
-    )
+    return apiError('Lỗi khi xác nhận file', 500)
   }
 }
 
 // DELETE /api/upload/confirm - Cancel/delete staging files
 // Called when user cancels the form
 export async function DELETE(request: NextRequest) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { searchParams } = new URL(request.url)
     const sessionId = searchParams.get('sessionId')
@@ -110,10 +105,7 @@ export async function DELETE(request: NextRequest) {
     const fileIds = fileIdsParam ? fileIdsParam.split(',') : []
     
     if (!fileIds.length && !sessionId) {
-      return NextResponse.json(
-        { success: false, message: 'Cần cung cấp fileIds hoặc sessionId' },
-        { status: 400 }
-      )
+      return apiError('Cần cung cấp fileIds hoặc sessionId', 400)
     }
     
     // Build where clause - only delete staging files
@@ -138,20 +130,14 @@ export async function DELETE(request: NextRequest) {
     // TODO: Also delete files from disk
     // For now, the cleanup job will handle orphan files
     
-    return NextResponse.json({
-      success: true,
+    return apiSuccess({
       message: `Đã xóa ${result.count} file staging`,
-      data: {
-        deletedCount: result.count,
-        deletedFiles: filesToDelete.map(f => f.systemId),
-      },
+      deletedCount: result.count,
+      deletedFiles: filesToDelete.map(f => f.systemId),
     })
     
   } catch (error) {
     console.error('Cancel staging files error:', error)
-    return NextResponse.json(
-      { success: false, message: 'Lỗi khi xóa file staging' },
-      { status: 500 }
-    )
+    return apiError('Lỗi khi xóa file staging', 500)
   }
 }

@@ -17,7 +17,7 @@ interface UseCategoryMappingValidationOptions {
     parentId?: SystemId;
     status?: string;
     isActive?: boolean;
-    path?: string;
+    path?: string | null;
   }>;
   pkgxCategories: PkgxCategory[];
   editingMappingId?: string;

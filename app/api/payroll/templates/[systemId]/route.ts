@@ -1,7 +1,8 @@
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import type { NextRequest } from 'next/server'
 import type { Prisma } from '@/generated/prisma/client'
+import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
+import { updatePayrollTemplateSchema } from '../validation'
 
 const SETTING_KEY = 'payroll-templates'
 const SETTING_GROUP = 'hrm'
@@ -15,6 +16,9 @@ type RouteParams = { params: Promise<{ systemId: string }> }
 
 // GET /api/payroll/templates/[systemId]
 export async function GET(request: NextRequest, { params }: RouteParams) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { systemId } = await params
 
@@ -29,27 +33,29 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const template = templates.find((t) => t.systemId === systemId)
 
     if (!template) {
-      return NextResponse.json(
-        { error: 'Template not found' },
-        { status: 404 }
-      )
+      return apiError('Template not found', 404)
     }
 
-    return NextResponse.json({ data: template })
+    return apiSuccess({ data: template })
   } catch (error) {
     console.error('Error fetching payroll template:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch payroll template' },
-      { status: 500 }
-    )
+    return apiError('Failed to fetch payroll template', 500)
   }
 }
 
 // PATCH /api/payroll/templates/[systemId]
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
+  const validation = await validateBody(request, updatePayrollTemplateSchema)
+  if (!validation.success) {
+    return apiError(validation.error, 400)
+  }
+  const body = validation.data
+
   try {
     const { systemId } = await params
-    const body = await request.json()
 
     const setting = await prisma.setting.findFirst({
       where: {
@@ -62,10 +68,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const existingIndex = templates.findIndex((t) => t.systemId === systemId)
     
     if (existingIndex < 0) {
-      return NextResponse.json(
-        { error: 'Template not found' },
-        { status: 404 }
-      )
+      return apiError('Template not found', 404)
     }
 
     templates[existingIndex] = { ...templates[existingIndex], ...body }
@@ -83,18 +86,18 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       },
     })
 
-    return NextResponse.json({ data: templates[existingIndex] })
+    return apiSuccess({ data: templates[existingIndex] })
   } catch (error) {
     console.error('Error updating payroll template:', error)
-    return NextResponse.json(
-      { error: 'Failed to update payroll template' },
-      { status: 500 }
-    )
+    return apiError('Failed to update payroll template', 500)
   }
 }
 
 // DELETE /api/payroll/templates/[systemId]
-export async function DELETE(request: NextRequest, { params }: RouteParams) {
+export async function DELETE(_request: Request, { params }: RouteParams) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { systemId } = await params
 
@@ -121,12 +124,9 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       },
     })
 
-    return NextResponse.json({ success: true })
+    return apiSuccess({ success: true })
   } catch (error) {
     console.error('Error deleting payroll template:', error)
-    return NextResponse.json(
-      { error: 'Failed to delete payroll template' },
-      { status: 500 }
-    )
+    return apiError('Failed to delete payroll template', 500)
   }
 }

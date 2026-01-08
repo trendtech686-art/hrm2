@@ -1,23 +1,8 @@
-import type { SystemId } from '@/lib/id-types';
+/**
+ * Re-export StockAlertReportRow type from centralized prisma-extended.ts
+ * This file exists for backwards compatibility during migration
+ */
+export { type StockAlertReportRow } from '@/lib/types/prisma-extended';
 
-export type StockAlertReportRow = {
-    systemId: string;
-    productSystemId: SystemId;
-    productName: string;
-    sku: string;
-    alertType: 'out_of_stock' | 'low_stock' | 'below_safety' | 'over_stock';
-    alertLabel: string;
-    severity: 'critical' | 'warning' | 'info';
-    totalOnHand: number;
-    totalAvailable: number;
-    reorderLevel: number | null;
-    safetyStock: number | null;
-    maxStock: number | null;
-    suggestedOrder: number;
-    costPrice: number;
-    unit: string;
-    primarySupplierName?: string;
-    lastPurchaseDate?: string;
-};
-
+// Local UI-specific type (not in prisma-extended)
 export type StockAlertFilter = 'all' | 'out_of_stock' | 'low_stock' | 'below_safety' | 'over_stock';

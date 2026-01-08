@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
 import bcrypt from 'bcryptjs'
+import { updateUserSchema } from './validation'
 
 interface RouteParams {
   params: Promise<{ systemId: string }>
@@ -8,6 +9,9 @@ interface RouteParams {
 
 // GET /api/users/[systemId]
 export async function GET(_request: Request, { params }: RouteParams) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { systemId } = await params
 
@@ -32,27 +36,29 @@ export async function GET(_request: Request, { params }: RouteParams) {
     })
 
     if (!user) {
-      return NextResponse.json(
-        { error: 'User không tồn tại' },
-        { status: 404 }
-      )
+      return apiError('User không tồn tại', 404)
     }
 
-    return NextResponse.json(user)
+    return apiSuccess(user)
   } catch (error) {
     console.error('Error fetching user:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch user' },
-      { status: 500 }
-    )
+    return apiError('Failed to fetch user', 500)
   }
 }
 
 // PUT /api/users/[systemId]
 export async function PUT(request: Request, { params }: RouteParams) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
+  const validation = await validateBody(request, updateUserSchema)
+  if (!validation.success) {
+    return apiError(validation.error, 400)
+  }
+  const body = validation.data
+
   try {
     const { systemId } = await params
-    const body = await request.json()
 
     const updateData: Parameters<typeof prisma.user.update>[0]['data'] = {
       email: body.email,
@@ -79,24 +85,21 @@ export async function PUT(request: Request, { params }: RouteParams) {
       },
     })
 
-    return NextResponse.json(user)
+    return apiSuccess(user)
   } catch (error) {
     if (error instanceof Error && 'code' in error && error.code === 'P2025') {
-      return NextResponse.json(
-        { error: 'User không tồn tại' },
-        { status: 404 }
-      )
+      return apiError('User không tồn tại', 404)
     }
     console.error('Error updating user:', error)
-    return NextResponse.json(
-      { error: 'Failed to update user' },
-      { status: 500 }
-    )
+    return apiError('Failed to update user', 500)
   }
 }
 
 // DELETE /api/users/[systemId]
 export async function DELETE(_request: Request, { params }: RouteParams) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { systemId } = await params
 
@@ -104,18 +107,12 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
       where: { systemId },
     })
 
-    return NextResponse.json({ success: true })
+    return apiSuccess({ success: true })
   } catch (error) {
     if (error instanceof Error && 'code' in error && error.code === 'P2025') {
-      return NextResponse.json(
-        { error: 'User không tồn tại' },
-        { status: 404 }
-      )
+      return apiError('User không tồn tại', 404)
     }
     console.error('Error deleting user:', error)
-    return NextResponse.json(
-      { error: 'Failed to delete user' },
-      { status: 500 }
-    )
+    return apiError('Failed to delete user', 500)
   }
 }

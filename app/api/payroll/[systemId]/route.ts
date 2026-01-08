@@ -1,5 +1,7 @@
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { PayrollStatus } from '@/generated/prisma/client'
+import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
+import { updatePayrollSchema } from './validation'
 
 interface RouteParams {
   params: Promise<{ systemId: string }>
@@ -7,6 +9,9 @@ interface RouteParams {
 
 // GET /api/payroll/[systemId]
 export async function GET(_request: Request, { params }: RouteParams) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { systemId } = await params
 
@@ -28,27 +33,29 @@ export async function GET(_request: Request, { params }: RouteParams) {
     })
 
     if (!payroll) {
-      return NextResponse.json(
-        { error: 'Bảng lương không tồn tại' },
-        { status: 404 }
-      )
+      return apiError('Bảng lương không tồn tại', 404)
     }
 
-    return NextResponse.json(payroll)
+    return apiSuccess(payroll)
   } catch (error) {
     console.error('Error fetching payroll:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch payroll' },
-      { status: 500 }
-    )
+    return apiError('Failed to fetch payroll', 500)
   }
 }
 
 // PUT /api/payroll/[systemId]
 export async function PUT(request: Request, { params }: RouteParams) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
+  const validation = await validateBody(request, updatePayrollSchema)
+  if (!validation.success) {
+    return apiError(validation.error, 400)
+  }
+  const body = validation.data
+
   try {
     const { systemId } = await params
-    const body = await request.json()
 
     // Delete existing items if new items provided
     if (body.items) {
@@ -60,16 +67,17 @@ export async function PUT(request: Request, { params }: RouteParams) {
     const payroll = await prisma.payroll.update({
       where: { systemId },
       data: {
-        status: body.status,
+        status: body.status?.toUpperCase() as PayrollStatus | undefined,
         paidAt: body.paidAt ? new Date(body.paidAt) : undefined,
         items: body.items ? {
-          create: body.items.map((item: { employeeId: string; employeeName?: string; employeeCode?: string; baseSalary?: number; netSalary?: number; notes?: string }) => ({
-            employeeId: item.employeeId,
+          create: body.items.map((item: { employeeId: string; employeeName?: string; employeeCode?: string; baseSalary?: number; netSalary?: number; notes?: string | null }) => ({
+            systemId: `PI${String(Date.now()).slice(-6).padStart(6, '0')}${Math.random().toString(36).slice(2, 5)}`,
+            employee: { connect: { systemId: item.employeeId } },
             employeeName: item.employeeName || '',
             employeeCode: item.employeeCode || '',
             baseSalary: item.baseSalary || 0,
             netSalary: item.netSalary || 0,
-            notes: item.notes,
+            notes: item.notes ?? '',
           })),
         } : undefined,
       },
@@ -80,24 +88,21 @@ export async function PUT(request: Request, { params }: RouteParams) {
       },
     })
 
-    return NextResponse.json(payroll)
+    return apiSuccess(payroll)
   } catch (error) {
     if (error instanceof Error && 'code' in error && error.code === 'P2025') {
-      return NextResponse.json(
-        { error: 'Bảng lương không tồn tại' },
-        { status: 404 }
-      )
+      return apiError('Bảng lương không tồn tại', 404)
     }
     console.error('Error updating payroll:', error)
-    return NextResponse.json(
-      { error: 'Failed to update payroll' },
-      { status: 500 }
-    )
+    return apiError('Failed to update payroll', 500)
   }
 }
 
 // DELETE /api/payroll/[systemId]
 export async function DELETE(_request: Request, { params }: RouteParams) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { systemId } = await params
 
@@ -110,18 +115,12 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
       where: { systemId },
     })
 
-    return NextResponse.json({ success: true })
+    return apiSuccess({ success: true })
   } catch (error) {
     if (error instanceof Error && 'code' in error && error.code === 'P2025') {
-      return NextResponse.json(
-        { error: 'Bảng lương không tồn tại' },
-        { status: 404 }
-      )
+      return apiError('Bảng lương không tồn tại', 404)
     }
     console.error('Error deleting payroll:', error)
-    return NextResponse.json(
-      { error: 'Failed to delete payroll' },
-      { status: 500 }
-    )
+    return apiError('Failed to delete payroll', 500)
   }
 }

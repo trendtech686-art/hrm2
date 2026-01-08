@@ -1,12 +1,15 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils';
 
 interface RouteParams {
   params: Promise<{ systemId: string; packagingId: string }>;
 }
 
 // POST /api/orders/[systemId]/packaging/[packagingId]/fail-delivery - Mark delivery as failed
-export async function POST(request: NextRequest, { params }: RouteParams) {
+export async function POST(request: Request, { params }: RouteParams) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
+
   try {
     const { systemId, packagingId } = await params;
     const body = await request.json();
@@ -19,11 +22,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     });
 
     if (!packaging) {
-      return NextResponse.json({ error: 'Packaging not found' }, { status: 404 });
+      return apiNotFound('Packaging');
     }
 
     if (packaging.orderId !== systemId) {
-      return NextResponse.json({ error: 'Packaging does not belong to this order' }, { status: 400 });
+      return apiError('Packaging does not belong to this order', 400);
     }
 
     // Transaction: mark delivery as failed
@@ -59,9 +62,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return updated;
     });
 
-    return NextResponse.json(updatedOrder);
+    return apiSuccess(updatedOrder);
   } catch (error) {
     console.error('Error marking delivery as failed:', error);
-    return NextResponse.json({ error: 'Failed to update delivery status' }, { status: 500 });
+    return apiError('Failed to update delivery status', 500);
   }
 }

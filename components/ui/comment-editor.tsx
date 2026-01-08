@@ -296,7 +296,7 @@ export function CommentEditor({
       )}
       
       {/* Toolbar - Compact */}
-      <div className="flex items-center gap-0.5 p-1.5 border-b bg-muted/30">
+      <div className="flex items-center gap-0.5 p-1.5 border-b border-border bg-muted/30">
         <Button
           type="button"
           variant="ghost"

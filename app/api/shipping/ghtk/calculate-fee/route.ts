@@ -5,21 +5,30 @@
  * Proxy to calculate GHTK shipping fee
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils';
+import { calculateFeeSchema } from './validation';
 
 const GHTK_API_BASE = 'https://services.giaohangtietkiem.vn';
 
 export async function POST(request: NextRequest) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
+
+  const validation = await validateBody(request, calculateFeeSchema);
+  if (!validation.success) {
+    return apiError(validation.error, 400);
+  }
+
   const startTime = Date.now();
   const requestId = Math.random().toString(36).substring(2, 11);
 
   try {
-    const body = await request.json();
-    const { apiToken, partnerCode, tags, subTags, ...params } = body;
+    const { apiToken, partnerCode, tags, subTags, ...params } = validation.data;
 
 
     if (!apiToken) {
-      return NextResponse.json({ error: 'API Token is required' }, { status: 400 });
+      return apiError('API Token is required', 400);
     }
 
     // ✅ Weight should already be in GRAMS from frontend
@@ -27,11 +36,7 @@ export async function POST(request: NextRequest) {
     if (params.weight !== undefined) {
       
       if (params.weight > 30000) {
-        return NextResponse.json({ 
-          error: 'Weight exceeds maximum limit',
-          maxWeight: '30kg (30000 grams)',
-          receivedWeight: `${params.weight}g`
-        }, { status: 400 });
+        return apiError('Weight exceeds maximum limit', 400);
       }
     }
 
@@ -81,13 +86,7 @@ export async function POST(request: NextRequest) {
         htmlPreview: responseText.substring(0, 500)
       });
       
-      return NextResponse.json({ 
-        error: 'GHTK API error',
-        status: response.status,
-        message: 'GHTK returned HTML error page instead of JSON',
-        htmlPreview: responseText.substring(0, 500),
-        requestUrl: url.toString()
-      }, { status: 500 });
+      return apiError('GHTK API error - returned HTML instead of JSON', 500);
     }
     
     const _duration = Date.now() - startTime;
@@ -106,13 +105,10 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    return NextResponse.json(data);
+    return apiSuccess(data);
   } catch (error) {
     const duration = Date.now() - startTime;
     console.error(`[GHTK-${requestId}] ❌ Calculate fee error (${duration}ms):`, error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unknown error' }, 
-      { status: 500 }
-    );
+    return apiError(error instanceof Error ? error.message : 'Unknown error', 500);
   }
 }

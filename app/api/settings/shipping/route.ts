@@ -1,11 +1,16 @@
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@/generated/prisma/client'
+import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
+import { shippingSettingsSchema } from './validation'
 
 const SETTING_KEY = 'shipping-settings'
 const SETTING_GROUP = 'operations'
 
 // GET /api/settings/shipping - Get shipping settings
 export async function GET() {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const setting = await prisma.setting.findFirst({
       where: {
@@ -15,24 +20,28 @@ export async function GET() {
     })
 
     if (!setting) {
-      return NextResponse.json({ data: null })
+      return apiSuccess({ data: null })
     }
 
-    return NextResponse.json({ data: setting.value })
+    return apiSuccess({ data: setting.value })
   } catch (error) {
     console.error('Error fetching shipping settings:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch shipping settings' },
-      { status: 500 }
-    )
+    return apiError('Failed to fetch shipping settings', 500)
   }
 }
 
 // PUT /api/settings/shipping - Update shipping settings
 export async function PUT(request: Request) {
-  try {
-    const settings = await request.json()
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
 
+  const validation = await validateBody(request, shippingSettingsSchema)
+  if (!validation.success) {
+    return apiError(validation.error, 400)
+  }
+  const settings = validation.data
+
+  try {
     const setting = await prisma.setting.upsert({
       where: {
         key_group: {
@@ -41,7 +50,7 @@ export async function PUT(request: Request) {
         },
       },
       update: {
-        value: settings,
+        value: settings as Prisma.InputJsonValue,
         updatedAt: new Date(),
       },
       create: {
@@ -50,17 +59,14 @@ export async function PUT(request: Request) {
         group: SETTING_GROUP,
         type: 'json',
         category: 'operations',
-        value: settings,
+        value: settings as Prisma.InputJsonValue,
         description: 'Shipping configuration settings',
       },
     })
 
-    return NextResponse.json({ data: setting.value })
+    return apiSuccess({ data: setting.value })
   } catch (error) {
     console.error('Error saving shipping settings:', error)
-    return NextResponse.json(
-      { error: 'Failed to save shipping settings' },
-      { status: 500 }
-    )
+    return apiError('Failed to save shipping settings', 500)
   }
 }

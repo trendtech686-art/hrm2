@@ -1,9 +1,13 @@
 /**
  * React Query hooks for Products API
- * Replaces zustand store with server state management
+ * 
+ * @deprecated Use feature hooks instead:
+ * - import { useProducts } from '@/features/products/hooks/use-products'
+ * 
+ * This file is kept for backwards compatibility only.
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { queryKeys } from '@/lib/query-client'
 import type { Product } from '@/lib/types/prisma-extended'
 
@@ -95,6 +99,9 @@ export function useProducts(options: UseProductsOptions = {}) {
     queryKey: queryKeys.products.list(filterKey),
     queryFn: () => fetchProducts(params),
     enabled,
+    staleTime: 60_000, // 1 minute
+    gcTime: 10 * 60 * 1000, // 10 minutes
+    placeholderData: keepPreviousData,
   })
 }
 
@@ -106,6 +113,8 @@ export function useProduct(systemId: string | undefined) {
     queryKey: queryKeys.products.detail(systemId!),
     queryFn: () => fetchProduct(systemId!),
     enabled: !!systemId,
+    staleTime: 60_000,
+    gcTime: 10 * 60 * 1000,
   })
 }
 

@@ -191,7 +191,7 @@ export function DataPageLayout<T extends { systemId: string }>({
                 </div>
               )}
               
-              <div className="flex justify-between items-center pt-2 border-t">
+              <div className="flex justify-between items-center pt-2 border-t border-border">
                 <p className="text-sm text-muted-foreground">{filteredData.length} {itemLabel}</p>
               </div>
             </div>

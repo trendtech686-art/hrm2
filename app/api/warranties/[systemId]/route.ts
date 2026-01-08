@@ -1,5 +1,7 @@
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { WarrantyStatus } from '@/generated/prisma/client'
+import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
+import { updateWarrantySchema } from './validation'
 
 interface RouteParams {
   params: Promise<{ systemId: string }>
@@ -7,6 +9,9 @@ interface RouteParams {
 
 // GET /api/warranties/[systemId]
 export async function GET(_request: Request, { params }: RouteParams) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { systemId } = await params
 
@@ -21,34 +26,36 @@ export async function GET(_request: Request, { params }: RouteParams) {
     })
 
     if (!warranty) {
-      return NextResponse.json(
-        { error: 'Phiếu bảo hành không tồn tại' },
-        { status: 404 }
-      )
+      return apiError('Phiếu bảo hành không tồn tại', 404)
     }
 
-    return NextResponse.json(warranty)
+    return apiSuccess(warranty)
   } catch (error) {
     console.error('Error fetching warranty:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch warranty' },
-      { status: 500 }
-    )
+    return apiError('Failed to fetch warranty', 500)
   }
 }
 
 // PUT /api/warranties/[systemId]
 export async function PUT(request: Request, { params }: RouteParams) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
+  const validation = await validateBody(request, updateWarrantySchema)
+  if (!validation.success) {
+    return apiError(validation.error, 400)
+  }
+  const body = validation.data
+
   try {
     const { systemId } = await params
-    const body = await request.json()
 
     const warranty = await prisma.warranty.update({
       where: { systemId },
       data: {
         issueDescription: body.issueDescription,
         notes: body.notes,
-        status: body.status,
+        status: body.status as WarrantyStatus | undefined,
         solution: body.solution,
       },
       include: {
@@ -56,24 +63,21 @@ export async function PUT(request: Request, { params }: RouteParams) {
       },
     })
 
-    return NextResponse.json(warranty)
+    return apiSuccess(warranty)
   } catch (error) {
     if (error instanceof Error && 'code' in error && error.code === 'P2025') {
-      return NextResponse.json(
-        { error: 'Phiếu bảo hành không tồn tại' },
-        { status: 404 }
-      )
+      return apiError('Phiếu bảo hành không tồn tại', 404)
     }
     console.error('Error updating warranty:', error)
-    return NextResponse.json(
-      { error: 'Failed to update warranty' },
-      { status: 500 }
-    )
+    return apiError('Failed to update warranty', 500)
   }
 }
 
 // DELETE /api/warranties/[systemId]
 export async function DELETE(_request: Request, { params }: RouteParams) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { systemId } = await params
 
@@ -82,18 +86,12 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
       data: { isDeleted: true },
     })
 
-    return NextResponse.json({ success: true })
+    return apiSuccess({ success: true })
   } catch (error) {
     if (error instanceof Error && 'code' in error && error.code === 'P2025') {
-      return NextResponse.json(
-        { error: 'Phiếu bảo hành không tồn tại' },
-        { status: 404 }
-      )
+      return apiError('Phiếu bảo hành không tồn tại', 404)
     }
     console.error('Error deleting warranty:', error)
-    return NextResponse.json(
-      { error: 'Failed to delete warranty' },
-      { status: 500 }
-    )
+    return apiError('Failed to delete warranty', 500)
   }
 }

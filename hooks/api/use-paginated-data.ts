@@ -1,6 +1,10 @@
 /**
  * Paginated Data Hooks
  * 
+ * @deprecated Use feature-specific hooks instead:
+ * - import { useOrders } from '@/features/orders/hooks/use-orders'
+ * - import { useCustomers } from '@/features/customers/hooks/use-customers'
+ * 
  * Dùng React Query để fetch data với pagination thay vì load tất cả vào Zustand.
  * Pattern này scale được với hàng triệu records.
  * 
@@ -14,7 +18,7 @@
  * ```
  */
 
-import { useQuery, useMutation, useQueryClient, UseQueryOptions } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient, UseQueryOptions, keepPreviousData } from '@tanstack/react-query'
 
 // ============== TYPES ==============
 
@@ -103,6 +107,8 @@ export function useOrders(filters: OrderFilters = {}, options?: Partial<UseQuery
     queryKey: ['orders', filters],
     queryFn: () => fetchPaginated('/api/orders', filters),
     staleTime: 30 * 1000, // 30 seconds
+    gcTime: 10 * 60 * 1000, // 10 minutes
+    placeholderData: keepPreviousData,
     ...options,
   })
 }
@@ -120,6 +126,8 @@ export function useCustomers(filters: CustomerFilters = {}, options?: Partial<Us
     queryKey: ['customers', filters],
     queryFn: () => fetchPaginated('/api/customers', filters),
     staleTime: 60 * 1000, // 1 minute
+    gcTime: 10 * 60 * 1000,
+    placeholderData: keepPreviousData,
     ...options,
   })
 }
@@ -138,6 +146,8 @@ export function useProducts(filters: ProductFilters = {}, options?: Partial<UseQ
     queryKey: ['products', filters],
     queryFn: () => fetchPaginated('/api/products', filters),
     staleTime: 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    placeholderData: keepPreviousData,
     ...options,
   })
 }
@@ -155,6 +165,8 @@ export function useEmployeesQuery(filters: EmployeeFilters = {}, options?: Parti
     queryKey: ['employees', filters],
     queryFn: () => fetchPaginated('/api/employees', filters),
     staleTime: 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    placeholderData: keepPreviousData,
     ...options,
   })
 }
@@ -166,6 +178,8 @@ export function useSuppliers(filters: FilterParams = {}, options?: Partial<UseQu
     queryKey: ['suppliers', filters],
     queryFn: () => fetchPaginated('/api/suppliers', filters),
     staleTime: 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    placeholderData: keepPreviousData,
     ...options,
   })
 }
@@ -183,6 +197,7 @@ export function useOrder(systemId: string | undefined) {
     },
     enabled: !!systemId,
     staleTime: 30 * 1000,
+    gcTime: 10 * 60 * 1000,
   })
 }
 
@@ -197,6 +212,7 @@ export function useCustomer(systemId: string | undefined) {
     },
     enabled: !!systemId,
     staleTime: 60 * 1000,
+    gcTime: 10 * 60 * 1000,
   })
 }
 
@@ -211,6 +227,7 @@ export function useProduct(systemId: string | undefined) {
     },
     enabled: !!systemId,
     staleTime: 60 * 1000,
+    gcTime: 10 * 60 * 1000,
   })
 }
 
@@ -222,6 +239,7 @@ export function useCustomerSearch(query: string, limit = 10) {
     queryFn: () => fetchPaginated('/api/customers', { search: query, limit }),
     enabled: query.length >= 2,
     staleTime: 30 * 1000,
+    gcTime: 5 * 60 * 1000,
   })
 }
 
@@ -231,6 +249,7 @@ export function useProductSearch(query: string, limit = 10) {
     queryFn: () => fetchPaginated('/api/products', { search: query, limit }),
     enabled: query.length >= 2,
     staleTime: 30 * 1000,
+    gcTime: 5 * 60 * 1000,
   })
 }
 

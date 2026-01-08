@@ -86,7 +86,7 @@ export const ComplaintHeaderSection: React.FC<Props> = React.memo(({ complaint, 
                   timeTracking.resolutionStatus === 'overdue' ? 'text-red-600' :
                   timeTracking.resolutionStatus === 'warning' ? 'text-yellow-600' : 'text-green-600'
                 )}>
-                  {getSLAStatusLabel(timeTracking.resolutionStatus)}
+                  {getSLAStatusLabel(timeTracking.resolutionStatus ?? 'pending')}
                 </span>
               </div>
               <div className="flex items-center gap-3">

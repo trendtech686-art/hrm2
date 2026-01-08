@@ -1,3 +1,13 @@
+/**
+ * @deprecated Use React Query hooks instead:
+ * - `useCashAccounts()` for list
+ * - `useCashAccount(id)` for single
+ * - `useCashAccountMutations()` for create/update/delete
+ * 
+ * Import from: `@/features/settings/cash-accounts/hooks/use-cash-accounts`
+ * 
+ * This store will be removed in a future version.
+ */
 import { create } from 'zustand';
 import type { CashAccount } from '@/lib/types/prisma-extended';
 import { findNextAvailableBusinessId, generateSystemId, getMaxBusinessIdCounter, getMaxSystemIdCounter, type EntityType } from '../../lib/id-utils';

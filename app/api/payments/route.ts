@@ -1,18 +1,19 @@
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import type { Prisma } from '@/generated/prisma/client'
+import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
+import { createPaymentSchema } from './validation'
 
 // GET /api/payments - List all payments (phiếu chi)
 export async function GET(request: Request) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { searchParams } = new URL(request.url)
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '20')
+    const { page, limit, skip } = parsePagination(searchParams)
     const search = searchParams.get('search') || ''
     const status = searchParams.get('status')
     const supplierId = searchParams.get('supplierId')
-
-    const skip = (page - 1) * limit
 
     const where: Prisma.PaymentWhereInput = {}
 
@@ -49,31 +50,28 @@ export async function GET(request: Request) {
       prisma.payment.count({ where }),
     ])
 
-    return NextResponse.json({
-      data: payments,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
-    })
+    return apiPaginated(payments, { page, limit, total })
   } catch (error) {
     console.error('Error fetching payments:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch payments' },
-      { status: 500 }
-    )
+    return apiError('Failed to fetch payments', 500)
   }
 }
 
 // POST /api/payments - Create new payment
 export async function POST(request: Request) {
-  try {
-    const body = await request.json()
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
 
+  const validation = await validateBody(request, createPaymentSchema)
+  if (!validation.success) {
+    return apiError(validation.error, 400)
+  }
+  const body = validation.data
+
+  try {
     // Generate business ID
-    if (!body.id) {
+    let businessId = body.id
+    if (!businessId) {
       const lastPayment = await prisma.payment.findFirst({
         orderBy: { createdAt: 'desc' },
         select: { id: true },
@@ -81,13 +79,17 @@ export async function POST(request: Request) {
       const lastNum = lastPayment?.id 
         ? parseInt(lastPayment.id.replace('PC', '')) 
         : 0
-      body.id = `PC${String(lastNum + 1).padStart(6, '0')}`
+      businessId = `PC${String(lastNum + 1).padStart(6, '0')}`
+    }
+
+    if (!body.branchId) {
+      return apiError('Branch ID is required', 400)
     }
 
     const payment = await prisma.payment.create({
       data: {
         systemId: `PAY${String(Date.now()).slice(-10).padStart(10, '0')}`,
-        id: body.id,
+        id: businessId,
         supplierId: body.supplierId,
         purchaseOrderId: body.purchaseOrderId,
         branchId: body.branchId,
@@ -103,12 +105,9 @@ export async function POST(request: Request) {
       },
     })
 
-    return NextResponse.json(payment, { status: 201 })
+    return apiSuccess(payment, 201)
   } catch (error) {
     console.error('Error creating payment:', error)
-    return NextResponse.json(
-      { error: 'Failed to create payment' },
-      { status: 500 }
-    )
+    return apiError('Failed to create payment', 500)
   }
 }

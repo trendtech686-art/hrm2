@@ -3,7 +3,7 @@
  * Provides data fetching and mutations for taxes
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import {
   fetchTaxes,
   fetchTaxById,
@@ -35,6 +35,8 @@ export function useTaxes(filters: TaxFilters = {}) {
     queryKey: taxKeys.list(filters),
     queryFn: () => fetchTaxes(filters),
     staleTime: 1000 * 60 * 10, // 10 minutes - rarely changes
+    gcTime: 1000 * 60 * 60, // 1 hour
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -46,6 +48,8 @@ export function useAllTaxes() {
     queryKey: taxKeys.lists(),
     queryFn: fetchAllTaxes,
     staleTime: 1000 * 60 * 10,
+    gcTime: 1000 * 60 * 60,
+    placeholderData: keepPreviousData,
   });
 }
 

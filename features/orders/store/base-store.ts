@@ -2,6 +2,16 @@
  * Order Store - Base Store & Migrations
  * Core store creation with CRUD operations and data migrations
  * 
+ * @deprecated Use React Query hooks instead:
+ * - `useOrders()` for list
+ * - `useOrder(id)` for single
+ * - `useOrderMutations()` for create/update/delete
+ * 
+ * Import from: `@/features/orders/hooks/use-orders`
+ * 
+ * This store will be removed in a future version.
+ * Current usage kept for backward compatibility only.
+ * 
  * @module features/orders/store/base-store
  */
 

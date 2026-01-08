@@ -1,3 +1,13 @@
+/**
+ * @deprecated Use React Query hooks instead:
+ * - `useBranches()` for list
+ * - `useBranch(id)` for single
+ * - `useBranchMutations()` for create/update/delete
+ * 
+ * Import from: `@/features/settings/branches/hooks/use-branches`
+ * 
+ * This store will be removed in a future version.
+ */
 import { createCrudStore, CrudState } from '../../../lib/store-factory';
 import type { Branch } from '@/lib/types/prisma-extended';
 import { SystemId } from '../../../lib/id-types';

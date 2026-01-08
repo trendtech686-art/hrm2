@@ -5,10 +5,12 @@
 // Should be called periodically (cron job) or manually by admin
 // ═══════════════════════════════════════════════════════════════
 
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import fs from 'fs/promises'
 import path from 'path'
+import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
+import { cleanupStagingSchema } from './validation'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -18,8 +20,16 @@ const DEFAULT_THRESHOLD_HOURS = 24
 
 // POST /api/upload/cleanup - Cleanup old staging files
 export async function POST(request: NextRequest) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
+  const validation = await validateBody(request, cleanupStagingSchema)
+  if (!validation.success) {
+    return apiError(validation.error, 400)
+  }
+  const body = validation.data
+
   try {
-    const body = await request.json().catch(() => ({}))
     const thresholdHours = body.thresholdHours || DEFAULT_THRESHOLD_HOURS
     
     // Calculate threshold date
@@ -37,13 +47,10 @@ export async function POST(request: NextRequest) {
     })
     
     if (oldStagingFiles.length === 0) {
-      return NextResponse.json({
-        success: true,
+      return apiSuccess({
         message: 'Không có file staging cần dọn dẹp',
-        data: {
-          deletedCount: 0,
-          deletedFiles: [],
-        },
+        deletedCount: 0,
+        deletedFiles: [],
       })
     }
     
@@ -72,27 +79,24 @@ export async function POST(request: NextRequest) {
       },
     })
     
-    return NextResponse.json({
-      success: true,
+    return apiSuccess({
       message: `Đã dọn dẹp ${result.count} file staging cũ hơn ${thresholdHours} giờ`,
-      data: {
-        deletedCount: result.count,
-        thresholdHours,
-        deletedFiles: deleteResults,
-      },
+      deletedCount: result.count,
+      thresholdHours,
+      deletedFiles: deleteResults,
     })
     
   } catch (error) {
     console.error('Cleanup staging files error:', error)
-    return NextResponse.json(
-      { success: false, message: 'Lỗi khi dọn dẹp file staging' },
-      { status: 500 }
-    )
+    return apiError('Lỗi khi dọn dẹp file staging', 500)
   }
 }
 
 // GET /api/upload/cleanup - Get cleanup stats (preview what would be deleted)
 export async function GET(request: NextRequest) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { searchParams } = new URL(request.url)
     const thresholdHours = parseInt(searchParams.get('thresholdHours') || String(DEFAULT_THRESHOLD_HOURS))
@@ -137,33 +141,27 @@ export async function GET(request: NextRequest) {
       _sum: { filesize: true },
     })
     
-    return NextResponse.json({
-      success: true,
-      data: {
-        cleanup: {
-          thresholdHours,
-          thresholdDate: thresholdDate.toISOString(),
-          filesWouldBeDeleted: oldStagingCount,
-        },
-        staging: {
-          totalFiles: totalStagingCount,
-          totalSize: stagingFiles._sum.filesize || 0,
-          totalSizeFormatted: formatBytes(stagingFiles._sum.filesize || 0),
-        },
-        permanent: {
-          totalFiles: totalPermanentCount,
-          totalSize: permanentFiles._sum.filesize || 0,
-          totalSizeFormatted: formatBytes(permanentFiles._sum.filesize || 0),
-        },
+    return apiSuccess({
+      cleanup: {
+        thresholdHours,
+        thresholdDate: thresholdDate.toISOString(),
+        filesWouldBeDeleted: oldStagingCount,
+      },
+      staging: {
+        totalFiles: totalStagingCount,
+        totalSize: stagingFiles._sum.filesize || 0,
+        totalSizeFormatted: formatBytes(stagingFiles._sum.filesize || 0),
+      },
+      permanent: {
+        totalFiles: totalPermanentCount,
+        totalSize: permanentFiles._sum.filesize || 0,
+        totalSizeFormatted: formatBytes(permanentFiles._sum.filesize || 0),
       },
     })
     
   } catch (error) {
     console.error('Get cleanup stats error:', error)
-    return NextResponse.json(
-      { success: false, message: 'Lỗi khi lấy thông tin cleanup' },
-      { status: 500 }
-    )
+    return apiError('Lỗi khi lấy thông tin cleanup', 500)
   }
 }
 

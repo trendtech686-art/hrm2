@@ -1,3 +1,13 @@
+/**
+ * @deprecated Use React Query hooks instead:
+ * - `useInventoryChecks()` for list
+ * - `useInventoryCheck(id)` for single
+ * - `useInventoryCheckMutations()` for create/update/delete
+ * 
+ * Import from: `@/features/inventory-checks/hooks/use-inventory-checks`
+ * 
+ * This store will be removed in a future version.
+ */
 import { createCrudStore, CrudState } from '../../lib/store-factory';
 import type { InventoryCheck } from '@/lib/types/prisma-extended';
 import type { HistoryEntry } from '../../components/ActivityHistory';

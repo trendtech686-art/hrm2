@@ -1,55 +1,24 @@
+/**
+ * @deprecated Use React Query hooks instead:
+ * - `useAuditLogs()` for list
+ * 
+ * Import from: `@/features/audit-log/hooks/use-audit-log`
+ * 
+ * This store will be removed in a future version.
+ */
 import { create } from 'zustand';
 import type { LogEntry } from '@/lib/types/prisma-extended';
-import { parseDate, getCurrentDate, subtractDays, getDaysDiff } from '@/lib/date-utils';
+import { parseDate, getCurrentDate, getDaysDiff } from '@/lib/date-utils';
+
 type AuditLogState = {
   logs: LogEntry[];
   addLog: (log: Omit<LogEntry, 'systemId' | 'id' | 'timestamp'>) => void;
   getLogsForEntity: (entityId: string) => LogEntry[];
 };
 
-const formatCurrency = (value?: number) => {
-    if (typeof value !== 'number' || isNaN(value)) return '0 ₫';
-    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
-};
-
-const initialLogs: LogEntry[] = [
-    {
-        systemId: 'LOG00000002',
-        id: 'LOG002',
-        timestamp: (subtractDays(getCurrentDate(), 7) ?? getCurrentDate()).toISOString(),
-        entityType: 'PurchaseOrder',
-        entityId: 'PO00000003',
-        userId: 'NV00000006',
-        userName: 'Vũ Thị Giang',
-        action: 'CREATE',
-        changes: [{
-            field: 'purchaseOrder',
-            oldValue: null,
-            newValue: 'created',
-            description: 'Tạo mới đơn nhập hàng PO000003'
-        }]
-    },
-    {
-        systemId: 'LOG00000001',
-        id: 'LOG001',
-        timestamp: (subtractDays(getCurrentDate(), 3) ?? getCurrentDate()).toISOString(),
-        entityType: 'PurchaseOrder',
-        entityId: 'PO00000003',
-        userId: 'NV00000006',
-        userName: 'Vũ Thị Giang',
-        action: 'UPDATE',
-        changes: [{
-            field: 'payment',
-            oldValue: 'Chưa thanh toán',
-            newValue: 'Thanh toán một phần',
-            description: `Thanh toán ${formatCurrency(20000000)} qua Chuyển khoản (PC000002).`
-        }]
-    }
-];
-
 export const useAuditLogStore = create<AuditLogState>()(
     (set, get) => ({
-      logs: initialLogs,
+      logs: [],
       addLog: (log) =>
         set((state) => ({
           logs: [

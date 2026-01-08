@@ -12,7 +12,7 @@ const Sidebar = React.forwardRef<
     <aside
       ref={ref}
       className={cn(
-        "fixed inset-y-0 left-0 z-40 flex-shrink-0 bg-card flex flex-col border-r shadow-sm transition-all duration-300 ease-in-out lg:translate-x-0 overflow-x-hidden",
+        "fixed inset-y-0 left-0 z-40 flex-shrink-0 bg-card flex flex-col border-r border-border shadow-sm transition-all duration-300 ease-in-out lg:translate-x-0 overflow-x-hidden",
         isSidebarCollapsed ? "w-16" : "w-64",
         isSidebarOpen ? "translate-x-0" : "-translate-x-full",
         className
@@ -29,7 +29,7 @@ const SidebarHeader = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <div
     ref={ref}
-    className={cn("flex h-16 items-center border-b px-6 shrink-0", className)}
+    className={cn("flex h-16 items-center border-b border-border px-6 shrink-0", className)}
     {...props}
   />
 ));
@@ -55,7 +55,7 @@ const SidebarFooter = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <div
     ref={ref}
-    className={cn("mt-auto border-t p-4 shrink-0", className)}
+    className={cn("mt-auto border-t border-border p-4 shrink-0", className)}
     {...props}
   />
 ));

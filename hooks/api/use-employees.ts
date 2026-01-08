@@ -1,9 +1,13 @@
 /**
  * React Query hooks for Employees API
- * Replaces zustand store with server state management
+ * 
+ * @deprecated Use feature hooks instead:
+ * - import { useEmployees } from '@/features/employees/hooks/use-employees'
+ * 
+ * This file is kept for backwards compatibility only.
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { queryKeys } from '@/lib/query-client'
 import type { Employee } from '@/lib/types/prisma-extended'
 
@@ -108,6 +112,9 @@ export function useEmployees(options: UseEmployeesOptions = {}) {
     queryKey: queryKeys.employees.list(filterKey),
     queryFn: () => fetchEmployees(params),
     enabled,
+    staleTime: 60_000, // 1 minute
+    gcTime: 10 * 60 * 1000, // 10 minutes
+    placeholderData: keepPreviousData,
   })
 }
 
@@ -119,6 +126,8 @@ export function useEmployee(systemId: string | undefined) {
     queryKey: queryKeys.employees.detail(systemId!),
     queryFn: () => fetchEmployee(systemId!),
     enabled: !!systemId,
+    staleTime: 60_000,
+    gcTime: 10 * 60 * 1000,
   })
 }
 

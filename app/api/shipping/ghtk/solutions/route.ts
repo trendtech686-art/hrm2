@@ -5,7 +5,8 @@
  * Get GAM solutions list (try multiple GHTK API endpoints)
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils';
 
 const GHTK_URLS = [
   'https://services.giaohangtietkiem.vn/open/api/v1/shop/solution/list',
@@ -14,6 +15,9 @@ const GHTK_URLS = [
 ];
 
 export async function GET(request: NextRequest) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
+
   const requestId = Math.random().toString(36).substring(2, 11);
 
   try {
@@ -23,10 +27,10 @@ export async function GET(request: NextRequest) {
 
 
     if (!apiToken) {
-      return NextResponse.json({ error: 'API Token is required' }, { status: 400 });
+      return apiError('API Token is required', 400);
     }
 
-    let lastError: { error: string; url: string; details?: string; status?: number } | null = null;
+    let _lastError: { error: string; url: string; details?: string; status?: number } | null = null;
     
     for (const url of GHTK_URLS) {
       try {
@@ -54,7 +58,7 @@ export async function GET(request: NextRequest) {
           data = JSON.parse(responseText);
         } catch {
           console.error(`[GHTK-SOL-${requestId}] JSON parse error`);
-          lastError = {
+          _lastError = {
             error: 'Invalid response from GHTK API',
             details: responseText.substring(0, 500),
             status: response.status,
@@ -64,22 +68,18 @@ export async function GET(request: NextRequest) {
         }
         
 
-        return NextResponse.json(data);
+        return apiSuccess(data);
         
       } catch (error) {
         console.error(`[GHTK-SOL-${requestId}] Error with ${url}:`, error);
-        lastError = { error: error instanceof Error ? error.message : 'Unknown error', url };
+        _lastError = { error: error instanceof Error ? error.message : 'Unknown error', url };
       }
     }
     
     // If we get here, all URLs failed
-    return NextResponse.json({
-      error: 'All GHTK API endpoints failed',
-      lastError,
-      triedUrls: GHTK_URLS
-    }, { status: 500 });
+    return apiError('All GHTK API endpoints failed', 500);
   } catch (error) {
     console.error(`[GHTK-SOL-${requestId}] Get solutions error:`, error);
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'Unknown error' }, { status: 500 });
+    return apiError(error instanceof Error ? error.message : 'Unknown error', 500);
   }
 }

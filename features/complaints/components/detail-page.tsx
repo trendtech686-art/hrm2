@@ -874,7 +874,7 @@ export function ComplaintDetailPage() {
         {/* Column 2: Order Information Card */}
         <ComplaintOrderInfo 
           complaint={complaint}
-          relatedOrder={relatedOrder}
+          relatedOrder={relatedOrder ?? undefined}
           employees={employees}
         />
         </div>

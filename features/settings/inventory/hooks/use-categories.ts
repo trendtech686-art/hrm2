@@ -57,6 +57,7 @@ export function useAllCategories() {
     queryFn: () => fetchCategories({ all: true }),
     staleTime: 1000 * 60 * 10,
     gcTime: 1000 * 60 * 60,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -69,6 +70,7 @@ export function useCategoryTree() {
     queryFn: () => fetchCategories({ tree: true }),
     staleTime: 1000 * 60 * 10,
     gcTime: 1000 * 60 * 60,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -81,6 +83,7 @@ export function useCategory(systemId: string | null | undefined) {
     queryFn: () => fetchCategory(systemId!),
     enabled: !!systemId,
     staleTime: 1000 * 60 * 10,
+    gcTime: 1000 * 60 * 60,
   });
 }
 

@@ -176,7 +176,7 @@ export function DateTimePicker({ id, value, onChange, placeholder, className, di
                 selected={date}
                 onSelect={handleDateSelect}
             />
-            <div className="p-3 border-t">
+            <div className="p-3 border-t border-border">
               <div className="mb-3">
                 <label className="text-sm font-medium mb-2 block">Giờ (GMT+7)</label>
                 <div className="flex items-center gap-2">

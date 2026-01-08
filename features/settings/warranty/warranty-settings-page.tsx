@@ -1,3 +1,5 @@
+'use client'
+
 import * as React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
 import { TabsContent } from '../../../components/ui/tabs';
@@ -246,7 +248,6 @@ const createDefaultWarrantySettings = (): WarrantySettingsState => ({
 });
 
 const useWarrantySettingsStore = createSettingsConfigStore<WarrantySettingsState>({
-  storageKey: 'settings-warranty',
   getDefaultState: createDefaultWarrantySettings,
 });
 

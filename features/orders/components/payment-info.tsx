@@ -73,11 +73,11 @@ export function PaymentInfo({ payment, order }: PaymentInfoProps) {
 
         // Prepare store settings
         const storeSettings: StoreSettings = {
-            name: storeInfo.brandName || storeInfo.companyName,
-            address: storeInfo.headquartersAddress,
-            phone: storeInfo.hotline,
-            email: storeInfo.email,
-            province: storeInfo.province,
+            name: storeInfo?.brandName || storeInfo?.companyName || '',
+            address: storeInfo?.headquartersAddress,
+            phone: storeInfo?.hotline,
+            email: storeInfo?.email,
+            province: storeInfo?.province,
             // logo: undefined // TODO: Add logo if available
         };
 

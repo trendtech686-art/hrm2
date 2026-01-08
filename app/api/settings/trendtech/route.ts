@@ -1,11 +1,16 @@
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@/generated/prisma/client'
+import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
+import { trendtechSettingsSchema } from './validation'
 
 const SETTING_KEY = 'trendtech-settings'
 const SETTING_GROUP = 'integrations'
 
 // GET /api/settings/trendtech
 export async function GET() {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const setting = await prisma.setting.findFirst({
       where: {
@@ -15,24 +20,28 @@ export async function GET() {
     })
 
     if (!setting) {
-      return NextResponse.json({ data: null })
+      return apiSuccess({ data: null })
     }
 
-    return NextResponse.json({ data: setting.value })
+    return apiSuccess({ data: setting.value })
   } catch (error) {
     console.error('Error fetching trendtech settings:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch trendtech settings' },
-      { status: 500 }
-    )
+    return apiError('Failed to fetch trendtech settings', 500)
   }
 }
 
 // PUT /api/settings/trendtech
 export async function PUT(request: Request) {
-  try {
-    const settings = await request.json()
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
 
+  const validation = await validateBody(request, trendtechSettingsSchema)
+  if (!validation.success) {
+    return apiError(validation.error, 400)
+  }
+  const settings = validation.data
+
+  try {
     // Get existing to merge
     const existing = await prisma.setting.findFirst({
       where: {
@@ -54,7 +63,7 @@ export async function PUT(request: Request) {
         },
       },
       update: {
-        value: mergedValue,
+        value: mergedValue as Prisma.InputJsonValue,
         updatedAt: new Date(),
       },
       create: {
@@ -63,17 +72,14 @@ export async function PUT(request: Request) {
         group: SETTING_GROUP,
         type: 'json',
         category: 'integrations',
-        value: mergedValue,
+        value: mergedValue as Prisma.InputJsonValue,
         description: 'Trendtech integration settings',
       },
     })
 
-    return NextResponse.json({ data: setting.value })
+    return apiSuccess({ data: setting.value })
   } catch (error) {
     console.error('Error saving trendtech settings:', error)
-    return NextResponse.json(
-      { error: 'Failed to save trendtech settings' },
-      { status: 500 }
-    )
+    return apiError('Failed to save trendtech settings', 500)
   }
 }

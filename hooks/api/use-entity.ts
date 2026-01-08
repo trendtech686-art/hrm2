@@ -1,9 +1,15 @@
 /**
  * Generic API Hook Factory
  * Creates standard CRUD hooks for any entity
+ * 
+ * @deprecated Use feature-specific hooks instead:
+ * - import { useDepartments } from '@/features/settings/departments/hooks'
+ * - import { useBrands } from '@/features/brands/hooks'
+ * 
+ * This file is kept for backwards compatibility only.
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 
 export interface EntityConfig {
   name: string           // Entity name for query keys (e.g., 'departments')
@@ -80,6 +86,9 @@ export function createEntityHooks<T extends { systemId: string }>(config: Entity
       queryKey: keys.list(JSON.stringify(params || {})),
       queryFn: () => fetchList<T>(apiPath, params),
       enabled,
+      staleTime: 60_000, // 1 minute
+      gcTime: 10 * 60 * 1000, // 10 minutes
+      placeholderData: keepPreviousData,
     })
   }
 
@@ -89,6 +98,8 @@ export function createEntityHooks<T extends { systemId: string }>(config: Entity
       queryKey: keys.detail(systemId!),
       queryFn: () => fetchOne<T>(apiPath, systemId!),
       enabled: !!systemId,
+      staleTime: 60_000,
+      gcTime: 10 * 60 * 1000,
     })
   }
 

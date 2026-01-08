@@ -264,11 +264,11 @@ export function CategoryMappingTab() {
             systemId: hrmCategory.systemId,
             name: hrmCategory.name,
             isActive: hrmCategory.isActive,
-            seoKeywords: hrmCategory.seoKeywords,
-            seoTitle: hrmCategory.seoTitle,
-            metaDescription: hrmCategory.metaDescription,
-            shortDescription: hrmCategory.shortDescription,
-            longDescription: hrmCategory.longDescription,
+            seoKeywords: hrmCategory.seoKeywords ?? undefined,
+            seoTitle: hrmCategory.seoTitle ?? undefined,
+            metaDescription: hrmCategory.metaDescription ?? undefined,
+            shortDescription: hrmCategory.shortDescription ?? undefined,
+            longDescription: hrmCategory.longDescription ?? undefined,
             websiteSeo: hrmCategory.websiteSeo as HrmCategoryData['websiteSeo'],
           };
           entitySync.triggerSyncAction(actionKey, row.id, hrmData, row.name);

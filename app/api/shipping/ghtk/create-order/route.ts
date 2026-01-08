@@ -5,20 +5,29 @@
  * Proxy to create GHTK shipment order
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils';
+import { createOrderSchema } from './validation';
 
 const GHTK_API_BASE = 'https://services.giaohangtietkiem.vn';
 
 export async function POST(request: NextRequest) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
+
+  const validation = await validateBody(request, createOrderSchema);
+  if (!validation.success) {
+    return apiError(validation.error, 400);
+  }
+
   const startTime = Date.now();
   const requestId = Math.random().toString(36).substring(2, 11);
 
   try {
-    const body = await request.json();
-    const { apiToken, partnerCode, ...orderData } = body;
+    const { apiToken, partnerCode, ...orderData } = validation.data;
 
     if (!apiToken) {
-      return NextResponse.json({ error: 'API Token is required' }, { status: 400 });
+      return apiError('API Token is required', 400);
     }
 
 
@@ -36,12 +45,9 @@ export async function POST(request: NextRequest) {
     const _duration = Date.now() - startTime;
     
 
-    return NextResponse.json(data);
+    return apiSuccess(data);
   } catch (error) {
     console.error(`[GHTK-ORDER-${requestId}] ❌ Create order error:`, error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unknown error' }, 
-      { status: 500 }
-    );
+    return apiError(error instanceof Error ? error.message : 'Unknown error', 500);
   }
 }

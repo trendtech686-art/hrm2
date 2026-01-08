@@ -1,3 +1,5 @@
+"use client";
+
 import * as React from 'react';
 import { TabsContent } from '../../../components/ui/tabs';
 import { TrendingUp } from 'lucide-react';

@@ -1,3 +1,13 @@
+/**
+ * @deprecated Use React Query hooks instead:
+ * - `useLeaves()` for list
+ * - `useLeave(id)` for single
+ * - `useLeaveMutations()` for create/update/delete
+ * 
+ * Import from: `@/features/leaves/hooks/use-leaves`
+ * 
+ * This store will be removed in a future version.
+ */
 import { createCrudStore, type CrudState } from '../../lib/store-factory';
 import type { LeaveRequest } from '@/lib/types/prisma-extended';
 import { leaveAttendanceSync } from './leave-sync-service';

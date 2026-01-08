@@ -2,7 +2,7 @@
  * Target Groups React Query Hooks
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import {
   fetchTargetGroups,
   fetchTargetGroupById,
@@ -30,6 +30,8 @@ export function useTargetGroups(filters: TargetGroupFilters = {}) {
     queryKey: targetGroupKeys.list(filters),
     queryFn: () => fetchTargetGroups(filters),
     staleTime: 1000 * 60 * 10,
+    gcTime: 10 * 60 * 1000,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -39,6 +41,7 @@ export function useTargetGroupById(systemId: string | undefined) {
     queryFn: () => fetchTargetGroupById(systemId!),
     enabled: !!systemId,
     staleTime: 1000 * 60 * 10,
+    gcTime: 10 * 60 * 1000,
   });
 }
 
@@ -47,6 +50,8 @@ export function useActiveTargetGroups() {
     queryKey: targetGroupKeys.active(),
     queryFn: fetchActiveTargetGroups,
     staleTime: 1000 * 60 * 10,
+    gcTime: 10 * 60 * 1000,
+    placeholderData: keepPreviousData,
   });
 }
 

@@ -93,30 +93,32 @@ export function useFuseFilter<T>(
   query: string,
   options: IFuseOptions<T>
 ): T[] {
+  // Fast path: no query → just return data directly (no state updates)
+  if (!query.trim()) {
+    return data;
+  }
+
   const [filteredData, setFilteredData] = React.useState<T[]>(data);
   const fuseRef = React.useRef<Fuse<T> | null>(null);
   const optionsRef = React.useRef(options);
+  const dataRef = React.useRef(data);
   
-  // Keep options ref updated
+  // Keep refs updated
   optionsRef.current = options;
+  dataRef.current = data;
 
   React.useEffect(() => {
     let cancelled = false;
 
     const performSearch = async () => {
-      if (!query.trim()) {
-        setFilteredData(data);
-        return;
-      }
-
       // Lazy load Fuse
       if (!fuseRef.current) {
         const FuseModule = await import('fuse.js');
         if (cancelled) return;
-        fuseRef.current = new FuseModule.default(data, optionsRef.current);
+        fuseRef.current = new FuseModule.default(dataRef.current, optionsRef.current);
       } else {
         // Update data in existing Fuse instance
-        fuseRef.current.setCollection(data);
+        fuseRef.current.setCollection(dataRef.current);
       }
 
       const results = fuseRef.current.search(query).map(r => r.item);
@@ -130,7 +132,7 @@ export function useFuseFilter<T>(
     return () => {
       cancelled = true;
     };
-  }, [data, query]);
+  }, [query]);
 
   return filteredData;
 }

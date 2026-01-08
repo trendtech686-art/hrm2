@@ -1,19 +1,20 @@
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { Prisma } from '@/generated/prisma/client'
+import { Prisma, ProductStatus } from '@/generated/prisma/client'
+import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
+import { createProductSchema } from './validation'
 
 // GET /api/products - List all products
 export async function GET(request: Request) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { searchParams } = new URL(request.url)
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '20')
+    const { page, limit, skip } = parsePagination(searchParams)
     const search = searchParams.get('search') || ''
     const status = searchParams.get('status')
     const brandId = searchParams.get('brandId')
     const categoryId = searchParams.get('categoryId')
-
-    const skip = (page - 1) * limit
 
     const where: Prisma.ProductWhereInput = {
       isDeleted: false,
@@ -60,28 +61,23 @@ export async function GET(request: Request) {
       prisma.product.count({ where }),
     ])
 
-    return NextResponse.json({
-      data: products,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
-    })
+    return apiPaginated(products, { page, limit, total })
   } catch (error) {
     console.error('Error fetching products:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch products' },
-      { status: 500 }
-    )
+    return apiError('Failed to fetch products', 500)
   }
 }
 
 // POST /api/products - Create new product
 export async function POST(request: Request) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
+  const result = await validateBody(request, createProductSchema)
+  if (!result.success) return apiError(result.error, 400)
+
   try {
-    const body = await request.json()
+    const body = result.data
 
     // Generate business ID if not provided
     if (!body.id) {
@@ -122,7 +118,7 @@ export async function POST(request: Request) {
         seoTitle: body.seoTitle,
         seoDescription: body.seoDescription,
         slug: body.slug,
-        status: body.status || 'ACTIVE',
+        status: (body.status || 'ACTIVE') as ProductStatus,
         createdBy: body.createdBy,
       },
       include: {
@@ -152,20 +148,14 @@ interface _LineItemInput {
       })
     }
 
-    return NextResponse.json(product, { status: 201 })
+    return apiSuccess(product, 201)
   } catch (error) {
     console.error('Error creating product:', error)
     
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-      return NextResponse.json(
-        { error: 'Product ID or slug already exists' },
-        { status: 400 }
-      )
+      return apiError('Product ID or slug already exists', 400)
     }
 
-    return NextResponse.json(
-      { error: 'Failed to create product' },
-      { status: 500 }
-    )
+    return apiError('Failed to create product', 500)
   }
 }

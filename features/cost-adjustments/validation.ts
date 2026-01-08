@@ -2,7 +2,7 @@
  * Zod validation schemas for cost-adjustments module
  */
 import { z } from 'zod';
-import type { SystemId, BusinessId } from '@/lib/id-types';
+import { systemIdSchema, businessIdSchema } from '@/lib/id-types';
 
 // Status enum
 export const costAdjustmentStatusSchema = z.enum([
@@ -25,8 +25,8 @@ export const costAdjustmentReasonSchema = z.enum([
 
 // Item schema
 export const costAdjustmentItemSchema = z.object({
-  productSystemId: z.string() as z.ZodType<SystemId>,
-  productId: z.string().optional() as z.ZodType<BusinessId | undefined>,
+  productSystemId: systemIdSchema,
+  productId: businessIdSchema.optional(),
   productName: z.string().min(1, 'Tên sản phẩm không được để trống'),
   oldCost: z.number().min(0, 'Giá cũ phải >= 0'),
   newCost: z.number().min(0, 'Giá mới phải >= 0'),
@@ -36,7 +36,7 @@ export const costAdjustmentItemSchema = z.object({
 
 // Create schema
 export const createCostAdjustmentSchema = z.object({
-  branchSystemId: z.string().min(1, 'Vui lòng chọn chi nhánh') as z.ZodType<SystemId>,
+  branchSystemId: systemIdSchema.refine(v => v.length >= 1, 'Vui lòng chọn chi nhánh'),
   branchName: z.string().optional(),
   adjustmentDate: z.string().min(1, 'Ngày điều chỉnh không được để trống'),
   reason: costAdjustmentReasonSchema,
@@ -51,7 +51,7 @@ export const updateCostAdjustmentSchema = createCostAdjustmentSchema.partial().e
 
 // Approve/Reject schema
 export const approveCostAdjustmentSchema = z.object({
-  approverSystemId: z.string() as z.ZodType<SystemId>,
+  approverSystemId: systemIdSchema,
   approverName: z.string().optional(),
   notes: z.string().optional(),
 });

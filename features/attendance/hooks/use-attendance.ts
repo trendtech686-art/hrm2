@@ -36,6 +36,7 @@ export function useAttendance(filters: AttendanceFilters = {}) {
     queryKey: attendanceKeys.list(filters),
     queryFn: () => fetchAttendance(filters),
     staleTime: 1000 * 60, // 1 minute for frequently changing data
+    gcTime: 10 * 60 * 1000, // 10 minutes
     placeholderData: keepPreviousData,
   });
 }
@@ -48,6 +49,7 @@ export function useAttendanceByMonth(monthKey: string, options?: { enabled?: boo
     queryKey: attendanceKeys.month(monthKey),
     queryFn: () => fetchAttendanceByMonth(monthKey),
     staleTime: 1000 * 60 * 2, // 2 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
     placeholderData: keepPreviousData,
     enabled: options?.enabled ?? !!monthKey,
   });

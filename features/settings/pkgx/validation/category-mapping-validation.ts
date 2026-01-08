@@ -104,7 +104,7 @@ export interface ValidationContext {
     parentId?: SystemId;
     status?: string;
     isActive?: boolean;
-    path?: string;
+    path?: string | null;
   }>;
   pkgxCategories: PkgxCategory[];
   editingMappingId?: string; // ID của mapping đang edit (để exclude khỏi duplicate check)

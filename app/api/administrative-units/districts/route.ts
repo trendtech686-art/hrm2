@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { requireAuth, apiError } from '@/lib/api-utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,6 +13,9 @@ export const dynamic = 'force-dynamic';
  * Returns districts (~624 total, or filtered by province)
  */
 export async function GET(request: NextRequest) {
+  const session = await requireAuth();
+  if (!session) return apiError('Vui lòng đăng nhập', 401);
+
   try {
     const { searchParams } = new URL(request.url);
     const provinceId = searchParams.get('provinceId');
@@ -38,7 +42,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Failed to fetch districts:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to fetch districts' },
+      { success: false, error: 'Không thể tải danh sách quận/huyện' },
       { status: 500 }
     );
   }

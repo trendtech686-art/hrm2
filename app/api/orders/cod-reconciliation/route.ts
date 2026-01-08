@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/prisma'
+import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
 
 interface ShipmentReconciliation {
   systemId: string;
@@ -8,18 +8,21 @@ interface ShipmentReconciliation {
 }
 
 // POST /api/orders/cod-reconciliation - Confirm COD reconciliation for multiple shipments
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const body = await request.json();
     const { shipments } = body as { shipments: ShipmentReconciliation[] };
 
     if (!shipments || !Array.isArray(shipments) || shipments.length === 0) {
-      return NextResponse.json({ error: 'Shipments array is required' }, { status: 400 });
+      return apiError('Shipments array is required', 400);
     }
 
     // Transaction: reconcile all shipments
     const result = await prisma.$transaction(async (tx) => {
-      const updatedOrders = [];
+      const updatedOrders: { systemId: string }[] = [];
 
       for (const shipment of shipments) {
         // Update shipment as reconciled
@@ -64,16 +67,16 @@ export async function POST(request: NextRequest) {
             },
           });
 
-          updatedOrders.push(updated);
+          updatedOrders.push({ systemId: updated.systemId });
         }
       }
 
       return updatedOrders;
     });
 
-    return NextResponse.json({ success: true, updatedOrders: result });
+    return apiSuccess({ success: true, updatedOrders: result });
   } catch (error) {
     console.error('Error reconciling COD:', error);
-    return NextResponse.json({ error: 'Failed to reconcile COD' }, { status: 500 });
+    return apiError('Failed to reconcile COD', 500);
   }
 }

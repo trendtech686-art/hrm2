@@ -169,7 +169,7 @@ export function saveTrendtechSettingsToDatabase(): void {
     try {
       const { settings } = useTrendtechSettingsStore.getState();
       // Exclude runtime data from database
-      const { trendtechProducts, trendtechProductsLastFetch, ...settingsToSave } = settings;
+      const { trendtechProducts: _trendtechProducts, trendtechProductsLastFetch: _trendtechProductsLastFetch, ...settingsToSave } = settings;
       
       await fetch(SETTINGS_API, {
         method: 'POST',

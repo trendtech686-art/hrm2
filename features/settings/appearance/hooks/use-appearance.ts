@@ -2,7 +2,7 @@
  * Appearance Settings React Query Hooks
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import * as api from '../api/appearance-api';
 
 export const appearanceKeys = {
@@ -11,7 +11,7 @@ export const appearanceKeys = {
 };
 
 export function useAppearanceSettings() {
-  return useQuery({ queryKey: appearanceKeys.settings(), queryFn: api.fetchAppearanceSettings, staleTime: 1000 * 60 * 30 });
+  return useQuery({ queryKey: appearanceKeys.settings(), queryFn: api.fetchAppearanceSettings, staleTime: 1000 * 60 * 30, gcTime: 10 * 60 * 1000, placeholderData: keepPreviousData });
 }
 
 export function useAppearanceMutations(opts?: { onSuccess?: () => void }) {

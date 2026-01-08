@@ -1,12 +1,15 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils';
 
 interface RouteParams {
   params: Promise<{ systemId: string }>;
 }
 
 // GET /api/orders/[systemId] - Get single order
-export async function GET(request: NextRequest, { params }: RouteParams) {
+export async function GET(request: Request, { params }: RouteParams) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
+
   try {
     const { systemId } = await params;
 
@@ -40,18 +43,21 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     });
 
     if (!order) {
-      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+      return apiNotFound('Order');
     }
 
-    return NextResponse.json(order);
+    return apiSuccess(order);
   } catch (error) {
     console.error('Error fetching order:', error);
-    return NextResponse.json({ error: 'Failed to fetch order' }, { status: 500 });
+    return apiError('Failed to fetch order', 500);
   }
 }
 
 // PATCH /api/orders/[systemId] - Update order
-export async function PATCH(request: NextRequest, { params }: RouteParams) {
+export async function PATCH(request: Request, { params }: RouteParams) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
+
   try {
     const { systemId } = await params;
     const body = await request.json();
@@ -68,15 +74,18 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       },
     });
 
-    return NextResponse.json(order);
+    return apiSuccess(order);
   } catch (error) {
     console.error('Error updating order:', error);
-    return NextResponse.json({ error: 'Failed to update order' }, { status: 500 });
+    return apiError('Failed to update order', 500);
   }
 }
 
 // DELETE /api/orders/[systemId] - Delete order (soft delete via status)
-export async function DELETE(request: NextRequest, { params }: RouteParams) {
+export async function DELETE(request: Request, { params }: RouteParams) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
+
   try {
     const { systemId } = await params;
 
@@ -89,9 +98,9 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       },
     });
 
-    return NextResponse.json({ success: true });
+    return apiSuccess({ success: true });
   } catch (error) {
     console.error('Error deleting order:', error);
-    return NextResponse.json({ error: 'Failed to delete order' }, { status: 500 });
+    return apiError('Failed to delete order', 500);
   }
 }

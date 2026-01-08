@@ -1,9 +1,13 @@
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { Prisma } from '@/generated/prisma/client'
+import { Prisma, CashAccountType } from '@/generated/prisma/client'
+import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
+import { createCashAccountSchema } from './validation'
 
 // GET /api/cash-accounts - List all cash accounts
 export async function GET(request: Request) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { searchParams } = new URL(request.url)
     const _all = searchParams.get('all') === 'true'
@@ -17,34 +21,31 @@ export async function GET(request: Request) {
       orderBy: { name: 'asc' },
     })
 
-    return NextResponse.json({ data: accounts })
+    return apiSuccess({ data: accounts })
   } catch (error) {
     console.error('Error fetching cash accounts:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch cash accounts' },
-      { status: 500 }
-    )
+    return apiError('Failed to fetch cash accounts', 500)
   }
 }
 
 // POST /api/cash-accounts - Create new cash account
 export async function POST(request: Request) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
+  const validation = await validateBody(request, createCashAccountSchema)
+  if (!validation.success) {
+    return apiError(validation.error, 400)
+  }
+  const body = validation.data
+
   try {
-    const body = await request.json()
-
-    if (!body.id || !body.name) {
-      return NextResponse.json(
-        { error: 'Mã và tên quỹ là bắt buộc' },
-        { status: 400 }
-      )
-    }
-
     const account = await prisma.cashAccount.create({
       data: {
         systemId: `CASH${String(Date.now()).slice(-6).padStart(6, '0')}`,
         id: body.id,
         name: body.name,
-        type: body.type || body.accountType || 'CASH',
+        type: (body.type || body.accountType || 'CASH') as CashAccountType,
         balance: body.balance || body.currentBalance || 0,
         bankName: body.bankName,
         accountNumber: body.accountNumber,
@@ -52,18 +53,12 @@ export async function POST(request: Request) {
       },
     })
 
-    return NextResponse.json(account, { status: 201 })
+    return apiSuccess(account, 201)
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-      return NextResponse.json(
-        { error: 'Mã quỹ đã tồn tại' },
-        { status: 400 }
-      )
+      return apiError('Mã quỹ đã tồn tại', 400)
     }
     console.error('Error creating cash account:', error)
-    return NextResponse.json(
-      { error: 'Failed to create cash account' },
-      { status: 500 }
-    )
+    return apiError('Failed to create cash account', 500)
   }
 }

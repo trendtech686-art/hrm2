@@ -2,7 +2,7 @@
  * Dashboard React Query Hooks
  */
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import * as api from '../api/dashboard-api';
 import type { DashboardFilters } from '../api/dashboard-api';
 
@@ -14,13 +14,31 @@ export const dashboardKeys = {
 };
 
 export function useDashboardData(filters: DashboardFilters = {}) {
-  return useQuery({ queryKey: dashboardKeys.data(filters), queryFn: () => api.fetchDashboardData(filters), staleTime: 1000 * 60 * 2, refetchInterval: 1000 * 60 * 5 });
+  return useQuery({
+    queryKey: dashboardKeys.data(filters),
+    queryFn: () => api.fetchDashboardData(filters),
+    staleTime: 1000 * 60 * 2,
+    gcTime: 10 * 60 * 1000,
+    placeholderData: keepPreviousData,
+    refetchInterval: 1000 * 60 * 5,
+  });
 }
 
 export function useDashboardSummary(filters: DashboardFilters = {}) {
-  return useQuery({ queryKey: dashboardKeys.summary(filters), queryFn: () => api.fetchDashboardSummary(filters), staleTime: 1000 * 60 * 2 });
+  return useQuery({
+    queryKey: dashboardKeys.summary(filters),
+    queryFn: () => api.fetchDashboardSummary(filters),
+    staleTime: 1000 * 60 * 2,
+    gcTime: 10 * 60 * 1000,
+    placeholderData: keepPreviousData,
+  });
 }
 
 export function useDebtAlerts() {
-  return useQuery({ queryKey: dashboardKeys.debtAlerts(), queryFn: api.fetchDebtAlerts, staleTime: 1000 * 60 * 5 });
+  return useQuery({
+    queryKey: dashboardKeys.debtAlerts(),
+    queryFn: api.fetchDebtAlerts,
+    staleTime: 1000 * 60 * 5,
+    gcTime: 10 * 60 * 1000,
+  });
 }

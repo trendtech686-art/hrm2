@@ -1,5 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@/generated/prisma/client';
+import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils';
+import { createCustomerSettingSchema } from './validation';
 
 // Valid customer setting types
 const VALID_TYPES = [
@@ -14,6 +17,9 @@ const VALID_TYPES = [
 
 // GET - List all customer settings (optionally filter by type)
 export async function GET(request: NextRequest) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
+
   const { searchParams } = new URL(request.url);
   const type = searchParams.get('type');
 
@@ -50,48 +56,37 @@ export async function GET(request: NextRequest) {
       ...(s.metadata as Record<string, unknown> || {}),
     }));
 
-    return NextResponse.json(transformed);
+    return apiSuccess(transformed);
   } catch (error) {
     console.error('[Customer Settings API] GET error:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch customer settings' },
-      { status: 500 }
-    );
+    return apiError('Failed to fetch customer settings', 500);
   }
 }
 
 // POST - Create new customer setting
 export async function POST(request: NextRequest) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
+
+  const validation = await validateBody(request, createCustomerSettingSchema);
+  if (!validation.success) {
+    return apiError(validation.error, 400);
+  }
+  const { 
+    systemId, 
+    id, 
+    name, 
+    type, 
+    description, 
+    color, 
+    isDefault, 
+    isActive,
+    orderIndex,
+    createdBy,
+    ...extraFields 
+  } = validation.data;
+
   try {
-    const body = await request.json();
-    const { 
-      systemId, 
-      id, 
-      name, 
-      type, 
-      description, 
-      color, 
-      isDefault, 
-      isActive,
-      orderIndex,
-      createdBy,
-      ...extraFields 
-    } = body;
-
-    if (!type || !VALID_TYPES.includes(type)) {
-      return NextResponse.json(
-        { error: `Invalid type. Must be one of: ${VALID_TYPES.join(', ')}` },
-        { status: 400 }
-      );
-    }
-
-    if (!name) {
-      return NextResponse.json(
-        { error: 'Name is required' },
-        { status: 400 }
-      );
-    }
-
     const created = await prisma.customerSetting.create({
       data: {
         systemId: systemId || undefined, // Let Prisma generate if not provided
@@ -103,13 +98,13 @@ export async function POST(request: NextRequest) {
         isDefault: isDefault ?? false,
         isActive: isActive ?? true,
         orderIndex,
-        metadata: Object.keys(extraFields).length > 0 ? extraFields : null,
+        metadata: Object.keys(extraFields).length > 0 ? (extraFields as Prisma.InputJsonValue) : undefined,
         createdBy,
         updatedBy: createdBy,
       },
     });
 
-    return NextResponse.json({
+    return apiSuccess({
       systemId: created.systemId,
       id: created.id,
       name: created.name,
@@ -124,21 +119,15 @@ export async function POST(request: NextRequest) {
       createdBy: created.createdBy,
       updatedBy: created.updatedBy,
       ...(created.metadata as Record<string, unknown> || {}),
-    }, { status: 201 });
+    });
   } catch (error) {
     console.error('[Customer Settings API] POST error:', error);
     
     // Handle unique constraint violation
     if (error instanceof Error && 'code' in error && error.code === 'P2002') {
-      return NextResponse.json(
-        { error: 'A setting with this ID already exists for this type' },
-        { status: 409 }
-      );
+      return apiError('A setting with this ID already exists for this type', 409);
     }
 
-    return NextResponse.json(
-      { error: 'Failed to create customer setting' },
-      { status: 500 }
-    );
+    return apiError('Failed to create customer setting', 500);
   }
 }

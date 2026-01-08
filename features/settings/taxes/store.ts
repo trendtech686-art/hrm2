@@ -1,3 +1,13 @@
+/**
+ * @deprecated Use React Query hooks instead:
+ * - `useTaxes()` for list
+ * - `useTaxById(id)` for single
+ * - `useTaxMutations()` for create/update/delete
+ * 
+ * Import from: `@/features/settings/taxes/hooks/use-taxes`
+ * 
+ * This store will be removed in a future version.
+ */
 import type { SystemId } from '@/lib/id-types';
 import type { UseBoundStore, StoreApi } from 'zustand';
 import type { Tax } from '@/lib/types/prisma-extended';

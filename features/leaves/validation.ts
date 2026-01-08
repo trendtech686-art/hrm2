@@ -2,7 +2,7 @@
  * Zod validation schemas for leaves module
  */
 import { z } from 'zod';
-import type { SystemId } from '@/lib/id-types';
+import { systemIdSchema } from '@/lib/id-types';
 
 // Status enum
 export const leaveStatusSchema = z.enum([
@@ -25,7 +25,7 @@ export const leaveTypeSchema = z.enum([
 
 // Create leave schema
 export const createLeaveSchema = z.object({
-  employeeSystemId: z.string() as z.ZodType<SystemId>,
+  employeeSystemId: systemIdSchema,
   employeeName: z.string().optional(),
   department: z.string().optional(),
   leaveType: leaveTypeSchema,
@@ -46,7 +46,7 @@ export const updateLeaveSchema = createLeaveSchema.partial().extend({
 
 // Approve/Reject schema
 export const approveLeaveSchema = z.object({
-  approverSystemId: z.string() as z.ZodType<SystemId>,
+  approverSystemId: systemIdSchema,
   approverName: z.string().optional(),
   notes: z.string().optional(),
 });

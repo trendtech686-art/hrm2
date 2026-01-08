@@ -5,7 +5,8 @@
  * Proxy to get GHTK shipping label (returns PDF URL or base64)
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils';
 
 const GHTK_API_BASE = 'https://services.giaohangtietkiem.vn';
 
@@ -17,6 +18,9 @@ export async function GET(
   request: NextRequest,
   { params }: Props
 ) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
+
   const requestId = Math.random().toString(36).substring(2, 11);
   const { trackingCode } = await params;
 
@@ -26,7 +30,7 @@ export async function GET(
     const partnerCode = searchParams.get('partnerCode');
 
     if (!apiToken) {
-      return NextResponse.json({ error: 'API Token is required' }, { status: 400 });
+      return apiError('API Token is required', 400);
     }
 
 
@@ -41,9 +45,9 @@ export async function GET(
     const data = await response.json();
     
 
-    return NextResponse.json(data);
+    return apiSuccess(data);
   } catch (error) {
     console.error(`[GHTK-LABEL-${requestId}] Print label error:`, error);
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'Unknown error' }, { status: 500 });
+    return apiError(error instanceof Error ? error.message : 'Unknown error', 500);
   }
 }

@@ -2,7 +2,7 @@
  * Sales Channels React Query Hooks
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import {
   fetchSalesChannels,
   fetchSalesChannelById,
@@ -30,6 +30,8 @@ export function useSalesChannels(filters: SalesChannelFilters = {}) {
     queryKey: salesChannelKeys.list(filters),
     queryFn: () => fetchSalesChannels(filters),
     staleTime: 1000 * 60 * 10,
+    gcTime: 10 * 60 * 1000,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -39,6 +41,7 @@ export function useSalesChannelById(systemId: string | undefined) {
     queryFn: () => fetchSalesChannelById(systemId!),
     enabled: !!systemId,
     staleTime: 1000 * 60 * 10,
+    gcTime: 10 * 60 * 1000,
   });
 }
 
@@ -47,6 +50,8 @@ export function useAppliedSalesChannels() {
     queryKey: salesChannelKeys.applied(),
     queryFn: fetchAppliedSalesChannels,
     staleTime: 1000 * 60 * 10,
+    gcTime: 10 * 60 * 1000,
+    placeholderData: keepPreviousData,
   });
 }
 

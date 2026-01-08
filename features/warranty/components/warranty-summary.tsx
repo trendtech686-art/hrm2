@@ -43,7 +43,7 @@ export function WarrantySummary({ disabled: _disabled = false }: WarrantySummary
       const value = qty * (p.unitPrice || 0);
       const resolution = p.resolution;
       
-      if (byResolution[resolution]) {
+      if (resolution && byResolution[resolution]) {
         byResolution[resolution].qty += qty;
         byResolution[resolution].value += value;
         if (resolution === 'deduct') {

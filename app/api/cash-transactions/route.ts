@@ -1,19 +1,20 @@
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { Prisma, CashTransactionType } from '@/generated/prisma/client'
+import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
+import { createCashTransactionSchema } from './validation'
 
 // GET /api/cash-transactions - List all cash transactions
 export async function GET(request: Request) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { searchParams } = new URL(request.url)
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '20')
+    const { page, limit, skip } = parsePagination(searchParams)
     const accountId = searchParams.get('accountId')
     const type = searchParams.get('type')
     const fromDate = searchParams.get('fromDate')
     const toDate = searchParams.get('toDate')
-
-    const skip = (page - 1) * limit
 
     const where: Prisma.CashTransactionWhereInput = {}
 
@@ -44,32 +45,29 @@ export async function GET(request: Request) {
       prisma.cashTransaction.count({ where }),
     ])
 
-    return NextResponse.json({
-      data: transactions,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
-    })
+    return apiPaginated(transactions, { page, limit, total })
   } catch (error) {
     console.error('Error fetching cash transactions:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch cash transactions' },
-      { status: 500 }
-    )
+    return apiError('Failed to fetch cash transactions', 500)
   }
 }
 
 // POST /api/cash-transactions - Create new transaction
 export async function POST(request: Request) {
-  try {
-    const body = await request.json()
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
 
+  const validation = await validateBody(request, createCashTransactionSchema)
+  if (!validation.success) {
+    return apiError(validation.error, 400)
+  }
+  const body = validation.data
+
+  try {
     // Generate business ID
-    if (!body.id) {
-      const prefix = body.type === 'IN' ? 'PT' : 'PC'
+    let businessId = body.id
+    if (!businessId) {
+      const prefix = body.type === 'IN' || body.transactionType === 'IN' ? 'PT' : 'PC'
       const lastTxn = await prisma.cashTransaction.findFirst({
         where: { id: { startsWith: prefix } },
         orderBy: { createdAt: 'desc' },
@@ -78,7 +76,7 @@ export async function POST(request: Request) {
       const lastNum = lastTxn?.id 
         ? parseInt(lastTxn.id.replace(prefix, '')) 
         : 0
-      body.id = `${prefix}${String(lastNum + 1).padStart(6, '0')}`
+      businessId = `${prefix}${String(lastNum + 1).padStart(6, '0')}`
     }
 
     // Create transaction and update account balance in a transaction
@@ -86,9 +84,9 @@ export async function POST(request: Request) {
       const transaction = await tx.cashTransaction.create({
         data: {
           systemId: `CTRANS${String(Date.now()).slice(-10).padStart(10, '0')}`,
-          id: body.id,
-          accountId: body.accountId || body.cashAccountId,
-          type: body.type || body.transactionType,
+          id: businessId,
+          accountId: body.accountId || body.cashAccountId || '',
+          type: (body.type || body.transactionType) as CashTransactionType,
           amount: body.amount,
           transactionDate: body.transactionDate ? new Date(body.transactionDate) : new Date(),
           description: body.description,
@@ -110,12 +108,9 @@ export async function POST(request: Request) {
       return transaction
     })
 
-    return NextResponse.json(result, { status: 201 })
+    return apiSuccess(result, 201)
   } catch (error) {
     console.error('Error creating cash transaction:', error)
-    return NextResponse.json(
-      { error: 'Failed to create cash transaction' },
-      { status: 500 }
-    )
+    return apiError('Failed to create cash transaction', 500)
   }
 }

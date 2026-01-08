@@ -3,7 +3,7 @@
  * Thiết kế theo mẫu tem phụ nhập khẩu chuẩn
  */
 export const PRODUCT_LABEL_TEMPLATE = `
-<div style="font-family: 'Inter', Arial, sans-serif; width: 320px; background: #fff; padding: 16px; line-height: 1.5; font-size: 13px; color: #111;">
+<div style="font-family: var(--font-sans, Arial, sans-serif); width: 320px; background: #fff; padding: 16px; line-height: 1.5; font-size: 13px; color: #111;">
   <!-- TÊN SẢN PHẨM -->
   <div style="margin-bottom: 12px;">
     <span style="font-weight: 700;">TÊN SẢN PHẨM:</span> {product_name_vat}

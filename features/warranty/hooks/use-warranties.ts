@@ -49,6 +49,7 @@ export function useWarrantyStats() {
     queryKey: warrantyKeys.stats(),
     queryFn: fetchWarrantyStats,
     staleTime: 60_000,
+    gcTime: 10 * 60 * 1000, // 10 minutes
   });
 }
 

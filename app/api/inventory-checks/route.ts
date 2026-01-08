@@ -5,9 +5,12 @@
  * POST   /api/inventory-checks       - Create new inventory check
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import type { Prisma } from '@/generated/prisma/client';
+import { InventoryCheckStatus } from '@/generated/prisma/client';
+import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils';
+import { createInventoryCheckSchema } from './validation';
 
 // Interface for inventory check item input
 interface InventoryCheckItemInput {
@@ -21,14 +24,14 @@ interface InventoryCheckItemInput {
 
 // GET - List inventory checks
 export async function GET(request: NextRequest) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
+
   try {
     const searchParams = request.nextUrl.searchParams;
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '20');
+    const { page, limit, skip } = parsePagination(searchParams);
     const search = searchParams.get('search') || '';
     const _includeDeleted = searchParams.get('includeDeleted') === 'true';
-    
-    const skip = (page - 1) * limit;
 
     const where: Prisma.InventoryCheckWhereInput = {};
     
@@ -54,29 +57,22 @@ export async function GET(request: NextRequest) {
       prisma.inventoryCheck.count({ where }),
     ]);
 
-    return NextResponse.json({
-      data,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
-    });
+    return apiPaginated(data, { page, limit, total });
   } catch (error) {
     console.error('[Inventory Checks API] GET error:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch inventory checks' },
-      { status: 500 }
-    );
+    return apiError('Failed to fetch inventory checks', 500);
   }
 }
 
 // POST - Create new inventory check
 export async function POST(request: NextRequest) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
+
+  const result = await validateBody(request, createInventoryCheckSchema);
+  if (!result.success) return apiError(result.error, 400);
+
   try {
-    const body = await request.json();
-    
     const {
       systemId,
       id,
@@ -87,7 +83,7 @@ export async function POST(request: NextRequest) {
       notes,
       items,
       createdBy,
-    } = body;
+    } = result.data;
 
     const inventoryCheck = await prisma.inventoryCheck.create({
       data: {
@@ -96,15 +92,16 @@ export async function POST(request: NextRequest) {
         branchId,
         employeeId: employeeId || null,
         checkDate: checkDate ? new Date(checkDate) : new Date(),
-        status: status || 'DRAFT',
+        status: (status || 'DRAFT') as InventoryCheckStatus,
         notes: notes || null,
         createdBy: createdBy || null,
         items: items?.length ? {
           create: items.map((item: InventoryCheckItemInput) => ({
-            systemId: item.systemId,
             productId: item.productId,
-            expectedQuantity: item.expectedQuantity || 0,
-            actualQuantity: item.actualQuantity || 0,
+            productName: item.productId, // Will be resolved from product
+            productSku: item.productId, // Will be resolved from product
+            systemQty: item.expectedQuantity || 0,
+            actualQty: item.actualQuantity || 0,
             difference: item.difference || 0,
             notes: item.notes || null,
           })),
@@ -115,12 +112,9 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return NextResponse.json(inventoryCheck, { status: 201 });
+    return apiSuccess(inventoryCheck, 201);
   } catch (error) {
     console.error('[Inventory Checks API] POST error:', error);
-    return NextResponse.json(
-      { error: 'Failed to create inventory check' },
-      { status: 500 }
-    );
+    return apiError('Failed to create inventory check', 500);
   }
 }

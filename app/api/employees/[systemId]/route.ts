@@ -1,12 +1,15 @@
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@/generated/prisma/client'
+import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
 
 // GET /api/employees/[systemId] - Get single employee
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ systemId: string }> }
 ) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { systemId } = await params
 
@@ -34,19 +37,13 @@ export async function GET(
     })
 
     if (!employee || employee.isDeleted) {
-      return NextResponse.json(
-        { error: 'Employee not found' },
-        { status: 404 }
-      )
+      return apiNotFound('Employee')
     }
 
-    return NextResponse.json(employee)
+    return apiSuccess(employee)
   } catch (error) {
     console.error('Error fetching employee:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch employee' },
-      { status: 500 }
-    )
+    return apiError('Failed to fetch employee', 500)
   }
 }
 
@@ -55,6 +52,9 @@ export async function PUT(
   request: Request,
   { params }: { params: Promise<{ systemId: string }> }
 ) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { systemId } = await params
     const body = await request.json()
@@ -65,10 +65,7 @@ export async function PUT(
     })
 
     if (!existing || existing.isDeleted) {
-      return NextResponse.json(
-        { error: 'Employee not found' },
-        { status: 404 }
-      )
+      return apiNotFound('Employee')
     }
 
     const employee = await prisma.employee.update({
@@ -124,21 +121,15 @@ export async function PUT(
       },
     })
 
-    return NextResponse.json(employee)
+    return apiSuccess(employee)
   } catch (error) {
     console.error('Error updating employee:', error)
 
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-      return NextResponse.json(
-        { error: 'Email already exists' },
-        { status: 400 }
-      )
+      return apiError('Email already exists', 400)
     }
 
-    return NextResponse.json(
-      { error: 'Failed to update employee' },
-      { status: 500 }
-    )
+    return apiError('Failed to update employee', 500)
   }
 }
 
@@ -147,6 +138,9 @@ export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ systemId: string }> }
 ) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { systemId } = await params
 
@@ -158,12 +152,9 @@ export async function DELETE(
       },
     })
 
-    return NextResponse.json({ success: true, systemId: employee.systemId })
+    return apiSuccess({ success: true, systemId: employee.systemId })
   } catch (error) {
     console.error('Error deleting employee:', error)
-    return NextResponse.json(
-      { error: 'Failed to delete employee' },
-      { status: 500 }
-    )
+    return apiError('Failed to delete employee', 500)
   }
 }

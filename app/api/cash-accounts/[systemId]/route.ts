@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
 
 interface RouteParams {
   params: Promise<{ systemId: string }>
@@ -7,6 +7,9 @@ interface RouteParams {
 
 // GET /api/cash-accounts/[systemId]
 export async function GET(_request: Request, { params }: RouteParams) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { systemId } = await params
 
@@ -21,24 +24,21 @@ export async function GET(_request: Request, { params }: RouteParams) {
     })
 
     if (!account) {
-      return NextResponse.json(
-        { error: 'Quỹ tiền không tồn tại' },
-        { status: 404 }
-      )
+      return apiNotFound('Quỹ tiền')
     }
 
-    return NextResponse.json(account)
+    return apiSuccess(account)
   } catch (error) {
     console.error('Error fetching cash account:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch cash account' },
-      { status: 500 }
-    )
+    return apiError('Failed to fetch cash account', 500)
   }
 }
 
 // PUT /api/cash-accounts/[systemId]
 export async function PUT(request: Request, { params }: RouteParams) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { systemId } = await params
     const body = await request.json()
@@ -54,24 +54,21 @@ export async function PUT(request: Request, { params }: RouteParams) {
       },
     })
 
-    return NextResponse.json(account)
+    return apiSuccess(account)
   } catch (error) {
     if (error instanceof Error && 'code' in error && error.code === 'P2025') {
-      return NextResponse.json(
-        { error: 'Quỹ tiền không tồn tại' },
-        { status: 404 }
-      )
+      return apiNotFound('Quỹ tiền')
     }
     console.error('Error updating cash account:', error)
-    return NextResponse.json(
-      { error: 'Failed to update cash account' },
-      { status: 500 }
-    )
+    return apiError('Failed to update cash account', 500)
   }
 }
 
 // DELETE /api/cash-accounts/[systemId]
 export async function DELETE(_request: Request, { params }: RouteParams) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { systemId } = await params
 
@@ -80,18 +77,12 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
       data: { isActive: false },
     })
 
-    return NextResponse.json({ success: true })
+    return apiSuccess({ success: true })
   } catch (error) {
     if (error instanceof Error && 'code' in error && error.code === 'P2025') {
-      return NextResponse.json(
-        { error: 'Quỹ tiền không tồn tại' },
-        { status: 404 }
-      )
+      return apiNotFound('Quỹ tiền')
     }
     console.error('Error deleting cash account:', error)
-    return NextResponse.json(
-      { error: 'Failed to delete cash account' },
-      { status: 500 }
-    )
+    return apiError('Failed to delete cash account', 500)
   }
 }

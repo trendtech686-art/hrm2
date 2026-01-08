@@ -1,20 +1,21 @@
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { ShipmentStatus } from '@/generated/prisma/client'
+import { Prisma, ShipmentStatus } from '@/generated/prisma/client'
+import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
+import { createShipmentSchema } from './validation'
 
 // GET /api/shipments - List all shipments
 export async function GET(request: Request) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { searchParams } = new URL(request.url)
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '20')
+    const { page, limit, skip } = parsePagination(searchParams)
     const search = searchParams.get('search') || ''
     const status = searchParams.get('status')
     const orderId = searchParams.get('orderId')
 
-    const skip = (page - 1) * limit
-
-    const where: Parameters<typeof prisma.shipment.findMany>[0]['where'] = {}
+    const where: Prisma.ShipmentWhereInput = {}
 
     if (search) {
       where.OR = [
@@ -50,28 +51,23 @@ export async function GET(request: Request) {
       prisma.shipment.count({ where }),
     ])
 
-    return NextResponse.json({
-      data: shipments,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
-    })
+    return apiPaginated(shipments, { page, limit, total })
   } catch (error) {
     console.error('Error fetching shipments:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch shipments' },
-      { status: 500 }
-    )
+    return apiError('Failed to fetch shipments', 500)
   }
 }
 
 // POST /api/shipments - Create new shipment
 export async function POST(request: Request) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
+  const result = await validateBody(request, createShipmentSchema)
+  if (!result.success) return apiError(result.error, 400)
+
   try {
-    const body = await request.json()
+    const body = result.data
 
     // Generate business ID
     if (!body.id) {
@@ -90,14 +86,14 @@ export async function POST(request: Request) {
         systemId: `SHIP${String(Date.now()).slice(-10).padStart(10, '0')}`,
         id: body.id,
         orderId: body.orderId,
-        carrier: body.carrier,
+        carrier: body.carrier || '',
         trackingNumber: body.trackingNumber,
         shippingFee: body.shippingFee || 0,
-        status: body.status || 'PENDING',
+        status: (body.status || 'PENDING') as ShipmentStatus,
         deliveredAt: body.deliveredAt ? new Date(body.deliveredAt) : null,
-        recipientName: body.recipientName,
-        recipientPhone: body.recipientPhone,
-        recipientAddress: body.recipientAddress,
+        recipientName: body.recipientName || '',
+        recipientPhone: body.recipientPhone || '',
+        recipientAddress: body.recipientAddress || '',
         notes: body.notes,
       },
       include: {
@@ -105,12 +101,9 @@ export async function POST(request: Request) {
       },
     })
 
-    return NextResponse.json(shipment, { status: 201 })
+    return apiSuccess(shipment, 201)
   } catch (error) {
     console.error('Error creating shipment:', error)
-    return NextResponse.json(
-      { error: 'Failed to create shipment' },
-      { status: 500 }
-    )
+    return apiError('Failed to create shipment', 500)
   }
 }

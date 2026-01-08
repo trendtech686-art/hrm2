@@ -87,6 +87,7 @@ export function useCustomerSearch(query: string, limit = 20) {
     queryFn: () => searchCustomers(query, limit),
     enabled: query.length >= 2,
     staleTime: 30_000,
+    gcTime: 5 * 60 * 1000, // 5 minutes
   });
 }
 
@@ -99,6 +100,7 @@ export function useCustomerDebt(customerId: string | null | undefined) {
     queryFn: () => fetchCustomerDebt(customerId!),
     enabled: !!customerId,
     staleTime: 30_000,
+    gcTime: 5 * 60 * 1000, // 5 minutes
   });
 }
 

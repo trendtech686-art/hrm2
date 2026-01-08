@@ -2,7 +2,7 @@
  * Zod validation schemas for inventory-checks module
  */
 import { z } from 'zod';
-import type { SystemId, BusinessId } from '@/lib/id-types';
+import { systemIdSchema, businessIdSchema } from '@/lib/id-types';
 
 // Status enum
 export const inventoryCheckStatusSchema = z.enum([
@@ -26,8 +26,8 @@ export const differenceReasonSchema = z.enum([
 
 // Item schema
 export const inventoryCheckItemSchema = z.object({
-  productSystemId: z.string() as z.ZodType<SystemId>,
-  productId: z.string() as z.ZodType<BusinessId>,
+  productSystemId: systemIdSchema,
+  productId: businessIdSchema,
   productName: z.string().min(1, 'Tên sản phẩm không được để trống'),
   systemQuantity: z.number().int().min(0, 'Số lượng hệ thống phải >= 0'),
   actualQuantity: z.number().int().min(0, 'Số lượng thực tế phải >= 0'),
@@ -39,7 +39,7 @@ export const inventoryCheckItemSchema = z.object({
 
 // Create schema
 export const createInventoryCheckSchema = z.object({
-  branchSystemId: z.string().min(1, 'Vui lòng chọn chi nhánh') as z.ZodType<SystemId>,
+  branchSystemId: systemIdSchema.refine(v => v.length >= 1, 'Vui lòng chọn chi nhánh'),
   branchName: z.string().optional(),
   notes: z.string().optional(),
   checkDate: z.string().optional(),

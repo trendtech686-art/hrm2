@@ -152,7 +152,7 @@ type ResizablePanelProps = React.HTMLAttributes<HTMLDivElement> & {
   index?: number // Injected by group
 }
 
-const ResizablePanel = ({ className, children, index = 0, ...props }: ResizablePanelProps) => {
+const ResizablePanel = ({ className, children, index = 0, defaultSize, minSize, ...divProps }: ResizablePanelProps) => {
   const { panelSizes, isDragging } = useResizablePanelGroup()
   const size = panelSizes[index]
 
@@ -164,7 +164,7 @@ const ResizablePanel = ({ className, children, index = 0, ...props }: ResizableP
         className
       )}
       style={{ flexBasis: `${size}%`, flexGrow: 0, flexShrink: 0 }}
-      {...props}
+      {...divProps}
     >
       {children}
     </div>
@@ -194,7 +194,7 @@ const ResizableHandle = React.forwardRef<HTMLDivElement, ResizableHandleProps>(
         {...props}
       >
         {withHandle && (
-          <div className="z-10 flex h-4 w-3 items-center justify-center rounded-sm border bg-border">
+          <div className="z-10 flex h-4 w-3 items-center justify-center rounded-sm border border-border bg-border">
             <GripVertical className="h-2.5 w-2.5" />
           </div>
         )}

@@ -2,7 +2,7 @@
  * Zod validation schemas for sales-returns module
  */
 import { z } from 'zod';
-import type { BusinessId, SystemId } from '@/lib/id-types';
+import { businessIdSchema, systemIdSchema } from '@/lib/id-types';
 
 // Return status enum
 export const salesReturnStatusSchema = z.enum([
@@ -28,11 +28,11 @@ export const salesReturnReasonSchema = z.enum([
 
 // Return item schema
 export const salesReturnItemSchema = z.object({
-  orderItemSystemId: z.string().optional() as z.ZodType<SystemId | undefined>,
-  productSystemId: z.string() as z.ZodType<SystemId>,
-  productBusinessId: z.string().optional() as z.ZodType<BusinessId | undefined>,
+  orderItemSystemId: systemIdSchema.optional(),
+  productSystemId: systemIdSchema,
+  productBusinessId: businessIdSchema.optional(),
   productName: z.string().optional(),
-  variantSystemId: z.string().optional() as z.ZodType<SystemId | undefined>,
+  variantSystemId: systemIdSchema.optional(),
   variantName: z.string().optional(),
   quantity: z.number().int().positive('Số lượng phải lớn hơn 0'),
   returnedQuantity: z.number().int().min(0).default(0),
@@ -40,16 +40,16 @@ export const salesReturnItemSchema = z.object({
   reason: salesReturnReasonSchema,
   reasonNote: z.string().optional(),
   returnToStock: z.boolean().default(true),
-  locationSystemId: z.string().optional() as z.ZodType<SystemId | undefined>,
+  locationSystemId: systemIdSchema.optional(),
 });
 
 // Create sales return schema
 export const createSalesReturnSchema = z.object({
-  orderSystemId: z.string() as z.ZodType<SystemId>,
-  orderBusinessId: z.string().optional() as z.ZodType<BusinessId | undefined>,
-  customerSystemId: z.string().optional() as z.ZodType<SystemId | undefined>,
+  orderSystemId: systemIdSchema,
+  orderBusinessId: businessIdSchema.optional(),
+  customerSystemId: systemIdSchema.optional(),
   customerName: z.string().optional(),
-  branchSystemId: z.string().optional() as z.ZodType<SystemId | undefined>,
+  branchSystemId: systemIdSchema.optional(),
   reason: salesReturnReasonSchema,
   notes: z.string().optional(),
   items: z.array(salesReturnItemSchema).min(1, 'Phải có ít nhất 1 sản phẩm trả hàng'),

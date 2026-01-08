@@ -39,6 +39,7 @@ export function useCashAccount(id: string | null | undefined) {
     queryFn: () => fetchCashAccount(id!),
     enabled: !!id,
     staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
   });
 }
 

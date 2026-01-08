@@ -2,9 +2,11 @@
  * Inventory Receipts API Route
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { Prisma, InventoryReceiptType } from '@/generated/prisma/client';
+import { Prisma, InventoryReceiptType, InventoryReceiptStatus } from '@/generated/prisma/client';
+import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils';
+import { createInventoryReceiptSchema } from './validation';
 
 // Interface for inventory receipt item input
 interface InventoryReceiptItemInput {
@@ -18,14 +20,14 @@ interface InventoryReceiptItemInput {
 
 // GET - List inventory receipts
 export async function GET(request: NextRequest) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
+
   try {
     const searchParams = request.nextUrl.searchParams;
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '20');
+    const { page, limit, skip } = parsePagination(searchParams);
     const search = searchParams.get('search') || '';
     const type = searchParams.get('type') || '';
-    
-    const skip = (page - 1) * limit;
 
     const where: Prisma.InventoryReceiptWhereInput = {};
     
@@ -53,29 +55,22 @@ export async function GET(request: NextRequest) {
       prisma.inventoryReceipt.count({ where }),
     ]);
 
-    return NextResponse.json({
-      data,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
-    });
+    return apiPaginated(data, { page, limit, total });
   } catch (error) {
     console.error('[Inventory Receipts API] GET error:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch inventory receipts' },
-      { status: 500 }
-    );
+    return apiError('Failed to fetch inventory receipts', 500);
   }
 }
 
 // POST - Create new inventory receipt
 export async function POST(request: NextRequest) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
+
+  const result = await validateBody(request, createInventoryReceiptSchema);
+  if (!result.success) return apiError(result.error, 400);
+
   try {
-    const body = await request.json();
-    
     const {
       systemId,
       id,
@@ -89,29 +84,29 @@ export async function POST(request: NextRequest) {
       notes,
       items,
       createdBy,
-    } = body;
+    } = result.data;
 
     const inventoryReceipt = await prisma.inventoryReceipt.create({
       data: {
         systemId,
         id,
-        type,
+        type: type as InventoryReceiptType,
         branchId,
         employeeId: employeeId || null,
         referenceType: referenceType || null,
         referenceId: referenceId || null,
         receiptDate: receiptDate ? new Date(receiptDate) : new Date(),
-        status: status || 'DRAFT',
+        status: (status || 'DRAFT') as InventoryReceiptStatus,
         notes: notes || null,
         createdBy: createdBy || null,
         items: items?.length ? {
           create: items.map((item: InventoryReceiptItemInput) => ({
-            systemId: item.systemId,
             productId: item.productId,
+            productName: item.productId, // Will be resolved from product
+            productSku: item.productId, // Will be resolved from product
             quantity: item.quantity || 1,
             unitCost: item.unitCost || 0,
             totalCost: item.totalCost || 0,
-            notes: item.notes || null,
           })),
         } : undefined,
       },
@@ -120,12 +115,9 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return NextResponse.json(inventoryReceipt, { status: 201 });
+    return apiSuccess(inventoryReceipt, 201);
   } catch (error) {
     console.error('[Inventory Receipts API] POST error:', error);
-    return NextResponse.json(
-      { error: 'Failed to create inventory receipt' },
-      { status: 500 }
-    );
+    return apiError('Failed to create inventory receipt', 500);
   }
 }

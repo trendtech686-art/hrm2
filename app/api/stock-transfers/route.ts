@@ -5,28 +5,33 @@
  * POST   /api/stock-transfers       - Create new stock transfer
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import type { Prisma } from '@/generated/prisma/client';
+import { StockTransferStatus } from '@/generated/prisma/client';
+import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils';
+import { createStockTransferSchema } from './validation';
 
 // Interface for stock transfer item input
 interface StockTransferItemInput {
   systemId: string;
   productId: string;
+  productName?: string;
+  productSku?: string;
   quantity?: number;
   notes?: string;
 }
 
 // GET - List stock transfers
 export async function GET(request: NextRequest) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
+
   try {
     const searchParams = request.nextUrl.searchParams;
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '20');
+    const { page, limit, skip } = parsePagination(searchParams);
     const search = searchParams.get('search') || '';
     const _includeDeleted = searchParams.get('includeDeleted') === 'true';
-    
-    const skip = (page - 1) * limit;
 
     const where: Prisma.StockTransferWhereInput = {};
     
@@ -53,29 +58,22 @@ export async function GET(request: NextRequest) {
       prisma.stockTransfer.count({ where }),
     ]);
 
-    return NextResponse.json({
-      data,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
-    });
+    return apiPaginated(data, { page, limit, total });
   } catch (error) {
     console.error('[Stock Transfers API] GET error:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch stock transfers' },
-      { status: 500 }
-    );
+    return apiError('Failed to fetch stock transfers', 500);
   }
 }
 
 // POST - Create new stock transfer
 export async function POST(request: NextRequest) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
+
+  const result = await validateBody(request, createStockTransferSchema);
+  if (!result.success) return apiError(result.error, 400);
+
   try {
-    const body = await request.json();
-    
     const {
       systemId,
       id,
@@ -88,7 +86,7 @@ export async function POST(request: NextRequest) {
       notes,
       items,
       createdBy,
-    } = body;
+    } = result.data;
 
     const stockTransfer = await prisma.stockTransfer.create({
       data: {
@@ -99,15 +97,16 @@ export async function POST(request: NextRequest) {
         employeeId: employeeId || null,
         transferDate: transferDate ? new Date(transferDate) : new Date(),
         receivedDate: receivedDate ? new Date(receivedDate) : null,
-        status: status || 'DRAFT',
+        status: (status || 'DRAFT') as StockTransferStatus,
         notes: notes || null,
         createdBy: createdBy || null,
         items: items?.length ? {
           create: items.map((item: StockTransferItemInput) => ({
             systemId: item.systemId,
             productId: item.productId,
+            productName: item.productName || '',
+            productSku: item.productSku || '',
             quantity: item.quantity || 1,
-            notes: item.notes || null,
           })),
         } : undefined,
       },
@@ -116,12 +115,9 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return NextResponse.json(stockTransfer, { status: 201 });
+    return apiSuccess(stockTransfer, 201);
   } catch (error) {
     console.error('[Stock Transfers API] POST error:', error);
-    return NextResponse.json(
-      { error: 'Failed to create stock transfer' },
-      { status: 500 }
-    );
+    return apiError('Failed to create stock transfer', 500);
   }
 }

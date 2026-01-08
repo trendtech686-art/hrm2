@@ -2,7 +2,7 @@
  * Zod validation schemas for packaging module
  */
 import { z } from 'zod';
-import type { BusinessId, SystemId } from '@/lib/id-types';
+import { businessIdSchema, systemIdSchema } from '@/lib/id-types';
 
 // Packaging status enum
 export const packagingStatusSchema = z.enum([
@@ -25,29 +25,29 @@ export const packagingPrioritySchema = z.enum([
 
 // Packaging item schema
 export const packagingItemSchema = z.object({
-  orderItemSystemId: z.string().optional() as z.ZodType<SystemId | undefined>,
-  productSystemId: z.string() as z.ZodType<SystemId>,
-  productBusinessId: z.string().optional() as z.ZodType<BusinessId | undefined>,
+  orderItemSystemId: systemIdSchema.optional(),
+  productSystemId: systemIdSchema,
+  productBusinessId: businessIdSchema.optional(),
   productName: z.string().optional(),
-  variantSystemId: z.string().optional() as z.ZodType<SystemId | undefined>,
+  variantSystemId: systemIdSchema.optional(),
   variantName: z.string().optional(),
   quantity: z.number().int().positive('Số lượng phải lớn hơn 0'),
   pickedQuantity: z.number().int().min(0).default(0),
   packedQuantity: z.number().int().min(0).default(0),
-  locationSystemId: z.string().optional() as z.ZodType<SystemId | undefined>,
+  locationSystemId: systemIdSchema.optional(),
   locationName: z.string().optional(),
 });
 
 // Create packaging schema
 export const createPackagingSchema = z.object({
-  orderSystemId: z.string() as z.ZodType<SystemId>,
-  orderBusinessId: z.string().optional() as z.ZodType<BusinessId | undefined>,
+  orderSystemId: systemIdSchema,
+  orderBusinessId: businessIdSchema.optional(),
   customerName: z.string().optional(),
-  branchSystemId: z.string().optional() as z.ZodType<SystemId | undefined>,
-  warehouseSystemId: z.string().optional() as z.ZodType<SystemId | undefined>,
+  branchSystemId: systemIdSchema.optional(),
+  warehouseSystemId: systemIdSchema.optional(),
   priority: packagingPrioritySchema.default('normal'),
   dueDate: z.string().optional(),
-  assignedToSystemId: z.string().optional() as z.ZodType<SystemId | undefined>,
+  assignedToSystemId: systemIdSchema.optional(),
   assignedToName: z.string().optional(),
   notes: z.string().optional(),
   items: z.array(packagingItemSchema).min(1, 'Phải có ít nhất 1 sản phẩm'),
@@ -60,7 +60,7 @@ export const updatePackagingSchema = createPackagingSchema.partial().extend({
 
 // Start picking schema
 export const startPickingSchema = z.object({
-  pickerSystemId: z.string().optional() as z.ZodType<SystemId | undefined>,
+  pickerSystemId: systemIdSchema.optional(),
   pickerName: z.string().optional(),
 });
 

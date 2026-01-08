@@ -7,10 +7,13 @@
  * Returns: { systemId, businessId, counter }
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { generateNextIds, type EntityType, ID_CONFIG } from '@/lib/id-system';
+import { generateNextIds, type EntityType, ID_CONFIG } from '@/lib/id-system'
+import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const body = await request.json();
     const { entityType, customBusinessId } = body as { 
@@ -20,20 +23,14 @@ export async function POST(request: NextRequest) {
     
     // Validate entityType
     if (!entityType || !ID_CONFIG[entityType as EntityType]) {
-      return NextResponse.json(
-        { error: `Invalid entityType: ${entityType}` },
-        { status: 400 }
-      );
+      return apiError(`Invalid entityType: ${entityType}`, 400);
     }
     
     const ids = await generateNextIds(entityType as EntityType, customBusinessId);
     
-    return NextResponse.json(ids);
+    return apiSuccess(ids);
   } catch (error) {
     console.error('[API /api/id/generate] Error:', error);
-    return NextResponse.json(
-      { error: 'Failed to generate IDs', details: String(error) },
-      { status: 500 }
-    );
+    return apiError('Failed to generate IDs', 500);
   }
 }

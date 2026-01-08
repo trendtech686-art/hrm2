@@ -3,7 +3,7 @@
  * Provides data fetching for audit logs
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import {
   fetchAuditLogs,
   fetchEntityAuditLogs,
@@ -31,6 +31,8 @@ export function useAuditLogs(filters: AuditLogFilters = {}) {
     queryKey: auditLogKeys.list(filters),
     queryFn: () => fetchAuditLogs(filters),
     staleTime: 1000 * 60 * 2, // 2 minutes
+    gcTime: 10 * 60 * 1000,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -46,6 +48,7 @@ export function useEntityAuditLogs(
     queryFn: () => fetchEntityAuditLogs(entityId!, entityType),
     enabled: !!entityId,
     staleTime: 1000 * 60,
+    gcTime: 10 * 60 * 1000,
   });
 }
 
@@ -61,6 +64,7 @@ export function useUserActivity(
     queryFn: () => fetchUserActivity(userId!, period),
     enabled: !!userId,
     staleTime: 1000 * 60 * 5,
+    gcTime: 10 * 60 * 1000,
   });
 }
 

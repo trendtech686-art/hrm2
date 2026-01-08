@@ -2,15 +2,18 @@
  * Inventory Check Detail API Route
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/prisma'
+import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
 
 type RouteParams = {
   params: Promise<{ systemId: string }>;
 };
 
 // GET - Get single inventory check
-export async function GET(request: NextRequest, { params }: RouteParams) {
+export async function GET(request: Request, { params }: RouteParams) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { systemId } = await params;
 
@@ -22,24 +25,21 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     });
 
     if (!inventoryCheck) {
-      return NextResponse.json(
-        { error: 'Inventory check not found' },
-        { status: 404 }
-      );
+      return apiNotFound('Inventory check');
     }
 
-    return NextResponse.json(inventoryCheck);
+    return apiSuccess(inventoryCheck);
   } catch (error) {
     console.error('[Inventory Checks API] GET by ID error:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch inventory check' },
-      { status: 500 }
-    );
+    return apiError('Failed to fetch inventory check', 500);
   }
 }
 
 // PATCH - Update inventory check
-export async function PATCH(request: NextRequest, { params }: RouteParams) {
+export async function PATCH(request: Request, { params }: RouteParams) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
+
   try {
     const { systemId } = await params;
     const body = await request.json();
@@ -63,18 +63,18 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       },
     });
 
-    return NextResponse.json(inventoryCheck);
+    return apiSuccess(inventoryCheck);
   } catch (error) {
     console.error('[Inventory Checks API] PATCH error:', error);
-    return NextResponse.json(
-      { error: 'Failed to update inventory check' },
-      { status: 500 }
-    );
+    return apiError('Failed to update inventory check', 500);
   }
 }
 
 // DELETE - Soft or hard delete inventory check
-export async function DELETE(request: NextRequest, { params }: RouteParams) {
+export async function DELETE(request: Request, { params }: RouteParams) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
+
   try {
     const { systemId } = await params;
     const body = await request.json().catch(() => ({}));
@@ -99,12 +99,9 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       });
     }
 
-    return NextResponse.json({ success: true });
+    return apiSuccess({ success: true });
   } catch (error) {
     console.error('[Inventory Checks API] DELETE error:', error);
-    return NextResponse.json(
-      { error: 'Failed to delete inventory check' },
-      { status: 500 }
-    );
+    return apiError('Failed to delete inventory check', 500);
   }
 }

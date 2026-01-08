@@ -2,12 +2,12 @@
  * Zod validation schemas for inventory-receipts module
  */
 import { z } from 'zod';
-import type { SystemId, BusinessId } from '@/lib/id-types';
+import { systemIdSchema, businessIdSchema } from '@/lib/id-types';
 
 // Item schema
 export const inventoryReceiptItemSchema = z.object({
-  productSystemId: z.string() as z.ZodType<SystemId>,
-  productId: z.string().optional() as z.ZodType<BusinessId | undefined>,
+  productSystemId: systemIdSchema,
+  productId: businessIdSchema.optional(),
   productName: z.string().min(1, 'Tên sản phẩm không được để trống'),
   orderedQuantity: z.number().int().min(0).optional(),
   receivedQuantity: z.number().int().min(1, 'Số lượng nhận phải >= 1'),
@@ -16,14 +16,14 @@ export const inventoryReceiptItemSchema = z.object({
 
 // Create schema
 export const createInventoryReceiptSchema = z.object({
-  purchaseOrderSystemId: z.string().optional() as z.ZodType<SystemId | undefined>,
-  purchaseOrderId: z.string().optional() as z.ZodType<BusinessId | undefined>,
-  supplierSystemId: z.string() as z.ZodType<SystemId>,
+  purchaseOrderSystemId: systemIdSchema.optional(),
+  purchaseOrderId: businessIdSchema.optional(),
+  supplierSystemId: systemIdSchema,
   supplierName: z.string().min(1, 'Tên nhà cung cấp không được để trống'),
   receivedDate: z.string().min(1, 'Ngày nhận không được để trống'),
-  receiverSystemId: z.string().optional() as z.ZodType<SystemId | undefined>,
+  receiverSystemId: systemIdSchema.optional(),
   receiverName: z.string().optional(),
-  branchSystemId: z.string().min(1, 'Vui lòng chọn chi nhánh') as z.ZodType<SystemId>,
+  branchSystemId: systemIdSchema.refine(v => v.length >= 1, 'Vui lòng chọn chi nhánh'),
   branchName: z.string().optional(),
   warehouseName: z.string().optional(),
   notes: z.string().optional(),

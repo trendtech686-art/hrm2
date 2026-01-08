@@ -62,11 +62,9 @@ export function PageHeader() {
   }
 
   return (
-    <div className="bg-background sticky top-16 z-20 border-b">
-      {/* Mobile Layout */}
+    <div className="sticky top-16 z-40 bg-transparent">
       {!isDesktop && (
-        <div className="flex flex-col gap-2 px-4 py-2">
-          {/* Mobile: Back + Title */}
+        <div className="flex flex-col gap-2 px-4 py-2 bg-transparent">
           <div className="flex items-center gap-3">
             {showBackButton && onBack && (
               <Button
@@ -97,7 +95,6 @@ export function PageHeader() {
             </div>
           </div>
 
-          {/* Mobile: Actions */}
           {actions.length > 0 && (
             <div className="flex flex-wrap gap-2">
               {actions.map((action, index) => (
@@ -108,10 +105,8 @@ export function PageHeader() {
         </div>
       )}
 
-      {/* Desktop Layout */}
       {isDesktop && (
-        <div className="px-6 py-3">
-          {/* Desktop: Title + Actions */}
+        <div className="px-6 py-3 bg-transparent">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3 min-w-0 flex-1">
               {showBackButton && onBack && (
@@ -143,7 +138,6 @@ export function PageHeader() {
               </div>
             </div>
 
-            {/* Desktop: Actions */}
             {actions.length > 0 && (
               <div className="flex items-center gap-2 shrink-0">
                 {actions.map((action, index) => (
@@ -166,7 +160,7 @@ export function PageHeaderSkeleton() {
   const isDesktop = useMediaQuery('(min-width: 768px)');
 
   return (
-    <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <div className="border-b border-border">
       {!isDesktop && (
         <div className="flex flex-col gap-3 py-3">
           <div className="flex items-center gap-3">

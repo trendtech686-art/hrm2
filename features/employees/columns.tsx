@@ -154,7 +154,7 @@ export const getColumns = (
     accessorKey: "permanentAddress",
     header: "Địa chỉ thường trú",
     cell: ({ row }) => {
-      const addressStr = formatAddress(row.permanentAddress);
+      const addressStr = formatAddress(row.permanentAddress ?? undefined);
       return (
         <div className="max-w-[250px] truncate" title={addressStr}>
           {addressStr}
@@ -171,7 +171,7 @@ export const getColumns = (
     accessorKey: "temporaryAddress",
     header: "Địa chỉ tạm trú",
     cell: ({ row }) => {
-      const addressStr = formatAddress(row.temporaryAddress);
+      const addressStr = formatAddress(row.temporaryAddress ?? undefined);
       return (
         <div className="max-w-[250px] truncate" title={addressStr}>
           {addressStr}

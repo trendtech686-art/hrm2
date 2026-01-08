@@ -3,24 +3,22 @@
  * Stores SLA acknowledgements and activity log
  */
 
-import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
+import type { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
 
 const GROUP = 'customer-sla'
 
 // GET /api/customer-sla?type=ack|log|evaluation
 export async function GET(request: NextRequest) {
-  try {
-    const session = await auth()
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
 
+  try {
     const type = request.nextUrl.searchParams.get('type')
     
     if (!type || !['ack', 'log', 'evaluation'].includes(type)) {
-      return NextResponse.json({ error: 'Invalid type parameter' }, { status: 400 })
+      return apiError('Invalid type parameter', 400)
     }
 
     const settingKey = `customer_sla_${type}`
@@ -35,30 +33,28 @@ export async function GET(request: NextRequest) {
 
     if (!setting) {
       // Return empty defaults based on type
-      if (type === 'ack') return NextResponse.json({})
-      if (type === 'log') return NextResponse.json([])
-      if (type === 'evaluation') return NextResponse.json(null)
+      if (type === 'ack') return apiSuccess({})
+      if (type === 'log') return apiSuccess([])
+      if (type === 'evaluation') return apiSuccess(null)
     }
 
-    return NextResponse.json(setting!.value)
+    return apiSuccess(setting!.value)
   } catch (error) {
     console.error('[CUSTOMER-SLA] GET error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return apiError('Internal server error', 500)
   }
 }
 
 // POST /api/customer-sla
 export async function POST(request: NextRequest) {
-  try {
-    const session = await auth()
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
 
+  try {
     const { type, data } = await request.json()
     
     if (!type || !['ack', 'log', 'evaluation'].includes(type)) {
-      return NextResponse.json({ error: 'Invalid type parameter' }, { status: 400 })
+      return apiError('Invalid type parameter', 400)
     }
 
     const settingKey = `customer_sla_${type}`
@@ -84,9 +80,9 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    return NextResponse.json({ success: true })
+    return apiSuccess({ success: true })
   } catch (error) {
     console.error('[CUSTOMER-SLA] POST error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return apiError('Internal server error', 500)
   }
 }

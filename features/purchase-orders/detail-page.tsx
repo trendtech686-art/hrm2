@@ -541,11 +541,11 @@ export function PurchaseOrderDetailPage() {
 
       // Prepare store settings
       const storeSettings: StoreSettings = {
-          name: storeInfo.brandName || storeInfo.companyName,
-          address: storeInfo.headquartersAddress,
-          phone: storeInfo.hotline,
-          email: storeInfo.email,
-          province: storeInfo.province,
+          name: storeInfo?.brandName || storeInfo?.companyName || '',
+          address: storeInfo?.headquartersAddress,
+          phone: storeInfo?.hotline,
+          email: storeInfo?.email,
+          province: storeInfo?.province,
       };
 
       const creator = (() => {

@@ -149,11 +149,11 @@ export function ProductCombobox({
                 {meta && (
                   <div className="text-body-xs text-right space-y-0.5 flex-shrink-0">
                     <p className="text-muted-foreground">
-                      Giá: <span className="font-medium text-foreground">{formatCurrency(meta.costPrice)}</span>
+                      Giá: <span className="font-medium text-foreground">{formatCurrency(meta.costPrice ?? 0)}</span>
                     </p>
                     <p className="text-muted-foreground">
                       Tồn: <span className="font-medium text-foreground">{meta.stock}</span> | 
-                      Có thể bán: <span className={`font-medium ${meta.availableStock > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      Có thể bán: <span className={`font-medium ${(meta.availableStock ?? 0) > 0 ? 'text-green-600' : 'text-red-600'}`}>
                         {meta.availableStock}
                       </span>
                     </p>

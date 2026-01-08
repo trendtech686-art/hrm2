@@ -151,7 +151,7 @@ const ContextMenuContent = React.forwardRef<
       <div 
         ref={contentRef} 
         style={style}
-        className={cn("z-50 min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95", className)}
+        className={cn("z-50 min-w-[8rem] overflow-hidden rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95", className)}
         {...props}
       >
         {children}

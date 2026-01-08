@@ -176,7 +176,7 @@ export function NotificationCenter() {
       
       <DropdownMenuContent align="end" className="w-[380px] p-0">
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <div className="flex items-center gap-2">
             <h3 className="font-semibold">Thông báo</h3>
             {unreadCount > 0 && (

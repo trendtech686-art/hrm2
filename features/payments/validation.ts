@@ -2,7 +2,7 @@
  * Zod validation schemas for payments module
  */
 import { z } from 'zod';
-import type { SystemId, BusinessId } from '@/lib/id-types';
+import { systemIdSchema, businessIdSchema } from '@/lib/id-types';
 
 // Status enum
 export const paymentStatusSchema = z.enum([
@@ -25,25 +25,25 @@ export const paymentCategorySchema = z.enum([
 export const createPaymentSchema = z.object({
   date: z.string().min(1, 'Ngày thanh toán không được để trống'),
   amount: z.number().min(0, 'Số tiền phải >= 0'),
-  recipientTypeSystemId: z.string() as z.ZodType<SystemId>,
+  recipientTypeSystemId: systemIdSchema,
   recipientTypeName: z.string().optional(),
   recipientName: z.string().min(1, 'Tên người nhận không được để trống'),
-  recipientSystemId: z.string().optional() as z.ZodType<SystemId | undefined>,
+  recipientSystemId: systemIdSchema.optional(),
   description: z.string().optional(),
-  paymentMethodSystemId: z.string() as z.ZodType<SystemId>,
+  paymentMethodSystemId: systemIdSchema,
   paymentMethodName: z.string().optional(),
-  accountSystemId: z.string() as z.ZodType<SystemId>,
-  paymentReceiptTypeSystemId: z.string().optional() as z.ZodType<SystemId | undefined>,
+  accountSystemId: systemIdSchema,
+  paymentReceiptTypeSystemId: systemIdSchema.optional(),
   paymentReceiptTypeName: z.string().optional(),
-  branchSystemId: z.string().min(1, 'Vui lòng chọn chi nhánh') as z.ZodType<SystemId>,
+  branchSystemId: systemIdSchema.refine(v => v.length >= 1, 'Vui lòng chọn chi nhánh'),
   branchName: z.string().optional(),
   status: paymentStatusSchema.default('completed'),
   category: paymentCategorySchema,
   affectsDebt: z.boolean().default(true),
-  purchaseOrderSystemId: z.string().optional() as z.ZodType<SystemId | undefined>,
-  purchaseOrderId: z.string().optional() as z.ZodType<BusinessId | undefined>,
-  orderSystemId: z.string().optional() as z.ZodType<SystemId | undefined>,
-  orderId: z.string().optional() as z.ZodType<BusinessId | undefined>,
+  purchaseOrderSystemId: systemIdSchema.optional(),
+  purchaseOrderId: businessIdSchema.optional(),
+  orderSystemId: systemIdSchema.optional(),
+  orderId: businessIdSchema.optional(),
   originalDocumentId: z.string().optional(),
 });
 

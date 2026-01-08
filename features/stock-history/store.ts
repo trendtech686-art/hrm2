@@ -1,4 +1,12 @@
-﻿import { create } from 'zustand';
+﻿/**
+ * @deprecated Use React Query hooks instead:
+ * - `useStockHistory()` for list
+ * 
+ * Import from: `@/features/stock-history/hooks/use-stock-history`
+ * 
+ * This store will be removed in a future version.
+ */
+import { create } from 'zustand';
 // Date utils removed - not used in this store
 import type { StockHistoryEntry } from '@/lib/types/prisma-extended';
 import { asSystemId } from '../../lib/id-types';

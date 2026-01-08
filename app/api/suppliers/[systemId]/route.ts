@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
+import { updateSupplierSchema } from './validation'
 
 interface RouteParams {
   params: Promise<{ systemId: string }>
@@ -7,6 +8,9 @@ interface RouteParams {
 
 // GET /api/suppliers/[systemId]
 export async function GET(_request: Request, { params }: RouteParams) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { systemId } = await params
 
@@ -22,27 +26,29 @@ export async function GET(_request: Request, { params }: RouteParams) {
     })
 
     if (!supplier) {
-      return NextResponse.json(
-        { error: 'Nhà cung cấp không tồn tại' },
-        { status: 404 }
-      )
+      return apiError('Nhà cung cấp không tồn tại', 404)
     }
 
-    return NextResponse.json(supplier)
+    return apiSuccess(supplier)
   } catch (error) {
     console.error('Error fetching supplier:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch supplier' },
-      { status: 500 }
-    )
+    return apiError('Failed to fetch supplier', 500)
   }
 }
 
 // PUT /api/suppliers/[systemId]
 export async function PUT(request: Request, { params }: RouteParams) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
+  const validation = await validateBody(request, updateSupplierSchema)
+  if (!validation.success) {
+    return apiError(validation.error, 400)
+  }
+  const body = validation.data
+
   try {
     const { systemId } = await params
-    const body = await request.json()
 
     const supplier = await prisma.supplier.update({
       where: { systemId },
@@ -58,24 +64,21 @@ export async function PUT(request: Request, { params }: RouteParams) {
       },
     })
 
-    return NextResponse.json(supplier)
+    return apiSuccess(supplier)
   } catch (error) {
     if (error instanceof Error && 'code' in error && error.code === 'P2025') {
-      return NextResponse.json(
-        { error: 'Nhà cung cấp không tồn tại' },
-        { status: 404 }
-      )
+      return apiError('Nhà cung cấp không tồn tại', 404)
     }
     console.error('Error updating supplier:', error)
-    return NextResponse.json(
-      { error: 'Failed to update supplier' },
-      { status: 500 }
-    )
+    return apiError('Failed to update supplier', 500)
   }
 }
 
 // DELETE /api/suppliers/[systemId]
 export async function DELETE(_request: Request, { params }: RouteParams) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { systemId } = await params
 
@@ -84,18 +87,12 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
       data: { isDeleted: true },
     })
 
-    return NextResponse.json({ success: true })
+    return apiSuccess({ success: true })
   } catch (error) {
     if (error instanceof Error && 'code' in error && error.code === 'P2025') {
-      return NextResponse.json(
-        { error: 'Nhà cung cấp không tồn tại' },
-        { status: 404 }
-      )
+      return apiError('Nhà cung cấp không tồn tại', 404)
     }
     console.error('Error deleting supplier:', error)
-    return NextResponse.json(
-      { error: 'Failed to delete supplier' },
-      { status: 500 }
-    )
+    return apiError('Failed to delete supplier', 500)
   }
 }

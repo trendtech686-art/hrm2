@@ -1,12 +1,15 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/prisma'
+import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
 
 interface RouteParams {
   params: Promise<{ systemId: string }>;
 }
 
 // GET /api/orders/[systemId]/payments - List payments for order
-export async function GET(request: NextRequest, { params }: RouteParams) {
+export async function GET(request: Request, { params }: RouteParams) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { systemId } = await params;
 
@@ -15,15 +18,18 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       orderBy: { createdAt: 'desc' },
     });
 
-    return NextResponse.json(payments);
+    return apiSuccess(payments);
   } catch (error) {
     console.error('Error fetching payments:', error);
-    return NextResponse.json({ error: 'Failed to fetch payments' }, { status: 500 });
+    return apiError('Failed to fetch payments', 500);
   }
 }
 
 // POST /api/orders/[systemId]/payments - Add payment to order
-export async function POST(request: NextRequest, { params }: RouteParams) {
+export async function POST(request: Request, { params }: RouteParams) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
+
   try {
     const { systemId } = await params;
     const body = await request.json();
@@ -31,7 +37,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     // Validate amount
     if (!amount || amount <= 0) {
-      return NextResponse.json({ error: 'Invalid payment amount' }, { status: 400 });
+      return apiError('Invalid payment amount', 400);
     }
 
     // Get the order
@@ -41,7 +47,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     });
 
     if (!order) {
-      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+      return apiNotFound('Order');
     }
 
     // Calculate paid amount
@@ -49,10 +55,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const remainingAmount = Number(order.grandTotal || 0) - paidAmount;
 
     if (amount > remainingAmount) {
-      return NextResponse.json(
-        { error: `Payment amount exceeds remaining balance of ${remainingAmount}` },
-        { status: 400 }
-      );
+      return apiError(`Payment amount exceeds remaining balance of ${remainingAmount}`, 400);
     }
 
     // Transaction: add payment and update order
@@ -94,9 +97,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return updated;
     });
 
-    return NextResponse.json(updatedOrder);
+    return apiSuccess(updatedOrder);
   } catch (error) {
     console.error('Error adding payment:', error);
-    return NextResponse.json({ error: 'Failed to add payment' }, { status: 500 });
+    return apiError('Failed to add payment', 500);
   }
 }

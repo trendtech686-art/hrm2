@@ -1,3 +1,13 @@
+/**
+ * @deprecated Use React Query hooks instead:
+ * - `usePaymentMethods()` for list
+ * - `usePaymentMethod(id)` for single
+ * - `usePaymentMethodMutations()` for create/update/delete
+ * 
+ * Import from: `@/features/settings/payments/hooks/use-payment-methods`
+ * 
+ * This store will be removed in a future version.
+ */
 import { create } from 'zustand';
 import type { PaymentMethod } from '@/lib/types/prisma-extended';
 import { asSystemId, type SystemId } from '@/lib/id-types';

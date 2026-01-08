@@ -1,13 +1,16 @@
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@/generated/prisma/client'
+import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
+import { createCategorySchema } from './validation'
 
 // GET /api/categories - List all categories
 export async function GET(request: Request) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { searchParams } = new URL(request.url)
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '50')
+    const { page, limit, skip } = parsePagination(searchParams)
     const search = searchParams.get('search') || ''
     const all = searchParams.get('all') === 'true'
     const tree = searchParams.get('tree') === 'true'
@@ -43,7 +46,7 @@ export async function GET(request: Request) {
           _count: { select: { productCategories: true } },
         },
       })
-      return NextResponse.json({ data: categories })
+      return apiSuccess({ data: categories })
     }
 
     if (all) {
@@ -55,10 +58,8 @@ export async function GET(request: Request) {
           _count: { select: { productCategories: true, children: true } },
         },
       })
-      return NextResponse.json({ data: categories })
+      return apiSuccess({ data: categories })
     }
-
-    const skip = (page - 1) * limit
 
     const [categories, total] = await Promise.all([
       prisma.category.findMany({
@@ -74,35 +75,23 @@ export async function GET(request: Request) {
       prisma.category.count({ where }),
     ])
 
-    return NextResponse.json({
-      data: categories,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
-    })
+    return apiPaginated(categories, { page, limit, total })
   } catch (error) {
     console.error('Error fetching categories:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch categories' },
-      { status: 500 }
-    )
+    return apiError('Failed to fetch categories', 500)
   }
 }
 
 // POST /api/categories - Create new category
 export async function POST(request: Request) {
-  try {
-    const body = await request.json()
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
 
-    if (!body.id || !body.name) {
-      return NextResponse.json(
-        { error: 'Mã và tên danh mục là bắt buộc' },
-        { status: 400 }
-      )
-    }
+  const result = await validateBody(request, createCategorySchema)
+  if (!result.success) return apiError(result.error, 400)
+
+  try {
+    const body = result.data
 
     const category = await prisma.category.create({
       data: {
@@ -119,18 +108,12 @@ export async function POST(request: Request) {
       },
     })
 
-    return NextResponse.json(category, { status: 201 })
+    return apiSuccess(category, 201)
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-      return NextResponse.json(
-        { error: 'Mã danh mục đã tồn tại' },
-        { status: 400 }
-      )
+      return apiError('Mã danh mục đã tồn tại', 400)
     }
     console.error('Error creating category:', error)
-    return NextResponse.json(
-      { error: 'Failed to create category' },
-      { status: 500 }
-    )
+    return apiError('Failed to create category', 500)
   }
 }

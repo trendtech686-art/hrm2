@@ -32,7 +32,7 @@ model File {
   uploadedAt   DateTime   @default(now())
   uploadedBy   String?
   status       FileStatus @default(staging)
-  sessionId    String?    // For grouping staging files
+  sessionId    String? // For grouping staging files
 
   @@index([entityType, entityId])
   @@index([status, uploadedAt])

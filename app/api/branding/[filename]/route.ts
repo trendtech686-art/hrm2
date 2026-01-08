@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { getUploadDir } from '@/lib/upload-utils';
+import { requireAuth, apiError } from '@/lib/api-utils';
 
 const BRANDING_DIR = path.join(getUploadDir(), 'branding');
 
@@ -84,6 +85,9 @@ export async function DELETE(
   request: NextRequest,
   { params }: Props
 ) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
+
   try {
     const { filename: type } = await params; // 'logo' or 'favicon'
 

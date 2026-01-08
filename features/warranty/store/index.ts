@@ -1,3 +1,16 @@
+/**
+ * Warranty Store
+ * 
+ * @deprecated Use React Query hooks instead:
+ * - `useWarranties()` for list
+ * - `useWarranty(id)` for single
+ * - `useWarrantyMutations()` for create/update/delete
+ * 
+ * Import from: `@/features/warranty/hooks/use-warranties`
+ * 
+ * This store will be removed in a future version.
+ * Current usage kept for backward compatibility only.
+ */
 import { create } from 'zustand';
 import { getCurrentDate, toISODateTime } from '../../../lib/date-utils';
 import { getWorkflowTemplate } from '../../settings/printer/workflow-templates-page';

@@ -1,10 +1,10 @@
-import { NextResponse } from 'next/server'
+import { apiSuccess } from '@/lib/api-utils'
 
 const TOKEN_COOKIE_NAME = 'auth_token'
 
-// POST /api/auth/logout - Clear auth cookie
+// POST /api/auth/logout - Clear auth cookie (no auth required)
 export async function POST() {
-  const response = NextResponse.json({ success: true })
+  const response = apiSuccess({ success: true })
   
   // Clear auth cookie
   response.cookies.set({

@@ -1,3 +1,5 @@
+'use client'
+
 import { useState, useEffect, useCallback, useRef } from 'react'
 import type { Subtask } from '@/components/shared/subtask-list'
 import { nanoid } from 'nanoid'

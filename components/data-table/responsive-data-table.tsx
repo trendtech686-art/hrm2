@@ -337,7 +337,7 @@ export function ResponsiveDataTable<TData extends { systemId: string }>({
 
         {/* Mobile Pagination */}
         {pageCount > 1 && (
-          <div className="flex items-center justify-between pt-4 border-t">
+          <div className="flex items-center justify-between pt-4 border-t border-border">
             <TouchButton
               variant="outline"
               size="sm"
@@ -671,7 +671,7 @@ function DesktopDataTable<TData extends { systemId: string }>({
             key={column.id}
             style={style}
             className={cn(thClassName, {
-              "border-r": isSticky && isLastLeftSticky,
+              "border-r border-border": isSticky && isLastLeftSticky,
             })}
           >
             {typeof column.header === 'function'
@@ -696,12 +696,12 @@ function DesktopDataTable<TData extends { systemId: string }>({
           <div
             ref={headerScrollRef}
             onScroll={() => syncScroll('header')}
-            className="sticky top-32 z-30 overflow-x-auto rounded-t-md border border-b-0 bg-muted [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+            className="sticky top-32 z-30 overflow-x-auto rounded-t-md border border-border border-b-0 bg-muted [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
           >
             <Table ref={headerTableRef}>
               <TableHeader className="bg-muted shadow-sm">
                 {numSelected > 0 && (
-                  <tr className="absolute inset-x-0 top-0 z-50 h-9 bg-muted/95 backdrop-blur-sm border-b shadow-md">
+                  <tr className="absolute inset-x-0 top-0 z-50 h-9 bg-muted/95 backdrop-blur-sm border-b border-border shadow-md">
                     <th className="sticky left-0 z-[60] bg-muted/95 backdrop-blur-sm px-3 w-[48px]">
                       {columns.find(c => c.id === 'select') &&
                         typeof columns.find(c => c.id === 'select')!.header === 'function' &&
@@ -774,7 +774,7 @@ function DesktopDataTable<TData extends { systemId: string }>({
           <div
             ref={tableContainerRef}
             onScroll={() => syncScroll('body')}
-            className="rounded-b-md border bg-background overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+            className="rounded-b-md border border-border bg-background overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
           >
             <Table ref={bodyTableRef}>
               <TableBody>
@@ -842,7 +842,7 @@ function DesktopDataTable<TData extends { systemId: string }>({
                             key={column.id}
                             style={style}
                             className={cn(tdClassName, {
-                              "border-r": isLastLeftSticky,
+                              "border-r border-border": isLastLeftSticky,
                             })}
                             onClick={isInteractiveColumn ? (e) => e.stopPropagation() : undefined}
                           >
@@ -883,7 +883,7 @@ function DesktopDataTable<TData extends { systemId: string }>({
       ) : (
         <div
           ref={tableContainerRef}
-          className="rounded-md border bg-background overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+          className="rounded-md border border-border bg-background overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
         >
           <Table ref={fallbackTableRef}>
             <TableHeader className="bg-muted shadow-sm">
@@ -900,7 +900,7 @@ function DesktopDataTable<TData extends { systemId: string }>({
         </div>
       )}
 
-      <div className="flex-shrink-0 border-t bg-background px-6 py-3">
+      <div className="flex-shrink-0 border-t border-border bg-background px-6 py-3">
         <DataTablePagination
           pageIndex={pagination.pageIndex}
           pageSize={pagination.pageSize}

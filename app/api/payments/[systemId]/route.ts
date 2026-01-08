@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
 
 interface RouteParams {
   params: Promise<{ systemId: string }>
@@ -7,6 +7,9 @@ interface RouteParams {
 
 // GET /api/payments/[systemId]
 export async function GET(_request: Request, { params }: RouteParams) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { systemId } = await params
 
@@ -29,24 +32,21 @@ export async function GET(_request: Request, { params }: RouteParams) {
     })
 
     if (!payment) {
-      return NextResponse.json(
-        { error: 'Phiếu chi không tồn tại' },
-        { status: 404 }
-      )
+      return apiNotFound('Payment')
     }
 
-    return NextResponse.json(payment)
+    return apiSuccess(payment)
   } catch (error) {
     console.error('Error fetching payment:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch payment' },
-      { status: 500 }
-    )
+    return apiError('Failed to fetch payment', 500)
   }
 }
 
 // PUT /api/payments/[systemId]
 export async function PUT(request: Request, { params }: RouteParams) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { systemId } = await params
     const body = await request.json()
@@ -64,24 +64,21 @@ export async function PUT(request: Request, { params }: RouteParams) {
       },
     })
 
-    return NextResponse.json(payment)
+    return apiSuccess(payment)
   } catch (error) {
     if (error instanceof Error && 'code' in error && error.code === 'P2025') {
-      return NextResponse.json(
-        { error: 'Phiếu chi không tồn tại' },
-        { status: 404 }
-      )
+      return apiNotFound('Payment')
     }
     console.error('Error updating payment:', error)
-    return NextResponse.json(
-      { error: 'Failed to update payment' },
-      { status: 500 }
-    )
+    return apiError('Failed to update payment', 500)
   }
 }
 
 // DELETE /api/payments/[systemId]
 export async function DELETE(_request: Request, { params }: RouteParams) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { systemId } = await params
 
@@ -89,18 +86,12 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
       where: { systemId },
     })
 
-    return NextResponse.json({ success: true })
+    return apiSuccess({ success: true })
   } catch (error) {
     if (error instanceof Error && 'code' in error && error.code === 'P2025') {
-      return NextResponse.json(
-        { error: 'Phiếu chi không tồn tại' },
-        { status: 404 }
-      )
+      return apiNotFound('Payment')
     }
     console.error('Error deleting payment:', error)
-    return NextResponse.json(
-      { error: 'Failed to delete payment' },
-      { status: 500 }
-    )
+    return apiError('Failed to delete payment', 500)
   }
 }

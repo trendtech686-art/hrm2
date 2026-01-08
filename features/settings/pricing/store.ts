@@ -1,3 +1,13 @@
+/**
+ * @deprecated Use React Query hooks instead:
+ * - `usePricingPolicies()` for list
+ * - `usePricingPolicyById(id)` for single
+ * - `usePricingPolicyMutations()` for create/update/delete
+ * 
+ * Import from: `@/features/settings/pricing/hooks/use-pricing`
+ * 
+ * This store will be removed in a future version.
+ */
 import type { SystemId } from '@/lib/id-types';
 import type { UseBoundStore, StoreApi } from 'zustand';
 import type { PricingPolicy } from '@/lib/types/prisma-extended';

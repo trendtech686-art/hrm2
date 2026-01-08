@@ -1,6 +1,6 @@
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@/generated/prisma/client'
+import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
 
 interface RouteParams {
   params: Promise<{ systemId: string }>
@@ -8,6 +8,9 @@ interface RouteParams {
 
 // GET /api/products/[systemId]
 export async function GET(_request: Request, { params }: RouteParams) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { systemId } = await params
 
@@ -30,24 +33,21 @@ export async function GET(_request: Request, { params }: RouteParams) {
     })
 
     if (!product) {
-      return NextResponse.json(
-        { error: 'Sản phẩm không tồn tại' },
-        { status: 404 }
-      )
+      return apiNotFound('Product')
     }
 
-    return NextResponse.json(product)
+    return apiSuccess(product)
   } catch (error) {
     console.error('Error fetching product:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch product' },
-      { status: 500 }
-    )
+    return apiError('Failed to fetch product', 500)
   }
 }
 
 // PATCH /api/products/[systemId]
 export async function PATCH(request: Request, { params }: RouteParams) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { systemId } = await params
     const body = await request.json()
@@ -111,24 +111,21 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       }
     }
 
-    return NextResponse.json(product)
+    return apiSuccess(product)
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
-      return NextResponse.json(
-        { error: 'Sản phẩm không tồn tại' },
-        { status: 404 }
-      )
+      return apiNotFound('Product')
     }
     console.error('Error updating product:', error)
-    return NextResponse.json(
-      { error: 'Failed to update product' },
-      { status: 500 }
-    )
+    return apiError('Failed to update product', 500)
   }
 }
 
 // DELETE /api/products/[systemId]
 export async function DELETE(_request: Request, { params }: RouteParams) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { systemId } = await params
 
@@ -141,18 +138,12 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
       },
     })
 
-    return NextResponse.json({ success: true })
+    return apiSuccess({ success: true })
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
-      return NextResponse.json(
-        { error: 'Sản phẩm không tồn tại' },
-        { status: 404 }
-      )
+      return apiNotFound('Product')
     }
     console.error('Error deleting product:', error)
-    return NextResponse.json(
-      { error: 'Failed to delete product' },
-      { status: 500 }
-    )
+    return apiError('Failed to delete product', 500)
   }
 }

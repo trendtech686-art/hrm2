@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { OrderStatus } from '@/generated/prisma/client';
+import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils';
 
 interface RouteParams {
   params: Promise<{ systemId: string }>;
@@ -24,13 +25,16 @@ const validTransitions: Record<OrderStatus, OrderStatus[]> = {
 
 // PATCH /api/orders/[systemId]/status - Update order status
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
+
   try {
     const { systemId } = await params;
     const body = await request.json();
     const { status } = body;
 
     if (!status) {
-      return NextResponse.json({ error: 'Status is required' }, { status: 400 });
+      return apiError('Status is required', 400);
     }
 
     // Get the order
@@ -39,16 +43,13 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     });
 
     if (!order) {
-      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+      return apiNotFound('Order');
     }
 
     // Validate status transition
     const allowedStatuses = validTransitions[order.status] || [];
     if (!allowedStatuses.includes(status as OrderStatus)) {
-      return NextResponse.json(
-        { error: `Cannot transition from ${order.status} to ${status}` },
-        { status: 400 }
-      );
+      return apiError(`Cannot transition from ${order.status} to ${status}`, 400);
     }
 
     // Update timestamps based on status
@@ -73,9 +74,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       },
     });
 
-    return NextResponse.json(updatedOrder);
+    return apiSuccess(updatedOrder);
   } catch (error) {
     console.error('Error updating order status:', error);
-    return NextResponse.json({ error: 'Failed to update order status' }, { status: 500 });
+    return apiError('Failed to update order status', 500);
   }
 }

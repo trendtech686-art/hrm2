@@ -1,5 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@/generated/prisma/client';
+import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils';
+import { updateCustomerSettingSchema, deleteCustomerSettingSchema } from './validation';
 
 type RouteContext = {
   params: Promise<{ systemId: string }>;
@@ -7,9 +10,12 @@ type RouteContext = {
 
 // GET - Get single customer setting by systemId
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   context: RouteContext
 ) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
+
   const { systemId } = await context.params;
 
   try {
@@ -18,13 +24,10 @@ export async function GET(
     });
 
     if (!setting) {
-      return NextResponse.json(
-        { error: 'Customer setting not found' },
-        { status: 404 }
-      );
+      return apiError('Customer setting not found', 404);
     }
 
-    return NextResponse.json({
+    return apiSuccess({
       systemId: setting.systemId,
       id: setting.id,
       name: setting.name,
@@ -42,10 +45,7 @@ export async function GET(
     });
   } catch (error) {
     console.error('[Customer Settings API] GET by ID error:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch customer setting' },
-      { status: 500 }
-    );
+    return apiError('Failed to fetch customer setting', 500);
   }
 }
 
@@ -54,32 +54,35 @@ export async function PATCH(
   request: NextRequest,
   context: RouteContext
 ) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
+
   const { systemId } = await context.params;
 
-  try {
-    const body = await request.json();
-    const { 
-      id, 
-      name, 
-      description, 
-      color, 
-      isDefault, 
-      isActive,
-      orderIndex,
-      updatedBy,
-      ...extraFields 
-    } = body;
+  const validation = await validateBody(request, updateCustomerSettingSchema);
+  if (!validation.success) {
+    return apiError(validation.error, 400);
+  }
+  const { 
+    id, 
+    name, 
+    description, 
+    color, 
+    isDefault, 
+    isActive,
+    orderIndex,
+    updatedBy,
+    ...extraFields 
+  } = validation.data;
 
+  try {
     // Check if exists
     const existing = await prisma.customerSetting.findUnique({
       where: { systemId },
     });
 
     if (!existing) {
-      return NextResponse.json(
-        { error: 'Customer setting not found' },
-        { status: 404 }
-      );
+      return apiError('Customer setting not found', 404);
     }
 
     // Merge existing metadata with new extra fields
@@ -96,12 +99,12 @@ export async function PATCH(
         ...(isDefault !== undefined && { isDefault }),
         ...(isActive !== undefined && { isActive }),
         ...(orderIndex !== undefined && { orderIndex }),
-        ...(Object.keys(extraFields).length > 0 && { metadata: newMetadata }),
+        ...(Object.keys(extraFields).length > 0 && { metadata: newMetadata as Prisma.InputJsonValue }),
         updatedBy,
       },
     });
 
-    return NextResponse.json({
+    return apiSuccess({
       systemId: updated.systemId,
       id: updated.id,
       name: updated.name,
@@ -121,16 +124,10 @@ export async function PATCH(
     console.error('[Customer Settings API] PATCH error:', error);
     
     if (error instanceof Error && 'code' in error && error.code === 'P2002') {
-      return NextResponse.json(
-        { error: 'A setting with this ID already exists for this type' },
-        { status: 409 }
-      );
+      return apiError('A setting with this ID already exists for this type', 409);
     }
 
-    return NextResponse.json(
-      { error: 'Failed to update customer setting' },
-      { status: 500 }
-    );
+    return apiError('Failed to update customer setting', 500);
   }
 }
 
@@ -139,6 +136,9 @@ export async function DELETE(
   request: NextRequest,
   context: RouteContext
 ) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
+
   const { systemId } = await context.params;
 
   try {
@@ -148,20 +148,12 @@ export async function DELETE(
     });
 
     if (!existing) {
-      return NextResponse.json(
-        { error: 'Customer setting not found' },
-        { status: 404 }
-      );
+      return apiError('Customer setting not found', 404);
     }
 
     // Check request body for hard delete flag
-    let hard = false;
-    try {
-      const body = await request.json();
-      hard = body.hard === true;
-    } catch {
-      // No body or invalid JSON - use soft delete
-    }
+    const validation = await validateBody(request, deleteCustomerSettingSchema).catch(() => ({ success: true, data: {} as { hard?: boolean } }));
+    const hard = validation.success && validation.data?.hard === true;
 
     if (hard) {
       await prisma.customerSetting.delete({
@@ -177,12 +169,9 @@ export async function DELETE(
       });
     }
 
-    return NextResponse.json({ success: true });
+    return apiSuccess({ success: true });
   } catch (error) {
     console.error('[Customer Settings API] DELETE error:', error);
-    return NextResponse.json(
-      { error: 'Failed to delete customer setting' },
-      { status: 500 }
-    );
+    return apiError('Failed to delete customer setting', 500);
   }
 }

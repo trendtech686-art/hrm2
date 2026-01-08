@@ -2,7 +2,7 @@
  * useProductTypes - React Query hooks for product types
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import * as api from '../api/product-types-api';
 import type { ProductTypeSettings } from '@/lib/types/prisma-extended';
 
@@ -20,6 +20,8 @@ export function useProductTypes(params?: { limit?: number; page?: number }) {
     queryKey: productTypeKeys.list(params),
     queryFn: () => api.fetchProductTypes(params),
     staleTime: 1000 * 60 * 10, // 10 minutes - settings don't change often
+    gcTime: 10 * 60 * 1000,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -29,6 +31,7 @@ export function useProductType(systemId: string) {
     queryFn: () => api.fetchProductTypeById(systemId),
     enabled: !!systemId,
     staleTime: 1000 * 60 * 10,
+    gcTime: 10 * 60 * 1000,
   });
 }
 

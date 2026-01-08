@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-expressions */
 'use client'
 
 import * as React from 'react';
@@ -72,7 +73,7 @@ export function InventoryChecksPage() {
 
   const fuseOpts = React.useMemo(() => ({ keys: ['id', 'branchName', 'createdBy', 'note'], threshold: 0.3 }), []);
   const searchedData = useFuseFilter(data, searchQuery, fuseOpts);
-  const filteredData = React.useMemo(() => { let r = searchedData; if (statusFilter !== 'all') r = r.filter(i => i.status === statusFilter); if (sorting) r = [...r].sort((a, b) => { const av = a[sorting.id as keyof InventoryCheck], bv = b[sorting.id as keyof InventoryCheck]; if (sorting.id === 'createdAt' || sorting.id === 'checkDate') { const at = av ? new Date(av as string | number | Date).getTime() : 0, bt = bv ? new Date(bv as string | number | Date).getTime() : 0; return sorting.desc ? bt - at : at - bt; } if (av < bv) return sorting.desc ? 1 : -1; if (av > bv) return sorting.desc ? -1 : 1; return 0; }); return r; }, [searchedData, statusFilter, sorting]);
+  const filteredData = React.useMemo(() => { let r = searchedData; if (statusFilter !== 'all') r = r.filter(i => i.status === statusFilter); if (sorting) r = [...r].sort((a, b) => { const av = a[sorting.id as keyof InventoryCheck], bv = b[sorting.id as keyof InventoryCheck]; if (sorting.id === 'createdAt' || sorting.id === 'checkDate') { const at = av ? new Date(av as string | number | Date).getTime() : 0, bt = bv ? new Date(bv as string | number | Date).getTime() : 0; return sorting.desc ? bt - at : at - bt; } if (av == null && bv == null) return 0; if (av == null) return 1; if (bv == null) return -1; if (av < bv) return sorting.desc ? 1 : -1; if (av > bv) return sorting.desc ? -1 : 1; return 0; }); return r; }, [searchedData, statusFilter, sorting]);
 
   const pageCount = Math.ceil(filteredData.length / pagination.pageSize);
   const paginatedData = React.useMemo(() => filteredData.slice(pagination.pageIndex * pagination.pageSize, (pagination.pageIndex + 1) * pagination.pageSize), [filteredData, pagination]);

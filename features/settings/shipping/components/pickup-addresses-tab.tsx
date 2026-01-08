@@ -86,7 +86,7 @@ export function PickupAddressesTab({
   const loadGHTKWarehouses = async () => {
     setLoadingWarehouses(true);
     try {
-      const apiToken = account.credentials.apiToken; // GHTK uses 'apiToken' field
+      const apiToken = account.credentials.apiToken ?? ''; // GHTK uses 'apiToken' field
       const baseUrl = getBaseUrl();
       const response = await fetch(
         `${baseUrl}/api/shipping/ghtk/list-pick-addresses?apiToken=${encodeURIComponent(apiToken)}`

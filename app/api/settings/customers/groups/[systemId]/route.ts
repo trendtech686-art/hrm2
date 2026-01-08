@@ -1,13 +1,16 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils';
 
 const TYPE = 'customer-group';
 
 // GET - Get a single customer group
 export async function GET(
-  request: NextRequest,
+  request: Request,
   { params }: { params: Promise<{ systemId: string }> }
 ) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
+
   const { systemId } = await params;
   try {
     const setting = await prisma.customerSetting.findUnique({
@@ -15,10 +18,10 @@ export async function GET(
     });
 
     if (!setting || setting.isDeleted) {
-      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+      return apiNotFound('Customer group');
     }
 
-    return NextResponse.json({
+    return apiSuccess({
       systemId: setting.systemId,
       id: setting.id,
       name: setting.name,
@@ -34,15 +37,18 @@ export async function GET(
     });
   } catch (error) {
     console.error('[Customer Groups API] GET by ID error:', error);
-    return NextResponse.json({ error: 'Failed to fetch customer group' }, { status: 500 });
+    return apiError('Failed to fetch customer group', 500);
   }
 }
 
 // PATCH - Update a customer group
 export async function PATCH(
-  request: NextRequest,
+  request: Request,
   { params }: { params: Promise<{ systemId: string }> }
 ) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
+
   const { systemId } = await params;
   try {
     const body = await request.json();
@@ -61,7 +67,7 @@ export async function PATCH(
       },
     });
 
-    return NextResponse.json({
+    return apiSuccess({
       systemId: setting.systemId,
       id: setting.id,
       name: setting.name,
@@ -77,15 +83,18 @@ export async function PATCH(
     });
   } catch (error) {
     console.error('[Customer Groups API] PATCH error:', error);
-    return NextResponse.json({ error: 'Failed to update customer group' }, { status: 500 });
+    return apiError('Failed to update customer group', 500);
   }
 }
 
 // DELETE - Soft delete a customer group
 export async function DELETE(
-  request: NextRequest,
+  request: Request,
   { params }: { params: Promise<{ systemId: string }> }
 ) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
+
   const { systemId } = await params;
   try {
     await prisma.customerSetting.update({
@@ -93,9 +102,9 @@ export async function DELETE(
       data: { isDeleted: true },
     });
 
-    return new NextResponse(null, { status: 204 });
+    return apiSuccess(null, 204);
   } catch (error) {
     console.error('[Customer Groups API] DELETE error:', error);
-    return NextResponse.json({ error: 'Failed to delete customer group' }, { status: 500 });
+    return apiError('Failed to delete customer group', 500);
   }
 }

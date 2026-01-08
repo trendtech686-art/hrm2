@@ -69,7 +69,7 @@ export function LeavesPage() {
   };
 
   const filteredData = React.useMemo(() => {
-    let data = globalFilter ? searchedData : leaveRequests;
+    const data = globalFilter ? searchedData : leaveRequests;
     return statusFilter !== 'all' ? data.filter(r => r.status === statusFilter) : data;
   }, [leaveRequests, globalFilter, statusFilter, searchedData]);
 
@@ -110,25 +110,27 @@ export function LeavesPage() {
   const headerActions = React.useMemo(() => [<Button key="add" onClick={() => setIsFormOpen(true)} size="sm" className="h-9"><PlusCircle className="mr-2 h-4 w-4" />Tạo đơn nghỉ phép</Button>], []);
   usePageHeader({ actions: headerActions });
 
-  const statusVariants: Record<LeaveStatus, "success" | "warning" | "destructive"> = { "Chờ duyệt": "warning", "Đã duyệt": "success", "Đã từ chối": "destructive" };
-  const renderMobileCard = React.useCallback((leave: LeaveRequest) => (
-    <Card key={leave.systemId} className="mb-3">
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
-          <div><div className="font-medium">{leave.employeeName}</div><div className="text-xs text-muted-foreground">{leave.employeeId}</div></div>
-          <Badge variant={statusVariants[leave.status]}>{leave.status}</Badge>
-        </div>
-      </CardHeader>
-      <CardContent className="pt-0">
-        <div className="grid grid-cols-2 gap-2 text-sm">
-          <div><span className="text-muted-foreground">Loại phép:</span><div>{leave.leaveTypeName}</div></div>
-          <div><span className="text-muted-foreground">Số ngày:</span><div>{leave.numberOfDays}</div></div>
-          <div className="col-span-2"><span className="text-muted-foreground">Thời gian:</span><div>{formatDate(leave.startDate)} - {formatDate(leave.endDate)}</div></div>
-          {leave.reason && <div className="col-span-2"><span className="text-muted-foreground">Lý do:</span><div className="truncate">{leave.reason}</div></div>}
-        </div>
-      </CardContent>
-    </Card>
-  ), [statusVariants]);
+  const renderMobileCard = React.useCallback((leave: LeaveRequest) => {
+    const statusVariants: Record<LeaveStatus, "success" | "warning" | "destructive"> = { "Chờ duyệt": "warning", "Đã duyệt": "success", "Đã từ chối": "destructive" };
+    return (
+      <Card key={leave.systemId} className="mb-3">
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <div><div className="font-medium">{leave.employeeName}</div><div className="text-xs text-muted-foreground">{leave.employeeId}</div></div>
+            <Badge variant={statusVariants[leave.status]}>{leave.status}</Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            <div><span className="text-muted-foreground">Loại phép:</span><div>{leave.leaveTypeName}</div></div>
+            <div><span className="text-muted-foreground">Số ngày:</span><div>{leave.numberOfDays}</div></div>
+            <div className="col-span-2"><span className="text-muted-foreground">Thời gian:</span><div>{formatDate(leave.startDate)} - {formatDate(leave.endDate)}</div></div>
+            {leave.reason && <div className="col-span-2"><span className="text-muted-foreground">Lý do:</span><div className="truncate">{leave.reason}</div></div>}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }, []);
 
   return (
     <div className="space-y-4">

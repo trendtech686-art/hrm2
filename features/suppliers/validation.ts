@@ -2,7 +2,7 @@
  * Zod validation schemas for suppliers module
  */
 import { z } from 'zod';
-import type { BusinessId, SystemId } from '@/lib/id-types';
+import { businessIdSchema, systemIdSchema, SystemId, BusinessId } from '@/lib/id-types';
 
 // Supplier status enum
 export const supplierStatusSchema = z.enum([
@@ -54,7 +54,7 @@ export const supplierBankAccountSchema = z.object({
 
 // Create supplier schema
 export const createSupplierSchema = z.object({
-  businessId: z.string().optional() as z.ZodType<BusinessId | undefined>,
+  businessId: businessIdSchema.optional(),
   name: z.string().min(1, 'Tên nhà cung cấp không được để trống'),
   type: supplierTypeSchema.default('other'),
   
@@ -81,7 +81,7 @@ export const createSupplierSchema = z.object({
   discountRate: z.number().min(0).max(100).optional(),
   
   // Categories
-  categorySystemIds: z.array(z.string() as z.ZodType<SystemId>).optional(),
+  categorySystemIds: z.array(systemIdSchema).optional(),
   productCategories: z.array(z.string()).optional(),
   
   // Additional
@@ -98,8 +98,8 @@ export const updateSupplierSchema = createSupplierSchema.partial().extend({
 
 // Supplier product schema
 export const supplierProductSchema = z.object({
-  productSystemId: z.string() as z.ZodType<SystemId>,
-  productBusinessId: z.string().optional() as z.ZodType<BusinessId | undefined>,
+  productSystemId: z.string() as unknown as z.ZodType<SystemId>,
+  productBusinessId: z.string().optional() as unknown as z.ZodType<BusinessId | undefined>,
   productName: z.string().optional(),
   supplierProductCode: z.string().optional(),
   supplierProductName: z.string().optional(),

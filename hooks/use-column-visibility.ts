@@ -12,7 +12,7 @@ import { useAuth } from '@/contexts/auth-context'
 const API_BASE = '/api/user-preferences'
 
 // Debounce delay for saving preferences (ms)
-const SAVE_DEBOUNCE_DELAY = 1000
+const SAVE_DEBOUNCE_DELAY = 500
 
 /**
  * Hook để quản lý column visibility cho data tables
@@ -29,28 +29,45 @@ export function useColumnVisibility(
   const [isLoading, setIsLoading] = useState(true)
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const lastSavedRef = useRef<string>('')
+  const hasLoadedFromDB = useRef(false)
 
   const storageKey = `${tableName}-column-visibility`
 
   // Load from database
   useEffect(() => {
     const loadVisibility = async () => {
+      if (!user?.systemId) {
+        console.log(`[useColumnVisibility] No user, skipping load for ${storageKey}`)
+        setIsLoading(false)
+        return
+      }
+      
       try {
-        if (user?.systemId) {
-          const res = await fetch(
-            `${API_BASE}?userId=${user.systemId}&key=${encodeURIComponent(storageKey)}`
-          )
+        console.log(`[useColumnVisibility] Loading ${storageKey} for user ${user.systemId}`)
+        const res = await fetch(
+          `${API_BASE}?userId=${user.systemId}&key=${encodeURIComponent(storageKey)}`
+        )
+        
+        if (res.ok) {
+          const json = await res.json()
+          console.log(`[useColumnVisibility] API response for ${storageKey}:`, json)
           
-          if (res.ok) {
-            const data = await res.json()
-            if (data && data.value) {
-              setVisibility(data.value)
-              lastSavedRef.current = JSON.stringify(data.value)
-            }
+          // API trả về trực tiếp object: { userId, key, value, ... }
+          // không có wrapper { success: true, data: ... }
+          const value = json?.value
+          if (value && typeof value === 'object' && Object.keys(value).length > 0) {
+            console.log(`[useColumnVisibility] ✅ Setting visibility from DB:`, value)
+            setVisibility(value)
+            lastSavedRef.current = JSON.stringify(value)
+            hasLoadedFromDB.current = true
+          } else {
+            console.log(`[useColumnVisibility] ⚠️ No data in DB for ${storageKey}`)
           }
+        } else {
+          console.log(`[useColumnVisibility] ⚠️ API error ${res.status} for ${storageKey}`)
         }
       } catch (error) {
-        console.error(`Error loading column visibility for ${tableName}:`, error)
+        console.error(`[useColumnVisibility] Error loading ${tableName}:`, error)
       } finally {
         setIsLoading(false)
       }
@@ -71,6 +88,7 @@ export function useColumnVisibility(
   // Update visibility - save to database with debounce
   const updateVisibility = useCallback(
     (newVisibility: Record<string, boolean>) => {
+      console.log(`[useColumnVisibility] updateVisibility called for ${storageKey}`, newVisibility)
       setVisibility(newVisibility)
 
       // Save to database if user logged in (with debounce)
@@ -79,6 +97,7 @@ export function useColumnVisibility(
         
         // Skip if value hasn't changed
         if (newValueStr === lastSavedRef.current) {
+          console.log(`[useColumnVisibility] Skipping save - value unchanged`)
           return
         }
 
@@ -88,21 +107,32 @@ export function useColumnVisibility(
         }
 
         // Debounce save
-        saveTimeoutRef.current = setTimeout(() => {
-          lastSavedRef.current = newValueStr
-          fetch(API_BASE, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              userId: user.systemId,
-              key: storageKey,
-              value: newVisibility,
-              category: 'ui',
-            }),
-          }).catch(error => {
-            console.error(`Error saving column visibility for ${tableName}:`, error)
-          })
+        saveTimeoutRef.current = setTimeout(async () => {
+          try {
+            console.log(`[useColumnVisibility] 💾 Saving to DB:`, { key: storageKey, value: newVisibility })
+            const res = await fetch(API_BASE, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                userId: user.systemId,
+                key: storageKey,
+                value: newVisibility,
+                category: 'ui',
+              }),
+            })
+            
+            if (res.ok) {
+              lastSavedRef.current = newValueStr
+              console.log(`[useColumnVisibility] ✅ Saved successfully`)
+            } else {
+              console.error(`[useColumnVisibility] ❌ Save failed: ${res.status}`)
+            }
+          } catch (error) {
+            console.error(`[useColumnVisibility] ❌ Error saving ${tableName}:`, error)
+          }
         }, SAVE_DEBOUNCE_DELAY)
+      } else {
+        console.log(`[useColumnVisibility] No user, skipping save`)
       }
     },
     [user?.systemId, storageKey, tableName]
@@ -136,6 +166,7 @@ export function useColumnOrder(
           
           if (res.ok) {
             const data = await res.json()
+            // API trả về trực tiếp object: { userId, key, value, ... }
             if (data && data.value) {
               setOrder(data.value)
               lastSavedRef.current = JSON.stringify(data.value)
@@ -227,6 +258,7 @@ export function usePinnedColumns(
           
           if (res.ok) {
             const data = await res.json()
+            // API trả về trực tiếp object: { userId, key, value, ... }
             if (data && data.value) {
               setPinned(data.value)
               lastSavedRef.current = JSON.stringify(data.value)

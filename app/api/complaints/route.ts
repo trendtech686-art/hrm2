@@ -1,20 +1,21 @@
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import type { Prisma } from '@/generated/prisma/client'
 import { ComplaintStatus, ComplaintPriority } from '@/generated/prisma/client'
+import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
+import { createComplaintSchema } from './validation'
 
 // GET /api/complaints - List all complaints
 export async function GET(request: Request) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { searchParams } = new URL(request.url)
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '20')
+    const { page, limit, skip } = parsePagination(searchParams)
     const search = searchParams.get('search') || ''
     const status = searchParams.get('status')
     const priority = searchParams.get('priority')
     const customerId = searchParams.get('customerId')
-
-    const skip = (page - 1) * limit
 
     const where: Prisma.ComplaintWhereInput = {
       isDeleted: false,
@@ -55,28 +56,23 @@ export async function GET(request: Request) {
       prisma.complaint.count({ where }),
     ])
 
-    return NextResponse.json({
-      data: complaints,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
-    })
+    return apiPaginated(complaints, { page, limit, total })
   } catch (error) {
     console.error('Error fetching complaints:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch complaints' },
-      { status: 500 }
-    )
+    return apiError('Failed to fetch complaints', 500)
   }
 }
 
 // POST /api/complaints - Create new complaint
 export async function POST(request: Request) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
+  const result = await validateBody(request, createComplaintSchema)
+  if (!result.success) return apiError(result.error, 400)
+
   try {
-    const body = await request.json()
+    const body = result.data
 
     // Generate business ID
     if (!body.id) {
@@ -99,8 +95,8 @@ export async function POST(request: Request) {
         title: body.title,
         description: body.description,
         category: body.category,
-        priority: body.priority || 'MEDIUM',
-        status: body.status || 'OPEN',
+        priority: (body.priority || 'MEDIUM') as ComplaintPriority,
+        status: (body.status || 'OPEN') as ComplaintStatus,
         assigneeId: body.assigneeId || body.assignedTo,
       },
       include: {
@@ -108,12 +104,9 @@ export async function POST(request: Request) {
       },
     })
 
-    return NextResponse.json(complaint, { status: 201 })
+    return apiSuccess(complaint, 201)
   } catch (error) {
     console.error('Error creating complaint:', error)
-    return NextResponse.json(
-      { error: 'Failed to create complaint' },
-      { status: 500 }
-    )
+    return apiError('Failed to create complaint', 500)
   }
 }

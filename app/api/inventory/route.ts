@@ -1,19 +1,20 @@
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import type { Prisma } from '@/generated/prisma/client'
+import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
+import { createInventorySchema } from './validation'
 
 // GET /api/inventory - List all inventory
 export async function GET(request: Request) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { searchParams } = new URL(request.url)
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '20')
+    const { page, limit, skip } = parsePagination(searchParams)
     const search = searchParams.get('search') || ''
     const productId = searchParams.get('productId')
     const locationId = searchParams.get('locationId')
     const lowStock = searchParams.get('lowStock') === 'true'
-
-    const skip = (page - 1) * limit
 
     const where: Prisma.InventoryWhereInput = {}
 
@@ -63,42 +64,31 @@ export async function GET(request: Request) {
       prisma.inventory.count({ where }),
     ])
 
-    return NextResponse.json({
-      data: inventory,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
-    })
+    return apiPaginated(inventory, { page, limit, total })
   } catch (error) {
     console.error('Error fetching inventory:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch inventory' },
-      { status: 500 }
-    )
+    return apiError('Failed to fetch inventory', 500)
   }
 }
 
 // POST /api/inventory - Create/Update inventory
 export async function POST(request: Request) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
+  const validation = await validateBody(request, createInventorySchema)
+  if (!validation.success) {
+    return apiError(validation.error, 400)
+  }
+  const body = validation.data
+
   try {
-    const body = await request.json()
-
-    if (!body.productId) {
-      return NextResponse.json(
-        { error: 'Product ID là bắt buộc' },
-        { status: 400 }
-      )
-    }
-
     // Create new inventory record
     const inventory = await prisma.inventory.create({
       data: {
         systemId: `INV${String(Date.now()).slice(-10).padStart(10, '0')}`,
         productId: body.productId,
-        locationId: body.locationId,
+        locationId: body.locationId || '',
         quantity: body.quantity || 0,
         reservedQty: 0,
         updatedAt: new Date(),
@@ -109,12 +99,9 @@ export async function POST(request: Request) {
       },
     })
 
-    return NextResponse.json(inventory, { status: 201 })
+    return apiSuccess(inventory, 201)
   } catch (error) {
     console.error('Error updating inventory:', error)
-    return NextResponse.json(
-      { error: 'Failed to update inventory' },
-      { status: 500 }
-    )
+    return apiError('Failed to update inventory', 500)
   }
 }

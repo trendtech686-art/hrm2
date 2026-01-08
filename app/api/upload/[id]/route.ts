@@ -5,15 +5,20 @@
 // PATCH /api/upload/[id] - Update file metadata
 // ═══════════════════════════════════════════════════════════════
 
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { deleteFileFromDisk } from '@/lib/upload-utils'
+import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
+import { updateFileSchema } from './validation'
 
 // GET /api/upload/[id] - Get single file
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { id } = await params
     
@@ -22,33 +27,24 @@ export async function GET(
     })
     
     if (!file) {
-      return NextResponse.json(
-        { success: false, message: 'File không tồn tại' },
-        { status: 404 }
-      )
+      return apiError('File không tồn tại', 404)
     }
     
-    return NextResponse.json({
-      success: true,
-      data: {
-        id: file.systemId,
-        fileName: file.filename,
-        originalName: file.originalName,
-        mimeType: file.mimetype,
-        fileSize: file.filesize,
-        url: `/uploads/${file.filepath}`,
-        entityType: file.entityType,
-        entityId: file.entityId,
-        createdAt: file.uploadedAt,
-      },
+    return apiSuccess({
+      id: file.systemId,
+      fileName: file.filename,
+      originalName: file.originalName,
+      mimeType: file.mimetype,
+      fileSize: file.filesize,
+      url: `/uploads/${file.filepath}`,
+      entityType: file.entityType,
+      entityId: file.entityId,
+      createdAt: file.uploadedAt,
     })
     
   } catch (error) {
     console.error('Get file error:', error)
-    return NextResponse.json(
-      { success: false, message: 'Lỗi khi lấy thông tin file' },
-      { status: 500 }
-    )
+    return apiError('Lỗi khi lấy thông tin file', 500)
   }
 }
 
@@ -57,6 +53,9 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { id } = await params
     
@@ -65,10 +64,7 @@ export async function DELETE(
     })
     
     if (!file) {
-      return NextResponse.json(
-        { success: false, message: 'File không tồn tại' },
-        { status: 404 }
-      )
+      return apiError('File không tồn tại', 404)
     }
     
     // Check query param for hard delete
@@ -84,10 +80,7 @@ export async function DELETE(
         where: { systemId: id },
       })
       
-      return NextResponse.json({
-        success: true,
-        message: 'File đã được xóa vĩnh viễn',
-      })
+      return apiSuccess({ message: 'File đã được xóa vĩnh viễn' })
     } else {
       // Hard delete (soft delete not supported in schema)
       await deleteFileFromDisk(file.filepath)
@@ -96,18 +89,12 @@ export async function DELETE(
         where: { systemId: id },
       })
       
-      return NextResponse.json({
-        success: true,
-        message: 'File đã được xóa',
-      })
+      return apiSuccess({ message: 'File đã được xóa' })
     }
     
   } catch (error) {
     console.error('Delete file error:', error)
-    return NextResponse.json(
-      { success: false, message: 'Lỗi khi xóa file' },
-      { status: 500 }
-    )
+    return apiError('Lỗi khi xóa file', 500)
   }
 }
 
@@ -116,19 +103,24 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
+  const validation = await validateBody(request, updateFileSchema)
+  if (!validation.success) {
+    return apiError(validation.error, 400)
+  }
+  const body = validation.data
+
   try {
     const { id } = await params
-    const body = await request.json()
     
     const file = await prisma.file.findUnique({
       where: { systemId: id },
     })
     
     if (!file) {
-      return NextResponse.json(
-        { success: false, message: 'File không tồn tại' },
-        { status: 404 }
-      )
+      return apiError('File không tồn tại', 404)
     }
     
     // Update allowed fields
@@ -149,21 +141,14 @@ export async function PATCH(
       data: updateData,
     })
     
-    return NextResponse.json({
-      success: true,
-      message: 'Cập nhật thành công',
-      data: {
-        id: updated.systemId,
-        entityType: updated.entityType,
-        entityId: updated.entityId,
-      },
+    return apiSuccess({
+      id: updated.systemId,
+      entityType: updated.entityType,
+      entityId: updated.entityId,
     })
     
   } catch (error) {
     console.error('Update file error:', error)
-    return NextResponse.json(
-      { success: false, message: 'Lỗi khi cập nhật file' },
-      { status: 500 }
-    )
+    return apiError('Lỗi khi cập nhật file', 500)
   }
 }

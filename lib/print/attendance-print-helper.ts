@@ -198,7 +198,7 @@ export function createStoreSettings(storeInfo?: {
   headquartersAddress?: string;
   province?: string;
   logo?: string;
-}): StoreSettings {
+} | null): StoreSettings {
   const generalSettings = getGeneralSettings();
   return {
     name: storeInfo?.companyName || storeInfo?.brandName || generalSettings?.companyName || '',

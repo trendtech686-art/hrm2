@@ -32,7 +32,7 @@ const EmployeeImportDialog = dynamic(() => import("./components/employee-import-
 const EmployeeExportDialog = dynamic(() => import("./components/employee-import-export-dialogs").then(m => ({ default: m.EmployeeExportDialog })), { ssr: false });
 
 export function EmployeesPage() {
-  const { data: employees, remove, restore, getDeleted, addMultiple, update } = useEmployeeStore();
+  const { data: employees, remove, restore, addMultiple, update } = useEmployeeStore();
   const { data: activeEmployees } = useActiveEmployees();
   const { data: branches } = useAllBranches();
   const router = useRouter();
@@ -59,7 +59,7 @@ export function EmployeesPage() {
   React.useEffect(() => { const t = setTimeout(() => setDebouncedGlobalFilter(globalFilter), 300); return () => clearTimeout(t); }, [globalFilter]);
 
   const columnLayoutDefaults = React.useMemo(() => ({ visibility: {}, order: [] as string[], pinned: [] as string[] }), []);
-  const [columnLayout, columnLayoutSetters] = useColumnLayout('employees', columnLayoutDefaults);
+  const [columnLayout, columnLayoutSetters, isColumnLayoutLoading] = useColumnLayout('employees', columnLayoutDefaults);
   const { visibility: columnVisibility, order: columnOrder, pinned: pinnedColumns } = columnLayout;
   const { setVisibility: setColumnVisibility, setOrder: setColumnOrder, setPinned: setPinnedColumns } = columnLayoutSetters;
 
@@ -72,11 +72,27 @@ export function EmployeesPage() {
 
   const defaultVisibleColumns = React.useMemo(() => new Set(['id', 'fullName', 'workEmail', 'phone', 'branch', 'department', 'jobTitle', 'hireDate', 'employmentStatus', 'dob', 'gender', 'nationalId', 'permanentAddress', 'bankName', 'bankAccountNumber', 'baseSalary', 'contractType', 'annualLeaveBalance', 'sickLeaveBalance']), []);
   const defaultsInitialized = React.useRef(false);
-  React.useEffect(() => { if (columns.length === 0 || defaultsInitialized.current) return; defaultsInitialized.current = true; const iv: Record<string, boolean> = {}; columns.forEach(c => { if (!c.id) return; iv[c.id] = c.id === 'select' || c.id === 'actions' || defaultVisibleColumns.has(c.id); }); setColumnVisibility(iv); setColumnOrder(columns.map(c => c.id).filter(Boolean) as string[]); }, [columns, defaultVisibleColumns, setColumnVisibility, setColumnOrder]);
+  React.useEffect(() => { 
+    // Wait for DB load to complete and only init if no data from DB
+    if (columns.length === 0 || defaultsInitialized.current || isColumnLayoutLoading) return; 
+    // Check if we have data from DB (columnVisibility has keys)
+    if (Object.keys(columnVisibility).length > 0) { defaultsInitialized.current = true; return; }
+    defaultsInitialized.current = true; 
+    const iv: Record<string, boolean> = {}; 
+    columns.forEach(c => { if (!c.id) return; iv[c.id] = c.id === 'select' || c.id === 'actions' || defaultVisibleColumns.has(c.id); }); 
+    setColumnVisibility(iv); 
+    setColumnOrder(columns.map(c => c.id).filter(Boolean) as string[]); 
+  }, [columns, defaultVisibleColumns, setColumnVisibility, setColumnOrder, isColumnLayoutLoading, columnVisibility]);
   const resetColumnLayout = React.useCallback(() => { const iv: Record<string, boolean> = {}; columns.forEach(c => { if (!c.id) return; iv[c.id] = c.id === 'select' || c.id === 'actions' || defaultVisibleColumns.has(c.id); }); setColumnVisibility(iv); setColumnOrder(columns.map(c => c.id).filter(Boolean) as string[]); setPinnedColumns([]); toast.success('Đã khôi phục bố cục cột mặc định'); }, [columns, defaultVisibleColumns, setColumnVisibility, setColumnOrder, setPinnedColumns]);
 
   const confirmDelete = () => { if (idToDelete) { const emp = employees.find(e => e.systemId === idToDelete); remove(asSystemId(idToDelete)); toast.success("Đã xóa nhân viên vào thùng rác", { description: `Nhân viên ${emp?.fullName || ''} đã được chuyển vào thùng rác.` }); } setIsAlertOpen(false); setIdToDelete(null); };
-  const confirmBulkDelete = () => { Object.keys(rowSelection).forEach(s => remove(asSystemId(s))); toast.success("Đã xóa nhân viên vào thùng rác", { description: `Đã chuyển ${Object.keys(rowSelection).length} nhân viên vào thùng rác.` }); setRowSelection({}); setIsBulkDeleteAlertOpen(false); };
+  const confirmBulkDelete = () => { 
+    const idsToDelete = Object.keys(rowSelection);
+    idsToDelete.forEach(s => remove(asSystemId(s))); 
+    toast.success("Đã xóa nhân viên vào thùng rác", { description: `Đã chuyển ${idsToDelete.length} nhân viên vào thùng rác.` }); 
+    setRowSelection({}); 
+    setIsBulkDeleteAlertOpen(false); 
+  };
 
   const fuseOpts = React.useMemo(() => ({ keys: ["id", "fullName", "workEmail", "phone", "personalEmail", "department", "jobTitle"], threshold: 0.3, ignoreLocation: true, useExtendedSearch: false }), []);
   const searchedEmployees = useFuseFilter(activeEmployees, debouncedGlobalFilter.trim(), fuseOpts);

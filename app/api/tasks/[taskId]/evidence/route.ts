@@ -5,10 +5,11 @@
  * Upload evidence files for tasks
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { saveUploadedFile, validateFile, ALLOWED_EXTENSIONS, MAX_FILE_SIZE } from '@/lib/upload-utils';
 import { v4 as uuidv4 } from 'uuid';
+import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils';
 
 type Props = {
   params: Promise<{ taskId: string }>;
@@ -18,6 +19,9 @@ export async function POST(
   request: NextRequest,
   { params }: Props
 ) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { taskId } = await params;
 
@@ -25,18 +29,12 @@ export async function POST(
     const files = formData.getAll('files') as File[];
 
     if (!files || files.length === 0) {
-      return NextResponse.json(
-        { success: false, message: 'Không có file nào được tải lên' },
-        { status: 400 }
-      );
+      return apiError('Không có file nào được tải lên', 400);
     }
 
     // Limit to 5 files
     if (files.length > 5) {
-      return NextResponse.json(
-        { success: false, message: 'Chỉ được upload tối đa 5 file cùng lúc' },
-        { status: 400 }
-      );
+      return apiError('Chỉ được upload tối đa 5 file cùng lúc', 400);
     }
 
     const uploadedFiles: Array<{
@@ -99,23 +97,16 @@ export async function POST(
     }
 
     if (uploadedFiles.length === 0) {
-      return NextResponse.json(
-        { success: false, message: 'Không có file nào được tải lên thành công' },
-        { status: 400 }
-      );
+      return apiError('Không có file nào được tải lên thành công', 400);
     }
 
-    return NextResponse.json({
-      success: true,
+    return apiSuccess({
       message: `Đã upload ${uploadedFiles.length} file bằng chứng`,
       files: uploadedFiles,
     });
   } catch (error) {
     console.error('❌ Task evidence upload error:', error);
-    return NextResponse.json(
-      { success: false, message: 'Lỗi server khi upload file', error: error instanceof Error ? error.message : 'Unknown error' },
-      { status: 500 }
-    );
+    return apiError('Lỗi server khi upload file', 500);
   }
 }
 
@@ -123,6 +114,9 @@ export async function GET(
   request: NextRequest,
   { params }: Props
 ) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { taskId } = await params;
 
@@ -137,8 +131,7 @@ export async function GET(
       },
     });
 
-    return NextResponse.json({
-      success: true,
+    return apiSuccess({
       files: files.map(f => ({
         id: f.systemId,
         name: f.originalName,
@@ -151,9 +144,6 @@ export async function GET(
     });
   } catch (error) {
     console.error('❌ Get task evidence error:', error);
-    return NextResponse.json(
-      { success: false, message: 'Lỗi server khi lấy danh sách file' },
-      { status: 500 }
-    );
+    return apiError('Lỗi server khi lấy danh sách file', 500);
   }
 }

@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils';
 
 interface RouteParams {
   params: Promise<{ systemId: string }>;
@@ -7,6 +8,9 @@ interface RouteParams {
 
 // GET /api/orders/[systemId]/shipment - Get shipment for order
 export async function GET(request: NextRequest, { params }: RouteParams) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
+
   try {
     const { systemId } = await params;
 
@@ -20,15 +24,18 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       orderBy: { createdAt: 'desc' },
     });
 
-    return NextResponse.json(shipments);
+    return apiSuccess(shipments);
   } catch (error) {
     console.error('Error fetching shipments:', error);
-    return NextResponse.json({ error: 'Failed to fetch shipments' }, { status: 500 });
+    return apiError('Failed to fetch shipments', 500);
   }
 }
 
 // POST /api/orders/[systemId]/shipment - Create shipment
 export async function POST(request: NextRequest, { params }: RouteParams) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
+
   try {
     const { systemId } = await params;
     const body = await request.json();
@@ -47,7 +54,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     });
 
     if (!order) {
-      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+      return apiNotFound('Order');
     }
 
     const packaging = packagingId
@@ -55,7 +62,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       : order.packagings[0];
 
     if (!packaging) {
-      return NextResponse.json({ error: 'No completed packaging found' }, { status: 400 });
+      return apiError('No completed packaging found', 400);
     }
 
     // Transaction: create shipment
@@ -98,9 +105,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return updated;
     });
 
-    return NextResponse.json(updatedOrder);
+    return apiSuccess(updatedOrder);
   } catch (error) {
     console.error('Error creating shipment:', error);
-    return NextResponse.json({ error: 'Failed to create shipment' }, { status: 500 });
+    return apiError('Failed to create shipment', 500);
   }
 }

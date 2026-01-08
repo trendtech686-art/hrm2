@@ -1,12 +1,15 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils';
 
 interface RouteParams {
   params: Promise<{ systemId: string; packagingId: string }>;
 }
 
 // POST /api/orders/[systemId]/packaging/[packagingId]/dispatch - Dispatch from warehouse
-export async function POST(request: NextRequest, { params }: RouteParams) {
+export async function POST(_request: Request, { params }: RouteParams) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
+
   try {
     const { systemId, packagingId } = await params;
 
@@ -17,15 +20,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     });
 
     if (!packaging) {
-      return NextResponse.json({ error: 'Packaging not found' }, { status: 404 });
+      return apiNotFound('Packaging');
     }
 
     if (packaging.orderId !== systemId) {
-      return NextResponse.json({ error: 'Packaging does not belong to this order' }, { status: 400 });
+      return apiError('Packaging does not belong to this order', 400);
     }
 
     if (!packaging.confirmDate) {
-      return NextResponse.json({ error: 'Packaging must be completed before dispatch' }, { status: 400 });
+      return apiError('Packaging must be completed before dispatch', 400);
     }
 
     // Transaction: update packaging and order status
@@ -60,9 +63,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return updated;
     });
 
-    return NextResponse.json(updatedOrder);
+    return apiSuccess(updatedOrder);
   } catch (error) {
     console.error('Error dispatching order:', error);
-    return NextResponse.json({ error: 'Failed to dispatch order' }, { status: 500 });
+    return apiError('Failed to dispatch order', 500);
   }
 }

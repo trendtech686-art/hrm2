@@ -1,11 +1,14 @@
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
 
 // GET /api/customers/[systemId]
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ systemId: string }> }
 ) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { systemId } = await params
 
@@ -27,19 +30,13 @@ export async function GET(
     })
 
     if (!customer || customer.isDeleted) {
-      return NextResponse.json(
-        { error: 'Customer not found' },
-        { status: 404 }
-      )
+      return apiNotFound('Customer')
     }
 
-    return NextResponse.json(customer)
+    return apiSuccess(customer)
   } catch (error) {
     console.error('Error fetching customer:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch customer' },
-      { status: 500 }
-    )
+    return apiError('Failed to fetch customer', 500)
   }
 }
 
@@ -48,6 +45,9 @@ export async function PUT(
   request: Request,
   { params }: { params: Promise<{ systemId: string }> }
 ) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { systemId } = await params
     const body = await request.json()
@@ -57,10 +57,7 @@ export async function PUT(
     })
 
     if (!existing || existing.isDeleted) {
-      return NextResponse.json(
-        { error: 'Customer not found' },
-        { status: 404 }
-      )
+      return apiNotFound('Customer')
     }
 
     const customer = await prisma.customer.update({
@@ -82,13 +79,10 @@ export async function PUT(
       },
     })
 
-    return NextResponse.json(customer)
+    return apiSuccess(customer)
   } catch (error) {
     console.error('Error updating customer:', error)
-    return NextResponse.json(
-      { error: 'Failed to update customer' },
-      { status: 500 }
-    )
+    return apiError('Failed to update customer', 500)
   }
 }
 
@@ -97,6 +91,9 @@ export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ systemId: string }> }
 ) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { systemId } = await params
 
@@ -108,12 +105,9 @@ export async function DELETE(
       },
     })
 
-    return NextResponse.json({ success: true, systemId: customer.systemId })
+    return apiSuccess({ success: true, systemId: customer.systemId })
   } catch (error) {
     console.error('Error deleting customer:', error)
-    return NextResponse.json(
-      { error: 'Failed to delete customer' },
-      { status: 500 }
-    )
+    return apiError('Failed to delete customer', 500)
   }
 }

@@ -75,12 +75,12 @@ export async function handleReopenComplaint(
       cancelledPaymentsReceipts,
       inventoryHistory: updatedInventoryHistory as Complaint['inventoryHistory'],
       // Clear fields
-      endedBy: null,
-      endedAt: null,
-      resolvedBy: null,
-      resolvedAt: null,
-      cancelledBy: null,
-      cancelledAt: null,
+      endedBy: undefined,
+      endedAt: undefined,
+      resolvedBy: undefined,
+      resolvedAt: undefined,
+      cancelledBy: undefined,
+      cancelledAt: undefined,
     } as Partial<Complaint>;
     
     updateComplaint(complaint.systemId, updates);

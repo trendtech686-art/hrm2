@@ -1,13 +1,16 @@
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@/generated/prisma/client'
+import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
+import { createBrandSchema } from './validation'
 
 // GET /api/brands - List all brands
 export async function GET(request: Request) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { searchParams } = new URL(request.url)
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '50')
+    const { page, limit, skip } = parsePagination(searchParams)
     const search = searchParams.get('search') || ''
     const all = searchParams.get('all') === 'true'
 
@@ -30,10 +33,8 @@ export async function GET(request: Request) {
           _count: { select: { products: true } },
         },
       })
-      return NextResponse.json({ data: brands })
+      return apiSuccess({ data: brands })
     }
-
-    const skip = (page - 1) * limit
 
     const [brands, total] = await Promise.all([
       prisma.brand.findMany({
@@ -48,35 +49,23 @@ export async function GET(request: Request) {
       prisma.brand.count({ where }),
     ])
 
-    return NextResponse.json({
-      data: brands,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
-    })
+    return apiPaginated(brands, { page, limit, total })
   } catch (error) {
     console.error('Error fetching brands:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch brands' },
-      { status: 500 }
-    )
+    return apiError('Failed to fetch brands', 500)
   }
 }
 
 // POST /api/brands - Create new brand
 export async function POST(request: Request) {
-  try {
-    const body = await request.json()
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
 
-    if (!body.id || !body.name) {
-      return NextResponse.json(
-        { error: 'Mã và tên thương hiệu là bắt buộc' },
-        { status: 400 }
-      )
-    }
+  const result = await validateBody(request, createBrandSchema)
+  if (!result.success) return apiError(result.error, 400)
+
+  try {
+    const body = result.data
 
     const brand = await prisma.brand.create({
       data: {
@@ -89,18 +78,12 @@ export async function POST(request: Request) {
       },
     })
 
-    return NextResponse.json(brand, { status: 201 })
+    return apiSuccess(brand, 201)
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-      return NextResponse.json(
-        { error: 'Mã thương hiệu đã tồn tại' },
-        { status: 400 }
-      )
+      return apiError('Mã thương hiệu đã tồn tại', 400)
     }
     console.error('Error creating brand:', error)
-    return NextResponse.json(
-      { error: 'Failed to create brand' },
-      { status: 500 }
-    )
+    return apiError('Failed to create brand', 500)
   }
 }

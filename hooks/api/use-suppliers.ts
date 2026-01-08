@@ -1,8 +1,13 @@
 /**
  * React Query hooks for Suppliers API
+ * 
+ * @deprecated Use feature hooks instead:
+ * - import { useSuppliers } from '@/features/suppliers/hooks/use-suppliers'
+ * 
+ * This file is kept for backwards compatibility only.
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { queryKeys } from '@/lib/query-client'
 import type { Supplier } from '@/lib/types/prisma-extended'
 
@@ -58,6 +63,9 @@ export function useSuppliers(options: { search?: string; includeDeleted?: boolea
     queryKey: queryKeys.suppliers.list(JSON.stringify(params)),
     queryFn: () => fetchSuppliers(params),
     enabled,
+    staleTime: 60_000, // 1 minute
+    gcTime: 10 * 60 * 1000, // 10 minutes
+    placeholderData: keepPreviousData,
   })
 }
 
@@ -66,6 +74,8 @@ export function useSupplier(systemId: string | undefined) {
     queryKey: queryKeys.suppliers.detail(systemId!),
     queryFn: () => fetchSupplier(systemId!),
     enabled: !!systemId,
+    staleTime: 60_000,
+    gcTime: 10 * 60 * 1000,
   })
 }
 

@@ -2,7 +2,7 @@
  * Employee Settings React Query Hooks
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import * as api from '../api/employee-settings-api';
 import type { WorkShift, LeaveType, SalaryComponent } from '@/lib/types/prisma-extended';
 
@@ -16,7 +16,7 @@ export const employeeSettingsKeys = {
 
 // Work Shifts
 export function useWorkShifts() {
-  return useQuery({ queryKey: employeeSettingsKeys.workShifts(), queryFn: api.fetchWorkShifts, staleTime: 1000 * 60 * 10 });
+  return useQuery({ queryKey: employeeSettingsKeys.workShifts(), queryFn: api.fetchWorkShifts, staleTime: 1000 * 60 * 10, gcTime: 10 * 60 * 1000, placeholderData: keepPreviousData });
 }
 
 export function useWorkShiftMutations(opts?: { onSuccess?: () => void }) {
@@ -31,7 +31,7 @@ export function useWorkShiftMutations(opts?: { onSuccess?: () => void }) {
 
 // Leave Types
 export function useLeaveTypes() {
-  return useQuery({ queryKey: employeeSettingsKeys.leaveTypes(), queryFn: api.fetchLeaveTypes, staleTime: 1000 * 60 * 10 });
+  return useQuery({ queryKey: employeeSettingsKeys.leaveTypes(), queryFn: api.fetchLeaveTypes, staleTime: 1000 * 60 * 10, gcTime: 10 * 60 * 1000, placeholderData: keepPreviousData });
 }
 
 export function useLeaveTypeMutations(opts?: { onSuccess?: () => void }) {
@@ -46,7 +46,7 @@ export function useLeaveTypeMutations(opts?: { onSuccess?: () => void }) {
 
 // Salary Components
 export function useSalaryComponents() {
-  return useQuery({ queryKey: employeeSettingsKeys.salaryComponents(), queryFn: api.fetchSalaryComponents, staleTime: 1000 * 60 * 10 });
+  return useQuery({ queryKey: employeeSettingsKeys.salaryComponents(), queryFn: api.fetchSalaryComponents, staleTime: 1000 * 60 * 10, gcTime: 10 * 60 * 1000, placeholderData: keepPreviousData });
 }
 
 /**
@@ -69,7 +69,7 @@ export function useSalaryComponentMutations(opts?: { onSuccess?: () => void }) {
 
 // Insurance Rates
 export function useInsuranceRates() {
-  return useQuery({ queryKey: employeeSettingsKeys.insuranceRates(), queryFn: api.fetchInsuranceRates, staleTime: 1000 * 60 * 10 });
+  return useQuery({ queryKey: employeeSettingsKeys.insuranceRates(), queryFn: api.fetchInsuranceRates, staleTime: 1000 * 60 * 10, gcTime: 10 * 60 * 1000, placeholderData: keepPreviousData });
 }
 
 export function useInsuranceRatesMutation(opts?: { onSuccess?: () => void }) {

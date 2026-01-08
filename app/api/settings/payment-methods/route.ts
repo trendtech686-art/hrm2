@@ -1,8 +1,12 @@
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
+import { createPaymentMethodSchema } from './validation'
 
 // GET /api/settings/payment-methods - Get all payment methods
 export async function GET(request: Request) {
+  const session = await requireAuth()
+  if (!session) return apiError('Vui lòng đăng nhập', 401)
+
   try {
     const { searchParams } = new URL(request.url)
     const limit = parseInt(searchParams.get('limit') || '100')
@@ -23,21 +27,25 @@ export async function GET(request: Request) {
       isDefault: false, // Will be set by frontend or add a column
     }))
 
-    return NextResponse.json({ data })
+    return apiSuccess({ data })
   } catch (error) {
     console.error('Error fetching payment methods:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch payment methods' },
-      { status: 500 }
-    )
+    return apiError('Không thể tải danh sách phương thức thanh toán', 500)
   }
 }
 
 // POST /api/settings/payment-methods - Create payment method
 export async function POST(request: Request) {
-  try {
-    const body = await request.json()
+  const session = await requireAuth()
+  if (!session) return apiError('Vui lòng đăng nhập', 401)
 
+  const validation = await validateBody(request, createPaymentMethodSchema)
+  if (!validation.success) {
+    return apiError(validation.error, 400)
+  }
+  const body = validation.data
+
+  try {
     const method = await prisma.paymentMethod.create({
       data: {
         systemId: body.systemId || `PM_${Date.now()}`,
@@ -49,12 +57,9 @@ export async function POST(request: Request) {
       },
     })
 
-    return NextResponse.json({ data: method })
+    return apiSuccess({ data: method })
   } catch (error) {
     console.error('Error creating payment method:', error)
-    return NextResponse.json(
-      { error: 'Failed to create payment method' },
-      { status: 500 }
-    )
+    return apiError('Failed to create payment method', 500)
   }
 }

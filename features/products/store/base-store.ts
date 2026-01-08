@@ -2,6 +2,16 @@
  * Products Store - Base Store Setup
  * Core store configuration using store factory
  * 
+ * @deprecated Use React Query hooks instead:
+ * - `useProducts()` for list
+ * - `useProduct(id)` for single
+ * - `useProductMutations()` for create/update/delete
+ * 
+ * Import from: `@/features/products/hooks/use-products`
+ * 
+ * This store will be removed in a future version.
+ * Current usage kept for backward compatibility only.
+ * 
  * @module features/products/store/base-store
  */
 

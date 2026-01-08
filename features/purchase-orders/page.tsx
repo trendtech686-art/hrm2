@@ -109,13 +109,16 @@ export default function PurchaseOrdersPage() {
     const sorted = [...filteredData];
     if (filters.sorting.id) {
       sorted.sort((a, b) => {
-        const aVal = (a as Record<string, unknown>)[filters.sorting.id];
-        const bVal = (b as Record<string, unknown>)[filters.sorting.id];
+        const aVal = (a as Record<string, unknown>)[filters.sorting.id] as string | number | null | undefined;
+        const bVal = (b as Record<string, unknown>)[filters.sorting.id] as string | number | null | undefined;
         if (filters.sorting.id === 'createdAt' || filters.sorting.id === 'orderDate') {
           const aTime = aVal ? new Date(aVal as string).getTime() : 0;
           const bTime = bVal ? new Date(bVal as string).getTime() : 0;
           return filters.sorting.desc ? bTime - aTime : aTime - bTime;
         }
+        if (aVal == null && bVal == null) return 0;
+        if (aVal == null) return 1;
+        if (bVal == null) return -1;
         if (aVal < bVal) return filters.sorting.desc ? 1 : -1;
         if (aVal > bVal) return filters.sorting.desc ? -1 : 1;
         return 0;

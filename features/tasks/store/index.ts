@@ -2,6 +2,16 @@
  * Tasks Store - Main Entry Point
  * Combines all slices into a single store export
  * 
+ * @deprecated Use React Query hooks instead:
+ * - `useTasks()` for list
+ * - `useTask(id)` for single
+ * - `useTaskMutations()` for create/update/delete
+ * 
+ * Import from: `@/features/tasks/hooks/use-tasks`
+ * 
+ * This store will be removed in a future version.
+ * Current usage kept for backward compatibility only.
+ * 
  * @module features/tasks/store/index
  */
 

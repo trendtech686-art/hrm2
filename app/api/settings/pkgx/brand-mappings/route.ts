@@ -1,10 +1,14 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { auth } from '@/auth'
+import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
 import { v4 as uuidv4 } from 'uuid'
+import { createBrandMappingSchema } from './validation'
 
 // GET /api/settings/pkgx/brand-mappings - List all brand mappings
 export async function GET(_request: NextRequest) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const mappings = await prisma.pkgxBrandMapping.findMany({
       where: { isActive: true },
@@ -14,32 +18,28 @@ export async function GET(_request: NextRequest) {
       orderBy: { createdAt: 'desc' },
     })
 
-    return NextResponse.json({ 
+    return apiSuccess({ 
       data: mappings,
       total: mappings.length,
     })
   } catch (error) {
     console.error('Error fetching brand mappings:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch brand mappings' },
-      { status: 500 }
-    )
+    return apiError('Failed to fetch brand mappings', 500)
   }
 }
 
 // POST /api/settings/pkgx/brand-mappings - Create a new brand mapping
 export async function POST(request: NextRequest) {
-  try {
-    const session = await auth()
-    const body = await request.json()
-    const { hrmBrandId, hrmBrandName, pkgxBrandId, pkgxBrandName } = body
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
 
-    if (!hrmBrandId || !pkgxBrandId) {
-      return NextResponse.json(
-        { error: 'hrmBrandId and pkgxBrandId are required' },
-        { status: 400 }
-      )
-    }
+  const validation = await validateBody(request, createBrandMappingSchema)
+  if (!validation.success) {
+    return apiError(validation.error, 400)
+  }
+
+  try {
+    const { hrmBrandId, hrmBrandName, pkgxBrandId, pkgxBrandName } = validation.data
 
     // Check if mapping already exists
     const existing = await prisma.pkgxBrandMapping.findFirst({
@@ -52,10 +52,7 @@ export async function POST(request: NextRequest) {
     })
 
     if (existing) {
-      return NextResponse.json(
-        { error: 'Mapping already exists for this HRM brand or PKGX brand' },
-        { status: 409 }
-      )
+      return apiError('Mapping already exists for this HRM brand or PKGX brand', 409)
     }
 
     const mapping = await prisma.pkgxBrandMapping.create({
@@ -65,35 +62,32 @@ export async function POST(request: NextRequest) {
         hrmBrandName: hrmBrandName || '',
         pkgxBrandId,
         pkgxBrandName: pkgxBrandName || '',
-        createdBy: session?.user?.id,
+        createdBy: session.user?.id,
       },
       include: {
         pkgxBrand: true,
       },
     })
 
-    return NextResponse.json({ data: mapping }, { status: 201 })
+    return apiSuccess({ data: mapping }, 201)
   } catch (error) {
     console.error('Error creating brand mapping:', error)
-    return NextResponse.json(
-      { error: 'Failed to create brand mapping' },
-      { status: 500 }
-    )
+    return apiError('Failed to create brand mapping', 500)
   }
 }
 
 // DELETE /api/settings/pkgx/brand-mappings - Delete a brand mapping
 export async function DELETE(request: NextRequest) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { searchParams } = new URL(request.url)
     const systemId = searchParams.get('systemId')
     const hrmBrandId = searchParams.get('hrmBrandId')
 
     if (!systemId && !hrmBrandId) {
-      return NextResponse.json(
-        { error: 'systemId or hrmBrandId is required' },
-        { status: 400 }
-      )
+      return apiError('systemId or hrmBrandId is required', 400)
     }
 
     const deleted = await prisma.pkgxBrandMapping.deleteMany({
@@ -102,12 +96,9 @@ export async function DELETE(request: NextRequest) {
         : { hrmBrandId: hrmBrandId! },
     })
 
-    return NextResponse.json({ deleted: deleted.count })
+    return apiSuccess({ deleted: deleted.count })
   } catch (error) {
     console.error('Error deleting brand mapping:', error)
-    return NextResponse.json(
-      { error: 'Failed to delete brand mapping' },
-      { status: 500 }
-    )
+    return apiError('Failed to delete brand mapping', 500)
   }
 }

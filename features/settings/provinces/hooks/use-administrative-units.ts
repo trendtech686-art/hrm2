@@ -7,7 +7,7 @@
 
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import type { Province, District, Ward } from '@/lib/types/prisma-extended';
 
 const API_BASE = '/api/administrative-units';
@@ -80,6 +80,7 @@ export function useProvinces() {
     queryFn: fetchProvinces,
     staleTime: 1000 * 60 * 60, // 1 hour
     gcTime: 1000 * 60 * 60 * 24, // 24 hours
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -94,6 +95,7 @@ export function useDistricts(provinceId?: string) {
     staleTime: 1000 * 60 * 60, // 1 hour
     gcTime: 1000 * 60 * 60 * 24, // 24 hours
     enabled: provinceId !== undefined || true, // Always enabled, but filters when provinceId provided
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -114,6 +116,7 @@ export function useWards(filters?: {
     gcTime: 1000 * 60 * 60 * 24, // 24 hours
     // Only fetch when we have a province or district filter (to avoid loading 10k+ records)
     enabled: !!(filters?.provinceId || filters?.districtId),
+    placeholderData: keepPreviousData,
   });
 }
 

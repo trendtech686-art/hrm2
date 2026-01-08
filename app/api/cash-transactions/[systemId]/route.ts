@@ -2,15 +2,18 @@
  * Cash Transaction Detail API Route
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/prisma'
+import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
 
 type RouteParams = {
   params: Promise<{ systemId: string }>;
 };
 
 // GET - Get single cash transaction
-export async function GET(request: NextRequest, { params }: RouteParams) {
+export async function GET(request: Request, { params }: RouteParams) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { systemId } = await params;
 
@@ -22,24 +25,21 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     });
 
     if (!cashTransaction) {
-      return NextResponse.json(
-        { error: 'Cash transaction not found' },
-        { status: 404 }
-      );
+      return apiNotFound('Cash transaction');
     }
 
-    return NextResponse.json(cashTransaction);
+    return apiSuccess(cashTransaction);
   } catch (error) {
     console.error('[Cash Transactions API] GET by ID error:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch cash transaction' },
-      { status: 500 }
-    );
+    return apiError('Failed to fetch cash transaction', 500);
   }
 }
 
 // DELETE - Delete cash transaction (and reverse balance)
-export async function DELETE(request: NextRequest, { params }: RouteParams) {
+export async function DELETE(request: Request, { params }: RouteParams) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
+
   try {
     const { systemId } = await params;
 
@@ -49,10 +49,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     });
 
     if (!transaction) {
-      return NextResponse.json(
-        { error: 'Cash transaction not found' },
-        { status: 404 }
-      );
+      return apiNotFound('Cash transaction');
     }
 
     // Delete transaction and reverse balance
@@ -76,12 +73,9 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       });
     });
 
-    return NextResponse.json({ success: true });
+    return apiSuccess({ success: true });
   } catch (error) {
     console.error('[Cash Transactions API] DELETE error:', error);
-    return NextResponse.json(
-      { error: 'Failed to delete cash transaction' },
-      { status: 500 }
-    );
+    return apiError('Failed to delete cash transaction', 500);
   }
 }

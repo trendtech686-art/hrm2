@@ -56,7 +56,7 @@ export function FilePreviewDialog({ file, trigger }: FilePreviewDialogProps) {
     switch (fileType) {
       case 'pdf':
         return (
-          <div className="w-full h-[600px] border rounded-lg overflow-hidden bg-gray-50">
+          <div className="w-full h-[600px] border border-border rounded-lg overflow-hidden bg-gray-50">
             <iframe
               src={file.url}
               className="w-full h-full"
@@ -78,7 +78,7 @@ export function FilePreviewDialog({ file, trigger }: FilePreviewDialogProps) {
 
       case 'office':
         return (
-          <div className="w-full h-[600px] border rounded-lg overflow-hidden">
+          <div className="w-full h-[600px] border border-border rounded-lg overflow-hidden">
             <iframe
               src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(file.url)}`}
               className="w-full h-full"
@@ -89,7 +89,7 @@ export function FilePreviewDialog({ file, trigger }: FilePreviewDialogProps) {
 
       default:
         return (
-          <div className="w-full h-[400px] flex flex-col items-center justify-center gap-4 bg-muted/30 rounded-lg border-2 border-dashed">
+          <div className="w-full h-[400px] flex flex-col items-center justify-center gap-4 bg-muted/30 rounded-lg border-2 border-dashed border-border">
             {getFileIcon(file.name)}
             <div className="text-center">
               <p className="text-sm font-medium">{file.name}</p>

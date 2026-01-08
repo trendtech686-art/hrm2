@@ -6,30 +6,33 @@
  * ⚠️ Chỉ hủy được khi đơn ở trạng thái: 1, 2, 12 (Chưa tiếp nhận, Đã tiếp nhận, Đang lấy hàng)
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils';
+import { cancelOrderSchema } from './validation';
 
 const GHTK_API_BASE = 'https://services.giaohangtietkiem.vn';
 
 export async function POST(request: NextRequest) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
+
+  const validation = await validateBody(request, cancelOrderSchema);
+  if (!validation.success) {
+    return apiError(validation.error, 400);
+  }
+
   const requestId = Math.random().toString(36).substring(2, 11);
 
   try {
-    const body = await request.json();
-    const { trackingCode, apiToken, partnerCode } = body;
+    const { trackingCode, apiToken, partnerCode } = validation.data;
 
     // ✅ Client sẽ gửi token lên (lấy từ shipping_partners_config trong localStorage)
     if (!apiToken) {
-      return NextResponse.json({ 
-        success: false,
-        message: 'Chưa cấu hình GHTK. Vui lòng vào Cài đặt → Đối tác vận chuyển.' 
-      }, { status: 400 });
+      return apiError('Chưa cấu hình GHTK. Vui lòng vào Cài đặt → Đối tác vận chuyển.', 400);
     }
 
     if (!trackingCode) {
-      return NextResponse.json({ 
-        success: false,
-        message: 'Mã vận đơn không được để trống' 
-      }, { status: 400 });
+      return apiError('Mã vận đơn không được để trống', 400);
     }
 
 
@@ -46,12 +49,9 @@ export async function POST(request: NextRequest) {
     
 
     // ✅ Trả về response từ GHTK (bao gồm cả success: false)
-    return NextResponse.json(data);
+    return apiSuccess(data);
   } catch (error) {
     console.error(`[GHTK-CANCEL-${requestId}] Cancel order error:`, error);
-    return NextResponse.json({ 
-      success: false,
-      message: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
+    return apiError(error instanceof Error ? error.message : 'Unknown error', 500);
   }
 }

@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react';
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { Plus, X, LayoutGrid, Table, Settings, BarChart3, RefreshCw } from 'lucide-react';
 import { useFuseFilter } from '../../hooks/use-fuse-search';
@@ -22,12 +23,14 @@ import { asSystemId } from '@/lib/id-types';
 
 // Column definitions & Components
 import { getColumns } from './columns';
-import { WarrantyCard } from './warranty-card';
-import { KanbanColumn } from './components/warranty-kanban-column';
-import { WarrantyReminderDialog } from './components/dialogs/warranty-reminder-dialog';
-import { WarrantyCancelDialog } from './components/dialogs/warranty-cancel-dialog';
 import { useWarrantyReminders } from './hooks/use-warranty-reminders';
 import { useRealtimeUpdates, getWarrantyDataVersion } from './use-realtime-updates';
+
+// Dynamic imports for heavy components
+const WarrantyCard = dynamic(() => import('./warranty-card').then(mod => ({ default: mod.WarrantyCard })), { ssr: false });
+const KanbanColumn = dynamic(() => import('./components/warranty-kanban-column').then(mod => ({ default: mod.KanbanColumn })), { ssr: false });
+const WarrantyReminderDialog = dynamic(() => import('./components/dialogs/warranty-reminder-dialog').then(mod => ({ default: mod.WarrantyReminderDialog })), { ssr: false });
+const WarrantyCancelDialog = dynamic(() => import('./components/dialogs/warranty-cancel-dialog').then(mod => ({ default: mod.WarrantyCancelDialog })), { ssr: false });
 
 // UI Components
 import { Button } from '../../components/ui/button';

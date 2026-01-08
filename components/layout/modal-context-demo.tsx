@@ -18,7 +18,7 @@ export function ModalContextDemo() {
   const { openModals, activeModal } = useModalContext();
   
   return (
-    <div className="p-4 border rounded-lg bg-card">
+    <div className="p-4 border border-border rounded-lg bg-card">
       <h2 className="text-lg font-semibold mb-4">Modal Context Demo</h2>
       
       <div className="flex flex-col gap-6">
@@ -86,7 +86,7 @@ export function ModalContextDemo() {
         </div>
         
         {/* Debug information */}
-        <div className="mt-4 p-4 border rounded bg-muted/50 text-sm">
+        <div className="mt-4 p-4 border border-border rounded bg-muted/50 text-sm">
           <h3 className="font-medium mb-2">Debug Information:</h3>
           <div>
             <p><strong>Open Modals:</strong> {openModals.join(', ') || 'None'}</p>

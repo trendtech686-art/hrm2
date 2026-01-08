@@ -191,11 +191,11 @@ export function WarrantyFormPage() {
   // ===== SUBMIT HANDLER - Tách ra hook riêng =====
   const { onSubmit } = useWarrantyFormSubmit({
     isEditing,
-    ticket,
+    ticket: ticket ?? null,
     allTickets,
     branches,
     employees,
-    generateNextSystemId,
+    generateNextSystemId: generateNextSystemId ?? (() => ''),
     add,
     update,
     ...formState,

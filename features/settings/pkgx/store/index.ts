@@ -169,7 +169,7 @@ export function savePkgxSettingsToDatabase(): void {
     try {
       const { settings } = usePkgxSettingsStore.getState();
       // Exclude runtime data from database
-      const { pkgxProducts, pkgxProductsLastFetch, ...settingsToSave } = settings;
+      const { pkgxProducts: _pkgxProducts, pkgxProductsLastFetch: _pkgxProductsLastFetch, ...settingsToSave } = settings;
       
       await fetch(SETTINGS_API, {
         method: 'POST',

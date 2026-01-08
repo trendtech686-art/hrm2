@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { Prisma } from '@/generated/prisma/client'
+import { Prisma, PurchaseOrderStatus } from '@/generated/prisma/client'
+import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
+import { updatePurchaseOrderSchema } from './validation'
 
 // Interface for purchase order item input
 interface PurchaseOrderItemInput {
@@ -17,6 +18,9 @@ interface RouteParams {
 
 // GET /api/purchase-orders/[systemId]
 export async function GET(_request: Request, { params }: RouteParams) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { systemId } = await params
 
@@ -41,27 +45,29 @@ export async function GET(_request: Request, { params }: RouteParams) {
     })
 
     if (!order) {
-      return NextResponse.json(
-        { error: 'Đơn mua hàng không tồn tại' },
-        { status: 404 }
-      )
+      return apiError('Đơn mua hàng không tồn tại', 404)
     }
 
-    return NextResponse.json(order)
+    return apiSuccess(order)
   } catch (error) {
     console.error('Error fetching purchase order:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch purchase order' },
-      { status: 500 }
-    )
+    return apiError('Failed to fetch purchase order', 500)
   }
 }
 
 // PUT /api/purchase-orders/[systemId]
 export async function PUT(request: Request, { params }: RouteParams) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
+  const validation = await validateBody(request, updatePurchaseOrderSchema)
+  if (!validation.success) {
+    return apiError(validation.error, 400)
+  }
+  const body = validation.data
+
   try {
     const { systemId } = await params
-    const body = await request.json()
 
     // Delete existing items and recreate if items provided
     if (body.items) {
@@ -77,19 +83,29 @@ export async function PUT(request: Request, { params }: RouteParams) {
         orderDate: body.orderDate ? new Date(body.orderDate) : undefined,
         expectedDate: body.expectedDate ? new Date(body.expectedDate) : undefined,
         receivedDate: body.receivedDate ? new Date(body.receivedDate) : undefined,
-        status: body.status,
+        status: body.status as PurchaseOrderStatus | undefined,
         subtotal: body.subtotal,
         tax: body.tax,
         discount: body.discount,
         total: body.total,
         notes: body.notes,
         items: body.items ? {
-          create: body.items.map((item: PurchaseOrderItemInput) => ({
-            productId: item.productId,
-            quantity: item.quantity,
-            unitPrice: item.unitPrice,
-            discount: item.discount || 0,
-            total: item.total,
+          create: await Promise.all(body.items.map(async (item: PurchaseOrderItemInput) => {
+            const product = await prisma.product.findUnique({
+              where: { systemId: item.productId },
+              select: { systemId: true, id: true, name: true }
+            })
+            if (!product) throw new Error(`Product ${item.productId} not found`)
+            return {
+              systemId: `POI${String(Date.now()).slice(-6).padStart(6, '0')}${Math.random().toString(36).slice(2, 5)}`,
+              productId: product.systemId,
+              productName: product.name,
+              productSku: product.id,
+              quantity: item.quantity,
+              unitPrice: item.unitPrice,
+              discount: item.discount || 0,
+              total: item.total ?? item.quantity * item.unitPrice,
+            }
           })),
         } : undefined,
       },
@@ -101,24 +117,21 @@ export async function PUT(request: Request, { params }: RouteParams) {
       },
     })
 
-    return NextResponse.json(order)
+    return apiSuccess(order)
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
-      return NextResponse.json(
-        { error: 'Đơn mua hàng không tồn tại' },
-        { status: 404 }
-      )
+      return apiError('Đơn mua hàng không tồn tại', 404)
     }
     console.error('Error updating purchase order:', error)
-    return NextResponse.json(
-      { error: 'Failed to update purchase order' },
-      { status: 500 }
-    )
+    return apiError('Failed to update purchase order', 500)
   }
 }
 
 // DELETE /api/purchase-orders/[systemId]
 export async function DELETE(_request: Request, { params }: RouteParams) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { systemId } = await params
 
@@ -127,18 +140,12 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
       data: { isDeleted: true },
     })
 
-    return NextResponse.json({ success: true })
+    return apiSuccess({ success: true })
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
-      return NextResponse.json(
-        { error: 'Đơn mua hàng không tồn tại' },
-        { status: 404 }
-      )
+      return apiError('Đơn mua hàng không tồn tại', 404)
     }
     console.error('Error deleting purchase order:', error)
-    return NextResponse.json(
-      { error: 'Failed to delete purchase order' },
-      { status: 500 }
-    )
+    return apiError('Failed to delete purchase order', 500)
   }
 }

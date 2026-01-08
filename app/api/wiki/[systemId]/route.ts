@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
+import { updateWikiSchema } from './validation'
 
 interface RouteParams {
   params: Promise<{ systemId: string }>
@@ -7,6 +8,9 @@ interface RouteParams {
 
 // GET /api/wiki/[systemId]
 export async function GET(_request: Request, { params }: RouteParams) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { systemId } = await params
 
@@ -32,27 +36,29 @@ export async function GET(_request: Request, { params }: RouteParams) {
     }
 
     if (!wiki) {
-      return NextResponse.json(
-        { error: 'Bài viết không tồn tại' },
-        { status: 404 }
-      )
+      return apiError('Bài viết không tồn tại', 404)
     }
 
-    return NextResponse.json(wiki)
+    return apiSuccess(wiki)
   } catch (error) {
     console.error('Error fetching wiki:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch wiki' },
-      { status: 500 }
-    )
+    return apiError('Failed to fetch wiki', 500)
   }
 }
 
 // PUT /api/wiki/[systemId]
 export async function PUT(request: Request, { params }: RouteParams) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
+  const validation = await validateBody(request, updateWikiSchema)
+  if (!validation.success) {
+    return apiError(validation.error, 400)
+  }
+  const body = validation.data
+
   try {
     const { systemId } = await params
-    const body = await request.json()
 
     const wiki = await prisma.wiki.update({
       where: { systemId },
@@ -66,30 +72,24 @@ export async function PUT(request: Request, { params }: RouteParams) {
       },
     })
 
-    return NextResponse.json(wiki)
+    return apiSuccess(wiki)
   } catch (error) {
     if (error instanceof Error && 'code' in error && error.code === 'P2025') {
-      return NextResponse.json(
-        { error: 'Bài viết không tồn tại' },
-        { status: 404 }
-      )
+      return apiError('Bài viết không tồn tại', 404)
     }
     if (error instanceof Error && 'code' in error && error.code === 'P2002') {
-      return NextResponse.json(
-        { error: 'Slug đã tồn tại' },
-        { status: 400 }
-      )
+      return apiError('Slug đã tồn tại', 400)
     }
     console.error('Error updating wiki:', error)
-    return NextResponse.json(
-      { error: 'Failed to update wiki' },
-      { status: 500 }
-    )
+    return apiError('Failed to update wiki', 500)
   }
 }
 
 // DELETE /api/wiki/[systemId]
 export async function DELETE(_request: Request, { params }: RouteParams) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { systemId } = await params
 
@@ -98,18 +98,12 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
       data: { isDeleted: true },
     })
 
-    return NextResponse.json({ success: true })
+    return apiSuccess({ success: true })
   } catch (error) {
     if (error instanceof Error && 'code' in error && error.code === 'P2025') {
-      return NextResponse.json(
-        { error: 'Bài viết không tồn tại' },
-        { status: 404 }
-      )
+      return apiError('Bài viết không tồn tại', 404)
     }
     console.error('Error deleting wiki:', error)
-    return NextResponse.json(
-      { error: 'Failed to delete wiki' },
-      { status: 500 }
-    )
+    return apiError('Failed to delete wiki', 500)
   }
 }

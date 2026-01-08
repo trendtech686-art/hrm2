@@ -2,7 +2,7 @@
  * Zod validation schemas for purchase-orders module
  */
 import { z } from 'zod';
-import type { BusinessId, SystemId } from '@/lib/id-types';
+import { systemIdSchema, businessIdSchema, type SystemId } from '@/lib/id-types';
 
 // Purchase order status enum
 export const purchaseOrderStatusSchema = z.enum([
@@ -25,10 +25,10 @@ export const poPaymentStatusSchema = z.enum([
 
 // Purchase order item schema
 export const purchaseOrderItemSchema = z.object({
-  productSystemId: z.string() as z.ZodType<SystemId>,
-  productBusinessId: z.string().optional() as z.ZodType<BusinessId | undefined>,
+  productSystemId: systemIdSchema,
+  productBusinessId: businessIdSchema.optional(),
   productName: z.string().optional(),
-  variantSystemId: z.string().optional() as z.ZodType<SystemId | undefined>,
+  variantSystemId: systemIdSchema.optional(),
   variantName: z.string().optional(),
   sku: z.string().optional(),
   unit: z.string().optional(),
@@ -46,14 +46,14 @@ export const purchaseOrderItemSchema = z.object({
 
 // Create purchase order schema
 export const createPurchaseOrderSchema = z.object({
-  supplierSystemId: z.string() as z.ZodType<SystemId>,
-  supplierBusinessId: z.string().optional() as z.ZodType<BusinessId | undefined>,
+  supplierSystemId: systemIdSchema,
+  supplierBusinessId: businessIdSchema.optional(),
   supplierName: z.string().optional(),
   
   // Branch/Warehouse
-  branchSystemId: z.string().optional() as z.ZodType<SystemId | undefined>,
+  branchSystemId: systemIdSchema.optional(),
   branchName: z.string().optional(),
-  warehouseSystemId: z.string().optional() as z.ZodType<SystemId | undefined>,
+  warehouseSystemId: systemIdSchema.optional(),
   warehouseName: z.string().optional(),
   
   // Dates

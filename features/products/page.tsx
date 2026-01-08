@@ -143,7 +143,17 @@ export function ProductsPage() {
 
   const columns = React.useMemo(() => getColumns(handleDelete, handleRestore, router, handlePrintLabel, handlePkgxPublish, handlePkgxLink, handlePkgxUnlink, handlePkgxSyncImages, handleStatusChange, handleInventoryChange, handleFieldUpdate), [handleDelete, handleRestore, router, handlePrintLabel, handlePkgxPublish, handlePkgxLink, handlePkgxUnlink, handlePkgxSyncImages, handleStatusChange, handleInventoryChange, handleFieldUpdate]);
 
-  React.useEffect(() => { const iv: Record<string, boolean> = {}; columns.forEach(c => { iv[c.id!] = true; }); setColumnVisibility(iv); setColumnOrder(columns.map(c => c.id).filter(Boolean) as string[]); }, [columns, setColumnVisibility]);
+  // Initialize column visibility and order only once on mount
+  const hasInitializedColumns = React.useRef(false);
+  React.useEffect(() => {
+    if (hasInitializedColumns.current) return;
+    hasInitializedColumns.current = true;
+    const iv: Record<string, boolean> = {};
+    columns.forEach(c => { iv[c.id!] = true; });
+    setColumnVisibility(iv);
+    setColumnOrder(columns.map(c => c.id).filter(Boolean) as string[]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const updateTableState = React.useCallback((updater: (prev: ProductQueryParams) => ProductQueryParams) => { setTableState(prev => updater(prev)); }, [setTableState]);
   const { handleSearchChange, handleStatusFilterChange, handleTypeFilterChange, handleCategoryFilterChange, handleComboFilterChange, handleStockLevelFilterChange, handlePkgxFilterChange, handleDateRangeChange, handlePaginationChange, handleSortingChange } = useTableStateHandlers({ updateTableState });

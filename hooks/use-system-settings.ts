@@ -12,8 +12,17 @@
  * @see docs/LOCALSTORAGE-TO-DATABASE-MIGRATION.md
  */
 
-import { useState, useEffect, useCallback } from 'react';
-import debounce from 'lodash/debounce';
+import { useCallback } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+
+// ============================================================================
+// Query Keys Factory
+// ============================================================================
+
+export const systemSettingsKeys = {
+  all: ['system-settings'] as const,
+  setting: (key: string) => [...systemSettingsKeys.all, key] as const,
+};
 
 // ============================================================================
 // Types
@@ -174,124 +183,104 @@ export const DEFAULT_INTEGRATION_SETTINGS: IntegrationSettings = {
 };
 
 // ============================================================================
-// Generic Settings Hook Factory
+// Generic Settings Hook Factory (React Query)
 // ============================================================================
 
-const DEBOUNCE_DELAY = 500;
-
-function createSystemSettingsHook<T>(
+function createSystemSettingsHook<T extends object>(
   preferenceKey: string,
   defaultSettings: T
 ) {
   return function useSystemSettings() {
-    const [settings, setSettings] = useState<T>(defaultSettings);
-    const [isLoading, setIsLoading] = useState(true);
-    const [isSaving, setIsSaving] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+    const queryClient = useQueryClient();
+    const queryKey = systemSettingsKeys.setting(preferenceKey);
 
-    // Load from API on mount
-    useEffect(() => {
-      const loadFromAPI = async () => {
-        try {
-          const response = await fetch(
-            `/api/user-preferences?category=system-settings&key=${preferenceKey}`
-          );
-          if (response.ok) {
-            const data = await response.json();
-            if (data.value) {
-              setSettings({ ...defaultSettings, ...data.value });
-            }
-          }
-          setError(null);
-        } catch (err) {
-          console.error(`[useSystemSettings:${preferenceKey}] Failed to load:`, err);
-          setError('Failed to load settings');
-        } finally {
-          setIsLoading(false);
-        }
-      };
+    // Query for fetching settings
+    const { data: settings = defaultSettings, isLoading, error } = useQuery({
+      queryKey,
+      queryFn: async (): Promise<T> => {
+        const response = await fetch(
+          `/api/user-preferences?category=system-settings&key=${preferenceKey}`
+        );
+        if (!response.ok) throw new Error('Failed to load settings');
+        const data = await response.json();
+        return data.value ? { ...defaultSettings, ...data.value } : defaultSettings;
+      },
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      gcTime: 30 * 60 * 1000, // 30 minutes
+    });
 
-      loadFromAPI();
-    }, []);
-
-    // Debounced save to API
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    const debouncedSave = useCallback(
-      debounce(async (newSettings: T) => {
-        setIsSaving(true);
-        try {
-          await fetch('/api/user-preferences', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              category: 'system-settings',
-              key: preferenceKey,
-              value: newSettings,
-            }),
-          });
-          setError(null);
-        } catch (err) {
-          console.error(`[useSystemSettings:${preferenceKey}] Failed to save:`, err);
-          setError('Failed to save settings');
-        } finally {
-          setIsSaving(false);
-        }
-      }, DEBOUNCE_DELAY),
-      []
-    );
-
-    // Update settings and save
-    const updateSettings = useCallback((newSettings: T) => {
-      setSettings(newSettings);
-      debouncedSave(newSettings);
-    }, [debouncedSave]);
-
-    // Update single field
-    const updateField = useCallback(<K extends keyof T>(key: K, value: T[K]) => {
-      setSettings(prev => {
-        const newSettings = { ...prev, [key]: value };
-        debouncedSave(newSettings);
-        return newSettings;
-      });
-    }, [debouncedSave]);
-
-    // Reset to defaults
-    const resetToDefaults = useCallback(() => {
-      updateSettings(defaultSettings);
-    }, [updateSettings]);
-
-    // Force save immediately (cancel debounce)
-    const saveImmediately = useCallback(async () => {
-      debouncedSave.cancel();
-      setIsSaving(true);
-      try {
-        await fetch('/api/user-preferences', {
+    // Mutation for saving settings with optimistic updates
+    const mutation = useMutation({
+      mutationFn: async (newSettings: T) => {
+        const response = await fetch('/api/user-preferences', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             category: 'system-settings',
             key: preferenceKey,
-            value: settings,
+            value: newSettings,
           }),
         });
-        setError(null);
+        if (!response.ok) throw new Error('Failed to save settings');
+        return newSettings;
+      },
+      onMutate: async (newSettings) => {
+        // Cancel outgoing refetches
+        await queryClient.cancelQueries({ queryKey });
+        
+        // Snapshot previous value
+        const previousSettings = queryClient.getQueryData<T>(queryKey);
+        
+        // Optimistic update
+        queryClient.setQueryData<T>(queryKey, newSettings);
+        
+        return { previousSettings };
+      },
+      onError: (_err, _newSettings, context) => {
+        // Rollback on error
+        if (context?.previousSettings) {
+          queryClient.setQueryData<T>(queryKey, context.previousSettings);
+        }
+      },
+      onSettled: () => {
+        // Refetch to ensure sync
+        queryClient.invalidateQueries({ queryKey });
+      },
+    });
+
+    // Update settings
+    const setSettings = useCallback((newSettings: T) => {
+      mutation.mutate(newSettings);
+    }, [mutation]);
+
+    // Update single field
+    const updateField = useCallback(<K extends keyof T>(key: K, value: T[K]) => {
+      const newSettings = { ...settings, [key]: value };
+      mutation.mutate(newSettings);
+    }, [settings, mutation]);
+
+    // Reset to defaults
+    const resetToDefaults = useCallback(() => {
+      mutation.mutate(defaultSettings);
+    }, [mutation]);
+
+    // Force save immediately (same as setSettings with React Query)
+    const saveImmediately = useCallback(async () => {
+      try {
+        await mutation.mutateAsync(settings);
         return true;
-      } catch (err) {
-        console.error(`[useSystemSettings:${preferenceKey}] Failed to save:`, err);
-        setError('Failed to save settings');
+      } catch {
         return false;
-      } finally {
-        setIsSaving(false);
       }
-    }, [debouncedSave, settings]);
+    }, [mutation, settings]);
 
     return {
       settings,
-      setSettings: updateSettings,
+      setSettings,
       updateField,
       isLoading,
-      isSaving,
-      error,
+      isSaving: mutation.isPending,
+      error: error?.message || null,
       resetToDefaults,
       saveImmediately,
     };

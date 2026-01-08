@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from "react";
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { Plus, X, LayoutGrid, Table, AlertCircle, BarChart3, RefreshCw, Printer, Settings } from "lucide-react";
 import { toast } from "sonner";
@@ -33,8 +34,10 @@ import { DataTableFacetedFilter } from "@/components/data-table/data-table-facet
 import { DynamicDataTableColumnCustomizer as DataTableColumnCustomizer } from "@/components/data-table/dynamic-column-customizer";
 import { ResponsiveDataTable, type BulkAction } from "@/components/data-table/responsive-data-table";
 import { getColumns } from "./columns";
-import { ComplaintCard } from "./components/complaint-card";
-import { KanbanColumn } from "./components/kanban-column";
+
+// Dynamic imports for heavy components
+const KanbanColumn = dynamic(() => import('./components/kanban-column').then(mod => ({ default: mod.KanbanColumn })), { ssr: false });
+const ComplaintCard = dynamic(() => import('./components/complaint-card').then(mod => ({ default: mod.ComplaintCard })), { ssr: false });
 
 function parseColorClass(colorClass: string): React.CSSProperties {
   if (!colorClass || typeof colorClass !== 'string') return {};

@@ -103,7 +103,7 @@ export function SuppliersPage() {
     const sorted = [...searchedData];
     if (sorting.id) {
       sorted.sort((a, b) => {
-        const aValue = (a as Record<string, unknown>)[sorting.id], bValue = (b as Record<string, unknown>)[sorting.id];
+        const aValue = (a as Record<string, unknown>)[sorting.id] as string | number | null | undefined, bValue = (b as Record<string, unknown>)[sorting.id] as string | number | null | undefined;
         if (sorting.id === 'createdAt') {
           const aTime = aValue ? new Date(aValue as string | number | Date).getTime() : 0, bTime = bValue ? new Date(bValue as string | number | Date).getTime() : 0;
           if (aTime === bTime) {
@@ -112,6 +112,9 @@ export function SuppliersPage() {
           }
           return sorting.desc ? bTime - aTime : aTime - bTime;
         }
+        if (aValue == null && bValue == null) return 0;
+        if (aValue == null) return 1;
+        if (bValue == null) return -1;
         if (aValue < bValue) return sorting.desc ? 1 : -1;
         if (aValue > bValue) return sorting.desc ? -1 : 1;
         return 0;

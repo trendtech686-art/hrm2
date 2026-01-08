@@ -39,6 +39,7 @@ export function usePaymentMethod(id: string | null | undefined) {
     queryFn: () => fetchPaymentMethod(id!),
     enabled: !!id,
     staleTime: 10 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
   });
 }
 

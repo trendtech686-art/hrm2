@@ -2,7 +2,7 @@
  * Zod validation schemas for wiki module
  */
 import { z } from 'zod';
-import type { SystemId } from '@/lib/id-types';
+import { systemIdSchema } from '@/lib/id-types';
 
 // Wiki page status enum
 export const wikiStatusSchema = z.enum([
@@ -39,15 +39,15 @@ export const createWikiSchema = z.object({
   summary: z.string().optional(),
   
   // Hierarchy
-  parentSystemId: z.string().optional() as z.ZodType<SystemId | undefined>,
-  categorySystemId: z.string().optional() as z.ZodType<SystemId | undefined>,
+  parentSystemId: systemIdSchema.optional(),
+  categorySystemId: systemIdSchema.optional(),
   categoryName: z.string().optional(),
   order: z.number().int().min(0).default(0),
   
   // Access control
   visibility: wikiVisibilitySchema.default('internal'),
   allowedRoles: z.array(z.string()).optional(),
-  allowedUserSystemIds: z.array(z.string() as z.ZodType<SystemId>).optional(),
+  allowedUserSystemIds: z.array(systemIdSchema).optional(),
   
   // Metadata
   tags: z.array(z.string()).optional(),
@@ -80,7 +80,7 @@ export const createWikiCategorySchema = z.object({
   name: z.string().min(1, 'Tên danh mục không được để trống'),
   slug: z.string().optional(),
   description: z.string().optional(),
-  parentSystemId: z.string().optional() as z.ZodType<SystemId | undefined>,
+  parentSystemId: systemIdSchema.optional(),
   order: z.number().int().min(0).default(0),
   icon: z.string().optional(),
   color: z.string().optional(),
@@ -88,7 +88,7 @@ export const createWikiCategorySchema = z.object({
 
 // Wiki revision schema (for tracking changes)
 export const createWikiRevisionSchema = z.object({
-  pageSystemId: z.string() as z.ZodType<SystemId>,
+  pageSystemId: systemIdSchema,
   content: z.string(),
   changeNote: z.string().optional(),
   isMajorRevision: z.boolean().default(false),

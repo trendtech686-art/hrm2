@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils';
 
 interface RouteParams {
   params: Promise<{ systemId: string }>;
@@ -7,6 +8,9 @@ interface RouteParams {
 
 // POST /api/orders/[systemId]/shipment/sync - Sync shipment status from provider
 export async function POST(request: NextRequest, { params }: RouteParams) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
+
   try {
     const { systemId } = await params;
 
@@ -22,14 +26,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     });
 
     if (!order) {
-      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+      return apiNotFound('Order');
     }
 
     const activePackaging = order.packagings.find((p) => !p.cancelDate);
     const shipment = activePackaging?.shipment;
 
     if (!shipment) {
-      return NextResponse.json({ error: 'No shipment found for order' }, { status: 404 });
+      return apiNotFound('Shipment');
     }
 
     // TODO: Call external shipping provider API to get status
@@ -53,9 +57,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       },
     });
 
-    return NextResponse.json(updatedOrder);
+    return apiSuccess(updatedOrder);
   } catch (error) {
     console.error('Error syncing shipment:', error);
-    return NextResponse.json({ error: 'Failed to sync shipment' }, { status: 500 });
+    return apiError('Failed to sync shipment', 500);
   }
 }

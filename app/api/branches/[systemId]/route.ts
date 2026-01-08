@@ -1,6 +1,6 @@
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@/generated/prisma/client'
+import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
 
 interface RouteParams {
   params: Promise<{ systemId: string }>
@@ -8,6 +8,9 @@ interface RouteParams {
 
 // GET /api/branches/[systemId]
 export async function GET(_request: Request, { params }: RouteParams) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { systemId } = await params
 
@@ -31,24 +34,21 @@ export async function GET(_request: Request, { params }: RouteParams) {
     })
 
     if (!branch) {
-      return NextResponse.json(
-        { error: 'Chi nhánh không tồn tại' },
-        { status: 404 }
-      )
+      return apiNotFound('Chi nhánh')
     }
 
-    return NextResponse.json(branch)
+    return apiSuccess(branch)
   } catch (error) {
     console.error('Error fetching branch:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch branch' },
-      { status: 500 }
-    )
+    return apiError('Failed to fetch branch', 500)
   }
 }
 
 // PUT /api/branches/[systemId]
 export async function PUT(request: Request, { params }: RouteParams) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { systemId } = await params
     const body = await request.json()
@@ -63,24 +63,21 @@ export async function PUT(request: Request, { params }: RouteParams) {
       },
     })
 
-    return NextResponse.json(branch)
+    return apiSuccess(branch)
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
-      return NextResponse.json(
-        { error: 'Chi nhánh không tồn tại' },
-        { status: 404 }
-      )
+      return apiNotFound('Chi nhánh')
     }
     console.error('Error updating branch:', error)
-    return NextResponse.json(
-      { error: 'Failed to update branch' },
-      { status: 500 }
-    )
+    return apiError('Failed to update branch', 500)
   }
 }
 
 // DELETE /api/branches/[systemId]
 export async function DELETE(_request: Request, { params }: RouteParams) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { systemId } = await params
 
@@ -90,18 +87,12 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
       data: { isDeleted: true },
     })
 
-    return NextResponse.json({ success: true })
+    return apiSuccess({ success: true })
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
-      return NextResponse.json(
-        { error: 'Chi nhánh không tồn tại' },
-        { status: 404 }
-      )
+      return apiNotFound('Chi nhánh')
     }
     console.error('Error deleting branch:', error)
-    return NextResponse.json(
-      { error: 'Failed to delete branch' },
-      { status: 500 }
-    )
+    return apiError('Failed to delete branch', 500)
   }
 }

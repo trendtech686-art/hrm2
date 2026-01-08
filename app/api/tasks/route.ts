@@ -1,10 +1,15 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@/generated/prisma/client';
 import type { TaskStatus, TaskPriority } from '@/generated/prisma/client';
+import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
+import { createTaskSchema } from './validation'
 
 // GET - List all tasks
 export async function GET(request: NextRequest) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   const { searchParams } = new URL(request.url);
   const status = searchParams.get('status');
   const assigneeId = searchParams.get('assigneeId');
@@ -67,47 +72,36 @@ export async function GET(request: NextRequest) {
       updatedAt: task.updatedAt.toISOString(),
     }));
 
-    return NextResponse.json(transformed);
+    return apiSuccess(transformed)
   } catch (error) {
     console.error('[Tasks API] GET error:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch tasks' },
-      { status: 500 }
-    );
+    return apiError('Failed to fetch tasks', 500)
   }
 }
 
 // POST - Create new task
 export async function POST(request: NextRequest) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
+  const validation = await validateBody(request, createTaskSchema)
+  if (!validation.success) {
+    return apiError(validation.error, 400)
+  }
+  const {
+    systemId,
+    id,
+    title,
+    description,
+    assigneeId,
+    creatorId,
+    status,
+    priority,
+    dueDate,
+    tags,
+  } = validation.data
+
   try {
-    const body = await request.json();
-    const {
-      systemId,
-      id,
-      title,
-      description,
-      assigneeId,
-      creatorId,
-      status,
-      priority,
-      dueDate,
-      tags,
-    } = body;
-
-    if (!title) {
-      return NextResponse.json(
-        { error: 'Title is required' },
-        { status: 400 }
-      );
-    }
-
-    if (!creatorId) {
-      return NextResponse.json(
-        { error: 'Creator ID is required' },
-        { status: 400 }
-      );
-    }
-
     const created = await prisma.task.create({
       data: {
         systemId: systemId || `TASK-${Date.now()}`,
@@ -116,8 +110,8 @@ export async function POST(request: NextRequest) {
         description,
         assigneeId,
         creatorId,
-        status: status?.toUpperCase() || 'TODO',
-        priority: priority?.toUpperCase() || 'MEDIUM',
+        status: (status?.toUpperCase() || 'TODO') as TaskStatus,
+        priority: (priority?.toUpperCase() || 'MEDIUM') as TaskPriority,
         dueDate: dueDate ? new Date(dueDate) : null,
         tags: tags || [],
       },
@@ -136,7 +130,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return NextResponse.json({
+    return apiSuccess({
       systemId: created.systemId,
       id: created.id,
       title: created.title,
@@ -151,28 +145,19 @@ export async function POST(request: NextRequest) {
       tags: created.tags,
       createdAt: created.createdAt.toISOString(),
       updatedAt: created.updatedAt.toISOString(),
-    }, { status: 201 });
+    }, 201)
   } catch (error) {
     console.error('[Tasks API] POST error:', error);
     
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
       if (error.code === 'P2002') {
-        return NextResponse.json(
-          { error: 'A task with this ID already exists' },
-          { status: 409 }
-        );
+        return apiError('A task with this ID already exists', 409)
       }
       if (error.code === 'P2003') {
-        return NextResponse.json(
-          { error: 'Invalid creator or assignee ID' },
-          { status: 400 }
-        );
+        return apiError('Invalid creator or assignee ID', 400)
       }
     }
 
-    return NextResponse.json(
-      { error: 'Failed to create task' },
-      { status: 500 }
-    );
+    return apiError('Failed to create task', 500)
   }
 }

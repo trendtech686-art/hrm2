@@ -1,19 +1,20 @@
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { Prisma, EmploymentStatus } from '@/generated/prisma/client'
+import { Prisma, EmploymentStatus, Gender, EmployeeType, ContractType } from '@/generated/prisma/client'
+import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
+import { createEmployeeSchema } from './validation'
 
 // GET /api/employees - List all employees
 export async function GET(request: Request) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { searchParams } = new URL(request.url)
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '20')
+    const { page, limit, skip } = parsePagination(searchParams)
     const search = searchParams.get('search') || ''
     const status = searchParams.get('status')
     const departmentId = searchParams.get('departmentId')
     const branchId = searchParams.get('branchId')
-
-    const skip = (page - 1) * limit
 
     // Build where clause
     const where: Prisma.EmployeeWhereInput = {
@@ -56,28 +57,23 @@ export async function GET(request: Request) {
       prisma.employee.count({ where }),
     ])
 
-    return NextResponse.json({
-      data: employees,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
-    })
+    return apiPaginated(employees, { page, limit, total })
   } catch (error) {
     console.error('Error fetching employees:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch employees' },
-      { status: 500 }
-    )
+    return apiError('Failed to fetch employees', 500)
   }
 }
 
 // POST /api/employees - Create new employee
 export async function POST(request: Request) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
+  const result = await validateBody(request, createEmployeeSchema)
+  if (!result.success) return apiError(result.error, 400)
+
   try {
-    const body = await request.json()
+    const body = result.data
 
     // Generate business ID if not provided
     if (!body.id) {
@@ -98,7 +94,7 @@ export async function POST(request: Request) {
         fullName: body.fullName,
         dob: body.dob ? new Date(body.dob) : null,
         placeOfBirth: body.placeOfBirth,
-        gender: body.gender || 'OTHER',
+        gender: (body.gender || 'OTHER') as Gender,
         phone: body.phone,
         personalEmail: body.personalEmail,
         workEmail: body.workEmail,
@@ -112,12 +108,12 @@ export async function POST(request: Request) {
         manager: body.managerId ? { connect: { systemId: body.managerId } } : undefined,
         hireDate: body.hireDate ? new Date(body.hireDate) : null,
         startDate: body.startDate ? new Date(body.startDate) : null,
-        employeeType: body.employeeType || 'FULLTIME',
-        employmentStatus: body.employmentStatus || 'ACTIVE',
+        employeeType: (body.employeeType || 'FULLTIME') as EmployeeType,
+        employmentStatus: (body.employmentStatus || 'ACTIVE') as EmploymentStatus,
         role: body.role || 'Nhân viên',
         baseSalary: body.baseSalary,
         contractNumber: body.contractNumber,
-        contractType: body.contractType,
+        contractType: body.contractType as ContractType | undefined,
         notes: body.notes,
         createdBy: body.createdBy,
       },
@@ -128,20 +124,14 @@ export async function POST(request: Request) {
       },
     })
 
-    return NextResponse.json(employee, { status: 201 })
+    return apiSuccess(employee, 201)
   } catch (error) {
     console.error('Error creating employee:', error)
     
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-      return NextResponse.json(
-        { error: 'Employee ID or email already exists' },
-        { status: 400 }
-      )
+      return apiError('Employee ID or email already exists', 400)
     }
 
-    return NextResponse.json(
-      { error: 'Failed to create employee' },
-      { status: 500 }
-    )
+    return apiError('Failed to create employee', 500)
   }
 }

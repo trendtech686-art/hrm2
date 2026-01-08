@@ -37,7 +37,7 @@ export function useReceiptFilters() {
   const [pinnedColumns, setPinnedColumns] = React.useState<string[]>(['select', 'id']);
   
   // Filters
-  const [branchFilter, setBranchFilter] = React.useState<'all' | SystemId>('all');
+  const [branchFilter, setBranchFilter] = React.useState<string>('all');
   const [statusFilter, setStatusFilter] = React.useState<Set<string>>(new Set());
   const [typeFilter, setTypeFilter] = React.useState<Set<string>>(new Set());
   const [customerFilter, setCustomerFilter] = React.useState<Set<string>>(new Set());

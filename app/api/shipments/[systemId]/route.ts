@@ -1,5 +1,7 @@
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { ShipmentStatus } from '@/generated/prisma/client'
+import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
+import { updateShipmentSchema } from './validation'
 
 interface RouteParams {
   params: Promise<{ systemId: string }>
@@ -7,6 +9,9 @@ interface RouteParams {
 
 // GET /api/shipments/[systemId]
 export async function GET(_request: Request, { params }: RouteParams) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { systemId } = await params
 
@@ -22,27 +27,29 @@ export async function GET(_request: Request, { params }: RouteParams) {
     })
 
     if (!shipment) {
-      return NextResponse.json(
-        { error: 'Vận đơn không tồn tại' },
-        { status: 404 }
-      )
+      return apiError('Vận đơn không tồn tại', 404)
     }
 
-    return NextResponse.json(shipment)
+    return apiSuccess(shipment)
   } catch (error) {
     console.error('Error fetching shipment:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch shipment' },
-      { status: 500 }
-    )
+    return apiError('Failed to fetch shipment', 500)
   }
 }
 
 // PUT /api/shipments/[systemId]
 export async function PUT(request: Request, { params }: RouteParams) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
+  const validation = await validateBody(request, updateShipmentSchema)
+  if (!validation.success) {
+    return apiError(validation.error, 400)
+  }
+  const body = validation.data
+
   try {
     const { systemId } = await params
-    const body = await request.json()
 
     const shipment = await prisma.shipment.update({
       where: { systemId },
@@ -50,7 +57,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
         carrier: body.carrier,
         trackingNumber: body.trackingNumber,
         shippingFee: body.shippingFee,
-        status: body.status,
+        status: body.status as ShipmentStatus | undefined,
         deliveredAt: body.deliveredAt ? new Date(body.deliveredAt) : undefined,
         recipientName: body.recipientName,
         recipientPhone: body.recipientPhone,
@@ -62,24 +69,21 @@ export async function PUT(request: Request, { params }: RouteParams) {
       },
     })
 
-    return NextResponse.json(shipment)
+    return apiSuccess(shipment)
   } catch (error) {
     if (error instanceof Error && 'code' in error && error.code === 'P2025') {
-      return NextResponse.json(
-        { error: 'Vận đơn không tồn tại' },
-        { status: 404 }
-      )
+      return apiError('Vận đơn không tồn tại', 404)
     }
     console.error('Error updating shipment:', error)
-    return NextResponse.json(
-      { error: 'Failed to update shipment' },
-      { status: 500 }
-    )
+    return apiError('Failed to update shipment', 500)
   }
 }
 
 // DELETE /api/shipments/[systemId]
 export async function DELETE(_request: Request, { params }: RouteParams) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { systemId } = await params
 
@@ -87,18 +91,12 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
       where: { systemId },
     })
 
-    return NextResponse.json({ success: true })
+    return apiSuccess({ success: true })
   } catch (error) {
     if (error instanceof Error && 'code' in error && error.code === 'P2025') {
-      return NextResponse.json(
-        { error: 'Vận đơn không tồn tại' },
-        { status: 404 }
-      )
+      return apiError('Vận đơn không tồn tại', 404)
     }
     console.error('Error deleting shipment:', error)
-    return NextResponse.json(
-      { error: 'Failed to delete shipment' },
-      { status: 500 }
-    )
+    return apiError('Failed to delete shipment', 500)
   }
 }

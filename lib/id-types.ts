@@ -129,3 +129,21 @@ export function ensureBusinessId(id: string, _context?: string): BusinessId {
   }
   return asBusinessId(id);
 }
+
+// ============================================
+// ZOD SCHEMA HELPERS
+// ============================================
+
+import { z } from 'zod';
+
+/**
+ * Create a Zod schema for SystemId
+ * Use this instead of `z.string() as z.ZodType<SystemId>`
+ */
+export const systemIdSchema = z.string().transform((val) => asSystemId(val));
+
+/**
+ * Create a Zod schema for BusinessId
+ * Use this instead of `z.string() as z.ZodType<BusinessId>`
+ */
+export const businessIdSchema = z.string().transform((val) => asBusinessId(val));

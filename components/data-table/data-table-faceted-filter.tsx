@@ -48,7 +48,7 @@ export function DataTableFacetedFilter({
         <Button 
           variant="outline" 
           size="sm" 
-          className="border-dashed flex items-center px-3 text-sm w-full sm:w-auto justify-start"
+          className="border-dashed border-border flex items-center px-3 text-sm w-full sm:w-auto justify-start"
         >
           <PlusCircle className="mr-1.5 h-3.5 w-3.5 flex-shrink-0" />
           <span className="truncate">{title}</span>
@@ -111,7 +111,7 @@ export function DataTableFacetedFilter({
                   >
                     <div
                       className={cn(
-                        "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
+                        "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-border",
                         isSelected
                           ? "bg-primary text-primary-foreground"
                           : "opacity-50 [&_svg]:invisible"

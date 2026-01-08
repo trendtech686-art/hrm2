@@ -1,12 +1,15 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils';
 
 interface RouteParams {
   params: Promise<{ systemId: string; packagingId: string }>;
 }
 
 // POST /api/orders/[systemId]/packaging/[packagingId]/cancel-delivery - Cancel delivery and optionally restock
-export async function POST(request: NextRequest, { params }: RouteParams) {
+export async function POST(request: Request, { params }: RouteParams) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
+
   try {
     const { systemId, packagingId } = await params;
     const body = await request.json();
@@ -25,11 +28,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     });
 
     if (!packaging) {
-      return NextResponse.json({ error: 'Packaging not found' }, { status: 404 });
+      return apiNotFound('Packaging');
     }
 
     if (packaging.orderId !== systemId) {
-      return NextResponse.json({ error: 'Packaging does not belong to this order' }, { status: 400 });
+      return apiError('Packaging does not belong to this order', 400);
     }
 
     // Transaction: cancel delivery
@@ -88,9 +91,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return updated;
     });
 
-    return NextResponse.json(updatedOrder);
+    return apiSuccess(updatedOrder);
   } catch (error) {
     console.error('Error cancelling delivery:', error);
-    return NextResponse.json({ error: 'Failed to cancel delivery' }, { status: 500 });
+    return apiError('Failed to cancel delivery', 500);
   }
 }

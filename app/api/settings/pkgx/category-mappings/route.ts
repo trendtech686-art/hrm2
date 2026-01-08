@@ -1,10 +1,14 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { auth } from '@/auth'
+import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
 import { v4 as uuidv4 } from 'uuid'
+import { createCategoryMappingSchema } from './validation'
 
 // GET /api/settings/pkgx/category-mappings - List all category mappings
 export async function GET(_request: NextRequest) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const mappings = await prisma.pkgxCategoryMapping.findMany({
       where: { isActive: true },
@@ -14,32 +18,28 @@ export async function GET(_request: NextRequest) {
       orderBy: { createdAt: 'desc' },
     })
 
-    return NextResponse.json({ 
+    return apiSuccess({ 
       data: mappings,
       total: mappings.length,
     })
   } catch (error) {
     console.error('Error fetching category mappings:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch category mappings' },
-      { status: 500 }
-    )
+    return apiError('Failed to fetch category mappings', 500)
   }
 }
 
 // POST /api/settings/pkgx/category-mappings - Create a new category mapping
 export async function POST(request: NextRequest) {
-  try {
-    const session = await auth()
-    const body = await request.json()
-    const { hrmCategoryId, hrmCategoryName, pkgxCategoryId, pkgxCategoryName } = body
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
 
-    if (!hrmCategoryId || !pkgxCategoryId) {
-      return NextResponse.json(
-        { error: 'hrmCategoryId and pkgxCategoryId are required' },
-        { status: 400 }
-      )
-    }
+  const validation = await validateBody(request, createCategoryMappingSchema)
+  if (!validation.success) {
+    return apiError(validation.error, 400)
+  }
+
+  try {
+    const { hrmCategoryId, hrmCategoryName, pkgxCategoryId, pkgxCategoryName } = validation.data
 
     // Check if mapping already exists
     const existing = await prisma.pkgxCategoryMapping.findFirst({
@@ -52,10 +52,7 @@ export async function POST(request: NextRequest) {
     })
 
     if (existing) {
-      return NextResponse.json(
-        { error: 'Mapping already exists for this HRM category or PKGX category' },
-        { status: 409 }
-      )
+      return apiError('Mapping already exists for this HRM category or PKGX category', 409)
     }
 
     const mapping = await prisma.pkgxCategoryMapping.create({
@@ -65,35 +62,32 @@ export async function POST(request: NextRequest) {
         hrmCategoryName: hrmCategoryName || '',
         pkgxCategoryId,
         pkgxCategoryName: pkgxCategoryName || '',
-        createdBy: session?.user?.id,
+        createdBy: session.user?.id,
       },
       include: {
         pkgxCategory: true,
       },
     })
 
-    return NextResponse.json({ data: mapping }, { status: 201 })
+    return apiSuccess({ data: mapping }, 201)
   } catch (error) {
     console.error('Error creating category mapping:', error)
-    return NextResponse.json(
-      { error: 'Failed to create category mapping' },
-      { status: 500 }
-    )
+    return apiError('Failed to create category mapping', 500)
   }
 }
 
 // DELETE /api/settings/pkgx/category-mappings - Delete a category mapping
 export async function DELETE(request: NextRequest) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { searchParams } = new URL(request.url)
     const systemId = searchParams.get('systemId')
     const hrmCategoryId = searchParams.get('hrmCategoryId')
 
     if (!systemId && !hrmCategoryId) {
-      return NextResponse.json(
-        { error: 'systemId or hrmCategoryId is required' },
-        { status: 400 }
-      )
+      return apiError('systemId or hrmCategoryId is required', 400)
     }
 
     const deleted = await prisma.pkgxCategoryMapping.deleteMany({
@@ -102,12 +96,9 @@ export async function DELETE(request: NextRequest) {
         : { hrmCategoryId: hrmCategoryId! },
     })
 
-    return NextResponse.json({ deleted: deleted.count })
+    return apiSuccess({ deleted: deleted.count })
   } catch (error) {
     console.error('Error deleting category mapping:', error)
-    return NextResponse.json(
-      { error: 'Failed to delete category mapping' },
-      { status: 500 }
-    )
+    return apiError('Failed to delete category mapping', 500)
   }
 }

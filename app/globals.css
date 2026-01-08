@@ -20,8 +20,8 @@
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
+  --border: oklch(0.898 0 0);
+  --input: oklch(0.898 0 0);
   --ring: oklch(0.708 0 0);
   --radius: 0.5rem;
   --shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
@@ -36,12 +36,12 @@
   --font-serif: "Source Serif 4";
   --font-mono: "Geist Mono";
 
-  --font-size-h1: 2.5rem;
-  --font-size-h2: 2rem;
-  --font-size-h3: 1.75rem;
-  --font-size-h4: 1.5rem;
-  --font-size-h5: 1.25rem;
-  --font-size-h6: 1rem;
+  --font-size-h1: 1.6rem;
+  --font-size-h2: 1.35rem;
+  --font-size-h3: 1.15rem;
+  --font-size-h4: 1.05rem;
+  --font-size-h5: 0.95rem;
+  --font-size-h6: 0.9rem;
   
   --touch-target: 44px;
   --touch-target-lg: 48px;
@@ -74,8 +74,8 @@
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.396 0.141 25.723);
   --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 10%);
+  --border: oklch(0.269 0 0);
+  --input: oklch(0.269 0 0);
   --ring: oklch(0.556 0 0);
   
   --chart-1: oklch(0.7 0.118 254.704);
@@ -113,6 +113,13 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  
+  --font-size-text-h1: var(--font-size-h1);
+  --font-size-text-h2: var(--font-size-h2);
+  --font-size-text-h3: var(--font-size-h3);
+  --font-size-text-h4: var(--font-size-h4);
+  --font-size-text-h5: var(--font-size-h5);
+  --font-size-text-h6: var(--font-size-h6);
 }
 
 /* ============================================

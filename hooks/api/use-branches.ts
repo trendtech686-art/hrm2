@@ -1,8 +1,14 @@
 /**
  * React Query hooks for Branches API
+ * 
+ * @deprecated Use feature hooks instead:
+ * - import { useBranches } from '@/features/settings/branches/hooks/use-branches'
+ * - import { useAllBranches } from '@/features/settings/branches/hooks/use-all-branches'
+ * 
+ * This file is kept for backwards compatibility only.
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { queryKeys } from '@/lib/query-client'
 import type { Branch } from '@/lib/types/prisma-extended'
 
@@ -57,6 +63,9 @@ export function useBranches(options: { includeDeleted?: boolean; enabled?: boole
     queryKey: queryKeys.branches.list(JSON.stringify(params)),
     queryFn: () => fetchBranches(params),
     enabled,
+    staleTime: 60_000, // 1 minute
+    gcTime: 10 * 60 * 1000, // 10 minutes
+    placeholderData: keepPreviousData,
   })
 }
 
@@ -65,6 +74,8 @@ export function useBranch(systemId: string | undefined) {
     queryKey: [...queryKeys.branches.all, 'detail', systemId] as const,
     queryFn: () => fetchBranch(systemId!),
     enabled: !!systemId,
+    staleTime: 60_000,
+    gcTime: 10 * 60 * 1000,
   })
 }
 

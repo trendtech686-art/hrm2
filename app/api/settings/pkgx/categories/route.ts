@@ -1,9 +1,13 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { auth } from '@/auth'
+import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
+import { syncCategoriesSchema } from './validation'
 
 // GET /api/settings/pkgx/categories - List all PKGX categories
 export async function GET(_request: NextRequest) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const categories = await prisma.pkgxCategory.findMany({
       orderBy: [
@@ -15,36 +19,32 @@ export async function GET(_request: NextRequest) {
       },
     })
 
-    return NextResponse.json({ 
+    return apiSuccess({ 
       data: categories,
       total: categories.length,
     })
   } catch (error) {
     console.error('Error fetching PKGX categories:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch PKGX categories' },
-      { status: 500 }
-    )
+    return apiError('Failed to fetch PKGX categories', 500)
   }
 }
 
 // POST /api/settings/pkgx/categories - Sync categories from PKGX API
 export async function POST(request: NextRequest) {
-  try {
-    const _session = await auth()
-    const body = await request.json()
-    const { categories } = body
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
 
-    if (!Array.isArray(categories)) {
-      return NextResponse.json(
-        { error: 'categories must be an array' },
-        { status: 400 }
-      )
-    }
+  const validation = await validateBody(request, syncCategoriesSchema)
+  if (!validation.success) {
+    return apiError(validation.error, 400)
+  }
+
+  try {
+    const { categories } = validation.data
 
     // Upsert categories
     const results = await Promise.all(
-      categories.map(async (cat: { id: number; name: string; parentId?: number; sortOrder?: number; isShow?: number; catDesc?: string; longDesc?: string; keywords?: string; metaTitle?: string; metaDesc?: string; catAlias?: string; style?: string; grade?: number; filterAttr?: string }) => {
+      categories.map(async (cat) => {
         return prisma.pkgxCategory.upsert({
           where: { id: cat.id },
           update: {
@@ -83,15 +83,12 @@ export async function POST(request: NextRequest) {
       })
     )
 
-    return NextResponse.json({ 
+    return apiSuccess({ 
       data: results,
       synced: results.length,
     })
   } catch (error) {
     console.error('Error syncing PKGX categories:', error)
-    return NextResponse.json(
-      { error: 'Failed to sync PKGX categories' },
-      { status: 500 }
-    )
+    return apiError('Failed to sync PKGX categories', 500)
   }
 }

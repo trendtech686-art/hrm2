@@ -112,7 +112,8 @@ export function CashbookPage() {
   const exportConfig = React.useMemo(() => ({ fileName: 'So_quy', columns }), [columns]);
 
   const headerActions = React.useMemo(() => [<Button key="pay" variant="outline" size="sm" className="h-9" onClick={() => router.push(ROUTES.FINANCE.PAYMENT_NEW)}><Minus className="mr-2 h-4 w-4" />Lập Phiếu Chi</Button>, <Button key="rec" size="sm" className="h-9" onClick={() => router.push(ROUTES.FINANCE.RECEIPT_NEW)}><Plus className="mr-2 h-4 w-4" />Lập Phiếu Thu</Button>], [router]);
-  usePageHeader({ title: 'Sổ quỹ', showBackButton: false, breadcrumb: [{ label: 'Trang chủ', href: ROUTES.ROOT }, { label: 'Sổ quỹ', href: ROUTES.FINANCE.CASHBOOK }], actions: headerActions });
+  const breadcrumb = React.useMemo(() => [{ label: 'Trang chủ', href: ROUTES.ROOT }, { label: 'Sổ quỹ', href: ROUTES.FINANCE.CASHBOOK }], []);
+  usePageHeader({ title: 'Sổ quỹ', showBackButton: false, breadcrumb, actions: headerActions });
 
   return (
     <div className="space-y-4 flex flex-col h-full">

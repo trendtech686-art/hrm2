@@ -464,7 +464,7 @@ export function useAttendanceExport(filteredData: AttendanceDataRow[], currentDa
       const rowData: (string | number)[] = [
         row.employeeId,
         row.fullName,
-        row.department,
+        row.department ?? '',
       ];
       
       for (let d = 1; d <= daysInMonth; d++) {

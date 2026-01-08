@@ -1,23 +1,26 @@
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@/generated/prisma/client'
+import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
+import { createUserPreferenceSchema, bulkUpdatePreferencesSchema } from './validation'
 
 // GET /api/user-preferences?userId=xxx or ?userId=xxx&key=xxx
 export async function GET(request: Request) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { searchParams } = new URL(request.url)
     const userId = searchParams.get('userId')
     const key = searchParams.get('key')
     const category = searchParams.get('category')
 
+    console.log('[user-preferences] GET request:', { userId, key, category })
+
     if (!userId) {
-      return NextResponse.json(
-        { error: 'userId là bắt buộc' },
-        { status: 400 }
-      )
+      return apiError('userId là bắt buộc', 400)
     }
 
-    const where: Parameters<typeof prisma.userPreference.findMany>[0]['where'] = { userId }
+    const where: Prisma.UserPreferenceWhereInput = { userId }
 
     if (key) {
       where.key = key
@@ -32,9 +35,12 @@ export async function GET(request: Request) {
       orderBy: { key: 'asc' },
     })
 
+    console.log('[user-preferences] Found:', preferences.length, 'preferences')
+
     // If single key requested, return just the value
     if (key && preferences.length === 1) {
-      return NextResponse.json(preferences[0])
+      console.log('[user-preferences] Returning single preference:', preferences[0])
+      return apiSuccess(preferences[0])
     }
 
     // Return as key-value map for easy frontend use
@@ -43,28 +49,25 @@ export async function GET(request: Request) {
       return acc
     }, {})
 
-    return NextResponse.json({ data: preferences, map: prefMap })
+    return apiSuccess({ data: preferences, map: prefMap })
   } catch (error) {
     console.error('Error fetching user preferences:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch user preferences' },
-      { status: 500 }
-    )
+    return apiError('Failed to fetch user preferences', 500)
   }
 }
 
 // POST /api/user-preferences - Create or update preference
 export async function POST(request: Request) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
+  const validation = await validateBody(request, createUserPreferenceSchema)
+  if (!validation.success) {
+    return apiError(validation.error, 400)
+  }
+  const body = validation.data
+
   try {
-    const body = await request.json()
-
-    if (!body.userId || !body.key) {
-      return NextResponse.json(
-        { error: 'userId và key là bắt buộc' },
-        { status: 400 }
-      )
-    }
-
     const preference = await prisma.userPreference.upsert({
       where: {
         userId_key: {
@@ -85,28 +88,25 @@ export async function POST(request: Request) {
       },
     })
 
-    return NextResponse.json(preference)
+    return apiSuccess(preference)
   } catch (error) {
     console.error('Error saving user preference:', error)
-    return NextResponse.json(
-      { error: 'Failed to save user preference' },
-      { status: 500 }
-    )
+    return apiError('Failed to save user preference', 500)
   }
 }
 
 // PUT /api/user-preferences - Bulk update
 export async function PUT(request: Request) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
+  const validation = await validateBody(request, bulkUpdatePreferencesSchema)
+  if (!validation.success) {
+    return apiError(validation.error, 400)
+  }
+  const body = validation.data
+
   try {
-    const body = await request.json()
-
-    if (!body.userId || !Array.isArray(body.preferences)) {
-      return NextResponse.json(
-        { error: 'userId và preferences array là bắt buộc' },
-        { status: 400 }
-      )
-    }
-
     const results = await Promise.all(
       body.preferences.map((pref: { key: string; value?: unknown; category?: string }) =>
         prisma.userPreference.upsert({
@@ -131,28 +131,25 @@ export async function PUT(request: Request) {
       )
     )
 
-    return NextResponse.json({ success: true, count: results.length })
+    return apiSuccess({ success: true, count: results.length })
   } catch (error) {
     console.error('Error bulk updating preferences:', error)
-    return NextResponse.json(
-      { error: 'Failed to bulk update preferences' },
-      { status: 500 }
-    )
+    return apiError('Failed to bulk update preferences', 500)
   }
 }
 
 // DELETE /api/user-preferences?userId=xxx&key=xxx
 export async function DELETE(request: Request) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { searchParams } = new URL(request.url)
     const userId = searchParams.get('userId')
     const key = searchParams.get('key')
 
     if (!userId || !key) {
-      return NextResponse.json(
-        { error: 'userId và key là bắt buộc' },
-        { status: 400 }
-      )
+      return apiError('userId và key là bắt buộc', 400)
     }
 
     await prisma.userPreference.delete({
@@ -164,12 +161,9 @@ export async function DELETE(request: Request) {
       },
     })
 
-    return NextResponse.json({ success: true })
+    return apiSuccess({ success: true })
   } catch (error) {
     console.error('Error deleting user preference:', error)
-    return NextResponse.json(
-      { error: 'Failed to delete user preference' },
-      { status: 500 }
-    )
+    return apiError('Failed to delete user preference', 500)
   }
 }

@@ -43,7 +43,9 @@ export function ShipmentsPage() {
     const [columnOrder, setColumnOrder] = React.useState<string[]>([]), [pinnedColumns, setPinnedColumns] = React.useState<string[]>([]), [mobileLoadedCount, setMobileLoadedCount] = React.useState(20);
     const mobileScrollRef = React.useRef<HTMLDivElement>(null), columnDefaultsInitialized = React.useRef(false);
     React.useEffect(() => { const timer = setTimeout(() => setDebouncedGlobalFilter(globalFilter), 300); return () => clearTimeout(timer); }, [globalFilter]);
-    usePageHeader({});
+    
+    const pageHeaderConfig = React.useMemo(() => ({}), []);
+    usePageHeader(pageHeaderConfig);
 
     const shipments = React.useMemo((): ShipmentView[] => shipmentsData.map(shipment => {
         const order = allOrders.find(o => o.systemId === shipment.orderSystemId), customer = order ? allCustomers.find(c => c.systemId === order.customerSystemId) : null, packaging = order?.packagings.find(p => p.systemId === shipment.packagingSystemId);

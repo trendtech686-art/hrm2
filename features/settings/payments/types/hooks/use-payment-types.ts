@@ -2,7 +2,7 @@
  * Payment Types React Query Hooks
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import {
   fetchPaymentTypes,
   fetchPaymentTypeById,
@@ -30,6 +30,8 @@ export function usePaymentTypes(filters: PaymentTypeFilters = {}) {
     queryKey: paymentTypeKeys.list(filters),
     queryFn: () => fetchPaymentTypes(filters),
     staleTime: 1000 * 60 * 10,
+    gcTime: 1000 * 60 * 60,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -39,6 +41,7 @@ export function usePaymentTypeById(systemId: string | undefined) {
     queryFn: () => fetchPaymentTypeById(systemId!),
     enabled: !!systemId,
     staleTime: 1000 * 60 * 10,
+    gcTime: 1000 * 60 * 60,
   });
 }
 
@@ -47,6 +50,8 @@ export function useActivePaymentTypes() {
     queryKey: paymentTypeKeys.active(),
     queryFn: fetchActivePaymentTypes,
     staleTime: 1000 * 60 * 10,
+    gcTime: 1000 * 60 * 60,
+    placeholderData: keepPreviousData,
   });
 }
 

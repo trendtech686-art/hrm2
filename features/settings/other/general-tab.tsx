@@ -23,24 +23,48 @@ export function GeneralTabContent({ isActive, onRegisterActions }: TabContentPro
   const [isUploadingFavicon, setIsUploadingFavicon] = React.useState(false);
   const logoInputRef = React.useRef<HTMLInputElement>(null);
   const faviconInputRef = React.useRef<HTMLInputElement>(null);
-  const originalSettings = React.useRef(JSON.stringify(settings));
+  const originalSettings = React.useRef<string>('');
+  const isInitialLoad = React.useRef(true);
+  const updateFieldRef = React.useRef(updateField);
+  const saveImmediatelyRef = React.useRef(saveImmediately);
+  const settingsRef = React.useRef(settings);
   
-  // Update original when loaded from API
+  // Keep updateField ref current
   React.useEffect(() => {
-    if (!isLoading) {
-      originalSettings.current = JSON.stringify(settings);
-    }
-  }, [isLoading, settings]);
-  
+    updateFieldRef.current = updateField;
+  }, [updateField]);
+
+  // Keep saveImmediately ref current
   React.useEffect(() => {
-    setHasChanges(JSON.stringify(settings) !== originalSettings.current);
+    saveImmediatelyRef.current = saveImmediately;
+  }, [saveImmediately]);
+
+  // Keep settings ref current
+  React.useEffect(() => {
+    settingsRef.current = settings;
   }, [settings]);
   
-  const handleChange = <K extends keyof GeneralSettings>(key: K, value: GeneralSettings[K]) => {
-    updateField(key, value);
-  };
+  // Update original when loaded from API (only on initial load)
+  React.useEffect(() => {
+    if (!isLoading && isInitialLoad.current) {
+      originalSettings.current = JSON.stringify(settings);
+      isInitialLoad.current = false;
+      setHasChanges(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading]);
   
-  const serverUrl = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
+  React.useEffect(() => {
+    if (originalSettings.current) {
+      setHasChanges(JSON.stringify(settings) !== originalSettings.current);
+    }
+  }, [settings]);
+  
+  const handleChange = React.useCallback(<K extends keyof GeneralSettings>(key: K, value: GeneralSettings[K]) => {
+    updateFieldRef.current(key, value);
+  }, []);
+  
+  const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3001';
   
   const handleBrandingUpload = async (file: File, type: 'logo' | 'favicon') => {
     const setUploading = type === 'logo' ? setIsUploadingLogo : setIsUploadingFavicon;
@@ -95,15 +119,15 @@ export function GeneralTabContent({ isActive, onRegisterActions }: TabContentPro
   };
   
   const handleSave = React.useCallback(async () => {
-    const success = await saveImmediately();
+    const success = await saveImmediatelyRef.current();
     if (success) {
-      originalSettings.current = JSON.stringify(settings);
+      originalSettings.current = JSON.stringify(settingsRef.current);
       toast.success('Đã lưu cài đặt chung');
       setHasChanges(false);
     } else {
       toast.error('Có lỗi xảy ra khi lưu cài đặt');
     }
-  }, [saveImmediately, settings]);
+  }, []);
   
   React.useEffect(() => {
     if (!isActive) return;
@@ -112,7 +136,8 @@ export function GeneralTabContent({ isActive, onRegisterActions }: TabContentPro
         <Save className="mr-2 h-4 w-4" /> {isSaving ? 'Đang lưu...' : 'Lưu cài đặt'}
       </SettingsActionButton>,
     ]);
-  }, [isActive, hasChanges, isSaving, handleSave, onRegisterActions]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isActive, hasChanges, isSaving, handleSave]);
 
   return (
     <div className="space-y-6">

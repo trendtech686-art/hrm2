@@ -1,6 +1,15 @@
 /**
  * API Hooks - Barrel Export
- * Central export for all React Query hooks
+ * 
+ * @deprecated Use feature-specific hooks instead:
+ * - import { useEmployees } from '@/features/employees/hooks/use-employees'
+ * - import { useProducts } from '@/features/products/hooks/use-products'
+ * - import { useCustomers } from '@/features/customers/hooks/use-customers'
+ * - import { useOrders } from '@/features/orders/hooks/use-orders'
+ * - import { useBranches } from '@/features/settings/branches/hooks/use-branches'
+ * 
+ * These hooks are kept for backwards compatibility only.
+ * All hooks now include gcTime + keepPreviousData for performance.
  */
 
 // Core entities

@@ -1,3 +1,5 @@
+"use client";
+
 import * as React from 'react';
 import { SettingsPlaceholder } from '../../../components/settings/SettingsPlaceholder';
 import { useSettingsPageHeader } from '../use-settings-page-header';

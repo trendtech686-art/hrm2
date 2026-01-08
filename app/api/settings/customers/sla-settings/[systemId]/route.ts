@@ -1,13 +1,16 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils';
 
 const TYPE = 'sla-setting';
 
 // GET - Get a single SLA setting
 export async function GET(
-  request: NextRequest,
+  _request: Request,
   { params }: { params: Promise<{ systemId: string }> }
 ) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
+
   const { systemId } = await params;
   try {
     const setting = await prisma.customerSetting.findUnique({
@@ -15,10 +18,10 @@ export async function GET(
     });
 
     if (!setting || setting.isDeleted) {
-      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+      return apiNotFound('SlaSetting');
     }
 
-    return NextResponse.json({
+    return apiSuccess({
       systemId: setting.systemId,
       id: setting.id,
       name: setting.name,
@@ -34,15 +37,18 @@ export async function GET(
     });
   } catch (error) {
     console.error('[SLA Settings API] GET by ID error:', error);
-    return NextResponse.json({ error: 'Failed to fetch SLA setting' }, { status: 500 });
+    return apiError('Failed to fetch SLA setting', 500);
   }
 }
 
 // PATCH - Update an SLA setting
 export async function PATCH(
-  request: NextRequest,
+  request: Request,
   { params }: { params: Promise<{ systemId: string }> }
 ) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
+
   const { systemId } = await params;
   try {
     const body = await request.json();
@@ -61,7 +67,7 @@ export async function PATCH(
       },
     });
 
-    return NextResponse.json({
+    return apiSuccess({
       systemId: setting.systemId,
       id: setting.id,
       name: setting.name,
@@ -77,15 +83,18 @@ export async function PATCH(
     });
   } catch (error) {
     console.error('[SLA Settings API] PATCH error:', error);
-    return NextResponse.json({ error: 'Failed to update SLA setting' }, { status: 500 });
+    return apiError('Failed to update SLA setting', 500);
   }
 }
 
 // DELETE - Soft delete an SLA setting
 export async function DELETE(
-  request: NextRequest,
+  _request: Request,
   { params }: { params: Promise<{ systemId: string }> }
 ) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
+
   const { systemId } = await params;
   try {
     await prisma.customerSetting.update({
@@ -93,9 +102,9 @@ export async function DELETE(
       data: { isDeleted: true },
     });
 
-    return new NextResponse(null, { status: 204 });
+    return apiSuccess(null, 204);
   } catch (error) {
     console.error('[SLA Settings API] DELETE error:', error);
-    return NextResponse.json({ error: 'Failed to delete SLA setting' }, { status: 500 });
+    return apiError('Failed to delete SLA setting', 500);
   }
 }

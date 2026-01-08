@@ -5,11 +5,15 @@
  * Test GHTK API connection with token
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils';
 
 const GHTK_API_BASE = 'https://services.giaohangtietkiem.vn';
 
 export async function GET(request: NextRequest) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
+
   const startTime = Date.now();
   const requestId = Math.random().toString(36).substring(2, 11);
 
@@ -20,7 +24,7 @@ export async function GET(request: NextRequest) {
 
 
     if (!apiToken) {
-      return NextResponse.json({ error: 'API Token is required' }, { status: 400 });
+      return apiError('API Token is required', 400);
     }
 
 
@@ -39,7 +43,7 @@ export async function GET(request: NextRequest) {
 
     if (response.ok && data.success !== false) {
       // GHTK trả về data là array trực tiếp
-      return NextResponse.json({
+      return apiSuccess({
         success: true,
         message: 'Kết nối GHTK thành công',
         status: response.status,
@@ -50,20 +54,11 @@ export async function GET(request: NextRequest) {
         }
       });
     } else {
-      return NextResponse.json({
-        success: false,
-        message: data.message || 'Kết nối thất bại',
-        status: response.status,
-        error: data
-      }, { status: response.status || 400 });
+      return apiError(data.message || 'Kết nối thất bại', response.status || 400);
     }
   } catch (error) {
     const duration = Date.now() - startTime;
     console.error(`[GHTK-TEST-${requestId}] ❌ Connection test error (${duration}ms):`, error);
-    return NextResponse.json({
-      success: false,
-      message: 'Lỗi kết nối: ' + (error instanceof Error ? error.message : 'Unknown error'),
-      error: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
+    return apiError('Lỗi kết nối: ' + (error instanceof Error ? error.message : 'Unknown error'), 500);
   }
 }

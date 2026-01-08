@@ -3,6 +3,16 @@
  * Combines all slices into a single store export
  * Data is persisted in database via API, this is in-memory cache only
  * 
+ * @deprecated Use React Query hooks instead:
+ * - `useComplaints()` for list
+ * - `useComplaint(id)` for single
+ * - `useComplaintMutations()` for create/update/delete
+ * 
+ * Import from: `@/features/complaints/hooks/use-complaints`
+ * 
+ * This store will be removed in a future version.
+ * Current usage kept for backward compatibility only.
+ * 
  * @module features/complaints/store/index
  */
 

@@ -123,7 +123,7 @@ export function InventoryReceiptsPage() {
 
   const sortedData = React.useMemo(() => {
     const sorted = [...filteredData];
-    if (sorting?.id) sorted.sort((a, b) => { const aV = a[sorting.id as keyof InventoryReceipt], bV = b[sorting.id as keyof InventoryReceipt]; if (sorting.id === 'createdAt' || sorting.id === 'receivedDate') { const aT = aV ? new Date(aV as string).getTime() : 0, bT = bV ? new Date(bV as string).getTime() : 0; return sorting.desc ? bT - aT : aT - bT; } return aV === bV ? 0 : aV < bV ? (sorting.desc ? 1 : -1) : (sorting.desc ? -1 : 1); });
+    if (sorting?.id) sorted.sort((a, b) => { const aV = a[sorting.id as keyof InventoryReceipt], bV = b[sorting.id as keyof InventoryReceipt]; if (sorting.id === 'createdAt' || sorting.id === 'receivedDate') { const aT = aV ? new Date(aV as string).getTime() : 0, bT = bV ? new Date(bV as string).getTime() : 0; return sorting.desc ? bT - aT : aT - bT; } if (aV == null && bV == null) return 0; if (aV == null) return 1; if (bV == null) return -1; return aV === bV ? 0 : aV < bV ? (sorting.desc ? 1 : -1) : (sorting.desc ? -1 : 1); });
     return sorted;
   }, [filteredData, sorting]);
 

@@ -2,15 +2,18 @@
  * Cost Adjustment Detail API Route
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/prisma'
+import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
 
 type RouteParams = {
   params: Promise<{ systemId: string }>;
 };
 
 // GET - Get single cost adjustment
-export async function GET(request: NextRequest, { params }: RouteParams) {
+export async function GET(request: Request, { params }: RouteParams) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { systemId } = await params;
 
@@ -22,24 +25,21 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     });
 
     if (!costAdjustment) {
-      return NextResponse.json(
-        { error: 'Cost adjustment not found' },
-        { status: 404 }
-      );
+      return apiNotFound('Cost adjustment');
     }
 
-    return NextResponse.json(costAdjustment);
+    return apiSuccess(costAdjustment);
   } catch (error) {
     console.error('[Cost Adjustments API] GET by ID error:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch cost adjustment' },
-      { status: 500 }
-    );
+    return apiError('Failed to fetch cost adjustment', 500);
   }
 }
 
 // PATCH - Update cost adjustment
-export async function PATCH(request: NextRequest, { params }: RouteParams) {
+export async function PATCH(request: Request, { params }: RouteParams) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
+
   try {
     const { systemId } = await params;
     const body = await request.json();
@@ -59,18 +59,18 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       },
     });
 
-    return NextResponse.json(costAdjustment);
+    return apiSuccess(costAdjustment);
   } catch (error) {
     console.error('[Cost Adjustments API] PATCH error:', error);
-    return NextResponse.json(
-      { error: 'Failed to update cost adjustment' },
-      { status: 500 }
-    );
+    return apiError('Failed to update cost adjustment', 500);
   }
 }
 
 // DELETE - Delete cost adjustment
-export async function DELETE(request: NextRequest, { params }: RouteParams) {
+export async function DELETE(request: Request, { params }: RouteParams) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
+
   try {
     const { systemId } = await params;
 
@@ -82,12 +82,9 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       where: { systemId },
     });
 
-    return NextResponse.json({ success: true });
+    return apiSuccess({ success: true });
   } catch (error) {
     console.error('[Cost Adjustments API] DELETE error:', error);
-    return NextResponse.json(
-      { error: 'Failed to delete cost adjustment' },
-      { status: 500 }
-    );
+    return apiError('Failed to delete cost adjustment', 500);
   }
 }

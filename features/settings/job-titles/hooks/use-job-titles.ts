@@ -39,6 +39,7 @@ export function useJobTitle(id: string | null | undefined) {
     queryFn: () => fetchJobTitle(id!),
     enabled: !!id,
     staleTime: 10 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
   });
 }
 

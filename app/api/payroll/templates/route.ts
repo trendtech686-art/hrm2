@@ -1,12 +1,16 @@
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import type { Prisma } from '@/generated/prisma/client'
+import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
+import { createPayrollTemplateSchema, bulkUpdatePayrollTemplatesSchema } from './validation'
 
 const SETTING_KEY = 'payroll-templates'
 const SETTING_GROUP = 'hrm'
 
 // GET /api/payroll/templates - Get all payroll templates
 export async function GET(_request: Request) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const setting = await prisma.setting.findFirst({
       where: {
@@ -16,24 +20,28 @@ export async function GET(_request: Request) {
     })
 
     if (!setting || !setting.value) {
-      return NextResponse.json({ data: [] })
+      return apiSuccess({ data: [] })
     }
 
-    return NextResponse.json({ data: setting.value })
+    return apiSuccess({ data: setting.value })
   } catch (error) {
     console.error('Error fetching payroll templates:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch payroll templates' },
-      { status: 500 }
-    )
+    return apiError('Failed to fetch payroll templates', 500)
   }
 }
 
 // POST /api/payroll/templates - Create template
 export async function POST(request: Request) {
-  try {
-    const body = await request.json()
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
 
+  const validation = await validateBody(request, createPayrollTemplateSchema)
+  if (!validation.success) {
+    return apiError(validation.error, 400)
+  }
+  const body = validation.data
+
+  try {
     // Get existing templates
     const setting = await prisma.setting.findFirst({
       where: {
@@ -67,21 +75,25 @@ export async function POST(request: Request) {
       },
     })
 
-    return NextResponse.json({ data: body })
+    return apiSuccess({ data: body })
   } catch (error) {
     console.error('Error creating payroll template:', error)
-    return NextResponse.json(
-      { error: 'Failed to create payroll template' },
-      { status: 500 }
-    )
+    return apiError('Failed to create payroll template', 500)
   }
 }
 
 // PUT /api/payroll/templates - Bulk update templates
 export async function PUT(request: Request) {
-  try {
-    const { templates } = await request.json()
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
 
+  const validation = await validateBody(request, bulkUpdatePayrollTemplatesSchema)
+  if (!validation.success) {
+    return apiError(validation.error, 400)
+  }
+  const { templates } = validation.data
+
+  try {
     await prisma.setting.upsert({
       where: {
         key_group: {
@@ -104,12 +116,9 @@ export async function PUT(request: Request) {
       },
     })
 
-    return NextResponse.json({ data: templates })
+    return apiSuccess({ data: templates })
   } catch (error) {
     console.error('Error updating payroll templates:', error)
-    return NextResponse.json(
-      { error: 'Failed to update payroll templates' },
-      { status: 500 }
-    )
+    return apiError('Failed to update payroll templates', 500)
   }
 }

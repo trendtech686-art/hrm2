@@ -2,7 +2,7 @@
  * Websites Settings React Query Hooks
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import * as api from '../api/websites-api';
 import type { WebsiteDefinition } from '@/lib/types/prisma-extended';
 
@@ -15,15 +15,15 @@ export const websiteKeys = {
 };
 
 export function useWebsites() {
-  return useQuery({ queryKey: websiteKeys.lists(), queryFn: api.fetchWebsites, staleTime: 1000 * 60 * 30 });
+  return useQuery({ queryKey: websiteKeys.lists(), queryFn: api.fetchWebsites, staleTime: 1000 * 60 * 30, gcTime: 10 * 60 * 1000, placeholderData: keepPreviousData });
 }
 
 export function useWebsiteByCode(code: string | undefined) {
-  return useQuery({ queryKey: websiteKeys.detail(code!), queryFn: () => api.fetchWebsiteByCode(code!), enabled: !!code });
+  return useQuery({ queryKey: websiteKeys.detail(code!), queryFn: () => api.fetchWebsiteByCode(code!), enabled: !!code, staleTime: 1000 * 60 * 30, gcTime: 10 * 60 * 1000 });
 }
 
 export function useActiveWebsites() {
-  return useQuery({ queryKey: websiteKeys.active(), queryFn: api.fetchActiveWebsites, staleTime: 1000 * 60 * 30 });
+  return useQuery({ queryKey: websiteKeys.active(), queryFn: api.fetchActiveWebsites, staleTime: 1000 * 60 * 30, gcTime: 10 * 60 * 1000, placeholderData: keepPreviousData });
 }
 
 export function useWebsiteMutations(opts?: { onSuccess?: () => void }) {

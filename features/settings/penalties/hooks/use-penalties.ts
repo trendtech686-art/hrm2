@@ -2,7 +2,7 @@
  * Penalties React Query Hooks
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import * as api from '../api/penalties-api';
 import type { Penalty, PenaltyType } from '@/lib/types/prisma-extended';
 import type { PenaltyFilters } from '../api/penalties-api';
@@ -17,11 +17,11 @@ export const penaltyKeys = {
 };
 
 export function usePenalties(filters: PenaltyFilters = {}) {
-  return useQuery({ queryKey: penaltyKeys.list(filters), queryFn: () => api.fetchPenalties(filters), staleTime: 1000 * 60 * 5 });
+  return useQuery({ queryKey: penaltyKeys.list(filters), queryFn: () => api.fetchPenalties(filters), staleTime: 1000 * 60 * 5, gcTime: 10 * 60 * 1000, placeholderData: keepPreviousData });
 }
 
 export function usePenaltyById(systemId: string | undefined) {
-  return useQuery({ queryKey: penaltyKeys.detail(systemId!), queryFn: () => api.fetchPenaltyById(systemId!), enabled: !!systemId });
+  return useQuery({ queryKey: penaltyKeys.detail(systemId!), queryFn: () => api.fetchPenaltyById(systemId!), enabled: !!systemId, gcTime: 10 * 60 * 1000 });
 }
 
 export function usePenaltyMutations(opts?: { onSuccess?: () => void }) {
@@ -36,7 +36,7 @@ export function usePenaltyMutations(opts?: { onSuccess?: () => void }) {
 
 // Penalty Types
 export function usePenaltyTypes() {
-  return useQuery({ queryKey: penaltyKeys.types(), queryFn: api.fetchPenaltyTypes, staleTime: 1000 * 60 * 10 });
+  return useQuery({ queryKey: penaltyKeys.types(), queryFn: api.fetchPenaltyTypes, staleTime: 1000 * 60 * 10, gcTime: 10 * 60 * 1000, placeholderData: keepPreviousData });
 }
 
 export function usePenaltyTypeMutations(opts?: { onSuccess?: () => void }) {

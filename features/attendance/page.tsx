@@ -123,7 +123,7 @@ export function AttendancePage() {
   // Load attendance data
   React.useEffect(() => {
     const storedData = getAttendanceData(currentMonthKey);
-    if (storedData?.length > 0) {
+    if (storedData && storedData.length > 0) {
       setAttendanceData(storedData);
     } else {
       const seededData = generateEmptyAttendance(employees, currentDate.getFullYear(), currentDate.getMonth() + 1, settings);
@@ -250,7 +250,7 @@ export function AttendancePage() {
   const fuseOptions = React.useMemo(() => ({ keys: ['employeeId', 'fullName', 'department'] }), []);
   const searchedData = useFuseFilter(attendanceData, debouncedGlobalFilter, fuseOptions);
   const filteredData = React.useMemo(() => { let data = searchedData; if (departmentFilter !== 'all') data = data.filter(r => r.department === departmentFilter); return data; }, [searchedData, departmentFilter]);
-  const sortedData = React.useMemo(() => { const s = [...filteredData]; if (sorting.id) s.sort((a, b) => { const aV = (a as Record<string, unknown>)[sorting.id], bV = (b as Record<string, unknown>)[sorting.id]; if (aV < bV) return sorting.desc ? 1 : -1; if (aV > bV) return sorting.desc ? -1 : 1; return 0; }); return s; }, [filteredData, sorting]);
+  const sortedData = React.useMemo(() => { const s = [...filteredData]; if (sorting.id) s.sort((a, b) => { const aV = (a as Record<string, unknown>)[sorting.id] as string | number | null | undefined, bV = (b as Record<string, unknown>)[sorting.id] as string | number | null | undefined; if (aV == null && bV == null) return 0; if (aV == null) return 1; if (bV == null) return -1; if (aV < bV) return sorting.desc ? 1 : -1; if (aV > bV) return sorting.desc ? -1 : 1; return 0; }); return s; }, [filteredData, sorting]);
 
   // Print & Export handlers (must be after sortedData)
   const handlePrint = React.useCallback(() => {
@@ -267,7 +267,7 @@ export function AttendancePage() {
     for (let d = 1; d <= daysInMonth; d++) headers.push(`${d}`);
     headers.push('Ngày công', 'Nghỉ phép', 'Vắng');
     const rows = sortedData.map(row => {
-      const r: (string | number)[] = [row.employeeId, row.fullName, row.department];
+      const r: (string | number)[] = [row.employeeId, row.fullName, row.department ?? ''];
       for (let d = 1; d <= daysInMonth; d++) { const rec = row[`day_${d}` as keyof AttendanceDataRow] as DailyRecord | undefined; r.push(!rec ? '' : rec.status === 'present' ? 'X' : rec.status === 'leave' ? 'P' : rec.status === 'absent' ? 'V' : rec.status === 'weekend' ? '-' : rec.status === 'holiday' ? 'L' : ''); }
       r.push(row.workDays ?? 0, row.leaveDays ?? 0, row.absentDays ?? 0);
       return r;
@@ -296,7 +296,16 @@ export function AttendancePage() {
 
   // Init column visibility
   const initRef = React.useRef(false);
-  React.useEffect(() => { if (initRef.current || !columns.length) return; const v: Record<string, boolean> = {}; columns.forEach(c => { v[c.id!] = true; }); setColumnVisibility(v); setColumnOrder(columns.map(c => c.id).filter(Boolean) as string[]); setPinnedColumns(['select', 'fullName']); initRef.current = true; }, [columns]);
+  React.useEffect(() => { 
+    if (initRef.current || !columns.length) return; 
+    const v: Record<string, boolean> = {}; 
+    columns.forEach(c => { v[c.id!] = true; }); 
+    setColumnVisibility(v); 
+    setColumnOrder(columns.map(c => c.id).filter(Boolean) as string[]); 
+    setPinnedColumns(['select', 'fullName']); 
+    initRef.current = true; 
+  }, [columns.length, setColumnVisibility, setColumnOrder, setPinnedColumns]);
+
 
   const pageCount = Math.ceil(sortedData.length / pagination.pageSize);
   const paginatedData = sortedData.slice(pagination.pageIndex * pagination.pageSize, (pagination.pageIndex + 1) * pagination.pageSize);

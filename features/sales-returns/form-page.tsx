@@ -123,7 +123,7 @@ export function SalesReturnFormPage() {
       const productType = findProductTypeById(product.productTypeSystemId);
       if (productType?.name) return productType.name;
     }
-    return productTypeFallbackLabels[product.type] || 'Hàng hóa';
+    return (product.type && productTypeFallbackLabels[product.type]) || 'Hàng hóa';
   }, [findProductTypeById]);
   
   const handlePreview = React.useCallback((image: string, title: string) => {
@@ -514,7 +514,7 @@ export function SalesReturnFormPage() {
         deliveryMethod: values.deliveryMethod,
         shippingPartnerId: values.shippingPartnerId,
         shippingServiceId: values.shippingServiceId,
-        shippingAddress: values.shippingAddress,
+        shippingAddress: values.shippingAddress ?? undefined,
         packageInfo: values.packageInfo as unknown as PackageInfo | undefined,
         configuration: values.configuration,
     };

@@ -3,9 +3,11 @@
  * Stores SLA targets, notification settings, tracking settings, and reminder templates
  */
 
-import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
+import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@/generated/prisma/client'
+import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
+import { updateWarrantySettingsSchema } from './validation'
 
 // Setting types
 type WarrantySettingType = 'sla-targets' | 'notifications' | 'tracking' | 'reminder-templates'
@@ -76,16 +78,14 @@ const DEFAULTS: Record<WarrantySettingType, WarrantySettingValue> = {
 
 // GET /api/warranty-settings?type=sla-targets
 export async function GET(request: NextRequest) {
-  try {
-    const session = await auth()
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
 
+  try {
     const type = request.nextUrl.searchParams.get('type') as WarrantySettingType
     
     if (!type || !SETTING_KEYS[type]) {
-      return NextResponse.json({ error: 'Invalid type parameter' }, { status: 400 })
+      return apiError('Invalid type parameter', 400)
     }
 
     const setting = await prisma.setting.findUnique({
@@ -98,34 +98,28 @@ export async function GET(request: NextRequest) {
     })
 
     if (!setting) {
-      return NextResponse.json(DEFAULTS[type])
+      return apiSuccess(DEFAULTS[type])
     }
 
-    return NextResponse.json(setting.value)
+    return apiSuccess(setting.value)
   } catch (error) {
     console.error('[WARRANTY-SETTINGS] GET error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return apiError('Internal server error', 500)
   }
 }
 
 // POST /api/warranty-settings
 export async function POST(request: NextRequest) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
+  const validation = await validateBody(request, updateWarrantySettingsSchema)
+  if (!validation.success) {
+    return apiError(validation.error, 400)
+  }
+  const { type, data } = validation.data
+
   try {
-    const session = await auth()
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const { type, data } = await request.json()
-    
-    if (!type || !SETTING_KEYS[type]) {
-      return NextResponse.json({ error: 'Invalid type parameter' }, { status: 400 })
-    }
-
-    if (!data) {
-      return NextResponse.json({ error: 'Data is required' }, { status: 400 })
-    }
-
     await prisma.setting.upsert({
       where: {
         key_group: {
@@ -134,12 +128,12 @@ export async function POST(request: NextRequest) {
         }
       },
       update: {
-        value: data,
+        value: data as Prisma.InputJsonValue,
         updatedAt: new Date(),
       },
       create: {
         key: SETTING_KEYS[type],
-        value: data,
+        value: data as Prisma.InputJsonValue,
         type: 'warranty',
         group: GROUP,
         category: 'system',
@@ -147,9 +141,9 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    return NextResponse.json({ success: true, data })
+    return apiSuccess({ success: true, data })
   } catch (error) {
     console.error('[WARRANTY-SETTINGS] POST error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return apiError('Internal server error', 500)
   }
 }

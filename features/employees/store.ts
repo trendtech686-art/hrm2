@@ -1,3 +1,14 @@
+/**
+ * @deprecated Use React Query hooks instead:
+ * - `useEmployees()` for list
+ * - `useEmployee(id)` for single
+ * - `useEmployeeMutations()` for create/update/delete
+ * 
+ * Import from: `@/features/employees/hooks/use-employees`
+ * 
+ * This store will be removed in a future version.
+ * Current usage kept for backward compatibility only.
+ */
 import { createCrudStore, CrudState } from '../../lib/store-factory';
 import type { Employee } from '@/lib/types/prisma-extended';
 import type { HistoryEntry } from '../../components/ActivityHistory';

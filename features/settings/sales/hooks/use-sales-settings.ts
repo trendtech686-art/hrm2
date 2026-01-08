@@ -3,7 +3,7 @@
  * Provides data fetching and mutations for sales settings
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import {
   fetchSalesSettings,
   updateSalesSettings,
@@ -25,6 +25,8 @@ export function useSalesSettings() {
     queryKey: salesSettingsKeys.settings(),
     queryFn: fetchSalesSettings,
     staleTime: 1000 * 60 * 10, // 10 minutes - settings rarely change
+    gcTime: 10 * 60 * 1000,
+    placeholderData: keepPreviousData,
   });
 }
 

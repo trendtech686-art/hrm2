@@ -40,6 +40,7 @@ export function useBranch(id: string | null | undefined) {
     queryFn: () => fetchBranch(id!),
     enabled: !!id,
     staleTime: 10 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
   });
 }
 

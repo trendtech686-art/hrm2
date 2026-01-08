@@ -268,7 +268,7 @@ async function seed() {
     });
   }
 
-  await prisma.employee.createMany({ data: employees as Parameters<typeof prisma.employee.createMany>[0]['data'] });
+  await prisma.employee.createMany({ data: employees as NonNullable<Parameters<typeof prisma.employee.createMany>[0]>['data'] });
   const createdEmployees = await prisma.employee.findMany();
 
   // 7. Create 1000 Customers
@@ -295,7 +295,7 @@ async function seed() {
     });
   }
 
-  await prisma.customer.createMany({ data: customers as Parameters<typeof prisma.customer.createMany>[0]['data'] });
+  await prisma.customer.createMany({ data: customers as NonNullable<Parameters<typeof prisma.customer.createMany>[0]>['data'] });
   const createdCustomers = await prisma.customer.findMany();
 
   // 8. Create 1000 Products
@@ -324,7 +324,7 @@ async function seed() {
     });
   }
 
-  await prisma.product.createMany({ data: products as Parameters<typeof prisma.product.createMany>[0]['data'] });
+  await prisma.product.createMany({ data: products as NonNullable<Parameters<typeof prisma.product.createMany>[0]>['data'] });
   const createdProducts = await prisma.product.findMany();
 
   // 9. Create 1000 Orders
@@ -388,7 +388,7 @@ async function seed() {
         paidAmount,
         shippingAddress: generateAddress(),
         lineItems: {
-          create: lineItems as Parameters<typeof prisma.orderLineItem.createMany>[0]['data'],
+          create: lineItems as NonNullable<Parameters<typeof prisma.orderLineItem.createMany>[0]>['data'],
         },
       },
     });
@@ -449,7 +449,7 @@ async function seed() {
   const batchSize = 1000;
   for (let i = 0; i < attendanceRecords.length; i += batchSize) {
     const batch = attendanceRecords.slice(i, i + batchSize);
-    await prisma.attendanceRecord.createMany({ data: batch as Parameters<typeof prisma.attendanceRecord.createMany>[0]['data'] });
+    await prisma.attendanceRecord.createMany({ data: batch as NonNullable<Parameters<typeof prisma.attendanceRecord.createMany>[0]>['data'] });
   }
 
   // 11. Create Leave Records
@@ -477,7 +477,7 @@ async function seed() {
     });
   }
 
-  await prisma.leave.createMany({ data: leaves as Parameters<typeof prisma.leave.createMany>[0]['data'] });
+  await prisma.leave.createMany({ data: leaves as NonNullable<Parameters<typeof prisma.leave.createMany>[0]>['data'] });
 
   // 12. Create Users
   

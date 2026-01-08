@@ -3,7 +3,7 @@
  * Provides data fetching and mutations for stock locations
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import {
   fetchStockLocations,
   fetchStockLocationById,
@@ -34,6 +34,8 @@ export function useStockLocations(filters: StockLocationFilters = {}) {
     queryKey: stockLocationKeys.list(filters),
     queryFn: () => fetchStockLocations(filters),
     staleTime: 1000 * 60 * 5, // 5 minutes - locations don't change often
+    gcTime: 10 * 60 * 1000,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -46,6 +48,7 @@ export function useStockLocationById(systemId: string | undefined) {
     queryFn: () => fetchStockLocationById(systemId!),
     enabled: !!systemId,
     staleTime: 1000 * 60 * 5,
+    gcTime: 10 * 60 * 1000,
   });
 }
 
@@ -58,6 +61,7 @@ export function useBranchStockLocations(branchSystemId: string | undefined) {
     queryFn: () => fetchBranchStockLocations(branchSystemId!),
     enabled: !!branchSystemId,
     staleTime: 1000 * 60 * 5,
+    gcTime: 10 * 60 * 1000,
   });
 }
 

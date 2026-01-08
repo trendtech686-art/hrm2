@@ -1,6 +1,6 @@
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import type { Prisma } from '@/generated/prisma/client'
+import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
 
 const SETTING_KEY = 'employee-payroll-profiles'
 const SETTING_GROUP = 'hrm'
@@ -12,6 +12,9 @@ interface PayrollProfile {
 
 // GET /api/employee-payroll-profiles - Get all employee payroll profiles
 export async function GET(request: Request) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { searchParams } = new URL(request.url)
     const employeeSystemId = searchParams.get('employeeSystemId')
@@ -24,7 +27,7 @@ export async function GET(request: Request) {
     })
 
     if (!setting || !setting.value) {
-      return NextResponse.json({ data: [] })
+      return apiSuccess({ data: [] })
     }
 
     let profiles = setting.value as PayrollProfile[]
@@ -33,18 +36,18 @@ export async function GET(request: Request) {
       profiles = profiles.filter((p) => p.employeeSystemId === employeeSystemId)
     }
 
-    return NextResponse.json({ data: profiles })
+    return apiSuccess({ data: profiles })
   } catch (error) {
     console.error('Error fetching payroll profiles:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch payroll profiles' },
-      { status: 500 }
-    )
+    return apiError('Failed to fetch payroll profiles', 500)
   }
 }
 
 // POST /api/employee-payroll-profiles - Create profile
 export async function POST(request: Request) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const body = await request.json()
 
@@ -88,12 +91,9 @@ export async function POST(request: Request) {
       },
     })
 
-    return NextResponse.json({ data: body })
+    return apiSuccess({ data: body })
   } catch (error) {
     console.error('Error creating payroll profile:', error)
-    return NextResponse.json(
-      { error: 'Failed to create payroll profile' },
-      { status: 500 }
-    )
+    return apiError('Failed to create payroll profile', 500)
   }
 }

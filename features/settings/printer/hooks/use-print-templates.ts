@@ -2,7 +2,7 @@
  * Print Templates React Query Hooks
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import * as api from '../api/print-templates-api';
 import type { PrintTemplate, TemplateType } from '@/lib/types/prisma-extended';
 
@@ -15,11 +15,11 @@ export const printTemplateKeys = {
 };
 
 export function usePrintTemplates(type?: TemplateType) {
-  return useQuery({ queryKey: printTemplateKeys.list(type), queryFn: () => api.fetchPrintTemplates(type), staleTime: 1000 * 60 * 10 });
+  return useQuery({ queryKey: printTemplateKeys.list(type), queryFn: () => api.fetchPrintTemplates(type), staleTime: 1000 * 60 * 10, gcTime: 10 * 60 * 1000, placeholderData: keepPreviousData });
 }
 
 export function usePrintTemplateById(id: string | undefined) {
-  return useQuery({ queryKey: printTemplateKeys.detail(id!), queryFn: () => api.fetchPrintTemplateById(id!), enabled: !!id });
+  return useQuery({ queryKey: printTemplateKeys.detail(id!), queryFn: () => api.fetchPrintTemplateById(id!), enabled: !!id, staleTime: 1000 * 60 * 10, gcTime: 10 * 60 * 1000 });
 }
 
 export function usePrintTemplateMutations(opts?: { onSuccess?: () => void }) {

@@ -1,6 +1,6 @@
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@/generated/prisma/client'
+import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
 
 interface RouteParams {
   params: Promise<{ systemId: string }>
@@ -8,6 +8,9 @@ interface RouteParams {
 
 // GET /api/categories/[systemId]
 export async function GET(_request: Request, { params }: RouteParams) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { systemId } = await params
 
@@ -37,24 +40,21 @@ export async function GET(_request: Request, { params }: RouteParams) {
     })
 
     if (!category) {
-      return NextResponse.json(
-        { error: 'Danh mục không tồn tại' },
-        { status: 404 }
-      )
+      return apiNotFound('Danh mục')
     }
 
-    return NextResponse.json(category)
+    return apiSuccess(category)
   } catch (error) {
     console.error('Error fetching category:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch category' },
-      { status: 500 }
-    )
+    return apiError('Failed to fetch category', 500)
   }
 }
 
 // PUT /api/categories/[systemId]
 export async function PUT(request: Request, { params }: RouteParams) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { systemId } = await params
     const body = await request.json()
@@ -73,24 +73,21 @@ export async function PUT(request: Request, { params }: RouteParams) {
       },
     })
 
-    return NextResponse.json(category)
+    return apiSuccess(category)
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
-      return NextResponse.json(
-        { error: 'Danh mục không tồn tại' },
-        { status: 404 }
-      )
+      return apiNotFound('Danh mục')
     }
     console.error('Error updating category:', error)
-    return NextResponse.json(
-      { error: 'Failed to update category' },
-      { status: 500 }
-    )
+    return apiError('Failed to update category', 500)
   }
 }
 
 // PATCH /api/categories/[systemId] - Same as PUT for partial updates
 export async function PATCH(request: Request, { params }: RouteParams) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { systemId } = await params
     const body = await request.json()
@@ -110,24 +107,21 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       },
     })
 
-    return NextResponse.json(category)
+    return apiSuccess(category)
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
-      return NextResponse.json(
-        { error: 'Danh mục không tồn tại' },
-        { status: 404 }
-      )
+      return apiNotFound('Danh mục')
     }
     console.error('Error updating category:', error)
-    return NextResponse.json(
-      { error: 'Failed to update category' },
-      { status: 500 }
-    )
+    return apiError('Failed to update category', 500)
   }
 }
 
 // DELETE /api/categories/[systemId]
 export async function DELETE(_request: Request, { params }: RouteParams) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { systemId } = await params
 
@@ -136,18 +130,12 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
       data: { isDeleted: true },
     })
 
-    return NextResponse.json({ success: true })
+    return apiSuccess({ success: true })
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
-      return NextResponse.json(
-        { error: 'Danh mục không tồn tại' },
-        { status: 404 }
-      )
+      return apiNotFound('Danh mục')
     }
     console.error('Error deleting category:', error)
-    return NextResponse.json(
-      { error: 'Failed to delete category' },
-      { status: 500 }
-    )
+    return apiError('Failed to delete category', 500)
   }
 }

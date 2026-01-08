@@ -24,7 +24,7 @@ const isSettingsCrumb = (item: BreadcrumbItem) => item.href === '/settings' || n
 
 export function useSettingsPageHeader(options: SettingsPageHeaderOptions) {
   const pathname = usePathname();
-  const { title, icon, docLink, breadcrumb, ...rest } = options;
+  const { title, icon, docLink, breadcrumb, actions, ...rest } = options;
 
   const normalizedDocLink = React.useMemo<PageHeaderDocLink | undefined>(() => {
     if (!docLink) return undefined;
@@ -74,10 +74,13 @@ export function useSettingsPageHeader(options: SettingsPageHeaderOptions) {
     }));
   }, [breadcrumb, pathname, title]);
 
-  return usePageHeader({
+  const pageHeaderConfig = React.useMemo(() => ({
     ...rest,
     breadcrumb: normalizedBreadcrumb,
     title: decoratedTitle,
     docLink: normalizedDocLink,
-  });
+    actions,
+  }), [rest.showBackButton, rest.backPath, rest.subtitle, rest.badge, rest.context, normalizedBreadcrumb, decoratedTitle, normalizedDocLink, actions]);
+
+  return usePageHeader(pageHeaderConfig);
 }

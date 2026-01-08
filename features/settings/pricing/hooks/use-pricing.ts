@@ -3,7 +3,7 @@
  * Provides data fetching and mutations for pricing policies
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import {
   fetchPricingPolicies,
   fetchPricingPolicyById,
@@ -37,6 +37,8 @@ export function usePricingPolicies(filters: PricingPolicyFilters = {}) {
     queryKey: pricingPolicyKeys.list(filters),
     queryFn: () => fetchPricingPolicies(filters),
     staleTime: 1000 * 60 * 10, // 10 minutes - rarely changes
+    gcTime: 10 * 60 * 1000,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -48,6 +50,8 @@ export function useActivePricingPolicies() {
     queryKey: pricingPolicyKeys.active(),
     queryFn: fetchActivePricingPolicies,
     staleTime: 1000 * 60 * 10,
+    gcTime: 10 * 60 * 1000,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -59,6 +63,8 @@ export function usePricingPoliciesByType(type: 'Nhập hàng' | 'Bán hàng') {
     queryKey: pricingPolicyKeys.byType(type),
     queryFn: () => fetchPricingPoliciesByType(type),
     staleTime: 1000 * 60 * 10,
+    gcTime: 10 * 60 * 1000,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -71,6 +77,7 @@ export function usePricingPolicyById(systemId: string | undefined) {
     queryFn: () => fetchPricingPolicyById(systemId!),
     enabled: !!systemId,
     staleTime: 1000 * 60 * 10,
+    gcTime: 10 * 60 * 1000,
   });
 }
 

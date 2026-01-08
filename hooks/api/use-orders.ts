@@ -1,9 +1,13 @@
 /**
  * React Query hooks for Orders API
- * Replaces zustand store with server state management
+ * 
+ * @deprecated Use feature hooks instead:
+ * - import { useOrders } from '@/features/orders/hooks/use-orders'
+ * 
+ * This file is kept for backwards compatibility only.
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import type { Order } from '@/lib/types/prisma-extended'
 
 // ============================================================
@@ -112,6 +116,9 @@ export function useOrders(options: UseOrdersOptions = {}) {
     queryKey: orderKeys.list(filterKey),
     queryFn: () => fetchOrders(params),
     enabled,
+    staleTime: 60_000, // 1 minute
+    gcTime: 10 * 60 * 1000, // 10 minutes
+    placeholderData: keepPreviousData,
   })
 }
 
@@ -123,6 +130,8 @@ export function useOrder(systemId: string | undefined) {
     queryKey: orderKeys.detail(systemId!),
     queryFn: () => fetchOrder(systemId!),
     enabled: !!systemId,
+    staleTime: 60_000,
+    gcTime: 10 * 60 * 1000,
   })
 }
 

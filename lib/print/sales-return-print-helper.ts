@@ -139,7 +139,7 @@ export function createStoreSettingsFromBranch(
     headquartersAddress?: string;
     province?: string;
     logo?: string;
-  }
+  } | null
 ): StoreSettings {
   return {
     name: storeInfo?.companyName || storeInfo?.brandName || branch?.name || '',

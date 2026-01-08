@@ -1,5 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@/generated/prisma/client';
+import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils';
+import { updateSettingsDataSchema, deleteSettingsDataSchema } from './validation';
 
 type RouteContext = {
   params: Promise<{ systemId: string }>;
@@ -7,9 +10,12 @@ type RouteContext = {
 
 // GET - Get single settings data by systemId
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   context: RouteContext
 ) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
+
   const { systemId } = await context.params;
 
   try {
@@ -18,13 +24,10 @@ export async function GET(
     });
 
     if (!setting) {
-      return NextResponse.json(
-        { error: 'Settings data not found' },
-        { status: 404 }
-      );
+      return apiError('Settings data not found', 404);
     }
 
-    return NextResponse.json({
+    return apiSuccess({
       systemId: setting.systemId,
       id: setting.id,
       name: setting.name,
@@ -40,10 +43,7 @@ export async function GET(
     });
   } catch (error) {
     console.error('[Settings Data API] GET by ID error:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch settings data' },
-      { status: 500 }
-    );
+    return apiError('Failed to fetch settings data', 500);
   }
 }
 
@@ -52,29 +52,32 @@ export async function PATCH(
   request: NextRequest,
   context: RouteContext
 ) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
+
   const { systemId } = await context.params;
 
-  try {
-    const body = await request.json();
-    const { 
-      id, 
-      name, 
-      description,
-      isActive,
-      isDefault,
-      updatedBy,
-      ...extraFields 
-    } = body;
+  const validation = await validateBody(request, updateSettingsDataSchema);
+  if (!validation.success) {
+    return apiError(validation.error, 400);
+  }
+  const { 
+    id, 
+    name, 
+    description,
+    isActive,
+    isDefault,
+    updatedBy,
+    ...extraFields 
+  } = validation.data;
 
+  try {
     const existing = await prisma.settingsData.findUnique({
       where: { systemId },
     });
 
     if (!existing) {
-      return NextResponse.json(
-        { error: 'Settings data not found' },
-        { status: 404 }
-      );
+      return apiError('Settings data not found', 404);
     }
 
     // Merge existing metadata with new extra fields
@@ -89,12 +92,12 @@ export async function PATCH(
         ...(description !== undefined && { description }),
         ...(isActive !== undefined && { isActive }),
         ...(isDefault !== undefined && { isDefault }),
-        ...(Object.keys(extraFields).length > 0 && { metadata: newMetadata }),
+        ...(Object.keys(extraFields).length > 0 && { metadata: newMetadata as Prisma.InputJsonValue }),
         updatedBy,
       },
     });
 
-    return NextResponse.json({
+    return apiSuccess({
       systemId: updated.systemId,
       id: updated.id,
       name: updated.name,
@@ -112,16 +115,10 @@ export async function PATCH(
     console.error('[Settings Data API] PATCH error:', error);
     
     if (error instanceof Error && 'code' in error && error.code === 'P2002') {
-      return NextResponse.json(
-        { error: 'A setting with this ID already exists for this type' },
-        { status: 409 }
-      );
+      return apiError('A setting with this ID already exists for this type', 409);
     }
 
-    return NextResponse.json(
-      { error: 'Failed to update settings data' },
-      { status: 500 }
-    );
+    return apiError('Failed to update settings data', 500);
   }
 }
 
@@ -130,6 +127,9 @@ export async function DELETE(
   request: NextRequest,
   context: RouteContext
 ) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
+
   const { systemId } = await context.params;
 
   try {
@@ -138,19 +138,11 @@ export async function DELETE(
     });
 
     if (!existing) {
-      return NextResponse.json(
-        { error: 'Settings data not found' },
-        { status: 404 }
-      );
+      return apiError('Settings data not found', 404);
     }
 
-    let hard = false;
-    try {
-      const body = await request.json();
-      hard = body.hard === true;
-    } catch {
-      // No body - use soft delete
-    }
+    const validation = await validateBody(request, deleteSettingsDataSchema).catch(() => ({ success: true, data: {} as { hard?: boolean } }));
+    const hard = validation.success && validation.data?.hard === true;
 
     if (hard) {
       await prisma.settingsData.delete({
@@ -166,12 +158,9 @@ export async function DELETE(
       });
     }
 
-    return NextResponse.json({ success: true });
+    return apiSuccess({ success: true });
   } catch (error) {
     console.error('[Settings Data API] DELETE error:', error);
-    return NextResponse.json(
-      { error: 'Failed to delete settings data' },
-      { status: 500 }
-    );
+    return apiError('Failed to delete settings data', 500);
   }
 }

@@ -309,7 +309,7 @@ export function PkgxMappingDialog({
                           variant="link"
                           size="sm"
                           className="h-auto p-0 ml-1 text-yellow-700"
-                          onClick={() => onSelectPkgxId(w.details!.suggestedBrand.id.toString())}
+                          onClick={() => onSelectPkgxId(w.details?.suggestedBrand?.id.toString() ?? '')}
                         >
                           → Chọn "{w.details.suggestedBrand.name}"
                         </Button>
@@ -320,7 +320,7 @@ export function PkgxMappingDialog({
                           variant="link"
                           size="sm"
                           className="h-auto p-0 ml-1 text-yellow-700"
-                          onClick={() => onSelectPkgxId(w.details!.suggestedCategory.id.toString())}
+                          onClick={() => onSelectPkgxId(w.details?.suggestedCategory?.id.toString() ?? '')}
                         >
                           → Chọn "{w.details.suggestedCategory.name}"
                         </Button>

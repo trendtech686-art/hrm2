@@ -35,7 +35,7 @@ export function Header() {
   };
   
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center border-b bg-card shadow-sm shrink-0 w-full">
+    <header className="sticky top-0 z-30 flex h-16 items-center border-b border-border bg-card shadow-sm shrink-0 w-full">
       <div className="w-full px-4 sm:px-6 lg:px-6 flex items-center gap-4 py-2">
         <div className="flex-1 flex items-center gap-2 min-w-0">
           <Button

@@ -1,12 +1,15 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/prisma'
+import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
 
 interface RouteParams {
   params: Promise<{ systemId: string }>;
 }
 
 // GET /api/orders/[systemId]/packaging - Get packagings for order
-export async function GET(request: NextRequest, { params }: RouteParams) {
+export async function GET(request: Request, { params }: RouteParams) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { systemId } = await params;
 
@@ -21,15 +24,18 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       orderBy: { createdAt: 'desc' },
     });
 
-    return NextResponse.json(packagings);
+    return apiSuccess(packagings);
   } catch (error) {
     console.error('Error fetching packagings:', error);
-    return NextResponse.json({ error: 'Failed to fetch packagings' }, { status: 500 });
+    return apiError('Failed to fetch packagings', 500);
   }
 }
 
 // POST /api/orders/[systemId]/packaging - Request packaging
-export async function POST(request: NextRequest, { params }: RouteParams) {
+export async function POST(request: Request, { params }: RouteParams) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
+
   try {
     const { systemId } = await params;
     const body = await request.json();
@@ -42,7 +48,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     });
 
     if (!order) {
-      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+      return apiNotFound('Order');
     }
 
     // Check if there's already an active packaging
@@ -50,10 +56,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       (p) => !p.confirmDate && !p.cancelDate
     );
     if (activePackaging) {
-      return NextResponse.json(
-        { error: 'Order already has an active packaging request' },
-        { status: 400 }
-      );
+      return apiError('Order already has an active packaging request', 400);
     }
 
     // Transaction: create packaging and update order status
@@ -93,9 +96,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return updated;
     });
 
-    return NextResponse.json(updatedOrder);
+    return apiSuccess(updatedOrder);
   } catch (error) {
     console.error('Error creating packaging:', error);
-    return NextResponse.json({ error: 'Failed to create packaging' }, { status: 500 });
+    return apiError('Failed to create packaging', 500);
   }
 }

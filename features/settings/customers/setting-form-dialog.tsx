@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, UseFormProps } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
   Dialog,
@@ -80,7 +80,7 @@ export function CustomerTypeFormDialog({
   const isEdit = !!initialData;
 
   const form = useForm<CustomerTypeFormData>({
-    resolver: zodResolver(customerTypeSchema) as unknown as Parameters<typeof useForm<CustomerTypeFormData>>[0]['resolver'],
+    resolver: zodResolver(customerTypeSchema) as UseFormProps<CustomerTypeFormData>["resolver"],
     defaultValues: (initialData as unknown as CustomerTypeFormData) || {
       id: '',
       name: '',
@@ -225,7 +225,7 @@ export function CustomerGroupFormDialog({
   const { data: activePriceLists } = useActivePricingPolicies();
 
   const form = useForm<CustomerGroupFormData>({
-    resolver: zodResolver(customerGroupSchema) as unknown as Parameters<typeof useForm<CustomerGroupFormData>>[0]['resolver'],
+    resolver: zodResolver(customerGroupSchema) as UseFormProps<CustomerGroupFormData>["resolver"],
     defaultValues: (initialData as unknown as CustomerGroupFormData) || {
       id: '',
       name: '',
@@ -417,7 +417,7 @@ export function CustomerSourceFormDialog({
   const isEdit = !!initialData;
 
   const form = useForm<CustomerSourceFormData>({
-    resolver: zodResolver(customerSourceSchema) as unknown as Parameters<typeof useForm<CustomerSourceFormData>>[0]['resolver'],
+    resolver: zodResolver(customerSourceSchema) as UseFormProps<CustomerSourceFormData>["resolver"],
     defaultValues: (initialData as unknown as CustomerSourceFormData) || {
       id: '',
       name: '',
@@ -586,7 +586,7 @@ export function PaymentTermFormDialog({
   const isEdit = !!initialData;
 
   const form = useForm<PaymentTermFormData>({
-    resolver: zodResolver(paymentTermSchema) as unknown as Parameters<typeof useForm<PaymentTermFormData>>[0]['resolver'],
+    resolver: zodResolver(paymentTermSchema) as UseFormProps<PaymentTermFormData>["resolver"],
     defaultValues: (initialData as unknown as PaymentTermFormData) || {
       id: '',
       name: '',
@@ -753,7 +753,7 @@ export function CreditRatingFormDialog({
   const isEdit = !!initialData;
 
   const form = useForm<CreditRatingFormData>({
-    resolver: zodResolver(creditRatingSchema) as unknown as Parameters<typeof useForm<CreditRatingFormData>>[0]['resolver'],
+    resolver: zodResolver(creditRatingSchema) as UseFormProps<CreditRatingFormData>["resolver"],
     defaultValues: (initialData as unknown as CreditRatingFormData) || {
       id: '',
       name: '',
@@ -944,7 +944,7 @@ export function LifecycleStageFormDialog({
   const isEdit = !!initialData;
 
   const form = useForm<LifecycleStageFormData>({
-    resolver: zodResolver(lifecycleStageSchema) as unknown as Parameters<typeof useForm<LifecycleStageFormData>>[0]['resolver'],
+    resolver: zodResolver(lifecycleStageSchema) as UseFormProps<LifecycleStageFormData>["resolver"],
     defaultValues: (initialData as unknown as LifecycleStageFormData) || {
       id: '',
       name: '',
@@ -1136,7 +1136,7 @@ export function CustomerSlaSettingFormDialog({
 }: BaseFormDialogProps<CustomerSlaSetting>) {
   // All hooks must be called before any early returns (React hooks rules)
   const form = useForm<CustomerSlaSettingFormData>({
-    resolver: zodResolver(customerSlaSettingSchema) as unknown as Parameters<typeof useForm<CustomerSlaSettingFormData>>[0]['resolver'],
+    resolver: zodResolver(customerSlaSettingSchema) as UseFormProps<CustomerSlaSettingFormData>["resolver"],
     defaultValues: initialData as unknown as CustomerSlaSettingFormData,
   });
 

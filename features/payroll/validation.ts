@@ -2,7 +2,7 @@
  * Zod validation schemas for payroll module
  */
 import { z } from 'zod';
-import type { SystemId } from '@/lib/id-types';
+import { systemIdSchema } from '@/lib/id-types';
 
 // Batch status enum
 export const payrollStatusSchema = z.enum([
@@ -19,10 +19,10 @@ export const createPayrollSchema = z.object({
   name: z.string().min(1, 'Tên đợt lương không được để trống'),
   month: z.number().int().min(1).max(12, 'Tháng phải từ 1-12'),
   year: z.number().int().min(2020).max(2100, 'Năm không hợp lệ'),
-  branchSystemId: z.string().optional() as z.ZodType<SystemId | undefined>,
+  branchSystemId: systemIdSchema.optional(),
   branchName: z.string().optional(),
   departmentFilter: z.string().optional(),
-  templateSystemId: z.string().optional() as z.ZodType<SystemId | undefined>,
+  templateSystemId: systemIdSchema.optional(),
   notes: z.string().optional(),
 });
 
@@ -33,8 +33,8 @@ export const updatePayrollSchema = createPayrollSchema.partial().extend({
 
 // Payslip schema
 export const createPayslipSchema = z.object({
-  batchSystemId: z.string() as z.ZodType<SystemId>,
-  employeeSystemId: z.string() as z.ZodType<SystemId>,
+  batchSystemId: systemIdSchema,
+  employeeSystemId: systemIdSchema,
   employeeName: z.string().optional(),
   baseSalary: z.number().min(0, 'Lương cơ bản phải >= 0'),
   workDays: z.number().min(0),

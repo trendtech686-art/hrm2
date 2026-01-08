@@ -1,5 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { TaskStatus, TaskPriority } from '@/generated/prisma/client';
+import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils';
+import { updateTaskSchema } from './validation';
 
 type RouteContext = {
   params: Promise<{ taskId: string }>;
@@ -10,6 +13,9 @@ export async function GET(
   request: NextRequest,
   context: RouteContext
 ) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   const { taskId } = await context.params;
 
   try {
@@ -33,13 +39,10 @@ export async function GET(
     });
 
     if (!task) {
-      return NextResponse.json(
-        { error: 'Task not found' },
-        { status: 404 }
-      );
+      return apiError('Task not found', 404);
     }
 
-    return NextResponse.json({
+    return apiSuccess({
       systemId: task.systemId,
       id: task.id,
       title: task.title,
@@ -59,10 +62,7 @@ export async function GET(
     });
   } catch (error) {
     console.error('[Tasks API] GET by ID error:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch task' },
-      { status: 500 }
-    );
+    return apiError('Failed to fetch task', 500);
   }
 }
 
@@ -71,31 +71,34 @@ export async function PATCH(
   request: NextRequest,
   context: RouteContext
 ) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   const { taskId } = await context.params;
 
-  try {
-    const body = await request.json();
-    const {
-      title,
-      description,
-      assigneeId,
-      status,
-      priority,
-      dueDate,
-      completedAt,
-      tags,
-    } = body;
+  const validation = await validateBody(request, updateTaskSchema)
+  if (!validation.success) {
+    return apiError(validation.error, 400)
+  }
+  const {
+    title,
+    description,
+    assigneeId,
+    status,
+    priority,
+    dueDate,
+    completedAt,
+    tags,
+  } = validation.data;
 
+  try {
     // Check if exists
     const existing = await prisma.task.findUnique({
       where: { systemId: taskId },
     });
 
     if (!existing) {
-      return NextResponse.json(
-        { error: 'Task not found' },
-        { status: 404 }
-      );
+      return apiError('Task not found', 404);
     }
 
     const updated = await prisma.task.update({
@@ -104,8 +107,8 @@ export async function PATCH(
         ...(title !== undefined && { title }),
         ...(description !== undefined && { description }),
         ...(assigneeId !== undefined && { assigneeId }),
-        ...(status !== undefined && { status: status.toUpperCase() }),
-        ...(priority !== undefined && { priority: priority.toUpperCase() }),
+        ...(status !== undefined && { status: status.toUpperCase() as TaskStatus }),
+        ...(priority !== undefined && { priority: priority.toUpperCase() as TaskPriority }),
         ...(dueDate !== undefined && { dueDate: dueDate ? new Date(dueDate) : null }),
         ...(completedAt !== undefined && { completedAt: completedAt ? new Date(completedAt) : null }),
         ...(tags !== undefined && { tags }),
@@ -125,7 +128,7 @@ export async function PATCH(
       },
     });
 
-    return NextResponse.json({
+    return apiSuccess({
       systemId: updated.systemId,
       id: updated.id,
       title: updated.title,
@@ -146,16 +149,10 @@ export async function PATCH(
     console.error('[Tasks API] PATCH error:', error);
     
     if (error instanceof Error && 'code' in error && error.code === 'P2003') {
-      return NextResponse.json(
-        { error: 'Invalid assignee ID' },
-        { status: 400 }
-      );
+      return apiError('Invalid assignee ID', 400);
     }
 
-    return NextResponse.json(
-      { error: 'Failed to update task' },
-      { status: 500 }
-    );
+    return apiError('Failed to update task', 500);
   }
 }
 
@@ -164,6 +161,9 @@ export async function DELETE(
   request: NextRequest,
   context: RouteContext
 ) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   const { taskId } = await context.params;
 
   try {
@@ -173,22 +173,16 @@ export async function DELETE(
     });
 
     if (!existing) {
-      return NextResponse.json(
-        { error: 'Task not found' },
-        { status: 404 }
-      );
+      return apiError('Task not found', 404);
     }
 
     await prisma.task.delete({
       where: { systemId: taskId },
     });
 
-    return NextResponse.json({ success: true });
+    return apiSuccess({ success: true });
   } catch (error) {
     console.error('[Tasks API] DELETE error:', error);
-    return NextResponse.json(
-      { error: 'Failed to delete task' },
-      { status: 500 }
-    );
+    return apiError('Failed to delete task', 500);
   }
 }

@@ -3,9 +3,8 @@
  * Stores website domain settings and 301 redirects
  */
 
-import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
 
 type WebsiteSettingType = 'settings' | 'redirects'
 
@@ -41,17 +40,16 @@ const DEFAULT_REDIRECTS = [
 ]
 
 // GET /api/website-settings?type=settings|redirects
-export async function GET(request: NextRequest) {
-  try {
-    const session = await auth()
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+export async function GET(request: Request) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
 
-    const type = request.nextUrl.searchParams.get('type') as WebsiteSettingType
+  try {
+    const url = new URL(request.url)
+    const type = url.searchParams.get('type') as WebsiteSettingType
     
     if (!type || !SETTING_KEYS[type]) {
-      return NextResponse.json({ error: 'Invalid type parameter' }, { status: 400 })
+      return apiError('Invalid type parameter', 400)
     }
 
     const setting = await prisma.setting.findUnique({
@@ -65,33 +63,31 @@ export async function GET(request: NextRequest) {
 
     if (!setting) {
       // Return defaults
-      if (type === 'settings') return NextResponse.json(DEFAULT_SETTINGS)
-      if (type === 'redirects') return NextResponse.json(DEFAULT_REDIRECTS)
+      if (type === 'settings') return apiSuccess(DEFAULT_SETTINGS)
+      if (type === 'redirects') return apiSuccess(DEFAULT_REDIRECTS)
     }
 
-    return NextResponse.json(setting!.value)
+    return apiSuccess(setting!.value)
   } catch (error) {
     console.error('[WEBSITE-SETTINGS] GET error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return apiError('Internal server error', 500)
   }
 }
 
 // POST /api/website-settings
-export async function POST(request: NextRequest) {
-  try {
-    const session = await auth()
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+export async function POST(request: Request) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
 
+  try {
     const { type, data } = await request.json()
     
     if (!type || !SETTING_KEYS[type]) {
-      return NextResponse.json({ error: 'Invalid type parameter' }, { status: 400 })
+      return apiError('Invalid type parameter', 400)
     }
 
     if (!data) {
-      return NextResponse.json({ error: 'Data is required' }, { status: 400 })
+      return apiError('Data is required', 400)
     }
 
     await prisma.setting.upsert({
@@ -115,9 +111,9 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    return NextResponse.json({ success: true })
+    return apiSuccess({ success: true })
   } catch (error) {
     console.error('[WEBSITE-SETTINGS] POST error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return apiError('Internal server error', 500)
   }
 }

@@ -7,6 +7,7 @@ import { Button } from "../ui/button"
 import { Checkbox } from "../ui/checkbox"
 import { Input } from "../ui/input"
 import { Label } from "../ui/label"
+import { toast } from "sonner"
 import {
   Dialog,
   DialogContent,
@@ -120,6 +121,7 @@ export function DataTableColumnCustomizer<TData>({
     setColumnOrder(localOrder);
     setPinnedColumns(localPinned);
     setOpen(false);
+    toast.success('Đã lưu cài đặt cột hiển thị');
   };
   
   const handleReset = () => {
@@ -241,7 +243,7 @@ export function DataTableColumnCustomizer<TData>({
         <Button 
           variant="ghost" 
           size="icon" 
-          className="h-7 w-7"
+          className="h-7 w-7 border-0"
           onClick={() => togglePin(col.id)}
         >
           <Pin className={cn("h-4 w-4", localPinned.includes(col.id) ? "text-primary fill-current" : "text-muted-foreground")} />
@@ -249,7 +251,7 @@ export function DataTableColumnCustomizer<TData>({
         <Button 
           variant="ghost" 
           size="icon" 
-          className="h-7 w-7 text-muted-foreground hover:text-destructive"
+          className="h-7 w-7 border-0 text-muted-foreground hover:text-destructive"
           onClick={() => toggleColumnVisibility(col.id, false)}
         >
           <X className="h-4 w-4" />
@@ -277,8 +279,8 @@ export function DataTableColumnCustomizer<TData>({
         </DialogHeader>
         <div className="flex flex-col md:flex-row gap-6 flex-grow min-h-0">
             {/* Left Panel: Available Columns */}
-            <div className="flex flex-col border rounded-lg flex-1 min-h-0">
-                <div className="p-4 border-b">
+            <div className="flex flex-col border border-border rounded-lg flex-1 min-h-0">
+                <div className="p-4 border-b border-border">
                     <h3 className="font-semibold mb-2">Thêm cột hiển thị</h3>
                     <div className="relative">
                         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -320,8 +322,8 @@ export function DataTableColumnCustomizer<TData>({
                 </ScrollArea>
             </div>
             {/* Right Panel: Visible Columns */}
-            <div className="flex flex-col border rounded-lg flex-1 min-h-0">
-                 <div className="p-4 border-b">
+            <div className="flex flex-col border border-border rounded-lg flex-1 min-h-0">
+                 <div className="p-4 border-b border-border">
                     <h3 className="font-semibold">Cột hiển thị</h3>
                  </div>
                  <ScrollArea className="flex-grow p-2">
@@ -371,7 +373,7 @@ export function DataTableColumnCustomizer<TData>({
             </div>
         </div>
         <DialogFooter className="pt-6 mt-auto flex-shrink-0">
-          <Button type="button" variant="ghost" size="sm" onClick={handleReset}>
+          <Button type="button" variant="outline" size="sm" onClick={handleReset}>
             Quay về mặc định
           </Button>
           <div className="flex-grow" />

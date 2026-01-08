@@ -1507,11 +1507,11 @@ export function OrderDetailPage() {
                                                             
                                                             const branch = findBranchById(order.branchSystemId);
                                                             const storeSettings: StoreSettings = {
-                                                                name: storeInfo.brandName || storeInfo.companyName,
-                                                                address: storeInfo.headquartersAddress,
-                                                                phone: storeInfo.hotline,
-                                                                email: storeInfo.email,
-                                                                province: storeInfo.province,
+                                                                name: storeInfo?.brandName || storeInfo?.companyName || '',
+                                                                address: storeInfo?.headquartersAddress,
+                                                                phone: storeInfo?.hotline,
+                                                                email: storeInfo?.email,
+                                                                province: storeInfo?.province,
                                                             };
                                                             
                                                             const paymentData: PaymentForPrint = {
@@ -1744,7 +1744,7 @@ export function OrderDetailPage() {
                 onOpenChange={setIsCreateShipmentDialogOpen}
                 onSubmit={handleShippingSubmit}
                 order={order}
-                customer={customer}
+                customer={customer ?? null}
             />
 
             <PackerSelectionDialog

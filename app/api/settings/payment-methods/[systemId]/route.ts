@@ -1,11 +1,15 @@
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import type { NextRequest } from 'next/server'
+import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
+import { updatePaymentMethodSchema } from './validation'
 
 type RouteParams = { params: Promise<{ systemId: string }> }
 
 // GET /api/settings/payment-methods/[systemId]
-export async function GET(request: NextRequest, { params }: RouteParams) {
+export async function GET(_request: NextRequest, { params }: RouteParams) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { systemId } = await params
 
@@ -14,27 +18,29 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     })
 
     if (!method) {
-      return NextResponse.json(
-        { error: 'Payment method not found' },
-        { status: 404 }
-      )
+      return apiError('Payment method not found', 404)
     }
 
-    return NextResponse.json({ data: method })
+    return apiSuccess({ data: method })
   } catch (error) {
     console.error('Error fetching payment method:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch payment method' },
-      { status: 500 }
-    )
+    return apiError('Failed to fetch payment method', 500)
   }
 }
 
 // PATCH /api/settings/payment-methods/[systemId]
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
+  const validation = await validateBody(request, updatePaymentMethodSchema)
+  if (!validation.success) {
+    return apiError(validation.error, 400)
+  }
+  const body = validation.data
+
   try {
     const { systemId } = await params
-    const body = await request.json()
 
     const method = await prisma.paymentMethod.update({
       where: { systemId },
@@ -46,18 +52,18 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       },
     })
 
-    return NextResponse.json({ data: method })
+    return apiSuccess({ data: method })
   } catch (error) {
     console.error('Error updating payment method:', error)
-    return NextResponse.json(
-      { error: 'Failed to update payment method' },
-      { status: 500 }
-    )
+    return apiError('Failed to update payment method', 500)
   }
 }
 
 // DELETE /api/settings/payment-methods/[systemId]
-export async function DELETE(request: NextRequest, { params }: RouteParams) {
+export async function DELETE(_request: NextRequest, { params }: RouteParams) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { systemId } = await params
 
@@ -65,12 +71,9 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       where: { systemId },
     })
 
-    return NextResponse.json({ success: true })
+    return apiSuccess({ success: true })
   } catch (error) {
     console.error('Error deleting payment method:', error)
-    return NextResponse.json(
-      { error: 'Failed to delete payment method' },
-      { status: 500 }
-    )
+    return apiError('Failed to delete payment method', 500)
   }
 }

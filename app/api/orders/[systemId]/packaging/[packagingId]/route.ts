@@ -1,12 +1,15 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/prisma'
+import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
 
 interface RouteParams {
   params: Promise<{ systemId: string; packagingId: string }>;
 }
 
 // GET /api/orders/[systemId]/packaging/[packagingId] - Get packaging details
-export async function GET(request: NextRequest, { params }: RouteParams) {
+export async function GET(request: Request, { params }: RouteParams) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { packagingId } = await params;
 
@@ -20,18 +23,21 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     });
 
     if (!packaging) {
-      return NextResponse.json({ error: 'Packaging not found' }, { status: 404 });
+      return apiNotFound('Packaging');
     }
 
-    return NextResponse.json(packaging);
+    return apiSuccess(packaging);
   } catch (error) {
     console.error('Error fetching packaging:', error);
-    return NextResponse.json({ error: 'Failed to fetch packaging' }, { status: 500 });
+    return apiError('Failed to fetch packaging', 500);
   }
 }
 
 // PATCH /api/orders/[systemId]/packaging/[packagingId] - Update packaging
-export async function PATCH(request: NextRequest, { params }: RouteParams) {
+export async function PATCH(request: Request, { params }: RouteParams) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
+
   try {
     const { packagingId } = await params;
     const body = await request.json();
@@ -46,9 +52,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       },
     });
 
-    return NextResponse.json(packaging);
+    return apiSuccess(packaging);
   } catch (error) {
     console.error('Error updating packaging:', error);
-    return NextResponse.json({ error: 'Failed to update packaging' }, { status: 500 });
+    return apiError('Failed to update packaging', 500);
   }
 }

@@ -1,21 +1,22 @@
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import type { Prisma } from '@/generated/prisma/client'
 import { AttendanceStatus } from '@/generated/prisma/client'
+import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
+import { createAttendanceSchema } from './validation'
 
 // GET /api/attendance - List attendance records
 export async function GET(request: Request) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { searchParams } = new URL(request.url)
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '20')
+    const { page, limit, skip } = parsePagination(searchParams)
     const employeeId = searchParams.get('employeeId')
     const date = searchParams.get('date')
     const fromDate = searchParams.get('fromDate')
     const toDate = searchParams.get('toDate')
     const status = searchParams.get('status')
-
-    const skip = (page - 1) * limit
 
     const where: Prisma.AttendanceRecordWhereInput = {}
 
@@ -57,37 +58,44 @@ export async function GET(request: Request) {
       prisma.attendanceRecord.count({ where }),
     ])
 
-    return NextResponse.json({
-      data: records,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
-    })
+    return apiPaginated(records, { page, limit, total })
   } catch (error) {
     console.error('Error fetching attendance:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch attendance' },
-      { status: 500 }
-    )
+    return apiError('Failed to fetch attendance', 500)
   }
 }
 
 // POST /api/attendance - Create/Check-in attendance or bulk save
 export async function POST(request: Request) {
-  try {
-    const body = await request.json()
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
 
+  const validation = await validateBody(request, createAttendanceSchema)
+  if (!validation.success) {
+    return apiError(validation.error, 400)
+  }
+  const body = validation.data
+
+  try {
     // Handle bulk save from attendance store
-    if (body.action === 'save') {
-      return handleBulkSave(body)
+    if (body.action === 'save' && body.monthKey) {
+      return handleBulkSave({
+        monthKey: body.monthKey,
+        data: body.data,
+        employeeSystemId: body.employeeSystemId,
+        dayKey: body.dayKey,
+        record: body.record,
+      })
     }
 
     // Handle single record update
-    if (body.employeeSystemId && body.dayKey && body.record) {
-      return handleSingleRecordUpdate(body)
+    if (body.monthKey && body.employeeSystemId && body.dayKey && body.record) {
+      return handleSingleRecordUpdate({
+        monthKey: body.monthKey,
+        employeeSystemId: body.employeeSystemId,
+        dayKey: body.dayKey,
+        record: body.record,
+      })
     }
 
     // Default: Check-in/Check-out flow
@@ -108,12 +116,12 @@ export async function POST(request: Request) {
         where: { systemId: existing.systemId },
         data: {
           checkOut: new Date(),
-          status: body.status || 'PRESENT',
+          status: (body.status as AttendanceStatus) || AttendanceStatus.PRESENT,
           notes: body.notes,
         },
         include: { employee: true },
       })
-      return NextResponse.json(attendance)
+      return apiSuccess(attendance)
     }
 
     // Create new check-in
@@ -123,19 +131,16 @@ export async function POST(request: Request) {
         employee: { connect: { systemId: body.employeeId } },
         date: today,
         checkIn: new Date(),
-        status: body.status || 'PRESENT',
+        status: (body.status as AttendanceStatus) || AttendanceStatus.PRESENT,
         notes: body.notes,
       },
       include: { employee: true },
     })
 
-    return NextResponse.json(attendance, { status: 201 })
+    return apiSuccess(attendance, 201)
   } catch (error) {
     console.error('Error creating attendance:', error)
-    return NextResponse.json(
-      { error: 'Failed to create attendance' },
-      { status: 500 }
-    )
+    return apiError('Failed to create attendance', 500)
   }
 }
 
@@ -159,7 +164,7 @@ async function handleBulkSave(body: { monthKey: string; data?: EmployeeAttendanc
     const { monthKey, data, employeeSystemId, dayKey, record } = body
     
     if (!monthKey) {
-      return NextResponse.json({ error: 'monthKey is required' }, { status: 400 })
+      return apiError('monthKey is required', 400)
     }
 
     const [year, month] = monthKey.split('-').map(Number)
@@ -170,7 +175,7 @@ async function handleBulkSave(body: { monthKey: string; data?: EmployeeAttendanc
       const date = new Date(year, month - 1, dayNum)
       
       await upsertAttendanceRecord(employeeSystemId, date, record)
-      return NextResponse.json({ success: true })
+      return apiSuccess({ success: true })
     }
 
     // Bulk save entire month data
@@ -194,13 +199,13 @@ async function handleBulkSave(body: { monthKey: string; data?: EmployeeAttendanc
       }
 
       await Promise.all(operations)
-      return NextResponse.json({ success: true, count: operations.length })
+      return apiSuccess({ success: true, count: operations.length })
     }
 
-    return NextResponse.json({ error: 'Invalid data format' }, { status: 400 })
+    return apiError('Invalid data format', 400)
   } catch (error) {
     console.error('Error in bulk save:', error)
-    return NextResponse.json({ error: 'Failed to bulk save attendance' }, { status: 500 })
+    return apiError('Failed to bulk save attendance', 500)
   }
 }
 
@@ -213,10 +218,10 @@ async function handleSingleRecordUpdate(body: { monthKey: string; employeeSystem
     const date = new Date(year, month - 1, dayNum)
     
     await upsertAttendanceRecord(employeeSystemId, date, record)
-    return NextResponse.json({ success: true })
+    return apiSuccess({ success: true })
   } catch (error) {
     console.error('Error updating single record:', error)
-    return NextResponse.json({ error: 'Failed to update attendance record' }, { status: 500 })
+    return apiError('Failed to update attendance record', 500)
   }
 }
 
@@ -273,15 +278,15 @@ async function upsertAttendanceRecord(employeeId: string, date: Date, record: At
 
 // PATCH /api/attendance - Lock/Unlock month
 export async function PATCH(request: Request) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const body = await request.json()
     const { action, monthYear } = body
 
     if (!action || !monthYear) {
-      return NextResponse.json(
-        { error: 'action and monthYear are required' },
-        { status: 400 }
-      )
+      return apiError('action and monthYear are required', 400)
     }
 
     // For lock/unlock, we can store in a separate table or as metadata
@@ -291,7 +296,7 @@ export async function PATCH(request: Request) {
     if (action === 'lock' || action === 'unlock') {
       // TODO: Implement actual lock persistence if needed
       // await prisma.attendanceMonthLock.upsert({...})
-      return NextResponse.json({ 
+      return apiSuccess({ 
         success: true, 
         action, 
         monthYear,
@@ -299,15 +304,9 @@ export async function PATCH(request: Request) {
       })
     }
 
-    return NextResponse.json(
-      { error: 'Invalid action. Use "lock" or "unlock"' },
-      { status: 400 }
-    )
+    return apiError('Invalid action. Use "lock" or "unlock"', 400)
   } catch (error) {
     console.error('Error in attendance PATCH:', error)
-    return NextResponse.json(
-      { error: 'Failed to process request' },
-      { status: 500 }
-    )
+    return apiError('Failed to process request', 500)
   }
 }

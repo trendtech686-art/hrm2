@@ -2,7 +2,7 @@
  * Shipping Partners React Query Hooks
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import {
   fetchShippingPartners,
   fetchShippingPartnerById,
@@ -33,6 +33,8 @@ export function useShippingPartners(filters: ShippingPartnerFilters = {}) {
     queryKey: shippingPartnerKeys.list(filters),
     queryFn: () => fetchShippingPartners(filters),
     staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 30,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -42,6 +44,7 @@ export function useShippingPartnerById(systemId: string | undefined) {
     queryFn: () => fetchShippingPartnerById(systemId!),
     enabled: !!systemId,
     staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 30,
   });
 }
 
@@ -50,6 +53,7 @@ export function useActiveShippingPartners() {
     queryKey: shippingPartnerKeys.active(),
     queryFn: fetchActiveShippingPartners,
     staleTime: 1000 * 60 * 10,
+    gcTime: 1000 * 60 * 60,
   });
 }
 
@@ -58,6 +62,7 @@ export function useConnectedShippingPartners() {
     queryKey: shippingPartnerKeys.connected(),
     queryFn: fetchConnectedShippingPartners,
     staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 30,
   });
 }
 

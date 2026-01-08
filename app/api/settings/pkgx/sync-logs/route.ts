@@ -1,9 +1,13 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { auth } from '@/auth'
+import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
+import { createSyncLogSchema } from './validation'
 
 // GET /api/settings/pkgx/sync-logs - List sync logs
 export async function GET(request: NextRequest) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { searchParams } = new URL(request.url)
     const limit = parseInt(searchParams.get('limit') || '50')
@@ -15,24 +19,27 @@ export async function GET(request: NextRequest) {
       take: limit,
     })
 
-    return NextResponse.json({ 
+    return apiSuccess({ 
       data: logs,
       total: logs.length,
     })
   } catch (error) {
     console.error('Error fetching sync logs:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch sync logs' },
-      { status: 500 }
-    )
+    return apiError('Failed to fetch sync logs', 500)
   }
 }
 
 // POST /api/settings/pkgx/sync-logs - Create a new sync log
 export async function POST(request: NextRequest) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
+  const validation = await validateBody(request, createSyncLogSchema)
+  if (!validation.success) {
+    return apiError(validation.error, 400)
+  }
+
   try {
-    const session = await auth()
-    const body = await request.json()
     const { 
       syncType, 
       action, 
@@ -42,14 +49,7 @@ export async function POST(request: NextRequest) {
       itemsFailed = 0, 
       errorMessage,
       details,
-    } = body
-
-    if (!syncType || !action || !status) {
-      return NextResponse.json(
-        { error: 'syncType, action, and status are required' },
-        { status: 400 }
-      )
-    }
+    } = validation.data
 
     const log = await prisma.pkgxSyncLog.create({
       data: {
@@ -61,16 +61,13 @@ export async function POST(request: NextRequest) {
         itemsFailed,
         errorMessage,
         details,
-        syncedBy: session?.user?.id,
+        syncedBy: session.user?.id,
       },
     })
 
-    return NextResponse.json({ data: log }, { status: 201 })
+    return apiSuccess({ data: log }, 201)
   } catch (error) {
     console.error('Error creating sync log:', error)
-    return NextResponse.json(
-      { error: 'Failed to create sync log' },
-      { status: 500 }
-    )
+    return apiError('Failed to create sync log', 500)
   }
 }

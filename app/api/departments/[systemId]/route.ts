@@ -1,6 +1,6 @@
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@/generated/prisma/client'
+import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
 
 interface RouteParams {
   params: Promise<{ systemId: string }>
@@ -8,6 +8,9 @@ interface RouteParams {
 
 // GET /api/departments/[systemId]
 export async function GET(_request: Request, { params }: RouteParams) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { systemId } = await params
 
@@ -32,24 +35,21 @@ export async function GET(_request: Request, { params }: RouteParams) {
     })
 
     if (!department) {
-      return NextResponse.json(
-        { error: 'Phòng ban không tồn tại' },
-        { status: 404 }
-      )
+      return apiNotFound('Phòng ban')
     }
 
-    return NextResponse.json(department)
+    return apiSuccess(department)
   } catch (error) {
     console.error('Error fetching department:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch department' },
-      { status: 500 }
-    )
+    return apiError('Failed to fetch department', 500)
   }
 }
 
 // PUT /api/departments/[systemId]
 export async function PUT(request: Request, { params }: RouteParams) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { systemId } = await params
     const body = await request.json()
@@ -66,24 +66,21 @@ export async function PUT(request: Request, { params }: RouteParams) {
       },
     })
 
-    return NextResponse.json(department)
+    return apiSuccess(department)
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
-      return NextResponse.json(
-        { error: 'Phòng ban không tồn tại' },
-        { status: 404 }
-      )
+      return apiNotFound('Phòng ban')
     }
     console.error('Error updating department:', error)
-    return NextResponse.json(
-      { error: 'Failed to update department' },
-      { status: 500 }
-    )
+    return apiError('Failed to update department', 500)
   }
 }
 
 // DELETE /api/departments/[systemId]
 export async function DELETE(_request: Request, { params }: RouteParams) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { systemId } = await params
 
@@ -93,18 +90,12 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
       data: { isDeleted: true },
     })
 
-    return NextResponse.json({ success: true })
+    return apiSuccess({ success: true })
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
-      return NextResponse.json(
-        { error: 'Phòng ban không tồn tại' },
-        { status: 404 }
-      )
+      return apiNotFound('Phòng ban')
     }
     console.error('Error deleting department:', error)
-    return NextResponse.json(
-      { error: 'Failed to delete department' },
-      { status: 500 }
-    )
+    return apiError('Failed to delete department', 500)
   }
 }

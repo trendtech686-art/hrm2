@@ -41,7 +41,7 @@ export function loadProvincesSync(): Province[] {
   // Fallback to sync import for initial state - provinces-data is small
   const { PROVINCES_DATA } = require('./provinces-data');
   wardsCache.provinces = PROVINCES_DATA.map((p: Province) => ({ ...p }));
-  return wardsCache.provinces;
+  return wardsCache.provinces ?? [];
 }
 
 /**

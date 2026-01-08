@@ -5,9 +5,10 @@
 // Supports: employees, products, customers, warranty, complaints, tasks, wiki
 // ═══════════════════════════════════════════════════════════════
 
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { v4 as uuidv4 } from 'uuid'
+import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
 import {
   parseFormData,
   validateFileType,
@@ -28,14 +29,14 @@ export const dynamic = 'force-dynamic'
 
 // POST /api/upload
 export async function POST(request: NextRequest) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { file, fields } = await parseFormData(request)
     
     if (!file) {
-      return NextResponse.json(
-        { success: false, message: 'Không có file được upload' },
-        { status: 400 }
-      )
+      return apiError('Không có file được upload', 400)
     }
     
     // Get entity info from form fields
@@ -48,20 +49,14 @@ export async function POST(request: NextRequest) {
     // Validate file type
     const allowedTypes = isImage ? ALLOWED_IMAGE_TYPES : ALLOWED_ALL_TYPES
     if (!validateFileType(file.type, allowedTypes)) {
-      return NextResponse.json(
-        { success: false, message: `Loại file không được hỗ trợ: ${file.type}` },
-        { status: 400 }
-      )
+      return apiError(`Loại file không được hỗ trợ: ${file.type}`, 400)
     }
     
     // Validate file size
     const maxSize = isImage ? MAX_FILE_SIZE.image : MAX_FILE_SIZE.default
     if (!validateFileSize(file.size, maxSize)) {
       const maxMB = maxSize / (1024 * 1024)
-      return NextResponse.json(
-        { success: false, message: `File quá lớn. Tối đa ${maxMB}MB` },
-        { status: 400 }
-      )
+      return apiError(`File quá lớn. Tối đa ${maxMB}MB`, 400)
     }
     
     // Read file buffer
@@ -101,34 +96,30 @@ export async function POST(request: NextRequest) {
       },
     })
     
-    return NextResponse.json({
-      success: true,
-      message: 'Upload thành công',
-      data: {
-        id: fileRecord.systemId,
-        fileName: fileRecord.filename,
-        originalName: fileRecord.originalName,
-        mimeType: fileRecord.mimetype,
-        fileSize: fileRecord.filesize,
-        url: publicUrl,
-        entityType: entityType,
-        entityId: entityId,
-        status: fileRecord.status,
-        sessionId: fileRecord.sessionId,
-      },
-    })
+    return apiSuccess({
+      id: fileRecord.systemId,
+      fileName: fileRecord.filename,
+      originalName: fileRecord.originalName,
+      mimeType: fileRecord.mimetype,
+      fileSize: fileRecord.filesize,
+      url: publicUrl,
+      entityType: entityType,
+      entityId: entityId,
+      status: fileRecord.status,
+      sessionId: fileRecord.sessionId,
+    }, 201)
     
   } catch (error) {
     console.error('Upload error:', error)
-    return NextResponse.json(
-      { success: false, message: 'Lỗi khi upload file' },
-      { status: 500 }
-    )
+    return apiError('Lỗi khi upload file', 500)
   }
 }
 
 // GET /api/upload - Get upload info (only permanent files by default)
 export async function GET(request: NextRequest) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   const { searchParams } = new URL(request.url)
   const entityType = searchParams.get('entityType')
   const entityId = searchParams.get('entityId')
@@ -160,28 +151,22 @@ export async function GET(request: NextRequest) {
       take: 100,
     })
     
-    return NextResponse.json({
-      success: true,
-      data: files.map(f => ({
-        id: f.systemId,
-        fileName: f.filename,
-        originalName: f.originalName,
-        mimeType: f.mimetype,
-        fileSize: f.filesize,
-        url: `/uploads/${f.filepath}`,
-        entityType: f.entityType,
-        entityId: f.entityId,
-        status: f.status,
-        sessionId: f.sessionId,
-        createdAt: f.uploadedAt,
-      })),
-    })
+    return apiSuccess(files.map(f => ({
+      id: f.systemId,
+      fileName: f.filename,
+      originalName: f.originalName,
+      mimeType: f.mimetype,
+      fileSize: f.filesize,
+      url: `/uploads/${f.filepath}`,
+      entityType: f.entityType,
+      entityId: f.entityId,
+      status: f.status,
+      sessionId: f.sessionId,
+      createdAt: f.uploadedAt,
+    })))
     
   } catch (error) {
     console.error('Get files error:', error)
-    return NextResponse.json(
-      { success: false, message: 'Lỗi khi lấy danh sách file' },
-      { status: 500 }
-    )
+    return apiError('Lỗi khi lấy danh sách file', 500)
   }
 }

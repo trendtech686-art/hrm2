@@ -14,12 +14,10 @@ export type SettingsConfigStoreState<TState> = {
 export type SettingsConfigStore<TState> = ReturnType<typeof createSettingsConfigStore<TState>>;
 
 interface SettingsConfigStoreOptions<TState> {
-  storageKey: string;
   getDefaultState: () => TState;
 }
 
 export function createSettingsConfigStore<TState>({
-  storageKey: _storageKey,
   getDefaultState,
 }: SettingsConfigStoreOptions<TState>) {
   return create<SettingsConfigStoreState<TState>>()(

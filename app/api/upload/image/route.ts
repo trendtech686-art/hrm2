@@ -4,10 +4,11 @@
 // POST /api/upload/image - Upload image with optional resize
 // ═══════════════════════════════════════════════════════════════
 
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { v4 as uuidv4 } from 'uuid'
 import sharp from 'sharp'
+import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
 import {
   parseFormData,
   validateFileType,
@@ -29,30 +30,24 @@ const IMAGE_SIZES = {
 }
 
 export async function POST(request: NextRequest) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { file, fields } = await parseFormData(request)
     
     if (!file) {
-      return NextResponse.json(
-        { success: false, message: 'Không có file được upload' },
-        { status: 400 }
-      )
+      return apiError('Không có file được upload', 400)
     }
     
     // Validate image type
     if (!validateFileType(file.type, ALLOWED_IMAGE_TYPES)) {
-      return NextResponse.json(
-        { success: false, message: `Chỉ chấp nhận file ảnh: ${ALLOWED_IMAGE_TYPES.join(', ')}` },
-        { status: 400 }
-      )
+      return apiError(`Chỉ chấp nhận file ảnh: ${ALLOWED_IMAGE_TYPES.join(', ')}`, 400)
     }
     
     // Validate file size
     if (!validateFileSize(file.size, MAX_FILE_SIZE.image)) {
-      return NextResponse.json(
-        { success: false, message: `Ảnh quá lớn. Tối đa ${MAX_FILE_SIZE.image / (1024 * 1024)}MB` },
-        { status: 400 }
-      )
+      return apiError(`Ảnh quá lớn. Tối đa ${MAX_FILE_SIZE.image / (1024 * 1024)}MB`, 400)
     }
     
     // Get entity info
@@ -139,29 +134,22 @@ export async function POST(request: NextRequest) {
       },
     })
     
-    return NextResponse.json({
-      success: true,
-      message: 'Upload ảnh thành công',
-      data: {
-        id: fileRecord.systemId,
-        fileName: fileRecord.filename,
-        originalName: fileRecord.originalName,
-        mimeType: fileRecord.mimetype,
-        fileSize: fileRecord.filesize,
-        url: publicUrl,
-        thumbnailUrl: thumbnailUrl,
-        width: metadata.width,
-        height: metadata.height,
-        entityType: entityType,
-        entityId: entityId,
-      },
-    })
+    return apiSuccess({
+      id: fileRecord.systemId,
+      fileName: fileRecord.filename,
+      originalName: fileRecord.originalName,
+      mimeType: fileRecord.mimetype,
+      fileSize: fileRecord.filesize,
+      url: publicUrl,
+      thumbnailUrl: thumbnailUrl,
+      width: metadata.width,
+      height: metadata.height,
+      entityType: entityType,
+      entityId: entityId,
+    }, 201)
     
   } catch (error) {
     console.error('Image upload error:', error)
-    return NextResponse.json(
-      { success: false, message: 'Lỗi khi upload ảnh' },
-      { status: 500 }
-    )
+    return apiError('Lỗi khi upload ảnh', 500)
   }
 }

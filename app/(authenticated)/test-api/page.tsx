@@ -3,12 +3,15 @@
 /**
  * Test Page for React Query Integration
  * Visit: http://localhost:3000/test-api
+ * 
+ * ✅ Uses feature hooks (with gcTime + keepPreviousData)
+ * ❌ NOT hooks/api (deprecated, no caching)
  */
 
-import { useEmployees } from '@/hooks/api/use-employees'
-import { useProducts } from '@/hooks/api/use-products'
-import { useCustomers } from '@/hooks/api/use-customers'
-import { useBranches } from '@/hooks/api/use-branches'
+import { useEmployees } from '@/features/employees/hooks/use-employees'
+import { useProducts } from '@/features/products/hooks/use-products'
+import { useCustomers } from '@/features/customers/hooks/use-customers'
+import { useBranches } from '@/features/settings/branches/hooks/use-branches'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
@@ -58,9 +61,9 @@ export default function TestApiPage() {
 
   const apis = [
     { name: 'Employees', ...employees, count: employees.data?.data?.length ?? 0 },
-    { name: 'Products', ...products, count: products.data?.length ?? 0 },
-    { name: 'Customers', ...customers, count: customers.data?.length ?? 0 },
-    { name: 'Branches', ...branches, count: branches.data?.length ?? 0 },
+    { name: 'Products', ...products, count: products.data?.data?.length ?? 0 },
+    { name: 'Customers', ...customers, count: customers.data?.data?.length ?? 0 },
+    { name: 'Branches', ...branches, count: branches.data?.data?.length ?? 0 },
   ]
 
   const allLoaded = apis.every(a => !a.isLoading)

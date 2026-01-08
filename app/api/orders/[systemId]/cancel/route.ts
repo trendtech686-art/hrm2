@@ -1,13 +1,16 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { OrderStatus } from '@/generated/prisma/client';
+import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils';
 
 interface RouteParams {
   params: Promise<{ systemId: string }>;
 }
 
 // POST /api/orders/[systemId]/cancel - Cancel order
-export async function POST(request: NextRequest, { params }: RouteParams) {
+export async function POST(request: Request, { params }: RouteParams) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
+
   try {
     const { systemId } = await params;
     const body = await request.json();
@@ -24,7 +27,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     });
 
     if (!order) {
-      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+      return apiNotFound('Order');
     }
 
     // Check if order can be cancelled
@@ -34,10 +37,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       'RETURNED' as OrderStatus,
     ];
     if (nonCancellableStatuses.includes(order.status)) {
-      return NextResponse.json(
-        { error: `Cannot cancel order with status ${order.status}` },
-        { status: 400 }
-      );
+      return apiError(`Cannot cancel order with status ${order.status}`, 400);
     }
 
     // Transaction: cancel order and optionally restock items
@@ -70,9 +70,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return cancelled;
     });
 
-    return NextResponse.json(updatedOrder);
+    return apiSuccess(updatedOrder);
   } catch (error) {
     console.error('Error cancelling order:', error);
-    return NextResponse.json({ error: 'Failed to cancel order' }, { status: 500 });
+    return apiError('Failed to cancel order', 500);
   }
 }

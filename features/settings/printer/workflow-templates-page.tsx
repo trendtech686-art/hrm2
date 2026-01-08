@@ -11,6 +11,8 @@
  * @see docs/LOCALSTORAGE-TO-DATABASE-MIGRATION.md
  */
 
+'use client'
+
 import * as React from 'react';
 import { useSettingsPageHeader } from '../use-settings-page-header';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../components/ui/card';

@@ -43,6 +43,7 @@ export function useReceipt(id: string | null | undefined) {
     queryFn: () => fetchReceipt(asSystemId(id!)),
     enabled: !!id,
     staleTime: 60_000,
+    gcTime: 10 * 60 * 1000,
   });
 }
 
@@ -51,6 +52,7 @@ export function useReceiptStats() {
     queryKey: receiptKeys.stats(),
     queryFn: fetchReceiptStats,
     staleTime: 60_000,
+    gcTime: 10 * 60 * 1000,
   });
 }
 

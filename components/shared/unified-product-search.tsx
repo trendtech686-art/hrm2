@@ -436,7 +436,7 @@ export function UnifiedProductSearch({
             
             return true;
         });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
     }, [activeProducts, excludeSet, allowedTypes, excludeTypes, customFilter]);
 
     // Calculate stock helpers

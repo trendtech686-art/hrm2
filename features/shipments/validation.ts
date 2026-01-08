@@ -2,7 +2,7 @@
  * Zod validation schemas for shipments module
  */
 import { z } from 'zod';
-import type { BusinessId, SystemId } from '@/lib/id-types';
+import { businessIdSchema, systemIdSchema } from '@/lib/id-types';
 
 // Shipment status enum
 export const shipmentStatusSchema = z.enum([
@@ -34,11 +34,11 @@ export const shipmentCarrierSchema = z.enum([
 
 // Shipment item schema
 export const shipmentItemSchema = z.object({
-  orderItemSystemId: z.string().optional() as z.ZodType<SystemId | undefined>,
-  productSystemId: z.string() as z.ZodType<SystemId>,
-  productBusinessId: z.string().optional() as z.ZodType<BusinessId | undefined>,
+  orderItemSystemId: systemIdSchema.optional(),
+  productSystemId: systemIdSchema,
+  productBusinessId: businessIdSchema.optional(),
   productName: z.string().optional(),
-  variantSystemId: z.string().optional() as z.ZodType<SystemId | undefined>,
+  variantSystemId: systemIdSchema.optional(),
   variantName: z.string().optional(),
   quantity: z.number().int().positive('Số lượng phải lớn hơn 0'),
   weight: z.number().min(0).optional(),
@@ -46,8 +46,8 @@ export const shipmentItemSchema = z.object({
 
 // Create shipment schema
 export const createShipmentSchema = z.object({
-  orderSystemId: z.string() as z.ZodType<SystemId>,
-  orderBusinessId: z.string().optional() as z.ZodType<BusinessId | undefined>,
+  orderSystemId: systemIdSchema,
+  orderBusinessId: businessIdSchema.optional(),
   carrier: shipmentCarrierSchema,
   trackingNumber: z.string().optional(),
   estimatedDeliveryDate: z.string().optional(),
@@ -56,7 +56,7 @@ export const createShipmentSchema = z.object({
   senderName: z.string().optional(),
   senderPhone: z.string().optional(),
   senderAddress: z.string().optional(),
-  fromWarehouseSystemId: z.string().optional() as z.ZodType<SystemId | undefined>,
+  fromWarehouseSystemId: systemIdSchema.optional(),
   
   // Recipient info
   recipientName: z.string().min(1, 'Tên người nhận không được để trống'),

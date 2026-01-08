@@ -2,7 +2,7 @@
  * Customer Settings React Query Hooks
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import * as api from '../api/customer-settings-api';
 import type { CustomerType, CustomerGroup, CustomerSource, PaymentTerm, CreditRating, LifecycleStage, CustomerSlaSetting } from '@/lib/types/prisma-extended';
 
@@ -19,7 +19,7 @@ export const customerSettingsKeys = {
 
 // Customer Types
 export function useCustomerTypes() {
-  return useQuery({ queryKey: customerSettingsKeys.types(), queryFn: api.fetchCustomerTypes, staleTime: 1000 * 60 * 10 });
+  return useQuery({ queryKey: customerSettingsKeys.types(), queryFn: api.fetchCustomerTypes, staleTime: 1000 * 60 * 10, gcTime: 10 * 60 * 1000, placeholderData: keepPreviousData });
 }
 
 export function useCustomerTypeMutations(opts?: { onSuccess?: () => void }) {
@@ -34,7 +34,7 @@ export function useCustomerTypeMutations(opts?: { onSuccess?: () => void }) {
 
 // Customer Groups
 export function useCustomerGroups() {
-  return useQuery({ queryKey: customerSettingsKeys.groups(), queryFn: api.fetchCustomerGroups, staleTime: 1000 * 60 * 10 });
+  return useQuery({ queryKey: customerSettingsKeys.groups(), queryFn: api.fetchCustomerGroups, staleTime: 1000 * 60 * 10, gcTime: 10 * 60 * 1000, placeholderData: keepPreviousData });
 }
 
 export function useCustomerGroupMutations(opts?: { onSuccess?: () => void }) {
@@ -49,7 +49,7 @@ export function useCustomerGroupMutations(opts?: { onSuccess?: () => void }) {
 
 // Customer Sources
 export function useCustomerSources() {
-  return useQuery({ queryKey: customerSettingsKeys.sources(), queryFn: api.fetchCustomerSources, staleTime: 1000 * 60 * 10 });
+  return useQuery({ queryKey: customerSettingsKeys.sources(), queryFn: api.fetchCustomerSources, staleTime: 1000 * 60 * 10, gcTime: 10 * 60 * 1000, placeholderData: keepPreviousData });
 }
 
 export function useCustomerSourceMutations(opts?: { onSuccess?: () => void }) {
@@ -64,7 +64,7 @@ export function useCustomerSourceMutations(opts?: { onSuccess?: () => void }) {
 
 // Payment Terms
 export function usePaymentTerms() {
-  return useQuery({ queryKey: customerSettingsKeys.paymentTerms(), queryFn: api.fetchPaymentTerms, staleTime: 1000 * 60 * 10 });
+  return useQuery({ queryKey: customerSettingsKeys.paymentTerms(), queryFn: api.fetchPaymentTerms, staleTime: 1000 * 60 * 10, gcTime: 10 * 60 * 1000, placeholderData: keepPreviousData });
 }
 
 export function usePaymentTermMutations(opts?: { onSuccess?: () => void }) {
@@ -79,7 +79,7 @@ export function usePaymentTermMutations(opts?: { onSuccess?: () => void }) {
 
 // Credit Ratings
 export function useCreditRatings() {
-  return useQuery({ queryKey: customerSettingsKeys.creditRatings(), queryFn: api.fetchCreditRatings, staleTime: 1000 * 60 * 10 });
+  return useQuery({ queryKey: customerSettingsKeys.creditRatings(), queryFn: api.fetchCreditRatings, staleTime: 1000 * 60 * 10, gcTime: 10 * 60 * 1000, placeholderData: keepPreviousData });
 }
 
 export function useCreditRatingMutations(opts?: { onSuccess?: () => void }) {
@@ -94,7 +94,7 @@ export function useCreditRatingMutations(opts?: { onSuccess?: () => void }) {
 
 // Lifecycle Stages
 export function useLifecycleStages() {
-  return useQuery({ queryKey: customerSettingsKeys.lifecycleStages(), queryFn: api.fetchLifecycleStages, staleTime: 1000 * 60 * 10 });
+  return useQuery({ queryKey: customerSettingsKeys.lifecycleStages(), queryFn: api.fetchLifecycleStages, staleTime: 1000 * 60 * 10, gcTime: 10 * 60 * 1000, placeholderData: keepPreviousData });
 }
 
 export function useLifecycleStageMutations(opts?: { onSuccess?: () => void }) {
@@ -109,7 +109,7 @@ export function useLifecycleStageMutations(opts?: { onSuccess?: () => void }) {
 
 // SLA Settings
 export function useCustomerSlaSettings() {
-  return useQuery({ queryKey: customerSettingsKeys.slaSettings(), queryFn: api.fetchCustomerSlaSettings, staleTime: 1000 * 60 * 10 });
+  return useQuery({ queryKey: customerSettingsKeys.slaSettings(), queryFn: api.fetchCustomerSlaSettings, staleTime: 1000 * 60 * 10, gcTime: 10 * 60 * 1000, placeholderData: keepPreviousData });
 }
 
 export function useCustomerSlaSettingMutations(opts?: { onSuccess?: () => void }) {

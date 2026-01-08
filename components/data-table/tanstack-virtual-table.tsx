@@ -105,7 +105,7 @@ export function TanStackVirtualTable<TData, TValue>({
       </div>
 
       {/* Virtual Table Container */}
-      <div className="rounded-md border">
+      <div className="rounded-md border border-border">
         <div
           ref={parentRef}
           style={{

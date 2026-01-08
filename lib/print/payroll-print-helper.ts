@@ -275,7 +275,7 @@ export function createStoreSettings(storeInfo?: {
   headquartersAddress?: string;
   province?: string;
   logo?: string;
-}): StoreSettings {
+} | null): StoreSettings {
   const generalSettings = getGeneralSettings();
   
   // Fallback: lấy từ store nếu storeInfo rỗng

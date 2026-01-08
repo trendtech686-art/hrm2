@@ -2,7 +2,7 @@
  * Zod validation schemas for attendance module
  */
 import { z } from 'zod';
-import type { SystemId } from '@/lib/id-types';
+import { systemIdSchema } from '@/lib/id-types';
 
 // Status enum
 export const attendanceStatusSchema = z.enum([
@@ -31,7 +31,7 @@ export const dailyRecordSchema = z.object({
 
 // Create attendance schema
 export const createAttendanceSchema = z.object({
-  employeeSystemId: z.string() as z.ZodType<SystemId>,
+  employeeSystemId: systemIdSchema,
   employeeId: z.string().optional(),
   fullName: z.string().optional(),
   department: z.string().optional(),
@@ -45,7 +45,7 @@ export const updateAttendanceSchema = createAttendanceSchema.partial();
 // Bulk update schema
 export const bulkUpdateAttendanceSchema = z.object({
   updates: z.array(z.object({
-    employeeSystemId: z.string() as z.ZodType<SystemId>,
+    employeeSystemId: systemIdSchema,
     day: z.number().int().min(1).max(31),
     record: dailyRecordSchema,
   })),

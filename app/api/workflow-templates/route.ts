@@ -1,11 +1,15 @@
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
+import { saveWorkflowTemplatesSchema } from './validation'
 
 const SETTINGS_KEY = 'workflow_templates'
 const SETTINGS_GROUP = 'workflow'
 
 // GET /api/workflow-templates - Get all workflow templates
 export async function GET() {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const setting = await prisma.setting.findUnique({
       where: { 
@@ -18,7 +22,7 @@ export async function GET() {
 
     if (!setting?.value) {
       // Return empty array if not configured
-      return NextResponse.json({ data: [] })
+      return apiSuccess({ data: [] })
     }
 
     // Parse JSON value and return
@@ -31,29 +35,25 @@ export async function GET() {
       templates = []
     }
 
-    return NextResponse.json({ data: templates })
+    return apiSuccess({ data: templates })
   } catch (error) {
     console.error('Error fetching workflow templates:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch workflow templates' },
-      { status: 500 }
-    )
+    return apiError('Failed to fetch workflow templates', 500)
   }
 }
 
 // POST /api/workflow-templates - Save all workflow templates
 export async function POST(request: Request) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
+  const validation = await validateBody(request, saveWorkflowTemplatesSchema)
+  if (!validation.success) {
+    return apiError(validation.error, 400)
+  }
+  const { templates } = validation.data
+
   try {
-    const body = await request.json()
-    const templates = body.templates
-
-    if (!Array.isArray(templates)) {
-      return NextResponse.json(
-        { error: 'Templates array is required' },
-        { status: 400 }
-      )
-    }
-
     // Upsert the setting with templates as JSON value
     await prisma.setting.upsert({
       where: { 
@@ -76,12 +76,9 @@ export async function POST(request: Request) {
       },
     })
 
-    return NextResponse.json({ success: true })
+    return apiSuccess({ success: true })
   } catch (error) {
     console.error('Error saving workflow templates:', error)
-    return NextResponse.json(
-      { error: 'Failed to save workflow templates' },
-      { status: 500 }
-    )
+    return apiError('Failed to save workflow templates', 500)
   }
 }

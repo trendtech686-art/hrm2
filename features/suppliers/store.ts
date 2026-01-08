@@ -1,3 +1,14 @@
+/**
+ * @deprecated Use React Query hooks instead:
+ * - `useSuppliers()` for list
+ * - `useSupplier(id)` for single
+ * - `useSupplierMutations()` for create/update/delete
+ * 
+ * Import from: `@/features/suppliers/hooks/use-suppliers`
+ * 
+ * This store will be removed in a future version.
+ * Current usage kept for backward compatibility only.
+ */
 import { createCrudStore, CrudState } from '../../lib/store-factory';
 import type { Supplier } from '@/lib/types/prisma-extended';
 import type { SystemId } from '../../lib/id-types';

@@ -1,19 +1,21 @@
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@/generated/prisma/client'
+import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
+import { createWikiSchema } from './validation'
 
 // GET /api/wiki - List all wiki articles
 export async function GET(request: Request) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { searchParams } = new URL(request.url)
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '20')
+    const { page, limit, skip } = parsePagination(searchParams)
     const search = searchParams.get('search') || ''
     const category = searchParams.get('category')
     const published = searchParams.get('published')
 
-    const skip = (page - 1) * limit
-
-    const where: Parameters<typeof prisma.wiki.findMany>[0]['where'] = {
+    const where: Prisma.WikiWhereInput = {
       isDeleted: false,
     }
 
@@ -59,57 +61,49 @@ export async function GET(request: Request) {
       prisma.wiki.count({ where }),
     ])
 
-    return NextResponse.json({
-      data: articles,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
-    })
+    return apiPaginated(articles, { page, limit, total })
   } catch (error) {
     console.error('Error fetching wiki:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch wiki' },
-      { status: 500 }
-    )
+    return apiError('Failed to fetch wiki', 500)
   }
 }
 
 // POST /api/wiki - Create new wiki article
 export async function POST(request: Request) {
-  try {
-    const body = await request.json()
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
 
+  const validation = await validateBody(request, createWikiSchema)
+  if (!validation.success) {
+    return apiError(validation.error, 400)
+  }
+  const body = validation.data
+
+  try {
     // Generate slug from title if not provided
-    if (!body.slug) {
-      body.slug = body.title
-        .toLowerCase()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/(^-|-$)/g, '')
-    }
+    const slug = body.slug || body.title
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '')
 
     // Generate business ID
-    if (!body.id) {
-      const lastWiki = await prisma.wiki.findFirst({
-        orderBy: { createdAt: 'desc' },
-        select: { id: true },
-      })
-      const lastNum = lastWiki?.id 
-        ? parseInt(lastWiki.id.replace('TL', '')) 
-        : 0
-      body.id = `TL${String(lastNum + 1).padStart(6, '0')}`
-    }
+    const lastWiki = await prisma.wiki.findFirst({
+      orderBy: { createdAt: 'desc' },
+      select: { id: true },
+    })
+    const lastNum = lastWiki?.id 
+      ? parseInt(lastWiki.id.replace('TL', '')) 
+      : 0
+    const id = `TL${String(lastNum + 1).padStart(6, '0')}`
 
     const wiki = await prisma.wiki.create({
       data: {
         systemId: `WIKI${String(Date.now()).slice(-6).padStart(6, '0')}`,
-        id: body.id,
+        id,
         title: body.title,
-        slug: body.slug,
+        slug,
         content: body.content,
         category: body.categoryId || body.category,
         tags: body.tags || [],
@@ -119,18 +113,12 @@ export async function POST(request: Request) {
       },
     })
 
-    return NextResponse.json(wiki, { status: 201 })
+    return apiSuccess(wiki, 201)
   } catch (error) {
     if (error instanceof Error && 'code' in error && error.code === 'P2002') {
-      return NextResponse.json(
-        { error: 'Slug đã tồn tại' },
-        { status: 400 }
-      )
+      return apiError('Slug đã tồn tại', 400)
     }
     console.error('Error creating wiki:', error)
-    return NextResponse.json(
-      { error: 'Failed to create wiki' },
-      { status: 500 }
-    )
+    return apiError('Failed to create wiki', 500)
   }
 }

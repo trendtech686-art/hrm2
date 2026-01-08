@@ -1,15 +1,19 @@
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@/generated/prisma/client'
+import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
+import { createSettingSchema, bulkUpdateSettingsSchema } from './validation'
 
 // GET /api/settings - Get all settings
 export async function GET(request: Request) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { searchParams } = new URL(request.url)
     const group = searchParams.get('group')
     const key = searchParams.get('key')
 
-    const where: Parameters<typeof prisma.setting.findMany>[0]['where'] = {}
+    const where: Prisma.SettingWhereInput = {}
 
     if (group) {
       where.group = group
@@ -26,7 +30,7 @@ export async function GET(request: Request) {
 
     // If single key requested, return just the value
     if (key && settings.length === 1) {
-      return NextResponse.json(settings[0])
+      return apiSuccess(settings[0])
     }
 
     // Group settings by group name
@@ -38,28 +42,25 @@ export async function GET(request: Request) {
       return acc
     }, {})
 
-    return NextResponse.json({ data: settings, grouped })
+    return apiSuccess({ data: settings, grouped })
   } catch (error) {
     console.error('Error fetching settings:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch settings' },
-      { status: 500 }
-    )
+    return apiError('Failed to fetch settings', 500)
   }
 }
 
 // POST /api/settings - Create or update setting
 export async function POST(request: Request) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
+  const validation = await validateBody(request, createSettingSchema)
+  if (!validation.success) {
+    return apiError(validation.error, 400)
+  }
+  const body = validation.data
+
   try {
-    const body = await request.json()
-
-    if (!body.key || !body.group) {
-      return NextResponse.json(
-        { error: 'Key và group là bắt buộc' },
-        { status: 400 }
-      )
-    }
-
     const setting = await prisma.setting.upsert({
       where: {
         key_group: {
@@ -82,28 +83,25 @@ export async function POST(request: Request) {
       },
     })
 
-    return NextResponse.json(setting)
+    return apiSuccess(setting)
   } catch (error) {
     console.error('Error saving setting:', error)
-    return NextResponse.json(
-      { error: 'Failed to save setting' },
-      { status: 500 }
-    )
+    return apiError('Failed to save setting', 500)
   }
 }
 
 // PUT /api/settings - Bulk update settings
 export async function PUT(request: Request) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
+  const validation = await validateBody(request, bulkUpdateSettingsSchema)
+  if (!validation.success) {
+    return apiError(validation.error, 400)
+  }
+  const body = validation.data
+
   try {
-    const body = await request.json()
-
-    if (!Array.isArray(body.settings)) {
-      return NextResponse.json(
-        { error: 'Settings array là bắt buộc' },
-        { status: 400 }
-      )
-    }
-
     const results = await prisma.$transaction(
       body.settings.map((setting: { key: string; group: string; value?: unknown; description?: string; type?: string; category?: string }) =>
         prisma.setting.upsert({
@@ -130,12 +128,9 @@ export async function PUT(request: Request) {
       )
     )
 
-    return NextResponse.json({ data: results })
+    return apiSuccess({ data: results })
   } catch (error) {
     console.error('Error bulk updating settings:', error)
-    return NextResponse.json(
-      { error: 'Failed to update settings' },
-      { status: 500 }
-    )
+    return apiError('Failed to update settings', 500)
   }
 }

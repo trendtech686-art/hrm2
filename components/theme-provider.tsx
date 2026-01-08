@@ -47,25 +47,58 @@ export function ThemeProvider({ children }: React.PropsWithChildren) {
   const customThemeConfig = useAppearanceStore(s => s.customThemeConfig);
   const colorMode = useAppearanceStore(s => s.colorMode);
   const fontSize = useAppearanceStore(s => s.fontSize);
+  const font = useAppearanceStore(s => s.font);
 
   // Apply theme whenever store values change
   React.useEffect(() => {
+    // Ensure font variables are applied even if customThemeConfig missing
     if (!customThemeConfig) return;
     applyTheme(customThemeConfig, colorMode, fontSize);
-  }, [customThemeConfig, colorMode, fontSize]);
+    // Apply font families from store (if defined) to root CSS vars
+    const root = window.document.documentElement;
+    if (font && typeof font === 'object' && 'sans' in font) {
+      root.style.setProperty('--font-sans', (font as { sans?: string }).sans || '');
+    }
+    if (font && typeof font === 'object' && 'serif' in font) {
+      root.style.setProperty('--font-serif', (font as { serif?: string }).serif || '');
+    }
+    if (font && typeof font === 'object' && 'mono' in font) {
+      root.style.setProperty('--font-mono', (font as { mono?: string }).mono || '');
+    }
+  }, [customThemeConfig, colorMode, fontSize, font]);
 
   // Subscribe to store rehydration and apply theme
   React.useEffect(() => {
+    const root = window.document.documentElement;
     // Apply immediately with current store values
     const state = useAppearanceStore.getState();
     if (state.customThemeConfig) {
       applyTheme(state.customThemeConfig, state.colorMode, state.fontSize);
+    }
+    // Apply font families on init
+    if (state.font && typeof state.font === 'object' && 'sans' in state.font) {
+      root.style.setProperty('--font-sans', (state.font as { sans?: string }).sans || '');
+    }
+    if (state.font && typeof state.font === 'object' && 'serif' in state.font) {
+      root.style.setProperty('--font-serif', (state.font as { serif?: string }).serif || '');
+    }
+    if (state.font && typeof state.font === 'object' && 'mono' in state.font) {
+      root.style.setProperty('--font-mono', (state.font as { mono?: string }).mono || '');
     }
 
     // Also subscribe to any changes (including rehydration)
     const unsubscribe = useAppearanceStore.subscribe((state) => {
       if (state.customThemeConfig) {
         applyTheme(state.customThemeConfig, state.colorMode, state.fontSize);
+      }
+      if (state.font && typeof state.font === 'object' && 'sans' in state.font) {
+        root.style.setProperty('--font-sans', (state.font as { sans?: string }).sans || '');
+      }
+      if (state.font && typeof state.font === 'object' && 'serif' in state.font) {
+        root.style.setProperty('--font-serif', (state.font as { serif?: string }).serif || '');
+      }
+      if (state.font && typeof state.font === 'object' && 'mono' in state.font) {
+        root.style.setProperty('--font-mono', (state.font as { mono?: string }).mono || '');
       }
     });
 

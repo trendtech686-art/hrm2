@@ -46,6 +46,7 @@ export default function CustomerSettingsPage() {
   const lifecycleStages = useLifecycleStageStore();
   const slaSettings = useCustomerSlaStore();
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const activeDataMap = React.useMemo(() => ({ types: customerTypes.getActive(), groups: customerGroups.getActive(), sources: customerSources.getActive(), 'payment-terms': paymentTerms.getActive(), 'credit-ratings': creditRatings.getActive(), 'lifecycle-stages': lifecycleStages.getActive(), sla: slaSettings.getActive() }), [customerTypes.data, customerGroups.data, customerSources.data, paymentTerms.data, creditRatings.data, lifecycleStages.data, slaSettings.data]);
 
   const handleAdd = React.useCallback(() => { setEditingItem(null); setDialogOpen(true); }, []);

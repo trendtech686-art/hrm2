@@ -39,6 +39,7 @@ export function useStorageLocation(id: string | null | undefined) {
     queryFn: () => fetchStorageLocation(id!),
     enabled: !!id,
     staleTime: 10 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
   });
 }
 

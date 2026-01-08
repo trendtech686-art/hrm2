@@ -5,7 +5,8 @@
  * Helper endpoint to parse GHTK error responses
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils';
 
 /**
  * Map GHTK error codes to Vietnamese messages
@@ -33,23 +34,26 @@ function getGHTKErrorMessage(errorCode: string): string {
 }
 
 export async function POST(request: NextRequest) {
+  const session = await requireAuth();
+  if (!session) return apiError('Unauthorized', 401);
+
   try {
     const body = await request.json();
     const { error } = body;
     
     if (!error) {
-      return NextResponse.json({ message: 'Không có lỗi' });
+      return apiSuccess({ message: 'Không có lỗi' });
     }
 
     const errorCode = error.code || error.error || 'UNKNOWN';
     const message = getGHTKErrorMessage(errorCode);
 
-    return NextResponse.json({
+    return apiSuccess({
       code: errorCode,
       message: message,
       originalError: error
     });
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'Unknown error' }, { status: 500 });
+    return apiError(error instanceof Error ? error.message : 'Unknown error', 500);
   }
 }

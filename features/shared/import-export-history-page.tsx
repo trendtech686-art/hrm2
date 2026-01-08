@@ -190,14 +190,17 @@ export function ImportExportHistoryPage() {
     const sorted = [...filteredLogs]
     if (sorting.id) {
       sorted.sort((a, b) => {
-        const aVal = (a as unknown as Record<string, unknown>)[sorting.id]
-        const bVal = (b as unknown as Record<string, unknown>)[sorting.id]
+        const aVal = (a as unknown as Record<string, unknown>)[sorting.id] as string | number | null | undefined
+        const bVal = (b as unknown as Record<string, unknown>)[sorting.id] as string | number | null | undefined
         // Special handling for date columns
         if (sorting.id === 'createdAt' || sorting.id === 'timestamp') {
           const aTime = aVal ? new Date(aVal as string | number | Date).getTime() : 0
           const bTime = bVal ? new Date(bVal as string | number | Date).getTime() : 0
           return sorting.desc ? bTime - aTime : aTime - bTime
         }
+        if (aVal == null && bVal == null) return 0
+        if (aVal == null) return 1
+        if (bVal == null) return -1
         if (aVal < bVal) return sorting.desc ? 1 : -1
         if (aVal > bVal) return sorting.desc ? -1 : 1
         return 0

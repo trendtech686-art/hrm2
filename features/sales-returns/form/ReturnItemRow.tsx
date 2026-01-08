@@ -182,7 +182,7 @@ export const ReturnItemRow = React.memo(function ReturnItemRow({
                 )}
               </div>
               <div className="flex items-center gap-1 text-body-xs text-muted-foreground group/info flex-wrap">
-                <span>{getProductTypeLabel(product)}</span>
+                <span>{getProductTypeLabel(product ?? null)}</span>
                 <span>-</span>
                 <Link
                   href={`/products/${field.productSystemId}`}

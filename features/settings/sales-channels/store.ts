@@ -1,3 +1,13 @@
+/**
+ * @deprecated Use React Query hooks instead:
+ * - `useSalesChannels()` for list
+ * - `useSalesChannelById(id)` for single
+ * - `useSalesChannelMutations()` for create/update/delete
+ * 
+ * Import from: `@/features/settings/sales-channels/hooks/use-sales-channels`
+ * 
+ * This store will be removed in a future version.
+ */
 import type { UseBoundStore, StoreApi } from 'zustand';
 import type { SalesChannel } from '@/lib/types/prisma-extended';
 import { createCrudStore, type CrudState } from '../../../lib/store-factory';

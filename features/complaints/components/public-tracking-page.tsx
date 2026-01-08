@@ -971,7 +971,7 @@ export function PublicComplaintTrackingPage() {
         )}
 
         {/* Video Links */}
-        {(complaint as Complaint & { videoLinks?: string }).videoLinks && (complaint as Complaint & { videoLinks?: string }).videoLinks?.trim().length > 0 && (
+        {(complaint as Complaint & { videoLinks?: string }).videoLinks && ((complaint as Complaint & { videoLinks?: string }).videoLinks?.trim().length ?? 0) > 0 && (
           <Card>
             <CardHeader>
               <CardTitle className="text-base sm:text-lg font-semibold flex items-center gap-2">

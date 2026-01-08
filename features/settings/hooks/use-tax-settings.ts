@@ -9,7 +9,7 @@
  * update.mutate({ priceIncludesTax: true });
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import {
   fetchTaxSettings,
   updateTaxSettings,
@@ -32,6 +32,7 @@ export function useTaxSettings() {
     queryFn: fetchTaxSettings,
     staleTime: 1000 * 60 * 30, // 30 minutes - tax settings rarely change
     gcTime: 1000 * 60 * 60, // 1 hour
+    placeholderData: keepPreviousData,
   });
 }
 

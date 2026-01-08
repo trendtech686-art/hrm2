@@ -415,7 +415,7 @@ export function ShipmentDetailPage() {
                     <CardContent>
                         <Timeline>
                             {statusHistory.map((item, index) => (
-                                <TimelineItem key={index} time={item.time}>
+                                <TimelineItem key={index} time={item.time ?? ''}>
                                     <p className="font-semibold">{item.status}</p>
                                     <p className="text-muted-foreground text-sm mt-1">{item.details}</p>
                                 </TimelineItem>

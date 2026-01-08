@@ -13,6 +13,8 @@
  * For comments/quick notes, use CommentEditor instead (direct upload)
  */
 
+'use client'
+
 import * as React from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';

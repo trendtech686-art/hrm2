@@ -1,3 +1,13 @@
+/**
+ * @deprecated Use React Query hooks instead:
+ * - `useShippingPartners()` for list
+ * - `useShippingPartnerById(id)` for single
+ * - `useShippingPartnerMutations()` for create/update/delete
+ * 
+ * Import from: `@/features/settings/shipping/hooks/use-shipping`
+ * 
+ * This store will be removed in a future version.
+ */
 import { createCrudStore } from '../../../lib/store-factory';
 import type { ShippingPartner } from '@/lib/types/prisma-extended';
 import Fuse from 'fuse.js';

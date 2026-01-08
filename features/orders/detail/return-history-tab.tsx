@@ -48,11 +48,11 @@ export function ReturnHistoryTab({ order, salesReturnsForOrder, getProductTypeLa
         const branch = findBranchById(salesReturn.branchSystemId);
         const customer = findCustomerById(salesReturn.customerSystemId);
         const storeSettings: StoreSettings = {
-            name: storeInfo.brandName || storeInfo.companyName,
-            address: storeInfo.headquartersAddress,
-            phone: storeInfo.hotline,
-            email: storeInfo.email,
-            province: storeInfo.province,
+            name: storeInfo?.brandName || storeInfo?.companyName || '',
+            address: storeInfo?.headquartersAddress,
+            phone: storeInfo?.hotline,
+            email: storeInfo?.email,
+            province: storeInfo?.province,
         };
 
         const printData: SalesReturnForPrint = {

@@ -2,7 +2,7 @@
  * Zod validation schemas for reconciliation module
  */
 import { z } from 'zod';
-import type { SystemId, BusinessId } from '@/lib/id-types';
+import { systemIdSchema, businessIdSchema } from '@/lib/id-types';
 
 // Status enum
 export const reconciliationStatusSchema = z.enum([
@@ -14,8 +14,8 @@ export const reconciliationStatusSchema = z.enum([
 
 // Create reconciliation schema
 export const createReconciliationSchema = z.object({
-  orderSystemId: z.string() as z.ZodType<SystemId>,
-  orderId: z.string() as z.ZodType<BusinessId>,
+  orderSystemId: systemIdSchema,
+  orderId: businessIdSchema,
   shippingProvider: z.string().min(1, 'Nhà vận chuyển không được để trống'),
   trackingNumber: z.string().optional(),
   expectedAmount: z.number().min(0, 'Số tiền dự kiến phải >= 0'),

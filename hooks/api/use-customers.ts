@@ -1,9 +1,13 @@
 /**
  * React Query hooks for Customers API
- * Replaces zustand store with server state management
+ * 
+ * @deprecated Use feature hooks instead:
+ * - import { useCustomers } from '@/features/customers/hooks/use-customers'
+ * 
+ * This file is kept for backwards compatibility only.
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { queryKeys } from '@/lib/query-client'
 import type { Customer } from '@/lib/types/prisma-extended'
 
@@ -92,6 +96,9 @@ export function useCustomers(options: UseCustomersOptions = {}) {
     queryKey: queryKeys.customers.list(filterKey),
     queryFn: () => fetchCustomers(params),
     enabled,
+    staleTime: 60_000, // 1 minute
+    gcTime: 10 * 60 * 1000, // 10 minutes
+    placeholderData: keepPreviousData,
   })
 }
 
@@ -103,6 +110,8 @@ export function useCustomer(systemId: string | undefined) {
     queryKey: queryKeys.customers.detail(systemId!),
     queryFn: () => fetchCustomer(systemId!),
     enabled: !!systemId,
+    staleTime: 60_000,
+    gcTime: 10 * 60 * 1000,
   })
 }
 

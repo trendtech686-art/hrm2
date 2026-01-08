@@ -3,7 +3,7 @@
  * Provides data fetching and mutations for store information
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import {
   fetchStoreInfo,
   updateStoreInfo,
@@ -26,6 +26,8 @@ export function useStoreInfo() {
     queryKey: storeInfoKeys.info(),
     queryFn: fetchStoreInfo,
     staleTime: 1000 * 60 * 30, // 30 minutes - info rarely changes
+    gcTime: 10 * 60 * 1000,
+    placeholderData: keepPreviousData,
   });
 }
 

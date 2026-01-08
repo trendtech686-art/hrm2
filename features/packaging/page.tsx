@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { toast } from 'sonner';
 import { formatDate } from '@/lib/date-utils';
-import type { PackagingSlip, Order, Packaging, PaperSize } from '@/lib/types/prisma-extended';
+import type { PackagingSlip, PaperSize } from '@/lib/types/prisma-extended';
 import type { PrintData, PrintLineItem } from '@/lib/print-service';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { useAuth } from '../../contexts/auth-context';
@@ -99,7 +99,7 @@ export function PackagingPage() {
     // Handler khi xác nhận in từ dialog
     const getStoreSettings = React.useCallback((branch: ReturnType<typeof findBranchById>) => branch 
         ? createStoreSettings(branch) 
-        : { name: storeInfo.companyName || storeInfo.brandName || '', address: storeInfo.headquartersAddress || '', phone: storeInfo.hotline || '', email: storeInfo.email || '', province: storeInfo.province || '' }, [storeInfo]);
+        : { name: storeInfo?.companyName || storeInfo?.brandName || '', address: storeInfo?.headquartersAddress || '', phone: storeInfo?.hotline || '', email: storeInfo?.email || '', province: storeInfo?.province || '' }, [storeInfo]);
 
     const findOrderAndPackaging = React.useCallback((pkgSystemId: string) => {
         for (const order of allOrders) {

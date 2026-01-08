@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { Prisma, OrderStatus } from '@/generated/prisma/client'
+import { Prisma, OrderStatus, PaymentStatus, DeliveryMethod, DiscountType } from '@/generated/prisma/client'
+import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
+import { createOrderSchema } from './validation'
 
 // Interface for order line item input
 interface OrderLineItemInput {
@@ -15,18 +16,18 @@ interface OrderLineItemInput {
 
 // GET /api/orders - List all orders
 export async function GET(request: Request) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { searchParams } = new URL(request.url)
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '20')
+    const { page, limit, skip } = parsePagination(searchParams)
     const search = searchParams.get('search') || ''
     const status = searchParams.get('status')
     const customerId = searchParams.get('customerId')
     const branchId = searchParams.get('branchId')
     const startDate = searchParams.get('startDate')
     const endDate = searchParams.get('endDate')
-
-    const skip = (page - 1) * limit
 
     const where: Prisma.OrderWhereInput = {}
 
@@ -100,28 +101,23 @@ export async function GET(request: Request) {
       prisma.order.count({ where }),
     ])
 
-    return NextResponse.json({
-      data: orders,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
-    })
+    return apiPaginated(orders, { page, limit, total })
   } catch (error) {
     console.error('Error fetching orders:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch orders' },
-      { status: 500 }
-    )
+    return apiError('Failed to fetch orders', 500)
   }
 }
 
 // POST /api/orders - Create new order
 export async function POST(request: Request) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
+  const result = await validateBody(request, createOrderSchema)
+  if (!result.success) return apiError(result.error, 400)
+
   try {
-    const body = await request.json()
+    const body = result.data
 
     // Generate business ID if not provided
     if (!body.id) {
@@ -142,17 +138,15 @@ export async function POST(request: Request) {
     ])
 
     if (!customer) {
-      return NextResponse.json(
-        { error: 'Customer not found' },
-        { status: 400 }
-      )
+      return apiError('Customer not found', 400)
     }
 
     if (!branch) {
-      return NextResponse.json(
-        { error: 'Branch not found' },
-        { status: 400 }
-      )
+      return apiError('Branch not found', 400)
+    }
+
+    if (!body.salespersonId) {
+      return apiError('Salesperson ID is required', 400)
     }
 
     // Calculate totals from line items
@@ -171,13 +165,14 @@ export async function POST(request: Request) {
         subtotal += itemTotal
 
         return {
+          systemId: `OLI${String(Date.now()).slice(-8)}${Math.random().toString(36).slice(2, 6)}`,
           productId: product.systemId,
           productSku: product.id,
           productName: product.name,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
           discount: item.discount || 0,
-          discountType: item.discountType,
+          discountType: item.discountType as DiscountType | undefined,
           tax: item.tax || 0,
           total: itemTotal,
           note: item.note,
@@ -203,9 +198,9 @@ export async function POST(request: Request) {
         orderDate: body.orderDate ? new Date(body.orderDate) : new Date(),
         expectedDeliveryDate: body.expectedDeliveryDate ? new Date(body.expectedDeliveryDate) : null,
         shippingAddress: body.shippingAddress,
-        status: body.status || 'PENDING',
-        paymentStatus: body.paymentStatus || 'UNPAID',
-        deliveryMethod: body.deliveryMethod || 'SHIPPING',
+        status: (body.status || 'PENDING') as OrderStatus,
+        paymentStatus: (body.paymentStatus || 'UNPAID') as PaymentStatus,
+        deliveryMethod: (body.deliveryMethod || 'SHIPPING') as DeliveryMethod,
         subtotal,
         shippingFee,
         tax,
@@ -229,21 +224,15 @@ export async function POST(request: Request) {
       },
     })
 
-    return NextResponse.json(order, { status: 201 })
+    return apiSuccess(order, 201)
   } catch (error) {
     console.error('Error creating order:', error)
     
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-      return NextResponse.json(
-        { error: 'Order ID already exists' },
-        { status: 400 }
-      )
+      return apiError('Order ID already exists', 400)
     }
 
     const message = error instanceof Error ? error.message : 'Failed to create order'
-    return NextResponse.json(
-      { error: message },
-      { status: 500 }
-    )
+    return apiError(message, 500)
   }
 }

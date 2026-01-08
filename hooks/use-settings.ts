@@ -1,4 +1,11 @@
-import { useState, useEffect, useCallback } from 'react'
+/**
+ * Settings Hook - React Query version
+ * 
+ * Hook để lấy và cập nhật settings từ database
+ * Thay thế localStorage cho general-settings, security-settings, etc.
+ */
+
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 
 interface Setting {
   systemId: string
@@ -9,162 +16,233 @@ interface Setting {
   description?: string
 }
 
+// Query keys
+export const settingsKeys = {
+  all: ['settings'] as const,
+  group: (group: string) => [...settingsKeys.all, 'group', group] as const,
+  key: (key: string) => [...settingsKeys.all, 'key', key] as const,
+}
+
+// API functions
+async function fetchSettings(group?: string): Promise<{ data: Setting[] }> {
+  const url = group
+    ? `/api/settings?group=${encodeURIComponent(group)}`
+    : '/api/settings'
+
+  const res = await fetch(url)
+  if (!res.ok) throw new Error('Không thể tải cài đặt')
+  return res.json()
+}
+
+async function fetchSetting(key: string): Promise<Setting | null> {
+  const res = await fetch(`/api/settings?key=${encodeURIComponent(key)}`)
+  if (!res.ok) return null
+  const data = await res.json()
+  return data || null
+}
+
+async function updateSettingApi(data: { key: string; group: string; value: unknown }): Promise<Setting> {
+  const res = await fetch('/api/settings', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) throw new Error('Không thể lưu cài đặt')
+  return res.json()
+}
+
+async function bulkUpdateSettingsApi(settings: Array<{ key: string; group: string; value: unknown }>): Promise<void> {
+  const res = await fetch('/api/settings', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ settings }),
+  })
+  if (!res.ok) throw new Error('Không thể lưu cài đặt')
+}
+
 /**
  * Hook để lấy và cập nhật settings từ database
- * Thay thế localStorage cho general-settings, security-settings, etc.
  * 
  * @param group - Group settings (general, security, appearance, etc.)
+ * 
+ * @example
+ * ```tsx
+ * const { settings, isLoading, updateSetting } = useSettings('general')
+ * 
+ * // Get a setting value
+ * const companyName = settings['company_name'] as string
+ * 
+ * // Update a setting
+ * await updateSetting('company_name', 'New Company')
+ * ```
  */
 export function useSettings(group?: string) {
-  const [settings, setSettings] = useState<Record<string, unknown>>({})
-  const [rawSettings, setRawSettings] = useState<Setting[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const queryClient = useQueryClient()
 
-  // Load settings from database
-  const loadSettings = useCallback(async () => {
-    try {
-      const url = group
-        ? `/api/settings?group=${encodeURIComponent(group)}`
-        : '/api/settings'
+  // Query for fetching settings
+  const query = useQuery({
+    queryKey: group ? settingsKeys.group(group) : settingsKeys.all,
+    queryFn: () => fetchSettings(group),
+    staleTime: 5 * 60 * 1000, // 5 minutes - settings don't change often
+    gcTime: 30 * 60 * 1000, // 30 minutes
+    placeholderData: keepPreviousData,
+  })
 
-      const res = await fetch(url)
-      if (res.ok) {
-        const data = await res.json()
-        setRawSettings(data.data || [])
-        
-        // Convert to key-value map
-        const map = (data.data || []).reduce(
-          (acc: Record<string, unknown>, s: Setting) => {
-            acc[s.key] = s.value
-            return acc
-          },
-          {} as Record<string, unknown>
+  // Convert to key-value map
+  const settings = (query.data?.data || []).reduce(
+    (acc: Record<string, unknown>, s: Setting) => {
+      acc[s.key] = s.value
+      return acc
+    },
+    {} as Record<string, unknown>
+  )
+
+  // Mutation for updating single setting
+  const updateMutation = useMutation({
+    mutationFn: updateSettingApi,
+    onMutate: async (newData) => {
+      // Optimistic update
+      await queryClient.cancelQueries({ queryKey: settingsKeys.all })
+      
+      const previousData = queryClient.getQueryData(
+        group ? settingsKeys.group(group) : settingsKeys.all
+      )
+      
+      queryClient.setQueryData(
+        group ? settingsKeys.group(group) : settingsKeys.all,
+        (old: { data: Setting[] } | undefined) => {
+          if (!old) return old
+          const existingIndex = old.data.findIndex(s => s.key === newData.key)
+          if (existingIndex >= 0) {
+            const updated = [...old.data]
+            updated[existingIndex] = { ...updated[existingIndex], value: newData.value }
+            return { data: updated }
+          }
+          return {
+            data: [...old.data, { 
+              systemId: 'temp', 
+              key: newData.key, 
+              group: newData.group, 
+              value: newData.value,
+              valueType: typeof newData.value 
+            } as Setting]
+          }
+        }
+      )
+      
+      return { previousData }
+    },
+    onError: (_err, _newData, context) => {
+      // Rollback on error
+      if (context?.previousData) {
+        queryClient.setQueryData(
+          group ? settingsKeys.group(group) : settingsKeys.all,
+          context.previousData
         )
-        setSettings(map)
       }
-    } catch (error) {
-      console.error('Error loading settings:', error)
-    } finally {
-      setIsLoading(false)
-    }
-  }, [group])
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: settingsKeys.all })
+    },
+  })
 
-  useEffect(() => {
-    loadSettings()
-  }, [loadSettings])
+  // Mutation for bulk update
+  const bulkUpdateMutation = useMutation({
+    mutationFn: bulkUpdateSettingsApi,
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: settingsKeys.all })
+    },
+  })
 
   // Update single setting
-  const updateSetting = useCallback(
-    async (key: string, value: unknown, settingGroup?: string) => {
-      setSettings((prev) => ({ ...prev, [key]: value }))
-
-      try {
-        await fetch('/api/settings', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            key,
-            group: settingGroup || group || 'general',
-            value,
-          }),
-        })
-      } catch (error) {
-        console.error(`Error saving setting ${key}:`, error)
-      }
-    },
-    [group]
-  )
+  const updateSetting = async (key: string, value: unknown, settingGroup?: string) => {
+    return updateMutation.mutateAsync({
+      key,
+      group: settingGroup || group || 'general',
+      value,
+    })
+  }
 
   // Bulk update settings
-  const updateSettings = useCallback(
-    async (newSettings: Record<string, unknown>, settingGroup?: string) => {
-      setSettings((prev) => ({ ...prev, ...newSettings }))
-
-      try {
-        const settingsArray = Object.entries(newSettings).map(([key, value]) => ({
-          key,
-          group: settingGroup || group || 'general',
-          value,
-        }))
-
-        await fetch('/api/settings', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ settings: settingsArray }),
-        })
-      } catch (error) {
-        console.error('Error bulk saving settings:', error)
-      }
-    },
-    [group]
-  )
+  const updateSettings = async (newSettings: Record<string, unknown>, settingGroup?: string) => {
+    const settingsArray = Object.entries(newSettings).map(([key, value]) => ({
+      key,
+      group: settingGroup || group || 'general',
+      value,
+    }))
+    return bulkUpdateMutation.mutateAsync(settingsArray)
+  }
 
   // Get single setting value with default
-  const getSetting = useCallback(
-    <T>(key: string, defaultValue: T): T => {
-      return settings[key] !== undefined ? (settings[key] as T) : defaultValue
-    },
-    [settings]
-  )
+  const getSetting = <T>(key: string, defaultValue: T): T => {
+    return settings[key] !== undefined ? (settings[key] as T) : defaultValue
+  }
 
   return {
     settings,
-    rawSettings,
-    isLoading,
+    rawSettings: query.data?.data || [],
+    isLoading: query.isLoading,
+    isPending: query.isPending,
+    isError: query.isError,
+    error: query.error,
     updateSetting,
     updateSettings,
     getSetting,
-    refresh: loadSettings,
+    refresh: () => query.refetch(),
+    isUpdating: updateMutation.isPending || bulkUpdateMutation.isPending,
   }
 }
 
 /**
  * Hook để lấy một setting cụ thể
+ * 
+ * @example
+ * ```tsx
+ * const [companyName, setCompanyName, isLoading] = useSetting('company_name', 'Default')
+ * 
+ * // Update the setting
+ * await setCompanyName('New Company Name')
+ * ```
  */
 export function useSetting<T>(key: string, defaultValue: T) {
-  const [value, setValue] = useState<T>(defaultValue)
-  const [isLoading, setIsLoading] = useState(true)
+  const queryClient = useQueryClient()
 
-  useEffect(() => {
-    const loadSetting = async () => {
-      try {
-        const res = await fetch(`/api/settings?key=${encodeURIComponent(key)}`)
-        if (res.ok) {
-          const data = await res.json()
-          if (data && data.value !== undefined) {
-            setValue(data.value as T)
-          }
-        }
-      } catch (error) {
-        console.error(`Error loading setting ${key}:`, error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
+  const query = useQuery({
+    queryKey: settingsKeys.key(key),
+    queryFn: () => fetchSetting(key),
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+  })
 
-    loadSetting()
-  }, [key])
-
-  const updateValue = useCallback(
-    async (newValue: T, group: string = 'general') => {
-      setValue(newValue)
-
-      try {
-        await fetch('/api/settings', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            key,
-            group,
-            value: newValue,
-          }),
-        })
-      } catch (error) {
-        console.error(`Error saving setting ${key}:`, error)
+  const mutation = useMutation({
+    mutationFn: (newValue: T) => updateSettingApi({
+      key,
+      group: 'general',
+      value: newValue,
+    }),
+    onMutate: async (newValue) => {
+      await queryClient.cancelQueries({ queryKey: settingsKeys.key(key) })
+      const previousData = queryClient.getQueryData(settingsKeys.key(key))
+      queryClient.setQueryData(settingsKeys.key(key), (old: Setting | null) => 
+        old ? { ...old, value: newValue } : { systemId: 'temp', key, group: 'general', value: newValue, valueType: typeof newValue }
+      )
+      return { previousData }
+    },
+    onError: (_err, _newValue, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(settingsKeys.key(key), context.previousData)
       }
     },
-    [key]
-  )
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: settingsKeys.all })
+    },
+  })
 
-  return [value, updateValue, isLoading] as const
+  const value = query.data?.value !== undefined ? (query.data.value as T) : defaultValue
+
+  const updateValue = async (newValue: T, _group: string = 'general') => {
+    return mutation.mutateAsync(newValue)
+  }
+
+  return [value, updateValue, query.isLoading] as const
 }

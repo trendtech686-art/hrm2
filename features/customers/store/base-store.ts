@@ -2,6 +2,16 @@
  * Customers Store - Base Store Setup
  * Core store configuration using store factory
  * 
+ * @deprecated Use React Query hooks instead:
+ * - `useCustomers()` for list
+ * - `useCustomer(id)` for single
+ * - `useCustomerMutations()` for create/update/delete
+ * 
+ * Import from: `@/features/customers/hooks/use-customers`
+ * 
+ * This store will be removed in a future version.
+ * Current usage kept for backward compatibility only.
+ * 
  * @module features/customers/store/base-store
  */
 
