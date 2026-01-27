@@ -7,16 +7,12 @@
 
 /**
  * Get the API base URL from environment variables
- * Falls back to localhost:3001 for development
+ * Falls back to /api for Next.js relative paths
  */
 export function getApiBaseUrl(): string {
-  // Use relative path to leverage Vite proxy in development
-  // This avoids CORS issues when frontend (5173) talks to backend (3001)
-  const meta = import.meta as ImportMeta & { env?: { DEV?: boolean; VITE_API_BASE_URL?: string } };
-  if (meta.env?.DEV) {
-    return '/api';
-  }
-  return meta.env?.VITE_API_BASE_URL || 'http://localhost:3001/api';
+  // For Next.js, use relative path /api which works both client and server side
+  // This handles API routes at /api/* automatically
+  return '/api';
 }
 
 /**

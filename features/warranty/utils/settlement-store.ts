@@ -1,5 +1,5 @@
 import type { SettlementMethod, SettlementStatus, SettlementType, WarrantySettlement, WarrantyTicket } from '../types';
-import { useWarrantyStore } from '../store';
+import { updateWarranty } from '../api/warranties-api';
 
 export interface SettlementMethodInput extends Partial<SettlementMethod> {
   type: SettlementMethod['type'];
@@ -69,7 +69,6 @@ export function recordWarrantySettlementMethods({
   }
 
   const normalizedMethods = methods.map(normalizeMethod);
-  const store = useWarrantyStore.getState();
   const existingSettlement = ticket.settlement;
   const existingMethods = existingSettlement?.methods ?? [];
   const mergedMethods = mergeMethods(existingMethods, normalizedMethods);
@@ -107,5 +106,6 @@ export function recordWarrantySettlementMethods({
     updatedAt: now,
   };
 
-  store.update(ticket.systemId, { settlement });
+  // Call API directly since this is not in a React component
+  updateWarranty(ticket.systemId, { settlement });
 }

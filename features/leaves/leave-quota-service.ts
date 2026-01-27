@@ -1,7 +1,7 @@
 import type { LeaveRequest } from '@/lib/types/prisma-extended';
 import type { LeaveType } from '../settings/employees/types';
 import { useEmployeeStore } from '../employees/store';
-import { useEmployeeSettingsStore } from '../settings/employees/employee-settings-store';
+import { getEmployeeSettingsSync } from '../settings/employees/employee-settings-service';
 import { getCurrentDate } from '../../lib/date-utils';
 
 const clampNonNegative = (value: number) => (Number.isFinite(value) && value > 0 ? value : 0);
@@ -24,7 +24,7 @@ const isAnnualLeaveType = (leaveType?: LeaveType | null) => {
 };
 
 const resolveLeaveTypeMetadata = (leave: LeaveRequest): LeaveTypeMetadata => {
-  const settings = useEmployeeSettingsStore.getState().settings;
+  const settings = getEmployeeSettingsSync();
   const matchedType = settings.leaveTypes.find((type) => {
     if (leave.leaveTypeSystemId && type.systemId === leave.leaveTypeSystemId) return true;
     if (leave.leaveTypeId && type.id === leave.leaveTypeId) return true;
@@ -61,7 +61,7 @@ const getServiceYears = (hireDate?: string) => {
 };
 
 const computeAnnualQuota = (employeeHireDate?: string) => {
-  const { baseAnnualLeaveDays, annualLeaveSeniorityBonus } = useEmployeeSettingsStore.getState().settings;
+  const { baseAnnualLeaveDays, annualLeaveSeniorityBonus } = getEmployeeSettingsSync();
   const base = baseAnnualLeaveDays ?? 0;
   if (!annualLeaveSeniorityBonus) {
     return clampNonNegative(base);

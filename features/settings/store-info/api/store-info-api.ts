@@ -3,7 +3,7 @@
  * Handles all store information settings API calls
  */
 
-import type { StoreGeneralInfo, StoreGeneralInfoInput } from '../store-info-store';
+import type { StoreGeneralInfo, StoreGeneralInfoInput } from '../types';
 
 const BASE_URL = '/api/settings/store-info';
 

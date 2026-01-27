@@ -6,7 +6,7 @@
 import * as React from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import { usePaymentStore } from './store';
+import { usePayments, usePaymentMutations } from './hooks/use-payments';
 import { useAllReceipts } from '@/features/receipts/hooks/use-all-receipts';
 import { useAllCashAccounts } from '@/features/cashbook/hooks/use-all-cash-accounts';
 import { useAllBranches } from '@/features/settings/branches/hooks/use-all-branches';
@@ -48,7 +48,12 @@ const PaymentExportDialog = dynamic(() => import('./components/payment-import-ex
 export function PaymentsPage() {
   const router = useRouter();
   const isMobile = useMediaQuery('(max-width: 768px)');
-  const { data: payments, cancel } = usePaymentStore();
+  const { data: paymentsResponse, isLoading: _isLoading } = usePayments({ limit: 1000 });
+  const payments = React.useMemo(() => paymentsResponse?.data ?? [], [paymentsResponse?.data]);
+  const { cancel: cancelMutation } = usePaymentMutations({
+    onCancelSuccess: () => toast.success('Đã hủy phiếu chi'),
+    onError: (error) => toast.error(`Lỗi: ${error.message}`),
+  });
   const { data: receipts } = useAllReceipts();
   const { accounts } = useAllCashAccounts();
   const { data: branches } = useAllBranches();
@@ -95,8 +100,8 @@ export function PaymentsPage() {
   const handleCancel = React.useCallback((id: SystemId) => { setIdToDelete(id); setIsAlertOpen(true); }, []);
   const handleRowClick = React.useCallback((p: Payment) => router.push(generatePath(ROUTES.FINANCE.PAYMENT_VIEW, { systemId: p.systemId })), [router]);
   const handleSinglePrint = React.useCallback((p: Payment) => { const b = branches.find(x => x.systemId === p.branchSystemId); print('payment', { data: mapPaymentToPrintData(convertPaymentForPrint(p, {}), createStoreSettings(b || storeInfo)), lineItems: [] }); }, [branches, storeInfo, print]);
-  const confirmCancel = () => { if (idToDelete) { cancel(idToDelete); toast.success('Đã hủy phiếu chi'); } setIsAlertOpen(false); };
-  const confirmBulkCancel = () => { Object.keys(rowSelection).map(id => asSystemId(id)).forEach(id => cancel(id)); toast.success(`Đã hủy ${Object.keys(rowSelection).length} phiếu chi`); setRowSelection({}); setIsBulkDeleteAlertOpen(false); };
+  const confirmCancel = () => { if (idToDelete) { cancelMutation.mutate({ systemId: idToDelete }); } setIsAlertOpen(false); };
+  const confirmBulkCancel = () => { Object.keys(rowSelection).map(id => asSystemId(id)).forEach(id => cancelMutation.mutate({ systemId: id })); toast.success(`Đã hủy ${Object.keys(rowSelection).length} phiếu chi`); setRowSelection({}); setIsBulkDeleteAlertOpen(false); };
 
   // Columns
   const columns = React.useMemo(() => getColumns(accounts, handleCancel, router.push, handleSinglePrint, employees), [accounts, handleCancel, router, handleSinglePrint, employees]);
@@ -152,13 +157,32 @@ export function PaymentsPage() {
   const handlePrintConfirm = React.useCallback((opts: SimplePrintOptionsResult) => { if (!itemsToPrint.length) return; const items = itemsToPrint.map(p => { const b = opts.branchSystemId ? branches.find(x => x.systemId === opts.branchSystemId) : branches.find(x => x.systemId === p.branchSystemId); return { data: mapPaymentToPrintData(convertPaymentForPrint(p, {}), createStoreSettings(b || storeInfo)), lineItems: [], paperSize: opts.paperSize }; }); printMultiple('payment', items); toast.success(`Đang in ${itemsToPrint.length} phiếu chi`); setItemsToPrint([]); setPrintDialogOpen(false); }, [itemsToPrint, branches, storeInfo, printMultiple]);
   const bulkActions: BulkAction<Payment>[] = React.useMemo(() => [{ label: 'In phiếu', icon: Printer, onSelect: handleBulkPrint }], [handleBulkPrint]);
 
+  // Get mutations for import
+  const { create: createMutation, update: updateMutation } = usePaymentMutations();
+
   // Import handler
   const handleImport = React.useCallback(async (imported: Partial<Payment>[], mode: 'insert-only' | 'update-only' | 'upsert') => {
-    let added = 0, updated = 0, skipped = 0; const errors: Array<{ row: number; message: string }> = []; const store = usePaymentStore.getState();
-    imported.forEach((p, i) => { try { const ex = payments.find(x => x.id.toLowerCase() === (p.id || '').toLowerCase()); if (ex) { if (mode === 'update-only' || mode === 'upsert') { store.update(asSystemId(ex.systemId), { ...ex, ...p, systemId: ex.systemId } as Payment); updated++; } else skipped++; } else { if (mode === 'insert-only' || mode === 'upsert') { store.add(p as Payment); added++; } else skipped++; } } catch (e) { errors.push({ row: i + 1, message: (e as Error).message }); } });
+    let added = 0, updated = 0, skipped = 0; const errors: Array<{ row: number; message: string }> = [];
+    for (let i = 0; i < imported.length; i++) {
+      const p = imported[i];
+      try {
+        const ex = payments.find(x => x.id.toLowerCase() === (p.id || '').toLowerCase());
+        if (ex) {
+          if (mode === 'update-only' || mode === 'upsert') {
+            await updateMutation.mutateAsync({ systemId: ex.systemId, data: { ...ex, ...p, systemId: ex.systemId } as Payment });
+            updated++;
+          } else skipped++;
+        } else {
+          if (mode === 'insert-only' || mode === 'upsert') {
+            await createMutation.mutateAsync(p as Omit<Payment, 'systemId' | 'id' | 'createdAt' | 'updatedAt'>);
+            added++;
+          } else skipped++;
+        }
+      } catch (e) { errors.push({ row: i + 1, message: (e as Error).message }); }
+    }
     if (added > 0 || updated > 0) toast.success(`Đã import: ${added > 0 ? `${added} phiếu chi mới` : ''}${updated > 0 ? `, ${updated} phiếu cập nhật` : ''}`);
     return { success: added + updated, failed: errors.length, inserted: added, updated, skipped, errors };
-  }, [payments]);
+  }, [payments, createMutation, updateMutation]);
 
   // Mobile scroll
   React.useEffect(() => { if (!isMobile) return; const h = () => { if ((window.pageYOffset + window.innerHeight) / document.documentElement.scrollHeight > 0.8 && mobileLoadedCount < sortedData.length) setMobileLoadedCount(p => Math.min(p + 20, sortedData.length)); }; window.addEventListener('scroll', h); return () => window.removeEventListener('scroll', h); }, [isMobile, mobileLoadedCount, sortedData.length]);
@@ -170,7 +194,7 @@ export function PaymentsPage() {
   return (
     <div className="space-y-4 h-full flex flex-col">
       {!isMobile && <PageToolbar leftActions={<><Button variant="outline" size="sm" onClick={() => setShowImportDialog(true)}><FileSpreadsheet className="mr-2 h-4 w-4" />Nhập file</Button><Button variant="outline" size="sm" onClick={() => setShowExportDialog(true)}><Download className="mr-2 h-4 w-4" />Xuất Excel</Button></>} rightActions={[<DataTableColumnCustomizer key="c" columns={columns} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} />]} />}
-      <PageFilters searchValue={globalFilter} onSearchChange={setGlobalFilter} searchPlaceholder="Tìm theo mã phiếu, người nhận, chứng từ..." leftFilters={<DataTableDateFilter value={dateRange} onChange={setDateRange} />} rightFilters={<><Select value={branchFilter} onValueChange={v => setBranchFilter(v === 'all' ? 'all' : asSystemId(v))}><SelectTrigger className="h-9 w-[150px]"><SelectValue placeholder="Chi nhánh" /></SelectTrigger><SelectContent><SelectItem value="all">Tất cả chi nhánh</SelectItem>{branches.map(b => <SelectItem key={b.systemId} value={b.systemId}>{b.name}</SelectItem>)}</SelectContent></Select><DataTableFacetedFilter title="Trạng thái" options={statusOptions} selectedValues={statusFilter} onSelectedValuesChange={setStatusFilter} /><DataTableFacetedFilter title="Loại phiếu" options={typeOptions} selectedValues={typeFilter} onSelectedValuesChange={setTypeFilter} /><DataTableFacetedFilter title="Khách hàng" options={customerOptions} selectedValues={customerFilter} onSelectedValuesChange={setCustomerFilter} /></>} />
+      <PageFilters searchValue={globalFilter} onSearchChange={setGlobalFilter} searchPlaceholder="Tìm theo mã phiếu, người nhận, chứng từ..." leftFilters={<DataTableDateFilter value={dateRange} onChange={setDateRange} />} rightFilters={<><Select value={branchFilter} onValueChange={v => setBranchFilter(v === 'all' ? 'all' : asSystemId(v))}><SelectTrigger className="h-9 w-37.5"><SelectValue placeholder="Chi nhánh" /></SelectTrigger><SelectContent><SelectItem value="all">Tất cả chi nhánh</SelectItem>{branches.map(b => <SelectItem key={b.systemId} value={b.systemId}>{b.name}</SelectItem>)}</SelectContent></Select><DataTableFacetedFilter title="Trạng thái" options={statusOptions} selectedValues={statusFilter} onSelectedValuesChange={setStatusFilter} /><DataTableFacetedFilter title="Loại phiếu" options={typeOptions} selectedValues={typeFilter} onSelectedValuesChange={setTypeFilter} /><DataTableFacetedFilter title="Khách hàng" options={customerOptions} selectedValues={customerFilter} onSelectedValuesChange={setCustomerFilter} /></>} />
       {isMobile ? <div className="space-y-2 flex-1 overflow-y-auto">{sortedData.length === 0 ? <Card><CardContent className="p-8 text-center text-muted-foreground">Không tìm thấy phiếu chi nào</CardContent></Card> : <>{sortedData.slice(0, mobileLoadedCount).map(p => <MobilePaymentCard key={p.systemId} payment={p} onCancel={handleCancel} navigate={path => router.push(path)} handleRowClick={handleRowClick} />)}{mobileLoadedCount < sortedData.length && <Card><CardContent className="p-4 text-center text-muted-foreground"><div className="flex items-center justify-center gap-2"><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary" /><span>Đang tải thêm...</span></div></CardContent></Card>}</>}</div> : <div className="w-full py-4"><ResponsiveDataTable columns={columns} data={paginatedData} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowCount={dataWithBalance.length} rowSelection={rowSelection} setRowSelection={setRowSelection} onBulkDelete={() => setIsBulkDeleteAlertOpen(true)} sorting={sorting} setSorting={setSorting as React.Dispatch<React.SetStateAction<{ id: string; desc: boolean }>>} allSelectedRows={allSelectedRows} bulkActions={bulkActions} expanded={{}} setExpanded={() => {}} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} onRowClick={handleRowClick} renderMobileCard={p => <MobilePaymentCard payment={p} onCancel={handleCancel} navigate={path => router.push(path)} handleRowClick={handleRowClick} />} /></div>}
       <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Hủy phiếu chi?</AlertDialogTitle><AlertDialogDescription>Phiếu chi sẽ được chuyển sang trạng thái "Đã hủy".</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel className="h-9">Đóng</AlertDialogCancel><AlertDialogAction className="h-9" onClick={confirmCancel}>Hủy phiếu</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
       <AlertDialog open={isBulkDeleteAlertOpen} onOpenChange={setIsBulkDeleteAlertOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Hủy {Object.keys(rowSelection).length} phiếu chi?</AlertDialogTitle><AlertDialogDescription>Các phiếu chi sẽ được chuyển sang trạng thái "Đã hủy".</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel className="h-9">Đóng</AlertDialogCancel><AlertDialogAction className="h-9" onClick={confirmBulkCancel}>Hủy tất cả</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>

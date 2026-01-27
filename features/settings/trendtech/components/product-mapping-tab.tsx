@@ -7,11 +7,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Search, Unlink, RefreshCw, Loader2, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import { useProductStore } from '../../../products/store';
-import { useTrendtechSettingsStore } from '../store';
+import { useTrendtechSettings, useTrendtechLogMutations } from '../hooks/use-trendtech-settings';
 
 export function ProductMappingTab() {
   const productStore = useProductStore();
-  const { settings, addLog } = useTrendtechSettingsStore();
+  const { data: settings } = useTrendtechSettings();
+  const { addLog } = useTrendtechLogMutations();
   
   const [searchTerm, setSearchTerm] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
@@ -42,7 +43,7 @@ export function ProductMappingTab() {
   );
 
   const handleRefresh = async () => {
-    if (!settings.enabled) {
+    if (!settings?.enabled) {
       toast.error('Vui lòng bật tích hợp Trendtech trước');
       return;
     }
@@ -53,7 +54,7 @@ export function ProductMappingTab() {
     // TODO: Fetch products from Trendtech when API is ready
     await new Promise(resolve => setTimeout(resolve, 1000));
     
-    addLog({
+    addLog.mutate({
       action: 'get_products',
       status: 'info',
       message: 'Lấy danh sách sản phẩm (API chưa sẵn sàng)',
@@ -88,7 +89,7 @@ export function ProductMappingTab() {
             </div>
             
             <div className="ml-auto">
-              <Button onClick={handleRefresh} disabled={isLoading || !settings.enabled}>
+              <Button onClick={handleRefresh} disabled={isLoading || !settings?.enabled}>
                 {isLoading ? (
                   <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Đang tải...</>
                 ) : (

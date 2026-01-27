@@ -12,6 +12,7 @@ import {
   createPurchaseReturn,
   updatePurchaseReturn,
   deletePurchaseReturn,
+  processPurchaseReturn,
   fetchPurchaseReturnStats,
   type PurchaseReturnsParams,
 } from '../api/purchase-returns-api';
@@ -45,10 +46,10 @@ export function usePurchaseReturn(id: string | null | undefined) {
   });
 }
 
-export function usePurchaseReturnStats() {
+export function usePurchaseReturnStats(params?: { startDate?: string; endDate?: string; supplierId?: string }) {
   return useQuery({
-    queryKey: purchaseReturnKeys.stats(),
-    queryFn: fetchPurchaseReturnStats,
+    queryKey: [...purchaseReturnKeys.stats(), params],
+    queryFn: () => fetchPurchaseReturnStats(params),
     staleTime: 60_000,
   });
 }
@@ -57,6 +58,7 @@ interface UsePurchaseReturnMutationsOptions {
   onCreateSuccess?: (purchaseReturn: PurchaseReturn) => void;
   onUpdateSuccess?: (purchaseReturn: PurchaseReturn) => void;
   onDeleteSuccess?: () => void;
+  onProcessSuccess?: (purchaseReturn: PurchaseReturn) => void;
   onError?: (error: Error) => void;
 }
 
@@ -66,8 +68,15 @@ export function usePurchaseReturnMutations(options: UsePurchaseReturnMutationsOp
   const create = useMutation({
     mutationFn: createPurchaseReturn,
     onSuccess: (data) => {
+      // Invalidate purchase returns list and stats
       queryClient.invalidateQueries({ queryKey: purchaseReturnKeys.lists() });
       queryClient.invalidateQueries({ queryKey: purchaseReturnKeys.stats() });
+      
+      // Invalidate related queries
+      queryClient.invalidateQueries({ queryKey: ['purchase-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      queryClient.invalidateQueries({ queryKey: ['suppliers'] });
+      
       options.onCreateSuccess?.(data);
     },
     onError: options.onError,
@@ -77,10 +86,29 @@ export function usePurchaseReturnMutations(options: UsePurchaseReturnMutationsOp
     mutationFn: ({ systemId, data }: { systemId: string; data: Partial<PurchaseReturn> }) => 
       updatePurchaseReturn(asSystemId(systemId), data),
     onSuccess: (data, variables) => {
+      // Invalidate specific return and lists
       queryClient.invalidateQueries({ queryKey: purchaseReturnKeys.detail(variables.systemId) });
       queryClient.invalidateQueries({ queryKey: purchaseReturnKeys.lists() });
       queryClient.invalidateQueries({ queryKey: purchaseReturnKeys.stats() });
+      
+      // Invalidate inventory and suppliers if status changed
+      queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      queryClient.invalidateQueries({ queryKey: ['suppliers'] });
+      
       options.onUpdateSuccess?.(data);
+    },
+    onError: options.onError,
+  });
+  
+  const process = useMutation({
+    mutationFn: (systemId: string) => processPurchaseReturn(asSystemId(systemId)),
+    onSuccess: (data, systemId) => {
+      // Invalidate queries after processing
+      queryClient.invalidateQueries({ queryKey: purchaseReturnKeys.detail(systemId) });
+      queryClient.invalidateQueries({ queryKey: purchaseReturnKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: purchaseReturnKeys.stats() });
+      
+      options.onProcessSuccess?.(data);
     },
     onError: options.onError,
   });
@@ -88,13 +116,19 @@ export function usePurchaseReturnMutations(options: UsePurchaseReturnMutationsOp
   const remove = useMutation({
     mutationFn: (systemId: string) => deletePurchaseReturn(asSystemId(systemId)),
     onSuccess: () => {
+      // Invalidate all purchase return queries
       queryClient.invalidateQueries({ queryKey: purchaseReturnKeys.all });
+      
+      // Invalidate related queries
+      queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      queryClient.invalidateQueries({ queryKey: ['suppliers'] });
+      
       options.onDeleteSuccess?.();
     },
     onError: options.onError,
   });
   
-  return { create, update, remove };
+  return { create, update, process, remove };
 }
 
 export function usePurchaseReturnsBySupplier(supplierId: string | null | undefined) {
@@ -110,3 +144,4 @@ export function usePurchaseReturnsByPO(purchaseOrderId: string | null | undefine
     limit: 20,
   });
 }
+

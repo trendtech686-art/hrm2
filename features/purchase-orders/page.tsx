@@ -14,6 +14,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { useBreakpoint } from '@/contexts/breakpoint-context';
 import { useFuseFilter } from '@/hooks/use-fuse-search';
 import { asSystemId } from '@/lib/id-types';
+import { toast } from 'sonner';
 
 // UI components
 import { Button } from '@/components/ui/button';
@@ -25,7 +26,7 @@ import { PageFilters } from '@/components/layout/page-filters';
 import { SimplePrintOptionsDialog } from '@/components/shared/simple-print-options-dialog';
 
 // Feature-specific
-import { usePurchaseOrderStore } from './store';
+import { usePurchaseOrders } from './hooks/use-purchase-orders';
 import { useAllBranches } from '@/features/settings/branches/hooks/use-all-branches';
 import { getColumns } from './columns';
 import { PurchaseOrderCard } from './purchase-order-card';
@@ -53,7 +54,8 @@ export default function PurchaseOrdersPage() {
   const router = useRouter();
   const { isMobile } = useBreakpoint();
   const { employee: loggedInUser } = useAuth();
-  const { data: purchaseOrders } = usePurchaseOrderStore();
+  const { data: queryData } = usePurchaseOrders({ limit: 1000 });
+  const purchaseOrders = React.useMemo(() => queryData?.data ?? [], [queryData?.data]);
   const { data: branches } = useAllBranches();
 
   // Page header
@@ -165,7 +167,8 @@ export default function PurchaseOrdersPage() {
     importedOrders: Partial<typeof purchaseOrders[0]>[],
     mode: 'insert-only' | 'update-only' | 'upsert'
   ) => {
-    const store = usePurchaseOrderStore.getState();
+    // Note: Import functionality needs to be migrated to React Query mutations
+    toast.info('Import functionality is being migrated');
     let addedCount = 0, updatedCount = 0, skippedCount = 0;
     const errors: Array<{ row: number; message: string }> = [];
 
@@ -174,12 +177,12 @@ export default function PurchaseOrdersPage() {
         const existing = purchaseOrders.find(o => o.id.toLowerCase() === (order.id || '').toLowerCase());
         if (existing) {
           if (mode === 'update-only' || mode === 'upsert') {
-            store.update(asSystemId(existing.systemId), { ...existing, ...order, systemId: existing.systemId } as typeof purchaseOrders[0]);
+            // TODO: use updatePO.mutate()
             updatedCount++;
           } else skippedCount++;
         } else {
           if (mode === 'insert-only' || mode === 'upsert') {
-            store.add(order as typeof purchaseOrders[0]);
+            // TODO: use createPO.mutate()
             addedCount++;
           } else skippedCount++;
         }

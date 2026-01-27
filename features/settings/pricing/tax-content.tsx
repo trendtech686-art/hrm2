@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { asBusinessId, type SystemId } from "@/lib/id-types";
-import { useTaxStore } from "../taxes/store";
+import { useTaxes, useTaxMutations } from "../taxes/hooks/use-taxes";
 import type { Tax } from "../taxes/types";
 import { TaxTable } from "./tax-table";
 import { Button } from "../../../components/ui/button";
@@ -32,8 +32,13 @@ type TaxFormValues = {
     description?: string;
 };
 
-export function TaxContent({ isActive, onRegisterActions }: TaxContentProps) {
-    const { data, add, update, remove, setDefaultSale, setDefaultPurchase } = useTaxStore();
+export function TaxContent({ isActive: _isActive, onRegisterActions }: TaxContentProps) {
+    const { data: queryData } = useTaxes({ limit: 1000 });
+    const data = React.useMemo(() => queryData?.data ?? [], [queryData?.data]);
+    const { create, update, remove, setDefaultSale, setDefaultPurchase } = useTaxMutations({
+        onSuccess: () => {},
+        onError: (err) => toast.error(err.message)
+    });
 
     const [isFormOpen, setIsFormOpen] = React.useState(false);
     const [editingTax, setEditingTax] = React.useState<Tax | null>(null);
@@ -51,20 +56,7 @@ export function TaxContent({ isActive, onRegisterActions }: TaxContentProps) {
         },
     });
 
-    // Register actions when tab is active
-    React.useEffect(() => {
-        if (isActive) {
-            onRegisterActions([
-                <SettingsActionButton key="add" onClick={() => handleAddNew()}>
-                    <PlusCircle className="h-4 w-4" />
-                    Thêm thuế
-                </SettingsActionButton>
-            ]);
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps -- handleAddNew is stable, defined after but only uses form.reset and setters
-    }, [isActive, onRegisterActions]);
-
-    const handleAddNew = () => {
+    const handleAddNew = React.useCallback(() => {
         setEditingTax(null);
         form.reset({
             id: '',
@@ -75,7 +67,17 @@ export function TaxContent({ isActive, onRegisterActions }: TaxContentProps) {
             description: '',
         });
         setIsFormOpen(true);
-    };
+    }, [form]);
+
+    // Register actions when component mounts or onRegisterActions changes
+    React.useEffect(() => {
+        onRegisterActions([
+            <SettingsActionButton key="add" onClick={handleAddNew}>
+                <PlusCircle className="h-4 w-4" />
+                Thêm thuế
+            </SettingsActionButton>
+        ]);
+    }, [onRegisterActions, handleAddNew]);
     
     const handleEdit = React.useCallback((tax: Tax) => {
         setEditingTax(tax);
@@ -98,8 +100,10 @@ export function TaxContent({ isActive, onRegisterActions }: TaxContentProps) {
     const confirmDelete = () => {
         if (idToDelete) {
             const tax = data.find(t => t.systemId === idToDelete);
-            remove(idToDelete);
-            toast.success(`Đã xóa thuế "${tax?.name}"`);
+            remove.mutate(idToDelete, {
+                onSuccess: () => toast.success(`Đã xóa thuế "${tax?.name}"`),
+                onError: (err) => toast.error(err.message)
+            });
         }
         setIsAlertOpen(false);
         setIsFormOpen(false);
@@ -107,44 +111,43 @@ export function TaxContent({ isActive, onRegisterActions }: TaxContentProps) {
     };
 
     const handleFormSubmit = (values: TaxFormValues) => {
+        const payload = {
+            id: asBusinessId(values.id.trim().toUpperCase()),
+            name: values.name.trim(),
+            rate: values.rate,
+            isDefaultSale: values.isDefaultSale,
+            isDefaultPurchase: values.isDefaultPurchase,
+            description: values.description?.trim() || undefined,
+        };
+        
         if (editingTax) {
-            update(editingTax.systemId, {
-                id: asBusinessId(values.id.trim().toUpperCase()),
-                name: values.name.trim(),
-                rate: values.rate,
-                isDefaultSale: values.isDefaultSale,
-                isDefaultPurchase: values.isDefaultPurchase,
-                description: values.description?.trim() || undefined,
+            update.mutate({ systemId: editingTax.systemId, data: payload }, {
+                onSuccess: () => toast.success(`Đã cập nhật thuế "${values.name}"`),
+                onError: (err) => toast.error(err.message)
             });
-            toast.success(`Đã cập nhật thuế "${values.name}"`);
         } else {
-            add({
-                id: asBusinessId(values.id.trim().toUpperCase()),
-                name: values.name.trim(),
-                rate: values.rate,
-                isDefaultSale: values.isDefaultSale,
-                isDefaultPurchase: values.isDefaultPurchase,
-                description: values.description?.trim() || undefined,
+            create.mutate(payload, {
+                onSuccess: () => toast.success(`Đã thêm thuế "${values.name}"`),
+                onError: (err) => toast.error(err.message)
             });
-            toast.success(`Đã thêm thuế "${values.name}"`);
         }
         setIsFormOpen(false);
     };
     
     const handleSetDefaultSale = React.useCallback((systemId: SystemId) => {
         const tax = data.find(t => t.systemId === systemId);
-        setDefaultSale(systemId);
-        if (tax) {
-            toast.success(`Đã đặt "${tax.name}" làm thuế mặc định bán hàng`);
-        }
+        setDefaultSale.mutate(systemId, {
+            onSuccess: () => tax && toast.success(`Đã đặt "${tax.name}" làm thuế mặc định bán hàng`),
+            onError: (err) => toast.error(err.message)
+        });
     }, [data, setDefaultSale]);
 
     const handleSetDefaultPurchase = React.useCallback((systemId: SystemId) => {
         const tax = data.find(t => t.systemId === systemId);
-        setDefaultPurchase(systemId);
-        if (tax) {
-            toast.success(`Đã đặt "${tax.name}" làm thuế mặc định nhập hàng`);
-        }
+        setDefaultPurchase.mutate(systemId, {
+            onSuccess: () => tax && toast.success(`Đã đặt "${tax.name}" làm thuế mặc định nhập hàng`),
+            onError: (err) => toast.error(err.message)
+        });
     }, [data, setDefaultPurchase]);
 
     return (

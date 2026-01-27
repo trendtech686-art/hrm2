@@ -1,6 +1,6 @@
 import * as React from "react";
 import { asBusinessId, type SystemId } from "@/lib/id-types";
-import { usePricingPolicyStore } from "./store";
+import { usePricingPolicies, usePricingPolicyMutations } from "./hooks/use-pricing";
 import type { PricingPolicy } from '@/lib/types/prisma-extended';
 import { PricingPolicyForm, type PricingPolicyFormValues } from "./form";
 import { PricingTable } from "./pricing-table";
@@ -17,8 +17,22 @@ interface PricingPolicyContentProps {
     onRegisterActions: (actions: React.ReactNode[]) => void;
 }
 
-export function PricingPolicyContent({ isActive, onRegisterActions }: PricingPolicyContentProps) {
-    const { data, add, update, remove, setDefault } = usePricingPolicyStore();
+export function PricingPolicyContent({ isActive: _isActive, onRegisterActions }: PricingPolicyContentProps) {
+    const { data: queryData, isLoading, error } = usePricingPolicies({ limit: 1000 });
+    const data = React.useMemo(() => queryData?.data ?? [], [queryData?.data]);
+    
+    console.log('PricingPolicyContent - Query State:', { 
+        isLoading, 
+        hasError: !!error, 
+        error,
+        dataLength: data.length,
+        queryData 
+    });
+    
+    const { create, update, remove, setDefault } = usePricingPolicyMutations({
+        onSuccess: () => {},
+        onError: (err) => toast.error(err.message)
+    });
 
     const [isFormOpen, setIsFormOpen] = React.useState(false);
     const [editingPolicy, setEditingPolicy] = React.useState<PricingPolicy | null>(null);
@@ -26,17 +40,15 @@ export function PricingPolicyContent({ isActive, onRegisterActions }: PricingPol
     const [idToDelete, setIdToDelete] = React.useState<SystemId | null>(null);
     const [innerTab, setInnerTab] = React.useState('all');
 
-    // Register actions when tab is active
+    // Register actions when tab is active or on mount
     React.useEffect(() => {
-        if (isActive) {
-            onRegisterActions([
-                <SettingsActionButton key="add" onClick={() => setIsFormOpen(true)}>
-                    <PlusCircle className="h-4 w-4" />
-                    Tạo chính sách giá
-                </SettingsActionButton>
-            ]);
-        }
-    }, [isActive, onRegisterActions]);
+        onRegisterActions([
+            <SettingsActionButton key="add" onClick={() => setIsFormOpen(true)}>
+                <PlusCircle className="h-4 w-4" />
+                Tạo chính sách giá
+            </SettingsActionButton>
+        ]);
+    }, [onRegisterActions]);
 
     const _handleAddNew = () => {
         setEditingPolicy(null);
@@ -56,8 +68,10 @@ export function PricingPolicyContent({ isActive, onRegisterActions }: PricingPol
     const confirmDelete = () => {
         if (idToDelete) {
             const policy = data.find(p => p.systemId === idToDelete);
-            remove(idToDelete);
-            toast.success(`Đã xóa chính sách giá "${policy?.name}"`);
+            remove.mutate(idToDelete, {
+                onSuccess: () => toast.success(`Đã xóa chính sách giá "${policy?.name}"`),
+                onError: (err) => toast.error(err.message)
+            });
         }
         setIsAlertOpen(false);
         setIsFormOpen(false);
@@ -72,32 +86,50 @@ export function PricingPolicyContent({ isActive, onRegisterActions }: PricingPol
             type: values.type,
             isActive: values.isActive,
             isDefault: values.isDefault,
-        } satisfies Omit<PricingPolicy, 'systemId'>;
+        };
+
+        console.log('handleFormSubmit - Creating/Updating:', normalized);
 
         if (editingPolicy) {
-            update(editingPolicy.systemId, {
-                ...editingPolicy,
-                ...normalized,
+            update.mutate({ systemId: editingPolicy.systemId, data: normalized }, {
+                onSuccess: (data) => {
+                    console.log('Update success:', data);
+                    toast.success(`Đã cập nhật chính sách giá "${normalized.name}"`);
+                    setIsFormOpen(false);
+                },
+                onError: (err) => {
+                    console.error('Update error:', err);
+                    toast.error(err.message);
+                }
             });
-            toast.success(`Đã cập nhật chính sách giá "${normalized.name}"`);
         } else {
-            add(normalized);
-            toast.success(`Đã thêm chính sách giá "${normalized.name}"`);
+            create.mutate(normalized, {
+                onSuccess: (data) => {
+                    console.log('Create success:', data);
+                    toast.success(`Đã thêm chính sách giá "${normalized.name}"`);
+                    setIsFormOpen(false);
+                },
+                onError: (err) => {
+                    console.error('Create error:', err);
+                    toast.error(err.message);
+                }
+            });
         }
-        setIsFormOpen(false);
     };
     
     const handleSetDefault = React.useCallback((systemId: SystemId) => {
         const policy = data.find(p => p.systemId === systemId);
-        setDefault(systemId);
-        if (policy) {
-            toast.success(`Đã đặt "${policy.name}" làm giá mặc định`);
-        }
+        setDefault.mutate(systemId, {
+            onSuccess: () => policy && toast.success(`Đã đặt "${policy.name}" làm giá mặc định`),
+            onError: (err) => toast.error(err.message)
+        });
     }, [data, setDefault]);
     
     const handleToggleActive = React.useCallback((policy: PricingPolicy, isActive: boolean) => {
-        update(policy.systemId, { ...policy, isActive });
-        toast.success(isActive ? `Đã kích hoạt "${policy.name}"` : `Đã tắt "${policy.name}"`);
+        update.mutate({ systemId: policy.systemId, data: { ...policy, isActive } }, {
+            onSuccess: () => toast.success(isActive ? `Đã kích hoạt "${policy.name}"` : `Đã tắt "${policy.name}"`),
+            onError: (err) => toast.error(err.message)
+        });
     }, [update]);
     
     const sellingPoliciesForTab = React.useMemo(() => data.filter(p => p.type === 'Bán hàng'), [data]);

@@ -119,7 +119,7 @@ export async function createEmployee(data: CreateEmployeeInput): Promise<Employe
  */
 export async function updateEmployee({ systemId, ...data }: UpdateEmployeeInput): Promise<Employee> {
   const res = await fetch(`${API_BASE}/${systemId}`, {
-    method: 'PATCH',
+    method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
     body: JSON.stringify(data),
@@ -137,13 +137,17 @@ export async function updateEmployee({ systemId, ...data }: UpdateEmployeeInput)
  * Delete employee (soft delete)
  */
 export async function deleteEmployee(id: string): Promise<void> {
+  console.log('[deleteEmployee] Calling DELETE', `${API_BASE}/${id}`);
   const res = await fetch(`${API_BASE}/${id}`, {
     method: 'DELETE',
     credentials: 'include',
   });
   
+  console.log('[deleteEmployee] Response:', res.status, res.ok);
+  
   if (!res.ok) {
     const error = await res.json().catch(() => ({}));
+    console.error('[deleteEmployee] Error:', error);
     throw new Error(error.message || `Failed to delete employee: ${res.statusText}`);
   }
 }
@@ -194,4 +198,55 @@ export async function fetchEmployeesByBranch(branchId: string): Promise<Employee
   
   const json = await res.json();
   return json.data || [];
+}
+/**
+ * Fetch deleted employees (trash)
+ */
+export async function fetchDeletedEmployees(): Promise<Employee[]> {
+  const res = await fetch(`${API_BASE}/deleted`, {
+    credentials: 'include',
+  });
+  
+  if (!res.ok) {
+    throw new Error(`Failed to fetch deleted employees: ${res.statusText}`);
+  }
+  
+  const json = await res.json();
+  // API returns array directly, not wrapped in { data: ... }
+  return Array.isArray(json) ? json : (json.data || []);
+}
+
+/**
+ * Restore deleted employee
+ */
+export async function restoreEmployee(systemId: string): Promise<Employee> {
+  const res = await fetch(`${API_BASE}/${systemId}/restore`, {
+    method: 'POST',
+    credentials: 'include',
+  });
+  
+  const json = await res.json().catch(() => ({}));
+  
+  if (!res.ok) {
+    throw new Error(json.message || `Failed to restore employee: ${res.statusText}`);
+  }
+  
+  // API returns employee directly, not wrapped in { data: ... }
+  return json.data || json;
+}
+
+/**
+ * Permanently delete employee
+ */
+export async function permanentDeleteEmployee(systemId: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/${systemId}/permanent`, {
+    method: 'DELETE',
+    credentials: 'include',
+  });
+  
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    // API returns { error: message }, not { message: ... }
+    throw new Error(errorData.error || errorData.message || `Failed to permanently delete employee: ${res.statusText}`);
+  }
 }

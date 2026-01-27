@@ -1,5 +1,18 @@
 /**
  * Purchase Returns API Route
+ * 
+ * POST /api/purchase-returns - Create return with inventory/supplier balance updates
+ * GET  /api/purchase-returns - List returns with advanced filtering
+ * 
+ * Business Logic:
+ * - Validates purchase order and items exist
+ * - Checks return quantities don't exceed received quantities  
+ * - Creates return with atomic transaction:
+ *   - Deducts inventory from warehouse
+ *   - Updates supplier balance (debit for return)
+ *   - Creates purchase return record
+ *   - Updates purchase order return status
+ * - Handles approval workflow (DRAFT → PENDING → APPROVED → COMPLETED)
  */
 
 import { NextRequest } from 'next/server';
@@ -8,18 +21,21 @@ import type { Prisma } from '@/generated/prisma/client';
 import { PurchaseReturnStatus } from '@/generated/prisma/client';
 import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils';
 import { createPurchaseReturnSchema } from './validation';
+import { generateIdWithPrefix } from '@/lib/id-generator';
+import { v4 as uuidv4 } from 'uuid';
 
 // Interface for purchase return item input
-interface PurchaseReturnItemInput {
-  systemId: string;
-  productId: string;
-  quantity?: number;
-  unitPrice?: number;
-  returnValue?: number;
-  reason?: string;
+interface _PurchaseReturnItemInput {
+  productSystemId: string;
+  productId?: string;
+  productName?: string;
+  orderedQuantity?: number;
+  returnQuantity: number;
+  unitPrice: number;
+  note?: string;
 }
 
-// GET - List purchase returns
+// GET - List purchase returns with advanced filtering
 export async function GET(request: NextRequest) {
   const session = await requireAuth();
   if (!session) return apiError('Unauthorized', 401);
@@ -28,6 +44,12 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const { page, limit, skip } = parsePagination(searchParams);
     const search = searchParams.get('search') || '';
+    const status = searchParams.get('status');
+    const supplierId = searchParams.get('supplierId');
+    const purchaseOrderId = searchParams.get('purchaseOrderId');
+    const branchId = searchParams.get('branchId');
+    const startDate = searchParams.get('startDate');
+    const endDate = searchParams.get('endDate');
 
     const where: Prisma.PurchaseReturnWhereInput = {};
     
@@ -35,7 +57,34 @@ export async function GET(request: NextRequest) {
       where.OR = [
         { id: { contains: search, mode: 'insensitive' } },
         { reason: { contains: search, mode: 'insensitive' } },
+        { supplierName: { contains: search, mode: 'insensitive' } },
       ];
+    }
+
+    if (status) {
+      where.status = status as PurchaseReturnStatus;
+    }
+
+    if (supplierId) {
+      where.supplierId = supplierId;
+    }
+
+    if (purchaseOrderId) {
+      where.purchaseOrderSystemId = purchaseOrderId;
+    }
+
+    if (branchId) {
+      where.branchSystemId = branchId;
+    }
+
+    if (startDate || endDate) {
+      where.returnDate = {};
+      if (startDate) {
+        where.returnDate.gte = new Date(startDate);
+      }
+      if (endDate) {
+        where.returnDate.lte = new Date(endDate);
+      }
     }
 
     const [data, total] = await Promise.all([
@@ -59,7 +108,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST - Create new purchase return
+// POST - Create new purchase return with inventory and supplier balance updates
 export async function POST(request: NextRequest) {
   const session = await requireAuth();
   if (!session) return apiError('Unauthorized', 401);
@@ -69,55 +118,250 @@ export async function POST(request: NextRequest) {
 
   try {
     const {
-      systemId,
-      id,
-      supplierId,
-      purchaseOrderId,
-      branchId,
-      employeeId,
-      returnDate,
-      status,
+      purchaseOrderSystemId,
       reason,
-      subtotal,
-      total,
       items,
-      createdBy,
+      refundAmount,
+      refundMethod,
+      accountSystemId,
+      branchSystemId,
     } = result.data;
 
-    const purchaseReturn = await prisma.purchaseReturn.create({
-      data: {
-        systemId,
-        id,
-        supplierId,
-        purchaseOrderId: purchaseOrderId || null,
-        branchId: branchId || null,
-        employeeId: employeeId || null,
-        returnDate: returnDate ? new Date(returnDate) : new Date(),
-        status: (status || 'DRAFT') as PurchaseReturnStatus,
-        reason: reason || null,
-        subtotal: subtotal || 0,
-        total: total || 0,
-        createdBy: createdBy || null,
-        items: items?.length ? {
-          create: items.map((item: PurchaseReturnItemInput) => ({
-            systemId: item.systemId,
-            productId: item.productId,
-            quantity: item.quantity || 1,
-            unitPrice: item.unitPrice || 0,
-            total: item.returnValue || 0,
-            reason: item.reason || null,
-          })),
-        } : undefined,
-      },
+    // Validate purchase order exists
+    const purchaseOrder = await prisma.purchaseOrder.findUnique({
+      where: { systemId: purchaseOrderSystemId },
       include: {
-        items: true,
-        suppliers: true,
+        supplier: true,
+        items: {
+          include: {
+            product: {
+              select: {
+                systemId: true,
+                id: true,
+                name: true,
+                unit: true,
+              },
+            },
+          },
+        },
       },
+    });
+
+    if (!purchaseOrder) {
+      return apiError('Purchase order not found', 404);
+    }
+
+    // Validate return items
+    if (!items || items.length === 0) {
+      return apiError('At least one return item is required', 400);
+    }
+
+    for (const item of items) {
+      if (item.returnQuantity <= 0) {
+        return apiError('Return quantity must be greater than 0', 400);
+      }
+
+      const poItem = purchaseOrder.items.find(
+        (poi) => poi.productId === item.productSystemId
+      );
+
+      if (!poItem) {
+        return apiError(
+          `Product ${item.productSystemId} not found in purchase order`,
+          400
+        );
+      }
+
+      // Check if return quantity exceeds ordered quantity
+      if (item.returnQuantity > poItem.quantity) {
+        return apiError(
+          `Return quantity (${item.returnQuantity}) exceeds ordered quantity (${poItem.quantity}) for product ${poItem.product.name}`,
+          400
+        );
+      }
+    }
+
+    // Calculate total return value
+    const totalReturnValue = items.reduce(
+      (sum, item) => sum + item.unitPrice * item.returnQuantity,
+      0
+    );
+
+    // Validate refund amount
+    const finalRefundAmount = refundAmount || 0;
+    if (finalRefundAmount > totalReturnValue) {
+      return apiError(
+        'Refund amount cannot exceed total return value',
+        400
+      );
+    }
+
+    // Create purchase return with atomic transaction
+    const purchaseReturn = await prisma.$transaction(async (tx) => {
+      // Generate IDs
+      const systemId = uuidv4();
+      const businessId = await generateIdWithPrefix('TH', tx); // TH = Trả Hàng NCC
+
+      // Get branch info if specified
+      let branchName: string | undefined = undefined;
+      if (branchSystemId) {
+        const branch = await tx.branch.findUnique({
+          where: { systemId: branchSystemId },
+          select: { name: true },
+        });
+        branchName = branch?.name ?? undefined;
+      }
+
+      // Create purchase return record
+      const newReturn = await tx.purchaseReturn.create({
+        data: {
+          systemId,
+          id: businessId,
+          supplierId: purchaseOrder.supplierId,
+          supplierSystemId: purchaseOrder.supplierId,
+          supplierName: purchaseOrder.supplier.name,
+          purchaseOrderId: purchaseOrder.id,
+          purchaseOrderSystemId: purchaseOrder.systemId,
+          purchaseOrderBusinessId: purchaseOrder.id,
+          branchId: branchSystemId || null,
+          branchSystemId: branchSystemId || null,
+          branchName: branchName,
+          returnDate: new Date(),
+          status: PurchaseReturnStatus.PENDING, // Start as PENDING for approval
+          reason: reason || null,
+          subtotal: totalReturnValue,
+          total: totalReturnValue,
+          totalReturnValue,
+          refundAmount: finalRefundAmount,
+          refundMethod: refundMethod || null,
+          accountSystemId: accountSystemId || null,
+          createdBy: session.user?.id || null,
+          creatorName: session.user?.name || null,
+          // Store items as JSON for flexible structure
+          returnItems: items.map((item) => ({
+            productSystemId: item.productSystemId,
+            productId: item.productId || item.productSystemId,
+            productName: item.productName || 'Unknown Product',
+            orderedQuantity: item.orderedQuantity || 0,
+            returnQuantity: item.returnQuantity,
+            unitPrice: item.unitPrice,
+            note: item.note || null,
+          })),
+          // Create individual item records for relational queries
+          items: {
+            create: items.map((item) => {
+              const _poItem = purchaseOrder.items.find(
+                (poi) => poi.productId === item.productSystemId
+              );
+              return {
+                systemId: uuidv4(),
+                productId: item.productSystemId,
+                quantity: item.returnQuantity,
+                unitPrice: item.unitPrice,
+                total: item.unitPrice * item.returnQuantity,
+                reason: item.note || reason || null,
+              };
+            }),
+          },
+        },
+        include: {
+          items: true,
+          suppliers: true,
+        },
+      });
+
+      // Update inventory - deduct returned quantities
+      for (const item of items) {
+        // Update product inventory for the branch
+        if (branchSystemId) {
+          await tx.productInventory.updateMany({
+            where: {
+              productId: item.productSystemId,
+              branchId: branchSystemId,
+            },
+            data: {
+              onHand: { decrement: item.returnQuantity },
+            },
+          });
+        }
+
+        // Update general inventory if exists
+        const inventory = await tx.inventory.findFirst({
+          where: { productId: item.productSystemId },
+        });
+
+        if (inventory) {
+          await tx.inventory.update({
+            where: { systemId: inventory.systemId },
+            data: {
+              quantity: { decrement: item.returnQuantity },
+            },
+          });
+        }
+      }
+
+      // Update supplier balance - debit for return (they owe us)
+      if (finalRefundAmount > 0) {
+        await tx.supplier.update({
+          where: { systemId: purchaseOrder.supplierId },
+          data: {
+            currentDebt: { decrement: finalRefundAmount }, // Reduce debt or increase credit
+            totalDebt: { decrement: finalRefundAmount },
+          },
+        });
+      }
+
+      // Update purchase order return status
+      // Calculate if this is partial or full return
+      const totalOrdered = purchaseOrder.items.reduce(
+        (sum, item) => sum + item.quantity,
+        0
+      );
+      const totalReturned = items.reduce(
+        (sum, item) => sum + item.returnQuantity,
+        0
+      );
+
+      let returnStatus = 'Hoàn hàng một phần';
+      if (totalReturned >= totalOrdered) {
+        returnStatus = 'Hoàn hàng toàn bộ';
+      }
+
+      await tx.purchaseOrder.update({
+        where: { systemId: purchaseOrder.systemId },
+        data: {
+          returnStatus: returnStatus as any,
+        },
+      });
+
+      // Create activity history entry
+      const activityEntry = {
+        timestamp: new Date().toISOString(),
+        action: 'CREATED',
+        field: 'status',
+        oldValue: null,
+        newValue: 'PENDING',
+        userId: session.user?.id || null,
+        userName: session.user?.name || 'System',
+        description: `Purchase return created for order ${purchaseOrder.id}`,
+      };
+
+      await tx.purchaseReturn.update({
+        where: { systemId },
+        data: {
+          activityHistory: [activityEntry],
+        },
+      });
+
+      return newReturn;
     });
 
     return apiSuccess(purchaseReturn, 201);
   } catch (error) {
     console.error('[Purchase Returns API] POST error:', error);
+    if (error instanceof Error) {
+      return apiError(error.message, 500);
+    }
     return apiError('Failed to create purchase return', 500);
   }
 }

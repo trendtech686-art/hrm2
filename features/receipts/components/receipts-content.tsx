@@ -8,12 +8,12 @@
 import * as React from "react";
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import { useReceiptStore } from "../store";
+import { useReceipts, useReceiptMutations } from '../hooks/use-receipts';
 import { useReceiptTypeStore } from "../../settings/receipt-types/store";
 import { useAllBranches } from "../../settings/branches/hooks/use-all-branches";
 import { useAllCustomers } from "../../customers/hooks/use-all-customers";
-import { useStoreInfoStore } from "../../settings/store-info/store-info-store";
-import { useCashbookStore } from "../../cashbook/store";
+import { useStoreInfoData } from "../../settings/store-info/hooks/use-store-info";
+import { useCashAccounts } from "../../cashbook/hooks/use-cashbook";
 import type { Receipt } from '@/lib/types/prisma-extended';
 import { ResponsiveDataTable, type BulkAction } from "@/components/data-table/responsive-data-table";
 import { Card, CardContent } from "@/components/ui/card";
@@ -45,7 +45,7 @@ import { SimplePrintOptionsDialog, type SimplePrintOptionsResult } from "@/compo
 import { useColumnVisibility } from '@/hooks/use-column-visibility';
 import {
   useReceiptFilters,
-  useReceiptActions,
+  useReceiptActions as _useReceiptActions,
   useReceiptImportExport,
 } from "../hooks/use-receipts-page-handlers";
 
@@ -61,16 +61,22 @@ const ReceiptExportDialog = dynamic(
 
 export function ReceiptsContent() {
   const router = useRouter();
-  const navigateTo = React.useCallback((path: string) => router.push(path), [router]);
-  const isMobile = useMediaQuery("(max-width: 768px)");
+  const { navigateTo } = useMediaQuery();
 
-  // Data from stores
-  const { data: receipts } = useReceiptStore();
-  const { accounts } = useCashbookStore();
+  // Data from stores - use React Query for receipts
+  const { data: receiptsData, isLoading: _isReceiptsLoading } = useReceipts({ limit: 1000 });
+  const receipts = React.useMemo(() => receiptsData?.items ?? [], [receiptsData?.items]);
+  const { cancel: cancelMutation, create: createMutation, update: updateMutation } = useReceiptMutations({
+    onCancelSuccess: () => toast.success("Đã hủy phiếu thu"),
+    onError: (error) => toast.error(error.message || "Thao tác thất bại"),
+  });
+  const { data: queryData } = useCashAccounts({ limit: 500 });
+  const accounts = React.useMemo(() => queryData?.data ?? [], [queryData?.data]);
   const { data: branches } = useAllBranches();
-  const { data: receiptTypes } = useReceiptTypeStore();
+  const receiptTypesData = useReceiptTypeStore(state => state.data);
+  const receiptTypes = React.useMemo(() => receiptTypesData ?? [], [receiptTypesData]);
   const { data: customers } = useAllCustomers();
-  const { info: storeInfo } = useStoreInfoStore();
+  const { info: storeInfo } = useStoreInfoData();
   const { print, printMultiple } = usePrint();
   const { employee } = useAuth();
 
@@ -158,17 +164,14 @@ export function ReceiptsContent() {
   // Confirm actions
   const confirmCancel = () => { 
     if (idToDelete) {
-      const { cancel } = useReceiptStore.getState();
-      cancel(asSystemId(idToDelete));
-      toast.success("Đã hủy phiếu thu");
+      cancelMutation.mutate({ systemId: idToDelete });
     }
     setIsAlertOpen(false); 
   };
 
   const confirmBulkCancel = () => {
     const idsToCancel = Object.keys(filters.rowSelection);
-    const { cancel } = useReceiptStore.getState();
-    idsToCancel.forEach(id => cancel(asSystemId(id)));
+    idsToCancel.forEach(id => cancelMutation.mutate({ systemId: id }));
     toast.success(`Đã hủy ${idsToCancel.length} phiếu thu`);
     filters.setRowSelection({});
     setIsBulkDeleteAlertOpen(false);
@@ -287,9 +290,7 @@ export function ReceiptsContent() {
     let skippedCount = 0;
     const errors: Array<{ row: number; message: string }> = [];
     
-    const storeState = useReceiptStore.getState();
-    
-    importedReceipts.forEach((receipt, index) => {
+    for (const [index, receipt] of importedReceipts.entries()) {
       try {
         const existing = receipts.find(r => 
           r.id.toLowerCase() === (receipt.id || '').toLowerCase()
@@ -297,14 +298,17 @@ export function ReceiptsContent() {
         
         if (existing) {
           if (mode === 'update-only' || mode === 'upsert') {
-            storeState.update(asSystemId(existing.systemId), { ...existing, ...receipt, systemId: existing.systemId } as Receipt);
+            await updateMutation.mutateAsync({ 
+              systemId: existing.systemId, 
+              data: { ...existing, ...receipt, systemId: existing.systemId } as Receipt 
+            });
             updatedCount++;
           } else {
             skippedCount++;
           }
         } else {
           if (mode === 'insert-only' || mode === 'upsert') {
-            storeState.add(receipt as Receipt);
+            await createMutation.mutateAsync(receipt as Receipt);
             addedCount++;
           } else {
             skippedCount++;
@@ -313,7 +317,7 @@ export function ReceiptsContent() {
       } catch (error) {
         errors.push({ row: index + 1, message: (error as Error).message });
       }
-    });
+    }
     
     if (addedCount > 0 || updatedCount > 0) {
       const messages: string[] = [];
@@ -330,7 +334,7 @@ export function ReceiptsContent() {
       skipped: skippedCount,
       errors,
     };
-  }, [receipts]);
+  }, [receipts, createMutation, updateMutation]);
 
   // Bulk print handlers
   const handleBulkPrint = React.useCallback((rows: Receipt[]) => {
@@ -389,7 +393,7 @@ export function ReceiptsContent() {
 
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [isMobile, filters.mobileLoadedCount, sortedData.length, filters]);
+  }, [filters.mobileLoadedCount, sortedData.length, filters]);
 
   // Reset mobile loaded count when filters change
   React.useEffect(() => {
@@ -447,7 +451,7 @@ export function ReceiptsContent() {
         rightFilters={
           <>
             <Select value={filters.branchFilter} onValueChange={filters.setBranchFilter}>
-              <SelectTrigger className="h-9 w-[150px]">
+              <SelectTrigger className="h-9 w-37.5">
                 <SelectValue placeholder="Chi nhánh" />
               </SelectTrigger>
               <SelectContent>

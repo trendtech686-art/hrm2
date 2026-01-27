@@ -4,6 +4,19 @@
  * 
  * ✅ KEEP IN ZUSTAND - This is pure UI state
  * Used by: `@/features/settings/appearance/hooks/use-appearance`
+ * 
+ * DO NOT MIGRATE TO REACT QUERY
+ * 
+ * Architecture:
+ * - Primary: Zustand store with localStorage persistence (instant updates)
+ * - Secondary: API sync via updateAppearance() method (server backup)
+ * - Hydration: Loads from server on app init via loadFromAPI()
+ * 
+ * Why Zustand (not React Query):
+ * - User preferences requiring instant visual feedback
+ * - Theme provider needs synchronous .getState() during mount
+ * - Dual persistence (localStorage + database) pattern
+ * - React Query would introduce latency for visual changes
  */
 import { create } from 'zustand'
 import { subscribeWithSelector } from 'zustand/middleware'

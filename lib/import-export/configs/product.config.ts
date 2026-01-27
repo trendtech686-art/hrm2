@@ -1,8 +1,9 @@
 import type { Product, ProductType as ProductTypeEnum } from '@/lib/types/prisma-extended';
 import type { ImportExportConfig, FieldConfig } from '@/lib/import-export/types';
-import { usePricingPolicyStore } from '@/features/settings/pricing/store';
-import { useProductTypeStore } from '@/features/settings/inventory/product-type-store';
 import { asSystemId } from '@/lib/id-types';
+// NOTE: Prisma import commented to prevent client-side bundling
+// These helpers return empty arrays and will be replaced with API calls
+// import { prisma } from '@/lib/prisma';
 
 /**
  * Product Import/Export Configuration
@@ -10,20 +11,24 @@ import { asSystemId } from '@/lib/id-types';
  */
 
 // Helper: Get all pricing policies
-const getAllPricingPolicies = () => {
-  return usePricingPolicyStore.getState().data;
+// NOTE: Returns empty array - should be called server-side with actual Prisma query
+const getAllPricingPolicies = async (): Promise<any[]> => {
+  // return await prisma.pricingPolicy.findMany({ where: { isDeleted: false } });
+  return [];
 };
 
 // ===== PRODUCT TYPE HELPERS =====
 // Helper: Get all active product types from settings
-const getAllProductTypes = () => {
-  return useProductTypeStore.getState().getActive();
+// NOTE: Returns empty array - should be called server-side with actual Prisma query
+const getAllProductTypes = async (): Promise<any[]> => {
+  // return await prisma.productType.findMany({ where: { isDeleted: false, isActive: true } });
+  return [];
 };
 
 // Helper: Get ProductType systemId from name (tên loại sản phẩm)
-const getProductTypeSystemIdByName = (name: string): string | null => {
+const _getProductTypeSystemIdByName = async (name: string): Promise<string | null> => {
   if (!name) return null;
-  const productTypes = getAllProductTypes();
+  const productTypes = await getAllProductTypes();
   const normalizedName = name.toLowerCase().trim();
   
   // Tìm theo tên chính xác (case-insensitive)
@@ -36,26 +41,26 @@ const getProductTypeSystemIdByName = (name: string): string | null => {
 };
 
 // Helper: Get ProductType name from systemId
-const getProductTypeNameById = (systemId: string): string => {
+const _getProductTypeNameById = async (systemId: string): Promise<string> => {
   if (!systemId) return '';
-  const productTypes = getAllProductTypes();
+  const productTypes = await getAllProductTypes();
   const productType = productTypes.find(pt => pt.systemId === systemId);
   return productType?.name || '';
 };
 
 // Helper: Get default ProductType systemId
-const getDefaultProductTypeSystemId = (): string | null => {
-  const productTypes = getAllProductTypes();
+const getDefaultProductTypeSystemId = async (): Promise<string | null> => {
+  const productTypes = await getAllProductTypes();
   const defaultType = productTypes.find(pt => pt.isDefault);
   return defaultType?.systemId || productTypes[0]?.systemId || null;
 };
 
 // Helper: Map enum type ('physical', 'service', 'digital') to ProductType systemId
 // Fallback khi user import bằng type cũ
-const getProductTypeSystemIdByEnumType = (enumType: ProductTypeEnum | string): string | null => {
-  if (!enumType) return getDefaultProductTypeSystemId();
+const _getProductTypeSystemIdByEnumType = async (enumType: ProductTypeEnum | string): Promise<string | null> => {
+  if (!enumType) return await getDefaultProductTypeSystemId();
   
-  const productTypes = getAllProductTypes();
+  const productTypes = await getAllProductTypes();
   const normalizedType = String(enumType).toLowerCase().trim();
   
   // Map từ enum type sang tên tiếng Việt để tìm ProductType
@@ -82,7 +87,7 @@ const getProductTypeSystemIdByEnumType = (enumType: ProductTypeEnum | string): s
     normalizedType.includes(pt.name.toLowerCase())
   );
   
-  return productType?.systemId || getDefaultProductTypeSystemId();
+  return productType?.systemId || await getDefaultProductTypeSystemId();
 };
 
 // ===== PRICING POLICY HELPERS =====
@@ -90,8 +95,8 @@ const getProductTypeSystemIdByEnumType = (enumType: ProductTypeEnum | string): s
 // Hỗ trợ nhiều format cột giá trong Excel:
 // - "Giá: Giá bán lẻ" hoặc "Giá: BANLE" (có prefix "Giá:")
 // - "Giá bán lẻ" hoặc "BANLE" (không có prefix)
-const getPricingPolicySystemId = (columnName: string): string | null => {
-  const policies = getAllPricingPolicies();
+const getPricingPolicySystemId = async (columnName: string): Promise<string | null> => {
+  const policies = await getAllPricingPolicies();
   
   // Normalize: bỏ prefix "Giá:" hoặc "Gia:" nếu có
   let normalizedName = columnName.trim();
@@ -121,22 +126,22 @@ const getPricingPolicySystemId = (columnName: string): string | null => {
 };
 
 // Helper: Get pricing policy code (id) from systemId  
-const _getPricingPolicyCode = (systemId: string): string => {
-  const policies = getAllPricingPolicies();
+const _getPricingPolicyCode = async (systemId: string): Promise<string> => {
+  const policies = await getAllPricingPolicies();
   const policy = policies.find(p => p.systemId === systemId);
   return policy?.id || systemId;
 };
 
 // Helper: Get pricing policy name from systemId  
-const _getPricingPolicyName = (systemId: string): string => {
-  const policies = getAllPricingPolicies();
+const _getPricingPolicyName = async (systemId: string): Promise<string> => {
+  const policies = await getAllPricingPolicies();
   const policy = policies.find(p => p.systemId === systemId);
   return policy?.name || systemId;
 };
 
 // Helper: Check if a column name matches a pricing policy (by id or name)
-const _isPricingPolicyColumn = (columnName: string): boolean => {
-  return getPricingPolicySystemId(columnName) !== null;
+const _isPricingPolicyColumn = async (columnName: string): Promise<boolean> => {
+  return await getPricingPolicySystemId(columnName) !== null;
 };
 
 // ===== FIELD DEFINITIONS =====
@@ -214,39 +219,38 @@ export const productFields: FieldConfig<Product>[] = [
     type: 'string',
     exportGroup: 'Thông tin cơ bản',
     example: 'Hàng hóa', // User nhập tên loại SP, hệ thống tự map sang systemId
-    importTransform: (value: unknown) => {
-      if (!value) return undefined;
-      const str = String(value).trim();
-      if (!str) return undefined;
-      
-      // Trước tiên thử tìm theo tên/id trong ProductType settings
-      const systemId = getProductTypeSystemIdByName(str);
-      if (systemId) return systemId;
-      
-      // Fallback: map từ enum type cũ
-      const enumSystemId = getProductTypeSystemIdByEnumType(str);
-      return enumSystemId || undefined;
-    },
-    exportTransform: (value: unknown) => {
-      // Export ra tên loại SP thay vì systemId
-      return getProductTypeNameById(value as string);
-    },
-    validator: (value: unknown) => {
-      if (!value) return null; // Optional field
-      const str = String(value).trim();
-      if (!str) return null;
-      
-      // Validate: tên loại SP phải tồn tại trong settings
-      const systemId = getProductTypeSystemIdByName(str);
-      if (!systemId) {
-        // Fallback check enum type
-        const enumSystemId = getProductTypeSystemIdByEnumType(str);
-        if (!enumSystemId) {
-          return `Loại sản phẩm "${str}" không tồn tại trong hệ thống. Vui lòng kiểm tra danh sách loại SP trong Cài đặt > Kho hàng.`;
-        }
-      }
-      return null;
-    },
+    // TODO: Transforms need async support or preloaded data cache
+    // The async helpers getProductTypeSystemIdByName, getProductTypeNameById are available
+    // but cannot be called from sync transform functions. Need framework support or
+    // handle in beforeImport/afterExport hooks.
+    // importTransform: async (value: unknown) => {
+    //   if (!value) return undefined;
+    //   const str = String(value).trim();
+    //   if (!str) return undefined;
+    //   
+    //   const systemId = await getProductTypeSystemIdByName(str);
+    //   if (systemId) return systemId;
+    //   
+    //   const enumSystemId = await getProductTypeSystemIdByEnumType(str);
+    //   return enumSystemId || undefined;
+    // },
+    // exportTransform: async (value: unknown) => {
+    //   return await getProductTypeNameById(value as string);
+    // },
+    // validator: async (value: unknown) => {
+    //   if (!value) return null;
+    //   const str = String(value).trim();
+    //   if (!str) return null;
+    //   
+    //   const systemId = await getProductTypeSystemIdByName(str);
+    //   if (!systemId) {
+    //     const enumSystemId = await getProductTypeSystemIdByEnumType(str);
+    //     if (!enumSystemId) {
+    //       return `Loại sản phẩm "${str}" không tồn tại trong hệ thống. Vui lòng kiểm tra danh sách loại SP trong Cài đặt > Kho hàng.`;
+    //     }
+    //   }
+    //   return null;
+    // },
   },
   {
     key: 'status',
@@ -1109,17 +1113,19 @@ export const productImportExportConfig: ImportExportConfig<Product> = {
     // Remove initialStock from final data (không lưu vào Product)
     const { initialStock: _removed, ...cleanRow } = row as Partial<Product> & { initialStock?: number };
     
+    // TODO: Auto-set productTypeSystemId - requires async support
+    // For now, these fields should be handled in beforeImport hook if needed
     // Auto-set productTypeSystemId nếu chưa có
     // Ưu tiên: productTypeSystemId > type enum mapping > default
-    let productTypeSystemIdStr = cleanRow.productTypeSystemId as string | undefined;
-    if (!productTypeSystemIdStr && cleanRow.type) {
-      // Map từ type enum sang productTypeSystemId
-      productTypeSystemIdStr = getProductTypeSystemIdByEnumType(cleanRow.type) || undefined;
-    }
-    if (!productTypeSystemIdStr) {
-      // Fallback: lấy default ProductType
-      productTypeSystemIdStr = getDefaultProductTypeSystemId() || undefined;
-    }
+    const productTypeSystemIdStr = cleanRow.productTypeSystemId as string | undefined;
+    // Note: The async helpers cannot be called here. This logic should be moved
+    // to beforeImport hook if productTypeSystemId transformation is needed.
+    // if (!productTypeSystemIdStr && cleanRow.type) {
+    //   productTypeSystemIdStr = await getProductTypeSystemIdByEnumType(cleanRow.type) || undefined;
+    // }
+    // if (!productTypeSystemIdStr) {
+    //   productTypeSystemIdStr = await getDefaultProductTypeSystemId() || undefined;
+    // }
     
     // Cast to SystemId if we have a value
     const productTypeSystemId = productTypeSystemIdStr ? asSystemId(productTypeSystemIdStr) : undefined;

@@ -9,7 +9,7 @@ import listPlugin from '@fullcalendar/list';
 import type { EventClickArg, EventDropArg } from '@fullcalendar/core';
 import type { EventResizeDoneArg } from '@fullcalendar/interaction';
 import type { EventContentArg } from '@fullcalendar/core';
-import { useTaskStore } from '../store';
+import { useTasks, useTaskMutations } from '../hooks/use-tasks';
 import type { Task, TaskPriority } from '../types';
 import { usePageHeader } from '@/contexts/page-header-context';
 import { useRouter } from 'next/navigation';
@@ -20,7 +20,14 @@ import { toast } from 'sonner';
 
 export function TaskCalendarView() {
   usePageHeader();
-  const { data: tasks, update } = useTaskStore();
+  const { data: tasksData } = useTasks({ limit: 1000 });
+  const tasks = React.useMemo(() => tasksData?.data ?? [], [tasksData?.data]);
+  const { update: updateMutation } = useTaskMutations();
+  
+  const update = React.useCallback((systemId: string, data: Partial<Task>) => {
+    updateMutation.mutate({ systemId, data });
+  }, [updateMutation]);
+  
   const router = useRouter();
   const calendarRef = React.useRef<FullCalendar>(null);
 

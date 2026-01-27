@@ -9,7 +9,7 @@
  */
 
 import { useMemo } from 'react';
-import { useCustomerStore } from '../store';
+import { useActiveCustomers } from './use-all-customers';
 import { 
   calculateRFMScores, 
   getCustomerSegment, 
@@ -49,7 +49,7 @@ export type CustomerIntelligence = {
  * Auto-recalculates when customer data or all customers change
  */
 export function useCustomerIntelligence(customer: Customer | null | undefined): CustomerIntelligence | null {
-  const allCustomers = useCustomerStore(state => state.getActive());
+  const { data: allCustomers } = useActiveCustomers();
   
   return useMemo(() => {
     if (!customer) return null;
@@ -90,7 +90,7 @@ export function useCustomerRFM(customer: Customer | null | undefined): {
   segmentLabel: string;
   segmentVariant: 'default' | 'secondary' | 'success' | 'warning' | 'destructive';
 } | null {
-  const allCustomers = useCustomerStore(state => state.getActive());
+  const { data: allCustomers } = useActiveCustomers();
   
   return useMemo(() => {
     if (!customer) return null;

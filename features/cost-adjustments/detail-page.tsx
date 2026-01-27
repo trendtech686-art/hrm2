@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { useCostAdjustmentStore } from './store';
+import { useCostAdjustmentById, useCostAdjustmentMutations } from './hooks/use-cost-adjustments';
 import { useProductFinder } from '../products/hooks/use-all-products';
 import { useProductTypeFinder } from '../settings/inventory/hooks/use-all-product-types';
 import { useEmployeeFinder } from '../employees/hooks/use-all-employees';
@@ -129,7 +129,15 @@ export function CostAdjustmentDetailPage() {
   const { findById: findEmployeeById } = useEmployeeFinder();
   const { findById: findProductById } = useProductFinder();
   const { findById: findProductTypeById } = useProductTypeFinder();
-  const { getById, confirm, cancel } = useCostAdjustmentStore();
+  const { data: adjustment } = useCostAdjustmentById(systemId);
+  const { confirm, cancel } = useCostAdjustmentMutations({
+    onSuccess: () => {
+      toast.success('Cập nhật thành công');
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
   const { data: branches } = useAllBranches();
   const { findById: findBranchById } = useBranchFinder();
   const { info: storeInfo } = useStoreInfoData();
@@ -139,7 +147,6 @@ export function CostAdjustmentDetailPage() {
   const [cancelReason, setCancelReason] = React.useState('');
   const [previewImage, setPreviewImage] = React.useState<{ url: string; title: string } | null>(null);
   
-  const adjustment = systemId ? getById(asSystemId(systemId)) : undefined;
   const currentEmployee = user?.employeeId ? findEmployeeById(asSystemId(user.employeeId)) : null;
   const { print } = usePrint();
 
@@ -219,30 +226,28 @@ export function CostAdjustmentDetailPage() {
   const totalNewValue = adjustment?.items.reduce((sum, item) => sum + item.newCostPrice, 0) || 0;
   const totalDifference = totalNewValue - totalOldValue;
   
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (!adjustment || !currentEmployee) return;
     
-    const success = confirm(adjustment.systemId, asSystemId(currentEmployee.systemId), currentEmployee.fullName);
-    if (success) {
-      toast.success('Đã xác nhận phiếu điều chỉnh giá vốn');
-    } else {
-      toast.error('Không thể xác nhận phiếu');
+    try {
+      await confirm.mutateAsync(adjustment.systemId);
+    } catch (_error) {
+      // Error handled by mutation callbacks
     }
     setConfirmDialogOpen(false);
   };
   
-  const handleCancel = React.useCallback(() => {
+  const handleCancel = React.useCallback(async () => {
     if (!adjustment || !currentEmployee) return;
     
-    const success = cancel(adjustment.systemId, asSystemId(currentEmployee.systemId), currentEmployee.fullName, cancelReason);
-    if (success) {
-      toast.success('Đã hủy phiếu điều chỉnh');
-    } else {
-      toast.error('Không thể hủy phiếu');
+    try {
+      await cancel.mutateAsync(adjustment.systemId);
+    } catch (_error) {
+      // Error handled by mutation callbacks
     }
     setCancelDialogOpen(false);
     setCancelReason('');
-  }, [adjustment, currentEmployee, cancel, cancelReason]);
+  }, [adjustment, currentEmployee, cancel]);
   
 
   
@@ -394,9 +399,9 @@ export function CostAdjustmentDetailPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>#</TableHead>
-                  <TableHead className="w-[60px]">Hình ảnh</TableHead>
+                  <TableHead className="w-15">Hình ảnh</TableHead>
                   <TableHead>Sản phẩm</TableHead>
-                  <TableHead className="w-[100px]">Loại SP</TableHead>
+                  <TableHead className="w-25">Loại SP</TableHead>
                   <TableHead className="text-right">Giá vốn cũ</TableHead>
                   <TableHead className="text-center">→</TableHead>
                   <TableHead className="text-right">Giá vốn mới</TableHead>

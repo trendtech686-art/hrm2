@@ -276,7 +276,7 @@ export function CommentEditor({
   return (
     <div 
       className={cn(
-        'border rounded-lg bg-background relative',
+        'border border-input rounded-lg bg-background relative',
         isDragging && 'ring-2 ring-primary border-primary',
         className
       )}

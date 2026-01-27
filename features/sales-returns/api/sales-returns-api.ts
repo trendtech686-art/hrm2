@@ -119,6 +119,28 @@ export async function markAsReceived(systemId: SystemId): Promise<SalesReturn> {
   return response.json();
 }
 
+export interface ExchangeProductData {
+  newProductSystemId: string;
+  newQuantity: number;
+  additionalPayment?: number;
+  notes?: string;
+}
+
+export async function exchangeProduct(systemId: SystemId, data: ExchangeProductData): Promise<SalesReturn> {
+  const response = await fetch(`${BASE_URL}/${systemId}/exchange`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.message || 'Failed to exchange product');
+  }
+  
+  return response.json();
+}
+
 export async function fetchSalesReturnStats(): Promise<{
   total: number;
   pending: number;

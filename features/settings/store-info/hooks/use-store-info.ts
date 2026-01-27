@@ -10,7 +10,7 @@ import {
   resetStoreInfo,
   uploadStoreLogo,
 } from '../api/store-info-api';
-import type { StoreGeneralInfoInput } from '../store-info-store';
+import type { StoreGeneralInfoInput } from '../types';
 
 // Query keys factory
 export const storeInfoKeys = {

@@ -2072,7 +2072,7 @@ export type WarrantyFormValues = {
 // ============================================
 // ATTENDANCE TYPES
 // ============================================
-export type AttendanceStatus = 'present' | 'absent' | 'leave' | 'half-day' | 'weekend' | 'holiday' | 'future';
+export type AttendanceStatus = 'present' | 'absent' | 'leave' | 'half-day' | 'weekend' | 'holiday' | 'future' | 'empty';
 
 export type DailyRecord = {
   status: AttendanceStatus;
@@ -2491,6 +2491,25 @@ export type JobTitle = {
 };
 
 // ============================================
+// SETTINGS - EMPLOYEE TYPE
+// ============================================
+export type EmployeeTypeSetting = {
+  systemId: SystemId;
+  id: BusinessId;
+  name: string;
+  description?: string;
+  color?: string;
+  isDefault?: boolean;
+  sortOrder?: number;
+  isDeleted?: boolean;
+  deletedAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  createdBy?: SystemId;
+  updatedBy?: SystemId;
+};
+
+// ============================================
 // SETTINGS - UNIT
 // ============================================
 export type Unit = {
@@ -2640,6 +2659,7 @@ export type Province = {
   systemId: SystemId;
   id: BusinessId;
   name: string;
+  level?: '2-level' | '3-level';
   createdAt?: string;
   updatedAt?: string;
   createdBy?: SystemId;
@@ -2652,6 +2672,7 @@ export type District = {
   name: string;
   provinceId: BusinessId;
   provinceName?: string;
+  level?: '2-level' | '3-level';
   createdAt?: string;
   updatedAt?: string;
   createdBy?: SystemId;

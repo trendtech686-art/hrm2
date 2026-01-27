@@ -3,19 +3,30 @@
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { DepartmentForm, DepartmentFormValues } from './department-form';
-import { useDepartmentStore } from './store';
+import { useDepartment, useDepartmentMutations } from './hooks/use-departments';
 import { useSettingsPageHeader } from '../use-settings-page-header';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { SettingsActionButton } from '../../../components/settings/SettingsActionButton';
 import { ROUTES, generatePath } from '../../../lib/router';
+import { toast } from 'sonner';
 
 export function DepartmentFormPage() {
   const router = useRouter();
   const { id } = useParams<{ id: string }>();
-  const { findById, update, add } = useDepartmentStore();
+  const { data: department } = useDepartment(id);
+  const { create, update } = useDepartmentMutations({
+    onCreateSuccess: () => {
+      toast.success('Tạo mới thành công');
+      router.push(backPath);
+    },
+    onUpdateSuccess: () => {
+      toast.success('Cập nhật thành công');
+      router.push(backPath);
+    },
+    onError: (err) => toast.error(err.message)
+  });
   
   const isEditMode = !!id;
-  const department = (isEditMode ? findById(id) : null) ?? null;
 
   const backPath = ROUTES.HRM.DEPARTMENTS;
   const headerActions = React.useMemo(() => [
@@ -54,19 +65,19 @@ export function DepartmentFormPage() {
 
   const handleSubmit = (values: DepartmentFormValues) => {
     if (isEditMode && department) {
-      update(department.systemId, {
-        ...department,
-        id: values.id,
-        name: values.name,
+      update.mutate({
+        systemId: department.systemId,
+        data: {
+          id: values.id,
+          name: values.name,
+        }
       });
     } else {
-      add({
+      (create as any).mutate({
         id: values.id,
         name: values.name,
-        jobTitleIds: [],
       });
     }
-    router.push(backPath);
   };
 
   return (
@@ -79,7 +90,7 @@ export function DepartmentFormPage() {
         </CardHeader>
         <CardContent>
           <DepartmentForm
-            initialData={department}
+            initialData={department ?? null}
             onSubmit={handleSubmit}
           />
         </CardContent>

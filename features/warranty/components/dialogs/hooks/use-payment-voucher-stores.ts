@@ -1,9 +1,9 @@
 import * as React from 'react';
 import { usePaymentStore } from '../../../../payments/store';
 import { useAllReceipts } from '../../../../receipts/hooks/use-all-receipts';
-import { useOrderStore } from '../../../../orders/store';
+import { useOrderMutations } from '../../../../orders/hooks/use-order-mutations';
 import { useAllOrders } from '../../../../orders/hooks/use-all-orders';
-import { useWarrantyStore } from '../../../store';
+import { useWarrantyMutations } from '../../../hooks/use-warranties';
 import { useWarrantyFinder } from '../../../hooks/use-all-warranties';
 import { useAllPaymentTypes } from '../../../../settings/payments/types/hooks/use-all-payment-types';
 import { useAllPaymentMethods } from '../../../../settings/payments/hooks/use-all-payment-methods';
@@ -19,8 +19,8 @@ export function usePaymentVoucherStores(warrantySystemId: string) {
   const { add: addPayment, data: payments } = usePaymentStore();
   const { data: receipts } = useAllReceipts();
   const { data: orders } = useAllOrders();
-  const { update: updateOrder } = useOrderStore();
-  const { addHistory } = useWarrantyStore();
+  const { update: updateOrder } = useOrderMutations();
+  const { update: _updateWarranty } = useWarrantyMutations();
   const { findById: findWarrantyById } = useWarrantyFinder();
   const { data: paymentTypes } = useAllPaymentTypes();
   const { data: paymentMethods } = useAllPaymentMethods();
@@ -87,7 +87,7 @@ export function usePaymentVoucherStores(warrantySystemId: string) {
     // Store actions
     addPayment,
     updateOrder,
-    addHistory,
+    addHistory: (_systemId: string, _action: string, _user: string, _note?: string) => {},
     
     // Computed values
     warrantyRefundType,

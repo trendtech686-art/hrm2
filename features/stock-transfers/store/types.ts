@@ -21,10 +21,10 @@ export interface StockTransferState {
   findById: (systemId: SystemId) => StockTransfer | undefined;
   findByBusinessId: (id: BusinessId) => StockTransfer | undefined;
   
-  // Status operations
-  confirmTransfer: (systemId: SystemId, employeeId: SystemId) => boolean;
-  confirmReceive: (systemId: SystemId, employeeId: SystemId, receivedItems?: { productSystemId: SystemId; receivedQuantity: number }[]) => boolean;
-  cancelTransfer: (systemId: SystemId, employeeId: SystemId, reason?: string) => boolean;
+  // Status operations (deprecated - use React Query mutations)
+  confirmTransfer: (systemId: SystemId, employeeId: SystemId, products?: Array<{ systemId: SystemId; inventoryByBranch?: Record<string, number> }>, employee?: { systemId: SystemId; fullName: string }) => boolean;
+  confirmReceive: (systemId: SystemId, employeeId: SystemId, products?: Array<{ systemId: SystemId; inventoryByBranch?: Record<string, number> }>, employee?: { systemId: SystemId; fullName: string }, receivedItems?: { productSystemId: SystemId; receivedQuantity: number }[]) => boolean;
+  cancelTransfer: (systemId: SystemId, employeeId: SystemId, products?: string[], reason?: string) => boolean;
   
   // Helpers
   getNextId: () => BusinessId;

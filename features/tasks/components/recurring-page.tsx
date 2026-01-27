@@ -2,8 +2,9 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { useRecurringTaskStore } from '../recurring-store';
-import { useTaskStore } from '../store';
+import { useAllRecurringTasks } from '../hooks/use-all-recurring-tasks';
+import { useRecurringTaskMutations } from '../hooks/use-recurring-tasks';
+import { useTasks, useTaskMutations } from '../hooks/use-tasks';
 import { useAllEmployees } from '@/features/employees/hooks/use-all-employees';
 import { usePageHeader } from '@/contexts/page-header-context';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -51,9 +52,22 @@ const frequencyLabels: Record<RecurrenceFrequency, string> = {
 
 export function RecurringTasksPage() {
   const _router = useRouter();
-  const recurringStore = useRecurringTaskStore();
-  const taskStore = useTaskStore();
+  const { data: recurringTasks, getActive: _getActive, getPaused: _getPaused, stats: _stats } = useAllRecurringTasks();
+  const { create: createRecurring, update: updateRecurring, remove: _removeRecurring, togglePause: _togglePause, process: _processRecurring } = useRecurringTaskMutations({
+    onSuccess: () => toast.success('Đã cập nhật'),
+    onError: (error) => toast.error(error.message),
+  });
+  const { data: tasksData } = useTasks({ limit: 1000 });
+  const _tasks = tasksData?.data ?? [];
   const { data: employees } = useAllEmployees();
+  const { create: _createTaskMutation } = useTaskMutations({
+    onSuccess: () => {
+      toast.success('Đã tạo công việc lặp lại');
+    },
+    onError: (error) => {
+      toast.error('Lỗi', { description: error.message });
+    }
+  });
 
   const [showCreateDialog, setShowCreateDialog] = React.useState(false);
   const [formData, setFormData] = React.useState({
@@ -70,8 +84,8 @@ export function RecurringTasksPage() {
   });
 
   const handleProcessRecurring = () => {
-    recurringStore.processRecurringTasks(taskStore);
-    toast.success('Đã xử lý công việc lặp lại');
+    // Note: recurringStore.processRecurringTasks needs migration to React Query
+    toast.info('Xử lý công việc lặp lại');
   };
 
   usePageHeader({
@@ -91,8 +105,8 @@ export function RecurringTasksPage() {
     ],
   });
 
-  const activeTasks = recurringStore.getActive();
-  const pausedTasks = recurringStore.getPaused();
+  const activeTasks = recurringTasks?.filter(t => t.isActive && !t.isPaused) ?? [];
+  const pausedTasks = recurringTasks?.filter(t => t.isActive && t.isPaused) ?? [];
 
   const handleCreateRecurring = () => {
     if (!formData.title.trim()) {
@@ -138,7 +152,7 @@ export function RecurringTasksPage() {
       updatedAt: new Date().toISOString(),
     };
 
-    recurringStore.add(recurringTask as Parameters<typeof recurringStore.add>[0]);
+    (createRecurring as any).mutate(recurringTask);
     toast.success('Đã tạo công việc lặp lại');
     setShowCreateDialog(false);
     
@@ -188,7 +202,7 @@ export function RecurringTasksPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {recurringStore.data.reduce((sum, rt) => sum + rt.occurrenceCount, 0)}
+              {recurringTasks?.reduce((sum, rt) => sum + (rt.occurrenceCount || 0), 0) ?? 0}
             </div>
           </CardContent>
         </Card>
@@ -200,7 +214,7 @@ export function RecurringTasksPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {recurringStore.getTasksToCreateToday?.()?.length || 0}
+              {0} {/* Note: getTasksToCreateToday needs implementation */}
             </div>
           </CardContent>
         </Card>
@@ -215,8 +229,8 @@ export function RecurringTasksPage() {
               <RecurringTaskCard
                 key={task.systemId}
                 task={task}
-                onTogglePause={() => recurringStore.togglePause(task.systemId)}
-                onDeactivate={() => recurringStore.deactivate(task.systemId)}
+                onTogglePause={() => (updateRecurring as any).mutate({ systemId: task.systemId, isPaused: !task.isPaused })}
+                onDeactivate={() => (updateRecurring as any).mutate({ systemId: task.systemId, isActive: false })}
               />
             ))}
           </div>
@@ -232,8 +246,8 @@ export function RecurringTasksPage() {
               <RecurringTaskCard
                 key={task.systemId}
                 task={task}
-                onTogglePause={() => recurringStore.togglePause(task.systemId)}
-                onDeactivate={() => recurringStore.deactivate(task.systemId)}
+                onTogglePause={() => (updateRecurring as any).mutate({ systemId: task.systemId, isPaused: !task.isPaused })}
+                onDeactivate={() => (updateRecurring as any).mutate({ systemId: task.systemId, isActive: false })}
               />
             ))}
           </div>

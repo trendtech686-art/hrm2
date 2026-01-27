@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useRouter } from 'next/navigation';
-import { useSupplierStore } from "./store"
+import { useSuppliers, useDeletedSuppliers, useSupplierMutations, useTrashMutations } from "./hooks/use-suppliers"
 import { useActiveSuppliers } from "./hooks/use-all-suppliers"
 import { getColumns } from "./columns"
 import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table"
@@ -28,7 +28,16 @@ const SupplierImportDialog = dynamic(() => import("./components/suppliers-import
 const SupplierExportDialog = dynamic(() => import("./components/suppliers-import-export-dialogs").then(mod => ({ default: mod.SupplierExportDialog })), { ssr: false });
 
 export function SuppliersPage() {
-  const { data: suppliersRaw, remove, restore, getDeleted: _getDeleted, updateStatus, bulkDelete, add, update } = useSupplierStore();
+  const { data: suppliersData } = useSuppliers({ limit: 1000 });
+  const suppliers = React.useMemo(() => suppliersData?.data ?? [], [suppliersData?.data]);
+  const { data: deletedSuppliersData } = useDeletedSuppliers();
+  const deletedCount = deletedSuppliersData?.length ?? 0;
+  const { create: createMutation, update: updateMutation, remove: removeMutation } = useSupplierMutations({
+    onDeleteSuccess: () => toast.success("Đã chuyển nhà cung cấp vào thùng rác"),
+    onUpdateSuccess: () => toast.success("Đã cập nhật nhà cung cấp"),
+    onError: (err) => toast.error(err.message || "Thao tác thất bại"),
+  });
+  const { restore: restoreMutation } = useTrashMutations();
   const { data: activeSuppliers } = useActiveSuppliers();
   const { data: branches } = useAllBranches();
   const { employee: currentUser } = useAuth();
@@ -36,8 +45,6 @@ export function SuppliersPage() {
   const { isMobile } = useBreakpoint();
 
   const [showImportDialog, setShowImportDialog] = React.useState(false), [showExportDialog, setShowExportDialog] = React.useState(false);
-  const suppliers = React.useMemo(() => suppliersRaw, [suppliersRaw]);
-  const deletedCount = React.useMemo(() => suppliers.filter((s) => s.isDeleted).length, [suppliers]);
   const [mobileLoadedCount, setMobileLoadedCount] = React.useState(20);
 
   const headerActions = React.useMemo(() => [
@@ -65,15 +72,11 @@ export function SuppliersPage() {
 
   const handleDelete = React.useCallback((systemId: SystemId) => { setIdToDelete(systemId); setIsAlertOpen(true); }, []);
 
-  const restoreRef = React.useRef(restore), suppliersRef = React.useRef(suppliers);
-  restoreRef.current = restore;
-  suppliersRef.current = suppliers;
-
   const handleRestore = React.useCallback((systemId: SystemId) => {
-    const supplier = suppliersRef.current.find(s => s.systemId === systemId);
-    restoreRef.current(systemId);
+    const supplier = suppliers.find(s => s.systemId === systemId);
+    restoreMutation.mutate(systemId);
     if (supplier) toast.success(`Đã khôi phục nhà cung cấp "${supplier.name}"`);
-  }, []);
+  }, [suppliers, restoreMutation]);
 
   const handleEdit = React.useCallback((supplier: Supplier) => { router.push(`/suppliers/${supplier.systemId}/edit`); }, [router]);
   const columns = React.useMemo(() => getColumns(handleDelete, handleRestore, handleEdit, router), [handleDelete, handleRestore, handleEdit, router]);
@@ -92,7 +95,7 @@ export function SuppliersPage() {
   const confirmDelete = () => {
     if (idToDelete) {
       const supplier = suppliers.find(s => s.systemId === idToDelete);
-      remove(idToDelete);
+      removeMutation.mutate(idToDelete);
       if (supplier) toast.success(`Đã chuyển nhà cung cấp "${supplier.name}" vào thùng rác`);
     }
     setIsAlertOpen(false);
@@ -131,7 +134,7 @@ export function SuppliersPage() {
   const handleBulkStatusChange = (status: Supplier['status']) => {
     const selectedIds = Object.keys(rowSelection).filter(id => rowSelection[id]);
     if (selectedIds.length === 0) { toast.error('Chưa chọn nhà cung cấp', { description: 'Vui lòng chọn ít nhất một nhà cung cấp' }); return; }
-    updateStatus(selectedIds.map(asSystemId), status);
+    selectedIds.forEach(id => updateMutation.mutate({ systemId: asSystemId(id), status }));
     setRowSelection({});
     toast.success(`Đã cập nhật trạng thái ${selectedIds.length} nhà cung cấp`);
   };
@@ -139,7 +142,7 @@ export function SuppliersPage() {
   const handleBulkDelete = () => {
     const selectedIds = Object.keys(rowSelection).filter(id => rowSelection[id]);
     if (selectedIds.length === 0) { toast.error('Chưa chọn nhà cung cấp', { description: 'Vui lòng chọn ít nhất một nhà cung cấp' }); return; }
-    bulkDelete(selectedIds.map(asSystemId));
+    selectedIds.forEach(id => removeMutation.mutate(asSystemId(id)));
     setRowSelection({});
     toast.success(`Đã chuyển ${selectedIds.length} nhà cung cấp vào thùng rác`);
   };
@@ -167,18 +170,32 @@ export function SuppliersPage() {
   const handleImport = React.useCallback(async (importedSuppliers: Partial<Supplier>[], mode: 'insert-only' | 'update-only' | 'upsert', _branchId?: string) => {
     let addedCount = 0, updatedCount = 0, skippedCount = 0;
     const errors: Array<{ row: number; message: string }> = [];
-    importedSuppliers.forEach((supplier, index) => {
+    
+    for (const [index, supplier] of importedSuppliers.entries()) {
       try {
         const existing = activeSuppliers.find(s => s.id.toLowerCase() === (supplier.id || '').toLowerCase());
         if (existing) {
-          if (mode === 'update-only' || mode === 'upsert') { update(existing.systemId, { ...supplier, systemId: existing.systemId }); updatedCount++; }
-          else skippedCount++;
+          if (mode === 'update-only' || mode === 'upsert') { 
+            await new Promise<void>((resolve, reject) => {
+              updateMutation.mutate({ systemId: existing.systemId, ...supplier }, {
+                onSuccess: () => { updatedCount++; resolve(); },
+                onError: (error) => reject(error)
+              });
+            });
+          } else skippedCount++;
         } else {
-          if (mode === 'insert-only' || mode === 'upsert') { add(supplier as Supplier); addedCount++; }
-          else skippedCount++;
+          if (mode === 'insert-only' || mode === 'upsert') { 
+            await new Promise<void>((resolve, reject) => {
+              createMutation.mutate(supplier as Supplier, {
+                onSuccess: () => { addedCount++; resolve(); },
+                onError: (error) => reject(error)
+              });
+            });
+          } else skippedCount++;
         }
       } catch (error) { errors.push({ row: index + 1, message: (error as Error).message }); }
-    });
+    }
+    
     if (addedCount > 0 || updatedCount > 0) {
       const messages: string[] = [];
       if (addedCount > 0) messages.push(`${addedCount} nhà cung cấp mới`);
@@ -186,7 +203,7 @@ export function SuppliersPage() {
       toast.success(`Đã import: ${messages.join(', ')}`);
     }
     return { success: addedCount + updatedCount, failed: errors.length, inserted: addedCount, updated: updatedCount, skipped: skippedCount, errors };
-  }, [activeSuppliers, add, update]);
+  }, [activeSuppliers, createMutation, updateMutation]);
 
   const selectedSuppliers = React.useMemo(() => activeSuppliers.filter(s => rowSelection[s.systemId]), [activeSuppliers, rowSelection]);
   const currentUserInfo = React.useMemo(() => ({ name: currentUser?.fullName || 'Hệ thống', systemId: currentUser?.systemId || asSystemId('SYSTEM') }), [currentUser]);

@@ -3,6 +3,7 @@
  * Provides data fetching and mutations for payroll management
  */
 
+import * as React from 'react';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import {
   fetchPayrolls,
@@ -31,6 +32,19 @@ import {
   type PayrollTemplateFilters,
   type PayrollTemplate,
 } from '../api/payroll-api';
+import {
+  createBatchWithPayslips,
+  updateBatchStatus as updateBatchStatusAPI,
+  updatePayslipWithAudit,
+  removePayslipFromBatch as removePayslipAPI,
+  cancelBatch as cancelBatchAPI,
+  ensureDefaultTemplate as ensureDefaultTemplateAPI,
+  setDefaultTemplate as setDefaultTemplateAPI,
+  type CreateBatchWithPayslipsInput,
+  type UpdateBatchStatusInput,
+  type UpdatePayslipInput as UpdatePayslipInputAPI,
+  type CancelBatchInput,
+} from '../api/payroll-mutations-api';
 
 // ============== Query Keys ==============
 
@@ -368,4 +382,146 @@ export function useEmployeePayslips(employeeId: string | undefined) {
     employeeId: employeeId || '',
     limit: 12, // Last 12 months
   });
+}
+
+// ============== Extended Mutations ==============
+
+/**
+ * Hook for complex payroll batch operations
+ */
+export function usePayrollBatchMutations(options: MutationCallbacks = {}) {
+  const queryClient = useQueryClient();
+
+  const invalidateAll = () => {
+    queryClient.invalidateQueries({ queryKey: payrollKeys.all });
+    queryClient.invalidateQueries({ queryKey: payslipKeys.all });
+  };
+
+  const createWithPayslips = useMutation({
+    mutationFn: (data: CreateBatchWithPayslipsInput) => createBatchWithPayslips(data),
+    onSuccess: () => {
+      invalidateAll();
+      options.onSuccess?.();
+    },
+    onError: options.onError,
+  });
+
+  const updateStatus = useMutation({
+    mutationFn: ({ systemId, data }: { systemId: string; data: UpdateBatchStatusInput }) =>
+      updateBatchStatusAPI(systemId, data),
+    onSuccess: () => {
+      invalidateAll();
+      options.onSuccess?.();
+    },
+    onError: options.onError,
+  });
+
+  const cancel = useMutation({
+    mutationFn: ({ systemId, data }: { systemId: string; data?: CancelBatchInput }) =>
+      cancelBatchAPI(systemId, data || {}),
+    onSuccess: () => {
+      invalidateAll();
+      options.onSuccess?.();
+    },
+    onError: options.onError,
+  });
+
+  return {
+    createWithPayslips,
+    updateStatus,
+    cancel,
+    isLoading: createWithPayslips.isPending || updateStatus.isPending || cancel.isPending,
+  };
+}
+
+/**
+ * Hook for enhanced payslip operations
+ */
+export function usePayslipExtendedMutations(options: MutationCallbacks = {}) {
+  const queryClient = useQueryClient();
+
+  const invalidateAll = () => {
+    queryClient.invalidateQueries({ queryKey: payslipKeys.all });
+    queryClient.invalidateQueries({ queryKey: payrollKeys.all });
+  };
+
+  const updateWithAudit = useMutation({
+    mutationFn: ({ systemId, data }: { systemId: string; data: UpdatePayslipInputAPI }) =>
+      updatePayslipWithAudit(systemId, data),
+    onSuccess: () => {
+      invalidateAll();
+      options.onSuccess?.();
+    },
+    onError: options.onError,
+  });
+
+  const removeFromBatch = useMutation({
+    mutationFn: (payslipSystemId: string) => removePayslipAPI(payslipSystemId),
+    onSuccess: () => {
+      invalidateAll();
+      options.onSuccess?.();
+    },
+    onError: options.onError,
+  });
+
+  return {
+    updateWithAudit,
+    removeFromBatch,
+    isLoading: updateWithAudit.isPending || removeFromBatch.isPending,
+  };
+}
+
+/**
+ * Hook for template extended operations
+ */
+export function usePayrollTemplateExtended(options: MutationCallbacks = {}) {
+  const queryClient = useQueryClient();
+
+  const invalidateTemplates = () => {
+    queryClient.invalidateQueries({ queryKey: payrollTemplateKeys.all });
+  };
+
+  const ensureDefault = useMutation({
+    mutationFn: () => ensureDefaultTemplateAPI(),
+    onSuccess: () => {
+      invalidateTemplates();
+      options.onSuccess?.();
+    },
+    onError: options.onError,
+  });
+
+  const setDefault = useMutation({
+    mutationFn: (systemId: string) => setDefaultTemplateAPI(systemId),
+    onSuccess: () => {
+      invalidateTemplates();
+      options.onSuccess?.();
+    },
+    onError: options.onError,
+  });
+
+  return {
+    ensureDefault,
+    setDefault,
+    isLoading: ensureDefault.isPending || setDefault.isPending,
+  };
+}
+
+// ============== Convenience Hooks ==============
+
+/**
+ * Hook to fetch all batches as flat array
+ */
+export function useAllPayrollBatches() {
+  const { data, ...rest } = usePayrolls({ limit: 1000 });
+  const batches = React.useMemo(() => data?.data ?? [], [data?.data]);
+  return { data: batches, ...rest };
+}
+
+/**
+ * Hook to fetch all payslips as flat array
+ */
+export function useAllPayslips() {
+  const { data, ...rest } = usePayslips({ limit: 1000 });
+  const payslips = React.useMemo(() => data?.data ?? [], [data?.data]);
+  return { data: payslips, ...rest };
 }

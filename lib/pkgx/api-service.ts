@@ -1,4 +1,3 @@
-import { usePkgxSettingsStore } from '../../features/settings/pkgx/store';
 import type {
   PkgxProduct,
   PkgxProductsResponse,
@@ -9,6 +8,7 @@ import type {
   PkgxBrandFromApi,
   PkgxGalleryResponse,
   PkgxGalleryImage,
+  PkgxSettings,
 } from '@/lib/types/prisma-extended';
 import { PKGX_API_CONFIG } from '../../features/settings/pkgx/constants';
 
@@ -40,17 +40,16 @@ type UpdateProductResponse = {
 // Helper Functions
 // ========================================
 
-function getApiConfig() {
-  const { settings } = usePkgxSettingsStore.getState();
+function getApiConfig(settings?: PkgxSettings) {
   return {
-    apiUrl: settings.apiUrl || PKGX_API_CONFIG.baseUrl,
-    apiKey: settings.apiKey,
-    enabled: settings.enabled,
+    apiUrl: settings?.apiUrl || PKGX_API_CONFIG.baseUrl,
+    apiKey: settings?.apiKey || '',
+    enabled: settings?.enabled || false,
   };
 }
 
-async function fetchWithAuth<T>(url: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
-  const { apiKey, enabled } = getApiConfig();
+async function fetchWithAuth<T>(settings: PkgxSettings, url: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
+  const { apiKey, enabled } = getApiConfig(settings);
 
   if (!enabled) {
     return { success: false, error: 'Tích hợp PKGX chưa được bật' };
@@ -105,29 +104,29 @@ async function fetchWithAuth<T>(url: string, options: RequestInit = {}): Promise
 /**
  * Lấy danh sách danh mục từ PKGX
  */
-export async function getCategories(): Promise<ApiResponse<PkgxCategoriesResponse>> {
-  const { apiUrl } = getApiConfig();
+export async function getCategories(settings: PkgxSettings = {} as any): Promise<ApiResponse<PkgxCategoriesResponse>> {
+  const { apiUrl } = getApiConfig(settings);
   const url = `${apiUrl}?action=get_categories`;
-  return fetchWithAuth<PkgxCategoriesResponse>(url, { method: 'GET' });
+  return fetchWithAuth<PkgxCategoriesResponse>(settings, url, { method: 'GET' });
 }
 
 /**
  * Lấy danh sách thương hiệu từ PKGX
  */
-export async function getBrands(): Promise<ApiResponse<PkgxBrandsResponse>> {
-  const { apiUrl } = getApiConfig();
+export async function getBrands(settings: PkgxSettings = {} as any): Promise<ApiResponse<PkgxBrandsResponse>> {
+  const { apiUrl } = getApiConfig(settings);
   const url = `${apiUrl}?action=get_brands`;
-  return fetchWithAuth<PkgxBrandsResponse>(url, { method: 'GET' });
+  return fetchWithAuth<PkgxBrandsResponse>(settings, url, { method: 'GET' });
 }
 
 /**
  * Lấy chi tiết 1 thương hiệu từ PKGX theo brand_id
  */
-export async function getBrandById(brandId: number): Promise<ApiResponse<PkgxBrandFromApi | null>> {
-  const { apiUrl } = getApiConfig();
+export async function getBrandById(brandId: number, settings: PkgxSettings = {} as any): Promise<ApiResponse<PkgxBrandFromApi | null>> {
+  const { apiUrl } = getApiConfig(settings);
   const url = `${apiUrl}?action=get_brands&brand_id=${brandId}`;
   
-  const response = await fetchWithAuth<{ error: boolean; message: string; data: PkgxBrandFromApi }>(url, { method: 'GET' });
+  const response = await fetchWithAuth<{ error: boolean; message: string; data: PkgxBrandFromApi }>(settings, url, { method: 'GET' });
   
   if (!response.success || !response.data) {
     return { success: false, error: response.error };
@@ -141,23 +140,24 @@ export async function getBrandById(brandId: number): Promise<ApiResponse<PkgxBra
  */
 export async function getProducts(
   page: number = 1,
-  limit: number = 50
+  limit: number = 50,
+  settings: PkgxSettings = {} as any
 ): Promise<ApiResponse<PkgxProductsResponse>> {
-  const { apiUrl } = getApiConfig();
+  const { apiUrl } = getApiConfig(settings);
   const url = `${apiUrl}?action=get_products&page=${page}&limit=${limit}`;
-  return fetchWithAuth<PkgxProductsResponse>(url, { method: 'GET' });
+  return fetchWithAuth<PkgxProductsResponse>(settings, url, { method: 'GET' });
 }
 
 /**
  * Lấy tất cả sản phẩm từ PKGX (tự động phân trang)
  */
-export async function getAllProducts(): Promise<ApiResponse<PkgxProduct[]>> {
+export async function getAllProducts(settings: PkgxSettings = {} as any): Promise<ApiResponse<PkgxProduct[]>> {
   const allProducts: PkgxProduct[] = [];
   let currentPage = 1;
   let totalPages = 1;
 
   while (currentPage <= totalPages) {
-    const response = await getProducts(currentPage, 100);
+    const response = await getProducts(currentPage, 100, settings);
 
     if (!response.success || !response.data) {
       return { success: false, error: response.error };
@@ -174,12 +174,12 @@ export async function getAllProducts(): Promise<ApiResponse<PkgxProduct[]>> {
 /**
  * Lấy sản phẩm theo goods_id (sử dụng API get_products với filter)
  */
-export async function getProductById(goodsId: number): Promise<ApiResponse<PkgxProduct | null>> {
-  const { apiUrl } = getApiConfig();
+export async function getProductById(goodsId: number, settings: PkgxSettings = {} as any): Promise<ApiResponse<PkgxProduct | null>> {
+  const { apiUrl } = getApiConfig(settings);
   // API không có action=get_product, dùng get_products với goods_id filter
   const url = `${apiUrl}?action=get_products&goods_id=${goodsId}`;
   
-  const response = await fetchWithAuth<PkgxProductsResponse>(url, { method: 'GET' });
+  const response = await fetchWithAuth<PkgxProductsResponse>(settings, url, { method: 'GET' });
   
   if (!response.success || !response.data) {
     return { success: false, error: response.error };
@@ -194,12 +194,12 @@ export async function getProductById(goodsId: number): Promise<ApiResponse<PkgxP
  * Lấy gallery ảnh sản phẩm theo goods_id
  * Note: Cần API endpoint `get_gallery` trên server PKGX
  */
-export async function getProductGallery(goodsId: number): Promise<ApiResponse<PkgxGalleryImage[]>> {
-  const { apiUrl } = getApiConfig();
+export async function getProductGallery(goodsId: number, settings: PkgxSettings = {} as any): Promise<ApiResponse<PkgxGalleryImage[]>> {
+  const { apiUrl } = getApiConfig(settings);
   const url = `${apiUrl}?action=get_gallery&goods_id=${goodsId}`;
   
   try {
-    const response = await fetchWithAuth<PkgxGalleryResponse>(url, { method: 'GET' });
+    const response = await fetchWithAuth<PkgxGalleryResponse>(settings, url, { method: 'GET' });
     
     // Debug log
     
@@ -221,12 +221,13 @@ export async function getProductGallery(goodsId: number): Promise<ApiResponse<Pk
  * Tạo sản phẩm mới trên PKGX
  */
 export async function createProduct(
-  payload: PkgxProductPayload
+  payload: PkgxProductPayload,
+  settings: PkgxSettings = {} as any
 ): Promise<ApiResponse<CreateProductResponse>> {
-  const { apiUrl } = getApiConfig();
+  const { apiUrl } = getApiConfig(settings);
   const url = `${apiUrl}?action=create_product`;
 
-  return fetchWithAuth<CreateProductResponse>(url, {
+  return fetchWithAuth<CreateProductResponse>(settings, url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -238,12 +239,13 @@ export async function createProduct(
  */
 export async function updateProduct(
   goodsId: number,
-  payload: Partial<PkgxProductPayload>
+  payload: Partial<PkgxProductPayload>,
+  settings: PkgxSettings = {} as any
 ): Promise<ApiResponse<UpdateProductResponse>> {
-  const { apiUrl } = getApiConfig();
+  const { apiUrl } = getApiConfig(settings);
   const url = `${apiUrl}?action=update_product&goods_id=${goodsId}`;
 
-  return fetchWithAuth<UpdateProductResponse>(url, {
+  return fetchWithAuth<UpdateProductResponse>(settings, url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -261,9 +263,10 @@ export async function updateProductPrice(
     partner_price?: number;
     ace_price?: number;
     deal_price?: number;
-  }
+  },
+  settings: PkgxSettings = {} as any
 ): Promise<ApiResponse<UpdateProductResponse>> {
-  return updateProduct(goodsId, prices);
+  return updateProduct(goodsId, prices, settings);
 }
 
 /**
@@ -275,9 +278,10 @@ export async function updateProductSeo(
     meta_title?: string;
     meta_desc?: string;
     keywords?: string;
-  }
+  },
+  settings: PkgxSettings = {} as any
 ): Promise<ApiResponse<UpdateProductResponse>> {
-  return updateProduct(goodsId, seo);
+  return updateProduct(goodsId, seo, settings);
 }
 
 /**
@@ -285,9 +289,10 @@ export async function updateProductSeo(
  */
 export async function updateProductStock(
   goodsId: number,
-  goodsNumber: number
+  goodsNumber: number,
+  settings: PkgxSettings = {} as any
 ): Promise<ApiResponse<UpdateProductResponse>> {
-  return updateProduct(goodsId, { goods_number: goodsNumber });
+  return updateProduct(goodsId, { goods_number: goodsNumber }, settings);
 }
 
 /**
@@ -298,9 +303,10 @@ export async function uploadProductImage(
   options?: {
     filenameSlug?: string;
     goodsId?: number;
-  }
+  },
+  settings: PkgxSettings = {} as any
 ): Promise<ApiResponse<PkgxImageUploadResponse>> {
-  const { apiUrl, apiKey, enabled } = getApiConfig();
+  const { apiUrl, apiKey, enabled } = getApiConfig(settings);
 
   if (!enabled) {
     return { success: false, error: 'Tích hợp PKGX chưa được bật' };
@@ -353,9 +359,10 @@ export async function uploadImageFromUrl(
   options?: {
     filenameSlug?: string;
     goodsId?: number;
-  }
+  },
+  settings: PkgxSettings = {} as any
 ): Promise<ApiResponse<PkgxImageUploadResponse>> {
-  const { apiUrl, apiKey, enabled } = getApiConfig();
+  const { apiUrl, apiKey, enabled } = getApiConfig(settings);
 
   if (!enabled) {
     return { success: false, error: 'Tích hợp PKGX chưa được bật' };
@@ -407,10 +414,10 @@ export async function uploadImageFromUrl(
 /**
  * Lấy chi tiết danh mục theo cat_id (bao gồm SEO fields)
  */
-export async function getCategoryById(catId: number): Promise<ApiResponse<PkgxCategoriesResponse>> {
-  const { apiUrl } = getApiConfig();
+export async function getCategoryById(catId: number, settings: PkgxSettings = {} as any): Promise<ApiResponse<PkgxCategoriesResponse>> {
+  const { apiUrl } = getApiConfig(settings);
   const url = `${apiUrl}?action=get_categories&cat_id=${catId}`;
-  return fetchWithAuth<PkgxCategoriesResponse>(url, { method: 'GET' });
+  return fetchWithAuth<PkgxCategoriesResponse>(settings, url, { method: 'GET' });
 }
 
 /**
@@ -437,15 +444,16 @@ export async function updateCategory(
     meta_title?: string;
     meta_desc?: string;
     short_desc?: string;
-  }
+  },
+  settings: PkgxSettings = {} as any
 ): Promise<ApiResponse<{ error: boolean; message: string; cat_id: number }>> {
-  const { apiUrl } = getApiConfig();
+  const { apiUrl } = getApiConfig(settings);
   // Add timestamp to bust cache
   const timestamp = Date.now();
   const url = `${apiUrl}?action=update_category&cat_id=${catId}&_t=${timestamp}`;
 
 
-  return fetchWithAuth(url, {
+  return fetchWithAuth(settings, url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -467,14 +475,15 @@ export async function updateCategoryBasic(
     cat_name?: string;
     parent_id?: number;
     is_show?: number; // 1 = hiển thị, 0 = ẩn
-  }
+  },
+  settings: PkgxSettings = {} as any
 ): Promise<ApiResponse<{ error: boolean; message: string; cat_id: number; changes?: Record<string, { old: unknown; new: unknown }> }>> {
-  const { apiUrl } = getApiConfig();
+  const { apiUrl } = getApiConfig(settings);
   const timestamp = Date.now();
   const url = `${apiUrl}?action=update_category_basic&cat_id=${catId}&_t=${timestamp}`;
 
 
-  return fetchWithAuth(url, {
+  return fetchWithAuth(settings, url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -506,12 +515,13 @@ export async function updateBrand(
     meta_desc?: string;
     short_desc?: string;
     long_desc?: string;
-  }
+  },
+  settings: PkgxSettings = {} as any
 ): Promise<ApiResponse<{ error: boolean; message: string; brand_id: number }>> {
-  const { apiUrl } = getApiConfig();
+  const { apiUrl } = getApiConfig(settings);
   const url = `${apiUrl}?action=update_brand&brand_id=${brandId}`;
 
-  return fetchWithAuth(url, {
+  return fetchWithAuth(settings, url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -521,8 +531,8 @@ export async function updateBrand(
 /**
  * Test kết nối API
  */
-export async function testConnection(): Promise<ApiResponse<{ productCount: number }>> {
-  const response = await getProducts(1, 1);
+export async function testConnection(settings: PkgxSettings = {} as any): Promise<ApiResponse<{ productCount: number }>> {
+  const response = await getProducts(1, 1, settings);
 
   if (!response.success) {
     return { success: false, error: response.error };
@@ -580,10 +590,10 @@ type UpdateMemberPriceResponse = {
 /**
  * Lấy danh sách hạng thành viên từ PKGX
  */
-export async function getMemberRanks(): Promise<ApiResponse<MemberRanksResponse>> {
-  const { apiUrl } = getApiConfig();
+export async function getMemberRanks(settings: PkgxSettings = {} as any): Promise<ApiResponse<MemberRanksResponse>> {
+  const { apiUrl } = getApiConfig(settings);
   const url = `${apiUrl}?action=get_member_ranks`;
-  return fetchWithAuth<MemberRanksResponse>(url, { method: 'GET' });
+  return fetchWithAuth<MemberRanksResponse>(settings, url, { method: 'GET' });
 }
 
 /**
@@ -599,12 +609,13 @@ export async function getMemberRanks(): Promise<ApiResponse<MemberRanksResponse>
  */
 export async function updateMemberPrice(
   goodsId: number,
-  memberPrices: Array<{ user_rank: number; user_price: number }>
+  memberPrices: Array<{ user_rank: number; user_price: number }>,
+  settings: PkgxSettings = {} as any
 ): Promise<ApiResponse<UpdateMemberPriceResponse>> {
-  const { apiUrl } = getApiConfig();
+  const { apiUrl } = getApiConfig(settings);
   const url = `${apiUrl}?action=update_member_price&goods_id=${goodsId}`;
 
-  return fetchWithAuth<UpdateMemberPriceResponse>(url, {
+  return fetchWithAuth<UpdateMemberPriceResponse>(settings, url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ member_prices: memberPrices }),
@@ -617,9 +628,10 @@ export async function updateMemberPrice(
 export async function updateMemberPriceSingle(
   goodsId: number,
   userRank: number,
-  userPrice: number
+  userPrice: number,
+  settings: PkgxSettings = {} as any
 ): Promise<ApiResponse<UpdateMemberPriceResponse>> {
-  return updateMemberPrice(goodsId, [{ user_rank: userRank, user_price: userPrice }]);
+  return updateMemberPrice(goodsId, [{ user_rank: userRank, user_price: userPrice }], settings);
 }
 
 // ========================================
@@ -679,7 +691,8 @@ function isPkgxCdnUrl(url: string): boolean {
  */
 export async function processHtmlImagesForPkgx(
   html: string,
-  filenamePrefix?: string
+  filenamePrefix?: string,
+  settings: PkgxSettings = {} as any
 ): Promise<{ processedHtml: string; uploadedCount: number; skippedCount: number; errors: string[] }> {
   if (!html) {
     return { processedHtml: html, uploadedCount: 0, skippedCount: 0, errors: [] };
@@ -730,7 +743,7 @@ export async function processHtmlImagesForPkgx(
         ? `${filenamePrefix}-desc-img-${i + 1}` 
         : `desc-img-${Date.now()}-${i + 1}`;
       
-      const uploadResult = await uploadImageFromUrl(src, { filenameSlug: slug });
+      const uploadResult = await uploadImageFromUrl(src, { filenameSlug: slug }, settings);
       
       if (uploadResult.success && uploadResult.data?.data?.full_urls?.original) {
         // Replace src in HTML

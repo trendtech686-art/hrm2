@@ -10,8 +10,8 @@ import type { PurchaseOrder } from '@/lib/types/prisma-extended';
 import { usePurchaseOrderStore } from '../store';
 import { sumPaymentsForPurchaseOrder } from '../payment-utils';
 import { useAllPayments } from '@/features/payments/hooks/use-all-payments';
-import { useInventoryReceiptStore } from '@/features/inventory-receipts/store';
-import { usePurchaseReturnStore } from '@/features/purchase-returns/store';
+import { useInventoryReceipts } from '@/features/inventory-receipts/hooks/use-inventory-receipts';
+import { usePurchaseReturns, usePurchaseReturnMutations } from '@/features/purchase-returns/hooks/use-purchase-returns';
 import type { PurchaseReturnLineItem } from '@/features/purchase-returns/types';
 import { useAuth } from '@/contexts/auth-context';
 
@@ -30,8 +30,14 @@ const initialCancelState: CancelPODialogState = {
 export function usePurchaseOrderCancelWorkflow() {
   const { cancelOrder, bulkCancel } = usePurchaseOrderStore();
   const { data: allPayments } = useAllPayments();
-  const { data: allReceipts } = useInventoryReceiptStore();
-  const { add: addPurchaseReturn, data: allPurchaseReturns } = usePurchaseReturnStore();
+  const { data: irQueryData } = useInventoryReceipts({ limit: 1000 });
+  const allReceipts = React.useMemo(() => irQueryData?.data ?? [], [irQueryData?.data]);
+  const { data: prQueryData } = usePurchaseReturns({ limit: 1000 });
+  const allPurchaseReturns = React.useMemo(() => prQueryData?.data ?? [], [prQueryData?.data]);
+  const { create: createPurchaseReturn } = usePurchaseReturnMutations({
+    onCreateSuccess: () => {},
+    onError: (err) => toast.error(err.message)
+  });
   const { employee: loggedInUser } = useAuth();
   
   const currentUserSystemId = loggedInUser?.systemId ?? 'SYSTEM';
@@ -94,7 +100,7 @@ export function usePurchaseOrderCancelWorkflow() {
       if (returnItems.length > 0) {
         const totalReturnValue = returnItems.reduce((sum, item) => sum + (item.returnQuantity * item.unitPrice), 0);
 
-        addPurchaseReturn({
+        createPurchaseReturn.mutate({
           id: asBusinessId(''),
           purchaseOrderSystemId: asSystemId(po.systemId),
           purchaseOrderId: asBusinessId(po.id),
@@ -118,7 +124,7 @@ export function usePurchaseOrderCancelWorkflow() {
     toast.success('Đã hủy đơn nhập hàng', {
       description: `Đơn ${po.id} đã được hủy`,
     });
-  }, [cancelDialogState, allReceipts, allPurchaseReturns, addPurchaseReturn, cancelOrder, currentUserSystemId, currentUserName]);
+  }, [cancelDialogState, allReceipts, allPurchaseReturns, createPurchaseReturn, cancelOrder, currentUserSystemId, currentUserName]);
 
   const handleBulkCancel = React.useCallback((selectedIds: string[]) => {
     if (selectedIds.length === 0) {

@@ -1,14 +1,18 @@
 ﻿import * as React from "react";
 import { flushSync } from 'react-dom';
-import { useForm } from "react-hook-form";
+import { useForm, type Resolver } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import type { Employee, EmployeeAddress } from '@/lib/types/prisma-extended';
 import { formatDate, parseDate } from '@/lib/date-utils';
 import { asBusinessId, asSystemId } from '@/lib/id-types';
 import { validateUniqueId } from '@/features/products/validation';
+import { employeeFormValidationSchema } from '@/features/employees/validation';
 import type { SystemId, BusinessId } from '@/lib/id-types';
 import { Eye, EyeOff } from "lucide-react";
 import { toast } from 'sonner';
 import { useAllJobTitles } from '@/features/settings/job-titles/hooks/use-all-job-titles';
+import { useAllDepartments } from '@/features/settings/departments/hooks/use-all-departments';
+import { useAllEmployeeTypes } from '@/features/settings/employee-types/hooks/use-all-employee-types';
 import { useAllEmployees } from '../hooks/use-all-employees';
 import { useAllBranches } from '@/hooks/use-branches';
 import { useProvinces } from "@/features/settings/provinces/hooks/use-administrative-units";
@@ -20,7 +24,6 @@ import { AddressFormDialog } from '@/features/customers/components/address-form-
 import type { CustomerAddress } from '@/features/customers/types';
 
 // Extracted tab components
-import { EmployeePayrollTab } from './employee-payroll-tab';
 import { EmployeeDocumentsTab } from './employee-documents-tab';
 
 import {
@@ -45,8 +48,9 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { useEmployeeSettingsStore } from "@/features/settings/employees/employee-settings-store";
-import { useEmployeeCompStore, type EmployeePayrollProfileInput } from "../employee-comp-store";
+import { useEmployeeSettings } from "@/features/settings/employees/hooks/use-employee-settings";
+import { type EmployeePayrollProfileInput } from "../employee-comp-store";
+import { useResolvedPayrollProfile } from "../hooks/use-payroll-profiles";
 // Helper type for local form state for addresses
 type AddressParts = {
   label: string;
@@ -166,8 +170,8 @@ const removeUndefined = <T extends Record<string, unknown>>(obj: T): Partial<T> 
 
 export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEditMode = false }: EmployeeFormProps) {
   const [showPassword, setShowPassword] = React.useState(false);
-  const [password, setPassword] = React.useState(initialData?.password || '');
-  const [confirmPassword, setConfirmPassword] = React.useState(initialData?.password || '');
+  const [password, setPassword] = React.useState('');
+  const [confirmPassword, setConfirmPassword] = React.useState('');
   const [permanentAddress, setPermanentAddress] = React.useState<AddressParts>(parseAddress(initialData?.permanentAddress));
   const [temporaryAddress, setTemporaryAddress] = React.useState<AddressParts>(parseAddress(initialData?.temporaryAddress));
   const [isAddressDialogOpen, setIsAddressDialogOpen] = React.useState(false);
@@ -175,17 +179,22 @@ export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEdi
   const [addressDialogEditingAddress, setAddressDialogEditingAddress] = React.useState<CustomerAddress | null>(null);
   
   const { data: jobTitles } = useAllJobTitles();
+  const { data: departments } = useAllDepartments();
+  const { data: _employeeTypes } = useAllEmployeeTypes();
   const { data: employees } = useAllEmployees();
   const { data: branches } = useAllBranches();
   const { data: provinces = [] } = useProvinces();
-  // FIX: Use useShallow to prevent infinite loops caused by new object references
-  const { workShifts, salaryComponents } = useEmployeeSettingsStore(
-    useShallow((state) => ({
-      workShifts: state.settings.workShifts,
-      salaryComponents: state.getSalaryComponents(),
-    }))
+  // Get settings from React Query (Prisma)
+  const { data: employeeSettings } = useEmployeeSettings();
+  const _workShifts = employeeSettings?.workShifts ?? [];
+  const salaryComponents = React.useMemo(
+    () => employeeSettings?.salaryComponents ?? [],
+    [employeeSettings?.salaryComponents]
   );
-  const getPayrollProfile = useEmployeeCompStore((state) => state.getPayrollProfile);
+  
+  // Use React Query for payroll profile
+  const { profile: payrollProfile } = useResolvedPayrollProfile(initialData?.systemId);
+  
   const { 
     updateStagingDocument,
     getDocuments,
@@ -196,11 +205,6 @@ export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEdi
       getDocuments: state.getDocuments,
       refreshDocuments: state.refreshDocuments,
     }))
-  );
-
-  const payrollProfile = React.useMemo(
-    () => (initialData?.systemId ? getPayrollProfile(initialData.systemId) : null),
-    [initialData?.systemId, getPayrollProfile]
   );
 
   const defaultSalaryComponentSystemIds = React.useMemo(
@@ -233,7 +237,7 @@ export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEdi
   const hadCustomPayrollProfile = payrollProfile?.usesDefaultComponents === false;
 
   const form = useForm<EmployeeFormValues, unknown, EmployeeFormValues>({
-    // resolver: zodResolver(employeeFormSchema), // TODO: Fix type mismatch
+    resolver: zodResolver(employeeFormValidationSchema) as unknown as Resolver<EmployeeFormValues>,
     defaultValues: {
       ...(initialData ?? {}),
       id: initialData?.id ?? asBusinessId(''),
@@ -243,8 +247,17 @@ export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEdi
       terminationDate: parseDate(initialData?.terminationDate ?? '') ?? undefined,
       contractStartDate: parseDate(initialData?.contractStartDate ?? '') ?? undefined,
       contractEndDate: parseDate(initialData?.contractEndDate ?? '') ?? undefined,
+      // Map relation objects to systemId for Select components
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      jobTitle: (initialData as any)?.jobTitleId ?? (typeof (initialData as any)?.jobTitle === 'object' ? (initialData as any)?.jobTitle?.systemId : initialData?.jobTitle) ?? undefined,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      department: (initialData as any)?.departmentId ?? (typeof (initialData as any)?.department === 'object' ? (initialData as any)?.department?.systemId : initialData?.department) ?? undefined,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      branchSystemId: (initialData as any)?.branchId ?? (initialData as any)?.branchSystemId ?? (typeof (initialData as any)?.branch === 'object' ? (initialData as any)?.branch?.systemId : undefined) ?? undefined,
+      // Gender is stored as enum (MALE, FEMALE, OTHER) in DB
+      gender: initialData?.gender ?? undefined,
       ...payrollDefaultValues,
-    },
+    } as EmployeeFormValues,
     mode: 'onChange', // Validate on every change for realtime feedback
     reValidateMode: 'onChange',
   });
@@ -292,7 +305,7 @@ export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEdi
     }
   };
 
-  const handleCopyPayrollBank = React.useCallback(() => {
+  const _handleCopyPayrollBank = React.useCallback(() => {
     const accountNumber = form.getValues('bankAccountNumber') as string | undefined;
     const bankName = form.getValues('bankName') as string | undefined;
     const bankBranch = form.getValues('bankBranch') as string | undefined;
@@ -308,7 +321,7 @@ export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEdi
     toast.success('Đã sao chép thông tin ngân hàng cho mục trả lương');
   }, [form]);
 
-  const handleResetPayrollComponents = React.useCallback(() => {
+  const _handleResetPayrollComponents = React.useCallback(() => {
     form.setValue('payrollSalaryComponentSystemIds', defaultSalaryComponentSystemIds);
     toast.success('Đã khôi phục thành phần lương mặc định từ cài đặt');
   }, [defaultSalaryComponentSystemIds, form]);
@@ -606,19 +619,16 @@ export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEdi
   // Get PERMANENT files only (for ExistingDocumentsViewer)
   const getPermanentFiles = React.useCallback((documentType: string, documentName: string): StagingFile[] => {
     const allFiles = getDocumentFiles(documentType, documentName);
-    // Permanent files: không có sessionId và URL bắt đầu với /api/files/
-    return allFiles.filter(file => 
-      !file.sessionId && file.url && file.url.startsWith('/api/files/')
-    );
+    // Permanent files: không có sessionId
+    return allFiles.filter(file => !file.sessionId);
   }, [getDocumentFiles]);
 
   // Get STAGING files only (for NewDocumentsUpload)
   const getStagingFiles = React.useCallback((documentType: string, documentName: string): StagingFile[] => {
     const allFiles = getDocumentFiles(documentType, documentName);
-    // Staging files have sessionId and URL starting with /api/staging/
-    const stagingFiles = allFiles.filter(file => 
-      file.sessionId && (file.url?.includes('/api/staging/') || file.url?.includes('/staging/'))
-    );
+    // Staging files have sessionId - that's the key indicator
+    // URL can be /api/files/ or /api/staging/ depending on implementation
+    const stagingFiles = allFiles.filter(file => !!file.sessionId);
     
     return stagingFiles;
   }, [getDocumentFiles]);
@@ -887,19 +897,6 @@ export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEdi
               <TabsTrigger value="documents" className="flex-shrink-0 px-3 py-2 text-sm font-normal whitespace-nowrap">
                 Tài liệu
               </TabsTrigger>
-              {!isEditMode && (
-                <TabsTrigger value="kpi" className="flex-shrink-0 px-3 py-2 text-sm font-normal whitespace-nowrap">
-                  KPI
-                </TabsTrigger>
-              )}
-              {!isEditMode && (
-                <TabsTrigger value="penalties" className="flex-shrink-0 px-3 py-2 text-sm font-normal whitespace-nowrap">
-                  Phạt
-                </TabsTrigger>
-              )}
-              <TabsTrigger value="payroll" className="flex-shrink-0 px-3 py-2 text-sm font-normal whitespace-nowrap">
-                Lương & chấm công
-              </TabsTrigger>
             </TabsList>
           </div>
 
@@ -925,21 +922,22 @@ export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEdi
               />
               <FormField name="dob" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Ngày sinh</FormLabel><FormControl><DatePicker value={field.value as Date} onChange={field.onChange} /></FormControl><FormMessage /></FormItem>)} />
               {/* FIX: Explicitly cast `field.value` to string to resolve type incompatibility with the Select component. */}
-              <FormField name="gender" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Giới tính</FormLabel><Select onValueChange={field.onChange} value={field.value as string | undefined}><FormControl><SelectTrigger><SelectValue placeholder="Chọn giới tính" /></SelectTrigger></FormControl><SelectContent><SelectItem value="Nam">Nam</SelectItem><SelectItem value="Nữ">Nữ</SelectItem><SelectItem value="Khác">Khác</SelectItem></SelectContent></Select><FormMessage /></FormItem>)} />
+              <FormField name="gender" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Giới tính</FormLabel><Select onValueChange={field.onChange} value={field.value as string | undefined}><FormControl><SelectTrigger><SelectValue placeholder="Chọn giới tính" /></SelectTrigger></FormControl><SelectContent><SelectItem value="MALE">Nam</SelectItem><SelectItem value="FEMALE">Nữ</SelectItem><SelectItem value="OTHER">Khác</SelectItem></SelectContent></Select><FormMessage /></FormItem>)} />
               {/* FIX: Explicitly set value to handle type conflicts with react-hook-form's generic field state. */}
               <FormField name="placeOfBirth" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Nơi sinh</FormLabel><FormControl><Input placeholder="VD: TP.HCM" {...field} value={field.value as string || ''} /></FormControl><FormMessage /></FormItem>)} />
               <FormField 
                 name="phone" 
                 control={form.control}
                 rules={{
+                  required: "Vui lòng nhập số điện thoại",
                   pattern: {
-                    value: /^[0-9]{10,11}$/,
-                    message: "Số điện thoại phải có 10-11 chữ số"
+                    value: /^(0|\+84)[3-9][0-9]{8}$/,
+                    message: "Số điện thoại không hợp lệ (VD: 0912345678)"
                   }
                 }}
                 render={({ field }) => ( 
                   <FormItem>
-                    <FormLabel>Số điện thoại</FormLabel>
+                    <FormLabel>Số điện thoại <span className="text-destructive">*</span></FormLabel>
                     <FormControl>
                       <Input 
                         placeholder="09xxxxxxxx" 
@@ -975,8 +973,25 @@ export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEdi
               <FormField name="maritalStatus" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Tình trạng hôn nhân</FormLabel><Select onValueChange={field.onChange} value={field.value as string | undefined}><FormControl><SelectTrigger><SelectValue placeholder="Chọn tình trạng" /></SelectTrigger></FormControl><SelectContent><SelectItem value="Độc thân">Độc thân</SelectItem><SelectItem value="Đã kết hôn">Đã kết hôn</SelectItem><SelectItem value="Khác">Khác</SelectItem></SelectContent></Select><FormMessage /></FormItem>)} />
               
               
-              {/* FIX: Explicitly set value to handle type conflicts with react-hook-form's generic field state. */}
-              <FormField name="nationalId" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Số CCCD/Passport</FormLabel><FormControl><Input {...field} value={field.value as string || ''} /></FormControl><FormMessage /></FormItem>)} />
+              <FormField 
+                name="nationalId" 
+                control={form.control}
+                rules={{
+                  pattern: {
+                    value: /^(\d{9}|\d{12})$/,
+                    message: "CCCD/CMND phải có 9 hoặc 12 chữ số"
+                  }
+                }}
+                render={({ field }) => ( 
+                  <FormItem>
+                    <FormLabel>Số CCCD/Passport</FormLabel>
+                    <FormControl>
+                      <Input {...field} value={field.value as string || ''} maxLength={12} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} 
+              />
               {/* FIX: Explicitly pass value prop to DatePicker to avoid type conflicts. */}
               <FormField name="nationalIdIssueDate" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Ngày cấp</FormLabel><FormControl><DatePicker value={field.value as Date} onChange={field.onChange} /></FormControl><FormMessage /></FormItem>)} />
               {/* FIX: Explicitly set value to handle type conflicts with react-hook-form's generic field state. */}
@@ -988,18 +1003,52 @@ export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEdi
               <FormField name="socialInsuranceNumber" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Số sổ BHXH</FormLabel><FormControl><Input {...field} value={field.value as string || ''} /></FormControl><FormMessage /></FormItem>)} />
               
               <div className="md:col-span-2 lg:col-span-3 pt-4">
-                  <h4 className="text-h6 font-medium border-b pb-2 mb-4">Thông tin liên hệ khẩn cấp</h4>
+                  <h4 className="text-h6 font-medium border-b border-border pb-2 mb-4">Thông tin liên hệ khẩn cấp</h4>
               </div>
               {/* FIX: Explicitly set value to handle type conflicts with react-hook-form's generic field state. */}
               <FormField name="emergencyContactName" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Họ và tên người thân</FormLabel><FormControl><Input {...field} value={field.value as string || ''} /></FormControl><FormMessage /></FormItem>)} />
-              {/* FIX: Explicitly set value to handle type conflicts with react-hook-form's generic field state. */}
-              <FormField name="emergencyContactPhone" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Số điện thoại người thân</FormLabel><FormControl><Input {...field} value={field.value as string || ''} /></FormControl><FormMessage /></FormItem>)} />
+              <FormField 
+                name="emergencyContactPhone" 
+                control={form.control}
+                rules={{
+                  pattern: {
+                    value: /^(0|\+84)[3-9][0-9]{8}$/,
+                    message: "Số điện thoại không hợp lệ (VD: 0912345678)"
+                  }
+                }}
+                render={({ field }) => ( 
+                  <FormItem>
+                    <FormLabel>Số điện thoại người thân</FormLabel>
+                    <FormControl>
+                      <Input {...field} value={field.value as string || ''} maxLength={11} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} 
+              />
               
               <div className="md:col-span-2 lg:col-span-3 pt-4">
-                  <h4 className="text-h6 font-medium border-b pb-2 mb-4">Thông tin ngân hàng</h4>
+                  <h4 className="text-h6 font-medium border-b border-border pb-2 mb-4">Thông tin ngân hàng</h4>
               </div>
-              {/* FIX: Explicitly set value to handle type conflicts with react-hook-form's generic field state. */}
-              <FormField name="bankAccountNumber" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Số tài khoản</FormLabel><FormControl><Input {...field} value={field.value as string || ''} /></FormControl><FormMessage /></FormItem>)} />
+              <FormField 
+                name="bankAccountNumber" 
+                control={form.control}
+                rules={{
+                  pattern: {
+                    value: /^\d{9,20}$/,
+                    message: "Số tài khoản phải có 9-20 chữ số"
+                  }
+                }}
+                render={({ field }) => ( 
+                  <FormItem>
+                    <FormLabel>Số tài khoản</FormLabel>
+                    <FormControl>
+                      <Input {...field} value={field.value as string || ''} maxLength={20} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} 
+              />
               {/* FIX: Explicitly set value to handle type conflicts with react-hook-form's generic field state. */}
               <FormField name="bankName" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Tên ngân hàng</FormLabel><FormControl><Input {...field} value={field.value as string || ''} /></FormControl><FormMessage /></FormItem>)} />
               {/* FIX: Explicitly set value to handle type conflicts with react-hook-form's generic field state. */}
@@ -1015,7 +1064,7 @@ export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEdi
               </p>
             </div>
             <div className="space-y-6">
-              <section className="border rounded-lg p-4 space-y-4">
+              <section className="border border-border rounded-lg p-4 space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
                     <h4 className="text-h6 font-medium">Địa chỉ thường trú</h4>
@@ -1064,13 +1113,13 @@ export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEdi
                     )}
                   </dl>
                 ) : (
-                  <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+                  <div className="rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">
                     Chưa có địa chỉ. Nhấn "Chỉnh sửa địa chỉ" để nhập nhanh bằng form chuẩn 2 cấp / 3 cấp.
                   </div>
                 )}
               </section>
 
-              <section className="border rounded-lg p-4 space-y-4">
+              <section className="border border-border rounded-lg p-4 space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
                     <h4 className="text-h6 font-medium">Địa chỉ tạm trú</h4>
@@ -1119,7 +1168,7 @@ export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEdi
                     )}
                   </dl>
                 ) : (
-                  <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+                  <div className="rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">
                     Chưa có địa chỉ. Nhấn "Chỉnh sửa địa chỉ" để nhập nhanh bằng form chuẩn 2 cấp / 3 cấp.
                   </div>
                 )}
@@ -1147,25 +1196,108 @@ export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEdi
                     </p>
                   </FormItem> 
                 )} />
-                {/* FIX: Explicitly set value to handle type conflicts with react-hook-form's generic field state. */}
-                <FormField name="workEmail" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Email công việc</FormLabel><FormControl><Input type="email" placeholder="username@company.com" {...field} value={field.value as string || ''} /></FormControl><FormMessage /></FormItem> )} />
+                <FormField 
+                  name="workEmail" 
+                  control={form.control}
+                  rules={{
+                    required: "Vui lòng nhập email công việc",
+                    pattern: {
+                      value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                      message: "Email không hợp lệ"
+                    }
+                  }}
+                  render={({ field }) => ( 
+                    <FormItem>
+                      <FormLabel>Email công việc <span className="text-destructive">*</span></FormLabel>
+                      <FormControl>
+                        <Input type="email" placeholder="username@company.com" {...field} value={field.value as string || ''} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem> 
+                  )} 
+                />
+                <FormField 
+                  name="branchSystemId" 
+                  control={form.control}
+                  rules={{
+                    required: "Vui lòng chọn chi nhánh"
+                  }}
+                  render={({ field }) => ( 
+                    <FormItem>
+                      <FormLabel>Chi nhánh <span className="text-destructive">*</span></FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value as string | undefined}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Chọn chi nhánh" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {branches.map(b => <SelectItem key={b.systemId} value={b.systemId}>{b.name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem> 
+                  )} 
+                />
                 {/* FIX: Explicitly cast `field.value` to string to resolve type incompatibility with the Select component. */}
-                <FormField name="branchSystemId" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Chi nhánh</FormLabel><Select onValueChange={field.onChange} value={field.value as string | undefined}><FormControl><SelectTrigger><SelectValue placeholder="Chọn chi nhánh" /></SelectTrigger></FormControl><SelectContent>{branches.map(b => <SelectItem key={b.systemId} value={b.systemId}>{b.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
-                {/* FIX: Explicitly cast `field.value` to string to resolve type incompatibility with the Select component. */}
-                <FormField name="department" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Phòng ban</FormLabel><Select onValueChange={field.onChange} value={field.value as string | undefined}><FormControl><SelectTrigger><SelectValue placeholder="Chọn phòng ban" /></SelectTrigger></FormControl><SelectContent><SelectItem value="Kỹ thuật">Kỹ thuật</SelectItem><SelectItem value="Nhân sự">Nhân sự</SelectItem><SelectItem value="Kinh doanh">Kinh doanh</SelectItem><SelectItem value="Marketing">Marketing</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
-                {/* FIX: Explicitly cast `field.value` to string to resolve type incompatibility with the Select component. */}
-                <FormField name="jobTitle" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Chức danh</FormLabel><Select onValueChange={field.onChange} value={field.value as string | undefined}><FormControl><SelectTrigger><SelectValue placeholder="Chọn chức danh" /></SelectTrigger></FormControl><SelectContent>{jobTitles.map(jt => (<SelectItem key={jt.systemId} value={jt.name}>{jt.name}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem> )} />
+                <FormField name="department" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Phòng ban</FormLabel><Select onValueChange={field.onChange} value={field.value as string | undefined}><FormControl><SelectTrigger><SelectValue placeholder="Chọn phòng ban" /></SelectTrigger></FormControl><SelectContent>{departments.map(d => (<SelectItem key={d.systemId} value={d.systemId}>{d.name}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem> )} />
+                <FormField 
+                  name="jobTitle" 
+                  control={form.control}
+                  rules={{
+                    required: "Vui lòng chọn chức danh"
+                  }}
+                  render={({ field }) => ( 
+                    <FormItem>
+                      <FormLabel>Chức danh <span className="text-destructive">*</span></FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value as string | undefined}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Chọn chức danh" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {jobTitles.map(jt => (<SelectItem key={jt.systemId} value={jt.systemId}>{jt.name}</SelectItem>))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem> 
+                  )} 
+                />
                 {/* FIX: Explicitly pass value prop to DatePicker to avoid type conflicts. */}
                 <FormField name="hireDate" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Ngày vào làm</FormLabel><FormControl><DatePicker value={field.value as Date} onChange={field.onChange} /></FormControl><FormMessage /></FormItem> )} />
                 {/* FIX: Explicitly cast `field.value` to string to resolve type incompatibility with the Select component. */}
-                <FormField name="employeeType" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Loại nhân viên</FormLabel><Select onValueChange={field.onChange} value={field.value as string | undefined}><FormControl><SelectTrigger><SelectValue placeholder="Chọn loại NV" /></SelectTrigger></FormControl><SelectContent><SelectItem value="Chính thức">Chính thức</SelectItem><SelectItem value="Thử việc">Thử việc</SelectItem><SelectItem value="Thực tập sinh">Thực tập sinh</SelectItem><SelectItem value="Bán thời gian">Bán thời gian</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
-                {/* FIX: Explicitly cast `field.value` to string to resolve type incompatibility with the Select component. */}
-                <FormField name="employmentStatus" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Trạng thái làm việc</FormLabel><Select onValueChange={field.onChange} value={field.value as string | undefined}><FormControl><SelectTrigger><SelectValue placeholder="Chọn trạng thái" /></SelectTrigger></FormControl><SelectContent><SelectItem value="Đang làm việc">Đang làm việc</SelectItem><SelectItem value="Tạm nghỉ">Tạm nghỉ</SelectItem><SelectItem value="Đã nghỉ việc">Đã nghỉ việc</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
+                <FormField name="employeeType" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Loại nhân viên</FormLabel><Select onValueChange={field.onChange} value={field.value as string | undefined}><FormControl><SelectTrigger><SelectValue placeholder="Chọn loại NV" /></SelectTrigger></FormControl><SelectContent><SelectItem value="FULLTIME">Toàn thời gian</SelectItem><SelectItem value="PARTTIME">Bán thời gian</SelectItem><SelectItem value="INTERN">Thực tập</SelectItem><SelectItem value="PROBATION">Thử việc</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
+                <FormField 
+                  name="employmentStatus" 
+                  control={form.control}
+                  rules={{
+                    required: "Vui lòng chọn trạng thái làm việc"
+                  }}
+                  render={({ field }) => ( 
+                    <FormItem>
+                      <FormLabel>Trạng thái làm việc <span className="text-destructive">*</span></FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value as string | undefined}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Chọn trạng thái" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="ACTIVE">Đang làm việc</SelectItem>
+                          <SelectItem value="ON_LEAVE">Tạm nghỉ</SelectItem>
+                          <SelectItem value="TERMINATED">Đã nghỉ việc</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem> 
+                  )} 
+                />
                 {/* FIX: Explicitly pass value prop to DatePicker to avoid type conflicts. */}
                 <FormField name="terminationDate" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Ngày nghỉ việc</FormLabel><FormControl><DatePicker value={field.value as Date} onChange={field.onChange} /></FormControl><FormMessage /></FormItem> )} />
                 
                 {/* FIX: Explicitly cast `field.value` to string to resolve type incompatibility with the Select component. */}
-                <FormField name="contractType" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Loại hợp đồng</FormLabel><Select onValueChange={field.onChange} value={field.value as string | undefined}><FormControl><SelectTrigger><SelectValue placeholder="Chọn loại hợp đồng" /></SelectTrigger></FormControl><SelectContent><SelectItem value="Không xác định">Không xác định</SelectItem><SelectItem value="Thử việc">Thử việc</SelectItem><SelectItem value="1 năm">1 năm</SelectItem><SelectItem value="2 năm">2 năm</SelectItem><SelectItem value="3 năm">3 năm</SelectItem><SelectItem value="Vô thời hạn">Vô thời hạn</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
+                <FormField name="contractType" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Loại hợp đồng</FormLabel><Select onValueChange={field.onChange} value={field.value as string | undefined}><FormControl><SelectTrigger><SelectValue placeholder="Chọn loại hợp đồng" /></SelectTrigger></FormControl><SelectContent><SelectItem value="PROBATION">Thử việc</SelectItem><SelectItem value="ONE_YEAR">1 năm</SelectItem><SelectItem value="TWO_YEARS">2 năm</SelectItem><SelectItem value="THREE_YEARS">3 năm</SelectItem><SelectItem value="INDEFINITE">Vô thời hạn</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
                 <FormField name="contractNumber" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Số hợp đồng</FormLabel><FormControl><Input placeholder="Số hợp đồng" {...field} value={field.value as string || ''} /></FormControl><FormMessage /></FormItem> )} />
                 {/* FIX: Explicitly pass value prop to DatePicker to avoid type conflicts. */}
                 <FormField name="contractStartDate" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Ngày bắt đầu HĐ</FormLabel><FormControl><DatePicker value={field.value as Date} onChange={field.onChange} /></FormControl><FormMessage /></FormItem> )} />
@@ -1173,7 +1305,7 @@ export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEdi
                 <FormField name="contractEndDate" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Ngày kết thúc HĐ</FormLabel><FormControl><DatePicker value={field.value as Date} onChange={field.onChange} /></FormControl><FormMessage /></FormItem> )} />
                 
                 <div className="md:col-span-2 lg:col-span-3 pt-4">
-                  <h4 className="text-h6 font-medium border-b pb-2 mb-4">Lương & Phụ cấp</h4>
+                  <h4 className="text-h6 font-medium border-b border-border pb-2 mb-4">Lương & Phụ cấp</h4>
                 </div>
                  <FormField name="baseSalary" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Lương cơ bản</FormLabel><FormControl><CurrencyInput value={field.value as number} onChange={field.onChange} placeholder="0" /></FormControl><FormMessage /></FormItem> )} />
                  <FormField name="socialInsuranceSalary" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Lương đóng BHXH</FormLabel><FormControl><CurrencyInput value={field.value as number} onChange={field.onChange} placeholder="0" /></FormControl><FormMessage /></FormItem> )} />
@@ -1182,10 +1314,10 @@ export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEdi
                  <FormField name="otherAllowances" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Phụ cấp khác</FormLabel><FormControl><CurrencyInput value={field.value as number} onChange={field.onChange} placeholder="0" /></FormControl><FormMessage /></FormItem> )} />
 
                 <div className="md:col-span-2 lg:col-span-3 pt-4">
-                  <h4 className="text-h6 font-medium border-b pb-2 mb-4">Nghỉ phép</h4>
+                  <h4 className="text-h6 font-medium border-b border-border pb-2 mb-4">Nghỉ phép</h4>
                 </div>
-                {/* FIX: Explicitly set value to handle type conflicts with react-hook-form's generic field state. */}
-                <FormField name="leaveTaken" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Số phép đã sử dụng</FormLabel><FormControl><Input type="number" min="0" {...field} value={field.value as number | undefined} onChange={e => field.onChange(Math.max(0, parseInt(e.target.value, 10) || 0))} /></FormControl><FormMessage /></FormItem> )} />
+                {/* annualLeaveBalance - số phép còn lại */}
+                <FormField name="annualLeaveBalance" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Số phép còn lại</FormLabel><FormControl><Input type="number" min="0" {...field} value={field.value ?? ''} onChange={e => field.onChange(Math.max(0, parseInt(e.target.value, 10) || 0))} /></FormControl><FormMessage /></FormItem> )} />
             </div>
           </TabsContent>
           
@@ -1214,10 +1346,18 @@ export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEdi
                   </div>
                 )}
 
-                {password && isEditMode && (
+                {isEditMode && (initialData as { hasPassword?: boolean })?.hasPassword && (
                   <div className="rounded-lg border p-3 bg-muted/50">
                     <p className="text-sm text-muted-foreground">
                       Mật khẩu đã được thiết lập. Để thay đổi, nhập mật khẩu mới bên dưới.
+                    </p>
+                  </div>
+                )}
+
+                {isEditMode && !(initialData as { hasPassword?: boolean })?.hasPassword && (
+                  <div className="rounded-lg border border-orange-200 p-3 bg-orange-50 dark:bg-orange-950/20">
+                    <p className="text-sm text-orange-800 dark:text-orange-200">
+                      Chưa có mật khẩu. Nhân viên chưa thể đăng nhập hệ thống.
                     </p>
                   </div>
                 )}
@@ -1307,37 +1447,6 @@ export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEdi
               handleRefreshDocuments={handleRefreshDocuments}
               handleMarkForDeletion={handleMarkForDeletion}
               filesToDelete={filesToDelete}
-            />
-          </TabsContent>
-
-          {!isEditMode && (
-            <TabsContent value="kpi" className="mt-6">
-              <div className="flex h-40 items-center justify-center rounded-lg border border-dashed shadow-sm">
-                  <div className="flex flex-col items-center gap-1 text-center text-muted-foreground">
-                      <h3 className="text-h5 font-semibold tracking-tight">Quản lý KPI</h3>
-                      <p className="text-sm">Chức năng đang được phát triển.</p>
-                  </div>
-              </div>
-            </TabsContent>
-          )}
-          {!isEditMode && (
-            <TabsContent value="penalties" className="mt-6">
-              <div className="flex h-40 items-center justify-center rounded-lg border border-dashed shadow-sm">
-                  <div className="flex flex-col items-center gap-1 text-center text-muted-foreground">
-                      <h3 className="text-h5 font-semibold tracking-tight">Quản lý Phiếu phạt</h3>
-                      <p className="text-sm">Chức năng đang được phát triển.</p>
-                  </div>
-              </div>
-            </TabsContent>
-          )}
-          <TabsContent value="payroll" className="mt-6">
-            <EmployeePayrollTab
-              control={form.control}
-              isEditMode={isEditMode}
-              workShifts={workShifts}
-              salaryComponents={salaryComponents}
-              onResetPayrollComponents={handleResetPayrollComponents}
-              onCopyPayrollBank={handleCopyPayrollBank}
             />
           </TabsContent>
 

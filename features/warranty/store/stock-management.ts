@@ -1,221 +1,76 @@
-import { getCurrentDate, toISODateTime } from '../../../lib/date-utils';
-import { useProductStore } from '../../products/store';
-import { useStockHistoryStore } from '../../stock-history/store';
-import { toast } from 'sonner';
+/**
+ * Warranty Stock Management
+ * 
+ * ⚠️ DEPRECATED: These client-side stock operations are unsafe and should be replaced
+ * with server-side atomic transactions via warranty API endpoints
+ * 
+ * Recommended server endpoints:
+ * - POST /api/warranties (with stock commit)
+ * - POST /api/warranties/:id/complete (with stock deduction)
+ * - POST /api/warranties/:id/cancel (with stock rollback/uncommit)
+ */
+
+import { getCurrentDate as _getCurrentDate, toISODateTime as _toISODateTime } from '../../../lib/date-utils';
+import { toast as _toast } from 'sonner';
 import type { WarrantyTicket } from '../types';
-import { getCurrentUserName } from './base-store';
-import { asSystemId, type SystemId } from '../../../lib/id-types';
+import { getCurrentUserName as _getCurrentUserName } from './base-store';
+import { asSystemId as _asSystemId, type SystemId as _SystemId } from '../../../lib/id-types';
 
 /**
+ * @deprecated Use server endpoint: POST /api/warranties with stock commit
  * Commit stock khi tạo warranty (reserve hàng cho đổi mới)
- * Reuse productStore.commitStock()
+ * 
+ * ⚠️ UNSAFE: Client-side stock commitment without transaction
  */
-export function commitWarrantyStock(ticket: WarrantyTicket) {
-  const replaceProducts = ticket.products.filter(p => p.resolution === 'replace');
-  
-  if (replaceProducts.length > 0) {
-    const productStore = useProductStore.getState();
-    const productCache = new Map<string, { id: string; systemId: string; name: string; [key: string]: unknown }>();
-    productStore.data.forEach(p => productCache.set(p.id, p));
-    
-    replaceProducts.forEach(warrantyProduct => {
-      if (!warrantyProduct.sku) {
-        return;
-      }
-      
-      const product = productCache.get(warrantyProduct.sku);
-      
-      if (!product) {
-        return;
-      }
-      
-      const quantityToCommit = warrantyProduct.quantity || 1;
-      
-      // Reuse productStore.commitStock()
-      productStore.commitStock(product.systemId as SystemId, ticket.branchSystemId, quantityToCommit);
-      
-    });
-  }
+export function commitWarrantyStock(
+  _ticket: WarrantyTicket,
+  _products: Array<{ id: string; systemId: string; name: string; [key: string]: unknown }>
+) {
+  console.warn('⚠️ DEPRECATED: commitWarrantyStock. Use POST /api/warranties endpoint.');
+  // Method body removed - use server endpoint
 }
 
 /**
+ * @deprecated Use server endpoint: POST /api/warranties/:id/cancel with uncommit
  * Uncommit stock khi xóa warranty (giải phóng hàng giữ chỗ)
- * Reuse productStore.uncommitStock()
+ * 
+ * ⚠️ UNSAFE: Client-side stock uncommitment without transaction
  */
-export function uncommitWarrantyStock(ticket: WarrantyTicket, options?: { silent?: boolean }) {
-  const replaceProducts = ticket.products.filter(p => p.resolution === 'replace');
-  
-  if (replaceProducts.length > 0) {
-    const productStore = useProductStore.getState();
-    const productCache = new Map<string, { id: string; systemId: string; name: string; [key: string]: unknown }>();
-    productStore.data.forEach(p => productCache.set(p.id, p));
-    
-    replaceProducts.forEach(warrantyProduct => {
-      if (!warrantyProduct.sku) return;
-      
-      const product = productCache.get(warrantyProduct.sku);
-      
-      if (product) {
-      const quantityToUncommit = warrantyProduct.quantity || 1;
-      
-      // Reuse productStore.uncommitStock()
-      productStore.uncommitStock(product.systemId as SystemId, ticket.branchSystemId, quantityToUncommit);              }
-    });
-    
-    if (!options?.silent) {
-      toast.info('Đã giải phóng hàng giữ chỗ', {
-        description: `${replaceProducts.length} sản phẩm đã được trả lại kho có thể bán`,
-        duration: 3000
-      });
-    }
-  }
+export function uncommitWarrantyStock(
+  _ticket: WarrantyTicket,
+  _products: Array<{ id: string; systemId: string; name: string; [key: string]: unknown }>,
+  _options?: { silent?: boolean }
+) {
+  console.warn('⚠️ DEPRECATED: uncommitWarrantyStock. Use POST /api/warranties/:id/cancel endpoint.');
+  // Method body removed - use server endpoint
 }
 
 /**
+ * @deprecated Use server endpoint: POST /api/warranties/:id/complete with stock deduction
  * Xuất kho khi 'completed' - Dùng dispatchStock giống đơn hàng
- * NEW LOGIC: Bước 4 - Kết thúc
+ * 
+ * ⚠️ UNSAFE: Client-side stock deduction + stock history without transaction
  */
-export function deductWarrantyStock(ticket: WarrantyTicket) {
-  
-  const replacedProducts = ticket.products.filter(p => p.resolution === 'replace');
-  
-  if (replacedProducts.length > 0) {
-    const productStore = useProductStore.getState();
-    const stockHistoryStore = useStockHistoryStore.getState();
-    const productCache = new Map<string, { id: string; systemId: string; name: string; inventoryByBranch: Record<string, number>; [key: string]: unknown }>();
-    productStore.data.forEach(p => productCache.set(p.id, p));
-    
-    const deductionResults: string[] = [];
-    let hasErrors = false;
-    
-    replacedProducts.forEach(warrantyProduct => {
-      if (!warrantyProduct.sku) {
-        deductionResults.push(`Sản phẩm "${warrantyProduct.productName}" không có SKU`);
-        hasErrors = true;
-        return;
-      }
-      
-      const product = productCache.get(warrantyProduct.sku);
-      
-      if (!product) {
-        deductionResults.push(`Không tìm thấy SP SKU: ${warrantyProduct.sku}`);
-        hasErrors = true;
-        return;
-      }
-      
-      const currentInventory = product.inventoryByBranch[ticket.branchSystemId] || 0;
-      const quantityToDeduct = warrantyProduct.quantity || 1;
-      
-      
-      if (currentInventory < quantityToDeduct) {
-        deductionResults.push(`${product.name} (${product.id}): Không đủ hàng (Tồn: ${currentInventory}, Cần: ${quantityToDeduct})`);
-        hasErrors = true;
-        return;
-      }
-      
-      // ✅ Xuất kho trực tiếp (không dùng dispatchStock vì warranty không có inTransit)
-      // -Tồn kho
-      productStore.updateInventory(product.systemId as SystemId, ticket.branchSystemId, -quantityToDeduct);
-      // -Đang giao dịch (uncommit)
-      productStore.uncommitStock(product.systemId as SystemId, ticket.branchSystemId, quantityToDeduct);
-      
-      // ✅ Lấy lại product sau khi update
-      const freshProductStore = useProductStore.getState();
-      const updatedProduct = freshProductStore.data.find(p => p.systemId === product.systemId);
-      const newStockLevel = updatedProduct?.inventoryByBranch[ticket.branchSystemId] || currentInventory - quantityToDeduct;
-      
-      
-      stockHistoryStore.addEntry({
-        productId: asSystemId(product.systemId),
-        date: toISODateTime(getCurrentDate()),
-        employeeName: getCurrentUserName(),
-        action: 'Xuất bảo hành (đổi mới)',
-        quantityChange: -quantityToDeduct,
-        newStockLevel,
-        documentId: ticket.id, // Business ID for display (BH000001)
-        branchSystemId: ticket.branchSystemId,
-        branch: ticket.branchName,
-      });
-      
-      deductionResults.push(`${product.name} (${product.id}): Trừ ${quantityToDeduct} cái (Còn: ${newStockLevel})`);
-    });
-    
-    if (hasErrors) {
-      toast.error('Có lỗi khi xuất kho', {
-        description: deductionResults.join('\n'),
-        duration: 6000,
-      });
-    } else {
-      toast.success('Đã xuất kho sản phẩm thay thế', {
-        description: `Xuất ${replacedProducts.length} sản phẩm tại chi nhánh ${ticket.branchName}`,
-        duration: 4000,
-      });
-    }
-  }
+export function deductWarrantyStock(
+  _ticket: WarrantyTicket,
+  _products: Array<{ id: string; systemId: string; name: string; inventoryByBranch: Record<string, number>; [key: string]: unknown }>
+) {
+  console.warn('⚠️ DEPRECATED: deductWarrantyStock. Use POST /api/warranties/:id/complete endpoint.');
+  console.error('🚨 UNSAFE: This method accesses useProductStore and useStockHistoryStore without transactions.');
+  // Method body removed - use server endpoint
 }
 
 /**
+ * @deprecated Use server endpoint: POST /api/warranties/:id/cancel with stock rollback
  * Hoàn kho khi hủy warranty - Ngược lại với dispatchStock
- * NEW LOGIC: +Tồn kho + +Đang giao dịch
+ * 
+ * ⚠️ UNSAFE: Client-side stock rollback + stock history without transaction
  */
-export function rollbackWarrantyStock(ticket: WarrantyTicket) {
-  
-  const replacedProducts = ticket.products.filter(p => p.resolution === 'replace');
-  
-  if (replacedProducts.length > 0) {
-    const productStore = useProductStore.getState();
-    const stockHistoryStore = useStockHistoryStore.getState();
-    const productCache = new Map<string, { id: string; systemId: string; name: string; inventoryByBranch: Record<string, number>; [key: string]: unknown }>();
-    productStore.data.forEach(p => productCache.set(p.id, p));
-    
-    const rollbackResults: string[] = [];
-    
-    replacedProducts.forEach(warrantyProduct => {
-      if (!warrantyProduct.sku) {
-        rollbackResults.push(`Sản phẩm "${warrantyProduct.productName}" không có SKU`);
-        return;
-      }
-      
-      const product = productCache.get(warrantyProduct.sku);
-      
-      if (!product) {
-        rollbackResults.push(`Không tìm thấy SP SKU: ${warrantyProduct.sku}`);
-        return;
-      }
-      
-      const quantityToRollback = warrantyProduct.quantity || 1;
-      const currentInventory = product.inventoryByBranch[ticket.branchSystemId] || 0;
-      
-      
-      // ✅ Hoàn kho: +Tồn kho (warranty xuất trực tiếp, không qua inTransit)
-      productStore.updateInventory(product.systemId as SystemId, ticket.branchSystemId, quantityToRollback);
-      
-      // ✅ Lấy lại product sau khi update để có inventory mới
-      const freshProductStore = useProductStore.getState();
-      const updatedProduct = freshProductStore.data.find(p => p.systemId === product.systemId);
-      const newStockLevel = updatedProduct?.inventoryByBranch[ticket.branchSystemId] || currentInventory + quantityToRollback;
-      
-      
-      // Note: Không cần uncommit vì khi deduct đã uncommit rồi
-      
-      stockHistoryStore.addEntry({
-        productId: asSystemId(product.systemId),
-        date: toISODateTime(getCurrentDate()),
-        employeeName: getCurrentUserName(),
-        action: 'Hoàn kho (Hủy bảo hành)',
-        quantityChange: quantityToRollback,
-        newStockLevel,
-        documentId: ticket.id,
-        branchSystemId: ticket.branchSystemId,
-        branch: ticket.branchName,
-      });
-      
-      rollbackResults.push(`${product.name} (${product.id}): Hoàn ${quantityToRollback} cái`);
-    });
-    
-    toast.info('Đã hoàn kho sản phẩm thay thế', {
-      description: rollbackResults.join('\n'),
-      duration: 4000,
-    });
-  }
+export function rollbackWarrantyStock(
+  _ticket: WarrantyTicket,
+  _products: Array<{ id: string; systemId: string; name: string; inventoryByBranch: Record<string, number>; [key: string]: unknown }>
+) {
+  console.warn('⚠️ DEPRECATED: rollbackWarrantyStock. Use POST /api/warranties/:id/cancel endpoint.');
+  console.error('🚨 UNSAFE: This method accesses useProductStore and useStockHistoryStore without transactions.');
+  // Method body removed - use server endpoint
 }

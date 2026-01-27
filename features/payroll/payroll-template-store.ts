@@ -3,7 +3,7 @@ import type { PayrollTemplate } from '../../lib/payroll-types';
 import { generateSystemId, findNextAvailableBusinessId } from '../../lib/id-utils';
 import { getPrefix } from '../../lib/smart-prefix';
 import { getCurrentUserSystemId } from '../../contexts/auth-context';
-import { useEmployeeSettingsStore } from '../settings/employees/employee-settings-store';
+import { getEmployeeSettingsSync } from '../settings/employees/employee-settings-service';
 import { asBusinessId, asSystemId, type SystemId } from '../../lib/id-types';
 
 const TEMPLATE_ENTITY = 'payroll-templates' as const;
@@ -170,7 +170,7 @@ type PayrollTemplateStoreState = {
   resetToDefaultTemplates: () => void;
 };
 
-const initialCounter: TemplateCounterState = {
+const _initialCounter: TemplateCounterState = {
   systemId: 0,
   businessId: 0,
 };
@@ -181,9 +181,8 @@ const collectBusinessIds = (items: PayrollTemplate[]) =>
     .filter((id): id is string => Boolean(id));
 
 const sanitizeComponentIds = (componentIds?: Array<SystemId | string>): SystemId[] => {
-  const availableComponents = useEmployeeSettingsStore
-    .getState()
-    .getSalaryComponents()
+  const availableComponents = getEmployeeSettingsSync()
+    .salaryComponents
     .map((component) => asSystemId(component.systemId));
 
   if (!availableComponents.length) {
@@ -245,8 +244,11 @@ const enforceSingleDefault = (templates: PayrollTemplate[], defaultSystemId?: Sy
 
 export const usePayrollTemplateStore = create<PayrollTemplateStoreState>()(
     (set, get) => ({
-      templates: [],
-      counter: initialCounter,
+      templates: defaultTemplates,
+      counter: {
+        systemId: 5, // After PAYTEMP000005
+        businessId: 5, // After PT000005
+      },
       createTemplate: (input) => {
         let createdTemplate: PayrollTemplate | undefined;
         set((state) => {

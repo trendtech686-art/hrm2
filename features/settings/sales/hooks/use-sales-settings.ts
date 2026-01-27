@@ -9,7 +9,7 @@ import {
   updateSalesSettings,
   resetSalesSettings,
 } from '../api/sales-settings-api';
-import type { SalesManagementSettingsValues } from '../sales-management-store';
+import type { SalesManagementSettingsValues } from '../sales-management-service';
 
 // Query keys factory
 export const salesSettingsKeys = {

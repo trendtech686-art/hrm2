@@ -28,7 +28,7 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import { useBrandStore } from '../settings/inventory/brand-store';
+import { useBrands, useBrandMutations } from './hooks/use-brands';
 import { asBusinessId } from '@/lib/id-types';
 import { toast } from 'sonner';
 import { NewDocumentsUpload } from '@/components/ui/new-documents-upload';
@@ -65,14 +65,22 @@ type BrandFormValues = z.infer<typeof brandFormSchema>;
 export function BrandNewPage() {
   const router = useRouter();
   
-  const { data, add, getNextId: _getNextId, counter } = useBrandStore();
+  const { data: brandsData } = useBrands({ limit: 1000 });
+  const brands = React.useMemo(() => brandsData?.data ?? [], [brandsData?.data]);
+  const { create } = useBrandMutations({
+    onCreateSuccess: () => {
+      toast.success('Đã thêm thương hiệu mới');
+      router.push('/brands');
+    },
+    onError: (err) => toast.error(err.message)
+  });
   
-  const existingIds = React.useMemo(() => data.map(b => String(b.id)), [data]);
+  const existingIds = React.useMemo(() => brands.map(b => String(b.id)), [brands]);
   
-  // Generate SystemId for file uploads (preview before actual save)
+  // Generate temporary SystemId for file uploads (will be replaced by server-generated ID)
   const tempSystemId = React.useMemo(() => {
-    return `BRAND${String(counter + 1).padStart(6, '0')}`;
-  }, [counter]);
+    return `BRAND_TEMP_${Date.now()}`;
+  }, []);
   
   const [activeTab, setActiveTab] = React.useState<'general' | 'seo-pkgx' | 'seo-trendtech'>('general');
   
@@ -137,21 +145,19 @@ export function BrandNewPage() {
           'logo',
           { name: data.name }
         );
-        logoUrl = logoFiles[0]?.url || logoUrl;
+        logoUrl = logoFiles[0]?.url || logoUrl || undefined;
       } catch (error) {
         console.error('Error confirming logo:', error);
       }
     }
     
-    add({
+    create.mutate({
       ...data,
       id: asBusinessId(data.id),
-      logo: logoUrl,
-    });
-    
-    toast.success('Đã thêm thương hiệu mới');
-    router.push('/brands');
-  }, [existingIds, form, logoFiles, logoSessionId, tempSystemId, add, router]);
+      logo: logoUrl || null,
+      logoUrl: logoUrl || null,
+    } as any);
+  }, [existingIds, form, logoFiles, logoSessionId, tempSystemId, create]);
 
   // Header actions
   const headerActions = React.useMemo(() => [

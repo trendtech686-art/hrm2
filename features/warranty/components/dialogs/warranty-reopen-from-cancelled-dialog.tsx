@@ -17,9 +17,10 @@ import {
 } from '../../../../components/ui/alert-dialog';
 import { Textarea } from '../../../../components/ui/textarea';
 import type { WarrantyTicket, WarrantyHistory } from '../../types';
-import { useWarrantyStore } from '../../store';
+import { useWarrantyMutations } from '../../hooks/use-warranties';
 import { useWarrantyFinder } from '../../hooks/use-all-warranties';
-import { useProductStore } from '../../../products/store';
+import { useProducts } from '../../../products/hooks/use-products';
+import { useProductMutations } from '../../../products/hooks/use-products';
 import { useAuth } from '../../../../contexts/auth-context';
 import { toISODateTime, getCurrentDate } from '../../../../lib/date-utils';
 import { asSystemId, type SystemId } from '../../../../lib/id-types';
@@ -43,8 +44,14 @@ export function WarrantyReopenFromCancelledDialog({ open, onOpenChange, ticket }
   const { user, employee } = useAuth();
   const performerName = employee?.fullName ?? user?.name ?? 'Hệ thống';
   const performerSystemId = employee?.systemId ?? user?.employeeId;
-  const { update } = useWarrantyStore();
+  const { update } = useWarrantyMutations({
+    onUpdateSuccess: () => toast.success('Đã mở lại phiếu bảo hành'),
+    onError: (err) => toast.error(err.message)
+  });
+  const { update: updateProduct } = useProductMutations();
   const { findById } = useWarrantyFinder();
+  const { data: productsData } = useProducts({ limit: 1000 });
+  const products = productsData?.data ?? [];
 
   const handleReopen = React.useCallback(() => {
     if (!ticket || !reopenReason.trim()) {
@@ -57,13 +64,11 @@ export function WarrantyReopenFromCancelledDialog({ open, onOpenChange, ticket }
       const replacedProducts = ticket.products.filter(p => p.resolution === 'replace');
       
       if (replacedProducts.length > 0) {
-        const productStore = useProductStore.getState();
-        
         replacedProducts.forEach(warrantyProduct => {
           const fallbackProduct = warrantyProduct.productSystemId
-            ? productStore.data.find(p => p.systemId === warrantyProduct.productSystemId)
+            ? products.find(p => p.systemId === warrantyProduct.productSystemId)
             : warrantyProduct.sku
-              ? productStore.data.find(p => p.id === warrantyProduct.sku)
+              ? products.find(p => p.id === warrantyProduct.sku)
               : undefined;
 
           const productSystemId = warrantyProduct.productSystemId ?? fallbackProduct?.systemId;
@@ -72,9 +77,22 @@ export function WarrantyReopenFromCancelledDialog({ open, onOpenChange, ticket }
             return;
           }
 
-          const quantityToCommit = warrantyProduct.quantity || 1;
-          productStore.commitStock(productSystemId, ticket.branchSystemId, quantityToCommit);
+          const product = products.find(p => p.systemId === productSystemId);
+          if (!product) return;
 
+          const quantityToCommit = warrantyProduct.quantity || 1;
+          const branchInventory = (product as any).inventory?.find((inv: any) => inv.branchSystemId === ticket.branchSystemId);
+          
+          if (branchInventory) {
+            updateProduct.mutate({
+              systemId: productSystemId,
+              inventory: (product as any).inventory?.map((inv: any) => 
+                  inv.branchSystemId === ticket.branchSystemId
+                    ? { ...inv, committed: inv.committed + quantityToCommit }
+                    : inv
+                )
+            });
+          }
         });
         
         toast.info('Đã giữ hàng cho phiếu bảo hành', {
@@ -106,7 +124,7 @@ export function WarrantyReopenFromCancelledDialog({ open, onOpenChange, ticket }
         note: `Lý do mở lại: ${reopenReason}${inventoryNote}`,
       };
 
-      update(ticket.systemId, {
+      (update as any).mutate({ systemId: ticket.systemId, data: {
         cancelledAt: undefined,
         status: 'pending', // ✅ Reset to pending (ready to process) instead of incomplete
         returnedAt: undefined, // ✅ Clear returnedAt timestamp
@@ -114,7 +132,7 @@ export function WarrantyReopenFromCancelledDialog({ open, onOpenChange, ticket }
         processingStartedAt: undefined, // ✅ Clear processingStartedAt timestamp
         linkedOrderSystemId: undefined, // ✅ Clear order link
         history: [...latestTicket.history, newHistory],
-      });
+      }});
       
       onOpenChange(false);
       setReopenReason('');
@@ -123,7 +141,7 @@ export function WarrantyReopenFromCancelledDialog({ open, onOpenChange, ticket }
       console.error('Failed to reopen ticket:', error);
       toast.error('Không thể mở lại phiếu');
     }
-  }, [ticket, reopenReason, update, performerName, performerSystemId, findById, onOpenChange]);
+  }, [ticket, reopenReason, update, performerName, performerSystemId, findById, onOpenChange, products, updateProduct]);
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -138,7 +156,7 @@ export function WarrantyReopenFromCancelledDialog({ open, onOpenChange, ticket }
           value={reopenReason}
           onChange={(e) => setReopenReason(e.target.value)}
           placeholder="Nhập lý do mở lại phiếu (bắt buộc)..."
-          className="min-h-[100px]"
+          className="min-h-25"
         />
         <AlertDialogFooter>
           <AlertDialogCancel onClick={() => setReopenReason('')}>Hủy</AlertDialogCancel>

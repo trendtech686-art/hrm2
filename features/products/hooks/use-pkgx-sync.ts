@@ -5,7 +5,7 @@ import React from 'react';
 import { toast } from 'sonner';
 import type { Product } from '../types';
 import { updateProduct, updateMemberPrice, uploadImageFromUrl, processHtmlImagesForPkgx } from '@/lib/pkgx/api-service';
-import { usePkgxSettingsStore } from '@/features/settings/pkgx/store';
+import { usePkgxSettings } from '@/features/settings/pkgx/hooks/use-pkgx-settings';
 import { useImageStore } from '../image-store';
 
 // Types
@@ -45,13 +45,13 @@ type UsePkgxSyncOptions = {
  * Hook cung cấp các handlers để đồng bộ sản phẩm với PKGX
  */
 export function usePkgxSync({ addPkgxLog }: UsePkgxSyncOptions) {
-  const { settings: pkgxSettings } = usePkgxSettingsStore();
+  const { data: pkgxSettings } = usePkgxSettings();
 
   // ═══════════════════════════════════════════════════════════════
   // HELPER: Get price by mapping
   // ═══════════════════════════════════════════════════════════════
   const getPriceByMapping = React.useCallback((product: Product, pkgxPriceField: string): number | undefined => {
-    const { priceMapping } = pkgxSettings;
+    const priceMapping = pkgxSettings?.priceMapping;
     if (!priceMapping) return undefined;
     
     // priceMapping is PkgxPriceMapping { shopPrice, marketPrice, partnerPrice, acePrice, dealPrice }
@@ -74,7 +74,7 @@ export function usePkgxSync({ addPkgxLog }: UsePkgxSyncOptions) {
   // HELPER: Check if has price mapping
   // ═══════════════════════════════════════════════════════════════
   const hasPriceMapping = React.useMemo(() => {
-    const { priceMapping } = pkgxSettings;
+    const priceMapping = (pkgxSettings as any)?.priceMapping;
     return priceMapping && (
       priceMapping.shopPrice || 
       priceMapping.marketPrice || 

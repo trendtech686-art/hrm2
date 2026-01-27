@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireAuth, apiError } from '@/lib/api-utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,21 +8,24 @@ export const dynamic = 'force-dynamic';
  * 
  * Query params:
  * - provinceId: Filter by province ID
+ * - level: Filter by level ('2-level' | '3-level')
  * 
- * Returns districts (~624 total, or filtered by province)
+ * Returns districts (691 for 3-level, 0 for 2-level)
+ * 
+ * Note: No auth required - this is public reference data
  */
 export async function GET(request: NextRequest) {
-  const session = await requireAuth();
-  if (!session) return apiError('Vui lòng đăng nhập', 401);
 
   try {
     const { searchParams } = new URL(request.url);
     const provinceId = searchParams.get('provinceId');
+    const level = searchParams.get('level');
 
     const districts = await prisma.district.findMany({
       where: {
         isDeleted: false,
         ...(provinceId && { provinceId }),
+        ...(level && { level }),
       },
       orderBy: { name: 'asc' },
       select: {
@@ -31,6 +33,7 @@ export async function GET(request: NextRequest) {
         id: true,
         name: true,
         provinceId: true,
+        level: true,
       },
     });
 

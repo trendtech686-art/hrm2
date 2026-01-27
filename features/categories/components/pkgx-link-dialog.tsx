@@ -11,10 +11,15 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { VirtualizedCombobox, type ComboboxOption } from '@/components/ui/virtualized-combobox';
-import { usePkgxSettingsStore } from '@/features/settings/pkgx/store';
 import type { ProductCategory } from '@/features/settings/inventory/types';
 import type { PkgxCategory } from '@/features/settings/pkgx/types';
 import { getCategories as fetchPkgxCategories } from '@/lib/pkgx/api-service';
+import { 
+  usePkgxSettings, 
+  usePkgxCategoryMutations, 
+  usePkgxCategoryMappingMutations,
+  usePkgxCategoryMappings 
+} from '@/features/settings/pkgx/hooks/use-pkgx-settings';
 
 interface PkgxCategoryLinkDialogProps {
   open: boolean;
@@ -29,11 +34,11 @@ export function PkgxCategoryLinkDialog({
   category,
   onSuccess,
 }: PkgxCategoryLinkDialogProps) {
-  const pkgxSettingsStore = usePkgxSettingsStore();
-  const cachedPkgxCategories = pkgxSettingsStore.settings.categories;
-  const categoryMappings = pkgxSettingsStore.settings.categoryMappings;
-  const addCategoryMapping = pkgxSettingsStore.addCategoryMapping;
-  const setCategories = pkgxSettingsStore.setCategories;
+  const { data: pkgxSettings } = usePkgxSettings();
+  const cachedPkgxCategories = React.useMemo(() => pkgxSettings?.categories ?? [], [pkgxSettings?.categories]);
+  const categoryMappings = usePkgxCategoryMappings();
+  const { addCategoryMapping } = usePkgxCategoryMappingMutations();
+  const { setCategories } = usePkgxCategoryMutations();
   
   const [selectedPkgxCategory, setSelectedPkgxCategory] = React.useState<ComboboxOption | null>(null);
   const [pkgxCategories, setPkgxCategoriesLocal] = React.useState<PkgxCategory[]>([]);
@@ -58,7 +63,7 @@ export function PkgxCategoryLinkDialog({
           grade: c.grade,
         }));
         setPkgxCategoriesLocal(categoriesArray);
-        setCategories(categoriesArray); // Lưu vào store để dùng chung
+        setCategories.mutate(categoriesArray); // Lưu vào store để dùng chung
         setHasFetched(true);
       }
     } catch (error) {
@@ -116,7 +121,7 @@ export function PkgxCategoryLinkDialog({
       const pkgxCatId = Number(selectedPkgxCategory.value);
       
       // Add mapping to store
-      addCategoryMapping({
+      addCategoryMapping.mutate({
         id: `category-mapping-${category.systemId}-${pkgxCatId}`,
         hrmCategorySystemId: category.systemId,
         hrmCategoryName: category.name,

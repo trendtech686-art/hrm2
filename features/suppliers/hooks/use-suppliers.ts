@@ -107,6 +107,68 @@ export function useActiveSuppliers(params: Omit<SuppliersParams, 'status'> = {})
   return useSuppliers({ ...params, status: 'Đang Giao Dịch' });
 }
 
+// ============ TRASH HOOKS ============
+
+import {
+  fetchDeletedSuppliers,
+  restoreSupplier,
+  permanentDeleteSupplier,
+} from '../api/suppliers-api';
+
+/**
+ * Hook for fetching deleted suppliers (trash)
+ */
+export function useDeletedSuppliers() {
+  return useQuery({
+    queryKey: [...supplierKeys.all, 'deleted'],
+    queryFn: fetchDeletedSuppliers,
+    staleTime: 30_000,
+  });
+}
+
+/**
+ * Hook for trash mutations (restore, permanent delete)
+ */
+export function useTrashMutations() {
+  const queryClient = useQueryClient();
+  
+  const restore = useMutation({
+    mutationFn: restoreSupplier,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: supplierKeys.all });
+    },
+  });
+  
+  const permanentDelete = useMutation({
+    mutationFn: permanentDeleteSupplier,
+    onMutate: async (systemId) => {
+      await queryClient.cancelQueries({ queryKey: [...supplierKeys.all, 'deleted'] });
+      const previousDeleted = queryClient.getQueryData([...supplierKeys.all, 'deleted']);
+      queryClient.setQueryData(
+        [...supplierKeys.all, 'deleted'],
+        (old: Array<{ systemId: string }> | undefined) => 
+          old?.filter(item => item.systemId !== systemId) || []
+      );
+      return { previousDeleted };
+    },
+    onError: (_err, _systemId, context) => {
+      if (context?.previousDeleted) {
+        queryClient.setQueryData([...supplierKeys.all, 'deleted'], context.previousDeleted);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: supplierKeys.all });
+    },
+  });
+  
+  return {
+    restore,
+    permanentDelete,
+    isRestoring: restore.isPending,
+    isDeleting: permanentDelete.isPending,
+  };
+}
+
 // Re-export from use-all-suppliers for backward compatibility
 export { useAllSuppliers, useSupplierOptions, useSupplierFinder } from './use-all-suppliers';
 export { useActiveSuppliers as useActiveSuppliersFromAll } from './use-all-suppliers';

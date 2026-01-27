@@ -20,10 +20,7 @@
 
 import type { Order, LineItem, OrderAddress, OrderMainStatus, OrderPaymentStatus, OrderDeliveryStatus, OrderPrintStatus, OrderStockOutStatus, OrderReturnStatus, OrderDeliveryMethod, PackagingStatus } from '@/lib/types/prisma-extended';
 import type { ImportExportConfig, FieldConfig } from '@/lib/import-export/types';
-import { useCustomerStore } from '@/features/customers/store';
-import { useProductStore } from '@/features/products/store';
-import { useBranchStore } from '@/features/settings/branches/store';
-import { useEmployeeStore } from '@/features/employees/store';
+import type { Customer, Product, Branch, Employee } from '@/lib/types/prisma-extended';
 import { asBusinessId, asSystemId } from '@/lib/id-types';
 
 // ============================================
@@ -182,69 +179,59 @@ const SAPO_RETURN_STATUS_MAP: Record<string, OrderReturnStatus> = {
 };
 
 // ============================================
-// HELPER FUNCTIONS
+// HELPER FUNCTIONS (Accept data as parameters)
 // ============================================
 
-// Get stores (called at runtime)
-const getCustomerStore = () => useCustomerStore.getState();
-const getProductStore = () => useProductStore.getState();
-const getBranchStore = () => useBranchStore.getState();
-const getEmployeeStore = () => useEmployeeStore.getState();
-
 // Lookup customer by id or name
-const findCustomer = (identifier: string) => {
-  if (!identifier) return undefined;
-  const store = getCustomerStore();
+const findCustomer = (identifier: string, customers: Customer[]) => {
+  if (!identifier || !customers) return undefined;
   const normalized = identifier.trim().toUpperCase();
   
   // Find by id first
-  const byId = store.data.find(c => c.id.toUpperCase() === normalized);
+  const byId = customers.find(c => c.id.toUpperCase() === normalized);
   if (byId) return byId;
   
   // Find by name
-  const byName = store.data.find(c => c.name.toUpperCase() === normalized);
+  const byName = customers.find(c => c.name.toUpperCase() === normalized);
   return byName;
 };
 
 // Lookup product by id/sku/barcode
-const findProduct = (identifier: string) => {
-  if (!identifier) return undefined;
-  const store = getProductStore();
+const findProduct = (identifier: string, products: Product[]) => {
+  if (!identifier || !products) return undefined;
   const normalized = identifier.trim().toUpperCase();
   
   // Find by id
-  const byId = store.data.find(p => p.id.toUpperCase() === normalized);
+  const byId = products.find(p => p.id.toUpperCase() === normalized);
   if (byId) return byId;
   
   // Find by sku
-  const bySku = store.data.find(p => p.sku?.toUpperCase() === normalized);
+  const bySku = products.find(p => p.sku?.toUpperCase() === normalized);
   if (bySku) return bySku;
   
   // Find by barcode
-  const byBarcode = store.data.find(p => p.barcode?.toUpperCase() === normalized);
+  const byBarcode = products.find(p => p.barcode?.toUpperCase() === normalized);
   return byBarcode;
 };
 
 // Lookup branch by name
-const findBranch = (name: string) => {
-  if (!name) return undefined;
-  const store = getBranchStore();
+const findBranch = (name: string, branches: Branch[]) => {
+  if (!name || !branches) return undefined;
   const normalized = name.trim().toLowerCase();
-  return store.data.find(b => b.name.toLowerCase().includes(normalized));
+  return branches.find(b => b.name.toLowerCase().includes(normalized));
 };
 
 // Lookup employee by name
-const findEmployee = (name: string) => {
-  if (!name) return undefined;
-  const store = getEmployeeStore();
+const findEmployee = (name: string, employees: Employee[]) => {
+  if (!name || !employees) return undefined;
   const normalized = name.trim().toLowerCase();
-  return store.data.find(e => e.fullName?.toLowerCase().includes(normalized));
+  return employees.find(e => e.fullName?.toLowerCase().includes(normalized));
 };
 
 // Get default branch
-const getDefaultBranch = () => {
-  const store = getBranchStore();
-  return store.data.find(b => b.isDefault) || store.data[0];
+const getDefaultBranch = (branches: Branch[]) => {
+  if (!branches || branches.length === 0) return undefined;
+  return branches.find(b => b.isDefault) || branches[0];
 };
 
 // Parse date from Sapo format (dd/MM/yyyy HH:mm:ss)
@@ -589,8 +576,14 @@ export const sapoOrderImportConfig: ImportExportConfig<Order> = {
   },
   
   // Transform: Group rows by orderId and build Order objects
-  beforeImport: async (data: Order[]) => {
+  beforeImport: async (data: Order[], context?: any) => {
     const importRows = data as unknown as SapoOrderImportRow[];
+    
+    // Get data from storeContext
+    const customers = context?.storeContext?.customerStore?.data || [];
+    const products = context?.storeContext?.productStore?.data || [];
+    const branches = context?.storeContext?.branchStore?.data || [];
+    const employees = context?.storeContext?.employeeStore?.data || [];
     
     // Group rows by orderId
     const orderMap = new Map<string, SapoOrderImportRow[]>();
@@ -608,7 +601,7 @@ export const sapoOrderImportConfig: ImportExportConfig<Order> = {
     // Build Order objects
     const orders: Order[] = [];
     const now = new Date().toISOString();
-    const defaultBranch = getDefaultBranch();
+    const defaultBranch = getDefaultBranch(branches);
     
     for (const [orderId, rows] of orderMap.entries()) {
       if (rows.length === 0) continue;
@@ -616,13 +609,13 @@ export const sapoOrderImportConfig: ImportExportConfig<Order> = {
       const firstRow = rows[0];
       
       // Lookup customer
-      const customer = findCustomer(firstRow.customerId || '') || findCustomer(firstRow.customerName || '');
+      const customer = findCustomer(firstRow.customerId || '', customers) || findCustomer(firstRow.customerName || '', customers);
       
       // Lookup branch
-      const branch = findBranch(firstRow.branchName || '') || defaultBranch;
+      const branch = findBranch(firstRow.branchName || '', branches) || defaultBranch;
       
       // Lookup salesperson
-      const salesperson = findEmployee(firstRow.salesperson || '') || findEmployee(firstRow.createdByName || '');
+      const salesperson = findEmployee(firstRow.salesperson || '', employees) || findEmployee(firstRow.createdByName || '', employees);
       
       // Build line items
       const lineItems: LineItem[] = [];
@@ -630,7 +623,7 @@ export const sapoOrderImportConfig: ImportExportConfig<Order> = {
         // Skip if no product info
         if (!row.productId && !row.productName) continue;
         
-        const product = findProduct(row.productId || '') || findProduct(row.barcode || '');
+        const product = findProduct(row.productId || '', products) || findProduct(row.barcode || '', products);
         
         const quantity = Math.max(1, Math.floor(Number(row.quantity) || 1));
         const unitPrice = Number(row.unitPrice) || (product?.sellingPrice ?? 0);

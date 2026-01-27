@@ -1,6 +1,6 @@
 import * as React from "react";
 import { asBusinessId } from "@/lib/id-types";
-import { useProductStore } from "../store";
+import { useProductMutations } from "../hooks/use-products";
 import { toast } from 'sonner';
 import {
   Dialog,
@@ -26,7 +26,18 @@ export function QuickAddProductDialog({
   onOpenChange,
   onSuccess,
 }: QuickAddProductDialogProps) {
-  const { add } = useProductStore();
+  const { create: createMutation } = useProductMutations({
+    onCreateSuccess: (data) => {
+      toast.success(`Đã thêm sản phẩm`);
+      onOpenChange(false);
+      if (onSuccess && data && typeof data === 'object' && 'systemId' in data) {
+        onSuccess((data as { systemId: string }).systemId);
+      }
+    },
+    onError: () => {
+      toast.error('Không thể thêm sản phẩm. Vui lòng thử lại.');
+    }
+  });
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   // Form state
@@ -131,16 +142,7 @@ export function QuickAddProductDialog({
         inTransitByBranch: {},
       };
 
-      const addedProduct = add(newProduct);
-
-      toast.success(`Đã thêm sản phẩm "${newProduct.name}"`);
-
-      onOpenChange(false);
-      
-      // Call success callback with new product systemId
-      if (onSuccess && addedProduct) {
-        onSuccess(addedProduct.systemId);
-      }
+      (createMutation.mutate as any)(newProduct);
     } catch (_error) {
       toast.error('Không thể thêm sản phẩm. Vui lòng thử lại.');
     } finally {

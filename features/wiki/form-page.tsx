@@ -3,12 +3,12 @@
 import * as React from 'react';
 import { useRouter, useParams, usePathname } from 'next/navigation';
 import { useForm } from 'react-hook-form';
-import { useWikiStore } from './store';
+import { useWikiById, useWikiMutations, useWikiArticles } from './hooks/use-wiki';
 import { useAllEmployees } from '../employees/hooks/use-all-employees';
-import { asSystemId } from '../../lib/id-types';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { Card, CardContent } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
+import { Skeleton } from '../../components/ui/skeleton';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '../../components/ui/form';
 import { Input } from '../../components/ui/input';
 import { Textarea } from '../../components/ui/textarea';
@@ -26,10 +26,24 @@ export function WikiFormPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const router = useRouter();
   const pathname = usePathname();
-  const { findById, add, update, data: articles } = useWikiStore();
+  
+  const { data: articleFromQuery, isLoading } = useWikiById(systemId);
+  const { data: articlesData } = useWikiArticles({ limit: 1000 });
+  const articles = React.useMemo(() => articlesData?.data ?? [], [articlesData?.data]);
+  
+  const { create: createMutation, update: updateMutation } = useWikiMutations({
+    onSuccess: () => {
+      toast.success(article ? 'Đã cập nhật bài viết' : 'Đã tạo bài viết mới');
+      router.push(article ? `/wiki/${article.systemId}` : '/wiki');
+    },
+    onError: (error) => {
+      toast.error('Lỗi', { description: error.message });
+    }
+  });
+  
   const { data: employees } = useAllEmployees();
   
-  const article = React.useMemo(() => (systemId ? findById(asSystemId(systemId)) : null), [systemId, findById]);
+  const article = articleFromQuery;
   const isEdit = Boolean(article);
 
   const headerActions = React.useMemo(() => ([
@@ -84,13 +98,24 @@ export function WikiFormPage() {
     };
 
     if (article) {
-      update(article.systemId, finalData);
-      router.push(`/wiki/${article.systemId}`);
+      updateMutation.mutate({ systemId: article.systemId, data: finalData });
     } else {
-      add(finalData);
-      router.push('/wiki');
+      createMutation.mutate(finalData);
     }
   };
+
+  // Loading state
+  if (systemId && isLoading) {
+    return (
+      <Card>
+        <CardContent className="pt-6 space-y-4">
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-40 w-full" />
+          <Skeleton className="h-10 w-2/3" />
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Form {...form}>

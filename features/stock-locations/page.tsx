@@ -1,8 +1,9 @@
 'use client'
 
 import * as React from 'react';
+import { toast } from 'sonner';
 import { useSettingsPageHeader } from '../settings/use-settings-page-header';
-import { useStockLocationStore } from './store';
+import { useStockLocations, useStockLocationMutations } from './hooks/use-stock-locations';
 import { useAllBranches } from '../settings/branches/hooks/use-all-branches';
 import type { StockLocation } from '@/lib/types/prisma-extended';
 import { asSystemId } from '../../lib/id-types';
@@ -19,7 +20,12 @@ import { SettingsActionButton } from '../../components/settings/SettingsActionBu
 import { useColumnVisibility } from '../../hooks/use-column-visibility';
 
 export function StockLocationsPage() {
-  const { data, add, update, remove } = useStockLocationStore();
+  const { data: queryData } = useStockLocations({ limit: 1000 });
+  const data = React.useMemo(() => queryData?.data ?? [], [queryData?.data]);
+  const { create, update, remove } = useStockLocationMutations({
+    onSuccess: () => toast.success('Thành công'),
+    onError: (err) => toast.error(err.message)
+  });
   const { data: branches } = useAllBranches();
   
   const [isFormOpen, setIsFormOpen] = React.useState(false);
@@ -65,13 +71,13 @@ export function StockLocationsPage() {
     actions: headerActions,
   });
   
-  const confirmDelete = () => { if (idToDelete) remove(idToDelete); setIsAlertOpen(false); };
+  const confirmDelete = () => { if (idToDelete) remove.mutate(idToDelete); setIsAlertOpen(false); };
   
   const handleFormSubmit = (values: StockLocationFormValues) => {
     if (editingItem) {
-      update(editingItem.systemId, { ...editingItem, ...values });
+      update.mutate({ systemId: editingItem.systemId, data: values });
     } else {
-      add(values);
+      create.mutate(values);
     }
     setIsFormOpen(false);
   };

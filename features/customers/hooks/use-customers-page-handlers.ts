@@ -5,12 +5,11 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { useShallow } from 'zustand/react/shallow';
-import { useCustomerStore } from '../store';
 import { usePersistentState } from '@/hooks/use-persistent-state';
 import type { Customer } from '@/lib/types/prisma-extended';
-import { asSystemId, type SystemId } from '@/lib/id-types';
+import { type SystemId } from '@/lib/id-types';
 import { DEFAULT_CUSTOMER_SORT, type CustomerQueryParams, type CustomerSortKey } from '../customer-service';
+import { useCustomerMutations, useBulkCustomerMutations, useTrashMutations } from './use-customers';
 
 const TABLE_STATE_STORAGE_KEY = 'customers-table-state';
 
@@ -167,45 +166,49 @@ export function useCustomerRowSelection() {
  * Hook for customer bulk actions
  */
 export function useCustomerBulkActions(selectedIds: string[], clearSelection: () => void) {
-  const {
-    removeMany,
-    restoreMany,
-    updateManyStatus,
-  } = useCustomerStore(
-    useShallow((state) => ({
-      remove: state.remove,
-      removeMany: state.removeMany,
-      restore: state.restore,
-      restoreMany: state.restoreMany,
-      updateManyStatus: state.updateManyStatus,
-    }))
-  );
+  const { bulkDelete, bulkRestore, bulkUpdateStatus } = useBulkCustomerMutations({
+    onSuccess: () => {
+      clearSelection();
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
 
   const [pendingBulkAction, setPendingBulkAction] = React.useState<PendingBulkAction>(null);
 
   const confirmBulkAction = React.useCallback(() => {
     if (!pendingBulkAction) return;
 
-    const customerIds = pendingBulkAction.customers.map((c) => asSystemId(c.systemId));
+    const customerIds = pendingBulkAction.customers.map((c) => c.systemId);
 
     switch (pendingBulkAction.kind) {
       case 'delete':
-        removeMany(customerIds);
-        toast.success(`Đã xóa ${customerIds.length} khách hàng`);
+        bulkDelete.mutate(customerIds, {
+          onSuccess: () => {
+            toast.success(`Đã xóa ${customerIds.length} khách hàng`);
+            setPendingBulkAction(null);
+          },
+        });
         break;
       case 'restore':
-        restoreMany(customerIds);
-        toast.success(`Đã khôi phục ${customerIds.length} khách hàng`);
+        bulkRestore.mutate(customerIds, {
+          onSuccess: () => {
+            toast.success(`Đã khôi phục ${customerIds.length} khách hàng`);
+            setPendingBulkAction(null);
+          },
+        });
         break;
       case 'status':
-        updateManyStatus(customerIds, pendingBulkAction.status);
-        toast.success(`Đã cập nhật trạng thái ${customerIds.length} khách hàng`);
+        bulkUpdateStatus.mutate({ systemIds: customerIds, status: pendingBulkAction.status }, {
+          onSuccess: () => {
+            toast.success(`Đã cập nhật trạng thái ${customerIds.length} khách hàng`);
+            setPendingBulkAction(null);
+          },
+        });
         break;
     }
-
-    clearSelection();
-    setPendingBulkAction(null);
-  }, [pendingBulkAction, removeMany, restoreMany, updateManyStatus, clearSelection]);
+  }, [pendingBulkAction, bulkDelete, bulkRestore, bulkUpdateStatus]);
 
   const cancelBulkAction = React.useCallback(() => {
     setPendingBulkAction(null);
@@ -238,13 +241,19 @@ export function useCustomerBulkActions(selectedIds: string[], clearSelection: ()
  */
 export function useCustomerActions() {
   const router = useRouter();
-  const { remove, restore, update } = useCustomerStore(
-    useShallow((state) => ({
-      remove: state.remove,
-      restore: state.restore,
-      update: state.update,
-    }))
-  );
+  const { update, remove } = useCustomerMutations({
+    onUpdateSuccess: () => {
+      // Success is handled by individual calls
+    },
+    onDeleteSuccess: () => {
+      // Success is handled by individual calls
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
+  
+  const { restore } = useTrashMutations();
 
   const [deleteConfirmId, setDeleteConfirmId] = React.useState<SystemId | null>(null);
 
@@ -268,9 +277,12 @@ export function useCustomerActions() {
 
   const handleDeleteConfirm = React.useCallback(() => {
     if (deleteConfirmId) {
-      remove(deleteConfirmId);
-      toast.success('Đã xóa khách hàng');
-      setDeleteConfirmId(null);
+      remove.mutate(deleteConfirmId, {
+        onSuccess: () => {
+          toast.success('Đã xóa khách hàng');
+          setDeleteConfirmId(null);
+        },
+      });
     }
   }, [deleteConfirmId, remove]);
 
@@ -280,16 +292,22 @@ export function useCustomerActions() {
 
   const handleRestore = React.useCallback(
     (customerId: SystemId) => {
-      restore(customerId);
-      toast.success('Đã khôi phục khách hàng');
+      restore.mutate(customerId, {
+        onSuccess: () => {
+          toast.success('Đã khôi phục khách hàng');
+        },
+      });
     },
     [restore]
   );
 
   const handleStatusChange = React.useCallback(
     (customer: Customer, newStatus: Customer['status']) => {
-      update(customer.systemId, { ...customer, status: newStatus });
-      toast.success(`Đã cập nhật trạng thái khách hàng`);
+      update.mutate({ systemId: customer.systemId, status: newStatus }, {
+        onSuccess: () => {
+          toast.success(`Đã cập nhật trạng thái khách hàng`);
+        },
+      });
     },
     [update]
   );
@@ -313,19 +331,14 @@ export function useCustomerImportExport() {
   const [showImportDialog, setShowImportDialog] = React.useState(false);
   const [showExportDialog, setShowExportDialog] = React.useState(false);
 
-  const { addMultiple } = useCustomerStore(
-    useShallow((state) => ({
-      addMultiple: state.addMultiple,
-    }))
-  );
-
   const handleImportComplete = React.useCallback(
     (importedCustomers: Customer[]) => {
-      addMultiple(importedCustomers);
+      // Import is handled by the import dialog component which calls the API
+      // This is just for UI state management
       toast.success(`Đã nhập ${importedCustomers.length} khách hàng`);
       setShowImportDialog(false);
     },
-    [addMultiple]
+    []
   );
 
   return {

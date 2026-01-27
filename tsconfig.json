@@ -42,11 +42,15 @@
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts",
-    "generated/prisma/**/*.ts"
+    ".next/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",
-    "backup"
+    "backup",
+    ".next/cache",
+    "generated/prisma/internal",
+    "generated/prisma/models",
+    "uploads",
+    "**/*.tsbuildinfo"
   ]
 }

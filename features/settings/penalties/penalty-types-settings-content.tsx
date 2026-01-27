@@ -46,10 +46,10 @@ import {
 } from '../../../components/ui/dropdown-menu';
 import { ConfirmDialog } from '../../../components/ui/confirm-dialog';
 import { toast } from 'sonner';
-import { usePenaltyTypeStore } from './store';
-import type { PenaltyType, PenaltyCategory } from './types';
+import { usePenaltyTypes, usePenaltyTypeMutations, type PenaltyTypeSetting } from '../penalty-types/hooks/use-penalty-types';
+import type { PenaltyCategory } from './types';
 import { penaltyCategoryLabels, penaltyCategoryColors } from './types';
-import { asBusinessId } from '@/lib/id-types';
+import { Skeleton } from '../../../components/ui/skeleton';
 
 // ============================================
 // PENALTY TYPES SETTINGS CONTENT (No Page Header)
@@ -57,13 +57,25 @@ import { asBusinessId } from '@/lib/id-types';
 // ============================================
 
 export function PenaltyTypesSettingsContent() {
-  const { data: penaltyTypes, add, update, remove } = usePenaltyTypeStore();
+  // React Query hooks
+  const { data: penaltyTypesData, isLoading, isError } = usePenaltyTypes();
+  const { create, update, remove } = usePenaltyTypeMutations({
+    onCreateSuccess: () => toast.success('Đã thêm loại phạt mới'),
+    onUpdateSuccess: () => toast.success('Đã cập nhật loại phạt'),
+    onDeleteSuccess: () => toast.success('Đã xóa loại phạt'),
+    onError: (error) => toast.error(`Lỗi: ${error.message}`),
+  });
+  
+  const penaltyTypes = React.useMemo(
+    () => penaltyTypesData?.data ?? [],
+    [penaltyTypesData?.data]
+  );
   
   // Dialog state
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
-  const [editingType, setEditingType] = React.useState<PenaltyType | null>(null);
+  const [editingType, setEditingType] = React.useState<PenaltyTypeSetting | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = React.useState(false);
-  const [typeToDelete, setTypeToDelete] = React.useState<PenaltyType | null>(null);
+  const [typeToDelete, setTypeToDelete] = React.useState<PenaltyTypeSetting | null>(null);
   
   // Form state
   const [formData, setFormData] = React.useState({
@@ -76,7 +88,7 @@ export function PenaltyTypesSettingsContent() {
   
   // Sort by order
   const sortedTypes = React.useMemo(() => 
-    [...penaltyTypes].sort((a, b) => a.order - b.order),
+    [...penaltyTypes].sort((a, b) => a.sortOrder - b.sortOrder),
     [penaltyTypes]
   );
   
@@ -94,13 +106,13 @@ export function PenaltyTypesSettingsContent() {
   };
   
   // Open dialog for edit
-  const handleEdit = (type: PenaltyType) => {
+  const handleEdit = (type: PenaltyTypeSetting) => {
     setEditingType(type);
     setFormData({
       name: type.name,
       description: type.description || '',
       defaultAmount: type.defaultAmount,
-      category: type.category,
+      category: type.category as PenaltyCategory,
       isActive: type.isActive,
     });
     setIsDialogOpen(true);
@@ -115,60 +127,92 @@ export function PenaltyTypesSettingsContent() {
     
     if (editingType) {
       // Update existing
-      update(editingType.systemId, {
-        ...editingType,
-        name: formData.name.trim(),
-        description: formData.description.trim(),
-        defaultAmount: formData.defaultAmount,
-        category: formData.category,
-        isActive: formData.isActive,
-        updatedAt: new Date().toISOString(),
+      update.mutate({
+        systemId: editingType.systemId,
+        data: {
+          name: formData.name.trim(),
+          description: formData.description.trim() || undefined,
+          defaultAmount: formData.defaultAmount,
+          category: formData.category,
+          isActive: formData.isActive,
+        },
       });
-      toast.success('Đã cập nhật loại phạt');
     } else {
       // Create new
-      const newId = `LP${String(penaltyTypes.length + 1).padStart(3, '0')}`;
-      
-      add({
-        id: asBusinessId(newId),
+      create.mutate({
         name: formData.name.trim(),
-        description: formData.description.trim(),
+        description: formData.description.trim() || undefined,
         defaultAmount: formData.defaultAmount,
         category: formData.category,
         isActive: formData.isActive,
-        order: penaltyTypes.length + 1,
-        createdAt: new Date().toISOString(),
+        sortOrder: penaltyTypes.length + 1,
       });
-      toast.success('Đã thêm loại phạt mới');
     }
     
     setIsDialogOpen(false);
   };
   
   // Delete type
-  const handleDelete = (type: PenaltyType) => {
+  const handleDelete = (type: PenaltyTypeSetting) => {
     setTypeToDelete(type);
     setDeleteConfirmOpen(true);
   };
   
   const confirmDelete = () => {
     if (typeToDelete) {
-      remove(typeToDelete.systemId);
-      toast.success('Đã xóa loại phạt');
+      remove.mutate(typeToDelete.systemId);
     }
     setDeleteConfirmOpen(false);
     setTypeToDelete(null);
   };
   
   // Toggle active
-  const handleToggleActive = (type: PenaltyType) => {
-    update(type.systemId, {
-      ...type,
-      isActive: !type.isActive,
-      updatedAt: new Date().toISOString(),
+  const handleToggleActive = (type: PenaltyTypeSetting) => {
+    update.mutate({
+      systemId: type.systemId,
+      data: { isActive: !type.isActive },
     });
-    toast.success(type.isActive ? 'Đã tắt loại phạt' : 'Đã bật loại phạt');
   };
+  
+  // Loading state
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Loại phạt nhân viên</CardTitle>
+              <CardDescription>
+                Cấu hình các loại phạt và mức phạt mặc định cho từng loại vi phạm
+              </CardDescription>
+            </div>
+            <Skeleton className="h-9 w-32" />
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {[1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-12 w-full" />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+  
+  // Error state
+  if (isError) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Loại phạt nhân viên</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-destructive">Không thể tải dữ liệu. Vui lòng thử lại.</p>
+        </CardContent>
+      </Card>
+    );
+  }
   
   return (
     <>
@@ -224,9 +268,9 @@ export function PenaltyTypesSettingsContent() {
                       <TableCell>
                         <Badge 
                           variant="outline" 
-                          className={penaltyCategoryColors[type.category]}
+                          className={penaltyCategoryColors[type.category as PenaltyCategory]}
                         >
-                          {penaltyCategoryLabels[type.category]}
+                          {penaltyCategoryLabels[type.category as PenaltyCategory]}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right font-medium">

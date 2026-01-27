@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { useInventoryCheckStore } from './store';
+import { useInventoryCheck, useInventoryCheckMutations } from './hooks/use-inventory-checks';
 import { useAllBranches } from '../settings/branches/hooks/use-all-branches';
 import { useAllProducts, useProductFinder } from '../products/hooks/use-all-products';
 import { useProductTypeFinder } from '../settings/inventory/hooks/use-all-product-types';
@@ -42,7 +42,21 @@ export function InventoryCheckFormPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const isEditMode = !!systemId;
   
-  const { add, update, findById, balanceCheck } = useInventoryCheckStore();
+  const { data: currentCheck } = useInventoryCheck(systemId);
+  const { create: createMutation, update: updateMutation, balance: balanceMutation } = useInventoryCheckMutations({
+    onCreateSuccess: (check) => {
+      toast.success('Đã tạo phiếu kiểm kê');
+      router.push(`/inventory-checks/${check.systemId}`);
+    },
+    onUpdateSuccess: () => {
+      toast.success('Đã cập nhật phiếu kiểm kê');
+    },
+    onBalanceSuccess: (check) => {
+      toast.success('Đã cân bằng phiếu kiểm kê');
+      router.push(`/inventory-checks/${check.systemId}`);
+    },
+    onError: (err) => toast.error(err.message)
+  });
   const { data: branches } = useAllBranches();
   const { data: allProducts } = useAllProducts();
   const { findById: findProductById } = useProductFinder();
@@ -61,10 +75,7 @@ export function InventoryCheckFormPage() {
   const [currentUserName, setCurrentUserName] = React.useState(() =>
     authEmployee?.fullName || authEmployee?.id || ''
   );
-  
-  // Store current check for edit mode
-  const [currentCheck, setCurrentCheck] = React.useState<InventoryCheck | null>(null);
-  
+
   // Load current user name
   React.useEffect(() => {
     if (isEditMode) return;
@@ -92,29 +103,24 @@ export function InventoryCheckFormPage() {
 
   // Load existing data in edit mode
   React.useEffect(() => {
-    if (isEditMode && systemId) {
-      const existing = findById(asSystemId(systemId));
-      if (existing) {
-        // Store current check
-        setCurrentCheck(existing);
-        
-        // Load all fields from existing check
-        setBranchSystemId(existing.branchSystemId || '');
-        setCustomId(existing.id);
-        setNote(existing.note || '');
-        setItems(existing.items || []);
-        
-        // Load employee name for edit mode (người tạo ban đầu)
+    if (isEditMode && currentCheck) {
+      // Load all fields from existing check
+      setBranchSystemId(currentCheck.branchSystemId || '');
+      setCustomId(currentCheck.id);
+      setNote(currentCheck.note || '');
+      setItems(currentCheck.items || []);
+      
+      // Load employee name for edit mode (người tạo ban đầu)
+      if (currentCheck.createdBy) {
         import('../employees/store').then(({ useEmployeeStore }) => {
           const employeeList = useEmployeeStore.getState().data;
-          const creator = employeeList.find(emp => emp.systemId === existing.createdBy);
+          const creator = employeeList.find(emp => emp.systemId === currentCheck.createdBy);
           if (creator) {
             setCurrentUserName(creator.fullName || creator.id);
           }
+        }).catch(() => {
+          // Ignore error, just won't show employee name
         });
-      } else {
-        toast.error('Không tìm thấy phiếu kiểm hàng');
-        router.push('/inventory-checks');
       }
     } else if (!isEditMode) {
       // Auto-select default branch for new form
@@ -123,7 +129,7 @@ export function InventoryCheckFormPage() {
         setBranchSystemId(defaultBranch.systemId);
       }
     }
-  }, [isEditMode, systemId, findById, router, branches]);
+  }, [isEditMode, currentCheck, router, branches]);
 
   // Get branch name
   const selectedBranch = React.useMemo(() => 
@@ -302,16 +308,15 @@ export function InventoryCheckFormPage() {
     }
 
     if (isEditMode && systemId) {
-      const existing = findById(asSystemId(systemId));
-      if (existing) {
+      if (currentCheck) {
         const updated: InventoryCheck = {
-          ...existing,
+          ...currentCheck,
           branchSystemId: asSystemId(branchSystemId),
           branchName: selectedBranch?.name || '',
           note,
           items,
         };
-        update(asSystemId(systemId), updated);
+        updateMutation.mutate({ systemId: asSystemId(systemId), data: updated as any });
         toast.success('Đã cập nhật phiếu kiểm hàng');
       }
     } else {
@@ -325,12 +330,9 @@ export function InventoryCheckFormPage() {
         note,
         items,
       };
-      add(data);
-      toast.success('Đã tạo phiếu kiểm hàng');
+      createMutation.mutate(data);
     }
-
-    router.push('/inventory-checks');
-  }, [isEditMode, systemId, findById, selectedBranch, note, update, customId, currentUserSystemId, add, router, validateForm, branchSystemId, items]);
+  }, [isEditMode, systemId, currentCheck, selectedBranch, note, updateMutation, customId, currentUserSystemId, createMutation, validateForm, branchSystemId, items]);
 
   // Balance
   const handleBalance = React.useCallback(() => {
@@ -348,16 +350,14 @@ export function InventoryCheckFormPage() {
     let checkSystemId: string;
     
     if (isEditMode && systemId) {
-      const existing = findById(asSystemId(systemId));
-      if (existing) {
-        const updated: InventoryCheck = {
-          ...existing,
+      if (currentCheck) {
+        const updated: Partial<InventoryCheck> = {
           branchSystemId: asSystemId(branchSystemId),
           branchName: selectedBranch?.name || '',
           note,
           items,
         };
-        update(asSystemId(systemId), updated);
+        updateMutation.mutate({ systemId, data: updated });
         checkSystemId = systemId;
       } else {
         setIsBalancing(false);
@@ -376,20 +376,30 @@ export function InventoryCheckFormPage() {
         note,
         items,
       };
-      const newCheck = add(data);
-      checkSystemId = newCheck.systemId;
+      createMutation.mutate(data, {
+        onSuccess: (newCheck) => {
+          checkSystemId = newCheck.systemId;
+          balanceMutation.mutate(checkSystemId, {
+            onSettled: () => {
+              setIsBalancing(false);
+              setShowBalanceConfirm(false);
+            }
+          });
+        },
+        onError: () => {
+          setIsBalancing(false);
+          setShowBalanceConfirm(false);
+        }
+      });
+      return;
     }
 
-    try {
-      await balanceCheck(asSystemId(checkSystemId));
-      toast.success('Đã cân bằng kho thành công');
-      router.push(`/inventory-checks/${checkSystemId}`);
-    } catch (_error) {
-      toast.error('Không thể cân bằng kho, vui lòng thử lại');
-    } finally {
-      setIsBalancing(false);
-      setShowBalanceConfirm(false);
-    }
+    balanceMutation.mutate(checkSystemId, {
+      onSettled: () => {
+        setIsBalancing(false);
+        setShowBalanceConfirm(false);
+      }
+    });
   };
 
   // Store latest callbacks in refs to avoid stale closure

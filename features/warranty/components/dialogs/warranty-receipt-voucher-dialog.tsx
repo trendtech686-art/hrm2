@@ -24,9 +24,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Alert, AlertDescription } from '../../../../components/ui/alert';
 import { AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
-import { usePaymentStore } from '../../../payments/store';
-import { useReceiptStore } from '../../../receipts/store';
-import { useWarrantyStore } from '../../store';
+import { useAllPayments } from '../../../payments/hooks/use-all-payments';
+import { useReceiptMutations } from '../../../receipts/hooks/use-receipts';
+import { useAllReceipts } from '../../../receipts/hooks/use-all-receipts';
+import { useWarrantyMutations } from '../../hooks/use-warranties';
 import { useWarrantyFinder } from '../../hooks/use-all-warranties';
 import type { WarrantyVoucherDialogBaseProps } from '../../types';
 import { useAuth } from '../../../../contexts/auth-context';
@@ -37,6 +38,7 @@ import { calculateWarrantyProcessingState } from '../logic/processing';
 import { calculateWarrantySettlementTotal } from '../../utils/payment-calculations';
 import { useWarrantySettlement } from '../../hooks/use-warranty-settlement';
 import { CurrencyInput } from '../../../../components/ui/currency-input';
+import { addHistory } from '../../store/product-management';
 
 interface WarrantyReceiptVoucherDialogProps extends WarrantyVoucherDialogBaseProps {
   existingReceipts?: Receipt[] | undefined;
@@ -60,8 +62,10 @@ export function WarrantyReceiptVoucherDialog({
   const [open, setOpen] = React.useState(false);
   const router = useRouter();
   
-  const { add: addReceipt } = useReceiptStore();
-  const { addHistory } = useWarrantyStore();
+  const { data: payments } = useAllPayments();
+  const { data: receipts } = useAllReceipts();
+  const { create: createReceipt } = useReceiptMutations();
+  const { update: _updateWarranty } = useWarrantyMutations();
   const { findById } = useWarrantyFinder();
   const { employee: authEmployee } = useAuth();
   const currentUserSystemId = authEmployee?.systemId ?? asSystemId('SYSTEM');
@@ -108,7 +112,7 @@ export function WarrantyReceiptVoucherDialog({
     }
   }, [open, warrantyId, defaultAmount, remainingAmountForReceipt, reset]);
 
-  const onSubmit = (values: FormValues) => {
+  const onSubmit = async (values: FormValues) => {
     try {
       const now = new Date();
       const latestTicket = findById(asSystemId(warrantySystemId));
@@ -117,8 +121,8 @@ export function WarrantyReceiptVoucherDialog({
         return;
       }
 
-      const latestPayments = usePaymentStore.getState().data;
-      const latestReceipts = useReceiptStore.getState().data;
+      const latestPayments = payments;
+      const latestReceipts = receipts;
 
       const totalPaymentFromTicket = calculateWarrantySettlementTotal(latestTicket);
 
@@ -181,7 +185,7 @@ export function WarrantyReceiptVoucherDialog({
         createdAt: toISODateTime(now) || now.toISOString(),
       };
 
-      const newReceipt = addReceipt(receipt);
+      const newReceipt = await createReceipt.mutateAsync(receipt);
 
       // Add history to warranty với metadata
       addHistory(

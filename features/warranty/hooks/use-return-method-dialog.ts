@@ -5,7 +5,7 @@ import { searchOrders, type OrderSearchResult } from '../../orders/order-search-
 import type { ComboboxOption } from '../../../components/ui/virtualized-combobox';
 import type { WarrantyTicket } from '../types';
 import type { Order } from '../../orders/types';
-import { useWarrantyStore } from '../store';
+import { useWarrantyMutations } from './use-warranties';
 import { getCurrentDate, toISODateTime } from '../../../lib/date-utils';
 
 type ReturnMethod = 'direct' | 'order' | null;
@@ -45,9 +45,22 @@ export function useReturnMethodDialog({
   orders,
   currentUserName,
 }: UseReturnMethodDialogOptions): ReturnMethodDialogApi {
-  const update = useWarrantyStore((state) => state.update);
-  const updateStatus = useWarrantyStore((state) => state.updateStatus);
-  const addHistory = useWarrantyStore((state) => state.addHistory);
+  const { update: updateMutation } = useWarrantyMutations();
+  
+  // Wrapper functions for legacy interface
+  const update = React.useCallback((systemId: string, data: Partial<WarrantyTicket>) => {
+    updateMutation.mutate({ systemId, data });
+  }, [updateMutation]);
+  
+  const updateStatus = React.useCallback((systemId: string, status: WarrantyTicket['status'], reason?: string) => {
+    updateMutation.mutate({ systemId, data: { status, ...(reason && { statusReason: reason }) } });
+  }, [updateMutation]);
+  
+  const addHistory = React.useCallback((systemId: string, entry: unknown) => {
+    if (!ticket?.history) return;
+    const newHistory = [...ticket.history, entry];
+    updateMutation.mutate({ systemId, data: { history: newHistory } });
+  }, [ticket?.history, updateMutation]);
 
   const [isOpen, setIsOpen] = React.useState(false);
   const [returnMethod, setReturnMethod] = React.useState<ReturnMethod>(null);

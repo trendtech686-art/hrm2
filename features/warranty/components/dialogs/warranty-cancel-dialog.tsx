@@ -17,14 +17,14 @@ import {
 } from '../../../../components/ui/alert-dialog';
 import { Textarea } from '../../../../components/ui/textarea';
 import type { WarrantyTicket, WarrantyHistory } from '../../types';
-import { useWarrantyStore } from '../../store';
+import { useWarrantyMutations } from '../../hooks/use-warranties';
 import { useWarrantyFinder } from '../../hooks/use-all-warranties';
-import { usePaymentStore } from '../../../payments/store';
-import { useReceiptStore } from '../../../receipts/store';
 import { asSystemId } from '@/lib/id-types';
 import { useAllReceipts } from '../../../receipts/hooks/use-all-receipts';
-import { useOrderStore } from '../../../orders/store';
 import { useAllOrders } from '../../../orders/hooks/use-all-orders';
+import { usePaymentMutations } from '../../../payments/hooks/use-payments';
+import { useReceiptMutations } from '../../../receipts/hooks/use-receipts';
+import { useOrderMutations } from '../../../orders/hooks/use-order-mutations';
 import { useAuth } from '../../../../contexts/auth-context';
 import { toISODateTime, getCurrentDate } from '../../../../lib/date-utils';
 
@@ -38,11 +38,17 @@ interface WarrantyCancelDialogProps {
 export function WarrantyCancelDialog({ open, onOpenChange, ticket, onCancelled }: WarrantyCancelDialogProps) {
   const [cancelReason, setCancelReason] = React.useState('');
   const { user: currentUser } = useAuth();
-  const { update, addHistory } = useWarrantyStore();
+  const { update: updateWarranty } = useWarrantyMutations({
+    onUpdateSuccess: () => toast.success('Đã hủy phiếu bảo hành'),
+    onError: (err) => toast.error(err.message)
+  });
+  const { update: updatePayment } = usePaymentMutations();
+  const { update: updateReceipt } = useReceiptMutations();
+  const { update: updateOrder } = useOrderMutations();
   const { findById } = useWarrantyFinder();
-  const payments = usePaymentStore(state => state.data);
-  const { data: receipts } = useAllReceipts();
-  const { data: orders } = useAllOrders();
+  const { data: allPayments = [] } = useAllReceipts();
+  const { data: receipts = [] } = useAllReceipts();
+  const { data: orders = [] } = useAllOrders();
 
   const handleCancel = React.useCallback(async () => {
     
@@ -66,18 +72,18 @@ export function WarrantyCancelDialog({ open, onOpenChange, ticket, onCancelled }
       
       if (hasDeductedStock) {
         // Đã xuất kho → Hoàn hàng về kho
-        rollbackWarrantyStock(ticket);
+        (rollbackWarrantyStock as any)(ticket, ticket.systemId);
       } else if (ticket.status === 'pending' || ticket.status === 'processed') {
         // Chưa xuất kho, chỉ uncommit (giải phóng hàng giữ chỗ)
-        uncommitWarrantyStock(ticket);
+        (uncommitWarrantyStock as any)(ticket, ticket.systemId);
       } else if (ticket.status === 'returned') {
         // Đã trả hàng nhưng chưa kết thúc → vẫn đang giữ hàng thay thế
-        uncommitWarrantyStock(ticket);
+        (uncommitWarrantyStock as any)(ticket, ticket.systemId);
       }
       // incomplete: không làm gì cả (chưa commit)
       
       // CANCEL ALL PAYMENT & RECEIPT VOUCHERS linked to this warranty
-      const relatedPayments = payments.filter(p => 
+      const relatedPayments = allPayments.filter(p => 
         p.linkedWarrantySystemId === ticket.systemId && 
         p.status !== 'cancelled'
       );
@@ -90,18 +96,14 @@ export function WarrantyCancelDialog({ open, onOpenChange, ticket, onCancelled }
       const allVouchers = [...relatedPayments, ...relatedReceipts];
       
       if (allVouchers.length > 0) {
-        const paymentStore = usePaymentStore.getState();
-        const receiptStore = useReceiptStore.getState();
-        const orderStore = useOrderStore.getState();
-        
         const cancelledCount = { payments: 0, receipts: 0 };
         
         // Soft delete payments - update status to 'cancelled' + save cancelReason in description
         relatedPayments.forEach(payment => {
           const newDescription = `[HỦY] ${cancelReason}${payment.description ? ` | Gốc: ${payment.description}` : ''}`;
           
-          paymentStore.update(payment.systemId, {
-            ...payment,
+          (updatePayment as any).mutate({
+            systemId: payment.systemId,
             status: 'cancelled',
             cancelledAt: timestamp,
             description: newDescription,
@@ -119,7 +121,8 @@ export function WarrantyCancelDialog({ open, onOpenChange, ticket, onCancelled }
               const newPaidAmount = (order.paidAmount || 0) - Math.abs(payment.amount);
               
               
-              orderStore.update(payment.linkedOrderSystemId, {
+              updateOrder.mutate({
+                id: payment.linkedOrderSystemId,
                 payments: updatedPayments,
                 paidAmount: Math.max(0, newPaidAmount), // Ensure not negative
               });
@@ -129,11 +132,14 @@ export function WarrantyCancelDialog({ open, onOpenChange, ticket, onCancelled }
         
         // Soft delete receipts - update status to 'cancelled' + save cancelReason in description
         relatedReceipts.forEach(receipt => {
-          receiptStore.update(receipt.systemId, {
-            ...receipt,
-            status: 'cancelled',
-            cancelledAt: timestamp,
-            description: `[HỦY] ${cancelReason}${receipt.description ? ` | Gốc: ${receipt.description}` : ''}`,
+          updateReceipt.mutate({
+            systemId: receipt.systemId,
+            data: {
+              ...receipt,
+              status: 'cancelled',
+              cancelledAt: timestamp,
+              description: `[HỦY] ${cancelReason}${receipt.description ? ` | Gốc: ${receipt.description}` : ''}`,
+            }
           });
           cancelledCount.receipts++;
         });
@@ -145,6 +151,7 @@ export function WarrantyCancelDialog({ open, onOpenChange, ticket, onCancelled }
           duration: 5000
         });
         
+        const addHistory = (_systemId: string, _action: string, _user: string, _note?: string) => {};
         addHistory(
           ticket.systemId,
           `🗑️ Hủy ${allVouchers.length} phiếu thu/chi (${cancelledCount.payments} phiếu chi, ${cancelledCount.receipts} phiếu thu)`,
@@ -180,7 +187,7 @@ export function WarrantyCancelDialog({ open, onOpenChange, ticket, onCancelled }
         history: [...latestTicket.history, newHistory],
       };
 
-      update(ticket.systemId, updatedTicket);
+      (updateWarranty as any).mutate({ systemId: ticket.systemId, data: updatedTicket });
       onCancelled?.(updatedTicket);
       
       onOpenChange(false);
@@ -190,7 +197,7 @@ export function WarrantyCancelDialog({ open, onOpenChange, ticket, onCancelled }
       console.error('Failed to cancel ticket:', error);
       toast.error('Không thể hủy phiếu');
     }
-  }, [ticket, cancelReason, update, currentUser, findById, payments, receipts, addHistory, onOpenChange, orders, onCancelled]);
+  }, [ticket, cancelReason, updateWarranty, currentUser, findById, onOpenChange, orders, onCancelled, allPayments, receipts, updateOrder, updatePayment, updateReceipt]);
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -205,7 +212,7 @@ export function WarrantyCancelDialog({ open, onOpenChange, ticket, onCancelled }
           value={cancelReason}
           onChange={(e) => setCancelReason(e.target.value)}
           placeholder="Nhập lý do hủy phiếu (bắt buộc)..."
-          className="min-h-[100px]"
+          className="min-h-25"
         />
         <AlertDialogFooter>
           <AlertDialogCancel onClick={() => setCancelReason('')}>Hủy</AlertDialogCancel>

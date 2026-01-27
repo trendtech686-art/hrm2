@@ -8,7 +8,7 @@ import { formatDateCustom } from '@/lib/date-utils';
 import { asBusinessId, asSystemId, type SystemId } from '@/lib/id-types';
 import type { PurchaseOrder } from '@/lib/types/prisma-extended';
 import { usePurchaseOrderStore } from '../store';
-import { useInventoryReceiptStore } from '@/features/inventory-receipts/store';
+import { useInventoryReceipts, useInventoryReceiptMutations } from '@/features/inventory-receipts/hooks/use-inventory-receipts';
 import { useProductStore } from '@/features/products/store';
 import { useStockHistoryStore } from '@/features/stock-history/store';
 import { useAllBranches } from '@/features/settings/branches/hooks/use-all-branches';
@@ -50,7 +50,12 @@ const initialReceiveState: ReceiveDialogState = {
 
 export function usePurchaseOrderReceiveWorkflow() {
   const { processInventoryReceipt } = usePurchaseOrderStore();
-  const { data: allReceipts, add: addInventoryReceipt } = useInventoryReceiptStore();
+  const { data: irQueryData } = useInventoryReceipts({ limit: 1000 });
+  const allReceipts = React.useMemo(() => irQueryData?.data ?? [], [irQueryData?.data]);
+  const { create: createInventoryReceipt } = useInventoryReceiptMutations({
+    onCreateSuccess: () => {},
+    onError: (err) => toast.error(err.message)
+  });
   const { updateInventory, findById: findProductById } = useProductStore();
   const { addEntry: addStockHistoryEntry } = useStockHistoryStore();
   const { data: branches } = useAllBranches();
@@ -236,7 +241,13 @@ export function usePurchaseOrderReceiveWorkflow() {
         })),
       };
 
-      const createdReceipt = addInventoryReceipt(receiptPayload);
+      // Create the receipt synchronously and get the ID for stock history
+      let createdReceiptId = receiptPayload.id;
+      createInventoryReceipt.mutate(receiptPayload, {
+        onSuccess: (receipt) => {
+          createdReceiptId = receipt.id;
+        }
+      });
 
       itemsToReceive.forEach(item => {
         const productBeforeUpdate = findProductById(item.productSystemId);
@@ -251,7 +262,7 @@ export function usePurchaseOrderReceiveWorkflow() {
           action: `Nhập hàng từ NCC (${receiveDialogState.purchaseOrder?.id})`,
           quantityChange: item.receivedQuantity,
           newStockLevel: oldStock + item.receivedQuantity,
-          documentId: createdReceipt.id,
+          documentId: createdReceiptId,
           branch: receiveDialogState.targetBranchName,
           branchSystemId,
         });
@@ -277,7 +288,7 @@ export function usePurchaseOrderReceiveWorkflow() {
     requireLoggedInEmployee, 
     currentUserSystemId, 
     currentUserName, 
-    addInventoryReceipt, 
+    createInventoryReceipt, 
     findProductById, 
     updateInventory, 
     addStockHistoryEntry, 

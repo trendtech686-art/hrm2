@@ -1,7 +1,7 @@
 'use client'
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { useStockTransferStore } from './store';
+import { useStockTransferMutations } from './hooks/use-stock-transfers';
 import { useAllStockTransfers } from './hooks/use-all-stock-transfers';
 import { getColumns } from './columns';
 import { ResponsiveDataTable, type BulkAction } from '../../components/data-table/responsive-data-table';
@@ -36,6 +36,11 @@ const StockTransferExportDialog = dynamic(() => import("./components/stock-trans
 export function StockTransfersPage() {
   const router = useRouter();
   const { data: transfers } = useAllStockTransfers();
+  const { update: updateMutation, create: createMutation } = useStockTransferMutations({
+    onError: (error) => {
+      toast.error('Lỗi', { description: error.message });
+    }
+  });
   const { data: branches } = useAllBranches();
   const { info: storeInfo } = useStoreInfoData();
   const { print, printMultiple } = usePrint();
@@ -79,17 +84,37 @@ export function StockTransfersPage() {
   }, [itemsToPrint, branches, storeInfo, printMultiple]);
 
   const handleImport = React.useCallback(async (importedTransfers: Partial<StockTransfer>[], mode: 'insert-only' | 'update-only' | 'upsert') => {
-    let addedCount = 0, updatedCount = 0, skippedCount = 0; const errors: Array<{ row: number; message: string }> = [], storeState = useStockTransferStore.getState();
-    importedTransfers.forEach((transfer, index) => {
+    let addedCount = 0, updatedCount = 0, skippedCount = 0; const errors: Array<{ row: number; message: string }> = [];
+    
+    for (const [index, transfer] of importedTransfers.entries()) {
       try {
         const existing = transfers.find(t => t.id.toLowerCase() === (transfer.id || '').toLowerCase());
-        if (existing) { if (mode === 'update-only' || mode === 'upsert') { storeState.update(asSystemId(existing.systemId), { ...existing, ...transfer, systemId: existing.systemId } as StockTransfer); updatedCount++; } else skippedCount++; }
-        else { if (mode === 'insert-only' || mode === 'upsert') { storeState.add(transfer as StockTransfer); addedCount++; } else skippedCount++; }
+        if (existing) { 
+          if (mode === 'update-only' || mode === 'upsert') { 
+            await new Promise<void>((resolve, reject) => {
+              updateMutation.mutate({ systemId: existing.systemId, data: { ...existing, ...transfer, systemId: existing.systemId } as StockTransfer }, {
+                onSuccess: () => { updatedCount++; resolve(); },
+                onError: (error) => reject(error)
+              });
+            });
+          } else skippedCount++; 
+        }
+        else { 
+          if (mode === 'insert-only' || mode === 'upsert') { 
+            await new Promise<void>((resolve, reject) => {
+              createMutation.mutate(transfer as StockTransfer, {
+                onSuccess: () => { addedCount++; resolve(); },
+                onError: (error) => reject(error)
+              });
+            });
+          } else skippedCount++; 
+        }
       } catch (error) { errors.push({ row: index + 1, message: (error as Error).message }); }
-    });
+    }
+    
     if (addedCount > 0 || updatedCount > 0) toast.success(`Đã import: ${[addedCount > 0 && `${addedCount} phiếu chuyển kho mới`, updatedCount > 0 && `${updatedCount} phiếu cập nhật`].filter(Boolean).join(', ')}`);
     return { success: addedCount + updatedCount, failed: errors.length, inserted: addedCount, updated: updatedCount, skipped: skippedCount, errors };
-  }, [transfers]);
+  }, [transfers, updateMutation, createMutation]);
 
   const columns = React.useMemo(() => getColumns(handlePrint), [handlePrint]);
   const buildDefaultVisibility = React.useCallback(() => { const dv = new Set(['id', 'createdDate', 'fromBranchName', 'toBranchName', 'itemCount', 'totalQuantity', 'totalValue', 'status', 'createdByName', 'note']); return Object.fromEntries(columns.map(c => [c.id, c.id === 'select' || c.id === 'actions' || dv.has(c.id!)])); }, [columns]);

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { formatDateCustom } from '../../lib/date-utils';
 import { toast } from "sonner"
 import { usePageHeader } from "../../contexts/page-header-context";
-import { useEmployeeStore } from "./store"
+import { useDeletedEmployees, useTrashMutations } from "./hooks/use-employees";
 import { useAllBranches } from "@/features/settings/branches/hooks/use-all-branches";
 import { getColumns } from "./trash-columns"
 import { GenericTrashPage } from "../../components/shared/generic-trash-page"
@@ -16,8 +16,9 @@ import { getApiUrl } from "../../lib/api-config"
 import type { Employee } from '@/lib/types/prisma-extended'
 import type { SystemId } from '@/lib/id-types';
 
-export function EmployeesTrashPage() {
-  const { data, getDeleted, restore, permanentDelete } = useEmployeeStore();
+export function EmployeeTrashPage() {
+  const { data: deletedEmployees = [], isLoading } = useDeletedEmployees();
+  const { restore, permanentDelete } = useTrashMutations();
   const { data: branchesRaw } = useAllBranches();
   const router = useRouter();
   
@@ -37,9 +38,6 @@ export function EmployeesTrashPage() {
   });
   
   const branches = React.useMemo(() => branchesRaw, [branchesRaw]);
-  // React to store changes by depending on data array
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- data triggers re-evaluation when store changes
-  const deletedEmployees = React.useMemo(() => getDeleted(), [getDeleted, data]);
   
   // Helper: Delete employee files from server
   const deleteEmployeeFiles = async (employee: Employee) => {
@@ -63,30 +61,37 @@ export function EmployeesTrashPage() {
 
   // Handlers for column actions (these will be called from column buttons)
   const handleRestoreFromColumn = React.useCallback((systemId: SystemId) => {
-    restore(systemId);
-    toast.success("Đã khôi phục nhân viên");
+    restore.mutate(systemId, {
+      onSuccess: () => {
+        toast.success("Đã khôi phục nhân viên");
+      },
+      onError: () => {
+        toast.error("Có lỗi khi khôi phục nhân viên");
+      }
+    });
   }, [restore]);
 
   const handleDeleteFromColumn = React.useCallback(async (systemId: SystemId) => {
-    try {
-      const employee = deletedEmployees.find(e => e.systemId === systemId);
-      
-      // Delete from store first (critical operation)
-      permanentDelete(systemId);
-      toast.success("Đã xóa vĩnh viễn nhân viên");
-      
-      // Try to delete files (optional, non-blocking)
-      if (employee) {
-        try {
-          await deleteEmployeeFiles(employee);
-        } catch (_fileError) {
-          // Non-critical: Log error but don't show to user
+    const employee = deletedEmployees.find(e => e.systemId === systemId);
+    
+    // Delete from database
+    permanentDelete.mutate(systemId, {
+      onSuccess: async () => {
+        toast.success("Đã xóa vĩnh viễn nhân viên");
+        
+        // Try to delete files (optional, non-blocking)
+        if (employee) {
+          try {
+            await deleteEmployeeFiles(employee);
+          } catch (_fileError) {
+            // Non-critical: Log error but don't show to user
+          }
         }
+      },
+      onError: (error) => {
+        toast.error(error.message || "Có lỗi khi xóa nhân viên");
       }
-    } catch (error) {
-      toast.error("Có lỗi khi xóa nhân viên");
-      console.error(error);
-    }
+    });
   }, [deletedEmployees, permanentDelete]);
 
   const columns = React.useMemo(
@@ -94,8 +99,7 @@ export function EmployeesTrashPage() {
       // Pass real handlers to columns for button clicks
       return getColumns(router, handleRestoreFromColumn, handleDeleteFromColumn, branches);
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- data triggers re-creation when store changes
-    [router, handleRestoreFromColumn, handleDeleteFromColumn, branches, data]
+    [router, handleRestoreFromColumn, handleDeleteFromColumn, branches]
   );
 
   const getInitials = (name: string) => {
@@ -132,12 +136,16 @@ export function EmployeesTrashPage() {
     </Card>
   );
 
+  if (isLoading) {
+    return <div className="flex items-center justify-center p-8">Đang tải...</div>;
+  }
+
   return (
     <GenericTrashPage<Employee>
       deletedItems={deletedEmployees}
-      onRestore={restore}
+      onRestore={(systemId) => restore.mutate(systemId)}
       onPermanentDelete={async (systemId) => {
-        permanentDelete(systemId);
+        permanentDelete.mutate(systemId);
       }}
       title="Thùng rác nhân viên"
       entityName="nhân viên"

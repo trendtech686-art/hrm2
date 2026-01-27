@@ -4,12 +4,12 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "next dev",
-    "dev:webpack": "next dev --webpack",
-    "dev:turbo": "next dev",
-    "dev:fast": "cross-env NODE_OPTIONS='--max-old-space-size=8192' next dev",
-    "build": "next build --experimental-build-mode compile",
-    "build:webpack": "cross-env TURBOPACK=0 next build",
+    "dev": "cross-env NODE_OPTIONS='--max-old-space-size=16384' next dev",
+    "dev:webpack": "cross-env NODE_OPTIONS='--max-old-space-size=16384' next dev --webpack",
+    "dev:turbo": "cross-env NODE_OPTIONS='--max-old-space-size=16384' next dev",
+    "dev:fast": "cross-env NODE_OPTIONS='--max-old-space-size=16384' next dev",
+    "build": "cross-env NODE_OPTIONS='--max-old-space-size=16384' next build --experimental-build-mode compile",
+    "build:webpack": "cross-env NODE_OPTIONS='--max-old-space-size=16384 TURBOPACK=0' next build",
     "start": "next start",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
@@ -20,7 +20,8 @@
     "verify-ids": "tsx scripts/utils/verify-branded-ids.ts",
     "typecheck:strict": "tsc --project tsconfig.strict.json --noEmit --pretty false --incremental false",
     "prepare": "husky",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "tsx prisma/seed.ts",
+    "cleanup": "node -e \"require('fs').rmSync('.next', {recursive: true, force: true}); require('fs').rmSync('node_modules/.cache', {recursive: true, force: true}); console.log('Cache cleaned!')\""
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

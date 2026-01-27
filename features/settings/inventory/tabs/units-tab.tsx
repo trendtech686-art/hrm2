@@ -5,7 +5,7 @@ import { Plus } from "lucide-react";
 import { asBusinessId, type SystemId } from "@/lib/id-types";
 import { toast } from "sonner";
 
-import { useUnitStore } from "../../units/store";
+import { useUnits, useUnitMutations } from "../../units/hooks/use-units";
 import { UnitForm, type UnitFormValues } from "../../units/form";
 import { getUnitColumns } from "../../units/columns";
 import type { Unit } from "../../units/types";
@@ -21,7 +21,11 @@ import { SettingsActionButton } from "@/components/settings/SettingsActionButton
 type TabContentProps = { isActive: boolean; onRegisterActions: RegisterTabActions };
 
 export function UnitsTabContent({ isActive, onRegisterActions }: TabContentProps) {
-  const { data, add, update, remove } = useUnitStore();
+  const { data: queryData } = useUnits({ limit: 1000 });
+  const data = React.useMemo(() => queryData?.data ?? [], [queryData?.data]);
+  const { create, update, remove } = useUnitMutations({
+    onError: (err) => toast.error(err.message)
+  });
   const [isFormOpen, setIsFormOpen] = React.useState(false);
   const [editingUnit, setEditingUnit] = React.useState<Unit | null>(null);
   const [isAlertOpen, setIsAlertOpen] = React.useState(false);
@@ -33,30 +37,41 @@ export function UnitsTabContent({ isActive, onRegisterActions }: TabContentProps
   
   const handleToggleDefault = React.useCallback((unit: Unit, checked: boolean) => {
     if (checked) {
-      data.forEach(u => { if (u.isDefault && u.systemId !== unit.systemId) update(u.systemId, { ...u, isDefault: false }); });
-      update(unit.systemId, { ...unit, isDefault: true });
+      data.forEach(u => { if (u.isDefault && u.systemId !== unit.systemId) update.mutate({ systemId: u.systemId, data: { ...u, isDefault: false } }); });
+      update.mutate({ systemId: unit.systemId, data: { ...unit, isDefault: true } });
       toast.success(`Đã đặt "${unit.name}" làm mặc định`);
     } else {
       const otherUnits = data.filter(u => u.systemId !== unit.systemId && u.isActive !== false);
-      if (otherUnits.length > 0) { const nd = otherUnits[0]; update(unit.systemId, { ...unit, isDefault: false }); update(nd.systemId, { ...nd, isDefault: true }); toast.success(`Đã chuyển mặc định sang "${nd.name}"`); }
+      if (otherUnits.length > 0) { const nd = otherUnits[0]; update.mutate({ systemId: unit.systemId, data: { ...unit, isDefault: false } }); update.mutate({ systemId: nd.systemId, data: { ...nd, isDefault: true } }); toast.success(`Đã chuyển mặc định sang "${nd.name}"`); }
       else toast.error('Phải có ít nhất một đơn vị tính mặc định');
     }
   }, [data, update]);
 
-  const handleToggleActive = React.useCallback((unit: Unit) => { const na = unit.isActive === false ? true : false; update(unit.systemId, { ...unit, isActive: na }); toast.success(na ? 'Đã kích hoạt' : 'Đã tắt'); }, [update]);
-  const confirmDelete = () => { if (idToDelete) { remove(idToDelete); toast.success('Đã xóa đơn vị tính'); } setIsAlertOpen(false); setIdToDelete(null); };
+  const handleToggleActive = React.useCallback((unit: Unit) => { const na = unit.isActive === false ? true : false; update.mutate({ systemId: unit.systemId, data: { ...unit, isActive: na } }); toast.success(na ? 'Đã kích hoạt' : 'Đã tắt'); }, [update]);
+
+  // Stabilize onRegisterActions with ref to prevent infinite loop
+  const onRegisterActionsRef = React.useRef(onRegisterActions);
+  React.useEffect(() => { onRegisterActionsRef.current = onRegisterActions; }, [onRegisterActions]);
+  const confirmDelete = () => { if (idToDelete) { remove.mutate(idToDelete); } setIsAlertOpen(false); setIdToDelete(null); };
   
   const handleFormSubmit = (values: UnitFormValues) => {
     const payload = { ...values, id: asBusinessId(values.id) };
-    if (editingUnit) { update(editingUnit.systemId, { ...editingUnit, ...payload }); toast.success('Đã cập nhật đơn vị tính'); }
-    else { add(payload); toast.success('Đã thêm đơn vị tính mới'); }
+    if (editingUnit) {
+      update.mutate({ systemId: editingUnit.systemId, data: { ...editingUnit, ...payload } });
+    }
+    else {
+      create.mutate(payload);
+    }
     setIsFormOpen(false);
   };
 
   const columns = React.useMemo(() => getUnitColumns({ onEdit: handleEdit, onDelete: handleDeleteRequest, onToggleDefault: handleToggleDefault, onToggleActive: handleToggleActive }), [handleDeleteRequest, handleEdit, handleToggleDefault, handleToggleActive]);
   const sortedData = React.useMemo(() => [...data].sort((a, b) => a.name.localeCompare(b.name)), [data]);
   
-  React.useEffect(() => { if (!isActive) return; onRegisterActions([<SettingsActionButton key="add-unit" onClick={handleAddNew}><Plus className="mr-2 h-4 w-4" /> Thêm đơn vị tính</SettingsActionButton>]); }, [handleAddNew, isActive, onRegisterActions]);
+  React.useEffect(() => { 
+    if (!isActive) return; 
+    onRegisterActionsRef.current([<SettingsActionButton key="add-unit" onClick={handleAddNew}><Plus className="mr-2 h-4 w-4" /> Thêm đơn vị tính</SettingsActionButton>]); 
+  }, [handleAddNew, isActive]);
 
   return (
     <>

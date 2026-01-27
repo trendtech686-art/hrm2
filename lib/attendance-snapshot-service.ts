@@ -1,4 +1,4 @@
-import { useAttendanceStore } from '../features/attendance/store';
+import { fetchAttendanceByMonth } from '../features/attendance/api/attendance-api';
 import type { AttendanceDataRow } from '@/lib/types/prisma-extended';
 import type { SystemId, BusinessId } from './id-types';
 
@@ -56,8 +56,22 @@ const buildSnapshot = (
   generatedAt: new Date().toISOString(),
 });
 
-const getLatestLockedMonthKey = () => {
-  const { lockedMonths } = useAttendanceStore.getState();
+/**
+ * Fetch locked months from localStorage (temporary solution until backend persistence is implemented)
+ * In production, this should be an API call to the backend
+ */
+const getLockedMonthsFromStorage = (): Record<string, boolean> => {
+  if (typeof window === 'undefined') return {};
+  try {
+    const stored = localStorage.getItem('attendance-locked-months');
+    return stored ? JSON.parse(stored) : {};
+  } catch {
+    return {};
+  }
+};
+
+const getLatestLockedMonthKey = (): string | undefined => {
+  const lockedMonths = getLockedMonthsFromStorage();
   const lockedKeys = Object.entries(lockedMonths)
     .filter(([, isLocked]) => Boolean(isLocked))
     .map(([monthKey]) => monthKey)
@@ -67,20 +81,25 @@ const getLatestLockedMonthKey = () => {
 };
 
 export const attendanceSnapshotService = {
-  getSnapshot({ monthKey, employeeSystemId }: SnapshotQuery): AttendanceSnapshot | null {
-    const state = useAttendanceStore.getState();
-    const monthRows = state.attendanceData[monthKey];
-    if (!monthRows?.length) {
+  async getSnapshot({ monthKey, employeeSystemId }: SnapshotQuery): Promise<AttendanceSnapshot | null> {
+    try {
+      const monthRows = await fetchAttendanceByMonth(monthKey);
+      if (!monthRows?.length) {
+        return null;
+      }
+      const targetRow = monthRows.find((row) => row.employeeSystemId === employeeSystemId);
+      if (!targetRow) {
+        return null;
+      }
+      const lockedMonths = getLockedMonthsFromStorage();
+      const locked = Boolean(lockedMonths[monthKey]);
+      return buildSnapshot(targetRow, { monthKey, employeeSystemId }, locked);
+    } catch (error) {
+      console.error('Failed to fetch attendance snapshot:', error);
       return null;
     }
-    const targetRow = monthRows.find((row) => row.employeeSystemId === employeeSystemId);
-    if (!targetRow) {
-      return null;
-    }
-    const locked = Boolean(state.lockedMonths[monthKey]);
-    return buildSnapshot(targetRow, { monthKey, employeeSystemId }, locked);
   },
-  getLatestLockedSnapshot(employeeSystemId: SystemId): AttendanceSnapshot | null {
+  async getLatestLockedSnapshot(employeeSystemId: SystemId): Promise<AttendanceSnapshot | null> {
     const latestLockedKey = getLatestLockedMonthKey();
     if (!latestLockedKey) {
       return null;

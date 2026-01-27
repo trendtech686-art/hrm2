@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useFuseFilter } from '../../../hooks/use-fuse-search';
-import { Plus, RotateCcw, Trash2, Search, X, Edit, MoreHorizontal } from 'lucide-react';
+import { Plus, Trash2, Search, X, Edit, MoreHorizontal, Loader2 } from 'lucide-react';
 import { formatDateForDisplay } from '@/lib/date-utils';
 import { Button } from '../../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../components/ui/card';
@@ -16,7 +16,6 @@ import { Input } from '../../../components/ui/input';
 import { Textarea } from '../../../components/ui/textarea';
 import { Checkbox } from '../../../components/ui/checkbox';
 import { Label } from '../../../components/ui/label';
-import { Badge } from '../../../components/ui/badge';
 import { Switch } from '../../../components/ui/switch';
 import {
   AlertDialog,
@@ -36,22 +35,32 @@ import {
   DropdownMenuTrigger,
 } from '../../../components/ui/dropdown-menu';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table';
-import { usePayrollTemplateStore } from '../../payroll/payroll-template-store';
-import { useEmployeeSettingsStore } from './employee-settings-store';
+import { usePayrollTemplates, usePayrollTemplatesMutations } from './hooks/use-payroll-templates';
+import { useEmployeeSettings } from './hooks/use-employee-settings';
 import { toast } from 'sonner';
 import { asSystemId, type SystemId } from '../../../lib/id-types';
 import type { PayrollTemplate } from '../../../lib/payroll-types';
 
 export function PayrollTemplatesSettingsContent() {
-  const templateStore = usePayrollTemplateStore();
-  const salaryComponents = useEmployeeSettingsStore((state) => state.getSalaryComponents());
+  // React Query hooks
+  const { data: templates = [], isLoading, isError } = usePayrollTemplates();
+  const mutations = usePayrollTemplatesMutations({
+    onError: (error) => {
+      toast.error('Có lỗi xảy ra', { description: error.message });
+    },
+  });
+
+  const { data: settings } = useEmployeeSettings();
+  const salaryComponents = React.useMemo(
+    () => settings?.salaryComponents ?? [],
+    [settings?.salaryComponents]
+  );
 
   // Search state
   const [searchQuery, setSearchQuery] = React.useState('');
 
   // Dialog states
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
-  const [isResetDialogOpen, setIsResetDialogOpen] = React.useState(false);
   const [editingTemplateId, setEditingTemplateId] = React.useState<SystemId | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = React.useState<SystemId | null>(null);
 
@@ -59,12 +68,9 @@ export function PayrollTemplatesSettingsContent() {
   const [formState, setFormState] = React.useState({
     name: '',
     description: '',
-    componentSystemIds: salaryComponents.map((component) => asSystemId(component.systemId)),
+    componentSystemIds: [] as SystemId[],
     isDefault: false,
   });
-
-  // Raw data
-  const templates = templateStore.templates;
 
   // Fuse.js for search (lazy-loaded)
   const fuseOptions = React.useMemo(
@@ -96,7 +102,7 @@ export function PayrollTemplatesSettingsContent() {
   }, [salaryComponents]);
 
   const handleEdit = React.useCallback((systemId: SystemId) => {
-    const template = templateStore.getTemplateBySystemId(systemId);
+    const template = templates.find(t => t.systemId === systemId);
     if (!template) return;
     setEditingTemplateId(systemId);
     setFormState({
@@ -106,7 +112,7 @@ export function PayrollTemplatesSettingsContent() {
       isDefault: template.isDefault,
     });
     setIsDialogOpen(true);
-  }, [templateStore]);
+  }, [templates]);
 
   const handleDelete = React.useCallback((systemId: SystemId) => {
     setDeleteConfirmId(systemId);
@@ -114,37 +120,32 @@ export function PayrollTemplatesSettingsContent() {
 
   const handleConfirmDelete = React.useCallback(() => {
     if (deleteConfirmId) {
-      templateStore.deleteTemplate(deleteConfirmId);
-      toast.success('Đã xóa mẫu', { description: 'Mẫu bảng lương đã được gỡ bỏ.' });
-      setDeleteConfirmId(null);
+      mutations.remove.mutate(
+        { templates, systemId: deleteConfirmId },
+        {
+          onSuccess: () => {
+            toast.success('Đã xóa mẫu', { description: 'Mẫu bảng lương đã được gỡ bỏ.' });
+            setDeleteConfirmId(null);
+          },
+        }
+      );
     }
-  }, [templateStore, deleteConfirmId]);
-
-  const _handleSetDefault = React.useCallback((systemId: SystemId) => {
-    templateStore.setDefaultTemplate(systemId);
-    toast.success('Đã đặt mặc định', { description: 'Mẫu này sẽ được chọn sẵn khi chạy lương.' });
-  }, [templateStore]);
+  }, [templates, deleteConfirmId, mutations.remove]);
 
   const handleToggleDefault = React.useCallback((template: PayrollTemplate, isDefault: boolean) => {
-    if (isDefault) {
-      // Đặt làm mặc định
-      templateStore.setDefaultTemplate(template.systemId);
-      toast.success('Đã đặt mặc định', { description: `"${template.name}" sẽ được chọn sẵn khi chạy lương.` });
-    } else {
-      // Bỏ mặc định - hệ thống tự động chọn mẫu khác
-      templateStore.updateTemplate(template.systemId, { isDefault: false });
-      const newDefault = templateStore.getDefaultTemplate();
-      if (newDefault && newDefault.systemId !== template.systemId) {
-        toast.success('Đã bỏ mặc định', { description: `"${newDefault.name}" đã được đặt làm mặc định.` });
+    mutations.update.mutate(
+      { templates, systemId: template.systemId, updates: { isDefault } },
+      {
+        onSuccess: () => {
+          if (isDefault) {
+            toast.success('Đã đặt mặc định', { description: `"${template.name}" sẽ được chọn sẵn khi chạy lương.` });
+          } else {
+            toast.success('Đã bỏ mặc định');
+          }
+        },
       }
-    }
-  }, [templateStore]);
-
-  const handleResetToDefault = React.useCallback(() => {
-    templateStore.resetToDefaultTemplates();
-    toast.success('Đã khôi phục', { description: 'Đã khôi phục về danh sách mẫu mặc định.' });
-    setIsResetDialogOpen(false);
-  }, [templateStore]);
+    );
+  }, [templates, mutations.update]);
 
   const resetDialog = () => {
     setIsDialogOpen(false);
@@ -165,24 +166,43 @@ export function PayrollTemplatesSettingsContent() {
     }
 
     if (editingTemplateId) {
-      templateStore.updateTemplate(editingTemplateId, {
-        name: formState.name.trim(),
-        description: formState.description.trim(),
-        componentSystemIds: formState.componentSystemIds,
-        isDefault: formState.isDefault,
-      });
-      toast.success('Đã cập nhật mẫu', { description: 'Thông tin mẫu bảng lương đã được lưu.' });
+      mutations.update.mutate(
+        {
+          templates,
+          systemId: editingTemplateId,
+          updates: {
+            name: formState.name.trim(),
+            description: formState.description.trim(),
+            componentSystemIds: formState.componentSystemIds,
+            isDefault: formState.isDefault,
+          },
+        },
+        {
+          onSuccess: () => {
+            toast.success('Đã cập nhật mẫu', { description: 'Thông tin mẫu bảng lương đã được lưu.' });
+            resetDialog();
+          },
+        }
+      );
     } else {
-      templateStore.createTemplate({
-        name: formState.name.trim(),
-        description: formState.description.trim(),
-        componentSystemIds: formState.componentSystemIds,
-        isDefault: formState.isDefault,
-      });
-      toast.success('Đã tạo mẫu mới', { description: 'Bạn có thể dùng mẫu này trong wizard chạy lương.' });
+      mutations.create.mutate(
+        {
+          templates,
+          newTemplate: {
+            name: formState.name.trim(),
+            description: formState.description.trim(),
+            componentSystemIds: formState.componentSystemIds,
+            isDefault: formState.isDefault,
+          },
+        },
+        {
+          onSuccess: () => {
+            toast.success('Đã tạo mẫu mới', { description: 'Bạn có thể dùng mẫu này trong wizard chạy lương.' });
+            resetDialog();
+          },
+        }
+      );
     }
-
-    resetDialog();
   };
 
   const toggleComponentSelection = (componentId: SystemId) => {
@@ -202,6 +222,37 @@ export function PayrollTemplatesSettingsContent() {
     return formatDateForDisplay(dateString);
   };
 
+  // Loading state
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Mẫu bảng lương</CardTitle>
+          <CardDescription>Quản lý bộ thành phần lương chuẩn để tái sử dụng khi chạy bảng lương.</CardDescription>
+        </CardHeader>
+        <CardContent className="flex items-center justify-center py-10">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <span className="ml-2 text-muted-foreground">Đang tải...</span>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Error state
+  if (isError) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Mẫu bảng lương</CardTitle>
+          <CardDescription>Quản lý bộ thành phần lương chuẩn để tái sử dụng khi chạy bảng lương.</CardDescription>
+        </CardHeader>
+        <CardContent className="flex items-center justify-center py-10">
+          <p className="text-destructive">Không thể tải dữ liệu. Vui lòng thử lại sau.</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -211,10 +262,6 @@ export function PayrollTemplatesSettingsContent() {
             <CardDescription>Quản lý bộ thành phần lương chuẩn để tái sử dụng khi chạy bảng lương.</CardDescription>
           </div>
           <div className="flex items-center gap-2">
-            <Button type="button" variant="outline" size="sm" onClick={() => setIsResetDialogOpen(true)}>
-              <RotateCcw className="mr-2 h-4 w-4" />
-              Khôi phục mặc định
-            </Button>
             <Button type="button" size="sm" onClick={handleOpenCreateDialog}>
               <Plus className="mr-2 h-4 w-4" />
               Thêm mẫu
@@ -259,204 +306,215 @@ export function PayrollTemplatesSettingsContent() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredData.map((template) => (
-                <TableRow key={template.systemId}>
-                  <TableCell className="font-mono text-xs text-muted-foreground">
-                    {template.id}
-                  </TableCell>
-                  <TableCell>
-                    <div>
-                      <p className="font-medium">{template.name}</p>
-                      {template.description && (
-                        <p className="text-xs text-muted-foreground line-clamp-1">{template.description}</p>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-center">
-                    {template.componentSystemIds.length} thành phần
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <Switch
-                      checked={template.isDefault}
-                      onCheckedChange={(checked) => handleToggleDefault(template, checked)}
-                      aria-label={template.isDefault ? 'Đang là mẫu mặc định' : 'Đặt làm mẫu mặc định'}
-                    />
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    {formatDate(template.createdAt)}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button type="button" variant="ghost" size="icon" className="h-8 w-8 p-0">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-48">
-                        <DropdownMenuItem onClick={() => handleEdit(template.systemId)}>
-                          <Edit className="mr-2 h-4 w-4" />
-                          Chỉnh sửa
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          className="text-destructive focus:text-destructive"
-                          onClick={() => handleDelete(template.systemId)}
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Xóa mẫu
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {filteredData.length === 0 && (
+              {filteredData.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                    {searchQuery ? 'Không tìm thấy mẫu phù hợp.' : 'Chưa có mẫu bảng lương nào.'}
+                  <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+                    Chưa có mẫu bảng lương nào.
                   </TableCell>
                 </TableRow>
+              ) : (
+                filteredData.map((template) => (
+                  <TableRow key={template.systemId}>
+                    <TableCell className="font-mono text-xs text-muted-foreground">
+                      {template.id}
+                    </TableCell>
+                    <TableCell>
+                      <div>
+                        <p className="font-medium">{template.name}</p>
+                        {template.description && (
+                          <p className="text-xs text-muted-foreground line-clamp-1">{template.description}</p>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {template.componentSystemIds.length} thành phần
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Switch
+                        checked={template.isDefault}
+                        onCheckedChange={(checked) => handleToggleDefault(template, checked)}
+                        disabled={mutations.update.isPending}
+                        aria-label={template.isDefault ? 'Đang là mẫu mặc định' : 'Đặt làm mẫu mặc định'}
+                      />
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {formatDate(template.createdAt)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button type="button" variant="ghost" size="icon" className="h-8 w-8 p-0">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48">
+                          <DropdownMenuItem onClick={() => handleEdit(template.systemId)}>
+                            <Edit className="mr-2 h-4 w-4" />
+                            Chỉnh sửa
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => handleDelete(template.systemId)}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Xóa mẫu
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))
               )}
             </TableBody>
           </Table>
         </div>
 
-        {/* Summary */}
-        <p className="text-xs text-muted-foreground">
-          {searchQuery ? `Tìm thấy ${filteredData.length} / ${templates.length} mẫu` : `Tổng cộng ${templates.length} mẫu`}
-        </p>
+        <p className="text-xs text-muted-foreground">Tổng cộng {templates.length} mẫu</p>
       </CardContent>
 
       {/* Create/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>{editingTemplateId ? 'Chỉnh sửa mẫu' : 'Tạo mẫu bảng lương'}</DialogTitle>
-            <DialogDescription>
-              Lựa chọn thành phần lương mặc định để tái sử dụng khi chạy bảng lương.
-            </DialogDescription>
-          </DialogHeader>
-          <form className="space-y-4" onSubmit={handleSubmit}>
-            <div className="grid gap-3">
-              <Label htmlFor="template-name">Tên mẫu</Label>
-              <Input
-                id="template-name"
-                className="h-9"
-                required
-                value={formState.name}
-                onChange={(event) => setFormState((prev) => ({ ...prev, name: event.target.value }))}
-              />
-            </div>
-            <div className="grid gap-3">
-              <Label htmlFor="template-description">Mô tả</Label>
-              <Textarea
-                id="template-description"
-                placeholder="Mục đích sử dụng, phòng ban áp dụng..."
-                value={formState.description}
-                onChange={(event) => setFormState((prev) => ({ ...prev, description: event.target.value }))}
-              />
-            </div>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <form onSubmit={handleSubmit}>
+            <DialogHeader>
+              <DialogTitle>{editingTemplateId ? 'Chỉnh sửa mẫu bảng lương' : 'Tạo mẫu bảng lương mới'}</DialogTitle>
+              <DialogDescription>
+                {editingTemplateId
+                  ? 'Cập nhật thông tin và thành phần của mẫu này.'
+                  : 'Chọn các thành phần lương để tạo mẫu mới. Mẫu này có thể dùng khi chạy bảng lương.'}
+              </DialogDescription>
+            </DialogHeader>
 
-            <div className="grid gap-2">
-              <Label>Thành phần lương</Label>
-              <div className="max-h-60 space-y-2 overflow-y-auto rounded-lg border p-3">
-                {salaryComponents
-                  .filter((c) => c.isActive !== false)
-                  .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
-                  .map((component) => {
-                    const componentSystemId = asSystemId(component.systemId);
-                    const checked = formState.componentSystemIds.includes(componentSystemId);
-                    return (
-                      <label
-                        key={component.systemId}
-                        className="flex cursor-pointer items-center gap-3 text-sm"
-                      >
-                        <Checkbox
-                          checked={checked}
-                          onCheckedChange={() => toggleComponentSelection(componentSystemId)}
-                          className="h-4 w-4"
-                        />
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <p className="font-medium">{component.name}</p>
-                            <Badge
-                              variant="outline"
-                              className={`text-xs ${
-                                component.category === 'earning'
-                                  ? 'border-green-200 bg-green-50 text-green-700'
-                                  : component.category === 'deduction'
-                                    ? 'border-red-200 bg-red-50 text-red-700'
-                                    : 'border-blue-200 bg-blue-50 text-blue-700'
-                              }`}
-                            >
-                              {component.category === 'earning'
-                                ? 'Thu nhập'
-                                : component.category === 'deduction'
-                                  ? 'Khấu trừ'
-                                  : 'Đóng góp'}
-                            </Badge>
+            <div className="space-y-4 py-4">
+              {/* Name */}
+              <div className="space-y-2">
+                <Label htmlFor="template-name">
+                  Tên mẫu <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="template-name"
+                  placeholder="VD: Mẫu lương nhân viên văn phòng"
+                  value={formState.name}
+                  onChange={(e) => setFormState((prev) => ({ ...prev, name: e.target.value }))}
+                />
+              </div>
+
+              {/* Description */}
+              <div className="space-y-2">
+                <Label htmlFor="template-description">Mô tả</Label>
+                <Textarea
+                  id="template-description"
+                  placeholder="Mô tả ngắn về mẫu này..."
+                  value={formState.description}
+                  onChange={(e) => setFormState((prev) => ({ ...prev, description: e.target.value }))}
+                  rows={2}
+                />
+              </div>
+
+              {/* Default toggle */}
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="template-default"
+                  checked={formState.isDefault}
+                  onCheckedChange={(checked) => setFormState((prev) => ({ ...prev, isDefault: Boolean(checked) }))}
+                />
+                <Label htmlFor="template-default" className="text-sm font-normal cursor-pointer">
+                  Đặt làm mẫu mặc định khi chạy lương
+                </Label>
+              </div>
+
+              {/* Salary Components Selection */}
+              <div className="space-y-2">
+                <Label>Chọn thành phần lương</Label>
+                <p className="text-xs text-muted-foreground">
+                  Đã chọn {formState.componentSystemIds.length}/{salaryComponents.length} thành phần
+                </p>
+
+                <div className="border rounded-md p-4 max-h-[300px] overflow-y-auto space-y-3">
+                  {/* Earnings */}
+                  <div>
+                    <p className="text-sm font-medium mb-2 text-green-600">Thu nhập</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {salaryComponents
+                        .filter((c) => c.category === 'earning')
+                        .map((component) => (
+                          <div key={component.systemId} className="flex items-center gap-2">
+                            <Checkbox
+                              id={`comp-${component.systemId}`}
+                              checked={formState.componentSystemIds.includes(asSystemId(component.systemId))}
+                              onCheckedChange={() => toggleComponentSelection(asSystemId(component.systemId))}
+                            />
+                            <Label htmlFor={`comp-${component.systemId}`} className="text-sm font-normal cursor-pointer">
+                              {component.name}
+                            </Label>
                           </div>
-                          <p className="text-xs text-muted-foreground">
-                            {component.type === 'fixed' ? 'Cố định' : component.formula ?? 'Theo công thức'}
-                          </p>
-                        </div>
-                      </label>
-                    );
-                  })}
-                {salaryComponents.filter((c) => c.isActive !== false).length === 0 && (
-                  <p className="text-sm text-muted-foreground">
-                    Chưa có thành phần lương. Hãy thêm trong tab "Lương & Phúc lợi".
-                  </p>
-                )}
+                        ))}
+                    </div>
+                  </div>
+
+                  {/* Deductions */}
+                  <div>
+                    <p className="text-sm font-medium mb-2 text-red-600">Khấu trừ</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {salaryComponents
+                        .filter((c) => c.category === 'deduction')
+                        .map((component) => (
+                          <div key={component.systemId} className="flex items-center gap-2">
+                            <Checkbox
+                              id={`comp-${component.systemId}`}
+                              checked={formState.componentSystemIds.includes(asSystemId(component.systemId))}
+                              onCheckedChange={() => toggleComponentSelection(asSystemId(component.systemId))}
+                            />
+                            <Label htmlFor={`comp-${component.systemId}`} className="text-sm font-normal cursor-pointer">
+                              {component.name}
+                            </Label>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+
+                  {/* Contributions */}
+                  <div>
+                    <p className="text-sm font-medium mb-2 text-blue-600">Đóng góp bảo hiểm</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {salaryComponents
+                        .filter((c) => c.category === 'contribution')
+                        .map((component) => (
+                          <div key={component.systemId} className="flex items-center gap-2">
+                            <Checkbox
+                              id={`comp-${component.systemId}`}
+                              checked={formState.componentSystemIds.includes(asSystemId(component.systemId))}
+                              onCheckedChange={() => toggleComponentSelection(asSystemId(component.systemId))}
+                            />
+                            <Label htmlFor={`comp-${component.systemId}`} className="text-sm font-normal cursor-pointer">
+                              {component.name}
+                            </Label>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <label className="flex cursor-pointer items-center gap-3 text-sm font-medium">
-              <Checkbox
-                checked={formState.isDefault}
-                onCheckedChange={(checked) =>
-                  setFormState((prev) => ({ ...prev, isDefault: Boolean(checked) }))
-                }
-                className="h-4 w-4"
-              />
-              Đặt làm mẫu mặc định
-            </label>
-
-            <DialogFooter className="flex flex-row items-center justify-between gap-2">
-              <Button type="button" variant="outline" className="h-9" onClick={resetDialog}>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={resetDialog}>
                 Hủy
               </Button>
-              <Button type="submit" className="h-9">
+              <Button
+                type="submit"
+                disabled={mutations.create.isPending || mutations.update.isPending}
+              >
+                {(mutations.create.isPending || mutations.update.isPending) && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
                 {editingTemplateId ? 'Lưu thay đổi' : 'Tạo mẫu'}
               </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
-
-      {/* Reset Confirmation Dialog */}
-      <AlertDialog open={isResetDialogOpen} onOpenChange={setIsResetDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Khôi phục mẫu mặc định?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Thao tác này sẽ xóa tất cả các mẫu hiện tại và thay thế bằng 5 mẫu mặc định theo chuẩn
-              Việt Nam:
-              <ul className="mt-2 list-inside list-disc space-y-1">
-                <li>Mẫu lương cơ bản</li>
-                <li>Mẫu lương nhân viên văn phòng</li>
-                <li>Mẫu lương quản lý</li>
-                <li>Mẫu lương kinh doanh</li>
-                <li>Mẫu lương toàn bộ</li>
-              </ul>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Hủy</AlertDialogCancel>
-            <AlertDialogAction onClick={handleResetToDefault}>Khôi phục</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!deleteConfirmId} onOpenChange={(open) => !open && setDeleteConfirmId(null)}>
@@ -471,8 +529,10 @@ export function PayrollTemplatesSettingsContent() {
             <AlertDialogCancel>Hủy</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmDelete}
+              disabled={mutations.remove.isPending}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
+              {mutations.remove.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Xóa mẫu
             </AlertDialogAction>
           </AlertDialogFooter>

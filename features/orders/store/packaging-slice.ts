@@ -17,7 +17,7 @@ import { useProductStore } from '../../products/store';
 import { isComboProduct } from '../../products/combo-utils';
 import { useStockHistoryStore } from '../../stock-history/store';
 import { useShipmentStore } from '../../shipments/store';
-import { useSalesManagementSettingsStore } from '../../settings/sales/sales-management-store';
+import { getSalesSettingsSync } from '../../settings/sales/sales-management-service';
 
 import { baseStore } from './base-store';
 import {
@@ -62,7 +62,7 @@ export const packagingSlice = {
 
     confirmPackaging: (orderSystemId: SystemId, packagingSystemId: SystemId, employeeId: SystemId) => {
         // Check negative packing setting
-        const { allowNegativePacking } = useSalesManagementSettingsStore.getState();
+        const { allowNegativePacking } = getSalesSettingsSync();
         if (!allowNegativePacking) {
             const order = baseStore.getState().data.find(o => o.systemId === orderSystemId);
             if (order) {
@@ -177,7 +177,7 @@ export const packagingSlice = {
     
     confirmInStorePickup: (orderSystemId: SystemId, packagingSystemId: SystemId, employeeId: SystemId) => {
         // Check negative stock out setting
-        const { allowNegativeStockOut } = useSalesManagementSettingsStore.getState();
+        const { allowNegativeStockOut } = getSalesSettingsSync();
         if (!allowNegativeStockOut) {
             const order = baseStore.getState().data.find(o => o.systemId === orderSystemId);
             if (order) {

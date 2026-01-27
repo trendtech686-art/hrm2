@@ -7,20 +7,31 @@ import { Switch } from '../../../../components/ui/switch';
 import { Badge } from '../../../../components/ui/badge';
 import { Eye, EyeOff, RefreshCw, CheckCircle2, XCircle, Loader2, Save } from 'lucide-react';
 import { toast } from 'sonner';
-import { useTrendtechSettingsStore } from '../store';
+import { useTrendtechSettings, useTrendtechConfigMutations, useTrendtechSyncSettingsMutations, useTrendtechLogMutations } from '../hooks/use-trendtech-settings';
 import { ping, testConnection } from '../../../../lib/trendtech/api-service';
 
 export function GeneralConfigTab() {
-  const { settings, setApiUrl, setApiKey, setEnabled, setConnectionStatus, updateSyncSetting, addLog } = useTrendtechSettingsStore();
+  const { data: settings } = useTrendtechSettings();
+  const { setApiUrl, setApiKey, setEnabled, setConnectionStatus } = useTrendtechConfigMutations({ onSuccess: () => {} });
+  const { updateSyncSetting } = useTrendtechSyncSettingsMutations({ onSuccess: () => {} });
+  const { addLog } = useTrendtechLogMutations();
   const [showApiKey, setShowApiKey] = React.useState(false);
   const [isTesting, setIsTesting] = React.useState(false);
-  const [localApiUrl, setLocalApiUrl] = React.useState(settings.apiUrl);
-  const [localApiKey, setLocalApiKey] = React.useState(settings.apiKey);
+  const [localApiUrl, setLocalApiUrl] = React.useState(settings?.apiUrl ?? '');
+  const [localApiKey, setLocalApiKey] = React.useState(settings?.apiKey ?? '');
+  
+  // Update local state when settings change
+  React.useEffect(() => {
+    if (settings) {
+      setLocalApiUrl(settings.apiUrl);
+      setLocalApiKey(settings.apiKey);
+    }
+  }, [settings]);
   
   const handleSaveConfig = () => {
-    setApiUrl(localApiUrl);
-    setApiKey(localApiKey);
-    addLog({
+    setApiUrl.mutate(localApiUrl);
+    setApiKey.mutate(localApiKey);
+    addLog.mutate({
       action: 'save_config',
       status: 'success',
       message: 'Đã lưu cấu hình API',
@@ -45,14 +56,14 @@ export function GeneralConfigTab() {
     
     try {
       // Save config first so API service can use it
-      setApiUrl(localApiUrl);
-      setApiKey(localApiKey);
+      setApiUrl.mutate(localApiUrl);
+      setApiKey.mutate(localApiKey);
       
       // Step 1: Ping server
-      const pingResult = await ping();
+      const pingResult = await (ping as any)();
       
       if (!pingResult.success) {
-        addLog({
+        addLog.mutate({
           action: 'ping',
           status: 'error',
           message: `Server không phản hồi: ${pingResult.error}`,
@@ -61,7 +72,7 @@ export function GeneralConfigTab() {
         throw new Error(pingResult.error || 'Server không phản hồi');
       }
       
-      addLog({
+      addLog.mutate({
         action: 'ping',
         status: 'success',
         message: 'Server hoạt động',
@@ -70,12 +81,12 @@ export function GeneralConfigTab() {
       
       // Step 2: Test với API key
       const testStartTime = Date.now();
-      const testResult = await testConnection();
+      const testResult = await (testConnection as any)();
       
       if (testResult.success && testResult.data) {
-        setConnectionStatus('connected');
+        setConnectionStatus.mutate({ status: 'connected' });
         const stats = testResult.data.stats;
-        addLog({
+        addLog.mutate({
           action: 'test_connection',
           status: 'success',
           message: `Kết nối thành công! SP: ${stats?.totalProducts || 0}, DM: ${stats?.totalCategories || 0}, TH: ${stats?.totalBrands || 0}`,
@@ -87,8 +98,8 @@ export function GeneralConfigTab() {
         });
         toast.success(`Kết nối thành công! Sản phẩm: ${stats?.totalProducts || 0}, Danh mục: ${stats?.totalCategories || 0}`);
       } else {
-        setConnectionStatus('error', testResult.error);
-        addLog({
+        setConnectionStatus.mutate({ status: 'error', error: testResult.error });
+        addLog.mutate({
           action: 'test_connection',
           status: 'error',
           message: `Lỗi xác thực: ${testResult.error}`,
@@ -98,8 +109,8 @@ export function GeneralConfigTab() {
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Không thể kết nối';
-      setConnectionStatus('error', errorMessage);
-      addLog({
+      setConnectionStatus.mutate({ status: 'error', error: errorMessage });
+      addLog.mutate({
         action: 'test_connection',
         status: 'error',
         message: `Lỗi kết nối: ${errorMessage}`,
@@ -112,7 +123,7 @@ export function GeneralConfigTab() {
   };
   
   const getStatusBadge = () => {
-    switch (settings.connectionStatus) {
+    switch (settings?.connectionStatus) {
       case 'connected':
         return <Badge variant="default" className="bg-green-500"><CheckCircle2 className="h-3 w-3 mr-1" />Đã kết nối</Badge>;
       case 'error':
@@ -204,10 +215,10 @@ export function GeneralConfigTab() {
               <p className="text-sm text-muted-foreground">Cho phép đồng bộ sản phẩm với website</p>
             </div>
             <Switch
-              checked={settings.enabled}
+              checked={settings?.enabled ?? false}
               onCheckedChange={(checked) => {
-                setEnabled(checked);
-                addLog({
+                setEnabled.mutate(checked);
+                addLog.mutate({
                   action: 'save_config',
                   status: 'info',
                   message: checked ? 'Đã bật tích hợp Trendtech' : 'Đã tắt tích hợp Trendtech',
@@ -224,17 +235,17 @@ export function GeneralConfigTab() {
               <p className="text-sm text-muted-foreground">Tự động đồng bộ dữ liệu theo lịch</p>
             </div>
             <Switch
-              checked={settings.syncSettings.autoSyncEnabled}
+              checked={settings?.syncSettings?.autoSyncEnabled ?? false}
               onCheckedChange={(checked) => {
-                updateSyncSetting('autoSyncEnabled', checked);
-                addLog({
+                updateSyncSetting.mutate({ key: 'autoSyncEnabled', value: checked });
+                addLog.mutate({
                   action: 'save_config',
                   status: 'info',
                   message: checked ? 'Đã bật Auto Sync' : 'Đã tắt Auto Sync',
                   details: {},
                 });
               }}
-              disabled={!settings.enabled}
+              disabled={!settings?.enabled}
             />
           </div>
         </CardContent>

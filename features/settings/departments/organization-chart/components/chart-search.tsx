@@ -38,7 +38,10 @@ export function ChartSearch({
   const fuse = React.useMemo(
     () =>
       new Fuse(
-        employees.filter(e => e.employmentStatus === 'Đang làm việc'),
+        employees.filter(e => 
+          e.employmentStatus === 'Đang làm việc' ||
+          !e.employmentStatus
+        ),
         {
           keys: ['fullName', 'id', 'jobTitle', 'department'],
           threshold: 0.3

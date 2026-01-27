@@ -17,8 +17,8 @@ const buildDefaultRecord = (day: Date, settings: EmployeeSettings): DailyRecord 
   if (day > today) {
     return { status: 'future' };
   }
-  // Trả về trạng thái trống - chưa có dữ liệu chấm công (vắng mặt cho đến khi có dữ liệu thực)
-  return { status: 'absent' };
+  // Trả về trạng thái trống - chưa có dữ liệu chấm công (sẽ hiển thị "-" thay vì "V")
+  return { status: 'empty' };
 };
 
 /**

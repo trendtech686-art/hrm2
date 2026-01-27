@@ -6,7 +6,7 @@ import React from 'react';
 import { toast } from 'sonner';
 import type { ProductCategory } from '@/features/settings/inventory/types';
 import { updateCategory, updateCategoryBasic, getCategoryById } from '@/lib/pkgx/api-service';
-import { usePkgxSettingsStore } from '@/features/settings/pkgx/store';
+import { usePkgxSettings, usePkgxCategoryMutations, usePkgxCategoryMappings } from '@/features/settings/pkgx/hooks/use-pkgx-settings';
 
 // Types
 type PkgxLogEntry = {
@@ -40,7 +40,9 @@ function getPkgxCatId(category: ProductCategory, categoryMappings?: Array<{ hrmC
  * Hook cung cấp các handlers để đồng bộ Category với PKGX
  */
 export function usePkgxCategorySync({ addPkgxLog }: UsePkgxCategorySyncOptions = {}) {
-  const { settings: pkgxSettings, updateCategory: updateCategoryInStore } = usePkgxSettingsStore();
+  const { data: pkgxSettings } = usePkgxSettings();
+  const categoryMappings = usePkgxCategoryMappings();
+  const { updateCategory: updateCategoryMutation } = usePkgxCategoryMutations();
 
   // Default log function if not provided
   const logAction = React.useCallback((entry: PkgxLogEntry) => {
@@ -58,32 +60,29 @@ export function usePkgxCategorySync({ addPkgxLog }: UsePkgxCategorySyncOptions =
       if (response.success && response.data?.data?.[0]) {
         const data = response.data.data[0];
         // Cập nhật vào store
-        updateCategoryInStore(pkgxCatId, {
-          id: data.cat_id,
-          name: data.cat_name,
-          parentId: data.parent_id || 0,
-          sortOrder: data.sort_order || 0,
-          isShow: data.is_show ?? 1,
-          cat_desc: data.cat_desc || '',
-          long_desc: data.long_desc || '',
-          keywords: data.keywords || '',
-          meta_title: data.meta_title || '',
-          meta_desc: data.meta_desc || '',
-          cat_alias: data.cat_alias || '',
-          style: data.style || '',
-          grade: data.grade || 0,
+        updateCategoryMutation.mutate({
+          id: pkgxCatId,
+          updates: {
+            id: data.cat_id,
+            name: data.cat_name,
+            parentId: data.parent_id || 0,
+            cat_desc: data.cat_desc || '',
+            keywords: data.keywords || '',
+            cat_alias: data.cat_alias || '',
+            grade: data.grade || 0,
+          },
         });
       }
     } catch (_error) {
       // Silently ignore sync errors
     }
-  }, [updateCategoryInStore]);
+  }, [updateCategoryMutation]);
 
   // ═══════════════════════════════════════════════════════════════
   // 1. SYNC SEO (keywords, meta_title, meta_desc)
   // ═══════════════════════════════════════════════════════════════
   const handleSyncSeo = React.useCallback(async (category: ProductCategory) => {
-    const pkgxCatId = getPkgxCatId(category, pkgxSettings?.categoryMappings);
+    const pkgxCatId = getPkgxCatId(category, categoryMappings);
     
     if (!pkgxCatId) {
       toast.error('Danh mục chưa được liên kết với PKGX. Vui lòng mapping trong Cài đặt > PKGX.');
@@ -130,7 +129,7 @@ export function usePkgxCategorySync({ addPkgxLog }: UsePkgxCategorySyncOptions =
         details: { categoryId: category.systemId, error: error instanceof Error ? error.message : String(error) },
       });
     }
-  }, [pkgxSettings?.categoryMappings, logAction, refreshCategoryFromPkgx]);
+  }, [pkgxSettings, categoryMappings, logAction, refreshCategoryFromPkgx]);
 
   // ═══════════════════════════════════════════════════════════════
   // 2. SYNC MÔ TẢ (cat_desc = longDescription)
@@ -304,3 +303,4 @@ export function usePkgxCategorySync({ addPkgxLog }: UsePkgxCategorySyncOptions =
     getPkgxCatId: (category: ProductCategory) => getPkgxCatId(category, pkgxSettings?.categoryMappings),
   };
 }
+

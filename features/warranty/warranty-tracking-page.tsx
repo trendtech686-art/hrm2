@@ -623,7 +623,7 @@ export function WarrantyTrackingPage() {
                       </div>
 
                       {/* List all payment transactions */}
-                      <div className="space-y-3 pl-3 sm:pl-4 border-l-2 border-border">
+                      <div className="space-y-3 pl-3 sm:pl-4 border-l-2 border">
                         {relatedPayments.map(payment => {
                           const linkedOrder = payment.linkedOrderSystemId
                             ? orders.find(o => o.systemId === payment.linkedOrderSystemId)

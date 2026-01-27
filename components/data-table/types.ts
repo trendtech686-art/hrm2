@@ -12,6 +12,7 @@ export type ColumnDef<TData> = {
   }) => React.ReactNode);
   cell: (props: {
     row: TData;
+    rowIndex?: number;
     isSelected: boolean;
     isExpanded: boolean;
     onToggleSelect: (value: boolean) => void;

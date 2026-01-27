@@ -86,10 +86,10 @@ import {
   PRIORITY_COLOR_CONFIGS,
   clone,
 } from './types';
-import { useTasksSettingsStore } from './store';
+import { useTasksSettings, useTasksSettingsMutations, loadCardColorSettings, loadSLASettings, loadEvidenceSettings, loadTaskTypes, loadTaskTemplates } from './hooks/use-tasks-settings';
 
 // Re-export for backward compatibility
-export { loadCardColorSettings, loadSLASettings, loadEvidenceSettings, loadTaskTypes, loadTaskTemplates } from './store';
+export { loadCardColorSettings, loadSLASettings, loadEvidenceSettings, loadTaskTypes, loadTaskTemplates };
 export type { CardColorSettings, TaskTemplate, EvidenceSettings, TaskType } from './types';
 
 // ============================================
@@ -97,14 +97,18 @@ export type { CardColorSettings, TaskTemplate, EvidenceSettings, TaskType } from
 // ============================================
 
 export function TasksSettingsPage() {
-  const storedSla = useTasksSettingsStore((state) => state.data.sla);
-  const storedTemplates = useTasksSettingsStore((state) => state.data.templates);
-  const storedNotifications = useTasksSettingsStore((state) => state.data.notifications);
-  const storedReminders = useTasksSettingsStore((state) => state.data.reminders);
-  const storedCardColors = useTasksSettingsStore((state) => state.data.cardColors);
-  const storedTaskTypes = useTasksSettingsStore((state) => state.data.taskTypes);
-  const storedEvidence = useTasksSettingsStore((state) => state.data.evidence);
-  const setStoreSection = useTasksSettingsStore((state) => state.setSection);
+  // Fetch settings from React Query
+  const { data: settings, isLoading: _isLoadingSettings } = useTasksSettings();
+  const { updateSection } = useTasksSettingsMutations();
+
+  // Get stored values from React Query
+  const storedSla = settings.sla;
+  const storedTemplates = settings.templates;
+  const storedNotifications = settings.notifications;
+  const storedReminders = settings.reminders;
+  const storedCardColors = settings.cardColors;
+  const storedTaskTypes = settings.taskTypes;
+  const storedEvidence = settings.evidence;
 
   // States
   const [sla, setSLA] = React.useState<SLASettings>(storedSla);
@@ -211,15 +215,17 @@ export function TasksSettingsPage() {
       return;
     }
 
-    setStoreSection('sla', sla);
-    toast.success('Đã lưu cài đặt SLA');
+    updateSection.mutate({ type: 'sla', data: sla }, {
+      onSuccess: () => toast.success('Đã lưu cài đặt SLA'),
+    });
   };
 
   const _handleResetSLA = () => {
     const defaults = clone(defaultSLA);
     setSLA(defaults);
-    setStoreSection('sla', defaults);
-    toast.info('Đã khôi phục cài đặt mặc định');
+    updateSection.mutate({ type: 'sla', data: defaults }, {
+      onSuccess: () => toast.info('Đã khôi phục cài đặt mặc định'),
+    });
   };
 
   React.useEffect(() => {
@@ -266,15 +272,17 @@ export function TasksSettingsPage() {
       return;
     }
 
-    setStoreSection('evidence', evidence);
-    toast.success('Đã lưu cài đặt bằng chứng');
+    updateSection.mutate({ type: 'evidence', data: evidence }, {
+      onSuccess: () => toast.success('Đã lưu cài đặt bằng chứng'),
+    });
   };
 
   const _handleResetEvidence = () => {
     const defaults = clone(defaultEvidence);
     setEvidence(defaults);
-    setStoreSection('evidence', defaults);
-    toast.info('Đã khôi phục cài đặt mặc định');
+    updateSection.mutate({ type: 'evidence', data: defaults }, {
+      onSuccess: () => toast.info('Đã khôi phục cài đặt mặc định'),
+    });
   };
 
   React.useEffect(() => {
@@ -320,9 +328,9 @@ export function TasksSettingsPage() {
       : taskTypes.map(t => (t.id === editingType.id ? editingType : t));
 
     setTaskTypes(updatedTypes);
-    setStoreSection('taskTypes', updatedTypes);
-
-    toast.success(isAddingType ? 'Đã thêm loại công việc' : 'Đã cập nhật loại công việc');
+    updateSection.mutate({ type: 'taskTypes', data: updatedTypes }, {
+      onSuccess: () => toast.success(isAddingType ? 'Đã thêm loại công việc' : 'Đã cập nhật loại công việc'),
+    });
     setEditingType(null);
     setIsAddingType(false);
   };
@@ -330,9 +338,12 @@ export function TasksSettingsPage() {
   const handleDeleteType = (id: string) => {
     const updated = taskTypes.filter(t => t.id !== id);
     setTaskTypes(updated);
-    setStoreSection('taskTypes', updated);
-    toast.success('Đã xóa loại công việc');
-    setDeleteTypeId(null);
+    updateSection.mutate({ type: 'taskTypes', data: updated }, {
+      onSuccess: () => {
+        toast.success('Đã xóa loại công việc');
+        setDeleteTypeId(null);
+      },
+    });
   };
 
   const handleToggleTypeActive = (id: string) => {
@@ -340,14 +351,15 @@ export function TasksSettingsPage() {
       t.id === id ? { ...t, isActive: !t.isActive } : t
     );
     setTaskTypes(updated);
-    setStoreSection('taskTypes', updated);
+    updateSection.mutate({ type: 'taskTypes', data: updated });
   };
 
   const _handleResetTypes = () => {
     const defaults = clone(defaultTaskTypes);
     setTaskTypes(defaults);
-    setStoreSection('taskTypes', defaults);
-    toast.info('Đã khôi phục cài đặt mặc định');
+    updateSection.mutate({ type: 'taskTypes', data: defaults }, {
+      onSuccess: () => toast.info('Đã khôi phục cài đặt mặc định'),
+    });
   };
 
   React.useEffect(() => {
@@ -402,15 +414,17 @@ export function TasksSettingsPage() {
   };
 
   const handleSaveCardColors = () => {
-    setStoreSection('cardColors', cardColors);
-    toast.success('Đã lưu cài đặt màu card');
+    updateSection.mutate({ type: 'cardColors', data: cardColors }, {
+      onSuccess: () => toast.success('Đã lưu cài đặt màu card'),
+    });
   };
 
   const _handleResetCardColors = () => {
     const defaults = clone(defaultCardColors);
     setCardColors(defaults);
-    setStoreSection('cardColors', defaults);
-    toast.info('Đã khôi phục cài đặt mặc định');
+    updateSection.mutate({ type: 'cardColors', data: defaults }, {
+      onSuccess: () => toast.info('Đã khôi phục cài đặt mặc định'),
+    });
   };
 
   React.useEffect(() => {
@@ -438,15 +452,17 @@ export function TasksSettingsPage() {
   };
 
   const handleSaveNotifications = () => {
-    setStoreSection('notifications', notifications);
-    toast.success('Đã lưu cài đặt thông báo');
+    updateSection.mutate({ type: 'notifications', data: notifications }, {
+      onSuccess: () => toast.success('Đã lưu cài đặt thông báo'),
+    });
   };
 
   const _handleResetNotifications = () => {
     const defaults = clone(defaultNotifications);
     setNotifications(defaults);
-    setStoreSection('notifications', defaults);
-    toast.info('Đã khôi phục cài đặt mặc định');
+    updateSection.mutate({ type: 'notifications', data: defaults }, {
+      onSuccess: () => toast.info('Đã khôi phục cài đặt mặc định'),
+    });
   };
 
   const handleReminderChange = (field: keyof ReminderSettings, value: boolean | number) => {
@@ -457,15 +473,17 @@ export function TasksSettingsPage() {
   };
 
   const handleSaveReminders = () => {
-    setStoreSection('reminders', reminders);
-    toast.success('Đã lưu cài đặt nhắc nhở');
+    updateSection.mutate({ type: 'reminders', data: reminders }, {
+      onSuccess: () => toast.success('Đã lưu cài đặt nhắc nhở'),
+    });
   };
 
   const _handleResetReminders = () => {
     const defaults = clone(defaultReminders);
     setReminders(defaults);
-    setStoreSection('reminders', defaults);
-    toast.info('Đã khôi phục cài đặt mặc định');
+    updateSection.mutate({ type: 'reminders', data: defaults }, {
+      onSuccess: () => toast.info('Đã khôi phục cài đặt mặc định'),
+    });
   };
 
   React.useEffect(() => {
@@ -523,27 +541,32 @@ export function TasksSettingsPage() {
     }
 
     setTemplates(updatedTemplates);
-    setStoreSection('templates', updatedTemplates);
-    
-    toast.success(isAddingTemplate ? 'Đã thêm mẫu' : 'Đã cập nhật mẫu');
-
-    setEditingTemplate(null);
-    setIsAddingTemplate(false);
+    updateSection.mutate({ type: 'templates', data: updatedTemplates }, {
+      onSuccess: () => {
+        toast.success(isAddingTemplate ? 'Đã thêm mẫu' : 'Đã cập nhật mẫu');
+        setEditingTemplate(null);
+        setIsAddingTemplate(false);
+      },
+    });
   };
 
   const handleDeleteTemplate = (id: string) => {
     const updatedTemplates = templates.filter(t => t.id !== id);
     setTemplates(updatedTemplates);
-    setStoreSection('templates', updatedTemplates);
-    toast.success('Đã xóa mẫu');
-    setDeleteTemplateId(null);
+    updateSection.mutate({ type: 'templates', data: updatedTemplates }, {
+      onSuccess: () => {
+        toast.success('Đã xóa mẫu');
+        setDeleteTemplateId(null);
+      },
+    });
   };
 
   const _handleResetTemplates = () => {
     const defaults = clone(defaultTemplates);
     setTemplates(defaults);
-    setStoreSection('templates', defaults);
-    toast.info('Đã khôi phục mẫu mặc định');
+    updateSection.mutate({ type: 'templates', data: defaults }, {
+      onSuccess: () => toast.info('Đã khôi phục mẫu mặc định'),
+    });
   };
 
   React.useEffect(() => {
@@ -651,8 +674,8 @@ export function TasksSettingsPage() {
                       <TableRow>
                         <TableHead>Tên loại</TableHead>
                         <TableHead>Mô tả</TableHead>
-                        <TableHead className="w-[100px]">Trạng thái</TableHead>
-                        <TableHead className="w-[120px]">Thao tác</TableHead>
+                        <TableHead className="w-25">Trạng thái</TableHead>
+                        <TableHead className="w-30">Thao tác</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -717,7 +740,7 @@ export function TasksSettingsPage() {
           setIsAddingType(false);
         }
       }}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-125">
           <DialogHeader>
             <DialogTitle>{isAddingType ? 'Thêm loại công việc mới' : 'Chỉnh sửa loại công việc'}</DialogTitle>
             <DialogDescription>
@@ -1101,7 +1124,7 @@ export function TasksSettingsPage() {
           setIsAddingTemplate(false);
         }
       }}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="sm:max-w-150">
           <DialogHeader>
             <DialogTitle>{isAddingTemplate ? 'Thêm mẫu mới' : 'Chỉnh sửa mẫu'}</DialogTitle>
             <DialogDescription>

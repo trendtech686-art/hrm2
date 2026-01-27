@@ -4,7 +4,7 @@
  */
 
 import { usePenaltyStore } from '../settings/penalties/store';
-import { useEmployeeSettingsStore } from '../settings/employees/employee-settings-store';
+import { getEmployeeSettingsSync } from '../settings/employees/employee-settings-service';
 import type { Penalty } from '../settings/penalties/types';
 import type { AttendanceDataRow, DailyRecord, AnyAttendanceDataRow } from './types';
 import type { EmployeeSettings } from '../settings/employees/types';
@@ -183,7 +183,7 @@ export function previewAttendancePenalties(
   year: number,
   month: number
 ): PenaltyPreviewItem[] {
-  const settings = useEmployeeSettingsStore.getState().settings;
+  const settings = getEmployeeSettingsSync();
   const allPenaltiesPreview: PenaltyPreviewItem[] = [];
   
   attendanceData.forEach((row) => {
@@ -249,7 +249,7 @@ export function processAttendancePenalties(
   year: number,
   month: number
 ): { created: number; violations: ViolationInfo[] } {
-  const settings = useEmployeeSettingsStore.getState().settings;
+  const settings = getEmployeeSettingsSync();
   const penaltyStore = usePenaltyStore.getState();
   
   let totalCreated = 0;

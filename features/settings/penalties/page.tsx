@@ -2,11 +2,12 @@
 import * as React from "react"
 import { useRouter } from 'next/navigation'
 import { formatDate } from '../../../lib/date-utils'
-import { usePenaltyStore, usePenaltyTypeStore } from "./store"
+import { useAllPenalties, useAllPenaltyTypes } from "./hooks/use-all-penalties";
+import { usePenaltyMutations } from "./hooks/use-penalties";
 import { useAllEmployees } from "../../employees/hooks/use-all-employees"
 import { useAllBranches } from "../branches/hooks/use-all-branches"
 import { useStoreInfoData } from "../store-info/hooks/use-store-info"
-import { useDefaultPageSize } from "../global-settings-store"
+import { useDefaultPageSize } from "../global/hooks/use-global-settings"
 import { getColumns } from "./columns"
 import { ResponsiveDataTable, type BulkAction } from "../../../components/data-table/responsive-data-table"
 import { DataTableFacetedFilter } from "../../../components/data-table/data-table-faceted-filter"
@@ -36,8 +37,9 @@ import { useColumnLayout } from '../../../hooks/use-column-visibility'
 const formatCurrency = (v?: number) => typeof v === 'number' ? new Intl.NumberFormat('vi-VN').format(v) : ''
 
 export function PenaltiesPage() {
-  const { data: penalties, addMultiple, update } = usePenaltyStore()
-  const { data: _penaltyTypes } = usePenaltyTypeStore()
+  const { data: penalties } = useAllPenalties();
+  const { data: _penaltyTypes } = useAllPenaltyTypes();
+  const { update } = usePenaltyMutations();
   const { data: employees } = useAllEmployees()
   const { data: branches } = useAllBranches()
   const { info: storeInfo } = useStoreInfoData()
@@ -62,8 +64,8 @@ export function PenaltiesPage() {
   const { visibility: columnVisibility, order: columnOrder, pinned: pinnedColumns } = columnLayout
   const { setVisibility: setColumnVisibility, setOrder: setColumnOrder, setPinned: setPinnedColumns } = columnLayoutSetters
 
-  const handleMarkPaid = React.useCallback((p: Penalty) => { update(p.systemId, { ...p, status: "Đã thanh toán" as PenaltyStatus, updatedAt: new Date().toISOString() }); toast.success("Đã cập nhật trạng thái", { description: `Phiếu phạt ${p.id} đã chuyển sang "Đã thanh toán"` }) }, [update])
-  const handleCancel = React.useCallback((p: Penalty) => { update(p.systemId, { ...p, status: "Đã hủy" as PenaltyStatus, updatedAt: new Date().toISOString() }); toast.success("Đã hủy phiếu phạt", { description: `Phiếu phạt ${p.id} đã bị hủy` }) }, [update])
+  const handleMarkPaid = React.useCallback((p: Penalty) => { update.mutate({ systemId: p.systemId, data: { status: "Đã thanh toán" as PenaltyStatus, updatedAt: new Date().toISOString() } }); toast.success("Đã cập nhật trạng thái", { description: `Phiếu phạt ${p.id} đã chuyển sang "Đã thanh toán"` }) }, [update])
+  const handleCancel = React.useCallback((p: Penalty) => { update.mutate({ systemId: p.systemId, data: { status: "Đã hủy" as PenaltyStatus, updatedAt: new Date().toISOString() } }); toast.success("Đã hủy phiếu phạt", { description: `Phiếu phạt ${p.id} đã bị hủy` }) }, [update])
   const columns = React.useMemo(() => getColumns(handleMarkPaid, handleCancel, router), [handleMarkPaid, handleCancel, router])
 
   const defaultVisibleCols = React.useMemo(() => new Set(['select', 'id', 'employeeName', 'penaltyTypeName', 'reason', 'amount', 'issueDate', 'issuerName', 'status', 'category', 'linkedComplaintSystemId', 'linkedOrderSystemId', 'deductedInPayrollId', 'createdAt', 'actions']), [])
@@ -97,12 +99,13 @@ export function PenaltiesPage() {
   const paginatedData = React.useMemo(() => sortedData.slice(pagination.pageIndex * pagination.pageSize, (pagination.pageIndex + 1) * pagination.pageSize), [sortedData, pagination])
   const allSelectedRows = React.useMemo(() => penalties.filter(p => rowSelection[p.systemId]), [penalties, rowSelection])
 
+  const { create } = usePenaltyMutations();
   const statusOptions = React.useMemo(() => [{ label: 'Chưa thanh toán', value: 'Chưa thanh toán' }, { label: 'Đã thanh toán', value: 'Đã thanh toán' }, { label: 'Đã hủy', value: 'Đã hủy' }], [])
   const categoryOptions = React.useMemo(() => [{ label: 'Khiếu nại', value: 'complaint' }, { label: 'Chấm công', value: 'attendance' }, { label: 'Hiệu suất', value: 'performance' }, { label: 'Khác', value: 'other' }], [])
   const employeeOptions = React.useMemo(() => { const ids = new Set(penalties.map(p => p.employeeSystemId)); return employees.filter(e => ids.has(e.systemId)).map(e => ({ value: e.systemId, label: e.fullName })) }, [penalties, employees])
 
   const exportConfig = { fileName: 'Danh_sach_Phieu_phat', columns }
-  const importConfig: ImportConfig<Penalty> = { importer: items => addMultiple(items.map(({ systemId: _, ...rest }) => rest) as Omit<Penalty, 'systemId'>[]), fileName: 'Mau_Nhap_Phieu_phat', existingData: penalties, getUniqueKey: (item: Penalty) => item.id }
+  const importConfig: ImportConfig<Penalty> = { importer: items => { (create as any).mutate(items.map(({ systemId: _, ...rest }) => rest) as any); return Promise.resolve(); }, fileName: 'Mau_Nhap_Phieu_phat', existingData: penalties, getUniqueKey: (item: Penalty) => item.id }
 
   const handleBulkPrint = React.useCallback((rows: Penalty[]) => { setItemsToPrint(rows); setPrintDialogOpen(true) }, [])
   const handlePrintConfirm = React.useCallback((options: SimplePrintOptionsResult) => {
@@ -118,8 +121,8 @@ export function PenaltiesPage() {
 
   const bulkActions: BulkAction<Penalty>[] = [
     { label: "In phiếu", icon: Printer, onSelect: handleBulkPrint },
-    { label: "Đánh dấu đã thanh toán", onSelect: rows => { rows.forEach(p => update(p.systemId, { ...p, status: "Đã thanh toán" as PenaltyStatus })); toast.success("Đã cập nhật trạng thái", { description: `${rows.length} phiếu phạt đã chuyển sang "Đã thanh toán"` }); setRowSelection({}) } },
-    { label: "Hủy phiếu phạt", onSelect: rows => { rows.forEach(p => update(p.systemId, { ...p, status: "Đã hủy" as PenaltyStatus })); toast.success("Đã cập nhật trạng thái", { description: `${rows.length} phiếu phạt đã hủy` }); setRowSelection({}) } }
+    { label: "Đánh dấu đã thanh toán", onSelect: rows => { rows.forEach(p => update.mutate({ systemId: p.systemId, data: { status: "Đã thanh toán" as PenaltyStatus } })); toast.success("Đã cập nhật trạng thái", { description: `${rows.length} phiếu phạt đã chuyển sang "Đã thanh toán"` }); setRowSelection({}) } },
+    { label: "Hủy phiếu phạt", onSelect: rows => { rows.forEach(p => update.mutate({ systemId: p.systemId, data: { status: "Đã hủy" as PenaltyStatus } })); toast.success("Đã cập nhật trạng thái", { description: `${rows.length} phiếu phạt đã hủy` }); setRowSelection({}) } }
   ]
   const handleRowClick = (row: Penalty) => router.push(`/penalties/${row.systemId}`)
 

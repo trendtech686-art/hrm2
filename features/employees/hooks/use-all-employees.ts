@@ -20,7 +20,8 @@ const EMPTY_OPTIONS: { value: SystemId; label: string }[] = [];
  * Compatible with legacy store pattern: { data: employees }
  */
 export function useAllEmployees() {
-  const query = useEmployees({ limit: 30 });
+  // Use high limit to get all employees for org chart, dropdowns, etc.
+  const query = useEmployees({ limit: 500 });
   
   // ✅ Memoize data to prevent unnecessary re-renders
   const data = React.useMemo(() => 

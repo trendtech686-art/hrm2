@@ -8,19 +8,9 @@
  * 
  * This store will be removed in a future version.
  */
-import { formatDateCustom, getCurrentDate } from '../../lib/date-utils';
 import { createCrudStore, type CrudState } from '../../lib/store-factory';
 import type { PurchaseReturn } from '@/lib/types/prisma-extended';
-import { useProductStore } from '../products/store';
-import { useStockHistoryStore } from '../stock-history/store';
-import { useReceiptStore } from '../receipts/store';
-import { usePurchaseOrderStore } from '../purchase-orders/store';
-import { useCashbookStore } from '../cashbook/store';
-import { useReceiptTypeStore } from '../settings/receipt-types/store';
-import type { Receipt } from '../receipts/types';
-import type { PurchaseOrderRefundStatus } from '../purchase-orders/types';
-import { useInventoryReceiptStore } from '../inventory-receipts/store';
-import { asBusinessId, asSystemId, type SystemId } from '@/lib/id-types';
+import { type SystemId } from '@/lib/id-types';
 
 const baseStore = createCrudStore<PurchaseReturn>(
   [],
@@ -28,137 +18,36 @@ const baseStore = createCrudStore<PurchaseReturn>(
   {}
 );
 
-const originalAdd = baseStore.getState().add;
+const _originalAdd = baseStore.getState().add;
 
-const newAdd = (item: Omit<PurchaseReturn, 'systemId'>): PurchaseReturn | undefined => {
-    // 1. Get other stores' methods
-    const { updateInventory } = useProductStore.getState();
-    const { addEntry: addStockHistory } = useStockHistoryStore.getState();
-    const { add: addReceipt } = useReceiptStore.getState();
-    const { processReturn: updatePOonReturn, data: allPOs } = usePurchaseOrderStore.getState();
-    const { accounts } = useCashbookStore.getState();
-    const { data: receiptTypes } = useReceiptTypeStore.getState();
-    const { data: allReceipts } = useInventoryReceiptStore.getState();
+/**
+ * @deprecated Use React Query mutation: usePurchaseReturnMutations().create
+ * 
+ * Server endpoint: POST /api/purchase-returns
+ * ⚠️ UNSAFE: Client-side multi-store operations are not atomic
+ * 
+ * Required server-side operations:
+ * - Create the return record
+ * - Update inventory (reduce stock)
+ * - Add stock history entry
+ * - Create receipt if supplier refunds money
+ * - Update original PO status
+ * - Validate against received quantities
+ */
+const newAdd = (_item: Omit<PurchaseReturn, 'systemId'>): PurchaseReturn | undefined => {
+    console.warn('⚠️ DEPRECATED: purchase-returns store newAdd method. Use usePurchaseReturnMutations().create mutation instead.');
+    console.error('🚨 UNSAFE OPERATION: This method accesses 8 different stores without transactions:');
+    console.error('   - useProductStore (updateInventory, findById)');
+    console.error('   - useStockHistoryStore (addEntry)');
+    console.error('   - useReceiptStore (add)');
+    console.error('   - usePurchaseOrderStore (processReturn, data)');
+    console.error('   - useCashbookStore (accounts)');
+    console.error('   - useReceiptTypeStore (data)');
+    console.error('   - useInventoryReceiptStore (data)');
+    console.error('');
+    console.error('   Use server-side POST /api/purchase-returns endpoint for atomic transaction.');
     
-    // 2. Add the return record itself
-    const newReturn = originalAdd(item);
-
-    if (!newReturn) {
-      return undefined;
-    }
-
-    // 3. Update inventory & create stock history
-    newReturn.items.forEach(lineItem => {
-        if (lineItem.returnQuantity > 0) {
-            const productBeforeUpdate = useProductStore.getState().findById(lineItem.productSystemId);
-            const oldStock = productBeforeUpdate?.inventoryByBranch[newReturn.branchSystemId] || 0;
-            
-            updateInventory(lineItem.productSystemId, newReturn.branchSystemId, -lineItem.returnQuantity);
-            addStockHistory({
-                productId: lineItem.productSystemId,
-                date: new Date().toISOString(),
-                employeeName: newReturn.creatorName,
-                action: 'Hoàn trả NCC',
-                quantityChange: -lineItem.returnQuantity,
-                newStockLevel: oldStock - lineItem.returnQuantity,
-                documentId: newReturn.id,
-                branchSystemId: newReturn.branchSystemId,
-                branch: newReturn.branchName,
-            });
-        }
-    });
-
-    // 4. Create receipt when supplier refunds money (supplier pays company)
-    if (newReturn.refundAmount > 0) {
-      const receiptCategory = receiptTypes.find(pt => pt.name === 'Nhà cung cấp hoàn tiền');
-      if (newReturn.accountSystemId) {
-        const account = accounts.find(acc => acc.systemId === newReturn.accountSystemId);
-        const issuedAt = formatDateCustom(getCurrentDate(), 'yyyy-MM-dd HH:mm');
-
-        const refundReceipt: Omit<Receipt, 'systemId'> = {
-          id: asBusinessId(''), // Let receipt store auto-generate PT-XXXXXX
-          date: issuedAt,
-          amount: newReturn.refundAmount,
-
-          // Payer info (TargetGroup placeholder)
-          payerTypeSystemId: asSystemId('NHACUNGCAP'),
-          payerTypeName: 'Nhà cung cấp',
-          payerName: newReturn.supplierName,
-          payerSystemId: newReturn.supplierSystemId,
-
-          description: `Nhận hoàn tiền cho đơn nhập ${newReturn.purchaseOrderId} (Phiếu trả hàng ${newReturn.id})`,
-
-          // Payment method placeholders — should map to settings
-          paymentMethodSystemId: asSystemId(account?.type === 'cash' ? 'PAYMENT_METHOD_CASH' : 'PAYMENT_METHOD_BANK'),
-          paymentMethodName: newReturn.refundMethod,
-
-          accountSystemId: newReturn.accountSystemId,
-          paymentReceiptTypeSystemId: receiptCategory?.systemId ?? asSystemId('RT_SUPPLIER_REFUND'),
-          paymentReceiptTypeName: receiptCategory?.name ?? 'Nhà cung cấp hoàn tiền',
-
-          branchSystemId: newReturn.branchSystemId,
-          branchName: newReturn.branchName,
-          createdBy: asSystemId('SYSTEM'),
-          createdAt: issuedAt,
-
-          status: 'completed',
-          category: 'other',
-          affectsDebt: true,
-
-          purchaseOrderSystemId: newReturn.purchaseOrderSystemId,
-          purchaseOrderId: newReturn.purchaseOrderId,
-          originalDocumentId: newReturn.id,
-        };
-
-        addReceipt(refundReceipt);
-        }
-    }
-
-    // 5. Update the original Purchase Order's status
-    const po = allPOs.find(p => asSystemId(p.systemId) === newReturn.purchaseOrderSystemId);
-    if (po) {
-        // A full check would require summing all returns for this PO.
-        const allItems = po.lineItems;
-        const poSystemId = asSystemId(po.systemId);
-        const allReturnedItems = baseStore.getState().data
-        .filter(pr => pr.purchaseOrderSystemId === poSystemId)
-            .flatMap(pr => pr.items);
-            
-      const receiptsForPO = allReceipts.filter(r => r.purchaseOrderSystemId === poSystemId);
-
-        const isFullReturn = allItems.every(poItem => {
-            const totalReceived = receiptsForPO.reduce((sum, receipt) => {
-                const receiptItem = receipt.items.find(i => i.productSystemId === poItem.productSystemId);
-                return sum + (receiptItem ? Number(receiptItem.receivedQuantity) : 0);
-            }, 0);
-
-            const totalReturned = allReturnedItems
-                .filter(returnedItem => returnedItem.productSystemId === poItem.productSystemId)
-                .reduce((sum, returnedItem) => sum + returnedItem.returnQuantity, 0);
-            
-            return totalReturned >= totalReceived;
-        });
-        
-        const existingReturnsForPO = baseStore.getState().data.filter(pr => pr.purchaseOrderSystemId === poSystemId && pr.systemId !== newReturn.systemId);
-        const allReturnsForPO = [...existingReturnsForPO, newReturn];
-        const totalReturnedValue = allReturnsForPO.reduce((sum, r) => sum + r.totalReturnValue, 0);
-        const totalRefunded = allReturnsForPO.reduce((sum, r) => sum + r.refundAmount, 0);
-
-        let newRefundStatus: PurchaseOrderRefundStatus = po.refundStatus || 'Chưa hoàn tiền';
-        if (totalReturnedValue > 0) {
-            if (totalRefunded >= totalReturnedValue) {
-                newRefundStatus = 'Hoàn tiền toàn bộ';
-            } else if (totalRefunded > 0) {
-                newRefundStatus = 'Hoàn tiền một phần';
-            } else {
-                newRefundStatus = 'Chưa hoàn tiền';
-            }
-        }
-
-        updatePOonReturn(po.id, isFullReturn, newRefundStatus, newReturn.id, newReturn.creatorName);
-    }
-
-    return newReturn;
+    return undefined;
 };
 
 const otherMethods = {

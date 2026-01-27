@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { useStockTransferStore } from '../store';
+import { useStockTransfer, useStockTransferMutations } from '../hooks/use-stock-transfers';
 import { useBranchFinder } from '@/features/settings/branches/hooks/use-all-branches';
 import { useProductFinder } from '@/features/products/hooks/use-all-products';
 import { useProductTypeFinder } from '@/features/settings/inventory/hooks/use-all-product-types';
@@ -153,7 +153,39 @@ function buildHistoryEntries(transfer: StockTransfer): HistoryEntry[] {
 export function StockTransferDetailPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const router = useRouter();
-  const { findById, confirmTransfer, confirmReceive, cancelTransfer } = useStockTransferStore();
+  
+  const { data: transferData } = useStockTransfer(systemId);
+  const { start: startMutation, complete: completeMutation, cancel: cancelMutation } = useStockTransferMutations({
+    onStartSuccess: () => {
+      toast.success('Đã xác nhận xuất kho');
+      setConfirmTransferOpen(false);
+    },
+    onCompleteSuccess: () => {
+      toast.success('Đã xác nhận nhận kho');
+      setConfirmReceiveOpen(false);
+    },
+    onCancelSuccess: () => {
+      toast.success('Đã hủy phiếu chuyển kho');
+      setCancelDialogOpen(false);
+      router.push('/stock-transfers');
+    },
+    onError: (error) => {
+      toast.error('Lỗi', { description: error.message });
+    }
+  });
+  
+  const confirmTransfer = React.useCallback((systemId: string) => {
+    startMutation.mutate(systemId);
+  }, [startMutation]);
+  
+  const confirmReceive = React.useCallback((systemId: string, items?: { productSystemId: string; receivedQuantity: number }[]) => {
+    completeMutation.mutate({ systemId, receivedItems: items });
+  }, [completeMutation]);
+  
+  const cancelTransfer = React.useCallback((systemId: string, reason: string) => {
+    cancelMutation.mutate({ systemId, reason });
+  }, [cancelMutation]);
+  
   const { findById: findProductById } = useProductFinder();
   const { findById: findProductTypeById } = useProductTypeFinder();
   const { findById: findEmployeeById } = useEmployeeFinder();
@@ -168,20 +200,18 @@ export function StockTransferDetailPage() {
   const [subtasks, setSubtasks] = React.useState<Subtask[]>([]);
   const [previewImage, setPreviewImage] = React.useState<{ url: string; title: string } | null>(null);
 
-  const transfer = findById(asSystemId(systemId || ''));
-
   const { findById: findBranchById } = useBranchFinder();
   const { info: storeInfo } = useStoreInfoData();
-  const { print } = usePrint(transfer?.fromBranchSystemId);
+  const { print } = usePrint(transferData?.fromBranchSystemId);
 
   const handlePrint = React.useCallback(() => {
-    if (!transfer) return;
+    if (!transferData) return;
 
-    const fromBranch = findBranchById(transfer.fromBranchSystemId);
-    const toBranch = findBranchById(transfer.toBranchSystemId);
+    const fromBranch = findBranchById(transferData.fromBranchSystemId);
+    const toBranch = findBranchById(transferData.toBranchSystemId);
     const storeSettings = createStoreSettings(storeInfo);
     
-    const transferForPrint = convertStockTransferForPrint(transfer, {
+    const transferForPrint = convertStockTransferForPrint(transferData, {
       fromBranch,
       toBranch,
     });
@@ -190,7 +220,7 @@ export function StockTransferDetailPage() {
       data: mapStockTransferToPrintData(transferForPrint, storeSettings),
       lineItems: mapStockTransferLineItems(transferForPrint.items),
     });
-  }, [transfer, findBranchById, storeInfo, print]);
+  }, [transferData, findBranchById, storeInfo, print]);
 
   const getProductTypeName = React.useCallback((productTypeSystemId: SystemId) => {
     const productType = findProductTypeById(productTypeSystemId);
@@ -242,14 +272,14 @@ export function StockTransferDetailPage() {
 
   // Header actions based on status
   const headerActions = React.useMemo(() => {
-    if (!transfer) return null;
+    if (!transferData) return null;
 
     // Determine if can edit: pending/transferring = limited, completed = very limited
-    const canEdit = transfer.status !== 'cancelled';
+    const canEdit = transferData.status !== 'cancelled';
 
     return (
       <div className="flex items-center gap-2">
-        {transfer.status === 'pending' && (
+        {transferData.status === 'pending' && (
           <>
             <Button variant="destructive" className="h-9" onClick={() => setCancelDialogOpen(true)}>
               <XCircle className="mr-2 h-4 w-4" />
@@ -262,7 +292,7 @@ export function StockTransferDetailPage() {
           </>
         )}
         
-        {transfer.status === 'transferring' && (
+        {transferData.status === 'transferring' && (
           <>
             <Button variant="destructive" className="h-9" onClick={() => setCancelDialogOpen(true)}>
               <XCircle className="mr-2 h-4 w-4" />
@@ -281,50 +311,50 @@ export function StockTransferDetailPage() {
         </Button>
         
         {canEdit && (
-          <Button variant="outline" className="h-9" onClick={() => router.push(`/stock-transfers/${transfer.systemId}/edit`)}>
+          <Button variant="outline" className="h-9" onClick={() => router.push(`/stock-transfers/${transferData.systemId}/edit`)}>
             <Edit className="mr-2 h-4 w-4" />
             S?a
           </Button>
         )}
       </div>
     );
-  }, [transfer, router, handlePrint]);
+  }, [transferData, router, handlePrint]);
 
   // Breadcrumb
   const breadcrumb = React.useMemo(() => {
-    if (!transfer) return [];
+    if (!transferData) return [];
     return [
       { label: 'Trang ch?', href: ROUTES.ROOT },
       { label: 'Chuy?n kho', href: ROUTES.INVENTORY.STOCK_TRANSFERS },
-      { label: transfer.id, href: '' },
+      { label: transferData.id, href: '' },
     ];
-  }, [transfer]);
+  }, [transferData]);
 
   React.useEffect(() => {
-    if (transfer) {
+    if (transferData) {
       setPageHeader({
-        title: `Phi?u chuy?n kho ${transfer.id}`,
+        title: `Phi?u chuy?n kho ${transferData.id}`,
         breadcrumb,
         showBackButton: true,
         backPath: ROUTES.INVENTORY.STOCK_TRANSFERS,
         actions: headerActions,
         badge: (
-          <Badge variant={getStatusVariant(transfer.status)}>
-            {getStatusLabel(transfer.status)}
+          <Badge variant={getStatusVariant(transferData.status)}>
+            {getStatusLabel(transferData.status)}
           </Badge>
         ),
       });
       
       // Initialize receive items
-      setReceiveItems(transfer.items.map(item => ({
+      setReceiveItems(transferData.items.map(item => ({
         productSystemId: item.productSystemId,
         receivedQuantity: item.quantity,
       })));
     }
     return () => clearPageHeader();
-  }, [transfer, setPageHeader, clearPageHeader, breadcrumb, headerActions]);
+  }, [transferData, setPageHeader, clearPageHeader, breadcrumb, headerActions]);
 
-  if (!transfer) {
+  if (!transferData) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
         <Package className="h-12 w-12 text-muted-foreground mb-4" />
@@ -342,12 +372,8 @@ export function StockTransferDetailPage() {
       return;
     }
 
-    const success = confirmTransfer(transfer.systemId, currentEmployee.systemId);
-    if (success) {
-      toast.success('Đã xác nhận chuyển hàng khỏi kho');
-    } else {
-      toast.error('Không thể xác nhận chuyển hàng');
-    }
+    confirmTransfer(transferData.systemId);
+    toast.success('Đã xác nhận chuyển hàng khỏi kho');
     setConfirmTransferOpen(false);
   };
 
@@ -357,12 +383,8 @@ export function StockTransferDetailPage() {
       return;
     }
 
-    const success = confirmReceive(transfer.systemId, currentEmployee.systemId, receiveItems);
-    if (success) {
-      toast.success('Đã xác nhận nhận hàng vào kho');
-    } else {
-      toast.error('Không thể xác nhận nhận hàng');
-    }
+    confirmReceive(transferData.systemId, receiveItems);
+    toast.success('Đã xác nhận nhận hàng vào kho');
     setConfirmReceiveOpen(false);
   };
 
@@ -372,21 +394,17 @@ export function StockTransferDetailPage() {
       return;
     }
 
-    const success = cancelTransfer(transfer.systemId, currentEmployee.systemId, cancelReason);
-    if (success) {
-      toast.success('Đã hủy phiếu chuyển kho');
-    } else {
-      toast.error('Không thể hủy phiếu chuyển kho');
-    }
+    cancelTransfer(transferData.systemId, cancelReason);
+    toast.success('Đã gửi yêu cầu hủy phiếu chuyển kho');
     setCancelDialogOpen(false);
     setCancelReason('');
   };
 
-  const totalQuantity = transfer.items.reduce((sum, item) => sum + item.quantity, 0);
-  const totalReceived = transfer.items.reduce((sum, item) => sum + (item.receivedQuantity || 0), 0);
+  const totalQuantity = transferData.items.reduce((sum, item) => sum + item.quantity, 0);
+  const totalReceived = transferData.items.reduce((sum, item) => sum + (item.receivedQuantity || 0), 0);
   
   // Calculate total value using product cost prices
-  const totalValue = transfer.items.reduce((sum, item) => {
+  const totalValue = transferData.items.reduce((sum, item) => {
     const product = findProductById(item.productSystemId);
     const unitPrice = product?.costPrice || 0;
     return sum + (item.quantity * unitPrice);
@@ -402,26 +420,26 @@ export function StockTransferDetailPage() {
             <CardTitle className="text-h3">Thông tin chuyển kho</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <DetailField label="Mã phiếu" value={transfer.id} />
-            <DetailField label="Mã tham chiếu" value={transfer.referenceCode || '-'} />
+            <DetailField label="Mã phiếu" value={transferData.id} />
+            <DetailField label="Mã tham chiếu" value={transferData.referenceCode || '-'} />
             <Separator />
             <div className="space-y-3">
               <div className="p-3 bg-muted/50 rounded-lg">
                 <p className="text-body-xs text-muted-foreground mb-1">Chi nhánh chuyển</p>
-                <p className="font-medium">{transfer.fromBranchName}</p>
+                <p className="font-medium">{transferData.fromBranchName}</p>
               </div>
               <div className="flex justify-center">
                 <ArrowRight className="h-4 w-4 text-muted-foreground" />
               </div>
               <div className="p-3 bg-muted/50 rounded-lg">
                 <p className="text-body-xs text-muted-foreground mb-1">Chi nhánh nhận</p>
-                <p className="font-medium">{transfer.toBranchName}</p>
+                <p className="font-medium">{transferData.toBranchName}</p>
               </div>
             </div>
-            {transfer.note && (
+            {transferData.note && (
               <>
                 <Separator />
-                <DetailField label="Ghi chú" value={transfer.note} />
+                <DetailField label="Ghi chú" value={transferData.note} />
               </>
             )}
           </CardContent>
@@ -433,32 +451,32 @@ export function StockTransferDetailPage() {
             <CardTitle className="text-h3">Thông tin xử lý</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <DetailField label="Ngày tạo" value={formatDateTime(transfer.createdDate)} />
-            <DetailField label="Người tạo" value={transfer.createdByName} />
+            <DetailField label="Ngày tạo" value={formatDateTime(transferData.createdDate)} />
+            <DetailField label="Người tạo" value={transferData.createdByName} />
             
-            {transfer.transferredDate && (
+            {transferData.transferredDate && (
               <>
                 <Separator />
-                <DetailField label="Ngày chuyển" value={formatDateTime(transfer.transferredDate)} />
-                <DetailField label="Người chuyển" value={transfer.transferredByName} />
+                <DetailField label="Ngày chuyển" value={formatDateTime(transferData.transferredDate)} />
+                <DetailField label="Người chuyển" value={transferData.transferredByName} />
               </>
             )}
             
-            {transfer.receivedDate && (
+            {transferData.receivedDate && (
               <>
                 <Separator />
-                <DetailField label="Ngày nhận" value={formatDateTime(transfer.receivedDate)} />
-                <DetailField label="Người nhận" value={transfer.receivedByName} />
+                <DetailField label="Ngày nhận" value={formatDateTime(transferData.receivedDate)} />
+                <DetailField label="Người nhận" value={transferData.receivedByName} />
               </>
             )}
             
-            {transfer.cancelledDate && (
+            {transferData.cancelledDate && (
               <>
                 <Separator />
-                <DetailField label="Ngày hủy" value={formatDateTime(transfer.cancelledDate)} />
-                <DetailField label="Người hủy" value={transfer.cancelledByName} />
-                {transfer.cancelReason && (
-                  <DetailField label="Lý do hủy" value={transfer.cancelReason} />
+                <DetailField label="Ngày hủy" value={formatDateTime(transferData.cancelledDate)} />
+                <DetailField label="Người hủy" value={transferData.cancelledByName} />
+                {transferData.cancelReason && (
+                  <DetailField label="Lý do hủy" value={transferData.cancelReason} />
                 )}
               </>
             )}
@@ -469,14 +487,14 @@ export function StockTransferDetailPage() {
         <StockTransferWorkflowCard
           subtasks={subtasks}
           onSubtasksChange={setSubtasks}
-          readonly={transfer.status === 'completed' || transfer.status === 'cancelled'}
+          readonly={transferData.status === 'completed' || transferData.status === 'cancelled'}
         />
       </div>
 
       {/* Product List - Full Width */}
       <Card>
             <CardHeader>
-              <CardTitle className="text-h3">Danh sách sản phẩm ({transfer.items.length})</CardTitle>
+              <CardTitle className="text-h3">Danh sách sản phẩm ({transferData.items.length})</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
@@ -488,7 +506,7 @@ export function StockTransferDetailPage() {
                       <TableHead>Sản phẩm</TableHead>
                       <TableHead className="w-[100px]">Loại SP</TableHead>
                       <TableHead className="text-center">SL chuyển</TableHead>
-                      {transfer.status === 'completed' && (
+                      {transferData.status === 'completed' && (
                         <TableHead className="text-center">SL nhận</TableHead>
                       )}
                       <TableHead className="text-center">CN Chuyển (Trước → Sau)</TableHead>
@@ -499,14 +517,14 @@ export function StockTransferDetailPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {transfer.items.map((item, index) => {
+                    {transferData.items.map((item, index) => {
                       const product = findProductById(item.productSystemId);
                       const productTypeName = product?.productTypeSystemId 
                         ? getProductTypeName(product.productTypeSystemId)
                         : 'Hàng hóa';
                       const imageUrl = product?.thumbnailImage || product?.galleryImages?.[0] || product?.images?.[0];
-                      const currentFromStock = product?.inventoryByBranch?.[transfer.fromBranchSystemId] || 0;
-                      const currentToStock = product?.inventoryByBranch?.[transfer.toBranchSystemId] || 0;
+                      const currentFromStock = product?.inventoryByBranch?.[transferData.fromBranchSystemId] || 0;
+                      const currentToStock = product?.inventoryByBranch?.[transferData.toBranchSystemId] || 0;
                       const unitPrice = product?.costPrice || 0;
                       const lineTotal = item.quantity * unitPrice;
                       
@@ -514,13 +532,13 @@ export function StockTransferDetailPage() {
                       const receivedQty = item.receivedQuantity ?? item.quantity;
                       let fromBefore: number, fromAfter: number, toBefore: number, toAfter: number;
                       
-                      if (transfer.status === 'completed') {
+                      if (transferData.status === 'completed') {
                         // Already transferred: current is "after", calculate "before"
                         fromAfter = currentFromStock;
                         fromBefore = currentFromStock + item.quantity;
                         toAfter = currentToStock;
                         toBefore = currentToStock - receivedQty;
-                      } else if (transfer.status === 'transferring') {
+                      } else if (transferData.status === 'transferring') {
                         // In transit: from is "after", to is "before"
                         fromAfter = currentFromStock;
                         fromBefore = currentFromStock + item.quantity;
@@ -564,7 +582,7 @@ export function StockTransferDetailPage() {
                           </TableCell>
                           <TableCell className="text-body-sm text-muted-foreground">{productTypeName}</TableCell>
                           <TableCell className="text-center font-medium">{item.quantity}</TableCell>
-                          {transfer.status === 'completed' && (
+                          {transferData.status === 'completed' && (
                             <TableCell className="text-center font-medium">
                               {receivedQty}
                             </TableCell>
@@ -600,7 +618,7 @@ export function StockTransferDetailPage() {
               <div className="flex justify-end">
                 <div className="text-right space-y-1">
                   <p className="text-body-sm text-muted-foreground">Tổng số lượng chuyển: {totalQuantity}</p>
-                  {transfer.status === 'completed' && totalReceived !== totalQuantity && (
+                  {transferData.status === 'completed' && totalReceived !== totalQuantity && (
                     <p className="text-body-sm text-muted-foreground">
                       Đã nhận: {totalReceived}
                     </p>
@@ -614,7 +632,7 @@ export function StockTransferDetailPage() {
       {/* Comments - Full Width */}
       <Comments
         entityType="stock-transfer"
-        entityId={transfer.systemId}
+        entityId={transferData.systemId}
         comments={comments}
         onAddComment={handleAddComment}
         onUpdateComment={handleUpdateComment}
@@ -626,7 +644,7 @@ export function StockTransferDetailPage() {
 
       {/* Activity History - Full Width */}
       <ActivityHistory
-        history={buildHistoryEntries(transfer)}
+        history={buildHistoryEntries(transferData)}
         title="Lịch sử hoạt động"
         emptyMessage="Chưa có hoạt động"
       />
@@ -637,8 +655,8 @@ export function StockTransferDetailPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Xác nhận chuyển hàng khỏi kho?</AlertDialogTitle>
             <AlertDialogDescription>
-              Hệ thống sẽ trừ tồn kho tại chi nhánh <strong>{transfer.fromBranchName}</strong> và 
-              ghi nhận hàng đang về tại chi nhánh <strong>{transfer.toBranchName}</strong>.
+              Hệ thống sẽ trừ tồn kho tại chi nhánh <strong>{transferData.fromBranchName}</strong> và 
+              ghi nhận hàng đang về tại chi nhánh <strong>{transferData.toBranchName}</strong>.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -670,7 +688,7 @@ export function StockTransferDetailPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {transfer.items.map((item, index) => (
+                {transferData.items.map((item, index) => (
                   <TableRow key={index}>
                     <TableCell>
                       <p className="font-medium">{item.productName}</p>
@@ -717,7 +735,7 @@ export function StockTransferDetailPage() {
           <DialogHeader>
             <DialogTitle>Hủy phiếu chuyển kho?</DialogTitle>
             <DialogDescription>
-              {transfer.status === 'transferring' 
+              {transferData.status === 'transferring' 
                 ? 'Hệ thống sẽ hoàn lại tồn kho về chi nhánh chuyển.'
                 : 'Phiếu chuyển kho sẽ bị hủy.'
               }

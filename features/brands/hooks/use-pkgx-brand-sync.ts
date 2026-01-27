@@ -6,7 +6,7 @@ import React from 'react';
 import { toast } from 'sonner';
 import type { Brand } from '@/features/settings/inventory/types';
 import { updateBrand, getBrandById } from '@/lib/pkgx/api-service';
-import { usePkgxSettingsStore } from '@/features/settings/pkgx/store';
+import { usePkgxSettings, usePkgxBrandMutations, usePkgxBrandMappings } from '@/features/settings/pkgx/hooks/use-pkgx-settings';
 
 // Types
 type PkgxLogEntry = {
@@ -37,7 +37,9 @@ function getPkgxBrandId(brand: Brand, brandMappings?: Array<{ hrmBrandSystemId: 
  * Hook cung cấp các handlers để đồng bộ Brand với PKGX
  */
 export function usePkgxBrandSync({ addPkgxLog }: UsePkgxBrandSyncOptions = {}) {
-  const { settings: pkgxSettings, updateBrand: updateBrandInStore } = usePkgxSettingsStore();
+  const { data: pkgxSettings } = usePkgxSettings();
+  const brandMappings = usePkgxBrandMappings();
+  const { updateBrand: updateBrandMutation } = usePkgxBrandMutations();
 
   // Default log function if not provided
   const logAction = React.useCallback((entry: PkgxLogEntry) => {
@@ -54,31 +56,28 @@ export function usePkgxBrandSync({ addPkgxLog }: UsePkgxBrandSyncOptions = {}) {
       const response = await getBrandById(pkgxBrandId);
       if (response.success && response.data) {
         // Cập nhật vào store
-        updateBrandInStore(pkgxBrandId, {
-          id: response.data.brand_id,
-          name: response.data.brand_name,
-          logo: response.data.brand_logo || '',
-          description: response.data.brand_desc || '',
-          shortDescription: response.data.short_desc || '',
-          longDescription: response.data.long_desc || '',
-          keywords: response.data.keywords || '',
-          metaTitle: response.data.meta_title || '',
-          metaDesc: response.data.meta_desc || '',
-          siteUrl: response.data.site_url || '',
-          sortOrder: response.data.sort_order || 0,
-          isShow: response.data.is_show ?? 1,
+        updateBrandMutation.mutate({
+          id: pkgxBrandId,
+          updates: {
+            id: response.data.brand_id,
+            name: response.data.brand_name,
+            brand_logo: response.data.brand_logo || '',
+            brand_desc: response.data.brand_desc || '',
+            site_url: response.data.site_url || '',
+            sort_order: response.data.sort_order || 0,
+          },
         });
       }
     } catch (_error) {
       // Silently ignore sync errors
     }
-  }, [updateBrandInStore]);
+  }, [updateBrandMutation]);
 
   // ═══════════════════════════════════════════════════════════════
   // 1. SYNC THÔNG TIN CƠ BẢN (brand_name, site_url)
   // ═══════════════════════════════════════════════════════════════
   const handleSyncBasicInfo = React.useCallback(async (brand: Brand) => {
-    const pkgxBrandId = getPkgxBrandId(brand, pkgxSettings?.brandMappings);
+    const pkgxBrandId = getPkgxBrandId(brand, brandMappings);
     
     if (!pkgxBrandId) {
       toast.error('Thương hiệu chưa được liên kết với PKGX. Vui lòng mapping trong Cài đặt > PKGX.');
@@ -119,7 +118,7 @@ export function usePkgxBrandSync({ addPkgxLog }: UsePkgxBrandSyncOptions = {}) {
         details: { brandId: brand.systemId, error: error instanceof Error ? error.message : String(error) },
       });
     }
-  }, [pkgxSettings?.brandMappings, logAction, refreshBrandFromPkgx]);
+  }, [pkgxSettings, brandMappings, logAction, refreshBrandFromPkgx]);
 
   // ═══════════════════════════════════════════════════════════════
   // 2. SYNC SEO (keywords, meta_title, meta_desc)

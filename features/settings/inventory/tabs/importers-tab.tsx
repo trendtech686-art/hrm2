@@ -5,7 +5,7 @@ import { Plus } from "lucide-react";
 import { asBusinessId, type SystemId } from "@/lib/id-types";
 import { toast } from "sonner";
 
-import { useImporterStore } from "../importer-store";
+import { useImporters, useImporterMutations } from "../hooks/use-inventory-settings";
 import { ImporterFormDialog, type ImporterFormValues } from "../importer-form-dialog";
 import { getImporterColumns } from "../importer-columns";
 import type { Importer } from "../types";
@@ -20,7 +20,9 @@ import { SettingsActionButton } from "@/components/settings/SettingsActionButton
 type TabContentProps = { isActive: boolean; onRegisterActions: RegisterTabActions };
 
 export function ImportersTabContent({ isActive, onRegisterActions }: TabContentProps) {
-  const { data, add, update, remove, setDefault } = useImporterStore();
+  const { data: importersData } = useImporters();
+  const data = React.useMemo(() => importersData ?? [], [importersData]);
+  const { create, update, remove } = useImporterMutations();
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [editingItem, setEditingItem] = React.useState<Importer | null>(null);
   const [isAlertOpen, setIsAlertOpen] = React.useState(false);
@@ -32,24 +34,27 @@ export function ImportersTabContent({ isActive, onRegisterActions }: TabContentP
   const handleAdd = React.useCallback(() => { setEditingItem(null); setDialogOpen(true); }, []);
   const handleEdit = React.useCallback((item: Importer) => { setEditingItem(item); setDialogOpen(true); }, []);
   const handleDeleteRequest = React.useCallback((systemId: SystemId) => { setIdToDelete(systemId); setIsAlertOpen(true); }, []);
-  const handleToggleActive = React.useCallback((item: Importer) => { const na = !item.isActive; update(item.systemId, { ...item, isActive: na }); toast.success(na ? 'Đã kích hoạt' : 'Đã tắt'); }, [update]);
-  const handleToggleDefault = React.useCallback((item: Importer) => { if (!item.isDefault) { setDefault(item.systemId); toast.success('Đã đặt làm mặc định'); } }, [setDefault]);
-  const confirmDelete = () => { if (idToDelete) { remove(idToDelete); toast.success('Đã xóa đơn vị nhập khẩu'); } setIsAlertOpen(false); setIdToDelete(null); };
+  const handleToggleActive = React.useCallback((item: Importer) => { const na = !item.isActive; update.mutate({ systemId: item.systemId, data: { isActive: na } }, { onSuccess: () => toast.success(na ? 'Đã kích hoạt' : 'Đã tắt'), onError: (err) => toast.error(err.message) }); }, [update]);
+  const handleToggleDefault = React.useCallback((item: Importer) => { if (!item.isDefault) { update.mutate({ systemId: item.systemId, data: { isDefault: true } }, { onSuccess: () => toast.success('Đã đặt làm mặc định'), onError: (err) => toast.error(err.message) }); } }, [update]);
+  const confirmDelete = () => { if (idToDelete) { remove.mutate(idToDelete, { onSuccess: () => toast.success('Đã xóa đơn vị nhập khẩu'), onError: (err) => toast.error(err.message) }); } setIsAlertOpen(false); setIdToDelete(null); };
 
   const handleSubmit = (values: ImporterFormValues) => {
     const payload = { ...values, id: asBusinessId(values.id) };
-    if (editingItem) { update(editingItem.systemId, payload); toast.success('Đã cập nhật đơn vị nhập khẩu'); }
-    else { add(payload); toast.success('Đã thêm đơn vị nhập khẩu mới'); }
+    if (editingItem) { update.mutate({ systemId: editingItem.systemId, data: payload }, { onSuccess: () => toast.success('Đã cập nhật đơn vị nhập khẩu'), onError: (err) => toast.error(err.message) }); }
+    else { create.mutate(payload, { onSuccess: () => toast.success('Đã thêm đơn vị nhập khẩu mới'), onError: (err) => toast.error(err.message) }); }
     setDialogOpen(false);
   };
 
   const columns = React.useMemo(() => getImporterColumns({ onEdit: handleEdit, onDelete: handleDeleteRequest, onToggleActive: handleToggleActive, onToggleDefault: handleToggleDefault }), [handleDeleteRequest, handleEdit, handleToggleActive, handleToggleDefault]);
 
-  React.useEffect(() => { if (!isActive) return; onRegisterActions([<SettingsActionButton key="add-importer" onClick={handleAdd}><Plus className="mr-2 h-4 w-4" /> Thêm đơn vị nhập khẩu</SettingsActionButton>]); }, [handleAdd, isActive, onRegisterActions]);
+  const onRegisterActionsRef = React.useRef(onRegisterActions);
+  React.useEffect(() => { onRegisterActionsRef.current = onRegisterActions; }, [onRegisterActions]);
+
+  React.useEffect(() => { if (!isActive) return; onRegisterActionsRef.current([<SettingsActionButton key="add-importer" onClick={handleAdd}><Plus className="mr-2 h-4 w-4" /> Thêm đơn vị nhập khẩu</SettingsActionButton>]); }, [handleAdd, isActive]);
 
   return (
     <>
-      <Card><CardHeader><div className="flex items-center justify-between"><div><CardTitle>Đơn vị nhập khẩu</CardTitle><CardDescription>Quản lý các đơn vị nhập khẩu để in tem phụ sản phẩm</CardDescription></div></div></CardHeader><CardContent><SimpleSettingsTable data={activeImporters} columns={columns} emptyTitle="Chưa có đơn vị nhập khẩu" emptyDescription="Thêm đơn vị nhập khẩu đầu tiên để in tem phụ sản phẩm" emptyAction={<Button size="sm" onClick={handleAdd}>Thêm đơn vị nhập khẩu</Button>} /></CardContent></Card>
+      <Card><CardHeader><div className="flex items-center justify-between"><div><CardTitle>Đơn vị nhập khẩu</CardTitle><CardDescription>Quản lý các đơn vị nhập khẩu để in tem phụ sản phẩm</CardDescription></div></div></CardHeader><CardContent><SimpleSettingsTable data={activeImporters as any} columns={columns as any} emptyTitle="Chưa có đơn vị nhập khẩu" emptyDescription="Thêm đơn vị nhập khẩu đầu tiên để in tem phụ sản phẩm" emptyAction={<Button size="sm" onClick={handleAdd}>Thêm đơn vị nhập khẩu</Button>} /></CardContent></Card>
       <ImporterFormDialog open={dialogOpen} onOpenChange={setDialogOpen} initialData={editingItem} onSubmit={handleSubmit} existingIds={existingIds} />
       <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Bạn có chắc chắn muốn xóa?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể được hoàn tác.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={confirmDelete}>Xóa</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
     </>

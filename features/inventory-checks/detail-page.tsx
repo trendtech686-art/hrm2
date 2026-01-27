@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { useInventoryCheckStore } from './store';
+import { useInventoryCheck, useInventoryCheckMutations } from './hooks/use-inventory-checks';
 import { useProductFinder } from '../products/hooks/use-all-products';
 import { useProductTypeFinder } from '../settings/inventory/hooks/use-all-product-types';
 import { usePageHeader } from '../../contexts/page-header-context';
@@ -55,7 +55,15 @@ export function InventoryCheckDetailPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const router = useRouter();
   const { isMobile: _isMobile } = useBreakpoint();
-  const { findById, balanceCheck, cancelCheck } = useInventoryCheckStore();
+  const { data: check } = useInventoryCheck(systemId);
+  const { balance: balanceMutation, cancel: cancelMutation } = useInventoryCheckMutations({
+    onBalanceSuccess: () => {
+      toast.success('Đã cân bằng phiếu kiểm kê');
+      setShowBalanceDialog(false);
+    },
+    onCancelSuccess: () => toast.success('Đã hủy phiếu kiểm kê'),
+    onError: (err) => toast.error(err.message)
+  });
   const { findById: findProductById } = useProductFinder();
   const { findById: findProductTypeById } = useProductTypeFinder();
   const [showBalanceDialog, setShowBalanceDialog] = React.useState(false);
@@ -69,9 +77,6 @@ export function InventoryCheckDetailPage() {
   const [balancerName, setBalancerName] = React.useState('');
   const [subtasks, setSubtasks] = React.useState<Subtask[]>([]);
   const [previewImage, setPreviewImage] = React.useState<{ url: string; title: string } | null>(null);
-
-  // systemId from params (e.g., "INVCHECK000002")
-  const check = findById(systemId as SystemId);
 
   // Comments from database
   const { 
@@ -141,14 +146,8 @@ export function InventoryCheckDetailPage() {
 
   const handleBalance = async () => {
     if (!check) return;
-    try {
-      await balanceCheck(check.systemId as SystemId);
-      toast.success('Đã cân bằng phiếu kiểm hàng');
-    } catch (_error) {
-      toast.error('Không thể cân bằng phiếu, vui lòng thử lại');
-    } finally {
-      setShowBalanceDialog(false);
-    }
+    balanceMutation.mutate(check.systemId);
+    setShowBalanceDialog(false);
   };
 
   const handleCancel = React.useCallback(() => {
@@ -158,10 +157,10 @@ export function InventoryCheckDetailPage() {
       return;
     }
     if (!confirm('Bạn có chắc muốn hủy phiếu kiểm hàng này?')) return;
-    cancelCheck(check.systemId as SystemId, 'Hủy từ trang chi tiết');
+    cancelMutation.mutate({ systemId: check.systemId as SystemId, reason: 'Hủy từ trang chi tiết' });
     toast.success('Đã hủy phiếu kiểm hàng');
     router.push('/inventory-checks');
-  }, [check, cancelCheck, router]);
+  }, [check, cancelMutation, router]);
 
   const { findById: findBranchById } = useBranchFinder();
   const { info: storeInfo } = useStoreInfoData();

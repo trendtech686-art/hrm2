@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireAuth, apiError } from '@/lib/api-utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,11 +13,10 @@ export const dynamic = 'force-dynamic';
  * - limit: Max results (default 1000)
  * 
  * Returns wards (~10,000+ total, filtered by params)
+ * 
+ * Note: No auth required - this is public reference data
  */
 export async function GET(request: NextRequest) {
-  const session = await requireAuth();
-  if (!session) return apiError('Vui lòng đăng nhập', 401);
-
   try {
     const { searchParams } = new URL(request.url);
     const provinceId = searchParams.get('provinceId');

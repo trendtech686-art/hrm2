@@ -1,6 +1,6 @@
 import type { Product } from '@/lib/types/prisma-extended';
 import type { SystemId } from '@/lib/id-types';
-import { useSlaSettingsStore } from '../settings/inventory/sla-settings-store';
+import { getSlaSettingsSync } from '../settings/inventory/sla-settings-service';
 
 /**
  * Stock Alert Types for Products
@@ -31,7 +31,7 @@ type Thresholds = {
 const isDefinedNumber = (value: number | undefined): value is number => typeof value === 'number' && !Number.isNaN(value);
 
 const getEffectiveThresholds = (product: Product): Thresholds => {
-  const { settings } = useSlaSettingsStore.getState();
+  const settings = getSlaSettingsSync();
   const thresholds: Thresholds = {};
 
   const reorderLevel = product.reorderLevel ?? settings.defaultReorderLevel;

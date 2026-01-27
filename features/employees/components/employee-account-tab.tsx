@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Eye, EyeOff, ShieldAlert } from 'lucide-react';
 import type { Employee } from '@/lib/types/prisma-extended';
 import type { EmployeeRole } from '../roles';
-import { useEmployeeStore } from '../store';
+import { useEmployeeMutations } from '../hooks/use-employees';
 import { useAuth } from '@/contexts/auth-context';
 import { toast } from 'sonner';
 import { hashPassword, validatePasswordStrength } from '@/lib/security-utils';
@@ -72,12 +72,18 @@ const generatePassword = (length: number = 12): string => {
 };
 
 export function EmployeeAccountTab({ employee }: EmployeeAccountTabProps) {
-  const { update } = useEmployeeStore();
+  const { update } = useEmployeeMutations({
+    onUpdateSuccess: () => toast.success('Đã cập nhật thông tin đăng nhập'),
+    onError: (error) => toast.error('Có lỗi: ' + error.message),
+  });
   const { user: currentUser } = useAuth();
   const [showPassword, setShowPassword] = React.useState(false);
   const [password, setPassword] = React.useState('');
   const [confirmPassword, setConfirmPassword] = React.useState('');
-  const [selectedRole, setSelectedRole] = React.useState<EmployeeRole>(employee.role);
+  
+  // Get role from employee.role field
+  const userRole = (employee.role as EmployeeRole) || 'Sales';
+  const [selectedRole, setSelectedRole] = React.useState<EmployeeRole>(userRole);
 
   // Check if current user can change roles (only Admin can)
   const canChangeRole = currentUser?.role === 'admin';
@@ -130,9 +136,10 @@ export function EmployeeAccountTab({ employee }: EmployeeAccountTabProps) {
       updates.password = await hashPassword(password);
     }
 
-    update(employee.systemId, { ...employee, ...updates });
-
-    toast.success('Đã cập nhật thông tin đăng nhập');
+    update.mutate({
+      systemId: employee.systemId,
+      ...updates,
+    } as any);
     
     setPassword('');
     setConfirmPassword('');
@@ -165,8 +172,8 @@ export function EmployeeAccountTab({ employee }: EmployeeAccountTabProps) {
           <div className="space-y-2">
             <Label>Vai trò hiện tại</Label>
             <div>
-              <Badge variant={getRoleBadgeVariant(employee.role)} className="text-sm">
-                {getRoleLabel(employee.role)}
+              <Badge variant={getRoleBadgeVariant(userRole)} className="text-sm">
+                {getRoleLabel(userRole)}
               </Badge>
             </div>
           </div>
@@ -230,11 +237,11 @@ export function EmployeeAccountTab({ employee }: EmployeeAccountTabProps) {
             Đổi mật khẩu
           </CardTitle>
           <CardDescription>
-            {employee.password ? 'Cập nhật mật khẩu đăng nhập' : 'Thiết lập mật khẩu đăng nhập mới'}
+            {(employee as { hasPassword?: boolean }).hasPassword ? 'Cập nhật mật khẩu đăng nhập' : 'Thiết lập mật khẩu đăng nhập mới'}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {employee.password ? (
+          {(employee as { hasPassword?: boolean }).hasPassword ? (
             <div className="rounded-lg border p-3 bg-muted/50">
               <p className="text-sm text-muted-foreground">
                  Mật khẩu đã được thiết lập. Để thay đổi, nhập mật khẩu mới bên dưới.

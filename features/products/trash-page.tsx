@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { formatDateTime } from '@/lib/date-utils'
 import { toast } from "sonner"
 import { usePageHeader } from "../../contexts/page-header-context";
-import { useProductStore } from "./store"
+import { useDeletedProducts, useTrashMutations } from "./hooks/use-products"
 import { getColumns } from "./trash-columns"
 import { GenericTrashPage } from "../../components/shared/generic-trash-page"
 import { Card, CardContent } from "../../components/ui/card"
@@ -15,8 +15,8 @@ import type { Product } from "@/lib/types/prisma-extended"
 import type { SystemId } from "@/lib/id-types";
 
 export function ProductsTrashPage() {
-  const store = useProductStore();
-  const { data, getDeleted, restore, remove } = store;
+  const { data: deletedProducts = [], isLoading } = useDeletedProducts();
+  const { restore, permanentDelete } = useTrashMutations();
   const router = useRouter();
   
   const handleNavigateBack = React.useCallback(() => router.push('/products'), [router]);
@@ -53,33 +53,33 @@ export function ProductsTrashPage() {
     showBackButton: true,
     backPath: '/products'
   });
-  
-  // Call getDeleted() directly - don't memoize to ensure we always get fresh data
-  const deletedProducts = getDeleted();
 
-  // Handlers for column actions (these will be called from column buttons)
+  // Handlers for column actions
   const handleRestoreFromColumn = React.useCallback((systemId: SystemId) => {
-    restore(systemId);
-    toast.success("Đã khôi phục sản phẩm");
+    restore.mutate(systemId, {
+      onSuccess: () => {
+        toast.success("Đã khôi phục sản phẩm");
+      },
+      onError: (error) => {
+        toast.error(error.message || "Có lỗi khi khôi phục sản phẩm");
+      }
+    });
   }, [restore]);
 
   const handleDeleteFromColumn = React.useCallback(async (systemId: SystemId) => {
-    try {
-      remove(systemId);
-      toast.success("Đã xóa vĩnh viễn sản phẩm");
-    } catch (error) {
-      toast.error("Có lỗi khi xóa sản phẩm");
-      console.error(error);
-    }
-  }, [remove]);
+    permanentDelete.mutate(systemId, {
+      onSuccess: () => {
+        toast.success("Đã xóa vĩnh viễn sản phẩm");
+      },
+      onError: (error) => {
+        toast.error(error.message || "Có lỗi khi xóa sản phẩm");
+      }
+    });
+  }, [permanentDelete]);
 
   const columns = React.useMemo(
-    () => {
-      // Pass real handlers to columns for button clicks
-      return getColumns(router, handleRestoreFromColumn, handleDeleteFromColumn);
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- data triggers re-creation when store changes
-    [router, handleRestoreFromColumn, handleDeleteFromColumn, data]
+    () => getColumns(router, handleRestoreFromColumn, handleDeleteFromColumn),
+    [router, handleRestoreFromColumn, handleDeleteFromColumn]
   );
 
   // Custom mobile card for products
@@ -135,17 +135,15 @@ export function ProductsTrashPage() {
     </Card>
   );
 
+  if (isLoading) {
+    return <div className="flex items-center justify-center p-8">Đang tải...</div>;
+  }
+
   return (
     <GenericTrashPage
       deletedItems={deletedProducts}
-      onRestore={(systemId) => {
-        restore(systemId);
-        toast.success("Đã khôi phục sản phẩm");
-      }}
-      onPermanentDelete={async (systemId) => {
-        remove(systemId);
-        toast.success("Đã xóa vĩnh viễn sản phẩm");
-      }}
+      onRestore={(systemId) => handleRestoreFromColumn(systemId)}
+      onPermanentDelete={(systemId) => handleDeleteFromColumn(systemId)}
       title="Thùng rác sản phẩm"
       entityName="sản phẩm"
       backUrl="/products"

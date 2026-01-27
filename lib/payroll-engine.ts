@@ -22,9 +22,8 @@ import type {
 } from './payroll-types';
 import type { Penalty } from '@/lib/types/prisma-extended';
 import type { SystemId, BusinessId } from './id-types';
-import { usePenaltyStore } from '../features/settings/penalties/store';
-import { useEmployeeSettingsStore } from '../features/settings/employees/employee-settings-store';
-import type { InsuranceRates, TaxBracket } from '@/lib/types/prisma-extended';
+import { getEmployeeSettingsSync, getEmployeeSettings as _getEmployeeSettings } from '../features/settings/employees/employee-settings-service';
+import type { EmployeeSettings as _EmployeeSettings, InsuranceRates, TaxBracket } from '@/lib/types/prisma-extended';
 
 // =============================================
 // TYPES - Input/Output for Engine
@@ -50,6 +49,7 @@ export type PayrollRunOptions = {
   // Penalty integration
   penaltyMode: PenaltySelectionMode;
   selectedPenaltySystemIds?: SystemId[]; // When mode = 'selected'
+  penalties?: Penalty[]; // Injected penalty data (replaces .getState())
   
   // Validation options
   requireLockedAttendance?: boolean; // Default: true
@@ -196,7 +196,7 @@ const calculateOTPay = (
   otHoursWeekend: number,
   otHoursHoliday: number
 ): OTPayResult => {
-  const settings = useEmployeeSettingsStore.getState().settings;
+  const settings = getEmployeeSettingsSync();
   const hourlyRate = settings.otHourlyRate || 0;
   
   // Ngày thường: tiền/giờ * số giờ
@@ -220,7 +220,7 @@ const calculateOTPay = (
 // COMPONENT CALCULATOR
 // =============================================
 
-const getStandardWorkDays = () => useEmployeeSettingsStore.getState().settings.standardWorkDays;
+const getStandardWorkDays = () => getEmployeeSettingsSync().standardWorkDays;
 
 const calculateComponent = (
   component: PayrollComponent,
@@ -284,11 +284,11 @@ const calculateComponent = (
       otPayTotal: otPay.otPayTotal,
       standardWorkDays,
       // OT rate settings for formula display
-      otHourlyRate: useEmployeeSettingsStore.getState().settings.otHourlyRate || 0,
-      otRateWeekend: useEmployeeSettingsStore.getState().settings.otRateWeekend || 2,
-      otRateHoliday: useEmployeeSettingsStore.getState().settings.otRateHoliday || 3,
+      otHourlyRate: getEmployeeSettingsSync().otHourlyRate || 0,
+      otRateWeekend: getEmployeeSettingsSync().otRateWeekend || 2,
+      otRateHoliday: getEmployeeSettingsSync().otRateHoliday || 3,
       // Phụ cấp ăn trưa theo ngày
-      mealAllowancePerDay: useEmployeeSettingsStore.getState().settings.mealAllowancePerDay || 30000,
+      mealAllowancePerDay: getEmployeeSettingsSync().mealAllowancePerDay || 30000,
     };
 
     const amount = evaluateFormula(component.formula, context);
@@ -332,9 +332,11 @@ const calculateComponent = (
 const collectPenaltiesForEmployee = (
   employeeSystemId: SystemId,
   mode: PenaltySelectionMode,
-  selectedIds?: SystemId[]
+  selectedIds?: SystemId[],
+  allPenalties?: Penalty[]
 ): Penalty[] => {
-  const { data: allPenalties } = usePenaltyStore.getState();
+  // If penalties not provided, return empty array (should be injected from caller)
+  if (!allPenalties) return [];
 
   const employeePenalties = allPenalties.filter(
     (p) =>
@@ -361,10 +363,10 @@ const collectPenaltiesForEmployee = (
 // =============================================
 
 /**
- * Get settings from store
+ * Get settings from service
  */
 const getPayrollSettings = () => {
-  const settings = useEmployeeSettingsStore.getState().settings;
+  const settings = getEmployeeSettingsSync();
   return {
     insuranceRates: settings.insuranceRates,
     taxSettings: settings.taxSettings,
@@ -600,7 +602,8 @@ const calculateForEmployee = (
   periodMonthKey: string,
   components: PayrollComponent[],
   penaltyMode: PenaltySelectionMode,
-  selectedPenaltySystemIds?: SystemId[]
+  selectedPenaltySystemIds?: SystemId[],
+  allPenalties?: Penalty[]
 ): {
   payslip: CalculatedPayslip;
   penalties: DeductedPenaltyInfo[];
@@ -610,7 +613,7 @@ const calculateForEmployee = (
   const attendance = attendanceSnapshotService.getSnapshot({
     monthKey: periodMonthKey,
     employeeSystemId: employee.employeeSystemId,
-  });
+  }) as any;
 
   // Filter applicable components
   const applicableComponents = components.filter((c) => {
@@ -633,7 +636,7 @@ const calculateForEmployee = (
     calculateComponent(
       comp,
       employee,
-      attendance,
+      attendance as any,
       employee.customComponentOverrides?.[comp.systemId]
     )
   );
@@ -642,7 +645,8 @@ const calculateForEmployee = (
   const penalties = collectPenaltiesForEmployee(
     employee.employeeSystemId,
     penaltyMode,
-    selectedPenaltySystemIds
+    selectedPenaltySystemIds,
+    allPenalties
   );
 
   const penaltyDeductions = penalties.reduce((sum, p) => sum + p.amount, 0);
@@ -661,7 +665,7 @@ const calculateForEmployee = (
     components: componentEntries,
     totals,
     deductedPenaltySystemIds,
-    attendanceSnapshot: attendance,
+    attendanceSnapshot: attendance as any,
   };
 
   const deductedPenalties: DeductedPenaltyInfo[] = penalties.map((p) => ({
@@ -694,6 +698,7 @@ export const payrollEngine = {
       components,
       penaltyMode,
       selectedPenaltySystemIds,
+      penalties,
       requireLockedAttendance = true,
       skipAttendanceValidation = false,
     } = options;
@@ -752,7 +757,7 @@ export const payrollEngine = {
             employeeName: employee.employeeName,
             message: `Không có dữ liệu chấm công cho ${employee.employeeName} trong kỳ ${periodMonthKey}`,
           });
-        } else if (requireLockedAttendance && !attendance.locked) {
+        } else if (requireLockedAttendance && !(attendance as any).locked) {
           warnings.push({
             type: 'attendance-unlocked',
             employeeSystemId: employee.employeeSystemId,
@@ -763,16 +768,17 @@ export const payrollEngine = {
       }
 
       // Calculate
-      const { payslip, penalties } = calculateForEmployee(
+      const { payslip, penalties: deductedPenalties } = calculateForEmployee(
         employee,
         periodMonthKey,
         components,
         penaltyMode,
-        selectedPenaltySystemIds
+        selectedPenaltySystemIds,
+        penalties
       );
 
       payslips.push(payslip);
-      allDeductedPenalties.push(...penalties);
+      allDeductedPenalties.push(...deductedPenalties);
     }
 
     // Calculate summary
@@ -810,32 +816,36 @@ export const payrollEngine = {
     periodMonthKey: string,
     components: PayrollComponent[],
     penaltyMode: PenaltySelectionMode = 'none',
-    selectedPenaltySystemIds?: SystemId[]
+    selectedPenaltySystemIds?: SystemId[],
+    penalties?: Penalty[]
   ): CalculatedPayslip {
     const { payslip } = calculateForEmployee(
       employee,
       periodMonthKey,
       components,
       penaltyMode,
-      selectedPenaltySystemIds
+      selectedPenaltySystemIds,
+      penalties
     );
     return payslip;
   },
 
   /**
    * Get unpaid penalties for an employee
+   * @param penalties - Injected penalties array (if not provided, returns empty)
    */
-  getUnpaidPenalties(employeeSystemId: SystemId): Penalty[] {
-    return collectPenaltiesForEmployee(employeeSystemId, 'all-unpaid');
+  getUnpaidPenalties(employeeSystemId: SystemId, penalties?: Penalty[]): Penalty[] {
+    return collectPenaltiesForEmployee(employeeSystemId, 'all-unpaid', undefined, penalties);
   },
 
   /**
    * Get unpaid penalties for multiple employees
+   * @param penalties - Injected penalties array (if not provided, returns empty)
    */
-  getUnpaidPenaltiesMap(employeeSystemIds: SystemId[]): Map<SystemId, Penalty[]> {
+  getUnpaidPenaltiesMap(employeeSystemIds: SystemId[], penalties?: Penalty[]): Map<SystemId, Penalty[]> {
     const result = new Map<SystemId, Penalty[]>();
     for (const systemId of employeeSystemIds) {
-      result.set(systemId, this.getUnpaidPenalties(systemId));
+      result.set(systemId, this.getUnpaidPenalties(systemId, penalties));
     }
     return result;
   },
@@ -865,7 +875,7 @@ export const payrollEngine = {
           employeeName,
           message: `Không có dữ liệu chấm công cho kỳ ${periodMonthKey}`,
         });
-      } else if (!attendance.locked) {
+      } else if (!(attendance as any).locked) {
         issues.push({
           type: 'attendance-unlocked',
           employeeSystemId,

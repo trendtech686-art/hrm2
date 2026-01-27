@@ -6,8 +6,7 @@
 
 import type { SystemId } from '../id-types';
 import type { Product } from '@/lib/types/prisma-extended';
-import { useTrendtechSettingsStore } from '../../features/settings/trendtech/store';
-import type { TrendtechProductPayload, TrendtechProduct } from './types';
+import type { TrendtechProductPayload, TrendtechProduct, TrendtechSettings } from './types';
 
 // ========================================
 // Mapping Functions
@@ -16,30 +15,30 @@ import type { TrendtechProductPayload, TrendtechProduct } from './types';
 /**
  * Lấy category ID Trendtech từ HRM categorySystemId
  */
-export function getTrendtechCatId(hrmCategoryId: SystemId | undefined): number | null {
+export function getTrendtechCatId(settings: TrendtechSettings, hrmCategoryId: SystemId | undefined): number | null {
   if (!hrmCategoryId) return null;
-  const store = useTrendtechSettingsStore.getState();
-  return store.getTrendtechCatIdByHrmCategory(hrmCategoryId);
+  const mapping = settings.categoryMappings?.find(m => m.hrmCategorySystemId === hrmCategoryId);
+  return mapping?.trendtechCatId ?? null;
 }
 
 /**
  * Lấy brand ID Trendtech từ HRM brandSystemId
  */
-export function getTrendtechBrandId(hrmBrandId: SystemId | undefined): number | null {
+export function getTrendtechBrandId(settings: TrendtechSettings, hrmBrandId: SystemId | undefined): number | null {
   if (!hrmBrandId) return null;
-  const store = useTrendtechSettingsStore.getState();
-  return store.getTrendtechBrandIdByHrmBrand(hrmBrandId);
+  const mapping = settings.brandMappings?.find(m => m.hrmBrandSystemId === hrmBrandId);
+  return mapping?.trendtechBrandId ?? null;
 }
 
 /**
  * Lấy giá theo mapping bảng giá
  */
 export function getPriceByMapping(
+  settings: TrendtechSettings,
   product: Product,
   priceField: 'price' | 'compareAtPrice'
 ): number | undefined {
-  const store = useTrendtechSettingsStore.getState();
-  const policyId = store.settings.priceMapping[priceField];
+  const policyId = settings.priceMapping[priceField];
   
   if (!policyId) return undefined;
   
@@ -73,7 +72,7 @@ export function createSlug(name: string): string {
 /**
  * Map HRM Product → Trendtech Payload để tạo/cập nhật sản phẩm
  */
-export function mapHrmToTrendtechPayload(product: Product): TrendtechProductPayload {
+export function mapHrmToTrendtechPayload(settings: TrendtechSettings, product: Product): TrendtechProductPayload {
   const payload: TrendtechProductPayload = {
     name: product.name,
     sku: product.id,
@@ -83,18 +82,18 @@ export function mapHrmToTrendtechPayload(product: Product): TrendtechProductPayl
   };
 
   // Map category
-  const catId = getTrendtechCatId(product.categorySystemId);
+  const catId = getTrendtechCatId(settings, product.categorySystemId);
   if (catId) payload.categoryId = catId;
 
   // Map brand
-  const brandId = getTrendtechBrandId(product.brandSystemId);
+  const brandId = getTrendtechBrandId(settings, product.brandSystemId);
   if (brandId) payload.brandId = brandId;
 
   // Map prices
-  const price = getPriceByMapping(product, 'price');
+  const price = getPriceByMapping(settings, product, 'price');
   if (price !== undefined) payload.price = price;
 
-  const compareAtPrice = getPriceByMapping(product, 'compareAtPrice');
+  const compareAtPrice = getPriceByMapping(settings, product, 'compareAtPrice');
   if (compareAtPrice !== undefined) payload.compareAtPrice = compareAtPrice;
 
   // Map cost price
@@ -137,13 +136,13 @@ export function mapTrendtechToHrmFields(trendtechProduct: TrendtechProduct): Par
 /**
  * Tạo payload chỉ chứa giá để update
  */
-export function createPriceUpdatePayload(product: Product): Partial<TrendtechProductPayload> {
+export function createPriceUpdatePayload(settings: TrendtechSettings, product: Product): Partial<TrendtechProductPayload> {
   const payload: Partial<TrendtechProductPayload> = {};
 
-  const price = getPriceByMapping(product, 'price');
+  const price = getPriceByMapping(settings, product, 'price');
   if (price !== undefined) payload.price = price;
 
-  const compareAtPrice = getPriceByMapping(product, 'compareAtPrice');
+  const compareAtPrice = getPriceByMapping(settings, product, 'compareAtPrice');
   if (compareAtPrice !== undefined) payload.compareAtPrice = compareAtPrice;
 
   return payload;
@@ -183,6 +182,7 @@ export function isLinkedToTrendtech(product: Product): boolean {
  * So sánh dữ liệu HRM và Trendtech để tìm khác biệt
  */
 export function compareProductData(
+  settings: TrendtechSettings,
   hrmProduct: Product,
   trendtechProduct: TrendtechProduct
 ): {
@@ -199,7 +199,7 @@ export function compareProductData(
   const details: { field: string; hrmValue: string | number | undefined; trendtechValue: string | number | undefined }[] = [];
   
   // Price comparison
-  const hrmPrice = getPriceByMapping(hrmProduct, 'price');
+  const hrmPrice = getPriceByMapping(settings, hrmProduct, 'price');
   if (hrmPrice !== undefined && hrmPrice !== trendtechProduct.price) {
     details.push({ field: 'price', hrmValue: hrmPrice, trendtechValue: trendtechProduct.price });
   }

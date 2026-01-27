@@ -54,6 +54,7 @@ export function useComplaintStats() {
 }
 
 interface UseComplaintMutationsOptions {
+  onSuccess?: () => void;
   onCreateSuccess?: (complaint: Complaint) => void;
   onUpdateSuccess?: (complaint: Complaint) => void;
   onDeleteSuccess?: () => void;

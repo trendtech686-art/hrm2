@@ -16,7 +16,7 @@ import { asSystemId } from '../../../lib/id-types';
 import { useProductStore } from '../../products/store';
 import { isComboProduct } from '../../products/combo-utils';
 import { useCustomerStore } from '../../customers/store';
-import { useSalesManagementSettingsStore } from '../../settings/sales/sales-management-store';
+import { getSalesSettingsSync } from '../../settings/sales/sales-management-service';
 
 import { baseStore } from './base-store';
 import { getBranchId, getComboStockItems } from './helpers';
@@ -42,7 +42,7 @@ export const ghtkSlice = {
             }
 
             // Check negative packing setting
-            const { allowNegativePacking } = useSalesManagementSettingsStore.getState();
+            const { allowNegativePacking } = getSalesSettingsSync();
             if (!allowNegativePacking) {
                 const { findById: findProductById } = useProductStore.getState();
                 for (const item of order.lineItems) {

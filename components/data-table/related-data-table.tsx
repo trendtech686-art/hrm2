@@ -8,7 +8,7 @@ import { DataTableExportDialog } from './data-table-export-dialog';
 import type { ColumnDef } from './types';
 import { DynamicDataTableColumnCustomizer as DataTableColumnCustomizer } from './dynamic-column-customizer';
 import { Checkbox } from '../ui/checkbox';
-import { useDefaultPageSize } from '../../features/settings/global-settings-store';
+import { useDefaultPageSize } from '../../features/settings/global/hooks/use-global-settings';
 import { isDateSame, isDateAfter, isDateBefore, parseDate, isValidDate, isDateBetween, getStartOfDay, getEndOfDay } from '../../lib/date-utils';
 // FIX: Changed generic constraint from `id` to `systemId` to match application data structure
 interface DrilldownSearchState {

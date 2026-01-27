@@ -9,7 +9,8 @@ import { Edit2, MessageSquare, Printer, XCircle, Bell, Clock, AlertCircle, Copy 
 import { cn } from '../../lib/utils';
 import type { WarrantyTicket } from './types';
 import { WARRANTY_STATUS_LABELS, WARRANTY_STATUS_COLORS } from './types';
-import { useWarrantyStore } from './store';
+import { useWarrantyMutations } from './hooks/use-warranties';
+import { useWarranty } from './hooks/use-warranties';
 import { useAuth } from '../../contexts/auth-context';
 
 // UI Components
@@ -17,6 +18,7 @@ import { Button } from '../../components/ui/button';
 import { ScrollArea } from '../../components/ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
+import { Skeleton } from '../../components/ui/skeleton';
 import { usePageHeader } from '../../contexts/page-header-context';
 import {
   Dialog,
@@ -87,6 +89,9 @@ export function WarrantyDetailPage() {
   const { systemId = '' } = useParams<{ systemId: string }>();
   const { user, employee } = useAuth();
 
+  // ✅ React Query for single ticket
+  const { data: ticketFromQuery, isLoading } = useWarranty(systemId);
+
   const currentUserSystemId = React.useMemo(() => {
     if (employee?.systemId) {
       return employee.systemId;
@@ -102,14 +107,38 @@ export function WarrantyDetailPage() {
     systemId: currentUserSystemId,
   }), [employee?.fullName, user?.name, currentUserSystemId]);
 
-  const tickets = useWarrantyStore((state) => state.data);
-  const update = useWarrantyStore((state) => state.update);
-  const updateStatus = useWarrantyStore((state) => state.updateStatus);
-  const addHistory = useWarrantyStore((state) => state.addHistory);
-
+  const { update: updateMutation } = useWarrantyMutations({
+    onUpdateSuccess: () => {
+      toast.success('Đã cập nhật phiếu bảo hành');
+    },
+    onError: (error) => {
+      toast.error('Lỗi', { description: error.message });
+    }
+  });
+  
+  // Wrapper functions for legacy hooks that expect sync functions
+  const update = React.useCallback((systemId: string, data: Partial<WarrantyTicket>) => {
+    updateMutation.mutate({ systemId, data });
+  }, [updateMutation]);
+  
+  const updateStatus = React.useCallback((systemId: string, status: WarrantyTicket['status'], reason?: string) => {
+    updateMutation.mutate({ systemId, data: { status, ...(reason && { statusReason: reason }) } });
+  }, [updateMutation]);
+  
+  // ✅ Ưu tiên React Query, fallback to findById if needed
   const ticket = React.useMemo<WarrantyTicket | null>(() => {
-    return tickets.find((item) => item.systemId === systemId) || null;
-  }, [tickets, systemId]);
+    if (systemId && ticketFromQuery) {
+      return ticketFromQuery as WarrantyTicket;
+    }
+    return null;
+  }, [systemId, ticketFromQuery]);
+  
+  const addHistory = React.useCallback((systemId: string, entry: unknown) => {
+    // This would need the current ticket's history array
+    if (!ticket?.history) return;
+    const newHistory = [...(ticket.history as any[]), entry] as any[];
+    updateMutation.mutate({ systemId, data: { history: newHistory } });
+  }, [ticket?.history, updateMutation]);
 
   const settlement = useWarrantySettlement(systemId, { ticket });
   const totalSettlementAmount = settlement.totalPayment;
@@ -320,7 +349,7 @@ export function WarrantyDetailPage() {
             className="h-9"
             onClick={() => {
               if (ticket) {
-                addHistory(ticket.systemId, 'Cập nhật thông tin sản phẩm bảo hành', currentUser.name);
+                addHistory(ticket.systemId, { action: 'Cập nhật thông tin sản phẩm bảo hành', performedBy: currentUser.name } as any);
               }
               router.push(`/warranty/${systemId}/update`);
             }}
@@ -393,7 +422,7 @@ export function WarrantyDetailPage() {
           className="h-9"
           onClick={() => {
             if (ticket) {
-              addHistory(ticket.systemId, 'Mở chế độ chỉnh sửa', currentUser.name);
+              addHistory(ticket.systemId, { action: 'Mở chế độ chỉnh sửa', performedBy: currentUser.name } as any);
             }
             router.push(`/warranty/${systemId}/edit`);
           }}
@@ -476,7 +505,7 @@ export function WarrantyDetailPage() {
       variant="outline"
       onClick={() => {
         if (ticket) {
-          addHistory(ticket.systemId, 'In phiếu bảo hành', currentUser.name);
+          addHistory(ticket.systemId, { action: 'In phiếu bảo hành', performedBy: currentUser.name } as any);
         }
         window.print();
       }}
@@ -501,6 +530,29 @@ export function WarrantyDetailPage() {
       { label: ticket?.id || 'Chi tiết', href: '', isCurrent: true },
     ],
   });
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-8 w-1/3" />
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Skeleton className="h-20" />
+            <Skeleton className="h-20" />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6 space-y-4">
+            <Skeleton className="h-32" />
+            <Skeleton className="h-32" />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (!ticket) {
     return (

@@ -7,23 +7,25 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Label } from '../../../../components/ui/label';
 import { Plus, Pencil, Trash2, Search } from 'lucide-react';
 import { toast } from 'sonner';
-import { usePkgxSettingsStore } from '../store';
+import { usePkgxSettings, usePkgxBrandMutations } from '../hooks/use-pkgx-settings';
 import type { PkgxBrand } from '../types';
 
 export function BrandListTab() {
-  const { settings, addBrand, updateBrand, deleteBrand } = usePkgxSettingsStore();
+  const { data: settings } = usePkgxSettings();
+  const { addBrand, updateBrand, deleteBrand } = usePkgxBrandMutations({ onSuccess: () => {} });
   const [search, setSearch] = React.useState('');
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
   const [editingBrand, setEditingBrand] = React.useState<PkgxBrand | null>(null);
   const [formData, setFormData] = React.useState({ id: '', name: '' });
 
   const filteredBrands = React.useMemo(() => {
-    if (!search) return settings.brands;
+    const brands = settings?.brands ?? [];
+    if (!search) return brands;
     const q = search.toLowerCase();
-    return settings.brands.filter(
+    return brands.filter(
       (b) => b.name.toLowerCase().includes(q) || b.id.toString().includes(q)
     );
-  }, [settings.brands, search]);
+  }, [settings?.brands, search]);
 
   const handleOpenAdd = () => {
     setEditingBrand(null);
@@ -49,14 +51,14 @@ export function BrandListTab() {
     }
 
     if (editingBrand) {
-      updateBrand(editingBrand.id, { id, name: formData.name.trim() });
+      updateBrand.mutate({ id: editingBrand.id, updates: { id, name: formData.name.trim() } });
       toast.success('Đã cập nhật thương hiệu');
     } else {
-      if (settings.brands.some((b) => b.id === id)) {
+      if ((settings?.brands ?? []).some((b) => b.id === id)) {
         toast.error('ID thương hiệu đã tồn tại');
         return;
       }
-      addBrand({ id, name: formData.name.trim() });
+      addBrand.mutate({ id, name: formData.name.trim() });
       toast.success('Đã thêm thương hiệu mới');
     }
     setIsDialogOpen(false);
@@ -64,7 +66,7 @@ export function BrandListTab() {
 
   const handleDelete = (brand: PkgxBrand) => {
     if (confirm(`Xóa thương hiệu "${brand.name}" (ID: ${brand.id})?`)) {
-      deleteBrand(brand.id);
+      deleteBrand.mutate(brand.id);
       toast.success('Đã xóa thương hiệu');
     }
   };
@@ -123,7 +125,7 @@ export function BrandListTab() {
           </Table>
         </div>
         <p className="text-sm text-muted-foreground">
-          Tổng: {settings.brands.length} thương hiệu
+          Tổng: {settings?.brands?.length ?? 0} thương hiệu
         </p>
       </CardContent>
 

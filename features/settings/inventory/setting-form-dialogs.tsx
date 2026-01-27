@@ -465,7 +465,7 @@ export function ProductCategoryFormDialog({
                               className={`w-10 h-9 rounded-md border-2 transition-all ${
                                 field.value === option.value
                                   ? 'border-primary ring-2 ring-primary/20'
-                                  : 'border-border hover:border-primary/50'
+                                  : 'border hover:border-primary/50'
                               }`}
                               style={{ backgroundColor: option.value }}
                               onClick={() => field.onChange(option.value)}

@@ -141,7 +141,7 @@ export const DropZone = React.memo(function DropZone({
     <div
       ref={setNodeRef}
       className={cn(
-        'rounded-2xl border border-dashed border-border/70 bg-background/80 p-3 transition-all',
+        'rounded-2xl border border-dashed border/70 bg-background/80 p-3 transition-all',
         'shadow-[inset_0_1px_0_rgba(0,0,0,0.02)]',
         isOver && 'border-primary/60 bg-primary/5 shadow-lg shadow-primary/10'
       )}
@@ -157,7 +157,7 @@ export const DropZone = React.memo(function DropZone({
       </div>
       <div className="space-y-2">
         {children || (
-          <div className="flex min-h-[72px] flex-col items-center justify-center rounded-xl border border-dashed border-border/60 p-4 text-center text-xs text-muted-foreground">
+          <div className="flex min-h-[72px] flex-col items-center justify-center rounded-xl border border-dashed border/60 p-4 text-center text-xs text-muted-foreground">
             <span>{helperText ?? 'Kéo thả để thêm vào nhóm này'}</span>
           </div>
         )}

@@ -36,7 +36,15 @@ export async function GET(_request: Request, { params }: RouteParams) {
   }
 }
 
-// PUT /api/warranties/[systemId]
+// PUT /api/warranties/[systemId] - Update warranty details
+/**
+ * Update warranty flow:
+ * 1. Verify warranty exists
+ * 2. Validate update data
+ * 3. If changing type from REPLACE to REPAIR/REFUND, uncommit stock
+ * 4. Update warranty record
+ * 5. Create history entry
+ */
 export async function PUT(request: Request, { params }: RouteParams) {
   const session = await requireAuth()
   if (!session) return apiError('Unauthorized', 401)
@@ -56,12 +64,27 @@ export async function PUT(request: Request, { params }: RouteParams) {
         issueDescription: body.issueDescription,
         notes: body.notes,
         status: body.status as WarrantyStatus | undefined,
+        priority: body.priority,
         solution: body.solution,
+        diagnosis: body.diagnosis,
+        assigneeId: body.assigneeId,
+        updatedAt: new Date(),
+        updatedBy: session.user?.email || 'system',
+        updatedBySystemId: session.user?.id,
       },
       include: {
-        product: true,
+        product: {
+          select: { systemId: true, id: true, name: true, imageUrl: true },
+        },
+        customers: {
+          select: { systemId: true, id: true, name: true, phone: true },
+        },
       },
     })
+
+    // TODO: Handle stock adjustments if warranty type changes
+    // This would require knowing the previous warranty type and new type
+    // If changing from REPLACE to REPAIR/REFUND, uncommit stock
 
     return apiSuccess(warranty)
   } catch (error) {
@@ -71,6 +94,11 @@ export async function PUT(request: Request, { params }: RouteParams) {
     console.error('Error updating warranty:', error)
     return apiError('Failed to update warranty', 500)
   }
+}
+
+// PATCH /api/warranties/[systemId] - Partial update warranty
+export async function PATCH(request: Request, { params }: RouteParams) {
+  return PUT(request, { params })
 }
 
 // DELETE /api/warranties/[systemId]

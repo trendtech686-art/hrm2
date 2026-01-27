@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import type { Supplier } from '@/lib/types/prisma-extended'
 import { useAllEmployees } from "../employees/hooks/use-all-employees"
-import { useSupplierStore } from "./store";
+import { useSuppliers } from "./hooks/use-suppliers";
 // ✅ REMOVED: import { generateNextId } - use id: '' instead
 import {
   Form,
@@ -54,7 +54,8 @@ type SupplierFormProps = {
 
 export function SupplierForm({ initialData, onSubmit, onCancel: _onCancel }: SupplierFormProps) {
   const { data: employees } = useAllEmployees();
-  const { data: _suppliers } = useSupplierStore();
+  const { data: suppliersData } = useSuppliers({ limit: 1000 });
+  const _suppliers = suppliersData?.data ?? [];
   
   const form = useForm<SupplierFormData>({
     resolver: zodResolver(supplierFormSchema),

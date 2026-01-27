@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { formatDate } from '@/lib/date-utils';
-import { useLeaveStore } from '../store';
+import { useLeaveById } from '../hooks/use-leaves';
 import { usePageHeader } from '@/contexts/page-header-context';
 import { asSystemId, type SystemId } from '@/lib/id-types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -26,9 +26,8 @@ const statusVariants: Record<LeaveStatus, "success" | "warning" | "destructive">
 export function LeaveDetailPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const router = useRouter();
-  const { findById } = useLeaveStore();
+  const { data: request } = useLeaveById(systemId);
   const { employee: authEmployee } = useAuth();
-  const request = React.useMemo(() => (systemId ? findById(asSystemId(systemId)) : null), [systemId, findById]);
 
   // ✅ Sử dụng useComments hook thay vì localStorage trực tiếp
   const { 

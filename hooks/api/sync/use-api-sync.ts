@@ -53,7 +53,6 @@ import { useDocumentStore as useEmployeeDocumentStore } from '@/features/employe
 import { useEmployeeCompStore } from '@/features/employees/employee-comp-store';
 
 // ============== SETTINGS STORE IMPORTS ==============
-import { useGlobalSettingsStore } from '@/features/settings/global-settings-store';
 import { useBranchStore } from '@/features/settings/branches/store';
 import { useDepartmentStore } from '@/features/settings/departments/store';
 import { useJobTitleStore } from '@/features/settings/job-titles/store';
@@ -64,14 +63,12 @@ import { useShippingPartnerStore } from '@/features/settings/shipping/store';
 import { useTargetGroupStore } from '@/features/settings/target-groups/store';
 import { useReceiptTypeStore } from '@/features/settings/receipt-types/store';
 import { usePaymentTypeStore } from '@/features/settings/payments/types/store';
-import { usePricingPolicyStore } from '@/features/settings/pricing/store';
 import { usePenaltyStore, usePenaltyTypeStore } from '@/features/settings/penalties/store';
 import { usePaymentMethodStore } from '@/features/settings/payments/methods/store';
 import { useAppearanceStore } from '@/features/settings/appearance/store';
-import { useShippingSettingsStore } from '@/features/settings/shipping/shipping-settings-store';
-import { useEmployeeSettingsStore } from '@/features/settings/employees/employee-settings-store';
-import { useTrendtechSettingsStore as useTrendtechStore } from '@/features/settings/trendtech/store';
-import { usePkgxSettingsStore as usePkgxStore } from '@/features/settings/pkgx/store';
+import { getShippingSettings, updateShippingSettingsCache } from '@/features/settings/shipping/shipping-settings-service';
+import { getEmployeeSettings, updateSettingsCache } from '@/features/settings/employees/employee-settings-service';
+import { getGlobalSettings, updateGlobalSettingsCache } from '@/features/settings/global/global-settings-service';
 
 // ============== CORE TYPE IMPORTS ==============
 import type { Employee } from '@/lib/types/prisma-extended';
@@ -103,9 +100,9 @@ import type {
   TargetGroup,
   ReceiptType,
   PaymentType,
+  Penalty,
+  PenaltyType,
 } from '@/lib/types/prisma-extended';
-import type { PricingPolicy } from '@/lib/types/prisma-extended';
-import type { Penalty, PenaltyType } from '@/lib/types/prisma-extended';
 
 // ============== API FETCH HELPER ==============
 async function fetchFromAPI<T>(endpoint: string): Promise<T[]> {
@@ -194,15 +191,12 @@ export interface SyncState {
   targetGroups: SyncStatus;
   receiptTypes: SyncStatus;
   paymentTypes: SyncStatus;
-  pricingPolicies: SyncStatus;
   penalties: SyncStatus;
   penaltyTypes: SyncStatus;
   paymentMethods: SyncStatus;
   appearance: SyncStatus;
   shippingSettings: SyncStatus;
   employeeSettings: SyncStatus;
-  trendtech: SyncStatus;
-  pkgx: SyncStatus;
   settings: SyncStatus;
 }
 
@@ -246,15 +240,12 @@ const INITIAL_SYNC_STATE: SyncState = {
   targetGroups: 'idle',
   receiptTypes: 'idle',
   paymentTypes: 'idle',
-  pricingPolicies: 'idle',
   penalties: 'idle',
   penaltyTypes: 'idle',
   paymentMethods: 'idle',
   appearance: 'idle',
   shippingSettings: 'idle',
   employeeSettings: 'idle',
-  trendtech: 'idle',
-  pkgx: 'idle',
   settings: 'idle',
 };
 
@@ -405,7 +396,6 @@ export function useApiSync() {
         syncStore<TargetGroup>('targetGroups', '/api/settings/data?type=target-group&limit=10000', useTargetGroupStore, s => updateStatus('targetGroups', s)),
         syncStore<ReceiptType>('receiptTypes', '/api/settings/data?type=receipt-type&limit=10000', useReceiptTypeStore, s => updateStatus('receiptTypes', s)),
         syncStore<PaymentType>('paymentTypes', '/api/settings/data?type=payment-type&limit=10000', usePaymentTypeStore, s => updateStatus('paymentTypes', s)),
-        syncStore<PricingPolicy>('pricingPolicies', '/api/settings/data?type=pricing-policy&limit=10000', usePricingPolicyStore, s => updateStatus('pricingPolicies', s)),
         syncStore<Penalty>('penalties', '/api/settings/data?type=penalty&limit=10000', usePenaltyStore, s => updateStatus('penalties', s)),
         syncStore<PenaltyType>('penaltyTypes', '/api/settings/data?type=penalty-type&limit=10000', usePenaltyTypeStore, s => updateStatus('penaltyTypes', s)),
 
@@ -430,7 +420,8 @@ export function useApiSync() {
         })(),
         (async () => {
           try {
-            await useShippingSettingsStore.getState().loadFromAPI();
+            const settings = await getShippingSettings();
+            updateShippingSettingsCache(settings);
             updateStatus('shippingSettings', 'success');
           } catch (e) {
             console.error('[API Sync] shippingSettings failed:', e);
@@ -439,36 +430,20 @@ export function useApiSync() {
         })(),
         (async () => {
           try {
-            await useEmployeeSettingsStore.getState().loadFromAPI();
+            const settings = await getEmployeeSettings();
+            updateSettingsCache(settings);
             updateStatus('employeeSettings', 'success');
           } catch (e) {
             console.error('[API Sync] employeeSettings failed:', e);
             updateStatus('employeeSettings', 'error');
           }
         })(),
-        (async () => {
-          try {
-            await useTrendtechStore.getState().loadFromAPI();
-            updateStatus('trendtech', 'success');
-          } catch (e) {
-            console.error('[API Sync] trendtech failed:', e);
-            updateStatus('trendtech', 'error');
-          }
-        })(),
-        (async () => {
-          try {
-            await usePkgxStore.getState().loadFromAPI();
-            updateStatus('pkgx', 'success');
-          } catch (e) {
-            console.error('[API Sync] pkgx failed:', e);
-            updateStatus('pkgx', 'error');
-          }
-        })(),
 
         // ============== GLOBAL SETTINGS ==============
         (async () => {
           try {
-            await useGlobalSettingsStore.getState().initFromAPI();
+            const settings = await getGlobalSettings();
+            updateGlobalSettingsCache(settings);
             updateStatus('settings', 'success');
           } catch (e) {
             console.error('[API Sync] settings failed:', e);

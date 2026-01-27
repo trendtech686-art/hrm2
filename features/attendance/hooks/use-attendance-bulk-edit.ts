@@ -8,7 +8,7 @@ import { formatDateCustom } from '@/lib/date-utils';
 import type { SystemId } from '@/lib/id-types';
 import type { AttendanceDataRow, DailyRecord, AnyAttendanceDataRow } from '../types';
 import { useAttendanceStore } from '../store';
-import { useEmployeeSettingsStore } from '@/features/settings/employees/employee-settings-store';
+import { useEmployeeSettings, DEFAULT_EMPLOYEE_SETTINGS } from '@/features/settings/employees/hooks/use-employee-settings';
 import { recalculateSummary } from '../utils';
 
 export function useAttendanceBulkEdit(
@@ -18,7 +18,8 @@ export function useAttendanceBulkEdit(
   isLocked: boolean
 ) {
   const saveAttendanceData = useAttendanceStore((state) => state.saveAttendanceData);
-  const { settings } = useEmployeeSettingsStore();
+  const { data: rawSettings } = useEmployeeSettings();
+  const settings = rawSettings ?? DEFAULT_EMPLOYEE_SETTINGS;
   const currentMonthKey = formatDateCustom(currentDate, 'yyyy-MM');
 
   const [isBulkEditDialogOpen, setIsBulkEditDialogOpen] = React.useState(false);

@@ -14,12 +14,12 @@ import { CustomerForm, type CustomerFormSubmitPayload } from '../../customers/cu
 import { CustomerAddressSelector } from './customer-address-selector';
 import { Badge } from '../../../components/ui/badge';
 import { toast } from 'sonner';
-import { useCustomerGroupStore } from '../../settings/customers/customer-groups-store';
+import { useCustomerGroups } from '../../settings/customers/hooks/use-customer-settings';
 import { asSystemId } from '@/lib/id-types';
 import { formatDate } from '@/lib/date-utils';
 import { useEmployeeFinder } from '../../employees/hooks/use-all-employees';
 import { useAllWarranties } from '../../warranty/hooks/use-all-warranties';
-import { useComplaintStore } from '../../complaints/store';
+import { useComplaints } from '../../complaints/hooks/use-complaints';
 import { useAllReceipts } from '../../receipts/hooks/use-all-receipts';
 import { useAllPayments } from '../../payments/hooks/use-all-payments';
 import { useCustomerSlaEvaluation } from '../../customers/sla/hooks';
@@ -70,12 +70,14 @@ export function CustomerSelector({ disabled }: { disabled: boolean }) {
     const { data: allCustomers } = useAllCustomers();
     const { add: addCustomer } = useCustomerStore(); // Keep for mutation
     const { data: allOrders } = useAllOrders();
-    const customerGroupsStore = useCustomerGroupStore();
+    const { data: customerGroupsData } = useCustomerGroups();
+    const customerGroups = React.useMemo(() => customerGroupsData || [], [customerGroupsData]);
     const { findById: findEmployeeById } = useEmployeeFinder();
     const { data: warranties = [] } = useAllWarranties();
     const { data: allReceipts = [] } = useAllReceipts();
     const { data: allPayments = [] } = useAllPayments();
-    const complaints = useComplaintStore((state) => state.complaints || []);
+    const { data: queryData } = useComplaints({ limit: 1000 });
+    const complaints = React.useMemo(() => queryData?.data ?? [], [queryData?.data]);
     const slaEngine = useCustomerSlaEvaluation();
 
     // ✅ PHASE 2: Convert watch to useWatch
@@ -285,8 +287,8 @@ export function CustomerSelector({ disabled }: { disabled: boolean }) {
 
     const getGroupName = React.useCallback((id?: string) => {
         if (!id) return undefined;
-        return customerGroupsStore.findById?.(asSystemId(id))?.name;
-    }, [customerGroupsStore]);
+        return customerGroups.find(g => g.systemId === id)?.name;
+    }, [customerGroups]);
 
     const getEmployeeName = React.useCallback((id?: string) => {
         if (!id) return undefined;
@@ -380,7 +382,7 @@ export function CustomerSelector({ disabled }: { disabled: boolean }) {
         // FIX: Wrapped component in a React.Fragment to resolve a TypeScript error related to JSX element types when using dialogs and other components together.
         <React.Fragment>
             <Card className="flex flex-col">
-                <CardHeader className="flex-shrink-0 pb-3"><CardTitle className="text-base font-semibold">Thông tin khách hàng</CardTitle></CardHeader>
+                <CardHeader className="shrink-0 pb-3"><CardTitle className="text-base font-semibold">Thông tin khách hàng</CardTitle></CardHeader>
                 <CardContent className="flex-1 overflow-y-auto space-y-3">
                     {selectedCustomer ? (
                         <div className="space-y-3">
@@ -415,11 +417,11 @@ export function CustomerSelector({ disabled }: { disabled: boolean }) {
                                             <button
                                                 type="button"
                                                 onClick={() => handleCopy(selectedCustomer.email, 'email')}
-                                                className="inline-flex items-center gap-1 hover:text-foreground truncate max-w-[180px]"
+                                                className="inline-flex items-center gap-1 hover:text-foreground truncate max-w-45"
                                                 title="Sao chép email"
                                             >
                                                 <span className="truncate">{selectedCustomer.email}</span>
-                                                <Copy className="h-3 w-3 flex-shrink-0" />
+                                                <Copy className="h-3 w-3 shrink-0" />
                                             </button>
                                         )}
                                         {selectedCustomer.taxCode && (
@@ -436,7 +438,7 @@ export function CustomerSelector({ disabled }: { disabled: boolean }) {
                                     </div>
                                 </div>
                                 {!disabled && (
-                                    <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0" type="button" onClick={() => handleSelect(null)}>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" type="button" onClick={() => handleSelect(null)}>
                                         <X className="h-4 w-4 text-muted-foreground" />
                                     </Button>
                                 )}
@@ -521,7 +523,7 @@ export function CustomerSelector({ disabled }: { disabled: boolean }) {
                                     </div>
                                   </div>
                                   {((option.metadata as { debt?: number })?.debt ?? 0) > 0 && (
-                                    <div className="text-xs text-destructive font-semibold flex-shrink-0">
+                                    <div className="text-xs text-destructive font-semibold shrink-0">
                                       Nợ: {formatCurrency((option.metadata as { debt?: number }).debt)}
                                     </div>
                                   )}

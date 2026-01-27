@@ -409,7 +409,7 @@ export function NewDocumentsUpload({
         <div
           {...getRootProps()}
           className={cn(
-            'relative border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-all duration-200',
+            'relative border-2 border-dashed border-border rounded-lg p-4 text-center cursor-pointer transition-all duration-200',
             'hover:border-primary hover:bg-primary/5 hover:scale-[1.01]',
             isDragActive && 'border-primary bg-primary/10 scale-[1.01] shadow-lg',
             isDragReject && 'border-destructive bg-destructive/10',

@@ -8,6 +8,7 @@
 
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { SalesReturnStatus } from '@/generated/prisma/enums';
 import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils';
 
 type RouteParams = {
@@ -40,7 +41,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   }
 }
 
-// PATCH - Update sales return
+// PATCH - Update sales return (approve, reject, update status)
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   const session = await requireAuth();
   if (!session) return apiError('Unauthorized', 401);
@@ -50,24 +51,72 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const body = await request.json();
 
     const {
+      status,
       refundMethod,
-      refundStatus,
+      refundAmount,
       reason,
       notes,
+      approvalNotes,
       updatedBy,
       ..._otherFields
     } = body;
 
+    // Fetch existing return to validate state transitions
+    const existingReturn = await prisma.salesReturn.findUnique({
+      where: { systemId },
+      include: { items: true },
+    });
+
+    if (!existingReturn) {
+      return apiNotFound('SalesReturn');
+    }
+
+    // Build update data - using inferred type
+    const updateData: any = {
+      updatedAt: new Date(),
+      updatedBy: updatedBy || session.user?.id || null,
+    };
+
+    if (status !== undefined) {
+      // Validate status transitions
+      if (status === 'APPROVED' && existingReturn.status !== 'PENDING') {
+        return apiError('Can only approve pending returns', 400);
+      }
+      if (status === 'REJECTED' && existingReturn.status !== 'PENDING') {
+        return apiError('Can only reject pending returns', 400);
+      }
+      updateData.status = status as SalesReturnStatus;
+    }
+
+    if (refundMethod !== undefined) {
+      updateData.refundMethod = refundMethod;
+    }
+
+    if (refundAmount !== undefined) {
+      // Validate refund amount doesn't exceed return total
+      if (refundAmount > Number(existingReturn.total)) {
+        return apiError('Refund amount exceeds return total', 400);
+      }
+      updateData.refundAmount = refundAmount;
+      updateData.refunded = refundAmount;
+    }
+
+    if (reason !== undefined) {
+      updateData.reason = reason;
+      updateData.note = reason;
+    }
+
+    if (notes !== undefined) {
+      updateData.notes = notes;
+    }
+
+    if (approvalNotes !== undefined) {
+      updateData.notes = approvalNotes;
+    }
+
     const salesReturn = await prisma.salesReturn.update({
       where: { systemId },
-      data: {
-        ...(refundMethod !== undefined && { refundMethod }),
-        ...(refundStatus !== undefined && { refundStatus }),
-        ...(reason !== undefined && { reason }),
-        ...(notes !== undefined && { notes }),
-        ...(updatedBy !== undefined && { updatedBy }),
-        updatedAt: new Date(),
-      },
+      data: updateData,
       include: {
         items: true,
       },
@@ -76,6 +125,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     return apiSuccess(salesReturn);
   } catch (error) {
     console.error('[Sales Returns API] PATCH error:', error);
+    if (error instanceof Error) {
+      return apiError(error.message, 500);
+    }
     return apiError('Failed to update sales return', 500);
   }
 }

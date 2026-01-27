@@ -36,6 +36,10 @@ export interface AttendanceCreateInput {
 
 export interface AttendanceUpdateInput extends Partial<AttendanceCreateInput> {
   action?: 'save' | 'lock' | 'unlock';
+  monthKey?: string;
+  employeeSystemId?: string;
+  dayKey?: string;
+  record?: any;
 }
 
 const BASE_URL = '/api/attendance';
@@ -68,6 +72,7 @@ export async function fetchAttendance(
 
 /**
  * Fetch attendance for a specific month
+ * Transforms individual records into row format (one row per employee)
  */
 export async function fetchAttendanceByMonth(
   monthKey: string
@@ -83,7 +88,70 @@ export async function fetchAttendanceByMonth(
     limit: 500,
   });
   
-  return response.data;
+  // Transform individual records into row format
+  const recordsByEmployee = new Map<string, AttendanceDataRow>();
+  
+  type AttendanceRecord = {
+    date: string;
+    employeeId: string;
+    employee?: { systemId?: string; fullName?: string; department?: string };
+    status: string;
+    checkIn?: string;
+    checkOut?: string;
+    notes?: string;
+    createdAt?: string;
+    updatedAt?: string;
+    createdBy?: string;
+    updatedBy?: string;
+  };
+  
+  (response.data as any as AttendanceRecord[]).forEach((record) => {
+    const employeeId = record.employeeId;
+    
+    if (!recordsByEmployee.has(employeeId)) {
+      recordsByEmployee.set(employeeId, {
+        systemId: record.employee?.systemId || employeeId,
+        employeeSystemId: record.employee?.systemId || employeeId,
+        employeeId: employeeId,
+        fullName: record.employee?.fullName || '',
+        department: record.employee?.department,
+        workDays: 0,
+        leaveDays: 0,
+        absentDays: 0,
+        lateArrivals: 0,
+        earlyDepartures: 0,
+        otHours: 0,
+        createdAt: record.createdAt,
+        updatedAt: record.updatedAt,
+        createdBy: record.createdBy,
+        updatedBy: record.updatedBy,
+      } as any);
+    }
+    
+    const row = recordsByEmployee.get(employeeId)!;
+    const recordDate = new Date(record.date);
+    const day = recordDate.getDate();
+    
+    // Map database status to frontend status
+    const statusMap: Record<string, string> = {
+      'PRESENT': 'present',
+      'ABSENT': 'absent',
+      'LEAVE': 'leave',
+      'HALF_DAY': 'half-day',
+      'HOLIDAY': 'holiday',
+    };
+    
+    const status = statusMap[record.status] || 'present';
+    
+    (row as Record<string, unknown>)[`day_${day}`] = {
+      status,
+      checkIn: record.checkIn ? new Date(record.checkIn).toTimeString().slice(0, 5) : undefined,
+      checkOut: record.checkOut ? new Date(record.checkOut).toTimeString().slice(0, 5) : undefined,
+      notes: record.notes,
+    };
+  });
+  
+  return Array.from(recordsByEmployee.values());
 }
 
 /**

@@ -1,7 +1,5 @@
 import type { SystemId } from '../id-types';
-import type { Product } from '@/lib/types/prisma-extended';
-import { usePkgxSettingsStore } from '../../features/settings/pkgx/store';
-import type { PkgxProductPayload, PkgxProduct } from '@/lib/types/prisma-extended';
+import type { Product, PkgxProductPayload, PkgxProduct, PkgxSettings } from '@/lib/types/prisma-extended';
 
 // ========================================
 // Mapping Functions
@@ -10,30 +8,30 @@ import type { PkgxProductPayload, PkgxProduct } from '@/lib/types/prisma-extende
 /**
  * Lấy cat_id PKGX từ HRM categorySystemId
  */
-export function getPkgxCatId(hrmCategoryId: SystemId | undefined): number | null {
+export function getPkgxCatId(settings: PkgxSettings, hrmCategoryId: SystemId | undefined): number | null {
   if (!hrmCategoryId) return null;
-  const store = usePkgxSettingsStore.getState();
-  return store.getPkgxCatIdByHrmCategory(hrmCategoryId);
+  const mapping = settings.categoryMappings?.find(m => m.hrmCategorySystemId === hrmCategoryId);
+  return mapping?.pkgxCatId ?? null;
 }
 
 /**
  * Lấy brand_id PKGX từ HRM brandSystemId
  */
-export function getPkgxBrandId(hrmBrandId: SystemId | undefined): number | null {
+export function getPkgxBrandId(settings: PkgxSettings, hrmBrandId: SystemId | undefined): number | null {
   if (!hrmBrandId) return null;
-  const store = usePkgxSettingsStore.getState();
-  return store.getPkgxBrandIdByHrmBrand(hrmBrandId);
+  const mapping = settings.brandMappings?.find(m => m.hrmBrandSystemId === hrmBrandId);
+  return mapping?.pkgxBrandId ?? null;
 }
 
 /**
  * Lấy giá theo mapping bảng giá
  */
 export function getPriceByMapping(
+  settings: PkgxSettings,
   product: Product,
   priceField: 'shopPrice' | 'marketPrice' | 'partnerPrice' | 'acePrice' | 'dealPrice'
 ): number | undefined {
-  const store = usePkgxSettingsStore.getState();
-  const policyId = store.settings.priceMapping[priceField];
+  const policyId = settings.priceMapping[priceField];
   
   if (!policyId) return undefined;
   
@@ -52,7 +50,7 @@ export function getTotalInventory(product: Product): number {
  * Map HRM Product → PKGX Payload để tạo/cập nhật sản phẩm
  * Đồng nhất với các action update trong use-pkgx-sync.ts
  */
-export function mapHrmToPkgxPayload(product: Product): PkgxProductPayload {
+export function mapHrmToPkgxPayload(settings: PkgxSettings, product: Product): PkgxProductPayload {
   // Get PKGX-specific SEO data (ưu tiên seoPkgx, fallback về field gốc)
   const pkgxSeo = product.seoPkgx;
   
@@ -65,27 +63,27 @@ export function mapHrmToPkgxPayload(product: Product): PkgxProductPayload {
   };
 
   // Map category
-  const catId = getPkgxCatId(product.categorySystemId);
+  const catId = getPkgxCatId(settings, product.categorySystemId);
   if (catId) payload.cat_id = catId;
 
   // Map brand
-  const brandId = getPkgxBrandId(product.brandSystemId);
+  const brandId = getPkgxBrandId(settings, product.brandSystemId);
   if (brandId) payload.brand_id = brandId;
 
   // Map prices
-  const shopPrice = getPriceByMapping(product, 'shopPrice');
+  const shopPrice = getPriceByMapping(settings, product, 'shopPrice');
   if (shopPrice !== undefined) payload.shop_price = shopPrice;
 
-  const marketPrice = getPriceByMapping(product, 'marketPrice');
+  const marketPrice = getPriceByMapping(settings, product, 'marketPrice');
   if (marketPrice !== undefined) payload.market_price = marketPrice;
 
-  const partnerPrice = getPriceByMapping(product, 'partnerPrice');
+  const partnerPrice = getPriceByMapping(settings, product, 'partnerPrice');
   if (partnerPrice !== undefined) payload.partner_price = partnerPrice;
 
-  const acePrice = getPriceByMapping(product, 'acePrice');
+  const acePrice = getPriceByMapping(settings, product, 'acePrice');
   if (acePrice !== undefined) payload.ace_price = acePrice;
 
-  const dealPrice = getPriceByMapping(product, 'dealPrice');
+  const dealPrice = getPriceByMapping(settings, product, 'dealPrice');
   if (dealPrice !== undefined) payload.deal_price = dealPrice;
 
   // Map mô tả (giống handlePkgxSyncDescription)
@@ -139,22 +137,22 @@ export function mapPkgxToHrmFields(pkgxProduct: PkgxProduct): Partial<Product> {
 /**
  * Tạo payload chỉ chứa giá để update
  */
-export function createPriceUpdatePayload(product: Product): Partial<PkgxProductPayload> {
+export function createPriceUpdatePayload(settings: PkgxSettings, product: Product): Partial<PkgxProductPayload> {
   const payload: Partial<PkgxProductPayload> = {};
 
-  const shopPrice = getPriceByMapping(product, 'shopPrice');
+  const shopPrice = getPriceByMapping(settings, product, 'shopPrice');
   if (shopPrice !== undefined) payload.shop_price = shopPrice;
 
-  const marketPrice = getPriceByMapping(product, 'marketPrice');
+  const marketPrice = getPriceByMapping(settings, product, 'marketPrice');
   if (marketPrice !== undefined) payload.market_price = marketPrice;
 
-  const partnerPrice = getPriceByMapping(product, 'partnerPrice');
+  const partnerPrice = getPriceByMapping(settings, product, 'partnerPrice');
   if (partnerPrice !== undefined) payload.partner_price = partnerPrice;
 
-  const acePrice = getPriceByMapping(product, 'acePrice');
+  const acePrice = getPriceByMapping(settings, product, 'acePrice');
   if (acePrice !== undefined) payload.ace_price = acePrice;
 
-  const dealPrice = getPriceByMapping(product, 'dealPrice');
+  const dealPrice = getPriceByMapping(settings, product, 'dealPrice');
   if (dealPrice !== undefined) payload.deal_price = dealPrice;
 
   return payload;

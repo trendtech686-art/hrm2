@@ -2,8 +2,9 @@
 
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { useReceiptStore, type ReceiptInput } from './store';
+import type { ReceiptInput } from './store';
 import { useAllReceipts, useReceiptFinder } from './hooks/use-all-receipts';
+import { useReceiptMutations } from './hooks/use-receipts';
 import { ReceiptForm, type ReceiptFormValues } from './receipt-form';
 import { useAllCashAccounts } from '../cashbook/hooks/use-all-cash-accounts';
 import { usePageHeader } from '@/contexts/page-header-context';
@@ -21,7 +22,20 @@ type ReceiptUpsertPayload = Omit<ReceiptInput, 'createdAt'>;
 export function ReceiptFormPage() {
   const { systemId, id } = useParams<{ systemId?: string; id?: string }>();
   const router = useRouter();
-  const { add, update } = useReceiptStore();
+  const { create, update } = useReceiptMutations({
+    onCreateSuccess: (newReceipt) => {
+      toast.success("Tạo phiếu thu thành công");
+      router.push(`${ROUTES.FINANCE.RECEIPTS}/${newReceipt.systemId}`);
+    },
+    onUpdateSuccess: (updatedReceipt) => {
+      toast.success("Cập nhật phiếu thu thành công");
+      router.push(`${ROUTES.FINANCE.RECEIPTS}/${updatedReceipt.systemId}`);
+    },
+    onError: (error) => {
+      toast.error(error.message || "Lưu phiếu thu thất bại");
+      console.error("Error saving receipt:", error);
+    }
+  });
   const { data } = useAllReceipts();
   const { findById } = useReceiptFinder();
   const { accounts: _accounts } = useAllCashAccounts();
@@ -129,27 +143,17 @@ export function ReceiptFormPage() {
   };
 
   const handleFormSubmit = (values: ReceiptFormValues) => {
-    try {
-      if (receipt) {
-        update(receipt.systemId, { ...receipt, ...normalizeValues(values, receipt.createdBy) });
-        toast.success("Cập nhật phiếu thu thành công");
-        router.push(`${ROUTES.FINANCE.RECEIPTS}/${receipt.systemId}`);
-      } else {
-        const normalized = normalizeValues(values, currentUserSystemId);
-        const newReceipt = add({
-          ...normalized,
-          createdAt: new Date().toISOString(),
-        });
-        toast.success("Tạo phiếu thu thành công");
-        if (newReceipt) {
-          router.push(`${ROUTES.FINANCE.RECEIPTS}/${newReceipt.systemId}`);
-        } else {
-          router.push(ROUTES.FINANCE.RECEIPTS);
-        }
-      }
-    } catch (error) {
-      toast.error(isEditing ? "Cập nhật phiếu thu thất bại" : "Tạo phiếu thu thất bại");
-      console.error("Error saving receipt:", error);
+    if (receipt) {
+      update.mutate({
+        systemId: receipt.systemId,
+        data: { ...receipt, ...normalizeValues(values, receipt.createdBy) }
+      });
+    } else {
+      const normalized = normalizeValues(values, currentUserSystemId);
+      create.mutate({
+        ...normalized,
+        createdAt: new Date().toISOString(),
+      } as ReceiptInput);
     }
   };
 

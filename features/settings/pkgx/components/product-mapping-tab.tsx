@@ -17,7 +17,7 @@ import {
 import { Search, Link, RefreshCw, Loader2, CheckCircle2, TriangleAlert, Package, ExternalLink, Unlink, Link2, MoreHorizontal, FileText, DollarSign, AlignLeft, Tag } from 'lucide-react';
 import { toast } from 'sonner';
 import { useProductStore } from '../../../products/store';
-import { usePkgxSettingsStore } from '../store';
+import { usePkgxSettings, usePkgxLogMutations, usePkgxProductsMutations, usePkgxGetters } from '../hooks/use-pkgx-settings';
 import { getProducts as fetchPkgxProducts, updateProduct as updatePkgxProduct, getProductById as fetchPkgxProductById, getProductGallery as fetchPkgxGallery } from '../../../../lib/pkgx/api-service';
 import type { PkgxProduct, PkgxGalleryImage } from '../types';
 import type { SystemId } from '../../../../lib/id-types';
@@ -48,14 +48,17 @@ export function ProductMappingTab() {
   const { user: _user } = useAuth();
   
   // Stores
-  const { settings, addLog, getPkgxCatIdByHrmCategory, getPkgxBrandIdByHrmBrand, setPkgxProducts } = usePkgxSettingsStore();
+  const { data: settings } = usePkgxSettings();
+  const { addLog } = usePkgxLogMutations();
+  const { setPkgxProducts } = usePkgxProductsMutations();
+  const { getPkgxCatIdByHrmCategory, getPkgxBrandIdByHrmBrand } = usePkgxGetters();
   const productStore = useProductStore();
   
   const [searchTerm, setSearchTerm] = React.useState('');
   const [isSyncing, setIsSyncing] = React.useState(false);
   
   // Sử dụng pkgxProducts từ store (dùng chung với Link Dialog)
-  const pkgxProducts = React.useMemo(() => settings.pkgxProducts || [], [settings.pkgxProducts]);
+  const pkgxProducts = React.useMemo(() => settings?.pkgxProducts || [], [settings?.pkgxProducts]);
   
   // Auto-fetch khi vào tab nếu chưa có data và PKGX đã được cấu hình
   const _hasAutoFetched = React.useRef(false);
@@ -97,7 +100,7 @@ export function ProductMappingTab() {
   // Use shared PKGX entity sync hook
   const entitySync = usePkgxEntitySync({
     entityType: 'product',
-    onLog: addLog,
+    onLog: (log) => addLog.mutate(log),
     getPkgxCatIdByHrmCategory,
     getPkgxBrandIdByHrmBrand,
   });
@@ -606,7 +609,7 @@ export function ProductMappingTab() {
     setRowSelection({});
     toast.success(`Đã hủy liên kết ${successCount} sản phẩm`);
     
-    addLog({
+    addLog.mutate({
       action: 'batch_unlink',
       status: 'success',
       message: `Đã hủy liên kết ${successCount} sản phẩm`,
@@ -646,10 +649,10 @@ export function ProductMappingTab() {
       const response = await fetchPkgxProducts(1, 100);
       if (response.success && response.data && !response.data.error) {
         // Lưu vào store để dùng chung với Link Dialog
-        setPkgxProducts(response.data.data);
+        setPkgxProducts.mutate(response.data.data);
         setPagination(prev => ({ ...prev, pageIndex: 0 }));
         
-        addLog({
+        addLog.mutate({
           action: 'get_products',
           status: 'success',
           message: `Đã lấy ${response.data.data.length}/${response.data.pagination.total_items} sản phẩm từ PKGX`,
@@ -663,7 +666,7 @@ export function ProductMappingTab() {
         throw new Error(response.error || 'Không thể lấy danh sách sản phẩm');
       }
     } catch (error) {
-      addLog({
+      addLog.mutate({
         action: 'get_products',
         status: 'error',
         message: 'Lỗi khi lấy sản phẩm từ PKGX',
@@ -688,7 +691,7 @@ export function ProductMappingTab() {
         const updatedProducts = pkgxProducts.map(p => 
           p.goods_id === goodsId ? response.data! : p
         );
-        setPkgxProducts(updatedProducts);
+        setPkgxProducts.mutate(updatedProducts);
         
         // Also update the selected product for detail if it's open
         if (selectedProductForDetail?.goods_id === goodsId) {
@@ -798,7 +801,7 @@ export function ProductMappingTab() {
     productStore.update(selectedHrmProductId as SystemId, { pkgxId: selectedPkgxProduct.goods_id });
     toast.success(`Đã liên kết "${selectedPkgxProduct.goods_name}" với sản phẩm HRM`);
     
-    addLog({
+    addLog.mutate({
       action: 'link_product',
       status: 'success',
       message: `Đã liên kết: ${hrmProduct.name} ↔ ${selectedPkgxProduct.goods_name}`,
@@ -818,7 +821,7 @@ export function ProductMappingTab() {
       productStore.update(productToUnlink.hrmProduct.systemId as SystemId, { pkgxId: undefined });
       toast.success(`Đã hủy liên kết sản phẩm`);
       
-      addLog({
+      addLog.mutate({
         action: 'unlink_product',
         status: 'success',
         message: `Đã hủy liên kết: ${productToUnlink.hrmProduct.name}`,
@@ -864,23 +867,23 @@ export function ProductMappingTab() {
             
           // Giá cả - CHỈ đồng bộ nếu đã cấu hình mapping giá
           case 'sync_prices': {
-            const { priceMapping } = settings;
-            const hasPriceMapping = priceMapping.shopPrice || priceMapping.marketPrice || priceMapping.partnerPrice || priceMapping.acePrice || priceMapping.dealPrice;
+            const { priceMapping } = settings ?? {};
+            const hasPriceMapping = priceMapping?.shopPrice || priceMapping?.marketPrice || priceMapping?.partnerPrice || priceMapping?.acePrice || priceMapping?.dealPrice;
             
             if (!hasPriceMapping) {
               toast.warning('Chưa cấu hình Mapping giá. Vui lòng vào tab "Mapping giá" để thiết lập trước khi đồng bộ giá.');
             } else {
               // Chỉ push giá nếu có mapping tương ứng
-              if (priceMapping.shopPrice && hrm.sellingPrice) {
+              if (priceMapping?.shopPrice && hrm.sellingPrice) {
                 pushData.shop_price = hrm.sellingPrice;
               }
-              if (priceMapping.partnerPrice && hrm.partnerPrice) {
+              if (priceMapping?.partnerPrice && hrm.partnerPrice) {
                 pushData.partner_price = hrm.partnerPrice;
               }
-              if (priceMapping.acePrice && hrm.acePrice) {
+              if (priceMapping?.acePrice && hrm.acePrice) {
                 pushData.ace_price = hrm.acePrice;
               }
-              if (priceMapping.dealPrice && hrm.dealPrice) {
+              if (priceMapping?.dealPrice && hrm.dealPrice) {
                 pushData.deal_price = hrm.dealPrice;
               }
             }
@@ -946,7 +949,7 @@ export function ProductMappingTab() {
       const response = await updatePkgxProduct(productToPush.goods_id, pushData);
       
       if (response.success) {
-        addLog({
+        addLog.mutate({
           action: 'update_product',
           status: 'success',
           message: `Đã đẩy ${selectedPushFields.length} trường từ HRM → PKGX`,
@@ -969,7 +972,7 @@ export function ProductMappingTab() {
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Lỗi khi đẩy dữ liệu lên PKGX');
-      addLog({
+      addLog.mutate({
         action: 'update_product',
         status: 'error',
         message: 'Lỗi khi đẩy dữ liệu lên PKGX',
@@ -1014,7 +1017,7 @@ export function ProductMappingTab() {
               </div>
               <div className="text-sm text-muted-foreground whitespace-nowrap text-center sm:text-right">
                 {pkgxProducts.length} SP | {linkedCount} đã liên kết
-                {settings.pkgxProductsLastFetch && (
+                {settings?.pkgxProductsLastFetch && (
                   <span className="ml-2 text-xs opacity-70">
                     ({new Date(settings.pkgxProductsLastFetch).toLocaleString('vi-VN')})
                   </span>
@@ -1037,7 +1040,7 @@ export function ProductMappingTab() {
               
               <TabsContent value="pkgx-products" className="mt-4">
                 {/* Warning if not enabled */}
-                {!settings.enabled && (
+                {!settings?.enabled && (
                   <div className="flex items-center gap-2 rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800 mb-4">
                     <TriangleAlert className="h-4 w-4 flex-shrink-0" />
                     <p>Tích hợp PKGX chưa được bật. Vui lòng bật trong tab "Cấu hình chung".</p>

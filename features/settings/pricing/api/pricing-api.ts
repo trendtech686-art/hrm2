@@ -52,19 +52,29 @@ export async function fetchPricingPolicies(
 
   // Try new endpoint first, fallback to legacy
   let url = params.toString() ? `${BASE_URL}?${params}` : BASE_URL;
+  console.log('[fetchPricingPolicies] Calling:', url);
+  
   let response = await fetch(url);
   
   // Fallback to legacy endpoint
   if (!response.ok && response.status === 404) {
     url = `${LEGACY_URL}${params.toString() ? '&' + params : ''}`;
+    console.log('[fetchPricingPolicies] Fallback to legacy:', url);
     response = await fetch(url);
   }
   
   if (!response.ok) {
+    console.error('[fetchPricingPolicies] Response not OK:', response.status, response.statusText);
     throw new Error('Failed to fetch pricing policies');
   }
   
-  return response.json();
+  const result = await response.json();
+  console.log('[fetchPricingPolicies] Result:', result);
+  
+  return {
+    data: result.data || [],
+    pagination: result.pagination || { page: 1, limit: 50, total: 0, totalPages: 0 }
+  };
 }
 
 /**
@@ -158,7 +168,7 @@ export async function setDefaultPricingPolicy(
  */
 export async function fetchActivePricingPolicies(): Promise<PricingPolicy[]> {
   const response = await fetchPricingPolicies({ isActive: true, limit: 100 });
-  return response.data;
+  return response.data || [];
 }
 
 /**
@@ -168,5 +178,5 @@ export async function fetchPricingPoliciesByType(
   type: 'Nhập hàng' | 'Bán hàng'
 ): Promise<PricingPolicy[]> {
   const response = await fetchPricingPolicies({ type, isActive: true, limit: 100 });
-  return response.data;
+  return response.data || [];
 }

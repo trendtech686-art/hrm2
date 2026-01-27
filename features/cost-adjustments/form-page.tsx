@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useCostAdjustmentStore } from './store';
+import { useCostAdjustmentMutations } from './hooks/use-cost-adjustments';
 import { useProductFinder } from '../products/hooks/use-all-products';
 import { ProductImage } from '../products/components/product-image';
 import { useEmployeeFinder } from '../employees/hooks/use-all-employees';
@@ -51,13 +51,22 @@ export function CostAdjustmentFormPage() {
   const { user } = useAuth();
   const { findById: findEmployeeById } = useEmployeeFinder();
   const { findById: findProductById } = useProductFinder();
-  const { create, generateNextId, isBusinessIdExists } = useCostAdjustmentStore();
+  const { create } = useCostAdjustmentMutations({
+    onSuccess: () => {
+      toast.success('Đã tạo phiếu điều chỉnh giá vốn');
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Có lỗi xảy ra khi tạo phiếu');
+    },
+  });
   
   const [isProductDialogOpen, setIsProductDialogOpen] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   
   const currentEmployee = user?.employeeId ? findEmployeeById(asSystemId(user.employeeId)) : null;
-  const nextId = React.useMemo(() => generateNextId(), [generateNextId]);
+  // TODO: Implement generateNextId via API if needed
+  const nextId = 'AUTO';
+  const customIdError = null;
   
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -78,20 +87,13 @@ export function CostAdjustmentFormPage() {
   const watchItems = form.watch('items');
   const watchCustomId = form.watch('customId');
   
+  // TODO: Implement ID validation via API if needed
+  
   // Calculate totals
   const totalOldValue = watchItems.reduce((sum, item) => sum + item.oldCostPrice, 0);
   const totalNewValue = watchItems.reduce((sum, item) => sum + item.newCostPrice, 0);
   const totalDifference = totalNewValue - totalOldValue;
-  
-  // Validate custom ID
-  const customIdError = React.useMemo(() => {
-    if (!watchCustomId) return null;
-    if (isBusinessIdExists(watchCustomId)) {
-      return 'Mã phiếu đã tồn tại';
-    }
-    return null;
-  }, [watchCustomId, isBusinessIdExists]);
-  
+
   const handleAddProducts = (selectedProducts: Product[]) => {
     selectedProducts.forEach(product => {
       // Check if already added
@@ -113,14 +115,9 @@ export function CostAdjustmentFormPage() {
     setIsProductDialogOpen(false);
   };
   
-  const onSubmit = (data: FormData) => {
+  const onSubmit = async (data: FormData) => {
     if (!currentEmployee) {
       toast.error('Không tìm thấy thông tin nhân viên');
-      return;
-    }
-    
-    if (customIdError) {
-      toast.error(customIdError);
       return;
     }
     
@@ -134,39 +131,27 @@ export function CostAdjustmentFormPage() {
     setIsSubmitting(true);
     
     try {
-      const adjustmentOptions: Parameters<typeof create>[4] = {};
-      if (data.customId) {
-        adjustmentOptions.customId = data.customId;
-      }
-      if (typeof data.reason === 'string') {
-        adjustmentOptions.reason = data.reason;
-      }
-      if (typeof data.note === 'string') {
-        adjustmentOptions.note = data.note;
-      }
-      if (typeof data.referenceCode === 'string') {
-        adjustmentOptions.referenceCode = data.referenceCode;
-      }
-
-      const adjustment = create(
-        data.items.map(item => ({
+      const result = await create.mutateAsync({
+        items: data.items.map(item => ({
           productSystemId: asSystemId(item.productSystemId),
           productId: item.productId,
           productName: item.productName,
-          productImage: item.productImage ?? '',
+          productImage: item.productImage,
           oldCostPrice: item.oldCostPrice,
           newCostPrice: item.newCostPrice,
+          adjustmentAmount: item.newCostPrice - item.oldCostPrice,
+          adjustmentPercent: item.oldCostPrice > 0 ? ((item.newCostPrice - item.oldCostPrice) / item.oldCostPrice * 100) : 0,
         })),
-        'manual',
-        currentEmployee.systemId,
-        currentEmployee.fullName,
-        Object.keys(adjustmentOptions).length ? adjustmentOptions : undefined
-      );
+        type: 'manual',
+        reason: data.reason,
+        note: data.note,
+        referenceCode: data.referenceCode,
+        businessId: data.customId,
+      } as any);
       
-      toast.success('Đã tạo phiếu điều chỉnh giá vốn');
-      router.push(`/cost-adjustments/${adjustment.systemId}`);
+      router.push(`/cost-adjustments/${result.systemId}`);
     } catch (_error) {
-      toast.error('Có lỗi xảy ra khi tạo phiếu');
+      // Error handled by mutation callbacks
     } finally {
       setIsSubmitting(false);
     }
@@ -187,13 +172,13 @@ export function CostAdjustmentFormPage() {
         type="submit" 
         form="adjustment-form"
         className="h-9"
-        disabled={isSubmitting || fields.length === 0 || !!customIdError}
+        disabled={isSubmitting || fields.length === 0}
       >
         <Save className="mr-2 h-4 w-4" />
         {isSubmitting ? 'Đang lưu...' : 'Tạo phiếu'}
       </Button>
     </div>
-  ), [router, isSubmitting, fields.length, customIdError]);
+  ), [router, isSubmitting, fields.length]);
   
   const breadcrumb = React.useMemo(() => [
     { label: 'Trang chủ', href: ROUTES.ROOT },

@@ -11,7 +11,8 @@
 import * as React from 'react';
 import { toast } from 'sonner';
 import { updateProduct, updateBrand } from '../../../../lib/pkgx/api-service';
-import { usePkgxSettingsStore } from '../store';
+import { usePkgxSettings } from './use-pkgx-settings';
+import type { PkgxSettings } from '../types';
 import type { Product } from '../../../products/types';
 import type { Brand } from '../../../settings/inventory/types';
 
@@ -100,9 +101,8 @@ const BULK_ACTION_LABELS: Record<BulkSyncActionKey, { title: string; description
 // Payload Builders
 // ========================================
 
-function buildProductPayload(product: Product, actionKey: BulkSyncActionKey): Record<string, unknown> {
-  const pkgxSettings = usePkgxSettingsStore.getState();
-  const { categoryMappings, brandMappings } = pkgxSettings.settings;
+function buildProductPayload(product: Product, actionKey: BulkSyncActionKey, pkgxSettings: PkgxSettings): Record<string, unknown> {
+  const { categoryMappings, brandMappings } = pkgxSettings;
   
   // Get PKGX category/brand IDs
   const catMapping = categoryMappings.find(m => m.hrmCategorySystemId === product.categorySystemId);
@@ -230,6 +230,7 @@ function buildBrandPayload(brand: Brand, actionKey: BulkSyncActionKey): Record<s
 
 export function usePkgxBulkSync(options: UsePkgxBulkSyncOptions) {
   const { entityType, onLog } = options;
+  const { data: pkgxSettings } = usePkgxSettings();
   
   // Confirmation dialog state
   const [confirmAction, setConfirmAction] = React.useState<BulkConfirmState>({
@@ -250,9 +251,8 @@ export function usePkgxBulkSync(options: UsePkgxBulkSyncOptions) {
   });
   
   // Check if PKGX is enabled
-  const checkPkgxEnabled = React.useCallback(() => {
-    const pkgxSettings = usePkgxSettingsStore.getState();
-    if (!pkgxSettings.settings.enabled) {
+  const checkPkgxEnabled = React.useCallback((settings: PkgxSettings | undefined) => {
+    if (!settings?.enabled) {
       toast.error('PKGX chưa được bật');
       return false;
     }
@@ -260,9 +260,8 @@ export function usePkgxBulkSync(options: UsePkgxBulkSyncOptions) {
   }, []);
   
   // Helper to get PKGX brand ID from brand mappings
-  const getPkgxBrandId = React.useCallback((brand: Brand): number | undefined => {
-    const pkgxSettings = usePkgxSettingsStore.getState();
-    const mapping = pkgxSettings.settings.brandMappings.find(
+  const getPkgxBrandId = React.useCallback((brand: Brand, settings: PkgxSettings): number | undefined => {
+    const mapping = settings.brandMappings.find(
       m => m.hrmBrandSystemId === brand.systemId
     );
     return mapping?.pkgxBrandId;
@@ -297,7 +296,7 @@ export function usePkgxBulkSync(options: UsePkgxBulkSyncOptions) {
     for (let i = 0; i < linkedProducts.length; i++) {
       const product = linkedProducts[i];
       try {
-        const payload = buildProductPayload(product, actionKey);
+        const payload = buildProductPayload(product, actionKey, pkgxSettings!);
         const response = await updateProduct(product.pkgxId!, payload);
         
         if (response.success) {
@@ -332,14 +331,14 @@ export function usePkgxBulkSync(options: UsePkgxBulkSyncOptions) {
     if (errorCount > 0) {
       toast.error(`Lỗi ${errorCount} sản phẩm`);
     }
-  }, [onLog]);
+  }, [onLog, pkgxSettings]);
   
   // Execute bulk sync for brands
   const executeBulkSyncBrands = React.useCallback(async (
     brands: Brand[],
     actionKey: BulkSyncActionKey
   ) => {
-    const linkedBrands = brands.filter(b => getPkgxBrandId(b));
+    const linkedBrands = brands.filter(b => getPkgxBrandId(b, pkgxSettings!));
     
     if (linkedBrands.length === 0) {
       toast.error('Không có thương hiệu nào đã liên kết PKGX');
@@ -362,7 +361,8 @@ export function usePkgxBulkSync(options: UsePkgxBulkSyncOptions) {
     
     for (let i = 0; i < linkedBrands.length; i++) {
       const brand = linkedBrands[i];
-      const pkgxBrandId = getPkgxBrandId(brand);
+      if (!pkgxSettings) continue;
+      const pkgxBrandId = getPkgxBrandId(brand, pkgxSettings);
       
       if (!pkgxBrandId) {
         errorCount++;
@@ -405,14 +405,14 @@ export function usePkgxBulkSync(options: UsePkgxBulkSyncOptions) {
     if (errorCount > 0) {
       toast.error(`Lỗi ${errorCount} thương hiệu`);
     }
-  }, [getPkgxBrandId, onLog]);
+  }, [getPkgxBrandId, onLog, pkgxSettings]);
   
   // Trigger bulk sync with confirmation
   const triggerBulkSync = React.useCallback(<T extends Product | Brand>(
     items: T[],
     actionKey: BulkSyncActionKey
   ) => {
-    if (!checkPkgxEnabled()) return;
+    if (!checkPkgxEnabled(pkgxSettings)) return;
     
     // Filter linked items
     let linkedCount = 0;
@@ -424,7 +424,7 @@ export function usePkgxBulkSync(options: UsePkgxBulkSyncOptions) {
       unlinkedCount = products.length - linkedCount;
     } else {
       const brands = items as Brand[];
-      linkedCount = brands.filter(b => getPkgxBrandId(b)).length;
+      linkedCount = brands.filter(b => getPkgxBrandId(b, pkgxSettings!)).length;
       unlinkedCount = brands.length - linkedCount;
     }
     
@@ -454,7 +454,7 @@ export function usePkgxBulkSync(options: UsePkgxBulkSyncOptions) {
         }
       },
     });
-  }, [entityType, checkPkgxEnabled, getPkgxBrandId, executeBulkSyncProducts, executeBulkSyncBrands]);
+  }, [entityType, checkPkgxEnabled, getPkgxBrandId, executeBulkSyncProducts, executeBulkSyncBrands, pkgxSettings]);
   
   // Execute confirmed action
   const executeAction = React.useCallback(async () => {

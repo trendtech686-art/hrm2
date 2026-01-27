@@ -36,7 +36,7 @@ export async function GET(
       originalName: file.originalName,
       mimeType: file.mimetype,
       fileSize: file.filesize,
-      url: `/uploads/${file.filepath}`,
+      url: `/api/files/${file.filepath}`,
       entityType: file.entityType,
       entityId: file.entityId,
       createdAt: file.uploadedAt,
@@ -80,7 +80,7 @@ export async function DELETE(
         where: { systemId: id },
       })
       
-      return apiSuccess({ message: 'File đã được xóa vĩnh viễn' })
+      return apiSuccess({ success: true, message: 'File đã được xóa vĩnh viễn' })
     } else {
       // Hard delete (soft delete not supported in schema)
       await deleteFileFromDisk(file.filepath)
@@ -89,7 +89,7 @@ export async function DELETE(
         where: { systemId: id },
       })
       
-      return apiSuccess({ message: 'File đã được xóa' })
+      return apiSuccess({ success: true, message: 'File đã được xóa' })
     }
     
   } catch (error) {

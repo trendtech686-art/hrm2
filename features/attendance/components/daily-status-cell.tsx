@@ -11,6 +11,7 @@ const statusStyles: Record<AttendanceStatus, { symbol: string; className: string
   weekend: { symbol: '', className: '', description: 'Cuối tuần' },
   holiday: { symbol: 'H', className: 'bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300', description: 'Ngày lễ' },
   future: { symbol: '-', className: 'text-muted-foreground', description: '' },
+  empty: { symbol: '-', className: 'text-muted-foreground/50', description: 'Chưa có dữ liệu' },
 };
 
 export const DailyStatusCell: React.FC<{ record: DailyRecord }> = ({ record }) => {
@@ -36,7 +37,7 @@ export const DailyStatusCell: React.FC<{ record: DailyRecord }> = ({ record }) =
     </div>
   );
 
-  if (hasDetails || status !== 'future') {
+  if (hasDetails || (status !== 'future' && status !== 'empty')) {
     const tooltipParts = [
       styleInfo.description,
       checkIn && `Vào: ${checkIn}`,

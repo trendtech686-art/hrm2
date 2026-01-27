@@ -20,8 +20,8 @@ interface AlertListBoxProps {
 
 export function AlertListBox({ items, activeFilter, onFilterChange, variant = 'default' }: AlertListBoxProps) {
   return (
-    <div className="border rounded-lg overflow-hidden bg-card">
-      <div className="divide-y">
+    <div className="border border-border rounded-lg overflow-hidden bg-card">
+      <div className="divide-y divide-border">
         {items.map(({ key, label, value, Icon, accent }) => {
           const isActive = activeFilter === key;
           const borderColor = variant === 'destructive' ? 'border-l-destructive' : 'border-l-primary';

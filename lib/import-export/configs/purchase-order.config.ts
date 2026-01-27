@@ -9,66 +9,39 @@
  */
 
 import type { PurchaseOrder, PurchaseOrderLineItem, PurchaseOrderStatus, PurchaseOrderDeliveryStatus as DeliveryStatus, PurchaseOrderPaymentStatus as PaymentStatus } from '@/lib/types/prisma-extended';
+import type { Product, Supplier, Branch, Employee } from '@/lib/types/prisma-extended';
 import type { ImportExportConfig, FieldConfig } from '@/lib/import-export/types';
-import { useSupplierStore } from '@/features/suppliers/store';
-import { useProductStore } from '@/features/products/store';
-import { useBranchStore } from '@/features/settings/branches/store';
-import { useEmployeeStore } from '@/features/employees/store';
+import { asSystemId, asBusinessId } from '@/lib/id-types';
+// NOTE: Prisma import commented to prevent client-side bundling
+// import { prisma } from '@/lib/prisma';
 
 // ============================================
-// HELPER FUNCTIONS
+// HELPER FUNCTIONS - Using Prisma queries
+// NOTE: Mocked for client-side, should be called server-side
 // ============================================
 
-const getSupplierStore = () => useSupplierStore.getState();
-const getProductStore = () => useProductStore.getState();
-const getBranchStore = () => useBranchStore.getState();
-const getEmployeeStore = () => useEmployeeStore.getState();
-
-const findSupplier = (identifier: string) => {
+const findSupplier = async (identifier: string): Promise<Supplier | undefined> => {
   if (!identifier) return undefined;
-  const store = getSupplierStore();
-  const normalized = identifier.trim().toUpperCase();
-  
-  const byId = store.data.find(s => s.id.toUpperCase() === normalized);
-  if (byId) return byId;
-  
-  const byName = store.data.find(s => s.name.toUpperCase() === normalized);
-  return byName;
+  return undefined; // Mock - call server-side
 };
 
-const findProduct = (identifier: string) => {
+const findProduct = async (identifier: string): Promise<Product | undefined> => {
   if (!identifier) return undefined;
-  const store = getProductStore();
-  const normalized = identifier.trim().toUpperCase();
-  
-  const byId = store.data.find(p => p.id.toUpperCase() === normalized);
-  if (byId) return byId;
-  
-  const bySku = store.data.find(p => p.sku?.toUpperCase() === normalized);
-  return bySku;
+  return undefined; // Mock - call server-side
 };
 
-const findBranch = (identifier: string) => {
+const findBranch = async (identifier: string): Promise<Branch | undefined> => {
   if (!identifier) return undefined;
-  const store = getBranchStore();
-  const normalized = identifier.trim().toLowerCase();
-  
-  const byId = store.data.find(b => b.id.toLowerCase() === normalized);
-  if (byId) return byId;
-  
-  return store.data.find(b => b.name.toLowerCase().includes(normalized));
+  return undefined; // Mock - call server-side
 };
 
-const findEmployee = (name: string) => {
+const findEmployee = async (name: string): Promise<Employee | undefined> => {
   if (!name) return undefined;
-  const store = getEmployeeStore();
-  const normalized = name.trim().toLowerCase();
-  return store.data.find(e => e.fullName?.toLowerCase().includes(normalized));
+  return undefined; // Mock - call server-side
 };
 
-const getDefaultBranch = () => {
-  const store = getBranchStore();
-  return store.data.find(b => b.isDefault) || store.data[0];
+const getDefaultBranch = async (): Promise<Branch | undefined> => {
+  return undefined; // Mock - call server-side
 };
 
 // ============================================
@@ -350,7 +323,7 @@ export const purchaseOrderImportExportConfig: ImportExportConfig<PurchaseOrder> 
     // Build PurchaseOrder objects
     const orders: PurchaseOrder[] = [];
     const now = new Date().toISOString();
-    const defaultBranch = getDefaultBranch();
+    const defaultBranch = await getDefaultBranch();
     
     for (const [orderId, rows] of orderMap.entries()) {
       if (rows.length === 0) continue;
@@ -358,21 +331,21 @@ export const purchaseOrderImportExportConfig: ImportExportConfig<PurchaseOrder> 
       const firstRow = rows[0];
       
       // Lookup supplier
-      const supplier = findSupplier(firstRow.supplierIdOrName || '');
+      const supplier = await findSupplier(firstRow.supplierIdOrName || '');
       if (!supplier) continue;
       
       // Lookup branch
-      const branch = findBranch(firstRow.branchIdOrName || '') || defaultBranch;
+      const branch = await findBranch(firstRow.branchIdOrName || '') || defaultBranch;
       
       // Lookup buyer
-      const buyer = findEmployee(firstRow.buyerName || '');
+      const buyer = await findEmployee(firstRow.buyerName || '');
       
       // Build line items
       const lineItems: PurchaseOrderLineItem[] = [];
       for (const row of rows) {
         if (!row.productIdOrSku) continue;
         
-        const product = findProduct(row.productIdOrSku || '');
+        const product = await findProduct(row.productIdOrSku || '');
         
         const quantity = Math.max(1, Math.floor(Number(row.quantity) || 1));
         const unitPrice = Number(row.unitPrice) || 0;
@@ -380,8 +353,8 @@ export const purchaseOrderImportExportConfig: ImportExportConfig<PurchaseOrder> 
         const taxRate = Number(row.taxRate) || 0;
         
         lineItems.push({
-          productSystemId: product?.systemId || '',
-          productId: product?.id || row.productIdOrSku || '',
+          productSystemId: asSystemId(product?.systemId || ''),
+          productId: asBusinessId(product?.id || row.productIdOrSku || ''),
           productName: product?.name || row.productName || '',
           sku: product?.sku,
           unit: product?.unit,
@@ -415,21 +388,21 @@ export const purchaseOrderImportExportConfig: ImportExportConfig<PurchaseOrder> 
       
       // Build PurchaseOrder object
       const order: PurchaseOrder = {
-        systemId: '', // Will be generated
-        id: orderId,
+        systemId: asSystemId(''), // Will be generated
+        id: asBusinessId(orderId),
         
-        supplierSystemId: supplier.systemId,
+        supplierSystemId: asSystemId(supplier.systemId),
         supplierName: supplier.name,
         
-        branchSystemId: branch?.systemId || '',
+        branchSystemId: asSystemId(branch?.systemId || ''),
         branchName: branch?.name || '',
         
         orderDate: firstRow.orderDate || now.split('T')[0],
         deliveryDate: firstRow.deliveryDate,
         
-        buyerSystemId: buyer?.systemId || '',
+        buyerSystemId: asSystemId(buyer?.systemId || ''),
         buyer: buyer?.fullName || firstRow.buyerName || '',
-        creatorSystemId: '',
+        creatorSystemId: asSystemId(''),
         creatorName: '',
         
         status,

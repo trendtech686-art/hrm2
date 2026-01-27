@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
   if (!validation.success) {
     return apiError(validation.error, 400)
   }
-  const { fileIds, sessionId, entityType, entityId } = validation.data
+  const { fileIds, sessionId, entityType, entityId, documentType, documentName } = validation.data
 
   try {
     if (!fileIds?.length && !sessionId) {
@@ -55,6 +55,15 @@ export async function POST(request: NextRequest) {
       updateData.entityId = entityId
     }
     
+    if (documentType) {
+      updateData.documentType = documentType
+    }
+    
+    // Store documentName in documentType if provided (format: type::name)
+    if (documentName && documentType) {
+      updateData.documentType = `${documentType}::${documentName}`
+    }
+    
     // Update all matching files
     const result = await prisma.file.updateMany({
       where,
@@ -71,6 +80,7 @@ export async function POST(request: NextRequest) {
     })
     
     return apiSuccess({
+      success: true,
       message: `Đã xác nhận ${result.count} file`,
       confirmedCount: result.count,
       files: confirmedFiles.map(f => ({
@@ -79,7 +89,7 @@ export async function POST(request: NextRequest) {
         originalName: f.originalName,
         mimeType: f.mimetype,
         fileSize: f.filesize,
-        url: `/uploads/${f.filepath}`,
+        url: `/api/files/${f.filepath}`,
         entityType: f.entityType,
         entityId: f.entityId,
         status: f.status,
@@ -131,6 +141,7 @@ export async function DELETE(request: NextRequest) {
     // For now, the cleanup job will handle orphan files
     
     return apiSuccess({
+      success: true,
       message: `Đã xóa ${result.count} file staging`,
       deletedCount: result.count,
       deletedFiles: filesToDelete.map(f => f.systemId),

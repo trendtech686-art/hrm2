@@ -696,13 +696,13 @@ function DesktopDataTable<TData extends { systemId: string }>({
           <div
             ref={headerScrollRef}
             onScroll={() => syncScroll('header')}
-            className="sticky top-32 z-30 overflow-x-auto rounded-t-md border border-border border-b-0 bg-muted [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+            className="sticky top-[136px] z-30 overflow-x-auto rounded-t-md border border-border border-b-0 bg-muted shadow-[0_2px_8px_rgba(0,0,0,0.08)] [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
           >
             <Table ref={headerTableRef}>
-              <TableHeader className="bg-muted shadow-sm">
+              <TableHeader className="bg-muted">
                 {numSelected > 0 && (
-                  <tr className="absolute inset-x-0 top-0 z-50 h-9 bg-muted/95 backdrop-blur-sm border-b border-border shadow-md">
-                    <th className="sticky left-0 z-[60] bg-muted/95 backdrop-blur-sm px-3 w-[48px]">
+                  <tr className="absolute inset-x-0 top-0 z-50 h-9 bg-muted border-b border-border shadow-md">
+                    <th className="sticky left-0 z-[60] bg-muted px-3 w-[48px]">
                       {columns.find(c => c.id === 'select') &&
                         typeof columns.find(c => c.id === 'select')!.header === 'function' &&
                         // @ts-expect-error - header function type is complex with selection props
@@ -713,7 +713,7 @@ function DesktopDataTable<TData extends { systemId: string }>({
                         })
                       }
                     </th>
-                    <th className="sticky left-[48px] z-[60] h-9 bg-muted/95 backdrop-blur-sm">
+                    <th className="sticky left-[48px] z-[60] h-9 bg-muted">
                       <div className="flex items-center gap-3 px-4">
                         <span className="text-sm font-medium">{numSelected} mục đã chọn</span>
                         {bulkActions && bulkActions.length > 0 && (
@@ -914,7 +914,7 @@ function DesktopDataTable<TData extends { systemId: string }>({
         />
       </div>
 
-      <StickyScrollbar targetRef={tableContainerRef} />
+      <StickyScrollbar targetRef={tableContainerRef} dataLength={data.length} />
     </div>
   );
 }

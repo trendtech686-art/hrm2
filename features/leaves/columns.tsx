@@ -77,7 +77,7 @@ export const getColumns = (
     id: "reason",
     accessorKey: "reason",
     header: "Lý do",
-    cell: ({ row }) => <span className="truncate max-w-[200px] block">{row.reason}</span>,
+    cell: ({ row }) => <span className="truncate max-w-50 block">{row.reason}</span>,
     meta: { displayName: "Lý do" },
   },
   {

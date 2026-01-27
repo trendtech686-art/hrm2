@@ -4,10 +4,34 @@
 
 import { prisma } from '@/lib/prisma'
 import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
+import { LeaveStatus } from '@/generated/prisma/client'
 
 type RouteParams = {
   params: Promise<{ systemId: string }>;
 };
+
+// Status mapping from Vietnamese to enum
+const statusToEnum: Record<string, LeaveStatus> = {
+  'Chờ duyệt': 'PENDING',
+  'Đã duyệt': 'APPROVED',
+  'Đã từ chối': 'REJECTED',
+  'Từ chối': 'REJECTED',
+  'Đã hủy': 'CANCELLED',
+};
+
+// Status mapping from enum to Vietnamese
+const statusToVietnamese: Record<string, string> = {
+  'PENDING': 'Chờ duyệt',
+  'APPROVED': 'Đã duyệt',
+  'REJECTED': 'Đã từ chối',
+  'CANCELLED': 'Đã hủy',
+};
+
+// Transform leave data to include Vietnamese status
+const transformLeave = (leave: Record<string, unknown>) => ({
+  ...leave,
+  status: statusToVietnamese[leave.status as string] || leave.status,
+});
 
 // GET - Get single leave
 export async function GET(request: Request, { params }: RouteParams) {
@@ -34,7 +58,7 @@ export async function GET(request: Request, { params }: RouteParams) {
       return apiNotFound('Leave request');
     }
 
-    return apiSuccess(leave);
+    return apiSuccess(transformLeave(leave as unknown as Record<string, unknown>));
   } catch (error) {
     console.error('[Leaves API] GET by ID error:', error);
     return apiError('Failed to fetch leave request', 500);
@@ -62,15 +86,25 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       updatedAt: new Date(),
     };
     
-    if (status !== undefined) updateData.status = status;
+    // Map Vietnamese status to enum
+    if (status !== undefined) {
+      updateData.status = statusToEnum[status] || status as LeaveStatus;
+    }
     if (reason !== undefined) updateData.reason = reason;
     if (rejectionReason !== undefined) updateData.rejectionReason = rejectionReason;
     if (updatedBy !== undefined) updateData.updatedBy = updatedBy;
     
     // If approving, set approvedBy and approvedAt
-    if (status === 'approved' && approvedBy) {
+    const isApproving = status === 'Đã duyệt' || status === 'APPROVED' || status === 'approved';
+    if (isApproving && approvedBy) {
       updateData.approvedBy = approvedBy;
       updateData.approvedAt = new Date();
+    }
+    
+    // If rejecting, set rejectedBy and rejectedAt
+    const isRejecting = status === 'Đã từ chối' || status === 'Từ chối' || status === 'REJECTED' || status === 'rejected';
+    if (isRejecting) {
+      updateData.rejectedAt = new Date();
     }
 
     const leave = await prisma.leave.update({
@@ -87,7 +121,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       },
     });
 
-    return apiSuccess(leave);
+    return apiSuccess(transformLeave(leave as unknown as Record<string, unknown>));
   } catch (error) {
     console.error('[Leaves API] PATCH error:', error);
     return apiError('Failed to update leave request', 500);

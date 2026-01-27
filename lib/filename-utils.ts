@@ -4,8 +4,9 @@
 
 /**
  * Convert Vietnamese characters to ASCII equivalents
+ * Exported for use in search/filtering functionality
  */
-function removeVietnameseAccents(str: string): string {
+export function removeVietnameseAccents(str: string): string {
   const vietnameseMap: { [key: string]: string } = {
     'à': 'a', 'á': 'a', 'ạ': 'a', 'ả': 'a', 'ã': 'a', 'â': 'a', 'ầ': 'a', 'ấ': 'a', 'ậ': 'a', 'ẩ': 'a', 'ẫ': 'a', 'ă': 'a', 'ằ': 'a', 'ắ': 'a', 'ặ': 'a', 'ẳ': 'a', 'ẵ': 'a',
     'è': 'e', 'é': 'e', 'ẹ': 'e', 'ẻ': 'e', 'ẽ': 'e', 'ê': 'e', 'ề': 'e', 'ế': 'e', 'ệ': 'e', 'ể': 'e', 'ễ': 'e',

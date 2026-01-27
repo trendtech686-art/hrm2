@@ -14,7 +14,7 @@ import { AlertTriangle, ClipboardList, PlusCircle, ShieldCheck, Wallet, Printer,
 import { Button } from '@/components/ui/button';
 import { usePageHeader } from '@/contexts/page-header-context';
 import { ROUTES } from '@/lib/router';
-import { usePayrollBatchStore } from './payroll-batch-store';
+import { useAllPayrollBatches } from './hooks/use-payroll';
 import { PayrollSummaryCards, type PayrollSummaryCard } from './components/summary-cards';
 import type { PayrollBatch } from '@/lib/payroll-types';
 import { ResponsiveDataTable } from '@/components/data-table/responsive-data-table';
@@ -22,7 +22,7 @@ import { PageFilters } from '@/components/layout/page-filters';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { getBatchColumns } from './components/batch-columns';
 import { BatchCard } from './components/batch-card';
-import { useDefaultPageSize } from '../settings/global-settings-store';
+import { useDefaultPageSize } from '../settings/global/hooks/use-global-settings';
 import {
   usePayrollFilters,
   usePayrollBatchActions,
@@ -51,7 +51,7 @@ const formatCurrency = (value?: number) =>
 
 export function PayrollListPage() {
   const router = useRouter();
-  const { batches } = usePayrollBatchStore();
+  const { data: batches, isLoading: _isLoading } = useAllPayrollBatches();
   const defaultPageSize = useDefaultPageSize();
 
   // Use extracted hooks
@@ -196,7 +196,7 @@ export function PayrollListPage() {
           value={filterState.filters.status}
           onValueChange={(value) => filterState.setFilters(f => ({ ...f, status: value as 'all' | 'draft' | 'reviewed' | 'locked' | 'cancelled' }))}
         >
-          <SelectTrigger className="w-full sm:w-[160px] h-9">
+          <SelectTrigger className="w-full sm:w-40 h-9">
             <SelectValue placeholder="Tất cả trạng thái" />
           </SelectTrigger>
           <SelectContent>
@@ -212,7 +212,7 @@ export function PayrollListPage() {
           value={filterState.filters.monthKey ?? 'all'}
           onValueChange={(value) => filterState.setFilters(f => ({ ...f, monthKey: value === 'all' ? undefined : value }))}
         >
-          <SelectTrigger className="w-full sm:w-[160px] h-9">
+          <SelectTrigger className="w-full sm:w-40 h-9">
             <SelectValue placeholder="Tháng tham chiếu" />
           </SelectTrigger>
           <SelectContent>

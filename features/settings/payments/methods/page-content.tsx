@@ -1,6 +1,6 @@
 import * as React from "react";
 import { Plus, MoreHorizontal } from "lucide-react";
-import { usePaymentMethodStore } from "./store";
+import { usePaymentMethods, usePaymentMethodMutations } from "./hooks/use-payment-methods";
 import type { PaymentMethod } from '@/lib/types/prisma-extended';
 import { PaymentMethodForm, type PaymentMethodFormValues } from "./form";
 import { Button } from "../../../../components/ui/button";
@@ -42,7 +42,12 @@ type PaymentMethodsPageContentProps = {
 };
 
 export function PaymentMethodsPageContent({ isActive, onRegisterActions }: PaymentMethodsPageContentProps) {
-  const { data, add, update, remove, setDefault } = usePaymentMethodStore();
+  const { data: queryData } = usePaymentMethods({});
+  const data = React.useMemo(() => queryData?.data ?? [], [queryData?.data]);
+  const { create, update, remove } = usePaymentMethodMutations({
+    onSuccess: () => toast.success("Thao tác thành công"),
+    onError: (err) => toast.error(err.message)
+  });
   
   const [isFormOpen, setIsFormOpen] = React.useState(false);
   const [editingItem, setEditingItem] = React.useState<PaymentMethod | null>(null);
@@ -65,14 +70,14 @@ export function PaymentMethodsPageContent({ isActive, onRegisterActions }: Payme
   }, []);
   
   const handleToggleStatus = React.useCallback((item: PaymentMethod, isActive: boolean) => {
-    update(item.systemId, { ...item, isActive });
+    update.mutate({ systemId: item.systemId, data: { ...item, isActive } });
     toast.success(isActive ? `Đã kích hoạt "${item.name}"` : `Đã tắt "${item.name}"`);
   }, [update]);
   
   const confirmDelete = () => {
     if (idToDelete) {
       const method = data.find(m => m.systemId === idToDelete);
-      remove(idToDelete);
+      remove.mutate(idToDelete);
       toast.success(`Đã xóa "${method?.name}"`);
     }
     setIsAlertOpen(false);
@@ -81,25 +86,37 @@ export function PaymentMethodsPageContent({ isActive, onRegisterActions }: Payme
   
   const handleToggleDefault = React.useCallback((item: PaymentMethod, checked: boolean) => {
     if (checked) {
-      setDefault(item.systemId);
+      // Set all others to not default, then set this one
+      data.forEach(m => {
+        if (m.systemId !== item.systemId && (m as any).isDefault) {
+          update.mutate({ systemId: m.systemId } as any);
+        }
+      });
+      update.mutate({ systemId: item.systemId } as any);
       toast.success(`Đã đặt "${item.name}" làm mặc định`);
     } else {
       // Find another method to set as default
       const otherMethods = data.filter(m => m.systemId !== item.systemId);
       if (otherMethods.length > 0) {
-        setDefault(otherMethods[0].systemId);
+        (update as any).mutate({ systemId: item.systemId, isDefault: false });
+        (update as any).mutate({ systemId: otherMethods[0].systemId, isDefault: true });
         toast.success(`Đã đặt "${otherMethods[0].name}" làm mặc định`);
       } else {
         toast.error('Phải có ít nhất một phương thức thanh toán mặc định');
       }
     }
-  }, [data, setDefault]);
+  }, [data, update]);
   
   const handleSetDefault = React.useCallback((systemId: SystemId) => {
     const method = data.find(m => m.systemId === systemId);
-    setDefault(systemId);
+    data.forEach(m => {
+      if (m.isDefault && m.systemId !== systemId) {
+        (update as any).mutate({ systemId: m.systemId, isDefault: false });
+      }
+    });
+    (update as any).mutate({ systemId, isDefault: true });
     toast.success(`Đã đặt "${method?.name}" làm mặc định`);
-  }, [data, setDefault]);
+  }, [data, update]);
   
   const normalizeValues = (
     values: PaymentMethodFormValues,
@@ -126,11 +143,9 @@ export function PaymentMethodsPageContent({ isActive, onRegisterActions }: Payme
     try {
       const payload = normalizeValues(values, editingItem?.id);
       if (editingItem) {
-        update(editingItem.systemId, payload);
-        toast.success("Cập nhật thành công");
+        update.mutate({ systemId: editingItem.systemId, data: payload });
       } else {
-        add(payload);
-        toast.success("Thêm mới thành công");
+        create.mutate(payload);
       }
       setIsFormOpen(false);
     } catch (error) {
@@ -162,12 +177,12 @@ export function PaymentMethodsPageContent({ isActive, onRegisterActions }: Payme
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[110px]">Mã</TableHead>
+              <TableHead className="w-27.5">Mã</TableHead>
               <TableHead>Tên & mô tả</TableHead>
-              <TableHead className="w-[220px]">Thông tin tài khoản</TableHead>
-              <TableHead className="w-[100px]">Mặc định</TableHead>
-              <TableHead className="w-[100px]">Trạng thái</TableHead>
-              <TableHead className="w-[80px] text-right">Thao tác</TableHead>
+              <TableHead className="w-55">Thông tin tài khoản</TableHead>
+              <TableHead className="w-25">Mặc định</TableHead>
+              <TableHead className="w-25">Trạng thái</TableHead>
+              <TableHead className="w-20 text-right">Thao tác</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

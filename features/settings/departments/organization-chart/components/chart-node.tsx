@@ -60,12 +60,20 @@ export function EmployeeNode({ data, selected }: NodeProps<EmployeeNodeData>) {
 
     const roleStyle = React.useMemo(() => {
         if (isRoot) return 'border-primary bg-primary/5';
-        if (data.jobTitle?.includes('Giám đốc')) return 'border-blue-500 bg-blue-500/5';
-        if (data.jobTitle?.includes('Trưởng')) return 'border-amber-500 bg-amber-500/5';
+        // Handle both string and object (Prisma relation) formats
+        const jobTitleName = typeof data.jobTitle === 'string' 
+            ? data.jobTitle 
+            : (data.jobTitle as { name?: string })?.name || '';
+        if (jobTitleName.includes('Giám đốc')) return 'border-blue-500 bg-blue-500/5';
+        if (jobTitleName.includes('Trưởng')) return 'border-amber-500 bg-amber-500/5';
         return 'bg-card';
     }, [data.jobTitle, isRoot]);
 
-    const isHighlighted = data.departmentFilter && data.departmentFilter !== 'all' && data.department === data.departmentFilter;
+    // Handle both string and object (Prisma relation) formats for department
+    const departmentId = typeof data.department === 'string' 
+        ? data.department 
+        : (data.department as unknown as { systemId?: string })?.systemId || data.departmentId || '';
+    const isHighlighted = data.departmentFilter && data.departmentFilter !== 'all' && departmentId === data.departmentFilter;
 
     const nodeContent = (
         <div
@@ -109,7 +117,9 @@ export function EmployeeNode({ data, selected }: NodeProps<EmployeeNodeData>) {
             </Avatar>
             <div className="flex-grow min-w-0">
                 <p className="font-semibold text-sm truncate">{data.fullName}</p>
-                <p className={cn("text-xs truncate", "text-muted-foreground")}>{data.jobTitle}</p>
+                <p className={cn("text-xs truncate", "text-muted-foreground")}>
+                    {typeof data.jobTitle === 'string' ? data.jobTitle : (data.jobTitle as { name?: string })?.name || ''}
+                </p>
             </div>
 
             {data.totalHeadcount && data.totalHeadcount > 0 && <HeadcountBadge count={data.totalHeadcount} />}

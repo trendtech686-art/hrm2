@@ -11,7 +11,7 @@ import { useFuseFilter } from "@/hooks/use-fuse-search";
 import { ROUTES } from "@/lib/router";
 
 import type { Complaint } from "./types";
-import { useComplaintStore } from "./store";
+import { useComplaints, useComplaintMutations } from "./hooks/use-complaints";
 import { useAllEmployees } from "../employees/hooks/use-all-employees";
 import { useAllBranches } from "../settings/branches/hooks/use-all-branches";
 import { useStoreInfoData } from "../settings/store-info/hooks/use-store-info";
@@ -49,9 +49,18 @@ function parseColorClass(colorClass: string): React.CSSProperties {
 export function ComplaintsPage() {
   const router = useRouter();
   const { isMobile } = useBreakpoint();
-  const { complaints, searchQuery, setSearchQuery, updateComplaint } = useComplaintStore();
+  const { data: queryData } = useComplaints({ limit: 1000 });
+  const complaints = React.useMemo(() => queryData?.data ?? [], [queryData?.data]);
+  const { update: updateMutation } = useComplaintMutations({
+    onSuccess: () => {
+      toast.success('Đã cập nhật khiếu nại');
+      triggerDataUpdate();
+    },
+    onError: (err) => toast.error(err.message)
+  });
   const { data: employees } = useAllEmployees();
   const { data: branches } = useAllBranches();
+  const [searchQuery, setSearchQuery] = React.useState("");
   const { info: storeInfo } = useStoreInfoData();
   const { printMultiple } = usePrint();
 
@@ -107,13 +116,13 @@ export function ComplaintsPage() {
   const handleView = React.useCallback((id: string) => router.push(`/complaints/${id}`), [router]);
   const handleEdit = React.useCallback((id: string) => router.push(`/complaints/${id}/edit`), [router]);
 
-  const handleFinish = React.useCallback((id: string) => { const c = complaints.find(x => x.systemId === id); if (!c) { toast.error('Không tìm thấy khiếu nại'); return; } setConfirmDialog({ open: true, title: 'Kết thúc khiếu nại', description: 'Bạn có chắc muốn kết thúc?', onConfirm: () => { try { updateComplaint(asSystemId(id), { status: 'resolved', updatedAt: new Date(), resolvedAt: new Date(), timeline: [...c.timeline, { id: asSystemId(`action_${Date.now()}`), actionType: 'resolved', performedBy: asSystemId('Admin'), performedAt: new Date(), note: 'Kết thúc từ Kanban' }] } as Partial<Complaint>); toast.success('Đã kết thúc khiếu nại'); triggerDataUpdate(); } catch (_e) { toast.error('Lỗi kết thúc'); } setConfirmDialog(p => ({ ...p, open: false })); } }); }, [complaints, updateComplaint]);
+  const handleFinish = React.useCallback((id: string) => { const c = complaints.find(x => x.systemId === id); if (!c) { toast.error('Không tìm thấy khiếu nại'); return; } setConfirmDialog({ open: true, title: 'Kết thúc khiếu nại', description: 'Bạn có chắc muốn kết thúc?', onConfirm: () => { updateMutation.mutate({ systemId: id, data: { status: 'resolved', updatedAt: new Date(), resolvedAt: new Date(), timeline: [...c.timeline, { id: asSystemId(`action_${Date.now()}`), actionType: 'resolved', performedBy: asSystemId('Admin'), performedAt: new Date(), note: 'Kết thúc từ Kanban' }] } }); setConfirmDialog(p => ({ ...p, open: false })); } }); }, [complaints, updateMutation]);
 
-  const handleOpen = React.useCallback((id: string) => { const c = complaints.find(x => x.systemId === id); if (!c) { toast.error('Không tìm thấy'); return; } setConfirmDialog({ open: true, title: 'Mở lại khiếu nại', description: 'Bạn có chắc muốn mở lại?', onConfirm: () => { try { updateComplaint(asSystemId(id), { status: 'investigating', endedBy: undefined, endedAt: undefined, resolvedBy: undefined, resolvedAt: undefined, cancelledBy: undefined, cancelledAt: undefined, updatedAt: new Date(), timeline: [...c.timeline, { id: asSystemId(`action_${Date.now()}`), actionType: 'reopened', performedBy: asSystemId('Admin'), performedAt: new Date(), note: 'Mở lại từ Kanban' }] } as Partial<Complaint>); toast.success('Đã mở lại'); triggerDataUpdate(); } catch (_e) { toast.error('Lỗi'); } setConfirmDialog(p => ({ ...p, open: false })); } }); }, [complaints, updateComplaint]);
+  const handleOpen = React.useCallback((id: string) => { const c = complaints.find(x => x.systemId === id); if (!c) { toast.error('Không tìm thấy'); return; } setConfirmDialog({ open: true, title: 'Mở lại khiếu nại', description: 'Bạn có chắc muốn mở lại?', onConfirm: () => { updateMutation.mutate({ systemId: id, data: { status: 'investigating', endedBy: undefined, endedAt: undefined, resolvedBy: undefined, resolvedAt: undefined, cancelledBy: undefined, cancelledAt: undefined, updatedAt: new Date(), timeline: [...c.timeline, { id: asSystemId(`action_${Date.now()}`), actionType: 'reopened', performedBy: asSystemId('Admin'), performedAt: new Date(), note: 'Mở lại từ Kanban' }] } }); setConfirmDialog(p => ({ ...p, open: false })); } }); }, [complaints, updateMutation]);
 
-  const handleCancel = React.useCallback((id: string) => { const c = complaints.find(x => x.systemId === id); if (!c) { toast.error('Không tìm thấy'); return; } setConfirmDialog({ open: true, title: 'Hủy khiếu nại', description: 'Bạn có chắc muốn hủy?', onConfirm: () => { try { updateComplaint(asSystemId(id), { status: 'cancelled', updatedAt: new Date(), cancelledAt: new Date(), timeline: [...c.timeline, { id: asSystemId(`action_${Date.now()}`), actionType: 'cancelled', performedBy: asSystemId('Admin'), performedAt: new Date(), note: 'Hủy từ Kanban' }] } as Partial<Complaint>); toast.success('Đã hủy'); triggerDataUpdate(); } catch (_e) { toast.error('Lỗi'); } setConfirmDialog(p => ({ ...p, open: false })); } }); }, [complaints, updateComplaint]);
+  const handleCancel = React.useCallback((id: string) => { const c = complaints.find(x => x.systemId === id); if (!c) { toast.error('Không tìm thấy'); return; } setConfirmDialog({ open: true, title: 'Hủy khiếu nại', description: 'Bạn có chắc muốn hủy?', onConfirm: () => { updateMutation.mutate({ systemId: id, data: { status: 'cancelled', updatedAt: new Date(), cancelledAt: new Date(), timeline: [...c.timeline, { id: asSystemId(`action_${Date.now()}`), actionType: 'cancelled', performedBy: asSystemId('Admin'), performedAt: new Date(), note: 'Hủy từ Kanban' }] } }); setConfirmDialog(p => ({ ...p, open: false })); } }); }, [complaints, updateMutation]);
 
-  const handleStartInvestigation = React.useCallback((id: string) => { const c = complaints.find(x => x.systemId === id); if (!c) { toast.error('Không tìm thấy'); return; } setConfirmDialog({ open: true, title: 'Bắt đầu xử lý', description: 'Bạn có chắc muốn bắt đầu xử lý?', onConfirm: () => { try { updateComplaint(asSystemId(id), { status: 'investigating', updatedAt: new Date(), timeline: [...c.timeline, { id: asSystemId(`action_${Date.now()}`), actionType: 'investigating', performedBy: asSystemId('Admin'), performedAt: new Date(), note: 'Bắt đầu xử lý' }] } as Partial<Complaint>); toast.success('Đã bắt đầu xử lý'); triggerDataUpdate(); } catch (_e) { toast.error('Lỗi'); } setConfirmDialog(p => ({ ...p, open: false })); } }); }, [complaints, updateComplaint]);
+  const handleStartInvestigation = React.useCallback((id: string) => { const c = complaints.find(x => x.systemId === id); if (!c) { toast.error('Không tìm thấy'); return; } setConfirmDialog({ open: true, title: 'Bắt đầu xử lý', description: 'Bạn có chắc muốn bắt đầu xử lý?', onConfirm: () => { updateMutation.mutate({ systemId: id, data: { status: 'investigating', updatedAt: new Date(), timeline: [...c.timeline, { id: asSystemId(`action_${Date.now()}`), actionType: 'investigated' as any, performedBy: asSystemId('Admin'), performedAt: new Date(), note: 'Bắt đầu xử lý' }] } }); setConfirmDialog(p => ({ ...p, open: false })); } }); }, [complaints, updateMutation]);
 
   const handleGetLink = React.useCallback((id: string) => { const c = complaints.find(x => x.systemId === id); if (!c) { toast.error('Không tìm thấy'); return; } if (!isTrackingEnabled()) { toast.error('Tracking chưa được bật'); return; } try { const url = generateTrackingUrl(c); const code = getTrackingCode(c.id); navigator.clipboard.writeText(url); toast.success(<div className="flex flex-col gap-1"><div className="font-semibold">Đã copy link tracking</div><div className="text-sm text-muted-foreground">Mã: {code}</div></div>, { duration: 5000 }); } catch (_e) { toast.error('Không thể copy'); } }, [complaints]);
 

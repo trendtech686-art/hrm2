@@ -5,7 +5,7 @@
  */
 
 import { useState, useCallback } from 'react';
-import { useWarrantyStore } from '../store';
+import { updateWarranty } from '../api/warranties-api';
 import type { WarrantyTicket } from '../types';
 import { notifyWarrantyReminder } from '../notification-utils';
 import { useWarrantyReminderTemplates, DEFAULT_WARRANTY_REMINDER_TEMPLATES } from '../../../hooks/use-reminder-settings';
@@ -114,9 +114,20 @@ export function useWarrantyReminders() {
         status: 'sent',
       };
 
-      // Store reminder in ticket history
-      const { addHistory } = useWarrantyStore.getState();
-      addHistory(ticket.systemId, 'Gửi nhắc nhở', 'current_user', message);
+      // Store reminder via API update
+      await updateWarranty(ticket.systemId, {
+        history: [
+          ...(ticket.history || []),
+          {
+            systemId: `WH_${Date.now()}_${Math.random().toString(36).substr(2, 9)}` as any,
+            action: 'reminder_sent',
+            actionLabel: 'Gửi nhắc nhở',
+            performedBy: 'current_user',
+            performedAt: new Date().toISOString(),
+            note: message,
+          }
+        ]
+      });
 
       // Send notification
       notifyWarrantyReminder(ticket.id, message);

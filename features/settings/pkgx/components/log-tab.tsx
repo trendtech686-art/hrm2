@@ -7,14 +7,14 @@ import { ResponsiveDataTable } from '../../../../components/data-table/responsiv
 import { PageFilters } from '../../../../components/layout/page-filters';
 import type { ColumnDef } from '../../../../components/data-table/types';
 import { Search, CheckCircle2, XCircle, AlertCircle, RefreshCw, Globe, Link, Unlink, Save, Settings, DollarSign, Package, FileText, Info, User, Image } from 'lucide-react';
-import { usePkgxSettingsStore } from '../store';
+import { usePkgxSettings } from '../hooks/use-pkgx-settings';
 import type { PkgxSyncLog } from '../types';
 
 // Extended type with systemId for ResponsiveDataTable
 type PkgxSyncLogWithSystemId = PkgxSyncLog & { systemId: string };
 
 export function LogTab() {
-  const { settings } = usePkgxSettingsStore();
+  const { data: settings } = usePkgxSettings();
   
   const [searchTerm, setSearchTerm] = React.useState('');
   const [statusFilter, setStatusFilter] = React.useState<'all' | 'success' | 'error' | 'partial' | 'info'>('all');
@@ -29,11 +29,11 @@ export function LogTab() {
   
   // Convert logs to include systemId
   const allLogs = React.useMemo((): PkgxSyncLogWithSystemId[] => {
-    return settings.logs.map(log => ({
+    return (settings?.logs ?? []).map(log => ({
       ...log,
       systemId: log.id,
     }));
-  }, [settings.logs]);
+  }, [settings?.logs]);
   
   const filteredLogs = React.useMemo(() => {
     let logs = allLogs;

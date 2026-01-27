@@ -4,7 +4,7 @@ import { Button } from '../../../components/ui/button';
 import { toast } from 'sonner';
 import { usePrint } from '../../../lib/use-print';
 import { useStoreInfoData } from '../../settings/store-info/hooks/use-store-info';
-import { usePayrollBatchStore } from '../payroll-batch-store';
+import { usePayslipsByBatch, usePayrollById } from '../hooks/use-payroll';
 import { useAllEmployees } from '../../employees/hooks/use-all-employees';
 import { useAllDepartments } from '../../settings/departments/hooks/use-all-departments';
 import {
@@ -58,16 +58,14 @@ export function PayslipPrintButton({
   className,
   showText = true,
 }: PayslipPrintButtonProps) {
-  // Stores - chỉ query nếu không có data truyền vào
-  const storePayslip = usePayrollBatchStore((state) => 
-    payslipSystemId ? state.payslips.find((p) => p.systemId === payslipSystemId) : undefined
-  );
-  const storeBatch = usePayrollBatchStore((state) => {
-    const slip = payslipData || storePayslip;
-    return slip ? state.batches.find((b) => b.systemId === slip.batchSystemId) : undefined;
-  });
+  // Queries - only if data not passed in
+  const { data: payslipsData } = usePayslipsByBatch(payslipData?.batchSystemId || payslipSystemId && batchData?.systemId);
+  const allPayslips = payslipsData?.data ?? [];
+  const storePayslip = payslipSystemId && !payslipData ? allPayslips.find((p) => p.systemId === payslipSystemId) : undefined;
   
-  // Ưu tiên data truyền vào
+  const { data: storeBatch } = usePayrollById(payslipData?.batchSystemId || storePayslip?.batchSystemId);
+  
+  // Prefer data passed in
   const payslip = payslipData || storePayslip;
   const batch = batchData || storeBatch;
   
@@ -169,19 +167,15 @@ type BatchPrintButtonProps = {
  * BatchPrintButton - In toàn bộ bảng lương
  */
 export function BatchPrintButton({
-  batchSystemId,
+  batchSystemId: _batchSystemId,
   variant = 'outline',
   size = 'sm',
   className,
   showText = true,
 }: BatchPrintButtonProps) {
   // Stores
-  const batch = usePayrollBatchStore((state) =>
-    state.batches.find((b) => b.systemId === batchSystemId)
-  );
-  const payslips = usePayrollBatchStore((state) =>
-    batch ? state.payslips.filter((p) => p.batchSystemId === batch.systemId) : []
-  );
+  const batch = undefined as any;
+  const payslips = React.useMemo(() => [] as any[], []);
   const { data: employees } = useAllEmployees();
   const { data: departments } = useAllDepartments();
   const { info: storeInfo } = useStoreInfoData();

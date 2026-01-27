@@ -1,0 +1,11 @@
+model SalesChannel {
+  systemId  String   @id @default(cuid())
+  id        String   @unique
+  name      String
+  isApplied Boolean  @default(false)
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("sales_channels")
+}

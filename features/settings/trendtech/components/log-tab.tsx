@@ -5,15 +5,16 @@ import { Badge } from '../../../../components/ui/badge';
 import { ScrollArea } from '../../../../components/ui/scroll-area';
 import { Trash2, CheckCircle2, XCircle, AlertCircle, Info } from 'lucide-react';
 import { toast } from 'sonner';
-import { useTrendtechSettingsStore } from '../store';
+import { useTrendtechSettings, useTrendtechLogMutations } from '../hooks/use-trendtech-settings';
 import type { TrendtechSyncLog } from '../../../../lib/trendtech/types';
 
 export function LogTab() {
-  const { settings, clearLogs } = useTrendtechSettingsStore();
-  const logs = settings.logs;
+  const { data: settings } = useTrendtechSettings();
+  const { clearLogs } = useTrendtechLogMutations();
+  const logs = settings?.logs ?? [];
 
   const handleClearLogs = () => {
-    clearLogs();
+    clearLogs.mutate();
     toast.success('Đã xóa tất cả logs');
   };
 

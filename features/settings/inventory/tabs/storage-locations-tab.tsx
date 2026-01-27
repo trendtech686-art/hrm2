@@ -5,7 +5,7 @@ import { Plus } from "lucide-react";
 import { asBusinessId, type SystemId } from "@/lib/id-types";
 import { toast } from "sonner";
 
-import { useStorageLocationStore } from "../storage-location-store";
+import { useStorageLocations, useStorageLocationMutations } from "../hooks/use-storage-locations";
 import { StorageLocationFormDialog, type StorageLocationFormValues } from "../storage-location-form-dialog";
 import { getStorageLocationColumns } from "../storage-location-columns";
 import type { StorageLocation } from "../storage-location-types";
@@ -20,7 +20,9 @@ import { SettingsActionButton } from "@/components/settings/SettingsActionButton
 type TabContentProps = { isActive: boolean; onRegisterActions: RegisterTabActions };
 
 export function StorageLocationsTabContent({ isActive, onRegisterActions }: TabContentProps) {
-  const { data, add, update, remove } = useStorageLocationStore();
+  const { data: queryData } = useStorageLocations({ limit: 1000 });
+  const data = React.useMemo(() => queryData?.data ?? [], [queryData?.data]);
+  const { create, update, remove } = useStorageLocationMutations();
   const [isFormOpen, setIsFormOpen] = React.useState(false);
   const [editingLocation, setEditingLocation] = React.useState<StorageLocation | null>(null);
   const [isAlertOpen, setIsAlertOpen] = React.useState(false);
@@ -34,24 +36,27 @@ export function StorageLocationsTabContent({ isActive, onRegisterActions }: TabC
   const handleDeleteRequest = React.useCallback((systemId: SystemId) => { setIdToDelete(systemId); setIsAlertOpen(true); }, []);
 
   const handleToggleDefault = React.useCallback((loc: StorageLocation) => {
-    data.forEach(l => { if (l.isDefault && l.systemId !== loc.systemId && !l.isDeleted) update(l.systemId, { ...l, isDefault: false }); });
-    update(loc.systemId, { ...loc, isDefault: !loc.isDefault });
+    data.forEach(l => { if ((l as any).isDefault && l.systemId !== loc.systemId && !(l as any).isDeleted) (update as any).mutate({ systemId: l.systemId, isDefault: false }); });
+    (update as any).mutate({ systemId: loc.systemId, isDefault: !(loc as any).isDefault });
     toast.success(loc.isDefault ? 'Đã bỏ mặc định' : 'Đã đặt làm mặc định');
   }, [data, update]);
 
-  const handleToggleActive = React.useCallback((loc: StorageLocation) => { const na = !loc.isActive; update(loc.systemId, { ...loc, isActive: na }); toast.success(na ? 'Đã kích hoạt' : 'Đã tắt'); }, [update]);
-  const confirmDelete = () => { if (idToDelete) { remove(idToDelete); toast.success('Đã xóa điểm lưu kho'); } setIsAlertOpen(false); setIdToDelete(null); };
+  const handleToggleActive = React.useCallback((loc: StorageLocation) => { const na = !loc.isActive; update.mutate({ systemId: loc.systemId, data: { isActive: na } }, { onSuccess: () => toast.success(na ? 'Đã kích hoạt' : 'Đã tắt'), onError: (err) => toast.error(err.message) }); }, [update]);
+  const confirmDelete = () => { if (idToDelete) { remove.mutate(idToDelete, { onSuccess: () => toast.success('Đã xóa điểm lưu kho'), onError: (err) => toast.error(err.message) }); } setIsAlertOpen(false); setIdToDelete(null); };
 
   const handleFormSubmit = (values: StorageLocationFormValues) => {
     const payload = { ...values, id: asBusinessId(values.id), isActive: values.isActive ?? true };
-    if (editingLocation) { update(editingLocation.systemId, payload); toast.success('Đã cập nhật điểm lưu kho'); }
-    else { add({ ...payload, isActive: values.isActive ?? true, isDeleted: false }); toast.success('Đã thêm điểm lưu kho mới'); }
+    if (editingLocation) { update.mutate({ systemId: editingLocation.systemId, data: payload }, { onSuccess: () => toast.success('Đã cập nhật điểm lưu kho'), onError: (err) => toast.error(err.message) }); }
+    else { create.mutate({ ...payload, isActive: values.isActive ?? true, isDeleted: false }, { onSuccess: () => toast.success('Đã thêm điểm lưu kho mới'), onError: (err) => toast.error(err.message) }); }
     setIsFormOpen(false);
   };
 
   const columns = React.useMemo(() => getStorageLocationColumns({ onEdit: handleEdit, onDelete: handleDeleteRequest, onToggleDefault: handleToggleDefault, onToggleActive: handleToggleActive }), [handleDeleteRequest, handleEdit, handleToggleDefault, handleToggleActive]);
 
-  React.useEffect(() => { if (!isActive) return; onRegisterActions([<SettingsActionButton key="add-storage-location" onClick={handleAddNew}><Plus className="mr-2 h-4 w-4" /> Thêm điểm lưu kho</SettingsActionButton>]); }, [handleAddNew, isActive, onRegisterActions]);
+  const onRegisterActionsRef = React.useRef(onRegisterActions);
+  React.useEffect(() => { onRegisterActionsRef.current = onRegisterActions; }, [onRegisterActions]);
+
+  React.useEffect(() => { if (!isActive) return; onRegisterActionsRef.current([<SettingsActionButton key="add-storage-location" onClick={handleAddNew}><Plus className="mr-2 h-4 w-4" /> Thêm điểm lưu kho</SettingsActionButton>]); }, [handleAddNew, isActive]);
 
   return (
     <>

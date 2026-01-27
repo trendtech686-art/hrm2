@@ -4,7 +4,7 @@ import * as React from "react";
 import { Save } from "lucide-react";
 import { toast } from "sonner";
 
-import { useProductLogisticsSettingsStore } from "../logistics-settings-store";
+import { useLogisticsSettingsData, useLogisticsSettingsMutations } from "../hooks/use-logistics-settings";
 import type { ProductLogisticsSettings } from "../types";
 import type { RegisterTabActions } from "../../use-tab-action-registry";
 
@@ -13,17 +13,27 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SettingsActionButton } from "@/components/settings/SettingsActionButton";
+import { Button } from "@/components/ui/button";
 
 type TabContentProps = { isActive: boolean; onRegisterActions: RegisterTabActions };
 
-export function LogisticsSettingsTabContent({ isActive, onRegisterActions }: TabContentProps) {
-  const { settings, save } = useProductLogisticsSettingsStore();
+export function LogisticsSettingsTabContent({ isActive }: TabContentProps) {
+  const { settings } = useLogisticsSettingsData();
+  const { save } = useLogisticsSettingsMutations({
+    onSuccess: () => toast.success('Đã lưu cài đặt khối lượng & kích thước'),
+    onError: () => toast.error('Không thể lưu cài đặt khối lượng'),
+  });
   const [localSettings, setLocalSettings] = React.useState<ProductLogisticsSettings>(settings);
   const [isSaving, setIsSaving] = React.useState(false);
 
   const localSettingsRef = React.useRef(localSettings);
   React.useEffect(() => { localSettingsRef.current = localSettings; }, [localSettings]);
-  React.useEffect(() => { setLocalSettings(settings); }, [settings]);
+  React.useEffect(() => {
+    const current = localSettingsRef.current;
+    if (JSON.stringify(current) !== JSON.stringify(settings)) {
+      setLocalSettings(settings);
+    }
+  }, [settings]);
 
   const hasChanges = React.useMemo(() => JSON.stringify(localSettings) !== JSON.stringify(settings), [localSettings, settings]);
 
@@ -31,14 +41,14 @@ export function LogisticsSettingsTabContent({ isActive, onRegisterActions }: Tab
     setLocalSettings(prev => ({ ...prev, [presetKey]: { ...prev[presetKey], [field]: value } }));
   };
 
-  const handleSave = React.useCallback(() => {
+  const handleSave = React.useCallback(async () => {
     setIsSaving(true);
-    try { save(localSettingsRef.current); toast.success('Đã lưu cài đặt khối lượng & kích thước'); }
-    catch (_error) { toast.error('Không thể lưu cài đặt khối lượng'); }
-    finally { setIsSaving(false); }
+    try { 
+      await save.mutateAsync(localSettingsRef.current);
+    } finally { 
+      setIsSaving(false); 
+    }
   }, [save]);
-
-  React.useEffect(() => { if (!isActive) return; onRegisterActions([<SettingsActionButton key="save-logistics" onClick={handleSave} disabled={!hasChanges || isSaving}><Save className="mr-2 h-4 w-4" />{isSaving ? 'Đang lưu...' : 'Lưu cài đặt'}</SettingsActionButton>]); }, [isActive, hasChanges, isSaving, handleSave, onRegisterActions]);
 
   const renderPreset = (title: string, presetKey: keyof ProductLogisticsSettings, description: string) => (
     <Card>
@@ -55,6 +65,11 @@ export function LogisticsSettingsTabContent({ isActive, onRegisterActions }: Tab
 
   return (
     <div className="space-y-6">
+      <div className="flex justify-end">
+        <Button onClick={handleSave} disabled={!hasChanges || isSaving} variant="default">
+          <Save className="mr-2 h-4 w-4" />{isSaving ? 'Đang lưu...' : 'Lưu cài đặt'}
+        </Button>
+      </div>
       {renderPreset('Sản phẩm thông thường', 'physicalDefaults', 'Áp dụng cho hàng hóa vật lý, dịch vụ đóng gói sẵn')}
       {renderPreset('Combo sản phẩm', 'comboDefaults', 'Áp dụng khi tạo sản phẩm combo mới')}
     </div>

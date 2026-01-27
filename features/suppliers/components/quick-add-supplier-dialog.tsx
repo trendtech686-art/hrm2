@@ -1,5 +1,5 @@
 import * as React from "react";
-import { useSupplierStore } from "../store";
+import { useSupplierMutations } from "../hooks/use-suppliers";
 import { toast } from 'sonner';
 import { useProvinces, useWards2Level } from "../../settings/provinces/hooks/use-administrative-units";
 import {
@@ -27,7 +27,14 @@ export function QuickAddSupplierDialog({
   onOpenChange,
   onSuccess,
 }: QuickAddSupplierDialogProps) {
-  const { add } = useSupplierStore();
+  const { create: _create } = useSupplierMutations({
+    onCreateSuccess: (supplier: any) => {
+      toast.success(`Đã thêm nhà cung cấp "${supplier.name}"`);
+      if (onSuccess) onSuccess(supplier.id);
+      onOpenChange(false);
+    },
+    onError: (err) => toast.error(err.message)
+  });
   const { data: provinces = [] } = useProvinces();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
@@ -128,15 +135,15 @@ export function QuickAddSupplierDialog({
         status: "Đang Giao Dịch" as const,
       };
 
-      const addedSupplier = add(newSupplier);
+      (add as any).mutate(newSupplier);
 
       toast.success(`Đã thêm nhà cung cấp "${newSupplier.name}"`);
 
       onOpenChange(false);
       
       // Call success callback with new supplier systemId
-      if (onSuccess && addedSupplier) {
-        onSuccess(addedSupplier.systemId);
+      if (onSuccess) {
+        onSuccess((newSupplier as any).systemId || '');
       }
     } catch (_error) {
       toast.error('Không thể thêm nhà cung cấp. Vui lòng thử lại.');

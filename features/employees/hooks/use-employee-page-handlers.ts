@@ -5,8 +5,8 @@
 import React from 'react';
 import { toast } from 'sonner';
 import type { Employee } from '@/lib/types/prisma-extended';
-import { asSystemId, type SystemId } from '@/lib/id-types';
-import { useEmployeeStore } from '../store';
+import { type SystemId } from '@/lib/id-types';
+import { useEmployeeMutations, useDeletedEmployees, useTrashMutations } from './use-employees';
 import { useActiveEmployees } from './use-all-employees';
 
 export interface DeleteEmployeeState {
@@ -24,19 +24,24 @@ const initialDeleteState: DeleteEmployeeState = {
 };
 
 export function useEmployeeDeleteWorkflow() {
-  const { data: employees, remove, restore, getDeleted } = useEmployeeStore();
+  const { data: activeEmployees } = useActiveEmployees();
+  const { data: deletedEmployeesData } = useDeletedEmployees();
+  const { remove } = useEmployeeMutations({
+    onDeleteSuccess: () => {},
+    onError: (error) => toast.error("Có lỗi: " + error.message),
+  });
+  const { restore: restoreMutation } = useTrashMutations();
   const [deleteState, setDeleteState] = React.useState<DeleteEmployeeState>(initialDeleteState);
   const [isBulkDeleteOpen, setIsBulkDeleteOpen] = React.useState(false);
 
   // Calculate deleted count reactively
   const deletedCount = React.useMemo(() => 
-    employees.filter((e: { isDeleted?: boolean }) => e.isDeleted).length, 
-    [employees]
+    (deletedEmployeesData || []).length, 
+    [deletedEmployeesData]
   );
 
-  // Get deleted employees - employees changes will trigger re-render which reruns getDeleted
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const deletedEmployees = React.useMemo(() => getDeleted(), [getDeleted, employees]);
+  // Get deleted employees
+  const deletedEmployees = React.useMemo(() => deletedEmployeesData || [], [deletedEmployeesData]);
 
   const handleDelete = React.useCallback((systemId: string) => {
     setDeleteState({
@@ -49,26 +54,28 @@ export function useEmployeeDeleteWorkflow() {
     setDeleteState(initialDeleteState);
   }, []);
 
-  // ✅ Use ref to keep restore function stable
-  const restoreRef = React.useRef(restore);
-  restoreRef.current = restore;
-
   const handleRestore = React.useCallback((systemId: string) => {
-    restoreRef.current(asSystemId(systemId));
-    toast.success("Đã khôi phục nhân viên");
-  }, []);
+    restoreMutation.mutate(systemId, {
+      onSuccess: () => toast.success("Đã khôi phục nhân viên"),
+      onError: () => toast.error("Có lỗi khi khôi phục nhân viên"),
+    });
+  }, [restoreMutation]);
 
   const confirmDelete = React.useCallback(() => {
     const { idToDelete } = deleteState;
     if (idToDelete) {
-      const employee = employees.find(e => e.systemId === idToDelete);
-      remove(asSystemId(idToDelete));
-      toast.success("Đã xóa nhân viên vào thùng rác", {
-        description: `Nhân viên ${employee?.fullName || ''} đã được chuyển vào thùng rác.`,
+      const employee = activeEmployees.find(e => e.systemId === idToDelete);
+      remove.mutate(idToDelete, {
+        onSuccess: () => {
+          toast.success("Đã xóa nhân viên vào thùng rác", {
+            description: `Nhân viên ${employee?.fullName || ''} đã được chuyển vào thùng rác.`,
+          });
+        },
+        onError: () => toast.error("Có lỗi khi xóa nhân viên"),
       });
     }
     setDeleteState(initialDeleteState);
-  }, [deleteState, employees, remove]);
+  }, [deleteState, activeEmployees, remove]);
 
   const openBulkDeleteDialog = React.useCallback(() => {
     setIsBulkDeleteOpen(true);
@@ -79,10 +86,13 @@ export function useEmployeeDeleteWorkflow() {
   }, []);
 
   const confirmBulkDelete = React.useCallback((selectedIds: string[]) => {
-    selectedIds.forEach(systemId => remove(asSystemId(systemId)));
-    toast.success("Đã xóa nhân viên vào thùng rác", {
-      description: `Đã chuyển ${selectedIds.length} nhân viên vào thùng rác.`,
-    });
+    Promise.all(selectedIds.map(systemId => remove.mutateAsync(systemId)))
+      .then(() => {
+        toast.success("Đã xóa nhân viên vào thùng rác", {
+          description: `Đã chuyển ${selectedIds.length} nhân viên vào thùng rác.`,
+        });
+      })
+      .catch(() => toast.error("Có lỗi khi xóa nhân viên"));
     setIsBulkDeleteOpen(false);
   }, [remove]);
 
@@ -102,31 +112,36 @@ export function useEmployeeDeleteWorkflow() {
 }
 
 export function useEmployeeBulkActions() {
-  const { update } = useEmployeeStore();
+  const { update } = useEmployeeMutations({
+    onUpdateSuccess: () => {},
+    onError: (error) => toast.error("Có lỗi: " + error.message),
+  });
 
   const bulkActions = React.useMemo(() => [
     {
       label: "Đang làm việc",
       onSelect: (selectedRows: Employee[], clearSelection: () => void) => {
-        selectedRows.forEach(emp => {
-          update(emp.systemId, { ...emp, employmentStatus: "Đang làm việc" });
-        });
-        toast.success("Đã cập nhật trạng thái", {
-          description: `${selectedRows.length} nhân viên đã chuyển sang "Đang làm việc"`,
-        });
-        clearSelection();
+        Promise.all(selectedRows.map(emp =>
+          update.mutateAsync({ systemId: emp.systemId, employmentStatus: "Đang làm việc" } as any)
+        )).then(() => {
+          toast.success("Đã cập nhật trạng thái", {
+            description: `${selectedRows.length} nhân viên đã chuyển sang "Đang làm việc"`,
+          });
+          clearSelection();
+        }).catch(() => toast.error("Có lỗi khi cập nhật"));
       }
     },
     {
       label: "Nghỉ việc",
       onSelect: (selectedRows: Employee[], clearSelection: () => void) => {
-        selectedRows.forEach(emp => {
-          update(emp.systemId, { ...emp, employmentStatus: "Đã nghỉ việc" });
-        });
-        toast.success("Đã cập nhật trạng thái", {
-          description: `${selectedRows.length} nhân viên đã chuyển sang "Đã nghỉ việc"`,
-        });
-        clearSelection();
+        Promise.all(selectedRows.map(emp =>
+          update.mutateAsync({ systemId: emp.systemId, employmentStatus: "Đã nghỉ việc" } as any)
+        )).then(() => {
+          toast.success("Đã cập nhật trạng thái", {
+            description: `${selectedRows.length} nhân viên đã chuyển sang "Đã nghỉ việc"`,
+          });
+          clearSelection();
+        }).catch(() => toast.error("Có lỗi khi cập nhật"));
       }
     }
   ], [update]);
@@ -136,7 +151,11 @@ export function useEmployeeBulkActions() {
 
 export function useEmployeeImportHandler() {
   const { data: activeEmployees } = useActiveEmployees();
-  const { update, addMultiple } = useEmployeeStore();
+  const { update, create } = useEmployeeMutations({
+    onCreateSuccess: () => {},
+    onUpdateSuccess: () => {},
+    onError: () => {},
+  });
 
   const handleImport = React.useCallback(async (
     data: Partial<Employee>[],
@@ -163,7 +182,7 @@ export function useEmployeeImportHandler() {
             continue;
           }
           // Update existing
-          update(existingEmployee.systemId, { ...existingEmployee, ...item } as Employee);
+          await update.mutateAsync({ systemId: existingEmployee.systemId, ...item } as any);
           updated++;
         } else {
           if (mode === 'update-only') {
@@ -173,7 +192,7 @@ export function useEmployeeImportHandler() {
           }
           // Insert new - remove systemId if present
           const { systemId: _systemId, ...newEmployeeData } = item as Partial<Employee> & { systemId?: string };
-          addMultiple([newEmployeeData as Omit<Employee, 'systemId'>]);
+          await create.mutateAsync(newEmployeeData as Omit<Employee, 'systemId'>);
           inserted++;
         }
       } catch (error) {
@@ -190,7 +209,7 @@ export function useEmployeeImportHandler() {
       skipped,
       errors,
     };
-  }, [activeEmployees, update, addMultiple]);
+  }, [activeEmployees, update, create]);
 
   return { handleImport };
 }

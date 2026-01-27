@@ -21,6 +21,9 @@ import {
   searchEmployees,
   fetchEmployeesByDepartment,
   fetchEmployeesByBranch,
+  fetchDeletedEmployees,
+  restoreEmployee,
+  permanentDeleteEmployee,
   type EmployeesParams,
 } from '../api/employees-api';
 
@@ -156,14 +159,18 @@ export function useEmployeeMutations(options: UseEmployeeMutationsOptions = {}) 
       // Snapshot previous value for rollback
       const previousLists = queryClient.getQueriesData({ queryKey: employeeKeys.lists() });
       
-      // Optimistically update all list queries
+      // Optimistically update all list queries - mark as deleted
       queryClient.setQueriesData(
         { queryKey: employeeKeys.lists() },
-        (old: { data?: Array<{ systemId: string }>, pagination?: unknown } | undefined) => {
+        (old: { data?: Array<{ systemId: string; isDeleted?: boolean }>, pagination?: unknown } | undefined) => {
           if (!old?.data) return old;
           return {
             ...old,
-            data: old.data.filter(item => item.systemId !== systemId),
+            data: old.data.map(item => 
+              item.systemId === systemId 
+                ? { ...item, isDeleted: true, deletedAt: new Date().toISOString() }
+                : item
+            ),
           };
         }
       );
@@ -218,6 +225,65 @@ export function usePrefetchEmployee() {
       queryFn: () => fetchEmployee(id),
       staleTime: 60_000,
     });
+  };
+}
+
+/**
+ * Hook for fetching deleted employees (trash)
+ */
+export function useDeletedEmployees() {
+  return useQuery({
+    queryKey: [...employeeKeys.all, 'deleted'] as const,
+    queryFn: fetchDeletedEmployees,
+    staleTime: 60_000,
+  });
+}
+
+/**
+ * Hook for trash mutations (restore/permanent delete)
+ */
+export function useTrashMutations() {
+  const queryClient = useQueryClient();
+  
+  const restore = useMutation({
+    mutationFn: restoreEmployee,
+    onSuccess: () => {
+      // Invalidate both active and deleted lists
+      queryClient.invalidateQueries({ queryKey: employeeKeys.all });
+    },
+  });
+  
+  const permanentDelete = useMutation({
+    mutationFn: permanentDeleteEmployee,
+    onMutate: async (systemId) => {
+      // Optimistic update - remove from deleted list
+      await queryClient.cancelQueries({ queryKey: [...employeeKeys.all, 'deleted'] });
+      
+      const previousDeleted = queryClient.getQueryData([...employeeKeys.all, 'deleted']);
+      
+      queryClient.setQueryData(
+        [...employeeKeys.all, 'deleted'],
+        (old: Array<{ systemId: string }> | undefined) => 
+          old?.filter(item => item.systemId !== systemId) || []
+      );
+      
+      return { previousDeleted };
+    },
+    onError: (_err, _systemId, context) => {
+      if (context?.previousDeleted) {
+        queryClient.setQueryData([...employeeKeys.all, 'deleted'], context.previousDeleted);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: employeeKeys.all });
+    },
+  });
+  
+  return {
+    restore,
+    permanentDelete,
+    isRestoring: restore.isPending,
+    isDeleting: permanentDelete.isPending,
   };
 }
 

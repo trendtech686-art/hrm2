@@ -6,7 +6,7 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { isBefore, isSameDay, differenceInMilliseconds } from 'date-fns';
-import { usePaymentStore } from '../store';
+import { usePayments, usePaymentMutations } from './use-payments';
 import { useAllReceipts } from '@/features/receipts/hooks/use-all-receipts';
 import { useAllCashAccounts } from '@/features/cashbook/hooks/use-all-cash-accounts';
 import { useAllBranches } from '@/features/settings/branches/hooks/use-all-branches';
@@ -85,7 +85,10 @@ export function usePaymentFilters() {
  */
 export function usePaymentActions() {
   const router = useRouter();
-  const { cancel } = usePaymentStore();
+  const { cancel: cancelMutation } = usePaymentMutations({
+    onCancelSuccess: () => toast.success("Đã hủy phiếu chi"),
+    onError: (error) => toast.error(`Lỗi: ${error.message}`),
+  });
   const { data: branches } = useAllBranches();
   const { info: storeInfo } = useStoreInfoData();
   const { print, printMultiple } = usePrint();
@@ -126,18 +129,17 @@ export function usePaymentActions() {
 
   const confirmCancel = React.useCallback(() => { 
     if (idToDelete) {
-      cancel(idToDelete);
-      toast.success("Đã hủy phiếu chi");
+      cancelMutation.mutate({ systemId: idToDelete });
     }
     setIsAlertOpen(false); 
-  }, [idToDelete, cancel]);
+  }, [idToDelete, cancelMutation]);
 
   const confirmBulkCancel = React.useCallback((rowSelection: Record<string, boolean>) => {
     const idsToCancel = Object.keys(rowSelection).map(id => asSystemId(id));
-    idsToCancel.forEach(id => cancel(id));
+    idsToCancel.forEach(id => cancelMutation.mutate({ systemId: id }));
     toast.success(`Đã hủy ${idsToCancel.length} phiếu chi`);
     setIsBulkDeleteAlertOpen(false);
-  }, [cancel]);
+  }, [cancelMutation]);
 
   const handleBulkPrint = React.useCallback((selectedPayments: Payment[]) => {
     if (selectedPayments.length === 0) {
@@ -202,7 +204,8 @@ export function usePaymentRunningBalance(
   branchFilter: 'all' | SystemId,
   dateRange: [string | undefined, string | undefined] | undefined
 ) {
-  const { data: payments } = usePaymentStore();
+  const { data: paymentsResponse } = usePayments({ limit: 1000 });
+  const payments = React.useMemo(() => paymentsResponse?.data ?? [], [paymentsResponse?.data]);
   const { data: receipts } = useAllReceipts();
   const { accounts } = useAllCashAccounts();
 

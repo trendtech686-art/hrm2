@@ -13,8 +13,9 @@ export async function GET(request: Request) {
     const { page, limit, skip } = parsePagination(searchParams)
     const search = searchParams.get('search') || ''
     const status = searchParams.get('status')
-    const departmentId = searchParams.get('departmentId')
-    const branchId = searchParams.get('branchId')
+    // Support both naming conventions, prefer *SystemId
+    const departmentSystemId = searchParams.get('departmentSystemId') || searchParams.get('departmentId')
+    const branchSystemId = searchParams.get('branchSystemId') || searchParams.get('branchId')
 
     // Build where clause
     const where: Prisma.EmployeeWhereInput = {
@@ -34,12 +35,12 @@ export async function GET(request: Request) {
       where.employmentStatus = status as EmploymentStatus
     }
 
-    if (departmentId) {
-      where.departmentId = departmentId
+    if (departmentSystemId) {
+      where.departmentId = departmentSystemId // Prisma field is departmentId but value is systemId
     }
 
-    if (branchId) {
-      where.branchId = branchId
+    if (branchSystemId) {
+      where.branchId = branchSystemId // Prisma field is branchId but value is systemId
     }
 
     const [employees, total] = await Promise.all([
@@ -52,6 +53,12 @@ export async function GET(request: Request) {
           department: true,
           branch: true,
           jobTitle: true,
+          manager: {
+            select: {
+              systemId: true,
+              fullName: true,
+            }
+          },
         },
       }),
       prisma.employee.count({ where }),
@@ -102,6 +109,7 @@ export async function POST(request: Request) {
         avatarUrl: body.avatarUrl,
         permanentAddress: body.permanentAddress,
         temporaryAddress: body.temporaryAddress,
+        // Use *Id fields which contain systemId values
         department: body.departmentId ? { connect: { systemId: body.departmentId } } : undefined,
         jobTitle: body.jobTitleId ? { connect: { systemId: body.jobTitleId } } : undefined,
         branch: body.branchId ? { connect: { systemId: body.branchId } } : undefined,

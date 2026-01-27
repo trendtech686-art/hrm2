@@ -54,7 +54,6 @@ import {
 } from '../../../components/ui/dropdown-menu';
 import { ConfirmDialog } from '../../../components/ui/confirm-dialog';
 import { useSettingsPageHeader } from '../use-settings-page-header';
-import { createSettingsConfigStore } from '../settings-config-store';
 import { useTabActionRegistry } from '../use-tab-action-registry';
 
 // ============================================
@@ -120,7 +119,7 @@ const defaultSLA: SLASettings = {
   urgent: { responseTime: 60, resolveTime: 12 }, // 1h response, 12h resolve
 };
 
-const defaultNotifications: NotificationSettings = {
+const _defaultNotifications: NotificationSettings = {
   emailOnCreate: true,
   emailOnAssign: true,
   emailOnInspected: false,
@@ -131,7 +130,7 @@ const defaultNotifications: NotificationSettings = {
   inAppNotifications: true,
 };
 
-const defaultPublicTracking: PublicTrackingSettings = {
+const _defaultPublicTracking: PublicTrackingSettings = {
   enabled: false,
   allowCustomerComments: false,
   showEmployeeName: true,
@@ -150,7 +149,7 @@ const defaultCardColors: CardColorSettings = {
   enableOverdueColor: true,
 };
 
-const defaultTemplates: ResponseTemplate[] = [
+const _defaultTemplates: ResponseTemplate[] = [
   {
     id: '1',
     name: 'Xác nhận tiếp nhận yêu cầu bảo hành',
@@ -224,7 +223,7 @@ const WARRANTY_SLA_PRIORITY_CONFIGS: Array<{
 // SETTINGS STORE
 // ============================================
 
-type WarrantySettingsState = {
+type _WarrantySettingsState = {
   sla: SLASettings;
   templates: ResponseTemplate[];
   notifications: NotificationSettings;
@@ -232,28 +231,16 @@ type WarrantySettingsState = {
   cardColors: CardColorSettings;
 };
 
-const clone = <T,>(value: T): T => {
+const _clone = <T,>(value: T): T => {
   if (typeof structuredClone === 'function') {
     return structuredClone(value);
   }
   return JSON.parse(JSON.stringify(value));
 };
 
-const createDefaultWarrantySettings = (): WarrantySettingsState => ({
-  sla: clone(defaultSLA),
-  templates: clone(defaultTemplates),
-  notifications: clone(defaultNotifications),
-  publicTracking: clone(defaultPublicTracking),
-  cardColors: clone(defaultCardColors),
-});
+import { useWarrantySettings, useWarrantySettingsMutations, loadCardColorSettings } from './hooks/use-warranty-settings';
 
-const useWarrantySettingsStore = createSettingsConfigStore<WarrantySettingsState>({
-  getDefaultState: createDefaultWarrantySettings,
-});
-
-export function loadCardColorSettings(): CardColorSettings {
-  return clone(useWarrantySettingsStore.getState().data.cardColors);
-}
+export { loadCardColorSettings };
 
 // ============================================
 // MAIN COMPONENT
@@ -263,20 +250,25 @@ export function WarrantySettingsPage() {
   const [activeTab, setActiveTab] = React.useState('sla');
   const { headerActions, registerActions } = useTabActionRegistry(activeTab);
 
-  const storedSla = useWarrantySettingsStore((state) => state.data.sla);
+  // Fetch settings from React Query
+  const { data: settings, isLoading: _isLoadingSettings } = useWarrantySettings();
+  const { updateSection } = useWarrantySettingsMutations();
+
   const registerSlaActions = React.useMemo(() => registerActions('sla'), [registerActions]);
   const registerTemplateActions = React.useMemo(() => registerActions('templates'), [registerActions]);
   const registerNotificationActions = React.useMemo(() => registerActions('notifications'), [registerActions]);
   const registerPublicTrackingActions = React.useMemo(() => registerActions('public-tracking'), [registerActions]);
   const registerCardColorActions = React.useMemo(() => registerActions('card-colors'), [registerActions]);
-  const storedTemplates = useWarrantySettingsStore((state) => state.data.templates);
-  const storedNotifications = useWarrantySettingsStore((state) => state.data.notifications);
-  const storedPublicTracking = useWarrantySettingsStore((state) => state.data.publicTracking);
-  const storedCardColors = useWarrantySettingsStore((state) => state.data.cardColors);
-  const setStoreSection = useWarrantySettingsStore((state) => state.setSection);
 
-  // SLA State
-  const [sla, setSLA] = React.useState<SLASettings>(storedSla);
+  // Get stored values from React Query
+  const storedSla = settings.sla;
+  const storedTemplates = settings.templates as ResponseTemplate[];
+  const storedNotifications = settings.notifications;
+  const storedPublicTracking = settings.publicTracking;
+  const storedCardColors = settings.cardColors;
+
+  // SLA State - cast to proper type
+  const [sla, setSLA] = React.useState<SLASettings>(storedSla as any);
 
   // Templates State
   const [templates, setTemplates] = React.useState<ResponseTemplate[]>(storedTemplates);
@@ -287,16 +279,16 @@ export function WarrantySettingsPage() {
   const [showEditDialog, setShowEditDialog] = React.useState(false);
 
   // Notifications State
-  const [notifications, setNotifications] = React.useState<NotificationSettings>(storedNotifications);
+  const [notifications, setNotifications] = React.useState<NotificationSettings>(storedNotifications as any);
 
   // Public Tracking State
   const [publicTracking, setPublicTracking] = React.useState<PublicTrackingSettings>(storedPublicTracking);
 
   // Card Colors State
-  const [cardColors, setCardColors] = React.useState<CardColorSettings>(storedCardColors);
+  const [cardColors, setCardColors] = React.useState<CardColorSettings>(storedCardColors as any);
 
   React.useEffect(() => {
-    setSLA(storedSla);
+    setSLA(storedSla as any);
   }, [storedSla]);
 
   React.useEffect(() => {
@@ -304,7 +296,7 @@ export function WarrantySettingsPage() {
   }, [storedTemplates]);
 
   React.useEffect(() => {
-    setNotifications(storedNotifications);
+    setNotifications(storedNotifications as any);
   }, [storedNotifications]);
 
   React.useEffect(() => {
@@ -312,7 +304,7 @@ export function WarrantySettingsPage() {
   }, [storedPublicTracking]);
 
   React.useEffect(() => {
-    setCardColors(storedCardColors);
+    setCardColors(storedCardColors as any);
   }, [storedCardColors]);
 
   useSettingsPageHeader({
@@ -353,19 +345,31 @@ export function WarrantySettingsPage() {
       }
     }
 
-    setStoreSection('sla', sla);
-    toast.success('Đã lưu cài đặt SLA', {
-      description: 'Thời gian phản hồi và giải quyết đã được cập nhật.',
-    });
+    updateSection.mutate(
+      { type: 'sla-targets', data: sla as any },
+      {
+        onSuccess: () => {
+          toast.success('Đã lưu cài đặt SLA', {
+            description: 'Thời gian phản hồi và giải quyết đã được cập nhật.',
+          });
+        },
+      }
+    );
   };
 
   const _handleResetSLA = () => {
     const defaults = clone(defaultSLA);
     setSLA(defaults);
-    setStoreSection('sla', defaults);
-    toast.info('Đã đặt lại mặc định', {
-      description: 'Cài đặt SLA đã được khôi phục về giá trị mặc định.',
-    });
+    updateSection.mutate(
+      { type: 'sla-targets', data: defaults as any },
+      {
+        onSuccess: () => {
+          toast.info('Đã đặt lại mặc định', {
+            description: 'Cài đặt SLA đã được khôi phục về giá trị mặc định.',
+          });
+        },
+      }
+    );
   };
 
   // ============================================
@@ -413,11 +417,16 @@ export function WarrantySettingsPage() {
     }
 
     setTemplates(updatedTemplates);
-    setStoreSection('templates', updatedTemplates);
-    
-    toast.success(isAddingTemplate ? 'Đã thêm mẫu' : 'Đã cập nhật mẫu', {
-      description: `Mẫu "${editingTemplate.name}" đã được lưu.`,
-    });
+    updateSection.mutate(
+      { type: 'reminder-templates', data: updatedTemplates },
+      {
+        onSuccess: () => {
+          toast.success(isAddingTemplate ? 'Đã thêm mẫu' : 'Đã cập nhật mẫu', {
+            description: `Mẫu "${editingTemplate.name}" đã được lưu.`,
+          });
+        },
+      }
+    );
 
     setEditingTemplate(null);
     setIsAddingTemplate(false);
@@ -435,11 +444,16 @@ export function WarrantySettingsPage() {
     const template = templates.find(t => t.id === templateToDelete);
     const updatedTemplates = templates.filter(t => t.id !== templateToDelete);
     setTemplates(updatedTemplates);
-    setStoreSection('templates', updatedTemplates);
-    
-    toast.success('Đã xóa mẫu', {
-      description: `Mẫu "${template?.name}" đã được xóa.`,
-    });
+    updateSection.mutate(
+      { type: 'reminder-templates', data: updatedTemplates },
+      {
+        onSuccess: () => {
+          toast.success('Đã xóa mẫu', {
+            description: `Mẫu "${template?.name}" đã được xóa.`,
+          });
+        },
+      }
+    );
     
     setShowDeleteDialog(false);
     setTemplateToDelete(null);
@@ -463,10 +477,16 @@ export function WarrantySettingsPage() {
   };
 
   const handleSaveNotifications = () => {
-    setStoreSection('notifications', notifications);
-    toast.success('Đã lưu cài đặt thông báo', {
-      description: 'Các tùy chọn thông báo đã được cập nhật.',
-    });
+    updateSection.mutate(
+      { type: 'notifications', data: notifications as any },
+      {
+        onSuccess: () => {
+          toast.success('Đã lưu cài đặt thông báo', {
+            description: 'Các tùy chọn thông báo đã được cập nhật.',
+          });
+        },
+      }
+    );
   };
 
   // ============================================
@@ -481,18 +501,23 @@ export function WarrantySettingsPage() {
   };
 
   const handleSavePublicTracking = () => {
-    setStoreSection('publicTracking', publicTracking);
-    
-    // Show different message based on enabled state
-    if (publicTracking.enabled) {
-      toast.success('Đã bật tracking công khai', {
-        description: 'Khách hàng giờ có thể theo dõi tiến độ bảo hành qua link công khai.',
-      });
-    } else {
-      toast.success('Đã tắt tracking công khai', {
-        description: 'Tính năng tracking công khai đã được vô hiệu hóa.',
-      });
-    }
+    updateSection.mutate(
+      { type: 'tracking', data: publicTracking },
+      {
+        onSuccess: () => {
+          // Show different message based on enabled state
+          if (publicTracking.enabled) {
+            toast.success('Đã bật tracking công khai', {
+              description: 'Khách hàng giờ có thể theo dõi tiến độ bảo hành qua link công khai.',
+            });
+          } else {
+            toast.success('Đã tắt tracking công khai', {
+              description: 'Tính năng tracking công khai đã được vô hiệu hóa.',
+            });
+          }
+        },
+      }
+    );
   };
 
   // ============================================
@@ -515,19 +540,31 @@ export function WarrantySettingsPage() {
   };
 
   const handleSaveCardColors = () => {
-    setStoreSection('cardColors', cardColors);
-    toast.success('Đã lưu màu card', {
-      description: 'Cài đặt màu sắc card bảo hành đã được cập nhật. Refresh trang để xem thay đổi.',
-    });
+    updateSection.mutate(
+      { type: 'cardColors', data: cardColors },
+      {
+        onSuccess: () => {
+          toast.success('Đã lưu màu card', {
+            description: 'Cài đặt màu sắc card bảo hành đã được cập nhật. Refresh trang để xem thay đổi.',
+          });
+        },
+      }
+    );
   };
 
   const _handleResetCardColors = () => {
     const defaults = clone(defaultCardColors);
     setCardColors(defaults);
-    setStoreSection('cardColors', defaults);
-    toast.info('Đã đặt lại mặc định', {
-      description: 'Màu card đã được khôi phục về giá trị mặc định.',
-    });
+    updateSection.mutate(
+      { type: 'cardColors', data: defaults },
+      {
+        onSuccess: () => {
+          toast.info('Đã đặt lại mặc định', {
+            description: 'Màu card đã được khôi phục về giá trị mặc định.',
+          });
+        },
+      }
+    );
   };
 
   // ============================================

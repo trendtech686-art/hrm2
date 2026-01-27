@@ -7,7 +7,7 @@ import { Check, Clock, MoreHorizontal, HelpCircle, AlertTriangle, AlertCircle, I
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { useCustomerSlaEngineStore } from '../sla/store';
-import { useCustomerStore } from '../store';
+import { useCustomerMutations } from '../hooks/use-customers';
 import { formatDaysRemaining } from '../../reports/customer-sla-report/sla-utils';
 import { SLA_TYPE_BADGES } from '../sla/constants';
 import type { CustomerSlaAlert } from '../sla/types';
@@ -33,7 +33,7 @@ export function CustomerSlaStatusCard({ customer }: Props) {
   const getAck = useCustomerSlaEngineStore((state) => state.getAck);
   const isSnoozed = useCustomerSlaEngineStore((state) => state.isSnoozed);
   const getSnoozeRemaining = useCustomerSlaEngineStore((state) => state.getSnoozeRemaining);
-  const updateCustomer = useCustomerStore((state) => state.update);
+  const { update } = useCustomerMutations();
   const triggerReevaluation = useCustomerSlaEngineStore((state) => state.triggerReevaluation);
 
   // Handle acknowledge: update SLA store AND customer's lastContactDate (only for follow-up SLA)
@@ -46,22 +46,25 @@ export function CustomerSlaStatusCard({ customer }: Props) {
     // 2. Only update customer's lastContactDate for follow-up SLA to reset that cycle
     // For other SLA types (re-engagement, debt-payment), just acknowledge without resetting baseline
     if (alert.slaType === 'follow-up') {
-      updateCustomer(customer.systemId, {
+      update.mutate({
+        systemId: customer.systemId,
         lastContactDate: now,
+      } as any, {
+        onSuccess: () => {
+          toast.success('Đã xác nhận xử lý SLA', {
+            description: 'Ngày liên hệ cuối đã được cập nhật',
+          });
+          
+          // 3. Trigger re-evaluation after a short delay
+          setTimeout(() => triggerReevaluation(), 500);
+        },
       });
-      
-      toast.success('Đã xác nhận xử lý SLA', {
-        description: 'Ngày liên hệ cuối đã được cập nhật',
-      });
-      
-      // 3. Trigger re-evaluation after a short delay
-      setTimeout(() => triggerReevaluation(), 500);
     } else {
       toast.success('Đã xác nhận xử lý SLA', {
         description: `SLA "${alert.slaName}" đã được đánh dấu xử lý`,
       });
     }
-  }, [customer.systemId, acknowledge, updateCustomer, triggerReevaluation]);
+  }, [customer.systemId, acknowledge, update, triggerReevaluation]);
 
   // Handle snooze
   const handleSnooze = React.useCallback((alert: CustomerSlaAlert, days: number) => {
@@ -209,7 +212,7 @@ export function CustomerSlaStatusCard({ customer }: Props) {
           const colorClass = badgeMeta?.color || 'text-slate-600 bg-slate-100';
           
           return (
-            <div key={`${alert.slaType}-${alert.targetDate}`} className="border rounded-lg p-3 space-y-2">
+            <div key={`${alert.slaType}-${alert.targetDate}`} className="border border-border rounded-lg p-3 space-y-2">
               <div className="flex justify-between items-center">
                 <div>
                   <div className="flex items-center gap-2">
@@ -296,7 +299,7 @@ export function CustomerSlaStatusCard({ customer }: Props) {
         })}
 
         {debtAlert && (
-            <div className="border rounded-lg p-3 space-y-2 bg-rose-50">
+            <div className="border border-border rounded-lg p-3 space-y-2 bg-rose-50">
             <div className="flex items-center gap-2">
               <Badge variant="destructive">Công nợ</Badge>
               <span className="text-body-sm font-medium">{debtAlert.debtStatus}</span>
@@ -313,7 +316,7 @@ export function CustomerSlaStatusCard({ customer }: Props) {
         )}
 
         {healthAlert && (
-          <div className="border rounded-lg p-3 space-y-2 bg-purple-50">
+          <div className="border border-border rounded-lg p-3 space-y-2 bg-purple-50">
             <div className="flex items-center gap-2">
               <Badge className="bg-purple-600 hover:bg-purple-700">Rủi ro churn</Badge>
               <TooltipProvider delayDuration={0}>

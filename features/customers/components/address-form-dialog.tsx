@@ -21,7 +21,9 @@ import {
 import { VirtualizedCombobox } from '../../../components/ui/virtualized-combobox';
 import { toast } from 'sonner';
 import { useProvinceStore } from '../../settings/provinces/store';
+import { useProvinceData } from '../../settings/provinces/hooks/use-province-data';
 import { autoFillDistrict } from '../../settings/provinces/ward-district-mapping';
+import { removeVietnameseAccents } from '../../../lib/filename-utils';
 import type { CustomerAddress } from '../types';
 
 interface AddressFormDialogProps {
@@ -43,9 +45,14 @@ export function AddressFormDialog({
   title,
   description,
 }: AddressFormDialogProps) {
+  // Load province data from API when dialog is used
+  const { isLoading: isLoadingProvinces, isReady: _isProvincesReady } = useProvinceData();
+  
   const {
     data: provinces,
-    getDistrictsByProvinceId,
+    getProvinces2Level,
+    getProvinces3Level,
+    getDistricts3LevelByProvinceId,
     getWards2LevelByProvinceId,
     getWards3LevelByDistrictId,
   } = useProvinceStore();
@@ -116,19 +123,24 @@ export function AddressFormDialog({
     }
   }, [isOpen, editingAddress]);
 
+  // Get provinces based on address level (MUST be before selectedProvince)
+  const activeProvinces = React.useMemo(() => {
+    return addressLevel === '2-level' ? getProvinces2Level() : getProvinces3Level();
+  }, [addressLevel, getProvinces2Level, getProvinces3Level]);
+
   // Get available districts and wards based on selection
   // IMPORTANT: Lookup province by BOTH name and provinceId for compatibility
   const selectedProvince = React.useMemo(() => {
     
     // First try by name
-    let found = provinces.find((p) => p.name === formData.province);
+    let found = activeProvinces.find((p) => p.name === formData.province);
     if (found) {
       return found;
     }
     
     // Then try by provinceId
     if (formData.provinceId) {
-      found = provinces.find((p) => p.id === formData.provinceId);
+      found = activeProvinces.find((p) => p.id === formData.provinceId);
       if (found) {
         return found;
       }
@@ -137,7 +149,7 @@ export function AddressFormDialog({
     // Try normalized name match
     const normalizedInput = formData.province?.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd');
     if (normalizedInput) {
-      found = provinces.find((p) => {
+      found = activeProvinces.find((p) => {
         const normalizedName = p.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd');
         return normalizedName === normalizedInput || 
                normalizedName.includes(normalizedInput) || 
@@ -149,11 +161,15 @@ export function AddressFormDialog({
     }
     
     return null;
-  }, [provinces, formData.province, formData.provinceId]);
+  }, [activeProvinces, formData.province, formData.provinceId]);
 
   const availableDistricts = React.useMemo(() => {
     if (!selectedProvince) return [];
-    const districtsFromProvince = getDistrictsByProvinceId(selectedProvince.id);
+    
+    // Use 3-level districts for 3-level address
+    const districtsFromProvince = addressLevel === '3-level' 
+      ? getDistricts3LevelByProvinceId(selectedProvince.id)
+      : []; // 2-level doesn't have districts
     
     // If we have a districtId but it's not in the available list,
     // the district might belong to a different province mapping (e.g. 3-level data)
@@ -178,7 +194,7 @@ export function AddressFormDialog({
     }
     
     return districtsFromProvince;
-  }, [selectedProvince, getDistrictsByProvinceId, formData.districtId, formData.district]);
+  }, [selectedProvince, addressLevel, getDistricts3LevelByProvinceId, formData.districtId, formData.district]);
 
   // For 3-level: If we have districtId but it's not in availableDistricts,
   // it might be from wards-3level-data with different provinceId mapping
@@ -206,20 +222,22 @@ export function AddressFormDialog({
     return getWards3LevelByDistrictId(formData.districtId);
   }, [selectedProvince, formData.districtId, addressLevel, getWards2LevelByProvinceId, getWards3LevelByDistrictId]);
 
-  // Prepare options for comboboxes
+  // Prepare options for comboboxes - use activeProvinces based on level
   const provinceOptions = React.useMemo(
     () =>
-      provinces.map((p) => ({
+      activeProvinces.map((p) => ({
         label: p.name,
         value: p.name,
+        acText: removeVietnameseAccents(p.name).toLowerCase(), // For accent-insensitive search
       })),
-    [provinces]
+    [activeProvinces]
   );
 
   const districtOptions = React.useMemo(() => {
     const options = availableDistricts.map((d) => ({
       label: d.name,
       value: d.name,
+      acText: removeVietnameseAccents(d.name).toLowerCase(), // For accent-insensitive search
     }));
     
     // If we have a selected district that's not in available list, add it
@@ -227,6 +245,7 @@ export function AddressFormDialog({
       options.unshift({
         label: selectedDistrict.name,
         value: selectedDistrict.name,
+        acText: removeVietnameseAccents(selectedDistrict.name).toLowerCase(),
       });
     }
     
@@ -235,6 +254,7 @@ export function AddressFormDialog({
       options.unshift({
         label: formData.district,
         value: formData.district,
+        acText: removeVietnameseAccents(formData.district).toLowerCase(),
       });
     }
     
@@ -258,6 +278,7 @@ export function AddressFormDialog({
     const options = availableWards.map((w) => ({
       label: w.name,
       value: w.name,
+      acText: removeVietnameseAccents(w.name).toLowerCase(), // For accent-insensitive search
     }));
     
     // If we have a selected ward that's not in available list, add it
@@ -265,6 +286,7 @@ export function AddressFormDialog({
       options.unshift({
         label: selectedWard.name,
         value: selectedWard.name,
+        acText: removeVietnameseAccents(selectedWard.name).toLowerCase(),
       });
     }
     
@@ -326,8 +348,12 @@ export function AddressFormDialog({
         districtId = mapping.districtId;
         autoFilled = true;
       } catch (_error) {
-        showValidationError('Không tìm thấy quận/huyện tương ứng với phường/xã đã chọn.');
-        return;
+        // Cho phép lưu địa chỉ 2 cấp mà không cần district (các tỉnh/TP đặc biệt như Huế)
+        // District sẽ được để trống hoặc tự suy từ ward name
+        console.warn(`[AddressFormDialog] Không tìm được district cho ward "${formData.ward}" - cho phép lưu với district trống`);
+        districtName = '';
+        districtId = 0;
+        autoFilled = false;
       }
     }
 
@@ -452,9 +478,9 @@ export function AddressFormDialog({
                       wardId: '',
                     }));
                   }}
-                  placeholder="Chọn tỉnh/TP"
+                  placeholder={isLoadingProvinces ? "Đang tải..." : "Chọn tỉnh/TP"}
                   searchPlaceholder="Tìm tỉnh..."
-                  emptyPlaceholder="Không tìm thấy."
+                  emptyPlaceholder={isLoadingProvinces ? "Đang tải dữ liệu..." : "Không tìm thấy."}
                   estimatedItemHeight={36}
                 />
               </div>

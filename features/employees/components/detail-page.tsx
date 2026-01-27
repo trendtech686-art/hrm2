@@ -7,12 +7,12 @@ import { Printer, FileSpreadsheet } from 'lucide-react';
 // XLSX is lazy loaded in export functions to reduce bundle size (~500KB)
 import { toast } from 'sonner';
 import { formatDate, formatDateCustom, getMonthsDiff } from '@/lib/date-utils';
-import { useEmployeeStore } from '../store';
+import { useEmployee } from '../hooks/use-employees';
 import { useAllBranches } from '@/features/settings/branches/hooks/use-all-branches';
 import { usePageHeader } from '@/contexts/page-header-context';
 import { asSystemId, type SystemId } from '@/lib/id-types';
-import { useEmployeeCompStore } from '../employee-comp-store';
-import { useEmployeeSettingsStore } from '@/features/settings/employees/employee-settings-store';
+import { useResolvedPayrollProfile } from '../hooks/use-payroll-profiles';
+import { useEmployeeSettings, DEFAULT_EMPLOYEE_SETTINGS } from '@/features/settings/employees/hooks/use-employee-settings';
 import { attendanceSnapshotService } from '@/lib/attendance-snapshot-service';
 import { useAttendanceStore } from '@/features/attendance/store';
 import { usePayrollBatchStore } from '@/features/payroll/payroll-batch-store';
@@ -51,6 +51,7 @@ import { useComments } from '@/hooks/use-comments';
 import { ActivityHistory } from '@/components/ActivityHistory';
 import type { Employee, EmployeeAddress } from '@/lib/types/prisma-extended';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { 
   ArrowLeft, 
@@ -62,8 +63,6 @@ import {
   Briefcase,
   DollarSign,
   Eye,
-  FileText,
-  Lock,
   MoreHorizontal,
   ExternalLink
 } from 'lucide-react';
@@ -98,6 +97,50 @@ import {
 const formatCurrency = (value?: number) => {
     if (typeof value !== 'number') return '-';
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
+};
+
+// Helper functions to display enum values as Vietnamese text
+const formatGenderDisplay = (gender?: string | null): string => {
+  if (!gender) return '-';
+  const map: Record<string, string> = {
+    'MALE': 'Nam',
+    'FEMALE': 'Nữ',
+    'OTHER': 'Khác',
+    'Nam': 'Nam',
+    'Nữ': 'Nữ',
+    'Khác': 'Khác',
+  };
+  return map[gender] || gender;
+};
+
+const formatEmployeeTypeDisplay = (type?: string | null): string => {
+  if (!type) return '-';
+  const map: Record<string, string> = {
+    'FULLTIME': 'Toàn thời gian',
+    'PARTTIME': 'Bán thời gian',
+    'INTERN': 'Thực tập',
+    'PROBATION': 'Thử việc',
+    'Chính thức': 'Toàn thời gian',
+    'Toàn thời gian': 'Toàn thời gian',
+    'Bán thời gian': 'Bán thời gian',
+    'Thực tập sinh': 'Thực tập',
+    'Thử việc': 'Thử việc',
+  };
+  return map[type] || type;
+};
+
+const formatEmploymentStatusDisplay = (status?: string | null): string => {
+  if (!status) return '-';
+  const map: Record<string, string> = {
+    'ACTIVE': 'Đang làm việc',
+    'ON_LEAVE': 'Tạm nghỉ',
+    'TERMINATED': 'Đã nghỉ việc',
+    'Đang làm việc': 'Đang làm việc',
+    'Tạm nghỉ': 'Tạm nghỉ',
+    'Đã nghỉ việc': 'Đã nghỉ việc',
+    'Nghỉ việc': 'Đã nghỉ việc',
+  };
+  return map[status] || status;
 };
 
 const formatMonthLabel = (monthKey?: string) => {
@@ -194,11 +237,12 @@ const PlaceholderTabContent = ({ title }: { title: string }) => (
 export function EmployeeDetailPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const router = useRouter();
-  const { findById } = useEmployeeStore();
+  const { data: employeeFromQuery, isLoading } = useEmployee(systemId);
   const { data: branches } = useAllBranches();
   const { employee: authEmployee } = useAuth();
-    const getPayrollProfile = useEmployeeCompStore((state) => state.getPayrollProfile);
-    const { settings } = useEmployeeSettingsStore();
+    const { profile: payrollProfile } = useResolvedPayrollProfile(systemId ? asSystemId(systemId) : undefined);
+    const { data: rawSettings } = useEmployeeSettings();
+    const settings = rawSettings ?? DEFAULT_EMPLOYEE_SETTINGS;
     const { info: storeInfo } = useStoreInfoData();
     const { print, printMultiple } = usePrint();
     
@@ -206,7 +250,13 @@ export function EmployeeDetailPage() {
     const lockedMonths = useAttendanceStore((state) => state.lockedMonths);
     const attendanceData = useAttendanceStore((state) => state.attendanceData);
 
-    const employee = React.useMemo(() => (systemId ? findById(asSystemId(systemId)) : null), [systemId, findById]);
+    // Use React Query data directly
+    const employee = React.useMemo(() => {
+      if (systemId) {
+        return employeeFromQuery || null;
+      }
+      return null;
+    }, [systemId, employeeFromQuery]);
 
   // Comments from database
   const { 
@@ -288,16 +338,14 @@ export function EmployeeDetailPage() {
     return branches.find(b => b.systemId === employee.branchSystemId)?.name || 'Không tìm thấy';
   }, [employee, branches]);
 
-    const payrollProfile = React.useMemo(() => (employee ? getPayrollProfile(employee.systemId) : null), [employee, getPayrollProfile]);
-
-    const payrollShift = React.useMemo(() => {
+    const _payrollShift = React.useMemo(() => {
         if (!payrollProfile?.workShiftSystemId) {
             return null;
         }
         return settings.workShifts.find((shift) => shift.systemId === payrollProfile.workShiftSystemId) ?? null;
     }, [payrollProfile?.workShiftSystemId, settings.workShifts]);
 
-    const payrollComponents = React.useMemo(() => {
+    const _payrollComponents = React.useMemo(() => {
         if (!payrollProfile) {
             return [];
         }
@@ -371,7 +419,7 @@ export function EmployeeDetailPage() {
         }
 
         const storeSettings = createAttendanceStoreSettings(storeInfo);
-        const attendanceForPrint = convertAttendanceDetailForPrint(row.monthKey, employeeRow);
+        const attendanceForPrint = convertAttendanceDetailForPrint(row.monthKey, employeeRow as any);
 
         print('attendance', {
             data: mapAttendanceDetailToPrintData(attendanceForPrint, storeSettings),
@@ -448,7 +496,7 @@ export function EmployeeDetailPage() {
                 
                 if (!employeeRow) return null;
 
-                const attendanceForPrint = convertAttendanceDetailForPrint(row.monthKey, employeeRow);
+                const attendanceForPrint = convertAttendanceDetailForPrint(row.monthKey, employeeRow as any);
                 return {
                     data: mapAttendanceDetailToPrintData(attendanceForPrint, storeSettings),
                     lineItems: mapAttendanceDetailLineItems(attendanceForPrint.dailyDetails),
@@ -1117,6 +1165,37 @@ export function EmployeeDetailPage() {
         breadcrumb
   });
 
+  // Loading state while React Query is fetching
+  if (isLoading) {
+    return (
+      <div className="space-y-6 p-6">
+        <div className="flex items-center gap-4">
+          <Skeleton className="h-24 w-24 rounded-full" />
+          <div className="space-y-2">
+            <Skeleton className="h-6 w-48" />
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-4 w-24" />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Skeleton className="h-24" />
+          <Skeleton className="h-24" />
+          <Skeleton className="h-24" />
+          <Skeleton className="h-24" />
+        </div>
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-5 w-32" />
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-3/4" />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   if (!employee) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -1186,10 +1265,10 @@ export function EmployeeDetailPage() {
                             </div>
                         </div>
                         <div className="flex flex-wrap gap-2">
-                            <Badge variant={employee.employmentStatus === "Đang làm việc" ? "default" : employee.employmentStatus === "Tạm nghỉ" ? "secondary" : "destructive"}>
-                                {employee.employmentStatus}
+                            <Badge variant={(employee.employmentStatus as any) === "ACTIVE" || employee.employmentStatus?.includes("làm việc") ? "default" : (employee.employmentStatus as any) === "ON_LEAVE" || employee.employmentStatus?.includes("nghỉ") ? "secondary" : "destructive"}>
+                                {formatEmploymentStatusDisplay(employee.employmentStatus)}
                             </Badge>
-                            <Badge variant="outline">{employee.employeeType}</Badge>
+                            <Badge variant="outline">{formatEmployeeTypeDisplay(employee.employeeType)}</Badge>
                             <Badge variant="outline">{employee.id}</Badge>
                         </div>
                     </div>
@@ -1243,7 +1322,7 @@ export function EmployeeDetailPage() {
                             <CardTitle className="text-h6">Thông tin cá nhân</CardTitle>
                         </CardHeader>
                         <CardContent className="grid gap-4">
-                            <InfoItem label="Giới tính" value={employee.gender} />
+                            <InfoItem label="Giới tính" value={formatGenderDisplay(employee.gender)} />
                             <InfoItem label="Ngày sinh" value={formatDate(employee.dob)} />
                             <InfoItem label="Nơi sinh" value={employee.placeOfBirth} />
                             <InfoItem label="Tình trạng hôn nhân" value={employee.maritalStatus} />
@@ -1353,10 +1432,10 @@ export function EmployeeDetailPage() {
                             <InfoItem label="Ngày ký HĐ" value={formatDate(employee.contractStartDate)} />
                             <InfoItem label="Ngày hết hạn HĐ" value={formatDate(employee.contractEndDate)} />
                             <InfoItem label="Ngày vào làm" value={formatDate(employee.hireDate)} />
-                            <InfoItem label="Loại nhân viên" value={employee.employeeType} />
+                            <InfoItem label="Loại nhân viên" value={formatEmployeeTypeDisplay(employee.employeeType)} />
                             <InfoItem label="Trạng thái">
-                                <Badge variant={employee.employmentStatus === "Đang làm việc" ? "default" : employee.employmentStatus === "Tạm nghỉ" ? "secondary" : "destructive"}>
-                                    {employee.employmentStatus}
+                                <Badge variant={(employee.employmentStatus as any) === "ACTIVE" || employee.employmentStatus?.includes("làm việc") ? "default" : (employee.employmentStatus as any) === "ON_LEAVE" || employee.employmentStatus?.includes("nghỉ") ? "secondary" : "destructive"}>
+                                    {formatEmploymentStatusDisplay(employee.employmentStatus)}
                                 </Badge>
                             </InfoItem>
                             {employee.terminationDate && (
@@ -1520,8 +1599,8 @@ export function EmployeeDetailPage() {
                                     </CardContent>
                                 </Card>
 
-                                {/* Thành phần lương & Thông tin trả lương */}
-                                <div className="grid gap-4 md:grid-cols-2">
+                                {/* Thành phần lương & Thông tin trả lương - HIDDEN for now */}
+                                {/* <div className="grid gap-4 md:grid-cols-2">
                                     <Card>
                                         <CardHeader>
                                             <CardTitle className="text-h6">Thành phần lương đang áp dụng</CardTitle>
@@ -1536,7 +1615,6 @@ export function EmployeeDetailPage() {
                                                 <p className="text-sm text-muted-foreground">Chưa thiết lập thành phần lương.</p>
                                             )}
                                             
-                                            {/* Khoản thu nhập */}
                                             {payrollComponents.filter(c => c.category === 'earning').length > 0 && (
                                                 <div className="space-y-2">
                                                     <h4 className="text-sm font-semibold text-green-700 flex items-center gap-2">
@@ -1568,7 +1646,6 @@ export function EmployeeDetailPage() {
                                                 </div>
                                             )}
 
-                                            {/* Khoản khấu trừ */}
                                             {payrollComponents.filter(c => c.category === 'deduction').length > 0 && (
                                                 <div className="space-y-2">
                                                     <h4 className="text-sm font-semibold text-red-700 flex items-center gap-2">
@@ -1595,7 +1672,6 @@ export function EmployeeDetailPage() {
                                                 </div>
                                             )}
 
-                                            {/* Khoản đóng góp */}
                                             {payrollComponents.filter(c => c.category === 'contribution').length > 0 && (
                                                 <div className="space-y-2">
                                                     <h4 className="text-sm font-semibold text-blue-700 flex items-center gap-2">
@@ -1652,7 +1728,7 @@ export function EmployeeDetailPage() {
                                             )}
                                         </CardContent>
                                     </Card>
-                                </div>
+                                </div> */}
                         </TabsContent>
 
         {/* Payslip Detail Dialog - Using extracted component */}

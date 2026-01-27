@@ -4,7 +4,8 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 // FIX: Changed the import of 'FieldArray as useFieldArray' to 'useFieldArray' to resolve an export error.
 import { useForm, useFieldArray } from 'react-hook-form';
-import { useEmployeeSettingsStore } from './employee-settings-store';
+import { useEmployeeSettings, useEmployeeSettingsMutation } from './hooks/use-employee-settings';
+import { DEFAULT_EMPLOYEE_SETTINGS, updateSettingsCache } from './employee-settings-service';
 import type { EmployeeSettings, LeaveType, SalaryComponent } from '@/lib/types/prisma-extended';
 import { useSettingsPageHeader } from '../use-settings-page-header';
 import { Button } from '../../../components/ui/button';
@@ -19,7 +20,7 @@ import { Separator } from '../../../components/ui/separator';
 import { TimePicker } from '../../../components/ui/time-picker';
 import { NumberInput } from '../../../components/ui/number-input';
 import { CurrencyInput } from '../../../components/ui/currency-input';
-import { PlusCircle, Trash2, Edit } from 'lucide-react';
+import { PlusCircle, Trash2, Edit, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../../../components/ui/dialog';
@@ -31,6 +32,10 @@ import { TabsContent } from '../../../components/ui/tabs';
 import { SettingsVerticalTabs } from '../../../components/settings/SettingsVerticalTabs';
 import { PenaltyTypesSettingsContent } from '../penalties/penalty-types-settings-content';
 import { PayrollTemplatesSettingsContent } from './payroll-templates-settings-content';
+import { JobTitlesPageContent } from '@/features/settings/job-titles/page-content';
+import { DepartmentsSettingsContent } from '@/features/settings/departments/departments-settings-content';
+import { EmployeeTypesSettingsContent } from '@/features/settings/employee-types/employee-types-settings-content';
+import { Skeleton } from '../../../components/ui/skeleton';
 
 const weekDays = [
   { id: 1, label: 'Thứ 2' },
@@ -44,7 +49,24 @@ const weekDays = [
 
 export function EmployeeSettingsPage() {
   const router = useRouter();
-  const { settings, setSettings } = useEmployeeSettingsStore();
+  
+  // React Query: fetch settings từ API (Prisma database)
+  const { data: apiSettings, isLoading, isError } = useEmployeeSettings();
+  const saveMutation = useEmployeeSettingsMutation({
+    onSuccess: () => {
+      toast.success('Đã lưu cài đặt nhân viên thành công');
+    },
+    onError: (error) => {
+      toast.error('Lỗi khi lưu cài đặt', {
+        description: error.message,
+      });
+    },
+  });
+  
+  // Effective settings: API data hoặc fallback về default settings
+  const effectiveSettings = React.useMemo(() => {
+    return apiSettings ?? DEFAULT_EMPLOYEE_SETTINGS;
+  }, [apiSettings]);
   
   // Check if redirected from template-page with specific tab
   const initialTab = React.useMemo(() => {
@@ -59,8 +81,15 @@ export function EmployeeSettingsPage() {
   const [activeTab, setActiveTab] = React.useState(initialTab);
 
   const form = useForm<EmployeeSettings>({
-    defaultValues: settings,
+    defaultValues: effectiveSettings,
   });
+  
+  // Reset form khi API data load xong
+  React.useEffect(() => {
+    if (apiSettings) {
+      form.reset(apiSettings);
+    }
+  }, [apiSettings, form]);
 
   // Manual validation function
   const validateSettings = React.useCallback((data: EmployeeSettings): string[] => {
@@ -89,10 +118,13 @@ export function EmployeeSettingsPage() {
     router.push('/settings');
   }, [router]);
 
+  // Save to API (Prisma database) and update in-memory cache
   const onSubmit = React.useCallback((data: EmployeeSettings) => {
-    setSettings(data);
-    toast.success('Đã lưu cài đặt nhân viên thành công');
-  }, [setSettings]);
+    // Save to database via API
+    saveMutation.mutate(data);
+    // Update in-memory cache for services that use sync access
+    updateSettingsCache(data);
+  }, [saveMutation]);
 
   const handleSave = React.useCallback(() => {
     void handleSubmit((data: EmployeeSettings) => {
@@ -109,18 +141,35 @@ export function EmployeeSettingsPage() {
     })();
   }, [handleSubmit, onSubmit, validateSettings]);
 
-  const headerActions = React.useMemo(() => [
-    <SettingsActionButton key="cancel" variant="outline" onClick={handleCancel}>
-      Hủy
-    </SettingsActionButton>,
-    <SettingsActionButton key="save" onClick={handleSave}>
-      Lưu thay đổi
-    </SettingsActionButton>,
-  ], [handleCancel, handleSave]);
+  // Header actions thay đổi theo tab - Chức vụ, Phòng ban và Loại nhân viên có UI riêng nên không cần Hủy/Lưu
+  const isIndependentTab = activeTab === 'job-titles' || activeTab === 'departments' || activeTab === 'employee-types';
+  const isSaving = saveMutation.isPending;
+  
+  const headerActions = React.useMemo(() => {
+    // Tabs có CRUD độc lập không cần nút Hủy/Lưu
+    if (isIndependentTab) {
+      return [];
+    }
+    return [
+      <SettingsActionButton key="cancel" variant="outline" onClick={handleCancel} disabled={isSaving}>
+        Hủy
+      </SettingsActionButton>,
+      <SettingsActionButton key="save" onClick={handleSave} disabled={isSaving}>
+        {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+        Lưu thay đổi
+      </SettingsActionButton>,
+    ];
+  }, [handleCancel, handleSave, isIndependentTab, isSaving]);
 
   useSettingsPageHeader({
     title: 'Cài đặt nhân viên',
-    subtitle: 'Quy định về giờ làm việc, nghỉ phép và lương thưởng',
+    subtitle: isIndependentTab 
+      ? (activeTab === 'job-titles' 
+          ? 'Quản lý các chức vụ trong công ty' 
+          : activeTab === 'departments' 
+            ? 'Quản lý các phòng ban trong công ty'
+            : 'Thông tin các loại nhân viên trong hệ thống')
+      : 'Quy định về giờ làm việc, nghỉ phép và lương thưởng',
     actions: headerActions,
   });
 
@@ -131,6 +180,9 @@ export function EmployeeSettingsPage() {
     { value: 'templates', label: 'Mẫu bảng lương' },
     { value: 'insurance-tax', label: 'Bảo hiểm & Thuế' },
     { value: 'penalties', label: 'Loại phạt' },
+    { value: 'employee-types', label: 'Loại nhân viên' },
+    { value: 'job-titles', label: 'Chức vụ' },
+    { value: 'departments', label: 'Phòng ban' },
   ], []);
   
   // State for dialogs
@@ -209,6 +261,45 @@ export function EmployeeSettingsPage() {
 
   const currentLeaveTypeData = editingLeaveTypeIndex !== null ? (leaveTypeFields[editingLeaveTypeIndex] as unknown as LeaveTypeFormValues) : undefined;
   const currentSalaryComponentData = editingSalaryComponentIndex !== null ? (salaryComponentFields[editingSalaryComponentIndex] as unknown as SalaryComponentFormValues) : undefined;
+  
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-2">
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          <span className="text-muted-foreground">Đang tải cài đặt...</span>
+        </div>
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-6 w-48" />
+            <Skeleton className="h-4 w-96" />
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-3 gap-4">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+  
+  // Error state
+  if (isError) {
+    return (
+      <div className="p-4 border border-destructive rounded-md bg-destructive/10">
+        <p className="text-destructive">Không thể tải cài đặt. Vui lòng thử lại sau.</p>
+      </div>
+    );
+  }
   
   return (
     <>
@@ -572,6 +663,21 @@ export function EmployeeSettingsPage() {
             {/* Tab 6: Loại phạt */}
             <TabsContent value="penalties" className="mt-0">
               <PenaltyTypesSettingsContent />
+            </TabsContent>
+
+            {/* Tab 7: Loại nhân viên */}
+            <TabsContent value="employee-types" className="mt-0">
+              <EmployeeTypesSettingsContent />
+            </TabsContent>
+
+            {/* Tab 8: Chức vụ */}
+            <TabsContent value="job-titles" className="mt-0">
+              <JobTitlesPageContent />
+            </TabsContent>
+
+            {/* Tab 9: Phòng ban */}
+            <TabsContent value="departments" className="mt-0">
+              <DepartmentsSettingsContent />
             </TabsContent>
           </SettingsVerticalTabs>
         </form>

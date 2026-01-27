@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { useSupplierStore } from './store';
+import { useSupplierMutations } from './hooks/use-suppliers';
 import { useSupplierFinder } from './hooks/use-all-suppliers';
 import { SupplierForm, type SupplierFormValues } from './supplier-form';
 import {
@@ -20,7 +20,11 @@ import type { BreadcrumbItem } from '../../lib/breadcrumb-system';
 export function SupplierFormPage() {
   const { systemId: systemIdParam } = useParams<{ systemId: string }>();
   const router = useRouter();
-  const { add, update } = useSupplierStore();
+  const { create, update: updateSupplier } = useSupplierMutations({
+    onCreateSuccess: () => {},
+    onUpdateSuccess: () => {},
+    onError: (err) => toast.error(err.message)
+  });
   const { findById } = useSupplierFinder();
 
   const supplierSystemId = React.useMemo(() => (systemIdParam ? asSystemId(systemIdParam) : null), [systemIdParam]);
@@ -44,10 +48,10 @@ export function SupplierFormPage() {
     } satisfies Partial<Supplier>;
 
     if (supplier) {
-      update(supplier.systemId, payload);
+      updateSupplier.mutate({ systemId: supplier.systemId, ...payload });
       toast.success(`Đã cập nhật nhà cung cấp "${values.name}"`);
     } else {
-      add(payload as Omit<Supplier, 'systemId'>);
+      create.mutate(payload as Omit<Supplier, 'systemId'>);
       toast.success(`Đã thêm nhà cung cấp "${values.name}"`);
     }
     router.push(ROUTES.PROCUREMENT.SUPPLIERS);

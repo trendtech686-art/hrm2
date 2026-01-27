@@ -1,7 +1,18 @@
+/**
+ * @deprecated Use React Query hooks instead:
+ * - `usePayrollProfiles()` for list
+ * - `usePayrollProfile(employeeSystemId)` for single profile
+ * - `useResolvedPayrollProfile(employeeSystemId)` for profile with defaults
+ * - `usePayrollProfileMutations()` for create/update/delete
+ * 
+ * Import from: `@/features/employees/hooks/use-payroll-profiles`
+ * 
+ * This store will be removed in a future version.
+ */
 import { create } from 'zustand';
 import { asSystemId, type SystemId } from '@/lib/id-types';
 import { getCurrentUserSystemId } from '../../contexts/auth-context';
-import { useEmployeeSettingsStore } from '../settings/employees/employee-settings-store';
+import { getEmployeeSettingsSync } from '../settings/employees/employee-settings-service';
 import type { SalaryComponent, WorkShift } from '../settings/employees/types';
 
 export type PayrollBankAccount = {
@@ -42,14 +53,13 @@ type EmployeeCompState = {
 };
 
 const getDefaultComponentIds = (): SystemId[] =>
-  useEmployeeSettingsStore.getState().getSalaryComponents().map((component) => component.systemId);
+  getEmployeeSettingsSync().salaryComponents.map((component) => component.systemId);
 
 const getValidShiftId = (shiftId?: string | SystemId): SystemId | undefined => {
   if (!shiftId) return undefined;
   const normalized = asSystemId(shiftId as string);
-  const shiftExists = useEmployeeSettingsStore
-    .getState()
-    .settings.workShifts.some((shift) => shift.systemId === normalized);
+  const shiftExists = getEmployeeSettingsSync()
+    .workShifts.some((shift) => shift.systemId === normalized);
   return shiftExists ? normalized : undefined;
 };
 

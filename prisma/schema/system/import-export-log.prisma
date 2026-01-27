@@ -1,0 +1,36 @@
+// Import/Export Log
+// Audit trail for data import/export operations
+
+model ImportExportLog {
+  id        String   @id @default(cuid())
+  type      String   // 'import' or 'export'
+  
+  // Entity information
+  entityType String   // 'customers', 'products', 'orders', etc.
+  
+  // Audit information
+  performedAt DateTime @default(now())
+  performedBy String   // User name
+  userId      String   // User systemId
+  
+  // Operation details
+  status        String  // 'success', 'partial', 'failed'
+  totalRecords  Int
+  successCount  Int
+  errorCount    Int
+  errors        String? @db.Text // JSON array of error messages
+  
+  // File information
+  filePath String?
+  fileName String?
+  
+  // Additional metadata
+  notes             String? @db.Text
+  duplicateHandling String? // For imports: 'skip', 'update', 'error'
+  format            String? // For exports: 'excel', 'csv', 'pdf'
+  filters           String? @db.Text // JSON object of export filters
+  
+  @@index([userId, type])
+  @@index([entityType])
+  @@index([performedAt(sort: Desc)])
+}

@@ -16,7 +16,7 @@ import {
 
 // Types & Store
 import type { WarrantyTicket, WarrantyStatus } from './types';
-import { useWarrantyStore } from './store';
+import { useWarranties, useWarrantyMutations } from './hooks/use-warranties';
 import { useAllOrders } from '../orders/hooks/use-all-orders';
 import { WARRANTY_STATUS_LABELS } from './types';
 import { asSystemId } from '@/lib/id-types';
@@ -83,7 +83,10 @@ import { SimplePrintOptionsDialog, SimplePrintOptionsResult } from '../../compon
 export function WarrantyListPage() {
   const router = useRouter();
   const { isMobile } = useBreakpoint();
-  const { data: tickets, hardDelete: deleteWarrantyTicket, _migrate } = useWarrantyStore();
+  const { data: warrantyData } = useWarranties({ limit: 1000 });
+  const tickets = React.useMemo(() => warrantyData?.data ?? [], [warrantyData?.data]);
+  const { remove: deleteWarrantyMutation, update: updateWarrantyMutation } = useWarrantyMutations({});
+  const deleteWarrantyTicket = React.useCallback((id: string | undefined) => id && deleteWarrantyMutation.mutate(id), [deleteWarrantyMutation]);
   const { data: orders } = useAllOrders(); // ✅ Use React Query hook
 
   // Load card color settings
@@ -144,9 +147,10 @@ export function WarrantyListPage() {
   }
 
   // Run migration on mount to ensure all tickets have 'id' field
-  React.useEffect(() => {
-    _migrate?.();
-  }, [_migrate]);
+  // Commented out - _migrate function not defined
+  // React.useEffect(() => {
+  //   _migrate?.();
+  // }, [_migrate]);
 
   // ==========================================
   // State Management
@@ -336,9 +340,10 @@ export function WarrantyListPage() {
       return;
     }
 
-    useWarrantyStore.getState().updateStatus(normalizedId, 'pending', 'Bắt đầu xử lý từ danh sách');
+    // Use React Query mutation at component level
+    updateWarrantyMutation.mutate({ systemId: normalizedId, data: { status: 'pending' } });
     toast.success('Đã chuyển sang trạng thái Chưa xử lý');
-  }, [tickets]);
+  }, [tickets, updateWarrantyMutation]);
 
   const handleMarkProcessed = React.useCallback((systemId: string) => {
     const normalizedId = asSystemId(systemId);
@@ -348,9 +353,10 @@ export function WarrantyListPage() {
       return;
     }
 
-    useWarrantyStore.getState().updateStatus(normalizedId, 'processed', 'Hoàn thành xử lý từ danh sách');
+    // Use React Query mutation at component level
+    updateWarrantyMutation.mutate({ systemId: normalizedId, data: { status: 'processed' } });
     toast.success('Đã hoàn thành xử lý');
-  }, [tickets]);
+  }, [tickets, updateWarrantyMutation]);
 
   const handleMarkReturned = React.useCallback((systemId: string) => {
     router.push(`/warranty/${systemId}`); // Go to detail page to link order

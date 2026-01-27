@@ -6,13 +6,44 @@ import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tansta
 import * as api from '../api/employee-settings-api';
 import type { WorkShift, LeaveType, SalaryComponent } from '@/lib/types/prisma-extended';
 
+// Re-export default settings for fallback usage
+export { DEFAULT_EMPLOYEE_SETTINGS } from '../employee-settings-service';
+
 export const employeeSettingsKeys = {
   all: ['employee-settings'] as const,
+  main: () => [...employeeSettingsKeys.all, 'main'] as const,
   workShifts: () => [...employeeSettingsKeys.all, 'work-shifts'] as const,
   leaveTypes: () => [...employeeSettingsKeys.all, 'leave-types'] as const,
   salaryComponents: () => [...employeeSettingsKeys.all, 'salary-components'] as const,
   insuranceRates: () => [...employeeSettingsKeys.all, 'insurance-rates'] as const,
 };
+
+// ========================================
+// Main Employee Settings Hook (all-in-one)
+// ========================================
+export function useEmployeeSettings() {
+  return useQuery({
+    queryKey: employeeSettingsKeys.main(),
+    queryFn: api.fetchEmployeeSettings,
+    staleTime: 1000 * 60 * 10, // 10 minutes
+    gcTime: 1000 * 60 * 30, // 30 minutes
+  });
+}
+
+export function useEmployeeSettingsMutation(opts?: { onSuccess?: () => void; onError?: (error: Error) => void }) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: api.saveEmployeeSettings,
+    onSuccess: (data) => {
+      // Update cache với data mới
+      qc.setQueryData(employeeSettingsKeys.main(), data);
+      opts?.onSuccess?.();
+    },
+    onError: (error: Error) => {
+      opts?.onError?.(error);
+    },
+  });
+}
 
 // Work Shifts
 export function useWorkShifts() {

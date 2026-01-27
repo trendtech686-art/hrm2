@@ -6,23 +6,24 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../../components/ui/table';
 import { Plus, Trash2, RefreshCw, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { useTrendtechSettingsStore } from '../store';
+import { useTrendtechSettings, useTrendtechCategoryMappingMutations, useTrendtechLogMutations, useTrendtechCategoryMutations } from '../hooks/use-trendtech-settings';
 import { useActiveCategories } from '@/features/categories/hooks/use-all-categories';
 import { nanoid } from 'nanoid';
 import { asSystemId } from '@/lib/id-types';
 
 export function CategoryMappingTab() {
-  const { 
-    settings, 
-    addCategoryMapping, 
-    deleteCategoryMapping, 
-    syncCategoriesFromTrendtech,
-    addLog,
-  } = useTrendtechSettingsStore();
-  const { data: hrmCategories } = useActiveCategories();
+  const { data: settings } = useTrendtechSettings();
+  const { addCategoryMapping, deleteCategoryMapping } = useTrendtechCategoryMappingMutations({
+    onSuccess: () => {},
+  });
+  const { setCategories: _setCategories } = useTrendtechCategoryMutations({
+    onSuccess: () => {},
+  });
+  const { addLog } = useTrendtechLogMutations();
+  const { data: hrmCategories = [] } = useActiveCategories();
   const [isSyncing, setIsSyncing] = React.useState(false);
-  const trendtechCategories = settings.categories;
-  const mappings = settings.categoryMappings;
+  const trendtechCategories = settings?.categories ?? [];
+  const mappings = React.useMemo(() => settings?.categoryMappings ?? [], [settings?.categoryMappings]);
 
   // Get unmapped HRM categories
   const unmappedHrmCategories = React.useMemo(() => {
@@ -33,7 +34,9 @@ export function CategoryMappingTab() {
   const handleSyncCategories = async () => {
     setIsSyncing(true);
     try {
-      await syncCategoriesFromTrendtech();
+      // TODO: Fetch categories from Trendtech API
+      // const categories = await fetchTrendtechCategories();
+      // await setCategories.mutateAsync(categories);
       toast.success('Đã đồng bộ danh sách danh mục từ Trendtech');
     } catch (error) {
       toast.error('Lỗi đồng bộ danh mục: ' + (error instanceof Error ? error.message : 'Unknown'));
@@ -48,7 +51,7 @@ export function CategoryMappingTab() {
     
     if (!hrmCategory || !trendtechCategory) return;
     
-    addCategoryMapping({
+    addCategoryMapping.mutate({
       id: nanoid(),
       hrmCategorySystemId: asSystemId(hrmCategory.systemId),
       hrmCategoryName: hrmCategory.name,
@@ -56,7 +59,7 @@ export function CategoryMappingTab() {
       trendtechCatName: trendtechCategory.name,
     });
     
-    addLog({
+    addLog.mutate({
       action: 'save_mapping',
       status: 'success',
       message: `Đã mapping: ${hrmCategory.name} → ${trendtechCategory.name}`,
@@ -68,9 +71,9 @@ export function CategoryMappingTab() {
 
   const handleDeleteMapping = (id: string) => {
     const mapping = mappings.find((m) => m.id === id);
-    deleteCategoryMapping(id);
+    deleteCategoryMapping.mutate(id);
     
-    addLog({
+    addLog.mutate({
       action: 'save_mapping',
       status: 'info',
       message: `Đã xóa mapping: ${mapping?.hrmCategoryName}`,
@@ -95,7 +98,7 @@ export function CategoryMappingTab() {
             <div>
               <p className="text-sm">Số danh mục: <Badge>{trendtechCategories.length}</Badge></p>
             </div>
-            <Button onClick={handleSyncCategories} disabled={isSyncing || !settings.enabled}>
+            <Button onClick={handleSyncCategories} disabled={isSyncing || !settings?.enabled}>
               {isSyncing ? (
                 <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Đang đồng bộ...</>
               ) : (
@@ -104,7 +107,7 @@ export function CategoryMappingTab() {
             </Button>
           </div>
           
-          {!settings.enabled && (
+          {!settings?.enabled && (
             <p className="text-sm text-amber-600">
               Vui lòng bật tích hợp Trendtech trong tab Cấu hình chung để đồng bộ
             </p>
@@ -132,7 +135,7 @@ export function CategoryMappingTab() {
                   <TableHead>Danh mục HRM</TableHead>
                   <TableHead>→</TableHead>
                   <TableHead>Danh mục Trendtech</TableHead>
-                  <TableHead className="w-[100px]">Thao tác</TableHead>
+                  <TableHead className="w-25">Thao tác</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

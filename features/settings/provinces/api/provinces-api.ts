@@ -37,7 +37,7 @@ export interface LocationResponse<T> {
   };
 }
 
-const BASE_URL = '/api/settings/locations';
+const BASE_URL = '/api/administrative-units';
 
 // ============== Province API ==============
 

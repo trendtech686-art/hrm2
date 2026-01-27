@@ -6,7 +6,7 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { isBefore, isSameDay, differenceInMilliseconds } from 'date-fns';
-import { useReceiptStore } from '../store';
+import { useReceipts, useReceiptMutations } from './use-receipts';
 import { useAllPayments } from '@/features/payments/hooks/use-all-payments';
 import { useAllCashAccounts } from '@/features/cashbook/hooks/use-all-cash-accounts';
 import { useAllBranches } from '@/features/settings/branches/hooks/use-all-branches';
@@ -85,7 +85,14 @@ export function useReceiptFilters() {
  */
 export function useReceiptActions() {
   const router = useRouter();
-  const { cancel } = useReceiptStore();
+  const { cancel: cancelMutation } = useReceiptMutations({
+    onCancelSuccess: () => {
+      toast.success("Đã hủy phiếu thu");
+    },
+    onError: (error) => {
+      toast.error(error.message || "Hủy phiếu thu thất bại");
+    }
+  });
   const { data: branches } = useAllBranches();
   const { info: storeInfo } = useStoreInfoData();
   const { print, printMultiple } = usePrint();
@@ -126,18 +133,17 @@ export function useReceiptActions() {
 
   const confirmCancel = React.useCallback(() => { 
     if (idToDelete) {
-      cancel(idToDelete);
-      toast.success("Đã hủy phiếu thu");
+      cancelMutation.mutate({ systemId: idToDelete });
     }
     setIsAlertOpen(false); 
-  }, [idToDelete, cancel]);
+  }, [idToDelete, cancelMutation]);
 
   const confirmBulkCancel = React.useCallback((rowSelection: Record<string, boolean>) => {
     const idsToCancel = Object.keys(rowSelection).map(id => asSystemId(id));
-    idsToCancel.forEach(id => cancel(id));
+    idsToCancel.forEach(id => cancelMutation.mutate({ systemId: id }));
     toast.success(`Đã hủy ${idsToCancel.length} phiếu thu`);
     setIsBulkDeleteAlertOpen(false);
-  }, [cancel]);
+  }, [cancelMutation]);
 
   const handleBulkPrint = React.useCallback((selectedReceipts: Receipt[]) => {
     if (selectedReceipts.length === 0) {
@@ -202,7 +208,8 @@ export function useReceiptRunningBalance(
   branchFilter: 'all' | SystemId,
   dateRange: [string | undefined, string | undefined] | undefined
 ) {
-  const { data: receipts } = useReceiptStore();
+  const { data: receiptsData } = useReceipts({ limit: 1000 });
+  const receipts = React.useMemo(() => (receiptsData as any)?.items ?? (Array.isArray(receiptsData) ? receiptsData : []), [receiptsData]);
   const { data: payments } = useAllPayments();
   const { accounts } = useAllCashAccounts();
 

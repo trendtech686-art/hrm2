@@ -170,7 +170,7 @@ function TreeNode({
 
       {/* Children */}
       {hasChildren && isExpanded && (
-        <div className="ml-4 pl-2 border-l border-border">
+        <div className="ml-4 pl-2 border-l border">
           {children.map((child) => (
             <TreeNode
               key={child.systemId}

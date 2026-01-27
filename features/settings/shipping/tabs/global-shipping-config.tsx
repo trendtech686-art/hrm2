@@ -5,7 +5,7 @@
  * Global settings for all shipping partners
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -68,17 +68,20 @@ export function GlobalShippingConfigTab({ isActive, onRegisterActions }: GlobalS
     }
   }, [config]);
 
+  const onRegisterActionsRef = useRef(onRegisterActions);
+  useEffect(() => { onRegisterActionsRef.current = onRegisterActions; }, [onRegisterActions]);
+
   useEffect(() => {
     if (!isActive) {
       return;
     }
 
-    onRegisterActions([
+    onRegisterActionsRef.current([
       <SettingsActionButton key="save" onClick={handleSave}>
         <Save className="h-4 w-4 mr-2" /> Lưu cấu hình
       </SettingsActionButton>,
     ]);
-  }, [handleSave, isActive, onRegisterActions]);
+  }, [handleSave, isActive]);
 
   return (
     <Card>

@@ -2,9 +2,9 @@
 
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { ArrowLeft, Edit } from 'lucide-react';
+import { ArrowLeft, Edit, Loader2 } from 'lucide-react';
 import { usePageHeader } from '@/contexts/page-header-context';
-import { useEmployeeStore } from '../store';
+import { useEmployee, useEmployeeMutations } from '../hooks/use-employees';
 import { useDocumentStore } from '../document-store';
 import { EmployeeForm, type EmployeeFormSubmitPayload } from './employee-form';
 import { FileUploadAPI } from '@/lib/file-upload-api';
@@ -16,22 +16,18 @@ import {
 import { Button } from '@/components/ui/button';
 import type { Employee } from '@/lib/types/prisma-extended';
 import { toast } from 'sonner';
-import { useEmployeeCompStore } from '../employee-comp-store';
-import { useShallow } from 'zustand/react/shallow';
+import { usePayrollProfileMutations } from '../hooks/use-payroll-profiles';
 
 export function EmployeeFormPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const router = useRouter();
-  const { findById, persistence } = useEmployeeStore();
+  
+  // Use React Query for fetching employee data
+  const { data: employee, isLoading: isLoadingEmployee } = useEmployee(systemId);
+  const { create: createMutation, update: updateMutation } = useEmployeeMutations();
+  
   const { updateDocumentFiles, clearStagingDocuments } = useDocumentStore();
-  const { assignComponents, removeProfile } = useEmployeeCompStore(
-    useShallow((state) => ({
-      assignComponents: state.assignComponents,
-      removeProfile: state.removeProfile,
-    }))
-  );
-
-  const employee = React.useMemo(() => (systemId ? (findById(asSystemId(systemId)) ?? null) : null), [systemId, findById]);
+  const { upsert: upsertPayrollProfile, remove: removePayrollProfile } = usePayrollProfileMutations();
 
   // Handle cancel navigation
   const handleCancel = React.useCallback(() => {
@@ -73,7 +69,7 @@ export function EmployeeFormPage() {
       
       if (employee) {
         // Update existing employee
-        await persistence.update(employee.systemId, { ...employee, ...employeeData } as Employee);
+        await updateMutation.mutateAsync({ systemId: employee.systemId, ...(employeeData as Partial<Employee>) });
         targetEmployeeSystemId = employee.systemId;
         
         toast.success("Cập nhật thành công", {
@@ -81,10 +77,8 @@ export function EmployeeFormPage() {
         });
       } else {
         // Add new employee
-        
-        const newEmployee = await persistence.create(employeeData as Omit<Employee, 'systemId'>);
+        const newEmployee = await createMutation.mutateAsync(employeeData as Omit<Employee, 'systemId'>);
         targetEmployeeSystemId = newEmployee.systemId;
-        
         
         toast.success("Thêm mới thành công", {
           description: `Đã thêm nhân viên ${employeeData.fullName} vào hệ thống.`,
@@ -92,9 +86,12 @@ export function EmployeeFormPage() {
       }
       
       if (_payrollProfile === null) {
-        removeProfile(asSystemId(targetEmployeeSystemId));
+        await removePayrollProfile.mutateAsync(asSystemId(targetEmployeeSystemId));
       } else if (_payrollProfile) {
-        assignComponents(asSystemId(targetEmployeeSystemId), _payrollProfile);
+        await upsertPayrollProfile.mutateAsync({ 
+          employeeSystemId: asSystemId(targetEmployeeSystemId), 
+          input: _payrollProfile 
+        });
       }
 
       // Confirm all staging documents nếu có files
@@ -174,11 +171,23 @@ export function EmployeeFormPage() {
     }
   };
 
+  // Show loading state while fetching employee data
+  if (systemId && isLoadingEmployee) {
+    return (
+      <div className="w-full h-full flex items-center justify-center">
+        <div className="flex flex-col items-center gap-2">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">Đang tải thông tin nhân viên...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full h-full">
         <Card className="border-0 shadow-none">
           <CardContent className="min-w-0 overflow-x-hidden p-0">
-            <EmployeeForm initialData={employee} onSubmit={handleSubmit} onCancel={handleCancel} isEditMode={!!employee} />
+            <EmployeeForm initialData={employee ?? null} onSubmit={handleSubmit} onCancel={handleCancel} isEditMode={!!employee} />
           </CardContent>
         </Card>
     </div>

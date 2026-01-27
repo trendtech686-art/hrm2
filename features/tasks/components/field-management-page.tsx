@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { Plus, Edit, Trash2, Copy, Eye, EyeOff, GripVertical } from 'lucide-react';
-import { useCustomFieldStore } from '../custom-fields-store';
+import { useAllCustomFields } from '../hooks/use-all-custom-fields';
+import { useCustomFieldMutations } from '../hooks/use-custom-fields';
 import { PREDEFINED_FIELDS, FIELD_CATEGORIES } from '../custom-fields-types';
-import { asSystemId } from '@/lib/id-types';
 import type { CustomFieldDefinition, CustomFieldType } from '../custom-fields-types';
+import { toast } from 'sonner';
 import { usePageHeader } from '@/contexts/page-header-context';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -46,7 +47,12 @@ const FIELD_TYPES: { value: CustomFieldType; label: string }[] = [
 ];
 
 export function FieldManagementPage() {
-  const store = useCustomFieldStore();
+  const { data, getActive, getByCategory, getCategories } = useAllCustomFields();
+  const { create, update, remove } = useCustomFieldMutations({
+    onSuccess: () => toast.success('Đã cập nhật'),
+    onError: (error) => toast.error(error.message),
+  });
+  
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingField, setEditingField] = useState<CustomFieldDefinition | null>(null);
@@ -60,19 +66,19 @@ export function FieldManagementPage() {
     ],
   });
 
-  const categories = store.getCategories();
+  const categories = getCategories();
   const fields = selectedCategory === 'all'
-    ? store.getActive()
-    : store.getByCategory(selectedCategory);
+    ? getActive()
+    : getByCategory(selectedCategory);
 
   const stats = {
-    total: store.data.length,
-    active: store.data.filter(f => f.isActive).length,
+    total: data.length,
+    active: data.filter(f => f.isActive).length,
     categories: categories.length,
   };
 
   const handleAddPredefined = (predefined: Partial<CustomFieldDefinition>) => {
-    const field: Omit<CustomFieldDefinition, 'systemId'> = {
+    const field: Omit<CustomFieldDefinition, 'systemId' | 'createdAt' | 'updatedAt'> = {
       id: predefined.id || '',
       name: predefined.name || '',
       type: predefined.type || 'text',
@@ -91,25 +97,32 @@ export function FieldManagementPage() {
       options: predefined.options,
       visibleToRoles: predefined.visibleToRoles,
       editableByRoles: predefined.editableByRoles,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
       createdBy: 'CURRENT_USER',
     };
-    store.add(field);
+    create.mutate(field);
   };
 
-  const handleToggleActive = (fieldId: string) => {
-    store.toggleActive(fieldId);
+  const handleToggleActive = (field: CustomFieldDefinition) => {
+    update.mutate({
+      systemId: field.systemId,
+      data: { isActive: !field.isActive },
+    });
   };
 
   const handleDelete = (fieldId: string) => {
     if (confirm('Bạn có chắc muốn xóa trường này?')) {
-      store.remove(asSystemId(fieldId));
+      remove.mutate(fieldId);
     }
   };
 
-  const handleDuplicate = (fieldId: string) => {
-    store.duplicate(fieldId);
+  const handleDuplicate = (field: CustomFieldDefinition) => {
+    const duplicate: Omit<CustomFieldDefinition, 'systemId' | 'createdAt' | 'updatedAt'> = {
+      ...field,
+      name: `${field.name} (Copy)`,
+      id: `${field.id}_copy_${Date.now()}`,
+      createdBy: 'CURRENT_USER',
+    };
+    create.mutate(duplicate);
   };
 
   return (
@@ -146,7 +159,7 @@ export function FieldManagementPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-            <SelectTrigger className="w-[200px]">
+            <SelectTrigger className="w-50">
               <SelectValue placeholder="Chọn danh mục" />
             </SelectTrigger>
             <SelectContent>
@@ -175,7 +188,7 @@ export function FieldManagementPage() {
               </DialogHeader>
               <FieldForm
                 onSubmit={(field) => {
-                  store.add(field);
+                  create.mutate(field);
                   setIsCreateDialogOpen(false);
                 }}
                 onCancel={() => setIsCreateDialogOpen(false)}
@@ -250,7 +263,7 @@ export function FieldManagementPage() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => handleToggleActive(field.systemId)}
+                      onClick={() => handleToggleActive(field)}
                       title={field.isActive ? 'Tắt trường' : 'Bật trường'}
                     >
                       {field.isActive ? (
@@ -269,7 +282,7 @@ export function FieldManagementPage() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => handleDuplicate(field.systemId)}
+                      onClick={() => handleDuplicate(field)}
                     >
                       <Copy className="h-4 w-4" />
                     </Button>
@@ -318,7 +331,10 @@ export function FieldManagementPage() {
             <FieldForm
               initialData={editingField}
               onSubmit={(field) => {
-                store.update(editingField.systemId, { ...field, systemId: editingField.systemId });
+                update.mutate({
+                  systemId: editingField.systemId,
+                  data: field,
+                });
                 setEditingField(null);
               }}
               onCancel={() => setEditingField(null)}
@@ -333,7 +349,7 @@ export function FieldManagementPage() {
 // Field form component
 interface FieldFormProps {
   initialData?: Partial<CustomFieldDefinition>;
-  onSubmit: (field: Omit<CustomFieldDefinition, 'systemId'>) => void;
+  onSubmit: (field: Omit<CustomFieldDefinition, 'systemId' | 'createdAt' | 'updatedAt'>) => void;
   onCancel: () => void;
 }
 
@@ -355,7 +371,7 @@ function FieldForm({ initialData, onSubmit, onCancel }: FieldFormProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    const field: Omit<CustomFieldDefinition, 'systemId'> = {
+    const field: Omit<CustomFieldDefinition, 'systemId' | 'createdAt' | 'updatedAt'> = {
       id: formData.id || formData.name?.toLowerCase().replace(/\s+/g, '_') || '',
       name: formData.name || '',
       type: formData.type || 'text',
@@ -373,8 +389,6 @@ function FieldForm({ initialData, onSubmit, onCancel }: FieldFormProps) {
       maxLength: formData.maxLength,
       visibleToRoles: formData.visibleToRoles,
       editableByRoles: formData.editableByRoles,
-      createdAt: formData.createdAt || new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
       createdBy: 'CURRENT_USER',
     };
 

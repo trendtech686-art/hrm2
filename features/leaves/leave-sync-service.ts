@@ -1,7 +1,7 @@
 import type { LeaveRequest } from '@/lib/types/prisma-extended';
 import type { AttendanceDayKey, AttendanceDataRow, AnyAttendanceDataRow, DailyRecord } from '../attendance/types';
 import { useAttendanceStore } from '../attendance/store';
-import { useEmployeeSettingsStore } from '../settings/employees/employee-settings-store';
+import { getEmployeeSettingsSync } from '../settings/employees/employee-settings-service';
 import { recalculateSummary } from '../attendance/utils';
 import { getCurrentDate } from '../../lib/date-utils';
 
@@ -34,7 +34,7 @@ const parseLeaveBoundary = (value: string): Date => {
 };
 
 const collectWorkingDays = (leave: LeaveRequest): MonthDayMap => {
-  const workingDays = new Set(useEmployeeSettingsStore.getState().settings.workingDays);
+  const workingDays = new Set(getEmployeeSettingsSync().workingDays);
   if (!leave.startDate || !leave.endDate) return new Map();
 
   let start = parseLeaveBoundary(leave.startDate);
@@ -88,7 +88,7 @@ const applyUpdatesForMonth = (monthKey: string, days: DayContext[], leave: Leave
   const [yearStr, monthStr] = monthKey.split('-');
   const year = Number(yearStr) || new Date().getFullYear();
   const month = Number(monthStr) || new Date().getMonth() + 1;
-  const settings = useEmployeeSettingsStore.getState().settings;
+  const settings = getEmployeeSettingsSync();
 
   let didChange = false;
   const updatedRows: AttendanceDataRow[] = monthData.map((row) => {

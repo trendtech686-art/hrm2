@@ -14,6 +14,7 @@ import ReactFlow, {
   ReactFlowProvider,
   Panel,
   ConnectionMode,
+  useReactFlow,
 } from 'reactflow';
 import { useRouter } from 'next/navigation';
 import { Mouse, GripVertical, Download } from 'lucide-react';
@@ -47,6 +48,8 @@ const nodeTypes = {
 
 function OrgChartFlow() {
   const router = useRouter();
+  const { fitView } = useReactFlow();
+  const didInitialFit = React.useRef(false);
   const {
     employees,
     departments,
@@ -76,6 +79,15 @@ function OrgChartFlow() {
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
   const isInteractive = !isLocked;
+
+  // Debug: Log employee count
+  React.useEffect(() => {
+    console.log('[OrgChart] Employees loaded:', employees.length);
+    if (employees.length > 0) {
+      console.log('[OrgChart] First employee:', employees[0]);
+      console.log('[OrgChart] Employee statuses:', [...new Set(employees.map(e => e.employmentStatus))]);
+    }
+  }, [employees]);
 
   // Calculate and update layout
   React.useLayoutEffect(() => {
@@ -137,13 +149,16 @@ function OrgChartFlow() {
     setNodes(finalNodes);
     setEdges(finalEdges);
 
+    // Initial fitView once after data ready
+    if (!didInitialFit.current) {
+      didInitialFit.current = true;
+      setTimeout(() => fitView({ duration: 200, padding: 0.2 }), 50);
+    }
+
     // Auto-fit on force layout
     if (forceAutoLayout) {
       setForceAutoLayout(false);
-      setTimeout(() => {
-        const { fitView } = (window as unknown as { __reactFlowInstance?: { fitView: (options: { duration: number; padding: number }) => void } }).__reactFlowInstance || {};
-        if (fitView) fitView({ duration: 200, padding: 0.2 });
-      }, 100);
+      setTimeout(() => fitView({ duration: 200, padding: 0.2 }), 50);
     }
   }, [
     employees,
@@ -160,31 +175,28 @@ function OrgChartFlow() {
     toggleNode,
     router,
     handleFocusNode,
+    fitView,
   ]);
 
-  // Export data for JSON export
-  const _exportData = React.useMemo(() => ({
-    employees: employees.filter(e => e.employmentStatus === 'Đang làm việc'),
-    structure: nodes.map(n => ({
-      id: n.id,
-      name: n.data.fullName,
-      jobTitle: n.data.jobTitle,
-      department: n.data.department,
-      managerId: n.data.managerId,
-    })),
-    metadata: {
-      exportDate: new Date().toISOString(),
-      totalEmployees: employees.filter(e => e.employmentStatus === 'Đang làm việc').length,
-      departments: departments.length,
-    }
-  }), [employees, departments, nodes]);
+  // Show empty state if no employees
+  if (employees.length === 0) {
+    return (
+      <div className="h-[calc(100vh-9rem)] relative flex flex-col items-center justify-center">
+        <div className="flex flex-col items-center gap-4 text-center">
+          <div className="text-6xl">👥</div>
+          <h3 className="text-lg font-medium">Chưa có dữ liệu nhân viên</h3>
+          <p className="text-muted-foreground">Hãy thêm nhân viên để xem sơ đồ tổ chức</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-[calc(100vh-9rem)] relative flex flex-col">
       {/* Fixed Toolbar */}
-      <div className="flex-shrink-0 bg-background border-b p-2 flex items-center justify-between gap-2 flex-wrap">
+      <div className="shrink-0 bg-background border-b p-2 flex items-center justify-between gap-2 flex-wrap">
         {/* Left: Search & Filter */}
-        <div className="flex-1 min-w-[200px] max-w-md">
+        <div className="flex-1 min-w-50 max-w-md">
           <ChartSearch
             employees={employees}
             departments={departments}

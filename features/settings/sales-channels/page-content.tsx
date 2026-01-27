@@ -1,16 +1,15 @@
 import * as React from "react";
-import { useSalesChannelStore } from "./store";
+import { useSalesChannels, useSalesChannelMutations } from "./hooks/use-sales-channels";
 import type { SalesChannel } from '@/lib/types/prisma-extended';
 import { SalesChannelForm, type SalesChannelFormValues } from "./form";
 import { Button } from "../../../components/ui/button";
 import { SettingsActionButton } from "../../../components/settings/SettingsActionButton";
-import { MoreHorizontal, PlusCircle } from "lucide-react";
+import { PlusCircle } from "lucide-react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "../../../components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../../components/ui/alert-dialog";
 import { asBusinessId, type SystemId } from "@/lib/id-types";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../../components/ui/table";
-import { Switch } from "../../../components/ui/switch";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../../components/ui/dropdown-menu";
+import { SimpleSettingsTable } from "../../../components/settings/SimpleSettingsTable";
+import { getSalesChannelColumns } from "./columns";
 import type { RegisterTabActions } from "../use-tab-action-registry";
 import { toast } from "sonner";
 
@@ -20,7 +19,12 @@ type SalesChannelsPageContentProps = {
 };
 
 export function SalesChannelsPageContent({ isActive, onRegisterActions }: SalesChannelsPageContentProps) {
-  const { data, add, update, remove } = useSalesChannelStore();
+  const { data: queryData } = useSalesChannels({ limit: 1000 });
+  const data = React.useMemo(() => queryData?.data ?? [], [queryData?.data]);
+  const { create, update, remove } = useSalesChannelMutations({
+    onSuccess: () => {},
+    onError: (err) => toast.error(err.message)
+  });
   
   const [isFormOpen, setIsFormOpen] = React.useState(false);
   const [editingItem, setEditingItem] = React.useState<SalesChannel | null>(null);
@@ -32,22 +36,26 @@ export function SalesChannelsPageContent({ isActive, onRegisterActions }: SalesC
   const handleDeleteRequest = React.useCallback((id: SystemId) => { setIdToDelete(id); setIsAlertOpen(true); }, []);
   
   const handleToggleStatus = React.useCallback((channel: SalesChannel, isApplied: boolean) => {
-    const updated: SalesChannel = { ...channel, isApplied };
-    update(channel.systemId, updated);
-    toast.success(isApplied ? `Đã bật "${channel.name}"` : `Đã tắt "${channel.name}"`);
+    update.mutate({ systemId: channel.systemId, data: { isApplied } }, {
+      onSuccess: () => toast.success(isApplied ? `Đã bật "${channel.name}"` : `Đã tắt "${channel.name}"`),
+      onError: (err) => toast.error(err.message)
+    });
   }, [update]);
 
   const handleToggleDefault = React.useCallback((channel: SalesChannel, isDefault: boolean) => {
-    const updated: SalesChannel = { ...channel, isDefault };
-    update(channel.systemId, updated);
-    toast.success(isDefault ? `Đã đặt "${channel.name}" làm mặc định` : `Đã bỏ mặc định "${channel.name}"`);
+    update.mutate({ systemId: channel.systemId, data: { isDefault } }, {
+      onSuccess: () => toast.success(isDefault ? `Đã đặt "${channel.name}" làm mặc định` : `Đã bỏ mặc định "${channel.name}"`),
+      onError: (err) => toast.error(err.message)
+    });
   }, [update]);
   
   const confirmDelete = React.useCallback(() => {
     if (idToDelete) {
       const channel = data.find(c => c.systemId === idToDelete);
-      remove(idToDelete);
-      toast.success(`Đã xóa nguồn bán hàng "${channel?.name ?? ''}"`);
+      remove.mutate(idToDelete, {
+        onSuccess: () => toast.success(`Đã xóa nguồn bán hàng "${channel?.name ?? ""}"`),
+        onError: (err) => toast.error(err.message)
+      });
     }
     setIsAlertOpen(false);
     setIdToDelete(null);
@@ -69,15 +77,15 @@ export function SalesChannelsPageContent({ isActive, onRegisterActions }: SalesC
     };
 
     if (editingItem) {
-      const updated: SalesChannel = {
-        ...editingItem,
-        ...payload,
-      };
-      update(editingItem.systemId, updated);
-      toast.success(`Đã cập nhật nguồn bán hàng "${payload.name}"`);
+      update.mutate({ systemId: editingItem.systemId, data: payload }, {
+        onSuccess: () => toast.success(`Đã cập nhật nguồn bán hàng "${payload.name}"`),
+        onError: (err) => toast.error(err.message)
+      });
     } else {
-      add(payload);
-      toast.success(`Đã thêm nguồn bán hàng "${payload.name}"`);
+      create.mutate(payload, {
+        onSuccess: () => toast.success(`Đã thêm nguồn bán hàng "${payload.name}"`),
+        onError: (err) => toast.error(err.message)
+      });
     }
     setIsFormOpen(false);
   };
@@ -85,6 +93,16 @@ export function SalesChannelsPageContent({ isActive, onRegisterActions }: SalesC
   const sortedChannels = React.useMemo(() => {
     return [...data].sort((a, b) => a.name.localeCompare(b.name));
   }, [data]);
+
+  const columns = React.useMemo(
+    () => getSalesChannelColumns({
+      onEdit: handleEdit,
+      onDelete: handleDeleteRequest,
+      onToggleStatus: handleToggleStatus,
+      onToggleDefault: handleToggleDefault,
+    }),
+    [handleEdit, handleDeleteRequest, handleToggleStatus, handleToggleDefault]
+  );
 
   const headerActions = React.useMemo(() => [
     <SettingsActionButton key="add" onClick={handleAddNew}>
@@ -101,69 +119,18 @@ export function SalesChannelsPageContent({ isActive, onRegisterActions }: SalesC
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">Bên cạnh một số nguồn phổ biến nhất mà Sapo đã có sẵn, bạn có thể cập nhật hoặc thêm mới các nguồn tạo ra đơn hàng của cửa hàng bạn.</p>
-      <div className="rounded-md border bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[120px]">Mã nguồn</TableHead>
-              <TableHead>Tên nguồn</TableHead>
-              <TableHead className="w-[140px]">Trạng thái</TableHead>
-              <TableHead className="w-[140px]">Mặc định</TableHead>
-              <TableHead className="w-[80px] text-right">Hành động</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {sortedChannels.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={5} className="h-24 text-center text-sm text-muted-foreground">
-                  Chưa có nguồn bán hàng nào
-                </TableCell>
-              </TableRow>
-            ) : (
-              sortedChannels.map((channel) => (
-                <TableRow key={channel.systemId}>
-                  <TableCell className="font-mono text-xs uppercase text-muted-foreground">
-                    {channel.id ?? '—'}
-                  </TableCell>
-                  <TableCell className="font-medium">{channel.name}</TableCell>
-                  <TableCell>
-                    <Switch 
-                      checked={channel.isApplied} 
-                      onCheckedChange={(checked) => handleToggleStatus(channel, checked)}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Switch 
-                      checked={channel.isDefault} 
-                      onCheckedChange={(checked) => handleToggleDefault(channel, checked)}
-                    />
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <MoreHorizontal className="h-4 w-4" />
-                          <span className="sr-only">Mở menu</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleEdit(channel)}>
-                          Sửa
-                        </DropdownMenuItem>
-                        <DropdownMenuItem 
-                          onClick={() => handleDeleteRequest(channel.systemId)}
-                          className="text-destructive focus:text-destructive"
-                        >
-                          Xóa
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+      <div className="rounded-md border-border border bg-card">
+        <SimpleSettingsTable
+          data={sortedChannels}
+          columns={columns}
+          emptyTitle="Chưa có nguồn bán hàng"
+          emptyDescription="Thêm nguồn bán hàng đầu tiên để theo dõi nguồn gốc đơn hàng"
+          emptyAction={
+            <Button size="sm" onClick={handleAddNew}>
+              Thêm nguồn bán hàng
+            </Button>
+          }
+        />
       </div>
       
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>

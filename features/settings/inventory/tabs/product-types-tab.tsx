@@ -5,7 +5,7 @@ import { Plus } from "lucide-react";
 import { asBusinessId, type SystemId } from "@/lib/id-types";
 import { toast } from "sonner";
 
-import { useProductTypeStore } from "../product-type-store";
+import { useProductTypes, useProductTypeMutations } from "../hooks/use-product-types";
 import { ProductTypeFormDialog, type ProductTypeFormValues } from "../setting-form-dialogs";
 import { getProductTypeColumns } from "../product-type-columns";
 import type { ProductType } from "../types";
@@ -20,7 +20,9 @@ import { SettingsActionButton } from "@/components/settings/SettingsActionButton
 type TabContentProps = { isActive: boolean; onRegisterActions: RegisterTabActions };
 
 export function ProductTypesTabContent({ isActive, onRegisterActions }: TabContentProps) {
-  const { data, add, update, remove } = useProductTypeStore();
+  const { data: queryData } = useProductTypes({ limit: 1000 });
+  const data = React.useMemo(() => queryData?.data ?? [], [queryData?.data]);
+  const { create, update, remove } = useProductTypeMutations();
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [editingItem, setEditingItem] = React.useState<ProductType | null>(null);
   const [isAlertOpen, setIsAlertOpen] = React.useState(false);
@@ -34,24 +36,27 @@ export function ProductTypesTabContent({ isActive, onRegisterActions }: TabConte
   const handleDeleteRequest = React.useCallback((systemId: SystemId) => { setIdToDelete(systemId); setIsAlertOpen(true); }, []);
 
   const handleToggleDefault = React.useCallback((item: ProductType) => {
-    data.forEach(t => { if (t.isDefault && t.systemId !== item.systemId && !t.isDeleted) update(t.systemId, { ...t, isDefault: false }); });
-    update(item.systemId, { ...item, isDefault: !item.isDefault });
+    data.forEach(t => { if ((t as any).isDefault && t.systemId !== item.systemId && !t.isDeleted) (update as any).mutate({ systemId: t.systemId, isDefault: false }); });
+    (update as any).mutate({ systemId: item.systemId, isDefault: !(item as any).isDefault });
     toast.success(item.isDefault ? 'Đã bỏ mặc định' : 'Đã đặt làm mặc định');
   }, [data, update]);
 
-  const handleToggleActive = React.useCallback((item: ProductType) => { const na = item.isActive === false ? true : false; update(item.systemId, { ...item, isActive: na }); toast.success(na ? 'Đã kích hoạt' : 'Đã tắt'); }, [update]);
-  const confirmDelete = () => { if (idToDelete) { remove(idToDelete); toast.success('Đã xóa loại sản phẩm'); } setIsAlertOpen(false); setIdToDelete(null); };
+  const handleToggleActive = React.useCallback((item: ProductType) => { const na = item.isActive === false ? true : false; update.mutate({ systemId: item.systemId, data: { isActive: na } }, { onSuccess: () => toast.success(na ? 'Đã kích hoạt' : 'Đã tắt'), onError: (err) => toast.error(err.message) }); }, [update]);
+  const confirmDelete = () => { if (idToDelete) { remove.mutate(idToDelete, { onSuccess: () => toast.success('Đã xóa loại sản phẩm'), onError: (err) => toast.error(err.message) }); } setIsAlertOpen(false); setIdToDelete(null); };
 
   const handleSubmit = (values: ProductTypeFormValues) => {
     const payload = { ...values, id: asBusinessId(values.id) };
-    if (editingItem) { update(editingItem.systemId, payload); toast.success('Đã cập nhật loại sản phẩm'); }
-    else { add(payload); toast.success('Đã thêm loại sản phẩm mới'); }
+    if (editingItem) { update.mutate({ systemId: editingItem.systemId, data: payload }, { onSuccess: () => toast.success('Đã cập nhật loại sản phẩm'), onError: (err) => toast.error(err.message) }); }
+    else { create.mutate(payload, { onSuccess: () => toast.success('Đã thêm loại sản phẩm mới'), onError: (err) => toast.error(err.message) }); }
     setDialogOpen(false);
   };
 
   const columns = React.useMemo(() => getProductTypeColumns({ onEdit: handleEdit, onDelete: handleDeleteRequest, onToggleDefault: handleToggleDefault, onToggleActive: handleToggleActive }), [handleDeleteRequest, handleEdit, handleToggleDefault, handleToggleActive]);
 
-  React.useEffect(() => { if (!isActive) return; onRegisterActions([<SettingsActionButton key="add-product-type" onClick={handleAdd}><Plus className="mr-2 h-4 w-4" /> Thêm loại sản phẩm</SettingsActionButton>]); }, [handleAdd, isActive, onRegisterActions]);
+  const onRegisterActionsRef = React.useRef(onRegisterActions);
+  React.useEffect(() => { onRegisterActionsRef.current = onRegisterActions; }, [onRegisterActions]);
+
+  React.useEffect(() => { if (!isActive) return; onRegisterActionsRef.current([<SettingsActionButton key="add-product-type" onClick={handleAdd}><Plus className="mr-2 h-4 w-4" /> Thêm loại sản phẩm</SettingsActionButton>]); }, [handleAdd, isActive]);
 
   return (
     <>

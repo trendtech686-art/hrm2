@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useTaxStore } from '../../settings/taxes/store';
+import { useAllTaxesData } from '../../settings/taxes/hooks/use-all-taxes';
 import {
   Select,
   SelectContent,
@@ -15,7 +15,7 @@ interface TaxSelectorProps {
 }
 
 export function TaxSelector({ value, onChange, type }: TaxSelectorProps) {
-  const { data: taxes, getDefaultSale, getDefaultPurchase } = useTaxStore();
+  const { data: taxes, getDefaultSale, getDefaultPurchase } = useAllTaxesData();
   
   // Show all taxes
   const availableTaxes = React.useMemo(() => taxes, [taxes]);

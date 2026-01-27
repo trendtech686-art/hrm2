@@ -33,9 +33,15 @@ export function JobTitleForm({ initialData, onSubmit, onCancel }: JobTitleFormPr
     },
   })
 
+  const handleFormSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    e.stopPropagation() // Prevent bubbling to parent form
+    form.handleSubmit(onSubmit)(e)
+  }
+
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={handleFormSubmit} className="space-y-6">
          <FormField
           control={form.control}
           name="id"

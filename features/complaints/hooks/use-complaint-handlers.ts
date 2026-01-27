@@ -15,7 +15,7 @@ interface UseComplaintHandlersProps {
   currentUser: { systemId: SystemId; name: string };
   permissions: ComplaintPermissions;
   assignComplaint: (systemId: SystemId, userId: SystemId, userName?: string) => void;
-  updateComplaint: (systemId: SystemId, updates: Partial<Complaint>) => void;
+  updateComplaint: (systemId: SystemId, data: Partial<Complaint>) => void;
 }
 
 export function useComplaintHandlers({

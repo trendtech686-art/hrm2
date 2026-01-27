@@ -10,6 +10,21 @@ import { prisma } from '@/lib/prisma';
 import { Prisma, LeaveStatus, LeaveType } from '@/generated/prisma/client';
 import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
 import { createLeaveSchema } from './validation'
+import { generateNextIds } from '@/lib/id-system'
+
+// Status mapping from enum to Vietnamese for response
+const statusToVietnamese: Record<string, string> = {
+  'PENDING': 'Chờ duyệt',
+  'APPROVED': 'Đã duyệt',
+  'REJECTED': 'Đã từ chối',
+  'CANCELLED': 'Đã hủy',
+};
+
+// Transform leave data to include Vietnamese status
+const transformLeave = (leave: Record<string, unknown>) => ({
+  ...leave,
+  status: statusToVietnamese[leave.status as string] || leave.status,
+});
 
 // GET - List leaves
 export async function GET(request: NextRequest) {
@@ -54,7 +69,10 @@ export async function GET(request: NextRequest) {
       prisma.leave.count({ where }),
     ]);
 
-    return apiPaginated(data, { page, limit, total })
+    // Transform data to include Vietnamese status
+    const transformedData = data.map(leave => transformLeave(leave as unknown as Record<string, unknown>));
+
+    return apiPaginated(transformedData, { page, limit, total })
   } catch (error) {
     console.error('[Leaves API] GET error:', error);
     return apiError('Failed to fetch leaves', 500)
@@ -71,8 +89,8 @@ export async function POST(request: NextRequest) {
     return apiError(validation.error, 400)
   }
   const {
-    systemId,
-    id,
+    systemId: providedSystemId,
+    id: providedId,
     employeeId,
     leaveType,
     startDate,
@@ -86,6 +104,22 @@ export async function POST(request: NextRequest) {
     rejectedAt,
     rejectionReason,
   } = validation.data
+
+  // Auto-generate IDs if not provided
+  let systemId = providedSystemId;
+  let id = providedId;
+  
+  if (!systemId || !id) {
+    const generatedIds = await generateNextIds('leaves');
+    systemId = systemId || generatedIds.systemId;
+    id = id || generatedIds.businessId;
+  }
+
+  // Get employee info for denormalization
+  const employee = await prisma.employee.findUnique({
+    where: { systemId: employeeId },
+    select: { systemId: true, id: true, fullName: true },
+  });
 
   try {
     const leave = await prisma.leave.create({
@@ -104,6 +138,10 @@ export async function POST(request: NextRequest) {
         rejectedBy: rejectedBy || null,
         rejectedAt: rejectedAt ? new Date(rejectedAt) : null,
         rejectionReason: rejectionReason || null,
+        // Denormalized employee info
+        employeeSystemId: employee?.systemId,
+        employeeBusinessId: employee?.id,
+        employeeName: employee?.fullName,
       },
       include: {
         employee: {
@@ -116,7 +154,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return apiSuccess(leave, 201)
+    return apiSuccess(transformLeave(leave as unknown as Record<string, unknown>), 201)
   } catch (error) {
     console.error('[Leaves API] POST error:', error);
     return apiError('Failed to create leave request', 500)

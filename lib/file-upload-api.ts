@@ -220,8 +220,10 @@ export class FileUploadAPI {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           sessionId,
-          entityType: documentType,
+          entityType: 'employees', // Entity type for file organization
           entityId: entitySystemId,
+          documentType, // Document category (legal, work-process, etc.)
+          documentName, // Document name (Sơ yếu lý lịch, etc.)
         }),
       });
 
@@ -347,11 +349,11 @@ export class FileUploadAPI {
         return [];
       }
 
-      return (result.data || []).map((file: UploadResponse['data']) => ({
+      return (result.data || []).map((file: UploadResponse['data'] & { documentName?: string }) => ({
         id: file?.id || '',
         employeeId: entityId,
-        documentType: documentType || '',
-        documentName: '',
+        documentType: file?.documentType || documentType || '',
+        documentName: file?.documentName || '',
         name: file?.originalName || '',
         originalName: file?.originalName || '',
         slug: file?.fileName || '',

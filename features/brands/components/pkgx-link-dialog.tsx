@@ -11,10 +11,15 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { VirtualizedCombobox, type ComboboxOption } from '@/components/ui/virtualized-combobox';
-import { usePkgxSettingsStore } from '@/features/settings/pkgx/store';
 import type { Brand } from '@/features/settings/inventory/types';
 import type { PkgxBrand } from '@/features/settings/pkgx/types';
 import { getBrands as fetchPkgxBrands } from '@/lib/pkgx/api-service';
+import { 
+  usePkgxSettings, 
+  usePkgxBrandMutations, 
+  usePkgxBrandMappingMutations,
+  usePkgxBrandMappings 
+} from '@/features/settings/pkgx/hooks/use-pkgx-settings';
 
 interface PkgxBrandLinkDialogProps {
   open: boolean;
@@ -29,11 +34,11 @@ export function PkgxBrandLinkDialog({
   brand,
   onSuccess,
 }: PkgxBrandLinkDialogProps) {
-  const pkgxSettingsStore = usePkgxSettingsStore();
-  const cachedPkgxBrands = pkgxSettingsStore.settings.brands;
-  const brandMappings = pkgxSettingsStore.settings.brandMappings;
-  const addBrandMapping = pkgxSettingsStore.addBrandMapping;
-  const setBrands = pkgxSettingsStore.setBrands;
+  const { data: pkgxSettings } = usePkgxSettings();
+  const cachedPkgxBrands = React.useMemo(() => pkgxSettings?.brands ?? [], [pkgxSettings?.brands]);
+  const brandMappings = usePkgxBrandMappings();
+  const { addBrandMapping } = usePkgxBrandMappingMutations();
+  const { setBrands } = usePkgxBrandMutations();
   
   const [selectedPkgxBrand, setSelectedPkgxBrand] = React.useState<ComboboxOption | null>(null);
   const [pkgxBrands, setPkgxBrandsLocal] = React.useState<PkgxBrand[]>([]);
@@ -57,7 +62,7 @@ export function PkgxBrandLinkDialog({
           sort_order: b.sort_order,
         }));
         setPkgxBrandsLocal(brandsArray);
-        setBrands(brandsArray); // Lưu vào store để dùng chung
+        setBrands.mutate(brandsArray); // Lưu vào store để dùng chung
         setHasFetched(true);
       }
     } catch (error) {
@@ -115,7 +120,7 @@ export function PkgxBrandLinkDialog({
       const pkgxBrandId = Number(selectedPkgxBrand.value);
       
       // Add mapping to store
-      addBrandMapping({
+      addBrandMapping.mutate({
         id: `brand-mapping-${brand.systemId}-${pkgxBrandId}`,
         hrmBrandSystemId: brand.systemId,
         hrmBrandName: brand.name,

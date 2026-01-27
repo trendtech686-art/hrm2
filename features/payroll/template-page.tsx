@@ -30,8 +30,8 @@ import { ResponsiveDataTable } from '../../components/data-table/responsive-data
 import { DataTableFacetedFilter } from '../../components/data-table/data-table-faceted-filter';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { useBreakpoint } from '../../contexts/breakpoint-context';
-import { usePayrollTemplateStore } from './payroll-template-store';
-import { useEmployeeSettingsStore } from '../settings/employees/employee-settings-store';
+import { useAllPayrollTemplates, usePayrollTemplateMutations, usePayrollTemplateExtended, usePayrollTemplateFinder } from './hooks/use-payroll';
+import { useEmployeeSettings } from '../settings/employees/hooks/use-employee-settings';
 import { getTemplateColumns } from './template-columns';
 import { TemplateCard } from './template-card';
 import { toast } from 'sonner';
@@ -39,8 +39,21 @@ import { asSystemId, type SystemId } from '../../lib/id-types';
 import type { PayrollTemplate } from '../../lib/payroll-types';
 
 export function PayrollTemplatePage() {
-  const templateStore = usePayrollTemplateStore();
-  const salaryComponents = useEmployeeSettingsStore((state) => state.getSalaryComponents());
+  const templates = useAllPayrollTemplates();
+  const { findById } = usePayrollTemplateFinder();
+  const { create, update, remove } = usePayrollTemplateMutations({
+    onSuccess: () => {},
+    onError: (err) => toast.error('Lỗi', { description: err.message }),
+  });
+  const { setDefault } = usePayrollTemplateExtended({
+    onSuccess: () => {},
+    onError: (err) => toast.error('Lỗi', { description: err.message }),
+  });
+  const { data: employeeSettings } = useEmployeeSettings();
+  const salaryComponents = React.useMemo(
+    () => employeeSettings?.salaryComponents ?? [],
+    [employeeSettings?.salaryComponents]
+  );
   const { isMobile } = useBreakpoint();
 
   // Search & Filter states
@@ -71,9 +84,6 @@ export function PayrollTemplatePage() {
 
   // Mobile infinite scroll
   const [mobileLoadedCount, setMobileLoadedCount] = React.useState(20);
-
-  // Raw data
-  const templates = templateStore.templates;
 
   // Fuse.js for search (lazy-loaded)
   const fuseOptions = React.useMemo(
@@ -121,17 +131,17 @@ export function PayrollTemplatePage() {
   }, [salaryComponents]);
 
   const handleEdit = React.useCallback((systemId: SystemId) => {
-    const template = templateStore.getTemplateBySystemId(systemId);
+    const template = findById(systemId);
     if (!template) return;
     setEditingTemplateId(systemId);
     setFormState({
       name: template.name,
       description: template.description ?? '',
-      componentSystemIds: template.componentSystemIds,
+      componentSystemIds: template.componentSystemIds as any,
       isDefault: template.isDefault,
     });
     setIsDialogOpen(true);
-  }, [templateStore]);
+  }, [findById]);
 
   const handleDelete = React.useCallback((systemId: SystemId) => {
     setDeleteConfirmId(systemId);
@@ -139,38 +149,48 @@ export function PayrollTemplatePage() {
 
   const handleConfirmDelete = React.useCallback(() => {
     if (deleteConfirmId) {
-      templateStore.deleteTemplate(deleteConfirmId);
-      toast.success('Đã xóa mẫu', { description: 'Mẫu bảng lương đã được gỡ bỏ.' });
-      setDeleteConfirmId(null);
+      remove.mutate(deleteConfirmId, {
+        onSuccess: () => {
+          toast.success('Đã xóa mẫu', { description: 'Mẫu bảng lương đã được gỡ bỏ.' });
+          setDeleteConfirmId(null);
+        },
+      });
     }
-  }, [templateStore, deleteConfirmId]);
+  }, [remove, deleteConfirmId]);
 
   const handleSetDefault = React.useCallback((systemId: SystemId) => {
-    templateStore.setDefaultTemplate(systemId);
-    toast.success('Đã đặt mặc định', { description: 'Mẫu này sẽ được chọn sẵn khi chạy lương.' });
-  }, [templateStore]);
+    setDefault.mutate(systemId, {
+      onSuccess: () => {
+        toast.success('Đã đặt mặc định', { description: 'Mẫu này sẽ được chọn sẵn khi chạy lương.' });
+      },
+    });
+  }, [setDefault]);
 
   const handleToggleDefault = React.useCallback((template: PayrollTemplate, isDefault: boolean) => {
     if (isDefault) {
       // Đặt làm mặc định
-      templateStore.setDefaultTemplate(template.systemId);
-      toast.success('Đã đặt mặc định', { description: `"${template.name}" sẽ được chọn sẵn khi chạy lương.` });
+      setDefault.mutate(template.systemId, {
+        onSuccess: () => {
+          toast.success('Đã đặt mặc định', { description: `"${template.name}" sẽ được chọn sẵn khi chạy lương.` });
+        },
+      });
     } else {
-      // Bỏ mặc định - hệ thống tự động chọn mẫu khác
-      templateStore.updateTemplate(template.systemId, { isDefault: false });
-      const newDefault = templateStore.getDefaultTemplate();
-      if (newDefault && newDefault.systemId !== template.systemId) {
-        toast.success('Đã bỏ mặc định', { description: `"${newDefault.name}" đã được đặt làm mặc định.` });
-      }
+      // Bỏ mặc định - server will auto-assign new default
+      update.mutate(
+        { systemId: template.systemId, data: { isDefault: false } },
+        {
+          onSuccess: () => {
+            toast.success('Đã bỏ mặc định', { description: 'Hệ thống đã chọn mẫu mặc định mới.' });
+          },
+        }
+      );
     }
-  }, [templateStore]);
+  }, [setDefault, update]);
 
   const handleResetToDefault = React.useCallback(() => {
-    templateStore.resetToDefaultTemplates();
-    toast.success('Đã khôi phục', { description: 'Đã khôi phục về danh sách mẫu mặc định.' });
+    toast.info('Chức năng này đã được gỡ bỏ', { description: 'Vui lòng tạo mẫu mới từ đầu.' });
     setIsResetDialogOpen(false);
-    setRowSelection({});
-  }, [templateStore]);
+  }, []);
 
   const resetDialog = () => {
     setIsDialogOpen(false);
@@ -191,24 +211,41 @@ export function PayrollTemplatePage() {
     }
 
     if (editingTemplateId) {
-      templateStore.updateTemplate(editingTemplateId, {
-        name: formState.name.trim(),
-        description: formState.description.trim(),
-        componentSystemIds: formState.componentSystemIds,
-        isDefault: formState.isDefault,
-      });
-      toast.success('Đã cập nhật mẫu', { description: 'Thông tin mẫu bảng lương đã được lưu.' });
+      update.mutate(
+        {
+          systemId: editingTemplateId,
+          data: {
+            name: formState.name.trim(),
+            description: formState.description.trim(),
+            componentSystemIds: formState.componentSystemIds,
+            isDefault: formState.isDefault,
+          },
+        },
+        {
+          onSuccess: () => {
+            toast.success('Đã cập nhật mẫu', { description: 'Thông tin mẫu bảng lương đã được lưu.' });
+            resetDialog();
+          },
+        }
+      );
     } else {
-      templateStore.createTemplate({
-        name: formState.name.trim(),
-        description: formState.description.trim(),
-        componentSystemIds: formState.componentSystemIds,
-        isDefault: formState.isDefault,
-      });
-      toast.success('Đã tạo mẫu mới', { description: 'Bạn có thể dùng mẫu này trong wizard chạy lương.' });
+      create.mutate(
+        {
+          name: formState.name.trim(),
+          description: formState.description.trim(),
+          componentSystemIds: formState.componentSystemIds,
+          isDefault: formState.isDefault,
+          id: '', // Will be generated by server
+          isActive: true,
+        },
+        {
+          onSuccess: () => {
+            toast.success('Đã tạo mẫu mới', { description: 'Bạn có thể dùng mẫu này trong wizard chạy lương.' });
+            resetDialog();
+          },
+        }
+      );
     }
-
-    resetDialog();
   };
 
   const toggleComponentSelection = (componentId: SystemId) => {
@@ -322,13 +359,13 @@ export function PayrollTemplatePage() {
         label: 'Xóa đã chọn',
         icon: Trash2,
         onSelect: (selectedRows: PayrollTemplate[]) => {
-          selectedRows.forEach((row) => templateStore.deleteTemplate(row.systemId));
+          selectedRows.forEach((row) => remove.mutate(row.systemId));
           toast.success(`Đã xóa ${selectedRows.length} mẫu`);
           setRowSelection({});
         },
       },
     ],
-    [templateStore]
+    [remove]
   );
 
   return (
@@ -390,7 +427,7 @@ export function PayrollTemplatePage() {
 
       <ResponsiveDataTable<PayrollTemplate>
         columns={columns}
-        data={displayData}
+        data={displayData as any}
         renderMobileCard={renderMobileCard}
         rowSelection={rowSelection}
         setRowSelection={setRowSelection}

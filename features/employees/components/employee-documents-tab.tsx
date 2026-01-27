@@ -107,7 +107,7 @@ function DocumentCard({
   const hasExistingFiles = permanentFiles.length > 0;
 
   return (
-    <div className="space-y-3 p-3 border rounded-lg bg-muted/30">
+    <div className="space-y-3 p-3 border border-border rounded-lg bg-muted/30">
       <div className="flex items-start justify-between">
         <h5 className="text-sm font-medium text-foreground">{documentName}</h5>
         {description && (

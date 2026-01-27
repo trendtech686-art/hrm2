@@ -2,7 +2,7 @@ import type { WarrantyTicket, WarrantyProduct, WarrantyHistory, SettlementMethod
 import type { Payment } from '../payments/types';
 import type { Receipt } from '../receipts/types';
 import type { Order } from '../orders/types';
-import { useWarrantyStore } from './store';
+import { fetchWarranties } from './api/warranties-api';
 import { usePaymentStore } from '../payments/store';
 import { useReceiptStore } from '../receipts/store';
 import { useOrderStore } from '../orders/store';
@@ -132,18 +132,22 @@ function sanitizeTicket(ticket: WarrantyTicket): PublicWarrantyTicket {
 }
 
 export async function fetchPublicWarrantyTicket(trackingCode: string): Promise<PublicWarrantyResponse | null> {
-  const warrantyStore = useWarrantyStore.getState();
-  const ticket = warrantyStore.data.find(item => item.publicTrackingCode === trackingCode);
+  // Fetch warranties from API
+  const warrantyResponse = await fetchWarranties({ limit: 1000 });
+  const warranties = warrantyResponse.data || [];
+  const ticket = warranties.find(item => item.publicTrackingCode === trackingCode);
+  
   if (!ticket) {
     return null;
   }
 
-  const paymentsStore = usePaymentStore.getState();
-  const receiptsStore = useReceiptStore.getState();
-  const ordersStore = useOrderStore.getState();
-  const branchStore = useBranchStore.getState();
+  // Fetch related data from stores (already hydrated)
+  const { data: payments } = usePaymentStore.getState();
+  const { data: receipts } = useReceiptStore.getState();
+  const { data: orders } = useOrderStore.getState();
+  const { data: branches } = useBranchStore.getState();
 
-  const relatedPayments = paymentsStore.data
+  const relatedPayments = payments
     .filter(payment => payment.linkedWarrantySystemId === ticket.systemId && payment.status !== 'cancelled')
     .map(payment => ({
       systemId: payment.systemId,
@@ -156,7 +160,7 @@ export async function fetchPublicWarrantyTicket(trackingCode: string): Promise<P
       status: payment.status,
     })) as PublicWarrantyPayment[];
 
-  const relatedReceipts = receiptsStore.data
+  const relatedReceipts = receipts
     .filter(receipt => receipt.linkedWarrantySystemId === ticket.systemId && receipt.status !== 'cancelled')
     .map(receipt => ({
       systemId: receipt.systemId,
@@ -178,7 +182,7 @@ export async function fetchPublicWarrantyTicket(trackingCode: string): Promise<P
     }
   });
 
-  const relatedOrders = ordersStore.data
+  const relatedOrders = orders
     .filter(order => linkedOrderIds.has(order.systemId))
     .map(order => ({
       systemId: order.systemId,
@@ -186,8 +190,8 @@ export async function fetchPublicWarrantyTicket(trackingCode: string): Promise<P
       customerName: order.customerName,
     })) as PublicWarrantyOrder[];
 
-  const branchHotline = branchStore.data.find(branch => branch.systemId === ticket.branchSystemId)?.phone;
-  const defaultBranchHotline = branchStore.data.find(branch => branch.isDefault)?.phone;
+  const branchHotline = branches.find(branch => branch.systemId === ticket.branchSystemId)?.phone;
+  const defaultBranchHotline = branches.find(branch => branch.isDefault)?.phone;
   const hotline = branchHotline || defaultBranchHotline || '1900-xxxx';
 
   return {

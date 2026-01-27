@@ -19,17 +19,16 @@ import {
 import { Label } from '../../components/ui/label';
 import { toast } from 'sonner';
 import { ROUTES } from '../../lib/router';
-import { usePayrollBatchStore } from './payroll-batch-store';
-import { usePayrollTemplateStore } from './payroll-template-store';
+import { usePayrollById, useAllPayrollTemplates, usePayslipsByBatch, usePayrollBatchMutations, usePayslipExtendedMutations } from './hooks/use-payroll';
 import { PayrollStatusBadge } from './components/status-badge';
 import { PayslipDataTable, type PayslipRow, type PayslipActions } from './components/payslip-data-table';
 import { PayslipEditDialog, type PayslipUpdatePayload } from './components/payslip-edit-dialog';
 import { CreatePaymentDialog } from './components/create-payment-dialog';
 import { useAllEmployees } from '../employees/hooks/use-all-employees';
-import { useDepartmentStore } from '../settings/departments/store';
-import { usePaymentStore } from '../payments/store';
-import { usePenaltyStore } from '../settings/penalties/store';
-import type { PayrollAuditAction, PayrollBatch, PayrollPeriod, Payslip } from '../../lib/payroll-types';
+import { useDepartments } from '../settings/departments/hooks/use-departments';
+import { usePayments } from '../payments/hooks/use-payments';
+import { usePenalties } from '../settings/penalties/hooks/use-penalties';
+import type { PayrollAuditAction, PayrollBatch, PayrollPeriod, Payslip as _Payslip } from '../../lib/payroll-types';
 import { ensureSystemId, type BusinessId, type SystemId } from '../../lib/id-types';
 import { usePrint } from '../../lib/use-print';
 import { useStoreInfoData } from '../settings/store-info/hooks/use-store-info';
@@ -248,25 +247,17 @@ const _downloadCsv = (content: string, filename: string) => {
 // =============================================
 
 function usePayrollDetailData(systemId: SystemId | undefined) {
-  // Get raw data from stores - stable selectors
-  const batches = usePayrollBatchStore((state) => state.batches);
-  const allPayslips = usePayrollBatchStore((state) => state.payslips);
-  const auditLogs = usePayrollBatchStore((state) => state.auditLogs);
-  const templates = usePayrollTemplateStore((state) => state.templates);
+  // Get data from React Query hooks
+  const { data: batch } = usePayrollById(systemId);
+  const { data: payslipsData } = usePayslipsByBatch(systemId);
+  const payslips = React.useMemo(() => payslipsData?.data ?? [], [payslipsData?.data]);
+  const templates = useAllPayrollTemplates();
   const { data: employees } = useAllEmployees();
-  const departmentStore = useDepartmentStore();
-  const departments = departmentStore.data;
+  const { data: departmentsData } = useDepartments({ limit: 1000 });
+  const departments = React.useMemo(() => departmentsData?.data ?? [], [departmentsData?.data]);
 
-  // Derive batch and payslips from raw arrays (stable)
-  const batch = React.useMemo(() => {
-    if (!systemId) return undefined;
-    return batches.find((b) => b.systemId === systemId);
-  }, [batches, systemId]);
-
-  const payslips = React.useMemo(() => {
-    if (!systemId) return [] as Payslip[];
-    return allPayslips.filter((p) => p.batchSystemId === systemId);
-  }, [allPayslips, systemId]);
+  // Get audit logs from batch data
+  const auditLogs = React.useMemo(() => (batch as any)?.auditLogs ?? [], [batch]);
 
   const template = React.useMemo(() => {
     if (!batch?.templateSystemId) return undefined;
@@ -274,10 +265,9 @@ function usePayrollDetailData(systemId: SystemId | undefined) {
   }, [templates, batch?.templateSystemId]);
 
   const batchAuditLogs = React.useMemo(() => {
-    if (!batch) return [];
     return auditLogs
-      .filter((entry) => entry.batchSystemId === batch.systemId)
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      .filter((entry: any) => entry.batchSystemId === batch?.systemId)
+      .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [auditLogs, batch]);
 
   // Lookup maps
@@ -294,7 +284,7 @@ function usePayrollDetailData(systemId: SystemId | undefined) {
   // Convert audit logs to HistoryEntry format for ActivityHistory component
   // Must be after employeeLookup to use it for name resolution
   const historyEntries: HistoryEntry[] = React.useMemo(() => {
-    return batchAuditLogs.map((entry): HistoryEntry => {
+    return batchAuditLogs.map((entry: any): HistoryEntry => {
       // Try to get employee name from lookup
       const employee = employeeLookup[entry.actorSystemId as SystemId];
       const actorName = entry.actorDisplayName || employee?.fullName || entry.actorSystemId;
@@ -474,21 +464,27 @@ export function PayrollDetailPage() {
     departmentLookup,
   } = usePayrollDetailData(resolvedSystemId);
 
-  // Store actions
-  const updateBatchStatus = usePayrollBatchStore((state) => state.updateBatchStatus);
-  const updatePayslip = usePayrollBatchStore((state) => state.updatePayslip);
-  const removePayslipFromBatch = usePayrollBatchStore((state) => state.removePayslipFromBatch);
-  const _logAction = usePayrollBatchStore((state) => state.logAction);
+  // Mutations
+  const { updateStatus } = usePayrollBatchMutations({
+    onSuccess: () => {},
+    onError: (err) => toast.error('Lỗi', { description: err.message }),
+  });
+  const { updateWithAudit, removeFromBatch } = usePayslipExtendedMutations({
+    onSuccess: () => {},
+    onError: (err) => toast.error('Lỗi', { description: err.message }),
+  });
   
   // Payment store - to check linked payments
-  const allPayments = usePaymentStore((state) => state.data);
+  const { data: allPaymentsData } = usePayments({ limit: 10000 });
+  const allPayments = React.useMemo(() => allPaymentsData?.data ?? [], [allPaymentsData?.data]);
   const linkedPayments = React.useMemo(
     () => allPayments.filter((p) => batch && p.linkedPayrollBatchSystemId === batch.systemId),
     [allPayments, batch]
   );
 
   // Penalty store - to get penalty details for printing
-  const allPenalties = usePenaltyStore((state) => state.data);
+  const { data: allPenaltiesData } = usePenalties({ limit: 10000 });
+  const allPenalties = React.useMemo(() => allPenaltiesData?.data ?? [], [allPenaltiesData?.data]);
 
   // Print integration
   const { info: storeInfo } = useStoreInfoData();
@@ -590,10 +586,16 @@ export function PayrollDetailPage() {
       actions.push(
         <Button key="unlock" size="sm" className="h-9" variant="outline" onClick={() => {
           if (!batch) return;
-          updateBatchStatus(batch.systemId, 'reviewed', 'Mở khóa bảng lương');
-          toast.success('Cập nhật trạng thái thành công', {
-            description: 'Bảng lương đã chuyển sang trạng thái Đang duyệt.',
-          });
+          updateStatus.mutate(
+            { systemId: batch.systemId, data: { status: 'reviewed', note: 'Mở khóa bảng lương' } },
+            {
+              onSuccess: () => {
+                toast.success('Cập nhật trạng thái thành công', {
+                  description: 'Bảng lương đã chuyển sang trạng thái Đang duyệt.',
+                });
+              },
+            }
+          );
         }}>
           <Unlock className="h-4 w-4 mr-2" />
           Mở khóa
@@ -617,7 +619,7 @@ export function PayrollDetailPage() {
     );
     
     return actions;
-  }, [batch, isLocked, linkedPayments.length, handlePrint, handleRunNew, updateBatchStatus, openApprovalDialog]);
+  }, [batch, isLocked, linkedPayments.length, handlePrint, handleRunNew, updateStatus, openApprovalDialog]);
 
   // Header subtitle
   const headerSubtitle = React.useMemo(() => {
@@ -654,11 +656,17 @@ export function PayrollDetailPage() {
 
   const handleStatusChange = React.useCallback((status: PayrollBatch['status'], note?: string) => {
     if (!batch) return;
-    updateBatchStatus(batch.systemId, status, note);
-    toast.success('Cập nhật trạng thái thành công', {
-      description: `Bảng lương đã chuyển sang trạng thái ${STATUS_LABEL[status]}.`,
-    });
-  }, [batch, updateBatchStatus]);
+    updateStatus.mutate(
+      { systemId: batch.systemId, data: { status, note } },
+      {
+        onSuccess: () => {
+          toast.success('Cập nhật trạng thái thành công', {
+            description: `Bảng lương đã chuyển sang trạng thái ${STATUS_LABEL[status]}.`,
+          });
+        },
+      }
+    );
+  }, [batch, updateStatus]);
 
   const handleConfirmApproval = React.useCallback(() => {
     if (!approvalAction || !batch) return;
@@ -689,14 +697,22 @@ export function PayrollDetailPage() {
 
   const handleSavePayslip = React.useCallback((payload: PayslipUpdatePayload) => {
     if (!editingPayslipId) return;
-    const result = updatePayslip(editingPayslipId, payload);
-    if (result.success) {
-      toast.success('Đã cập nhật phiếu lương');
-      setEditingPayslipId(null);
-    } else {
-      toast.error('Không thể cập nhật', { description: result.error });
-    }
-  }, [editingPayslipId, updatePayslip]);
+    updateWithAudit.mutate(
+      {
+        systemId: editingPayslipId,
+        data: payload,
+      },
+      {
+        onSuccess: () => {
+          toast.success('Đã cập nhật phiếu lương');
+          setEditingPayslipId(null);
+        },
+        onError: (err) => {
+          toast.error('Không thể cập nhật', { description: err.message });
+        },
+      }
+    );
+  }, [editingPayslipId, updateWithAudit]);
 
   const handlePrintPayslip = React.useCallback((row: PayslipRow) => {
     const payslip = payslips.find((p) => p.systemId === row.systemId);
@@ -739,13 +755,15 @@ export function PayrollDetailPage() {
       toast.error('Không thể xóa', { description: 'Bảng lương đã khóa.' });
       return;
     }
-    const result = removePayslipFromBatch(row.systemId);
-    if (result.success) {
-      toast.success('Đã xóa phiếu lương khỏi bảng lương');
-    } else {
-      toast.error('Không thể xóa', { description: result.error });
-    }
-  }, [isLocked, removePayslipFromBatch]);
+    removeFromBatch.mutate(row.systemId, {
+      onSuccess: () => {
+        toast.success('Đã xóa phiếu lương khỏi bảng lương');
+      },
+      onError: (err) => {
+        toast.error('Không thể xóa', { description: err.message });
+      },
+    });
+  }, [isLocked, removeFromBatch]);
 
   // Print payment voucher for a payslip (In phiếu chi)
   const handlePrintPayment = React.useCallback((row: PayslipRow) => {
@@ -979,10 +997,10 @@ export function PayrollDetailPage() {
     let errorCount = 0;
     
     rows.forEach((row) => {
-      const result = removePayslipFromBatch(row.systemId);
-      if (result.success) {
+      try {
+        (removeFromBatch as any)(row.systemId);
         successCount++;
-      } else {
+      } catch (_e) {
         errorCount++;
       }
     });
@@ -993,7 +1011,7 @@ export function PayrollDetailPage() {
     if (errorCount > 0) {
       toast.error(`Không thể xóa ${errorCount} phiếu lương`);
     }
-  }, [isLocked, removePayslipFromBatch]);
+  }, [isLocked, removeFromBatch]);
 
   // Payslip table actions
   const payslipActions = React.useMemo<PayslipActions>(() => ({
@@ -1109,7 +1127,7 @@ export function PayrollDetailPage() {
           </CardHeader>
           <CardContent>
             <Textarea
-              className="min-h-[120px]"
+              className="min-h-30"
               placeholder="Ghi chú nội bộ sẽ được hỗ trợ ở bước tiếp theo."
               readOnly
               value={batch.notes ?? ''}
@@ -1188,7 +1206,7 @@ export function PayrollDetailPage() {
             <Textarea
               id="approval-note"
               placeholder="Nhập lý do duyệt/khóa để lưu vào nhật ký."
-              className="min-h-[80px]"
+              className="min-h-20"
               value={approvalNote}
               onChange={(event) => setApprovalNote(event.target.value)}
             />

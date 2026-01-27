@@ -7,7 +7,7 @@ import { Package, Plus, X, StickyNote, History, Pencil, Eye, ChevronDown, Chevro
 import { PurchaseProductSearch } from "../../../components/shared/unified-product-search";
 import { ProductSelectionDialog } from "../../shared/product-selection-dialog";
 import { TaxSelector } from "./tax-selector";
-import { useTaxStore } from "../../settings/taxes/store";
+import { useAllTaxesData } from '../../settings/taxes/hooks/use-all-taxes';
 import { useAllProducts } from "../../products/hooks/use-all-products";
 import { useProductTypeFinder } from "../../settings/inventory/hooks/use-all-product-types";
 import { useAllPurchaseOrders } from "../hooks/use-all-purchase-orders";
@@ -169,7 +169,7 @@ export function ProductSelectionCard({
   const [expandedCombos, setExpandedCombos] = React.useState<Record<number, boolean>>({});
   
   // Get default tax from taxes store
-  const { data: _taxes, getDefaultPurchase } = useTaxStore();
+  const { data: _taxes, getDefaultPurchase } = useAllTaxesData();
   const defaultPurchaseTax = React.useMemo(() => getDefaultPurchase(), [getDefaultPurchase]);
   
   // Get products store

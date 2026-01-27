@@ -131,22 +131,29 @@ export function PageHeaderProvider({ children }: { children: React.ReactNode }) 
 
 /**
  * Hook to access page header state (for rendering)
+ * Returns empty state if outside provider (SSR-safe)
  */
-export function usePageHeaderState() {
+export function usePageHeaderState(): PageHeaderState {
   const context = React.useContext(PageHeaderStateContext);
+  // Return empty state for SSR or when outside provider
   if (!context) {
-    throw new Error('usePageHeaderState must be used within PageHeaderProvider');
+    return {};
   }
   return context;
 }
 
 /**
  * Hook to access page header dispatch (for setting header)
+ * Returns no-op functions if outside provider (SSR-safe)
  */
-export function usePageHeaderDispatch() {
+export function usePageHeaderDispatch(): Omit<PageHeaderContextValue, 'pageHeader'> {
   const context = React.useContext(PageHeaderDispatchContext);
+  // Return no-op functions for SSR or when outside provider
   if (!context) {
-    throw new Error('usePageHeaderDispatch must be used within PageHeaderProvider');
+    return {
+      setPageHeader: () => {},
+      clearPageHeader: () => {},
+    };
   }
   return context;
 }

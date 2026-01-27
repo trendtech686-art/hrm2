@@ -16,7 +16,7 @@ import { useProductStore } from '../../products/store';
 import { isComboProduct } from '../../products/combo-utils';
 import { useCustomerStore } from '../../customers/store';
 import { useSalesReturnStore } from '../../sales-returns/store';
-import { useSalesManagementSettingsStore } from '../../settings/sales/sales-management-store';
+import { getSalesSettingsSync } from '../../settings/sales/sales-management-service';
 
 // ============================================
 // CONSTANTS
@@ -237,7 +237,7 @@ export const getComboStockItems = (lineItems: { productSystemId: string; quantit
 export const ensureCancellationAllowed = (order: Order | undefined, actionLabel: string): boolean => {
     if (!order) return false;
 
-    const { allowCancelAfterExport } = useSalesManagementSettingsStore.getState();
+    const { allowCancelAfterExport } = getSalesSettingsSync();
     if (allowCancelAfterExport) {
         return true;
     }

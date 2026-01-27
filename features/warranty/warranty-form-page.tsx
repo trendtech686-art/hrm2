@@ -12,14 +12,16 @@ import { usePageHeader } from '../../contexts/page-header-context';
 import { asSystemId } from '../../lib/id-types';
 
 // Types & Store
-import type { WarrantyFormValues } from './types';
-import { useWarrantyStore } from './store';
+import type { WarrantyFormValues, WarrantyTicket } from './types';
+import { useWarrantyMutations } from './hooks/use-warranties';
+import { useWarranty } from './hooks/use-warranties';
 import { useWarrantyFinder, useAllWarranties } from './hooks/use-all-warranties';
 
 // UI Components
 import { Button } from '../../components/ui/button';
 import { ScrollArea } from '../../components/ui/scroll-area';
 import { Card, CardContent } from '../../components/ui/card';
+import { Skeleton } from '../../components/ui/skeleton';
 
 // REUSE from orders module
 import { CustomerSelector } from '../orders/components/customer-selector';
@@ -62,15 +64,36 @@ export function WarrantyFormPage() {
   // ===== STATE MANAGEMENT - Tách ra hook riêng =====
   const formState = useWarrantyFormState();
   
-  const { add, update, generateNextSystemId } = useWarrantyStore();
+  const { create: createMutation, update: updateMutation } = useWarrantyMutations({
+    onCreateSuccess: (warranty) => {
+      toast.success('Đã tạo phiếu bảo hành', { description: `Mã: ${warranty.id}` });
+      router.push(`/warranty/${warranty.systemId}`);
+    },
+    onUpdateSuccess: () => {
+      toast.success('Đã cập nhật phiếu bảo hành');
+    },
+    onError: (error) => {
+      toast.error('Lỗi', { description: error.message });
+    }
+  });
+  
   const { findById } = useWarrantyFinder();
   const { data: allTickets } = useAllWarranties();
   const { data: branches } = useAllBranches();
   const { data: employees } = useAllEmployees();
 
+  // ✅ React Query for single ticket
+  const { data: ticketFromQuery, isLoading } = useWarranty(systemId);
+
   const isEditing = !!systemId;
   const ticketSystemId = React.useMemo(() => (systemId ? asSystemId(systemId) : null), [systemId]);
-  const ticket = React.useMemo(() => (ticketSystemId ? findById(ticketSystemId) : null), [findById, ticketSystemId]);
+  // ✅ Ưu tiên React Query, fallback to store
+  const ticket = React.useMemo(() => {
+    if (ticketSystemId) {
+      return ticketFromQuery || findById(ticketSystemId) || null;
+    }
+    return null;
+  }, [ticketSystemId, ticketFromQuery, findById]);
 
   // Prevent editing if ticket is returned (đã trả hàng cho khách)
   const isReadOnly = React.useMemo(() => {
@@ -188,6 +211,23 @@ export function WarrantyFormPage() {
     formState.setProcessedSessionId(null);
   }, [isEditing, ticket, formState]);
 
+  // Sync wrapper functions for form submit hook
+  const add = React.useCallback((data: WarrantyTicket) => {
+    let createdWarranty: WarrantyTicket | undefined;
+    createMutation.mutate(data, {
+      onSuccess: (warranty) => {
+        createdWarranty = warranty as WarrantyTicket;
+      }
+    });
+    return createdWarranty;
+  }, [createMutation]);
+  
+  const update = React.useCallback((systemId: string, data: Partial<WarrantyTicket>) => {
+    updateMutation.mutate({ systemId, data });
+  }, [updateMutation]);
+  
+  const generateNextSystemId = React.useCallback(() => '', []);
+
   // ===== SUBMIT HANDLER - Tách ra hook riêng =====
   const { onSubmit } = useWarrantyFormSubmit({
     isEditing,
@@ -195,7 +235,7 @@ export function WarrantyFormPage() {
     allTickets,
     branches,
     employees,
-    generateNextSystemId: generateNextSystemId ?? (() => ''),
+    generateNextSystemId,
     add,
     update,
     ...formState,
@@ -235,6 +275,20 @@ export function WarrantyFormPage() {
       actions,
     });
   }, [isEditing, isUpdateMode, ticket, actions, setPageHeader]);
+
+  // Loading state
+  if (isEditing && isLoading) {
+    return (
+      <Card>
+        <CardContent className="pt-6 space-y-4">
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-2/3" />
+          <Skeleton className="h-40 w-full" />
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <FormProvider {...form}>

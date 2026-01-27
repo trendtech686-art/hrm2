@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { useStockTransferStore } from '../store';
+import { useStockTransfer, useStockTransferMutations } from '../hooks/use-stock-transfers';
 import { useAllBranches } from '@/features/settings/branches/hooks/use-all-branches';
 import { useAllProducts, useProductFinder } from '@/features/products/hooks/use-all-products';
 import { ProductImage } from '@/features/products/components/product-image';
@@ -85,7 +85,18 @@ type LimitedEditFormData = z.infer<typeof limitedEditSchema>;
 export function StockTransferEditPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const router = useRouter();
-  const { findById, update } = useStockTransferStore();
+  
+  const { data: transfer } = useStockTransfer(systemId);
+  const { update: updateMutation } = useStockTransferMutations({
+    onUpdateSuccess: () => {
+      toast.success('Đã cập nhật phiếu chuyển kho');
+      router.push(`/stock-transfers/${systemId}`);
+    },
+    onError: (error) => {
+      toast.error('Lỗi', { description: error.message });
+    }
+  });
+  
   const { data: branches } = useAllBranches();
   useAllProducts(); // Load products for type reference
   const { findById: findProductById } = useProductFinder();
@@ -96,7 +107,6 @@ export function StockTransferEditPage() {
   const [isProductDialogOpen, setIsProductDialogOpen] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
-  const transfer = findById(asSystemId(systemId || ''));
   const canFullEdit = transfer?.status === 'pending';
   const canLimitedEdit = transfer?.status === 'transferring' || transfer?.status === 'completed';
   const canEdit = canFullEdit || canLimitedEdit;
@@ -277,21 +287,24 @@ export function StockTransferEditPage() {
 
     setIsSubmitting(true);
     try {
-      update(transfer.systemId, {
-        fromBranchSystemId: asSystemId(data.fromBranchSystemId),
-        fromBranchName: fromBranch.name,
-        toBranchSystemId: asSystemId(data.toBranchSystemId),
-        toBranchName: toBranch.name,
-        ...(referenceCode ? { referenceCode } : {}),
-        items: data.items.map(item => ({
-          productSystemId: asSystemId(item.productSystemId),
-          productId: asBusinessId(item.productId),
-          productName: item.productName,
-          quantity: item.quantity,
-          ...(item.note?.trim() ? { note: item.note.trim() } : {}),
-        })),
-        ...(transferNote ? { note: transferNote } : {}),
-        updatedBy: currentEmployee.systemId,
+      updateMutation.mutate({ 
+        systemId: transfer.systemId, 
+        data: {
+          fromBranchSystemId: asSystemId(data.fromBranchSystemId),
+          fromBranchName: fromBranch.name,
+          toBranchSystemId: asSystemId(data.toBranchSystemId),
+          toBranchName: toBranch.name,
+          ...(referenceCode ? { referenceCode } : {}),
+          items: data.items.map(item => ({
+            productSystemId: asSystemId(item.productSystemId),
+            productId: asBusinessId(item.productId),
+            productName: item.productName,
+            quantity: item.quantity,
+            ...(item.note?.trim() ? { note: item.note.trim() } : {}),
+          })),
+          ...(transferNote ? { note: transferNote } : {}),
+          updatedBy: currentEmployee.systemId,
+        }
       });
 
       toast.success('Đã cập nhật phiếu chuyển kho');
@@ -324,10 +337,7 @@ export function StockTransferEditPage() {
         payload.note = transferNote;
       }
 
-      update(transfer.systemId, payload);
-
-      toast.success('Đã cập nhật phiếu chuyển kho');
-      router.push(`/stock-transfers/${transfer.systemId}`);
+      updateMutation.mutate({ systemId: transfer.systemId, data: payload });
     } finally {
       setIsSubmitting(false);
     }

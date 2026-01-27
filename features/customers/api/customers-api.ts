@@ -210,3 +210,107 @@ export async function fetchCustomerOrders(customerId: string, params: { page?: n
   
   return res.json();
 }
+
+// ============ TRASH FUNCTIONS ============
+
+/**
+ * Fetch deleted customers
+ */
+export async function fetchDeletedCustomers(): Promise<Customer[]> {
+  const res = await fetch(`${API_BASE}/deleted`, {
+    credentials: 'include',
+  });
+  
+  if (!res.ok) {
+    throw new Error(`Failed to fetch deleted customers: ${res.statusText}`);
+  }
+  
+  const json = await res.json();
+  return json.data || json;
+}
+
+/**
+ * Restore deleted customer
+ */
+export async function restoreCustomer(systemId: string): Promise<Customer> {
+  const res = await fetch(`${API_BASE}/${systemId}/restore`, {
+    method: 'POST',
+    credentials: 'include',
+  });
+  
+  const json = await res.json();
+  
+  if (!res.ok) {
+    throw new Error(json.error || json.message || `Failed to restore customer: ${res.statusText}`);
+  }
+  
+  return json.data || json;
+}
+
+/**
+ * Permanently delete customer
+ */
+export async function permanentDeleteCustomer(systemId: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/${systemId}/permanent`, {
+    method: 'DELETE',
+    credentials: 'include',
+  });
+  
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error || errorData.message || `Failed to permanently delete customer: ${res.statusText}`);
+  }
+}
+
+// ============ BULK OPERATIONS ============
+
+/**
+ * Bulk delete customers (soft delete)
+ */
+export async function bulkDeleteCustomers(systemIds: string[]): Promise<void> {
+  const res = await fetch(`${API_BASE}/bulk/delete`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ systemIds }),
+  });
+  
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({}));
+    throw new Error(error.message || `Failed to bulk delete customers: ${res.statusText}`);
+  }
+}
+
+/**
+ * Bulk restore customers
+ */
+export async function bulkRestoreCustomers(systemIds: string[]): Promise<void> {
+  const res = await fetch(`${API_BASE}/bulk/restore`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ systemIds }),
+  });
+  
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({}));
+    throw new Error(error.message || `Failed to bulk restore customers: ${res.statusText}`);
+  }
+}
+
+/**
+ * Bulk update customer status
+ */
+export async function bulkUpdateCustomerStatus(systemIds: string[], status: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/bulk/status`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ systemIds, status }),
+  });
+  
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({}));
+    throw new Error(error.message || `Failed to bulk update customer status: ${res.statusText}`);
+  }
+}

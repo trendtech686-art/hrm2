@@ -1,6 +1,6 @@
 import * as React from "react";
 import { Plus, Package } from "lucide-react";
-import { useProductStore } from "../../products/store";
+import { useActiveProducts } from "../../products/hooks/use-all-products";
 import { VirtualizedCombobox, type ComboboxOption } from "../../../components/ui/virtualized-combobox";
 import { QuickAddProductDialog } from "../../products/components/quick-add-product-dialog";
 
@@ -44,14 +44,13 @@ export function ProductCombobox({
   className: _className,
   excludeProductIds = [],
 }: ProductComboboxProps) {
-  const { getActive } = useProductStore();
+  const { data: activeProducts } = useActiveProducts();
   const [showAddDialog, setShowAddDialog] = React.useState(false);
 
   // Only show active products not yet added - exclude combos (can't import combos)
   const availableProducts = React.useMemo(() => {
-    const active = getActive();
-    return active.filter((p) => !excludeProductIds.includes(p.systemId) && p.type !== 'combo');
-  }, [excludeProductIds, getActive]);
+    return activeProducts.filter((p) => !excludeProductIds.includes(p.systemId) && p.type !== 'combo');
+  }, [excludeProductIds, activeProducts]);
 
   // Find selected product
   const selectedProduct = React.useMemo(

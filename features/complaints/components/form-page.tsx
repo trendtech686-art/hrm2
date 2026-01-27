@@ -10,7 +10,7 @@ import { formatDateForDisplay } from '@/lib/date-utils';
 
 // Types & Store
 import type { Complaint, ComplaintType } from "../types";
-import { useComplaintStore } from "../store";
+import { useComplaintMutations } from "../hooks/use-complaints";
 import { useComplaintFinder } from "../hooks/use-all-complaints";
 import type { StagingFile } from "@/lib/file-upload-api";
 import { complaintNotifications } from "../notification-utils";
@@ -141,7 +141,17 @@ export function ComplaintFormPage() {
   const router = useRouter();
   const { setPageHeader } = usePageHeader();
   
-  const { addComplaint, updateComplaint } = useComplaintStore();
+  const { create: createMutation, update: updateMutation } = useComplaintMutations({
+    onCreateSuccess: (complaint) => {
+      toast.success('Đã tạo khiếu nại mới');
+      router.push(`/complaints/${complaint.systemId}`);
+    },
+    onUpdateSuccess: () => {
+      toast.success('Đã cập nhật khiếu nại');
+      if (systemId) router.push(`/complaints/${systemId}`);
+    },
+    onError: (err) => toast.error(err.message)
+  });
   const { getComplaintById } = useComplaintFinder();
   const { data: orders } = useAllOrders();
   const { data: salesReturns } = useAllSalesReturns();
@@ -749,33 +759,35 @@ export function ComplaintFormPage() {
       };
       
       if (isEditing && systemId) {
-        updateComplaint(asSystemId(systemId), complaintData as unknown as Partial<Complaint>);
-        toast.success("Đã cập nhật khiếu nại");
-        router.push(`/complaints/${systemId}`); // Navigate to detail page
+        updateMutation.mutate({ 
+          systemId: asSystemId(systemId), 
+          data: complaintData as unknown as Partial<Complaint> 
+        });
       } else {
-        const newSystemId = addComplaint(complaintData as unknown as Omit<Complaint, "systemId" | "createdAt" | "updatedAt" | "timeline" | "id"> & { id?: BusinessId });
-        
-        // Lấy orderCode để hiển thị
-        const order = orders.find(o => o.systemId === data.orderSystemId);
-        const orderCode = order?.id || data.orderSystemId;
-        
-        // Gửi thông báo cho nhân viên đóng gói
-        addNotification({
-          type: "system",
-          title: "Khiếu nại mới cần xử lý",
-          message: `Bạn được giao xử lý khiếu nại cho đơn hàng ${orderCode}. Độ ưu tiên: ${data.priority}`,
-          link: `/complaints/${newSystemId}`,
-          createdBy: currentUser.systemId,
-          metadata: {
-            recipientId: packagingEmployee,
-            complaintId: newSystemId,
-            orderSystemId: data.orderSystemId, // ⭐ Lưu systemId
-            priority: data.priority,
+        createMutation.mutate(complaintData as unknown as Omit<Complaint, "systemId" | "createdAt" | "updatedAt" | "timeline" | "id"> & { id?: BusinessId }, {
+          onSuccess: (newComplaint) => {
+            // Lấy orderCode để hiển thị
+            const order = orders.find(o => o.systemId === data.orderSystemId);
+            const orderCode = order?.id || data.orderSystemId;
+            
+            // Gửi thông báo cho nhân viên đóng gói
+            addNotification({
+              type: "system",
+              title: "Khiếu nại mới cần xử lý",
+              message: `Bạn được giao xử lý khiếu nại cho đơn hàng ${orderCode}. Độ ưu tiên: ${data.priority}`,
+              link: `/complaints/${newComplaint.systemId}`,
+              createdBy: currentUser.systemId,
+              metadata: {
+                recipientId: packagingEmployee,
+                complaintId: newComplaint.systemId,
+                orderSystemId: data.orderSystemId,
+                priority: data.priority,
+              }
+            });
+            
+            complaintNotifications.onCreate("Đã tạo khiếu nại mới và gửi thông báo cho nhân viên");
           }
         });
-        
-        complaintNotifications.onCreate("Đã tạo khiếu nại mới và gửi thông báo cho nhân viên");
-        router.push(`/complaints/${newSystemId}`); // Navigate to detail page
       }
     } catch (error) {
       console.error("Error submitting complaint:", error);
@@ -945,7 +957,7 @@ export function ComplaintFormPage() {
                       <tr>
                         <th className="text-left p-2 font-medium w-12">Chọn</th>
                         <th className="text-center p-2 font-medium w-12">Ảnh</th>
-                        <th className="text-left p-2 font-medium min-w-[220px]">Tên sản phẩm</th>
+                        <th className="text-left p-2 font-medium min-w-55">Tên sản phẩm</th>
                         <th className="text-right p-2 font-medium w-24">Đơn giá</th>
                         <th className="text-center p-2 font-medium w-20">Số lượng</th>
                         <th className="text-left p-2 font-medium w-28">Loại KN</th>
@@ -953,7 +965,7 @@ export function ComplaintFormPage() {
                         <th className="text-center p-2 font-medium w-20">Thiếu</th>
                         <th className="text-center p-2 font-medium w-20">Hỏng</th>
                         <th className="text-right p-2 font-medium w-28">Tổng tiền</th>
-                        <th className="text-left p-2 font-medium min-w-[180px]">Ghi chú</th>
+                        <th className="text-left p-2 font-medium min-w-45">Ghi chú</th>
                       </tr>
                     </thead>
                     <tbody>

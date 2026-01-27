@@ -43,6 +43,7 @@ export function useBrand(id: string | null | undefined) {
 }
 
 interface UseBrandMutationsOptions {
+  onSuccess?: () => void;
   onCreateSuccess?: (brand: Brand) => void;
   onUpdateSuccess?: (brand: Brand) => void;
   onDeleteSuccess?: () => void;

@@ -81,7 +81,6 @@ import {
 import { toast } from "sonner"
 import { cn } from "../../lib/utils"
 import { 
-  useImportExportStore,
   type ImportPreviewResult,
   type ImportPreviewRow,
   type ImportExportConfig,
@@ -91,7 +90,8 @@ import {
 import type { SystemId } from "../../lib/id-types"
 import { ExcelFileDropzone, type ExcelFile } from './excel-file-dropzone'
 import { useAllBranches } from "../../features/settings/branches/hooks/use-all-branches"
-import { usePricingPolicyStore } from "../../features/settings/pricing/store"
+import { useImportExportLogsMutations } from "../../lib/import-export/hooks/use-import-export-logs"
+import { useActivePricingPolicies } from "../../features/settings/pricing/hooks/use-pricing"
 
 // ============================================
 // EDITABLE CELL COMPONENT (Memoized for performance)
@@ -372,8 +372,13 @@ export function GenericImportDialogV2<T>({
   onImport,
   currentUser,
 }: GenericImportDialogV2Props<T>) {
-  // Store
-  const addImportLog = useImportExportStore(state => state.addImportLog)
+  // React Query hooks
+  const { addImport } = useImportExportLogsMutations()
+  const { data: pricingPoliciesData } = useActivePricingPolicies()
+  const activePricingPolicies = React.useMemo(
+    () => pricingPoliciesData?.filter(p => p.isActive) ?? [],
+    [pricingPoliciesData]
+  )
   
   // Auto-fetch branches if not provided
   const { data: storeBranches } = useAllBranches()
@@ -617,8 +622,7 @@ export function GenericImportDialogV2<T>({
       // ===== DYNAMIC PRICING COLUMNS (chỉ cho products) =====
       const pricingColumns: Array<{ key: string; label: string; example: string }> = []
       if (config.entityType === 'products') {
-        const pricingPolicies = usePricingPolicyStore.getState().data.filter(p => p.isActive)
-        pricingPolicies.forEach(policy => {
+        activePricingPolicies.forEach(policy => {
           const key = `price_${policy.systemId}`
           const label = `Giá: ${policy.name}`
           headers[key] = label
@@ -796,9 +800,9 @@ export function GenericImportDialogV2<T>({
       setImportResult(result)
       setIsImporting(false)
       
-      // Log to store
+      // Log import
       const branch = branches?.find(b => b.systemId === selectedBranchId)
-      addImportLog({
+      await addImport.mutateAsync({
         entityType: config.entityType,
         entityDisplayName: config.entityDisplayName,
         fileName: excelFile?.file.name || 'unknown',
@@ -972,7 +976,7 @@ export function GenericImportDialogV2<T>({
               />
 
               {/* Import Options */}
-              <div className="rounded-lg border p-4 space-y-4">
+              <div className="rounded-lg border-border border p-4 space-y-4">
                 <div className="flex items-center gap-2">
                   <Settings2 className="h-5 w-5" />
                   <h3 className="font-semibold">Tùy chọn Import</h3>

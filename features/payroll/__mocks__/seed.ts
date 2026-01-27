@@ -3,7 +3,7 @@ import { useAttendanceStore } from '../../attendance/store';
 import { usePayrollTemplateStore } from '../payroll-template-store';
 import { usePayrollBatchStore, type GeneratedPayslipPayload } from '../payroll-batch-store';
 import { useEmployeeCompStore } from '../../employees/employee-comp-store';
-import { useEmployeeSettingsStore } from '../../settings/employees/employee-settings-store';
+import { getEmployeeSettingsSync } from '../../settings/employees/employee-settings-service';
 import { payrollEngine } from '../../../lib/payroll-engine';
 import type { AttendanceDataRow } from '../../attendance/types';
 import type { Employee } from '../../employees/types';
@@ -112,9 +112,8 @@ const buildAttendanceRows = (employees: Employee[], _monthKey: string): Attendan
   });
 
 const ensurePayrollProfiles = (employeeSystemIds: SystemId[]) => {
-  const componentIds = useEmployeeSettingsStore
-    .getState()
-    .getSalaryComponents()
+  const componentIds = getEmployeeSettingsSync()
+    .salaryComponents
     .map((component) => component.systemId);
 
   if (!componentIds.length) {
@@ -155,7 +154,7 @@ export const seedPayrollDemoData = (options: PayrollSeedOptions = {}): PayrollSe
   const attendanceStore = useAttendanceStore.getState();
   const templateStore = usePayrollTemplateStore.getState();
   const batchStore = usePayrollBatchStore.getState();
-  const settingsStore = useEmployeeSettingsStore.getState();
+  const employeeSettings = getEmployeeSettingsSync();
 
   const employees = employeeStore.getActive();
   if (!employees.length) {
@@ -177,12 +176,12 @@ export const seedPayrollDemoData = (options: PayrollSeedOptions = {}): PayrollSe
   attendanceStore.lockMonth(monthKey);
 
   const template = templateStore.ensureDefaultTemplate();
-  const payrollWindow = settingsStore.getDefaultPayrollWindow();
+  const payrollWindow = { cutoffDay: employeeSettings.payrollLockDate ?? 25, payday: employeeSettings.payday ?? 5 };
   const payPeriod = buildPayPeriod(monthKey);
   const payrollDate = buildPayrollDate(monthKey, payrollWindow.payday);
 
   // Get salary components and convert to PayrollComponent format
-  const salaryComponents = settingsStore.getSalaryComponents();
+  const salaryComponents = employeeSettings.salaryComponents;
   const templateComponentIds = template.componentSystemIds;
   const filteredComponents = templateComponentIds.length > 0
     ? salaryComponents.filter(c => templateComponentIds.includes(c.systemId))

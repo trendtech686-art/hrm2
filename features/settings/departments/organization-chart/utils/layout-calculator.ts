@@ -8,11 +8,17 @@ import { MarkerType, type Node, type Edge } from 'reactflow';
 import type { Employee } from '../../../../employees/types';
 import { buildHierarchyMaps, countAllDescendants, getAllDescendants } from './hierarchy-helpers';
 
-const dagreGraph = new dagre.graphlib.Graph();
-dagreGraph.setDefaultEdgeLabel(() => ({}));
-
 export const nodeWidth = 256;
 export const nodeHeight = 88;
+
+/**
+ * Create a fresh dagre graph instance
+ */
+function createDagreGraph() {
+  const graph = new dagre.graphlib.Graph();
+  graph.setDefaultEdgeLabel(() => ({}));
+  return graph;
+}
 
 export type LayoutDirection = 'TB' | 'LR';
 
@@ -20,12 +26,14 @@ export interface LayoutOptions {
   direction: LayoutDirection;
   nodeSpacing?: number;
   rankSpacing?: number;
+  ignoreSavedPositions?: boolean;  // Force auto-layout, ignore saved positions
 }
 
 const DEFAULT_OPTIONS = {
   direction: 'TB' as LayoutDirection,
   nodeSpacing: 120,  // Tăng khoảng cách ngang giữa các nodes (nhánh cây)
-  rankSpacing: 150   // Tăng khoảng cách dọc giữa các tầng
+  rankSpacing: 150,  // Tăng khoảng cách dọc giữa các tầng
+  ignoreSavedPositions: true  // Default to auto-layout for consistent display
 };
 
 /**
@@ -42,7 +50,10 @@ export function calculateLayout(
   parentIdMap: Map<string, string>;
   childMap: Map<string, string[]>;
 } {
-  const { direction, nodeSpacing, rankSpacing } = { ...DEFAULT_OPTIONS, ...options };
+  const { direction, nodeSpacing, rankSpacing, ignoreSavedPositions } = { ...DEFAULT_OPTIONS, ...options };
+  
+  // Create fresh graph instance for each calculation
+  const dagreGraph = createDagreGraph();
   
   dagreGraph.setGraph({ 
     rankdir: direction,
@@ -53,7 +64,11 @@ export function calculateLayout(
     acyclicer: 'greedy'    // Xử lý chu trình nếu có
   });
 
-  const activeEmployees = employees.filter(emp => emp.employmentStatus === 'Đang làm việc');
+  // Filter active employees - handle both Vietnamese text and enum values
+  const activeEmployees = employees.filter(emp => {
+    const status = String(emp.employmentStatus || '').toUpperCase();
+    return status === 'ĐANG LÀM VIỆC' || status === 'ACTIVE' || status === '';
+  });
   const { parentIdMap, childMap } = buildHierarchyMaps(activeEmployees, pendingChanges);
 
   // Create all nodes
@@ -70,11 +85,12 @@ export function calculateLayout(
   );
 
   // Apply dagre layout
-  applyDagreLayout(visibleNodes, visibleEdges, activeEmployees);
+  applyDagreLayout(dagreGraph, visibleNodes, visibleEdges, activeEmployees, ignoreSavedPositions);
 
   return {
-    nodes: allNodes,
-    edges: allEdges,
+    // Only return visible nodes/edges so ReactFlow doesn't try to render hidden descendants at (0,0)
+    nodes: visibleNodes,
+    edges: visibleEdges,
     parentIdMap,
     childMap
   };
@@ -183,9 +199,11 @@ function getHiddenNodeIds(
  * Apply dagre layout algorithm
  */
 function applyDagreLayout(
+  dagreGraph: dagre.graphlib.Graph,
   nodes: Node[],
   edges: Edge[],
-  employees: Employee[]
+  employees: Employee[],
+  ignoreSavedPositions: boolean = true
 ) {
   // Add nodes to dagre graph
   nodes.forEach(node => {
@@ -202,18 +220,27 @@ function applyDagreLayout(
 
   // Apply calculated positions
   nodes.forEach(node => {
-    const employeeData = employees.find(e => e.systemId === node.id);
     const nodeWithPosition = dagreGraph.node(node.id);
 
-    // Use saved position if exists, otherwise use calculated position
-    if (employeeData && 
-        employeeData.positionX !== undefined && 
-        employeeData.positionY !== undefined) {
-      node.position = {
-        x: employeeData.positionX,
-        y: employeeData.positionY,
-      };
-    } else if (nodeWithPosition) {
+    if (!ignoreSavedPositions) {
+      // Check for saved positions only if not ignoring them
+      const employeeData = employees.find(e => e.systemId === node.id);
+      const hasSavedPosition = employeeData && 
+          typeof employeeData.positionX === 'number' && 
+          typeof employeeData.positionY === 'number' &&
+          (employeeData.positionX !== 0 || employeeData.positionY !== 0);
+
+      if (hasSavedPosition) {
+        node.position = {
+          x: employeeData.positionX!,
+          y: employeeData.positionY!,
+        };
+        return;
+      }
+    }
+
+    // Use dagre calculated position
+    if (nodeWithPosition) {
       node.position = {
         x: nodeWithPosition.x - nodeWidth / 2,
         y: nodeWithPosition.y - nodeHeight / 2,
@@ -229,15 +256,23 @@ export function resetToAutoLayout(
   nodes: Node[],
   edges: Edge[]
 ): Node[] {
-  // Clear dagre graph
-  dagreGraph.nodes().forEach(id => dagreGraph.removeNode(id));
+  // Create fresh graph instance
+  const dagreGraph = createDagreGraph();
+  dagreGraph.setGraph({ 
+    rankdir: 'TB',
+    nodesep: DEFAULT_OPTIONS.nodeSpacing,
+    ranksep: DEFAULT_OPTIONS.rankSpacing,
+    ranker: 'tight-tree',
+    align: 'UL',
+    acyclicer: 'greedy'
+  });
 
-  // Re-add nodes
+  // Add nodes
   nodes.forEach(node => {
     dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight });
   });
 
-  // Re-add edges
+  // Add edges
   edges.forEach(edge => {
     dagreGraph.setEdge(edge.source, edge.target);
   });

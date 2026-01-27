@@ -21,7 +21,8 @@ import { Label } from '@/components/ui/label';
 import type { StagingFile } from '@/lib/file-upload-api';
 import { VirtualizedCombobox, type ComboboxOption } from '@/components/ui/virtualized-combobox';
 import { ProductSelectionDialog } from '@/features/shared/product-selection-dialog';
-import { useProductStore } from '@/features/products/store';
+import { useProducts } from '@/features/products/hooks/use-products';
+import { useProductFinder } from '@/features/products/hooks/use-all-products';
 import { useAllOrders } from '@/features/orders/hooks/use-all-orders';
 
 // Local imports
@@ -79,7 +80,9 @@ export function WarrantyProductsSection({
   } = useProductImagesState();
 
   // Store data
-  const { getActive } = useProductStore();
+  const { findById: _findById } = useProductFinder();
+  const { data: allProductsData } = useProducts({ limit: 1000 });
+  const activeProducts = React.useMemo(() => (allProductsData as any)?.data ?? [], [allProductsData]);
   const { data: allOrders } = useAllOrders();
   
   // Watch customer and products
@@ -97,7 +100,7 @@ export function WarrantyProductsSection({
   });
 
   // Get active products for combobox
-  const availableProducts = React.useMemo(() => getActive(), [getActive]);
+  const availableProducts = React.useMemo(() => activeProducts, [activeProducts]);
 
   const productOptions: ComboboxOption[] = React.useMemo(() => {
     return availableProducts.map((p) => ({
@@ -230,15 +233,15 @@ export function WarrantyProductsSection({
               <Table className="table-fixed w-full">
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[40px]">STT</TableHead>
-                    <TableHead className="w-[220px]">Tên sản phẩm</TableHead>
-                    <TableHead className="w-[90px]">Số lượng</TableHead>
-                    <TableHead className="w-[160px]">Đơn giá</TableHead>
-                    <TableHead className="w-[280px]">Hình ảnh</TableHead>
-                    <TableHead className="w-[110px]">Kết quả</TableHead>
-                    <TableHead className="w-[280px]">Ghi chú</TableHead>
-                    <TableHead className="w-[130px] text-right">Thành tiền</TableHead>
-                    <TableHead className="w-[40px]"></TableHead>
+                    <TableHead className="w-10">STT</TableHead>
+                    <TableHead className="w-55">Tên sản phẩm</TableHead>
+                    <TableHead className="w-22.5">Số lượng</TableHead>
+                    <TableHead className="w-40">Đơn giá</TableHead>
+                    <TableHead className="w-70">Hình ảnh</TableHead>
+                    <TableHead className="w-27.5">Kết quả</TableHead>
+                    <TableHead className="w-70">Ghi chú</TableHead>
+                    <TableHead className="w-32.5 text-right">Thành tiền</TableHead>
+                    <TableHead className="w-10"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>

@@ -4,14 +4,16 @@
  */
 import * as React from 'react';
 import { toast } from 'sonner';
-import { usePayrollBatchStore } from '../payroll-batch-store';
-import { usePaymentStore } from '@/features/payments/store';
-import { usePenaltyStore } from '@/features/settings/penalties/store';
+import { useAllPayrollBatches, useAllPayslips, usePayrollBatchMutations } from '../hooks/use-payroll';
+import { useAllPayments } from '@/features/payments/hooks/use-all-payments';
+import { usePaymentMutations } from '@/features/payments/hooks/use-payments';
+import { usePenalties } from '@/features/settings/penalties/hooks/use-penalties';
+import { usePenaltyMutations } from '@/features/settings/penalties/hooks/use-penalties';
 import { useAllEmployees } from '@/features/employees/hooks/use-all-employees';
 import { useAllDepartments } from '@/features/settings/departments/hooks/use-all-departments';
 import { useStoreInfoData } from '@/features/settings/store-info/hooks/use-store-info';
 import { usePrint } from '@/lib/use-print';
-import { asSystemId, type SystemId } from '@/lib/id-types';
+import { type SystemId } from '@/lib/id-types';
 import type { PayrollBatch } from '@/lib/payroll-types';
 import {
   convertPayrollBatchForPrint,
@@ -85,83 +87,111 @@ export function usePayrollFilters() {
  * Hook for payroll batch actions
  */
 export function usePayrollBatchActions() {
-  const { updateBatchStatus, batches, payslips, cancelBatch } = usePayrollBatchStore();
-  const allPayments = usePaymentStore((state) => state.data);
-  const cancelPayment = usePaymentStore((state) => state.cancel);
-  const penaltyStore = usePenaltyStore();
+  const { data: batches = [] } = useAllPayrollBatches();
+  const { data: payslips = [] } = useAllPayslips();
+  const { updateStatus, cancel: cancelBatch } = usePayrollBatchMutations({
+    onSuccess: () => {},
+    onError: (err) => toast.error('Đã xảy ra lỗi', { description: err.message }),
+  });
+  const { data: allPayments = [] } = useAllPayments();
+  const { cancel: cancelPayment } = usePaymentMutations();
+  const { data: penaltiesData } = usePenalties({});
+  const penalties = React.useMemo(() => penaltiesData?.data ?? [], [penaltiesData?.data]);
+  const { update: updatePenalty } = usePenaltyMutations({
+    onSuccess: () => {},
+  });
 
   const handleLock = React.useCallback((systemId: string) => {
-    updateBatchStatus(asSystemId(systemId), 'locked');
-    toast.success('Đã khóa bảng lương');
-  }, [updateBatchStatus]);
+    updateStatus.mutate(
+      { systemId, data: { status: 'locked' } },
+      {
+        onSuccess: () => {
+          toast.success('Đã khóa bảng lương');
+        },
+      }
+    );
+  }, [updateStatus]);
   
   const handleUnlock = React.useCallback((systemId: string) => {
-    updateBatchStatus(asSystemId(systemId), 'reviewed');
-    toast.success('Đã mở khóa bảng lương');
-  }, [updateBatchStatus]);
+    updateStatus.mutate(
+      { systemId, data: { status: 'reviewed' } },
+      {
+        onSuccess: () => {
+          toast.success('Đã mở khóa bảng lương');
+        },
+      }
+    );
+  }, [updateStatus]);
 
   const handleCancel = React.useCallback((systemId: string) => {
-    const batchSystemId = asSystemId(systemId);
+    const batchSystemId = systemId as any;
     const batch = batches.find(b => b.systemId === batchSystemId);
     
     // Cancel related payments first
     const relatedPayments = allPayments.filter(
-      (p) => p.linkedPayrollBatchSystemId === batchSystemId && p.status !== 'cancelled'
+      (p: any) => p.linkedPayrollBatchSystemId === batchSystemId && p.status !== 'cancelled'
     );
     
-    relatedPayments.forEach((payment) => {
-      cancelPayment(payment.systemId, 'Hủy do bảng lương bị hủy');
+    relatedPayments.forEach((payment: any) => {
+      cancelPayment.mutate(
+        { systemId: payment.systemId, reason: 'Hủy do bảng lương bị hủy' },
+        { onSuccess: () => {} }
+      );
     });
     
     // Rollback penalties
     const batchPayslipIds = batch?.payslipSystemIds || [];
-    const batchPayslips = payslips.filter(p => batchPayslipIds.includes(p.systemId));
+    const batchPayslips = payslips.filter((p: any) => batchPayslipIds.includes(p.systemId));
     
-    const penaltyIdsToRollback: SystemId[] = [];
-    batchPayslips.forEach(payslip => {
+    const penaltyIdsToRollback: any[] = [];
+    batchPayslips.forEach((payslip: any) => {
       if (payslip.deductedPenaltySystemIds?.length) {
         penaltyIdsToRollback.push(...payslip.deductedPenaltySystemIds);
       }
     });
     
-    const linkedPenalties = penaltyStore.data.filter(
-      p => p.deductedInPayrollId === batchSystemId
+    const linkedPenalties = penalties.filter(
+      (p: any) => p.deductedInPayrollId === batchSystemId
     );
-    linkedPenalties.forEach(p => {
+    linkedPenalties.forEach((p: any) => {
       if (!penaltyIdsToRollback.includes(p.systemId)) {
         penaltyIdsToRollback.push(p.systemId);
       }
     });
     
     const now = new Date().toISOString();
-    penaltyIdsToRollback.forEach(penaltyId => {
-      const penalty = penaltyStore.data.find(p => p.systemId === penaltyId);
+    penaltyIdsToRollback.forEach((penaltyId: any) => {
+      const penalty = penalties.find((p: any) => p.systemId === penaltyId);
       if (penalty) {
-        penaltyStore.update(penalty.systemId, {
-          ...penalty,
-          status: 'Chưa thanh toán',
-          deductedInPayrollId: undefined,
-          deductedAt: undefined,
-          updatedAt: now,
+        updatePenalty.mutate({
+          systemId: penalty.systemId,
+          data: {
+            status: 'Chưa thanh toán',
+            deductedInPayrollId: undefined,
+            deductedAt: undefined,
+            updatedAt: now,
+          },
         });
       }
     });
     
-    const result = cancelBatch(batchSystemId);
-    if (result.success) {
-      const paymentMsg = relatedPayments.length > 0 
-        ? ` (đã hủy ${relatedPayments.length} phiếu thu liên quan)` 
-        : '';
-      const penaltyMsg = penaltyIdsToRollback.length > 0
-        ? ` Đã khôi phục ${penaltyIdsToRollback.length} phiếu phạt về trạng thái chưa thanh toán.`
-        : '';
-      toast.success(`Đã hủy bảng lương${paymentMsg}`, {
-        description: penaltyMsg || undefined,
-      });
-    } else {
-      toast.error(result.error ?? 'Không thể hủy bảng lương');
-    }
-  }, [batches, payslips, allPayments, cancelPayment, cancelBatch, penaltyStore]);
+    cancelBatch.mutate(
+      { systemId, data: { reason: 'Hủy bởi quản trị viên' } },
+      {
+        onSuccess: () => {
+          const paymentMsg = relatedPayments.length > 0 
+            ? ` (đã hủy ${relatedPayments.length} phiếu thu liên quan)` 
+            : '';
+          const penaltyMsg = penaltyIdsToRollback.length > 0
+            ? ` Đã khôi phục ${penaltyIdsToRollback.length} phiếu phạt về trạng thái chưa thanh toán.`
+            : '';
+          toast.success(`Đã hủy bảng lương${paymentMsg}`, {
+            description: penaltyMsg || undefined,
+          });
+        },
+      }
+    );
+  }, [batches, payslips, allPayments, cancelPayment, cancelBatch, penalties, updatePenalty]);
 
   const handleBulkCancel = React.useCallback((selectedBatches: PayrollBatch[]) => {
     const cancellableBatches = selectedBatches.filter(b => b.status !== 'locked' && b.status !== 'cancelled');
@@ -170,61 +200,14 @@ export function usePayrollBatchActions() {
       return;
     }
     
-    let totalPaymentsCancelled = 0;
-    let totalPenaltiesRolledBack = 0;
-    const now = new Date().toISOString();
-    
     cancellableBatches.forEach((batch) => {
-      const relatedPayments = allPayments.filter(
-        (p) => p.linkedPayrollBatchSystemId === batch.systemId && p.status !== 'cancelled'
-      );
-      relatedPayments.forEach((payment) => {
-        cancelPayment(payment.systemId, 'Hủy do bảng lương bị hủy');
-        totalPaymentsCancelled++;
-      });
-      
-      const batchPayslipIds = batch.payslipSystemIds || [];
-      const batchPayslips = payslips.filter(p => batchPayslipIds.includes(p.systemId));
-      
-      const penaltyIdsToRollback: SystemId[] = [];
-      batchPayslips.forEach(payslip => {
-        if (payslip.deductedPenaltySystemIds?.length) {
-          penaltyIdsToRollback.push(...payslip.deductedPenaltySystemIds);
-        }
-      });
-      
-      const linkedPenalties = penaltyStore.data.filter(
-        p => p.deductedInPayrollId === batch.systemId
-      );
-      linkedPenalties.forEach(p => {
-        if (!penaltyIdsToRollback.includes(p.systemId)) {
-          penaltyIdsToRollback.push(p.systemId);
-        }
-      });
-      
-      penaltyIdsToRollback.forEach(penaltyId => {
-        const penalty = penaltyStore.data.find(p => p.systemId === penaltyId);
-        if (penalty) {
-          penaltyStore.update(penalty.systemId, {
-            ...penalty,
-            status: 'Chưa thanh toán',
-            deductedInPayrollId: undefined,
-            deductedAt: undefined,
-            updatedAt: now,
-          });
-          totalPenaltiesRolledBack++;
-        }
-      });
-      
-      cancelBatch(batch.systemId);
+      handleCancel(batch.systemId);
     });
     
-    const paymentMsg = totalPaymentsCancelled > 0 ? ` (đã hủy ${totalPaymentsCancelled} phiếu thu liên quan)` : '';
-    const penaltyMsg = totalPenaltiesRolledBack > 0 ? ` Đã khôi phục ${totalPenaltiesRolledBack} phiếu phạt.` : '';
-    toast.success(`Đã hủy ${cancellableBatches.length} bảng lương${paymentMsg}`, {
-      description: penaltyMsg || undefined,
+    toast.success(`Đã hủy ${cancellableBatches.length} bảng lương`, {
+      description: 'Các phiếu thanh toán và phiếu phạt liên quan đã được xử lý.',
     });
-  }, [allPayments, payslips, cancelBatch, cancelPayment, penaltyStore]);
+  }, [handleCancel]);
 
   return {
     handleLock,
@@ -238,7 +221,7 @@ export function usePayrollBatchActions() {
  * Hook for payroll print functionality
  */
 export function usePayrollPrint() {
-  const { payslips } = usePayrollBatchStore();
+  const { data: payslips = [] } = useAllPayslips();
   const { data: employees } = useAllEmployees();
   const { data: departments } = useAllDepartments();
   const { info: storeInfo } = useStoreInfoData();

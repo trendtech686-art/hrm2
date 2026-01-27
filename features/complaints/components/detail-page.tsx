@@ -20,7 +20,7 @@ import type { Receipt } from '@/features/receipts/types';
 
 // Types & Store
 import type { Complaint, ComplaintAction } from "../types";
-import { useComplaintStore } from "../store";
+import { useComplaintMutations } from "../hooks/use-complaints";
 import { useComplaintFinder } from "../hooks/use-all-complaints";
 
 // UI Components
@@ -74,7 +74,10 @@ export function ComplaintDetailPage() {
   const { setPageHeader: _setPageHeader } = usePageHeader();
 
   console.time('Store Hooks');
-  const { assignComplaint, updateComplaint } = useComplaintStore();
+  const { update: updateMutation } = useComplaintMutations({
+    onSuccess: () => toast.success('Đã cập nhật khiếu nại'),
+    onError: (err) => toast.error(err.message)
+  });
   const { getComplaintById } = useComplaintFinder();
   const { data: employees } = useAllEmployees();
   const { data: orders } = useAllOrders();
@@ -126,6 +129,21 @@ export function ComplaintDetailPage() {
   React.useEffect(() => {
     console.timeEnd('ComplaintDetailPage Mount');
   }, []);
+  
+  // Create wrapper function for updateComplaint (sync for legacy handlers)
+  const updateComplaint = React.useCallback((systemId: SystemId, data: Partial<Complaint>) => {
+    updateMutation.mutate({ systemId, data });
+  }, [updateMutation]);
+  
+  // Create wrapper for assignComplaint with different signature
+  const assignComplaint = React.useCallback((systemId: SystemId, userId: SystemId, _userName?: string) => {
+    updateMutation.mutate({ 
+      systemId, 
+      data: { 
+        assignedTo: userId,
+      } as any
+    });
+  }, [updateMutation]);
   
   // Current user (from auth context) - memoized to prevent deps change on every render
   const currentUser = React.useMemo(() => employee 

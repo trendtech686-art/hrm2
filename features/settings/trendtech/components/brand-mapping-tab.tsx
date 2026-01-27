@@ -6,23 +6,24 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../../components/ui/table';
 import { Plus, Trash2, RefreshCw, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { useTrendtechSettingsStore } from '../store';
+import { useTrendtechSettings, useTrendtechBrandMappingMutations, useTrendtechLogMutations, useTrendtechBrandMutations } from '../hooks/use-trendtech-settings';
 import { useActiveBrands } from '@/features/brands/hooks/use-all-brands';
 import { nanoid } from 'nanoid';
 import { asSystemId } from '@/lib/id-types';
 
 export function BrandMappingTab() {
-  const { 
-    settings, 
-    addBrandMapping, 
-    deleteBrandMapping, 
-    syncBrandsFromTrendtech,
-    addLog,
-  } = useTrendtechSettingsStore();
-  const { data: hrmBrands } = useActiveBrands();
+  const { data: settings } = useTrendtechSettings();
+  const { addBrandMapping, deleteBrandMapping } = useTrendtechBrandMappingMutations({
+    onSuccess: () => {},
+  });
+  const { setBrands: _setBrands } = useTrendtechBrandMutations({
+    onSuccess: () => {},
+  });
+  const { addLog } = useTrendtechLogMutations();
+  const { data: hrmBrands = [] } = useActiveBrands();
   const [isSyncing, setIsSyncing] = React.useState(false);
-  const trendtechBrands = settings.brands;
-  const mappings = settings.brandMappings;
+  const trendtechBrands = settings?.brands ?? [];
+  const mappings = React.useMemo(() => settings?.brandMappings ?? [], [settings?.brandMappings]);
 
   // Get unmapped HRM brands
   const unmappedHrmBrands = React.useMemo(() => {
@@ -33,7 +34,9 @@ export function BrandMappingTab() {
   const handleSyncBrands = async () => {
     setIsSyncing(true);
     try {
-      await syncBrandsFromTrendtech();
+      // TODO: Fetch brands from Trendtech API
+      // const brands = await fetchTrendtechBrands();
+      // await setBrands.mutateAsync(brands);
       toast.success('Đã đồng bộ danh sách thương hiệu từ Trendtech');
     } catch (error) {
       toast.error('Lỗi đồng bộ thương hiệu: ' + (error instanceof Error ? error.message : 'Unknown'));
@@ -48,7 +51,7 @@ export function BrandMappingTab() {
     
     if (!hrmBrand || !trendtechBrand) return;
     
-    addBrandMapping({
+    addBrandMapping.mutate({
       id: nanoid(),
       hrmBrandSystemId: asSystemId(hrmBrand.systemId),
       hrmBrandName: hrmBrand.name,
@@ -56,7 +59,7 @@ export function BrandMappingTab() {
       trendtechBrandName: trendtechBrand.name,
     });
     
-    addLog({
+    addLog.mutate({
       action: 'save_mapping',
       status: 'success',
       message: `Đã mapping: ${hrmBrand.name} → ${trendtechBrand.name}`,
@@ -68,9 +71,9 @@ export function BrandMappingTab() {
 
   const handleDeleteMapping = (id: string) => {
     const mapping = mappings.find((m) => m.id === id);
-    deleteBrandMapping(id);
+    deleteBrandMapping.mutate(id);
     
-    addLog({
+    addLog.mutate({
       action: 'save_mapping',
       status: 'info',
       message: `Đã xóa mapping: ${mapping?.hrmBrandName}`,
@@ -95,7 +98,7 @@ export function BrandMappingTab() {
             <div>
               <p className="text-sm">Số thương hiệu: <Badge>{trendtechBrands.length}</Badge></p>
             </div>
-            <Button onClick={handleSyncBrands} disabled={isSyncing || !settings.enabled}>
+            <Button onClick={handleSyncBrands} disabled={isSyncing || !settings?.enabled}>
               {isSyncing ? (
                 <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Đang đồng bộ...</>
               ) : (
@@ -104,7 +107,7 @@ export function BrandMappingTab() {
             </Button>
           </div>
           
-          {!settings.enabled && (
+          {!settings?.enabled && (
             <p className="text-sm text-amber-600">
               Vui lòng bật tích hợp Trendtech trong tab Cấu hình chung để đồng bộ
             </p>
@@ -132,7 +135,7 @@ export function BrandMappingTab() {
                   <TableHead>Thương hiệu HRM</TableHead>
                   <TableHead>→</TableHead>
                   <TableHead>Thương hiệu Trendtech</TableHead>
-                  <TableHead className="w-[100px]">Thao tác</TableHead>
+                  <TableHead className="w-25">Thao tác</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

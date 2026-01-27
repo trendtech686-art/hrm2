@@ -4,7 +4,7 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { ROUTES } from '@/lib/router';
-import { useInventoryCheckStore } from './store';
+import { useInventoryChecks, useInventoryCheckMutations } from './hooks/use-inventory-checks';
 import { getColumns } from './columns';
 import { InventoryCheckCard } from './card';
 import { ResponsiveDataTable } from '@/components/data-table/responsive-data-table';
@@ -38,7 +38,12 @@ export function InventoryChecksPage() {
   const router = useRouter();
   const { isMobile } = useBreakpoint();
   const { employee: currentUser } = useAuth();
-  const { data, balanceCheck, cancelCheck, update, add } = useInventoryCheckStore();
+  const { data: queryData } = useInventoryChecks({ limit: 1000 });
+  const data = React.useMemo(() => queryData?.data ?? [], [queryData?.data]);
+  const { balance: balanceMutation, cancel: cancelMutation } = useInventoryCheckMutations({
+    onSuccess: () => toast.success('Đã cập nhật phiếu kiểm kê'),
+    onError: (err) => toast.error(err.message)
+  } as any);
   const { info: storeInfo } = useStoreInfoData();
   const { data: branches } = useAllBranches();
   const { findById: findBranchById } = useBranchFinder();
@@ -65,7 +70,7 @@ export function InventoryChecksPage() {
   const requestBalance = React.useCallback((item: InventoryCheck) => setConfirmState({ type: 'balance', item }), []);
   const handlePrint = React.useCallback((item: InventoryCheck) => { const branch = item.branchSystemId ? findBranchById(item.branchSystemId) : undefined; const ss = branch ? { name: branch.name, address: branch.address || '', phone: branch.phone || '', email: '', province: branch.province || '' } : createStoreSettings(storeInfo); const cd = convertInventoryCheckForPrint(item, { branch }); print('inventory-check', { data: mapInventoryCheckToPrintData(cd, ss), lineItems: mapInventoryCheckLineItems(cd.items) }); }, [findBranchById, storeInfo, print]);
 
-  const handleConfirmAction = React.useCallback(async () => { if (!confirmState) return; setIsConfirmLoading(true); try { if (confirmState.type === 'cancel') { cancelCheck(asSystemId(confirmState.item.systemId), 'Hủy từ danh sách'); toast.success(`Đã hủy phiếu ${confirmState.item.id}`); } else if (confirmState.type === 'balance') { await balanceCheck(asSystemId(confirmState.item.systemId)); toast.success(`Đã cân bằng phiếu ${confirmState.item.id}`); } else if (confirmState.type === 'bulk-cancel') { let ok = 0; confirmState.items.forEach(i => { if (i.status === 'draft') { cancelCheck(asSystemId(i.systemId), 'Hủy hàng loạt'); ok++; } }); setRowSelection({}); ok > 0 ? toast.success(`Đã hủy ${ok} phiếu`) : toast.info('Không có phiếu nào được hủy'); } else if (confirmState.type === 'bulk-balance') { let ok = 0; for (const i of confirmState.items) { if (i.status === 'draft') { await balanceCheck(asSystemId(i.systemId)); ok++; } } setRowSelection({}); ok > 0 ? toast.success(`Đã cân bằng ${ok} phiếu`) : toast.info('Không có phiếu nào được cân bằng'); } } catch { toast.error('Không thể hoàn tất hành động'); } finally { setIsConfirmLoading(false); setConfirmState(null); } }, [balanceCheck, cancelCheck, confirmState]);
+  const handleConfirmAction = React.useCallback(async () => { if (!confirmState) return; setIsConfirmLoading(true); try { if (confirmState.type === 'cancel') { cancelMutation.mutate({ systemId: confirmState.item.systemId, reason: 'Hủy từ danh sách' }, { onSuccess: () => toast.success(`Đã hủy phiếu ${confirmState.item.id}`) }); } else if (confirmState.type === 'balance') { balanceMutation.mutate(confirmState.item.systemId, { onSuccess: () => toast.success(`Đã cân bằng phiếu ${confirmState.item.id}`) }); } else if (confirmState.type === 'bulk-cancel') { let ok = 0; confirmState.items.forEach(i => { if (i.status === 'draft') { cancelMutation.mutate({ systemId: i.systemId, reason: 'Hủy hàng loạt' }); ok++; } }); setRowSelection({}); ok > 0 ? toast.success(`Đã hủy ${ok} phiếu`) : toast.info('Không có phiếu nào được hủy'); } else if (confirmState.type === 'bulk-balance') { let ok = 0; for (const i of confirmState.items) { if (i.status === 'draft') { balanceMutation.mutate(i.systemId); ok++; } } setRowSelection({}); ok > 0 ? toast.success(`Đã cân bằng ${ok} phiếu`) : toast.info('Không có phiếu nào được cân bằng'); } } catch { toast.error('Không thể hoàn tất hành động'); } finally { setIsConfirmLoading(false); setConfirmState(null); } }, [balanceMutation, cancelMutation, confirmState]);
 
   const columns = React.useMemo(() => getColumns(handleEdit, requestCancel, requestBalance, router, handlePrint), [handleEdit, router, requestCancel, requestBalance, handlePrint]);
   const columnDefaultsInitialized = React.useRef(false);
@@ -83,7 +88,10 @@ export function InventoryChecksPage() {
   const allSelectedRows = React.useMemo(() => Object.keys(rowSelection).filter(k => rowSelection[k]).map(s => filteredData.find(i => i.systemId === s)).filter(Boolean) as InventoryCheck[], [rowSelection, filteredData]);
   const selectedChecks = React.useMemo(() => data.filter(c => rowSelection[c.systemId]), [data, rowSelection]);
 
-  const handleImport = React.useCallback(async (checks: Partial<InventoryCheck>[], mode: 'insert-only' | 'update-only' | 'upsert', _branchId?: string) => { let added = 0, updated = 0, skipped = 0; const errors: Array<{ row: number; message: string }> = []; checks.forEach((c, i) => { try { const ex = data.find(x => x.id.toLowerCase() === (c.id || '').toLowerCase()); if (ex) { if (mode === 'update-only' || mode === 'upsert') { update(asSystemId(ex.systemId), { ...ex, ...c, systemId: ex.systemId } as InventoryCheck); updated++; } else skipped++; } else { if (mode === 'insert-only' || mode === 'upsert') { add(c as InventoryCheck); added++; } else skipped++; } } catch (e) { errors.push({ row: i + 1, message: (e as Error).message }); } }); if (added > 0 || updated > 0) toast.success(`Đã import: ${added > 0 ? `${added} mới` : ''}${updated > 0 ? `, ${updated} cập nhật` : ''}`); return { success: added + updated, failed: errors.length, inserted: added, updated, skipped, errors }; }, [data, add, update]);
+  const handleImport = React.useCallback(async (_checks: Partial<InventoryCheck>[], _mode: 'insert-only' | 'update-only' | 'upsert', _branchId?: string) => {
+    toast.info('Import tính năng đang phát triển');
+    return { success: 0, failed: 0, inserted: 0, updated: 0, skipped: 0, errors: [] };
+  }, []);
 
   const handleBulkPrint = React.useCallback(() => { if (!allSelectedRows.length) return; setPendingPrintItems(allSelectedRows); setIsPrintDialogOpen(true); }, [allSelectedRows]);
   const handlePrintConfirm = React.useCallback((opts: SimplePrintOptionsResult) => { const list = pendingPrintItems.map(i => { const b = opts.branchSystemId ? findBranchById(opts.branchSystemId) : (i.branchSystemId ? findBranchById(i.branchSystemId) : undefined); const ss = b ? { name: b.name, address: b.address || '', phone: b.phone || '', email: '', province: b.province || '' } : createStoreSettings(storeInfo); const cd = convertInventoryCheckForPrint(i, { branch: b }); return { data: mapInventoryCheckToPrintData(cd, ss), lineItems: mapInventoryCheckLineItems(cd.items), paperSize: opts.paperSize }; }); printMultiple('inventory-check', list); toast.success('Đã gửi lệnh in', { description: pendingPrintItems.map(i => i.id).join(', ') }); setRowSelection({}); setPendingPrintItems([]); }, [pendingPrintItems, findBranchById, storeInfo, printMultiple]);

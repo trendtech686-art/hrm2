@@ -9,12 +9,12 @@ import { toast } from 'sonner';
 import { formatDateCustom, getCurrentDate } from '@/lib/date-utils';
 import { asBusinessId, asSystemId } from '@/lib/id-types';
 import type { PurchaseOrder } from '@/lib/types/prisma-extended';
-import { usePurchaseOrderStore } from '../store';
+import { usePurchaseOrders, usePurchaseOrderMutations } from '../hooks/use-purchase-orders';
 import { useAllPayments } from '@/features/payments/hooks/use-all-payments';
 import { usePaymentStore } from '@/features/payments/store';
 import { useAllCashAccounts } from '@/features/cashbook/hooks/use-all-cash-accounts';
 import { useAllPaymentTypes } from '@/features/settings/payments/types/hooks/use-all-payment-types';
-import { usePurchaseReturnStore } from '@/features/purchase-returns/store';
+import { usePurchaseReturns } from '@/features/purchase-returns/hooks/use-purchase-returns';
 import { useAuth } from '@/contexts/auth-context';
 import { sumPaymentsForPurchaseOrder } from '../payment-utils';
 import type { Payment } from '@/features/payments/types';
@@ -31,15 +31,27 @@ export type { ReceiveDialogState, ReceiveLineItemForm, CancelPODialogState };
  */
 export function usePurchaseOrdersPageHandlers() {
   const router = useRouter();
-  const { data: purchaseOrders, bulkCancel, syncAllPurchaseOrderStatuses } = usePurchaseOrderStore();
+  const { data: queryData } = usePurchaseOrders({ limit: 1000 });
+  const purchaseOrders = React.useMemo(() => queryData?.data ?? [], [queryData?.data]);
+  const { update: updatePO } = usePurchaseOrderMutations({});
   const { data: allPayments } = useAllPayments();
   const { accounts } = useAllCashAccounts();
   const { data: paymentTypes } = useAllPaymentTypes();
-  const { data: allPurchaseReturns } = usePurchaseReturnStore();
+  const { data: prQueryData } = usePurchaseReturns({ limit: 1000 });
+  const allPurchaseReturns = React.useMemo(() => prQueryData?.data ?? [], [prQueryData?.data]);
   const { employee: loggedInUser } = useAuth();
   
   const currentUserSystemId = loggedInUser?.systemId ?? 'SYSTEM';
   const currentUserName = loggedInUser?.fullName ?? 'Hệ thống';
+  
+  // Helper functions
+  const bulkCancel = React.useCallback((systemIds: string[], userId: string, _userName: string) => {
+    systemIds.forEach(id => (updatePO as any).mutate({ systemId: id, status: 'cancelled', cancelledBy: userId, cancelledAt: new Date().toISOString() }));
+  }, [updatePO]);
+  
+  const syncAllPurchaseOrderStatuses = React.useCallback(() => {
+    // Note: This is handled by React Query invalidation
+  }, []);
 
   // Sub-workflows
   const receiveWorkflow = usePurchaseOrderReceiveWorkflow();

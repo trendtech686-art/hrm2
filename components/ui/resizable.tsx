@@ -152,7 +152,7 @@ type ResizablePanelProps = React.HTMLAttributes<HTMLDivElement> & {
   index?: number // Injected by group
 }
 
-const ResizablePanel = ({ className, children, index = 0, defaultSize, minSize, ...divProps }: ResizablePanelProps) => {
+const ResizablePanel = ({ className, children, index = 0, defaultSize: _, minSize: __, ...divProps }: ResizablePanelProps) => {
   const { panelSizes, isDragging } = useResizablePanelGroup()
   const size = panelSizes[index]
 

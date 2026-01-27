@@ -4,9 +4,9 @@ import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-  Users, Command, Building2, Clock, CalendarOff,
+  Users, Command, Clock, CalendarOff,
   Briefcase, Package, ShoppingCart, Truck, History, BookUser, Wrench,
-  Workflow, ShieldAlert, BadgeCent, CalendarCheck, Library,
+  ShieldAlert, BadgeCent, CalendarCheck, Library,
   AreaChart, Settings, Search, ReceiptText, CreditCard,
   Inbox, Home, Wallet, Undo2,
   ListTodo, ClipboardCheck, CheckSquare, ArrowLeftRight, CircleDollarSign, Tags, FolderTree,
@@ -56,8 +56,6 @@ const menuGroups: MenuGroup[] = [
     title: 'Quản lý Nhân sự',
     links: [
       { href: '/employees', label: 'Quản lý nhân viên', icon: Users },
-      { href: '/organization-chart', label: 'Sơ đồ tổ chức', icon: Workflow },
-      { href: '/departments', label: 'Phòng ban & Chức vụ', icon: Building2 },
       { href: '/attendance', label: 'Quản lý Chấm công', icon: Clock },
       { href: '/leaves', label: 'Quản lý Nghỉ phép', icon: CalendarOff },
       { href: '/payroll', label: 'Quản lý Bảng lương', icon: CalendarCheck },

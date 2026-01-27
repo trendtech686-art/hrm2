@@ -110,12 +110,16 @@ class GHTKSyncService {
    */
   private async processWebhookUpdate(update: GHTKWebhookPayload) {
     try {
-      // Dynamically import to avoid circular dependencies
-      const { useOrderStore } = await import('@/features/orders/store');
-      const { processGHTKWebhook } = useOrderStore.getState();
+      // Call API to process webhook instead of using store
+      const response = await fetch(getApiUrl('/shipping/ghtk/webhook/process'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(update),
+      });
       
-      
-      processGHTKWebhook(update);
+      if (!response.ok) {
+        throw new Error(`Failed to process webhook: ${response.statusText}`);
+      }
     } catch (error) {
       console.error('[GHTK Sync] Error processing webhook:', error);
     }
@@ -140,11 +144,15 @@ class GHTKSyncService {
    */
   private async syncStaleOrders() {
     try {
-      const { useOrderStore } = await import('@/features/orders/store');
-      const { data: orders } = useOrderStore.getState();
+      // Fetch orders with GHTK shipments from API
+      const response = await fetch(getApiUrl('/orders?carrier=GHTK'));
+      if (!response.ok) {
+        throw new Error('Failed to fetch GHTK orders');
+      }
+      const { data: orders } = await response.json();
       
       // Find orders with GHTK shipments that need syncing
-      const stalePackagings = orders.flatMap(order => 
+      const stalePackagings = orders.flatMap((order: any) => 
         order.packagings
           .filter(p => 
             p.carrier === 'GHTK' && 
@@ -218,9 +226,6 @@ class GHTKSyncService {
       }
       
       if (data.success && data.order) {
-        const { useOrderStore } = await import('@/features/orders/store');
-        const { processGHTKWebhook } = useOrderStore.getState();
-        
         // Convert tracking response to webhook format
         const webhookData: GHTKWebhookPayload = {
           label_id: data.order.label_id,
@@ -232,7 +237,16 @@ class GHTKSyncService {
           pick_money: data.order.pick_money ? parseInt(data.order.pick_money) : undefined,
         };
         
-        processGHTKWebhook(webhookData);
+        // Process webhook via API
+        const processResponse = await fetch(getApiUrl('/shipping/ghtk/webhook/process'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(webhookData),
+        });
+        
+        if (!processResponse.ok) {
+          throw new Error('Failed to process webhook');
+        }
         
         // Cache the result
         this.cache.set(trackingCode, {
@@ -254,9 +268,13 @@ class GHTKSyncService {
    */
   async syncOrder(orderSystemId: string): Promise<void> {
     try {
-      const { useOrderStore } = await import('@/features/orders/store');
-      const { findById } = useOrderStore.getState();
-      const order = findById(orderSystemId);
+      // Fetch order from API
+      const response = await fetch(getApiUrl(`/orders/${orderSystemId}`));
+      if (!response.ok) {
+        console.error('Failed to fetch order:', orderSystemId);
+        return;
+      }
+      const { data: order } = await response.json();
       
       if (!order) {
         return;

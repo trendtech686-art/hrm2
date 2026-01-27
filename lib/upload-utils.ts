@@ -21,6 +21,7 @@ export function getUploadDir(): string {
 // Entity directories
 export const UPLOAD_DIRS = {
   staging: path.join(UPLOAD_BASE, 'staging'),
+  temp: path.join(UPLOAD_BASE, 'staging'), // Alias for staging
   employees: path.join(UPLOAD_BASE, 'permanent', 'employees'),
   products: path.join(UPLOAD_BASE, 'permanent', 'products'),
   customers: path.join(UPLOAD_BASE, 'permanent', 'customers'),
@@ -160,7 +161,9 @@ export async function saveFileToDisk(
   }
   
   const filePath = path.join(fullDir, fileName)
-  const relativePath = path.join(entityType === 'staging' ? 'staging' : `permanent/${entityType}`, subPath, fileName)
+  // Both 'staging' and 'temp' should use 'staging' folder
+  const isStaging = entityType === 'staging' || entityType === 'temp'
+  const relativePath = path.join(isStaging ? 'staging' : `permanent/${entityType}`, subPath, fileName)
   
   await writeFile(filePath, buffer)
   

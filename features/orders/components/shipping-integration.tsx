@@ -17,7 +17,7 @@ import type {
   PackageInfo
 } from './shipping/types';
 import type { OrderFormValues } from './order-form-page';
-import { useShippingSettingsStore } from '@/features/settings/shipping/shipping-settings-store';
+import { useShippingSettings, DEFAULT_SHIPPING_SETTINGS } from '@/features/settings/shipping/hooks/use-shipping-settings';
 import { useProductFinder } from '@/features/products/hooks/use-all-products';
 import { useProvinces, useWards2Level } from '@/features/settings/provinces/hooks/use-administrative-units';
 import { useBranchFinder } from '@/features/settings/branches/hooks/use-all-branches';
@@ -245,7 +245,8 @@ interface ShippingIntegrationProps {
  */
 export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTabs, customer: customerProp }: ShippingIntegrationProps) {
   const { control, setValue, getValues } = useFormContext<OrderFormValues>();
-  const { settings: shippingSettings } = useShippingSettingsStore();
+  const { data: rawShippingSettings } = useShippingSettings();
+  const shippingSettings = rawShippingSettings ?? DEFAULT_SHIPPING_SETTINGS;
   const { globalConfig: _globalConfig, getDimensions, getWeight: _getWeight, getDefaultShippingOptions: _getDefaultShippingOptions } = useGlobalShippingConfig(); // ✅ Get global config
   const { findById: findProductByIdBase } = useProductFinder();
   const { data: provinces = [] } = useProvinces();

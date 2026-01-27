@@ -93,21 +93,27 @@ export function useFuseFilter<T>(
   query: string,
   options: IFuseOptions<T>
 ): T[] {
-  // Fast path: no query → just return data directly (no state updates)
-  if (!query.trim()) {
-    return data;
-  }
-
   const [filteredData, setFilteredData] = React.useState<T[]>(data);
   const fuseRef = React.useRef<Fuse<T> | null>(null);
   const optionsRef = React.useRef(options);
   const dataRef = React.useRef(data);
+  const hasQuery = query.trim().length > 0;
   
   // Keep refs updated
   optionsRef.current = options;
   dataRef.current = data;
 
+  // Update filteredData when data changes and there's no query
+  // Use JSON stringify for stable comparison (data arrays are often recreated)
+  const dataKey = React.useMemo(() => JSON.stringify(data.map((item: T) => (item as { systemId?: string }).systemId ?? item)), [data]);
+
   React.useEffect(() => {
+    // Fast path: no query → return original data
+    if (!hasQuery) {
+      setFilteredData(dataRef.current);
+      return;
+    }
+
     let cancelled = false;
 
     const performSearch = async () => {
@@ -132,7 +138,7 @@ export function useFuseFilter<T>(
     return () => {
       cancelled = true;
     };
-  }, [query]);
+  }, [query, hasQuery, dataKey]);
 
   return filteredData;
 }

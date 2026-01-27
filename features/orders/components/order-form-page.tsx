@@ -18,17 +18,19 @@ import { useProductStore } from '@/features/products/store';
 import { useAllProducts } from '@/features/products/hooks/use-all-products';
 import { useAllEmployees } from '@/features/employees/hooks/use-all-employees';
 import { useAllBranches } from '@/features/settings/branches/hooks/use-all-branches';
-import { useOrderStore } from '../store';
+import { useOrder } from '../hooks/use-orders';
+import { useOrderMutations } from '../hooks/use-order-mutations';
+import { useOrderActions } from '../hooks/use-order-actions';
 import { useAllOrders, useOrderFinder } from '../hooks/use-all-orders';
-import { usePaymentMethodStore } from '@/features/settings/payments/methods/store';
-import { useSalesChannelStore } from '@/features/settings/sales-channels/store';
+import { usePaymentMethods } from '@/features/settings/payments/hooks/use-payment-methods';
+import { useSalesChannels } from '@/features/settings/sales-channels/hooks/use-sales-channels';
 // ✅ REMOVED: import { generateNextId } - use id: '' instead
-import { useSalesManagementSettingsStore } from '@/features/settings/sales/sales-management-store';
+import { getSalesSettingsSync } from '@/features/settings/sales/sales-management-service';
 import { useAllPricingPolicies } from '@/features/settings/pricing/hooks/use-all-pricing-policies';
 import { useStockHistoryStore } from '@/features/stock-history/store';
 import { useCustomerStore } from '@/features/customers/store';
 import { useAllShippingPartners } from '@/features/settings/shipping/hooks/use-all-shipping-partners';
-import { useTaxStore } from '@/features/settings/taxes/store';
+import { useAllTaxesData } from '@/features/settings/taxes/hooks/use-all-taxes';
 import { SUPPORTED_SHIPPING_PARTNERS as _SUPPORTED_SHIPPING_PARTNERS, SHIPPING_PARTNER_NAMES as _SHIPPING_PARTNER_NAMES, isSupportedShippingPartner, getPreviewParamsKey, getConfigParamsKey, type ShippingPartnerId as _ShippingPartnerId } from '../shipping-partners-config';
 import { asBusinessId, asSystemId } from '@/lib/id-types';
 import { generateSystemId, getMaxSystemIdCounter } from '@/lib/id-utils';
@@ -222,9 +224,26 @@ export function OrderFormPage() {
     const systemId = Array.isArray(rawSystemId) ? rawSystemId[0] : rawSystemId;
     const router = useRouter();
     const [searchParams] = useSearchParamsWithSetter();
-    const { add, update, addPayment: addOrderPayment } = useOrderStore();
+    
+    // React Query mutations for order CRUD
+    const { create: add, update } = useOrderMutations({
+        onCreateSuccess: () => toast.success('Đơn hàng đã được tạo'),
+        onUpdateSuccess: () => toast.success('Đơn hàng đã được cập nhật'),
+        onError: (err) => toast.error(err.message),
+    });
+    
+    // React Query for order actions (addPayment)
+    const { addPayment: addOrderPayment } = useOrderActions({
+        onSuccess: () => toast.success('Thanh toán đã được thêm'),
+        onError: (err) => toast.error(err.message),
+    });
+    
     const { data: allOrders } = useAllOrders();
     const { findById } = useOrderFinder();
+    
+    // React Query for single order (edit mode)
+    const { data: orderFromQuery, isLoading: isOrderLoading } = useOrder(systemId);
+    
     const { data: employees } = useAllEmployees();
     const { data: branches } = useAllBranches();
     const { data: pricingPolicies } = useAllPricingPolicies();
@@ -232,12 +251,22 @@ export function OrderFormPage() {
     const { data: allProducts } = useAllProducts();
     const { addEntry: addStockHistoryEntry } = useStockHistoryStore();
     const { data: partners } = useAllShippingPartners();
-    const { getDefaultSale } = useTaxStore();
-    const paymentMethods = usePaymentMethodStore((state) => state.data);
-    const salesChannels = useSalesChannelStore((state) => state.data);
+    const { getDefaultSale } = useAllTaxesData();
+    
+    // React Query for payment methods and sales channels
+    const { data: pmData } = usePaymentMethods({ limit: 1000 });
+    const paymentMethods = React.useMemo(() => pmData?.data ?? [], [pmData?.data]);
+    const { data: scData } = useSalesChannels({ limit: 1000 });
+    const salesChannels = React.useMemo(() => scData?.data ?? [], [scData?.data]);
 
     const isEditing = !!systemId;
-    const order = React.useMemo(() => (systemId ? findById(systemId) : null), [systemId, findById]);
+    // ✅ Ưu tiên React Query, fallback to store finder
+    const order = React.useMemo(() => {
+      if (systemId) {
+        return orderFromQuery || findById(systemId) || null;
+      }
+      return null;
+    }, [systemId, orderFromQuery, findById]);
     const copyParam = searchParams.get('copy');
     const copyOrderSystemId = Array.isArray(copyParam) ? copyParam[0] : copyParam;
     const copySourceOrder = React.useMemo(() => {
@@ -290,7 +319,7 @@ export function OrderFormPage() {
     });
     const { employee: currentEmployee } = useAuth();
     const currentEmployeeName = currentEmployee?.fullName ?? 'Hệ thống';
-    const currentEmployeeSystemId = currentEmployee?.systemId ?? asSystemId('SYSTEM');
+    const _currentEmployeeSystemId = currentEmployee?.systemId ?? asSystemId('SYSTEM');
     const salesPolicies = React.useMemo(() => pricingPolicies.filter(p => p.type === 'Bán hàng'), [pricingPolicies]);
     const defaultSellingPolicy = React.useMemo(() => salesPolicies.find(p => p.isDefault) || salesPolicies[0], [salesPolicies]);
     const [selectedPolicyId, setSelectedPolicyId] = React.useState<string>(defaultSellingPolicy?.systemId || '');
@@ -731,7 +760,7 @@ export function OrderFormPage() {
         }
 
         // ✅ Check negative stock settings
-        const { allowNegativeOrder, allowNegativeApproval } = useSalesManagementSettingsStore.getState();
+        const { allowNegativeOrder, allowNegativeApproval } = getSalesSettingsSync();
         
         // Determine if we need to validate stock based on settings and action
         let shouldValidateStock = false;
@@ -1109,27 +1138,30 @@ export function OrderFormPage() {
 
         if (isEditing && order) {
             const updatedOrder: Order = { ...order, ...finalOrderData };
-            update(order.systemId, updatedOrder);
-            router.push(`/orders/${order.systemId}`);
+            update.mutate({ id: order.systemId, data: updatedOrder }, {
+                onSuccess: () => router.push(`/orders/${order.systemId}`)
+            });
         } else {
-            const newItem = add(finalOrderData as Omit<Order, 'systemId'>);
-            if (newItem) {
-                if (!isEditing && formPayments.length > 0) {
-                    formPayments.forEach(payment => {
-                        const amount = Number(payment.amount) || 0;
-                        if (amount <= 0) return;
-                        addOrderPayment(newItem.systemId, { amount, method: payment.method }, currentEmployeeSystemId);
-                    });
+            add.mutate(finalOrderData as Omit<Order, 'systemId'>, {
+                onSuccess: (newItem) => {
+                    if (!isEditing && formPayments.length > 0) {
+                        formPayments.forEach(payment => {
+                            const amount = Number(payment.amount) || 0;
+                            if (amount <= 0) return;
+                            addOrderPayment.mutate({ 
+                                systemId: newItem.systemId, 
+                                amount, 
+                                paymentMethodId: payment.method 
+                            });
+                        });
+                    }
+
+                    // ✅ Công nợ sẽ được tạo khi đơn hàng giao thành công (completeDelivery)
+                    // KHÔNG tạo công nợ ngay khi tạo đơn
+
+                    router.push(`/orders/${newItem.systemId}`);
                 }
-
-                // ✅ Công nợ sẽ được tạo khi đơn hàng giao thành công (completeDelivery)
-                // KHÔNG tạo công nợ ngay khi tạo đơn
-
-                router.push(`/orders/${newItem.systemId}`);
-            } else {
-                console.error('❌ [DEBUG] add() returned null/undefined!');
-                router.push('/orders'); // Fallback
-            }
+            });
         }
     };
 
@@ -1194,11 +1226,22 @@ export function OrderFormPage() {
         context: order ? { id: order.id } : undefined
     });
     
+    // Loading state for edit mode
+    if (isEditing && isOrderLoading) {
+        return (
+            <div className="space-y-4">
+                <div className="animate-pulse bg-muted h-32 rounded-lg" />
+                <div className="animate-pulse bg-muted h-64 rounded-lg" />
+                <div className="animate-pulse bg-muted h-48 rounded-lg" />
+            </div>
+        );
+    }
+    
     return (
         <FormProvider {...form}>
             <form id="order-form" onSubmit={handleSubmit(processSubmit)} className="h-full flex flex-col">
                 <OrderCalculations />
-                <ScrollArea className="flex-grow">
+                <ScrollArea className="grow">
                     <div className="pr-4 space-y-4">
                         {/* ✅ Thông báo khi chỉ sửa metadata */}
                         {isMetadataOnlyMode && (
@@ -1212,8 +1255,8 @@ export function OrderFormPage() {
                         )}
                         
                         <div className="flex flex-col md:flex-row gap-4 items-start">
-                            <div className="flex-grow-[7] w-full md:w-0"><CustomerSelector disabled={isFormDisabled || isMetadataOnlyMode} /></div>
-                            <div className="flex-grow-[3] w-full md:w-0"><OrderInfoCard disabled={isFormDisabled} isBranchLocked={isBranchLocked} isMetadataOnlyMode={isMetadataOnlyMode} /></div>
+                            <div className="grow-7 w-full md:w-0"><CustomerSelector disabled={isFormDisabled || isMetadataOnlyMode} /></div>
+                            <div className="grow-3 w-full md:w-0"><OrderInfoCard disabled={isFormDisabled} isBranchLocked={isBranchLocked} isMetadataOnlyMode={isMetadataOnlyMode} /></div>
                         </div>
                         <Card className="flex flex-col">
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
@@ -1237,9 +1280,9 @@ export function OrderFormPage() {
                                             searchPlaceholder="Tìm kiếm theo tên, mã SKU, barcode..."
                                             {...(selectedBranchSystemId ? { branchSystemId: selectedBranchSystemId } : {})}
                                         />
-                                        <Button type="button" variant="outline" className="h-9 flex-shrink-0" onClick={() => setIsProductSelectionOpen(true)} disabled={isFormDisabled || isMetadataOnlyMode}>Chọn nhanh</Button>
+                                        <Button type="button" variant="outline" className="h-9 shrink-0" onClick={() => setIsProductSelectionOpen(true)} disabled={isFormDisabled || isMetadataOnlyMode}>Chọn nhanh</Button>
                                         <Select value={selectedPolicyId} onValueChange={setSelectedPolicyId} disabled={isFormDisabled || isMetadataOnlyMode}>
-                                            <SelectTrigger className="h-9 w-[180px] flex-shrink-0"><SelectValue /></SelectTrigger>
+                                            <SelectTrigger className="h-9 w-45 shrink-0"><SelectValue /></SelectTrigger>
                                             <SelectContent>{salesPolicies.map(p => <SelectItem key={p.systemId} value={p.systemId}>{p.name}</SelectItem>)}</SelectContent>
                                         </Select>
                                     </div>
@@ -1271,11 +1314,11 @@ export function OrderFormPage() {
                             </CardContent>
                         </Card>
                         <div className="flex flex-col md:flex-row gap-4 items-start">
-                            <div className="flex-grow-[6] w-full md:w-0 space-y-4">
+                            <div className="grow-6 w-full md:w-0 space-y-4">
                                 <OrderNotes disabled={isFullyReadOnly} />
                                 <OrderTags disabled={isFullyReadOnly} />
                             </div>
-                            <div className="flex-grow-[4] w-full md:w-0"><OrderSummary disabled={isFormDisabled || isMetadataOnlyMode} /></div>
+                            <div className="grow-4 w-full md:w-0"><OrderSummary disabled={isFormDisabled || isMetadataOnlyMode} /></div>
                         </div>
                         
                         {/* ✅ CHỈ hiển thị card Giao hàng ở chế độ TẠO đơn hàng, KHÔNG hiển thị ở chế độ SỬA */}

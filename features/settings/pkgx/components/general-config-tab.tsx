@@ -7,20 +7,31 @@ import { Switch } from '../../../../components/ui/switch';
 import { Badge } from '../../../../components/ui/badge';
 import { Eye, EyeOff, RefreshCw, CheckCircle2, XCircle, Loader2, Save } from 'lucide-react';
 import { toast } from 'sonner';
-import { usePkgxSettingsStore } from '../store';
+import { usePkgxSettings, usePkgxConfigMutations, usePkgxSyncSettingsMutations, usePkgxLogMutations } from '../hooks/use-pkgx-settings';
 import { PKGX_API_CONFIG } from '../constants';
 
 export function GeneralConfigTab() {
-  const { settings, setApiUrl, setApiKey, setEnabled, setConnectionStatus, updateSyncSetting, addLog } = usePkgxSettingsStore();
+  const { data: settings } = usePkgxSettings();
+  const { setApiUrl, setApiKey, setEnabled, setConnectionStatus } = usePkgxConfigMutations({ onSuccess: () => {} });
+  const { updateSyncSetting } = usePkgxSyncSettingsMutations({ onSuccess: () => {} });
+  const { addLog } = usePkgxLogMutations();
   const [showApiKey, setShowApiKey] = React.useState(false);
   const [isTesting, setIsTesting] = React.useState(false);
-  const [localApiUrl, setLocalApiUrl] = React.useState(settings.apiUrl);
-  const [localApiKey, setLocalApiKey] = React.useState(settings.apiKey);
+  const [localApiUrl, setLocalApiUrl] = React.useState(settings?.apiUrl ?? '');
+  const [localApiKey, setLocalApiKey] = React.useState(settings?.apiKey ?? '');
+  
+  // Update local state when settings change
+  React.useEffect(() => {
+    if (settings) {
+      setLocalApiUrl(settings.apiUrl);
+      setLocalApiKey(settings.apiKey);
+    }
+  }, [settings]);
   
   const handleSaveConfig = () => {
-    setApiUrl(localApiUrl);
-    setApiKey(localApiKey);
-    addLog({
+    setApiUrl.mutate(localApiUrl);
+    setApiKey.mutate(localApiKey);
+    addLog.mutate({
       action: 'save_config',
       status: 'success',
       message: 'Đã lưu cấu hình API',
@@ -46,7 +57,7 @@ export function GeneralConfigTab() {
       });
       
       if (!pingResponse.ok) {
-        addLog({
+        addLog.mutate({
           action: 'ping',
           status: 'error',
           message: `Server không phản hồi`,
@@ -62,7 +73,7 @@ export function GeneralConfigTab() {
       } catch {
         // Lấy tên file từ URL người dùng nhập
         const apiFileName = localApiUrl.split('/').pop() || 'api_product_hrm.php';
-        addLog({
+        addLog.mutate({
           action: 'ping',
           status: 'error',
           message: 'Server trả về lỗi PHP thay vì JSON',
@@ -71,7 +82,7 @@ export function GeneralConfigTab() {
         throw new Error(`Server có lỗi PHP. Vui lòng upload lại file ${apiFileName}`);
       }
       
-      addLog({
+      addLog.mutate({
         action: 'ping',
         status: 'success',
         message: 'Server hoạt động',
@@ -103,9 +114,9 @@ export function GeneralConfigTab() {
       }
       
       if (!data.error) {
-        setConnectionStatus('connected');
+        setConnectionStatus.mutate({ status: 'connected' });
         const stats = data.stats || {};
-        addLog({
+        addLog.mutate({
           action: 'test_connection',
           status: 'success',
           message: `Kết nối thành công! SP: ${stats.total_products}, DM: ${stats.total_categories}, TH: ${stats.total_brands}`,
@@ -117,8 +128,8 @@ export function GeneralConfigTab() {
         });
         toast.success(`Kết nối thành công! Sản phẩm: ${stats.total_products || 0}, Danh mục: ${stats.total_categories || 0}, Thương hiệu: ${stats.total_brands || 0}`);
       } else {
-        setConnectionStatus('error', data.message);
-        addLog({
+        setConnectionStatus.mutate({ status: 'error', error: data.message });
+        addLog.mutate({
           action: 'test_connection',
           status: 'error',
           message: `Lỗi xác thực: ${data.message}`,
@@ -128,8 +139,8 @@ export function GeneralConfigTab() {
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Không thể kết nối';
-      setConnectionStatus('error', errorMessage);
-      addLog({
+      setConnectionStatus.mutate({ status: 'error', error: errorMessage });
+      addLog.mutate({
         action: 'test_connection',
         status: 'error',
         message: `Lỗi kết nối: ${errorMessage}`,
@@ -142,7 +153,7 @@ export function GeneralConfigTab() {
   };
   
   const getStatusBadge = () => {
-    switch (settings.connectionStatus) {
+    switch (settings?.connectionStatus) {
       case 'connected':
         return <Badge variant="default" className="bg-green-500"><CheckCircle2 className="h-3 w-3 mr-1" />Đã kết nối</Badge>;
       case 'error':
@@ -212,7 +223,7 @@ export function GeneralConfigTab() {
             {getStatusBadge()}
           </div>
           
-          {settings.connectionError && (
+          {settings?.connectionError && (
             <p className="text-sm text-destructive">{settings.connectionError}</p>
           )}
         </CardContent>
@@ -230,7 +241,7 @@ export function GeneralConfigTab() {
               <p className="font-medium">Bật tích hợp PKGX</p>
               <p className="text-sm text-muted-foreground">Cho phép đồng bộ sản phẩm với website</p>
             </div>
-            <Switch checked={settings.enabled} onCheckedChange={setEnabled} />
+            <Switch checked={settings?.enabled ?? false} onCheckedChange={(checked) => setEnabled.mutate(checked)} />
           </div>
           
           <div className="flex items-center justify-between">
@@ -239,8 +250,8 @@ export function GeneralConfigTab() {
               <p className="text-sm text-muted-foreground">Tự động đồng bộ dữ liệu theo lịch</p>
             </div>
             <Switch 
-              checked={settings.syncSettings.autoSyncEnabled} 
-              onCheckedChange={(checked) => updateSyncSetting('autoSyncEnabled', checked)} 
+              checked={settings?.syncSettings.autoSyncEnabled ?? false} 
+              onCheckedChange={(checked) => updateSyncSetting.mutate({ key: 'autoSyncEnabled', value: checked })} 
             />
           </div>
         </CardContent>
@@ -254,23 +265,23 @@ export function GeneralConfigTab() {
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="text-center p-3 bg-muted rounded-lg">
-              <p className="text-2xl font-bold">{settings.categories.length}</p>
+              <p className="text-2xl font-bold">{settings?.categories.length ?? 0}</p>
               <p className="text-sm text-muted-foreground">Danh mục PKGX</p>
             </div>
             <div className="text-center p-3 bg-muted rounded-lg">
-              <p className="text-2xl font-bold">{settings.brands.length}</p>
+              <p className="text-2xl font-bold">{settings?.brands.length ?? 0}</p>
               <p className="text-sm text-muted-foreground">Thương hiệu PKGX</p>
             </div>
             <div className="text-center p-3 bg-muted rounded-lg">
-              <p className="text-2xl font-bold">{settings.categoryMappings.length}</p>
+              <p className="text-2xl font-bold">{settings?.categoryMappings.length ?? 0}</p>
               <p className="text-sm text-muted-foreground">Mapping danh mục</p>
             </div>
             <div className="text-center p-3 bg-muted rounded-lg">
-              <p className="text-2xl font-bold">{settings.brandMappings.length}</p>
+              <p className="text-2xl font-bold">{settings?.brandMappings.length ?? 0}</p>
               <p className="text-sm text-muted-foreground">Mapping thương hiệu</p>
             </div>
           </div>
-          {settings.lastSyncAt && (
+          {settings?.lastSyncAt && (
             <p className="text-sm text-muted-foreground mt-4">
               Lần sync cuối: {new Date(settings.lastSyncAt).toLocaleString('vi-VN')}
             </p>

@@ -3,7 +3,7 @@
 import * as React from "react";
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import { useLeaveStore } from './store';
+import { useLeaves, useLeaveMutations } from './hooks/use-leaves';
 import { getColumns } from './columns';
 import type { LeaveRequest, LeaveStatus } from "@/lib/types/prisma-extended";
 import type { SystemId } from '@/lib/id-types';
@@ -25,11 +25,16 @@ import { Card, CardContent, CardHeader } from "../../components/ui/card";
 import { formatDate } from "../../lib/date-utils";
 import { DataTableExportDialog } from "../../components/data-table/data-table-export-dialog";
 import { DataTableImportDialog, type ImportConfig } from "../../components/data-table/data-table-import-dialog";
+import type { LeaveCreateInput } from './api/leaves-api';
 
 const LeaveForm = dynamic(() => import("./components/leave-form").then(mod => ({ default: mod.LeaveForm })), { ssr: false });
 
 export function LeavesPage() {
-  const { data: leaveRequests, remove, add, update } = useLeaveStore();
+  // React Query: fetch from database
+  const { data: leavesResponse, isLoading: _isLoading } = useLeaves({ limit: 500 });
+  const leaveRequests = React.useMemo(() => leavesResponse?.data ?? [], [leavesResponse?.data]);
+  const mutations = useLeaveMutations();
+  
   const router = useRouter(), { isMobile } = useBreakpoint();
   
   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({}), [isAlertOpen, setIsAlertOpen] = React.useState(false), [idToDelete, setIdToDelete] = React.useState<SystemId | null>(null), [isFormOpen, setIsFormOpen] = React.useState(false), [editingRequest, setEditingRequest] = React.useState<LeaveRequest | null>(null);
@@ -38,8 +43,25 @@ export function LeavesPage() {
 
   const handleStatusChange = React.useCallback((systemId: SystemId, status: LeaveStatus) => {
     const request = leaveRequests.find(r => r.systemId === systemId);
-    if (request) { update(systemId, { ...request, status }); toast.success("Đã cập nhật trạng thái", { description: `Đơn ${request.id} đã được ${status.toLowerCase()}` }); }
-  }, [leaveRequests, update]);
+    if (!request) return;
+    
+    if (status === 'Đã duyệt') {
+      mutations.approve.mutate({ systemId }, {
+        onSuccess: () => toast.success("Đã duyệt đơn nghỉ phép", { description: `Đơn ${request.id} đã được duyệt` }),
+        onError: () => toast.error("Lỗi", { description: "Không thể duyệt đơn nghỉ phép" }),
+      });
+    } else if (status === 'Đã từ chối') {
+      mutations.reject.mutate({ systemId, reason: 'Từ chối' }, {
+        onSuccess: () => toast.success("Đã từ chối đơn", { description: `Đơn ${request.id} đã bị từ chối` }),
+        onError: () => toast.error("Lỗi", { description: "Không thể từ chối đơn" }),
+      });
+    } else {
+      mutations.update.mutate({ systemId, data: { status } }, {
+        onSuccess: () => toast.success("Đã cập nhật trạng thái", { description: `Đơn ${request.id} đã được cập nhật` }),
+        onError: () => toast.error("Lỗi", { description: "Không thể cập nhật trạng thái" }),
+      });
+    }
+  }, [leaveRequests, mutations]);
 
   const handleDelete = React.useCallback((systemId: SystemId) => { setIdToDelete(systemId); setIsAlertOpen(true); }, []);
   const handleEdit = React.useCallback((request: LeaveRequest) => { setEditingRequest(request); setIsFormOpen(true); }, []);
@@ -58,14 +80,36 @@ export function LeavesPage() {
   const searchedData = useFuseFilter(leaveRequests, globalFilter, fuseOptions);
 
   const confirmDelete = () => {
-    if (idToDelete) { const request = leaveRequests.find(r => r.systemId === idToDelete); remove(idToDelete); toast.success("Đã xóa đơn nghỉ phép", { description: `Đơn của ${request?.employeeName || 'nhân viên'} đã được xóa` }); }
+    if (idToDelete) {
+      const request = leaveRequests.find(r => r.systemId === idToDelete);
+      mutations.remove.mutate(idToDelete, {
+        onSuccess: () => toast.success("Đã xóa đơn nghỉ phép", { description: `Đơn của ${request?.employeeName || 'nhân viên'} đã được xóa` }),
+        onError: () => toast.error("Lỗi", { description: "Không thể xóa đơn nghỉ phép" }),
+      });
+    }
     setIsAlertOpen(false);
   };
 
   const handleSubmit = (values: Omit<LeaveRequest, 'systemId'>) => {
-    if (editingRequest) { update(editingRequest.systemId, { ...editingRequest, ...values }); toast.success("Đã cập nhật đơn nghỉ phép", { description: `Đơn ${values.id} đã được cập nhật thành công` }); }
-    else { add(values); toast.success("Đã tạo đơn nghỉ phép mới", { description: `Đơn ${values.id} đã được tạo, đang chờ duyệt` }); }
-    setIsFormOpen(false); setEditingRequest(null);
+    if (editingRequest) {
+      mutations.update.mutate({ systemId: editingRequest.systemId, data: values }, {
+        onSuccess: () => { toast.success("Đã cập nhật đơn nghỉ phép", { description: `Đơn ${values.id} đã được cập nhật thành công` }); setIsFormOpen(false); setEditingRequest(null); },
+        onError: () => toast.error("Lỗi", { description: "Không thể cập nhật đơn nghỉ phép" }),
+      });
+    } else {
+      const createData: LeaveCreateInput = {
+        employeeId: values.employeeSystemId,
+        leaveType: values.leaveTypeId || 'ANNUAL',
+        startDate: values.startDate,
+        endDate: values.endDate,
+        reason: values.reason,
+        status: 'Chờ duyệt',
+      };
+      mutations.create.mutate(createData, {
+        onSuccess: () => { toast.success("Đã tạo đơn nghỉ phép mới", { description: `Đơn đã được tạo, đang chờ duyệt` }); setIsFormOpen(false); setEditingRequest(null); },
+        onError: () => toast.error("Lỗi", { description: "Không thể tạo đơn nghỉ phép" }),
+      });
+    }
   };
 
   const filteredData = React.useMemo(() => {
@@ -91,15 +135,47 @@ export function LeavesPage() {
   const allSelectedRows = React.useMemo(() => leaveRequests.filter(lr => rowSelection[lr.systemId]), [leaveRequests, rowSelection]);
   const handleRowClick = (row: LeaveRequest) => router.push(`/leaves/${row.systemId}`);
 
-  const handleBulkApprove = React.useCallback(() => { allSelectedRows.forEach(row => update(row.systemId, { ...row, status: 'Đã duyệt' })); setRowSelection({}); toast.success(`Đã duyệt ${allSelectedRows.length} đơn nghỉ phép`); }, [allSelectedRows, update]);
-  const handleBulkReject = React.useCallback(() => { allSelectedRows.forEach(row => update(row.systemId, { ...row, status: 'Đã từ chối' })); setRowSelection({}); toast.error(`Đã từ chối ${allSelectedRows.length} đơn nghỉ phép`); }, [allSelectedRows, update]);
-  const handleBulkDelete = React.useCallback(() => { if (allSelectedRows.length === 0) return; allSelectedRows.forEach(row => remove(row.systemId)); setRowSelection({}); toast.success(`Đã xóa ${allSelectedRows.length} đơn nghỉ phép`); }, [allSelectedRows, remove]);
+  const handleBulkApprove = React.useCallback(() => {
+    allSelectedRows.forEach(row => {
+      mutations.approve.mutate({ systemId: row.systemId });
+    });
+    setRowSelection({});
+    toast.success(`Đã gửi yêu cầu duyệt ${allSelectedRows.length} đơn nghỉ phép`);
+  }, [allSelectedRows, mutations]);
+  
+  const handleBulkReject = React.useCallback(() => {
+    allSelectedRows.forEach(row => {
+      mutations.reject.mutate({ systemId: row.systemId, reason: 'Từ chối hàng loạt' });
+    });
+    setRowSelection({});
+    toast.error(`Đã gửi yêu cầu từ chối ${allSelectedRows.length} đơn nghỉ phép`);
+  }, [allSelectedRows, mutations]);
+  
+  const handleBulkDelete = React.useCallback(() => {
+    if (allSelectedRows.length === 0) return;
+    allSelectedRows.forEach(row => mutations.remove.mutate(row.systemId));
+    setRowSelection({});
+    toast.success(`Đã xóa ${allSelectedRows.length} đơn nghỉ phép`);
+  }, [allSelectedRows, mutations]);
 
   const exportConfig = React.useMemo(() => ({ fileName: 'Danh_sach_Nghi_phep', columns }), [columns]);
   const importConfig: ImportConfig<LeaveRequest> = React.useMemo(() => ({
-    importer: (items) => { items.forEach(item => { const { systemId: _systemId, ...rest } = item as Partial<LeaveRequest> & { systemId?: string }; add({ ...rest, status: 'Chờ duyệt', requestDate: new Date().toISOString().split('T')[0] } as Omit<LeaveRequest, 'systemId'>); }); toast.success(`Đã nhập ${items.length} đơn nghỉ phép`); },
+    importer: (items) => {
+      items.forEach(item => {
+        const createData: LeaveCreateInput = {
+          employeeId: item.employeeSystemId || '',
+          leaveType: item.leaveTypeId || 'ANNUAL',
+          startDate: item.startDate || new Date().toISOString().split('T')[0],
+          endDate: item.endDate || new Date().toISOString().split('T')[0],
+          reason: item.reason,
+          status: 'Chờ duyệt',
+        };
+        mutations.create.mutate(createData);
+      });
+      toast.success(`Đã nhập ${items.length} đơn nghỉ phép`);
+    },
     fileName: 'Mau_Nhap_Nghi_phep', existingData: leaveRequests, getUniqueKey: (item: Partial<LeaveRequest>) => item.id || `${item.employeeId}-${item.startDate}`,
-  }), [add, leaveRequests]);
+  }), [mutations, leaveRequests]);
 
   const bulkActions = React.useMemo(() => [
     { label: 'Duyệt đã chọn', icon: CheckCircle2, onSelect: () => handleBulkApprove() },

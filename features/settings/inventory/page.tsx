@@ -11,14 +11,6 @@ export function InventorySettingsPage() {
   const [activeTab, setActiveTab] = React.useState('units');
   const { headerActions, registerActions } = useTabActionRegistry(activeTab);
 
-  const registerUnitActions = React.useMemo(() => registerActions('units'), [registerActions]);
-  const registerTypeActions = React.useMemo(() => registerActions('types'), [registerActions]);
-  const registerImporterActions = React.useMemo(() => registerActions('importers'), [registerActions]);
-  const registerStorageActions = React.useMemo(() => registerActions('storage-locations'), [registerActions]);
-  const registerSlaActions = React.useMemo(() => registerActions('sla-settings'), [registerActions]);
-  const registerLogisticsActions = React.useMemo(() => registerActions('logistics-settings'), [registerActions]);
-  const registerWarrantyActions = React.useMemo(() => registerActions('warranty-settings'), [registerActions]);
-
   useSettingsPageHeader({ title: 'Cài đặt kho hàng', actions: headerActions });
 
   const tabs = React.useMemo(() => [
@@ -31,15 +23,26 @@ export function InventorySettingsPage() {
     { value: 'sla-settings', label: 'Cảnh báo tồn kho' },
   ], []);
 
+  // Memoize tab-specific action registrars so they stay stable while tab is active
+  const tabActionHandlers = React.useMemo(() => ({
+    units: registerActions('units'),
+    types: registerActions('types'),
+    importers: registerActions('importers'),
+    storage: registerActions('storage-locations'),
+    logistics: registerActions('logistics-settings'),
+    warranty: registerActions('warranty-settings'),
+    sla: registerActions('sla-settings'),
+  }), [registerActions]);
+
   return (
     <SettingsVerticalTabs value={activeTab} onValueChange={setActiveTab} tabs={tabs}>
-      <TabsContent value="units" className="mt-0"><UnitsTabContent isActive={activeTab === 'units'} onRegisterActions={registerUnitActions} /></TabsContent>
-      <TabsContent value="types" className="mt-0"><ProductTypesTabContent isActive={activeTab === 'types'} onRegisterActions={registerTypeActions} /></TabsContent>
-      <TabsContent value="importers" className="mt-0"><ImportersTabContent isActive={activeTab === 'importers'} onRegisterActions={registerImporterActions} /></TabsContent>
-      <TabsContent value="storage-locations" className="mt-0"><StorageLocationsTabContent isActive={activeTab === 'storage-locations'} onRegisterActions={registerStorageActions} /></TabsContent>
-      <TabsContent value="logistics-settings" className="mt-0"><LogisticsSettingsTabContent isActive={activeTab === 'logistics-settings'} onRegisterActions={registerLogisticsActions} /></TabsContent>
-      <TabsContent value="warranty-settings" className="mt-0"><WarrantySettingsTabContent isActive={activeTab === 'warranty-settings'} onRegisterActions={registerWarrantyActions} /></TabsContent>
-      <TabsContent value="sla-settings" className="mt-0"><SlaSettingsTabContent isActive={activeTab === 'sla-settings'} onRegisterActions={registerSlaActions} /></TabsContent>
+      <TabsContent value="units" className="mt-0"><UnitsTabContent isActive={activeTab === 'units'} onRegisterActions={tabActionHandlers.units} /></TabsContent>
+      <TabsContent value="types" className="mt-0"><ProductTypesTabContent isActive={activeTab === 'types'} onRegisterActions={tabActionHandlers.types} /></TabsContent>
+      <TabsContent value="importers" className="mt-0"><ImportersTabContent isActive={activeTab === 'importers'} onRegisterActions={tabActionHandlers.importers} /></TabsContent>
+      <TabsContent value="storage-locations" className="mt-0"><StorageLocationsTabContent isActive={activeTab === 'storage-locations'} onRegisterActions={tabActionHandlers.storage} /></TabsContent>
+      <TabsContent value="logistics-settings" className="mt-0"><LogisticsSettingsTabContent isActive={activeTab === 'logistics-settings'} onRegisterActions={tabActionHandlers.logistics} /></TabsContent>
+      <TabsContent value="warranty-settings" className="mt-0"><WarrantySettingsTabContent isActive={activeTab === 'warranty-settings'} onRegisterActions={tabActionHandlers.warranty} /></TabsContent>
+      <TabsContent value="sla-settings" className="mt-0"><SlaSettingsTabContent isActive={activeTab === 'sla-settings'} onRegisterActions={tabActionHandlers.sla} /></TabsContent>
     </SettingsVerticalTabs>
   );
 }

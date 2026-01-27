@@ -23,6 +23,7 @@ const prisma = new PrismaClient({ adapter });
 const BATCH_SIZE = 500;
 
 async function seedProvinces() {
+  console.log('📍 Seeding provinces...');
   
   const provinces = PROVINCES_DATA.map(p => ({
     systemId: String(p.systemId),
@@ -38,10 +39,12 @@ async function seedProvinces() {
       create: province,
     });
   }
-
+  
+  console.log(`✅ Seeded ${provinces.length} provinces`);
 }
 
 async function seedDistricts() {
+  console.log('📍 Seeding districts...');
   
   const districts = DISTRICTS_DATA.map(d => ({
     systemId: String(d.systemId),
@@ -59,12 +62,18 @@ async function seedDistricts() {
       skipDuplicates: true,
     });
     inserted += batch.length;
-    process.stdout.write(`\r   Processing: ${inserted}/${districts.length}`);
+    process.stdout.write(`\r   Processing districts: ${inserted}/${districts.length}`);
   }
-
+  console.log(`\n✅ Seeded ${districts.length} districts`);
 }
 
 async function seedWards() {
+  console.log('📍 Seeding wards...');
+  
+  // Validate provinceIds exist
+  const existingProvinces = await prisma.province.findMany({ select: { id: true } });
+  const provinceIds = new Set(existingProvinces.map(p => p.id));
+  console.log(`   Found ${provinceIds.size} provinces in DB:`, [...provinceIds].join(', '));
   
   const wards2 = WARDS_2LEVEL_DATA.map(w => ({
     systemId: String(w.systemId),
@@ -91,18 +100,47 @@ async function seedWards() {
   }));
 
   const allWards = [...wards2, ...wards3];
+  
+  // Check for invalid provinceIds
+  const wardProvinceIds = new Set(allWards.map(w => w.provinceId));
+  console.log(`   Wards reference ${wardProvinceIds.size} unique provinces:`, [...wardProvinceIds].join(', '));
+  
+  const invalidProvinceIds = [...wardProvinceIds].filter(id => !provinceIds.has(id));
+  if (invalidProvinceIds.length > 0) {
+    console.warn(`   ⚠️ Invalid provinceIds found:`, invalidProvinceIds.join(', '));
+    
+    // Log which provinces are being skipped with their names
+    const invalidWards = allWards.filter(w => !provinceIds.has(w.provinceId));
+    const skippedProvinces = new Map<string, { name: string; count: number }>();
+    invalidWards.forEach(w => {
+      const key = w.provinceId;
+      if (!skippedProvinces.has(key)) {
+        skippedProvinces.set(key, { name: w.provinceName ?? 'Unknown', count: 0 });
+      }
+      skippedProvinces.get(key)!.count++;
+    });
+    
+    console.log('   Skipped provinces:');
+    skippedProvinces.forEach((info, id) => {
+      console.log(`     - "${info.name}" (id=${id}): ${info.count} wards`);
+    });
+  }
+  
+  // Filter out wards with invalid provinceId
+  const validWards = allWards.filter(w => provinceIds.has(w.provinceId));
+  console.log(`   Valid wards: ${validWards.length} (skipped ${allWards.length - validWards.length} invalid)`);
 
   let inserted = 0;
-  for (let i = 0; i < allWards.length; i += BATCH_SIZE) {
-    const batch = allWards.slice(i, i + BATCH_SIZE);
+  for (let i = 0; i < validWards.length; i += BATCH_SIZE) {
+    const batch = validWards.slice(i, i + BATCH_SIZE);
     await prisma.ward.createMany({
       data: batch,
       skipDuplicates: true,
     });
     inserted += batch.length;
-    process.stdout.write(`\r   Processing: ${inserted}/${allWards.length}`);
+    process.stdout.write(`\r   Processing wards: ${inserted}/${validWards.length}`);
   }
-
+  console.log(`\n✅ Seeded ${validWards.length} wards`);
 }
 
 async function main() {
@@ -114,19 +152,26 @@ async function main() {
     await seedDistricts();
     await seedWards();
 
-    const _duration = ((Date.now() - startTime) / 1000).toFixed(2);
+    const duration = ((Date.now() - startTime) / 1000).toFixed(2);
 
-    const [_provinceCount, _districtCount, _wardCount] = await Promise.all([
+    const [provinceCount, districtCount, wardCount] = await Promise.all([
       prisma.province.count(),
       prisma.district.count(),
       prisma.ward.count(),
     ]);
 
+    console.log('\n🎉 Seed completed successfully!');
+    console.log(`   Provinces: ${provinceCount}`);
+    console.log(`   Districts: ${districtCount}`);
+    console.log(`   Wards: ${wardCount}`);
+    console.log(`   Duration: ${duration}s`);
 
   } catch (error) {
     console.error('❌ Seed failed:', error);
     throw error;
+  } finally {
+    await prisma.$disconnect();
   }
 }
 
-main();
+main().catch(console.error);

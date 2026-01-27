@@ -7,23 +7,25 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Label } from '../../../../components/ui/label';
 import { Plus, Pencil, Trash2, Search } from 'lucide-react';
 import { toast } from 'sonner';
-import { usePkgxSettingsStore } from '../store';
+import { usePkgxSettings, usePkgxCategoryMutations } from '../hooks/use-pkgx-settings';
 import type { PkgxCategory } from '../types';
 
 export function CategoryListTab() {
-  const { settings, addCategory, updateCategory, deleteCategory } = usePkgxSettingsStore();
+  const { data: settings } = usePkgxSettings();
+  const { addCategory, updateCategory, deleteCategory } = usePkgxCategoryMutations({ onSuccess: () => {} });
   const [search, setSearch] = React.useState('');
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
   const [editingCategory, setEditingCategory] = React.useState<PkgxCategory | null>(null);
   const [formData, setFormData] = React.useState({ id: '', name: '' });
 
   const filteredCategories = React.useMemo(() => {
-    if (!search) return settings.categories;
+    const categories = settings?.categories ?? [];
+    if (!search) return categories;
     const q = search.toLowerCase();
-    return settings.categories.filter(
+    return categories.filter(
       (c) => c.name.toLowerCase().includes(q) || c.id.toString().includes(q)
     );
-  }, [settings.categories, search]);
+  }, [settings?.categories, search]);
 
   const handleOpenAdd = () => {
     setEditingCategory(null);
@@ -49,14 +51,14 @@ export function CategoryListTab() {
     }
 
     if (editingCategory) {
-      updateCategory(editingCategory.id, { id, name: formData.name.trim() });
+      updateCategory.mutate({ id: editingCategory.id, updates: { id, name: formData.name.trim() } });
       toast.success('Đã cập nhật danh mục');
     } else {
-      if (settings.categories.some((c) => c.id === id)) {
+      if ((settings?.categories ?? []).some((c) => c.id === id)) {
         toast.error('ID danh mục đã tồn tại');
         return;
       }
-      addCategory({ id, name: formData.name.trim() });
+      addCategory.mutate({ id, name: formData.name.trim() });
       toast.success('Đã thêm danh mục mới');
     }
     setIsDialogOpen(false);
@@ -64,7 +66,7 @@ export function CategoryListTab() {
 
   const handleDelete = (category: PkgxCategory) => {
     if (confirm(`Xóa danh mục "${category.name}" (ID: ${category.id})?`)) {
-      deleteCategory(category.id);
+      deleteCategory.mutate(category.id);
       toast.success('Đã xóa danh mục');
     }
   };
@@ -123,7 +125,7 @@ export function CategoryListTab() {
           </Table>
         </div>
         <p className="text-sm text-muted-foreground">
-          Tổng: {settings.categories.length} danh mục
+          Tổng: {settings?.categories?.length ?? 0} danh mục
         </p>
       </CardContent>
 

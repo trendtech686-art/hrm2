@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { asSystemId } from '@/lib/id-types';
 import type { WarrantyTicket } from '../types';
-import { useWarrantyStore } from '../store';
+import { updateWarranty } from '../api/warranties-api';
 import { ROUTES, generatePath } from '@/lib/router';
 
 interface CancelWorkflowState {
@@ -115,7 +115,7 @@ export function useWarrantyHandlers(
     toast.success('Đã copy link tracking vào clipboard');
   }, [tickets]);
 
-  const handleStartProcessing = React.useCallback((systemId: string) => {
+  const handleStartProcessing = React.useCallback(async (systemId: string) => {
     const normalizedId = asSystemId(systemId);
     const ticket = tickets.find(t => t.systemId === normalizedId);
     if (!ticket) {
@@ -123,11 +123,11 @@ export function useWarrantyHandlers(
       return;
     }
 
-    useWarrantyStore.getState().updateStatus(normalizedId, 'pending', 'Bắt đầu xử lý từ danh sách');
+    await updateWarranty(normalizedId, { status: 'pending' });
     toast.success('Đã chuyển sang trạng thái Chưa xử lý');
   }, [tickets]);
 
-  const handleMarkProcessed = React.useCallback((systemId: string) => {
+  const handleMarkProcessed = React.useCallback(async (systemId: string) => {
     const normalizedId = asSystemId(systemId);
     const ticket = tickets.find(t => t.systemId === normalizedId);
     if (!ticket) {
@@ -135,7 +135,7 @@ export function useWarrantyHandlers(
       return;
     }
 
-    useWarrantyStore.getState().updateStatus(normalizedId, 'processed', 'Hoàn thành xử lý từ danh sách');
+    await updateWarranty(normalizedId, { status: 'processed' });
     toast.success('Đã hoàn thành xử lý');
   }, [tickets]);
 

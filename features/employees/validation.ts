@@ -10,6 +10,50 @@ const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // National ID validation (CCCD 12 digits or CMND 9 digits)
 const nationalIdRegex = /^(\d{9}|\d{12})$/;
 
+/**
+ * Form validation schema for Employee create/edit form
+ * This schema is used with react-hook-form + zodResolver
+ * All fields are optional with coercion to match form behavior
+ */
+export const employeeFormValidationSchema = z.object({
+  // === REQUIRED FIELDS ===
+  fullName: z.string()
+    .min(2, "Họ tên phải có ít nhất 2 ký tự")
+    .max(100, "Họ tên không được quá 100 ký tự"),
+  
+  gender: z.string()
+    .refine((val) => ['Nam', 'Nữ', 'Khác', 'MALE', 'FEMALE', 'OTHER'].includes(val), {
+      message: "Vui lòng chọn giới tính"
+    }),
+  
+  phone: z.string()
+    .min(1, "Vui lòng nhập số điện thoại")
+    .regex(phoneRegex, "Số điện thoại không hợp lệ (VD: 0912345678)"),
+  
+  workEmail: z.string()
+    .min(1, "Vui lòng nhập email")
+    .regex(emailRegex, "Email không hợp lệ"),
+  
+  branchSystemId: z.string()
+    .min(1, "Vui lòng chọn chi nhánh"),
+  
+  jobTitle: z.string()
+    .min(1, "Vui lòng chọn chức danh"),
+  
+  employmentStatus: z.string()
+    .refine((val) => ['Đang làm việc', 'Nghỉ việc', 'Tạm nghỉ', 'ACTIVE', 'ON_LEAVE', 'TERMINATED'].includes(val), {
+      message: "Vui lòng chọn trạng thái"
+    }),
+  
+  // === OPTIONAL FIELDS - pass through without strict validation ===
+}).passthrough(); // Allow all other fields without validation
+
+export type EmployeeFormValidationData = z.infer<typeof employeeFormValidationSchema>;
+
+/**
+ * Full validation schema for API/backend validation
+ * More strict than form validation
+ */
 export const employeeFormSchema = z.object({
   // Business ID - Optional (auto-generate if empty), custom format allowed
   id: z.string()
@@ -29,7 +73,7 @@ export const employeeFormSchema = z.object({
     .min(2, "Họ tên phải có ít nhất 2 ký tự")
     .max(100, "Họ tên không được quá 100 ký tự"),
   
-  gender: z.enum(['Nam', 'Nữ', 'Khác'], {
+  gender: z.enum(['Nam', 'Nữ', 'Khác', 'MALE', 'FEMALE', 'OTHER'], {
     message: "Vui lòng chọn giới tính"
   }),
   
@@ -50,22 +94,21 @@ export const employeeFormSchema = z.object({
   branchSystemId: z.string()
     .min(1, "Vui lòng chọn chi nhánh"),
   
-  department: z.enum(["Kỹ thuật", "Nhân sự", "Kinh doanh", "Marketing"], {
-    message: "Vui lòng chọn phòng ban"
-  }).optional(),
+  // Department can be either text name (legacy) or systemId (new)
+  department: z.string().optional(),
   
-  jobTitle: z.string()
-    .min(1, "Vui lòng chọn chức danh"),
+  // JobTitle can be either text name (legacy) or systemId (new)
+  jobTitle: z.string().optional(),
   
   hireDate: z.date({
     message: "Vui lòng chọn ngày vào làm",
   }),
   
-  employmentStatus: z.enum(['Đang làm việc', 'Nghỉ việc', 'Tạm nghỉ'], {
+  employmentStatus: z.enum(['Đang làm việc', 'Nghỉ việc', 'Tạm nghỉ', 'ACTIVE', 'ON_LEAVE', 'TERMINATED'], {
     message: "Vui lòng chọn trạng thái"
   }),
   
-  employeeType: z.enum(["Chính thức", "Thử việc", "Thực tập sinh", "Bán thời gian"], {
+  employeeType: z.enum(["Chính thức", "Thử việc", "Thực tập sinh", "Bán thời gian", "FULLTIME", "PARTTIME", "INTERN", "PROBATION"], {
     message: "Vui lòng chọn loại nhân viên"
   }).optional(),
 

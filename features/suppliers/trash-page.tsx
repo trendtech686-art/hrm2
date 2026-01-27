@@ -4,7 +4,7 @@ import * as React from "react"
 import { useRouter } from 'next/navigation';
 import { toast } from "sonner"
 import { usePageHeader } from "../../contexts/page-header-context";
-import { useSupplierStore } from "./store"
+import { useDeletedSuppliers, useTrashMutations } from "./hooks/use-suppliers"
 import { getColumns } from "./trash-columns"
 import { GenericTrashPage } from "../../components/shared/generic-trash-page"
 import { Card, CardContent } from "../../components/ui/card"
@@ -15,7 +15,8 @@ import { ROUTES } from "../../lib/router";
 import type { BreadcrumbItem } from "../../lib/breadcrumb-system";
 
 export function SuppliersTrashPage() {
-  const { data, getDeleted, restore, remove } = useSupplierStore();
+  const { data: deletedSuppliers = [], isLoading } = useDeletedSuppliers();
+  const { restore, permanentDelete } = useTrashMutations();
   const router = useRouter();
   
   const breadcrumb = React.useMemo<BreadcrumbItem[]>(() => ([
@@ -29,29 +30,32 @@ export function SuppliersTrashPage() {
     backPath: ROUTES.PROCUREMENT.SUPPLIERS,
     breadcrumb,
   });
-  
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- data triggers re-evaluation when store changes
-  const deletedSuppliers = React.useMemo(() => getDeleted(), [getDeleted, data]);
 
   const handleRestoreFromColumn = React.useCallback((systemId: SystemId) => {
-    restore(systemId);
-    toast.success("Đã khôi phục nhà cung cấp");
+    restore.mutate(systemId, {
+      onSuccess: () => {
+        toast.success("Đã khôi phục nhà cung cấp");
+      },
+      onError: (error) => {
+        toast.error(error.message || "Có lỗi khi khôi phục nhà cung cấp");
+      }
+    });
   }, [restore]);
 
   const handleDeleteFromColumn = React.useCallback(async (systemId: SystemId) => {
-    try {
-      remove(systemId);
-      toast.success("Đã xóa vĩnh viễn nhà cung cấp");
-    } catch (error) {
-      toast.error("Có lỗi khi xóa nhà cung cấp");
-      console.error(error);
-    }
-  }, [remove]);
+    permanentDelete.mutate(systemId, {
+      onSuccess: () => {
+        toast.success("Đã xóa vĩnh viễn nhà cung cấp");
+      },
+      onError: (error) => {
+        toast.error(error.message || "Có lỗi khi xóa nhà cung cấp");
+      }
+    });
+  }, [permanentDelete]);
 
   const columns = React.useMemo(
     () => getColumns(router, handleRestoreFromColumn, handleDeleteFromColumn),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- data triggers re-creation when store changes
-    [router, handleRestoreFromColumn, handleDeleteFromColumn, data]
+    [router, handleRestoreFromColumn, handleDeleteFromColumn]
   );
 
   const renderMobileCard = (supplier: Supplier) => (
@@ -79,13 +83,15 @@ export function SuppliersTrashPage() {
     </Card>
   );
 
+  if (isLoading) {
+    return <div className="flex items-center justify-center p-8">Đang tải...</div>;
+  }
+
   return (
     <GenericTrashPage
       deletedItems={deletedSuppliers}
-      onRestore={restore}
-      onPermanentDelete={async (systemId) => {
-        remove(systemId);
-      }}
+      onRestore={(systemId) => handleRestoreFromColumn(systemId)}
+      onPermanentDelete={(systemId) => handleDeleteFromColumn(systemId)}
       title="Thùng rác nhà cung cấp"
       entityName="nhà cung cấp"
       backUrl={ROUTES.PROCUREMENT.SUPPLIERS}

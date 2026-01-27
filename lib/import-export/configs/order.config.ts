@@ -12,23 +12,18 @@
 
 import type { Order, LineItem, OrderAddress } from '@/lib/types/prisma-extended';
 import type { ImportExportConfig, FieldConfig } from '@/lib/import-export/types';
-import { useCustomerStore } from '@/features/customers/store';
-import { useProductStore } from '@/features/products/store';
-import { useBranchStore } from '@/features/settings/branches/store';
-import { useEmployeeStore } from '@/features/employees/store';
+import type { Customer, Product, Branch, Employee } from '@/lib/types/prisma-extended';
 import { asSystemId, asBusinessId } from '@/lib/id-types';
-import type { Customer } from '@/lib/types/prisma-extended';
 
 // ============================================
-// HELPER FUNCTIONS
+// HELPER FUNCTIONS (Accept data as parameters)
 // ============================================
 
 /**
  * Lookup khách hàng theo Mã KH (id field)
  */
-const findCustomerById = (customerId: string): Customer | undefined => {
-  if (!customerId) return undefined;
-  const customers = useCustomerStore.getState().data;
+const findCustomerById = (customerId: string, customers: Customer[]): Customer | undefined => {
+  if (!customerId || !customers) return undefined;
   const normalizedId = String(customerId).trim().toUpperCase();
   
   return customers.find(c => 
@@ -40,9 +35,8 @@ const findCustomerById = (customerId: string): Customer | undefined => {
 /**
  * Lookup sản phẩm theo SKU
  */
-const findProductBySku = (sku: string) => {
-  if (!sku) return undefined;
-  const products = useProductStore.getState().data;
+const findProductBySku = (sku: string, products: Product[]) => {
+  if (!sku || !products) return undefined;
   const normalizedSku = String(sku).trim().toUpperCase();
   
   return products.find(p => 
@@ -55,9 +49,8 @@ const findProductBySku = (sku: string) => {
 /**
  * Lookup chi nhánh theo tên hoặc mã
  */
-const findBranch = (branchIdOrName: string) => {
-  if (!branchIdOrName) return undefined;
-  const branches = useBranchStore.getState().data;
+const findBranch = (branchIdOrName: string, branches: Branch[]) => {
+  if (!branchIdOrName || !branches) return undefined;
   const normalized = String(branchIdOrName).trim().toLowerCase();
   
   return branches.find(b => 
@@ -70,9 +63,8 @@ const findBranch = (branchIdOrName: string) => {
 /**
  * Lookup nhân viên theo tên hoặc mã
  */
-const findEmployee = (employeeIdOrName: string) => {
-  if (!employeeIdOrName) return undefined;
-  const employees = useEmployeeStore.getState().data;
+const findEmployee = (employeeIdOrName: string, employees: Employee[]) => {
+  if (!employeeIdOrName || !employees) return undefined;
   const normalized = String(employeeIdOrName).trim().toLowerCase();
   
   return employees.find(e => 
@@ -85,8 +77,8 @@ const findEmployee = (employeeIdOrName: string) => {
 /**
  * Get default branch
  */
-const getDefaultBranch = () => {
-  const branches = useBranchStore.getState().data;
+const getDefaultBranch = (branches: Branch[]) => {
+  if (!branches || branches.length === 0) return undefined;
   return branches.find(b => b.isDefault) || branches[0];
 };
 
@@ -191,7 +183,7 @@ export const orderFields: FieldConfig<OrderImportRow>[] = [
     defaultSelected: true,
     validator: (value) => {
       if (value && String(value).trim() !== '') {
-        const branch = findBranch(String(value));
+        const branch = (findBranch as any)(String(value));
         if (!branch) {
           return `Không tìm thấy chi nhánh "${value}"`;
         }
@@ -209,7 +201,7 @@ export const orderFields: FieldConfig<OrderImportRow>[] = [
     defaultSelected: true,
     validator: (value) => {
       if (value && String(value).trim() !== '') {
-        const employee = findEmployee(String(value));
+        const employee = (findEmployee as any)(String(value));
         if (!employee) {
           return `Không tìm thấy nhân viên "${value}"`;
         }
@@ -267,7 +259,7 @@ export const orderFields: FieldConfig<OrderImportRow>[] = [
       if (!value || String(value).trim() === '') {
         return 'SKU sản phẩm không được để trống';
       }
-      const product = findProductBySku(String(value));
+      const product = (findProductBySku as any)(String(value));
       if (!product) {
         return `Không tìm thấy sản phẩm với SKU "${value}"`;
       }
@@ -463,7 +455,7 @@ export const orderImportExportConfig: ImportExportConfig<Order> = {
     
     // Validate customer
     if (importRow.customerId) {
-      const customer = findCustomerById(importRow.customerId);
+      const customer = (findCustomerById as any)(importRow.customerId);
       if (!customer) {
         errors.push({ field: 'customerId', message: `Không tìm thấy khách hàng "${importRow.customerId}"` });
       }
@@ -471,7 +463,7 @@ export const orderImportExportConfig: ImportExportConfig<Order> = {
     
     // Validate product
     if (importRow.productSku) {
-      const product = findProductBySku(importRow.productSku);
+      const product = (findProductBySku as any)(importRow.productSku);
       if (!product) {
         errors.push({ field: 'productSku', message: `Không tìm thấy sản phẩm "${importRow.productSku}"` });
       }
@@ -479,7 +471,7 @@ export const orderImportExportConfig: ImportExportConfig<Order> = {
     
     // Validate branch if provided
     if (importRow.branchName) {
-      const branch = findBranch(importRow.branchName);
+      const branch = (findBranch as any)(importRow.branchName);
       if (!branch) {
         errors.push({ field: 'branchName', message: `Không tìm thấy chi nhánh "${importRow.branchName}"` });
       }
@@ -487,7 +479,7 @@ export const orderImportExportConfig: ImportExportConfig<Order> = {
     
     // Validate salesperson if provided
     if (importRow.salespersonName) {
-      const employee = findEmployee(importRow.salespersonName);
+      const employee = (findEmployee as any)(importRow.salespersonName);
       if (!employee) {
         errors.push({ field: 'salespersonName', message: `Không tìm thấy nhân viên "${importRow.salespersonName}"` });
       }
@@ -533,9 +525,9 @@ export const orderImportExportConfig: ImportExportConfig<Order> = {
       if (!orderId) continue;
       
       if (!orderMap.has(orderId)) {
-        const customer = findCustomerById(row.customerId);
-        const branch = row.branchName ? findBranch(row.branchName) : getDefaultBranch();
-        const employee = row.salespersonName ? findEmployee(row.salespersonName) : undefined;
+        const customer = (findCustomerById as any)(row.customerId);
+        const branch = row.branchName ? (findBranch as any)(row.branchName) : (getDefaultBranch as any)();
+        const employee = row.salespersonName ? (findEmployee as any)(row.salespersonName) : undefined;
         
         orderMap.set(orderId, {
           rows: [],
@@ -557,7 +549,7 @@ export const orderImportExportConfig: ImportExportConfig<Order> = {
       // Build line items
       const lineItems: LineItem[] = [];
       for (const row of rows) {
-        const product = findProductBySku(row.productSku);
+        const product = (findProductBySku as any)(row.productSku);
         if (!product) continue;
         
         const quantity = Math.max(1, Math.floor(Number(row.quantity) || 1));
@@ -663,13 +655,15 @@ export const orderImportExportConfig: ImportExportConfig<Order> = {
 
 /**
  * Flatten orders to rows for export (1 row per line item)
+ * @param orders - Array of orders to flatten
+ * @param customers - Optional array of customers for lookup. If not provided, customer info will be limited to what's stored in order.
  */
-export function flattenOrdersForExport(orders: Order[]): Array<Record<string, unknown>> {
+export function flattenOrdersForExport(orders: Order[], customers?: Customer[]): Array<Record<string, unknown>> {
   const rows: Array<Record<string, unknown>> = [];
   
   for (const order of orders) {
-    // Get customer info
-    const customer = useCustomerStore.getState().findById(order.customerSystemId);
+    // Get customer info from provided array or fallback to order data
+    const customer = customers ? findCustomerById(order.customerSystemId, customers) : undefined;
     
     // Get latest packaging for tracking info
     const latestPackaging = order.packagings?.[order.packagings.length - 1];

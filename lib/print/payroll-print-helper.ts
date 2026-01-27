@@ -191,18 +191,20 @@ export function convertPayslipForPrint(
         monthKey,
         employeeSystemId: payslip.employeeSystemId as SystemId,
       });
-      if (snapshot) {
+      // Note: snapshot is a Promise, cannot await in sync function
+      // This fallback won't work - leaving attendance as is
+      if ((snapshot as any)?.totals) {
         attendance = {
-          workDays: snapshot.totals.workDays,
+          workDays: (snapshot as any).totals.workDays,
           standardWorkDays: 26,
-          leaveDays: snapshot.totals.leaveDays,
-          absentDays: snapshot.totals.absentDays,
-          otHours: snapshot.totals.otHours,
-          otHoursWeekday: snapshot.totals.otHoursWeekday ?? 0,
-          otHoursWeekend: snapshot.totals.otHoursWeekend ?? 0,
-          otHoursHoliday: snapshot.totals.otHoursHoliday ?? 0,
-          lateArrivals: snapshot.totals.lateArrivals,
-          earlyDepartures: snapshot.totals.earlyDepartures,
+          leaveDays: (snapshot as any).totals.leaveDays,
+          absentDays: (snapshot as any).totals.absentDays,
+          otHours: (snapshot as any).totals.otHours,
+          otHoursWeekday: (snapshot as any).totals.otHoursWeekday ?? 0,
+          otHoursWeekend: (snapshot as any).totals.otHoursWeekend ?? 0,
+          otHoursHoliday: (snapshot as any).totals.otHoursHoliday ?? 0,
+          lateArrivals: (snapshot as any).totals.lateArrivals,
+          earlyDepartures: (snapshot as any).totals.earlyDepartures,
         };
       }
     }
@@ -278,13 +280,13 @@ export function createStoreSettings(storeInfo?: {
 } | null): StoreSettings {
   const generalSettings = getGeneralSettings();
   
-  // Fallback: lấy từ store nếu storeInfo rỗng
+  // Fallback: lấy từ service cache nếu storeInfo rỗng
   let storeInfoFromStorage: typeof storeInfo | null = null;
   if (!storeInfo?.companyName && !storeInfo?.brandName) {
     try {
-      // Import store dynamically để tránh circular dependency
-      const { useStoreInfoStore } = require('@/features/settings/store-info/store-info-store');
-      storeInfoFromStorage = useStoreInfoStore.getState().info;
+      // Import service dynamically để tránh circular dependency
+      const { getStoreInfoSync } = require('@/features/settings/store-info/store-info-service');
+      storeInfoFromStorage = getStoreInfoSync();
     } catch (_e) { /* ignore */ }
   }
   

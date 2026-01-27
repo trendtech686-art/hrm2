@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { useTaskStore } from '../store';
+import { useTasks, useTaskMutations } from '../hooks/use-tasks';
 import { useAuth } from '@/contexts/auth-context';
 import { usePageHeader } from '@/contexts/page-header-context';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -19,7 +19,14 @@ import { toast } from 'sonner';
 export function UserTasksPage() {
   const router = useRouter();
   const { employee } = useAuth();
-  const { data: allTasks, update } = useTaskStore();
+  const { data: tasksData } = useTasks({ limit: 1000 });
+  const allTasks = React.useMemo(() => tasksData?.data ?? [], [tasksData?.data]);
+  const { update: updateMutation } = useTaskMutations();
+  
+  const update = React.useCallback((systemId: string, data: Partial<Task>) => {
+    updateMutation.mutate({ systemId, data });
+  }, [updateMutation]);
+  
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTab, setSelectedTab] = useState('not-started');
   const [completionTask, setCompletionTask] = useState<Task | null>(null);

@@ -9,7 +9,7 @@ import { Input } from '../../../components/ui/input';
 import { Textarea } from '../../../components/ui/textarea';
 import { NumberInput } from '../../../components/ui/number-input';
 import { useAllShippingPartners } from '../../settings/shipping/hooks/use-all-shipping-partners';
-import { useShippingSettingsStore } from '../../settings/shipping/shipping-settings-store';
+import { useShippingSettings, DEFAULT_SHIPPING_SETTINGS } from '../../settings/shipping/hooks/use-shipping-settings';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs';
 import { Label } from '../../../components/ui/label';
 import { ScrollArea } from '../../../components/ui/scroll-area';
@@ -73,7 +73,8 @@ export function PartnerShipmentForm({ disabled }: { disabled?: boolean }) {
     const router = useRouter();
     const { control, getValues, setValue } = useFormContext();
     const { data: allPartners } = useAllShippingPartners();
-    const { settings: shippingSettings } = useShippingSettingsStore();
+    const { data: rawShippingSettings } = useShippingSettings();
+    const shippingSettings = rawShippingSettings ?? DEFAULT_SHIPPING_SETTINGS;
     const { findById: findProductById } = useProductFinder();
     
     // ✅ PHASE 3: Use centralized config loading

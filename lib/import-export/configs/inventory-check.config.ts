@@ -15,45 +15,37 @@ import type {
   DifferenceReason 
 } from '@/lib/types/prisma-extended';
 import type { ImportExportConfig, FieldConfig } from '@/lib/import-export/types';
-import { useProductStore } from '@/features/products/store';
-import { useBranchStore } from '@/features/settings/branches/store';
-import { useEmployeeStore } from '@/features/employees/store';
+import type { Product, Branch, Employee as _Employee } from '@/lib/types/prisma-extended';
 import { asBusinessId, asSystemId } from '@/lib/id-types';
 
 // ============================================
-// HELPER FUNCTIONS
+// HELPER FUNCTIONS (Accept data as parameters)
 // ============================================
 
-const getProductStore = () => useProductStore.getState();
-const getBranchStore = () => useBranchStore.getState();
-const _getEmployeeStore = () => useEmployeeStore.getState();
-
-const findProduct = (identifier: string) => {
-  if (!identifier) return undefined;
-  const store = getProductStore();
+const findProduct = (identifier: string, products: Product[]) => {
+  if (!identifier || !products) return undefined;
   const normalized = identifier.trim().toUpperCase();
   
-  const byId = store.data.find(p => p.id.toUpperCase() === normalized);
+  const byId = products.find(p => p.id.toUpperCase() === normalized);
   if (byId) return byId;
   
-  const bySku = store.data.find(p => p.sku?.toUpperCase() === normalized);
+  const bySku = products.find(p => p.sku?.toUpperCase() === normalized);
   return bySku;
 };
 
-const findBranch = (identifier: string) => {
-  if (!identifier) return undefined;
-  const store = getBranchStore();
+const findBranch = (identifier: string, branches: Branch[]) => {
+  if (!identifier || !branches) return undefined;
   const normalized = identifier.trim().toLowerCase();
   
-  const byId = store.data.find(b => b.id.toLowerCase() === normalized);
+  const byId = branches.find(b => b.id.toLowerCase() === normalized);
   if (byId) return byId;
   
-  return store.data.find(b => b.name.toLowerCase().includes(normalized));
+  return branches.find(b => b.name.toLowerCase().includes(normalized));
 };
 
-const getDefaultBranch = () => {
-  const store = getBranchStore();
-  return store.data.find(b => b.isDefault) || store.data[0];
+const getDefaultBranch = (branches: Branch[]) => {
+  if (!branches || branches.length === 0) return undefined;
+  return branches.find(b => b.isDefault) || branches[0];
 };
 
 // ============================================

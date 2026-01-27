@@ -1,8 +1,21 @@
 /**
  * Product Image Store
  * 
- * Quản lý staging images và permanent images cho products
- * Tương tự như document-store.ts của Employee
+ * ✅ KEEP IN ZUSTAND - This is a UI performance cache and staging workflow manager
+ * 
+ * Purpose:
+ * 1. Performance Cache: Caches product image URLs from server to avoid repeated API calls
+ * 2. Staging Workflow: Manages temporary uploads before form submission
+ * 3. Session-based: Not persisted to localStorage, cleared on page refresh
+ * 
+ * Business Data Location:
+ * - Actual files: Stored in /uploads/ directory and served statically
+ * - Database: ProductImage records with URLs and metadata
+ * - API: FileUploadAPI.getProductFiles(productSystemId)
+ * 
+ * This store only caches URLs for UI performance. The source of truth is the database.
+ * 
+ * Similar to: document-store.ts for Employee files
  */
 
 import { create } from 'zustand';

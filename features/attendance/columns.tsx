@@ -18,7 +18,8 @@ export const getColumns = (
     cellSelection: Record<string, boolean> = {},
   onQuickFill?: (employeeSystemId: SystemId, day: number) => void
 ): ColumnDef<AttendanceDataRow>[] => {
-  const daysInMonth = new Date(year, month, 0).getDate();
+  // month là giá trị 1-12, cần chuyển sang 0-11 cho Date
+  const daysInMonth = new Date(year, month - 1 + 1, 0).getDate();
   const dayColumns: ColumnDef<AttendanceDataRow>[] = [];
 
   for (let day = 1; day <= daysInMonth; day++) {

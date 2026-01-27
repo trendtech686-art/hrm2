@@ -27,10 +27,10 @@ const addReceipt = (item: Omit<InventoryReceipt, 'systemId'>) => {
   const newItem = baseStore.getState().add(item);
   
   // Update last purchase price for all items in the receipt
-  const productStore = useProductStore.getState();
+  const { updateLastPurchasePrice } = useProductStore.getState();
   newItem.items.forEach(item => {
     if (item.productSystemId && item.unitPrice > 0) {
-      productStore.updateLastPurchasePrice(
+      updateLastPurchasePrice(
         item.productSystemId, 
         item.unitPrice, 
         newItem.receivedDate
@@ -48,10 +48,10 @@ const updateReceipt = (systemId: SystemId, updates: Partial<InventoryReceipt>) =
   if (updates.items || updates.receivedDate) {
     const updatedReceipt = baseStore.getState().findById(systemId);
     if (updatedReceipt) {
-      const productStore = useProductStore.getState();
+      const { updateLastPurchasePrice } = useProductStore.getState();
       updatedReceipt.items.forEach(item => {
         if (item.productSystemId && item.unitPrice > 0) {
-          productStore.updateLastPurchasePrice(
+          updateLastPurchasePrice(
             item.productSystemId, 
             item.unitPrice, 
             updatedReceipt.receivedDate

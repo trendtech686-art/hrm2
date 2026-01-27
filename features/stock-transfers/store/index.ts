@@ -87,14 +87,14 @@ export const useStockTransferStore = create<StockTransferState>()(
         return get().data.some(t => t.id === id);
       },
 
-      // Status operations
-      confirmTransfer: (systemId: SystemId, employeeId: SystemId) => 
-        confirmTransfer(get, set, systemId, employeeId),
+      // Status operations (deprecated - use React Query mutations)
+      confirmTransfer: (systemId: SystemId, employeeId: SystemId, products: Array<{ systemId: SystemId; inventoryByBranch?: Record<string, number> }> = [], employee?: { systemId: SystemId; fullName: string }) => 
+        confirmTransfer(get, set, systemId, employeeId, products, employee),
 
-      confirmReceive: (systemId: SystemId, employeeId: SystemId, receivedItems?: { productSystemId: SystemId; receivedQuantity: number }[]) => 
-        confirmReceive(get, set, systemId, employeeId, receivedItems),
+      confirmReceive: (systemId: SystemId, employeeId: SystemId, products: Array<{ systemId: SystemId; inventoryByBranch?: Record<string, number> }> = [], employee?: { systemId: SystemId; fullName: string }, receivedItems?: { productSystemId: SystemId; receivedQuantity: number }[]) => 
+        confirmReceive(get, set, systemId, employeeId, products, employee, receivedItems),
 
-      cancelTransfer: (systemId: SystemId, employeeId: SystemId, reason?: string) => 
-        cancelTransfer(get, set, systemId, employeeId, reason),
+      cancelTransfer: (systemId: SystemId, employeeId: SystemId, products: string[] = [], reason?: string) => 
+        cancelTransfer(get, set, systemId, employeeId, products as any, undefined, reason),
     })
 );

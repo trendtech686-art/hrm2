@@ -234,7 +234,11 @@ export function apiError(
   status = 500,
   details?: unknown
 ): NextResponse {
-  const response: { error: string; details?: unknown } = { error: message }
+  const response: { success: false; error: string; message: string; details?: unknown } = { 
+    success: false,
+    error: message,
+    message: message 
+  }
   if (details && process.env.NODE_ENV === 'development') {
     response.details = details
   }

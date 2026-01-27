@@ -7,12 +7,19 @@ import { Badge } from '../../../../components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../components/ui/select';
 import { Play, Pause, FileText, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { usePkgxSettingsStore } from '../store';
+import { usePkgxSettings, usePkgxSyncSettingsMutations, usePkgxSyncStatusMutations, usePkgxLogMutations } from '../hooks/use-pkgx-settings';
 import { SYNC_INTERVAL_OPTIONS } from '../types';
 
 export function SyncSettingsTab() {
-  const { settings, updateSyncSetting, setLastSyncAt, setLastSyncResult, addLog } = usePkgxSettingsStore();
-  const { syncSettings, lastSyncAt, lastSyncResult, apiKey, apiUrl } = settings;
+  const { data: settings } = usePkgxSettings();
+  const { updateSyncSetting } = usePkgxSyncSettingsMutations({ onSuccess: () => {} });
+  const { setLastSyncAt, setLastSyncResult } = usePkgxSyncStatusMutations();
+  const { addLog } = usePkgxLogMutations();
+  const syncSettings = settings?.syncSettings ?? { autoSyncEnabled: false, intervalMinutes: 60, syncInventory: true, syncPrice: true, syncSeo: true, syncOnProductUpdate: false, notifyOnError: true };
+  const lastSyncAt = settings?.lastSyncAt;
+  const lastSyncResult = settings?.lastSyncResult;
+  const apiKey = settings?.apiKey;
+  const apiUrl = settings?.apiUrl;
   const [isSyncing, setIsSyncing] = React.useState(false);
 
   const handleManualSync = async () => {
@@ -32,10 +39,10 @@ export function SyncSettingsTab() {
       const responseTime = Date.now() - startTime;
       const result = { status: 'success' as const, total: 150, success: 150, failed: 0 };
       
-      setLastSyncAt(new Date().toISOString());
-      setLastSyncResult(result);
+      setLastSyncAt.mutate(new Date().toISOString());
+      setLastSyncResult.mutate(result);
       
-      addLog({
+      addLog.mutate({
         action: 'sync_all',
         status: 'success',
         message: 'Đồng bộ tất cả dữ liệu thành công',
@@ -54,9 +61,9 @@ export function SyncSettingsTab() {
       const responseTime = Date.now() - startTime;
       const errorMessage = error instanceof Error ? error.message : 'Lỗi không xác định';
       
-      setLastSyncResult({ status: 'error', total: 0, success: 0, failed: 0 });
+      setLastSyncResult.mutate({ status: 'error', total: 0, success: 0, failed: 0 });
       
-      addLog({
+      addLog.mutate({
         action: 'sync_all',
         status: 'error',
         message: 'Lỗi đồng bộ dữ liệu',
@@ -75,8 +82,8 @@ export function SyncSettingsTab() {
   };
 
   const handleToggleAutoSync = (checked: boolean) => {
-    updateSyncSetting('autoSyncEnabled', checked);
-    addLog({
+    updateSyncSetting.mutate({ key: 'autoSyncEnabled', value: checked });
+    addLog.mutate({
       action: 'save_config',
       status: 'info',
       message: checked ? 'Đã bật Auto Sync' : 'Đã tắt Auto Sync',
@@ -86,8 +93,8 @@ export function SyncSettingsTab() {
   };
 
   const handleToggleSyncInventory = (checked: boolean) => {
-    updateSyncSetting('syncInventory', checked);
-    addLog({
+    updateSyncSetting.mutate({ key: 'syncInventory', value: checked });
+    addLog.mutate({
       action: 'save_config',
       status: 'info',
       message: checked ? 'Đã bật đồng bộ tồn kho' : 'Đã tắt đồng bộ tồn kho',
@@ -96,8 +103,8 @@ export function SyncSettingsTab() {
   };
 
   const handleToggleSyncPrice = (checked: boolean) => {
-    updateSyncSetting('syncPrice', checked);
-    addLog({
+    updateSyncSetting.mutate({ key: 'syncPrice', value: checked });
+    addLog.mutate({
       action: 'save_config',
       status: 'info',
       message: checked ? 'Đã bật đồng bộ giá' : 'Đã tắt đồng bộ giá',
@@ -106,8 +113,8 @@ export function SyncSettingsTab() {
   };
 
   const handleToggleSyncSeo = (checked: boolean) => {
-    updateSyncSetting('syncSeo', checked);
-    addLog({
+    updateSyncSetting.mutate({ key: 'syncSeo', value: checked });
+    addLog.mutate({
       action: 'save_config',
       status: 'info',
       message: checked ? 'Đã bật đồng bộ SEO' : 'Đã tắt đồng bộ SEO',
@@ -116,8 +123,8 @@ export function SyncSettingsTab() {
   };
 
   const handleToggleSyncOnUpdate = (checked: boolean) => {
-    updateSyncSetting('syncOnProductUpdate', checked);
-    addLog({
+    updateSyncSetting.mutate({ key: 'syncOnProductUpdate', value: checked });
+    addLog.mutate({
       action: 'save_config',
       status: 'info',
       message: checked ? 'Đã bật đồng bộ khi cập nhật SP' : 'Đã tắt đồng bộ khi cập nhật SP',
@@ -126,8 +133,8 @@ export function SyncSettingsTab() {
   };
 
   const handleToggleNotify = (checked: boolean) => {
-    updateSyncSetting('notifyOnError', checked);
-    addLog({
+    updateSyncSetting.mutate({ key: 'notifyOnError', value: checked });
+    addLog.mutate({
       action: 'save_config',
       status: 'info',
       message: checked ? 'Đã bật thông báo lỗi' : 'Đã tắt thông báo lỗi',
@@ -168,7 +175,7 @@ export function SyncSettingsTab() {
             <Label>Tần suất đồng bộ</Label>
             <Select
               value={syncSettings.intervalMinutes.toString()}
-              onValueChange={(value) => updateSyncSetting('intervalMinutes', parseInt(value, 10))}
+              onValueChange={(value) => updateSyncSetting.mutate({ key: 'intervalMinutes', value: parseInt(value, 10) })}
               disabled={!syncSettings.autoSyncEnabled}
             >
               <SelectTrigger className="w-[180px]">

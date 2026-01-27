@@ -27,11 +27,12 @@ import { Alert, AlertDescription } from '../../../../components/ui/alert';
 import { AlertCircle, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePaymentStore } from '../../../payments/store';
-import { useReceiptStore } from '../../../receipts/store';
+import { useAllPayments } from '../../../payments/hooks/use-all-payments';
 import { useAllReceipts } from '../../../receipts/hooks/use-all-receipts';
+import { addHistory } from '../../store/product-management';
 import { useAllOrders } from '../../../orders/hooks/use-all-orders';
-import { useOrderStore } from '../../../orders/store';
-import { useWarrantyStore } from '../../store';
+import { useOrderMutations } from '../../../orders/hooks/use-order-mutations';
+import { useWarrantyMutations } from '../../hooks/use-warranties';
 import { useWarrantyFinder } from '../../hooks/use-all-warranties';
 import type { SettlementType, WarrantyVoucherDialogBaseProps } from '../../types';
 import { useAllPaymentTypes } from '../../../settings/payments/types/hooks/use-all-payment-types';
@@ -93,11 +94,12 @@ export function WarrantyPaymentVoucherDialog({
   const [open, setOpen] = React.useState(false);
   const router = useRouter();
   
-  const { add: addPayment, data: payments } = usePaymentStore();
+  const { add: addPayment } = usePaymentStore();
+  const { data: payments } = useAllPayments();
   const { data: receipts } = useAllReceipts();
   const { data: orders } = useAllOrders();
-  const { update: updateOrder } = useOrderStore();
-  const { addHistory } = useWarrantyStore();
+  const { update: updateOrder } = useOrderMutations();
+  const { update: _updateWarranty } = useWarrantyMutations();
   const { findById: findWarrantyById } = useWarrantyFinder();
   const { data: paymentTypes } = useAllPaymentTypes();
   const { data: paymentMethods } = useAllPaymentMethods();
@@ -418,8 +420,8 @@ export function WarrantyPaymentVoucherDialog({
       return;
     }
 
-    const latestPayments = usePaymentStore.getState().data;
-    const latestReceipts = useReceiptStore.getState().data;
+    const latestPayments = payments;
+    const latestReceipts = receipts;
     const totalPaymentFromTicket = calculateWarrantySettlementTotal(ticket);
     const currentState = calculateWarrantyProcessingState(ticket, latestPayments, latestReceipts, totalPaymentFromTicket);
     const currentRemainingAmount = currentState.remainingAmount;
@@ -497,7 +499,8 @@ export function WarrantyPaymentVoucherDialog({
       linkedWarrantySystemId: asSystemId(warrantySystemId),
     };
 
-    updateOrder(order.systemId, {
+    await updateOrder.mutateAsync({
+      id: order.systemId,
       payments: [...existingOrderPayments, orderPaymentEntry],
       paidAmount: (order.paidAmount || 0) + orderAmount,
     });
@@ -738,7 +741,8 @@ export function WarrantyPaymentVoucherDialog({
           const updatedPayments = [...order.payments, orderPayment];
           const newPaidAmount = (order.paidAmount || 0) + values.amount;
 
-          updateOrder(asSystemId(linkedOrderSystemId), {
+          await updateOrder.mutateAsync({
+            id: asSystemId(linkedOrderSystemId),
             payments: updatedPayments,
             paidAmount: newPaidAmount,
           });

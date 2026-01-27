@@ -3,6 +3,9 @@
  * 
  * Run: npx ts-node scripts/test-address-lookup.ts
  * Or copy to browser console after loading the app
+ * 
+ * NOTE: This test file needs provinces/districts/wards data to run.
+ * Use from browser console where the store is available, not as standalone script.
  */
 
 import { 
@@ -18,6 +21,7 @@ async function runTests() {
   
   // Get store state
   const store = useProvinceStore.getState();
+  const { provinces, districts, wards } = store;
   
   // Sample provinces
   
@@ -32,12 +36,12 @@ async function runTests() {
   ];
   
   testProvinces.forEach(name => {
-    const result = findProvinceByName(name);
+    const result = findProvinceByName(name, provinces);
   });
   
   // Test 2: Find district 
   // Need provinceId first
-  const hcm = findProvinceByName('TP Hồ Chí Minh');
+  const hcm = findProvinceByName('TP Hồ Chí Minh', provinces);
   if (hcm) {
     const testDistricts = [
       'Quận 1',
@@ -47,7 +51,7 @@ async function runTests() {
     ];
     
     testDistricts.forEach(name => {
-      const result = findDistrictByName(name, hcm.id);
+      const result = findDistrictByName(name, hcm.id, districts);
     });
   }
   
@@ -76,7 +80,7 @@ async function runTests() {
   ];
   
   testAddresses.forEach((addr, i) => {
-    const result = lookupAddressIds(addr);
+    const result = lookupAddressIds(addr, provinces, districts, wards);
   });
   
   // Test 4: enrichEmployeeAddresses
@@ -96,7 +100,7 @@ async function runTests() {
     temporaryAddress: null,
   };
   
-  const enriched = enrichEmployeeAddresses(testEmployee);
+  const enriched = enrichEmployeeAddresses(testEmployee, provinces, districts, wards);
   
 }
 

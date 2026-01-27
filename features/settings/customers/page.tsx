@@ -11,13 +11,15 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { toast } from 'sonner';
 import { asSystemId } from '@/lib/id-types';
 import type { BaseSetting, CustomerType, CustomerGroup, CustomerSource, PaymentTerm, CreditRating, LifecycleStage, CustomerSlaSetting } from './types';
-import { useCustomerTypeStore } from './customer-types-store';
-import { useCustomerGroupStore } from './customer-groups-store';
-import { useCustomerSourceStore } from './customer-sources-store';
-import { usePaymentTermStore } from './payment-terms-store';
-import { useCreditRatingStore } from './credit-ratings-store';
-import { useLifecycleStageStore } from './lifecycle-stages-store';
-import { useCustomerSlaStore } from './sla-settings-store';
+import { 
+  useCustomerTypes, useCustomerTypeMutations,
+  useCustomerGroups, useCustomerGroupMutations,
+  useCustomerSources, useCustomerSourceMutations,
+  usePaymentTerms, usePaymentTermMutations,
+  useCreditRatings, useCreditRatingMutations,
+  useLifecycleStages, useLifecycleStageMutations,
+  useCustomerSlaSettings, useCustomerSlaSettingMutations
+} from './hooks/use-customer-settings';
 import { CustomerTypeFormDialog, CustomerGroupFormDialog, CustomerSourceFormDialog, PaymentTermFormDialog, CreditRatingFormDialog, LifecycleStageFormDialog, CustomerSlaSettingFormDialog } from './setting-form-dialog';
 import { TypesTab } from './tabs/types-tab';
 import { GroupsTab } from './tabs/groups-tab';
@@ -38,16 +40,33 @@ export default function CustomerSettingsPage() {
   const [editingItem, setEditingItem] = React.useState<BaseSetting | null>(null);
   const [deleteDialog, setDeleteDialog] = React.useState<{ isOpen: boolean; item: BaseSetting | null }>({ isOpen: false, item: null });
 
-  const customerTypes = useCustomerTypeStore();
-  const customerGroups = useCustomerGroupStore();
-  const customerSources = useCustomerSourceStore();
-  const paymentTerms = usePaymentTermStore();
-  const creditRatings = useCreditRatingStore();
-  const lifecycleStages = useLifecycleStageStore();
-  const slaSettings = useCustomerSlaStore();
+  // React Query hooks
+  const { data: customerTypes = [] } = useCustomerTypes();
+  const { data: customerGroups = [] } = useCustomerGroups();
+  const { data: customerSources = [] } = useCustomerSources();
+  const { data: paymentTerms = [] } = usePaymentTerms();
+  const { data: creditRatings = [] } = useCreditRatings();
+  const { data: lifecycleStages = [] } = useLifecycleStages();
+  const { data: slaSettings = [] } = useCustomerSlaSettings();
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const activeDataMap = React.useMemo(() => ({ types: customerTypes.getActive(), groups: customerGroups.getActive(), sources: customerSources.getActive(), 'payment-terms': paymentTerms.getActive(), 'credit-ratings': creditRatings.getActive(), 'lifecycle-stages': lifecycleStages.getActive(), sla: slaSettings.getActive() }), [customerTypes.data, customerGroups.data, customerSources.data, paymentTerms.data, creditRatings.data, lifecycleStages.data, slaSettings.data]);
+  // Mutations
+  const customerTypeMutations = useCustomerTypeMutations({ onSuccess: () => toast.success('Thành công') });
+  const customerGroupMutations = useCustomerGroupMutations({ onSuccess: () => toast.success('Thành công') });
+  const customerSourceMutations = useCustomerSourceMutations({ onSuccess: () => toast.success('Thành công') });
+  const paymentTermMutations = usePaymentTermMutations({ onSuccess: () => toast.success('Thành công') });
+  const creditRatingMutations = useCreditRatingMutations({ onSuccess: () => toast.success('Thành công') });
+  const lifecycleStageMutations = useLifecycleStageMutations({ onSuccess: () => toast.success('Thành công') });
+  const slaSettingMutations = useCustomerSlaSettingMutations({ onSuccess: () => toast.success('Thành công') });
+
+  const activeDataMap = React.useMemo(() => ({ 
+    types: customerTypes.filter(t => t.isActive), 
+    groups: customerGroups.filter(g => g.isActive), 
+    sources: customerSources.filter(s => s.isActive), 
+    'payment-terms': paymentTerms.filter(p => p.isActive), 
+    'credit-ratings': creditRatings.filter(c => c.isActive), 
+    'lifecycle-stages': lifecycleStages.filter(l => l.isActive), 
+    sla: slaSettings.filter(s => s.isActive) 
+  }), [customerTypes, customerGroups, customerSources, paymentTerms, creditRatings, lifecycleStages, slaSettings]);
 
   const handleAdd = React.useCallback(() => { setEditingItem(null); setDialogOpen(true); }, []);
   const handleEdit = React.useCallback((item: BaseSetting) => { setEditingItem(item); setDialogOpen(true); }, []);
@@ -55,53 +74,80 @@ export default function CustomerSettingsPage() {
 
   const handleToggleActive = React.useCallback((item: BaseSetting, value: boolean) => {
     const upd = { ...item, isActive: value };
-    if (activeTab === 'types') customerTypes.update(item.systemId, upd as CustomerType);
-    else if (activeTab === 'groups') customerGroups.update(item.systemId, upd as CustomerGroup);
-    else if (activeTab === 'sources') customerSources.update(item.systemId, upd as CustomerSource);
-    else if (activeTab === 'payment-terms') paymentTerms.update(item.systemId, upd as PaymentTerm);
-    else if (activeTab === 'credit-ratings') creditRatings.update(item.systemId, upd as CreditRating);
-    else if (activeTab === 'lifecycle-stages') lifecycleStages.update(item.systemId, upd as LifecycleStage);
-    else if (activeTab === 'sla') slaSettings.update(item.systemId, upd as CustomerSlaSetting);
-    toast.success(value ? 'Đã kích hoạt' : 'Đã tắt');
-  }, [activeTab, customerTypes, customerGroups, customerSources, paymentTerms, creditRatings, lifecycleStages, slaSettings]);
+    if (activeTab === 'types') customerTypeMutations.update.mutate({ systemId: item.systemId, data: upd as CustomerType });
+    else if (activeTab === 'groups') customerGroupMutations.update.mutate({ systemId: item.systemId, data: upd as CustomerGroup });
+    else if (activeTab === 'sources') customerSourceMutations.update.mutate({ systemId: item.systemId, data: upd as CustomerSource });
+    else if (activeTab === 'payment-terms') paymentTermMutations.update.mutate({ systemId: item.systemId, data: upd as PaymentTerm });
+    else if (activeTab === 'credit-ratings') creditRatingMutations.update.mutate({ systemId: item.systemId, data: upd as CreditRating });
+    else if (activeTab === 'lifecycle-stages') lifecycleStageMutations.update.mutate({ systemId: item.systemId, data: upd as LifecycleStage });
+    else if (activeTab === 'sla') slaSettingMutations.update.mutate({ systemId: item.systemId, data: upd as CustomerSlaSetting });
+  }, [activeTab, customerTypeMutations, customerGroupMutations, customerSourceMutations, paymentTermMutations, creditRatingMutations, lifecycleStageMutations, slaSettingMutations]);
 
   const handleToggleDefault = React.useCallback((item: BaseSetting & { isDefault?: boolean }, value: boolean) => {
     if (activeTab === 'sla') return;
-    if (value) { const data = activeDataMap[activeTab as keyof typeof activeDataMap] || []; data.forEach((o: BaseSetting & { isDefault?: boolean }) => { if (o.systemId !== item.systemId && o.isDefault) { const u = { ...o, isDefault: false }; if (activeTab === 'types') customerTypes.update(o.systemId, u); else if (activeTab === 'groups') customerGroups.update(o.systemId, u); else if (activeTab === 'sources') customerSources.update(o.systemId, u); else if (activeTab === 'payment-terms') paymentTerms.update(o.systemId, u); else if (activeTab === 'credit-ratings') creditRatings.update(o.systemId, u); else if (activeTab === 'lifecycle-stages') lifecycleStages.update(o.systemId, u); } }); }
+    if (value) { 
+      const data = activeDataMap[activeTab as keyof typeof activeDataMap] || []; 
+      data.forEach((o: BaseSetting & { isDefault?: boolean }) => { 
+        if (o.systemId !== item.systemId && o.isDefault) { 
+          const u = { ...o, isDefault: false }; 
+          if (activeTab === 'types') customerTypeMutations.update.mutate({ systemId: o.systemId, data: u }); 
+          else if (activeTab === 'groups') customerGroupMutations.update.mutate({ systemId: o.systemId, data: u }); 
+          else if (activeTab === 'sources') customerSourceMutations.update.mutate({ systemId: o.systemId, data: u }); 
+          else if (activeTab === 'payment-terms') paymentTermMutations.update.mutate({ systemId: o.systemId, data: u }); 
+          else if (activeTab === 'credit-ratings') creditRatingMutations.update.mutate({ systemId: o.systemId, data: u }); 
+          else if (activeTab === 'lifecycle-stages') lifecycleStageMutations.update.mutate({ systemId: o.systemId, data: u }); 
+        } 
+      }); 
+    }
     const upd = { ...item, isDefault: value };
-    if (activeTab === 'types') customerTypes.update(item.systemId, upd as CustomerType);
-    else if (activeTab === 'groups') customerGroups.update(item.systemId, upd as CustomerGroup);
-    else if (activeTab === 'sources') customerSources.update(item.systemId, upd as CustomerSource);
-    else if (activeTab === 'payment-terms') paymentTerms.update(item.systemId, upd as PaymentTerm);
-    else if (activeTab === 'credit-ratings') creditRatings.update(item.systemId, upd as CreditRating);
-    else if (activeTab === 'lifecycle-stages') lifecycleStages.update(item.systemId, upd as LifecycleStage);
-    toast.success(value ? 'Đã đặt làm mặc định' : 'Đã bỏ mặc định');
-  }, [activeTab, activeDataMap, customerTypes, customerGroups, customerSources, paymentTerms, creditRatings, lifecycleStages]);
+    if (activeTab === 'types') customerTypeMutations.update.mutate({ systemId: item.systemId, data: upd as CustomerType });
+    else if (activeTab === 'groups') customerGroupMutations.update.mutate({ systemId: item.systemId, data: upd as CustomerGroup });
+    else if (activeTab === 'sources') customerSourceMutations.update.mutate({ systemId: item.systemId, data: upd as CustomerSource });
+    else if (activeTab === 'payment-terms') paymentTermMutations.update.mutate({ systemId: item.systemId, data: upd as PaymentTerm });
+    else if (activeTab === 'credit-ratings') creditRatingMutations.update.mutate({ systemId: item.systemId, data: upd as CreditRating });
+    else if (activeTab === 'lifecycle-stages') lifecycleStageMutations.update.mutate({ systemId: item.systemId, data: upd as LifecycleStage });
+  }, [activeTab, activeDataMap, customerTypeMutations, customerGroupMutations, customerSourceMutations, paymentTermMutations, creditRatingMutations, lifecycleStageMutations]);
 
   const confirmDelete = () => {
     if (!deleteDialog.item) return;
     if (activeTab === 'sla') { toast.error('Không thể xóa cài đặt SLA'); setDeleteDialog({ isOpen: false, item: null }); return; }
     const { systemId } = deleteDialog.item;
-    if (activeTab === 'types') customerTypes.remove(asSystemId(systemId));
-    else if (activeTab === 'groups') customerGroups.remove(asSystemId(systemId));
-    else if (activeTab === 'sources') customerSources.remove(asSystemId(systemId));
-    else if (activeTab === 'payment-terms') paymentTerms.remove(asSystemId(systemId));
-    else if (activeTab === 'credit-ratings') creditRatings.remove(asSystemId(systemId));
-    else if (activeTab === 'lifecycle-stages') lifecycleStages.remove(asSystemId(systemId));
-    toast.success('Đã xóa thành công');
+    if (activeTab === 'types') customerTypeMutations.remove.mutate(asSystemId(systemId));
+    else if (activeTab === 'groups') customerGroupMutations.remove.mutate(asSystemId(systemId));
+    else if (activeTab === 'sources') customerSourceMutations.remove.mutate(asSystemId(systemId));
+    else if (activeTab === 'payment-terms') paymentTermMutations.remove.mutate(asSystemId(systemId));
+    else if (activeTab === 'credit-ratings') creditRatingMutations.remove.mutate(asSystemId(systemId));
+    else if (activeTab === 'lifecycle-stages') lifecycleStageMutations.remove.mutate(asSystemId(systemId));
     setDeleteDialog({ isOpen: false, item: null });
   };
 
   const handleSubmit = (data: Record<string, unknown>) => {
     try {
-      if (activeTab === 'types') { if (editingItem) customerTypes.update(editingItem.systemId, { ...editingItem, ...data }); else customerTypes.add(data as Omit<CustomerType, 'systemId'>); }
-      else if (activeTab === 'groups') { if (editingItem) customerGroups.update(editingItem.systemId, { ...editingItem, ...data }); else customerGroups.add(data as Omit<CustomerGroup, 'systemId'>); }
-      else if (activeTab === 'sources') { if (editingItem) customerSources.update(editingItem.systemId, { ...editingItem, ...data }); else customerSources.add(data as Omit<CustomerSource, 'systemId'>); }
-      else if (activeTab === 'payment-terms') { if (editingItem) paymentTerms.update(editingItem.systemId, { ...editingItem, ...data }); else paymentTerms.add(data as Omit<PaymentTerm, 'systemId'>); }
-      else if (activeTab === 'credit-ratings') { if (editingItem) creditRatings.update(editingItem.systemId, { ...editingItem, ...data }); else creditRatings.add(data as Omit<CreditRating, 'systemId'>); }
-      else if (activeTab === 'lifecycle-stages') { if (editingItem) lifecycleStages.update(editingItem.systemId, { ...editingItem, ...data }); else lifecycleStages.add(data as Omit<LifecycleStage, 'systemId'>); }
-      else if (activeTab === 'sla' && editingItem) slaSettings.update(editingItem.systemId, { ...editingItem, ...data });
-      toast.success(editingItem ? 'Cập nhật thành công' : 'Thêm mới thành công');
+      if (activeTab === 'types') { 
+        if (editingItem) customerTypeMutations.update.mutate({ systemId: editingItem.systemId, data: { ...editingItem, ...data } }); 
+        else customerTypeMutations.create.mutate(data as Omit<CustomerType, 'systemId'>); 
+      }
+      else if (activeTab === 'groups') { 
+        if (editingItem) customerGroupMutations.update.mutate({ systemId: editingItem.systemId, data: { ...editingItem, ...data } }); 
+        else customerGroupMutations.create.mutate(data as Omit<CustomerGroup, 'systemId'>); 
+      }
+      else if (activeTab === 'sources') { 
+        if (editingItem) customerSourceMutations.update.mutate({ systemId: editingItem.systemId, data: { ...editingItem, ...data } }); 
+        else customerSourceMutations.create.mutate(data as Omit<CustomerSource, 'systemId'>); 
+      }
+      else if (activeTab === 'payment-terms') { 
+        if (editingItem) paymentTermMutations.update.mutate({ systemId: editingItem.systemId, data: { ...editingItem, ...data } }); 
+        else paymentTermMutations.create.mutate(data as Omit<PaymentTerm, 'systemId'>); 
+      }
+      else if (activeTab === 'credit-ratings') { 
+        if (editingItem) creditRatingMutations.update.mutate({ systemId: editingItem.systemId, data: { ...editingItem, ...data } }); 
+        else creditRatingMutations.create.mutate(data as Omit<CreditRating, 'systemId'>); 
+      }
+      else if (activeTab === 'lifecycle-stages') { 
+        if (editingItem) lifecycleStageMutations.update.mutate({ systemId: editingItem.systemId, data: { ...editingItem, ...data } }); 
+        else lifecycleStageMutations.create.mutate(data as Omit<LifecycleStage, 'systemId'>); 
+      }
+      else if (activeTab === 'sla' && editingItem) slaSettingMutations.update.mutate({ systemId: editingItem.systemId, data: { ...editingItem, ...data } });
       setDialogOpen(false);
     } catch (error) { toast.error('Có lỗi xảy ra', { description: error instanceof Error ? error.message : 'Lỗi không xác định' }); }
   };

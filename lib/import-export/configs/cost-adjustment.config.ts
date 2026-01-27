@@ -12,37 +12,27 @@ import type {
   CostAdjustment, 
   CostAdjustmentItem, 
   CostAdjustmentStatus, 
-  CostAdjustmentType 
+  CostAdjustmentType,
+  Product,
+  Employee
 } from '@/lib/types/prisma-extended';
 import type { ImportExportConfig, FieldConfig } from '@/lib/import-export/types';
-import { useProductStore } from '@/features/products/store';
-import { useEmployeeStore } from '@/features/employees/store';
 import { asBusinessId, asSystemId } from '@/lib/id-types';
+// NOTE: Prisma import commented to prevent client-side bundling
+// import { prisma } from '@/lib/prisma';
 
 // ============================================
-// HELPER FUNCTIONS
+// HELPER FUNCTIONS - Mocked for client-side
 // ============================================
 
-const getProductStore = () => useProductStore.getState();
-const getEmployeeStore = () => useEmployeeStore.getState();
-
-const findProduct = (identifier: string) => {
+const findProduct = async (identifier: string): Promise<Product | undefined> => {
   if (!identifier) return undefined;
-  const store = getProductStore();
-  const normalized = identifier.trim().toUpperCase();
-  
-  const byId = store.data.find(p => p.id.toUpperCase() === normalized);
-  if (byId) return byId;
-  
-  const bySku = store.data.find(p => p.sku?.toUpperCase() === normalized);
-  return bySku;
+  return undefined; // Mock - call server-side
 };
 
-const findEmployee = (name: string) => {
+const findEmployee = async (name: string): Promise<Employee | undefined> => {
   if (!name) return undefined;
-  const store = getEmployeeStore();
-  const normalized = name.trim().toLowerCase();
-  return store.data.find(e => e.fullName?.toLowerCase().includes(normalized));
+  return undefined; // Mock - call server-side
 };
 
 // ============================================
@@ -317,14 +307,14 @@ export const costAdjustmentImportExportConfig: ImportExportConfig<CostAdjustment
       const firstRow = rows[0];
       
       // Lookup creator
-      const creator = findEmployee(firstRow.createdByName || '');
+      const creator = await findEmployee(firstRow.createdByName || '');
       
       // Build items
       const items: CostAdjustmentItem[] = [];
       for (const row of rows) {
         if (!row.productIdOrSku) continue;
         
-        const product = findProduct(row.productIdOrSku || '');
+        const product = await findProduct(row.productIdOrSku || '');
         
         const oldCostPrice = Number(row.oldCostPrice) || 0;
         const newCostPrice = Number(row.newCostPrice) || 0;
@@ -332,8 +322,8 @@ export const costAdjustmentImportExportConfig: ImportExportConfig<CostAdjustment
         const adjustmentPercent = oldCostPrice > 0 ? (adjustmentAmount / oldCostPrice) * 100 : 0;
         
         items.push({
-          productSystemId: product?.systemId || asSystemId(''),
-          productId: product?.id || row.productIdOrSku || '',
+          productSystemId: asSystemId(product?.systemId || ''),
+          productId: asBusinessId(product?.id || row.productIdOrSku || ''),
           productName: product?.name || row.productName || '',
           productImage: product?.images?.[0],
           oldCostPrice,
@@ -364,7 +354,7 @@ export const costAdjustmentImportExportConfig: ImportExportConfig<CostAdjustment
         referenceCode: firstRow.referenceCode,
         
         createdDate: firstRow.createdDate || now,
-        createdBySystemId: creator?.systemId || asSystemId(''),
+        createdBySystemId: asSystemId(creator?.systemId || ''),
         createdByName: creator?.fullName || firstRow.createdByName || '',
         
         createdAt: now,

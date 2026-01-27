@@ -19,7 +19,7 @@ const ImagePreviewDialog = React.lazy(() =>
 import { SlaTimer, COMPLAINT_SLA_CONFIGS } from '@/components/SlaTimer';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { useComplaintStore } from '../store';
+import { useComplaintMutations } from '../hooks/use-complaints';
 import { asSystemId } from '@/lib/id-types';
 import { formatOrderAddress } from '@/features/orders/address-utils';
 import { 
@@ -46,7 +46,14 @@ import { usePublicComplaintTracking } from '../hooks/use-public-tracking';
  */
 export function PublicComplaintTrackingPage() {
   const { complaintId } = useParams<{ complaintId: string }>();
-  const { updateComplaint } = useComplaintStore();
+  const { update: updateMutation } = useComplaintMutations({
+    onSuccess: () => toast.success('Đã cập nhật khiếu nại'),
+    onError: (err) => toast.error(err.message)
+  });
+  
+  const updateComplaint = React.useCallback((systemId: string, data: Partial<Complaint>) => {
+    updateMutation.mutate({ systemId, data });
+  }, [updateMutation]);
   
   // Use optimized hook to fetch only necessary data
   const { 

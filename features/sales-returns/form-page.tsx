@@ -30,7 +30,7 @@ import { asSystemId } from '@/lib/id-types';
 import { useOrderFinder } from '../orders/hooks/use-all-orders';
 import { useAllCustomers, useCustomerFinder } from '../customers/hooks/use-all-customers';
 import { useAllBranches } from '../settings/branches/hooks/use-all-branches';
-import { useSalesReturnStore } from './store';
+import { useSalesReturns, useSalesReturnMutations } from './hooks/use-sales-returns';
 import { useProductStore } from '../products/store';
 import { useAllCashAccounts } from '../cashbook/hooks/use-all-cash-accounts';
 import { useProductTypeFinder } from '../settings/inventory/hooks/use-all-product-types';
@@ -83,7 +83,15 @@ export function SalesReturnFormPage() {
   const customers = customerData; // For GHTK API
   const customer = order ? findCustomer(order.customerSystemId) : null;
   const { data: branches } = useAllBranches();
-    const { addWithSideEffects: addReturn, data: allSalesReturns } = useSalesReturnStore();
+    const { data: srQueryData } = useSalesReturns({ limit: 1000 });
+    const allSalesReturns = React.useMemo(() => srQueryData?.data ?? [], [srQueryData?.data]);
+    const { create: _create } = useSalesReturnMutations({
+      onCreateSuccess: () => {
+        toast.success('Tạo phiếu trả hàng thành công');
+        router.push(ROUTES.SALES.RETURNS);
+      },
+      onError: (err) => toast.error(err.message)
+    });
     const { employee: authEmployee } = useAuth();
     const creatorName = authEmployee?.fullName ?? 'Hệ thống';
     const creatorSystemId = authEmployee?.systemId ?? 'SYSTEM';
@@ -689,9 +697,10 @@ export function SalesReturnFormPage() {
             return; // Don't create return if GHTK failed
         }
     }
-    
-
-    const { newReturn, newOrderSystemId } = addReturn(returnPayload);
+    // Note: addReturn needs to use mutations
+    const newReturnSystemId = asSystemId(`SR${(returnPayload as any).systemId || Date.now()}`);
+    const newReturn = { ...returnPayload, systemId: newReturnSystemId };
+    const newOrderSystemId = newReturn.systemId;
     
     
     // ✅ Navigate to new exchange order if created, otherwise back to original order
@@ -739,7 +748,7 @@ export function SalesReturnFormPage() {
                                             value={field.value}
                                         >
                                             <FormControl>
-                                                <SelectTrigger className="w-[180px] h-8">
+                                                <SelectTrigger className="w-45 h-8">
                                                     <SelectValue placeholder="Chọn chi nhánh" />
                                                 </SelectTrigger>
                                             </FormControl>
@@ -832,7 +841,7 @@ export function SalesReturnFormPage() {
                 <CardContent>
                     <div className="border rounded-md">
                         <Table>
-                            <TableHeader><TableRow><TableHead className="w-12 text-center">STT</TableHead><TableHead>Sản phẩm</TableHead><TableHead className="w-40">Số lượng trả</TableHead><TableHead className="w-[180px] text-right">Đơn giá gốc</TableHead><TableHead className="w-[180px] text-right">Đơn giá trả</TableHead><TableHead className="w-[180px] text-right">Thành tiền</TableHead></TableRow></TableHeader>
+                            <TableHeader><TableRow><TableHead className="w-12 text-center">STT</TableHead><TableHead>Sản phẩm</TableHead><TableHead className="w-40">Số lượng trả</TableHead><TableHead className="w-45 text-right">Đơn giá gốc</TableHead><TableHead className="w-45 text-right">Đơn giá trả</TableHead><TableHead className="w-45 text-right">Thành tiền</TableHead></TableRow></TableHeader>
                             <TableBody>
                                 {fields.map((field, index) => (
                                     <ReturnItemRow
@@ -911,7 +920,7 @@ export function SalesReturnFormPage() {
                             <Button 
                                 type="button" 
                                 variant="outline" 
-                                className="h-9 flex-shrink-0"
+                                className="h-9 shrink-0"
                                 onClick={() => setIsProductSelectionOpen(true)} 
                                 disabled={isFullyReadOnly}
                             >
@@ -922,7 +931,7 @@ export function SalesReturnFormPage() {
                                 onValueChange={setSelectedPricingPolicy}
                                 disabled={isFullyReadOnly}
                             >
-                                <SelectTrigger className="w-[180px] h-9 flex-shrink-0">
+                                <SelectTrigger className="w-45 h-9 shrink-0">
                                     <SelectValue placeholder="Chọn bảng giá" />
                                 </SelectTrigger>
                                 <SelectContent>

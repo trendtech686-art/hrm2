@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { useTaskStore } from '../store';
+import { useTaskById, useTaskMutations } from '../hooks/use-tasks';
 import { useAllEmployees } from '@/features/employees/hooks/use-all-employees';
 import { useAuth } from '@/contexts/auth-context';
 import { usePageHeader } from '@/contexts/page-header-context';
@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Comments } from '@/components/Comments';
 import { SubtaskList } from '@/components/shared/subtask-list';
 import { TimeTracker } from '@/components/TimeTracker';
@@ -25,6 +26,7 @@ import { asSystemId } from '@/lib/id-types';
 import { ArrowLeft, Edit, Trash2, Calendar, Clock, User, Flag, CheckCircle, Eye, AlertCircle } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
+import type { Task } from '@/lib/types/prisma-extended';
 import type { TaskPriority, TaskStatus } from '../types';
 
 // Helper functions - defined outside component to avoid hoisting issues
@@ -48,8 +50,28 @@ export function TaskDetailPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const routeSystemId = React.useMemo(() => (systemId ? asSystemId(systemId) : undefined), [systemId]);
   const router = useRouter();
-  const store = useTaskStore();
-  const { remove, update, approveTask, rejectTask } = store;
+  
+  const { data: task, isLoading } = useTaskById(routeSystemId);
+  const { remove: removeMutation, update: updateMutation } = useTaskMutations();
+  
+  // Wrapper functions for legacy interface
+  const remove = React.useCallback((systemId: string) => {
+    removeMutation.mutate(systemId);
+  }, [removeMutation]);
+  
+  const update = React.useCallback((systemId: string, data: Partial<Task>) => {
+    updateMutation.mutate({ systemId, data });
+  }, [updateMutation]);
+  
+  const approveTask = React.useCallback((systemId: string, _comment?: string) => {
+    updateMutation.mutate({ systemId, data: { status: 'Hoàn thành' } });
+    // Note: comment parameter not used - consider adding to activities/comments
+  }, [updateMutation]);
+  
+  const rejectTask = React.useCallback((systemId: string, reason: string) => {
+    updateMutation.mutate({ systemId, data: { status: 'Đang thực hiện', rejectionReason: reason } });
+  }, [updateMutation]);
+  
   const { isAdmin, employee } = useAuth();
   const { data: allEmployees } = useAllEmployees();
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false);
@@ -66,13 +88,6 @@ export function TaskDetailPage() {
         avatar: e.avatarUrl,
       }));
   }, [allEmployees]);
-
-  // Subscribe to store.data to trigger re-render on updates
-  const task = React.useMemo(() => {
-    if (!routeSystemId) return undefined;
-    const allTasks = store.data; // This subscribes to store changes
-    return allTasks.find(t => t.systemId === routeSystemId);
-  }, [store.data, routeSystemId]);
   
   // Check if current user can edit this task
   const canEdit = React.useMemo(() => {
@@ -191,6 +206,23 @@ export function TaskDetailPage() {
       router.push('/tasks');
     }
   };
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-8 w-1/3" />
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Skeleton className="h-20" />
+            <Skeleton className="h-20" />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (!task) {
     return (

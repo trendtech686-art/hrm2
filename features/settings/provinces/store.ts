@@ -15,7 +15,7 @@ import { createCrudStore } from '../../../lib/store-factory';
 import { getCurrentUserSystemId } from '../../../contexts/auth-context';
 import type { Province, District, Ward } from '@/lib/types/prisma-extended';
 
-// Data is now loaded from API instead of static files to reduce bundle size (~3MB)
+// Data is now loaded from API/database instead of static files
 const API_BASE = '/api/administrative-units';
 
 // Initialize with empty arrays - data will be loaded from API
@@ -87,6 +87,10 @@ type AdministrativeUnitState = {
   data: Province[];
   wards: Ward[];
   districts: District[];
+  // 3-level static data (63 provinces)
+  provinces3Level: Province[];
+  districts3Level: District[];
+  wards3Level: Ward[];
   isLoading: boolean;
   isLoaded: boolean;
   loadData: () => Promise<void>;
@@ -101,12 +105,17 @@ type AdministrativeUnitState = {
   addDistrict: (district: Omit<District, 'systemId'>) => void;
   updateDistrict: (systemId: SystemId, district: District) => void;
   removeDistrict: (systemId: SystemId) => void;
+  // 2-level methods (34 provinces - from API)
+  getProvinces2Level: () => Province[];
   getWards2Level: () => Ward[];
   getWards2LevelByProvinceId: (provinceId: BusinessId) => Ward[];
+  // 3-level methods (63 provinces - from static data)
+  getProvinces3Level: () => Province[];
   getWards3Level: () => Ward[];
   getWards3LevelByProvinceId: (provinceId: BusinessId) => Ward[];
   getWards3LevelByDistrictId: (districtId: number) => Ward[];
   getDistricts3LevelByProvinceId: (provinceId: BusinessId) => District[];
+  // Generic methods
   getWardsByProvinceId: (provinceId: BusinessId) => Ward[];
   getDistrictsByProvinceId: (provinceId: BusinessId) => District[];
   getWardsByDistrictId: (districtId: number) => Ward[];
@@ -136,10 +145,14 @@ export const useProvinceStore = create<AdministrativeUnitState>()((set, get) => 
     data: provinceBaseStore.getState().data,
     districts: districtBaseStore.getState().data,
     wards: wardBaseStore.getState().data,
+    // 3-level data (63 provinces) - now loaded from database
+    provinces3Level: [],
+    districts3Level: [],
+    wards3Level: [],
     isLoading: false,
     isLoaded: false,
     
-    // Load data from API (database) instead of static files
+    // Load data from API (database) for both 2-level and 3-level
     loadData: async () => {
       // Return existing promise if already loading
       if (loadingPromise) return loadingPromise;
@@ -154,7 +167,13 @@ export const useProvinceStore = create<AdministrativeUnitState>()((set, get) => 
       
       loadingPromise = (async () => {
         try {
-          // Fetch all data from API in parallel
+          // Skip if running on server (no API available during SSR)
+          if (typeof window === 'undefined') {
+            set({ isLoading: false });
+            return;
+          }
+
+          // Fetch all data from API in parallel (both 2-level and 3-level)
           const [provincesRes, districtsRes, wardsRes] = await Promise.all([
             fetch(`${API_BASE}/provinces`),
             fetch(`${API_BASE}/districts`),
@@ -162,8 +181,18 @@ export const useProvinceStore = create<AdministrativeUnitState>()((set, get) => 
             fetch(`${API_BASE}/wards?limit=20000`),
           ]);
           
+          // Check for auth errors (401) - may happen if user not logged in yet
+          if (provincesRes.status === 401 || districtsRes.status === 401 || wardsRes.status === 401) {
+            console.warn('Administrative data API requires authentication - skipping load');
+            set({ isLoading: false });
+            return;
+          }
+          
           if (!provincesRes.ok || !districtsRes.ok || !wardsRes.ok) {
-            throw new Error('Failed to fetch administrative data from API');
+            console.warn('Failed to fetch administrative data - status:', 
+              provincesRes.status, districtsRes.status, wardsRes.status);
+            set({ isLoading: false });
+            return;
           }
           
           const [provincesJson, districtsJson, wardsJson] = await Promise.all([
@@ -172,30 +201,43 @@ export const useProvinceStore = create<AdministrativeUnitState>()((set, get) => 
             wardsRes.json(),
           ]);
           
-          const provinces: Province[] = provincesJson.data || [];
-          const districts: District[] = districtsJson.data || [];
-          const wards: Ward[] = wardsJson.data || [];
+          const allProvinces: Province[] = provincesJson.data || [];
+          const allDistricts: District[] = districtsJson.data || [];
+          const allWards: Ward[] = wardsJson.data || [];
           
-          // Update base stores with loaded data
+          // Split data by level
+          const provinces2Level = allProvinces.filter(p => p.level === '2-level');
+          const provinces3Level = allProvinces.filter(p => p.level === '3-level');
+          const districts3Level = allDistricts.filter(d => d.level === '3-level');
+          const _wards2Level = allWards.filter(w => w.level === '2-level');
+          const wards3Level = allWards.filter(w => w.level === '3-level');
+          
+          // Update base stores with 2-level data
           provinceBaseStore.setState((state) => ({
             ...state,
-            data: provinces,
+            data: provinces2Level,
           }));
           
           districtBaseStore.setState((state) => ({
             ...state,
-            data: districts,
+            data: allDistricts,
           }));
           
           wardBaseStore.setState((state) => ({
             ...state,
-            data: wards,
+            data: allWards,
           }));
           
           // Mark all data as loaded
           dataLoadedState = { provinces: true, districts: true, wards: true };
           
-          set({ isLoading: false, isLoaded: true });
+          set({ 
+            isLoading: false, 
+            isLoaded: true,
+            provinces3Level,
+            districts3Level,
+            wards3Level,
+          });
         } catch (error) {
           console.error('Failed to load administrative data from API:', error);
           set({ isLoading: false });
@@ -218,16 +260,24 @@ export const useProvinceStore = create<AdministrativeUnitState>()((set, get) => 
     addDistrict: (district) => districtBaseStore.getState().add(district),
     updateDistrict: (systemId, district) => districtBaseStore.getState().update(systemId, district),
     removeDistrict: (systemId) => districtBaseStore.getState().remove(systemId),
+    
+    // 2-level methods (34 provinces - from API/database)
+    getProvinces2Level: () => get().data,
     getWards2Level: () => get().wards.filter((ward) => ward.level === '2-level'),
     getWards2LevelByProvinceId: (provinceId) =>
       get().wards.filter((ward) => ward.level === '2-level' && ward.provinceId === provinceId),
-    getWards3Level: () => get().wards.filter((ward) => ward.level === '3-level'),
+    
+    // 3-level methods (63 provinces - from static data)
+    getProvinces3Level: () => get().provinces3Level,
+    getWards3Level: () => get().wards3Level,
     getWards3LevelByProvinceId: (provinceId) =>
-      get().wards.filter((ward) => ward.level === '3-level' && ward.provinceId === provinceId),
+      get().wards3Level.filter((ward) => ward.provinceId === provinceId),
     getWards3LevelByDistrictId: (districtId) =>
-      get().wards.filter((ward) => ward.level === '3-level' && ward.districtId === districtId),
+      get().wards3Level.filter((ward) => ward.districtId === districtId),
     getDistricts3LevelByProvinceId: (provinceId) =>
-      get().districts.filter((district) => district.provinceId === provinceId),
+      get().districts3Level.filter((district) => district.provinceId === provinceId),
+    
+    // Generic methods (use API data)
     getWardsByProvinceId: (provinceId) =>
       get().wards.filter((ward) => ward.provinceId === provinceId),
     getDistrictsByProvinceId: (provinceId) =>

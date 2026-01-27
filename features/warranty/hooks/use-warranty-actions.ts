@@ -127,9 +127,9 @@ export function useWarrantyActions({
     }
 
     if (totalPayment > 0) {
-      const latestPayments = usePaymentStore.getState().data;
-      const latestReceipts = useReceiptStore.getState().data;
-      const state = calculateWarrantyProcessingState(currentTicket, latestPayments, latestReceipts, totalPayment);
+      const { data: payments } = usePaymentStore.getState();
+      const { data: receipts } = useReceiptStore.getState();
+      const state = calculateWarrantyProcessingState(currentTicket, payments, receipts, totalPayment);
 
       if (state.remainingAmount > 0) {
         toast.error(`Chưa thanh toán đủ cho khách. Còn thiếu: ${state.remainingAmount.toLocaleString('vi-VN')} đ`, {

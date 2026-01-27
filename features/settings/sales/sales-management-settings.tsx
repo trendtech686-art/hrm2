@@ -3,12 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../..
 import { Switch } from '../../../components/ui/switch';
 import { Label } from '../../../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
-import { Info, Save } from 'lucide-react';
+import { Info, Save, Loader2 } from 'lucide-react';
 import { SettingsActionButton } from '../../../components/settings/SettingsActionButton';
-import { useSalesManagementSettingsStore, type SalesManagementSettingsValues } from './sales-management-store';
-import { useShallow } from 'zustand/react/shallow';
+import { useSalesManagementSettingsData } from './hooks/use-sales-management-settings';
+import type { SalesManagementSettingsValues } from './sales-management-service';
 import type { RegisterTabActions } from '../use-tab-action-registry';
-import { toast } from 'sonner';
 
 type SalesManagementSettingsProps = {
     isActive?: boolean;
@@ -16,35 +15,43 @@ type SalesManagementSettingsProps = {
 };
 
 export function SalesManagementSettings({ isActive, onRegisterActions }: SalesManagementSettingsProps) {
-    const settings = useSalesManagementSettingsStore(useShallow((state) => ({
-        allowCancelAfterExport: state.allowCancelAfterExport,
-        allowNegativeOrder: state.allowNegativeOrder,
-        allowNegativeApproval: state.allowNegativeApproval,
-        allowNegativePacking: state.allowNegativePacking,
-        allowNegativeStockOut: state.allowNegativeStockOut,
-        printCopies: state.printCopies,
-    })));
-    const updateSetting = useSalesManagementSettingsStore((state) => state.updateSetting);
+    const { settings, isLoading, updateSetting, saveSettings, isSaving } = useSalesManagementSettingsData();
 
-    const handleSaveSettings = React.useCallback(() => {
-        toast.success('Đã lưu cài đặt thành công');
-    }, []);
+    // Store the latest callback in a ref to avoid re-registering on every render
+    const onRegisterActionsRef = React.useRef(onRegisterActions);
+    React.useEffect(() => {
+        onRegisterActionsRef.current = onRegisterActions;
+    }, [onRegisterActions]);
 
     const headerActions = React.useMemo(() => [
-        <SettingsActionButton key="save" onClick={handleSaveSettings}>
-            <Save className="mr-2 h-4 w-4" />
+        <SettingsActionButton key="save" onClick={saveSettings} disabled={isSaving}>
+            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
             Lưu cài đặt
         </SettingsActionButton>,
-    ], [handleSaveSettings]);
+    ], [saveSettings, isSaving]);
 
+    // Only register once when component becomes active
     React.useEffect(() => {
-        if (!isActive || !onRegisterActions) return;
-        onRegisterActions(headerActions);
-    }, [headerActions, isActive, onRegisterActions]);
+        if (!isActive || !onRegisterActionsRef.current) return;
+        onRegisterActionsRef.current(headerActions);
+    }, [isActive]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleCheckedChange = (key: keyof SalesManagementSettingsValues) => (checked: boolean) => {
         updateSetting(key, checked);
     };
+
+    if (isLoading) {
+        return (
+            <Card>
+                <CardHeader>
+                    <CardTitle>Thiết lập quản lý bán hàng</CardTitle>
+                </CardHeader>
+                <CardContent className="flex items-center justify-center py-12">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </CardContent>
+            </Card>
+        );
+    }
 
     return (
         <Card>

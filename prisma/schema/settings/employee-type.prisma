@@ -1,0 +1,17 @@
+model EmployeeTypeSetting {
+  systemId    String     @id
+  id          String     @unique
+  name        String
+  description String?
+  color       String?    // For UI badge color
+  isDefault   Boolean    @default(false) // Mark default type for new employees
+  sortOrder   Int        @default(0)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  createdBy   String?
+  updatedBy   String?
+  deletedAt   DateTime?
+  isDeleted   Boolean    @default(false)
+
+  @@map("employee_type_settings")
+}

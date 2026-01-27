@@ -16,8 +16,8 @@ interface FilterListBoxProps {
 
 export function FilterListBox({ title, items, activeValue, onValueChange }: FilterListBoxProps) {
   return (
-    <div className="border rounded-lg overflow-hidden bg-card">
-      <div className="px-4 py-2 bg-muted/50 border-b">
+    <div className="border border-border rounded-lg overflow-hidden bg-card">
+      <div className="px-4 py-3 bg-muted/50 border-b border-border">
         <h3 className="text-sm font-semibold">{title}</h3>
       </div>
       <div className="divide-y max-h-[200px] overflow-y-auto">

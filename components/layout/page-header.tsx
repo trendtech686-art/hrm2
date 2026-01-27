@@ -62,9 +62,9 @@ export function PageHeader() {
   }
 
   return (
-    <div className="sticky top-16 z-40 bg-transparent">
+    <div className="sticky top-16 z-20 bg-background border-b border-border">
       {!isDesktop && (
-        <div className="flex flex-col gap-2 px-4 py-2 bg-transparent">
+        <div className="flex flex-col gap-2 px-4 py-2">
           <div className="flex items-center gap-3">
             {showBackButton && onBack && (
               <Button
@@ -106,7 +106,7 @@ export function PageHeader() {
       )}
 
       {isDesktop && (
-        <div className="px-6 py-3 bg-transparent">
+        <div className="px-6 py-3">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3 min-w-0 flex-1">
               {showBackButton && onBack && (

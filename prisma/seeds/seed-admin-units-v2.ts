@@ -1,19 +1,18 @@
 /**
- * Seed Administrative Units via Prisma
- * v2 - With validation to skip wards with invalid province/district IDs
+ * Seed Administrative Units v2
+ * - 2-level: 34 provinces (new), ~3,321 wards
+ * - 3-level: 63 provinces (old), ~624 districts, ~10,035 wards
  * 
  * Run: npx tsx prisma/seeds/seed-admin-units-v2.ts
  */
 
 import { config } from 'dotenv';
-config(); // Load .env FIRST
+config();
 
 import { PrismaClient } from '../../generated/prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 
-// Import data
-import { PROVINCES_DATA } from '../../features/settings/provinces/provinces-data';
-import { DISTRICTS_DATA } from '../../features/settings/provinces/districts-data';
+// Chỉ import 2 file gốc
 import { WARDS_2LEVEL_DATA } from '../../features/settings/provinces/wards-2level-data';
 import { WARDS_3LEVEL_DATA } from '../../features/settings/provinces/wards-3level-data';
 
@@ -23,52 +22,162 @@ const prisma = new PrismaClient({ adapter });
 
 const BATCH_SIZE = 500;
 
-// Build lookup maps for validation
-const validProvinceIds = new Set(PROVINCES_DATA.map(p => String(p.id)));
-const validDistrictIds = new Set(DISTRICTS_DATA.map(d => d.id));
-
-async function clearExistingData() {
-  
-  // Delete in reverse order due to foreign keys
-  await prisma.ward.deleteMany({});
-  await prisma.district.deleteMany({});
-  await prisma.province.deleteMany({});
-  
+// Extract unique provinces from 2-level wards
+function extractProvinces2Level() {
+  const provinceMap = new Map<string, { id: string; name: string }>();
+  for (const ward of WARDS_2LEVEL_DATA) {
+    if (!provinceMap.has(ward.provinceId)) {
+      provinceMap.set(ward.provinceId, {
+        id: ward.provinceId,
+        name: ward.provinceName,
+      });
+    }
+  }
+  return Array.from(provinceMap.values());
 }
 
-async function seedProvinces() {
+// Extract unique provinces from 3-level wards
+function extractProvinces3Level() {
+  const provinceMap = new Map<string, { id: string; name: string }>();
+  for (const ward of WARDS_3LEVEL_DATA) {
+    if (!provinceMap.has(ward.provinceId)) {
+      provinceMap.set(ward.provinceId, {
+        id: ward.provinceId,
+        name: ward.provinceName,
+      });
+    }
+  }
+  return Array.from(provinceMap.values());
+}
+
+// Extract unique districts from 3-level wards
+function extractDistricts3Level() {
+  const districtMap = new Map<number, { id: number; name: string; provinceId: string }>();
+  for (const ward of WARDS_3LEVEL_DATA) {
+    if (!districtMap.has(ward.districtId)) {
+      districtMap.set(ward.districtId, {
+        id: ward.districtId,
+        name: ward.districtName,
+        provinceId: ward.provinceId,
+      });
+    }
+  }
+  return Array.from(districtMap.values());
+}
+
+// ========================================
+// 2-LEVEL (34 provinces new)
+// ========================================
+
+async function seedProvinces2Level() {
+  console.log('📍 [2-level] Seeding provinces...');
   
-  const provinces = PROVINCES_DATA.map(p => ({
-    systemId: String(p.systemId),
+  const provincesData = extractProvinces2Level();
+  const provinces = provincesData.map(p => ({
+    systemId: `P2_${String(p.id)}`,
     id: String(p.id),
     name: p.name,
+    level: '2-level',
     createdBy: 'SYSTEM',
   }));
 
-  await prisma.province.createMany({
-    data: provinces,
-    skipDuplicates: true,
-  });
-
+  for (const province of provinces) {
+    await prisma.province.upsert({
+      where: { systemId: province.systemId },
+      update: { name: province.name },
+      create: province,
+    });
+  }
+  
+  console.log(`✅ [2-level] Seeded ${provinces.length} provinces`);
+  return provinces.length;
 }
 
-async function seedDistricts() {
+async function seedWards2Level() {
+  console.log('📍 [2-level] Seeding wards...');
   
-  // Filter districts to only include those with valid provinceIds
-  const districts = DISTRICTS_DATA
-    .filter(d => validProvinceIds.has(String(d.provinceId)))
-    .map(d => ({
-      systemId: String(d.systemId),
-      id: typeof d.id === 'number' ? d.id : parseInt(String(d.id), 10),
-      name: d.name,
-      provinceId: String(d.provinceId),
-      createdBy: 'SYSTEM',
-    }));
-
-  const skipped = DISTRICTS_DATA.length - districts.length;
+  // Get valid province IDs
+  const existingProvinces = await prisma.province.findMany({ 
+    where: { level: '2-level' },
+    select: { id: true } 
+  });
+  const provinceIds = new Set(existingProvinces.map(p => p.id));
+  
+  const wards = WARDS_2LEVEL_DATA.map(w => ({
+    systemId: `W2_${String(w.id)}`,
+    id: String(w.id),
+    name: w.name,
+    provinceId: String(w.provinceId),
+    provinceName: w.provinceName,
+    districtId: null,
+    districtName: null,
+    level: '2-level',
+    createdBy: 'SYSTEM',
+  }));
+  
+  // Filter valid wards
+  const validWards = wards.filter(w => provinceIds.has(w.provinceId));
+  const skipped = wards.length - validWards.length;
+  
   if (skipped > 0) {
-    // Some districts were filtered out due to invalid provinceId
+    console.log(`   ⚠️ Skipping ${skipped} wards with invalid provinceId`);
   }
+
+  let inserted = 0;
+  for (let i = 0; i < validWards.length; i += BATCH_SIZE) {
+    const batch = validWards.slice(i, i + BATCH_SIZE);
+    await prisma.ward.createMany({
+      data: batch,
+      skipDuplicates: true,
+    });
+    inserted += batch.length;
+    process.stdout.write(`\r   Processing: ${inserted}/${validWards.length}`);
+  }
+  
+  console.log(`\n✅ [2-level] Seeded ${validWards.length} wards`);
+  return validWards.length;
+}
+
+// ========================================
+// 3-LEVEL (63 provinces old)
+// ========================================
+
+async function seedProvinces3Level() {
+  console.log('📍 [3-level] Seeding provinces...');
+  
+  const provincesData = extractProvinces3Level();
+  const provinces = provincesData.map(p => ({
+    systemId: `P3_${String(p.id)}`,
+    id: String(p.id),
+    name: p.name,
+    level: '3-level',
+    createdBy: 'SYSTEM',
+  }));
+
+  for (const province of provinces) {
+    await prisma.province.upsert({
+      where: { systemId: province.systemId },
+      update: { name: province.name },
+      create: province,
+    });
+  }
+  
+  console.log(`✅ [3-level] Seeded ${provinces.length} provinces`);
+  return provinces.length;
+}
+
+async function seedDistricts3Level() {
+  console.log('📍 [3-level] Seeding districts...');
+  
+  const districtsData = extractDistricts3Level();
+  const districts = districtsData.map(d => ({
+    systemId: `D3_${String(d.id)}`,
+    id: d.id,
+    name: d.name,
+    provinceId: String(d.provinceId),
+    level: '3-level',
+    createdBy: 'SYSTEM',
+  }));
 
   let inserted = 0;
   for (let i = 0; i < districts.length; i += BATCH_SIZE) {
@@ -80,99 +189,93 @@ async function seedDistricts() {
     inserted += batch.length;
     process.stdout.write(`\r   Processing: ${inserted}/${districts.length}`);
   }
-
   
-  // Update validDistrictIds with actually inserted districts
-  validDistrictIds.clear();
-  districts.forEach(d => validDistrictIds.add(d.id));
+  console.log(`\n✅ [3-level] Seeded ${districts.length} districts`);
+  return districts.length;
 }
 
-async function seedWards() {
+async function seedWards3Level() {
+  console.log('📍 [3-level] Seeding wards...');
   
-  // Filter wards 2-level - only need valid provinceId
-  const wards2 = WARDS_2LEVEL_DATA
-    .filter(w => validProvinceIds.has(String(w.provinceId)))
-    .map(w => ({
-      systemId: String(w.systemId),
-      id: String(w.id),
-      name: w.name,
-      provinceId: String(w.provinceId),
-      provinceName: w.provinceName,
-      districtId: null as number | null,
-      districtName: null as string | null,
-      level: '2-level',
-      createdBy: 'SYSTEM',
-    }));
-
-  const skipped2 = WARDS_2LEVEL_DATA.length - wards2.length;
-  if (skipped2 > 0) {
-    // Some 2-level wards were filtered out
+  // Get valid province IDs
+  const existingProvinces = await prisma.province.findMany({ 
+    where: { level: '3-level' },
+    select: { id: true } 
+  });
+  const provinceIds = new Set(existingProvinces.map(p => p.id));
+  
+  const wards = WARDS_3LEVEL_DATA.map(w => ({
+    systemId: `W3_${String(w.id)}`,
+    id: String(w.id),
+    name: w.name,
+    provinceId: String(w.provinceId),
+    provinceName: w.provinceName,
+    districtId: typeof w.districtId === 'number' ? w.districtId : null,
+    districtName: w.districtName || null,
+    level: '3-level',
+    createdBy: 'SYSTEM',
+  }));
+  
+  // Filter valid wards
+  const validWards = wards.filter(w => provinceIds.has(w.provinceId));
+  const skipped = wards.length - validWards.length;
+  
+  if (skipped > 0) {
+    console.log(`   ⚠️ Skipping ${skipped} wards with invalid provinceId`);
   }
-
-  // Filter wards 3-level - need both valid provinceId AND districtId
-  const wards3 = WARDS_3LEVEL_DATA
-    .filter(w => {
-      const hasValidProvince = validProvinceIds.has(String(w.provinceId));
-      const hasValidDistrict = validDistrictIds.has(w.districtId);
-      return hasValidProvince && hasValidDistrict;
-    })
-    .map(w => ({
-      systemId: String(w.systemId),
-      id: String(w.id),
-      name: w.name,
-      provinceId: String(w.provinceId),
-      provinceName: w.provinceName,
-      districtId: w.districtId,
-      districtName: w.districtName,
-      level: '3-level',
-      createdBy: 'SYSTEM',
-    }));
-
-  const skipped3 = WARDS_3LEVEL_DATA.length - wards3.length;
-  if (skipped3 > 0) {
-    // Some 3-level wards were filtered out
-  }
-
-  const allWards = [...wards2, ...wards3];
 
   let inserted = 0;
-  let errors = 0;
-  
-  for (let i = 0; i < allWards.length; i += BATCH_SIZE) {
-    const batch = allWards.slice(i, i + BATCH_SIZE);
-    try {
-      await prisma.ward.createMany({
-        data: batch,
-        skipDuplicates: true,
-      });
-      inserted += batch.length;
-    } catch (_error) {
-      // If batch fails, try one by one
-      for (const ward of batch) {
-        try {
-          await prisma.ward.create({ data: ward });
-          inserted++;
-        } catch {
-          errors++;
-        }
-      }
-    }
-    process.stdout.write(`\r   Processing: ${inserted}/${allWards.length} (errors: ${errors})`);
+  for (let i = 0; i < validWards.length; i += BATCH_SIZE) {
+    const batch = validWards.slice(i, i + BATCH_SIZE);
+    await prisma.ward.createMany({
+      data: batch,
+      skipDuplicates: true,
+    });
+    inserted += batch.length;
+    process.stdout.write(`\r   Processing: ${inserted}/${validWards.length}`);
   }
-
+  
+  console.log(`\n✅ [3-level] Seeded ${validWards.length} wards`);
+  return validWards.length;
 }
 
+// ========================================
+// MAIN
+// ========================================
+
 async function main() {
-  
   const startTime = Date.now();
 
   try {
-    await clearExistingData();
-    await seedProvinces();
-    await seedDistricts();
-    await seedWards();
+    console.log('🚀 Starting Administrative Units seed (2-level + 3-level)\n');
+    
+    // Seed 2-level
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('2-LEVEL (34 provinces new)');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    const prov2 = await seedProvinces2Level();
+    const ward2 = await seedWards2Level();
+    
+    console.log('');
+    
+    // Seed 3-level
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('3-LEVEL (63 provinces old)');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    const prov3 = await seedProvinces3Level();
+    const dist3 = await seedDistricts3Level();
+    const ward3 = await seedWards3Level();
 
-    const _duration = ((Date.now() - startTime) / 1000).toFixed(2);
+    const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+
+    // Summary
+    console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('🎉 SEED COMPLETED');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log(`2-level: ${prov2} provinces, ${ward2} wards`);
+    console.log(`3-level: ${prov3} provinces, ${dist3} districts, ${ward3} wards`);
+    console.log(`Duration: ${duration}s`);
+
   } catch (error) {
     console.error('❌ Seed failed:', error);
     throw error;
@@ -181,4 +284,4 @@ async function main() {
   }
 }
 
-main();
+main().catch(console.error);

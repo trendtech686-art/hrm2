@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { usePaymentStore } from './store';
+import { usePaymentMutations } from './hooks/use-payments';
 import { useAllPayments, usePaymentFinder } from './hooks/use-all-payments';
 import type { Payment } from './types';
 import { PaymentForm, type PaymentFormValues } from './payment-form';
@@ -20,7 +20,19 @@ import { ArrowLeft } from 'lucide-react';
 export function PaymentFormPage() {
   const { systemId, id } = useParams<{ systemId?: string; id?: string }>();
   const router = useRouter();
-  const { add, update } = usePaymentStore();
+  const { create, update } = usePaymentMutations({
+    onCreateSuccess: (newPayment) => {
+      toast.success("Tạo phiếu chi thành công");
+      router.push(`${ROUTES.FINANCE.PAYMENTS}/${newPayment.systemId}`);
+    },
+    onUpdateSuccess: (updatedPayment) => {
+      toast.success("Cập nhật phiếu chi thành công");
+      router.push(`${ROUTES.FINANCE.PAYMENTS}/${updatedPayment.systemId}`);
+    },
+    onError: (error) => {
+      toast.error(`Lỗi: ${error.message}`);
+    },
+  });
   const { data: paymentsData } = useAllPayments();
   const { findById } = usePaymentFinder();
   const payments = React.useMemo(() => paymentsData ?? [], [paymentsData]);
@@ -69,21 +81,13 @@ export function PaymentFormPage() {
   const handleFormSubmit = (values: PaymentFormValues) => {
     try {
       if (payment) {
-        update(payment.systemId, { ...payment, ...values });
-        toast.success("Cập nhật phiếu chi thành công");
-        router.push(`${ROUTES.FINANCE.PAYMENTS}/${payment.systemId}`);
+        update.mutate({ systemId: payment.systemId, data: { ...payment, ...values } });
       } else {
-        const newPayment = add({
+        create.mutate({
           ...values,
           createdBy: currentEmployee?.systemId ?? asSystemId('SYSTEM'),
           createdAt: new Date().toISOString(),
-        } as Omit<Payment, 'systemId'>);
-        toast.success("Tạo phiếu chi thành công");
-        if (newPayment) {
-          router.push(`${ROUTES.FINANCE.PAYMENTS}/${newPayment.systemId}`);
-        } else {
-          router.push(ROUTES.FINANCE.PAYMENTS);
-        }
+        } as Omit<Payment, 'systemId' | 'id' | 'createdAt' | 'updatedAt'>);
       }
     } catch (error) {
       toast.error(isEditing ? "Cập nhật phiếu chi thất bại" : "Tạo phiếu chi thất bại");

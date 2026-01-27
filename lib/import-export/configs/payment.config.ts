@@ -6,104 +6,83 @@
 
 import type { Payment, PaymentStatus, PaymentCategory } from '@/lib/types/prisma-extended';
 import type { ImportExportConfig, FieldConfig } from '@/lib/import-export/types';
-import { useCustomerStore } from '@/features/customers/store';
-import { useSupplierStore } from '@/features/suppliers/store';
-import { useEmployeeStore } from '@/features/employees/store';
-import { useBranchStore } from '@/features/settings/branches/store';
-import { usePaymentTypeStore } from '@/features/settings/payments/types/store';
-import { usePaymentMethodStore } from '@/features/settings/payments/methods/store';
-import { useTargetGroupStore } from '@/features/settings/target-groups/store';
+import type { Customer, Supplier, Employee, Branch, PaymentType, PaymentMethod, TargetGroup } from '@/lib/types/prisma-extended';
 import { asBusinessId, asSystemId } from '@/lib/id-types';
 
 // ============================================
-// HELPER FUNCTIONS
+// HELPER FUNCTIONS (Accept data as parameters)
 // ============================================
 
-const getCustomerStore = () => useCustomerStore.getState();
-const getSupplierStore = () => useSupplierStore.getState();
-const getEmployeeStore = () => useEmployeeStore.getState();
-const getBranchStore = () => useBranchStore.getState();
-const getPaymentTypeStore = () => usePaymentTypeStore.getState();
-const getPaymentMethodStore = () => usePaymentMethodStore.getState();
-const getTargetGroupStore = () => useTargetGroupStore.getState();
-
-const findBranch = (identifier: string) => {
-  if (!identifier) return undefined;
-  const store = getBranchStore();
+const findBranch = (identifier: string, branches: Branch[]) => {
+  if (!identifier || !branches) return undefined;
   const normalized = identifier.trim().toLowerCase();
   
-  const byId = store.data.find(b => b.id.toLowerCase() === normalized);
+  const byId = branches.find(b => b.id.toLowerCase() === normalized);
   if (byId) return byId;
   
-  return store.data.find(b => b.name.toLowerCase().includes(normalized));
+  return branches.find(b => b.name.toLowerCase().includes(normalized));
 };
 
-const getDefaultBranch = () => {
-  const store = getBranchStore();
-  return store.data.find(b => b.isDefault) || store.data[0];
+const getDefaultBranch = (branches: Branch[]) => {
+  if (!branches || branches.length === 0) return undefined;
+  return branches.find(b => b.isDefault) || branches[0];
 };
 
-const findPaymentType = (identifier: string) => {
-  if (!identifier) return undefined;
-  const store = getPaymentTypeStore();
+const findPaymentType = (identifier: string, paymentTypes: PaymentType[]) => {
+  if (!identifier || !paymentTypes) return undefined;
   const normalized = identifier.trim().toLowerCase();
   
-  return store.data.find(t => 
+  return paymentTypes.find(t => 
     t.id.toLowerCase() === normalized || 
     t.name.toLowerCase().includes(normalized)
   );
 };
 
-const findPaymentMethod = (identifier: string) => {
-  if (!identifier) return undefined;
-  const store = getPaymentMethodStore();
+const findPaymentMethod = (identifier: string, paymentMethods: PaymentMethod[]) => {
+  if (!identifier || !paymentMethods) return undefined;
   const normalized = identifier.trim().toLowerCase();
   
-  return store.data.find(m => 
+  return paymentMethods.find(m => 
     m.id.toLowerCase() === normalized || 
     m.name.toLowerCase().includes(normalized)
   );
 };
 
-const getDefaultPaymentMethod = () => {
-  const store = getPaymentMethodStore();
-  return store.data.find(m => m.isDefault) || store.data[0];
+const getDefaultPaymentMethod = (paymentMethods: PaymentMethod[]) => {
+  if (!paymentMethods || paymentMethods.length === 0) return undefined;
+  return paymentMethods.find(m => m.isDefault) || paymentMethods[0];
 };
 
-const findTargetGroup = (identifier: string) => {
-  if (!identifier) return undefined;
-  const store = getTargetGroupStore();
+const findTargetGroup = (identifier: string, targetGroups: TargetGroup[]) => {
+  if (!identifier || !targetGroups) return undefined;
   const normalized = identifier.trim().toLowerCase();
   
-  return store.data.find(g => 
+  return targetGroups.find(g => 
     g.id.toLowerCase() === normalized || 
     g.name.toLowerCase().includes(normalized)
   );
 };
 
-const findRecipient = (recipientType: string, recipientName: string) => {
+const findRecipient = (recipientType: string, recipientName: string, customers: Customer[], suppliers: Supplier[], employees: Employee[]) => {
   if (!recipientName) return undefined;
   const normalized = recipientName.trim().toLowerCase();
   
-  if (recipientType.includes('Khách hàng') || recipientType === 'KHACHHANG') {
-    const store = getCustomerStore();
-    return store.data.find(c => 
+  if ((recipientType.includes('Khách hàng') || recipientType === 'KHACHHANG') && customers) {
+    return customers.find(c => 
       c.id.toLowerCase() === normalized || 
       c.name.toLowerCase().includes(normalized)
     );
   }
   
-  if (recipientType.includes('Nhà cung cấp') || recipientType === 'NHACUNGCAP') {
-    const store = getSupplierStore();
-    return store.data.find(s => 
+  if ((recipientType.includes('Nhà cung cấp') || recipientType === 'NHACUNGCAP') && suppliers) {
+    return suppliers.find(s => 
       s.id.toLowerCase() === normalized || 
       s.name.toLowerCase().includes(normalized)
     );
   }
   
-  if (recipientType.includes('Nhân viên') || recipientType === 'NHANVIEN') {
-    const store = getEmployeeStore();
-    return store.data.find(e => 
+  if ((recipientType.includes('Nhân viên') || recipientType === 'NHANVIEN') && employees) {
+    return employees.find(e => 
       e.id.toLowerCase() === normalized || 
       e.fullName?.toLowerCase().includes(normalized)
     );
@@ -278,15 +257,15 @@ export const paymentImportExportConfig: ImportExportConfig<Payment> = {
   // Transform row to Payment object
   postTransformRow: (row) => {
     const now = new Date().toISOString();
-    const defaultBranch = getDefaultBranch();
-    const defaultPaymentMethod = getDefaultPaymentMethod();
+    const defaultBranch = (getDefaultBranch as any)();
+    const defaultPaymentMethod = (getDefaultPaymentMethod as any)();
     
     // Lookup entities
-    const branch = findBranch(row.branchName as string) || defaultBranch;
-    const paymentType = findPaymentType(row.paymentReceiptTypeName as string);
-    const paymentMethod = findPaymentMethod(row.paymentMethodName as string) || defaultPaymentMethod;
-    const targetGroup = findTargetGroup(row.recipientTypeName as string);
-    const recipient = findRecipient(row.recipientTypeName as string || '', row.recipientName as string || '');
+    const branch = (findBranch as any)(row.branchName as string) || defaultBranch;
+    const paymentType = (findPaymentType as any)(row.paymentReceiptTypeName as string);
+    const paymentMethod = (findPaymentMethod as any)(row.paymentMethodName as string) || defaultPaymentMethod;
+    const targetGroup = (findTargetGroup as any)(row.recipientTypeName as string);
+    const recipient = (findRecipient as any)(row.recipientTypeName as string || '', row.recipientName as string || '');
     
     return {
       systemId: asSystemId(''), // Will be generated

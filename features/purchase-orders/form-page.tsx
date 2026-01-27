@@ -3,20 +3,21 @@
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useSearchParamsWithSetter } from '@/lib/hooks/use-search-params-setter';
-import { usePurchaseOrderStore } from './store';
+import { usePurchaseOrders, usePurchaseOrderMutations } from './hooks/use-purchase-orders';
+import { usePurchaseOrder } from './hooks/use-purchase-orders';
 import { ROUTES } from '../../lib/router';
 import { useAllBranches } from '../settings/branches/hooks/use-all-branches';
 import { useAllEmployees } from '../employees/hooks/use-all-employees';
 import { useAuth } from '../../contexts/auth-context';
-import { useProductStore } from '../products/store';
+import { useAllProducts, useProductFinder } from '../products/hooks/use-all-products';
 import { useAllSuppliers } from '../suppliers/hooks/use-all-suppliers';
-import { useInventoryReceiptStore } from '../inventory-receipts/store';
-import { useStockHistoryStore } from '../stock-history/store';
+import { useInventoryReceipts, useInventoryReceiptMutations } from '../inventory-receipts/hooks/use-inventory-receipts';
+import { useStockHistoryMutations } from '../stock-history/hooks/use-stock-history';
 // REMOVED: Voucher store no longer exists
 // import { useVoucherStore } from '../vouchers/store';
 import { useAllPaymentTypes } from '../settings/payments/types/hooks/use-all-payment-types';
 import { useAllCashAccounts } from '../cashbook/hooks/use-all-cash-accounts';
-import { usePaymentStore } from '../payments/store';
+import { usePaymentMutations } from '../payments/hooks/use-payments';
 import type { Payment } from '../payments/types';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { toast } from 'sonner';
@@ -43,26 +44,59 @@ export function PurchaseOrderFormPage() {
   const { systemId: systemIdParam } = useParams<{ systemId: string }>();
   const [searchParams] = useSearchParamsWithSetter();
   const router = useRouter();
-  const { add, update, findById, data: _allOrders, processInventoryReceipt } = usePurchaseOrderStore();
+  
+  const purchaseOrderSystemId = systemIdParam ? asSystemId(systemIdParam) : null;
+  
+  const { data: queryData } = usePurchaseOrders({ limit: 1000 });
+  const _allOrders = queryData?.data ?? [];
+  const { data: existingOrder } = usePurchaseOrder(purchaseOrderSystemId);
+  
+  const { create, update } = usePurchaseOrderMutations({
+    onCreateSuccess: () => {
+      toast.success('Tạo đơn nhập hàng thành công');
+      router.push('/purchase-orders');
+    },
+    onUpdateSuccess: () => {
+      toast.success('Cập nhật đơn nhập hàng thành công');
+      router.push('/purchase-orders');
+    },
+    onError: (err) => toast.error(err.message)
+  });
+  
+  // Helper function for processing inventory receipt
+  const processInventoryReceipt = React.useCallback((poSystemId: string) => {
+    (update as any).mutate({ systemId: poSystemId, deliveryStatus: 'Đã nhập kho' });
+  }, [update]);
+  
   const { data: branches } = useAllBranches();
   const { data: employees } = useAllEmployees();
   const { employee: authEmployee } = useAuth();
-  const { data: products, updateInventory, findById: findProductById } = useProductStore();
+  const { data: products } = useAllProducts();
+  const { findById: findProductById } = useProductFinder();
   const { data: suppliers } = useAllSuppliers();
-  const { data: _allReceipts, add: addInventoryReceipt } = useInventoryReceiptStore();
-  const { addEntry: addStockHistoryEntry } = useStockHistoryStore();
-  const { add: addPayment } = usePaymentStore();
+  const { data: irQueryData } = useInventoryReceipts({ limit: 1000 });
+  const _allReceipts = irQueryData?.data ?? [];
+  const { create: createInventoryReceipt } = useInventoryReceiptMutations({
+    onCreateSuccess: () => {},
+    onError: (err) => toast.error(err.message)
+  });
+  const { create: createStockHistory } = useStockHistoryMutations({
+    onSuccess: () => {},
+    onError: (err) => toast.error(err.message)
+  });
+  const { create: createPayment } = usePaymentMutations({
+    onCreateSuccess: () => {},
+    onError: (err) => toast.error(err.message)
+  });
   const { data: paymentTypes } = useAllPaymentTypes();
   const { accounts: _accounts } = useAllCashAccounts();
 
-  const purchaseOrderSystemId = systemIdParam ? asSystemId(systemIdParam) : null;
   const isEditMode = Boolean(purchaseOrderSystemId);
-  const existingOrder = purchaseOrderSystemId ? findById(purchaseOrderSystemId) : null;
   
   // Copy mode: ?copy=systemId
   const copyFromId = searchParams.get('copy');
   const copyFromSystemId = copyFromId ? asSystemId(copyFromId) : null;
-  const copyFromOrder = copyFromSystemId ? findById(copyFromSystemId) : null;
+  const copyFromOrder = copyFromSystemId ? _allOrders.find(o => o.systemId === copyFromSystemId) : null;
 
   // Kiểm tra nếu đơn đã nhập kho thì không cho sửa (theo chuẩn Sapo)
   React.useEffect(() => {
@@ -454,13 +488,14 @@ export function PurchaseOrderFormPage() {
 
         let createdOrder: PurchaseOrder;
         if (isEditMode && purchaseOrderSystemId) {
-          update(purchaseOrderSystemId, { ...orderData, systemId: purchaseOrderSystemId });
-          createdOrder = { ...orderData, systemId: purchaseOrderSystemId };
+          (update as any).mutate({ ...orderData, systemId: purchaseOrderSystemId });
+          createdOrder = { ...orderData, systemId: purchaseOrderSystemId } as PurchaseOrder;
           toast.success('Thành công', {
             description: 'Đã cập nhật đơn nhập hàng',
           });
         } else {
-          createdOrder = add(orderData);
+          (create as any).mutate(orderData);
+          createdOrder = orderData as PurchaseOrder;
           toast.success('Thành công', {
             description: `Đã tạo đơn nhập hàng ${finalOrderId}`,
           });
@@ -494,25 +529,24 @@ export function PurchaseOrderFormPage() {
           notes: 'Nhập kho tự động khi tạo đơn',
         };
 
-        const createdReceipt = addInventoryReceipt(receiptData);
+        createInventoryReceipt.mutate(receiptData);
 
         // 2. Cập nhật tồn kho + ghi lịch sử
         currentItems.forEach(item => {
           const productBeforeUpdate = findProductById(item.product.systemId);
           const oldStock = productBeforeUpdate?.inventoryByBranch?.[branchSystemId] || 0;
           
-          // Cập nhật tồn kho
-          updateInventory(item.product.systemId, branchSystemId, item.quantity);
+          // Note: Inventory updates now happen server-side
 
           // Ghi lịch sử kho
-          addStockHistoryEntry({
+          createStockHistory.mutate({
             productId: item.product.systemId,
             date: formatDateCustom(getCurrentDate(), 'yyyy-MM-dd HH:mm'),
             employeeName: employee?.fullName || '',
             action: 'Nhập hàng từ NCC',
             quantityChange: item.quantity,
             newStockLevel: oldStock + item.quantity,
-            documentId: createdReceipt.id,
+            documentId: receiptData.id,
             branch: branch?.name || '',
             branchSystemId,
           });
@@ -555,13 +589,13 @@ export function PurchaseOrderFormPage() {
               originalDocumentId: createdOrder.id,
             } satisfies Omit<Payment, 'systemId'>;
 
-            addPayment(newPayment);
+            createPayment.mutate(newPayment);
           });
 
           // Cập nhật payment status
           const updatedPaymentStatus = totalPayments >= grandTotal ? 'Đã thanh toán' : 'Thanh toán một phần';
-          update(createdOrder.systemId, {
-            ...createdOrder,
+          (update as any).mutate({
+            systemId: createdOrder.systemId,
             paymentStatus: updatedPaymentStatus,
             payments: currentPayments.map((p, idx) => ({
               systemId: `PAY${finalOrderId}${String(idx + 1).padStart(3, '0')}`,
@@ -623,7 +657,7 @@ export function PurchaseOrderFormPage() {
               purchaseOrderId: asBusinessId(createdOrder.id),
               originalDocumentId: createdOrder.id,
             } satisfies Omit<Payment, 'systemId'>;
-            addPayment(feePayment);
+            createPayment.mutate(feePayment);
           });
 
           // Tạo phiếu chi cho từng khoản phí khác
@@ -654,7 +688,7 @@ export function PurchaseOrderFormPage() {
               purchaseOrderId: asBusinessId(createdOrder.id),
               originalDocumentId: createdOrder.id,
             } satisfies Omit<Payment, 'systemId'>;
-            addPayment(feePayment);
+            createPayment.mutate(feePayment);
           });
         }
       }

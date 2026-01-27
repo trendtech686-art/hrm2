@@ -21,7 +21,7 @@ import { useReceiptStore } from '../../receipts/store';
 import type { Receipt } from '../../receipts/types';
 import { useReceiptTypeStore } from '../../settings/receipt-types/store';
 import { useCashbookStore } from '../../cashbook/store';
-import { useSalesManagementSettingsStore } from '../../settings/sales/sales-management-store';
+import { getSalesSettingsSync } from '../../settings/sales/sales-management-service';
 import {
     getCurrentUserInfo,
     createHistoryEntry,
@@ -43,7 +43,7 @@ import {
 export const deliverySlice = {
     dispatchFromWarehouse: (orderSystemId: SystemId, packagingSystemId: SystemId, employeeId: SystemId) => {
         // Check negative stock out setting
-        const { allowNegativeStockOut } = useSalesManagementSettingsStore.getState();
+        const { allowNegativeStockOut } = getSalesSettingsSync();
         if (!allowNegativeStockOut) {
             const order = baseStore.getState().data.find(o => o.systemId === orderSystemId);
             if (order) {

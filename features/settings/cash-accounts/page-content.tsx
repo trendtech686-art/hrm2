@@ -1,6 +1,6 @@
 import * as React from "react";
 import { Plus, MoreHorizontal } from "lucide-react";
-import { useCashbookStore } from "../../cashbook/store";
+import { useCashAccounts, useCashAccountMutations } from "../../cashbook/hooks/use-cashbook";
 import { useAllReceipts } from "../../receipts/hooks/use-all-receipts";
 import { useAllPayments } from "../../payments/hooks/use-all-payments";
 import { useAllBranches } from "../branches/hooks/use-all-branches";
@@ -26,7 +26,12 @@ type CashAccountsPageContentProps = {
 };
 
 export function CashAccountsPageContent({ isActive, onRegisterActions }: CashAccountsPageContentProps) {
-  const { accounts: data, add, update, remove, setDefault } = useCashbookStore();
+  const { data: queryData } = useCashAccounts({ limit: 500 });
+  const data = React.useMemo(() => queryData?.data ?? [], [queryData?.data]);
+  const { create, update, remove, setDefault } = useCashAccountMutations({
+    onSuccess: () => {},
+    onError: (error) => toast.error(error.message),
+  });
   const { data: receipts } = useAllReceipts();
   const { data: payments } = useAllPayments();
   const { data: branches } = useAllBranches();
@@ -65,19 +70,19 @@ export function CashAccountsPageContent({ isActive, onRegisterActions }: CashAcc
     setIsAlertOpen(true);
   };
   
-  const handleToggleStatus = (item: CashAccount, isActive: boolean) => {
-    update(item.systemId, { ...item, isActive });
+  const handleToggleStatus = async (item: CashAccount, isActive: boolean) => {
+    await update.mutateAsync({ systemId: item.systemId, data: { ...item, isActive } });
     toast.success(isActive ? `Đã kích hoạt "${item.name}"` : `Đã tắt "${item.name}"`);
   };
   
-  const handleToggleDefault = React.useCallback((item: CashAccount, checked: boolean) => {
+  const handleToggleDefault = React.useCallback(async (item: CashAccount, checked: boolean) => {
     if (checked) {
-      setDefault(item.systemId);
+      await setDefault.mutateAsync(item.systemId);
       toast.success(`Đã đặt "${item.name}" làm mặc định`);
     } else {
       const otherAccounts = data.filter(a => a.systemId !== item.systemId);
       if (otherAccounts.length > 0) {
-        setDefault(otherAccounts[0].systemId);
+        await setDefault.mutateAsync(otherAccounts[0].systemId);
         toast.success(`Đã đặt "${otherAccounts[0].name}" làm mặc định`);
       } else {
         toast.error('Phải có ít nhất một tài khoản mặc định');
@@ -85,15 +90,15 @@ export function CashAccountsPageContent({ isActive, onRegisterActions }: CashAcc
     }
   }, [data, setDefault]);
   
-  const handleSetDefault = (item: CashAccount) => {
-    setDefault(item.systemId);
+  const handleSetDefault = async (item: CashAccount) => {
+    await setDefault.mutateAsync(item.systemId);
     toast.success(`Đã đặt "${item.name}" làm mặc định`);
   };
   
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (idToDelete) {
       const item = data.find(a => a.systemId === idToDelete);
-      remove(idToDelete);
+      await remove.mutateAsync(idToDelete);
       toast.success(`Đã xóa "${item?.name}"`);
     }
     setIsAlertOpen(false);
@@ -137,14 +142,14 @@ export function CashAccountsPageContent({ isActive, onRegisterActions }: CashAcc
     };
   };
 
-  const handleFormSubmit = (values: CashAccountFormValues) => {
+  const handleFormSubmit = async (values: CashAccountFormValues) => {
     try {
       const payload = normalizeFormValues(values);
       if (editingItem) {
-        update(editingItem.systemId, { ...editingItem, ...payload });
+        await update.mutateAsync({ systemId: editingItem.systemId, data: { ...editingItem, ...payload } });
         toast.success("Cập nhật thành công");
       } else {
-        add(payload);
+        await create.mutateAsync(payload);
         toast.success("Thêm mới thành công");
       }
       setIsFormOpen(false);

@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { useStockTransferStore } from './store';
+import { useStockTransfer, useStockTransferMutations } from './hooks/use-stock-transfers';
 import { useBranchFinder } from '../settings/branches/hooks/use-all-branches';
 import { useProductFinder } from '../products/hooks/use-all-products';
 import { useProductTypeFinder } from '../settings/inventory/hooks/use-all-product-types';
@@ -153,7 +153,39 @@ function buildHistoryEntries(transfer: StockTransfer): HistoryEntry[] {
 export function StockTransferDetailPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const router = useRouter();
-  const { findById, confirmTransfer, confirmReceive, cancelTransfer } = useStockTransferStore();
+  
+  // Note: transfer fetched later after hooks setup
+  const { start: startMutation, complete: completeMutation, cancel: cancelMutation } = useStockTransferMutations({
+    onStartSuccess: () => {
+      toast.success('Đã xác nhận xuất kho');
+      setConfirmTransferOpen(false);
+    },
+    onCompleteSuccess: () => {
+      toast.success('Đã xác nhận nhận kho');
+      setConfirmReceiveOpen(false);
+    },
+    onCancelSuccess: () => {
+      toast.success('Đã hủy phiếu chuyển kho');
+      setCancelDialogOpen(false);
+      router.push('/stock-transfers');
+    },
+    onError: (error) => {
+      toast.error('Lỗi', { description: error.message });
+    }
+  });
+  
+  const confirmTransfer = React.useCallback((systemId: string) => {
+    startMutation.mutate(systemId);
+  }, [startMutation]);
+  
+  const confirmReceive = React.useCallback((systemId: string, items?: { productSystemId: string; receivedQuantity: number }[]) => {
+    completeMutation.mutate({ systemId, receivedItems: items });
+  }, [completeMutation]);
+  
+  const cancelTransfer = React.useCallback((systemId: string, reason: string) => {
+    cancelMutation.mutate({ systemId, reason });
+  }, [cancelMutation]);
+  
   const { findById: findProductById } = useProductFinder();
   const { findById: findProductTypeById } = useProductTypeFinder();
   const { findById: findEmployeeById } = useEmployeeFinder();
@@ -168,7 +200,8 @@ export function StockTransferDetailPage() {
   const [subtasks, setSubtasks] = React.useState<Subtask[]>([]);
   const [previewImage, setPreviewImage] = React.useState<{ url: string; title: string } | null>(null);
 
-  const transfer = findById(asSystemId(systemId || ''));
+  const { data: transfer } = useStockTransfer(asSystemId(systemId || ''));
+  const { update: _updateTransfer } = useStockTransferMutations({});
 
   const { findById: findBranchById } = useBranchFinder();
   const { info: storeInfo } = useStoreInfoData();
@@ -344,12 +377,8 @@ export function StockTransferDetailPage() {
       return;
     }
 
-    const success = confirmTransfer(transfer.systemId, currentEmployee.systemId);
-    if (success) {
-      toast.success('Đã xác nhận chuyển hàng khỏi kho');
-    } else {
-      toast.error('Không thể xác nhận chuyển hàng');
-    }
+    confirmTransfer(transfer.systemId);
+    toast.success('Đã xác nhận chuyển hàng khỏi kho');
     setConfirmTransferOpen(false);
   };
 
@@ -359,12 +388,8 @@ export function StockTransferDetailPage() {
       return;
     }
 
-    const success = confirmReceive(transfer.systemId, currentEmployee.systemId, receiveItems);
-    if (success) {
-      toast.success('Đã xác nhận nhận hàng vào kho');
-    } else {
-      toast.error('Không thể xác nhận nhận hàng');
-    }
+    confirmReceive(transfer.systemId, receiveItems);
+    toast.success('Đã xác nhận nhận hàng vào kho');
     setConfirmReceiveOpen(false);
   };
 
@@ -374,7 +399,7 @@ export function StockTransferDetailPage() {
       return;
     }
 
-    const success = cancelTransfer(transfer.systemId, currentEmployee.systemId, cancelReason);
+    const success = cancelTransfer(transfer.systemId, cancelReason);
     if (success) {
       toast.success('Đã hủy phiếu chuyển kho');
     } else {

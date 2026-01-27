@@ -6,7 +6,8 @@ import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ROUTES } from '../../lib/router';
 import { formatDateTime, formatDateCustom, parseDate, getCurrentDate, getDaysDiff, toISODate } from '@/lib/date-utils';
-import { usePurchaseOrderStore } from './store';
+import { usePurchaseOrder, usePurchaseOrders } from './hooks/use-purchase-orders';
+import { usePurchaseOrderMutations } from './hooks/use-purchase-orders';
 import { useAllSuppliers } from '../suppliers/hooks/use-all-suppliers';
 import { useAllPayments } from '../payments/hooks/use-all-payments';
 import { useAllReceipts } from '../receipts/hooks/use-all-receipts';
@@ -16,9 +17,10 @@ import { Button } from '../../components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '../../components/ui/table';
 import { Users, FileWarning, Package, Truck, CheckCircle2, Edit, Printer, Undo2, Trash2, AlertCircle } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { useInventoryReceiptStore } from '../inventory-receipts/store';
-import { useProductStore } from '../products/store';
-import { useStockHistoryStore } from '../stock-history/store';
+import { useAllInventoryReceipts } from '../inventory-receipts/hooks/use-all-inventory-receipts';
+import { useInventoryReceiptMutations } from '../inventory-receipts/hooks/use-inventory-receipts';
+import { useAllProducts, useProductFinder } from '../products/hooks/use-all-products';
+import { useStockHistoryMutations } from '../stock-history/hooks/use-stock-history';
 import { useAllPaymentTypes } from '../settings/payments/types/hooks/use-all-payment-types';
 import { useAllCashAccounts } from '../cashbook/hooks/use-all-cash-accounts';
 import { useAllBranches, useBranchFinder } from '../settings/branches/hooks/use-all-branches';
@@ -36,7 +38,9 @@ const Comments = dynamic(
   { ssr: false }
 );
 import { useComments } from '@/hooks/use-comments';
-import { usePurchaseReturnStore } from '../purchase-returns/store';
+import { useAllPurchaseReturns } from '../purchase-returns/hooks/use-all-purchase-returns';
+import { usePurchaseReturnMutations } from '../purchase-returns/hooks/use-purchase-returns';
+import { usePurchaseReturnsByPO } from '../purchase-returns/hooks/use-purchase-returns';
 import type { PurchaseReturn, PurchaseReturnLineItem } from '../purchase-returns/types';
 import { Badge } from '../../components/ui/badge';
 import { useAuth } from '../../contexts/auth-context';
@@ -78,23 +82,50 @@ const PaymentConfirmationDialog = dynamic(() => import('./detail').then(mod => (
 export function PurchaseOrderDetailPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const router = useRouter();
-  const { findById, processInventoryReceipt, finishOrder, cancelOrder } = usePurchaseOrderStore();
-  const purchaseOrder = findById(systemId!);
+  const { data: purchaseOrder } = usePurchaseOrder(systemId);
+  const { update: updatePO } = usePurchaseOrderMutations({});
+  
+  // Helper functions using mutations
+  const cancelOrder = React.useCallback((poSystemId: string, userId: string, _userName: string) => {
+    (updatePO as any).mutate({ systemId: poSystemId, status: 'cancelled', cancelledBy: userId, cancelledAt: new Date().toISOString() });
+  }, [updatePO]);
+  
+  const finishOrder = React.useCallback((poSystemId: string, userId: string, _userName: string) => {
+    (updatePO as any).mutate({ systemId: poSystemId, status: 'completed', completedBy: userId, completedAt: new Date().toISOString() });
+  }, [updatePO]);
+  
+  const processInventoryReceipt = React.useCallback((poSystemId: string) => {
+    (updatePO as any).mutate({ systemId: poSystemId, deliveryStatus: 'Đã nhập kho' });
+  }, [updatePO]);
   
   // All hooks must be called before any early returns (React hooks rules)
   // Move all hook calls here before the conditional return
   const { data: suppliers } = useAllSuppliers();
-  const { data: allPurchaseOrders } = usePurchaseOrderStore();
+  const { data: queryData } = usePurchaseOrders({ limit: 1000 });
+  const allPurchaseOrders = React.useMemo(() => queryData?.data ?? [], [queryData?.data]);
   const { data: allPayments } = useAllPayments();
   const { data: allReceiptsFinancial } = useAllReceipts();
   const allTransactions = React.useMemo(() => [...allPayments, ...allReceiptsFinancial], [allPayments, allReceiptsFinancial]);
-  const { data: allReceipts, add: addInventoryReceipt } = useInventoryReceiptStore();
-  const { data: products, updateInventory, findById: findProductById } = useProductStore();
-  const { addEntry: addStockHistoryEntry } = useStockHistoryStore();
+  const { data: allReceipts } = useAllInventoryReceipts();
+  const { create: createInventoryReceipt } = useInventoryReceiptMutations({
+    onCreateSuccess: () => {},
+    onError: (err) => toast.error(err.message)
+  });
+  const { data: products } = useAllProducts();
+  const { findById: findProductById } = useProductFinder();
+  const { create: createStockHistory } = useStockHistoryMutations({
+    onSuccess: () => {},
+    onError: (err) => toast.error(err.message)
+  });
   const { data: _paymentTypes } = useAllPaymentTypes();
   const { accounts: _accounts } = useAllCashAccounts();
   const { data: _branches } = useAllBranches();
-  const { findByPurchaseOrderSystemId, add: addPurchaseReturn, data: allPurchaseReturns } = usePurchaseReturnStore();
+  const { data: allPurchaseReturns } = useAllPurchaseReturns();
+  const { data: purchaseReturnsForPO } = usePurchaseReturnsByPO(systemId);
+  const { create: createPurchaseReturn } = usePurchaseReturnMutations({
+    onCreateSuccess: () => {},
+    onError: (err) => toast.error(err.message)
+  });
   const { employee: authEmployee } = useAuth();
   const currentUserSystemId = asSystemId(authEmployee?.systemId ?? 'SYSTEM');
   const currentUserName = authEmployee?.fullName ?? 'Hệ thống';
@@ -159,8 +190,8 @@ export function PurchaseOrderDetailPage() {
 
   const purchaseReturns = React.useMemo(() => {
     if (!purchaseOrder) return [];
-    return findByPurchaseOrderSystemId(asSystemId(purchaseOrder.systemId));
-  }, [purchaseOrder, findByPurchaseOrderSystemId]);
+    return purchaseReturnsForPO ?? [];
+  }, [purchaseReturnsForPO, purchaseOrder]);
   const poReceipts = React.useMemo(
     () => (purchaseOrder ? allReceipts.filter(r => r.purchaseOrderSystemId === purchaseOrder.systemId) : []),
     [purchaseOrder, allReceipts]
@@ -266,7 +297,7 @@ export function PurchaseOrderDetailPage() {
         if (returnItems.length > 0) {
             const totalReturnValue = returnItems.reduce((sum, item) => sum + (item.returnQuantity * item.unitPrice), 0);
             
-            addPurchaseReturn({
+            createPurchaseReturn.mutate({
               id: asBusinessId(''),
               purchaseOrderSystemId: asSystemId(po.systemId),
               purchaseOrderId: asBusinessId(po.id),
@@ -669,7 +700,7 @@ export function PurchaseOrderDetailPage() {
     }, [purchaseOrder, allPayments, allReceiptsFinancial]);
   
   const totalReturnedValue = React.useMemo(() => 
-    purchaseReturns.reduce((sum, pr) => sum + pr.totalReturnValue, 0),
+    (Array.isArray(purchaseReturns) ? purchaseReturns : (purchaseReturns as any)?.data || []).reduce((sum: number, pr: any) => sum + Number(pr.totalReturnValue || 0), 0),
   [purchaseReturns]);
 
   const actualDebt = (purchaseOrder?.grandTotal || 0) - totalReturnedValue;
@@ -775,7 +806,7 @@ export function PurchaseOrderDetailPage() {
       notes: 'Nhập kho tự động toàn bộ sản phẩm còn lại.',
     };
 
-    addInventoryReceipt(receiptData);
+    createInventoryReceipt.mutate(receiptData);
 
     itemsToReceive.forEach(item => {
       const productData = products.find(p => p.systemId === item.productSystemId || p.id === item.productId);
@@ -783,11 +814,10 @@ export function PurchaseOrderDetailPage() {
       const branchSystemId = asSystemId(purchaseOrder.branchSystemId);
       const oldStock = productData?.inventoryByBranch?.[branchSystemId] || 0;
       
-      // Cập nhật tồn kho
-      updateInventory(asSystemId(item.productSystemId), branchSystemId, item.receivedQuantity);
+      // Note: Inventory updates now happen server-side
       
       // Ghi lịch sử kho
-      addStockHistoryEntry({
+      createStockHistory.mutate({
         productId: asSystemId(item.productSystemId),
         action: 'Nhập hàng từ NCC',
         employeeName: currentUserName,
@@ -833,8 +863,7 @@ export function PurchaseOrderDetailPage() {
     }
     
     // Sync payment status after payment
-    const { syncAllPurchaseOrderStatuses } = usePurchaseOrderStore.getState();
-    syncAllPurchaseOrderStatuses();
+    // Note: syncAllPurchaseOrderStatuses removed - handled by React Query invalidation
     
     setIsPaymentConfirmationOpen(false);
     toast.success(`Đã tạo phiếu chi ${createdPayment.id} - ${formatCurrency(values.amount)} cho đơn nhập hàng ${purchaseOrder.id}.`);
@@ -910,7 +939,7 @@ export function PurchaseOrderDetailPage() {
                   <CardHeader>
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                           <div className="flex items-center gap-2">
-                              <FileWarning className="h-5 w-5 text-amber-500 flex-shrink-0" />
+                              <FileWarning className="h-5 w-5 text-amber-500 shrink-0" />
                               <CardTitle className="text-base font-semibold">
                                 {localPaymentStatus === 'Chưa thanh toán' 
                                   ? 'Đơn hàng chờ thanh toán' 
@@ -946,7 +975,7 @@ export function PurchaseOrderDetailPage() {
               <Card>
                   <CardHeader>
                       <div className="flex items-center gap-2">
-                          <CheckCircle2 className="h-5 w-5 text-green-500 flex-shrink-0" />
+                          <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" />
                           <CardTitle className="text-base font-semibold">
                             Đơn hàng thanh toán thanh toán toàn bộ
                           </CardTitle>
@@ -1026,7 +1055,7 @@ export function PurchaseOrderDetailPage() {
           {/* Thông tin NCC và Đơn hàng */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2">
-                  <Card className="h-[300px]">
+                  <Card className="h-75">
                       <CardHeader>
                         <div className="flex items-center gap-2">
                           <Users className="h-5 w-5 text-muted-foreground" />
@@ -1071,7 +1100,7 @@ export function PurchaseOrderDetailPage() {
               </div>
 
               <div className="lg:col-span-1">
-                  <Card className="h-[300px] flex flex-col">
+                  <Card className="h-75 flex flex-col">
                       <CardHeader>
                         <CardTitle className="text-h3">Thông tin đơn nhập hàng</CardTitle>
                       </CardHeader>
@@ -1103,16 +1132,16 @@ export function PurchaseOrderDetailPage() {
                       <Table>
                           <TableHeader>
                               <TableRow>
-                                  <TableHead className="w-[50px] text-center">STT</TableHead>
-                                  <TableHead className="w-[60px]">Ảnh</TableHead>
-                                  <TableHead className="min-w-[200px]">Tên sản phẩm</TableHead>
-                                  <TableHead className="w-[100px]">Loại SP</TableHead>
-                                  <TableHead className="w-[80px]">Đơn vị</TableHead>
-                                  <TableHead className="w-[80px] text-center">SL nhập</TableHead>
-                                  <TableHead className="w-[130px] text-right">Đơn giá</TableHead>
-                                  <TableHead className="w-[80px] text-right">Thuế</TableHead>
-                                  <TableHead className="w-[100px] text-right">Chiết khấu</TableHead>
-                                  <TableHead className="w-[130px] text-right">Thành tiền</TableHead>
+                                  <TableHead className="w-12.5 text-center">STT</TableHead>
+                                  <TableHead className="w-15">Ảnh</TableHead>
+                                  <TableHead className="min-w-50">Tên sản phẩm</TableHead>
+                                  <TableHead className="w-25">Loại SP</TableHead>
+                                  <TableHead className="w-20">Đơn vị</TableHead>
+                                  <TableHead className="w-20 text-center">SL nhập</TableHead>
+                                  <TableHead className="w-32.5 text-right">Đơn giá</TableHead>
+                                  <TableHead className="w-20 text-right">Thuế</TableHead>
+                                  <TableHead className="w-25 text-right">Chiết khấu</TableHead>
+                                  <TableHead className="w-32.5 text-right">Thành tiền</TableHead>
                               </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -1240,12 +1269,12 @@ export function PurchaseOrderDetailPage() {
 
           <Tabs defaultValue="stock_history">
               <TabsList>
-                  <TabsTrigger value="stock_history">Lịch sử kho ({poReceipts.length + purchaseReturns.length})</TabsTrigger>
+                  <TabsTrigger value="stock_history">Lịch sử kho ({poReceipts.length + (Array.isArray(purchaseReturns) ? purchaseReturns.length : 0)})</TabsTrigger>
               </TabsList>
               <TabsContent value="stock_history" className="mt-4">
                  <StockHistoryTab 
                    poReceipts={poReceipts} 
-                   purchaseReturns={purchaseReturns} 
+                   purchaseReturns={(Array.isArray(purchaseReturns) ? purchaseReturns : []) as PurchaseReturn[]} 
                    allTransactions={allTransactions}
                    onPrintReceipt={handlePrintReceipt}
                    onPrintReturn={handlePrintPurchaseReturn}

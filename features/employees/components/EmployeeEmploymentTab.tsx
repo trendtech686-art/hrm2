@@ -20,15 +20,17 @@ import { DatePicker } from "@/components/ui/date-picker";
 import type { EmployeeFormValues } from "./employee-form";
 import type { JobTitle } from "../../settings/job-titles/types";
 import type { Branch } from "../../settings/branches/types";
+import type { Department } from "../../settings/departments/types";
 
 interface EmployeeEmploymentTabProps {
   form: UseFormReturn<EmployeeFormValues, unknown, EmployeeFormValues>;
   jobTitles: JobTitle[];
+  departments: Department[];
   branches: Branch[];
   isEditMode: boolean;
 }
 
-export function EmployeeEmploymentTab({ form, jobTitles, branches, isEditMode }: EmployeeEmploymentTabProps) {
+export function EmployeeEmploymentTab({ form, jobTitles, departments, branches, isEditMode }: EmployeeEmploymentTabProps) {
   return (
     <div className="mt-6">
       <h3 className="text-lg font-medium mb-4">Thông tin công việc, Lương & Nghỉ phép</h3>
@@ -85,10 +87,7 @@ export function EmployeeEmploymentTab({ form, jobTitles, branches, isEditMode }:
                 </SelectTrigger>
               </FormControl>
               <SelectContent>
-                <SelectItem value="Kỹ thuật">Kỹ thuật</SelectItem>
-                <SelectItem value="Nhân sự">Nhân sự</SelectItem>
-                <SelectItem value="Kinh doanh">Kinh doanh</SelectItem>
-                <SelectItem value="Marketing">Marketing</SelectItem>
+                {departments.map(d => <SelectItem key={d.systemId} value={d.systemId}>{d.name}</SelectItem>)}
               </SelectContent>
             </Select>
             <FormMessage />
@@ -104,7 +103,7 @@ export function EmployeeEmploymentTab({ form, jobTitles, branches, isEditMode }:
                 </SelectTrigger>
               </FormControl>
               <SelectContent>
-                {jobTitles.map(jt => (<SelectItem key={jt.systemId} value={jt.name}>{jt.name}</SelectItem>))}
+                {jobTitles.map(jt => (<SelectItem key={jt.systemId} value={jt.systemId}>{jt.name}</SelectItem>))}
               </SelectContent>
             </Select>
             <FormMessage />
@@ -129,10 +128,10 @@ export function EmployeeEmploymentTab({ form, jobTitles, branches, isEditMode }:
                 </SelectTrigger>
               </FormControl>
               <SelectContent>
-                <SelectItem value="Chính thức">Chính thức</SelectItem>
-                <SelectItem value="Thử việc">Thử việc</SelectItem>
-                <SelectItem value="Thực tập sinh">Thực tập sinh</SelectItem>
-                <SelectItem value="Bán thời gian">Bán thời gian</SelectItem>
+                <SelectItem value="FULLTIME">Toàn thời gian</SelectItem>
+                <SelectItem value="PROBATION">Thử việc</SelectItem>
+                <SelectItem value="INTERN">Thực tập sinh</SelectItem>
+                <SelectItem value="PARTTIME">Bán thời gian</SelectItem>
               </SelectContent>
             </Select>
             <FormMessage />
@@ -148,9 +147,9 @@ export function EmployeeEmploymentTab({ form, jobTitles, branches, isEditMode }:
                 </SelectTrigger>
               </FormControl>
               <SelectContent>
-                <SelectItem value="Đang làm việc">Đang làm việc</SelectItem>
-                <SelectItem value="Tạm nghỉ">Tạm nghỉ</SelectItem>
-                <SelectItem value="Đã nghỉ việc">Đã nghỉ việc</SelectItem>
+                <SelectItem value="ACTIVE">Đang làm việc</SelectItem>
+                <SelectItem value="ON_LEAVE">Tạm nghỉ</SelectItem>
+                <SelectItem value="TERMINATED">Đã nghỉ việc</SelectItem>
               </SelectContent>
             </Select>
             <FormMessage />

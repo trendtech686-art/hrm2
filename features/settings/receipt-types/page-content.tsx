@@ -1,7 +1,7 @@
 import * as React from "react";
 import { Plus } from "lucide-react";
 import { asBusinessId, type SystemId } from "@/lib/id-types";
-import { useReceiptTypeStore } from "./store";
+import { useReceiptTypes, useReceiptTypeMutations } from "./hooks/use-receipt-types";
 import type { ReceiptType } from '@/lib/types/prisma-extended';
 import { ReceiptTypeForm, type ReceiptTypeFormValues } from "./form";
 import { Button } from "../../../components/ui/button";
@@ -34,7 +34,12 @@ type ReceiptTypesPageContentProps = {
 };
 
 export function ReceiptTypesPageContent({ isActive, onRegisterActions }: ReceiptTypesPageContentProps) {
-  const { data, add, update, hardDelete } = useReceiptTypeStore();
+  const { data: queryData } = useReceiptTypes({ limit: 1000 });
+  const data = React.useMemo(() => queryData?.data ?? [], [queryData?.data]);
+  const { create, update, remove } = useReceiptTypeMutations({
+    onSuccess: () => toast.success("Thao tác thành công"),
+    onError: (err) => toast.error(err.message)
+  });
   
   const [isFormOpen, setIsFormOpen] = React.useState(false);
   const [editingItem, setEditingItem] = React.useState<ReceiptType | null>(null);
@@ -61,16 +66,16 @@ export function ReceiptTypesPageContent({ isActive, onRegisterActions }: Receipt
       // Tắt mặc định của tất cả các loại khác
       data.forEach(d => {
         if (d.systemId !== item.systemId && d.isDefault) {
-          update(d.systemId, { ...d, isDefault: false });
+          update.mutate({ systemId: d.systemId, data: { ...d, isDefault: false } });
         }
       });
-      update(item.systemId, { ...item, isDefault: true });
+      update.mutate({ systemId: item.systemId, data: { ...item, isDefault: true } });
       toast.success(`Đã đặt "${item.name}" làm mặc định`);
     } else {
       const other = data.find(d => d.systemId !== item.systemId && d.isActive);
       if (other) {
-        update(item.systemId, { ...item, isDefault: false });
-        update(other.systemId, { ...other, isDefault: true });
+        update.mutate({ systemId: item.systemId, data: { ...item, isDefault: false } });
+        update.mutate({ systemId: other.systemId, data: { ...other, isDefault: true } });
         toast.success(`Đã chuyển mặc định sang "${other.name}"`);
       } else {
         toast.error("Phải có ít nhất một loại phiếu thu mặc định");
@@ -79,14 +84,14 @@ export function ReceiptTypesPageContent({ isActive, onRegisterActions }: Receipt
   }, [data, update]);
 
   const handleToggleStatus = React.useCallback((item: ReceiptType, isActive: boolean) => {
-    update(item.systemId, { ...item, isActive });
+    update.mutate({ systemId: item.systemId, data: { ...item, isActive } });
     toast.success(isActive ? `Đã kích hoạt "${item.name}"` : `Đã tắt "${item.name}"`);
   }, [update]);
   
   const confirmDelete = () => {
     if (idToDelete) {
       const item = data.find(d => d.systemId === idToDelete);
-      hardDelete(idToDelete);
+      remove.mutate(idToDelete);
       toast.success(`Đã xóa "${item?.name}"`);
     }
     setIsAlertOpen(false);
@@ -106,17 +111,18 @@ export function ReceiptTypesPageContent({ isActive, onRegisterActions }: Receipt
       } satisfies Omit<ReceiptType, 'systemId' | 'createdAt'>;
 
       if (editingItem) {
-        update(editingItem.systemId, {
-          ...editingItem,
-          ...normalized,
+        update.mutate({
+          systemId: editingItem.systemId,
+          data: {
+            ...editingItem,
+            ...normalized,
+          }
         });
-        toast.success(`Đã cập nhật "${normalized.name}"`);
       } else {
-        add({
+        create.mutate({
           ...normalized,
           createdAt: now,
         });
-        toast.success(`Đã thêm "${normalized.name}"`);
       }
       setIsFormOpen(false);
     } catch (error) {

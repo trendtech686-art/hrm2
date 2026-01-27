@@ -39,9 +39,10 @@ export function SimpleSettingsTable<TData extends { systemId: string }>(
     return column.header;
   };
 
-  const renderCell = (column: ColumnDef<TData>, row: TData) =>
+  const renderCell = (column: ColumnDef<TData>, row: TData, rowIndex: number) =>
     column.cell({
       row,
+      rowIndex,
       isSelected: false,
       isExpanded: false,
       onToggleSelect: () => {},
@@ -74,10 +75,10 @@ export function SimpleSettingsTable<TData extends { systemId: string }>(
               </TableCell>
             </TableRow>
           ) : (
-            data.map((item) => (
+            data.map((item, index) => (
               <TableRow key={item.systemId}>
                 {renderedColumns.map((column) => (
-                  <TableCell key={column.id}>{renderCell(column, item)}</TableCell>
+                  <TableCell key={column.id}>{renderCell(column, item, index)}</TableCell>
                 ))}
               </TableRow>
             ))

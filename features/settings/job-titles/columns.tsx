@@ -11,17 +11,24 @@ export const getColumns = (
   onEdit: (jobTitle: JobTitle) => void
 ): ColumnDef<JobTitle>[] => [
   {
+    id: "id",
+    accessorKey: "id",
+    header: "Mã",
+    cell: ({ row }) => <span>{row.id}</span>,
+    meta: { displayName: "Mã chức vụ" },
+  },
+  {
     id: "name",
     accessorKey: "name",
     header: "Tên chức vụ",
-    cell: ({ row }) => <div className="font-medium">{row.name}</div>,
+    cell: ({ row }) => <div>{row.name}</div>,
     meta: { displayName: "Tên chức vụ" },
   },
   {
     id: "description",
     accessorKey: "description",
     header: "Mô tả",
-    cell: ({ row }) => <span className="text-muted-foreground">{row.description}</span>,
+    cell: ({ row }) => <span>{row.description}</span>,
     meta: { displayName: "Mô tả" },
   },
    {

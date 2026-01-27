@@ -26,7 +26,7 @@ export const ProvinceItem = React.memo(function ProvinceItem({
       onClick={() => onSelect(province.systemId)}
       className={cn(
         'group flex cursor-pointer items-center gap-3 rounded-lg border border-transparent px-3 py-2 transition-colors hover:bg-muted/50',
-        isActive ? 'bg-primary/5 border-primary/20' : 'hover:border-border/50'
+        isActive ? 'bg-primary/5 border-primary/20' : 'hover:border/50'
       )}
     >
       <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">

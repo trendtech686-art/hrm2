@@ -2,57 +2,32 @@
  * Sales Returns Store - Inventory Slice
  * Handles inventory updates when processing returns
  * 
+ * ⚠️ DEPRECATED: These client-side operations are unsafe and should be replaced
+ * with server-side atomic transactions via POST /api/sales-returns
+ * 
  * @module features/sales-returns/store/inventory-slice
  */
 
-import { getCurrentDate } from '@/lib/date-utils';
 import type { SalesReturn } from '@/lib/types/prisma-extended';
 import type { SystemId } from '../../../lib/id-types';
-
-import { useProductStore } from '../../products/store';
-import { useStockHistoryStore } from '../../stock-history/store';
-import { baseStore } from './base-store';
-import { getReturnStockItems } from './helpers';
 
 // ============================================
 // UPDATE INVENTORY FOR RETURN
 // ============================================
 
 /**
+ * @deprecated Use server-side endpoint: POST /api/sales-returns with isReceived=true
  * Update inventory when items are received from customer
  * Handles combo products by adding stock to child products
+ * 
+ * ⚠️ UNSAFE: Client-side inventory updates are not atomic and can cause data corruption
  */
-export const updateInventoryForReturn = (salesReturn: SalesReturn): void => {
-    if (!salesReturn.isReceived) {
-        return;
-    }
-
-    const { updateInventory } = useProductStore.getState();
-    const { addEntry: addStockHistory } = useStockHistoryStore.getState();
-
-    // Expand combo items to child products
-    const stockItems = getReturnStockItems(salesReturn.items);
-
-    stockItems.forEach(item => {
-        if (item.quantity > 0) {
-            const product = useProductStore.getState().findById(item.productSystemId);
-            const oldStock = product?.inventoryByBranch[salesReturn.branchSystemId] || 0;
-
-            updateInventory(item.productSystemId, salesReturn.branchSystemId, item.quantity);
-
-            addStockHistory({
-                productId: item.productSystemId,
-                date: getCurrentDate().toISOString(),
-                employeeName: salesReturn.creatorName,
-                action: 'Nhập hàng từ khách trả',
-                quantityChange: item.quantity,
-                newStockLevel: oldStock + item.quantity,
-                documentId: salesReturn.id,
-                branchSystemId: salesReturn.branchSystemId,
-                branch: salesReturn.branchName,
-            });
-        }
-    });
+export const updateInventoryForReturn = (
+    _salesReturn: SalesReturn,
+    _products: Array<{ systemId: SystemId; inventoryByBranch: Record<string, number> }>
+): void => {
+    console.warn('⚠️ DEPRECATED: updateInventoryForReturn. Use server-side POST /api/sales-returns endpoint.');
+    // Method body removed - use server endpoint
 };
 
 // ============================================
@@ -61,56 +36,17 @@ export const updateInventoryForReturn = (salesReturn: SalesReturn): void => {
 
 export const inventorySlice = {
     /**
+     * @deprecated Use React Query mutation: useSalesReturnMutations().receive
      * Confirm receipt of returned items and update inventory
-     * Use this when isReceived was false initially and items are now received
-     * For combo products, add stock to child products instead
+     * 
+     * Server endpoint: POST /api/sales-returns/:id/receive
+     * ⚠️ UNSAFE: Client-side operation - use server endpoint for atomic transaction
      */
-    confirmReceipt: (returnSystemId: SystemId): { success: boolean; message: string } => {
-        const salesReturn = baseStore.getState().findById(returnSystemId);
-        
-        if (!salesReturn) {
-            console.error('❌ [Sales Return] Return not found:', returnSystemId);
-            return { success: false, message: 'Không tìm thấy phiếu trả hàng' };
-        }
-
-        if (salesReturn.isReceived) {
-            return { success: false, message: 'Hàng đã được nhận trước đó' };
-        }
-
-        const { updateInventory } = useProductStore.getState();
-        const { addEntry: addStockHistory } = useStockHistoryStore.getState();
-
-        // Expand combo items to child products
-        const stockItems = getReturnStockItems(salesReturn.items);
-
-        // Update inventory for all returned items (including expanded combo children)
-        stockItems.forEach(item => {
-            if (item.quantity > 0) {
-                const product = useProductStore.getState().findById(item.productSystemId);
-                const oldStock = product?.inventoryByBranch[salesReturn.branchSystemId] || 0;
-
-                updateInventory(item.productSystemId, salesReturn.branchSystemId, item.quantity);
-
-                addStockHistory({
-                    productId: item.productSystemId,
-                    date: getCurrentDate().toISOString(),
-                    employeeName: salesReturn.creatorName,
-                    action: 'Nhập hàng từ khách trả (xác nhận)',
-                    quantityChange: item.quantity,
-                    newStockLevel: oldStock + item.quantity,
-                    documentId: salesReturn.id,
-                    branchSystemId: salesReturn.branchSystemId,
-                    branch: salesReturn.branchName,
-                });
-            }
-        });
-
-        // Update the return record
-        baseStore.getState().update(returnSystemId, {
-            ...salesReturn,
-            isReceived: true,
-        });
-
-        return { success: true, message: 'Đã xác nhận nhận hàng và cập nhật tồn kho' };
+    confirmReceipt: (
+        _returnSystemId: SystemId,
+        _products: Array<{ systemId: SystemId; inventoryByBranch: Record<string, number> }>
+    ): { success: boolean; message: string } => {
+        console.warn('⚠️ DEPRECATED: confirmReceipt. Use useSalesReturnMutations().receive mutation instead.');
+        return { success: false, message: 'Method deprecated - use server endpoint' };
     },
 };

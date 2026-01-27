@@ -97,3 +97,45 @@ export async function fetchWarrantyStats(): Promise<{
   if (!res.ok) throw new Error(`Failed to fetch warranty stats`);
   return res.json();
 }
+
+/**
+ * Complete warranty and deduct stock
+ */
+export async function completeWarranty(
+  systemId: string, 
+  data: { actualCost?: number; completionNotes?: string; technicianId?: string }
+): Promise<WarrantyTicket> {
+  const res = await fetch(`${API_BASE}/${systemId}/complete`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({}));
+    throw new Error(error.error || 'Failed to complete warranty');
+  }
+  const result = await res.json();
+  return result.data || result;
+}
+
+/**
+ * Cancel warranty and uncommit stock
+ */
+export async function cancelWarranty(
+  systemId: string,
+  data: { cancellationReason: string; notes?: string }
+): Promise<WarrantyTicket> {
+  const res = await fetch(`${API_BASE}/${systemId}/cancel`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({}));
+    throw new Error(error.error || 'Failed to cancel warranty');
+  }
+  const result = await res.json();
+  return result.data || result;
+}

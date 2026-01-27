@@ -3,6 +3,7 @@ import { Check, ChevronsUpDown, Loader2 } from 'lucide-react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useDebounce } from '../../hooks/use-debounce';
 import { cn } from '../../lib/utils';
+import { removeVietnameseAccents } from '../../lib/filename-utils';
 import { Button } from './button';
 import { Command, CommandInput, CommandEmpty } from './command';
 import { Popover, PopoverContent, PopoverTrigger } from './popover';
@@ -82,9 +83,14 @@ export function VirtualizedCombobox({
     const query = searchQuery.toLowerCase();
     if (!query) return options;
     
+    // Also create accent-stripped query for Vietnamese search
+    const queryNoAccent = removeVietnameseAccents(query).toLowerCase();
+    
     return options.filter(option => {
       const subtitleMatch = option.subtitle?.toLowerCase().includes(query);
-      const acTextMatch = option.acText?.toLowerCase().includes(query);
+      // Check acText with both original query and accent-stripped query
+      const acTextMatch = option.acText?.toLowerCase().includes(query) || 
+                          option.acText?.toLowerCase().includes(queryNoAccent);
       return (
         option.label.toLowerCase().includes(query) ||
         option.value.toLowerCase().includes(query) ||
@@ -124,10 +130,13 @@ export function VirtualizedCombobox({
         parentRef.current.scrollTop = 0;
       }
       // Force virtualizer to measure after a tick
+      // Use startTransition to avoid flushSync warning
       requestAnimationFrame(() => {
-        virtualizer.measure();
+        React.startTransition(() => {
+          virtualizer.measure();
+        });
       });
-      // NEW: Auto focus vào input khi mở popup
+      // Auto focus vào input khi mở popup
       setTimeout(() => {
         inputRef.current?.focus();
       }, 50);

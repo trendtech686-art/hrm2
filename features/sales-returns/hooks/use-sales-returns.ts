@@ -13,8 +13,10 @@ import {
   updateSalesReturn,
   deleteSalesReturn,
   markAsReceived,
+  exchangeProduct,
   fetchSalesReturnStats,
   type SalesReturnsParams,
+  type ExchangeProductData,
 } from '../api/sales-returns-api';
 import type { SalesReturn } from '@/lib/types/prisma-extended';
 
@@ -59,6 +61,7 @@ interface UseSalesReturnMutationsOptions {
   onUpdateSuccess?: (salesReturn: SalesReturn) => void;
   onDeleteSuccess?: () => void;
   onReceiveSuccess?: (salesReturn: SalesReturn) => void;
+  onExchangeSuccess?: (salesReturn: SalesReturn) => void;
   onError?: (error: Error) => void;
 }
 
@@ -102,12 +105,29 @@ export function useSalesReturnMutations(options: UseSalesReturnMutationsOptions 
       queryClient.invalidateQueries({ queryKey: salesReturnKeys.detail(systemId) });
       queryClient.invalidateQueries({ queryKey: salesReturnKeys.lists() });
       queryClient.invalidateQueries({ queryKey: salesReturnKeys.stats() });
+      // Also invalidate inventory queries
+      queryClient.invalidateQueries({ queryKey: ['product-inventory'] });
       options.onReceiveSuccess?.(data);
     },
     onError: options.onError,
   });
+
+  const exchange = useMutation({
+    mutationFn: ({ systemId, data }: { systemId: string; data: ExchangeProductData }) => 
+      exchangeProduct(asSystemId(systemId), data),
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: salesReturnKeys.detail(variables.systemId) });
+      queryClient.invalidateQueries({ queryKey: salesReturnKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: salesReturnKeys.stats() });
+      // Also invalidate inventory and orders queries
+      queryClient.invalidateQueries({ queryKey: ['product-inventory'] });
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      options.onExchangeSuccess?.(data);
+    },
+    onError: options.onError,
+  });
   
-  return { create, update, remove, receive };
+  return { create, update, remove, receive, exchange };
 }
 
 export function useSalesReturnsByCustomer(customerId: string | null | undefined) {

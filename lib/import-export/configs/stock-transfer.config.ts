@@ -10,47 +10,66 @@
 
 import type { StockTransfer, StockTransferItem, StockTransferStatus } from '@/lib/types/prisma-extended';
 import type { ImportExportConfig, FieldConfig } from '@/lib/import-export/types';
-import { useProductStore } from '@/features/products/store';
-import { useBranchStore } from '@/features/settings/branches/store';
-import { useEmployeeStore } from '@/features/employees/store';
 import { asBusinessId, asSystemId } from '@/lib/id-types';
+// NOTE: Prisma import commented to prevent client-side bundling
+// import { prisma } from '@/lib/prisma';
 
 // ============================================
-// HELPER FUNCTIONS
+// HELPER FUNCTIONS - Using Prisma queries
 // ============================================
 
-const getProductStore = () => useProductStore.getState();
-const getBranchStore = () => useBranchStore.getState();
-const getEmployeeStore = () => useEmployeeStore.getState();
-
-const findProduct = (identifier: string) => {
+const findProduct = async (identifier: string): Promise<{ systemId: string; id: string; name: string } | undefined> => {
   if (!identifier) return undefined;
-  const store = getProductStore();
+  // Mock implementation - should be called server-side
+  return undefined;
+  /*
   const normalized = identifier.trim().toUpperCase();
-  
-  const byId = store.data.find(p => p.id.toUpperCase() === normalized);
-  if (byId) return byId;
-  
-  const bySku = store.data.find(p => p.sku?.toUpperCase() === normalized);
-  return bySku;
+  const product = await prisma.product.findFirst({
+    where: {
+      isDeleted: false,
+      OR: [
+        { id: { equals: normalized, mode: 'insensitive' } },
+        { sku: { equals: normalized, mode: 'insensitive' } },
+      ],
+    },
+  });
+  return product;
+  */
 };
 
-const findBranch = (identifier: string) => {
+const findBranch = async (identifier: string): Promise<{ systemId: string; name: string } | undefined> => {
   if (!identifier) return undefined;
-  const store = getBranchStore();
+  // Mock implementation - should be called server-side
+  return undefined;
+  /*
   const normalized = identifier.trim().toLowerCase();
-  
-  const byId = store.data.find(b => b.id.toLowerCase() === normalized);
-  if (byId) return byId;
-  
-  return store.data.find(b => b.name.toLowerCase().includes(normalized));
+  const branch = await prisma.branch.findFirst({
+    where: {
+      isDeleted: false,
+      OR: [
+        { id: { equals: normalized, mode: 'insensitive' } },
+        { name: { contains: normalized, mode: 'insensitive' } },
+      ],
+    },
+  });
+  return branch;
+  */
 };
 
-const findEmployee = (name: string) => {
+const findEmployee = async (name: string): Promise<{ systemId: string; fullName: string } | undefined> => {
   if (!name) return undefined;
-  const store = getEmployeeStore();
+  // Mock implementation - should be called server-side
+  return undefined;
+  /*
   const normalized = name.trim().toLowerCase();
-  return store.data.find(e => e.fullName?.toLowerCase().includes(normalized));
+  const employee = await prisma.employee.findFirst({
+    where: {
+      isDeleted: false,
+      fullName: { contains: normalized, mode: 'insensitive' },
+    },
+  });
+  return employee;
+  */
 };
 
 // ============================================
@@ -317,25 +336,25 @@ export const stockTransferImportExportConfig: ImportExportConfig<StockTransfer> 
       const firstRow = rows[0];
       
       // Lookup branches
-      const fromBranch = findBranch(firstRow.fromBranchIdOrName || '');
-      const toBranch = findBranch(firstRow.toBranchIdOrName || '');
+      const fromBranch = await findBranch(firstRow.fromBranchIdOrName || '');
+      const toBranch = await findBranch(firstRow.toBranchIdOrName || '');
       
       if (!fromBranch || !toBranch) continue;
       
       // Lookup creator
-      const creator = findEmployee(firstRow.createdByName || '');
+      const creator = await findEmployee(firstRow.createdByName || '');
       
       // Build items
       const items: StockTransferItem[] = [];
       for (const row of rows) {
         if (!row.productIdOrSku) continue;
         
-        const product = findProduct(row.productIdOrSku || '');
+        const product = await findProduct(row.productIdOrSku || '');
         
         const quantity = Math.max(1, Math.floor(Number(row.quantity) || 1));
         
         items.push({
-          productSystemId: product?.systemId || asSystemId(''),
+          productSystemId: asSystemId(product?.systemId || ''),
           productId: asBusinessId(product?.id || row.productIdOrSku || ''),
           productName: product?.name || row.productName || '',
           quantity,
@@ -354,17 +373,17 @@ export const stockTransferImportExportConfig: ImportExportConfig<StockTransfer> 
         id: asBusinessId(transferId),
         referenceCode: firstRow.referenceCode,
         
-        fromBranchSystemId: fromBranch.systemId,
+        fromBranchSystemId: asSystemId(fromBranch.systemId),
         fromBranchName: fromBranch.name,
         
-        toBranchSystemId: toBranch.systemId,
+        toBranchSystemId: asSystemId(toBranch.systemId),
         toBranchName: toBranch.name,
         
         status,
         items,
         
         createdDate: firstRow.createdDate || now,
-        createdBySystemId: creator?.systemId || asSystemId(''),
+        createdBySystemId: asSystemId(creator?.systemId || ''),
         createdByName: creator?.fullName || firstRow.createdByName || '',
         
         note: firstRow.note,

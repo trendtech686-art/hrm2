@@ -82,8 +82,18 @@ export function autoFillDistrict(input: {
   };
 }
 
-// Import data từ file đã generate
-import { WARD_DISTRICT_DATA } from './ward-district-data';
+// Import data từ file gốc 3-level
+import { WARDS_3LEVEL_DATA } from './wards-3level-data';
+
+// Convert to ward district data format
+const WARD_DISTRICT_DATA = WARDS_3LEVEL_DATA.map(w => ({
+  wardId: w.id,
+  wardName: w.name,
+  districtId: w.districtId,
+  districtName: w.districtName,
+  provinceId: w.provinceId,
+  provinceName: w.provinceName,
+}));
 
 // In-memory cache
 const wardDistrictMap = new Map<string, WardDistrictMapping>();

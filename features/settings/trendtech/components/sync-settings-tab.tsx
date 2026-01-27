@@ -7,12 +7,19 @@ import { Badge } from '../../../../components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../components/ui/select';
 import { Play, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { useTrendtechSettingsStore } from '../store';
+import { useTrendtechSettings, useTrendtechSyncSettingsMutations, useTrendtechSyncStatusMutations, useTrendtechLogMutations } from '../hooks/use-trendtech-settings';
 import { SYNC_INTERVAL_OPTIONS } from '../../../../lib/trendtech/types';
 
 export function SyncSettingsTab() {
-  const { settings, updateSyncSetting, setLastSyncAt, setLastSyncResult, addLog } = useTrendtechSettingsStore();
-  const { syncSettings, lastSyncAt, lastSyncResult, apiKey, apiUrl } = settings;
+  const { data: settings } = useTrendtechSettings();
+  const { updateSyncSetting } = useTrendtechSyncSettingsMutations({ onSuccess: () => {} });
+  const { setLastSyncAt, setLastSyncResult } = useTrendtechSyncStatusMutations();
+  const { addLog } = useTrendtechLogMutations();
+  const syncSettings = settings?.syncSettings ?? { autoSyncEnabled: false, intervalMinutes: 60, syncInventory: true, syncPrice: true, syncSeo: true, syncOnProductUpdate: false, notifyOnError: true };
+  const lastSyncAt = settings?.lastSyncAt;
+  const lastSyncResult = settings?.lastSyncResult;
+  const apiKey = settings?.apiKey;
+  const apiUrl = settings?.apiUrl;
   const [isSyncing, setIsSyncing] = React.useState(false);
 
   const handleManualSync = async () => {
@@ -32,10 +39,10 @@ export function SyncSettingsTab() {
       const responseTime = Date.now() - startTime;
       const result = { status: 'success' as const, total: 0, success: 0, failed: 0 };
       
-      setLastSyncAt(new Date().toISOString());
-      setLastSyncResult(result);
+      setLastSyncAt.mutate(new Date().toISOString());
+      setLastSyncResult.mutate(result);
       
-      addLog({
+      addLog.mutate({
         action: 'sync_all',
         status: 'success',
         message: 'Đồng bộ hoàn tất (API chưa sẵn sàng)',
@@ -54,9 +61,9 @@ export function SyncSettingsTab() {
       const responseTime = Date.now() - startTime;
       const errorMessage = error instanceof Error ? error.message : 'Lỗi không xác định';
       
-      setLastSyncResult({ status: 'error', total: 0, success: 0, failed: 0 });
+      setLastSyncResult.mutate({ status: 'error', total: 0, success: 0, failed: 0 });
       
-      addLog({
+      addLog.mutate({
         action: 'sync_all',
         status: 'error',
         message: 'Lỗi đồng bộ dữ liệu',
@@ -100,8 +107,8 @@ export function SyncSettingsTab() {
             <Switch
               checked={syncSettings.autoSyncEnabled}
               onCheckedChange={(checked) => {
-                updateSyncSetting('autoSyncEnabled', checked);
-                addLog({
+                updateSyncSetting.mutate({ key: 'autoSyncEnabled', value: checked });
+                addLog.mutate({
                   action: 'save_config',
                   status: 'info',
                   message: checked ? 'Đã bật Auto Sync' : 'Đã tắt Auto Sync',
@@ -116,7 +123,7 @@ export function SyncSettingsTab() {
             <Label>Tần suất đồng bộ</Label>
             <Select
               value={syncSettings.intervalMinutes.toString()}
-              onValueChange={(value) => updateSyncSetting('intervalMinutes', parseInt(value, 10))}
+              onValueChange={(value) => updateSyncSetting.mutate({ key: 'intervalMinutes', value: parseInt(value, 10) })}
               disabled={!syncSettings.autoSyncEnabled}
             >
               <SelectTrigger className="w-[180px]">
@@ -149,8 +156,8 @@ export function SyncSettingsTab() {
             <Switch
               checked={syncSettings.syncInventory}
               onCheckedChange={(checked) => {
-                updateSyncSetting('syncInventory', checked);
-                addLog({
+                updateSyncSetting.mutate({ key: 'syncInventory', value: checked });
+                addLog.mutate({
                   action: 'save_config',
                   status: 'info',
                   message: checked ? 'Đã bật đồng bộ tồn kho' : 'Đã tắt đồng bộ tồn kho',
@@ -168,8 +175,8 @@ export function SyncSettingsTab() {
             <Switch
               checked={syncSettings.syncPrice}
               onCheckedChange={(checked) => {
-                updateSyncSetting('syncPrice', checked);
-                addLog({
+                updateSyncSetting.mutate({ key: 'syncPrice', value: checked });
+                addLog.mutate({
                   action: 'save_config',
                   status: 'info',
                   message: checked ? 'Đã bật đồng bộ giá' : 'Đã tắt đồng bộ giá',
@@ -187,8 +194,8 @@ export function SyncSettingsTab() {
             <Switch
               checked={syncSettings.syncSeo}
               onCheckedChange={(checked) => {
-                updateSyncSetting('syncSeo', checked);
-                addLog({
+                updateSyncSetting.mutate({ key: 'syncSeo', value: checked });
+                addLog.mutate({
                   action: 'save_config',
                   status: 'info',
                   message: checked ? 'Đã bật đồng bộ SEO' : 'Đã tắt đồng bộ SEO',
@@ -206,8 +213,8 @@ export function SyncSettingsTab() {
             <Switch
               checked={syncSettings.syncOnProductUpdate}
               onCheckedChange={(checked) => {
-                updateSyncSetting('syncOnProductUpdate', checked);
-                addLog({
+                updateSyncSetting.mutate({ key: 'syncOnProductUpdate', value: checked });
+                addLog.mutate({
                   action: 'save_config',
                   status: 'info',
                   message: checked ? 'Đã bật sync khi cập nhật SP' : 'Đã tắt sync khi cập nhật SP',
@@ -225,8 +232,8 @@ export function SyncSettingsTab() {
             <Switch
               checked={syncSettings.notifyOnError}
               onCheckedChange={(checked) => {
-                updateSyncSetting('notifyOnError', checked);
-                addLog({
+                updateSyncSetting.mutate({ key: 'notifyOnError', value: checked });
+                addLog.mutate({
                   action: 'save_config',
                   status: 'info',
                   message: checked ? 'Đã bật thông báo lỗi' : 'Đã tắt thông báo lỗi',
@@ -274,7 +281,7 @@ export function SyncSettingsTab() {
 
           <Button
             onClick={handleManualSync}
-            disabled={isSyncing || !settings.enabled}
+            disabled={isSyncing || !settings?.enabled}
             className="w-full mt-4"
           >
             {isSyncing ? (

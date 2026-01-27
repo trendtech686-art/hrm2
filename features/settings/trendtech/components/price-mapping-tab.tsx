@@ -5,23 +5,25 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Badge } from '../../../../components/ui/badge';
 import { ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
-import { useTrendtechSettingsStore } from '../store';
+import { useTrendtechSettings, useTrendtechPriceMappingMutations, useTrendtechLogMutations } from '../hooks/use-trendtech-settings';
 import { useActivePricingPolicies } from '../../pricing/hooks/use-all-pricing-policies';
 import type { SystemId } from '@/lib/id-types';
 
 export function PriceMappingTab() {
-  const { settings, updatePriceMapping, addLog } = useTrendtechSettingsStore();
-  const { data: pricingPolicies } = useActivePricingPolicies();
-  const { priceMapping } = settings;
+  const { data: settings } = useTrendtechSettings();
+  const { updatePriceMapping } = useTrendtechPriceMappingMutations({ onSuccess: () => {} });
+  const { addLog } = useTrendtechLogMutations();
+  const { data: pricingPolicies = [] } = useActivePricingPolicies();
+  const priceMapping = settings?.priceMapping ?? { price: null, compareAtPrice: null };
 
   const handleUpdateMapping = (field: 'price' | 'compareAtPrice', policyId: string | null) => {
-    updatePriceMapping(field, policyId as SystemId | null);
+    updatePriceMapping.mutate({ field, policyId: policyId as SystemId | null });
     
     const policyName = policyId && policyId.length > 0
       ? pricingPolicies.find(p => String(p.systemId) === policyId)?.name || 'Unknown'
       : 'Không chọn';
     
-    addLog({
+    addLog.mutate({
       action: 'save_mapping',
       status: 'success',
       message: `Đã mapping ${field} → ${policyName}`,

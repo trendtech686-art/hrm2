@@ -15,7 +15,7 @@ import { leaveFormSchema, type LeaveFormSchemaType } from "../leave-form-schema"
 import { toast } from "sonner";
 import { VirtualizedCombobox, type ComboboxOption } from "@/components/ui/virtualized-combobox";
 import { ensureBusinessId, type BusinessId, type SystemId } from '@/lib/id-types';
-import { useEmployeeSettingsStore } from '@/features/settings/employees/employee-settings-store';
+import { useEmployeeSettings } from '@/features/settings/employees/hooks/use-employee-settings';
 
 type LeaveFormProps = {
   initialData?: LeaveRequest | null;
@@ -53,7 +53,7 @@ const calculateBusinessDays = (start?: Date, end?: Date): number => {
 
 export function LeaveForm({ initialData, onSubmit, onCancel }: LeaveFormProps) {
   const { data: employees } = useAllEmployees();
-  const { settings } = useEmployeeSettingsStore();
+  const { data: settings } = useEmployeeSettings();
   
   const employeeOptions: ComboboxOption[] = React.useMemo(() => 
     employees.map(e => ({ 
@@ -77,7 +77,7 @@ export function LeaveForm({ initialData, onSubmit, onCancel }: LeaveFormProps) {
   };
 
   const leaveTypeOptions: LeaveTypeOption[] = React.useMemo(() => {
-  const configured = settings.leaveTypes.map((type) => ({
+  const configured = (settings?.leaveTypes ?? []).map((type) => ({
     value: type.systemId,
     label: type.name,
     meta: {
@@ -103,7 +103,7 @@ export function LeaveForm({ initialData, onSubmit, onCancel }: LeaveFormProps) {
       name: item.label,
     },
   }));
-  }, [settings.leaveTypes, initialData]);
+  }, [settings?.leaveTypes, initialData]);
 
   const resolveDefaultLeaveTypeId = React.useCallback(() => {
   if (!leaveTypeOptions.length) {

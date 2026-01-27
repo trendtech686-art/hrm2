@@ -1,33 +1,37 @@
 import type { ProductCategory } from '@/lib/types/prisma-extended';
 import type { ImportExportConfig, FieldConfig } from '@/lib/import-export/types';
-import { useProductCategoryStore } from '@/features/settings/inventory/product-category-store';
+// NOTE: Prisma import removed to prevent client-side bundling errors
+// These helpers are not currently used (marked as TODO in field configs)
+// If needed in future, create separate server-side utils file
+// import { prisma } from '@/lib/prisma';
 
 /**
  * Product Category Import/Export Configuration
  * Theo chuẩn ImportExportConfig để dùng với GenericImportDialogV2 và GenericExportDialogV2
  */
 
-// ===== CATEGORY HELPERS =====
-// Helper: Get all categories for parent lookup
-const getAllCategories = () => {
-  return useProductCategoryStore.getState().data.filter(c => !c.isDeleted);
+// ===== CATEGORY HELPERS - Using Prisma queries =====
+// NOTE: These helpers are commented out because they require Prisma (server-only)
+// If needed, move to separate server-side utils file
+/*
+const getAllCategories = async () => {
+  return await prisma.category.findMany({
+    where: { isDeleted: false },
+  });
 };
 
-// Helper: Get parent category systemId from name or path
-const getParentCategorySystemId = (value: string): string | null => {
+const getParentCategorySystemId = async (value: string): Promise<string | null> => {
   if (!value || String(value).trim() === '') return null;
   
-  const categories = getAllCategories();
+  const categories = await getAllCategories();
   const normalizedValue = String(value).trim().toLowerCase();
   
-  // Try exact match by name first
   const byName = categories.find(c => 
     c.name.toLowerCase() === normalizedValue ||
     c.id.toLowerCase() === normalizedValue
   );
   if (byName) return byName.systemId;
   
-  // Try match by path (e.g., "Điện tử > Máy tính")
   const byPath = categories.find(c => 
     c.path?.toLowerCase() === normalizedValue
   );
@@ -36,13 +40,13 @@ const getParentCategorySystemId = (value: string): string | null => {
   return null;
 };
 
-// Helper: Get parent category display name from systemId
-const getParentCategoryName = (systemId: string | undefined): string => {
+const getParentCategoryName = async (systemId: string | undefined): Promise<string> => {
   if (!systemId) return '';
-  const categories = getAllCategories();
+  const categories = await getAllCategories();
   const parent = categories.find(c => c.systemId === systemId);
   return parent?.name || '';
 };
+*/
 
 // Field definitions for ProductCategory import/export
 export const categoryFields: FieldConfig<ProductCategory>[] = [
@@ -96,15 +100,16 @@ export const categoryFields: FieldConfig<ProductCategory>[] = [
     exportGroup: 'Phân cấp',
     exportable: true,
     example: 'Điện tử',
-    importTransform: (value) => {
-      if (!value) return undefined;
-      const systemId = getParentCategorySystemId(String(value));
-      return systemId || undefined;
-    },
-    exportTransform: (value) => {
-      // Value is the parentId systemId
-      return getParentCategoryName(value as string);
-    }
+    // TODO: importTransform and exportTransform need async support or preloaded data cache
+    // importTransform: async (value) => {
+    //   if (!value) return undefined;
+    //   const systemId = await getParentCategorySystemId(String(value));
+    //   return systemId || undefined;
+    // },
+    // exportTransform: async (value) => {
+    //   // Value is the parentId systemId
+    //   return await getParentCategoryName(value as string);
+    // }
   },
   {
     key: 'path',

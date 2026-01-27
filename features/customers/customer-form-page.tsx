@@ -2,10 +2,7 @@
 
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { formatDate as _formatDate, formatDateTime as _formatDateTime, formatDateTimeSeconds as _formatDateTimeSeconds, formatDateCustom as _formatDateCustom, getCurrentDate as _getCurrentDate, toISODate as _toISODate } from '@/lib/date-utils';
-import { useCustomerStore } from './store';
-import { useCustomerFinder } from './hooks/use-all-customers';
-import { asSystemId } from '@/lib/id-types';
+import { useCustomer, useCustomerMutations } from './hooks/use-customers';
 import { CustomerForm, type CustomerFormSubmitPayload } from './customer-form';
 import { usePageHeader } from '../../contexts/page-header-context';
 import {
@@ -16,30 +13,33 @@ import {
   CardTitle as _CardTitle,
 } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
+import { Skeleton } from '../../components/ui/skeleton';
 import type { Customer } from '@/lib/types/prisma-extended';
+
 export function CustomerFormPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const router = useRouter();
-  const { add, update } = useCustomerStore();
-  const { findById } = useCustomerFinder();
+  
+  // React Query hooks
+  const { data: customer, isLoading } = useCustomer(systemId);
+  const { create, update } = useCustomerMutations({
+    onCreateSuccess: () => router.push('/customers'),
+    onUpdateSuccess: () => router.push('/customers'),
+  });
 
-  const customer = React.useMemo(() => (systemId ? findById(asSystemId(systemId)) : null), [systemId, findById]);
   const isEditMode = !!customer;
 
-  const handleSubmit = (values: CustomerFormSubmitPayload) => {
+  const handleSubmit = async (values: CustomerFormSubmitPayload) => {
     if (customer) {
-      // @ts-expect-error - CustomerFormSubmitPayload is compatible with Customer
-      const updated: Customer = {
-        ...customer,
+      await update.mutateAsync({
+        systemId: customer.systemId,
         ...values,
         email: values.email ?? customer.email,
         phone: customer.phone ?? "",
-        id: values.id ?? customer.id,
-      };
-      update(asSystemId(customer.systemId), updated);
+      });
     } else {
       const createdAt = new Date().toISOString().split('T')[0];
-      add({
+      await create.mutateAsync({
         ...values,
         id: values.id,
         status: 'Đang giao dịch',
@@ -50,7 +50,6 @@ export function CustomerFormPage() {
         totalQuantityReturned: 0,
       } as Omit<Customer, 'systemId'>);
     }
-    // Navigation handled by onSuccess
   };
 
   const handleSuccess = () => {
@@ -82,6 +81,20 @@ export function CustomerFormPage() {
         ],
     actions: headerActions,
   });
+
+  // Loading state
+  if (systemId && isLoading) {
+    return (
+      <Card>
+        <CardContent className="pt-6 space-y-4">
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-2/3" />
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>

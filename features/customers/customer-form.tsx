@@ -203,26 +203,86 @@ export function CustomerForm({ initialData, onSubmit, onCancel: _onCancel, onSuc
   const form = useForm<CustomerFormValues>({
     resolver: zodResolver(customerFormSchema),
     defaultValues: {
-      ...initialData,
       id: initialData?.id ?? '',
-      addresses: (initialData?.addresses ?? []).map(addr => ({
-        ...addr,
-        id: addr.id ?? '',
-        label: addr.label ?? '',
-        street: addr.street ?? '',
-        province: addr.province ?? '',
-        provinceId: addr.provinceId ?? '',
-        ward: addr.ward ?? '',
-        wardId: addr.wardId ?? '',
-        district: addr.district ?? '',
-        districtId: typeof addr.districtId === 'string' 
-          ? parseInt(addr.districtId, 10) || 0 
-          : addr.districtId ?? 0,
-      })),
-      contacts: initialData?.contacts ?? [],
+      name: initialData?.name ?? '',
+      phone: initialData?.phone ?? '',
+      email: initialData?.email ?? '',
+      status: initialData?.status ?? 'active',
+      type: initialData?.type ?? '',
+      customerGroup: initialData?.customerGroup ?? '',
+      lifecycleStage: initialData?.lifecycleStage ?? '',
+      company: initialData?.company ?? '',
+      taxCode: initialData?.taxCode ?? '',
+      representative: initialData?.representative ?? '',
+      position: initialData?.position ?? '',
+      addresses: (Array.isArray(initialData?.addresses) ? initialData.addresses : []).map(addr => {
+        console.log('[CustomerForm] Processing address:', addr);
+        return {
+          ...addr,
+          id: addr.id ?? '',
+          label: addr.label ?? '',
+          street: addr.street ?? '',
+          province: addr.province ?? '',
+          provinceId: addr.provinceId ?? '',
+          ward: addr.ward ?? '',
+          wardId: addr.wardId ?? '',
+          district: addr.district ?? '',
+          districtId: typeof addr.districtId === 'string' 
+            ? parseInt(addr.districtId, 10) || 0 
+            : addr.districtId ?? 0,
+          contactName: addr.contactName ?? '',
+          contactPhone: addr.contactPhone ?? '',
+          isDefaultShipping: addr.isDefaultShipping ?? false,
+          isDefaultBilling: addr.isDefaultBilling ?? false,
+          notes: addr.notes ?? '',
+        };
+      }),
+      shippingAddress_street: initialData?.shippingAddress_street ?? '',
+      shippingAddress_ward: initialData?.shippingAddress_ward ?? '',
+      shippingAddress_province: initialData?.shippingAddress_province ?? '',
+      billingAddress_street: initialData?.billingAddress_street ?? '',
+      billingAddress_ward: initialData?.billingAddress_ward ?? '',
+      billingAddress_province: initialData?.billingAddress_province ?? '',
+      zaloPhone: initialData?.zaloPhone ?? '',
+      bankName: initialData?.bankName ?? '',
+      bankAccount: initialData?.bankAccount ?? '',
+      currentDebt: initialData?.currentDebt ?? 0,
+      maxDebt: initialData?.maxDebt ?? 0,
+      paymentTerms: initialData?.paymentTerms ?? '',
+      creditRating: initialData?.creditRating ?? '',
+      allowCredit: initialData?.allowCredit ?? false,
+      defaultDiscount: initialData?.defaultDiscount ?? 0,
+      pricingLevel: initialData?.pricingLevel ?? '',
+      source: initialData?.source ?? '',
+      campaign: initialData?.campaign ?? '',
+      referredBy: initialData?.referredBy ?? '',
+      social: {
+        facebook: initialData?.social?.facebook ?? '',
+        linkedin: initialData?.social?.linkedin ?? '',
+        website: initialData?.social?.website ?? '',
+      },
       tags: initialData?.tags ?? [],
-      contract: initialData?.contract ?? {},
-      // Ensure other new fields have defaults if needed, though optional handles it
+      images: initialData?.images ?? [],
+      contacts: (initialData?.contacts ?? []).map(contact => ({
+        id: contact.id ?? '',
+        name: contact.name ?? '',
+        role: contact.role ?? '',
+        phone: contact.phone ?? '',
+        email: contact.email ?? '',
+        isPrimary: contact.isPrimary ?? false,
+      })),
+      contract: {
+        number: initialData?.contract?.number ?? '',
+        startDate: initialData?.contract?.startDate ?? '',
+        endDate: initialData?.contract?.endDate ?? '',
+        value: initialData?.contract?.value ?? 0,
+        status: initialData?.contract?.status ?? 'Pending',
+        fileUrl: initialData?.contract?.fileUrl ?? '',
+        details: initialData?.contract?.details ?? '',
+      },
+      notes: initialData?.notes ?? '',
+      accountManagerId: initialData?.accountManagerId ?? '',
+      accountManagerName: initialData?.accountManagerName ?? '',
     },
     mode: 'onChange', // Validate on every change for realtime feedback
     reValidateMode: 'onChange',
@@ -989,7 +1049,7 @@ export function CustomerForm({ initialData, onSubmit, onCancel: _onCancel, onSuc
                 }} 
               />
 
-              {/* Công nợ */}
+              {/* Công nợ - Có thể edit cả khi tạo mới và chỉnh sửa */}
               <FormField 
                 name="currentDebt" 
                 control={form.control}
@@ -1001,16 +1061,14 @@ export function CustomerForm({ initialData, onSubmit, onCancel: _onCancel, onSuc
                         className="h-9"
                         value={field.value as number} 
                         onChange={field.onChange} 
-                        placeholder="0" 
-                        disabled={isEditMode}
+                        placeholder="0"
+                        disabled={false}
                       />
                     </FormControl>
                     <FormMessage />
-                    {isEditMode && (
-                      <p className="text-body-xs text-muted-foreground mt-1">
-                        Công nợ được tự động cập nhật khi thanh toán
-                      </p>
-                    )}
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {isEditMode ? 'Có thể điều chỉnh công nợ trực tiếp' : 'Nhập công nợ ban đầu nếu có'}
+                    </p>
                   </FormItem>
                 )} 
               />

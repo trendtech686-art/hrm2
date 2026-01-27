@@ -5,39 +5,42 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Button } from '../../../../components/ui/button';
 import { Save } from 'lucide-react';
 import { toast } from 'sonner';
-import { usePkgxSettingsStore } from '../store';
+import { usePkgxSettings, usePkgxPriceMappingMutations, usePkgxLogMutations } from '../hooks/use-pkgx-settings';
 import { useAllPricingPolicies } from '../../pricing/hooks/use-all-pricing-policies';
 import { PKGX_PRICE_FIELDS } from '../constants';
 import type { SystemId } from '../../../../lib/id-types';
 
 export function PriceMappingTab() {
-  const { settings, updatePriceMapping, addLog } = usePkgxSettingsStore();
+  const { data: settings } = usePkgxSettings();
+  const { updatePriceMapping } = usePkgxPriceMappingMutations({ onSuccess: () => {} });
+  const { addLog } = usePkgxLogMutations();
   const { data: pricingPolicies = [] } = useAllPricingPolicies();
 
   // Filter only selling price policies
   const sellingPolicies = pricingPolicies.filter((p) => p.type === 'Bán hàng' && p.isActive);
 
-  const handleChange = (field: keyof typeof settings.priceMapping, value: string) => {
-    updatePriceMapping(field, value === 'none' ? null : (value as SystemId));
+  const handleChange = (field: keyof NonNullable<typeof settings>['priceMapping'], value: string) => {
+    updatePriceMapping.mutate({ field, policyId: value === 'none' ? null : (value as SystemId) });
   };
 
   const handleSave = () => {
     // Log the mapping save
+    const priceMapping = settings?.priceMapping ?? {};
     const _mappingSummary = PKGX_PRICE_FIELDS
-      .filter(pf => settings.priceMapping[pf.key as keyof typeof settings.priceMapping])
+      .filter(pf => priceMapping[pf.key as keyof NonNullable<typeof settings>['priceMapping']])
       .map(pf => {
-        const policyId = settings.priceMapping[pf.key as keyof typeof settings.priceMapping];
+        const policyId = priceMapping[pf.key as keyof NonNullable<typeof settings>['priceMapping']];
         const policy = pricingPolicies.find(p => p.systemId === policyId);
         return `${pf.field} → ${policy?.name || policyId}`;
       })
       .join(', ');
     
-    addLog({
+    addLog.mutate({
       action: 'save_mapping',
       status: 'success',
       message: 'Đã lưu mapping bảng giá',
       details: {
-        total: PKGX_PRICE_FIELDS.filter(pf => settings.priceMapping[pf.key as keyof typeof settings.priceMapping]).length,
+        total: PKGX_PRICE_FIELDS.filter(pf => priceMapping[pf.key as keyof NonNullable<typeof settings>['priceMapping']]).length,
       }
     });
     
@@ -66,8 +69,8 @@ export function PriceMappingTab() {
               <p className="text-sm text-muted-foreground">{priceField.description}</p>
             </div>
             <Select
-              value={settings.priceMapping[priceField.key as keyof typeof settings.priceMapping] || 'none'}
-              onValueChange={(value) => handleChange(priceField.key as keyof typeof settings.priceMapping, value)}
+              value={(settings?.priceMapping ?? {})[priceField.key as keyof NonNullable<typeof settings>['priceMapping']] || 'none'}
+              onValueChange={(value) => handleChange(priceField.key as keyof NonNullable<typeof settings>['priceMapping'], value)}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Chọn bảng giá..." />
@@ -91,7 +94,7 @@ export function PriceMappingTab() {
               <div key={priceField.key} className="flex justify-between">
                 <span className="text-muted-foreground">{priceField.field}:</span>
                 <span className="font-medium">
-                  {getPolicyName(settings.priceMapping[priceField.key as keyof typeof settings.priceMapping])}
+                  {getPolicyName((settings?.priceMapping as any)?.[priceField.key])}
                 </span>
               </div>
             ))}

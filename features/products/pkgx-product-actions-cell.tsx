@@ -12,7 +12,7 @@ import type { Product } from '@/lib/types/prisma-extended';
 import { usePkgxEntitySync } from '../settings/pkgx/hooks';
 import type { HrmProductData } from '../settings/pkgx/hooks';
 import { PkgxSyncConfirmDialog } from '../settings/pkgx/components/pkgx-sync-confirm-dialog';
-import { usePkgxSettingsStore } from '../settings/pkgx/store';
+import { usePkgxLogMutations } from '../settings/pkgx/hooks/use-pkgx-settings';
 
 interface PkgxProductActionsCellProps {
   product: Product;
@@ -29,12 +29,12 @@ export function PkgxProductActionsCell({
   onPkgxUnlink,
   onPkgxSyncImages,
 }: PkgxProductActionsCellProps) {
-  const { addLog } = usePkgxSettingsStore();
+  const { addLog } = usePkgxLogMutations();
   
   // Use shared entity sync hook
   const entitySync = usePkgxEntitySync({
     entityType: 'product',
-    onLog: addLog,
+    onLog: (log) => addLog.mutate(log),
   });
   
   // Don't show for deleted items

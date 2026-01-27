@@ -17,11 +17,11 @@ import { usePageHeader } from '../../contexts/page-header-context';
 import { ROUTES } from '../../lib/router';
 import { useAllEmployees, useActiveEmployees } from '../employees/hooks/use-all-employees';
 import { useAllLeaves } from '../leaves/hooks/use-all-leaves';
-import { useAttendanceStore } from '../attendance/store';
-import { usePayrollTemplateStore } from './payroll-template-store';
-import { useEmployeeSettingsStore } from '../settings/employees/employee-settings-store';
-import { usePayrollBatchStore, type GeneratedPayslipPayload } from './payroll-batch-store';
-import { usePenaltyStore } from '../settings/penalties/store';
+import { useAttendanceLocalState } from '../attendance/hooks/use-attendance-local-state';
+import { useAllPayrollTemplates, usePayrollTemplateFinder, usePayrollTemplateExtended, usePayrollBatchMutations } from './hooks/use-payroll';
+import { useEmployeeSettings } from '../settings/employees/hooks/use-employee-settings';
+import { usePenalties } from '../settings/penalties/hooks/use-penalties';
+import { usePenaltyMutations } from '../settings/penalties/hooks/use-penalties';
 import { ResponsiveDataTable } from '../../components/data-table/responsive-data-table';
 import { Checkbox } from '../../components/ui/checkbox';
 import type { ColumnDef } from '../../components/data-table/types';
@@ -32,7 +32,7 @@ import { toast } from 'sonner';
 import { asSystemId, type SystemId } from '../../lib/id-types';
 import { attendanceSnapshotService } from '../../lib/attendance-snapshot-service';
 import { cn } from '../../lib/utils';
-import { buildPayPeriodFromMonthKey, getCurrentDateInTimezone } from '../../lib/date-utils';
+import { buildPayPeriodFromMonthKey as _buildPayPeriodFromMonthKey, getCurrentDateInTimezone } from '../../lib/date-utils';
 
 const STEPS = [
   { id: 'period', name: 'Kỳ lương', description: 'Chọn tháng, ngày chi trả và template mặc định.' },
@@ -92,7 +92,7 @@ function PayrollStepper({ currentStep }: { currentStep: number }) {
 }
 
 // Use helper from date-utils (reads timezone from settings)
-const buildPayPeriod = buildPayPeriodFromMonthKey;
+// const _buildPayPeriod = buildPayPeriodFromMonthKey;
 
 const getCurrentMonthKey = () => {
   const now = getCurrentDateInTimezone();
@@ -405,15 +405,25 @@ export function PayrollRunPage() {
   const { data: employeeData } = useAllEmployees();
   const { data: activeEmployees } = useActiveEmployees();
   const { data: leaveRequests } = useAllLeaves();
-  const lockedMonths = useAttendanceStore((state) => state.lockedMonths);
-  const templates = usePayrollTemplateStore((state) => state.templates);
-  const ensureDefaultTemplate = usePayrollTemplateStore((state) => state.ensureDefaultTemplate);
-  const createBatchWithResults = usePayrollBatchStore((state) => state.createBatchWithResults);
-  const defaultPayday = useEmployeeSettingsStore((state) => state.settings.payday);
+  const { lockedMonths } = useAttendanceLocalState();
+  const templates = useAllPayrollTemplates();
+  const { getDefault } = usePayrollTemplateFinder();
+  const { ensureDefault } = usePayrollTemplateExtended();
+  const { createWithPayslips } = usePayrollBatchMutations({
+    onSuccess: () => {},
+    onError: (err) => toast.error('Đã xảy ra lỗi', { description: err.message }),
+  });
+  const { data: penaltiesData } = usePenalties({});
+  const penalties = penaltiesData?.data ?? [];
+  const { update: updatePenalty } = usePenaltyMutations({
+    onSuccess: () => {},
+  });
+  const { data: employeeSettings } = useEmployeeSettings();
+  const defaultPayday = employeeSettings?.payday ?? 5;
 
   React.useEffect(() => {
-    ensureDefaultTemplate();
-  }, [ensureDefaultTemplate]);
+    ensureDefault.mutate();
+  }, [ensureDefault]);
 
   const latestLockedMonth = React.useMemo(() => {
     const lockedKeys = Object.keys(lockedMonths).filter((key) => lockedMonths[key]);
@@ -441,8 +451,8 @@ export function PayrollRunPage() {
   );
 
   const defaultTemplateSystemId = React.useMemo(
-    () => templates.find((template) => template.isDefault)?.systemId,
-    [templates]
+    () => getDefault()?.systemId,
+    [getDefault]
   );
 
   const [formState, setFormState] = React.useState({
@@ -534,7 +544,8 @@ export function PayrollRunPage() {
         monthKey: formState.monthKey,
         employeeSystemId,
       });
-      if (!snapshot?.locked) {
+      // Cast snapshot as any since it's not actually async
+      if (!(snapshot as any)?.locked) {
         const employee = employeeLookup[employeeSystemId];
         blocked.add(employee?.fullName ?? employee?.id ?? employeeSystemId);
       }
@@ -570,8 +581,11 @@ export function PayrollRunPage() {
   };
   const goPrev = () => setCurrentStep((prev) => Math.max(prev - 1, 0));
 
-  // Get salary components for PayrollComponent conversion
-  const salaryComponents = useEmployeeSettingsStore((state) => state.getSalaryComponents());
+  // Get salary components from React Query
+  const salaryComponents = React.useMemo(
+    () => employeeSettings?.salaryComponents ?? [],
+    [employeeSettings?.salaryComponents]
+  );
   
   // Convert SalaryComponent to PayrollComponent format
   const payrollComponents = React.useMemo(() => {
@@ -717,54 +731,60 @@ export function PayrollRunPage() {
     }
 
     const title = formState.title?.trim() || `Bảng lương ${formatMonthLabel(formState.monthKey)}`;
-    const payPeriod = buildPayPeriod(formState.monthKey);
-    const batch = createBatchWithResults(
-      {
-        title,
-        payPeriod,
-        payrollDate: formState.payrollDate,
-        templateSystemId: formState.templateSystemId,
-        referenceAttendanceMonthKeys: [formState.monthKey],
-      },
-      preview.payslips.map<GeneratedPayslipPayload>((payslip) => ({
-        employeeSystemId: payslip.employeeSystemId,
-        employeeId: payslip.employeeId,
-        departmentSystemId: payslip.departmentSystemId,
-        periodMonthKey: formState.monthKey,
-        components: payslip.components,
-        totals: payslip.totals,
-        attendanceSnapshotSystemId: undefined,
-        deductedPenaltySystemIds: payslip.deductedPenaltySystemIds,
-      }))
-    );
-
-    // Update penalties status to "Đã thanh toán" and link to this batch
-    const penaltyStore = usePenaltyStore.getState();
-    const now = new Date().toISOString();
+    const [year, month] = formState.monthKey.split('-').map(Number);
     
     // Use penaltiesDeducted from engine result
     const penaltiesDeducted = preview.penaltiesDeducted ?? [];
-    penaltiesDeducted.forEach((info) => {
-      const penalty = penaltyStore.data.find(p => p.systemId === info.penaltySystemId);
-      if (penalty) {
-        penaltyStore.update(penalty.systemId, {
-          ...penalty,
-          status: 'Đã thanh toán',
-          deductedInPayrollId: batch.systemId,
-          deductedAt: now,
-          updatedAt: now,
-        });
-      }
-    });
-
-    const penaltyMessage = penaltiesDeducted.length > 0 
-      ? ` Đã trừ ${penaltiesDeducted.length} phiếu phạt vào lương.`
-      : '';
     
-    toast.success('Đã tạo bảng lương', { 
-      description: `Bạn có thể xem chi tiết để duyệt hoặc khóa batch.${penaltyMessage}` 
-    });
-    router.push(ROUTES.PAYROLL.DETAIL.replace(':systemId', batch.systemId));
+    createWithPayslips.mutate(
+      {
+        title,
+        month,
+        year,
+        payrollDate: formState.payrollDate,
+        templateSystemId: formState.templateSystemId,
+        referenceAttendanceMonthKeys: [formState.monthKey],
+        generatedPayslips: preview.payslips.map((payslip) => ({
+          employeeSystemId: payslip.employeeSystemId,
+          employeeId: payslip.employeeId,
+          departmentSystemId: payslip.departmentSystemId,
+          periodMonthKey: formState.monthKey,
+          components: payslip.components,
+          totals: payslip.totals,
+          attendanceSnapshotSystemId: undefined,
+          deductedPenaltySystemIds: payslip.deductedPenaltySystemIds,
+        })),
+      },
+      {
+        onSuccess: (response) => {
+          // Update penalties status to "Đã thanh toán" and link to this batch
+          const now = new Date().toISOString();
+          penaltiesDeducted.forEach((info) => {
+            const penalty = penalties.find(p => p.systemId === info.penaltySystemId);
+            if (penalty) {
+              updatePenalty.mutate({
+                systemId: penalty.systemId,
+                data: {
+                  status: 'Đã thanh toán',
+                  deductedInPayrollId: response.batch.systemId,
+                  deductedAt: now,
+                  updatedAt: now,
+                },
+              });
+            }
+          });
+
+          const penaltyMessage = penaltiesDeducted.length > 0 
+            ? ` Đã trừ ${penaltiesDeducted.length} phiếu phạt vào lương.`
+            : '';
+          
+          toast.success('Đã tạo bảng lương', { 
+            description: `Bạn có thể xem chi tiết để duyệt hoặc khóa batch.${penaltyMessage}` 
+          });
+          router.push(ROUTES.PAYROLL.DETAIL.replace(':systemId', response.batch.systemId));
+        },
+      }
+    );
   };
 
   const headerActions = React.useMemo(

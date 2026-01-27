@@ -13,7 +13,9 @@ export const attendanceStatusSchema = z.enum([
   'half_day',
   'leave',
   'holiday',
-  'weekend'
+  'weekend',
+  'empty',
+  'future'
 ]);
 
 // Daily record schema

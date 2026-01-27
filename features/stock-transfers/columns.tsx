@@ -9,8 +9,7 @@ import { Checkbox } from '../../components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
 import { MoreHorizontal, Printer } from 'lucide-react';
 import { formatDate } from '@/lib/date-utils';
-import { useProductStore } from '../products/store';
-import { asSystemId } from '../../lib/id-types';
+import { asSystemId, type SystemId } from '../../lib/id-types';
 
 // Actions cell component to properly use hooks
 function StockTransferActionsCell({ transfer, onPrint }: { transfer: StockTransfer; onPrint?: (transfer: StockTransfer) => void }) {
@@ -88,7 +87,10 @@ const getStatusLabel = (status: StockTransferStatus): string => {
   }
 };
 
-export const getColumns = (onPrint?: (transfer: StockTransfer) => void): ColumnDef<StockTransfer>[] => [
+export const getColumns = (
+  onPrint?: (transfer: StockTransfer) => void,
+  products?: Array<{ systemId: SystemId; costPrice: number }>
+): ColumnDef<StockTransfer>[] => [
   {
     id: 'select',
     header: ({ isAllPageRowsSelected, isSomePageRowsSelected, onToggleAll }) => (
@@ -180,9 +182,8 @@ export const getColumns = (onPrint?: (transfer: StockTransfer) => void): ColumnD
     accessorKey: 'items',
     header: 'Tổng giá trị chuyển',
     cell: ({ row }) => {
-      const { findById: findProductById } = useProductStore.getState();
       const totalValue = row.items?.reduce((sum: number, item: { productSystemId: string; quantity: number }) => {
-        const product = findProductById(asSystemId(item.productSystemId));
+        const product = products?.find(p => p.systemId === asSystemId(item.productSystemId));
         const price = product?.costPrice || 0;
         return sum + (price * item.quantity);
       }, 0) || 0;

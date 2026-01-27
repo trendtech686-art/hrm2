@@ -5,11 +5,11 @@ import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { ROUTES } from '@/lib/router';
 import { isDateSame, isDateBetween, isDateAfter, isDateBefore, isValidDate, getStartOfDay, getEndOfDay } from '@/lib/date-utils';
-import { useEmployeeStore } from "./store";
 import { useActiveEmployees } from "./hooks/use-all-employees";
+import { useEmployeeMutations, useDeletedEmployees, useTrashMutations } from "./hooks/use-employees";
 import { useAllBranches } from "@/hooks/use-branches";
-import { useDefaultPageSize } from "../settings/global-settings-store";
-import { asSystemId, type SystemId } from '@/lib/id-types';
+import { useDefaultPageSize } from "../settings/global/hooks/use-global-settings";
+import { type SystemId } from '@/lib/id-types';
 import { getColumns } from "./columns";
 import { ResponsiveDataTable } from "@/components/data-table/responsive-data-table";
 import { DataTableFacetedFilter } from "@/components/data-table/data-table-faceted-filter";
@@ -32,9 +32,16 @@ const EmployeeImportDialog = dynamic(() => import("./components/employee-import-
 const EmployeeExportDialog = dynamic(() => import("./components/employee-import-export-dialogs").then(m => ({ default: m.EmployeeExportDialog })), { ssr: false });
 
 export function EmployeesPage() {
-  const { data: employees, remove, restore, addMultiple, update } = useEmployeeStore();
   const { data: activeEmployees } = useActiveEmployees();
+  const { data: deletedEmployeesData } = useDeletedEmployees();
   const { data: branches } = useAllBranches();
+  const { create, update, remove: deleteMutation } = useEmployeeMutations({
+    onCreateSuccess: () => toast.success("Đã thêm nhân viên mới"),
+    onUpdateSuccess: () => toast.success("Đã cập nhật nhân viên"),
+    onDeleteSuccess: () => {},
+    onError: (error) => toast.error("Có lỗi xảy ra: " + error.message),
+  });
+  const { restore: restoreMutation } = useTrashMutations();
   const router = useRouter();
   const defaultPageSize = useDefaultPageSize();
   const isMobile = !useMediaQuery("(min-width: 768px)");
@@ -64,11 +71,15 @@ export function EmployeesPage() {
   const { setVisibility: setColumnVisibility, setOrder: setColumnOrder, setPinned: setPinnedColumns } = columnLayoutSetters;
 
   const handleDelete = React.useCallback((systemId: string) => { setIdToDelete(systemId); setIsAlertOpen(true); }, []);
-  const restoreRef = React.useRef(restore); restoreRef.current = restore;
-  const handleRestore = React.useCallback((systemId: string) => { restoreRef.current(asSystemId(systemId)); toast.success("Đã khôi phục nhân viên"); }, []);
+  const handleRestore = React.useCallback((systemId: string) => {
+    restoreMutation.mutate(systemId, {
+      onSuccess: () => toast.success("Đã khôi phục nhân viên"),
+      onError: () => toast.error("Có lỗi khi khôi phục nhân viên"),
+    });
+  }, [restoreMutation]);
 
   const columns = React.useMemo(() => getColumns(handleDelete, handleRestore, router, branches), [handleDelete, handleRestore, router, branches]);
-  const deletedCount = React.useMemo(() => employees.filter((e: { isDeleted?: boolean }) => e.isDeleted).length, [employees]);
+  const deletedCount = deletedEmployeesData?.length || 0;
 
   const defaultVisibleColumns = React.useMemo(() => new Set(['id', 'fullName', 'workEmail', 'phone', 'branch', 'department', 'jobTitle', 'hireDate', 'employmentStatus', 'dob', 'gender', 'nationalId', 'permanentAddress', 'bankName', 'bankAccountNumber', 'baseSalary', 'contractType', 'annualLeaveBalance', 'sickLeaveBalance']), []);
   const defaultsInitialized = React.useRef(false);
@@ -85,11 +96,30 @@ export function EmployeesPage() {
   }, [columns, defaultVisibleColumns, setColumnVisibility, setColumnOrder, isColumnLayoutLoading, columnVisibility]);
   const resetColumnLayout = React.useCallback(() => { const iv: Record<string, boolean> = {}; columns.forEach(c => { if (!c.id) return; iv[c.id] = c.id === 'select' || c.id === 'actions' || defaultVisibleColumns.has(c.id); }); setColumnVisibility(iv); setColumnOrder(columns.map(c => c.id).filter(Boolean) as string[]); setPinnedColumns([]); toast.success('Đã khôi phục bố cục cột mặc định'); }, [columns, defaultVisibleColumns, setColumnVisibility, setColumnOrder, setPinnedColumns]);
 
-  const confirmDelete = () => { if (idToDelete) { const emp = employees.find(e => e.systemId === idToDelete); remove(asSystemId(idToDelete)); toast.success("Đã xóa nhân viên vào thùng rác", { description: `Nhân viên ${emp?.fullName || ''} đã được chuyển vào thùng rác.` }); } setIsAlertOpen(false); setIdToDelete(null); };
+  const confirmDelete = () => { 
+    if (idToDelete) { 
+      const emp = activeEmployees.find(e => e.systemId === idToDelete); 
+      deleteMutation.mutate(idToDelete, {
+        onSuccess: () => {
+          toast.success("Đã xóa nhân viên vào thùng rác", { description: `Nhân viên ${emp?.fullName || ''} đã được chuyển vào thùng rác.` });
+        },
+        onError: () => {
+          toast.error("Có lỗi khi xóa nhân viên");
+        }
+      });
+    } 
+    setIsAlertOpen(false); 
+    setIdToDelete(null); 
+  };
   const confirmBulkDelete = () => { 
     const idsToDelete = Object.keys(rowSelection);
-    idsToDelete.forEach(s => remove(asSystemId(s))); 
-    toast.success("Đã xóa nhân viên vào thùng rác", { description: `Đã chuyển ${idsToDelete.length} nhân viên vào thùng rác.` }); 
+    Promise.all(idsToDelete.map(s => deleteMutation.mutateAsync(s)))
+      .then(() => {
+        toast.success("Đã xóa nhân viên vào thùng rác", { description: `Đã chuyển ${idsToDelete.length} nhân viên vào thùng rác.` });
+      })
+      .catch(() => {
+        toast.error("Có lỗi khi xóa nhân viên");
+      });
     setRowSelection({}); 
     setIsBulkDeleteAlertOpen(false); 
   };
@@ -107,16 +137,16 @@ export function EmployeesPage() {
 
   const pageCount = Math.ceil(sortedData.length / pagination.pageSize);
   const paginatedData = React.useMemo(() => sortedData.slice(pagination.pageIndex * pagination.pageSize, (pagination.pageIndex + 1) * pagination.pageSize), [sortedData, pagination]);
-  const allSelectedRows = React.useMemo(() => employees.filter(e => rowSelection[e.systemId]), [employees, rowSelection]);
+  const allSelectedRows = React.useMemo(() => activeEmployees.filter(e => rowSelection[e.systemId]), [activeEmployees, rowSelection]);
 
   const departmentOpts = React.useMemo(() => { const set = new Set<string>(); activeEmployees.forEach(e => { const n = getDeptName(e.department); if (n) set.add(n); }); return Array.from(set).sort().map(d => ({ label: d, value: d })); }, [activeEmployees, getDeptName]);
   const jobTitleOpts = React.useMemo(() => { const set = new Set<string>(); activeEmployees.forEach(e => { const n = getJobTitleName(e.jobTitle); if (n) set.add(n); }); return Array.from(set).sort().map(j => ({ label: j, value: j })); }, [activeEmployees, getJobTitleName]);
   const statusOpts = React.useMemo(() => [{ label: 'Đang làm việc', value: 'Đang làm việc' }, { label: 'Đã nghỉ việc', value: 'Đã nghỉ việc' }, { label: 'Tạm nghỉ', value: 'Tạm nghỉ' }], []);
 
-  const handleImportV2 = React.useCallback(async (data: Partial<Employee>[], mode: 'insert-only' | 'update-only' | 'upsert', _branchId?: string) => { let inserted = 0, updated = 0, skipped = 0, failed = 0; const errors: Array<{ row: number; message: string }> = []; for (let i = 0; i < data.length; i++) { const item = data[i]; try { const existing = item.id ? activeEmployees.find(e => e.id === item.id) : null; if (existing) { if (mode === 'insert-only') { skipped++; continue; } update(existing.systemId, { ...existing, ...item } as Employee); updated++; } else { if (mode === 'update-only') { errors.push({ row: i + 2, message: `Không tìm thấy nhân viên với mã ${item.id}` }); failed++; continue; } const { systemId: _s, ...newData } = item as Partial<Employee> & { systemId?: string }; addMultiple([newData as Omit<Employee, 'systemId'>]); inserted++; } } catch (e) { errors.push({ row: i + 2, message: String(e) }); failed++; } } return { success: inserted + updated, failed, inserted, updated, skipped, errors }; }, [activeEmployees, update, addMultiple]);
+  const handleImportV2 = React.useCallback(async (data: Partial<Employee>[], mode: 'insert-only' | 'update-only' | 'upsert', _branchId?: string) => { let inserted = 0, updated = 0, skipped = 0, failed = 0; const errors: Array<{ row: number; message: string }> = []; for (let i = 0; i < data.length; i++) { const item = data[i]; try { const existing = item.id ? activeEmployees.find(e => e.id === item.id) : null; if (existing) { if (mode === 'insert-only') { skipped++; continue; } await update.mutateAsync({ systemId: existing.systemId, ...item } as any); updated++; } else { if (mode === 'update-only') { errors.push({ row: i + 2, message: `Không tìm thấy nhân viên với mã ${item.id}` }); failed++; continue; } const { systemId: _s, ...newData } = item as Partial<Employee> & { systemId?: string }; await create.mutateAsync(newData as Omit<Employee, 'systemId'>); inserted++; } } catch (e) { errors.push({ row: i + 2, message: String(e) }); failed++; } } return { success: inserted + updated, failed, inserted, updated, skipped, errors }; }, [activeEmployees, update, create]);
 
   const currentUser = React.useMemo(() => ({ name: 'Admin', systemId: 'USR000001' as SystemId }), []);
-  const bulkActions = [{ label: "Chuyển vào thùng rác", onSelect: () => setIsBulkDeleteAlertOpen(true) }, { label: "Đang làm việc", onSelect: (rows: Employee[]) => { rows.forEach(e => update(e.systemId, { ...e, employmentStatus: "Đang làm việc" })); toast.success("Đã cập nhật trạng thái", { description: `${rows.length} nhân viên đã chuyển sang "Đang làm việc"` }); setRowSelection({}); } }, { label: "Nghỉ việc", onSelect: (rows: Employee[]) => { rows.forEach(e => update(e.systemId, { ...e, employmentStatus: "Đã nghỉ việc" })); toast.success("Đã cập nhật trạng thái", { description: `${rows.length} nhân viên đã chuyển sang "Đã nghỉ việc"` }); setRowSelection({}); } }];
+  const bulkActions = [{ label: "Chuyển vào thùng rác", onSelect: () => setIsBulkDeleteAlertOpen(true) }, { label: "Đang làm việc", onSelect: (rows: Employee[]) => { Promise.all(rows.map(e => update.mutateAsync({ systemId: e.systemId, employmentStatus: "Đang làm việc" } as any))).then(() => { toast.success("Đã cập nhật trạng thái", { description: `${rows.length} nhân viên đã chuyển sang "Đang làm việc"` }); setRowSelection({}); }).catch(() => toast.error("Có lỗi khi cập nhật trạng thái")); } }, { label: "Nghỉ việc", onSelect: (rows: Employee[]) => { Promise.all(rows.map(e => update.mutateAsync({ systemId: e.systemId, employmentStatus: "Đã nghỉ việc" } as any))).then(() => { toast.success("Đã cập nhật trạng thái", { description: `${rows.length} nhân viên đã chuyển sang "Đã nghỉ việc"` }); setRowSelection({}); }).catch(() => toast.error("Có lỗi khi cập nhật trạng thái")); } }];
   const handleRowClick = (row: Employee) => router.push(ROUTES.HRM.EMPLOYEE_VIEW.replace(':systemId', row.systemId));
 
   const headerActions = React.useMemo(() => [<Button key="trash" variant="outline" size="sm" className="h-9" onClick={() => router.push('/employees/trash')}><Trash2 className="mr-2 h-4 w-4" />Thùng rác ({deletedCount})</Button>, <Button key="add" size="sm" className="h-9" onClick={() => router.push('/employees/new')}><PlusCircle className="mr-2 h-4 w-4" />Thêm nhân viên</Button>], [router, deletedCount]);

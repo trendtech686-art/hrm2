@@ -5,7 +5,6 @@
  * API endpoints: /api/hrm/*
  */
 
-import { useTrendtechSettingsStore } from '../../features/settings/trendtech/store';
 import type {
   TrendtechProduct,
   TrendtechProductsResponse,
@@ -16,6 +15,7 @@ import type {
   TrendtechUpdateProductResponse,
   TrendtechImageUploadResponse,
   TrendtechApiResponse,
+  TrendtechSettings,
 } from './types';
 
 // ========================================
@@ -28,12 +28,17 @@ type ApiResponse<T> = {
   error?: string;
 };
 
+type ApiConfig = {
+  apiUrl: string;
+  apiKey: string;
+  enabled: boolean;
+};
+
 // ========================================
 // Helper Functions
 // ========================================
 
-function getApiConfig() {
-  const { settings } = useTrendtechSettingsStore.getState();
+function getApiConfig(settings: TrendtechSettings): ApiConfig {
   return {
     apiUrl: settings.apiUrl,
     apiKey: settings.apiKey,
@@ -45,10 +50,11 @@ function getApiConfig() {
  * Base fetch function với authentication
  */
 async function fetchWithAuth<T>(
+  config: ApiConfig,
   endpoint: string, 
   options: RequestInit = {}
 ): Promise<ApiResponse<T>> {
-  const { apiUrl, apiKey, enabled } = getApiConfig();
+  const { apiUrl, apiKey, enabled } = config;
 
   if (!enabled) {
     return { success: false, error: 'Tích hợp Trendtech chưa được bật' };
@@ -100,15 +106,15 @@ async function fetchWithAuth<T>(
 /**
  * Ping server để kiểm tra hoạt động (không cần auth)
  */
-export async function ping(): Promise<ApiResponse<{ message: string }>> {
-  const { apiUrl } = getApiConfig();
+export async function ping(settings: TrendtechSettings): Promise<ApiResponse<{ message: string }>> {
+  const config = getApiConfig(settings);
   
-  if (!apiUrl) {
+  if (!config.apiUrl) {
     return { success: false, error: 'Chưa cấu hình API URL' };
   }
 
   try {
-    const response = await fetch(`${apiUrl}/ping`, { method: 'GET' });
+    const response = await fetch(`${config.apiUrl}/ping`, { method: 'GET' });
     const data = await response.json();
     
     if (data.success) {
@@ -126,7 +132,7 @@ export async function ping(): Promise<ApiResponse<{ message: string }>> {
 /**
  * Test kết nối với API Key
  */
-export async function testConnection(): Promise<ApiResponse<{
+export async function testConnection(settings: TrendtechSettings): Promise<ApiResponse<{
   message: string;
   stats?: {
     totalProducts: number;
@@ -134,7 +140,7 @@ export async function testConnection(): Promise<ApiResponse<{
     totalBrands: number;
   };
 }>> {
-  return fetchWithAuth('/test', { method: 'GET' });
+  return fetchWithAuth(getApiConfig(settings), '/test', { method: 'GET' });
 }
 
 // ========================================
@@ -144,8 +150,8 @@ export async function testConnection(): Promise<ApiResponse<{
 /**
  * Lấy danh sách danh mục
  */
-export async function getCategories(): Promise<ApiResponse<TrendtechCategoriesResponse>> {
-  return fetchWithAuth('/categories', { method: 'GET' });
+export async function getCategories(settings: TrendtechSettings): Promise<ApiResponse<TrendtechCategoriesResponse>> {
+  return fetchWithAuth(getApiConfig(settings), '/categories', { method: 'GET' });
 }
 
 // ========================================
@@ -155,8 +161,8 @@ export async function getCategories(): Promise<ApiResponse<TrendtechCategoriesRe
 /**
  * Lấy danh sách thương hiệu
  */
-export async function getBrands(): Promise<ApiResponse<TrendtechBrandsResponse>> {
-  return fetchWithAuth('/brands', { method: 'GET' });
+export async function getBrands(settings: TrendtechSettings): Promise<ApiResponse<TrendtechBrandsResponse>> {
+  return fetchWithAuth(getApiConfig(settings), '/brands', { method: 'GET' });
 }
 
 // ========================================
@@ -167,22 +173,23 @@ export async function getBrands(): Promise<ApiResponse<TrendtechBrandsResponse>>
  * Lấy danh sách sản phẩm (có phân trang)
  */
 export async function getProducts(
+  settings: TrendtechSettings,
   page: number = 1,
   limit: number = 50
 ): Promise<ApiResponse<TrendtechProductsResponse>> {
-  return fetchWithAuth(`/products?page=${page}&limit=${limit}`, { method: 'GET' });
+  return fetchWithAuth(getApiConfig(settings), `/products?page=${page}&limit=${limit}`, { method: 'GET' });
 }
 
 /**
  * Lấy tất cả sản phẩm (tự động phân trang)
  */
-export async function getAllProducts(): Promise<ApiResponse<TrendtechProduct[]>> {
+export async function getAllProducts(settings: TrendtechSettings): Promise<ApiResponse<TrendtechProduct[]>> {
   const allProducts: TrendtechProduct[] = [];
   let currentPage = 1;
   let totalPages = 1;
 
   while (currentPage <= totalPages) {
-    const response = await getProducts(currentPage, 100);
+    const response = await getProducts(settings, currentPage, 100);
 
     if (!response.success || !response.data) {
       return { success: false, error: response.error };
@@ -199,17 +206,18 @@ export async function getAllProducts(): Promise<ApiResponse<TrendtechProduct[]>>
 /**
  * Lấy sản phẩm theo ID
  */
-export async function getProductById(id: number): Promise<ApiResponse<TrendtechProduct>> {
-  return fetchWithAuth(`/products/${id}`, { method: 'GET' });
+export async function getProductById(settings: TrendtechSettings, id: number): Promise<ApiResponse<TrendtechProduct>> {
+  return fetchWithAuth(getApiConfig(settings), `/products/${id}`, { method: 'GET' });
 }
 
 /**
  * Tạo sản phẩm mới
  */
 export async function createProduct(
+  settings: TrendtechSettings,
   payload: TrendtechProductPayload
 ): Promise<ApiResponse<TrendtechCreateProductResponse>> {
-  return fetchWithAuth('/products', {
+  return fetchWithAuth(getApiConfig(settings), '/products', {
     method: 'POST',
     body: JSON.stringify(payload),
   });
@@ -219,10 +227,11 @@ export async function createProduct(
  * Cập nhật sản phẩm
  */
 export async function updateProduct(
+  settings: TrendtechSettings,
   id: number,
   payload: Partial<TrendtechProductPayload>
 ): Promise<ApiResponse<TrendtechUpdateProductResponse>> {
-  return fetchWithAuth(`/products/${id}`, {
+  return fetchWithAuth(getApiConfig(settings), `/products/${id}`, {
     method: 'PUT',
     body: JSON.stringify(payload),
   });
@@ -231,8 +240,8 @@ export async function updateProduct(
 /**
  * Xóa sản phẩm
  */
-export async function deleteProduct(id: number): Promise<ApiResponse<{ message: string }>> {
-  return fetchWithAuth(`/products/${id}`, { method: 'DELETE' });
+export async function deleteProduct(settings: TrendtechSettings, id: number): Promise<ApiResponse<{ message: string }>> {
+  return fetchWithAuth(getApiConfig(settings), `/products/${id}`, { method: 'DELETE' });
 }
 
 // ========================================
@@ -243,13 +252,14 @@ export async function deleteProduct(id: number): Promise<ApiResponse<{ message: 
  * Đồng bộ giá hàng loạt
  */
 export async function syncPrices(
+  settings: TrendtechSettings,
   items: Array<{
     id: number;
     price: number;
     compareAtPrice?: number;
   }>
 ): Promise<ApiResponse<{ updated: number; failed: number }>> {
-  return fetchWithAuth('/sync/price', {
+  return fetchWithAuth(getApiConfig(settings), '/sync/price', {
     method: 'POST',
     body: JSON.stringify({ items }),
   });
@@ -259,13 +269,14 @@ export async function syncPrices(
  * Đồng bộ tồn kho hàng loạt
  */
 export async function syncStock(
+  settings: TrendtechSettings,
   items: Array<{
     id: number;
     quantity: number;
     inStock?: boolean;
   }>
 ): Promise<ApiResponse<{ updated: number; failed: number }>> {
-  return fetchWithAuth('/sync/stock', {
+  return fetchWithAuth(getApiConfig(settings), '/sync/stock', {
     method: 'POST',
     body: JSON.stringify({ items }),
   });
@@ -275,6 +286,7 @@ export async function syncStock(
  * Đồng bộ SEO hàng loạt
  */
 export async function syncSeo(
+  settings: TrendtechSettings,
   items: Array<{
     id: number;
     metaTitle?: string;
@@ -282,7 +294,7 @@ export async function syncSeo(
     metaKeywords?: string;
   }>
 ): Promise<ApiResponse<{ updated: number; failed: number }>> {
-  return fetchWithAuth('/sync/seo', {
+  return fetchWithAuth(getApiConfig(settings), '/sync/seo', {
     method: 'POST',
     body: JSON.stringify({ items }),
   });
@@ -296,29 +308,32 @@ export async function syncSeo(
  * Cập nhật giá sản phẩm đơn lẻ
  */
 export async function updateProductPrice(
+  settings: TrendtechSettings,
   id: number,
   prices: {
     price?: number;
     compareAtPrice?: number;
   }
 ): Promise<ApiResponse<TrendtechUpdateProductResponse>> {
-  return updateProduct(id, prices);
+  return updateProduct(settings, id, prices);
 }
 
 /**
  * Cập nhật tồn kho sản phẩm đơn lẻ
  */
 export async function updateProductStock(
+  settings: TrendtechSettings,
   id: number,
   quantity: number
 ): Promise<ApiResponse<TrendtechUpdateProductResponse>> {
-  return updateProduct(id, { quantity });
+  return updateProduct(settings, id, { quantity });
 }
 
 /**
  * Cập nhật SEO sản phẩm đơn lẻ
  */
 export async function updateProductSeo(
+  settings: TrendtechSettings,
   id: number,
   seo: {
     metaTitle?: string;
@@ -326,7 +341,7 @@ export async function updateProductSeo(
     metaKeywords?: string;
   }
 ): Promise<ApiResponse<TrendtechUpdateProductResponse>> {
-  return updateProduct(id, seo);
+  return updateProduct(settings, id, seo);
 }
 
 // ========================================
@@ -337,19 +352,20 @@ export async function updateProductSeo(
  * Upload ảnh sản phẩm
  */
 export async function uploadProductImage(
+  settings: TrendtechSettings,
   imageFile: File,
   options?: {
     productId?: number;
     type?: 'thumbnail' | 'gallery';
   }
 ): Promise<ApiResponse<TrendtechImageUploadResponse>> {
-  const { apiUrl, apiKey, enabled } = getApiConfig();
+  const config = getApiConfig(settings);
 
-  if (!enabled) {
+  if (!config.enabled) {
     return { success: false, error: 'Tích hợp Trendtech chưa được bật' };
   }
 
-  if (!apiKey || !apiUrl) {
+  if (!config.apiKey || !config.apiUrl) {
     return { success: false, error: 'Chưa cấu hình API' };
   }
 
@@ -364,11 +380,11 @@ export async function uploadProductImage(
   }
 
   try {
-    const response = await fetch(`${apiUrl}/upload/image`, {
+    const response = await fetch(`${config.apiUrl}/upload/image`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'X-API-KEY': apiKey,
+        'Authorization': `Bearer ${config.apiKey}`,
+        'X-API-KEY': config.apiKey,
       },
       body: formData,
     });

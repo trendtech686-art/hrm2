@@ -508,6 +508,131 @@ async function seed() {
     },
   });
 
+  // 13. Seed Customer Settings
+  console.log('📦 Seeding customer settings...');
+  
+  // Customer Types
+  const customerTypes = [
+    { id: 'INDIVIDUAL', name: 'Khách hàng cá nhân', description: 'Khách hàng mua lẻ, cá nhân', type: 'customer-type', isActive: true, isDefault: true },
+    { id: 'COMPANY', name: 'Công ty', description: 'Doanh nghiệp, công ty', type: 'customer-type', isActive: true, isDefault: false },
+    { id: 'RESELLER', name: 'Đại lý', description: 'Đại lý phân phối', type: 'customer-type', isActive: true, isDefault: false },
+    { id: 'DISTRIBUTOR', name: 'Nhà phân phối', description: 'Nhà phân phối cấp 1', type: 'customer-type', isActive: true, isDefault: false },
+  ];
+
+  for (const item of customerTypes) {
+    await prisma.customerSetting.upsert({
+      where: { id_type: { id: item.id, type: item.type } },
+      update: item,
+      create: {
+        systemId: generateSystemId(),
+        ...item,
+      },
+    });
+  }
+
+  // Customer Groups
+  const customerGroups = [
+    { id: 'VIP', name: 'VIP', description: 'Khách hàng VIP, ưu tiên cao', type: 'customer-group', isActive: true, isDefault: false },
+    { id: 'LOYAL', name: 'Khách hàng thân thiết', description: 'Khách hàng mua thường xuyên', type: 'customer-group', isActive: true, isDefault: false },
+    { id: 'NEW', name: 'Khách hàng mới', description: 'Khách hàng lần đầu', type: 'customer-group', isActive: true, isDefault: true },
+    { id: 'POTENTIAL', name: 'Khách hàng tiềm năng', description: 'Khách hàng có tiềm năng phát triển', type: 'customer-group', isActive: true, isDefault: false },
+  ];
+
+  for (const item of customerGroups) {
+    await prisma.customerSetting.upsert({
+      where: { id_type: { id: item.id, type: item.type } },
+      update: item,
+      create: {
+        systemId: generateSystemId(),
+        ...item,
+      },
+    });
+  }
+
+  // Customer Sources
+  const customerSources = [
+    { id: 'WEBSITE', name: 'Website', description: 'Khách hàng từ website', type: 'customer-source', isActive: true, isDefault: false },
+    { id: 'FACEBOOK', name: 'Facebook', description: 'Khách hàng từ Facebook', type: 'customer-source', isActive: true, isDefault: false },
+    { id: 'REFERRAL', name: 'Giới thiệu', description: 'Khách hàng được giới thiệu', type: 'customer-source', isActive: true, isDefault: true },
+    { id: 'GOOGLE', name: 'Tìm kiếm Google', description: 'Khách hàng từ Google Search', type: 'customer-source', isActive: true, isDefault: false },
+    { id: 'EMAIL', name: 'Email Marketing', description: 'Khách hàng từ chiến dịch email', type: 'customer-source', isActive: true, isDefault: false },
+    { id: 'EVENT', name: 'Sự kiện', description: 'Khách hàng gặp tại sự kiện', type: 'customer-source', isActive: true, isDefault: false },
+  ];
+
+  for (const item of customerSources) {
+    await prisma.customerSetting.upsert({
+      where: { id_type: { id: item.id, type: item.type } },
+      update: item,
+      create: {
+        systemId: generateSystemId(),
+        ...item,
+      },
+    });
+  }
+
+  // Lifecycle Stages
+  const lifecycleStageSettings = [
+    { id: 'LEAD', name: 'Khách hàng tiềm năng', description: 'Khách hàng mới tiếp cận, chưa có giao dịch', type: 'lifecycle-stage', isActive: true, isDefault: true },
+    { id: 'PROSPECT', name: 'Khách hàng triển vọng', description: 'Khách hàng đang có nhu cầu, đang tìm hiểu', type: 'lifecycle-stage', isActive: true, isDefault: false },
+    { id: 'CUSTOMER', name: 'Khách hàng mới', description: 'Khách hàng đã mua lần đầu', type: 'lifecycle-stage', isActive: true, isDefault: false },
+    { id: 'LOYAL', name: 'Khách hàng trung thành', description: 'Khách hàng mua thường xuyên, trung thành', type: 'lifecycle-stage', isActive: true, isDefault: false },
+    { id: 'INACTIVE', name: 'Không hoạt động', description: 'Khách hàng không còn giao dịch', type: 'lifecycle-stage', isActive: true, isDefault: false },
+  ];
+
+  for (const item of lifecycleStageSettings) {
+    await prisma.customerSetting.upsert({
+      where: { id_type: { id: item.id, type: item.type } },
+      update: item,
+      create: {
+        systemId: generateSystemId(),
+        ...item,
+      },
+    });
+  }
+
+  // Payment Terms
+  const paymentTerms = [
+    { id: 'COD', name: 'Thanh toán khi nhận hàng', description: 'Thanh toán ngay khi giao hàng (COD)', type: 'payment-term', metadata: { daysUntilDue: 0 }, isActive: true, isDefault: false },
+    { id: 'NET_7', name: 'Thanh toán trong 7 ngày', description: 'Hạn thanh toán 7 ngày kể từ ngày xuất hàng', type: 'payment-term', metadata: { daysUntilDue: 7 }, isActive: true, isDefault: false },
+    { id: 'NET_15', name: 'Thanh toán trong 15 ngày', description: 'Hạn thanh toán 15 ngày kể từ ngày xuất hàng', type: 'payment-term', metadata: { daysUntilDue: 15 }, isActive: true, isDefault: true },
+    { id: 'NET_30', name: 'Thanh toán trong 30 ngày', description: 'Hạn thanh toán 30 ngày kể từ ngày xuất hàng', type: 'payment-term', metadata: { daysUntilDue: 30 }, isActive: true, isDefault: false },
+    { id: 'NET_45', name: 'Thanh toán trong 45 ngày', description: 'Hạn thanh toán 45 ngày kể từ ngày xuất hàng', type: 'payment-term', metadata: { daysUntilDue: 45 }, isActive: true, isDefault: false },
+    { id: 'NET_60', name: 'Thanh toán trong 60 ngày', description: 'Hạn thanh toán 60 ngày kể từ ngày xuất hàng', type: 'payment-term', metadata: { daysUntilDue: 60 }, isActive: true, isDefault: false },
+  ];
+
+  for (const item of paymentTerms) {
+    await prisma.customerSetting.upsert({
+      where: { id_type: { id: item.id, type: item.type } },
+      update: item,
+      create: {
+        systemId: generateSystemId(),
+        ...item,
+      },
+    });
+  }
+
+  // Credit Ratings
+  const creditRatings = [
+    { id: 'AAA', name: 'AAA', description: 'Tín dụng xuất sắc', type: 'credit-rating', metadata: { creditLimit: 500000000 }, isActive: true, isDefault: false },
+    { id: 'AA', name: 'AA', description: 'Tín dụng rất tốt', type: 'credit-rating', metadata: { creditLimit: 300000000 }, isActive: true, isDefault: false },
+    { id: 'A', name: 'A', description: 'Tín dụng tốt', type: 'credit-rating', metadata: { creditLimit: 150000000 }, isActive: true, isDefault: true },
+    { id: 'BBB', name: 'BBB', description: 'Tín dụng trung bình', type: 'credit-rating', metadata: { creditLimit: 50000000 }, isActive: true, isDefault: false },
+    { id: 'BB', name: 'BB', description: 'Tín dụng thấp', type: 'credit-rating', metadata: { creditLimit: 20000000 }, isActive: true, isDefault: false },
+    { id: 'B', name: 'B', description: 'Tín dụng rất thấp', type: 'credit-rating', metadata: { creditLimit: 5000000 }, isActive: true, isDefault: false },
+  ];
+
+  for (const item of creditRatings) {
+    await prisma.customerSetting.upsert({
+      where: { id_type: { id: item.id, type: item.type } },
+      update: item,
+      create: {
+        systemId: generateSystemId(),
+        ...item,
+      },
+    });
+  }
+
+  console.log('✅ Customer settings seeded successfully!');
 
   // Summary
 }

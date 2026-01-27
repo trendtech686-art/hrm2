@@ -1,7 +1,7 @@
 import * as React from "react";
 import { useForm } from "react-hook-form"
 import type { Department } from '@/lib/types/prisma-extended'
-import { useDepartmentStore } from "./store";
+import { useDepartments } from "./hooks/use-departments";
 
 import {
   Form,
@@ -22,7 +22,8 @@ type DepartmentFormProps = {
 }
 
 export function DepartmentForm({ initialData, onSubmit }: DepartmentFormProps) {
-  const { data: _departments } = useDepartmentStore();
+  const { data: departmentsData } = useDepartments({ limit: 1000 });
+  const _departments = departmentsData?.data ?? [];
   const form = useForm<DepartmentFormValues>({
     defaultValues: initialData || {
       id: '',
@@ -30,9 +31,15 @@ export function DepartmentForm({ initialData, onSubmit }: DepartmentFormProps) {
     },
   })
 
+  const handleFormSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    e.stopPropagation() // Prevent bubbling to parent form
+    form.handleSubmit(onSubmit)(e)
+  }
+
   return (
     <Form {...form}>
-      <form id="department-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 pt-4">
+      <form id="department-form" onSubmit={handleFormSubmit} className="space-y-6 pt-4">
         <FormField
           control={form.control}
           name="id"

@@ -3,14 +3,13 @@
 import * as React from "react";
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import { useShallow } from 'zustand/react/shallow';
 import { Plus, Power, PowerOff, Trash2, RefreshCw, Search, AlignLeft, FileUp, Download, ExternalLink, Unlink } from "lucide-react";
 import { toast } from "sonner";
 
 import { asSystemId, asBusinessId } from "@/lib/id-types";
 import { useColumnVisibility } from '@/hooks/use-column-visibility';
 import { usePageHeader } from "@/contexts/page-header-context";
-import { useBrandStore } from "../settings/inventory/brand-store";
+import { useBrands, useBrandMutations } from "./hooks/use-brands";
 import type { Brand } from "../settings/inventory/types";
 import { useFuseFilter } from "@/hooks/use-fuse-search";
 import { getColumns } from "./columns";
@@ -40,7 +39,12 @@ export function BrandsPage() {
   const router = useRouter();
   const isMobile = useMediaQuery("(max-width: 768px)");
   const { employee: authEmployee } = useAuth();
-  const { data, add, update, remove } = useBrandStore(useShallow((s) => ({ data: s.data, add: s.add, update: s.update, remove: s.remove })));
+  const { data: queryData } = useBrands({ limit: 10000 });
+  const data = React.useMemo(() => queryData?.data ?? [], [queryData?.data]);
+  const { create, update, remove } = useBrandMutations({
+    onSuccess: () => toast.success("Thao tác thành công"),
+    onError: (err) => toast.error(err.message)
+  });
   const activeBrands = React.useMemo(() => data.filter(b => !b.isDeleted), [data]);
 
   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
@@ -69,12 +73,12 @@ export function BrandsPage() {
   React.useEffect(() => { const t = setTimeout(() => setDebouncedGlobalFilter(globalFilter), 300); return () => clearTimeout(t); }, [globalFilter]);
 
   const handleDelete = React.useCallback((systemId: string) => { setIdToDelete(systemId); setIsAlertOpen(true); }, []);
-  const handleToggleActive = React.useCallback((systemId: string, isActive: boolean) => { update(asSystemId(systemId), { isActive }); toast.success(isActive ? 'Đã kích hoạt' : 'Đã tắt'); }, [update]);
-  const handleUpdateName = React.useCallback((systemId: string, name: string) => { update(asSystemId(systemId), { name }); toast.success('Đã cập nhật tên'); }, [update]);
+  const handleToggleActive = React.useCallback((systemId: string, isActive: boolean) => { update.mutate({ systemId: asSystemId(systemId), data: { isActive } }); toast.success(isActive ? 'Đã kích hoạt' : 'Đã tắt'); }, [update]);
+  const handleUpdateName = React.useCallback((systemId: string, name: string) => { update.mutate({ systemId: asSystemId(systemId), data: { name } }); toast.success('Đã cập nhật tên'); }, [update]);
   const handleRowClick = React.useCallback((brand: Brand) => router.push(`/brands/${brand.systemId}`), [router]);
 
-  const handleBulkActivate = React.useCallback(() => { Object.keys(rowSelection).forEach(id => update(asSystemId(id), { isActive: true })); toast.success(`Đã kích hoạt ${Object.keys(rowSelection).length} thương hiệu`); setRowSelection({}); }, [rowSelection, update]);
-  const handleBulkDeactivate = React.useCallback(() => { Object.keys(rowSelection).forEach(id => update(asSystemId(id), { isActive: false })); toast.success(`Đã tắt ${Object.keys(rowSelection).length} thương hiệu`); setRowSelection({}); }, [rowSelection, update]);
+  const handleBulkActivate = React.useCallback(() => { Object.keys(rowSelection).forEach(id => update.mutate({ systemId: asSystemId(id), data: { isActive: true } })); toast.success(`Đã kích hoạt ${Object.keys(rowSelection).length} thương hiệu`); setRowSelection({}); }, [rowSelection, update]);
+  const handleBulkDeactivate = React.useCallback(() => { Object.keys(rowSelection).forEach(id => update.mutate({ systemId: asSystemId(id), data: { isActive: false } })); toast.success(`Đã tắt ${Object.keys(rowSelection).length} thương hiệu`); setRowSelection({}); }, [rowSelection, update]);
 
   const { hasPkgxMapping, getPkgxBrandId } = usePkgxBrandSync();
   const deleteBrandMapping = usePkgxSettingsStore((s) => s.deleteBrandMapping);
@@ -106,16 +110,16 @@ export function BrandsPage() {
         if (existing) {
           if (mode === 'insert-only') { results.skipped++; continue; }
           const { systemId: _, createdAt: __, ...rest } = item as Partial<Brand> & { systemId?: string; createdAt?: string };
-          update(existing.systemId, { ...rest, updatedAt: new Date().toISOString() }); results.updated++; results.success++;
+          update.mutate({ systemId: existing.systemId, data: { ...rest, updatedAt: new Date().toISOString() } as any }); results.updated++; results.success++;
         } else {
           if (mode === 'update-only') { results.skipped++; continue; }
-          add({ ...item, id: asBusinessId(item.id || `BRAND-${Date.now()}`), name: item.name || '', isActive: item.isActive !== false, isDeleted: false, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as Omit<Brand, 'systemId'>);
+          create.mutate({ ...item, id: asBusinessId(item.id || `BRAND-${Date.now()}`), name: item.name || '', isActive: item.isActive !== false, isDeleted: false, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as any);
           results.inserted++; results.success++;
         }
       } catch (e) { results.failed++; results.errors.push({ row: i + 1, message: e instanceof Error ? e.message : 'Lỗi' }); }
     }
     return results;
-  }, [activeBrands, add, update]);
+  }, [activeBrands, create, update]);
 
   React.useEffect(() => {
     if (Object.keys(columnVisibility).length > 0) return;
@@ -129,8 +133,8 @@ export function BrandsPage() {
   const fuseOptions = React.useMemo(() => ({ keys: ["id", "name", "description", "website"], threshold: 0.3, ignoreLocation: true }), []);
   const searchedBrands = useFuseFilter(activeBrands, debouncedGlobalFilter, fuseOptions);
 
-  const confirmDelete = () => { if (idToDelete) { remove(asSystemId(idToDelete)); toast.success("Đã xóa"); } setIsAlertOpen(false); setIdToDelete(null); };
-  const confirmBulkDelete = () => { Object.keys(rowSelection).forEach(id => remove(asSystemId(id))); toast.success(`Đã xóa ${Object.keys(rowSelection).length} thương hiệu`); setRowSelection({}); setIsBulkDeleteAlertOpen(false); };
+  const confirmDelete = () => { if (idToDelete) { remove.mutate(asSystemId(idToDelete)); } setIsAlertOpen(false); setIdToDelete(null); };
+  const confirmBulkDelete = () => { Object.keys(rowSelection).forEach(id => remove.mutate(asSystemId(id))); toast.success(`Đã xóa ${Object.keys(rowSelection).length} thương hiệu`); setRowSelection({}); setIsBulkDeleteAlertOpen(false); };
 
   const statusOptions = React.useMemo(() => [{ value: 'active', label: 'Hoạt động' }, { value: 'inactive', label: 'Tạm tắt' }], []);
 
@@ -170,21 +174,21 @@ export function BrandsPage() {
       {isMobile ? (
         <div className="space-y-2 flex-1 overflow-y-auto">
           {sortedData.length === 0 ? <Card><CardContent className="p-8 text-center text-muted-foreground">Không tìm thấy thương hiệu</CardContent></Card> : <>
-            {sortedData.slice(0, mobileLoadedCount).map(b => <MobileBrandCard key={b.systemId} brand={b} onDelete={handleDelete} onToggleActive={handleToggleActive} navigate={router.push} handleRowClick={handleRowClick} />)}
+            {sortedData.slice(0, mobileLoadedCount).map(b => <MobileBrandCard key={b.systemId} brand={b as any} onDelete={handleDelete} onToggleActive={handleToggleActive} navigate={router.push} handleRowClick={handleRowClick} />)}
             {mobileLoadedCount < sortedData.length && <Card><CardContent className="p-4 text-center text-muted-foreground"><div className="flex items-center justify-center gap-2"><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary" /><span>Đang tải...</span></div></CardContent></Card>}
             {mobileLoadedCount >= sortedData.length && sortedData.length > 20 && <Card><CardContent className="p-4 text-center text-muted-foreground text-sm">Đã hiển thị {sortedData.length} thương hiệu</CardContent></Card>}
           </>}
         </div>
       ) : (
-        <div className="w-full py-4"><ResponsiveDataTable columns={columns} data={paginatedData} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowCount={sortedData.length} rowSelection={rowSelection} setRowSelection={setRowSelection} onBulkDelete={() => setIsBulkDeleteAlertOpen(true)} sorting={sorting} setSorting={setSorting as React.Dispatch<React.SetStateAction<{ id: string; desc: boolean }>>} allSelectedRows={allSelectedRows} bulkActions={bulkActions} pkgxBulkActions={pkgxBulkActions} expanded={{}} setExpanded={() => {}} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} onRowClick={handleRowClick} renderMobileCard={b => <MobileBrandCard brand={b} onDelete={handleDelete} onToggleActive={handleToggleActive} navigate={router.push} handleRowClick={handleRowClick} />} /></div>
+        <div className="w-full py-4"><ResponsiveDataTable columns={columns} data={paginatedData as any} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowCount={sortedData.length} rowSelection={rowSelection} setRowSelection={setRowSelection} onBulkDelete={() => setIsBulkDeleteAlertOpen(true)} sorting={sorting} setSorting={setSorting as React.Dispatch<React.SetStateAction<{ id: string; desc: boolean }>>} allSelectedRows={allSelectedRows as any} bulkActions={bulkActions} pkgxBulkActions={pkgxBulkActions} expanded={{}} setExpanded={() => {}} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} onRowClick={handleRowClick} renderMobileCard={b => <MobileBrandCard brand={b as any} onDelete={handleDelete} onToggleActive={handleToggleActive} navigate={router.push} handleRowClick={handleRowClick} />} /></div>
       )}
       <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Xóa thương hiệu?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể hoàn tác.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Đóng</AlertDialogCancel><AlertDialogAction onClick={confirmDelete}>Xóa</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
       <AlertDialog open={isBulkDeleteAlertOpen} onOpenChange={setIsBulkDeleteAlertOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Xóa {Object.keys(rowSelection).length} thương hiệu?</AlertDialogTitle><AlertDialogDescription>Hành động không thể hoàn tác.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Đóng</AlertDialogCancel><AlertDialogAction onClick={confirmBulkDelete}>Xóa tất cả</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
       <PkgxBrandLinkDialog open={pkgxLinkDialogOpen} onOpenChange={setPkgxLinkDialogOpen} brand={brandToLink} onSuccess={() => {}} />
       <PkgxBrandDetailDialog open={pkgxDetailDialogOpen} onOpenChange={setPkgxDetailDialogOpen} brand={brandToViewDetail} pkgxBrandId={pkgxBrandIdToView} />
       <PkgxBulkSyncConfirmDialog confirmAction={bulkConfirmAction} progress={bulkProgress} onConfirm={executeBulkAction} onCancel={cancelBulkConfirm} />
-      <BrandImportDialog open={isImportOpen} onOpenChange={setIsImportOpen} existingData={activeBrands} onImport={handleImport} currentUser={authEmployee ? { systemId: authEmployee.systemId, name: authEmployee.fullName || authEmployee.id } : undefined} />
-      <BrandExportDialog open={isExportOpen} onOpenChange={setIsExportOpen} allData={activeBrands} filteredData={sortedData} currentPageData={paginatedData} selectedData={allSelectedRows} currentUser={authEmployee ? { systemId: authEmployee.systemId, name: authEmployee.fullName || authEmployee.id } : { systemId: asSystemId('SYSTEM'), name: 'System' }} />
+      <BrandImportDialog open={isImportOpen} onOpenChange={setIsImportOpen} existingData={activeBrands as any} onImport={handleImport} currentUser={authEmployee ? { systemId: authEmployee.systemId, name: authEmployee.fullName || authEmployee.id } : undefined} />
+      <BrandExportDialog open={isExportOpen} onOpenChange={setIsExportOpen} allData={activeBrands as any} filteredData={sortedData as any} currentPageData={paginatedData as any} selectedData={allSelectedRows as any} currentUser={authEmployee ? { systemId: authEmployee.systemId, name: authEmployee.fullName || authEmployee.id } : { systemId: asSystemId('SYSTEM'), name: 'System' }} />
     </div>
   );
 }

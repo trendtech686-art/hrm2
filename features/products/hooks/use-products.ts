@@ -180,3 +180,65 @@ export function useProductsByBrand(brandId: string | null | undefined) {
 export function useActiveProducts(params: Omit<ProductsParams, 'status'> = {}) {
   return useProducts({ ...params, status: 'active' });
 }
+
+// ============ TRASH HOOKS ============
+
+import {
+  fetchDeletedProducts,
+  restoreProduct,
+  permanentDeleteProduct,
+} from '../api/products-api';
+
+/**
+ * Hook for fetching deleted products (trash)
+ */
+export function useDeletedProducts() {
+  return useQuery({
+    queryKey: [...productKeys.all, 'deleted'],
+    queryFn: fetchDeletedProducts,
+    staleTime: 30_000,
+  });
+}
+
+/**
+ * Hook for trash mutations (restore, permanent delete)
+ */
+export function useTrashMutations() {
+  const queryClient = useQueryClient();
+  
+  const restore = useMutation({
+    mutationFn: restoreProduct,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: productKeys.all });
+    },
+  });
+  
+  const permanentDelete = useMutation({
+    mutationFn: permanentDeleteProduct,
+    onMutate: async (systemId) => {
+      await queryClient.cancelQueries({ queryKey: [...productKeys.all, 'deleted'] });
+      const previousDeleted = queryClient.getQueryData([...productKeys.all, 'deleted']);
+      queryClient.setQueryData(
+        [...productKeys.all, 'deleted'],
+        (old: Array<{ systemId: string }> | undefined) => 
+          old?.filter(item => item.systemId !== systemId) || []
+      );
+      return { previousDeleted };
+    },
+    onError: (_err, _systemId, context) => {
+      if (context?.previousDeleted) {
+        queryClient.setQueryData([...productKeys.all, 'deleted'], context.previousDeleted);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: productKeys.all });
+    },
+  });
+  
+  return {
+    restore,
+    permanentDelete,
+    isRestoring: restore.isPending,
+    isDeleting: permanentDelete.isPending,
+  };
+}

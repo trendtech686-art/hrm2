@@ -41,12 +41,25 @@ export function BranchForm({ initialData, onSubmit, onCancel }: BranchFormProps)
   const { data: _branches } = useAllBranches();
   const { searchEmployees } = useEmployeeSearcher();
   const { data: allEmployees } = useAllEmployees();
-  const { data: provinces = [] } = useProvinces();
+  const { data: allProvinces = [] } = useProvinces();
   const { 
     getDistricts3LevelByProvinceId,
     getWards2LevelByProvinceId,
-    getWards3LevelByDistrictId
+    getWards3LevelByDistrictId,
+    getProvinces3Level,
+    loadData,
+    isLoaded,
   } = useProvinceStore();
+
+  // Load 3-level data from store if not loaded yet
+  React.useEffect(() => {
+    if (!isLoaded) {
+      loadData();
+    }
+  }, [isLoaded, loadData]);
+
+  // Get 3-level provinces from store (has 63 provinces)
+  const provinces3Level = getProvinces3Level();
 
   const form = useForm<BranchFormValues>({
     defaultValues:
@@ -71,6 +84,14 @@ export function BranchForm({ initialData, onSubmit, onCancel }: BranchFormProps)
   const addressLevel = form.watch('addressLevel') ?? '3-level';
   const selectedProvinceId = form.watch('provinceId');
   const selectedDistrictId = form.watch('districtId');
+
+  // Filter provinces by address level (2-level or 3-level)
+  const provinces = React.useMemo(() => {
+    if (addressLevel === '3-level') {
+      return provinces3Level;
+    }
+    return allProvinces.filter(p => p.level === '2-level');
+  }, [allProvinces, addressLevel, provinces3Level]);
 
   // Get districts for 3-level
   const districts = React.useMemo(() => {

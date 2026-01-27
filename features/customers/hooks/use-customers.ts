@@ -189,3 +189,118 @@ export function useVIPCustomers(params: Omit<CustomersParams, 'lifecycleStage'> 
 export function useActiveCustomers(params: Omit<CustomersParams, 'status'> = {}) {
   return useCustomers({ ...params, status: 'active' });
 }
+
+// ============ TRASH HOOKS ============
+
+import {
+  fetchDeletedCustomers,
+  restoreCustomer,
+  permanentDeleteCustomer,
+  bulkDeleteCustomers,
+  bulkRestoreCustomers,
+  bulkUpdateCustomerStatus,
+} from '../api/customers-api';
+
+/**
+ * Hook for fetching deleted customers (trash)
+ */
+export function useDeletedCustomers() {
+  return useQuery({
+    queryKey: [...customerKeys.all, 'deleted'],
+    queryFn: fetchDeletedCustomers,
+    staleTime: 30_000,
+  });
+}
+
+/**
+ * Hook for trash mutations (restore, permanent delete)
+ */
+export function useTrashMutations() {
+  const queryClient = useQueryClient();
+  
+  const restore = useMutation({
+    mutationFn: restoreCustomer,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: customerKeys.all });
+    },
+  });
+  
+  const permanentDelete = useMutation({
+    mutationFn: permanentDeleteCustomer,
+    onMutate: async (systemId) => {
+      await queryClient.cancelQueries({ queryKey: [...customerKeys.all, 'deleted'] });
+      const previousDeleted = queryClient.getQueryData([...customerKeys.all, 'deleted']);
+      queryClient.setQueryData(
+        [...customerKeys.all, 'deleted'],
+        (old: Array<{ systemId: string }> | undefined) => 
+          old?.filter(item => item.systemId !== systemId) || []
+      );
+      return { previousDeleted };
+    },
+    onError: (_err, _systemId, context) => {
+      if (context?.previousDeleted) {
+        queryClient.setQueryData([...customerKeys.all, 'deleted'], context.previousDeleted);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: customerKeys.all });
+    },
+  });
+  
+  return {
+    restore,
+    permanentDelete,
+    isRestoring: restore.isPending,
+    isDeleting: permanentDelete.isPending,
+  };
+}
+
+/**
+ * Hook for bulk operations (delete, restore, status update)
+ */
+interface UseBulkMutationsOptions {
+  onSuccess?: () => void;
+  onError?: (error: Error) => void;
+}
+
+export function useBulkCustomerMutations(options: UseBulkMutationsOptions = {}) {
+  const queryClient = useQueryClient();
+  
+  const bulkDelete = useMutation({
+    mutationFn: bulkDeleteCustomers,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: customerKeys.all });
+      options.onSuccess?.();
+    },
+    onError: options.onError,
+  });
+  
+  const bulkRestore = useMutation({
+    mutationFn: bulkRestoreCustomers,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: customerKeys.all });
+      options.onSuccess?.();
+    },
+    onError: options.onError,
+  });
+  
+  const bulkUpdateStatus = useMutation({
+    mutationFn: ({ systemIds, status }: { systemIds: string[]; status: string }) => 
+      bulkUpdateCustomerStatus(systemIds, status),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: customerKeys.all });
+      options.onSuccess?.();
+    },
+    onError: options.onError,
+  });
+  
+  return {
+    bulkDelete,
+    bulkRestore,
+    bulkUpdateStatus,
+    isDeleting: bulkDelete.isPending,
+    isRestoring: bulkRestore.isPending,
+    isUpdatingStatus: bulkUpdateStatus.isPending,
+    isMutating: bulkDelete.isPending || bulkRestore.isPending || bulkUpdateStatus.isPending,
+  };
+}

@@ -3,7 +3,7 @@
  * Handles all sales management settings API calls
  */
 
-import type { SalesManagementSettingsValues } from '../sales-management-store';
+import type { SalesManagementSettingsValues } from '../sales-management-service';
 
 const BASE_URL = '/api/settings/sales';
 

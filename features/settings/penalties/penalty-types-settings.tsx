@@ -47,10 +47,9 @@ import {
 } from '../../../components/ui/dropdown-menu';
 import { ConfirmDialog } from '../../../components/ui/confirm-dialog';
 import { toast } from 'sonner';
-import { usePenaltyTypeStore } from './store';
+import { usePenaltyTypes, usePenaltyTypeMutations } from '../../settings/penalty-types/hooks/use-penalty-types';
 import type { PenaltyType, PenaltyCategory } from './types';
 import { penaltyCategoryLabels, penaltyCategoryColors } from './types';
-import { asBusinessId } from '@/lib/id-types';
 import { useSettingsPageHeader } from '../use-settings-page-header';
 
 // ============================================
@@ -58,7 +57,14 @@ import { useSettingsPageHeader } from '../use-settings-page-header';
 // ============================================
 
 export function PenaltyTypesSettings() {
-  const { data: penaltyTypes, add, update, remove } = usePenaltyTypeStore();
+  const { data: queryData } = usePenaltyTypes({ limit: 1000 });
+  const penaltyTypes = React.useMemo(() => queryData?.data ?? [], [queryData?.data]);
+  const { create, update, remove } = usePenaltyTypeMutations({
+    onCreateSuccess: () => toast.success('Đã thêm loại phạt mới'),
+    onUpdateSuccess: () => toast.success('Đã cập nhật loại phạt'),
+    onDeleteSuccess: () => toast.success('Đã xóa loại phạt'),
+    onError: (error) => toast.error(error.message),
+  });
   
   // Page header
   useSettingsPageHeader({
@@ -88,7 +94,7 @@ export function PenaltyTypesSettings() {
   
   // Sort by order
   const sortedTypes = React.useMemo(() => 
-    [...penaltyTypes].sort((a, b) => a.order - b.order),
+    [...penaltyTypes].sort((a, b) => ((a as any).order ?? 0) - ((b as any).order ?? 0)),
     [penaltyTypes]
   );
   
@@ -127,31 +133,27 @@ export function PenaltyTypesSettings() {
     
     if (editingType) {
       // Update existing
-      update(editingType.systemId, {
-        ...editingType,
-        name: formData.name.trim(),
-        description: formData.description.trim(),
-        defaultAmount: formData.defaultAmount,
-        category: formData.category,
-        isActive: formData.isActive,
-        updatedAt: new Date().toISOString(),
+      update.mutate({
+        systemId: editingType.systemId,
+        data: {
+          name: formData.name.trim(),
+          description: formData.description.trim(),
+          defaultAmount: formData.defaultAmount,
+          category: formData.category,
+          isActive: formData.isActive,
+        },
       });
-      toast.success('Đã cập nhật loại phạt');
     } else {
       // Create new
-      const newId = `LP${String(penaltyTypes.length + 1).padStart(3, '0')}`;
+      const _newId = `LP${String(penaltyTypes.length + 1).padStart(3, '0')}`;
       
-      add({
-        id: asBusinessId(newId),
+      create.mutate({
         name: formData.name.trim(),
         description: formData.description.trim(),
         defaultAmount: formData.defaultAmount,
         category: formData.category,
         isActive: formData.isActive,
-        order: penaltyTypes.length + 1,
-        createdAt: new Date().toISOString(),
-      });
-      toast.success('Đã thêm loại phạt mới');
+      } as any);
     }
     
     setIsDialogOpen(false);
@@ -165,8 +167,7 @@ export function PenaltyTypesSettings() {
   
   const confirmDelete = () => {
     if (typeToDelete) {
-      remove(typeToDelete.systemId);
-      toast.success('Đã xóa loại phạt');
+      remove.mutate(typeToDelete.systemId);
     }
     setDeleteConfirmOpen(false);
     setTypeToDelete(null);
@@ -174,12 +175,12 @@ export function PenaltyTypesSettings() {
   
   // Toggle active
   const handleToggleActive = (type: PenaltyType) => {
-    update(type.systemId, {
-      ...type,
-      isActive: !type.isActive,
-      updatedAt: new Date().toISOString(),
+    update.mutate({
+      systemId: type.systemId,
+      data: {
+        isActive: !type.isActive,
+      },
     });
-    toast.success(type.isActive ? 'Đã tắt loại phạt' : 'Đã bật loại phạt');
   };
   
   return (
@@ -249,7 +250,7 @@ export function PenaltyTypesSettings() {
                     <TableCell className="text-center">
                       <Switch
                         checked={type.isActive}
-                        onCheckedChange={() => handleToggleActive(type)}
+                        onCheckedChange={() => handleToggleActive(type as any)}
                       />
                     </TableCell>
                     <TableCell>
@@ -260,13 +261,13 @@ export function PenaltyTypesSettings() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleEdit(type)}>
+                          <DropdownMenuItem onClick={() => handleEdit(type as any)}>
                             <Pencil className="h-4 w-4 mr-2" />
                             Chỉnh sửa
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem 
-                            onClick={() => handleDelete(type)}
+                            onClick={() => handleDelete(type as any)}
                             className="text-destructive"
                           >
                             <Trash2 className="h-4 w-4 mr-2" />
@@ -389,12 +390,7 @@ export function PenaltyTypesSettings() {
   );
 }
 
-// Helper function to load penalty types (for use in other components)
-export function loadPenaltyTypes(): PenaltyType[] {
-  return usePenaltyTypeStore.getState().data.filter(t => t.isActive);
-}
-
-// Helper function to get penalty type by id
-export function getPenaltyTypeById(systemId: string): PenaltyType | undefined {
-  return usePenaltyTypeStore.getState().data.find(t => t.systemId === systemId);
-}
+// ⚠️ MIGRATION NOTE: Old Zustand helper functions removed.
+// Use React Query hooks instead:
+// - usePenaltyTypes({ isActive: true }) to load active penalty types
+// - usePenaltyType(systemId) to get penalty type by id

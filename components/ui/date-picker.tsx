@@ -1,152 +1,153 @@
+"use client"
+
 import * as React from "react"
-import { Calendar as CalendarIcon } from "lucide-react"
-import * as PopoverPrimitive from "@radix-ui/react-popover"
+import { CalendarIcon } from "lucide-react"
 
 import { cn } from "../../lib/utils"
 import { Button } from "./button"
 import { Calendar } from "./calendar"
-import { useModal } from "../../contexts/modal-context"
+import { Input } from "./input"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "./popover"
 
-// Format date as dd/MM/yyyy
-const formatDate = (date: Date): string => {
-  const day = date.getDate().toString().padStart(2, '0');
-  const month = (date.getMonth() + 1).toString().padStart(2, '0');
-  const year = date.getFullYear();
-  return `${day}/${month}/${year}`;
-};
+// Format date as dd/MM/yyyy for display
+function formatDate(date: Date | undefined): string {
+  if (!date) {
+    return ""
+  }
+  const day = date.getDate().toString().padStart(2, '0')
+  const month = (date.getMonth() + 1).toString().padStart(2, '0')
+  const year = date.getFullYear()
+  return `${day}/${month}/${year}`
+}
+
+// Parse date from dd/MM/yyyy format
+function parseDate(value: string): Date | undefined {
+  if (!value) return undefined
+  
+  // Try dd/MM/yyyy format
+  const parts = value.split('/')
+  if (parts.length === 3) {
+    const day = parseInt(parts[0], 10)
+    const month = parseInt(parts[1], 10) - 1
+    const year = parseInt(parts[2], 10)
+    const date = new Date(year, month, day)
+    if (isValidDate(date)) {
+      return date
+    }
+  }
+  
+  // Try native Date parsing as fallback
+  const date = new Date(value)
+  if (isValidDate(date)) {
+    return date
+  }
+  
+  return undefined
+}
+
+function isValidDate(date: Date | undefined): boolean {
+  if (!date) {
+    return false
+  }
+  return !isNaN(date.getTime())
+}
 
 type DatePickerProps = {
-    id?: string;
-    value?: Date | null;
-    onChange?: (date: Date | undefined) => void;
-    placeholder?: string;
-    className?: string;
-    disabled?: boolean;
+  id?: string;
+  value?: Date | null;
+  onChange?: (date: Date | undefined) => void;
+  placeholder?: string;
+  className?: string;
+  disabled?: boolean;
 };
 
-// Tạo một Popover tùy chỉnh không có overlay tối
-const DatePickerPopover = PopoverPrimitive.Root;
-const DatePickerPopoverTrigger = PopoverPrimitive.Trigger;
+export function DatePicker({ id, value, onChange, placeholder = "dd/mm/yyyy", className, disabled }: DatePickerProps) {
+  const [open, setOpen] = React.useState(false)
+  const [date, setDate] = React.useState<Date | undefined>(value ? new Date(value) : undefined)
+  const [month, setMonth] = React.useState<Date | undefined>(date)
+  const [inputValue, setInputValue] = React.useState(formatDate(date))
 
-const DatePickerPopoverContent = React.forwardRef<
-  React.ElementRef<typeof PopoverPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof PopoverPrimitive.Content> & { id?: string }
->(({ className, align = "center", sideOffset = 4, id = "date-picker", ...props }, ref) => {
-  const [open, setOpen] = React.useState(false);
-  const dataState = props["data-state"];
   React.useEffect(() => {
-    if (dataState === "open") {
-      setOpen(true);
-    } else {
-      setOpen(false);
+    const newDate = value ? new Date(value) : undefined
+    setDate(newDate)
+    setMonth(newDate)
+    setInputValue(formatDate(newDate))
+  }, [value])
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value
+    setInputValue(newValue)
+    
+    const parsedDate = parseDate(newValue)
+    if (parsedDate) {
+      setDate(parsedDate)
+      setMonth(parsedDate)
+      if (onChange) {
+        onChange(parsedDate)
+      }
     }
-  }, [dataState]);
-  
-  // Sử dụng modal context để quản lý z-index mà không có overlay
-  const { zIndex } = useModal(id, open, 'popover');
-  
-  return (
-    <PopoverPrimitive.Portal>
-      <PopoverPrimitive.Content
-        ref={ref}
-        align={align}
-        sideOffset={sideOffset}
-        className={cn(
-          "w-auto rounded-md border bg-popover p-0 text-popover-foreground shadow-md outline-none",
-          "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
-          className
-        )}
-        style={{ zIndex }}
-        {...props}
-      />
-    </PopoverPrimitive.Portal>
-  );
-});
-DatePickerPopoverContent.displayName = "DatePickerPopoverContent";
+  }
 
-export function DatePicker({ id, value, onChange, placeholder, className, disabled }: DatePickerProps) {
-  const [date, setDate] = React.useState<Date | undefined>(value ? new Date(value) : undefined);
-  const [open, setOpen] = React.useState(false);
+  const handleSelect = (selectedDate: Date | undefined) => {
+    setDate(selectedDate)
+    setInputValue(formatDate(selectedDate))
+    if (onChange) {
+      onChange(selectedDate)
+    }
+    setOpen(false)
+  }
 
-  React.useEffect(() => {
-      setDate(value ? new Date(value) : undefined);
-  }, [value]);
-
-  const TriggerButton = React.forwardRef<HTMLButtonElement, React.ButtonHTMLAttributes<HTMLButtonElement>>((props, ref) => (
-      <Button
-          id={id}
-          ref={ref}
-          variant={"outline"}
-          type="button"
-          className={cn(
-            "w-full justify-start text-left font-normal",
-            !date && "text-muted-foreground",
-            "h-9",
-            className
-          )}
-          disabled={disabled}
-          {...props}
-        >
-          <CalendarIcon className="mr-2 h-4 w-4" />
-          {date ? formatDate(date) : <span>{placeholder || "Chọn ngày"}</span>}
-        </Button>
-  ));
-  TriggerButton.displayName = "DatePickerTrigger";
-
-  const Content = () => {
-      const handleSelect = (selectedDate: Date | undefined) => {
-        if (selectedDate) {
-          setDate(selectedDate);
-          if (onChange) {
-              onChange(selectedDate);
-          }
-          setOpen(false);
-        }
-      }
-
-      const handleClear = () => {
-        setDate(undefined);
-        if (onChange) {
-            onChange(undefined);
-        }
-        setOpen(false);
-      }
-
-      const handleToday = () => {
-        const today = new Date();
-        setDate(today);
-        if (onChange) {
-            onChange(today);
-        }
-        setOpen(false);
-      }
-
-      return (
-        <>
-            <Calendar
-                mode="single"
-                selected={date}
-                onSelect={handleSelect}
-            />
-            <div className="p-3 pt-0 flex justify-between">
-                <Button type="button" variant="ghost" size="sm" onClick={handleClear}>Xóa</Button>
-                <Button type="button" variant="ghost" size="sm" onClick={handleToday}>Hôm nay</Button>
-            </div>
-        </>
-      )
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault()
+      setOpen(true)
+    }
   }
 
   return (
-    <DatePickerPopover open={open} onOpenChange={setOpen}>
-      <DatePickerPopoverTrigger asChild>
-        <TriggerButton />
-      </DatePickerPopoverTrigger>
-      <DatePickerPopoverContent 
-        id={`date-picker-${id}`}
-        className="w-auto p-0"
-      >
-        <Content />
-      </DatePickerPopoverContent>
-    </DatePickerPopover>
+    <div className={cn("relative flex gap-2", className)}>
+      <Input
+        id={id}
+        value={inputValue}
+        placeholder={placeholder}
+        className="bg-background pr-10 h-9"
+        disabled={disabled}
+        onChange={handleInputChange}
+        onKeyDown={handleKeyDown}
+      />
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            id={`${id}-picker`}
+            variant="ghost"
+            type="button"
+            disabled={disabled}
+            className="absolute top-1/2 right-2 size-6 -translate-y-1/2 p-0"
+          >
+            <CalendarIcon className="size-3.5" />
+            <span className="sr-only">Chọn ngày</span>
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent
+          className="w-auto overflow-hidden p-0"
+          align="end"
+          alignOffset={-8}
+          sideOffset={10}
+        >
+          <Calendar
+            mode="single"
+            selected={date}
+            captionLayout="dropdown"
+            month={month}
+            onMonthChange={setMonth}
+            onSelect={handleSelect}
+          />
+        </PopoverContent>
+      </Popover>
+    </div>
   )
 }

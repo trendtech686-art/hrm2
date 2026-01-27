@@ -15,20 +15,22 @@ import {
   getHealthScoreLevel,
 } from './intelligence-utils';
 import { calculateLifecycleStage, getLifecycleStageVariant } from './lifecycle-utils';
-import { useCustomerStore } from './store';
-import { useCustomerFinder, useAllCustomers } from './hooks/use-all-customers';
+import { useCustomer, useCustomerMutations } from './hooks/use-customers';
+import { useAllCustomers } from './hooks/use-all-customers';
 import type { Customer } from '@/lib/types/prisma-extended';
 import { useAllOrders } from '../orders/hooks/use-all-orders';
 import { useAllWarranties } from '../warranty/hooks/use-all-warranties';
-import { useComplaintStore } from '../complaints/store';
+import { useComplaints } from '../complaints/hooks/use-complaints';
 import { useAllReceipts } from '../receipts/hooks/use-all-receipts';
 import { useAllPayments } from '../payments/hooks/use-all-payments';
 import { useEmployeeFinder } from '../employees/hooks/use-all-employees';
-import { useCustomerTypeStore } from '../settings/customers/customer-types-store';
-import { useCustomerGroupStore } from '../settings/customers/customer-groups-store';
-import { useCustomerSourceStore } from '../settings/customers/customer-sources-store';
-import { usePaymentTermStore } from '../settings/customers/payment-terms-store';
-import { useCreditRatingStore } from '../settings/customers/credit-ratings-store';
+import { 
+  useCustomerTypes,
+  useCustomerGroups,
+  useCustomerSources,
+  usePaymentTerms,
+  useCreditRatings
+} from '../settings/customers/hooks/use-customer-settings';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -45,6 +47,7 @@ import {
 } from '../../components/ui/alert-dialog';
 import { ArrowLeft, Edit, Trash2, Clock, CreditCard, TrendingDown, Phone, Mail, ExternalLink, HelpCircle } from 'lucide-react';
 import { Badge } from '../../components/ui/badge';
+import { Skeleton } from '../../components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { RelatedDataTable } from '../../components/data-table/related-data-table';
 import { ProgressiveImage } from '../../components/ui/progressive-image';
@@ -130,9 +133,16 @@ const _renderCustomerStatusBadge = (status?: Customer["status"]) => {
 export function CustomerDetailPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const router = useRouter();
-  const { update, removeMany } = useCustomerStore(); // Keep for mutations
-  const { findById } = useCustomerFinder(); // React Query for READ
-  const customer = React.useMemo(() => (systemId ? findById(asSystemId(systemId)) : null), [systemId, findById]);
+  
+  // React Query hooks
+  const { data: customer, isLoading } = useCustomer(systemId);
+  const { update, remove } = useCustomerMutations({
+    onDeleteSuccess: () => {
+      toast.success(`Đã chuyển khách hàng vào thùng rác`);
+      router.push('/customers');
+    },
+  });
+  
   const [activeTab, setActiveTab] = React.useState('info');
   const [orderDrilldownSearch, setOrderDrilldownSearch] = React.useState<DrilldownSearch | null>(null);
   const [warrantyDrilldownSearch, setWarrantyDrilldownSearch] = React.useState<DrilldownSearch | null>(null);
@@ -144,7 +154,8 @@ export function CustomerDetailPage() {
   const { data: allSalesReturns } = useAllSalesReturns();
   const { data: allWarrantyTickets } = useAllWarranties();
   const { data: allCustomers = [] } = useAllCustomers();
-  const allComplaints = useComplaintStore((state) => state.complaints);
+  const { data: queryData } = useComplaints({ limit: 1000 });
+  const allComplaints = React.useMemo(() => queryData?.data ?? [], [queryData?.data]);
   const { data: allReceipts } = useAllReceipts();
   const { data: allPayments } = useAllPayments();
   const { findById: findEmployeeById } = useEmployeeFinder();
@@ -336,19 +347,25 @@ export function CustomerDetailPage() {
     }
   }, [focusTab, buildDrilldownSearch]);
   
-  // Settings stores
-  const customerTypes = useCustomerTypeStore();
-  const customerGroups = useCustomerGroupStore();
-  const customerSources = useCustomerSourceStore();
-  const paymentTerms = usePaymentTermStore();
-  const creditRatings = useCreditRatingStore();
+  // Settings data from React Query
+  const { data: customerTypesData } = useCustomerTypes();
+  const { data: customerGroupsData } = useCustomerGroups();
+  const { data: customerSourcesData } = useCustomerSources();
+  const { data: paymentTermsData } = usePaymentTerms();
+  const { data: creditRatingsData } = useCreditRatings();
+
+  const customerTypes = React.useMemo(() => Array.isArray(customerTypesData) ? customerTypesData : ((customerTypesData as any)?.data ?? []), [customerTypesData]);
+  const customerGroups = React.useMemo(() => Array.isArray(customerGroupsData) ? customerGroupsData : ((customerGroupsData as any)?.data ?? []), [customerGroupsData]);
+  const customerSources = React.useMemo(() => Array.isArray(customerSourcesData) ? customerSourcesData : ((customerSourcesData as any)?.data ?? []), [customerSourcesData]);
+  const paymentTerms = React.useMemo(() => Array.isArray(paymentTermsData) ? paymentTermsData : ((paymentTermsData as any)?.data ?? []), [paymentTermsData]);
+  const creditRatings = React.useMemo(() => Array.isArray(creditRatingsData) ? creditRatingsData : ((creditRatingsData as any)?.data ?? []), [creditRatingsData]);
 
   // Lookup names
-  const getTypeName = React.useCallback((id?: string) => id ? customerTypes.findById(asSystemId(id))?.name : undefined, [customerTypes]);
-  const getGroupName = React.useCallback((id?: string) => id ? customerGroups.findById(asSystemId(id))?.name : undefined, [customerGroups]);
-  const getSourceName = React.useCallback((id?: string) => id ? customerSources.findById(asSystemId(id))?.name : undefined, [customerSources]);
-  const getPaymentTermName = React.useCallback((id?: string) => id ? paymentTerms.findById(asSystemId(id))?.name : undefined, [paymentTerms]);
-  const getCreditRatingName = React.useCallback((id?: string) => id ? creditRatings.findById(asSystemId(id))?.name : undefined, [creditRatings]);
+  const getTypeName = React.useCallback((id?: string) => id ? customerTypes.find(t => t.systemId === id)?.name : undefined, [customerTypes]);
+  const getGroupName = React.useCallback((id?: string) => id ? customerGroups.find(g => g.systemId === id)?.name : undefined, [customerGroups]);
+  const getSourceName = React.useCallback((id?: string) => id ? customerSources.find(s => s.systemId === id)?.name : undefined, [customerSources]);
+  const getPaymentTermName = React.useCallback((id?: string) => id ? paymentTerms.find(p => p.systemId === id)?.name : undefined, [paymentTerms]);
+  const getCreditRatingName = React.useCallback((id?: string) => id ? creditRatings.find(c => c.systemId === id)?.name : undefined, [creditRatings]);
   const getEmployeeName = React.useCallback((id?: string) => id ? findEmployeeById(asSystemId(id))?.fullName : undefined, [findEmployeeById]);
 
   const customerOrders = React.useMemo(() => allOrders.filter(o => o.customerSystemId === customer?.systemId), [allOrders, customer?.systemId]);
@@ -649,11 +666,9 @@ export function CustomerDetailPage() {
   
   const handleDeleteCustomer = React.useCallback(() => {
     if (customer) {
-      removeMany([customer.systemId]);
-      toast.success(`Đã chuyển khách hàng ${customer.name} vào thùng rác`);
-      router.push('/customers');
+      remove.mutate(customer.systemId);
     }
-  }, [customer, removeMany, router]);
+  }, [customer, remove]);
 
   const headerActions = React.useMemo(() => [
     <Button key="delete" variant="outline" size="sm" className="h-9 text-destructive hover:text-destructive" onClick={() => setDeleteDialogOpen(true)}>
@@ -765,6 +780,31 @@ export function CustomerDetailPage() {
   );
 
   // Early return after all hooks have been called
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-8 w-1/3" />
+          </CardHeader>
+          <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Skeleton className="h-20" />
+            <Skeleton className="h-20" />
+            <Skeleton className="h-20" />
+            <Skeleton className="h-20" />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6 space-y-4">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-2/3" />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   if (!customer) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -983,7 +1023,7 @@ export function CustomerDetailPage() {
                   <DetailItem label="Chiến dịch" value={customer.campaign} />
                   <DetailItem 
                     label="Người giới thiệu" 
-                    value={customer.referredBy ? findById(asSystemId(customer.referredBy))?.name : undefined}
+                    value={customer.referredBy ? (allCustomers ?? []).find(c => c.systemId === customer.referredBy)?.name : undefined}
                     onClick={customer.referredBy ? () => router.push(`/customers/${customer.referredBy}`) : undefined}
                   />
                   <DetailItem label="Bảng giá" value={customer.pricingLevel} />
@@ -1410,8 +1450,7 @@ export function CustomerDetailPage() {
             <CustomerAddresses 
               addresses={customer.addresses || []} 
               onUpdate={(newAddresses) => {
-                const updatedCustomer = { ...customer, addresses: newAddresses };
-                update(asSystemId(customer.systemId), updatedCustomer);
+                update.mutate({ systemId: customer.systemId, addresses: newAddresses } as any);
               }}
             />
           </TabsContent>

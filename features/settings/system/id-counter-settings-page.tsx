@@ -55,27 +55,27 @@ import { StatsCard } from '../../../components/settings/stats-card';
 import { CounterTable, type CounterTableRow } from '../../../components/settings/counter-table';
 import { IDTester } from '../../../components/settings/id-tester';
 
-// Import stores (only those that exist and have store-factory)
-import { useEmployeeStore } from '../../employees/store';
-import { useCustomerStore } from '../../customers/store';
-import { useComplaintStore } from '../../complaints/store';
-import { useWarrantyStore } from '../../warranty/store';
-import { useOrderStore } from '../../orders/store';
-import { useProductStore } from '../../products/store';
-import { useBranchStore } from '../branches/store';
-import { useDepartmentStore } from '../departments/store';
-import { useJobTitleStore } from '../job-titles/store';
-import { usePenaltyStore } from '../penalties/store';
-import { useLeaveStore } from '../../leaves/store';
-import { useSupplierStore } from '../../suppliers/store';
-import { usePurchaseOrderStore } from '../../purchase-orders/store';
-import { usePurchaseReturnStore } from '../../purchase-returns/store';
-import { useInventoryReceiptStore } from '../../inventory-receipts/store';
-import { useReceiptTypeStore } from "../receipt-types/store";
-import { usePaymentTypeStore } from "../payments/types/store";
-import { usePaymentMethodStore } from "../payments/methods/store";
-import { useProvinceStore } from '../provinces/store';
-import { useUnitStore } from '../units/store';
+// Import React Query hooks
+import { useEmployees } from '../../employees/hooks/use-employees';
+import { useCustomers } from '../../customers/hooks/use-customers';
+import { useComplaints } from '../../complaints/hooks/use-complaints';
+import { useWarranties } from '../../warranty/hooks/use-warranties';
+import { useOrders } from '../../orders/hooks/use-orders';
+import { useProducts } from '../../products/hooks/use-products';
+import { useBranches } from '../branches/hooks/use-branches';
+import { useDepartments } from '../departments/hooks/use-departments';
+import { useJobTitles } from '../job-titles/hooks/use-job-titles';
+import { usePenalties } from '../penalties/hooks/use-penalties';
+import { useLeaves } from '../../leaves/hooks/use-leaves';
+import { useSuppliers } from '../../suppliers/hooks/use-suppliers';
+import { usePurchaseOrders } from '../../purchase-orders/hooks/use-purchase-orders';
+import { usePurchaseReturns } from '../../purchase-returns/hooks/use-purchase-returns';
+import { useInventoryReceipts } from '../../inventory-receipts/hooks/use-inventory-receipts';
+import { useReceiptTypes } from '../receipt-types/hooks/use-receipt-types';
+import { usePaymentTypes } from '../payments/types/hooks/use-payment-types';
+import { usePaymentMethods } from '../payments/hooks/use-payment-methods';
+import { useProvinces } from '../provinces/hooks/use-provinces';
+import { useUnits } from '../units/hooks/use-units';
 
 // ✅ Update interface to match component
 interface CounterInfo extends CounterTableRow {
@@ -98,7 +98,29 @@ export function IDCounterSettingsPage() {
     ],
   });
 
-  // Gather counter data from all stores
+  // Fetch data from React Query hooks
+  const { data: employeesData } = useEmployees({ limit: 10000 });
+  const { data: customersData } = useCustomers({ limit: 10000 });
+  const { data: complaintsData } = useComplaints({ limit: 10000 });
+  const { data: warrantiesData } = useWarranties({ limit: 10000 });
+  const { data: ordersData } = useOrders({ limit: 10000 });
+  const { data: productsData } = useProducts({ limit: 10000 });
+  const { data: branchesData } = useBranches();
+  const { data: departmentsData } = useDepartments();
+  const { data: jobTitlesData } = useJobTitles();
+  const { data: penaltiesData } = usePenalties({ limit: 10000 });
+  const { data: leavesData } = useLeaves({ limit: 10000 });
+  const { data: suppliersData } = useSuppliers({ limit: 10000 });
+  const { data: purchaseOrdersData } = usePurchaseOrders({ limit: 10000 });
+  const { data: purchaseReturnsData } = usePurchaseReturns({ limit: 10000 });
+  const { data: inventoryReceiptsData } = useInventoryReceipts({ limit: 10000 });
+  const { data: receiptTypesData } = useReceiptTypes();
+  const { data: paymentTypesData } = usePaymentTypes();
+  const { data: paymentMethodsData } = usePaymentMethods();
+  const { data: provincesData } = useProvinces();
+  const { data: unitsData } = useUnits();
+
+  // Gather counter data from React Query hooks
   const counterData = React.useMemo((): CounterInfo[] => {
     const data: CounterInfo[] = [];
     
@@ -131,109 +153,108 @@ export function IDCounterSettingsPage() {
     };
 
     // Employees
-    const empStore = useEmployeeStore.getState();
-    addCounter('employees', (empStore as { businessIdCounter?: number }).businessIdCounter || 0, empStore.data, empStore.data[empStore.data.length - 1]);
+    const employees = employeesData?.data ?? [];
+    addCounter('employees', 0, employees, employees[employees.length - 1]);
 
     // Customers
-    const custStore = useCustomerStore.getState();
-    addCounter('customers', (custStore as { businessIdCounter?: number }).businessIdCounter || 0, custStore.data, custStore.data[custStore.data.length - 1]);
+    const customers = customersData?.data ?? [];
+    addCounter('customers', 0, customers, customers[customers.length - 1]);
 
-    // Vouchers - Skip (handled by receipts/payments separately)
-    // const voucherStore = useVoucherStore.getState();
-    // Vouchers use 'receipts' and 'payments' entity types, not 'vouchers'
+    // Complaints
+    const complaints = complaintsData?.data ?? [];
+    addCounter('complaints', 0, complaints, complaints[complaints.length - 1]);
 
-    // Complaints - Use complaints array from store
-    const complaintState = useComplaintStore.getState();
-    const complaintData = complaintState.complaints || [];
-    addCounter('complaints', 0, complaintData, complaintData[complaintData.length - 1]);
-
-    // Warranty - Use data array from store
-    const warrantyState = useWarrantyStore.getState();
-    const warrantyData = warrantyState.data || [];
-    addCounter('warranty', 0, warrantyData, warrantyData[warrantyData.length - 1]);
+    // Warranty
+    const warranties = warrantiesData?.data ?? [];
+    addCounter('warranty', 0, warranties, warranties[warranties.length - 1]);
 
     // Orders
-    const orderState = useOrderStore.getState();
-    const orderData = orderState.data || [];
-    addCounter('orders', 0, orderData, orderData[orderData.length - 1]);
+    const orders = ordersData?.data ?? [];
+    addCounter('orders', 0, orders, orders[orders.length - 1]);
 
     // Products
-    const productState = useProductStore.getState();
-    const productData = productState.data || [];
-    addCounter('products', 0, productData, productData[productData.length - 1]);
+    const products = productsData?.data ?? [];
+    addCounter('products', 0, products, products[products.length - 1]);
 
     // Branches
-    const branchState = useBranchStore.getState();
-    const branchData = branchState.data || [];
-    addCounter('branches', 0, branchData, branchData[branchData.length - 1]);
+    const branches = (branchesData as any)?.data ?? branchesData ?? [];
+    addCounter('branches', 0, branches as any, branches[branches.length - 1]);
 
     // Departments
-    const deptState = useDepartmentStore.getState();
-    const deptData = deptState.data || [];
-    addCounter('departments', 0, deptData, deptData[deptData.length - 1]);
+    const departments = (departmentsData as any)?.data ?? departmentsData ?? [];
+    addCounter('departments', 0, departments as any, departments[departments.length - 1]);
 
     // Job Titles
-    const jobState = useJobTitleStore.getState();
-    const jobData = jobState.data || [];
-    addCounter('job-titles', 0, jobData, jobData[jobData.length - 1]);
+    const jobTitles = (jobTitlesData as any)?.data ?? jobTitlesData ?? [];
+    addCounter('job-titles', 0, jobTitles as any, jobTitles[jobTitles.length - 1]);
 
     // Penalties
-    const penaltyState = usePenaltyStore.getState();
-    const penaltyData = penaltyState.data || [];
-    addCounter('penalties', 0, penaltyData, penaltyData[penaltyData.length - 1]);
+    const penalties = penaltiesData?.data ?? [];
+    addCounter('penalties', 0, penalties, penalties[penalties.length - 1]);
 
     // Leaves
-    const leaveState = useLeaveStore.getState();
-    const leaveData = leaveState.data || [];
-    addCounter('leaves', 0, leaveData, leaveData[leaveData.length - 1]);
+    const leaves = leavesData?.data ?? [];
+    addCounter('leaves', 0, leaves, leaves[leaves.length - 1]);
 
     // Suppliers
-    const supplierState = useSupplierStore.getState();
-    const supplierData = supplierState.data || [];
-    addCounter('suppliers', 0, supplierData, supplierData[supplierData.length - 1]);
+    const suppliers = suppliersData?.data ?? [];
+    addCounter('suppliers', 0, suppliers, suppliers[suppliers.length - 1]);
 
     // Purchase Orders
-    const poState = usePurchaseOrderStore.getState();
-    const poData = poState.data || [];
-    addCounter('purchase-orders', 0, poData, poData[poData.length - 1]);
+    const purchaseOrders = purchaseOrdersData?.data ?? [];
+    addCounter('purchase-orders', 0, purchaseOrders, purchaseOrders[purchaseOrders.length - 1]);
 
     // Purchase Returns
-    const prState = usePurchaseReturnStore.getState();
-    const prData = prState.data || [];
-    addCounter('purchase-returns', 0, prData, prData[prData.length - 1]);
+    const purchaseReturns = purchaseReturnsData?.data ?? [];
+    addCounter('purchase-returns', 0, purchaseReturns, purchaseReturns[purchaseReturns.length - 1]);
 
     // Inventory Receipts
-    const invState = useInventoryReceiptStore.getState();
-    const invData = invState.data || [];
-    addCounter('inventory-receipts', 0, invData, invData[invData.length - 1]);
+    const inventoryReceipts = inventoryReceiptsData?.data ?? [];
+    addCounter('inventory-receipts', 0, inventoryReceipts, inventoryReceipts[inventoryReceipts.length - 1]);
 
     // Receipt Types
-    const receiptState = useReceiptTypeStore.getState();
-    const receiptData = receiptState.data || [];
-    addCounter('receipt-types', 0, receiptData, receiptData[receiptData.length - 1]);
+    const receiptTypes = (receiptTypesData as any)?.data ?? receiptTypesData ?? [];
+    addCounter('receipt-types', 0, receiptTypes as any, receiptTypes[receiptTypes.length - 1]);
 
     // Payment Types
-    const paymentState = usePaymentTypeStore.getState();
-    const paymentData = paymentState.data || [];
-    addCounter('payment-types', 0, paymentData, paymentData[paymentData.length - 1]);
+    const paymentTypes = (paymentTypesData as any)?.data ?? paymentTypesData ?? [];
+    addCounter('payment-types', 0, paymentTypes as any, paymentTypes[paymentTypes.length - 1]);
 
     // Payment Methods
-    const methodState = usePaymentMethodStore.getState();
-    const methodData = methodState.data || [];
-    addCounter('payment-methods', 0, methodData, methodData[methodData.length - 1]);
+    const paymentMethods = (paymentMethodsData as any)?.data ?? paymentMethodsData ?? [];
+    addCounter('payment-methods', 0, paymentMethods as any, paymentMethods[paymentMethods.length - 1]);
 
     // Provinces
-    const provState = useProvinceStore.getState();
-    const provData = provState.data || [];
-    addCounter('provinces', 0, provData, provData[provData.length - 1]);
+    const provinces = (provincesData as any)?.data ?? provincesData ?? [];
+    addCounter('provinces', 0, provinces as any, provinces[provinces.length - 1]);
 
     // Units
-    const unitState = useUnitStore.getState();
-    const unitData = unitState.data || [];
-    addCounter('units', 0, unitData, unitData[unitData.length - 1]);
+    const units = Array.isArray(unitsData) ? unitsData : (unitsData as any)?.items ?? [];
+    addCounter('units', 0, units, units[units.length - 1]);
 
     return data;
-  }, []);
+  }, [
+    employeesData,
+    customersData,
+    complaintsData,
+    warrantiesData,
+    ordersData,
+    productsData,
+    branchesData,
+    departmentsData,
+    jobTitlesData,
+    penaltiesData,
+    leavesData,
+    suppliersData,
+    purchaseOrdersData,
+    purchaseReturnsData,
+    inventoryReceiptsData,
+    receiptTypesData,
+    paymentTypesData,
+    paymentMethodsData,
+    provincesData,
+    unitsData,
+  ]);
 
   // Filter data
   const filteredData = React.useMemo(() => {

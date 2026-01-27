@@ -14,7 +14,7 @@ import { TimePicker } from '../../../components/ui/time-picker';
 import { CheckCircle2, XCircle, Clock, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
 import type { SystemId } from '../../../lib/id-types';
-import { useLeaveStore } from '../../leaves/store';
+import { useAllLeaves } from '../../leaves/hooks/use-all-leaves';
 import { formatDate } from '../../../lib/date-utils';
 import { Badge } from '../../../components/ui/badge';
 import type { LeaveRequest } from '../../leaves/types';
@@ -73,8 +73,7 @@ const isDateWithinRange = (target: Date, start: Date, end: Date) => {
 };
 
 export function AttendanceEditDialog({ isOpen, onOpenChange, recordData, onSave, monthDate }: AttendanceEditDialogProps) {
-    const leaveStore = useLeaveStore();
-    const leaveRequests = React.useMemo(() => leaveStore?.data ?? [], [leaveStore?.data]);
+    const { data: leaveRequests = [] } = useAllLeaves();
     const form = useForm<FormValues>({
         resolver: zodResolver(formSchema),
     });
@@ -106,7 +105,7 @@ export function AttendanceEditDialog({ isOpen, onOpenChange, recordData, onSave,
 
     React.useEffect(() => {
         if (isOpen && recordData) {
-            reset(recordData.record);
+            reset(recordData.record as any);
         }
     }, [isOpen, recordData, reset]);
 
@@ -201,13 +200,13 @@ export function AttendanceEditDialog({ isOpen, onOpenChange, recordData, onSave,
                             )}
                         />
                         {targetDate && (
-                            <div className="rounded-md border p-3 text-body-xs space-y-2">
+                            <div className="rounded-md border border-border p-3 text-body-xs space-y-2">
                                 <div className="flex items-center justify-between">
                                     <span className="font-medium">Ngày {formattedTargetDate}</span>
                                     {hasApprovedLeave ? (
                                         <Badge variant="secondary" className="text-emerald-600">Có {overlappingLeaves.length} đơn đã duyệt</Badge>
                                     ) : (
-                                        <Badge variant="destructive">Chưa có đơn nghỉ</Badge>
+                                        <Badge variant="outline">Chưa có đơn nghỉ</Badge>
                                     )}
                                 </div>
                                 {hasApprovedLeave ? (
@@ -220,7 +219,7 @@ export function AttendanceEditDialog({ isOpen, onOpenChange, recordData, onSave,
                                         ))}
                                     </ul>
                                 ) : (
-                                    <p className="text-muted-foreground">Đánh dấu nghỉ sẽ bị chặn khi chưa có đơn được duyệt.</p>
+                                    <p className="text-muted-foreground">Chưa có đơn nghỉ phép cho ngày này.</p>
                                 )}
                             </div>
                         )}

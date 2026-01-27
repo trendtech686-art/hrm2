@@ -1,12 +1,13 @@
 import * as React from 'react';
-import { useCustomerStore } from '../store';
+import { useAllCustomers } from '../hooks/use-all-customers';
 import { useCustomerSlaEngineStore } from './store';
-import { useCustomerSlaStore as useCustomerSlaSettingStore } from '../../settings/customers/sla-settings-store';
+import { useCustomerSlaSettings } from '../../settings/customers/hooks/use-customer-settings';
 import { useCustomersWithComputedDebt } from '../hooks/use-computed-debt';
 
 export function useCustomerSlaEvaluation() {
-  const customers = useCustomerStore((state) => state.data);
-  const slaSettings = useCustomerSlaSettingStore((state) => state.data);
+  const { data: customers } = useAllCustomers();
+  const { data: slaSettingsData } = useCustomerSlaSettings();
+  const slaSettings = React.useMemo(() => Array.isArray(slaSettingsData) ? slaSettingsData : (slaSettingsData as any)?.data ?? [], [slaSettingsData]);
   const evaluate = useCustomerSlaEngineStore((state) => state.evaluate);
   const storeState = useCustomerSlaEngineStore();
 

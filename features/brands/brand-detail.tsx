@@ -44,7 +44,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { useBrandStore } from '../settings/inventory/brand-store';
+import { useBrands, useBrandMutations } from './hooks/use-brands';
 import type { Brand as _Brand } from '../settings/inventory/types';
 import { asSystemId, asBusinessId, type SystemId as _SystemId } from '@/lib/id-types';
 import { toast } from 'sonner';
@@ -94,14 +94,26 @@ export function BrandDetailPage() {
   
   const isEditMode = pathname?.endsWith('/edit') ?? false;
   
-  const { data, update, remove } = useBrandStore();
+  const { data: brandsData } = useBrands({ limit: 1000 });
+  const brands = React.useMemo(() => brandsData?.data ?? [], [brandsData?.data]);
+  const { update, remove } = useBrandMutations({
+    onUpdateSuccess: () => {
+      toast.success('Đã cập nhật thương hiệu');
+      router.push(`/brands/${systemId}`);
+    },
+    onDeleteSuccess: () => {
+      toast.success('Đã xóa thương hiệu');
+      router.push('/brands');
+    },
+    onError: (err) => toast.error(err.message)
+  });
   
   // PKGX sync hook
   const { handleSyncSeo, handleSyncDescription, handleSyncAll, hasPkgxMapping } = usePkgxBrandSync();
   
   const brand = React.useMemo(() => 
-    data.find(b => b.systemId === systemId), 
-    [data, systemId]
+    brands.find(b => b.systemId === systemId), 
+    [brands, systemId]
   );
   
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = React.useState(false);
@@ -152,8 +164,8 @@ export function BrandDetailPage() {
         longDescription: brand.longDescription || '',
         // SEO riêng cho từng website
         websiteSeo: {
-          pkgx: brand.websiteSeo?.pkgx || {},
-          trendtech: brand.websiteSeo?.trendtech || {},
+          pkgx: (brand.websiteSeo as any)?.pkgx || {},
+          trendtech: (brand.websiteSeo as any)?.trendtech || {},
         },
       });
     }
@@ -189,21 +201,19 @@ export function BrandDetailPage() {
       }
     }
     
-    update(asSystemId(systemId), {
-      ...data,
-      id: asBusinessId(data.id),
-      logo: logoUrl,
+    update.mutate({
+      systemId: asSystemId(systemId),
+      data: {
+        ...data,
+        id: asBusinessId(data.id),
+        logo: logoUrl,
+      }
     });
-    
-    toast.success('Đã cập nhật thương hiệu');
-    router.push(`/brands/${systemId}`);
-  }, [systemId, logoFiles, logoSessionId, update, router]);
+  }, [systemId, logoFiles, logoSessionId, update]);
 
   const handleDelete = () => {
     if (!systemId) return;
-    remove(asSystemId(systemId));
-    toast.success('Đã xóa thương hiệu');
-    router.push('/brands');
+    remove.mutate(asSystemId(systemId));
   };
 
   const handleSwitchToEdit = React.useCallback(() => {
@@ -397,13 +407,13 @@ export function BrandDetailPage() {
                     <Globe className="h-4 w-4 text-red-500" />
                     <CardTitle className="text-base">SEO PKGX</CardTitle>
                   </div>
-                  {brand && hasPkgxMapping(brand) && (
+                  {brand && hasPkgxMapping(brand as any) && (
                     <div className="flex items-center gap-2">
                       <Button 
                         variant="outline" 
                         size="sm" 
                         className="h-8 text-xs"
-                        onClick={() => handleSyncSeo(brand)}
+                        onClick={() => handleSyncSeo(brand as any)}
                       >
                         <RefreshCw className="mr-1.5 h-3 w-3" />
                         Đồng bộ SEO
@@ -412,7 +422,7 @@ export function BrandDetailPage() {
                         variant="outline" 
                         size="sm" 
                         className="h-8 text-xs"
-                        onClick={() => handleSyncDescription(brand)}
+                        onClick={() => handleSyncDescription(brand as any)}
                       >
                         <RefreshCw className="mr-1.5 h-3 w-3" />
                         Đồng bộ mô tả
@@ -420,7 +430,7 @@ export function BrandDetailPage() {
                       <Button 
                         size="sm" 
                         className="h-8 text-xs"
-                        onClick={() => handleSyncAll(brand)}
+                        onClick={() => handleSyncAll(brand as any)}
                       >
                         <RefreshCw className="mr-1.5 h-3 w-3" />
                         Đồng bộ tất cả
@@ -430,7 +440,7 @@ export function BrandDetailPage() {
                 </div>
                 <CardDescription>
                   phukiengiaxuong.com.vn - Override SEO chung
-                  {brand && !hasPkgxMapping(brand) && (
+                  {brand && !hasPkgxMapping(brand as any) && (
                     <span className="text-orange-600 ml-2">(Chưa mapping với PKGX - vào Cài đặt &gt; PKGX để mapping)</span>
                   )}
                 </CardDescription>
@@ -438,30 +448,30 @@ export function BrandDetailPage() {
               <CardContent className="space-y-4">
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Tiêu đề SEO</p>
-                  <p className="text-sm font-medium">{brand.websiteSeo?.pkgx?.seoTitle || '-'}</p>
+                  <p className="text-sm font-medium">{(brand.websiteSeo as any)?.pkgx?.seoTitle || '-'}</p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Meta Description</p>
-                  <p className="text-sm">{brand.websiteSeo?.pkgx?.metaDescription || '-'}</p>
+                  <p className="text-sm">{(brand.websiteSeo as any)?.pkgx?.metaDescription || '-'}</p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Từ khóa SEO</p>
-                  <p className="text-sm">{brand.websiteSeo?.pkgx?.seoKeywords || '-'}</p>
+                  <p className="text-sm">{(brand.websiteSeo as any)?.pkgx?.seoKeywords || '-'}</p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">URL Slug</p>
-                  <p className="text-sm font-mono">{brand.websiteSeo?.pkgx?.slug || '-'}</p>
+                  <p className="text-sm font-mono">{(brand.websiteSeo as any)?.pkgx?.slug || '-'}</p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Mô tả ngắn</p>
-                  {brand.websiteSeo?.pkgx?.shortDescription ? (
-                    <div className="prose prose-sm max-w-none text-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: brand.websiteSeo.pkgx.shortDescription }} />
+                  {(brand.websiteSeo as any)?.pkgx?.shortDescription ? (
+                    <div className="prose prose-sm max-w-none text-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: (brand.websiteSeo as any).pkgx.shortDescription }} />
                   ) : <p className="text-sm text-muted-foreground">-</p>}
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Mô tả chi tiết</p>
-                  {brand.websiteSeo?.pkgx?.longDescription ? (
-                    <div className="prose prose-sm max-w-none text-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: brand.websiteSeo.pkgx.longDescription }} />
+                  {(brand.websiteSeo as any)?.pkgx?.longDescription ? (
+                    <div className="prose prose-sm max-w-none text-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: (brand.websiteSeo as any).pkgx.longDescription }} />
                   ) : <p className="text-sm text-muted-foreground">-</p>}
                 </div>
               </CardContent>
@@ -481,30 +491,30 @@ export function BrandDetailPage() {
               <CardContent className="space-y-4">
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Tiêu đề SEO</p>
-                  <p className="text-sm font-medium">{brand.websiteSeo?.trendtech?.seoTitle || '-'}</p>
+                  <p className="text-sm font-medium">{(brand.websiteSeo as any)?.trendtech?.seoTitle || '-'}</p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Meta Description</p>
-                  <p className="text-sm">{brand.websiteSeo?.trendtech?.metaDescription || '-'}</p>
+                  <p className="text-sm">{(brand.websiteSeo as any)?.trendtech?.metaDescription || '-'}</p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Từ khóa SEO</p>
-                  <p className="text-sm">{brand.websiteSeo?.trendtech?.seoKeywords || '-'}</p>
+                  <p className="text-sm">{(brand.websiteSeo as any)?.trendtech?.seoKeywords || '-'}</p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">URL Slug</p>
-                  <p className="text-sm font-mono">{brand.websiteSeo?.trendtech?.slug || '-'}</p>
+                  <p className="text-sm font-mono">{(brand.websiteSeo as any)?.trendtech?.slug || '-'}</p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Mô tả ngắn</p>
-                  {brand.websiteSeo?.trendtech?.shortDescription ? (
-                    <div className="prose prose-sm max-w-none text-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: brand.websiteSeo.trendtech.shortDescription }} />
+                  {(brand.websiteSeo as any)?.trendtech?.shortDescription ? (
+                    <div className="prose prose-sm max-w-none text-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: (brand.websiteSeo as any).trendtech.shortDescription }} />
                   ) : <p className="text-sm text-muted-foreground">-</p>}
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Mô tả chi tiết</p>
-                  {brand.websiteSeo?.trendtech?.longDescription ? (
-                    <div className="prose prose-sm max-w-none text-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: brand.websiteSeo.trendtech.longDescription }} />
+                  {(brand.websiteSeo as any)?.trendtech?.longDescription ? (
+                    <div className="prose prose-sm max-w-none text-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: (brand.websiteSeo as any).trendtech.longDescription }} />
                   ) : <p className="text-sm text-muted-foreground">-</p>}
                 </div>
               </CardContent>

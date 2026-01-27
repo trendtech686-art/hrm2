@@ -193,3 +193,54 @@ export async function fetchProductInventory(productId: string): Promise<Record<s
   
   return res.json();
 }
+
+// ============ TRASH FUNCTIONS ============
+
+/**
+ * Fetch deleted products
+ */
+export async function fetchDeletedProducts(): Promise<Product[]> {
+  const res = await fetch(`${API_BASE}/deleted`, {
+    credentials: 'include',
+  });
+  
+  if (!res.ok) {
+    throw new Error(`Failed to fetch deleted products: ${res.statusText}`);
+  }
+  
+  const json = await res.json();
+  return json.data || json;
+}
+
+/**
+ * Restore deleted product
+ */
+export async function restoreProduct(systemId: string): Promise<Product> {
+  const res = await fetch(`${API_BASE}/${systemId}/restore`, {
+    method: 'POST',
+    credentials: 'include',
+  });
+  
+  const json = await res.json();
+  
+  if (!res.ok) {
+    throw new Error(json.error || json.message || `Failed to restore product: ${res.statusText}`);
+  }
+  
+  return json.data || json;
+}
+
+/**
+ * Permanently delete product
+ */
+export async function permanentDeleteProduct(systemId: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/${systemId}/permanent`, {
+    method: 'DELETE',
+    credentials: 'include',
+  });
+  
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error || errorData.message || `Failed to permanently delete product: ${res.statusText}`);
+  }
+}

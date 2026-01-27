@@ -17,7 +17,7 @@ import { ScrollArea } from "../../../components/ui/scroll-area";
 import { useAllDepartments } from "../departments/hooks/use-all-departments";
 import { Info, Calculator, Building2, Banknote, Receipt, Coins } from "lucide-react";
 import type { SystemId } from "@/lib/id-types";
-import { useEmployeeSettingsStore } from "./employee-settings-store";
+import { useEmployeeSettings, useEmployeeSettingsMutation } from "./hooks/use-employee-settings";
 
 export type SalaryComponentFormValues = Omit<SalaryComponent, 'systemId' | 'id' | 'createdAt' | 'createdBy' | 'updatedAt' | 'updatedBy'>;
 
@@ -35,7 +35,8 @@ const categoryOptions: { value: SalaryComponentCategory; label: string; icon: Re
 
 export function SalaryComponentForm({ initialData, onSubmit, onCancel }: SalaryComponentFormProps) {
   const { data: departments } = useAllDepartments();
-  const { settings } = useEmployeeSettingsStore();
+  const { data: settings } = useEmployeeSettings();
+  const saveMutation = useEmployeeSettingsMutation();
   
   // Format số để hiển thị
   const _formatNumber = (n: number) => n.toLocaleString('vi-VN');
@@ -248,14 +249,14 @@ export function SalaryComponentForm({ initialData, onSubmit, onCancel }: SalaryC
                 )} />
                 
                 {/* Hiển thị ô nhập mealAllowancePerDay khi công thức chứa biến này */}
-                {form.watch('formula')?.includes('mealAllowancePerDay') && (
+                {form.watch('formula')?.includes('mealAllowancePerDay') && settings && (
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Mức phụ cấp ăn trưa/ngày (VNĐ)</label>
                     <CurrencyInput 
                       value={settings.mealAllowancePerDay || 30000} 
                       onChange={(value) => {
-                        // Cập nhật vào settings store
-                        useEmployeeSettingsStore.getState().setSettings({
+                        // Cập nhật vào database via API
+                        saveMutation.mutate({
                           ...settings,
                           mealAllowancePerDay: value,
                         });

@@ -4,11 +4,12 @@ import * as React from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
-import { useProductStore } from './store';
+import { useProducts, useProduct, useProductMutations } from './hooks/use-products';
 import { asSystemId, type SystemId } from '@/lib/id-types';
 import { formatDateForDisplay, formatDateTimeForDisplay } from '@/lib/date-utils';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { useAuth } from '../../contexts/auth-context';
+import { Skeleton } from '../../components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Edit, Printer, AlertTriangle, Eye, Trash2, Package, ArrowLeft, Globe, Video } from 'lucide-react';
@@ -115,7 +116,28 @@ const getTypeLabel = (type?: string) => {
 export function ProductDetailPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const router = useRouter();
-  const { findById: findProductById, data: allProducts, remove } = useProductStore();
+  
+  // ✅ React Query hooks
+  const { data: allProductsData } = useProducts({ limit: 1000 });
+  const allProducts = React.useMemo(() => allProductsData?.data ?? [], [allProductsData?.data]);
+  const { data: productFromQuery, isLoading } = useProduct(systemId);
+  const { remove: removeMutation } = useProductMutations({
+    onDeleteSuccess: () => {
+      toast.success('Đã chuyển sản phẩm vào thùng rác', {
+        action: {
+          label: 'Xem thùng rác',
+          onClick: () => router.push('/products/trash'),
+        },
+      });
+      router.push('/products');
+    },
+    onError: (err) => toast.error(err.message || 'Xóa sản phẩm thất bại'),
+  });
+  
+  const findProductById = React.useCallback((id: string) => 
+    allProducts.find(p => p.systemId === id), 
+  [allProducts]);
+  
   const { findById: findSupplierById } = useSupplierFinder();
   const { data: pricingPolicies } = useAllPricingPolicies();
   const { getHistoryForProduct } = useStockHistoryStore();
@@ -140,9 +162,13 @@ export function ProductDetailPage() {
   const [inTransitDialogOpen, setInTransitDialogOpen] = React.useState(false);
   const [inTransitBranch, setInTransitBranch] = React.useState<{ systemId: SystemId; name: string } | null>(null);
 
-  // Include allProducts in deps to trigger re-render when store updates (e.g. after PKGX link)
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- allProducts triggers re-render when store updates
-  const product = React.useMemo(() => (systemId ? findProductById(asSystemId(systemId)) : null), [systemId, findProductById, allProducts]);
+  // ✅ Ưu tiên React Query, fallback to store
+  const product = React.useMemo(() => {
+    if (systemId) {
+      return productFromQuery || findProductById(asSystemId(systemId)) || null;
+    }
+    return null;
+  }, [systemId, productFromQuery, findProductById]);
   const productSystemId = product?.systemId ?? null;
   const supplier = React.useMemo(() => (product?.primarySupplierSystemId ? findSupplierById(product.primarySupplierSystemId) : null), [product, findSupplierById]);
   const createdByEmployee = React.useMemo(() => (product?.createdBy ? findEmployeeById(product.createdBy) : null), [product, findEmployeeById]);
@@ -442,16 +468,8 @@ export function ProductDetailPage() {
 
   const handleMoveToTrash = React.useCallback(() => {
     if (!product) return;
-    remove(product.systemId);
-    toast.success('Đã chuyển sản phẩm vào thùng rác', {
-      description: `${product.name} (${product.id})`,
-      action: {
-        label: 'Xem thùng rác',
-        onClick: () => router.push('/products/trash'),
-      },
-    });
-    router.push('/products');
-  }, [product, remove, router]);
+    removeMutation.mutate(product.systemId);
+  }, [product, removeMutation]);
 
   const headerActions = React.useMemo(() => {
     if (!product) return [];
@@ -583,6 +601,32 @@ export function ProductDetailPage() {
     actions: headerActions,
   });
 
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex gap-6">
+              <Skeleton className="w-32 h-32 rounded-lg" />
+              <div className="flex-1 space-y-3">
+                <Skeleton className="h-8 w-1/3" />
+                <Skeleton className="h-4 w-1/2" />
+                <Skeleton className="h-4 w-1/4" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-6 space-y-4">
+            <Skeleton className="h-32" />
+            <Skeleton className="h-32" />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   if (!product) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -608,7 +652,7 @@ export function ProductDetailPage() {
           <CardContent className="p-4 md:p-6">
             <div className="flex flex-col lg:flex-row gap-6">
               {/* Product Image */}
-              <div className="flex-shrink-0 lg:w-48">
+              <div className="shrink-0 lg:w-48">
                 {thumbnailImage ? (
                   <div
                     className="relative aspect-square rounded-lg overflow-hidden border bg-muted cursor-pointer"
@@ -1053,7 +1097,7 @@ export function ProductDetailPage() {
                 <CardContent className="p-4">
                   <RelatedDataTable data={productHistory} columns={stockHistoryColumns} searchKeys={['action', 'documentId', 'employeeName']} searchPlaceholder="Tìm kiếm..." dateFilterColumn="date" dateFilterTitle="Ngày" exportFileName={`Lich_su_kho_${product.id}`}>
                     <Select value={historyBranchFilter} onValueChange={(v) => setHistoryBranchFilter(v === 'all' ? 'all' : asSystemId(v))}>
-                      <SelectTrigger className="h-8 w-full sm:w-[200px]"><SelectValue placeholder="Lọc chi nhánh" /></SelectTrigger>
+                      <SelectTrigger className="h-8 w-full sm:w-50"><SelectValue placeholder="Lọc chi nhánh" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">Tất cả chi nhánh</SelectItem>
                         {branches.map(b => <SelectItem key={b.systemId} value={b.systemId}>{b.name}</SelectItem>)}
@@ -1069,7 +1113,7 @@ export function ProductDetailPage() {
                   <CardContent className="p-4">
                     <RelatedDataTable data={purchasePriceHistory} columns={purchasePriceHistoryColumns} searchKeys={['supplierName', 'reference', 'note']} searchPlaceholder="Tìm kiếm..." dateFilterColumn="date" dateFilterTitle="Ngày" exportFileName={`Lich_su_gia_${product.id}`}>
                       <Select value={priceHistoryBranchFilter} onValueChange={(v) => setPriceHistoryBranchFilter(v === 'all' ? 'all' : asSystemId(v))}>
-                        <SelectTrigger className="h-8 w-full sm:w-[200px]"><SelectValue placeholder="Lọc chi nhánh" /></SelectTrigger>
+                        <SelectTrigger className="h-8 w-full sm:w-50"><SelectValue placeholder="Lọc chi nhánh" /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="all">Tất cả chi nhánh</SelectItem>
                           {branches.map(b => <SelectItem key={b.systemId} value={b.systemId}>{b.name}</SelectItem>)}

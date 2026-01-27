@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { useTaskStore } from '../store';
+import { useTaskById, useTaskMutations } from '../hooks/use-tasks';
 import { useAllEmployees } from '@/features/employees/hooks/use-all-employees';
 import { useAuth } from '@/contexts/auth-context';
 import { usePageHeader } from '@/contexts/page-header-context';
@@ -25,8 +25,18 @@ export function TaskFormPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const routeSystemId = React.useMemo(() => (systemId ? asSystemId(systemId) : undefined), [systemId]);
   const router = useRouter();
-  const store = useTaskStore();
-  const { findById, add, update } = store;
+  
+  const { data: task } = useTaskById(routeSystemId);
+  const { create: createMutation, update: updateMutation } = useTaskMutations({
+    onSuccess: () => {
+      toast.success(isEdit ? 'Đã cập nhật công việc' : 'Đã tạo công việc mới');
+      router.push('/tasks');
+    },
+    onError: (error) => {
+      toast.error('Lỗi', { description: error.message });
+    }
+  });
+  
   const { data: employees } = useAllEmployees();
   const { isAdmin, employee: authEmployee } = useAuth();
   
@@ -38,7 +48,6 @@ export function TaskFormPage() {
     }
   }, [isAdmin, router]);
 
-  const task = React.useMemo(() => (routeSystemId ? findById(routeSystemId) : null), [routeSystemId, findById]);
   const isEdit = !!systemId;
 
   const [formData, setFormData] = React.useState(() => ({
@@ -164,13 +173,10 @@ export function TaskFormPage() {
     };
 
     if (isEdit && task) {
-      update(task.systemId, { ...task, ...taskData });
-      toast.success('Đã cập nhật công việc');
+      updateMutation.mutate({ systemId: task.systemId, data: { ...task, ...taskData } });
     } else {
-      add(taskData as Parameters<typeof add>[0]);
-      toast.success('Đã tạo công việc mới');
+      createMutation.mutate(taskData as Parameters<typeof createMutation.mutate>[0]);
     }
-    router.push('/tasks');
   };
 
   const handleApplyTemplate = (templateId: string) => {

@@ -4,7 +4,7 @@ import * as React from "react"
 import { useRouter } from 'next/navigation';
 import { toast } from "sonner"
 import { usePageHeader } from "../../contexts/page-header-context";
-import { useCustomerStore } from "./store"
+import { useDeletedCustomers, useTrashMutations } from "./hooks/use-customers"
 import { getColumns } from "./trash-columns"
 import { GenericTrashPage } from "../../components/shared/generic-trash-page"
 import { Card, CardContent } from "../../components/ui/card"
@@ -17,7 +17,8 @@ import { formatDateTime } from "@/lib/format-utils"
 import type { SystemId } from '@/lib/id-types'
 
 export function CustomersTrashPage() {
-  const { data, getDeleted, restore, remove } = useCustomerStore();
+  const { data: deletedCustomers = [], isLoading } = useDeletedCustomers();
+  const { restore, permanentDelete } = useTrashMutations();
   const router = useRouter();
   
   usePageHeader({
@@ -35,26 +36,29 @@ export function CustomersTrashPage() {
       </Button>,
     ],
   });
-  
-  // React to store changes by depending on data array
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- data triggers re-evaluation when store changes
-  const deletedCustomers = React.useMemo(() => getDeleted(), [getDeleted, data]);
 
   // Handlers for column actions
   const handleRestoreFromColumn = React.useCallback((systemId: SystemId) => {
-    restore(systemId);
-    toast.success("Đã khôi phục khách hàng");
+    restore.mutate(systemId, {
+      onSuccess: () => {
+        toast.success("Đã khôi phục khách hàng");
+      },
+      onError: (error) => {
+        toast.error(error.message || "Có lỗi khi khôi phục khách hàng");
+      }
+    });
   }, [restore]);
 
   const handleDeleteFromColumn = React.useCallback(async (systemId: SystemId) => {
-    try {
-      remove(systemId);
-      toast.success("Đã xóa vĩnh viễn khách hàng");
-    } catch (error) {
-      toast.error("Có lỗi khi xóa khách hàng");
-      console.error(error);
-    }
-  }, [remove]);
+    permanentDelete.mutate(systemId, {
+      onSuccess: () => {
+        toast.success("Đã xóa vĩnh viễn khách hàng");
+      },
+      onError: (error) => {
+        toast.error(error.message || "Có lỗi khi xóa khách hàng");
+      }
+    });
+  }, [permanentDelete]);
 
   const columns = React.useMemo(
     () => getColumns(router, handleRestoreFromColumn, handleDeleteFromColumn),
@@ -140,13 +144,15 @@ export function CustomersTrashPage() {
     </Card>
   );
 
+  if (isLoading) {
+    return <div className="flex items-center justify-center p-8">Đang tải...</div>;
+  }
+
   return (
     <GenericTrashPage
       deletedItems={deletedCustomers}
-      onRestore={restore}
-      onPermanentDelete={async (systemId) => {
-        remove(systemId);
-      }}
+      onRestore={(systemId) => handleRestoreFromColumn(systemId)}
+      onPermanentDelete={(systemId) => handleDeleteFromColumn(systemId)}
       title="Thùng rác khách hàng"
       entityName="khách hàng"
       backUrl="/customers"

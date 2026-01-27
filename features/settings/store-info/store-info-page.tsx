@@ -12,6 +12,7 @@ import { useAuth } from '../../../contexts/auth-context';
 import { useAllBranches } from '../branches/hooks/use-all-branches';
 import { useBranchMutations } from '../branches/hooks/use-branches';
 import { useAllEmployees } from '../../employees/hooks/use-all-employees';
+import { useProvinces, useWards2Level } from '../provinces/hooks/use-administrative-units';
 import type { Branch } from '../branches/types';
 import { BranchForm, type BranchFormValues } from '../branches/branch-form';
 
@@ -26,8 +27,11 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '../../../components/ui/input';
 import { Textarea } from '../../../components/ui/textarea';
 import { Separator } from '../../../components/ui/separator';
+// Select components removed - not currently used
+import { VirtualizedCombobox, type ComboboxOption } from '../../../components/ui/virtualized-combobox';
 import { toast } from 'sonner';
-import { getDefaultStoreInfo, useStoreInfoStore, type StoreGeneralInfo, type StoreGeneralInfoInput } from './store-info-store';
+import { getDefaultStoreInfo, type StoreGeneralInfo, type StoreGeneralInfoInput } from './types';
+import { useStoreInfo, useStoreInfoMutations } from './hooks/use-store-info';
 import type { SystemId } from '../../../lib/id-types';
 
 const generalInfoSchema = z.object({
@@ -83,7 +87,44 @@ export function StoreInfoPage() {
     const setDefaultBranch = (systemId: SystemId) => setDefaultBranchMutation.mutate(systemId as unknown as string);
     const { data: employees } = useAllEmployees();
     const { employee: authEmployee } = useAuth();
-    const { info, updateInfo, reset: resetStoreInfo } = useStoreInfoStore();
+    
+    // Use React Query for store info (persisted to database)
+    const { data: info, isLoading: _isLoadingInfo } = useStoreInfo();
+    const { update: updateMutation } = useStoreInfoMutations({
+        onSuccess: () => {
+            toast.success('Đã lưu thông tin chung', {
+                description: 'Các thông tin pháp nhân và liên hệ đã được cập nhật.',
+            });
+        },
+        onError: (error) => {
+            toast.error('Lỗi khi lưu thông tin', {
+                description: error.message || 'Vui lòng thử lại sau.',
+            });
+        },
+    });
+    
+    // Administrative units (2-level: Province -> Ward)
+    const { data: allProvinces = [] } = useProvinces();
+    const [selectedProvinceId, setSelectedProvinceId] = React.useState<string | undefined>(undefined);
+    const { data: wards = [] } = useWards2Level(selectedProvinceId);
+    
+    // Filter only 2-level provinces (exclude 3-level duplicates)
+    const provinces = React.useMemo(() => 
+        allProvinces.filter(p => p.level === '2-level'), [allProvinces]);
+    
+    // Memoize combobox options for provinces and wards
+    // Use systemId as value (guaranteed unique) instead of business id
+    const provinceOptions: ComboboxOption[] = React.useMemo(() => 
+        provinces.map(p => ({
+            value: p.systemId, // Use systemId as unique value
+            label: p.name,
+        })), [provinces]);
+    
+    const wardOptions: ComboboxOption[] = React.useMemo(() => 
+        wards.map(w => ({
+            value: w.systemId, // Use systemId as unique value  
+            label: w.name,
+        })), [wards]);
     
     const [isFormOpen, setIsFormOpen] = React.useState(false);
     const [editingBranch, setEditingBranch] = React.useState<Branch | null>(null);
@@ -92,13 +133,22 @@ export function StoreInfoPage() {
 
     const form = useForm<StoreGeneralInfoFormValues>({
         resolver: zodResolver(generalInfoSchema),
-        defaultValues: mapInfoToFormValues(info),
+        defaultValues: mapInfoToFormValues(info ?? getDefaultStoreInfo()),
         mode: 'onBlur',
     });
 
     React.useEffect(() => {
-        form.reset(mapInfoToFormValues(info));
-    }, [info, form]);
+        if (info) {
+            form.reset(mapInfoToFormValues(info));
+            // Set selected province based on stored province name
+            if (info.province) {
+                const province = provinces.find(p => p.name === info.province);
+                if (province) {
+                    setSelectedProvinceId(province.id);
+                }
+            }
+        }
+    }, [info, form, provinces]);
 
     const currentUserSystemId = authEmployee?.systemId;
     const currentUserName = React.useMemo(() => {
@@ -108,9 +158,9 @@ export function StoreInfoPage() {
     }, [authEmployee, currentUserSystemId, employees]);
 
     const lastUpdatedLabel = React.useMemo(() => {
-        if (!info.updatedAt) return 'Chưa có lần cập nhật';
+        if (!info?.updatedAt) return 'Chưa có lần cập nhật';
         return formatDateTimeForDisplay(new Date(info.updatedAt));
-    }, [info.updatedAt]);
+    }, [info?.updatedAt]);
 
     const handleAddNew = () => {
         setEditingBranch(null);
@@ -135,23 +185,14 @@ export function StoreInfoPage() {
 
     const handleGeneralInfoSubmit = form.handleSubmit((values) => {
         const parsedValues = generalInfoSchema.parse(values);
-        updateInfo(parsedValues as StoreGeneralInfoInput, {
-            updatedBySystemId: currentUserSystemId,
-            updatedByName: currentUserName,
-        });
-        toast.success('Đã lưu thông tin chung', {
-            description: 'Các thông tin pháp nhân và liên hệ đã được cập nhật.',
+        updateMutation.mutate({
+            data: parsedValues as StoreGeneralInfoInput,
+            metadata: {
+                updatedBySystemId: currentUserSystemId,
+                updatedByName: currentUserName,
+            },
         });
     });
-
-    const handleResetGeneralInfo = () => {
-        resetStoreInfo();
-        const defaults = getDefaultStoreInfo();
-        form.reset(mapInfoToFormValues(defaults));
-        toast.info('Đã khôi phục dữ liệu mặc định', {
-            description: 'Vui lòng kiểm tra và lưu lại nếu cần chỉnh sửa.',
-        });
-    };
 
     const getManagerName = (managerId?: string) => {
         if (!managerId) return 'Chưa có';
@@ -190,7 +231,7 @@ export function StoreInfoPage() {
                 <CardHeader>
                     <CardTitle>Thông tin chung</CardTitle>
                     <CardDescription>Các thông tin cơ bản của công ty hoặc chuỗi cửa hàng.</CardDescription>
-                    <p className="text-sm text-muted-foreground">Cập nhật lần cuối: {lastUpdatedLabel}{info.updatedByName ? ` • Bởi ${info.updatedByName}` : ''}</p>
+                    <p className="text-sm text-muted-foreground">Cập nhật lần cuối: {lastUpdatedLabel}{info?.updatedByName ? ` • Bởi ${info.updatedByName}` : ''}</p>
                 </CardHeader>
                 <CardContent>
                     <Form {...form}>
@@ -355,42 +396,57 @@ export function StoreInfoPage() {
                                     />
                                     <FormField
                                         control={form.control}
-                                        name="ward"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>Phường/Xã</FormLabel>
-                                                <FormControl>
-                                                    <Input placeholder="Phường Trung Hòa" {...field} value={field.value ?? ''} />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                    <FormField
-                                        control={form.control}
-                                        name="district"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>Quận/Huyện</FormLabel>
-                                                <FormControl>
-                                                    <Input placeholder="Quận Cầu Giấy" {...field} value={field.value ?? ''} />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                    <FormField
-                                        control={form.control}
                                         name="province"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>Tỉnh/Thành phố</FormLabel>
-                                                <FormControl>
-                                                    <Input placeholder="Hà Nội" {...field} value={field.value ?? ''} />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
+                                        render={({ field }) => {
+                                            // Find selected option by matching name
+                                            const selectedOption = provinceOptions.find(opt => opt.label === field.value) || null;
+                                            return (
+                                                <FormItem>
+                                                    <FormLabel>Tỉnh/Thành phố</FormLabel>
+                                                    <VirtualizedCombobox
+                                                        value={selectedOption}
+                                                        onChange={(option) => {
+                                                            field.onChange(option?.label || '');
+                                                            // Find province by systemId to get business id for filtering
+                                                            const province = provinces.find(p => p.systemId === option?.value);
+                                                            setSelectedProvinceId(province?.id);
+                                                            // Clear ward when province changes
+                                                            form.setValue('ward', '');
+                                                        }}
+                                                        options={provinceOptions}
+                                                        placeholder="Chọn tỉnh/thành phố"
+                                                        searchPlaceholder="Tìm tỉnh/thành phố..."
+                                                        emptyPlaceholder="Không tìm thấy"
+                                                    />
+                                                    <FormMessage />
+                                                </FormItem>
+                                            );
+                                        }}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name="ward"
+                                        render={({ field }) => {
+                                            // Find selected option by matching name
+                                            const selectedOption = wardOptions.find(opt => opt.label === field.value) || null;
+                                            return (
+                                                <FormItem>
+                                                    <FormLabel>Phường/Xã</FormLabel>
+                                                    <VirtualizedCombobox
+                                                        value={selectedOption}
+                                                        onChange={(option) => {
+                                                            field.onChange(option?.label || '');
+                                                        }}
+                                                        options={wardOptions}
+                                                        placeholder={selectedProvinceId ? "Chọn phường/xã" : "Chọn tỉnh/TP trước"}
+                                                        searchPlaceholder="Tìm phường/xã..."
+                                                        emptyPlaceholder="Không tìm thấy"
+                                                        disabled={!selectedProvinceId}
+                                                    />
+                                                    <FormMessage />
+                                                </FormItem>
+                                            );
+                                        }}
                                     />
                                 </div>
                             </section>
@@ -468,9 +524,6 @@ export function StoreInfoPage() {
                             </section>
 
                             <div className="flex flex-wrap items-center justify-end gap-3 pt-2">
-                                <Button type="button" variant="outline" className="h-9" onClick={handleResetGeneralInfo}>
-                                    Khôi phục mặc định
-                                </Button>
                                 <Button type="submit" className="h-9" disabled={form.formState.isSubmitting}>
                                     Lưu thông tin
                                 </Button>

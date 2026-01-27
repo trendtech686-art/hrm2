@@ -113,11 +113,11 @@ export function DataTableColumnCustomizer<TData>({
 
   const handleSave = () => {
     // ✅ FIX: Merge localVisibility với columnVisibility, giữ nguyên select & actions
-    setColumnVisibility(_prev => ({
+    setColumnVisibility({
       ...localVisibility,
       select: true,      // Luôn giữ select visible
       actions: true,     // Luôn giữ actions visible
-    }));
+    });
     setColumnOrder(localOrder);
     setPinnedColumns(localPinned);
     setOpen(false);

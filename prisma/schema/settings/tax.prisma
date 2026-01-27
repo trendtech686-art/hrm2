@@ -1,14 +1,16 @@
 model Tax {
-  systemId          String   @id @default(uuid())
-  id                String   @unique
+  systemId          String    @id @default(uuid())
+  id                String    @unique
   name              String
-  rate              Decimal  @db.Decimal(5, 2)
+  rate              Decimal   @db.Decimal(5, 2)
   description       String?
-  isDefaultSale     Boolean  @default(false)
-  isDefaultPurchase Boolean  @default(false)
-  isActive          Boolean  @default(true)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  isDefaultSale     Boolean   @default(false)
+  isDefaultPurchase Boolean   @default(false)
+  isActive          Boolean   @default(true)
+  isDeleted         Boolean   @default(false)
+  deletedAt         DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
   createdBy         String?
   updatedBy         String?
 

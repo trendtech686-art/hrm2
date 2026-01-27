@@ -77,7 +77,7 @@ function AddressDisplay({ address, title, description, onEdit }: AddressDisplayP
   const hasAddress = address.street || address.ward || address.province;
 
   return (
-    <section className="border rounded-lg p-4 space-y-4">
+    <section className="border border-border rounded-lg p-4 space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h4 className="text-base font-medium">{title}</h4>
@@ -126,7 +126,7 @@ function AddressDisplay({ address, title, description, onEdit }: AddressDisplayP
           )}
         </dl>
       ) : (
-        <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+        <div className="rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">
           Chưa có địa chỉ. Nhấn "Chỉnh sửa địa chỉ" để nhập nhanh bằng form chuẩn 2 cấp / 3 cấp.
         </div>
       )}

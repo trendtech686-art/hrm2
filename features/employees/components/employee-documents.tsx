@@ -5,7 +5,6 @@ import { useDocumentStore } from '../document-store';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { OptimizedImage } from '@/components/ui/optimized-image';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { 
@@ -92,7 +91,10 @@ export function EmployeeDocuments({ employeeSystemId }: EmployeeDocumentsProps) 
     const result: Record<string, Record<string, EmployeeDocument>> = {
       'legal': {},
       'work-process': {},
-      'termination': {}
+      'termination': {},
+      'decisions': {},
+      'kpi': {},
+      'requests': {}
     };
     
     employeeDocuments.forEach(doc => {
@@ -104,19 +106,14 @@ export function EmployeeDocuments({ employeeSystemId }: EmployeeDocumentsProps) 
     return result;
   }, [employeeDocuments]);
 
-  // Load documents only once (store handles cache)
+  // Load documents - force refresh to ensure latest data
   React.useEffect(() => {
     if (employeeSystemId) {
-      const { loadedEmployees } = useDocumentStore.getState();
-      
-      // Skip loading if already in cache
-      if (loadedEmployees.has(employeeSystemId)) {
-        return;
-      }
-      
       setIsLoading(true);
       setError(null);
-      refreshDocuments(employeeSystemId)
+      
+      // Always force refresh to get latest documents
+      refreshDocuments(employeeSystemId, true)
         .catch((err) => {
           console.error('Failed to load documents:', err);
           setError('Không thể tải tài liệu. Vui lòng kiểm tra kết nối server.');
@@ -305,7 +302,7 @@ export function EmployeeDocuments({ employeeSystemId }: EmployeeDocumentsProps) 
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {Object.entries(documentsByName['legal']).map(([docName, doc]) => (
-                    <div key={doc.id} className="space-y-3 p-3 border rounded-lg bg-muted/30">
+                    <div key={doc.id} className="space-y-3 p-3 border border-border rounded-lg bg-muted/30">
                       <h5 className="text-sm font-medium text-foreground">{docName}</h5>
                       <div className="grid grid-cols-3 gap-2">
                         {doc.files.map((file) => {
@@ -315,19 +312,20 @@ export function EmployeeDocuments({ employeeSystemId }: EmployeeDocumentsProps) 
                           return (
                             <div 
                               key={file.id} 
-                              className="border rounded-lg p-2 bg-background hover:bg-muted/50 transition-colors"
+                              className="border border-border rounded-lg p-2 bg-background hover:bg-muted/50 transition-colors"
                             >
                               <div className="flex flex-col gap-2">
                                 <div className="w-full aspect-square rounded bg-muted flex items-center justify-center overflow-hidden">
                                   {isImage ? (
-                                    <OptimizedImage 
-                                      src={getFileUrl(file.url)} 
+                                    <img 
+                                      src={file.url} 
                                       alt={file.name}
                                       className="w-full h-full object-cover cursor-pointer"
                                       onClick={() => handlePreview(file)}
-                                      width={100}
-                                      height={100}
-                                      fallback={<FileIcon className="w-12 h-12 text-muted-foreground" />}
+                                      onError={(e) => {
+                                        e.currentTarget.style.display = 'none';
+                                        e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                                      }}
                                     />
                                   ) : (
                                     <FileIcon className="w-12 h-12 text-muted-foreground" />
@@ -375,7 +373,7 @@ export function EmployeeDocuments({ employeeSystemId }: EmployeeDocumentsProps) 
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {Object.entries(documentsByName['work-process']).map(([docName, doc]) => (
-                    <div key={doc.id} className="space-y-3 p-3 border rounded-lg bg-muted/30">
+                    <div key={doc.id} className="space-y-3 p-3 border border-border rounded-lg bg-muted/30">
                       <h5 className="text-sm font-medium text-foreground">{docName}</h5>
                       <div className="grid grid-cols-3 gap-2">
                         {doc.files.map((file) => {
@@ -385,19 +383,20 @@ export function EmployeeDocuments({ employeeSystemId }: EmployeeDocumentsProps) 
                           return (
                             <div 
                               key={file.id} 
-                              className="border rounded-lg p-2 bg-background hover:bg-muted/50 transition-colors"
+                              className="border border-border rounded-lg p-2 bg-background hover:bg-muted/50 transition-colors"
                             >
                               <div className="flex flex-col gap-2">
                                 <div className="w-full aspect-square rounded bg-muted flex items-center justify-center overflow-hidden">
                                   {isImage ? (
-                                    <OptimizedImage 
-                                      src={getFileUrl(file.url)} 
+                                    <img 
+                                      src={file.url} 
                                       alt={file.name}
                                       className="w-full h-full object-cover cursor-pointer"
                                       onClick={() => handlePreview(file)}
-                                      width={100}
-                                      height={100}
-                                      fallback={<FileIcon className="w-12 h-12 text-muted-foreground" />}
+                                      onError={(e) => {
+                                        e.currentTarget.style.display = 'none';
+                                        e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                                      }}
                                     />
                                   ) : (
                                     <FileIcon className="w-12 h-12 text-muted-foreground" />
@@ -445,7 +444,7 @@ export function EmployeeDocuments({ employeeSystemId }: EmployeeDocumentsProps) 
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {Object.entries(documentsByName['termination']).map(([docName, doc]) => (
-                    <div key={doc.id} className="space-y-3 p-3 border rounded-lg bg-muted/30">
+                    <div key={doc.id} className="space-y-3 p-3 border border-border rounded-lg bg-muted/30">
                       <h5 className="text-sm font-medium text-foreground">{docName}</h5>
                       <div className="grid grid-cols-3 gap-2">
                         {doc.files.map((file) => {
@@ -455,19 +454,20 @@ export function EmployeeDocuments({ employeeSystemId }: EmployeeDocumentsProps) 
                           return (
                             <div 
                               key={file.id} 
-                              className="border rounded-lg p-2 bg-background hover:bg-muted/50 transition-colors"
+                              className="border border-border rounded-lg p-2 bg-background hover:bg-muted/50 transition-colors"
                             >
                               <div className="flex flex-col gap-2">
                                 <div className="w-full aspect-square rounded bg-muted flex items-center justify-center overflow-hidden">
                                   {isImage ? (
-                                    <OptimizedImage 
-                                      src={getFileUrl(file.url)} 
+                                    <img 
+                                      src={file.url} 
                                       alt={file.name}
                                       className="w-full h-full object-cover cursor-pointer"
                                       onClick={() => handlePreview(file)}
-                                      width={100}
-                                      height={100}
-                                      fallback={<FileIcon className="w-12 h-12 text-muted-foreground" />}
+                                      onError={(e) => {
+                                        e.currentTarget.style.display = 'none';
+                                        e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                                      }}
                                     />
                                   ) : (
                                     <FileIcon className="w-12 h-12 text-muted-foreground" />
@@ -535,7 +535,7 @@ export function EmployeeDocuments({ employeeSystemId }: EmployeeDocumentsProps) 
               onClick={(e) => e.stopPropagation()}
             >
               <img
-                src={getFileUrl(previewFile.url)}
+                src={previewFile.url}
                 alt={previewFile.originalName || previewFile.name}
                 className="max-w-full max-h-[85vh] object-contain rounded-lg"
               />

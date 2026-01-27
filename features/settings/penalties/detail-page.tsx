@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { formatDate, formatDateCustom } from '@/lib/date-utils';
-import { usePenaltyStore } from './store';
+import { usePenaltyById } from './hooks/use-penalties';
 import { useAllPenaltyTypes } from './hooks/use-all-penalties';
 import { useEmployeeFinder } from '../../employees/hooks/use-all-employees';
 import { usePageHeader } from '../../../contexts/page-header-context';
@@ -44,14 +44,12 @@ const statusConfig: Record<PenaltyStatus, { label: string; variant: "warning" | 
 export function PenaltyDetailPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const router = useRouter();
-  const { findById } = usePenaltyStore();
+  const { data: penalty } = usePenaltyById(systemId);
   const { data: penaltyTypes } = useAllPenaltyTypes();
   const { findById: findEmployeeById } = useEmployeeFinder();
   const { employee: authEmployee } = useAuth();
   const { print } = usePrint();
   const { info: storeInfo } = useStoreInfoData();
-  
-  const penalty = React.useMemo(() => (systemId ? findById(systemId) : null), [systemId, findById]);
   
   // Get employee details
   const penalizedEmployee = React.useMemo(() => {

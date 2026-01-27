@@ -2,19 +2,29 @@ import * as React from 'react';
 import type { SalesChannel } from '@/lib/types/prisma-extended';
 import type { ColumnDef } from '../../../components/data-table/types';
 import { Button } from '../../../components/ui/button';
-import { MoreHorizontal, CheckCircle2 } from 'lucide-react';
+import { Switch } from '../../../components/ui/switch';
+import { MoreHorizontal } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../../components/ui/dropdown-menu';
 import type { SystemId } from '@/lib/id-types';
 
-export const getColumns = (
-    onEdit: (channel: SalesChannel) => void,
-    onDelete: (systemId: SystemId) => void
-): ColumnDef<SalesChannel>[] => [
+interface ColumnOptions {
+  onEdit: (channel: SalesChannel) => void;
+  onDelete: (systemId: SystemId) => void;
+  onToggleStatus: (channel: SalesChannel, isApplied: boolean) => void;
+  onToggleDefault: (channel: SalesChannel, isDefault: boolean) => void;
+}
+
+export const getSalesChannelColumns = ({
+  onEdit,
+  onDelete,
+  onToggleStatus,
+  onToggleDefault,
+}: ColumnOptions): ColumnDef<SalesChannel>[] => [
     { 
         id: 'id',
         accessorKey: 'id',
         header: 'Mã',
-        cell: ({ row }) => <span className="font-mono text-sm">{row.id}</span>,
+        cell: ({ row }) => <span className="text-sm uppercase text-muted-foreground">{row.id ?? '—'}</span>,
         meta: { displayName: 'Mã nguồn' }
     },
     { 
@@ -27,33 +37,38 @@ export const getColumns = (
     { 
         id: 'isApplied', 
         accessorKey: 'isApplied', 
-        header: 'Áp dụng cho cửa hàng', 
+        header: 'Trạng thái', 
         cell: ({ row }) => (
-            <span className={row.isApplied ? 'text-green-600' : 'text-muted-foreground'}>
-                {row.isApplied ? 'Đang áp dụng' : 'Không áp dụng'}
-            </span>
+            <Switch 
+                checked={row.isApplied} 
+                onCheckedChange={(checked) => onToggleStatus(row, checked)}
+            />
         ),
-        meta: { displayName: 'Áp dụng cho cửa hàng' } 
+        meta: { displayName: 'Trạng thái' } 
     },
     { 
         id: 'isDefault', 
         accessorKey: 'isDefault', 
         header: 'Mặc định', 
-        cell: ({ row }) => row.isDefault ? (
-            <div className="flex justify-center">
-                <CheckCircle2 className="h-5 w-5 text-primary" />
-            </div>
-        ) : null,
+        cell: ({ row }) => (
+            <Switch 
+                checked={row.isDefault} 
+                onCheckedChange={(checked) => onToggleDefault(row, checked)}
+            />
+        ),
         meta: { displayName: 'Mặc định' } 
     },
     {
         id: 'actions',
-        header: () => <div className="text-right">Hành động</div>,
+        header: () => <div className="text-right">Thao tác</div>,
         cell: ({ row }) => (
             <div className="text-right">
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-9 w-9 p-0"><MoreHorizontal className="h-4 w-4" /></Button>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                            <span className="sr-only">Mở menu</span>
+                            <MoreHorizontal className="h-4 w-4" />
+                        </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                         <DropdownMenuItem onSelect={() => onEdit(row)}>Sửa</DropdownMenuItem>
@@ -62,6 +77,6 @@ export const getColumns = (
                 </DropdownMenu>
             </div>
         ),
-        meta: { displayName: 'Hành động' }
+        meta: { displayName: 'Thao tác' }
     }
 ];

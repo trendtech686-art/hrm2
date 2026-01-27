@@ -2,7 +2,7 @@
 import * as React from "react"
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import { useTaskStore } from "./store"
+import { useTasks, useTaskMutations } from "./hooks/use-tasks"
 import { getColumns } from "./columns"
 import type { Task, TaskStatus, TaskPriority } from "./types"
 import { usePageHeader } from "../../contexts/page-header-context";
@@ -29,7 +29,30 @@ import { useColumnVisibility } from "../../hooks/use-column-visibility";
 const TaskKanbanView = dynamic(() => import("./components/kanban-view").then(mod => ({ default: mod.TaskKanbanView })), { ssr: false, loading: () => <div className="flex items-center justify-center py-20"><div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" /></div> });
 
 export function TasksPage() {
-  const { data: allTasks, remove, update, restoreTimer } = useTaskStore();
+  const { data: tasksData } = useTasks({ limit: 1000 });
+  const allTasks = React.useMemo(() => tasksData?.data ?? [], [tasksData?.data]);
+  const { remove: removeMutation, update: updateMutation } = useTaskMutations({
+    onSuccess: () => {
+      toast.success('Đã cập nhật task');
+    },
+    onError: (error) => {
+      toast.error('Lỗi', { description: error.message });
+    }
+  });
+  
+  // Wrapper functions for legacy code
+  const remove = React.useCallback((systemId: string) => {
+    removeMutation.mutate(systemId);
+  }, [removeMutation]);
+  
+  const update = React.useCallback((systemId: string, data: Partial<Task>) => {
+    updateMutation.mutate({ systemId, data });
+  }, [updateMutation]);
+  
+  const restoreTimer = React.useCallback(() => {
+    // Timer restoration logic if needed
+  }, []);
+  
   const { data: employees } = useAllEmployees();
   const { isMobile } = useBreakpoint();
   const { isAdmin, employee } = useAuth();
@@ -120,9 +143,9 @@ export function TasksPage() {
       {viewMode === 'list' && (<>
         {!isMobile && <PageToolbar rightActions={<DataTableColumnCustomizer columns={columns} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} />} />}
         <PageFilters searchValue={globalFilter} onSearchChange={setGlobalFilter} searchPlaceholder="Tìm kiếm công việc...">
-          <Select value={statusFilter} onValueChange={v => setStatusFilter(v as typeof statusFilter)}><SelectTrigger className="h-9 w-full sm:w-[180px]"><SelectValue placeholder="Lọc trạng thái" /></SelectTrigger><SelectContent><SelectItem value="all">Tất cả trạng thái</SelectItem><SelectItem value="Chưa bắt đầu">Chưa bắt đầu</SelectItem><SelectItem value="Đang thực hiện">Đang thực hiện</SelectItem><SelectItem value="Đang chờ">Đang chờ</SelectItem><SelectItem value="Hoàn thành">Hoàn thành</SelectItem><SelectItem value="Đã hủy">Đã hủy</SelectItem></SelectContent></Select>
-          <Select value={priorityFilter} onValueChange={v => setPriorityFilter(v as typeof priorityFilter)}><SelectTrigger className="h-9 w-full sm:w-[180px]"><SelectValue placeholder="Độ ưu tiên" /></SelectTrigger><SelectContent><SelectItem value="all">Tất cả độ ưu tiên</SelectItem><SelectItem value="Thấp">Thấp</SelectItem><SelectItem value="Trung bình">Trung bình</SelectItem><SelectItem value="Cao">Cao</SelectItem><SelectItem value="Khẩn cấp">Khẩn cấp</SelectItem></SelectContent></Select>
-          <Select value={assigneeFilter} onValueChange={setAssigneeFilter}><SelectTrigger className="h-9 w-full sm:w-[180px]"><SelectValue placeholder="Người thực hiện" /></SelectTrigger><SelectContent><SelectItem value="all">Tất cả</SelectItem>{employees.map(e => <SelectItem key={e.systemId} value={e.systemId}>{e.fullName}</SelectItem>)}</SelectContent></Select>
+          <Select value={statusFilter} onValueChange={v => setStatusFilter(v as typeof statusFilter)}><SelectTrigger className="h-9 w-full sm:w-45"><SelectValue placeholder="Lọc trạng thái" /></SelectTrigger><SelectContent><SelectItem value="all">Tất cả trạng thái</SelectItem><SelectItem value="Chưa bắt đầu">Chưa bắt đầu</SelectItem><SelectItem value="Đang thực hiện">Đang thực hiện</SelectItem><SelectItem value="Đang chờ">Đang chờ</SelectItem><SelectItem value="Hoàn thành">Hoàn thành</SelectItem><SelectItem value="Đã hủy">Đã hủy</SelectItem></SelectContent></Select>
+          <Select value={priorityFilter} onValueChange={v => setPriorityFilter(v as typeof priorityFilter)}><SelectTrigger className="h-9 w-full sm:w-45"><SelectValue placeholder="Độ ưu tiên" /></SelectTrigger><SelectContent><SelectItem value="all">Tất cả độ ưu tiên</SelectItem><SelectItem value="Thấp">Thấp</SelectItem><SelectItem value="Trung bình">Trung bình</SelectItem><SelectItem value="Cao">Cao</SelectItem><SelectItem value="Khẩn cấp">Khẩn cấp</SelectItem></SelectContent></Select>
+          <Select value={assigneeFilter} onValueChange={setAssigneeFilter}><SelectTrigger className="h-9 w-full sm:w-45"><SelectValue placeholder="Người thực hiện" /></SelectTrigger><SelectContent><SelectItem value="all">Tất cả</SelectItem>{employees.map(e => <SelectItem key={e.systemId} value={e.systemId}>{e.fullName}</SelectItem>)}</SelectContent></Select>
         </PageFilters>
       </>)}
       {viewMode === 'kanban' && <TaskKanbanView tasks={filteredData} onTaskClick={handleRowClick} employees={employees} onTaskUpdate={update} />}

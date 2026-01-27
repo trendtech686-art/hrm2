@@ -6,10 +6,10 @@ import { useForm, useFieldArray, Controller, useWatch } from 'react-hook-form';
 import { formatDateCustom, parseDate, getCurrentDate, toISODate } from '@/lib/date-utils';
 import { ArrowLeft, InfoIcon, AlertCircle } from 'lucide-react';
 
-import { usePurchaseOrderStore } from '../purchase-orders/store';
+import { usePurchaseOrders } from '../purchase-orders/hooks/use-purchase-orders';
 import { useSupplierFinder } from '../suppliers/hooks/use-all-suppliers';
 import { useBranchFinder } from '../settings/branches/hooks/use-all-branches';
-import { usePurchaseReturnStore } from './store';
+import { usePurchaseReturns, usePurchaseReturnMutations } from './hooks/use-purchase-returns';
 import type { PurchaseReturnLineItem } from '@/lib/types/prisma-extended';
 import { useAuth } from '../../contexts/auth-context';
 import { useAllCashAccounts } from '../cashbook/hooks/use-all-cash-accounts';
@@ -72,14 +72,23 @@ export function PurchaseReturnFormPage() {
   const isSelectMode = !systemIdParam;
 
   // Stores
-  const { data: allPurchaseOrders, findById: findPO } = usePurchaseOrderStore();
+  const { data: poQueryData } = usePurchaseOrders({ limit: 1000 });
+  const allPurchaseOrders = poQueryData?.data ?? [];
   const poSystemId = systemIdParam ? asSystemId(systemIdParam) : null;
-  const po = poSystemId ? findPO(poSystemId) : null;
+  const po = poSystemId ? allPurchaseOrders.find(p => p.systemId === poSystemId) : null;
   const { findById: findSupplier } = useSupplierFinder();
   const { findById: findBranch } = useBranchFinder();
   const supplier = po ? findSupplier(asSystemId(po.supplierSystemId)) : null;
   const branch = po ? findBranch(asSystemId(po.branchSystemId)) : null;
-  const { add: addReturn, data: allPurchaseReturns } = usePurchaseReturnStore();
+  const { data: prQueryData } = usePurchaseReturns({ limit: 1000 });
+  const allPurchaseReturns = React.useMemo(() => prQueryData?.data ?? [], [prQueryData]);
+  const { create } = usePurchaseReturnMutations({
+    onCreateSuccess: () => {
+      toast.success('Tạo phiếu hoàn trả thành công');
+      router.push('/purchase-orders');
+    },
+    onError: (err) => toast.error(err.message)
+  });
   const { employee: authEmployee } = useAuth();
   const creatorName = authEmployee?.fullName || 'Hệ thống';
   const { accounts } = useAllCashAccounts();
@@ -470,8 +479,7 @@ export function PurchaseReturnFormPage() {
 
     const returnItems = pendingSubmit.items.filter(item => item.returnQuantity > 0);
     
-    addReturn({
-      id: asBusinessId(pendingSubmit.returnId),
+    create.mutate({
       purchaseOrderSystemId: asSystemId(po.systemId),
       purchaseOrderId: asBusinessId(po.id),
       supplierSystemId: asSystemId(supplier.systemId),
@@ -498,10 +506,6 @@ export function PurchaseReturnFormPage() {
     
     setShowConfirmDialog(false);
     setPendingSubmit(null);
-    toast.success('Đã tạo phiếu trả', {
-      description: pendingSubmit.returnId ? `Phiếu ${pendingSubmit.returnId} đã được lưu.` : 'Phiếu trả NCC đã được lưu.'
-    });
-    router.push(`/purchase-orders/${po.systemId}`);
   };
 
   const itemsWithQty = watchedItems.filter(item => item.returnQuantity > 0);

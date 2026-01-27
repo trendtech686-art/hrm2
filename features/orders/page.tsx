@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from "sonner"
 import { PlusCircle, FileUp, Download, FileText } from "lucide-react"
 
-import { useOrderStore } from "./store"
+import { useOrders } from "./hooks/use-orders"
 import { useOrderDetailActions } from "./hooks/use-order-detail-actions"
 import { getColumns } from "./columns"
 import { useFuseFilter } from "@/hooks/use-fuse-search"
@@ -18,7 +18,7 @@ import { useColumnVisibility } from "@/hooks/use-column-visibility"
 import { usePrint } from "@/lib/use-print"
 import { useAllCustomers, useCustomerFinder } from "../customers/hooks/use-all-customers"
 import { useAllBranches, useBranchFinder } from "../settings/branches/hooks/use-all-branches"
-import { useProductStore } from "../products/store"
+import { useProducts } from "../products/hooks/use-products"
 import { useAllEmployees } from "../employees/hooks/use-all-employees"
 import { convertOrderForPrint, convertPackagingToDeliveryForPrint, convertToShippingLabelForPrint, convertToPackingForPrint, mapOrderToPrintData, mapOrderLineItems, mapDeliveryToPrintData, mapDeliveryLineItems, mapShippingLabelToPrintData, mapPackingToPrintData, mapPackingLineItems, createStoreSettings } from "@/lib/print/order-print-helper"
 import type { TemplateType } from "../settings/printer/types"
@@ -44,8 +44,8 @@ const SapoOrderImportDialog = dynamic(() => import("./components/order-import-ex
 const loadFlattenOrdersForExport = () => import("./components/order-import-export-dialogs").then(mod => mod.flattenOrdersForExport);
 
 export function OrdersPage() {
-  const orderStore = useOrderStore();
-  const orders = React.useMemo(() => orderStore.data ?? [], [orderStore.data]);
+  const { data: ordersData } = useOrders({ limit: 1000 });
+  const orders = React.useMemo(() => ordersData?.data ?? [], [ordersData?.data]);
   const { cancelOrder } = useOrderDetailActions();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -57,7 +57,8 @@ export function OrdersPage() {
   const { findById: findCustomerById } = useCustomerFinder();
   const { data: branches } = useAllBranches();
   const { findById: findBranchById } = useBranchFinder();
-  const productStore = useProductStore();
+  const { data: productsResponse } = useProducts({ limit: 10000 });
+  const productStore = React.useMemo(() => ({ data: productsResponse?.data ?? [], findById: (id: SystemId) => productsResponse?.data?.find(p => p.systemId === id) }), [productsResponse?.data]);
   const { data: employees } = useAllEmployees();
   const { print, printMixedDocuments } = usePrint();
 
@@ -174,19 +175,13 @@ export function OrdersPage() {
   const [pageOrdersForExport, setPageOrdersForExport] = React.useState<Order[]>([]);
   const [selectedOrdersForExport, setSelectedOrdersForExport] = React.useState<Order[]>([]);
 
-  React.useEffect(() => { if (isExportOpen) loadFlattenOrdersForExport().then(fn => { setOrdersForExport(fn(orders) as unknown as Order[]); setFilteredOrdersForExport(fn(sortedData) as unknown as Order[]); setPageOrdersForExport(fn(paginatedData) as unknown as Order[]); setSelectedOrdersForExport(fn(allSelectedRows) as unknown as Order[]); }); }, [isExportOpen, orders, sortedData, paginatedData, allSelectedRows]);
+  React.useEffect(() => { if (isExportOpen) loadFlattenOrdersForExport().then(fn => { setOrdersForExport(fn(orders, allCustomers) as unknown as Order[]); setFilteredOrdersForExport(fn(sortedData, allCustomers) as unknown as Order[]); setPageOrdersForExport(fn(paginatedData, allCustomers) as unknown as Order[]); setSelectedOrdersForExport(fn(allSelectedRows, allCustomers) as unknown as Order[]); }); }, [isExportOpen, orders, sortedData, paginatedData, allSelectedRows, allCustomers]);
 
-  const handleImport = React.useCallback(async (data: Partial<Order>[], mode: 'insert-only' | 'update-only' | 'upsert') => {
+  const handleImport = React.useCallback(async (_data: Partial<Order>[], _mode: 'insert-only' | 'update-only' | 'upsert') => {
+    toast.info('Chức năng import đơn hàng đang được phát triển');
     const results = { success: 0, failed: 0, inserted: 0, updated: 0, skipped: 0, errors: [] as Array<{ row: number; message: string }> };
-    for (let i = 0; i < data.length; i++) {
-      if (mode === 'update-only') { results.skipped++; continue; }
-      try { orderStore.add(data[i] as Order); results.inserted++; results.success++; } catch (e) { results.failed++; results.errors.push({ row: i + 1, message: e instanceof Error ? e.message : 'Lỗi' }); }
-    }
-    if (results.inserted > 0) toast.success(`Đã nhập ${results.inserted} đơn`);
-    if (results.skipped > 0) toast.info(`Bỏ qua ${results.skipped} đơn`);
-    if (results.failed > 0) toast.error(`${results.failed} đơn thất bại`);
     return results;
-  }, [orderStore]);
+  }, []);
 
   const headerActions = React.useMemo(() => [<Button key="add" size="sm" className="h-9" onClick={() => router.push('/orders/new')}><PlusCircle className="mr-2 h-4 w-4" />Tạo đơn hàng</Button>], [router]);
   usePageHeader({ title: 'Danh sách đơn hàng', breadcrumb: [{ label: 'Trang chủ', href: '/' }, { label: 'Đơn hàng', href: '/orders', isCurrent: true }], showBackButton: false, actions: headerActions });

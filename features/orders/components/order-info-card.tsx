@@ -9,15 +9,19 @@ import { Combobox } from '../../../components/ui/combobox';
 import { DatePicker } from '../../../components/ui/date-picker';
 import { Input } from '../../../components/ui/input';
 import { Separator } from '../../../components/ui/separator';
-import { useSalesChannelStore } from '../../settings/sales-channels/store';
-import { usePaymentMethodStore } from '../../settings/payments/methods/store';
+import { useSalesChannels } from '../../settings/sales-channels/hooks/use-sales-channels';
+import { usePaymentMethods } from '../../settings/payments/hooks/use-payment-methods';
 
 export function OrderInfoCard({ disabled, isBranchLocked = false, isMetadataOnlyMode = false }: { disabled: boolean; isBranchLocked?: boolean; isMetadataOnlyMode?: boolean }) {
     const { control } = useFormContext();
     const { data: employees } = useAllEmployees();
     const { data: branches } = useAllBranches();
-  const salesChannels = useSalesChannelStore((state) => state.data);
-  const paymentMethods = usePaymentMethodStore((state) => state.data);
+    
+    // React Query for payment methods and sales channels
+    const { data: pmData } = usePaymentMethods({ limit: 1000 });
+    const paymentMethods = React.useMemo(() => pmData?.data ?? [], [pmData?.data]);
+    const { data: scData } = useSalesChannels({ limit: 1000 });
+    const salesChannels = React.useMemo(() => scData?.data ?? [], [scData?.data]);
     
     const employeeOptions = React.useMemo(() => employees.map(e => ({ value: e.systemId, label: e.fullName })), [employees]);
     const branchOptions = React.useMemo(() => branches.map(b => ({ value: b.systemId, label: b.name })), [branches]);
@@ -35,8 +39,8 @@ export function OrderInfoCard({ disabled, isBranchLocked = false, isMetadataOnly
     const hasPaymentMethodOptions = paymentMethodOptions.length > 0;
 
     return (
-        <Card className="flex flex-col h-[385px]">
-            <CardHeader className="flex-shrink-0"><CardTitle className="text-base font-semibold">Thông tin bổ sung</CardTitle></CardHeader>
+        <Card className="flex flex-col h-96.25">
+            <CardHeader className="shrink-0"><CardTitle className="text-base font-semibold">Thông tin bổ sung</CardTitle></CardHeader>
             <CardContent className="flex-1 overflow-y-auto space-y-4">
                 <FormField control={control} name="branchSystemId" render={({ field }) => (
                   <FormItem><FormLabel>Bán tại</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={disabled || isBranchLocked || isMetadataOnlyMode}><FormControl><SelectTrigger><SelectValue placeholder="Chọn chi nhánh" /></SelectTrigger></FormControl><SelectContent>{branchOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}</SelectContent></Select>

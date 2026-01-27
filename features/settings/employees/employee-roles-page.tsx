@@ -17,17 +17,19 @@ import { TabsContent } from '../../../components/ui/tabs';
 import { SettingsVerticalTabs } from '../../../components/settings/SettingsVerticalTabs';
 import { SettingsActionButton } from '../../../components/settings/SettingsActionButton';
 import { toast } from 'sonner';
-import { Shield, Plus, Edit, Trash2, Save, RotateCcw, Copy, Users, Search, UserCog, Key, RefreshCw, Eye, EyeOff, Clipboard, MoreHorizontal } from 'lucide-react';
+import { Shield, Plus, Edit, Trash2, Save, RotateCcw, Copy, Users, Search, UserCog, Key, RefreshCw, Eye, EyeOff, Clipboard, MoreHorizontal, Loader2 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../../components/ui/dropdown-menu';
 import { PERMISSION_GROUPS, PERMISSION_LABELS, type Permission } from '../../employees/permissions';
-import { useRoleStore, type CustomRole } from './role-store';
-import { useEmployeeStore } from '../../employees/store';
-import type { Employee } from '../../employees/types';
-import type { EmployeeRole } from '../../employees/roles';
+import { useRoleSettings, useRoleMutations, type CustomRole } from './hooks/use-role-settings';
+import { useAllEmployees } from '../../employees/hooks/use-all-employees';
+import { useEmployeeMutations } from '../../employees/hooks/use-employees';
+import type { Employee } from '@/lib/types/prisma-extended';
 
 export function EmployeeRolesPage() {
-  const { roles, addRole, updateRole, deleteRole, resetRole } = useRoleStore();
-  const { data: employees, update: updateEmployee } = useEmployeeStore();
+  const { data: roles = [] } = useRoleSettings();
+  const { addRole, updateRole, deleteRole, resetRole } = useRoleMutations();
+  const { data: employees, isLoading: isLoadingEmployees } = useAllEmployees();
+  const { update: updateEmployeeMutation } = useEmployeeMutations();
   
   const [activeTab, setActiveTab] = React.useState('roles');
   const [selectedRole, setSelectedRole] = React.useState<CustomRole | null>(null);
@@ -209,8 +211,13 @@ export function EmployeeRolesPage() {
   };
 
   const handleChangeEmployeeRole = (employee: Employee, newRole: string) => {
-    updateEmployee(employee.systemId, { ...employee, role: newRole as EmployeeRole });
-    toast.success(`Đã cập nhật vai trò cho ${employee.fullName}`);
+    (updateEmployeeMutation as any).mutate(
+      { systemId: employee.systemId, role: newRole },
+      {
+        onSuccess: () => toast.success(`Đã cập nhật vai trò cho ${employee.fullName}`),
+        onError: () => toast.error(`Không thể cập nhật vai trò cho ${employee.fullName}`),
+      }
+    );
   };
 
   // Password management handlers
@@ -265,19 +272,20 @@ export function EmployeeRolesPage() {
       return;
     }
     
-    updateEmployee(selectedEmployee.systemId, { ...selectedEmployee, password: newPassword });
+    // Note: Password updates should go through a separate secure endpoint
+    // This is just a placeholder - actual implementation needs backend support
+    toast.info('Chức năng đặt mật khẩu cần được cập nhật để sử dụng API bảo mật');
     setShowPasswordDialog(false);
     setSelectedEmployee(null);
-    toast.success(`Đã đặt mật khẩu cho ${selectedEmployee.fullName}`);
   };
 
   const handleConfirmReset = () => {
     if (!selectedEmployee) return;
     
-    updateEmployee(selectedEmployee.systemId, { ...selectedEmployee, password: generatedPassword });
+    // Note: Password reset should go through a separate secure endpoint
+    toast.info('Chức năng reset mật khẩu cần được cập nhật để sử dụng API bảo mật');
     setShowResetDialog(false);
     setSelectedEmployee(null);
-    toast.success(`Đã reset mật khẩu cho ${selectedEmployee.fullName}`);
   };
 
   const handleCopyPassword = async (password: string) => {
@@ -491,7 +499,17 @@ export function EmployeeRolesPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredEmployees.map((employee) => (
+                    {isLoadingEmployees && (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center py-8">
+                          <div className="flex items-center justify-center gap-2">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <span>Đang tải danh sách nhân viên...</span>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    {!isLoadingEmployees && filteredEmployees.map((employee) => (
                       <TableRow key={employee.systemId}>
                         <TableCell className="font-medium">{employee.id}</TableCell>
                         <TableCell>
@@ -508,13 +526,13 @@ export function EmployeeRolesPage() {
                         </TableCell>
                         <TableCell>
                           <Select
-                            value={employee.role}
+                            value={employee.role || 'Sales'}
                             onValueChange={(value) => handleChangeEmployeeRole(employee, value)}
                           >
                             <SelectTrigger className="h-8">
                               <SelectValue>
-                                <Badge variant={getRoleBadgeVariant(employee.role)}>
-                                  {roles.find(r => r.id === employee.role)?.name || employee.role}
+                                <Badge variant={getRoleBadgeVariant(employee.role || 'Sales')}>
+                                  {roles.find(r => r.id === employee.role)?.name || employee.role || 'Kinh doanh'}
                                 </Badge>
                               </SelectValue>
                             </SelectTrigger>
@@ -555,7 +573,7 @@ export function EmployeeRolesPage() {
                         </TableCell>
                       </TableRow>
                     ))}
-                    {filteredEmployees.length === 0 && (
+                    {!isLoadingEmployees && filteredEmployees.length === 0 && (
                       <TableRow>
                         <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                           {searchTerm || roleFilter !== 'all' 

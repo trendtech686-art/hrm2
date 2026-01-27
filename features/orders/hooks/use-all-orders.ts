@@ -12,6 +12,7 @@ import type { SystemId } from '@/lib/id-types';
 
 /**
  * Hook to access all orders from Zustand store
+ * ⚠️ DEPRECATED: This hook still uses Zustand. Consider using useOrders() with pagination.
  * This provides backward compatibility with components using useOrderStore().data
  */
 export function useAllOrders() {

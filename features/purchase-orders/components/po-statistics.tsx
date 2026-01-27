@@ -2,9 +2,9 @@
 
 import * as React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { usePurchaseOrderStore } from '../store';
+import { usePurchaseOrders } from '../hooks/use-purchase-orders';
 import { useAllInventoryReceipts } from '@/features/inventory-receipts/hooks/use-all-inventory-receipts';
-import { usePurchaseReturnStore } from '@/features/purchase-returns/store';
+import { usePurchaseReturns } from '@/features/purchase-returns/hooks/use-purchase-returns';
 
 interface POStats {
   totalOrdered: number;
@@ -16,9 +16,11 @@ interface POStats {
 }
 
 export function usePOStats(): POStats {
-  const { data: purchaseOrders } = usePurchaseOrderStore();
+  const { data: queryData } = usePurchaseOrders({ limit: 1000 });
+  const purchaseOrders = React.useMemo(() => queryData?.data ?? [], [queryData?.data]);
   const { data: allReceipts } = useAllInventoryReceipts();
-  const { data: allPurchaseReturns } = usePurchaseReturnStore();
+  const { data: prQueryData } = usePurchaseReturns({ limit: 1000 });
+  const allPurchaseReturns = React.useMemo(() => prQueryData?.data ?? [], [prQueryData?.data]);
 
   return React.useMemo(() => {
     const stats = new Map<string, { 

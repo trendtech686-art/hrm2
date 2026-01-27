@@ -6,8 +6,8 @@ import { useAllPricingPolicies } from '../settings/pricing/hooks/use-all-pricing
 import { useAllUnits } from "../settings/units/hooks/use-all-units";
 import { useAllSuppliers } from "../suppliers/hooks/use-all-suppliers";
 import { useAllBranches } from "../settings/branches/hooks/use-all-branches";
-import { useSlaSettingsStore } from "../settings/inventory/sla-settings-store";
-import { useProductLogisticsSettingsStore } from "../settings/inventory/logistics-settings-store";
+import { useSlaSettingsData } from "../settings/inventory/hooks/use-sla-settings";
+import { useLogisticsSettingsData } from "../settings/inventory/hooks/use-logistics-settings";
 import { useStorageLocationFinder } from "../settings/inventory/hooks/use-storage-locations";
 import { useActiveBrands } from "../brands/hooks/use-all-brands";
 import { useImporterFinder } from "../settings/inventory/hooks/use-inventory-settings";
@@ -56,8 +56,8 @@ export function ProductFormComplete({
   const { data: units } = useAllUnits();
   const { data: suppliers } = useAllSuppliers();
   const { data: _branches } = useAllBranches();
-  const { settings: slaSettings } = useSlaSettingsStore();
-  const { settings: logisticsSettings } = useProductLogisticsSettingsStore();
+  const { settings: slaSettings } = useSlaSettingsData();
+  const { settings: logisticsSettings } = useLogisticsSettingsData();
   const { getActive: getActiveStorageLocations } = useStorageLocationFinder();
   const { data: activeBrands } = useActiveBrands();
   const getActiveBrands = React.useCallback(() => activeBrands, [activeBrands]);

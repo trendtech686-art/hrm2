@@ -80,7 +80,7 @@ export function useSettingsPageHeader(options: SettingsPageHeaderOptions) {
     title: decoratedTitle,
     docLink: normalizedDocLink,
     actions,
-  }), [rest.showBackButton, rest.backPath, rest.subtitle, rest.badge, rest.context, normalizedBreadcrumb, decoratedTitle, normalizedDocLink, actions]);
+  }), [rest, normalizedBreadcrumb, decoratedTitle, normalizedDocLink, actions]);
 
   return usePageHeader(pageHeaderConfig);
 }

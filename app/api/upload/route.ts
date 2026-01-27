@@ -97,16 +97,19 @@ export async function POST(request: NextRequest) {
     })
     
     return apiSuccess({
-      id: fileRecord.systemId,
-      fileName: fileRecord.filename,
-      originalName: fileRecord.originalName,
-      mimeType: fileRecord.mimetype,
-      fileSize: fileRecord.filesize,
-      url: publicUrl,
-      entityType: entityType,
-      entityId: entityId,
-      status: fileRecord.status,
-      sessionId: fileRecord.sessionId,
+      success: true,
+      data: {
+        id: fileRecord.systemId,
+        fileName: fileRecord.filename,
+        originalName: fileRecord.originalName,
+        mimeType: fileRecord.mimetype,
+        fileSize: fileRecord.filesize,
+        url: publicUrl,
+        entityType: entityType,
+        entityId: entityId,
+        status: fileRecord.status,
+        sessionId: fileRecord.sessionId,
+      }
     }, 201)
     
   } catch (error) {
@@ -151,19 +154,31 @@ export async function GET(request: NextRequest) {
       take: 100,
     })
     
-    return apiSuccess(files.map(f => ({
-      id: f.systemId,
-      fileName: f.filename,
-      originalName: f.originalName,
-      mimeType: f.mimetype,
-      fileSize: f.filesize,
-      url: `/uploads/${f.filepath}`,
-      entityType: f.entityType,
-      entityId: f.entityId,
-      status: f.status,
-      sessionId: f.sessionId,
-      createdAt: f.uploadedAt,
-    })))
+    return apiSuccess({
+      success: true,
+      data: files.map(f => {
+        // Parse documentType which may contain "type::name" format
+        const docTypeParts = f.documentType?.split('::') || []
+        const docType = docTypeParts[0] || ''
+        const docName = docTypeParts[1] || ''
+        
+        return {
+          id: f.systemId,
+          fileName: f.filename,
+          originalName: f.originalName,
+          mimeType: f.mimetype,
+          fileSize: f.filesize,
+          url: `/api/files/${f.filepath}`,
+          entityType: f.entityType,
+          entityId: f.entityId,
+          documentType: docType,
+          documentName: docName,
+          status: f.status,
+          sessionId: f.sessionId,
+          createdAt: f.uploadedAt,
+        }
+      })
+    })
     
   } catch (error) {
     console.error('Get files error:', error)

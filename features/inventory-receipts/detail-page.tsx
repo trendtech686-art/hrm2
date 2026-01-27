@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Printer, ArrowLeft } from 'lucide-react';
 
-import { useInventoryReceiptStore } from './store';
+import { useInventoryReceipt } from './hooks/use-inventory-receipts';
 import { usePurchaseOrderFinder } from '../purchase-orders/hooks/use-all-purchase-orders';
 import { useSupplierFinder } from '../suppliers/hooks/use-all-suppliers';
 import { useEmployeeFinder } from '../employees/hooks/use-all-employees';
@@ -46,7 +46,7 @@ const formatCurrency = (value?: number) => new Intl.NumberFormat('vi-VN', {
 export function InventoryReceiptDetailPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const router = useRouter();
-  const { findById: findReceiptById } = useInventoryReceiptStore();
+  const { data: receipt } = useInventoryReceipt(systemId);
   const { findById: findPurchaseOrderById } = usePurchaseOrderFinder();
   const { findById: findSupplierById } = useSupplierFinder();
   const { findById: findEmployeeById } = useEmployeeFinder();
@@ -92,7 +92,6 @@ export function InventoryReceiptDetailPage() {
     name: authEmployee?.fullName || 'Hệ thống',
   }), [authEmployee]);
 
-  const receipt = React.useMemo(() => (systemId ? findReceiptById(asSystemId(systemId)) : undefined), [systemId, findReceiptById]);
   const purchaseOrder = React.useMemo(() => (
     receipt?.purchaseOrderSystemId ? findPurchaseOrderById(receipt.purchaseOrderSystemId) : undefined
   ), [receipt?.purchaseOrderSystemId, findPurchaseOrderById]);

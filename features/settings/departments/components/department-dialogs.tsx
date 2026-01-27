@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react';
-import { useDepartmentStore } from '../store';
+import { useDepartments, useDepartmentMutations } from '../hooks/use-departments';
 import { DepartmentForm, type DepartmentFormValues } from '../department-form';
 import { JobTitlesPageContent } from '../../job-titles/page-content';
 import { Button } from '../../../../components/ui/button';
@@ -15,6 +15,7 @@ import {
   DialogTitle 
 } from '../../../../components/ui/dialog';
 import type { Department } from '@/lib/types/prisma-extended';
+import { toast } from 'sonner';
 
 // ==========================================
 // ManageDepartmentsDialog Component
@@ -26,14 +27,21 @@ export const ManageDepartmentsDialog = React.memo(function ManageDepartmentsDial
   isOpen: boolean; 
   onOpenChange: (open: boolean) => void; 
 }) {
-  const { data, add, update, remove } = useDepartmentStore();
+  const { data: departmentsData } = useDepartments({ limit: 1000 });
+  const data = departmentsData?.data ?? [];
+  const { create, update, remove } = useDepartmentMutations({
+    onCreateSuccess: () => toast.success('Thêm mới thành công'),
+    onUpdateSuccess: () => toast.success('Cập nhật thành công'),
+    onDeleteSuccess: () => toast.success('Xóa thành công'),
+    onError: (err) => toast.error(err.message)
+  });
   const [editingDepartment, setEditingDepartment] = React.useState<Department | null>(null);
 
   const handleFormSubmit = (values: DepartmentFormValues) => {
     if (editingDepartment) {
-      update(editingDepartment.systemId, { ...editingDepartment, ...values });
+      update.mutate({ systemId: editingDepartment.systemId, data: values });
     } else {
-      add(values as Omit<Department, 'systemId'>);
+      create.mutate(values as Omit<Department, 'systemId'>);
     }
     setEditingDepartment(null);
   };
@@ -65,7 +73,7 @@ export const ManageDepartmentsDialog = React.memo(function ManageDepartmentsDial
                 <div key={dep.systemId} className="flex items-center p-2 border-b">
                   <span className="flex-grow">{dep.name}</span>
                   <Button variant="ghost" size="sm" onClick={() => setEditingDepartment(dep)}>Sửa</Button>
-                  <Button variant="ghost" size="sm" className="text-destructive" onClick={() => remove(dep.systemId)}>Xóa</Button>
+                  <Button variant="ghost" size="sm" className="text-destructive" onClick={() => (remove as any).mutate(dep.systemId)}>Xóa</Button>
                 </div>
               ))}
             </ScrollArea>

@@ -28,14 +28,14 @@ import { Badge } from "../ui/badge"
 // XLSX is lazy loaded in handleExport to reduce bundle size (~500KB)
 import { toast } from "sonner"
 import {
-  useImportExportStore,
   type ImportExportConfig,
   type FieldConfig,
   transformExportRow,
   generateExportFileName,
 } from '../../lib/import-export/index'
 import type { SystemId } from "../../lib/id-types"
-import { usePricingPolicyStore } from "../../features/settings/pricing/store"
+import { useActivePricingPolicies } from "../../features/settings/pricing/hooks/use-pricing"
+import { useImportExportLogsMutations } from "../../lib/import-export/hooks/use-import-export-logs"
 
 // ============================================
 // TYPES
@@ -81,8 +81,13 @@ export function GenericExportDialogV2<T>({
   appliedFilters,
   currentUser,
 }: GenericExportDialogV2Props<T>) {
-  // Store
-  const addExportLog = useImportExportStore(state => state.addExportLog)
+  // React Query hooks
+  const { data: pricingPoliciesData } = useActivePricingPolicies()
+  const activePricingPolicies = React.useMemo(
+    () => pricingPoliciesData?.filter(p => p.isActive) ?? [],
+    [pricingPoliciesData]
+  )
+  const { addExport } = useImportExportLogsMutations()
   
   // State
   const [exportScope, setExportScope] = React.useState<ExportScope>('filtered')
@@ -129,9 +134,8 @@ export function GenericExportDialogV2<T>({
     
     // ===== DYNAMIC PRICING COLUMNS (chỉ cho products) =====
     if (config.entityType === 'products') {
-      const pricingPolicies = usePricingPolicyStore.getState().data.filter(p => p.isActive)
-      if (pricingPolicies.length > 0) {
-        const pricingFields: FieldConfig<T>[] = pricingPolicies.map(policy => ({
+      if (activePricingPolicies.length > 0) {
+        const pricingFields: FieldConfig<T>[] = activePricingPolicies.map(policy => ({
           key: `_price_${policy.systemId}` as keyof T & string,
           label: `Giá: ${policy.name}`,
           type: 'number' as const,
@@ -148,7 +152,7 @@ export function GenericExportDialogV2<T>({
     }
     
     return groups
-  }, [config.fields, config.entityType])
+  }, [config.fields, config.entityType, activePricingPolicies])
 
   // Exportable fields (non-hidden) - including dynamic pricing fields
   const exportableFields = React.useMemo(() => {
@@ -156,8 +160,7 @@ export function GenericExportDialogV2<T>({
     
     // Add dynamic pricing fields for products
     if (config.entityType === 'products') {
-      const pricingPolicies = usePricingPolicyStore.getState().data.filter(p => p.isActive)
-      const pricingFields: FieldConfig<T>[] = pricingPolicies.map(policy => ({
+      const pricingFields: FieldConfig<T>[] = activePricingPolicies.map(policy => ({
         key: `_price_${policy.systemId}` as keyof T & string,
         label: `Giá: ${policy.name}`,
         type: 'number' as const,
@@ -168,7 +171,7 @@ export function GenericExportDialogV2<T>({
     }
     
     return staticFields
-  }, [config.fields, config.entityType])
+  }, [config.fields, config.entityType, activePricingPolicies])
 
   // Data count by scope
   const getDataByScope = React.useCallback((scope: ExportScope): T[] => {
@@ -241,10 +244,9 @@ export function GenericExportDialogV2<T>({
       const selectedPriceColumns = selectedColumns.filter(k => k.startsWith('_price_'))
       
       if (config.entityType === 'products' && selectedPriceColumns.length > 0) {
-        const pricingPolicies = usePricingPolicyStore.getState().data.filter(p => p.isActive)
         const pricingFields: FieldConfig<T>[] = selectedPriceColumns.map(colKey => {
           const systemId = colKey.replace('_price_', '')
-          const policy = pricingPolicies.find(p => p.systemId === systemId)
+          const policy = activePricingPolicies.find(p => p.systemId === systemId)
           return {
             key: colKey as keyof T & string,
             label: `Giá: ${policy?.name || systemId}`,
@@ -262,11 +264,10 @@ export function GenericExportDialogV2<T>({
         // Add pricing columns for products
         if (config.entityType === 'products' && selectedPriceColumns.length > 0) {
           const product = item as { prices?: Record<string, number> }
-          const pricingPolicies = usePricingPolicyStore.getState().data.filter(p => p.isActive)
           
           selectedPriceColumns.forEach(colKey => {
             const systemId = colKey.replace('_price_', '')
-            const policy = pricingPolicies.find(p => p.systemId === systemId)
+            const policy = activePricingPolicies.find(p => p.systemId === systemId)
             const label = `Giá: ${policy?.name || systemId}`
             row[label] = product?.prices?.[systemId] ?? ''
           })
@@ -313,8 +314,8 @@ export function GenericExportDialogV2<T>({
       document.body.removeChild(link)
       URL.revokeObjectURL(url)
 
-      // Log to store
-      addExportLog({
+      // Log export
+      await addExport.mutateAsync({
         entityType: config.entityType,
         entityDisplayName: config.entityDisplayName,
         fileName,
@@ -431,7 +432,7 @@ export function GenericExportDialogV2<T>({
               </Button>
             </div>
 
-            <ScrollArea className="h-[280px] rounded-md border p-4">
+            <ScrollArea className="h-70 rounded-md border p-4">
               <div className="space-y-4">
                 {Object.entries(groupedFields).map(([group, fields]) => {
                   const groupKeys = fields.map(f => f.key as string)

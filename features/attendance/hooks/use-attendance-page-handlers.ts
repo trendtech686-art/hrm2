@@ -11,7 +11,7 @@ import { useAttendanceStore } from '../store';
 import { useShallow } from 'zustand/react/shallow';
 import { useAllEmployees } from '@/features/employees/hooks/use-all-employees';
 import { useAllLeaves } from '@/features/leaves/hooks/use-all-leaves';
-import { useEmployeeSettingsStore } from '@/features/settings/employees/employee-settings-store';
+import { useEmployeeSettings, DEFAULT_EMPLOYEE_SETTINGS } from '@/features/settings/employees/hooks/use-employee-settings';
 import { usePrint } from '@/lib/use-print';
 import { useStoreInfoData } from '@/features/settings/store-info/hooks/use-store-info';
 import { generateEmptyAttendance } from '../data';
@@ -81,7 +81,8 @@ export function useAttendanceMonthControl() {
  */
 export function useAttendanceData(currentDate: Date) {
   const { data: employees } = useAllEmployees();
-  const { settings } = useEmployeeSettingsStore();
+  const { data: rawSettings } = useEmployeeSettings();
+  const settings = rawSettings ?? DEFAULT_EMPLOYEE_SETTINGS;
   const { data: leaveRequests } = useAllLeaves();
   
   const saveAttendanceData = useAttendanceStore((state) => state.saveAttendanceData);
@@ -195,7 +196,8 @@ export function useAttendanceImport(
   _currentMonthKey: string,
 ) {
   const { data: employees } = useAllEmployees();
-  const { settings } = useEmployeeSettingsStore();
+  const { data: rawSettings } = useEmployeeSettings();
+  const settings = rawSettings ?? DEFAULT_EMPLOYEE_SETTINGS;
   const saveAttendanceData = useAttendanceStore((state) => state.saveAttendanceData);
 
   const [isImportDialogOpen, setIsImportDialogOpen] = React.useState(false);
@@ -304,7 +306,8 @@ export function useAttendanceBulkEdit(
   currentDate: Date,
   isLocked: boolean,
 ) {
-  const { settings } = useEmployeeSettingsStore();
+  const { data: rawSettings } = useEmployeeSettings();
+  const settings = rawSettings ?? DEFAULT_EMPLOYEE_SETTINGS;
   const saveAttendanceData = useAttendanceStore((state) => state.saveAttendanceData);
   const currentMonthKey = formatDateCustom(currentDate, 'yyyy-MM');
 
@@ -425,7 +428,7 @@ export function useAttendancePrint(attendanceData: AttendanceDataRow[], currentD
   const handlePrint = React.useCallback(() => {
     const monthKey = formatDateCustom(currentDate, 'yyyy-MM');
     const storeSettings = createStoreSettings(storeInfo);
-    const sheetData = convertAttendanceSheetForPrint(monthKey, attendanceData, {});
+    const sheetData = convertAttendanceSheetForPrint(monthKey, attendanceData as any, {});
     
     print('attendance', {
       data: mapAttendanceSheetToPrintData(sheetData, storeSettings),

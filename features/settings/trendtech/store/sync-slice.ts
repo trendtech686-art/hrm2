@@ -78,10 +78,10 @@ export const createSyncCategoriesAction = (
     addLog: (log: Omit<TrendtechSyncLog, 'id' | 'timestamp'>) => void;
     setCategories: (categories: TrendtechCategory[]) => void;
   }
-) => async () => {
+) => async (apiSettings?: any) => {
   const { addLog, setCategories } = get();
   try {
-    const response = await fetchTrendtechCategories();
+    const response = await (fetchTrendtechCategories as any)(apiSettings);
     if (response.success && response.data) {
       const categories = response.data.categories;
       setCategories(categories);
@@ -110,10 +110,10 @@ export const createSyncBrandsAction = (
     addLog: (log: Omit<TrendtechSyncLog, 'id' | 'timestamp'>) => void;
     setBrands: (brands: TrendtechBrand[]) => void;
   }
-) => async () => {
+) => async (apiSettings?: any) => {
   const { addLog, setBrands } = get();
   try {
-    const response = await fetchTrendtechBrands();
+    const response = await (fetchTrendtechBrands as any)(apiSettings);
     if (response.success && response.data) {
       const brands = response.data.brands;
       setBrands(brands);

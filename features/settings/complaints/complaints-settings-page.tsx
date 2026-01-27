@@ -77,10 +77,8 @@ import {
   defaultCardColors,
   defaultComplaintTypes,
 } from './types';
-import { useComplaintsSettingsStore, loadCardColorSettings } from './store';
 
 // Re-export for backward compatibility
-export { loadCardColorSettings };
 export type { CardColorSettings, ComplaintType };
 
 // Export function to load complaint types from other components
@@ -92,6 +90,11 @@ export function loadComplaintTypes(): ComplaintType[] {
 // MAIN COMPONENT
 // ============================================
 
+import { useComplaintsSettings, useComplaintsSettingsMutations, loadCardColorSettings } from './hooks/use-complaints-settings';
+import { useComplaintsSettingsStore } from './store';
+
+export { loadCardColorSettings };
+
 export function ComplaintsSettingsPage() {
   const [activeTab, setActiveTab] = React.useState('sla');
   const { headerActions, registerActions } = useTabActionRegistry(activeTab);
@@ -102,14 +105,18 @@ export function ComplaintsSettingsPage() {
   const registerNotificationActions = React.useMemo(() => registerActions('notifications'), [registerActions]);
   const registerPublicTrackingActions = React.useMemo(() => registerActions('public-tracking'), [registerActions]);
 
-  const storedSla = useComplaintsSettingsStore((state) => state.data.sla);
-  const storedTemplates = useComplaintsSettingsStore((state) => state.data.templates);
-  const storedNotifications = useComplaintsSettingsStore((state) => state.data.notifications);
-  const storedPublicTracking = useComplaintsSettingsStore((state) => state.data.publicTracking);
-  const storedReminders = useComplaintsSettingsStore((state) => state.data.reminders);
-  const storedCardColors = useComplaintsSettingsStore((state) => state.data.cardColors);
-  const storedComplaintTypes = useComplaintsSettingsStore((state) => state.data.complaintTypes);
-  const setStoreSection = useComplaintsSettingsStore((state) => state.setSection);
+  // Fetch settings from React Query
+  const { data: settings } = useComplaintsSettings();
+  const { updateSection } = useComplaintsSettingsMutations();
+
+  // Get stored values from React Query
+  const storedSla = settings.sla;
+  const storedTemplates = settings.templates as ResponseTemplate[];
+  const storedNotifications = settings.notifications;
+  const storedPublicTracking = settings.publicTracking;
+  const storedReminders = settings.reminders;
+  const storedCardColors = settings.cardColors;
+  const storedComplaintTypes = settings.complaintTypes;
 
   // SLA State
   const [sla, setSLA] = React.useState<SLASettings>(storedSla);
@@ -227,16 +234,19 @@ export function ComplaintsSettingsPage() {
       return;
     }
 
-    setStoreSection('sla', sla);
-    toast.success('Đã lưu cài đặt SLA', {
-      description: 'Thời gian phản hồi và giải quyết đã được cập nhật thành công.',
+    updateSection.mutate({ type: 'sla', data: sla }, {
+      onSuccess: () => {
+        toast.success('Đã lưu cài đặt SLA', {
+          description: 'Thời gian phản hồi và giải quyết đã được cập nhật thành công.',
+        });
+      },
     });
   };
 
   const _handleResetSLA = () => {
     const nextDefaults = clone(defaultSLA);
     setSLA(nextDefaults);
-    setStoreSection('sla', nextDefaults);
+    updateSection.mutate({ type: 'sla', data: nextDefaults });
     toast.info('Đã khôi phục cài đặt mặc định', {
       description: 'Cài đặt SLA đã được reset về giá trị mặc định của hệ thống.',
     });
@@ -285,7 +295,7 @@ export function ComplaintsSettingsPage() {
     }
 
     setTemplates(updatedTemplates);
-    setStoreSection('templates', updatedTemplates);
+    updateSection.mutate({ type: 'templates', data: updatedTemplates });
     
     toast.success(isAddingTemplate ? 'Đã thêm mẫu' : 'Đã cập nhật mẫu', {
       description: `Mẫu "${editingTemplate.name}" đã được lưu thành công.`,
@@ -300,7 +310,7 @@ export function ComplaintsSettingsPage() {
     if (!deleteTemplateId) return;
     const updatedTemplates = templates.filter(t => t.id !== deleteTemplateId);
     setTemplates(updatedTemplates);
-    setStoreSection('templates', updatedTemplates);
+    updateSection.mutate({ type: 'templates', data: updatedTemplates });
     
     toast.success('Đã xóa mẫu', {
       description: 'Mẫu phản hồi đã được xóa thành công.',
@@ -311,7 +321,7 @@ export function ComplaintsSettingsPage() {
   const _handleResetTemplates = () => {
     const defaults = clone(defaultTemplates);
     setTemplates(defaults);
-    setStoreSection('templates', defaults);
+    updateSection.mutate({ type: 'templates', data: defaults });
     toast.info('Đã khôi phục mẫu mặc định', {
       description: 'Tất cả mẫu phản hồi đã được reset về giá trị mặc định của hệ thống.',
     });
@@ -335,7 +345,7 @@ export function ComplaintsSettingsPage() {
   };
 
   const handleSaveNotifications = () => {
-    setStoreSection('notifications', notifications);
+    updateSection.mutate({ type: 'notifications', data: notifications });
     toast.success('Đã lưu cài đặt thông báo', {
       description: 'Các tùy chọn thông báo đã được cập nhật thành công.',
     });
@@ -344,7 +354,7 @@ export function ComplaintsSettingsPage() {
   const _handleResetNotifications = () => {
     const defaults = clone(defaultNotifications);
     setNotifications(defaults);
-    setStoreSection('notifications', defaults);
+    updateSection.mutate({ type: 'notifications', data: defaults });
     toast.info('Đã khôi phục cài đặt mặc định', {
       description: 'Cài đặt thông báo đã được reset về giá trị mặc định của hệ thống.',
     });
@@ -362,7 +372,7 @@ export function ComplaintsSettingsPage() {
   };
 
   const handleSavePublicTracking = () => {
-    setStoreSection('publicTracking', publicTracking);
+    updateSection.mutate({ type: 'tracking', data: publicTracking });
     toast.success('Đã lưu cài đặt tracking công khai', {
       description: 'Các tùy chọn liên kết công khai đã được cập nhật thành công.',
     });
@@ -371,7 +381,7 @@ export function ComplaintsSettingsPage() {
   const _handleResetPublicTracking = () => {
     const defaults = clone(defaultPublicTracking);
     setPublicTracking(defaults);
-    setStoreSection('publicTracking', defaults);
+    updateSection.mutate({ type: 'tracking', data: defaults });
     toast.info('Đã khôi phục cài đặt mặc định', {
       description: 'Cài đặt tracking công khai đã được reset về giá trị mặc định của hệ thống.',
     });
@@ -389,7 +399,7 @@ export function ComplaintsSettingsPage() {
   };
 
   const handleSaveReminders = () => {
-    setStoreSection('reminders', reminders);
+    updateSection.mutate({ type: 'reminders', data: reminders });
     toast.success('Đã lưu cài đặt nhắc nhở', {
       description: 'Các tùy chọn nhắc nhở khiếu nại đã được cập nhật thành công.',
     });
@@ -398,7 +408,7 @@ export function ComplaintsSettingsPage() {
   const _handleResetReminders = () => {
     const defaults = clone(defaultReminders);
     setReminders(defaults);
-    setStoreSection('reminders', defaults);
+    updateSection.mutate({ type: 'reminders', data: defaults });
     toast.info('Đã khôi phục cài đặt mặc định', {
       description: 'Cài đặt nhắc nhở đã được reset về giá trị mặc định của hệ thống.',
     });
@@ -497,7 +507,7 @@ export function ComplaintsSettingsPage() {
       return;
     }
 
-    setStoreSection('cardColors', cardColors);
+    updateSection.mutate({ type: 'cardColors', data: cardColors });
     toast.success('Đã lưu cài đặt màu card', {
       description: 'Màu sắc hiển thị card đã được cập nhật thành công.',
     });
@@ -506,7 +516,7 @@ export function ComplaintsSettingsPage() {
   const _handleResetCardColors = () => {
     const defaults = clone(defaultCardColors);
     setCardColors(defaults);
-    setStoreSection('cardColors', defaults);
+    updateSection.mutate({ type: 'cardColors', data: defaults });
     toast.info('Đã khôi phục cài đặt mặc định', {
       description: 'Màu card đã được reset về giá trị mặc định của hệ thống.',
     });
@@ -548,7 +558,7 @@ export function ComplaintsSettingsPage() {
       : complaintTypes.map(t => (t.id === editingType.id ? editingType : t));
 
     setComplaintTypes(nextTypes);
-    setStoreSection('complaintTypes', nextTypes);
+    updateSection.mutate({ type: 'complaintTypes', data: nextTypes });
     toast.success(isAddingType ? 'Đã thêm loại khiếu nại mới' : 'Đã cập nhật loại khiếu nại');
 
     setEditingType(null);
@@ -560,7 +570,7 @@ export function ComplaintsSettingsPage() {
     if (!deleteTypeId) return;
     const updated = complaintTypes.filter(t => t.id !== deleteTypeId);
     setComplaintTypes(updated);
-    setStoreSection('complaintTypes', updated);
+    updateSection.mutate({ type: 'complaintTypes', data: updated });
     toast.success('Đã xóa loại khiếu nại');
     setDeleteTypeId(null);
   };
@@ -570,14 +580,14 @@ export function ComplaintsSettingsPage() {
       t.id === id ? { ...t, isActive: !t.isActive } : t
     );
     setComplaintTypes(updated);
-    setStoreSection('complaintTypes', updated);
+    updateSection.mutate({ type: 'complaintTypes', data: updated });
     toast.success('Đã cập nhật trạng thái');
   };
 
   const _handleResetTypes = () => {
     const defaults = clone(defaultComplaintTypes);
     setComplaintTypes(defaults);
-    setStoreSection('complaintTypes', defaults);
+    updateSection.mutate({ type: 'complaintTypes', data: defaults });
     toast.info('Đã khôi phục cài đặt mặc định');
   };
 

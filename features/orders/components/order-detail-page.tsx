@@ -4,7 +4,9 @@ import * as React from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter, useParams } from 'next/navigation';
 import { formatDate, formatDateTime } from '@/lib/date-utils';
-import { useOrderStore } from '../store';
+import { useOrder, useOrders } from '../hooks/use-orders';
+import { useOrderActions } from '../hooks/use-order-actions';
+import { useOrderMutations } from '../hooks/use-order-mutations';
 import type { OrderDeliveryStatus, OrderAddress } from '@/lib/types/prisma-extended';
 import { formatOrderAddress } from '../address-utils';
 import { toast } from 'sonner';
@@ -12,9 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAllCustomers } from '@/features/customers/hooks/use-all-customers';
-import { useCustomerTypeStore } from '@/features/settings/customers/customer-types-store';
-import { useCustomerGroupStore } from '@/features/settings/customers/customer-groups-store';
-import { useCustomerSourceStore } from '@/features/settings/customers/customer-sources-store';
+import { useCustomerTypes, useCustomerGroups, useCustomerSources } from '@/features/settings/customers/hooks/use-customer-settings';
 import { ArrowLeft, Printer, Copy, ChevronDown, CheckCircle2, FileWarning, Package, Info, ArrowDownLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAllEmployees, useEmployeeFinder } from '@/features/employees/hooks/use-all-employees';
@@ -27,7 +27,7 @@ import { ImagePreviewDialog } from '@/components/ui/image-preview-dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { useProductFinder } from '@/features/products/hooks/use-all-products';
 import { useAllWarranties } from '@/features/warranty/hooks/use-all-warranties';
-import { useComplaintStore } from '@/features/complaints/store';
+import { useComplaints } from '@/features/complaints/hooks/use-complaints';
 import Link from 'next/link';
 import { Spinner } from '@/components/ui/spinner';
 import { usePageHeader } from '@/contexts/page-header-context';
@@ -44,7 +44,6 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { useAllSalesReturns } from '@/features/sales-returns/hooks/use-all-sales-returns';
 import { useAllReceipts } from '@/features/receipts/hooks/use-all-receipts';
 import { useAllPayments } from '@/features/payments/hooks/use-all-payments';
-import { useShippingSettingsStore as _useShippingSettingsStore } from '@/features/settings/shipping/shipping-settings-store';
 import { PartnerShipmentForm as _PartnerShipmentForm } from './partner-shipment-form';
 import { useAuth } from '@/contexts/auth-context';
 import { asSystemId, type SystemId } from '@/lib/id-types';
@@ -115,27 +114,117 @@ function _simpleHash(str: string): number {
 export function OrderDetailPage() {
     const params = useParams<{ systemId?: string; id?: string }>();
     const router = useRouter();
-
-    const orderStore = useOrderStore();
-    const ordersData = orderStore.data;
-    const orders = React.useMemo(() => ordersData ?? [], [ordersData]);
+    
+    // ✅ React Query for single order fetch
+    const { data: orderFromQuery, isLoading } = useOrder(params.systemId);
+    
+    // ✅ Fetch all orders for customer comparison
+    const { data: ordersData } = useOrders({ limit: 10000 });
+    const orders = React.useMemo(() => ordersData?.data ?? [], [ordersData?.data]);
+    
+    // ✅ React Query for order actions
+    const orderActions = useOrderActions({
+        onSuccess: () => toast.success('Thao tác thành công'),
+        onError: (err) => toast.error(err.message),
+    });
+    const { update: updateOrder } = useOrderMutations();
+    
     const order = React.useMemo(() => {
-        if (params.systemId) {
-            const systemIdParam = asSystemId(params.systemId);
-            const bySystemId = orderStore.findById?.(systemIdParam);
-            if (bySystemId) {
-                return bySystemId;
-            }
+        // ✅ Use React Query data directly
+        if (params.systemId && orderFromQuery) {
+            return orderFromQuery;
         }
-
-        if (params.id) {
-            return orders.find(o => o.id === params.id) ?? null;
-        }
-
         return null;
-    }, [orderStore, orders, params.id, params.systemId]);
-
-    const { cancelOrder, addPayment, requestPackaging, confirmPackaging, cancelPackagingRequest, processInStorePickup, confirmPartnerShipment, dispatchFromWarehouse, completeDelivery, failDelivery, cancelDelivery, cancelDeliveryOnly, confirmInStorePickup, cancelGHTKShipment } = orderStore;
+    }, [orderFromQuery, params.systemId]);
+    
+    // Map React Query actions to legacy action names for compatibility
+    const cancelOrder = React.useCallback(
+        (systemId: string, _employeeIdOrReason: string, cancelOptionsOrRestock?: { reason: string; restock: boolean } | boolean) => {
+            // Handle both old signature (systemId, employeeId, cancelOptions) and new (systemId, reason, restock)
+            const reason = typeof cancelOptionsOrRestock === 'object' ? cancelOptionsOrRestock.reason : (_employeeIdOrReason || 'Hủy đơn');
+            const restockItems = typeof cancelOptionsOrRestock === 'object' ? cancelOptionsOrRestock.restock : (cancelOptionsOrRestock ?? false);
+            return orderActions.cancel.mutate({ systemId, reason, restockItems });
+        },
+        [orderActions.cancel]
+    );
+    
+    const addPayment = React.useCallback(
+        (systemId: string, data: { amount: number; method: string }, _employeeId?: string) =>
+            orderActions.addPayment.mutate({ systemId, amount: data.amount, paymentMethodId: data.method }),
+        [orderActions.addPayment]
+    );
+    
+    const requestPackaging = React.useCallback(
+        (systemId: string, _employeeId?: string, assignedEmployeeId?: string) =>
+            orderActions.requestPackaging.mutate({ systemId, assignedEmployeeId: assignedEmployeeId || _employeeId }),
+        [orderActions.requestPackaging]
+    );
+    
+    const confirmPackaging = React.useCallback(
+        (systemId: string, packagingId: string, _employeeId?: string) =>
+            orderActions.confirmPacking.mutate({ systemId, packagingId }),
+        [orderActions.confirmPacking]
+    );
+    
+    const cancelPackagingRequest = React.useCallback(
+        (systemId: string, packagingId: string, _employeeId: string, reason: string) =>
+            orderActions.cancelPacking.mutate({ systemId, packagingId, reason }),
+        [orderActions.cancelPacking]
+    );
+    
+    const processInStorePickup = React.useCallback(
+        (systemId: string, packagingId: string) =>
+            orderActions.selectInStorePickup.mutate({ systemId, packagingId }),
+        [orderActions.selectInStorePickup]
+    );
+    
+    const confirmInStorePickup = React.useCallback(
+        (systemId: string, packagingId: string, _employeeId?: string) =>
+            orderActions.confirmPickup.mutate({ systemId, packagingId }),
+        [orderActions.confirmPickup]
+    );
+    
+    const confirmPartnerShipment = React.useCallback(
+        (systemId: string) =>
+            orderActions.requestShipment.mutate({ systemId, provider: 'default', serviceType: 'standard' }),
+        [orderActions.requestShipment]
+    );
+    
+    const dispatchFromWarehouse = React.useCallback(
+        (systemId: string, packagingId: string, _employeeId?: string) =>
+            orderActions.dispatch.mutate({ systemId, packagingId }),
+        [orderActions.dispatch]
+    );
+    
+    const completeDelivery = React.useCallback(
+        (systemId: string, packagingId: string, _employeeId?: string) =>
+            orderActions.complete.mutate({ systemId, packagingId }),
+        [orderActions.complete]
+    );
+    
+    const failDelivery = React.useCallback(
+        (systemId: string, packagingId: string, reason: string) =>
+            orderActions.fail.mutate({ systemId, packagingId, reason }),
+        [orderActions.fail]
+    );
+    
+    const cancelDelivery = React.useCallback(
+        (systemId: string, packagingId: string, reason: string, restockItems: boolean) =>
+            orderActions.cancelDelivery.mutate({ systemId, packagingId, reason, restockItems }),
+        [orderActions.cancelDelivery]
+    );
+    
+    const cancelDeliveryOnly = React.useCallback(
+        (systemId: string, packagingId: string, reason: string) =>
+            orderActions.cancelDelivery.mutate({ systemId, packagingId, reason, restockItems: false }),
+        [orderActions.cancelDelivery]
+    );
+    
+    const cancelGHTKShipment = React.useCallback(
+        (systemId: string, packagingId: string, trackingCode: string) =>
+            orderActions.cancelGhtk.mutate({ systemId, packagingId, trackingCode }),
+        [orderActions.cancelGhtk]
+    );
     const { findById: findProductById } = useProductFinder();
     const { findById: findProductTypeById } = useProductTypeFinder();
     const { data: allSalesReturns } = useAllSalesReturns();
@@ -147,7 +236,8 @@ export function OrderDetailPage() {
     const { data: warranties } = useAllWarranties();
     const { data: allReceipts } = useAllReceipts();
     const { data: allPayments } = useAllPayments();
-    const complaints = useComplaintStore((state) => state.complaints);
+    const { data: queryData } = useComplaints({ limit: 1000 });
+    const complaints = React.useMemo(() => queryData?.data ?? [], [queryData?.data]);
     const slaEngine = useCustomerSlaEvaluation();
     const { data: _branches } = useAllBranches();
     const { findById: findBranchById } = useBranchFinder();
@@ -390,17 +480,20 @@ export function OrderDetailPage() {
     }, [order, isCopying, router]);
 
     // Customer Settings Stores
-    const customerTypes = useCustomerTypeStore();
-    const customerGroups = useCustomerGroupStore();
-    const customerSources = useCustomerSourceStore();
+    const { data: customerTypesData } = useCustomerTypes();
+    const customerTypes = customerTypesData || [];
+    const { data: customerGroupsData } = useCustomerGroups();
+    const customerGroups = customerGroupsData || [];
+    const { data: customerSourcesData } = useCustomerSources();
+    const customerSources = customerSourcesData || [];
     const { findById: findEmployeeById } = useEmployeeFinder();
 
     // Branding for print
     const { logoUrl } = useBranding();
 
-    const _getTypeName = (id?: string) => id ? customerTypes.findById(asSystemId(id))?.name : undefined;
-    const getGroupName = (id?: string) => id ? customerGroups.findById(asSystemId(id))?.name : undefined;
-    const _getSourceName = (id?: string) => id ? customerSources.findById(asSystemId(id))?.name : undefined;
+    const _getTypeName = (id?: string) => id ? customerTypes.find(ct => ct.systemId === id)?.name : undefined;
+    const getGroupName = (id?: string) => id ? customerGroups.find(cg => cg.systemId === id)?.name : undefined;
+    const _getSourceName = (id?: string) => id ? customerSources.find(cs => cs.systemId === id)?.name : undefined;
     const getEmployeeName = (id?: string) => id ? findEmployeeById(asSystemId(id))?.fullName : undefined;
 
     // Get salesperson employee for print
@@ -668,14 +761,13 @@ export function OrderDetailPage() {
         
         if (ghtkPackaging && ghtkPackaging.trackingCode) {
             try {
-                const { cancelGHTKShipment } = useOrderStore.getState();
-                const result = await cancelGHTKShipment(
+                const result: any = await cancelGHTKShipment(
                     order.systemId, 
                     ghtkPackaging.systemId, 
                     ghtkPackaging.trackingCode
                 );
                 
-                if (!result.success) {
+                if (!(result as any).success) {
                     // GHTK cancel failed, show toast with action to continue
                     toast.error(
                         `Không thể hủy vận đơn GHTK: ${result.message}`,
@@ -731,30 +823,30 @@ export function OrderDetailPage() {
         resetCancelForm();
         setIsCancelAlertOpen(false); 
     };
-    const handleAddPayment = (paymentData: PaymentFormValues) => { if (order) { addPayment(order.systemId, paymentData, currentEmployeeSystemId); setIsPaymentDialogOpen(false); } };
+    const handleAddPayment = (paymentData: PaymentFormValues) => { if (order) { addPayment(order.systemId, paymentData); setIsPaymentDialogOpen(false); } };
     const handleRequestPackaging = React.useCallback((assignedEmployeeId?: SystemId) => {
         if (order) {
-            requestPackaging(order.systemId, currentEmployeeSystemId, assignedEmployeeId);
+            requestPackaging(order.systemId, assignedEmployeeId);
         }
-    }, [order, requestPackaging, currentEmployeeSystemId]);
-    const handleConfirmPackaging = React.useCallback((packagingSystemId: SystemId) => { if (order) { confirmPackaging(order.systemId, packagingSystemId, currentEmployeeSystemId); } }, [order, confirmPackaging, currentEmployeeSystemId]);
-    const handleCancelPackagingSubmit = (reason: string) => { if (order && cancelPackagingState) { cancelPackagingRequest(order.systemId, cancelPackagingState.packagingSystemId, currentEmployeeSystemId, reason); setCancelPackagingState(null); }};
-    const handleInStorePickup = (packagingSystemId: SystemId) => { if (order) { processInStorePickup(order.systemId, packagingSystemId); } };
-    const handleShippingSubmit = (data: Record<string, unknown>) => { if (order && activePackaging) { return confirmPartnerShipment(order.systemId, activePackaging.systemId, data); } return Promise.resolve({success: false, message: 'Đơn hàng không hợp lệ'}); };
+    }, [order, requestPackaging]);
+    const handleConfirmPackaging = React.useCallback((packagingSystemId: SystemId) => { if (order) { confirmPackaging(order.systemId, packagingSystemId); } }, [order, confirmPackaging]);
+    const handleCancelPackagingSubmit = (reason: string) => { if (order && cancelPackagingState) { cancelPackagingRequest(order.systemId, cancelPackagingState.packagingSystemId, '', reason); setCancelPackagingState(null); }};
+    const handleInStorePickup = (packagingSystemId: SystemId) => { if (order) { (processInStorePickup as any)(order.systemId, packagingSystemId); } };
+    const handleShippingSubmit = (data: Record<string, unknown>) => { if (order && activePackaging) { return (confirmPartnerShipment as any)(order.systemId, activePackaging.systemId, data); } return Promise.resolve({success: false, message: 'Đơn hàng không hợp lệ'}); };
     
     const handleDispatch = React.useCallback((packagingSystemId: SystemId) => { 
         if (order) { 
             const pkg = order.packagings.find(p => p.systemId === packagingSystemId);
             if (pkg?.deliveryMethod === 'Nhận tại cửa hàng') {
-                confirmInStorePickup(order.systemId, packagingSystemId, currentEmployeeSystemId);
+                confirmInStorePickup(order.systemId, packagingSystemId);
             } else {
-                dispatchFromWarehouse(order.systemId, packagingSystemId, currentEmployeeSystemId); 
+                dispatchFromWarehouse(order.systemId, packagingSystemId); 
             }
         } 
-    }, [order, confirmInStorePickup, dispatchFromWarehouse, currentEmployeeSystemId]);
+    }, [order, confirmInStorePickup, dispatchFromWarehouse]);
 
-    const handleCompleteDelivery = (packagingSystemId: SystemId) => { if (order) { completeDelivery(order.systemId, packagingSystemId, currentEmployeeSystemId); }};
-    const handleFailDeliverySubmit = (reason: string) => { if (order && cancelShipmentState) { failDelivery(order.systemId, cancelShipmentState.packagingSystemId, currentEmployeeSystemId, reason); setCancelShipmentState(null); }};
+    const handleCompleteDelivery = (packagingSystemId: SystemId) => { if (order) { completeDelivery(order.systemId, packagingSystemId); }};
+    const handleFailDeliverySubmit = (reason: string) => { if (order && cancelShipmentState) { failDelivery(order.systemId, cancelShipmentState.packagingSystemId, reason); setCancelShipmentState(null); }};
     
     // ✅ Hủy giao hàng - KHÔNG trả hàng về kho (hàng bị thất tung/shipper giữ)
     const handleCancelDeliveryOnly = async () => { 
@@ -765,7 +857,7 @@ export function OrderDetailPage() {
             // Nếu có tracking code GHTK, gọi API hủy trước
             if (trackingCode && trackingCode.startsWith('S')) {
                 try {
-                    const result = await cancelGHTKShipment(order.systemId, cancelShipmentState.packagingSystemId, trackingCode);
+                    const result: any = await cancelGHTKShipment(order.systemId, cancelShipmentState.packagingSystemId, trackingCode);
                     
                     if (!result.success) {
                         toast.error(`⚠️ Không thể hủy vận đơn GHTK: ${result.message}\n\nVui lòng hủy trên hệ thống đối tác.`);
@@ -780,7 +872,7 @@ export function OrderDetailPage() {
             }
             
             // ✅ Chỉ update trạng thái, KHÔNG trả hàng về kho
-            cancelDeliveryOnly(order.systemId, cancelShipmentState.packagingSystemId, currentEmployeeSystemId, "Hủy giao hàng"); 
+            cancelDeliveryOnly(order.systemId, cancelShipmentState.packagingSystemId, 'Hủy giao hàng'); 
             setCancelShipmentState(null); 
         }
     };
@@ -794,7 +886,7 @@ export function OrderDetailPage() {
             // Nếu có tracking code GHTK, gọi API hủy trước
             if (trackingCode && trackingCode.startsWith('S')) {
                 try {
-                    const result = await cancelGHTKShipment(order.systemId, cancelShipmentState.packagingSystemId, trackingCode);
+                    const result: any = await cancelGHTKShipment(order.systemId, cancelShipmentState.packagingSystemId, trackingCode);
                     
                     if (!result.success) {
                         toast.error(`⚠️ Không thể hủy vận đơn GHTK: ${result.message}\n\nVui lòng hủy trên hệ thống đối tác.`);
@@ -809,7 +901,7 @@ export function OrderDetailPage() {
             }
             
             // ✅ Update trạng thái + TRẢ hàng về kho
-            cancelDelivery(order.systemId, cancelShipmentState.packagingSystemId, currentEmployeeSystemId, "Hủy giao và nhận lại hàng"); 
+            cancelDelivery(order.systemId, cancelShipmentState.packagingSystemId, "Hủy giao và nhận lại hàng", true); 
             setCancelShipmentState(null); 
         }
     };
@@ -820,7 +912,7 @@ export function OrderDetailPage() {
         toast.info('Đang hủy vận đơn GHTK...', { description: 'Lưu ý: Chỉ có thể hủy khi đơn chưa được lấy hàng.' });
         
         try {
-            const result = await cancelGHTKShipment(order.systemId, packagingSystemId, trackingCode);
+            const result: any = await cancelGHTKShipment(order.systemId, packagingSystemId, trackingCode);
             
             if (result.success) {
                 toast.success('Đã hủy vận đơn GHTK thành công!');
@@ -1046,6 +1138,30 @@ export function OrderDetailPage() {
         actions: headerActions,
     });
 
+    // Loading state
+    if (isLoading) {
+        return (
+            <div className="space-y-4">
+                <Card>
+                    <CardContent className="pt-6">
+                        <div className="animate-pulse space-y-4">
+                            <div className="h-8 bg-muted rounded w-1/3" />
+                            <div className="h-4 bg-muted rounded w-1/2" />
+                        </div>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardContent className="pt-6">
+                        <div className="animate-pulse space-y-4">
+                            <div className="h-32 bg-muted rounded" />
+                            <div className="h-32 bg-muted rounded" />
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+        );
+    }
+
     if (!order) {
         return (
             <div className="flex h-full items-center justify-center">
@@ -1104,7 +1220,7 @@ export function OrderDetailPage() {
                 <div className="grid grid-cols-1 lg:grid-cols-10 gap-4">
                     {/* Thông tin khách hàng - 40% width on desktop */}
                     <Card className="lg:col-span-4 flex flex-col">
-                        <CardHeader className="flex-shrink-0">
+                        <CardHeader className="shrink-0">
                             <CardTitle className="text-base font-semibold">Thông tin khách hàng</CardTitle>
                         </CardHeader>
                         <CardContent className="flex-1">
@@ -1150,7 +1266,7 @@ export function OrderDetailPage() {
                                         <p className="text-sm flex-1">{shippingAddress || 'Chưa có thông tin giao hàng'}</p>
                                         {shippingAddress && (
                                             <Copy 
-                                                className="h-3 w-3 cursor-pointer text-muted-foreground hover:text-foreground flex-shrink-0 mt-0.5" 
+                                                className="h-3 w-3 cursor-pointer text-muted-foreground hover:text-foreground shrink-0 mt-0.5" 
                                                 onClick={() => { navigator.clipboard.writeText(shippingAddress); toast.success('Đã sao chép địa chỉ giao hàng'); }}
                                             />
                                         )}
@@ -1164,7 +1280,7 @@ export function OrderDetailPage() {
                                         <p className="text-sm flex-1">{billingAddress || '-'}</p>
                                         {billingAddress && (
                                             <Copy 
-                                                className="h-3 w-3 cursor-pointer text-muted-foreground hover:text-foreground flex-shrink-0 mt-0.5" 
+                                                className="h-3 w-3 cursor-pointer text-muted-foreground hover:text-foreground shrink-0 mt-0.5" 
                                                 onClick={() => { navigator.clipboard.writeText(billingAddress); toast.success('Đã sao chép địa chỉ hóa đơn'); }}
                                             />
                                         )}
@@ -1277,17 +1393,17 @@ export function OrderDetailPage() {
                         <OrderWorkflowCard 
                             order={order} 
                             onUpdateOrder={(systemId, updates) => {
-                                orderStore.update(asSystemId(systemId), updates);
+                                updateOrder.mutate({ id: systemId, ...updates } as any);
                             }} 
                         />
                     </div>
 
                     {/* Thông tin đơn hàng - 30% width on desktop */}
                     <Card className="lg:col-span-3 flex flex-col h-full lg:h-auto">
-                        <CardHeader className="flex-shrink-0">
+                        <CardHeader className="shrink-0">
                             <CardTitle className="text-base font-semibold">Thông tin đơn hàng</CardTitle>
                         </CardHeader>
-                        <CardContent className="text-sm space-y-3 overflow-y-auto flex-1 max-h-[400px] lg:max-h-none"
+                        <CardContent className="text-sm space-y-3 overflow-y-auto flex-1 max-h-100 lg:max-h-none"
                             style={{ 
                                 scrollbarWidth: 'thin',
                                 scrollbarColor: 'rgb(203 213 225) transparent'
@@ -1296,7 +1412,7 @@ export function OrderDetailPage() {
                             <DetailField label="Chính sách giá" value={defaultPricingPolicy?.name || 'Giá bán lẻ'} />
                             <DetailField label="Bán tại" value={order.branchName} />
                             <div className="flex">
-                                <span className="text-muted-foreground min-w-[140px]">Bán bởi:</span>
+                                <span className="text-muted-foreground min-w-35">Bán bởi:</span>
                                 <Link href={`/employees/${order.salespersonSystemId}`} className="text-primary hover:underline font-medium">
                                     {order.salesperson}
                                 </Link>
@@ -1372,9 +1488,9 @@ export function OrderDetailPage() {
                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                             <div className="flex items-center gap-2">
                                 {order.paymentStatus === 'Thanh toán toàn bộ' ? (
-                                    <CheckCircle2 className="h-5 w-5 text-green-500 flex-shrink-0" />
+                                    <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" />
                                 ) : (
-                                    <FileWarning className="h-5 w-5 text-amber-500 flex-shrink-0" />
+                                    <FileWarning className="h-5 w-5 text-amber-500 shrink-0" />
                                 )}
                                 <CardTitle className="text-base font-semibold">
                                     {order.paymentStatus === 'Chưa thanh toán' 
@@ -1579,7 +1695,7 @@ export function OrderDetailPage() {
                     <CardHeader>
                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                             <div className="flex items-center gap-2">
-                                <Package className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                                <Package className="h-5 w-5 text-muted-foreground shrink-0" />
                                 <CardTitle className="text-base font-semibold">Đóng gói và Giao hàng</CardTitle>
                             </div>
                             {renderMainPackagingActionButtons()}
@@ -1742,7 +1858,7 @@ export function OrderDetailPage() {
             <CreateShipmentDialog
                 isOpen={isCreateShipmentDialogOpen}
                 onOpenChange={setIsCreateShipmentDialogOpen}
-                onSubmit={handleShippingSubmit}
+                onSubmit={handleShippingSubmit as any}
                 order={order}
                 customer={customer ?? null}
             />

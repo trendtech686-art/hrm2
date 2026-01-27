@@ -2,9 +2,33 @@
  * Employee Settings API Layer
  */
 
-import type { WorkShift, LeaveType, SalaryComponent, InsuranceRates } from '@/lib/types/prisma-extended';
+import type { EmployeeSettings, WorkShift, LeaveType, SalaryComponent, InsuranceRates } from '@/lib/types/prisma-extended';
 
 const BASE_URL = '/api/settings/employees';
+
+// ========================================
+// Main Employee Settings (all-in-one JSON)
+// ========================================
+export async function fetchEmployeeSettings(): Promise<EmployeeSettings | null> {
+  const res = await fetch(BASE_URL);
+  if (!res.ok) throw new Error('Failed to fetch employee settings');
+  const json = await res.json();
+  return json.data ?? null;
+}
+
+export async function saveEmployeeSettings(data: EmployeeSettings): Promise<EmployeeSettings> {
+  const res = await fetch(BASE_URL, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({}));
+    throw new Error(error.message || 'Failed to save employee settings');
+  }
+  const json = await res.json();
+  return json.data;
+}
 
 // Work Shifts
 export async function fetchWorkShifts(): Promise<WorkShift[]> {

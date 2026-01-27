@@ -6,7 +6,7 @@ import dynamic from 'next/dynamic';
 import { toast } from 'sonner';
 import { formatDate } from '../../lib/date-utils';
 import { usePageHeader } from '../../contexts/page-header-context';
-import { useSalesReturnStore } from './store';
+import { useSalesReturns } from './hooks/use-sales-returns';
 import { useAllBranches } from '../settings/branches/hooks/use-all-branches';
 import { useStoreInfoData } from '../settings/store-info/hooks/use-store-info';
 import { usePrint } from '../../lib/use-print';
@@ -40,7 +40,8 @@ const formatCurrency = (value?: number) => typeof value === 'number' ? new Intl.
 
 export function SalesReturnsPage() {
     const router = useRouter();
-    const { data: returns, getActive } = useSalesReturnStore();
+    const { data: queryData } = useSalesReturns({ limit: 1000 });
+    const returns = React.useMemo(() => queryData?.data ?? [], [queryData?.data]);
     const { data: branches } = useAllBranches();
     const { info: storeInfo } = useStoreInfoData();
     const { employee: currentUser } = useAuth();
@@ -48,8 +49,8 @@ export function SalesReturnsPage() {
     const isMobile = !useMediaQuery('(min-width: 768px)');
     const mobileScrollRef = React.useRef<HTMLDivElement>(null);
 
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- returns triggers recalculation when data changes
-    const activeReturns = React.useMemo(() => getActive(), [getActive, returns]);
+     
+    const activeReturns = React.useMemo(() => returns.filter(r => (r as any).status !== 'Đã hủy'), [returns]);
 
     const [exportDialogOpen, setExportDialogOpen] = React.useState(false), [printDialogOpen, setPrintDialogOpen] = React.useState(false);
     const [itemsToPrint, setItemsToPrint] = React.useState<SalesReturn[]>([]);
@@ -175,22 +176,22 @@ export function SalesReturnsPage() {
             <CardContent className='p-4'>
                 <div className='flex items-center justify-between mb-2'>
                     <div className='flex items-center gap-2 flex-1 min-w-0'>
-                        <Avatar className='h-8 w-8 flex-shrink-0 bg-orange-100'><AvatarFallback className='text-body-xs text-orange-700'><Undo2 className='h-4 w-4' /></AvatarFallback></Avatar>
+                        <Avatar className='h-8 w-8 shrink-0 bg-orange-100'><AvatarFallback className='text-body-xs text-orange-700'><Undo2 className='h-4 w-4' /></AvatarFallback></Avatar>
                         <div className='flex items-center gap-1.5 min-w-0 flex-1'>
                             <h3 className='font-medium text-body-sm truncate'>{salesReturn.id}</h3>
                             <span className='text-body-xs text-muted-foreground font-mono'>{salesReturn.orderId}</span>
                         </div>
                     </div>
                     <DropdownMenu>
-                        <DropdownMenuTrigger asChild><TouchButton variant='ghost' size='sm' className='h-8 w-8 p-0 flex-shrink-0' onClick={(e) => e.stopPropagation()}><MoreHorizontal className='h-4 w-4' /></TouchButton></DropdownMenuTrigger>
+                        <DropdownMenuTrigger asChild><TouchButton variant='ghost' size='sm' className='h-8 w-8 p-0 shrink-0' onClick={(e) => e.stopPropagation()}><MoreHorizontal className='h-4 w-4' /></TouchButton></DropdownMenuTrigger>
                         <DropdownMenuContent align='end'><DropdownMenuItem onClick={(e) => { e.stopPropagation(); handlePrintSingleReturn(salesReturn.systemId); }}>In Phiếu Trả Hàng</DropdownMenuItem></DropdownMenuContent>
                     </DropdownMenu>
                 </div>
-                <div className='text-body-xs text-muted-foreground mb-3 flex items-center'><User className='h-3 w-3 mr-1.5 flex-shrink-0' /><span className='truncate'>{salesReturn.customerName}</span></div>
+                <div className='text-body-xs text-muted-foreground mb-3 flex items-center'><User className='h-3 w-3 mr-1.5 shrink-0' /><span className='truncate'>{salesReturn.customerName}</span></div>
                 <div className='border-t mb-3' />
                 <div className='space-y-2'>
-                    <div className='flex items-center text-body-xs text-muted-foreground'><Package className='h-3 w-3 mr-1.5 flex-shrink-0' /><span>{salesReturn.items.reduce((sum, item) => sum + item.returnQuantity, 0)} sản phẩm</span></div>
-                    <div className='flex items-center text-body-xs text-muted-foreground'><Calendar className='h-3 w-3 mr-1.5 flex-shrink-0' /><span>{formatDate(salesReturn.returnDate)}</span></div>
+                    <div className='flex items-center text-body-xs text-muted-foreground'><Package className='h-3 w-3 mr-1.5 shrink-0' /><span>{salesReturn.items.reduce((sum, item) => sum + item.returnQuantity, 0)} sản phẩm</span></div>
+                    <div className='flex items-center text-body-xs text-muted-foreground'><Calendar className='h-3 w-3 mr-1.5 shrink-0' /><span>{formatDate(salesReturn.returnDate)}</span></div>
                     <div className='flex items-center justify-between text-body-xs pt-1'>
                         <span className='text-h4'>{formatCurrency(salesReturn.totalReturnValue)}</span>
                         <Badge variant={salesReturn.isReceived ? 'default' : 'secondary'} className='text-body-xs'>{salesReturn.isReceived ? 'Đã nhận' : 'Chưa nhận'}</Badge>
@@ -210,7 +211,7 @@ export function SalesReturnsPage() {
             )}
             <PageFilters searchValue={globalFilter} onSearchChange={setGlobalFilter} searchPlaceholder='Tìm kiếm phiếu trả hàng (mã phiếu, mã đơn, khách hàng)...'>
                 <Select value={branchFilter} onValueChange={setBranchFilter}>
-                    <SelectTrigger className='w-full sm:w-[180px]'><SelectValue placeholder='Tất cả chi nhánh' /></SelectTrigger>
+                    <SelectTrigger className='w-full sm:w-45'><SelectValue placeholder='Tất cả chi nhánh' /></SelectTrigger>
                     <SelectContent><SelectItem value='all'>Tất cả chi nhánh</SelectItem>{branches.map(b => <SelectItem key={b.systemId} value={b.systemId}>{b.name}</SelectItem>)}</SelectContent>
                 </Select>
                 <DataTableFacetedFilter title='Trạng thái' options={statusOptions} selectedValues={statusFilter} onSelectedValuesChange={setStatusFilter} />

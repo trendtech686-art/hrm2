@@ -6,14 +6,15 @@ import React from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import type { Complaint } from '../types';
-import { useComplaintStore } from '../store';
+import { useComplaints, useComplaintMutations } from './use-complaints';
 import { asSystemId } from '@/lib/id-types';
 import { triggerDataUpdate } from '../use-realtime-updates';
 import { generateTrackingUrl, getTrackingCode, isTrackingEnabled } from '../tracking-utils';
 
 export function useComplaintHandlers() {
   const router = useRouter();
-  const { complaints } = useComplaintStore();
+  const { data: queryData } = useComplaints({ limit: 1000 });
+  const complaints = React.useMemo(() => queryData?.data ?? [], [queryData?.data]);
 
   const handleView = React.useCallback((systemId: string) => {
     router.push(`/complaints/${systemId}`);
@@ -80,7 +81,12 @@ type ConfirmDialogState = {
 export function useComplaintStatusHandlers(
   setConfirmDialog: React.Dispatch<React.SetStateAction<ConfirmDialogState>>
 ) {
-  const { complaints, updateComplaint } = useComplaintStore();
+  const { data: queryData } = useComplaints({ limit: 1000 });
+  const complaints = React.useMemo(() => queryData?.data ?? [], [queryData?.data]);
+  const { update: updateMutation } = useComplaintMutations({
+    onSuccess: () => triggerDataUpdate(),
+    onError: (err) => toast.error(err.message)
+  });
 
   const handleFinish = React.useCallback((systemId: string) => {
     const complaint = complaints.find(c => c.systemId === systemId);
@@ -94,8 +100,9 @@ export function useComplaintStatusHandlers(
       title: 'Kết thúc khiếu nại',
       description: 'Bạn có chắc muốn kết thúc khiếu nại này?',
       onConfirm: () => {
-        try {
-          updateComplaint(asSystemId(systemId), {
+        updateMutation.mutate({ 
+          systemId: asSystemId(systemId), 
+          data: {
             status: 'resolved',
             updatedAt: new Date(),
             resolvedAt: new Date(),
@@ -109,16 +116,20 @@ export function useComplaintStatusHandlers(
                 note: 'Kết thúc khiếu nại từ Kanban view',
               },
             ],
-          } as Partial<Complaint>);
-          toast.success('Đã kết thúc khiếu nại thành công');
-          triggerDataUpdate();
-        } catch (_error) {
-          toast.error('Không thể kết thúc khiếu nại');
-        }
-        setConfirmDialog(prev => ({ ...prev, open: false }));
+          }
+        }, {
+          onSuccess: () => {
+            toast.success('Đã kết thúc khiếu nại thành công');
+            setConfirmDialog(prev => ({ ...prev, open: false }));
+          },
+          onError: () => {
+            toast.error('Không thể kết thúc khiếu nại');
+            setConfirmDialog(prev => ({ ...prev, open: false }));
+          }
+        });
       },
     });
-  }, [complaints, updateComplaint, setConfirmDialog]);
+  }, [complaints, updateMutation, setConfirmDialog]);
 
   const handleOpen = React.useCallback((systemId: string) => {
     const complaint = complaints.find(c => c.systemId === systemId);
@@ -132,8 +143,9 @@ export function useComplaintStatusHandlers(
       title: 'Mở lại khiếu nại',
       description: 'Bạn có chắc muốn mở lại khiếu nại này?',
       onConfirm: () => {
-        try {
-          updateComplaint(asSystemId(systemId), {
+        updateMutation.mutate({ 
+          systemId: asSystemId(systemId), 
+          data: {
             status: 'investigating',
             endedBy: undefined,
             endedAt: undefined,
@@ -152,16 +164,20 @@ export function useComplaintStatusHandlers(
                 note: 'Mở lại khiếu nại từ Kanban view',
               },
             ],
-          } as Partial<Complaint>);
-          toast.success('Đã mở lại khiếu nại thành công');
-          triggerDataUpdate();
-        } catch (_error) {
-          toast.error('Không thể mở lại khiếu nại');
-        }
-        setConfirmDialog(prev => ({ ...prev, open: false }));
+          }
+        }, {
+          onSuccess: () => {
+            toast.success('Đã mở lại khiếu nại thành công');
+            setConfirmDialog(prev => ({ ...prev, open: false }));
+          },
+          onError: () => {
+            toast.error('Không thể mở lại khiếu nại');
+            setConfirmDialog(prev => ({ ...prev, open: false }));
+          }
+        });
       },
     });
-  }, [complaints, updateComplaint, setConfirmDialog]);
+  }, [complaints, updateMutation, setConfirmDialog]);
 
   const handleCancel = React.useCallback((systemId: string) => {
     const complaint = complaints.find(c => c.systemId === systemId);
@@ -175,8 +191,9 @@ export function useComplaintStatusHandlers(
       title: 'Hủy khiếu nại',
       description: 'Bạn có chắc muốn hủy khiếu nại này?',
       onConfirm: () => {
-        try {
-          updateComplaint(asSystemId(systemId), {
+        updateMutation.mutate({ 
+          systemId: asSystemId(systemId), 
+          data: {
             status: 'cancelled',
             updatedAt: new Date(),
             cancelledAt: new Date(),
@@ -190,16 +207,20 @@ export function useComplaintStatusHandlers(
                 note: 'Hủy khiếu nại từ Kanban view',
               },
             ],
-          } as Partial<Complaint>);
-          toast.success('Đã hủy khiếu nại thành công');
-          triggerDataUpdate();
-        } catch (_error) {
-          toast.error('Không thể hủy khiếu nại');
-        }
-        setConfirmDialog(prev => ({ ...prev, open: false }));
+          }
+        }, {
+          onSuccess: () => {
+            toast.success('Đã hủy khiếu nại thành công');
+            setConfirmDialog(prev => ({ ...prev, open: false }));
+          },
+          onError: () => {
+            toast.error('Không thể hủy khiếu nại');
+            setConfirmDialog(prev => ({ ...prev, open: false }));
+          }
+        });
       },
     });
-  }, [complaints, updateComplaint, setConfirmDialog]);
+  }, [complaints, updateMutation, setConfirmDialog]);
 
   const handleStartInvestigation = React.useCallback((systemId: string) => {
     const complaint = complaints.find(c => c.systemId === systemId);
@@ -213,30 +234,35 @@ export function useComplaintStatusHandlers(
       title: 'Bắt đầu xử lý',
       description: 'Bạn có chắc muốn bắt đầu xử lý khiếu nại này?',
       onConfirm: () => {
-        try {
-          updateComplaint(asSystemId(systemId), {
+        updateMutation.mutate({ 
+          systemId: asSystemId(systemId), 
+          data: {
             status: 'investigating',
             updatedAt: new Date(),
             timeline: [
               ...complaint.timeline,
               {
                 id: asSystemId(`action_${Date.now()}`),
-                actionType: 'investigating',
+                actionType: 'investigated' as any,
                 performedBy: asSystemId('Admin'),
                 performedAt: new Date(),
                 note: 'Bắt đầu xử lý khiếu nại từ Kanban view',
               },
             ],
-          } as Partial<Complaint>);
-          toast.success('Đã bắt đầu xử lý khiếu nại');
-          triggerDataUpdate();
-        } catch (_error) {
-          toast.error('Không thể bắt đầu xử lý khiếu nại');
-        }
-        setConfirmDialog(prev => ({ ...prev, open: false }));
+          }
+        }, {
+          onSuccess: () => {
+            toast.success('Đã bắt đầu xử lý khiếu nại');
+            setConfirmDialog(prev => ({ ...prev, open: false }));
+          },
+          onError: () => {
+            toast.error('Không thể bắt đầu xử lý khiếu nại');
+            setConfirmDialog(prev => ({ ...prev, open: false }));
+          }
+        });
       },
     });
-  }, [complaints, updateComplaint, setConfirmDialog]);
+  }, [complaints, updateMutation, setConfirmDialog]);
 
   return {
     handleFinish,

@@ -3,21 +3,20 @@
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { formatDate } from '@/lib/date-utils';
-import { useWikiStore } from './store';
-import { asSystemId } from '../../lib/id-types';
+import { useWikiById } from './hooks/use-wiki';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
+import { Skeleton } from '../../components/ui/skeleton';
 import { ArrowLeft, Edit, User, Calendar, Tag } from 'lucide-react';
 import { MarkdownRenderer } from './components/markdown-renderer';
 
 export function WikiDetailPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const router = useRouter();
-  const { findById } = useWikiStore();
-
-  const article = React.useMemo(() => (systemId ? findById(asSystemId(systemId)) : null), [systemId, findById]);
+  
+  const { data: article, isLoading } = useWikiById(systemId);
 
   usePageHeader({
     title: article?.title ?? 'Chi tiết bài viết',
@@ -34,6 +33,27 @@ export function WikiDetailPage() {
       </Button>
     ]
   });
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="max-w-4xl mx-auto">
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-10 w-2/3" />
+            <div className="pt-4 space-y-2">
+              <Skeleton className="h-4 w-1/4" />
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-3/4" />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (!article) {
     return (

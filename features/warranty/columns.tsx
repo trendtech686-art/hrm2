@@ -8,11 +8,18 @@ import { toast } from 'sonner';
 import { Checkbox } from "../../components/ui/checkbox";
 import { DataTableColumnHeader } from "../../components/data-table/data-table-column-header";
 import { Badge } from "../../components/ui/badge";
+
+// Stub function for settlement status calculation
+const calculateSettlementStatus = (totalSettlement: number, totalPaid: number, shippingFee: number) => {
+  const remaining = totalSettlement + shippingFee - totalPaid;
+  if (remaining <= 0) return 'fully_paid';
+  if (totalPaid > 0) return 'partially_paid';
+  return 'unpaid';
+};
 import type { ColumnDef } from '../../components/data-table/types';
 import { Button } from "../../components/ui/button";
 import { Pencil, Trash2, MoreHorizontal, Package, Printer, Link as LinkIcon, AlertTriangle } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
-import { useWarrantyStore } from './store';
 import { ROUTES, generatePath } from '../../lib/router';
 // REMOVED: Voucher store no longer exists
 // import { useVoucherStore } from '../vouchers/store';
@@ -353,8 +360,7 @@ export const getColumns = (
       const relatedVouchers = vouchers.filter(v => v.linkedWarrantySystemId === row.systemId);
       const totalPaid = relatedVouchers.reduce((sum, v) => sum + (v.amount || 0), 0);
       
-      // Calculate status
-      const { calculateSettlementStatus } = useWarrantyStore.getState();
+      // Calculate status using exported function
       const status = calculateSettlementStatus(
         Math.abs(row.summary.totalSettlement),
         totalPaid,

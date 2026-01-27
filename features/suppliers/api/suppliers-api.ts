@@ -165,3 +165,54 @@ export async function searchSuppliers(query: string, limit = 20): Promise<Suppli
   const json = await res.json();
   return json.data || [];
 }
+
+// ============ TRASH FUNCTIONS ============
+
+/**
+ * Fetch deleted suppliers
+ */
+export async function fetchDeletedSuppliers(): Promise<Supplier[]> {
+  const res = await fetch(`${API_BASE}/deleted`, {
+    credentials: 'include',
+  });
+  
+  if (!res.ok) {
+    throw new Error(`Failed to fetch deleted suppliers: ${res.statusText}`);
+  }
+  
+  const json = await res.json();
+  return json.data || json;
+}
+
+/**
+ * Restore deleted supplier
+ */
+export async function restoreSupplier(systemId: string): Promise<Supplier> {
+  const res = await fetch(`${API_BASE}/${systemId}/restore`, {
+    method: 'POST',
+    credentials: 'include',
+  });
+  
+  const json = await res.json();
+  
+  if (!res.ok) {
+    throw new Error(json.error || json.message || `Failed to restore supplier: ${res.statusText}`);
+  }
+  
+  return json.data || json;
+}
+
+/**
+ * Permanently delete supplier
+ */
+export async function permanentDeleteSupplier(systemId: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/${systemId}/permanent`, {
+    method: 'DELETE',
+    credentials: 'include',
+  });
+  
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error || errorData.message || `Failed to permanently delete supplier: ${res.statusText}`);
+  }
+}

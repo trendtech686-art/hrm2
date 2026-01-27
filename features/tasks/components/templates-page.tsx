@@ -2,9 +2,10 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { useTaskTemplateStore } from '../template-store';
+import { useAllTaskTemplates } from '../hooks/use-all-task-templates';
+import { useTaskTemplateMutations } from '../hooks/use-task-templates';
 import { useAllEmployees } from '@/features/employees/hooks/use-all-employees';
-import { useTaskStore } from '../store';
+import { useTasks, useTaskMutations } from '../hooks/use-tasks';
 import { usePageHeader } from '@/contexts/page-header-context';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -38,7 +39,7 @@ import {
   ListChecks,
   Rocket,
 } from 'lucide-react';
-import type { TaskTemplate, UseTemplateOptions } from '../template-types';
+import type { TaskTemplate, UseTemplateOptions as _UseTemplateOptions } from '../template-types';
 import type { TaskAssignee } from '../types';
 import { toast } from 'sonner';
 
@@ -65,9 +66,20 @@ function FileText(props: React.HTMLAttributes<HTMLDivElement>) { return <div {..
 
 export function TaskTemplatesPage() {
   const router = useRouter();
-  const templateStore = useTaskTemplateStore();
+  const { data: templates, getMostUsed, search } = useAllTaskTemplates();
+  const { incrementUsage } = useTaskTemplateMutations();
   const { data: employees } = useAllEmployees();
-  const taskStore = useTaskStore();
+  const { data: tasksData } = useTasks({ limit: 1000 });
+  const _tasks = tasksData?.data ?? [];
+  const { create: createTaskMutation } = useTaskMutations({
+    onSuccess: () => {
+      toast.success('Đã tạo công việc từ mẫu');
+      router.push('/tasks');
+    },
+    onError: (error) => {
+      toast.error('Lỗi', { description: error.message });
+    }
+  });
 
   const [searchQuery, setSearchQuery] = React.useState('');
   const [categoryFilter, setCategoryFilter] = React.useState<string>('all');
@@ -92,19 +104,18 @@ export function TaskTemplatesPage() {
 
   // Filter templates
   const filteredTemplates = React.useMemo(() => {
-    let result = templateStore.data;
+    let result = templates;
 
     if (categoryFilter !== 'all') {
       result = result.filter(t => t.category === categoryFilter);
     }
 
     if (searchQuery.trim()) {
-      result = templateStore.search(searchQuery);
+      result = search(searchQuery);
     }
 
     return result.filter(t => t.isActive);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- templateStore.data triggers recalculation, templateStore.search is stable
-  }, [templateStore.data, searchQuery, categoryFilter]);
+  }, [templates, searchQuery, categoryFilter, search]);
 
   // Group by category
   const groupedTemplates = React.useMemo(() => {
@@ -145,25 +156,52 @@ export function TaskTemplatesPage() {
     }
 
     try {
-      const options: UseTemplateOptions = {
-        templateId: selectedTemplate.systemId,
+      // Build description with checklist
+      let description = selectedTemplate.description;
+      if (selectedTemplate.checklistItems && selectedTemplate.checklistItems.length > 0) {
+        description += '\n\n**Checklist:**\n';
+        selectedTemplate.checklistItems.forEach(item => {
+          description += `- [ ] ${item}\n`;
+        });
+      }
+
+      // Convert template subtasks to task subtasks
+      const subtasks = selectedTemplate.subtasks.map((st, idx) => ({
+        id: `subtask-${Date.now()}-${idx}`,
+        title: st.title,
+        completed: false,
+      }));
+
+      // Get owner for backward compatibility
+      const owner = useFormData.assignees.find(a => a.role === 'owner') || useFormData.assignees[0];
+
+      // Create task object
+      const newTask = {
         title: useFormData.title,
-        dueDate: useFormData.dueDate,
+        description,
         assignees: useFormData.assignees,
+        assigneeId: owner?.employeeSystemId,
+        assigneeName: owner?.employeeName || '',
+        priority: selectedTemplate.priority,
+        status: 'Chưa bắt đầu' as const,
+        startDate: new Date().toISOString().split('T')[0],
+        dueDate: useFormData.dueDate,
+        estimatedHours: selectedTemplate.estimatedHours,
+        progress: 0,
+        subtasks,
+        activities: [],
       };
 
-      const newTask = templateStore.createTaskFromTemplate(options);
-      taskStore.add(newTask);
+      createTaskMutation.mutate(newTask);
+      incrementUsage.mutate(selectedTemplate.systemId);
 
-      toast.success(`Đã tạo công việc từ mẫu "${selectedTemplate.name}"`);
       setShowUseDialog(false);
-      router.push('/tasks');
     } catch (_error) {
       toast.error('Không thể tạo công việc từ mẫu');
     }
   };
 
-  const mostUsedTemplates = templateStore.getMostUsed(3);
+  const mostUsedTemplates = getMostUsed(3);
 
   return (
     <div className="space-y-6">
@@ -175,7 +213,7 @@ export function TaskTemplatesPage() {
             <FileText className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{templateStore.data.filter(t => t.isActive).length}</div>
+            <div className="text-2xl font-bold">{templates.filter(t => t.isActive).length}</div>
           </CardContent>
         </Card>
 
@@ -186,7 +224,7 @@ export function TaskTemplatesPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {new Set(templateStore.data.filter(t => t.isActive).map(t => t.category)).size}
+              {new Set(templates.filter(t => t.isActive).map(t => t.category)).size}
             </div>
           </CardContent>
         </Card>
@@ -211,7 +249,7 @@ export function TaskTemplatesPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {templateStore.data.reduce((sum, t) => sum + t.usageCount, 0)}
+              {templates.reduce((sum, t) => sum + t.usageCount, 0)}
             </div>
           </CardContent>
         </Card>
@@ -233,7 +271,7 @@ export function TaskTemplatesPage() {
               </div>
             </div>
             <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="w-full md:w-[200px]">
+              <SelectTrigger className="w-full md:w-50">
                 <SelectValue placeholder="Tất cả danh mục" />
               </SelectTrigger>
               <SelectContent>

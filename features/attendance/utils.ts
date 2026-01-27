@@ -186,14 +186,22 @@ export function recalculateSummary(
         ? parseFloat((totalWorkMinutes / standardDayMinutes).toFixed(2))
         : 0;
     
-    // Tính ngày vắng = Tổng ngày làm việc trong tháng - ngày có công - ngày phép
-    const totalWorkingDaysInMonth = Array.from({ length: daysInMonth }, (_, i) => {
-        const d = new Date(year, month - 1, i + 1);
-        const dow = getDayOfWeek(d);
-        return dow !== null && settings.workingDays.includes(dow) ? 1 : 0;
-    }).reduce((a, b) => a + b, 0);
+    // Đếm số ngày có dữ liệu thực tế (không phải 'empty' hoặc 'future')
+    let daysWithData = 0;
+    for (let d = 1; d <= daysInMonth; d++) {
+        const record = row[`day_${d}`] as DailyRecord;
+        const workDate = new Date(year, month - 1, d);
+        const dayOfWeek = getDayOfWeek(workDate);
+        const isWorkingDay = dayOfWeek !== null && settings.workingDays.includes(dayOfWeek);
+        
+        if (isWorkingDay && record && record.status !== 'empty' && record.status !== 'future' && record.status !== 'weekend') {
+            daysWithData++;
+        }
+    }
     
-    absentDays = Math.max(0, totalWorkingDaysInMonth - Math.ceil(workDays) - leaveDays);
+    // Tính ngày vắng = Số ngày có dữ liệu - ngày có công - ngày phép
+    // (Không tính ngày 'empty' là vắng)
+    absentDays = Math.max(0, daysWithData - Math.ceil(workDays) - leaveDays);
     
     // Convert OT từ phút sang giờ
     const otHoursWeekday = parseFloat((otMinutesWeekday / 60).toFixed(2));

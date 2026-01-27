@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Plus, XCircle, CheckCircle, Printer, FileSpreadsheet, Download } from 'lucide-react';
 
-import { useCostAdjustmentStore } from './store';
+import { useCostAdjustments, useCostAdjustmentMutations } from './hooks/use-cost-adjustments';
 import { getColumns } from './columns';
 import { ROUTES } from '@/lib/router';
 import { usePageHeader } from '@/contexts/page-header-context';
@@ -37,7 +37,12 @@ const CostAdjustmentExportDialog = dynamic(() => import("./components/cost-adjus
 
 export function CostAdjustmentListPage() {
   const router = useRouter();
-  const { data: adjustments, cancel, confirm } = useCostAdjustmentStore();
+  const { data: queryData } = useCostAdjustments({ limit: 1000 });
+  const adjustments = React.useMemo(() => queryData?.data ?? [], [queryData?.data]);
+  const { cancel, confirm } = useCostAdjustmentMutations({
+    onSuccess: () => toast.success('Cập nhật thành công'),
+    onError: (error) => toast.error(error.message),
+  });
   const { employee } = useAuth();
   const isMobile = !useMediaQuery("(min-width: 768px)");
   const { print, printMultiple } = usePrint();
@@ -104,13 +109,11 @@ export function CostAdjustmentListPage() {
   const allSelectedRows = React.useMemo(() => adjustments.filter(a => rowSelection[a.systemId]), [adjustments, rowSelection]);
   const selectedAdjustments = React.useMemo(() => adjustments.filter(a => rowSelection[a.systemId]), [adjustments, rowSelection]);
 
-  const handleImport = React.useCallback(async (importedAdjustments: Partial<CostAdjustment>[], mode: 'insert-only' | 'update-only' | 'upsert') => {
-    let addedCount = 0, skippedCount = 0; const errors: Array<{ row: number; message: string }> = [];
-    const store = useCostAdjustmentStore.getState(), creatorId = employee?.systemId || asSystemId('SYSTEM'), creatorName = employee?.fullName || 'Hệ thống';
-    importedAdjustments.forEach((adj, i) => { try { const ex = store.getByBusinessId(adj.id?.toString() || ''); if (ex) { skippedCount++; } else if (mode !== 'update-only' && adj.items?.length) { store.create(adj.items.map(it => ({ productSystemId: it.productSystemId, productId: it.productId, productName: it.productName, productImage: it.productImage, oldCostPrice: it.oldCostPrice, newCostPrice: it.newCostPrice, reason: it.reason })), adj.type || 'manual', creatorId, creatorName, { customId: adj.id?.toString(), note: adj.note, reason: adj.reason, referenceCode: adj.referenceCode, status: adj.status || 'draft' }); addedCount++; } else { skippedCount++; } } catch (e) { errors.push({ row: i + 1, message: (e as Error).message }); } });
-    if (addedCount > 0) toast.success(`Đã import ${addedCount} phiếu`);
-    return { success: addedCount, failed: errors.length, inserted: addedCount, updated: 0, skipped: skippedCount, errors };
-  }, [employee]);
+  const handleImport = React.useCallback(async (importedAdjustments: Partial<CostAdjustment>[], _mode: 'insert-only' | 'update-only' | 'upsert') => {
+    // TODO: Implement proper batch import API endpoint
+    toast.info('Import functionality requires API implementation');
+    return { success: 0, failed: 0, inserted: 0, updated: 0, skipped: importedAdjustments.length, errors: [] };
+  }, []);
 
   const handleBulkCancel = React.useCallback(() => { const drafts = allSelectedRows.filter(a => a.status === 'draft'); if (drafts.length === 0) { toast.info('Không có phiếu nào có thể hủy'); return; } setConfirmDialogState({ type: 'bulk-cancel', items: drafts }); }, [allSelectedRows]);
   const handleBulkConfirm = React.useCallback(() => { const drafts = allSelectedRows.filter(a => a.status === 'draft'); if (drafts.length === 0) { toast.info('Không có phiếu nào có thể xác nhận'); return; } setConfirmDialogState({ type: 'bulk-confirm', items: drafts }); }, [allSelectedRows]);
@@ -118,10 +121,18 @@ export function CostAdjustmentListPage() {
   const handleConfirmDialogAction = React.useCallback(async () => {
     if (!confirmDialogState || !employee) return; setIsConfirmLoading(true);
     try {
-      const uid = asSystemId(employee.systemId), uname = employee.fullName || 'Người dùng'; let c = 0;
-      confirmDialogState.items.forEach(it => { if (confirmDialogState.type === 'bulk-cancel' && cancel(asSystemId(it.systemId), uid, uname, 'Hủy hàng loạt')) c++; if (confirmDialogState.type === 'bulk-confirm' && confirm(asSystemId(it.systemId), uid, uname)) c++; });
-      if (c > 0) toast.success(`Đã ${confirmDialogState.type === 'bulk-cancel' ? 'hủy' : 'xác nhận'} ${c} phiếu`);
+      const promises = confirmDialogState.items.map(async (it) => {
+        if (confirmDialogState.type === 'bulk-cancel') {
+          await cancel.mutateAsync(asSystemId(it.systemId));
+        } else if (confirmDialogState.type === 'bulk-confirm') {
+          await confirm.mutateAsync(asSystemId(it.systemId));
+        }
+      });
+      await Promise.all(promises);
+      toast.success(`Đã ${confirmDialogState.type === 'bulk-cancel' ? 'hủy' : 'xác nhận'} ${confirmDialogState.items.length} phiếu`);
       setRowSelection({});
+    } catch (error) {
+      toast.error((error as Error).message);
     } finally { setIsConfirmLoading(false); setConfirmDialogState(null); }
   }, [confirmDialogState, employee, cancel, confirm]);
 
