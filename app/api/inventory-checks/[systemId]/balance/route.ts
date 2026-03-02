@@ -31,7 +31,6 @@ export async function POST(request: Request, { params }: RouteParams) {
     const body = await request.json().catch(() => ({}));
     const { balancedBy } = body;
 
-    console.log('[Balance API] Starting balance for:', systemId);
 
     // Get the inventory check with items
     const inventoryCheck = await prisma.inventoryCheck.findUnique({
@@ -42,11 +41,9 @@ export async function POST(request: Request, { params }: RouteParams) {
     });
 
     if (!inventoryCheck) {
-      console.log('[Balance API] Not found:', systemId);
       return apiNotFound('Inventory check');
     }
 
-    console.log('[Balance API] Found check:', inventoryCheck.id, 'status:', inventoryCheck.status);
 
     // Validate status - only DRAFT or PENDING can be balanced
     const currentStatus = String(inventoryCheck.status).toUpperCase();
@@ -65,7 +62,6 @@ export async function POST(request: Request, { params }: RouteParams) {
       return apiError('Không tìm thấy chi nhánh để cân bằng', 400);
     }
 
-    console.log('[Balance API] Branch:', branchId, 'Items count:', inventoryCheck.items.length);
 
     // Get employee info from user - balancedBy should be employee systemId
     const userId = balancedBy || session.user?.id || null;
@@ -113,18 +109,15 @@ export async function POST(request: Request, { params }: RouteParams) {
       
       // Skip items with no difference
       if (difference === 0) {
-        console.log(`[Balance API] Skipping ${item.productName} - no difference`);
         continue;
       }
 
       // productId in InventoryCheckItem is the product's systemId
       const productId = item.productId;
       if (!productId) {
-        console.log(`[Balance API] Skipping ${item.productName} - no productId`);
         continue;
       }
 
-      console.log(`[Balance API] Processing ${item.productName}: difference=${difference}`);
 
       try {
         // Call existing inventory update API
@@ -155,7 +148,6 @@ export async function POST(request: Request, { params }: RouteParams) {
             error: errorData.error || 'Unknown error' 
           });
         } else {
-          console.log(`[Balance API] Successfully updated inventory for ${item.productName}`);
           updateResults.push({ 
             productId, 
             productName: item.productName || productId, 
@@ -196,7 +188,6 @@ export async function POST(request: Request, { params }: RouteParams) {
       include: { items: true },
     });
 
-    console.log('[Balance API] Success - balanced inventory and created history');
 
     return apiSuccess({
       ...updatedCheck,

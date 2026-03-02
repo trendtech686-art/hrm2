@@ -16,7 +16,6 @@ export async function GET(request: Request, { params }: RouteParams) {
 
   try {
     const { systemId } = await params;
-    console.log('[Inventory Receipt Detail] Fetching systemId:', systemId);
 
     const inventoryReceipt = await prisma.inventoryReceipt.findUnique({
       where: { systemId },
@@ -26,11 +25,9 @@ export async function GET(request: Request, { params }: RouteParams) {
     });
 
     if (!inventoryReceipt) {
-      console.log('[Inventory Receipt Detail] Not found:', systemId);
       return apiNotFound('Inventory receipt');
     }
 
-    console.log('[Inventory Receipt Detail] Found:', inventoryReceipt.id);
 
     // Lookup purchase order to get supplier info if not stored
     let purchaseOrder: { id: string; systemId: string; supplier: { name: string } | null } | null = null;

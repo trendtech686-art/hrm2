@@ -295,7 +295,6 @@ export function usePkgxEntitySync(options: UsePkgxEntitySyncOptions) {
     try {
       // Force refetch settings để đảm bảo enabled status mới nhất
       const { data: freshSettings } = await refetchSettings();
-      console.log('🔍 Category Sync Fresh Settings:', { enabled: freshSettings?.enabled });
       
       const pkgxSeo = hrmCategory.websiteSeo?.pkgx;
       let payload: Record<string, unknown> = {};
@@ -394,7 +393,6 @@ export function usePkgxEntitySync(options: UsePkgxEntitySyncOptions) {
     try {
       // Force refetch settings để đảm bảo enabled status mới nhất
       const { data: freshSettings } = await refetchSettings();
-      console.log('🔍 Entity Sync Fresh Settings:', { enabled: freshSettings?.enabled, apiKey: freshSettings?.apiKey?.slice(0, 10) + '...' });
       
       const pkgxSeo = hrmBrand.websiteSeo?.pkgx;
       let payload: Record<string, unknown> = {};
@@ -479,7 +477,6 @@ export function usePkgxEntitySync(options: UsePkgxEntitySyncOptions) {
     try {
       // Force refetch settings để đảm bảo enabled status mới nhất
       const { data: freshSettings } = await refetchSettings();
-      console.log('🔍 Product Sync Fresh Settings:', { enabled: freshSettings?.enabled });
       
       let payload: Record<string, unknown> = {};
       let successMessage = '';

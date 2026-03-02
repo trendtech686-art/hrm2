@@ -69,14 +69,11 @@ import { useInventoryHandlers } from "../hooks/use-inventory-handlers";
  * MAIN PAGE COMPONENT - Complaint Detail (VIEW ONLY)
  */
 export function ComplaintDetailPage() {
-  console.time('ComplaintDetailPage Mount');
-  
   const { systemId } = useParams<{ systemId: string }>();
   const router = useRouter();
   const queryClient = useQueryClient();
   const { setPageHeader: _setPageHeader } = usePageHeader();
 
-  console.time('Store Hooks');
   const { update: updateMutation } = useComplaintMutations({
     // Toast messages are already shown in verification handlers
     onError: (err) => toast.error(err.message)
@@ -84,16 +81,12 @@ export function ComplaintDetailPage() {
   const { getComplaintById, isLoading: _isLoadingFromList } = useComplaintFinder();
   const { data: employees } = useAllEmployees();
   // REMOVED: Payments/receipts loaded separately in components that need them
-  console.timeEnd('Store Hooks');
 
-  console.time('Data Access');
   // ✅ Use dedicated query for single complaint - auto-refreshes after mutation
   const { data: complaintFromQuery, isLoading: isLoadingComplaint } = useComplaint(systemId);
   // Fallback to list data if query not ready yet
   const complaint = complaintFromQuery ?? (systemId ? (getComplaintById(asSystemId(systemId)) ?? null) : null);
-  
-  console.timeEnd('Data Access');
-  
+
   // ⚡ OPTIMIZED: Fetch only the related order instead of all orders
   // ✅ Support both orderSystemId and orderId (DB field name mismatch)
   // ⚡ OPTIMIZED: Use inline order data from complaint API first, fallback to separate fetch
@@ -115,8 +108,6 @@ export function ComplaintDetailPage() {
   }, [employees]);
   
   // Memoize frequently accessed data to avoid repeated searches
-  console.time('Memoization');
-  
   const assignedEmployee = React.useMemo(() => 
     complaint?.assignedTo ? employees.find(e => e.systemId === complaint.assignedTo) : null,
     [complaint, employees]
@@ -126,21 +117,14 @@ export function ComplaintDetailPage() {
     complaint?.responsibleUserId ? employees.find(e => e.systemId === complaint.responsibleUserId) : null,
     [complaint, employees]
   );
-  console.timeEnd('Memoization');
   
   //  Auth & Permissions
-  console.time('Auth & Permissions');
   const { employee } = useAuth();
   const permissions = useComplaintPermissions(complaint);
   const timeTracking = useComplaintTimeTracking(complaint);
   const _reminderStatus = useComplaintReminders(complaint);
   const { data: complaintsSettings } = useComplaintsSettings();
   const trackingEnabled = complaintsSettings.publicTracking?.enabled ?? false;
-  console.timeEnd('Auth & Permissions');
-  
-  React.useEffect(() => {
-    console.timeEnd('ComplaintDetailPage Mount');
-  }, []);
   
   // Create wrapper function for updateComplaint - returns Promise for async handlers
   const updateComplaint = React.useCallback(async (systemId: SystemId, data: Partial<Complaint>) => {

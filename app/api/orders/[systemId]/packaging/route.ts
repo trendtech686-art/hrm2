@@ -55,18 +55,6 @@ export async function POST(request: Request, { params }: RouteParams) {
       return apiNotFound('Order');
     }
 
-    console.log('[Packaging API] Order packagings:', order.packagings.map(p => {
-      const packagingWithShipment = p as typeof p & { shipment?: { systemId: string; status: string } | null };
-      return {
-        systemId: p.systemId,
-        confirmDate: p.confirmDate,
-        cancelDate: p.cancelDate,
-        shipment: packagingWithShipment.shipment ? { 
-          systemId: packagingWithShipment.shipment.systemId,
-          status: packagingWithShipment.shipment.status 
-        } : null,
-      };
-    }));
 
     // Check if there's already an active packaging (pending or in-progress, not cancelled)
     // A packaging is "active" if:
@@ -81,7 +69,6 @@ export async function POST(request: Request, { params }: RouteParams) {
       const packagingWithShipment = p as typeof p & { shipment?: { systemId: string; status: string } | null };
       const shipment = packagingWithShipment.shipment;
       if (shipment && shipment.status !== 'DELIVERED' && shipment.status !== 'CANCELLED') {
-        console.log('[Packaging API] Found active packaging with in-progress shipment:', p.systemId, shipment.status);
         return true; // Shipment in progress
       }
       
@@ -89,7 +76,6 @@ export async function POST(request: Request, { params }: RouteParams) {
     });
     
     if (activePackaging) {
-      console.log('[Packaging API] Blocking due to active packaging:', activePackaging.systemId);
       return apiError('Đơn hàng đã có phiếu đóng gói đang xử lý. Vui lòng hủy phiếu đóng gói hiện tại trước.', 400);
     }
 

@@ -151,7 +151,6 @@ export async function POST(_request: Request, { params }: RouteParams) {
           });
         }
         
-        console.log(`[Complete Delivery] Updated inventory for ${updated.lineItems.length} products: -inDelivery, +totalSold`);
       }
 
       return updated;

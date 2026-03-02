@@ -128,7 +128,6 @@ export async function POST(request: NextRequest) {
 
   try {
     const data = result.data;
-    console.log('[Stock Transfers API] Creating with data:', JSON.stringify(data, null, 2));
     
     // Normalize branch IDs - support both old format (fromBranchId) and new format (fromBranchSystemId)
     const fromBranchId = data.fromBranchSystemId || data.fromBranchId || '';

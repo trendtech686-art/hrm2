@@ -168,7 +168,6 @@ export async function POST(request: Request, { params }: RouteParams) {
       return duplicatedOrder;
     });
 
-    console.log(`[Orders API] Duplicated order ${originalOrder.id} -> ${newOrder.id}`);
 
     return apiSuccess({
       ...newOrder,

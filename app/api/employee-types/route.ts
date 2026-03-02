@@ -62,7 +62,6 @@ export async function POST(request: Request) {
     return apiError(validation.error, 400)
   }
   const body = validation.data
-  console.log('Creating employee type with body:', body)
 
   try {
     // If this is set as default, unset other defaults
@@ -84,13 +83,11 @@ export async function POST(request: Request) {
       isDefault: body.isDefault ?? false,
       sortOrder: body.sortOrder ?? 0,
     }
-    console.log('Data to create:', dataToCreate)
 
     const employeeType = await prisma.employeeTypeSetting.create({
       data: dataToCreate,
     })
 
-    console.log('Created employee type:', employeeType)
     return apiSuccess(employeeType, 201)
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {

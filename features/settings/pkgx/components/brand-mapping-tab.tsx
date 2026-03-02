@@ -592,7 +592,6 @@ export function BrandMappingTab() {
             ? pkgxDetailResponse.data 
             : null;
           
-          console.log(`[Import Brand] Full PKGX data for "${pkgxBrand.name}":`, pkgxFullData);
           
           const brandData: Record<string, unknown> = {
             id: `PKGX-${pkgxBrand.id}`,
@@ -649,7 +648,6 @@ export function BrandMappingTab() {
           }
           
           const newBrand = await response.json();
-          console.log(`[Import Brand] Created brand "${pkgxBrand.name}":`, newBrand);
           
           // Create mapping directly via fast API endpoint (instead of slow mutation)
           const mappingResponse = await fetch('/api/settings/pkgx/brand-mappings', {

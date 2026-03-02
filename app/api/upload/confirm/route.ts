@@ -43,14 +43,12 @@ export async function POST(request: NextRequest) {
     }
     
     // DEBUG: Log what we're searching for
-    console.log('[API /upload/confirm] Searching for files:', { where, sessionId, fileIds });
     
     // Check if any files exist with this sessionId (regardless of status)
-    const existingFiles = await prisma.file.findMany({
+    const _existingFiles = await prisma.file.findMany({
       where: sessionId ? { sessionId } : { systemId: { in: fileIds || [] } },
       select: { systemId: true, sessionId: true, status: true, filename: true },
     });
-    console.log('[API /upload/confirm] Existing files with sessionId:', existingFiles);
     
     // Build update data
     const updateData: Record<string, unknown> = {
@@ -80,7 +78,6 @@ export async function POST(request: NextRequest) {
       data: updateData,
     })
     
-    console.log('[API /upload/confirm] Updated files count:', result.count);
     
     // Get confirmed files to return
     const confirmedFiles = await prisma.file.findMany({
@@ -94,11 +91,6 @@ export async function POST(request: NextRequest) {
     // Normalize filepath to use forward slashes for URLs
     const normalizeUrl = (filepath: string) => `/api/files/${filepath.replace(/\\/g, '/')}`;
     
-    console.log('[API /upload/confirm] Returning confirmed files:', confirmedFiles.map(f => ({
-      id: f.systemId,
-      url: normalizeUrl(f.filepath),
-      status: f.status,
-    })));
     
     return apiSuccess({
       success: true,

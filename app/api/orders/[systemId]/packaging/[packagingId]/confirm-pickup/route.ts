@@ -155,7 +155,6 @@ export async function POST(_request: Request, { params }: RouteParams) {
           });
         }
         
-        console.log(`[Confirm Pickup] Updated inventory for ${updated.lineItems.length} products: -committed, -onHand, +totalSold`);
       }
 
       return updated;

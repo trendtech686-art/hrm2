@@ -161,7 +161,6 @@ export function ProductFormPage() {
         createdBy: currentUserSystemId,
       };
       
-      console.log('[Form Page] productToAdd.costPrice:', productToAdd.costPrice, 'from productData.costPrice:', productData.costPrice);
 
       const newProduct = await createMutation.mutateAsync(productToAdd) as unknown as Product;
       

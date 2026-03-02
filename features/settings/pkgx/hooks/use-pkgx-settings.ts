@@ -818,7 +818,6 @@ export function usePkgxProductsMutations() {
 
   const setPkgxProducts = useMutation({
     mutationFn: async (products: PkgxProduct[]) => {
-      console.log('[setPkgxProducts] Saving', products.length, 'products to database...');
       // Transform PkgxProduct[] to API format and save to database
       const apiProducts = products.map(p => ({
         id: p.goods_id,
@@ -860,12 +859,10 @@ export function usePkgxProductsMutations() {
         body: JSON.stringify({ products: apiProducts }),
       });
       const json = await res.json();
-      console.log('[setPkgxProducts] API response:', json);
       if (!json.success) throw new Error(json.error || 'Failed to sync products to database');
       return json;
     },
-    onSuccess: (data) => {
-      console.log('[setPkgxProducts] Success:', data);
+    onSuccess: (_data) => {
       queryClient.invalidateQueries({ queryKey: pkgxKeys.settings() });
       queryClient.invalidateQueries({ queryKey: ['pkgx', 'products'] });
     },
@@ -972,7 +969,6 @@ export function usePkgxProductsCache() {
   return useQuery({
     queryKey: ['pkgx', 'products', 'all'],
     queryFn: async () => {
-      console.log('[usePkgxProductsCache] Fetching ALL from API...');
       const res = await fetch('/api/settings/pkgx/products');
       const json = await res.json();
       if (!json.success) throw new Error(json.error || 'Failed to fetch products');

@@ -76,7 +76,6 @@ export async function POST(request: Request) {
     const body = result.data
 
     // Log the incoming data for debugging
-    console.log('[POST /api/brands] Creating brand:', { id: body.id, name: body.name, hasLogo: !!body.logo, hasLogoUrl: !!body.logoUrl })
 
     // Generate sequential systemId - use 'brands' entity type (not 'BRAND')
     const { systemId } = await generateNextIds('brands')
@@ -101,7 +100,6 @@ export async function POST(request: Request) {
       },
     })
 
-    console.log('[POST /api/brands] Brand created successfully:', { systemId, id: body.id, name: body.name })
     
     // Invalidate brands cache
     cache.deletePattern('^brands:')

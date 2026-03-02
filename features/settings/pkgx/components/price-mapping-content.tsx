@@ -50,10 +50,8 @@ export function PriceMappingContent({ onStateChange, saveRef }: PriceMappingCont
   // Save all mappings to server - use ref to avoid re-render loop
   React.useEffect(() => {
     saveRef.current = () => {
-      console.log('[PriceMappingContent] Starting mutation, isPending:', saveMappingMutation.isPending);
       saveMappingMutation.mutate(localMapping, {
         onSuccess: () => {
-          console.log('[PriceMappingContent] onSuccess called');
           setIsDirty(false);
           toast.success('Đã lưu mapping bảng giá');
           
@@ -67,12 +65,10 @@ export function PriceMappingContent({ onStateChange, saveRef }: PriceMappingCont
           });
         },
         onError: (err) => {
-          console.log('[PriceMappingContent] onError:', err.message);
           toast.error(`Lỗi: ${err.message}`);
         },
         onSettled: () => {
           // Ensure isPending is reset regardless of success/error
-          console.log('[PriceMappingContent] Mutation settled, isPending:', saveMappingMutation.isPending);
         }
       });
     };
@@ -80,7 +76,6 @@ export function PriceMappingContent({ onStateChange, saveRef }: PriceMappingCont
 
   // Debug: log isPending changes
   React.useEffect(() => {
-    console.log('[PriceMappingContent] isPending changed:', saveMappingMutation.isPending);
   }, [saveMappingMutation.isPending]);
 
   // Notify parent of state changes (only isDirty and isSaving)

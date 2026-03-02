@@ -96,16 +96,6 @@ export function ProductMappingTab() {
   
   // Debug logging
   React.useEffect(() => {
-    console.log('[ProductMappingTab] Cache state:', {
-      isLoading: isLoadingCache,
-      error: cacheError,
-      productsCount: pkgxProductsCache?.products?.length || 0,
-    });
-    console.log('[ProductMappingTab] Paginated state:', {
-      isLoading: isLoadingPkgxPaginated,
-      productsCount: pkgxPaginatedData?.products?.length || 0,
-      total: pkgxPaginatedData?.total || 0,
-    });
   }, [pkgxProductsCache, isLoadingCache, cacheError, pkgxPaginatedData, isLoadingPkgxPaginated]);
   
   // Local state for PKGX products (synced from cache or fresh fetch)
@@ -114,7 +104,6 @@ export function ProductMappingTab() {
   // Sync local state with cache when cache updates
   React.useEffect(() => {
     if (pkgxProductsCache?.products && pkgxProductsCache.products.length > 0) {
-      console.log('[ProductMappingTab] Syncing from cache:', pkgxProductsCache.products.length, 'products');
       setPkgxProductsLocal(pkgxProductsCache.products);
     }
   }, [pkgxProductsCache?.products]);
@@ -359,12 +348,8 @@ export function ProductMappingTab() {
   // Data for linked tab - using API data instead of filtering local data
   // Map HRM products to PkgxProductRow format by finding corresponding PKGX product
   const linkedTableData = React.useMemo((): PkgxProductRow[] => {
-    console.log('[LinkedTab] linkedProductsData:', linkedProductsData);
-    console.log('[LinkedTab] linkedProductsData?.data:', linkedProductsData?.data);
-    console.log('[LinkedTab] linkedProductsData?.data?.length:', linkedProductsData?.data?.length);
     
     if (!linkedProductsData?.data || linkedProductsData.data.length === 0) {
-      console.log('[LinkedTab] No data, returning empty array');
       return [];
     }
     
@@ -964,7 +949,7 @@ export function ProductMappingTab() {
       });
       
       if (uniqueProducts.length !== allProducts.length) {
-        console.log(`[Sync] Removed ${allProducts.length - uniqueProducts.length} duplicate products`);
+        // Duplicates were filtered out above
       }
       
       // Save products in batches to show progress and allow pause
@@ -1119,26 +1104,21 @@ export function ProductMappingTab() {
   
   // Import products from PKGX to HRM and auto-mapping
   const handleImportAndMap = async () => {
-    const callId = ++importCallIdRef.current;
-    console.log(`[Import #${callId}] handleImportAndMap called, importingRef=${importingRef.current}, isImporting=${isImporting}`);
+    const _callId = ++importCallIdRef.current;
     
     // Prevent double execution (React StrictMode or double click)
     if (importingRef.current || isImporting) {
-      console.log(`[Import #${callId}] Already running, skip duplicate call`);
       return;
     }
     importingRef.current = true;
-    console.log(`[Import #${callId}] Starting import...`);
     
     // ✅ Force refetch HRM products từ DB để có data mới nhất
     // Điều này đảm bảo sau khi F5 hoặc pause/resume, ta có danh sách sản phẩm đã link chính xác
-    console.log(`[Import #${callId}] Refetching HRM products from DB...`);
     
     // Query key cho useAllProducts: ['products', 'all'] - lấy tất cả sản phẩm
     const allProductsQueryKey = [...productKeys.all, 'all'];
     await queryClient.invalidateQueries({ queryKey: allProductsQueryKey });
-    const refetchResult = await queryClient.refetchQueries({ queryKey: allProductsQueryKey });
-    console.log(`[Import #${callId}] Refetch completed, result:`, refetchResult);
+    const _refetchResult = await queryClient.refetchQueries({ queryKey: allProductsQueryKey });
     
     // Đợi React Query update xong state - tăng lên 1s để đảm bảo
     await new Promise(resolve => setTimeout(resolve, 1000));
@@ -1150,16 +1130,14 @@ export function ProductMappingTab() {
     const freshHrmProductsList = freshHrmProducts.filter(p => !p.isDeleted);
     
     // Log số lượng sản phẩm có pkgxId để debug
-    const alreadyMappedCount = freshHrmProductsList.filter(p => p.pkgxId).length;
-    console.log(`[Import #${callId}] Fresh HRM products: ${freshHrmProductsList.length}, Mapped in this batch: ${alreadyMappedCount}`);
+    const _alreadyMappedCount = freshHrmProductsList.filter(p => p.pkgxId).length;
     
     // ✅ Refetch pkgxMappingData để có mapping data chính xác cho ALL linked products
     await refetchPkgxMapping();
     // Lấy mapping data mới nhất từ cache
     const freshMappingData = queryClient.getQueryData<{ data: PkgxMappingData }>(['pkgx-mapping']);
     const mappingLookup = freshMappingData?.data ?? pkgxMappingData ?? {};
-    const totalMappedCount = Object.keys(mappingLookup).length;
-    console.log(`[Import #${callId}] Total mapped products from API: ${totalMappedCount}`);
+    const _totalMappedCount = Object.keys(mappingLookup).length;
     
     // Hàm check linked product - dùng pkgxMappingData để có TẤT CẢ linked products (không chỉ 500)
     const checkLinkedProduct = (pkgxId: number) => {
@@ -1184,7 +1162,6 @@ export function ProductMappingTab() {
       return true;
     });
     
-    console.log(`[Import #${callId}] HRM products count: ${freshHrmProductsList.length}, Unlinked PKGX: ${unlinkedProducts.length}`);
     
     if (unlinkedProducts.length === 0) {
       toast.info('Tất cả sản phẩm PKGX đã được mapping');
@@ -1231,10 +1208,6 @@ export function ProductMappingTab() {
         });
       }
       
-      console.log('[Import] Loaded mappings:', {
-        categories: categoryMappingsCache.size,
-        brands: brandMappingsCache.size,
-      });
     } catch (err) {
       console.error('[Import] Failed to load mappings:', err);
     }
@@ -1263,9 +1236,6 @@ export function ProductMappingTab() {
           
           // DEBUG: Log mappings
           if (i === 0) { // Only log first product
-            console.log('[DEBUG Import] First product mappings:');
-            console.log('  PKGX brand_id:', pkgxProd.brand_id, '=> HRM:', brandMapping);
-            console.log('  PKGX cat_id:', pkgxProd.cat_id, '=> HRM:', categoryMapping);
           }
           
           // Create HRM product via API with FULL data from PKGX
@@ -1376,7 +1346,6 @@ export function ProductMappingTab() {
           
           // Refresh UI sau mỗi batch để user thấy data realtime
           if (successCount % REFRESH_BATCH_SIZE === 0) {
-            console.log(`[Import #${callId}] Batch ${successCount} completed, refreshing HRM products...`);
             // Dùng đúng query key cho useAllProducts
             await queryClient.invalidateQueries({ queryKey: allProductsQueryKey });
             await queryClient.refetchQueries({ queryKey: allProductsQueryKey });

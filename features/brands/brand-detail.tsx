@@ -313,12 +313,8 @@ export function BrandDetailPage() {
   const _handleImport = React.useCallback(() => {
     if (!brand) return;
     
-    console.log('🚀 Starting import...');
-    console.log('Brand:', brand);
-    console.log('Has PKGX mapping:', hasPkgxMapping(brand as unknown as _Brand));
     
     handleImportFromPkgx(brand as unknown as _Brand, async (importedData) => {
-      console.log('📥 Imported data:', importedData);
       
       // Prepare full data to save
       const dataToSave = {
@@ -337,7 +333,6 @@ export function BrandDetailPage() {
         },
       };
       
-      console.log('💾 Saving to DB:', dataToSave);
       
       // Save to database immediately
       if (systemId) {
@@ -350,7 +345,7 @@ export function BrandDetailPage() {
         });
       }
     });
-  }, [brand, handleImportFromPkgx, form, systemId, update, hasPkgxMapping]);
+  }, [brand, handleImportFromPkgx, form, systemId, update]);
 
   // Header actions
   const headerActions = React.useMemo((): React.ReactNode[] => {

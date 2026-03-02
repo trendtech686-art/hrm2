@@ -101,7 +101,6 @@ export async function POST(request: Request, { params }: RouteParams) {
       // Get creator name - check both name and fullName for compatibility
       const employeeInfo = session.user?.employee as { fullName?: string; name?: string; systemId?: string } | undefined;
       const creatorName = employeeInfo?.fullName || employeeInfo?.name || session.user?.name || 'Hệ thống';
-      console.log('[OrderPayments] Creator:', creatorName, 'Employee:', employeeInfo);
       
       // Generate Receipt IDs using unified ID system
       const { systemId: receiptSystemId, businessId: receiptBusinessId } = await generateNextIdsWithTx(

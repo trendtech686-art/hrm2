@@ -199,12 +199,6 @@ export async function updatePackagingFromGHTK(
       },
     });
 
-    console.log(`✅ [GHTK Sync] Updated packaging ${packagingId}:`, {
-      trackingCode: packaging.trackingCode,
-      ghtkStatus: ghtkStatusId,
-      statusText: statusInfo?.statusText,
-      deliveryStatus: prismaDeliveryStatus,
-    });
 
     return { success: true, message: 'Updated successfully' };
   } catch (error) {

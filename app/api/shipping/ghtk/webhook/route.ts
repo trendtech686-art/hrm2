@@ -211,7 +211,7 @@ export async function POST(request: NextRequest) {
     
     if (packaging) {
       // ✅ Update packaging in database
-      const updateResult = await updatePackagingFromGHTK(
+      const _updateResult = await updatePackagingFromGHTK(
         packaging.systemId,
         parsedStatusId,
         {
@@ -222,12 +222,6 @@ export async function POST(request: NextRequest) {
         }
       );
       
-      console.log(`📥 [GHTK Webhook] Received and processed:`, {
-        trackingCode: label_id,
-        statusId: parsedStatusId,
-        packagingId: packaging.systemId,
-        updated: updateResult.success,
-      });
     } else {
       console.warn(`⚠️ [GHTK Webhook] Packaging not found for tracking code: ${label_id}`);
     }

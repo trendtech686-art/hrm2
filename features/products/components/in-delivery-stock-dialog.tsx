@@ -38,22 +38,11 @@ export function InDeliveryStockDialog({
   // DEBUG: Log data for troubleshooting
   React.useEffect(() => {
     if (open) {
-      console.log('[InDeliveryStockDialog] productSystemId:', productSystemId);
-      console.log('[InDeliveryStockDialog] branchSystemId:', branchSystemId);
-      console.log('[InDeliveryStockDialog] product:', product);
-      console.log('[InDeliveryStockDialog] allOrders count:', allOrders.length);
       
       // Find orders with FULLY_STOCKED_OUT
-      const dispatchedOrders = allOrders.filter(o => 
+      const _dispatchedOrders = allOrders.filter(o => 
         o.stockOutStatus === 'Xuất kho toàn bộ' || o.stockOutStatus === 'FULLY_STOCKED_OUT'
       );
-      console.log('[InDeliveryStockDialog] dispatched orders:', dispatchedOrders.map(o => ({
-        id: o.id,
-        status: o.status,
-        stockOutStatus: o.stockOutStatus,
-        branchSystemId: o.branchSystemId,
-        lineItems: o.lineItems?.map(li => ({ productId: li.productId, productSystemId: li.productSystemId }))
-      })));
     }
   }, [open, productSystemId, branchSystemId, product, allOrders]);
 

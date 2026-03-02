@@ -21,6 +21,7 @@ export async function register() {
 
   // Only run on server
   if (process.env.NEXT_RUNTIME === 'nodejs') {
+    // eslint-disable-next-line no-console
     console.log('[Instrumentation] 🚀 Server starting...')
     
     // Initialize Prisma connection pool warming
@@ -28,12 +29,14 @@ export async function register() {
     try {
       const { prisma } = await import('@/lib/prisma')
       await prisma.$connect()
+      // eslint-disable-next-line no-console
       console.log('[Instrumentation] ✅ Database connection established')
     } catch (error) {
       console.error('[Instrumentation] ❌ Database connection failed:', error)
     }
 
     // Log environment info
+    // eslint-disable-next-line no-console
     console.log('[Instrumentation] Environment:', {
       NODE_ENV: process.env.NODE_ENV,
       DATABASE_URL: process.env.DATABASE_URL ? '***configured***' : 'NOT SET',
@@ -42,10 +45,12 @@ export async function register() {
 
     // Graceful shutdown — clean up PG pool on Docker/process stop
     const shutdown = async () => {
+      // eslint-disable-next-line no-console
       console.log('[Instrumentation] Shutting down gracefully...')
       try {
         const { prisma } = await import('@/lib/prisma')
         await prisma.$disconnect()
+        // eslint-disable-next-line no-console
         console.log('[Instrumentation] Database disconnected')
       } catch (_e) {
         // Ignore disconnect errors during shutdown
@@ -58,6 +63,7 @@ export async function register() {
 
   // Edge runtime initialization (middleware)
   if (process.env.NEXT_RUNTIME === 'edge') {
+    // eslint-disable-next-line no-console
     console.log('[Instrumentation] Edge runtime initialized')
   }
 }

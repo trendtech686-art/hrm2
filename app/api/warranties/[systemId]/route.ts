@@ -51,15 +51,6 @@ export async function GET(_request: Request, { params }: RouteParams) {
     }
 
     // Debug: Log warranty data including customer
-    console.log('[GET /api/warranties] Warranty data:', {
-      systemId: warranty.systemId,
-      customerId: warranty.customerId,
-      customers: warranty.customers,
-      receivedImages: warranty.receivedImages,
-      processedImages: warranty.processedImages,
-      productsCount: Array.isArray(warranty.products) ? warranty.products.length : 'not array',
-      products: warranty.products,
-    });
 
     return apiSuccess(serializeWarranty(warranty))
   } catch (error) {
@@ -91,13 +82,6 @@ export async function PUT(request: Request, { params }: RouteParams) {
     const { systemId } = await params
     
     // Debug: Log important fields
-    console.log('[PUT /api/warranties] Received data:', {
-      systemId,
-      receivedImages: body.receivedImages,
-      processedImages: body.processedImages,
-      products: body.products?.length,
-      summary: body.summary,
-    });
 
     // Build update data - only include fields that are provided
     const updateData: Record<string, unknown> = {

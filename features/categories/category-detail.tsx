@@ -193,14 +193,7 @@ export function CategoryDetailPage() {
     
     // Debug: Check if parent is in availableParents
     if (category?.parentId) {
-      const parentInList = result.find(c => c.systemId === category.parentId);
-      console.log('[CategoryDetail] Parent check:', {
-        parentId: category.parentId,
-        parentInList: !!parentInList,
-        excludeIds,
-        allCategoriesCount: allCategories.length,
-        availableParentsCount: result.length,
-      });
+      const _parentInList = result.find(c => c.systemId === category.parentId);
     }
     
     return result;

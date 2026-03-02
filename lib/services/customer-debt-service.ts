@@ -149,7 +149,6 @@ export async function updateCustomerDebt(customerSystemId: string): Promise<Cust
       data: { currentDebt: new Prisma.Decimal(newDebt) },
     });
 
-    console.log(`[CustomerDebtService] Updated debt for ${customerSystemId}: ${previousDebt} → ${newDebt}`);
 
     return {
       customerSystemId,
@@ -203,7 +202,6 @@ export async function syncAllCustomerDebts(): Promise<{
     }
   }
 
-  console.log(`[CustomerDebtService] Synced ${updated}/${customers.length} customers`);
 
   return {
     total: customers.length,

@@ -86,12 +86,10 @@ export function PaymentConfirmationDialog({
 
 
   const onFormSubmit = React.useCallback((values: PaymentConfirmationFormValues) => {
-    console.log('[PaymentDialog] Form submitted with values:', values);
     onSubmit(values);
   }, [onSubmit]);
 
   const handlePaymentClick = React.useCallback(() => {
-    console.log('[PaymentDialog] handlePaymentClick - triggering submit');
     handleSubmit(onFormSubmit)();
   }, [handleSubmit, onFormSubmit]);
 

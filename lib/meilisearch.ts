@@ -225,7 +225,6 @@ export async function configureIndexes() {
     },
   })
 
-  console.log('✅ Meilisearch indexes configured')
 }
 
 // ===========================================

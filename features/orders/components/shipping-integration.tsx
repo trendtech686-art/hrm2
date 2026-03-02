@@ -324,14 +324,6 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
   // ✅ NEW: Load shipping config async on mount
   React.useEffect(() => {
     loadShippingConfigAsync().then(config => {
-      console.log('[ShippingIntegration] Loaded shipping config async:', {
-        hasGHTK: !!config.partners.GHTK?.accounts?.length,
-        accounts: config.partners.GHTK?.accounts?.map(a => ({
-          name: a.name,
-          active: a.active,
-          pickupAddresses: a.pickupAddresses?.length,
-        })),
-      });
       setPartnerConfig(config);
     });
   }, []);
@@ -539,7 +531,6 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
     // ✅ V2: Use async-loaded shipping config instead of sync loadShippingConfig()
     // This ensures config is loaded from database before we try to find pickup address
     if (!partnerConfig) {
-      console.log('[ShippingIntegration] Waiting for partner config to load...');
       return null;
     }
 
@@ -568,16 +559,6 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
     const branch = findBranchById(branchSystemId);
     
     // Debug: Log all pickup addresses and branchSystemId for troubleshooting
-    console.log('[ShippingIntegration] Looking for pickup address:', {
-      branchSystemId,
-      branchId: branch?.id,
-      branchName: branch?.name,
-      availablePickupAddresses: defaultAccount.pickupAddresses?.map(p => ({
-        sapoBranchId: p.sapoBranchId,
-        sapoBranchName: p.sapoBranchName,
-        warehouseName: p.partnerWarehouseName,
-      })),
-    });
     
     // Try to find by systemId first, then by branch.id, then by branch name
     let pickupAddr = defaultAccount.pickupAddresses?.find(p => p.sapoBranchId === branchSystemId);
@@ -586,7 +567,7 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
     if (!pickupAddr && branch?.id) {
       pickupAddr = defaultAccount.pickupAddresses?.find(p => p.sapoBranchId === String(branch.id));
       if (pickupAddr) {
-        console.log('[ShippingIntegration] Found pickup address by branch.id fallback:', branch.id);
+        // Matched by legacy branch.id
       }
     }
     
@@ -594,7 +575,7 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
     if (!pickupAddr && branch?.name) {
       pickupAddr = defaultAccount.pickupAddresses?.find(p => p.sapoBranchName === branch.name);
       if (pickupAddr) {
-        console.log('[ShippingIntegration] Found pickup address by branch name fallback:', branch.name);
+        // Matched by branch name
       }
     }
     
@@ -1157,16 +1138,8 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
 
   // ✅ Store previewParams globally for order-form-page to access (avoid infinite loop from setValue)
   React.useEffect(() => {
-    console.log('[ShippingIntegration] previewParams effect:', {
-      hasPreviewParams: !!previewParams,
-      deliveryMethod,
-      selectedService: selectedService?.serviceName,
-      hasCustomerAddress: !!customerAddress,
-      lineItemsCount: lineItems?.length,
-    });
     if (previewParams && deliveryMethod === 'shipping-partner') {
       (window as unknown as Record<string, unknown>).__ghtkPreviewParams = previewParams;
-      console.log('[ShippingIntegration] ✅ Stored __ghtkPreviewParams to window');
     }
   }, [previewParams, deliveryMethod, selectedService, customerAddress, lineItems]);
 

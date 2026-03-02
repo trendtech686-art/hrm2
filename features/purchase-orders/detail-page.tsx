@@ -354,7 +354,6 @@ export function PurchaseOrderDetailPage() {
       // Mark as attempted to prevent infinite loop
       autoCompleteAttemptedRef.current = purchaseOrder.systemId;
       
-      console.log('[AutoComplete] Completing order:', purchaseOrder.systemId);
       updatePO.mutate({ 
         systemId: purchaseOrder.systemId, 
         data: { 
@@ -1032,7 +1031,6 @@ export function PurchaseOrderDetailPage() {
   };
 
   const handlePaymentConfirmationSubmit = (values: PaymentConfirmationFormValues) => {
-    console.log('[Payment] Starting payment submission...', { values, purchaseOrder, supplier });
     
     if (!purchaseOrder) {
       toast.error('Không tìm thấy đơn nhập hàng');

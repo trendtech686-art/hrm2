@@ -101,12 +101,6 @@ export async function POST(request: NextRequest) {
     const publicUrl = getPublicUrl(relativePath)
     
     // DEBUG: Log what we're saving
-    console.log('[API /upload] Saving file to DB:', {
-      filename: fileName,
-      status: requestedStatus,
-      sessionId: requestedStatus === 'staging' ? sessionId : null,
-      entityType,
-    });
     
     // Save metadata to database - respect staging status from client
     const fileRecord = await prisma.file.create({
@@ -126,7 +120,6 @@ export async function POST(request: NextRequest) {
       },
     })
     
-    console.log('[API /upload] File saved:', { systemId: fileRecord.systemId, sessionId: fileRecord.sessionId });
     
     return apiSuccess({
       success: true,

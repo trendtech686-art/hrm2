@@ -235,14 +235,6 @@ export function WarrantyFormPage() {
       || ticketWithRelations?.customerId;
     
     // 🔍 DEBUG: Log customer info
-    console.log('[WARRANTY FORM] Loading ticket:', {
-      ticketSystemId: ticket.systemId,
-      customerId: ticketWithRelations?.customerId,
-      customerSystemId: ticketWithRelations?.customerSystemId,
-      customers: ticketWithRelations?.customers,
-      resolvedCustomerSystemId: customerSystemId,
-      products: ticket.products,
-    });
     
     // Initial load with customer info from ticket - INCLUDE systemId for stats lookup
     const basicCustomerData = ticket.customerName ? {
@@ -251,7 +243,6 @@ export function WarrantyFormPage() {
       phone: ticket.customerPhone,
     } : null;
     
-    console.log('[WARRANTY FORM] basicCustomerData:', basicCustomerData);
     
     form.reset({
       id: ticket.id,

@@ -30,7 +30,6 @@ export function CustomerFormPage() {
   const isEditMode = !!customer;
 
   const handleSubmit = async (values: CustomerFormSubmitPayload) => {
-    console.log('[CustomerFormPage] handleSubmit called', { isEditMode: !!customer });
     try {
       if (customer) {
         await update.mutateAsync({
@@ -39,7 +38,6 @@ export function CustomerFormPage() {
           email: values.email ?? customer.email,
           phone: values.phone ?? customer.phone ?? "",
         });
-        console.log('[CustomerFormPage] Update completed');
       } else {
         const createdAt = new Date().toISOString().split('T')[0];
         await create.mutateAsync({
@@ -52,7 +50,6 @@ export function CustomerFormPage() {
           totalQuantityPurchased: 0,
           totalQuantityReturned: 0,
         } as Omit<Customer, 'systemId'>);
-        console.log('[CustomerFormPage] Create completed');
       }
     } catch (error) {
       console.error('[CustomerFormPage] Error in handleSubmit:', error);

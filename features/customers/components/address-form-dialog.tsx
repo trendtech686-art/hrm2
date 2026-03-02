@@ -74,14 +74,6 @@ export function AddressFormDialog({
   });
 
   // Debug: Log component state on every render
-  console.log('[AddressFormDialog] Render state:', { 
-    isOpen, 
-    hasEditingAddress: !!editingAddress, 
-    isProvincesReady, 
-    isLoadingProvinces,
-    editingAddressProvince: editingAddress?.province,
-    editingAddressDistrict: editingAddress?.district 
-  });
 
   // Track if we've already initialized the form for this editingAddress
   const [hasInitialized, setHasInitialized] = React.useState(false);
@@ -95,12 +87,6 @@ export function AddressFormDialog({
 
   // Initialize form when dialog opens and provinces are ready
   React.useEffect(() => {
-    console.log('[AddressFormDialog] useEffect triggered', { 
-      isOpen, 
-      isProvincesReady, 
-      hasEditingAddress: !!editingAddress,
-      hasInitialized 
-    });
     
     // Skip if not open or already initialized
     if (!isOpen) return;
@@ -108,11 +94,9 @@ export function AddressFormDialog({
     
     // Wait for provinces to load before doing lookup
     if (!isProvincesReady) {
-      console.log('[AddressFormDialog] Waiting for provinces to load...', { isLoadingProvinces, isProvincesReady });
       return;
     }
     
-    console.log('[AddressFormDialog] Provinces ready, initializing form', { isOpen, hasEditingAddress: !!editingAddress });
     setHasInitialized(true);
     
     if (editingAddress) {
@@ -131,7 +115,6 @@ export function AddressFormDialog({
         // Auto-lookup provinceId from province name if not provided
         if (!provinceId && editingAddress.province) {
           const levelProvinces = level === '2-level' ? provinces2Level : provinces3Level;
-          console.log('[AddressFormDialog] Looking up province:', editingAddress.province, 'in', levelProvinces.length, 'provinces');
           const normalizedInput = normalize(editingAddress.province);
           const foundProvince = levelProvinces.find((p) => {
             const normalizedName = normalize(p.name);
@@ -141,17 +124,14 @@ export function AddressFormDialog({
           });
           if (foundProvince) {
             provinceId = foundProvince.id;
-            console.log('[AddressFormDialog] Auto-found provinceId:', provinceId, 'for:', editingAddress.province);
           }
         }
         
         // If we still don't have provinceId but have district name, try to find province from district
         if (!provinceId && editingAddress.district && level === '3-level') {
           const allDistricts3Level = allDistricts.filter(d => d.level === '3-level');
-          console.log('[AddressFormDialog] Reverse lookup: searching district:', editingAddress.district, 'in', allDistricts3Level.length, 'districts');
           
           const normalizedDistrictInput = normalize(editingAddress.district);
-          console.log('[AddressFormDialog] Normalized district input:', normalizedDistrictInput);
           
           const foundDistrict = allDistricts3Level.find((d) => {
             const normalizedName = normalize(d.name);
@@ -162,9 +142,8 @@ export function AddressFormDialog({
           if (foundDistrict) {
             provinceId = foundDistrict.provinceId;
             districtId = foundDistrict.id;
-            console.log('[AddressFormDialog] Reverse-found provinceId from district:', provinceId, 'districtId:', districtId);
           } else {
-            console.log('[AddressFormDialog] District NOT FOUND. First 5 districts:', allDistricts3Level.slice(0, 5).map(d => d.name));
+            // District not found - proceed without districtId
           }
         }
         
@@ -180,7 +159,6 @@ export function AddressFormDialog({
           });
           if (foundDistrict) {
             districtId = foundDistrict.id;
-            console.log('[AddressFormDialog] Auto-found districtId:', districtId, 'for:', editingAddress.district);
           }
         }
         
@@ -199,7 +177,6 @@ export function AddressFormDialog({
           const foundProvince = levelProvinces.find(p => p.id === provinceId);
           if (foundProvince) {
             provinceName = foundProvince.name;
-            console.log('[AddressFormDialog] Using province name from data:', provinceName);
           }
           
           // Also get district name to ensure match
@@ -207,12 +184,10 @@ export function AddressFormDialog({
             const foundDistrict = allDistricts.find(d => d.id === districtId);
             if (foundDistrict) {
               districtName = foundDistrict.name;
-              console.log('[AddressFormDialog] Using district name from data:', districtName);
             }
           }
         }
         
-        console.log('[AddressFormDialog] Final lookup results:', { provinceId, provinceName, districtId, districtName, wardId });
         
         const newFormData = {
           label: editingAddress.label || '',
@@ -231,7 +206,6 @@ export function AddressFormDialog({
           isDefaultBilling: editingAddress.isDefaultBilling || false,
           inputLevel: level,
         };
-        console.log('[AddressFormDialog] Setting form data:', newFormData);
         setFormData(newFormData);
       } else {
         setAddressLevel('2-level');
@@ -280,7 +254,6 @@ export function AddressFormDialog({
              normalizedInput.includes(normalizedName);
     });
     if (foundWard) {
-      console.log('[AddressFormDialog] Phase 2: Auto-found wardId:', foundWard.id, 'for:', editingAddress.ward);
       setFormData(prev => ({ ...prev, wardId: foundWard.id }));
     }
     setWardInitPending(false);

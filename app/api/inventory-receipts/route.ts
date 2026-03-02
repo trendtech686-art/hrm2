@@ -163,7 +163,6 @@ export async function POST(request: NextRequest) {
   try {
     const data = result.data;
     
-    console.log('[Inventory Receipts API] Received data:', JSON.stringify(data, null, 2).substring(0, 1000));
     
     // Normalize branchId - support both branchId and branchSystemId
     const branchId = data.branchId || data.branchSystemId;
@@ -194,9 +193,6 @@ export async function POST(request: NextRequest) {
         notes: item.notes || null,
       })) || [];
       
-      console.log(`[Inventory Receipts] Created receipt ${businessId}, normalizedItems count: ${normalizedItems.length}`);
-      console.log(`[Inventory Receipts] branchId: ${branchId}`);
-      console.log(`[Inventory Receipts] Items details:`, normalizedItems.map(i => ({ productSystemId: i.productSystemId, quantity: i.quantity, unitCost: i.unitCost })));
       const receipt = await tx.inventoryReceipt.create({
         data: {
           systemId,
@@ -248,13 +244,6 @@ export async function POST(request: NextRequest) {
         const feePerUnit = totalQuantity > 0 ? totalFees / totalQuantity : 0;
         const costMethod = data.costCalculationMethod || 'with_fees';
         
-        console.log(`[Inventory Receipts] ⚠️ Received fees from request: shippingFee=${shippingFee}, otherFees=${otherFees}`);
-        console.log(`[Inventory Receipts] Cost calculation: method=${costMethod}, totalQty=${totalQuantity}, totalFees=${totalFees}, feePerUnit=${feePerUnit}`);
-        console.log(`[Inventory Receipts] Items received:`, JSON.stringify(normalizedItems.map(i => ({ 
-          productSystemId: i.productSystemId, 
-          quantity: i.quantity, 
-          unitCost: i.unitCost 
-        }))));
 
         for (const item of normalizedItems) {
           const quantity = item.quantity;
@@ -262,7 +251,6 @@ export async function POST(request: NextRequest) {
           // Giá nhập + chi phí phân bổ
           const unitCostWithFees = unitCost + feePerUnit;
           
-          console.log(`[Inventory Receipts] Processing item: product=${item.productSystemId}, qty=${quantity}, unitCost=${unitCost}, unitCostWithFees=${unitCostWithFees}`);
           
           // Get current inventory - use productSystemId for FK reference
           const inventory = await tx.productInventory.findUnique({
@@ -278,7 +266,7 @@ export async function POST(request: NextRequest) {
           const newStock = oldStock + quantity;
 
           // Update ProductInventory - use productSystemId for FK reference
-          const updatedInventory = await tx.productInventory.upsert({
+          const _updatedInventory = await tx.productInventory.upsert({
             where: {
               productId_branchId: {
                 productId: item.productSystemId,
@@ -299,7 +287,6 @@ export async function POST(request: NextRequest) {
             },
           });
           
-          console.log(`[Inventory Receipts] Updated inventory: product=${item.productSystemId}, oldStock=${oldStock}, added=${quantity}, newOnHand=${updatedInventory.onHand}`);
 
           // Create StockHistory - use productSystemId for FK reference
           await tx.stockHistory.create({
@@ -325,7 +312,7 @@ export async function POST(request: NextRequest) {
             select: { costPrice: true },
           });
           
-          const currentCostPrice = Number(currentProduct?.costPrice) || 0;
+          const _currentCostPrice = Number(currentProduct?.costPrice) || 0;
           
           if (unitCost > 0) {
             // Tính giá vốn dựa trên phương pháp được chọn
@@ -361,7 +348,6 @@ export async function POST(request: NextRequest) {
               },
             });
 
-            console.log(`[Inventory Receipts] Updated product ${item.productSystemId}: lastPurchasePrice=${unitCost}, costPrice=${newCostPrice} (method=${costMethod}, oldStock=${oldStock}, currentCostPrice=${currentCostPrice}, useWeightedAverage=${currentCostPrice > 0 && oldStock > 0 && newStock > 0})`);
           } else {
             // unitCost = 0, chỉ update lastPurchaseDate
             await tx.product.update({
@@ -370,11 +356,9 @@ export async function POST(request: NextRequest) {
                 lastPurchaseDate: new Date(),
               },
             });
-            console.log(`[Inventory Receipts] Updated product ${item.productSystemId}: lastPurchaseDate only (unitCost=0)`);
           }
         }
         
-        console.log(`[Inventory Receipts] Updated ProductInventory for ${normalizedItems.length} products}`);
       }
 
       return receipt;

@@ -14,10 +14,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials, _request) {
-        console.log("[Auth] authorize called with:", { email: credentials?.email });
+        console.warn("[Auth] authorize called with:", { email: credentials?.email });
         
         if (!credentials?.email || !credentials?.password) {
-          console.log("[Auth] Missing credentials");
+          console.warn("[Auth] Missing credentials");
           return null
         }
 
@@ -25,7 +25,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const password = credentials.password as string
 
         try {
-          console.log("[Auth] Looking up user:", email);
+          console.warn("[Auth] Looking up user:", email);
           const user = await prisma.user.findUnique({
             where: { email },
             include: {
@@ -41,18 +41,18 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             },
           })
 
-          console.log("[Auth] User found:", user ? { email: user.email, isActive: user.isActive } : null);
+          console.warn("[Auth] User found:", user ? { email: user.email, isActive: user.isActive } : null);
 
           if (!user || !user.isActive) {
-            console.log("[Auth] User not found or inactive");
+            console.warn("[Auth] User not found or inactive");
             return null
           }
 
           const isValidPassword = await bcrypt.compare(password, user.password)
-          console.log("[Auth] Password valid:", isValidPassword);
+          console.warn("[Auth] Password valid:", isValidPassword);
           
           if (!isValidPassword) {
-            console.log("[Auth] Invalid password");
+            console.warn("[Auth] Invalid password");
             return null
           }
 
@@ -78,7 +78,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               jobTitleName: user.employee.jobTitle?.name ?? null,
             } : undefined,
           }
-          console.log("[Auth] Returning user:", { id: returnUser.id, email: returnUser.email, role: returnUser.role });
+          console.warn("[Auth] Returning user:", { id: returnUser.id, email: returnUser.email, role: returnUser.role });
           return returnUser
         } catch (error) {
           console.error("[Auth] Auth error:", error)

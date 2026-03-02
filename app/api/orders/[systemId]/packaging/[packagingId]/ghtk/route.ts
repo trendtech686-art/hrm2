@@ -135,7 +135,6 @@ export async function POST(request: Request, { params }: RouteParams) {
       return updated;
     });
     
-    console.log(`[GHTK API] Created shipment for packaging ${packagingId} with tracking ${trackingCode}`);
 
     return apiSuccess({ 
       success: true, 

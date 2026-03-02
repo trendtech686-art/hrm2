@@ -324,7 +324,6 @@ export async function POST(request: Request, { params }: RouteParams) {
           });
         }
         
-        console.log(`[In-store Pickup Confirm] Updated ProductInventory for ${order.lineItems.length} products: -committed, -onHand, +totalSold`);
       }
 
       return updated;

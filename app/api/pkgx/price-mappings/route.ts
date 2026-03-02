@@ -48,14 +48,11 @@ export async function GET() {
 // PATCH /api/pkgx/price-mappings - Bulk update price mappings
 // Body: { shopPrice: "PRICING_POLICY_SYSTEM_ID", marketPrice: null, ... }
 export async function PATCH(request: Request) {
-  console.log('[PATCH price-mappings] START');
   const session = await requireAuth();
-  console.log('[PATCH price-mappings] Session:', session ? 'OK' : 'NULL');
   if (!session) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
 
   try {
     const body = await request.json();
-    console.log('[PATCH price-mappings] Received body:', JSON.stringify(body));
 
     // Reverse map for easier lookup
     const fieldToPriceType: Record<string, string> = {
@@ -70,11 +67,9 @@ export async function PATCH(request: Request) {
     for (const [field, policySystemId] of Object.entries(body)) {
       const priceType = fieldToPriceType[field];
       if (!priceType) {
-        console.log(`[PATCH price-mappings] Skipping unknown field: ${field}`);
         continue;
       }
 
-      console.log(`[PATCH price-mappings] Processing: ${field} => ${priceType} = ${policySystemId}`);
 
       // Find existing mapping for this price type
       const existing = await prisma.pkgxPriceMapping.findFirst({
@@ -86,14 +81,12 @@ export async function PATCH(request: Request) {
         : policySystemId as string;
 
       if (existing) {
-        console.log(`[PATCH price-mappings] Updating existing: ${existing.systemId}`);
         await prisma.pkgxPriceMapping.update({
           where: { systemId: existing.systemId },
           data: { pricingPolicyId: newPolicyId }
         });
       } else if (newPolicyId) {
         // Create new mapping if doesn't exist and has a policy
-        console.log(`[PATCH price-mappings] Creating new mapping for ${priceType}`);
         await prisma.pkgxPriceMapping.create({
           data: {
             priceType,
@@ -110,7 +103,6 @@ export async function PATCH(request: Request) {
       orderBy: { priceType: 'asc' },
     });
 
-    console.log('[PATCH price-mappings] Success, returning', mappings.length, 'mappings');
     return NextResponse.json({ success: true, data: mappings });
   } catch (error) {
     console.error('Error updating price mappings:', error);

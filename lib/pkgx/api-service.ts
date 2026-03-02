@@ -423,7 +423,6 @@ export async function uploadImageDirect(
   },
   settings: PkgxSettings = {} as PkgxSettings
 ): Promise<ApiResponse<PkgxImageUploadResponse>> {
-  console.log('🖼️ [uploadImageDirect] Starting with URL:', imageUrl);
   
   const { apiUrl, apiKey, enabled } = getApiConfig(settings);
 
@@ -437,16 +436,13 @@ export async function uploadImageDirect(
 
   try {
     // Fetch ảnh từ URL local
-    console.log('🖼️ [uploadImageDirect] Fetching image from:', imageUrl);
     const imageResponse = await fetch(imageUrl);
-    console.log('🖼️ [uploadImageDirect] Fetch response:', { ok: imageResponse.ok, status: imageResponse.status });
     
     if (!imageResponse.ok) {
       return { success: false, error: `Không thể tải ảnh từ ${imageUrl} (status: ${imageResponse.status})` };
     }
 
     const imageBlob = await imageResponse.blob();
-    console.log('🖼️ [uploadImageDirect] Image blob:', { type: imageBlob.type, size: imageBlob.size });
     
     // Xác định extension từ mime type
     const mimeToExt: Record<string, string> = {
@@ -462,7 +458,6 @@ export async function uploadImageDirect(
       ? `${options.filenameSlug}.${ext}`
       : `image-${Date.now()}.${ext}`;
 
-    console.log('🖼️ [uploadImageDirect] Uploading as:', filename);
 
     // Build FormData
     const formData = new FormData();
@@ -476,7 +471,6 @@ export async function uploadImageDirect(
     }
 
     const url = `${apiUrl}?action=upload_product_image`;
-    console.log('🖼️ [uploadImageDirect] Posting to:', url);
 
     const response = await fetch(url, {
       method: 'POST',
@@ -488,7 +482,6 @@ export async function uploadImageDirect(
     });
 
     const data = await response.json();
-    console.log('🖼️ [uploadImageDirect] Response:', data);
 
     if (data.error) {
       return { success: false, error: data.message };
@@ -515,14 +508,12 @@ export async function uploadImageSmart(
   },
   settings: PkgxSettings = {} as PkgxSettings
 ): Promise<ApiResponse<PkgxImageUploadResponse>> {
-  console.log('🖼️ [uploadImageSmart] Input:', { imageUrl, options });
   
   // Nếu là URL localhost hoặc relative URL, dùng upload trực tiếp
   const isLocalUrl = imageUrl.includes('localhost') || 
                      imageUrl.includes('127.0.0.1') || 
                      imageUrl.startsWith('/');
   
-  console.log('🖼️ [uploadImageSmart] isLocalUrl:', isLocalUrl);
   
   if (isLocalUrl) {
     // Nếu là relative URL, convert thành absolute
@@ -530,11 +521,9 @@ export async function uploadImageSmart(
       ? `${typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'}${imageUrl}`
       : imageUrl;
     
-    console.log('🖼️ [uploadImageSmart] Using uploadImageDirect with absoluteUrl:', absoluteUrl);
     return uploadImageDirect(absoluteUrl, options, settings);
   }
   
-  console.log('🖼️ [uploadImageSmart] Using uploadImageFromUrl');
   // Nếu là URL public, dùng upload_image_from_url (PKGX server sẽ fetch)
   return uploadImageFromUrl(imageUrl, options, settings);
 }

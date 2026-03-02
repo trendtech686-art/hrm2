@@ -270,13 +270,6 @@ export function CustomerSelector({ disabled }: { disabled: boolean }) {
         if (!selectedCustomer) return [];
         
         // Debug log to check actual values
-        console.log('[CustomerSelector] selectedCustomer debt info:', {
-            currentDebt: selectedCustomer.currentDebt,
-            maxDebt: selectedCustomer.maxDebt,
-            currentDebtType: typeof selectedCustomer.currentDebt,
-            maxDebtType: typeof selectedCustomer.maxDebt,
-            customerDebtBalance,
-        });
         
         return [
             { label: 'Nhóm KH', value: getGroupName(selectedCustomer.customerGroup) || '---' },

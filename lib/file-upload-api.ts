@@ -171,12 +171,6 @@ export class FileUploadAPI {
     const actualSessionId = sessionId || generateSessionId();
     const uploadedFiles: StagingFile[] = [];
 
-    console.log('[FileUploadAPI] uploadToStaging called:', {
-      filesCount: files.length,
-      providedSessionId: sessionId,
-      actualSessionId,
-      fileNames: files.map(f => f.name),
-    });
 
     for (const file of files) {
       const formData = new FormData();
@@ -186,12 +180,6 @@ export class FileUploadAPI {
       formData.append('status', 'staging'); // Upload as staging by default
       formData.append('isImage', String(file.type.startsWith('image/')));
 
-      console.log('[FileUploadAPI] Uploading file:', {
-        name: file.name,
-        size: file.size,
-        type: file.type,
-        sessionId: actualSessionId,
-      });
 
       const response = await fetch('/api/upload', {
         method: 'POST',
@@ -200,12 +188,6 @@ export class FileUploadAPI {
 
       const result: UploadResponse = await response.json();
 
-      console.log('[FileUploadAPI] Upload response:', {
-        success: result.success,
-        fileId: result.data?.id,
-        sessionId: result.data?.sessionId,
-        status: result.data?.status,
-      });
 
       if (!result.success || !result.data) {
         throw new Error(result.message || 'Upload failed');
@@ -261,11 +243,9 @@ export class FileUploadAPI {
       // Handle both cases for backward compatibility
       type FlatConfirmResponse = ConfirmResponse & { confirmedCount?: number; files?: NonNullable<ConfirmResponse['data']>['files'] };
       const flatResult = result as FlatConfirmResponse;
-      const confirmedCount = flatResult.confirmedCount ?? result.data?.confirmedCount ?? 0;
+      const _confirmedCount = flatResult.confirmedCount ?? result.data?.confirmedCount ?? 0;
       const files = flatResult.files ?? result.data?.files ?? [];
 
-      console.info(`[FileUploadAPI] Confirmed ${confirmedCount} files for ${entitySystemId}/${documentType}/${documentName}`);
-      
       // Map response to ServerFile format
       return files.map((f) => ({
         id: f.id,
@@ -355,8 +335,6 @@ export class FileUploadAPI {
 
       if (!result.success) {
         console.error('[FileUploadAPI] cancelStagingFiles failed:', result.message);
-      } else {
-        console.info(`[FileUploadAPI] Cancelled ${result.data?.deletedCount || 0} staging files for session ${sessionId}`);
       }
     } catch (error) {
       console.error('[FileUploadAPI] cancelStagingFiles error:', error);

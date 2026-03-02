@@ -113,29 +113,16 @@ export function useWarrantyFormSubmit(options: UseWarrantyFormSubmitOptions) {
     
     // Use values from refs
     const receivedStagingFiles = receivedImagesState.stagingFiles;
-    const receivedSessionId = receivedImagesState.sessionId;
+    const _receivedSessionId = receivedImagesState.sessionId;
     const receivedPermanentFiles = receivedImagesState.permanentFiles;
     const receivedFilesToDelete = receivedImagesState.filesToDelete;
     
     const processedStagingFiles = processedImagesState.stagingFiles;
-    const processedSessionId = processedImagesState.sessionId;
+    const _processedSessionId = processedImagesState.sessionId;
     const processedPermanentFiles = processedImagesState.permanentFiles;
     const processedFilesToDelete = processedImagesState.filesToDelete;
     
     // DEBUG: Log images state at submit time
-    console.log('[WARRANTY SUBMIT] Images state:', {
-      received: {
-        stagingCount: receivedStagingFiles.length,
-        sessionId: receivedSessionId,
-        permanentCount: receivedPermanentFiles.length,
-        stagingFiles: receivedStagingFiles.map(f => ({ id: f.id, sessionId: f.sessionId })),
-      },
-      processed: {
-        stagingCount: processedStagingFiles.length,
-        sessionId: processedSessionId,
-        permanentCount: processedPermanentFiles.length,
-      },
-    });
     
     setIsSubmitting(true);
     
@@ -148,13 +135,6 @@ export function useWarrantyFormSubmit(options: UseWarrantyFormSubmitOptions) {
     };
     
     // DEBUG: Log product images state
-    console.log('[WARRANTY SUBMIT] Product Images State:', {
-      hasRef: !!getProductImagesStateRef?.current,
-      productPermanentFiles: currentProductImagesState.productPermanentFiles,
-      productStagingFiles: currentProductImagesState.productStagingFiles,
-      productSessionIds: currentProductImagesState.productSessionIds,
-      products: data.products?.map(p => ({ systemId: p.systemId, name: p.productName })),
-    });
     
     try {
       // ===== VALIDATION =====
@@ -223,12 +203,6 @@ export function useWarrantyFormSubmit(options: UseWarrantyFormSubmitOptions) {
         const receivedFilesWithSession = receivedStagingFiles.filter(f => f.sessionId);
         const actualReceivedSessionId = receivedFilesWithSession[0]?.sessionId;
         
-        console.log('[WARRANTY SUBMIT] Received images confirm:', {
-          stagingFilesCount: receivedStagingFiles.length,
-          filesWithSessionCount: receivedFilesWithSession.length,
-          actualSessionId: actualReceivedSessionId,
-          stagingFiles: receivedStagingFiles.map(f => ({ id: f.id, sessionId: f.sessionId, url: f.url?.substring(0, 50) })),
-        });
         
         if (actualReceivedSessionId && receivedFilesWithSession.length > 0) {
           const confirmToast = toast.loading('Đang lưu hình ảnh lúc nhận...');
@@ -241,18 +215,12 @@ export function useWarrantyFormSubmit(options: UseWarrantyFormSubmitOptions) {
               warrantyInfo
             );
             
-            console.log('[WARRANTY SUBMIT] Received confirmed files:', {
-              confirmedFilesCount: confirmedFiles.length,
-              confirmedFiles: confirmedFiles.map(f => ({ id: f.id, url: f.url })),
-              cleanedReceivedCount: cleanedReceivedFiles.length,
-            });
             
             finalReceivedImageUrls = [
               ...cleanedReceivedFiles.map(f => f.url),
               ...confirmedFiles.map(f => f.url)
             ];
             
-            console.log('[WARRANTY SUBMIT] Final received URLs:', finalReceivedImageUrls);
             
             toast.success('✓ Đã lưu hình ảnh lúc nhận', { id: confirmToast });
             
@@ -318,13 +286,6 @@ export function useWarrantyFormSubmit(options: UseWarrantyFormSubmitOptions) {
             const filesWithSession = stagingFiles.filter(f => f.sessionId);
             const actualSessionId = filesWithSession[0]?.sessionId;
             
-            console.log(`[WARRANTY SUBMIT] Product ${index} images:`, {
-              productSystemId,
-              stagingFilesCount: stagingFiles.length,
-              filesWithSessionCount: filesWithSession.length,
-              actualSessionId,
-              stagingFiles: stagingFiles.map(f => ({ id: f.id, sessionId: f.sessionId })),
-            });
             
             if (!actualSessionId || filesWithSession.length === 0) {
               return {
@@ -434,13 +395,6 @@ export function useWarrantyFormSubmit(options: UseWarrantyFormSubmitOptions) {
         }
         
         // DEBUG: Log data before sending to API
-        console.log('[WARRANTY SUBMIT] Sending update to API:', {
-          systemId: ticket.systemId,
-          receivedImages: updateData.receivedImages,
-          processedImages: updateData.processedImages,
-          productsCount: updateData.products?.length,
-          productImages: updateData.products?.map((p: WarrantyProduct) => ({ systemId: p.systemId, images: p.productImages })),
-        });
         
         // Call API to update
         const updatedWarranty = await updateWarranty(ticket.systemId, updateData as Partial<WarrantyTicket>);

@@ -171,7 +171,7 @@ export const useCustomerSlaEngineStore = create<SlaStore>((set, get) => {
       // This method is deprecated - components should call evaluate() directly with fresh data
       // The useCustomerStore pattern was removed during React Query migration
       if (_lastSettings.length) {
-        console.log('[SLA Store] triggerReevaluation called - use evaluate() with fresh data instead');
+        // Deprecated: no-op, components should call evaluate() directly
       }
     },
 

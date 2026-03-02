@@ -49,13 +49,11 @@ export async function DELETE(_request: Request, { params }: UnitParams) {
   if (!session) return apiError('Unauthorized', 401)
 
   const { systemId } = await params
-  console.log('[DELETE unit] systemId:', systemId, 'userId:', session.user.id)
 
   try {
     await prisma.unit.delete({
       where: { systemId }
     })
-    console.log('[DELETE unit] Success - deleted:', systemId)
     return apiSuccess({ success: true })
   } catch (error: unknown) {
     const prismaError = error as { code?: string; message?: string; meta?: unknown; stack?: string };

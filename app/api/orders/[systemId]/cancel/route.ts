@@ -139,7 +139,6 @@ export async function POST(request: Request, { params }: RouteParams) {
           }
         }
         
-        console.log(`[Cancel Order] Updated inventory for ${order.lineItems.length} products, restockItems=${restockItems}`);
       }
 
       return cancelled;

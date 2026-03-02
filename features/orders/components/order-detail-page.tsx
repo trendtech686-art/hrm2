@@ -399,11 +399,6 @@ export function OrderDetailPage() {
         const calculated = customerDebtTransactions.length > 0 
             ? customerDebtTransactions[0].balance 
             : Number(customer.currentDebt) || 0;
-        console.log('[ORDER-DETAIL] customerDebtBalance:', { 
-            fromDB: customer.currentDebt, 
-            calculated,
-            transactionsCount: customerDebtTransactions.length 
-        });
         return calculated;
     }, [customer, customerDebtTransactions]);
 
@@ -924,7 +919,6 @@ export function OrderDetailPage() {
         setIsCancelAlertOpen(false); 
     };
     const handleAddPayment = (paymentData: PaymentFormValues) => { 
-        console.log('[handleAddPayment] Called with:', paymentData, 'order:', order?.id, 'employee:', currentEmployeeSystemId);
         if (order) { 
             addPayment(order.systemId, paymentData, currentEmployeeSystemId); 
             setIsPaymentDialogOpen(false); 
@@ -971,12 +965,6 @@ export function OrderDetailPage() {
                 const apiToken = activeAccount?.credentials?.apiToken;
                 const partnerCode = activeAccount?.credentials?.partnerCode || 'trendtech';
                 
-                console.log('[handleShippingSubmit] GHTK Debug:', {
-                    shippingConfig,
-                    ghtkAccounts,
-                    activeAccount,
-                    apiToken: apiToken ? '***' : null,
-                });
                 
                 if (!apiToken) {
                     return { success: false, message: 'Chưa cấu hình API Token GHTK. Vui lòng vào Cài đặt → Đối tác vận chuyển.' };
@@ -1012,7 +1000,6 @@ export function OrderDetailPage() {
             // Get previewParams for fallback values
             const storedPreviewParams = (window as unknown as Record<string, unknown>).__ghtkPreviewParams as Record<string, unknown> | undefined;
             
-            console.log('[handleShippingSubmit] Stored previewParams:', storedPreviewParams);
             
             // Cast data to access shipping-specific properties
             const shippingData = data as unknown as { dimensions?: string; service?: string; shippingFee?: number; weight?: number; codAmount?: number; payer?: string };

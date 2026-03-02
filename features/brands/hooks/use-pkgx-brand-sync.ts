@@ -101,7 +101,6 @@ export function usePkgxBrandSync({ addPkgxLog }: UsePkgxBrandSyncOptions = {}) {
   const handleSyncBasicInfo = React.useCallback(async (brand: Brand) => {
     // Force refetch settings để đảm bảo enabled status mới nhất
     const { data: freshSettings } = await refetchSettings();
-    console.log('🔍 Fresh Settings:', { enabled: freshSettings?.enabled, apiKey: freshSettings?.apiKey?.slice(0, 10) + '...' });
     
     const pkgxBrandId = getPkgxBrandId(brand, brandMappings);
     
@@ -326,13 +325,9 @@ export function usePkgxBrandSync({ addPkgxLog }: UsePkgxBrandSyncOptions = {}) {
   // 5. IMPORT DATA TỪ PKGX VỀ HRM (kéo title, meta, name, description)
   // ═══════════════════════════════════════════════════════════════
   const handleImportFromPkgx = React.useCallback(async (brand: Brand, onImportSuccess?: (data: PkgxImportedBrandData) => void) => {
-    console.log('🎯 handleImportFromPkgx called');
-    console.log('pkgxSettings:', pkgxSettings);
-    console.log('brandMappings:', brandMappings);
     
     const pkgxBrandId = getPkgxBrandId(brand, brandMappings);
     
-    console.log('pkgxBrandId:', pkgxBrandId);
     
     if (!pkgxBrandId) {
       toast.error('Thương hiệu chưa được liên kết với PKGX. Vui lòng mapping trong Cài đặt > PKGX.');
@@ -348,15 +343,6 @@ export function usePkgxBrandSync({ addPkgxLog }: UsePkgxBrandSyncOptions = {}) {
         const pkgxData = response.data;
         
         // Debug: Log dữ liệu từ PKGX API
-        console.log('🔍 PKGX Brand Data:', pkgxData);
-        console.log('📋 Fields:', {
-          brand_name: pkgxData.brand_name,
-          meta_title: pkgxData.meta_title,
-          meta_desc: pkgxData.meta_desc,
-          keywords: pkgxData.keywords,
-          short_desc: pkgxData.short_desc,
-          long_desc: pkgxData.long_desc,
-        });
         
         // Chuẩn bị data để fill form
         // API PKGX trả về: brand_name, site_url, brand_desc, meta_title, meta_desc, keywords, short_desc, long_desc

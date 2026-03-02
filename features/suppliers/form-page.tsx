@@ -56,7 +56,6 @@ export function SupplierFormPage() {
       notes: values.notes ?? '',
     } satisfies Partial<Supplier>;
 
-    console.log('Submitting supplier:', payload);
 
     if (supplier) {
       updateSupplier.mutate({ systemId: supplier.systemId, ...payload });
@@ -83,10 +82,8 @@ export function SupplierFormPage() {
   }, [isEditing, supplierSystemId]);
 
   const handleSaveClick = React.useCallback(() => {
-    console.log('Save button clicked');
     const form = document.getElementById('supplier-form') as HTMLFormElement | null;
     if (form) {
-      console.log('Form found, requesting submit');
       form.requestSubmit();
     } else {
       console.error('Form not found by ID');

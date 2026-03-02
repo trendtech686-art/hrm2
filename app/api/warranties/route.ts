@@ -122,12 +122,6 @@ export async function POST(request: Request) {
     const body = result.data
     
     // Debug: Log important fields
-    console.log('[POST /api/warranties] Received data:', {
-      receivedImages: body.receivedImages,
-      processedImages: body.processedImages,
-      products: body.products?.length,
-      summary: body.summary,
-    });
 
     // Validate product exists if productId provided
     if (body.productId) {

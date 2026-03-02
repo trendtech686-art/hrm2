@@ -44,7 +44,6 @@ export function LoginPage() {
     setIsLoading(true);
 
     try {
-      console.log('[Login] Starting login for:', email);
       
       const result = await signIn('credentials', {
         email,
@@ -52,7 +51,6 @@ export function LoginPage() {
         redirect: false,
       });
       
-      console.log('[Login] Result:', result);
       
       if (result?.error) {
         toast.error('Email hoặc mật khẩu không đúng');

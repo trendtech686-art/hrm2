@@ -48,7 +48,6 @@ export async function GET(
     ghtkUrl.searchParams.set('original', original);
     ghtkUrl.searchParams.set('page_size', pageSize);
 
-    console.log(`[GHTK-LABEL-${requestId}] Fetching label from:`, ghtkUrl.toString());
 
     const response = await fetch(ghtkUrl.toString(), {
       method: 'GET',
@@ -65,7 +64,6 @@ export async function GET(
       // ✅ Success - return PDF binary
       const pdfBuffer = await response.arrayBuffer();
       
-      console.log(`[GHTK-LABEL-${requestId}] ✅ PDF received, size: ${pdfBuffer.byteLength} bytes`);
       
       return new NextResponse(pdfBuffer, {
         status: 200,

@@ -39,9 +39,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     const { systemId } = await params;
     const body = await request.json();
-    const { provider, serviceType, packagingId } = body;
+    const { provider, serviceType: _serviceType, packagingId } = body;
     
-    console.log('[Shipment API] Create shipment request:', { systemId, provider, serviceType, packagingId });
 
     // Get the order with packaging - look for non-cancelled packagings
     const order = await prisma.order.findUnique({
@@ -55,13 +54,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       },
     });
     
-    console.log('[Shipment API] Order found:', !!order, 'Packagings count:', order?.packagings?.length || 0);
     if (order?.packagings?.[0]) {
-      console.log('[Shipment API] Packaging details:', {
-        systemId: order.packagings[0].systemId,
-        status: order.packagings[0].status,
-        confirmDate: order.packagings[0].confirmDate,
-      });
+      // Packaging exists - no additional processing needed
     }
 
     if (!order) {
@@ -82,7 +76,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     });
     
     if (existingShipment) {
-      console.log('[Shipment API] Shipment already exists for this packaging:', existingShipment.systemId);
       return apiError('Phiếu đóng gói này đã có đơn vận chuyển. Vui lòng hủy đơn vận chuyển hiện tại hoặc sử dụng phiếu đóng gói khác.', 400);
     }
 

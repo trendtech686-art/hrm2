@@ -254,15 +254,6 @@ export function ProductFormComplete({
       const productTypeSystemId: SystemId | undefined = initialData.productTypeSystemId ? asSystemId(initialData.productTypeSystemId) : undefined;
 
       // Debug log to verify data transformation
-      console.log('[ProductForm] Transform initialData:', {
-        id: initialData.id,
-        brandId: (initialData as unknown as { brandId?: string }).brandId,
-        brandSystemId,
-        productTypeSystemId,
-        pricesCount: Object.keys(pricesObject).length,
-        prices: pricesObject,
-        categorySystemId,
-      });
 
       return {
         ...initialData,

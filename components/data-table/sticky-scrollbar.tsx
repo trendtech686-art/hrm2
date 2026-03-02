@@ -28,7 +28,6 @@ export function StickyScrollbar({ targetRef, dataLength = 0, className }: Sticky
     const scrollbarElement = scrollbarRef.current;
     
     if (!targetElement || !scrollbarElement) {
-      console.log('[StickyScrollbar] Missing refs:', { target: !!targetElement, scrollbar: !!scrollbarElement });
       return;
     }
 
@@ -38,7 +37,6 @@ export function StickyScrollbar({ targetRef, dataLength = 0, className }: Sticky
       const clientW = targetElement.clientWidth;
       const hasScroll = scrollW > clientW + 1;
       
-      console.log('[StickyScrollbar] Check:', { scrollW, clientW, hasScroll, dataLength });
       
       setIsVisible(hasScroll);
       

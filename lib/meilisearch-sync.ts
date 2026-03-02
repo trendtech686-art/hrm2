@@ -15,11 +15,9 @@ export async function syncProducts(_options: { fullSync?: boolean } = {}) {
   const client = getMeiliClient()
   const index = client.index<MeiliProduct>(INDEXES.PRODUCTS)
   
-  console.log('🔄 Syncing products to Meilisearch...')
   
   // Get total count
-  const total = await prisma.product.count({ where: { isDeleted: false } })
-  console.log(`   Found ${total} products`)
+  const _total = await prisma.product.count({ where: { isDeleted: false } })
   
   let synced = 0
   let cursor: string | undefined
@@ -94,10 +92,8 @@ export async function syncProducts(_options: { fullSync?: boolean } = {}) {
     synced += products.length
     cursor = products[products.length - 1].systemId
     
-    console.log(`   Synced ${synced}/${total} products`)
   }
   
-  console.log(`✅ Products sync complete: ${synced} documents`)
   return synced
 }
 
@@ -108,10 +104,8 @@ export async function syncCustomers() {
   const client = getMeiliClient()
   const index = client.index<MeiliCustomer>(INDEXES.CUSTOMERS)
   
-  console.log('🔄 Syncing customers to Meilisearch...')
   
-  const total = await prisma.customer.count({ where: { isDeleted: false } })
-  console.log(`   Found ${total} customers`)
+  const _total = await prisma.customer.count({ where: { isDeleted: false } })
   
   let synced = 0
   let cursor: string | undefined
@@ -155,10 +149,8 @@ export async function syncCustomers() {
     synced += customers.length
     cursor = customers[customers.length - 1].systemId
     
-    console.log(`   Synced ${synced}/${total} customers`)
   }
   
-  console.log(`✅ Customers sync complete: ${synced} documents`)
   return synced
 }
 
@@ -169,11 +161,9 @@ export async function syncOrders() {
   const client = getMeiliClient()
   const index = client.index<MeiliOrder>(INDEXES.ORDERS)
   
-  console.log('🔄 Syncing orders to Meilisearch...')
   
   // Order doesn't have isDeleted field
-  const total = await prisma.order.count()
-  console.log(`   Found ${total} orders`)
+  const _total = await prisma.order.count()
   
   let synced = 0
   let cursor: string | undefined
@@ -211,10 +201,8 @@ export async function syncOrders() {
     synced += orders.length
     cursor = orders[orders.length - 1].systemId
     
-    console.log(`   Synced ${synced}/${total} orders`)
   }
   
-  console.log(`✅ Orders sync complete: ${synced} documents`)
   return synced
 }
 
@@ -225,10 +213,8 @@ export async function syncEmployees() {
   const client = getMeiliClient()
   const index = client.index<MeiliEmployee>(INDEXES.EMPLOYEES)
   
-  console.log('🔄 Syncing employees to Meilisearch...')
   
-  const total = await prisma.employee.count({ where: { isDeleted: false } })
-  console.log(`   Found ${total} employees`)
+  const _total = await prisma.employee.count({ where: { isDeleted: false } })
   
   let synced = 0
   let cursor: string | undefined
@@ -267,10 +253,8 @@ export async function syncEmployees() {
     synced += employees.length
     cursor = employees[employees.length - 1].systemId
     
-    console.log(`   Synced ${synced}/${total} employees`)
   }
   
-  console.log(`✅ Employees sync complete: ${synced} documents`)
   return synced
 }
 
@@ -278,7 +262,6 @@ export async function syncEmployees() {
  * Full sync all indexes
  */
 export async function fullSync() {
-  console.log('🚀 Starting full Meilisearch sync...\n')
   
   // Configure indexes first
   await configureIndexes()
@@ -291,8 +274,6 @@ export async function fullSync() {
     employees: await syncEmployees(),
   }
   
-  console.log('\n✅ Full sync complete!')
-  console.log(results)
   
   return results
 }

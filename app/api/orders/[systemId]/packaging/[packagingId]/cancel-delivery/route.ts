@@ -105,7 +105,6 @@ export async function POST(request: Request, { params }: RouteParams) {
           });
         }
         
-        console.log(`[Cancel Delivery] Restocked ${packaging.order.lineItems.length} products: +onHand, -inDelivery`);
       }
 
       // Check if there are any other active (non-cancelled) packagings for this order

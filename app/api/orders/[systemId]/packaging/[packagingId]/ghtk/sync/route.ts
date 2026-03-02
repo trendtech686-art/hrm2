@@ -261,12 +261,6 @@ export async function POST(_request: Request, { params }: RouteParams) {
       })),
     };
 
-    console.log(`✅ [GHTK Sync] Successfully synced packaging ${packagingId}:`, {
-      trackingCode: packaging.trackingCode,
-      ghtkStatus: ghtkStatusId,
-      statusText: statusInfo?.statusText,
-      deliveryStatus: prismaDeliveryStatus,
-    });
 
     return apiSuccess(transformedOrder);
   } catch (error) {

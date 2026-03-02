@@ -193,10 +193,5 @@ export function calculateWarrantyProcessingState(
 // ============================================================
 
 export function debugWarrantyProcessing(_state: WarrantyProcessingState): void {
-	console.group('[WARRANTY PROCESSING] Debug State');
-
-
-
-
-	console.groupEnd();
+	// Debug logging removed
 }

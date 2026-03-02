@@ -49,7 +49,6 @@ export async function POST(request: Request, { params }: RouteParams) {
       return apiError('Tracking code mismatch', 400);
     }
 
-    console.log(`📡 [GHTK Cancel] Cancelling shipment ${trackingCode}...`);
 
     // Call GHTK API to cancel
     const cancelUrl = `${GHTK_API_BASE}/services/shipment/cancel/${trackingCode}`;
@@ -64,7 +63,6 @@ export async function POST(request: Request, { params }: RouteParams) {
     });
 
     const data = await response.json().catch(() => ({}));
-    console.log(`📡 [GHTK Cancel] Response:`, data);
 
     if (!response.ok || !data.success) {
       const errorMsg = data.message || `GHTK API Error: ${response.status}`;
@@ -100,7 +98,6 @@ export async function POST(request: Request, { params }: RouteParams) {
       },
     });
 
-    console.log(`✅ [GHTK Cancel] Shipment ${trackingCode} cancelled successfully`);
 
     return apiSuccess({ 
       success: true, 

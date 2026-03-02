@@ -900,7 +900,6 @@ export function CategoryMappingTab() {
             let bodyStr: string;
             try {
               bodyStr = JSON.stringify(categoryData);
-              console.log(`[Import Category] Sending data for "${pkgxCat.name}":`, bodyStr.substring(0, 500));
             } catch (jsonError) {
               console.error(`[Import Category] JSON stringify error for "${pkgxCat.name}":`, jsonError, categoryData);
               throw new Error('Không thể serialize dữ liệu');
@@ -912,11 +911,9 @@ export function CategoryMappingTab() {
               body: bodyStr,
             });
             
-            console.log(`[Import Category] Response status for "${pkgxCat.name}":`, response.status);
             
             if (!response.ok) {
               const responseText = await response.text();
-              console.log(`[Import Category] Error response for "${pkgxCat.name}":`, responseText);
               let errorMessage = `HTTP ${response.status}`;
               try {
                 const errorData = JSON.parse(responseText);

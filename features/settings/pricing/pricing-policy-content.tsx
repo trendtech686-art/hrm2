@@ -18,16 +18,9 @@ interface PricingPolicyContentProps {
 }
 
 export function PricingPolicyContent({ isActive, onRegisterActions }: PricingPolicyContentProps) {
-    const { data: queryData, isLoading, error } = usePricingPolicies({ limit: 100 });
+    const { data: queryData, isLoading: _isLoading, error: _error } = usePricingPolicies({ limit: 100 });
     const data = React.useMemo(() => queryData?.data ?? [], [queryData?.data]);
     
-    console.log('PricingPolicyContent - Query State:', { 
-        isLoading, 
-        hasError: !!error, 
-        error,
-        dataLength: data.length,
-        queryData 
-    });
     
     const { create, update, remove, setDefault } = usePricingPolicyMutations({
         onSuccess: () => {},
@@ -114,12 +107,10 @@ export function PricingPolicyContent({ isActive, onRegisterActions }: PricingPol
             isDefault: values.isDefault,
         };
 
-        console.log('handleFormSubmit - Creating/Updating:', normalized);
 
         if (editingPolicy) {
             update.mutate({ systemId: editingPolicy.systemId, data: normalized }, {
-                onSuccess: (data) => {
-                    console.log('Update success:', data);
+                onSuccess: (_data) => {
                     toast.success(`Đã cập nhật chính sách giá "${normalized.name}"`);
                     setIsFormOpen(false);
                 },
@@ -130,8 +121,7 @@ export function PricingPolicyContent({ isActive, onRegisterActions }: PricingPol
             });
         } else {
             create.mutate(normalized, {
-                onSuccess: (data) => {
-                    console.log('Create success:', data);
+                onSuccess: (_data) => {
                     toast.success(`Đã thêm chính sách giá "${normalized.name}"`);
                     setIsFormOpen(false);
                 },

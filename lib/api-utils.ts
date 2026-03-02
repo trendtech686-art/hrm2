@@ -169,7 +169,6 @@ export async function validateBody<T>(
 ): Promise<ValidationResult<T>> {
   try {
     const body = await request.json()
-    console.log('[validateBody] Body:', JSON.stringify(body).substring(0, 500))
     
     // Try direct parse instead of safeParse
     try {

@@ -273,7 +273,6 @@ export function CustomerForm({ initialData, onSubmit, onCancel: _onCancel, onSuc
       representative: initialData?.representative ?? '',
       position: initialData?.position ?? '',
       addresses: (Array.isArray(initialData?.addresses) ? initialData.addresses : []).map(addr => {
-        console.log('[CustomerForm] Processing address:', addr);
         return {
           ...addr,
           id: addr.id ?? '',
@@ -481,7 +480,6 @@ export function CustomerForm({ initialData, onSubmit, onCancel: _onCancel, onSuc
   }, [form, customerGroupsData, pricingPolicies]);
 
   const handleSubmit = async (values: CustomerFormValues) => {
-    console.log('[CustomerForm] handleSubmit called with values:', values);
     try {
       // Validate unique ID
       const normalizedInputId = values.id?.trim().toUpperCase() ?? '';
@@ -565,10 +563,8 @@ export function CustomerForm({ initialData, onSubmit, onCancel: _onCancel, onSuc
         if (normalized) payload.updatedBy = normalized;
       }
 
-      console.log('[CustomerForm] Calling onSubmit with payload');
       // Call parent onSubmit first to save customer
       await onSubmit(payload);
-      console.log('[CustomerForm] onSubmit completed successfully');
       
       // Get customer ID for file operations
       // Use business ID (values.id) for consistency - this is what we save to entityId in files table
@@ -637,12 +633,10 @@ export function CustomerForm({ initialData, onSubmit, onCancel: _onCancel, onSuc
       }
 
       // Show success toast
-      console.log('[CustomerForm] Showing success toast');
       toast.success(isEditMode ? 'Đã cập nhật khách hàng' : 'Đã tạo khách hàng mới');
 
       // Small delay to ensure toast is shown before navigation
       if (onSuccess) {
-        console.log('[CustomerForm] Calling onSuccess after delay');
         setTimeout(() => {
           onSuccess();
         }, 500);
@@ -674,16 +668,12 @@ export function CustomerForm({ initialData, onSubmit, onCancel: _onCancel, onSuc
       console.warn('[CustomerForm] Empty errors object, triggering manual validation...');
       // Try to get validation result manually
       const values = form.getValues();
-      console.log('[CustomerForm] Current form values:', values);
       
       // Trigger validation manually
       const isValid = await form.trigger();
-      console.log('[CustomerForm] Manual validation result:', isValid);
-      console.log('[CustomerForm] Errors after manual trigger:', form.formState.errors);
       
       // If valid after manual trigger, try to submit
       if (isValid) {
-        console.log('[CustomerForm] Form is valid after manual trigger, submitting...');
         handleSubmit(values);
         return;
       }
@@ -698,7 +688,7 @@ export function CustomerForm({ initialData, onSubmit, onCancel: _onCancel, onSuc
   React.useEffect(() => {
     const subscription = form.watch((value, { name }) => {
       if (name) {
-        console.log(`[CustomerForm] Field changed: ${name}`, form.formState.errors[name as keyof typeof form.formState.errors]);
+        // Field changed - no debug action needed
       }
     });
     return () => subscription.unsubscribe();

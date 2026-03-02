@@ -295,12 +295,6 @@ export async function POST(request: Request) {
   const customerId = body.customerId || body.customerSystemId
   const branchId = body.branchId || body.branchSystemId
   
-  console.log('[Orders API] Create order request:', {
-    customerId,
-    branchId,
-    hasPackagings: !!body.packagings,
-    packagingsCount: body.packagings?.length || 0,
-  });
   
   if (!customerId) {
     return apiError('Customer is required', 400)
@@ -410,7 +404,6 @@ export async function POST(request: Request) {
         // Use provided ID or generated one
         const finalBusinessId = body.id || businessId
         
-        console.log(`[Orders API] Creating order with systemId=${systemId}, businessId=${finalBusinessId}`)
         
         // Check if IDs already exist (debug)
         const existingOrder = await tx.order.findFirst({
@@ -418,7 +411,6 @@ export async function POST(request: Request) {
           select: { systemId: true, id: true }
         })
         if (existingOrder) {
-          console.log(`[Orders API] CONFLICT FOUND: existing order`, existingOrder)
           throw new Error(`Order already exists: systemId=${existingOrder.systemId}, id=${existingOrder.id}`)
         }
         
@@ -485,13 +477,6 @@ export async function POST(request: Request) {
         }
 
         // ✅ Create order inside transaction
-        console.log(`[Orders API] About to create order:`, {
-          systemId,
-          id: finalBusinessId,
-          lineItemsCount: lineItemsData.length,
-          lineItemSystemIds: lineItemsData.map(li => li.systemId),
-          packagingsCount: body.packagings?.length || 0,
-        })
         
         const createdOrder = await tx.order.create({
           data: {
@@ -579,7 +564,6 @@ export async function POST(request: Request) {
 
               // Use pre-generated packaging IDs from id-config system
               const pkgIds = packagingIds[index];
-              console.log(`[Orders API] Packaging ${index}: systemId=${pkgIds.systemId}, businessId=${pkgIds.businessId}`);
               
               // ✅ Auto-generate tracking code for in-store pickup
               let trackingCode = pkg.trackingCode;
@@ -667,13 +651,11 @@ export async function POST(request: Request) {
           // StockHistory should only record actual stock changes (xuất/nhập kho)
         }
         
-        console.log(`[Orders API] Updated inventory committed for ${lineItemsData.length} products`);
 
         return createdOrder
       }) // End of transaction
 
       // ✅ Success - return the order
-      console.log(`[Orders API] Order created successfully: ${order.systemId} (${order.id})`)
       return apiSuccess(order, 201)
       
     } catch (error) {

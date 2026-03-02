@@ -166,7 +166,6 @@ export function WarrantyProductsSection({
     productsLengthRef.current = currentProducts.length;
     
     const initialFiles = initializePermanentFiles(currentProducts as WarrantyProductField[]);
-    console.log('[WARRANTY PRODUCTS] Initializing permanent files:', initialFiles);
     if (Object.keys(initialFiles).length > 0) {
       setProductPermanentFiles(initialFiles);
     }
@@ -177,7 +176,6 @@ export function WarrantyProductsSection({
   // ✅ Use refs to always get LATEST values when called (avoids stale closure)
   React.useEffect(() => {
     if (getImagesStateRef) {
-      console.log('[PRODUCTS SECTION] Assigning getImagesState to ref');
       getImagesStateRef.current = () => {
         const state = {
           productPermanentFiles: productPermanentFilesRef.current,
@@ -185,7 +183,6 @@ export function WarrantyProductsSection({
           productSessionIds: productSessionIdsRef.current,
           productFilesToDelete: productFilesToDeleteRef.current,
         };
-        console.log('[PRODUCTS SECTION] getImagesState called, returning:', state);
         return state;
       };
     }

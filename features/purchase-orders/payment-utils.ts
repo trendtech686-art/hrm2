@@ -10,20 +10,9 @@ export const isPaymentLinkedToPurchaseOrder = (payment: Payment, purchaseOrder: 
     return false;
   }
 
-  // Debug log để xem tại sao payments matching
-  const debugInfo = {
-    paymentId: payment.id,
-    poId: purchaseOrder.id,
-    poSystemId: purchaseOrder.systemId,
-    payment_purchaseOrderSystemId: payment.purchaseOrderSystemId,
-    payment_purchaseOrderId: payment.purchaseOrderId,
-    payment_originalDocumentId: payment.originalDocumentId,
-  };
-
   // Priority 1: Direct link via purchaseOrderSystemId
   if (payment.purchaseOrderSystemId) {
     const match = payment.purchaseOrderSystemId === purchaseOrder.systemId;
-    if (match) console.log('[Payment Match] via purchaseOrderSystemId:', debugInfo);
     return match;
   }
 
@@ -33,7 +22,6 @@ export const isPaymentLinkedToPurchaseOrder = (payment: Payment, purchaseOrder: 
       payment.purchaseOrderId === purchaseOrder.systemId ||
       payment.purchaseOrderId === purchaseOrder.id
     );
-    if (match) console.log('[Payment Match] via purchaseOrderId:', debugInfo);
     return match;
   }
 
@@ -43,7 +31,6 @@ export const isPaymentLinkedToPurchaseOrder = (payment: Payment, purchaseOrder: 
       payment.originalDocumentId === purchaseOrder.systemId ||
       payment.originalDocumentId === purchaseOrder.id
     );
-    if (match) console.log('[Payment Match] via originalDocumentId:', debugInfo);
     return match;
   }
 

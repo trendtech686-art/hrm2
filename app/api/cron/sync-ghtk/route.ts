@@ -44,12 +44,10 @@ export async function POST(request: NextRequest) {
   }
   
   try {
-    console.log('🔄 [GHTK Cron] Starting background sync...');
     
     // Load GHTK config
     const ghtkConfig = await loadGHTKConfig();
     if (!ghtkConfig) {
-      console.log('⚠️ [GHTK Cron] GHTK is not configured, skipping sync');
       return NextResponse.json({
         success: true,
         message: 'GHTK is not configured',
@@ -64,7 +62,6 @@ export async function POST(request: NextRequest) {
       limit: 50,   // Max 50 per run to avoid timeout
     });
     
-    console.log(`📦 [GHTK Cron] Found ${shipments.length} shipments to sync`);
     
     if (shipments.length === 0) {
       return NextResponse.json({
@@ -106,11 +103,6 @@ export async function POST(request: NextRequest) {
     
     const duration = Date.now() - startTime;
     
-    console.log(`✅ [GHTK Cron] Sync completed:`, {
-      synced: results.synced,
-      failed: results.failed,
-      duration: `${duration}ms`,
-    });
     
     return NextResponse.json({
       success: true,

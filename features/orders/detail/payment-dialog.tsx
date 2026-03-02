@@ -233,9 +233,7 @@ export function PaymentDialog({
               <Button 
                 type="button" 
                 onClick={() => {
-                  console.log('[PaymentDialog] Submit clicked, form values:', form.getValues());
                   form.handleSubmit((data) => {
-                    console.log('[PaymentDialog] Form valid, submitting:', data);
                     onSubmit(data);
                   }, (errors) => {
                     console.error('[PaymentDialog] Form validation errors:', errors);

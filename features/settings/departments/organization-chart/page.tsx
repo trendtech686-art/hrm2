@@ -82,10 +82,8 @@ function OrgChartFlow() {
 
   // Debug: Log employee count
   React.useEffect(() => {
-    console.log('[OrgChart] Employees loaded:', employees.length);
     if (employees.length > 0) {
-      console.log('[OrgChart] First employee:', employees[0]);
-      console.log('[OrgChart] Employee statuses:', [...new Set(employees.map(e => e.employmentStatus))]);
+      // Employees loaded - no debug action needed
     }
   }, [employees]);
 

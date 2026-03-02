@@ -128,7 +128,6 @@ export async function POST(request: Request) {
   let body: Record<string, unknown>
   try {
     body = await request.json()
-    console.log('[POST /api/categories] Body:', JSON.stringify(body).substring(0, 300))
   } catch {
     return apiError('Invalid JSON body', 400)
   }

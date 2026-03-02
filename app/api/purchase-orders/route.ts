@@ -187,16 +187,6 @@ export async function POST(request: Request) {
     const body = result.data
     
     // Debug log để kiểm tra body
-    console.log('[API POST] Body received:', {
-      branchSystemId: body.branchSystemId,
-      branchName: body.branchName,
-      buyerSystemId: body.buyerSystemId,
-      buyer: body.buyer,
-      creatorSystemId: body.creatorSystemId,
-      creatorName: body.creatorName,
-      supplierId: body.supplierId,
-      supplierName: body.supplierName,
-    })
 
     const order = await prisma.$transaction(async (tx) => {
       // Generate IDs using unified ID system

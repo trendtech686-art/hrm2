@@ -140,13 +140,11 @@ export async function updateEmployee({ systemId, ...data }: UpdateEmployeeInput)
  * Delete employee (soft delete)
  */
 export async function deleteEmployee(id: string): Promise<void> {
-  console.log('[deleteEmployee] Calling DELETE', `${API_BASE}/${id}`);
   const res = await fetch(`${API_BASE}/${id}`, {
     method: 'DELETE',
     credentials: 'include',
   });
   
-  console.log('[deleteEmployee] Response:', res.status, res.ok);
   
   if (!res.ok) {
     const error = await res.json().catch(() => ({}));

@@ -444,15 +444,6 @@ export function PurchaseOrderFormPage() {
         const employee = currentEmployees.find((e) => e.systemId === employeeSystemId);
 
         // Debug logging
-        console.log('[PO Form] Creating order with:', {
-          supplierId: currentSupplierId,
-          supplierFound: !!supplier,
-          suppliersCount: currentSuppliers.length,
-          supplierSystemIds: currentSuppliers.slice(0, 5).map(s => s.systemId),
-          branchId: branchSystemId,
-          employeeId: employeeSystemId,
-          itemsCount: currentItems.length,
-        });
 
         if (!supplier) {
           console.error('[PO Form] Supplier not found. Available suppliers:', currentSuppliers.map(s => ({ systemId: s.systemId, id: s.id, name: s.name })));
@@ -610,9 +601,6 @@ export function PurchaseOrderFormPage() {
         const totalShippingFee = Number(createdOrder.shippingFee) || currentShippingFees.reduce((sum, fee) => sum + fee.amount, 0);
         const totalOtherFees = Number(createdOrder.tax) || currentOtherFees.reduce((sum, fee) => sum + fee.amount, 0);
         
-        console.log(`[PO Form] ⚠️ Sending to inventory receipt: shippingFee=${totalShippingFee}, otherFees=${totalOtherFees}`);
-        console.log(`[PO Form] createdOrder.shippingFee:`, createdOrder.shippingFee);
-        console.log(`[PO Form] createdOrder.tax:`, createdOrder.tax);
         
         // 1. Tạo phiếu nhập kho và đợi kết quả
         // Note: shippingFee, otherFees, costCalculationMethod are stored in the PurchaseOrder

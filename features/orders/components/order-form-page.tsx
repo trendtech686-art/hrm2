@@ -569,12 +569,6 @@ export function OrderFormPage() {
         const effectivePackerId = orderPackerId || packagingPackerId || '';
 
         // Debug log to check values
-        console.log('📝 [Edit Form] Resetting with values:', {
-            branchSystemId: order.branchSystemId,
-            salespersonSystemId: order.salespersonSystemId,
-            packerId: effectivePackerId,
-            customer: customer?.name,
-        });
 
         reset({
             customer: customer || null,
@@ -804,15 +798,11 @@ export function OrderFormPage() {
      * Returns: { label: string, shipMoney: number } | null
      */
     const createGHTKOrder = async (ghtkParams: GHTKCreateOrderParams): Promise<{ label: string; shipMoney: number } | null> => {
-        console.log('🚚 [createGHTKOrder] Starting GHTK order creation...');
-        console.log('🚚 [createGHTKOrder] Input params:', ghtkParams);
         
         try {
             // Load shipping config
             const shippingConfig = loadShippingConfig();
             const ghtkData = shippingConfig.partners.GHTK;
-            console.log('🚚 [createGHTKOrder] GHTK config loaded:', ghtkData ? 'YES' : 'NO');
-            console.log('🚚 [createGHTKOrder] Accounts count:', ghtkData?.accounts?.length || 0);
             
             if (!ghtkData || !ghtkData.accounts || ghtkData.accounts.length === 0) {
                 console.error('❌ [createGHTKOrder] No GHTK account configured');
@@ -825,7 +815,6 @@ export function OrderFormPage() {
                 || ghtkData.accounts.find(a => a.active)
                 || ghtkData.accounts[0];
             
-            console.log('🚚 [createGHTKOrder] Selected account:', ghtkAccount?.name || 'N/A', 'Active:', ghtkAccount?.active);
             
             if (!ghtkAccount || !ghtkAccount.active) {
                 console.error('❌ [createGHTKOrder] No active GHTK account');
@@ -836,8 +825,6 @@ export function OrderFormPage() {
             // Get credentials
             const apiToken = ghtkAccount.credentials.apiToken as string;
             const partnerCode = ghtkAccount.credentials.partnerCode as string;
-            console.log('🚚 [createGHTKOrder] API Token:', apiToken ? `${apiToken.substring(0, 10)}...` : 'MISSING');
-            console.log('🚚 [createGHTKOrder] Partner Code:', partnerCode || 'N/A');
             
             if (!apiToken) {
                 console.error('❌ [createGHTKOrder] Missing API Token');
@@ -846,19 +833,15 @@ export function OrderFormPage() {
             }
             
             // Initialize GHTK service
-            console.log('🚚 [createGHTKOrder] Initializing GHTKService...');
             const ghtkService = new GHTKService(apiToken, partnerCode || '');
             
             // ✅ Call GHTK API with params (already built by shipping-integration previewParams)
-            console.log('🚚 [createGHTKOrder] Calling GHTK API...');
             toast.info('Đang tạo đơn trên GHTK...', { duration: 2000 });
             const result = await ghtkService.createOrder(ghtkParams);
-            console.log('🚚 [createGHTKOrder] API Result:', result);
             
             if (result.success && result.order) {
                 // ✅ GHTK returns 'fee' as string (e.g., "29000"), ship_money may be 0 initially
                 const shipFee = parseInt(result.order.fee || '0', 10) || result.order.ship_money || 0;
-                console.log('✅ [createGHTKOrder] Order created successfully! Label:', result.order.label, 'Fee:', result.order.fee, 'ShipMoney:', shipFee);
                 toast.success('Đã tạo đơn GHTK thành công', { 
                     description: `Mã vận đơn: ${result.order.label}` 
                 });
@@ -913,7 +896,7 @@ export function OrderFormPage() {
                         description: `Mã vận đơn: ${result.label}. Vui lòng cập nhật thủ công.`
                     });
                 } else {
-                    console.log('✅ Updated packaging with GHTK tracking:', result.label);
+                    // Update succeeded - no additional action needed
                 }
             }
         } catch (error) {
@@ -944,7 +927,6 @@ export function OrderFormPage() {
     const processSubmit = async (data: OrderFormValues) => {
         // ✅ Prevent double submission with immediate ref check (sync)
         if (isSubmittingRef.current) {
-            console.log('[OrderForm] Blocked duplicate submission');
             return;
         }
         
@@ -963,7 +945,6 @@ export function OrderFormPage() {
     const processSubmitInternal = async (data: OrderFormValues) => {
         // ✅ METADATA-ONLY MODE: Skip full validation, only update allowed fields
         if (isMetadataOnlyMode && isEditing && order) {
-            console.log('[OrderForm] Metadata-only mode: updating tags, notes, referenceUrl, externalReference only');
             
             const metadataUpdate = {
                 ...order,
@@ -983,10 +964,6 @@ export function OrderFormPage() {
         }
         
         // Debug: Log raw form data
-        console.log('[OrderForm] processSubmitInternal called with data:', {
-            lineItemsCount: data.lineItems?.length,
-            lineItems: data.lineItems,
-        });
         
         const customer = data.customer;
         const salespersonSystemId = data.salespersonSystemId ? asSystemId(data.salespersonSystemId) : undefined;
@@ -1198,12 +1175,6 @@ export function OrderFormPage() {
         // ✅ Determine if we should keep existing status/packagings (editing) or create new
         const hasExistingPackagings = isEditing && order?.packagings && order.packagings.length > 0;
 
-        console.log('[OrderFormPage] processSubmitInternal - deliveryMethod:', data.deliveryMethod, {
-            isEditing,
-            hasExistingPackagings,
-            shippingPartnerId: data.shippingPartnerId,
-            shippingServiceId: data.shippingServiceId,
-        });
 
         switch (data.deliveryMethod) {
             case 'pickup':
@@ -1235,19 +1206,12 @@ export function OrderFormPage() {
                 break;
 
             case 'shipping-partner': {
-                console.log('[OrderFormPage] CASE shipping-partner entered');
                 
                 // ✅ Get partner info from localStorage config (not database)
                 // since shipping-integration uses localStorage config
-                const shippingConfig = loadShippingConfig();
-                console.log('[OrderFormPage] Shipping config from localStorage:', {
-                    hasGHTK: !!shippingConfig?.partners?.GHTK,
-                    ghtkAccounts: shippingConfig?.partners?.GHTK?.accounts?.length || 0,
-                });
+                const _shippingConfig = loadShippingConfig();
                 
                 // Also log database partners for debugging
-                console.log('[OrderFormPage] Database partners:', partners?.map(p => ({ id: p.id, name: p.name })));
-                console.log('[OrderFormPage] Form data.shippingPartnerId:', data.shippingPartnerId);
                 
                 finalMainStatus = hasExistingPackagings ? order!.status : 'Đang giao dịch';
                 finalDeliveryStatus = hasExistingPackagings ? order!.deliveryStatus : 'Chờ lấy hàng';
@@ -1260,13 +1224,6 @@ export function OrderFormPage() {
                 const service = partner?.services.find(s => s.id === data.shippingServiceId || s.name === data.shippingServiceId);
                 const serviceName = service?.name || data.shippingServiceId;
                 
-                console.log('[OrderFormPage] shipping-partner details:', {
-                    partnerId,
-                    partnerName,
-                    foundPartner: partner ? { id: partner.id, name: partner.name } : null,
-                    shippingServiceId: data.shippingServiceId,
-                    serviceName,
-                });
                 
                 // ========================================
                 // 🚚 LƯU THÔNG TIN VẬN CHUYỂN ĐỂ GỌI SAU KHI TẠO ĐƠN
@@ -1285,13 +1242,6 @@ export function OrderFormPage() {
                     const configParamsKey = getConfigParamsKey(partnerId);
                     const partnerParams = (window as unknown as Record<string, unknown>)[previewParamsKey] || data.configuration?.[configParamsKey];
                     
-                    console.log('[OrderFormPage] Checking shipping params:', {
-                        partnerId,
-                        previewParamsKey,
-                        hasWindowParams: !!(window as unknown as Record<string, unknown>)[previewParamsKey],
-                        hasConfigParams: !!data.configuration?.[configParamsKey],
-                        partnerParams: !!partnerParams,
-                    });
                     
                     if (!partnerParams) {
                         // ⚠️ Không có params = chưa chọn đầy đủ thông tin vận chuyển
@@ -1306,7 +1256,6 @@ export function OrderFormPage() {
                             partnerId,
                             partnerName: partnerName || 'GHTK',
                         };
-                        console.log('[OrderFormPage] ✅ Saved GHTK params for post-order creation');
                     } else {
                         // Other partners - show info message
                         toast.info(`${partnerName} API đang được phát triển`, {
@@ -1316,7 +1265,6 @@ export function OrderFormPage() {
                 }
                 
                 // ✅ Only create new packaging if no existing packagings
-                console.log('[OrderFormPage] About to create packaging:', { hasExistingPackagings });
                 if (!hasExistingPackagings) {
                     // ✅ Tạo packaging TRƯỚC, tracking code sẽ được update sau khi gọi GHTK
                     const newPackaging = {
@@ -1340,10 +1288,8 @@ export function OrderFormPage() {
                         noteToShipper: sanitizeString(data.shippingNote || ''),
                         weight: data.weight, dimensions: (data.length && data.width && data.height) ? `${data.length}x${data.width}x${data.height}` : undefined,
                     };
-                    console.log('[OrderFormPage] ✅ Created packaging:', newPackaging);
                     packagings.push(newPackaging);
                 }
-                console.log('[OrderFormPage] Final packagings array:', packagings.length, packagings);
                 break;
             }
             
@@ -1388,7 +1334,6 @@ export function OrderFormPage() {
             expectedPaymentMethod: sanitizedExpectedPaymentMethod || undefined,
             lineItems: data.lineItems.map((li, index) => {
                 // Debug: log line item data before processing
-                console.log(`[OrderForm] Line item ${index}:`, { productSystemId: li.productSystemId, productId: li.productId, productName: li.productName });
                 
                 if (!li.productSystemId) {
                     console.error(`[OrderForm] Line item ${index} has no productSystemId!`, li);
@@ -1457,7 +1402,6 @@ export function OrderFormPage() {
                         const packagingSystemId = newItem.packagings?.[0]?.systemId;
                         
                         if (packagingSystemId) {
-                            console.log('[OrderFormPage] ✅ Order saved, now creating GHTK order...');
                             toast.info('Đang tạo đơn vận chuyển GHTK...', { duration: 3000 });
                             
                             // ✅ Gọi GHTK và update packaging

@@ -605,8 +605,6 @@ export function PayrollRunPage() {
       : undefined;
     const templateComponentIds = template?.componentSystemIds ?? [];
     
-    console.log('[Payroll] Template:', template?.name, 'componentSystemIds:', templateComponentIds);
-    console.log('[Payroll] salaryComponents from settings:', salaryComponents.length, salaryComponents.map(c => c.id));
     
     // Filter by template if exists, otherwise use all
     // Also filter by isActive
@@ -686,24 +684,14 @@ export function PayrollRunPage() {
       return;
     }
     if (!formState.selectedEmployeeSystemIds.length) {
-      console.log('[Payroll Preview] No employees selected');
       setPreview(null);
       return;
     }
     
-    console.log('[Payroll Preview] Selected employees:', formState.selectedEmployeeSystemIds);
-    console.log('[Payroll Preview] Employee data count:', employeeData.length);
-    console.log('[Payroll Preview] Attendance snapshots count:', attendanceSnapshots.length);
-    console.log('[Payroll Preview] Attendance snapshots detail:', attendanceSnapshots.map(s => ({
-      employeeSystemId: s.employeeSystemId,
-      workDays: s.totals?.workDays,
-      locked: s.locked,
-    })));
     
     // Build employee inputs for the new engine
     const employeeInputs = formState.selectedEmployeeSystemIds.map((systemId) => {
       const emp = employeeData.find(e => e.systemId === systemId);
-      console.log('[Payroll Preview] Employee lookup:', systemId, emp?.id, emp?.fullName);
       return {
         employeeSystemId: systemId,
         employeeId: emp?.id ?? ('' as typeof emp extends { id: infer T } ? T : never),
@@ -714,19 +702,14 @@ export function PayrollRunPage() {
       };
     }).filter(e => e.employeeId);
     
-    console.log('[Payroll Preview] Employee inputs after filter:', employeeInputs.length);
-    console.log('[Payroll Preview] Payroll components count:', payrollComponents.length);
-    console.log('[Payroll Preview] Payroll components:', payrollComponents.map(c => c.code));
     
     if (!employeeInputs.length) {
-      console.log('[Payroll Preview] All employee inputs filtered out!');
       setPreview(null);
       setIsPreviewLoading(false);
       return;
     }
     
     if (!payrollComponents.length) {
-      console.log('[Payroll Preview] No payroll components!');
       setPreview(null);
       setIsPreviewLoading(false);
       return;
@@ -743,10 +726,6 @@ export function PayrollRunPage() {
       skipAttendanceValidation: false,
       requireLockedAttendance: false, // Allow preview even if not locked
     });
-    console.log('[Payroll Preview] Engine result:', result?.payslips?.length, 'payslips');
-    console.log('[Payroll Preview] Engine errors:', result?.errors);
-    console.log('[Payroll Preview] Engine warnings:', result?.warnings);
-    console.log('[Payroll Preview] First payslip attendance:', result?.payslips?.[0]?.attendanceSnapshot);
     setPreview(result);
     setIsPreviewLoading(false);
   }, [currentStep, formState.selectedEmployeeSystemIds, formState.monthKey, payrollComponents, employeeData, penalties, attendanceSnapshots]);

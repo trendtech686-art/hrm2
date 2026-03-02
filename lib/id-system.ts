@@ -230,7 +230,6 @@ async function queryMaxCounter(
     return result[0]?.max_num ?? 0;
   } catch (_error) {
     // Table might not exist yet or be empty - that's OK
-    console.log(`[ID-SYSTEM] Could not query MAX from ${table}.${field}, starting from 0`);
     return 0;
   }
 }

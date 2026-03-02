@@ -32,6 +32,7 @@ Sentry.init({
   beforeSend(event, hint) {
     // Don't send errors in development
     if (process.env.NODE_ENV === "development") {
+      // eslint-disable-next-line no-console
       console.log("[Sentry] Error captured (dev mode, not sent):", hint.originalException);
       return null;
     }
