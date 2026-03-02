@@ -25,9 +25,12 @@ export interface InventoryReceiptsParams {
 
 export interface InventoryReceiptsResponse {
   data: InventoryReceipt[];
-  total: number;
-  page: number;
-  pageSize: number;
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
 }
 
 export async function fetchInventoryReceipts(params: InventoryReceiptsParams = {}): Promise<InventoryReceiptsResponse> {
@@ -62,7 +65,9 @@ export async function fetchInventoryReceipt(systemId: SystemId): Promise<Invento
     throw new Error(`Failed to fetch inventory receipt: ${response.statusText}`);
   }
   
-  return response.json();
+  const json = await response.json();
+  // API returns { success: true, data: {...} } via apiSuccess()
+  return json.data || json;
 }
 
 export async function createInventoryReceipt(data: Omit<InventoryReceipt, 'systemId' | 'id' | 'createdAt' | 'updatedAt'>): Promise<InventoryReceipt> {

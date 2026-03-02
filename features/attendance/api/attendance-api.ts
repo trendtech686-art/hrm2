@@ -39,7 +39,16 @@ export interface AttendanceUpdateInput extends Partial<AttendanceCreateInput> {
   monthKey?: string;
   employeeSystemId?: string;
   dayKey?: string;
-  record?: any;
+  record?: {
+    status: string;
+    checkIn?: string;
+    checkOut?: string;
+    morningCheckOut?: string;
+    afternoonCheckIn?: string;
+    overtimeCheckIn?: string;
+    overtimeCheckOut?: string;
+    notes?: string;
+  };
 }
 
 const BASE_URL = '/api/attendance';
@@ -82,11 +91,32 @@ export async function fetchAttendanceByMonth(
   const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate();
   const toDate = `${year}-${month}-${String(lastDay).padStart(2, '0')}`;
   
-  const response = await fetchAttendance({
+  // Auto-paginate: fetch page 1 → discover totalPages → fetch remaining
+  const PAGE_SIZE = 200; // batch size per request
+  const firstPage = await fetchAttendance({
     fromDate,
     toDate,
-    limit: 500,
+    page: 1,
+    limit: PAGE_SIZE,
   });
+  
+  let allRecords = [...firstPage.data];
+  
+  // Fetch remaining pages in parallel if needed
+  if (firstPage.pagination && firstPage.pagination.totalPages > 1) {
+    const remainingPages = Array.from(
+      { length: firstPage.pagination.totalPages - 1 },
+      (_, i) => i + 2,
+    );
+    const remainingResults = await Promise.all(
+      remainingPages.map(page =>
+        fetchAttendance({ fromDate, toDate, page, limit: PAGE_SIZE })
+      ),
+    );
+    for (const result of remainingResults) {
+      allRecords = allRecords.concat(result.data);
+    }
+  }
   
   // Transform individual records into row format
   const recordsByEmployee = new Map<string, AttendanceDataRow>();
@@ -94,7 +124,7 @@ export async function fetchAttendanceByMonth(
   type AttendanceRecord = {
     date: string;
     employeeId: string;
-    employee?: { systemId?: string; fullName?: string; department?: string };
+    employee?: { systemId?: string; id?: string; fullName?: string; department?: string };
     status: string;
     checkIn?: string;
     checkOut?: string;
@@ -105,14 +135,14 @@ export async function fetchAttendanceByMonth(
     updatedBy?: string;
   };
   
-  (response.data as any as AttendanceRecord[]).forEach((record) => {
-    const employeeId = record.employeeId;
+  (allRecords as unknown as AttendanceRecord[]).forEach((record) => {
+    const employeeSystemId = record.employee?.systemId || record.employeeId;
     
-    if (!recordsByEmployee.has(employeeId)) {
-      recordsByEmployee.set(employeeId, {
-        systemId: record.employee?.systemId || employeeId,
-        employeeSystemId: record.employee?.systemId || employeeId,
-        employeeId: employeeId,
+    if (!recordsByEmployee.has(employeeSystemId)) {
+      recordsByEmployee.set(employeeSystemId, {
+        systemId: employeeSystemId,
+        employeeSystemId: employeeSystemId,
+        employeeId: record.employee?.id || employeeSystemId, // Business ID (NV001)
         fullName: record.employee?.fullName || '',
         department: record.employee?.department,
         workDays: 0,
@@ -125,10 +155,10 @@ export async function fetchAttendanceByMonth(
         updatedAt: record.updatedAt,
         createdBy: record.createdBy,
         updatedBy: record.updatedBy,
-      } as any);
+      } as unknown as AttendanceDataRow);
     }
     
-    const row = recordsByEmployee.get(employeeId)!;
+    const row = recordsByEmployee.get(employeeSystemId)!;
     const recordDate = new Date(record.date);
     const day = recordDate.getDate();
     
@@ -149,9 +179,57 @@ export async function fetchAttendanceByMonth(
       checkOut: record.checkOut ? new Date(record.checkOut).toTimeString().slice(0, 5) : undefined,
       notes: record.notes,
     };
+    
+    // Tính totals trực tiếp từ status
+    if (status === 'present') {
+      row.workDays = (row.workDays || 0) + 1;
+    } else if (status === 'half-day') {
+      row.workDays = (row.workDays || 0) + 0.5;
+    } else if (status === 'leave') {
+      row.leaveDays = (row.leaveDays || 0) + 1;
+    } else if (status === 'absent') {
+      row.absentDays = (row.absentDays || 0) + 1;
+    }
+    // Tính late arrivals / early departures (cần settings để tính chính xác, tạm dùng 8:30-18:00)
+    if (record.checkIn) {
+      const checkInTime = new Date(record.checkIn);
+      const checkInMinutes = checkInTime.getHours() * 60 + checkInTime.getMinutes();
+      if (checkInMinutes > 8 * 60 + 30) { // 8:30
+        row.lateArrivals = (row.lateArrivals || 0) + 1;
+      }
+    }
+    if (record.checkOut) {
+      const checkOutTime = new Date(record.checkOut);
+      const checkOutMinutes = checkOutTime.getHours() * 60 + checkOutTime.getMinutes();
+      if (checkOutMinutes < 18 * 60) { // 18:00
+        row.earlyDepartures = (row.earlyDepartures || 0) + 1;
+      }
+      // Tính OT (sau 18:00)
+      if (checkOutMinutes > 18 * 60) {
+        const otMinutes = checkOutMinutes - 18 * 60;
+        row.otHours = (row.otHours || 0) + (otMinutes / 60);
+      }
+    }
   });
   
   return Array.from(recordsByEmployee.values());
+}
+
+/**
+ * Fetch attendance data for a specific employee in a specific month.
+ * Reuses the fetchAttendanceByMonth transform logic but filtered to one employee.
+ * 
+ * Used by: print handlers in employee detail page (on-demand, not pre-loaded)
+ */
+export async function fetchAttendanceByEmployeeMonth(
+  employeeId: string,
+  monthKey: string
+): Promise<AttendanceDataRow | null> {
+  const allRows = await fetchAttendanceByMonth(monthKey);
+  const row = allRows.find(r => 
+    r.employeeSystemId === employeeId || (r as Record<string, unknown>).employeeId === employeeId
+  );
+  return row || null;
 }
 
 /**

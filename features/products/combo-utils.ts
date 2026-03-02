@@ -245,10 +245,6 @@ export function calculateComboCostPrice(
       }
     }
 
-    if (!isNumber(unitCost) && isNumber(product.minPrice)) {
-      unitCost = product.minPrice;
-    }
-    
     totalCost += (unitCost || 0) * item.quantity;
   }
   
@@ -269,25 +265,6 @@ export function calculateComboLastPurchasePrice(
     if (!product) continue;
     
     total += (product.lastPurchasePrice || 0) * item.quantity;
-  }
-  
-  return total;
-}
-
-/**
- * Calculate combo min price (sum of child products' min prices)
- */
-export function calculateComboMinPrice(
-  comboItems: ComboItem[],
-  allProducts: Product[]
-): number {
-  let total = 0;
-  
-  for (const item of comboItems) {
-    const product = allProducts.find(p => p.systemId === item.productSystemId);
-    if (!product) continue;
-    
-    total += (product.minPrice || 0) * item.quantity;
   }
   
   return total;

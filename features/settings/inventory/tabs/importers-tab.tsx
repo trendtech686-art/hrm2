@@ -21,15 +21,17 @@ type TabContentProps = { isActive: boolean; onRegisterActions: RegisterTabAction
 
 export function ImportersTabContent({ isActive, onRegisterActions }: TabContentProps) {
   const { data: importersData } = useImporters();
-  const data = React.useMemo(() => importersData ?? [], [importersData]);
+  const data = React.useMemo(() => (importersData ?? []) as unknown as Importer[], [importersData]);
   const { create, update, remove } = useImporterMutations();
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [editingItem, setEditingItem] = React.useState<Importer | null>(null);
   const [isAlertOpen, setIsAlertOpen] = React.useState(false);
   const [idToDelete, setIdToDelete] = React.useState<SystemId | null>(null);
+  const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
+  const [isBulkDeleteOpen, setIsBulkDeleteOpen] = React.useState(false);
 
   const activeImporters = React.useMemo(() => data.filter(b => !b.isDeleted), [data]);
-  const existingIds = React.useMemo(() => activeImporters.map(b => b.id), [activeImporters]);
+  const existingIds = React.useMemo(() => activeImporters.map(b => b.id as string), [activeImporters]);
 
   const handleAdd = React.useCallback(() => { setEditingItem(null); setDialogOpen(true); }, []);
   const handleEdit = React.useCallback((item: Importer) => { setEditingItem(item); setDialogOpen(true); }, []);
@@ -37,6 +39,9 @@ export function ImportersTabContent({ isActive, onRegisterActions }: TabContentP
   const handleToggleActive = React.useCallback((item: Importer) => { const na = !item.isActive; update.mutate({ systemId: item.systemId, data: { isActive: na } }, { onSuccess: () => toast.success(na ? 'Đã kích hoạt' : 'Đã tắt'), onError: (err) => toast.error(err.message) }); }, [update]);
   const handleToggleDefault = React.useCallback((item: Importer) => { if (!item.isDefault) { update.mutate({ systemId: item.systemId, data: { isDefault: true } }, { onSuccess: () => toast.success('Đã đặt làm mặc định'), onError: (err) => toast.error(err.message) }); } }, [update]);
   const confirmDelete = () => { if (idToDelete) { remove.mutate(idToDelete, { onSuccess: () => toast.success('Đã xóa đơn vị nhập khẩu'), onError: (err) => toast.error(err.message) }); } setIsAlertOpen(false); setIdToDelete(null); };
+
+  const handleBulkDelete = React.useCallback((selectedItems: { systemId: string }[]) => { if (selectedItems.length === 0) return; setIsBulkDeleteOpen(true); }, []);
+  const confirmBulkDelete = () => { const selectedIds = Object.keys(rowSelection); selectedIds.forEach(id => { remove.mutate(id as SystemId); }); toast.success(`Đã xóa ${selectedIds.length} đơn vị nhập khẩu`); setRowSelection({}); setIsBulkDeleteOpen(false); };
 
   const handleSubmit = (values: ImporterFormValues) => {
     const payload = { ...values, id: asBusinessId(values.id) };
@@ -54,9 +59,10 @@ export function ImportersTabContent({ isActive, onRegisterActions }: TabContentP
 
   return (
     <>
-      <Card><CardHeader><div className="flex items-center justify-between"><div><CardTitle>Đơn vị nhập khẩu</CardTitle><CardDescription>Quản lý các đơn vị nhập khẩu để in tem phụ sản phẩm</CardDescription></div></div></CardHeader><CardContent><SimpleSettingsTable data={activeImporters as any} columns={columns as any} emptyTitle="Chưa có đơn vị nhập khẩu" emptyDescription="Thêm đơn vị nhập khẩu đầu tiên để in tem phụ sản phẩm" emptyAction={<Button size="sm" onClick={handleAdd}>Thêm đơn vị nhập khẩu</Button>} /></CardContent></Card>
+      <Card><CardHeader><div className="flex items-center justify-between"><div><CardTitle>Đơn vị nhập khẩu</CardTitle><CardDescription>Quản lý các đơn vị nhập khẩu để in tem phụ sản phẩm</CardDescription></div></div></CardHeader><CardContent><SimpleSettingsTable data={activeImporters} columns={columns} emptyTitle="Chưa có đơn vị nhập khẩu" emptyDescription="Thêm đơn vị nhập khẩu đầu tiên để in tem phụ sản phẩm" emptyAction={<Button size="sm" onClick={handleAdd}>Thêm đơn vị nhập khẩu</Button>} enableSelection rowSelection={rowSelection} setRowSelection={setRowSelection} onBulkDelete={handleBulkDelete} enablePagination pagination={{ pageSize: 10, showInfo: true }} /></CardContent></Card>
       <ImporterFormDialog open={dialogOpen} onOpenChange={setDialogOpen} initialData={editingItem} onSubmit={handleSubmit} existingIds={existingIds} />
       <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Bạn có chắc chắn muốn xóa?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể được hoàn tác.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={confirmDelete}>Xóa</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+      <AlertDialog open={isBulkDeleteOpen} onOpenChange={setIsBulkDeleteOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Xóa {Object.keys(rowSelection).length} đơn vị nhập khẩu?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể được hoàn tác.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={confirmBulkDelete}>Xóa</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
     </>
   );
 }

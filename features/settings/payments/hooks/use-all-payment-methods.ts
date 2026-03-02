@@ -1,14 +1,23 @@
 /**
  * useAllPaymentMethods - Convenience hook for components needing all methods as flat array
+ * Uses fetchAllPages auto-pagination to load ALL records
  */
 
-import { usePaymentMethods } from './use-payment-methods';
+import { useQuery } from '@tanstack/react-query';
+import { fetchAllPages } from '@/lib/fetch-all-pages';
+import { fetchPaymentMethods } from '../methods/api/payment-methods-api';
+import { paymentMethodKeys } from '../methods/hooks/use-payment-methods';
 
 export function useAllPaymentMethods() {
-  const query = usePaymentMethods({});
+  const query = useQuery({
+    queryKey: [...paymentMethodKeys.all, 'all'],
+    queryFn: () => fetchAllPages((p) => fetchPaymentMethods(p)),
+    staleTime: 10 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+  });
   
   return {
-    data: query.data?.data || [],
+    data: query.data || [],
     isLoading: query.isLoading,
     isError: query.isError,
     error: query.error,

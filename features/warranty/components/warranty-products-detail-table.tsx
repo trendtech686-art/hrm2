@@ -9,30 +9,36 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
+import { Package } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table';
 import { Badge } from '../../../components/ui/badge';
 import { ImagePreviewDialog } from '../../../components/ui/image-preview-dialog';
 import { Separator } from '../../../components/ui/separator';
 import { Card, CardContent } from '../../../components/ui/card';
+import { LazyImage } from '../../../components/ui/lazy-image';
 import { cn } from '../../../lib/utils';
 import { RESOLUTION_LABELS } from '../types';
 import type { WarrantyProduct, WarrantyTicket } from '../types';
 import { useAllProducts } from '../../products/hooks/use-all-products';
 import { useProductTypeFinder } from '../../settings/inventory/hooks/use-all-product-types';
 import type { SystemId } from '../../../lib/id-types';
+import type { Product } from '../../products/types';
 
 interface WarrantyProductsDetailTableProps {
   products: WarrantyProduct[];
   ticket?: Pick<WarrantyTicket, 'shippingFee'>; // Optional: chỉ cần phí ship để tính bù trừ
 }
 
-export function WarrantyProductsDetailTable({ products, ticket }: WarrantyProductsDetailTableProps) {
+export function WarrantyProductsDetailTable({ products: rawProducts, ticket }: WarrantyProductsDetailTableProps) {
   const router = useRouter();
   const { data: allProducts } = useAllProducts();
   const { findById: findProductTypeById } = useProductTypeFinder();
   const [previewImages, setPreviewImages] = React.useState<string[]>([]);
   const [previewIndex, setPreviewIndex] = React.useState(0);
   const [showPreview, setShowPreview] = React.useState(false);
+
+  // ✅ Ensure products is always an array to prevent reduce errors
+  const products = React.useMemo(() => rawProducts || [], [rawProducts]);
 
   // Memoize product lookup map for better performance
   const productMap = React.useMemo(() => {
@@ -76,17 +82,52 @@ export function WarrantyProductsDetailTable({ products, ticket }: WarrantyProduc
     return variants[resolution] || 'bg-gray-100 text-gray-800';
   }, []);
 
+  // ✅ Helper: Lấy hình ảnh sản phẩm gốc từ catalog
+  const getOriginalProductImage = React.useCallback((product: WarrantyProduct) => {
+    // Tìm sản phẩm gốc trong catalog theo SKU hoặc productSystemId
+    const catalogProduct = product.sku 
+      ? productMap.get(product.sku) as Product | undefined
+      : allProducts.find(p => p.systemId === product.productSystemId) as Product | undefined;
+    
+    if (!catalogProduct) return null;
+    
+    // Trả về ảnh theo thứ tự ưu tiên: thumbnailImage > imageUrl > galleryImages[0] > images[0]
+    const productWithImageUrl = catalogProduct as Product & { imageUrl?: string };
+    return catalogProduct.thumbnailImage 
+      || productWithImageUrl.imageUrl 
+      || catalogProduct.galleryImages?.[0] 
+      || catalogProduct.images?.[0] 
+      || null;
+  }, [productMap, allProducts]);
+
   // Mobile Card View Component
   const MobileProductCard = ({ product, index }: { product: WarrantyProduct; index: number }) => {
+    // ✅ Get original product thumbnail
+    const originalProductImage = getOriginalProductImage(product);
+    const warrantyImages = (product.productImages || []).filter((url): url is string => !!url && typeof url === 'string');
+    const hasWarrantyImages = warrantyImages.length > 0;
+    
     return (
       <Card className="overflow-hidden">
         <CardContent className="p-3 sm:p-4">
           <div className="space-y-3">
-            {/* Header: STT + Tên sản phẩm */}
-            <div className="flex gap-2">
-              <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-body-xs font-semibold">
-                {index + 1}
-              </div>
+            {/* Header: Ảnh SP + Tên sản phẩm + Badge */}
+            <div className="flex gap-3">
+              {/* Hình ảnh sản phẩm gốc */}
+              {originalProductImage ? (
+                <div className="shrink-0 w-14 h-14 rounded-md overflow-hidden border border-muted">
+                  <LazyImage
+                    src={originalProductImage}
+                    alt={product.productName}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              ) : (
+                <div className="shrink-0 w-14 h-14 rounded-md bg-muted flex items-center justify-center">
+                  <Package className="h-6 w-6 text-muted-foreground" />
+                </div>
+              )}
+              
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-body-sm leading-snug">{product.productName}</p>
                 {product.sku ? (
@@ -94,10 +135,10 @@ export function WarrantyProductsDetailTable({ products, ticket }: WarrantyProduc
                     onClick={() => {
                       const productDetail = productMap.get(product.sku!);
                       if (productDetail) {
-                        router.push(`/products/${productDetail.systemId}`);
+                        router.push(`/products/${(productDetail as Product).systemId}`);
                       }
                     }}
-                    className="text-body-xs font-mono text-primary hover:underline hover:text-primary/80 transition-colors block mt-0.5"
+                    className="text-body-xs text-primary hover:underline hover:text-primary/80 transition-colors block mt-0.5"
                   >
                     {product.sku}
                   </button>
@@ -124,17 +165,17 @@ export function WarrantyProductsDetailTable({ products, ticket }: WarrantyProduc
               </div>
             </div>
 
-            {/* Hình ảnh */}
-            {product.productImages && product.productImages.length > 0 && (
+            {/* Hình ảnh bảo hành (nếu có) */}
+            {hasWarrantyImages && (
               <>
                 <Separator />
                 <div>
-                  <p className="text-body-xs text-muted-foreground mb-1.5">Hình ảnh</p>
+                  <p className="text-body-xs text-muted-foreground mb-1.5">Hình ảnh bảo hành</p>
                   <div className="flex gap-1.5 flex-wrap">
-                    {product.productImages.filter((url): url is string => !!url && typeof url === 'string').slice(0, 3).map((url, imgIdx) => (
+                    {warrantyImages.slice(0, 3).map((url, imgIdx) => (
                       <div 
                         key={imgIdx} 
-                        className="relative group/image w-14 h-14 flex-shrink-0"
+                        className="relative group/image w-14 h-14 shrink-0"
                       >
                         <img
                           src={url}
@@ -142,7 +183,7 @@ export function WarrantyProductsDetailTable({ products, ticket }: WarrantyProduc
                           className="w-full h-full object-cover rounded border cursor-pointer transition-all"
                           loading="lazy"
                           onClick={() => {
-                            setPreviewImages((product.productImages || []).filter((url): url is string => !!url && typeof url === 'string'));
+                            setPreviewImages(warrantyImages);
                             setPreviewIndex(imgIdx);
                             setShowPreview(true);
                           }}
@@ -155,9 +196,9 @@ export function WarrantyProductsDetailTable({ products, ticket }: WarrantyProduc
                         </div>
                       </div>
                     ))}
-                    {product.productImages.filter((url): url is string => !!url && typeof url === 'string').length > 3 && (
-                      <div className="w-14 h-14 rounded border bg-muted flex items-center justify-center text-body-xs font-medium text-muted-foreground flex-shrink-0">
-                        +{product.productImages.filter((url): url is string => !!url && typeof url === 'string').length - 3}
+                    {warrantyImages.length > 3 && (
+                      <div className="w-14 h-14 rounded border bg-muted flex items-center justify-center text-body-xs font-medium text-muted-foreground shrink-0">
+                        +{warrantyImages.length - 3}
                       </div>
                     )}
                   </div>
@@ -239,12 +280,12 @@ export function WarrantyProductsDetailTable({ products, ticket }: WarrantyProduc
           <TableHeader>
             <TableRow>
               <TableHead className="w-12 text-center text-body-sm">STT</TableHead>
-              <TableHead className="min-w-[200px] text-body-sm">Tên sản phẩm</TableHead>
+              <TableHead className="min-w-50 text-body-sm">Tên sản phẩm</TableHead>
               <TableHead className="w-20 text-center text-body-sm">SL</TableHead>
               <TableHead className="w-32 text-right text-body-sm">Đơn giá</TableHead>
               <TableHead className="w-32 text-body-sm">Hình ảnh</TableHead>
               <TableHead className="w-32 text-body-sm">Kết quả</TableHead>
-              <TableHead className="min-w-[150px] text-body-sm">Ghi chú</TableHead>
+              <TableHead className="min-w-38 text-body-sm">Ghi chú</TableHead>
               <TableHead className="w-32 text-right text-body-sm">Thành tiền</TableHead>
               <TableHead className="w-32 text-right text-body-sm">Bù trừ</TableHead>
             </TableRow>
@@ -258,38 +299,58 @@ export function WarrantyProductsDetailTable({ products, ticket }: WarrantyProduc
             </TableRow>
           ) : (
             products.map((product, index) => {
-              const productDetail = allProducts.find(p => p.id === product.sku);
+              const productDetail = allProducts.find(p => p.id === product.sku) as Product | undefined;
               const productTypeName = productDetail?.productTypeSystemId 
                 ? getProductTypeName(productDetail.productTypeSystemId)
                 : 'Hàng hóa';
+              
+              // ✅ Get original product thumbnail
+              const originalProductImage = getOriginalProductImage(product);
+              const warrantyImages = (product.productImages || []).filter((url): url is string => !!url && typeof url === 'string');
               
               return (
               <TableRow key={product.systemId}>
                 {/* STT */}
                 <TableCell className="text-center font-medium text-body-xs sm:text-body-sm">{index + 1}</TableCell>
 
-                {/* Tên sản phẩm + Loại SP + Mã SKU */}
+                {/* Tên sản phẩm + Ảnh gốc + Loại SP + Mã SKU */}
                 <TableCell>
-                  <div className="space-y-0.5 sm:space-y-1">
-                    <p className="font-medium text-body-xs sm:text-body-sm leading-snug">{product.productName}</p>
-                    <div className="flex items-center gap-1 text-[10px] sm:text-body-xs text-muted-foreground">
-                      <span>{productTypeName}</span>
-                      <span>-</span>
-                      {product.sku ? (
-                        <button
-                          onClick={() => {
-                            const productDetail = allProducts.find(p => p.id === product.sku);
-                            if (productDetail) {
-                              router.push(`/products/${productDetail.systemId}`);
-                            }
-                          }}
-                          className="font-mono text-primary hover:underline hover:text-primary/80 transition-colors"
-                        >
-                          {product.sku}
-                        </button>
-                      ) : (
-                        <span>—</span>
-                      )}
+                  <div className="flex items-start gap-2">
+                    {/* Hình ảnh sản phẩm gốc */}
+                    {originalProductImage ? (
+                      <div className="shrink-0 w-10 h-10 rounded-md overflow-hidden border border-muted">
+                        <LazyImage
+                          src={originalProductImage}
+                          alt={product.productName}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    ) : (
+                      <div className="shrink-0 w-10 h-10 rounded-md bg-muted flex items-center justify-center">
+                        <Package className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                    )}
+                    
+                    <div className="space-y-0.5 sm:space-y-1 min-w-0">
+                      <p className="font-medium text-body-xs sm:text-body-sm leading-snug">{product.productName}</p>
+                      <div className="flex items-center gap-1 text-[10px] sm:text-body-xs text-muted-foreground">
+                        <span>{productTypeName}</span>
+                        <span>-</span>
+                        {product.sku ? (
+                          <button
+                            onClick={() => {
+                              if (productDetail) {
+                                router.push(`/products/${productDetail.systemId}`);
+                              }
+                            }}
+                            className="font-mono text-primary hover:underline hover:text-primary/80 transition-colors"
+                          >
+                            {product.sku}
+                          </button>
+                        ) : (
+                          <span>—</span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </TableCell>
@@ -304,14 +365,14 @@ export function WarrantyProductsDetailTable({ products, ticket }: WarrantyProduc
                   {new Intl.NumberFormat('vi-VN').format(product.unitPrice || 0)} đ
                 </TableCell>
 
-                {/* Hình ảnh */}
+                {/* Hình ảnh bảo hành */}
                 <TableCell>
-                  {product.productImages && product.productImages.length > 0 ? (
+                  {warrantyImages.length > 0 ? (
                     <div className="flex gap-1 sm:gap-1.5 items-center">
-                      {product.productImages.filter((url): url is string => !!url && typeof url === 'string').slice(0, 2).map((url, imgIdx) => (
+                      {warrantyImages.slice(0, 2).map((url, imgIdx) => (
                         <div 
                           key={imgIdx} 
-                          className="relative group/image w-8 h-8 sm:w-10 sm:h-9 flex-shrink-0"
+                          className="relative group/image w-8 h-8 sm:w-10 sm:h-9 shrink-0"
                         >
                           <img
                             src={url}
@@ -319,7 +380,7 @@ export function WarrantyProductsDetailTable({ products, ticket }: WarrantyProduc
                             className="w-full h-full object-cover rounded border cursor-pointer transition-all"
                             loading="lazy"
                             onClick={() => {
-                              setPreviewImages((product.productImages || []).filter((url): url is string => !!url && typeof url === 'string'));
+                              setPreviewImages(warrantyImages);
                               setPreviewIndex(imgIdx);
                               setShowPreview(true);
                             }}
@@ -332,9 +393,9 @@ export function WarrantyProductsDetailTable({ products, ticket }: WarrantyProduc
                           </div>
                         </div>
                       ))}
-                      {product.productImages.filter((url): url is string => !!url && typeof url === 'string').length > 2 && (
-                        <div className="w-8 h-8 sm:w-10 sm:h-9 rounded border bg-muted flex items-center justify-center text-[9px] sm:text-[10px] font-medium text-muted-foreground flex-shrink-0">
-                          +{product.productImages.filter((url): url is string => !!url && typeof url === 'string').length - 2}
+                      {warrantyImages.length > 2 && (
+                        <div className="w-8 h-8 sm:w-10 sm:h-9 rounded border bg-muted flex items-center justify-center text-[9px] sm:text-[10px] font-medium text-muted-foreground shrink-0">
+                          +{warrantyImages.length - 2}
                         </div>
                       )}
                     </div>

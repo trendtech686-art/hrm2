@@ -1,7 +1,17 @@
 // ═══════════════════════════════════════════════════════════════
-// FILE UPLOAD API - Main Upload Route with Staging Support
+// FILE UPLOAD API - Next.js App Router with Staging Support
 // ═══════════════════════════════════════════════════════════════
-// POST /api/upload - Upload file (default: staging)
+// POST /api/upload - Upload file (permanent or staging)
+// 
+// Staging Workflow:
+// 1. Upload with status='staging' + sessionId → file saved as temp
+// 2. User saves form → POST /api/upload/confirm → converts to permanent
+// 3. User cancels → DELETE /api/upload/confirm → deletes staging files
+// 4. Cleanup job deletes orphan staging files after 24h
+//
+// Direct Workflow:
+// 1. Upload with status='permanent' → file saved immediately
+// 
 // Supports: employees, products, customers, warranty, complaints, tasks, wiki
 // ═══════════════════════════════════════════════════════════════
 
@@ -9,6 +19,7 @@ import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { v4 as uuidv4 } from 'uuid'
 import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
+import { checkRateLimit } from '@/lib/security-utils'
 import {
   parseFormData,
   validateFileType,
@@ -26,11 +37,19 @@ import {
 // Route Segment Config - App Router uses these exports instead of config object
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
+// Allow large file uploads (default is ~1MB which blocks 10-50MB files)
+export const maxDuration = 60 // seconds
 
 // POST /api/upload
 export async function POST(request: NextRequest) {
   const session = await requireAuth()
   if (!session) return apiError('Unauthorized', 401)
+
+  // Rate limit: 30 uploads per minute per user
+  const rateLimit = checkRateLimit(`upload:${session.user?.email || 'anon'}`, 30, 60_000)
+  if (!rateLimit.allowed) {
+    return apiError('Upload quá nhanh. Vui lòng đợi.', 429)
+  }
 
   try {
     const { file, fields } = await parseFormData(request)
@@ -43,8 +62,11 @@ export async function POST(request: NextRequest) {
     const entityType = (fields.entityType || 'general') as EntityType
     const entityId = fields.entityId || undefined
     const isImage = fields.isImage === 'true'
-    const sessionId = fields.sessionId || undefined // For grouping staging files
-    const status = (fields.status === 'permanent' ? 'permanent' : 'staging') as 'staging' | 'permanent'
+    const documentName = fields.documentName || fields.documentType || null // thumbnail, gallery, etc.
+    
+    // Staging support: check if client wants staging or permanent
+    const requestedStatus = fields.status === 'staging' ? 'staging' : 'permanent'
+    const sessionId = fields.sessionId || null
     
     // Validate file type
     const allowedTypes = isImage ? ALLOWED_IMAGE_TYPES : ALLOWED_ALL_TYPES
@@ -78,7 +100,15 @@ export async function POST(request: NextRequest) {
     // Get public URL
     const publicUrl = getPublicUrl(relativePath)
     
-    // Save metadata to database with staging status
+    // DEBUG: Log what we're saving
+    console.log('[API /upload] Saving file to DB:', {
+      filename: fileName,
+      status: requestedStatus,
+      sessionId: requestedStatus === 'staging' ? sessionId : null,
+      entityType,
+    });
+    
+    // Save metadata to database - respect staging status from client
     const fileRecord = await prisma.file.create({
       data: {
         systemId: uuidv4(),
@@ -89,12 +119,14 @@ export async function POST(request: NextRequest) {
         filepath: relativePath,
         entityType: entityType,
         entityId: entityId || '',
-        documentType: fields.documentType || null,
+        documentType: documentName, // thumbnail, gallery, avatar, etc.
         uploadedBy: fields.userId || null,
-        status: status, // staging or permanent
-        sessionId: sessionId || null,
+        status: requestedStatus, // Respect client's staging/permanent choice
+        sessionId: requestedStatus === 'staging' ? sessionId : null, // Only store sessionId for staging
       },
     })
+    
+    console.log('[API /upload] File saved:', { systemId: fileRecord.systemId, sessionId: fileRecord.sessionId });
     
     return apiSuccess({
       success: true,
@@ -107,8 +139,9 @@ export async function POST(request: NextRequest) {
         url: publicUrl,
         entityType: entityType,
         entityId: entityId,
-        status: fileRecord.status,
-        sessionId: fileRecord.sessionId,
+        documentName: documentName,
+        status: requestedStatus,
+        sessionId: requestedStatus === 'staging' ? sessionId : undefined,
       }
     }, 201)
     
@@ -157,10 +190,11 @@ export async function GET(request: NextRequest) {
     return apiSuccess({
       success: true,
       data: files.map(f => {
-        // Parse documentType which may contain "type::name" format
+        // documentType field now stores the document name directly (thumbnail, gallery, etc.)
+        // Legacy format "type::name" is also supported for backward compatibility
         const docTypeParts = f.documentType?.split('::') || []
-        const docType = docTypeParts[0] || ''
-        const docName = docTypeParts[1] || ''
+        const documentName = docTypeParts.length > 1 ? docTypeParts[1] : f.documentType || ''
+        const documentType = docTypeParts.length > 1 ? docTypeParts[0] : ''
         
         return {
           id: f.systemId,
@@ -171,8 +205,8 @@ export async function GET(request: NextRequest) {
           url: `/api/files/${f.filepath}`,
           entityType: f.entityType,
           entityId: f.entityId,
-          documentType: docType,
-          documentName: docName,
+          documentType: documentType,
+          documentName: documentName,
           status: f.status,
           sessionId: f.sessionId,
           createdAt: f.uploadedAt,

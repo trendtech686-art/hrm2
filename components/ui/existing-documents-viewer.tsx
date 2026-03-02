@@ -6,6 +6,7 @@ import { Eye, X, Download, File, RotateCcw } from 'lucide-react';
 import { FileUploadAPI } from '../../lib/file-upload-api';
 import type { StagingFile } from '../../lib/file-upload-api';
 import { useLazyImage } from '../../hooks/use-lazy-image';
+import { ImagePreviewDialog } from './image-preview-dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -53,6 +54,10 @@ export function ExistingDocumentsViewer({
   const [_bulkDeleteAlertOpen, _setBulkDeleteAlertOpen] = React.useState(false);
   const [fileToDelete, setFileToDelete] = React.useState<StagingFile | null>(null);
   const [deleteMode, setDeleteMode] = React.useState<'mark' | 'direct'>('direct');
+  
+  // Image preview state
+  const [previewOpen, setPreviewOpen] = React.useState(false);
+  const [previewIndex, setPreviewIndex] = React.useState(0);
 
   const handleDelete = React.useCallback(async (fileId: string) => {
     const fileToDelete = files.find(f => f.id === fileId);
@@ -131,70 +136,25 @@ export function ExistingDocumentsViewer({
     }
   }, [fileToDelete, deleteMode, files, onChange, onRefresh, onMarkForDeletion]);
 
+  // Get all image files for the preview dialog carousel
+  const imageFiles = React.useMemo(() => 
+    files.filter(f => f.type && typeof f.type === 'string' && f.type.startsWith('image/')),
+    [files]
+  );
+  
   const handlePreview = React.useCallback((file: StagingFile) => {
-    const previewUrl = file.url;
-
     if (file.type === 'application/pdf') {
-      window.open(previewUrl, '_blank');
+      window.open(file.url, '_blank');
       return;
     }
 
-    // Create image preview modal
-    const overlay = document.createElement('div');
-    overlay.style.cssText = `
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(0, 0, 0, 0.9);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 9999;
-      cursor: pointer;
-    `;
-
-    const img = document.createElement('img');
-    img.src = previewUrl;
-    img.style.cssText = `
-      max-width: 90%;
-      max-height: 90%;
-      object-fit: contain;
-      border-radius: 8px;
-    `;
-
-    const closeBtn = document.createElement('button');
-    closeBtn.innerHTML = '×';
-    closeBtn.style.cssText = `
-      position: absolute;
-      top: 20px;
-      right: 20px;
-      background: white;
-      border: none;
-      border-radius: 50%;
-      width: 40px;
-      height: 40px;
-      font-size: 24px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-    `;
-
-    overlay.appendChild(img);
-    overlay.appendChild(closeBtn);
-    document.body.appendChild(overlay);
-
-    overlay.addEventListener('click', () => {
-      document.body.removeChild(overlay);
-    });
-
-    img.addEventListener('click', (e) => {
-      e.stopPropagation();
-    });
-  }, []);
+    // Find the index of this file in imageFiles
+    const index = imageFiles.findIndex(f => f.id === file.id);
+    if (index >= 0) {
+      setPreviewIndex(index);
+      setPreviewOpen(true);
+    }
+  }, [imageFiles]);
 
   const handleDownload = React.useCallback(async (file: StagingFile) => {
     try {
@@ -242,6 +202,7 @@ export function ExistingDocumentsViewer({
             onPreview={handlePreview}
             onDownload={handleDownload}
             onDelete={handleDelete}
+            skipLazyLoad={true} // Permanent files are cached, no need for lazy loading
           />
         ))}
       </div>
@@ -293,6 +254,15 @@ export function ExistingDocumentsViewer({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Image Preview Dialog */}
+      <ImagePreviewDialog
+        images={imageFiles.map(f => f.url)}
+        initialIndex={previewIndex}
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        title="Xem ảnh"
+      />
     </div>
   );
 }
@@ -309,6 +279,7 @@ type LazyFileCardProps = {
   onPreview: (file: StagingFile) => void;
   onDownload: (file: StagingFile) => void;
   onDelete: (fileId: string) => void;
+  skipLazyLoad?: boolean; // Skip lazy loading for permanent files
 };
 
 function LazyFileCard({
@@ -319,8 +290,14 @@ function LazyFileCard({
   onPreview,
   onDownload,
   onDelete,
+  skipLazyLoad = false,
 }: LazyFileCardProps) {
-  const { ref, isInView, isLoaded, setIsLoaded } = useLazyImage();
+  const { ref, isInView: lazyIsInView, isLoaded, setIsLoaded } = useLazyImage();
+  
+  // Skip lazy loading if requested - show immediately
+  const isInView = skipLazyLoad ? true : lazyIsInView;
+  // For permanent files (skipLazyLoad), consider them already loaded to avoid skeleton flash
+  const effectiveIsLoaded = skipLazyLoad ? true : isLoaded;
   
   const isImage = file.type && typeof file.type === 'string' && file.type.startsWith('image/');
   const previewUrl = file.url;
@@ -355,16 +332,16 @@ function LazyFileCard({
           {isImage ? (
             isInView ? (
               <>
-                {/* Skeleton while loading */}
-                {!isLoaded && (
-                  <div className="absolute inset-0 animate-pulse bg-gradient-to-r from-muted via-muted/50 to-muted" />
+                {/* Skeleton while loading - skip for permanent files */}
+                {!effectiveIsLoaded && (
+                  <div className="absolute inset-0 animate-pulse bg-linear-to-r from-muted via-muted/50 to-muted" />
                 )}
                 <img
                   src={previewUrl}
                   alt={file.name}
-                  loading="lazy"
-                  className={`w-full h-full object-cover cursor-pointer transition-opacity duration-300 ${
-                    isLoaded ? 'opacity-100' : 'opacity-0'
+                  loading={skipLazyLoad ? "eager" : "lazy"}
+                  className={`w-full h-full object-cover cursor-pointer ${
+                    skipLazyLoad ? '' : `transition-opacity duration-300 ${effectiveIsLoaded ? 'opacity-100' : 'opacity-0'}`
                   }`}
                   onClick={() => onPreview(file)}
                   onLoad={(e) => {
@@ -376,7 +353,7 @@ function LazyFileCard({
               </>
             ) : (
               // Placeholder before entering viewport
-              <div className="w-full h-full animate-pulse bg-gradient-to-r from-muted via-muted/50 to-muted" />
+              <div className="w-full h-full animate-pulse bg-linear-to-r from-muted via-muted/50 to-muted" />
             )
           ) : (
             <File className="w-12 h-12 text-muted-foreground" />

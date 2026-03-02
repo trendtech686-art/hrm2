@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Stats Card Component
  * 
  * Reusable statistics card for displaying metrics with icon
@@ -35,7 +35,7 @@ export function StatsCard({
   return (
     <Card className={variantClasses[variant]}>
       <CardHeader className="pb-3">
-        <CardTitle className="text-sm font-medium flex items-center gap-2">
+        <CardTitle size="sm" className="flex items-center gap-2">
           <Icon className="h-4 w-4" />
           {title}
         </CardTitle>

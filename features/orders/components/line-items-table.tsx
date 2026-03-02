@@ -17,6 +17,7 @@ import { useImageStore } from '../../products/image-store';
 import { useProductImage } from '../../products/components/product-image';
 import { FileUploadAPI, type StagingFile, type ServerFile } from '@/lib/file-upload-api';
 import { ImagePreviewDialog } from '../../../components/ui/image-preview-dialog';
+import { LazyImage } from '../../../components/ui/lazy-image';
 import { isComboProduct, calculateComboStock } from '../../products/combo-utils';
 import { TaxSelector } from './tax-selector';
 import type { Product } from '../../products/types';
@@ -63,10 +64,11 @@ const ComboChildImage = ({
                 className="group relative w-8 h-7 rounded overflow-hidden border border-muted cursor-pointer"
                 onClick={() => onPreview(imageUrl, product?.name || productName)}
             >
-                <img
+                <LazyImage
                     src={imageUrl}
                     alt={product?.name || productName}
                     className="w-full h-full object-cover transition-all group-hover:brightness-75"
+                    loading="lazy"
                 />
                 <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                     <Eye className="w-4 h-4 text-white drop-shadow-md" />
@@ -80,6 +82,24 @@ const ComboChildImage = ({
             <Package className="h-4 w-4 text-muted-foreground" />
         </div>
     );
+};
+
+// Helper function to calculate line item total
+const calculateLineTotalInRow = (quantity: number, unitPrice: number, discount: number, discountType: 'percentage' | 'fixed', tax: number): number => {
+    const lineGross = (Number(unitPrice) || 0) * (Number(quantity) || 0);
+    // Apply tax first
+    const lineWithTax = lineGross * (1 + (Number(tax) || 0) / 100);
+    // Then apply discount
+    let lineDiscountAmount = 0;
+    const discountAmount = Number(discount) || 0;
+    if (discountAmount > 0) {
+        if (discountType === 'percentage') {
+            lineDiscountAmount = lineWithTax * (discountAmount / 100);
+        } else {
+            lineDiscountAmount = discountAmount;
+        }
+    }
+    return lineWithTax - lineDiscountAmount;
 };
 
 // ✅ Memoized row component để tránh re-render không cần thiết
@@ -122,10 +142,21 @@ const LineItemRow = React.memo(({
     }, [pricingPolicyId, pricingPolicies]);
     const [isComboExpanded, setIsComboExpanded] = React.useState(false);
     
-    // ✅ Watch quantity và discountType để tính toán
+    // ✅ Watch all fields needed for total calculation
     const quantity = useWatch({ control, name: `${fieldName}.${index}.quantity`, defaultValue: 1 });
+    const unitPrice = useWatch({ control, name: `${fieldName}.${index}.unitPrice`, defaultValue: 0 });
+    const discount = useWatch({ control, name: `${fieldName}.${index}.discount`, defaultValue: 0 });
     const discountType = useWatch({ control, name: `${fieldName}.${index}.discountType`, defaultValue: 'fixed' });
+    const tax = useWatch({ control, name: `${fieldName}.${index}.tax`, defaultValue: 0 });
+    const taxId = useWatch({ control, name: `${fieldName}.${index}.taxId`, defaultValue: '' }); // ✅ Watch taxId for TaxSelector
     const note = useWatch({ control, name: `${fieldName}.${index}.note`, defaultValue: '' });
+    
+    // ✅ Calculate total reactively when any field changes (display only, no setValue)
+    const calculatedTotal = React.useMemo(() => {
+        return calculateLineTotalInRow(quantity, unitPrice, discount, discountType as 'percentage' | 'fixed', tax);
+    }, [quantity, unitPrice, discount, discountType, tax]);
+    
+    // Note: total is set by OrderCalculations component in order-form-page.tsx, not here
     
     const product = React.useMemo(() => findProductById(item.productSystemId), [item.productSystemId, findProductById]);
     
@@ -162,15 +193,19 @@ const LineItemRow = React.memo(({
     const storeThumbnail = permanentImages?.thumbnail?.[0]?.url;
     const storeGallery = permanentImages?.gallery?.[0]?.url;
     
-    // ✅ Ưu tiên ảnh từ server trước, sau đó mới đến product data
+    // ✅ Ưu tiên ảnh từ server trước, sau đó mới đến product data, rồi đến item data
     const displayImage = React.useMemo(() => {
         // 1. Ảnh từ server (ưu tiên cao nhất)
         if (storeThumbnail) return storeThumbnail;
         if (storeGallery) return storeGallery;
-        // 2. ?nh t? product data (mock/seed)
-        if (!product) return undefined;
-        return product.thumbnailImage || product.galleryImages?.[0] || product.images?.[0];
-    }, [storeThumbnail, storeGallery, product]);
+        // 2. Ảnh từ product data (mock/seed)
+        if (product) {
+            const productImage = product.thumbnailImage || product.galleryImages?.[0] || product.images?.[0];
+            if (productImage) return productImage;
+        }
+        // 3. ✅ Fallback to item.thumbnailImage (từ copy hoặc API)
+        return (item as FormLineItem & { thumbnailImage?: string }).thumbnailImage;
+    }, [storeThumbnail, storeGallery, product, item]);
 
     // ✅ Fetch image if missing
     React.useEffect(() => {
@@ -269,10 +304,11 @@ const LineItemRow = React.memo(({
                             className="group relative w-10 h-9 rounded overflow-hidden border border-muted cursor-pointer"
                             onClick={() => onPreview(displayImage, item.productName)}
                         >
-                            <img
+                            <LazyImage
                                 src={displayImage}
                                 alt={item.productName}
                                 className="w-full h-full object-cover transition-all group-hover:brightness-75"
+                                loading="lazy"
                             />
                             <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                                 <Eye className="w-4 h-4 text-white drop-shadow-md" />
@@ -306,7 +342,8 @@ const LineItemRow = React.memo(({
                                     className="text-primary hover:underline"
                                     onClick={(e) => e.stopPropagation()}
                                 >
-                                    {item.productId}
+                                    {/* ✅ Use product.id (business ID) if available, fallback to item.productId */}
+                                    {product?.id || item.productId}
                                 </Link>
                                 {note ? (
                                     <>
@@ -379,8 +416,8 @@ const LineItemRow = React.memo(({
                 </TableCell>
                 <TableCell>
                     <TaxSelector
-                        value={item.taxId || ''}
-                        onChange={(taxId, rate) => onTaxChange(index, taxId, rate)}
+                        value={taxId || ''}
+                        onChange={(newTaxId, rate) => onTaxChange(index, newTaxId, rate)}
                         disabled={disabled}
                     />
                 </TableCell>
@@ -391,7 +428,7 @@ const LineItemRow = React.memo(({
                             name={`${fieldName}.${index}.discountType`}
                             render={({ field }) => (
                                 <Select onValueChange={field.onChange} value={field.value} disabled={disabled}>
-                                    <SelectTrigger className="h-9 w-[70px]">
+                                    <SelectTrigger className="h-9 w-17.5">
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -438,7 +475,7 @@ const LineItemRow = React.memo(({
                         )}
                     </div>
                 </TableCell>
-                <TableCell className="text-right font-semibold">{formatCurrency(item.total)}</TableCell>
+                <TableCell className="text-right font-semibold">{formatCurrency(calculatedTotal)}</TableCell>
                 <TableCell>
                     <Button
                         type="button"
@@ -564,19 +601,19 @@ export const LineItemsTable = ({ disabled, onAddService, onApplyPromotion, field
     }, [setValue, fieldName]);
 
     return (
-        <div className="border rounded-md">
+        <div className="border border-border rounded-md">
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead className="w-[50px] text-center">STT</TableHead>
-                        <TableHead className="w-[60px]">Ảnh</TableHead>
+                        <TableHead className="w-12.5 text-center">STT</TableHead>
+                        <TableHead className="w-15">Ảnh</TableHead>
                         <TableHead>Tên sản phẩm</TableHead>
-                        <TableHead className="w-[140px]">Số lượng</TableHead>
-                        <TableHead className="w-[200px]">Đơn giá</TableHead>
-                        <TableHead className="w-[140px]">Thuế</TableHead>
-                        <TableHead className="w-[200px]">Chiết khấu</TableHead>
-                        <TableHead className="w-[120px] text-right">Thành tiền</TableHead>
-                        <TableHead className="w-[50px]"></TableHead>
+                        <TableHead className="w-35">Số lượng</TableHead>
+                        <TableHead className="w-50">Đơn giá</TableHead>
+                        <TableHead className="w-35">Thuế</TableHead>
+                        <TableHead className="w-50">Chiết khấu</TableHead>
+                        <TableHead className="w-30 text-right">Thành tiền</TableHead>
+                        <TableHead className="w-12.5"></TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>

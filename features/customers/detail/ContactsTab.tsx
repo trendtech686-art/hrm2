@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import * as React from 'react';
 import { Phone, Mail } from 'lucide-react';
@@ -14,7 +14,7 @@ export function ContactsTab({ customer }: ContactsTabProps) {
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-body-base font-medium">Danh sách liên hệ</CardTitle>
+        <CardTitle>Danh sách liên hệ</CardTitle>
       </CardHeader>
       <CardContent>
         {!customer.contacts || customer.contacts.length === 0 ? (

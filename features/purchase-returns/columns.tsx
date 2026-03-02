@@ -3,7 +3,7 @@
 import { Button } from '../../components/ui/button';
 import { Checkbox } from '../../components/ui/checkbox';
 import { Printer } from 'lucide-react';
-import { formatDateCustom, parseDate } from '../../lib/date-utils';
+import { formatDateCustom } from '../../lib/date-utils';
 import type { ColumnDef } from '../../components/data-table/types';
 import type { PurchaseReturn } from '@/lib/types/prisma-extended';
 
@@ -61,7 +61,10 @@ export const getColumns = (onPrint: (purchaseReturn: PurchaseReturn) => void): C
     id: 'returnDate',
     accessorKey: 'returnDate',
     header: 'Ngày trả',
-    cell: ({ row }) => formatDateCustom(parseDate(row.returnDate)!, 'dd/MM/yyyy'),
+    cell: ({ row }) => {
+      if (!row.returnDate) return '-';
+      return formatDateCustom(row.returnDate, 'dd/MM/yyyy');
+    },
     meta: { displayName: 'Ngày trả' },
     size: 120,
   },

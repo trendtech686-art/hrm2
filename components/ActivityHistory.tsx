@@ -1,4 +1,4 @@
-import * as React from 'react';
+﻿import * as React from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
@@ -249,16 +249,18 @@ export function ActivityHistory({
     const _hasNote = Boolean(entry.metadata?.note != null);
 
     return (
-      <div key={entry.id} className="flex gap-3 pb-4 last:pb-0">
+      <div className="flex gap-3 pb-4 last:pb-0">
         {/* Icon */}
-        <div className={cn('flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center', style.bgColor)}>
+        <div className={cn('shrink-0 w-8 h-8 rounded-full flex items-center justify-center', style.bgColor)}>
           <Icon className={cn('h-4 w-4', style.color)} />
         </div>
 
         {/* Content */}
         <div className="flex-1 min-w-0 space-y-1">
           {/* Description */}
-          <div className="text-sm">{String(entry.content ?? entry.description ?? '')}</div>
+          <div className="text-sm">
+            {entry.content != null ? entry.content : (entry.description ?? '')}
+          </div>
 
           {/* Metadata section - temporarily extracted to separate component */}
           <MetadataDisplay 
@@ -280,14 +282,21 @@ export function ActivityHistory({
               </>
             )}
 
-            {showTimestamp && (
+            {showTimestamp && entry.timestamp && (
               <>
                 <Clock className="h-3 w-3" />
                 <span>
-                  {formatDistanceToNow(new Date(entry.timestamp), {
-                    addSuffix: true,
-                    locale: vi,
-                  })}
+                  {(() => {
+                    try {
+                      const date = entry.timestamp instanceof Date 
+                        ? entry.timestamp 
+                        : new Date(entry.timestamp);
+                      if (isNaN(date.getTime())) return '---';
+                      return formatDistanceToNow(date, { addSuffix: true, locale: vi });
+                    } catch {
+                      return '---';
+                    }
+                  })()}
                 </span>
                 {showDate && (
                   <span className="text-[10px]">
@@ -306,7 +315,7 @@ export function ActivityHistory({
     <Card className={className}>
       <CardHeader>
         <div className="flex items-center justify-between gap-2">
-          <CardTitle className="text-h5 flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2">
             <History className="h-4 w-4" />
             {title}
           </CardTitle>
@@ -383,14 +392,22 @@ export function ActivityHistory({
                     </Badge>
                   </div>
                   <div className="space-y-0 relative before:absolute before:left-4 before:top-2 before:bottom-2 before:w-px before:bg-border">
-                    {entries.map(entry => renderHistoryEntry(entry, true))}
+                    {entries.map((entry, idx) => (
+                      <div key={entry.id || `entry-${date}-${idx}`}>
+                        {renderHistoryEntry(entry, true)}
+                      </div>
+                    ))}
                   </div>
                 </div>
               ))
             ) : (
               // Flat list with timeline
               <div className="relative before:absolute before:left-4 before:top-2 before:bottom-2 before:w-px before:bg-border">
-                {filteredHistory.map(entry => renderHistoryEntry(entry, true))}
+                {filteredHistory.map((entry, idx) => (
+                  <div key={entry.id || `entry-${idx}`}>
+                    {renderHistoryEntry(entry, true)}
+                  </div>
+                ))}
               </div>
             )}
           </div>

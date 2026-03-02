@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { Prisma } from '@/generated/prisma/client';
 import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils';
 import { createSettingsDataSchema } from './validation';
+import { generateIdWithPrefix } from '@/lib/id-generator';
 
 // Valid settings data types
 const VALID_TYPES = [
@@ -91,7 +92,7 @@ export async function POST(request: NextRequest) {
     const created = await prisma.settingsData.create({
       data: {
         systemId: systemId || undefined,
-        id: id || `${type.toUpperCase()}-${Date.now()}`,
+        id: id || await generateIdWithPrefix(type.toUpperCase(), prisma),
         name,
         type,
         description,

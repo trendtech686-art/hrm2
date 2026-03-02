@@ -25,15 +25,27 @@ export function PricingPolicyForm({ initialData, onSubmit }: Props) {
   
   const form = useForm<PricingPolicyFormValues>({
     resolver: zodResolver(pricingPolicySchema),
-    defaultValues: initialData || {
-      id: '',
-      name: '',
-      type: 'Bán hàng' as const,
-      description: '',
-      isActive: true,
-      isDefault: false,
+    defaultValues: {
+      id: initialData?.id ?? '',
+      name: initialData?.name ?? '',
+      type: initialData?.type ?? 'Bán hàng',
+      description: initialData?.description ?? '',
+      isActive: initialData?.isActive ?? true,
+      isDefault: initialData?.isDefault ?? false,
     },
   });
+  
+  // Reset form when initialData changes
+  React.useEffect(() => {
+    form.reset({
+      id: initialData?.id ?? '',
+      name: initialData?.name ?? '',
+      type: initialData?.type ?? 'Bán hàng',
+      description: initialData?.description ?? '',
+      isActive: initialData?.isActive ?? true,
+      isDefault: initialData?.isDefault ?? false,
+    });
+  }, [initialData, form]);
 
   const { handleSubmit, control, setError } = form;
 

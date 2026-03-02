@@ -12,6 +12,7 @@ import { Switch } from '../../../components/ui/switch';
 import { Textarea } from '../../../components/ui/textarea';
 import { TailwindColorPicker } from '../../../components/ui/tailwind-color-picker';
 import { cn } from '../../../lib/utils';
+import { generateSubEntityId } from '@/lib/id-utils';
 import { SettingsActionButton } from '../../../components/settings/SettingsActionButton';
 import { SettingsVerticalTabs } from '../../../components/settings/SettingsVerticalTabs';
 import { toast } from 'sonner';
@@ -106,6 +107,12 @@ interface PublicTrackingSettings {
   allowCustomerComments: boolean;
   showEmployeeName: boolean;
   showTimeline: boolean;
+  showProductList: boolean;
+  showSummary: boolean;
+  showPayment: boolean;
+  showReceivedImages: boolean;
+  showProcessedImages: boolean;
+  showHistory: boolean;
 }
 
 // ============================================
@@ -135,6 +142,12 @@ const _defaultPublicTracking: PublicTrackingSettings = {
   allowCustomerComments: false,
   showEmployeeName: true,
   showTimeline: true,
+  showProductList: true,
+  showSummary: true,
+  showPayment: true,
+  showReceivedImages: true,
+  showProcessedImages: true,
+  showHistory: true,
 };
 
 const defaultCardColors: CardColorSettings = {
@@ -231,16 +244,14 @@ type _WarrantySettingsState = {
   cardColors: CardColorSettings;
 };
 
-const _clone = <T,>(value: T): T => {
+const clone = <T,>(value: T): T => {
   if (typeof structuredClone === 'function') {
     return structuredClone(value);
   }
   return JSON.parse(JSON.stringify(value));
 };
 
-import { useWarrantySettings, useWarrantySettingsMutations, loadCardColorSettings } from './hooks/use-warranty-settings';
-
-export { loadCardColorSettings };
+import { useWarrantySettings, useWarrantySettingsMutations } from './hooks/use-warranty-settings';
 
 // ============================================
 // MAIN COMPONENT
@@ -248,17 +259,13 @@ export { loadCardColorSettings };
 
 export function WarrantySettingsPage() {
   const [activeTab, setActiveTab] = React.useState('sla');
-  const { headerActions, registerActions } = useTabActionRegistry(activeTab);
+  const { headerActions, setHeaderActions } = useTabActionRegistry(activeTab);
 
   // Fetch settings from React Query
   const { data: settings, isLoading: _isLoadingSettings } = useWarrantySettings();
   const { updateSection } = useWarrantySettingsMutations();
 
-  const registerSlaActions = React.useMemo(() => registerActions('sla'), [registerActions]);
-  const registerTemplateActions = React.useMemo(() => registerActions('templates'), [registerActions]);
-  const registerNotificationActions = React.useMemo(() => registerActions('notifications'), [registerActions]);
-  const registerPublicTrackingActions = React.useMemo(() => registerActions('public-tracking'), [registerActions]);
-  const registerCardColorActions = React.useMemo(() => registerActions('card-colors'), [registerActions]);
+  // (unused register* removed — using direct setHeaderActions now)
 
   // Get stored values from React Query
   const storedSla = settings.sla;
@@ -268,7 +275,7 @@ export function WarrantySettingsPage() {
   const storedCardColors = settings.cardColors;
 
   // SLA State - cast to proper type
-  const [sla, setSLA] = React.useState<SLASettings>(storedSla as any);
+  const [sla, setSLA] = React.useState<SLASettings>(storedSla as SLASettings);
 
   // Templates State
   const [templates, setTemplates] = React.useState<ResponseTemplate[]>(storedTemplates);
@@ -279,16 +286,16 @@ export function WarrantySettingsPage() {
   const [showEditDialog, setShowEditDialog] = React.useState(false);
 
   // Notifications State
-  const [notifications, setNotifications] = React.useState<NotificationSettings>(storedNotifications as any);
+  const [notifications, setNotifications] = React.useState<NotificationSettings>(storedNotifications as unknown as NotificationSettings);
 
   // Public Tracking State
   const [publicTracking, setPublicTracking] = React.useState<PublicTrackingSettings>(storedPublicTracking);
 
   // Card Colors State
-  const [cardColors, setCardColors] = React.useState<CardColorSettings>(storedCardColors as any);
+  const [cardColors, setCardColors] = React.useState<CardColorSettings>(storedCardColors as CardColorSettings);
 
   React.useEffect(() => {
-    setSLA(storedSla as any);
+    setSLA(storedSla as SLASettings);
   }, [storedSla]);
 
   React.useEffect(() => {
@@ -296,7 +303,7 @@ export function WarrantySettingsPage() {
   }, [storedTemplates]);
 
   React.useEffect(() => {
-    setNotifications(storedNotifications as any);
+    setNotifications(storedNotifications as unknown as NotificationSettings);
   }, [storedNotifications]);
 
   React.useEffect(() => {
@@ -304,7 +311,7 @@ export function WarrantySettingsPage() {
   }, [storedPublicTracking]);
 
   React.useEffect(() => {
-    setCardColors(storedCardColors as any);
+    setCardColors(storedCardColors as CardColorSettings);
   }, [storedCardColors]);
 
   useSettingsPageHeader({
@@ -346,7 +353,7 @@ export function WarrantySettingsPage() {
     }
 
     updateSection.mutate(
-      { type: 'sla-targets', data: sla as any },
+      { type: 'sla-targets', data: sla },
       {
         onSuccess: () => {
           toast.success('Đã lưu cài đặt SLA', {
@@ -361,7 +368,7 @@ export function WarrantySettingsPage() {
     const defaults = clone(defaultSLA);
     setSLA(defaults);
     updateSection.mutate(
-      { type: 'sla-targets', data: defaults as any },
+      { type: 'sla-targets', data: defaults },
       {
         onSuccess: () => {
           toast.info('Đã đặt lại mặc định', {
@@ -378,7 +385,7 @@ export function WarrantySettingsPage() {
 
   const handleAddTemplate = () => {
     setEditingTemplate({
-      id: Date.now().toString(),
+      id: generateSubEntityId('ID'),
       name: '',
       content: '',
       category: 'general',
@@ -478,7 +485,7 @@ export function WarrantySettingsPage() {
 
   const handleSaveNotifications = () => {
     updateSection.mutate(
-      { type: 'notifications', data: notifications as any },
+      { type: 'notifications', data: notifications as unknown as Parameters<typeof updateSection.mutate>[0]['data'] },
       {
         onSuccess: () => {
           toast.success('Đã lưu cài đặt thông báo', {
@@ -505,16 +512,11 @@ export function WarrantySettingsPage() {
       { type: 'tracking', data: publicTracking },
       {
         onSuccess: () => {
-          // Show different message based on enabled state
-          if (publicTracking.enabled) {
-            toast.success('Đã bật tracking công khai', {
-              description: 'Khách hàng giờ có thể theo dõi tiến độ bảo hành qua link công khai.',
-            });
-          } else {
-            toast.success('Đã tắt tracking công khai', {
-              description: 'Tính năng tracking công khai đã được vô hiệu hóa.',
-            });
-          }
+          toast.success('Đã lưu cài đặt tracking công khai', {
+            description: publicTracking.enabled
+              ? 'Khách hàng giờ có thể theo dõi tiến độ bảo hành qua link công khai.'
+              : 'Tính năng tracking công khai đã được vô hiệu hóa.',
+          });
         },
       }
     );
@@ -571,70 +573,61 @@ export function WarrantySettingsPage() {
   // RENDER
   // ============================================
 
-    React.useEffect(() => {
-      if (activeTab !== 'sla') {
-        return;
-      }
+  // ✅ Use refs to avoid stale closures in header action buttons
+  const handlersRef = React.useRef({
+    saveSLA: handleSaveSLA,
+    addTemplate: handleAddTemplate,
+    saveNotifications: handleSaveNotifications,
+    savePublicTracking: handleSavePublicTracking,
+    saveCardColors: handleSaveCardColors,
+  });
+  handlersRef.current = {
+    saveSLA: handleSaveSLA,
+    addTemplate: handleAddTemplate,
+    saveNotifications: handleSaveNotifications,
+    savePublicTracking: handleSavePublicTracking,
+    saveCardColors: handleSaveCardColors,
+  };
 
-      registerSlaActions([
-        <SettingsActionButton key="save" onClick={handleSaveSLA}>
-          <Save className="h-4 w-4" /> Lưu cài đặt
-        </SettingsActionButton>,
-      ]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [activeTab, registerSlaActions]);
-
-    React.useEffect(() => {
-      if (activeTab !== 'templates') {
-        return;
-      }
-
-      registerTemplateActions([
-        <SettingsActionButton key="add" onClick={handleAddTemplate}>
-          <Plus className="h-4 w-4" /> Thêm mẫu
-        </SettingsActionButton>,
-      ]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [activeTab, registerTemplateActions]);
-
-    React.useEffect(() => {
-      if (activeTab !== 'notifications') {
-        return;
-      }
-
-      registerNotificationActions([
-        <SettingsActionButton key="save" onClick={handleSaveNotifications}>
-          <Save className="h-4 w-4" /> Lưu cài đặt
-        </SettingsActionButton>,
-      ]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [activeTab, registerNotificationActions]);
-
-    React.useEffect(() => {
-      if (activeTab !== 'public-tracking') {
-        return;
-      }
-
-      registerPublicTrackingActions([
-        <SettingsActionButton key="save" onClick={handleSavePublicTracking}>
-          <Save className="h-4 w-4" /> Lưu cài đặt
-        </SettingsActionButton>,
-      ]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [activeTab, registerPublicTrackingActions]);
-
-    React.useEffect(() => {
-      if (activeTab !== 'card-colors') {
-        return;
-      }
-
-      registerCardColorActions([
-        <SettingsActionButton key="save" onClick={handleSaveCardColors}>
-          <Save className="h-4 w-4" /> Lưu cài đặt
-        </SettingsActionButton>,
-      ]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [activeTab, registerCardColorActions]);
+  React.useEffect(() => {
+    switch (activeTab) {
+      case 'sla':
+        setHeaderActions([
+          <SettingsActionButton key="save" onClick={() => handlersRef.current.saveSLA()}>
+            <Save className="h-4 w-4" /> Lưu cài đặt
+          </SettingsActionButton>,
+        ]);
+        break;
+      case 'templates':
+        setHeaderActions([
+          <SettingsActionButton key="add" onClick={() => handlersRef.current.addTemplate()}>
+            <Plus className="h-4 w-4" /> Thêm mẫu
+          </SettingsActionButton>,
+        ]);
+        break;
+      case 'notifications':
+        setHeaderActions([
+          <SettingsActionButton key="save" onClick={() => handlersRef.current.saveNotifications()}>
+            <Save className="h-4 w-4" /> Lưu cài đặt
+          </SettingsActionButton>,
+        ]);
+        break;
+      case 'public-tracking':
+        setHeaderActions([
+          <SettingsActionButton key="save" onClick={() => handlersRef.current.savePublicTracking()}>
+            <Save className="h-4 w-4" /> Lưu cài đặt
+          </SettingsActionButton>,
+        ]);
+        break;
+      case 'card-colors':
+        setHeaderActions([
+          <SettingsActionButton key="save" onClick={() => handlersRef.current.saveCardColors()}>
+            <Save className="h-4 w-4" /> Lưu cài đặt
+          </SettingsActionButton>,
+        ]);
+        break;
+    }
+  }, [activeTab, setHeaderActions]);
 
   const tabs = React.useMemo(
     () => [
@@ -1058,6 +1051,112 @@ export function WarrantySettingsPage() {
                     Link này sẽ được tạo tự động khi tạo yêu cầu bảo hành mới
                   </p>
                 </div>
+              )}
+
+              {/* Card visibility settings */}
+              {publicTracking.enabled && (
+                <SettingsFormSection
+                  title="Hiển thị nội dung trang tracking"
+                  description="Chọn các thẻ thông tin sẽ hiển thị trên trang tracking công khai cho khách hàng."
+                >
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-1">
+                        <Label htmlFor="show-product-list" className="cursor-pointer">
+                          Danh sách sản phẩm bảo hành
+                        </Label>
+                        <p className="text-sm text-muted-foreground">
+                          Hiển thị bảng chi tiết sản phẩm (tên, số lượng, giá, kết quả)
+                        </p>
+                      </div>
+                      <Switch
+                        id="show-product-list"
+                        checked={publicTracking.showProductList !== false}
+                        onCheckedChange={() => handlePublicTrackingChange('showProductList')}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-1">
+                        <Label htmlFor="show-summary" className="cursor-pointer">
+                          Tổng kết bảo hành
+                        </Label>
+                        <p className="text-sm text-muted-foreground">
+                          Hiển thị tổng giá trị, số lượng đổi/trả, bù trừ
+                        </p>
+                      </div>
+                      <Switch
+                        id="show-summary"
+                        checked={publicTracking.showSummary !== false}
+                        onCheckedChange={() => handlePublicTrackingChange('showSummary')}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-1">
+                        <Label htmlFor="show-payment" className="cursor-pointer">
+                          Thông tin thanh toán
+                        </Label>
+                        <p className="text-sm text-muted-foreground">
+                          Hiển thị chi tiết thanh toán, phiếu thu/chi liên quan
+                        </p>
+                      </div>
+                      <Switch
+                        id="show-payment"
+                        checked={publicTracking.showPayment !== false}
+                        onCheckedChange={() => handlePublicTrackingChange('showPayment')}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-1">
+                        <Label htmlFor="show-received-images" className="cursor-pointer">
+                          Hình ảnh lúc nhận hàng
+                        </Label>
+                        <p className="text-sm text-muted-foreground">
+                          Hiển thị ảnh sản phẩm khi tiếp nhận bảo hành
+                        </p>
+                      </div>
+                      <Switch
+                        id="show-received-images"
+                        checked={publicTracking.showReceivedImages !== false}
+                        onCheckedChange={() => handlePublicTrackingChange('showReceivedImages')}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-1">
+                        <Label htmlFor="show-processed-images" className="cursor-pointer">
+                          Hình ảnh sau xử lý
+                        </Label>
+                        <p className="text-sm text-muted-foreground">
+                          Hiển thị ảnh sản phẩm sau khi xử lý bảo hành
+                        </p>
+                      </div>
+                      <Switch
+                        id="show-processed-images"
+                        checked={publicTracking.showProcessedImages !== false}
+                        onCheckedChange={() => handlePublicTrackingChange('showProcessedImages')}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-1">
+                        <Label htmlFor="show-history" className="cursor-pointer">
+                          Lịch sử thao tác
+                        </Label>
+                        <p className="text-sm text-muted-foreground">
+                          Hiển thị chi tiết từng thao tác xử lý bảo hành
+                        </p>
+                      </div>
+                      <Switch
+                        id="show-history"
+                        checked={publicTracking.showHistory !== false}
+                        onCheckedChange={() => handlePublicTrackingChange('showHistory')}
+                      />
+                    </div>
+                  </div>
+                </SettingsFormSection>
               )}
             </CardContent>
           </Card>

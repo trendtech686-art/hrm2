@@ -167,8 +167,9 @@ export async function fetchWikiTags(): Promise<string[]> {
  * Search wiki articles
  */
 export async function searchWiki(
-  query: string
+  query: string,
+  limit = 20
 ): Promise<WikiArticle[]> {
-  const response = await fetchWikiArticles({ search: query, limit: 20 });
+  const response = await fetchWikiArticles({ search: query, limit });
   return response.data;
 }

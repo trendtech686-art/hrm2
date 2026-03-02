@@ -11,6 +11,7 @@
 import type { HistoryEntry } from '../components/ActivityHistory';
 import { getCurrentUserInfo as getAuthUserInfo } from '../contexts/auth-context';
 import type { SystemId } from './id-types';
+import { generateSubEntityId } from './id-utils';
 
 // Re-export HistoryEntry type for convenience
 export type { HistoryEntry } from '../components/ActivityHistory';
@@ -81,7 +82,7 @@ export function createHistoryEntry(
   const meta = (hasUserObject ? metadata : descriptionOrMetadata) as HistoryEntry['metadata'] | undefined;
 
   return {
-    id: `history-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    id: generateSubEntityId('history'),
     action,
     timestamp: new Date(),
     user: {

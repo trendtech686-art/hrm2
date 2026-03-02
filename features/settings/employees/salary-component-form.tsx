@@ -57,6 +57,27 @@ export function SalaryComponentForm({ initialData, onSubmit, onCancel }: SalaryC
     },
   });
 
+  // Reset form when initialData changes
+  React.useEffect(() => {
+    if (initialData) {
+      form.reset(initialData);
+    } else {
+      form.reset({
+        name: '',
+        description: '',
+        category: 'earning',
+        type: 'fixed',
+        amount: 0,
+        formula: '',
+        taxable: false,
+        partOfSocialInsurance: false,
+        isActive: true,
+        sortOrder: 0,
+        applicableDepartmentSystemIds: [],
+      });
+    }
+  }, [initialData, form]);
+
   const componentType = form.watch('type');
   const selectedCategory = form.watch('category');
   const selectedDepartments = form.watch('applicableDepartmentSystemIds') || [];
@@ -166,7 +187,7 @@ export function SalaryComponentForm({ initialData, onSubmit, onCancel }: SalaryC
               )} />
 
               <FormField control={form.control} name="isActive" render={({ field }) => (
-                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm h-fit mt-6">
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border border-border p-3 shadow-sm h-fit mt-6">
                   <div className="space-y-0.5">
                     <FormLabel>Kích hoạt</FormLabel>
                     <FormDescription>Bật/tắt thành phần này</FormDescription>
@@ -272,7 +293,7 @@ export function SalaryComponentForm({ initialData, onSubmit, onCancel }: SalaryC
 
             <div className="space-y-3 pt-2">
               <FormField control={form.control} name="taxable" render={({ field }) => (
-                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border  border-border p-3 shadow-sm">
                   <div className="space-y-0.5">
                     <FormLabel>Tính thuế TNCN</FormLabel>
                     <FormDescription>Thành phần này có chịu thuế thu nhập cá nhân không?</FormDescription>
@@ -282,7 +303,7 @@ export function SalaryComponentForm({ initialData, onSubmit, onCancel }: SalaryC
               )} />
               
               <FormField control={form.control} name="partOfSocialInsurance" render={({ field }) => (
-                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border  border-border p-3 shadow-sm">
                   <div className="space-y-0.5">
                     <FormLabel>Tính vào lương đóng BHXH</FormLabel>
                     <FormDescription>Thành phần này có tính vào cơ sở đóng bảo hiểm xã hội không?</FormDescription>
@@ -315,7 +336,7 @@ export function SalaryComponentForm({ initialData, onSubmit, onCancel }: SalaryC
                 )}
               </div>
 
-              <ScrollArea className="h-[200px] rounded-md border p-3">
+              <ScrollArea className="h-50 rounded-md border p-3">
                 <div className="space-y-2">
                   {departments.map(department => (
                     <div 

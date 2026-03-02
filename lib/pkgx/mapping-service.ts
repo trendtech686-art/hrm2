@@ -100,13 +100,13 @@ export function mapHrmToPkgxPayload(settings: PkgxSettings, product: Product): P
   // HRM isFeatured (Nổi bật) -> PKGX is_best
   // HRM isBestSeller (Bán chạy) -> PKGX is_hot
   // HRM isNewArrival (Mới về) -> PKGX is_new
-  // HRM isFeatured (Nổi bật) -> PKGX ishome (hiển trang chủ)
+  // HRM isFeatured (Nổi bật) -> PKGX is_home (hiển trang chủ)
   // HRM isOnSale (Đang giảm giá) -> ko có trường tương ứng trong PKGX API
-  payload.best = product.isFeatured || false;
-  payload.hot = product.isBestSeller || false;
-  payload.new = product.isNewArrival || false;
-  payload.ishome = product.isFeatured || false;
-  payload.is_on_sale = product.isPublished ?? (product.status === 'active');
+  payload.is_best = product.isFeatured ? 1 : 0;
+  payload.is_hot = product.isBestSeller ? 1 : 0;
+  payload.is_new = product.isNewArrival ? 1 : 0;
+  payload.is_home = product.isFeatured ? 1 : 0;
+  payload.is_on_sale = (product.isPublished ?? (product.status === 'active')) ? 1 : 0;
   
   // Map images
   if (product.thumbnailImage) {
@@ -193,21 +193,21 @@ export function createDescriptionUpdatePayload(product: Product): Partial<PkgxPr
 }
 
 /**
- * Tạo payload chỉ chứa flags (best, hot, new, ishome, is_on_sale) để update
+ * Tạo payload chỉ chứa flags (is_best, is_hot, is_new, is_home, is_on_sale) để update
  * Mapping:
  * - HRM isPublished (Đăng web) -> PKGX is_on_sale
  * - HRM isFeatured (Nổi bật) -> PKGX is_best
  * - HRM isBestSeller (Bán chạy) -> PKGX is_hot  
  * - HRM isNewArrival (Mới về) -> PKGX is_new
- * - HRM isFeatured (Nổi bật) -> PKGX ishome (hiển trang chủ)
+ * - HRM isFeatured (Nổi bật) -> PKGX is_home (hiển trang chủ)
  */
 export function createFlagsUpdatePayload(product: Product): Partial<PkgxProductPayload> {
   return {
-    best: product.isFeatured || false,
-    hot: product.isBestSeller || false,
-    new: product.isNewArrival || false,
-    ishome: product.isFeatured || false,
-    is_on_sale: product.isPublished ?? (product.status === 'active'),
+    is_best: product.isFeatured ? 1 : 0,
+    is_hot: product.isBestSeller ? 1 : 0,
+    is_new: product.isNewArrival ? 1 : 0,
+    is_home: product.isFeatured ? 1 : 0,
+    is_on_sale: (product.isPublished ?? (product.status === 'active')) ? 1 : 0,
   };
 }
 

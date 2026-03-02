@@ -563,7 +563,7 @@ export function PrintTemplatesPage() {
           <div className="space-y-1.5">
             <Label className="text-sm font-medium">Chọn mẫu in</Label>
             <Select value={selectedType} onValueChange={(v) => setSelectedType(v as TemplateType)}>
-              <SelectTrigger className="w-[200px]">
+              <SelectTrigger className="w-50">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -579,7 +579,7 @@ export function PrintTemplatesPage() {
           <div className="space-y-1.5">
             <Label className="text-sm font-medium">Chọn chi nhánh áp dụng</Label>
             <Select value={selectedBranch} onValueChange={setSelectedBranch}>
-              <SelectTrigger className="w-[200px]">
+              <SelectTrigger className="w-50">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -595,7 +595,7 @@ export function PrintTemplatesPage() {
           <div className="space-y-1.5">
             <Label className="text-sm font-medium">Chọn khổ in</Label>
             <Select value={selectedSize} onValueChange={(v) => setSelectedSize(v as PaperSize)}>
-              <SelectTrigger className="w-[160px]">
+              <SelectTrigger className="w-40">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -1082,13 +1082,13 @@ export function PrintTemplatesPage() {
             >
               <EditorContent 
                 editor={editor} 
-                className="prose prose-sm max-w-none min-h-full focus:outline-none [&_.ProseMirror]:outline-none [&_.ProseMirror]:min-h-[400px]"
+                className="prose prose-sm max-w-none min-h-full focus:outline-none [&_.ProseMirror]:outline-none [&_.ProseMirror]:min-h-100"
               />
               
               {/* Context Menu - chỉ cho bảng */}
               {contextMenu && editor?.isActive('table') && (
                 <div 
-                  className="fixed z-50 bg-popover border rounded-md shadow-lg py-1 min-w-[180px]"
+                  className="fixed z-50 bg-popover border rounded-md shadow-lg py-1 min-w-45"
                   style={{ left: contextMenu.x, top: contextMenu.y }}
                 >
                   <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground border-b mb-1">

@@ -7,6 +7,7 @@
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { useAuth } from '@/contexts/auth-context'
+import { generateSubEntityId } from '@/lib/id-utils'
 
 interface Comment {
   systemId: string
@@ -105,7 +106,7 @@ export function useComments(entityType: string, entityId: string) {
       )
       
       const optimisticComment: Comment = {
-        systemId: `temp-${Date.now()}`,
+        systemId: generateSubEntityId('TEMP'),
         entityType: newComment.entityType,
         entityId: newComment.entityId,
         content: newComment.content,

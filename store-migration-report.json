@@ -1,0 +1,176 @@
+[
+  {
+    "storeName": "useEmployeeStore",
+    "storeFile": "features/employees/store.ts",
+    "replacement": "useAllEmployees, useEmployee, useEmployeeMutations from @/features/employees/hooks/use-employees",
+    "usages": []
+  },
+  {
+    "storeName": "useProductStore",
+    "storeFile": "features/products/store.ts",
+    "replacement": "useAllProducts, useProduct, useProductMutations from @/features/products/hooks/use-products",
+    "usages": []
+  },
+  {
+    "storeName": "useStockHistoryStore",
+    "storeFile": "features/stock-history/store.ts",
+    "replacement": "useStockHistory, useProductStockHistory, useStockHistoryMutations from @/features/stock-history/hooks/use-stock-history",
+    "usages": []
+  },
+  {
+    "storeName": "useBranchStore",
+    "storeFile": "features/settings/branches/store.ts",
+    "replacement": "useAllBranches, useBranchMutations from @/features/settings/branches/hooks/use-all-branches",
+    "usages": []
+  },
+  {
+    "storeName": "useProvinceStore",
+    "storeFile": "features/settings/provinces/store.ts",
+    "replacement": "useProvinces, useDistricts, useWards from @/features/settings/provinces/hooks/use-provinces",
+    "usages": []
+  },
+  {
+    "storeName": "useSupplierStore",
+    "storeFile": "features/suppliers/store.ts",
+    "replacement": "useAllSuppliers, useSupplierMutations from @/features/suppliers/hooks/use-all-suppliers",
+    "usages": []
+  },
+  {
+    "storeName": "useCustomerStore",
+    "storeFile": "features/customers/store.ts",
+    "replacement": "useAllCustomers, useCustomerMutations from @/features/customers/hooks/use-all-customers",
+    "usages": []
+  },
+  {
+    "storeName": "useWarrantyStore",
+    "storeFile": "features/warranty/store/index.ts",
+    "replacement": "useAllWarranties, useWarrantyMutations from @/features/warranty/hooks/use-warranties",
+    "usages": []
+  },
+  {
+    "storeName": "useInventoryCheckStore",
+    "storeFile": "features/inventory-checks/store/index.ts",
+    "replacement": "useAllInventoryChecks, useInventoryCheckMutations from @/features/inventory-checks/hooks/use-inventory-checks",
+    "usages": []
+  },
+  {
+    "storeName": "useInventoryReceiptStore",
+    "storeFile": "features/inventory-receipts/store.ts",
+    "replacement": "useInventoryReceipts, useInventoryReceiptMutations from @/features/inventory-receipts/hooks/use-inventory-receipts",
+    "usages": []
+  },
+  {
+    "storeName": "useStockTransferStore",
+    "storeFile": "features/stock-transfers/store/index.ts",
+    "replacement": "useAllStockTransfers, useStockTransferMutations from @/features/stock-transfers/hooks/use-stock-transfers",
+    "usages": []
+  },
+  {
+    "storeName": "useStockLocationStore",
+    "storeFile": "features/stock-locations/store.ts",
+    "replacement": "useStockLocations from @/features/stock-locations/hooks/use-stock-locations",
+    "usages": []
+  },
+  {
+    "storeName": "useOrderStore",
+    "storeFile": "features/orders/store.ts",
+    "replacement": "useAllOrders, useOrderMutations from @/features/orders/hooks/use-orders",
+    "usages": []
+  },
+  {
+    "storeName": "usePurchaseOrderStore",
+    "storeFile": "features/purchase-orders/store/index.ts",
+    "replacement": "useAllPurchaseOrders, usePurchaseOrderMutations from @/features/purchase-orders/hooks/use-purchase-orders",
+    "usages": []
+  },
+  {
+    "storeName": "usePurchaseReturnStore",
+    "storeFile": "features/purchase-returns/store.ts",
+    "replacement": "useAllPurchaseReturns, usePurchaseReturnMutations from @/features/purchase-returns/hooks/use-purchase-returns",
+    "usages": []
+  },
+  {
+    "storeName": "useSalesReturnStore",
+    "storeFile": "features/sales-returns/store/index.ts",
+    "replacement": "useAllSalesReturns, useSalesReturnMutations from @/features/sales-returns/hooks/use-sales-returns",
+    "usages": []
+  },
+  {
+    "storeName": "useCashbookStore",
+    "storeFile": "features/cashbook/store.ts",
+    "replacement": "useCashAccounts, useCashbookMutations from @/features/cashbook/hooks/use-cashbook",
+    "usages": []
+  },
+  {
+    "storeName": "useReceiptStore",
+    "storeFile": "features/receipts/store/index.ts",
+    "replacement": "useReceipts, useReceiptMutations from @/features/receipts/hooks/use-receipts",
+    "usages": []
+  },
+  {
+    "storeName": "usePaymentStore",
+    "storeFile": "features/payments/store/index.ts",
+    "replacement": "usePayments, usePaymentMutations from @/features/payments/hooks/use-payments",
+    "usages": []
+  },
+  {
+    "storeName": "useAttendanceStore",
+    "storeFile": "features/attendance/store.ts",
+    "replacement": "useAttendance, useAttendanceMutations from @/features/attendance/hooks/use-attendance",
+    "usages": []
+  },
+  {
+    "storeName": "useLeaveStore",
+    "storeFile": "features/leaves/store.ts",
+    "replacement": "useLeaves, useLeaveMutations from @/features/leaves/hooks/use-leaves",
+    "usages": []
+  },
+  {
+    "storeName": "usePayrollBatchStore",
+    "storeFile": "features/payroll/payroll-batch-store.ts",
+    "replacement": "usePayrollBatches from @/features/payroll/hooks/use-payroll",
+    "usages": []
+  },
+  {
+    "storeName": "usePayrollTemplateStore",
+    "storeFile": "features/payroll/payroll-template-store.ts",
+    "replacement": "usePayrollTemplates from @/features/payroll/hooks/use-payroll",
+    "usages": []
+  },
+  {
+    "storeName": "useTaskStore",
+    "storeFile": "features/tasks/store.ts",
+    "replacement": "useTasks, useTaskMutations from @/features/tasks/hooks/use-tasks",
+    "usages": []
+  },
+  {
+    "storeName": "useComplaintStore",
+    "storeFile": "features/complaints/store/index.ts",
+    "replacement": "useComplaints, useComplaintMutations from @/features/complaints/hooks/use-complaints",
+    "usages": []
+  },
+  {
+    "storeName": "useShipmentStore",
+    "storeFile": "features/shipments/store/index.ts",
+    "replacement": "useShipments, useShipmentMutations from @/features/shipments/hooks/use-shipments",
+    "usages": []
+  },
+  {
+    "storeName": "useWikiStore",
+    "storeFile": "features/wiki/store.ts",
+    "replacement": "useWikiArticles, useWikiMutations from @/features/wiki/hooks/use-wiki",
+    "usages": []
+  },
+  {
+    "storeName": "useAuditLogStore",
+    "storeFile": "features/audit-log/store.ts",
+    "replacement": "useAuditLogs from @/features/audit-log/hooks/use-audit-log",
+    "usages": []
+  },
+  {
+    "storeName": "useCostAdjustmentStore",
+    "storeFile": "features/cost-adjustments/store/index.ts",
+    "replacement": "useCostAdjustments, useCostAdjustmentMutations from @/features/cost-adjustments/hooks/use-cost-adjustments",
+    "usages": []
+  }
+]

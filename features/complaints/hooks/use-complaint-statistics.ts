@@ -106,7 +106,7 @@ export interface ComplaintStatistics {
   // PRIORITY DISTRIBUTION
   // ============================================
   byPriority: Array<{
-    priority: 'low' | 'medium' | 'high' | 'urgent';
+    priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
     label: string;
     count: number;
     percentage: number;
@@ -363,13 +363,13 @@ export function useComplaintStatistics(
     // ============================================
 
     const priorityLabels = {
-      low: 'Thấp',
-      medium: 'Trung bình',
-      high: 'Cao',
-      urgent: 'Khẩn cấp',
+      LOW: 'Thấp',
+      MEDIUM: 'Trung bình',
+      HIGH: 'Cao',
+      CRITICAL: 'Khẩn cấp',
     };
 
-    const priorities: Array<'low' | 'medium' | 'high' | 'urgent'> = ['low', 'medium', 'high', 'urgent'];
+    const priorities: Array<'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'> = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
 
     const byPriority = priorities.map(priority => {
       const priorityComplaints = complaints.filter(c => c.priority === priority);

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * WarrantyPaymentHistoryCard
  * 
  * Card hiển thị lịch sử thanh toán (phiếu chi/thu) của warranty
@@ -11,8 +11,7 @@ import { Button } from '../../../../components/ui/button';
 import { Badge } from '../../../../components/ui/badge';
 import { FileText, ExternalLink } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useAllPayments } from '../../../payments/hooks/use-all-payments';
-import { useAllReceipts } from '../../../receipts/hooks/use-all-receipts';
+import { useWarrantyPayments, useWarrantyReceipts } from '../../hooks/use-warranty-financial-data';
 import { useWarrantySettlement } from '../../hooks/use-warranty-settlement';
 import type { SettlementMethod } from '../../types';
 import { SETTLEMENT_STATUS_LABELS, SETTLEMENT_TYPE_LABELS } from '../../types';
@@ -28,22 +27,24 @@ export function WarrantyPaymentHistoryCard({
   warrantyId: _warrantyId,
 }: WarrantyPaymentHistoryCardProps) {
   const router = useRouter();
-  const { data: payments } = useAllPayments();
-  const { data: receipts } = useAllReceipts();
+  // ⚡ PERFORMANCE: Only fetch data for this specific warranty
+  const { data: payments } = useWarrantyPayments(warrantySystemId);
+  const { data: receipts } = useWarrantyReceipts(warrantySystemId);
   const { settlementMethods } = useWarrantySettlement(warrantySystemId);
   const currencyFormatter = React.useMemo(() => new Intl.NumberFormat('vi-VN'), []);
 
   // Filter payments/receipts for this warranty (exclude cancelled)
+  // Note: Data is already filtered by warrantySystemId from API
   const warrantyPayments = React.useMemo(() => 
-    payments.filter(p => p.linkedWarrantySystemId === warrantySystemId && p.status !== 'cancelled')
+    payments.filter(p => p.status !== 'cancelled')
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
-    [payments, warrantySystemId]
+    [payments]
   );
 
   const warrantyReceipts = React.useMemo(() => 
-    receipts.filter(r => (r as { linkedWarrantySystemId?: string; status?: string }).linkedWarrantySystemId === warrantySystemId && (r as { status?: string }).status !== 'cancelled')
+    receipts.filter(r => (r as { status?: string }).status !== 'cancelled')
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
-    [receipts, warrantySystemId]
+    [receipts]
   );
 
   // Combine and sort by date
@@ -106,7 +107,7 @@ export function WarrantyPaymentHistoryCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-h4">Lịch sử thanh toán</CardTitle>
+        <CardTitle>Lịch sử thanh toán</CardTitle>
       </CardHeader>
       {allTransactions.length > 0 && (
         <CardContent className="space-y-3">

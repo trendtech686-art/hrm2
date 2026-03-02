@@ -11,7 +11,7 @@ import { DataTableToolbar } from '../../../components/data-table/data-table-tool
 import { Card, CardContent } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '../../../components/ui/tabs';
-import { useFuseFilter } from '../../../hooks/use-fuse-search';
+import { simpleSearch } from '@/lib/simple-search';
 import { Download, PackageX, AlertTriangle, TrendingUp, AlertCircle } from 'lucide-react';
 import { ROUTES } from '../../../lib/router';
 import { 
@@ -87,11 +87,10 @@ export function ProductSlaReportPage() {
         return reportData.filter(row => row.alertType === alertFilter);
     }, [reportData, alertFilter]);
 
-    const fuseOptions = React.useMemo(() => ({ 
-        keys: ['productName', 'sku', 'primarySupplierName'], 
-        threshold: 0.4 
-    }), []);
-    const searchedData = useFuseFilter(filteredByType, globalFilter, fuseOptions);
+    const searchedData = React.useMemo(() => 
+        simpleSearch(filteredByType, globalFilter, { keys: ['productName', 'sku', 'primarySupplierName'] }), 
+        [filteredByType, globalFilter]
+    );
     
     // Count by alert type
     const alertCounts = React.useMemo(() => ({
@@ -240,7 +239,7 @@ export function ProductSlaReportPage() {
             </Card>
             
             <ResponsiveDataTable
-                className="flex-grow"
+                className="grow"
                 columns={columns}
                 data={paginatedData}
                 rowCount={filteredData.length}

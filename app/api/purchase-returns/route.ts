@@ -51,6 +51,9 @@ export async function GET(request: NextRequest) {
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
 
+    const sortBy = searchParams.get('sortBy') || 'createdAt';
+    const sortOrder = (searchParams.get('sortOrder') || 'desc') as 'asc' | 'desc';
+
     const where: Prisma.PurchaseReturnWhereInput = {};
     
     if (search) {
@@ -87,12 +90,12 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const [data, total] = await Promise.all([
+    const [rawData, total] = await Promise.all([
       prisma.purchaseReturn.findMany({
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { [sortBy]: sortOrder },
         include: {
           items: true,
           suppliers: true,
@@ -100,6 +103,66 @@ export async function GET(request: NextRequest) {
       }),
       prisma.purchaseReturn.count({ where }),
     ]);
+
+    // Map data to include proper items structure from returnItems JSON
+    // The relational `items` table has different structure (quantity vs returnQuantity)
+    // So we prefer returnItems JSON which has the correct format
+    const data = rawData.map(pr => {
+      // Parse returnItems JSON if available, otherwise map from relational items
+      interface PurchaseReturnItemData {
+        productSystemId: string;
+        productId?: string;
+        productName?: string;
+        orderedQuantity?: number;
+        returnQuantity: number;
+        unitPrice: number;
+        note?: string;
+      }
+      let items: PurchaseReturnItemData[] = [];
+      
+      // returnItems is stored as JSON in Prisma, may be array or need parsing
+      const returnItemsData = pr.returnItems;
+      if (returnItemsData) {
+        // If it's already an array, use it directly
+        if (Array.isArray(returnItemsData)) {
+          items = returnItemsData as unknown as PurchaseReturnItemData[];
+        } 
+        // If it's a string (shouldn't happen but just in case), try parsing
+        else if (typeof returnItemsData === 'string') {
+          try {
+            const parsed = JSON.parse(returnItemsData);
+            if (Array.isArray(parsed)) {
+              items = parsed;
+            }
+          } catch {
+            // Ignore parse errors
+          }
+        }
+      }
+      
+      // Fallback: if returnItems empty, map from relational items table
+      if (items.length === 0 && pr.items && pr.items.length > 0) {
+        items = pr.items.map(item => ({
+          productSystemId: item.productId || '',
+          productId: item.productId || '',
+          productName: '', // Not available in relational table
+          orderedQuantity: 0,
+          returnQuantity: item.quantity,
+          unitPrice: Number(item.unitPrice),
+          note: item.reason || '',
+        }));
+      }
+
+      return {
+        ...pr,
+        items,
+        // Convert Decimal fields to numbers
+        subtotal: Number(pr.subtotal),
+        total: Number(pr.total),
+        totalReturnValue: Number(pr.totalReturnValue),
+        refundAmount: Number(pr.refundAmount),
+      };
+    });
 
     return apiPaginated(data, { page, limit, total });
   } catch (error) {
@@ -175,7 +238,7 @@ export async function POST(request: NextRequest) {
       // Check if return quantity exceeds ordered quantity
       if (item.returnQuantity > poItem.quantity) {
         return apiError(
-          `Return quantity (${item.returnQuantity}) exceeds ordered quantity (${poItem.quantity}) for product ${poItem.product.name}`,
+          `Return quantity (${item.returnQuantity}) exceeds ordered quantity (${poItem.quantity}) for product ${poItem.product?.name || poItem.productName}`,
           400
         );
       }
@@ -217,9 +280,9 @@ export async function POST(request: NextRequest) {
         data: {
           systemId,
           id: businessId,
-          supplierId: purchaseOrder.supplierId,
-          supplierSystemId: purchaseOrder.supplierId,
-          supplierName: purchaseOrder.supplier.name,
+          supplierId: purchaseOrder.supplierId ?? undefined,
+          supplierSystemId: purchaseOrder.supplierId ?? undefined,
+          supplierName: purchaseOrder.supplier?.name ?? purchaseOrder.supplierName ?? undefined,
           purchaseOrderId: purchaseOrder.id,
           purchaseOrderSystemId: purchaseOrder.systemId,
           purchaseOrderBusinessId: purchaseOrder.id,
@@ -272,8 +335,28 @@ export async function POST(request: NextRequest) {
 
       // Update inventory - deduct returned quantities
       for (const item of items) {
+        // Get current inventory for stock history
+        let currentStock = 0;
+        if (branchSystemId) {
+          const productInventory = await tx.productInventory.findUnique({
+            where: {
+              productId_branchId: {
+                productId: item.productSystemId,
+                branchId: branchSystemId,
+              },
+            },
+          });
+          currentStock = productInventory?.onHand || 0;
+        }
+        // ✅ FIX: Allow negative stock values - inventory can go negative
+        // Previously used Math.max(0, ...) which caused StockHistory.newStockLevel
+        // to show 0 while ProductInventory.onHand showed negative values
+        const newStock = currentStock - item.returnQuantity;
+
         // Update product inventory for the branch
         if (branchSystemId) {
+          // ✅ FIX: Use decrement to accurately track inventory changes
+          // Allowing negative values to properly track oversold/over-returned inventory
           await tx.productInventory.updateMany({
             where: {
               productId: item.productSystemId,
@@ -281,6 +364,23 @@ export async function POST(request: NextRequest) {
             },
             data: {
               onHand: { decrement: item.returnQuantity },
+            },
+          });
+          
+          // ✅ Create stock history record
+          await tx.stockHistory.create({
+            data: {
+              productId: item.productSystemId,
+              branchId: branchSystemId,
+              action: 'Xuất kho trả NCC',
+              source: 'Phiếu trả hàng nhập',
+              quantityChange: -item.returnQuantity,
+              newStockLevel: newStock,
+              documentId: newReturn.id,
+              documentType: 'purchase_return',
+              employeeId: session.user?.id,
+              employeeName: session.user?.name || undefined,
+              note: `Xuất kho trả hàng cho NCC - ${item.productName || item.productSystemId}`,
             },
           });
         }
@@ -301,7 +401,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Update supplier balance - debit for return (they owe us)
-      if (finalRefundAmount > 0) {
+      if (finalRefundAmount > 0 && purchaseOrder.supplierId) {
         await tx.supplier.update({
           where: { systemId: purchaseOrder.supplierId },
           data: {
@@ -330,26 +430,21 @@ export async function POST(request: NextRequest) {
       await tx.purchaseOrder.update({
         where: { systemId: purchaseOrder.systemId },
         data: {
-          returnStatus: returnStatus as any,
+          returnStatus: returnStatus,
         },
       });
 
-      // Create activity history entry
-      const activityEntry = {
-        timestamp: new Date().toISOString(),
-        action: 'CREATED',
-        field: 'status',
-        oldValue: null,
-        newValue: 'PENDING',
-        userId: session.user?.id || null,
-        userName: session.user?.name || 'System',
-        description: `Purchase return created for order ${purchaseOrder.id}`,
-      };
-
-      await tx.purchaseReturn.update({
-        where: { systemId },
+      // Log activity to centralized ActivityLog table
+      await tx.activityLog.create({
         data: {
-          activityHistory: [activityEntry],
+          entityType: 'purchase_return',
+          entityId: systemId,
+          action: 'created',
+          actionType: 'create',
+          changes: { status: { from: null, to: 'PENDING' } },
+          note: `Purchase return created for order ${purchaseOrder.id}`,
+          createdBy: session.user?.id || null,
+          metadata: { userName: session.user?.name || 'System' },
         },
       });
 

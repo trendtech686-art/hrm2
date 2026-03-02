@@ -2,6 +2,8 @@ import { prisma } from '@/lib/prisma'
 import { Prisma, WarrantyStatus } from '@/generated/prisma/client'
 import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
 import { createWarrantySchema } from './validation'
+import { generateNextIdsWithTx } from '@/lib/id-system'
+import { generateSubEntityId } from '@/lib/id-utils'
 
 // GET /api/warranties - List all warranties with filtering and pagination
 export async function GET(request: Request) {
@@ -15,9 +17,12 @@ export async function GET(request: Request) {
     const status = searchParams.get('status')
     const customerId = searchParams.get('customerId')
     const productId = searchParams.get('productId')
+    const orderSystemId = searchParams.get('orderSystemId')
     const dateFrom = searchParams.get('dateFrom')
     const dateTo = searchParams.get('dateTo')
     const branchId = searchParams.get('branchId')
+    const sortBy = searchParams.get('sortBy') || 'createdAt'
+    const sortOrder = (searchParams.get('sortOrder') || 'desc') as 'asc' | 'desc'
 
     const where: Prisma.WarrantyWhereInput = {
       isDeleted: false,
@@ -33,7 +38,7 @@ export async function GET(request: Request) {
       ]
     }
 
-    if (status) {
+    if (status && status !== 'all') {
       where.status = status as WarrantyStatus
     }
 
@@ -43,6 +48,10 @@ export async function GET(request: Request) {
 
     if (productId) {
       where.productId = productId
+    }
+
+    if (orderSystemId) {
+      where.orderId = orderSystemId
     }
 
     if (branchId) {
@@ -59,12 +68,15 @@ export async function GET(request: Request) {
       }
     }
 
+    // Build orderBy
+    const orderBy: Prisma.WarrantyOrderByWithRelationInput = { [sortBy]: sortOrder }
+
     const [warranties, total] = await Promise.all([
       prisma.warranty.findMany({
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy,
         include: {
           product: {
             select: { systemId: true, id: true, name: true, imageUrl: true },
@@ -108,6 +120,14 @@ export async function POST(request: Request) {
 
   try {
     const body = result.data
+    
+    // Debug: Log important fields
+    console.log('[POST /api/warranties] Received data:', {
+      receivedImages: body.receivedImages,
+      processedImages: body.processedImages,
+      products: body.products?.length,
+      summary: body.summary,
+    });
 
     // Validate product exists if productId provided
     if (body.productId) {
@@ -133,27 +153,22 @@ export async function POST(request: Request) {
 
     // Start transaction for atomic operations
     const warranty = await prisma.$transaction(async (tx) => {
-      // Generate business ID
-      let businessId = body.id
-      if (!businessId) {
-        const lastWarranty = await tx.warranty.findFirst({
-          orderBy: { createdAt: 'desc' },
-          select: { id: true },
-        })
-        const lastNum = lastWarranty?.id 
-          ? parseInt(lastWarranty.id.replace(/\D/g, '')) 
-          : 0
-        businessId = `BH${String(lastNum + 1).padStart(6, '0')}`
-      }
+      // Generate IDs using unified ID system
+      const { systemId, businessId } = await generateNextIdsWithTx(
+        tx,
+        'warranty',
+        body.id?.trim() || undefined
+      );
 
       // Generate tracking code
-      const trackingCode = `WAR${Date.now()}${Math.random().toString(36).substr(2, 4).toUpperCase()}`
-      const publicTrackingCode = `${businessId}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`
+      // Use provided trackingCode or generate new one
+      const trackingCode = body.trackingCode || generateSubEntityId('WAR')
+      const publicTrackingCode = body.publicTrackingCode || `${businessId}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`
 
       // Create warranty
       const newWarranty = await tx.warranty.create({
         data: {
-          systemId: `WAR${String(Date.now()).slice(-10).padStart(10, '0')}`,
+          systemId,
           id: businessId,
           trackingCode,
           publicTrackingCode,
@@ -170,7 +185,7 @@ export async function POST(request: Request) {
           description: body.description,
           issueDescription: body.issueDescription,
           notes: body.notes,
-          status: (body.status || 'RECEIVED') as WarrantyStatus,
+          status: body.status as WarrantyStatus,
           priority: body.priority,
           branchSystemId: body.branchSystemId,
           branchName: body.branchName,
@@ -181,9 +196,40 @@ export async function POST(request: Request) {
           startedAt: body.startDate ? new Date(body.startDate) : undefined,
           warrantyExpireDate: body.endDate ? new Date(body.endDate) : undefined,
           solution: body.solution,
-          // estimatedCost: body.estimatedCost, // Removed - field doesn't exist in schema
-          createdBy: session.user?.email || 'system',
-          createdBySystemId: session.user?.id,
+          
+          // ===== ADDITIONAL FIELDS =====
+          // Shipping & external refs
+          shippingFee: body.shippingFee,
+          referenceUrl: body.referenceUrl,
+          externalReference: body.externalReference,
+          
+          // Images
+          receivedImages: body.receivedImages || [],
+          processedImages: body.processedImages || [],
+          
+          // Products (JSON array)
+          products: body.products || [],
+          
+          // Settlement (JSON object)
+          settlement: body.settlement,
+          settlementStatus: body.settlementStatus || 'pending',
+          
+          // Summary (JSON object)
+          summary: body.summary,
+          
+          // History & comments (JSON arrays)
+          history: body.history || [],
+          comments: body.comments || [],
+          
+          // Subtasks
+          subtasks: body.subtasks || [],
+          
+          // Order linking
+          linkedOrderSystemId: body.linkedOrderSystemId,
+          
+          // Audit
+          createdBy: body.createdBy || session.user?.email || 'system',
+          createdBySystemId: body.createdBySystemId || session.user?.id,
         },
         include: {
           product: {

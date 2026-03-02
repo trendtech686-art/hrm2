@@ -41,6 +41,16 @@ export async function DELETE(
         data: { customerId: undefined } 
       }).catch(() => {});
       
+      await tx.warranty.updateMany({ 
+        where: { customerId: systemId }, 
+        data: { customerId: undefined } 
+      }).catch(() => {});
+      
+      await tx.salesReturn.updateMany({ 
+        where: { customerId: systemId }, 
+        data: { customerId: undefined } 
+      }).catch(() => {});
+      
       // Note: Addresses stored as Json in Customer.addresses field
       
       // Finally delete the customer

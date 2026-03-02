@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react';
 import { useParams, usePathname, useRouter } from 'next/navigation';
@@ -40,10 +40,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { useProductCategoryStore } from '../settings/inventory/product-category-store';
+import { useCategory, useCategories, useCategoryMutations } from './hooks/use-categories';
 import { asSystemId, asBusinessId } from '@/lib/id-types';
 import { toast } from 'sonner';
 import { NewDocumentsUpload } from '@/components/ui/new-documents-upload';
+import { ExistingDocumentsViewer } from '@/components/ui/existing-documents-viewer';
 import { type StagingFile } from '@/lib/file-upload-api';
 import { SeoAnalysisPanel } from '@/components/shared/seo-preview';
 import { TipTapEditor } from '@/components/ui/tiptap-editor';
@@ -52,6 +53,31 @@ import { slugify } from '@/lib/utils';
 import { CharacterCounter } from '@/components/shared/character-counter';
 import { SeoScoreDisplay } from '@/components/shared/seo-score-display';
 import { usePkgxCategorySync } from './hooks/use-pkgx-category-sync';
+import { usePkgxCategoryMappings, usePkgxCategoryMappingMutations } from '@/features/settings/pkgx/hooks/use-pkgx-settings';
+import { PkgxSyncConfirmDialog } from '@/features/settings/pkgx/components/pkgx-sync-confirm-dialog';
+import type { ProductCategory } from '@/features/settings/inventory/types';
+
+// Helper type for websiteSeo
+type WebsiteSeoType = {
+  pkgx?: {
+    seoTitle?: string;
+    metaDescription?: string;
+    seoKeywords?: string;
+    shortDescription?: string;
+    longDescription?: string;
+    slug?: string;
+    ogImage?: string;
+  };
+  trendtech?: {
+    seoTitle?: string;
+    metaDescription?: string;
+    seoKeywords?: string;
+    shortDescription?: string;
+    longDescription?: string;
+    slug?: string;
+    ogImage?: string;
+  };
+};
 
 // Schema
 const websiteSeoSchema = z.object({
@@ -92,33 +118,98 @@ export function CategoryDetailPage() {
   
   const isEditMode = pathname?.endsWith('/edit') ?? false;
   
-  const { data, update, remove, isBusinessIdExists } = useProductCategoryStore();
+  
+  // Use React Query to fetch single category and all categories
+  const { data: category, isLoading: isCategoryLoading } = useCategory(systemId);
+  const { data: categoriesData } = useCategories({ all: true });
+  const allCategories = React.useMemo(() => categoriesData?.data ?? [], [categoriesData?.data]);
+  
+  // Check businessId uniqueness using React Query data
+  const isBusinessIdExists = React.useCallback(
+    (id: string) => allCategories.some(c => c.id === id),
+    [allCategories]
+  );
+  
+  // Category mutations
+  const { update, remove } = useCategoryMutations({
+    onUpdateSuccess: () => toast.success('Đã cập nhật danh mục'),
+    onDeleteSuccess: () => {
+      toast.success('Đã xóa danh mục');
+      router.push('/categories');
+    },
+    onError: (err) => toast.error(err.message),
+  });
   
   // PKGX sync hook
-  const { handleSyncSeo, handleSyncDescription, handleSyncAll, hasPkgxMapping } = usePkgxCategorySync();
+  const { handleSyncSeo, handleSyncDescription, handleSyncAll, handleSyncBasic, hasPkgxMapping, getPkgxCatId } = usePkgxCategorySync();
   
-  const category = React.useMemo(() => 
-    data.find(c => c.systemId === systemId), 
-    [data, systemId]
-  );
+  // Confirm dialog state for sync actions
+  const [confirmAction, setConfirmAction] = React.useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    action: (() => void) | null;
+  }>({ open: false, title: '', description: '', action: null });
+  
+  const handleConfirm = (title: string, description: string, action: () => void) => {
+    setConfirmAction({ open: true, title, description, action });
+  };
+  
+  const executeAction = () => {
+    if (confirmAction.action) {
+      confirmAction.action();
+    }
+    setConfirmAction({ open: false, title: '', description: '', action: null });
+  };
+  
+  const cancelConfirm = () => {
+    setConfirmAction({ open: false, title: '', description: '', action: null });
+  };
+  
+  // PKGX unlink mapping
+  const { deleteCategoryMapping } = usePkgxCategoryMappingMutations({ onSuccess: () => {
+    toast.success('Đã hủy liên kết mapping với PKGX');
+  }});
+  const categoryMappings = usePkgxCategoryMappings();
+  const handleUnlinkPkgx = React.useCallback(() => {
+    if (!category) return;
+    const mapping = categoryMappings.find(m => m.hrmCategoryId === category.systemId);
+    if (mapping) {
+      deleteCategoryMapping.mutate(mapping.systemId);
+    }
+  }, [category, categoryMappings, deleteCategoryMapping]);
   
   // Get all active categories for parent selection (exclude self and descendants)
   const availableParents = React.useMemo(() => {
-    if (!systemId) return data.filter(c => !c.isDeleted);
+    if (!systemId) return allCategories.filter(c => !c.isDeleted);
     
     const getDescendantIds = (parentId: string): string[] => {
-      const children = data.filter(c => c.parentId === parentId && !c.isDeleted);
+      const children = allCategories.filter(c => c.parentId === parentId && !c.isDeleted);
       return children.flatMap(c => [String(c.systemId), ...getDescendantIds(String(c.systemId))]);
     };
     
     const excludeIds = [systemId, ...getDescendantIds(systemId)];
-    return data.filter(c => !c.isDeleted && !excludeIds.includes(String(c.systemId)));
-  }, [data, systemId]);
+    const result = allCategories.filter(c => !c.isDeleted && !excludeIds.includes(String(c.systemId)));
+    
+    // Debug: Check if parent is in availableParents
+    if (category?.parentId) {
+      const parentInList = result.find(c => c.systemId === category.parentId);
+      console.log('[CategoryDetail] Parent check:', {
+        parentId: category.parentId,
+        parentInList: !!parentInList,
+        excludeIds,
+        allCategoriesCount: allCategories.length,
+        availableParentsCount: result.length,
+      });
+    }
+    
+    return result;
+  }, [allCategories, systemId, category?.parentId]);
 
   // Get child categories
   const childCategories = React.useMemo(() => 
-    data.filter(c => c.parentId === systemId && !c.isDeleted),
-    [data, systemId]
+    allCategories.filter(c => c.parentId === systemId && !c.isDeleted),
+    [allCategories, systemId]
   );
   
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = React.useState(false);
@@ -127,6 +218,16 @@ export function CategoryDetailPage() {
   // Image upload states
   const [thumbnailFiles, setThumbnailFiles] = React.useState<StagingFile[]>([]);
   const [thumbnailSessionId, setThumbnailSessionId] = React.useState<string | undefined>();
+  // Permanent files (existing thumbnail)
+  const [thumbnailPermanentFiles, setThumbnailPermanentFiles] = React.useState<StagingFile[]>([]);
+  const [thumbnailFilesToDelete, setThumbnailFilesToDelete] = React.useState<string[]>([]);
+  
+  // Handle marking thumbnail for deletion (toggle)
+  const handleMarkThumbnailForDeletion = React.useCallback((fileId: string) => {
+    setThumbnailFilesToDelete(prev => 
+      prev.includes(fileId) ? prev.filter(id => id !== fileId) : [...prev, fileId]
+    );
+  }, []);
   const [pkgxImageFiles, _setPkgxImageFiles] = React.useState<StagingFile[]>([]);
   const [_pkgxImageSessionId, _setPkgxImageSessionId] = React.useState<string | undefined>();
   const [trendtechImageFiles, _setTrendtechImageFiles] = React.useState<StagingFile[]>([]);
@@ -154,29 +255,29 @@ export function CategoryDetailPage() {
     },
   });
 
-  // Reset form when category data changes
+  // Reset form whenever category data is available or edit mode toggles
   React.useEffect(() => {
-    if (category) {
-      form.reset({
-        id: String(category.id) || '',
-        name: category.name || '',
-        parentId: category.parentId ? String(category.parentId) : '',
-        thumbnailImage: category.thumbnailImage || '',
-        isActive: category.isActive ?? true,
-        // SEO mặc định
-        seoTitle: category.seoTitle || '',
-        metaDescription: category.metaDescription || '',
-        seoKeywords: category.seoKeywords || '',
-        shortDescription: category.shortDescription || '',
-        longDescription: category.longDescription || '',
-        // SEO riêng cho từng website
-        websiteSeo: {
-          pkgx: category.websiteSeo?.pkgx || {},
-          trendtech: category.websiteSeo?.trendtech || {},
-        },
-      });
-    }
-  }, [category, form]);
+    if (!category) return;
+
+    form.reset({
+      id: String(category.id) || '',
+      name: category.name || '',
+      parentId: category.parentId ? String(category.parentId) : '',
+      thumbnailImage: category.imageUrl || category.thumbnail || '',
+      isActive: category.isActive ?? true,
+      // SEO mặc định
+      seoTitle: category.seoTitle || '',
+      metaDescription: category.metaDescription || '',
+      seoKeywords: category.seoKeywords || '',
+      shortDescription: category.shortDescription || '',
+      longDescription: category.longDescription || '',
+      // SEO riêng cho từng website
+      websiteSeo: {
+        pkgx: (category.websiteSeo as WebsiteSeoType)?.pkgx || {},
+        trendtech: (category.websiteSeo as WebsiteSeoType)?.trendtech || {},
+      },
+    });
+  }, [category, isEditMode, form]);
 
   const watchedName = form.watch('name');
   const _watchedId = form.watch('id');
@@ -188,6 +289,33 @@ export function CategoryDetailPage() {
   const watchedTrendtechMetaDesc = form.watch('websiteSeo.trendtech.metaDescription');
   const watchedTrendtechKeywords = form.watch('websiteSeo.trendtech.seoKeywords');
   const watchedTrendtechSlug = form.watch('websiteSeo.trendtech.slug');
+
+  // Load existing thumbnail as permanent file
+  React.useEffect(() => {
+    const current = category?.imageUrl || category?.thumbnail;
+    if (!current || thumbnailPermanentFiles.length > 0) return;
+    setThumbnailPermanentFiles([{
+      id: 'existing-thumbnail',
+      sessionId: 'permanent',
+      name: 'thumbnail',
+      originalName: 'Ảnh đại diện',
+      slug: 'thumbnail',
+      filename: 'Ảnh đại diện',
+      url: current,
+      type: 'image',
+      size: 0,
+      status: 'permanent',
+      uploadedAt: new Date().toISOString(),
+      metadata: {},
+    }]);
+  }, [category?.imageUrl, category?.thumbnail, thumbnailPermanentFiles.length]);
+  
+  // Reset delete tracking when exiting edit mode
+  React.useEffect(() => {
+    if (!isEditMode) {
+      setThumbnailFilesToDelete([]);
+    }
+  }, [isEditMode]);
 
   const handleSubmit = React.useCallback(async (formData: CategoryFormValues) => {
     if (!systemId || !category) return;
@@ -213,24 +341,26 @@ export function CategoryDetailPage() {
       trendtechOgImage = trendtechImageFiles[0]?.url || trendtechOgImage;
     }
     
-    update(asSystemId(systemId), {
-      ...formData,
-      id: asBusinessId(formData.id),
-      parentId: formData.parentId ? asSystemId(formData.parentId) : undefined,
-      thumbnailImage: thumbnailUrl,
-      websiteSeo: {
-        pkgx: {
-          ...formData.websiteSeo?.pkgx,
-          ogImage: pkgxOgImage,
-        },
-        trendtech: {
-          ...formData.websiteSeo?.trendtech,
-          ogImage: trendtechOgImage,
+    update.mutate({
+      systemId: systemId,
+      data: {
+        ...formData,
+        id: asBusinessId(formData.id),
+        parentId: formData.parentId ? asSystemId(formData.parentId) : undefined,
+        imageUrl: thumbnailUrl,
+        websiteSeo: {
+          pkgx: {
+            ...formData.websiteSeo?.pkgx,
+            ogImage: pkgxOgImage,
+          },
+          trendtech: {
+            ...formData.websiteSeo?.trendtech,
+            ogImage: trendtechOgImage,
+          },
         },
       },
     });
     
-    toast.success('Đã cập nhật danh mục');
     router.push(`/categories/${systemId}`);
   }, [systemId, category, isBusinessIdExists, form, thumbnailFiles, pkgxImageFiles, trendtechImageFiles, update, router]);
 
@@ -242,9 +372,7 @@ export function CategoryDetailPage() {
       return;
     }
     
-    remove(asSystemId(systemId));
-    toast.success('Đã xóa danh mục');
-    router.push('/categories');
+    remove.mutate(systemId);
   };
 
   const handleSwitchToEdit = React.useCallback(() => {
@@ -265,22 +393,91 @@ export function CategoryDetailPage() {
         </Button>
       ];
     }
-    return [
+    
+    const actions = [
       <Button key="delete" variant="outline" size="sm" className="h-9 text-destructive hover:text-destructive" onClick={() => setIsDeleteAlertOpen(true)}>
         <Trash2 className="mr-2 h-4 w-4" />
         Xóa
       </Button>,
+    ];
+    
+    // Add PKGX sync actions if category is mapped
+    if (category) {
+      const categoryWithBrandedIds = {
+        ...category,
+        systemId: asSystemId(category.systemId),
+        id: asBusinessId(category.id)
+      } as unknown as ProductCategory;
+      
+      if (hasPkgxMapping(categoryWithBrandedIds)) {
+        actions.unshift(
+          <Button key="unlink-pkgx" variant="destructive" size="sm" className="h-9" onClick={handleUnlinkPkgx}>
+            <X className="mr-2 h-4 w-4" />
+            Hủy liên kết
+          </Button>,
+          <Button key="sync-basic" variant="outline" size="sm" className="h-9" onClick={() => handleConfirm(
+            'Đồng bộ thông tin cơ bản',
+            `Bạn có chắc muốn đồng bộ thông tin cơ bản (Tên) của "${category?.name}" lên PKGX?`,
+            () => handleSyncBasic(categoryWithBrandedIds)
+          )}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Thông tin cơ bản
+          </Button>,
+          <Button key="sync-desc" variant="outline" size="sm" className="h-9" onClick={() => handleConfirm(
+            'Đồng bộ mô tả',
+            `Bạn có chắc muốn đồng bộ mô tả (Short Desc, Long Desc) của "${category?.name}" lên PKGX?`,
+            () => handleSyncDescription(categoryWithBrandedIds)
+          )}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Mô tả
+          </Button>,
+          <Button key="sync-seo" variant="outline" size="sm" className="h-9" onClick={() => handleConfirm(
+            'Đồng bộ SEO',
+            `Bạn có chắc muốn đồng bộ SEO (Keywords, Meta Title, Meta Description) của "${category?.name}" lên PKGX?`,
+            () => handleSyncSeo(categoryWithBrandedIds)
+          )}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            SEO
+          </Button>,
+          <Button key="sync-all" variant="outline" size="sm" className="h-9" onClick={() => handleConfirm(
+            'Đồng bộ tất cả',
+            `Bạn có chắc muốn đồng bộ TẤT CẢ thông tin danh mục "${category?.name}" lên PKGX?`,
+            () => handleSyncAll(categoryWithBrandedIds)
+          )}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Đồng bộ tất cả
+          </Button>
+        );
+      }
+    }
+    
+    actions.push(
       <Button key="edit" size="sm" className="h-9" onClick={handleSwitchToEdit}>
         <Pencil className="mr-2 h-4 w-4" />
         Chỉnh sửa
       </Button>
-    ];
-  }, [isEditMode, systemId, router, form, handleSubmit, handleSwitchToEdit]);
+    );
+    
+    return actions;
+  }, [isEditMode, systemId, router, form, handleSubmit, handleSwitchToEdit, category, hasPkgxMapping, handleSyncAll, handleSyncSeo, handleSyncDescription, handleSyncBasic, handleUnlinkPkgx]);
 
   usePageHeader({
+    title: category?.name || 'Danh mục',
     actions: headerActions,
     showBackButton: true,
   });
+
+  // Loading state
+  if (isCategoryLoading) {
+    return (
+      <div className="flex items-center justify-center h-[50vh]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4" />
+          <p className="text-muted-foreground">Đang tải...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!category) {
     return (
@@ -297,7 +494,7 @@ export function CategoryDetailPage() {
 
   // Get parent category info
   const parentCategory = category.parentId 
-    ? data.find(c => c.systemId === category.parentId) 
+    ? allCategories.find(c => c.systemId === category.parentId) 
     : null;
 
   // View mode
@@ -331,8 +528,8 @@ export function CategoryDetailPage() {
                 <div className="flex items-start gap-6">
                   {/* Thumbnail */}
                   <Avatar className="h-24 w-24 rounded-lg border">
-                    {category.thumbnailImage ? (
-                      <AvatarImage src={category.thumbnailImage} alt={category.name} className="object-cover" />
+                    {(category.imageUrl || category.thumbnail) ? (
+                      <AvatarImage src={category.imageUrl || category.thumbnail || ''} alt={category.name} className="object-cover" />
                     ) : null}
                     <AvatarFallback className="rounded-lg bg-muted">
                       <ImageIcon className="h-10 w-10 text-muted-foreground" />
@@ -385,6 +582,28 @@ export function CategoryDetailPage() {
                       <div className="space-y-1">
                         <p className="text-sm text-muted-foreground">Đường dẫn</p>
                         <p className="text-sm">{category.path}</p>
+                      </div>
+                    )}
+                    
+                    {/* PKGX Mapping Info */}
+                    {category && (
+                      <div className="space-y-1">
+                        <p className="text-sm text-muted-foreground">Mapping PKGX</p>
+                        {(() => {
+                          const categoryWithBrandedIds = {
+                            ...category,
+                            systemId: asSystemId(category.systemId),
+                            id: asBusinessId(category.id)
+                          } as unknown as ProductCategory;
+                          return hasPkgxMapping(categoryWithBrandedIds) ? (
+                            <Badge variant="default" className="bg-green-500">
+                              <span className="mr-1">✓</span>
+                              Đã mapping (ID: {getPkgxCatId(categoryWithBrandedIds)})
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary">Chưa mapping</Badge>
+                          );
+                        })()}
                       </div>
                     )}
                   </div>
@@ -464,40 +683,10 @@ export function CategoryDetailPage() {
                     <Globe className="h-4 w-4 text-red-500" />
                     <CardTitle>SEO PKGX</CardTitle>
                   </div>
-                  {category && hasPkgxMapping(category) && (
-                    <div className="flex items-center gap-2">
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="h-8 text-xs"
-                        onClick={() => handleSyncSeo(category)}
-                      >
-                        <RefreshCw className="mr-1.5 h-3 w-3" />
-                        Đồng bộ SEO
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="h-8 text-xs"
-                        onClick={() => handleSyncDescription(category)}
-                      >
-                        <RefreshCw className="mr-1.5 h-3 w-3" />
-                        Đồng bộ mô tả
-                      </Button>
-                      <Button 
-                        size="sm" 
-                        className="h-8 text-xs"
-                        onClick={() => handleSyncAll(category)}
-                      >
-                        <RefreshCw className="mr-1.5 h-3 w-3" />
-                        Đồng bộ tất cả
-                      </Button>
-                    </div>
-                  )}
                 </div>
                 <CardDescription>
                   phukiengiaxuong.com.vn - Override SEO chung
-                  {category && !hasPkgxMapping(category) && (
+                  {category && !hasPkgxMapping(category as unknown as ProductCategory) && (
                     <span className="text-orange-600 ml-2">(Chưa mapping với PKGX - vào Cài đặt &gt; PKGX để mapping)</span>
                   )}
                 </CardDescription>
@@ -505,30 +694,30 @@ export function CategoryDetailPage() {
               <CardContent className="space-y-4">
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Tiêu đề SEO</p>
-                  <p className="text-sm font-medium">{category.websiteSeo?.pkgx?.seoTitle || '-'}</p>
+                  <p className="text-sm font-medium">{(category.websiteSeo as WebsiteSeoType)?.pkgx?.seoTitle || '-'}</p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Meta Description</p>
-                  <p className="text-sm">{category.websiteSeo?.pkgx?.metaDescription || '-'}</p>
+                  <p className="text-sm">{(category.websiteSeo as WebsiteSeoType)?.pkgx?.metaDescription || '-'}</p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Từ khóa SEO</p>
-                  <p className="text-sm">{category.websiteSeo?.pkgx?.seoKeywords || '-'}</p>
+                  <p className="text-sm">{(category.websiteSeo as WebsiteSeoType)?.pkgx?.seoKeywords || '-'}</p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">URL Slug</p>
-                  <p className="text-sm font-mono">{category.websiteSeo?.pkgx?.slug || '-'}</p>
+                  <p className="text-sm font-mono">{(category.websiteSeo as WebsiteSeoType)?.pkgx?.slug || '-'}</p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Mô tả ngắn</p>
-                  {category.websiteSeo?.pkgx?.shortDescription ? (
-                    <div className="prose prose-sm max-w-none text-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: category.websiteSeo.pkgx.shortDescription }} />
+                  {(category.websiteSeo as WebsiteSeoType)?.pkgx?.shortDescription ? (
+                    <div className="prose prose-sm max-w-none text-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: (category.websiteSeo as WebsiteSeoType)?.pkgx?.shortDescription || '' }} />
                   ) : <p className="text-sm text-muted-foreground">-</p>}
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Mô tả chi tiết</p>
-                  {category.websiteSeo?.pkgx?.longDescription ? (
-                    <div className="prose prose-sm max-w-none text-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: category.websiteSeo.pkgx.longDescription }} />
+                  {(category.websiteSeo as WebsiteSeoType)?.pkgx?.longDescription ? (
+                    <div className="prose prose-sm max-w-none text-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: (category.websiteSeo as WebsiteSeoType)?.pkgx?.longDescription || '' }} />
                   ) : <p className="text-sm text-muted-foreground">-</p>}
                 </div>
               </CardContent>
@@ -548,30 +737,30 @@ export function CategoryDetailPage() {
               <CardContent className="space-y-4">
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Tiêu đề SEO</p>
-                  <p className="text-sm font-medium">{category.websiteSeo?.trendtech?.seoTitle || '-'}</p>
+                  <p className="text-sm font-medium">{(category.websiteSeo as WebsiteSeoType)?.trendtech?.seoTitle || '-'}</p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Meta Description</p>
-                  <p className="text-sm">{category.websiteSeo?.trendtech?.metaDescription || '-'}</p>
+                  <p className="text-sm">{(category.websiteSeo as WebsiteSeoType)?.trendtech?.metaDescription || '-'}</p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Từ khóa SEO</p>
-                  <p className="text-sm">{category.websiteSeo?.trendtech?.seoKeywords || '-'}</p>
+                  <p className="text-sm">{(category.websiteSeo as WebsiteSeoType)?.trendtech?.seoKeywords || '-'}</p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">URL Slug</p>
-                  <p className="text-sm font-mono">{category.websiteSeo?.trendtech?.slug || '-'}</p>
+                  <p className="text-sm font-mono">{(category.websiteSeo as WebsiteSeoType)?.trendtech?.slug || '-'}</p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Mô tả ngắn</p>
-                  {category.websiteSeo?.trendtech?.shortDescription ? (
-                    <div className="prose prose-sm max-w-none text-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: category.websiteSeo.trendtech.shortDescription }} />
+                  {(category.websiteSeo as WebsiteSeoType)?.trendtech?.shortDescription ? (
+                    <div className="prose prose-sm max-w-none text-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: (category.websiteSeo as WebsiteSeoType)?.trendtech?.shortDescription || '' }} />
                   ) : <p className="text-sm text-muted-foreground">-</p>}
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Mô tả chi tiết</p>
-                  {category.websiteSeo?.trendtech?.longDescription ? (
-                    <div className="prose prose-sm max-w-none text-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: category.websiteSeo.trendtech.longDescription }} />
+                  {(category.websiteSeo as WebsiteSeoType)?.trendtech?.longDescription ? (
+                    <div className="prose prose-sm max-w-none text-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: (category.websiteSeo as WebsiteSeoType)?.trendtech?.longDescription || '' }} />
                   ) : <p className="text-sm text-muted-foreground">-</p>}
                 </div>
               </CardContent>
@@ -662,14 +851,20 @@ export function CategoryDetailPage() {
                     />
                   </div>
 
-                  <FormField
+                    <FormField
                     control={form.control}
                     name="parentId"
-                    render={({ field }) => (
+                    render={({ field }) => {
+                      const currentParentId = field.value || '';
+                      const parentFallback = currentParentId && !availableParents.find(p => String(p.systemId) === currentParentId)
+                        ? allCategories.find(c => c.systemId === currentParentId)
+                        : null;
+                      return (
                       <FormItem>
                         <FormLabel>Danh mục cha</FormLabel>
                         <Select
-                          value={field.value || '__none__'}
+                          key={currentParentId || '__none__'}
+                          value={currentParentId || '__none__'}
                           onValueChange={(val) => field.onChange(val === '__none__' ? '' : val)}
                         >
                           <FormControl>
@@ -679,6 +874,11 @@ export function CategoryDetailPage() {
                           </FormControl>
                           <SelectContent>
                             <SelectItem value="__none__">— Danh mục gốc (Cấp 0) —</SelectItem>
+                            {parentFallback ? (
+                              <SelectItem value={String(parentFallback.systemId)} className="flex items-center text-orange-600">
+                                <span className="flex items-center gap-1">{parentFallback.name} (đang bị ẩn khỏi danh sách)</span>
+                              </SelectItem>
+                            ) : null}
                             {availableParents.map(parent => {
                               const level = parent.level ?? 0;
                               const indent = level > 0 ? `${level * 16}px` : '0';
@@ -702,7 +902,7 @@ export function CategoryDetailPage() {
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
-                    )}
+                    )}}
                   />
 
                   <FormField
@@ -731,20 +931,47 @@ export function CategoryDetailPage() {
               {/* Thumbnail Upload */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Ảnh đại diện</CardTitle>
-                  <CardDescription>Ảnh hiển thị trong danh sách danh mục</CardDescription>
+                  <CardTitle className="flex items-center gap-2">
+                    <ImageIcon className="h-4 w-4" />
+                    Ảnh đại diện
+                  </CardTitle>
+                  <CardDescription>Ảnh hiển thị trong danh sách danh mục (PNG, JPG, WebP - tối đa 2MB)</CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <NewDocumentsUpload
-                    accept={{ 'image/*': ['.png', '.jpg', '.jpeg', '.webp'] }}
-                    maxFiles={1}
-                    maxSize={2 * 1024 * 1024}
-                    value={thumbnailFiles}
-                    onChange={setThumbnailFiles}
-                    sessionId={thumbnailSessionId}
-                    onSessionChange={setThumbnailSessionId}
-                    className="min-h-[120px]"
-                  />
+                <CardContent className="space-y-4">
+                  {/* Existing thumbnail - show in edit mode with permanent files */}
+                  {isEditMode && thumbnailPermanentFiles.length > 0 && (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-xs font-medium text-green-700 bg-green-50 px-2 py-1 rounded">
+                        <span>✓</span>
+                        <span>Ảnh hiện tại</span>
+                      </div>
+                      <ExistingDocumentsViewer
+                        files={thumbnailPermanentFiles}
+                        onMarkForDeletion={handleMarkThumbnailForDeletion}
+                        markedForDeletion={thumbnailFilesToDelete}
+                      />
+                    </div>
+                  )}
+                  
+                  {/* New thumbnail upload */}
+                  <div className="space-y-2">
+                    {isEditMode && thumbnailPermanentFiles.length > 0 && (
+                      <div className="flex items-center gap-2 text-xs font-medium text-amber-700 bg-amber-50 px-2 py-1 rounded">
+                        <span>📤</span>
+                        <span>Upload ảnh mới để thay thế</span>
+                      </div>
+                    )}
+                    <NewDocumentsUpload
+                      accept={{ 'image/*': ['.png', '.jpg', '.jpeg', '.webp'] }}
+                      maxFiles={1}
+                      maxSize={2 * 1024 * 1024}
+                      value={thumbnailFiles}
+                      onChange={setThumbnailFiles}
+                      sessionId={thumbnailSessionId}
+                      onSessionChange={setThumbnailSessionId}
+                      className="min-h-30"
+                    />
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>
@@ -886,7 +1113,7 @@ export function CategoryDetailPage() {
                         <FormControl>
                           <Textarea 
                             placeholder="Mô tả ngắn gọn về danh mục, hiển thị dưới tiêu đề trên Google" 
-                            className="min-h-[80px]"
+                            className="min-h-20"
                             {...field} 
                           />
                         </FormControl>
@@ -1042,7 +1269,7 @@ export function CategoryDetailPage() {
                         <FormControl>
                           <Textarea 
                             placeholder="Mô tả ngắn gọn về danh mục" 
-                            className="min-h-[80px]"
+                            className="min-h-20"
                             {...field} 
                           />
                         </FormControl>
@@ -1158,6 +1385,13 @@ export function CategoryDetailPage() {
           </Tabs>
         </form>
       </Form>
+      
+      <PkgxSyncConfirmDialog 
+        confirmAction={confirmAction}
+        isSyncing={false}
+        onConfirm={executeAction}
+        onCancel={cancelConfirm}
+      />
     </div>
   );
 }

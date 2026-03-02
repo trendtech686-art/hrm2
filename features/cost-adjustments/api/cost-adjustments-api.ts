@@ -14,6 +14,8 @@ export interface CostAdjustmentFilters {
   toDate?: string;
   search?: string;
   productId?: string;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
 }
 
 export interface CostAdjustmentResponse {
@@ -57,6 +59,8 @@ export async function fetchCostAdjustments(
   if (filters.toDate) params.set('toDate', filters.toDate);
   if (filters.search) params.set('search', filters.search);
   if (filters.productId) params.set('productId', filters.productId);
+  if (filters.sortBy) params.set('sortBy', filters.sortBy);
+  if (filters.sortOrder) params.set('sortOrder', filters.sortOrder);
 
   const url = params.toString() ? `${BASE_URL}?${params}` : BASE_URL;
   const response = await fetch(url);
@@ -138,19 +142,46 @@ export async function deleteCostAdjustment(systemId: string): Promise<void> {
 }
 
 /**
- * Confirm cost adjustment
+ * Confirm cost adjustment and update product cost prices
  */
 export async function confirmCostAdjustment(
-  systemId: string
+  systemId: string,
+  confirmedBy?: string,
+  confirmedByName?: string
 ): Promise<CostAdjustment> {
-  return updateCostAdjustment(systemId, { status: 'confirmed' });
+  const response = await fetch(`${BASE_URL}/${systemId}/confirm`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ confirmedBy, confirmedByName }),
+  });
+  
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.error || 'Failed to confirm cost adjustment');
+  }
+  
+  return response.json();
 }
 
 /**
  * Cancel cost adjustment
  */
 export async function cancelCostAdjustment(
-  systemId: string
+  systemId: string,
+  cancelledBy?: string,
+  cancelledByName?: string,
+  reason?: string
 ): Promise<CostAdjustment> {
-  return updateCostAdjustment(systemId, { status: 'cancelled' });
+  const response = await fetch(`${BASE_URL}/${systemId}/cancel`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ cancelledBy, cancelledByName, reason }),
+  });
+  
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.error || 'Failed to cancel cost adjustment');
+  }
+  
+  return response.json();
 }

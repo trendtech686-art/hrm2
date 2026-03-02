@@ -1,7 +1,7 @@
 model Leave {
   systemId        String      @id
   id              String      @unique
-  employeeId      String
+  employeeId      String?
   leaveType       LeaveType
   startDate       DateTime    @db.Date
   endDate         DateTime    @db.Date
@@ -38,11 +38,8 @@ model Leave {
   createdBy String?
   updatedBy String?
 
-  // Activity History
-  activityHistory Json?
-
   // === RELATIONS ===
-  employee Employee @relation(fields: [employeeId], references: [systemId])
+  employee Employee? @relation(fields: [employeeId], references: [systemId], onDelete: SetNull)
 
   @@index([employeeId])
   @@index([startDate, endDate])

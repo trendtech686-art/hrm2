@@ -52,7 +52,15 @@ export async function fetchStockTransfers(params: StockTransfersParams = {}): Pr
     throw new Error(`Failed to fetch stock transfers: ${response.statusText}`);
   }
   
-  return response.json();
+  const json = await response.json();
+  
+  // Transform API response to match expected interface
+  return {
+    data: json.data || [],
+    total: json.pagination?.total || 0,
+    page: json.pagination?.page || 1,
+    pageSize: json.pagination?.limit || 40,
+  };
 }
 
 export async function fetchStockTransfer(systemId: SystemId): Promise<StockTransfer> {

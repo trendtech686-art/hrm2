@@ -3,19 +3,20 @@
 import * as React from "react";
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import { useLeaves, useLeaveMutations } from './hooks/use-leaves';
+import { useLeaves, useLeaveMutations, useBatchLeaveMutation } from './hooks/use-leaves';
 import { getColumns } from './columns';
 import type { LeaveRequest, LeaveStatus } from "@/lib/types/prisma-extended";
 import type { SystemId } from '@/lib/id-types';
+import type { LeaveCreateInput, BatchCreateItem } from './api/leaves-api';
 import { usePageHeader } from "../../contexts/page-header-context";
+import { useAuth } from "../../contexts/auth-context";
 import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table";
 import { PageToolbar } from "../../components/layout/page-toolbar"
 import { PageFilters } from "../../components/layout/page-filters";
 import { Button } from "../../components/ui/button";
-import { PlusCircle, CheckCircle2, XCircle, Download } from "lucide-react";
+import { PlusCircle, CheckCircle2, XCircle, Download, Settings } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "../../components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../components/ui/alert-dialog";
-import { useFuseFilter } from "../../hooks/use-fuse-search";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
 import { DynamicDataTableColumnCustomizer as DataTableColumnCustomizer } from "../../components/data-table/dynamic-column-customizer";
 import { toast } from "sonner";
@@ -25,33 +26,66 @@ import { Card, CardContent, CardHeader } from "../../components/ui/card";
 import { formatDate } from "../../lib/date-utils";
 import { DataTableExportDialog } from "../../components/data-table/data-table-export-dialog";
 import { DataTableImportDialog, type ImportConfig } from "../../components/data-table/data-table-import-dialog";
-import type { LeaveCreateInput } from './api/leaves-api';
 
 const LeaveForm = dynamic(() => import("./components/leave-form").then(mod => ({ default: mod.LeaveForm })), { ssr: false });
 
 export function LeavesPage() {
-  // React Query: fetch from database
-  const { data: leavesResponse, isLoading: _isLoading } = useLeaves({ limit: 500 });
-  const leaveRequests = React.useMemo(() => leavesResponse?.data ?? [], [leavesResponse?.data]);
-  const mutations = useLeaveMutations();
-  
   const router = useRouter(), { isMobile } = useBreakpoint();
+  const { user } = useAuth();
+
+  // Server-side pagination state
+  const [searchQuery, setSearchQuery] = React.useState('');
+  const [debouncedSearch, setDebouncedSearch] = React.useState('');
+  const [statusFilter, setStatusFilter] = React.useState<"all" | LeaveStatus>('all');
+  const [sorting, setSorting] = React.useState<{ id: string, desc: boolean }>({ id: 'createdAt', desc: true });
+  const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 20 });
+
+  // Debounce search
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+      setPagination(prev => ({ ...prev, pageIndex: 0 }));
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Reset pagination on filter change
+  React.useEffect(() => {
+    setPagination(prev => ({ ...prev, pageIndex: 0 }));
+  }, [statusFilter]);
+
+  // React Query: fetch from database with server-side pagination
+  const { data: leavesResponse, isLoading: isLoadingLeaves } = useLeaves({
+    page: pagination.pageIndex + 1,
+    limit: pagination.pageSize,
+    search: debouncedSearch || undefined,
+    status: statusFilter !== 'all' ? statusFilter : undefined,
+    sortBy: sorting.id,
+    sortOrder: sorting.desc ? 'desc' : 'asc',
+  });
+  const leaveRequests = React.useMemo(() => leavesResponse?.data ?? [], [leavesResponse?.data]);
+  const totalRows = leavesResponse?.pagination?.total ?? 0;
+  const pageCount = Math.ceil(totalRows / pagination.pageSize);
+
+  const mutations = useLeaveMutations();
+  const batchMutation = useBatchLeaveMutation();
   
   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({}), [isAlertOpen, setIsAlertOpen] = React.useState(false), [idToDelete, setIdToDelete] = React.useState<SystemId | null>(null), [isFormOpen, setIsFormOpen] = React.useState(false), [editingRequest, setEditingRequest] = React.useState<LeaveRequest | null>(null);
-  const [sorting, setSorting] = React.useState<{ id: string, desc: boolean }>({ id: 'createdAt', desc: true }), [globalFilter, setGlobalFilter] = React.useState(''), [statusFilter, setStatusFilter] = React.useState<"all" | LeaveStatus>('all'), [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 20 });
   const [mobileLoadedCount, setMobileLoadedCount] = React.useState(20), [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>({}), [columnOrder, setColumnOrder] = React.useState<string[]>([]), [pinnedColumns, setPinnedColumns] = React.useState<string[]>(['select', 'employeeName']);
 
   const handleStatusChange = React.useCallback((systemId: SystemId, status: LeaveStatus) => {
     const request = leaveRequests.find(r => r.systemId === systemId);
     if (!request) return;
     
+    const currentUserName = user?.name || user?.email || 'Unknown';
+    
     if (status === 'Đã duyệt') {
-      mutations.approve.mutate({ systemId }, {
+      mutations.approve.mutate({ systemId, approvedBy: currentUserName }, {
         onSuccess: () => toast.success("Đã duyệt đơn nghỉ phép", { description: `Đơn ${request.id} đã được duyệt` }),
         onError: () => toast.error("Lỗi", { description: "Không thể duyệt đơn nghỉ phép" }),
       });
     } else if (status === 'Đã từ chối') {
-      mutations.reject.mutate({ systemId, reason: 'Từ chối' }, {
+      mutations.reject.mutate({ systemId, rejectedBy: currentUserName, reason: 'Từ chối' }, {
         onSuccess: () => toast.success("Đã từ chối đơn", { description: `Đơn ${request.id} đã bị từ chối` }),
         onError: () => toast.error("Lỗi", { description: "Không thể từ chối đơn" }),
       });
@@ -61,7 +95,7 @@ export function LeavesPage() {
         onError: () => toast.error("Lỗi", { description: "Không thể cập nhật trạng thái" }),
       });
     }
-  }, [leaveRequests, mutations]);
+  }, [leaveRequests, mutations, user]);
 
   const handleDelete = React.useCallback((systemId: SystemId) => { setIdToDelete(systemId); setIsAlertOpen(true); }, []);
   const handleEdit = React.useCallback((request: LeaveRequest) => { setEditingRequest(request); setIsFormOpen(true); }, []);
@@ -75,9 +109,25 @@ export function LeavesPage() {
     setColumnOrder(columns.map(c => c.id).filter(Boolean) as string[]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  
-  const fuseOptions = React.useMemo(() => ({ keys: ["employeeName", "leaveTypeName", "reason", "employeeId"] }), []);
-  const searchedData = useFuseFilter(leaveRequests, globalFilter, fuseOptions);
+
+  React.useEffect(() => { setMobileLoadedCount(20); }, [searchQuery, statusFilter]);
+
+  React.useEffect(() => {
+    if (!isMobile) return;
+    const handleScroll = () => {
+      const scrollPercentage = ((window.scrollY + window.innerHeight) / document.documentElement.scrollHeight) * 100;
+      if (scrollPercentage > 80 && mobileLoadedCount < leaveRequests.length) setMobileLoadedCount(prev => Math.min(prev + 20, leaveRequests.length));
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [isMobile, mobileLoadedCount, leaveRequests.length]);
+
+  const displayData = isMobile ? leaveRequests.slice(0, mobileLoadedCount) : leaveRequests;
+  const allSelectedRows = React.useMemo(() => leaveRequests.filter(lr => rowSelection[lr.systemId]), [leaveRequests, rowSelection]);
+  const handleRowClick = React.useCallback((row: LeaveRequest) => {
+    setEditingRequest(row);
+    setIsFormOpen(true);
+  }, []);
 
   const confirmDelete = () => {
     if (idToDelete) {
@@ -100,10 +150,14 @@ export function LeavesPage() {
       const createData: LeaveCreateInput = {
         employeeId: values.employeeSystemId,
         leaveType: values.leaveTypeId || 'ANNUAL',
+        leaveTypeName: values.leaveTypeName,
+        leaveTypeSystemId: values.leaveTypeSystemId,
         startDate: values.startDate,
         endDate: values.endDate,
         reason: values.reason,
         status: 'Chờ duyệt',
+        numberOfDays: values.numberOfDays,
+        totalDays: values.numberOfDays,
       };
       mutations.create.mutate(createData, {
         onSuccess: () => { toast.success("Đã tạo đơn nghỉ phép mới", { description: `Đơn đã được tạo, đang chờ duyệt` }); setIsFormOpen(false); setEditingRequest(null); },
@@ -112,44 +166,39 @@ export function LeavesPage() {
     }
   };
 
-  const filteredData = React.useMemo(() => {
-    const data = globalFilter ? searchedData : leaveRequests;
-    return statusFilter !== 'all' ? data.filter(r => r.status === statusFilter) : data;
-  }, [leaveRequests, globalFilter, statusFilter, searchedData]);
-
-  React.useEffect(() => { setMobileLoadedCount(20); }, [globalFilter, statusFilter]);
-
-  React.useEffect(() => {
-    if (!isMobile) return;
-    const handleScroll = () => {
-      const scrollPercentage = ((window.scrollY + window.innerHeight) / document.documentElement.scrollHeight) * 100;
-      if (scrollPercentage > 80 && mobileLoadedCount < filteredData.length) setMobileLoadedCount(prev => Math.min(prev + 20, filteredData.length));
-    };
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [isMobile, mobileLoadedCount, filteredData.length]);
-
-  const pageCount = Math.ceil(filteredData.length / pagination.pageSize);
-  const paginatedData = React.useMemo(() => filteredData.slice(pagination.pageIndex * pagination.pageSize, (pagination.pageIndex + 1) * pagination.pageSize), [filteredData, pagination]);
-  const displayData = isMobile ? filteredData.slice(0, mobileLoadedCount) : paginatedData;
-  const allSelectedRows = React.useMemo(() => leaveRequests.filter(lr => rowSelection[lr.systemId]), [leaveRequests, rowSelection]);
-  const handleRowClick = (row: LeaveRequest) => router.push(`/leaves/${row.systemId}`);
-
   const handleBulkApprove = React.useCallback(() => {
-    allSelectedRows.forEach(row => {
-      mutations.approve.mutate({ systemId: row.systemId });
-    });
-    setRowSelection({});
-    toast.success(`Đã gửi yêu cầu duyệt ${allSelectedRows.length} đơn nghỉ phép`);
-  }, [allSelectedRows, mutations]);
+    const currentUserName = user?.name || user?.email || 'Unknown';
+    const systemIds = allSelectedRows.map(row => row.systemId);
+    batchMutation.mutate(
+      { action: 'approve', systemIds, approvedBy: currentUserName },
+      {
+        onSuccess: (result) => {
+          toast.success(`Đã duyệt ${result.approved ?? 0} đơn nghỉ phép`, {
+            description: result.skipped ? `${result.skipped} đơn bị bỏ qua (không hợp lệ)` : undefined,
+          });
+          setRowSelection({});
+        },
+        onError: () => toast.error('Lỗi khi duyệt hàng loạt'),
+      },
+    );
+  }, [allSelectedRows, batchMutation, user]);
   
   const handleBulkReject = React.useCallback(() => {
-    allSelectedRows.forEach(row => {
-      mutations.reject.mutate({ systemId: row.systemId, reason: 'Từ chối hàng loạt' });
-    });
-    setRowSelection({});
-    toast.error(`Đã gửi yêu cầu từ chối ${allSelectedRows.length} đơn nghỉ phép`);
-  }, [allSelectedRows, mutations]);
+    const currentUserName = user?.name || user?.email || 'Unknown';
+    const systemIds = allSelectedRows.map(row => row.systemId);
+    batchMutation.mutate(
+      { action: 'reject', systemIds, rejectedBy: currentUserName, reason: 'Từ chối hàng loạt' },
+      {
+        onSuccess: (result) => {
+          toast.success(`Đã từ chối ${result.rejected ?? 0} đơn nghỉ phép`, {
+            description: result.skipped ? `${result.skipped} đơn bị bỏ qua` : undefined,
+          });
+          setRowSelection({});
+        },
+        onError: () => toast.error('Lỗi khi từ chối hàng loạt'),
+      },
+    );
+  }, [allSelectedRows, batchMutation, user]);
   
   const handleBulkDelete = React.useCallback(() => {
     if (allSelectedRows.length === 0) return;
@@ -161,21 +210,28 @@ export function LeavesPage() {
   const exportConfig = React.useMemo(() => ({ fileName: 'Danh_sach_Nghi_phep', columns }), [columns]);
   const importConfig: ImportConfig<LeaveRequest> = React.useMemo(() => ({
     importer: (items) => {
-      items.forEach(item => {
-        const createData: LeaveCreateInput = {
-          employeeId: item.employeeSystemId || '',
-          leaveType: item.leaveTypeId || 'ANNUAL',
-          startDate: item.startDate || new Date().toISOString().split('T')[0],
-          endDate: item.endDate || new Date().toISOString().split('T')[0],
-          reason: item.reason,
-          status: 'Chờ duyệt',
-        };
-        mutations.create.mutate(createData);
-      });
-      toast.success(`Đã nhập ${items.length} đơn nghỉ phép`);
+      const batchItems: BatchCreateItem[] = items.map(item => ({
+        employeeId: item.employeeSystemId || '',
+        leaveType: item.leaveTypeId || 'ANNUAL',
+        startDate: item.startDate || new Date().toISOString().split('T')[0],
+        endDate: item.endDate || new Date().toISOString().split('T')[0],
+        reason: item.reason,
+        status: 'Chờ duyệt',
+      }));
+      batchMutation.mutate(
+        { action: 'create', items: batchItems },
+        {
+          onSuccess: (result) => {
+            toast.success(`Đã nhập ${result.created ?? 0} đơn nghỉ phép`, {
+              description: result.errors?.length ? `${result.errors.length} lỗi` : undefined,
+            });
+          },
+          onError: () => toast.error('Lỗi khi nhập hàng loạt'),
+        },
+      );
     },
     fileName: 'Mau_Nhap_Nghi_phep', existingData: leaveRequests, getUniqueKey: (item: Partial<LeaveRequest>) => item.id || `${item.employeeId}-${item.startDate}`,
-  }), [mutations, leaveRequests]);
+  }), [batchMutation, leaveRequests]);
 
   const bulkActions = React.useMemo(() => [
     { label: 'Duyệt đã chọn', icon: CheckCircle2, onSelect: () => handleBulkApprove() },
@@ -212,13 +268,13 @@ export function LeavesPage() {
     <div className="space-y-4">
       {!isMobile && (
         <PageToolbar
-          leftActions={<><DataTableImportDialog config={importConfig} /><DataTableExportDialog allData={leaveRequests} filteredData={filteredData} pageData={paginatedData} config={exportConfig} /></>}
+          leftActions={<><Button variant="outline" size="sm" onClick={() => router.push('/settings/employees')}><Settings className="h-4 w-4 mr-2" />Cài đặt</Button><DataTableImportDialog config={importConfig} /><DataTableExportDialog allData={leaveRequests} filteredData={leaveRequests} pageData={leaveRequests} config={exportConfig} /></>}
           rightActions={<DataTableColumnCustomizer columns={columns} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} />}
         />
       )}
-      <PageFilters searchValue={globalFilter} onSearchChange={setGlobalFilter} searchPlaceholder="Tìm kiếm đơn...">
+      <PageFilters searchValue={searchQuery} onSearchChange={setSearchQuery} searchPlaceholder="Tìm kiếm đơn...">
         <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as LeaveStatus | 'all')}>
-          <SelectTrigger className="h-9 w-[180px]"><SelectValue placeholder="Lọc trạng thái" /></SelectTrigger>
+          <SelectTrigger className="h-9 w-45"><SelectValue placeholder="Lọc trạng thái" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Tất cả trạng thái</SelectItem>
             <SelectItem value="Chờ duyệt">Chờ duyệt</SelectItem>
@@ -227,12 +283,12 @@ export function LeavesPage() {
           </SelectContent>
         </Select>
       </PageFilters>
-      <ResponsiveDataTable columns={columns} data={displayData} renderMobileCard={renderMobileCard} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowCount={filteredData.length} rowSelection={rowSelection} setRowSelection={setRowSelection} sorting={sorting} setSorting={setSorting} onRowClick={handleRowClick} allSelectedRows={allSelectedRows} onBulkDelete={handleBulkDelete} bulkActions={bulkActions} expanded={{}} setExpanded={() => {}} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} emptyTitle="Không có đơn nghỉ phép" emptyDescription="Tạo đơn nghỉ phép đầu tiên để bắt đầu" />
+      <ResponsiveDataTable columns={columns} data={displayData} renderMobileCard={renderMobileCard} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowCount={totalRows} rowSelection={rowSelection} setRowSelection={setRowSelection} sorting={sorting} setSorting={setSorting} onRowClick={handleRowClick} allSelectedRows={allSelectedRows} onBulkDelete={handleBulkDelete} bulkActions={bulkActions} expanded={{}} setExpanded={() => {}} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} emptyTitle="Không có đơn nghỉ phép" emptyDescription="Tạo đơn nghỉ phép đầu tiên để bắt đầu" isLoading={isLoadingLeaves} />
       {isMobile && (
         <div className="py-6 text-center">
-          {mobileLoadedCount < filteredData.length ? (
+          {mobileLoadedCount < leaveRequests.length ? (
             <div className="flex items-center justify-center gap-2 text-muted-foreground"><div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" /><span className="text-sm">Đang tải thêm...</span></div>
-          ) : filteredData.length > 20 ? (<p className="text-sm text-muted-foreground">Đã hiển thị tất cả {filteredData.length} kết quả</p>) : null}
+          ) : leaveRequests.length > 20 ? (<p className="text-sm text-muted-foreground">Đã hiển thị tất cả {leaveRequests.length} kết quả</p>) : null}
         </div>
       )}
       <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>

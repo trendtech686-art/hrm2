@@ -356,7 +356,7 @@ export const purchaseOrderImportExportConfig: ImportExportConfig<PurchaseOrder> 
           productSystemId: asSystemId(product?.systemId || ''),
           productId: asBusinessId(product?.id || row.productIdOrSku || ''),
           productName: product?.name || row.productName || '',
-          sku: product?.sku,
+          sku: product?.id,
           unit: product?.unit,
           quantity,
           unitPrice,

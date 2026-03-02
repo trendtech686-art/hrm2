@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
@@ -54,20 +54,24 @@ import type { StockTransferStatus, StockTransfer } from '@/lib/types/prisma-exte
 
 const formatCurrency = (value: number) => value.toLocaleString('vi-VN') + ' d';
 
-const getStatusVariant = (status: StockTransferStatus): 'default' | 'secondary' | 'success' | 'destructive' | 'outline' => {
-  switch (status) {
+const getStatusVariant = (status: StockTransferStatus | string): 'default' | 'secondary' | 'success' | 'destructive' | 'outline' => {
+  const normalizedStatus = status?.toLowerCase();
+  switch (normalizedStatus) {
     case 'pending': return 'secondary';
-    case 'transferring': return 'default';
+    case 'transferring':
+    case 'in_transit': return 'default';
     case 'completed': return 'success';
     case 'cancelled': return 'destructive';
     default: return 'outline';
   }
 };
 
-const getStatusLabel = (status: StockTransferStatus): string => {
-  switch (status) {
+const getStatusLabel = (status: StockTransferStatus | string): string => {
+  const normalizedStatus = status?.toLowerCase();
+  switch (normalizedStatus) {
     case 'pending': return 'Chờ chuyển';
-    case 'transferring': return 'Đang chuyển';
+    case 'transferring':
+    case 'in_transit': return 'Đang chuyển';
     case 'completed': return 'Hoàn thành';
     case 'cancelled': return 'Đã hủy';
     default: return status;
@@ -154,7 +158,7 @@ export function StockTransferDetailPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const router = useRouter();
   
-  const { data: transferData } = useStockTransfer(systemId);
+  const { data: transferData, isLoading } = useStockTransfer(systemId);
   const { start: startMutation, complete: completeMutation, cancel: cancelMutation } = useStockTransferMutations({
     onStartSuccess: () => {
       toast.success('Đã xác nhận xuất kho');
@@ -274,12 +278,15 @@ export function StockTransferDetailPage() {
   const headerActions = React.useMemo(() => {
     if (!transferData) return null;
 
+    // Normalize status for comparison
+    const status = transferData.status?.toLowerCase();
+    
     // Determine if can edit: pending/transferring = limited, completed = very limited
-    const canEdit = transferData.status !== 'cancelled';
+    const canEdit = status !== 'cancelled' && status !== 'completed';
 
     return (
       <div className="flex items-center gap-2">
-        {transferData.status === 'pending' && (
+        {status === 'pending' && (
           <>
             <Button variant="destructive" className="h-9" onClick={() => setCancelDialogOpen(true)}>
               <XCircle className="mr-2 h-4 w-4" />
@@ -292,7 +299,7 @@ export function StockTransferDetailPage() {
           </>
         )}
         
-        {transferData.status === 'transferring' && (
+        {(status === 'transferring' || status === 'in_transit') && (
           <>
             <Button variant="destructive" className="h-9" onClick={() => setCancelDialogOpen(true)}>
               <XCircle className="mr-2 h-4 w-4" />
@@ -307,13 +314,13 @@ export function StockTransferDetailPage() {
 
         <Button variant="outline" className="h-9" onClick={handlePrint}>
           <Printer className="mr-2 h-4 w-4" />
-          In phi?u
+          In phiếu
         </Button>
         
         {canEdit && (
           <Button variant="outline" className="h-9" onClick={() => router.push(`/stock-transfers/${transferData.systemId}/edit`)}>
             <Edit className="mr-2 h-4 w-4" />
-            S?a
+            Sửa
           </Button>
         )}
       </div>
@@ -324,8 +331,8 @@ export function StockTransferDetailPage() {
   const breadcrumb = React.useMemo(() => {
     if (!transferData) return [];
     return [
-      { label: 'Trang ch?', href: ROUTES.ROOT },
-      { label: 'Chuy?n kho', href: ROUTES.INVENTORY.STOCK_TRANSFERS },
+      { label: 'Trang chủ', href: ROUTES.ROOT },
+      { label: 'Chuyển kho', href: ROUTES.INVENTORY.STOCK_TRANSFERS },
       { label: transferData.id, href: '' },
     ];
   }, [transferData]);
@@ -333,7 +340,7 @@ export function StockTransferDetailPage() {
   React.useEffect(() => {
     if (transferData) {
       setPageHeader({
-        title: `Phi?u chuy?n kho ${transferData.id}`,
+        title: `Phiếu chuyển kho ${transferData.id}`,
         breadcrumb,
         showBackButton: true,
         backPath: ROUTES.INVENTORY.STOCK_TRANSFERS,
@@ -353,6 +360,16 @@ export function StockTransferDetailPage() {
     }
     return () => clearPageHeader();
   }, [transferData, setPageHeader, clearPageHeader, breadcrumb, headerActions]);
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4" />
+        <p className="text-muted-foreground">Đang tải...</p>
+      </div>
+    );
+  }
 
   if (!transferData) {
     return (
@@ -417,7 +434,7 @@ export function StockTransferDetailPage() {
         {/* Column 1: Thông tin chuyển kho */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-h3">Thông tin chuyển kho</CardTitle>
+            <CardTitle size="lg">Thông tin chuyển kho</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <DetailField label="Mã phiếu" value={transferData.id} />
@@ -448,7 +465,7 @@ export function StockTransferDetailPage() {
         {/* Column 2: Thông tin xử lý */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-h3">Thông tin xử lý</CardTitle>
+            <CardTitle size="lg">Thông tin xử lý</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <DetailField label="Ngày tạo" value={formatDateTime(transferData.createdDate)} />
@@ -494,7 +511,7 @@ export function StockTransferDetailPage() {
       {/* Product List - Full Width */}
       <Card>
             <CardHeader>
-              <CardTitle className="text-h3">Danh sách sản phẩm ({transferData.items.length})</CardTitle>
+              <CardTitle size="lg">Danh sách sản phẩm ({transferData.items.length})</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
@@ -502,15 +519,25 @@ export function StockTransferDetailPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>#</TableHead>
-                      <TableHead className="w-[60px]">Hình ảnh</TableHead>
+                      <TableHead className="w-15">Hình ảnh</TableHead>
                       <TableHead>Sản phẩm</TableHead>
-                      <TableHead className="w-[100px]">Loại SP</TableHead>
+                      <TableHead className="w-25">Loại SP</TableHead>
                       <TableHead className="text-center">SL chuyển</TableHead>
                       {transferData.status === 'completed' && (
                         <TableHead className="text-center">SL nhận</TableHead>
                       )}
-                      <TableHead className="text-center">CN Chuyển (Trước → Sau)</TableHead>
-                      <TableHead className="text-center">CN Nhận (Trước → Sau)</TableHead>
+                      <TableHead className="text-center">
+                        <div className="flex flex-col">
+                          <span>{transferData.fromBranchName}</span>
+                          <span className="text-xs font-normal text-muted-foreground">(Trước → Sau)</span>
+                        </div>
+                      </TableHead>
+                      <TableHead className="text-center">
+                        <div className="flex flex-col">
+                          <span>{transferData.toBranchName}</span>
+                          <span className="text-xs font-normal text-muted-foreground">(Trước → Sau)</span>
+                        </div>
+                      </TableHead>
                       <TableHead className="text-right">Đơn giá</TableHead>
                       <TableHead className="text-right">Thành tiền</TableHead>
                       <TableHead>Ghi chú</TableHead>
@@ -678,13 +705,13 @@ export function StockTransferDetailPage() {
             </DialogDescription>
           </DialogHeader>
           
-          <div className="overflow-x-auto max-h-[400px]">
+          <div className="overflow-x-auto max-h-100">
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Sản phẩm</TableHead>
-                  <TableHead className="text-center w-[100px]">SL chuyển</TableHead>
-                  <TableHead className="text-center w-[120px]">SL nhận</TableHead>
+                  <TableHead className="text-center w-25">SL chuyển</TableHead>
+                  <TableHead className="text-center w-30">SL nhận</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

@@ -26,7 +26,7 @@ import { DepartmentForm, type DepartmentFormValues } from "./department-form"
 import type { Department } from '@/lib/types/prisma-extended'
 import { Button } from "../../../components/ui/button"
 import { PlusCircle, MoreHorizontal } from "lucide-react"
-import { useFuseFilter } from "../../../hooks/use-fuse-search"
+import { simpleSearch } from "@/lib/simple-search"
 import { asBusinessId, type SystemId } from "@/lib/id-types"
 import { Input } from "../../../components/ui/input"
 import { SimpleSettingsTable } from "../../../components/settings/SimpleSettingsTable"
@@ -49,6 +49,8 @@ export function DepartmentsSettingsContent() {
   const [idToDelete, setIdToDelete] = React.useState<SystemId | null>(null)
   const [isFormOpen, setIsFormOpen] = React.useState(false)
   const [editingDepartment, setEditingDepartment] = React.useState<Department | null>(null)
+  const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({})
+  const [isBulkDeleteOpen, setIsBulkDeleteOpen] = React.useState(false)
   
   const [globalFilter, setGlobalFilter] = React.useState('');
 
@@ -81,7 +83,7 @@ export function DepartmentsSettingsContent() {
       id: "description",
       accessorKey: "description",
       header: "Mô tả",
-      cell: ({ row }) => <span className="text-muted-foreground">{(row as any).description || '-'}</span>,
+      cell: ({ row }) => <span className="text-muted-foreground">{(row as Department & { description?: string }).description || '-'}</span>,
       meta: { displayName: "Mô tả" },
     },
     {
@@ -116,10 +118,12 @@ export function DepartmentsSettingsContent() {
       },
       size: 90,
     },
-  ] as any), [handleDelete, handleEdit]);
+  ] as ColumnDef<Department>[]), [handleDelete, handleEdit]);
   
-  const fuseOptions = React.useMemo(() => ({ keys: ["id", "name"] }), []);
-  const searchedData = useFuseFilter(departments, globalFilter, fuseOptions);
+  const searchedData = React.useMemo(() => 
+    simpleSearch(departments, globalFilter, { keys: ['id', 'name'] }), 
+    [departments, globalFilter]
+  );
   
   const confirmDelete = () => {
     if (idToDelete) {
@@ -127,6 +131,21 @@ export function DepartmentsSettingsContent() {
     }
     setIsAlertOpen(false)
     setIdToDelete(null)
+  }
+
+  const handleBulkDelete = React.useCallback((selectedItems: { systemId: string }[]) => {
+    if (selectedItems.length === 0) return
+    setIsBulkDeleteOpen(true)
+  }, [])
+
+  const confirmBulkDelete = () => {
+    const selectedIds = Object.keys(rowSelection)
+    selectedIds.forEach(id => {
+      remove.mutate(id as SystemId)
+    })
+    toast.success(`Đã xóa ${selectedIds.length} phòng ban`)
+    setRowSelection({})
+    setIsBulkDeleteOpen(false)
   }
 
   const handleAddNew = () => {
@@ -158,11 +177,9 @@ export function DepartmentsSettingsContent() {
     setEditingDepartment(null);
   };
   
-  const filteredData = React.useMemo(() => globalFilter ? searchedData : departments, [departments, globalFilter, searchedData]);
-  
-  const sortedData = React.useMemo(() => {
-    return [...filteredData].sort((a, b) => a.name.localeCompare(b.name));
-  }, [filteredData]);
+const sortedData = React.useMemo(() => {
+    return [...searchedData].sort((a, b) => a.name.localeCompare(b.name));
+  }, [searchedData]);
 
   // Loading state
   if (isLoading) {
@@ -203,6 +220,7 @@ export function DepartmentsSettingsContent() {
           <SimpleSettingsTable
             data={sortedData}
             columns={columns}
+            isLoading={isLoading}
             emptyTitle="Chưa có phòng ban"
             emptyDescription="Tạo phòng ban đầu tiên để quản lý nhân sự"
             emptyAction={
@@ -210,6 +228,12 @@ export function DepartmentsSettingsContent() {
                 Thêm phòng ban
               </Button>
             }
+            enableSelection
+            rowSelection={rowSelection}
+            setRowSelection={setRowSelection}
+            onBulkDelete={handleBulkDelete}
+            enablePagination
+            pagination={{ pageSize: 10, showInfo: true }}
           />
         </CardContent>
       </Card>
@@ -225,6 +249,19 @@ export function DepartmentsSettingsContent() {
             <AlertDialogAction onClick={confirmDelete} disabled={remove.isPending}>
               {remove.isPending ? 'Đang xóa...' : 'Tiếp tục'}
             </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={isBulkDeleteOpen} onOpenChange={setIsBulkDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Xóa {Object.keys(rowSelection).length} phòng ban?</AlertDialogTitle>
+            <AlertDialogDescription>Hành động này không thể hoàn tác. Các phòng ban đã chọn sẽ bị xóa vĩnh viễn.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Hủy</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmBulkDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Xóa tất cả</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

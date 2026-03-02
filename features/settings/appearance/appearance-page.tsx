@@ -166,7 +166,7 @@ export function AppearancePage() {
     
     return (
         <div className="h-full flex flex-col">
-            <div className="flex-shrink-0 p-4 border-b bg-card space-y-4">
+            <div className="shrink-0 p-4 border-b bg-card space-y-4">
                 <div className="flex items-center justify-between gap-4">
                     <div className="flex-1">
                         <h4 className="text-h6 font-medium text-muted-foreground mb-2">Theme</h4>
@@ -205,7 +205,7 @@ export function AppearancePage() {
                     </div>
                 </div>
             </div>
-            <ResizablePanelGroup direction="horizontal" className="flex-grow">
+            <ResizablePanelGroup direction="horizontal" className="grow">
                 <ResizablePanel defaultSize={30} minSize={20}>
                     <ScrollArea className="h-full">
                         <div className="p-4 space-y-8">
@@ -221,7 +221,7 @@ export function AppearancePage() {
                 <ResizableHandle withHandle />
                 <ResizablePanel defaultSize={70}>
                     <div className="h-full flex flex-col bg-muted/40">
-                        <div className="flex-shrink-0 flex items-center justify-between p-2 border-b bg-card">
+                        <div className="shrink-0 flex items-center justify-between p-2 border-b bg-card">
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                     <Button variant="ghost" className="gap-1">
@@ -241,7 +241,7 @@ export function AppearancePage() {
                                 {localColorMode === 'light' ? 'Light Mode' : 'Dark Mode'}
                             </span>
                         </div>
-                        <ScrollArea className="flex-grow p-4 sm:p-6 lg:p-8">
+                        <ScrollArea className="grow p-4 sm:p-6 lg:p-8">
                             <div 
                                 style={{
                                     ...previewStyle,
@@ -249,7 +249,7 @@ export function AppearancePage() {
                                     color: localCustomThemeConfig['--foreground'],
                                 }}
                                 className={cn(
-                                    'rounded-lg p-6 min-h-[600px]',
+                                    'rounded-lg p-6 min-h-150',
                                     localColorMode === 'dark' ? 'dark' : '',
                                     `font-size-${localFontSize}`
                                 )}

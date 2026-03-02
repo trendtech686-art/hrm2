@@ -12,7 +12,7 @@ import {
   deletePayrollProfile,
 } from '../api/payroll-profiles-api';
 import type { SystemId } from '@/lib/id-types';
-import type { EmployeePayrollProfileInput, ResolvedPayrollProfile } from '../employee-comp-store';
+import type { EmployeePayrollProfileInput, ResolvedPayrollProfile } from '../types';
 import { getEmployeeSettingsSync } from '@/features/settings/employees/employee-settings-service';
 
 // Query keys factory

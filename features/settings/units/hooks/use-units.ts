@@ -5,6 +5,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { fetchAllPages } from '@/lib/fetch-all-pages';
 import {
   fetchUnits,
   fetchUnit,
@@ -86,9 +87,11 @@ export function useUnitMutations(options: UseUnitMutationsOptions = {}) {
 }
 
 export function useActiveUnits() {
-  return useUnits({ isActive: true, limit: 50 });
-}
-
-export function useAllUnits() {
-  return useUnits({ limit: 500 });
+  const query = useQuery({
+    queryKey: [...unitKeys.all, 'active'],
+    queryFn: () => fetchAllPages((p) => fetchUnits({ ...p, isActive: true })),
+    staleTime: 10 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+  });
+  return { ...query, data: query.data ? { data: query.data } : undefined };
 }

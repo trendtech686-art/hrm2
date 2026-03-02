@@ -2,7 +2,6 @@ import * as React from 'react';
 import Link from 'next/link';
 import { formatDate } from '@/lib/date-utils';
 import type { PackagingSlip } from '@/lib/types/prisma-extended';
-import type { PackagingStatus } from '../orders/types';
 import type { ColumnDef } from '../../components/data-table/types';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
@@ -11,10 +10,13 @@ import { MoreHorizontal, PackageCheck, Printer, Ban } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
 
 
-const statusVariants: Record<PackagingStatus, "warning" | "success" | "destructive"> = {
+const statusVariants: Record<string, "warning" | "success" | "destructive"> = {
     "Chờ đóng gói": "warning",
     "Đã đóng gói": "success",
     "Hủy đóng gói": "destructive",
+    "PENDING": "warning",
+    "PACKED": "success",
+    "CANCELLED": "destructive",
 };
 
 export const getColumns = (

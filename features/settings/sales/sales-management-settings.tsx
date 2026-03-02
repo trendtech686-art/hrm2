@@ -8,6 +8,7 @@ import { SettingsActionButton } from '../../../components/settings/SettingsActio
 import { useSalesManagementSettingsData } from './hooks/use-sales-management-settings';
 import type { SalesManagementSettingsValues } from './sales-management-service';
 import type { RegisterTabActions } from '../use-tab-action-registry';
+import { toast } from 'sonner';
 
 type SalesManagementSettingsProps = {
     isActive?: boolean;
@@ -23,12 +24,21 @@ export function SalesManagementSettings({ isActive, onRegisterActions }: SalesMa
         onRegisterActionsRef.current = onRegisterActions;
     }, [onRegisterActions]);
 
+    const handleSave = React.useCallback(async () => {
+        const result = await saveSettings();
+        if (result.success) {
+            toast.success('Đã lưu cài đặt');
+        } else {
+            toast.error('Lỗi khi lưu cài đặt', { description: result.error });
+        }
+    }, [saveSettings]);
+
     const headerActions = React.useMemo(() => [
-        <SettingsActionButton key="save" onClick={saveSettings} disabled={isSaving}>
+        <SettingsActionButton key="save" onClick={handleSave} disabled={isSaving}>
             {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
             Lưu cài đặt
         </SettingsActionButton>,
-    ], [saveSettings, isSaving]);
+    ], [handleSave, isSaving]);
 
     // Only register once when component becomes active
     React.useEffect(() => {

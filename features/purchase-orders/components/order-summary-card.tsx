@@ -1,4 +1,4 @@
-import * as React from "react";
+﻿import * as React from "react";
 import {
   Card,
   CardContent,
@@ -26,6 +26,7 @@ import {
   TableRow,
 } from "../../../components/ui/table";
 import { Plus, X } from "lucide-react";
+import { generateSubEntityId } from '@/lib/id-utils';
 import { useAllPaymentMethods } from "../../settings/payments/hooks/use-all-payment-methods";
 
 export type DiscountType = "percentage" | "fixed";
@@ -109,7 +110,7 @@ export function OrderSummaryCard({
 
   const handleAddShippingFee = () => {
     const newFee: Fee = {
-      id: `ship-${Date.now()}`,
+      id: generateSubEntityId('ship'),
       name: "Phí vận chuyển",
       amount: 0,
     };
@@ -130,7 +131,7 @@ export function OrderSummaryCard({
 
   const handleAddOtherFee = () => {
     const newFee: Fee = {
-      id: `other-${Date.now()}`,
+      id: generateSubEntityId('other'),
       name: "Chi phí khác",
       amount: 0,
     };
@@ -157,7 +158,7 @@ export function OrderSummaryCard({
     const remainingAmount = getRemainingAmount();
     
     const newPayment: PaymentRecord = {
-      id: `payment_${Date.now()}`,
+      id: generateSubEntityId('payment'),
       paymentMethodSystemId: defaultMethod.systemId,
       paymentMethodName: defaultMethod.name,
       amount: remainingAmount > 0 ? remainingAmount : 0,
@@ -199,7 +200,7 @@ export function OrderSummaryCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Chi phí nhập hàng</CardTitle>
+        <CardTitle>Chi phí nhập hàng</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Summary rows */}
@@ -235,7 +236,7 @@ export function OrderSummaryCard({
                   onDiscountTypeChange?.(value as DiscountType)
                 }
               >
-                <SelectTrigger className="w-[80px] h-8">
+                <SelectTrigger className="w-20 h-8">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -438,10 +439,10 @@ export function OrderSummaryCard({
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[40px] text-body-xs">STT</TableHead>
+                      <TableHead className="w-10 text-body-xs">STT</TableHead>
                       <TableHead className="text-body-xs">Hình thức</TableHead>
                       <TableHead className="text-body-xs">Số tiền</TableHead>
-                      <TableHead className="w-[40px]"></TableHead>
+                      <TableHead className="w-10"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>

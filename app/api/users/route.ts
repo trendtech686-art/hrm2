@@ -3,6 +3,7 @@ import { Prisma, UserRole } from '@/generated/prisma/client'
 import bcrypt from 'bcryptjs'
 import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
 import { createUserSchema } from './validation'
+import { generateNextIds } from '@/lib/id-system'
 
 // GET /api/users - List all users
 export async function GET(request: Request) {
@@ -84,10 +85,13 @@ export async function POST(request: Request) {
 
     // Hash password
     const hashedPassword = await bcrypt.hash(body.password, 10)
+    
+    // Generate user ID
+    const { systemId } = await generateNextIds('users')
 
     const user = await prisma.user.create({
       data: {
-        systemId: `USR${String(Date.now()).slice(-6).padStart(6, '0')}`,
+        systemId,
         email: body.email,
         password: hashedPassword,
         role: (body.role || 'USER') as UserRole,

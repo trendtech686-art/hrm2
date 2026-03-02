@@ -76,6 +76,8 @@ export interface TaskType {
   icon: string;
   order: number;
   isActive: boolean;
+  isDefault?: boolean;
+  color?: string;
 }
 
 export type TasksSettingsState = {
@@ -145,40 +147,72 @@ export const defaultEvidence: EvidenceSettings = {
 };
 
 export const defaultTaskTypes: TaskType[] = [
-  { id: '1', name: 'Phát triển', description: 'Công việc liên quan đến code/development', icon: '', order: 1, isActive: true },
-  { id: '2', name: 'Thiết kế', description: 'Công việc thiết kế UI/UX, graphics', icon: '', order: 2, isActive: true },
-  { id: '3', name: 'Marketing', description: 'Công việc marketing, quảng cáo', icon: '', order: 3, isActive: true },
-  { id: '4', name: 'Quản trị', description: 'Công việc hành chính, quản lý', icon: '', order: 4, isActive: true },
-  { id: '5', name: 'Khác', description: 'Các loại công việc khác', icon: '', order: 5, isActive: true },
+  { id: 'general', name: 'Công việc chung', description: 'Các công việc chung', icon: '', order: 1, isActive: true, isDefault: true },
+  { id: 'order-process', name: 'Xử lý đơn hàng', description: 'Tiếp nhận, xử lý đơn hàng', icon: 'shopping-cart', order: 2, isActive: true, color: 'blue' },
+  { id: 'inventory', name: 'Kiểm tra tồn kho', description: 'Kiểm đếm, đối chiếu tồn kho', icon: 'package', order: 3, isActive: true, color: 'amber' },
+  { id: 'supplier', name: 'Liên hệ NCC', description: 'Đặt hàng, liên hệ nhà cung cấp', icon: 'truck', order: 4, isActive: true, color: 'purple' },
+  { id: 'customer-support', name: 'CSKH', description: 'Chăm sóc, hỗ trợ khách hàng', icon: 'headphones', order: 5, isActive: true, color: 'green' },
+  { id: 'product-listing', name: 'Đăng sản phẩm', description: 'Đăng sản phẩm lên các kênh', icon: 'image', order: 6, isActive: true, color: 'pink' },
+  { id: 'shipping', name: 'Vận chuyển', description: 'Đóng gói, giao hàng', icon: 'send', order: 7, isActive: true, color: 'cyan' },
+  { id: 'warranty', name: 'Bảo hành', description: 'Xử lý bảo hành sản phẩm', icon: 'shield', order: 8, isActive: true, color: 'orange' },
+  { id: 'price-update', name: 'Cập nhật giá', description: 'Điều chỉnh giá bán các kênh', icon: 'tag', order: 9, isActive: true, color: 'red' },
+  { id: 'report', name: 'Báo cáo', description: 'Lập báo cáo, thống kê', icon: 'file-text', order: 10, isActive: true, color: 'slate' },
 ];
 
 export const defaultTemplates: TaskTemplate[] = [
   {
-    id: '1',
-    name: 'Bug Fix',
-    title: 'Sửa lỗi: [Tên lỗi]',
-    description: '**Mô tả lỗi:**\n[Mô tả chi tiết lỗi]\n\n**Bước tái hiện:**\n1. ...\n2. ...\n\n**Kết quả mong đợi:**\n[Kết quả đúng]\n\n**Kết quả thực tế:**\n[Kết quả sai]',
-    category: 'development',
-    estimatedHours: 4,
+    id: 'new_product_launch',
+    name: 'Ra mắt sản phẩm mới',
+    title: 'Ra mắt SP mới: [Tên sản phẩm]',
+    description: 'Quy trình thêm sản phẩm mới từ NCC',
+    category: 'general',
+    estimatedHours: 8,
     order: 1,
   },
   {
-    id: '2',
-    name: 'New Feature',
-    title: 'Tính năng mới: [Tên tính năng]',
-    description: '**Mục đích:**\n[Mô tả mục đích]\n\n**Yêu cầu chức năng:**\n- ...\n- ...\n\n**Yêu cầu kỹ thuật:**\n- ...\n\n**Acceptance Criteria:**\n- [ ] ...\n- [ ] ...',
-    category: 'development',
-    estimatedHours: 16,
+    id: 'inventory_check',
+    name: 'Kiểm kho định kỳ',
+    title: 'Kiểm kho: [Tuần/Tháng]',
+    description: 'Kiểm tra tồn kho hàng tuần/tháng',
+    category: 'general',
+    estimatedHours: 4,
     order: 2,
   },
   {
-    id: '3',
-    name: 'Design Task',
-    title: 'Thiết kế: [Tên thiết kế]',
-    description: '**Loại thiết kế:**\n[UI/UX/Banner/Logo/...]\n\n**Yêu cầu:**\n- ...\n- ...\n\n**Tham khảo:**\n[Link/File tham khảo]',
-    category: 'design',
-    estimatedHours: 8,
+    id: 'order_issue',
+    name: 'Xử lý đơn hàng lỗi',
+    title: 'Xử lý lỗi đơn: [Mã đơn]',
+    description: 'Giải quyết vấn đề đơn hàng (thiếu hàng, giao sai, hư hỏng)',
+    category: 'general',
+    estimatedHours: 2,
     order: 3,
+  },
+  {
+    id: 'supplier_order',
+    name: 'Đặt hàng NCC',
+    title: 'Đặt hàng: [Tên NCC]',
+    description: 'Quy trình đặt hàng bổ sung từ nhà cung cấp',
+    category: 'general',
+    estimatedHours: 4,
+    order: 4,
+  },
+  {
+    id: 'price_sync',
+    name: 'Đồng bộ giá đa kênh',
+    title: 'Sync giá: [Danh mục/Sản phẩm]',
+    description: 'Cập nhật giá trên các kênh bán hàng',
+    category: 'general',
+    estimatedHours: 2,
+    order: 5,
+  },
+  {
+    id: 'warranty_process',
+    name: 'Xử lý bảo hành',
+    title: 'Bảo hành: [Mã BH / Tên KH]',
+    description: 'Quy trình tiếp nhận và xử lý bảo hành sản phẩm',
+    category: 'general',
+    estimatedHours: 4,
+    order: 6,
   },
 ];
 

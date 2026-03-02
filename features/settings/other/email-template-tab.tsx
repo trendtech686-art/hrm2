@@ -35,6 +35,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { TipTapEditor } from '@/components/ui/tiptap-editor';
 import { formatDateForDisplay } from '@/lib/date-utils';
 import { toast } from 'sonner';
+import { generateSubEntityId } from '@/lib/id-utils';
 import type { TabContentProps } from './types';
 
 interface EmailTemplate {
@@ -354,7 +355,7 @@ export function EmailTemplateTabContent({ isActive, onRegisterActions }: TabCont
   const handleDialogSubmit = () => {
     if (dialogMode === 'add') {
       const newTemplate: EmailTemplate = {
-        id: String(Date.now()),
+        id: generateSubEntityId('email-tpl'),
         name: formData.name,
         subject: formData.subject,
         description: formData.description,
@@ -610,7 +611,7 @@ export function EmailTemplateTabContent({ isActive, onRegisterActions }: TabCont
 
       {/* Email Template Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-225 max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {dialogMode === 'add' && 'Thêm mẫu email mới'}
@@ -715,7 +716,7 @@ export function EmailTemplateTabContent({ isActive, onRegisterActions }: TabCont
                   <Label className="text-sm font-semibold">Biến mẫu có sẵn</Label>
                   <p className="text-xs text-muted-foreground mb-3">Click để copy, paste vào tiêu đề hoặc nội dung</p>
                   
-                  <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2">
+                  <div className="space-y-3 max-h-125 overflow-y-auto pr-2">
                     {/* Employee variables */}
                     <div className="space-y-1">
                       <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Nhân viên</p>
@@ -728,7 +729,7 @@ export function EmailTemplateTabContent({ isActive, onRegisterActions }: TabCont
                                   type="button"
                                   variant="outline"
                                   size="sm"
-                                  className="h-7 text-xs font-mono px-2"
+                                  className="h-7 text-xs px-2"
                                   onClick={() => {
                                     navigator.clipboard.writeText(v.key);
                                     toast.success(`Đã copy ${v.key}`);
@@ -756,7 +757,7 @@ export function EmailTemplateTabContent({ isActive, onRegisterActions }: TabCont
                                   type="button"
                                   variant="outline"
                                   size="sm"
-                                  className="h-7 text-xs font-mono px-2"
+                                  className="h-7 text-xs px-2"
                                   onClick={() => {
                                     navigator.clipboard.writeText(v.key);
                                     toast.success(`Đã copy ${v.key}`);
@@ -784,7 +785,7 @@ export function EmailTemplateTabContent({ isActive, onRegisterActions }: TabCont
                                   type="button"
                                   variant="outline"
                                   size="sm"
-                                  className="h-7 text-xs font-mono px-2"
+                                  className="h-7 text-xs px-2"
                                   onClick={() => {
                                     navigator.clipboard.writeText(v.key);
                                     toast.success(`Đã copy ${v.key}`);
@@ -813,7 +814,7 @@ export function EmailTemplateTabContent({ isActive, onRegisterActions }: TabCont
                                     type="button"
                                     variant="outline"
                                     size="sm"
-                                    className="h-7 text-xs font-mono px-2"
+                                    className="h-7 text-xs px-2"
                                     onClick={() => {
                                       navigator.clipboard.writeText(v.key);
                                       toast.success(`Đã copy ${v.key}`);
@@ -842,7 +843,7 @@ export function EmailTemplateTabContent({ isActive, onRegisterActions }: TabCont
                                     type="button"
                                     variant="outline"
                                     size="sm"
-                                    className="h-7 text-xs font-mono px-2"
+                                    className="h-7 text-xs px-2"
                                     onClick={() => {
                                       navigator.clipboard.writeText(v.key);
                                       toast.success(`Đã copy ${v.key}`);
@@ -871,7 +872,7 @@ export function EmailTemplateTabContent({ isActive, onRegisterActions }: TabCont
                                     type="button"
                                     variant="outline"
                                     size="sm"
-                                    className="h-7 text-xs font-mono px-2"
+                                    className="h-7 text-xs px-2"
                                     onClick={() => {
                                       navigator.clipboard.writeText(v.key);
                                       toast.success(`Đã copy ${v.key}`);
@@ -900,7 +901,7 @@ export function EmailTemplateTabContent({ isActive, onRegisterActions }: TabCont
                                     type="button"
                                     variant="outline"
                                     size="sm"
-                                    className="h-7 text-xs font-mono px-2"
+                                    className="h-7 text-xs px-2"
                                     onClick={() => {
                                       navigator.clipboard.writeText(v.key);
                                       toast.success(`Đã copy ${v.key}`);

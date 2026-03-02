@@ -9,15 +9,30 @@ const purchaseOrderItemSchema = z.object({
 })
 
 export const updatePurchaseOrderSchema = z.object({
+  systemId: z.string().optional(),
   supplierId: z.string().optional(),
   orderDate: z.string().optional(),
   expectedDate: z.string().optional().nullable(),
   receivedDate: z.string().optional().nullable(),
-  status: z.enum(['DRAFT', 'PENDING', 'APPROVED', 'ORDERED', 'PARTIAL', 'RECEIVED', 'CANCELLED']).optional(),
+  deliveryDate: z.string().optional().nullable(),
+  // Accept both uppercase and lowercase status, as well as Vietnamese
+  status: z.string().optional(),
+  deliveryStatus: z.string().optional(),
+  paymentStatus: z.string().optional(),
+  // Cancel info
+  cancelledBy: z.string().optional().nullable(),
+  cancelledAt: z.string().optional().nullable(),
+  // Complete info
+  completedBy: z.string().optional().nullable(),
+  completedAt: z.string().optional().nullable(),
+  // Financial
   subtotal: z.number().min(0).optional(),
   tax: z.number().min(0).optional(),
   discount: z.number().min(0).optional(),
   total: z.number().min(0).optional(),
+  grandTotal: z.number().min(0).optional(),
+  shippingFee: z.number().min(0).optional(),
+  // Other
   notes: z.string().optional().nullable(),
   items: z.array(purchaseOrderItemSchema).optional(),
 })

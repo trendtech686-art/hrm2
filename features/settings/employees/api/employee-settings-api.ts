@@ -62,7 +62,9 @@ export async function deleteWorkShift(systemId: string): Promise<void> {
 export async function fetchLeaveTypes(): Promise<LeaveType[]> {
   const res = await fetch(`${BASE_URL}/leave-types`);
   if (!res.ok) throw new Error('Failed to fetch');
-  return res.json();
+  const json = await res.json();
+  // API returns { data: [...] } format
+  return json.data ?? json ?? [];
 }
 
 export async function createLeaveType(data: Partial<LeaveType>): Promise<LeaveType> {
@@ -90,7 +92,8 @@ export async function deleteLeaveType(systemId: string): Promise<void> {
 export async function fetchSalaryComponents(): Promise<SalaryComponent[]> {
   const res = await fetch(`${BASE_URL}/salary-components`);
   if (!res.ok) throw new Error('Failed to fetch');
-  return res.json();
+  const json = await res.json();
+  return json.data ?? json ?? [];
 }
 
 export async function createSalaryComponent(data: Partial<SalaryComponent>): Promise<SalaryComponent> {
@@ -98,7 +101,8 @@ export async function createSalaryComponent(data: Partial<SalaryComponent>): Pro
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data),
   });
   if (!res.ok) throw new Error('Failed to create');
-  return res.json();
+  const json = await res.json();
+  return json.data ?? json;
 }
 
 export async function updateSalaryComponent(systemId: string, data: Partial<SalaryComponent>): Promise<SalaryComponent> {
@@ -106,7 +110,8 @@ export async function updateSalaryComponent(systemId: string, data: Partial<Sala
     method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data),
   });
   if (!res.ok) throw new Error('Failed to update');
-  return res.json();
+  const json = await res.json();
+  return json.data ?? json;
 }
 
 export async function deleteSalaryComponent(systemId: string): Promise<void> {

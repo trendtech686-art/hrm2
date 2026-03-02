@@ -1,34 +1,55 @@
 'use client';
 
+/**
+ * ImagesTab - Simple Image Upload for Product Form
+ * 
+ * Flow đơn giản:
+ * 1. Upload ảnh → Lưu file + database ngay (permanent)
+ * 2. Xóa ảnh → Xóa file + database ngay
+ * 3. Save form → Dùng URL để cập nhật product.thumbnailImage
+ */
+
 import * as React from 'react';
 import { useFormContext } from 'react-hook-form';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { FormField, FormItem, FormLabel, FormControl, FormMessage, FormDescription } from '@/components/ui/form';
 import { Textarea } from '@/components/ui/textarea';
-import { ImageUploadManager } from '@/components/ui/image-upload-manager';
-import type { StagingFile } from '@/lib/file-upload-api';
+import { SimpleImageUpload, type UploadedImage } from '@/components/ui/simple-image-upload';
 import type { ProductFormCompleteValues } from './types';
 
 interface ImagesTabProps {
-  thumbnailStagingFiles: StagingFile[];
-  setThumbnailStagingFiles: React.Dispatch<React.SetStateAction<StagingFile[]>>;
-  thumbnailSessionId: string | null;
-  setThumbnailSessionId: React.Dispatch<React.SetStateAction<string | null>>;
-  galleryStagingFiles: StagingFile[];
-  setGalleryStagingFiles: React.Dispatch<React.SetStateAction<StagingFile[]>>;
-  gallerySessionId: string | null;
-  setGallerySessionId: React.Dispatch<React.SetStateAction<string | null>>;
+  /**
+   * Product systemId - để lưu ảnh vào đúng entity
+   */
+  productId?: string;
+  
+  /**
+   * Current thumbnail image
+   */
+  thumbnailImage: UploadedImage | null;
+  
+  /**
+   * Called when thumbnail changes
+   */
+  onThumbnailChange: (image: UploadedImage | null) => void;
+  
+  /**
+   * Current gallery images
+   */
+  galleryImages: UploadedImage[];
+  
+  /**
+   * Called when gallery changes
+   */
+  onGalleryChange: (images: UploadedImage[]) => void;
 }
 
 export function ImagesTab({
-  thumbnailStagingFiles,
-  setThumbnailStagingFiles,
-  thumbnailSessionId,
-  setThumbnailSessionId,
-  galleryStagingFiles,
-  setGalleryStagingFiles,
-  gallerySessionId,
-  setGallerySessionId,
+  productId,
+  thumbnailImage,
+  onThumbnailChange,
+  galleryImages,
+  onGalleryChange,
 }: ImagesTabProps) {
   const form = useFormContext<ProductFormCompleteValues>();
 
@@ -40,15 +61,15 @@ export function ImagesTab({
           <CardTitle>Ảnh chính</CardTitle>
         </CardHeader>
         <CardContent>
-          <ImageUploadManager
-            value={thumbnailStagingFiles}
-            onChange={setThumbnailStagingFiles}
-            {...(thumbnailSessionId ? { sessionId: thumbnailSessionId } : {})}
-            onSessionChange={(nextSessionId) => setThumbnailSessionId(nextSessionId)}
-            maxFiles={1}
+          <SimpleImageUpload
+            value={thumbnailImage}
+            onChange={(val) => onThumbnailChange(val as UploadedImage | null)}
+            entityType="products"
+            entityId={productId}
+            documentName="thumbnail"
+            multiple={false}
             maxSize={5 * 1024 * 1024}
-            maxTotalSize={5 * 1024 * 1024}
-            description="Tải lên ảnh đại diện chính của sản phẩm. Chỉ được phép 1 ảnh."
+            helperText="Tải lên ảnh đại diện chính của sản phẩm. Chỉ được phép 1 ảnh."
           />
         </CardContent>
       </Card>
@@ -59,15 +80,16 @@ export function ImagesTab({
           <CardTitle>Album ảnh</CardTitle>
         </CardHeader>
         <CardContent>
-          <ImageUploadManager
-            value={galleryStagingFiles}
-            onChange={setGalleryStagingFiles}
-            {...(gallerySessionId ? { sessionId: gallerySessionId } : {})}
-            onSessionChange={(nextSessionId) => setGallerySessionId(nextSessionId)}
+          <SimpleImageUpload
+            value={galleryImages}
+            onChange={(val) => onGalleryChange((val as UploadedImage[] | null) || [])}
+            entityType="products"
+            entityId={productId}
+            documentName="gallery"
+            multiple={true}
             maxFiles={19}
             maxSize={5 * 1024 * 1024}
-            maxTotalSize={50 * 1024 * 1024}
-            description="Tải lên các hình ảnh phụ cho bộ sưu tập sản phẩm. Tối đa 19 ảnh."
+            helperText="Tải lên các hình ảnh phụ cho bộ sưu tập sản phẩm. Tối đa 19 ảnh."
           />
         </CardContent>
       </Card>
@@ -106,4 +128,16 @@ export function ImagesTab({
       </Card>
     </>
   );
+}
+
+// Legacy props type for backward compatibility during migration
+export interface LegacyImagesTabProps {
+  thumbnailStagingFiles: unknown[];
+  setThumbnailStagingFiles: React.Dispatch<React.SetStateAction<unknown[]>>;
+  thumbnailSessionId: string | null;
+  setThumbnailSessionId: React.Dispatch<React.SetStateAction<string | null>>;
+  galleryStagingFiles: unknown[];
+  setGalleryStagingFiles: React.Dispatch<React.SetStateAction<unknown[]>>;
+  gallerySessionId: string | null;
+  setGallerySessionId: React.Dispatch<React.SetStateAction<string | null>>;
 }

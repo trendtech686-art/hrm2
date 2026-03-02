@@ -9,13 +9,13 @@ import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils';
 // DELETE /api/import-export-logs/[id]?type=import
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await requireAuth();
   if (!session) return apiError('Unauthorized', 401);
 
   try {
-    const id = params.id;
+    const { id } = await params;
     const type = request.nextUrl.searchParams.get('type');
 
     if (!type || !['import', 'export'].includes(type)) {

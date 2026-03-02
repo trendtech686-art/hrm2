@@ -1,4 +1,4 @@
-import * as React from 'react';
+﻿import * as React from 'react';
 import { Button } from '../../../components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Input } from '../../../components/ui/input';
@@ -33,7 +33,7 @@ export function PreviewAuthentication() {
     <div className="flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Tạo tài khoản</CardTitle>
+          <CardTitle size="lg">Tạo tài khoản</CardTitle>
           <CardDescription>
             Nhập email để tạo tài khoản của bạn
           </CardDescription>

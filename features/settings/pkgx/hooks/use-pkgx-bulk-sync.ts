@@ -10,7 +10,6 @@
 
 import * as React from 'react';
 import { toast } from 'sonner';
-import { updateProduct, updateBrand } from '../../../../lib/pkgx/api-service';
 import { usePkgxSettings } from './use-pkgx-settings';
 import type { PkgxSettings } from '../types';
 import type { Product } from '../../../products/types';
@@ -23,6 +22,7 @@ import type { Brand } from '../../../settings/inventory/types';
 export type BulkSyncEntityType = 'product' | 'brand';
 
 export type BulkSyncActionKey = 
+  | 'publish'
   | 'sync_all'
   | 'sync_basic'
   | 'sync_seo'
@@ -48,8 +48,31 @@ export interface BulkSyncProgress {
   isRunning: boolean;
 }
 
+export interface ProductSyncHandlers {
+  handlePkgxPublish: (product: Product) => Promise<void>;
+  handlePkgxSyncAll: (product: Product) => Promise<void>;
+  handlePkgxUpdatePrice: (product: Product) => Promise<void>;
+  handlePkgxSyncInventory: (product: Product) => Promise<void>;
+  handlePkgxUpdateSeo: (product: Product) => Promise<void>;
+  handlePkgxSyncDescription: (product: Product) => Promise<void>;
+  handlePkgxSyncFlags: (product: Product) => Promise<void>;
+  handlePkgxSyncBasicInfo: (product: Product) => Promise<void>;
+  handlePkgxSyncImages: (product: Product) => Promise<void>;
+}
+
+export interface BrandSyncHandlers {
+  handleSyncAll: (brand: Brand) => Promise<void>;
+  handleSyncBasicInfo: (brand: Brand) => Promise<void>;
+  handleSyncSeo: (brand: Brand) => Promise<void>;
+  handleSyncDescription: (brand: Brand) => Promise<void>;
+}
+
 export interface UsePkgxBulkSyncOptions {
   entityType: BulkSyncEntityType;
+  /** Handlers from usePkgxSync - required for product bulk sync */
+  productSyncHandlers?: ProductSyncHandlers;
+  /** Handlers from usePkgxBrandSync - required for brand bulk sync */
+  brandSyncHandlers?: BrandSyncHandlers;
   onLog?: (log: {
     action: `bulk_${BulkSyncActionKey}`;
     status: 'success' | 'error' | 'info';
@@ -63,6 +86,10 @@ export interface UsePkgxBulkSyncOptions {
 // ========================================
 
 const BULK_ACTION_LABELS: Record<BulkSyncActionKey, { title: string; description: string }> = {
+  publish: {
+    title: 'Đăng lên PKGX',
+    description: 'Tạo sản phẩm mới trên PKGX (chỉ áp dụng cho sản phẩm chưa liên kết)',
+  },
   sync_all: {
     title: 'Đồng bộ tất cả',
     description: 'Đồng bộ toàn bộ thông tin (tên, SKU, giá, tồn kho, SEO, mô tả, flags)',
@@ -98,93 +125,10 @@ const BULK_ACTION_LABELS: Record<BulkSyncActionKey, { title: string; description
 };
 
 // ========================================
-// Payload Builders
+// Payload Builders (for Brands only - Products use handlers)
 // ========================================
 
-function buildProductPayload(product: Product, actionKey: BulkSyncActionKey, pkgxSettings: PkgxSettings): Record<string, unknown> {
-  const { categoryMappings, brandMappings } = pkgxSettings;
-  
-  // Get PKGX category/brand IDs
-  const catMapping = categoryMappings.find(m => m.hrmCategorySystemId === product.categorySystemId);
-  const brandMapping = brandMappings.find(m => m.hrmBrandSystemId === product.brandSystemId);
-  
-  // Get website-specific SEO data
-  const pkgxSeo = product.seoPkgx;
-  
-  // Calculate total inventory
-  const totalInventory = Object.values(product.inventoryByBranch || {}).reduce((sum, qty) => sum + qty, 0);
-  
-  switch (actionKey) {
-    case 'sync_all':
-      return {
-        goods_name: product.name,
-        goods_sn: product.id,
-        shop_price: product.sellingPrice || 0,
-        market_price: product.costPrice || product.sellingPrice || 0,
-        promote_price: 0, // dealPrice not in Product type
-        goods_number: totalInventory,
-        keywords: pkgxSeo?.seoKeywords || product.seoKeywords || product.name,
-        meta_title: pkgxSeo?.seoTitle || product.ktitle || product.name,
-        meta_desc: pkgxSeo?.metaDescription || product.seoDescription || '',
-        goods_brief: pkgxSeo?.shortDescription || product.shortDescription || '',
-        goods_desc: pkgxSeo?.longDescription || product.description || '',
-        is_best: product.isFeatured ? 1 : 0,
-        is_new: product.isNewArrival ? 1 : 0,
-        is_hot: product.isBestSeller ? 1 : 0,
-        is_home: product.isPublished ? 1 : 0,
-        is_on_sale: product.isPublished ?? (product.status === 'active') ? 1 : 0,
-        ...(catMapping && { cat_id: catMapping.pkgxCatId }),
-        ...(brandMapping && { brand_id: brandMapping.pkgxBrandId }),
-      };
-      
-    case 'sync_basic':
-      return {
-        goods_name: product.name,
-        goods_sn: product.id,
-        ...(catMapping && { cat_id: catMapping.pkgxCatId }),
-        ...(brandMapping && { brand_id: brandMapping.pkgxBrandId }),
-      };
-      
-    case 'sync_price':
-      return {
-        shop_price: product.sellingPrice || 0,
-        market_price: product.costPrice || product.sellingPrice || 0,
-        promote_price: 0,
-      };
-      
-    case 'sync_inventory':
-      return {
-        goods_number: totalInventory,
-      };
-      
-    case 'sync_seo':
-      return {
-        keywords: pkgxSeo?.seoKeywords || product.seoKeywords || product.name,
-        meta_title: pkgxSeo?.seoTitle || product.ktitle || product.name,
-        meta_desc: pkgxSeo?.metaDescription || product.seoDescription || '',
-      };
-      
-    case 'sync_description':
-      return {
-        goods_brief: pkgxSeo?.shortDescription || product.shortDescription || '',
-        goods_desc: pkgxSeo?.longDescription || product.description || '',
-      };
-      
-    case 'sync_flags':
-      return {
-        is_best: product.isFeatured ? 1 : 0,
-        is_new: product.isNewArrival ? 1 : 0,
-        is_hot: product.isBestSeller ? 1 : 0,
-        is_home: product.isPublished ? 1 : 0,
-        is_on_sale: product.isPublished ?? (product.status === 'active') ? 1 : 0,
-      };
-      
-    default:
-      return {};
-  }
-}
-
-function buildBrandPayload(brand: Brand, actionKey: BulkSyncActionKey): Record<string, unknown> {
+function _buildBrandPayload(brand: Brand, actionKey: BulkSyncActionKey): Record<string, unknown> {
   const pkgxSeo = brand.websiteSeo?.pkgx;
   
   switch (actionKey) {
@@ -229,7 +173,7 @@ function buildBrandPayload(brand: Brand, actionKey: BulkSyncActionKey): Record<s
 // ========================================
 
 export function usePkgxBulkSync(options: UsePkgxBulkSyncOptions) {
-  const { entityType, onLog } = options;
+  const { entityType, productSyncHandlers, brandSyncHandlers, onLog } = options;
   const { data: pkgxSettings } = usePkgxSettings();
   
   // Confirmation dialog state
@@ -267,20 +211,54 @@ export function usePkgxBulkSync(options: UsePkgxBulkSyncOptions) {
     return mapping?.pkgxBrandId;
   }, []);
   
-  // Execute bulk sync for products
+  // Map action key to handler
+  const getProductHandler = React.useCallback((actionKey: BulkSyncActionKey): ((product: Product) => Promise<void>) | null => {
+    if (!productSyncHandlers) return null;
+    
+    switch (actionKey) {
+      case 'publish': return productSyncHandlers.handlePkgxPublish;
+      case 'sync_all': return productSyncHandlers.handlePkgxSyncAll;
+      case 'sync_price': return productSyncHandlers.handlePkgxUpdatePrice;
+      case 'sync_inventory': return productSyncHandlers.handlePkgxSyncInventory;
+      case 'sync_seo': return productSyncHandlers.handlePkgxUpdateSeo;
+      case 'sync_description': return productSyncHandlers.handlePkgxSyncDescription;
+      case 'sync_flags': return productSyncHandlers.handlePkgxSyncFlags;
+      case 'sync_basic': return productSyncHandlers.handlePkgxSyncBasicInfo;
+      case 'sync_images': return productSyncHandlers.handlePkgxSyncImages;
+      default: return null;
+    }
+  }, [productSyncHandlers]);
+
+  // Execute bulk sync for products - using handlers from usePkgxSync
   const executeBulkSyncProducts = React.useCallback(async (
     products: Product[],
     actionKey: BulkSyncActionKey
   ) => {
-    const linkedProducts = products.filter(p => p.pkgxId);
+    // For publish action, filter products that are NOT linked yet
+    // For sync actions, filter products that ARE linked
+    const isPublishAction = actionKey === 'publish';
+    const targetProducts = isPublishAction 
+      ? products.filter(p => !p.pkgxId)
+      : products.filter(p => p.pkgxId);
     
-    if (linkedProducts.length === 0) {
-      toast.error('Không có sản phẩm nào đã liên kết PKGX');
+    if (targetProducts.length === 0) {
+      if (isPublishAction) {
+        toast.error('Tất cả sản phẩm đã được liên kết PKGX');
+      } else {
+        toast.error('Không có sản phẩm nào đã liên kết PKGX');
+      }
+      return;
+    }
+    
+    const handler = getProductHandler(actionKey);
+    if (!handler) {
+      toast.error('Chức năng chưa được cấu hình. Vui lòng thử lại.');
+      console.error('[usePkgxBulkSync] No handler for action:', actionKey);
       return;
     }
     
     setProgress({
-      total: linkedProducts.length,
+      total: targetProducts.length,
       completed: 0,
       success: 0,
       error: 0,
@@ -288,23 +266,19 @@ export function usePkgxBulkSync(options: UsePkgxBulkSyncOptions) {
     });
     
     const actionLabel = BULK_ACTION_LABELS[actionKey].title.toLowerCase();
-    toast.info(`Đang ${actionLabel} ${linkedProducts.length} sản phẩm...`);
     
     let successCount = 0;
     let errorCount = 0;
     
-    for (let i = 0; i < linkedProducts.length; i++) {
-      const product = linkedProducts[i];
+    // Process sequentially to avoid overwhelming the API
+    for (let i = 0; i < targetProducts.length; i++) {
+      const product = targetProducts[i];
       try {
-        const payload = buildProductPayload(product, actionKey, pkgxSettings!);
-        const response = await updateProduct(product.pkgxId!, payload);
-        
-        if (response.success) {
-          successCount++;
-        } else {
-          errorCount++;
-        }
-      } catch {
+        // Call the handler from usePkgxSync - it handles everything (fetch prices, upload images, etc.)
+        await handler(product);
+        successCount++;
+      } catch (error) {
+        console.error(`[usePkgxBulkSync] Error ${actionKey} product ${product.id}:`, error);
         errorCount++;
       }
       
@@ -331,9 +305,22 @@ export function usePkgxBulkSync(options: UsePkgxBulkSyncOptions) {
     if (errorCount > 0) {
       toast.error(`Lỗi ${errorCount} sản phẩm`);
     }
-  }, [onLog, pkgxSettings]);
+  }, [onLog, getProductHandler]);
   
-  // Execute bulk sync for brands
+  // Map action key to brand handler
+  const getBrandHandler = React.useCallback((actionKey: BulkSyncActionKey): ((brand: Brand) => Promise<void>) | null => {
+    if (!brandSyncHandlers) return null;
+    
+    switch (actionKey) {
+      case 'sync_all': return brandSyncHandlers.handleSyncAll;
+      case 'sync_basic': return brandSyncHandlers.handleSyncBasicInfo;
+      case 'sync_seo': return brandSyncHandlers.handleSyncSeo;
+      case 'sync_description': return brandSyncHandlers.handleSyncDescription;
+      default: return null;
+    }
+  }, [brandSyncHandlers]);
+
+  // Execute bulk sync for brands - using handlers from usePkgxBrandSync
   const executeBulkSyncBrands = React.useCallback(async (
     brands: Brand[],
     actionKey: BulkSyncActionKey
@@ -342,6 +329,13 @@ export function usePkgxBulkSync(options: UsePkgxBulkSyncOptions) {
     
     if (linkedBrands.length === 0) {
       toast.error('Không có thương hiệu nào đã liên kết PKGX');
+      return;
+    }
+    
+    const handler = getBrandHandler(actionKey);
+    if (!handler) {
+      toast.error('Chức năng chưa được cấu hình. Vui lòng thử lại.');
+      console.error('[usePkgxBulkSync] No brand handler for action:', actionKey);
       return;
     }
     
@@ -354,31 +348,19 @@ export function usePkgxBulkSync(options: UsePkgxBulkSyncOptions) {
     });
     
     const actionLabel = BULK_ACTION_LABELS[actionKey].title.toLowerCase();
-    toast.info(`Đang ${actionLabel} ${linkedBrands.length} thương hiệu...`);
     
     let successCount = 0;
     let errorCount = 0;
     
     for (let i = 0; i < linkedBrands.length; i++) {
       const brand = linkedBrands[i];
-      if (!pkgxSettings) continue;
-      const pkgxBrandId = getPkgxBrandId(brand, pkgxSettings);
-      
-      if (!pkgxBrandId) {
-        errorCount++;
-        continue;
-      }
       
       try {
-        const payload = buildBrandPayload(brand, actionKey);
-        const response = await updateBrand(pkgxBrandId, payload);
-        
-        if (response.success) {
-          successCount++;
-        } else {
-          errorCount++;
-        }
-      } catch {
+        // Call the handler from usePkgxBrandSync - unified logic
+        await handler(brand);
+        successCount++;
+      } catch (error) {
+        console.error(`[usePkgxBulkSync] Error syncing brand ${brand.name}:`, error);
         errorCount++;
       }
       
@@ -405,7 +387,7 @@ export function usePkgxBulkSync(options: UsePkgxBulkSyncOptions) {
     if (errorCount > 0) {
       toast.error(`Lỗi ${errorCount} thương hiệu`);
     }
-  }, [getPkgxBrandId, onLog, pkgxSettings]);
+  }, [getPkgxBrandId, onLog, pkgxSettings, getBrandHandler]);
   
   // Trigger bulk sync with confirmation
   const triggerBulkSync = React.useCallback(<T extends Product | Brand>(
@@ -414,7 +396,11 @@ export function usePkgxBulkSync(options: UsePkgxBulkSyncOptions) {
   ) => {
     if (!checkPkgxEnabled(pkgxSettings)) return;
     
-    // Filter linked items
+    const totalSelected = items.length;
+    const entityLabel = entityType === 'product' ? 'sản phẩm' : 'thương hiệu';
+    const isPublishAction = actionKey === 'publish';
+    
+    // Count linked/unlinked items
     let linkedCount = 0;
     let unlinkedCount = 0;
     
@@ -428,24 +414,41 @@ export function usePkgxBulkSync(options: UsePkgxBulkSyncOptions) {
       unlinkedCount = brands.length - linkedCount;
     }
     
-    if (linkedCount === 0) {
-      toast.error(`Không có ${entityType === 'product' ? 'sản phẩm' : 'thương hiệu'} nào đã liên kết PKGX`);
+    // For publish: target unlinked items, for sync: target linked items
+    const targetCount = isPublishAction ? unlinkedCount : linkedCount;
+    const skippedCount = isPublishAction ? linkedCount : unlinkedCount;
+    
+    if (targetCount === 0) {
+      if (isPublishAction) {
+        toast.error(`Tất cả ${entityLabel} đã được liên kết PKGX, không có gì để đăng mới`);
+      } else {
+        toast.error(`Không có ${entityLabel} nào đã liên kết PKGX để đồng bộ`);
+      }
       return;
     }
     
     const actionConfig = BULK_ACTION_LABELS[actionKey];
-    const entityLabel = entityType === 'product' ? 'sản phẩm' : 'thương hiệu';
     
-    let description = `Bạn có chắc muốn ${actionConfig.title.toLowerCase()} cho ${linkedCount} ${entityLabel}?`;
-    if (unlinkedCount > 0) {
-      description += `\n(${unlinkedCount} ${entityLabel} chưa liên kết sẽ bị bỏ qua)`;
+    // Build description with clear counts
+    let description = '';
+    if (skippedCount > 0) {
+      // Mixed selection - show X/Y format
+      description = `Sẽ xử lý ${targetCount}/${totalSelected} ${entityLabel}`;
+      if (isPublishAction) {
+        description += ` (chưa liên kết PKGX).\n${skippedCount} ${entityLabel} đã liên kết sẽ bị bỏ qua.`;
+      } else {
+        description += ` (đã liên kết PKGX).\n${skippedCount} ${entityLabel} chưa liên kết sẽ bị bỏ qua.`;
+      }
+    } else {
+      // All selected items will be processed
+      description = `${actionConfig.description}\n\nXử lý ${targetCount} ${entityLabel}.`;
     }
     
     setConfirmAction({
       open: true,
-      title: actionConfig.title,
+      title: `${actionConfig.title} (${targetCount}/${totalSelected})`,
       description,
-      itemCount: linkedCount,
+      itemCount: targetCount,
       action: async () => {
         if (entityType === 'product') {
           await executeBulkSyncProducts(items as Product[], actionKey);

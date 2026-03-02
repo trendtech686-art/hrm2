@@ -5,14 +5,24 @@
  * - Complete warranty (deduct stock)
  * - Cancel warranty (uncommit stock)
  * - Status changes with proper stock handling
+ * 
+ * Updated to use Server Actions (Phase 2 migration)
  */
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { warrantyKeys } from './use-warranties';
+import {
+  cancelWarrantyAction,
+  updateWarrantyStatusAction,
+  completeWarrantyAction,
+  reopenWarrantyAction,
+  type UpdateStatusInput,
+  type ReopenWarrantyInput,
+} from '@/app/actions/warranty';
 
 // ============================================
-// API Client Functions
+// Types
 // ============================================
 
 interface CompleteWarrantyDto {
@@ -26,64 +36,45 @@ interface CancelWarrantyDto {
   notes?: string;
 }
 
-async function completeWarranty(systemId: string, data: CompleteWarrantyDto) {
-  const response = await fetch(`/api/warranties/${systemId}/complete`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to complete warranty');
-  }
-
-  return response.json();
-}
-
-async function cancelWarranty(systemId: string, data: CancelWarrantyDto) {
-  const response = await fetch(`/api/warranties/${systemId}/cancel`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to cancel warranty');
-  }
-
-  return response.json();
-}
-
-// ============================================
-// React Query Hooks
-// ============================================
-
 interface UseWarrantyStockMutationsOptions {
   onSuccess?: () => void;
   onError?: (error: Error) => void;
+  // Extended callbacks with data
+  onCreateSuccess?: (warranty: Record<string, unknown>) => void;
+  onUpdateSuccess?: (warranty: Record<string, unknown>) => void;
 }
+
+// ============================================
+// React Query Hooks with Server Actions
+// ============================================
 
 /**
  * Warranty mutations with stock management
  * 
- * Replaces deprecated .getState() calls with server-side atomic transactions
+ * Uses Server Actions for atomic server-side operations
  */
 export function useWarrantyStockMutations(options: UseWarrantyStockMutationsOptions = {}) {
   const queryClient = useQueryClient();
 
   const complete = useMutation({
-    mutationFn: ({ systemId, data }: { systemId: string; data: CompleteWarrantyDto }) => 
-      completeWarranty(systemId, data),
-    onSuccess: (data, variables) => {
+    mutationFn: async ({ systemId, data }: { systemId: string; data: CompleteWarrantyDto }) => {
+      const result = await completeWarrantyAction({
+        systemId,
+        note: data.completionNotes,
+      });
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to complete warranty');
+      }
+      return result.data;
+    },
+    onSuccess: (_data, variables) => {
       // Invalidate all related queries
       queryClient.invalidateQueries({ queryKey: warrantyKeys.detail(variables.systemId) });
       queryClient.invalidateQueries({ queryKey: warrantyKeys.lists() });
       queryClient.invalidateQueries({ queryKey: warrantyKeys.stats() });
-      queryClient.invalidateQueries({ queryKey: ['inventory'] }); // Invalidate inventory
-      queryClient.invalidateQueries({ queryKey: ['products'] }); // Invalidate products
-      queryClient.invalidateQueries({ queryKey: ['stock-history'] }); // Invalidate stock history
+      queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['stock-history'] });
       
       toast.success('Bảo hành đã hoàn tất', {
         description: 'Hàng đã được xuất kho thành công',
@@ -100,15 +91,26 @@ export function useWarrantyStockMutations(options: UseWarrantyStockMutationsOpti
   });
 
   const cancel = useMutation({
-    mutationFn: ({ systemId, data }: { systemId: string; data: CancelWarrantyDto }) => 
-      cancelWarranty(systemId, data),
-    onSuccess: (data, variables) => {
+    mutationFn: async ({ systemId, data }: { systemId: string; data: CancelWarrantyDto }) => {
+      const result = await cancelWarrantyAction({
+        systemId,
+        reason: data.cancellationReason,
+        cancelVouchers: true,
+      });
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to cancel warranty');
+      }
+      return result.data;
+    },
+    onSuccess: (_data, variables) => {
       // Invalidate all related queries
       queryClient.invalidateQueries({ queryKey: warrantyKeys.detail(variables.systemId) });
       queryClient.invalidateQueries({ queryKey: warrantyKeys.lists() });
       queryClient.invalidateQueries({ queryKey: warrantyKeys.stats() });
-      queryClient.invalidateQueries({ queryKey: ['inventory'] }); // Invalidate inventory
-      queryClient.invalidateQueries({ queryKey: ['products'] }); // Invalidate products
+      queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['payments'] });
+      queryClient.invalidateQueries({ queryKey: ['receipts'] });
       
       toast.success('Bảo hành đã hủy', {
         description: 'Hàng giữ chỗ đã được giải phóng',
@@ -124,7 +126,55 @@ export function useWarrantyStockMutations(options: UseWarrantyStockMutationsOpti
     },
   });
 
-  return { complete, cancel };
+  const updateStatus = useMutation({
+    mutationFn: async (input: UpdateStatusInput) => {
+      const result = await updateWarrantyStatusAction(input);
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to update status');
+      }
+      return result.data;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: warrantyKeys.detail(variables.systemId) });
+      queryClient.invalidateQueries({ queryKey: warrantyKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: warrantyKeys.stats() });
+      
+      toast.success('Cập nhật trạng thái thành công');
+      options.onSuccess?.();
+    },
+    onError: (error) => {
+      toast.error('Lỗi cập nhật trạng thái', {
+        description: error.message,
+      });
+      options.onError?.(error);
+    },
+  });
+
+  const reopen = useMutation({
+    mutationFn: async (input: ReopenWarrantyInput) => {
+      const result = await reopenWarrantyAction(input);
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to reopen warranty');
+      }
+      return result.data;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: warrantyKeys.detail(variables.systemId) });
+      queryClient.invalidateQueries({ queryKey: warrantyKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: warrantyKeys.stats() });
+      
+      toast.success('Đã mở lại phiếu bảo hành');
+      options.onSuccess?.();
+    },
+    onError: (error) => {
+      toast.error('Lỗi mở lại phiếu', {
+        description: error.message,
+      });
+      options.onError?.(error);
+    },
+  });
+
+  return { complete, cancel, updateStatus, reopen };
 }
 
 /**
@@ -136,7 +186,7 @@ export function useWarrantyMutations(options: UseWarrantyStockMutationsOptions =
   const queryClient = useQueryClient();
   const stockMutations = useWarrantyStockMutations(options);
 
-  // Create mutation with stock commitment
+  // Create mutation - still using API as it requires complex form data handling
   const create = useMutation({
     mutationFn: async (data: Record<string, unknown>) => {
       const response = await fetch('/api/warranties', {
@@ -150,18 +200,22 @@ export function useWarrantyMutations(options: UseWarrantyStockMutationsOptions =
         throw new Error(error.error || 'Failed to create warranty');
       }
 
-      return response.json();
+      const result = await response.json();
+      return result.data || result;
     },
-    onSuccess: () => {
+    onSuccess: (warranty) => {
       queryClient.invalidateQueries({ queryKey: warrantyKeys.lists() });
       queryClient.invalidateQueries({ queryKey: warrantyKeys.stats() });
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
       
-      toast.success('Tạo phiếu bảo hành thành công', {
-        description: 'Hàng thay thế đã được giữ chỗ (nếu có)',
-      });
-      
-      options.onSuccess?.();
+      if (options.onCreateSuccess) {
+        options.onCreateSuccess(warranty);
+      } else {
+        toast.success('Tạo phiếu bảo hành thành công', {
+          description: warranty?.id ? `Mã: ${warranty.id}` : 'Hàng thay thế đã được giữ chỗ (nếu có)',
+        });
+        options.onSuccess?.();
+      }
     },
     onError: (error: Error) => {
       toast.error('Lỗi tạo phiếu bảo hành', {
@@ -171,7 +225,7 @@ export function useWarrantyMutations(options: UseWarrantyStockMutationsOptions =
     },
   });
 
-  // Update mutation
+  // Update mutation - still using API as it requires complex form data handling
   const update = useMutation({
     mutationFn: async ({ systemId, data }: { systemId: string; data: Record<string, unknown> }) => {
       const response = await fetch(`/api/warranties/${systemId}`, {
@@ -185,15 +239,19 @@ export function useWarrantyMutations(options: UseWarrantyStockMutationsOptions =
         throw new Error(error.error || 'Failed to update warranty');
       }
 
-      return response.json();
+      const result = await response.json();
+      return result.data || result;
     },
-    onSuccess: (data, variables) => {
+    onSuccess: (warranty, variables) => {
       queryClient.invalidateQueries({ queryKey: warrantyKeys.detail(variables.systemId) });
       queryClient.invalidateQueries({ queryKey: warrantyKeys.lists() });
       
-      toast.success('Cập nhật phiếu bảo hành thành công');
-      
-      options.onSuccess?.();
+      if (options.onUpdateSuccess) {
+        options.onUpdateSuccess(warranty);
+      } else {
+        toast.success('Cập nhật phiếu bảo hành thành công');
+        options.onSuccess?.();
+      }
     },
     onError: (error: Error) => {
       toast.error('Lỗi cập nhật phiếu bảo hành', {
@@ -208,5 +266,7 @@ export function useWarrantyMutations(options: UseWarrantyStockMutationsOptions =
     update,
     complete: stockMutations.complete,
     cancel: stockMutations.cancel,
+    updateStatus: stockMutations.updateStatus,
+    reopen: stockMutations.reopen,
   };
 }

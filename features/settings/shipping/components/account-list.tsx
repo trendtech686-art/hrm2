@@ -56,7 +56,7 @@ interface AccountListProps {
 export function AccountList({
   partnerCode,
   accounts,
-  onAddAccount,
+  onAddAccount: _onAddAccount,
   onEditAccount,
   onAccountsChange,
   onSelectAccountForAddresses: _onSelectAccountForAddresses,
@@ -131,38 +131,24 @@ export function AccountList({
   };
 
   if (accounts.length === 0) {
-    return (
-      <div className="text-center py-12 border rounded-lg">
-        <p className="text-muted-foreground mb-4">Chưa có tài khoản nào</p>
-        <Button onClick={onAddAccount}>
-          Thêm tài khoản
-        </Button>
-      </div>
-    );
+    // Empty state đã được xử lý ở parent component
+    return null;
   }
 
   return (
     <>
-      <div className="space-y-4">
-        <div>
-          <h3 className="text-lg font-semibold">Danh sách tài khoản</h3>
-          <p className="text-sm text-muted-foreground">
-            Quản lý nhiều tài khoản cho đối tác này
-          </p>
-        </div>
-
-        <div className="border rounded-lg">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Tên tài khoản</TableHead>
-                <TableHead>Địa chỉ lấy hàng</TableHead>
-                <TableHead>Cập nhật</TableHead>
-                <TableHead className="w-[100px]">Mặc định</TableHead>
-                <TableHead className="w-[100px]">Trạng thái</TableHead>
-                <TableHead className="w-[80px] text-right">Thao tác</TableHead>
-              </TableRow>
-            </TableHeader>
+      <div className="border rounded-lg">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Tên tài khoản</TableHead>
+              <TableHead>Địa chỉ lấy hàng</TableHead>
+              <TableHead>Cập nhật</TableHead>
+              <TableHead className="w-[100px]">Mặc định</TableHead>
+              <TableHead className="w-[100px]">Trạng thái</TableHead>
+              <TableHead className="w-[80px] text-right">Thao tác</TableHead>
+            </TableRow>
+          </TableHeader>
             <TableBody>
               {accounts.map((account) => (
                 <TableRow key={account.id}>
@@ -215,7 +201,6 @@ export function AccountList({
             </TableBody>
           </Table>
         </div>
-      </div>
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

@@ -112,7 +112,7 @@ export function LeaveDetailPage() {
     <>
     <Card>
       <CardHeader>
-        <CardTitle className="text-h4">Thông tin đơn</CardTitle>
+        <CardTitle>Thông tin đơn</CardTitle>
         <CardDescription>
           Thời gian nghỉ: {formatDate(request.startDate)} - {formatDate(request.endDate)}
         </CardDescription>
@@ -146,7 +146,7 @@ export function LeaveDetailPage() {
 
     {/* Activity History */}
     <ActivityHistory
-      history={request.activityHistory || []}
+      history={[]} // TODO: Fetch from ActivityLog table
       title="Lịch sử hoạt động"
       emptyMessage="Chưa có lịch sử hoạt động"
       groupByDate

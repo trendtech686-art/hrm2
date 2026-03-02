@@ -91,10 +91,13 @@ export async function createPackaging(
  */
 export async function confirmPackaging(
   systemId: string,
-  packagingId: string
+  packagingId: string,
+  data?: { confirmingEmployeeId?: string; confirmingEmployeeName?: string }
 ): Promise<Order> {
   const res = await fetch(`${API_BASE}/${systemId}/packaging/${packagingId}/confirm`, {
     method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data || {}),
   });
   if (!res.ok) {
     const error = await res.json().catch(() => ({}));
@@ -111,6 +114,7 @@ export async function createShipment(
   data: {
     provider: string;
     serviceType?: string;
+    packagingId?: string;
   }
 ): Promise<Order> {
   const res = await fetch(`${API_BASE}/${systemId}/shipment`, {
@@ -163,7 +167,7 @@ export async function cancelShipment(systemId: string): Promise<Order> {
 export async function cancelPackagingRequest(
   systemId: string,
   packagingId: string,
-  data: { reason: string }
+  data: { reason: string; cancelingEmployeeId?: string; cancelingEmployeeName?: string }
 ): Promise<Order> {
   const res = await fetch(`${API_BASE}/${systemId}/packaging/${packagingId}/cancel`, {
     method: 'POST',

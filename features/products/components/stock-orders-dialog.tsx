@@ -1,0 +1,287 @@
+'use client';
+
+import * as React from 'react';
+import { useRouter } from 'next/navigation';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Button } from '@/components/ui/button';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { formatDateForDisplay } from '@/lib/date-utils';
+import { cn } from '@/lib/utils';
+
+export type StockOrderType = 'committed' | 'in-transit' | 'in-delivery' | 'sold';
+
+export interface StockOrderItem {
+  id: string;
+  systemId: string;
+  type: 'order' | 'warranty' | 'transfer';
+  date?: string;
+  dispatchDate?: string;
+  customerName?: string;
+  supplierName?: string;
+  fromBranch?: string;
+  toBranch?: string;
+  shippingCarrier?: string;
+  trackingCode?: string;
+  quantity: number;
+  status: string;
+  statusVariant?: 'default' | 'secondary' | 'destructive' | 'outline' | 'success' | 'warning';
+}
+
+interface StockOrdersDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  type: StockOrderType;
+  productName: string;
+  branchName: string;
+  items: StockOrderItem[];
+  isLoading?: boolean;
+}
+
+const TYPE_CONFIG: Record<StockOrderType, {
+  title: string;
+  totalLabel: string;
+  dateLabel: string;
+  showShipping: boolean;
+  showFromTo: boolean;
+}> = {
+  'committed': {
+    title: 'Chờ xuất kho',
+    totalLabel: 'Tổng chờ xuất kho',
+    dateLabel: 'Ngày tạo',
+    showShipping: false,
+    showFromTo: false,
+  },
+  'in-transit': {
+    title: 'Đang về kho',
+    totalLabel: 'Tổng đang về',
+    dateLabel: 'Ngày tạo',
+    showShipping: false,
+    showFromTo: true,
+  },
+  'in-delivery': {
+    title: 'Đang giao hàng',
+    totalLabel: 'Tổng đang giao',
+    dateLabel: 'Ngày xuất kho',
+    showShipping: true,
+    showFromTo: false,
+  },
+  'sold': {
+    title: 'Đã bán',
+    totalLabel: 'Tổng đã bán',
+    dateLabel: 'Ngày bán',
+    showShipping: false,
+    showFromTo: false,
+  },
+};
+
+const TYPE_LABELS: Record<string, string> = {
+  'order': 'Đơn hàng',
+  'warranty': 'Bảo hành',
+  'transfer': 'Chuyển kho',
+};
+
+function getStatusBadgeVariant(variant?: string): 'default' | 'secondary' | 'destructive' | 'outline' {
+  switch (variant) {
+    case 'success': return 'default';
+    case 'warning': return 'secondary';
+    case 'destructive': return 'destructive';
+    default: return 'outline';
+  }
+}
+
+const PAGE_SIZE = 10;
+
+export function StockOrdersDialog({
+  open,
+  onOpenChange,
+  type,
+  productName,
+  branchName,
+  items,
+  isLoading = false,
+}: StockOrdersDialogProps) {
+  const router = useRouter();
+  const config = TYPE_CONFIG[type];
+  const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const totalPages = Math.ceil(items.length / PAGE_SIZE);
+  
+  // Reset page when dialog opens or items change
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [open, items.length]);
+
+  // Get current page items
+  const paginatedItems = React.useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return items.slice(start, start + PAGE_SIZE);
+  }, [items, currentPage]);
+
+  const handleRowClick = (item: StockOrderItem) => {
+    const path = item.type === 'order' ? `/orders/${item.systemId}` 
+      : item.type === 'warranty' ? `/warranty/${item.systemId}`
+      : `/stock-transfers/${item.systemId}`;
+    router.push(path);
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-4xl">
+        <DialogHeader>
+          <DialogTitle>{config.title}: {productName}</DialogTitle>
+          <DialogDescription>
+            Chi nhánh: {branchName} • {config.totalLabel}:{' '}
+            <span className="text-primary font-semibold">{totalQuantity}</span> sản phẩm
+          </DialogDescription>
+        </DialogHeader>
+
+        <ScrollArea className="max-h-[60vh]">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+            </div>
+          ) : items.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+              <svg
+                className="h-12 w-12 mb-2"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
+                />
+              </svg>
+              <p>Không có phiếu nào</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[100px]">Loại</TableHead>
+                  <TableHead>Mã phiếu</TableHead>
+                  <TableHead>{config.dateLabel}</TableHead>
+                  {config.showFromTo ? (
+                    <>
+                      <TableHead>Từ</TableHead>
+                      <TableHead>Đến</TableHead>
+                    </>
+                  ) : (
+                    <TableHead>Khách hàng</TableHead>
+                  )}
+                  {config.showShipping && <TableHead>Đơn vị vận chuyển</TableHead>}
+                  <TableHead className="text-right">Số lượng</TableHead>
+                  <TableHead>Trạng thái</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {paginatedItems.map((item) => (
+                  <TableRow
+                    key={item.systemId}
+                    className="cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => handleRowClick(item)}
+                  >
+                    <TableCell>
+                      <Badge variant="secondary" className="font-normal">
+                        {TYPE_LABELS[item.type] || item.type}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="font-medium">{item.id}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {/* For in-delivery, use dispatchDate with fallback to order date */}
+                      {type === 'in-delivery' 
+                        ? (item.dispatchDate 
+                            ? formatDateForDisplay(item.dispatchDate) 
+                            : (item.date ? formatDateForDisplay(item.date) : '-'))
+                        : (item.date ? formatDateForDisplay(item.date) : '-')
+                      }
+                    </TableCell>
+                    {config.showFromTo ? (
+                      <>
+                        <TableCell>{item.fromBranch || item.supplierName || '-'}</TableCell>
+                        <TableCell>{item.toBranch || '-'}</TableCell>
+                      </>
+                    ) : (
+                      <TableCell>{item.customerName || '-'}</TableCell>
+                    )}
+                    {config.showShipping && (
+                      <TableCell>{item.shippingCarrier || '-'}</TableCell>
+                    )}
+                    <TableCell className="text-right">
+                      <span className="text-primary font-semibold">{item.quantity}</span>
+                    </TableCell>
+                    <TableCell>
+                      <Badge 
+                        variant={getStatusBadgeVariant(item.statusVariant)}
+                        className={cn(
+                          item.statusVariant === 'warning' && 'bg-orange-100 text-orange-700 border-orange-200',
+                          item.statusVariant === 'success' && 'bg-green-100 text-green-700 border-green-200',
+                        )}
+                      >
+                        {item.status}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </ScrollArea>
+
+        {/* Pagination */}
+        {!isLoading && items.length > PAGE_SIZE && (
+          <div className="flex items-center justify-between pt-4 border-t">
+            <div className="text-sm text-muted-foreground">
+              Hiển thị {(currentPage - 1) * PAGE_SIZE + 1}-{Math.min(currentPage * PAGE_SIZE, items.length)} / {items.length} phiếu
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage <= 1}
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Trước
+              </Button>
+              <span className="text-sm px-2">
+                {currentPage} / {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage >= totalPages}
+              >
+                Sau
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}

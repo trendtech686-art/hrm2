@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { SlaTimer } from '@/components/SlaTimer';
 import { AssigneeAvatarGroup } from './AssigneeAvatarGroup';
-import { loadCardColorSettings } from '@/features/settings/tasks/tasks-settings-page';
+import { useTasksSettings } from '@/features/settings/tasks/hooks/use-tasks-settings';
 import { cn } from '@/lib/utils';
 import { formatDate } from '@/lib/date-utils';
 import { Clock, AlertCircle, Play, FileCheck, CheckCircle2, XCircle, Pause, GripVertical } from 'lucide-react';
@@ -86,8 +86,9 @@ function DraggableTaskCard({
     urgent: "destructive",
   };
 
-  // Load card color settings
-  const colorSettings = React.useMemo(() => loadCardColorSettings(), []);
+  // Load card color settings from DB via React Query
+  const { data: tasksSettings } = useTasksSettings();
+  const colorSettings = tasksSettings.cardColors;
   
   // Determine card color class: overdue > priority > status
   const cardColorClass = React.useMemo(() => {
@@ -262,7 +263,7 @@ function KanbanColumn({
   });
 
   return (
-    <div ref={setNodeRef} className="flex-1 min-w-[300px] flex flex-col max-h-[calc(100vh-320px)]">
+    <div ref={setNodeRef} className="flex-1 min-w-75 flex flex-col max-h-[calc(100vh-320px)]">
       {/* Header */}
       <div className="text-sm font-semibold px-4 py-3 mb-2 rounded-lg border bg-muted flex items-center justify-between">
         <div className="flex items-center gap-2">

@@ -55,18 +55,18 @@ export function checkWarrantyOverdue(ticket: WarrantyTicket): WarrantyOverdueSta
   const createdAt = new Date(ticket.createdAt);
   const elapsedMinutes = Math.floor((now.getTime() - createdAt.getTime()) / (1000 * 60));
 
-  // Response time: from created to first action (status changed to pending)
-  const hasResponse = ticket.status !== 'incomplete';
+  // Response time: from created to first action (status changed to PROCESSING)
+  const hasResponse = ticket.status !== 'RECEIVED';
   const responseTimeLeft = WARRANTY_SLA_TARGETS.response - elapsedMinutes;
   const isOverdueResponse = !hasResponse && responseTimeLeft < 0;
 
-  // Processing time: from created to processed
-  const hasProcessed = ticket.status === 'processed' || ticket.status === 'returned';
+  // Processing time: from created to COMPLETED
+  const hasProcessed = ticket.status === 'COMPLETED' || ticket.status === 'RETURNED';
   const processingTimeLeft = WARRANTY_SLA_TARGETS.processing - elapsedMinutes;
   const isOverdueProcessing = !hasProcessed && processingTimeLeft < 0;
 
-  // Return time: from created to returned
-  const hasReturned = ticket.status === 'returned';
+  // Return time: from created to RETURNED
+  const hasReturned = ticket.status === 'RETURNED';
   const returnTimeLeft = WARRANTY_SLA_TARGETS.return - elapsedMinutes;
   const isOverdueReturn = !hasReturned && returnTimeLeft < 0;
 

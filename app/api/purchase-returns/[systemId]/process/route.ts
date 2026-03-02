@@ -14,7 +14,6 @@
 
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import type { Prisma } from '@/generated/prisma/client';
 import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils';
 import { PurchaseReturnStatus } from '@/generated/prisma/client';
 
@@ -48,20 +47,21 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Update to COMPLETED with activity history
+    // Update to COMPLETED with activity log
     const purchaseReturn = await prisma.$transaction(async (tx) => {
-      const activityEntry = {
-        timestamp: new Date().toISOString(),
-        action: 'PROCESSED',
-        field: 'status',
-        oldValue: 'APPROVED',
-        newValue: 'COMPLETED',
-        userId: session.user?.id || null,
-        userName: session.user?.name || 'System',
-        description: 'Purchase return processing completed',
-      };
-
-      const existingHistory = (existingReturn.activityHistory as unknown as Array<Record<string, unknown>>) || [];
+      // Log activity to centralized ActivityLog table
+      await tx.activityLog.create({
+        data: {
+          entityType: 'purchase_return',
+          entityId: systemId,
+          action: 'processed',
+          actionType: 'status',
+          changes: { status: { from: 'APPROVED', to: 'COMPLETED' } },
+          note: 'Purchase return processing completed',
+          createdBy: session.user?.id || null,
+          metadata: { userName: session.user?.name || 'System' },
+        },
+      });
 
       const updated = await tx.purchaseReturn.update({
         where: { systemId },
@@ -69,7 +69,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           status: PurchaseReturnStatus.COMPLETED,
           updatedAt: new Date(),
           updatedBy: session.user?.id || null,
-          activityHistory: [...existingHistory, activityEntry] as unknown as Prisma.InputJsonValue,
         },
         include: {
           items: true,

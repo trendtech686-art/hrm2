@@ -24,7 +24,7 @@ export function PreviewDashboard() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Tổng doanh thu</CardTitle>
+            <CardTitle size="sm">Tổng doanh thu</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -38,7 +38,7 @@ export function PreviewDashboard() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Đăng ký mới</CardTitle>
+            <CardTitle size="sm">Đăng ký mới</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -52,7 +52,7 @@ export function PreviewDashboard() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Doanh số</CardTitle>
+            <CardTitle size="sm">Doanh số</CardTitle>
             <CreditCard className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -66,7 +66,7 @@ export function PreviewDashboard() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Đang hoạt động</CardTitle>
+            <CardTitle size="sm">Đang hoạt động</CardTitle>
             <Activity className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -142,7 +142,7 @@ export function PreviewDashboard() {
         {/* Calendar */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Lịch</CardTitle>
+            <CardTitle>Lịch</CardTitle>
           </CardHeader>
           <CardContent className="flex justify-center">
             <Calendar
@@ -157,7 +157,7 @@ export function PreviewDashboard() {
         {/* Move Goal */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Mục tiêu di chuyển</CardTitle>
+            <CardTitle>Mục tiêu di chuyển</CardTitle>
             <CardDescription>Đặt mục tiêu hoạt động hàng ngày</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -195,7 +195,7 @@ export function PreviewDashboard() {
                 <AvatarFallback>S</AvatarFallback>
               </Avatar>
               <div>
-                <CardTitle className="text-base">Sofia Davis</CardTitle>
+                <CardTitle>Sofia Davis</CardTitle>
                 <p className="text-xs text-muted-foreground">m@example.com</p>
               </div>
             </div>

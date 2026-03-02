@@ -11,7 +11,7 @@ import { DataTableToolbar } from '../../../components/data-table/data-table-tool
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '../../../components/ui/tabs';
-import { useFuseFilter } from '../../../hooks/use-fuse-search';
+import { simpleSearch } from '@/lib/simple-search';
 import { Download, Package, Layers, PackageOpen } from 'lucide-react';
 import { ROUTES } from '../../../lib/router';
 import { isComboProduct, calculateComboStock, getComboBottleneckProducts } from '../../products/combo-utils';
@@ -104,8 +104,10 @@ export function InventoryReportPage() {
         }
     }, [reportData, productTypeFilter]);
 
-    const fuseOptions = React.useMemo(() => ({ keys: ['productName', 'sku', 'branchName'], threshold: 0.4 }), []);
-    const searchedData = useFuseFilter(typeFilteredData, globalFilter, fuseOptions);
+    const searchedData = React.useMemo(() => 
+        simpleSearch(typeFilteredData, globalFilter, { keys: ['productName', 'sku', 'branchName'] }), 
+        [typeFilteredData, globalFilter]
+    );
     
     const summaryStats = React.useMemo(() => {
         const singleRows = reportData.filter(r => !r.isCombo);
@@ -182,7 +184,7 @@ export function InventoryReportPage() {
             <div className="grid gap-4 md:grid-cols-3">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Tổng sản phẩm</CardTitle>
+                        <CardTitle size="sm">Tổng sản phẩm</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="text-h4 font-bold">{formatNumber(summaryStats.rowsCount)}</div>
@@ -193,7 +195,7 @@ export function InventoryReportPage() {
                 </Card>
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Tổng tồn kho</CardTitle>
+                        <CardTitle size="sm">Tổng tồn kho</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="text-h4 font-bold">{formatNumber(summaryStats.onHand)}</div>
@@ -204,7 +206,7 @@ export function InventoryReportPage() {
                 </Card>
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Giá trị tồn kho</CardTitle>
+                        <CardTitle size="sm">Giá trị tồn kho</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="text-h4 font-bold">{formatCurrency(summaryStats.stockValue)}</div>
@@ -241,7 +243,7 @@ export function InventoryReportPage() {
                 </CardContent>
             </Card>
             <ResponsiveDataTable
-                className="flex-grow"
+                className="grow"
                 columns={columns}
                 data={paginatedData}
                 rowCount={filteredData.length}

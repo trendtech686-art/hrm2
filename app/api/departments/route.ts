@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma'
 import { Prisma } from '@/generated/prisma/client'
 import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
 import { createDepartmentSchema } from './validation'
+import { generateNextIdsWithTx } from '@/lib/id-system'
 
 // GET /api/departments - List all departments
 export async function GET(request: Request) {
@@ -70,18 +71,27 @@ export async function POST(request: Request) {
   const body = validation.data
 
   try {
-    const department = await prisma.department.create({
-      data: {
-        systemId: `DEPT${String(Date.now()).slice(-6).padStart(6, '0')}`,
-        id: body.id,
-        name: body.name,
-        description: body.description,
-        parent: body.parentId ? { connect: { systemId: body.parentId } } : undefined,
-      },
-      include: {
-        parent: true,
-      },
-    })
+    const department = await prisma.$transaction(async (tx) => {
+      // Generate IDs using unified ID system
+      const { systemId, businessId } = await generateNextIdsWithTx(
+        tx,
+        'departments',
+        body.id?.trim() || undefined
+      );
+
+      return tx.department.create({
+        data: {
+          systemId,
+          id: businessId,
+          name: body.name,
+          description: body.description,
+          parent: body.parentId ? { connect: { systemId: body.parentId } } : undefined,
+        },
+        include: {
+          parent: true,
+        },
+      });
+    });
 
     return apiSuccess(department, 201)
   } catch (error) {

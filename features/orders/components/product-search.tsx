@@ -1,14 +1,12 @@
 
 import * as React from 'react';
-import { PlusCircle, Package } from 'lucide-react';
+import { PlusCircle, Package, Info } from 'lucide-react';
 import type { Product } from '../../products/types';
 import type { ProductFormValues } from '../../products/validation';
-import { useAllProducts, useActiveProducts } from '../../products/hooks/use-all-products';
+import { useProduct } from '../../../hooks/api/use-products';
+import { useInfiniteMeiliProductSearch } from '../../../hooks/use-meilisearch';
 import { useActiveUnits } from '../../settings/units/hooks/use-all-units';
 import { useAllPricingPolicies } from '../../settings/pricing/hooks/use-all-pricing-policies';
-import { useAllBranches } from '../../settings/branches/hooks/use-all-branches';
-import { useImageStore } from '../../products/image-store';
-import { FileUploadAPI, type StagingFile, type ServerFile } from '../../../lib/file-upload-api';
 import { LazyImage } from '../../../components/ui/lazy-image';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
@@ -16,8 +14,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { NumberInput } from '../../../components/ui/number-input';
 import { Combobox } from '../../../components/ui/combobox';
 import { VirtualizedCombobox, type ComboboxOption } from '../../../components/ui/virtualized-combobox';
-import { isComboProduct, calculateComboStockAllBranches, calculateComboCostPrice } from '../../products/combo-utils';
-import type { SystemId } from '@/lib/id-types';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../../components/ui/tooltip';
 
 const formatCurrency = (value?: number) => {
     if (typeof value !== 'number' || isNaN(value)) return '0';
@@ -102,200 +99,139 @@ const SimplifiedProductForm = ({ onSubmit }: { onSubmit: (values: ProductFormVal
 };
 
 
-export const ProductSearch = ({ onSelectProduct, onAddProduct, disabled, defaultPolicyId, branchSystemId: _branchSystemId }: { 
+export const ProductSearch = ({ onSelectProduct, onAddProduct, disabled }: { 
     onSelectProduct: (product: Product) => void;
     onAddProduct: (values: ProductFormValues) => void;
     disabled: boolean;
     defaultPolicyId?: string | undefined;
     branchSystemId?: string | undefined;
 }) => {
-    const { data: allProducts } = useAllProducts();
-    const { data: activeProducts } = useActiveProducts();
-    const { data: branches } = useAllBranches();
     const [isFormOpen, setIsFormOpen] = React.useState(false);
     const [selectedValue, setSelectedValue] = React.useState<ComboboxOption | null>(null);
-
-    // Only show active products
-    const availableProducts = React.useMemo(() => {
-        return activeProducts;
-    }, [activeProducts]);
-
-    const getComboStockRecord = React.useCallback((product: Product): Record<SystemId, number> => {
-        if (!isComboProduct(product) || !product.comboItems?.length) {
-            return {};
+    const [searchQuery, setSearchQuery] = React.useState('');
+    const [pendingProductId, setPendingProductId] = React.useState<string | null>(null);
+    
+    // ✅ Use Meilisearch for fast product search - shows 30 default results when empty
+    // ✅ Infinite scroll support - load more on scroll
+    const {
+        data: searchResult,
+        isLoading: isLoadingProducts,
+        fetchNextPage,
+        hasNextPage,
+        isFetchingNextPage,
+    } = useInfiniteMeiliProductSearch({ 
+        query: searchQuery,
+        debounceMs: 150,
+    });
+    
+    // ✅ Fetch full product data when selected from Meilisearch
+    const { data: selectedProduct } = useProduct(pendingProductId ?? undefined);
+    
+    // When full product is loaded, call onSelectProduct
+    React.useEffect(() => {
+        if (selectedProduct && pendingProductId) {
+            onSelectProduct(selectedProduct);
+            setPendingProductId(null);
         }
-        return calculateComboStockAllBranches(product.comboItems, allProducts);
-    }, [allProducts]);
+    }, [selectedProduct, pendingProductId, onSelectProduct]);
+    
+    // ✅ Map Meilisearch results to options - flatten all pages
+    const searchProducts = React.useMemo(() => {
+        return searchResult?.pages.flatMap(page => page.data) || [];
+    }, [searchResult]);
 
-    // Calculate total inventory (on-hand stock) aggregated across branches
-    const getTotalInventory = React.useCallback((product: Product): number => {
-        if (isComboProduct(product) && product.comboItems?.length) {
-            const comboStock = getComboStockRecord(product);
-            return Object.values(comboStock).reduce((sum, qty) => sum + qty, 0);
-        }
-        const inventoryByBranch = product.inventoryByBranch || {};
-        return Object.values(inventoryByBranch).reduce((sum, qty) => sum + qty, 0);
-    }, [getComboStockRecord]);
-
-    // Calculate available stock (on-hand - committed) aggregated across branches
-    const getAvailableStock = React.useCallback((product: Product): number => {
-        if (isComboProduct(product) && product.comboItems?.length) {
-            const comboStock = getComboStockRecord(product);
-            return Object.values(comboStock).reduce((sum, qty) => sum + qty, 0);
-        }
-        const inventoryByBranch = product.inventoryByBranch || {};
-        const committedByBranch = product.committedByBranch || {};
-        return Object.entries(inventoryByBranch).reduce((sum, [branchId, stock]) => {
-            const committed = committedByBranch[branchId as SystemId] || 0;
-            return sum + Math.max(0, (stock as number) - committed);
-        }, 0);
-    }, [getComboStockRecord]);
-
-    const getBranchStockLines = React.useCallback((product: Product) => {
-        if (isComboProduct(product) && product.comboItems?.length) {
-            const comboStock = getComboStockRecord(product);
-            return branches
-                .map(branch => ({
-                    branchSystemId: branch.systemId,
-                    branchName: branch.name,
-                    stock: comboStock[branch.systemId] || 0,
-                    available: comboStock[branch.systemId] || 0,
-                }))
-                .filter(detail => detail.stock > 0 || detail.available > 0);
-        }
-
-        const inventoryByBranch = product.inventoryByBranch || {};
-        const committedByBranch = product.committedByBranch || {};
-        return branches
-            .map(branch => {
-                const stock = inventoryByBranch[branch.systemId] || 0;
-                const committed = committedByBranch[branch.systemId] || 0;
-                const available = Math.max(0, stock - committed);
-                return {
-                    branchSystemId: branch.systemId,
-                    branchName: branch.name,
-                    stock,
-                    available,
-                };
-            })
-            .filter(detail => detail.stock > 0 || detail.available > 0);
-    }, [branches, getComboStockRecord]);
-
-    const getCostPrice = React.useCallback((product: Product): number => {
-        if (isComboProduct(product) && product.comboItems?.length) {
-            return calculateComboCostPrice(product.comboItems, allProducts);
-        }
-        return product.costPrice || 0;
-    }, [allProducts]);
-
-    // ✅ Convert to ComboboxOption format (no "Add new" in options anymore)
+    // ✅ Convert Meilisearch results to ComboboxOption format
     const options: ComboboxOption[] = React.useMemo(() => {
-        return availableProducts.map((p) => {
-            const totalStock = getTotalInventory(p);
-            const availableStock = getAvailableStock(p);
-            const price = defaultPolicyId ? p.prices[defaultPolicyId] : (Object.values(p.prices || {})[0] || 0);
-            const branchStocks = getBranchStockLines(p);
-            const subtitle = p.id ?? '';
-            const searchTokens: string[] = [p.name, subtitle];
-            if (p.barcode) {
-                searchTokens.push(p.barcode);
-            }
-            branchStocks.forEach(detail => {
-                searchTokens.push(detail.branchName);
-            });
-
+        // Map from Meilisearch search results (minimal data)
+        return searchProducts.map((p) => {
+            // For search results, we show basic info from Meilisearch
+            // Full data will be fetched on select
             return {
                 value: p.systemId,
                 label: p.name,
-                subtitle,
-                acText: searchTokens
-                    .filter((token): token is string => Boolean(token))
-                    .join(' | '),
+                subtitle: p.id ?? '',
+                acText: [p.name, p.id, p.barcode].filter(Boolean).join(' | '),
                 metadata: {
-                    price,
-                    stock: totalStock,
-                    availableStock,
-                    branchStocks,
-                    costPrice: getCostPrice(p),
-                    unit: p.unit || 'Chiếc',
+                    price: p.price || 0, // Meilisearch has price (selling price)
+                    costPrice: p.costPrice || 0,
+                    totalStock: p.totalStock || 0, // ✅ Total stock from Meilisearch
+                    branchStocks: p.branchStocks || [], // ✅ Stock per branch
+                    unit: p.unit || 'Cái',
+                    thumbnailImage: p.thumbnailImage, // ✅ Use directly from Meilisearch
                 }
             } satisfies ComboboxOption;
         });
-    }, [availableProducts, defaultPolicyId, getTotalInventory, getAvailableStock, getBranchStockLines, getCostPrice]);
+    }, [searchProducts]);
 
     const handleChange = (option: ComboboxOption | null) => {
         if (option) {
-            const product = availableProducts.find(p => p.systemId === option.value);
-            if (product) {
-                onSelectProduct(product);
-            }
+            // Set pending product ID to trigger full product fetch
+            setPendingProductId(option.value);
         }
         
         // Reset selection after selecting
         setSelectedValue(null);
     };
 
-    // Product Thumbnail for combobox options
-    const ProductOptionThumbnail = React.memo(({ productSystemId }: { productSystemId: string }) => {
-        const product = availableProducts.find(p => p.systemId === productSystemId);
-        const permanentImages = useImageStore(state => state.permanentImages[productSystemId]);
-        const lastFetched = useImageStore(state => state.permanentMeta[productSystemId]?.lastFetched);
-        const updatePermanentImages = useImageStore(state => state.updatePermanentImages);
-
-        const storeThumbnail = permanentImages?.thumbnail?.[0]?.url;
-        const storeGallery = permanentImages?.gallery?.[0]?.url;
-        
-        const displayImage = storeThumbnail
-            || storeGallery
-            || product?.thumbnailImage
-            || product?.galleryImages?.[0]
-            || product?.images?.[0];
-
-        React.useEffect(() => {
-            if (!lastFetched && productSystemId) {
-                FileUploadAPI.getProductFiles(productSystemId)
-                    .then(files => {
-                        const mapToServerFile = (f: ServerFile) => ({
-                            id: f.id, sessionId: '', name: f.name, originalName: f.originalName,
-                            slug: f.slug, filename: f.filename, size: f.size, type: f.type, url: f.url,
-                            status: 'permanent' as const, uploadedAt: f.uploadedAt, metadata: f.metadata
-                        });
-                        updatePermanentImages(productSystemId, 'thumbnail', files.filter(f => f.documentName === 'thumbnail').map(mapToServerFile) as unknown as StagingFile[]);
-                        updatePermanentImages(productSystemId, 'gallery', files.filter(f => f.documentName === 'gallery').map(mapToServerFile) as unknown as StagingFile[]);
-                    })
-                    .catch(() => {});
-            }
-        }, [productSystemId, lastFetched, updatePermanentImages]);
-
-        if (displayImage) {
+    // ✅ Simple ProductOptionThumbnail - use thumbnailImage directly from Meilisearch
+    const ProductOptionThumbnail = React.memo(({ thumbnailImage }: { thumbnailImage?: string | null }) => {
+        if (thumbnailImage) {
             return (
-                <div className="w-10 h-10 flex-shrink-0 rounded overflow-hidden bg-muted">
-                    <LazyImage src={displayImage} alt="" className="w-full h-full object-cover" />
+                <div className="w-10 h-10 shrink-0 rounded overflow-hidden bg-muted">
+                    <LazyImage src={thumbnailImage} alt="" className="w-full h-full object-cover" />
                 </div>
             );
         }
         return (
-            <div className="w-10 h-10 flex-shrink-0 bg-muted rounded flex items-center justify-center">
+            <div className="w-10 h-10 shrink-0 bg-muted rounded flex items-center justify-center">
                 <Package className="h-5 w-5 text-muted-foreground" />
             </div>
         );
     });
 
     const renderOption = (option: ComboboxOption) => {
-        const metadata = option.metadata as { unit?: string; price?: number; stock?: number; availableStock?: number } | undefined;
+        const metadata = option.metadata as { 
+            unit?: string; 
+            price?: number; 
+            totalStock?: number; 
+            branchStocks?: { branchId: string; branchName: string; onHand: number }[];
+            thumbnailImage?: string | null 
+        } | undefined;
         return (
             <div className="flex items-center gap-3 w-full py-1">
-                <ProductOptionThumbnail productSystemId={option.value} />
+                <ProductOptionThumbnail thumbnailImage={metadata?.thumbnailImage} />
                 <div className="flex-1 min-w-0">
                     <p className="font-medium truncate">{option.label}</p>
                     <p className="text-xs text-muted-foreground">
-                        {option.subtitle} | ĐVT: {metadata?.unit || 'Chiếc'}
+                        {option.subtitle} | ĐVT: {metadata?.unit || 'Cái'}
                     </p>
                 </div>
-                <div className="text-right flex-shrink-0">
+                <div className="text-right shrink-0">
                     <p className="font-semibold">{formatCurrency(metadata?.price)}</p>
-                    <p className="text-xs text-muted-foreground">
-                        Tồn: {metadata?.stock || 0} | Bán: {metadata?.availableStock || 0}
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                        Tồn: {metadata?.totalStock || 0}
+                        <TooltipProvider delayDuration={100}>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Info className="h-3 w-3 text-muted-foreground hover:text-foreground cursor-help" />
+                                </TooltipTrigger>
+                                <TooltipContent side="left" className="max-w-xs">
+                                    <div className="text-xs space-y-1">
+                                        <p className="font-medium border-b pb-1 mb-1">Tồn kho theo chi nhánh:</p>
+                                        {metadata?.branchStocks && metadata.branchStocks.length > 0 ? (
+                                            metadata.branchStocks.map((bs) => (
+                                                <div key={bs.branchId} className="flex justify-between gap-4">
+                                                    <span className="truncate">{bs.branchName}</span>
+                                                    <span className="font-medium">{bs.onHand}</span>
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <p className="text-muted-foreground italic">Chưa có dữ liệu tồn kho</p>
+                                        )}
+                                    </div>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
                     </p>
                 </div>
             </div>
@@ -308,12 +244,17 @@ export const ProductSearch = ({ onSelectProduct, onAddProduct, disabled, default
                 options={options}
                 value={selectedValue}
                 onChange={handleChange}
+                onSearchChange={setSearchQuery}
+                isLoading={isLoadingProducts || !!pendingProductId}
                 placeholder="Thêm sản phẩm (F3)"
                 searchPlaceholder="Tìm kiếm theo tên, mã SKU, barcode..."
                 emptyPlaceholder="Không tìm thấy sản phẩm"
                 disabled={disabled}
+                onLoadMore={() => fetchNextPage()}
+                hasMore={hasNextPage}
+                isLoadingMore={isFetchingNextPage}
                 renderHeader={() => (
-                    <div className="p-1 border-b">
+                    <div className="p-1 border-b border-border">
                         <Button
                             type="button"
                             variant="ghost"

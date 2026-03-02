@@ -67,6 +67,11 @@ model Packaging {
   actualFee            Decimal?  @db.Decimal(15, 2) // Phí thực tế (VND)
   ghtkWebhookHistory   Json? // Array of webhook events
 
+  // In-store pickup info
+  requestorName        String?   // Người yêu cầu lấy hàng
+  requestorId          String?   // Mã người yêu cầu (nếu có)
+  requestorPhone       String?   // SĐT người lấy hàng
+
   // Relations
   order            Order     @relation(fields: [orderId], references: [systemId])
   assignedEmployee Employee? @relation(fields: [assignedEmployeeId], references: [systemId])

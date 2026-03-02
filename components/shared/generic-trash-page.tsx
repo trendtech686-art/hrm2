@@ -414,16 +414,18 @@ export function GenericTrashPage<T extends { systemId: SystemId; deletedAt?: str
               <AlertTriangle className="inline h-5 w-5 mr-2" />
               Xóa vĩnh viễn {Object.keys(rowSelection).length} {entityName}?
             </AlertDialogTitle>
-            <AlertDialogDescription>
-              <strong className="text-destructive">CẢNH BÁO: Hành động này không thể hoàn tác!</strong>
-              <br /><br />
-              Toàn bộ dữ liệu của {Object.keys(rowSelection).length} {entityName} sẽ bị xóa vĩnh viễn:
-              <ul className="list-disc list-inside mt-2 space-y-1">
-                <li>Thông tin {entityName}</li>
-                <li>Tất cả files và tài liệu</li>
-                <li>Thư mục lưu trữ trên server</li>
-                <li>Ảnh đại diện và file đính kèm</li>
-              </ul>
+            <AlertDialogDescription asChild>
+              <div className="text-sm text-muted-foreground">
+                <strong className="text-destructive">CẢNH BÁO: Hành động này không thể hoàn tác!</strong>
+                <br /><br />
+                Toàn bộ dữ liệu của {Object.keys(rowSelection).length} {entityName} sẽ bị xóa vĩnh viễn:
+                <ul className="list-disc list-inside mt-2 space-y-1">
+                  <li>Thông tin {entityName}</li>
+                  <li>Tất cả files và tài liệu</li>
+                  <li>Thư mục lưu trữ trên server</li>
+                  <li>Ảnh đại diện và file đính kèm</li>
+                </ul>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

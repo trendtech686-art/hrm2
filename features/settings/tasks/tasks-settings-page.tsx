@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
@@ -19,14 +19,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../../../components/ui/select';
-import { 
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '../../../components/ui/table';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -56,7 +48,10 @@ import {
   Save,
   MoreHorizontal,
 } from 'lucide-react';
+import { SimpleSettingsTable } from '../../../components/settings/SimpleSettingsTable';
+import type { ColumnDef } from '../../../components/data-table/types';
 import { toast } from 'sonner';
+import { generateSubEntityId } from '@/lib/id-utils';
 import { useSettingsPageHeader } from '../use-settings-page-header';
 import type { TaskPriority } from '../../tasks/types';
 import { SettingsActionButton } from '../../../components/settings/SettingsActionButton';
@@ -86,10 +81,9 @@ import {
   PRIORITY_COLOR_CONFIGS,
   clone,
 } from './types';
-import { useTasksSettings, useTasksSettingsMutations, loadCardColorSettings, loadSLASettings, loadEvidenceSettings, loadTaskTypes, loadTaskTemplates } from './hooks/use-tasks-settings';
+import { useTasksSettings, useTasksSettingsMutations } from './hooks/use-tasks-settings';
 
-// Re-export for backward compatibility
-export { loadCardColorSettings, loadSLASettings, loadEvidenceSettings, loadTaskTypes, loadTaskTemplates };
+// Re-export types for backward compatibility
 export type { CardColorSettings, TaskTemplate, EvidenceSettings, TaskType } from './types';
 
 // ============================================
@@ -128,11 +122,15 @@ export function TasksSettingsPage() {
   const [isAddingType, setIsAddingType] = React.useState(false);
   const [deleteTypeId, setDeleteTypeId] = React.useState<string | null>(null);
   const [deleteTemplateId, setDeleteTemplateId] = React.useState<string | null>(null);
+  
+  // Selection states for bulk actions
+  const [typeRowSelection, setTypeRowSelection] = React.useState<Record<string, boolean>>({});
+  const [templateRowSelection, setTemplateRowSelection] = React.useState<Record<string, boolean>>({});
 
   const [evidence, setEvidence] = React.useState<EvidenceSettings>(storedEvidence);
 
   const [activeTab, setActiveTab] = React.useState('sla');
-  const { headerActions, registerActions } = useTabActionRegistry(activeTab);
+  const { headerActions, setHeaderActions } = useTabActionRegistry(activeTab);
 
   React.useEffect(() => {
     setSLA(storedSla);
@@ -167,12 +165,7 @@ export function TasksSettingsPage() {
     actions: headerActions,
   });
 
-  const registerSlaActions = React.useMemo(() => registerActions('sla'), [registerActions]);
-  const registerTaskTypeActions = React.useMemo(() => registerActions('task-types'), [registerActions]);
-  const registerEvidenceActions = React.useMemo(() => registerActions('evidence'), [registerActions]);
-  const registerCardColorActions = React.useMemo(() => registerActions('card-colors'), [registerActions]);
-  const registerTemplateActions = React.useMemo(() => registerActions('templates'), [registerActions]);
-  const registerNotificationActions = React.useMemo(() => registerActions('notifications'), [registerActions]);
+  // (register* memos removed — using direct setHeaderActions with handlersRef)
 
   // ============================================
   // SLA HANDLERS
@@ -228,18 +221,7 @@ export function TasksSettingsPage() {
     });
   };
 
-  React.useEffect(() => {
-    if (activeTab !== 'sla') {
-      return;
-    }
-
-    registerSlaActions([
-      <SettingsActionButton key="save-sla" onClick={handleSaveSLA}>
-        <Save className="h-4 w-4" /> Lưu cài đặt
-      </SettingsActionButton>,
-    ]);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, registerSlaActions]);
+  // (SLA useEffect moved to single handlersRef effect below)
 
   // ============================================
   // EVIDENCE HANDLERS
@@ -285,18 +267,7 @@ export function TasksSettingsPage() {
     });
   };
 
-  React.useEffect(() => {
-    if (activeTab !== 'evidence') {
-      return;
-    }
-
-    registerEvidenceActions([
-      <SettingsActionButton key="save-evidence" onClick={handleSaveEvidence}>
-        <Save className="h-4 w-4" /> Lưu cài đặt
-      </SettingsActionButton>,
-    ]);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, registerEvidenceActions]);
+  // (Evidence useEffect moved to single handlersRef effect below)
 
   // ============================================
   // TASK TYPES HANDLERS
@@ -304,7 +275,7 @@ export function TasksSettingsPage() {
 
   const handleAddType = () => {
     const newType: TaskType = {
-      id: Date.now().toString(),
+      id: generateSubEntityId('ID'),
       name: '',
       description: '',
       icon: '📌',
@@ -346,6 +317,18 @@ export function TasksSettingsPage() {
     });
   };
 
+  const handleBulkDeleteTypes = (selectedItems: (TaskType & { systemId: string })[]) => {
+    const idsToDelete = new Set(selectedItems.map(item => item.id));
+    const updated = taskTypes.filter(t => !idsToDelete.has(t.id));
+    setTaskTypes(updated);
+    updateSection.mutate({ type: 'taskTypes', data: updated }, {
+      onSuccess: () => {
+        toast.success(`Đã xóa ${selectedItems.length} loại công việc`);
+        setTypeRowSelection({});
+      },
+    });
+  };
+
   const handleToggleTypeActive = (id: string) => {
     const updated = taskTypes.map(t =>
       t.id === id ? { ...t, isActive: !t.isActive } : t
@@ -362,18 +345,7 @@ export function TasksSettingsPage() {
     });
   };
 
-  React.useEffect(() => {
-    if (activeTab !== 'task-types') {
-      return;
-    }
-
-    registerTaskTypeActions([
-      <SettingsActionButton key="add-type" onClick={handleAddType}>
-        <Plus className="h-4 w-4" /> Thêm loại mới
-      </SettingsActionButton>,
-    ]);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, registerTaskTypeActions]);
+  // (Task types useEffect moved to single handlersRef effect below)
 
   // ============================================
   // CARD COLORS HANDLERS (Similar to complaints)
@@ -427,18 +399,7 @@ export function TasksSettingsPage() {
     });
   };
 
-  React.useEffect(() => {
-    if (activeTab !== 'card-colors') {
-      return;
-    }
-
-    registerCardColorActions([
-      <SettingsActionButton key="save-card-colors" onClick={handleSaveCardColors}>
-        <Save className="h-4 w-4" /> Lưu cài đặt
-      </SettingsActionButton>,
-    ]);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, registerCardColorActions]);
+  // (Card colors useEffect moved to single handlersRef effect below)
 
   // ============================================
   // NOTIFICATION & REMINDER HANDLERS
@@ -486,24 +447,7 @@ export function TasksSettingsPage() {
     });
   };
 
-  React.useEffect(() => {
-    if (activeTab !== 'notifications') {
-      return;
-    }
-
-    registerNotificationActions([
-      <SettingsActionButton
-        key="save-notifications"
-        onClick={() => {
-          handleSaveNotifications();
-          handleSaveReminders();
-        }}
-      >
-        <Save className="h-4 w-4" /> Lưu cài đặt
-      </SettingsActionButton>,
-    ]);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, registerNotificationActions]);
+  // (Notifications useEffect moved to single handlersRef effect below)
 
   // ============================================
   // TEMPLATE HANDLERS
@@ -511,7 +455,7 @@ export function TasksSettingsPage() {
 
   const handleAddTemplate = () => {
     setEditingTemplate({
-      id: Date.now().toString(),
+      id: generateSubEntityId('ID'),
       name: '',
       title: '',
       description: '',
@@ -561,6 +505,18 @@ export function TasksSettingsPage() {
     });
   };
 
+  const handleBulkDeleteTemplates = (selectedItems: (TaskTemplate & { systemId: string })[]) => {
+    const idsToDelete = new Set(selectedItems.map(item => item.id));
+    const updatedTemplates = templates.filter(t => !idsToDelete.has(t.id));
+    setTemplates(updatedTemplates);
+    updateSection.mutate({ type: 'templates', data: updatedTemplates }, {
+      onSuccess: () => {
+        toast.success(`Đã xóa ${selectedItems.length} mẫu`);
+        setTemplateRowSelection({});
+      },
+    });
+  };
+
   const _handleResetTemplates = () => {
     const defaults = clone(defaultTemplates);
     setTemplates(defaults);
@@ -569,18 +525,182 @@ export function TasksSettingsPage() {
     });
   };
 
-  React.useEffect(() => {
-    if (activeTab !== 'templates') {
-      return;
-    }
+  // ============================================
+  // COLUMN DEFINITIONS FOR SIMPLE SETTINGS TABLE
+  // ============================================
+  
+  // Prepare data with systemId for SimpleSettingsTable
+  const taskTypesWithSystemId = React.useMemo(() => 
+    taskTypes.map(t => ({ ...t, systemId: t.id })), 
+    [taskTypes]
+  );
 
-    registerTemplateActions([
-      <SettingsActionButton key="add-template" onClick={handleAddTemplate}>
-        <Plus className="h-4 w-4" /> Thêm mẫu
-      </SettingsActionButton>,
-    ]);
+  const templatesWithSystemId = React.useMemo(() => 
+    templates.map(t => ({ ...t, systemId: t.id })), 
+    [templates]
+  );
+
+  // Task Types columns
+  const taskTypeColumns: ColumnDef<TaskType & { systemId: string }>[] = React.useMemo(() => [
+    {
+      id: 'name',
+      header: 'Tên loại',
+      cell: ({ row }) => <span className="font-medium">{row.name}</span>,
+    },
+    {
+      id: 'description',
+      header: 'Mô tả',
+      cell: ({ row }) => <span className="text-muted-foreground">{row.description}</span>,
+    },
+    {
+      id: 'isActive',
+      header: 'Trạng thái',
+      cell: ({ row }) => (
+        <Switch
+          checked={row.isActive}
+          onCheckedChange={() => handleToggleTypeActive(row.id)}
+        />
+      ),
+    },
+    {
+      id: 'actions',
+      header: 'Thao tác',
+      cell: ({ row }) => (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => { setEditingType(row); setIsAddingType(false); }}>
+              Sửa
+            </DropdownMenuItem>
+            <DropdownMenuItem className="text-destructive" onClick={() => setDeleteTypeId(row.id)}>
+              Xóa
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ),
+    },
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, registerTemplateActions]);
+  ], [taskTypes]);
+
+  // Templates columns  
+  const templateColumns: ColumnDef<TaskTemplate & { systemId: string }>[] = React.useMemo(() => [
+    {
+      id: 'name',
+      header: 'Tên mẫu',
+      cell: ({ row }) => <span className="font-medium">{row.name}</span>,
+    },
+    {
+      id: 'category',
+      header: 'Danh mục',
+      cell: ({ row }) => (
+        <span className="text-xs px-2 py-1 rounded-md bg-muted">
+          {row.category === 'development' && 'Phát triển'}
+          {row.category === 'design' && 'Thiết kế'}
+          {row.category === 'marketing' && 'Marketing'}
+          {row.category === 'admin' && 'Quản trị'}
+          {row.category === 'general' && 'Chung'}
+        </span>
+      ),
+    },
+    {
+      id: 'estimatedHours',
+      header: 'Ước tính (giờ)',
+      cell: ({ row }) => <span>{row.estimatedHours}h</span>,
+    },
+    {
+      id: 'actions',
+      header: 'Thao tác',
+      cell: ({ row }) => (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => { setEditingTemplate(row); setIsAddingTemplate(false); }}>
+              Sửa
+            </DropdownMenuItem>
+            <DropdownMenuItem className="text-destructive" onClick={() => setDeleteTemplateId(row.id)}>
+              Xóa
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ),
+    },
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [templates]);
+
+  // (Templates useEffect moved to single handlersRef effect below)
+
+  // ✅ Stable handler refs — prevents stale closures in header action buttons
+  const handlersRef = React.useRef({
+    saveSLA: handleSaveSLA,
+    saveEvidence: handleSaveEvidence,
+    addType: handleAddType,
+    saveCardColors: handleSaveCardColors,
+    saveNotifications: () => { handleSaveNotifications(); handleSaveReminders(); },
+    addTemplate: handleAddTemplate,
+  });
+  handlersRef.current = {
+    saveSLA: handleSaveSLA,
+    saveEvidence: handleSaveEvidence,
+    addType: handleAddType,
+    saveCardColors: handleSaveCardColors,
+    saveNotifications: () => { handleSaveNotifications(); handleSaveReminders(); },
+    addTemplate: handleAddTemplate,
+  };
+
+  React.useEffect(() => {
+    switch (activeTab) {
+      case 'sla':
+        setHeaderActions([
+          <SettingsActionButton key="save-sla" onClick={() => handlersRef.current.saveSLA()}>
+            <Save className="h-4 w-4" /> Lưu cài đặt
+          </SettingsActionButton>,
+        ]);
+        break;
+      case 'evidence':
+        setHeaderActions([
+          <SettingsActionButton key="save-evidence" onClick={() => handlersRef.current.saveEvidence()}>
+            <Save className="h-4 w-4" /> Lưu cài đặt
+          </SettingsActionButton>,
+        ]);
+        break;
+      case 'task-types':
+        setHeaderActions([
+          <SettingsActionButton key="add-type" onClick={() => handlersRef.current.addType()}>
+            <Plus className="h-4 w-4" /> Thêm loại mới
+          </SettingsActionButton>,
+        ]);
+        break;
+      case 'card-colors':
+        setHeaderActions([
+          <SettingsActionButton key="save-card-colors" onClick={() => handlersRef.current.saveCardColors()}>
+            <Save className="h-4 w-4" /> Lưu cài đặt
+          </SettingsActionButton>,
+        ]);
+        break;
+      case 'notifications':
+        setHeaderActions([
+          <SettingsActionButton key="save-notifications" onClick={() => handlersRef.current.saveNotifications()}>
+            <Save className="h-4 w-4" /> Lưu cài đặt
+          </SettingsActionButton>,
+        ]);
+        break;
+      case 'templates':
+        setHeaderActions([
+          <SettingsActionButton key="add-template" onClick={() => handlersRef.current.addTemplate()}>
+            <Plus className="h-4 w-4" /> Thêm mẫu
+          </SettingsActionButton>,
+        ]);
+        break;
+    }
+  }, [activeTab, setHeaderActions]);
 
   const tabs = React.useMemo(
     () => [
@@ -604,7 +724,7 @@ export function TasksSettingsPage() {
       <TabsContent value="sla" className="mt-0 space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg font-semibold">Cài đặt SLA (Service Level Agreement)</CardTitle>
+              <CardTitle size="lg">Cài đặt SLA (Service Level Agreement)</CardTitle>
               <CardDescription>
                 Thiết lập thời gian phản hồi và hoàn thành công việc theo mức độ ưu tiên
               </CardDescription>
@@ -657,79 +777,24 @@ export function TasksSettingsPage() {
       <TabsContent value="task-types" className="mt-0 space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg font-semibold">Loại công việc</CardTitle>
+              <CardTitle size="lg">Loại công việc</CardTitle>
               <CardDescription>
                 Quản lý các loại công việc để phân loại và lọc task dễ dàng hơn
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <SettingsFormSection
-                title="Danh sách loại công việc"
-                description="Chuẩn hóa bộ lọc và automation theo từng nhóm task."
-                contentClassName="space-y-4"
-              >
-                <div className="rounded-lg border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Tên loại</TableHead>
-                        <TableHead>Mô tả</TableHead>
-                        <TableHead className="w-25">Trạng thái</TableHead>
-                        <TableHead className="w-30">Thao tác</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {taskTypes.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={4} className="text-center text-muted-foreground">
-                            Chưa có loại công việc nào
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        taskTypes.map((type) => (
-                          <TableRow key={type.id}>
-                            <TableCell className="font-medium">{type.name}</TableCell>
-                            <TableCell className="text-sm text-muted-foreground">
-                              {type.description}
-                            </TableCell>
-                            <TableCell>
-                              <Switch
-                                checked={type.isActive}
-                                onCheckedChange={() => handleToggleTypeActive(type.id)}
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                                    <MoreHorizontal className="h-4 w-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuItem
-                                    onClick={() => {
-                                      setEditingType(type);
-                                      setIsAddingType(false);
-                                    }}
-                                  >
-                                    Sửa
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    className="text-destructive"
-                                    onClick={() => setDeleteTypeId(type.id)}
-                                  >
-                                    Xóa
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
-              </SettingsFormSection>
+            <CardContent>
+              <SimpleSettingsTable
+                data={taskTypesWithSystemId}
+                columns={taskTypeColumns}
+                emptyTitle="Chưa có loại công việc nào"
+                emptyDescription="Nhấn nút 'Thêm loại mới' để tạo loại công việc."
+                enableSelection
+                rowSelection={typeRowSelection}
+                setRowSelection={setTypeRowSelection}
+                onBulkDelete={handleBulkDeleteTypes}
+                enablePagination
+                pagination={{ pageSize: 10, pageSizeOptions: [10, 20, 50] }}
+              />
             </CardContent>
           </Card>
 
@@ -827,7 +892,7 @@ export function TasksSettingsPage() {
       <TabsContent value="evidence" className="mt-0 space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg font-semibold">Cài đặt bằng chứng hoàn thành</CardTitle>
+              <CardTitle size="lg">Cài đặt bằng chứng hoàn thành</CardTitle>
               <CardDescription>
                 Cấu hình yêu cầu về hình ảnh và ghi chú khi hoàn thành công việc
               </CardDescription>
@@ -922,7 +987,7 @@ export function TasksSettingsPage() {
       <TabsContent value="card-colors" className="mt-0 space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg font-semibold">Màu sắc card công việc</CardTitle>
+              <CardTitle size="lg">Màu sắc card công việc</CardTitle>
               <CardDescription>
                 Đồng bộ màu card giữa task board và timeline để dễ quét trạng thái
               </CardDescription>
@@ -1041,79 +1106,25 @@ export function TasksSettingsPage() {
           <Card>
             <CardHeader>
               <div>
-                <CardTitle className="text-lg font-semibold">Mẫu công việc</CardTitle>
+                <CardTitle size="lg">Mẫu công việc</CardTitle>
                 <CardDescription>
                   Tạo và quản lý các mẫu công việc để tạo task nhanh hơn
                 </CardDescription>
               </div>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <SettingsFormSection
-                title="Danh sách mẫu công việc"
-                description="Chuẩn hóa nội dung mô tả, checklist và thời gian ước tính."
-                contentClassName="space-y-4"
-              >
-                {templates.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    Chưa có mẫu nào. Nhấn "Thêm mẫu" để tạo mẫu mới.
-                  </div>
-                ) : (
-                  <div className="rounded-lg border overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Tên mẫu</TableHead>
-                          <TableHead>Danh mục</TableHead>
-                          <TableHead>Ước tính (giờ)</TableHead>
-                          <TableHead className="text-right">Thao tác</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {templates.map(template => (
-                          <TableRow key={template.id}>
-                            <TableCell className="font-medium">{template.name}</TableCell>
-                            <TableCell>
-                              <span className="text-xs px-2 py-1 rounded-md bg-muted">
-                                {template.category === 'development' && 'Phát triển'}
-                                {template.category === 'design' && 'Thiết kế'}
-                                {template.category === 'marketing' && 'Marketing'}
-                                {template.category === 'admin' && 'Quản trị'}
-                                {template.category === 'general' && 'Chung'}
-                              </span>
-                            </TableCell>
-                            <TableCell>{template.estimatedHours}h</TableCell>
-                            <TableCell className="text-right">
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                                    <MoreHorizontal className="h-4 w-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuItem
-                                    onClick={() => {
-                                      setEditingTemplate(template);
-                                      setIsAddingTemplate(false);
-                                    }}
-                                  >
-                                    Sửa
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    className="text-destructive"
-                                    onClick={() => setDeleteTemplateId(template.id)}
-                                  >
-                                    Xóa
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-              </SettingsFormSection>
+            <CardContent>
+              <SimpleSettingsTable
+                data={templatesWithSystemId}
+                columns={templateColumns}
+                emptyTitle="Chưa có mẫu nào"
+                emptyDescription="Nhấn nút 'Thêm mẫu' để tạo mẫu công việc mới."
+                enableSelection
+                rowSelection={templateRowSelection}
+                setRowSelection={setTemplateRowSelection}
+                onBulkDelete={handleBulkDeleteTemplates}
+                enablePagination
+                pagination={{ pageSize: 10, pageSizeOptions: [10, 20, 50] }}
+              />
             </CardContent>
           </Card>
 
@@ -1246,7 +1257,7 @@ export function TasksSettingsPage() {
       <TabsContent value="notifications" className="mt-0 space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg font-semibold">Cài đặt thông báo & nhắc nhở</CardTitle>
+              <CardTitle size="lg">Cài đặt thông báo & nhắc nhở</CardTitle>
               <CardDescription>
                 Quản lý thông báo và nhắc nhở tự động cho công việc
               </CardDescription>

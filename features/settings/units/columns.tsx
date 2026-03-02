@@ -20,6 +20,14 @@ export const getUnitColumns = ({
   onToggleDefault,
   onToggleActive,
 }: ColumnOptions): ColumnDef<Unit>[] => [
+  {
+    id: "id",
+    accessorKey: "id",
+    header: "Mã",
+    cell: ({ row }) => <span className="text-sm">{row.id}</span>,
+    meta: { displayName: "Mã" },
+    size: 100,
+  },
   { 
     id: "name", 
     accessorKey: "name", 
@@ -62,7 +70,7 @@ export const getUnitColumns = ({
   },
   { 
     id: "actions", 
-    header: () => <div className="text-right">Hành động</div>, 
+    header: "", 
     cell: ({ row }) => (
       <div className="text-right">
         <DropdownMenu>

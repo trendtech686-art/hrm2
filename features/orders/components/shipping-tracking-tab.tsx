@@ -1,5 +1,6 @@
-import * as React from 'react';
+﻿import * as React from 'react';
 import Link from 'next/link';
+import { useQueryClient } from '@tanstack/react-query';
 import { formatDateTime } from '@/lib/date-utils';
 import type { Order } from '../types';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
@@ -8,6 +9,7 @@ import { Button } from '../../../components/ui/button';
 import { ScrollArea } from '../../../components/ui/scroll-area';
 import { Truck, RefreshCw } from 'lucide-react';
 import { useOrderDetailActions } from '../hooks/use-order-detail-actions';
+import { orderKeys } from '../hooks/use-orders';
 
 interface ShippingTrackingTabProps {
     order: Order;
@@ -16,6 +18,7 @@ interface ShippingTrackingTabProps {
 export function ShippingTrackingTab({ order }: ShippingTrackingTabProps) {
     // ✅ Use React Query hooks for mutations
     const { syncGHTKShipment } = useOrderDetailActions();
+    const queryClient = useQueryClient();
     const [isSyncing, setIsSyncing] = React.useState(false);
     
     // Find the active packaging with shipping partner
@@ -32,6 +35,8 @@ export function ShippingTrackingTab({ order }: ShippingTrackingTabProps) {
         try {
             // ✅ Use React Query mutation for sync
             await syncGHTKShipment(order.systemId, shippingPackaging.systemId);
+            // ✅ Force refetch order data after successful sync
+            await queryClient.invalidateQueries({ queryKey: orderKeys.detail(order.systemId) });
         } catch (error) {
             console.error('Manual sync error:', error);
         } finally {
@@ -65,7 +70,7 @@ export function ShippingTrackingTab({ order }: ShippingTrackingTabProps) {
             {process.env.NODE_ENV === 'development' && (
                 <Card className="border-dashed border-amber-300 bg-amber-50/50">
                     <CardHeader>
-                        <CardTitle className="text-sm font-semibold flex items-center gap-2 text-amber-900">
+                        <CardTitle size="sm" className="flex items-center gap-2 text-amber-900">
                             🔧 Webhook Debug Log
                             <Badge variant="outline" className="ml-auto text-xs">DEV ONLY</Badge>
                         </CardTitle>

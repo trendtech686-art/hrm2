@@ -7,9 +7,10 @@ import { prisma } from '@/lib/prisma';
 import { Prisma, InventoryReceiptType, InventoryReceiptStatus } from '@/generated/prisma/client';
 import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils';
 import { createInventoryReceiptSchema } from './validation';
+import { generateNextIdsWithTx } from '@/lib/id-system';
 
 // Interface for inventory receipt item input
-interface InventoryReceiptItemInput {
+interface _InventoryReceiptItemInput {
   systemId: string;
   productId: string;
   quantity?: number;
@@ -28,6 +29,12 @@ export async function GET(request: NextRequest) {
     const { page, limit, skip } = parsePagination(searchParams);
     const search = searchParams.get('search') || '';
     const type = searchParams.get('type') || '';
+    const purchaseOrderSystemId = searchParams.get('purchaseOrderSystemId') || '';
+
+    const supplierId = searchParams.get('supplierId') || '';
+    const branchId = searchParams.get('branchId') || '';
+    const sortBy = searchParams.get('sortBy') || 'createdAt';
+    const sortOrder = (searchParams.get('sortOrder') || 'desc') as 'asc' | 'desc';
 
     const where: Prisma.InventoryReceiptWhereInput = {};
     
@@ -35,6 +42,7 @@ export async function GET(request: NextRequest) {
       where.OR = [
         { id: { contains: search, mode: 'insensitive' } },
         { notes: { contains: search, mode: 'insensitive' } },
+        { supplierName: { contains: search, mode: 'insensitive' } },
       ];
     }
     
@@ -42,12 +50,25 @@ export async function GET(request: NextRequest) {
       where.type = type as InventoryReceiptType;
     }
 
+    // ⚡ Filter by purchase order for PO detail page
+    if (purchaseOrderSystemId) {
+      where.purchaseOrderSystemId = purchaseOrderSystemId;
+    }
+
+    if (supplierId) {
+      where.supplierSystemId = supplierId;
+    }
+
+    if (branchId) {
+      where.branchSystemId = branchId;
+    }
+
     const [data, total] = await Promise.all([
       prisma.inventoryReceipt.findMany({
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { [sortBy]: sortOrder },
         include: {
           items: true,
         },
@@ -55,7 +76,76 @@ export async function GET(request: NextRequest) {
       prisma.inventoryReceipt.count({ where }),
     ]);
 
-    return apiPaginated(data, { page, limit, total });
+    // Lookup purchase orders to get supplier info
+    const poSystemIds = data
+      .map(r => r.purchaseOrderSystemId)
+      .filter((id): id is string => !!id);
+    
+    const purchaseOrders = poSystemIds.length > 0 
+      ? await prisma.purchaseOrder.findMany({
+          where: { systemId: { in: poSystemIds } },
+          select: { 
+            systemId: true, 
+            id: true,
+            supplier: { select: { name: true } },
+          },
+        })
+      : [];
+    
+    const poMap = new Map(purchaseOrders.map(po => [po.systemId, po]));
+    
+    // Lookup employees for receiver info
+    const employeeIds = data
+      .map(r => r.employeeId)
+      .filter((id): id is string => !!id);
+    
+    // Also lookup createdBy for createdByName
+    const creatorIds = data
+      .map(r => r.createdBy)
+      .filter((id): id is string => !!id);
+    
+    const allEmployeeIds = [...new Set([...employeeIds, ...creatorIds])];
+    
+    const employees = allEmployeeIds.length > 0
+      ? await prisma.employee.findMany({
+          where: { systemId: { in: allEmployeeIds } },
+          select: { systemId: true, fullName: true },
+        })
+      : [];
+    
+    const employeeMap = new Map(employees.map(e => [e.systemId, e]));
+
+    // ✅ Transform data to match frontend expected format
+    // DB schema: quantity, unitCost -> Frontend: receivedQuantity, unitPrice
+    const transformedData = data.map(receipt => {
+      const po = receipt.purchaseOrderSystemId ? poMap.get(receipt.purchaseOrderSystemId) : null;
+      const employee = receipt.employeeId ? employeeMap.get(receipt.employeeId) : null;
+      const creator = receipt.createdBy ? employeeMap.get(receipt.createdBy) : null;
+      
+      return {
+        ...receipt,
+        // Map receiptDate to receivedDate for frontend compatibility
+        receivedDate: receipt.receivedDate?.toISOString() || receipt.receiptDate?.toISOString() || new Date().toISOString(),
+        // Populate missing fields from relations
+        purchaseOrderId: receipt.purchaseOrderId || po?.id || null,
+        supplierName: receipt.supplierName || po?.supplier?.name || null,
+        receiverName: receipt.receiverName || employee?.fullName || null,
+        createdByName: creator?.fullName || null,
+        items: receipt.items.map(item => ({
+          ...item,
+          // Map DB fields to frontend expected names
+          productSystemId: item.productId,
+          productId: item.productSku,
+          receivedQuantity: item.quantity,
+          orderedQuantity: item.quantity,
+          unitPrice: Number(item.unitCost) || 0,
+          unitCost: Number(item.unitCost) || 0,
+          totalCost: Number(item.totalCost) || 0,
+        })),
+      };
+    });
+
+    return apiPaginated(transformedData, { page, limit, total });
   } catch (error) {
     console.error('[Inventory Receipts API] GET error:', error);
     return apiError('Failed to fetch inventory receipts', 500);
@@ -71,48 +161,223 @@ export async function POST(request: NextRequest) {
   if (!result.success) return apiError(result.error, 400);
 
   try {
-    const {
-      systemId,
-      id,
-      type,
-      branchId,
-      employeeId,
-      referenceType,
-      referenceId,
-      receiptDate,
-      status,
-      notes,
-      items,
-      createdBy,
-    } = result.data;
+    const data = result.data;
+    
+    console.log('[Inventory Receipts API] Received data:', JSON.stringify(data, null, 2).substring(0, 1000));
+    
+    // Normalize branchId - support both branchId and branchSystemId
+    const branchId = data.branchId || data.branchSystemId;
+    if (!branchId) {
+      return apiError('branchId or branchSystemId is required', 400);
+    }
 
-    const inventoryReceipt = await prisma.inventoryReceipt.create({
-      data: {
-        systemId,
-        id,
-        type: type as InventoryReceiptType,
-        branchId,
-        employeeId: employeeId || null,
-        referenceType: referenceType || null,
-        referenceId: referenceId || null,
-        receiptDate: receiptDate ? new Date(receiptDate) : new Date(),
-        status: (status || 'DRAFT') as InventoryReceiptStatus,
-        notes: notes || null,
-        createdBy: createdBy || null,
-        items: items?.length ? {
-          create: items.map((item: InventoryReceiptItemInput) => ({
-            productId: item.productId,
-            productName: item.productId, // Will be resolved from product
-            productSku: item.productId, // Will be resolved from product
-            quantity: item.quantity || 1,
-            unitCost: item.unitCost || 0,
-            totalCost: item.totalCost || 0,
-          })),
-        } : undefined,
-      },
-      include: {
-        items: true,
-      },
+    const inventoryReceipt = await prisma.$transaction(async (tx) => {
+      // Generate IDs using unified ID system
+      const { systemId, businessId } = await generateNextIdsWithTx(
+        tx,
+        'inventory-receipts',
+        data.id?.trim() || undefined
+      );
+
+      // Normalize items - prefer productSystemId over productId for FK references
+      // productSystemId = internal ID (PROD112654), productId = business ID (ZP8)
+      const normalizedItems = data.items?.map((item) => ({
+        // Use productSystemId for database FK, productId for display/SKU
+        productSystemId: item.productSystemId || '',
+        productId: item.productId || '', // For display/SKU only
+        productName: item.productName || '',
+        // ✅ Ưu tiên receivedQuantity trước vì frontend gửi field này
+        quantity: item.receivedQuantity || item.quantity || 1,
+        // ✅ unitCost có thể là 0 (valid), dùng != null thay vì falsy check
+        unitCost: item.unitCost != null && item.unitCost > 0 ? item.unitCost : (item.unitPrice || 0),
+        totalCost: item.totalCost || 0,
+        notes: item.notes || null,
+      })) || [];
+      
+      console.log(`[Inventory Receipts] Created receipt ${businessId}, normalizedItems count: ${normalizedItems.length}`);
+      console.log(`[Inventory Receipts] branchId: ${branchId}`);
+      console.log(`[Inventory Receipts] Items details:`, normalizedItems.map(i => ({ productSystemId: i.productSystemId, quantity: i.quantity, unitCost: i.unitCost })));
+      const receipt = await tx.inventoryReceipt.create({
+        data: {
+          systemId,
+          id: businessId,
+          // Map type string to valid enum - PURCHASE is for goods receipt from supplier
+          type: (data.type === 'GOODS_RECEIPT' || data.type === 'PURCHASE' || !data.type ? 'PURCHASE' : data.type) as InventoryReceiptType,
+          branchId: branchId,
+          branchSystemId: branchId, // Also save as branchSystemId for frontend
+          branchName: data.branchName || null, // Save branch name for display
+          employeeId: data.employeeId || data.receiverSystemId || null,
+          referenceType: data.referenceType || (data.purchaseOrderSystemId ? 'purchase_order' : null),
+          referenceId: data.referenceId || data.purchaseOrderSystemId || null,
+          // Link to purchase order
+          purchaseOrderSystemId: data.purchaseOrderSystemId || null,
+          purchaseOrderId: data.purchaseOrderId || null,
+          supplierSystemId: data.supplierSystemId || null,
+          supplierName: data.supplierName || null,
+          receiptDate: data.receiptDate || data.receivedDate ? new Date(data.receiptDate || data.receivedDate!) : new Date(),
+          receivedDate: data.receivedDate ? new Date(data.receivedDate) : new Date(),
+          receiverSystemId: data.receiverSystemId || null,
+          receiverName: data.receiverName || null,
+          status: (data.status || 'COMPLETED') as InventoryReceiptStatus,
+          notes: data.notes || null,
+          createdBy: data.createdBy || session.user?.id || null,
+          items: normalizedItems.length ? {
+            create: normalizedItems.map((item) => ({
+              productId: item.productSystemId, // Use systemId for FK reference
+              productName: item.productName,
+              productSku: item.productId, // Use businessId for SKU display
+              quantity: item.quantity,
+              unitCost: item.unitCost,
+              totalCost: item.totalCost || item.quantity * item.unitCost,
+            })),
+          } : undefined,
+        },
+        include: {
+          items: true,
+        },
+      });
+
+      // ✅ Auto-update ProductInventory and create StockHistory for each item
+      if (normalizedItems.length && branchId) {
+        // Tính tổng số lượng để phân bổ chi phí
+        const totalQuantity = normalizedItems.reduce((sum, item) => sum + item.quantity, 0);
+        const shippingFee = data.shippingFee || 0;
+        const otherFees = data.otherFees || 0;
+        const totalFees = shippingFee + otherFees;
+        // Chi phí phân bổ cho mỗi đơn vị sản phẩm
+        const feePerUnit = totalQuantity > 0 ? totalFees / totalQuantity : 0;
+        const costMethod = data.costCalculationMethod || 'with_fees';
+        
+        console.log(`[Inventory Receipts] ⚠️ Received fees from request: shippingFee=${shippingFee}, otherFees=${otherFees}`);
+        console.log(`[Inventory Receipts] Cost calculation: method=${costMethod}, totalQty=${totalQuantity}, totalFees=${totalFees}, feePerUnit=${feePerUnit}`);
+        console.log(`[Inventory Receipts] Items received:`, JSON.stringify(normalizedItems.map(i => ({ 
+          productSystemId: i.productSystemId, 
+          quantity: i.quantity, 
+          unitCost: i.unitCost 
+        }))));
+
+        for (const item of normalizedItems) {
+          const quantity = item.quantity;
+          const unitCost = item.unitCost || 0;
+          // Giá nhập + chi phí phân bổ
+          const unitCostWithFees = unitCost + feePerUnit;
+          
+          console.log(`[Inventory Receipts] Processing item: product=${item.productSystemId}, qty=${quantity}, unitCost=${unitCost}, unitCostWithFees=${unitCostWithFees}`);
+          
+          // Get current inventory - use productSystemId for FK reference
+          const inventory = await tx.productInventory.findUnique({
+            where: {
+              productId_branchId: {
+                productId: item.productSystemId,
+                branchId: branchId,
+              },
+            },
+          });
+
+          const oldStock = inventory?.onHand || 0;
+          const newStock = oldStock + quantity;
+
+          // Update ProductInventory - use productSystemId for FK reference
+          const updatedInventory = await tx.productInventory.upsert({
+            where: {
+              productId_branchId: {
+                productId: item.productSystemId,
+                branchId: branchId,
+              },
+            },
+            update: {
+              onHand: { increment: quantity },
+              updatedAt: new Date(),
+            },
+            create: {
+              productId: item.productSystemId,
+              branchId: branchId,
+              onHand: quantity,
+              committed: 0,
+              inTransit: 0,
+              inDelivery: 0,
+            },
+          });
+          
+          console.log(`[Inventory Receipts] Updated inventory: product=${item.productSystemId}, oldStock=${oldStock}, added=${quantity}, newOnHand=${updatedInventory.onHand}`);
+
+          // Create StockHistory - use productSystemId for FK reference
+          await tx.stockHistory.create({
+            data: {
+              productId: item.productSystemId,
+              branchId: branchId,
+              action: 'Nhập kho',
+              source: 'Phiếu nhập kho',
+              quantityChange: quantity,
+              newStockLevel: newStock,
+              documentId: businessId,
+              documentType: 'inventory_receipt',
+              employeeId: session.user?.id,
+              employeeName: session.user?.name || undefined,
+              note: `Nhập kho - ${item.notes || 'Phiếu nhập hàng'}`,
+            },
+          });
+
+          // ✅ Always update lastPurchaseDate when receiving inventory
+          // Update cost price only if unitCost > 0
+          const currentProduct = await tx.product.findUnique({
+            where: { systemId: item.productSystemId },
+            select: { costPrice: true },
+          });
+          
+          const currentCostPrice = Number(currentProduct?.costPrice) || 0;
+          
+          if (unitCost > 0) {
+            // Tính giá vốn dựa trên phương pháp được chọn
+            // ✅ Logic: Mỗi lô nhập có giá vốn riêng = Giá nhập + Phí phân bổ
+            // KHÔNG bình quân với tồn cũ (mỗi lô 1 giá khác nhau)
+            let newCostPrice = unitCostWithFees; // Default: giá nhập + chi phí phân bổ
+            
+            switch (costMethod) {
+              case 'last_purchase':
+                // Giá vốn = giá nhập gần nhất (không tính phí)
+                newCostPrice = unitCost;
+                break;
+              
+              case 'weighted_average':
+                // Giá vốn = giá nhập (không tính phí)
+                newCostPrice = unitCost;
+                break;
+              
+              case 'with_fees':
+              default:
+                // Giá vốn = Giá nhập + Phí phân bổ cho lô này
+                newCostPrice = Math.round(unitCostWithFees);
+                break;
+            }
+            
+            await tx.product.update({
+              where: { systemId: item.productSystemId },
+              data: {
+                lastPurchasePrice: unitCost, // Giá nhập gốc (không bao gồm phí)
+                lastPurchaseDate: new Date(),
+                // Giá vốn đã tính theo phương pháp được chọn
+                costPrice: newCostPrice,
+              },
+            });
+
+            console.log(`[Inventory Receipts] Updated product ${item.productSystemId}: lastPurchasePrice=${unitCost}, costPrice=${newCostPrice} (method=${costMethod}, oldStock=${oldStock}, currentCostPrice=${currentCostPrice}, useWeightedAverage=${currentCostPrice > 0 && oldStock > 0 && newStock > 0})`);
+          } else {
+            // unitCost = 0, chỉ update lastPurchaseDate
+            await tx.product.update({
+              where: { systemId: item.productSystemId },
+              data: {
+                lastPurchaseDate: new Date(),
+              },
+            });
+            console.log(`[Inventory Receipts] Updated product ${item.productSystemId}: lastPurchaseDate only (unitCost=0)`);
+          }
+        }
+        
+        console.log(`[Inventory Receipts] Updated ProductInventory for ${normalizedItems.length} products}`);
+      }
+
+      return receipt;
     });
 
     return apiSuccess(inventoryReceipt, 201);

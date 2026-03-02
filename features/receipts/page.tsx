@@ -14,8 +14,14 @@ import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { ROUTES } from "@/lib/router";
 import { ReceiptsContent } from "./components/receipts-content";
+import type { ReceiptStats } from "./hooks/use-receipts";
 
-export function ReceiptsPage() {
+// Props from Server Component
+export interface ReceiptsPageProps {
+  initialStats?: ReceiptStats;
+}
+
+export function ReceiptsPage({ initialStats }: ReceiptsPageProps = {}) {
   const router = useRouter();
 
   // Header Actions
@@ -41,5 +47,5 @@ export function ReceiptsPage() {
     showBackButton: false
   });
 
-  return <ReceiptsContent />;
+  return <ReceiptsContent initialStats={initialStats} />;
 }

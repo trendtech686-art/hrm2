@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Sales Product Report Page
  * 
  * Báo cáo bán hàng theo sản phẩm
@@ -305,7 +305,7 @@ export function SalesProductReportPage() {
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-base font-medium">Chi tiết theo sản phẩm</CardTitle>
+            <CardTitle>Chi tiết theo sản phẩm</CardTitle>
             <Button variant="outline" size="sm">
               <Filter className="h-4 w-4 mr-2" />
               Lọc ({data.length})

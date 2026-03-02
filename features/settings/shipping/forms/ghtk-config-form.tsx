@@ -168,7 +168,7 @@ export function GHTKConfigForm({
       )}
 
       <Tabs defaultValue="account" className="flex-1 flex flex-col overflow-hidden">
-        <TabsList className="grid w-full grid-cols-3 flex-shrink-0">
+        <TabsList className="grid w-full grid-cols-3 shrink-0">
           <TabsTrigger value="account">Tài khoản</TabsTrigger>
           <TabsTrigger value="pickup-addresses" disabled={!isEditMode}>
             Địa chỉ lấy hàng
@@ -301,7 +301,7 @@ export function GHTKConfigForm({
       </Tabs>
 
       {/* Action buttons - visible in both tabs */}
-      <div className="flex justify-end gap-2 pt-4 border-t mt-4 flex-shrink-0">
+      <div className="flex justify-end gap-2 pt-4 border-t mt-4 shrink-0">
         <Button variant="outline" onClick={onClose}>Hủy</Button>
         <Button onClick={handleSave}>Lưu</Button>
       </div>

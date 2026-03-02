@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../../compo
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table';
 import { formatDateForDisplay } from '@/lib/date-utils';
 import { Badge } from '../../../components/ui/badge';
-import { useAllOrders } from '../../orders/hooks/use-all-orders';
+import { useAllStockTransfers } from '../../stock-transfers/hooks/use-all-stock-transfers';
 import { useProductFinder } from '../hooks/use-all-products';
 import type { SystemId } from '../../../lib/id-types';
 
@@ -25,98 +25,96 @@ export function InTransitStockDialog({
   branchName,
   productName,
 }: InTransitStockDialogProps) {
-  const { data: allOrders } = useAllOrders();
+  const { data: allStockTransfers } = useAllStockTransfers();
   const { findById: findProductById } = useProductFinder();
   const router = useRouter();
 
   const product = React.useMemo(() => findProductById(productSystemId), [findProductById, productSystemId]);
-  const productSku = product?.id;
+  const _productSku = product?.id;
 
-  const inTransitOrders = React.useMemo(() => {
-    const isInTransitStatus = (deliveryStatus?: string, stockOutStatus?: string) => {
-      if (!deliveryStatus && !stockOutStatus) return false;
-      if (deliveryStatus === 'Đang giao hàng' || deliveryStatus === 'Chờ lấy hàng') return true;
-      if (stockOutStatus === 'Xuất kho toàn bộ' && deliveryStatus !== 'Đã giao hàng') return true;
-      return false;
-    };
+  // ✅ Find stock transfers where this branch is receiving (inTransit means goods coming TO this branch)
+  const inTransitTransfers = React.useMemo(() => {
+    return allStockTransfers
+      .filter(transfer => {
+        // Must be transferring status and destination is this branch
+        if (transfer.status !== 'transferring') return false;
+        if (transfer.toBranchSystemId !== branchSystemId) return false;
 
-    return allOrders
-      .filter(order => order.branchSystemId === branchSystemId && isInTransitStatus(order.deliveryStatus, order.stockOutStatus))
-      .map(order => {
-        const matchingItems = order.lineItems?.filter(item =>
-          item.productSystemId === productSystemId || (productSku && item.productId === productSku)
+        // Check if transfer contains this product
+        return transfer.items?.some(item => 
+          item.productSystemId === productSystemId
+        );
+      })
+      .map(transfer => {
+        const matchingItems = transfer.items?.filter(item =>
+          item.productSystemId === productSystemId
         ) || [];
 
-        if (matchingItems.length === 0) {
-          return null;
-        }
-
         const quantity = matchingItems.reduce((sum, item) => sum + (item.quantity || 0), 0);
-        const latestPackaging = order.packagings?.[order.packagings.length - 1];
 
         return {
-          id: order.id,
-          systemId: order.systemId,
-          date: order.orderDate,
-          customerName: order.customerName,
+          id: transfer.id,
+          systemId: transfer.systemId,
+          date: transfer.transferredDate || transfer.createdAt,
+          fromBranchName: transfer.fromBranchName,
+          toBranchName: transfer.toBranchName,
           quantity,
-          deliveryStatus: order.deliveryStatus,
-          carrier: latestPackaging?.carrier || order.shippingInfo?.carrier,
-          trackingCode: latestPackaging?.trackingCode || order.shippingInfo?.trackingCode,
+          status: transfer.status,
+          transferredByName: transfer.transferredByName,
         };
       })
-      .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry))
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [allOrders, branchSystemId, productSystemId, productSku]);
+      .filter(entry => entry.quantity > 0)
+      .sort((a, b) => new Date(b.date || '').getTime() - new Date(a.date || '').getTime());
+  }, [allStockTransfers, branchSystemId, productSystemId]);
 
-  const totalInTransit = inTransitOrders.reduce((sum, order) => sum + order.quantity, 0);
+  const totalInTransit = inTransitTransfers.reduce((sum, t) => sum + t.quantity, 0);
 
-  const handleRowClick = (order: typeof inTransitOrders[number]) => {
-    router.push(`/orders/${order.systemId}`);
+  const handleRowClick = (transfer: typeof inTransitTransfers[number]) => {
+    router.push(`/stock-transfers/${transfer.systemId}`);
     onOpenChange(false);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl max-h-[80vh]">
+      <DialogContent className="max-w-4xl max-h-[80vh]">
         <DialogHeader>
           <DialogTitle>
-            Hàng đang giao: {productName}
+            Hàng đang về: {productName}
           </DialogTitle>
           <div className="text-body-sm text-muted-foreground">
-            Chi nhánh: {branchName} • Tổng đang giao: <span className="text-body-sm font-medium text-blue-600">{totalInTransit}</span> sản phẩm
+            Chi nhánh: {branchName} • Tổng đang về: <span className="text-body-sm font-medium text-orange-600">{totalInTransit}</span> sản phẩm
           </div>
         </DialogHeader>
 
-        {inTransitOrders.length === 0 ? (
+        {inTransitTransfers.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
-            Không có đơn hàng nào đang giao sản phẩm này tại chi nhánh {branchName}
+            Không có phiếu chuyển kho nào đang vận chuyển sản phẩm này đến chi nhánh {branchName}
           </div>
         ) : (
           <div className="overflow-y-auto max-h-[calc(80vh-120px)]">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[120px]">Mã đơn</TableHead>
-                  <TableHead className="w-[120px]">Ngày tạo</TableHead>
-                  <TableHead className="min-w-[220px]">Khách hàng</TableHead>
-                  <TableHead>Hãng vận chuyển</TableHead>
-                  <TableHead>Mã vận đơn</TableHead>
-                  <TableHead className="text-right w-[120px]">Số lượng</TableHead>
-                  <TableHead className="w-[150px]">Trạng thái giao</TableHead>
+                  <TableHead className="w-30">Mã phiếu</TableHead>
+                  <TableHead className="w-30">Ngày chuyển</TableHead>
+                  <TableHead className="min-w-45">Từ chi nhánh</TableHead>
+                  <TableHead className="min-w-45">Đến chi nhánh</TableHead>
+                  <TableHead>Người chuyển</TableHead>
+                  <TableHead className="text-right w-30">Số lượng</TableHead>
+                  <TableHead className="w-30">Trạng thái</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {inTransitOrders.map(order => (
-                  <TableRow key={order.systemId} className="cursor-pointer hover:bg-muted/60" onClick={() => handleRowClick(order)}>
-                    <TableCell className="text-body-sm font-medium">{order.id}</TableCell>
-                    <TableCell>{order.date ? formatDateForDisplay(order.date) : '-'}</TableCell>
-                    <TableCell className="truncate" title={order.customerName}>{order.customerName}</TableCell>
-                    <TableCell>{order.carrier || '—'}</TableCell>
-                    <TableCell>{order.trackingCode || '—'}</TableCell>
-                    <TableCell className="text-right text-body-sm font-medium text-blue-600">{order.quantity}</TableCell>
+                {inTransitTransfers.map(transfer => (
+                  <TableRow key={transfer.systemId} className="cursor-pointer hover:bg-muted/60" onClick={() => handleRowClick(transfer)}>
+                    <TableCell className="text-body-sm font-medium text-primary">{transfer.id}</TableCell>
+                    <TableCell>{transfer.date ? formatDateForDisplay(transfer.date) : '-'}</TableCell>
+                    <TableCell>{transfer.fromBranchName || '—'}</TableCell>
+                    <TableCell>{transfer.toBranchName || '—'}</TableCell>
+                    <TableCell>{transfer.transferredByName || '—'}</TableCell>
+                    <TableCell className="text-right text-body-sm font-medium text-orange-600">{transfer.quantity}</TableCell>
                     <TableCell>
-                      <Badge variant="secondary">{order.deliveryStatus || 'Đang giao'}</Badge>
+                      <Badge variant="secondary">Đang vận chuyển</Badge>
                     </TableCell>
                   </TableRow>
                 ))}

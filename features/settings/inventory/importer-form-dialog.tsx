@@ -133,7 +133,7 @@ export function ImporterFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-150 max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {initialData ? "Chỉnh sửa đơn vị nhập khẩu" : "Thêm đơn vị nhập khẩu mới"}
@@ -158,8 +158,8 @@ export function ImporterFormDialog({
                       <Input
                         placeholder="VD: NK001"
                         {...field}
+                        className="uppercase"
                         onChange={(e) => field.onChange(e.target.value.toUpperCase())}
-                        disabled={!!initialData}
                       />
                     </FormControl>
                     <FormDescription>

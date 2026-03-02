@@ -1,7 +1,7 @@
 /**
  * PkgxBrandActionsCell - Shared dropdown component for PKGX brand sync actions
  * 
- * Uses usePkgxEntitySync hook for consistent sync behavior
+ * Uses usePkgxBrandSync hook for consistent sync behavior (same as detail page)
  */
 
 import * as React from 'react';
@@ -9,10 +9,9 @@ import { MoreHorizontal, RefreshCw, Globe, Search, AlignLeft, Eye, Link2, Unlink
 import { Button } from '../../components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
 import type { Brand } from '../settings/inventory/types';
-import { usePkgxEntitySync } from '../settings/pkgx/hooks';
-import type { HrmBrandData } from '../settings/pkgx/hooks';
+import { usePkgxBrandSync } from './hooks/use-pkgx-brand-sync';
 import { PkgxSyncConfirmDialog } from '../settings/pkgx/components/pkgx-sync-confirm-dialog';
-import { usePkgxSettingsStore } from '../settings/pkgx/store';
+import type { ConfirmActionState } from '../settings/pkgx/hooks/use-pkgx-entity-sync';
 
 interface PkgxBrandActionsCellProps {
   brand: Brand;
@@ -31,32 +30,67 @@ export function PkgxBrandActionsCell({
   onPkgxUnlink,
   onPkgxViewDetail,
 }: PkgxBrandActionsCellProps) {
-  const { addLog } = usePkgxSettingsStore();
+  // Use the same sync hook as detail page
+  const pkgxSync = usePkgxBrandSync();
   
-  // Use shared entity sync hook
-  const entitySync = usePkgxEntitySync({
-    entityType: 'brand',
-    onLog: addLog,
+  // State for confirmation dialog
+  const [confirmAction, setConfirmAction] = React.useState<ConfirmActionState>({
+    open: false,
+    title: '',
+    description: '',
+    action: null,
   });
+  const [isSyncing, setIsSyncing] = React.useState(false);
   
-  // Build HRM brand data for sync
-  const buildHrmData = (): HrmBrandData => ({
-    systemId: brand.systemId,
-    name: brand.name,
-    website: brand.website,
-    seoKeywords: brand.websiteSeo?.pkgx?.seoKeywords || brand.seoKeywords,
-    seoTitle: brand.websiteSeo?.pkgx?.seoTitle || brand.seoTitle,
-    metaDescription: brand.websiteSeo?.pkgx?.metaDescription || brand.metaDescription,
-    shortDescription: brand.websiteSeo?.pkgx?.shortDescription || brand.shortDescription,
-    longDescription: brand.websiteSeo?.pkgx?.longDescription || brand.longDescription || brand.description,
-    websiteSeo: brand.websiteSeo,
-  });
+  // Helper to handle confirm dialog
+  const handleConfirm = (title: string, description: string, action: () => void | Promise<void>) => {
+    setConfirmAction({
+      open: true,
+      title,
+      description,
+      action: async () => {
+        setIsSyncing(true);
+        try {
+          await action();
+        } finally {
+          setIsSyncing(false);
+          setConfirmAction({ open: false, title: '', description: '', action: null });
+        }
+      },
+    });
+  };
   
-  // Helper to trigger sync
-  const triggerSync = (actionKey: 'sync_all' | 'sync_basic' | 'sync_seo' | 'sync_description') => {
+  // Helper to trigger sync with confirmation
+  const triggerSync = (actionType: string) => {
     if (!pkgxBrandId) return;
-    const hrmData = buildHrmData();
-    entitySync.triggerSyncAction(actionKey, pkgxBrandId, hrmData, brand.name);
+    
+    const actionMap: Record<string, { title: string; handler: () => Promise<void> | void }> = {
+      sync_all: {
+        title: 'Đồng bộ tất cả',
+        handler: () => pkgxSync.handleSyncAll(brand),
+      },
+      sync_basic: {
+        title: 'Đồng bộ thông tin cơ bản',
+        handler: () => pkgxSync.handleSyncBasicInfo(brand),
+      },
+      sync_seo: {
+        title: 'Đồng bộ SEO',
+        handler: () => pkgxSync.handleSyncSeo(brand),
+      },
+      sync_description: {
+        title: 'Đồng bộ mô tả',
+        handler: () => pkgxSync.handleSyncDescription(brand),
+      },
+    };
+    
+    const action = actionMap[actionType];
+    if (action) {
+      handleConfirm(
+        action.title,
+        `Bạn có chắc muốn ${action.title.toLowerCase()} cho "${brand.name}" lên PKGX?`,
+        action.handler
+      );
+    }
   };
   
   return (
@@ -73,9 +107,13 @@ export function PkgxBrandActionsCell({
               <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+          <DropdownMenuContent 
+            align="end" 
+            onClick={(e) => e.stopPropagation()}
+            onCloseAutoFocus={(e) => e.preventDefault()}
+          >
             {hasPkgxMapping ? (
-              <>
+              <>  
                 {/* Sync All */}
                 <DropdownMenuItem 
                   onSelect={() => triggerSync('sync_all')}
@@ -125,7 +163,7 @@ export function PkgxBrandActionsCell({
                   <>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem 
-                      onSelect={() => entitySync.handleConfirm(
+                      onSelect={() => handleConfirm(
                         'Hủy liên kết PKGX',
                         `Bạn có chắc muốn hủy liên kết thương hiệu "${brand.name}" với PKGX?`,
                         () => onPkgxUnlink(brand)
@@ -153,12 +191,12 @@ export function PkgxBrandActionsCell({
         </DropdownMenu>
       </div>
       
-      {/* Confirmation Dialog - using shared component */}
+      {/* Confirmation Dialog */}
       <PkgxSyncConfirmDialog
-        confirmAction={entitySync.confirmAction}
-        isSyncing={entitySync.isSyncing}
-        onConfirm={entitySync.executeAction}
-        onCancel={entitySync.cancelConfirm}
+        confirmAction={confirmAction}
+        isSyncing={isSyncing}
+        onConfirm={() => confirmAction.action?.()}
+        onCancel={() => setConfirmAction({ open: false, title: '', description: '', action: null })}
       />
     </>
   );

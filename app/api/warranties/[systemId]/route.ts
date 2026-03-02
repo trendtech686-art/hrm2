@@ -1,7 +1,24 @@
 import { prisma } from '@/lib/prisma'
+import type { Prisma } from '@prisma/client'
 import { WarrantyStatus } from '@/generated/prisma/client'
 import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
 import { updateWarrantySchema } from './validation'
+
+// Helper to serialize Decimal fields for client
+function serializeWarranty<T extends { 
+  partsCost?: Prisma.Decimal | number | null;
+  laborCost?: Prisma.Decimal | number | null;
+  totalCost?: Prisma.Decimal | number | null;
+  shippingFee?: Prisma.Decimal | number | null;
+}>(warranty: T) {
+  return {
+    ...warranty,
+    partsCost: warranty.partsCost !== null && warranty.partsCost !== undefined ? Number(warranty.partsCost) : 0,
+    laborCost: warranty.laborCost !== null && warranty.laborCost !== undefined ? Number(warranty.laborCost) : 0,
+    totalCost: warranty.totalCost !== null && warranty.totalCost !== undefined ? Number(warranty.totalCost) : 0,
+    shippingFee: warranty.shippingFee !== null && warranty.shippingFee !== undefined ? Number(warranty.shippingFee) : 0,
+  };
+}
 
 interface RouteParams {
   params: Promise<{ systemId: string }>
@@ -22,6 +39,10 @@ export async function GET(_request: Request, { params }: RouteParams) {
         order: {
           select: { systemId: true, id: true, orderDate: true },
         },
+        // ✅ Include customer for CustomerSelector stats
+        customers: {
+          select: { systemId: true, id: true, name: true, phone: true, email: true },
+        },
       },
     })
 
@@ -29,7 +50,18 @@ export async function GET(_request: Request, { params }: RouteParams) {
       return apiError('Phiếu bảo hành không tồn tại', 404)
     }
 
-    return apiSuccess(warranty)
+    // Debug: Log warranty data including customer
+    console.log('[GET /api/warranties] Warranty data:', {
+      systemId: warranty.systemId,
+      customerId: warranty.customerId,
+      customers: warranty.customers,
+      receivedImages: warranty.receivedImages,
+      processedImages: warranty.processedImages,
+      productsCount: Array.isArray(warranty.products) ? warranty.products.length : 'not array',
+      products: warranty.products,
+    });
+
+    return apiSuccess(serializeWarranty(warranty))
   } catch (error) {
     console.error('Error fetching warranty:', error)
     return apiError('Failed to fetch warranty', 500)
@@ -57,21 +89,77 @@ export async function PUT(request: Request, { params }: RouteParams) {
 
   try {
     const { systemId } = await params
+    
+    // Debug: Log important fields
+    console.log('[PUT /api/warranties] Received data:', {
+      systemId,
+      receivedImages: body.receivedImages,
+      processedImages: body.processedImages,
+      products: body.products?.length,
+      summary: body.summary,
+    });
+
+    // Build update data - only include fields that are provided
+    const updateData: Record<string, unknown> = {
+      updatedAt: new Date(),
+      updatedBy: session.user?.email || 'system',
+      updatedBySystemId: session.user?.id,
+    };
+
+    // Basic fields
+    if (body.issueDescription !== undefined) updateData.issueDescription = body.issueDescription;
+    if (body.notes !== undefined) updateData.notes = body.notes;
+    if (body.status !== undefined) updateData.status = body.status as WarrantyStatus;
+    if (body.priority !== undefined) updateData.priority = body.priority;
+    if (body.solution !== undefined) updateData.solution = body.solution;
+    if (body.diagnosis !== undefined) updateData.diagnosis = body.diagnosis;
+    if (body.assigneeId !== undefined) updateData.assigneeId = body.assigneeId;
+    
+    // Customer info
+    if (body.customerName !== undefined) updateData.customerName = body.customerName;
+    if (body.customerPhone !== undefined) updateData.customerPhone = body.customerPhone;
+    if (body.customerEmail !== undefined) updateData.customerEmail = body.customerEmail;
+    if (body.customerAddress !== undefined) updateData.customerAddress = body.customerAddress;
+    
+    // Branch & employee
+    if (body.branchSystemId !== undefined) updateData.branchSystemId = body.branchSystemId;
+    if (body.branchName !== undefined) updateData.branchName = body.branchName;
+    if (body.employeeSystemId !== undefined) updateData.employeeSystemId = body.employeeSystemId;
+    if (body.employeeName !== undefined) updateData.employeeName = body.employeeName;
+    
+    // Shipping & external refs
+    if (body.trackingCode !== undefined) updateData.trackingCode = body.trackingCode;
+    if (body.shippingFee !== undefined) updateData.shippingFee = body.shippingFee;
+    if (body.referenceUrl !== undefined) updateData.referenceUrl = body.referenceUrl;
+    if (body.externalReference !== undefined) updateData.externalReference = body.externalReference;
+    
+    // Images
+    if (body.receivedImages !== undefined) updateData.receivedImages = body.receivedImages;
+    if (body.processedImages !== undefined) updateData.processedImages = body.processedImages;
+    
+    // Products (JSON array)
+    if (body.products !== undefined) updateData.products = body.products;
+    
+    // Settlement (JSON object)
+    if (body.settlement !== undefined) updateData.settlement = body.settlement;
+    if (body.settlementStatus !== undefined) updateData.settlementStatus = body.settlementStatus;
+    
+    // Summary (JSON object)
+    if (body.summary !== undefined) updateData.summary = body.summary;
+    
+    // History & comments (JSON arrays)
+    if (body.history !== undefined) updateData.history = body.history;
+    if (body.comments !== undefined) updateData.comments = body.comments;
+    
+    // Subtasks
+    if (body.subtasks !== undefined) updateData.subtasks = body.subtasks;
+    
+    // Order linking
+    if (body.linkedOrderSystemId !== undefined) updateData.linkedOrderSystemId = body.linkedOrderSystemId;
 
     const warranty = await prisma.warranty.update({
       where: { systemId },
-      data: {
-        issueDescription: body.issueDescription,
-        notes: body.notes,
-        status: body.status as WarrantyStatus | undefined,
-        priority: body.priority,
-        solution: body.solution,
-        diagnosis: body.diagnosis,
-        assigneeId: body.assigneeId,
-        updatedAt: new Date(),
-        updatedBy: session.user?.email || 'system',
-        updatedBySystemId: session.user?.id,
-      },
+      data: updateData,
       include: {
         product: {
           select: { systemId: true, id: true, name: true, imageUrl: true },
@@ -86,7 +174,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
     // This would require knowing the previous warranty type and new type
     // If changing from REPLACE to REPAIR/REFUND, uncommit stock
 
-    return apiSuccess(warranty)
+    return apiSuccess(serializeWarranty(warranty))
   } catch (error) {
     if (error instanceof Error && 'code' in error && error.code === 'P2025') {
       return apiError('Phiếu bảo hành không tồn tại', 404)

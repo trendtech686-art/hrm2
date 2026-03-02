@@ -11,13 +11,25 @@ model Customer {
   representative   String?
   position         String?
   addresses        Json?
+
+  // Personal Info (for individual customers)
+  gender           String?           // Nam, Nữ, Khác
+  dateOfBirth      DateTime?         // Ngày sinh
+  
+  // Address fields (for flat import/export)
+  address          String?           // Địa chỉ chi tiết
+  province         String?           // Tỉnh/Thành phố
+  district         String?           // Quận/Huyện
+  ward             String?           // Phường/Xã
   currentDebt      Decimal?          @default(0) @db.Decimal(15, 2)
   maxDebt          Decimal?          @db.Decimal(15, 2)
   lifecycleStage   CustomerLifecycle @default(LEAD)
   pricingLevel     PricingLevel?
+  pricingPolicyId  String?           // FK to PricingPolicy systemId - Bảng giá áp dụng
   defaultDiscount  Decimal?          @db.Decimal(5, 2)
   totalOrders      Int?              @default(0)
   totalSpent       Decimal?          @default(0) @db.Decimal(15, 2)
+  totalProductsBought Int?           @default(0)  // Tổng số lượng sản phẩm đã mua
   lastPurchaseDate DateTime?
   accountManagerId String?
   tags             String[]

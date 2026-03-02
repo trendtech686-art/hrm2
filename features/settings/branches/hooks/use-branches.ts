@@ -100,7 +100,7 @@ export function useBranchMutations(options: UseBranchMutationsOptions = {}) {
 // properly typed Branch[] data. Do not re-export here.
 
 export function useDefaultBranch() {
-  const { data, ...rest } = useBranches({ isDefault: true, limit: 1 });
+  const { data, ...rest } = useBranches({ isDefault: true });
   return {
     ...rest,
     data: data?.data?.[0] ?? null,

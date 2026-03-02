@@ -12,6 +12,7 @@ import {
 } from './dropdown-menu';
 import { formatDateTime } from '../../lib/date-utils';
 import { cn } from '../../lib/utils';
+import { generateSubEntityId } from '@/lib/id-utils';
 
 /**
  * Notification Center - Trung tâm thông báo toàn hệ thống
@@ -93,7 +94,7 @@ export function useNotificationStore(): NotificationStore {
   const addNotification = React.useCallback((notification: Omit<Notification, 'id' | 'isRead' | 'createdAt'>) => {
     const newNotification: Notification = {
       ...notification,
-      id: `notif-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: generateSubEntityId('notif'),
       isRead: false,
       createdAt: new Date().toISOString(),
     };
@@ -165,7 +166,7 @@ export function NotificationCenter() {
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
             <Badge 
-              className="absolute -top-1 -right-1 h-5 min-w-[20px] flex items-center justify-center p-0 text-[10px]"
+              className="absolute -top-1 -right-1 h-5 min-w-5 flex items-center justify-center p-0 text-[10px]"
               variant="destructive"
             >
               {unreadCount > 99 ? '99+' : unreadCount}
@@ -174,7 +175,7 @@ export function NotificationCenter() {
         </Button>
       </DropdownMenuTrigger>
       
-      <DropdownMenuContent align="end" className="w-[380px] p-0">
+      <DropdownMenuContent align="end" className="w-95 p-0">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <div className="flex items-center gap-2">
@@ -211,7 +212,7 @@ export function NotificationCenter() {
           </div>
         ) : (
           <>
-            <ScrollArea className="h-[400px]">
+            <ScrollArea className="h-100">
               <div className="p-2">
                 {notifications.map((notification) => (
                   <div key={notification.id}>
@@ -225,7 +226,7 @@ export function NotificationCenter() {
                       onClick={() => handleNotificationClick(notification)}
                     >
                       {/* Icon */}
-                      <div className="flex-shrink-0 mt-0.5">
+                      <div className="shrink-0 mt-0.5">
                         {notificationIcons[notification.type]}
                       </div>
 
@@ -315,7 +316,7 @@ export function NotificationCenter() {
 function addNotificationDirect(notification: Omit<Notification, 'id' | 'isRead' | 'createdAt'>) {
   const newNotification: Notification = {
     ...notification,
-    id: `notif-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    id: generateSubEntityId('notif'),
     isRead: false,
     createdAt: new Date().toISOString(),
   };

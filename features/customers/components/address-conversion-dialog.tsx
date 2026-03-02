@@ -5,7 +5,7 @@
  * Hiển thị danh sách gợi ý District+Ward để user chọn
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -21,6 +21,7 @@ import { MapPin, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from 'sonner';
 import { findMatchingWards, formatSuggestion, type WardSuggestion } from '../utils/address-conversion-helper';
+import { useDistricts, useWards } from '@/features/settings/provinces/hooks/use-administrative-units';
 import type { EnhancedCustomerAddress } from '../types/enhanced-address';
 
 type AddressConversionDialogProps = {
@@ -39,29 +40,35 @@ export function AddressConversionDialog({
   const [internalOpen, setInternalOpen] = useState(false);
   const [suggestions, setSuggestions] = useState<WardSuggestion[]>([]);
   const [selectedSuggestion, setSelectedSuggestion] = useState<WardSuggestion | null>(null);
-  const [loading, setLoading] = useState(false);
 
   // Use controlled or uncontrolled mode
   const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
   const setOpen = controlledOnOpenChange || setInternalOpen;
 
+  // Load all districts and wards for matching
+  const { data: allDistricts = [] } = useDistricts();
+  const { data: allWards = [] } = useWards({ provinceId: address.provinceId });
+
+  const wardMatchData = useMemo(
+    () => ({ wards: allWards, districts: allDistricts }),
+    [allWards, allDistricts],
+  );
+
   // Load suggestions khi mở dialog
   useEffect(() => {
-    if (open) {
-      setLoading(true);
-      
+    if (open && allWards.length > 0 && allDistricts.length > 0) {
       // Tìm gợi ý dựa trên province + ward hiện tại
-      const results = findMatchingWards(address.provinceId, address.ward);
+      const results = findMatchingWards(address.provinceId, address.ward, wardMatchData);
       
       setSuggestions(results);
-      setLoading(false);
       
       // Auto-select first suggestion nếu có
       if (results.length > 0) {
         setSelectedSuggestion(results[0]);
       }
     }
-  }, [open, address.provinceId, address.ward]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, address.provinceId, address.ward, wardMatchData]);
 
   const handleConvert = () => {
     if (!selectedSuggestion) {
@@ -132,7 +139,7 @@ export function AddressConversionDialog({
               Địa chỉ bạn nhập tương ứng với địa chỉ nào sau đây?
             </Label>
             
-            {loading ? (
+            {suggestions.length === 0 && allWards.length === 0 ? (
               <div className="mt-2 p-4 text-center text-muted-foreground">
                 Đang tìm kiếm...
               </div>
@@ -150,7 +157,7 @@ export function AddressConversionDialog({
                   const suggestion = suggestions.find(s => s.ward.id === value);
                   setSelectedSuggestion(suggestion || null);
                 }}
-                className="mt-2 space-y-2 max-h-[400px] overflow-y-auto"
+                className="mt-2 space-y-2 max-h-100 overflow-y-auto"
               >
                 {suggestions.map((suggestion, index) => (
                   <div

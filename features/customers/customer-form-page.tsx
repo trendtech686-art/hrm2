@@ -24,36 +24,48 @@ export function CustomerFormPage() {
   const { data: customer, isLoading } = useCustomer(systemId);
   const { create, update } = useCustomerMutations({
     onCreateSuccess: () => router.push('/customers'),
-    onUpdateSuccess: () => router.push('/customers'),
+    onUpdateSuccess: () => router.push(`/customers/${systemId}`),
   });
 
   const isEditMode = !!customer;
 
   const handleSubmit = async (values: CustomerFormSubmitPayload) => {
-    if (customer) {
-      await update.mutateAsync({
-        systemId: customer.systemId,
-        ...values,
-        email: values.email ?? customer.email,
-        phone: customer.phone ?? "",
-      });
-    } else {
-      const createdAt = new Date().toISOString().split('T')[0];
-      await create.mutateAsync({
-        ...values,
-        id: values.id,
-        status: 'Đang giao dịch',
-        createdAt,
-        totalOrders: 0,
-        totalSpent: 0,
-        totalQuantityPurchased: 0,
-        totalQuantityReturned: 0,
-      } as Omit<Customer, 'systemId'>);
+    console.log('[CustomerFormPage] handleSubmit called', { isEditMode: !!customer });
+    try {
+      if (customer) {
+        await update.mutateAsync({
+          systemId: customer.systemId,
+          ...values,
+          email: values.email ?? customer.email,
+          phone: values.phone ?? customer.phone ?? "",
+        });
+        console.log('[CustomerFormPage] Update completed');
+      } else {
+        const createdAt = new Date().toISOString().split('T')[0];
+        await create.mutateAsync({
+          ...values,
+          id: values.id,
+          status: 'Đang giao dịch',
+          createdAt,
+          totalOrders: 0,
+          totalSpent: 0,
+          totalQuantityPurchased: 0,
+          totalQuantityReturned: 0,
+        } as Omit<Customer, 'systemId'>);
+        console.log('[CustomerFormPage] Create completed');
+      }
+    } catch (error) {
+      console.error('[CustomerFormPage] Error in handleSubmit:', error);
+      throw error; // Re-throw to let customer-form.tsx handle it
     }
   };
 
   const handleSuccess = () => {
-    router.push('/customers');
+    if (customer) {
+      router.push(`/customers/${customer.systemId}`);
+    } else {
+      router.push('/customers');
+    }
   };
 
   const handleCancel = React.useCallback(() => {

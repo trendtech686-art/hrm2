@@ -174,8 +174,8 @@ export function BatchPrintButton({
   showText = true,
 }: BatchPrintButtonProps) {
   // Stores
-  const batch = undefined as any;
-  const payslips = React.useMemo(() => [] as any[], []);
+  const batch: PayrollBatch | undefined = undefined;
+  const payslips = React.useMemo<Payslip[]>(() => [], []);
   const { data: employees } = useAllEmployees();
   const { data: departments } = useAllDepartments();
   const { info: storeInfo } = useStoreInfoData();

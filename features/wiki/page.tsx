@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { useFuseFilter } from '../../hooks/use-fuse-search';
+import { simpleSearch } from '@/lib/simple-search';
 import { useAllWiki } from './hooks/use-all-wiki';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/card';
@@ -70,12 +70,10 @@ export function WikiPage() {
   });
   const [searchQuery, setSearchQuery] = React.useState('');
 
-  const fuseOptions = React.useMemo(() => ({ 
-    keys: ['title', 'category', 'tags', 'author', 'content'],
-    threshold: 0.4,
-  }), []);
-  
-  const filteredArticles = useFuseFilter(articles, searchQuery, fuseOptions);
+  const filteredArticles = React.useMemo(() => 
+    simpleSearch(articles, searchQuery, { keys: ['title', 'category', 'tags', 'author', 'content'] }), 
+    [articles, searchQuery]
+  );
   
   const articlesByCategory = React.useMemo(() => {
     return filteredArticles.reduce((acc, article) => {

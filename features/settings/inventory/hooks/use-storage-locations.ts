@@ -5,6 +5,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { fetchAllPages } from '@/lib/fetch-all-pages';
 import {
   fetchStorageLocations,
   fetchStorageLocation,
@@ -86,19 +87,34 @@ export function useStorageLocationMutations(options: UseStorageLocationMutations
 }
 
 export function useActiveStorageLocations() {
-  return useStorageLocations({ isActive: true, limit: 100 });
+  const query = useQuery({
+    queryKey: [...storageLocationKeys.all, 'active'],
+    queryFn: () => fetchAllPages((p) => fetchStorageLocations({ ...p, isActive: true })),
+    staleTime: 10 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+  });
+  return { ...query, data: query.data ? { data: query.data } : undefined };
 }
 
 export function useStorageLocationsByBranch(branchId: string | null | undefined) {
-  return useStorageLocations({
-    branchId: branchId || undefined,
-    isActive: true,
-    limit: 50,
+  const query = useQuery({
+    queryKey: [...storageLocationKeys.all, 'branch', branchId],
+    queryFn: () => fetchAllPages((p) => fetchStorageLocations({ ...p, branchId: branchId || undefined, isActive: true })),
+    enabled: !!branchId,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
   });
+  return { ...query, data: query.data ? { data: query.data } : undefined };
 }
 
 export function useAllStorageLocations() {
-  return useStorageLocations({ limit: 500 });
+  const query = useQuery({
+    queryKey: [...storageLocationKeys.all, 'all'],
+    queryFn: () => fetchAllPages((p) => fetchStorageLocations(p)),
+    staleTime: 10 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+  });
+  return { ...query, data: query.data ? { data: query.data } : undefined };
 }
 
 /**

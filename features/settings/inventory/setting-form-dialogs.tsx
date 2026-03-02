@@ -112,7 +112,13 @@ export function ProductTypeFormDialog({
                 <FormItem>
                   <FormLabel>Mã loại sản phẩm <span className="text-destructive">*</span></FormLabel>
                   <FormControl>
-                    <Input placeholder="VD: PT001" {...field} value={field.value ?? ''} disabled={!!initialData} />
+                    <Input 
+                      placeholder="VD: PT001" 
+                      {...field} 
+                      value={field.value ?? ''} 
+                      className="uppercase"
+                      onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

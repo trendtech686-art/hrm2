@@ -28,8 +28,8 @@ export interface ValidationWarning {
 export interface CategoryMappingInput {
   hrmCategorySystemId: SystemId | string;
   hrmCategoryName: string;
-  pkgxCatId: number | string;
-  pkgxCatName: string;
+  pkgxCategoryId: number | string;
+  pkgxCategoryName: string;
 }
 
 // ========================================
@@ -128,10 +128,10 @@ export function validateRequiredFields(input: CategoryMappingInput): ValidationE
     });
   }
 
-  if (!input.pkgxCatId) {
+  if (!input.pkgxCategoryId) {
     errors.push({
       code: CATEGORY_MAPPING_ERROR_CODES.PKGX_CATEGORY_REQUIRED,
-      field: 'pkgxCatId',
+      field: 'pkgxCategoryId',
       message: CATEGORY_MAPPING_ERROR_MESSAGES[CATEGORY_MAPPING_ERROR_CODES.PKGX_CATEGORY_REQUIRED],
     });
   }
@@ -167,14 +167,14 @@ export function validateCategoryExists(
     }
   }
 
-  if (input.pkgxCatId) {
-    const pkgxCat = context.pkgxCategories.find(c => c.id === input.pkgxCatId);
+  if (input.pkgxCategoryId) {
+    const pkgxCat = context.pkgxCategories.find(c => c.id === input.pkgxCategoryId);
     if (!pkgxCat) {
       errors.push({
         code: CATEGORY_MAPPING_ERROR_CODES.PKGX_CATEGORY_NOT_FOUND,
-        field: 'pkgxCatId',
+        field: 'pkgxCategoryId',
         message: CATEGORY_MAPPING_ERROR_MESSAGES[CATEGORY_MAPPING_ERROR_CODES.PKGX_CATEGORY_NOT_FOUND],
-        details: { pkgxCatId: input.pkgxCatId },
+        details: { pkgxCategoryId: input.pkgxCategoryId },
       });
     }
   }
@@ -202,7 +202,7 @@ export function validateDuplicateMappings(
         message: CATEGORY_MAPPING_ERROR_MESSAGES[CATEGORY_MAPPING_ERROR_CODES.HRM_CATEGORY_ALREADY_MAPPED],
         details: {
           existingMapping: existingHrmMapping,
-          mappedTo: existingHrmMapping.pkgxCatName,
+          mappedTo: existingHrmMapping.pkgxCategoryName,
         },
       });
     }
@@ -223,12 +223,12 @@ export function checkWarnings(
 ): ValidationWarning[] {
   const warnings: ValidationWarning[] = [];
 
-  if (!input.hrmCategorySystemId || !input.pkgxCatId) {
+  if (!input.hrmCategorySystemId || !input.pkgxCategoryId) {
     return warnings;
   }
 
   const hrmCat = context.hrmCategories.find(c => c.systemId === input.hrmCategorySystemId);
-  const pkgxCat = context.pkgxCategories.find(c => c.id === input.pkgxCatId);
+  const pkgxCat = context.pkgxCategories.find(c => c.id === input.pkgxCategoryId);
 
   if (!hrmCat || !pkgxCat) return warnings;
 
@@ -251,7 +251,7 @@ export function checkWarnings(
 
   // 2. Check if same name exists in PKGX
   const sameNamePkgx = context.pkgxCategories.find(
-    c => c.id !== input.pkgxCatId && normalizeString(c.name) === normalizedHrmName
+    c => c.id !== input.pkgxCategoryId && normalizeString(c.name) === normalizedHrmName
   );
   if (sameNamePkgx) {
     warnings.push({
@@ -285,7 +285,7 @@ export function checkWarnings(
 
   // 4. Check many-to-one mapping
   const otherMappingsToSamePkgx = context.existingMappings.filter(
-    m => m.pkgxCatId === input.pkgxCatId && m.id !== context.editingMappingId
+    m => (m.pkgxCategoryId || m.pkgxCatId) === input.pkgxCategoryId && m.id !== context.editingMappingId
   );
   if (otherMappingsToSamePkgx.length > 0) {
     warnings.push({
@@ -407,18 +407,19 @@ export function suggestMatchingCategories(
  */
 export function findPotentialDuplicates(
   mappings: PkgxCategoryMapping[]
-): Array<{ pkgxCatId: number; mappings: PkgxCategoryMapping[] }> {
+): Array<{ pkgxCategoryId: number; mappings: PkgxCategoryMapping[] }> {
   const grouped = new Map<number, PkgxCategoryMapping[]>();
   
   for (const mapping of mappings) {
-    const existing = grouped.get(mapping.pkgxCatId) || [];
+    const pkgxId = mapping.pkgxCategoryId || mapping.pkgxCatId || 0;
+    const existing = grouped.get(pkgxId) || [];
     existing.push(mapping);
-    grouped.set(mapping.pkgxCatId, existing);
+    grouped.set(pkgxId, existing);
   }
   
   return Array.from(grouped.entries())
     .filter(([, mappings]) => mappings.length > 1)
-    .map(([pkgxCatId, mappings]) => ({ pkgxCatId, mappings }));
+    .map(([pkgxCategoryId, mappings]) => ({ pkgxCategoryId, mappings }));
 }
 
 // ========================================

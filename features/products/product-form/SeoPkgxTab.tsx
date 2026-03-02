@@ -25,23 +25,6 @@ export function SeoPkgxTab() {
       <CardContent className="space-y-4">
         <FormField
           control={form.control}
-          name="pkgxSlug"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Slug PKGX (URL)</FormLabel>
-              <FormControl>
-                <Input {...field} value={field.value || ''} placeholder="ao-so-mi-nam-oxford" />
-              </FormControl>
-              <FormDescription>
-                URL thân thiện SEO cho website PKGX. Để trống sẽ tự động tạo từ tên sản phẩm.
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
           name="seoPkgx.seoTitle"
           render={({ field }) => (
             <FormItem>

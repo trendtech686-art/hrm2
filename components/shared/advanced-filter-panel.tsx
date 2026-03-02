@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { generateSubEntityId } from '@/lib/id-utils';
 import { Button } from '../ui/button';
 import { Label } from '../ui/label';
 import { Input } from '../ui/input';
@@ -592,7 +593,7 @@ export function useAdvancedFilters(initialValues: Record<string, unknown> = {}) 
   const handleSavePreset = React.useCallback((preset: Omit<FilterPreset, 'id'>) => {
     const newPreset: FilterPreset = {
       ...preset,
-      id: `preset-${Date.now()}`,
+      id: generateSubEntityId('preset'),
     };
     setPresets((prev) => [...prev, newPreset]);
   }, []);

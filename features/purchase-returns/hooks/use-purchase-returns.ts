@@ -9,14 +9,22 @@ import { asSystemId } from '@/lib/id-types';
 import {
   fetchPurchaseReturns,
   fetchPurchaseReturn,
-  createPurchaseReturn,
-  updatePurchaseReturn,
-  deletePurchaseReturn,
-  processPurchaseReturn,
   fetchPurchaseReturnStats,
   type PurchaseReturnsParams,
 } from '../api/purchase-returns-api';
+import {
+  createPurchaseReturnAction,
+  updatePurchaseReturnAction,
+  deletePurchaseReturnAction,
+  approvePurchaseReturnAction,
+  type CreatePurchaseReturnInput,
+} from '@/app/actions/purchase-returns';
+// Use the app-layer PurchaseReturn type for display purposes
+// The Server Actions return Prisma types which may differ slightly
 import type { PurchaseReturn } from '@/lib/types/prisma-extended';
+
+// Type for Server Action responses - maps Prisma return type to app type
+type PurchaseReturnData = Awaited<ReturnType<typeof createPurchaseReturnAction>> extends { data?: infer T } ? NonNullable<T> : never;
 
 export const purchaseReturnKeys = {
   all: ['purchase-returns'] as const,
@@ -55,10 +63,10 @@ export function usePurchaseReturnStats(params?: { startDate?: string; endDate?: 
 }
 
 interface UsePurchaseReturnMutationsOptions {
-  onCreateSuccess?: (purchaseReturn: PurchaseReturn) => void;
-  onUpdateSuccess?: (purchaseReturn: PurchaseReturn) => void;
+  onCreateSuccess?: (purchaseReturn: PurchaseReturnData) => void;
+  onUpdateSuccess?: (purchaseReturn: PurchaseReturnData) => void;
   onDeleteSuccess?: () => void;
-  onProcessSuccess?: (purchaseReturn: PurchaseReturn) => void;
+  onProcessSuccess?: (purchaseReturn: PurchaseReturnData) => void;
   onError?: (error: Error) => void;
 }
 
@@ -66,7 +74,11 @@ export function usePurchaseReturnMutations(options: UsePurchaseReturnMutationsOp
   const queryClient = useQueryClient();
   
   const create = useMutation({
-    mutationFn: createPurchaseReturn,
+    mutationFn: async (data: CreatePurchaseReturnInput) => {
+      const result = await createPurchaseReturnAction(data);
+      if (!result.success) throw new Error(result.error || 'Failed to create purchase return');
+      return result.data!;
+    },
     onSuccess: (data) => {
       // Invalidate purchase returns list and stats
       queryClient.invalidateQueries({ queryKey: purchaseReturnKeys.lists() });
@@ -83,8 +95,17 @@ export function usePurchaseReturnMutations(options: UsePurchaseReturnMutationsOp
   });
   
   const update = useMutation({
-    mutationFn: ({ systemId, data }: { systemId: string; data: Partial<PurchaseReturn> }) => 
-      updatePurchaseReturn(asSystemId(systemId), data),
+    mutationFn: async ({ systemId, data }: { systemId: string; data: Partial<PurchaseReturn> & { description?: string } }) => {
+      const result = await updatePurchaseReturnAction(
+        asSystemId(systemId),
+        {
+          returnDate: data.returnDate as string | Date | undefined,
+          reason: data.reason,
+        }
+      );
+      if (!result.success) throw new Error(result.error || 'Failed to update purchase return');
+      return result.data!;
+    },
     onSuccess: (data, variables) => {
       // Invalidate specific return and lists
       queryClient.invalidateQueries({ queryKey: purchaseReturnKeys.detail(variables.systemId) });
@@ -101,8 +122,12 @@ export function usePurchaseReturnMutations(options: UsePurchaseReturnMutationsOp
   });
   
   const process = useMutation({
-    mutationFn: (systemId: string) => processPurchaseReturn(asSystemId(systemId)),
-    onSuccess: (data, systemId) => {
+    mutationFn: async ({ systemId, confirmedBy }: { systemId: string; confirmedBy: string }) => {
+      const result = await approvePurchaseReturnAction(asSystemId(systemId), confirmedBy);
+      if (!result.success) throw new Error(result.error || 'Failed to process purchase return');
+      return result.data!;
+    },
+    onSuccess: (data, { systemId }) => {
       // Invalidate queries after processing
       queryClient.invalidateQueries({ queryKey: purchaseReturnKeys.detail(systemId) });
       queryClient.invalidateQueries({ queryKey: purchaseReturnKeys.lists() });
@@ -114,7 +139,11 @@ export function usePurchaseReturnMutations(options: UsePurchaseReturnMutationsOp
   });
   
   const remove = useMutation({
-    mutationFn: (systemId: string) => deletePurchaseReturn(asSystemId(systemId)),
+    mutationFn: async (systemId: string) => {
+      const result = await deletePurchaseReturnAction(asSystemId(systemId));
+      if (!result.success) throw new Error(result.error || 'Failed to delete purchase return');
+      return result.data;
+    },
     onSuccess: () => {
       // Invalidate all purchase return queries
       queryClient.invalidateQueries({ queryKey: purchaseReturnKeys.all });
@@ -134,14 +163,12 @@ export function usePurchaseReturnMutations(options: UsePurchaseReturnMutationsOp
 export function usePurchaseReturnsBySupplier(supplierId: string | null | undefined) {
   return usePurchaseReturns({
     supplierId: supplierId || undefined,
-    limit: 50,
   });
 }
 
 export function usePurchaseReturnsByPO(purchaseOrderId: string | null | undefined) {
   return usePurchaseReturns({
     purchaseOrderId: purchaseOrderId || undefined,
-    limit: 20,
   });
 }
 

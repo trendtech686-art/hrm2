@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Sales Employee Report Page
  * 
  * Báo cáo bán hàng theo nhân viên
@@ -267,7 +267,7 @@ export function SalesEmployeeReportPage() {
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-base font-medium">Chi tiết theo nhân viên</CardTitle>
+            <CardTitle>Chi tiết theo nhân viên</CardTitle>
             <Button variant="outline" size="sm">
               <Filter className="h-4 w-4 mr-2" />
               Lọc ({data.length})

@@ -13,25 +13,51 @@ export const listStockTransfersSchema = z.object({
 
 // Stock transfer item schema
 const stockTransferItemSchema = z.object({
-  systemId: z.string(),
+  productSystemId: z.string(),
   productId: z.string(),
+  productName: z.string().optional(),
   quantity: z.number().optional().default(1),
-  notes: z.string().optional(),
+  note: z.string().optional(),
 })
 
 // Create stock transfer schema
 export const createStockTransferSchema = z.object({
-  systemId: z.string(),
-  id: z.string(),
-  fromBranchId: z.string().min(1, 'Chi nhánh nguồn là bắt buộc'),
-  toBranchId: z.string().min(1, 'Chi nhánh đích là bắt buộc'),
+  // IDs - optional, will be auto-generated if not provided
+  systemId: z.string().optional(),
+  id: z.string().optional(),
+  
+  // Branch info - support both old format (fromBranchId) and new format (fromBranchSystemId)
+  fromBranchId: z.string().optional(),
+  toBranchId: z.string().optional(),
+  fromBranchSystemId: z.string().optional(),
+  toBranchSystemId: z.string().optional(),
+  fromBranchName: z.string().optional(),
+  toBranchName: z.string().optional(),
+  
+  // Refs
+  referenceCode: z.string().optional(),
+  
   employeeId: z.string().optional(),
   transferDate: z.string().optional(),
   receivedDate: z.string().optional(),
   status: z.string().optional().default('DRAFT'),
   notes: z.string().optional(),
+  note: z.string().optional(),
   items: z.array(stockTransferItemSchema).optional(),
+  
+  // Creator info
   createdBy: z.string().optional(),
+  createdDate: z.string().optional(),
+  createdBySystemId: z.string().optional(),
+  createdByName: z.string().optional(),
+  updatedBy: z.string().optional(),
+}).refine(data => {
+  // Ensure we have branch info in either format
+  const hasFromBranch = data.fromBranchId || data.fromBranchSystemId;
+  const hasToBranch = data.toBranchId || data.toBranchSystemId;
+  return hasFromBranch && hasToBranch;
+}, {
+  message: 'Chi nhánh nguồn và chi nhánh đích là bắt buộc',
 })
 
 // Update stock transfer schema

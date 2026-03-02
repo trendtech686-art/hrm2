@@ -14,8 +14,8 @@ export const getColumns = (
   onEdit: (employeeSystemId: SystemId, day: number) => void,
     settings: EmployeeSettings,
     isLocked: boolean,
-    isSelectionMode: boolean = false,
-    cellSelection: Record<string, boolean> = {},
+    isSelectionModeRef: React.RefObject<boolean>,
+    cellSelectionRef: React.RefObject<Record<string, boolean>>,
   onQuickFill?: (employeeSystemId: SystemId, day: number) => void
 ): ColumnDef<AttendanceDataRow>[] => {
   // month là giá trị 1-12, cần chuyển sang 0-11 cho Date
@@ -43,7 +43,8 @@ export const getColumns = (
         const record = row[`day_${day}`] as DailyRecord;
         const isEditable = !isLocked && record && record.status !== 'future' && record.status !== 'weekend';
         const cellKey = `${row.employeeSystemId}-${day}`;
-        const isSelected = cellSelection[cellKey];
+        const isSelectionMode = isSelectionModeRef.current;
+        const isSelected = cellSelectionRef.current[cellKey];
 
         return (
           <div

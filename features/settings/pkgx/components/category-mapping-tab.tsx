@@ -1,4 +1,4 @@
-import * as React from 'react';
+﻿import * as React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../../components/ui/card';
 import { Button } from '../../../../components/ui/button';
 import { Input } from '../../../../components/ui/input';
@@ -7,13 +7,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../../components
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../../../components/ui/dialog';
 import { Label } from '../../../../components/ui/label';
 import { ScrollArea } from '../../../../components/ui/scroll-area';
-import { Plus, Pencil, Trash2, RefreshCw, Search, Loader2, FolderTree, Link, Unlink, CheckCircle2, MoreHorizontal, ExternalLink, Upload, AlignLeft, FolderEdit, Link2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, RefreshCw, Search, Loader2, FolderTree, Link, Unlink, CheckCircle2, MoreHorizontal, ExternalLink, Upload, AlignLeft, FolderEdit, Link2, Download } from 'lucide-react';
+import { Progress } from '../../../../components/ui/progress';
 import { Checkbox } from '../../../../components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../../../../components/ui/dropdown-menu';
 import { getCategoryById, updateCategory } from '../../../../lib/pkgx/api-service';
 import { toast } from 'sonner';
-import { usePkgxSettings, usePkgxCategoryMappingMutations, usePkgxLogMutations, usePkgxCategoryMutations } from '../hooks/use-pkgx-settings';
+import { usePkgxSettings, usePkgxCategoryMappingMutations, usePkgxLogMutations } from '../hooks/use-pkgx-settings';
+import { useSyncPkgxCategories } from '../hooks/use-pkgx';
 import { useActiveCategories } from '@/features/categories/hooks/use-all-categories';
+import { categoryKeys } from '@/features/categories/hooks/use-categories';
+import { useQueryClient } from '@tanstack/react-query';
 import { ResponsiveDataTable } from '../../../../components/data-table/responsive-data-table';
 import type { ColumnDef } from '../../../../components/data-table/types';
 import type { PkgxCategoryMapping, PkgxCategory, PkgxCategoryFromApi } from '../types';
@@ -23,6 +27,7 @@ import type { CategoryMappingInput } from '../validation';
 import { PkgxMappingDialog } from '../../../../components/shared/pkgx-mapping-dialog';
 import { PkgxSyncConfirmDialog } from './pkgx-sync-confirm-dialog';
 import { asSystemId } from '@/lib/id-types';
+import { generateSubEntityId } from '@/lib/id-utils';
 
 // Extended type for PKGX categories table
 interface PkgxCategoryRow extends PkgxCategory {
@@ -30,16 +35,18 @@ interface PkgxCategoryRow extends PkgxCategory {
   mappedToHrm?: string;
 }
 
-// Extended type for mappings table
+// Extended type for mappings table - include alias fields for backward compat
 interface MappingRow extends PkgxCategoryMapping {
-  systemId: string;
+  pkgxCatName?: string; // Alias for pkgxCategoryName
+  pkgxCatId?: number; // Alias for pkgxCategoryId
 }
 
 export function CategoryMappingTab() {
   // All hooks MUST be called before any conditional returns
+  const queryClient = useQueryClient();
   const { data: settings } = usePkgxSettings();
   const { addCategoryMapping, updateCategoryMapping, deleteCategoryMapping } = usePkgxCategoryMappingMutations({ onSuccess: () => {} });
-  const { setCategories: _setCategories } = usePkgxCategoryMutations({ onSuccess: () => {} });
+  const syncCategories = useSyncPkgxCategories({ onSuccess: () => toast.success('Đã đồng bộ danh mục từ PKGX') });
   const { addLog } = usePkgxLogMutations();
   const { data: productCategoriesData = [] } = useActiveCategories();
   
@@ -48,6 +55,10 @@ export function CategoryMappingTab() {
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
   const [editingMapping, setEditingMapping] = React.useState<PkgxCategoryMapping | null>(null);
   const [isSyncing, setIsSyncing] = React.useState(false);
+  const [isImporting, setIsImporting] = React.useState(false);
+  const [isPaused, setIsPaused] = React.useState(false);
+  const [importProgress, setImportProgress] = React.useState({ current: 0, total: 0, currentName: '' });
+  const pauseRef = React.useRef(false);
   
   // Detail dialog state
   const [isDetailDialogOpen, setIsDetailDialogOpen] = React.useState(false);
@@ -120,12 +131,14 @@ export function CategoryMappingTab() {
       const term = searchTerm.toLowerCase();
       filtered = settings.categoryMappings.filter(m =>
         m.hrmCategoryName.toLowerCase().includes(term) ||
-        m.pkgxCatName.toLowerCase().includes(term)
+        m.pkgxCategoryName.toLowerCase().includes(term)
       );
     }
     return filtered.map(m => ({
       ...m,
-      systemId: m.id,
+      systemId: m.systemId || m.id || '',
+      pkgxCatName: m.pkgxCategoryName, // Alias
+      pkgxCatId: m.pkgxCategoryId, // Alias
     }));
   }, [settings, searchTerm]);
   
@@ -171,7 +184,7 @@ export function CategoryMappingTab() {
         selectedMappedCategories.forEach(category => {
           const mapping = findMapping(category.id);
           if (mapping) {
-            deleteCategoryMapping.mutate(mapping.id);
+            deleteCategoryMapping.mutate(mapping.systemId || mapping.id || '');
           }
         });
         toast.success(`Đã hủy liên kết ${selectedMappedCategories.length} danh mục`);
@@ -208,7 +221,7 @@ export function CategoryMappingTab() {
       accessorKey: 'id',
       header: 'ID',
       size: 70,
-      cell: ({ row }) => <span className="font-mono text-xs">{row.id}</span>,
+      cell: ({ row }) => <span className="text-xs">{row.id}</span>,
     },
     {
       id: 'name',
@@ -216,7 +229,7 @@ export function CategoryMappingTab() {
       header: 'Danh mục PKGX',
       cell: ({ row }) => {
         // Gộp danh mục cha > danh mục con
-        const parent = row.parentId ? settings.categories.find(c => c.id === row.parentId) : null;
+        const parent = row.parentId ? settings?.categories?.find(c => c.id === row.parentId) : null;
         return (
           <div className="flex items-center gap-1">
             {parent && (
@@ -317,19 +330,16 @@ export function CategoryMappingTab() {
                     Thông tin cơ bản
                   </DropdownMenuItem>
                   
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => window.open(`https://phukiengiaxuong.com.vn/admin/category.php?act=edit&cat_id=${row.id}`, '_blank')}>
-                    <ExternalLink className="h-4 w-4 mr-2" />
-                    Xem trên PKGX
-                  </DropdownMenuItem>
-                  
                   {/* Hủy liên kết */}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem 
                     onClick={() => entitySync.handleConfirm(
                       'Hủy liên kết PKGX',
                       `Bạn có chắc muốn hủy liên kết danh mục "${row.name}" với PKGX?`,
-                      () => handleUnlinkCategory(row.id)
+                      async () => {
+                        await handleUnlinkCategory(row.id);
+                        await queryClient.invalidateQueries({ queryKey: ['pkgx', 'settings'] });
+                      }
                     )}
                     className="text-destructive focus:text-destructive"
                   >
@@ -338,8 +348,13 @@ export function CategoryMappingTab() {
                   </DropdownMenuItem>
                 </>
               ) : (
-                /* Not linked - show link option */
+                /* Not linked - show import & map option */
                 <>
+                  <DropdownMenuItem onClick={() => handleImportSingleCategory(row)}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Import & Mapping
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => handleQuickMap(row)}>
                     <Link2 className="h-4 w-4 mr-2" />
                     Liên kết với HRM
@@ -352,7 +367,7 @@ export function CategoryMappingTab() {
       },
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps -- handleUnlinkCategory and handleQuickMap are stable functions defined after
-  ], [settings.categories, hrmCategories, findMapping, entitySync]);
+  ], [settings?.categories, hrmCategories, findMapping, entitySync]);
   
   // Mappings columns
   const mappingColumns: ColumnDef<MappingRow>[] = React.useMemo(() => [
@@ -373,19 +388,18 @@ export function CategoryMappingTab() {
       accessorKey: 'pkgxCatId',
       header: 'ID PKGX',
       size: 80,
-      cell: ({ row }) => <span className="font-mono text-muted-foreground">{row.pkgxCatId}</span>,
+      cell: ({ row }) => <span className="text-muted-foreground">{row.pkgxCatId}</span>,
     },
     {
       id: 'actions',
-      header: 'Hành động',
+      header: '',
       size: 100,
       cell: ({ row }) => (
         <div className="flex justify-end gap-1">
           <Button variant="ghost" size="sm" onClick={() => handleOpenDialog(row)}>
             <Pencil className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => handleDelete(row.id)}>
-            <Trash2 className="h-4 w-4 text-destructive" />
+          <Button variant="ghost" size="sm" onClick={() => handleDelete(row.systemId)}>\n            <Trash2 className="h-4 w-4 text-destructive" />
           </Button>
         </div>
       ),
@@ -403,14 +417,147 @@ export function CategoryMappingTab() {
   const handleUnlinkCategory = (pkgxCatId: number) => {
     const mapping = findMapping(pkgxCatId);
     if (mapping) {
-      deleteCategoryMapping.mutate(mapping.id);
+      deleteCategoryMapping.mutate(mapping.systemId || mapping.id || '');
       addLog.mutate({
         action: 'unlink_mapping',
         status: 'success',
-        message: `Đã hủy liên kết danh mục: ${mapping.hrmCategoryName} ↔ ${mapping.pkgxCatName}`,
+        message: `Đã hủy liên kết danh mục: ${mapping.hrmCategoryName} ↔ ${mapping.pkgxCategoryName}`,
         details: { categoryId: pkgxCatId },
       });
       toast.success('Đã hủy liên kết danh mục');
+    }
+  };
+  
+  // Import single category and auto-map
+  const handleImportSingleCategory = async (pkgxCategory: PkgxCategoryRow) => {
+    if (!settings) return;
+    
+    setIsImporting(true);
+    try {
+      const pkgxCat = settings.categories.find(c => c.id === pkgxCategory.id);
+      if (!pkgxCat) {
+        toast.error('Không tìm thấy danh mục PKGX');
+        return;
+      }
+      
+      // Find parent HRM systemId if PKGX category has parent
+      let hrmParentId: string | undefined;
+      if (pkgxCat.parentId) {
+        const parentMapping = findMapping(pkgxCat.parentId);
+        if (parentMapping) {
+          hrmParentId = parentMapping.hrmCategorySystemId;
+        }
+      }
+      
+      // Build category data
+      const categoryData: Record<string, unknown> = {
+        id: `PKGX-${pkgxCat.id}`,
+        name: pkgxCat.name,
+        sortOrder: Number(pkgxCat.sortOrder) || 0,
+      };
+      
+      const sanitize = (str: string | undefined | null): string | undefined => {
+        if (!str) return undefined;
+        return str.replace(/\0/g, '').trim() || undefined;
+      };
+      const toSlug = (value: string | undefined | null): string | undefined => {
+        const cleaned = sanitize(value);
+        if (!cleaned) return undefined;
+        return (
+          cleaned
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '')
+        ) || undefined;
+      };
+      
+      if (hrmParentId) categoryData.parentId = hrmParentId;
+      
+      type PkgxCatExtended = typeof pkgxCat & Record<string, unknown>;
+      const pkgxCatExt = pkgxCat as PkgxCatExtended;
+      const shortDesc = sanitize(pkgxCat.cat_desc ?? pkgxCatExt.catDesc as string | undefined);
+      const longDesc = sanitize(pkgxCat.long_desc ?? pkgxCatExt.longDesc as string | undefined);
+      const keywords = sanitize(pkgxCat.keywords ?? pkgxCatExt.keywords as string | undefined);
+      const seoTitle = sanitize(pkgxCat.meta_title ?? pkgxCatExt.metaTitle as string | undefined ?? pkgxCatExt.cat_title as string | undefined ?? pkgxCatExt.catTitle as string | undefined);
+      const metaDesc = sanitize(pkgxCat.meta_desc ?? pkgxCatExt.metaDesc as string | undefined);
+      const slug = sanitize(pkgxCat.cat_alias ?? pkgxCatExt.catAlias as string | undefined) || toSlug(pkgxCat.name);
+      
+      if (shortDesc) categoryData.shortDescription = shortDesc;
+      if (longDesc) categoryData.longDescription = longDesc;
+      if (keywords) categoryData.seoKeywords = keywords;
+      if (seoTitle) categoryData.seoTitle = seoTitle;
+      if (metaDesc) categoryData.metaDescription = metaDesc;
+      if (slug) categoryData.slug = slug;
+      
+      const pkgxSeo: Record<string, string> = {};
+      if (seoTitle) pkgxSeo.seoTitle = seoTitle;
+      if (metaDesc) pkgxSeo.metaDescription = metaDesc;
+      if (keywords) pkgxSeo.seoKeywords = keywords;
+      if (shortDesc) pkgxSeo.shortDescription = shortDesc;
+      if (longDesc) pkgxSeo.longDescription = longDesc;
+      if (slug) pkgxSeo.slug = slug;
+      
+      if (Object.keys(pkgxSeo).length > 0) {
+        categoryData.websiteSeo = { pkgx: pkgxSeo };
+      }
+      
+      // Create HRM category
+      const response = await fetch('/api/categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(categoryData),
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || 'Không thể tạo danh mục');
+      }
+      
+      const result = await response.json();
+      const newCategory = result.data || result;
+      
+      // Create mapping
+      const mappingData = {
+        hrmCategoryId: newCategory.systemId,
+        hrmCategoryName: newCategory.name,
+        pkgxCategoryId: Number(pkgxCat.id),
+        pkgxCategoryName: pkgxCat.name,
+      };
+      
+      const mappingResponse = await fetch('/api/settings/pkgx/category-mappings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(mappingData),
+      });
+      
+      if (!mappingResponse.ok) {
+        console.error('Mapping error:', await mappingResponse.text());
+      }
+      
+      // Invalidate queries
+      await queryClient.invalidateQueries({ queryKey: categoryKeys.all });
+      await queryClient.invalidateQueries({ queryKey: ['pkgx', 'settings'] });
+      
+      addLog.mutate({
+        action: 'sync_categories',
+        status: 'success',
+        message: `Import & mapping danh mục: ${pkgxCat.name}`,
+        details: { categoryId: pkgxCat.id },
+      });
+      
+      toast.success(`Đã import & mapping danh mục: ${pkgxCat.name}`);
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Lỗi không xác định';
+      toast.error(`Import thất bại: ${errorMsg}`);
+      addLog.mutate({
+        action: 'sync_categories',
+        status: 'error',
+        message: `Lỗi import danh mục: ${errorMsg}`,
+      });
+    } finally {
+      setIsImporting(false);
     }
   };
   
@@ -468,15 +615,18 @@ export function CategoryMappingTab() {
       const response = await updateCategory(pkgxCatId, payload);
       if (response.success) {
         toast.success('Đã đẩy thông tin danh mục lên PKGX');
-        addLog({
+        addLog.mutate({
           action: 'update_product',
           status: 'success',
-          message: `Đã đẩy thông tin danh mục: ${mapping.hrmCategoryName} → ${mapping.pkgxCatName}`,
+          message: `Đã đẩy thông tin danh mục: ${mapping.hrmCategoryName} → ${mapping.pkgxCategoryName}`,
           details: { categoryId: pkgxCatId },
         });
         // Refresh detail if open
         if (isDetailDialogOpen && selectedCategoryForDetail?.cat_id === pkgxCatId) {
-          (loadCategoryDetail as any).mutate(pkgxCatId);
+          const detailResponse = await getCategoryById(pkgxCatId);
+          if (detailResponse.success && detailResponse.data?.data?.[0]) {
+            setSelectedCategoryForDetail(detailResponse.data.data[0]);
+          }
         }
       } else {
         toast.error(response.error || 'Không thể cập nhật danh mục');
@@ -491,8 +641,8 @@ export function CategoryMappingTab() {
   const handleOpenDialog = (mapping?: PkgxCategoryMapping) => {
     if (mapping) {
       setEditingMapping(mapping);
-      setSelectedHrmCategory(mapping.hrmCategorySystemId);
-      setSelectedPkgxCategory(mapping.pkgxCatId.toString());
+      setSelectedHrmCategory((mapping.hrmCategoryId || mapping.hrmCategorySystemId) as string);
+      setSelectedPkgxCategory((mapping.pkgxCategoryId || mapping.pkgxCatId || 0).toString());
     } else {
       setEditingMapping(null);
       setSelectedHrmCategory('');
@@ -516,8 +666,8 @@ export function CategoryMappingTab() {
       const input: CategoryMappingInput = {
         hrmCategorySystemId: selectedHrmCategory || '',
         hrmCategoryName: hrmCategories.find(c => c.systemId === selectedHrmCategory)?.name || '',
-        pkgxCatId: selectedPkgxCategory ? parseInt(selectedPkgxCategory) : '',
-        pkgxCatName: settings.categories.find(c => c.id === parseInt(selectedPkgxCategory))?.name || '',
+        pkgxCategoryId: selectedPkgxCategory ? parseInt(selectedPkgxCategory) : 0,
+        pkgxCategoryName: settings?.categories?.find(c => c.id === parseInt(selectedPkgxCategory))?.name || '',
       };
       validation.validateAsync(input);
     }
@@ -529,8 +679,8 @@ export function CategoryMappingTab() {
     const input: CategoryMappingInput = {
       hrmCategorySystemId: selectedHrmCategory || '',
       hrmCategoryName: hrmCategories.find(c => c.systemId === selectedHrmCategory)?.name || '',
-      pkgxCatId: selectedPkgxCategory ? parseInt(selectedPkgxCategory) : '',
-      pkgxCatName: settings.categories.find(c => c.id === parseInt(selectedPkgxCategory))?.name || '',
+      pkgxCategoryId: selectedPkgxCategory ? parseInt(selectedPkgxCategory) : 0,
+      pkgxCategoryName: settings?.categories?.find(c => c.id === parseInt(selectedPkgxCategory))?.name || '',
     };
     
     // Run final validation
@@ -549,7 +699,7 @@ export function CategoryMappingTab() {
     }
     
     const hrmCategory = hrmCategories.find((c) => c.systemId === selectedHrmCategory);
-    const pkgxCategory = settings.categories.find((c) => c.id === parseInt(selectedPkgxCategory));
+    const pkgxCategory = settings?.categories?.find((c) => c.id === parseInt(selectedPkgxCategory));
     
     if (!hrmCategory || !pkgxCategory) {
       toast.error('Không tìm thấy danh mục');
@@ -557,11 +707,11 @@ export function CategoryMappingTab() {
     }
     
     if (editingMapping) {
-      updateCategoryMapping.mutate({ id: editingMapping.id, updates: {
-        hrmCategorySystemId: hrmCategory.systemId,
+      updateCategoryMapping.mutate({ id: editingMapping.id || editingMapping.systemId, updates: {
+        hrmCategoryId: hrmCategory.systemId,
         hrmCategoryName: hrmCategory.name,
-        pkgxCatId: pkgxCategory.id,
-        pkgxCatName: pkgxCategory.name,
+        pkgxCategoryId: pkgxCategory.id,
+        pkgxCategoryName: pkgxCategory.name,
       }});
       addLog.mutate({
         action: 'save_mapping',
@@ -572,11 +722,11 @@ export function CategoryMappingTab() {
       toast.success('Đã cập nhật mapping danh mục');
     } else {
       addCategoryMapping.mutate({
-        id: `catmap-${Date.now()}`,
-        hrmCategorySystemId: hrmCategory.systemId,
+        systemId: generateSubEntityId('CATMAP'),
+        hrmCategoryId: hrmCategory.systemId,
         hrmCategoryName: hrmCategory.name,
-        pkgxCatId: pkgxCategory.id,
-        pkgxCatName: pkgxCategory.name,
+        pkgxCategoryId: pkgxCategory.id,
+        pkgxCategoryName: pkgxCategory.name,
       });
       addLog.mutate({
         action: 'save_mapping',
@@ -591,10 +741,10 @@ export function CategoryMappingTab() {
   };
   
   const handleDelete = (id: string) => {
-    const mapping = settings?.categoryMappings?.find(m => m.id === id);
-    (deleteCategoryMapping as any).mutate(id);
+    const mapping = settings?.categoryMappings?.find(m => (m.id || m.systemId) === id);
+    deleteCategoryMapping.mutate(id);
     if (mapping) {
-      addLog({
+      addLog.mutate({
         action: 'save_mapping',
         status: 'info',
         message: `Xóa mapping danh mục: ${mapping.hrmCategoryName}`,
@@ -607,13 +757,300 @@ export function CategoryMappingTab() {
   const handleSyncFromPkgx = async () => {
     setIsSyncing(true);
     try {
-      // Note: syncCategoriesFromPkgx needs implementation
-      toast.info('Đồng bộ danh mục từ PKGX');
+      await syncCategories.mutateAsync();
+      addLog.mutate({
+        action: 'sync_categories',
+        status: 'success',
+        message: 'Đồng bộ danh mục từ PKGX thành công',
+      });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Lỗi khi đồng bộ danh mục');
+      addLog.mutate({
+        action: 'sync_categories',
+        status: 'error',
+        message: error instanceof Error ? error.message : 'Lỗi khi đồng bộ danh mục',
+      });
     } finally {
       setIsSyncing(false);
     }
+  };
+  
+  // Import categories from PKGX to HRM and auto-mapping
+  const handleImportAndMap = async () => {
+    if (!settings) {
+      toast.error('Không thể tải cấu hình PKGX');
+      return;
+    }
+    
+    // Lấy toàn bộ danh mục PKGX (cả đã mapping và chưa) để có thể cập nhật dữ liệu SEO/mô tả
+    const allPkgxCategories = settings.categories;
+    
+    setIsImporting(true);
+    setIsPaused(false);
+    pauseRef.current = false;
+    setImportProgress({ current: 0, total: allPkgxCategories.length, currentName: '' });
+    let successCount = 0;
+    let errorCount = 0;
+    const errorMessages: string[] = [];
+    const REFRESH_BATCH_SIZE = 3; // Refresh UI sau mỗi 3 category
+    
+    // Build a map of PKGX ID to created HRM systemId for parent-child linking
+    const pkgxToHrmMap = new Map<number, string>();
+    
+    // Also map existing categories
+    hrmCategories.forEach(c => {
+      const mapping = settings.categoryMappings.find(m => (m.hrmCategoryId || m.hrmCategorySystemId) === c.systemId);
+      if (mapping) {
+        pkgxToHrmMap.set(mapping.pkgxCategoryId || mapping.pkgxCatId || 0, c.systemId);
+      }
+    });
+    
+    // Sort by parentId to process parents first (null parents first)
+    const sortedCategories = [...allPkgxCategories].sort((a, b) => {
+      if (a.parentId === null && b.parentId !== null) return -1;
+      if (a.parentId !== null && b.parentId === null) return 1;
+      return 0;
+    });
+    
+    try {
+      // Process one at a time for proper parent-child linking
+      for (let i = 0; i < sortedCategories.length; i++) {
+        // Check for pause
+        while (pauseRef.current) {
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
+        
+        const pkgxCat = sortedCategories[i];
+        setImportProgress({ current: i + 1, total: sortedCategories.length, currentName: pkgxCat.name });
+        
+        try {
+          const existingMapping = findMapping(pkgxCat.id);
+
+          // Find parent HRM systemId if PKGX category has parent
+          let hrmParentId: string | undefined;
+          if (pkgxCat.parentId) {
+            hrmParentId = pkgxToHrmMap.get(pkgxCat.parentId);
+          }
+        
+          // Build category data - only include defined values
+          const categoryData: Record<string, unknown> = {
+            // id chỉ dùng khi tạo mới
+            ...(existingMapping ? {} : { id: `PKGX-${pkgxCat.id}` }),
+            name: pkgxCat.name,
+            sortOrder: Number(pkgxCat.sortOrder) || 0,
+          };
+          
+          // Helper to sanitize string (remove invalid characters)
+          const sanitize = (str: string | undefined | null): string | undefined => {
+            if (!str) return undefined;
+            // Remove null bytes and other problematic characters
+            return str.replace(/\0/g, '').trim() || undefined;
+          };
+          const toSlug = (value: string | undefined | null): string | undefined => {
+            const cleaned = sanitize(value);
+            if (!cleaned) return undefined;
+            return (
+              cleaned
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/^-+|-+$/g, '')
+            ) || undefined;
+          };
+          
+          // Add optional fields only if they have values
+          if (hrmParentId) categoryData.parentId = hrmParentId;
+          
+          // Support both snake_case (API) and camelCase (cached DB) PKGX fields
+          // NOTE: Không fallback về name - name và title là 2 trường hoàn toàn khác nhau
+          type PkgxCatExtended = typeof pkgxCat & Record<string, unknown>;
+          const pkgxCatExt = pkgxCat as PkgxCatExtended;
+          const shortDesc = sanitize(pkgxCat.cat_desc ?? pkgxCatExt.catDesc as string | undefined);
+          const longDesc = sanitize(pkgxCat.long_desc ?? pkgxCatExt.longDesc as string | undefined);
+          const keywords = sanitize(pkgxCat.keywords ?? pkgxCatExt.keywords as string | undefined);
+          const seoTitle = sanitize(pkgxCat.meta_title ?? pkgxCatExt.metaTitle as string | undefined ?? pkgxCatExt.cat_title as string | undefined ?? pkgxCatExt.catTitle as string | undefined);
+          const metaDesc = sanitize(pkgxCat.meta_desc ?? pkgxCatExt.metaDesc as string | undefined);
+          const slug = sanitize(pkgxCat.cat_alias ?? pkgxCatExt.catAlias as string | undefined) || toSlug(pkgxCat.name);
+          
+          if (shortDesc) categoryData.shortDescription = shortDesc;
+          if (longDesc) categoryData.longDescription = longDesc;
+          if (keywords) categoryData.seoKeywords = keywords;
+          if (seoTitle) categoryData.seoTitle = seoTitle;
+          if (metaDesc) categoryData.metaDescription = metaDesc;
+          if (slug) categoryData.slug = slug;
+          
+          // Build websiteSeo.pkgx - only include non-empty values
+          const pkgxSeo: Record<string, string> = {};
+          if (seoTitle) pkgxSeo.seoTitle = seoTitle;
+          if (metaDesc) pkgxSeo.metaDescription = metaDesc;
+          if (keywords) pkgxSeo.seoKeywords = keywords;
+          if (shortDesc) pkgxSeo.shortDescription = shortDesc;
+          if (longDesc) pkgxSeo.longDescription = longDesc;
+          if (slug) pkgxSeo.slug = slug;
+          
+          if (Object.keys(pkgxSeo).length > 0) {
+            categoryData.websiteSeo = { pkgx: pkgxSeo };
+          }
+          
+          // Decide create or update
+          let newCategory;
+          if (!existingMapping) {
+            // Create HRM category via API
+            let bodyStr: string;
+            try {
+              bodyStr = JSON.stringify(categoryData);
+              console.log(`[Import Category] Sending data for "${pkgxCat.name}":`, bodyStr.substring(0, 500));
+            } catch (jsonError) {
+              console.error(`[Import Category] JSON stringify error for "${pkgxCat.name}":`, jsonError, categoryData);
+              throw new Error('Không thể serialize dữ liệu');
+            }
+            
+            const response = await fetch('/api/categories', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: bodyStr,
+            });
+            
+            console.log(`[Import Category] Response status for "${pkgxCat.name}":`, response.status);
+            
+            if (!response.ok) {
+              const responseText = await response.text();
+              console.log(`[Import Category] Error response for "${pkgxCat.name}":`, responseText);
+              let errorMessage = `HTTP ${response.status}`;
+              try {
+                const errorData = JSON.parse(responseText);
+                errorMessage = errorData?.message || errorData?.error || response.statusText;
+              } catch {
+                errorMessage = responseText || response.statusText;
+              }
+              throw new Error(errorMessage);
+            }
+            
+            // Parse response - handle potential JSON parse errors
+            try {
+              const resultText = await response.text();
+              const result = JSON.parse(resultText);
+              newCategory = result.data || result;
+            } catch (parseError) {
+              console.error(`[Import Category] Response parse error for "${pkgxCat.name}":`, parseError);
+              throw new Error('Không thể đọc response từ server');
+            }
+            
+            // Store mapping for child categories
+            pkgxToHrmMap.set(pkgxCat.id, newCategory.systemId);
+            
+            // Create mapping directly via fast API endpoint (instead of slow mutation)
+            const mappingData = {
+              hrmCategoryId: newCategory.systemId,
+              hrmCategoryName: newCategory.name,
+              pkgxCategoryId: Number(pkgxCat.id),
+              pkgxCategoryName: pkgxCat.name,
+            };
+            
+            const mappingResponse = await fetch('/api/settings/pkgx/category-mappings', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(mappingData),
+            });
+            
+            if (!mappingResponse.ok) {
+              const mappingError = await mappingResponse.text();
+              console.error(`[Import Category] Mapping error for "${pkgxCat.name}":`, mappingError);
+              // Category created but mapping failed - still count as partial success
+            }
+          } else {
+            // Update existing HRM category with latest PKGX data
+            const hrmSystemId = (existingMapping.hrmCategoryId || existingMapping.hrmCategorySystemId || '') as string;
+            // Chỉ serialize dữ liệu không rỗng
+            let bodyStr: string;
+            try {
+              bodyStr = JSON.stringify(categoryData);
+            } catch (jsonError) {
+              console.error(`[Import Category] JSON stringify error (update) for "${pkgxCat.name}":`, jsonError, categoryData);
+              throw new Error('Không thể serialize dữ liệu');
+            }
+            const response = await fetch(`/api/categories/${hrmSystemId}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: bodyStr,
+            });
+            if (!response.ok) {
+              const responseText = await response.text();
+              console.error(`[Import Category] Update error for "${pkgxCat.name}":`, responseText);
+              let errorMessage = `HTTP ${response.status}`;
+              try {
+                const errorData = JSON.parse(responseText);
+                errorMessage = errorData?.message || errorData?.error || response.statusText;
+              } catch {
+                errorMessage = responseText || response.statusText;
+              }
+              throw new Error(errorMessage);
+            }
+            // Keep map for children
+            pkgxToHrmMap.set(pkgxCat.id, hrmSystemId);
+            newCategory = { systemId: hrmSystemId };
+          }
+          
+          successCount++;
+          
+          // Refresh UI sau mỗi batch để user thấy data realtime
+          if (successCount % REFRESH_BATCH_SIZE === 0) {
+            await queryClient.invalidateQueries({ queryKey: categoryKeys.all });
+            await queryClient.invalidateQueries({ queryKey: ['pkgx', 'settings'] });
+          }
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : 'Lỗi không xác định';
+          console.error(`Error importing category ${pkgxCat.name}:`, errorMsg);
+          errorMessages.push(`${pkgxCat.name}: ${errorMsg}`);
+          errorCount++;
+        }
+      }
+      
+      // Invalidate all queries to refresh UI
+      await queryClient.invalidateQueries({ queryKey: categoryKeys.all });
+      await queryClient.invalidateQueries({ queryKey: ['pkgx', 'settings'] });
+      
+      addLog.mutate({
+        action: 'sync_categories',
+        status: errorCount > 0 ? 'partial' : 'success',
+        message: `Import xong: ${successCount} thành công, ${errorCount} lỗi`,
+      });
+      
+      if (successCount > 0) {
+        toast.success(`Đã import & mapping ${successCount} danh mục từ PKGX`);
+      }
+      if (errorCount > 0) {
+        const errorSummary = errorMessages.slice(0, 3).join('\n');
+        const moreCount = errorMessages.length > 3 ? `\n...và ${errorMessages.length - 3} lỗi khác` : '';
+        toast.error(`${errorCount} danh mục import thất bại:\n${errorSummary}${moreCount}`, { duration: 8000 });
+      }
+    } catch (error) {
+      toast.error('Lỗi khi import danh mục');
+      addLog.mutate({
+        action: 'sync_categories',
+        status: 'error',
+        message: error instanceof Error ? error.message : 'Lỗi khi import danh mục',
+      });
+    } finally {
+      setIsImporting(false);
+      setIsPaused(false);
+      pauseRef.current = false;
+      setImportProgress({ current: 0, total: 0, currentName: '' });
+    }
+  };
+  
+  // Pause/Resume import
+  const handlePauseImport = () => {
+    pauseRef.current = true;
+    setIsPaused(true);
+    toast.info('Đã tạm dừng import');
+  };
+  
+  const handleResumeImport = () => {
+    pauseRef.current = false;
+    setIsPaused(false);
+    toast.info('Tiếp tục import...');
   };
   
   // Mobile card renderers
@@ -658,7 +1095,7 @@ export function CategoryMappingTab() {
       <div>
         <div className="font-medium">{row.hrmCategoryName}</div>
         <div className="text-sm text-muted-foreground">
-          → {row.pkgxCatName} (ID: {row.pkgxCatId})
+          → {row.pkgxCategoryName || row.pkgxCatName} (ID: {row.pkgxCategoryId || row.pkgxCatId})
         </div>
       </div>
       <div className="flex gap-2">
@@ -666,7 +1103,7 @@ export function CategoryMappingTab() {
           <Pencil className="h-4 w-4 mr-2" />
           Sửa
         </Button>
-        <Button variant="outline" size="sm" className="flex-1" onClick={() => handleDelete(row.id)}>
+        <Button variant="outline" size="sm" className="flex-1" onClick={() => handleDelete(row.systemId || row.id || '')}>
           <Trash2 className="h-4 w-4 mr-2 text-destructive" />
           Xóa
         </Button>
@@ -685,15 +1122,19 @@ export function CategoryMappingTab() {
         <CardHeader>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <CardTitle className="text-lg">Mapping danh mục sản phẩm</CardTitle>
+              <CardTitle size="lg">Mapping danh mục sản phẩm</CardTitle>
               <CardDescription>
                 Liên kết danh mục HRM với danh mục PKGX để đồng bộ sản phẩm
               </CardDescription>
             </div>
-            <div className="flex gap-2">
-              <Button onClick={handleSyncFromPkgx} disabled={isSyncing} variant="outline">
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={handleSyncFromPkgx} disabled={isSyncing || isImporting} variant="outline">
                 {isSyncing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
                 Đồng bộ từ PKGX
+              </Button>
+              <Button onClick={handleImportAndMap} disabled={isImporting || isSyncing} variant="outline">
+                {isImporting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
+                Import & Mapping
               </Button>
               <Button onClick={() => handleOpenDialog()}>
                 <Plus className="h-4 w-4 mr-2" />
@@ -701,6 +1142,33 @@ export function CategoryMappingTab() {
               </Button>
             </div>
           </div>
+          {isImporting && importProgress.total > 0 && (
+            <div className="mt-4 space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">
+                  {isPaused ? 'Đã tạm dừng...' : 'Đang import danh mục...'}
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">{importProgress.current}/{importProgress.total}</span>
+                  {isPaused ? (
+                    <Button size="sm" variant="outline" onClick={handleResumeImport}>
+                      <RefreshCw className="h-3 w-3 mr-1" />
+                      Tiếp tục
+                    </Button>
+                  ) : (
+                    <Button size="sm" variant="outline" onClick={handlePauseImport}>
+                      <Loader2 className="h-3 w-3 mr-1" />
+                      Tạm dừng
+                    </Button>
+                  )}
+                </div>
+              </div>
+              <Progress value={(importProgress.current / importProgress.total) * 100} className="h-2" />
+              {importProgress.currentName && (
+                <p className="text-xs text-muted-foreground truncate">Đang xử lý: {importProgress.currentName}</p>
+              )}
+            </div>
+          )}
         </CardHeader>
         <CardContent>
           <div className="space-y-4">

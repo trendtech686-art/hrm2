@@ -32,6 +32,21 @@ export function ProvinceForm({ initialData, onSubmit, onCancel }: ProvinceFormPr
     },
   })
 
+  // Reset form when initialData changes
+  React.useEffect(() => {
+    if (initialData) {
+      form.reset({
+        id: initialData.id ?? '',
+        name: initialData.name ?? '',
+      });
+    } else {
+      form.reset({
+        id: '',
+        name: '',
+      });
+    }
+  }, [initialData, form]);
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">

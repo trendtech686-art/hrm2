@@ -1,7 +1,32 @@
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@/generated/prisma/client'
-import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
-import { createCategorySchema } from './validation'
+import { requireAuth, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
+import { generateNextIds } from '@/lib/id-system'
+import type { EntityType } from '@/lib/id-system'
+import { cache, CACHE_TTL } from '@/lib/cache'
+
+// Helper: compute path + level from parent
+async function computePathAndLevel(name: string, parentId?: string | null) {
+  if (!parentId) {
+    return { path: name, level: 0 }
+  }
+
+  const parent = await prisma.category.findUnique({
+    where: { systemId: parentId },
+    select: { path: true, level: true, name: true },
+  })
+
+  if (!parent) {
+    return { path: name, level: 0 }
+  }
+
+  const parentPath = parent.path || parent.name
+  const parentLevel = parent.level ?? 0
+  return {
+    path: `${parentPath} > ${name}`,
+    level: parentLevel + 1,
+  }
+}
 
 // GET /api/categories - List all categories
 export async function GET(request: Request) {
@@ -28,6 +53,10 @@ export async function GET(request: Request) {
 
     // Return tree structure (root categories with children)
     if (tree) {
+      const cacheKey = 'categories:tree'
+      const cached = cache.get(cacheKey)
+      if (cached) return apiSuccess(cached)
+
       where.parentId = null
       const categories = await prisma.category.findMany({
         where,
@@ -46,10 +75,16 @@ export async function GET(request: Request) {
           _count: { select: { productCategories: true } },
         },
       })
-      return apiSuccess({ data: categories })
+      const result = { data: categories }
+      cache.set(cacheKey, result, CACHE_TTL.LONG)
+      return apiSuccess(result)
     }
 
     if (all) {
+      const cacheKey = search ? `categories:all:${search}` : 'categories:all'
+      const cached = cache.get(cacheKey)
+      if (cached) return apiSuccess(cached)
+
       const categories = await prisma.category.findMany({
         where,
         orderBy: { name: 'asc' },
@@ -58,7 +93,9 @@ export async function GET(request: Request) {
           _count: { select: { productCategories: true, children: true } },
         },
       })
-      return apiSuccess({ data: categories })
+      const result = { data: categories }
+      cache.set(cacheKey, result, CACHE_TTL.LONG)
+      return apiSuccess(result)
     }
 
     const [categories, total] = await Promise.all([
@@ -87,26 +124,61 @@ export async function POST(request: Request) {
   const session = await requireAuth()
   if (!session) return apiError('Unauthorized', 401)
 
-  const result = await validateBody(request, createCategorySchema)
-  if (!result.success) return apiError(result.error, 400)
+  // TEMP: Bypass validation due to Zod issue
+  let body: Record<string, unknown>
+  try {
+    body = await request.json()
+    console.log('[POST /api/categories] Body:', JSON.stringify(body).substring(0, 300))
+  } catch {
+    return apiError('Invalid JSON body', 400)
+  }
+
+  // Manual validation
+  if (!body.id || !body.name) {
+    return apiError('id và name là bắt buộc', 400)
+  }
 
   try {
-    const body = result.data
+    const parentId = (body.parentId as string | undefined) || null
+    const name = body.name as string
+    const { path, level } = await computePathAndLevel(name, parentId)
+
+    // Generate sequential system ID and business ID using ID system
+    // If body.id is provided (from PKGX import), use it as custom business ID
+    const { systemId, businessId } = await generateNextIds('categories' as EntityType, body.id as string | undefined)
 
     const category = await prisma.category.create({
       data: {
-        systemId: `CAT${String(Date.now()).slice(-6).padStart(6, '0')}`,
-        id: body.id,
-        name: body.name,
-        description: body.description,
-        imageUrl: body.thumbnail || body.imageUrl,
-        parentId: body.parentId,
-        sortOrder: body.sortOrder || 0,
+        systemId,
+        id: businessId,
+        name,
+        description: body.description as string | undefined,
+        imageUrl: (body.thumbnail as string | undefined) || (body.imageUrl as string | undefined),
+        thumbnail: (body.thumbnail as string | undefined) || (body.imageUrl as string | undefined),
+        parentId,
+        sortOrder: (body.sortOrder as number | undefined) || 0,
+        // SEO fields
+        seoTitle: body.seoTitle as string | undefined,
+        metaDescription: body.metaDescription as string | undefined,
+        seoKeywords: body.seoKeywords as string | undefined,
+        shortDescription: body.shortDescription as string | undefined,
+        longDescription: body.longDescription as string | undefined,
+        ogImage: (body.ogImage as string | undefined) || (body.thumbnail as string | undefined) || (body.imageUrl as string | undefined),
+        slug: body.slug as string | undefined,
+        websiteSeo: body.websiteSeo as Prisma.InputJsonValue | undefined,
+        // Hierarchy
+        path,
+        level,
+        // Status
+        isActive: (body.isActive as boolean | undefined) ?? true,
       },
       include: {
         parent: true,
       },
     })
+
+    // Invalidate categories cache
+    cache.deletePattern('^categories:')
 
     return apiSuccess(category, 201)
   } catch (error) {

@@ -5,8 +5,7 @@
  * Tìm các gợi ý District+Ward dựa trên Province+Ward input
  */
 
-import { useProvinceStore } from '@/features/settings/provinces/store';
-import type { Ward, District } from '@/features/settings/provinces/types';
+import type { Ward, District } from '@/lib/types/prisma-extended';
 import { asBusinessId } from '@/lib/id-types';
 
 export type WardSuggestion = {
@@ -14,6 +13,15 @@ export type WardSuggestion = {
   district: District;
   fullAddress: string;
   matchScore: number; // 0-100 (cao = match tốt)
+};
+
+/**
+ * Data required for ward matching lookups.
+ * Pass from React Query hooks instead of reading from store.
+ */
+export type WardMatchData = {
+  wards: Ward[];
+  districts: District[];
 };
 
 /**
@@ -26,19 +34,15 @@ export type WardSuggestion = {
  * 3. Nếu không → Tìm wards có tên giống/gần giống
  * 
  * @example
- * findMatchingWards("101", "X. Gia Lâm")
+ * findMatchingWards("101", "X. Gia Lâm", { wards, districts })
  * // Returns: 25 suggestions (6 new + 19 old wards in Huyện Gia Lâm)
  */
 export function findMatchingWards(
   provinceId: string,
-  wardName: string
+  wardName: string,
+  data: WardMatchData,
 ): WardSuggestion[] {
-  const { 
-    wards, 
-    districts, 
-    getDistrictsByProvinceId, 
-    getWardsByDistrictId 
-  } = useProvinceStore.getState();
+  const { wards, districts } = data;
 
   const suggestions: WardSuggestion[] = [];
   const businessProvinceId = asBusinessId(provinceId);
@@ -85,7 +89,7 @@ export function findMatchingWards(
   // Step 2: Nếu không tìm thấy exact match → Tìm district có tên giống wardName
   // VD: "Phường Hoàn Kiếm" → Tìm "Quận Hoàn Kiếm"
   if (suggestions.length === 0) {
-    const provinceDistricts = getDistrictsByProvinceId(businessProvinceId);
+    const provinceDistricts = districts.filter(d => d.provinceId === businessProvinceId);
     
     for (const district of provinceDistricts) {
       const normalizedDistrict = normalizeText(district.name);
@@ -99,7 +103,7 @@ export function findMatchingWards(
           normalizedInput.includes(normalizedDistrict)) {
         
         // Lấy TẤT CẢ wards trong district này
-        const districtWards = getWardsByDistrictId(district.id);
+        const districtWards = wards.filter(w => w.districtId === district.id);
         
         for (const ward of districtWards) {
           suggestions.push({

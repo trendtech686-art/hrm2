@@ -1,5 +1,6 @@
 // Import/Export Log
 // Audit trail for data import/export operations
+// Supports background job processing for large imports (up to 20k records)
 
 model ImportExportLog {
   id        String   @id @default(cuid())
@@ -14,15 +15,32 @@ model ImportExportLog {
   userId      String   // User systemId
   
   // Operation details
-  status        String  // 'success', 'partial', 'failed'
+  status        String  // 'pending', 'processing', 'completed', 'failed', 'cancelled'
   totalRecords  Int
-  successCount  Int
-  errorCount    Int
+  successCount  Int     @default(0)
+  errorCount    Int     @default(0)
+  skippedCount  Int     @default(0)
+  insertedCount Int     @default(0)
+  updatedCount  Int     @default(0)
   errors        String? @db.Text // JSON array of error messages
+  
+  // Progress tracking for background jobs
+  progress         Int      @default(0)  // 0-100 percentage
+  processedRecords Int      @default(0)  // Records processed so far
+  currentChunk     Int      @default(0)  // Current chunk being processed
+  totalChunks      Int      @default(1)  // Total number of chunks
+  startedAt        DateTime?             // When processing started
+  completedAt      DateTime?             // When processing finished
+  
+  // Import data storage (for background processing)
+  importData       String?  @db.Text // JSON array of records to import
+  importMode       String?               // 'insert-only', 'update-only', 'upsert'
+  branchId         String?               // Target branch for import
   
   // File information
   filePath String?
   fileName String?
+  fileSize Int?     @default(0)
   
   // Additional metadata
   notes             String? @db.Text
@@ -33,4 +51,5 @@ model ImportExportLog {
   @@index([userId, type])
   @@index([entityType])
   @@index([performedAt(sort: Desc)])
+  @@index([status])
 }

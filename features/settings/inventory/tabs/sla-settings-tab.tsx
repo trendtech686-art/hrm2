@@ -18,12 +18,14 @@ import { SettingsActionButton } from "@/components/settings/SettingsActionButton
 
 type TabContentProps = { isActive: boolean; onRegisterActions: RegisterTabActions };
 
-export function SlaSettingsTabContent({ isActive }: TabContentProps) {
+export function SlaSettingsTabContent({ isActive, onRegisterActions }: TabContentProps) {
   const { settings } = useSlaSettingsData();
   const { update } = useSlaSettingsMutations({
     onSuccess: () => toast.success('Đã lưu cài đặt cảnh báo tồn kho'),
     onError: () => toast.error('Có lỗi xảy ra khi lưu cài đặt'),
   });
+  const updateAsyncRef = React.useRef(update.mutateAsync);
+  React.useEffect(() => { updateAsyncRef.current = update.mutateAsync; }, [update.mutateAsync]);
   const [localSettings, setLocalSettings] = React.useState<ProductSlaSettings>(settings);
   const [isSaving, setIsSaving] = React.useState(false);
 
@@ -43,21 +45,30 @@ export function SlaSettingsTabContent({ isActive }: TabContentProps) {
   const handleSave = React.useCallback(async () => {
     setIsSaving(true);
     try { 
-      await update.mutateAsync(localSettingsRef.current);
+      await updateAsyncRef.current(localSettingsRef.current);
     } finally { 
       setIsSaving(false); 
     }
-  }, [update]);
+  }, []);
+
+  const onRegisterActionsRef = React.useRef(onRegisterActions);
+  React.useEffect(() => { onRegisterActionsRef.current = onRegisterActions; }, [onRegisterActions]);
+
+  const actionButton = React.useMemo(() => [
+    <SettingsActionButton key="save-sla" onClick={handleSave} disabled={!hasChanges || isSaving}>
+      <Save className="mr-2 h-4 w-4" />{isSaving ? 'Đang lưu...' : 'Lưu cài đặt'}
+    </SettingsActionButton>
+  ], [handleSave, hasChanges, isSaving]);
+
+  React.useEffect(() => { 
+    if (!isActive) return;
+    onRegisterActionsRef.current(actionButton);
+  }, [actionButton, isActive]);
 
   const alertTypeOptions = [{ value: 'out_of_stock', label: 'Hết hàng' }, { value: 'low_stock', label: 'Sắp hết hàng' }, { value: 'below_safety', label: 'Dưới tồn kho an toàn' }, { value: 'over_stock', label: 'Vượt tồn kho tối đa' }, { value: 'dead_stock', label: 'Hàng tồn lâu' }];
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-end">
-        <Button onClick={handleSave} disabled={!hasChanges || isSaving}>
-          <Save className="mr-2 h-4 w-4" />{isSaving ? 'Đang lưu...' : 'Lưu cài đặt'}
-        </Button>
-      </div>
       <Card><CardHeader><CardTitle>Ngưỡng cảnh báo mặc định</CardTitle><CardDescription>Áp dụng cho các sản phẩm không có cấu hình riêng</CardDescription></CardHeader><CardContent className="space-y-4"><div className="grid grid-cols-3 gap-4"><div className="space-y-2"><Label htmlFor="defaultReorderLevel">Mức đặt hàng lại</Label><Input id="defaultReorderLevel" type="number" min={0} value={localSettings.defaultReorderLevel ?? 10} onChange={(e) => handleChange('defaultReorderLevel', parseInt(e.target.value) || 0)} /><p className="text-xs text-muted-foreground">Cảnh báo khi tồn kho ≤ giá trị này</p></div><div className="space-y-2"><Label htmlFor="defaultSafetyStock">Tồn kho an toàn</Label><Input id="defaultSafetyStock" type="number" min={0} value={localSettings.defaultSafetyStock ?? 5} onChange={(e) => handleChange('defaultSafetyStock', parseInt(e.target.value) || 0)} /><p className="text-xs text-muted-foreground">Mức tối thiểu để tránh hết hàng</p></div><div className="space-y-2"><Label htmlFor="defaultMaxStock">Tồn kho tối đa</Label><Input id="defaultMaxStock" type="number" min={0} value={localSettings.defaultMaxStock ?? 100} onChange={(e) => handleChange('defaultMaxStock', parseInt(e.target.value) || 0)} /><p className="text-xs text-muted-foreground">Cảnh báo tồn kho vượt quá</p></div></div></CardContent></Card>
 
       <Card><CardHeader><CardTitle>Cảnh báo hàng tồn kho lâu</CardTitle><CardDescription>Phát hiện hàng chậm bán hoặc hàng chết</CardDescription></CardHeader><CardContent className="space-y-4"><div className="grid grid-cols-2 gap-4"><div className="space-y-2"><Label htmlFor="slowMovingDays">Hàng chậm bán (ngày)</Label><Input id="slowMovingDays" type="number" min={1} value={localSettings.slowMovingDays ?? 30} onChange={(e) => handleChange('slowMovingDays', parseInt(e.target.value) || 30)} /><p className="text-xs text-muted-foreground">Không bán trong X ngày → Hàng chậm</p></div><div className="space-y-2"><Label htmlFor="deadStockDays">Hàng chết (ngày)</Label><Input id="deadStockDays" type="number" min={1} value={localSettings.deadStockDays ?? 90} onChange={(e) => handleChange('deadStockDays', parseInt(e.target.value) || 90)} /><p className="text-xs text-muted-foreground">Không bán trong X ngày → Hàng chết</p></div></div></CardContent></Card>

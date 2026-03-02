@@ -5,6 +5,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { fetchAllPages } from '@/lib/fetch-all-pages';
 import {
   fetchCashAccounts,
   fetchCashAccount,
@@ -86,17 +87,32 @@ export function useCashAccountMutations(options: UseCashAccountMutationsOptions 
 }
 
 export function useActiveCashAccounts() {
-  return useCashAccounts({ isActive: true, limit: 50 });
+  const query = useQuery({
+    queryKey: [...cashAccountKeys.all, 'active'],
+    queryFn: () => fetchAllPages((p) => fetchCashAccounts({ ...p, isActive: true })),
+    staleTime: 10 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+  });
+  return { ...query, data: query.data ? { data: query.data } : undefined };
 }
 
 export function useCashAccountsByBranch(branchId: string | null | undefined) {
-  return useCashAccounts({
-    branchId: branchId || undefined,
-    isActive: true,
-    limit: 50,
+  const query = useQuery({
+    queryKey: [...cashAccountKeys.all, 'branch', branchId],
+    queryFn: () => fetchAllPages((p) => fetchCashAccounts({ ...p, branchId: branchId || undefined, isActive: true })),
+    enabled: !!branchId,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
   });
+  return { ...query, data: query.data ? { data: query.data } : undefined };
 }
 
 export function useAllCashAccounts() {
-  return useCashAccounts({ limit: 200 });
+  const query = useQuery({
+    queryKey: [...cashAccountKeys.all, 'all'],
+    queryFn: () => fetchAllPages((p) => fetchCashAccounts(p)),
+    staleTime: 10 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+  });
+  return { ...query, data: query.data ? { data: query.data } : undefined };
 }

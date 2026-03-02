@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
@@ -17,15 +17,26 @@ import { MobileGrid } from '../../components/mobile/mobile-grid';
 import { TouchButton } from '../../components/mobile/touch-button';
 import { useMediaQuery } from '../../lib/use-media-query';
 import { DebtAlertWidget } from './debt-alert-widget';
-import type { OrderMainStatus } from '../orders/types';
 import { Button } from '../../components/ui/button';
 const formatCurrency = (value: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
 
-const statusVariants: Record<OrderMainStatus, "success" | "default" | "secondary" | "warning" | "destructive"> = {
+const statusVariants: Record<string, "success" | "default" | "secondary" | "warning" | "destructive"> = {
     "Đặt hàng": "secondary",
     "Đang giao dịch": "warning",
     "Hoàn thành": "success",
     "Đã hủy": "destructive",
+    "PENDING": "secondary",
+    "CONFIRMED": "secondary",
+    "PROCESSING": "warning",
+    "PACKING": "warning",
+    "PACKED": "warning",
+    "READY_FOR_PICKUP": "warning",
+    "SHIPPING": "warning",
+    "DELIVERED": "success",
+    "COMPLETED": "success",
+    "FAILED_DELIVERY": "destructive",
+    "RETURNED": "destructive",
+    "CANCELLED": "destructive",
 };
 
 export function DashboardPage() {
@@ -213,7 +224,7 @@ export function DashboardPage() {
                 {(stats.contractsExpiring30 > 0 || stats.contractsExpiring60 > 0 || stats.contractsExpiring90 > 0) && (
                     <Card className="border-yellow-500/50 bg-yellow-50">
                         <CardHeader>
-                            <CardTitle className="text-h5 flex items-center gap-2">
+                            <CardTitle className="flex items-center gap-2">
                                 <AlertCircle className="h-5 w-5 text-yellow-600" />
                                 Cảnh báo hợp đồng sắp hết hạn
                             </CardTitle>

@@ -16,6 +16,9 @@ import {
 import { toast } from 'sonner';
 import { DEFAULT_ROLE_PERMISSIONS } from '../../../employees/permissions';
 
+// Generate unique ID for optimistic updates
+const generateTempId = () => `role_${crypto.randomUUID().slice(0, 8)}`;
+
 export const roleSettingsKeys = {
   all: ['role-settings'] as const,
   main: () => [...roleSettingsKeys.all, 'main'] as const,
@@ -59,8 +62,10 @@ export function useRoleMutations() {
 
   const addRole = (name: string, description: string) => {
     const currentRoles = queryClient.getQueryData<CustomRole[]>(roleSettingsKeys.main()) ?? DEFAULT_ROLES;
+    const roleId = generateTempId();
     const newRole: CustomRole = {
-      id: `role_${Date.now()}`,
+      id: roleId,
+      systemId: roleId,
       name,
       description,
       permissions: [],

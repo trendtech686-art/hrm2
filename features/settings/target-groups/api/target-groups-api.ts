@@ -3,6 +3,7 @@
  */
 
 import type { TargetGroup } from '@/lib/types/prisma-extended';
+import { fetchAllPages } from '@/lib/fetch-all-pages';
 
 export interface TargetGroupFilters {
   page?: number;
@@ -88,6 +89,5 @@ export async function setDefaultTargetGroup(systemId: string): Promise<TargetGro
 }
 
 export async function fetchActiveTargetGroups(): Promise<TargetGroup[]> {
-  const response = await fetchTargetGroups({ isActive: true, limit: 100 });
-  return response.data;
+  return fetchAllPages((p) => fetchTargetGroups({ ...p, isActive: true }));
 }

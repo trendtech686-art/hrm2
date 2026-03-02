@@ -19,6 +19,7 @@ import { SUPPLIER_RETURN_PREVIEW_DATA } from './supplier-return.preview';
 import { COMPLAINT_PREVIEW_DATA } from './complaint.preview';
 import { PENALTY_PREVIEW_DATA } from './penalty.preview';
 import { COST_ADJUSTMENT_PREVIEW_DATA } from './cost-adjustment.preview';
+import { PRICE_ADJUSTMENT_PREVIEW_DATA } from './price-adjustment.preview';
 import { PAYROLL_PREVIEW_DATA } from './payroll.preview';
 import { ATTENDANCE_PREVIEW_DATA } from './attendance.preview';
 
@@ -61,6 +62,7 @@ export const PREVIEW_DATA: Record<TemplateType, Record<string, string>> = {
   'penalty': PENALTY_PREVIEW_DATA,
   'leave': PENALTY_PREVIEW_DATA, // TODO: Create dedicated LEAVE_PREVIEW_DATA
   'cost-adjustment': COST_ADJUSTMENT_PREVIEW_DATA,
+  'price-adjustment': PRICE_ADJUSTMENT_PREVIEW_DATA,
   'handover': PHIEU_BAN_GIAO_PREVIEW,
   'payroll': PAYROLL_PREVIEW_DATA,
   'payslip': PAYROLL_PREVIEW_DATA,

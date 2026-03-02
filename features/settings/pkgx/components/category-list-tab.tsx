@@ -1,4 +1,4 @@
-import * as React from 'react';
+﻿import * as React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/ui/card';
 import { Button } from '../../../../components/ui/button';
 import { Input } from '../../../../components/ui/input';
@@ -74,7 +74,7 @@ export function CategoryListTab() {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-        <CardTitle className="text-lg">Danh sách danh mục PKGX</CardTitle>
+        <CardTitle size="lg">Danh sách danh mục PKGX</CardTitle>
         <Button onClick={handleOpenAdd} size="sm">
           <Plus className="h-4 w-4 mr-1" /> Thêm danh mục
         </Button>
@@ -90,7 +90,7 @@ export function CategoryListTab() {
           />
         </div>
 
-        <div className="border rounded-lg max-h-[500px] overflow-auto">
+        <div className="border rounded-lg max-h-125 overflow-auto">
           <Table>
             <TableHeader>
               <TableRow>

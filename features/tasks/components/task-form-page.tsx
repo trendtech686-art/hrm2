@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
@@ -18,7 +18,7 @@ import { DateTimePicker24h } from '@/components/ui/date-time-picker-24h';
 import { VirtualizedCombobox } from '@/components/ui/virtualized-combobox';
 import { ArrowLeft, Save, FileText, Clock } from 'lucide-react';
 import { toast } from 'sonner';
-import { loadTaskTemplates, loadTaskTypes } from '@/features/settings/tasks/tasks-settings-page';
+import { useTasksSettings } from '@/features/settings/tasks/hooks/use-tasks-settings';
 import { asSystemId, asBusinessId } from '@/lib/id-types';
 
 export function TaskFormPage() {
@@ -83,8 +83,9 @@ export function TaskFormPage() {
   }, [task?.systemId, isEdit]);
 
   const [showTemplates, setShowTemplates] = React.useState(false);
-  const templates = React.useMemo(() => loadTaskTemplates(), []);
-  const taskTypes = React.useMemo(() => loadTaskTypes(), []);
+  const { data: tasksSettings } = useTasksSettings();
+  const templates = tasksSettings.templates;
+  const taskTypes = tasksSettings.taskTypes;
 
   const handleCancel = React.useCallback(() => {
     router.push('/tasks');
@@ -211,7 +212,7 @@ export function TaskFormPage() {
         <Card className="border-blue-200 bg-blue-50/50 dark:bg-blue-950/20">
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle className="text-h4 font-semibold flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2">
                 <FileText className="h-5 w-5 text-blue-600" />
                 Sử dụng mẫu có sẵn
               </CardTitle>
@@ -256,7 +257,7 @@ export function TaskFormPage() {
       {/* Section 1: Thông tin cơ bản */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-h4 font-semibold">Thông tin cơ bản</CardTitle>
+          <CardTitle>Thông tin cơ bản</CardTitle>
         </CardHeader>
         <CardContent>
           <form id="task-form" onSubmit={handleSubmit} className="space-y-4">
@@ -309,7 +310,7 @@ export function TaskFormPage() {
       {/* Section 2: Phân công & Thời gian */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-h4 font-semibold">Phân công & Thời gian</CardTitle>
+          <CardTitle>Phân công & Thời gian</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -436,7 +437,7 @@ export function TaskFormPage() {
       {/* Section 3: Cài đặt nâng cao */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-h4 font-semibold">Cài đặt nâng cao</CardTitle>
+          <CardTitle>Cài đặt nâng cao</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">

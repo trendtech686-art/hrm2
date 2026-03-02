@@ -1,4 +1,4 @@
-import * as React from 'react';
+﻿import * as React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../../components/ui/card';
 import { Label } from '../../../../components/ui/label';
 import { Input } from '../../../../components/ui/input';
@@ -60,7 +60,7 @@ export function GeneralConfigTab() {
       setApiKey.mutate(localApiKey);
       
       // Step 1: Ping server
-      const pingResult = await (ping as any)();
+      const pingResult = await ping({ apiUrl: localApiUrl, apiKey: localApiKey, enabled: true } as Parameters<typeof ping>[0]);
       
       if (!pingResult.success) {
         addLog.mutate({
@@ -81,7 +81,7 @@ export function GeneralConfigTab() {
       
       // Step 2: Test với API key
       const testStartTime = Date.now();
-      const testResult = await (testConnection as any)();
+      const testResult = await testConnection({ apiUrl: localApiUrl, apiKey: localApiKey, enabled: true } as Parameters<typeof testConnection>[0]);
       
       if (testResult.success && testResult.data) {
         setConnectionStatus.mutate({ status: 'connected' });
@@ -138,7 +138,7 @@ export function GeneralConfigTab() {
       {/* API Connection Card */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Thông tin kết nối API</CardTitle>
+          <CardTitle size="lg">Thông tin kết nối API</CardTitle>
           <CardDescription>Cấu hình kết nối với website Trendtech (Next.js)</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -205,7 +205,7 @@ export function GeneralConfigTab() {
       {/* Integration Status Card */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Trạng thái tích hợp</CardTitle>
+          <CardTitle size="lg">Trạng thái tích hợp</CardTitle>
           <CardDescription>Bật/tắt đồng bộ với Trendtech</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -254,7 +254,7 @@ export function GeneralConfigTab() {
       {/* Info Card */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Hướng dẫn cài đặt</CardTitle>
+          <CardTitle size="lg">Hướng dẫn cài đặt</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 text-sm text-muted-foreground">
           <p>

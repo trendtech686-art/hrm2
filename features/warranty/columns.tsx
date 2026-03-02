@@ -92,7 +92,7 @@ export const getColumns = (
     accessorKey: "branchName",
     header: "Chi nhánh",
     cell: ({ row }) => (
-      <div className="max-w-[150px] truncate" title={row.branchName}>
+      <div className="max-w-38 truncate" title={row.branchName}>
         {row.branchName}
       </div>
     ),
@@ -107,7 +107,7 @@ export const getColumns = (
     accessorKey: "employeeName",
     header: "Nhân viên",
     cell: ({ row }) => (
-      <div className="max-w-[150px] truncate" title={row.employeeName}>
+      <div className="max-w-38 truncate" title={row.employeeName}>
         {row.employeeName}
       </div>
     ),
@@ -131,7 +131,7 @@ export const getColumns = (
       />
     ),
     cell: ({ row }) => (
-      <div className="max-w-[180px] truncate" title={row.customerName}>
+      <div className="max-w-45 truncate" title={row.customerName}>
         {row.customerName}
       </div>
     ),
@@ -159,7 +159,7 @@ export const getColumns = (
     accessorKey: "customerAddress",
     header: "Địa chỉ",
     cell: ({ row }) => (
-      <div className="max-w-[200px] truncate" title={row.customerAddress}>
+      <div className="max-w-50 truncate" title={row.customerAddress}>
         {row.customerAddress || '—'}
       </div>
     ),
@@ -300,7 +300,7 @@ export const getColumns = (
       const overdueStatus = checkWarrantyOverdue(row);
       
       // Nếu đã trả hàng
-      if (row.status === 'returned') {
+      if (row.status === 'RETURNED') {
         return <span className="text-muted-foreground">Hoàn thành</span>;
       }
 
@@ -312,11 +312,11 @@ export const getColumns = (
       // Nếu không quá hạn - hiển thị thời gian còn lại theo trạng thái
       if (!isOverdue) {
         let timeLeft = 0;
-        if (row.status === 'incomplete') {
+        if (row.status === 'RECEIVED') {
           timeLeft = overdueStatus.responseTimeLeft;
-        } else if (row.status === 'pending') {
+        } else if (row.status === 'PROCESSING') {
           timeLeft = overdueStatus.processingTimeLeft;
-        } else if (row.status === 'processed') {
+        } else if (row.status === 'COMPLETED') {
           timeLeft = overdueStatus.returnTimeLeft;
         }
         
@@ -349,7 +349,7 @@ export const getColumns = (
     header: "Thanh toán",
     cell: ({ row }) => {
       // Chỉ hiển thị cho phiếu đã trả và có totalSettlement > 0
-      if (row.status !== 'returned' || !row.summary?.totalSettlement || row.summary.totalSettlement <= 0) {
+      if (row.status !== 'RETURNED' || !row.summary?.totalSettlement || row.summary.totalSettlement <= 0) {
         return <span className="text-muted-foreground text-body-xs">—</span>;
       }
 
@@ -591,7 +591,7 @@ export const getColumns = (
     cell: ({ row }) => {
       if (!row.notes?.trim()) return <span className="text-muted-foreground text-body-xs">—</span>;
       return (
-        <div className="max-w-[200px] truncate text-body-xs" title={row.notes}>
+        <div className="max-w-50 truncate text-body-xs" title={row.notes}>
           {row.notes}
         </div>
       );

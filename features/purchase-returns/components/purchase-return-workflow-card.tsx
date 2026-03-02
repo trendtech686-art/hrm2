@@ -1,4 +1,4 @@
-import * as React from 'react';
+﻿import * as React from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { SubtaskList, type Subtask } from '../../../components/shared/subtask-list';
@@ -16,22 +16,21 @@ export function PurchaseReturnWorkflowCard({
   onSubtasksChange,
   readonly = false,
 }: PurchaseReturnWorkflowCardProps) {
-  // Initialize subtasks from template if empty
-  const workflowSubtasks = React.useMemo((): Subtask[] => {
-    if (subtasks && subtasks.length > 0) {
-      return subtasks;
+  // Use subtasks directly, fallback to empty array - wrapped in useMemo to stabilize reference
+  const workflowSubtasks = React.useMemo(
+    () => (subtasks && subtasks.length > 0 ? subtasks : []),
+    [subtasks]
+  );
+
+  // Initialize subtasks from template if empty (using useEffect to avoid setState during render)
+  React.useEffect(() => {
+    if ((!subtasks || subtasks.length === 0)) {
+      const template = getWorkflowTemplate('purchase-returns');
+      if (template.length > 0) {
+        onSubtasksChange(template);
+      }
     }
-    
-    // Get default workflow template for purchase-returns
-    const template = getWorkflowTemplate('purchase-returns');
-    if (template.length > 0) {
-      // Auto-save to form
-      onSubtasksChange(template);
-      return template;
-    }
-    
-    return [];
-  }, [subtasks, onSubtasksChange]);
+  }, [subtasks, onSubtasksChange]); // Include dependencies
 
   const handleToggleComplete = React.useCallback(
     (id: string, completed: boolean) => {
@@ -61,7 +60,7 @@ export function PurchaseReturnWorkflowCard({
     return (
       <Card className="h-full border-dashed">
         <CardHeader>
-          <CardTitle className="text-h3">Quy trình xử lý</CardTitle>
+          <CardTitle size="lg">Quy trình xử lý</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="text-center py-4 text-muted-foreground">
@@ -78,7 +77,7 @@ export function PurchaseReturnWorkflowCard({
   return (
     <Card className="h-full">
       <CardHeader>
-        <CardTitle className="text-h3">Quy trình xử lý</CardTitle>
+        <CardTitle size="lg">Quy trình xử lý</CardTitle>
       </CardHeader>
       <CardContent>
         <SubtaskList

@@ -31,7 +31,7 @@ export function OrderCard({ order, onCancel: _onCancel }: OrderCardProps) {
 
   return (
     <div 
-      className="bg-card rounded-lg border p-4 space-y-3 hover:shadow-md transition-shadow"
+      className="bg-card rounded-lg border border-border p-4 space-y-3 hover:shadow-md transition-shadow"
       onClick={() => router.push(`/orders/${order.systemId}`)}
     >
       {/* Header: Code + Status */}

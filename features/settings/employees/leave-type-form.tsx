@@ -26,6 +26,20 @@ export function LeaveTypeForm({ initialData, onSubmit, onCancel }: LeaveTypeForm
     },
   });
 
+  // Reset form when initialData changes
+  React.useEffect(() => {
+    if (initialData) {
+      form.reset(initialData);
+    } else {
+      form.reset({
+        name: '',
+        numberOfDays: 0,
+        isPaid: true,
+        requiresAttachment: false,
+      });
+    }
+  }, [initialData, form]);
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -44,7 +58,7 @@ export function LeaveTypeForm({ initialData, onSubmit, onCancel }: LeaveTypeForm
           </FormItem>
         )} />
         <FormField control={form.control} name="isPaid" render={({ field }) => (
-          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+          <FormItem className="flex flex-row items-center justify-between rounded-lg border  border-border p-3 shadow-sm">
             <div className="space-y-0.5">
               <FormLabel>Được hưởng lương</FormLabel>
             </div>
@@ -52,7 +66,7 @@ export function LeaveTypeForm({ initialData, onSubmit, onCancel }: LeaveTypeForm
           </FormItem>
         )} />
         <FormField control={form.control} name="requiresAttachment" render={({ field }) => (
-          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+          <FormItem className="flex flex-row items-center justify-between rounded-lg border  border-border p-3 shadow-sm">
             <div className="space-y-0.5">
               <FormLabel>Yêu cầu tài liệu đính kèm</FormLabel>
             </div>

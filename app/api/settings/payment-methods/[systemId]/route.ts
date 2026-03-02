@@ -42,13 +42,28 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
     const { systemId } = await params
 
+    // If setting as default, unset all other defaults first
+    if (body.isDefault === true) {
+      await prisma.paymentMethod.updateMany({
+        where: { isDefault: true, systemId: { not: systemId } },
+        data: { isDefault: false },
+      })
+    }
+
     const method = await prisma.paymentMethod.update({
       where: { systemId },
       data: {
+        id: body.id,
         name: body.name,
         code: body.code,
         type: body.type,
+        description: body.description,
+        accountNumber: body.accountNumber,
+        accountName: body.accountName,
+        bankName: body.bankName,
         isActive: body.isActive,
+        isDefault: body.isDefault,
+        updatedBy: session.user.id,
       },
     })
 

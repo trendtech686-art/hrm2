@@ -3,6 +3,31 @@
  */
 import { z } from 'zod'
 
+/**
+ * Valid Prisma WarrantyStatus enum values
+ */
+export const VALID_WARRANTY_STATUSES = [
+  'RECEIVED',
+  'PROCESSING', 
+  'WAITING_PARTS',
+  'COMPLETED',
+  'RETURNED',
+  'CANCELLED',
+] as const;
+
+/**
+ * Validate and normalize status to Prisma enum value
+ * Accepts both uppercase (DB) and lowercase (legacy) values
+ */
+export function toPrismaStatus(status?: string): string {
+  if (!status) return 'RECEIVED';
+  const upper = status.toUpperCase();
+  if (VALID_WARRANTY_STATUSES.includes(upper as typeof VALID_WARRANTY_STATUSES[number])) {
+    return upper;
+  }
+  return 'RECEIVED';
+}
+
 // Query params for listing warranties
 export const listWarrantiesSchema = z.object({
   page: z.string().optional().transform(v => parseInt(v || '1')),
@@ -16,7 +41,7 @@ export const listWarrantiesSchema = z.object({
   dateTo: z.string().optional(),
 })
 
-// Create warranty schema
+// Create warranty schema with status transformation
 export const createWarrantySchema = z.object({
   id: z.string().optional(),
   productId: z.string().optional(),
@@ -32,7 +57,8 @@ export const createWarrantySchema = z.object({
   description: z.string().optional(),
   issueDescription: z.string().optional(),
   notes: z.string().optional(),
-  status: z.string().optional().default('RECEIVED'),
+  // Transform frontend status to Prisma enum
+  status: z.string().optional().transform(toPrismaStatus),
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).optional(),
   purchaseDate: z.string().optional(),
   startDate: z.string().optional(),
@@ -47,6 +73,42 @@ export const createWarrantySchema = z.object({
   isReplacement: z.boolean().optional(),
   replacementProductId: z.string().optional(),
   replacementQuantity: z.number().optional(),
+  
+  // ===== ADDITIONAL FIELDS FOR FULL WARRANTY DATA =====
+  // Tracking & external references
+  trackingCode: z.string().optional(),
+  publicTrackingCode: z.string().optional(),
+  shippingFee: z.number().optional(),
+  referenceUrl: z.string().optional(),
+  externalReference: z.string().optional(),
+  
+  // Images
+  receivedImages: z.array(z.string()).optional(),
+  processedImages: z.array(z.string()).optional(),
+  
+  // Products in warranty ticket (JSON array)
+  products: z.any().optional(), // Allow any for JSON array
+  
+  // Settlement
+  settlement: z.any().optional(), // Allow any for JSON object
+  settlementStatus: z.string().optional(),
+  
+  // Summary stats
+  summary: z.any().optional(), // Allow any for JSON object
+  
+  // History & comments (stored as JSON)
+  history: z.any().optional(),
+  comments: z.any().optional(),
+  
+  // Workflow subtasks
+  subtasks: z.any().optional(),
+  
+  // Order linking
+  linkedOrderSystemId: z.string().optional(),
+  
+  // Audit fields
+  createdBy: z.string().optional(),
+  createdBySystemId: z.string().optional(),
 })
 
 // Update warranty schema

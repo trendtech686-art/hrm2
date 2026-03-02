@@ -36,30 +36,33 @@ export function CommittedStockDialog({
 
   // Find all orders with committed stock for this product and branch
   const committedOrders = React.useMemo(() => {
-    const productSku = product?.id;
     return allOrders
       .filter(order => {
         // Check branch first
-        if (order.branchSystemId !== branchSystemId) return false;
+        const orderBranchId = order.branchSystemId;
+        if (orderBranchId !== branchSystemId) return false;
 
-        // Check if order contains this product
+        // Check if order contains this product (by systemId only)
         const hasProduct = order.lineItems?.some(item => 
-          item.productSystemId === productSystemId ||
-          (productSku && item.productId === productSku)
+          item.productSystemId === productSystemId
         );
         if (!hasProduct) return false;
 
         // Order must be in committed state (not yet dispatched/cancelled/completed)
+        // Check both enum values and Vietnamese labels
+        const cancelledStatuses = ['CANCELLED', 'Đã hủy'];
+        const completedStatuses = ['COMPLETED', 'DELIVERED', 'Hoàn thành'];
+        const dispatchedStockOutStatuses = ['FULLY_DISPATCHED', 'Xuất kho toàn bộ', 'FULLY_STOCKED_OUT'];
+        
         return (
-          order.status !== 'Đã hủy' && 
-          order.status !== 'Hoàn thành' &&
-          order.stockOutStatus !== 'Xuất kho toàn bộ'
+          !cancelledStatuses.includes(order.status) && 
+          !completedStatuses.includes(order.status) &&
+          !dispatchedStockOutStatuses.includes(order.stockOutStatus || '')
         );
       })
       .map(order => {
         const lineItem = order.lineItems.find(item => 
-          item.productSystemId === productSystemId ||
-          (productSku && item.productId === productSku)
+          item.productSystemId === productSystemId
         );
         if (!lineItem) {
           return null;
@@ -76,7 +79,7 @@ export function CommittedStockDialog({
         };
       })
       .filter((item): item is NonNullable<typeof item> => Boolean(item));
-  }, [allOrders, productSystemId, branchSystemId, product]);
+  }, [allOrders, productSystemId, branchSystemId]);
 
   // Find all warranties with committed stock for this product and branch
   const committedWarranties = React.useMemo(() => {
@@ -89,7 +92,7 @@ export function CommittedStockDialog({
         if (!warranty.branchSystemId || !warranty.status) return false;
 
         // Warranty must be in pending/processed state (not completed)
-        if (warranty.status === 'completed') return false;
+        if (warranty.status === 'COMPLETED' || warranty.status === 'RETURNED') return false;
         if (warranty.branchSystemId !== branchSystemId) return false;
 
         // Check if warranty contains this product (products with resolution='replace')
@@ -162,7 +165,7 @@ export function CommittedStockDialog({
       <DialogContent className="max-w-6xl max-h-[85vh]">
         <DialogHeader>
           <DialogTitle>
-            Phiếu đang giữ: {productName}
+            Chờ xuất kho: {productName}
           </DialogTitle>
           <div className="text-body-sm text-muted-foreground">
             Chi nhánh: {branchName} • Tổng đang giữ: <span className="text-body-sm font-medium text-orange-600">{totalCommitted}</span> sản phẩm
@@ -178,12 +181,12 @@ export function CommittedStockDialog({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[100px]">Loại</TableHead>
-                  <TableHead className="w-[120px]">Mã phiếu</TableHead>
-                  <TableHead className="w-[120px]">Ngày tạo</TableHead>
-                  <TableHead className="min-w-[250px]">Khách hàng</TableHead>
-                  <TableHead className="text-right w-[100px]">Số lượng</TableHead>
-                  <TableHead className="w-[150px]">Trạng thái</TableHead>
+                  <TableHead className="w-25">Loại</TableHead>
+                  <TableHead className="w-30">Mã phiếu</TableHead>
+                  <TableHead className="w-30">Ngày tạo</TableHead>
+                  <TableHead className="min-w-62">Khách hàng</TableHead>
+                  <TableHead className="text-right w-25">Số lượng</TableHead>
+                  <TableHead className="w-37">Trạng thái</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -200,7 +203,7 @@ export function CommittedStockDialog({
                     </TableCell>
                     <TableCell className="text-body-sm font-medium">{item.id}</TableCell>
                     <TableCell>{formatDateForDisplay(item.date)}</TableCell>
-                    <TableCell className="truncate max-w-[250px]" title={item.customerName}>{item.customerName}</TableCell>
+                    <TableCell className="truncate max-w-62" title={item.customerName}>{item.customerName}</TableCell>
                     <TableCell className="text-right text-body-sm font-medium text-orange-600">{item.quantity}</TableCell>
                     <TableCell>
                       <Badge variant={getStatusBadgeVariant(item.type, item.status) as 'default' | 'secondary' | 'destructive' | 'outline' | 'warning' | 'success'}>

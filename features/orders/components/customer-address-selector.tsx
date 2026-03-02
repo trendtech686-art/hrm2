@@ -1,14 +1,14 @@
 import * as React from 'react';
 import { useFormContext } from 'react-hook-form';
 import { Plus, Edit2, MoreHorizontal } from 'lucide-react';
+import { randomUUID } from 'crypto';
 import type { Customer, CustomerAddress } from '../../customers/types';
 import { asSystemId } from '@/lib/id-types';
 import { Button } from '../../../components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../../../components/ui/dialog';
 import { RadioGroup, RadioGroupItem } from '../../../components/ui/radio-group';
 import { Switch } from '../../../components/ui/switch';
-import { useCustomerStore } from '../../customers/store';
-import { useCustomerFinder } from '../../customers/hooks/use-all-customers';
+import { useCustomerMutations } from '../../customers/hooks/use-customers';
 import { Badge } from '../../../components/ui/badge';
 import { AddressBidirectionalConverter } from '../../customers/components/address-bidirectional-converter';
 import { AddressFormDialog } from '../../customers/components/address-form-dialog';
@@ -48,12 +48,13 @@ export function CustomerAddressSelector({
     onOpenBillingDialog
 }: CustomerAddressSelectorProps) {
     const { setValue, watch } = useFormContext();
-    const { update: updateCustomer } = useCustomerStore(); // Keep for mutation
-    const { findById } = useCustomerFinder(); // React Query for READ
+    const { update: updateCustomer } = useCustomerMutations({});
     
-    // Always get fresh customer data from React Query cache
-    const freshCustomer = customer ? findById(asSystemId(customer.systemId)) : null;
-    const currentCustomer = freshCustomer || customer;
+    // ✅ Watch customer from form - this updates when we setValue('customer', ...)
+    const formCustomer = watch('customer') as Customer | null;
+    
+    // Use form customer if available, otherwise use prop
+    const currentCustomer = formCustomer || customer;
     
     // Use external dialog state if provided, otherwise use internal state
     const [internalDialogOpen, setInternalDialogOpen] = React.useState(false);
@@ -197,8 +198,8 @@ export function CustomerAddressSelector({
             }));
         }
 
-        updateCustomer(asSystemId(currentCustomer.systemId), {
-            ...currentCustomer,
+        updateCustomer.mutate({
+            systemId: asSystemId(currentCustomer.systemId),
             addresses: newAddresses,
         });
 
@@ -233,8 +234,8 @@ export function CustomerAddressSelector({
         if (!currentCustomer || !deletingAddressId) return;
 
         const updatedAddresses = addresses.filter(a => a.id !== deletingAddressId);
-        updateCustomer(asSystemId(currentCustomer.systemId), {
-            ...currentCustomer,
+        updateCustomer.mutate({
+            systemId: asSystemId(currentCustomer.systemId),
             addresses: updatedAddresses,
         });
 
@@ -278,8 +279,8 @@ export function CustomerAddressSelector({
             return a;
         });
 
-        updateCustomer(asSystemId(currentCustomer.systemId), {
-            ...currentCustomer,
+        updateCustomer.mutate({
+            systemId: asSystemId(currentCustomer.systemId),
             addresses: updatedAddresses,
         });
 
@@ -306,14 +307,14 @@ export function CustomerAddressSelector({
         // Add converted address as new address
         const newAddress: CustomerAddress = {
             ...convertedAddress,
-            id: `addr_${Date.now()}`,
+            id: `addr_${randomUUID().slice(0, 12)}`,
             isDefaultShipping: false,
             isDefaultBilling: false,
         };
 
         const updatedAddresses = [...addresses, newAddress];
-        updateCustomer(asSystemId(currentCustomer.systemId), {
-            ...currentCustomer,
+        updateCustomer.mutate({
+            systemId: asSystemId(currentCustomer.systemId),
             addresses: updatedAddresses,
         });
 
@@ -356,7 +357,7 @@ export function CustomerAddressSelector({
             {/* Shipping Address Card */}
             {!hideCards && (
                 <div className="space-y-2">
-                    <div className="border rounded-md p-2.5">
+                    <div className="border border-border rounded-md p-2.5">
                         <div className="flex items-center justify-between gap-2">
                             <div className="flex-1 min-w-0">
                                 <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Địa chỉ giao hàng</span>
@@ -379,7 +380,7 @@ export function CustomerAddressSelector({
                     </div>
 
                     {/* Billing Address Card */}
-                    <div className="border rounded-md p-2.5">
+                    <div className="border border-border rounded-md p-2.5">
                         <div className="flex items-center justify-between gap-2">
                             <div className="flex-1 min-w-0">
                                 <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Địa chỉ nhận hóa đơn</span>
@@ -413,23 +414,23 @@ export function CustomerAddressSelector({
                     </DialogHeader>
 
                     <div className="space-y-4 py-4">
-                        <div className="border rounded-lg">
+                        <div className="border border-border rounded-lg overflow-hidden">
                             <table className="w-full">
                                 <thead>
-                                    <tr className="border-b bg-muted/50">
-                                        <th className="h-10 px-3 text-left text-xs font-medium text-muted-foreground w-10"></th>
-                                        <th className="h-10 px-3 text-left text-xs font-medium text-muted-foreground">Địa chỉ</th>
-                                        <th className="h-10 px-3 text-center text-xs font-medium text-muted-foreground w-24">Giao hàng</th>
-                                        <th className="h-10 px-3 text-center text-xs font-medium text-muted-foreground w-24">Hóa đơn</th>
-                                        <th className="h-10 px-3 text-center text-xs font-medium text-muted-foreground w-20">Cấp</th>
-                                        <th className="h-10 px-3 text-right text-xs font-medium text-muted-foreground w-12"></th>
+                                    <tr className="border-b border-border bg-muted">
+                                        <th className="h-11 px-3 text-left text-xs font-semibold text-foreground w-10"></th>
+                                        <th className="h-11 px-3 text-left text-xs font-semibold text-foreground">Địa chỉ</th>
+                                        <th className="h-11 px-3 text-center text-xs font-semibold text-foreground w-24">Giao hàng</th>
+                                        <th className="h-11 px-3 text-center text-xs font-semibold text-foreground w-24">Hóa đơn</th>
+                                        <th className="h-11 px-3 text-center text-xs font-semibold text-foreground w-20">Cấp</th>
+                                        <th className="h-11 px-3 text-right text-xs font-semibold text-foreground w-12"></th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {addresses.map((address) => (
                                         <tr 
                                             key={`address-${address.id}`} 
-                                            className={`border-b last:border-0 hover:bg-muted/50 cursor-pointer ${selectedAddressId === address.id ? 'bg-muted/50' : ''}`}
+                                            className={`border-b border-border last:border-0 hover:bg-accent cursor-pointer transition-colors ${selectedAddressId === address.id ? 'bg-accent' : ''}`}
                                             onClick={() => handleSelectAddress(address.id)}
                                         >
                                             <td className="p-3">
@@ -438,7 +439,7 @@ export function CustomerAddressSelector({
                                                 </RadioGroup>
                                             </td>
                                             <td className="p-3">
-                                                <label htmlFor={`addr-radio-${address.id}`} className="font-medium text-sm cursor-pointer">
+                                                <label htmlFor={`addr-radio-${address.id}`} className="font-medium text-sm text-foreground cursor-pointer">
                                                     {formatAddress(address)}
                                                 </label>
                                             </td>
@@ -479,7 +480,7 @@ export function CustomerAddressSelector({
                                                             <span className="sr-only">Mở menu</span>
                                                         </Button>
                                                     </DropdownMenuTrigger>
-                                                    <DropdownMenuContent align="end" className="w-[180px]">
+                                                    <DropdownMenuContent align="end" className="w-45">
                                                         <DropdownMenuItem onClick={() => handleEditAddress(address)}>
                                                             Sửa
                                                         </DropdownMenuItem>

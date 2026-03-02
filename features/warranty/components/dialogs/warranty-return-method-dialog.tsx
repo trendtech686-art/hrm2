@@ -70,7 +70,7 @@ export function WarrantyReturnMethodDialog({
     onOpenChange(false);
   }, [onOpenChange, onReset]);
 
-  const showCurrentMethod = ticket?.status === 'returned' && (currentMethodLabel || ticket);
+  const showCurrentMethod = ticket?.status === 'RETURNED' && (currentMethodLabel || ticket);
   const orderCountLabel = totalOrderCount.toLocaleString('vi-VN');
   const isOrderDisabled = returnMethod === 'order' && !selectedOrderValue;
 
@@ -79,10 +79,10 @@ export function WarrantyReturnMethodDialog({
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {ticket?.status === 'returned' ? 'Cập nhật phương thức trả hàng' : 'Đã trả hàng cho khách'}
+            {ticket?.status === 'RETURNED' ? 'Cập nhật phương thức trả hàng' : 'Đã trả hàng cho khách'}
           </DialogTitle>
           <DialogDescription>
-            {ticket?.status === 'returned'
+            {ticket?.status === 'RETURNED'
               ? 'Thay đổi phương thức trả hàng cho khách. Phương thức hiện tại sẽ được cập nhật.'
               : 'Chọn phương thức trả hàng cho khách.'}
           </DialogDescription>

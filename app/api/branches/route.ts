@@ -2,6 +2,8 @@ import { prisma } from '@/lib/prisma'
 import { Prisma } from '@/generated/prisma/client'
 import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
 import { createBranchSchema } from './validation'
+import { generateNextIdsWithTx } from '@/lib/id-system'
+import { cache, CACHE_TTL } from '@/lib/cache'
 
 // GET /api/branches - List all branches
 export async function GET(request: Request) {
@@ -27,6 +29,13 @@ export async function GET(request: Request) {
     }
 
     if (all) {
+      // Cache key for all branches (most common use case)
+      const cacheKey = search ? `branches:all:${search}` : 'branches:all'
+      const cached = cache.get(cacheKey)
+      if (cached) {
+        return apiSuccess(cached)
+      }
+
       const branches = await prisma.branch.findMany({
         where,
         orderBy: { name: 'asc' },
@@ -34,7 +43,10 @@ export async function GET(request: Request) {
           _count: { select: { employees: true } },
         },
       })
-      return apiSuccess({ data: branches })
+      
+      const result = { data: branches }
+      cache.set(cacheKey, result, CACHE_TTL.HOUR) // Cache 1 giờ
+      return apiSuccess(result)
     }
 
     const [branches, total] = await Promise.all([
@@ -68,17 +80,29 @@ export async function POST(request: Request) {
   try {
     const body = result.data
 
-    const branch = await prisma.branch.create({
-      data: {
-        systemId: `BRANCH${String(Date.now()).slice(-6).padStart(6, '0')}`,
-        id: body.id,
-        name: body.name,
-        address: body.address,
-        phone: body.phone,
-        isDefault: body.isDefault ?? false,
-      },
-    })
+    const branch = await prisma.$transaction(async (tx) => {
+      // Generate IDs using unified ID system
+      const { systemId, businessId } = await generateNextIdsWithTx(
+        tx,
+        'branches',
+        body.id?.trim() || undefined
+      );
 
+      return tx.branch.create({
+        data: {
+          systemId,
+          id: businessId,
+          name: body.name,
+          address: body.address,
+          phone: body.phone,
+          isDefault: body.isDefault ?? false,
+        },
+      });
+    });
+
+    // Invalidate branches cache
+    cache.deletePattern('^branches:')
+    
     return apiSuccess(branch, 201)
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {

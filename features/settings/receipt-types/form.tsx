@@ -18,7 +18,6 @@ const formSchema = z.object({
   description: z.string().optional(),
   isBusinessResult: z.boolean(),
   isActive: z.boolean(),
-  color: z.string().optional(),
 });
 
 export type ReceiptTypeFormValues = z.infer<typeof formSchema>;
@@ -35,7 +34,6 @@ export function ReceiptTypeForm({ initialData, onSubmit }: FormProps) {
     description: "",
     isBusinessResult: true,
     isActive: true,
-    color: '#22c55e',
   }), []);
 
   const form = useForm<ReceiptTypeFormValues>({
@@ -47,7 +45,6 @@ export function ReceiptTypeForm({ initialData, onSubmit }: FormProps) {
           description: initialData.description ?? '',
           isBusinessResult: initialData.isBusinessResult,
           isActive: initialData.isActive,
-          color: initialData.color ?? '',
         }
       : defaultValues,
   });
@@ -60,7 +57,6 @@ export function ReceiptTypeForm({ initialData, onSubmit }: FormProps) {
         description: initialData.description ?? '',
         isBusinessResult: initialData.isBusinessResult,
         isActive: initialData.isActive,
-        color: initialData.color ?? '',
       });
     } else {
       form.reset(defaultValues);
@@ -104,27 +100,17 @@ export function ReceiptTypeForm({ initialData, onSubmit }: FormProps) {
             <FormMessage />
           </FormItem>
         )} />
-
-        <FormField control={form.control} name="color" render={({ field }) => (
-          <FormItem>
-            <FormLabel>Màu hiển thị</FormLabel>
-            <FormControl>
-              <Input {...field} value={field.value ?? ''} placeholder="#22c55e" />
-            </FormControl>
-            <FormDescription>Giúp phân biệt loại phiếu thu trên báo cáo</FormDescription>
-            <FormMessage />
-          </FormItem>
-        )} />
         
         <FormField control={form.control} name="isBusinessResult" render={({ field }) => (
           <FormItem className="flex items-center space-x-2">
             <FormControl>
               <Checkbox
+                id="isBusinessResult"
                 checked={field.value}
                 onCheckedChange={(checked) => field.onChange(Boolean(checked))}
               />
             </FormControl>
-            <Label>Hạch toán kết quả kinh doanh</Label>
+            <Label htmlFor="isBusinessResult" className="cursor-pointer">Hạch toán kết quả kinh doanh</Label>
           </FormItem>
         )} />
         

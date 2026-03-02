@@ -21,13 +21,13 @@ export const addressSchema = z.object({
   autoFilled: z.boolean().optional(),
   
   province: z.string().min(1, "Vui lòng chọn Tỉnh/Thành"),
-  provinceId: z.string(),
+  provinceId: z.string().optional().or(z.literal('')),
   ward: z.string().min(1, "Vui lòng chọn Phường/Xã"),
-  wardId: z.string(),
+  wardId: z.string().optional().or(z.literal('')),
   
   district: z.string().min(1, "Vui lòng chọn Quận/Huyện"),
   // Keep as number - conversion happens in form defaultValues
-  districtId: z.number(),
+  districtId: z.number().optional(),
   
   isDefaultShipping: z.boolean().optional(),
   isDefaultBilling: z.boolean().optional(),
@@ -55,7 +55,7 @@ export const customerFormSchema = z.object({
     .optional()
     .or(z.literal('')),
 
-  status: z.enum(['Đang giao dịch', 'Ngừng Giao Dịch', 'active', 'inactive'], {
+  status: z.enum(['Đang giao dịch', 'Ngừng Giao Dịch', 'active', 'inactive', 'ACTIVE', 'INACTIVE'], {
     message: "Vui lòng chọn trạng thái"
   }),
 
@@ -116,7 +116,6 @@ export const customerFormSchema = z.object({
   paymentTerms: z.string().optional(),
   creditRating: z.string().optional(),
   allowCredit: z.boolean().optional(),
-  defaultDiscount: z.number().min(0).max(100).optional(),
   pricingLevel: z.string().optional(),
   
   // Marketing & Source
@@ -124,11 +123,17 @@ export const customerFormSchema = z.object({
   campaign: z.string().optional(),
   referredBy: z.string().optional(),
   
-  // Social Media
+  // Social Media - Dynamic array
+  socialLinks: z.array(z.object({
+    type: z.string().optional().or(z.literal('')),
+    value: z.string().optional().or(z.literal('')),
+  })).optional(),
+  
+  // Legacy social object (kept for backward compatibility) - no URL validation since we're migrating to socialLinks
   social: z.object({
-    facebook: z.string().url("Link Facebook không hợp lệ").optional().or(z.literal('')),
-    linkedin: z.string().url("Link LinkedIn không hợp lệ").optional().or(z.literal('')),
-    website: z.string().url("Website không hợp lệ").optional().or(z.literal('')),
+    facebook: z.string().optional().or(z.literal('')),
+    linkedin: z.string().optional().or(z.literal('')),
+    website: z.string().optional().or(z.literal('')),
   }).optional(),
   
   tags: z.array(z.string()).optional(),

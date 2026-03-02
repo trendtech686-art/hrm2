@@ -40,6 +40,7 @@ export type GHTKCreateOrderResponse = {
     estimated_pick_time: string;
     estimated_deliver_time: string;
     status_id: number;
+    ship_money?: number; // Phí vận chuyển thực tế từ GHTK
   } | undefined;
   error?: {
     code: string;
@@ -209,8 +210,12 @@ export class GHTKService {
   async createOrder(
     params: GHTKCreateOrderParams
   ): Promise<GHTKCreateOrderResponse> {
+    console.log('📡 [GHTKService.createOrder] Starting order creation...');
+    console.log('📡 [GHTKService.createOrder] Params:', JSON.stringify(params, null, 2));
+    
     // ⚠️ GHTK limitation: Cannot create orders >= 20,000 gram (20kg)
     const totalWeightGram = params.totalWeight || params.products.reduce((sum, p) => sum + (p.weight * p.quantity), 0);
+    console.log('📡 [GHTKService.createOrder] Total weight (gram):', totalWeightGram);
     
     if (totalWeightGram >= 20000) {
       throw new Error(`GHTK không hỗ trợ đơn hàng ≥20kg (${totalWeightGram}g). Vui lòng liên hệ GHTK để được hỗ trợ dịch vụ BBS cho hàng nặng.`);
@@ -293,6 +298,8 @@ export class GHTKService {
       tags: params.tags,
     };
 
+    console.log('📡 [GHTKService.createOrder] API Payload:', JSON.stringify(payload, null, 2));
+    console.log('📡 [GHTKService.createOrder] Calling:', `${GHTK_BASE_URL}/submit-order`);
 
     const response = await fetch(`${GHTK_BASE_URL}/submit-order`, {
       method: 'POST',
@@ -302,6 +309,7 @@ export class GHTKService {
       body: JSON.stringify(payload),
     });
 
+    console.log('📡 [GHTKService.createOrder] Response status:', response.status, response.statusText);
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -310,13 +318,15 @@ export class GHTKService {
     }
 
     const data = await response.json();
+    console.log('📡 [GHTKService.createOrder] Response data:', JSON.stringify(data, null, 2));
     
     // ✅ Handle GHTK error response (success: false)
     if (!data.success) {
-      console.error('📡 [GHTKService] API returned error:', data.message);
+      console.error('📡 [GHTKService.createOrder] API returned error:', data.message);
       throw new Error(data.message || 'GHTK API returned error');
     }
     
+    console.log('📡 [GHTKService.createOrder] ✅ Order created successfully! Tracking code:', data.order?.label);
     return data;
   }
 

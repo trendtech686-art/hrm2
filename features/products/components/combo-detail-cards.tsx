@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 /**
  * Combo Detail Cards - Components cho trang chi tiết sản phẩm combo
@@ -120,7 +120,7 @@ export function ComboItemsCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-h3">
+        <CardTitle size="lg">
           Thành phần Combo
           <Badge variant="secondary" className="ml-2">{comboItemsWithDetails.length} sản phẩm</Badge>
         </CardTitle>
@@ -144,7 +144,7 @@ export function ComboItemsCard({
                     <div className="flex items-center gap-3">
                       {item.product?.thumbnailImage ? (
                         <div 
-                          className="group/thumbnail relative w-10 h-10 rounded-md border overflow-hidden bg-muted flex-shrink-0 cursor-pointer"
+                          className="group/thumbnail relative w-10 h-10 rounded-md border overflow-hidden bg-muted shrink-0 cursor-pointer"
                           onClick={() => onImagePreview?.(item.product!.thumbnailImage!)}
                         >
                           <LazyImage
@@ -157,7 +157,7 @@ export function ComboItemsCard({
                           </div>
                         </div>
                       ) : (
-                        <div className="w-10 h-10 rounded-md border bg-muted flex-shrink-0 flex items-center justify-center text-muted-foreground text-body-xs">
+                        <div className="w-10 h-10 rounded-md border bg-muted shrink-0 flex items-center justify-center text-muted-foreground text-body-xs">
                           N/A
                         </div>
                       )}
@@ -277,7 +277,7 @@ export function ComboLowStockWarning({ product, allProducts }: ComboLowStockWarn
         ? 'bg-red-50 border border-red-200 dark:bg-red-950/30 dark:border-red-800' 
         : 'bg-amber-50 border border-amber-200 dark:bg-amber-950/30 dark:border-amber-800'
     }`}>
-      <AlertTriangle className={`h-4 w-4 mt-0.5 flex-shrink-0 ${
+      <AlertTriangle className={`h-4 w-4 mt-0.5 shrink-0 ${
         isCritical ? 'text-red-600' : 'text-amber-600'
       }`} />
       <div className="text-body-sm">
@@ -357,7 +357,7 @@ export function ComboInventoryCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-h3">Tồn kho theo chi nhánh</CardTitle>
+        <CardTitle size="lg">Tồn kho theo chi nhánh</CardTitle>
       </CardHeader>
       <CardContent className="p-0">
         <div className="overflow-x-auto">

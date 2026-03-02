@@ -2,7 +2,7 @@
  * Penalties React Query Hooks
  */
 
-import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { useQuery, useQueries, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import * as api from '../api/penalties-api';
 import type { Penalty, PenaltyType } from '@/lib/types/prisma-extended';
 import type { PenaltyFilters } from '../api/penalties-api';
@@ -22,6 +22,28 @@ export function usePenalties(filters: PenaltyFilters = {}) {
 
 export function usePenaltyById(systemId: string | undefined) {
   return useQuery({ queryKey: penaltyKeys.detail(systemId!), queryFn: () => api.fetchPenaltyById(systemId!), enabled: !!systemId, gcTime: 10 * 60 * 1000 });
+}
+
+/**
+ * Fetch multiple penalties by their systemIds using parallel queries
+ * Each penalty is fetched individually and cached independently
+ */
+export function usePenaltiesByIds(systemIds: string[]) {
+  const results = useQueries({
+    queries: systemIds.map(id => ({
+      queryKey: penaltyKeys.detail(id),
+      queryFn: () => api.fetchPenaltyById(id),
+      enabled: !!id,
+      gcTime: 10 * 60 * 1000,
+      staleTime: 1000 * 60 * 5,
+    })),
+  });
+  
+  return {
+    data: results.map(r => r.data).filter(Boolean) as Penalty[],
+    isLoading: results.some(r => r.isLoading),
+    isError: results.some(r => r.isError),
+  };
 }
 
 export function usePenaltyMutations(opts?: { onSuccess?: () => void }) {

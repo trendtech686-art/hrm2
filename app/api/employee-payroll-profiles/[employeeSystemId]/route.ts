@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import type { Prisma } from '@/generated/prisma/client'
 import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
+import { generateIdWithPrefix } from '@/lib/id-generator'
 
 const SETTING_KEY = 'employee-payroll-profiles'
 const SETTING_GROUP = 'hrm'
@@ -50,7 +51,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         updatedAt: new Date(),
       },
       create: {
-        systemId: `SET_PAYPROF_${Date.now()}`,
+        systemId: await generateIdWithPrefix('SPAYPROF', prisma),
         key: SETTING_KEY,
         group: SETTING_GROUP,
         type: 'json',

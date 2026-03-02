@@ -1,5 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
+import { generateNextIdsWithTx } from '@/lib/id-system'
+import { SalesReturnStatus, DeliveryStatus, OrderStatus, StockOutStatus, PaymentStatus } from '@/generated/prisma/client'
 
 interface RouteParams {
   params: Promise<{ systemId: string }>;
@@ -18,7 +20,13 @@ export async function GET(request: Request, { params }: RouteParams) {
       orderBy: { createdAt: 'desc' },
     });
 
-    return apiSuccess(payments);
+    // Serialize for client (convert Decimal to number)
+    const serialized = payments.map(p => ({
+      ...p,
+      amount: Number(p.amount),
+    }));
+
+    return apiSuccess(serialized);
   } catch (error) {
     console.error('Error fetching payments:', error);
     return apiError('Failed to fetch payments', 500);
@@ -40,19 +48,49 @@ export async function POST(request: Request, { params }: RouteParams) {
       return apiError('Invalid payment amount', 400);
     }
 
-    // Get the order
-    const order = await prisma.order.findUnique({
+    // Get the order with branch info and sales returns
+    const orderWithRelations = await prisma.order.findUnique({
       where: { systemId },
-      include: { payments: true },
+      include: { 
+        payments: true,
+        branch: { select: { systemId: true, name: true } },
+        customer: { select: { systemId: true, name: true } },
+        sales_returns: { 
+          select: { totalReturnValue: true },
+          where: { status: { not: SalesReturnStatus.REJECTED } },
+        },
+      },
     });
 
-    if (!order) {
+    if (!orderWithRelations) {
       return apiNotFound('Order');
     }
+    
+    // Destructure for TypeScript
+    const { payments, sales_returns, customer, branch, ...order } = orderWithRelations;
+
+    // Get payment method info if provided
+    const paymentMethod = paymentMethodId ? await prisma.paymentMethod.findFirst({
+      where: { 
+        OR: [
+          { systemId: paymentMethodId },
+          { name: paymentMethodId }
+        ]
+      },
+      select: { systemId: true, name: true }
+    }) : null;
 
     // Calculate paid amount
-    const paidAmount = order.payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
-    const remainingAmount = Number(order.grandTotal || 0) - paidAmount;
+    const paidAmount = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+    
+    // ✅ Calculate effective grandTotal: subtract return value and linked sales return value
+    const grandTotal = Number(order.grandTotal || 0);
+    // Sum totalReturnValue from all non-cancelled sales returns
+    const totalReturnValue = sales_returns.reduce((sum, sr) => sum + Number(sr.totalReturnValue || 0), 0);
+    const linkedSalesReturnValue = Number(order.linkedSalesReturnValue || 0);
+    const effectiveGrandTotal = Math.max(0, grandTotal - totalReturnValue - linkedSalesReturnValue);
+    
+    const remainingAmount = effectiveGrandTotal - paidAmount;
 
     if (amount > remainingAmount) {
       return apiError(`Payment amount exceeds remaining balance of ${remainingAmount}`, 400);
@@ -60,8 +98,63 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     // Transaction: add payment and update order
     const updatedOrder = await prisma.$transaction(async (tx) => {
-      // Create payment - generate ID
-      const paymentId = `PM${Date.now()}`;
+      // Get creator name - check both name and fullName for compatibility
+      const employeeInfo = session.user?.employee as { fullName?: string; name?: string; systemId?: string } | undefined;
+      const creatorName = employeeInfo?.fullName || employeeInfo?.name || session.user?.name || 'Hệ thống';
+      console.log('[OrderPayments] Creator:', creatorName, 'Employee:', employeeInfo);
+      
+      // Generate Receipt IDs using unified ID system
+      const { systemId: receiptSystemId, businessId: receiptBusinessId } = await generateNextIdsWithTx(
+        tx,
+        'receipts'
+      );
+      
+      // ✅ Use receipt businessId for OrderPayment.id too for consistency
+      const paymentId = receiptBusinessId;
+      
+      // ✅ Get customer systemId (UUID) from relation, not business ID
+      const customerSystemId = customer?.systemId || order.customerId;
+      
+      // Create Receipt first (phiếu thu)
+      await tx.receipt.create({
+        data: {
+          systemId: receiptSystemId,
+          id: receiptBusinessId,
+          type: 'CUSTOMER_PAYMENT',
+          customerId: order.customerId, // Business ID for display
+          branchId: order.branchId,
+          employeeId: employeeSystemId || employeeInfo?.systemId,
+          orderId: systemId,
+          amount,
+          paymentMethod: paymentMethodId || 'CASH',
+          description: note || `Thanh toán đơn hàng ${order.id}`,
+          createdBy: creatorName,
+          status: 'completed',
+          category: 'sale',
+          // Payer info - use customer systemId (UUID) for proper filtering
+          payerName: customer?.name || order.customerName,
+          payerSystemId: customerSystemId,
+          payerTypeSystemId: 'CUSTOMER',
+          payerTypeName: 'Khách hàng',
+          // Branch info
+          branchSystemId: order.branchId,
+          branchName: branch?.name,
+          // Payment method info
+          paymentMethodSystemId: paymentMethod?.systemId,
+          paymentMethodName: paymentMethod?.name || paymentMethodId || 'Tiền mặt',
+          // Receipt type
+          paymentReceiptTypeSystemId: 'SALE',
+          paymentReceiptTypeName: 'Thu tiền bán hàng',
+          // Link to order
+          linkedOrderSystemId: systemId,
+          originalDocumentId: order.id,
+          customerSystemId: customerSystemId, // ✅ Use UUID, not business ID
+          customerName: customer?.name || order.customerName,
+          affectsDebt: true, // ✅ Explicitly set for debt calculation
+        },
+      });
+      
+      // Create OrderPayment with link to Receipt
       await tx.orderPayment.create({
         data: {
           id: paymentId,
@@ -69,19 +162,32 @@ export async function POST(request: Request, { params }: RouteParams) {
           amount,
           method: paymentMethodId || 'CASH',
           description: note,
-          createdBy: employeeSystemId || 'system',
+          createdBy: creatorName,
+          linkedReceiptSystemId: receiptSystemId,
         },
       });
 
       // Update order paid amount and status
       const newPaidAmount = paidAmount + amount;
-      const isPaidFull = newPaidAmount >= Number(order.grandTotal || 0);
+      // ✅ Use effectiveGrandTotal (already subtracted return values) for comparison
+      const isPaidFull = newPaidAmount >= effectiveGrandTotal;
+      
+      // Determine if order should be marked as COMPLETED
+      // Order is complete when: fully paid AND (delivered OR fully stocked out)
+      const isDelivered = order.deliveryStatus === DeliveryStatus.DELIVERED ||
+                          order.status === OrderStatus.DELIVERED ||
+                          order.stockOutStatus === StockOutStatus.FULLY_STOCKED_OUT;
+      const shouldComplete = isPaidFull && isDelivered;
 
       const updated = await tx.order.update({
         where: { systemId },
         data: {
           paidAmount: newPaidAmount,
-          paymentStatus: isPaidFull ? 'PAID' : 'PARTIAL',
+          paymentStatus: isPaidFull ? PaymentStatus.PAID : PaymentStatus.PARTIAL,
+          ...(shouldComplete && { 
+            status: OrderStatus.DELIVERED, // Use DELIVERED as closest to COMPLETED
+            completedDate: new Date(),
+          }),
         },
         include: {
           customer: true,

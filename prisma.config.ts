@@ -3,6 +3,12 @@
 import "dotenv/config";
 import { defineConfig } from "prisma/config";
 
+// Strip quotes from DATABASE_URL if present (dotenv may include them)
+let databaseUrl = process.env["DATABASE_URL"];
+if (databaseUrl) {
+  databaseUrl = databaseUrl.replace(/^["']|["']$/g, '');
+}
+
 export default defineConfig({
   schema: "prisma/schema",  // Multi-file schema directory
   migrations: {
@@ -10,6 +16,6 @@ export default defineConfig({
     seed: "npx tsx prisma/seed.ts",
   },
   datasource: {
-    url: process.env["DATABASE_URL"],
+    url: databaseUrl,
   },
 });

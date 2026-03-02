@@ -73,9 +73,10 @@ export function DepartmentFormPage() {
         }
       });
     } else {
-      (create as any).mutate({
+      create.mutate({
         id: values.id,
         name: values.name,
+        jobTitleIds: [],
       });
     }
   };

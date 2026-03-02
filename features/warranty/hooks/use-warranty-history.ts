@@ -33,7 +33,11 @@ function mapWarrantyHistoryAction(action?: string): HistoryEntry['action'] {
   return ACTION_MAP[action] || 'custom';
 }
 
-function mapHistoryEntries(items: WarrantyHistory[] = []): HistoryEntry[] {
+function mapHistoryEntries(items: WarrantyHistory[] | null | undefined): HistoryEntry[] {
+  // ✅ Handle null/undefined to prevent .map() error
+  if (!items || !Array.isArray(items)) {
+    return [];
+  }
   return items.map((entry) => ({
     id: entry.systemId,
     action: mapWarrantyHistoryAction(entry.action),

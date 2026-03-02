@@ -1,7 +1,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { formatDate } from '@/lib/date-utils';
-import type { Order, Packaging, PackagingStatus, OrderDeliveryStatus } from '../types';
+import type { Order, Packaging, OrderDeliveryStatus } from '../types';
 import { Button } from '../../../components/ui/button';
 import { DetailField } from '../../../components/ui/detail-field';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../../components/ui/dropdown-menu';
@@ -19,6 +19,7 @@ import { usePrint } from '@/lib/use-print';
 import { mapPackingToPrintData, mapPackingLineItems } from '@/lib/print-mappers/packing.mapper';
 import { mapShippingLabelToPrintData } from '@/lib/print-mappers/shipping-label.mapper';
 import { mapDeliveryToPrintData, mapDeliveryLineItems } from '@/lib/print-mappers/delivery.mapper';
+import { toast } from 'sonner';
 import type { SystemId } from '@/lib/id-types';
 const formatCurrency = (value?: number) => {
     if (typeof value !== 'number' || isNaN(value)) return '0';
@@ -27,16 +28,22 @@ const formatCurrency = (value?: number) => {
 
 
 
-const packagingStatusIcons: Record<PackagingStatus, React.ElementType> = {
+const packagingStatusIcons: Record<string, React.ElementType> = {
     'Chờ đóng gói': PackageSearch,
     'Đã đóng gói': PackageCheck,
     'Hủy đóng gói': Ban,
+    'PENDING': PackageSearch,
+    'PACKED': PackageCheck,
+    'CANCELLED': Ban,
 };
 
-const packagingStatusColors: Record<PackagingStatus, string> = {
+const packagingStatusColors: Record<string, string> = {
     'Chờ đóng gói': 'text-amber-500',
     'Đã đóng gói': 'text-green-500',
     'Hủy đóng gói': 'text-red-500',
+    'PENDING': 'text-amber-500',
+    'PACKED': 'text-green-500',
+    'CANCELLED': 'text-red-500',
 };
 
 interface PackagingInfoProps {
@@ -308,6 +315,56 @@ export function PackagingInfo({
         print('delivery', { data: printData, lineItems });
     }, [packaging, order, branch, customer, storeSettings, print, getShippingAddressField, getFormattedShippingAddress]);
 
+    // ✅ In nhãn GHTK (lấy PDF từ GHTK có QR code)
+    const handlePrintGHTKLabel = React.useCallback(async () => {
+        if (!packaging.trackingCode || packaging.carrier !== 'GHTK') {
+            toast.error('Không có mã vận đơn GHTK');
+            return;
+        }
+        
+        try {
+            // Build URL - credentials are loaded server-side from database
+            const url = new URL(`/api/shipping/ghtk/print-label/${packaging.trackingCode}`, window.location.origin);
+            url.searchParams.set('original', 'portrait'); // dọc
+            url.searchParams.set('page_size', 'A5');
+            
+            toast.info('Đang tải nhãn từ GHTK...');
+            
+            const response = await fetch(url.toString());
+            
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Không thể lấy nhãn từ GHTK');
+            }
+            
+            // Response is PDF blob
+            const pdfBlob = await response.blob();
+            const pdfUrl = URL.createObjectURL(pdfBlob);
+            
+            // ✅ Dùng iframe ẩn để in - không cần chuyển tab
+            const iframe = document.createElement('iframe');
+            iframe.style.display = 'none';
+            iframe.src = pdfUrl;
+            document.body.appendChild(iframe);
+            
+            iframe.onload = () => {
+                setTimeout(() => {
+                    iframe.contentWindow?.print();
+                    // Cleanup sau khi in xong
+                    setTimeout(() => {
+                        document.body.removeChild(iframe);
+                        URL.revokeObjectURL(pdfUrl);
+                    }, 1000);
+                }, 500);
+            };
+            
+            toast.success('Đang mở hộp thoại in...');
+        } catch (error) {
+            console.error('Error printing GHTK label:', error);
+            toast.error(error instanceof Error ? error.message : 'Lỗi in nhãn GHTK');
+        }
+    }, [packaging.trackingCode, packaging.carrier]);
+
     const renderActionButtons = () => {
         if (!isActionable) return null;
         
@@ -348,7 +405,11 @@ export function PackagingInfo({
             );
         }
 
-        if (packaging.deliveryMethod === 'Nhận tại cửa hàng' && packaging.deliveryStatus === 'Đã đóng gói') {
+        // ✅ In-store pickup flow: show "Xác nhận Xuất kho" button
+        // Check deliveryMethod indicates in-store pickup
+        const isInStorePickup = packaging.deliveryMethod === 'Nhận tại cửa hàng' || 
+                                 packaging.deliveryMethod === 'IN_STORE_PICKUP';
+        if (isInStorePickup && (packaging.deliveryStatus === 'Đã đóng gói' || packaging.deliveryStatus === 'PACKED' || packaging.status === 'Đã đóng gói' || packaging.status === 'PACKED')) {
             return (
                 <div className="flex items-center gap-2">
                     <Button 
@@ -365,26 +426,35 @@ export function PackagingInfo({
         }
 
         if (packaging.deliveryStatus === 'Chờ lấy hàng') {
-            // Check if can cancel GHTK shipment
-            const canCancelGHTK = packaging.carrier === 'GHTK' && 
-                                  packaging.trackingCode && 
-                                  packaging.ghtkStatusId && 
-                                  [1, 2, 12].includes(packaging.ghtkStatusId) &&
-                                  onCancelGHTKShipment;
+            // Check if has tracking code (đã có mã vận đơn từ đối tác vận chuyển)
+            const hasTrackingCode = !!packaging.trackingCode;
+            
+            // ✅ Nếu là GHTK và có tracking code → phải gọi API hủy GHTK
+            // Không cần check ghtkStatusId vì GHTK API sẽ trả về lỗi nếu không được phép hủy
+            const isGHTKShipment = packaging.carrier === 'GHTK' && hasTrackingCode && onCancelGHTKShipment;
             
             return (
                 <div className="flex items-center gap-2">
-                    {canCancelGHTK ? (
+                    {hasTrackingCode ? (
+                        // ✅ Có mã vận đơn: Hủy giao hàng (nếu là GHTK thì gọi API hủy GHTK)
                         <Button 
                             size="sm" 
                             variant="outline" 
                             className="border-destructive text-destructive hover:bg-destructive/5"
-                            onClick={onCancelGHTKShipment}
+                            onClick={isGHTKShipment ? onCancelGHTKShipment : onCancelDelivery}
                         >
-                            Hủy vận đơn GHTK
+                            Hủy giao hàng
                         </Button>
                     ) : (
-                        <Button size="sm" variant="outline" onClick={() => onCancelDelivery()}>Hủy giao hàng</Button>
+                        // ✅ Chưa có mã vận đơn: Hủy đóng gói
+                        <Button 
+                            size="sm" 
+                            variant="outline" 
+                            className="border-destructive text-destructive hover:bg-destructive/5"
+                            onClick={onCancelPackaging}
+                        >
+                            Hủy đóng gói
+                        </Button>
                     )}
                     <Button size="sm" onClick={onDispatch}>Xác nhận Xuất kho</Button>
                 </div>
@@ -419,15 +489,15 @@ export function PackagingInfo({
     return (
         <div className="border rounded-md bg-background">
             {/* Header */}
-            <div className="flex items-center justify-between p-3 border-b">
-                 <div className="flex items-center gap-2 flex-grow cursor-pointer" onClick={() => setIsExpanded(!isExpanded)}>
+            <div className="flex items-center justify-between p-3 border-b border-border">
+                 <div className="flex items-center gap-2 grow cursor-pointer" onClick={() => setIsExpanded(!isExpanded)}>
                     <Icon className={cn("h-5 w-5", color)} />
                     <div className="flex items-center gap-2">
                         <p className="text-sm font-semibold">{displayStatusText}</p>
                         <p className="text-sm text-muted-foreground">{formatDate(displayDate)}</p>
                         
-                        {/* GHTK Status Badge */}
-                        {packaging.carrier === 'GHTK' && packaging.ghtkStatusId !== undefined && (
+                        {/* GHTK Status Badge - Only show when ghtkStatusId is a valid number */}
+                        {packaging.carrier === 'GHTK' && packaging.ghtkStatusId != null && (
                             <Badge variant={getGHTKStatusVariant(packaging.ghtkStatusId)} className="text-xs">
                                 {getGHTKStatusText(packaging.ghtkStatusId)}
                             </Badge>
@@ -437,7 +507,7 @@ export function PackagingInfo({
                         <>
                             <Separator orientation="vertical" className="h-4 mx-2" />
                             <div className="flex items-center gap-1">
-                                <span className="text-sm font-mono text-primary">{packaging.trackingCode}</span>
+                                <span className="text-sm text-primary">{packaging.trackingCode}</span>
                                 <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); handleCopy(); }}>
                                     {isCopied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4 text-muted-foreground" />}
                                 </Button>
@@ -502,7 +572,7 @@ export function PackagingInfo({
                     <div className="grid grid-cols-1 md:grid-cols-2 text-sm gap-x-6 gap-y-1">
                         <DetailField label="Mã đóng gói" className="py-1 border-0">
                             <div className="flex items-center gap-1">
-                                <Link href={`/packaging/${packaging.systemId}`} className="font-mono text-primary hover:underline">{packaging.id}</Link>
+                                <Link href={`/packaging/${packaging.systemId}`} className="text-primary hover:underline">{packaging.id}</Link>
                                 <TooltipProvider>
                                     <Tooltip>
                                         <TooltipTrigger asChild>
@@ -527,27 +597,55 @@ export function PackagingInfo({
                             {packaging.trackingCode ? (
                                 <div className="flex items-center gap-1">
                                     {shipment ? (
-                                        <Link href={`/shipments/${shipment.systemId}`} className="font-mono text-primary hover:underline">
+                                        <Link href={`/shipments/${shipment.systemId}`} className="text-primary hover:underline">
+                                            {packaging.trackingCode}
+                                        </Link>
+                                    ) : packaging.trackingCode.startsWith('INSTORE-') ? (
+                                        // Đơn nhận tại cửa hàng: link đến trang packaging vì shipment chưa tạo
+                                        <Link href={`/packaging/${packaging.systemId}`} className="text-primary hover:underline">
                                             {packaging.trackingCode}
                                         </Link>
                                     ) : (
-                                        <span className="font-mono">{packaging.trackingCode}</span>
+                                        <span>{packaging.trackingCode}</span>
                                     )}
-                                    <TooltipProvider>
-                                        <Tooltip>
-                                            <TooltipTrigger asChild>
+                                    {/* ✅ Print label dropdown - GHTK có 2 options */}
+                                    {packaging.carrier === 'GHTK' ? (
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
                                                 <Button 
                                                     variant="ghost" 
                                                     size="icon" 
-                                                    className="h-6 w-6" 
-                                                    onClick={handlePrintShippingLabel}
+                                                    className="h-6 w-6"
                                                 >
                                                     <Printer className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
                                                 </Button>
-                                            </TooltipTrigger>
-                                            <TooltipContent>In nhãn giao hàng</TooltipContent>
-                                        </Tooltip>
-                                    </TooltipProvider>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                                <DropdownMenuItem onSelect={handlePrintGHTKLabel}>
+                                                    In nhãn GHTK (có QR code)
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem onSelect={handlePrintShippingLabel}>
+                                                    In nhãn nội bộ
+                                                </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    ) : (
+                                        <TooltipProvider>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <Button 
+                                                        variant="ghost" 
+                                                        size="icon" 
+                                                        className="h-6 w-6" 
+                                                        onClick={handlePrintShippingLabel}
+                                                    >
+                                                        <Printer className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
+                                                    </Button>
+                                                </TooltipTrigger>
+                                                <TooltipContent>In nhãn giao hàng</TooltipContent>
+                                            </Tooltip>
+                                        </TooltipProvider>
+                                    )}
                                 </div>
                             ) : (
                                 <span className="text-muted-foreground">---</span>
@@ -574,7 +672,10 @@ export function PackagingInfo({
                             <>
                                 <DetailField label="NV được gán" value={renderEmployeeLink(packaging.assignedEmployeeId, packaging.assignedEmployeeName)} className="py-1 border-0" />
                                 <DetailField label="Người YC" value={renderEmployeeLink(packaging.requestingEmployeeId, packaging.requestingEmployeeName)} className="py-1 border-0" />
-                                {packaging.status !== 'Chờ đóng gói' && (
+                                {(packaging.deliveryMethod === 'IN_STORE_PICKUP' || packaging.deliveryMethod === 'Nhận tại cửa hàng') && (
+                                    <DetailField label="Người nhận hàng" value={packaging.requestorName || order.customerName || '---'} className="py-1 border-0" />
+                                )}
+                                {packaging.status !== 'Chờ đóng gói' && packaging.status !== 'PENDING' && (
                                     <DetailField label="Người xác nhận" value={renderEmployeeLink(packaging.confirmingEmployeeId, packaging.confirmingEmployeeName)} className="py-1 border-0" />
                                 )}
                                 <DetailField label="Hình thức giao" value={packaging.deliveryMethod} className="py-1 border-0" />
@@ -593,3 +694,6 @@ export function PackagingInfo({
         </div>
     );
 }
+
+// ✅ Export memoized component for performance
+export const MemoizedPackagingInfo = React.memo(PackagingInfo);

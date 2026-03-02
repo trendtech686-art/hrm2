@@ -42,10 +42,46 @@ export async function DELETE(
         data: { productId: undefined } 
       }).catch(() => {});
       
-      // Delete non-critical references (these can be removed)
-      // Note: Images stored as arrays in Product.galleryImages field
+      await tx.purchaseOrderItem.updateMany({ 
+        where: { productId: systemId }, 
+        data: { productId: undefined } 
+      }).catch(() => {});
+      
+      await tx.salesReturnItem.updateMany({ 
+        where: { productId: systemId }, 
+        data: { productId: undefined } 
+      }).catch(() => {});
+      
+      await tx.purchaseReturnItem.updateMany({ 
+        where: { productId: systemId }, 
+        data: { productId: undefined } 
+      }).catch(() => {});
+      
+      await tx.packagingItem.updateMany({ 
+        where: { productId: systemId }, 
+        data: { productId: undefined } 
+      }).catch(() => {});
+      
+      await tx.costAdjustmentItem.updateMany({ 
+        where: { productId: systemId }, 
+        data: { productId: undefined } 
+      }).catch(() => {});
+      
+      await tx.warranty.updateMany({ 
+        where: { productId: systemId }, 
+        data: { productId: undefined } 
+      }).catch(() => {});
+      
+      await tx.inventoryCheckItem.updateMany({ 
+        where: { productId: systemId }, 
+        data: { productId: undefined } 
+      }).catch(() => {});
+      
+      // Delete product-specific data that makes no sense without the product
       await tx.productInventory.deleteMany({ where: { productId: systemId } }).catch(() => {});
-      await tx.inventoryCheckItem.deleteMany({ where: { productId: systemId } }).catch(() => {});
+      await tx.productCategory.deleteMany({ where: { productId: systemId } }).catch(() => {});
+      await tx.productPrice.deleteMany({ where: { productId: systemId } }).catch(() => {});
+      await tx.stockHistory.deleteMany({ where: { productId: systemId } }).catch(() => {});
       
       // Finally delete the product
       await tx.product.delete({ where: { systemId } });
@@ -57,7 +93,9 @@ export async function DELETE(
     
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
       if (error.code === 'P2003') {
-        return apiError('Không thể xóa sản phẩm vì có dữ liệu liên quan. Vui lòng giữ trong thùng rác.', 400)
+        // Log the meta info to see which table is causing the issue
+        console.error('Foreign key constraint failed:', error.meta);
+        return apiError(`Không thể xóa sản phẩm vì có dữ liệu liên quan (${error.meta?.field_name || 'unknown'}). Vui lòng giữ trong thùng rác.`, 400)
       }
     }
     

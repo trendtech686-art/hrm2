@@ -4,11 +4,31 @@ import type { ImportExportConfig, FieldConfig } from '@/lib/import-export/types'
 /**
  * Customer Import/Export Configuration
  * Theo chuẩn ImportExportConfig để dùng với GenericImportDialogV2 và GenericExportDialogV2
+ * 
+ * THỨ TỰ CÁC TRƯỜNG CHÍNH (theo yêu cầu):
+ * 1. Mã khách hàng
+ * 2. Tên khách hàng (*)
+ * 3. Mã nhóm khách hàng
+ * 4. Điện thoại
+ * 5. Email
+ * 6. Giới tính
+ * 7. Ngày sinh
+ * 8. Mã số thuế
+ * 9. Địa chỉ
+ * 10. Tỉnh thành
+ * 11. Quận huyện
+ * 12. Phường xã
+ * 13. Ngày tạo
+ * 14. Trạng thái
+ * 15. Nợ hiện tại
+ * 16. Tổng chi tiêu
+ * 17. SL đơn hàng
+ * 18. Tổng SL sản phẩm đã mua
  */
 
 // ===== FIELD DEFINITIONS =====
 export const customerFields: FieldConfig<Customer>[] = [
-  // ===== THÔNG TIN CƠ BẢN =====
+  // ===== 1-8: THÔNG TIN CƠ BẢN =====
   {
     key: 'id',
     label: 'Mã khách hàng',
@@ -23,25 +43,19 @@ export const customerFields: FieldConfig<Customer>[] = [
     required: true,
     type: 'string',
     exportGroup: 'Thông tin cơ bản',
-    example: 'Công ty TNHH ABC',
+    example: 'Nguyễn Văn A',
   },
   {
-    key: 'status',
-    label: 'Trạng thái',
+    key: 'customerGroup',
+    label: 'Mã nhóm khách hàng',
     required: false,
-    type: 'enum',
-    enumValues: ['Đang giao dịch', 'Ngừng Giao Dịch'],
-    enumLabels: {
-      'Đang giao dịch': 'Đang giao dịch',
-      'Ngừng Giao Dịch': 'Ngừng giao dịch',
-    },
+    type: 'string',
     exportGroup: 'Thông tin cơ bản',
-    example: 'Đang giao dịch',
-    defaultValue: 'Đang giao dịch',
+    example: 'VIP',
   },
   {
     key: 'phone',
-    label: 'Số điện thoại',
+    label: 'Điện thoại',
     required: false,
     type: 'phone',
     exportGroup: 'Thông tin cơ bản',
@@ -61,7 +75,7 @@ export const customerFields: FieldConfig<Customer>[] = [
     required: false,
     type: 'email',
     exportGroup: 'Thông tin cơ bản',
-    example: 'contact@abc.com',
+    example: 'nguyenvana@gmail.com',
     validator: (value: unknown) => {
       if (!value) return null;
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -72,61 +86,51 @@ export const customerFields: FieldConfig<Customer>[] = [
     },
   },
   {
-    key: 'type',
-    label: 'Loại khách hàng',
+    key: 'gender',
+    label: 'Giới tính',
     required: false,
-    type: 'string',
+    type: 'enum',
+    enumValues: ['Nam', 'Nữ', 'Khác'],
+    enumLabels: {
+      'Nam': 'Nam',
+      'Nữ': 'Nữ',
+      'Khác': 'Khác',
+    },
     exportGroup: 'Thông tin cơ bản',
-    example: 'Doanh nghiệp',
+    example: 'Nam',
   },
   {
-    key: 'customerGroup',
-    label: 'Nhóm khách hàng',
+    key: 'dateOfBirth',
+    label: 'Ngày sinh',
     required: false,
-    type: 'string',
+    type: 'date',
     exportGroup: 'Thông tin cơ bản',
-    example: 'Khách sỉ',
-  },
-  {
-    key: 'lifecycleStage',
-    label: 'Giai đoạn vòng đời',
-    required: false,
-    type: 'string',
-    exportGroup: 'Thông tin cơ bản',
-    example: 'Khách mới',
-  },
-  {
-    key: 'source',
-    label: 'Nguồn khách hàng',
-    required: false,
-    type: 'string',
-    exportGroup: 'Thông tin cơ bản',
-    example: 'Facebook',
-  },
-  {
-    key: 'notes',
-    label: 'Ghi chú',
-    required: false,
-    type: 'string',
-    exportGroup: 'Thông tin cơ bản',
-    example: 'Khách hàng tiềm năng',
-  },
-
-  // ===== THÔNG TIN DOANH NGHIỆP =====
-  {
-    key: 'company',
-    label: 'Tên công ty / HKD',
-    required: false,
-    type: 'string',
-    exportGroup: 'Thông tin doanh nghiệp',
-    example: 'Công ty TNHH ABC',
+    example: '15/01/1990',
+    importTransform: (value: unknown) => {
+      if (!value) return undefined;
+      const str = String(value);
+      // Handle Excel date format (dd/mm/yyyy or yyyy-mm-dd)
+      if (str.includes('/')) {
+        const parts = str.split('/');
+        if (parts.length === 3) {
+          const [day, month, year] = parts;
+          return new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`);
+        }
+      }
+      return new Date(str);
+    },
+    exportTransform: (value: unknown) => {
+      if (!value) return '';
+      const date = new Date(value as string);
+      return date.toLocaleDateString('vi-VN');
+    },
   },
   {
     key: 'taxCode',
     label: 'Mã số thuế',
     required: false,
     type: 'string',
-    exportGroup: 'Thông tin doanh nghiệp',
+    exportGroup: 'Thông tin cơ bản',
     example: '0123456789',
     validator: (value: unknown) => {
       if (!value) return null;
@@ -137,62 +141,91 @@ export const customerFields: FieldConfig<Customer>[] = [
       return null;
     },
   },
+
+  // ===== 9-12: ĐỊA CHỈ =====
   {
-    key: 'representative',
-    label: 'Người đại diện',
+    key: 'address',
+    label: 'Địa chỉ',
     required: false,
     type: 'string',
-    exportGroup: 'Thông tin doanh nghiệp',
-    example: 'Nguyễn Văn A',
+    exportGroup: 'Địa chỉ',
+    example: '123 Nguyễn Huệ',
   },
   {
-    key: 'position',
-    label: 'Chức vụ',
+    key: 'province',
+    label: 'Tỉnh thành',
     required: false,
     type: 'string',
-    exportGroup: 'Thông tin doanh nghiệp',
-    example: 'Giám đốc',
+    exportGroup: 'Địa chỉ',
+    example: 'Hồ Chí Minh',
   },
   {
-    key: 'bankName',
-    label: 'Ngân hàng',
+    key: 'district',
+    label: 'Quận huyện',
     required: false,
     type: 'string',
-    exportGroup: 'Thông tin doanh nghiệp',
-    example: 'Vietcombank',
+    exportGroup: 'Địa chỉ',
+    example: 'Quận 1',
   },
   {
-    key: 'bankAccount',
-    label: 'Số tài khoản',
+    key: 'ward',
+    label: 'Phường xã',
     required: false,
     type: 'string',
-    exportGroup: 'Thông tin doanh nghiệp',
-    example: '0123456789',
+    exportGroup: 'Địa chỉ',
+    example: 'Phường Bến Nghé',
   },
 
-  // ===== THANH TOÁN & GIÁ =====
+  // ===== 13: NGÀY TẠO =====
   {
-    key: 'paymentTerms',
-    label: 'Hạn thanh toán',
+    key: 'createdAt',
+    label: 'Ngày tạo',
     required: false,
-    type: 'string',
-    exportGroup: 'Thanh toán & Giá',
-    example: 'NET15',
+    type: 'date',
+    exportGroup: 'Thông tin cơ bản',
+    example: '27/01/2026',
+    importTransform: (value: unknown) => {
+      if (!value) return undefined;
+      const str = String(value);
+      if (str.includes('/')) {
+        const parts = str.split('/');
+        if (parts.length === 3) {
+          const [day, month, year] = parts;
+          return new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`);
+        }
+      }
+      return new Date(str);
+    },
+    exportTransform: (value: unknown) => {
+      if (!value) return '';
+      const date = new Date(value as string);
+      return date.toLocaleDateString('vi-VN');
+    },
   },
+
+  // ===== 14: TRẠNG THÁI =====
   {
-    key: 'creditRating',
-    label: 'Xếp hạng tín dụng',
+    key: 'status',
+    label: 'Trạng thái',
     required: false,
-    type: 'string',
-    exportGroup: 'Thanh toán & Giá',
-    example: 'AAA',
+    type: 'enum',
+    enumValues: ['Đang giao dịch', 'Ngừng Giao Dịch'],
+    enumLabels: {
+      'Đang giao dịch': 'Đang giao dịch',
+      'Ngừng Giao Dịch': 'Ngừng giao dịch',
+    },
+    exportGroup: 'Thông tin cơ bản',
+    example: 'Đang giao dịch',
+    defaultValue: 'Đang giao dịch',
   },
+
+  // ===== 15-18: THỐNG KÊ =====
   {
     key: 'currentDebt',
-    label: 'Công nợ hiện tại',
+    label: 'Nợ hiện tại',
     required: false,
     type: 'number',
-    exportGroup: 'Thanh toán & Giá',
+    exportGroup: 'Thống kê',
     example: '0',
     importTransform: (value: unknown) => {
       if (!value) return 0;
@@ -205,12 +238,155 @@ export const customerFields: FieldConfig<Customer>[] = [
     },
   },
   {
+    key: 'totalSpent',
+    label: 'Tổng chi tiêu',
+    required: false,
+    type: 'number',
+    exportGroup: 'Thống kê',
+    example: '15000000',
+    importTransform: (value: unknown) => {
+      if (!value) return 0;
+      const num = Number(String(value).replace(/[,.\s]/g, ''));
+      return isNaN(num) ? 0 : num;
+    },
+    exportTransform: (value: unknown) => {
+      if (!value) return '0';
+      return Number(value).toLocaleString('vi-VN');
+    },
+  },
+  {
+    key: 'totalOrders',
+    label: 'SL đơn hàng',
+    required: false,
+    type: 'number',
+    exportGroup: 'Thống kê',
+    example: '10',
+    importTransform: (value: unknown) => {
+      if (!value) return 0;
+      return parseInt(String(value).replace(/[,.\s]/g, ''), 10) || 0;
+    },
+  },
+  {
+    key: 'totalProductsBought',
+    label: 'Tổng SL sản phẩm đã mua',
+    required: false,
+    type: 'number',
+    exportGroup: 'Thống kê',
+    example: '50',
+    importTransform: (value: unknown) => {
+      if (!value) return 0;
+      return parseInt(String(value).replace(/[,.\s]/g, ''), 10) || 0;
+    },
+  },
+
+  // ===== CÁC TRƯỜNG BỔ SUNG (ẩn trong file mẫu, hiển thị khi export) =====
+  {
+    key: 'type',
+    label: 'Loại khách hàng',
+    required: false,
+    type: 'string',
+    exportGroup: 'Phân loại',
+    example: 'Cá nhân',
+    hidden: true,
+  },
+  {
+    key: 'lifecycleStage',
+    label: 'Giai đoạn vòng đời',
+    required: false,
+    type: 'string',
+    exportGroup: 'Phân loại',
+    example: 'Khách mới',
+    hidden: true,
+  },
+  {
+    key: 'source',
+    label: 'Nguồn khách hàng',
+    required: false,
+    type: 'string',
+    exportGroup: 'Phân loại',
+    example: 'Facebook',
+    hidden: true,
+  },
+  {
+    key: 'notes',
+    label: 'Ghi chú',
+    required: false,
+    type: 'string',
+    exportGroup: 'Thông tin cơ bản',
+    example: 'Khách hàng tiềm năng',
+    hidden: true,
+  },
+  {
+    key: 'company',
+    label: 'Tên công ty',
+    required: false,
+    type: 'string',
+    exportGroup: 'Doanh nghiệp',
+    example: 'Công ty TNHH ABC',
+    hidden: true,
+  },
+  {
+    key: 'representative',
+    label: 'Người đại diện',
+    required: false,
+    type: 'string',
+    exportGroup: 'Doanh nghiệp',
+    example: 'Nguyễn Văn B',
+    hidden: true,
+  },
+  {
+    key: 'position',
+    label: 'Chức vụ',
+    required: false,
+    type: 'string',
+    exportGroup: 'Doanh nghiệp',
+    example: 'Giám đốc',
+    hidden: true,
+  },
+  {
+    key: 'bankName',
+    label: 'Ngân hàng',
+    required: false,
+    type: 'string',
+    exportGroup: 'Ngân hàng',
+    example: 'Vietcombank',
+    hidden: true,
+  },
+  {
+    key: 'bankAccount',
+    label: 'Số tài khoản',
+    required: false,
+    type: 'string',
+    exportGroup: 'Ngân hàng',
+    example: '0123456789',
+    hidden: true,
+  },
+  {
+    key: 'paymentTerms',
+    label: 'Hạn thanh toán',
+    required: false,
+    type: 'string',
+    exportGroup: 'Thanh toán',
+    example: 'NET15',
+    hidden: true,
+  },
+  {
+    key: 'creditRating',
+    label: 'Xếp hạng tín dụng',
+    required: false,
+    type: 'string',
+    exportGroup: 'Thanh toán',
+    example: 'AAA',
+    hidden: true,
+  },
+  {
     key: 'maxDebt',
     label: 'Hạn mức công nợ',
     required: false,
     type: 'number',
-    exportGroup: 'Thanh toán & Giá',
+    exportGroup: 'Thanh toán',
     example: '50000000',
+    hidden: true,
     importTransform: (value: unknown) => {
       if (!value) return undefined;
       const num = Number(String(value).replace(/[,.\s]/g, ''));
@@ -226,8 +402,9 @@ export const customerFields: FieldConfig<Customer>[] = [
     label: 'Cho phép công nợ',
     required: false,
     type: 'boolean',
-    exportGroup: 'Thanh toán & Giá',
+    exportGroup: 'Thanh toán',
     example: 'Có',
+    hidden: true,
     importTransform: (value: unknown) => {
       if (!value) return undefined;
       const str = String(value).toLowerCase();
@@ -247,16 +424,18 @@ export const customerFields: FieldConfig<Customer>[] = [
       'VIP': 'VIP',
       'Partner': 'Đối tác',
     },
-    exportGroup: 'Thanh toán & Giá',
+    exportGroup: 'Thanh toán',
     example: 'Retail',
+    hidden: true,
   },
   {
     key: 'defaultDiscount',
     label: 'Chiết khấu mặc định (%)',
     required: false,
     type: 'number',
-    exportGroup: 'Thanh toán & Giá',
+    exportGroup: 'Thanh toán',
     example: '5',
+    hidden: true,
     validator: (value: unknown) => {
       if (!value) return null;
       const num = Number(value);
@@ -266,31 +445,32 @@ export const customerFields: FieldConfig<Customer>[] = [
       return null;
     },
   },
-
-  // ===== PHÂN LOẠI & QUẢN LÝ =====
   {
     key: 'accountManagerName',
     label: 'Nhân viên phụ trách',
     required: false,
     type: 'string',
-    exportGroup: 'Phân loại & Quản lý',
-    example: 'Nguyễn Văn B',
+    exportGroup: 'Quản lý',
+    example: 'Nguyễn Văn C',
+    hidden: true,
   },
   {
     key: 'campaign',
     label: 'Chiến dịch',
     required: false,
     type: 'string',
-    exportGroup: 'Phân loại & Quản lý',
+    exportGroup: 'Quản lý',
     example: 'Summer Sale 2024',
+    hidden: true,
   },
   {
     key: 'tags',
     label: 'Thẻ (Tags)',
     required: false,
     type: 'string',
-    exportGroup: 'Phân loại & Quản lý',
+    exportGroup: 'Quản lý',
     example: 'VIP, Ưu tiên',
+    hidden: true,
     importTransform: (value: unknown) => {
       if (!value) return undefined;
       return String(value).split(',').map(s => s.trim()).filter(Boolean);
@@ -300,31 +480,138 @@ export const customerFields: FieldConfig<Customer>[] = [
       return value.join(', ');
     },
   },
-
-  // ===== SOCIAL MEDIA =====
   {
     key: 'zaloPhone',
     label: 'Zalo',
     required: false,
     type: 'phone',
-    exportGroup: 'Social Media',
+    exportGroup: 'Liên hệ',
     example: '0901234567',
+    hidden: true,
+  },
+  
+  // ===== PERSONAL INFO =====
+  {
+    key: 'gender',
+    label: 'Giới tính',
+    required: false,
+    type: 'string',
+    exportGroup: 'Thông tin cá nhân',
+    example: 'Nam',
+    hidden: true,
+  },
+  {
+    key: 'dateOfBirth',
+    label: 'Ngày sinh',
+    required: false,
+    type: 'date',
+    exportGroup: 'Thông tin cá nhân',
+    example: '1990-01-15',
+    hidden: true,
+    importTransform: (value: unknown) => {
+      if (!value) return undefined;
+      const date = new Date(String(value));
+      return isNaN(date.getTime()) ? undefined : date.toISOString();
+    },
+  },
+  
+  // ===== SOURCE & CAMPAIGN =====
+  {
+    key: 'segment',
+    label: 'Phân khúc RFM',
+    required: false,
+    type: 'string',
+    exportGroup: 'Phân loại',
+    example: 'Champions',
+    hidden: true,
+  },
+  {
+    key: 'referredBy',
+    label: 'Giới thiệu bởi',
+    required: false,
+    type: 'string',
+    exportGroup: 'Nguồn khách hàng',
+    example: 'KH001',
+    hidden: true,
+  },
+  
+  // ===== FOLLOW-UP TRACKING =====
+  {
+    key: 'lastContactDate',
+    label: 'Ngày liên hệ gần nhất',
+    required: false,
+    type: 'date',
+    exportGroup: 'Theo dõi',
+    hidden: true,
+    importTransform: (value: unknown) => {
+      if (!value) return undefined;
+      const date = new Date(String(value));
+      return isNaN(date.getTime()) ? undefined : date.toISOString();
+    },
+  },
+  {
+    key: 'nextFollowUpDate',
+    label: 'Ngày follow-up tiếp theo',
+    required: false,
+    type: 'date',
+    exportGroup: 'Theo dõi',
+    hidden: true,
+    importTransform: (value: unknown) => {
+      if (!value) return undefined;
+      const date = new Date(String(value));
+      return isNaN(date.getTime()) ? undefined : date.toISOString();
+    },
+  },
+  {
+    key: 'followUpReason',
+    label: 'Lý do follow-up',
+    required: false,
+    type: 'string',
+    exportGroup: 'Theo dõi',
+    example: 'Kiểm tra đơn hàng',
+    hidden: true,
+  },
+  {
+    key: 'churnRisk',
+    label: 'Nguy cơ rời bỏ',
+    required: false,
+    type: 'string',
+    exportGroup: 'Phân loại',
+    example: 'low',
+    hidden: true,
+  },
+  {
+    key: 'healthScore',
+    label: 'Điểm sức khỏe KH',
+    required: false,
+    type: 'number',
+    exportGroup: 'Phân loại',
+    example: '85',
+    hidden: true,
+    importTransform: (value: unknown) => {
+      if (!value) return undefined;
+      const num = parseInt(String(value), 10);
+      return isNaN(num) ? undefined : Math.min(100, Math.max(0, num));
+    },
+  },
+  // Note: failedDeliveries is a computed field, not stored in DB - keep for export display only
+  {
+    key: 'failedDeliveries' as keyof Customer,
+    label: 'Số lần giao thất bại',
+    required: false,
+    type: 'number',
+    exportGroup: 'Thống kê',
+    example: '0',
+    hidden: true,
+    exportable: true,
   },
 
-  // ===== HỆ THỐNG (hidden) =====
+  // ===== HỆ THỐNG (ẩn hoàn toàn) =====
   {
     key: 'systemId',
     label: 'System ID',
     required: false,
     type: 'string',
-    exportGroup: 'Hệ thống',
-    hidden: true,
-  },
-  {
-    key: 'createdAt',
-    label: 'Ngày tạo',
-    required: false,
-    type: 'date',
     exportGroup: 'Hệ thống',
     hidden: true,
   },
@@ -360,6 +647,32 @@ export const customerImportExportConfig: ImportExportConfig<Customer> = {
       labelToKey[labelWithoutStar] = field.key as string;
     });
     
+    // Extra aliases for common variations
+    const extraAliases: Record<string, string> = {
+      'sđt': 'phone',
+      'số điện thoại': 'phone',
+      'dt': 'phone',
+      'điện thoại di động': 'phone',
+      'mobile': 'phone',
+      'phone number': 'phone',
+      'tên': 'name',
+      'tên khách hàng': 'name',
+      'tên kh': 'name',
+      'mã kh': 'id',
+      'mã': 'id',
+      'địa chỉ': 'address',
+      'nợ': 'currentDebt',
+      'nợ hiện tại': 'currentDebt',
+      'chi tiêu': 'totalSpent',
+      'tổng chi tiêu': 'totalSpent',
+      'số đơn': 'totalOrders',
+      'số đơn hàng': 'totalOrders',
+      'sl sản phẩm': 'totalProductsBought',
+      'nhóm': 'customerGroup',
+      'nhóm kh': 'customerGroup',
+    };
+    Object.assign(labelToKey, extraAliases);
+    
     Object.entries(rawRow).forEach(([key, value]) => {
       // Normalize Excel header: strip (*) marker and lowercase
       const normalizedExcelHeader = key.replace(/\s*\(\*\)\s*$/, '').toLowerCase();
@@ -377,18 +690,19 @@ export const customerImportExportConfig: ImportExportConfig<Customer> = {
       status: row.status || 'Đang giao dịch',
       pricingLevel: row.pricingLevel || 'Retail',
       currentDebt: row.currentDebt ?? 0,
+      totalSpent: row.totalSpent ?? 0,
+      totalOrders: row.totalOrders ?? 0,
+      totalProductsBought: row.totalProductsBought ?? 0,
       defaultDiscount: row.defaultDiscount ?? 0,
       tags: row.tags || [],
     };
   },
   
   // Validate row level (check duplicate taxCode)
-  // Skip duplicate check in upsert/update mode since we're updating existing records
   validateRow: (row, _index, existingData, mode) => {
     const errors: Array<{ field?: string; message: string }> = [];
     
     // Check unique taxCode - only in insert-only mode
-    // In upsert/update mode, duplicate is expected and allowed
     if (row.taxCode && mode === 'insert-only') {
       const duplicate = existingData.find(
         c => c.taxCode === row.taxCode && c.id !== row.id

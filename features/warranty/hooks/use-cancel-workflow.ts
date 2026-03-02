@@ -62,7 +62,7 @@ export function useCancelWorkflowHandlers(state: CancelWorkflowState) {
     const normalized = ticketsToCancel
       .filter((ticket): ticket is WarrantyTicket => Boolean(ticket))
       .filter((ticket, index, self) => self.findIndex((item) => item.systemId === ticket.systemId) === index)
-      .filter((ticket) => ticket.status !== 'cancelled' && !ticket.cancelledAt);
+      .filter((ticket) => ticket.status !== 'CANCELLED' && !ticket.cancelledAt);
 
     const skipped = ticketsToCancel.length - normalized.length;
 

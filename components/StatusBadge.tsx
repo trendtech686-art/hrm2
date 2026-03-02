@@ -165,8 +165,15 @@ export const WARRANTY_RESOLUTION_MAP: Record<string, StatusConfig> = {
 
 /**
  * Complaint Status
+ * Supports both Prisma enum (UPPER_CASE) and legacy app types (lowercase)
  */
 export const COMPLAINT_STATUS_MAP: Record<string, StatusConfig> = {
+  // Prisma enum values
+  'OPEN': { label: 'Mở', variant: 'warning' },
+  'IN_PROGRESS': { label: 'Đang xử lý', variant: 'warning' },
+  'RESOLVED': { label: 'Đã giải quyết', variant: 'success' },
+  'CLOSED': { label: 'Đã đóng', variant: 'secondary' },
+  // Legacy lowercase values
   'pending': { label: 'Chờ xử lý', variant: 'warning' },
   'investigating': { label: 'Đang kiểm tra', variant: 'warning' },
   'resolved': { label: 'Đã giải quyết', variant: 'success' },

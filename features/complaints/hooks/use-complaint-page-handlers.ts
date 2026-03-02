@@ -5,16 +5,17 @@
 import React from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import type { Complaint } from '../types';
-import { useComplaints, useComplaintMutations } from './use-complaints';
+import type { Complaint, ComplaintAction } from '../types';
+import { useComplaintMutations } from './use-complaints';
+import { useAllComplaints } from './use-all-complaints';
 import { asSystemId } from '@/lib/id-types';
+import { generateSubEntityId } from '@/lib/id-utils';
 import { triggerDataUpdate } from '../use-realtime-updates';
 import { generateTrackingUrl, getTrackingCode, isTrackingEnabled } from '../tracking-utils';
 
 export function useComplaintHandlers() {
   const router = useRouter();
-  const { data: queryData } = useComplaints({ limit: 1000 });
-  const complaints = React.useMemo(() => queryData?.data ?? [], [queryData?.data]);
+  const { data: complaints } = useAllComplaints();
 
   const handleView = React.useCallback((systemId: string) => {
     router.push(`/complaints/${systemId}`);
@@ -81,8 +82,7 @@ type ConfirmDialogState = {
 export function useComplaintStatusHandlers(
   setConfirmDialog: React.Dispatch<React.SetStateAction<ConfirmDialogState>>
 ) {
-  const { data: queryData } = useComplaints({ limit: 1000 });
-  const complaints = React.useMemo(() => queryData?.data ?? [], [queryData?.data]);
+  const { data: complaints } = useAllComplaints();
   const { update: updateMutation } = useComplaintMutations({
     onSuccess: () => triggerDataUpdate(),
     onError: (err) => toast.error(err.message)
@@ -107,9 +107,9 @@ export function useComplaintStatusHandlers(
             updatedAt: new Date(),
             resolvedAt: new Date(),
             timeline: [
-              ...complaint.timeline,
+              ...(complaint.timeline || []),
               {
-                id: asSystemId(`action_${Date.now()}`),
+                id: asSystemId(generateSubEntityId('ACTION')),
                 actionType: 'resolved',
                 performedBy: asSystemId('Admin'),
                 performedAt: new Date(),
@@ -155,9 +155,9 @@ export function useComplaintStatusHandlers(
             cancelledAt: undefined,
             updatedAt: new Date(),
             timeline: [
-              ...complaint.timeline,
+              ...(complaint.timeline || []),
               {
-                id: asSystemId(`action_${Date.now()}`),
+                id: asSystemId(generateSubEntityId('ACTION')),
                 actionType: 'reopened',
                 performedBy: asSystemId('Admin'),
                 performedAt: new Date(),
@@ -198,9 +198,9 @@ export function useComplaintStatusHandlers(
             updatedAt: new Date(),
             cancelledAt: new Date(),
             timeline: [
-              ...complaint.timeline,
+              ...(complaint.timeline || []),
               {
-                id: asSystemId(`action_${Date.now()}`),
+                id: asSystemId(generateSubEntityId('ACTION')),
                 actionType: 'cancelled',
                 performedBy: asSystemId('Admin'),
                 performedAt: new Date(),
@@ -240,10 +240,10 @@ export function useComplaintStatusHandlers(
             status: 'investigating',
             updatedAt: new Date(),
             timeline: [
-              ...complaint.timeline,
+              ...(complaint.timeline || []),
               {
-                id: asSystemId(`action_${Date.now()}`),
-                actionType: 'investigated' as any,
+                id: asSystemId(generateSubEntityId('ACTION')),
+                actionType: 'investigated' as ComplaintAction['actionType'],
                 performedBy: asSystemId('Admin'),
                 performedAt: new Date(),
                 note: 'Bắt đầu xử lý khiếu nại từ Kanban view',

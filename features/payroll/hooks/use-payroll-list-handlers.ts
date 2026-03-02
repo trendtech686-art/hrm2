@@ -4,13 +4,7 @@
  */
 import * as React from 'react';
 import { toast } from 'sonner';
-import { useAllPayrollBatches, useAllPayslips, usePayrollBatchMutations } from '../hooks/use-payroll';
-import { useAllPayments } from '@/features/payments/hooks/use-all-payments';
-import { usePaymentMutations } from '@/features/payments/hooks/use-payments';
-import { usePenalties } from '@/features/settings/penalties/hooks/use-penalties';
-import { usePenaltyMutations } from '@/features/settings/penalties/hooks/use-penalties';
-import { useAllEmployees } from '@/features/employees/hooks/use-all-employees';
-import { useAllDepartments } from '@/features/settings/departments/hooks/use-all-departments';
+import { usePayrollBatchMutations } from '../hooks/use-payroll';
 import { useStoreInfoData } from '@/features/settings/store-info/hooks/use-store-info';
 import { usePrint } from '@/lib/use-print';
 import { type SystemId } from '@/lib/id-types';
@@ -85,20 +79,12 @@ export function usePayrollFilters() {
 
 /**
  * Hook for payroll batch actions
+ * Cancel logic is handled entirely server-side via /api/payroll/[systemId]/cancel
  */
 export function usePayrollBatchActions() {
-  const { data: batches = [] } = useAllPayrollBatches();
-  const { data: payslips = [] } = useAllPayslips();
   const { updateStatus, cancel: cancelBatch } = usePayrollBatchMutations({
     onSuccess: () => {},
     onError: (err) => toast.error('Đã xảy ra lỗi', { description: err.message }),
-  });
-  const { data: allPayments = [] } = useAllPayments();
-  const { cancel: cancelPayment } = usePaymentMutations();
-  const { data: penaltiesData } = usePenalties({});
-  const penalties = React.useMemo(() => penaltiesData?.data ?? [], [penaltiesData?.data]);
-  const { update: updatePenalty } = usePenaltyMutations({
-    onSuccess: () => {},
   });
 
   const handleLock = React.useCallback((systemId: string) => {
@@ -124,66 +110,15 @@ export function usePayrollBatchActions() {
   }, [updateStatus]);
 
   const handleCancel = React.useCallback((systemId: string) => {
-    const batchSystemId = systemId as any;
-    const batch = batches.find(b => b.systemId === batchSystemId);
-    
-    // Cancel related payments first
-    const relatedPayments = allPayments.filter(
-      (p: any) => p.linkedPayrollBatchSystemId === batchSystemId && p.status !== 'cancelled'
-    );
-    
-    relatedPayments.forEach((payment: any) => {
-      cancelPayment.mutate(
-        { systemId: payment.systemId, reason: 'Hủy do bảng lương bị hủy' },
-        { onSuccess: () => {} }
-      );
-    });
-    
-    // Rollback penalties
-    const batchPayslipIds = batch?.payslipSystemIds || [];
-    const batchPayslips = payslips.filter((p: any) => batchPayslipIds.includes(p.systemId));
-    
-    const penaltyIdsToRollback: any[] = [];
-    batchPayslips.forEach((payslip: any) => {
-      if (payslip.deductedPenaltySystemIds?.length) {
-        penaltyIdsToRollback.push(...payslip.deductedPenaltySystemIds);
-      }
-    });
-    
-    const linkedPenalties = penalties.filter(
-      (p: any) => p.deductedInPayrollId === batchSystemId
-    );
-    linkedPenalties.forEach((p: any) => {
-      if (!penaltyIdsToRollback.includes(p.systemId)) {
-        penaltyIdsToRollback.push(p.systemId);
-      }
-    });
-    
-    const now = new Date().toISOString();
-    penaltyIdsToRollback.forEach((penaltyId: any) => {
-      const penalty = penalties.find((p: any) => p.systemId === penaltyId);
-      if (penalty) {
-        updatePenalty.mutate({
-          systemId: penalty.systemId,
-          data: {
-            status: 'Chưa thanh toán',
-            deductedInPayrollId: undefined,
-            deductedAt: undefined,
-            updatedAt: now,
-          },
-        });
-      }
-    });
-    
     cancelBatch.mutate(
       { systemId, data: { reason: 'Hủy bởi quản trị viên' } },
       {
-        onSuccess: () => {
-          const paymentMsg = relatedPayments.length > 0 
-            ? ` (đã hủy ${relatedPayments.length} phiếu thu liên quan)` 
+        onSuccess: (result) => {
+          const paymentMsg = result.cancelledPayments
+            ? ` (đã hủy ${result.cancelledPayments} phiếu thu liên quan)`
             : '';
-          const penaltyMsg = penaltyIdsToRollback.length > 0
-            ? ` Đã khôi phục ${penaltyIdsToRollback.length} phiếu phạt về trạng thái chưa thanh toán.`
+          const penaltyMsg = result.rolledBackPenalties
+            ? ` Đã khôi phục ${result.rolledBackPenalties} phiếu phạt về trạng thái chưa thanh toán.`
             : '';
           toast.success(`Đã hủy bảng lương${paymentMsg}`, {
             description: penaltyMsg || undefined,
@@ -191,7 +126,7 @@ export function usePayrollBatchActions() {
         },
       }
     );
-  }, [batches, payslips, allPayments, cancelPayment, cancelBatch, penalties, updatePenalty]);
+  }, [cancelBatch]);
 
   const handleBulkCancel = React.useCallback((selectedBatches: PayrollBatch[]) => {
     const cancellableBatches = selectedBatches.filter(b => b.status !== 'locked' && b.status !== 'cancelled');
@@ -219,36 +154,15 @@ export function usePayrollBatchActions() {
 
 /**
  * Hook for payroll print functionality
+ * Data is fetched on-demand when print is confirmed (not eagerly)
  */
 export function usePayrollPrint() {
-  const { data: payslips = [] } = useAllPayslips();
-  const { data: employees } = useAllEmployees();
-  const { data: departments } = useAllDepartments();
   const { info: storeInfo } = useStoreInfoData();
   const { printMultiple } = usePrint();
   
   const [isPrintDialogOpen, setIsPrintDialogOpen] = React.useState(false);
   const [pendingPrintBatches, setPendingPrintBatches] = React.useState<PayrollBatch[]>([]);
-
-  const employeeLookup = React.useMemo(() => {
-    return employees.reduce<Record<SystemId, (typeof employees)[number]>>(
-      (acc, emp) => {
-        acc[emp.systemId] = emp;
-        return acc;
-      },
-      {} as Record<SystemId, (typeof employees)[number]>
-    );
-  }, [employees]);
-
-  const departmentLookup = React.useMemo(() => {
-    return departments.reduce<Record<SystemId, (typeof departments)[number]>>(
-      (acc, dept) => {
-        acc[dept.systemId] = dept;
-        return acc;
-      },
-      {} as Record<SystemId, (typeof departments)[number]>
-    );
-  }, [departments]);
+  const [isPrintLoading, setIsPrintLoading] = React.useState(false);
 
   const handleBulkPrint = React.useCallback((selectedBatches: PayrollBatch[]) => {
     if (selectedBatches.length === 0) {
@@ -259,48 +173,101 @@ export function usePayrollPrint() {
     setIsPrintDialogOpen(true);
   }, []);
 
-  const handlePrintConfirm = React.useCallback((options: SimplePrintOptionsResult) => {
+  const handlePrintConfirm = React.useCallback(async (options: SimplePrintOptionsResult) => {
     const { paperSize } = options;
-    const storeSettings = createStoreSettings(storeInfo);
-    
-    const printOptionsList: Array<{
-      data: ReturnType<typeof mapPayrollBatchToPrintData>;
-      lineItems: ReturnType<typeof mapPayrollBatchLineItems>;
-      paperSize: PaperSize;
-    }> = [];
-    
-    pendingPrintBatches.forEach((batch) => {
-      const batchPayslips = payslips.filter((p) => p.batchSystemId === batch.systemId);
-      if (batchPayslips.length === 0) return;
-      
-      const batchForPrint = convertPayrollBatchForPrint(
-        batch,
-        batchPayslips,
-        {
-          employeeLookup: employeeLookup as Record<SystemId, { fullName?: string; id?: string; department?: string }>,
-          departmentLookup: departmentLookup as Record<SystemId, { name?: string }>,
-        }
+    setIsPrintLoading(true);
+
+    try {
+      // Lazy-load all needed modules and data in parallel
+      const [
+        { fetchPayslips },
+        { fetchAllPages },
+        { fetchEmployees },
+        { fetchDepartments },
+      ] = await Promise.all([
+        import('../api/payroll-api'),
+        import('@/lib/fetch-all-pages'),
+        import('@/features/employees/api/employees-api'),
+        import('@/features/settings/departments/api/departments-api'),
+      ]);
+
+      // Fetch payslips for selected batches + employees + departments in parallel
+      const batchIds = pendingPrintBatches.map((b) => b.systemId);
+      const [payslipsByBatch, employees, departments] = await Promise.all([
+        Promise.all(
+          batchIds.map((batchId) =>
+            fetchAllPages((p: { page?: number; limit?: number }) =>
+              fetchPayslips({ ...p, batchId })
+            )
+          )
+        ),
+        fetchAllPages((p: { page?: number; limit?: number }) => fetchEmployees(p)),
+        fetchAllPages((p: { page?: number; limit?: number }) => fetchDepartments(p)),
+      ]);
+
+      const employeeLookup = employees.reduce<Record<SystemId, (typeof employees)[number]>>(
+        (acc, emp) => {
+          acc[emp.systemId] = emp;
+          return acc;
+        },
+        {} as Record<SystemId, (typeof employees)[number]>
       );
 
-      printOptionsList.push({
-        data: mapPayrollBatchToPrintData(batchForPrint, storeSettings),
-        lineItems: mapPayrollBatchLineItems(batchForPrint.payslips),
-        paperSize,
+      const departmentLookup = departments.reduce<Record<SystemId, (typeof departments)[number]>>(
+        (acc, dept) => {
+          acc[dept.systemId] = dept;
+          return acc;
+        },
+        {} as Record<SystemId, (typeof departments)[number]>
+      );
+
+      const storeSettings = createStoreSettings(storeInfo);
+
+      const printOptionsList: Array<{
+        data: ReturnType<typeof mapPayrollBatchToPrintData>;
+        lineItems: ReturnType<typeof mapPayrollBatchLineItems>;
+        paperSize: PaperSize;
+      }> = [];
+
+      pendingPrintBatches.forEach((batch, index) => {
+        const batchPayslips = payslipsByBatch[index] || [];
+        if (batchPayslips.length === 0) return;
+
+        const batchForPrint = convertPayrollBatchForPrint(
+          batch,
+          batchPayslips,
+          {
+            employeeLookup: employeeLookup as Record<SystemId, { fullName?: string; id?: string; department?: string }>,
+            departmentLookup: departmentLookup as Record<SystemId, { name?: string }>,
+          }
+        );
+
+        printOptionsList.push({
+          data: mapPayrollBatchToPrintData(batchForPrint, storeSettings),
+          lineItems: mapPayrollBatchLineItems(batchForPrint.payslips),
+          paperSize,
+        });
       });
-    });
-    
-    if (printOptionsList.length > 0) {
-      printMultiple('payroll', printOptionsList);
-      toast.success(`Đã gửi lệnh in ${printOptionsList.length} bảng lương`);
+
+      if (printOptionsList.length > 0) {
+        printMultiple('payroll', printOptionsList);
+        toast.success(`Đã gửi lệnh in ${printOptionsList.length} bảng lương`);
+      }
+    } catch (error) {
+      toast.error('Lỗi khi tải dữ liệu in', {
+        description: error instanceof Error ? error.message : 'Vui lòng thử lại',
+      });
+    } finally {
+      setIsPrintLoading(false);
+      setPendingPrintBatches([]);
     }
-    
-    setPendingPrintBatches([]);
-  }, [pendingPrintBatches, payslips, storeInfo, employeeLookup, departmentLookup, printMultiple]);
+  }, [pendingPrintBatches, storeInfo, printMultiple]);
 
   return {
     isPrintDialogOpen,
     setIsPrintDialogOpen,
     pendingPrintBatches,
+    isPrintLoading,
     handleBulkPrint,
     handlePrintConfirm,
   };

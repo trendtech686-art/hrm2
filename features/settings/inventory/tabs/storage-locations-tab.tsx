@@ -5,7 +5,7 @@ import { Plus } from "lucide-react";
 import { asBusinessId, type SystemId } from "@/lib/id-types";
 import { toast } from "sonner";
 
-import { useStorageLocations, useStorageLocationMutations } from "../hooks/use-storage-locations";
+import { useStorageLocationMutations, useAllStorageLocations } from "../hooks/use-storage-locations";
 import { StorageLocationFormDialog, type StorageLocationFormValues } from "../storage-location-form-dialog";
 import { getStorageLocationColumns } from "../storage-location-columns";
 import type { StorageLocation } from "../storage-location-types";
@@ -20,13 +20,15 @@ import { SettingsActionButton } from "@/components/settings/SettingsActionButton
 type TabContentProps = { isActive: boolean; onRegisterActions: RegisterTabActions };
 
 export function StorageLocationsTabContent({ isActive, onRegisterActions }: TabContentProps) {
-  const { data: queryData } = useStorageLocations({ limit: 1000 });
+  const { data: queryData } = useAllStorageLocations();
   const data = React.useMemo(() => queryData?.data ?? [], [queryData?.data]);
   const { create, update, remove } = useStorageLocationMutations();
   const [isFormOpen, setIsFormOpen] = React.useState(false);
   const [editingLocation, setEditingLocation] = React.useState<StorageLocation | null>(null);
   const [isAlertOpen, setIsAlertOpen] = React.useState(false);
   const [idToDelete, setIdToDelete] = React.useState<SystemId | null>(null);
+  const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
+  const [isBulkDeleteOpen, setIsBulkDeleteOpen] = React.useState(false);
 
   const activeLocations = React.useMemo(() => data.filter(loc => !loc.isDeleted), [data]);
   const existingIds = React.useMemo(() => activeLocations.map(loc => loc.id), [activeLocations]);
@@ -36,13 +38,16 @@ export function StorageLocationsTabContent({ isActive, onRegisterActions }: TabC
   const handleDeleteRequest = React.useCallback((systemId: SystemId) => { setIdToDelete(systemId); setIsAlertOpen(true); }, []);
 
   const handleToggleDefault = React.useCallback((loc: StorageLocation) => {
-    data.forEach(l => { if ((l as any).isDefault && l.systemId !== loc.systemId && !(l as any).isDeleted) (update as any).mutate({ systemId: l.systemId, isDefault: false }); });
-    (update as any).mutate({ systemId: loc.systemId, isDefault: !(loc as any).isDefault });
+    data.forEach(l => { if (l.isDefault && l.systemId !== loc.systemId && !l.isDeleted) update.mutate({ systemId: l.systemId, data: { isDefault: false } }); });
+    update.mutate({ systemId: loc.systemId, data: { isDefault: !loc.isDefault } });
     toast.success(loc.isDefault ? 'Đã bỏ mặc định' : 'Đã đặt làm mặc định');
   }, [data, update]);
 
   const handleToggleActive = React.useCallback((loc: StorageLocation) => { const na = !loc.isActive; update.mutate({ systemId: loc.systemId, data: { isActive: na } }, { onSuccess: () => toast.success(na ? 'Đã kích hoạt' : 'Đã tắt'), onError: (err) => toast.error(err.message) }); }, [update]);
   const confirmDelete = () => { if (idToDelete) { remove.mutate(idToDelete, { onSuccess: () => toast.success('Đã xóa điểm lưu kho'), onError: (err) => toast.error(err.message) }); } setIsAlertOpen(false); setIdToDelete(null); };
+
+  const handleBulkDelete = React.useCallback((selectedItems: { systemId: string }[]) => { if (selectedItems.length === 0) return; setIsBulkDeleteOpen(true); }, []);
+  const confirmBulkDelete = () => { const selectedIds = Object.keys(rowSelection); selectedIds.forEach(id => { remove.mutate(id as SystemId); }); toast.success(`Đã xóa ${selectedIds.length} điểm lưu kho`); setRowSelection({}); setIsBulkDeleteOpen(false); };
 
   const handleFormSubmit = (values: StorageLocationFormValues) => {
     const payload = { ...values, id: asBusinessId(values.id), isActive: values.isActive ?? true };
@@ -60,9 +65,10 @@ export function StorageLocationsTabContent({ isActive, onRegisterActions }: TabC
 
   return (
     <>
-      <Card><CardHeader className="flex flex-row items-center justify-between"><div><CardTitle>Điểm lưu kho</CardTitle><CardDescription>Quản lý các điểm lưu kho trong kho hàng</CardDescription></div></CardHeader><CardContent><SimpleSettingsTable data={activeLocations} columns={columns} emptyTitle="Chưa có điểm lưu kho" emptyDescription="Thêm điểm lưu kho đầu tiên để quản lý vị trí hàng hóa" emptyAction={<Button size="sm" onClick={handleAddNew}>Thêm điểm lưu kho</Button>} /></CardContent></Card>
+      <Card><CardHeader className="flex flex-row items-center justify-between"><div><CardTitle>Điểm lưu kho</CardTitle><CardDescription>Quản lý các điểm lưu kho trong kho hàng</CardDescription></div></CardHeader><CardContent><SimpleSettingsTable data={activeLocations} columns={columns} emptyTitle="Chưa có điểm lưu kho" emptyDescription="Thêm điểm lưu kho đầu tiên để quản lý vị trí hàng hóa" emptyAction={<Button size="sm" onClick={handleAddNew}>Thêm điểm lưu kho</Button>} enableSelection rowSelection={rowSelection} setRowSelection={setRowSelection} onBulkDelete={handleBulkDelete} enablePagination pagination={{ pageSize: 10, showInfo: true }} /></CardContent></Card>
       <StorageLocationFormDialog open={isFormOpen} onOpenChange={setIsFormOpen} initialData={editingLocation} onSubmit={handleFormSubmit} existingIds={existingIds} />
       <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Xác nhận xóa</AlertDialogTitle><AlertDialogDescription>Bạn có chắc chắn muốn xóa điểm lưu kho này?</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel onClick={() => setIsAlertOpen(false)}>Hủy</AlertDialogCancel><AlertDialogAction onClick={confirmDelete}>Xóa</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+      <AlertDialog open={isBulkDeleteOpen} onOpenChange={setIsBulkDeleteOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Xóa {Object.keys(rowSelection).length} điểm lưu kho?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể được hoàn tác.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={confirmBulkDelete}>Xóa</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
     </>
   );
 }

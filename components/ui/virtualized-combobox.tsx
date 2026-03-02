@@ -27,17 +27,21 @@ type VirtualizedComboboxProps = {
   isLoading?: boolean;
   onSearchChange?: (search: string) => void; // For server-side filtering
   renderOption?: (option: ComboboxOption, isSelected: boolean) => React.ReactNode;
-  renderHeader?: () => React.ReactNode; // ✅ Custom header (e.g., "Add new" button)
+  renderHeader?: () => React.ReactNode; // Custom header (e.g., "Add new" button)
   estimatedItemHeight?: number; // Estimated height for better performance
   maxHeight?: number;
   minSearchLength?: number; // Minimum chars before showing results
+  // ✅ Infinite scroll support
+  onLoadMore?: () => void; // Called when scrolled near bottom
+  hasMore?: boolean; // Whether more items can be loaded
+  isLoadingMore?: boolean; // Loading indicator for infinite scroll
 };
 
 const defaultRenderOption = (option: ComboboxOption, isSelected: boolean) => (
   <div className="flex items-center flex-1 min-w-0">
     <Check
       className={cn(
-        'mr-2 h-4 w-4 flex-shrink-0',
+        'mr-2 h-4 w-4 shrink-0',
         isSelected ? 'opacity-100' : 'opacity-0'
       )}
     />
@@ -63,17 +67,29 @@ export function VirtualizedCombobox({
   isLoading = false,
   onSearchChange,
   renderOption = defaultRenderOption,
-  renderHeader, // ✅ NEW: Custom header
+  renderHeader,
   estimatedItemHeight = 48,
   maxHeight = 320,
   minSearchLength = 0,
+  onLoadMore,
+  hasMore = false,
+  isLoadingMore = false,
 }: VirtualizedComboboxProps) {
   const [open, setOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState('');
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
   
   const parentRef = React.useRef<HTMLDivElement>(null);
-  const inputRef = React.useRef<HTMLInputElement>(null); // NEW: Ref for input
+  const inputRef = React.useRef<HTMLInputElement>(null);
+  const triggerRef = React.useRef<HTMLButtonElement>(null);
+  const [triggerWidth, setTriggerWidth] = React.useState<number>(0);
+
+  // Measure trigger width when opening
+  React.useEffect(() => {
+    if (open && triggerRef.current) {
+      setTriggerWidth(triggerRef.current.offsetWidth);
+    }
+  }, [open]);
 
   // Client-side filtering (if no server-side handler)
   const filteredOptions = React.useMemo(() => {
@@ -123,6 +139,16 @@ export function VirtualizedCombobox({
     }
   }, [debouncedSearchQuery, onSearchChange]);
 
+  // ✅ Infinite scroll - load more when near bottom
+  const handleScroll = React.useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.currentTarget;
+    const scrollBottom = target.scrollHeight - target.scrollTop - target.clientHeight;
+    // Load more when within 100px of bottom
+    if (scrollBottom < 100 && hasMore && !isLoadingMore && onLoadMore) {
+      onLoadMore();
+    }
+  }, [hasMore, isLoadingMore, onLoadMore]);
+
   // Reset scroll and force virtualizer measure when popup opens
   React.useEffect(() => {
     if (open) {
@@ -157,6 +183,7 @@ export function VirtualizedCombobox({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
+          ref={triggerRef}
           variant="outline"
           role="combobox"
           aria-expanded={open}
@@ -168,7 +195,8 @@ export function VirtualizedCombobox({
         </Button>
       </PopoverTrigger>
       <PopoverContent 
-        className="w-[--radix-popover-trigger-width] p-0" 
+        className="p-0" 
+        style={{ width: triggerWidth > 0 ? `${triggerWidth}px` : undefined }}
         align="start"
         side="bottom"
         sideOffset={4}
@@ -211,6 +239,7 @@ export function VirtualizedCombobox({
               onWheel={(e) => {
                 e.stopPropagation();
               }}
+              onScroll={handleScroll}
             >
               {/* Total height placeholder for scroll */}
               <div
@@ -236,7 +265,7 @@ export function VirtualizedCombobox({
                           "absolute top-0 left-0 w-full",
                           "flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none",
                           "hover:bg-accent hover:text-accent-foreground",
-                          "data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+                          "data-disabled:pointer-events-none data-disabled:opacity-50",
                           isSelected && "bg-accent"
                         )}
                         style={{
@@ -269,16 +298,28 @@ export function VirtualizedCombobox({
                   })
                 )}
               </div>
+              
+              {/* ✅ Infinite scroll loading indicator */}
+              {isLoadingMore && (
+                <div className="py-2 text-center">
+                  <Loader2 className="h-4 w-4 animate-spin mx-auto text-muted-foreground" />
+                </div>
+              )}
             </div>
           )}
           
           {/* Show count info */}
           {displayOptions.length > 0 && (
-            <div className="border-t px-2 py-1.5 text-xs text-muted-foreground">
-              {displayOptions.length === options.length 
-                ? `${displayOptions.length} kết quả`
-                : `${displayOptions.length} / ${options.length} kết quả`
-              }
+            <div className="border-t border-border px-2 py-1.5 text-xs text-muted-foreground flex items-center justify-between">
+              <span>
+                {displayOptions.length === options.length 
+                  ? `${displayOptions.length} kết quả`
+                  : `${displayOptions.length} / ${options.length} kết quả`
+                }
+              </span>
+              {hasMore && (
+                <span className="text-primary">Cuộn để tải thêm</span>
+              )}
             </div>
           )}
         </Command>

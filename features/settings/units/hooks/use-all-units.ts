@@ -1,14 +1,23 @@
 /**
  * useAllUnits - Convenience hook for components needing all units as flat array
+ * Auto-pagination: no hardcoded limit cap (MODULE-QUALITY-CRITERIA §1.3)
  */
 
-import { useUnits } from './use-units';
+import { useQuery } from '@tanstack/react-query';
+import { fetchAllPages } from '@/lib/fetch-all-pages';
+import { fetchUnits } from '../api/units-api';
+import { unitKeys } from './use-units';
 
 export function useAllUnits() {
-  const query = useUnits({ limit: 50 });
+  const query = useQuery({
+    queryKey: [...unitKeys.all, 'all'],
+    queryFn: () => fetchAllPages((p) => fetchUnits(p)),
+    staleTime: 10 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+  });
   
   return {
-    data: query.data?.data || [],
+    data: query.data || [],
     isLoading: query.isLoading,
     isError: query.isError,
     error: query.error,

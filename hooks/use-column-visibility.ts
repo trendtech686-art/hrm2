@@ -30,6 +30,9 @@ export function useColumnVisibility(
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const lastSavedRef = useRef<string>('')
   const hasLoadedFromDB = useRef(false)
+  // Store defaultVisibility in ref to avoid triggering effect on every render
+  const defaultVisibilityRef = useRef(defaultVisibility)
+  defaultVisibilityRef.current = defaultVisibility
 
   const storageKey = `${tableName}-column-visibility`
 
@@ -56,9 +59,12 @@ export function useColumnVisibility(
           // không có wrapper { success: true, data: ... }
           const value = json?.value
           if (value && typeof value === 'object' && Object.keys(value).length > 0) {
-            console.log(`[useColumnVisibility] ✅ Setting visibility from DB:`, value)
-            setVisibility(value)
-            lastSavedRef.current = JSON.stringify(value)
+            // ✅ Merge với defaultVisibility để đảm bảo cột mới được hiển thị
+            // Cột mới trong default nhưng chưa có trong DB sẽ được thêm vào với giá trị mặc định
+            const mergedVisibility = { ...defaultVisibilityRef.current, ...value }
+            console.log(`[useColumnVisibility] ✅ Setting visibility from DB (merged with defaults):`, mergedVisibility)
+            setVisibility(mergedVisibility)
+            lastSavedRef.current = JSON.stringify(mergedVisibility)
             hasLoadedFromDB.current = true
           } else {
             console.log(`[useColumnVisibility] ⚠️ No data in DB for ${storageKey}`)

@@ -2,10 +2,11 @@
 
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { useInventoryCheck, useInventoryCheckMutations } from './hooks/use-inventory-checks';
+import { useInventoryCheck, useInventoryCheckMutations, type CreateInventoryCheckInput, type UpdateInventoryCheckInput } from './hooks/use-inventory-checks';
 import { useAllBranches } from '../settings/branches/hooks/use-all-branches';
 import { useAllProducts, useProductFinder } from '../products/hooks/use-all-products';
 import { useProductTypeFinder } from '../settings/inventory/hooks/use-all-product-types';
+import { useAllEmployees } from '../employees/hooks/use-all-employees';
 import { useAuth } from '../../contexts/auth-context';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { Button } from '../../components/ui/button';
@@ -14,18 +15,19 @@ import { Label } from '../../components/ui/label';
 import { Textarea } from '../../components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { Badge } from '../../components/ui/badge';
-import { BulkProductSelectorDialog } from '../../components/shared/bulk-product-selector-dialog';
-import { ProductSearchCombobox } from '../../components/shared/product-search-combobox';
+import { ProductSelectionDialog } from '../shared/product-selection-dialog';
+import { UnifiedProductSearch } from '../../components/shared/unified-product-search';
 import { ProductThumbnailCell } from '../../components/shared/read-only-products-table';
 import { ImagePreviewDialog } from '../../components/ui/image-preview-dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../../components/ui/alert-dialog';
 import { Package, Trash2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
-import { asSystemId, asBusinessId, type SystemId } from '../../lib/id-types';
+import { asSystemId, type SystemId } from '../../lib/id-types';
 import { InventoryCheckWorkflowCard } from './components/inventory-check-workflow-card';
 import type { Subtask } from '../../components/shared/subtask-list';
-import type { InventoryCheck, InventoryCheckItem, DifferenceReason } from '@/lib/types/prisma-extended';
+import type { InventoryCheckItem, DifferenceReason } from '@/lib/types/prisma-extended';
 import type { Product } from '@/lib/types/prisma-extended';
 
 const DIFFERENCE_REASONS: { value: DifferenceReason; label: string }[] = [
@@ -37,14 +39,84 @@ const DIFFERENCE_REASONS: { value: DifferenceReason; label: string }[] = [
   { value: 'production', label: 'Sản Xuất' },
 ];
 
+// Memoized input component with local state to reduce parent re-renders
+const DebouncedInput = React.memo(function DebouncedInput({
+  value: initialValue,
+  onChange,
+  type = 'text',
+  className,
+  placeholder,
+  disabled,
+  min,
+}: {
+  value: string | number;
+  onChange: (value: string) => void;
+  type?: string;
+  className?: string;
+  placeholder?: string;
+  disabled?: boolean;
+  min?: string;
+}) {
+  const [localValue, setLocalValue] = React.useState(initialValue);
+  const timeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  // Sync with external value when it changes
+  React.useEffect(() => {
+    setLocalValue(initialValue);
+  }, [initialValue]);
+
+  const handleChange = React.useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value;
+    setLocalValue(newValue);
+    
+    // Clear existing timeout
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    
+    // Debounce the onChange callback
+    timeoutRef.current = setTimeout(() => {
+      onChange(newValue);
+    }, 150);
+  }, [onChange]);
+
+  // Cleanup on unmount
+  React.useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
+
+  return (
+    <Input
+      type={type}
+      value={localValue}
+      onChange={handleChange}
+      className={className}
+      placeholder={placeholder}
+      disabled={disabled}
+      min={min}
+    />
+  );
+});
+
 export function InventoryCheckFormPage() {
   const router = useRouter();
   const { systemId } = useParams<{ systemId: string }>();
   const isEditMode = !!systemId;
   
+  // Track if we're doing create+balance flow (should skip onCreateSuccess redirect)
+  const isCreateAndBalanceRef = React.useRef(false);
+  
   const { data: currentCheck } = useInventoryCheck(systemId);
   const { create: createMutation, update: updateMutation, balance: balanceMutation } = useInventoryCheckMutations({
     onCreateSuccess: (check) => {
+      // Skip redirect if we're doing create+balance flow
+      if (isCreateAndBalanceRef.current) {
+        return;
+      }
       toast.success('Đã tạo phiếu kiểm kê');
       router.push(`/inventory-checks/${check.systemId}`);
     },
@@ -52,15 +124,20 @@ export function InventoryCheckFormPage() {
       toast.success('Đã cập nhật phiếu kiểm kê');
     },
     onBalanceSuccess: (check) => {
-      toast.success('Đã cân bằng phiếu kiểm kê');
+      isCreateAndBalanceRef.current = false; // Reset flag
+      toast.success('Đã cân bằng và cập nhật tồn kho');
       router.push(`/inventory-checks/${check.systemId}`);
     },
-    onError: (err) => toast.error(err.message)
+    onError: (err) => {
+      isCreateAndBalanceRef.current = false; // Reset flag on error
+      toast.error(err.message);
+    }
   });
   const { data: branches } = useAllBranches();
   const { data: allProducts } = useAllProducts();
   const { findById: findProductById } = useProductFinder();
   const { findById: findProductTypeById } = useProductTypeFinder();
+  const { data: allEmployees } = useAllEmployees();
   const { employee: authEmployee } = useAuth();
   const currentUserSystemId = authEmployee?.systemId ?? 'SYSTEM';
   
@@ -111,24 +188,39 @@ export function InventoryCheckFormPage() {
       setItems(currentCheck.items || []);
       
       // Load employee name for edit mode (người tạo ban đầu)
-      if (currentCheck.createdBy) {
-        import('../employees/store').then(({ useEmployeeStore }) => {
-          const employeeList = useEmployeeStore.getState().data;
-          const creator = employeeList.find(emp => emp.systemId === currentCheck.createdBy);
-          if (creator) {
-            setCurrentUserName(creator.fullName || creator.id);
-          }
-        }).catch(() => {
-          // Ignore error, just won't show employee name
-        });
+      if (currentCheck.createdBy && allEmployees?.length) {
+        const creator = allEmployees.find(emp => emp.systemId === currentCheck.createdBy);
+        if (creator) {
+          setCurrentUserName(creator.fullName || creator.id);
+        }
       }
     } else if (!isEditMode) {
-      // Auto-select default branch for new form
-      const defaultBranch = branches.find(b => b.isDefault);
-      if (defaultBranch) {
-        setBranchSystemId(defaultBranch.systemId);
+      // Check for duplicate data in sessionStorage
+      const duplicateData = sessionStorage.getItem('inventoryCheckDuplicate');
+      if (duplicateData) {
+        try {
+          const data = JSON.parse(duplicateData);
+          if (data.branchSystemId) setBranchSystemId(data.branchSystemId);
+          if (data.note) setNote(data.note);
+          if (data.items && Array.isArray(data.items)) {
+            setItems(data.items);
+          }
+          // Clear after loading
+          sessionStorage.removeItem('inventoryCheckDuplicate');
+          toast.success('Đã tải dữ liệu từ phiếu sao chép');
+        } catch (e) {
+          console.error('Failed to parse duplicate data:', e);
+          sessionStorage.removeItem('inventoryCheckDuplicate');
+        }
+      } else {
+        // Auto-select default branch for new form
+        const defaultBranch = branches.find(b => b.isDefault);
+        if (defaultBranch) {
+          setBranchSystemId(defaultBranch.systemId);
+        }
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEditMode, currentCheck, router, branches]);
 
   // Get branch name
@@ -138,7 +230,7 @@ export function InventoryCheckFormPage() {
   );
 
   // Get system quantity from product inventory
-  const getSystemQuantity = (productSystemId: string): number => {
+  const getSystemQuantity = React.useCallback((productSystemId: string): number => {
     const product = allProducts.find(p => p.systemId === productSystemId);
     if (!product) return 0;
     
@@ -150,7 +242,29 @@ export function InventoryCheckFormPage() {
     // If no branch selected, get TOTAL inventory across all branches
     const inventoryByBranch = product.inventoryByBranch || {};
     return Object.values(inventoryByBranch).reduce((sum, qty) => sum + qty, 0);
-  };
+  }, [allProducts, branchSystemId]);
+
+  // ✅ Update systemQuantity when branch changes
+  const itemsLengthRef = React.useRef(items.length);
+  React.useEffect(() => {
+    itemsLengthRef.current = items.length;
+  }, [items.length]);
+  
+  React.useEffect(() => {
+    if (!branchSystemId || itemsLengthRef.current === 0) return;
+    
+    setItems(prevItems => 
+      prevItems.map(item => {
+        const newSystemQty = getSystemQuantity(item.productSystemId);
+        const newDiff = item.actualQuantity - newSystemQty;
+        return {
+          ...item,
+          systemQuantity: newSystemQty,
+          difference: newDiff,
+        };
+      })
+    );
+  }, [branchSystemId, getSystemQuantity]);
 
   // Add products from selector
   const handleAddProducts = (products: Product[]) => {
@@ -309,30 +423,37 @@ export function InventoryCheckFormPage() {
 
     if (isEditMode && systemId) {
       if (currentCheck) {
-        const updated: InventoryCheck = {
-          ...currentCheck,
-          branchSystemId: asSystemId(branchSystemId),
-          branchName: selectedBranch?.name || '',
-          note,
-          items,
+        const updated: UpdateInventoryCheckInput = {
+          systemId,
+          checkDate: currentCheck.createdAt ? new Date(currentCheck.createdAt).toISOString() : new Date().toISOString(),
+          description: note || undefined,
+          updatedBy: currentUserSystemId || 'SYSTEM',
         };
-        updateMutation.mutate({ systemId: asSystemId(systemId), data: updated as any });
+        updateMutation.mutate({ systemId: asSystemId(systemId), data: updated });
         toast.success('Đã cập nhật phiếu kiểm hàng');
       }
     } else {
-      const data: Omit<InventoryCheck, 'systemId'> = {
-        id: asBusinessId(customId || ''),
-        branchSystemId: asSystemId(branchSystemId),
+      const data: CreateInventoryCheckInput = {
+        branchId: branchSystemId,
+        branchSystemId: branchSystemId,
         branchName: selectedBranch?.name || '',
-        status: 'draft',
-        createdBy: asSystemId(currentUserSystemId || 'SYSTEM'),
-        createdAt: new Date().toISOString(),
-        note,
-        items,
+        checkDate: new Date().toISOString(),
+        description: note || undefined,
+        createdBy: currentUserSystemId || 'SYSTEM',
+        items: items.map(item => ({
+          productId: item.productId,
+          productSystemId: item.productSystemId,
+          productName: item.productName,
+          productSku: item.productId,
+          systemQuantity: item.systemQuantity,
+          actualQuantity: item.actualQuantity,
+          difference: item.difference,
+          notes: item.note,
+        })),
       };
       createMutation.mutate(data);
     }
-  }, [isEditMode, systemId, currentCheck, selectedBranch, note, updateMutation, customId, currentUserSystemId, createMutation, validateForm, branchSystemId, items]);
+  }, [isEditMode, systemId, currentCheck, selectedBranch, note, updateMutation, currentUserSystemId, createMutation, validateForm, branchSystemId, items]);
 
   // Balance
   const handleBalance = React.useCallback(() => {
@@ -351,11 +472,10 @@ export function InventoryCheckFormPage() {
     
     if (isEditMode && systemId) {
       if (currentCheck) {
-        const updated: Partial<InventoryCheck> = {
-          branchSystemId: asSystemId(branchSystemId),
-          branchName: selectedBranch?.name || '',
-          note,
-          items,
+        const updated: UpdateInventoryCheckInput = {
+          systemId,
+          description: note || undefined,
+          updatedBy: currentUserSystemId || 'SYSTEM',
         };
         updateMutation.mutate({ systemId, data: updated });
         checkSystemId = systemId;
@@ -366,20 +486,32 @@ export function InventoryCheckFormPage() {
         return;
       }
     } else {
-      const data: Omit<InventoryCheck, 'systemId'> = {
-        id: asBusinessId(customId || ''),
-        branchSystemId: asSystemId(branchSystemId),
+      // Set flag to skip onCreateSuccess redirect - we'll redirect after balance
+      isCreateAndBalanceRef.current = true;
+      
+      const data: CreateInventoryCheckInput = {
+        branchId: branchSystemId,
+        branchSystemId: branchSystemId,
         branchName: selectedBranch?.name || '',
-        status: 'draft',
-        createdBy: asSystemId(currentUserSystemId || 'SYSTEM'),
-        createdAt: new Date().toISOString(),
-        note,
-        items,
+        checkDate: new Date().toISOString(),
+        description: note || undefined,
+        createdBy: currentUserSystemId || 'SYSTEM',
+        items: items.map(item => ({
+          productId: item.productId,
+          productSystemId: item.productSystemId,
+          productName: item.productName,
+          productSku: item.productId,
+          systemQuantity: item.systemQuantity,
+          actualQuantity: item.actualQuantity,
+          difference: item.difference,
+          notes: item.note,
+        })),
       };
       createMutation.mutate(data, {
         onSuccess: (newCheck) => {
           checkSystemId = newCheck.systemId;
-          balanceMutation.mutate(checkSystemId, {
+          toast.success('Đã tạo phiếu kiểm kê, đang cân bằng...');
+          balanceMutation.mutate({ systemId: checkSystemId, balancedBy: currentUserSystemId || 'SYSTEM' }, {
             onSettled: () => {
               setIsBalancing(false);
               setShowBalanceConfirm(false);
@@ -387,6 +519,7 @@ export function InventoryCheckFormPage() {
           });
         },
         onError: () => {
+          isCreateAndBalanceRef.current = false; // Reset flag on error
           setIsBalancing(false);
           setShowBalanceConfirm(false);
         }
@@ -394,7 +527,7 @@ export function InventoryCheckFormPage() {
       return;
     }
 
-    balanceMutation.mutate(checkSystemId, {
+    balanceMutation.mutate({ systemId: checkSystemId, balancedBy: currentUserSystemId || 'SYSTEM' }, {
       onSettled: () => {
         setIsBalancing(false);
         setShowBalanceConfirm(false);
@@ -612,20 +745,19 @@ export function InventoryCheckFormPage() {
           {/* Search and Add Products - Only in create mode */}
           {!isEditMode && (
             <div className="flex gap-2">
-              <div className="flex-1">
-                <ProductSearchCombobox
-                  onSelect={handleAddProduct}
-                  placeholder="Thêm sản phẩm (F3)"
-                  excludeProductIds={items.map(i => i.productSystemId)}
-                  branchSystemId={branchSystemId}
-                  showStock={true}
-                  showPrice={false}
-                />
-              </div>
+              <UnifiedProductSearch
+                onSelectProduct={handleAddProduct}
+                disabled={!branchSystemId}
+                placeholder="Thêm sản phẩm (F3)"
+                searchPlaceholder="Tìm kiếm theo tên, mã SKU, barcode..."
+                excludeTypes={['combo', 'service']}
+                branchSystemId={branchSystemId}
+                showCostPrice={false}
+              />
               <Button 
                 onClick={() => setShowProductSelector(true)}
                 variant="outline"
-                className="h-9"
+                className="h-9 shrink-0"
               >
                 Chọn nhiều
               </Button>
@@ -693,117 +825,122 @@ export function InventoryCheckFormPage() {
                 </div>
               )}
 
-              {/* Simple Table */}
-              <div className="border rounded-lg overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-muted/50">
-                      <tr className="border-b">
-                        <th className="px-3 py-2 text-left text-body-sm font-medium">STT</th>
-                        <th className="px-3 py-2 text-left text-body-sm font-medium w-16">Ảnh</th>
-                        <th className="px-3 py-2 text-left text-body-sm font-medium">Sản phẩm</th>
-                        <th className="px-3 py-2 text-left text-body-sm font-medium">Đơn vị</th>
-                        <th className="px-3 py-2 text-right text-body-sm font-medium">Tồn hệ thống</th>
-                        <th className="px-3 py-2 text-right text-body-sm font-medium">Tồn thực tế</th>
-                        <th className="px-3 py-2 text-right text-body-sm font-medium">Lệch</th>
-                        <th className="px-3 py-2 text-left text-body-sm font-medium">Lý do</th>
-                        <th className="px-3 py-2 text-left text-body-sm font-medium">Ghi chú</th>
-                        <th className="px-3 py-2 text-center text-body-sm font-medium">Xóa</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredItems.length === 0 ? (
-                        <tr>
-                          <td colSpan={10} className="px-3 py-12 text-center text-muted-foreground">
-                            Không có sản phẩm nào
-                          </td>
-                        </tr>
-                      ) : (
-                        filteredItems.map((item) => {
-                          const originalIndex = items.findIndex(i => i.productSystemId === item.productSystemId);
-                          const isNegative = item.difference < 0;
-                          const isPositive = item.difference > 0;
-                          const product = findProductById(item.productSystemId);
-                          const productTypeName = product?.productTypeSystemId ? getProductTypeName(product.productTypeSystemId) : 'Hàng hóa';
-                          
-                          return (
-                            <tr key={item.productSystemId} className="border-b hover:bg-muted/30">
-                              <td className="px-3 py-2 text-body-sm">{originalIndex + 1}</td>
-                              <td className="px-3 py-2">
-                                <ProductThumbnailCell
-                                  productSystemId={item.productSystemId}
-                                  productName={item.productName}
-                                  onPreview={(url: string, title: string) => setPreviewImage({ url, title })}
-                                />
-                              </td>
-                              <td className="px-3 py-2">
-                                <div>
-                                  <button
-                                    onClick={() => router.push(`/products/${item.productSystemId}`)}
-                                    className="text-blue-600 hover:underline dark:text-blue-400 font-medium text-body-sm text-left"
-                                  >
-                                    {item.productName}
-                                  </button>
-                                  <div className="text-body-xs text-muted-foreground">{productTypeName} - {item.productId}</div>
-                                </div>
-                              </td>
-                              <td className="px-3 py-2 text-body-sm">{item.unit}</td>
-                              <td className="px-3 py-2 text-body-sm text-right font-medium">{item.systemQuantity}</td>
-                              <td className="px-3 py-2">
-                                <Input
-                                  type="number"
-                                  value={item.actualQuantity}
-                                  onChange={(e) => handleUpdateActualQty(originalIndex, e.target.value)}
-                                  className={`h-9 text-right w-24 ${isEditMode ? 'bg-muted' : ''}`}
-                                  min="0"
+              {/* Products Table - styled like stock-transfers */}
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-12">#</TableHead>
+                      <TableHead className="w-16">Ảnh</TableHead>
+                      <TableHead>Sản phẩm</TableHead>
+                      <TableHead className="w-20">Đơn vị</TableHead>
+                      <TableHead className="w-28 text-right">Tồn hệ thống</TableHead>
+                      <TableHead className="w-28 text-center">Tồn thực tế</TableHead>
+                      <TableHead className="w-24 text-right">Lệch</TableHead>
+                      <TableHead className="w-32">Lý do</TableHead>
+                      <TableHead className="w-40">Ghi chú</TableHead>
+                      <TableHead className="w-12"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredItems.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={10} className="py-12 text-center text-muted-foreground">
+                          Không có sản phẩm nào
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredItems.map((item) => {
+                        const originalIndex = items.findIndex(i => i.productSystemId === item.productSystemId);
+                        const isNegative = item.difference < 0;
+                        const isPositive = item.difference > 0;
+                        const product = findProductById(item.productSystemId);
+                        const productTypeName = product?.productTypeSystemId ? getProductTypeName(product.productTypeSystemId) : 'Hàng hóa';
+                        
+                        return (
+                          <TableRow key={item.productSystemId}>
+                            <TableCell className="text-muted-foreground">{originalIndex + 1}</TableCell>
+                            <TableCell>
+                              <ProductThumbnailCell
+                                productSystemId={item.productSystemId}
+                                product={product}
+                                productName={item.productName}
+                                size="sm"
+                                onPreview={(url: string, title: string) => setPreviewImage({ url, title })}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex flex-col gap-0.5">
+                                <button
+                                  onClick={() => router.push(`/products/${item.productSystemId}`)}
+                                  className="text-primary hover:underline font-medium text-left"
+                                >
+                                  {item.productName}
+                                </button>
+                                <span className="text-body-sm text-muted-foreground">{productTypeName} - {item.productId}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>{item.unit}</TableCell>
+                            <TableCell className="text-right font-medium">{item.systemQuantity}</TableCell>
+                            <TableCell>
+                              <DebouncedInput
+                                type="number"
+                                value={item.actualQuantity}
+                                onChange={(value) => handleUpdateActualQty(originalIndex, value)}
+                                className={`h-9 text-center w-full ${isEditMode ? 'bg-muted' : ''}`}
+                                min="0"
+                                disabled={isEditMode}
+                              />
+                            </TableCell>
+                            <TableCell className={`text-right font-semibold ${
+                              isNegative ? 'text-red-600' : isPositive ? 'text-orange-600' : 'text-green-600'
+                            }`}>
+                              {item.difference > 0 ? '+' : ''}{item.difference}
+                            </TableCell>
+                            <TableCell>
+                              {item.difference !== 0 && (
+                                <Select
+                                  value={item.reason || 'other'}
+                                  onValueChange={(value) => handleUpdateReason(originalIndex, value as DifferenceReason)}
                                   disabled={isEditMode}
-                                />
-                              </td>
-                              <td className={`px-3 py-2 text-body-sm text-right font-semibold ${
-                                isNegative ? 'text-red-600' : isPositive ? 'text-orange-600' : 'text-green-600'
-                              }`}>
-                                {item.difference > 0 ? '+' : ''}{item.difference}
-                              </td>
-                              <td className="px-3 py-2">
-                                {item.difference !== 0 && (
-                                  <select
-                                    value={item.reason || 'other'}
-                                    onChange={(e) => handleUpdateReason(originalIndex, e.target.value as DifferenceReason)}
-                                    className={`w-full h-9 px-2 text-body-sm border rounded-md ${isEditMode ? 'bg-muted' : 'bg-background'}`}
-                                    disabled={isEditMode}
-                                  >
+                                >
+                                  <SelectTrigger className="h-9">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
                                     {DIFFERENCE_REASONS.map(r => (
-                                      <option key={r.value} value={r.value}>{r.label}</option>
+                                      <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
                                     ))}
-                                  </select>
-                                )}
-                              </td>
-                              <td className="px-3 py-2">
-                                <Input
-                                  placeholder="Ghi chú..."
-                                  value={item.note || ''}
-                                  onChange={(e) => handleUpdateItemNote(originalIndex, e.target.value)}
-                                  className="h-9 text-body-sm"
-                                />
-                              </td>
-                              <td className="px-3 py-2 text-center">
-                                {!isEditMode && (
-                                  <button
-                                    onClick={() => handleRemoveItem(originalIndex)}
-                                    className="inline-flex items-center justify-center h-8 w-8 rounded-md hover:bg-destructive/10 text-destructive transition-colors"
-                                    title="Xóa sản phẩm"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </button>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                                  </SelectContent>
+                                </Select>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <DebouncedInput
+                                placeholder="Ghi chú..."
+                                value={item.note || ''}
+                                onChange={(value) => handleUpdateItemNote(originalIndex, value)}
+                                className="h-9"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              {!isEditMode && (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleRemoveItem(originalIndex)}
+                                >
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                    )}
+                  </TableBody>
+                </Table>
               </div>
             </>
           )}
@@ -812,14 +949,13 @@ export function InventoryCheckFormPage() {
 
       {/* Product Selector Dialog - Only in create mode */}
       {!isEditMode && (
-        <BulkProductSelectorDialog
-          open={showProductSelector}
+        <ProductSelectionDialog
+          isOpen={showProductSelector}
           onOpenChange={setShowProductSelector}
-          onConfirm={handleAddProducts}
-          excludeProductIds={items.map(i => i.productSystemId)}
+          onSelect={handleAddProducts}
           branchSystemId={branchSystemId}
-          title="Chọn sản phẩm kiểm hàng"
-          description={`Chi nhánh: ${selectedBranch?.name || 'Chưa chọn'}`}
+          excludeTypes={['combo', 'service']}
+          showQuantityInput={false}
         />
       )}
 

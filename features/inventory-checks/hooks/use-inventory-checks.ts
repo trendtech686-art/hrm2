@@ -2,21 +2,33 @@
  * useInventoryChecks - React Query hooks (Phiếu Kiểm Kê)
  * 
  * ⚠️ Direct import: import { useInventoryChecks } from '@/features/inventory-checks/hooks/use-inventory-checks'
+ * 
+ * Updated to use Server Actions for mutations (Phase 2 migration)
  */
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import {
   fetchInventoryChecks,
   fetchInventoryCheck,
-  createInventoryCheck,
-  updateInventoryCheck,
-  deleteInventoryCheck,
-  balanceInventoryCheck,
-  cancelInventoryCheck,
   type InventoryChecksParams,
 } from '../api/inventory-checks-api';
-import type { InventoryCheck } from '../types';
+import {
+  createInventoryCheckAction,
+  updateInventoryCheckAction,
+  deleteInventoryCheckAction,
+  balanceInventoryCheckAction,
+  cancelInventoryCheckAction,
+  type CreateInventoryCheckInput,
+  type UpdateInventoryCheckInput,
+} from '@/app/actions/inventory-checks';
+import type { InventoryCheck as _InventoryCheck } from '../types';
 import { asSystemId } from '@/lib/id-types';
+
+// Type for Server Action responses
+type InventoryCheckData = NonNullable<Awaited<ReturnType<typeof createInventoryCheckAction>>['data']>;
+
+// Re-export types for backwards compatibility
+export type { CreateInventoryCheckInput, UpdateInventoryCheckInput };
 
 export const inventoryCheckKeys = {
   all: ['inventory-checks'] as const,
@@ -46,11 +58,11 @@ export function useInventoryCheck(id: string | null | undefined) {
 }
 
 interface UseInventoryCheckMutationsOptions {
-  onCreateSuccess?: (check: InventoryCheck) => void;
-  onUpdateSuccess?: (check: InventoryCheck) => void;
+  onCreateSuccess?: (check: InventoryCheckData) => void;
+  onUpdateSuccess?: (check: InventoryCheckData) => void;
   onDeleteSuccess?: () => void;
-  onBalanceSuccess?: (check: InventoryCheck) => void;
-  onCancelSuccess?: (check: InventoryCheck) => void;
+  onBalanceSuccess?: (check: InventoryCheckData) => void;
+  onCancelSuccess?: (check: InventoryCheckData) => void;
   onError?: (error: Error) => void;
 }
 
@@ -58,27 +70,45 @@ export function useInventoryCheckMutations(options: UseInventoryCheckMutationsOp
   const queryClient = useQueryClient();
   
   const create = useMutation({
-    mutationFn: createInventoryCheck,
+    mutationFn: async (data: CreateInventoryCheckInput) => {
+      const result = await createInventoryCheckAction(data);
+      if (!result.success) throw new Error(result.error || 'Failed to create inventory check');
+      return result.data!;
+    },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: inventoryCheckKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: [...inventoryCheckKeys.all, 'stats'] });
       options.onCreateSuccess?.(data);
     },
     onError: options.onError,
   });
   
   const update = useMutation({
-    mutationFn: ({ systemId, data }: { systemId: string; data: Partial<InventoryCheck> }) => 
-      updateInventoryCheck(asSystemId(systemId), data),
+    mutationFn: async ({ systemId, data }: { systemId: string; data: UpdateInventoryCheckInput }) => {
+      const result = await updateInventoryCheckAction({ 
+        systemId, 
+        checkDate: data.checkDate,
+        description: data.description,
+        updatedBy: data.updatedBy,
+      });
+      if (!result.success) throw new Error(result.error || 'Failed to update inventory check');
+      return result.data!;
+    },
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: inventoryCheckKeys.detail(variables.systemId) });
       queryClient.invalidateQueries({ queryKey: inventoryCheckKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: [...inventoryCheckKeys.all, 'stats'] });
       options.onUpdateSuccess?.(data);
     },
     onError: options.onError,
   });
   
   const remove = useMutation({
-    mutationFn: (systemId: string) => deleteInventoryCheck(asSystemId(systemId)),
+    mutationFn: async (systemId: string) => {
+      const result = await deleteInventoryCheckAction(systemId);
+      if (!result.success) throw new Error(result.error || 'Failed to delete inventory check');
+      return result.data;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: inventoryCheckKeys.all });
       options.onDeleteSuccess?.();
@@ -87,21 +117,30 @@ export function useInventoryCheckMutations(options: UseInventoryCheckMutationsOp
   });
   
   const balance = useMutation({
-    mutationFn: (systemId: string) => balanceInventoryCheck(asSystemId(systemId)),
-    onSuccess: (data, systemId) => {
+    mutationFn: async ({ systemId, balancedBy }: { systemId: string; balancedBy: string }) => {
+      const result = await balanceInventoryCheckAction(systemId, balancedBy);
+      if (!result.success) throw new Error(result.error || 'Failed to balance inventory check');
+      return result.data!;
+    },
+    onSuccess: (data, { systemId }) => {
       queryClient.invalidateQueries({ queryKey: inventoryCheckKeys.detail(systemId) });
       queryClient.invalidateQueries({ queryKey: inventoryCheckKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: [...inventoryCheckKeys.all, 'stats'] });
       options.onBalanceSuccess?.(data);
     },
     onError: options.onError,
   });
   
   const cancel = useMutation({
-    mutationFn: ({ systemId, reason }: { systemId: string; reason: string }) => 
-      cancelInventoryCheck(asSystemId(systemId), reason),
-    onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: inventoryCheckKeys.detail(variables.systemId) });
+    mutationFn: async (systemId: string) => {
+      const result = await cancelInventoryCheckAction(systemId);
+      if (!result.success) throw new Error(result.error || 'Failed to cancel inventory check');
+      return result.data!;
+    },
+    onSuccess: (data, systemId) => {
+      queryClient.invalidateQueries({ queryKey: inventoryCheckKeys.detail(systemId) });
       queryClient.invalidateQueries({ queryKey: inventoryCheckKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: [...inventoryCheckKeys.all, 'stats'] });
       options.onCancelSuccess?.(data);
     },
     onError: options.onError,
@@ -117,6 +156,31 @@ export function useDraftInventoryChecks() {
 export function useInventoryChecksByBranch(branchId: string | null | undefined) {
   return useInventoryChecks({
     branchId: branchId || undefined,
-    limit: 50,
+  });
+}
+
+// ============================================================================
+// Stats Hook - for StatsCardGrid
+// ============================================================================
+
+export interface InventoryCheckStats {
+  draft: number;
+  inProgress: number;
+  completed: number;
+  cancelled: number;
+  total: number;
+}
+
+export function useInventoryCheckStats(initialData?: InventoryCheckStats) {
+  return useQuery({
+    queryKey: [...inventoryCheckKeys.all, 'stats'] as const,
+    queryFn: async () => {
+      const response = await fetch('/api/inventory-checks/stats');
+      if (!response.ok) throw new Error('Failed to fetch inventory check stats');
+      return response.json() as Promise<InventoryCheckStats>;
+    },
+    staleTime: 30_000,
+    gcTime: 5 * 60 * 1000,
+    initialData,
   });
 }

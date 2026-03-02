@@ -44,15 +44,15 @@ export function LogisticsTab() {
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Đơn vị</FormLabel>
-                <Select value={field.value || 'g'} onValueChange={field.onChange}>
+                <Select value={field.value || 'GRAM'} onValueChange={field.onChange}>
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder="Chọn đơn vị" />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    <SelectItem value="g">Gram (g)</SelectItem>
-                    <SelectItem value="kg">Kilogram (kg)</SelectItem>
+                    <SelectItem value="GRAM">Gram (g)</SelectItem>
+                    <SelectItem value="KILOGRAM">Kilogram (kg)</SelectItem>
                   </SelectContent>
                 </Select>
                 <FormMessage />

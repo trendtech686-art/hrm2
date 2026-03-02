@@ -109,5 +109,5 @@ export function useRecentAuditLogs(limit = 20) {
  * Hook to fetch audit logs by action type
  */
 export function useAuditLogsByAction(action: string) {
-  return useAuditLogs({ action, limit: 50 });
+  return useAuditLogs({ action });
 }

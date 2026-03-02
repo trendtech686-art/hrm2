@@ -132,8 +132,8 @@ export function useComplaintTimeTracking(complaint: Complaint | null | undefined
     let investigationTime: number | null = null;
     
     if (assignedAt && complaint.investigationNote) {
-      // Tìm action "investigated" đầu tiên
-      const investigatedAction = complaint.timeline.find(
+      // Tìm action "investigated" đầu tiên - ✅ Add null check
+      const investigatedAction = complaint.timeline?.find(
         action => action.actionType === 'investigated' && action.note === complaint.investigationNote
       );
       
@@ -150,13 +150,14 @@ export function useComplaintTimeTracking(complaint: Complaint | null | undefined
     let verificationTime: number | null = null;
 
     if (complaint.verification !== 'pending-verification') {
-      const verifiedAction = complaint.timeline.find(
+      // ✅ Add null check for timeline
+      const verifiedAction = complaint.timeline?.find(
         action => action.actionType === 'verified' || 
                   action.actionType === 'verified-correct' || 
                   action.actionType === 'verified-incorrect'
       );
 
-      const investigatedAction = complaint.timeline.find(
+      const investigatedAction = complaint.timeline?.find(
         action => action.actionType === 'investigated' && action.note === complaint.investigationNote
       );
 

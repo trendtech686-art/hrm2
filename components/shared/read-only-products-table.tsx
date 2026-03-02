@@ -6,8 +6,7 @@ import { Button } from '../ui/button';
 import { OptimizedImage } from '../ui/optimized-image';
 import { useProductFinder, useAllProducts } from '../../features/products/hooks/use-all-products';
 import { useProductTypeFinder } from '../../features/settings/inventory/hooks/use-all-product-types';
-import { useTaxStore } from '../../features/settings/taxes/store';
-import { useProductImage } from '../../features/products/components/product-image';
+import { useTaxFinder } from '../../features/settings/taxes/hooks/use-all-taxes';
 import { ImagePreviewDialog } from '../ui/image-preview-dialog';
 import type { Product } from '../../features/products/types';
 
@@ -27,19 +26,23 @@ const productTypeFallbackLabels: Record<string, string> = {
 
 // Component hiển thị ảnh sản phẩm với preview
 const ProductThumbnailCell = ({ 
-    productSystemId, 
+    productSystemId: _productSystemId, 
     product,
     productName, 
     size = 'md',
-    onPreview 
+    onPreview,
+    itemThumbnailImage, // ✅ Fallback từ item khi product cache miss
 }: { 
     productSystemId: string; 
-    product?: { thumbnailImage?: string; galleryImages?: string[]; images?: string[]; name?: string } | null;
+    product?: { thumbnailImage?: string; imageUrl?: string; galleryImages?: string[]; images?: string[]; name?: string } | null;
     productName: string;
     size?: 'sm' | 'md';
     onPreview?: (image: string, title: string) => void;
+    itemThumbnailImage?: string;
 }) => {
-    const imageUrl = useProductImage(productSystemId, product);
+    // ✅ Dùng trực tiếp thumbnailImage từ product data (đã lookup từ findProductById)
+    // Fallback to itemThumbnailImage if product not found in cache
+    const imageUrl = product?.thumbnailImage || product?.imageUrl || product?.galleryImages?.[0] || product?.images?.[0] || itemThumbnailImage;
     
     const sizeClasses = size === 'sm' 
         ? 'w-10 h-9' 
@@ -81,6 +84,7 @@ export type LineItem = {
     total?: number;
     totalValue?: number; // For return items
     note?: string;
+    thumbnailImage?: string; // ✅ Direct image URL from API (for cases where product cache miss)
     // Tax fields
     tax?: number; // Tax rate in percentage
     taxId?: string; // Tax systemId for reference
@@ -137,7 +141,7 @@ export function ReadOnlyProductsTable({
     const { findById: findProductById } = useProductFinder();
     const { data: allProducts } = useAllProducts();
     const { findById: findProductTypeById } = useProductTypeFinder();
-    const { findById: findTaxById } = useTaxStore();
+    const { findById: findTaxById } = useTaxFinder();
     
     const [expandedCombos, setExpandedCombos] = React.useState<Record<string, boolean>>({});
     const [previewState, setPreviewState] = React.useState<{ open: boolean; image: string; title: string }>({
@@ -266,6 +270,7 @@ export function ReadOnlyProductsTable({
                                                 product={product}
                                                 productName={item.productName}
                                                 onPreview={handlePreview}
+                                                itemThumbnailImage={item.thumbnailImage}
                                             />
                                         </TableCell>
                                         <TableCell>
@@ -288,7 +293,7 @@ export function ReadOnlyProductsTable({
                                                     <Link href={`/products/${item.productSystemId}`} 
                                                         className="hover:text-primary hover:underline"
                                                     >
-                                                        {item.productId}
+                                                        {product?.id || item.productId}
                                                     </Link>
                                                     {item.note && (
                                                         <span className="text-amber-600">

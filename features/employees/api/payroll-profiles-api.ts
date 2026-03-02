@@ -4,7 +4,7 @@
 
 import type { SystemId } from '@/lib/id-types';
 import { asSystemId } from '@/lib/id-types';
-import type { EmployeePayrollProfile, EmployeePayrollProfileInput } from '../employee-comp-store';
+import type { EmployeePayrollProfile, EmployeePayrollProfileInput } from '../types';
 
 const API_BASE = '/api/employee-payroll-profiles';
 

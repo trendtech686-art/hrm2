@@ -46,6 +46,7 @@ export function ShippingPartnerSelector({
   const prevFromProvinceRef = React.useRef<string>('');
   const [_isExpanded, setIsExpanded] = React.useState(!collapsed);
   const debounceTimerRef = React.useRef<NodeJS.Timeout | null>(null); // ✅ Debounce timer
+  const hasCalculatedRef = React.useRef(false); // ✅ Track if we've ever calculated
 
   // Auto-calculate whenever weight, orderValue, or transport changes (with debounce)
   React.useEffect(() => {
@@ -61,7 +62,7 @@ export function ShippingPartnerSelector({
       const transportChanged = prevTransportRef.current !== (request.options?.transport || 'road');
       const toProvinceChanged = prevToProvinceRef.current !== request.toProvince;
       const fromProvinceChanged = prevFromProvinceRef.current !== request.fromProvince;
-      const isFirstRun = prevWeightRef.current === 0;
+      const isFirstRun = !hasCalculatedRef.current; // ✅ Use dedicated flag instead of checking weight
       
       if (weightChanged || orderValueChanged || transportChanged || toProvinceChanged || fromProvinceChanged || isFirstRun) {
         // ✅ Clear previous debounce timer
@@ -69,12 +70,18 @@ export function ShippingPartnerSelector({
           clearTimeout(debounceTimerRef.current);
         }
         
-        // ✅ Debounce 500ms để tránh spam request khi đổi nhanh
-        debounceTimerRef.current = setTimeout(() => {
+        // ✅ First run: calculate immediately without debounce
+        // Subsequent runs: debounce 500ms to avoid spam
+        if (isFirstRun) {
+          hasCalculatedRef.current = true;
           calculateFees(request);
-        }, 500);
+        } else {
+          debounceTimerRef.current = setTimeout(() => {
+            calculateFees(request);
+          }, 500);
+        }
         
-        // Update refs
+        // Update refs AFTER triggering calculation
         prevWeightRef.current = request.weight;
         prevOrderValueRef.current = request.options?.orderValue || 0;
         prevTransportRef.current = request.options?.transport || 'road';

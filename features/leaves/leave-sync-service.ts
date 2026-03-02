@@ -1,6 +1,5 @@
 import type { LeaveRequest } from '@/lib/types/prisma-extended';
 import type { AttendanceDayKey, AttendanceDataRow, AnyAttendanceDataRow, DailyRecord } from '../attendance/types';
-import { useAttendanceStore } from '../attendance/store';
 import { getEmployeeSettingsSync } from '../settings/employees/employee-settings-service';
 import { recalculateSummary } from '../attendance/utils';
 import { getCurrentDate } from '../../lib/date-utils';
@@ -78,12 +77,18 @@ const buildRevertedRecord = (context: DayContext): DailyRecord => {
   return { status: 'absent' };
 };
 
-const applyUpdatesForMonth = (monthKey: string, days: DayContext[], leave: LeaveRequest, mode: 'apply' | 'clear') => {
-  if (days.length === 0) return;
-
-  const attendanceStore = useAttendanceStore.getState();
-  const monthData = attendanceStore.getAttendanceData(monthKey);
-  if (!monthData?.length) return;
+/**
+ * Pure function: apply leave updates to attendance data for a specific month.
+ * Returns the modified data (does NOT mutate input).
+ */
+const applyUpdatesToData = (
+  monthData: AttendanceDataRow[],
+  monthKey: string,
+  days: DayContext[],
+  leave: LeaveRequest,
+  mode: 'apply' | 'clear',
+): AttendanceDataRow[] | null => {
+  if (days.length === 0 || !monthData.length) return null;
 
   const [yearStr, monthStr] = monthKey.split('-');
   const year = Number(yearStr) || new Date().getFullYear();
@@ -124,18 +129,38 @@ const applyUpdatesForMonth = (monthKey: string, days: DayContext[], leave: Leave
     return { ...mutableRow, ...summary } as AttendanceDataRow;
   });
 
-  if (didChange) {
-    attendanceStore.saveAttendanceData(monthKey, updatedRows);
-  }
+  return didChange ? updatedRows : null;
 };
 
+/**
+ * Pure API: apply/clear leave data on an attendance dataset.
+ * The caller provides the data and receives the modified result.
+ */
 export const leaveAttendanceSync = {
-  apply(leave: LeaveRequest) {
+  /**
+   * Apply a leave to the given attendance data for a specific month.
+   * Returns updated data, or null if no changes were made.
+   */
+  applyToData(leave: LeaveRequest, monthKey: string, monthData: AttendanceDataRow[]): AttendanceDataRow[] | null {
     const monthMap = collectWorkingDays(leave);
-    monthMap.forEach((days, monthKey) => applyUpdatesForMonth(monthKey, days, leave, 'apply'));
+    const days = monthMap.get(monthKey);
+    if (!days) return null;
+    return applyUpdatesToData(monthData, monthKey, days, leave, 'apply');
   },
-  clear(leave: LeaveRequest) {
+
+  /**
+   * Clear a leave from the given attendance data for a specific month.
+   * Returns updated data, or null if no changes were made.
+   */
+  clearFromData(leave: LeaveRequest, monthKey: string, monthData: AttendanceDataRow[]): AttendanceDataRow[] | null {
     const monthMap = collectWorkingDays(leave);
-    monthMap.forEach((days, monthKey) => applyUpdatesForMonth(monthKey, days, leave, 'clear'));
+    const days = monthMap.get(monthKey);
+    if (!days) return null;
+    return applyUpdatesToData(monthData, monthKey, days, leave, 'clear');
   },
+
+  /** @deprecated Backward-compat stub for deprecated leaves/store.ts — no-op */
+  apply(_leave: LeaveRequest) { /* no-op: store is deprecated */ },
+  /** @deprecated Backward-compat stub for deprecated leaves/store.ts — no-op */
+  clear(_leave: LeaveRequest) { /* no-op: store is deprecated */ },
 };

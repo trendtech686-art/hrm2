@@ -1,28 +1,49 @@
 /**
  * useAllOrders - Convenience hook for components needing all orders as flat array
  * 
- * ⚠️ WARNING: This loads ALL orders into memory. Use with caution for large datasets.
- * Consider using useOrders with pagination for better performance.
+ * Auto-pagination: no hardcoded limit cap (MODULE-QUALITY-CRITERIA §1.3)
+ * 
+ * @param options.enabled - Set to false to disable fetching (lazy load)
+ * 
+ * @example
+ * // Lazy load - only fetch when needed
+ * const { data: orders } = useAllOrders({ enabled: isDialogOpen });
  */
 
 import * as React from 'react';
-import { useOrderStore } from '../store';
+import { useQuery } from '@tanstack/react-query';
+import { fetchAllPages } from '@/lib/fetch-all-pages';
+import { fetchOrders } from '../api/orders-api';
+import { orderKeys } from './use-orders';
 import type { Order } from '@/lib/types/prisma-extended';
 import type { SystemId } from '@/lib/id-types';
 
+interface UseAllOrdersOptions {
+  /** Set to false to disable fetching until needed */
+  enabled?: boolean;
+  /** @deprecated Ignored — auto-pagination fetches all */
+  limit?: number;
+}
+
 /**
- * Hook to access all orders from Zustand store
- * ⚠️ DEPRECATED: This hook still uses Zustand. Consider using useOrders() with pagination.
- * This provides backward compatibility with components using useOrderStore().data
+ * Hook to access all orders via React Query
+ * Auto-pagination: fetches all pages automatically
  */
-export function useAllOrders() {
-  const { data } = useOrderStore();
+export function useAllOrders(options: UseAllOrdersOptions = {}) {
+  const { enabled = true } = options;
+  const query = useQuery({
+    queryKey: [...orderKeys.all, 'all'],
+    queryFn: () => fetchAllPages((p) => fetchOrders(p)),
+    enabled,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+  });
   
   return {
-    data: data || [],
-    isLoading: false,
-    isError: false,
-    error: null,
+    data: query.data || [],
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
   };
 }
 

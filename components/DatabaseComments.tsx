@@ -73,7 +73,7 @@ export function DatabaseComments({ entityType, entityId, className }: DatabaseCo
     attachments?: string[],
     parentId?: string
   ) => {
-    const tempId = asSystemId(`temp-${Date.now()}`)
+    const tempId = asSystemId(`temp-${crypto.randomUUID().slice(0, 8)}`)
     const newComment: CommentType<SystemId> = {
       id: tempId,
       content,

@@ -81,7 +81,7 @@ export function MobileProductCard({
       <CardContent className="p-4">
         <div className="flex items-start gap-3">
           {/* Icon/Avatar */}
-          <Avatar className="h-12 w-12 flex-shrink-0">
+          <Avatar className="h-12 w-12 shrink-0">
             <AvatarFallback className="bg-primary/10 text-primary font-semibold">
               <Package className="h-6 w-6" />
             </AvatarFallback>
@@ -94,7 +94,7 @@ export function MobileProductCard({
                 <div className="flex items-center gap-2">
                   <h3 className="text-body-sm font-medium truncate">{product.name}</h3>
                   {product.pkgxId && (
-                    <Badge variant="outline" className="text-body-xs border-blue-500 text-blue-600 flex-shrink-0">
+                    <Badge variant="outline" className="text-body-xs border-blue-500 text-blue-600 shrink-0">
                       PKGX
                     </Badge>
                   )}

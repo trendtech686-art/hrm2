@@ -13,6 +13,7 @@ export interface PurchaseOrdersParams {
   status?: string;
   supplierId?: string;
   branchId?: string;
+  paymentStatus?: string;
   startDate?: string;
   endDate?: string;
   sortBy?: string;
@@ -63,14 +64,14 @@ export async function createPurchaseOrder(data: Partial<PurchaseOrder>): Promise
   });
   if (!res.ok) {
     const error = await res.json().catch(() => ({}));
-    throw new Error(error.message || `Failed to create purchase order`);
+    throw new Error(error.error || error.message || `Failed to create purchase order`);
   }
   return res.json();
 }
 
 export async function updatePurchaseOrder(systemId: string, data: Partial<PurchaseOrder>): Promise<PurchaseOrder> {
   const res = await fetch(`${API_BASE}/${systemId}`, {
-    method: 'PATCH',
+    method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
     body: JSON.stringify(data),

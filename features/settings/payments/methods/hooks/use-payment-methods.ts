@@ -1,8 +1,10 @@
 /**
  * Payment Methods React Query Hooks
+ * 
+ * @see docs/SETTINGS-MODULE-STANDARD.md
  */
 
-import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   fetchPaymentMethods,
   fetchPaymentMethodById,
@@ -16,6 +18,7 @@ import {
   type PaymentMethodUpdateInput,
 } from '../api/payment-methods-api';
 
+// Query Keys
 export const paymentMethodKeys = {
   all: ['payment-methods'] as const,
   lists: () => [...paymentMethodKeys.all, 'list'] as const,
@@ -25,16 +28,17 @@ export const paymentMethodKeys = {
   active: () => [...paymentMethodKeys.all, 'active'] as const,
 };
 
+// List hook
 export function usePaymentMethods(filters: PaymentMethodFilters = {}) {
   return useQuery({
     queryKey: paymentMethodKeys.list(filters),
     queryFn: () => fetchPaymentMethods(filters),
-    staleTime: 1000 * 60 * 10,
+    staleTime: 0, // ⚠️ QUAN TRỌNG: 0 để refetch ngay sau invalidate
     gcTime: 1000 * 60 * 60,
-    placeholderData: keepPreviousData,
   });
 }
 
+// Detail hook
 export function usePaymentMethodById(systemId: string | undefined) {
   return useQuery({
     queryKey: paymentMethodKeys.detail(systemId!),
@@ -45,6 +49,7 @@ export function usePaymentMethodById(systemId: string | undefined) {
   });
 }
 
+// Active list hook
 export function useActivePaymentMethods() {
   return useQuery({
     queryKey: paymentMethodKeys.active(),
@@ -54,14 +59,21 @@ export function useActivePaymentMethods() {
   });
 }
 
+// Mutation callbacks
 interface MutationCallbacks {
   onSuccess?: () => void;
   onError?: (error: Error) => void;
 }
 
+// Mutations hook
 export function usePaymentMethodMutations(options: MutationCallbacks = {}) {
   const queryClient = useQueryClient();
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: paymentMethodKeys.all });
+  
+  // ⚠️ QUAN TRỌNG: refetchType: 'all' để force refetch ngay lập tức
+  const invalidate = () => queryClient.invalidateQueries({ 
+    queryKey: paymentMethodKeys.all,
+    refetchType: 'all',
+  });
 
   const create = useMutation({
     mutationFn: (data: PaymentMethodCreateInput) => createPaymentMethod(data),
@@ -89,7 +101,10 @@ export function usePaymentMethodMutations(options: MutationCallbacks = {}) {
   });
 
   return {
-    create, update, remove, setDefault,
+    create, 
+    update, 
+    remove, 
+    setDefault,
     isLoading: create.isPending || update.isPending || remove.isPending || setDefault.isPending,
   };
 }

@@ -61,9 +61,6 @@ model Shipment {
   actualWeight         Decimal?  @db.Decimal(10, 3)
   actualFee            Decimal?  @db.Decimal(15, 2)
 
-  // Activity History
-  activityHistory Json?
-
   // === RELATIONS ===
   order     Order      @relation(fields: [orderId], references: [systemId])
   packaging Packaging? @relation(fields: [packagingSystemId], references: [systemId])

@@ -6,33 +6,34 @@ import { Button } from "../../components/ui/button";
 import { MoreHorizontal } from "lucide-react";
 import { generatePath, ROUTES } from "../../lib/router";
 import { formatDateCustom } from '../../lib/date-utils';
-import type { Receipt } from "../receipts/types";
-import type { Payment } from "../payments/types";
 import { Checkbox } from "../../components/ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
 import type { CashAccount } from '@/lib/types/prisma-extended';
+import type { CashbookTransaction } from './api/cashbook-summary-api';
+
+// Re-export for external use
+export type { CashbookTransaction } from './api/cashbook-summary-api';
 
 const formatCurrency = (value: number) => new Intl.NumberFormat('vi-VN').format(value);
 
-type CashbookTransaction = (Receipt & { type: 'receipt' }) | (Payment & { type: 'payment' });
-
-const isReceipt = (transaction: CashbookTransaction): transaction is Receipt & { type: 'receipt' } => {
-  return transaction?.type === 'receipt';
+// Helper function to check if transaction is a receipt
+const isReceipt = (transaction: CashbookTransaction): boolean => {
+  return transaction.type === 'receipt';
 };
 
-const formatDateDisplay = (dateString?: string) => {
-    if (!dateString) return '';
-    const date = new Date(dateString);
+const formatDateDisplay = (dateValue?: string | Date) => {
+    if (!dateValue) return '';
+    const date = typeof dateValue === 'string' ? new Date(dateValue) : dateValue;
     return formatDateCustom(date, "dd/MM/yyyy");
 };
 
-const formatDateTimeDisplay = (dateString?: string) => {
-    if (!dateString) return '';
-    const date = new Date(dateString);
+const formatDateTimeDisplay = (dateValue?: string | Date) => {
+    if (!dateValue) return '';
+    const date = typeof dateValue === 'string' ? new Date(dateValue) : dateValue;
     return formatDateCustom(date, "dd/MM/yyyy HH:mm");
 };
 
-const getStatusBadge = (status?: Receipt['status'] | Payment['status']) => {
+const getStatusBadge = (status?: string) => {
   const normalizedStatus = status === 'cancelled' ? 'cancelled' : 'completed';
   const variants: Record<'completed' | 'cancelled', { label: string; variant: 'default' | 'destructive' }> = {
     completed: { label: 'Hoàn thành', variant: 'default' },
@@ -156,13 +157,12 @@ export const getColumns = (
   },
   {
     id: "targetName",
+    accessorKey: "targetName",
     header: "Người nộp/nhận",
     cell: ({ row }) => {
-      const transaction = row;
-      if (!transaction) return <div>N/A</div>;
-      const name = isReceipt(transaction) ? transaction.payerName : transaction.recipientName;
+      const name = row?.targetName;
       return (
-        <div className="max-w-[200px] truncate" title={name}>
+        <div className="max-w-50 truncate" title={name ?? undefined}>
           {name || 'N/A'}
         </div>
       );
@@ -189,7 +189,7 @@ export const getColumns = (
     cell: ({ row }) => {
       const account = accounts.find(a => a.systemId === row?.accountSystemId);
       return (
-        <div className="max-w-[150px] truncate" title={account?.name}>
+        <div className="max-w-37.5 truncate" title={account?.name}>
           {account?.name || row?.accountSystemId || 'N/A'}
         </div>
       );
@@ -234,7 +234,7 @@ export const getColumns = (
     accessorKey: "description",
     header: "Diễn giải",
     cell: ({ row }) => (
-      <div className="max-w-[300px] truncate" title={row?.description}>
+      <div className="max-w-75 truncate" title={row?.description ?? undefined}>
         {row?.description || 'N/A'}
       </div>
     ),
@@ -244,25 +244,10 @@ export const getColumns = (
     },
   },
   {
-    id: "runningBalance",
-    accessorKey: "runningBalance",
-    header: "Số dư",
-    cell: ({ row }) => {
-      const balance = row?.runningBalance;
-      return balance != null ? (
-        <div className="text-right">{formatCurrency(balance)} ₫</div>
-      ) : '-';
-    },
-    meta: {
-      displayName: "Số dư",
-      group: "Tài chính"
-    },
-  },
-  {
     id: "createdBy",
     accessorKey: "createdBy",
     header: "Người tạo",
-    cell: ({ row }) => row?.createdBy || 'N/A',
+    cell: ({ row }) => (row as CashbookTransaction & { createdByName?: string })?.createdByName || row?.createdBy || 'N/A',
     meta: {
       displayName: "Người tạo",
       group: "Thông tin hệ thống"
@@ -344,5 +329,3 @@ export const getColumns = (
     },
   },
 ];
-
-export type { CashbookTransaction };

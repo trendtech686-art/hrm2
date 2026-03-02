@@ -3,6 +3,7 @@
  */
 
 import { NextRequest } from 'next/server';
+import { Prisma } from '@/generated/prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils';
 
@@ -85,12 +86,12 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     // Perform update with transaction if status is changing to APPROVED or CANCELLED
     const purchaseReturn = await prisma.$transaction(async (tx) => {
       // Prepare update data
-      const updateData: any = {
+      const updateData: Prisma.PurchaseReturnUpdateInput = {
         updatedAt: new Date(),
         updatedBy: updatedBy || session.user?.id || null,
       };
 
-      if (status !== undefined) updateData.status = status;
+      if (status !== undefined) updateData.status = status as Prisma.PurchaseReturnUpdateInput['status'];
       if (reason !== undefined) updateData.reason = reason;
       if (refundAmount !== undefined) updateData.refundAmount = refundAmount;
 
@@ -104,8 +105,28 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       // Handle cancellation logic
       if (status === 'CANCELLED' && currentStatus !== 'CANCELLED') {
         // Reverse inventory changes
-        const returnItems = (existingReturn.returnItems as any) || [];
+        interface ReturnItem {
+          productSystemId: string;
+          productName?: string;
+          returnQuantity: number;
+        }
+        const returnItems = (existingReturn.returnItems as ReturnItem[] | null) || [];
         for (const item of returnItems) {
+          // Get current inventory for stock history
+          let currentStock = 0;
+          if (existingReturn.branchSystemId) {
+            const productInventory = await tx.productInventory.findUnique({
+              where: {
+                productId_branchId: {
+                  productId: item.productSystemId,
+                  branchId: existingReturn.branchSystemId,
+                },
+              },
+            });
+            currentStock = productInventory?.onHand || 0;
+          }
+          const newStock = currentStock + item.returnQuantity;
+
           // Restore inventory
           if (existingReturn.branchSystemId) {
             await tx.productInventory.updateMany({
@@ -115,6 +136,23 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
               },
               data: {
                 onHand: { increment: item.returnQuantity },
+              },
+            });
+            
+            // ✅ Create stock history record
+            await tx.stockHistory.create({
+              data: {
+                productId: item.productSystemId,
+                branchId: existingReturn.branchSystemId,
+                action: 'Nhập kho hủy trả NCC',
+                source: 'Phiếu trả hàng nhập',
+                quantityChange: item.returnQuantity,
+                newStockLevel: newStock,
+                documentId: existingReturn.id,
+                documentType: 'purchase_return',
+                employeeId: session.user?.id,
+                employeeName: session.user?.name || undefined,
+                note: `Nhập lại kho do hủy trả NCC - ${item.productName || item.productSystemId}`,
               },
             });
           }
@@ -135,7 +173,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         }
 
         // Reverse supplier balance
-        if (Number(existingReturn.refundAmount) > 0) {
+        if (Number(existingReturn.refundAmount) > 0 && existingReturn.supplierId) {
           await tx.supplier.update({
             where: { systemId: existingReturn.supplierId },
             data: {
@@ -146,27 +184,24 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         }
       }
 
-      // Build activity history entry
-      const activityEntry = {
-        timestamp: new Date().toISOString(),
-        action: status ? 'STATUS_UPDATED' : 'UPDATED',
-        field: status ? 'status' : 'general',
-        oldValue: currentStatus,
-        newValue: status || currentStatus,
-        userId: session.user?.id || null,
-        userName: session.user?.name || 'System',
-        description:
-          approvalNotes ||
-          (status === 'APPROVED'
-            ? 'Purchase return approved'
-            : status === 'CANCELLED'
-            ? 'Purchase return cancelled'
-            : 'Purchase return updated'),
-      };
-
-      // Append to existing activity history
-      const existingHistory = (existingReturn.activityHistory as any) || [];
-      updateData.activityHistory = [...existingHistory, activityEntry];
+      // Log activity to centralized ActivityLog table
+      await tx.activityLog.create({
+        data: {
+          entityType: 'purchase_return',
+          entityId: systemId,
+          action: status ? 'status_changed' : 'updated',
+          actionType: status ? 'status' : 'update',
+          changes: status ? { status: { from: currentStatus, to: status } } : undefined,
+          note: approvalNotes ||
+            (status === 'APPROVED'
+              ? 'Purchase return approved'
+              : status === 'CANCELLED'
+              ? 'Purchase return cancelled'
+              : 'Purchase return updated'),
+          createdBy: session.user?.id || null,
+          metadata: { userName: session.user?.name || 'System' },
+        },
+      });
 
       // Perform update
       const updated = await tx.purchaseReturn.update({
@@ -220,10 +255,30 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     await prisma.$transaction(async (tx) => {
       // If not cancelled, reverse the inventory and supplier balance changes
       if (purchaseReturn.status !== 'CANCELLED') {
-        const returnItems = (purchaseReturn.returnItems as any) || [];
+        interface ReturnItemRecord {
+          productSystemId: string;
+          productName?: string;
+          returnQuantity: number;
+        }
+        const returnItems = (purchaseReturn.returnItems as ReturnItemRecord[] | null) || [];
 
         // Restore inventory
         for (const item of returnItems) {
+          // Get current inventory for stock history
+          let currentStock = 0;
+          if (purchaseReturn.branchSystemId) {
+            const productInventory = await tx.productInventory.findUnique({
+              where: {
+                productId_branchId: {
+                  productId: item.productSystemId,
+                  branchId: purchaseReturn.branchSystemId,
+                },
+              },
+            });
+            currentStock = productInventory?.onHand || 0;
+          }
+          const newStock = currentStock + item.returnQuantity;
+
           if (purchaseReturn.branchSystemId) {
             await tx.productInventory.updateMany({
               where: {
@@ -232,6 +287,23 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
               },
               data: {
                 onHand: { increment: item.returnQuantity },
+              },
+            });
+            
+            // ✅ Create stock history record
+            await tx.stockHistory.create({
+              data: {
+                productId: item.productSystemId,
+                branchId: purchaseReturn.branchSystemId,
+                action: 'Nhập kho xóa trả NCC',
+                source: 'Phiếu trả hàng nhập',
+                quantityChange: item.returnQuantity,
+                newStockLevel: newStock,
+                documentId: purchaseReturn.id,
+                documentType: 'purchase_return',
+                employeeId: session.user?.id,
+                employeeName: session.user?.name || undefined,
+                note: `Nhập lại kho do xóa phiếu trả NCC - ${item.productName || item.productSystemId}`,
               },
             });
           }
@@ -251,7 +323,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         }
 
         // Restore supplier balance
-        if (Number(purchaseReturn.refundAmount) > 0) {
+        if (Number(purchaseReturn.refundAmount) > 0 && purchaseReturn.supplierId) {
           await tx.supplier.update({
             where: { systemId: purchaseReturn.supplierId },
             data: {

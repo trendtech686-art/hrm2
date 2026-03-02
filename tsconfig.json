@@ -51,6 +51,19 @@
     "generated/prisma/internal",
     "generated/prisma/models",
     "uploads",
-    "**/*.tsbuildinfo"
+    "**/*.tsbuildinfo",
+    "prisma/seeds/**",
+    "scripts/utils/**",
+    "scripts/dev-utils/**",
+    "test-*.ts",
+    "check-*.ts",
+    "get-*.ts",
+    "delete-*.ts",
+    "force-*.ts",
+    "reset-*.ts",
+    "debug-*.ts",
+    "fix-*.ts",
+    "update-*.ts",
+    "summary-*.ts"
   ]
 }

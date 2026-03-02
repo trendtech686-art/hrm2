@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@/generated/prisma/client'
-import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
+import { requireAuth, apiSuccess, apiSuccessCached, apiError } from '@/lib/api-utils'
+import { generateIdWithPrefix } from '@/lib/id-generator'
 
 const SETTING_KEY = 'role-settings'
 const SETTING_GROUP = 'hrm'
@@ -19,10 +20,10 @@ export async function GET() {
     })
 
     if (!setting) {
-      return apiSuccess({ data: null })
+      return apiSuccessCached({ data: null })
     }
 
-    return apiSuccess({ data: setting.value })
+    return apiSuccessCached({ data: setting.value })
   } catch (error) {
     console.error('Error fetching role settings:', error)
     return apiError('Failed to fetch role settings', 500)
@@ -58,7 +59,7 @@ export async function PUT(request: Request) {
         updatedAt: new Date(),
       },
       create: {
-        systemId: `SET_ROLE_${Date.now()}`,
+        systemId: await generateIdWithPrefix('SET_ROLE', prisma),
         key: SETTING_KEY,
         group: SETTING_GROUP,
         type: 'json',

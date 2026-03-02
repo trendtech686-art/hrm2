@@ -11,11 +11,11 @@ import { PkgxBrandActionsCell } from './pkgx-brand-actions-cell';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar";
 import { InlineEditableCell } from '../../components/shared/inline-editable-cell';
-import { useProductStore } from '../products/store';
 
 const formatDate = (dateString?: string) => {
   if (!dateString) return '';
   const date = new Date(dateString);
+  if (isNaN(date.getTime())) return '';
   return new Intl.DateTimeFormat('vi-VN', {
     day: '2-digit',
     month: '2-digit',
@@ -57,15 +57,6 @@ export const getColumns = (
   onPkgxUnlink?: (brand: Brand) => void,
   onPkgxViewDetail?: (brand: Brand, pkgxBrandId: number) => void,
 ): ColumnDef<Brand>[] => {
-  // Get product counts per brand
-  const productStore = useProductStore.getState();
-  const productCountByBrand: Record<string, number> = {};
-  productStore.data.forEach(p => {
-    if (p.brandSystemId && !p.isDeleted) {
-      productCountByBrand[String(p.brandSystemId)] = (productCountByBrand[String(p.brandSystemId)] || 0) + 1;
-    }
-  });
-
   return [
   {
     id: "select",
@@ -165,7 +156,7 @@ export const getColumns = (
                   </Button>
                 </div>
                 {brand.description && (
-                  <span className="text-xs text-muted-foreground truncate max-w-[200px]" title={brand.description}>
+                  <span className="text-xs text-muted-foreground truncate max-w-50" title={brand.description}>
                     {brand.description}
                   </span>
                 )}
@@ -190,7 +181,7 @@ export const getColumns = (
             )}
           </div>
           {brand.description && (
-            <span className="text-xs text-muted-foreground truncate max-w-[200px]" title={brand.description}>
+            <span className="text-xs text-muted-foreground truncate max-w-50" title={brand.description}>
               {brand.description}
             </span>
           )}
@@ -235,7 +226,7 @@ export const getColumns = (
     header: "SP",
     cell: ({ row }) => {
       const brand = row as Brand;
-      const count = productCountByBrand[String(brand.systemId)] || 0;
+      const count = (brand as Brand & { _count?: { products?: number } })._count?.products ?? 0;
       return (
         <Badge variant="outline" className="font-mono text-xs gap-1">
           <Package className="h-3 w-3" />
@@ -266,7 +257,7 @@ export const getColumns = (
           onClick={(e) => e.stopPropagation()}
         >
           <Globe className="h-3 w-3" />
-          <span className="truncate max-w-[150px]">{brand.website.replace(/^https?:\/\//, '')}</span>
+          <span className="truncate max-w-37.5">{brand.website.replace(/^https?:\/\//, '')}</span>
           <ExternalLink className="h-3 w-3" />
         </a>
       );
@@ -417,14 +408,16 @@ export const getColumns = (
       const pkgxId = getPkgxBrandId?.(brand);
       
       return (
-        <PkgxBrandActionsCell
-          brand={brand}
-          hasPkgxMapping={hasMapping}
-          pkgxBrandId={pkgxId}
-          onPkgxLink={onPkgxLink}
-          onPkgxUnlink={onPkgxUnlink}
-          onPkgxViewDetail={onPkgxViewDetail}
-        />
+        <div onClick={(e) => e.stopPropagation()}>
+          <PkgxBrandActionsCell
+            brand={brand}
+            hasPkgxMapping={hasMapping}
+            pkgxBrandId={pkgxId}
+            onPkgxLink={onPkgxLink}
+            onPkgxUnlink={onPkgxUnlink}
+            onPkgxViewDetail={onPkgxViewDetail}
+          />
+        </div>
       );
     },
     size: 70,

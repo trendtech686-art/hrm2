@@ -12,7 +12,7 @@ export function StatusTimeline({ status, deliveryStatus, orderDate }: StatusTime
   let currentStep = 0;
   if (status === 'Hoàn thành' || status === 'Kết thúc' || status === 'Đã trả hàng') {
     currentStep = 2;
-  } else if (deliveryStatus === 'Đã nhập' || deliveryStatus === 'Đã nhập một phần') {
+  } else if (deliveryStatus === 'Đã nhập') {
     currentStep = 1;
   }
 

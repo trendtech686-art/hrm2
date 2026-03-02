@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import { useRouter, useParams } from 'next/navigation';
 import { formatDate as formatDateUtil, getCurrentDate, getDaysDiff, parseDate } from '@/lib/date-utils';
 import { asSystemId, type SystemId } from '@/lib/id-types';
+import { generateSubEntityId } from '@/lib/id-utils';
 import { 
   calculateHealthScore, 
   calculateChurnRisk, 
@@ -20,7 +21,7 @@ import { useAllCustomers } from './hooks/use-all-customers';
 import type { Customer } from '@/lib/types/prisma-extended';
 import { useAllOrders } from '../orders/hooks/use-all-orders';
 import { useAllWarranties } from '../warranty/hooks/use-all-warranties';
-import { useComplaints } from '../complaints/hooks/use-complaints';
+import { useAllComplaints } from '../complaints/hooks/use-all-complaints';
 import { useAllReceipts } from '../receipts/hooks/use-all-receipts';
 import { useAllPayments } from '../payments/hooks/use-all-payments';
 import { useEmployeeFinder } from '../employees/hooks/use-all-employees';
@@ -154,8 +155,7 @@ export function CustomerDetailPage() {
   const { data: allSalesReturns } = useAllSalesReturns();
   const { data: allWarrantyTickets } = useAllWarranties();
   const { data: allCustomers = [] } = useAllCustomers();
-  const { data: queryData } = useComplaints({ limit: 1000 });
-  const allComplaints = React.useMemo(() => queryData?.data ?? [], [queryData?.data]);
+  const { data: allComplaints = [] } = useAllComplaints();
   const { data: allReceipts } = useAllReceipts();
   const { data: allPayments } = useAllPayments();
   const { findById: findEmployeeById } = useEmployeeFinder();
@@ -318,7 +318,7 @@ export function CustomerDetailPage() {
 
   const buildDrilldownSearch = React.useCallback((query: string): DrilldownSearch => ({
     query,
-    token: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    token: generateSubEntityId('token'),
   }), []);
 
   const handleOrderSearchApplied = React.useCallback(() => setOrderDrilldownSearch(null), []);
@@ -354,11 +354,16 @@ export function CustomerDetailPage() {
   const { data: paymentTermsData } = usePaymentTerms();
   const { data: creditRatingsData } = useCreditRatings();
 
-  const customerTypes = React.useMemo(() => Array.isArray(customerTypesData) ? customerTypesData : ((customerTypesData as any)?.data ?? []), [customerTypesData]);
-  const customerGroups = React.useMemo(() => Array.isArray(customerGroupsData) ? customerGroupsData : ((customerGroupsData as any)?.data ?? []), [customerGroupsData]);
-  const customerSources = React.useMemo(() => Array.isArray(customerSourcesData) ? customerSourcesData : ((customerSourcesData as any)?.data ?? []), [customerSourcesData]);
-  const paymentTerms = React.useMemo(() => Array.isArray(paymentTermsData) ? paymentTermsData : ((paymentTermsData as any)?.data ?? []), [paymentTermsData]);
-  const creditRatings = React.useMemo(() => Array.isArray(creditRatingsData) ? creditRatingsData : ((creditRatingsData as any)?.data ?? []), [creditRatingsData]);
+  // Helper type for settings data that could be array or object with data property
+  type SettingsDataResult<T> = T[] | { data: T[] } | undefined;
+  const extractData = React.useCallback(<T,>(data: SettingsDataResult<T>): T[] => 
+    Array.isArray(data) ? data : (data as { data: T[] } | undefined)?.data ?? [], []);
+    
+  const customerTypes = React.useMemo(() => extractData(customerTypesData), [extractData, customerTypesData]);
+  const customerGroups = React.useMemo(() => extractData(customerGroupsData), [extractData, customerGroupsData]);
+  const customerSources = React.useMemo(() => extractData(customerSourcesData), [extractData, customerSourcesData]);
+  const paymentTerms = React.useMemo(() => extractData(paymentTermsData), [extractData, paymentTermsData]);
+  const creditRatings = React.useMemo(() => extractData(creditRatingsData), [extractData, creditRatingsData]);
 
   // Lookup names
   const getTypeName = React.useCallback((id?: string) => id ? customerTypes.find(t => t.systemId === id)?.name : undefined, [customerTypes]);
@@ -1450,7 +1455,7 @@ export function CustomerDetailPage() {
             <CustomerAddresses 
               addresses={customer.addresses || []} 
               onUpdate={(newAddresses) => {
-                update.mutate({ systemId: customer.systemId, addresses: newAddresses } as any);
+                update.mutate({ systemId: customer.systemId, addresses: newAddresses } as Partial<Customer> & { systemId: string });
               }}
             />
           </TabsContent>

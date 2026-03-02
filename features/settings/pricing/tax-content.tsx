@@ -2,7 +2,8 @@
 
 import * as React from "react";
 import { asBusinessId, type SystemId } from "@/lib/id-types";
-import { useTaxes, useTaxMutations } from "../taxes/hooks/use-taxes";
+import { useTaxMutations } from "../taxes/hooks/use-taxes";
+import { useAllTaxes } from "../taxes/hooks/use-taxes";
 import type { Tax } from "../taxes/types";
 import { TaxTable } from "./tax-table";
 import { Button } from "../../../components/ui/button";
@@ -32,9 +33,9 @@ type TaxFormValues = {
     description?: string;
 };
 
-export function TaxContent({ isActive: _isActive, onRegisterActions }: TaxContentProps) {
-    const { data: queryData } = useTaxes({ limit: 1000 });
-    const data = React.useMemo(() => queryData?.data ?? [], [queryData?.data]);
+export function TaxContent({ isActive, onRegisterActions }: TaxContentProps) {
+    const { data: allTaxData } = useAllTaxes();
+    const data = React.useMemo(() => allTaxData ?? [], [allTaxData]);
     const { create, update, remove, setDefaultSale, setDefaultPurchase } = useTaxMutations({
         onSuccess: () => {},
         onError: (err) => toast.error(err.message)
@@ -56,7 +57,8 @@ export function TaxContent({ isActive: _isActive, onRegisterActions }: TaxConten
         },
     });
 
-    const handleAddNew = React.useCallback(() => {
+    // Store handler in ref to always have fresh closure
+    const handleAddNewRef = React.useRef(() => {
         setEditingTax(null);
         form.reset({
             id: '',
@@ -67,17 +69,53 @@ export function TaxContent({ isActive: _isActive, onRegisterActions }: TaxConten
             description: '',
         });
         setIsFormOpen(true);
-    }, [form]);
-
-    // Register actions when component mounts or onRegisterActions changes
+    });
+    
+    // Update ref on every render
     React.useEffect(() => {
-        onRegisterActions([
-            <SettingsActionButton key="add" onClick={handleAddNew}>
+        handleAddNewRef.current = () => {
+            setEditingTax(null);
+            form.reset({
+                id: '',
+                name: '',
+                rate: 0,
+                isDefaultSale: false,
+                isDefaultPurchase: false,
+                description: '',
+            });
+            setIsFormOpen(true);
+        };
+    });
+
+    // Register actions - use ref wrapper
+    React.useEffect(() => {
+        const actions = [
+            <SettingsActionButton 
+                key="add" 
+                onClick={() => handleAddNewRef.current()}
+            >
                 <PlusCircle className="h-4 w-4" />
                 Thêm thuế
             </SettingsActionButton>
-        ]);
-    }, [onRegisterActions, handleAddNew]);
+        ];
+        onRegisterActions(actions);
+    }, [onRegisterActions]);
+    
+    // Close dialog when tab becomes inactive
+    React.useEffect(() => {
+        if (!isActive && isFormOpen) {
+            setIsFormOpen(false);
+            setEditingTax(null);
+            form.reset({
+                id: '',
+                name: '',
+                rate: 0,
+                isDefaultSale: false,
+                isDefaultPurchase: false,
+                description: '',
+            });
+        }
+    }, [isActive, isFormOpen, form]);
     
     const handleEdit = React.useCallback((tax: Tax) => {
         setEditingTax(tax);
@@ -164,7 +202,20 @@ export function TaxContent({ isActive: _isActive, onRegisterActions }: TaxConten
                 onSetDefaultPurchase={handleSetDefaultPurchase}
             />
 
-            <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+            <Dialog open={isFormOpen} onOpenChange={(open) => {
+                setIsFormOpen(open);
+                if (!open) {
+                    setEditingTax(null);
+                    form.reset({
+                        id: '',
+                        name: '',
+                        rate: 0,
+                        isDefaultSale: false,
+                        isDefaultPurchase: false,
+                        description: '',
+                    });
+                }
+            }}>
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>{editingTax ? 'Cập nhật thuế' : 'Thêm thuế mới'}</DialogTitle>
@@ -173,7 +224,7 @@ export function TaxContent({ isActive: _isActive, onRegisterActions }: TaxConten
                         </DialogDescription>
                     </DialogHeader>
                     
-                    <Form {...form}>
+                    <Form {...form} key={editingTax?.systemId || 'new-tax'}>
                         <form id="tax-form" onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4">
                             <div className="grid grid-cols-2 gap-4">
                                 <FormField

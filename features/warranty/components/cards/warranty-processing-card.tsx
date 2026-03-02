@@ -1,4 +1,4 @@
-/**
+﻿/**
  * WarrantyProcessingCard
  * 
  * Card xử lý bảo hành - Hiển thị các action và lịch sử thanh toán
@@ -15,7 +15,6 @@ import type { WarrantyTicket } from '../../types';
 import { useWarrantyTransactionGroups } from '../../hooks/use-warranty-transaction-groups';
 import type { WarrantySettlementState } from '../../hooks/use-warranty-settlement';
 import { WarrantyTransactionGroups } from '../sections/warranty-transaction-groups';
-import type { Order } from '../../../orders/types';
 import type { WarrantyCustomerInfo } from '../../types';
 
 interface WarrantyProcessingCardProps {
@@ -27,7 +26,6 @@ interface WarrantyProcessingCardProps {
   branchName?: string | undefined;
   ticket?: WarrantyTicket | undefined; // Add ticket to get cancelReason
   settlement: WarrantySettlementState;
-  orders: Order[];
 }
 
 export function WarrantyProcessingCard({
@@ -39,7 +37,6 @@ export function WarrantyProcessingCard({
   branchName,
   ticket,
   settlement,
-  orders,
 }: WarrantyProcessingCardProps) {
   const { user } = useAuth();
 
@@ -76,7 +73,7 @@ export function WarrantyProcessingCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">
+        <CardTitle>
           Xử lý bảo hành
         </CardTitle>
       </CardHeader>
@@ -119,7 +116,6 @@ export function WarrantyProcessingCard({
             <WarrantyTransactionGroups
               groups={transactionGroups}
               totalPayment={totalPayment}
-              orders={orders}
               settlementMethods={settlementMethods}
             />
           )}

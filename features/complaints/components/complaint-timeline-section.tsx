@@ -8,6 +8,11 @@ interface Props {
 }
 
 export const ComplaintTimelineSection: React.FC<Props> = React.memo(({ complaint, employees }) => {
+  // ✅ Add null check for timeline
+  if (!complaint.timeline || complaint.timeline.length === 0) {
+    return null;
+  }
+  
   return (
     <ActivityHistory
       history={complaint.timeline.map((action): HistoryEntry => {

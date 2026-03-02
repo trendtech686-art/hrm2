@@ -1,4 +1,4 @@
-/**
+﻿/**
  * DeliveryAddressCard
  * Display customer shipping address information
  */
@@ -24,7 +24,7 @@ export function DeliveryAddressCard({
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+          <CardTitle size="sm" className="flex items-center gap-2">
             <MapPin className="h-4 w-4" />
             Địa chỉ giao hàng
           </CardTitle>

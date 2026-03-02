@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -74,7 +74,7 @@ export function OtpVerificationPage() {
     <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle className="text-2xl">Xác thực OTP</CardTitle>
+          <CardTitle size="lg">Xác thực OTP</CardTitle>
           <CardDescription>
             Nhập mã OTP 6 chữ số đã được gửi đến email<br />
             <span className="font-semibold">{email}</span>

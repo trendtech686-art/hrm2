@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import type { ReceiptInput } from './store';
+import type { ReceiptInput } from './types';
 import { useAllReceipts, useReceiptFinder } from './hooks/use-all-receipts';
 import { useReceiptMutations } from './hooks/use-receipts';
 import { ReceiptForm, type ReceiptFormValues } from './receipt-form';

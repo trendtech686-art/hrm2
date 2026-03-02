@@ -5,8 +5,30 @@
 import React from 'react';
 import { toast } from 'sonner';
 import type { Brand } from '@/features/settings/inventory/types';
+import type { PkgxBrandMapping, PkgxSettings } from '@/features/settings/pkgx/types';
 import { updateBrand, getBrandById } from '@/lib/pkgx/api-service';
 import { usePkgxSettings, usePkgxBrandMutations, usePkgxBrandMappings } from '@/features/settings/pkgx/hooks/use-pkgx-settings';
+
+// Types for imported brand data from PKGX
+type PkgxImportedBrandData = {
+  name?: string;
+  website?: string;
+  description?: string;
+  seoTitle?: string;
+  metaDescription?: string;
+  seoKeywords?: string;
+  shortDescription?: string;
+  longDescription?: string;
+  websiteSeo?: {
+    pkgx?: {
+      seoTitle?: string;
+      metaDescription?: string;
+      seoKeywords?: string;
+      shortDescription?: string;
+      longDescription?: string;
+    };
+  };
+};
 
 // Types
 type PkgxLogEntry = {
@@ -27,9 +49,9 @@ type UsePkgxBrandSyncOptions = {
 /**
  * Lấy pkgxBrandId từ brand mapping
  */
-function getPkgxBrandId(brand: Brand, brandMappings?: Array<{ hrmBrandSystemId: string; pkgxBrandId: number }>) {
+function getPkgxBrandId(brand: Brand, brandMappings?: PkgxBrandMapping[]) {
   if (!brandMappings) return undefined;
-  const mapping = brandMappings.find(m => m.hrmBrandSystemId === brand.systemId);
+  const mapping = brandMappings.find(m => m.hrmBrandId === brand.systemId);
   return mapping?.pkgxBrandId;
 }
 
@@ -37,7 +59,7 @@ function getPkgxBrandId(brand: Brand, brandMappings?: Array<{ hrmBrandSystemId: 
  * Hook cung cấp các handlers để đồng bộ Brand với PKGX
  */
 export function usePkgxBrandSync({ addPkgxLog }: UsePkgxBrandSyncOptions = {}) {
-  const { data: pkgxSettings } = usePkgxSettings();
+  const { data: pkgxSettings, refetch: refetchSettings } = usePkgxSettings();
   const brandMappings = usePkgxBrandMappings();
   const { updateBrand: updateBrandMutation } = usePkgxBrandMutations();
 
@@ -53,7 +75,7 @@ export function usePkgxBrandSync({ addPkgxLog }: UsePkgxBrandSyncOptions = {}) {
   // ═══════════════════════════════════════════════════════════════
   const refreshBrandFromPkgx = React.useCallback(async (pkgxBrandId: number) => {
     try {
-      const response = await getBrandById(pkgxBrandId);
+      const response = await getBrandById(pkgxBrandId, pkgxSettings as PkgxSettings);
       if (response.success && response.data) {
         // Cập nhật vào store
         updateBrandMutation.mutate({
@@ -71,12 +93,16 @@ export function usePkgxBrandSync({ addPkgxLog }: UsePkgxBrandSyncOptions = {}) {
     } catch (_error) {
       // Silently ignore sync errors
     }
-  }, [updateBrandMutation]);
+  }, [updateBrandMutation, pkgxSettings]);
 
   // ═══════════════════════════════════════════════════════════════
   // 1. SYNC THÔNG TIN CƠ BẢN (brand_name, site_url)
   // ═══════════════════════════════════════════════════════════════
   const handleSyncBasicInfo = React.useCallback(async (brand: Brand) => {
+    // Force refetch settings để đảm bảo enabled status mới nhất
+    const { data: freshSettings } = await refetchSettings();
+    console.log('🔍 Fresh Settings:', { enabled: freshSettings?.enabled, apiKey: freshSettings?.apiKey?.slice(0, 10) + '...' });
+    
     const pkgxBrandId = getPkgxBrandId(brand, brandMappings);
     
     if (!pkgxBrandId) {
@@ -93,7 +119,7 @@ export function usePkgxBrandSync({ addPkgxLog }: UsePkgxBrandSyncOptions = {}) {
       };
       
       
-      const response = await updateBrand(pkgxBrandId, basicPayload);
+      const response = await updateBrand(pkgxBrandId, basicPayload, freshSettings as PkgxSettings);
       
       if (response.success) {
         // Auto-refresh để cập nhật store
@@ -118,13 +144,16 @@ export function usePkgxBrandSync({ addPkgxLog }: UsePkgxBrandSyncOptions = {}) {
         details: { brandId: brand.systemId, error: error instanceof Error ? error.message : String(error) },
       });
     }
-  }, [pkgxSettings, brandMappings, logAction, refreshBrandFromPkgx]);
+  }, [brandMappings, logAction, refreshBrandFromPkgx, refetchSettings]);
 
   // ═══════════════════════════════════════════════════════════════
   // 2. SYNC SEO (keywords, meta_title, meta_desc)
   // ═══════════════════════════════════════════════════════════════
   const handleSyncSeo = React.useCallback(async (brand: Brand) => {
-    const pkgxBrandId = getPkgxBrandId(brand, pkgxSettings?.brandMappings);
+    // Force refetch settings để đảm bảo enabled status mới nhất
+    const { data: freshSettings } = await refetchSettings();
+    
+    const pkgxBrandId = getPkgxBrandId(brand, brandMappings);
     
     if (!pkgxBrandId) {
       toast.error('Thương hiệu chưa được liên kết với PKGX. Vui lòng mapping trong Cài đặt > PKGX.');
@@ -145,7 +174,7 @@ export function usePkgxBrandSync({ addPkgxLog }: UsePkgxBrandSyncOptions = {}) {
       
       // DEBUG
       
-      const response = await updateBrand(pkgxBrandId, seoPayload);
+      const response = await updateBrand(pkgxBrandId, seoPayload, freshSettings as PkgxSettings);
       
       if (response.success) {
         // Auto-refresh để cập nhật store
@@ -170,13 +199,16 @@ export function usePkgxBrandSync({ addPkgxLog }: UsePkgxBrandSyncOptions = {}) {
         details: { brandId: brand.systemId, error: error instanceof Error ? error.message : String(error) },
       });
     }
-  }, [pkgxSettings?.brandMappings, logAction, refreshBrandFromPkgx]);
+  }, [brandMappings, logAction, refreshBrandFromPkgx, refetchSettings]);
 
   // ═══════════════════════════════════════════════════════════════
   // 3. SYNC MÔ TẢ (short_desc, long_desc)
   // ═══════════════════════════════════════════════════════════════
   const handleSyncDescription = React.useCallback(async (brand: Brand) => {
-    const pkgxBrandId = getPkgxBrandId(brand, pkgxSettings?.brandMappings);
+    // Force refetch settings để đảm bảo enabled status mới nhất
+    const { data: freshSettings } = await refetchSettings();
+    
+    const pkgxBrandId = getPkgxBrandId(brand, brandMappings);
     
     if (!pkgxBrandId) {
       toast.error('Thương hiệu chưa được liên kết với PKGX. Vui lòng mapping trong Cài đặt > PKGX.');
@@ -194,7 +226,7 @@ export function usePkgxBrandSync({ addPkgxLog }: UsePkgxBrandSyncOptions = {}) {
       };
       
       
-      const response = await updateBrand(pkgxBrandId, descPayload);
+      const response = await updateBrand(pkgxBrandId, descPayload, freshSettings as PkgxSettings);
       
       if (response.success) {
         // Auto-refresh để cập nhật store
@@ -219,13 +251,16 @@ export function usePkgxBrandSync({ addPkgxLog }: UsePkgxBrandSyncOptions = {}) {
         details: { brandId: brand.systemId, error: error instanceof Error ? error.message : String(error) },
       });
     }
-  }, [pkgxSettings?.brandMappings, logAction, refreshBrandFromPkgx]);
+  }, [brandMappings, logAction, refreshBrandFromPkgx, refetchSettings]);
 
   // ═══════════════════════════════════════════════════════════════
   // 4. SYNC TẤT CẢ (Thông tin cơ bản + SEO + Mô tả)
   // ═══════════════════════════════════════════════════════════════
   const handleSyncAll = React.useCallback(async (brand: Brand) => {
-    const pkgxBrandId = getPkgxBrandId(brand, pkgxSettings?.brandMappings);
+    // Force refetch settings để đảm bảo enabled status mới nhất
+    const { data: freshSettings } = await refetchSettings();
+    
+    const pkgxBrandId = getPkgxBrandId(brand, brandMappings);
     
     if (!pkgxBrandId) {
       toast.error('Thương hiệu chưa được liên kết với PKGX. Vui lòng mapping trong Cài đặt > PKGX.');
@@ -253,7 +288,7 @@ export function usePkgxBrandSync({ addPkgxLog }: UsePkgxBrandSyncOptions = {}) {
       };
       
       
-      const response = await updateBrand(pkgxBrandId, fullPayload);
+      const response = await updateBrand(pkgxBrandId, fullPayload, freshSettings as PkgxSettings);
       
       if (response.success) {
         // Auto-refresh để cập nhật store
@@ -278,21 +313,112 @@ export function usePkgxBrandSync({ addPkgxLog }: UsePkgxBrandSyncOptions = {}) {
         details: { brandId: brand.systemId, error: error instanceof Error ? error.message : String(error) },
       });
     }
-  }, [pkgxSettings?.brandMappings, logAction, refreshBrandFromPkgx]);
+  }, [brandMappings, logAction, refreshBrandFromPkgx, refetchSettings]);
 
   // ═══════════════════════════════════════════════════════════════
   // HELPER: Kiểm tra brand có mapping với PKGX không
   // ═══════════════════════════════════════════════════════════════
   const hasPkgxMapping = React.useCallback((brand: Brand) => {
-    return !!getPkgxBrandId(brand, pkgxSettings?.brandMappings);
-  }, [pkgxSettings?.brandMappings]);
+    return !!getPkgxBrandId(brand, brandMappings);
+  }, [brandMappings]);
+
+  // ═══════════════════════════════════════════════════════════════
+  // 5. IMPORT DATA TỪ PKGX VỀ HRM (kéo title, meta, name, description)
+  // ═══════════════════════════════════════════════════════════════
+  const handleImportFromPkgx = React.useCallback(async (brand: Brand, onImportSuccess?: (data: PkgxImportedBrandData) => void) => {
+    console.log('🎯 handleImportFromPkgx called');
+    console.log('pkgxSettings:', pkgxSettings);
+    console.log('brandMappings:', brandMappings);
+    
+    const pkgxBrandId = getPkgxBrandId(brand, brandMappings);
+    
+    console.log('pkgxBrandId:', pkgxBrandId);
+    
+    if (!pkgxBrandId) {
+      toast.error('Thương hiệu chưa được liên kết với PKGX. Vui lòng mapping trong Cài đặt > PKGX.');
+      return;
+    }
+    
+    toast.loading(`Đang import dữ liệu từ PKGX...`, { id: 'pkgx-brand-import' });
+    
+    try {
+      const response = await getBrandById(pkgxBrandId, pkgxSettings as PkgxSettings);
+      
+      if (response.success && response.data) {
+        const pkgxData = response.data;
+        
+        // Debug: Log dữ liệu từ PKGX API
+        console.log('🔍 PKGX Brand Data:', pkgxData);
+        console.log('📋 Fields:', {
+          brand_name: pkgxData.brand_name,
+          meta_title: pkgxData.meta_title,
+          meta_desc: pkgxData.meta_desc,
+          keywords: pkgxData.keywords,
+          short_desc: pkgxData.short_desc,
+          long_desc: pkgxData.long_desc,
+        });
+        
+        // Chuẩn bị data để fill form
+        // API PKGX trả về: brand_name, site_url, brand_desc, meta_title, meta_desc, keywords, short_desc, long_desc
+        const importedData = {
+          // Thông tin cơ bản
+          name: pkgxData.brand_name || brand.name,
+          website: pkgxData.site_url || brand.website,
+          description: pkgxData.brand_desc || brand.description,
+          
+          // SEO fields - map từ API response
+          seoTitle: pkgxData.meta_title || brand.seoTitle,
+          metaDescription: pkgxData.meta_desc || brand.metaDescription,
+          seoKeywords: pkgxData.keywords || brand.seoKeywords,
+          shortDescription: pkgxData.short_desc || brand.shortDescription,
+          longDescription: pkgxData.long_desc || brand.longDescription,
+          
+          // Website SEO (lưu vào pkgx nested object)
+          websiteSeo: {
+            pkgx: {
+              seoTitle: pkgxData.meta_title || '',
+              metaDescription: pkgxData.meta_desc || '',
+              seoKeywords: pkgxData.keywords || '',
+              shortDescription: pkgxData.short_desc || '',
+              longDescription: pkgxData.long_desc || '',
+            }
+          }
+        };
+        
+        toast.success(`Đã import dữ liệu từ PKGX: ${pkgxData.brand_name}`, { id: 'pkgx-brand-import' });
+        
+        // Callback để parent component update form
+        if (onImportSuccess) {
+          onImportSuccess(importedData);
+        }
+        
+        logAction({
+          action: 'sync_brand_all',
+          status: 'success',
+          message: `Import thành công từ PKGX: ${pkgxData.brand_name}`,
+          details: { brandId: brand.systemId, pkgxBrandId, importedData },
+        });
+      } else {
+        throw new Error(response.error || 'Không tìm thấy dữ liệu');
+      }
+    } catch (error) {
+      toast.error(`Lỗi import từ PKGX: ${error instanceof Error ? error.message : 'Unknown error'}`, { id: 'pkgx-brand-import' });
+      logAction({
+        action: 'sync_brand_all',
+        status: 'error',
+        message: `Lỗi import từ PKGX: ${brand.name}`,
+        details: { brandId: brand.systemId, error: error instanceof Error ? error.message : String(error) },
+      });
+    }
+  }, [brandMappings, logAction, pkgxSettings]);
 
   return {
     handleSyncBasicInfo,
     handleSyncSeo,
     handleSyncDescription,
     handleSyncAll,
+    handleImportFromPkgx,
     hasPkgxMapping,
-    getPkgxBrandId: (brand: Brand) => getPkgxBrandId(brand, pkgxSettings?.brandMappings),
+    getPkgxBrandId: (brand: Brand) => getPkgxBrandId(brand, brandMappings),
   };
 }

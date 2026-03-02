@@ -1,5 +1,6 @@
 import { asSystemId } from '@/lib/id-types';
 import type { SystemId } from '@/lib/id-types';
+import { generateSubEntityId } from '@/lib/id-utils';
 import type { Complaint, ComplaintAction } from '../types';
 import { cancelPaymentsReceiptsAndInventory } from '../utils/cancel-payments-receipts-and-inventory';
 
@@ -26,7 +27,7 @@ export async function handleVerifyIncorrect(
   complaint: Complaint,
   currentUser: User,
   evidenceNote: string,
-  updateComplaint: (systemId: SystemId, updates: Partial<Complaint>) => void,
+  updateComplaint: (systemId: SystemId, updates: Partial<Complaint>) => Promise<void> | void,
   options?: {
     evidenceImages?: string[];
     evidenceVideos?: string[];
@@ -46,7 +47,7 @@ export async function handleVerifyIncorrect(
     const timeline: ComplaintAction[] = [
       ...complaint.timeline,
       {
-        id: asSystemId(`action_${Date.now()}`),
+        id: asSystemId(generateSubEntityId('ACTION')),
         actionType: "verified-incorrect",
         performedBy: asSystemId(currentUser.systemId),
         performedAt: new Date(),
@@ -70,6 +71,7 @@ export async function handleVerifyIncorrect(
     // STEP 5: Build update object - CHỈ UPDATE NHỮNG GÌ CẦN
     const updates: Record<string, unknown> = {
       verification: "verified-incorrect" as const,
+      isVerifiedCorrect: false, // ✅ Reset boolean field to match verification enum
       timeline,
       cancelledPaymentsReceipts,
       inventoryHistory: updatedInventoryHistory,
@@ -94,7 +96,7 @@ export async function handleVerifyIncorrect(
       updates.employeeImages = [
         ...(complaint.employeeImages || []),
         ...options.employeeImages.map(img => ({
-          id: asSystemId(img.id || `img_${Date.now()}`),
+          id: asSystemId(img.id || generateSubEntityId('IMG')),
           url: img.url,
           uploadedBy: asSystemId(img.uploadedBy || currentUser.systemId),
           uploadedAt: img.uploadedAt || new Date(),

@@ -1,7 +1,8 @@
 import * as React from "react";
 import { Plus } from "lucide-react";
 import { asBusinessId, type SystemId } from "@/lib/id-types";
-import { useReceiptTypes, useReceiptTypeMutations } from "./hooks/use-receipt-types";
+import { useReceiptTypeMutations } from "./hooks/use-receipt-types";
+import { useAllReceiptTypes } from "./hooks/use-all-receipt-types";
 import type { ReceiptType } from '@/lib/types/prisma-extended';
 import { ReceiptTypeForm, type ReceiptTypeFormValues } from "./form";
 import { Button } from "../../../components/ui/button";
@@ -34,8 +35,7 @@ type ReceiptTypesPageContentProps = {
 };
 
 export function ReceiptTypesPageContent({ isActive, onRegisterActions }: ReceiptTypesPageContentProps) {
-  const { data: queryData } = useReceiptTypes({ limit: 1000 });
-  const data = React.useMemo(() => queryData?.data ?? [], [queryData?.data]);
+  const { data } = useAllReceiptTypes();
   const { create, update, remove } = useReceiptTypeMutations({
     onSuccess: () => toast.success("Thao tác thành công"),
     onError: (err) => toast.error(err.message)
@@ -45,6 +45,8 @@ export function ReceiptTypesPageContent({ isActive, onRegisterActions }: Receipt
   const [editingItem, setEditingItem] = React.useState<ReceiptType | null>(null);
   const [isAlertOpen, setIsAlertOpen] = React.useState(false);
   const [idToDelete, setIdToDelete] = React.useState<SystemId | null>(null);
+  const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
+  const [isBulkDeleteOpen, setIsBulkDeleteOpen] = React.useState(false);
 
   const handleAddNew = React.useCallback(() => {
     setEditingItem(null);
@@ -63,22 +65,21 @@ export function ReceiptTypesPageContent({ isActive, onRegisterActions }: Receipt
   
   const handleToggleDefault = React.useCallback((item: ReceiptType, isDefault: boolean) => {
     if (isDefault) {
-      // Tắt mặc định của tất cả các loại khác
-      data.forEach(d => {
-        if (d.systemId !== item.systemId && d.isDefault) {
-          update.mutate({ systemId: d.systemId, data: { ...d, isDefault: false } });
-        }
-      });
-      update.mutate({ systemId: item.systemId, data: { ...item, isDefault: true } });
+      // Backend sẽ tự động tắt mặc định của các loại khác
+      update.mutate({ systemId: item.systemId, data: { isDefault: true } });
       toast.success(`Đã đặt "${item.name}" làm mặc định`);
     } else {
-      const other = data.find(d => d.systemId !== item.systemId && d.isActive);
-      if (other) {
-        update.mutate({ systemId: item.systemId, data: { ...item, isDefault: false } });
-        update.mutate({ systemId: other.systemId, data: { ...other, isDefault: true } });
-        toast.success(`Đã chuyển mặc định sang "${other.name}"`);
-      } else {
+      // Không cho phép tắt mặc định nếu chỉ còn 1 item
+      const activeItems = data.filter(d => d.isActive);
+      if (activeItems.length <= 1) {
         toast.error("Phải có ít nhất một loại phiếu thu mặc định");
+        return;
+      }
+      // Chuyển mặc định sang item active khác
+      const other = activeItems.find(d => d.systemId !== item.systemId);
+      if (other) {
+        update.mutate({ systemId: other.systemId, data: { isDefault: true } });
+        toast.success(`Đã chuyển mặc định sang "${other.name}"`);
       }
     }
   }, [data, update]);
@@ -86,6 +87,11 @@ export function ReceiptTypesPageContent({ isActive, onRegisterActions }: Receipt
   const handleToggleStatus = React.useCallback((item: ReceiptType, isActive: boolean) => {
     update.mutate({ systemId: item.systemId, data: { ...item, isActive } });
     toast.success(isActive ? `Đã kích hoạt "${item.name}"` : `Đã tắt "${item.name}"`);
+  }, [update]);
+
+  const handleToggleBusinessResult = React.useCallback((item: ReceiptType, isBusinessResult: boolean) => {
+    update.mutate({ systemId: item.systemId, data: { ...item, isBusinessResult } });
+    toast.success(isBusinessResult ? `Đã bật hạch toán cho "${item.name}"` : `Đã tắt hạch toán cho "${item.name}"`);
   }, [update]);
   
   const confirmDelete = () => {
@@ -97,6 +103,21 @@ export function ReceiptTypesPageContent({ isActive, onRegisterActions }: Receipt
     setIsAlertOpen(false);
     setIdToDelete(null);
   };
+
+  const handleBulkDelete = React.useCallback((selectedItems: { systemId: string }[]) => {
+    if (selectedItems.length === 0) return;
+    setIsBulkDeleteOpen(true);
+  }, []);
+
+  const confirmBulkDelete = () => {
+    const selectedIds = Object.keys(rowSelection);
+    selectedIds.forEach(id => {
+      remove.mutate(id as SystemId);
+    });
+    toast.success(`Đã xóa ${selectedIds.length} loại phiếu thu`);
+    setRowSelection({});
+    setIsBulkDeleteOpen(false);
+  };
   
   const handleFormSubmit = (values: ReceiptTypeFormValues) => {
     try {
@@ -107,8 +128,7 @@ export function ReceiptTypesPageContent({ isActive, onRegisterActions }: Receipt
         description: values.description?.trim() || undefined,
         isBusinessResult: values.isBusinessResult,
         isActive: values.isActive,
-        color: values.color?.trim() || undefined,
-      } satisfies Omit<ReceiptType, 'systemId' | 'createdAt'>;
+      } satisfies Omit<ReceiptType, 'systemId' | 'createdAt' | 'color'>;
 
       if (editingItem) {
         update.mutate({
@@ -138,38 +158,46 @@ export function ReceiptTypesPageContent({ isActive, onRegisterActions }: Receipt
         onEdit: handleEdit,
         onToggleDefault: handleToggleDefault,
         onToggleStatus: handleToggleStatus,
+        onToggleBusinessResult: handleToggleBusinessResult,
         onDelete: handleDeleteRequest,
       }),
-    [handleEdit, handleToggleDefault, handleToggleStatus, handleDeleteRequest]
+    [handleEdit, handleToggleDefault, handleToggleStatus, handleToggleBusinessResult, handleDeleteRequest]
   );
 
-  React.useEffect(() => {
-    if (!isActive) {
-      return;
-    }
-
+  // Register header actions - use ref to avoid stale closures
+  const handleAddNewRef = React.useRef(handleAddNew);
+  handleAddNewRef.current = handleAddNew;
+  
+  // Use useLayoutEffect to register actions BEFORE browser paint
+  // This ensures actions are visible immediately on first render
+  React.useLayoutEffect(() => {
+    if (!isActive) return;
     onRegisterActions([
-      <SettingsActionButton key="add-receipt-type" onClick={handleAddNew}>
+      <SettingsActionButton key="add-receipt-type" onClick={() => handleAddNewRef.current()}>
         <Plus className="mr-2 h-4 w-4" /> Thêm loại phiếu thu
       </SettingsActionButton>,
     ]);
-  }, [handleAddNew, isActive, onRegisterActions]);
+  }, [isActive, onRegisterActions]);
 
   return (
     <div className="space-y-4">
-      <div className="rounded-md border bg-background">
-        <SimpleSettingsTable
-          data={data}
-          columns={columns}
-          emptyTitle="Chưa có dữ liệu"
-          emptyDescription="Thêm loại phiếu thu đầu tiên để bắt đầu cấu hình"
-          emptyAction={
-            <Button size="sm" onClick={handleAddNew}>
-              Thêm loại mới
-            </Button>
-          }
-        />
-      </div>
+      <SimpleSettingsTable
+        data={data}
+        columns={columns}
+        emptyTitle="Chưa có dữ liệu"
+        emptyDescription="Thêm loại phiếu thu đầu tiên để bắt đầu cấu hình"
+        emptyAction={
+          <Button size="sm" onClick={handleAddNew}>
+            Thêm loại mới
+          </Button>
+        }
+        enableSelection
+        rowSelection={rowSelection}
+        setRowSelection={setRowSelection}
+        onBulkDelete={handleBulkDelete}
+        enablePagination
+        pagination={{ pageSize: 10, showInfo: true }}
+      />
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
         <DialogContent>
           <DialogHeader>
@@ -194,6 +222,21 @@ export function ReceiptTypesPageContent({ isActive, onRegisterActions }: Receipt
           <AlertDialogFooter>
             <AlertDialogCancel>Hủy</AlertDialogCancel>
             <AlertDialogAction onClick={confirmDelete}>Xóa</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={isBulkDeleteOpen} onOpenChange={setIsBulkDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Xóa {Object.keys(rowSelection).length} loại phiếu thu?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Hành động này không thể hoàn tác. Các loại phiếu thu đã chọn sẽ bị xóa vĩnh viễn.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Hủy</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmBulkDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Xóa tất cả</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

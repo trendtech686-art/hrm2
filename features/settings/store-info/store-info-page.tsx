@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import * as React from 'react';
 import { PlusCircle, MoreHorizontal, Edit, Trash2, ShieldCheck, Phone, MapPin, User } from 'lucide-react';
@@ -218,7 +218,8 @@ export function StoreInfoPage() {
 
     const handleFormSubmit = (values: BranchFormValues) => {
         if (editingBranch) {
-            updateBranch(editingBranch.systemId, { ...editingBranch, ...values });
+            // Only pass the values from form, don't spread editingBranch
+            updateBranch(editingBranch.systemId, values);
         } else {
             addBranch(values);
         }
@@ -548,7 +549,7 @@ export function StoreInfoPage() {
                         <Card key={branch.systemId} className="flex flex-col">
                              <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
                                 <div className="space-y-1">
-                                    <CardTitle className="text-base">{branch.name}</CardTitle>
+                                    <CardTitle>{branch.name}</CardTitle>
                                     <CardDescription>{branch.id}</CardDescription>
                                 </div>
                                 <DropdownMenu>

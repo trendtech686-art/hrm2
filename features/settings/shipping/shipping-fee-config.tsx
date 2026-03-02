@@ -19,7 +19,7 @@ export const ShippingFeeConfigPageContent: React.FC<ShippingFeeConfigPageContent
     toast.info('Nhập bảng phí sẽ khả dụng sau khi hoàn thiện API');
   }, []);
 
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
     if (!isActive) {
       return;
     }

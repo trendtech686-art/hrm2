@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Employee Documents Tab Component
  * Extracted from employee-form.tsx for better maintainability
  * 
@@ -202,7 +202,7 @@ export function EmployeeDocumentsTab({
         {(!isSearching || filteredLegalDocuments.length > 0) && (
           <Card>
             <CardHeader className="pb-4">
-              <CardTitle className="text-h6 text-primary">1. Tài liệu pháp lý</CardTitle>
+              <CardTitle className="text-primary">1. Tài liệu pháp lý</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -233,7 +233,7 @@ export function EmployeeDocumentsTab({
         {(!isSearching || filteredWorkProcessDocuments.length > 0 || filteredMultiFileDocuments.length > 0) && (
           <Card>
             <CardHeader className="pb-4">
-              <CardTitle className="text-h6 text-primary">2. Tài liệu trong quá trình làm việc</CardTitle>
+              <CardTitle className="text-primary">2. Tài liệu trong quá trình làm việc</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -283,7 +283,7 @@ export function EmployeeDocumentsTab({
         {(!isSearching || filteredTerminationDocuments.length > 0) && (
           <Card>
             <CardHeader className="pb-4">
-              <CardTitle className="text-h6 text-primary">3. Tài liệu khi nghỉ việc</CardTitle>
+              <CardTitle className="text-primary">3. Tài liệu khi nghỉ việc</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

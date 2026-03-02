@@ -7,13 +7,23 @@ import { PrismaClient } from '../generated/prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { Pool } from 'pg'
 
-const connectionString = process.env.DATABASE_URL
+// Strip quotes from DATABASE_URL if present (dotenv may include them)
+let connectionString = process.env.DATABASE_URL
 
 if (!connectionString) {
   throw new Error('DATABASE_URL is not defined in environment variables')
 }
 
-const pool = new Pool({ connectionString })
+// Remove surrounding quotes if present
+connectionString = connectionString.replace(/^["']|["']$/g, '')
+
+const pool = new Pool({ 
+  connectionString,
+  // Pool configuration for production stability
+  max: parseInt(process.env.DATABASE_POOL_SIZE || '20', 10),
+  idleTimeoutMillis: 30000,       // Close idle connections after 30s
+  connectionTimeoutMillis: 10000,  // Fail fast if can't connect in 10s
+})
 const adapter = new PrismaPg(pool)
 
 const globalForPrisma = globalThis as unknown as {
@@ -26,3 +36,6 @@ export const prisma = globalForPrisma.prisma ?? new PrismaClient({
 })
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
+
+// Default export for backwards compatibility
+export default prisma

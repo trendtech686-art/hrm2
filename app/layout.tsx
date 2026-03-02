@@ -1,11 +1,23 @@
 import type { Metadata } from "next"
-import { Inter } from "next/font/google"
+import { Inter, Source_Serif_4, Geist_Mono } from "next/font/google"
 import "./globals.css"
 import { Providers } from "./providers"
+import { preloadSettings } from "@/lib/data/settings"
 
 const inter = Inter({ 
   subsets: ["latin", "vietnamese"],
   variable: "--font-sans",
+})
+
+const sourceSerif4 = Source_Serif_4({
+  subsets: ["latin", "vietnamese"],
+  variable: "--font-serif",
+  axes: ["opsz"],
+})
+
+const geistMono = Geist_Mono({
+  subsets: ["latin"],
+  variable: "--font-mono",
 })
 
 export const metadata: Metadata = {
@@ -13,24 +25,21 @@ export const metadata: Metadata = {
   description: "Enterprise Resource Planning System",
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  // Preload common settings for faster page loads
+  // This runs on server during initial load
+  await preloadSettings()
+  
   return (
     <html lang="vi" className="font-size-base" suppressHydrationWarning>
       <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link 
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600;8..60,700&display=swap" 
-          rel="stylesheet" 
-        />
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1/dist/fonts/geist-mono.css" />
-        {/* Theme is now loaded from database after login */}
+        {/* Fonts are self-hosted via next/font — no external requests */}
       </head>
-      <body className={`${inter.variable} bg-background text-foreground antialiased`}>
+      <body className={`${inter.variable} ${sourceSerif4.variable} ${geistMono.variable} bg-background text-foreground antialiased`}>
         <Providers>
           {children}
         </Providers>

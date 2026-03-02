@@ -1,15 +1,25 @@
 /**
  * useAllPaymentTypes - Convenience hook for flat array of payment types
- * Returns all payment types (equivalent to old store's data array)
+ * Auto-pagination: no hardcoded limit cap (MODULE-QUALITY-CRITERIA §1.3)
  */
 
-import { usePaymentTypes } from './use-payment-types';
+import { useQuery } from '@tanstack/react-query';
+import { fetchAllPages } from '@/lib/fetch-all-pages';
+import { fetchPaymentTypes } from '../api/payment-types-api';
+import { paymentTypeKeys } from './use-payment-types';
 
 export function useAllPaymentTypes() {
-  const { data, ...rest } = usePaymentTypes({});
+  const query = useQuery({
+    queryKey: [...paymentTypeKeys.all, 'all'],
+    queryFn: () => fetchAllPages((p) => fetchPaymentTypes(p)),
+    staleTime: 10 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+  });
   return {
-    data: data?.data || [],
-    ...rest,
+    data: query.data || [],
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
   };
 }
 

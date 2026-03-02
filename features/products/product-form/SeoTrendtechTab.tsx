@@ -25,7 +25,7 @@ export function SeoTrendtechTab() {
       <CardContent className="space-y-4">
         <FormField
           control={form.control}
-          name="trendtechSlug"
+          name="seoTrendtech.slug"
           render={({ field }) => (
             <FormItem>
               <FormLabel>Slug Trendtech (URL)</FormLabel>

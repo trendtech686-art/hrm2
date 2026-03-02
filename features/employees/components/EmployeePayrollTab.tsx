@@ -1,4 +1,4 @@
-import * as React from "react";
+﻿import * as React from "react";
 import { UseFormReturn } from "react-hook-form";
 import { asSystemId, type SystemId } from '@/lib/id-types';
 import {
@@ -49,7 +49,7 @@ export function EmployeePayrollTab({
     <div className="mt-6 space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Thiết lập ca làm việc</CardTitle>
+          <CardTitle>Thiết lập ca làm việc</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2">
           <FormField
@@ -99,7 +99,7 @@ export function EmployeePayrollTab({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Thành phần lương</CardTitle>
+          <CardTitle>Thành phần lương</CardTitle>
           <p className="text-sm text-muted-foreground">
             Chọn các khoản thu nhập/phụ cấp sẽ gắn với nhân viên này. Danh sách được lấy trực tiếp từ phần Cài đặt
             &gt; Thành phần lương.
@@ -177,7 +177,7 @@ export function EmployeePayrollTab({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Trả lương & tài khoản</CardTitle>
+          <CardTitle>Trả lương & tài khoản</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <FormField

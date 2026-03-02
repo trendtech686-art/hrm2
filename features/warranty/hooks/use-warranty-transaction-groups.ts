@@ -32,8 +32,8 @@ const REOPEN_KEYWORDS = ['Mở lại', 'Reopen'];
 const CANCEL_REASON_WINDOW_MS = 60_000;
 const VOUCHER_ID_REGEX = /[A-Z]{2}\d{6}/g;
 
-const matchesKeyword = (actionLabel: string, keywords: string[]) =>
-  keywords.some(keyword => actionLabel.includes(keyword));
+const matchesKeyword = (actionLabel: string | undefined, keywords: string[]) =>
+  actionLabel ? keywords.some(keyword => actionLabel.includes(keyword)) : false;
 
 const extractReasonFromNote = (note?: string) => {
   if (!note) return undefined;
@@ -98,10 +98,12 @@ export function useWarrantyTransactionGroups({
 }: UseWarrantyTransactionGroupsParams) {
   return React.useMemo<WarrantyTransactionGroup[]>(() => {
     const relevantActions = ticket?.history?.filter(h =>
-      matchesKeyword(h.action, PAYMENT_KEYWORDS) ||
-      matchesKeyword(h.action, RECEIPT_KEYWORDS) ||
-      matchesKeyword(h.action, CANCEL_KEYWORDS) ||
-      matchesKeyword(h.action, REOPEN_KEYWORDS)
+      h.actionLabel && (
+        matchesKeyword(h.actionLabel, PAYMENT_KEYWORDS) ||
+        matchesKeyword(h.actionLabel, RECEIPT_KEYWORDS) ||
+        matchesKeyword(h.actionLabel, CANCEL_KEYWORDS) ||
+        matchesKeyword(h.actionLabel, REOPEN_KEYWORDS)
+      )
     ) || [];
 
     const typedPayments = warrantyPayments.map(annotatePayment);

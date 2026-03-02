@@ -4,7 +4,7 @@
  * Status Timeline component for warranty tracking page
  */
 import * as React from 'react';
-import { Clock, CheckCircle, CheckCircle2, XCircle, AlertCircle, Package } from 'lucide-react';
+import { Clock, CheckCircle, XCircle, AlertCircle, Package } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { formatDateTime } from '@/lib/date-utils';
@@ -18,12 +18,12 @@ import { getStatusTimestamp } from '../utils/warranty-tracking-helpers';
  */
 function getStatusIcon(status: WarrantyStatus) {
   const icons: Record<WarrantyStatus, React.ElementType> = {
-    incomplete: AlertCircle,
-    pending: Clock,
-    processed: CheckCircle,
-    returned: Package,
-    completed: CheckCircle2,
-    cancelled: XCircle,
+    RECEIVED: AlertCircle,
+    PROCESSING: Clock,
+    WAITING_PARTS: Clock,
+    COMPLETED: CheckCircle,
+    RETURNED: Package,
+    CANCELLED: XCircle,
   };
   return icons[status] || AlertCircle;
 }
@@ -36,9 +36,9 @@ interface StatusTimelineProps {
  * Status timeline component showing warranty progress
  */
 export function StatusTimeline({ ticket }: StatusTimelineProps) {
-  const baseStatuses: WarrantyStatus[] = ['incomplete', 'pending', 'processed', 'returned', 'completed'];
+  const baseStatuses: WarrantyStatus[] = ['RECEIVED', 'PROCESSING', 'COMPLETED', 'RETURNED'];
   const statuses: WarrantyStatus[] =
-    ticket.status === 'cancelled' ? [...baseStatuses, 'cancelled'] : baseStatuses;
+    ticket.status === 'CANCELLED' ? [...baseStatuses, 'CANCELLED'] : baseStatuses;
   const currentIndex = statuses.indexOf(ticket.status);
 
   return (

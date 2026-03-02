@@ -65,9 +65,6 @@ model Receipt {
   runningBalance   Decimal? @db.Decimal(15, 2)
   orderAllocations Json? // Array of { orderSystemId, orderId, amount }
 
-  // Activity History
-  activityHistory Json?
-
   // === RELATIONS ===
   customers Customer? @relation(fields: [customerId], references: [systemId])
   order     Order?    @relation(fields: [orderId], references: [systemId])

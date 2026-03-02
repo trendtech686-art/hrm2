@@ -1,6 +1,6 @@
 import * as React from "react";
-import { useActiveProducts } from "../../products/hooks/use-all-products";
-import { Package, ChevronLeft, ChevronRight } from "lucide-react";
+import { useInfiniteMeiliProductSearch } from "../../../hooks/use-meilisearch";
+import { Package } from "lucide-react";
 import { ProductThumbnailCell } from "../../../components/shared/read-only-products-table";
 import { ImagePreviewDialog } from "../../../components/ui/image-preview-dialog";
 import {
@@ -25,8 +25,6 @@ interface BulkProductSelectorDialogProps {
   existingProductIds?: string[]; // Products already in cart
 }
 
-const ITEMS_PER_PAGE = 10;
-
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat("vi-VN", {
     style: "currency",
@@ -41,24 +39,31 @@ export function BulkProductSelectorDialog({
   excludeProductIds: _excludeProductIds = [],
   existingProductIds: _existingProductIds = [],
 }: BulkProductSelectorDialogProps) {
-  const { data: activeProducts } = useActiveProducts();
   const [search, setSearch] = React.useState("");
   const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());
-  const [currentPage, setCurrentPage] = React.useState(0);
+  const [selectedProducts, setSelectedProducts] = React.useState<Map<string, Product>>(new Map());
+  const scrollContainerRef = React.useRef<HTMLDivElement>(null);
+
+  // ✅ Use Meilisearch for fast product search with infinite scroll
+  const { data: searchResult, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteMeiliProductSearch({ 
+    query: search,
+    debounceMs: 200,
+  });
 
   // Reset state when dialog closes
   React.useEffect(() => {
     if (!open) {
       setSearch("");
       setSelectedIds(new Set());
-      setCurrentPage(0);
+      setSelectedProducts(new Map());
     }
   }, [open]);
 
-  // Get available products - Filter out combo products (can't import combos)
-  const availableProducts = React.useMemo(() => {
-    return activeProducts.filter(p => p.type !== 'combo');
-  }, [activeProducts]);
+  // Get search results - Filter out combo products (can't import combos) - flatten all pages
+  const filteredProducts = React.useMemo(() => {
+    const products = searchResult?.pages.flatMap(page => page.data) || [];
+    return products.filter(p => p.status !== 'combo');
+  }, [searchResult]);
 
   // Preview state
   const [previewState, setPreviewState] = React.useState<{ open: boolean; image: string; title: string }>({
@@ -69,73 +74,78 @@ export function BulkProductSelectorDialog({
     setPreviewState({ open: true, image, title });
   }, []);
 
-  // Filter products by search
-  const filteredProducts = React.useMemo(() => {
-    if (!search) return availableProducts;
+  // Infinite scroll handler
+  const handleScroll = React.useCallback(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
     
-    const searchLower = search.toLowerCase();
-    return availableProducts.filter(
-      (product) =>
-        product.name.toLowerCase().includes(searchLower) ||
-        product.id.toLowerCase().includes(searchLower) ||
-        product.barcode?.toLowerCase().includes(searchLower)
-    );
-  }, [availableProducts, search]);
-
-  // Paginate
-  const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
-  const paginatedProducts = React.useMemo(() => {
-    const start = currentPage * ITEMS_PER_PAGE;
-    return filteredProducts.slice(start, start + ITEMS_PER_PAGE);
-  }, [filteredProducts, currentPage]);
-
-  // Calculate total inventory (on-hand stock)
-  const getTotalInventory = (product: Product): number => {
-    const inventoryByBranch = product.inventoryByBranch || {};
-    return Object.values(inventoryByBranch).reduce((sum, qty) => sum + qty, 0);
-  };
-
-  // Calculate available stock (on-hand - committed)
-  const getAvailableStock = (product: Product): number => {
-    const onHand = getTotalInventory(product);
-    const committedByBranch = product.committedByBranch || {};
-    const committed = Object.values(committedByBranch).reduce((sum, qty) => sum + qty, 0);
-    return onHand - committed;
-  };
-
-  // Toggle select all on current page
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      const newSelected = new Set(selectedIds);
-      paginatedProducts.forEach((p) => newSelected.add(p.systemId));
-      setSelectedIds(newSelected);
-    } else {
-      const newSelected = new Set(selectedIds);
-      paginatedProducts.forEach((p) => newSelected.delete(p.systemId));
-      setSelectedIds(newSelected);
+    const { scrollTop, scrollHeight, clientHeight } = container;
+    const scrollBottom = scrollHeight - scrollTop - clientHeight;
+    
+    if (scrollBottom < 100 && hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
     }
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  // Toggle select all visible products
+  const handleSelectAll = (checked: boolean) => {
+    const newSelected = new Set(selectedIds);
+    const newProducts = new Map(selectedProducts);
+    
+    if (checked) {
+      filteredProducts.forEach((p) => {
+        newSelected.add(p.systemId);
+        newProducts.set(p.systemId, {
+          systemId: p.systemId,
+          id: p.id,
+          name: p.name,
+          barcode: p.barcode || undefined,
+          costPrice: p.costPrice || 0,
+          thumbnailImage: p.thumbnailImage || undefined,
+        } as unknown as Product);
+      });
+    } else {
+      filteredProducts.forEach((p) => {
+        newSelected.delete(p.systemId);
+        newProducts.delete(p.systemId);
+      });
+    }
+    setSelectedIds(newSelected);
+    setSelectedProducts(newProducts);
   };
 
   // Toggle individual product
-  const handleToggleProduct = (productId: string) => {
+  const handleToggleProduct = (productId: string, productData?: typeof filteredProducts[0]) => {
     const newSelected = new Set(selectedIds);
+    const newProducts = new Map(selectedProducts);
+    
     if (newSelected.has(productId)) {
       newSelected.delete(productId);
+      newProducts.delete(productId);
     } else {
       newSelected.add(productId);
+      if (productData) {
+        newProducts.set(productId, {
+          systemId: productData.systemId,
+          id: productData.id,
+          name: productData.name,
+          barcode: productData.barcode || undefined,
+          costPrice: productData.costPrice || 0,
+          thumbnailImage: productData.thumbnailImage || undefined,
+        } as unknown as Product);
+      }
     }
     setSelectedIds(newSelected);
+    setSelectedProducts(newProducts);
   };
 
-  // Check if all on page are selected
+  // Check if all visible products are selected
   const allPageSelected =
-    paginatedProducts.length > 0 &&
-    paginatedProducts.every((p) => selectedIds.has(p.systemId));
+    filteredProducts.length > 0 &&
+    filteredProducts.every((p) => selectedIds.has(p.systemId));
 
   const handleConfirm = () => {
-    const selected = availableProducts.filter((p) =>
-      selectedIds.has(p.systemId)
-    );
+    const selected = Array.from(selectedProducts.values());
     onConfirm(selected);
     onOpenChange(false);
   };
@@ -155,10 +165,7 @@ export function BulkProductSelectorDialog({
           <Input
             placeholder="Tìm kiếm tên, mã SKU, hoặc quét mã Barcode...(F3)"
             value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setCurrentPage(0); // Reset to first page on search
-            }}
+            onChange={(e) => setSearch(e.target.value)}
             className="flex-1"
           />
         </div>
@@ -175,17 +182,25 @@ export function BulkProductSelectorDialog({
             </span>
           </div>
 
-          {/* Product List */}
-          <div className="flex-1 overflow-y-auto">
-            {paginatedProducts.length === 0 ? (
+          {/* Product List with infinite scroll */}
+          <div 
+            ref={scrollContainerRef}
+            className="flex-1 overflow-y-auto"
+            onScroll={handleScroll}
+          >
+            {isLoading ? (
+              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                <div className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full mb-3" />
+                <p>Đang tìm kiếm...</p>
+              </div>
+            ) : filteredProducts.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                 <Package className="h-12 w-12 mb-3" />
                 <p>Không tìm thấy sản phẩm</p>
               </div>
             ) : (
-              paginatedProducts.map((product) => {
-                const totalStock = getTotalInventory(product);
-                const availableStock = getAvailableStock(product);
+              <>
+              {filteredProducts.map((product) => {
                 const isSelected = selectedIds.has(product.systemId);
 
                 return (
@@ -195,19 +210,19 @@ export function BulkProductSelectorDialog({
                       "flex items-center gap-4 px-4 py-3 border-b hover:bg-muted/50 cursor-pointer transition-colors",
                       isSelected && "bg-primary/5"
                     )}
-                    onClick={() => handleToggleProduct(product.systemId)}
+                    onClick={() => handleToggleProduct(product.systemId, product)}
                   >
                     <Checkbox
                       checked={isSelected}
-                      onCheckedChange={() => handleToggleProduct(product.systemId)}
+                      onCheckedChange={() => handleToggleProduct(product.systemId, product)}
                       onClick={(e) => e.stopPropagation()}
                     />
 
                     {/* Product Image */}
-                    <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                    <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
                       <ProductThumbnailCell
                         productSystemId={product.systemId}
-                        product={product}
+                        product={product as unknown as Product}
                         productName={product.name}
                         onPreview={handlePreview}
                       />
@@ -218,59 +233,36 @@ export function BulkProductSelectorDialog({
                       <div className="flex-1 min-w-0">
                         <p className="font-medium truncate">{product.name}</p>
                         <p className="text-sm text-muted-foreground">
-                          {product.id} | ĐVT: {product.unit || "Cái"}
+                          {product.id} {product.barcode && `| ${product.barcode}`} | ĐVT: {product.unit || "Cái"}
                         </p>
                       </div>
-                      <div className="text-sm text-right space-y-1 flex-shrink-0">
+                      <div className="text-sm text-right shrink-0">
                         <p className="text-muted-foreground">
-                          Giá nhập: <span className="font-medium text-foreground">{formatCurrency(product.costPrice)}</span>
-                        </p>
-                        <p className="text-muted-foreground">
-                          Tồn: <span className="font-medium text-foreground">{totalStock}</span> | Có thể bán: <span 
-                          className={cn(
-                            "font-medium",
-                            availableStock > 0 ? "text-green-600" : "text-red-600"
-                          )}
-                        >
-                          {availableStock}
-                        </span>
+                          Giá nhập: <span className="font-medium text-foreground">{formatCurrency(product.costPrice || 0)}</span>
                         </p>
                       </div>
                     </div>
                   </div>
                 );
-              })
+              })}
+              
+              {/* Loading more indicator */}
+              {isFetchingNextPage && (
+                <div className="flex items-center justify-center py-4 text-muted-foreground">
+                  <div className="animate-spin h-5 w-5 border-2 border-primary border-t-transparent rounded-full mr-2" />
+                  <span className="text-sm">Đang tải thêm...</span>
+                </div>
+              )}
+              
+              {/* Info footer */}
+              {hasNextPage && (
+                <div className="text-center py-3 text-sm text-muted-foreground">
+                  Cuộn xuống để tải thêm
+                </div>
+              )}
+              </>
             )}
           </div>
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="border-t px-4 py-2 flex items-center justify-between">
-              <div className="text-sm text-muted-foreground">
-                Trang {currentPage + 1} / {totalPages}
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
-                  disabled={currentPage === 0}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    setCurrentPage((p) => Math.min(totalPages - 1, p + 1))
-                  }
-                  disabled={currentPage >= totalPages - 1}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          )}
         </div>
 
         <DialogFooter className="gap-2">

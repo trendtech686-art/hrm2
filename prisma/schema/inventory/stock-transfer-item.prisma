@@ -1,7 +1,7 @@
 model StockTransferItem {
   systemId      String        @id
   transferId    String
-  productId     String
+  productId     String?
   productName   String
   productSku    String
   quantity      Int

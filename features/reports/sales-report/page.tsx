@@ -10,7 +10,7 @@ import { ResponsiveDataTable } from '../../../components/data-table/responsive-d
 import { DataTableToolbar } from '../../../components/data-table/data-table-toolbar';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
-import { useFuseFilter } from '../../../hooks/use-fuse-search';
+import { simpleSearch } from '@/lib/simple-search';
 import { Download } from 'lucide-react';
 import { ROUTES } from '../../../lib/router';
 
@@ -40,8 +40,10 @@ export function SalesReportPage() {
             });
     }, [orders, findProductById]);
 
-    const fuseOptions = React.useMemo(() => ({ keys: ['id', 'customerName', 'salesperson'], threshold: 0.4 }), []);
-    const searchedData = useFuseFilter(reportData, globalFilter, fuseOptions);
+    const searchedData = React.useMemo(() => 
+        simpleSearch(reportData, globalFilter, { keys: ['id', 'customerName', 'salesperson'] }), 
+        [reportData, globalFilter]
+    );
     const summaryStats = React.useMemo(() => {
         const totalOrders = reportData.length;
         const revenue = reportData.reduce((sum, order) => sum + order.grandTotal, 0);
@@ -105,7 +107,7 @@ export function SalesReportPage() {
             <div className="grid gap-4 md:grid-cols-3">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Tổng đơn hàng</CardTitle>
+                        <CardTitle size="sm">Tổng đơn hàng</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="text-h4 font-bold">{summaryStats.totalOrders}</div>
@@ -113,7 +115,7 @@ export function SalesReportPage() {
                 </Card>
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Doanh thu</CardTitle>
+                        <CardTitle size="sm">Doanh thu</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="text-h4 font-bold">{formatCurrency(summaryStats.revenue)}</div>
@@ -121,7 +123,7 @@ export function SalesReportPage() {
                 </Card>
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Lợi nhuận</CardTitle>
+                        <CardTitle size="sm">Lợi nhuận</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="text-h4 font-bold">{formatCurrency(summaryStats.profit)}</div>
@@ -140,7 +142,7 @@ export function SalesReportPage() {
                 </CardContent>
             </Card>
             <ResponsiveDataTable
-                className="flex-grow"
+                className="grow"
                 columns={columns}
                 data={paginatedData}
                 rowCount={filteredData.length}

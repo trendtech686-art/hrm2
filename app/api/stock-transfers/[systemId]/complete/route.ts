@@ -13,7 +13,6 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils';
-import { formatDateCustom, getCurrentDate } from '@/lib/date-utils';
 
 type RouteParams = {
   params: Promise<{ systemId: string }>;
@@ -33,7 +32,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     const { systemId } = await params;
     const body: CompleteTransferBody = await request.json().catch(() => ({}));
-    const now = formatDateCustom(getCurrentDate(), 'yyyy-MM-dd HH:mm');
+    const now = new Date();
 
     // Fetch transfer with items
     const transfer = await prisma.stockTransfer.findUnique({
@@ -64,7 +63,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       // Update item received quantities
       const updatedItems = await Promise.all(
         transfer.items.map(async (item) => {
-          const receivedQuantity = receivedMap.get(item.productId) ?? item.quantity;
+          const receivedQuantity = item.productId ? (receivedMap.get(item.productId) ?? item.quantity) : item.quantity;
           
           return tx.stockTransferItem.update({
             where: { systemId: item.systemId },
@@ -90,6 +89,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       // 2. Complete delivery for each item
       for (let i = 0; i < transfer.items.length; i++) {
         const item = transfer.items[i];
+        if (!item.productId) continue; // Skip items without product (deleted products)
+        
         const updatedItem = updatedItems[i];
         const receivedQty = updatedItem.receivedQty ?? item.quantity;
         
@@ -101,42 +102,67 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           throw new Error(`Product not found: ${item.productId}`);
         }
 
-        // Update inventory: +stock at destination, -inTransit at source
-        const newInventoryByBranch = { ...(product.inventoryByBranch as Record<string, number> | null || {}) };
-        const newInTransitByBranch = { ...(product.inTransitByBranch as Record<string, number> | null || {}) };
-        
-        newInventoryByBranch[transfer.toBranchId] = (newInventoryByBranch[transfer.toBranchId] || 0) + receivedQty;
-        newInTransitByBranch[transfer.fromBranchId] = Math.max(0, (newInTransitByBranch[transfer.fromBranchId] || 0) - item.quantity);
-
-        await tx.product.update({
-          where: { systemId: item.productId },
-          data: {
-            inventoryByBranch: newInventoryByBranch,
-            inTransitByBranch: newInTransitByBranch,
+        // ✅ Get current inventory at destination
+        const destInventory = await tx.productInventory.findUnique({
+          where: {
+            productId_branchId: {
+              productId: item.productId,
+              branchId: transfer.toBranchId,
+            },
           },
         });
 
-        // 3. Create stock history entry
-        // TODO: StockHistory table doesn't exist yet - implement when available
-        /* await tx.stockHistory.create({
+        const newDestStock = (destInventory?.onHand || 0) + receivedQty;
+
+        // ✅ Update ProductInventory: +onHand and -inTransit at destination
+        await tx.productInventory.upsert({
+          where: {
+            productId_branchId: {
+              productId: item.productId,
+              branchId: transfer.toBranchId,
+            },
+          },
+          update: {
+            onHand: { increment: receivedQty },
+            inTransit: { decrement: item.quantity }, // Clear inTransit at destination
+            updatedAt: new Date(),
+          },
+          create: {
+            productId: item.productId,
+            branchId: transfer.toBranchId,
+            onHand: receivedQty,
+            inTransit: 0,
+          },
+        });
+
+        // ✅ Create stock history entry for destination
+        await tx.stockHistory.create({
           data: {
             productId: item.productId,
-            date: now,
-            employeeName: employee?.fullName || session.user.name || 'System',
+            branchId: transfer.toBranchId,
             action: 'Nhập chuyển kho',
+            source: 'Chuyển kho',
             quantityChange: receivedQty,
-            newStockLevel: newInventoryByBranch[transfer.toBranchId],
+            newStockLevel: newDestStock,
             documentId: transfer.id,
-            branchSystemId: transfer.toBranchId,
-            branch: transfer.toBranchName || '',
+            documentType: 'stock_transfer',
+            employeeId: session.user.id,
+            employeeName: employee?.fullName || session.user.name || 'System',
+            note: `Nhận hàng từ ${transfer.fromBranchName || transfer.fromBranchId}`,
           },
-        }); */
+        });
       }
 
       return updatedTransfer;
     });
 
-    return apiSuccess(result);
+    // Transform status to lowercase for frontend compatibility
+    const transformedResult = {
+      ...result,
+      status: result.status.toLowerCase(),
+    };
+
+    return apiSuccess(transformedResult);
   } catch (error) {
     console.error('[Stock Transfer Complete] Error:', error);
     const message = error instanceof Error ? error.message : 'Failed to complete transfer';

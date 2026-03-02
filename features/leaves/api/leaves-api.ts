@@ -10,10 +10,13 @@ export interface LeaveFilters {
   limit?: number;
   employeeId?: string;
   status?: string;
+  search?: string;
   leaveType?: string;
   fromDate?: string;
   toDate?: string;
   includeDeleted?: boolean;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
 }
 
 export interface LeaveResponse {
@@ -36,6 +39,10 @@ export interface LeaveCreateInput {
   reason?: string;
   notes?: string;
   status?: string;
+  leaveTypeName?: string;
+  leaveTypeSystemId?: string;
+  numberOfDays?: number;
+  totalDays?: number;
 }
 
 export interface LeaveUpdateInput extends Partial<LeaveCreateInput> {}
@@ -54,10 +61,13 @@ export async function fetchLeaves(
   if (filters.limit) params.set('limit', String(filters.limit));
   if (filters.employeeId) params.set('employeeId', filters.employeeId);
   if (filters.status) params.set('status', filters.status);
+  if (filters.search) params.set('search', filters.search);
   if (filters.leaveType) params.set('leaveType', filters.leaveType);
   if (filters.fromDate) params.set('fromDate', filters.fromDate);
   if (filters.toDate) params.set('toDate', filters.toDate);
   if (filters.includeDeleted) params.set('includeDeleted', 'true');
+  if (filters.sortBy) params.set('sortBy', filters.sortBy);
+  if (filters.sortOrder) params.set('sortOrder', filters.sortOrder);
 
   const url = params.toString() ? `${BASE_URL}?${params}` : BASE_URL;
   const response = await fetch(url);
@@ -225,4 +235,66 @@ export async function fetchLeaveQuota(
   }
   
   return response.json();
+}
+
+// --- Batch Operations ---
+
+export interface BatchApproveInput {
+  action: 'approve';
+  systemIds: string[];
+  approvedBy: string;
+}
+
+export interface BatchRejectInput {
+  action: 'reject';
+  systemIds: string[];
+  rejectedBy: string;
+  reason?: string;
+}
+
+export interface BatchCreateItem {
+  employeeId: string;
+  leaveType?: string;
+  leaveTypeName?: string;
+  leaveTypeSystemId?: string;
+  leaveTypeId?: string;
+  leaveTypeIsPaid?: boolean;
+  leaveTypeRequiresAttachment?: boolean;
+  startDate: string;
+  endDate: string;
+  totalDays?: number;
+  numberOfDays?: number;
+  reason?: string;
+  status?: string;
+}
+
+export interface BatchCreateInput {
+  action: 'create';
+  items: BatchCreateItem[];
+}
+
+export type BatchInput = BatchApproveInput | BatchRejectInput | BatchCreateInput;
+
+export interface BatchResult {
+  approved?: number;
+  rejected?: number;
+  created?: number;
+  skipped?: number;
+  errors?: string[];
+}
+
+export async function batchLeaves(input: BatchInput): Promise<BatchResult> {
+  const response = await fetch(`${BASE_URL}/batch`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.error || 'Batch operation failed');
+  }
+
+  const result = await response.json();
+  return result.data ?? result;
 }

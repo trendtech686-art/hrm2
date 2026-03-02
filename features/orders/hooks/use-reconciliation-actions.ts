@@ -5,7 +5,6 @@
 import { useCallback } from 'react';
 import { toast } from 'sonner';
 import { useOrderActions } from './use-order-actions';
-import { useOrderStore } from '../store';
 import type { SystemId } from '@/lib/id-types';
 
 interface ReconciliationItem {
@@ -22,14 +21,6 @@ interface UseReconciliationActionsOptions {
 export function useReconciliationActions(options: UseReconciliationActionsOptions = {}) {
   const actions = useOrderActions(options);
 
-  // Helper to sync store
-  const syncStore = useCallback(() => {
-    const storeState = useOrderStore.getState();
-    if (storeState.loadFromAPI) {
-      storeState.loadFromAPI();
-    }
-  }, []);
-
   // Confirm COD reconciliation for multiple items
   const confirmCodReconciliation = useCallback(
     async (items: ReconciliationItem[], _employeeSystemId?: string) => {
@@ -42,16 +33,13 @@ export function useReconciliationActions(options: UseReconciliationActionsOption
 
         await actions.reconcileCod.mutateAsync({ shipments });
 
-        // Sync to zustand store
-        syncStore();
-
         toast.success(`Đã đối soát ${items.length} phiếu COD`);
       } catch (error) {
         toast.error('Lỗi khi đối soát COD');
         throw error;
       }
     },
-    [actions.reconcileCod, syncStore]
+    [actions.reconcileCod]
   );
 
   return {

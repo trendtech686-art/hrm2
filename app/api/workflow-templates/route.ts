@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma'
-import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
+import { requireAuth, validateBody, apiSuccess, apiSuccessCached, apiError } from '@/lib/api-utils'
 import { saveWorkflowTemplatesSchema } from './validation'
+import { generateIdWithPrefix } from '@/lib/id-generator'
 
 const SETTINGS_KEY = 'workflow_templates'
 const SETTINGS_GROUP = 'workflow'
@@ -22,7 +23,7 @@ export async function GET() {
 
     if (!setting?.value) {
       // Return empty array if not configured
-      return apiSuccess({ data: [] })
+      return apiSuccessCached({ data: [] })
     }
 
     // Parse JSON value and return
@@ -35,7 +36,7 @@ export async function GET() {
       templates = []
     }
 
-    return apiSuccess({ data: templates })
+    return apiSuccessCached({ data: templates })
   } catch (error) {
     console.error('Error fetching workflow templates:', error)
     return apiError('Failed to fetch workflow templates', 500)
@@ -66,7 +67,7 @@ export async function POST(request: Request) {
         value: templates,
       },
       create: {
-        systemId: `SET${String(Date.now()).slice(-6).padStart(6, '0')}`,
+        systemId: await generateIdWithPrefix('SETWF'),
         key: SETTINGS_KEY,
         group: SETTINGS_GROUP,
         type: 'json',

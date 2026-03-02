@@ -4,12 +4,12 @@ import * as React from "react"
 import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from "sonner"
-import { PlusCircle, FileUp, Download, FileText } from "lucide-react"
+import { PlusCircle, FileUp, Download, FileText, ShoppingCart, Clock, CheckCircle, DollarSign, Settings } from "lucide-react"
 
-import { useOrders } from "./hooks/use-orders"
+import { useOrders, useOrderStats } from "./hooks/use-orders"
+import { useOrderImportHandler } from "./hooks/use-order-import-handler"
 import { useOrderDetailActions } from "./hooks/use-order-detail-actions"
 import { getColumns } from "./columns"
-import { useFuseFilter } from "@/hooks/use-fuse-search"
 import { usePageHeader } from "@/contexts/page-header-context"
 import { useMediaQuery } from "@/lib/use-media-query"
 import { useAuth } from "@/contexts/auth-context"
@@ -18,7 +18,7 @@ import { useColumnVisibility } from "@/hooks/use-column-visibility"
 import { usePrint } from "@/lib/use-print"
 import { useAllCustomers, useCustomerFinder } from "../customers/hooks/use-all-customers"
 import { useAllBranches, useBranchFinder } from "../settings/branches/hooks/use-all-branches"
-import { useProducts } from "../products/hooks/use-products"
+import { useAllProducts } from "../products/hooks/use-all-products"
 import { useAllEmployees } from "../employees/hooks/use-all-employees"
 import { convertOrderForPrint, convertPackagingToDeliveryForPrint, convertToShippingLabelForPrint, convertToPackingForPrint, mapOrderToPrintData, mapOrderLineItems, mapDeliveryToPrintData, mapDeliveryLineItems, mapShippingLabelToPrintData, mapPackingToPrintData, mapPackingLineItems, createStoreSettings } from "@/lib/print/order-print-helper"
 import type { TemplateType } from "../settings/printer/types"
@@ -37,16 +37,63 @@ import { PrintOptionsDialog, type PrintOptionsResult, type OrderPrintTemplateTyp
 import { PageFilters } from "@/components/layout/page-filters"
 import { PageToolbar } from "@/components/layout/page-toolbar"
 import { OrderCard } from "./components/order-card"
+import { StatsCard, StatsCardGrid } from "@/components/shared/stats-card"
+import { formatCurrency, formatNumber } from "@/lib/format-utils"
 
 const OrderImportDialog = dynamic(() => import("./components/order-import-export-dialogs").then(mod => ({ default: mod.OrderImportDialog })), { ssr: false });
 const OrderExportDialog = dynamic(() => import("./components/order-import-export-dialogs").then(mod => ({ default: mod.OrderExportDialog })), { ssr: false });
 const SapoOrderImportDialog = dynamic(() => import("./components/order-import-export-dialogs").then(mod => ({ default: mod.SapoOrderImportDialog })), { ssr: false });
 const loadFlattenOrdersForExport = () => import("./components/order-import-export-dialogs").then(mod => mod.flattenOrdersForExport);
 
-export function OrdersPage() {
-  const { data: ordersData } = useOrders({ limit: 1000 });
+// Props interface for server-side data
+export interface OrdersPageProps {
+  initialStats?: {
+    totalOrders: number;
+    pendingOrders: number;
+    totalRevenue: number;
+    todayOrders: number;
+  };
+  initialCountByStatus?: Record<string, number>;
+}
+
+export function OrdersPage({ initialStats, initialCountByStatus: _initialCountByStatus }: OrdersPageProps = {}) {
+  // Stats from server component
+  const { data: stats } = useOrderStats(initialStats);
+  
+  // Search and filter state for server-side query
+  const [searchQuery, setSearchQuery] = React.useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = React.useState('');
+  const [statusFilter, setStatusFilter] = React.useState<Set<string>>(new Set());
+  const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 20 });
+  const [sorting, setSorting] = React.useState<{ id: string, desc: boolean }>({ id: 'createdAt', desc: true });
+  
+  // Debounce search query for API calls
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+      setPagination(prev => ({ ...prev, pageIndex: 0 })); // Reset to page 1 on search
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+  
+  // Reset to page 1 when filter changes
+  React.useEffect(() => {
+    setPagination(prev => ({ ...prev, pageIndex: 0 }));
+  }, [statusFilter]);
+
+  // Server-side pagination with query params
+  const { data: ordersData, isLoading: isLoadingOrders } = useOrders({ 
+    page: pagination.pageIndex + 1, // API uses 1-based page
+    limit: pagination.pageSize,
+    search: debouncedSearchQuery || undefined,
+    status: statusFilter.size === 1 ? Array.from(statusFilter)[0] : undefined,
+    sortBy: sorting.id,
+    sortOrder: sorting.desc ? 'desc' : 'asc',
+  });
   const orders = React.useMemo(() => ordersData?.data ?? [], [ordersData?.data]);
-  const { cancelOrder } = useOrderDetailActions();
+  const totalRows = ordersData?.pagination?.total ?? 0;
+  const pageCount = ordersData?.pagination?.totalPages ?? 1;
+  const { cancelOrder, bulkCancelOrders } = useOrderDetailActions();
   const router = useRouter();
   const searchParams = useSearchParams();
   const { employee: authEmployee } = useAuth();
@@ -57,9 +104,6 @@ export function OrdersPage() {
   const { findById: findCustomerById } = useCustomerFinder();
   const { data: branches } = useAllBranches();
   const { findById: findBranchById } = useBranchFinder();
-  const { data: productsResponse } = useProducts({ limit: 10000 });
-  const productStore = React.useMemo(() => ({ data: productsResponse?.data ?? [], findById: (id: SystemId) => productsResponse?.data?.find(p => p.systemId === id) }), [productsResponse?.data]);
-  const { data: employees } = useAllEmployees();
   const { print, printMixedDocuments } = usePrint();
 
   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
@@ -73,11 +117,13 @@ export function OrdersPage() {
   const [isImportOpen, setIsImportOpen] = React.useState(false);
   const [isExportOpen, setIsExportOpen] = React.useState(false);
   const [isSapoImportOpen, setIsSapoImportOpen] = React.useState(false);
-  const [sorting, setSorting] = React.useState<{ id: string, desc: boolean }>({ id: 'createdAt', desc: true });
-  const [searchQuery, setSearchQuery] = React.useState('');
-  const [statusFilter, setStatusFilter] = React.useState<Set<string>>(new Set());
-  const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 20 });
   const [mobileLoadedCount, setMobileLoadedCount] = React.useState(20);
+
+  // ✅ Lazy-load: chỉ fetch khi Import/Export dialogs mở
+  const dialogsOpen = isImportOpen || isExportOpen || isSapoImportOpen;
+  const { data: allProducts } = useAllProducts({ enabled: dialogsOpen });
+  const productStore = React.useMemo(() => ({ data: allProducts, findById: (id: SystemId) => allProducts.find(p => p.systemId === id) }), [allProducts]);
+  const { data: employees } = useAllEmployees({ enabled: dialogsOpen });
 
   const defaultColumnVisibility = React.useMemo(() => { const cols = getColumns(() => {}, null as unknown as ReturnType<typeof useRouter>); const init: Record<string, boolean> = {}; cols.forEach(c => { if (c.id) init[c.id] = true; }); return init; }, []);
   const [columnVisibility, setColumnVisibility] = useColumnVisibility('orders', defaultColumnVisibility);
@@ -112,9 +158,6 @@ export function OrdersPage() {
     columnDefaultsInitialized.current = true;
   }, [columns, setColumnVisibility]);
 
-  const fuseOptions = React.useMemo(() => ({ keys: ["id", "customerName", "salesperson"], threshold: 0.3 }), []);
-  const searchedOrders = useFuseFilter(orders, searchQuery, fuseOptions);
-
   const confirmCancel = () => {
     if (!idToCancel || !orderPendingCancel) { toast.error('Không tìm thấy đơn cần hủy'); setIsCancelAlertOpen(false); return; }
     if (!cancelReason.trim()) { toast.error('Vui lòng nhập lý do hủy'); return; }
@@ -122,27 +165,14 @@ export function OrdersPage() {
     setIsCancelAlertOpen(false); setIdToCancel(null);
   };
 
-  const filteredData = React.useMemo(() => { let d = searchQuery ? searchedOrders : orders; if (statusFilter.size > 0) d = d.filter(o => statusFilter.has(o.status)); return d; }, [orders, searchQuery, searchedOrders, statusFilter]);
-  const sortedData = React.useMemo(() => {
-    const sorted = [...filteredData];
-    if (sorting.id) sorted.sort((a, b) => {
-      const aV = (a as Record<string, unknown>)[sorting.id] as string | number | null | undefined, bV = (b as Record<string, unknown>)[sorting.id] as string | number | null | undefined;
-      if (sorting.id === 'createdAt' || sorting.id === 'orderDate') { const aT = aV ? new Date(aV as string).getTime() : 0, bT = bV ? new Date(bV as string).getTime() : 0; return sorting.desc ? bT - aT : aT - bT; }
-      if (aV == null && bV == null) return 0; if (aV == null) return 1; if (bV == null) return -1;
-      return aV < bV ? (sorting.desc ? 1 : -1) : aV > bV ? (sorting.desc ? -1 : 1) : 0;
-    });
-    return sorted;
-  }, [filteredData, sorting]);
+  // Server-side pagination: data is already filtered, sorted, paginated by API
+  const displayData = isMobile ? orders.slice(0, mobileLoadedCount) : orders;
+  const allSelectedRows = React.useMemo(() => orders.filter(o => rowSelection[o.systemId]), [orders, rowSelection]);
 
-  const pageCount = Math.ceil(sortedData.length / pagination.pageSize);
-  const paginatedData = React.useMemo(() => sortedData.slice(pagination.pageIndex * pagination.pageSize, (pagination.pageIndex + 1) * pagination.pageSize), [sortedData, pagination]);
-  const displayData = isMobile ? sortedData.slice(0, mobileLoadedCount) : paginatedData;
-  const allSelectedRows = React.useMemo(() => sortedData.filter(o => rowSelection[o.systemId]), [sortedData, rowSelection]);
-
-  React.useEffect(() => { if (!isMobile) return; const h = () => { if ((window.scrollY + window.innerHeight) / document.documentElement.scrollHeight > 0.8 && mobileLoadedCount < sortedData.length) setMobileLoadedCount(p => Math.min(p + 20, sortedData.length)); }; window.addEventListener('scroll', h); return () => window.removeEventListener('scroll', h); }, [isMobile, mobileLoadedCount, sortedData.length]);
+  React.useEffect(() => { if (!isMobile) return; const h = () => { if ((window.scrollY + window.innerHeight) / document.documentElement.scrollHeight > 0.8 && mobileLoadedCount < orders.length) setMobileLoadedCount(p => Math.min(p + 20, orders.length)); }; window.addEventListener('scroll', h); return () => window.removeEventListener('scroll', h); }, [isMobile, mobileLoadedCount, orders.length]);
 
   const handleRowClick = (row: Order) => router.push(`/orders/${row.systemId}`);
-  const handleBulkDelete = React.useCallback(() => { if (allSelectedRows.length === 0 || !confirm(`Hủy ${allSelectedRows.length} đơn?`)) return; allSelectedRows.forEach(o => cancelOrder(o.systemId, currentEmployeeSystemId, { reason: 'Hủy hàng loạt', restock: true })); setRowSelection({}); }, [allSelectedRows, cancelOrder, currentEmployeeSystemId]);
+  const handleBulkDelete = React.useCallback(async () => { if (allSelectedRows.length === 0 || !confirm(`Hủy ${allSelectedRows.length} đơn?`)) return; try { const result = await bulkCancelOrders({ systemIds: allSelectedRows.map(o => o.systemId), reason: 'Hủy hàng loạt', restockItems: true }); const msgs: string[] = []; if (result?.cancelled) msgs.push(`Đã hủy ${result.cancelled} đơn`); if (result?.failed?.length) msgs.push(`${result.failed.length} đơn không thể hủy`); toast.success(msgs.join(', ') || 'Đã xử lý'); } catch { toast.error('Lỗi khi hủy đơn hàng loạt'); } setRowSelection({}); }, [allSelectedRows, bulkCancelOrders]);
 
   const handleBulkPrintWithOptions = React.useCallback((rows: Order[], type: OrderPrintTemplateType = 'order') => { setPendingPrintOrders(rows); setInitialPrintTemplateType(type); setIsPrintDialogOpen(true); }, []);
   const handlePrintConfirm = React.useCallback((opts: PrintOptionsResult) => {
@@ -175,24 +205,51 @@ export function OrdersPage() {
   const [pageOrdersForExport, setPageOrdersForExport] = React.useState<Order[]>([]);
   const [selectedOrdersForExport, setSelectedOrdersForExport] = React.useState<Order[]>([]);
 
-  React.useEffect(() => { if (isExportOpen) loadFlattenOrdersForExport().then(fn => { setOrdersForExport(fn(orders, allCustomers) as unknown as Order[]); setFilteredOrdersForExport(fn(sortedData, allCustomers) as unknown as Order[]); setPageOrdersForExport(fn(paginatedData, allCustomers) as unknown as Order[]); setSelectedOrdersForExport(fn(allSelectedRows, allCustomers) as unknown as Order[]); }); }, [isExportOpen, orders, sortedData, paginatedData, allSelectedRows, allCustomers]);
+  React.useEffect(() => { if (isExportOpen) loadFlattenOrdersForExport().then(fn => { setOrdersForExport(fn(orders, allCustomers) as unknown as Order[]); setFilteredOrdersForExport(fn(orders, allCustomers) as unknown as Order[]); setPageOrdersForExport(fn(orders, allCustomers) as unknown as Order[]); setSelectedOrdersForExport(fn(allSelectedRows, allCustomers) as unknown as Order[]); }); }, [isExportOpen, orders, allSelectedRows, allCustomers]);
 
-  const handleImport = React.useCallback(async (_data: Partial<Order>[], _mode: 'insert-only' | 'update-only' | 'upsert') => {
-    toast.info('Chức năng import đơn hàng đang được phát triển');
-    const results = { success: 0, failed: 0, inserted: 0, updated: 0, skipped: 0, errors: [] as Array<{ row: number; message: string }> };
-    return results;
-  }, []);
+  const handleImport = useOrderImportHandler({ authEmployeeSystemId: authEmployee?.systemId });
 
   const headerActions = React.useMemo(() => [<Button key="add" size="sm" className="h-9" onClick={() => router.push('/orders/new')}><PlusCircle className="mr-2 h-4 w-4" />Tạo đơn hàng</Button>], [router]);
   usePageHeader({ title: 'Danh sách đơn hàng', breadcrumb: [{ label: 'Trang chủ', href: '/' }, { label: 'Đơn hàng', href: '/orders', isCurrent: true }], showBackButton: false, actions: headerActions });
 
   return (
     <>
-      {!isMobile && <PageToolbar leftActions={<><Button variant="outline" size="sm" onClick={() => setIsImportOpen(true)}><FileUp className="mr-2 h-4 w-4" />Nhập file</Button><Button variant="outline" size="sm" onClick={() => setIsSapoImportOpen(true)}><FileUp className="mr-2 h-4 w-4" />Import Sapo</Button><Button variant="outline" size="sm" onClick={() => setIsExportOpen(true)}><Download className="mr-2 h-4 w-4" />Xuất Excel</Button></>} rightActions={<DataTableColumnCustomizer columns={columns} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} />} />}
+      {/* Stats Cards - instant display from Server Component */}
+      <StatsCardGrid columns={4} className="mb-4">
+        <StatsCard
+          title="Tổng đơn hàng"
+          value={stats?.totalOrders ?? 0}
+          icon={ShoppingCart}
+          formatValue={(v) => formatNumber(Number(v))}
+        />
+        <StatsCard
+          title="Đơn chờ xử lý"
+          value={stats?.pendingOrders ?? 0}
+          icon={Clock}
+          formatValue={(v) => formatNumber(Number(v))}
+          variant={stats?.pendingOrders && stats.pendingOrders > 0 ? 'warning' : 'default'}
+        />
+        <StatsCard
+          title="Hoàn thành hôm nay"
+          value={stats?.todayOrders ?? 0}
+          icon={CheckCircle}
+          formatValue={(v) => formatNumber(Number(v))}
+          variant="success"
+        />
+        <StatsCard
+          title="Doanh thu"
+          value={stats?.totalRevenue ?? 0}
+          icon={DollarSign}
+          formatValue={(v) => formatCurrency(Number(v))}
+          variant="info"
+        />
+      </StatsCardGrid>
+
+      {!isMobile && <PageToolbar leftActions={<><Button variant="outline" size="sm" onClick={() => router.push('/settings/sales-config')}><Settings className="h-4 w-4 mr-2" />Cài đặt</Button><Button variant="outline" size="sm" onClick={() => setIsImportOpen(true)}><FileUp className="mr-2 h-4 w-4" />Nhập file</Button><Button variant="outline" size="sm" onClick={() => setIsSapoImportOpen(true)}><FileUp className="mr-2 h-4 w-4" />Import Sapo</Button><Button variant="outline" size="sm" onClick={() => setIsExportOpen(true)}><Download className="mr-2 h-4 w-4" />Xuất Excel</Button></>} rightActions={<DataTableColumnCustomizer columns={columns} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} />} />}
       <PageFilters searchValue={searchQuery} onSearchChange={setSearchQuery} searchPlaceholder="Tìm kiếm đơn hàng..."><DataTableFacetedFilter title="Trạng thái" selectedValues={statusFilter} onSelectedValuesChange={setStatusFilter} options={[{ label: 'Đặt hàng', value: 'Đặt hàng' }, { label: 'Đang giao dịch', value: 'Đang giao dịch' }, { label: 'Hoàn thành', value: 'Hoàn thành' }, { label: 'Đã hủy', value: 'Đã hủy' }]} /></PageFilters>
-      <div className="pb-4"><ResponsiveDataTable columns={columns} data={displayData} renderMobileCard={o => <OrderCard order={o} onCancel={handleCancelRequest} />} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowCount={sortedData.length} rowSelection={rowSelection} setRowSelection={setRowSelection} allSelectedRows={allSelectedRows} onBulkDelete={handleBulkDelete} bulkActions={bulkActions} sorting={sorting} setSorting={setSorting} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} onRowClick={handleRowClick} emptyTitle="Không có đơn hàng" emptyDescription="Tạo đơn hàng đầu tiên" /></div>
-      {isMobile && <div className="py-6 text-center">{mobileLoadedCount < sortedData.length ? <div className="flex items-center justify-center gap-2 text-muted-foreground"><div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" /><span className="text-body-sm">Đang tải...</span></div> : sortedData.length > 20 ? <p className="text-body-sm text-muted-foreground">Đã hiển thị {sortedData.length} kết quả</p> : null}</div>}
-      <AlertDialog open={isCancelAlertOpen} onOpenChange={setIsCancelAlertOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Hủy đơn hàng?</AlertDialogTitle><AlertDialogDescription className="space-y-4 text-left"><div className="space-y-2 text-body-sm"><p>Thao tác sẽ cập nhật trạng thái đơn thành "Đã hủy".</p></div><div className="space-y-2"><Label htmlFor="cancel-reason" className="text-body-sm font-semibold">Lý do hủy (bắt buộc)</Label><Textarea id="cancel-reason" value={cancelReason} onChange={e => setCancelReason(e.target.value)} placeholder="Nhập lý do hủy..." rows={3} /></div><div className="flex items-start gap-3 rounded-md border p-3"><Checkbox id="restock" checked={restockItems} onCheckedChange={c => setRestockItems(c === true)} /><div><Label htmlFor="restock" className="text-body-sm font-medium">Hoàn kho {pendingCancelQuantity} SP</Label><p className="text-body-xs text-muted-foreground">Bỏ chọn nếu tự xử lý tồn kho</p></div></div></AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Thoát</AlertDialogCancel><AlertDialogAction onClick={confirmCancel}>Xác nhận hủy</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+      <div className="pb-4"><ResponsiveDataTable columns={columns} data={displayData} renderMobileCard={o => <OrderCard order={o} onCancel={handleCancelRequest} />} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowCount={totalRows} rowSelection={rowSelection} setRowSelection={setRowSelection} allSelectedRows={allSelectedRows} onBulkDelete={handleBulkDelete} bulkActions={bulkActions} sorting={sorting} setSorting={setSorting} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} onRowClick={handleRowClick} emptyTitle="Không có đơn hàng" emptyDescription="Tạo đơn hàng đầu tiên" isLoading={isLoadingOrders} /></div>
+      {isMobile && <div className="py-6 text-center">{mobileLoadedCount < orders.length ? <div className="flex items-center justify-center gap-2 text-muted-foreground"><div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" /><span className="text-body-sm">Đang tải...</span></div> : orders.length > 20 ? <p className="text-body-sm text-muted-foreground">Đã hiển thị {orders.length} kết quả</p> : null}</div>}
+      <AlertDialog open={isCancelAlertOpen} onOpenChange={setIsCancelAlertOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Hủy đơn hàng?</AlertDialogTitle><AlertDialogDescription className="space-y-4 text-left"><div className="space-y-2 text-body-sm"><p>Thao tác sẽ cập nhật trạng thái đơn thành "Đã hủy".</p></div><div className="space-y-2"><Label htmlFor="cancel-reason" className="text-body-sm font-semibold">Lý do hủy (bắt buộc)</Label><Textarea id="cancel-reason" value={cancelReason} onChange={e => setCancelReason(e.target.value)} placeholder="Nhập lý do hủy..." rows={3} /></div><div className="flex items-start gap-3 rounded-md border border-border p-3"><Checkbox id="restock" checked={restockItems} onCheckedChange={c => setRestockItems(c === true)} /><div><Label htmlFor="restock" className="text-body-sm font-medium">Hoàn kho {pendingCancelQuantity} SP</Label><p className="text-body-xs text-muted-foreground">Bỏ chọn nếu tự xử lý tồn kho</p></div></div></AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Thoát</AlertDialogCancel><AlertDialogAction onClick={confirmCancel}>Xác nhận hủy</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
       <PrintOptionsDialog open={isPrintDialogOpen} onOpenChange={setIsPrintDialogOpen} onConfirm={handlePrintConfirm} selectedCount={pendingPrintOrders.length} initialTemplateType={initialPrintTemplateType} />
       <OrderImportDialog open={isImportOpen} onOpenChange={setIsImportOpen} existingData={orders} onImport={handleImport} currentUser={authEmployee ? { systemId: authEmployee.systemId, name: authEmployee.fullName || authEmployee.id } : undefined} storeContext={storeContext} />
       <OrderExportDialog open={isExportOpen} onOpenChange={setIsExportOpen} allData={ordersForExport} filteredData={filteredOrdersForExport} currentPageData={pageOrdersForExport} selectedData={selectedOrdersForExport} currentUser={authEmployee ? { systemId: authEmployee.systemId, name: authEmployee.fullName || authEmployee.id } : { systemId: asSystemId('SYSTEM'), name: 'System' }} />

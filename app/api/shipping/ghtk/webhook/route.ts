@@ -13,8 +13,12 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
+import { 
+  findPackagingByTrackingCode, 
+  updatePackagingFromGHTK,
+} from '@/lib/ghtk-sync';
 
-// In-memory queue for webhooks (will be replaced by database in production)
+// In-memory queue for webhooks (kept for debug/monitoring purposes)
 const webhookQueue: WebhookPayload[] = [];
 
 interface WebhookPayload {
@@ -197,14 +201,42 @@ export async function POST(request: NextRequest) {
     }
     
     // ============================================
-    // PROCESS WEBHOOK
+    // PROCESS WEBHOOK - UPDATE DATABASE
     // ============================================
     
-    // Store webhook payload for frontend to fetch
+    const parsedStatusId = parseInt(status_id);
+    
+    // Find packaging by tracking code
+    const packaging = await findPackagingByTrackingCode(label_id);
+    
+    if (packaging) {
+      // ✅ Update packaging in database
+      const updateResult = await updatePackagingFromGHTK(
+        packaging.systemId,
+        parsedStatusId,
+        {
+          reasonCode: reason_code,
+          reasonText: reason,
+          fee: fee ? parseInt(fee) : undefined,
+          pickMoney: pick_money ? parseInt(pick_money) : undefined,
+        }
+      );
+      
+      console.log(`📥 [GHTK Webhook] Received and processed:`, {
+        trackingCode: label_id,
+        statusId: parsedStatusId,
+        packagingId: packaging.systemId,
+        updated: updateResult.success,
+      });
+    } else {
+      console.warn(`⚠️ [GHTK Webhook] Packaging not found for tracking code: ${label_id}`);
+    }
+    
+    // Store webhook payload in memory for debug/monitoring
     webhookQueue.push({
       label_id,
       partner_id,
-      status_id: parseInt(status_id),
+      status_id: parsedStatusId,
       action_time,
       reason_code,
       reason,
@@ -220,11 +252,10 @@ export async function POST(request: NextRequest) {
       webhookQueue.shift();
     }
     
-    
     // CRITICAL: Must return HTTP 200 for GHTK to mark as successful
     return NextResponse.json({ 
       success: true, 
-      message: 'Webhook received successfully' 
+      message: 'Webhook processed successfully' 
     }, { status: 200 });
     
   } catch (error) {

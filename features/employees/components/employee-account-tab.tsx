@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Eye, EyeOff, ShieldAlert } from 'lucide-react';
 import type { Employee } from '@/lib/types/prisma-extended';
 import type { EmployeeRole } from '../roles';
-import { useEmployeeMutations } from '../hooks/use-employees';
+import { useEmployeeMutations, type UpdateEmployeeInput } from '../hooks/use-employees';
 import { useAuth } from '@/contexts/auth-context';
 import { toast } from 'sonner';
 import { hashPassword, validatePasswordStrength } from '@/lib/security-utils';
@@ -139,7 +139,7 @@ export function EmployeeAccountTab({ employee }: EmployeeAccountTabProps) {
     update.mutate({
       systemId: employee.systemId,
       ...updates,
-    } as any);
+    } as UpdateEmployeeInput);
     
     setPassword('');
     setConfirmPassword('');
@@ -149,7 +149,7 @@ export function EmployeeAccountTab({ employee }: EmployeeAccountTabProps) {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle className="text-h5">
+          <CardTitle>
             Thông tin đăng nhập
           </CardTitle>
           <CardDescription>
@@ -233,15 +233,15 @@ export function EmployeeAccountTab({ employee }: EmployeeAccountTabProps) {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-h5">
+          <CardTitle>
             Đổi mật khẩu
           </CardTitle>
           <CardDescription>
-            {(employee as { hasPassword?: boolean }).hasPassword ? 'Cập nhật mật khẩu đăng nhập' : 'Thiết lập mật khẩu đăng nhập mới'}
+            {(employee as Employee & { hasPassword?: boolean }).hasPassword ? 'Cập nhật mật khẩu đăng nhập' : 'Thiết lập mật khẩu đăng nhập mới'}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {(employee as { hasPassword?: boolean }).hasPassword ? (
+          {(employee as Employee & { hasPassword?: boolean }).hasPassword ? (
             <div className="rounded-lg border p-3 bg-muted/50">
               <p className="text-sm text-muted-foreground">
                  Mật khẩu đã được thiết lập. Để thay đổi, nhập mật khẩu mới bên dưới.

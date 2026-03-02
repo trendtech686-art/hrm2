@@ -1,5 +1,6 @@
 import { toast } from 'sonner';
 import { asSystemId, type SystemId } from '@/lib/id-types';
+import { generateSubEntityId } from '@/lib/id-utils';
 import type { Complaint, ComplaintAction } from '../types';
 import { cancelPaymentsReceiptsAndInventory } from '../utils/cancel-payments-receipts-and-inventory';
 
@@ -25,7 +26,7 @@ interface User {
 export async function handleCancelComplaint(
   complaint: Complaint,
   currentUser: User,
-  updateComplaint: (systemId: SystemId, updates: Partial<Complaint>) => void
+  updateComplaint: (systemId: SystemId, updates: Partial<Complaint>) => Promise<void> | void
 ): Promise<{ success: boolean; message: string }> {
   try {
     
@@ -40,9 +41,9 @@ export async function handleCancelComplaint(
     
     // STEP 3: Build timeline action
     const timeline: ComplaintAction[] = [
-      ...complaint.timeline,
+      ...(complaint.timeline || []),
       {
-        id: asSystemId(`action_${Date.now()}`),
+        id: asSystemId(generateSubEntityId('ACTION')),
         actionType: "cancelled",
         performedBy: currentUser.systemId,
         performedAt: new Date(),
@@ -70,8 +71,8 @@ export async function handleCancelComplaint(
     };
     
     
-    // STEP 6: Update
-    updateComplaint(complaint.systemId, updates);
+    // STEP 6: Update (await to ensure UI refresh)
+    await updateComplaint(complaint.systemId, updates);
     
     
     toast.success('Đã hủy khiếu nại');

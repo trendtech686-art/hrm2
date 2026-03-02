@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { parsePagination } from '@/lib/api-utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,33 +23,43 @@ export async function GET(request: NextRequest) {
     const provinceId = searchParams.get('provinceId');
     const districtId = searchParams.get('districtId');
     const level = searchParams.get('level');
-    const limit = parseInt(searchParams.get('limit') || '1000', 10);
+    const { page, limit, skip } = parsePagination(searchParams);
 
-    const wards = await prisma.ward.findMany({
-      where: {
-        isDeleted: false,
-        ...(provinceId && { provinceId }),
-        ...(districtId && { districtId: parseInt(districtId, 10) }),
-        ...(level && { level }),
-      },
-      orderBy: { name: 'asc' },
-      take: limit,
-      select: {
-        systemId: true,
-        id: true,
-        name: true,
-        provinceId: true,
-        provinceName: true,
-        districtId: true,
-        districtName: true,
-        level: true,
-      },
-    });
+    const where = {
+      isDeleted: false,
+      ...(provinceId && { provinceId }),
+      ...(districtId && { districtId: parseInt(districtId, 10) }),
+      ...(level && { level }),
+    };
+
+    const [wards, total] = await Promise.all([
+      prisma.ward.findMany({
+        where,
+        orderBy: { name: 'asc' },
+        skip,
+        take: limit,
+        select: {
+          systemId: true,
+          id: true,
+          name: true,
+          provinceId: true,
+          provinceName: true,
+          districtId: true,
+          districtName: true,
+          level: true,
+        },
+      }),
+      prisma.ward.count({ where }),
+    ]);
 
     return NextResponse.json({
-      success: true,
       data: wards,
-      count: wards.length,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
     });
   } catch (error) {
     console.error('Failed to fetch wards:', error);

@@ -44,6 +44,25 @@ export function SalesChannelForm({ initialData, onSubmit }: FormProps) {
     mode: "onBlur",
   });
 
+  // Reset form when initialData changes
+  React.useEffect(() => {
+    if (initialData) {
+      form.reset({
+        id: String(initialData.id ?? ""),
+        name: initialData.name ?? "",
+        isApplied: initialData.isApplied ?? true,
+        isDefault: initialData.isDefault ?? false,
+      });
+    } else {
+      form.reset({
+        id: "",
+        name: "",
+        isApplied: true,
+        isDefault: false,
+      });
+    }
+  }, [initialData, form]);
+
   return (
     <Form {...form}>
       <form

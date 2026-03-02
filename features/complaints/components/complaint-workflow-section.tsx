@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { SubtaskList } from '../../../components/shared/subtask-list';
@@ -6,6 +6,7 @@ import { getWorkflowTemplate } from '../../settings/printer/workflow-templates-p
 import { complaintStatusLabels as _complaintStatusLabels } from '../types';
 import type { Complaint, ComplaintAction } from '../types';
 import { asSystemId } from '@/lib/id-types';
+import { generateSubEntityId } from '@/lib/id-utils';
 
 interface Props {
   complaint: Complaint;
@@ -18,27 +19,41 @@ export const ComplaintWorkflowSection: React.FC<Props> = ({
   currentUser, 
   updateComplaint 
 }) => {
+  // Track if we've already initialized to prevent double-init
+  const hasInitializedRef = React.useRef(false);
+  
+  // Auto-initialize subtasks from template if empty (in useEffect, not during render)
+  React.useEffect(() => {
+    if (hasInitializedRef.current) return;
+    
+    if (!complaint.subtasks || complaint.subtasks.length === 0) {
+      const template = getWorkflowTemplate('complaints');
+      if (template.length > 0) {
+        hasInitializedRef.current = true;
+        updateComplaint(complaint.systemId, { subtasks: template });
+      }
+    }
+  }, [complaint.systemId, complaint.subtasks, updateComplaint]);
+
+  // Get current subtasks (use template as fallback for display while initializing)
+  const currentSubtasks = React.useMemo(() => {
+    if (complaint.subtasks && complaint.subtasks.length > 0) {
+      return complaint.subtasks;
+    }
+    // Return template for display (will be saved by useEffect)
+    return getWorkflowTemplate('complaints');
+  }, [complaint.subtasks]);
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg">Quy trình xử lý</CardTitle>
+        <CardTitle size="lg">Quy trình xử lý</CardTitle>
       </CardHeader>
       <CardContent>
         <SubtaskList
-          subtasks={(() => {
-            // Auto-initialize from template if empty
-            if (!complaint.subtasks || complaint.subtasks.length === 0) {
-              const template = getWorkflowTemplate('complaints');
-              if (template.length > 0) {
-                updateComplaint(complaint.systemId, { ...complaint, subtasks: template });
-                return template;
-              }
-            }
-            return complaint.subtasks || [];
-          })()}
+          subtasks={currentSubtasks}
           readonly={true}
           onToggleComplete={(id, completed) => {
-            const currentSubtasks = complaint.subtasks || getWorkflowTemplate('complaints');
             const toggledSubtask = currentSubtasks.find(s => s.id === id);
             if (!toggledSubtask) return;
 
@@ -51,7 +66,7 @@ export const ComplaintWorkflowSection: React.FC<Props> = ({
             // Add to timeline
             const action = completed ? 'Hoàn thành bước' : 'Bỏ hoàn thành bước';
             const newAction: ComplaintAction = {
-              id: asSystemId(Date.now().toString()),
+              id: asSystemId(generateSubEntityId('ACTION')),
               actionType: 'commented',
               performedBy: asSystemId(currentUser.systemId),
               performedAt: new Date(),
@@ -59,9 +74,8 @@ export const ComplaintWorkflowSection: React.FC<Props> = ({
             };
             
             updateComplaint(complaint.systemId, {
-              ...complaint,
               subtasks: updatedSubtasks,
-              timeline: [...complaint.timeline, newAction],
+              timeline: [...(complaint.timeline || []), newAction],
             });
 
             toast.success(`${action}: ${toggledSubtask.title}`);

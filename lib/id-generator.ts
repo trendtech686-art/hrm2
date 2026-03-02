@@ -24,9 +24,12 @@ import { prisma } from '@/lib/prisma';
  *   // ... use id
  * });
  */
+// Transaction client type extracted from Prisma
+type TransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
+
 export async function generateIdWithPrefix(
   prefix: string,
-  tx?: any // Transaction context type is complex and varies
+  tx?: TransactionClient
 ): Promise<string> {
   const client = tx || prisma;
   

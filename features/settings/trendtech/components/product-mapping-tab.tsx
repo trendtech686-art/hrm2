@@ -1,4 +1,4 @@
-import * as React from 'react';
+﻿import * as React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../../components/ui/card';
 import { Button } from '../../../../components/ui/button';
 import { Input } from '../../../../components/ui/input';
@@ -6,11 +6,11 @@ import { Badge } from '../../../../components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../../components/ui/table';
 import { Search, Unlink, RefreshCw, Loader2, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
-import { useProductStore } from '../../../products/store';
+import { useAllProducts } from '../../../products/hooks/use-all-products';
 import { useTrendtechSettings, useTrendtechLogMutations } from '../hooks/use-trendtech-settings';
 
 export function ProductMappingTab() {
-  const productStore = useProductStore();
+  const { data: allProducts } = useAllProducts();
   const { data: settings } = useTrendtechSettings();
   const { addLog } = useTrendtechLogMutations();
   
@@ -19,7 +19,7 @@ export function ProductMappingTab() {
   
   // Get HRM products with/without Trendtech link
   const hrmProducts = React.useMemo(() => {
-    const products = productStore.getActive();
+    const products = (allProducts ?? []).filter(p => !p.isDeleted);
     
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
@@ -30,7 +30,7 @@ export function ProductMappingTab() {
     }
     
     return products;
-  }, [productStore, searchTerm]);
+  }, [allProducts, searchTerm]);
 
   const linkedProducts = React.useMemo(
     () => hrmProducts.filter(p => p.trendtechId),
@@ -70,7 +70,7 @@ export function ProductMappingTab() {
       {/* Stats Card */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Thống kê liên kết</CardTitle>
+          <CardTitle size="lg">Thống kê liên kết</CardTitle>
           <CardDescription>Tổng quan sản phẩm HRM đã liên kết với Trendtech</CardDescription>
         </CardHeader>
         <CardContent>
@@ -104,7 +104,7 @@ export function ProductMappingTab() {
       {/* Search */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Danh sách sản phẩm đã liên kết</CardTitle>
+          <CardTitle size="lg">Danh sách sản phẩm đã liên kết</CardTitle>
           <CardDescription>Sản phẩm HRM đã có trendtechId</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -130,11 +130,11 @@ export function ProductMappingTab() {
                   <TableHead>Tên sản phẩm HRM</TableHead>
                   <TableHead>Trendtech ID</TableHead>
                   <TableHead>Slug</TableHead>
-                  <TableHead className="w-[100px]">Thao tác</TableHead>
+                  <TableHead className="w-25">Thao tác</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {linkedProducts.slice(0, 50).map((product) => (
+                {linkedProducts.map((product) => (
                   <TableRow key={product.systemId}>
                     <TableCell className="font-mono">{product.id}</TableCell>
                     <TableCell>{product.name}</TableCell>
@@ -142,7 +142,7 @@ export function ProductMappingTab() {
                       <Badge variant="secondary">{product.trendtechId}</Badge>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {product.trendtechSlug || '-'}
+                      {product.seoTrendtech?.slug || '-'}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
@@ -157,7 +157,7 @@ export function ProductMappingTab() {
                         >
                           <Unlink className="h-4 w-4 text-red-500" />
                         </Button>
-                        {product.trendtechSlug && (
+                        {product.seoTrendtech?.slug && (
                           <Button
                             variant="ghost"
                             size="icon"
@@ -189,7 +189,7 @@ export function ProductMappingTab() {
       {/* Info Card */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Hướng dẫn</CardTitle>
+          <CardTitle size="lg">Hướng dẫn</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-sm text-muted-foreground">
           <p>

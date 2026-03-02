@@ -11,6 +11,9 @@ model OrderPayment {
 
   // Link to warranty (for warranty deduction payments)
   linkedWarrantySystemId String?
+  
+  // Link to Receipt (for navigation to receipt detail page)
+  linkedReceiptSystemId String?
 
   order Order @relation(fields: [orderId], references: [systemId], onDelete: Cascade)
 

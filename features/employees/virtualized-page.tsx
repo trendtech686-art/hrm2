@@ -2,7 +2,8 @@
 
 import * as React from "react"
 import { useRouter } from 'next/navigation'
-import { useEmployeeStore } from "./store"
+import { useAllEmployees } from "./hooks/use-all-employees"
+import { useEmployeeMutations, useTrashMutations } from "./hooks/use-employees"
 import { useAllBranches } from "@/features/settings/branches/hooks/use-all-branches";
 import { usePageHeader } from "../../contexts/page-header-context"
 import { asSystemId } from '@/lib/id-types';
@@ -11,7 +12,7 @@ import { getColumns } from "./columns"
 import { Button } from "../../components/ui/button"
 import { Plus, Upload, Download } from "lucide-react"
 import { toast } from "sonner"
-import { useFuseFilter } from '../../hooks/use-fuse-search'
+import { simpleSearch } from '@/lib/simple-search'
 import type { Employee } from '@/lib/types/prisma-extended'
 
 /**
@@ -25,8 +26,9 @@ import type { Employee } from '@/lib/types/prisma-extended'
 
 export function EmployeesVirtualizedPage() {
   const router = useRouter()
-  const employeeStore = useEmployeeStore()
-  const { data: allEmployees } = employeeStore
+  const { data: allEmployees } = useAllEmployees()
+  const { remove: removeMutation } = useEmployeeMutations({})
+  const { restore: restoreMutation } = useTrashMutations()
   const { data: branchesRaw } = useAllBranches()
 
   // State
@@ -50,12 +52,11 @@ export function EmployeesVirtualizedPage() {
     return () => clearTimeout(timer)
   }, [globalFilter])
 
-  // Lazy-loaded Fuse search
-  const fuseOptions = React.useMemo(() => ({
-    keys: ['fullName', 'id', 'phone', 'personalEmail', 'workEmail', 'department', 'jobTitle'],
-    threshold: 0.3,
-  }), []);
-  const searchedEmployees = useFuseFilter(allEmployees, debouncedSearch, fuseOptions);
+  // Simple search for employees
+  const searchedEmployees = React.useMemo(() => 
+    simpleSearch(allEmployees, debouncedSearch, { keys: ['fullName', 'id', 'phone', 'personalEmail', 'workEmail', 'department', 'jobTitle'] }), 
+    [allEmployees, debouncedSearch]
+  );
 
   // Filter và search data
   const filteredData = React.useMemo(() => {
@@ -109,7 +110,7 @@ export function EmployeesVirtualizedPage() {
     const confirm = window.confirm(`Xóa ${selectedRows.length} nhân viên?`)
     if (!confirm) return
 
-    selectedRows.forEach(row => employeeStore.remove(row.systemId))
+    selectedRows.forEach(row => removeMutation.mutate(row.systemId))
     setRowSelection({})
     toast.success(`Đã xóa ${selectedRows.length} nhân viên`)
   }
@@ -118,17 +119,17 @@ export function EmployeesVirtualizedPage() {
   const columns = React.useMemo(
     () => getColumns(
       (systemId: string) => {
-        employeeStore.remove(asSystemId(systemId))
+        removeMutation.mutate(asSystemId(systemId))
         toast.success('Đã xóa nhân viên')
       },
       (systemId: string) => {
-        employeeStore.restore(asSystemId(systemId))
+        restoreMutation.mutate(asSystemId(systemId))
         toast.success('Đã khôi phục nhân viên')
       },
       router,
       branchesRaw
     ),
-    [employeeStore, router, branchesRaw]
+    [removeMutation, restoreMutation, router, branchesRaw]
   )
 
   // Page header actions
@@ -251,7 +252,7 @@ export function EmployeesVirtualizedPage() {
       />
 
       {/* Performance Tips */}
-      <div className="rounded-lg border-2 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950 dark:to-purple-950 p-6">
+      <div className="rounded-lg border-2 bg-linear-to-r from-blue-50 to-purple-50 dark:from-blue-950 dark:to-purple-950 p-6">
         <h4 className="font-bold text-lg mb-3 flex items-center gap-2">
           🚀 Virtual Scrolling Performance Metrics
         </h4>

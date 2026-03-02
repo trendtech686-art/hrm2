@@ -1,21 +1,24 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter, useParams } from 'next/navigation';
 import { formatDate, formatDateTime } from '@/lib/date-utils';
-import { useOrder, useOrders } from '../hooks/use-orders';
+import { useOrder } from '../hooks/use-orders';
+import { useCustomerOrders } from '../hooks/use-customer-orders';
 import { useOrderActions } from '../hooks/use-order-actions';
 import { useOrderMutations } from '../hooks/use-order-mutations';
 import type { OrderDeliveryStatus, OrderAddress } from '@/lib/types/prisma-extended';
 import { formatOrderAddress } from '../address-utils';
+import { ORDER_STATUS_LABELS } from '@/lib/constants/order-enums';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { useAllCustomers } from '@/features/customers/hooks/use-all-customers';
+// ✅ Use useCustomer to fetch full customer data including maxDebt, currentDebt
+import { useCustomer } from '@/features/customers/hooks/use-customers';
 import { useCustomerTypes, useCustomerGroups, useCustomerSources } from '@/features/settings/customers/hooks/use-customer-settings';
-import { ArrowLeft, Printer, Copy, ChevronDown, CheckCircle2, FileWarning, Package, Info, ArrowDownLeft } from 'lucide-react';
+import { ArrowLeft, Printer, Copy, ChevronDown, CheckCircle2, FileWarning, Package, Info, ArrowDownLeft, ArrowUpRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAllEmployees, useEmployeeFinder } from '@/features/employees/hooks/use-all-employees';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
@@ -26,13 +29,15 @@ import { DetailField } from '@/components/ui/detail-field';
 import { ImagePreviewDialog } from '@/components/ui/image-preview-dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { useProductFinder } from '@/features/products/hooks/use-all-products';
-import { useAllWarranties } from '@/features/warranty/hooks/use-all-warranties';
-import { useComplaints } from '@/features/complaints/hooks/use-complaints';
+// ✅ PERFORMANCE: Removed useAllWarranties - now using order-specific hook
+// ✅ PERFORMANCE: Removed useComplaints - now using order-specific hook
 import Link from 'next/link';
 import { Spinner } from '@/components/ui/spinner';
 import { usePageHeader } from '@/contexts/page-header-context';
-import { PackagingInfo } from './packaging-info';
-import { PaymentInfo } from './payment-info';
+import { MemoizedPackagingInfo as PackagingInfo } from './packaging-info';
+import { MemoizedPaymentInfo as PaymentInfo } from './payment-info';
+import { MemoizedReceiptInfo as ReceiptInfo } from './receipt-info';
+import type { OrderFormValues } from './order-form-page';
 
 // Dynamic imports for dialogs (code-splitting)
 const CancelShipmentDialog = dynamic(() => import('./cancel-shipment-dialog').then(mod => ({ default: mod.CancelShipmentDialog })), { ssr: false });
@@ -41,9 +46,15 @@ const DeliveryFailureDialog = dynamic(() => import('./delivery-failure-dialog').
 
 import { ShippingTrackingTab } from './shipping-tracking-tab';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { useAllSalesReturns } from '@/features/sales-returns/hooks/use-all-sales-returns';
-import { useAllReceipts } from '@/features/receipts/hooks/use-all-receipts';
-import { useAllPayments } from '@/features/payments/hooks/use-all-payments';
+// ✅ PERFORMANCE: Removed useAllSalesReturns - now using order-specific hook
+// ✅ PERFORMANCE: Replaced useAllReceipts/useAllPayments with order-specific hooks
+import { 
+  useOrderReceipts, useOrderPayments, 
+  useSalesReturnReceipts, useSalesReturnPayments, 
+  useCustomerReceipts, useCustomerPayments,
+  useOrderWarranties, useOrderSalesReturns, useOrderComplaints 
+} from '../hooks/use-order-financial-data';
+import { useAppliedSalesChannels } from '@/features/settings/sales-channels/hooks/use-sales-channels';
 import { PartnerShipmentForm as _PartnerShipmentForm } from './partner-shipment-form';
 import { useAuth } from '@/contexts/auth-context';
 import { asSystemId, type SystemId } from '@/lib/id-types';
@@ -53,11 +64,11 @@ import { Comments } from '@/components/Comments';
 import { useComments } from '@/hooks/use-comments';
 import { useProductTypeFinder } from '@/features/settings/inventory/hooks/use-all-product-types';
 import { useAllPricingPolicies } from '@/features/settings/pricing/hooks/use-all-pricing-policies';
-import { useCustomerSlaEvaluation } from '@/features/customers/sla/hooks';
 import { OrderPrintButton } from './order-print-button';
-import { useAllBranches, useBranchFinder } from '@/features/settings/branches/hooks/use-all-branches';
+import { useBranchFinder } from '@/features/settings/branches/hooks/use-all-branches';
 import { useBranding, getFullLogoUrl } from '@/hooks/use-branding';
 import { mapPaymentToPrintData, PaymentForPrint } from '@/lib/print-mappers/payment.mapper';
+import { mapReceiptToPrintData, ReceiptForPrint } from '@/lib/print-mappers/receipt.mapper';
 import { useStoreInfoData } from '@/features/settings/store-info/hooks/use-store-info';
 import { usePrint } from '@/lib/use-print';
 import { StoreSettings, numberToWords, formatTime } from '@/lib/print-service';
@@ -118,9 +129,14 @@ export function OrderDetailPage() {
     // ✅ React Query for single order fetch
     const { data: orderFromQuery, isLoading } = useOrder(params.systemId);
     
-    // ✅ Fetch all orders for customer comparison
-    const { data: ordersData } = useOrders({ limit: 10000 });
-    const orders = React.useMemo(() => ordersData?.data ?? [], [ordersData?.data]);
+    // ✅ Get customer systemId from order for fetching their orders
+    const customerSystemIdFromOrder = orderFromQuery?.customerSystemId;
+    
+    // ✅ Fetch all orders for this customer using auto-pagination (MODULE-QUALITY-CRITERIA §1.3)
+    const { data: customerOrdersData } = useCustomerOrders({ 
+        customerSystemId: customerSystemIdFromOrder,
+        enabled: !!customerSystemIdFromOrder,
+    });
     
     // ✅ React Query for order actions
     const orderActions = useOrderActions({
@@ -128,6 +144,7 @@ export function OrderDetailPage() {
         onError: (err) => toast.error(err.message),
     });
     const { update: updateOrder } = useOrderMutations();
+    const { employee: authEmployee, user: authUser } = useAuth();
     
     const order = React.useMemo(() => {
         // ✅ Use React Query data directly
@@ -161,9 +178,14 @@ export function OrderDetailPage() {
     );
     
     const confirmPackaging = React.useCallback(
-        (systemId: string, packagingId: string, _employeeId?: string) =>
-            orderActions.confirmPacking.mutate({ systemId, packagingId }),
-        [orderActions.confirmPacking]
+        (systemId: string, packagingId: string) =>
+            orderActions.confirmPacking.mutate({ 
+                systemId, 
+                packagingId,
+                confirmingEmployeeId: authEmployee?.systemId,
+                confirmingEmployeeName: authEmployee?.fullName,
+            }),
+        [orderActions.confirmPacking, authEmployee?.systemId, authEmployee?.fullName]
     );
     
     const cancelPackagingRequest = React.useCallback(
@@ -184,9 +206,16 @@ export function OrderDetailPage() {
         [orderActions.confirmPickup]
     );
     
-    const confirmPartnerShipment = React.useCallback(
-        (systemId: string) =>
-            orderActions.requestShipment.mutate({ systemId, provider: 'default', serviceType: 'standard' }),
+    const _confirmPartnerShipment = React.useCallback(
+        async (systemId: string, packagingId?: string) => {
+            try {
+                await orderActions.requestShipment.mutateAsync({ systemId, provider: 'default', serviceType: 'standard', packagingId });
+                return { success: true, message: 'Đã tạo đơn vận chuyển' };
+            } catch (error) {
+                const message = error instanceof Error ? error.message : 'Không thể tạo đơn vận chuyển';
+                return { success: false, message };
+            }
+        },
         [orderActions.requestShipment]
     );
     
@@ -222,33 +251,44 @@ export function OrderDetailPage() {
     
     const cancelGHTKShipment = React.useCallback(
         (systemId: string, packagingId: string, trackingCode: string) =>
-            orderActions.cancelGhtk.mutate({ systemId, packagingId, trackingCode }),
+            orderActions.cancelGhtk.mutateAsync({ systemId, packagingId, trackingCode }),
         [orderActions.cancelGhtk]
     );
     const { findById: findProductById } = useProductFinder();
     const { findById: findProductTypeById } = useProductTypeFinder();
-    const { data: allSalesReturns } = useAllSalesReturns();
+    // ✅ PERFORMANCE: Use order-specific hooks instead of loading ALL data
+    const { data: orderSalesReturns } = useOrderSalesReturns(order?.systemId);
     const { data: pricingPolicies } = useAllPricingPolicies();
     const defaultPricingPolicy = React.useMemo(
         () => (pricingPolicies ?? []).find(policy => policy.type === 'Bán hàng' && policy.isDefault),
         [pricingPolicies]
     );
-    const { data: warranties } = useAllWarranties();
-    const { data: allReceipts } = useAllReceipts();
-    const { data: allPayments } = useAllPayments();
-    const { data: queryData } = useComplaints({ limit: 1000 });
-    const complaints = React.useMemo(() => queryData?.data ?? [], [queryData?.data]);
-    const slaEngine = useCustomerSlaEvaluation();
-    const { data: _branches } = useAllBranches();
+    const { data: warranties } = useOrderWarranties(order?.systemId);
+    // ✅ Use useCustomer to fetch full customer data including maxDebt, currentDebt, customerGroup
+    const { data: customer } = useCustomer(customerSystemIdFromOrder);
+    
+    // ✅ PERFORMANCE: Use order-specific hooks instead of loading all receipts/payments
+    const linkedSalesReturnId = order?.linkedSalesReturnSystemId;
+    const { data: orderReceipts } = useOrderReceipts(order?.systemId);
+    const { data: orderPayments } = useOrderPayments(order?.systemId);
+    const { data: receiptsFromLinkedSalesReturn } = useSalesReturnReceipts(linkedSalesReturnId);
+    const { data: paymentsFromLinkedSalesReturn } = useSalesReturnPayments(linkedSalesReturnId);
+    // Customer receipts/payments only needed for debt calculation
+    const { data: customerReceipts } = useCustomerReceipts(customerSystemIdFromOrder, !!customer);
+    const { data: customerPayments } = useCustomerPayments(customerSystemIdFromOrder, !!customer);
+    const { data: complaints } = useOrderComplaints(order?.systemId);
+    // ✅ Removed useAllBranches - not used, useBranchFinder is sufficient
     const { findById: findBranchById } = useBranchFinder();
     const { info: storeInfo } = useStoreInfoData();
     const { print } = usePrint();
     
-    const { data: customers } = useAllCustomers();
-    const customer = order ? customers.find(c => c.systemId === order.customerSystemId) : null;
     const orderBranch = order ? findBranchById?.(order.branchSystemId) : null;
-    const { employee: authEmployee } = useAuth();
     const currentEmployeeSystemId: SystemId = authEmployee?.systemId ?? asSystemId('SYSTEM');
+    // Check if current user can view financial info (cost, profit)
+    const canViewFinancials = React.useMemo(() => {
+        const role = authUser?.role?.toUpperCase();
+        return role === 'ADMIN' || role === 'MANAGER';
+    }, [authUser?.role]);
     const [isCopying, setIsCopying] = React.useState(false);
 
     // State for image preview in ReturnHistoryTab
@@ -261,10 +301,10 @@ export function OrderDetailPage() {
         setReturnHistoryPreviewState({ open: true, image, title });
     }, []);
 
+    // ✅ Use orders from dedicated customer orders hook (returns flat array from fetchAllPages)
     const customerOrders = React.useMemo(() => {
-        if (!customer) return [];
-        return orders.filter(o => o.customerSystemId === customer.systemId);
-    }, [customer, orders]);
+        return customerOrdersData ?? [];
+    }, [customerOrdersData]);
     // Orders that create debt: status='Hoàn thành' OR deliveryStatus='Đã giao hàng' OR stockOutStatus='Xuất kho toàn bộ'
     const deliveredCustomerOrders = React.useMemo(
         () => customerOrders.filter(o => 
@@ -285,22 +325,14 @@ export function OrderDetailPage() {
             };
         }
 
-        if (!customerOrders.length) {
-            return {
-                totalSpent: customer.totalSpent ?? 0,
-                totalOrders: customer.totalOrders ?? 0,
-                lastOrderDate: customer.lastPurchaseDate ?? order?.orderDate ?? null,
-            };
-        }
-
-        let totalSpent = 0;
-        let lastOrderDate: string | null = null;
-
-        deliveredCustomerOrders.forEach(o => {
-            totalSpent += o.grandTotal || 0;
-        });
+        // ✅ ALWAYS use totalSpent from database - it's the source of truth
+        // Don't recalculate from orders as useAllOrders() may not have all orders
+        // Convert to Number since Prisma Decimal comes as string in JSON
+        const totalSpent = Number(customer.totalSpent) || 0;
+        const totalOrders = customerOrders.length || (customer.totalOrders ?? 0);
 
         const recencySource = deliveredCustomerOrders.length ? deliveredCustomerOrders : customerOrders;
+        let lastOrderDate: string | null = null;
 
         recencySource.forEach(o => {
             if (!lastOrderDate || new Date(o.orderDate).getTime() > new Date(lastOrderDate).getTime()) {
@@ -310,46 +342,70 @@ export function OrderDetailPage() {
 
         return {
             totalSpent,
-            totalOrders: customerOrders.length,
+            totalOrders,
             lastOrderDate: lastOrderDate ?? customer.lastPurchaseDate ?? order?.orderDate ?? null,
         };
     }, [customer, customerOrders, deliveredCustomerOrders, order]);
 
+    // ✅ Tính công nợ từ transactions (giống customer detail page)
+    // Vì DB currentDebt có thể không chính xác
+    // ✅ PERFORMANCE: Now uses customerReceipts/customerPayments instead of allReceipts/allPayments
+    const customerDebtTransactions = React.useMemo(() => {
+        if (!customer) return [];
+
+        const orderTransactions = deliveredCustomerOrders.map(order => ({
+            date: order.orderDate,
+            change: Number(order.grandTotal) || 0,
+        }));
+
+        const receiptTransactions = customerReceipts
+            .filter(r => 
+                r.status !== 'cancelled' && 
+                r.affectsDebt === true
+            )
+            .map(receipt => ({
+                date: receipt.date,
+                change: -Number(receipt.amount),
+            }));
+
+        const paymentTransactions = customerPayments
+            .filter(p => 
+                p.status !== 'cancelled' && 
+                p.affectsDebt === true && 
+                !p.linkedSalesReturnSystemId
+            )
+            .map(payment => {
+                const isRefundToCustomer = payment.paymentReceiptTypeName === 'Hoàn tiền khách hàng' || 
+                                           payment.category === 'complaint_refund';
+                return {
+                    date: payment.date,
+                    change: isRefundToCustomer ? -Number(payment.amount) : Number(payment.amount),
+                };
+            });
+
+        const allTransactions = [...orderTransactions, ...receiptTransactions, ...paymentTransactions];
+        allTransactions.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        
+        let runningDebt = 0;
+        return allTransactions.map(t => {
+            runningDebt += t.change;
+            return { ...t, balance: runningDebt };
+        }).reverse();
+    }, [customer, deliveredCustomerOrders, customerReceipts, customerPayments]);
+
     const customerDebtBalance = React.useMemo(() => {
         if (!customer) return 0;
-
-        const transactions: Array<{ date: string; change: number }> = [];
-
-        deliveredCustomerOrders.forEach(o => {
-            // ✅ Use grandTotal (không trừ paidAmount) vì phiếu thu đã được tính riêng
-            transactions.push({ date: o.orderDate, change: o.grandTotal || 0 });
+        // Ưu tiên tính từ transactions, fallback sang DB
+        const calculated = customerDebtTransactions.length > 0 
+            ? customerDebtTransactions[0].balance 
+            : Number(customer.currentDebt) || 0;
+        console.log('[ORDER-DETAIL] customerDebtBalance:', { 
+            fromDB: customer.currentDebt, 
+            calculated,
+            transactionsCount: customerDebtTransactions.length 
         });
-
-        allReceipts
-            .filter(r => r.payerTypeName === 'Khách hàng' && r.payerName === customer.name)
-            .forEach(receipt => {
-                transactions.push({ date: receipt.date, change: -receipt.amount });
-            });
-
-        allPayments
-            .filter(p => p.recipientTypeName === 'Khách hàng' && p.recipientName === customer.name)
-            .forEach(payment => {
-                transactions.push({ date: payment.date, change: payment.amount });
-            });
-
-        if (!transactions.length) {
-            return customer.currentDebt ?? 0;
-        }
-
-        transactions.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-        let balance = 0;
-        transactions.forEach(entry => {
-            balance += entry.change;
-        });
-
-        return balance;
-    }, [customer, deliveredCustomerOrders, allReceipts, allPayments]);
+        return calculated;
+    }, [customer, customerDebtTransactions]);
 
     const customerWarranties = React.useMemo(() => {
         if (!customer) return [];
@@ -373,56 +429,33 @@ export function OrderDetailPage() {
         return customerComplaints.filter(complaint => complaint.status === 'pending' || complaint.status === 'investigating').length;
     }, [customerComplaints]);
 
+    // SLA removed - use comments instead
     const slaDisplay = React.useMemo(() => {
-        if (!customer) {
-            return {
-                title: 'Đúng hạn',
-                detail: 'Chưa có dữ liệu SLA',
-                tone: 'secondary' as const,
-            };
-        }
-
-        const entry = slaEngine.index?.entries?.[customer.systemId];
-        const alerts = entry?.alerts ?? [];
-        if (!alerts.length) {
-            return {
-                title: 'Đúng hạn',
-                detail: 'Không có cảnh báo',
-                tone: 'success' as const,
-            };
-        }
-
-        const sortedAlerts = [...alerts].sort((a, b) => new Date(a.targetDate).getTime() - new Date(b.targetDate).getTime());
-        const nextAlert = sortedAlerts[0];
-        const remaining = nextAlert.daysRemaining;
-        const timeText = remaining === 0
-            ? 'Hôm nay'
-            : remaining > 0
-                ? `Còn ${remaining} ngày`
-                : `Trễ ${Math.abs(remaining)} ngày`;
-        const tone = remaining < 0
-            ? 'destructive'
-            : nextAlert.alertLevel === 'warning'
-                ? 'warning'
-                : 'secondary';
-
         return {
-            title: nextAlert.slaName,
-            detail: `${timeText}${nextAlert.targetDate ? ` • hạn ${formatDate(nextAlert.targetDate)}` : ''}`,
-            tone,
-        } as const;
-    }, [customer, slaEngine.index]);
+            title: 'Bình thường',
+            detail: 'Xem bình luận để theo dõi',
+            tone: 'secondary' as const,
+        };
+    }, []);
 
-    // Order breakdown by status
+    // Order breakdown by status - handle both enum and Vietnamese values
     const orderBreakdown = React.useMemo(() => {
-        const pending = customerOrders.filter(o => o.status === 'Đặt hàng').length;
-        const inProgress = customerOrders.filter(o => o.status === 'Đang giao dịch').length;
-        const completed = customerOrders.filter(o => o.status === 'Hoàn thành').length;
-        const cancelled = customerOrders.filter(o => o.status === 'Đã hủy').length;
+        const pending = customerOrders.filter(o => o.status === 'Đặt hàng' || o.status === 'PENDING').length;
+        const inProgress = customerOrders.filter(o => o.status === 'Đang giao dịch' || o.status === 'PROCESSING').length;
+        const completed = customerOrders.filter(o => o.status === 'Hoàn thành' || o.status === 'COMPLETED').length;
+        const cancelled = customerOrders.filter(o => o.status === 'Đã hủy' || o.status === 'CANCELLED').length;
         return { pending, inProgress, completed, cancelled };
     }, [customerOrders]);
 
-    const customerMetrics = React.useMemo(() => {
+    const customerMetrics = React.useMemo((): Array<{
+        key: string;
+        label: string;
+        value: string;
+        subValue?: string;
+        badge?: { label: string; tone: 'warning' | 'destructive' };
+        link?: string;
+        tone?: 'destructive' | 'warning' | 'success' | 'secondary';
+    }> => {
         const lastOrderDate = customerOrderStats.lastOrderDate;
         return [
             {
@@ -487,13 +520,24 @@ export function OrderDetailPage() {
     const { data: customerSourcesData } = useCustomerSources();
     const customerSources = customerSourcesData || [];
     const { findById: findEmployeeById } = useEmployeeFinder();
+    
+    // ✅ Sales channels for order source lookup
+    const { data: salesChannelsData } = useAppliedSalesChannels();
+    const salesChannels = salesChannelsData || [];
 
     // Branding for print
     const { logoUrl } = useBranding();
 
     const _getTypeName = (id?: string) => id ? customerTypes.find(ct => ct.systemId === id)?.name : undefined;
-    const getGroupName = (id?: string) => id ? customerGroups.find(cg => cg.systemId === id)?.name : undefined;
+    // ✅ FIX: Search by both systemId AND id (business ID) since customer form stores the business id
+    const getGroupName = (id?: string) => id ? (customerGroups.find(cg => cg.systemId === id) || customerGroups.find(cg => cg.id === id))?.name : undefined;
     const _getSourceName = (id?: string) => id ? customerSources.find(cs => cs.systemId === id)?.name : undefined;
+    // ✅ Lookup order source from sales channels (by id/code)
+    const getSourceName = (sourceCode?: string) => {
+        if (!sourceCode) return undefined;
+        const channel = salesChannels.find(sc => sc.id === sourceCode || sc.systemId === sourceCode);
+        return channel?.name;
+    };
     const getEmployeeName = (id?: string) => id ? findEmployeeById(asSystemId(id))?.fullName : undefined;
 
     // Get salesperson employee for print
@@ -506,7 +550,7 @@ export function OrderDetailPage() {
     const [cancelReasonText, setCancelReasonText] = React.useState('');
     const [restockItems, setRestockItems] = React.useState(true);
     const [isPaymentDialogOpen, setIsPaymentDialogOpen] = React.useState(false);
-    const [isCreateShipmentDialogOpen, setIsCreateShipmentDialogOpen] = React.useState(false);
+    const [createShipmentState, setCreateShipmentState] = React.useState<{ packagingSystemId: SystemId } | null>(null);
     const [isPackerSelectionOpen, setIsPackerSelectionOpen] = React.useState(false);
     const [cancelPackagingState, setCancelPackagingState] = React.useState<{ packagingSystemId: SystemId } | null>(null);
     const [cancelShipmentState, setCancelShipmentState] = React.useState<{ packagingSystemId: SystemId; type: 'fail' | 'cancel' } | null>(null);
@@ -592,10 +636,8 @@ export function OrderDetailPage() {
             }));
     }, [allEmployees]);
 
-    const salesReturnsForOrder = React.useMemo(() => {
-        if (!order) return [];
-        return allSalesReturns.filter(sr => sr.orderSystemId === order.systemId);
-    }, [order, allSalesReturns]);
+    // ✅ PERFORMANCE: orderSalesReturns is already filtered by order from hook
+    const salesReturnsForOrder = orderSalesReturns;
     
     const totalReturnedValue = React.useMemo(() => 
         salesReturnsForOrder.reduce((sum, sr) => sum + sr.totalReturnValue, 0),
@@ -609,23 +651,72 @@ export function OrderDetailPage() {
         }, 0),
     [salesReturnsForOrder]);
 
-    // Lấy các phiếu chi hoàn tiền liên quan đến đơn hàng này (từ sales returns)
+    // ✅ PERFORMANCE: refundPaymentsForOrder now comes from useOrderPayments hook
     const refundPaymentsForOrder = React.useMemo(() => {
-        if (!order) return [];
-        return allPayments.filter(p => 
-            p.status !== 'cancelled' &&
-            (p.linkedOrderSystemId === order.systemId || 
-             salesReturnsForOrder.some(sr => sr.paymentVoucherSystemIds?.includes(p.systemId)))
+        return orderPayments.filter(p => p.status !== 'cancelled');
+    }, [orderPayments]);
+
+    // ✅ Lấy các phiếu chi từ sales return (cho đơn đổi hàng)
+    // ✅ PERFORMANCE: paymentsFromLinkedSalesReturn now comes directly from useSalesReturnPayments hook
+    // No need for client-side filtering from allPayments
+    const paymentsFromLinkedSalesReturnFiltered = React.useMemo(() => {
+        return paymentsFromLinkedSalesReturn.filter(p => p.status !== 'cancelled');
+    }, [paymentsFromLinkedSalesReturn]);
+
+    // ✅ PERFORMANCE: receiptsFromLinkedSalesReturn now comes directly from useSalesReturnReceipts hook
+    const receiptsFromLinkedSalesReturnFiltered = React.useMemo(() => {
+        return receiptsFromLinkedSalesReturn.filter(r => r.status !== 'cancelled');
+    }, [receiptsFromLinkedSalesReturn]);
+
+    // ✅ Tạo Set để loại trừ receipts đã hiển thị trong receiptsFromLinkedSalesReturn
+    const receiptsFromLinkedSalesReturnIds = React.useMemo(() => {
+        return new Set(receiptsFromLinkedSalesReturnFiltered.map(r => r.systemId));
+    }, [receiptsFromLinkedSalesReturnFiltered]);
+
+    // ✅ Lấy các phiếu thu liên quan đến đơn hàng này
+    // Chỉ lấy phiếu thu có linkedOrderSystemId === order.systemId (link trực tiếp)
+    // KHÔNG lấy phiếu thu từ salesReturns vì chúng có thể thuộc về đơn đổi hàng (exchangeOrder)
+    // ✅ IMPORTANT: Loại trừ các receipts đã được liên kết với OrderPayment để tránh tính 2 lần
+    const linkedReceiptSystemIds = React.useMemo(() => {
+        if (!order?.payments) return new Set<string>();
+        return new Set(
+            order.payments
+                .filter(p => p.linkedReceiptSystemId)
+                .map(p => p.linkedReceiptSystemId as string)
         );
-    }, [order, allPayments, salesReturnsForOrder]);
+    }, [order?.payments]);
+
+    // ✅ PERFORMANCE: receiptsFromReturns now uses orderReceipts from useOrderReceipts hook
+    const receiptsFromReturns = React.useMemo(() => {
+        if (!order) return [];
+        return orderReceipts.filter(r => 
+            r.status !== 'cancelled' &&
+            // ✅ Loại trừ receipts đã được tính trong order.payments (qua linkedReceiptSystemId)
+            !linkedReceiptSystemIds.has(r.systemId) &&
+            // ✅ Loại trừ receipts đã hiển thị trong receiptsFromLinkedSalesReturn (tránh duplicate)
+            !receiptsFromLinkedSalesReturnIds.has(r.systemId)
+        );
+    }, [order, orderReceipts, linkedReceiptSystemIds, receiptsFromLinkedSalesReturnIds]);
+
+    // ✅ Tổng tiền đã thu từ phiếu thu (đổi hàng)
+    // ✅ Bao gồm cả receiptsFromReturns VÀ receiptsFromLinkedSalesReturn
+    const totalPaidFromReceipts = React.useMemo(() => {
+        const fromReturns = receiptsFromReturns.reduce((sum, r) => sum + (r.amount || 0), 0);
+        const fromLinkedSalesReturn = receiptsFromLinkedSalesReturnFiltered.reduce((sum, r) => sum + (r.amount || 0), 0);
+        return fromReturns + fromLinkedSalesReturn;
+    }, [receiptsFromReturns, receiptsFromLinkedSalesReturnFiltered]);
 
     const totalPaid = React.useMemo(() => (order?.payments || []).reduce((sum, p) => sum + p.amount, 0), [order?.payments]);
     // totalPaid: số tiền khách đã thanh toán
     // totalRefundedFromReturns: số tiền đã hoàn lại cho khách (từ sales returns)
     // netGrandTotal: công nợ thực tế sau khi trừ hàng trả
-    // amountRemaining = netGrandTotal - totalPaid + totalRefundedFromReturns
-    const netGrandTotal = Math.max(0, (order?.grandTotal || 0) - totalReturnedValue);
-    const amountRemaining = netGrandTotal - totalPaid + totalRefundedFromReturns;
+    // For exchange orders: subtract linkedSalesReturnValue from grandTotal
+    // For original orders with returns: subtract totalReturnedValue
+    const linkedReturnValue = order?.linkedSalesReturnValue || 0;
+    const netGrandTotal = Math.max(0, (order?.grandTotal || 0) - totalReturnedValue - linkedReturnValue);
+    // amountRemaining = netGrandTotal - totalPaid - totalPaidFromReceipts + totalRefundedFromReturns
+    // ✅ Trừ cả phiếu thu từ đổi hàng (receiptsFromReturns)
+    const amountRemaining = netGrandTotal - totalPaid - totalPaidFromReceipts + totalRefundedFromReturns;
 
     const totalLineQuantity = React.useMemo(() => {
         if (!order) return 0;
@@ -713,17 +804,26 @@ export function OrderDetailPage() {
         return fallbackPackaging?.assignedEmployeeId;
     }, [order, activePackaging]);
 
-    // Auto-sync GHTK status on page load
+    // Auto-sync GHTK status on page load (only once per order)
     const [isSyncing, setIsSyncing] = React.useState(false);
+    const hasSyncedRef = React.useRef<string | null>(null);
+    
     React.useEffect(() => {
         if (!order) return;
         
+        // Skip if already synced this order
+        if (hasSyncedRef.current === order.systemId) return;
+        
+        // ✅ Filter GHTK packagings that need sync (not delivered or cancelled)
         const ghtkPackagings = order.packagings.filter(
-            p => p.carrier === 'GHTK' && p.trackingCode
+            p => p.carrier === 'GHTK' && p.trackingCode && 
+                 p.deliveryStatus !== 'Đã giao hàng' && p.deliveryStatus !== 'Đã hủy'
         );
         
         if (ghtkPackagings.length === 0) return;
         
+        // Mark as synced before starting
+        hasSyncedRef.current = order.systemId;
         setIsSyncing(true);
         
         // Dynamically import to avoid circular dependencies
@@ -761,16 +861,16 @@ export function OrderDetailPage() {
         
         if (ghtkPackaging && ghtkPackaging.trackingCode) {
             try {
-                const result: any = await cancelGHTKShipment(
+                const result = await cancelGHTKShipment(
                     order.systemId, 
                     ghtkPackaging.systemId, 
                     ghtkPackaging.trackingCode
                 );
                 
-                if (!(result as any).success) {
+                if (!result?.success) {
                     // GHTK cancel failed, show toast with action to continue
                     toast.error(
-                        `Không thể hủy vận đơn GHTK: ${result.message}`,
+                        `Không thể hủy vận đơn GHTK: ${result?.message || 'Không rõ lỗi'}`,
                         {
                             description: 'Bạn có muốn tiếp tục hủy đơn hàng không?',
                             action: {
@@ -823,7 +923,15 @@ export function OrderDetailPage() {
         resetCancelForm();
         setIsCancelAlertOpen(false); 
     };
-    const handleAddPayment = (paymentData: PaymentFormValues) => { if (order) { addPayment(order.systemId, paymentData); setIsPaymentDialogOpen(false); } };
+    const handleAddPayment = (paymentData: PaymentFormValues) => { 
+        console.log('[handleAddPayment] Called with:', paymentData, 'order:', order?.id, 'employee:', currentEmployeeSystemId);
+        if (order) { 
+            addPayment(order.systemId, paymentData, currentEmployeeSystemId); 
+            setIsPaymentDialogOpen(false); 
+        } else {
+            console.error('[handleAddPayment] No order found');
+        }
+    };
     const handleRequestPackaging = React.useCallback((assignedEmployeeId?: SystemId) => {
         if (order) {
             requestPackaging(order.systemId, assignedEmployeeId);
@@ -831,8 +939,112 @@ export function OrderDetailPage() {
     }, [order, requestPackaging]);
     const handleConfirmPackaging = React.useCallback((packagingSystemId: SystemId) => { if (order) { confirmPackaging(order.systemId, packagingSystemId); } }, [order, confirmPackaging]);
     const handleCancelPackagingSubmit = (reason: string) => { if (order && cancelPackagingState) { cancelPackagingRequest(order.systemId, cancelPackagingState.packagingSystemId, '', reason); setCancelPackagingState(null); }};
-    const handleInStorePickup = (packagingSystemId: SystemId) => { if (order) { (processInStorePickup as any)(order.systemId, packagingSystemId); } };
-    const handleShippingSubmit = (data: Record<string, unknown>) => { if (order && activePackaging) { return (confirmPartnerShipment as any)(order.systemId, activePackaging.systemId, data); } return Promise.resolve({success: false, message: 'Đơn hàng không hợp lệ'}); };
+    const handleInStorePickup = (packagingSystemId: SystemId) => { if (order) { processInStorePickup(order.systemId, packagingSystemId); } };
+    const handleShippingSubmit = async (data: Partial<OrderFormValues>, packagingSystemId?: string): Promise<{ success: boolean; message?: string } | undefined> => { 
+        const pkgId = packagingSystemId || activePackaging?.systemId;
+        if (!order || !pkgId) { 
+            return { success: false, message: 'Đơn hàng hoặc phiếu đóng gói không hợp lệ' }; 
+        }
+        
+        // Extract GHTK data from form (set by ShippingIntegration after calling GHTK API)
+        let trackingCode = data.trackingCode as string;
+        let configuration = data.configuration as Record<string, unknown> | undefined;
+        
+        // If no trackingCode, try to create GHTK shipment using previewParams from window
+        if (!trackingCode) {
+            const previewParams = (window as unknown as Record<string, unknown>).__ghtkPreviewParams as Record<string, unknown> | undefined;
+            if (!previewParams) {
+                return { success: false, message: 'Vui lòng chọn dịch vụ vận chuyển và đợi tải phí trước' };
+            }
+            
+            try {
+                // Get GHTK credentials from shipping config (Setting table with key shipping_partners_config)
+                const configRes = await fetch('/api/shipping-config');
+                const shippingConfig = await configRes.json();
+                const ghtkAccounts = shippingConfig?.partners?.GHTK?.accounts || [];
+                
+                // Find default or first active account
+                const activeAccount = ghtkAccounts.find((a: { isDefault?: boolean; active?: boolean }) => a.isDefault && a.active) 
+                                    || ghtkAccounts.find((a: { active?: boolean }) => a.active)
+                                    || ghtkAccounts[0];
+                
+                const apiToken = activeAccount?.credentials?.apiToken;
+                const partnerCode = activeAccount?.credentials?.partnerCode || 'trendtech';
+                
+                console.log('[handleShippingSubmit] GHTK Debug:', {
+                    shippingConfig,
+                    ghtkAccounts,
+                    activeAccount,
+                    apiToken: apiToken ? '***' : null,
+                });
+                
+                if (!apiToken) {
+                    return { success: false, message: 'Chưa cấu hình API Token GHTK. Vui lòng vào Cài đặt → Đối tác vận chuyển.' };
+                }
+                
+                // Import and use GHTK service
+                const { GHTKService } = await import('@/features/settings/shipping/integrations/ghtk-service');
+                const ghtkService = new GHTKService(apiToken, partnerCode);
+                
+                const result = await ghtkService.createOrder(previewParams as never);
+                
+                if (!result.success || !result.order) {
+                    return { success: false, message: result.message || 'Không thể tạo đơn GHTK' };
+                }
+                
+                trackingCode = result.order.label;
+                configuration = {
+                    ghtkTrackingId: result.order.tracking_id,
+                    ghtkEstimatedPickTime: result.order.estimated_pick_time,
+                    ghtkEstimatedDeliverTime: result.order.estimated_deliver_time,
+                    ghtkFee: result.order.fee, // ✅ Store actual fee from GHTK create-order response
+                };
+                
+                toast.success('Đã tạo đơn GHTK', { description: `Mã vận đơn: ${trackingCode}` });
+            } catch (error) {
+                console.error('[handleShippingSubmit] GHTK error:', error);
+                const message = error instanceof Error ? error.message : 'Lỗi khi tạo đơn GHTK';
+                return { success: false, message };
+            }
+        }
+        
+        try {
+            // Get previewParams for fallback values
+            const storedPreviewParams = (window as unknown as Record<string, unknown>).__ghtkPreviewParams as Record<string, unknown> | undefined;
+            
+            console.log('[handleShippingSubmit] Stored previewParams:', storedPreviewParams);
+            
+            // Cast data to access shipping-specific properties
+            const shippingData = data as unknown as { dimensions?: string; service?: string; shippingFee?: number; weight?: number; codAmount?: number; payer?: string };
+            
+            // Call backend API to save GHTK shipment data to database
+            await orderActions.createGhtk.mutateAsync({
+                systemId: order.systemId,
+                packagingId: pkgId,
+                data: {
+                    trackingCode,
+                    trackingId: configuration?.ghtkTrackingId,
+                    estimatedPickTime: configuration?.ghtkEstimatedPickTime,
+                    estimatedDeliverTime: configuration?.ghtkEstimatedDeliverTime,
+                    // ✅ Prioritize actual fee from GHTK create-order response, fallback to calculate-fee estimate
+                    shippingFee: configuration?.ghtkFee || shippingData.shippingFee || storedPreviewParams?.fee,
+                    weight: shippingData.weight || storedPreviewParams?.totalWeight,
+                    dimensions: shippingData.dimensions,
+                    codAmount: shippingData.codAmount ?? storedPreviewParams?.codAmount ?? storedPreviewParams?.pickMoney ?? 0,
+                    payer: shippingData.payer || (storedPreviewParams?.isFreeship === 1 ? 'Người gửi' : 'Người nhận'),
+                    service: shippingData.service,
+                },
+            });
+            
+            // Clear previewParams after success
+            delete (window as unknown as Record<string, unknown>).__ghtkPreviewParams;
+            
+            return { success: true, message: 'Đã tạo đơn vận chuyển thành công' };
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Không thể lưu đơn vận chuyển';
+            return { success: false, message };
+        }
+    };
     
     const handleDispatch = React.useCallback((packagingSystemId: SystemId) => { 
         if (order) { 
@@ -848,6 +1060,32 @@ export function OrderDetailPage() {
     const handleCompleteDelivery = (packagingSystemId: SystemId) => { if (order) { completeDelivery(order.systemId, packagingSystemId); }};
     const handleFailDeliverySubmit = (reason: string) => { if (order && cancelShipmentState) { failDelivery(order.systemId, cancelShipmentState.packagingSystemId, reason); setCancelShipmentState(null); }};
     
+    // ✅ Hủy giao hàng trực tiếp - Dùng khi CHƯA xuất kho (không cần dialog xác nhận)
+    const handleCancelDeliveryDirectly = async (packagingSystemId: SystemId) => { 
+        if (!order) return;
+        
+        const packaging = order.packagings.find(p => p.systemId === packagingSystemId);
+        const trackingCode = packaging?.trackingCode;
+        
+        // Nếu có tracking code GHTK, gọi API hủy trước
+        if (trackingCode && trackingCode.startsWith('S')) {
+            try {
+                const result = await cancelGHTKShipment(order.systemId, packagingSystemId, trackingCode);
+                
+                if (!result?.success) {
+                    toast.error(`Lỗi khi hủy vận đơn GHTK: ${result?.message || 'Không rõ lỗi'}. Vui lòng hủy trên hệ thống đối tác.`);
+                    return;
+                }
+            } catch (error: unknown) {
+                toast.error(`Lỗi khi hủy vận đơn GHTK: ${error instanceof Error ? error.message : 'Không rõ lỗi'}. Vui lòng hủy trên hệ thống đối tác.`);
+                return;
+            }
+        }
+        
+        // Chưa xuất kho nên chỉ cần hủy trạng thái, không cần restock
+        cancelDeliveryOnly(order.systemId, packagingSystemId, 'Hủy giao hàng'); 
+    };
+
     // ✅ Hủy giao hàng - KHÔNG trả hàng về kho (hàng bị thất tung/shipper giữ)
     const handleCancelDeliveryOnly = async () => { 
         if (order && cancelShipmentState) { 
@@ -857,15 +1095,15 @@ export function OrderDetailPage() {
             // Nếu có tracking code GHTK, gọi API hủy trước
             if (trackingCode && trackingCode.startsWith('S')) {
                 try {
-                    const result: any = await cancelGHTKShipment(order.systemId, cancelShipmentState.packagingSystemId, trackingCode);
+                    const result = await cancelGHTKShipment(order.systemId, cancelShipmentState.packagingSystemId, trackingCode);
                     
-                    if (!result.success) {
-                        toast.error(`⚠️ Không thể hủy vận đơn GHTK: ${result.message}\n\nVui lòng hủy trên hệ thống đối tác.`);
+                    if (!result?.success) {
+                        toast.error(`Lỗi khi hủy vận đơn GHTK: ${result?.message || 'Không rõ lỗi'}. Vui lòng hủy trên hệ thống đối tác.`);
                         setCancelShipmentState(null);
                         return;
                     }
                 } catch (error: unknown) {
-                    toast.error(`⚠️ Lỗi khi hủy vận đơn GHTK: ${error instanceof Error ? error.message : 'Không rõ lỗi'}\n\nVui lòng hủy trên hệ thống đối tác.`);
+                    toast.error(`Lỗi khi hủy vận đơn GHTK: ${error instanceof Error ? error.message : 'Không rõ lỗi'}. Vui lòng hủy trên hệ thống đối tác.`);
                     setCancelShipmentState(null);
                     return;
                 }
@@ -886,15 +1124,15 @@ export function OrderDetailPage() {
             // Nếu có tracking code GHTK, gọi API hủy trước
             if (trackingCode && trackingCode.startsWith('S')) {
                 try {
-                    const result: any = await cancelGHTKShipment(order.systemId, cancelShipmentState.packagingSystemId, trackingCode);
+                    const result = await cancelGHTKShipment(order.systemId, cancelShipmentState.packagingSystemId, trackingCode);
                     
-                    if (!result.success) {
-                        toast.error(`⚠️ Không thể hủy vận đơn GHTK: ${result.message}\n\nVui lòng hủy trên hệ thống đối tác.`);
+                    if (!result?.success) {
+                        toast.error(`Lỗi khi hủy vận đơn GHTK: ${result?.message || 'Không rõ lỗi'}. Vui lòng hủy trên hệ thống đối tác.`);
                         setCancelShipmentState(null);
                         return;
                     }
                 } catch (error: unknown) {
-                    toast.error(`⚠️ Lỗi khi hủy vận đơn GHTK: ${error instanceof Error ? error.message : 'Không rõ lỗi'}\n\nVui lòng hủy trên hệ thống đối tác.`);
+                    toast.error(`Lỗi khi hủy vận đơn GHTK: ${error instanceof Error ? error.message : 'Không rõ lỗi'}. Vui lòng hủy trên hệ thống đối tác.`);
                     setCancelShipmentState(null);
                     return;
                 }
@@ -912,12 +1150,12 @@ export function OrderDetailPage() {
         toast.info('Đang hủy vận đơn GHTK...', { description: 'Lưu ý: Chỉ có thể hủy khi đơn chưa được lấy hàng.' });
         
         try {
-            const result: any = await cancelGHTKShipment(order.systemId, packagingSystemId, trackingCode);
+            const result = await cancelGHTKShipment(order.systemId, packagingSystemId, trackingCode);
             
-            if (result.success) {
+            if (result?.success) {
                 toast.success('Đã hủy vận đơn GHTK thành công!');
             } else {
-                toast.error(`Lỗi: ${result.message}`);
+                toast.error(`Lỗi: ${result?.message || 'Không thể hủy vận đơn'}`);
             }
         } catch (error: unknown) {
             toast.error(`Lỗi: ${error instanceof Error ? error.message : 'Không thể hủy vận đơn'}`);
@@ -938,9 +1176,16 @@ export function OrderDetailPage() {
             return [];
         }
 
+        // ✅ Chỉ cho phép trả hàng nếu đã xuất kho (FULLY_STOCKED_OUT hoặc PARTIALLY_STOCKED_OUT)
+        const isDispatched = order.stockOutStatus === 'Xuất kho toàn bộ' || 
+                             order.stockOutStatus === 'FULLY_STOCKED_OUT' ||
+                             order.stockOutStatus === 'Xuất kho một phần' ||
+                             order.stockOutStatus === 'PARTIALLY_STOCKED_OUT';
+        
         const canReturn = order.status !== 'Đã hủy' && 
+            order.status !== 'CANCELLED' &&
             order.returnStatus !== 'Trả hàng toàn bộ' &&
-            order.stockOutStatus !== 'Chưa xuất kho';
+            isDispatched; // ✅ Must be dispatched to return
         
         const canRequestPackaging = isActionable && (!activePackaging || activePackaging.deliveryStatus === 'Chờ giao lại');
         const canConfirmPackaging = activePackaging?.status === 'Chờ đóng gói';
@@ -1036,10 +1281,28 @@ export function OrderDetailPage() {
         }
 
         // Cho phép hủy đơn nếu:
-        // - Chưa hủy
+        // - Chưa hoàn thành (cả enum lẫn Vietnamese)
+        // - Chưa hủy (cả enum lẫn Vietnamese)
+        // - Chưa lưu trữ
         // - Chưa có phiếu trả hàng (nếu đã trả hàng thì không được hủy vì sẽ gây rối stock và công nợ)
-        const canCancelOrder = order.status !== 'Đã hủy' && 
-            (!order.returnStatus || order.returnStatus === 'Chưa trả hàng');
+        // 
+        // Theo Sapo:
+        // - Đặt hàng (PENDING/CONFIRMED) - có thể hủy
+        // - Đang giao dịch (PROCESSING/PACKING/PACKED/SHIPPING/DELIVERED) - có thể hủy
+        // - Đã hoàn thành (COMPLETED) - KHÔNG được hủy
+        // - Đã lưu trữ (ARCHIVED) - KHÔNG được hủy (đã kết thúc)
+        // - Đã hủy (CANCELLED) - đã hủy rồi
+        const completedStatuses = ['Đã hoàn thành', 'Hoàn thành', 'COMPLETED'];
+        const cancelledStatuses = ['Đã hủy', 'CANCELLED'];
+        const archivedStatuses = ['Đã lưu trữ', 'ARCHIVED'];
+        
+        const isCompleted = completedStatuses.includes(order.status);
+        const isCancelled = cancelledStatuses.includes(order.status);
+        const isArchived = archivedStatuses.includes(order.status);
+        // Chỉ ẩn nút hủy nếu đã có trả hàng (một phần hoặc toàn bộ)
+        const hasReturns = order.returnStatus === 'Trả hàng một phần' || order.returnStatus === 'Trả hàng toàn bộ';
+        
+        const canCancelOrder = !isCompleted && !isCancelled && !isArchived && !hasReturns;
         
         if (canCancelOrder) {
             actions.push(
@@ -1072,14 +1335,43 @@ export function OrderDetailPage() {
         return actions;
     }, [order, isActionable, router, setIsCancelAlertOpen, activePackaging, handleRequestPackagingClick, handleConfirmPackaging, handleDispatch]);
 
+    // Get Vietnamese label for status (handles both enum values like 'PROCESSING' and legacy Vietnamese values)
+    const getStatusLabel = React.useCallback((status: string | undefined) => {
+        if (!status) return undefined;
+        // If it's an enum value (uppercase), convert to Vietnamese
+        if (ORDER_STATUS_LABELS[status]) {
+            return ORDER_STATUS_LABELS[status];
+        }
+        // Otherwise, it's already Vietnamese
+        return status;
+    }, []);
+
     const displayStatus = React.useMemo(() => {
         if (!order) return undefined;
-        // Fix for existing orders that are stuck in 'Đặt hàng' but have been dispatched
-        if (order.status === 'Đặt hàng' && (order.stockOutStatus === 'Xuất kho toàn bộ' || order.deliveryStatus === 'Đang giao hàng' || order.deliveryStatus === 'Đã giao hàng')) {
+        const rawStatus = order.status;
+        const normalizedStatus = getStatusLabel(rawStatus);
+        
+        // ✅ Fix for existing orders with incorrect status:
+        // If order has been dispatched/delivered but status doesn't reflect that
+        const hasBeenDispatched = order.stockOutStatus === 'Xuất kho toàn bộ';
+        const hasBeenDelivered = order.deliveryStatus === 'Đã giao hàng';
+        const isInTransit = order.deliveryStatus === 'Đang giao hàng';
+        
+        // If fully delivered + fully paid → should be 'Hoàn thành'
+        if (hasBeenDelivered && order.paymentStatus === 'Thanh toán toàn bộ') {
+            return 'Hoàn thành';
+        }
+        
+        // If dispatched or in delivery but status is not 'Đang giao dịch' or 'Hoàn thành' → fix to 'Đang giao dịch'
+        if ((hasBeenDispatched || hasBeenDelivered || isInTransit) && 
+            normalizedStatus !== 'Đang giao dịch' && 
+            normalizedStatus !== 'Hoàn thành' &&
+            normalizedStatus !== 'Đã hủy') {
             return 'Đang giao dịch';
         }
-        return order.status;
-    }, [order]);
+        
+        return normalizedStatus;
+    }, [order, getStatusLabel]);
 
     const headerBadge = React.useMemo(() => {
         if (!order || !displayStatus) {
@@ -1221,7 +1513,7 @@ export function OrderDetailPage() {
                     {/* Thông tin khách hàng - 40% width on desktop */}
                     <Card className="lg:col-span-4 flex flex-col">
                         <CardHeader className="shrink-0">
-                            <CardTitle className="text-base font-semibold">Thông tin khách hàng</CardTitle>
+                            <CardTitle>Thông tin khách hàng</CardTitle>
                         </CardHeader>
                         <CardContent className="flex-1">
                             <div className="space-y-3">
@@ -1333,7 +1625,9 @@ export function OrderDetailPage() {
                                                 ? 'text-amber-600'
                                                 : metric.tone === 'success'
                                                     ? 'text-green-600'
-                                                    : 'text-foreground';
+                                                    : metric.tone === 'secondary'
+                                                        ? 'text-muted-foreground'
+                                                        : 'text-foreground';
                                         const ValueContent = (
                                             <div className="flex items-center gap-2 justify-end">
                                                 <span className={cn('font-medium', toneClass, metric.link && 'hover:underline cursor-pointer')}>{metric.value}</span>
@@ -1393,7 +1687,7 @@ export function OrderDetailPage() {
                         <OrderWorkflowCard 
                             order={order} 
                             onUpdateOrder={(systemId, updates) => {
-                                updateOrder.mutate({ id: systemId, ...updates } as any);
+                                updateOrder.mutate({ id: systemId, ...updates });
                             }} 
                         />
                     </div>
@@ -1401,7 +1695,7 @@ export function OrderDetailPage() {
                     {/* Thông tin đơn hàng - 30% width on desktop */}
                     <Card className="lg:col-span-3 flex flex-col h-full lg:h-auto">
                         <CardHeader className="shrink-0">
-                            <CardTitle className="text-base font-semibold">Thông tin đơn hàng</CardTitle>
+                            <CardTitle>Thông tin đơn hàng</CardTitle>
                         </CardHeader>
                         <CardContent className="text-sm space-y-3 overflow-y-auto flex-1 max-h-100 lg:max-h-none"
                             style={{ 
@@ -1418,9 +1712,9 @@ export function OrderDetailPage() {
                                 </Link>
                             </div>
                             <DetailField label="Hẹn giao hàng" value={order.expectedDeliveryDate || '---'} />
-                            <DetailField label="Nguồn" value={order.source || '---'} />
+                            <DetailField label="Nguồn" value={getSourceName(order.source) || order.source || '---'} />
                             <DetailField label="Kênh bán hàng" value="Khác" />
-                            <DetailField label="Ngày bán" value={formatDate(order.orderDate)} />
+                            <DetailField label="Ngày bán" value={formatDate(order.orderDate || order.createdAt) || formatDate(new Date())} />
                             {order.expectedPaymentMethod && (
                                 <DetailField label="Hình thức thanh toán" value={order.expectedPaymentMethod} />
                             )}
@@ -1487,15 +1781,19 @@ export function OrderDetailPage() {
                     <CardHeader>
                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                             <div className="flex items-center gap-2">
-                                {order.paymentStatus === 'Thanh toán toàn bộ' ? (
+                                {/* ✅ Check actual amountRemaining instead of paymentStatus */}
+                                {amountRemaining <= 0 ? (
                                     <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" />
                                 ) : (
                                     <FileWarning className="h-5 w-5 text-amber-500 shrink-0" />
                                 )}
-                                <CardTitle className="text-base font-semibold">
-                                    {order.paymentStatus === 'Chưa thanh toán' 
-                                        ? 'Đơn hàng chờ thanh toán' 
-                                        : `Đơn hàng thanh toán ${order.paymentStatus.toLowerCase()}`}
+                                <CardTitle>
+                                    {/* ✅ Show correct payment status based on actual amount */}
+                                    {amountRemaining <= 0 
+                                        ? 'Đơn hàng Đã thanh toán'
+                                        : amountRemaining >= netGrandTotal
+                                            ? 'Đơn hàng chờ thanh toán' 
+                                            : 'Đơn hàng Thanh toán một phần'}
                                 </CardTitle>
                             </div>
                             {isActionable && payableAmount > 0 && (
@@ -1511,10 +1809,49 @@ export function OrderDetailPage() {
                                 <span className="text-muted-foreground">Tổng tiền ĐH:</span>
                                 <span className="font-medium">{formatCurrency(order.grandTotal)}</span>
                             </div>
+                            {/* ✅ Show linkedSalesReturnValue for exchange orders with link to sales return */}
+                            {order.linkedSalesReturnValue && order.linkedSalesReturnValue > 0 && (() => {
+                                const linkedReturn = orderSalesReturns.find(sr => sr.systemId === order.linkedSalesReturnSystemId);
+                                return (
+                                    <div className="flex justify-between">
+                                        <span className="text-muted-foreground">
+                                            Khấu trừ từ phiếu trả{' '}
+                                            {linkedReturn ? (
+                                                <Link href={`/sales-returns/${linkedReturn.systemId}`} className="text-primary hover:underline">
+                                                    {linkedReturn.id}
+                                                </Link>
+                                            ) : order.linkedSalesReturnSystemId ? (
+                                                <Link href={`/sales-returns/${order.linkedSalesReturnSystemId}`} className="text-primary hover:underline">
+                                                    {order.linkedSalesReturnSystemId}
+                                                </Link>
+                                            ) : null}
+                                            :
+                                        </span>
+                                        <span className="font-medium text-green-600">-{formatCurrency(order.linkedSalesReturnValue)}</span>
+                                    </div>
+                                );
+                            })()}
+                            {/* ✅ Show refund payments from linked sales return inline */}
+                            {paymentsFromLinkedSalesReturnFiltered.length > 0 && (
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground">
+                                        Phiếu chi từ phiếu trả hàng{' '}
+                                        {paymentsFromLinkedSalesReturnFiltered.map((payment, idx) => (
+                                            <React.Fragment key={payment.systemId}>
+                                                {idx > 0 && ', '}
+                                                <Link href={`/payments/${payment.systemId}`} className="text-primary hover:underline">
+                                                    {payment.id}
+                                                </Link>
+                                            </React.Fragment>
+                                        ))}:
+                                    </span>
+                                    <span className="font-medium text-red-600">-{formatCurrency(paymentsFromLinkedSalesReturnFiltered.reduce((sum, p) => sum + (p.amount || 0), 0))}</span>
+                                </div>
+                            )}
                             {totalReturnedValue > 0 && (
                                 <div className="flex justify-between">
                                     <span className="text-muted-foreground">Giá trị hàng bị trả lại:</span>
-                                    <span className="font-medium text-amber-600">-{formatCurrency(totalReturnedValue)}</span>
+                                    <span className="font-medium text-amber-600">-{formatCurrency(Math.max(0, totalReturnedValue))}</span>
                                 </div>
                             )}
                             {totalReturnedValue > 0 && (
@@ -1525,7 +1862,7 @@ export function OrderDetailPage() {
                             )}
                             <div className="flex justify-between">
                                 <span className="text-muted-foreground">Đã trả:</span>
-                                <span className="font-medium">{totalPaid > 0 ? formatCurrency(totalPaid) : '0'}</span>
+                                <span className="font-medium">{(totalPaid + totalPaidFromReceipts) > 0 ? formatCurrency(totalPaid + totalPaidFromReceipts) : '0'}</span>
                             </div>
                             {totalRefundedFromReturns > 0 && (
                                 <div className="flex justify-between">
@@ -1560,11 +1897,23 @@ export function OrderDetailPage() {
                             )}
                         </div>
 
+                        {/* Phiếu thu thanh toán trực tiếp */}
                         {directPayments.length > 0 && (
                             <div className="space-y-2 pt-2">
                                 {[...directPayments].reverse().map((payment, index) => (
                                     <React.Fragment key={`direct-${payment.systemId}-${index}`}>
                                         <PaymentInfo payment={payment} order={order} />
+                                    </React.Fragment>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* ✅ Phiếu thu từ phiếu trả hàng - hiển thị cùng UI với directPayments */}
+                        {receiptsFromLinkedSalesReturnFiltered.length > 0 && (
+                            <div className="space-y-2 pt-2">
+                                {[...receiptsFromLinkedSalesReturnFiltered].reverse().map((receipt, index) => (
+                                    <React.Fragment key={`sr-receipt-${receipt.systemId}-${index}`}>
+                                        <ReceiptInfo receipt={receipt} order={order} label="Phiếu trả hàng" linkedSalesReturnSystemId={order.linkedSalesReturnSystemId} />
                                     </React.Fragment>
                                 ))}
                             </div>
@@ -1577,6 +1926,7 @@ export function OrderDetailPage() {
                                         <PaymentInfo payment={payment} order={order} />
                                     </React.Fragment>
                                 ))}
+
                                 {totalActiveCod > 0 && (
                                     <div className="border rounded-md bg-background text-sm p-3 flex items-center justify-between">
                                         <div>
@@ -1687,6 +2037,128 @@ export function OrderDetailPage() {
                                 ))}
                             </div>
                         )}
+
+                        {/* Phiếu thu liên quan đến đơn hàng này (chênh lệch khách trả thêm) */}
+                        {receiptsFromReturns.length > 0 && (
+                            <div className="space-y-2 pt-2 border-t">
+                                <p className="text-sm font-medium text-muted-foreground pt-2">Phiếu thu chênh lệch</p>
+                                {[...receiptsFromReturns].reverse().map((receipt, index) => (
+                                    <div key={`receipt-${receipt.systemId}-${index}`} className="border rounded-md text-sm">
+                                        <Collapsible>
+                                            <CollapsibleTrigger asChild>
+                                                <div className="w-full p-3 flex items-center justify-between hover:bg-muted/50 rounded-md transition-colors cursor-pointer">
+                                                <div className="flex items-center gap-2">
+                                                    <ArrowUpRight className="h-4 w-4 text-blue-600" />
+                                                    <Link href={`/receipts/${receipt.systemId}`} 
+                                                        onClick={(e) => e.stopPropagation()}
+                                                        className="font-medium text-primary hover:underline"
+                                                    >
+                                                        {receipt.id}
+                                                    </Link>
+                                                </div>
+                                                <div className="flex items-center gap-3">
+                                                    <span className="text-muted-foreground">{formatDate(receipt.date)}</span>
+                                                    <span className="font-semibold text-blue-600">+{formatCurrency(receipt.amount)}</span>
+                                                    <Button 
+                                                        variant="ghost" 
+                                                        size="icon" 
+                                                        className="h-6 w-6"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            const branch = findBranchById(order.branchSystemId);
+                                                            const storeSettings: StoreSettings = {
+                                                                name: storeInfo?.brandName || storeInfo?.companyName || '',
+                                                                address: storeInfo?.headquartersAddress,
+                                                                phone: storeInfo?.hotline,
+                                                                email: storeInfo?.email,
+                                                                province: storeInfo?.province,
+                                                            };
+                                                            
+                                                            const receiptData: ReceiptForPrint = {
+                                                                code: receipt.id,
+                                                                createdAt: receipt.date,
+                                                                issuedAt: receipt.date,
+                                                                createdBy: findEmployeeById(receipt.createdBy)?.fullName || receipt.createdBy,
+                                                                payerName: order.customerName,
+                                                                payerPhone: customer?.phone || '',
+                                                                payerAddress: customer?.addresses?.[0]?.street || '',
+                                                                payerType: 'Khách hàng',
+                                                                amount: receipt.amount,
+                                                                description: receipt.description,
+                                                                paymentMethod: receipt.paymentMethodName,
+                                                                documentRootCode: order.id,
+                                                                note: receipt.description,
+                                                                location: branch ? {
+                                                                    name: branch.name,
+                                                                    address: branch.address,
+                                                                    province: branch.province
+                                                                } : undefined
+                                                            };
+                                                            
+                                                            const printData = mapReceiptToPrintData(receiptData, storeSettings);
+                                                            printData['amount_text'] = numberToWords(receipt.amount);
+                                                            printData['print_date'] = formatDateTime(new Date());
+                                                            printData['print_time'] = formatTime(new Date());
+                                                            
+                                                            print('receipt', { data: printData });
+                                                        }}
+                                                        title="In phiếu"
+                                                    >
+                                                        <Printer className="h-4 w-4" />
+                                                    </Button>
+                                                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                                                </div>
+                                                </div>
+                                            </CollapsibleTrigger>
+                                            <CollapsibleContent className="px-3 pb-3">
+                                                <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm pt-2 border-t">
+                                                    <div>
+                                                        <span className="text-muted-foreground">Phương thức</span>
+                                                        <p className="font-medium">{receipt.paymentMethodName}</p>
+                                                    </div>
+                                                    <div>
+                                                        <span className="text-muted-foreground">Người tạo</span>
+                                                        <p className="font-medium">{findEmployeeById(receipt.createdBy)?.fullName || receipt.createdBy}</p>
+                                                    </div>
+                                                    <div className="col-span-2">
+                                                        <span className="text-muted-foreground">Diễn giải</span>
+                                                        <p className="font-medium">{receipt.description}</p>
+                                                    </div>
+                                                </div>
+                                            </CollapsibleContent>
+                                        </Collapsible>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* ✅ Phiếu chi từ phiếu trả hàng liên quan (cho đơn đổi hàng) */}
+                        {paymentsFromLinkedSalesReturnFiltered.length > 0 && (
+                            <div className="space-y-2 pt-2 border-t">
+                                <p className="text-sm font-medium text-muted-foreground pt-2">
+                                    Phiếu chi từ phiếu trả hàng
+                                </p>
+                                {[...paymentsFromLinkedSalesReturnFiltered].reverse().map((payment, index) => (
+                                    <div key={`sr-payment-${payment.systemId}-${index}`} className="border rounded-md text-sm">
+                                        <div className="w-full p-3 flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <ArrowDownLeft className="h-4 w-4 text-red-600" />
+                                                <Link href={`/payments/${payment.systemId}`} 
+                                                    onClick={(e) => e.stopPropagation()}
+                                                    className="font-medium text-primary hover:underline"
+                                                >
+                                                    {payment.id}
+                                                </Link>
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                <span className="text-muted-foreground">{formatDate(payment.date)}</span>
+                                                <span className="font-semibold text-red-600">-{formatCurrency(payment.amount)}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
 
@@ -1696,7 +2168,7 @@ export function OrderDetailPage() {
                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                             <div className="flex items-center gap-2">
                                 <Package className="h-5 w-5 text-muted-foreground shrink-0" />
-                                <CardTitle className="text-base font-semibold">Đóng gói và Giao hàng</CardTitle>
+                                <CardTitle>Đóng gói và Giao hàng</CardTitle>
                             </div>
                             {renderMainPackagingActionButtons()}
                         </div>
@@ -1707,7 +2179,17 @@ export function OrderDetailPage() {
                                 Chưa có yêu cầu đóng gói.
                             </div>
                         )}
-                        {[...order.packagings].reverse().map(pkg => (
+                        {[...order.packagings]
+                            .sort((a, b) => {
+                                // Cancelled packagings go to bottom
+                                const aCancelled = a.status === 'Hủy đóng gói' || a.deliveryStatus === 'Đã hủy';
+                                const bCancelled = b.status === 'Hủy đóng gói' || b.deliveryStatus === 'Đã hủy';
+                                if (aCancelled && !bCancelled) return 1;
+                                if (!aCancelled && bCancelled) return -1;
+                                // Otherwise, newer ones first
+                                return new Date(b.requestDate || 0).getTime() - new Date(a.requestDate || 0).getTime();
+                            })
+                            .map(pkg => (
                             <React.Fragment key={pkg.systemId}>
                                 <PackagingInfo
                                     order={order}
@@ -1717,9 +2199,17 @@ export function OrderDetailPage() {
                                     onCancelPackaging={() => setCancelPackagingState({ packagingSystemId: pkg.systemId })}
                                     onDispatch={() => handleDispatch(pkg.systemId)}
                                     onCompleteDelivery={() => handleCompleteDelivery(pkg.systemId)}
-                                    onOpenShipmentDialog={() => setIsCreateShipmentDialogOpen(true)}
+                                    onOpenShipmentDialog={() => setCreateShipmentState({ packagingSystemId: pkg.systemId })}
                                     onFailDelivery={() => setCancelShipmentState({ packagingSystemId: pkg.systemId, type: 'fail'})}
-                                    onCancelDelivery={() => setCancelShipmentState({ packagingSystemId: pkg.systemId, type: 'cancel' })}
+                                    onCancelDelivery={() => {
+                                        // Nếu chưa xuất kho → hủy luôn không cần xác nhận
+                                        if (order.stockOutStatus === 'Chưa xuất kho') {
+                                            handleCancelDeliveryDirectly(pkg.systemId);
+                                        } else {
+                                            // Đã xuất kho → cần hỏi có muốn nhận lại hàng không
+                                            setCancelShipmentState({ packagingSystemId: pkg.systemId, type: 'cancel' });
+                                        }
+                                    }}
                                     onInStorePickup={() => handleInStorePickup(pkg.systemId)}
                                     onCancelGHTKShipment={pkg.trackingCode ? () => handleCancelGHTKShipment(pkg.systemId, pkg.trackingCode!) : undefined}
                                 />
@@ -1734,15 +2224,17 @@ export function OrderDetailPage() {
                     costOfGoods={costOfGoods} 
                     profit={profit} 
                     totalDiscount={totalDiscount} 
-                    salesReturns={allSalesReturns} 
+                    salesReturns={orderSalesReturns} 
                     getProductTypeLabel={getProductTypeLabel}
+                    canViewFinancials={canViewFinancials}
+                    paymentsFromLinkedSalesReturn={paymentsFromLinkedSalesReturnFiltered}
                 />
                 
                 {/* Return History Card - Show only if there are returns */}
                 {salesReturnsForOrder.length > 0 && (
                     <Card>
                         <CardHeader>
-                            <CardTitle className="text-base font-semibold">
+                            <CardTitle>
                                 Lịch sử trả hàng ({salesReturnsForOrder.length})
                             </CardTitle>
                         </CardHeader>
@@ -1783,56 +2275,58 @@ export function OrderDetailPage() {
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle>Xác nhận hủy đơn hàng</AlertDialogTitle>
-                        <AlertDialogDescription className="space-y-4">
-                            <div className="space-y-3">
-                                <p>Bạn có chắc chắn muốn hủy đơn hàng này không?</p>
-                                <p className="text-sm">Khi hủy đơn hàng, hệ thống sẽ thực hiện các thay đổi sau:</p>
-                                <ul className="text-sm space-y-1 ml-4 list-disc">
-                                    <li>Trả hàng về kho và cập nhật số lượng tồn kho</li>
-                                    <li>Hủy các vận đơn liên quan (nếu có)</li>
-                                    <li>Hủy các phiếu thu thanh toán đơn hàng</li>
-                                    <li>Hủy các phiếu thu đặt cọc shipper (nếu có)</li>
-                                    <li>Cập nhật công nợ khách hàng</li>
-                                    <li>Cập nhật công nợ đối tác vận chuyển</li>
-                                    <li>Hoàn lại khuyến mại và điểm tích lũy (nếu có)</li>
-                                </ul>
-                                {order && order.payments && order.payments.length > 0 && (
-                                    <p className="text-amber-600 font-medium">
-                                        Lưu ý: Đơn hàng đã có thanh toán. Một phiếu chi hoàn tiền sẽ được tạo tự động.
-                                    </p>
-                                )}
-                                <p className="font-semibold text-destructive">Hành động này không thể hoàn tác!</p>
-                            </div>
+                        <AlertDialogDescription asChild>
+                            <div className="space-y-4 text-sm text-muted-foreground">
+                                <div className="space-y-3">
+                                    <p>Bạn có chắc chắn muốn hủy đơn hàng này không?</p>
+                                    <p className="text-sm">Khi hủy đơn hàng, hệ thống sẽ thực hiện các thay đổi sau:</p>
+                                    <ul className="text-sm space-y-1 ml-4 list-disc">
+                                        <li>Trả hàng về kho và cập nhật số lượng tồn kho</li>
+                                        <li>Hủy các vận đơn liên quan (nếu có)</li>
+                                        <li>Hủy các phiếu thu thanh toán đơn hàng</li>
+                                        <li>Hủy các phiếu thu đặt cọc shipper (nếu có)</li>
+                                        <li>Cập nhật công nợ khách hàng</li>
+                                        <li>Cập nhật công nợ đối tác vận chuyển</li>
+                                        <li>Hoàn lại khuyến mại và điểm tích lũy (nếu có)</li>
+                                    </ul>
+                                    {order && order.payments && order.payments.length > 0 && (
+                                        <p className="text-amber-600 font-medium">
+                                            Lưu ý: Đơn hàng đã có thanh toán. Một phiếu chi hoàn tiền sẽ được tạo tự động.
+                                        </p>
+                                    )}
+                                    <p className="font-semibold text-destructive">Hành động này không thể hoàn tác!</p>
+                                </div>
 
-                            <div className="space-y-2">
-                                <Label htmlFor="cancel-reason-textarea" className="text-sm font-semibold">
-                                    Lý do hủy đơn hàng
-                                </Label>
-                                <Textarea
-                                    id="cancel-reason-textarea"
-                                    value={cancelReasonText}
-                                    onChange={(event) => setCancelReasonText(event.target.value)}
-                                    placeholder="Nhập rõ lý do hủy để đội vận hành nắm được..."
-                                    rows={3}
-                                />
-                            </div>
-
-                            <div className="space-y-3">
-                                <Label className="text-sm font-semibold">Tùy chọn bổ sung</Label>
                                 <div className="space-y-2">
-                                    <div className="flex items-start gap-3 rounded-md border p-3">
-                                        <Checkbox
-                                            id="cancel-restock-option"
-                                            checked={restockItems}
-                                            onCheckedChange={(checked) => setRestockItems(checked === true)}
-                                        />
-                                        <div className="space-y-1">
-                                            <Label htmlFor="cancel-restock-option" className="text-sm font-medium">
-                                                Hoàn kho {totalLineQuantity} sản phẩm
-                                            </Label>
-                                            <p className="text-xs text-muted-foreground">
-                                                Giữ tồn kho và số liệu chi phí chính xác sau khi hủy.
-                                            </p>
+                                    <Label htmlFor="cancel-reason-textarea" className="text-sm font-semibold">
+                                        Lý do hủy đơn hàng
+                                    </Label>
+                                    <Textarea
+                                        id="cancel-reason-textarea"
+                                        value={cancelReasonText}
+                                        onChange={(event) => setCancelReasonText(event.target.value)}
+                                        placeholder="Nhập rõ lý do hủy để đội vận hành nắm được..."
+                                        rows={3}
+                                    />
+                                </div>
+
+                                <div className="space-y-3">
+                                    <Label className="text-sm font-semibold">Tùy chọn bổ sung</Label>
+                                    <div className="space-y-2">
+                                        <div className="flex items-start gap-3 rounded-md border p-3">
+                                            <Checkbox
+                                                id="cancel-restock-option"
+                                                checked={restockItems}
+                                                onCheckedChange={(checked) => setRestockItems(checked === true)}
+                                            />
+                                            <div className="space-y-1">
+                                                <Label htmlFor="cancel-restock-option" className="text-sm font-medium">
+                                                    Hoàn kho {totalLineQuantity} sản phẩm
+                                                </Label>
+                                                <p className="text-xs text-muted-foreground">
+                                                    Giữ tồn kho và số liệu chi phí chính xác sau khi hủy.
+                                                </p>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -1856,11 +2350,12 @@ export function OrderDetailPage() {
             />
             
             <CreateShipmentDialog
-                isOpen={isCreateShipmentDialogOpen}
-                onOpenChange={setIsCreateShipmentDialogOpen}
-                onSubmit={handleShippingSubmit as any}
+                isOpen={!!createShipmentState}
+                onOpenChange={(open) => !open && setCreateShipmentState(null)}
+                onSubmit={handleShippingSubmit}
                 order={order}
                 customer={customer ?? null}
+                packagingSystemId={createShipmentState?.packagingSystemId}
             />
 
             <PackerSelectionDialog

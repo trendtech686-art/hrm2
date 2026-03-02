@@ -3,7 +3,6 @@
  * Tự động tạo phiếu phạt khi phát hiện đi trễ hoặc về sớm trong chấm công
  */
 
-import { usePenaltyStore } from '../settings/penalties/store';
 import { getEmployeeSettingsSync } from '../settings/employees/employee-settings-service';
 import type { Penalty } from '../settings/penalties/types';
 import type { AttendanceDataRow, DailyRecord, AnyAttendanceDataRow } from './types';
@@ -227,65 +226,78 @@ export function previewAttendancePenalties(
  * @param penalties Danh sách phiếu phạt đã được user chọn để tạo
  * @returns Số phiếu phạt đã tạo
  */
-export function confirmCreatePenalties(
+export async function confirmCreatePenalties(
   penalties: Omit<Penalty, 'systemId'>[]
-): number {
-  const penaltyStore = usePenaltyStore.getState();
+): Promise<number> {
+  let created = 0;
   
-  penalties.forEach((penalty) => {
-    penaltyStore.add(penalty);
-  });
+  for (const penalty of penalties) {
+    try {
+      const response = await fetch('/api/penalties', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          employeeId: penalty.employeeSystemId,
+          employeeName: penalty.employeeName,
+          penaltyTypeId: penalty.penaltyTypeSystemId,
+          penaltyTypeName: penalty.penaltyTypeName,
+          amount: penalty.amount,
+          reason: penalty.reason,
+          date: penalty.issueDate,
+          status: penalty.status || 'Chưa thanh toán',
+          category: 'attendance',
+        }),
+      });
+      
+      if (response.ok) {
+        created++;
+      }
+    } catch (err) {
+      console.error('[PenaltySync] Failed to create penalty:', err);
+    }
+  }
   
-  return penalties.length;
+  return created;
 }
 
+// Cache để lưu penalties đã tồn tại (sẽ được load từ API)
+let existingPenaltiesCache: Array<{
+  employeeSystemId: string;
+  date: string;
+  reason: string;
+  status: string;
+}> = [];
+
 /**
- * Xử lý tự động tạo phiếu phạt từ dữ liệu chấm công
- * @deprecated Sử dụng previewAttendancePenalties + confirmCreatePenalties thay thế
- * @returns Số phiếu phạt đã tạo
+ * Load existing penalties từ API để check trùng
+ * Auto-paginates to fetch all penalties (no hardcoded limit cap)
  */
-export function processAttendancePenalties(
-  attendanceData: AttendanceDataRow[],
-  year: number,
-  month: number
-): { created: number; violations: ViolationInfo[] } {
-  const settings = getEmployeeSettingsSync();
-  const penaltyStore = usePenaltyStore.getState();
-  
-  let totalCreated = 0;
-  const allViolations: ViolationInfo[] = [];
-  
-  attendanceData.forEach((row) => {
-    const violations = detectViolations(row, year, month, settings);
-    
-    if (violations.length > 0) {
-      allViolations.push(...violations);
-      
-      const penalties = createPenaltiesFromViolations(
-        violations,
-        row.employeeSystemId,
-        row.fullName,
-        settings
-      );
-      
-      // Kiểm tra duplicate trước khi thêm
-      penalties.forEach((penalty, index) => {
-        const violation = violations[index];
-        const isDuplicate = hasPenaltyForDate(
-          row.employeeSystemId,
-          violation.date,
-          violation.type
-        );
-        
-        if (!isDuplicate) {
-          penaltyStore.add(penalty);
-          totalCreated++;
-        }
-      });
-    }
-  });
-  
-  return { created: totalCreated, violations: allViolations };
+export async function loadExistingPenalties(): Promise<void> {
+  try {
+    const PAGE_SIZE = 100;
+    let allPenalties: Array<{ employeeId?: string; date?: string; reason?: string; status?: string }> = [];
+    let page = 1;
+    let totalPages = 1;
+
+    // Fetch all pages
+    do {
+      const response = await fetch(`/api/penalties?page=${page}&limit=${PAGE_SIZE}`);
+      if (!response.ok) break;
+      const data = await response.json();
+      allPenalties = [...allPenalties, ...(data.data || [])];
+      totalPages = data.pagination?.totalPages || 1;
+      page++;
+    } while (page <= totalPages);
+
+    existingPenaltiesCache = allPenalties.map((p) => ({
+      employeeSystemId: p.employeeId || '',
+      date: p.date ? new Date(p.date).toISOString().split('T')[0] : '',
+      reason: p.reason || '',
+      status: p.status || '',
+    }));
+  } catch (err) {
+    console.error('[PenaltySync] Failed to load existing penalties:', err);
+  }
 }
 
 /**
@@ -296,13 +308,12 @@ export function hasPenaltyForDate(
   date: string,
   type: 'late' | 'early'
 ): boolean {
-  const penalties = usePenaltyStore.getState().data;
   const reason = type === 'late' ? 'Đi làm trễ' : 'Về sớm';
   
-  return penalties.some(
+  return existingPenaltiesCache.some(
     (p) => 
       p.employeeSystemId === employeeSystemId &&
-      p.issueDate === date &&
+      p.date === date &&
       p.reason.includes(reason) &&
       p.status !== 'Đã hủy'
   );

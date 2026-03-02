@@ -14,6 +14,9 @@ export interface PayrollFilters {
   year?: number;
   status?: string;
   employeeId?: string;
+  search?: string;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
 }
 
 export interface PayrollResponse {
@@ -105,6 +108,9 @@ export async function fetchPayrolls(
   if (filters.year) params.set('year', String(filters.year));
   if (filters.status) params.set('status', filters.status);
   if (filters.employeeId) params.set('employeeId', filters.employeeId);
+  if (filters.search) params.set('search', filters.search);
+  if (filters.sortBy) params.set('sortBy', filters.sortBy);
+  if (filters.sortOrder) params.set('sortOrder', filters.sortOrder);
 
   const url = params.toString() ? `${BATCH_URL}?${params}` : BATCH_URL;
   const response = await fetch(url);
@@ -388,4 +394,24 @@ export async function deletePayrollTemplate(systemId: string): Promise<void> {
   if (!response.ok) {
     throw new Error('Failed to delete payroll template');
   }
+}
+
+// ============== Stats ==============
+
+export interface PayrollStats {
+  currentMonthTotal: number;
+  draftCount: number;
+  reviewedCount: number;
+  previousMonthLocked: boolean;
+  currentMonthKey: string;
+  previousMonthKey: string;
+}
+
+export async function fetchPayrollStats(): Promise<PayrollStats> {
+  const response = await fetch(`${BATCH_URL}/stats`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch payroll stats');
+  }
+  const result = await response.json();
+  return result.data ?? result;
 }

@@ -7,13 +7,13 @@ import { WARRANTY_STATUS_LABELS } from '../types';
 import { Input } from '@/components/ui/input';
 import { WarrantyCard } from '../warranty-card';
 import { WarrantyCardContextMenu } from '../warranty-card-context-menu';
-import { loadCardColorSettings } from '@/features/settings/warranty/warranty-settings-page';
+import type { CardColorSettings } from '@/features/settings/warranty/hooks/use-warranty-settings';
 
 interface KanbanColumnProps {
   status: WarrantyStatus;
   tickets: WarrantyTicket[];
   onTicketClick: (ticket: WarrantyTicket) => void;
-  cardColors: ReturnType<typeof loadCardColorSettings>;
+  cardColors: CardColorSettings;
   onEdit: (systemId: string) => void;
   onGetLink: (systemId: string) => void;
   onStartProcessing: (systemId: string) => void;
@@ -24,12 +24,12 @@ interface KanbanColumnProps {
 }
 
 const statusIcons: Record<WarrantyStatus, React.ElementType> = {
-  incomplete: AlertCircle,
-  pending: Clock,
-  processed: CheckCircle2,
-  returned: XCircle,
-  completed: CheckCircle2,
-  cancelled: XCircle,
+  RECEIVED: AlertCircle,
+  PROCESSING: Clock,
+  WAITING_PARTS: Clock,
+  COMPLETED: CheckCircle2,
+  RETURNED: XCircle,
+  CANCELLED: XCircle,
 };
 
 /**
@@ -65,7 +65,7 @@ export function KanbanColumn({
   }, [tickets, searchQuery]);
 
   return (
-    <div className="flex-1 min-w-[300px] flex flex-col max-h-[calc(100vh-320px)]">
+    <div className="flex-1 min-w-75 flex flex-col max-h-[calc(100vh-320px)]">
       {/* Header - Neutral bg-muted with icon */}
       <div className="text-body-sm font-semibold px-4 py-3 mb-2 rounded-lg border bg-muted flex items-center justify-between">
         <div className="flex items-center gap-2">

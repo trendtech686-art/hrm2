@@ -11,6 +11,40 @@ import {
 } from './print-service';
 import { usePrintTemplateStore } from '../features/settings/printer/store';
 
+/**
+ * Log print activity to activity logs API
+ */
+async function logPrintActivity(params: {
+  entityType: string;
+  entityId: string;
+  templateType: TemplateType;
+  paperSize?: PaperSize;
+  createdBy?: string;
+}): Promise<void> {
+  try {
+    await fetch('/api/activity-logs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        entityType: params.entityType,
+        entityId: params.entityId,
+        action: `In ${params.templateType}`,
+        actionType: 'system',
+        metadata: {
+          templateType: params.templateType,
+          paperSize: params.paperSize,
+          printedAt: new Date().toISOString(),
+        },
+        note: `Đã in ${params.templateType}${params.paperSize ? ` (${params.paperSize})` : ''}`,
+        createdBy: params.createdBy,
+      }),
+    });
+  } catch (error) {
+    // Silently fail - don't block printing
+    console.error('[logPrintActivity] Failed to log print activity:', error);
+  }
+}
+
 interface PrintOptions {
   /** Dữ liệu để thay thế biến trong template */
   data: PrintData;
@@ -20,6 +54,12 @@ interface PrintOptions {
   paperSize?: PaperSize;
   /** Branch ID cụ thể (nếu muốn override current branch) */
   branchId?: string;
+  /** Entity type for activity logging (e.g., 'order', 'packaging', 'receipt') */
+  entityType?: string;
+  /** Entity ID for activity logging */
+  entityId?: string;
+  /** User ID who triggered the print */
+  createdBy?: string;
 }
 
 interface UsePrintResult {
@@ -353,7 +393,7 @@ export function usePrint(currentBranchId?: string): UsePrintResult {
   }, []);
 
   const print = React.useCallback((type: TemplateType, options: PrintOptions) => {
-    const { data, lineItems, paperSize, branchId } = options;
+    const { data, lineItems, paperSize, branchId, entityType, entityId, createdBy } = options;
 
 
     // Lấy template content
@@ -373,6 +413,17 @@ export function usePrint(currentBranchId?: string): UsePrintResult {
     } catch (err) {
       console.error('[usePrint] Error processing template:', err);
       return;
+    }
+
+    // ✅ Log print activity to activity logs
+    if (entityType && entityId) {
+      logPrintActivity({
+        entityType,
+        entityId,
+        templateType: type,
+        paperSize: size,
+        createdBy,
+      });
     }
 
     // Tạo iframe ẩn để in
@@ -639,7 +690,7 @@ export function usePrint(currentBranchId?: string): UsePrintResult {
   }, [templateStore, currentBranchId]);
 
   const getAvailableSizes = React.useCallback((type: TemplateType): PaperSize[] => {
-    const sizes: PaperSize[] = ['K57', 'K80', 'A4', 'A5'];
+    const sizes: PaperSize[] = ['50x30', 'K57', 'K80', 'A4', 'A5'];
     return sizes.filter(size => {
       const template = templateStore.getTemplate(type, size, currentBranchId);
       return !!template?.content;

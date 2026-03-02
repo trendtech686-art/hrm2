@@ -9,6 +9,7 @@ import { DEFAULT_ROLE_PERMISSIONS, type Permission } from '../../employees/permi
 
 export interface CustomRole {
   id: string;
+  systemId: string;
   name: string;
   description: string;
   permissions: Permission[];
@@ -17,10 +18,10 @@ export interface CustomRole {
 
 // Default roles (fallback when API fails or no data in DB)
 const DEFAULT_ROLES: CustomRole[] = [
-  { id: 'Admin', name: 'Quản trị viên', description: 'Toàn quyền hệ thống', permissions: DEFAULT_ROLE_PERMISSIONS.Admin, isDefault: true },
-  { id: 'Manager', name: 'Quản lý', description: 'Quản lý phòng ban', permissions: DEFAULT_ROLE_PERMISSIONS.Manager, isDefault: true },
-  { id: 'Sales', name: 'Kinh doanh', description: 'Nhân viên kinh doanh', permissions: DEFAULT_ROLE_PERMISSIONS.Sales, isDefault: true },
-  { id: 'Warehouse', name: 'Kho', description: 'Nhân viên kho', permissions: DEFAULT_ROLE_PERMISSIONS.Warehouse, isDefault: true },
+  { id: 'Admin', systemId: 'role-admin', name: 'Quản trị viên', description: 'Toàn quyền hệ thống', permissions: DEFAULT_ROLE_PERMISSIONS.Admin, isDefault: true },
+  { id: 'Manager', systemId: 'role-manager', name: 'Quản lý', description: 'Quản lý phòng ban', permissions: DEFAULT_ROLE_PERMISSIONS.Manager, isDefault: true },
+  { id: 'Sales', systemId: 'role-sales', name: 'Kinh doanh', description: 'Nhân viên kinh doanh', permissions: DEFAULT_ROLE_PERMISSIONS.Sales, isDefault: true },
+  { id: 'Warehouse', systemId: 'role-warehouse', name: 'Kho', description: 'Nhân viên kho', permissions: DEFAULT_ROLE_PERMISSIONS.Warehouse, isDefault: true },
 ];
 
 const API_ENDPOINT = '/api/settings/roles';

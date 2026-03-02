@@ -1,22 +1,47 @@
 /**
  * useAllCustomers - Convenience hook for components needing all customers as flat array
+ * 
+ * Auto-pagination: no hardcoded limit cap (MODULE-QUALITY-CRITERIA §1.3)
+ * 
+ * @param options.enabled - Set to false to disable fetching (lazy load)
+ * 
+ * @example
+ * // Lazy load - only fetch when dialog opens
+ * const { data: customers } = useAllCustomers({ enabled: isOpen });
  */
 
 import * as React from 'react';
-import { useCustomers } from './use-customers';
+import { useQuery } from '@tanstack/react-query';
+import { fetchAllPages } from '@/lib/fetch-all-pages';
+import { fetchCustomers } from '../api/customers-api';
+import { customerKeys } from './use-customers';
 import type { SystemId } from '@/lib/id-types';
 import type { Customer } from '../types';
 
 // Stable empty array to prevent re-renders
 const EMPTY_CUSTOMERS: Customer[] = [];
 
-export function useAllCustomers() {
-  const query = useCustomers({ limit: 30 });
+interface UseAllCustomersOptions {
+  /** Set to false to disable fetching until needed */
+  enabled?: boolean;
+  /** @deprecated Ignored — auto-pagination fetches all */
+  limit?: number;
+}
+
+export function useAllCustomers(options: UseAllCustomersOptions = {}) {
+  const { enabled = true } = options;
+  const query = useQuery({
+    queryKey: [...customerKeys.all, 'all'],
+    queryFn: () => fetchAllPages((p) => fetchCustomers(p)),
+    enabled,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+  });
   
   // Memoize data to prevent unnecessary re-renders
   const data = React.useMemo(() => 
-    query.data?.data || EMPTY_CUSTOMERS,
-    [query.data?.data]
+    query.data || EMPTY_CUSTOMERS,
+    [query.data]
   );
   
   return {

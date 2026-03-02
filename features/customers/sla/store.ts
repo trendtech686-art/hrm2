@@ -14,8 +14,7 @@ import { SLA_EVALUATION_KEY, SLA_LAST_RUN_KEY } from './constants';
 import { setAcknowledgement, getAcknowledgement, isAlertSnoozed, getSnoozeRemaining } from './ack-storage';
 import type { CustomerSlaType, CustomerSlaAcknowledgement } from './types';
 import type { SystemId } from '@/lib/id-types';
-import { getCurrentUserName } from '@/contexts/auth-context';
-import { useCustomerStore } from '../store';
+import { getCurrentUserName, getCurrentUserSystemId } from '@/contexts/auth-context';
 
 const PREFERENCE_CATEGORY = 'customer-sla';
 
@@ -81,11 +80,15 @@ async function saveIndexToAPI(index: CustomerSlaIndex, timestamp: string): Promi
   // Debounce save to avoid too many API calls
   saveTimeout = setTimeout(async () => {
     try {
+      // Get current user ID 
+      const userSystemId = getCurrentUserSystemId() || 'SYSTEM';
+      
       await Promise.all([
         fetch('/api/user-preferences', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            userId: userSystemId,
             category: PREFERENCE_CATEGORY,
             key: SLA_EVALUATION_KEY,
             value: index,
@@ -95,6 +98,7 @@ async function saveIndexToAPI(index: CustomerSlaIndex, timestamp: string): Promi
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            userId: userSystemId,
             category: PREFERENCE_CATEGORY,
             key: SLA_LAST_RUN_KEY,
             value: timestamp,
@@ -164,10 +168,10 @@ export const useCustomerSlaEngineStore = create<SlaStore>((set, get) => {
     },
 
     triggerReevaluation() {
-      // Get fresh customer data from the customer store
-      const freshCustomers = useCustomerStore.getState().data;
-      if (freshCustomers.length && _lastSettings.length) {
-        get().evaluate(freshCustomers, _lastSettings);
+      // This method is deprecated - components should call evaluate() directly with fresh data
+      // The useCustomerStore pattern was removed during React Query migration
+      if (_lastSettings.length) {
+        console.log('[SLA Store] triggerReevaluation called - use evaluate() with fresh data instead');
       }
     },
 

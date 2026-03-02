@@ -39,7 +39,7 @@ export const MobileBrandCard = ({ brand, onDelete, onToggleActive, navigate, han
         {/* Header: Logo + Name + Status + Menu */}
         <div className="flex items-start justify-between gap-3 mb-3">
           <div className="flex items-center gap-3 flex-1 min-w-0">
-            <Avatar className="h-12 w-12 flex-shrink-0">
+            <Avatar className="h-12 w-12 shrink-0">
               {brand.logo ? (
                 <AvatarImage src={brand.logo} alt={brand.name} />
               ) : null}
@@ -69,7 +69,7 @@ export const MobileBrandCard = ({ brand, onDelete, onToggleActive, navigate, han
               <TouchButton
                 variant="ghost"
                 size="sm"
-                className="h-9 w-10 p-0 flex-shrink-0"
+                className="h-9 w-10 p-0 shrink-0"
                 onClick={(e) => e.stopPropagation()}
               >
                 <MoreHorizontal className="h-4 w-4" />
@@ -114,7 +114,7 @@ export const MobileBrandCard = ({ brand, onDelete, onToggleActive, navigate, han
         {/* Website */}
         {brand.website && (
           <div className="flex items-center gap-1.5 text-xs mb-3">
-            <Globe className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+            <Globe className="h-3 w-3 text-muted-foreground shrink-0" />
             <a 
               href={brand.website} 
               target="_blank" 
@@ -124,7 +124,7 @@ export const MobileBrandCard = ({ brand, onDelete, onToggleActive, navigate, han
             >
               {brand.website.replace(/^https?:\/\//, '')}
             </a>
-            <ExternalLink className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+            <ExternalLink className="h-3 w-3 text-muted-foreground shrink-0" />
           </div>
         )}
 

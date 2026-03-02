@@ -11,10 +11,10 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Textarea } from "@/components/ui/textarea";
-import { leaveFormSchema, type LeaveFormSchemaType } from "../leave-form-schema";
+import { leaveFormSchema, validateLeaveFormData, type LeaveFormSchemaType } from "../leave-form-schema";
 import { toast } from "sonner";
 import { VirtualizedCombobox, type ComboboxOption } from "@/components/ui/virtualized-combobox";
-import { ensureBusinessId, type BusinessId, type SystemId } from '@/lib/id-types';
+import { asBusinessId, type BusinessId, type SystemId } from '@/lib/id-types';
 import { useEmployeeSettings } from '@/features/settings/employees/hooks/use-employee-settings';
 
 type LeaveFormProps = {
@@ -24,9 +24,9 @@ type LeaveFormProps = {
 };
 
 const FALLBACK_LEAVE_TYPES = [
-	{ label: 'Phép năm', value: 'fallback-annual' },
-	{ label: 'Nghỉ ốm', value: 'fallback-sick' },
-	{ label: 'Nghỉ không lương', value: 'fallback-unpaid' },
+	{ label: 'Phép năm', value: 'ANNUAL' },
+	{ label: 'Nghỉ ốm', value: 'SICK' },
+	{ label: 'Nghỉ không lương', value: 'UNPAID' },
 ];
 
 // Function to calculate business days between two dates
@@ -146,6 +146,13 @@ export function LeaveForm({ initialData, onSubmit, onCancel }: LeaveFormProps) {
   const selectedLeaveType = React.useMemo(() => leaveTypeOptions.find((opt) => opt.value === leaveTypeSystemId), [leaveTypeOptions, leaveTypeSystemId]);
 
   const handleFormSubmit = (values: LeaveFormSchemaType) => {
+    // Manual validation for cross-field rules
+    const validationError = validateLeaveFormData(values);
+    if (validationError) {
+      toast.error("Lỗi", { description: validationError });
+      return;
+    }
+    
     const employee = employees.find(e => e.systemId === values.employeeSystemId);
     if (!employee || !values.startDate || !values.endDate) {
       toast.error("Lỗi", { description: "Vui lòng điền đầy đủ thông tin" });
@@ -161,7 +168,7 @@ export function LeaveForm({ initialData, onSubmit, onCancel }: LeaveFormProps) {
     const resolvedLeaveTypeId = leaveTypeMeta?.businessId ?? initialData?.leaveTypeId;
 
     const finalData: Omit<LeaveRequest, 'systemId'> = {
-      id: ensureBusinessId(trimmedId || employee.id, 'LeaveForm'),
+      id: asBusinessId(trimmedId || employee.id),
       employeeSystemId: employee.systemId,
       employeeId: employee.id, // ✅ Display ID
       employeeName: employee.fullName,

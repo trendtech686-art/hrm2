@@ -3,14 +3,22 @@
  */
 
 import * as React from 'react';
-import { useSalesReturns } from './use-sales-returns';
+import { useQuery } from '@tanstack/react-query';
+import { fetchAllPages } from '@/lib/fetch-all-pages';
+import { fetchSalesReturns } from '../api/sales-returns-api';
+import { salesReturnKeys } from './use-sales-returns';
 import type { SalesReturn } from '@/lib/types/prisma-extended';
 
 export function useAllSalesReturns() {
-  const query = useSalesReturns({ limit: 500 });
+  const query = useQuery({
+    queryKey: [...salesReturnKeys.all, 'all'],
+    queryFn: () => fetchAllPages((p) => fetchSalesReturns(p)),
+    staleTime: 10 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+  });
   
   return {
-    data: query.data?.data || [],
+    data: query.data || [],
     isLoading: query.isLoading,
     isError: query.isError,
     error: query.error,

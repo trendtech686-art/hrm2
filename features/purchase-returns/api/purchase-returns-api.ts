@@ -25,9 +25,12 @@ export interface PurchaseReturnsParams {
 
 export interface PurchaseReturnsResponse {
   data: PurchaseReturn[];
-  total: number;
-  page: number;
-  pageSize: number;
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
 }
 
 export interface PurchaseReturnStatsParams {

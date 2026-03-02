@@ -1,7 +1,7 @@
 model InventoryReceiptItem {
   systemId         String           @id @default(uuid())
   receiptId        String
-  productId        String
+  productId        String?
   productName      String
   productSku       String
   quantity         Int

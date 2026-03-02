@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma'
 import { Prisma } from '@/generated/prisma/client'
 import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
 import { createStockLocationSchema } from './validation'
+import { generateNextIds } from '@/lib/id-system'
 
 // GET /api/stock-locations - List all stock locations
 export async function GET(request: Request) {
@@ -52,10 +53,12 @@ export async function POST(request: Request) {
 
   try {
     const body = result.data
+    
+    const { systemId } = await generateNextIds('stock-locations')
 
     const location = await prisma.stockLocation.create({
       data: {
-        systemId: `SLOC${String(Date.now()).slice(-6).padStart(6, '0')}`,
+        systemId,
         id: body.id || '',
         name: body.name || '',
         code: body.code || body.id || '',

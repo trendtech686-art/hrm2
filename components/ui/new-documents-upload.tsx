@@ -6,6 +6,7 @@ import { Button } from './button';
 import { Card } from './card';
 import { cn } from '../../lib/utils';
 import { FileUploadAPI, type StagingFile } from '../../lib/file-upload-api';
+import { ImagePreviewDialog } from './image-preview-dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,6 +31,7 @@ type NewDocumentsUploadProps = {
   disabled?: boolean;
   className?: string;
   gridTemplateClass?: string; // Allow callers to override the grid layout for previews
+  compact?: boolean; // Compact mode for smaller dropzone
 };
 
 const formatFileSize = (bytes: number) => {
@@ -137,6 +139,7 @@ export function NewDocumentsUpload({
   disabled = false,
   className,
   gridTemplateClass = 'grid-cols-5',
+  compact = false,
 }: NewDocumentsUploadProps) {
   const files = value; // Simple controlled component
   const [isUploading, setIsUploading] = React.useState(false);
@@ -331,12 +334,24 @@ export function NewDocumentsUpload({
     const deleteToastId = toast.loading('Đang xóa file...');
 
     try {
-      await FileUploadAPI.deleteFile(fileToDelete.id);
+      // Check if this is an external URL (not uploaded to our system)
+      const isExternalUrl = fileToDelete.url?.startsWith('http://') || fileToDelete.url?.startsWith('https://');
+      const isLocalUpload = fileToDelete.id && !isExternalUrl;
+      
+      if (isLocalUpload) {
+        // Only call delete API for files uploaded to our system
+        try {
+          await FileUploadAPI.deleteFile(fileToDelete.id);
+        } catch (apiError) {
+          // If file doesn't exist in database, just remove from UI
+          console.warn('File not found in database, removing from UI only:', apiError);
+        }
+      }
 
       const updated = files.filter(f => f.id !== fileToDelete.id);
       onChange?.(updated);
 
-      toast.success('✓ Đã xóa file tạm', {
+      toast.success('✓ Đã xóa file', {
         description: fileToDelete.originalName || fileToDelete.name,
         id: deleteToastId
       });
@@ -367,49 +382,38 @@ export function NewDocumentsUpload({
     return '';
   };
 
-  const handlePreview = (file: StagingFile) => {
-    const previewUrl = getPreviewUrl(file);
+  // Image preview state
+  const [previewOpen, setPreviewOpen] = React.useState(false);
+  const [previewIndex, setPreviewIndex] = React.useState(0);
+  
+  // Get all image files for the preview dialog carousel
+  const imageFiles = React.useMemo(() => 
+    files.filter(f => f.type && typeof f.type === 'string' && f.type.startsWith('image/')),
+    [files]
+  );
 
+  const handlePreview = (file: StagingFile) => {
     if (file.type === 'application/pdf') {
-      window.open(previewUrl, '_blank');
+      window.open(getPreviewUrl(file), '_blank');
       return;
     }
 
-    const overlay = document.createElement('div');
-    overlay.style.cssText = `
-      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0, 0, 0, 0.9); display: flex;
-      align-items: center; justify-content: center;
-      z-index: 9999; cursor: pointer;
-    `;
-
-    const img = document.createElement('img');
-    img.src = previewUrl;
-    img.style.cssText = 'max-width: 90%; max-height: 90%; object-fit: contain; border-radius: 8px;';
-
-    const closeBtn = document.createElement('button');
-    closeBtn.innerHTML = '×';
-    closeBtn.style.cssText = `
-      position: absolute; top: 20px; right: 20px; background: white;
-      border: none; border-radius: 50%; width: 40px; height: 40px;
-      font-size: 24px; cursor: pointer; box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-    `;
-
-    overlay.appendChild(img);
-    overlay.appendChild(closeBtn);
-    document.body.appendChild(overlay);
-
-    overlay.addEventListener('click', () => document.body.removeChild(overlay));
-    img.addEventListener('click', (e) => e.stopPropagation());
+    // Find the index of this file in imageFiles
+    const index = imageFiles.findIndex(f => f.id === file.id);
+    if (index >= 0) {
+      setPreviewIndex(index);
+      setPreviewOpen(true);
+    }
   };
 
   return (
-    <div className={cn('space-y-4', className)}>
+    <div className={cn(compact ? 'space-y-2' : 'space-y-4', className)}>
       {files.length < maxFiles && (
         <div
           {...getRootProps()}
           className={cn(
-            'relative border-2 border-dashed border-border rounded-lg p-4 text-center cursor-pointer transition-all duration-200',
+            'relative border-2 border-dashed border-border rounded-lg text-center cursor-pointer transition-all duration-200',
+            compact ? 'p-2' : 'p-4',
             'hover:border-primary hover:bg-primary/5 hover:scale-[1.01]',
             isDragActive && 'border-primary bg-primary/10 scale-[1.01] shadow-lg',
             isDragReject && 'border-destructive bg-destructive/10',
@@ -419,74 +423,95 @@ export function NewDocumentsUpload({
         >
           <input {...getInputProps()} />
 
-          <div className="relative inline-block mb-2">
-            <Upload className={cn(
-              "h-8 w-8 text-muted-foreground transition-all",
-              isUploading && "animate-bounce text-primary",
-              isDragActive && "text-primary scale-110"
-            )} />
-            {isUploading && (
-              <div className="absolute inset-0 animate-ping">
-                <Upload className="h-8 w-8 text-primary opacity-30" />
-              </div>
-            )}
-          </div>
-
-          {isUploading ? (
-            <div className="space-y-1">
-              <p className="text-xs font-medium text-primary">Đang tải lên...</p>
-              <div className="h-1 w-32 mx-auto bg-muted rounded-full overflow-hidden">
-                <div className="h-full bg-primary animate-pulse" style={{width: '70%'}}></div>
-              </div>
-            </div>
-          ) : isDragActive ? (
-            <p className="text-sm font-medium text-primary">Thả file vào đây</p>
-          ) : isDragReject ? (
-            <div className="space-y-1">
-              <div className="flex items-center justify-center gap-1">
-                <AlertCircle className="h-4 w-4 text-destructive" />
-                <p className="text-xs font-medium text-destructive">File không hợp lệ</p>
-              </div>
-              <div className="text-[10px] text-destructive/80">
-                <p>Chỉ chấp nhận: {accept ? Object.values(accept).flat().join(', ').toUpperCase() : 'PDF, PNG, JPG'} (max {formatFileSize(maxSize)})</p>
-              </div>
-            </div>
-          ) : files.length >= maxFiles ? (
-            <div className="space-y-1">
-              <div className="flex items-center justify-center gap-1">
-                <AlertCircle className="h-4 w-4 text-red-600" />
-                <p className="text-sm font-medium text-red-700">Đã đầy</p>
-              </div>
-              <p className="text-xs text-red-600">
-                Đã đạt {maxFiles} file. Xóa file cũ để thêm mới.
-              </p>
+          {compact ? (
+            // Compact mode - minimal UI
+            <div className="flex items-center justify-center gap-2 py-1">
+              <Upload className={cn(
+                "h-4 w-4 text-muted-foreground",
+                isUploading && "animate-bounce text-primary",
+                isDragActive && "text-primary"
+              )} />
+              {isUploading ? (
+                <span className="text-xs text-primary">Đang tải...</span>
+              ) : (
+                <span className="text-xs text-muted-foreground">
+                  Thêm ảnh ({existingFileCount + files.length}/{maxFiles})
+                </span>
+              )}
             </div>
           ) : (
-            <div className="space-y-1">
-              <p className="text-sm font-semibold">Kéo thả hoặc click để chọn</p>
-              <p className="text-xs text-muted-foreground">PDF, PNG, JPG (max {formatFileSize(maxSize)})</p>
-              <div className="flex items-center justify-center gap-1 pt-1">
-                <div className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                  files.length >= maxFiles 
-                    ? 'bg-red-100 text-red-700' 
-                    : files.length >= maxFiles * 0.8 
-                      ? 'bg-amber-100 text-amber-700' 
-                      : 'bg-green-100 text-green-700'
-                }`}>
-                  {files.length >= maxFiles 
-                    ? 'Đầy' 
-                    : files.length >= maxFiles * 0.8 
-                      ? 'Gần đầy' 
-                      : 'Còn chỗ'
-                  } {files.length}/{maxFiles}
-                </div>
-                {files.length > 0 && (
-                  <div className="px-2 py-0.5 bg-purple-50 text-purple-600 rounded-full text-[10px] font-medium">
-                    {formatFileSize(files.reduce((sum, f) => sum + f.size, 0))}/{formatFileSize(maxTotalSize)}
+            // Normal mode - full UI
+            <>
+              <div className="relative inline-block mb-2">
+                <Upload className={cn(
+                  "h-8 w-8 text-muted-foreground transition-all",
+                  isUploading && "animate-bounce text-primary",
+                  isDragActive && "text-primary scale-110"
+                )} />
+                {isUploading && (
+                  <div className="absolute inset-0 animate-ping">
+                    <Upload className="h-8 w-8 text-primary opacity-30" />
                   </div>
                 )}
               </div>
-            </div>
+
+              {isUploading ? (
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-primary">Đang tải lên...</p>
+                  <div className="h-1 w-32 mx-auto bg-muted rounded-full overflow-hidden">
+                    <div className="h-full bg-primary animate-pulse" style={{width: '70%'}}></div>
+                  </div>
+                </div>
+              ) : isDragActive ? (
+                <p className="text-sm font-medium text-primary">Thả file vào đây</p>
+              ) : isDragReject ? (
+                <div className="space-y-1">
+                  <div className="flex items-center justify-center gap-1">
+                    <AlertCircle className="h-4 w-4 text-destructive" />
+                    <p className="text-xs font-medium text-destructive">File không hợp lệ</p>
+                  </div>
+                  <div className="text-[10px] text-destructive/80">
+                    <p>Chỉ chấp nhận: {accept ? Object.values(accept).flat().join(', ').toUpperCase() : 'PDF, PNG, JPG'} (max {formatFileSize(maxSize)})</p>
+                  </div>
+                </div>
+              ) : files.length >= maxFiles ? (
+                <div className="space-y-1">
+                  <div className="flex items-center justify-center gap-1">
+                    <AlertCircle className="h-4 w-4 text-red-600" />
+                    <p className="text-sm font-medium text-red-700">Đã đầy</p>
+                  </div>
+                  <p className="text-xs text-red-600">
+                    Đã đạt {maxFiles} file. Xóa file cũ để thêm mới.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold">Kéo thả hoặc click để chọn</p>
+                  <p className="text-xs text-muted-foreground">PDF, PNG, JPG (max {formatFileSize(maxSize)})</p>
+                  <div className="flex items-center justify-center gap-1 pt-1">
+                    <div className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                      files.length >= maxFiles 
+                        ? 'bg-red-100 text-red-700' 
+                        : files.length >= maxFiles * 0.8 
+                          ? 'bg-amber-100 text-amber-700' 
+                          : 'bg-green-100 text-green-700'
+                    }`}>
+                      {files.length >= maxFiles 
+                        ? 'Đầy' 
+                        : files.length >= maxFiles * 0.8 
+                          ? 'Gần đầy' 
+                          : 'Còn chỗ'
+                      } {files.length}/{maxFiles}
+                    </div>
+                    {files.length > 0 && (
+                      <div className="px-2 py-0.5 bg-purple-50 text-purple-600 rounded-full text-[10px] font-medium">
+                        {formatFileSize(files.reduce((sum, f) => sum + f.size, 0))}/{formatFileSize(maxTotalSize)}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
@@ -578,8 +603,31 @@ export function NewDocumentsUpload({
                       </div>
                     </div>
                   ) : (
-                    <div className="aspect-square rounded-lg bg-muted flex items-center justify-center">
+                    <div className="aspect-square rounded-lg bg-muted flex items-center justify-center relative group">
                       <FileIcon className="h-8 w-8 text-muted-foreground" />
+                      
+                      {/* Overlay buttons for non-image files */}
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 bg-white/90 hover:bg-white"
+                          onClick={() => handlePreview(file)}
+                        >
+                          <Eye className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 bg-white/90 hover:bg-destructive hover:text-white"
+                          onClick={() => removeFile(file.id)}
+                          disabled={disabled}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
                     </div>
                   )}
 
@@ -614,22 +662,35 @@ export function NewDocumentsUpload({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Xác nhận xóa file</AlertDialogTitle>
-            <AlertDialogDescription>
-              Bạn có chắc muốn xóa file tạm thời này?
-              <br />
-              <br />
-              <strong>"{fileToDelete?.originalName || fileToDelete?.name}"</strong>
-              <br />
-              <br />
-              File này chưa được lưu. Hành động này không thể hoàn tác.
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <p>Bạn có chắc muốn xóa file tạm thời này?</p>
+                <p className="font-medium text-foreground break-all">
+                  "{fileToDelete?.originalName || fileToDelete?.name}"
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  File này chưa được lưu. Hành động này không thể hoàn tác.
+                </p>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Hủy</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeleteFile}>Xóa file</AlertDialogAction>
+            <AlertDialogAction onClick={confirmDeleteFile} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Xóa file
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Image Preview Dialog */}
+      <ImagePreviewDialog
+        images={imageFiles.map(f => getPreviewUrl(f))}
+        initialIndex={previewIndex}
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        title="Xem ảnh"
+      />
     </div>
   );
 }

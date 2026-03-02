@@ -8,21 +8,21 @@
 import * as React from "react";
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import { useReceipts, useReceiptMutations } from '../hooks/use-receipts';
-import { useReceiptTypeStore } from "../../settings/receipt-types/store";
+import { useReceiptMutations, useReceiptStats, useReceipts, type ReceiptStats } from '../hooks/use-receipts';
+import { useAllReceipts } from '../hooks/use-all-receipts';
+import { useAllReceiptTypes } from "../../settings/receipt-types/hooks/use-all-receipt-types";
 import { useAllBranches } from "../../settings/branches/hooks/use-all-branches";
 import { useAllCustomers } from "../../customers/hooks/use-all-customers";
 import { useStoreInfoData } from "../../settings/store-info/hooks/use-store-info";
-import { useCashAccounts } from "../../cashbook/hooks/use-cashbook";
+import { useAllCashAccounts } from "../../cashbook/hooks/use-all-cash-accounts";
 import type { Receipt } from '@/lib/types/prisma-extended';
 import { ResponsiveDataTable, type BulkAction } from "@/components/data-table/responsive-data-table";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Printer, FileSpreadsheet, Download } from "lucide-react";
+import { Printer, FileSpreadsheet, Download, Receipt as ReceiptIcon, DollarSign, CalendarDays, TrendingUp, Settings } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import Fuse from "fuse.js";
-import { DataTableColumnCustomizer } from "@/components/data-table/data-table-column-toggle";
+import { DynamicDataTableColumnCustomizer as DataTableColumnCustomizer } from "@/components/data-table/dynamic-column-customizer";
 import { DataTableDateFilter } from "@/components/data-table/data-table-date-filter";
 import { DataTableFacetedFilter } from "@/components/data-table/data-table-faceted-filter";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -31,7 +31,6 @@ import { PageFilters } from "@/components/layout/page-filters";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { ROUTES, generatePath } from "@/lib/router";
 import { toast } from "sonner";
-import { isAfter, isBefore, isSameDay, differenceInMilliseconds } from 'date-fns';
 import { getColumns } from "../columns";
 import { MobileReceiptCard } from "../card";
 import { asSystemId } from '@/lib/id-types';
@@ -43,11 +42,14 @@ import {
 } from "@/lib/print/receipt-print-helper";
 import { SimplePrintOptionsDialog, type SimplePrintOptionsResult } from "@/components/shared/simple-print-options-dialog";
 import { useColumnVisibility } from '@/hooks/use-column-visibility';
+import type { ReceiptStatus } from '@/lib/types/prisma-extended';
 import {
   useReceiptFilters,
   useReceiptActions as _useReceiptActions,
   useReceiptImportExport,
 } from "../hooks/use-receipts-page-handlers";
+import { StatsCard, StatsCardGrid } from "@/components/shared/stats-card"
+import { formatCurrency, formatNumber } from "@/lib/format-utils"
 
 // Dynamic imports for import/export dialogs
 const ReceiptImportDialog = dynamic(
@@ -59,30 +61,60 @@ const ReceiptExportDialog = dynamic(
   { ssr: false }
 );
 
-export function ReceiptsContent() {
-  const router = useRouter();
-  const { navigateTo } = useMediaQuery();
+// Props interface
+interface ReceiptsContentProps {
+  initialStats?: ReceiptStats;
+}
 
-  // Data from stores - use React Query for receipts
-  const { data: receiptsData, isLoading: _isReceiptsLoading } = useReceipts({ limit: 1000 });
-  const receipts = React.useMemo(() => receiptsData?.items ?? [], [receiptsData?.items]);
-  const { cancel: cancelMutation, create: createMutation, update: updateMutation } = useReceiptMutations({
-    onCancelSuccess: () => toast.success("Đã hủy phiếu thu"),
-    onError: (error) => toast.error(error.message || "Thao tác thất bại"),
-  });
-  const { data: queryData } = useCashAccounts({ limit: 500 });
-  const accounts = React.useMemo(() => queryData?.data ?? [], [queryData?.data]);
-  const { data: branches } = useAllBranches();
-  const receiptTypesData = useReceiptTypeStore(state => state.data);
-  const receiptTypes = React.useMemo(() => receiptTypesData ?? [], [receiptTypesData]);
-  const { data: customers } = useAllCustomers();
-  const { info: storeInfo } = useStoreInfoData();
-  const { print, printMultiple } = usePrint();
-  const { employee } = useAuth();
+export function ReceiptsContent({ initialStats }: ReceiptsContentProps) {
+  const router = useRouter();
+  const isMobile = useMediaQuery("(max-width: 768px)");
+  const navigateTo = React.useCallback((path: string) => router.push(path), [router]);
+
+  // Stats from server component
+  const { data: stats } = useReceiptStats(initialStats);
 
   // Custom hooks for filters and actions
   const filters = useReceiptFilters();
   const importExport = useReceiptImportExport();
+
+  // Debounce search + reset pagination on filter changes
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  React.useEffect(() => { filters.setPagination(prev => ({ ...prev, pageIndex: 0 })); }, [filters.debouncedGlobalFilter, filters.branchFilter, filters.statusFilter, filters.dateRange]);
+
+  // Derive server-side status filter (single value for API)
+  const serverStatus = React.useMemo(() => filters.statusFilter.size === 1 ? [...filters.statusFilter][0] : undefined, [filters.statusFilter]);
+
+  // ✅ Server-side paginated data — API handles search, filter, sort, pagination
+  const { data: receiptsResponse, isLoading } = useReceipts({
+    search: filters.debouncedGlobalFilter || undefined,
+    page: filters.pagination.pageIndex + 1,
+    limit: filters.pagination.pageSize,
+    status: serverStatus as ReceiptStatus | undefined,
+    branchId: filters.branchFilter !== 'all' ? filters.branchFilter : undefined,
+    startDate: filters.dateRange?.[0],
+    endDate: filters.dateRange?.[1],
+    sortBy: filters.sorting.id || 'createdAt',
+    sortOrder: filters.sorting.desc ? 'desc' : 'asc',
+  });
+  const receipts = React.useMemo(() => receiptsResponse?.data ?? [], [receiptsResponse?.data]);
+  const serverTotal = receiptsResponse?.pagination?.total ?? 0;
+  const serverTotalPages = receiptsResponse?.pagination?.totalPages ?? 1;
+
+  // Lazy-load all data only for import/export
+  const { data: allReceipts } = useAllReceipts({ enabled: importExport.showImportDialog || importExport.showExportDialog });
+
+  const { cancel: cancelMutation, create: createMutation, update: updateMutation } = useReceiptMutations({
+    onCancelSuccess: () => toast.success("Đã hủy phiếu thu"),
+    onError: (error) => toast.error(error.message || "Thao tác thất bại"),
+  });
+  const { accounts } = useAllCashAccounts();
+  const { data: branches } = useAllBranches();
+  const receiptTypesData = useAllReceiptTypes().data;
+  const { data: customers } = useAllCustomers();
+  const { info: storeInfo } = useStoreInfoData();
+  const { print, printMultiple } = usePrint();
+  const { employee } = useAuth();
   
   // Print dialog state
   const [printDialogOpen, setPrintDialogOpen] = React.useState(false);
@@ -154,13 +186,6 @@ export function ReceiptsContent() {
     columnDefaultsInitialized.current = true;
   }, [columns, setColumnVisibility, filters]);
 
-  // Fuse search
-  const fuse = React.useMemo(() => new Fuse(receipts, { 
-    keys: ["id", "description", "payerName", "originalDocumentId", "createdBy"],
-    threshold: 0.3,
-    ignoreLocation: true
-  }), [receipts]);
-
   // Confirm actions
   const confirmCancel = () => { 
     if (idToDelete) {
@@ -184,93 +209,24 @@ export function ReceiptsContent() {
   ], []);
 
   const typeOptions = React.useMemo(() => 
-    receiptTypes.map(rt => ({ value: rt.systemId, label: rt.name }))
-  , [receiptTypes]);
+    (receiptTypesData ?? []).map(rt => ({ value: rt.systemId, label: rt.name }))
+  , [receiptTypesData]);
 
   const customerOptions = React.useMemo(() => 
     customers.map(c => ({ value: c.systemId, label: c.name }))
   , [customers]);
 
-  // Apply all filters
+  // ✅ Server-side pagination: only apply lightweight client-side facet filters (type, customer) on current page
   const filteredData = React.useMemo(() => {
     let result = receipts;
-    
-    if (filters.branchFilter && filters.branchFilter !== 'all') {
-      result = result.filter(r => r.branchSystemId === filters.branchFilter);
-    }
-    if (filters.statusFilter.size > 0) {
-      result = result.filter(r => r.status && filters.statusFilter.has(r.status));
-    }
     if (filters.typeFilter.size > 0) {
       result = result.filter(r => r.paymentReceiptTypeSystemId && filters.typeFilter.has(r.paymentReceiptTypeSystemId));
     }
     if (filters.customerFilter.size > 0) {
       result = result.filter(r => r.customerSystemId && filters.customerFilter.has(r.customerSystemId));
     }
-    if (filters.dateRange && (filters.dateRange[0] || filters.dateRange[1])) {
-      result = result.filter(r => {
-        if (!r.date) return false;
-        const voucherDate = new Date(r.date);
-        const start = filters.dateRange![0] ? new Date(filters.dateRange![0]) : null;
-        const end = filters.dateRange![1] ? new Date(filters.dateRange![1]) : null;
-        
-        if (start && end) {
-          return (isAfter(voucherDate, start) || isSameDay(voucherDate, start)) && 
-                 (isBefore(voucherDate, end) || isSameDay(voucherDate, end));
-        } else if (start) {
-          return isAfter(voucherDate, start) || isSameDay(voucherDate, start);
-        } else if (end) {
-          return isBefore(voucherDate, end) || isSameDay(voucherDate, end);
-        }
-        return true;
-      });
-    }
-    if (filters.debouncedGlobalFilter) {
-      const searchResults = fuse.search(filters.debouncedGlobalFilter);
-      const searchIds = new Set(searchResults.map(r => r.item.systemId));
-      result = result.filter(r => searchIds.has(r.systemId));
-    }
-    
     return result;
-  }, [receipts, filters.branchFilter, filters.statusFilter, filters.typeFilter, filters.customerFilter, filters.dateRange, filters.debouncedGlobalFilter, fuse]);
-
-  // Calculate running balance
-  const dataWithRunningBalance = React.useMemo(() => {
-    const sorted = [...filteredData].sort((a, b) => {
-      const dateA = new Date(a.date);
-      const dateB = new Date(b.date);
-      return differenceInMilliseconds(dateA, dateB);
-    });
-    
-    let balance = 0;
-    return sorted.map(voucher => {
-      balance += voucher.amount;
-      return { ...voucher, runningBalance: balance };
-    });
-  }, [filteredData]);
-
-  // Sorting
-  const sortedData = React.useMemo(() => {
-    const sorted = [...dataWithRunningBalance];
-    if (filters.sorting.id) {
-      sorted.sort((a, b) => {
-        const aValue = (a as Record<string, unknown>)[filters.sorting.id] as string | number | null | undefined;
-        const bValue = (b as Record<string, unknown>)[filters.sorting.id] as string | number | null | undefined;
-        if (filters.sorting.id === 'createdAt' || filters.sorting.id === 'date') {
-          const aTime = aValue ? new Date(aValue as string | number | Date).getTime() : 0;
-          const bTime = bValue ? new Date(bValue as string | number | Date).getTime() : 0;
-          return filters.sorting.desc ? bTime - aTime : aTime - bTime;
-        }
-        if (aValue == null && bValue == null) return 0;
-        if (aValue == null) return 1;
-        if (bValue == null) return -1;
-        if (aValue < bValue) return filters.sorting.desc ? 1 : -1;
-        if (aValue > bValue) return filters.sorting.desc ? -1 : 1;
-        return 0;
-      });
-    }
-    return sorted;
-  }, [dataWithRunningBalance, filters.sorting]);
+  }, [receipts, filters.typeFilter, filters.customerFilter]);
 
   const allSelectedRows = React.useMemo(() => 
     receipts.filter(v => filters.rowSelection[v.systemId]),
@@ -292,7 +248,7 @@ export function ReceiptsContent() {
     
     for (const [index, receipt] of importedReceipts.entries()) {
       try {
-        const existing = receipts.find(r => 
+        const existing = allReceipts.find(r => 
           r.id.toLowerCase() === (receipt.id || '').toLowerCase()
         );
         
@@ -334,7 +290,7 @@ export function ReceiptsContent() {
       skipped: skippedCount,
       errors,
     };
-  }, [receipts, createMutation, updateMutation]);
+  }, [allReceipts, createMutation, updateMutation]);
 
   // Bulk print handlers
   const handleBulkPrint = React.useCallback((rows: Receipt[]) => {
@@ -386,32 +342,64 @@ export function ReceiptsContent() {
       const clientHeight = window.innerHeight;
       const scrollPercentage = (scrollTop + clientHeight) / scrollHeight;
 
-      if (scrollPercentage > 0.8 && filters.mobileLoadedCount < sortedData.length) {
-        filters.setMobileLoadedCount(prev => Math.min(prev + 20, sortedData.length));
+      if (scrollPercentage > 0.8 && filters.mobileLoadedCount < filteredData.length) {
+        filters.setMobileLoadedCount(prev => Math.min(prev + 20, filteredData.length));
       }
     };
 
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [filters.mobileLoadedCount, sortedData.length, filters]);
+  }, [isMobile, filters.mobileLoadedCount, filteredData.length, filters]);
 
   // Reset mobile loaded count when filters change
   React.useEffect(() => {
     filters.setMobileLoadedCount(20);
   }, [filters.debouncedGlobalFilter, filters.branchFilter, filters.statusFilter, filters.typeFilter, filters.customerFilter, filters.dateRange, filters]);
 
-  const pageCount = Math.ceil(sortedData.length / filters.pagination.pageSize);
-  const paginatedData = React.useMemo(() => 
-    sortedData.slice(filters.pagination.pageIndex * filters.pagination.pageSize, (filters.pagination.pageIndex + 1) * filters.pagination.pageSize),
-  [sortedData, filters.pagination]);
+  const pageCount = serverTotalPages;
 
   return (
     <div className="space-y-4 h-full flex flex-col">
+      {/* Stats Cards - instant display from Server Component */}
+      <StatsCardGrid columns={4} className="mb-2">
+        <StatsCard
+          title="Tổng phiếu thu"
+          value={stats?.total ?? 0}
+          icon={ReceiptIcon}
+          formatValue={(v) => formatNumber(Number(v))}
+        />
+        <StatsCard
+          title="Tổng thu"
+          value={stats?.totalAmount ?? 0}
+          icon={TrendingUp}
+          formatValue={(v) => formatCurrency(Number(v))}
+          variant="success"
+        />
+        <StatsCard
+          title="Đã hoàn thành"
+          value={stats?.completed ?? 0}
+          icon={CalendarDays}
+          formatValue={(v) => formatNumber(Number(v))}
+          variant="info"
+        />
+        <StatsCard
+          title="Đã hủy"
+          value={stats?.cancelled ?? 0}
+          icon={DollarSign}
+          formatValue={(v) => formatNumber(Number(v))}
+          variant="info"
+        />
+      </StatsCardGrid>
+
       {/* Desktop-only Toolbar */}
       {!isMobile && (
         <PageToolbar
           leftActions={
             <>
+              <Button variant="outline" size="sm" onClick={() => router.push('/settings/payments')}>
+                <Settings className="h-4 w-4 mr-2" />
+                Cài đặt
+              </Button>
               <Button variant="outline" size="sm" onClick={() => importExport.setShowImportDialog(true)}>
                 <FileSpreadsheet className="mr-2 h-4 w-4" />
                 Nhập file
@@ -491,7 +479,7 @@ export function ReceiptsContent() {
       {/* Mobile View - Cards */}
       {isMobile ? (
         <div className="space-y-2 flex-1 overflow-y-auto">
-          {sortedData.length === 0 ? (
+          {filteredData.length === 0 && !isLoading ? (
             <Card>
               <CardContent className="p-8 text-center text-muted-foreground">
                 Không tìm thấy phiếu thu nào
@@ -499,7 +487,7 @@ export function ReceiptsContent() {
             </Card>
           ) : (
             <>
-              {sortedData.slice(0, filters.mobileLoadedCount).map(receipt => (
+              {filteredData.slice(0, filters.mobileLoadedCount).map(receipt => (
                 <MobileReceiptCard 
                   key={receipt.systemId} 
                   receipt={receipt}
@@ -508,7 +496,7 @@ export function ReceiptsContent() {
                   handleRowClick={handleRowClick}
                 />
               ))}
-              {filters.mobileLoadedCount < sortedData.length && (
+              {filters.mobileLoadedCount < filteredData.length && (
                 <Card>
                   <CardContent className="p-4 text-center text-muted-foreground">
                     <div className="flex items-center justify-center gap-2">
@@ -526,11 +514,12 @@ export function ReceiptsContent() {
         <div className="w-full py-4">
           <ResponsiveDataTable
             columns={columns}
-            data={paginatedData}
+            data={filteredData}
             pageCount={pageCount}
             pagination={filters.pagination}
             setPagination={filters.setPagination}
-            rowCount={dataWithRunningBalance.length}
+            rowCount={serverTotal}
+            isLoading={isLoading}
             rowSelection={filters.rowSelection}
             setRowSelection={filters.setRowSelection}
             onBulkDelete={() => setIsBulkDeleteAlertOpen(true)}
@@ -604,7 +593,7 @@ export function ReceiptsContent() {
         open={importExport.showImportDialog}
         onOpenChange={importExport.setShowImportDialog}
         branches={branches.map(b => ({ systemId: b.systemId, name: b.name }))}
-        existingData={receipts}
+        existingData={allReceipts}
         onImport={handleImport}
         currentUser={{
           name: employee?.fullName || 'Hệ thống',
@@ -616,9 +605,9 @@ export function ReceiptsContent() {
       <ReceiptExportDialog
         open={importExport.showExportDialog}
         onOpenChange={importExport.setShowExportDialog}
-        allData={receipts}
-        filteredData={sortedData}
-        currentPageData={paginatedData}
+        allData={allReceipts}
+        filteredData={filteredData}
+        currentPageData={filteredData}
         selectedData={selectedReceipts}
         currentUser={{
           name: employee?.fullName || 'Hệ thống',

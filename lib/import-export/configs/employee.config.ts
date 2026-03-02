@@ -1,6 +1,5 @@
 import type { Employee } from '@/lib/types/prisma-extended';
 import type { ImportExportConfig, FieldConfig } from '@/lib/import-export/types';
-import { enrichEmployeeAddresses } from '../address-lookup';
 
 /**
  * Parse địa chỉ từ template mới
@@ -814,19 +813,13 @@ function processEmployeeAddresses(row: Partial<Employee>): Partial<Employee> {
   } | undefined;
   
   if (permanentRaw && (permanentRaw.province || permanentRaw.ward || permanentRaw.street)) {
-    // Enrich with IDs using address lookup
-    const enriched = enrichEmployeeAddresses({
-      permanentAddress: {
-        province: permanentRaw.province || '',
-        ward: permanentRaw.ward || '',
-        street: permanentRaw.street || '',
-        inputLevel: permanentRaw.inputLevel || '2-level',
-      } as Employee['permanentAddress'],
-    });
-    
-    if (enriched.permanentAddress) {
-      result.permanentAddress = enriched.permanentAddress;
-    }
+    // Set raw address data - actual ID lookup should be done in import handler
+    result.permanentAddress = {
+      province: permanentRaw.province || '',
+      ward: permanentRaw.ward || '',
+      street: permanentRaw.street || '',
+      inputLevel: permanentRaw.inputLevel || '2-level',
+    } as Employee['permanentAddress'];
     
     // Remove temporary field
     delete (result as Record<string, unknown>)['__permanentAddress__'];
@@ -841,19 +834,13 @@ function processEmployeeAddresses(row: Partial<Employee>): Partial<Employee> {
   } | undefined;
   
   if (temporaryRaw && (temporaryRaw.province || temporaryRaw.ward || temporaryRaw.street)) {
-    // Enrich with IDs using address lookup
-    const enriched = enrichEmployeeAddresses({
-      temporaryAddress: {
-        province: temporaryRaw.province || '',
-        ward: temporaryRaw.ward || '',
-        street: temporaryRaw.street || '',
-        inputLevel: temporaryRaw.inputLevel || '2-level',
-      } as Employee['temporaryAddress'],
-    });
-    
-    if (enriched.temporaryAddress) {
-      result.temporaryAddress = enriched.temporaryAddress;
-    }
+    // Set raw address data - actual ID lookup should be done in import handler
+    result.temporaryAddress = {
+      province: temporaryRaw.province || '',
+      ward: temporaryRaw.ward || '',
+      street: temporaryRaw.street || '',
+      inputLevel: temporaryRaw.inputLevel || '2-level',
+    } as Employee['temporaryAddress'];
     
     // Remove temporary field
     delete (result as Record<string, unknown>)['__temporaryAddress__'];

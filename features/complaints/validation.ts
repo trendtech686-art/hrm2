@@ -37,11 +37,12 @@ export const complaintVerificationSchema = z.enum([
   'pending-verification',
 ]);
 
+// ✅ Match Prisma ComplaintPriority enum
 export const complaintPrioritySchema = z.enum([
-  'low',
-  'normal',
-  'high',
-  'urgent',
+  'LOW',
+  'MEDIUM',
+  'HIGH',
+  'CRITICAL',
 ]);
 
 /**
@@ -69,7 +70,7 @@ export const createComplaintSchema = z.object({
     .max(2000, 'Mô tả không được quá 2000 ký tự'),
   
   // Optional fields
-  priority: complaintPrioritySchema.optional().default('normal'),
+  priority: complaintPrioritySchema.optional().default('MEDIUM'),
   images: z.array(complaintImageSchema).optional().default([]),
   
   // Customer info (usually auto-filled from order)

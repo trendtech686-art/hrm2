@@ -1,80 +1,102 @@
 import * as React from "react";
 import type { PaymentMethod } from '@/lib/types/prisma-extended';
 import type { ColumnDef } from "../../../../components/data-table/types";
-import { Badge } from "../../../../components/ui/badge";
 import { Button } from "../../../../components/ui/button";
+import { Switch } from "../../../../components/ui/switch";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../../../../components/ui/dropdown-menu";
-import { MoreHorizontal, Pencil, Power, PowerOff, Star, Trash2 } from "lucide-react";
-import * as Icons from "lucide-react";
+import { MoreHorizontal } from "lucide-react";
+import type { SystemId } from "@/lib/id-types";
 
 interface ColumnOptions {
   onEdit: (method: PaymentMethod) => void;
-  onToggleStatus: (method: PaymentMethod) => void;
-  onSetDefault: (systemId: PaymentMethod["systemId"]) => void;
-  onDelete: (systemId: PaymentMethod["systemId"]) => void;
+  onDelete: (systemId: SystemId) => void;
+  onToggleStatus: (method: PaymentMethod, isActive: boolean) => void;
+  onToggleDefault: (method: PaymentMethod, isDefault: boolean) => void;
+  onSetDefault: (systemId: SystemId) => void;
 }
-
-const getIconComponent = (icon?: string) => {
-  if (!icon) return null;
-  const library = Icons as unknown as Record<string, React.ComponentType<{ className?: string }>>;
-  return library[icon] ?? null;
-};
 
 export const getPaymentMethodColumns = ({
   onEdit,
-  onToggleStatus,
-  onSetDefault,
   onDelete,
+  onToggleStatus,
+  onToggleDefault,
+  onSetDefault,
 }: ColumnOptions): ColumnDef<PaymentMethod>[] => [
   {
-    id: "name",
-    header: "Tên hình thức",
-    cell: ({ row }) => {
-      const IconComponent = getIconComponent(row.icon);
-
-      return (
-        <div className="flex items-center gap-2">
-          {IconComponent && (
-            <div
-              className="flex h-8 w-8 items-center justify-center rounded"
-              style={{ backgroundColor: row.color || "#6b7280" }}
-            >
-              <IconComponent className="h-4 w-4 text-white" />
-            </div>
-          )}
-          <span className="font-medium">{row.name}</span>
-        </div>
-      );
-    },
-    meta: { displayName: "Tên hình thức" },
+    id: "id",
+    header: "Mã",
+    size: 110,
+    cell: ({ row }) => (
+      <span className="font-medium">{row.id ?? '—'}</span>
+    ),
+    meta: { displayName: "Mã" },
   },
   {
-    id: "status",
-    header: "Trạng thái",
+    id: "name",
+    header: "Tên & mô tả",
     cell: ({ row }) => (
-      <Badge variant={row.isActive ? "default" : "secondary"}>
-        {row.isActive ? "Hoạt động" : "Ngừng"}
-      </Badge>
+      <div>
+        <p className="font-medium">{row.name}</p>
+        {row.description && (
+          <p className="text-sm text-muted-foreground">{row.description}</p>
+        )}
+      </div>
     ),
-    meta: { displayName: "Trạng thái" },
+    meta: { displayName: "Tên" },
+  },
+  {
+    id: "accountInfo",
+    header: "Thông tin tài khoản",
+    size: 220,
+    cell: ({ row }) => {
+      if (row.accountName || row.accountNumber || row.bankName) {
+        return (
+          <div className="text-sm leading-relaxed">
+            {row.accountName && <p className="font-medium">{row.accountName}</p>}
+            {row.accountNumber && (
+              <p className="text-xs text-muted-foreground">{row.accountNumber}</p>
+            )}
+            {row.bankName && <p className="text-muted-foreground">{row.bankName}</p>}
+          </div>
+        );
+      }
+      return <span className="text-sm text-muted-foreground">—</span>;
+    },
+    meta: { displayName: "Thông tin tài khoản" },
   },
   {
     id: "isDefault",
     header: "Mặc định",
-    cell: ({ row }) =>
-      row.isDefault ? <Badge variant="outline">Mặc định</Badge> : null,
+    size: 100,
+    cell: ({ row }) => (
+      <Switch
+        checked={row.isDefault ?? false}
+        onCheckedChange={(checked) => onToggleDefault(row, checked)}
+      />
+    ),
     meta: { displayName: "Mặc định" },
   },
   {
+    id: "isActive",
+    header: "Trạng thái",
+    size: 100,
+    cell: ({ row }) => (
+      <Switch
+        checked={row.isActive ?? true}
+        onCheckedChange={(checked) => onToggleStatus(row, checked)}
+      />
+    ),
+    meta: { displayName: "Trạng thái" },
+  },
+  {
     id: "actions",
-    header: () => <div className="text-right">Thao tác</div>,
+    header: '',
+    size: 80,
     cell: ({ row }) => (
       <div className="text-right">
         <DropdownMenu>
@@ -85,28 +107,9 @@ export const getPaymentMethodColumns = ({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Thao tác</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => onEdit(row)}>
-              <Pencil className="mr-2 h-4 w-4" />
-              Chỉnh sửa
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => onToggleStatus(row)}>
-              {row.isActive ? (
-                <>
-                  <PowerOff className="mr-2 h-4 w-4" />
-                  Ngừng hoạt động
-                </>
-              ) : (
-                <>
-                  <Power className="mr-2 h-4 w-4" />
-                  Kích hoạt
-                </>
-              )}
-            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => onEdit(row)}>Chỉnh sửa</DropdownMenuItem>
             {!row.isDefault && (
               <DropdownMenuItem onSelect={() => onSetDefault(row.systemId)}>
-                <Star className="mr-2 h-4 w-4" />
                 Đặt làm mặc định
               </DropdownMenuItem>
             )}
@@ -114,7 +117,6 @@ export const getPaymentMethodColumns = ({
               onSelect={() => onDelete(row.systemId)}
               className="text-destructive"
             >
-              <Trash2 className="mr-2 h-4 w-4" />
               Xóa
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -122,6 +124,5 @@ export const getPaymentMethodColumns = ({
       </div>
     ),
     meta: { displayName: "Thao tác" },
-    size: 120,
   },
 ];

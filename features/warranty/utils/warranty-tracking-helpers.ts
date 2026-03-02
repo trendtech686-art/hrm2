@@ -10,12 +10,12 @@ import type { PublicWarrantyTicket, PublicWarrantyProduct } from '../public-warr
  */
 export function getStatusTimestamp(ticket: PublicWarrantyTicket, status: WarrantyStatus): string | null {
   const directTimestampByStatus: Partial<Record<WarrantyStatus, string | undefined>> = {
-    incomplete: ticket.createdAt,
-    pending: ticket.processingStartedAt,
-    processed: ticket.processedAt,
-    returned: ticket.returnedAt,
-    completed: ticket.completedAt,
-    cancelled: ticket.cancelledAt,
+    RECEIVED: ticket.createdAt,
+    PROCESSING: ticket.processingStartedAt,
+    WAITING_PARTS: undefined,
+    COMPLETED: ticket.processedAt,
+    RETURNED: ticket.returnedAt,
+    CANCELLED: ticket.cancelledAt,
   };
 
   const directTimestamp = directTimestampByStatus[status];
@@ -31,10 +31,10 @@ export function getStatusTimestamp(ticket: PublicWarrantyTicket, status: Warrant
     const action = (entry.action || '').toLowerCase();
     const actionLabel = (entry.actionLabel || '').toLowerCase();
 
-    if (status === 'completed') {
+    if (status === 'RETURNED') {
       return completionKeywords.some((keyword) => action.includes(keyword) || actionLabel.includes(keyword))
-        || action.includes('-> completed')
-        || action.includes(': completed');
+        || action.includes('-> RETURNED')
+        || action.includes(': RETURNED');
     }
 
     return (

@@ -93,7 +93,7 @@ export function PriceSelector({
           placeholder="Nhập giá..."
         />
         <Select value="preset" onValueChange={() => setMode("preset")}>
-          <SelectTrigger className="w-[120px] h-9">
+          <SelectTrigger className="w-30 h-9">
             <SelectValue placeholder="Tùy chỉnh" />
           </SelectTrigger>
           <SelectContent>

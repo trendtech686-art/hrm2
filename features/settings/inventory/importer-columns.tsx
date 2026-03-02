@@ -5,8 +5,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
@@ -27,6 +25,12 @@ export const getImporterColumns = ({
   onToggleDefault,
 }: GetImporterColumnsProps): ColumnDef<Importer>[] => [
   {
+    id: "id",
+    accessorKey: "id",
+    header: "Mã",
+    cell: ({ row }) => <div className="text-sm">{row.id}</div>,
+  },
+  {
     id: "name",
     accessorKey: "name",
     header: "Tên đơn vị",
@@ -46,7 +50,7 @@ export const getImporterColumns = ({
     cell: ({ row }) => {
       const address = row.address;
       return address ? (
-        <div className="max-w-[300px] truncate" title={address}>
+        <div className="max-w-75 truncate" title={address}>
           {address}
         </div>
       ) : (
@@ -61,7 +65,7 @@ export const getImporterColumns = ({
     cell: ({ row }) => {
       const guide = row.usageGuide;
       return guide ? (
-        <div className="max-w-[200px] truncate" title={guide}>
+        <div className="max-w-50 truncate" title={guide}>
           {guide}
         </div>
       ) : (
@@ -97,7 +101,7 @@ export const getImporterColumns = ({
   },
   {
     id: "actions",
-    header: "Hành động",
+    header: "",
     cell: ({ row }) => {
       const importer = row;
 
@@ -110,12 +114,10 @@ export const getImporterColumns = ({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Thao tác</DropdownMenuLabel>
             <DropdownMenuItem onClick={() => onEdit(importer)}>
               <Pencil className="mr-2 h-4 w-4" />
               Chỉnh sửa
             </DropdownMenuItem>
-            <DropdownMenuSeparator />
             <DropdownMenuItem 
               onClick={() => onDelete(importer.systemId)}
               className="text-red-600 focus:text-red-600"

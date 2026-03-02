@@ -58,14 +58,14 @@ export function useWarrantyTimeTracking(ticket: WarrantyTicket | null): Warranty
   const createdAt = new Date(ticket.createdAt);
   const currentDuration = Math.floor((now.getTime() - createdAt.getTime()) / (1000 * 60));
   
-  // Calculate response time (created -> pending)
+  // Calculate response time (created -> PROCESSING)
   let responseTime: number | null = null;
   let responseStatus: 'not-started' | 'on-time' | 'warning' | 'overdue' = 'not-started';
   
-  if (ticket.status !== 'incomplete') {
-    // Find when status changed to pending
+  if (ticket.status !== 'RECEIVED') {
+    // Find when status changed to PROCESSING
     const pendingEntry = ticket.history?.find(h => 
-      h.action === 'status-changed' && h.changes?.some(c => c.newValue === 'pending')
+      h.action === 'status-changed' && h.changes?.some(c => c.newValue === 'PROCESSING')
     );
     
     if (pendingEntry) {
@@ -81,13 +81,13 @@ export function useWarrantyTimeTracking(ticket: WarrantyTicket | null): Warranty
   
   const responseTimeLeft = WARRANTY_SLA_TARGETS.response - (responseTime || currentDuration);
   
-  // Calculate processing time (created -> processed)
+  // Calculate processing time (created -> COMPLETED)
   let processingTime: number | null = null;
   let processingStatus: 'not-started' | 'on-time' | 'warning' | 'overdue' = 'not-started';
   
-  if (ticket.status === 'processed' || ticket.status === 'returned') {
+  if (ticket.status === 'COMPLETED' || ticket.status === 'RETURNED') {
     const processedEntry = ticket.history?.find(h => 
-      h.action === 'status-changed' && h.changes?.some(c => c.newValue === 'processed')
+      h.action === 'status-changed' && h.changes?.some(c => c.newValue === 'COMPLETED')
     );
     
     if (processedEntry) {
@@ -102,11 +102,11 @@ export function useWarrantyTimeTracking(ticket: WarrantyTicket | null): Warranty
   
   const processingTimeLeft = WARRANTY_SLA_TARGETS.processing - (processingTime || currentDuration);
   
-  // Calculate return time (created -> returned)
+  // Calculate return time (created -> RETURNED)
   let returnTime: number | null = null;
   let returnStatus: 'not-started' | 'on-time' | 'warning' | 'overdue' = 'not-started';
   
-  if (ticket.status === 'returned' && ticket.returnedAt) {
+  if (ticket.status === 'RETURNED' && ticket.returnedAt) {
     const returnedAt = new Date(ticket.returnedAt);
     returnTime = Math.floor((returnedAt.getTime() - createdAt.getTime()) / (1000 * 60));
     returnStatus = getSLAStatus(returnTime, WARRANTY_SLA_TARGETS.return);
@@ -115,7 +115,7 @@ export function useWarrantyTimeTracking(ticket: WarrantyTicket | null): Warranty
   const returnTimeLeft = WARRANTY_SLA_TARGETS.return - (returnTime || currentDuration);
   
   // Total duration
-  const totalDuration = ticket.status === 'returned' && returnTime ? returnTime : null;
+  const totalDuration = ticket.status === 'RETURNED' && returnTime ? returnTime : null;
   
   return {
     responseTime,

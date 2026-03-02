@@ -6,7 +6,6 @@
 import { useCallback } from 'react';
 import { toast } from 'sonner';
 import { useOrderActions } from './use-order-actions';
-import { useOrderStore } from '../store';
 
 interface UsePackagingActionsOptions {
   onSuccess?: () => void;
@@ -20,14 +19,6 @@ interface UsePackagingActionsOptions {
 export function usePackagingActions(options: UsePackagingActionsOptions = {}) {
   const actions = useOrderActions(options);
   
-  // Helper to sync store
-  const syncStore = useCallback(() => {
-    const storeState = useOrderStore.getState();
-    if (storeState.loadFromAPI) {
-      storeState.loadFromAPI();
-    }
-  }, []);
-  
   // Confirm packaging
   const confirmPackaging = useCallback(
     async (orderSystemId: string, packagingSystemId: string, _employeeSystemId?: string) => {
@@ -37,16 +28,13 @@ export function usePackagingActions(options: UsePackagingActionsOptions = {}) {
           packagingId: packagingSystemId,
         });
         
-        // Sync to zustand store for backward compatibility
-        syncStore();
-        
         toast.success('Xác nhận đóng gói thành công');
       } catch (error) {
         toast.error('Lỗi khi xác nhận đóng gói');
         throw error;
       }
     },
-    [actions.confirmPacking, syncStore]
+    [actions.confirmPacking]
   );
 
   // Cancel packaging request
@@ -59,16 +47,13 @@ export function usePackagingActions(options: UsePackagingActionsOptions = {}) {
           reason: reason || '',
         });
         
-        // Sync to zustand store
-        syncStore();
-        
         toast.success('Hủy yêu cầu đóng gói thành công');
       } catch (error) {
         toast.error('Lỗi khi hủy yêu cầu đóng gói');
         throw error;
       }
     },
-    [actions.cancelPacking, syncStore]
+    [actions.cancelPacking]
   );
 
   // Dispatch from warehouse
@@ -80,16 +65,13 @@ export function usePackagingActions(options: UsePackagingActionsOptions = {}) {
           packagingId: packagingSystemId,
         });
         
-        // Sync to zustand store
-        syncStore();
-        
         toast.success('Xuất kho thành công');
       } catch (error) {
         toast.error('Lỗi khi xuất kho');
         throw error;
       }
     },
-    [actions.dispatch, syncStore]
+    [actions.dispatch]
   );
 
   // Complete delivery
@@ -101,16 +83,13 @@ export function usePackagingActions(options: UsePackagingActionsOptions = {}) {
           packagingId: packagingSystemId,
         });
         
-        // Sync to zustand store
-        syncStore();
-        
         toast.success('Giao hàng thành công');
       } catch (error) {
         toast.error('Lỗi khi cập nhật trạng thái giao hàng');
         throw error;
       }
     },
-    [actions.complete, syncStore]
+    [actions.complete]
   );
 
   // Fail delivery
@@ -123,16 +102,13 @@ export function usePackagingActions(options: UsePackagingActionsOptions = {}) {
           reason,
         });
         
-        // Sync to zustand store
-        syncStore();
-        
         toast.success('Đã đánh dấu giao hàng thất bại');
       } catch (error) {
         toast.error('Lỗi khi cập nhật trạng thái');
         throw error;
       }
     },
-    [actions.fail, syncStore]
+    [actions.fail]
   );
 
   // Cancel delivery
@@ -146,16 +122,13 @@ export function usePackagingActions(options: UsePackagingActionsOptions = {}) {
           restockItems,
         });
         
-        // Sync to zustand store
-        syncStore();
-        
         toast.success('Hủy giao hàng thành công');
       } catch (error) {
         toast.error('Lỗi khi hủy giao hàng');
         throw error;
       }
     },
-    [actions.cancelDelivery, syncStore]
+    [actions.cancelDelivery]
   );
 
   // In-store pickup
@@ -167,16 +140,13 @@ export function usePackagingActions(options: UsePackagingActionsOptions = {}) {
           packagingId: packagingSystemId,
         });
         
-        // Sync to zustand store
-        syncStore();
-        
         toast.success('Đã chuyển sang nhận tại cửa hàng');
       } catch (error) {
         toast.error('Lỗi khi xử lý');
         throw error;
       }
     },
-    [actions.selectInStorePickup, syncStore]
+    [actions.selectInStorePickup]
   );
 
   const confirmInStorePickup = useCallback(
@@ -187,16 +157,13 @@ export function usePackagingActions(options: UsePackagingActionsOptions = {}) {
           packagingId: packagingSystemId,
         });
         
-        // Sync to zustand store
-        syncStore();
-        
         toast.success('Xác nhận khách đã nhận hàng');
       } catch (error) {
         toast.error('Lỗi khi xác nhận');
         throw error;
       }
     },
-    [actions.confirmPickup, syncStore]
+    [actions.confirmPickup]
   );
 
   return {

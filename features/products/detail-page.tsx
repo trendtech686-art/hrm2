@@ -1,10 +1,11 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
-import { useProducts, useProduct, useProductMutations } from './hooks/use-products';
+import { useProduct, useProductMutations } from './hooks/use-products';
+import { useAllProducts } from './hooks/use-all-products';
 import { asSystemId, type SystemId } from '@/lib/id-types';
 import { formatDateForDisplay, formatDateTimeForDisplay } from '@/lib/date-utils';
 import { usePageHeader } from '../../contexts/page-header-context';
@@ -12,8 +13,15 @@ import { useAuth } from '../../contexts/auth-context';
 import { Skeleton } from '../../components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
-import { Edit, Printer, AlertTriangle, Eye, Trash2, Package, ArrowLeft, Globe, Video } from 'lucide-react';
+import { Edit, Printer, RefreshCw, AlertTriangle, Eye, Trash2, Package, ArrowLeft, Globe, Video, ChevronDown, DollarSign, Package2, FileText, Flag, ExternalLink, Unlink, Layers, Info, Image, Upload } from 'lucide-react';
 import { usePrint } from '@/lib/use-print';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from '../../components/ui/dropdown-menu';
 // ✅ Print mapper - lazy loaded when print is triggered
 import { useStoreInfoData } from '../settings/store-info/hooks/use-store-info';
 import { DetailField } from '../../components/ui/detail-field';
@@ -22,6 +30,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/ta
 import { LazyImage } from '../../components/ui/lazy-image';
 import { useComments } from '@/hooks/use-comments';
 import type { HistoryEntry } from '../../components/ActivityHistory';
+import { useActivityHistory } from '@/hooks/use-activity-logs';
 // ✅ Heavy components - lazy loaded
 const Comments = dynamic(
   () => import('../../components/Comments').then(m => ({ default: m.Comments })),
@@ -33,8 +42,9 @@ const ActivityHistory = dynamic(
 );
 import { useAllPricingPolicies } from '../settings/pricing/hooks/use-all-pricing-policies';
 import { useSupplierFinder } from '../suppliers/hooks/use-all-suppliers';
-import { useStockHistoryStore } from '../stock-history/store';
+import { useProductStockHistory } from '../stock-history/hooks/use-stock-history';
 import { getStockHistoryColumns } from '../stock-history/columns';
+// StockHistoryEntry type now fetched from API
 import { purchasePriceHistoryColumns, type PriceHistoryEntry } from './purchase-price-history-columns';
 import { RelatedDataTable } from '../../components/data-table/related-data-table';
 import { useAllBranches } from '../settings/branches/hooks/use-all-branches';
@@ -47,8 +57,6 @@ import { useEmployeeFinder } from '../employees/hooks/use-all-employees';
 import { useAllWarranties } from '../warranty/hooks/use-all-warranties';
 import { useAllInventoryChecks } from '../inventory-checks/hooks/use-all-inventory-checks';
 import { useAllStockTransfers } from '../stock-transfers/hooks/use-all-stock-transfers';
-import { useImageStore } from './image-store';
-import { FileUploadAPI } from '@/lib/file-upload-api';
 import { ImagePreviewDialog } from '../../components/ui/image-preview-dialog';
 import { calculateComboStock, isComboProduct } from './combo-utils';
 import { StockAlertBadges } from './components/stock-alert-badges';
@@ -56,18 +64,16 @@ import { ComboItemsCard, ComboLowStockWarning, ComboInventoryCard } from './comp
 import { getProductStockAlerts, getTotalOnHandStock, getSuggestedOrderQuantity } from './stock-alert-utils';
 
 // Dynamic imports for dialogs (code-splitting)
-const CommittedStockDialog = dynamic(() => import('./components/committed-stock-dialog').then(mod => ({ default: mod.CommittedStockDialog })), { ssr: false });
-const InTransitStockDialog = dynamic(() => import('./components/in-transit-stock-dialog').then(mod => ({ default: mod.InTransitStockDialog })), { ssr: false });
+const StockOrdersDialogWrapper = dynamic(() => import('./components/stock-orders-dialog-wrapper').then(mod => ({ default: mod.StockOrdersDialogWrapper })), { ssr: false });
 import { useProductTypeFinder } from '../settings/inventory/hooks/use-all-product-types';
 import { useCategoryFinder } from '../categories/hooks/use-all-categories';
 import { useStorageLocationFinder } from '../settings/inventory/hooks/use-storage-locations';
 import { useBrandFinder } from '../brands/hooks/use-all-brands';
-const EcommerceTab = dynamic(
-  () => import('./components/ecommerce-tab').then(m => ({ default: m.EcommerceTab })),
-  { ssr: false, loading: () => <div className="p-4 text-center text-muted-foreground">Đang tải...</div> }
-);
-import { sanitizeHtml } from '@/lib/sanitize';
+import { sanitizeHtml, sanitizeToText } from '@/lib/sanitize';
 import { toast } from 'sonner';
+import { usePkgxLogMutations } from '@/features/settings/pkgx/hooks/use-pkgx-settings';
+import { usePkgxSync } from './hooks/use-pkgx-sync';
+import { useSoldByBranch } from './hooks/use-sold-by-branch';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -81,8 +87,10 @@ import {
 } from '../../components/ui/alert-dialog';
 
 
-const formatCurrency = (value?: number) => {
-    if (typeof value !== 'number' || isNaN(value)) return '-';
+const formatCurrency = (value?: number | null) => {
+    if (value === null || value === undefined || (typeof value !== 'number') || isNaN(value)) {
+      return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(0);
+    }
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
 };
 
@@ -95,7 +103,8 @@ const getStatusBadgeVariant = (status?: string) => {
 };
 
 const getStatusLabel = (status?: string) => {
-  switch (status) {
+  const s = status?.toLowerCase();
+  switch (s) {
     case 'active': return 'Đang hoạt động';
     case 'inactive': return 'Tạm ngừng';
     case 'discontinued': return 'Ngừng kinh doanh';
@@ -104,7 +113,8 @@ const getStatusLabel = (status?: string) => {
 };
 
 const getTypeLabel = (type?: string) => {
-  switch (type) {
+  const t = type?.toLowerCase();
+  switch (t) {
     case 'physical': return 'Hàng hóa';
     case 'service': return 'Dịch vụ';
     case 'digital': return 'Sản phẩm số';
@@ -117,10 +127,14 @@ export function ProductDetailPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const router = useRouter();
   
-  // ✅ React Query hooks
-  const { data: allProductsData } = useProducts({ limit: 1000 });
-  const allProducts = React.useMemo(() => allProductsData?.data ?? [], [allProductsData?.data]);
+  // ✅ React Query hooks - fetch product first
   const { data: productFromQuery, isLoading } = useProduct(systemId);
+  
+  // ✅ OPTIMIZED: Only fetch all products when current product is a combo
+  // This avoids loading 1000+ products for non-combo products
+  const isCombo = productFromQuery?.type === 'combo';
+  const { data: allProducts = [] } = useAllProducts({ enabled: isCombo });
+  
   const { remove: removeMutation } = useProductMutations({
     onDeleteSuccess: () => {
       toast.success('Đã chuyển sản phẩm vào thùng rác', {
@@ -140,7 +154,7 @@ export function ProductDetailPage() {
   
   const { findById: findSupplierById } = useSupplierFinder();
   const { data: pricingPolicies } = useAllPricingPolicies();
-  const { getHistoryForProduct } = useStockHistoryStore();
+  // Stock history now fetched from API instead of Zustand store
   const { data: branches } = useAllBranches();
   const { data: allPurchaseOrders } = useAllPurchaseOrders();
   const { data: allInventoryReceipts } = useAllInventoryReceipts();
@@ -155,12 +169,60 @@ export function ProductDetailPage() {
   const { findById: findBrandById } = useBrandFinder();
   const { employee: authEmployee } = useAuth();
   
+  // Hook to calculate sold quantity per branch from completed orders
+  const { soldByBranch } = useSoldByBranch(productFromQuery?.systemId);
+  
+  // PKGX log mutations - use React Query to persist to database
+  const { addLog } = usePkgxLogMutations();
+  const addPkgxLog = React.useCallback((log: Parameters<typeof addLog.mutate>[0]) => addLog.mutate(log), [addLog]);
+  
+  // PKGX sync hook - same as list page for consistency
+  const { 
+    handlePkgxPublish,
+    handlePkgxUpdatePrice,
+    handlePkgxSyncInventory,
+    handlePkgxUpdateSeo,
+    handlePkgxSyncDescription,
+    handlePkgxSyncFlags,
+    handlePkgxSyncBasicInfo,
+    handlePkgxSyncImages,
+    handlePkgxSyncAll,
+    handlePkgxUnlink,
+  } = usePkgxSync({ addPkgxLog });
+  
+  // Confirm dialog state for PKGX sync actions
+  const [confirmAction, setConfirmAction] = React.useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    action: (() => void) | null;
+  }>({ open: false, title: '', description: '', action: null });
+  
+  const handleConfirm = React.useCallback((title: string, description: string, action: () => void) => {
+    setConfirmAction({ open: true, title, description, action });
+  }, []);
+  
+  const executeAction = React.useCallback(() => {
+    if (confirmAction.action) {
+      confirmAction.action();
+    }
+    setConfirmAction({ open: false, title: '', description: '', action: null });
+  }, [confirmAction]);
+  
+  const cancelConfirm = React.useCallback(() => {
+    setConfirmAction({ open: false, title: '', description: '', action: null });
+  }, []);
+  
   const [historyBranchFilter, setHistoryBranchFilter] = React.useState<'all' | SystemId>('all');
   const [priceHistoryBranchFilter, setPriceHistoryBranchFilter] = React.useState<'all' | SystemId>('all');
   const [committedDialogOpen, setCommittedDialogOpen] = React.useState(false);
   const [selectedBranch, setSelectedBranch] = React.useState<{ systemId: SystemId; name: string } | null>(null);
   const [inTransitDialogOpen, setInTransitDialogOpen] = React.useState(false);
   const [inTransitBranch, setInTransitBranch] = React.useState<{ systemId: SystemId; name: string } | null>(null);
+  const [inDeliveryDialogOpen, setInDeliveryDialogOpen] = React.useState(false);
+  const [inDeliveryBranch, setInDeliveryBranch] = React.useState<{ systemId: SystemId; name: string } | null>(null);
+  const [soldDialogOpen, setSoldDialogOpen] = React.useState(false);
+  const [soldBranch, setSoldBranch] = React.useState<{ systemId: SystemId; name: string } | null>(null);
 
   // ✅ Ưu tiên React Query, fallback to store
   const product = React.useMemo(() => {
@@ -169,6 +231,7 @@ export function ProductDetailPage() {
     }
     return null;
   }, [systemId, productFromQuery, findProductById]);
+  
   const productSystemId = product?.systemId ?? null;
   const supplier = React.useMemo(() => (product?.primarySupplierSystemId ? findSupplierById(product.primarySupplierSystemId) : null), [product, findSupplierById]);
   const createdByEmployee = React.useMemo(() => (product?.createdBy ? findEmployeeById(product.createdBy) : null), [product, findEmployeeById]);
@@ -176,7 +239,7 @@ export function ProductDetailPage() {
   const productType = React.useMemo(() => (product?.productTypeSystemId ? findProductTypeById(product.productTypeSystemId) : null), [product, findProductTypeById]);
   const category = React.useMemo(() => (product?.categorySystemId ? findCategoryById(product.categorySystemId) : null), [product, findCategoryById]);
   const brand = React.useMemo(() => (product?.brandSystemId ? findBrandById(product.brandSystemId) : null), [product, findBrandById]);
-  const storageLocation = React.useMemo(() => (product?.storageLocationSystemId ? findStorageLocationBySystemId(product.storageLocationSystemId) : null), [product, findStorageLocationBySystemId]);
+  const _storageLocation = React.useMemo(() => (product?.storageLocationSystemId ? findStorageLocationBySystemId(product.storageLocationSystemId) : null), [product, findStorageLocationBySystemId]);
 
   // Comments from database
   const { 
@@ -216,13 +279,15 @@ export function ProductDetailPage() {
     name: authEmployee?.fullName || 'Hệ thống',
   }), [authEmployee]);
 
-  // Build activity history from product data
+  // Build activity history from product data + ActivityLog table
+  const { history: apiHistory } = useActivityHistory('product', product?.systemId || '', !!product);
+  
   const activityHistory = React.useMemo((): HistoryEntry[] => {
     if (!product) return [];
-    const entries: HistoryEntry[] = [];
+    const entries: HistoryEntry[] = [...apiHistory];
     
-    // Created entry
-    if (product.createdAt) {
+    // Created entry (if not already in API history)
+    if (product.createdAt && !entries.some(e => e.action === 'created')) {
       entries.push({
         id: `${product.systemId}-created`,
         action: 'created',
@@ -235,8 +300,8 @@ export function ProductDetailPage() {
       });
     }
     
-    // Updated entry
-    if (product.updatedAt && product.updatedAt !== product.createdAt) {
+    // Updated entry (if not already in API history)
+    if (product.updatedAt && product.updatedAt !== product.createdAt && !entries.some(e => e.action === 'updated')) {
       entries.push({
         id: `${product.systemId}-updated`,
         action: 'updated',
@@ -249,18 +314,24 @@ export function ProductDetailPage() {
       });
     }
     
-    return entries.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
-  }, [product, createdByEmployee, updatedByEmployee]);
+    return entries.sort((a, b) => {
+      const timeA = a.timestamp instanceof Date ? a.timestamp.getTime() : new Date(a.timestamp).getTime();
+      const timeB = b.timestamp instanceof Date ? b.timestamp.getTime() : new Date(b.timestamp).getTime();
+      return timeB - timeA;
+    });
+  }, [product, createdByEmployee, updatedByEmployee, apiHistory]);
 
-  // ✅ FIX: Use product.systemId (internal key) instead of product.id (SKU) for querying
-  // For combo products: show combo's own history (not child products)
+  // ✅ Fetch stock history from API (database)
+  const { data: stockHistoryData = [] } = useProductStockHistory(product?.systemId);
+  
+  // Transform and filter API data by branch
   const productHistory = React.useMemo(() => {
-    if (!product) return [];
-    
-    // Get history for THIS product (whether combo or regular)
-    // Combo has its own stock history entries (Khởi tạo sản phẩm, Xuất kho for combo sales, etc.)
-    return getHistoryForProduct(product.systemId, historyBranchFilter);
-  }, [product, getHistoryForProduct, historyBranchFilter]);
+    let filtered = stockHistoryData;
+    if (historyBranchFilter !== 'all') {
+      filtered = stockHistoryData.filter(e => e.branchSystemId === historyBranchFilter);
+    }
+    return filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [stockHistoryData, historyBranchFilter]);
   
   const purchasePriceHistory = React.useMemo<PriceHistoryEntry[]>(() => {
     if (!productSystemId) return [];
@@ -283,8 +354,11 @@ export function ProductDetailPage() {
           price: item.unitPrice,
           supplierName: receipt.supplierName,
           reference: receipt.id,
+          referenceSystemId: receipt.systemId, // For clickable link
+          purchaseOrderId: receipt.purchaseOrderId, // For linking to PO
           type: 'receipt',
-          note: `Nhập ${item.receivedQuantity} ${product?.unit || ''}`,
+          note: receipt.notes || `Nhập ${item.receivedQuantity} ${product?.unit || ''}`,
+          createdByName: receipt.createdByName || receipt.receiverName, // Người tạo phiếu
         };
         if (receipt.branchSystemId) {
           entry.branchSystemId = receipt.branchSystemId;
@@ -296,112 +370,108 @@ export function ProductDetailPage() {
       }
     });
 
-    // If we had a log of manual price changes, we would add them here.
-    // For now, we only have the current lastPurchasePrice on the product, 
-    // but no history of manual changes unless we implement an audit log for it.
-    // We will stick to receipt history for now as that's the primary source of truth for "updates via import".
+    // Helper to safely convert date to ISO string
+    const toISOString = (date: unknown): string | null => {
+      if (!date) return null;
+      if (typeof date === 'string') return date;
+      if (date instanceof Date) return date.toISOString();
+      // Handle object with toISOString method
+      if (typeof date === 'object' && 'toISOString' in date && typeof (date as Date).toISOString === 'function') {
+        return (date as Date).toISOString();
+      }
+      // Try to create Date from the value
+      const parsed = new Date(date as string | number);
+      return isNaN(parsed.getTime()) ? null : parsed.toISOString();
+    };
+
+    // Add initial price entry for PKGX imports (products with pkgxId)
+    // This shows the "Khởi tạo" entry similar to stock history
+    // Add one entry for each branch
+    if (product?.pkgxId && product?.createdAt) {
+      // Get branches from the branches filter or use default
+      const branchesForHistory = branches.length > 0 ? branches : [{ systemId: 'all', name: '-' }];
+      
+      // Convert createdAt to ISO string
+      const createdAtStr = toISOString(product.createdAt);
+      
+      branchesForHistory.forEach(branch => {
+        // Skip if filtering by specific branch and this is not it
+        if (priceHistoryBranchFilter !== 'all' && branch.systemId !== priceHistoryBranchFilter) {
+          return;
+        }
+        
+        if (!createdAtStr) return; // Skip if date is invalid
+        
+        history.push({
+          systemId: `pkgx-init-${productSystemId}-${branch.systemId}`,
+          id: `pkgx-init-${productSystemId}-${branch.systemId}`,
+          date: createdAtStr,
+          price: 0,
+          supplierName: 'Import từ PKGX',
+          reference: product.id || product.name || `PKGX-${product.pkgxId}`,
+          type: 'manual',
+          note: 'Khởi tạo sản phẩm từ PKGX - Giá nhập ban đầu: 0đ',
+          branchSystemId: branch.systemId,
+          branchName: branch.name,
+          createdByName: createdByEmployee?.fullName || 'Hệ thống',
+        });
+      });
+    }
+    
+    // Add initial price entry for products created from HRM (no pkgxId)
+    // Show the cost price set during product creation
+    if (!product?.pkgxId && product?.createdAt) {
+      const initialCostPrice = Number(product?.costPrice) || 0;
+      const branchesForHistory = branches.length > 0 ? branches : [{ systemId: 'all', name: '-' }];
+      
+      // Convert createdAt to ISO string using helper
+      const createdAtStr = toISOString(product.createdAt);
+      
+      branchesForHistory.forEach(branch => {
+        // Skip if filtering by specific branch and this is not it
+        if (priceHistoryBranchFilter !== 'all' && branch.systemId !== priceHistoryBranchFilter) {
+          return;
+        }
+        
+        if (!createdAtStr) return; // Skip if date is invalid
+        
+        history.push({
+          systemId: `init-${productSystemId}-${branch.systemId}`,
+          id: `init-${productSystemId}-${branch.systemId}`,
+          date: createdAtStr,
+          price: initialCostPrice,
+          supplierName: 'Tạo mới sản phẩm',
+          reference: product.id || product.name || '',
+          type: 'manual',
+          note: `Khởi tạo sản phẩm - Giá vốn ban đầu: ${initialCostPrice.toLocaleString('vi-VN')}đ`,
+          branchSystemId: branch.systemId,
+          branchName: branch.name,
+          createdByName: createdByEmployee?.fullName || 'Hệ thống',
+        });
+      });
+    }
 
     return history.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [allInventoryReceipts, productSystemId, product?.unit, priceHistoryBranchFilter]);
+  }, [allInventoryReceipts, productSystemId, product?.unit, priceHistoryBranchFilter, product?.pkgxId, product?.createdAt, branches, product?.id, product?.name, product?.costPrice, createdByEmployee]);
 
   const stockHistoryColumns = React.useMemo(() => 
     getStockHistoryColumns(allPurchaseOrders, allInventoryReceipts, allOrders, allWarranties, allInventoryChecks, allStockTransfers),
     [allPurchaseOrders, allInventoryReceipts, allOrders, allWarranties, allInventoryChecks, allStockTransfers]
   );
 
-  const imageStore = useImageStore();
-  const [isImageLoading, setIsImageLoading] = React.useState(false);
+  // ═══════════════════════════════════════════════════════════════
+  // IMAGE DISPLAY - Đơn giản: chỉ đọc từ product data (database)
+  // Không dùng imageStore cho display - chỉ dùng cho form staging
+  // ═══════════════════════════════════════════════════════════════
   const [isPreviewOpen, setIsPreviewOpen] = React.useState(false);
   const [previewImages, setPreviewImages] = React.useState<string[]>([]);
   const [previewIndex, setPreviewIndex] = React.useState(0);
   
-  // Subscribe to store changes properly
-  const permanentImagesState = useImageStore(state => state.permanentImages);
-  const _permanentMetaState = useImageStore(state => state.permanentMeta);
-  
-  const permanentFiles = React.useMemo(() => ({
-    thumbnail: productSystemId ? (permanentImagesState[productSystemId]?.thumbnail || []) : [],
-    gallery: productSystemId ? (permanentImagesState[productSystemId]?.gallery || []) : []
-  }), [productSystemId, permanentImagesState]);
-
-  // Use ref to prevent infinite loop - imageStore reference is stable
-  const imageStoreRef = React.useRef(imageStore);
-  imageStoreRef.current = imageStore;
-  
-  const loadPermanentFiles = React.useCallback(async (productId: string, options?: { silent?: boolean }): Promise<void> => {
-    const silent = options?.silent ?? false;
-    if (!silent) {
-      setIsImageLoading(true);
-    }
-    try {
-      const files = await FileUploadAPI.getProductFiles(productId);
-      const fetchedAt = Date.now();
-      ['thumbnail' as const, 'gallery' as const].forEach(type => {
-        const typeFiles = files.filter(f => f.documentName === type);
-        imageStoreRef.current.updatePermanentImages(
-          productId,
-          type,
-          typeFiles.map(f => ({
-            id: f.id,
-            sessionId: '',
-            name: f.name,
-            originalName: f.originalName,
-            slug: f.slug,
-            filename: f.filename,
-            size: f.size,
-            type: f.type,
-            url: f.url,
-            status: 'permanent' as const,
-            uploadedAt: f.uploadedAt,
-            metadata: f.metadata
-          })),
-          fetchedAt
-        );
-      });
-    } catch (error) {
-      console.error('Failed to load images:', error);
-    } finally {
-      // Always set loading to false when done
-      setIsImageLoading(false);
-    }
-  }, []); // Empty deps - uses imageStoreRef which is always current
-
-  // Track if we've already fetched for this product to prevent double-fetch
-  const fetchedProductRef = React.useRef<string | null>(null);
-  // Track if fetch completed (even if no images found)
-  const [hasFetched, setHasFetched] = React.useState(false);
-  
-  const hasCachedImages = (permanentFiles.thumbnail.length + permanentFiles.gallery.length) > 0;
-
-  React.useEffect(() => {
-    if (!productSystemId) {
-      return;
-    }
-
-    // Reset when product changes
-    if (fetchedProductRef.current !== productSystemId) {
-      setHasFetched(false);
-    }
-
-    // Already fetched for this product - don't fetch again
-    if (fetchedProductRef.current === productSystemId && hasFetched) {
-      setIsImageLoading(false);
-      return;
-    }
-
-    // Need to fetch - silent if we already have cached images
-    const silent = hasCachedImages;
-    fetchedProductRef.current = productSystemId;
-    loadPermanentFiles(productSystemId, { silent }).then(() => {
-      setHasFetched(true);
-    });
-  }, [productSystemId, hasCachedImages, hasFetched, loadPermanentFiles]); // Add proper deps
-
-  const managedThumbnail = permanentFiles.thumbnail[0]?.url ?? null;
-  const managedGallery = React.useMemo(() => permanentFiles.gallery.map(file => file.url), [permanentFiles.gallery]);
-
-  const thumbnailImage = managedThumbnail;
-  const galleryImages = managedGallery;
+  // Đọc trực tiếp từ product data - source of truth từ database
+  const thumbnailImage = product?.thumbnailImage || null;
+  const galleryImages = React.useMemo(() => {
+    return product?.galleryImages ?? product?.images ?? [];
+  }, [product?.galleryImages, product?.images]);
   const hasImages = Boolean(thumbnailImage) || galleryImages.length > 0;
 
   const previewSources = React.useMemo(() => {
@@ -461,7 +531,7 @@ export function ProductDetailPage() {
     const printData = mapProductToLabelPrintData(product, storeSettings, {
       category: categoryName,
       brand: brandName,
-      price: defaultPrice ?? product.sellingPrice,
+      price: defaultPrice ?? 0,
     });
     printLabel('product-label', { data: printData });
   }, [product, printLabel, storeSettings, defaultSellingPolicy, findBrandById, findCategoryById]);
@@ -473,6 +543,123 @@ export function ProductDetailPage() {
 
   const headerActions = React.useMemo(() => {
     if (!product) return [];
+    
+    const pkgxActions = product.pkgxId ? [
+      <DropdownMenu key="pkgx-actions">
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="sm" className="h-9">
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Cập nhật PKGX
+            <ChevronDown className="ml-2 h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-48">
+          <DropdownMenuItem onClick={() => handleConfirm(
+            'Đồng bộ tất cả',
+            `Bạn có chắc muốn đồng bộ TẤT CẢ thông tin của "${product.name}" lên PKGX?`,
+            () => handlePkgxSyncAll(product)
+          )}>
+            <Layers className="mr-2 h-4 w-4" />
+            Đồng bộ tất cả
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => handleConfirm(
+            'Sync thông tin cơ bản',
+            `Bạn có chắc muốn đồng bộ thông tin cơ bản (tên, SKU, danh mục, thương hiệu) của "${product.name}" lên PKGX?`,
+            () => handlePkgxSyncBasicInfo(product)
+          )}>
+            <Info className="mr-2 h-4 w-4" />
+            Thông tin cơ bản
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => handleConfirm(
+            'Sync giá',
+            `Bạn có chắc muốn đồng bộ giá bán của "${product.name}" lên PKGX?`,
+            () => handlePkgxUpdatePrice(product)
+          )}>
+            <DollarSign className="mr-2 h-4 w-4" />
+            Giá
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => handleConfirm(
+            'Sync tồn kho',
+            `Bạn có chắc muốn đồng bộ tồn kho của "${product.name}" lên PKGX?`,
+            () => handlePkgxSyncInventory(product)
+          )}>
+            <Package2 className="mr-2 h-4 w-4" />
+            Tồn kho
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => handleConfirm(
+            'Sync SEO',
+            `Bạn có chắc muốn đồng bộ SEO (Keywords, Meta Title, Meta Description) của "${product.name}" lên PKGX?`,
+            () => handlePkgxUpdateSeo(product)
+          )}>
+            <Globe className="mr-2 h-4 w-4" />
+            SEO
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => handleConfirm(
+            'Sync mô tả',
+            `Bạn có chắc muốn đồng bộ mô tả (Short, Long) của "${product.name}" lên PKGX?`,
+            () => handlePkgxSyncDescription(product)
+          )}>
+            <FileText className="mr-2 h-4 w-4" />
+            Mô tả
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => handleConfirm(
+            'Sync flags',
+            `Bạn có chắc muốn đồng bộ flags (Nổi bật, Mới, Bán chạy) của "${product.name}" lên PKGX?`,
+            () => handlePkgxSyncFlags(product)
+          )}>
+            <Flag className="mr-2 h-4 w-4" />
+            Flags
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => handleConfirm(
+            'Sync hình ảnh',
+            `Bạn có chắc muốn đồng bộ hình ảnh (thumbnail, gallery) của "${product.name}" lên PKGX?`,
+            () => handlePkgxSyncImages(product)
+          )}>
+            <Image className="mr-2 h-4 w-4" />
+            Hình ảnh
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => {
+            if (product.pkgxId) {
+              window.open(`https://phukiengiaxuong.com.vn/product/${product.pkgxId}`, '_blank');
+            }
+          }}>
+            <ExternalLink className="mr-2 h-4 w-4" />
+            Xem trên web
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            className="text-destructive focus:text-destructive"
+            onClick={() => handleConfirm(
+              'Hủy liên kết PKGX',
+              `Bạn có chắc muốn hủy liên kết sản phẩm "${product.name}" với PKGX? Lưu ý: Sản phẩm vẫn tồn tại trên PKGX, chỉ xóa liên kết trong HRM.`,
+              () => handlePkgxUnlink(product)
+            )}
+          >
+            <Unlink className="mr-2 h-4 w-4" />
+            Hủy liên kết
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>,
+    ] : [
+      // Actions for products WITHOUT pkgxId - Đăng lên PKGX
+      <Button
+        key="pkgx-publish"
+        variant="outline"
+        size="sm"
+        className="h-9"
+        onClick={() => handleConfirm(
+          'Đăng lên PKGX',
+          `Bạn có chắc muốn đăng sản phẩm "${product.name}" lên PKGX?`,
+          () => handlePkgxPublish(product)
+        )}
+      >
+        <Upload className="mr-2 h-4 w-4" />
+        Đăng lên PKGX
+      </Button>,
+    ];
+    
     return [
       <Button
         key="edit"
@@ -524,9 +711,10 @@ export function ProductDetailPage() {
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
-      </AlertDialog>
+      </AlertDialog>,
+      ...pkgxActions,
     ];
-  }, [product, router, handlePrintLabel, handleMoveToTrash]);
+  }, [product, router, handlePrintLabel, handleMoveToTrash, handleConfirm, handlePkgxSyncAll, handlePkgxSyncBasicInfo, handlePkgxUpdatePrice, handlePkgxSyncInventory, handlePkgxUpdateSeo, handlePkgxSyncDescription, handlePkgxSyncFlags, handlePkgxSyncImages, handlePkgxPublish, handlePkgxUnlink]);
 
   // Calculate combo stock for low stock warning in header
   const comboTotalStock = React.useMemo(() => {
@@ -655,7 +843,7 @@ export function ProductDetailPage() {
               <div className="shrink-0 lg:w-48">
                 {thumbnailImage ? (
                   <div
-                    className="relative aspect-square rounded-lg overflow-hidden border bg-muted cursor-pointer"
+                    className="relative aspect-square rounded-lg overflow-hidden border-border border bg-muted cursor-pointer"
                     onClick={() => handleOpenPreview(thumbnailImage)}
                   >
                     <LazyImage
@@ -687,10 +875,9 @@ export function ProductDetailPage() {
                   <Badge variant={getStatusBadgeVariant(product.status) as 'default' | 'secondary' | 'destructive' | 'outline' | 'warning' | 'success'}>
                     {getStatusLabel(product.status)}
                   </Badge>
-                  <Badge variant="outline">{getTypeLabel(product.type)}</Badge>
-                  {productType && <Badge variant="secondary">{productType.name}</Badge>}
-                  {category && <Badge variant="secondary">{category.name}</Badge>}
-                  {brand && <Badge variant="secondary">{brand.name}</Badge>}
+                  {/* Loại sản phẩm - ưu tiên productType từ Settings, fallback về product.type */}
+                  <Badge variant="outline">{productType?.name || getTypeLabel(product.type)}</Badge>
+                  {/* Đã xóa badge danh mục và thương hiệu vì đã hiện ở phần Thông tin cơ bản bên dưới */}
                 </div>
 
                 {/* E-commerce Status Badges */}
@@ -738,14 +925,14 @@ export function ProductDetailPage() {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-3 border-t">
                   <div>
                     <p className="text-body-xs text-muted-foreground">Giá vốn</p>
-                    <p className="font-semibold">{formatCurrency(product.costPrice)}</p>
+                    <p className="font-semibold">{formatCurrency(product.costPrice ?? 0)}</p>
                   </div>
                   <div>
                     <p className="text-body-xs text-muted-foreground">Giá bán (Mặc định)</p>
                     <p className="font-semibold text-primary">
                       {defaultSellingPolicy && product.prices?.[defaultSellingPolicy.systemId] 
                         ? formatCurrency(product.prices[defaultSellingPolicy.systemId]) 
-                        : formatCurrency(product.sellingPrice || 0)}
+                        : '-'}
                     </p>
                   </div>
                   <div>
@@ -770,24 +957,29 @@ export function ProductDetailPage() {
                 <TabsTrigger value="info">Thông tin</TabsTrigger>
                 <TabsTrigger value="images">Hình ảnh</TabsTrigger>
                 <TabsTrigger value="pricing">Giá & Kho</TabsTrigger>
-                <TabsTrigger value="ecommerce">E-commerce</TabsTrigger>
+                <TabsTrigger value="logistics">Vận chuyển</TabsTrigger>
+                <TabsTrigger value="label">Tem phụ</TabsTrigger>
                 <TabsTrigger value="seo-default">SEO Chung</TabsTrigger>
                 <TabsTrigger value="seo-pkgx">SEO PKGX</TabsTrigger>
                 <TabsTrigger value="seo-trendtech">SEO Trendtech</TabsTrigger>
-                <TabsTrigger value="logistics">Vận chuyển</TabsTrigger>
                 {isComboProduct(product) && <TabsTrigger value="combo">Combo</TabsTrigger>}
-                <TabsTrigger value="history">Lịch sử</TabsTrigger>
             </TabsList>
 
             {/* Tab: Thông tin cơ bản */}
             <TabsContent value="info" className="mt-4 space-y-4">
               <Card>
-                <CardHeader><CardTitle className="text-h3">Thông tin cơ bản</CardTitle></CardHeader>
+                <CardHeader><CardTitle size="lg">Thông tin cơ bản</CardTitle></CardHeader>
                 <CardContent className="grid gap-3 md:grid-cols-2">
-                  <DetailField label="Mã SKU" value={product.id} />
+                  <DetailField label="Mã SKU" value={
+                    product.pkgxId ? (
+                      <div className="flex items-center gap-2">
+                        <span>{product.id}</span>
+                        <Badge variant="outline" className="text-xs">PKGX</Badge>
+                      </div>
+                    ) : product.id
+                  } />
                   <DetailField label="Tên sản phẩm" value={product.name} />
-                  <DetailField label="Loại hình" value={getTypeLabel(product.type)} />
-                  {productType && <DetailField label="Loại sản phẩm" value={productType.name} />}
+                  <DetailField label="Loại sản phẩm" value={productType?.name || getTypeLabel(product.type)} />
                   {(category || product.category) && <DetailField label="Danh mục" value={category ? (category.path || category.name) : product.category} />}
                   {product.subCategory && <DetailField label="Danh mục con" value={product.subCategory} />}
                   <DetailField label="Thương hiệu" value={brand?.name || '-'} />
@@ -797,6 +989,7 @@ export function ProductDetailPage() {
                   {typeof product.warrantyPeriodMonths === 'number' && product.warrantyPeriodMonths > 0 && (
                     <DetailField label="Bảo hành" value={`${product.warrantyPeriodMonths} tháng`} />
                   )}
+                  {supplier && <DetailField label="Nhà cung cấp chính" value={<Link href={`/suppliers/${supplier.systemId}`} className="text-primary hover:underline">{supplier.name}</Link>} />}
                   <DetailField label="Tags" value={product.tags?.length ? (
                     <div className="flex flex-wrap gap-1">{product.tags.map(tag => <Badge key={tag} variant="outline" className="text-body-xs">{tag}</Badge>)}</div>
                   ) : '-'} />
@@ -807,22 +1000,35 @@ export function ProductDetailPage() {
                   )}
                 </CardContent>
               </Card>
-              {/* Tem phụ */}
-              {(product.nameVat || product.origin || product.usageGuide || product.importerName) && (
+              {/* Mô tả sản phẩm */}
+              {(product.shortDescription || product.description) && (
                 <Card>
-                  <CardHeader><CardTitle className="text-h3">Thông tin Tem phụ</CardTitle></CardHeader>
-                  <CardContent className="grid gap-3 md:grid-cols-2">
-                    {product.nameVat && <DetailField label="Tên VAT" value={product.nameVat} />}
-                    {product.origin && <DetailField label="Xuất xứ" value={product.origin} />}
-                    {product.usageGuide && <DetailField label="Hướng dẫn sử dụng" value={product.usageGuide} />}
-                    {product.importerName && <DetailField label="Đơn vị nhập khẩu" value={product.importerName} />}
-                    {product.importerAddress && <DetailField label="Địa chỉ nhập khẩu" value={product.importerAddress} />}
+                  <CardHeader><CardTitle size="lg">Mô tả sản phẩm</CardTitle></CardHeader>
+                  <CardContent className="space-y-3">
+                    {product.shortDescription && (
+                      <div>
+                        <p className="text-body-sm font-medium text-muted-foreground mb-1">Mô tả ngắn</p>
+                        <div 
+                          className="prose prose-sm max-w-none text-body-sm" 
+                          dangerouslySetInnerHTML={{ __html: sanitizeHtml(product.shortDescription) }} 
+                        />
+                      </div>
+                    )}
+                    {product.description && (
+                      <div>
+                        <p className="text-body-sm font-medium text-muted-foreground mb-1">Mô tả chi tiết</p>
+                        <div 
+                          className="prose prose-sm max-w-none" 
+                          dangerouslySetInnerHTML={{ __html: sanitizeHtml(product.description) }} 
+                        />
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               )}
               {/* Hệ thống */}
               <Card>
-                <CardHeader><CardTitle className="text-h3">Thông tin hệ thống</CardTitle></CardHeader>
+                <CardHeader><CardTitle size="lg">Thông tin hệ thống</CardTitle></CardHeader>
                 <CardContent className="grid gap-3 md:grid-cols-2">
                   {product.launchedDate && <DetailField label="Ngày ra mắt" value={formatDateForDisplay(product.launchedDate)} />}
                   {product.discontinuedDate && <DetailField label="Ngày ngừng KD" value={formatDateForDisplay(product.discontinuedDate)} />}
@@ -837,7 +1043,7 @@ export function ProductDetailPage() {
             {/* Tab: Hình ảnh */}
             <TabsContent value="images" className="mt-4">
               <Card>
-                <CardHeader><CardTitle className="text-h3">Hình ảnh sản phẩm</CardTitle></CardHeader>
+                <CardHeader><CardTitle size="lg">Hình ảnh sản phẩm</CardTitle></CardHeader>
                 <CardContent className="space-y-4">
                   {hasImages ? (
                     <div className="grid gap-4 lg:grid-cols-10">
@@ -862,7 +1068,7 @@ export function ProductDetailPage() {
                         ) : <div className="rounded-lg border border-dashed bg-muted/40 text-center text-body-xs text-muted-foreground py-10">Chưa có ảnh</div>}
                       </div>
                     </div>
-                  ) : <div className="text-center text-body-sm text-muted-foreground border border-dashed rounded-md py-8">{isImageLoading ? 'Đang tải...' : 'Chưa có hình ảnh'}</div>}
+                  ) : <div className="text-center text-body-sm text-muted-foreground border border-dashed rounded-md py-8">Chưa có hình ảnh</div>}
                   {product.videoLinks && product.videoLinks.length > 0 && (
                     <div className="space-y-3 pt-4 border-t">
                       <p className="text-body-sm font-medium text-muted-foreground flex items-center gap-2"><Video className="h-4 w-4" />Video ({product.videoLinks.length})</p>
@@ -877,7 +1083,7 @@ export function ProductDetailPage() {
             <TabsContent value="seo-default" className="mt-4 space-y-4">
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-h3 flex items-center gap-2">
+                  <CardTitle size="lg" className="flex items-center gap-2">
                     <Globe className="h-5 w-5" />
                     SEO Mặc định
                   </CardTitle>
@@ -887,18 +1093,18 @@ export function ProductDetailPage() {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <DetailField label="Tiêu đề SEO (ktitle)" value={product.ktitle || '-'} />
-                  <DetailField label="Meta Description" value={product.seoDescription || '-'} />
+                  <DetailField label="Meta Description" value={product.seoDescription ? sanitizeToText(product.seoDescription) : '-'} />
                   <DetailField label="Keywords" value={product.seoKeywords || '-'} />
                   <div>
                     <p className="text-body-sm font-medium text-muted-foreground mb-2">Mô tả ngắn</p>
                     {product.shortDescription ? (
-                      <div className="prose prose-sm max-w-none text-body-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: sanitizeHtml(product.shortDescription) }} />
+                      <div className="prose prose-sm max-w-none text-body-sm border border-border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: sanitizeHtml(product.shortDescription) }} />
                     ) : <p className="text-body-sm text-muted-foreground">-</p>}
                   </div>
                   <div>
                     <p className="text-body-sm font-medium text-muted-foreground mb-2">Mô tả chi tiết</p>
                     {product.description ? (
-                      <div className="prose prose-sm max-w-none text-body-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: sanitizeHtml(product.description) }} />
+                      <div className="prose prose-sm max-w-none text-body-sm border border-border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: sanitizeHtml(product.description) }} />
                     ) : <p className="text-body-sm text-muted-foreground">-</p>}
                   </div>
                 </CardContent>
@@ -909,26 +1115,25 @@ export function ProductDetailPage() {
             <TabsContent value="seo-pkgx" className="mt-4 space-y-4">
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-h3 flex items-center gap-2">
+                  <CardTitle size="lg" className="flex items-center gap-2">
                     <Globe className="h-5 w-5 text-blue-600" />
                     SEO - PKGX
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <DetailField label="Slug PKGX" value={product.pkgxSlug || '-'} />
                   <DetailField label="Tiêu đề SEO" value={product.seoPkgx?.seoTitle || '-'} />
-                  <DetailField label="Meta Description" value={product.seoPkgx?.metaDescription || '-'} />
+                  <DetailField label="Meta Description" value={product.seoPkgx?.metaDescription ? sanitizeToText(product.seoPkgx.metaDescription) : '-'} />
                   <DetailField label="Keywords" value={product.seoPkgx?.seoKeywords || '-'} />
                   <div>
                     <p className="text-body-sm font-medium text-muted-foreground mb-2">Mô tả ngắn</p>
                     {product.seoPkgx?.shortDescription ? (
-                      <div className="prose prose-sm max-w-none text-body-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: sanitizeHtml(product.seoPkgx.shortDescription) }} />
+                      <div className="prose prose-sm max-w-none text-body-sm border border-border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: sanitizeHtml(product.seoPkgx.shortDescription) }} />
                     ) : <p className="text-body-sm text-muted-foreground">-</p>}
                   </div>
                   <div>
                     <p className="text-body-sm font-medium text-muted-foreground mb-2">Mô tả dài</p>
                     {product.seoPkgx?.longDescription ? (
-                      <div className="prose prose-sm max-w-none text-body-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: sanitizeHtml(product.seoPkgx.longDescription) }} />
+                      <div className="prose prose-sm max-w-none text-body-sm border border-borderrounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: sanitizeHtml(product.seoPkgx.longDescription) }} />
                     ) : <p className="text-body-sm text-muted-foreground">-</p>}
                   </div>
                 </CardContent>
@@ -939,26 +1144,26 @@ export function ProductDetailPage() {
             <TabsContent value="seo-trendtech" className="mt-4 space-y-4">
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-h3 flex items-center gap-2">
+                  <CardTitle size="lg" className="flex items-center gap-2">
                     <Globe className="h-5 w-5 text-green-600" />
                     SEO - Trendtech
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <DetailField label="Slug Trendtech" value={product.trendtechSlug || '-'} />
+                  <DetailField label="Slug Trendtech" value={product.seoTrendtech?.slug || '-'} />
                   <DetailField label="Tiêu đề SEO" value={product.seoTrendtech?.seoTitle || '-'} />
                   <DetailField label="Meta Description" value={product.seoTrendtech?.metaDescription || '-'} />
                   <DetailField label="Keywords" value={product.seoTrendtech?.seoKeywords || '-'} />
                   <div>
                     <p className="text-body-sm font-medium text-muted-foreground mb-2">Mô tả ngắn</p>
                     {product.seoTrendtech?.shortDescription ? (
-                      <div className="prose prose-sm max-w-none text-body-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: sanitizeHtml(product.seoTrendtech.shortDescription) }} />
+                      <div className="prose prose-sm max-w-none text-body-sm border border-border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: sanitizeHtml(product.seoTrendtech.shortDescription) }} />
                     ) : <p className="text-body-sm text-muted-foreground">-</p>}
                   </div>
                   <div>
                     <p className="text-body-sm font-medium text-muted-foreground mb-2">Mô tả dài</p>
                     {product.seoTrendtech?.longDescription ? (
-                      <div className="prose prose-sm max-w-none text-body-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: sanitizeHtml(product.seoTrendtech.longDescription) }} />
+                      <div className="prose prose-sm max-w-none text-body-sm border border-border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: sanitizeHtml(product.seoTrendtech.longDescription) }} />
                     ) : <p className="text-body-sm text-muted-foreground">-</p>}
                   </div>
                 </CardContent>
@@ -970,7 +1175,7 @@ export function ProductDetailPage() {
               {/* Cảnh báo tồn kho */}
               {getProductStockAlerts(product).length > 0 && (
                 <Card className="border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/20">
-                  <CardHeader className="pb-2"><CardTitle className="text-h3 flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-amber-600" />Cảnh báo tồn kho</CardTitle></CardHeader>
+                  <CardHeader className="pb-2"><CardTitle size="lg" className="flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-amber-600" />Cảnh báo tồn kho</CardTitle></CardHeader>
                   <CardContent>
                     <StockAlertBadges product={product} showDescription />
                     {getSuggestedOrderQuantity(product) > 0 && <p className="text-body-sm mt-2">Đề xuất đặt thêm: <span className="font-semibold text-amber-700">{getSuggestedOrderQuantity(product)} {product.unit}</span></p>}
@@ -979,104 +1184,47 @@ export function ProductDetailPage() {
               )}
               <div className="grid gap-4 lg:grid-cols-2">
                 <Card>
-                  <CardHeader><CardTitle className="text-h3">Giá</CardTitle></CardHeader>
+                  <CardHeader><CardTitle size="lg">Giá</CardTitle></CardHeader>
                   <CardContent className="space-y-3">
-                    <DetailField label="Giá vốn" value={formatCurrency(product.costPrice)} />
-                    {product.type !== 'combo' && <DetailField label="Giá nhập gần nhất" value={product.lastPurchasePrice ? formatCurrency(product.lastPurchasePrice) : '-'} />}
+                    <DetailField label="Giá vốn" value={formatCurrency(product.costPrice ?? 0)} />
+                    {product.type !== 'combo' && <DetailField label="Giá nhập gần nhất" value={formatCurrency(product.lastPurchasePrice ?? 0)} />}
                     {product.type !== 'combo' && supplier && <DetailField label="NCC chính" value={<Link href={`/suppliers/${supplier.systemId}`} className="text-primary hover:underline">{supplier.name}</Link>} />}
                     {product.type !== 'combo' && <DetailField label="Ngày nhập gần nhất" value={product.lastPurchaseDate ? formatDateForDisplay(product.lastPurchaseDate) : '-'} />}
-                    <DetailField label="Giá tối thiểu" value={product.minPrice ? formatCurrency(product.minPrice) : '-'} />
-                    {product.taxRate !== undefined && <DetailField label="Thuế suất" value={`${product.taxRate}%`} />}
                   </CardContent>
                 </Card>
                 <Card>
-                  <CardHeader><CardTitle className="text-h3">Bảng giá bán</CardTitle></CardHeader>
+                  <CardHeader><CardTitle size="lg">Bảng giá bán</CardTitle></CardHeader>
                   <CardContent className="space-y-3">
                     {salesPolicies.map(p => <DetailField key={p.systemId} label={`${p.name}${p.isDefault ? ' (Mặc định)' : ''}`} value={formatCurrency(product.prices[p.systemId])} />)}
                   </CardContent>
                 </Card>
               </div>
-              <Card>
-                <CardHeader><CardTitle className="text-h3">Quản lý tồn kho</CardTitle></CardHeader>
-                <CardContent className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-                  <DetailField label="Theo dõi tồn kho" value={product.isStockTracked ? 'Có' : 'Không'} />
-                  <DetailField label="Tổng tồn kho" value={<span className="font-semibold">{product.type === 'combo' ? comboTotalStock : totalInventory}</span>} />
-                  {product.type !== 'combo' && <DetailField label="Đang giao dịch" value={Object.values(product.committedByBranch || {}).reduce((s, q) => s + q, 0)} />}
-                  {product.type !== 'combo' && <DetailField label="Đang về" value={Object.values(product.inTransitByBranch || {}).reduce((s, q) => s + q, 0)} />}
-                  <DetailField label="Mức đặt hàng lại" value={product.reorderLevel ?? 0} />
-                  <DetailField label="Tồn kho an toàn" value={product.safetyStock ?? 0} />
-                  <DetailField label="Mức tồn tối đa" value={product.maxStock ?? 0} />
-                  {storageLocation && <DetailField label="Điểm lưu kho" value={storageLocation.name} />}
-                </CardContent>
-              </Card>
-
-              {/* Tồn kho theo chi nhánh */}
-              {product.type === 'combo' ? (
-                <ComboInventoryCard product={product} branches={branches} allProducts={allProducts}
-                  onCommittedClick={(b) => { setSelectedBranch({ systemId: b.systemId, name: b.name }); setCommittedDialogOpen(true); }}
-                  onInTransitClick={(b) => { setInTransitBranch({ systemId: b.systemId, name: b.name }); setInTransitDialogOpen(true); }}
-                />
-              ) : (
-                <Card>
-                  <CardHeader><CardTitle className="text-h3">Tồn kho theo chi nhánh</CardTitle></CardHeader>
-                  <CardContent className="p-0 overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Chi nhánh</TableHead>
-                          <TableHead>Tồn kho</TableHead>
-                          <TableHead>Giá trị</TableHead>
-                          <TableHead>Có thể bán</TableHead>
-                          <TableHead>Đang GD</TableHead>
-                          <TableHead>Đang về</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {branches.map(branch => {
-                          const onHand = product.inventoryByBranch[branch.systemId] || 0;
-                          const committed = product.committedByBranch[branch.systemId] || 0;
-                          const inTransit = product.inTransitByBranch[branch.systemId] || 0;
-                          return (
-                            <TableRow key={branch.systemId}>
-                              <TableCell className="font-medium">{branch.name}</TableCell>
-                              <TableCell className="font-semibold">{onHand}</TableCell>
-                              <TableCell>{formatCurrency(onHand * (product.costPrice || 0))}</TableCell>
-                              <TableCell>{Math.max(0, onHand - committed)}</TableCell>
-                              <TableCell className={committed > 0 ? 'text-primary cursor-pointer hover:underline' : ''} onClick={() => committed > 0 && (setSelectedBranch({ systemId: branch.systemId, name: branch.name }), setCommittedDialogOpen(true))}>{committed}</TableCell>
-                              <TableCell className={inTransit > 0 ? 'text-primary cursor-pointer hover:underline' : ''} onClick={() => inTransit > 0 && (setInTransitBranch({ systemId: branch.systemId, name: branch.name }), setInTransitDialogOpen(true))}>{inTransit}</TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                  </CardContent>
-                </Card>
-              )}
-            </TabsContent>
-
-            {/* Tab: E-commerce */}
-            <TabsContent value="ecommerce" className="mt-4">
-              <EcommerceTab product={product} />
             </TabsContent>
 
             {/* Tab: Vận chuyển & Logistics */}
             <TabsContent value="logistics" className="mt-4">
               <Card>
-                <CardHeader><CardTitle className="text-h3">Thông tin vận chuyển</CardTitle></CardHeader>
+                <CardHeader><CardTitle size="lg">Thông tin vận chuyển</CardTitle></CardHeader>
                 <CardContent className="grid gap-3 md:grid-cols-2">
                   {product.weight !== undefined && <DetailField label="Khối lượng" value={`${product.weight} ${product.weightUnit || 'g'}`} />}
                   {product.dimensions && <DetailField label="Kích thước (D×R×C)" value={`${product.dimensions.length || 0}×${product.dimensions.width || 0}×${product.dimensions.height || 0} cm`} />}
                   {product.barcode && <DetailField label="Mã vạch" value={product.barcode} />}
                 </CardContent>
               </Card>
-              {/* Analytics */}
-              <Card className="mt-4">
-                <CardHeader><CardTitle className="text-h3">Phân tích bán hàng</CardTitle></CardHeader>
-                <CardContent className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-                  <DetailField label="Tổng đã bán" value={product.totalSold ?? 0} />
-                  {product.totalRevenue && <DetailField label="Tổng doanh thu" value={formatCurrency(product.totalRevenue)} />}
-                  {product.viewCount && <DetailField label="Lượt xem" value={product.viewCount} />}
-                  {product.lastSoldDate && <DetailField label="Bán gần nhất" value={formatDateForDisplay(product.lastSoldDate)} />}
+            </TabsContent>
+
+            {/* Tab: Tem phụ */}
+            <TabsContent value="label" className="mt-4">
+              <Card>
+                <CardHeader><CardTitle size="lg">Thông tin Tem phụ</CardTitle></CardHeader>
+                <CardContent className="grid gap-3 md:grid-cols-2">
+                  <DetailField label="Tên hàng hóa (VAT)" value={product.nameVat || '-'} />
+                  <DetailField label="Xuất xứ" value={product.origin || '-'} />
+                  <DetailField label="Tên nhà nhập khẩu" value={product.importerName || '-'} />
+                  <DetailField label="Địa chỉ nhà nhập khẩu" value={product.importerAddress || '-'} />
+                  <div className="md:col-span-2">
+                    <DetailField label="Hướng dẫn sử dụng" value={product.usageGuide || '-'} />
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>
@@ -1088,15 +1236,107 @@ export function ProductDetailPage() {
                 <ComboLowStockWarning product={product} allProducts={allProducts} />
               </TabsContent>
             )}
+        </Tabs>
 
-            {/* Tab: Lịch sử */}
-            <TabsContent value="history" className="mt-4 space-y-4">
-              {/* Lịch sử kho */}
-              <Card>
-                <CardHeader><CardTitle className="text-h3">Lịch sử xuất nhập kho</CardTitle></CardHeader>
-                <CardContent className="p-4">
-                  <RelatedDataTable data={productHistory} columns={stockHistoryColumns} searchKeys={['action', 'documentId', 'employeeName']} searchPlaceholder="Tìm kiếm..." dateFilterColumn="date" dateFilterTitle="Ngày" exportFileName={`Lich_su_kho_${product.id}`}>
-                    <Select value={historyBranchFilter} onValueChange={(v) => setHistoryBranchFilter(v === 'all' ? 'all' : asSystemId(v))}>
+        {/* Panel Tồn kho & Lịch sử - 3 sub-tabs */}
+        <Card>
+          <CardContent className="p-4">
+            <Tabs defaultValue="inventory" className="w-full">
+              <TabsList>
+                <TabsTrigger value="inventory">Tồn kho</TabsTrigger>
+                <TabsTrigger value="stock-history">Lịch sử kho</TabsTrigger>
+                {product.type !== 'combo' && <TabsTrigger value="price-history">Lịch sử giá nhập</TabsTrigger>}
+              </TabsList>
+              
+              {/* Sub-tab: Tồn kho theo chi nhánh */}
+              <TabsContent value="inventory" className="mt-4">
+                {product.type === 'combo' ? (
+                  <ComboInventoryCard product={product} branches={branches} allProducts={allProducts}
+                    onCommittedClick={(b) => { setSelectedBranch({ systemId: b.systemId, name: b.name }); setCommittedDialogOpen(true); }}
+                    onInTransitClick={(b) => { setInTransitBranch({ systemId: b.systemId, name: b.name }); setInTransitDialogOpen(true); }}
+                  />
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Chi nhánh</TableHead>
+                        <TableHead>Tồn kho</TableHead>
+                        <TableHead>Giá vốn (đ/SP)</TableHead>
+                        <TableHead>Giá trị tồn</TableHead>
+                        <TableHead>Có thể bán</TableHead>
+                        <TableHead>Chờ xuất kho</TableHead>
+                        <TableHead>Đang về</TableHead>
+                        <TableHead>Đang giao</TableHead>
+                        <TableHead>Tổng đã bán</TableHead>
+                        <TableHead>Tồn tối thiểu</TableHead>
+                        <TableHead>Tồn tối đa</TableHead>
+                        <TableHead>Điểm lưu kho</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {branches.map(branch => {
+                        const onHand = product.inventoryByBranch?.[branch.systemId] || 0;
+                        const committed = product.committedByBranch?.[branch.systemId] || 0;
+                        const inTransit = product.inTransitByBranch?.[branch.systemId] || 0;
+                        const inDelivery = product.inDeliveryByBranch?.[branch.systemId] || 0;
+                        const reorderLevel = product.reorderLevel ?? 0;
+                        const maxStock = product.maxStock ?? 0;
+                        const availableToSell = onHand - committed; // Có thể bán = Tồn kho - Chờ xuất kho
+                        
+                        // ✅ Determine stock status for color coding
+                        const getStockStatusClass = () => {
+                          if (onHand < 0) return 'text-yellow-600 font-bold'; // Âm kho - lỗi
+                          if (onHand === 0) return 'text-red-600 font-bold'; // Hết hàng
+                          if (reorderLevel > 0 && onHand <= reorderLevel) return 'text-orange-500 font-semibold'; // Sắp hết
+                          if (maxStock > 0 && onHand > maxStock) return 'text-blue-600 font-semibold'; // Tồn cao
+                          return 'font-semibold'; // Bình thường
+                        };
+                        
+                        const branchSold = soldByBranch[branch.systemId] || 0;
+                        const inventoryValue = Math.abs(onHand) * (product.costPrice || 0);
+                        
+                        return (
+                          <TableRow key={branch.systemId}>
+                            <TableCell className="font-medium">{branch.name}</TableCell>
+                            <TableCell className={getStockStatusClass()}>
+                              {onHand}
+                            </TableCell>
+                            <TableCell>{formatCurrency(product.costPrice || 0)}</TableCell>
+                            <TableCell>{formatCurrency(inventoryValue)}</TableCell>
+                            <TableCell className={availableToSell < 0 ? 'text-red-600 font-semibold' : ''}>{availableToSell}</TableCell>
+                            <TableCell className={committed > 0 ? 'text-primary cursor-pointer hover:underline' : ''} onClick={() => committed > 0 && (setSelectedBranch({ systemId: branch.systemId, name: branch.name }), setCommittedDialogOpen(true))}>{committed}</TableCell>
+                            <TableCell className={inTransit > 0 ? 'text-primary cursor-pointer hover:underline' : ''} onClick={() => inTransit > 0 && (setInTransitBranch({ systemId: branch.systemId, name: branch.name }), setInTransitDialogOpen(true))}>{inTransit}</TableCell>
+                            <TableCell className={inDelivery > 0 ? 'text-primary cursor-pointer hover:underline' : ''} onClick={() => inDelivery > 0 && (setInDeliveryBranch({ systemId: branch.systemId, name: branch.name }), setInDeliveryDialogOpen(true))}>{inDelivery}</TableCell>
+                            <TableCell className={branchSold > 0 ? 'text-primary cursor-pointer hover:underline' : ''} onClick={() => branchSold > 0 && (setSoldBranch({ systemId: branch.systemId, name: branch.name }), setSoldDialogOpen(true))}>{branchSold}</TableCell>
+                            <TableCell>{reorderLevel}</TableCell>
+                            <TableCell>{maxStock}</TableCell>
+                            <TableCell>{product.warehouseLocation || product.storageLocationSystemId || '-'}</TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                )}
+              </TabsContent>
+              
+              {/* Sub-tab: Lịch sử xuất nhập kho */}
+              <TabsContent value="stock-history" className="mt-4">
+                <RelatedDataTable data={productHistory} columns={stockHistoryColumns} searchKeys={['action', 'documentId', 'employeeName']} searchPlaceholder="Tìm kiếm..." dateFilterColumn="date" dateFilterTitle="Ngày" exportFileName={`Lich_su_kho_${product.id}`}>
+                  <Select value={historyBranchFilter} onValueChange={(v) => setHistoryBranchFilter(v === 'all' ? 'all' : asSystemId(v))}>
+                    <SelectTrigger className="h-8 w-full sm:w-50"><SelectValue placeholder="Lọc chi nhánh" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tất cả chi nhánh</SelectItem>
+                      {branches.map(b => <SelectItem key={b.systemId} value={b.systemId}>{b.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </RelatedDataTable>
+              </TabsContent>
+              
+              {/* Sub-tab: Lịch sử giá nhập */}
+              {product.type !== 'combo' && (
+                <TabsContent value="price-history" className="mt-4">
+                  <RelatedDataTable data={purchasePriceHistory} columns={purchasePriceHistoryColumns} searchKeys={['supplierName', 'reference', 'note']} searchPlaceholder="Tìm kiếm..." dateFilterColumn="date" dateFilterTitle="Ngày" exportFileName={`Lich_su_gia_${product.id}`}>
+                    <Select value={priceHistoryBranchFilter} onValueChange={(v) => setPriceHistoryBranchFilter(v === 'all' ? 'all' : asSystemId(v))}>
                       <SelectTrigger className="h-8 w-full sm:w-50"><SelectValue placeholder="Lọc chi nhánh" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">Tất cả chi nhánh</SelectItem>
@@ -1104,27 +1344,11 @@ export function ProductDetailPage() {
                       </SelectContent>
                     </Select>
                   </RelatedDataTable>
-                </CardContent>
-              </Card>
-              {/* Lịch sử giá nhập */}
-              {product.type !== 'combo' && (
-                <Card>
-                  <CardHeader><CardTitle className="text-h3">Lịch sử giá nhập</CardTitle></CardHeader>
-                  <CardContent className="p-4">
-                    <RelatedDataTable data={purchasePriceHistory} columns={purchasePriceHistoryColumns} searchKeys={['supplierName', 'reference', 'note']} searchPlaceholder="Tìm kiếm..." dateFilterColumn="date" dateFilterTitle="Ngày" exportFileName={`Lich_su_gia_${product.id}`}>
-                      <Select value={priceHistoryBranchFilter} onValueChange={(v) => setPriceHistoryBranchFilter(v === 'all' ? 'all' : asSystemId(v))}>
-                        <SelectTrigger className="h-8 w-full sm:w-50"><SelectValue placeholder="Lọc chi nhánh" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Tất cả chi nhánh</SelectItem>
-                          {branches.map(b => <SelectItem key={b.systemId} value={b.systemId}>{b.name}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </RelatedDataTable>
-                  </CardContent>
-                </Card>
+                </TabsContent>
               )}
-            </TabsContent>
-        </Tabs>
+            </Tabs>
+          </CardContent>
+        </Card>
 
         {/* Comments */}
         <Comments
@@ -1150,9 +1374,10 @@ export function ProductDetailPage() {
 
         {/* Committed Stock Dialog */}
         {selectedBranch && (
-          <CommittedStockDialog
+          <StockOrdersDialogWrapper
             open={committedDialogOpen}
             onOpenChange={setCommittedDialogOpen}
+            type="committed"
             productSystemId={product.systemId}
             branchSystemId={selectedBranch.systemId}
             branchName={selectedBranch.name}
@@ -1160,12 +1385,35 @@ export function ProductDetailPage() {
           />
         )}
         {inTransitBranch && (
-          <InTransitStockDialog
+          <StockOrdersDialogWrapper
             open={inTransitDialogOpen}
             onOpenChange={setInTransitDialogOpen}
+            type="in-transit"
             productSystemId={product.systemId}
             branchSystemId={inTransitBranch.systemId}
             branchName={inTransitBranch.name}
+            productName={product.name}
+          />
+        )}
+        {inDeliveryBranch && (
+          <StockOrdersDialogWrapper
+            open={inDeliveryDialogOpen}
+            onOpenChange={setInDeliveryDialogOpen}
+            type="in-delivery"
+            productSystemId={product.systemId}
+            branchSystemId={inDeliveryBranch.systemId}
+            branchName={inDeliveryBranch.name}
+            productName={product.name}
+          />
+        )}
+        {soldBranch && (
+          <StockOrdersDialogWrapper
+            open={soldDialogOpen}
+            onOpenChange={setSoldDialogOpen}
+            type="sold"
+            productSystemId={product.systemId}
+            branchSystemId={soldBranch.systemId}
+            branchName={soldBranch.name}
             productName={product.name}
           />
         )}
@@ -1176,6 +1424,20 @@ export function ProductDetailPage() {
           onOpenChange={setIsPreviewOpen}
           title={`Hình ảnh sản phẩm - ${product.name}`}
         />
+        
+        {/* PKGX Sync Confirm Dialog */}
+        <AlertDialog open={confirmAction.open} onOpenChange={(open) => !open && cancelConfirm()}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{confirmAction.title}</AlertDialogTitle>
+              <AlertDialogDescription>{confirmAction.description}</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={cancelConfirm}>Hủy</AlertDialogCancel>
+              <AlertDialogAction onClick={executeAction}>Xác nhận</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
     </div>
   );
 }

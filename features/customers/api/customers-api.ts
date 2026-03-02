@@ -21,8 +21,12 @@ export interface CustomersParams {
   targetGroup?: string;
   lifecycleStage?: string;
   hasDebt?: boolean;
+  debtFilter?: string;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
+  dateFrom?: string;
+  dateTo?: string;
+  enabled?: boolean; // React Query enabled option
 }
 
 export interface PaginatedResponse<T> {

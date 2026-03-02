@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from "react";
 import { useRouter, useParams } from 'next/navigation';
@@ -6,11 +6,12 @@ import Link from 'next/link';
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { asSystemId, asBusinessId, type BusinessId } from '@/lib/id-types';
+import { generateSubEntityId, generateTempId } from '@/lib/id-utils';
 import { formatDateForDisplay } from '@/lib/date-utils';
 
 // Types & Store
 import type { Complaint, ComplaintType } from "../types";
-import { useComplaintMutations } from "../hooks/use-complaints";
+import { useComplaintMutations, useComplaint } from "../hooks/use-complaints";
 import { useComplaintFinder } from "../hooks/use-all-complaints";
 import type { StagingFile } from "@/lib/file-upload-api";
 import { complaintNotifications } from "../notification-utils";
@@ -20,22 +21,23 @@ import { useProductImage } from '@/features/products/components/product-image';
 import { useProductFinder } from '@/features/products/hooks/use-all-products';
 import { useProductTypeFinder } from '@/features/settings/inventory/hooks/use-all-product-types';
 import { OptimizedImage } from '@/components/ui/optimized-image';
-import { Package, Eye, StickyNote } from 'lucide-react';
+import { Package, Eye } from 'lucide-react';
 
 // Settings
-import { loadComplaintTypes } from "@/features/settings/complaints/complaints-settings-page";
+import { useComplaintsSettings } from "@/features/settings/complaints/hooks/use-complaints-settings";
 
 // UI Components
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { VirtualizedCombobox, type ComboboxOption } from "@/components/ui/virtualized-combobox";
 import { NewDocumentsUpload } from "@/components/ui/new-documents-upload";
 import { ExistingDocumentsViewer } from "@/components/ui/existing-documents-viewer";
 import { ImagePreviewDialog } from "@/components/ui/image-preview-dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { LazyImage } from "@/components/ui/lazy-image";
 import {
   Select,
   SelectContent,
@@ -75,10 +77,9 @@ interface ComplaintFormValues {
   customerPhone: string;
   type: ComplaintType;
   description?: string; // Optional - no longer required in UI
-  priority: "low" | "medium" | "high" | "urgent";
+  priority: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"; // ✅ Match Prisma ComplaintPriority enum
   orderValue: number;
   images: string[];
-  videoLinks?: string; // Video links from customer (YouTube, Google Drive, etc.)
 }
 
 // Product type fallback labels
@@ -89,7 +90,8 @@ const productTypeFallbackLabels: Record<string, string> = {
   combo: 'Combo'
 };
 
-// ProductThumbnailCell component for displaying product images
+// ProductThumbnailCell component for displaying product images - ✅ Match warranty UI
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const ProductThumbnailCell = ({ 
     productSystemId, 
     product,
@@ -105,18 +107,25 @@ const ProductThumbnailCell = ({
 }) => {
     const imageUrl = useProductImage(productSystemId, product);
     
-    const sizeClasses = size === 'sm' 
-        ? 'w-10 h-9' 
-        : 'w-12 h-10';
-    const iconSize = size === 'sm' ? 'h-4 w-4' : 'h-4 w-4';
+    // ✅ Match warranty sizes: md = 12x12 (48px), sm = 10x9 (40x36)
+    const sizeClasses = size === 'md' 
+        ? 'w-12 h-12' 
+        : 'w-10 h-9';
+    const iconSize = size === 'md' ? 'h-5 w-5' : 'h-4 w-4';
     
     if (imageUrl) {
         return (
             <div
-                className={`group/thumbnail relative ${sizeClasses} rounded border overflow-hidden bg-muted ${onPreview ? 'cursor-pointer' : ''}`}
+                className={`group/thumbnail relative ${sizeClasses} shrink-0 rounded-md overflow-hidden border border-muted ${onPreview ? 'cursor-pointer' : ''}`}
                 onClick={() => onPreview?.(imageUrl, productName)}
             >
-                <OptimizedImage src={imageUrl} alt={productName} className="w-full h-full object-cover transition-all group-hover/thumbnail:brightness-75" width={48} height={40} />
+                <OptimizedImage 
+                    src={imageUrl} 
+                    alt={productName} 
+                    className="w-full h-full object-cover transition-all group-hover/thumbnail:brightness-75" 
+                    width={size === 'md' ? 48 : 40} 
+                    height={size === 'md' ? 48 : 36} 
+                />
                 {onPreview && (
                     <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/thumbnail:opacity-100 transition-opacity">
                         <Eye className="w-4 h-4 text-white drop-shadow-md" />
@@ -127,7 +136,7 @@ const ProductThumbnailCell = ({
     }
     
     return (
-        <div className={`${sizeClasses} bg-muted rounded flex items-center justify-center`}>
+        <div className={`${sizeClasses} shrink-0 bg-muted rounded-md flex items-center justify-center`}>
             <Package className={`${iconSize} text-muted-foreground`} />
         </div>
     );
@@ -141,6 +150,7 @@ export function ComplaintFormPage() {
   const router = useRouter();
   const { setPageHeader } = usePageHeader();
   
+  const isEditing = !!systemId;
   const { create: createMutation, update: updateMutation } = useComplaintMutations({
     onCreateSuccess: (complaint) => {
       toast.success('Đã tạo khiếu nại mới');
@@ -153,6 +163,7 @@ export function ComplaintFormPage() {
     onError: (err) => toast.error(err.message)
   });
   const { getComplaintById } = useComplaintFinder();
+  const { data: complaintFromQuery } = useComplaint(isEditing ? systemId : undefined);
   const { data: orders } = useAllOrders();
   const { data: salesReturns } = useAllSalesReturns();
   const { data: _branches } = useAllBranches();
@@ -175,8 +186,8 @@ export function ComplaintFormPage() {
     return (product.type && productTypeFallbackLabels[product.type]) || 'Hàng hóa';
   }, [findProductTypeById]);
   
-  const isEditing = !!systemId;
-  const complaint = isEditing && systemId ? getComplaintById(asSystemId(systemId)) : null;
+  // ✅ Use direct API fetch (enriched data) as primary, fallback to list cache
+  const complaint = complaintFromQuery || (isEditing && systemId ? getComplaintById(asSystemId(systemId)) : null);
   
   // Check if complaint has been verified (can only edit note)
   const isVerified = complaint?.verification !== 'pending-verification';
@@ -188,9 +199,10 @@ export function ComplaintFormPage() {
     : { systemId: asSystemId('SYSTEM'), name: 'Guest User' };
 
   // ⭐ Load complaint types from Settings và map với enum
+  const { data: complaintsSettings } = useComplaintsSettings();
   const complaintTypes = React.useMemo(() => {
     try {
-      const types = loadComplaintTypes();
+      const types = complaintsSettings.complaintTypes;
       
       // Map các loại phổ biến từ settings → enum
       // Nếu không match, fallback về 'product-condition'
@@ -217,11 +229,23 @@ export function ComplaintFormPage() {
           return {
             value: enumValue as ComplaintType,
             label: t.name,
+            // Add unique id for deduplication
+            uniqueKey: `${enumValue}-${t.name}`,
           };
         });
       
-      if (mappedTypes.length > 0) {
-        return mappedTypes;
+      // Deduplicate by value - keep first occurrence (highest priority by order)
+      const seenValues = new Set<string>();
+      const deduplicatedTypes = mappedTypes.filter(t => {
+        if (seenValues.has(t.value)) {
+          return false;
+        }
+        seenValues.add(t.value);
+        return true;
+      });
+      
+      if (deduplicatedTypes.length > 0) {
+        return deduplicatedTypes;
       }
     } catch (e) {
       console.error('Failed to load complaint types:', e);
@@ -229,13 +253,13 @@ export function ComplaintFormPage() {
     
     // Fallback to hardcoded types from complaintTypeLabels
     return [
-      { value: 'wrong-product' as ComplaintType, label: 'Sai hàng' },
-      { value: 'missing-items' as ComplaintType, label: 'Thiếu hàng' },
-      { value: 'wrong-packaging' as ComplaintType, label: 'Đóng gói sai quy cách' },
-      { value: 'warehouse-defect' as ComplaintType, label: 'Trả hàng lỗi do kho' },
-      { value: 'product-condition' as ComplaintType, label: 'Khách phàn nàn về tình trạng hàng' },
+      { value: 'wrong-product' as ComplaintType, label: 'Sai hàng', uniqueKey: 'wrong-product' },
+      { value: 'missing-items' as ComplaintType, label: 'Thiếu hàng', uniqueKey: 'missing-items' },
+      { value: 'wrong-packaging' as ComplaintType, label: 'Đóng gói sai quy cách', uniqueKey: 'wrong-packaging' },
+      { value: 'warehouse-defect' as ComplaintType, label: 'Trả hàng lỗi do kho', uniqueKey: 'warehouse-defect' },
+      { value: 'product-condition' as ComplaintType, label: 'Khách phàn nàn về tình trạng hàng', uniqueKey: 'product-condition' },
     ];
-  }, []);
+  }, [complaintsSettings.complaintTypes]);
   
   // State
   const [selectedOrder, setSelectedOrder] = React.useState<ComboboxOption | null>(null);
@@ -244,7 +268,9 @@ export function ComplaintFormPage() {
   const [isLoadingComplaint, setIsLoadingComplaint] = React.useState(false); // Flag để tránh conflict
   
   // ⭐ NEW: Quản lý sản phẩm bị ảnh hưởng
+  // ✅ Fix: Thêm lineItemIndex để xử lý trường hợp trùng productSystemId (cùng SP nhiều dòng)
   const [affectedProducts, setAffectedProducts] = React.useState<Array<{
+    lineItemIndex: number; // ⭐ Index duy nhất trong order lineItems
     productSystemId: string;
     productId: string;
     productName: string;
@@ -296,10 +322,9 @@ export function ComplaintFormPage() {
       customerPhone: "",
       type: "missing-items",
       description: "",
-      priority: "medium",
+      priority: "MEDIUM", // ✅ Match Prisma enum
       orderValue: 0,
       images: [],
-      videoLinks: "",
     },
   });
   
@@ -348,9 +373,14 @@ export function ComplaintFormPage() {
     }
   }, [selectedOrder, orders, customers, setValue, isLoadingComplaint]);
   
-  // Load complaint data for editing
+  // Track if complaint data has been initialized
+  const hasInitializedRef = React.useRef(false);
+  const hasSetOrderRef = React.useRef(false);
+  
+  // Load complaint data for editing - only once
   React.useEffect(() => {
-    if (complaint) {
+    if (complaint && !hasInitializedRef.current) {
+      hasInitializedRef.current = true;
       setIsLoadingComplaint(true); // Bật flag để tránh auto-fill override data
       
       setValue("id", complaint.id);
@@ -364,36 +394,6 @@ export function ComplaintFormPage() {
       setValue("description", complaint.description);
       setValue("priority", complaint.priority);
       setValue("orderValue", complaint.orderValue || 0);
-      setValue("videoLinks", (complaint as Complaint & { videoLinks?: string }).videoLinks || "");
-      
-      // Set selected order - dùng orderSystemId
-      const order = orders.find(o => o.systemId === complaint.orderSystemId); // ⭐ Dùng systemId
-      if (order) {
-        setSelectedOrder({
-          value: order.systemId, // ⭐ Value là systemId
-          label: `${order.id} - ${order.customerName}`, // Label hiển thị business ID
-          subtitle: `${formatDateForDisplay(order.orderDate)} • ${order.grandTotal?.toLocaleString('vi-VN')} đ`,
-        });
-      }
-      
-      // ⭐ Load affected products
-      if (complaint.affectedProducts && complaint.affectedProducts.length > 0) {
-        const order = orders.find(o => o.systemId === complaint.orderSystemId); // ⭐ Dùng systemId
-        setAffectedProducts(complaint.affectedProducts.map(p => {
-          // Lấy lại unitPrice từ order nếu không có
-          const orderItem = order?.lineItems?.find(item => item.productSystemId === p.productSystemId);
-          return {
-            ...p,
-            unitPrice: p.unitPrice || orderItem?.unitPrice || 0,
-            quantityMissing: p.quantityMissing || 0,
-            quantityDefective: p.quantityDefective || 0,
-            quantityExcess: p.quantityExcess || 0,
-            issueType: p.issueType || 'missing',
-            note: p.note || '',
-            resolutionType: p.resolutionType || 'ignore',
-          };
-        }));
-      }
       
       // Set customer images (hình từ khách hàng) - filter by type 'initial'
       if (complaint.images && complaint.images.length > 0) {
@@ -460,7 +460,56 @@ export function ComplaintFormPage() {
         setIsLoadingComplaint(false);
       }, 100);
     }
-  }, [complaint, setValue, orders, employees]);
+  }, [complaint, setValue, employees]);
+  
+  // ⭐ Separate effect for setting order and affected products - waits for orders to load
+  React.useEffect(() => {
+    // Only proceed if we have complaint, orders loaded, and haven't set order yet
+    if (!complaint || orders.length === 0 || hasSetOrderRef.current) return;
+    
+    // ✅ Support orderSystemId, orderId, AND orderCode (business ID fallback)
+    const orderIdToFind = complaint.orderSystemId || (complaint as unknown as { orderId?: string }).orderId || complaint.orderCode;
+    
+    if (!orderIdToFind) {
+      // No order linked to this complaint - mark as processed
+      hasSetOrderRef.current = true;
+      return;
+    }
+    
+    const order = orders.find(o => o.systemId === orderIdToFind || o.id === orderIdToFind || o.id === complaint.orderCode);
+        
+    if (order) {
+      hasSetOrderRef.current = true;
+      
+      // Set selected order
+      setSelectedOrder({
+        value: order.systemId,
+        label: `${order.id} - ${order.customerName}`,
+        subtitle: `${formatDateForDisplay(order.orderDate)} • ${order.grandTotal?.toLocaleString('vi-VN')} đ`,
+      });
+        
+        // ⭐ Load affected products with order data
+        // ✅ FIX: Thêm lineItemIndex để mapping đúng với order lineItems
+        if (complaint.affectedProducts && complaint.affectedProducts.length > 0) {
+          setAffectedProducts(complaint.affectedProducts.map(p => {
+            // Tìm index trong order.lineItems (handle trường hợp trùng productSystemId)
+            const orderItemIndex = order.lineItems?.findIndex(item => item.productSystemId === p.productSystemId) ?? -1;
+            const orderItem = orderItemIndex >= 0 ? order.lineItems?.[orderItemIndex] : undefined;
+            return {
+              ...p,
+              lineItemIndex: orderItemIndex, // ⭐ Lưu index để track unique
+              unitPrice: p.unitPrice || orderItem?.unitPrice || 0,
+              quantityMissing: p.quantityMissing || 0,
+              quantityDefective: p.quantityDefective || 0,
+              quantityExcess: p.quantityExcess || 0,
+              issueType: p.issueType || 'missing',
+              note: p.note || '',
+              resolutionType: p.resolutionType || 'ignore',
+            };
+          }));
+        }
+      }
+  }, [complaint, orders]);
   
   // ⚠️ REMOVED: Không cleanup trong useEffect unmount
   // Lý do: Nếu cleanup chạy trước khi confirm → 404 error
@@ -487,7 +536,9 @@ export function ComplaintFormPage() {
     );
   }, []);
   
-  // Page header
+  // Page header - use primitive value to avoid infinite loops
+  const hasSelectedOrder = !!selectedOrder;
+  
   const selectedOrderEntity = React.useMemo(() => {
     if (!selectedOrder) return null;
     return orders.find(o => o.systemId === selectedOrder.value) ?? null;
@@ -512,11 +563,11 @@ export function ComplaintFormPage() {
         const form = document.querySelector('form[data-complaint-form]') as HTMLFormElement;
         if (form) form.requestSubmit();
       }}
-      disabled={isSubmitting || !selectedOrder}
+      disabled={isSubmitting || !hasSelectedOrder}
     >
       {isSubmitting ? "Đang lưu..." : isEditing ? "Cập nhật" : "Tạo khiếu nại"}
     </Button>,
-  ]), [isEditing, isSubmitting, router, selectedOrder]);
+  ]), [isEditing, isSubmitting, router, hasSelectedOrder]);
 
   const headerSubtitle = React.useMemo(() => {
     if (complaint) {
@@ -583,7 +634,7 @@ export function ComplaintFormPage() {
       // ===== TẠO COMPLAINT ID DUY NHẤT CHO CẢ 2 LOẠI ẢNH =====
       let targetComplaintId = data.id;
       if (!targetComplaintId && !isEditing) {
-        targetComplaintId = 'TEMP_' + Date.now(); // ⭐ Tạo 1 lần duy nhất
+        targetComplaintId = generateTempId('TEMP'); // ⭐ Tạo 1 lần duy nhất
       } else if (isEditing && systemId) {
         targetComplaintId = systemId;
       }
@@ -731,12 +782,11 @@ export function ComplaintFormPage() {
         type: data.type,
         description: data.description || "", // Default to empty string
         priority: data.priority,
-        videoLinks: data.videoLinks?.trim() || "", // Video links from customer
         // CUSTOMER IMAGES - Lưu vào complaint.images với type 'initial'
         images: finalCustomerImageUrls
           .filter(url => url && url.trim() !== '') // ⭐ Filter empty URLs
-          .map((url, idx) => ({
-            id: asSystemId(`complaint-image-${Date.now()}-${idx}`),
+          .map((url, _idx) => ({
+            id: asSystemId(generateSubEntityId('IMG')),
             url,
             uploadedBy: currentUser.systemId,
             uploadedAt: new Date(),
@@ -745,8 +795,8 @@ export function ComplaintFormPage() {
         // EMPLOYEE IMAGES - Lưu vào field riêng employeeImages
         employeeImages: finalEmployeeImageUrls
           .filter(url => url && url.trim() !== '') // ⭐ Filter empty URLs
-          .map((url, idx) => ({
-            id: asSystemId(`complaint-employee-image-${Date.now()}-${idx}`),
+          .map((url, _idx) => ({
+            id: asSystemId(generateSubEntityId('IMG')),
             url,
             uploadedBy: packagingEmployee,
             uploadedAt: new Date(),
@@ -803,7 +853,7 @@ export function ComplaintFormPage() {
         {/* Main Form Card */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-h4">
+            <CardTitle>
               {isEditing ? "Chỉnh sửa khiếu nại" : "Tạo khiếu nại mới"}
             </CardTitle>
           </CardHeader>
@@ -852,7 +902,7 @@ export function ComplaintFormPage() {
           return (
             <Card>
               <CardHeader>
-                <CardTitle className="text-h4">Thông tin đơn hàng</CardTitle>
+                <CardTitle>Thông tin đơn hàng</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3 text-body-sm">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3">
@@ -936,64 +986,109 @@ export function ComplaintFormPage() {
             return item.quantity > returnedQty; // Còn hàng để khiếu nại
           });
           
+          // Check all logic
+          const isAllSelected = availableProducts.length > 0 && affectedProducts.length === availableProducts.length;
+          const isSomeSelected = affectedProducts.length > 0 && affectedProducts.length < availableProducts.length;
+          
+          const handleSelectAll = (checked: boolean) => {
+            if (checked) {
+              // Select all products
+              setAffectedProducts(availableProducts.map((item, idx) => {
+                const returnedQty = returnedQuantities[item.productSystemId] || 0;
+                const remainingQty = item.quantity - returnedQty;
+                return {
+                  lineItemIndex: idx,
+                  productSystemId: item.productSystemId,
+                  productId: item.productId,
+                  productName: item.productName,
+                  unitPrice: item.unitPrice || 0,
+                  quantityOrdered: remainingQty,
+                  quantityReceived: item.quantity,
+                  quantityMissing: 0,
+                  quantityDefective: 0,
+                  quantityExcess: 0,
+                  issueType: 'missing' as const,
+                  note: '',
+                  resolutionType: 'ignore' as const,
+                };
+              }));
+            } else {
+              // Deselect all
+              setAffectedProducts([]);
+            }
+          };
+          
           return (
             <Card>
-              <CardHeader>
-                <CardTitle className="text-h4">Sản phẩm bị ảnh hưởng</CardTitle>
-                <p className="text-body-sm text-muted-foreground mt-1">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Sản phẩm bị ảnh hưởng</CardTitle>
+                <p className="text-xs text-muted-foreground">
                   Chọn sản phẩm và nhập số lượng thừa/thiếu/hỏng
                 </p>
               </CardHeader>
               <CardContent>
                 {availableProducts.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
-                    <p>Tất cả sản phẩm trong đơn hàng đã được trả lại.</p>
-                    <p className="text-body-sm mt-1">Không thể tạo khiếu nại cho đơn hàng này.</p>
+                    <p className="text-sm">Tất cả sản phẩm trong đơn hàng đã được trả lại.</p>
+                    <p className="text-xs mt-1">Không thể tạo khiếu nại cho đơn hàng này.</p>
                   </div>
                 ) : (
                 <div className="border rounded-lg overflow-x-auto">
-                  <table className="w-full text-body-sm">
-                    <thead className="bg-muted/50 border-b">
-                      <tr>
-                        <th className="text-left p-2 font-medium w-12">Chọn</th>
-                        <th className="text-center p-2 font-medium w-12">Ảnh</th>
-                        <th className="text-left p-2 font-medium min-w-55">Tên sản phẩm</th>
-                        <th className="text-right p-2 font-medium w-24">Đơn giá</th>
-                        <th className="text-center p-2 font-medium w-20">Số lượng</th>
-                        <th className="text-left p-2 font-medium w-28">Loại KN</th>
-                        <th className="text-center p-2 font-medium w-20">Thừa</th>
-                        <th className="text-center p-2 font-medium w-20">Thiếu</th>
-                        <th className="text-center p-2 font-medium w-20">Hỏng</th>
-                        <th className="text-right p-2 font-medium w-28">Tổng tiền</th>
-                        <th className="text-left p-2 font-medium min-w-45">Ghi chú</th>
-                      </tr>
-                    </thead>
-                    <tbody>
+                  <Table className="text-xs">
+                    <TableHeader>
+                      <TableRow className="bg-muted/50 hover:bg-muted/50">
+                        <TableHead className="w-10">
+                          <Checkbox
+                            checked={isAllSelected}
+                            ref={(el) => {
+                              if (el) (el as unknown as HTMLButtonElement).dataset.state = isSomeSelected ? 'indeterminate' : isAllSelected ? 'checked' : 'unchecked';
+                            }}
+                            disabled={canOnlyEditNote}
+                            onCheckedChange={handleSelectAll}
+                            aria-label="Chọn tất cả"
+                          />
+                        </TableHead>
+                        <TableHead className="min-w-50">Sản phẩm</TableHead>
+                        <TableHead className="w-24 text-right">Đơn giá</TableHead>
+                        <TableHead className="w-16 text-center">SL</TableHead>
+                        <TableHead className="w-24">Loại KN</TableHead>
+                        <TableHead className="w-16 text-center">Thừa</TableHead>
+                        <TableHead className="w-16 text-center">Thiếu</TableHead>
+                        <TableHead className="w-16 text-center">Hỏng</TableHead>
+                        <TableHead className="w-24 text-right">Tổng tiền</TableHead>
+                        <TableHead className="min-w-30">Ghi chú</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
                       {availableProducts.map((item, idx) => {
                         const returnedQty = returnedQuantities[item.productSystemId] || 0;
-                        const remainingQty = item.quantity - returnedQty; // Số lượng còn lại có thể khiếu nại
-                        const affected = affectedProducts.find(p => p.productSystemId === item.productSystemId);
+                        const remainingQty = item.quantity - returnedQty;
+                        const affected = affectedProducts.find(p => p.lineItemIndex === idx);
                         const isSelected = !!affected;
                         
-                        // Tính tổng tiền bị ảnh hưởng
                         const totalAffectedAmount = affected 
                           ? (affected.quantityMissing + affected.quantityDefective + affected.quantityExcess) * item.unitPrice
                           : 0;
                         
-                        // Get product info for image and type
                         const product = findProductById(item.productSystemId);
                         const productTypeLabel = getProductTypeLabel(product);
                         const isCombo = !!(product?.type === 'combo' && product.comboItems?.length);
+                        const uniqueKey = `${item.productSystemId}-${idx}`;
+                        
+                        // ✅ Get product image URL like warranty module
+                        const productImageUrl = product?.thumbnailImage || product?.galleryImages?.[0] || product?.images?.[0];
                         
                         return (
-                          <tr key={idx} className="border-b last:border-0 hover:bg-muted/20">
-                            <td className="p-2">
+                          <TableRow key={uniqueKey} className="hover:bg-muted/30">
+                            <TableCell className="align-top pt-3">
                               <Checkbox
+                                id={`checkbox-${uniqueKey}`}
                                 checked={isSelected}
                                 disabled={canOnlyEditNote}
                                 onCheckedChange={(checked) => {
                                   if (checked) {
                                     setAffectedProducts(prev => [...prev, {
+                                      lineItemIndex: idx, // ⭐ Lưu index unique
                                       productSystemId: item.productSystemId,
                                       productId: item.productId,
                                       productName: item.productName,
@@ -1009,68 +1104,81 @@ export function ComplaintFormPage() {
                                     }]);
                                   } else {
                                     setAffectedProducts(prev => 
-                                      prev.filter(p => p.productSystemId !== item.productSystemId)
+                                      prev.filter(p => p.lineItemIndex !== idx)
                                     );
                                   }
                                 }}
                               />
-                            </td>
-                            <td className="p-2">
-                              <ProductThumbnailCell
-                                productSystemId={item.productSystemId}
-                                product={product}
-                                productName={item.productName}
-                                onPreview={handlePreview}
-                              />
-                            </td>
-                            <td className="p-2">
-                              <div className="flex flex-col gap-0.5">
-                                <div className="flex items-center gap-2">
-                                  <span className="font-medium text-body-sm">{item.productName}</span>
-                                  {isCombo && (
-                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground font-semibold">
-                                      COMBO
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="flex items-center gap-1 text-body-xs text-muted-foreground flex-wrap">
-                                  <span>{productTypeLabel}</span>
-                                  <span>-</span>
-                                  <Link 
-                                    href={`/products/${item.productSystemId}`} 
-                                    className="text-primary hover:underline"
+                            </TableCell>
+                            {/* ✅ Product cell with image + name + SKU like warranty */}
+                            <TableCell className="align-top pt-2">
+                              <div className="flex items-start gap-2">
+                                {/* Ảnh sản phẩm - giống warranty */}
+                                {productImageUrl ? (
+                                  <div
+                                    className="group/img relative w-10 h-10 shrink-0 rounded-md overflow-hidden border border-muted cursor-pointer"
+                                    onClick={() => handlePreview(productImageUrl, item.productName)}
                                   >
-                                    {item.productId}
-                                  </Link>
-                                  {item.note && (
-                                    <>
-                                      <StickyNote className="h-3 w-3 text-amber-600 ml-1" />
-                                      <span className="text-amber-600 italic">{item.note}</span>
-                                    </>
-                                  )}
+                                    <LazyImage
+                                      src={productImageUrl}
+                                      alt={item.productName}
+                                      className="w-full h-full object-cover transition-all group-hover/img:brightness-75"
+                                      loading="lazy"
+                                    />
+                                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity">
+                                      <Eye className="w-3 h-3 text-white drop-shadow-md" />
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="w-10 h-10 shrink-0 bg-muted rounded-md flex items-center justify-center">
+                                    <Package className="h-4 w-4 text-muted-foreground" />
+                                  </div>
+                                )}
+                                {/* Thông tin sản phẩm */}
+                                <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+                                  <div className="flex items-center gap-1.5">
+                                    <Link 
+                                      href={`/products/${item.productSystemId}`}
+                                      target="_blank"
+                                      className="text-xs font-medium text-foreground hover:text-primary hover:underline line-clamp-2"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      {item.productName}
+                                    </Link>
+                                    {isCombo && (
+                                      <span className="text-[9px] px-1 py-0.5 rounded bg-secondary text-secondary-foreground font-semibold shrink-0">
+                                        COMBO
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                                    <span>SKU: </span>
+                                    <span className="text-primary font-medium">{item.productId}</span>
+                                    <span className="mx-0.5">•</span>
+                                    <span>{productTypeLabel}</span>
+                                  </div>
                                 </div>
                               </div>
-                            </td>
-                            <td className="p-2 text-right text-body-sm">
+                            </TableCell>
+                            <TableCell className="align-top pt-3 text-right text-xs">
                               {(item.unitPrice || 0).toLocaleString('vi-VN')}đ
-                            </td>
-                            <td className="p-2 text-center">
+                            </TableCell>
+                            <TableCell className="align-top pt-3 text-center text-xs">
                               {returnedQty > 0 ? (
                                 <span title={`Đặt ${item.quantity}, đã trả ${returnedQty}`}>
-                                  {remainingQty} <span className="text-muted-foreground text-body-xs">/ {item.quantity}</span>
+                                  {remainingQty} <span className="text-muted-foreground">/{item.quantity}</span>
                                 </span>
                               ) : (
                                 item.quantity
                               )}
-                            </td>
-                            <td className="p-2">
+                            </TableCell>
+                            <TableCell className="align-top pt-2">
                               <Select
                                 disabled={!isSelected || canOnlyEditNote}
                                 value={affected?.issueType || 'missing'}
                                 onValueChange={(value: 'excess' | 'missing' | 'defective' | 'other') => {
                                   setAffectedProducts(prev => prev.map(p => {
-                                    if (p.productSystemId === item.productSystemId) {
-                                      // Reset tất cả số lượng về 0 khi đổi loại
+                                    if (p.lineItemIndex === idx) {
                                       return {
                                         ...p,
                                         issueType: value,
@@ -1083,7 +1191,7 @@ export function ComplaintFormPage() {
                                   }));
                                 }}
                               >
-                                <SelectTrigger className="h-9 text-body-xs">
+                                <SelectTrigger className="h-7 text-xs">
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -1093,86 +1201,86 @@ export function ComplaintFormPage() {
                                   <SelectItem value="other">Khác</SelectItem>
                                 </SelectContent>
                               </Select>
-                            </td>
-                            <td className="p-2">
+                            </TableCell>
+                            <TableCell className="align-top pt-2">
                               <Input
                                 type="number"
                                 min={0}
                                 disabled={!isSelected || (affected?.issueType !== 'excess' && affected?.issueType !== 'other') || canOnlyEditNote}
-                                className="h-9 w-full text-center text-body-xs"
+                                className="h-7 w-full text-center text-xs"
                                 value={affected?.quantityExcess ?? 0}
                                 onChange={(e) => {
                                   const excess = Math.max(0, Number(e.target.value));
                                   setAffectedProducts(prev => prev.map(p => 
-                                    p.productSystemId === item.productSystemId 
+                                    p.lineItemIndex === idx 
                                       ? { ...p, quantityExcess: excess }
                                       : p
                                   ));
                                 }}
                               />
-                            </td>
-                            <td className="p-2">
+                            </TableCell>
+                            <TableCell className="align-top pt-2">
                               <Input
                                 type="number"
                                 min={0}
                                 max={remainingQty}
                                 disabled={!isSelected || (affected?.issueType !== 'missing' && affected?.issueType !== 'other') || canOnlyEditNote}
-                                className="h-9 w-full text-center text-body-xs"
+                                className="h-7 w-full text-center text-xs"
                                 value={affected?.quantityMissing ?? 0}
                                 onChange={(e) => {
                                   const missing = Math.min(Math.max(0, Number(e.target.value)), remainingQty);
                                   setAffectedProducts(prev => prev.map(p => 
-                                    p.productSystemId === item.productSystemId 
+                                    p.lineItemIndex === idx 
                                       ? { ...p, quantityMissing: missing }
                                       : p
                                   ));
                                 }}
                               />
-                            </td>
-                            <td className="p-2">
+                            </TableCell>
+                            <TableCell className="align-top pt-2">
                               <Input
                                 type="number"
                                 min={0}
                                 max={remainingQty}
                                 disabled={!isSelected || (affected?.issueType !== 'defective' && affected?.issueType !== 'other') || canOnlyEditNote}
-                                className="h-9 w-full text-center text-body-xs"
+                                className="h-7 w-full text-center text-xs"
                                 value={affected?.quantityDefective ?? 0}
                                 onChange={(e) => {
                                   const defective = Math.min(Math.max(0, Number(e.target.value)), remainingQty);
                                   setAffectedProducts(prev => prev.map(p => 
-                                    p.productSystemId === item.productSystemId 
+                                    p.lineItemIndex === idx 
                                       ? { ...p, quantityDefective: defective }
                                       : p
                                   ));
                                 }}
                               />
-                            </td>
-                            <td className="p-2 text-right">
-                              <span className={`font-semibold text-body-sm ${totalAffectedAmount > 0 ? 'text-destructive' : 'text-muted-foreground'}`}>
+                            </TableCell>
+                            <TableCell className="align-top pt-3 text-right">
+                              <span className={`font-semibold text-xs ${totalAffectedAmount > 0 ? 'text-destructive' : 'text-muted-foreground'}`}>
                                 {totalAffectedAmount.toLocaleString('vi-VN')}đ
                               </span>
-                            </td>
-                            <td className="p-2">
+                            </TableCell>
+                            <TableCell className="align-top pt-2">
                               <Input
                                 type="text"
                                 disabled={!isSelected || canOnlyEditNote}
                                 placeholder="Ghi chú..."
-                                className="h-9 text-body-xs"
+                                className="h-7 text-xs"
                                 value={affected?.note || ''}
                                 onChange={(e) => {
                                   setAffectedProducts(prev => prev.map(p => 
-                                    p.productSystemId === item.productSystemId 
+                                    p.lineItemIndex === idx 
                                       ? { ...p, note: e.target.value }
                                       : p
                                   ));
                                 }}
                               />
-                            </td>
-                          </tr>
+                            </TableCell>
+                          </TableRow>
                         );
                       })}
-                    </tbody>
-                  </table>
+                    </TableBody>
+                  </Table>
                 </div>
                 )}
               </CardContent>
@@ -1184,7 +1292,7 @@ export function ComplaintFormPage() {
         {affectedProducts.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle className="text-h4">Tổng kết sản phẩm bị ảnh hưởng</CardTitle>
+              <CardTitle>Tổng kết sản phẩm bị ảnh hưởng</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
@@ -1281,7 +1389,7 @@ export function ComplaintFormPage() {
         {/* Card: Thông tin khiếu nại */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-h4">Thông tin khiếu nại</CardTitle>
+            <CardTitle>Thông tin khiếu nại</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {/* Type + Priority */}
@@ -1296,8 +1404,8 @@ export function ComplaintFormPage() {
                     <SelectValue placeholder="Chọn loại khiếu nại" />
                   </SelectTrigger>
                   <SelectContent>
-                    {complaintTypes.map((type, idx) => (
-                      <SelectItem key={idx} value={type.value}>
+                    {complaintTypes.map((type) => (
+                      <SelectItem key={type.uniqueKey} value={type.value}>
                         {type.label}
                       </SelectItem>
                     ))}
@@ -1313,33 +1421,19 @@ export function ComplaintFormPage() {
                 <Label htmlFor="priority" className="text-body-sm">Mức độ ưu tiên *</Label>
                 <Select
                   value={watch("priority")}
-                  onValueChange={(value) => setValue("priority", value as "low" | "medium" | "high" | "urgent")}
+                  onValueChange={(value) => setValue("priority", value as "LOW" | "MEDIUM" | "HIGH" | "CRITICAL")}
                 >
                   <SelectTrigger className="h-9">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="low">Thấp</SelectItem>
-                    <SelectItem value="medium">Trung bình</SelectItem>
-                    <SelectItem value="high">Cao</SelectItem>
-                    <SelectItem value="urgent">Khẩn cấp</SelectItem>
+                    <SelectItem value="LOW">Thấp</SelectItem>
+                    <SelectItem value="MEDIUM">Trung bình</SelectItem>
+                    <SelectItem value="HIGH">Cao</SelectItem>
+                    <SelectItem value="CRITICAL">Khẩn cấp</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-            </div>
-
-            {/* Row 6: Video Links */}
-            <div>
-              <Label htmlFor="videoLinks" className="text-body-sm">Link video từ khách hàng (tùy chọn)</Label>
-              <Textarea
-                id="videoLinks"
-                rows={3}
-                placeholder="Dán link video (YouTube, Google Drive, v.v.) - mỗi link một dòng..."
-                {...register("videoLinks")}
-              />
-              <p className="text-body-xs text-muted-foreground mt-1">
-                Có thể dán nhiều link, mỗi link một dòng
-              </p>
             </div>
             
             {/* Images Row - 2 columns: Customer Images (50%) | Employee Images (50%) */}

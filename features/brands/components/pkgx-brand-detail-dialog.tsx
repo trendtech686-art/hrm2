@@ -9,6 +9,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { ExternalLink, Loader2, Globe, Search, AlignLeft } from 'lucide-react';
 import { getBrandById } from '@/lib/pkgx/api-service';
+import { usePkgxSettings } from '@/features/settings/pkgx/hooks/use-pkgx-settings';
 import type { Brand } from '@/features/settings/inventory/types';
 
 type PkgxBrandData = {
@@ -33,6 +34,7 @@ type Props = {
 };
 
 export function PkgxBrandDetailDialog({ open, onOpenChange, brand, pkgxBrandId }: Props) {
+  const { data: pkgxSettings } = usePkgxSettings();
   const [loading, setLoading] = React.useState(false);
   const [pkgxData, setPkgxData] = React.useState<PkgxBrandData | null>(null);
   const [error, setError] = React.useState<string | null>(null);
@@ -45,7 +47,7 @@ export function PkgxBrandDetailDialog({ open, onOpenChange, brand, pkgxBrandId }
     setError(null);
     
     try {
-      const response = await getBrandById(pkgxBrandId);
+      const response = await getBrandById(pkgxBrandId, pkgxSettings);
       if (response.success && response.data) {
         setPkgxData(response.data);
       } else {
@@ -56,7 +58,7 @@ export function PkgxBrandDetailDialog({ open, onOpenChange, brand, pkgxBrandId }
     } finally {
       setLoading(false);
     }
-  }, [pkgxBrandId]);
+  }, [pkgxBrandId, pkgxSettings]);
 
   // Fetch when dialog opens
   React.useEffect(() => {

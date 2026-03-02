@@ -214,6 +214,16 @@ export async function fetchCustomerSlaSettings(): Promise<CustomerSlaSetting[]> 
   return res.json();
 }
 
+export async function createCustomerSlaSetting(data: Partial<CustomerSlaSetting>): Promise<CustomerSlaSetting> {
+  const res = await fetch(`${BASE_URL}/sla-settings`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error('Failed to create');
+  return res.json();
+}
+
 export async function updateCustomerSlaSetting(systemId: string, data: Partial<CustomerSlaSetting>): Promise<CustomerSlaSetting> {
   const res = await fetch(`${BASE_URL}/sla-settings/${systemId}`, {
     method: 'PATCH',
@@ -222,4 +232,9 @@ export async function updateCustomerSlaSetting(systemId: string, data: Partial<C
   });
   if (!res.ok) throw new Error('Failed to update');
   return res.json();
+}
+
+export async function deleteCustomerSlaSetting(systemId: string): Promise<void> {
+  const res = await fetch(`${BASE_URL}/sla-settings/${systemId}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error('Failed to delete');
 }

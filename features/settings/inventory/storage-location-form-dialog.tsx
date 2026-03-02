@@ -109,7 +109,13 @@ export function StorageLocationFormDialog({
                 <FormItem>
                   <FormLabel>Mã điểm lưu kho <span className="text-destructive">*</span></FormLabel>
                   <FormControl>
-                    <Input {...field} value={field.value ?? ''} placeholder="VD: KHO-A" className="h-9" />
+                    <Input 
+                      {...field} 
+                      value={field.value ?? ''} 
+                      placeholder="VD: KHO-A" 
+                      className="h-9 uppercase"
+                      onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                    />
                   </FormControl>
                   <FormDescription>
                     Chỉ chứa chữ in hoa và số, tối đa 20 ký tự
@@ -158,7 +164,7 @@ export function StorageLocationFormDialog({
                       onCheckedChange={field.onChange}
                     />
                   </FormControl>
-                  <FormLabel className="!mt-0 cursor-pointer">
+                  <FormLabel className="mt-0! cursor-pointer">
                     Kích hoạt
                   </FormLabel>
                 </FormItem>

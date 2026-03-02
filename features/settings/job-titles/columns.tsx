@@ -33,7 +33,7 @@ export const getColumns = (
   },
    {
     id: "actions",
-    header: () => <div className="text-center">Sửa</div>,
+    header: "",
     cell: ({ row }) => (
        <div className="flex items-center justify-center">
         <DropdownMenu>
@@ -58,7 +58,7 @@ export const getColumns = (
        </div>
     ),
     meta: {
-      displayName: "Sửa",
+      displayName: "",
       sticky: "right",
     },
     size: 90,

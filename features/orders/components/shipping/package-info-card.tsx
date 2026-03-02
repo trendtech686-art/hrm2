@@ -1,4 +1,4 @@
-/**
+﻿/**
  * PackageInfoCard
  * Display package information (weight, dimensions, COD)
  */
@@ -36,7 +36,7 @@ export function PackageInfoCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-sm font-semibold flex items-center gap-2">
+        <CardTitle size="sm" className="flex items-center gap-2">
           <Package className="h-4 w-4" />
           Thông tin kiện hàng
         </CardTitle>

@@ -1,33 +1,31 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
+import { useQueryClient } from '@tanstack/react-query';
 import { ROUTES } from '../../lib/router';
 import { formatDateTime, formatDateCustom, parseDate, getCurrentDate, getDaysDiff, toISODate } from '@/lib/date-utils';
-import { usePurchaseOrder, usePurchaseOrders } from './hooks/use-purchase-orders';
+import { usePurchaseOrder } from './hooks/use-purchase-orders';
 import { usePurchaseOrderMutations } from './hooks/use-purchase-orders';
-import { useAllSuppliers } from '../suppliers/hooks/use-all-suppliers';
-import { useAllPayments } from '../payments/hooks/use-all-payments';
-import { useAllReceipts } from '../receipts/hooks/use-all-receipts';
+import { useAllPurchaseOrders } from './hooks/use-all-purchase-orders';
+import { useSupplierFinder } from '../suppliers/hooks/use-all-suppliers';
+import { usePurchaseOrderPayments, usePurchaseOrderInventoryReceipts, usePurchaseOrderReceipts } from './hooks/use-po-related-data';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '../../components/ui/table';
 import { Users, FileWarning, Package, Truck, CheckCircle2, Edit, Printer, Undo2, Trash2, AlertCircle } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { useAllInventoryReceipts } from '../inventory-receipts/hooks/use-all-inventory-receipts';
 import { useInventoryReceiptMutations } from '../inventory-receipts/hooks/use-inventory-receipts';
-import { useAllProducts, useProductFinder } from '../products/hooks/use-all-products';
+import { useProductFinder } from '../products/hooks/use-all-products';
 import { useStockHistoryMutations } from '../stock-history/hooks/use-stock-history';
-import { useAllPaymentTypes } from '../settings/payments/types/hooks/use-all-payment-types';
-import { useAllCashAccounts } from '../cashbook/hooks/use-all-cash-accounts';
-import { useAllBranches, useBranchFinder } from '../settings/branches/hooks/use-all-branches';
+import { useBranchFinder } from '../settings/branches/hooks/use-all-branches';
 import { asBusinessId, asSystemId } from '@/lib/id-types';
 import { DetailField } from '../../components/ui/detail-field';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
-import type { InventoryReceipt } from '../inventory-receipts/types';
+import type { InventoryReceipt } from '@/lib/types/prisma-extended';
 // ✅ Heavy components - lazy loaded
 const ActivityHistory = dynamic(
   () => import('../../components/ActivityHistory').then(m => ({ default: m.ActivityHistory })),
@@ -38,13 +36,12 @@ const Comments = dynamic(
   { ssr: false }
 );
 import { useComments } from '@/hooks/use-comments';
-import { useAllPurchaseReturns } from '../purchase-returns/hooks/use-all-purchase-returns';
 import { usePurchaseReturnMutations } from '../purchase-returns/hooks/use-purchase-returns';
 import { usePurchaseReturnsByPO } from '../purchase-returns/hooks/use-purchase-returns';
 import type { PurchaseReturn, PurchaseReturnLineItem } from '../purchase-returns/types';
 import { Badge } from '../../components/ui/badge';
 import { useAuth } from '../../contexts/auth-context';
-import type { PurchaseOrder, PurchaseOrderPaymentStatus as PaymentStatus } from '@/lib/types/prisma-extended';
+import type { PurchaseOrder, PurchaseOrderPaymentStatus as PaymentStatus, Payment } from '@/lib/types/prisma-extended';
 import { getPaymentsForPurchaseOrder, getReceiptsForPurchaseOrder, sumPaymentsForPurchaseOrder } from './payment-utils';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../../components/ui/alert-dialog';
 import { toast } from 'sonner';
@@ -60,9 +57,9 @@ import {
   numberToWords,
   StoreSettings
 } from '../../lib/print-mappers/types';
-import { createPaymentDocument } from '../finance/document-helpers';
 import { PurchaseOrderPaymentItem } from './components/payment-item';
-import { useAllEmployees, useEmployeeFinder } from '../employees/hooks/use-all-employees';
+import { usePaymentMutations } from '../payments/hooks/use-payments';
+import { useEmployeeFinder, useAllEmployees } from '../employees/hooks/use-all-employees';
 import type { PaymentForPrint } from '../../lib/print-mappers/payment.mapper';
 import type { ReceiptForPrint } from '../../lib/print-mappers/receipt.mapper';
 // ✅ Supplier return print helper - lazy loaded
@@ -82,61 +79,176 @@ const PaymentConfirmationDialog = dynamic(() => import('./detail').then(mod => (
 export function PurchaseOrderDetailPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const router = useRouter();
-  const { data: purchaseOrder } = usePurchaseOrder(systemId);
+  const { data: purchaseOrder, isLoading: isLoadingPO } = usePurchaseOrder(systemId);
+  // Don't add onSuccess/onError here - we handle them in mutate() options to avoid duplicate toasts
   const { update: updatePO } = usePurchaseOrderMutations({});
   
   // Helper functions using mutations
-  const cancelOrder = React.useCallback((poSystemId: string, userId: string, _userName: string) => {
-    (updatePO as any).mutate({ systemId: poSystemId, status: 'cancelled', cancelledBy: userId, cancelledAt: new Date().toISOString() });
+  const cancelOrder = React.useCallback((poSystemId: string, _userId: string, _userName: string) => {
+    updatePO.mutate(
+      { systemId: poSystemId, data: { status: 'Đã hủy' } },
+      {
+        onSuccess: () => {
+          toast.success('Thành công', { description: 'Đơn hàng đã được hủy' });
+        },
+        onError: (error: Error) => {
+          toast.error('Lỗi', { description: error?.message || 'Không thể hủy đơn hàng' });
+        },
+      }
+    );
   }, [updatePO]);
   
-  const finishOrder = React.useCallback((poSystemId: string, userId: string, _userName: string) => {
-    (updatePO as any).mutate({ systemId: poSystemId, status: 'completed', completedBy: userId, completedAt: new Date().toISOString() });
+  const finishOrder = React.useCallback((poSystemId: string, _userId: string, _userName: string) => {
+    updatePO.mutate({ systemId: poSystemId, data: { status: 'Hoàn thành' } });
   }, [updatePO]);
   
-  const processInventoryReceipt = React.useCallback((poSystemId: string) => {
-    (updatePO as any).mutate({ systemId: poSystemId, deliveryStatus: 'Đã nhập kho' });
+  const _processInventoryReceipt = React.useCallback((poSystemId: string) => {
+    updatePO.mutate({ systemId: poSystemId, data: { deliveryStatus: 'Đã nhập' } });
   }, [updatePO]);
   
   // All hooks must be called before any early returns (React hooks rules)
   // Move all hook calls here before the conditional return
-  const { data: suppliers } = useAllSuppliers();
-  const { data: queryData } = usePurchaseOrders({ limit: 1000 });
-  const allPurchaseOrders = React.useMemo(() => queryData?.data ?? [], [queryData?.data]);
-  const { data: allPayments } = useAllPayments();
-  const { data: allReceiptsFinancial } = useAllReceipts();
-  const allTransactions = React.useMemo(() => [...allPayments, ...allReceiptsFinancial], [allPayments, allReceiptsFinancial]);
-  const { data: allReceipts } = useAllInventoryReceipts();
+  const { findById: findSupplierById } = useSupplierFinder();
+  const { data: allPurchaseOrders } = useAllPurchaseOrders();
+  
+  // ⚡ PERFORMANCE: Only fetch data for this specific PO
+  const { data: poPayments, refetch: refetchPayments } = usePurchaseOrderPayments(systemId);
+  const { data: poInventoryReceipts } = usePurchaseOrderInventoryReceipts(systemId);
+  const { data: poReceiptsFinancial } = usePurchaseOrderReceipts(systemId);
+  
+  // Create aliases for backwards compatibility with existing code
+  const allPayments = poPayments;
+  const allReceipts = poInventoryReceipts;
+  const allReceiptsFinancial = poReceiptsFinancial;
+  
+  const allTransactions = React.useMemo(() => [...poPayments], [poPayments]);
+  
+  const queryClient = useQueryClient();
   const { create: createInventoryReceipt } = useInventoryReceiptMutations({
-    onCreateSuccess: () => {},
+    onCreateSuccess: () => {
+      // Invalidate all related queries to refresh UI
+      queryClient.invalidateQueries({ queryKey: ['purchase-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['inventory-receipts'] });
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['stock-history'] });
+      
+      // Auto-complete check will be done after queries are invalidated
+      // The status update is handled in handleConfirmReceive callback
+    },
     onError: (err) => toast.error(err.message)
   });
-  const { data: products } = useAllProducts();
   const { findById: findProductById } = useProductFinder();
-  const { create: createStockHistory } = useStockHistoryMutations({
+  const { create: _createStockHistory } = useStockHistoryMutations({
     onSuccess: () => {},
     onError: (err) => toast.error(err.message)
   });
-  const { data: _paymentTypes } = useAllPaymentTypes();
-  const { accounts: _accounts } = useAllCashAccounts();
-  const { data: _branches } = useAllBranches();
-  const { data: allPurchaseReturns } = useAllPurchaseReturns();
   const { data: purchaseReturnsForPO } = usePurchaseReturnsByPO(systemId);
+  // Create alias for backwards compatibility
+  const allPurchaseReturns = React.useMemo(() => {
+    const returns = purchaseReturnsForPO?.data ?? purchaseReturnsForPO ?? [];
+    return Array.isArray(returns) ? returns : [];
+  }, [purchaseReturnsForPO]);
   const { create: createPurchaseReturn } = usePurchaseReturnMutations({
     onCreateSuccess: () => {},
     onError: (err) => toast.error(err.message)
+  });
+  const { create: createPayment } = usePaymentMutations({
+    onCreateSuccess: async (payment) => {
+      toast.dismiss();
+      toast.success(`Đã tạo phiếu chi ${payment.id} - ${formatCurrency(Number(payment.amount))}`);
+      setIsPaymentConfirmationOpen(false);
+      
+      // ✅ Invalidate ALL payment-related queries first
+      await Promise.all([
+        queryClient.invalidateQueries({ 
+          queryKey: ['payments'],
+          refetchType: 'all',
+        }),
+        queryClient.invalidateQueries({ 
+          queryKey: ['purchase-orders'],
+          refetchType: 'all',
+        }),
+      ]);
+      
+      // ✅ Then force refetch payments to get fresh data - use result directly to avoid stale closure
+      const refetchResult = await refetchPayments();
+      const freshPayments = refetchResult.data || [];
+      
+      // ✅ Update paymentStatus based on FRESH data from refetch
+      if (purchaseOrder) {
+        const totalPaidNow = sumPaymentsForPurchaseOrder(freshPayments as Payment[], purchaseOrder);
+        
+        // Calculate returned value inline (since totalReturnedValue is defined later)
+        const returns = Array.isArray(allPurchaseReturns) ? allPurchaseReturns : [];
+        const returnedValue = returns.reduce((sum, pr) => sum + Number(pr.totalReturnValue || 0), 0);
+        const debt = (purchaseOrder.grandTotal || 0) - returnedValue;
+        
+        let newStatus = purchaseOrder.status;
+        let newPaymentStatus: string;
+        
+        if (totalPaidNow >= debt) {
+          newPaymentStatus = 'Đã thanh toán';
+          // Auto-complete if also fully received
+          if (purchaseOrder.deliveryStatus === 'Đã nhập') {
+            newStatus = 'Hoàn thành';
+          }
+        } else if (totalPaidNow > 0) {
+          newPaymentStatus = 'Thanh toán một phần';
+        } else {
+          newPaymentStatus = 'Chưa thanh toán';
+        }
+        
+        // Update PO if status changed
+        if (newPaymentStatus !== purchaseOrder.paymentStatus || newStatus !== purchaseOrder.status) {
+          updatePO.mutate({ 
+            systemId: purchaseOrder.systemId, 
+            data: { 
+              status: newStatus,
+              paymentStatus: newPaymentStatus,
+              // Note: paid is a calculated field from payments, not stored directly
+            } 
+          });
+        }
+      }
+    },
+    onError: (err) => {
+      toast.dismiss();
+      toast.error(err.message || 'Không thể tạo phiếu chi');
+      console.error('[Payment] Error creating payment:', err);
+    }
   });
   const { employee: authEmployee } = useAuth();
   const currentUserSystemId = asSystemId(authEmployee?.systemId ?? 'SYSTEM');
   const currentUserName = authEmployee?.fullName ?? 'Hệ thống';
   const { findById: findProductTypeById } = useProductTypeFinder();
   const { findById: findEmployeeById } = useEmployeeFinder();
+  const { findById: findBranchById } = useBranchFinder();
   const { data: employees } = useAllEmployees();
 
   const getProductTypeName = React.useCallback((productTypeSystemId: string) => {
     const productType = findProductTypeById(asSystemId(productTypeSystemId));
     return productType?.name || 'Hàng hóa';
   }, [findProductTypeById]);
+  
+  // Resolve branch name from branchSystemId if branchName is missing
+  const resolvedBranchName = React.useMemo(() => {
+    if (purchaseOrder?.branchName) return purchaseOrder.branchName;
+    if (purchaseOrder?.branchSystemId) {
+      const branch = findBranchById(asSystemId(purchaseOrder.branchSystemId));
+      return branch?.name || '-';
+    }
+    return '-';
+  }, [purchaseOrder?.branchName, purchaseOrder?.branchSystemId, findBranchById]);
+  
+  // Resolve buyer name from buyerSystemId if buyer is missing
+  const resolvedBuyerName = React.useMemo(() => {
+    if (purchaseOrder?.buyer) return purchaseOrder.buyer;
+    if (purchaseOrder?.buyerSystemId) {
+      const employee = findEmployeeById(asSystemId(purchaseOrder.buyerSystemId));
+      return employee?.fullName || '-';
+    }
+    return '-';
+  }, [purchaseOrder?.buyer, purchaseOrder?.buyerSystemId, findEmployeeById]);
 
   const [isPaymentConfirmationOpen, setIsPaymentConfirmationOpen] = React.useState(false);
   const [isReceiveConfirmationOpen, setIsReceiveConfirmationOpen] = React.useState(false);
@@ -190,7 +302,9 @@ export function PurchaseOrderDetailPage() {
 
   const purchaseReturns = React.useMemo(() => {
     if (!purchaseOrder) return [];
-    return purchaseReturnsForPO ?? [];
+    // purchaseReturnsForPO is PurchaseReturnsResponse { data: PurchaseReturn[] }
+    const returns = purchaseReturnsForPO?.data ?? purchaseReturnsForPO ?? [];
+    return Array.isArray(returns) ? returns : [];
   }, [purchaseReturnsForPO, purchaseOrder]);
   const poReceipts = React.useMemo(
     () => (purchaseOrder ? allReceipts.filter(r => r.purchaseOrderSystemId === purchaseOrder.systemId) : []),
@@ -198,26 +312,63 @@ export function PurchaseOrderDetailPage() {
   );
   
   const canReturn = React.useMemo(() => {
-    if (!purchaseOrder) return false;
+    if (!purchaseOrder || !purchaseOrder.lineItems) return false;
+    
+    // Cho phép hoàn trả nếu đã nhập kho (bất kể đã trả bao nhiêu)
+    const hasReceived = purchaseOrder.deliveryStatus === 'Đã nhập';
+    const isNotCancelled = purchaseOrder.status !== 'Đã hủy' && purchaseOrder.status !== 'Kết thúc';
+    
+    if (!hasReceived || !isNotCancelled) return false;
 
-    const totalReceived = purchaseOrder.lineItems.reduce((acc, item) => {
-      const receivedQty = poReceipts.reduce((sum, receipt) => {
-        const receiptItem = receipt.items.find(i => i.productSystemId === item.productSystemId);
-        return sum + (receiptItem ? Number(receiptItem.receivedQuantity) : 0);
-      }, 0);
-      return acc + receivedQty;
-    }, 0);
-
+    // Simplified check: allow return if deliveryStatus indicates goods were received
+    // Detailed quantity check can be done on the return page itself
     const totalReturned = allPurchaseReturns
-      .filter(pr => pr.purchaseOrderSystemId === purchaseOrder.systemId) // ✅ Fixed: Use systemId
+      .filter(pr => pr.purchaseOrderSystemId === purchaseOrder.systemId)
       .reduce((acc, pr) => acc + pr.items.reduce((sum, item) => sum + item.returnQuantity, 0), 0);
 
-    return totalReceived > totalReturned;
-  }, [purchaseOrder, poReceipts, allPurchaseReturns]);
+    // Total ordered quantity
+    const totalOrdered = purchaseOrder.lineItems.reduce((acc, item) => acc + item.quantity, 0);
+
+    // Can return if not all items have been returned
+    return totalOrdered > totalReturned;
+  }, [purchaseOrder, allPurchaseReturns]);
+  
+  // Track if auto-complete has been attempted to prevent infinite loop
+  const autoCompleteAttemptedRef = React.useRef<string | null>(null);
+  
+  // Auto-complete order when both fully paid AND fully received
+  React.useEffect(() => {
+    if (!purchaseOrder || !allPayments) return;
+    
+    // Skip if already attempted for this order
+    if (autoCompleteAttemptedRef.current === purchaseOrder.systemId) return;
+    
+    const isAlreadyComplete = purchaseOrder.status === 'Hoàn thành' || purchaseOrder.status === 'Kết thúc' || purchaseOrder.status === 'Đã hủy';
+    if (isAlreadyComplete) return;
+    
+    const isFullyReceived = purchaseOrder.deliveryStatus === 'Đã nhập';
+    const totalPaid = sumPaymentsForPurchaseOrder(allPayments, purchaseOrder);
+    const isFullyPaid = totalPaid >= purchaseOrder.grandTotal;
+    
+    if (isFullyReceived && isFullyPaid) {
+      // Mark as attempted to prevent infinite loop
+      autoCompleteAttemptedRef.current = purchaseOrder.systemId;
+      
+      console.log('[AutoComplete] Completing order:', purchaseOrder.systemId);
+      updatePO.mutate({ 
+        systemId: purchaseOrder.systemId, 
+        data: { 
+          status: 'Hoàn thành',
+          paymentStatus: 'Đã thanh toán'
+        } 
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [purchaseOrder?.systemId, purchaseOrder?.status, purchaseOrder?.deliveryStatus, purchaseOrder?.grandTotal, allPayments]);
 
   // Tính xem còn sản phẩm nào cần nhập thêm không (sau khi đã nhập và trả hàng)
   const hasRemainingItemsToReceive = React.useMemo(() => {
-    if (!purchaseOrder) return false;
+    if (!purchaseOrder || !purchaseOrder.lineItems) return false;
     
     // Tính số lượng đã nhập cho mỗi sản phẩm
     const getAlreadyReceivedQty = (productSystemId: string) => {
@@ -298,7 +449,6 @@ export function PurchaseOrderDetailPage() {
             const totalReturnValue = returnItems.reduce((sum, item) => sum + (item.returnQuantity * item.unitPrice), 0);
             
             createPurchaseReturn.mutate({
-              id: asBusinessId(''),
               purchaseOrderSystemId: asSystemId(po.systemId),
               purchaseOrderId: asBusinessId(po.id),
               supplierSystemId: asSystemId(po.supplierSystemId),
@@ -320,7 +470,6 @@ export function PurchaseOrderDetailPage() {
     setCancelDialogState({ isOpen: false, po: null });
   };
 
-  const { findById: findBranchById } = useBranchFinder();
   const { info: storeInfo } = useStoreInfoData();
   const { print } = usePrint(purchaseOrder?.branchSystemId);
 
@@ -336,13 +485,13 @@ export function PurchaseOrderDetailPage() {
     } = await import('../../lib/print/purchase-order-print-helper');
 
     const branch = findBranchById(purchaseOrder.branchSystemId);
-    const supplier = suppliers.find(s => s.systemId === purchaseOrder.supplierSystemId);
+    const supplierForPrint = findSupplierById(purchaseOrder.supplierSystemId as unknown as import('@/lib/id-types').SystemId);
 
     // Use helper to prepare print data
     const storeSettings = createStoreSettings(storeInfo);
     const poForPrint = convertPurchaseOrderForPrint(purchaseOrder, { 
       branch: branch || undefined, 
-      supplier: supplier || undefined,
+      supplier: supplierForPrint || undefined,
     });
 
     // Calculate payment totals
@@ -360,7 +509,7 @@ export function PurchaseOrderDetailPage() {
       data: printData,
       lineItems: lineItems
     });
-  }, [purchaseOrder, findBranchById, storeInfo, print, suppliers, allPayments]);
+  }, [purchaseOrder, findBranchById, storeInfo, print, findSupplierById, allPayments]);
 
   // Handle print for inventory receipt (phiếu nhập kho)
   const handlePrintReceipt = React.useCallback(async (receipt: InventoryReceipt) => {
@@ -375,7 +524,7 @@ export function PurchaseOrderDetailPage() {
     } = await import('../../lib/print/stock-in-print-helper');
 
     const branch = findBranchById(purchaseOrder.branchSystemId);
-    const supplierData = suppliers.find(s => s.systemId === purchaseOrder.supplierSystemId);
+    const supplierData = findSupplierById(purchaseOrder.supplierSystemId as unknown as import('@/lib/id-types').SystemId);
 
     // Use stock-in print helper to prepare data
     const storeSettings = createStockInStoreSettings(storeInfo);
@@ -404,7 +553,7 @@ export function PurchaseOrderDetailPage() {
       data: printData,
       lineItems: lineItems
     });
-  }, [purchaseOrder, findBranchById, storeInfo, print, suppliers]);
+  }, [purchaseOrder, findBranchById, storeInfo, print, findSupplierById]);
 
   // Handle print for purchase return (phiếu trả hàng NCC)
   const handlePrintPurchaseReturn = React.useCallback(async (purchaseReturn: PurchaseReturn) => {
@@ -419,7 +568,7 @@ export function PurchaseOrderDetailPage() {
     } = await import('../../lib/print/supplier-return-print-helper');
 
     const branch = findBranchById(purchaseOrder.branchSystemId);
-    const supplierData = suppliers.find(s => s.systemId === purchaseOrder.supplierSystemId);
+    const supplierData = findSupplierById(purchaseOrder.supplierSystemId as unknown as import('@/lib/id-types').SystemId);
 
     // Use supplier-return print helper to prepare data
     const storeSettings = createSupplierReturnStoreSettings(storeInfo);
@@ -439,7 +588,7 @@ export function PurchaseOrderDetailPage() {
       data: printData,
       lineItems: lineItems
     });
-  }, [purchaseOrder, findBranchById, storeInfo, print, suppliers]);
+  }, [purchaseOrder, findBranchById, storeInfo, print, findSupplierById]);
 
   const _printButton = React.useMemo(() => (
     <Button variant="outline" size="sm" onClick={handlePrint}>
@@ -472,23 +621,8 @@ export function PurchaseOrderDetailPage() {
     const canEdit = !isTerminalStatus && purchaseOrder.deliveryStatus === 'Chưa nhập';
     const canCancel = !isTerminalStatus && purchaseOrder.deliveryStatus === 'Chưa nhập';
 
-    // Nhóm nút bên trái (Thoát, Sao chép, In đơn)
-    const leftButtons = [
-      <Button key="exit" variant="outline" size="sm" onClick={() => router.push(ROUTES.PROCUREMENT.PURCHASE_ORDERS)} className="h-9">
-        Thoát
-      </Button>
-    ];
-
-    if (!isTerminalStatus) {
-      leftButtons.push(
-        <Button key="copy" variant="outline" size="sm" onClick={() => {
-          // Copy order logic - navigate to new order with pre-filled data
-          router.push(`${ROUTES.PROCUREMENT.PURCHASE_ORDER_NEW}?copy=${purchaseOrder.systemId}`);
-        }} className="h-9">
-          Sao chép
-        </Button>
-      );
-    }
+    // Nhóm nút bên trái (In đơn) - Sao chép đã chuyển sang gần badge
+    const leftButtons: React.ReactNode[] = [];
 
     leftButtons.push(
       <Button key="print" variant="outline" size="sm" onClick={handlePrint} className="h-9">
@@ -538,10 +672,36 @@ export function PurchaseOrderDetailPage() {
     return actionButtons;
   }, [router, purchaseOrder, canBeFinished, canReturn, finishOrder, currentUserSystemId, currentUserName, handleCancelRequest, handlePrint]);
 
+  // Badge with copy button next to it
+  const badgeWithCopy = React.useMemo(() => {
+    if (!purchaseOrder) return undefined;
+    const isTerminalStatus = purchaseOrder.status === 'Kết thúc' || purchaseOrder.status === 'Đã hủy';
+    const returnStatusVariant = purchaseOrder.returnStatus === 'Hoàn hàng toàn bộ' ? 'destructive' : 
+                                 purchaseOrder.returnStatus === 'Hoàn hàng một phần' ? 'warning' : null;
+    return (
+      <div className="flex items-center gap-2">
+        <Badge variant={statusBadgeVariant}>{purchaseOrder.status}</Badge>
+        {returnStatusVariant && (
+          <Badge variant={returnStatusVariant}>{purchaseOrder.returnStatus}</Badge>
+        )}
+        {!isTerminalStatus && (
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="h-7"
+            onClick={() => router.push(`${ROUTES.PROCUREMENT.PURCHASE_ORDER_NEW}?copy=${purchaseOrder.systemId}`)}
+          >
+            Sao chép
+          </Button>
+        )}
+      </div>
+    );
+  }, [purchaseOrder, statusBadgeVariant, router]);
+
   usePageHeader({ 
     actions,
     title: purchaseOrder?.id ? `Đơn nhập hàng ${purchaseOrder.id}` : 'Chi tiết đơn nhập hàng',
-    badge: purchaseOrder ? <Badge variant={statusBadgeVariant}>{purchaseOrder.status}</Badge> : undefined,
+    badge: badgeWithCopy,
     breadcrumb: [
       { label: 'Trang chủ', href: '/', isCurrent: false },
       { label: 'Đơn nhập hàng', href: ROUTES.PROCUREMENT.PURCHASE_ORDERS, isCurrent: false },
@@ -553,8 +713,11 @@ export function PurchaseOrderDetailPage() {
   
   const supplier = React.useMemo(() => {
     if (!purchaseOrder) return null;
-    return suppliers.find(s => s.systemId === purchaseOrder.supplierSystemId);
-  }, [purchaseOrder, suppliers]);
+    // Fallback: try supplierSystemId first, then supplierId (from API relation)
+    const supplierId = purchaseOrder.supplierSystemId || (purchaseOrder as unknown as { supplierId?: string })?.supplierId;
+    if (!supplierId) return null;
+    return findSupplierById(supplierId as unknown as import('@/lib/id-types').SystemId);
+  }, [purchaseOrder, findSupplierById]);
 
   const handlePrintPayment = React.useCallback(async (e: React.MouseEvent, item: { type: 'payment' | 'refund'; amount: number; id: string; date: string; method: string; creator: string; description: string }) => {
       if (!purchaseOrder) return;
@@ -645,7 +808,11 @@ export function PurchaseOrderDetailPage() {
 
   const supplierPurchaseOrders = React.useMemo(() => {
     if (!supplier) return [];
-    return allPurchaseOrders.filter(po => po.supplierSystemId === supplier.systemId);
+    // Filter by supplier.systemId, check both supplierSystemId and supplierId
+    return allPurchaseOrders.filter(po => {
+      const poSupplierId = po.supplierSystemId || (po as unknown as { supplierId?: string })?.supplierId;
+      return poSupplierId === supplier.systemId;
+    });
   }, [supplier, allPurchaseOrders]);
 
   const { calculatedDebt, totalReturnValueForSupplier } = React.useMemo(() => {
@@ -679,6 +846,7 @@ export function PurchaseOrderDetailPage() {
       method: p.paymentMethodName || (p as unknown as { paymentMethod?: string }).paymentMethod || 'Không xác định',
       creator: p.createdBy,
       description: p.description,
+      category: p.category, // supplier_payment or expense
     }));
 
     const receiptsForOrder = getReceiptsForPurchaseOrder(allReceiptsFinancial, purchaseOrder);
@@ -699,9 +867,10 @@ export function PurchaseOrderDetailPage() {
     return { totalPaidOnThisOrder: totalPaid, financialHistory: combinedHistory };
     }, [purchaseOrder, allPayments, allReceiptsFinancial]);
   
-  const totalReturnedValue = React.useMemo(() => 
-    (Array.isArray(purchaseReturns) ? purchaseReturns : (purchaseReturns as any)?.data || []).reduce((sum: number, pr: any) => sum + Number(pr.totalReturnValue || 0), 0),
-  [purchaseReturns]);
+  const totalReturnedValue = React.useMemo(() => {
+    const returns = Array.isArray(purchaseReturns) ? purchaseReturns : [];
+    return returns.reduce((sum, pr) => sum + Number(pr.totalReturnValue || 0), 0);
+  }, [purchaseReturns]);
 
   const actualDebt = (purchaseOrder?.grandTotal || 0) - totalReturnedValue;
   const amountRemainingOnThisOrder = actualDebt - totalPaidOnThisOrder;
@@ -719,7 +888,19 @@ export function PurchaseOrderDetailPage() {
 
   const canPay = amountRemainingOnThisOrder > 0 && purchaseOrder?.status !== 'Đã hủy' && purchaseOrder?.status !== 'Kết thúc';
 
-  // Early return if purchase order not found - after all hooks have been called
+  // Early return if loading - after all hooks have been called
+  if (isLoadingPO) {
+    return (
+      <div className="p-8">
+        <div className="max-w-2xl mx-auto text-center">
+          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4" />
+          <p className="text-body-sm text-muted-foreground">Đang tải dữ liệu...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Early return if purchase order not found
   if (!purchaseOrder) {
     return (
       <div className="p-8">
@@ -771,7 +952,7 @@ export function PurchaseOrderDetailPage() {
       }, 0);
     };
 
-    const itemsToReceive = purchaseOrder.lineItems.map(item => {
+    const itemsToReceive = (purchaseOrder.lineItems || []).map(item => {
       const alreadyReceived = getAlreadyReceivedQty(item.productSystemId);
       const remaining = item.quantity - alreadyReceived;
       return {
@@ -790,83 +971,104 @@ export function PurchaseOrderDetailPage() {
       return;
     }
     
-    const receiptData: Omit<InventoryReceipt, 'systemId'> = {
-      id: asBusinessId(''),
+    const receiptData = {
+      type: 'PURCHASE' as const,
+      branchId: purchaseOrder.branchSystemId,
       purchaseOrderSystemId: asSystemId(purchaseOrder.systemId),
       purchaseOrderId: asBusinessId(purchaseOrder.id || purchaseOrder.systemId),
       supplierSystemId: asSystemId(purchaseOrder.supplierSystemId),
       supplierName: purchaseOrder.supplierName,
-      receivedDate: formatDateCustom(getCurrentDate(), 'yyyy-MM-dd HH:mm'),
-      receiverSystemId: currentUserSystemId,
-      receiverName: currentUserName,
+      receiptDate: formatDateCustom(getCurrentDate(), 'yyyy-MM-dd HH:mm'),
       branchSystemId: asSystemId(purchaseOrder.branchSystemId),
       branchName: purchaseOrder.branchName,
-      warehouseName: purchaseOrder.branchName ? `Kho ${purchaseOrder.branchName}` : undefined,
-      items: itemsToReceive,
       notes: 'Nhập kho tự động toàn bộ sản phẩm còn lại.',
+      items: itemsToReceive.map(item => ({
+        productId: item.productSystemId,
+        productSku: item.productId,
+        productName: item.productName,
+        quantity: item.receivedQuantity,
+        unitCost: item.unitPrice,
+      })),
     };
 
-    createInventoryReceipt.mutate(receiptData);
+    // Luôn set là 'Đã nhập' vì chỉ nhập 1 lần
+    const newDeliveryStatus = 'Đã nhập';
 
-    itemsToReceive.forEach(item => {
-      const productData = products.find(p => p.systemId === item.productSystemId || p.id === item.productId);
-      // Products now store on-hand inventory in `inventoryByBranch` (Record<branchId, number>)
-      const branchSystemId = asSystemId(purchaseOrder.branchSystemId);
-      const oldStock = productData?.inventoryByBranch?.[branchSystemId] || 0;
-      
-      // Note: Inventory updates now happen server-side
-      
-      // Ghi lịch sử kho
-      createStockHistory.mutate({
-        productId: asSystemId(item.productSystemId),
-        action: 'Nhập hàng từ NCC',
-        employeeName: currentUserName,
-        date: formatDateCustom(getCurrentDate(), 'yyyy-MM-dd HH:mm'),
-        quantityChange: item.receivedQuantity,
-        newStockLevel: oldStock + item.receivedQuantity,
-        documentId: asBusinessId(purchaseOrder.id || purchaseOrder.systemId),
-        branch: purchaseOrder.branchName,
-        branchSystemId,
-      });
+    createInventoryReceipt.mutate(receiptData, {
+      onSuccess: () => {
+        // Update PO delivery status after successful receipt creation
+        // Also auto-complete if fully paid
+        const totalPaid = sumPaymentsForPurchaseOrder(allPayments, purchaseOrder);
+        const isFullyPaid = totalPaid >= purchaseOrder.grandTotal;
+        
+        const updateData: Partial<PurchaseOrder> = { 
+          deliveryStatus: newDeliveryStatus 
+        };
+        
+        // Auto-complete if fully received AND fully paid
+        if (newDeliveryStatus === 'Đã nhập' && isFullyPaid && purchaseOrder.status !== 'Hoàn thành') {
+          updateData.status = 'Hoàn thành';
+          updateData.paymentStatus = 'Đã thanh toán';
+        }
+        
+        updatePO.mutate(
+          { systemId: purchaseOrder.systemId, data: updateData },
+          {
+            onSuccess: () => {
+              setIsReceiveConfirmationOpen(false);
+              if (updateData.status === 'Hoàn thành') {
+                toast.success(`Đã nhập kho và hoàn thành đơn hàng ${purchaseOrder.id}.`);
+              } else {
+                toast.success(`Đã nhập kho thành công ${itemsToReceive.length} sản phẩm còn lại.`);
+              }
+            }
+          }
+        );
+      },
+      onError: (err) => {
+        toast.error('Lỗi', { description: err.message || 'Không thể tạo phiếu nhập kho' });
+      }
     });
-    
-    processInventoryReceipt(asSystemId(purchaseOrder.systemId)); // ✅ Fixed: Use systemId
-
-    setIsReceiveConfirmationOpen(false);
-    toast.success(`Đã nhập kho thành công ${itemsToReceive.length} sản phẩm còn lại.`);
   };
 
   const handlePaymentConfirmationSubmit = (values: PaymentConfirmationFormValues) => {
-    if (!purchaseOrder || !supplier) return;
+    console.log('[Payment] Starting payment submission...', { values, purchaseOrder, supplier });
+    
+    if (!purchaseOrder) {
+      toast.error('Không tìm thấy đơn nhập hàng');
+      return;
+    }
+    
+    if (!supplier) {
+      toast.error('Không tìm thấy nhà cung cấp');
+      return;
+    }
 
-    // Create payment document using standard helper (same as order)
-    const { document: createdPayment, error } = createPaymentDocument({
+    toast.loading('Đang tạo phiếu chi...');
+    
+    // Create payment via API mutation - API validation is flexible, cast to bypass strict TS checks
+    createPayment.mutate({
       amount: values.amount,
       description: `Thanh toán cho đơn nhập hàng ${purchaseOrder.id}${values.reference ? ` - ${values.reference}` : ''}`,
       recipientName: supplier.name,
       recipientSystemId: supplier.systemId,
-      branchSystemId: asSystemId(purchaseOrder.branchSystemId),
+      supplierId: supplier.systemId,
+      // ✅ Use correct field name for server action
+      purchaseOrderSystemId: purchaseOrder.systemId,
+      branchSystemId: purchaseOrder.branchSystemId,
+      branchId: purchaseOrder.branchSystemId,
       branchName: purchaseOrder.branchName,
       createdBy: currentUserSystemId,
       paymentMethodName: values.paymentMethod,
-      accountSystemId: values.accountSystemId ? asSystemId(values.accountSystemId) : undefined,
-      paymentTypeName: 'Thanh toán cho đơn nhập hàng',
-      recipientTargetGroupName: 'Nhà cung cấp',
-      originalDocumentId: purchaseOrder.id,
+      paymentMethod: values.paymentMethod === 'Chuyển khoản' ? 'BANK_TRANSFER' : 'CASH',
+      accountSystemId: values.accountSystemId,
+      paymentReceiptTypeName: 'Thanh toán cho đơn nhập hàng',
+      recipientTypeName: 'Nhà cung cấp',
       affectsDebt: true,
       date: values.paymentDate,
-    });
-
-    if (!createdPayment) {
-      toast.error(error || 'Không thể tạo phiếu chi. Vui lòng kiểm tra cấu hình chứng từ.');
-      return;
-    }
-    
-    // Sync payment status after payment
-    // Note: syncAllPurchaseOrderStatuses removed - handled by React Query invalidation
-    
-    setIsPaymentConfirmationOpen(false);
-    toast.success(`Đã tạo phiếu chi ${createdPayment.id} - ${formatCurrency(values.amount)} cho đơn nhập hàng ${purchaseOrder.id}.`);
+      status: 'completed',
+      category: 'supplier_payment',
+    } as unknown as Parameters<typeof createPayment.mutate>[0]);
   };
   
   const canReceiveItems = purchaseOrder.deliveryStatus !== 'Đã nhập' && purchaseOrder.status !== 'Đã hủy' && purchaseOrder.status !== 'Kết thúc' && hasRemainingItemsToReceive;
@@ -940,7 +1142,7 @@ export function PurchaseOrderDetailPage() {
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                           <div className="flex items-center gap-2">
                               <FileWarning className="h-5 w-5 text-amber-500 shrink-0" />
-                              <CardTitle className="text-base font-semibold">
+                              <CardTitle>
                                 {localPaymentStatus === 'Chưa thanh toán' 
                                   ? 'Đơn hàng chờ thanh toán' 
                                   : `Đơn hàng thanh toán ${localPaymentStatus.toLowerCase()}`}
@@ -976,7 +1178,7 @@ export function PurchaseOrderDetailPage() {
                   <CardHeader>
                       <div className="flex items-center gap-2">
                           <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" />
-                          <CardTitle className="text-base font-semibold">
+                          <CardTitle>
                             Đơn hàng thanh toán thanh toán toàn bộ
                           </CardTitle>
                       </div>
@@ -1011,23 +1213,19 @@ export function PurchaseOrderDetailPage() {
               <CardHeader>
                   <div className="flex items-center gap-2 text-green-600">
                       <CheckCircle2 className="h-5 w-5" />
-                      <CardTitle className="text-h3">Nhập hàng: Đã nhập kho</CardTitle>
+                      <CardTitle size="lg">Nhập hàng: Đã nhập kho</CardTitle>
                   </div>
               </CardHeader>
           </Card>
       );
-  } else { // 'Chưa nhập' or 'Đã nhập một phần'
-      const title = purchaseOrder.deliveryStatus === 'Chưa nhập'
-          ? 'Nhập hàng: Chưa nhập kho'
-          : 'Nhập hàng: Đã nhập một phần';
-      
+  } else { // 'Chưa nhập'
       receivingSection = (
           <Card>
               <CardHeader>
                   <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                           <Package className="h-5 w-5 text-amber-500" />
-                          <CardTitle className="text-h3">{title}</CardTitle>
+                          <CardTitle size="lg">Nhập hàng: Chưa nhập kho</CardTitle>
                       </div>
                       {canReceiveItems && (
                         <Button size="sm" onClick={handleReceiveAllItems}>
@@ -1059,7 +1257,7 @@ export function PurchaseOrderDetailPage() {
                       <CardHeader>
                         <div className="flex items-center gap-2">
                           <Users className="h-5 w-5 text-muted-foreground" />
-                          <CardTitle className="text-h3">Thông tin nhà cung cấp</CardTitle>
+                          <CardTitle size="lg">Thông tin nhà cung cấp</CardTitle>
                         </div>
                       </CardHeader>
                       <CardContent className="overflow-y-auto" style={{maxHeight: 'calc(300px - 80px)'}}>
@@ -1102,12 +1300,12 @@ export function PurchaseOrderDetailPage() {
               <div className="lg:col-span-1">
                   <Card className="h-75 flex flex-col">
                       <CardHeader>
-                        <CardTitle className="text-h3">Thông tin đơn nhập hàng</CardTitle>
+                        <CardTitle size="lg">Thông tin đơn nhập hàng</CardTitle>
                       </CardHeader>
                       <CardContent className="flex-1 overflow-y-auto text-body-sm space-y-3">
-                          <DetailField label="Chi nhánh" value={purchaseOrder.branchName} />
+                          <DetailField label="Chi nhánh" value={resolvedBranchName} />
                           <DetailField label="Chính sách giá" value="Giá nhập" />
-                          <DetailField label="Nhân viên phụ trách" value={purchaseOrder.buyer} />
+                          <DetailField label="Nhân viên phụ trách" value={resolvedBuyerName} />
                           <DetailField label="Ngày đặt" value={formatDateCustom(parseDate(purchaseOrder.orderDate) || getCurrentDate(), 'dd/MM/yyyy')} />
                           <DetailField label="Ngày giao" value={formatDateCustom(parseDate(purchaseOrder.deliveryDate ?? '') || getCurrentDate(), 'dd/MM/yyyy')} />
                           <DetailField label="Tham chiếu" value={purchaseOrder.reference || '-'} />
@@ -1125,7 +1323,7 @@ export function PurchaseOrderDetailPage() {
 
           <Card>
               <CardHeader>
-                  <CardTitle className="text-h3">Thông tin sản phẩm</CardTitle>
+                  <CardTitle size="lg">Thông tin sản phẩm</CardTitle>
               </CardHeader>
               <CardContent>
                   <div className="border rounded-md overflow-x-auto">
@@ -1138,14 +1336,15 @@ export function PurchaseOrderDetailPage() {
                                   <TableHead className="w-25">Loại SP</TableHead>
                                   <TableHead className="w-20">Đơn vị</TableHead>
                                   <TableHead className="w-20 text-center">SL nhập</TableHead>
-                                  <TableHead className="w-32.5 text-right">Đơn giá</TableHead>
+                                  <TableHead className="w-32.5 text-right">Đơn giá nhập</TableHead>
+                                  <TableHead className="w-32.5 text-right">Giá vốn</TableHead>
                                   <TableHead className="w-20 text-right">Thuế</TableHead>
                                   <TableHead className="w-25 text-right">Chiết khấu</TableHead>
                                   <TableHead className="w-32.5 text-right">Thành tiền</TableHead>
                               </TableRow>
                           </TableHeader>
                           <TableBody>
-                              {purchaseOrder.lineItems.map((item, index) => {
+                              {(purchaseOrder.lineItems || []).map((item, index) => {
                                   const lineGross = item.quantity * item.unitPrice;
                                   const discountAmount = item.discountType === 'percentage'
                                     ? lineGross * (item.discount / 100)
@@ -1155,6 +1354,13 @@ export function PurchaseOrderDetailPage() {
                                   const productTypeName = product?.productTypeSystemId 
                                     ? getProductTypeName(product.productTypeSystemId)
                                     : 'Hàng hóa';
+                                  
+                                  // Tính giá vốn cho lô này = Giá nhập + Phí phân bổ
+                                  const totalQty = (purchaseOrder.lineItems || []).reduce((sum, i) => sum + i.quantity, 0);
+                                  const totalFees = Number(purchaseOrder.shippingFee || 0) + Number(purchaseOrder.tax || 0);
+                                  const feePerUnit = totalQty > 0 ? totalFees / totalQty : 0;
+                                  const itemCostPrice = Math.round(item.unitPrice + feePerUnit);
+                                  
                                   return (
                                   <TableRow key={item.productSystemId}>
                                       <TableCell className="text-center">{index + 1}</TableCell>
@@ -1189,6 +1395,7 @@ export function PurchaseOrderDetailPage() {
                                       <TableCell>{item.unit || '-'}</TableCell>
                                       <TableCell className="text-center">{item.quantity}</TableCell>
                                       <TableCell className="text-right">{formatCurrency(item.unitPrice)}</TableCell>
+                                      <TableCell className="text-right text-muted-foreground">{formatCurrency(itemCostPrice)}</TableCell>
                                       <TableCell className="text-right">{item.taxRate}%</TableCell>
                                       <TableCell className="text-right">
                                         {item.discountType === 'percentage' ? `${item.discount || 0}%` : formatCurrency(item.discount || 0)}
@@ -1201,12 +1408,12 @@ export function PurchaseOrderDetailPage() {
                               <TableRow>
                                   <TableCell colSpan={5} className="text-right font-bold">Tổng cộng</TableCell>
                                   <TableCell className="text-center font-bold">
-                                    {purchaseOrder.lineItems.reduce((sum, item) => sum + item.quantity, 0)}
+                                    {(purchaseOrder.lineItems || []).reduce((sum, item) => sum + item.quantity, 0)}
                                   </TableCell>
-                                  <TableCell colSpan={3} />
+                                  <TableCell colSpan={4} />
                                   <TableCell className="text-body-sm font-bold text-right">
                                     {formatCurrency(
-                                      purchaseOrder.lineItems.reduce((sum, item) => {
+                                      (purchaseOrder.lineItems || []).reduce((sum, item) => {
                                         const lineGross = item.quantity * item.unitPrice;
                                         const discountAmount = item.discountType === 'percentage'
                                           ? lineGross * (item.discount / 100)
@@ -1218,10 +1425,10 @@ export function PurchaseOrderDetailPage() {
                               </TableRow>
                               
                               <TableRow>
-                                  <TableCell colSpan={9} className="text-right text-muted-foreground">Tổng tiền hàng</TableCell>
+                                  <TableCell colSpan={10} className="text-right text-muted-foreground">Tổng tiền hàng</TableCell>
                                   <TableCell className="text-right">
                                     {formatCurrency(
-                                      purchaseOrder.lineItems.reduce((sum, item) => {
+                                      (purchaseOrder.lineItems || []).reduce((sum, item) => {
                                         const lineGross = item.quantity * item.unitPrice;
                                         const discountAmount = item.discountType === 'percentage'
                                           ? lineGross * (item.discount / 100)
@@ -1233,7 +1440,7 @@ export function PurchaseOrderDetailPage() {
                               </TableRow>
 
                               <TableRow>
-                                  <TableCell colSpan={9} className="text-right text-muted-foreground">
+                                  <TableCell colSpan={10} className="text-right text-muted-foreground">
                                     Chiết khấu {purchaseOrder.discountType === 'percentage' && (purchaseOrder.discount ?? 0) > 0 ? `(${purchaseOrder.discount}%)` : ''}
                                   </TableCell>
                                   <TableCell className="text-right text-red-600">
@@ -1246,17 +1453,17 @@ export function PurchaseOrderDetailPage() {
                               </TableRow>
 
                               <TableRow>
-                                  <TableCell colSpan={9} className="text-right text-muted-foreground">Thuế</TableCell>
-                                  <TableCell className="text-right">{formatCurrency(purchaseOrder.tax)}</TableCell>
-                              </TableRow>
-
-                              <TableRow>
-                                  <TableCell colSpan={9} className="text-right text-muted-foreground">Phí vận chuyển</TableCell>
+                                  <TableCell colSpan={10} className="text-right text-muted-foreground">Phí vận chuyển</TableCell>
                                   <TableCell className="text-right">{formatCurrency(purchaseOrder.shippingFee)}</TableCell>
                               </TableRow>
 
                               <TableRow>
-                                  <TableCell colSpan={9} className="text-h3 font-bold text-right">Thành tiền</TableCell>
+                                  <TableCell colSpan={10} className="text-right text-muted-foreground">Chi phí khác</TableCell>
+                                  <TableCell className="text-right">{formatCurrency(purchaseOrder.tax)}</TableCell>
+                              </TableRow>
+
+                              <TableRow>
+                                  <TableCell colSpan={10} className="text-h3 font-bold text-right">Thành tiền</TableCell>
                                   <TableCell className="text-h3 font-bold text-right">
                                     {formatCurrency(purchaseOrder.grandTotal)}
                                   </TableCell>
@@ -1297,7 +1504,7 @@ export function PurchaseOrderDetailPage() {
 
           {/* Activity History */}
           <ActivityHistory 
-            history={purchaseOrder.activityHistory || []}
+            history={[]} // TODO: Fetch from ActivityLog table
             title="Lịch sử thao tác"
             emptyMessage="Chưa có lịch sử thay đổi"
             showMetadata

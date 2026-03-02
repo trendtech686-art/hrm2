@@ -35,6 +35,7 @@ interface DeliveryMethodCardProps {
   // For shipping-partner tab
   shippingRequest?: ShippingCalculationRequest | null | undefined;
   customerAddress?: ShippingAddress | null | undefined;
+  pickupAddress?: ShippingAddress | null | undefined; // ✅ NEW: Pickup address for showing error message
   packageInfo?: PackageInfo | undefined;
   selectedService?: ShippingService | null | undefined;
   onServiceSelect?: ((service: ShippingService | null) => void) | undefined;
@@ -58,6 +59,7 @@ export function DeliveryMethodCard({
   onMethodChange,
   shippingRequest,
   customerAddress,
+  pickupAddress,
   packageInfo,
   selectedService,
   onServiceSelect,
@@ -468,10 +470,11 @@ export function DeliveryMethodCard({
                 <Package className="h-12 w-12 mx-auto text-muted-foreground" />
                 <div>
                   <p className="text-sm font-medium">Chưa đủ thông tin để tính phí vận chuyển</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {!customerAddress ? '• Chưa có địa chỉ khách hàng' : ''}
-                    {customerAddress && weight <= 0 ? '• Khối lượng phải lớn hơn 0' : ''}
-                  </p>
+                  <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
+                    {!pickupAddress && <p>• Chưa cấu hình địa chỉ lấy hàng cho chi nhánh</p>}
+                    {!customerAddress && <p>• Chưa có địa chỉ khách hàng</p>}
+                    {customerAddress && pickupAddress && weight <= 0 && <p>• Khối lượng phải lớn hơn 0</p>}
+                  </div>
                 </div>
               </div>
             )}

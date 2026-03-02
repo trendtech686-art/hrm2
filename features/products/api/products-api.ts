@@ -38,12 +38,9 @@ export interface PaginatedResponse<T> {
 export interface CreateProductInput {
   id?: string;  // Business ID (auto-generated if not provided)
   name: string;
-  sku?: string;
   barcode?: string;
   categoryId?: string;
   brandId?: string;
-  sellingPrice: number;
-  costPrice?: number;
   description?: string;
   images?: string[];
   // Optional fields 
@@ -51,7 +48,7 @@ export interface CreateProductInput {
   productTypeSystemId?: string;
   unit?: string;
   prices?: Record<string, number>;
-  pkgxId?: number | undefined;
+  pkgxId?: number | null;
   status?: string;
   inventoryByBranch?: Record<string, number>;
   committedByBranch?: Record<string, number>;
@@ -92,7 +89,12 @@ export async function fetchProducts(params: ProductsParams = {}): Promise<Pagina
     throw new Error(`Failed to fetch products: ${res.statusText}`);
   }
   
-  return res.json();
+  const json = await res.json();
+  // API returns { data: Product[], pagination: {...} }
+  return {
+    data: json.data ?? [],
+    pagination: json.pagination,
+  };
 }
 
 /**
@@ -107,7 +109,9 @@ export async function fetchProduct(id: string): Promise<Product> {
     throw new Error(`Failed to fetch product ${id}: ${res.statusText}`);
   }
   
-  return res.json();
+  const json = await res.json();
+  // API returns { success: true, data: Product }
+  return json.data ?? json;
 }
 
 /**
@@ -194,6 +198,49 @@ export async function fetchProductInventory(productId: string): Promise<Record<s
   return res.json();
 }
 
+/**
+ * Validate stock availability for multiple products
+ * Returns list of products that don't have enough stock
+ */
+export interface StockValidationItem {
+  productSystemId: string;
+  productName: string;
+  quantity: number;
+}
+
+export interface StockValidationResult {
+  valid: boolean;
+  errors: Array<{
+    productSystemId: string;
+    productName: string;
+    requested: number;
+    available: number;
+  }>;
+}
+
+export async function validateStockAvailability(
+  branchSystemId: string,
+  items: StockValidationItem[],
+  existingOrderSystemId?: string
+): Promise<StockValidationResult> {
+  const res = await fetch(`${API_BASE}/validate-stock`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({
+      branchSystemId,
+      items,
+      existingOrderSystemId,
+    }),
+  });
+  
+  if (!res.ok) {
+    throw new Error(`Failed to validate stock: ${res.statusText}`);
+  }
+  
+  return res.json();
+}
+
 // ============ TRASH FUNCTIONS ============
 
 /**
@@ -243,4 +290,34 @@ export async function permanentDeleteProduct(systemId: string): Promise<void> {
     const errorData = await res.json().catch(() => ({}));
     throw new Error(errorData.error || errorData.message || `Failed to permanently delete product: ${res.statusText}`);
   }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Bulk Operations
+// ═══════════════════════════════════════════════════════════════
+
+async function bulkAction(action: string, systemIds: string[], status?: string): Promise<{ updatedCount: number }> {
+  const res = await fetch(`${API_BASE}/bulk`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ action, systemIds, status }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || err.message || 'Bulk action failed');
+  }
+  return res.json();
+}
+
+export function bulkDeleteProducts(systemIds: string[]) {
+  return bulkAction('delete', systemIds);
+}
+
+export function bulkRestoreProducts(systemIds: string[]) {
+  return bulkAction('restore', systemIds);
+}
+
+export function bulkUpdateProductStatus(systemIds: string[], status: string) {
+  return bulkAction('updateStatus', systemIds, status);
 }

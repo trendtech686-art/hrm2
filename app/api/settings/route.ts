@@ -2,6 +2,8 @@ import { prisma } from '@/lib/prisma'
 import { Prisma } from '@/generated/prisma/client'
 import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
 import { createSettingSchema, bulkUpdateSettingsSchema } from './validation'
+import { cache, CACHE_TTL } from '@/lib/cache'
+import { generateIdWithPrefix } from '@/lib/id-generator'
 
 // GET /api/settings - Get all settings
 export async function GET(request: Request) {
@@ -12,6 +14,15 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const group = searchParams.get('group')
     const key = searchParams.get('key')
+
+    // Create cache key based on params
+    const cacheKey = `settings:${group || 'all'}:${key || 'all'}`
+    
+    // Try cache first
+    const cached = cache.get(cacheKey)
+    if (cached) {
+      return apiSuccess(cached)
+    }
 
     const where: Prisma.SettingWhereInput = {}
 
@@ -30,6 +41,7 @@ export async function GET(request: Request) {
 
     // If single key requested, return just the value
     if (key && settings.length === 1) {
+      cache.set(cacheKey, settings[0], CACHE_TTL.LONG)
       return apiSuccess(settings[0])
     }
 
@@ -42,7 +54,9 @@ export async function GET(request: Request) {
       return acc
     }, {})
 
-    return apiSuccess({ data: settings, grouped })
+    const result = { data: settings, grouped }
+    cache.set(cacheKey, result, CACHE_TTL.LONG) // Cache 30 phút
+    return apiSuccess(result)
   } catch (error) {
     console.error('Error fetching settings:', error)
     return apiError('Failed to fetch settings', 500)
@@ -73,7 +87,7 @@ export async function POST(request: Request) {
         description: body.description,
       },
       create: {
-        systemId: `SET${String(Date.now()).slice(-6).padStart(6, '0')}`,
+        systemId: await generateIdWithPrefix('SET', prisma),
         key: body.key,
         group: body.group,
         type: body.type || 'string',
@@ -83,6 +97,9 @@ export async function POST(request: Request) {
       },
     })
 
+    // Invalidate settings cache
+    cache.deletePattern('^settings:')
+    
     return apiSuccess(setting)
   } catch (error) {
     console.error('Error saving setting:', error)
@@ -102,31 +119,44 @@ export async function PUT(request: Request) {
   const body = validation.data
 
   try {
-    const results = await prisma.$transaction(
-      body.settings.map((setting: { key: string; group: string; value?: unknown; description?: string; type?: string; category?: string }) =>
-        prisma.setting.upsert({
-          where: {
-            key_group: {
-              key: setting.key,
-              group: setting.group,
-            },
-          },
-          update: {
-            value: setting.value as Prisma.InputJsonValue,
-            description: setting.description,
-          },
-          create: {
-            systemId: `SET${String(Date.now()).slice(-6).padStart(6, '0')}`,
+    const results: Array<{
+      systemId: string;
+      key: string;
+      value: Prisma.JsonValue;
+      type: string;
+      category: string;
+      description: string | null;
+      updatedAt: Date;
+      updatedBy: string | null;
+      group: string;
+    }> = [];
+    for (const setting of body.settings as Array<{ key: string; group: string; value?: unknown; description?: string; type?: string; category?: string }>) {
+      const result = await prisma.setting.upsert({
+        where: {
+          key_group: {
             key: setting.key,
             group: setting.group,
-            type: setting.type || 'string',
-            category: setting.category || 'system',
-            value: setting.value as Prisma.InputJsonValue,
-            description: setting.description,
           },
-        })
-      )
-    )
+        },
+        update: {
+          value: setting.value as Prisma.InputJsonValue,
+          description: setting.description,
+        },
+        create: {
+          systemId: await generateIdWithPrefix('SET', prisma),
+          key: setting.key,
+          group: setting.group,
+          type: setting.type || 'string',
+          category: setting.category || 'system',
+          value: setting.value as Prisma.InputJsonValue,
+          description: setting.description,
+        },
+      });
+      results.push(result);
+    }
+
+    // Invalidate settings cache
+    cache.deletePattern('^settings:')
 
     return apiSuccess({ data: results })
   } catch (error) {

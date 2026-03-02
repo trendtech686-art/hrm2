@@ -3,6 +3,7 @@ import { Prisma } from '@/generated/prisma/client'
 import type { SupplierStatus } from '@/lib/types/prisma-extended'
 import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
 import { createSupplierSchema } from './validation'
+import { generateNextIdsWithTx } from '@/lib/id-system'
 
 // GET /api/suppliers - List all suppliers
 export async function GET(request: Request) {
@@ -15,6 +16,8 @@ export async function GET(request: Request) {
     const search = searchParams.get('search') || ''
     const status = searchParams.get('status')
     const all = searchParams.get('all') === 'true'
+    const sortBy = searchParams.get('sortBy') || 'createdAt'
+    const sortOrder = (searchParams.get('sortOrder') || 'desc') as 'asc' | 'desc'
 
     const where: Prisma.SupplierWhereInput = {
       isDeleted: false,
@@ -26,10 +29,11 @@ export async function GET(request: Request) {
         { id: { contains: search, mode: 'insensitive' } },
         { phone: { contains: search } },
         { email: { contains: search, mode: 'insensitive' } },
+        { taxCode: { contains: search, mode: 'insensitive' } },
       ]
     }
 
-    if (status) {
+    if (status && status !== 'all') {
       where.status = status as SupplierStatus
     }
 
@@ -38,15 +42,28 @@ export async function GET(request: Request) {
         where,
         orderBy: { name: 'asc' },
       })
-      return apiSuccess({ data: suppliers })
+      // Transform dates to ISO strings
+      const transformedSuppliers = suppliers.map(supplier => ({
+        ...supplier,
+        createdAt: supplier.createdAt?.toISOString() || null,
+        updatedAt: supplier.updatedAt?.toISOString() || null,
+        deletedAt: supplier.deletedAt?.toISOString() || null,
+        currentDebt: supplier.currentDebt ? Number(supplier.currentDebt) : 0,
+        totalDebt: supplier.totalDebt ? Number(supplier.totalDebt) : 0,
+        totalPurchased: supplier.totalPurchased ? Number(supplier.totalPurchased) : 0,
+      }));
+      return apiSuccess({ data: transformedSuppliers })
     }
+
+    // Build orderBy
+    const orderBy: Prisma.SupplierOrderByWithRelationInput = { [sortBy]: sortOrder }
 
     const [suppliers, total] = await Promise.all([
       prisma.supplier.findMany({
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy,
         include: {
           _count: { select: { purchaseOrders: true } },
         },
@@ -54,7 +71,18 @@ export async function GET(request: Request) {
       prisma.supplier.count({ where }),
     ])
 
-    return apiPaginated(suppliers, { page, limit, total })
+    // Transform dates to ISO strings
+    const transformedSuppliers = suppliers.map(supplier => ({
+      ...supplier,
+      createdAt: supplier.createdAt?.toISOString() || null,
+      updatedAt: supplier.updatedAt?.toISOString() || null,
+      deletedAt: supplier.deletedAt?.toISOString() || null,
+      currentDebt: supplier.currentDebt ? Number(supplier.currentDebt) : 0,
+      totalDebt: supplier.totalDebt ? Number(supplier.totalDebt) : 0,
+      totalPurchased: supplier.totalPurchased ? Number(supplier.totalPurchased) : 0,
+    }));
+
+    return apiPaginated(transformedSuppliers, { page, limit, total })
   } catch (error) {
     console.error('Error fetching suppliers:', error)
     return apiError('Failed to fetch suppliers', 500)
@@ -72,32 +100,34 @@ export async function POST(request: Request) {
   try {
     const body = result.data
 
-    // Generate business ID if not provided
-    if (!body.id) {
-      const lastSupplier = await prisma.supplier.findFirst({
-        orderBy: { createdAt: 'desc' },
-        select: { id: true },
-      })
-      const lastNum = lastSupplier?.id 
-        ? parseInt(lastSupplier.id.replace('NCC', '')) 
-        : 0
-      body.id = `NCC${String(lastNum + 1).padStart(4, '0')}`
-    }
+    const supplier = await prisma.$transaction(async (tx) => {
+      // Generate IDs using unified ID system
+      const { systemId, businessId } = await generateNextIdsWithTx(
+        tx,
+        'suppliers',
+        body.id?.trim() || undefined
+      );
 
-    const supplier = await prisma.supplier.create({
-      data: {
-        systemId: `SUP${String(Date.now()).slice(-6).padStart(6, '0')}`,
-        id: body.id,
-        name: body.name,
-        contactPerson: body.contactPerson,
-        phone: body.phone,
-        email: body.email,
-        address: body.address,
-        taxCode: body.taxCode,
-        bankAccount: body.bankAccount,
-        website: body.website,
-      },
-    })
+      return tx.supplier.create({
+        data: {
+          systemId,
+          id: businessId,
+          name: body.name,
+          contactPerson: body.contactPerson || '',
+          phone: body.phone || '',
+          email: body.email || '',
+          address: body.address || '',
+          taxCode: body.taxCode || '',
+          bankAccount: body.bankAccount || '',
+          bankName: body.bankName || '',
+          website: body.website || '',
+          accountManager: body.accountManager || '',
+          currentDebt: body.currentDebt || 0,
+          notes: body.notes || '',
+          status: body.status || 'Đang Giao Dịch',
+        },
+      });
+    });
 
     return apiSuccess(supplier, 201)
   } catch (error) {

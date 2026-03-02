@@ -6,7 +6,7 @@ import React from 'react';
 import { toast } from 'sonner';
 import type { Employee } from '@/lib/types/prisma-extended';
 import { type SystemId } from '@/lib/id-types';
-import { useEmployeeMutations, useDeletedEmployees, useTrashMutations } from './use-employees';
+import { useEmployeeMutations, useDeletedEmployees, useTrashMutations, type UpdateEmployeeInput } from './use-employees';
 import { useActiveEmployees } from './use-all-employees';
 
 export interface DeleteEmployeeState {
@@ -122,7 +122,7 @@ export function useEmployeeBulkActions() {
       label: "Đang làm việc",
       onSelect: (selectedRows: Employee[], clearSelection: () => void) => {
         Promise.all(selectedRows.map(emp =>
-          update.mutateAsync({ systemId: emp.systemId, employmentStatus: "Đang làm việc" } as any)
+          update.mutateAsync({ systemId: emp.systemId, employmentStatus: "Đang làm việc" } as UpdateEmployeeInput)
         )).then(() => {
           toast.success("Đã cập nhật trạng thái", {
             description: `${selectedRows.length} nhân viên đã chuyển sang "Đang làm việc"`,
@@ -135,7 +135,7 @@ export function useEmployeeBulkActions() {
       label: "Nghỉ việc",
       onSelect: (selectedRows: Employee[], clearSelection: () => void) => {
         Promise.all(selectedRows.map(emp =>
-          update.mutateAsync({ systemId: emp.systemId, employmentStatus: "Đã nghỉ việc" } as any)
+          update.mutateAsync({ systemId: emp.systemId, employmentStatus: "Đã nghỉ việc" } as UpdateEmployeeInput)
         )).then(() => {
           toast.success("Đã cập nhật trạng thái", {
             description: `${selectedRows.length} nhân viên đã chuyển sang "Đã nghỉ việc"`,
@@ -182,7 +182,7 @@ export function useEmployeeImportHandler() {
             continue;
           }
           // Update existing
-          await update.mutateAsync({ systemId: existingEmployee.systemId, ...item } as any);
+          await update.mutateAsync({ systemId: existingEmployee.systemId, ...item } as UpdateEmployeeInput);
           updated++;
         } else {
           if (mode === 'update-only') {

@@ -267,10 +267,26 @@ export const formatMonthYear = (date: Date | string | null | undefined): string 
 
 /**
  * Parse date string to Date object
- * Supports: DD/MM/YYYY, YYYY-MM-DD (ISO), ISO datetime
+ * Supports: DD/MM/YYYY, YYYY-MM-DD (ISO), ISO datetime, Date objects
  */
-export const parseDate = (dateString: string): Date | null => {
+export const parseDate = (dateString: string | Date | number | null | undefined): Date | null => {
   if (!dateString) return null;
+  
+  // Handle Date objects directly
+  if (dateString instanceof Date) {
+    return isValid(dateString) ? dateString : null;
+  }
+  
+  // Handle numbers (timestamps)
+  if (typeof dateString === 'number') {
+    const d = new Date(dateString);
+    return isValid(d) ? d : null;
+  }
+  
+  // Ensure it's a string
+  if (typeof dateString !== 'string') {
+    return null;
+  }
   
   // Try ISO format first (YYYY-MM-DD or YYYY-MM-DDTHH:mm:ss)
   if (dateString.includes('-') && dateString.length >= 10) {
@@ -286,8 +302,25 @@ export const parseDate = (dateString: string): Date | null => {
 /**
  * Parse datetime string DD/MM/YYYY HH:mm to Date object
  */
-export const parseDateTime = (dateTimeString: string): Date | null => {
+export const parseDateTime = (dateTimeString: string | Date | number | null | undefined): Date | null => {
   if (!dateTimeString) return null;
+  
+  // Handle Date objects directly
+  if (dateTimeString instanceof Date) {
+    return isValid(dateTimeString) ? dateTimeString : null;
+  }
+  
+  // Handle numbers (timestamps)
+  if (typeof dateTimeString === 'number') {
+    const d = new Date(dateTimeString);
+    return isValid(d) ? d : null;
+  }
+  
+  // Ensure it's a string
+  if (typeof dateTimeString !== 'string') {
+    return null;
+  }
+  
   const parsed = dateFnsParse(dateTimeString, 'dd/MM/yyyy HH:mm', new Date());
   return isValid(parsed) ? parsed : null;
 };

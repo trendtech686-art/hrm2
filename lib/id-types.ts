@@ -1,56 +1,56 @@
 /**
- * Type-safe ID System
+ * 🏷️ BRANDED TYPES FOR TYPE SAFETY
  * 
- * Prevents mixing systemId with business ID at compile time
+ * Lightweight branded types - prevents mixing systemId with businessId at compile time.
+ * For full ID management system, see @/lib/id-system
+ * 
+ * @see {@link @/lib/id-system} for ID generation and database operations
  */
 
-// Branded types for type safety
+import { z } from 'zod';
+
+// ========================================
+// BRANDED TYPES
+// ========================================
+
+/**
+ * SystemId - Internal unique identifier
+ * Used for: Database queries, foreign keys, routing
+ * Example: "EMP000001", "CUSTOMER000001", "ORDER000001"
+ */
 export type SystemId = string & { readonly __brand: 'SystemId' };
+
+/**
+ * BusinessId - User-facing display identifier
+ * Used for: UI display, breadcrumbs, user communication
+ * Example: "NV000001", "KH000001", "DH000001"
+ */
 export type BusinessId = string & { readonly __brand: 'BusinessId' };
 
 /**
- * Create a SystemId from a string
- * Use this when you know for sure it's a systemId
+ * Create a branded SystemId
  */
 export function asSystemId(id: string): SystemId {
   return id as SystemId;
 }
 
 /**
- * Create a BusinessId from a string
- * Use this when you know for sure it's a business ID
+ * Create a branded BusinessId
  */
 export function asBusinessId(id: string): BusinessId {
   return id as BusinessId;
 }
 
-/**
- * Check if a string is a valid systemId format
- */
-export function isSystemIdFormat(id: string): boolean {
-  // SystemId: 8 digits + prefix (e.g., NV00000001, VOUCHER00000123)
-  return /^[A-Z]+\d{8}$/.test(id);
-}
+// ========================================
+// INTERFACES
+// ========================================
 
 /**
- * Check if a string is a valid business ID format
+ * Entity with dual IDs (SystemId + BusinessId)
  */
-export function isBusinessIdFormat(id: string): boolean {
-  // Business ID: shorter, variable length (e.g., NV001, PT000001)
-  return /^[A-Z]+\d{3,6}$/.test(id);
-}
-
-/**
- * Safely convert unknown ID to proper type
- */
-export function parseId(id: string): { type: 'system' | 'business'; value: SystemId | BusinessId } {
-  if (isSystemIdFormat(id)) {
-    return { type: 'system', value: asSystemId(id) };
-  }
-  if (isBusinessIdFormat(id)) {
-    return { type: 'business', value: asBusinessId(id) };
-  }
-  throw new Error(`Invalid ID format: ${id}`);
+export interface DualIDEntity {
+  systemId: SystemId;
+  id: BusinessId;
 }
 
 /**
@@ -62,88 +62,25 @@ export interface IDPair {
 }
 
 /**
- * Entity with dual IDs
- */
-export interface DualIDEntity {
-  systemId: SystemId;
-  id: BusinessId;
-}
-
-/**
  * Store methods with type-safe IDs
  */
 export interface TypeSafeStore<T extends DualIDEntity> {
-  /** Find by systemId (for queries, relationships) */
   findBySystemId(systemId: SystemId): T | null;
-  
-  /** Find by business ID (for user input, display) */
   findByBusinessId(businessId: BusinessId): T | null;
-  
-  /** Update by systemId (always use systemId for updates) */
   updateBySystemId(systemId: SystemId, updates: Partial<T>): void;
-  
-  /** Delete by systemId (always use systemId for deletes) */
   deleteBySystemId(systemId: SystemId): void;
 }
 
-/**
- * Route params with type-safe IDs
- */
-export interface RouteParams {
-  systemId?: SystemId;
-  id?: BusinessId;
-}
-
-/**
- * Link builder - always uses systemId
- */
-export function buildEntityLink(path: string, entity: DualIDEntity): string {
-  return path.replace(':systemId', entity.systemId);
-}
-
-/**
- * Display ID - always uses business ID
- */
-export function getDisplayId(entity: DualIDEntity): string {
-  return entity.id;
-}
-
-/**
- * Runtime guard: ensures a string is valid SystemId format and casts it
- * Logs warning if format is invalid
- */
-export function ensureSystemId(id: string, _context?: string): SystemId {
-  if (!isSystemIdFormat(id)) {
-    // Warning: Invalid format, but proceed anyway for legacy compatibility
-  }
-  return asSystemId(id);
-}
-
-/**
- * Runtime guard: ensures a string is valid BusinessId format and casts it
- * Logs warning if format is invalid
- */
-export function ensureBusinessId(id: string, _context?: string): BusinessId {
-  if (!isBusinessIdFormat(id)) {
-    // Warning: Invalid format, but proceed anyway for legacy compatibility
-  }
-  return asBusinessId(id);
-}
-
-// ============================================
+// ========================================
 // ZOD SCHEMA HELPERS
-// ============================================
-
-import { z } from 'zod';
+// ========================================
 
 /**
- * Create a Zod schema for SystemId
- * Use this instead of `z.string() as z.ZodType<SystemId>`
+ * Zod schema for SystemId validation
  */
 export const systemIdSchema = z.string().transform((val) => asSystemId(val));
 
 /**
- * Create a Zod schema for BusinessId
- * Use this instead of `z.string() as z.ZodType<BusinessId>`
+ * Zod schema for BusinessId validation
  */
 export const businessIdSchema = z.string().transform((val) => asBusinessId(val));

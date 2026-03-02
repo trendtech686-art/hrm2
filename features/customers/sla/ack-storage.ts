@@ -8,6 +8,7 @@
 import { SLA_ACKNOWLEDGEMENTS_KEY } from './constants';
 import type { CustomerSlaAckMap, CustomerSlaAcknowledgement, CustomerSlaType, SlaActivityLog } from './types';
 import type { SystemId } from '@/lib/id-types';
+import { generateSubEntityId } from '@/lib/id-utils';
 
 const SLA_ACTIVITY_LOG_KEY = 'customer-sla-activity-log';
 const PREFERENCE_CATEGORY = 'customer-sla';
@@ -158,7 +159,7 @@ export function setAcknowledgement(customerId: SystemId, ack: CustomerSlaAcknowl
   
   // Log activity
   addActivityLog({
-    id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    id: generateSubEntityId('ack'),
     customerId,
     slaType: ack.slaType,
     actionType: ack.actionType,

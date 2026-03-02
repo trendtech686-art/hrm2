@@ -2,6 +2,10 @@ import { prisma } from '@/lib/prisma'
 import { Prisma, CustomerStatus, CustomerLifecycle } from '@/generated/prisma/client'
 import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
 import { createCustomerSchema } from './validation'
+import { generateNextIdsWithTx } from '@/lib/id-system'
+
+// Route segment config - force dynamic since we use auth and query params
+export const dynamic = 'force-dynamic'
 
 // GET /api/customers - List all customers
 export async function GET(request: Request) {
@@ -14,6 +18,12 @@ export async function GET(request: Request) {
     const { page, limit, skip } = parsePagination(searchParams)
     const search = searchParams.get('search') || ''
     const status = searchParams.get('status')
+    const type = searchParams.get('type')
+    const sortBy = searchParams.get('sortBy') || 'createdAt'
+    const sortOrder = (searchParams.get('sortOrder') || 'desc') as 'asc' | 'desc'
+    const dateFrom = searchParams.get('dateFrom')
+    const dateTo = searchParams.get('dateTo')
+    const debtFilter = searchParams.get('debtFilter')
 
     const where: Prisma.CustomerWhereInput = {
       isDeleted: false,
@@ -26,19 +36,89 @@ export async function GET(request: Request) {
         { phone: { contains: search } },
         { email: { contains: search, mode: 'insensitive' } },
         { company: { contains: search, mode: 'insensitive' } },
+        { taxCode: { contains: search, mode: 'insensitive' } },
       ]
     }
 
-    if (status) {
+    if (status && status !== 'all') {
       where.status = status as CustomerStatus
     }
+
+    if (type && type !== 'all') {
+      where.type = type
+    }
+
+    if (dateFrom || dateTo) {
+      where.createdAt = {}
+      if (dateFrom) where.createdAt.gte = new Date(dateFrom)
+      if (dateTo) where.createdAt.lte = new Date(dateTo)
+    }
+
+    // Server-side debt filtering using DB fields
+    if (debtFilter && debtFilter !== 'all') {
+      if (debtFilter === 'hasDebt') {
+        where.currentDebt = { gt: 0 }
+      } else if (debtFilter === 'overdue' || debtFilter === 'totalOverdue') {
+        // Customers with currentDebt > 0 and unpaid orders older than their payment terms
+        const now = new Date()
+        // Get customers with debt and unpaid completed orders
+        // Calculate overdue using raw query for performance
+        const overdueCustomers = await prisma.$queryRaw<{ customerId: string }[]>`
+          SELECT DISTINCT o."customerId" as "customerId"
+          FROM orders o
+          JOIN customers c ON o."customerId" = c."systemId"
+          WHERE o.status != 'CANCELLED'
+            AND (o.status = 'COMPLETED' OR o."deliveryStatus" = 'DELIVERED' OR o."stockOutStatus" = 'FULLY_STOCKED_OUT')
+            AND o."paymentStatus" != 'PAID'
+            AND c."currentDebt" > 0
+            AND c."isDeleted" = false
+            AND o."orderDate" + (
+              CASE 
+                WHEN c."paymentTerms" = 'NET60' THEN INTERVAL '60 days'
+                WHEN c."paymentTerms" = 'NET15' THEN INTERVAL '15 days'
+                WHEN c."paymentTerms" = 'COD' THEN INTERVAL '0 days'
+                ELSE INTERVAL '30 days'
+              END
+            ) < ${now}
+        `
+        const customerIds = overdueCustomers.map(r => r.customerId).filter(Boolean)
+        where.systemId = { in: customerIds.length > 0 ? customerIds : ['__none__'] }
+      } else if (debtFilter === 'dueSoon') {
+        // Customers with orders due within 3 days
+        const now = new Date()
+        const threeDaysLater = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000)
+        const dueSoonCustomers = await prisma.$queryRaw<{ customerId: string }[]>`
+          SELECT DISTINCT o."customerId" as "customerId"
+          FROM orders o
+          JOIN customers c ON o."customerId" = c."systemId"
+          WHERE o.status != 'CANCELLED'
+            AND (o.status = 'COMPLETED' OR o."deliveryStatus" = 'DELIVERED' OR o."stockOutStatus" = 'FULLY_STOCKED_OUT')
+            AND o."paymentStatus" != 'PAID'
+            AND c."currentDebt" > 0
+            AND c."isDeleted" = false
+            AND o."orderDate" + (
+              CASE 
+                WHEN c."paymentTerms" = 'NET60' THEN INTERVAL '60 days'
+                WHEN c."paymentTerms" = 'NET15' THEN INTERVAL '15 days'
+                WHEN c."paymentTerms" = 'COD' THEN INTERVAL '0 days'
+                ELSE INTERVAL '30 days'
+              END
+            ) BETWEEN ${now} AND ${threeDaysLater}
+        `
+        const customerIds = dueSoonCustomers.map(r => r.customerId).filter(Boolean)
+        where.systemId = { in: customerIds.length > 0 ? customerIds : ['__none__'] }
+      }
+    }
+
+    // Build orderBy
+    const orderBy: Prisma.CustomerOrderByWithRelationInput = { [sortBy]: sortOrder }
 
     const [customers, total] = await Promise.all([
       prisma.customer.findMany({
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy,
       }),
       prisma.customer.count({ where }),
     ])
@@ -63,23 +143,19 @@ export async function POST(request: Request) {
     
     const body = result.data
 
-    // Generate business ID if not provided
-    if (!body.id) {
-      const lastCustomer = await prisma.customer.findFirst({
-        orderBy: { createdAt: 'desc' },
-        select: { id: true },
-      })
-      const lastNum = lastCustomer?.id 
-        ? parseInt(lastCustomer.id.replace('KH', '')) 
-        : 0
-      body.id = `KH${String(lastNum + 1).padStart(5, '0')}`
-    }
+    const customer = await prisma.$transaction(async (tx) => {
+      // Generate IDs using unified ID system
+      const { systemId, businessId } = await generateNextIdsWithTx(
+        tx,
+        'customers',
+        body.id?.trim() || undefined
+      );
 
-    const customer = await prisma.customer.create({
-      data: {
-        systemId: `CUSTOMER${String(Date.now()).slice(-6).padStart(6, '0')}`,
-        id: body.id,
-        name: body.name,
+      return tx.customer.create({
+        data: {
+          systemId,
+          id: businessId,
+          name: body.name,
         email: body.email,
         phone: body.phone,
         companyName: body.company || body.companyName,
@@ -92,7 +168,8 @@ export async function POST(request: Request) {
         notes: body.notes,
         createdBy: session.user.id,
       },
-    })
+      });
+    });
 
     return apiSuccess(customer, 201)
   } catch (error) {

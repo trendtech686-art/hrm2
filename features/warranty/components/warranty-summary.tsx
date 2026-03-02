@@ -1,4 +1,4 @@
-import * as React from 'react';
+﻿import * as React from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Separator } from '../../../components/ui/separator';
@@ -73,7 +73,7 @@ export function WarrantySummary({ disabled: _disabled = false }: WarrantySummary
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-h4">Thanh toán</CardTitle>
+        <CardTitle>Thanh toán</CardTitle>
       </CardHeader>
       <CardContent className="space-y-2.5">
         {/* Tổng giá trị bảo hành */}

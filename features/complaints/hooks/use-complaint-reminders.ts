@@ -69,7 +69,7 @@ function getHoursSinceLastAction(complaint: Complaint): number {
   
   // Get last action (timeline is sorted newest first in some cases, oldest first in others)
   // We need to find the most recent action
-  const sortedTimeline = [...complaint.timeline].sort((a, b) => {
+  const sortedTimeline = [...(complaint.timeline || [])].sort((a, b) => {
     const dateA = new Date(a.performedAt).getTime();
     const dateB = new Date(b.performedAt).getTime();
     return dateB - dateA; // Newest first
@@ -90,7 +90,7 @@ function getLastActionDate(complaint: Complaint): Date | null {
     return new Date(complaint.createdAt);
   }
   
-  const sortedTimeline = [...complaint.timeline].sort((a, b) => {
+  const sortedTimeline = [...(complaint.timeline || [])].sort((a, b) => {
     const dateA = new Date(a.performedAt).getTime();
     const dateB = new Date(b.performedAt).getTime();
     return dateB - dateA;

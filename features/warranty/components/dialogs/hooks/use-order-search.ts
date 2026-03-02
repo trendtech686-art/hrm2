@@ -9,6 +9,10 @@ interface UseOrderSearchOptions {
 
 /**
  * Hook quản lý tìm kiếm và chọn đơn hàng
+ * 
+ * ⚡ NOTE: This hook still needs orders for filtering unshipped orders.
+ * The searchOrders API call happens first, then we filter locally.
+ * TODO: Add stockOutStatus filter to API for better performance.
  */
 export function useOrderSearch({ orders, initialOrderId }: UseOrderSearchOptions) {
   const [orderSearchQuery, setOrderSearchQuery] = React.useState('');
@@ -21,14 +25,13 @@ export function useOrderSearch({ orders, initialOrderId }: UseOrderSearchOptions
     const performSearch = async () => {
       setIsSearchingOrders(true);
       try {
-        const results = await searchOrders(
-          { query: orderSearchQuery, limit: 50 },
-          orders
-        );
+        // ⚡ OPTIMIZED: Use API-based search first
+        const results = await searchOrders({ query: orderSearchQuery, limit: 50 });
         
         // Filter: Only show orders that:
         // 1. NOT been shipped yet (stockOutStatus === 'Chưa xuất kho')
         // 2. Still have remaining amount to deduct (grandTotal - paidAmount > 0)
+        // NOTE: We need the orders array for this filtering since API doesn't support these filters yet
         const unshippedResults = results.filter(result => {
           const order = orders.find(o => o.systemId === result.value);
           if (!order) return false;

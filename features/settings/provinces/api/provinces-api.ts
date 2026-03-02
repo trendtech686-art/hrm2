@@ -4,6 +4,7 @@
  */
 
 import type { Province, District, Ward } from '@/lib/types/prisma-extended';
+import { fetchAllPages } from '@/lib/fetch-all-pages';
 
 export interface ProvinceFilters {
   page?: number;
@@ -63,8 +64,7 @@ export async function fetchProvinceById(systemId: string): Promise<Province> {
 }
 
 export async function fetchAllProvinces(): Promise<Province[]> {
-  const response = await fetchProvinces({ limit: 100 });
-  return response.data;
+  return fetchAllPages((p) => fetchProvinces(p));
 }
 
 // ============== District API ==============
@@ -86,8 +86,7 @@ export async function fetchDistricts(
 }
 
 export async function fetchDistrictsByProvince(provinceId: string): Promise<District[]> {
-  const response = await fetchDistricts({ provinceId, limit: 100 });
-  return response.data;
+  return fetchAllPages((p) => fetchDistricts({ ...p, provinceId }));
 }
 
 // ============== Ward API ==============
@@ -111,18 +110,15 @@ export async function fetchWards(
 }
 
 export async function fetchWardsByDistrict(districtId: number): Promise<Ward[]> {
-  const response = await fetchWards({ districtId, limit: 500 });
-  return response.data;
+  return fetchAllPages((p) => fetchWards({ ...p, districtId }));
 }
 
 export async function fetchWardsByProvince(provinceId: string): Promise<Ward[]> {
-  const response = await fetchWards({ provinceId, limit: 500 });
-  return response.data;
+  return fetchAllPages((p) => fetchWards({ ...p, provinceId }));
 }
 
 export async function fetchAllWards(): Promise<Ward[]> {
-  const response = await fetchWards({ limit: 2000 });
-  return response.data;
+  return fetchAllPages((p) => fetchWards(p));
 }
 
 // ============== Province Mutations ==============

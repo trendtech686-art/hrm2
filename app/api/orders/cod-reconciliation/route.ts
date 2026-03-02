@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
+import { generateIdWithPrefix } from '@/lib/id-generator'
 
 interface ShipmentReconciliation {
   systemId: string;
@@ -46,7 +47,7 @@ export async function POST(request: Request) {
           const isPaidFull = newPaidAmount >= Number(order.grandTotal || 0);
 
           // Create payment record for COD
-          const paymentId = `PM${Date.now()}`;
+          const paymentId = await generateIdWithPrefix('PM', tx as unknown as typeof prisma);
           await tx.orderPayment.create({
             data: {
               id: paymentId,

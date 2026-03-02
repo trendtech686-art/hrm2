@@ -41,32 +41,83 @@ export async function POST(request: Request, { params }: RouteParams) {
     const body = await request.json();
     const { assignedEmployeeId } = body;
 
-    // Get the order
+    // Get the order with packagings and their shipments
     const order = await prisma.order.findUnique({
       where: { systemId },
-      include: { packagings: true },
+      include: { 
+        packagings: {
+          include: { shipment: true },
+        },
+      },
     });
 
     if (!order) {
       return apiNotFound('Order');
     }
 
-    // Check if there's already an active packaging
-    const activePackaging = order.packagings.find(
-      (p) => !p.confirmDate && !p.cancelDate
-    );
+    console.log('[Packaging API] Order packagings:', order.packagings.map(p => {
+      const packagingWithShipment = p as typeof p & { shipment?: { systemId: string; status: string } | null };
+      return {
+        systemId: p.systemId,
+        confirmDate: p.confirmDate,
+        cancelDate: p.cancelDate,
+        shipment: packagingWithShipment.shipment ? { 
+          systemId: packagingWithShipment.shipment.systemId,
+          status: packagingWithShipment.shipment.status 
+        } : null,
+      };
+    }));
+
+    // Check if there's already an active packaging (pending or in-progress, not cancelled)
+    // A packaging is "active" if:
+    // 1. Not cancelled (no cancelDate)
+    // 2. AND either: not confirmed yet, OR confirmed but shipment not completed/cancelled
+    const activePackaging = order.packagings.find((p) => {
+      if (p.cancelDate) return false; // Cancelled packaging is not active
+      if (!p.confirmDate) return true; // Pending packaging (not yet confirmed) is active
+      
+      // Confirmed packaging - check if shipment is still in progress
+      // If shipment exists and not completed/cancelled, packaging is still "active"
+      const packagingWithShipment = p as typeof p & { shipment?: { systemId: string; status: string } | null };
+      const shipment = packagingWithShipment.shipment;
+      if (shipment && shipment.status !== 'DELIVERED' && shipment.status !== 'CANCELLED') {
+        console.log('[Packaging API] Found active packaging with in-progress shipment:', p.systemId, shipment.status);
+        return true; // Shipment in progress
+      }
+      
+      return false; // Packaging completed or shipment done
+    });
+    
     if (activePackaging) {
-      return apiError('Order already has an active packaging request', 400);
+      console.log('[Packaging API] Blocking due to active packaging:', activePackaging.systemId);
+      return apiError('Đơn hàng đã có phiếu đóng gói đang xử lý. Vui lòng hủy phiếu đóng gói hiện tại trước.', 400);
     }
 
     // Transaction: create packaging and update order status
     const updatedOrder = await prisma.$transaction(async (tx) => {
-      // Create packaging - generate IDs
-      const packagingId = `PK${Date.now()}`;
+      // Get last packaging systemId to generate next one sequentially
+      const lastPackaging = await tx.packaging.findFirst({
+        orderBy: { systemId: 'desc' },
+        select: { systemId: true },
+        where: { systemId: { startsWith: 'PACKAGE' } },
+      });
+      const lastNum = lastPackaging?.systemId 
+        ? parseInt(lastPackaging.systemId.replace('PACKAGE', '')) || 0
+        : 0;
+      const packagingSystemId = `PACKAGE${String(lastNum + 1).padStart(6, '0')}`;
+      
+      // Generate business ID (DG + order number + suffix)
+      // Count ALL packagings (including cancelled) to get unique suffix
+      const orderNumStr = order.id?.replace(/^[A-Z-]+/, '') || String(lastNum + 1).padStart(6, '0');
+      const totalCount = order.packagings.length;
+      const businessId = totalCount > 0 
+        ? `DG${orderNumStr}-${String(totalCount + 1).padStart(2, '0')}`
+        : `DG${orderNumStr}`;
+      
       await tx.packaging.create({
         data: {
-          systemId: packagingId,
-          id: packagingId,
+          systemId: packagingSystemId,
+          id: businessId,
           orderId: systemId,
           branchId: order.branchId,
           assignedEmployeeId,
@@ -74,10 +125,14 @@ export async function POST(request: Request, { params }: RouteParams) {
         },
       });
 
-      // Update order status
+      // Update order status - reset delivery/stockOut status for new packaging request
       const updated = await tx.order.update({
         where: { systemId },
-        data: { status: 'PACKING' },
+        data: { 
+          status: 'PACKING',
+          deliveryStatus: 'PENDING_PACK', // ✅ Reset to pending pack for new packaging
+          stockOutStatus: 'NOT_STOCKED_OUT', // ✅ Reset stock out status
+        },
         include: {
           customer: true,
           lineItems: {
@@ -98,7 +153,8 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     return apiSuccess(updatedOrder);
   } catch (error) {
-    console.error('Error creating packaging:', error);
-    return apiError('Failed to create packaging', 500);
+    console.error('[Packaging API] Error creating packaging:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return apiError(`Failed to create packaging: ${errorMessage}`, 500);
   }
 }

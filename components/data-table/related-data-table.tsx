@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useFuseFilter } from '../../hooks/use-fuse-search';
+import { simpleSearch } from '@/lib/simple-search';
 // XLSX is lazy loaded in handleExportExcel to reduce bundle size (~500KB)
 import { Printer, FileSpreadsheet } from 'lucide-react';
 import { ResponsiveDataTable, type BulkAction } from './responsive-data-table';
@@ -108,8 +108,10 @@ export function RelatedDataTable<TData extends { systemId: string }>({
     }
   }, [columns, isInitialized]);
 
-  const fuseOptions = React.useMemo(() => ({ keys: searchKeys as string[] }), [searchKeys]);
-  const searchedData = useFuseFilter(data, globalFilter, fuseOptions);
+  const searchedData = React.useMemo(() => 
+    simpleSearch(data, globalFilter, { keys: searchKeys as (keyof TData)[] }), 
+    [data, globalFilter, searchKeys]
+  );
 
   const filteredData = React.useMemo(() => {
     let filtered = globalFilter ? searchedData : data;
@@ -182,7 +184,7 @@ export function RelatedDataTable<TData extends { systemId: string }>({
           checked={isAllPageRowsSelected ? true : (isSomePageRowsSelected ? 'indeterminate' : false)}
           onCheckedChange={(value) => onToggleAll?.(!!value)}
           aria-label="Chọn tất cả"
-          className="translate-y-[2px]"
+          className="translate-y-0.5"
         />
       ),
       cell: ({ isSelected, onToggleSelect }) => (
@@ -190,7 +192,7 @@ export function RelatedDataTable<TData extends { systemId: string }>({
           checked={isSelected}
           onCheckedChange={(value) => onToggleSelect?.(!!value)}
           aria-label="Chọn dòng"
-          className="translate-y-[2px]"
+          className="translate-y-0.5"
           onClick={(e) => e.stopPropagation()}
         />
       ),

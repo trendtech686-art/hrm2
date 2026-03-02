@@ -74,7 +74,7 @@ export function WikiDetailPage() {
     <div className="max-w-4xl mx-auto">
         <Card>
             <CardHeader>
-                <CardTitle className="text-h1 font-extrabold tracking-tight">{article.title}</CardTitle>
+                <CardTitle size="lg" className="font-extrabold tracking-tight">{article.title}</CardTitle>
                 <CardDescription className="pt-4 flex flex-wrap items-center gap-x-6 gap-y-2">
                     <span className="flex items-center gap-2"><User className="h-4 w-4" /> {article.author}</span>
                     <span className="flex items-center gap-2"><Calendar className="h-4 w-4" /> Cập nhật lần cuối: {formatDate(article.updatedAt)}</span>

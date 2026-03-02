@@ -4,17 +4,24 @@
 
 import * as React from 'react';
 import { useCallback } from 'react';
-import { useEmployeeTypes } from './use-employee-types';
+import { useQuery } from '@tanstack/react-query';
+import { fetchAllEmployeeTypes } from '../api/employee-types-api';
 import type { EmployeeTypeSetting } from '../api/employee-types-api';
+import { employeeTypeKeys } from './use-employee-types';
 
 // Stable empty array to prevent re-renders
 const EMPTY_EMPLOYEE_TYPES: EmployeeTypeSetting[] = [];
 
 /**
- * Returns all employee types as a flat array
+ * Returns all employee types as a flat array — uses ?all=true to bypass pagination
  */
 export function useAllEmployeeTypes() {
-  const query = useEmployeeTypes({ limit: 500 });
+  const query = useQuery({
+    queryKey: [...employeeTypeKeys.all, 'all'],
+    queryFn: fetchAllEmployeeTypes,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+  });
   
   // Memoize data to prevent unnecessary re-renders
   const data = React.useMemo(() => 

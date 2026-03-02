@@ -11,7 +11,7 @@ import { Package, Phone, Truck, User, AlertTriangle } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { checkWarrantyOverdue } from './warranty-sla-utils';
 import { SlaTimer, WARRANTY_SLA_CONFIGS } from '../../components/SlaTimer';
-import { loadCardColorSettings } from '../settings/warranty/warranty-settings-page';
+import { useWarrantySettings } from '../settings/warranty/hooks/use-warranty-settings';
 
 interface WarrantyCardProps {
   ticket: WarrantyTicket;
@@ -43,8 +43,9 @@ export const WarrantyCard = React.memo(function WarrantyCard({ ticket, onClick }
     overdueStatus.isOverdueProcessing || 
     overdueStatus.isOverdueReturn;
 
-  // Load card color settings
-  const cardColors = React.useMemo(() => loadCardColorSettings(), []);
+  // Load card color settings from DB via React Query
+  const { data: warrantySettings } = useWarrantySettings();
+  const cardColors = warrantySettings.cardColors;
 
   // Calculate summary with fallback from products
   const summary = React.useMemo(() => {
@@ -105,12 +106,12 @@ export const WarrantyCard = React.memo(function WarrantyCard({ ticket, onClick }
   } else if (cardColors.enableStatusColors) {
     cardColorClass = cardColors.statusColors[ticket.status] || "";
     const statusBorderColors: Record<string, string> = {
-      incomplete: "border-l-orange-500",
-      pending: "border-l-yellow-500",
-      processed: "border-l-green-500",
-      returned: "border-l-gray-500",
-      completed: "border-l-blue-500",
-      cancelled: "border-l-red-500",
+      RECEIVED: "border-l-orange-500",
+      PROCESSING: "border-l-yellow-500",
+      WAITING_PARTS: "border-l-blue-500",
+      COMPLETED: "border-l-green-500",
+      RETURNED: "border-l-gray-500",
+      CANCELLED: "border-l-red-500",
     };
     borderClass += " " + (statusBorderColors[ticket.status] || "border-l-gray-200");
   }
@@ -121,7 +122,7 @@ export const WarrantyCard = React.memo(function WarrantyCard({ ticket, onClick }
         "hover:shadow-md transition-all cursor-pointer",
         borderClass,
         cardColorClass,
-        ticket.status === 'cancelled' && "opacity-60" // Dim cancelled tickets
+        ticket.status === 'CANCELLED' && "opacity-60" // Dim cancelled tickets
       )}
       onClick={handleCardClick}
     >
@@ -131,7 +132,7 @@ export const WarrantyCard = React.memo(function WarrantyCard({ ticket, onClick }
           <div className="flex items-center gap-2 flex-wrap">
             <span className={cn(
               "font-semibold text-primary text-body-sm font-mono",
-              ticket.status === 'cancelled' && "line-through" // Strike through cancelled ID
+              ticket.status === 'CANCELLED' && "line-through" // Strike through cancelled ID
             )}>
               {ticket.id}
             </span>
@@ -150,9 +151,9 @@ export const WarrantyCard = React.memo(function WarrantyCard({ ticket, onClick }
         {/* Customer Name */}
         <div className={cn(
           "flex items-center text-body-sm font-medium mb-2",
-          ticket.status === 'cancelled' && "line-through" // Strike through cancelled customer name
+          ticket.status === 'CANCELLED' && "line-through" // Strike through cancelled customer name
         )}>
-          <User className="h-3.5 w-3.5 mr-1.5 flex-shrink-0 text-muted-foreground" />
+          <User className="h-3.5 w-3.5 mr-1.5 shrink-0 text-muted-foreground" />
           <span className="truncate">{ticket.customerName}</span>
         </div>
 
@@ -199,17 +200,17 @@ export const WarrantyCard = React.memo(function WarrantyCard({ ticket, onClick }
           <SlaTimer
             startTime={ticket.createdAt}
             targetMinutes={
-              ticket.status === 'incomplete'
+              ticket.status === 'RECEIVED'
                 ? WARRANTY_SLA_CONFIGS.response.targetMinutes
-                : ticket.status === 'pending'
+                : ticket.status === 'PROCESSING'
                 ? WARRANTY_SLA_CONFIGS.processing.targetMinutes
                 : WARRANTY_SLA_CONFIGS.return.targetMinutes
             }
-            isCompleted={ticket.status === 'returned'}
+            isCompleted={ticket.status === 'RETURNED'}
             thresholds={
-              ticket.status === 'incomplete'
+              ticket.status === 'RECEIVED'
                 ? WARRANTY_SLA_CONFIGS.response.thresholds
-                : ticket.status === 'pending'
+                : ticket.status === 'PROCESSING'
                 ? WARRANTY_SLA_CONFIGS.processing.thresholds
                 : WARRANTY_SLA_CONFIGS.return.thresholds
             }
@@ -224,7 +225,7 @@ export const WarrantyCard = React.memo(function WarrantyCard({ ticket, onClick }
 
           {/* Row 4: Returned + Created By */}
           <div className="flex items-center justify-between text-body-xs">
-            {ticket.status === 'completed' && ticket.completedAt ? (
+            {ticket.status === 'RETURNED' && ticket.completedAt ? (
               <span className="text-blue-700 font-medium">✓ Kết thúc {formatDateTime(ticket.completedAt)}</span>
             ) : ticket.returnedAt ? (
               <span className="text-green-700 font-medium">✓ Đã trả {formatDateTime(ticket.returnedAt)}</span>

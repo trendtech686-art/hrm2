@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma'
 import { PayrollStatus } from '@/generated/prisma/client'
 import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
 import { updatePayrollSchema } from './validation'
+import { generateIdWithPrefix } from '@/lib/id-generator'
 
 interface RouteParams {
   params: Promise<{ systemId: string }>
@@ -15,28 +16,137 @@ export async function GET(_request: Request, { params }: RouteParams) {
   try {
     const { systemId } = await params
 
-    const payroll = await prisma.payroll.findUnique({
-      where: { systemId },
-      include: {
-        items: {
-          include: {
-            employee: {
-              include: {
-                department: true,
-                branch: true,
-                jobTitle: true,
+    const [payroll, auditLogs] = await Promise.all([
+      prisma.payroll.findUnique({
+        where: { systemId },
+        include: {
+          items: {
+            include: {
+              employee: {
+                include: {
+                  department: true,
+                  branch: true,
+                  jobTitle: true,
+                },
               },
             },
           },
         },
-      },
-    })
+      }),
+      prisma.auditLog.findMany({
+        where: {
+          entityType: 'Payroll',
+          entityId: systemId,
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+      }),
+    ])
 
     if (!payroll) {
       return apiError('Bảng lương không tồn tại', 404)
     }
 
-    return apiSuccess(payroll)
+    // Transform to match frontend PayrollBatch type
+    const monthKey = `${payroll.year}-${String(payroll.month).padStart(2, '0')}`
+    const lastDay = new Date(payroll.year, payroll.month, 0).getDate()
+    
+    // Map status from DB enum to frontend type
+    const statusMap: Record<string, string> = {
+      'DRAFT': 'draft',
+      'PROCESSING': 'reviewed',
+      'COMPLETED': 'locked',
+      'PAID': 'locked',
+    }
+    
+    const result = {
+      systemId: payroll.systemId,
+      id: payroll.id,
+      title: `Bảng lương tháng ${payroll.month}/${payroll.year}`,
+      status: statusMap[payroll.status] || 'draft',
+      templateSystemId: undefined,
+      payPeriod: {
+        startDate: `${payroll.year}-${String(payroll.month).padStart(2, '0')}-01`,
+        endDate: `${payroll.year}-${String(payroll.month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`,
+      },
+      payrollDate: payroll.processedAt?.toISOString() || payroll.createdAt.toISOString(),
+      referenceAttendanceMonthKeys: [monthKey],
+      payslipSystemIds: payroll.items.map(item => item.systemId),
+      totalGross: Number(payroll.totalGross),
+      totalDeductions: Number(payroll.totalDeductions),
+      totalNet: Number(payroll.totalNet),
+      totalEmployees: payroll.totalEmployees,
+      reviewedAt: undefined,
+      reviewedBy: undefined,
+      lockedAt: payroll.processedAt?.toISOString(),
+      lockedBy: payroll.processedBy,
+      notes: undefined,
+      createdAt: payroll.createdAt.toISOString(),
+      updatedAt: payroll.updatedAt.toISOString(),
+      createdBy: payroll.createdBy,
+      // Include items for the detail page
+      items: payroll.items.map(item => ({
+        systemId: item.systemId,
+        employeeSystemId: item.employeeId,
+        employeeId: item.employeeCode,
+        employeeName: item.employeeName,
+        departmentSystemId: item.employee?.department?.systemId,
+        departmentName: item.employee?.department?.name || 'N/A',
+        periodMonthKey: monthKey,
+        workDays: item.workDays,
+        otHours: item.otHours,
+        leaveDays: item.leaveDays,
+        totals: {
+          workDays: item.workDays,
+          standardWorkDays: 26,
+          leaveDays: item.leaveDays,
+          absentDays: 0,
+          otHours: item.otHours,
+          otHoursWeekday: 0,
+          otHoursWeekend: 0,
+          otHoursHoliday: 0,
+          lateArrivals: 0,
+          earlyDepartures: 0,
+          grossEarnings: Number(item.grossSalary),
+          earnings: Number(item.grossSalary),
+          employeeSocialInsurance: Number(item.socialInsurance),
+          employeeHealthInsurance: Number(item.healthInsurance),
+          employeeUnemploymentInsurance: Number(item.unemploymentIns),
+          totalEmployeeInsurance: Number(item.socialInsurance) + Number(item.healthInsurance) + Number(item.unemploymentIns),
+          employerSocialInsurance: 0,
+          employerHealthInsurance: 0,
+          employerUnemploymentInsurance: 0,
+          totalEmployerInsurance: 0,
+          taxableIncome: Number(item.grossSalary) - Number(item.socialInsurance) - Number(item.healthInsurance) - Number(item.unemploymentIns),
+          personalIncomeTax: Number(item.tax),
+          personalDeduction: 11000000,
+          dependentDeduction: 0,
+          numberOfDependents: 0,
+          penaltyDeductions: Number(item.otherDeductions),
+          otherDeductions: 0,
+          deductions: Number(item.totalDeductions),
+          contributions: 0,
+          socialInsuranceBase: Number(item.baseSalary),
+          netPay: Number(item.netSalary),
+        },
+        components: [],
+        deductedPenaltySystemIds: [],
+        createdAt: payroll.createdAt.toISOString(),
+        updatedAt: payroll.updatedAt.toISOString(),
+      })),
+      // Include audit logs transformed for frontend
+      auditLogs: auditLogs.map(log => ({
+        systemId: log.systemId,
+        batchSystemId: log.entityId,
+        action: log.action,
+        actorSystemId: log.userId,
+        actorDisplayName: log.userName,
+        payload: log.newData,
+        createdAt: log.createdAt.toISOString(),
+      })),
+    }
+
+    return apiSuccess(result)
   } catch (error) {
     console.error('Error fetching payroll:', error)
     return apiError('Failed to fetch payroll', 500)
@@ -70,15 +180,15 @@ export async function PUT(request: Request, { params }: RouteParams) {
         status: body.status?.toUpperCase() as PayrollStatus | undefined,
         paidAt: body.paidAt ? new Date(body.paidAt) : undefined,
         items: body.items ? {
-          create: body.items.map((item: { employeeId: string; employeeName?: string; employeeCode?: string; baseSalary?: number; netSalary?: number; notes?: string | null }) => ({
-            systemId: `PI${String(Date.now()).slice(-6).padStart(6, '0')}${Math.random().toString(36).slice(2, 5)}`,
+          create: await Promise.all(body.items.map(async (item: { employeeId: string; employeeName?: string; employeeCode?: string; baseSalary?: number; netSalary?: number; notes?: string | null }) => ({
+            systemId: await generateIdWithPrefix('PI', prisma),
             employee: { connect: { systemId: item.employeeId } },
             employeeName: item.employeeName || '',
             employeeCode: item.employeeCode || '',
             baseSalary: item.baseSalary || 0,
             netSalary: item.netSalary || 0,
             notes: item.notes ?? '',
-          })),
+          }))),
         } : undefined,
       },
       include: {

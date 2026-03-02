@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Card } from '@/components/ui/card'
+import { OptimizedImage } from '@/components/ui/optimized-image'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -532,7 +533,7 @@ export function DocumentsManager({
           className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
           onClick={() => setPreviewUrl(null)}
         >
-          <img src={previewUrl} alt="Preview" className="max-w-full max-h-full object-contain" />
+          <OptimizedImage src={previewUrl} alt="Preview" width={800} height={600} className="max-w-full max-h-full object-contain" />
           <Button
             variant="ghost"
             size="icon"
@@ -578,10 +579,12 @@ function FileCard({
     )}>
       <div className="aspect-square bg-muted flex items-center justify-center overflow-hidden">
         {isImg ? (
-          <img
+          <OptimizedImage
             src={file.thumbnailUrl || file.url}
             alt={file.originalName}
-            className="w-full h-full object-cover"
+            fill
+            containerClassName="w-full h-full"
+            className="object-cover"
           />
         ) : (
           <FileIcon className="h-12 w-12 text-muted-foreground" />

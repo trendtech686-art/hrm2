@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
@@ -8,7 +8,7 @@ import * as z from 'zod';
 import Link from 'next/link';
 import { useStockTransferMutations } from '../hooks/use-stock-transfers';
 import { useAllBranches } from '@/features/settings/branches/hooks/use-all-branches';
-import { useAllProducts, useProductFinder } from '@/features/products/hooks/use-all-products';
+import { useProductFinder } from '@/features/products/hooks/use-all-products';
 import { useStorageLocationFinder } from '@/features/settings/inventory/hooks/use-storage-locations';
 import { useEmployeeFinder } from '@/features/employees/hooks/use-all-employees';
 import { useAuth } from '@/contexts/auth-context';
@@ -21,13 +21,14 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Trash2, Package, Save, X, ChevronDown, ChevronRight } from 'lucide-react';
+import { Trash2, Package, Save, X, ChevronDown, ChevronRight, PackageOpen } from 'lucide-react';
 import { ProductThumbnailCell } from '@/components/shared/read-only-products-table';
 import { ImagePreviewDialog } from '@/components/ui/image-preview-dialog';
 import { toast } from 'sonner';
 import { asSystemId, asBusinessId } from '@/lib/id-types';
 import { formatDateCustom, getCurrentDate } from '@/lib/date-utils';
 import { ProductSelectionDialog } from '@/features/shared/product-selection-dialog';
+import { UnifiedProductSearch } from '@/components/shared/unified-product-search';
 import { StockTransferWorkflowCard } from '../components/stock-transfer-workflow-card';
 import type { Subtask } from '@/components/shared/subtask-list';
 import type { Product } from '@/features/products/types';
@@ -74,7 +75,6 @@ export function StockTransferFormPage() {
     }
   });
   const { data: branches } = useAllBranches();
-  const { data: allProducts } = useAllProducts();
   const { findById: findProductById } = useProductFinder();
   const { findById: findEmployeeById } = useEmployeeFinder();
   const { user } = useAuth();
@@ -130,6 +130,19 @@ export function StockTransferFormPage() {
   const customId = form.watch('customId');
   const items = form.watch('items');
 
+  // Get branch names for display
+  const fromBranch = React.useMemo(() => branches.find(b => b.systemId === fromBranchId), [branches, fromBranchId]);
+  const toBranch = React.useMemo(() => branches.find(b => b.systemId === toBranchId), [branches, toBranchId]);
+
+  // Check if any item has invalid quantity (exceeds stock)
+  const hasInvalidItems = React.useMemo(() => {
+    return items.some(item => {
+      const product = findProductById(asSystemId(item.productSystemId));
+      const fromBranchStock = product?.inventoryByBranch?.[fromBranchId] || 0;
+      return item.quantity > fromBranchStock || fromBranchStock <= 0;
+    });
+  }, [items, fromBranchId, findProductById]);
+
   // Validate custom ID when it changes
   React.useEffect(() => {
     if (customId?.trim()) {
@@ -155,16 +168,23 @@ export function StockTransferFormPage() {
         Hủy
       </Button>
         <Button 
-        type="submit" 
-        form="stock-transfer-form" 
+        type="button" 
         className="h-9"
-        disabled={fields.length === 0 || isSubmitting || !!customIdError}
+        disabled={fields.length === 0 || isSubmitting || !!customIdError || hasInvalidItems}
+        onClick={() => {
+          const formEl = document.getElementById('stock-transfer-form') as HTMLFormElement | null;
+          if (formEl) {
+            formEl.requestSubmit();
+          } else {
+            toast.error('Lỗi: Không tìm thấy form');
+          }
+        }}
       >
         <Save className="mr-2 h-4 w-4" />
         {isSubmitting ? 'Đang tạo...' : 'Tạo phiếu'}
       </Button>
     </div>
-  ), [router, fields.length, isSubmitting, customIdError]);
+  ), [router, fields.length, isSubmitting, customIdError, hasInvalidItems]);
 
   // Breadcrumb
   const breadcrumb = React.useMemo(() => {
@@ -192,15 +212,8 @@ export function StockTransferFormPage() {
     return findEmployeeById(asSystemId(user.employeeId));
   }, [user, findEmployeeById]);
 
-  // Filter products that have stock in fromBranch
-  const _availableProducts = React.useMemo(() => {
-    if (!fromBranchId) return [];
-    return allProducts.filter(p => {
-      if (p.type === 'combo' || p.type === 'service') return false;
-      const stock = p.inventoryByBranch?.[fromBranchId] || 0;
-      return stock > 0;
-    });
-  }, [allProducts, fromBranchId]);
+  // Filter products that have stock in fromBranch - handled by ProductSelectionDialog
+  // Removed: _availableProducts was unused
 
   // Update stock when branch changes
   React.useEffect(() => {
@@ -217,35 +230,44 @@ export function StockTransferFormPage() {
     form.setValue('items', updatedItems);
   }, [fromBranchId, toBranchId, findProductById, form]);
 
-  const handleAddProducts = (selectedProducts: typeof allProducts) => {
+  const handleAddProducts = (selectedProducts: Product[]) => {
     selectedProducts.forEach(product => {
-      // Check if already added
-      const existingIndex = fields.findIndex(f => f.productSystemId === product.systemId);
-      if (existingIndex >= 0) {
-        toast.warning(`${product.name} đã có trong danh sách`);
-        return;
-      }
-
-      const fromBranchStock = product.inventoryByBranch?.[fromBranchId] || 0;
-      const toBranchStock = toBranchId ? (product.inventoryByBranch?.[toBranchId] || 0) : 0;
-      const unitPrice = product.costPrice || 0;
-      
-      append({
-        productSystemId: product.systemId,
-        productId: product.id,
-        productName: product.name,
-        productImage: '', // Sẽ được load từ server khi render
-        quantity: 1,
-        fromBranchStock,
-        toBranchStock,
-        unitPrice,
-        note: '',
-      });
+      handleAddSingleProduct(product);
     });
     setIsProductDialogOpen(false);
   };
 
-  const onSubmit = (data: FormData) => {
+  const handleAddSingleProduct = (product: Product) => {
+    // Check if already added
+    const existingIndex = fields.findIndex(f => f.productSystemId === product.systemId);
+    if (existingIndex >= 0) {
+      toast.warning(`${product.name} đã có trong danh sách`);
+      return;
+    }
+
+    const fromBranchStock = product.inventoryByBranch?.[fromBranchId] || 0;
+    const toBranchStock = toBranchId ? (product.inventoryByBranch?.[toBranchId] || 0) : 0;
+    const unitPrice = product.costPrice || 0;
+
+    // Cảnh báo nếu sản phẩm hết hàng
+    if (fromBranchStock <= 0) {
+      toast.warning(`${product.name} không có tồn kho tại chi nhánh chuyển`);
+    }
+    
+    append({
+      productSystemId: product.systemId,
+      productId: product.id,
+      productName: product.name,
+      productImage: '',
+      quantity: 1,
+      fromBranchStock,
+      toBranchStock,
+      unitPrice,
+      note: '',
+    });
+  };
+
+  const onSubmit = async (data: FormData) => {
     if (!currentEmployee) {
       toast.error('Không tìm thấy thông tin nhân viên');
       return;
@@ -277,14 +299,14 @@ export function StockTransferFormPage() {
 
     setIsSubmitting(true);
     try {
-      createMutation.mutate({
+      await createMutation.mutateAsync({
         id: asBusinessId(data.customId?.trim() || nextTransferId),
         fromBranchSystemId: asSystemId(data.fromBranchSystemId),
         fromBranchName: fromBranch.name,
         toBranchSystemId: asSystemId(data.toBranchSystemId),
         toBranchName: toBranch.name,
         ...(referenceCode ? { referenceCode } : {}),
-        status: 'pending',
+        status: 'pending', // API will convert to uppercase for Prisma
         items: data.items.map(item => ({
           productSystemId: asSystemId(item.productSystemId),
           productId: asBusinessId(item.productId),
@@ -300,8 +322,10 @@ export function StockTransferFormPage() {
         updatedBy: currentEmployee.systemId,
       });
 
-      toast.success('Đã tạo phiếu chuyển kho');
-      router.push(`/stock-transfers`);
+      // Note: toast and redirect are handled in onCreateSuccess callback
+    } catch (error) {
+      console.error('[StockTransfer] Create error:', error);
+      // Error toast is handled in onError callback
     } finally {
       setIsSubmitting(false);
     }
@@ -312,15 +336,24 @@ export function StockTransferFormPage() {
   
   const formatCurrency = (value: number) => value.toLocaleString('vi-VN') + ' đ';
 
+  // Handle form validation errors
+  const onFormError = (errors: Record<string, unknown>) => {
+    console.error('[StockTransfer Form] Validation errors:', errors);
+    const errorMessages = Object.entries(errors)
+      .map(([key, value]) => `${key}: ${(value as { message?: string })?.message || 'Lỗi không xác định'}`)
+      .join(', ');
+    toast.error('Vui lòng kiểm tra lại thông tin', { description: errorMessages });
+  };
+
   return (
     <div className="space-y-6">
-      <form id="stock-transfer-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <form id="stock-transfer-form" onSubmit={form.handleSubmit(onSubmit, onFormError)} className="space-y-6">
         {/* Row 1: Thông tin chuyển kho (70%) + Quy trình xử lý (30%) */}
         <div className="grid grid-cols-1 lg:grid-cols-10 gap-4">
           {/* Thông tin chuyển kho - 70% */}
           <Card className="lg:col-span-7">
             <CardHeader>
-              <CardTitle className="text-h3">Thông tin chuyển kho</CardTitle>
+              <CardTitle size="lg">Thông tin chuyển kho</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -359,6 +392,10 @@ export function StockTransferFormPage() {
                     onValueChange={(value) => {
                       form.setValue('fromBranchSystemId', value);
                       form.setValue('items', []); // Clear items when branch changes
+                      // Nếu chi nhánh chuyển mới trùng với chi nhánh nhận, reset chi nhánh nhận
+                      if (value === toBranchId) {
+                        form.setValue('toBranchSystemId', '');
+                      }
                     }}
                   >
                     <SelectTrigger className="h-9">
@@ -369,7 +406,6 @@ export function StockTransferFormPage() {
                         <SelectItem 
                           key={b.systemId} 
                           value={b.systemId}
-                          disabled={b.systemId === toBranchId}
                         >
                           {b.name}
                         </SelectItem>
@@ -385,7 +421,14 @@ export function StockTransferFormPage() {
                   <Label>Chi nhánh nhận <span className="text-destructive">*</span></Label>
                   <Select
                     value={toBranchId}
-                    onValueChange={(value) => form.setValue('toBranchSystemId', value)}
+                    onValueChange={(value) => {
+                      form.setValue('toBranchSystemId', value);
+                      // Nếu chi nhánh nhận mới trùng với chi nhánh chuyển, reset chi nhánh chuyển và items
+                      if (value === fromBranchId) {
+                        form.setValue('fromBranchSystemId', '');
+                        form.setValue('items', []);
+                      }
+                    }}
                   >
                     <SelectTrigger className="h-9">
                       <SelectValue placeholder="Chọn chi nhánh nhận" />
@@ -395,7 +438,6 @@ export function StockTransferFormPage() {
                         <SelectItem 
                           key={b.systemId} 
                           value={b.systemId}
-                          disabled={b.systemId === fromBranchId}
                         >
                           {b.name}
                         </SelectItem>
@@ -431,34 +473,49 @@ export function StockTransferFormPage() {
 
         {/* Product List */}
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-h3">Danh sách sản phẩm</CardTitle>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setIsProductDialogOpen(true)}
-              disabled={!fromBranchId}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Thêm sản phẩm
-            </Button>
+          <CardHeader>
+            <CardTitle size="lg">Danh sách sản phẩm</CardTitle>
           </CardHeader>
           <CardContent>
+            {/* Search bar like order form */}
+            <div className="mb-4">
+              <div className="flex items-center gap-2">
+                <UnifiedProductSearch
+                  onSelectProduct={handleAddSingleProduct}
+                  disabled={!fromBranchId}
+                  placeholder="Thêm sản phẩm (F3)"
+                  searchPlaceholder="Tìm kiếm theo tên, mã SKU, barcode..."
+                  excludeTypes={['combo', 'service']}
+                  branchSystemId={fromBranchId}
+                  showCostPrice={true}
+                />
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  className="h-9 shrink-0" 
+                  onClick={() => setIsProductDialogOpen(true)} 
+                  disabled={!fromBranchId}
+                >
+                  Chọn nhanh
+                </Button>
+              </div>
+            </div>
+
             {!fromBranchId && (
-              <div className="text-center py-8 text-muted-foreground">
+              <div className="text-center py-8 text-muted-foreground border border-dashed rounded-md">
                 <Package className="mx-auto h-12 w-12 mb-2 opacity-50" />
                 <p>Vui lòng chọn chi nhánh chuyển trước</p>
               </div>
             )}
             
             {fromBranchId && fields.length === 0 && (
-              <div className="text-center py-8 text-muted-foreground">
-                <Package className="mx-auto h-12 w-12 mb-2 opacity-50" />
-                <p>Chưa có sản phẩm nào</p>
+              <div className="text-center py-8 text-muted-foreground border border-dashed rounded-md">
+                <PackageOpen className="mx-auto h-12 w-12 text-gray-300" />
+                <p className="mt-4 text-body-sm">Chưa có sản phẩm nào</p>
                 <Button
                   type="button"
                   variant="link"
+                  className="mt-2"
                   onClick={() => setIsProductDialogOpen(true)}
                 >
                   Thêm sản phẩm
@@ -471,17 +528,27 @@ export function StockTransferFormPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[50px]">#</TableHead>
-                      <TableHead className="w-[60px]">Ảnh</TableHead>
+                      <TableHead className="w-12.5">#</TableHead>
+                      <TableHead className="w-15">Ảnh</TableHead>
                       <TableHead>Sản phẩm</TableHead>
-                      <TableHead className="w-[90px] text-center">SL chuyển</TableHead>
+                      <TableHead className="w-22.5 text-center">SL chuyển</TableHead>
                       <TableHead>Điểm lưu kho</TableHead>
-                      <TableHead className="w-[130px] text-center">CN Chuyển (Trước → Sau)</TableHead>
-                      <TableHead className="w-[130px] text-center">CN Nhận (Trước → Sau)</TableHead>
-                      <TableHead className="w-[100px] text-right">Đơn giá</TableHead>
-                      <TableHead className="w-[110px] text-right">Thành tiền</TableHead>
-                      <TableHead className="w-[120px]">Ghi chú</TableHead>
-                      <TableHead className="w-[50px]"></TableHead>
+                      <TableHead className="w-37.5 text-center">
+                        <div className="flex flex-col">
+                          <span>{fromBranch?.name || 'CN Chuyển'}</span>
+                          <span className="text-xs font-normal text-muted-foreground">(Trước → Sau)</span>
+                        </div>
+                      </TableHead>
+                      <TableHead className="w-37.5 text-center">
+                        <div className="flex flex-col">
+                          <span>{toBranch?.name || 'CN Nhận'}</span>
+                          <span className="text-xs font-normal text-muted-foreground">(Trước → Sau)</span>
+                        </div>
+                      </TableHead>
+                      <TableHead className="w-25 text-right">Đơn giá</TableHead>
+                      <TableHead className="w-27.5 text-right">Thành tiền</TableHead>
+                      <TableHead className="w-30">Ghi chú</TableHead>
+                      <TableHead className="w-12.5"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -501,7 +568,7 @@ export function StockTransferFormPage() {
                       const isComboExpanded = !!expandedCombos[comboKey];
                       const comboItems = isCombo
                         ? (linkedProduct?.comboItems ?? []).map((comboItem: ComboItem) => {
-                            const childProduct = allProducts.find(p => p.systemId === comboItem.productSystemId);
+                            const childProduct = findProductById(asSystemId(comboItem.productSystemId));
                             return { ...comboItem, product: childProduct };
                           })
                         : [];
@@ -556,19 +623,30 @@ export function StockTransferFormPage() {
                               </div>
                             </TableCell>
                             <TableCell>
-                              <Input
-                                type="number"
-                                min={1}
-                                max={field.fromBranchStock || 999}
-                                {...form.register(`items.${index}.quantity`, { valueAsNumber: true })}
-                                className="h-9 w-full text-center"
-                              />
+                              <div className="space-y-1">
+                                <Input
+                                  type="number"
+                                  min={1}
+                                  max={fromBefore > 0 ? fromBefore : 1}
+                                  {...form.register(`items.${index}.quantity`, { valueAsNumber: true })}
+                                  className={`h-9 w-full text-center ${fromAfter < 0 ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
+                                />
+                                {fromAfter < 0 && (
+                                  <p className="text-[10px] text-red-600 text-center">Vượt tồn kho!</p>
+                                )}
+                              </div>
                             </TableCell>
                             <TableCell>{getStorageLocationName(linkedProduct)}</TableCell>
                             <TableCell className="text-center">
-                              <span className="text-muted-foreground">{fromBefore}</span>
-                              <span className="mx-1">→</span>
-                              <span className={`font-medium ${fromAfter < 0 ? 'text-red-600' : 'text-orange-600'}`}>{fromAfter}</span>
+                              {fromBefore <= 0 ? (
+                                <span className="text-red-600 font-medium">Hết hàng</span>
+                              ) : (
+                                <>
+                                  <span className="text-muted-foreground">{fromBefore}</span>
+                                  <span className="mx-1">→</span>
+                                  <span className={`font-medium ${fromAfter < 0 ? 'text-red-600' : 'text-orange-600'}`}>{fromAfter}</span>
+                                </>
+                              )}
                             </TableCell>
                             <TableCell className="text-center">
                               <span className="text-muted-foreground">{toBefore}</span>

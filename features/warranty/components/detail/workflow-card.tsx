@@ -1,4 +1,4 @@
-import * as React from 'react';
+﻿import * as React from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/ui/card';
 import { SubtaskList, type Subtask } from '../../../../components/shared/subtask-list';
@@ -13,16 +13,6 @@ interface WarrantyWorkflowCardProps {
   onAddHistory: (systemId: string, action: string, performedBy: string, note?: string) => void;
 }
 
-function ensureSubtasks(ticket: WarrantyTicket, onUpdateTicket: WarrantyWorkflowCardProps['onUpdateTicket']) {
-  if (ticket.subtasks && ticket.subtasks.length > 0) {
-    return ticket.subtasks;
-  }
-
-  const template = getWorkflowTemplate('warranty');
-  onUpdateTicket(ticket.systemId, { ...ticket, subtasks: template });
-  return template as Subtask[];
-}
-
 export function WarrantyWorkflowCard({
   ticket,
   currentUserName,
@@ -30,7 +20,32 @@ export function WarrantyWorkflowCard({
   onUpdateStatus,
   onAddHistory,
 }: WarrantyWorkflowCardProps) {
-  const subtasks = React.useMemo(() => ensureSubtasks(ticket, onUpdateTicket), [ticket, onUpdateTicket]);
+  // ✅ Get subtasks from ticket or fallback to empty array
+  const subtasks = React.useMemo((): Subtask[] => {
+    if (ticket.subtasks && ticket.subtasks.length > 0) {
+      return ticket.subtasks;
+    }
+    return [];
+  }, [ticket.subtasks]);
+
+  // ✅ Initialize from template in useEffect (not during render!)
+  // Using refs to avoid triggering effect on every ticket/callback change
+  const ticketRef = React.useRef(ticket);
+  const onUpdateTicketRef = React.useRef(onUpdateTicket);
+  React.useEffect(() => {
+    ticketRef.current = ticket;
+    onUpdateTicketRef.current = onUpdateTicket;
+  });
+
+  React.useEffect(() => {
+    const currentTicket = ticketRef.current;
+    if (!currentTicket.subtasks || currentTicket.subtasks.length === 0) {
+      const template = getWorkflowTemplate('warranty');
+      if (template.length > 0) {
+        onUpdateTicketRef.current(currentTicket.systemId, { ...currentTicket, subtasks: template });
+      }
+    }
+  }, [ticket.systemId]); // Only run on mount or when ticket systemId changes
 
   const handleToggleComplete = React.useCallback(
     (id: string, completed: boolean) => {
@@ -50,8 +65,8 @@ export function WarrantyWorkflowCard({
   );
 
   const handleAllCompleted = React.useCallback(() => {
-    if (ticket.status !== 'returned') {
-      onUpdateStatus(ticket.systemId, 'returned', 'Hoàn thành toàn bộ quy trình xử lý');
+    if (ticket.status !== 'RETURNED') {
+      onUpdateStatus(ticket.systemId, 'RETURNED', 'Hoàn thành toàn bộ quy trình xử lý');
     }
   }, [ticket, onUpdateStatus]);
 
@@ -60,7 +75,7 @@ export function WarrantyWorkflowCard({
     return (
       <Card className="border-dashed">
         <CardHeader>
-          <CardTitle className="text-base font-semibold">Quy trình xử lý</CardTitle>
+          <CardTitle>Quy trình xử lý</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="text-center py-4 text-muted-foreground">
@@ -77,7 +92,7 @@ export function WarrantyWorkflowCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base font-semibold">Quy trình xử lý</CardTitle>
+        <CardTitle>Quy trình xử lý</CardTitle>
       </CardHeader>
       <CardContent>
         <SubtaskList

@@ -1,7 +1,6 @@
 import * as React from 'react';
-import { useFuseFilter } from '../../../hooks/use-fuse-search';
-import { Plus, Trash2, Search, X, Edit, MoreHorizontal, Loader2 } from 'lucide-react';
-import { formatDateForDisplay } from '@/lib/date-utils';
+import { simpleSearch } from '@/lib/simple-search';
+import { Plus, Search, X, Loader2 } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../components/ui/card';
 import {
@@ -16,7 +15,6 @@ import { Input } from '../../../components/ui/input';
 import { Textarea } from '../../../components/ui/textarea';
 import { Checkbox } from '../../../components/ui/checkbox';
 import { Label } from '../../../components/ui/label';
-import { Switch } from '../../../components/ui/switch';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,16 +25,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '../../../components/ui/alert-dialog';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '../../../components/ui/dropdown-menu';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table';
+import { SimpleSettingsTable } from '../../../components/settings/SimpleSettingsTable';
 import { usePayrollTemplates, usePayrollTemplatesMutations } from './hooks/use-payroll-templates';
 import { useEmployeeSettings } from './hooks/use-employee-settings';
+import { getPayrollTemplateColumns } from './payroll-templates-columns';
 import { toast } from 'sonner';
 import { asSystemId, type SystemId } from '../../../lib/id-types';
 import type { PayrollTemplate } from '../../../lib/payroll-types';
@@ -72,22 +64,11 @@ export function PayrollTemplatesSettingsContent() {
     isDefault: false,
   });
 
-  // Fuse.js for search (lazy-loaded)
-  const fuseOptions = React.useMemo(
-    () => ({
-      keys: ['id', 'name', 'description'],
-      threshold: 0.3,
-      includeScore: true,
-    }),
-    []
+  // Simple search for templates
+  const filteredData = React.useMemo(() => 
+    simpleSearch(templates as unknown as Record<string, unknown>[], searchQuery.trim(), { keys: ['id', 'name', 'description'] }) as unknown as PayrollTemplate[], 
+    [templates, searchQuery]
   );
-  const searchedData = useFuseFilter(templates, searchQuery.trim(), fuseOptions);
-
-  // Filtered data
-  const filteredData = React.useMemo(() => {
-    if (!searchQuery.trim()) return templates;
-    return searchedData;
-  }, [templates, searchQuery, searchedData]);
 
   // Handlers
   const handleOpenCreateDialog = React.useCallback(() => {
@@ -217,9 +198,31 @@ export function PayrollTemplatesSettingsContent() {
     });
   };
 
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return '—';
-    return formatDateForDisplay(dateString);
+  // Columns for SimpleSettingsTable
+  const columns = React.useMemo(() => getPayrollTemplateColumns({
+    onEdit: handleEdit,
+    onDelete: handleDelete,
+    onToggleDefault: handleToggleDefault,
+    isPending: mutations.update.isPending,
+  }), [handleEdit, handleDelete, handleToggleDefault, mutations.update.isPending]);
+
+  // Row selection state
+  const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
+  const [isBulkDeleteOpen, setIsBulkDeleteOpen] = React.useState(false);
+
+  const handleBulkDelete = React.useCallback((selectedItems: { systemId: string }[]) => {
+    if (selectedItems.length === 0) return;
+    setIsBulkDeleteOpen(true);
+  }, []);
+
+  const confirmBulkDelete = () => {
+    const selectedIds = Object.keys(rowSelection);
+    selectedIds.forEach(id => {
+      mutations.remove.mutate({ templates, systemId: id as SystemId });
+    });
+    toast.success(`Đã xóa ${selectedIds.length} mẫu bảng lương`);
+    setRowSelection({});
+    setIsBulkDeleteOpen(false);
   };
 
   // Loading state
@@ -292,86 +295,38 @@ export function PayrollTemplatesSettingsContent() {
           )}
         </div>
 
-        {/* Table */}
-        <div className="border rounded-md">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[120px]">Mã mẫu</TableHead>
-                <TableHead>Tên mẫu</TableHead>
-                <TableHead className="text-center w-[120px]">Số thành phần</TableHead>
-                <TableHead className="text-center w-[100px]">Mặc định</TableHead>
-                <TableHead className="w-[120px]">Ngày tạo</TableHead>
-                <TableHead className="text-right w-[80px]">Hành động</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredData.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
-                    Chưa có mẫu bảng lương nào.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredData.map((template) => (
-                  <TableRow key={template.systemId}>
-                    <TableCell className="font-mono text-xs text-muted-foreground">
-                      {template.id}
-                    </TableCell>
-                    <TableCell>
-                      <div>
-                        <p className="font-medium">{template.name}</p>
-                        {template.description && (
-                          <p className="text-xs text-muted-foreground line-clamp-1">{template.description}</p>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {template.componentSystemIds.length} thành phần
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Switch
-                        checked={template.isDefault}
-                        onCheckedChange={(checked) => handleToggleDefault(template, checked)}
-                        disabled={mutations.update.isPending}
-                        aria-label={template.isDefault ? 'Đang là mẫu mặc định' : 'Đặt làm mẫu mặc định'}
-                      />
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {formatDate(template.createdAt)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button type="button" variant="ghost" size="icon" className="h-8 w-8 p-0">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48">
-                          <DropdownMenuItem onClick={() => handleEdit(template.systemId)}>
-                            <Edit className="mr-2 h-4 w-4" />
-                            Chỉnh sửa
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onClick={() => handleDelete(template.systemId)}
-                            className="text-destructive focus:text-destructive"
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Xóa mẫu
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
+        {/* SimpleSettingsTable */}
+        <SimpleSettingsTable
+          data={filteredData}
+          columns={columns}
+          emptyTitle="Chưa có mẫu bảng lương"
+          emptyDescription="Tạo mẫu bảng lương đầu tiên để quản lý lương nhân viên"
+          enableSelection
+          rowSelection={rowSelection}
+          setRowSelection={setRowSelection}
+          onBulkDelete={handleBulkDelete}
+        />
 
         <p className="text-xs text-muted-foreground">Tổng cộng {templates.length} mẫu</p>
       </CardContent>
+
+      {/* Bulk Delete Dialog */}
+      <AlertDialog open={isBulkDeleteOpen} onOpenChange={setIsBulkDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Xóa {Object.keys(rowSelection).length} mẫu?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Bạn có chắc muốn xóa các mẫu bảng lương đã chọn? Hành động này không thể hoàn tác.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Hủy</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmBulkDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Xóa
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Create/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -431,7 +386,7 @@ export function PayrollTemplatesSettingsContent() {
                   Đã chọn {formState.componentSystemIds.length}/{salaryComponents.length} thành phần
                 </p>
 
-                <div className="border rounded-md p-4 max-h-[300px] overflow-y-auto space-y-3">
+                <div className="border  border-border rounded-md p-4 max-h-75 overflow-y-auto space-y-3">
                   {/* Earnings */}
                   <div>
                     <p className="text-sm font-medium mb-2 text-green-600">Thu nhập</p>

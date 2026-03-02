@@ -118,7 +118,7 @@ export function ProductImage({
 
   if (displayImage) {
     return (
-      <div className={cn(sizeClass, "flex-shrink-0 rounded overflow-hidden bg-muted", className)}>
+      <div className={cn(sizeClass, "shrink-0 rounded overflow-hidden bg-muted", className)}>
         <LazyImage
           src={displayImage}
           alt={displayAlt}
@@ -129,7 +129,7 @@ export function ProductImage({
   }
 
   return (
-    <div className={cn(sizeClass, "flex-shrink-0 bg-muted rounded flex items-center justify-center", className)}>
+    <div className={cn(sizeClass, "shrink-0 bg-muted rounded flex items-center justify-center", className)}>
       <Package className={cn(iconSize, "text-muted-foreground")} />
     </div>
   );

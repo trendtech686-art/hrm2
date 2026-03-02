@@ -49,7 +49,7 @@ export function PkgxBrandLinkDialog({
   const loadPkgxBrands = React.useCallback(async () => {
     setIsLoading(true);
     try {
-      const response = await fetchPkgxBrands();
+      const response = await fetchPkgxBrands(pkgxSettings);
       if (response.success && response.data && response.data.data) {
         // API trả về { error, message, total, data: PkgxBrandFromApi[] }
         // Cần map từ PkgxBrandFromApi -> PkgxBrand
@@ -71,7 +71,7 @@ export function PkgxBrandLinkDialog({
     } finally {
       setIsLoading(false);
     }
-  }, [setBrands]);
+  }, [setBrands, pkgxSettings]);
 
   // Load PKGX brands khi mở dialog - chỉ chạy 1 lần
   React.useEffect(() => {
@@ -121,8 +121,8 @@ export function PkgxBrandLinkDialog({
       
       // Add mapping to store
       addBrandMapping.mutate({
-        id: `brand-mapping-${brand.systemId}-${pkgxBrandId}`,
-        hrmBrandSystemId: brand.systemId,
+        systemId: `brand-mapping-${brand.systemId}-${pkgxBrandId}`,
+        hrmBrandId: brand.systemId,
         hrmBrandName: brand.name,
         pkgxBrandId: pkgxBrandId,
         pkgxBrandName: selectedPkgxBrand.label,
@@ -145,7 +145,7 @@ export function PkgxBrandLinkDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-125">
         <DialogHeader>
           <DialogTitle>Liên kết với thương hiệu PKGX</DialogTitle>
           <DialogDescription>

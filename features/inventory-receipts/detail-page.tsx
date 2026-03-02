@@ -103,11 +103,15 @@ export function InventoryReceiptDetailPage() {
   ), [receipt?.receiverSystemId, findEmployeeById]);
 
   const totalQuantity = React.useMemo(() => (
-    receipt?.items.reduce((sum, item) => sum + Number(item.receivedQuantity), 0) ?? 0
+    receipt?.items.reduce((sum, item) => sum + (Number(item.receivedQuantity) || 0), 0) ?? 0
   ), [receipt]);
 
   const totalValue = React.useMemo(() => (
-    receipt?.items.reduce((sum, item) => sum + Number(item.receivedQuantity) * Number(item.unitPrice), 0) ?? 0
+    receipt?.items.reduce((sum, item) => {
+      const qty = Number(item.receivedQuantity) || 0;
+      const price = Number(item.unitPrice) || 0;
+      return sum + qty * price;
+    }, 0) ?? 0
   ), [receipt]);
 
   const { findById: findBranchById } = useBranchFinder();
@@ -202,8 +206,8 @@ export function InventoryReceiptDetailPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <DetailField label="Mã phiếu">{receipt.id}</DetailField>
             <DetailField label="Ngày nhập">{receivedDateLabel}</DetailField>
-            <DetailField label="Chi nhánh">{receipt.branchName || 'Không xác định'}</DetailField>
-            <DetailField label="Kho hàng">{receipt.warehouseName || 'Không xác định'}</DetailField>
+            <DetailField label="Chi nhánh">{receipt.branchName || 'Chi nhánh mặc định'}</DetailField>
+            <DetailField label="Loại nhập">{receipt.purchaseOrderId ? 'Nhập từ đơn mua hàng' : 'Nhập kho trực tiếp'}</DetailField>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <DetailField label="Nhà cung cấp">
@@ -214,7 +218,7 @@ export function InventoryReceiptDetailPage() {
                   {receipt.supplierName}
                 </Link>
               ) : (
-                receipt.supplierName
+                receipt.supplierName || 'Không có NCC (nhập trực tiếp)'
               )}
             </DetailField>
             <DetailField label="Đơn mua hàng">
@@ -225,7 +229,7 @@ export function InventoryReceiptDetailPage() {
                   {receipt.purchaseOrderId}
                 </Link>
               ) : (
-                receipt.purchaseOrderId
+                receipt.purchaseOrderId || 'Không có (nhập trực tiếp)'
               )}
             </DetailField>
             <DetailField label="Người nhận hàng">
@@ -236,7 +240,7 @@ export function InventoryReceiptDetailPage() {
                   {receipt.receiverName}
                 </Link>
               ) : (
-                receipt.receiverName
+                receipt.receiverName || 'Hệ thống'
               )}
             </DetailField>
           </div>
@@ -260,13 +264,14 @@ export function InventoryReceiptDetailPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[60px] text-center">STT</TableHead>
-                  <TableHead className="w-[60px]">Ảnh</TableHead>
+                  <TableHead className="w-15 text-center">STT</TableHead>
+                  <TableHead className="w-15">Ảnh</TableHead>
                   <TableHead>Mã sản phẩm</TableHead>
                   <TableHead>Tên sản phẩm</TableHead>
                   <TableHead className="text-center">SL đặt</TableHead>
                   <TableHead className="text-center">SL thực nhập</TableHead>
-                  <TableHead className="text-right">Đơn giá</TableHead>
+                  <TableHead className="text-right">Đơn giá nhập</TableHead>
+                  <TableHead className="text-right">Giá vốn</TableHead>
                   <TableHead className="text-right">Thành tiền</TableHead>
                 </TableRow>
               </TableHeader>
@@ -288,21 +293,22 @@ export function InventoryReceiptDetailPage() {
                       <Link href={ROUTES.SALES.PRODUCT_VIEW.replace(':systemId', item.productSystemId)}
                         className="text-primary hover:underline font-medium"
                       >
-                        {item.productId}
+                        {item.productId || product?.id || '-'}
                       </Link>
                     </TableCell>
                     <TableCell>
                       <Link href={ROUTES.SALES.PRODUCT_VIEW.replace(':systemId', item.productSystemId)}
                         className="text-primary hover:underline"
                       >
-                        {item.productName}
+                        {item.productName || product?.name || '-'}
                       </Link>
                     </TableCell>
-                    <TableCell className="text-center">{item.orderedQuantity}</TableCell>
-                    <TableCell className="text-center font-medium">{item.receivedQuantity}</TableCell>
-                    <TableCell className="text-right">{formatCurrency(item.unitPrice)}</TableCell>
+                    <TableCell className="text-center">{Number(item.orderedQuantity) || 0}</TableCell>
+                    <TableCell className="text-center font-medium">{Number(item.receivedQuantity) || 0}</TableCell>
+                    <TableCell className="text-right">{formatCurrency(Number(item.unitPrice) || 0)}</TableCell>
+                    <TableCell className="text-right text-muted-foreground">{formatCurrency(product?.costPrice || 0)}</TableCell>
                     <TableCell className="text-right font-semibold">
-                      {formatCurrency(Number(item.receivedQuantity) * Number(item.unitPrice))}
+                      {formatCurrency((Number(item.receivedQuantity) || 0) * (Number(item.unitPrice) || 0))}
                     </TableCell>
                   </TableRow>
                   );
@@ -312,9 +318,32 @@ export function InventoryReceiptDetailPage() {
                 <TableRow>
                   <TableCell colSpan={5} className="text-right font-semibold">Tổng cộng</TableCell>
                   <TableCell className="text-center font-semibold">{totalQuantity}</TableCell>
-                  <TableCell />
+                  <TableCell colSpan={2} />
                   <TableCell className="text-right font-semibold">{formatCurrency(totalValue)}</TableCell>
                 </TableRow>
+                {/* Hiển thị phí vận chuyển và chi phí khác từ đơn nhập hàng */}
+                {purchaseOrder && (Number(purchaseOrder.shippingFee) > 0 || Number(purchaseOrder.tax) > 0) && (
+                  <>
+                    {Number(purchaseOrder.shippingFee) > 0 && (
+                      <TableRow>
+                        <TableCell colSpan={8} className="text-right text-muted-foreground">Phí vận chuyển</TableCell>
+                        <TableCell className="text-right">{formatCurrency(purchaseOrder.shippingFee)}</TableCell>
+                      </TableRow>
+                    )}
+                    {Number(purchaseOrder.tax) > 0 && (
+                      <TableRow>
+                        <TableCell colSpan={8} className="text-right text-muted-foreground">Chi phí khác</TableCell>
+                        <TableCell className="text-right">{formatCurrency(purchaseOrder.tax)}</TableCell>
+                      </TableRow>
+                    )}
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-right font-bold">Tổng giá trị nhập kho</TableCell>
+                      <TableCell className="text-right font-bold">
+                        {formatCurrency(totalValue + Number(purchaseOrder.shippingFee || 0) + Number(purchaseOrder.tax || 0))}
+                      </TableCell>
+                    </TableRow>
+                  </>
+                )}
               </TableFooter>
             </Table>
           </div>

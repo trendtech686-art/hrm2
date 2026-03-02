@@ -110,15 +110,16 @@ export function useSalesSettingsMutations(options: MutationCallbacks = {}) {
  */
 export function useSalesManagementSettingsData() {
   const query = useSalesManagementSettings();
-  const { update } = useSalesSettingsMutations();
+  const queryClient = useQueryClient();
   const [localSettings, setLocalSettings] = React.useState<SalesManagementSettingsValues | null>(null);
+  const [isSaving, setIsSaving] = React.useState(false);
 
   // Sync local state with fetched data - only once when data is first available
   React.useEffect(() => {
     if (query.data && localSettings === null) {
       setLocalSettings(query.data);
     }
-  }, [query.data]);
+  }, [query.data, localSettings]);
 
   const settings = localSettings ?? query.data ?? defaultSalesSettings;
 
@@ -138,11 +139,22 @@ export function useSalesManagementSettingsData() {
     localSettingsRef.current = localSettings;
   }, [localSettings]);
 
-  const saveSettings = React.useCallback(() => {
-    if (localSettingsRef.current) {
-      update.mutate(localSettingsRef.current);
+  const saveSettings = React.useCallback(async () => {
+    if (!localSettingsRef.current) return { success: false, error: 'No settings to save' };
+    
+    setIsSaving(true);
+    try {
+      const result = await updateSalesSettingsApi(localSettingsRef.current);
+      updateSalesSettingsCache(result);
+      invalidateSalesSettingsCache();
+      queryClient.invalidateQueries({ queryKey: salesSettingsKeys.all });
+      setIsSaving(false);
+      return { success: true };
+    } catch (error) {
+      setIsSaving(false);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
-  }, [update]);
+  }, [queryClient]);
   
   return {
     settings,
@@ -151,7 +163,7 @@ export function useSalesManagementSettingsData() {
     error: query.error,
     updateSetting,
     saveSettings,
-    isSaving: update.isPending,
+    isSaving,
   };
 }
 

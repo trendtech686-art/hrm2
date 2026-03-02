@@ -21,7 +21,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { CurrencyInput } from "@/components/ui/currency-input";
-import { VirtualizedCombobox } from "@/components/ui/virtualized-combobox";
 import {
   Select,
   SelectContent,
@@ -35,14 +34,11 @@ import type { Receipt } from "@/features/receipts/types";
 import type { CashAccount } from "@/features/cashbook/types";
 import type { Employee } from "@/features/employees/types";
 import type { Complaint } from "../types";
-import { asBusinessId, asSystemId, type SystemId } from "@/lib/id-types";
-import { usePaymentStore } from "@/features/payments/store";
-import { usePaymentTypeStore } from "@/features/settings/payments/types/store";
-import { useTargetGroupStore } from "@/features/settings/target-groups/store";
-import { useBranchStore } from "@/features/settings/branches/store";
-import { usePaymentMethodStore } from "@/features/settings/payments/methods/store";
-import { usePenaltyStore, usePenaltyTypeStore } from "@/features/settings/penalties/store";
+import { type SystemId } from "@/lib/id-types";
+import { useAuth } from "@/contexts/auth-context";
+// ✅ All data now fetched from Server Actions (DB)
 import type { Penalty, PenaltyType } from "@/features/settings/penalties/types";
+import type { PenaltyTypeSetting } from "@/features/settings/penalty-types/api/penalty-types-api";
 
 export interface CompensationResult {
   payment?: Payment;  // Optional - only for refund
@@ -79,6 +75,7 @@ export function CompensationPaymentReceiptWizard({
   employees,
   onComplete,
 }: CompensationPaymentReceiptWizardProps) {
+  const { user, employee: currentEmployee } = useAuth();
   const [resolutionMethod, setResolutionMethod] = React.useState<"refund" | "replace">("refund");
   const [compensationCost, setCompensationCost] = React.useState<number>(0);
   const [incurredCost, setIncurredCost] = React.useState<number>(0);
@@ -97,40 +94,58 @@ export function CompensationPaymentReceiptWizard({
   const [paymentMethodId, setPaymentMethodId] = React.useState<string>(""); // Changed from paymentMethod string to ID
   const [selectedAccountId, setSelectedAccountId] = React.useState<string>("");
 
-  // Lazy-load accounts if not provided
+  // Lazy-load accounts from API if not provided
+  // OPTIMIZED: Load all required data in parallel when dialog opens
   React.useEffect(() => {
-    if (open && accounts.length === 0) {
-      import('@/features/cashbook/store').then(({ useCashbookStore }) => {
-        setAccounts(useCashbookStore.getState().accounts);
-      });
-    }
-  }, [open, accounts.length]);
-  
-  // Lazy-load payment methods
-  React.useEffect(() => {
-    if (open && paymentMethods.length === 0) {
-      import('@/features/settings/payments/methods/store').then(({ usePaymentMethodStore }) => {
-        const methods = usePaymentMethodStore.getState().data;
-        setPaymentMethods(methods);
-        // Set default method
-        const defaultMethod = methods.find(m => m.isDefault) || methods[0];
-        if (defaultMethod && !paymentMethodId) {
-          setPaymentMethodId(defaultMethod.systemId);
+    if (!open) return;
+    
+    const loadData = async () => {
+      try {
+        const [
+          { fetchActiveCashAccounts },
+          { fetchPaymentMethods },
+          { fetchAllPenaltyTypes }
+        ] = await Promise.all([
+          import('@/features/cashbook/api/cashbook-api'),
+          import('@/features/settings/payments/methods/api/payment-methods-api'),
+          import('@/features/settings/penalty-types/api/penalty-types-api'),
+        ]);
+        
+        // Fetch all data in parallel
+        const [accountsData, paymentMethodsResult, penaltyTypesResult] = await Promise.all([
+          accounts.length === 0 ? fetchActiveCashAccounts().catch(() => []) : Promise.resolve(null),
+          paymentMethods.length === 0 ? fetchPaymentMethods({ isActive: true }).catch(() => ({ data: [] })) : Promise.resolve(null),
+          complaintPenaltyTypes.length === 0 ? fetchAllPenaltyTypes().catch(() => ({ data: [] })) : Promise.resolve(null),
+        ]);
+        
+        // Update state
+        if (accountsData && accountsData.length > 0) {
+          setAccounts(accountsData);
         }
-      });
-    }
-  }, [open, paymentMethods.length, paymentMethodId]);
-  
-  // Lazy-load penalty types (category = complaint)
-  React.useEffect(() => {
-    if (open && complaintPenaltyTypes.length === 0) {
-      const penaltyTypes = usePenaltyTypeStore.getState().data;
-      const complaintTypes = penaltyTypes
-        .filter(pt => pt.category === 'complaint' && pt.isActive)
-        .sort((a, b) => a.order - b.order);
-      setComplaintPenaltyTypes(complaintTypes);
-    }
-  }, [open, complaintPenaltyTypes.length]);
+        
+        if (paymentMethodsResult?.data && paymentMethodsResult.data.length > 0) {
+          const methods = paymentMethodsResult.data;
+          setPaymentMethods(methods);
+          const defaultMethod = methods.find((m: { isDefault: boolean }) => m.isDefault) || methods[0];
+          if (defaultMethod && !paymentMethodId) {
+            setPaymentMethodId(defaultMethod.systemId);
+          }
+        }
+        
+        if (penaltyTypesResult?.data && penaltyTypesResult.data.length > 0) {
+          const complaintTypes = penaltyTypesResult.data
+            .filter((pt: PenaltyTypeSetting) => pt.category === 'complaint' && pt.isActive !== false)
+            .sort((a: PenaltyTypeSetting, b: PenaltyTypeSetting) => ((a as unknown as { order?: number }).order || 0) - ((b as unknown as { order?: number }).order || 0));
+          setComplaintPenaltyTypes(complaintTypes as unknown as PenaltyType[]);
+        }
+      } catch (error) {
+        console.error('Error loading dialog data:', error);
+      }
+    };
+    
+    loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]); // Only depend on open - avoid re-fetching
   
   // Set default account when accounts loaded
   React.useEffect(() => {
@@ -170,6 +185,23 @@ export function CompensationPaymentReceiptWizard({
     }
   }, [filteredAccounts, selectedAccountId]);
 
+  // Auto-fill compensation cost from affected products total value
+  React.useEffect(() => {
+    if (open && complaint?.affectedProducts && complaint.affectedProducts.length > 0 && compensationCost === 0) {
+      const total = complaint.affectedProducts.reduce((sum, p) => {
+        // Tính giá trị dựa trên số lượng thiếu/hỏng
+        const issueQty = p.issueType === 'missing' ? (p.quantityMissing || 0)
+          : p.issueType === 'defective' ? (p.quantityDefective || 0)
+          : p.issueType === 'excess' ? (p.quantityExcess || 0)
+          : 0;
+        return sum + (issueQty * (p.unitPrice || 0));
+      }, 0);
+      if (total > 0) {
+        setCompensationCost(total);
+      }
+    }
+  }, [open, complaint, compensationCost]);
+
   // Reset state when dialog closes
   React.useEffect(() => {
     if (!open) {
@@ -184,6 +216,29 @@ export function CompensationPaymentReceiptWizard({
       // Don't reset paymentMethodId and selectedAccountId - keep defaults
     }
   }, [open]);
+
+  // ✅ Validation for button disabled state
+  const isValid = React.useMemo(() => {
+    // Must have reason
+    if (!resolutionReason.trim()) return false;
+    
+    // Refund requires compensation amount
+    if (resolutionMethod === 'refund' && compensationCost <= 0) return false;
+    
+    // Need account for company payments
+    if ((resolutionMethod === 'refund' || (incurredCost > 0 && costBearer === 'company')) && !selectedAccountId) return false;
+    
+    // Need payment method for refund
+    if (resolutionMethod === 'refund' && !paymentMethodId) return false;
+    
+    // Need employee for employee-borne costs
+    if (incurredCost > 0 && costBearer === 'employee' && !responsibleEmployeeId && !complaint.assignedTo) return false;
+    
+    // Need employee for penalty
+    if (selectedPenaltyTypeId && !responsibleEmployeeId && !complaint.assignedTo) return false;
+    
+    return true;
+  }, [resolutionMethod, compensationCost, resolutionReason, selectedAccountId, paymentMethodId, incurredCost, costBearer, responsibleEmployeeId, complaint.assignedTo, selectedPenaltyTypeId]);
 
   const handleConfirmStep = async () => {
     // Validation dựa trên phương thức
@@ -236,19 +291,34 @@ export function CompensationPaymentReceiptWizard({
   // Create payments/receipts function
   const createVouchers = React.useCallback(async () => {
     try {
-      // Use static imports instead of lazy-loading to ensure same store instance
-      const addPayment = usePaymentStore.getState().add;
-      const addPenalty = usePenaltyStore.getState().add;
-      const paymentTypes = usePaymentTypeStore.getState().data;
-      const targetGroups = useTargetGroupStore.getState().data;
-      const branches = useBranchStore.getState().data;
-      const paymentMethods = usePaymentMethodStore.getState().data;
-      const orders = await import('@/features/orders/store').then(m => m.useOrderStore.getState().data);
+      // ✅ Use Server Actions and APIs for all persistence and data fetching
+      const { createPaymentAction } = await import('@/app/actions/payments');
+      const { createPenalty } = await import('@/app/actions/settings/penalties');
+      const { getPaymentTypes } = await import('@/app/actions/settings/payment-types');
+      const { fetchBranches } = await import('@/features/settings/branches/api/branches-api');
+      const { fetchOrder } = await import('@/features/orders/api/orders-api');
       
-      // Lấy đơn hàng gốc
-      const relatedOrder = orders.find(o => o.systemId === complaint.orderSystemId);
-      if (!relatedOrder) {
-        toast.error('Không tìm thấy đơn hàng gốc');
+      // Get order ID - check both orderId and orderSystemId for compatibility
+      const orderIdToFind = (complaint as unknown as { orderId?: string }).orderId || complaint.orderSystemId;
+      
+      // Fetch settings data from DB - OPTIMIZED: fetch single order instead of all
+      // Order is optional - complaint might not have linked order
+      const [paymentTypesResult, branchesResult, relatedOrder] = await Promise.all([
+        getPaymentTypes({ isActive: true }),
+        fetchBranches(),
+        orderIdToFind ? fetchOrder(orderIdToFind).catch(() => null) : Promise.resolve(null),
+      ]);
+      
+      const dbPaymentTypes = paymentTypesResult.success ? paymentTypesResult.data.data : [];
+      const dbBranches = branchesResult.data || [];
+      
+      // Get branch info: prefer from order, fallback to complaint
+      const branchSystemId = relatedOrder?.branchSystemId || complaint.branchSystemId;
+      const branchFromDB = dbBranches.find((b: { systemId: string }) => b.systemId === branchSystemId);
+      const branchName = branchFromDB?.name || relatedOrder?.branchName || complaint.branchName || 'Chi nhánh mặc định';
+      
+      if (!branchSystemId) {
+        toast.error('Không xác định được chi nhánh. Vui lòng kiểm tra thông tin khiếu nại.');
         return;
       }
 
@@ -260,6 +330,9 @@ export function CompensationPaymentReceiptWizard({
       // Lấy nhân viên được giao xử lý
       const assignedEmployee = employees.find(e => e.systemId === complaint.assignedTo);
       const targetEmployee = employees.find(e => e.systemId === responsibleEmployeeId) || assignedEmployee;
+      // Lấy thông tin người đang đăng nhập (người lập phiếu phạt)
+      const currentIssuerName = currentEmployee?.fullName || user?.name || user?.email || assignedEmployee?.fullName || 'Hệ thống';
+      const currentIssuerSystemId = user?.systemId || currentEmployee?.systemId || assignedEmployee?.systemId;
 
       // 1. TẠO PHIẾU CHI KHI HOÀN TIỀN
       if (resolutionMethod === 'refund' && compensationCost > 0) {
@@ -268,59 +341,54 @@ export function CompensationPaymentReceiptWizard({
           return;
         }
         
-        const complaintPaymentType = paymentTypes.find(pt => 
+        // Tìm loại phiếu chi phù hợp - fallback nếu không có loại chuyên dụng
+        const complaintPaymentType = dbPaymentTypes.find((pt: { name: string }) => 
           pt.name.toLowerCase().includes('bù trừ') || 
-          pt.name.toLowerCase().includes('khiếu nại')
-        );
+          pt.name.toLowerCase().includes('khiếu nại') ||
+          pt.name.toLowerCase().includes('hoàn tiền')
+        ) || dbPaymentTypes.find((pt: { name: string }) => 
+          pt.name.toLowerCase().includes('chi khác') ||
+          pt.name.toLowerCase().includes('chi phí')
+        ) || dbPaymentTypes[0]; // Fallback to first payment type
         
         if (!complaintPaymentType) {
-          toast.error("Không tìm thấy loại phiếu chi 'Bù trừ khiếu nại'");
+          toast.error("Không có loại phiếu chi nào trong hệ thống. Vui lòng tạo loại phiếu chi trước.");
           return;
         }
 
-        // Lấy thông tin chi nhánh TỪ ĐƠN HÀNG GỐC
-        const orderBranch = branches.find(b => b.systemId === relatedOrder.branchSystemId);
-        
-        // Lấy loại người nhận (Khách hàng)
-        const customerTargetGroup = targetGroups.find(tg => 
-          tg.name.toLowerCase().includes('khách hàng') || tg.systemId === 'KHACHHANG'
-        );
-        
-        // Lấy phương thức thanh toán
+        // Lấy phương thức thanh toán từ state (đã load trước đó)
         const selectedPaymentMethod = paymentMethods.find(pm => pm.systemId === paymentMethodId);
         if (!selectedPaymentMethod) {
           toast.error('Vui lòng chọn hình thức thanh toán');
           return;
         }
         
-        const paymentData: Omit<Payment, 'systemId'> = {
-          id: asBusinessId(""),
-          date: recognitionDate.toISOString(),
+        const paymentData = {
           amount: compensationCost,
-          recipientTypeSystemId: asSystemId(customerTargetGroup?.systemId || 'KHACHHANG'),
-          recipientTypeName: customerTargetGroup?.name || 'Khách hàng',
+          description: `Bù trừ từ khiếu nại ${complaint.id}: ${resolutionReason}`,
+          category: 'complaint_refund' as const,
+          branchId: branchSystemId as string,
+          branchSystemId: branchSystemId,
+          branchName: branchName,
+          accountSystemId: selectedAccount.systemId,
+          paymentMethodSystemId: selectedPaymentMethod.systemId,
+          paymentMethodName: selectedPaymentMethod.name,
+          recipientTypeSystemId: 'KHACHHANG',
+          recipientTypeName: 'Khách hàng',
           recipientName: complaint.customerName,
           recipientSystemId: complaint.customerSystemId,
-          description: resolutionReason,
-          paymentReceiptTypeSystemId: asSystemId(complaintPaymentType.systemId),
+          paymentReceiptTypeSystemId: complaintPaymentType.systemId,
           paymentReceiptTypeName: complaintPaymentType.name,
-          paymentMethodSystemId: asSystemId(selectedPaymentMethod.systemId),
-          paymentMethodName: selectedPaymentMethod.name,
-          accountSystemId: asSystemId(selectedAccount.systemId),
-          branchSystemId: asSystemId(orderBranch?.systemId || relatedOrder.branchSystemId),
-          branchName: orderBranch?.name || relatedOrder.branchName,
-          status: 'completed' as const,
-          createdBy: asSystemId(assignedEmployee?.systemId || 'Admin'),
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          affectsDebt: false,
-          originalDocumentId: complaint.id as string,
-          customerSystemId: complaint.customerSystemId,
-          customerName: complaint.customerName,
-          recognitionDate: recognitionDate.toISOString(),
-        } satisfies Omit<Payment, 'systemId'>;
+          linkedComplaintSystemId: complaint.systemId,
+        };
 
-        createdPayment = addPayment(paymentData);
+        // ✅ Use Server Action to persist to database
+        const paymentResult = await createPaymentAction(paymentData);
+        if (!paymentResult.success) {
+          toast.error(paymentResult.error || 'Lỗi tạo phiếu chi');
+          return;
+        }
+        createdPayment = paymentResult.data as Payment;
         toast.success(`Đã tạo phiếu chi ${createdPayment.id}`);
       } else if (resolutionMethod === 'replace') {
         // Đổi hàng - KHÔNG tạo phiếu chi
@@ -336,40 +404,39 @@ export function CompensationPaymentReceiptWizard({
             return;
           }
           
-          const incurredCostPaymentType = paymentTypes.find(pt => 
+          const incurredCostPaymentType = dbPaymentTypes.find((pt: { name: string }) => 
             pt.name.toLowerCase().includes('chi phí phát sinh') ||
             pt.name.toLowerCase().includes('chi phí khác')
-          ) || paymentTypes[0];
+          ) || dbPaymentTypes[0];
           
-          const orderBranch = branches.find(b => b.systemId === relatedOrder.branchSystemId);
           const selectedPaymentMethod = paymentMethods.find(pm => pm.systemId === paymentMethodId);
           
-          const paymentData: Omit<Payment, 'systemId'> = {
-            id: asBusinessId(""),
-            date: recognitionDate.toISOString(),
+          const paymentData = {
             amount: incurredCost,
-            recipientTypeSystemId: asSystemId('KHAC'),
+            description: `Chi phí phát sinh - ${resolutionReason}`,
+            category: 'operational_expense' as const,
+            branchId: branchSystemId as string,
+            branchSystemId: branchSystemId,
+            branchName: branchName,
+            accountSystemId: selectedAccount.systemId,
+            paymentMethodSystemId: selectedPaymentMethod?.systemId,
+            paymentMethodName: selectedPaymentMethod?.name,
+            recipientTypeSystemId: 'KHAC',
             recipientTypeName: 'Khác',
             recipientName: 'Chi phí phát sinh khiếu nại',
-            description: `Chi phí phát sinh - ${resolutionReason}`,
-            paymentReceiptTypeSystemId: asSystemId(incurredCostPaymentType?.systemId || ''),
+            paymentReceiptTypeSystemId: incurredCostPaymentType?.systemId,
             paymentReceiptTypeName: incurredCostPaymentType?.name || 'Chi phí phát sinh',
-            paymentMethodSystemId: asSystemId(selectedPaymentMethod?.systemId || ''),
-            paymentMethodName: selectedPaymentMethod?.name || '',
-            accountSystemId: asSystemId(selectedAccount.systemId),
-            branchSystemId: asSystemId(orderBranch?.systemId || relatedOrder.branchSystemId),
-            branchName: orderBranch?.name || relatedOrder.branchName,
-            status: 'completed' as const,
-            createdBy: asSystemId(assignedEmployee?.systemId || 'Admin'),
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            affectsDebt: false,
-            originalDocumentId: complaint.id as string,
-            recognitionDate: recognitionDate.toISOString(),
-          } satisfies Omit<Payment, 'systemId'>;
+            linkedComplaintSystemId: complaint.systemId,
+          };
 
-          const incurredPayment = addPayment(paymentData);
-          toast.success(`Đã tạo phiếu chi chi phí phát sinh ${incurredPayment.id}`);
+          // ✅ Use Server Action to persist to database
+          const incurredPaymentResult = await createPaymentAction(paymentData);
+          if (!incurredPaymentResult.success) {
+            toast.error(incurredPaymentResult.error || 'Lỗi tạo phiếu chi chi phí phát sinh');
+            return;
+          }
+          const incurredPayment = incurredPaymentResult.data as { systemId: string; id: string } | undefined;
+          toast.success(`Đã tạo phiếu chi chi phí phát sinh ${incurredPayment?.id}`);
           
         } else if (costBearer === 'employee') {
           // Nhân viên chịu chi phí -> Tạo Phiếu phạt "Thu hồi chi phí phát sinh"
@@ -383,28 +450,30 @@ export function CompensationPaymentReceiptWizard({
             pt.name.toLowerCase().includes('thu hồi chi phí')
           );
           
-          const penaltyData: Omit<Penalty, 'systemId'> = {
-            id: asBusinessId(""),
+          const penaltyData = {
             employeeSystemId: targetEmployee.systemId,
             employeeName: targetEmployee.fullName,
             reason: `Thu hồi chi phí phát sinh từ khiếu nại ${complaint.id}: ${resolutionReason}`,
             amount: incurredCost,
-            issueDate: recognitionDate.toISOString().split('T')[0],
-            status: 'Chưa thanh toán',
-            issuerName: assignedEmployee?.fullName || 'Admin',
-            issuerSystemId: assignedEmployee?.systemId,
+            date: recognitionDate.toISOString().split('T')[0],
+            status: 'pending',
+            issuerName: currentIssuerName,
+            issuerSystemId: currentIssuerSystemId,
             linkedComplaintSystemId: complaint.systemId,
             linkedOrderSystemId: complaint.orderSystemId,
             penaltyTypeSystemId: recoveryPenaltyType?.systemId,
             penaltyTypeName: recoveryPenaltyType?.name || 'Thu hồi chi phí phát sinh',
             category: 'complaint',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
           };
 
-          const createdPenalty = addPenalty(penaltyData);
-          createdPenalties.push(createdPenalty);
-          toast.success(`Đã tạo phiếu phạt thu hồi chi phí ${createdPenalty.id}`);
+          // ✅ Use Server Action to persist to database
+          const penaltyResult = await createPenalty(penaltyData);
+          if (!penaltyResult.success || !penaltyResult.data) {
+            toast.error((penaltyResult as { error?: string }).error || 'Lỗi tạo phiếu phạt');
+            return;
+          }
+          createdPenalties.push(penaltyResult.data as unknown as Penalty);
+          toast.success(`Đã tạo phiếu phạt thu hồi chi phí ${penaltyResult.data.id}`);
         }
         // costBearer === 'customer' -> Không tạo gì (ĐVVC thu từ khách)
       }
@@ -414,28 +483,30 @@ export function CompensationPaymentReceiptWizard({
         const selectedPenaltyType = complaintPenaltyTypes.find(pt => pt.systemId === selectedPenaltyTypeId);
         
         if (selectedPenaltyType) {
-          const penaltyData: Omit<Penalty, 'systemId'> = {
-            id: asBusinessId(""),
+          const penaltyData = {
             employeeSystemId: targetEmployee.systemId,
             employeeName: targetEmployee.fullName,
             reason: `Phạt lỗi từ khiếu nại ${complaint.id}: ${selectedPenaltyType.name} - ${resolutionReason}`,
             amount: selectedPenaltyType.defaultAmount,
-            issueDate: recognitionDate.toISOString().split('T')[0],
-            status: 'Chưa thanh toán',
-            issuerName: assignedEmployee?.fullName || 'Admin',
-            issuerSystemId: assignedEmployee?.systemId,
+            date: recognitionDate.toISOString().split('T')[0],
+            status: 'pending',
+            issuerName: currentIssuerName,
+            issuerSystemId: currentIssuerSystemId,
             linkedComplaintSystemId: complaint.systemId,
             linkedOrderSystemId: complaint.orderSystemId,
             penaltyTypeSystemId: selectedPenaltyType.systemId,
             penaltyTypeName: selectedPenaltyType.name,
             category: 'complaint',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
           };
 
-          const createdPenalty = addPenalty(penaltyData);
-          createdPenalties.push(createdPenalty);
-          toast.success(`Đã tạo phiếu phạt ${createdPenalty.id}`);
+          // ✅ Use Server Action to persist to database
+          const penaltyResult = await createPenalty(penaltyData);
+          if (!penaltyResult.success || !penaltyResult.data) {
+            toast.error((penaltyResult as { error?: string }).error || 'Lỗi tạo phiếu phạt');
+            return;
+          }
+          createdPenalties.push(penaltyResult.data as unknown as Penalty);
+          toast.success(`Đã tạo phiếu phạt ${penaltyResult.data.id}`);
         }
       }
 
@@ -468,7 +539,8 @@ export function CompensationPaymentReceiptWizard({
       toast.error('Có lỗi khi tạo phiếu');
       throw error;
     }
-  }, [compensationCost, incurredCost, resolutionReason, resolutionMethod, costBearer, selectedPenaltyTypeId, complaintPenaltyTypes, complaint, responsibleEmployeeId, employees, accounts, recognitionDate, paymentMethodId, selectedAccountId, onComplete, onOpenChange]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [compensationCost, incurredCost, resolutionReason, resolutionMethod, costBearer, selectedPenaltyTypeId, complaintPenaltyTypes, complaint, responsibleEmployeeId, employees, accounts, recognitionDate, paymentMethodId, paymentMethods, selectedAccountId, onComplete, onOpenChange]);
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -592,28 +664,21 @@ export function CompensationPaymentReceiptWizard({
                 <Label htmlFor="responsible-employee" className="flex items-center gap-1">
                   Nhân viên chịu trách nhiệm <span className="text-destructive">*</span>
                 </Label>
-                <VirtualizedCombobox
-                  value={
-                    (responsibleEmployeeId || complaint.assignedTo)
-                      ? (() => {
-                          const emp = employees.find(e => e.systemId === (responsibleEmployeeId || complaint.assignedTo));
-                          return emp ? {
-                            value: emp.systemId,
-                            label: emp.fullName,
-                            subtitle: emp.id,
-                          } : null;
-                        })()
-                      : null
-                  }
-                  onChange={(option) => setResponsibleEmployeeId(option?.value || "")}
-                  options={employees.map(emp => ({
-                    value: emp.systemId,
-                    label: emp.fullName,
-                    subtitle: emp.id,
-                  }))}
-                  placeholder="Chọn nhân viên"
-                  searchPlaceholder="Tìm nhân viên..."
-                />
+                <Select 
+                  value={responsibleEmployeeId || complaint.assignedTo || ""} 
+                  onValueChange={setResponsibleEmployeeId}
+                >
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Chọn nhân viên" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {employees.map(emp => (
+                      <SelectItem key={emp.systemId} value={emp.systemId}>
+                        {emp.fullName} ({emp.id})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             )}
             
@@ -756,7 +821,7 @@ export function CompensationPaymentReceiptWizard({
           <Button variant="outline" className="h-9" onClick={handleClose}>
             Hủy
           </Button>
-          <Button className="h-9" onClick={handleConfirmStep}>
+          <Button className="h-9" onClick={handleConfirmStep} disabled={!isValid}>
             Xác nhận
           </Button>
         </DialogFooter>

@@ -6,7 +6,8 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { isBefore, isSameDay, differenceInMilliseconds } from 'date-fns';
-import { usePayments, usePaymentMutations } from './use-payments';
+import { usePaymentMutations } from './use-payments';
+import { useAllPayments } from './use-all-payments';
 import { useAllReceipts } from '@/features/receipts/hooks/use-all-receipts';
 import { useAllCashAccounts } from '@/features/cashbook/hooks/use-all-cash-accounts';
 import { useAllBranches } from '@/features/settings/branches/hooks/use-all-branches';
@@ -204,8 +205,7 @@ export function usePaymentRunningBalance(
   branchFilter: 'all' | SystemId,
   dateRange: [string | undefined, string | undefined] | undefined
 ) {
-  const { data: paymentsResponse } = usePayments({ limit: 1000 });
-  const payments = React.useMemo(() => paymentsResponse?.data ?? [], [paymentsResponse?.data]);
+  const { data: payments } = useAllPayments();
   const { data: receipts } = useAllReceipts();
   const { accounts } = useAllCashAccounts();
 

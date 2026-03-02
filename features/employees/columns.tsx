@@ -80,7 +80,7 @@ export const getColumns = (
        />
     ),
     cell: ({ row }) => (
-      <div className="max-w-[200px] truncate" title={row.fullName}>
+      <div className="max-w-50 truncate" title={row.fullName}>
         {row.fullName}
       </div>
     ),
@@ -93,7 +93,19 @@ export const getColumns = (
     id: "gender",
     accessorKey: "gender",
     header: "Giới tính",
-    cell: ({ row }) => row.gender,
+    cell: ({ row }) => {
+      const gender = row.gender;
+      if (!gender) return '-';
+      const genderMap: Record<string, string> = {
+        'MALE': 'Nam',
+        'FEMALE': 'Nữ',
+        'OTHER': 'Khác',
+        'male': 'Nam',
+        'female': 'Nữ',
+        'other': 'Khác',
+      };
+      return genderMap[gender] || gender;
+    },
     meta: {
       displayName: "Giới tính",
       group: "Thông tin cá nhân"
@@ -156,7 +168,7 @@ export const getColumns = (
     cell: ({ row }) => {
       const addressStr = formatAddress(row.permanentAddress ?? undefined);
       return (
-        <div className="max-w-[250px] truncate" title={addressStr}>
+        <div className="max-w-62 truncate" title={addressStr}>
           {addressStr}
         </div>
       );
@@ -173,7 +185,7 @@ export const getColumns = (
     cell: ({ row }) => {
       const addressStr = formatAddress(row.temporaryAddress ?? undefined);
       return (
-        <div className="max-w-[250px] truncate" title={addressStr}>
+        <div className="max-w-62 truncate" title={addressStr}>
           {addressStr}
         </div>
       );
@@ -308,7 +320,7 @@ export const getColumns = (
     accessorKey: "workEmail",
     header: "Email công việc",
     cell: ({ row }) => (
-      <div className="max-w-[180px] truncate" title={row.workEmail}>
+      <div className="max-w-45 truncate" title={row.workEmail}>
         {row.workEmail}
       </div>
     ),
@@ -408,8 +420,18 @@ export const getColumns = (
     header: "Trạng thái",
     cell: ({ row }) => {
         const status = row.employmentStatus;
+        const statusMap: Record<string, string> = {
+          'ACTIVE': 'Đang làm việc',
+          'ON_LEAVE': 'Tạm nghỉ',
+          'TERMINATED': 'Đã nghỉ việc',
+          'Đang làm việc': 'Đang làm việc',
+          'Tạm nghỉ': 'Tạm nghỉ',
+          'Đã nghỉ việc': 'Đã nghỉ việc',
+          'Nghỉ việc': 'Đã nghỉ việc',
+        };
+        const displayStatus = statusMap[status] || status;
         
-        if (status === "Đang làm việc") {
+        if (displayStatus === "Đang làm việc") {
           return (
             <div className="flex items-center gap-2">
               <div className="h-2 w-2 rounded-full bg-green-500"></div>
@@ -418,7 +440,7 @@ export const getColumns = (
           );
         }
         
-        if (status === "Tạm nghỉ") {
+        if (displayStatus === "Tạm nghỉ") {
           return (
             <div className="flex items-center gap-2">
               <div className="h-2 w-2 rounded-full bg-yellow-500"></div>
@@ -430,7 +452,7 @@ export const getColumns = (
         return (
           <div className="flex items-center gap-2">
             <div className="h-2 w-2 rounded-full bg-gray-400"></div>
-            <span className="text-body-sm">{status}</span>
+            <span className="text-body-sm">{displayStatus}</span>
           </div>
         );
     },

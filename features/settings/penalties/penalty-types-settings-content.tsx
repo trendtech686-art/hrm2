@@ -5,7 +5,6 @@ import { Input } from '../../../components/ui/input';
 import { Button } from '../../../components/ui/button';
 import { Switch } from '../../../components/ui/switch';
 import { Textarea } from '../../../components/ui/textarea';
-import { Badge } from '../../../components/ui/badge';
 import { CurrencyInput } from '../../../components/ui/currency-input';
 import { 
   Select,
@@ -14,21 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../../../components/ui/select';
-import { 
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '../../../components/ui/table';
-import { 
-  MoreHorizontal,
-  Plus,
-  Save,
-  Pencil,
-  Trash2,
-} from 'lucide-react';
+import { Plus, Save } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -38,18 +23,22 @@ import {
   DialogTitle,
 } from '../../../components/ui/dialog';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '../../../components/ui/dropdown-menu';
-import { ConfirmDialog } from '../../../components/ui/confirm-dialog';
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '../../../components/ui/alert-dialog';
+import { SimpleSettingsTable } from '../../../components/settings/SimpleSettingsTable';
 import { toast } from 'sonner';
 import { usePenaltyTypes, usePenaltyTypeMutations, type PenaltyTypeSetting } from '../penalty-types/hooks/use-penalty-types';
 import type { PenaltyCategory } from './types';
-import { penaltyCategoryLabels, penaltyCategoryColors } from './types';
+import { getPenaltyTypeColumns } from './penalty-types-columns';
 import { Skeleton } from '../../../components/ui/skeleton';
+import type { SystemId } from '@/lib/id-types';
 
 // ============================================
 // PENALTY TYPES SETTINGS CONTENT (No Page Header)
@@ -106,7 +95,7 @@ export function PenaltyTypesSettingsContent() {
   };
   
   // Open dialog for edit
-  const handleEdit = (type: PenaltyTypeSetting) => {
+  const handleEdit = React.useCallback((type: PenaltyTypeSetting) => {
     setEditingType(type);
     setFormData({
       name: type.name,
@@ -116,7 +105,7 @@ export function PenaltyTypesSettingsContent() {
       isActive: type.isActive,
     });
     setIsDialogOpen(true);
-  };
+  }, []);
   
   // Save type
   const handleSave = () => {
@@ -153,10 +142,10 @@ export function PenaltyTypesSettingsContent() {
   };
   
   // Delete type
-  const handleDelete = (type: PenaltyTypeSetting) => {
+  const handleDelete = React.useCallback((type: PenaltyTypeSetting) => {
     setTypeToDelete(type);
     setDeleteConfirmOpen(true);
-  };
+  }, []);
   
   const confirmDelete = () => {
     if (typeToDelete) {
@@ -167,11 +156,37 @@ export function PenaltyTypesSettingsContent() {
   };
   
   // Toggle active
-  const handleToggleActive = (type: PenaltyTypeSetting) => {
+  const handleToggleActive = React.useCallback((type: PenaltyTypeSetting) => {
     update.mutate({
       systemId: type.systemId,
       data: { isActive: !type.isActive },
     });
+  }, [update]);
+
+  // Columns for SimpleSettingsTable
+  const columns = React.useMemo(() => getPenaltyTypeColumns({
+    onEdit: handleEdit,
+    onDelete: handleDelete,
+    onToggleActive: handleToggleActive,
+  }), [handleEdit, handleDelete, handleToggleActive]);
+
+  // Row selection state
+  const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
+  const [isBulkDeleteOpen, setIsBulkDeleteOpen] = React.useState(false);
+
+  const handleBulkDelete = React.useCallback((selectedItems: { systemId: string }[]) => {
+    if (selectedItems.length === 0) return;
+    setIsBulkDeleteOpen(true);
+  }, []);
+
+  const confirmBulkDelete = () => {
+    const selectedIds = Object.keys(rowSelection);
+    selectedIds.forEach(id => {
+      remove.mutate(id as SystemId);
+    });
+    toast.success(`Đã xóa ${selectedIds.length} loại phạt`);
+    setRowSelection({});
+    setIsBulkDeleteOpen(false);
   };
   
   // Loading state
@@ -232,87 +247,57 @@ export function PenaltyTypesSettingsContent() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="border rounded-md">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-12 text-center">#</TableHead>
-                  <TableHead>Tên loại phạt</TableHead>
-                  <TableHead>Phân loại</TableHead>
-                  <TableHead className="text-right">Mức phạt mặc định</TableHead>
-                  <TableHead className="text-center">Trạng thái</TableHead>
-                  <TableHead className="w-12"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sortedTypes.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                      Chưa có loại phạt nào. Nhấn "Thêm loại phạt" để tạo mới.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  sortedTypes.map((type, index) => (
-                    <TableRow key={type.systemId}>
-                      <TableCell className="text-center text-muted-foreground">
-                        {index + 1}
-                      </TableCell>
-                      <TableCell>
-                        <div>
-                          <p className="font-medium">{type.name}</p>
-                          {type.description && (
-                            <p className="text-xs text-muted-foreground">{type.description}</p>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge 
-                          variant="outline" 
-                          className={penaltyCategoryColors[type.category as PenaltyCategory]}
-                        >
-                          {penaltyCategoryLabels[type.category as PenaltyCategory]}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right font-medium">
-                        {type.defaultAmount.toLocaleString('vi-VN')}đ
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Switch
-                          checked={type.isActive}
-                          onCheckedChange={() => handleToggleActive(type)}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleEdit(type)}>
-                              <Pencil className="h-4 w-4 mr-2" />
-                              Chỉnh sửa
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem 
-                              onClick={() => handleDelete(type)}
-                              className="text-destructive"
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Xóa
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
+          <SimpleSettingsTable
+            data={sortedTypes}
+            columns={columns}
+            isLoading={isLoading}
+            emptyTitle="Chưa có loại phạt"
+            emptyDescription="Nhấn 'Thêm loại phạt' để tạo mới"
+            enableSelection
+            rowSelection={rowSelection}
+            setRowSelection={setRowSelection}
+            onBulkDelete={handleBulkDelete}
+            enablePagination
+            pagination={{ pageSize: 10, showInfo: true }}
+          />
         </CardContent>
       </Card>
+
+      {/* Bulk Delete Dialog */}
+      <AlertDialog open={isBulkDeleteOpen} onOpenChange={setIsBulkDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Xóa {Object.keys(rowSelection).length} loại phạt?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Bạn có chắc muốn xóa các loại phạt đã chọn? Hành động này không thể hoàn tác.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Hủy</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmBulkDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Xóa
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Single Dialog */}
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Xóa loại phạt?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Bạn có chắc muốn xóa loại phạt "{typeToDelete?.name}"? Hành động này không thể hoàn tác.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Hủy</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Xóa
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       
       {/* Add/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -404,18 +389,6 @@ export function PenaltyTypesSettingsContent() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      
-      {/* Delete Confirm Dialog */}
-      <ConfirmDialog
-        open={deleteConfirmOpen}
-        onOpenChange={setDeleteConfirmOpen}
-        title="Xóa loại phạt?"
-        description={`Bạn có chắc muốn xóa loại phạt "${typeToDelete?.name}"? Hành động này không thể hoàn tác.`}
-        confirmText="Xóa"
-        cancelText="Hủy"
-        variant="destructive"
-        onConfirm={confirmDelete}
-      />
     </>
   );
 }

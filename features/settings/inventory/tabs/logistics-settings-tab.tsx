@@ -13,16 +13,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SettingsActionButton } from "@/components/settings/SettingsActionButton";
-import { Button } from "@/components/ui/button";
 
 type TabContentProps = { isActive: boolean; onRegisterActions: RegisterTabActions };
 
-export function LogisticsSettingsTabContent({ isActive }: TabContentProps) {
+export function LogisticsSettingsTabContent({ isActive, onRegisterActions }: TabContentProps) {
   const { settings } = useLogisticsSettingsData();
   const { save } = useLogisticsSettingsMutations({
     onSuccess: () => toast.success('Đã lưu cài đặt khối lượng & kích thước'),
     onError: () => toast.error('Không thể lưu cài đặt khối lượng'),
   });
+  const saveAsyncRef = React.useRef(save.mutateAsync);
+  React.useEffect(() => { saveAsyncRef.current = save.mutateAsync; }, [save.mutateAsync]);
   const [localSettings, setLocalSettings] = React.useState<ProductLogisticsSettings>(settings);
   const [isSaving, setIsSaving] = React.useState(false);
 
@@ -44,11 +45,25 @@ export function LogisticsSettingsTabContent({ isActive }: TabContentProps) {
   const handleSave = React.useCallback(async () => {
     setIsSaving(true);
     try { 
-      await save.mutateAsync(localSettingsRef.current);
+      await saveAsyncRef.current(localSettingsRef.current);
     } finally { 
       setIsSaving(false); 
     }
-  }, [save]);
+  }, []);
+
+  const onRegisterActionsRef = React.useRef(onRegisterActions);
+  React.useEffect(() => { onRegisterActionsRef.current = onRegisterActions; }, [onRegisterActions]);
+
+  const actionButton = React.useMemo(() => [
+    <SettingsActionButton key="save-logistics" onClick={handleSave} disabled={!hasChanges || isSaving}>
+      <Save className="mr-2 h-4 w-4" />{isSaving ? 'Đang lưu...' : 'Lưu cài đặt'}
+    </SettingsActionButton>
+  ], [handleSave, hasChanges, isSaving]);
+
+  React.useEffect(() => { 
+    if (!isActive) return;
+    onRegisterActionsRef.current(actionButton);
+  }, [actionButton, isActive]);
 
   const renderPreset = (title: string, presetKey: keyof ProductLogisticsSettings, description: string) => (
     <Card>
@@ -65,11 +80,6 @@ export function LogisticsSettingsTabContent({ isActive }: TabContentProps) {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-end">
-        <Button onClick={handleSave} disabled={!hasChanges || isSaving} variant="default">
-          <Save className="mr-2 h-4 w-4" />{isSaving ? 'Đang lưu...' : 'Lưu cài đặt'}
-        </Button>
-      </div>
       {renderPreset('Sản phẩm thông thường', 'physicalDefaults', 'Áp dụng cho hàng hóa vật lý, dịch vụ đóng gói sẵn')}
       {renderPreset('Combo sản phẩm', 'comboDefaults', 'Áp dụng khi tạo sản phẩm combo mới')}
     </div>

@@ -30,6 +30,8 @@ export function PaymentTypesPageContent({ isActive, onRegisterActions }: Payment
   const [editingItem, setEditingItem] = React.useState<PaymentType | null>(null);
   const [isAlertOpen, setIsAlertOpen] = React.useState(false);
   const [idToDelete, setIdToDelete] = React.useState<SystemId | null>(null);
+  const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
+  const [isBulkDeleteOpen, setIsBulkDeleteOpen] = React.useState(false);
 
   const handleAddNew = React.useCallback(() => {
     setEditingItem(null);
@@ -48,22 +50,21 @@ export function PaymentTypesPageContent({ isActive, onRegisterActions }: Payment
   
   const handleToggleDefault = React.useCallback((item: PaymentType, isDefault: boolean) => {
     if (isDefault) {
-      // Tắt mặc định của tất cả các loại khác
-      data.forEach(d => {
-        if (d.systemId !== item.systemId && d.isDefault) {
-          update.mutate({ systemId: d.systemId, data: { ...d, isDefault: false } });
-        }
-      });
-      update.mutate({ systemId: item.systemId, data: { ...item, isDefault: true } });
+      // Backend sẽ tự động tắt mặc định của các loại khác
+      update.mutate({ systemId: item.systemId, data: { isDefault: true } });
       toast.success(`Đã đặt "${item.name}" làm mặc định`);
     } else {
-      const other = data.find(d => d.systemId !== item.systemId && d.isActive);
-      if (other) {
-        update.mutate({ systemId: item.systemId, data: { ...item, isDefault: false } });
-        update.mutate({ systemId: other.systemId, data: { ...other, isDefault: true } });
-        toast.success(`Đã chuyển mặc định sang "${other.name}"`);
-      } else {
+      // Không cho phép tắt mặc định nếu chỉ còn 1 item
+      const activeItems = data.filter(d => d.isActive);
+      if (activeItems.length <= 1) {
         toast.error("Phải có ít nhất một loại phiếu chi mặc định");
+        return;
+      }
+      // Chuyển mặc định sang item active khác
+      const other = activeItems.find(d => d.systemId !== item.systemId);
+      if (other) {
+        update.mutate({ systemId: other.systemId, data: { isDefault: true } });
+        toast.success(`Đã chuyển mặc định sang "${other.name}"`);
       }
     }
   }, [data, update]);
@@ -71,6 +72,11 @@ export function PaymentTypesPageContent({ isActive, onRegisterActions }: Payment
   const handleToggleStatus = React.useCallback((item: PaymentType, isActive: boolean) => {
     update.mutate({ systemId: item.systemId, data: { ...item, isActive } });
     toast.success(isActive ? `Đã kích hoạt "${item.name}"` : `Đã tắt "${item.name}"`);
+  }, [update]);
+
+  const handleToggleBusinessResult = React.useCallback((item: PaymentType, isBusinessResult: boolean) => {
+    update.mutate({ systemId: item.systemId, data: { ...item, isBusinessResult } });
+    toast.success(isBusinessResult ? `Đã bật hạch toán cho "${item.name}"` : `Đã tắt hạch toán cho "${item.name}"`);
   }, [update]);
   
   const confirmDelete = () => {
@@ -82,6 +88,21 @@ export function PaymentTypesPageContent({ isActive, onRegisterActions }: Payment
     setIsAlertOpen(false);
     setIdToDelete(null);
   };
+
+  const handleBulkDelete = React.useCallback((selectedItems: { systemId: string }[]) => {
+    if (selectedItems.length === 0) return;
+    setIsBulkDeleteOpen(true);
+  }, []);
+
+  const confirmBulkDelete = () => {
+    const selectedIds = Object.keys(rowSelection);
+    selectedIds.forEach(id => {
+      remove.mutate(id as SystemId);
+    });
+    toast.success(`Đã xóa ${selectedIds.length} loại phiếu chi`);
+    setRowSelection({});
+    setIsBulkDeleteOpen(false);
+  };
   
   const handleFormSubmit = (values: PaymentTypeFormValues) => {
     try {
@@ -92,8 +113,7 @@ export function PaymentTypesPageContent({ isActive, onRegisterActions }: Payment
         description: values.description?.trim() || undefined,
         isBusinessResult: values.isBusinessResult,
         isActive: values.isActive,
-        color: values.color?.trim() || undefined,
-      } satisfies Omit<PaymentType, 'systemId' | 'createdAt'>;
+      } satisfies Omit<PaymentType, 'systemId' | 'createdAt' | 'color'>;
 
       if (editingItem) {
         update.mutate({
@@ -117,17 +137,18 @@ export function PaymentTypesPageContent({ isActive, onRegisterActions }: Payment
     }
   };
 
-  React.useEffect(() => {
-    if (!isActive) {
-      return;
-    }
-
+  // Register header actions - use ref to avoid stale closures
+  const handleAddNewRef = React.useRef(handleAddNew);
+  handleAddNewRef.current = handleAddNew;
+  
+  React.useLayoutEffect(() => {
+    if (!isActive) return;
     onRegisterActions([
-      <SettingsActionButton key="add-payment-type" onClick={handleAddNew}>
+      <SettingsActionButton key="add-payment-type" onClick={() => handleAddNewRef.current()}>
         <Plus className="mr-2 h-4 w-4" /> Thêm loại phiếu chi
       </SettingsActionButton>,
     ]);
-  }, [handleAddNew, isActive, onRegisterActions]);
+  }, [isActive, onRegisterActions]);
 
   const columns = React.useMemo(
     () => getPaymentTypeColumns({
@@ -135,25 +156,30 @@ export function PaymentTypesPageContent({ isActive, onRegisterActions }: Payment
       onDelete: handleDeleteRequest,
       onToggleStatus: handleToggleStatus,
       onToggleDefault: handleToggleDefault,
+      onToggleBusinessResult: handleToggleBusinessResult,
     }),
-    [handleEdit, handleDeleteRequest, handleToggleStatus, handleToggleDefault]
+    [handleEdit, handleDeleteRequest, handleToggleStatus, handleToggleDefault, handleToggleBusinessResult]
   );
 
   return (
     <div className="space-y-4">
-      <div className="rounded-md border">
-        <SimpleSettingsTable
-          data={data}
-          columns={columns}
-          emptyTitle="Chưa có loại phiếu chi"
-          emptyDescription="Thêm loại phiếu chi đầu tiên để bắt đầu cấu hình"
-          emptyAction={
-            <Button size="sm" onClick={handleAddNew}>
-              Thêm loại phiếu chi
-            </Button>
-          }
-        />
-      </div>
+      <SimpleSettingsTable
+        data={data}
+        columns={columns}
+        emptyTitle="Chưa có loại phiếu chi"
+        emptyDescription="Thêm loại phiếu chi đầu tiên để bắt đầu cấu hình"
+        emptyAction={
+          <Button size="sm" onClick={handleAddNew}>
+            Thêm loại phiếu chi
+          </Button>
+        }
+        enableSelection
+        rowSelection={rowSelection}
+        setRowSelection={setRowSelection}
+        onBulkDelete={handleBulkDelete}
+        enablePagination
+        pagination={{ pageSize: 10, showInfo: true }}
+      />
       
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
         <DialogContent>
@@ -179,6 +205,21 @@ export function PaymentTypesPageContent({ isActive, onRegisterActions }: Payment
           <AlertDialogFooter>
             <AlertDialogCancel>Hủy</AlertDialogCancel>
             <AlertDialogAction onClick={confirmDelete}>Xóa</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={isBulkDeleteOpen} onOpenChange={setIsBulkDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Xóa {Object.keys(rowSelection).length} loại phiếu chi?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Hành động này không thể hoàn tác. Các loại phiếu chi đã chọn sẽ bị xóa vĩnh viễn.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Hủy</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmBulkDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Xóa tất cả</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

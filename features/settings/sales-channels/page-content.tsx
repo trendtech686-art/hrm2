@@ -1,5 +1,6 @@
 import * as React from "react";
-import { useSalesChannels, useSalesChannelMutations } from "./hooks/use-sales-channels";
+import { useSalesChannelMutations } from "./hooks/use-sales-channels";
+import { useAllSalesChannels } from "./hooks/use-all-sales-channels";
 import type { SalesChannel } from '@/lib/types/prisma-extended';
 import { SalesChannelForm, type SalesChannelFormValues } from "./form";
 import { Button } from "../../../components/ui/button";
@@ -19,8 +20,7 @@ type SalesChannelsPageContentProps = {
 };
 
 export function SalesChannelsPageContent({ isActive, onRegisterActions }: SalesChannelsPageContentProps) {
-  const { data: queryData } = useSalesChannels({ limit: 1000 });
-  const data = React.useMemo(() => queryData?.data ?? [], [queryData?.data]);
+  const { data } = useAllSalesChannels();
   const { create, update, remove } = useSalesChannelMutations({
     onSuccess: () => {},
     onError: (err) => toast.error(err.message)
@@ -30,6 +30,8 @@ export function SalesChannelsPageContent({ isActive, onRegisterActions }: SalesC
   const [editingItem, setEditingItem] = React.useState<SalesChannel | null>(null);
   const [isAlertOpen, setIsAlertOpen] = React.useState(false);
   const [idToDelete, setIdToDelete] = React.useState<SystemId | null>(null);
+  const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
+  const [isBulkDeleteOpen, setIsBulkDeleteOpen] = React.useState(false);
   
   const handleAddNew = React.useCallback(() => { setEditingItem(null); setIsFormOpen(true); }, []);
   const handleEdit = React.useCallback((item: SalesChannel) => { setEditingItem(item); setIsFormOpen(true); }, []);
@@ -60,7 +62,20 @@ export function SalesChannelsPageContent({ isActive, onRegisterActions }: SalesC
     setIsAlertOpen(false);
     setIdToDelete(null);
   }, [idToDelete, remove, data]);
-  
+  const handleBulkDelete = React.useCallback((selectedItems: { systemId: string }[]) => {
+    if (selectedItems.length === 0) return;
+    setIsBulkDeleteOpen(true);
+  }, []);
+
+  const confirmBulkDelete = React.useCallback(() => {
+    const selectedIds = Object.keys(rowSelection);
+    selectedIds.forEach(id => {
+      remove.mutate(id as SystemId);
+    });
+    toast.success(`Đã xóa ${selectedIds.length} nguồn bán hàng`);
+    setRowSelection({});
+    setIsBulkDeleteOpen(false);
+  }, [rowSelection, remove]);  
   const handleFormSubmit = (values: SalesChannelFormValues) => {
     const normalizedId = values.id?.trim().toUpperCase();
     const businessId = normalizedId
@@ -119,19 +134,23 @@ export function SalesChannelsPageContent({ isActive, onRegisterActions }: SalesC
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">Bên cạnh một số nguồn phổ biến nhất mà Sapo đã có sẵn, bạn có thể cập nhật hoặc thêm mới các nguồn tạo ra đơn hàng của cửa hàng bạn.</p>
-      <div className="rounded-md border-border border bg-card">
-        <SimpleSettingsTable
-          data={sortedChannels}
-          columns={columns}
-          emptyTitle="Chưa có nguồn bán hàng"
-          emptyDescription="Thêm nguồn bán hàng đầu tiên để theo dõi nguồn gốc đơn hàng"
-          emptyAction={
-            <Button size="sm" onClick={handleAddNew}>
-              Thêm nguồn bán hàng
-            </Button>
-          }
-        />
-      </div>
+      <SimpleSettingsTable
+        data={sortedChannels}
+        columns={columns}
+        emptyTitle="Chưa có nguồn bán hàng"
+        emptyDescription="Thêm nguồn bán hàng đầu tiên để theo dõi nguồn gốc đơn hàng"
+        emptyAction={
+          <Button size="sm" onClick={handleAddNew}>
+            Thêm nguồn bán hàng
+          </Button>
+        }
+        enableSelection
+        rowSelection={rowSelection}
+        setRowSelection={setRowSelection}
+        onBulkDelete={handleBulkDelete}
+        enablePagination
+        pagination={{ pageSize: 10, showInfo: true }}
+      />
       
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
         <DialogContent>
@@ -155,6 +174,19 @@ export function SalesChannelsPageContent({ isActive, onRegisterActions }: SalesC
           <AlertDialogFooter>
             <AlertDialogCancel className="h-9">Hủy</AlertDialogCancel>
             <AlertDialogAction onClick={confirmDelete} className="h-9">Xóa</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={isBulkDeleteOpen} onOpenChange={setIsBulkDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Xóa {Object.keys(rowSelection).length} nguồn bán hàng?</AlertDialogTitle>
+            <AlertDialogDescription>Hành động này không thể hoàn tác. Các nguồn bán hàng đã chọn sẽ bị xóa vĩnh viễn.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="h-9">Hủy</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmBulkDelete} className="h-9 bg-destructive text-destructive-foreground hover:bg-destructive/90">Xóa tất cả</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -3,11 +3,22 @@
  */
 import { checkWarrantyStatus, type WarrantyCheckResult } from './warranty-checker';
 import type { Order } from '@/features/orders/types';
+import { generateSubEntityId } from '@/lib/id-utils';
 
-// Simplified file type for image display (compatible with ExistingDocumentsViewer)
+// ✅ Extended file type compatible with StagingFile for ExistingDocumentsViewer
 export interface SimpleImageFile {
   id: string;
   url: string;
+  name?: string;
+  originalName?: string;
+  filename?: string;
+  size?: number;
+  type?: string;
+  status?: 'staging' | 'permanent';
+  sessionId?: string;
+  slug?: string;
+  uploadedAt?: string;
+  metadata?: string | Record<string, unknown>;
 }
 
 export interface WarrantyProductField {
@@ -20,6 +31,8 @@ export interface WarrantyProductField {
   resolution: 'return' | 'replace' | 'out_of_stock';
   deductionAmount: number;
   productImages: string[];
+  thumbnailImage?: string; // ✅ Ảnh đại diện sản phẩm
+  productSystemId?: string; // ✅ SystemId của sản phẩm gốc để load ảnh
 }
 
 export interface ProductForSelection {
@@ -28,21 +41,41 @@ export interface ProductForSelection {
   name: string;
   costPrice?: number;
   warrantyPeriodMonths?: number;
+  thumbnailImage?: string; // ✅ Thêm ảnh đại diện
 }
 
 /**
  * Tạo permanent files từ product images URLs
+ * ✅ Now creates full StagingFile-compatible objects for ExistingDocumentsViewer
  */
 export function createPermanentFilesFromProduct(
   productSystemId: string,
   productImages: string[]
 ): SimpleImageFile[] {
   return productImages
-    .filter((url: string) => url && typeof url === 'string' && !url.includes('/staging/'))
-    .map((url: string, idx: number) => ({
-      id: `product-${productSystemId}-${idx}`,
-      url,
-    }));
+    .filter((url: string) => url && typeof url === 'string')
+    .map((url: string, idx: number) => {
+      // Extract filename from URL
+      const urlParts = url.split('/');
+      const filename = urlParts[urlParts.length - 1] || `image-${idx}`;
+      const name = filename.split('.')[0] || `image-${idx}`;
+      
+      return {
+        id: `product-${productSystemId}-${idx}`,
+        url,
+        // ✅ Add required fields for ExistingDocumentsViewer
+        name: name,
+        originalName: filename,
+        filename: filename,
+        size: 0, // Unknown for existing URLs
+        type: 'image/jpeg', // Default type
+        status: 'permanent' as const,
+        sessionId: '',
+        slug: name,
+        uploadedAt: new Date().toISOString(),
+        metadata: {},
+      };
+    });
 }
 
 /**
@@ -115,7 +148,8 @@ export function createWarrantyProductFromSelection(
   product: ProductForSelection
 ): WarrantyProductField {
   return {
-    systemId: `WP_${Date.now()}_${Math.random()}`,
+    systemId: generateSubEntityId('WP'),
+    productSystemId: product.systemId, // ✅ Lưu systemId gốc để load ảnh
     sku: product.id, // Product.id là mã SKU user-facing
     productName: product.name,
     quantity: 1,
@@ -124,6 +158,7 @@ export function createWarrantyProductFromSelection(
     resolution: 'return',
     deductionAmount: 0,
     productImages: [],
+    thumbnailImage: product.thumbnailImage, // ✅ Lưu ảnh đại diện
   };
 }
 
@@ -258,6 +293,11 @@ export const PRODUCT_IMAGES_GRID_STYLES = `
 `;
 
 export const COMPACT_UPLOAD_STYLES = `
+  .compact-upload > div > .space-y-4 {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
   .compact-upload [role="presentation"] {
     min-height: 36px !important;
     padding: 8px !important;
@@ -298,11 +338,13 @@ export const COMPACT_UPLOAD_STYLES = `
   .compact-upload .text-destructive {
     display: none !important;
   }
+  /* Grid for uploaded images - ensure visibility */
   .compact-upload .grid {
     display: grid !important;
-    grid-template-columns: repeat(5, 80px) !important;
+    grid-template-columns: repeat(3, 80px) !important;
     gap: 8px !important;
     margin-top: 8px !important;
+    width: fit-content !important;
   }
   .compact-upload .grid > div {
     border: 1px solid #e5e7eb !important;

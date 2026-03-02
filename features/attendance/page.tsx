@@ -5,13 +5,16 @@
  * Logic extracted to: hooks/use-attendance-page-handlers.ts
  */
 import * as React from 'react';
+import dynamic from 'next/dynamic';
 import { formatDateCustom, subtractMonths, addMonths, getDayOfWeek } from '@/lib/date-utils';
+import { useRouter } from 'next/navigation';
 import { ROUTES } from '@/lib/router';
 import { useAllEmployees } from '@/features/employees/hooks/use-all-employees';
 import { useAllDepartments } from '@/features/settings/departments/hooks/use-all-departments';
 import { usePageHeader } from '@/contexts/page-header-context';
 import { useEmployeeSettings, DEFAULT_EMPLOYEE_SETTINGS } from '@/features/settings/employees/hooks/use-employee-settings';
-import { useAttendanceByMonth, useAttendanceMutations } from './hooks/use-attendance';
+import { useAttendanceByMonth, useAttendanceMutations, attendanceKeys } from './hooks/use-attendance';
+import { useQueryClient } from '@tanstack/react-query';
 import { generateEmptyAttendance } from './data';
 import { getColumns } from './columns';
 import { recalculateSummary } from './utils';
@@ -22,22 +25,25 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { ChevronLeft, ChevronRight, Search } from 'lucide-react';
-import { useFuseFilter } from '@/hooks/use-fuse-search';
+import { ChevronLeft, ChevronRight, Search, Upload, Download, Printer, Lock, LockOpen, Settings } from 'lucide-react';
+import { simpleSearch } from '@/lib/simple-search';
 import { AttendanceEditDialog } from './components/attendance-edit-dialog';
 import { DynamicDataTableColumnCustomizer as DataTableColumnCustomizer } from '@/components/data-table/dynamic-column-customizer';
-import { AttendanceImportDialog } from './components/attendance-import-dialog';
-import { BulkEditDialog } from './components/bulk-edit-dialog';
 import { StatisticsDashboard } from './components/statistics-dashboard';
 import { useDebounce } from '@/hooks/use-debounce';
 import { toast } from 'sonner';
-import { useAllLeaves } from '@/features/leaves/hooks/use-all-leaves';
+import { useAllLeavesByDateRange } from '@/features/leaves/hooks/use-leaves';
 import { leaveAttendanceSync } from '@/features/leaves/leave-sync-service';
 import { usePrint } from '@/lib/use-print';
 import { useStoreInfoData } from '@/features/settings/store-info/hooks/use-store-info';
 import { convertAttendanceSheetForPrint, mapAttendanceSheetToPrintData, mapAttendanceSheetLineItems, createStoreSettings } from '@/lib/print/attendance-print-helper';
-import { previewAttendancePenalties, confirmCreatePenalties, type PenaltyPreviewItem } from './penalty-sync-service';
-import { PenaltyConfirmDialog } from './components/penalty-confirm-dialog';
+import type { PenaltyPreviewItem } from './penalty-sync-service';
+import { useAttendanceLocks } from './hooks/use-attendance-locks';
+
+// Lazy-load heavy dialogs (only rendered when opened)
+const AttendanceImportDialog = dynamic(() => import('./components/attendance-import-dialog').then(m => ({ default: m.AttendanceImportDialog })), { ssr: false });
+const BulkEditDialog = dynamic(() => import('./components/bulk-edit-dialog').then(m => ({ default: m.BulkEditDialog })), { ssr: false });
+const PenaltyConfirmDialog = dynamic(() => import('./components/penalty-confirm-dialog').then(m => ({ default: m.PenaltyConfirmDialog })), { ssr: false });
 
 // MonthYearPicker component
 function MonthYearPicker({ value, onChange }: { value: Date; onChange: (date: Date) => void }) {
@@ -56,24 +62,34 @@ function MonthYearPicker({ value, onChange }: { value: Date; onChange: (date: Da
 }
 
 export function AttendancePage() {
+  const router = useRouter();
+  const queryClient = useQueryClient();
   const { data: employees } = useAllEmployees();
   const { data: departments } = useAllDepartments();
   const { data: rawSettings } = useEmployeeSettings();
   const settings = rawSettings ?? DEFAULT_EMPLOYEE_SETTINGS;
-  const { data: leaveRequests } = useAllLeaves();
   const { info: storeInfo } = useStoreInfoData();
   const { print } = usePrint();
 
   // Core state
   const [currentDate, setCurrentDate] = React.useState(() => new Date());
   const currentMonthKey = formatDateCustom(currentDate, 'yyyy-MM');
+
+  // Server-side: fetch ALL approved leaves for the current month (auto-paginated)
+  const { data: leaveRequests } = useAllLeavesByDateRange({
+    status: 'Đã duyệt',
+    fromDate: `${currentMonthKey}-01`,
+    toDate: new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).toISOString().split('T')[0],
+  });
   
   // Fetch attendance data from database
   const { data: dbAttendanceData } = useAttendanceByMonth(currentMonthKey);
   
   // Local state for UI
   const [attendanceData, setAttendanceData] = React.useState<AttendanceDataRow[]>([]);
-  const [lockedMonths, setLockedMonths] = React.useState<Record<string, boolean>>({});
+  
+  // ✅ Use React Query hook for locked months (syncs via database)
+  const { lockedMonths, toggleLock, isToggling: _isToggling } = useAttendanceLocks();
   const isLocked = !!lockedMonths[currentMonthKey];
   
   // Mutations
@@ -117,22 +133,25 @@ export function AttendancePage() {
   const leaveRequestsRef = React.useRef(leaveRequests);
   leaveRequestsRef.current = leaveRequests;
 
-  // Replay approved leaves - use ref to avoid dependency on leaveRequests
-  const replayApprovedLeavesForMonth = React.useCallback((monthKey: string) => {
+  // Replay approved leaves - pure function, returns modified data
+  const replayApprovedLeavesForMonth = React.useCallback((monthKey: string, data: AttendanceDataRow[]): AttendanceDataRow[] => {
     const currentLeaves = leaveRequestsRef.current;
-    if (!currentLeaves?.length) return;
+    if (!currentLeaves?.length) return data;
     const [yearStr, monthStr] = monthKey.split('-');
     const year = Number(yearStr), month = Number(monthStr);
-    if (!year || !month) return;
+    if (!year || !month) return data;
     const monthStart = new Date(year, month - 1, 1);
     const monthEnd = new Date(year, month, 0);
+    let result = data;
     currentLeaves.forEach((leave) => {
       if (leave.status !== 'Đã duyệt') return;
       const start = new Date(leave.startDate), end = new Date(leave.endDate);
       if (!isNaN(start.getTime()) && !isNaN(end.getTime()) && start <= monthEnd && end >= monthStart) {
-        leaveAttendanceSync.apply(leave);
+        const updated = leaveAttendanceSync.applyToData(leave, monthKey, result);
+        if (updated) result = updated;
       }
     });
+    return result;
   }, []);
 
   // Track if data has been loaded for current month to prevent re-runs
@@ -148,29 +167,32 @@ export function AttendancePage() {
     // If no data from DB, generate empty structure
     if (!dbAttendanceData || dbAttendanceData.length === 0) {
       const seededData = generateEmptyAttendance(employees, currentDate.getFullYear(), currentDate.getMonth() + 1, settings);
-      setAttendanceData(seededData);
-      replayApprovedLeavesForMonth(currentMonthKey);
+      const withLeaves = replayApprovedLeavesForMonth(currentMonthKey, seededData);
+      setAttendanceData(withLeaves);
       loadedMonthRef.current = currentMonthKey;
     } else {
-      setAttendanceData(dbAttendanceData);
+      // Recalculate summary for each row from DB data
+      const dataWithSummary = dbAttendanceData.map(row => {
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth() + 1;
+        return { ...row, ...recalculateSummary(row as AnyAttendanceDataRow, year, month, settings) } as AttendanceDataRow;
+      });
+      setAttendanceData(dataWithSummary);
       loadedMonthRef.current = currentMonthKey;
     }
   }, [employees, currentDate, settings, currentMonthKey, dbAttendanceData, replayApprovedLeavesForMonth]);
 
-  // Toggle lock handler
-  const _handleToggleLock = React.useCallback(() => {
+  // Toggle lock handler - uses database-backed hook
+  const handleToggleLock = React.useCallback(async () => {
     const monthLabel = formatDateCustom(currentDate, 'MM/yyyy');
-    setLockedMonths(prev => {
-      const newLocked = { ...prev };
-      if (newLocked[currentMonthKey]) {
-        delete newLocked[currentMonthKey];
-      } else {
-        newLocked[currentMonthKey] = true;
-      }
-      return newLocked;
-    });
-    toast.success(isLocked ? 'Đã mở khóa chấm công' : 'Đã khóa chấm công', { description: `Tháng ${monthLabel}` });
-  }, [currentDate, currentMonthKey, isLocked]);
+    const wasLocked = isLocked;
+    try {
+      await toggleLock(currentMonthKey);
+      toast.success(wasLocked ? 'Đã mở khóa chấm công' : 'Đã khóa chấm công', { description: `Tháng ${monthLabel}` });
+    } catch (error) {
+      toast.error('Lỗi khi thay đổi trạng thái khóa', { description: String(error) });
+    }
+  }, [currentDate, currentMonthKey, isLocked, toggleLock]);
 
   // Cell selection toggle
   const toggleCellSelection = React.useCallback((employeeSystemId: SystemId, day: number) => {
@@ -263,12 +285,12 @@ export function AttendancePage() {
     const records = updates.map(u => ({
       systemId: u.employeeSystemId,
       data: {
-        action: 'save',
+        action: 'save' as const,
         monthKey: currentMonthKey,
         employeeSystemId: u.employeeSystemId,
         dayKey: `day_${u.day}`,
         record: u.record,
-      } as any,
+      },
     }));
     bulkUpdateAttendance.mutate(records);
     
@@ -278,7 +300,7 @@ export function AttendancePage() {
   }, [attendanceData, currentDate, settings, currentMonthKey, bulkUpdateAttendance]);
 
   // Import confirm handler
-  const handleConfirmImport = React.useCallback((importedData: Record<SystemId, { day: number; checkIn?: string; morningCheckOut?: string; afternoonCheckIn?: string; checkOut?: string; overtimeCheckIn?: string; overtimeCheckOut?: string }[]>, date: Date) => {
+  const handleConfirmImport = React.useCallback(async (importedData: Record<SystemId, { day: number; checkIn?: string; morningCheckOut?: string; afternoonCheckIn?: string; checkOut?: string; overtimeCheckIn?: string; overtimeCheckOut?: string }[]>, date: Date) => {
     const year = date.getFullYear(), month = date.getMonth() + 1;
     const baseData = generateEmptyAttendance(employees, year, month, settings);
     const updatedData = baseData.map(empRow => {
@@ -326,13 +348,26 @@ export function AttendancePage() {
     }
     
     setCurrentDate(date);
+    
+    // Reset ref và invalidate query để load lại dữ liệu mới từ DB
+    const newMonthKey = formatDateCustom(date, 'yyyy-MM');
+    loadedMonthRef.current = null;
+    queryClient.invalidateQueries({ queryKey: attendanceKeys.month(newMonthKey) });
+    
+    // Cập nhật UI ngay lập tức với dữ liệu đã import
+    setAttendanceData(updatedData);
+    
+    // Lazy-load penalty service (only needed after import)
+    const { loadExistingPenalties, previewAttendancePenalties } = await import('./penalty-sync-service');
+    await loadExistingPenalties();
     const penalties = previewAttendancePenalties(updatedData, year, month);
     if (penalties.length > 0) { setPendingPenalties(penalties); setIsPenaltyConfirmOpen(true); }
     toast.success('Nhập thành công', { description: `Đã cập nhật chấm công cho tháng ${formatDateCustom(date, 'MM/yyyy')}` });
-  }, [employees, settings, bulkUpdateAttendance]);
+  }, [employees, settings, bulkUpdateAttendance, queryClient]);
 
-  const handleConfirmPenalties = React.useCallback((selectedPenalties: Parameters<typeof confirmCreatePenalties>[0]) => {
-    const created = confirmCreatePenalties(selectedPenalties);
+  const handleConfirmPenalties = React.useCallback(async (selectedPenalties: PenaltyPreviewItem[]) => {
+    const { confirmCreatePenalties } = await import('./penalty-sync-service');
+    const created = await confirmCreatePenalties(selectedPenalties);
     toast.success('Tạo phiếu phạt thành công', { description: `Đã tạo ${created} phiếu phạt` });
     setPendingPenalties([]);
   }, []);
@@ -342,21 +377,21 @@ export function AttendancePage() {
   // Selected cells array
   const selectedCellsArray = React.useMemo(() => Object.keys(cellSelection).map(key => { const [sId, dayStr] = key.split('-'); const emp = attendanceData.find(e => e.employeeSystemId === sId); return { employeeSystemId: sId as SystemId, employeeCode: emp?.employeeId ?? '', employeeName: emp?.fullName ?? '', day: parseInt(dayStr, 10) }; }), [cellSelection, attendanceData]);
 
-  // Filtering
-  const fuseOptions = React.useMemo(() => ({ keys: ['employeeId', 'fullName', 'department'] }), []);
-  const searchedData = useFuseFilter(attendanceData, debouncedGlobalFilter, fuseOptions);
+  // Filtering with simple search (attendance data is bounded by month)
+  const searchOptions = React.useMemo(() => ({ keys: ['employeeId', 'fullName', 'department'] as const satisfies readonly (keyof AttendanceDataRow)[] }), []);
+  const searchedData = React.useMemo(() => simpleSearch(attendanceData, debouncedGlobalFilter, { keys: [...searchOptions.keys] }), [attendanceData, debouncedGlobalFilter, searchOptions]);
   const filteredData = React.useMemo(() => { let data = searchedData; if (departmentFilter !== 'all') data = data.filter(r => r.department === departmentFilter); return data; }, [searchedData, departmentFilter]);
   const sortedData = React.useMemo(() => { const s = [...filteredData]; if (sorting.id) s.sort((a, b) => { const aV = (a as Record<string, unknown>)[sorting.id] as string | number | null | undefined, bV = (b as Record<string, unknown>)[sorting.id] as string | number | null | undefined; if (aV == null && bV == null) return 0; if (aV == null) return 1; if (bV == null) return -1; if (aV < bV) return sorting.desc ? 1 : -1; if (aV > bV) return sorting.desc ? -1 : 1; return 0; }); return s; }, [filteredData, sorting]);
 
   // Print & Export handlers (must be after sortedData)
-  const _handlePrint = React.useCallback(() => {
+  const handlePrint = React.useCallback(() => {
     if (!sortedData?.length) return;
     const storeSettings = createStoreSettings(storeInfo);
     const sheetForPrint = convertAttendanceSheetForPrint(currentMonthKey, sortedData as Parameters<typeof convertAttendanceSheetForPrint>[1], { isLocked, departmentName: departmentFilter !== 'all' ? departments.find(d => d.name === departmentFilter)?.name : undefined });
     print('attendance', { data: mapAttendanceSheetToPrintData(sheetForPrint, storeSettings), lineItems: mapAttendanceSheetLineItems(sheetForPrint.employees, currentMonthKey) });
   }, [sortedData, currentMonthKey, departmentFilter, departments, isLocked, storeInfo, print]);
 
-  const _handleExport = React.useCallback(async () => {
+  const handleExport = React.useCallback(async () => {
     const XLSX = await import('xlsx');
     const year = currentDate.getFullYear(), month = currentDate.getMonth() + 1, daysInMonth = new Date(year, month, 0).getDate();
     const headers = ['Mã NV', 'Họ tên', 'Phòng ban'];
@@ -385,10 +420,14 @@ export function AttendancePage() {
     // ⚠️ Tạm bỏ actions khỏi header để tránh vòng lặp setState khi actions thay đổi liên tục
   }), []));
 
-  // Columns - separate stable config from selection state
+  // Columns - use refs for cellSelection/isSelectionMode to keep column defs stable
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth() + 1;
-  const columns = React.useMemo(() => getColumns(year, month, handleEditRecord, settings, isLocked, isSelectionMode, cellSelection, handleQuickFill), [year, month, handleEditRecord, settings, isLocked, isSelectionMode, cellSelection, handleQuickFill]);
+  const cellSelectionRef = React.useRef(cellSelection);
+  cellSelectionRef.current = cellSelection;
+  const isSelectionModeRef = React.useRef(isSelectionMode);
+  isSelectionModeRef.current = isSelectionMode;
+  const columns = React.useMemo(() => getColumns(year, month, handleEditRecord, settings, isLocked, isSelectionModeRef, cellSelectionRef, handleQuickFill), [year, month, handleEditRecord, settings, isLocked, handleQuickFill]);
 
   // Init column visibility - only run once when columns are first available
   const initRef = React.useRef(false);
@@ -415,8 +454,8 @@ export function AttendancePage() {
   return (
     <div className="flex flex-col h-full space-y-4">
       <StatisticsDashboard data={filteredData} currentDate={currentDate} />
-      <Card className="flex-shrink-0"><CardContent className="p-4"><div className="flex flex-wrap items-center justify-between gap-2"><div className="flex flex-wrap items-center gap-2"><MonthYearPicker value={currentDate} onChange={setCurrentDate} /><Select value={departmentFilter} onValueChange={setDepartmentFilter}><SelectTrigger className="h-9 w-full sm:w-[180px]"><SelectValue placeholder="Tất cả phòng ban" /></SelectTrigger><SelectContent><SelectItem value="all">Tất cả phòng ban</SelectItem>{departments.map(d => <SelectItem key={d.id} value={d.name}>{d.name}</SelectItem>)}</SelectContent></Select><div className="relative"><Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input placeholder="Tìm nhân viên..." value={globalFilter} onChange={e => setGlobalFilter(e.target.value)} className="h-9 w-[200px] pl-8" /></div></div><div className="flex items-center justify-end gap-2"><DataTableColumnCustomizer columns={columns} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} /></div></div></CardContent></Card>
-      <ResponsiveDataTable columns={columns} data={paginatedData} rowCount={filteredData.length} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowSelection={rowSelection} setRowSelection={setRowSelection} sorting={sorting} setSorting={setSorting} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} className="flex-grow" allSelectedRows={allSelectedRows} expanded={{}} setExpanded={() => {}} />
+      <Card className="shrink-0"><CardContent className="p-4"><div className="flex flex-wrap items-center justify-between gap-2"><div className="flex flex-wrap items-center gap-2"><MonthYearPicker value={currentDate} onChange={setCurrentDate} /><Select value={departmentFilter} onValueChange={setDepartmentFilter}><SelectTrigger className="h-9 w-full sm:w-45"><SelectValue placeholder="Tất cả phòng ban" /></SelectTrigger><SelectContent><SelectItem value="all">Tất cả phòng ban</SelectItem>{departments.map(d => <SelectItem key={d.id} value={d.name}>{d.name}</SelectItem>)}</SelectContent></Select><div className="relative"><Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input placeholder="Tìm nhân viên..." value={globalFilter} onChange={e => setGlobalFilter(e.target.value)} className="h-9 w-50 pl-8" /></div></div><div className="flex items-center justify-end gap-2"><Button variant="outline" size="sm" className="h-9" onClick={() => router.push('/settings/employees')}><Settings className="mr-2 h-4 w-4" />Cài đặt</Button><Button variant="outline" size="sm" className="h-9" onClick={handlePrint}><Printer className="mr-2 h-4 w-4" />In</Button><Button variant="outline" size="sm" className="h-9" disabled={isLocked} onClick={() => setIsImportDialogOpen(true)}><Upload className="mr-2 h-4 w-4" />Nhập file</Button><Button variant="outline" size="sm" className="h-9" onClick={handleExport}><Download className="mr-2 h-4 w-4" />Xuất file</Button><Button variant={isLocked ? 'default' : 'outline'} size="sm" className="h-9" onClick={handleToggleLock}>{isLocked ? <LockOpen className="mr-2 h-4 w-4" /> : <Lock className="mr-2 h-4 w-4" />}{isLocked ? 'Mở khóa' : 'Khóa'}</Button><DataTableColumnCustomizer columns={columns} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} /></div></div></CardContent></Card>
+      <ResponsiveDataTable columns={columns} data={paginatedData} rowCount={filteredData.length} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowSelection={rowSelection} setRowSelection={setRowSelection} sorting={sorting} setSorting={setSorting} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} className="grow" allSelectedRows={allSelectedRows} expanded={{}} setExpanded={() => {}} />
       <AttendanceEditDialog isOpen={isEditModalOpen} onOpenChange={setIsEditModalOpen} recordData={editingRecordInfo} onSave={handleSaveRecord} monthDate={currentDate} />
       <AttendanceImportDialog isOpen={isImportDialogOpen} onOpenChange={setIsImportDialogOpen} onConfirmImport={handleConfirmImport} employees={employees} />
       <BulkEditDialog isOpen={isBulkEditDialogOpen} onOpenChange={setIsBulkEditDialogOpen} selectedCells={selectedCellsArray} onSave={handleBulkSave} />

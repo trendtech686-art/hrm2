@@ -1,5 +1,6 @@
 import { toast } from 'sonner';
 import { asSystemId, type SystemId } from '@/lib/id-types';
+import { generateSubEntityId } from '@/lib/id-utils';
 import type { Complaint } from '../types';
 import { cancelPaymentsReceiptsAndInventory } from '../utils/cancel-payments-receipts-and-inventory';
 import { handleReopenAfterCancelled } from './reopen-after-cancelled-handler';
@@ -25,7 +26,7 @@ interface User {
 export async function handleReopenComplaint(
   complaint: Complaint,
   currentUser: User,
-  updateComplaint: (systemId: SystemId, updates: Partial<Complaint>) => void
+  updateComplaint: (systemId: SystemId, updates: Partial<Complaint>) => Promise<void> | void
 ): Promise<{ success: boolean; message: string }> {
   try {
     
@@ -65,7 +66,7 @@ export async function handleReopenComplaint(
       timeline: [
         ...complaint.timeline,
         {
-          id: asSystemId(`action_${Date.now()}`),
+          id: asSystemId(generateSubEntityId('ACTION')),
           actionType: "reopened" as const,
           performedBy: currentUser.systemId,
           performedAt: new Date(),

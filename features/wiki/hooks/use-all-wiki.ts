@@ -1,14 +1,22 @@
 /**
  * useAllWiki - Convenience hook for components needing all wiki articles as flat array
+ * Auto-pagination: no hardcoded limit cap (MODULE-QUALITY-CRITERIA §1.3)
  */
 
-import { useWikiArticles } from './use-wiki';
+import { useQuery } from '@tanstack/react-query';
+import { fetchAllPages } from '@/lib/fetch-all-pages';
+import { fetchWikiArticles } from '../api/wiki-api';
+import { wikiKeys } from './use-wiki';
 
 export function useAllWiki() {
-  const query = useWikiArticles({ limit: 500 });
-  
+  const query = useQuery({
+    queryKey: [...wikiKeys.all, 'all'],
+    queryFn: () => fetchAllPages((p) => fetchWikiArticles(p)),
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+  });
   return {
-    data: query.data?.data || [],
+    data: query.data || [],
     isLoading: query.isLoading,
     isError: query.isError,
     error: query.error,

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 /**
  * Lightweight Dashboard Page
@@ -54,7 +54,13 @@ function useDashboardData() {
   })
 }
 
-export function DashboardPageLite() {
+import type { DashboardStats } from '@/lib/data/dashboard'
+
+export interface DashboardPageLiteProps {
+  initialStats?: DashboardStats;
+}
+
+export function DashboardPageLite({ initialStats }: DashboardPageLiteProps = {}) {
   const router = useRouter()
   const { data, isLoading, error } = useDashboardData()
 
@@ -102,27 +108,27 @@ export function DashboardPageLite() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatsCard
           title="Doanh thu hôm nay"
-          value={isLoading ? undefined : formatCurrency(data?.summary?.totalRevenue || 0)}
+          value={isLoading && !initialStats ? undefined : formatCurrency(data?.summary?.totalRevenue || initialStats?.sales?.today || 0)}
           icon={DollarSign}
-          loading={isLoading}
+          loading={isLoading && !initialStats}
         />
         <StatsCard
           title="Đơn hàng"
-          value={isLoading ? undefined : String(data?.summary?.totalOrders || 0)}
+          value={isLoading && !initialStats ? undefined : String(data?.summary?.totalOrders || initialStats?.orders?.pending || 0)}
           icon={ShoppingCart}
-          loading={isLoading}
+          loading={isLoading && !initialStats}
         />
         <StatsCard
           title="Đang giao hàng"
-          value={isLoading ? undefined : String(data?.summary?.shippingOrders || 0)}
+          value={isLoading && !initialStats ? undefined : String(data?.summary?.shippingOrders || initialStats?.orders?.processing || 0)}
           icon={Truck}
-          loading={isLoading}
+          loading={isLoading && !initialStats}
         />
         <StatsCard
           title="Nhân viên hoạt động"
-          value={isLoading ? undefined : String(data?.summary?.activeEmployees || 0)}
+          value={isLoading && !initialStats ? undefined : String(data?.summary?.activeEmployees || 0)}
           icon={UserCheck}
-          loading={isLoading}
+          loading={isLoading && !initialStats}
         />
       </div>
 
@@ -131,7 +137,7 @@ export function DashboardPageLite() {
         {/* Recent Orders */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-lg">Đơn hàng gần đây</CardTitle>
+            <CardTitle size="lg">Đơn hàng gần đây</CardTitle>
             <Button variant="ghost" size="sm" onClick={() => router.push('/orders')}>
               Xem tất cả <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
@@ -181,7 +187,7 @@ export function DashboardPageLite() {
         {/* Top Products */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-lg">Sản phẩm bán chạy</CardTitle>
+            <CardTitle size="lg">Sản phẩm bán chạy</CardTitle>
             <Button variant="ghost" size="sm" onClick={() => router.push('/products')}>
               Xem tất cả <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
@@ -248,7 +254,7 @@ function StatsCard({
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
+        <CardTitle size="sm">{title}</CardTitle>
         <Icon className="h-4 w-4 text-muted-foreground" />
       </CardHeader>
       <CardContent>

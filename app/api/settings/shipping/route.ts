@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma'
 import { Prisma } from '@/generated/prisma/client'
 import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
 import { shippingSettingsSchema } from './validation'
+import { generateIdWithPrefix } from '@/lib/id-generator'
 
 const SETTING_KEY = 'shipping-settings'
 const SETTING_GROUP = 'operations'
@@ -54,7 +55,7 @@ export async function PUT(request: Request) {
         updatedAt: new Date(),
       },
       create: {
-        systemId: `SET_SHIP_${Date.now()}`,
+        systemId: await generateIdWithPrefix('SETSHIP'),
         key: SETTING_KEY,
         group: SETTING_GROUP,
         type: 'json',

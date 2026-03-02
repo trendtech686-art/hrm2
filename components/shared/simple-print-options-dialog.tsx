@@ -15,9 +15,12 @@ const PAPER_SIZE_OPTIONS = [
   { label: 'A6', value: 'A6' },
   { label: 'K80', value: 'K80' },
   { label: 'K57', value: 'K57' },
+  { label: '50x30', value: '50x30' },
 ] as const;
 
-export type PaperSize = typeof PAPER_SIZE_OPTIONS[number]['value'];
+// Use shared PaperSize from printer types
+import type { PaperSize } from '../../features/settings/printer/types';
+export type { PaperSize };
 
 export interface SimplePrintOptionsResult {
   branchSystemId: string;
@@ -86,7 +89,7 @@ export function SimplePrintOptionsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[480px]">
+      <DialogContent className="sm:max-w-120">
         <DialogHeader>
           <DialogTitle className="text-lg">
             {title}
@@ -101,7 +104,7 @@ export function SimplePrintOptionsDialog({
         <div className="grid gap-6 py-4">
           {/* Chi nhánh */}
           <div className="flex items-center gap-4">
-            <Label className="min-w-[160px] text-right text-muted-foreground">
+            <Label className="min-w-40 text-right text-muted-foreground">
               Chọn mẫu in tại chi nhánh
             </Label>
             <Select value={branchSystemId} onValueChange={setBranchSystemId}>
@@ -131,7 +134,7 @@ export function SimplePrintOptionsDialog({
                   variant={paperSize === option.value ? "default" : "outline"}
                   size="sm"
                   className={cn(
-                    "min-w-[70px]",
+                    "min-w-15",
                     paperSize === option.value && "bg-primary text-primary-foreground"
                   )}
                   onClick={() => setPaperSize(option.value)}

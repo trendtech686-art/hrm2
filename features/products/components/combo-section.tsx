@@ -1,4 +1,4 @@
-/**
+﻿/**
  * ComboSection - UI Component for managing combo product items
  * ═══════════════════════════════════════════════════════════════
  * Hiển thị khi product type = 'combo'
@@ -59,7 +59,7 @@ function ProductThumbnail({ product, size = 'md' }: { product?: Product | undefi
     const sizeClass = size === 'sm' ? 'w-10 h-10' : 'w-12 h-12';
     const iconSize = size === 'sm' ? 'h-4 w-4' : 'h-5 w-5';
     return (
-      <div className={`${sizeClass} flex-shrink-0 bg-muted rounded flex items-center justify-center`}>
+      <div className={`${sizeClass} shrink-0 bg-muted rounded flex items-center justify-center`}>
         <Package className={`${iconSize} text-muted-foreground`} />
       </div>
     );
@@ -91,7 +91,7 @@ function QuantityInput({
         type="button"
         variant="outline"
         size="icon"
-        className="h-8 w-8 flex-shrink-0"
+        className="h-8 w-8 shrink-0"
         onClick={() => onChange(Math.max(min, value - 1))}
         disabled={value <= min}
       >
@@ -108,7 +108,7 @@ function QuantityInput({
         type="button"
         variant="outline"
         size="icon"
-        className="h-8 w-8 flex-shrink-0"
+        className="h-8 w-8 shrink-0"
         onClick={() => onChange(value + 1)}
       >
         <Plus className="h-3 w-3" />
@@ -182,7 +182,7 @@ export function ComboSection() {
     if (typeof firstDefinedPrice === 'number') {
       return firstDefinedPrice;
     }
-    return product.minPrice || 0;
+    return 0;
   }, [defaultPricingPolicy]);
 
   // Calculate totals
@@ -381,7 +381,7 @@ export function ComboSection() {
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2">
             <Package className="h-5 w-5 text-primary" />
-            <CardTitle className="text-h3">Thành phần Combo</CardTitle>
+            <CardTitle size="lg">Thành phần Combo</CardTitle>
             <Badge variant="secondary">{fields.length}/{MAX_COMBO_ITEMS}</Badge>
           </div>
         </div>
@@ -401,7 +401,7 @@ export function ComboSection() {
           <Button 
             type="button" 
             variant="outline" 
-            className="h-9 w-full sm:w-auto flex-shrink-0" 
+            className="h-9 w-full sm:w-auto shrink-0" 
             onClick={() => setIsProductSelectionOpen(true)} 
             disabled={fields.length >= MAX_COMBO_ITEMS}
           >
@@ -466,7 +466,7 @@ export function ComboSection() {
                         variant="ghost"
                         size="sm"
                         onClick={() => remove(index)}
-                        className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive flex-shrink-0"
+                        className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive shrink-0"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -492,15 +492,15 @@ export function ComboSection() {
                       </div>
                       <div>
                         <p className="text-muted-foreground text-body-xs mb-1">Giá vốn</p>
-                        <p className="font-mono text-muted-foreground h-9 flex items-center">{formatCurrency(selectedProduct?.costPrice || 0)}</p>
+                        <p className="text-muted-foreground h-9 flex items-center">{formatCurrency(selectedProduct?.costPrice || 0)}</p>
                       </div>
                       <div>
                         <p className="text-muted-foreground text-body-xs mb-1">Đơn giá</p>
-                        <p className="font-mono h-9 flex items-center">{formatCurrency(unitPrice)}</p>
+                        <p className="h-9 flex items-center">{formatCurrency(unitPrice)}</p>
                       </div>
                       <div>
                         <p className="text-muted-foreground text-body-xs mb-1">Thành tiền</p>
-                        <p className="font-mono font-medium h-9 flex items-center">{formatCurrency(lineTotal)}</p>
+                        <p className="font-medium h-9 flex items-center">{formatCurrency(lineTotal)}</p>
                       </div>
                     </div>
                     
@@ -513,7 +513,7 @@ export function ComboSection() {
                             {getProductTotalStock(selectedProduct)}
                           </span>
                         ) : (
-                          <span className="font-mono">{getProductTotalStock(selectedProduct)}</span>
+                          <span className="font-medium">{getProductTotalStock(selectedProduct)}</span>
                         )}
                       </div>
                     )}
@@ -525,7 +525,7 @@ export function ComboSection() {
               <div className="p-3 bg-muted/50 rounded-lg">
                 <div className="flex justify-between items-center">
                   <span className="text-body-sm font-medium">Tổng giá gốc:</span>
-                  <span className="font-mono font-bold">{formatCurrency(calculations.totalOriginalPrice)}</span>
+                  <span className="font-bold">{formatCurrency(calculations.totalOriginalPrice)}</span>
                 </div>
               </div>
             </div>
@@ -749,7 +749,7 @@ export function ComboSection() {
             
             {/* Summary Stats */}
             {comboPricingType && (
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 p-4 bg-gradient-to-r from-muted/30 to-muted/50 rounded-lg border">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 p-4 bg-linear-to-r from-muted/30 to-muted/50 rounded-lg border">
                 <div className="text-center sm:text-left">
                   <p className="text-body-xs text-muted-foreground mb-1">Giá vốn combo</p>
                   <p className="font-mono text-body-sm sm:text-base font-semibold">

@@ -1,11 +1,10 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useCostAdjustmentById, useCostAdjustmentMutations } from './hooks/use-cost-adjustments';
 import { useProductFinder } from '../products/hooks/use-all-products';
-import { useProductTypeFinder } from '../settings/inventory/hooks/use-all-product-types';
 import { useEmployeeFinder } from '../employees/hooks/use-all-employees';
 import { useAllBranches, useBranchFinder } from '../settings/branches/hooks/use-all-branches';
 import { useStoreInfoData } from '../settings/store-info/hooks/use-store-info';
@@ -21,7 +20,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { DetailField } from '../../components/ui/detail-field';
 import { ActivityHistory, type HistoryEntry } from '../../components/ActivityHistory';
 import { ImagePreviewDialog } from '../../components/ui/image-preview-dialog';
-import { OptimizedImage } from '../../components/ui/optimized-image';
 import { 
   AlertDialog, 
   AlertDialogAction, 
@@ -35,7 +33,8 @@ import {
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 import { Textarea } from '../../components/ui/textarea';
 import { Label } from '../../components/ui/label';
-import { CheckCircle, XCircle, Printer, Package, TrendingUp, TrendingDown, Eye, ArrowRight } from 'lucide-react';
+import { CheckCircle, XCircle, Printer, TrendingUp, TrendingDown, ArrowRight } from 'lucide-react';
+import { ProductThumbnailCell } from '../../components/shared/read-only-products-table';
 import { toast } from 'sonner';
 import { formatDateTime } from '@/lib/date-utils';
 import { Comments } from '../../components/Comments';
@@ -44,10 +43,14 @@ import type { CostAdjustmentStatus, CostAdjustment } from '@/lib/types/prisma-ex
 import { usePrint } from '../../lib/use-print';
 import { convertCostAdjustmentForPrint, mapCostAdjustmentToPrintData, mapCostAdjustmentLineItems } from '../../lib/print/cost-adjustment-print-helper';
 
-const formatCurrency = (value: number) => value.toLocaleString('vi-VN') + ' đ';
+const formatCurrency = (value: number | undefined | null) => {
+  if (value == null || isNaN(value)) return '0 đ';
+  return value.toLocaleString('vi-VN') + ' đ';
+};
 
 const getStatusVariant = (status: CostAdjustmentStatus): 'default' | 'secondary' | 'success' | 'destructive' => {
-  switch (status) {
+  const s = status?.toLowerCase?.() || status;
+  switch (s) {
     case 'draft': return 'secondary';
     case 'confirmed': return 'success';
     case 'cancelled': return 'destructive';
@@ -56,12 +59,13 @@ const getStatusVariant = (status: CostAdjustmentStatus): 'default' | 'secondary'
 };
 
 const getStatusLabel = (status: CostAdjustmentStatus): string => {
-  switch (status) {
-    case 'draft': return 'Nháp';
-    case 'confirmed': return 'Đã xác nhận';
-    case 'cancelled': return 'Đã hủy';
-    default: return status;
-  }
+  const s = (status?.toLowerCase?.() || status) as CostAdjustmentStatus;
+  const labels: Record<string, string> = {
+    draft: 'Nháp',
+    confirmed: 'Đã xác nhận', 
+    cancelled: 'Đã hủy',
+  };
+  return labels[s] || status;
 };
 
 // Build history entries from adjustment data
@@ -128,8 +132,7 @@ export function CostAdjustmentDetailPage() {
   const { user } = useAuth();
   const { findById: findEmployeeById } = useEmployeeFinder();
   const { findById: findProductById } = useProductFinder();
-  const { findById: findProductTypeById } = useProductTypeFinder();
-  const { data: adjustment } = useCostAdjustmentById(systemId);
+  const { data: adjustment, isLoading } = useCostAdjustmentById(systemId);
   const { confirm, cancel } = useCostAdjustmentMutations({
     onSuccess: () => {
       toast.success('Cập nhật thành công');
@@ -148,6 +151,7 @@ export function CostAdjustmentDetailPage() {
   const [previewImage, setPreviewImage] = React.useState<{ url: string; title: string } | null>(null);
   
   const currentEmployee = user?.employeeId ? findEmployeeById(asSystemId(user.employeeId)) : null;
+  const creatorEmployee = adjustment?.createdBy ? findEmployeeById(asSystemId(adjustment.createdBy)) : null;
   const { print } = usePrint();
 
   const handlePrint = React.useCallback(() => {
@@ -177,11 +181,6 @@ export function CostAdjustmentDetailPage() {
       lineItems: mapCostAdjustmentLineItems(printData.items) 
     });
   }, [adjustment, branches, findBranchById, storeInfo, print]);
-
-  const getProductTypeName = React.useCallback((productTypeSystemId: SystemId) => {
-    const productType = findProductTypeById(productTypeSystemId);
-    return productType?.name || 'Hàng hóa';
-  }, [findProductTypeById]);
 
   // Comments from database
   const { 
@@ -227,10 +226,14 @@ export function CostAdjustmentDetailPage() {
   const totalDifference = totalNewValue - totalOldValue;
   
   const handleConfirm = async () => {
-    if (!adjustment || !currentEmployee) return;
+    if (!adjustment) return;
     
     try {
-      await confirm.mutateAsync(adjustment.systemId);
+      await confirm.mutateAsync({
+        systemId: adjustment.systemId,
+        confirmedBy: currentEmployee?.systemId || user?.employeeId || (user as { id?: string } | undefined)?.id as SystemId | undefined,
+        confirmedByName: currentEmployee?.fullName || user?.name,
+      });
     } catch (_error) {
       // Error handled by mutation callbacks
     }
@@ -238,16 +241,21 @@ export function CostAdjustmentDetailPage() {
   };
   
   const handleCancel = React.useCallback(async () => {
-    if (!adjustment || !currentEmployee) return;
+    if (!adjustment) return;
     
     try {
-      await cancel.mutateAsync(adjustment.systemId);
+      await cancel.mutateAsync({
+        systemId: adjustment.systemId,
+        cancelledBy: currentEmployee?.systemId || user?.employeeId || (user as { id?: string } | undefined)?.id as SystemId | undefined,
+        cancelledByName: currentEmployee?.fullName || user?.name,
+        reason: cancelReason || undefined,
+      });
     } catch (_error) {
       // Error handled by mutation callbacks
     }
     setCancelDialogOpen(false);
     setCancelReason('');
-  }, [adjustment, currentEmployee, cancel]);
+  }, [adjustment, currentEmployee, user, cancel, cancelReason]);
   
 
   
@@ -261,7 +269,7 @@ export function CostAdjustmentDetailPage() {
           In phiếu
         </Button>
         
-        {adjustment.status === 'draft' && (
+        {adjustment.status?.toLowerCase() === 'draft' && (
           <>
             <Button 
               variant="default" 
@@ -298,7 +306,6 @@ export function CostAdjustmentDetailPage() {
     if (adjustment) {
       setPageHeader({
         title: `Phiếu điều chỉnh ${adjustment.id}`,
-        subtitle: adjustment.reason || 'Điều chỉnh giá vốn sản phẩm',
         breadcrumb,
         showBackButton: true,
         backPath: '/cost-adjustments',
@@ -312,6 +319,18 @@ export function CostAdjustmentDetailPage() {
     }
     return () => clearPageHeader();
   }, [adjustment, setPageHeader, clearPageHeader, breadcrumb, headerActions]);
+  
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <span>Đang tải dữ liệu...</span>
+        </div>
+      </div>
+    );
+  }
   
   if (!adjustment) {
     return (
@@ -331,7 +350,7 @@ export function CostAdjustmentDetailPage() {
         <div className="lg:col-span-2 space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle className="text-h6">Thông tin phiếu</CardTitle>
+              <CardTitle>Thông tin phiếu</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -346,7 +365,7 @@ export function CostAdjustmentDetailPage() {
           {adjustment.note && (
             <Card>
               <CardHeader>
-                <CardTitle className="text-h6">Ghi chú</CardTitle>
+                <CardTitle>Ghi chú</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="whitespace-pre-wrap">{adjustment.note}</p>
@@ -359,11 +378,11 @@ export function CostAdjustmentDetailPage() {
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle className="text-h6">Thông tin xử lý</CardTitle>
+              <CardTitle>Thông tin xử lý</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <DetailField label="Ngày tạo" value={formatDateTime(adjustment.createdDate)} />
-              <DetailField label="Người tạo" value={adjustment.createdByName} />
+              <DetailField label="Người tạo" value={adjustment.createdByName || creatorEmployee?.fullName || '-'} />
               
               {adjustment.confirmedDate && (
                 <>
@@ -391,7 +410,7 @@ export function CostAdjustmentDetailPage() {
       {/* Product List - Full Width */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-h6">Danh sách sản phẩm ({adjustment.items.length})</CardTitle>
+          <CardTitle>Danh sách sản phẩm ({adjustment.items.length})</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -401,7 +420,6 @@ export function CostAdjustmentDetailPage() {
                   <TableHead>#</TableHead>
                   <TableHead className="w-15">Hình ảnh</TableHead>
                   <TableHead>Sản phẩm</TableHead>
-                  <TableHead className="w-25">Loại SP</TableHead>
                   <TableHead className="text-right">Giá vốn cũ</TableHead>
                   <TableHead className="text-center">→</TableHead>
                   <TableHead className="text-right">Giá vốn mới</TableHead>
@@ -412,41 +430,34 @@ export function CostAdjustmentDetailPage() {
               <TableBody>
                 {adjustment.items.map((item, index) => {
                   const product = findProductById(item.productSystemId);
-                  const productTypeName = product?.productTypeSystemId 
-                    ? getProductTypeName(product.productTypeSystemId)
-                    : 'Hàng hóa';
-                  const imageUrl = product?.thumbnailImage || product?.galleryImages?.[0] || product?.images?.[0];
+                  const displayName = item.productName || product?.name || 'Sản phẩm';
+                  const displayId = item.productId || product?.id || item.productSystemId;
                   
                   return (
                     <TableRow key={index}>
                       <TableCell className="text-muted-foreground">{index + 1}</TableCell>
                       <TableCell>
-                        {imageUrl ? (
-                          <div
-                            className="group/thumbnail relative w-12 h-10 rounded border overflow-hidden bg-muted cursor-pointer"
-                            onClick={() => setPreviewImage({ url: imageUrl, title: item.productName })}
-                          >
-                            <OptimizedImage src={imageUrl} alt={item.productName} className="w-full h-full object-cover transition-all group-hover/thumbnail:brightness-75" width={48} height={40} />
-                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/thumbnail:opacity-100 transition-opacity">
-                              <Eye className="w-4 h-4 text-white drop-shadow-md" />
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="w-12 h-10 bg-muted rounded flex items-center justify-center">
-                            <Package className="h-4 w-4 text-muted-foreground" />
-                          </div>
-                        )}
+                        <ProductThumbnailCell
+                          productSystemId={item.productSystemId}
+                          product={product}
+                          productName={displayName}
+                          itemThumbnailImage={item.productImage}
+                          onPreview={(url, title) => setPreviewImage({ url, title })}
+                        />
                       </TableCell>
                       <TableCell>
-                        <Link 
-                          href={`/products/${item.productSystemId}`}
-                          className="font-medium text-primary hover:underline"
-                        >
-                          {item.productName}
-                        </Link>
-                        <p className="text-sm text-muted-foreground">{item.productId}</p>
+                        <div className="space-y-0.5">
+                          <Link 
+                            href={`/products/${item.productSystemId}`}
+                            className="font-medium text-primary hover:underline block"
+                          >
+                            {displayName}
+                          </Link>
+                          <div className="text-body-xs text-muted-foreground">
+                            {displayId}
+                          </div>
+                        </div>
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{productTypeName}</TableCell>
                       <TableCell className="text-right text-muted-foreground">
                         {formatCurrency(item.oldCostPrice)}
                       </TableCell>
@@ -458,28 +469,28 @@ export function CostAdjustmentDetailPage() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
-                          {item.adjustmentAmount !== 0 && (
-                            item.adjustmentAmount > 0 ? (
+                          {(item.adjustmentAmount ?? 0) !== 0 && (
+                            (item.adjustmentAmount ?? 0) > 0 ? (
                               <TrendingUp className="h-4 w-4 text-emerald-600" />
                             ) : (
                               <TrendingDown className="h-4 w-4 text-destructive" />
                             )
                           )}
                           <span className={`font-medium ${
-                            item.adjustmentAmount > 0 ? 'text-emerald-600' : 
-                            item.adjustmentAmount < 0 ? 'text-destructive' : 
+                            (item.adjustmentAmount ?? 0) > 0 ? 'text-emerald-600' : 
+                            (item.adjustmentAmount ?? 0) < 0 ? 'text-destructive' : 
                             'text-muted-foreground'
                           }`}>
-                            {item.adjustmentAmount >= 0 ? '+' : ''}{formatCurrency(item.adjustmentAmount)}
+                            {(item.adjustmentAmount ?? 0) >= 0 ? '+' : ''}{formatCurrency(item.adjustmentAmount)}
                           </span>
                         </div>
                       </TableCell>
                       <TableCell className={`text-right ${
-                        item.adjustmentPercent > 0 ? 'text-emerald-600' : 
-                        item.adjustmentPercent < 0 ? 'text-destructive' : 
+                        (item.adjustmentPercent ?? 0) > 0 ? 'text-emerald-600' : 
+                        (item.adjustmentPercent ?? 0) < 0 ? 'text-destructive' : 
                         'text-muted-foreground'
                       }`}>
-                        {item.adjustmentPercent >= 0 ? '+' : ''}{item.adjustmentPercent.toFixed(1)}%
+                        {(item.adjustmentPercent ?? 0) >= 0 ? '+' : ''}{(item.adjustmentPercent ?? 0).toFixed(1)}%
                       </TableCell>
                     </TableRow>
                   );

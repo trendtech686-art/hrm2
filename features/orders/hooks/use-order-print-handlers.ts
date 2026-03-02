@@ -40,6 +40,8 @@ export function useOrderPrintHandlers() {
     print('order', {
       data: mapOrderToPrintData(orderData, storeSettings),
       lineItems: mapOrderLineItems(orderData.items),
+      entityType: 'order',
+      entityId: order.systemId,
     });
     toast.success(`Đang in đơn hàng ${order.id}`);
   }, [findCustomerById, findBranchById, print]);
@@ -59,6 +61,8 @@ export function useOrderPrintHandlers() {
     print('packing', {
       data: mapPackingToPrintData(packingData, storeSettings),
       lineItems: mapPackingLineItems(packingData.items),
+      entityType: 'packaging',
+      entityId: packaging.systemId,
     });
     toast.success(`Đang in phiếu đóng gói ${packaging.id}`);
   }, [findCustomerById, findBranchById, print]);
@@ -77,6 +81,8 @@ export function useOrderPrintHandlers() {
     
     print('shipping-label', {
       data: mapShippingLabelToPrintData(labelData, storeSettings),
+      entityType: 'packaging',
+      entityId: packaging.systemId,
     });
     toast.success(`Đang in nhãn giao hàng ${order.id}`);
   }, [findCustomerById, findBranchById, print]);
@@ -96,6 +102,8 @@ export function useOrderPrintHandlers() {
     print('delivery', {
       data: mapDeliveryToPrintData(deliveryData, storeSettings),
       lineItems: mapDeliveryLineItems(deliveryData.items),
+      entityType: 'packaging',
+      entityId: packaging.systemId,
     });
     toast.success(`Đang in phiếu giao hàng ${order.id}`);
   }, [findCustomerById, findBranchById, print]);

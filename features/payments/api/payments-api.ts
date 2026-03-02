@@ -23,13 +23,25 @@ export interface PaymentsParams {
   endDate?: string;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
+  // ✅ New filters for order detail page performance
+  linkedOrderSystemId?: string;
+  linkedSalesReturnSystemId?: string;
+  customerSystemId?: string;
+  // ✅ Filter for purchase order detail page
+  purchaseOrderSystemId?: string;
+  // ✅ Filter for warranty detail page
+  linkedWarrantySystemId?: string;
+  enabled?: boolean;
 }
 
 export interface PaymentsResponse {
   data: Payment[];
-  total: number;
-  page: number;
-  pageSize: number;
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
 }
 
 export async function fetchPayments(params: PaymentsParams = {}): Promise<PaymentsResponse> {
@@ -48,6 +60,14 @@ export async function fetchPayments(params: PaymentsParams = {}): Promise<Paymen
   if (params.endDate) searchParams.set('endDate', params.endDate);
   if (params.sortBy) searchParams.set('sortBy', params.sortBy);
   if (params.sortOrder) searchParams.set('sortOrder', params.sortOrder);
+  // ✅ New filters for order detail page
+  if (params.linkedOrderSystemId) searchParams.set('linkedOrderSystemId', params.linkedOrderSystemId);
+  if (params.linkedSalesReturnSystemId) searchParams.set('linkedSalesReturnSystemId', params.linkedSalesReturnSystemId);
+  if (params.customerSystemId) searchParams.set('customerSystemId', params.customerSystemId);
+  // ✅ Filter for purchase order detail page
+  if (params.purchaseOrderSystemId) searchParams.set('purchaseOrderSystemId', params.purchaseOrderSystemId);
+  // ✅ Filter for warranty detail page
+  if (params.linkedWarrantySystemId) searchParams.set('linkedWarrantySystemId', params.linkedWarrantySystemId);
   
   const url = searchParams.toString() ? `${BASE_URL}?${searchParams}` : BASE_URL;
   const response = await fetch(url);

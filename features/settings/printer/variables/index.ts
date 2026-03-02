@@ -26,6 +26,7 @@ import { PHIEU_YEU_CAU_DONG_GOI_VARIABLES } from './phieu-yeu-cau-dong-goi';
 import { PHIEU_KHIEU_NAI_VARIABLES } from './phieu-khieu-nai';
 import { PHIEU_PHAT_VARIABLES } from './phieu-phat';
 import { PHIEU_DIEU_CHINH_GIA_VON_VARIABLES } from './phieu-dieu-chinh-gia-von';
+import { PHIEU_DIEU_CHINH_GIA_BAN_VARIABLES } from './phieu-dieu-chinh-gia-ban';
 import { TEM_PHU_SAN_PHAM_VARIABLES } from './tem-phu-san-pham';
 import { BANG_LUONG_VARIABLES, PHIEU_LUONG_VARIABLES, BANG_LUONG_LINE_ITEM_VARIABLES, PHIEU_LUONG_COMPONENT_VARIABLES } from './bang-luong';
 import { BANG_CHAM_CONG_VARIABLES, BANG_CHAM_CONG_LINE_ITEM_VARIABLES, CHI_TIET_CHAM_CONG_VARIABLES, CHI_TIET_CHAM_CONG_LINE_ITEM_VARIABLES } from './bang-cham-cong';
@@ -54,6 +55,7 @@ export const TEMPLATE_VARIABLES: Record<TemplateType, TemplateVariable[]> = {
   'penalty': PHIEU_PHAT_VARIABLES,
   'leave': PHIEU_PHAT_VARIABLES, // TODO: Create dedicated PHIEU_NGHI_PHEP_VARIABLES
   'cost-adjustment': PHIEU_DIEU_CHINH_GIA_VON_VARIABLES,
+  'price-adjustment': PHIEU_DIEU_CHINH_GIA_BAN_VARIABLES,
   'handover': PHIEU_BAN_GIAO_VARIABLES,
   'payroll': BANG_LUONG_VARIABLES,
   'payslip': PHIEU_LUONG_VARIABLES,

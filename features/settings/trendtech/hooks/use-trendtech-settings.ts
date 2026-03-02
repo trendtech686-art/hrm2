@@ -18,6 +18,7 @@ import type {
   TrendtechSyncLog,
   TrendtechProduct,
 } from '@/lib/trendtech/types';
+import { generateSubEntityId } from '@/lib/id-utils';
 import type { SystemId } from '@/lib/id-types';
 import { DEFAULT_TRENDTECH_SETTINGS } from '@/lib/trendtech/types';
 
@@ -486,7 +487,7 @@ export function useTrendtechLogMutations() {
       const { data: settings } = queryClient.getQueryData(trendtechKeys.settings()) as { data: TrendtechSettings };
       const newLog: TrendtechSyncLog = {
         ...log,
-        id: Date.now().toString(),
+        id: generateSubEntityId('ID'),
         timestamp: new Date().toISOString(),
       };
       const logs = [...(settings?.logs ?? []), newLog];

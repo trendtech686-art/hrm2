@@ -1,18 +1,26 @@
 /**
  * useAllPricingPolicies - Convenience hook for components needing all policies as flat array
+ * Auto-pagination: no hardcoded limit cap (MODULE-QUALITY-CRITERIA §1.3)
  */
 
 import * as React from 'react';
-import { usePricingPolicies as usePricingPoliciesQuery } from './use-pricing';
+import { useQuery } from '@tanstack/react-query';
+import { fetchAllPages } from '@/lib/fetch-all-pages';
+import { fetchPricingPolicies } from '../api/pricing-api';
+import { pricingPolicyKeys } from './use-pricing';
 
 // Re-export for backward compatibility
 export { usePricingPolicies } from './use-pricing';
 
 export function useAllPricingPolicies() {
-  const query = usePricingPoliciesQuery({});
-  
+  const query = useQuery({
+    queryKey: [...pricingPolicyKeys.all, 'all'],
+    queryFn: () => fetchAllPages((p) => fetchPricingPolicies(p)),
+    staleTime: 10 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+  });
   return {
-    data: query.data?.data || [],
+    data: query.data || [],
     isLoading: query.isLoading,
     isError: query.isError,
     error: query.error,

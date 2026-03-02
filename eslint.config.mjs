@@ -41,6 +41,7 @@ export default [
       "@next/next/no-html-link-for-pages": "error",
       
       // General rules
+      "no-console": ["warn", { allow: ["warn", "error"] }],
       "no-unused-vars": "off", // Use TypeScript's instead
       "no-undef": "off", // TypeScript handles this
     },

@@ -1,4 +1,4 @@
-import * as React from 'react';
+﻿import * as React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../../components/ui/card';
 import { Button } from '../../../../components/ui/button';
 import { Switch } from '../../../../components/ui/switch';
@@ -156,7 +156,7 @@ export function SyncSettingsTab() {
       {/* Schedule Card */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Lịch đồng bộ tự động</CardTitle>
+          <CardTitle size="lg">Lịch đồng bộ tự động</CardTitle>
           <CardDescription>Cài đặt thời gian và tần suất đồng bộ</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -196,7 +196,7 @@ export function SyncSettingsTab() {
       {/* Data Types Card */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Loại dữ liệu đồng bộ</CardTitle>
+          <CardTitle size="lg">Loại dữ liệu đồng bộ</CardTitle>
           <CardDescription>Chọn những thông tin cần đồng bộ lên PKGX</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -249,7 +249,7 @@ export function SyncSettingsTab() {
       {/* Notification Card */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Thông báo</CardTitle>
+          <CardTitle size="lg">Thông báo</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-between">
@@ -268,7 +268,7 @@ export function SyncSettingsTab() {
       {/* Status Card */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Trạng thái đồng bộ</CardTitle>
+          <CardTitle size="lg">Trạng thái đồng bộ</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

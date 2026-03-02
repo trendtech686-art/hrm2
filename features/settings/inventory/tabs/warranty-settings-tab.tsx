@@ -20,6 +20,8 @@ export function WarrantySettingsTabContent({ isActive, onRegisterActions }: TabC
     onSuccess: () => toast.success('Đã lưu cài đặt bảo hành'),
     onError: () => toast.error('Có lỗi xảy ra khi lưu cài đặt'),
   });
+  const mutateAsyncRef = React.useRef(update.mutateAsync);
+  React.useEffect(() => { mutateAsyncRef.current = update.mutateAsync; }, [update.mutateAsync]);
   const [localSettings, setLocalSettings] = React.useState<WarrantySettings>(settings);
   const [isSaving, setIsSaving] = React.useState(false);
 
@@ -38,12 +40,12 @@ export function WarrantySettingsTabContent({ isActive, onRegisterActions }: TabC
 
   const handleSave = React.useCallback(async () => {
     setIsSaving(true);
-    try { 
-      await update.mutateAsync(localSettingsRef.current);
-    } finally { 
-      setIsSaving(false); 
+    try {
+      await mutateAsyncRef.current(localSettingsRef.current);
+    } finally {
+      setIsSaving(false);
     }
-  }, [update]);
+  }, []);
 
   const onRegisterActionsRef = React.useRef(onRegisterActions);
   React.useEffect(() => { onRegisterActionsRef.current = onRegisterActions; }, [onRegisterActions]);

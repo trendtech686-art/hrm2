@@ -1,119 +1,56 @@
 'use client';
 
 import * as React from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { usePurchaseOrders } from '../hooks/use-purchase-orders';
-import { useAllInventoryReceipts } from '@/features/inventory-receipts/hooks/use-all-inventory-receipts';
-import { usePurchaseReturns } from '@/features/purchase-returns/hooks/use-purchase-returns';
+import { ShoppingCart, PackageCheck, RotateCcw, Package } from 'lucide-react';
+import { StatsCard, StatsCardGrid } from '@/components/shared/stats-card';
+import { formatNumber } from '@/lib/format-utils';
+import type { POItemStats } from '@/lib/data/purchase-orders';
 
-interface POStats {
-  totalOrdered: number;
-  totalReceived: number;
-  totalReturned: number;
-  netInStock: number;
-  receivedRate: string;
-  returnedRate: string;
+interface POStatisticsCardsProps {
+  initialStats?: POItemStats;
 }
 
-export function usePOStats(): POStats {
-  const { data: queryData } = usePurchaseOrders({ limit: 1000 });
-  const purchaseOrders = React.useMemo(() => queryData?.data ?? [], [queryData?.data]);
-  const { data: allReceipts } = useAllInventoryReceipts();
-  const { data: prQueryData } = usePurchaseReturns({ limit: 1000 });
-  const allPurchaseReturns = React.useMemo(() => prQueryData?.data ?? [], [prQueryData?.data]);
-
-  return React.useMemo(() => {
-    const stats = new Map<string, { 
-      totalOrdered: number; 
-      totalReceived: number; 
-      totalReturned: number;
-      variance: number;
-    }>();
-
-    // Collect all PO IDs
-    purchaseOrders.forEach(po => {
-      const totalOrdered = po.lineItems.reduce((sum, item) => sum + item.quantity, 0);
-      stats.set(po.id, { totalOrdered, totalReceived: 0, totalReturned: 0, variance: totalOrdered });
-    });
-
-    // Add received quantities
-    allReceipts.forEach(receipt => {
-      if (receipt.purchaseOrderId && stats.has(receipt.purchaseOrderId)) {
-        const totalReceived = receipt.items.reduce((sum, item) => sum + item.receivedQuantity, 0);
-        const current = stats.get(receipt.purchaseOrderId)!;
-        current.totalReceived += totalReceived;
-        current.variance = current.totalOrdered - current.totalReceived + current.totalReturned;
-      }
-    });
-
-    // Add returned quantities
-    allPurchaseReturns.forEach(ret => {
-      if (ret.purchaseOrderId && stats.has(ret.purchaseOrderId)) {
-        const totalReturned = ret.items.reduce((sum, item) => sum + item.returnQuantity, 0);
-        const current = stats.get(ret.purchaseOrderId)!;
-        current.totalReturned += totalReturned;
-        current.variance = current.totalOrdered - current.totalReceived + current.totalReturned;
-      }
-    });
-
-    // Calculate totals
-    let totalOrdered = 0;
-    let totalReceived = 0;
-    let totalReturned = 0;
-    stats.forEach(stat => {
-      totalOrdered += stat.totalOrdered;
-      totalReceived += stat.totalReceived;
-      totalReturned += stat.totalReturned;
-    });
-
-    return { 
-      totalOrdered, 
-      totalReceived, 
-      totalReturned,
-      netInStock: totalReceived - totalReturned,
-      receivedRate: totalOrdered > 0 ? ((totalReceived / totalOrdered) * 100).toFixed(1) : '0',
-      returnedRate: totalReceived > 0 ? ((totalReturned / totalReceived) * 100).toFixed(1) : '0'
-    };
-  }, [purchaseOrders, allReceipts, allPurchaseReturns]);
-}
-
-export function POStatisticsCards() {
-  const stats = usePOStats();
+export function POStatisticsCards({ initialStats }: POStatisticsCardsProps) {
+  const stats = initialStats ?? {
+    totalOrdered: 0,
+    totalReceived: 0,
+    totalReturned: 0,
+    netInStock: 0,
+    receivedRate: '0',
+    returnedRate: '0',
+  };
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      <Card>
-        <CardContent className="p-4">
-          <p className="text-body-sm text-muted-foreground">Tổng đặt hàng</p>
-          <p className="text-h3">{stats.totalOrdered} SP</p>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardContent className="p-4">
-          <p className="text-body-sm text-muted-foreground">Đã nhận</p>
-          <p className="text-h3 text-green-600">
-            {stats.totalReceived} SP
-            <span className="text-body-sm text-muted-foreground ml-2">({stats.receivedRate}%)</span>
-          </p>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardContent className="p-4">
-          <p className="text-body-sm text-muted-foreground">Đã trả lại</p>
-          <p className="text-h3 text-orange-600">
-            {stats.totalReturned} SP
-            <span className="text-body-sm text-muted-foreground ml-2">({stats.returnedRate}%)</span>
-          </p>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardContent className="p-4">
-          <p className="text-body-sm text-muted-foreground">Tồn kho thực</p>
-          <p className={`text-h3 ${stats.netInStock >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
-            {stats.netInStock > 0 ? '+' : ''}{stats.netInStock} SP
-          </p>
-        </CardContent>
-      </Card>
-    </div>
+    <StatsCardGrid columns={4}>
+      <StatsCard
+        title="Tổng đặt hàng"
+        value={stats.totalOrdered}
+        icon={ShoppingCart}
+        formatValue={(v) => `${formatNumber(Number(v))} SP`}
+      />
+      <StatsCard
+        title="Đã nhận"
+        value={stats.totalReceived}
+        icon={PackageCheck}
+        formatValue={(v) => `${formatNumber(Number(v))} SP`}
+        description={`${stats.receivedRate}%`}
+        variant="success"
+      />
+      <StatsCard
+        title="Đã trả lại"
+        value={stats.totalReturned}
+        icon={RotateCcw}
+        formatValue={(v) => `${formatNumber(Number(v))} SP`}
+        description={`${stats.returnedRate}%`}
+        variant={stats.totalReturned > 0 ? 'warning' : 'default'}
+      />
+      <StatsCard
+        title="Tồn kho thực"
+        value={stats.netInStock}
+        icon={Package}
+        formatValue={(v) => `${Number(v) > 0 ? '+' : ''}${formatNumber(Number(v))} SP`}
+        variant={stats.netInStock >= 0 ? 'info' : 'danger'}
+      />
+    </StatsCardGrid>
   );
 }

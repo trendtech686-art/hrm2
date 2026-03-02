@@ -15,8 +15,10 @@ import {
 } from '@dnd-kit/core';
 import { formatDate } from '@/lib/date-utils';
 import { useSettingsPageHeader } from '../use-settings-page-header';
-import { useDepartmentStore } from './store';
-import { useEmployeeStore } from '../../employees/store';
+import { useAllDepartments } from './hooks/use-all-departments';
+import { useDepartmentMutations } from './hooks/use-departments';
+import { useAllEmployees } from '../../employees/hooks/use-all-employees';
+import { useEmployeeMutations } from '../../employees/hooks/use-employees';
 import { asSystemId } from '@/lib/id-types';
 import type { Department } from '@/lib/types/prisma-extended';
 import type { Employee } from '../../employees/types';
@@ -49,9 +51,19 @@ const getInitials = (name: string) => {
 
 
 export function DepartmentsPage() {
-  const { data: departments, update: updateDepartment } = useDepartmentStore();
-  const { data: employees, update: updateEmployee } = useEmployeeStore();
+  const { data: departments } = useAllDepartments();
+  const { update: updateDepartmentMutation } = useDepartmentMutations({});
+  const updateDepartment = React.useCallback((systemId: string, data: Partial<Department>) => {
+    updateDepartmentMutation.mutate({ systemId, data });
+  }, [updateDepartmentMutation]);
+  const { data: employees } = useAllEmployees();
+  const { update: updateEmployeeMutation } = useEmployeeMutations({});
   const router = useRouter();
+
+  // Wrapper to match the old store API signature
+  const updateEmployee = React.useCallback((systemId: string, data: Partial<Employee>) => {
+    updateEmployeeMutation.mutate({ systemId, ...data });
+  }, [updateEmployeeMutation]);
 
   const [isDeptFormOpen, setIsDeptFormOpen] = React.useState(false);
   const [isJobTitleFormOpen, setIsJobTitleFormOpen] = React.useState(false);
@@ -279,7 +291,7 @@ export function DepartmentsPage() {
 
         {/* Desktop & Mobile: Columns */}
         <div 
-          className="flex-grow flex items-stretch gap-3 md:gap-4 pb-4 -mx-4 px-4 md:mx-0 md:px-0"
+          className="grow flex items-stretch gap-3 md:gap-4 pb-4 -mx-4 px-4 md:mx-0 md:px-0"
           style={{
             overflowX: 'scroll',  // Force horizontal scrollbar always visible
             scrollbarWidth: 'thin',  // Firefox

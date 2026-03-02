@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { usePenaltyStore } from './store';
+import { usePenaltyById, usePenaltyMutations } from './hooks/use-penalties';
 import type { Penalty } from './types';
 import { useSettingsPageHeader } from '../use-settings-page-header';
 import { PenaltyForm } from './form';
@@ -15,9 +15,11 @@ import { asSystemId } from '@/lib/id-types';
 export function PenaltyFormPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const router = useRouter();
-  const { findById, add, update, remove } = usePenaltyStore();
+  const { data: penalty } = usePenaltyById(systemId ? asSystemId(systemId) : undefined);
+  const { create, update, remove } = usePenaltyMutations({
+    onSuccess: () => router.push('/penalties')
+  });
 
-  const penalty = React.useMemo(() => (systemId ? (findById(asSystemId(systemId)) ?? null) : null), [systemId, findById]);
   const isEdit = !!systemId;
 
   const handleCancel = React.useCallback(() => {
@@ -69,19 +71,17 @@ export function PenaltyFormPage() {
 
   const handleSubmit = (values: Record<string, unknown>) => {
     if (isEdit && penalty) {
-      update(penalty.systemId, { ...penalty, ...values });
+      update.mutate({ systemId: penalty.systemId, data: { ...penalty, ...values } });
       toast.success('Đã cập nhật phiếu phạt');
     } else {
-      add(values as Omit<Penalty, 'systemId'>);
+      create.mutate(values as Omit<Penalty, 'systemId'>);
       toast.success('Đã tạo phiếu phạt mới');
     }
-    router.push('/penalties');
   };
 
   const handleDelete = (systemIdToRemove: string) => {
-    remove(asSystemId(systemIdToRemove));
+    remove.mutate(systemIdToRemove);
     toast.success('Đã xóa phiếu phạt');
-    router.push('/penalties');
   };
 
   if (isEdit && !penalty) {

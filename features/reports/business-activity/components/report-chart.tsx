@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Report Chart Component
  * 
  * Biểu đồ kết hợp (combo chart) với cột và đường
@@ -312,7 +312,7 @@ export function ReportChart({
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-2">
-              {title && <CardTitle className="text-base">{title}</CardTitle>}
+              {title && <CardTitle>{title}</CardTitle>}
               {isCollapsible && (
                 <Button
                   variant="ghost"

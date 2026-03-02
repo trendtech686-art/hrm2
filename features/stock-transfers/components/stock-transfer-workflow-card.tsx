@@ -1,4 +1,4 @@
-import * as React from 'react';
+﻿import * as React from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { SubtaskList, type Subtask } from '../../../components/shared/subtask-list';
@@ -25,13 +25,18 @@ export function StockTransferWorkflowCard({
     // Get default workflow template for stock-transfers
     const template = getWorkflowTemplate('stock-transfers');
     if (template.length > 0) {
-      // Auto-save to form
-      onSubtasksChange(template);
       return template;
     }
     
     return [];
-  }, [subtasks, onSubtasksChange]);
+  }, [subtasks]);
+
+  // Auto-save template to form (in useEffect to avoid setState during render)
+  React.useEffect(() => {
+    if ((!subtasks || subtasks.length === 0) && workflowSubtasks.length > 0) {
+      onSubtasksChange(workflowSubtasks);
+    }
+  }, [subtasks, workflowSubtasks, onSubtasksChange]);
 
   const handleToggleComplete = React.useCallback(
     (id: string, completed: boolean) => {
@@ -61,7 +66,7 @@ export function StockTransferWorkflowCard({
     return (
       <Card className="h-full border-dashed">
         <CardHeader>
-          <CardTitle className="text-base">Quy trình xử lý</CardTitle>
+          <CardTitle>Quy trình xử lý</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="text-center py-4 text-muted-foreground">
@@ -78,7 +83,7 @@ export function StockTransferWorkflowCard({
   return (
     <Card className="h-full">
       <CardHeader>
-        <CardTitle className="text-base">Quy trình xử lý</CardTitle>
+        <CardTitle>Quy trình xử lý</CardTitle>
       </CardHeader>
       <CardContent>
         <SubtaskList

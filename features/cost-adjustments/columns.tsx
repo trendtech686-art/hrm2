@@ -10,7 +10,8 @@ import { MoreHorizontal, Eye, Printer } from 'lucide-react';
 import { formatDate } from '@/lib/date-utils';
 
 const getStatusVariant = (status: CostAdjustmentStatus): 'default' | 'secondary' | 'success' | 'destructive' | 'outline' => {
-  switch (status) {
+  const s = status?.toLowerCase?.() || status;
+  switch (s) {
     case 'draft': return 'secondary';
     case 'confirmed': return 'success';
     case 'cancelled': return 'destructive';
@@ -19,7 +20,8 @@ const getStatusVariant = (status: CostAdjustmentStatus): 'default' | 'secondary'
 };
 
 const getStatusLabel = (status: CostAdjustmentStatus): string => {
-  switch (status) {
+  const s = status?.toLowerCase?.() || status;
+  switch (s) {
     case 'draft': return 'Nháp';
     case 'confirmed': return 'Đã xác nhận';
     case 'cancelled': return 'Đã hủy';
@@ -147,7 +149,7 @@ export const getColumns = (
     accessorKey: 'reason',
     header: 'Lý do',
     cell: ({ row }) => (
-      <span className="text-muted-foreground truncate max-w-[200px] block">
+      <span className="text-muted-foreground truncate max-w-50 block">
         {row.reason || '-'}
       </span>
     ),
@@ -183,7 +185,7 @@ export const getColumns = (
     accessorKey: 'note',
     header: 'Ghi chú',
     cell: ({ row }) => (
-      <span className="text-muted-foreground truncate max-w-[200px] block">
+      <span className="text-muted-foreground truncate max-w-50 block">
         {row.note || '-'}
       </span>
     ),
@@ -194,7 +196,7 @@ export const getColumns = (
     header: 'Hành động',
     cell: ({ row }) => {
       const adjustment = row as CostAdjustment;
-      const isDraft = adjustment.status === 'draft';
+      const isDraft = adjustment.status?.toLowerCase() === 'draft';
       
       return (
         <DropdownMenu>

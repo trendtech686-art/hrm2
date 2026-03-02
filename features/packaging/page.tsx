@@ -10,6 +10,7 @@ import type { PrintData, PrintLineItem } from '@/lib/print-service';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { useAuth } from '../../contexts/auth-context';
 import { useAllOrders } from '../orders/hooks/use-all-orders';
+import { useAllPackagingSlips } from './hooks/use-all-packaging-slips';
 import { usePackagingActions } from '../orders/hooks/use-packaging-actions';
 import { useAllBranches, useBranchFinder } from '../settings/branches/hooks/use-all-branches';
 import { useCustomerFinder } from '../customers/hooks/use-all-customers';
@@ -29,13 +30,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Textarea } from '../../components/ui/textarea';
 import { Label } from '../../components/ui/label';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
-import { Package, MoreHorizontal, Calendar, User, Inbox, Printer, Download } from 'lucide-react';
+import { Package, MoreHorizontal, Calendar, User, Inbox, Printer, Download, Settings } from 'lucide-react';
 import { TouchButton } from '../../components/mobile/touch-button';
 import { useMediaQuery } from '../../lib/use-media-query';
-import { useFuseFilter } from '../../hooks/use-fuse-search';
+import { simpleSearch } from '@/lib/simple-search';
 import { usePrint } from '../../lib/use-print';
 import { convertToPackingForPrint, mapPackingToPrintData, mapPackingLineItems, createStoreSettings } from '../../lib/print/order-print-helper';
 import { asSystemId } from '../../lib/id-types';
+import { useColumnVisibility } from '../../hooks/use-column-visibility';
 
 const PackagingExportDialog = dynamic(() => import("./components/packaging-import-export-dialogs").then(mod => ({ default: mod.PackagingExportDialog })), { ssr: false });
 
@@ -53,7 +55,8 @@ function CancelDialog({ isOpen, onOpenChange, onConfirm }: { isOpen: boolean; on
 }
 
 export function PackagingPage() {
-    const { data: allOrders } = useAllOrders();
+    // ✅ Dedicated packaging API — no longer loads ALL orders for list display
+    const { data: packagingSlips } = useAllPackagingSlips();
     const { confirmPackaging, cancelPackagingRequest } = usePackagingActions();
     const { data: branches } = useAllBranches();
     const { findById: findBranchById } = useBranchFinder();
@@ -69,11 +72,12 @@ export function PackagingPage() {
     const [globalFilter, setGlobalFilter] = React.useState(''), [debouncedGlobalFilter, setDebouncedGlobalFilter] = React.useState('');
     const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 40 }), [sorting, setSorting] = React.useState<{ id: string, desc: boolean }>({ id: 'createdAt', desc: true });
     const [rowSelection, setRowSelection] = React.useState({}), [expanded, setExpanded] = React.useState<Record<string, boolean>>({});
-    const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>(() => {
+    const defaultColumnVisibility = React.useMemo(() => {
         const cols = getColumns(() => {}, () => {}, () => {}), initial: Record<string, boolean> = {};
         cols.forEach(c => { if (c.id) initial[c.id] = true; });
         return initial;
-    });
+    }, []);
+    const [columnVisibility, setColumnVisibility] = useColumnVisibility('packaging', defaultColumnVisibility);
     const [columnOrder, setColumnOrder] = React.useState<string[]>([]), [pinnedColumns, setPinnedColumns] = React.useState<string[]>([]), [mobileLoadedCount, setMobileLoadedCount] = React.useState(20);
     const mobileScrollRef = React.useRef<HTMLDivElement>(null), columnOrderInitialized = React.useRef(false);
 
@@ -81,16 +85,10 @@ export function PackagingPage() {
 
     React.useEffect(() => { const timer = setTimeout(() => setDebouncedGlobalFilter(globalFilter), 300); return () => clearTimeout(timer); }, [globalFilter]);
 
-    const packagingSlips = React.useMemo(() => {
-        const slips: PackagingSlip[] = [];
-        allOrders.forEach(order => {
-            order.packagings.forEach(pkg => {
-                slips.push({ systemId: pkg.systemId, id: pkg.id, orderId: order.id, orderSystemId: order.systemId, customerName: order.customerName, requestDate: pkg.requestDate, confirmDate: pkg.confirmDate, cancelDate: pkg.cancelDate, requestingEmployeeName: pkg.requestingEmployeeName, confirmingEmployeeName: pkg.confirmingEmployeeName, cancelingEmployeeName: pkg.cancelingEmployeeName, assignedEmployeeName: pkg.assignedEmployeeName, status: pkg.status, printStatus: pkg.printStatus, branchName: order.branchName, cancelReason: pkg.cancelReason });
-            });
-        });
-        return slips;
-    }, [allOrders]);
-    
+    // ✅ Lazy-load all orders only when print dialog is opened (print needs full order data)
+    const isPrintMode = printDialogOpen || itemsToPrint.length > 0;
+    const { data: allOrders } = useAllOrders({ enabled: isPrintMode });
+
     const handleConfirm = React.useCallback(async (orderSystemId: string, packagingSystemId: string) => { await confirmPackaging(orderSystemId, packagingSystemId, currentUserSystemId); }, [confirmPackaging, currentUserSystemId]);
     const handleCancelRequest = React.useCallback((orderSystemId: string, packagingSystemId: string) => { setCancelDialogState({ orderSystemId, packagingSystemId }); }, []);
     const handleConfirmCancel = async (reason: string) => { if (cancelDialogState) { await cancelPackagingRequest(cancelDialogState.orderSystemId, cancelDialogState.packagingSystemId, currentUserSystemId, reason); setCancelDialogState(null); } };
@@ -102,6 +100,7 @@ export function PackagingPage() {
         : { name: storeInfo?.companyName || storeInfo?.brandName || '', address: storeInfo?.headquartersAddress || '', phone: storeInfo?.hotline || '', email: storeInfo?.email || '', province: storeInfo?.province || '' }, [storeInfo]);
 
     const findOrderAndPackaging = React.useCallback((pkgSystemId: string) => {
+        if (!allOrders) return null;
         for (const order of allOrders) {
             const pkg = order.packagings.find(p => p.systemId === pkgSystemId);
             if (pkg) return { order, pkg };
@@ -145,8 +144,10 @@ export function PackagingPage() {
     
     React.useEffect(() => { if (columnOrderInitialized.current) return; columnOrderInitialized.current = true; setColumnOrder(columns.map(c => c.id).filter(Boolean) as string[]); }, [columns]);
     
-    const fuseOptions = React.useMemo(() => ({ keys: ['id', 'orderId', 'customerName', 'assignedEmployeeName', 'branchName'], threshold: 0.3, ignoreLocation: true }), []);
-    const searchedPackagingSlips = useFuseFilter(packagingSlips, debouncedGlobalFilter.trim(), fuseOptions);
+    const searchedPackagingSlips = React.useMemo(() => 
+        simpleSearch(packagingSlips, debouncedGlobalFilter.trim(), { keys: ['id', 'orderId', 'customerName', 'assignedEmployeeName', 'branchName'] }), 
+        [packagingSlips, debouncedGlobalFilter]
+    );
 
     const filteredData = React.useMemo(() => {
         let data = packagingSlips;
@@ -200,14 +201,14 @@ export function PackagingPage() {
             <CardContent className='p-4'>
                 <div className='flex items-center justify-between mb-2'>
                     <div className='flex items-center gap-2 flex-1 min-w-0'>
-                        <Avatar className='h-8 w-8 flex-shrink-0 bg-primary/10'><AvatarFallback className='text-xs text-primary'><Inbox className='h-4 w-4' /></AvatarFallback></Avatar>
+                        <Avatar className='h-8 w-8 shrink-0 bg-primary/10'><AvatarFallback className='text-xs text-primary'><Inbox className='h-4 w-4' /></AvatarFallback></Avatar>
                         <div className='flex items-center gap-1.5 min-w-0 flex-1'>
                             <CardTitle className='font-semibold text-sm truncate'>{packaging.id}</CardTitle>
                             <span className='text-xs text-muted-foreground font-mono'>{packaging.orderId}</span>
                         </div>
                     </div>
                     <DropdownMenu>
-                        <DropdownMenuTrigger asChild><TouchButton variant='ghost' size='sm' className='h-8 w-8 p-0 flex-shrink-0' onClick={(e) => e.stopPropagation()}><MoreHorizontal className='h-4 w-4' /></TouchButton></DropdownMenuTrigger>
+                        <DropdownMenuTrigger asChild><TouchButton variant='ghost' size='sm' className='h-8 w-8 p-0 shrink-0' onClick={(e) => e.stopPropagation()}><MoreHorizontal className='h-4 w-4' /></TouchButton></DropdownMenuTrigger>
                         <DropdownMenuContent align='end'>
                             <DropdownMenuItem onClick={(e) => { e.stopPropagation(); router.push('/packaging/' + packaging.systemId); }}>Xem chi tiết</DropdownMenuItem>
                             <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handlePrintSinglePackaging(packaging.systemId); }}>In Phiếu Đóng Gói</DropdownMenuItem>
@@ -215,11 +216,11 @@ export function PackagingPage() {
                         </DropdownMenuContent>
                     </DropdownMenu>
                 </div>
-                <div className='text-xs text-muted-foreground mb-3 flex items-center'><User className='h-3 w-3 mr-1.5 flex-shrink-0' /><span className='truncate'>{packaging.customerName}</span></div>
+                <div className='text-xs text-muted-foreground mb-3 flex items-center'><User className='h-3 w-3 mr-1.5 shrink-0' /><span className='truncate'>{packaging.customerName}</span></div>
                 <div className='border-t mb-3' />
                 <div className='space-y-2'>
-                    <div className='flex items-center text-xs text-muted-foreground'><Calendar className='h-3 w-3 mr-1.5 flex-shrink-0' /><span>{formatDate(packaging.requestDate)}</span></div>
-                    {packaging.assignedEmployeeName && <div className='flex items-center text-xs text-muted-foreground'><Package className='h-3 w-3 mr-1.5 flex-shrink-0' /><span>{packaging.assignedEmployeeName}</span></div>}
+                    <div className='flex items-center text-xs text-muted-foreground'><Calendar className='h-3 w-3 mr-1.5 shrink-0' /><span>{formatDate(packaging.requestDate)}</span></div>
+                    {packaging.assignedEmployeeName && <div className='flex items-center text-xs text-muted-foreground'><Package className='h-3 w-3 mr-1.5 shrink-0' /><span>{packaging.assignedEmployeeName}</span></div>}
                     <div className='flex items-center justify-between text-xs pt-1'><span className='text-muted-foreground'>{packaging.branchName}</span><Badge variant={getStatusVariant(packaging.status)} className='text-xs'>{packaging.status}</Badge></div>
                 </div>
             </CardContent>
@@ -230,17 +231,17 @@ export function PackagingPage() {
         <div className='flex flex-col w-full h-full'>
             {!isMobile && (
                 <PageToolbar
-                    leftActions={<Button variant="outline" size="sm" onClick={() => setExportDialogOpen(true)}><Download className="h-4 w-4 mr-2" />Xuất Excel</Button>}
+                    leftActions={<><Button variant="outline" size="sm" onClick={() => router.push('/settings/shipping')}><Settings className="h-4 w-4 mr-2" />Cài đặt</Button><Button variant="outline" size="sm" onClick={() => setExportDialogOpen(true)}><Download className="h-4 w-4 mr-2" />Xuất Excel</Button></>}
                     rightActions={<DataTableColumnCustomizer columns={columns} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} />}
                 />
             )}
             <PageFilters searchValue={globalFilter} onSearchChange={setGlobalFilter} searchPlaceholder='Tìm kiếm phiếu đóng gói (mã phiếu, mã đơn, khách hàng)...'>
                 <Select value={branchFilter} onValueChange={setBranchFilter}>
-                    <SelectTrigger className='w-full sm:w-[180px]'><SelectValue placeholder='Tất cả chi nhánh' /></SelectTrigger>
+                    <SelectTrigger className='w-full sm:w-45'><SelectValue placeholder='Tất cả chi nhánh' /></SelectTrigger>
                     <SelectContent><SelectItem value='all'>Tất cả chi nhánh</SelectItem>{branches.map(b => <SelectItem key={b.systemId} value={b.systemId}>{b.name}</SelectItem>)}</SelectContent>
                 </Select>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className='w-full sm:w-[180px]'><SelectValue placeholder='Tất cả trạng thái' /></SelectTrigger>
+                    <SelectTrigger className='w-full sm:w-45'><SelectValue placeholder='Tất cả trạng thái' /></SelectTrigger>
                     <SelectContent><SelectItem value='all'>Tất cả trạng thái</SelectItem><SelectItem value='Chờ đóng gói'>Chờ đóng gói</SelectItem><SelectItem value='Đã đóng gói'>Đã đóng gói</SelectItem><SelectItem value='Hủy đóng gói'>Hủy đóng gói</SelectItem></SelectContent>
                 </Select>
             </PageFilters>

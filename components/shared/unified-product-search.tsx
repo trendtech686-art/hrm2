@@ -12,10 +12,12 @@
  */
 
 import * as React from 'react';
-import { Package, AlertTriangle, Plus, Info } from 'lucide-react';
+import { Package, Plus, Info } from 'lucide-react';
 import type { Product, ProductType as ProductTypeEnum } from '../../features/products/types';
-import { useProductStore } from '../../features/products/store';
-import { useActiveProducts } from '../../features/products/hooks/use-all-products';
+import { useProductMutations } from '../../features/products/hooks/use-products';
+import { useProduct } from '../../hooks/api/use-products';
+import { useInfiniteMeiliProductSearch } from '../../hooks/use-meilisearch';
+import { useAllProducts } from '../../features/products/hooks/use-all-products';
 import { useAllPricingPolicies } from '../../features/settings/pricing/hooks/use-all-pricing-policies';
 import { useAllBranches } from '../../features/settings/branches/hooks/use-all-branches';
 import { useProductTypeFinder, useActiveProductTypes } from '../../features/settings/inventory/hooks/use-all-product-types';
@@ -30,10 +32,9 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { CurrencyInput } from '../ui/currency-input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '../ui/tooltip';
 import { toast } from 'sonner';
 import type { SystemId } from '@/lib/id-types';
-import { asBusinessId } from '@/lib/id-types';
 
 const formatCurrency = (value?: number) => {
     if (typeof value !== 'number' || isNaN(value)) return '0';
@@ -69,20 +70,20 @@ export interface UnifiedProductSearchProps {
     branchSystemId?: string;
     /** Custom filter function */
     customFilter?: (product: Product) => boolean;
-}
-
-interface BranchStockDetail {
-    name: string;
-    branchName?: string;
-    onHand: number;
-    committed?: number;
-    sellable: number;
+    /** Pricing policy ID để hiển thị giá theo bảng giá đã chọn */
+    pricingPolicyId?: string;
 }
 
 // ═══════════════════════════════════════════════════════════════
 // PRODUCT THUMBNAIL COMPONENT
 // ═══════════════════════════════════════════════════════════════
 
+/**
+ * Optimized thumbnail component
+ * - Uses thumbnailImage from Meilisearch directly (pre-synced)
+ * - Only fetches from server if no image available AND not already fetched
+ * - Prevents N+1 API calls when rendering product list
+ */
 const ProductOptionThumbnail = React.memo(({ 
     productSystemId,
     productData 
@@ -90,21 +91,29 @@ const ProductOptionThumbnail = React.memo(({
     productSystemId: string;
     productData?: Product;
 }) => {
-    const permanentImages = useImageStore(state => state.permanentImages[productSystemId]);
-    const lastFetched = useImageStore(state => state.permanentMeta[productSystemId]?.lastFetched);
+    // Get image from productData first (from Meilisearch)
+    const meiliImage = productData?.thumbnailImage 
+        || productData?.galleryImages?.[0]
+        || productData?.images?.[0];
+    
+    // Only access store if no Meilisearch image
+    const permanentImages = useImageStore(state => 
+        meiliImage ? null : state.permanentImages[productSystemId]
+    );
+    const lastFetched = useImageStore(state => 
+        meiliImage ? true : state.permanentMeta[productSystemId]?.lastFetched
+    );
     const updatePermanentImages = useImageStore(state => state.updatePermanentImages);
 
     const storeThumbnail = permanentImages?.thumbnail?.[0]?.url;
     const storeGallery = permanentImages?.gallery?.[0]?.url;
     
-    const displayImage = storeThumbnail
-        || storeGallery
-        || productData?.thumbnailImage
-        || productData?.galleryImages?.[0]
-        || productData?.images?.[0];
+    // Prioritize Meilisearch image (already synced)
+    const displayImage = meiliImage || storeThumbnail || storeGallery;
 
+    // Only fetch if: no image from Meilisearch AND never fetched before
     React.useEffect(() => {
-        if (!lastFetched && productSystemId) {
+        if (!meiliImage && !lastFetched && productSystemId) {
             FileUploadAPI.getProductFiles(productSystemId)
                 .then(files => {
                     const mapFile = (f: ServerFile) => ({
@@ -117,17 +126,17 @@ const ProductOptionThumbnail = React.memo(({
                 })
                 .catch(() => {});
         }
-    }, [productSystemId, lastFetched, updatePermanentImages]);
+    }, [productSystemId, meiliImage, lastFetched, updatePermanentImages]);
 
     if (displayImage) {
         return (
-            <div className="w-10 h-10 flex-shrink-0 rounded overflow-hidden bg-muted">
+            <div className="w-10 h-10 shrink-0 rounded overflow-hidden bg-muted">
                 <LazyImage src={displayImage} alt="" className="w-full h-full object-cover" />
             </div>
         );
     }
     return (
-        <div className="w-10 h-10 flex-shrink-0 bg-muted rounded flex items-center justify-center">
+        <div className="w-10 h-10 shrink-0 bg-muted rounded flex items-center justify-center">
             <Package className="h-5 w-5 text-muted-foreground" />
         </div>
     );
@@ -146,7 +155,17 @@ interface QuickAddProductDialogProps {
 }
 
 function QuickAddProductDialog({ open, onOpenChange, onProductCreated }: QuickAddProductDialogProps) {
-    const { add: addProduct, data: products } = useProductStore();
+    const { data: products } = useAllProducts();
+    const productMutations = useProductMutations({
+        onCreateSuccess: (product) => {
+            if (product && typeof product === 'object' && 'name' in product) {
+                toast.success(`Đã tạo sản phẩm "${(product as Product).name}"`);
+                onProductCreated(product as unknown as Product);
+                onOpenChange(false);
+            }
+        },
+        onError: () => toast.error('Không thể tạo sản phẩm'),
+    });
     const { data: _productTypes } = useActiveProductTypes();
     const getActiveProductTypes = React.useCallback(() => _productTypes, [_productTypes]);
     const { data: units } = useAllUnits();
@@ -168,7 +187,7 @@ function QuickAddProductDialog({ open, onOpenChange, onProductCreated }: QuickAd
     }, [pricingPolicies]);
 
     // Generate next product ID
-    const generateNextProductId = React.useCallback(() => {
+    const _generateNextProductId = React.useCallback(() => {
         const existingIds = products.map(p => p.id).filter(id => id.startsWith('SP'));
         const numbers = existingIds.map(id => {
             const num = parseInt(id.replace('SP', ''), 10);
@@ -210,24 +229,14 @@ function QuickAddProductDialog({ open, onOpenChange, onProductCreated }: QuickAd
                 prices[defaultSellingPolicy.systemId] = formData.sellingPrice;
             }
             
-            const newProduct = addProduct({
-                id: asBusinessId(generateNextProductId()),
+            productMutations.create.mutate({
                 name: formData.name.trim(),
                 type: 'physical',
-                productTypeSystemId: formData.productTypeSystemId as SystemId || undefined,
+                productTypeSystemId: formData.productTypeSystemId || undefined,
                 unit: formData.unit || 'Chiếc',
                 costPrice: formData.costPrice,
-                prices,
                 barcode: formData.barcode || undefined,
-                status: 'active',
-                inventoryByBranch: {},
-                committedByBranch: {},
-                inTransitByBranch: {},
-            });
-            
-            toast.success(`Đã tạo sản phẩm "${newProduct.name}"`);
-            onProductCreated(newProduct);
-            onOpenChange(false);
+            } as Parameters<typeof productMutations.create.mutate>[0]);
         } catch (_error) {
             toast.error('Không thể tạo sản phẩm');
         } finally {
@@ -237,7 +246,7 @@ function QuickAddProductDialog({ open, onOpenChange, onProductCreated }: QuickAd
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[500px]">
+            <DialogContent className="sm:max-w-125">
                 <DialogHeader>
                     <DialogTitle>Thêm sản phẩm mới</DialogTitle>
                     <DialogDescription>
@@ -345,42 +354,6 @@ function QuickAddProductDialog({ open, onOpenChange, onProductCreated }: QuickAd
 }
 
 // ═══════════════════════════════════════════════════════════════
-// STOCK TOOLTIP COMPONENT
-// ═══════════════════════════════════════════════════════════════
-
-function StockTooltip({ 
-    branchDetails, 
-    totalOnHand: _totalOnHand, 
-    totalSellable: _totalSellable,
-    children 
-}: { 
-    branchDetails: BranchStockDetail[];
-    totalOnHand: number;
-    totalSellable: number;
-    children: React.ReactNode;
-}) {
-    return (
-        <TooltipProvider delayDuration={200}>
-            <Tooltip>
-                <TooltipTrigger asChild>
-                    {children}
-                </TooltipTrigger>
-                <TooltipContent side="left" className="p-3">
-                    <div className="space-y-2">
-                        {branchDetails.map((branch, idx) => (
-                            <div key={idx} className="flex justify-between gap-4">
-                                <span className="text-muted-foreground">{branch.name}:</span>
-                                <span>Tồn: {branch.onHand} | Có thể bán: {branch.sellable}</span>
-                            </div>
-                        ))}
-                    </div>
-                </TooltipContent>
-            </Tooltip>
-        </TooltipProvider>
-    );
-}
-
-// ═══════════════════════════════════════════════════════════════
 // MAIN COMPONENT
 // ═══════════════════════════════════════════════════════════════
 
@@ -390,21 +363,64 @@ export function UnifiedProductSearch({
     disabled = false,
     placeholder = 'Thêm sản phẩm (F3)',
     searchPlaceholder = 'Tìm kiếm theo tên, mã SKU, barcode...',
-    allowedTypes,
-    excludeTypes = [],
+    allowedTypes: _allowedTypes,
+    excludeTypes: _excludeTypes = [],
     allowCreateNew = true,
-    showCostPrice: _showCostPrice = true,
-    showSellingPrice = false,
+    showCostPrice = false,
+    showSellingPrice: _showSellingPrice = false,
     branchSystemId: _branchSystemId,
-    customFilter,
+    customFilter: _customFilter,
+    pricingPolicyId,
 }: UnifiedProductSearchProps) {
-    const { data: activeProducts } = useActiveProducts();
     const { data: pricingPolicies = [] } = useAllPricingPolicies();
-    const { data: branches } = useAllBranches();
+    const { data: branches = [] } = useAllBranches();
     const { findById: findProductTypeById } = useProductTypeFinder();
+    const { data: allProducts = [] } = useAllProducts();
+    
+    // ✅ Create map for quick lookup of real-time data from allProducts
+    const allProductsMap = React.useMemo(() => {
+        const map = new Map<string, Product>();
+        for (const p of allProducts) {
+            map.set(p.systemId, p);
+        }
+        return map;
+    }, [allProducts]);
+    
+    // Build branch name map for inventory display (used in branchStocks fallback)
+    const _branchNameMap = React.useMemo(() => {
+        const map: Record<string, string> = {};
+        branches.forEach(b => { map[b.systemId] = b.name; });
+        return map;
+    }, [branches]);
     
     const [selectedValue, setSelectedValue] = React.useState<ComboboxOption | null>(null);
     const [showQuickAdd, setShowQuickAdd] = React.useState(false);
+    const [searchQuery, setSearchQuery] = React.useState('');
+    const [pendingProductId, setPendingProductId] = React.useState<string | null>(null);
+
+    // ✅ Use Meilisearch for fast product search
+    // ✅ Infinite scroll support - load more on scroll
+    const {
+        data: searchResult,
+        isLoading: isLoadingSearch,
+        fetchNextPage,
+        hasNextPage,
+        isFetchingNextPage,
+    } = useInfiniteMeiliProductSearch({ 
+        query: searchQuery,
+        debounceMs: 150,
+    });
+    
+    // ✅ Fetch full product data when selected from Meilisearch
+    const { data: selectedProduct } = useProduct(pendingProductId ?? undefined);
+    
+    // When full product is loaded, call onSelectProduct
+    React.useEffect(() => {
+        if (selectedProduct && pendingProductId) {
+            onSelectProduct(selectedProduct);
+            setPendingProductId(null);
+        }
+    }, [selectedProduct, pendingProductId, onSelectProduct]);
 
     // Normalize excludeProductIds to Set
     const excludeSet = React.useMemo(() => {
@@ -417,173 +433,181 @@ export function UnifiedProductSearch({
         return pricingPolicies.find(p => p.isDefault && p.type === 'Bán hàng');
     }, [pricingPolicies]);
 
-    // Filter products - _allProducts triggers re-evaluation when store changes
-    const availableProducts = React.useMemo(() => {
-        return activeProducts.filter(p => {
+    // ✅ Filter Meilisearch results - flatten all pages
+    const searchProducts = React.useMemo(() => {
+        const products = searchResult?.pages.flatMap(page => page.data) || [];
+        return products.filter(p => {
             // Exclude already selected
             if (excludeSet.has(p.systemId)) return false;
-            
-            // Type filter
-            if (allowedTypes && allowedTypes.length > 0) {
-                if (!p.type || !allowedTypes.includes(p.type)) return false;
-            }
-            if (excludeTypes.length > 0 && p.type && excludeTypes.includes(p.type)) {
-                return false;
-            }
-            
-            // Custom filter
-            if (customFilter && !customFilter(p)) return false;
-            
             return true;
         });
-     
-    }, [activeProducts, excludeSet, allowedTypes, excludeTypes, customFilter]);
-
-    // Calculate stock helpers
-    const getStockInfo = (product: Product) => {
-        const inventoryByBranch = product.inventoryByBranch || {};
-        const committedByBranch = product.committedByBranch || {};
-        
-        let totalOnHand = 0;
-        let totalSellable = 0;
-        const branchDetails: BranchStockDetail[] = [];
-        
-        for (const branch of branches) {
-            const onHand = inventoryByBranch[branch.systemId as SystemId] || 0;
-            const committed = committedByBranch[branch.systemId as SystemId] || 0;
-            const sellable = Math.max(0, onHand - committed);
-            
-            totalOnHand += onHand;
-            totalSellable += sellable;
-            
-            branchDetails.push({
-                name: branch.name,
-                onHand,
-                sellable,
-            });
-        }
-        
-        return { totalOnHand, totalSellable, branchDetails };
-    };
+    }, [searchResult, excludeSet]);
 
     // Get product type name
-    const getProductTypeName = (productTypeSystemId?: string) => {
+    const _getProductTypeName = (productTypeSystemId?: string) => {
         if (!productTypeSystemId) return 'Không xác định';
         const productType = findProductTypeById(productTypeSystemId as SystemId);
         return productType?.name || 'Không xác định';
     };
 
-    // Convert to ComboboxOption format
+    // Convert Meilisearch results to ComboboxOption format
     const options: ComboboxOption[] = React.useMemo(() => {
-        return availableProducts.map((p) => {
-            const stockInfo = getStockInfo(p);
-            const price = defaultPricingPolicy 
-                ? p.prices?.[defaultPricingPolicy.systemId] 
-                : (Object.values(p.prices || {})[0] || 0);
+        return searchProducts.map((p) => {
+            // ✅ Get real-time data from allProducts (React Query)
+            const realProduct = allProductsMap.get(p.systemId);
+            
+            // Get display price based on pricingPolicyId
+            let displayPrice = p.price || 0;
+            if (pricingPolicyId && p.prices && p.prices[pricingPolicyId] !== undefined) {
+                displayPrice = p.prices[pricingPolicyId];
+            } else if (defaultPricingPolicy && p.prices && p.prices[defaultPricingPolicy.systemId] !== undefined) {
+                displayPrice = p.prices[defaultPricingPolicy.systemId];
+            }
+            
+            // ✅ Get real-time costPrice from allProducts
+            const realCostPrice = realProduct?.costPrice ?? p.costPrice ?? 0;
+            
+            // ✅ Get real-time inventory from allProducts
+            let totalStock = 0;
+            let branchStocks: { branchId: string; branchName: string; onHand: number }[] = [];
+            
+            if (realProduct) {
+                // Use real-time data from React Query
+                totalStock = (realProduct as unknown as { totalInventory?: number }).totalInventory 
+                    || Object.values(realProduct.inventoryByBranch || {}).reduce((sum, v) => sum + (v || 0), 0);
+                branchStocks = branches.map(b => ({
+                    branchId: b.systemId,
+                    branchName: b.name,
+                    onHand: realProduct.inventoryByBranch?.[b.systemId] || 0
+                }));
+            } else {
+                // Fallback to Meilisearch data
+                branchStocks = p.branchStocks || [];
+                if (branchStocks.length === 0) {
+                    branchStocks = branches.map(b => ({
+                        branchId: b.systemId,
+                        branchName: b.name,
+                        onHand: 0,
+                    }));
+                }
+                totalStock = p.totalStock || branchStocks.reduce((sum, bs) => sum + bs.onHand, 0);
+            }
             
             return {
                 value: p.systemId,
                 label: p.name,
                 subtitle: p.id,
                 metadata: {
-                    product: p,
-                    price: price || 0,
-                    costPrice: p.costPrice || 0,
-                    totalOnHand: stockInfo.totalOnHand,
-                    totalSellable: stockInfo.totalSellable,
-                    branchDetails: stockInfo.branchDetails,
-                    isLowStock: stockInfo.totalSellable <= 0,
-                    productTypeName: getProductTypeName(p.productTypeSystemId),
+                    thumbnailImage: p.thumbnailImage,
+                    displayPrice,
+                    costPrice: realCostPrice,
                     unit: p.unit || 'Cái',
+                    totalStock,
+                    branchStocks,
                 }
             } as ComboboxOption;
         });
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- getStockInfo and getProductTypeName are local functions that use branches/findProductTypeById which are already in deps
-    }, [availableProducts, defaultPricingPolicy, branches, findProductTypeById]);
+    }, [searchProducts, pricingPolicyId, defaultPricingPolicy, branches, allProductsMap]);
 
-    const handleChange = (option: ComboboxOption | null) => {
+    const handleChange = React.useCallback((option: ComboboxOption | null) => {
         if (option) {
-            const meta = option.metadata as { product?: Product } | undefined;
-            const product = meta?.product;
-            if (product) {
-                onSelectProduct(product);
-            }
+            // Set pending product ID to trigger full product fetch
+            setPendingProductId(option.value);
         }
         setSelectedValue(null);
-    };
+    }, []);
 
-    const handleProductCreated = (product: Product) => {
+    const handleProductCreated = React.useCallback((product: Product) => {
         onSelectProduct(product);
-    };
+    }, [onSelectProduct]);
 
-    // Render option
-    const renderOption = (option: ComboboxOption) => {
+    // Render option - with image, price, stock and branch tooltip
+    // Wrapped in useCallback to prevent re-creating function every render
+    const renderOption = React.useCallback((option: ComboboxOption) => {
         const meta = option.metadata as {
-            product?: Product;
+            thumbnailImage?: string | null;
+            displayPrice?: number;
             costPrice?: number;
-            price?: number;
-            totalOnHand?: number;
-            totalSellable?: number;
-            branchDetails?: Array<{ branchName: string; onHand: number; committed: number; sellable: number }>;
-            isLowStock?: boolean;
-            productTypeName?: string;
             unit?: string;
+            totalStock?: number;
+            branchStocks?: { branchId: string; branchName: string; onHand: number }[];
         } | undefined;
         const { 
-            product, 
-            costPrice, 
-            price,
-            totalOnHand, 
-            totalSellable, 
-            branchDetails,
-            isLowStock,
-            productTypeName,
+            thumbnailImage,
+            displayPrice,
+            costPrice,
             unit,
+            totalStock,
+            branchStocks,
         } = meta || {};
-        
-        const displayPrice = showSellingPrice ? price : costPrice;
         
         return (
             <div className="flex items-center gap-3 w-full py-1">
+                {/* Pass thumbnailImage directly to component */}
                 <ProductOptionThumbnail 
                     productSystemId={option.value} 
-                    productData={product}
+                    productData={{ thumbnailImage } as Product}
                 />
                 <div className="flex-1 min-w-0">
                     <p className="font-medium truncate">{option.label}</p>
                     <p className="text-xs text-muted-foreground">
-                        {option.subtitle} | {productTypeName} | ĐVT: {unit}
+                        {option.subtitle} | ĐVT: {unit || 'Cái'}
                     </p>
                 </div>
-                <div className="text-right flex-shrink-0 min-w-[140px]">
-                    <p className="font-semibold">{formatCurrency(displayPrice)}</p>
-                    <StockTooltip 
-                        branchDetails={(branchDetails || []).map(b => ({ name: b.branchName, onHand: b.onHand, sellable: b.sellable }))}
-                        totalOnHand={totalOnHand || 0}
-                        totalSellable={totalSellable || 0}
-                    >
-                        <p className={`text-xs cursor-help inline-flex items-center gap-1 ${isLowStock ? 'text-destructive' : 'text-muted-foreground'}`}>
-                            {isLowStock && <AlertTriangle className="h-3 w-3" />}
-                            Tồn: {totalOnHand || 0} | Bán: {totalSellable || 0}
-                            <Info className="h-3 w-3 opacity-60" />
-                        </p>
-                    </StockTooltip>
+                <div className="text-right shrink-0 min-w-25 flex flex-col items-end gap-0.5">
+                    <p className="font-semibold text-primary">{formatCurrency(showCostPrice ? (costPrice || 0) : (displayPrice || 0))}đ</p>
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <span>Tồn: {formatCurrency(totalStock || 0)}</span>
+                        <TooltipProvider delayDuration={100}>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <span className="cursor-help">
+                                        <Info className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
+                                    </span>
+                                </TooltipTrigger>
+                                <TooltipContent side="left" className="max-w-62.5">
+                                    <div className="space-y-1 text-xs">
+                                        <p className="font-semibold">Tồn kho theo chi nhánh:</p>
+                                        {branchStocks && branchStocks.length > 0 ? (
+                                            branchStocks.map((bs) => (
+                                                <div key={bs.branchId} className="flex justify-between gap-4">
+                                                    <span className="truncate">{bs.branchName}</span>
+                                                    <span className="font-medium">{formatCurrency(bs.onHand)}</span>
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <p className="text-muted-foreground italic">Chưa có dữ liệu tồn kho</p>
+                                        )}
+                                    </div>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                    </div>
                 </div>
             </div>
         );
-    };
+    }, [showCostPrice]);
 
     // Custom header with "Add new product" action
-    const renderHeader = allowCreateNew ? () => (
-        <button
-            type="button"
-            className="flex items-center gap-2 w-full px-3 py-2.5 text-sm text-primary hover:bg-accent transition-colors border-b"
-            onClick={() => setShowQuickAdd(true)}
-        >
-            <Plus className="h-4 w-4" />
-            <span>Thêm mới sản phẩm</span>
-        </button>
-    ) : undefined;
+    // Custom header with "Add new product" action
+    const renderHeader = React.useMemo(() => {
+        if (!allowCreateNew) return undefined;
+        return () => (
+            <button
+                type="button"
+                className="flex items-center gap-2 w-full px-3 py-2.5 text-sm text-primary hover:bg-accent transition-colors border-b"
+                onClick={() => setShowQuickAdd(true)}
+            >
+                <Plus className="h-4 w-4" />
+                <span>Thêm mới sản phẩm</span>
+            </button>
+        );
+    }, [allowCreateNew]);
+
+    // Memoize onLoadMore to prevent re-renders
+    const handleLoadMore = React.useCallback(() => {
+        fetchNextPage();
+    }, [fetchNextPage]);
 
     return (
         <>
@@ -591,10 +615,15 @@ export function UnifiedProductSearch({
                 options={options}
                 value={selectedValue}
                 onChange={handleChange}
+                onSearchChange={setSearchQuery}
+                isLoading={isLoadingSearch || !!pendingProductId}
                 placeholder={placeholder}
                 searchPlaceholder={searchPlaceholder}
                 emptyPlaceholder="Không tìm thấy sản phẩm phù hợp"
                 disabled={disabled}
+                onLoadMore={handleLoadMore}
+                hasMore={hasNextPage}
+                isLoadingMore={isFetchingNextPage}
                 renderOption={renderOption}
                 renderHeader={renderHeader}
             />
@@ -626,12 +655,13 @@ export function ComboProductSearchV2(props: Omit<UnifiedProductSearchProps, 'exc
 }
 
 /** Search cho đơn hàng - hiển thị tất cả sản phẩm active */
-export function OrderProductSearch(props: Omit<UnifiedProductSearchProps, 'showSellingPrice'>) {
+export function OrderProductSearch(props: Omit<UnifiedProductSearchProps, 'showSellingPrice'> & { pricingPolicyId?: string }) {
     return (
         <UnifiedProductSearch
             {...props}
             showSellingPrice={true}
             showCostPrice={false}
+            pricingPolicyId={props.pricingPolicyId}
         />
     );
 }

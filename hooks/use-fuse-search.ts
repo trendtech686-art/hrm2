@@ -1,144 +1,68 @@
 'use client';
 
 import * as React from 'react';
-import type Fuse from 'fuse.js';
-import type { IFuseOptions } from 'fuse.js';
+import { simpleSearch } from '../lib/simple-search';
 
 /**
- * Hook để lazy load Fuse.js và thực hiện search
- * Fuse.js (~30KB) sẽ chỉ được load khi user bắt đầu search
+ * @deprecated This hook is no longer needed. Use simpleSearch directly.
+ * 
+ * Hook để thực hiện search đơn giản (không cần Fuse.js)
  * 
  * @example
  * const { search, isLoading } = useFuseSearch(data, {
  *   keys: ['name', 'email'],
- *   threshold: 0.3
  * });
  * 
  * // Khi user nhập search
  * const results = await search(query);
  */
-export function useFuseSearch<T>(
+export function useFuseSearch<T extends object>(
   data: T[],
-  options: IFuseOptions<T>
+  options: { keys: (keyof T | string)[], threshold?: number }
 ) {
-  const [FuseModule, setFuseModule] = React.useState<typeof Fuse | null>(null);
-  const [isLoading, setIsLoading] = React.useState(false);
-  const fuseRef = React.useRef<Fuse<T> | null>(null);
-
-  // Lazy load Fuse.js
-  const loadFuse = React.useCallback(async () => {
-    if (FuseModule) return FuseModule;
-    setIsLoading(true);
-    try {
-      const module = await import('fuse.js');
-      setFuseModule(() => module.default);
-      return module.default;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [FuseModule]);
-
-  // Tạo hoặc update Fuse instance khi data thay đổi
-  React.useEffect(() => {
-    if (FuseModule && data) {
-      fuseRef.current = new FuseModule(data, options);
-    }
-  }, [FuseModule, data, options]);
-
-  // Search function - lazy load Fuse nếu chưa có
+  // Search function - now synchronous with simpleSearch
   const search = React.useCallback(async (query: string): Promise<T[]> => {
     if (!query.trim()) {
       return data;
     }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return simpleSearch(data as any[], query, { keys: options.keys as any[] }) as T[];
+  }, [data, options.keys]);
 
-    // Lazy load Fuse nếu chưa có
-    if (!fuseRef.current) {
-      const Fuse = await loadFuse();
-      fuseRef.current = new Fuse(data, options);
-    }
-
-    return fuseRef.current.search(query).map(r => r.item);
-  }, [data, options, loadFuse]);
-
-  // Sync search function (chỉ dùng sau khi Fuse đã load)
+  // Sync search function
   const searchSync = React.useCallback((query: string): T[] => {
     if (!query.trim()) {
       return data;
     }
-
-    if (!fuseRef.current) {
-      // Fallback: simple includes search
-      return data;
-    }
-
-    return fuseRef.current.search(query).map(r => r.item);
-  }, [data]);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return simpleSearch(data as any[], query, { keys: options.keys as any[] }) as T[];
+  }, [data, options.keys]);
 
   return {
     search,
     searchSync,
-    isLoading,
-    isReady: !!FuseModule,
-    // Preload Fuse (gọi khi user focus vào input search)
-    preload: loadFuse,
+    isLoading: false,
+    isReady: true,
+    // Preload is now no-op (no lazy loading needed)
+    preload: () => Promise.resolve(null),
   };
 }
 
 /**
+ * @deprecated This hook is no longer needed. Use simpleSearch directly.
+ * 
  * Hook đơn giản hơn - trả về filtered data trực tiếp
- * Tự động load Fuse khi có query
  */
-export function useFuseFilter<T>(
+export function useFuseFilter<T extends object>(
   data: T[],
   query: string,
-  options: IFuseOptions<T>
+  options: { keys: (keyof T | string)[], threshold?: number }
 ): T[] {
-  const [filteredData, setFilteredData] = React.useState<T[]>(data);
-  const fuseRef = React.useRef<Fuse<T> | null>(null);
-  const optionsRef = React.useRef(options);
-  const dataRef = React.useRef(data);
-  const hasQuery = query.trim().length > 0;
-  
-  // Keep refs updated
-  optionsRef.current = options;
-  dataRef.current = data;
-
-  // Update filteredData when data changes and there's no query
-  // Use JSON stringify for stable comparison (data arrays are often recreated)
-  const dataKey = React.useMemo(() => JSON.stringify(data.map((item: T) => (item as { systemId?: string }).systemId ?? item)), [data]);
-
-  React.useEffect(() => {
-    // Fast path: no query → return original data
-    if (!hasQuery) {
-      setFilteredData(dataRef.current);
-      return;
+  return React.useMemo(() => {
+    if (!query.trim()) {
+      return data;
     }
-
-    let cancelled = false;
-
-    const performSearch = async () => {
-      // Lazy load Fuse
-      if (!fuseRef.current) {
-        const FuseModule = await import('fuse.js');
-        if (cancelled) return;
-        fuseRef.current = new FuseModule.default(dataRef.current, optionsRef.current);
-      } else {
-        // Update data in existing Fuse instance
-        fuseRef.current.setCollection(dataRef.current);
-      }
-
-      const results = fuseRef.current.search(query).map(r => r.item);
-      if (!cancelled) {
-        setFilteredData(results);
-      }
-    };
-
-    performSearch();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [query, hasQuery, dataKey]);
-
-  return filteredData;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return simpleSearch(data as any[], query, { keys: options.keys as any[] }) as T[];
+  }, [data, query, options.keys]);
 }

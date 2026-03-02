@@ -24,6 +24,7 @@ import {
 } from '../../../components/ui/select';
 import type { TaskAssignee, AssigneeRole } from '../types';
 import { asSystemId, type SystemId } from '../../../lib/id-types';
+import { generateSubEntityId } from '../../../lib/id-utils';
 
 interface Employee {
   systemId: SystemId;
@@ -75,7 +76,7 @@ export const AssigneeMultiSelect: React.FC<AssigneeMultiSelectProps> = ({
     const role: AssigneeRole = assignees.length === 0 ? 'owner' : 'contributor';
 
     const newAssignee: TaskAssignee = {
-      systemId: asSystemId(`assignee-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`),
+      systemId: asSystemId(generateSubEntityId('ASSIGNEE')),
       employeeSystemId: employee.systemId,
       employeeName: employee.name,
       role,

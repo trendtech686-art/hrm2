@@ -1,22 +1,60 @@
 /**
  * useAllProducts - Convenience hook for components needing all products as flat array
+ * 
+ * ⚠️ PERFORMANCE NOTE:
+ * This hook fetches ALL products. Only use when you truly need all data:
+ * - Dropdowns/selects that need full list
+ * - Export functionality
+ * - Reports
+ * 
+ * For paginated list views, use useProductsQuery instead!
+ * For autocomplete/search, use useProductSearch instead!
  */
 
 import * as React from 'react';
-import { useProducts } from './use-products';
+import { useQuery } from '@tanstack/react-query';
+import { fetchAllPages } from '@/lib/fetch-all-pages';
+import { fetchProducts } from '../api/products-api';
+import { productKeys } from './use-products';
 import type { Product } from '../types';
 import type { SystemId } from '@/lib/id-types';
 
 // Stable empty array to prevent re-renders
 const EMPTY_PRODUCTS: Product[] = [];
 
-export function useAllProducts() {
-  const query = useProducts({ limit: 50 });
+/**
+ * Options for useAllProducts hook
+ * @property enabled - Whether to fetch data (default: true). Set to false for lazy loading
+ */
+export interface UseAllProductsOptions {
+  enabled?: boolean;
+}
+
+/**
+ * @deprecated For list views, use useProductsQuery with server-side pagination.
+ * For search/autocomplete, use useProductSearch.
+ * Only use this for cases that truly need all products (export, specific dropdowns).
+ * Auto-pagination: no hardcoded limit cap (MODULE-QUALITY-CRITERIA §1.3)
+ * 
+ * @example
+ * // Lazy loading - chỉ load khi dropdown mở
+ * const [opened, setOpened] = useState(false);
+ * const { data } = useAllProducts({ enabled: opened });
+ */
+export function useAllProducts(options: UseAllProductsOptions = {}) {
+  const { enabled = true } = options;
+  const query = useQuery({
+    queryKey: [...productKeys.all, 'all'],
+    queryFn: () => fetchAllPages((p) => fetchProducts(p)),
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    enabled,
+  });
   
   // Memoize data to prevent unnecessary re-renders
   const data = React.useMemo(() => 
-    query.data?.data || EMPTY_PRODUCTS,
-    [query.data?.data]
+    (query.data || EMPTY_PRODUCTS) as Product[],
+    [query.data]
   );
   
   return {

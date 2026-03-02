@@ -2,12 +2,10 @@
 
 import * as React from 'react';
 import { useForm, type ControllerProps, type FieldPath } from 'react-hook-form';
-import { asBusinessId } from '@/lib/id-types';
 import type { Branch } from '@/lib/types/prisma-extended';
 import { useAllBranches } from './hooks/use-all-branches';
 import { useAllEmployees, useEmployeeSearcher } from '../../employees/hooks/use-all-employees';
-import { useProvinces } from '../provinces/hooks/use-administrative-units';
-import { useProvinceStore } from '../provinces/store';
+import { useProvinces, useWards2Level } from '../provinces/hooks/use-administrative-units';
 import { Button } from '../../../components/ui/button';
 import {
   Form,
@@ -19,11 +17,8 @@ import {
 } from '../../../components/ui/form';
 import { Input } from '../../../components/ui/input';
 import { Combobox } from '../../../components/ui/combobox';
-import { Checkbox } from '../../../components/ui/checkbox';
+import { Switch } from '../../../components/ui/switch';
 import { DialogFooter } from '../../../components/ui/dialog';
-import { Select, SelectTrigger, SelectValue } from '../../../components/ui/select';
-import { RadioGroup, RadioGroupItem } from '../../../components/ui/radio-group';
-import { Label } from '../../../components/ui/label';
 
 export type BranchFormValues = Omit<Branch, 'systemId'>;
 
@@ -41,75 +36,38 @@ export function BranchForm({ initialData, onSubmit, onCancel }: BranchFormProps)
   const { data: _branches } = useAllBranches();
   const { searchEmployees } = useEmployeeSearcher();
   const { data: allEmployees } = useAllEmployees();
-  const { data: allProvinces = [] } = useProvinces();
-  const { 
-    getDistricts3LevelByProvinceId,
-    getWards2LevelByProvinceId,
-    getWards3LevelByDistrictId,
-    getProvinces3Level,
-    loadData,
-    isLoaded,
-  } = useProvinceStore();
-
-  // Load 3-level data from store if not loaded yet
-  React.useEffect(() => {
-    if (!isLoaded) {
-      loadData();
-    }
-  }, [isLoaded, loadData]);
-
-  // Get 3-level provinces from store (has 63 provinces)
-  const provinces3Level = getProvinces3Level();
+  const { data: provinces = [] } = useProvinces();
 
   const form = useForm<BranchFormValues>({
     defaultValues:
-      initialData || {
+      initialData ? {
+        ...initialData,
+      } : {
         id: '',
         name: '',
         address: '',
         phone: '',
         managerId: undefined,
         isDefault: false,
-        addressLevel: '3-level', // Mặc định 3-cấp
         province: undefined,
         provinceId: undefined,
-        district: undefined,
-        districtId: undefined,
         ward: undefined,
         wardCode: undefined,
       },
   });
 
+  // Auto-fill address fields when editing
+  React.useEffect(() => {
+    if (initialData) {
+      form.reset(initialData);
+    }
+  }, [initialData?.systemId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Watch address fields
-  const addressLevel = form.watch('addressLevel') ?? '3-level';
   const selectedProvinceId = form.watch('provinceId');
-  const selectedDistrictId = form.watch('districtId');
 
-  // Filter provinces by address level (2-level or 3-level)
-  const provinces = React.useMemo(() => {
-    if (addressLevel === '3-level') {
-      return provinces3Level;
-    }
-    return allProvinces.filter(p => p.level === '2-level');
-  }, [allProvinces, addressLevel, provinces3Level]);
-
-  // Get districts for 3-level
-  const districts = React.useMemo(() => {
-    if (addressLevel === '3-level' && selectedProvinceId) {
-      return getDistricts3LevelByProvinceId(asBusinessId(selectedProvinceId));
-    }
-    return [];
-  }, [addressLevel, selectedProvinceId, getDistricts3LevelByProvinceId]);
-
-  // Get wards based on level
-  const wards = React.useMemo(() => {
-    if (addressLevel === '2-level' && selectedProvinceId) {
-      return getWards2LevelByProvinceId(asBusinessId(selectedProvinceId));
-    } else if (addressLevel === '3-level' && selectedDistrictId) {
-      return getWards3LevelByDistrictId(selectedDistrictId);
-    }
-    return [];
-  }, [addressLevel, selectedProvinceId, selectedDistrictId, getWards2LevelByProvinceId, getWards3LevelByDistrictId]);
+  // Get wards based on selected province (2-level: Tỉnh → Phường/Xã) via React Query
+  const { data: wards = [] } = useWards2Level(selectedProvinceId || undefined);
 
   const handleFormSubmit = (values: BranchFormValues) => {
     onSubmit(values);
@@ -157,50 +115,9 @@ export function BranchForm({ initialData, onSubmit, onCancel }: BranchFormProps)
         {/* Section 2: Địa chỉ chi tiết */}
         <div className="space-y-4">
           <h3 className="text-sm font-semibold border-b pb-2">Địa chỉ chi tiết</h3>
-          
-          {/* Address Level Radio */}
-          <BranchFormField
-            control={form.control}
-            name="addressLevel"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Loại địa chỉ *</FormLabel>
-                <FormControl>
-                  <RadioGroup
-                    value={field.value}
-                    onValueChange={(value) => {
-                      field.onChange(value);
-                      // Reset address fields when changing level
-                      form.setValue('provinceId', undefined);
-                      form.setValue('province', undefined);
-                      form.setValue('districtId', undefined);
-                      form.setValue('district', undefined);
-                      form.setValue('wardCode', undefined);
-                      form.setValue('ward', undefined);
-                    }}
-                    className="flex gap-6"
-                  >
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="2-level" id="2-level" />
-                      <Label htmlFor="2-level" className="font-normal cursor-pointer text-sm">
-                        2 cấp <span className="text-muted-foreground">(Tỉnh → Phường/Xã)</span>
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="3-level" id="3-level" />
-                      <Label htmlFor="3-level" className="font-normal cursor-pointer text-sm">
-                        3 cấp <span className="text-muted-foreground">(Tỉnh → Quận → Phường)</span>
-                      </Label>
-                    </div>
-                  </RadioGroup>
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
 
-          {/* Province / District / Ward in one row */}
-          <div className="grid grid-cols-3 gap-4">
+          {/* Province / District in one row */}
+          <div className="grid grid-cols-2 gap-4">
             {/* Province */}
             <BranchFormField
               control={form.control}
@@ -215,9 +132,7 @@ export function BranchForm({ initialData, onSubmit, onCancel }: BranchFormProps)
                         const province = provinces.find(p => p.id === option?.value);
                         field.onChange(option?.value);
                         form.setValue('province', province?.name);
-                        // Reset district and ward when province changes
-                        form.setValue('districtId', undefined);
-                        form.setValue('district', undefined);
+                        // Reset ward when province changes
                         form.setValue('wardCode', undefined);
                         form.setValue('ward', undefined);
                       }}
@@ -247,63 +162,7 @@ export function BranchForm({ initialData, onSubmit, onCancel }: BranchFormProps)
               )}
             />
 
-            {/* District (only for 3-level) */}
-            {addressLevel === '3-level' ? (
-              <BranchFormField
-                control={form.control}
-                name="districtId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Quận/Huyện *</FormLabel>
-                    <FormControl>
-                      <Combobox
-                        value={field.value ? { value: field.value.toString(), label: form.getValues('district') || '' } : null}
-                        onChange={(option) => {
-                          const districtId = option?.value ? parseInt(option.value) : undefined;
-                          const district = districts.find(d => d.id === districtId);
-                          field.onChange(districtId);
-                          form.setValue('district', district?.name);
-                          // Reset ward when district changes
-                          form.setValue('wardCode', undefined);
-                          form.setValue('ward', undefined);
-                        }}
-                        onSearch={(query) => {
-                          if (!query) {
-                            return Promise.resolve({
-                              items: districts.map(d => ({ value: d.id.toString(), label: d.name })),
-                              hasNextPage: false
-                            });
-                          }
-                          const filtered = districts.filter(d => 
-                            d.name.toLowerCase().includes(query.toLowerCase())
-                          );
-                          return Promise.resolve({
-                            items: filtered.map(d => ({ value: d.id.toString(), label: d.name })),
-                            hasNextPage: false
-                          });
-                        }}
-                        placeholder={!selectedProvinceId ? "Chọn tỉnh trước" : "Chọn quận/huyện"}
-                        searchPlaceholder="Tìm quận/huyện..."
-                        emptyPlaceholder="Không tìm thấy"
-                        disabled={!selectedProvinceId}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            ) : (
-              <div className="opacity-50">
-                <Label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Quận/Huyện</Label>
-                <Select disabled>
-                  <SelectTrigger className="mt-2">
-                    <SelectValue placeholder="Chọn tỉnh trước" />
-                  </SelectTrigger>
-                </Select>
-              </div>
-            )}
-
-            {/* Ward */}
+            {/* Phường/Xã */}
             <BranchFormField
               control={form.control}
               name="wardCode"
@@ -333,18 +192,10 @@ export function BranchForm({ initialData, onSubmit, onCancel }: BranchFormProps)
                           hasNextPage: false
                         });
                       }}
-                      placeholder={
-                        addressLevel === '2-level' 
-                          ? (!selectedProvinceId ? "Chọn tỉnh trước" : "Chọn phường/xã")
-                          : (!selectedDistrictId ? "Chọn quận trước" : "Chọn phường/xã")
-                      }
+                      placeholder={!selectedProvinceId ? "Chọn tỉnh trước" : "Chọn phường/xã"}
                       searchPlaceholder="Tìm phường/xã..."
                       emptyPlaceholder="Không tìm thấy"
-                      disabled={
-                        addressLevel === '2-level' 
-                          ? !selectedProvinceId 
-                          : !selectedDistrictId
-                      }
+                      disabled={!selectedProvinceId}
                     />
                   </FormControl>
                   <FormMessage />
@@ -412,13 +263,7 @@ export function BranchForm({ initialData, onSubmit, onCancel }: BranchFormProps)
             control={form.control}
             name="isDefault"
             render={({ field }) => (
-              <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                <FormControl>
-                  <Checkbox
-                    checked={field.value as boolean}
-                    onCheckedChange={field.onChange}
-                  />
-                </FormControl>
+              <FormItem className="flex flex-row items-center justify-between rounded-md border p-4">
                 <div className="space-y-1 leading-none">
                   <FormLabel className="cursor-pointer">
                     Đặt làm chi nhánh mặc định
@@ -427,6 +272,12 @@ export function BranchForm({ initialData, onSubmit, onCancel }: BranchFormProps)
                     Chi nhánh này sẽ được chọn mặc định khi tạo đơn hàng mới
                   </p>
                 </div>
+                <FormControl>
+                  <Switch
+                    checked={field.value as boolean}
+                    onCheckedChange={field.onChange}
+                  />
+                </FormControl>
               </FormItem>
             )}
           />

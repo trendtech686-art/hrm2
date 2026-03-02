@@ -15,6 +15,18 @@ const statusVariants: Record<LeaveStatus, "success" | "warning" | "destructive">
     "Đã từ chối": "destructive",
 };
 
+// Leave type mapping from enum to Vietnamese for display
+const leaveTypeDisplayNames: Record<string, string> = {
+  'ANNUAL': 'Phép năm',
+  'SICK': 'Nghỉ ốm',
+  'UNPAID': 'Nghỉ không lương',
+  'MATERNITY': 'Thai sản',
+  'PATERNITY': 'Nghỉ chăm con',
+  'BEREAVEMENT': 'Nghỉ tang',
+  'WEDDING': 'Nghỉ cưới',
+  'OTHER': 'Khác',
+};
+
 export const getColumns = (
   onDelete: (systemId: SystemId) => void,
   onEdit: (request: LeaveRequest) => void,
@@ -57,7 +69,13 @@ export const getColumns = (
     id: "leaveTypeName",
     accessorKey: "leaveTypeName",
     header: "Loại phép",
-    cell: ({ row }) => row.leaveTypeName,
+    cell: ({ row }) => {
+      // Display Vietnamese name, fallback to mapping if needed
+      const displayName = row.leaveTypeName && !['ANNUAL', 'SICK', 'UNPAID', 'MATERNITY', 'PATERNITY', 'BEREAVEMENT', 'WEDDING', 'OTHER'].includes(row.leaveTypeName)
+        ? row.leaveTypeName
+        : leaveTypeDisplayNames[row.leaveTypeName] || row.leaveTypeName || 'Chưa xác định';
+      return displayName;
+    },
     meta: { displayName: "Loại phép" },
   },
   {

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui
 import { Button } from '../../../components/ui/button';
 import { ArrowLeft, Edit } from 'lucide-react';
 import { Badge } from '../../../components/ui/badge';
-import type { PenaltyStatus } from './types';
+import type { PenaltyStatus as _PenaltyStatus } from './types';
 import { penaltyCategoryLabels, penaltyCategoryColors } from './types';
 import { Comments, type Comment as _CommentType } from '../../../components/Comments';
 import { useComments } from '@/hooks/use-comments';
@@ -30,16 +30,24 @@ import { Printer } from 'lucide-react';
 
 import { ROUTES, generatePath } from '@/lib/router';
 
-const formatCurrency = (value?: number) => {
-  if (typeof value !== 'number') return '0';
-  return new Intl.NumberFormat('vi-VN').format(value);
+const formatCurrency = (value?: number | string) => {
+  if (value === undefined || value === null) return '0';
+  const numValue = typeof value === 'string' ? parseFloat(value) : value;
+  if (isNaN(numValue)) return '0';
+  return new Intl.NumberFormat('vi-VN').format(numValue);
 };
 
-const statusConfig: Record<PenaltyStatus, { label: string; variant: "warning" | "success" | "secondary" }> = {
+const statusConfig: Record<string, { label: string; variant: "warning" | "success" | "secondary" }> = {
   "Chưa thanh toán": { label: "Chưa thanh toán", variant: "warning" },
   "Đã thanh toán": { label: "Đã thanh toán", variant: "success" },
   "Đã hủy": { label: "Đã hủy", variant: "secondary" },
+  // Fallback for English status values (defensive)
+  "pending": { label: "Chưa thanh toán", variant: "warning" },
+  "paid": { label: "Đã thanh toán", variant: "success" },
+  "cancelled": { label: "Đã hủy", variant: "secondary" },
 };
+
+const defaultStatusConfig = { label: "Không xác định", variant: "secondary" as const };
 
 export function PenaltyDetailPage() {
   const { systemId } = useParams<{ systemId: string }>();
@@ -164,7 +172,7 @@ export function PenaltyDetailPage() {
   // Page header
   usePageHeader({
     title: penalty ? `Phiếu phạt ${penalty.id}` : 'Chi tiết phiếu phạt',
-    badge: penalty ? <Badge variant={statusConfig[penalty.status].variant}>{statusConfig[penalty.status].label}</Badge> : undefined,
+    badge: penalty ? <Badge variant={(statusConfig[penalty.status] || defaultStatusConfig).variant}>{(statusConfig[penalty.status] || defaultStatusConfig).label}</Badge> : undefined,
     breadcrumb: penalty ? [
       { label: 'Trang chủ', href: '/', isCurrent: false },
       { label: 'Phiếu phạt', href: '/penalties', isCurrent: false },
@@ -197,7 +205,7 @@ export function PenaltyDetailPage() {
       {/* Thông tin chính */}
       <Card>
         <CardHeader className="pb-4">
-          <CardTitle className="text-lg font-semibold">Thông tin phiếu phạt</CardTitle>
+          <CardTitle size="lg">Thông tin phiếu phạt</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
           {/* Số tiền phạt - Highlighted */}
@@ -247,8 +255,8 @@ export function PenaltyDetailPage() {
           {/* Trạng thái */}
           <div>
             <p className="text-sm text-muted-foreground mb-1">Trạng thái</p>
-            <Badge variant={statusConfig[penalty.status].variant}>
-              {statusConfig[penalty.status].label}
+            <Badge variant={(statusConfig[penalty.status] || defaultStatusConfig).variant}>
+              {(statusConfig[penalty.status] || defaultStatusConfig).label}
             </Badge>
           </div>
           
@@ -278,7 +286,7 @@ export function PenaltyDetailPage() {
       {(penalty.linkedComplaintSystemId || penalty.linkedOrderSystemId || penalty.deductedInPayrollId) && (
         <Card>
           <CardHeader className="pb-4">
-          <CardTitle className="text-lg font-semibold">Liên kết</CardTitle>
+          <CardTitle size="lg">Liên kết</CardTitle>
         </CardHeader>
           <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
             {/* Khiếu nại liên quan */}
@@ -362,7 +370,7 @@ export function PenaltyDetailPage() {
 
       {/* Activity History */}
       <ActivityHistory
-        history={penalty.activityHistory || []}
+        history={[]} // TODO: Fetch from ActivityLog table
         title="Lịch sử hoạt động"
         emptyMessage="Chưa có lịch sử hoạt động"
         showFilters={false}

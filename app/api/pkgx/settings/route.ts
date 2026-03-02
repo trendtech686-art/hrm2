@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { requireAuth, apiError } from '@/lib/api-utils';
 
 const SETTINGS_KEY = 'settings';
 const SETTINGS_GROUP = 'pkgx';
@@ -18,7 +19,13 @@ export async function GET() {
         group: SETTINGS_GROUP,
       },
     });
-    return NextResponse.json({ success: true, data: setting?.value || {} });
+    
+    // PERFORMANCE: Exclude large fields (pkgxProducts, logs) from response
+    // These can be 30-50MB+ and should be fetched separately if needed
+    const fullData = (setting?.value || {}) as Record<string, unknown>;
+    const { pkgxProducts: _products, logs: _logs, ...lightData } = fullData;
+    
+    return NextResponse.json({ success: true, data: lightData });
   } catch (error) {
     console.error('[API] Error fetching PKGX settings:', error);
     return NextResponse.json(
@@ -29,6 +36,9 @@ export async function GET() {
 }
 
 export async function PATCH(request: NextRequest) {
+  const session = await requireAuth()
+  if (!session) return apiError('Chưa đăng nhập', 401)
+
   try {
     const body = await request.json();
     const { section, data } = body;

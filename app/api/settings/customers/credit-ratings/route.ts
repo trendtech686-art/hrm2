@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { Prisma } from '@/generated/prisma/client';
 import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils';
 import { createCreditRatingSchema } from './validation';
+import { generateIdWithPrefix } from '@/lib/id-generator';
 
 const TYPE = 'credit-rating';
 
@@ -56,7 +57,7 @@ export async function POST(request: NextRequest) {
 
     const setting = await prisma.customerSetting.create({
       data: {
-        id: crypto.randomUUID(),
+        id: await generateIdWithPrefix('CRAT', prisma),
         name,
         type: TYPE,
         description,

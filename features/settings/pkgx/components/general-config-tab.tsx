@@ -1,20 +1,23 @@
-import * as React from 'react';
+﻿import * as React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../../components/ui/card';
 import { Label } from '../../../../components/ui/label';
 import { Input } from '../../../../components/ui/input';
 import { Button } from '../../../../components/ui/button';
 import { Switch } from '../../../../components/ui/switch';
 import { Badge } from '../../../../components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../components/ui/select';
 import { Eye, EyeOff, RefreshCw, CheckCircle2, XCircle, Loader2, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePkgxSettings, usePkgxConfigMutations, usePkgxSyncSettingsMutations, usePkgxLogMutations } from '../hooks/use-pkgx-settings';
+import { useAllBranches } from '../../branches/hooks/use-all-branches';
 import { PKGX_API_CONFIG } from '../constants';
 
 export function GeneralConfigTab() {
   const { data: settings } = usePkgxSettings();
-  const { setApiUrl, setApiKey, setEnabled, setConnectionStatus } = usePkgxConfigMutations({ onSuccess: () => {} });
+  const { setApiUrl, setApiKey, setEnabled, setConnectionStatus, setDefaultBranchId } = usePkgxConfigMutations({ onSuccess: () => {} });
   const { updateSyncSetting } = usePkgxSyncSettingsMutations({ onSuccess: () => {} });
   const { addLog } = usePkgxLogMutations();
+  const { data: branches } = useAllBranches();
   const [showApiKey, setShowApiKey] = React.useState(false);
   const [isTesting, setIsTesting] = React.useState(false);
   const [localApiUrl, setLocalApiUrl] = React.useState(settings?.apiUrl ?? '');
@@ -168,7 +171,7 @@ export function GeneralConfigTab() {
       {/* API Connection Card */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Thông tin kết nối API</CardTitle>
+          <CardTitle size="lg">Thông tin kết nối API</CardTitle>
           <CardDescription>Cấu hình kết nối với website phukiengiaxuong.com.vn</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -223,7 +226,7 @@ export function GeneralConfigTab() {
             {getStatusBadge()}
           </div>
           
-          {settings?.connectionError && (
+          {settings?.connectionError && settings?.connectionStatus !== 'connected' && (
             <p className="text-sm text-destructive">{settings.connectionError}</p>
           )}
         </CardContent>
@@ -232,7 +235,7 @@ export function GeneralConfigTab() {
       {/* Enable/Disable Card */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Trạng thái tích hợp</CardTitle>
+          <CardTitle size="lg">Trạng thái tích hợp</CardTitle>
           <CardDescription>Bật/tắt đồng bộ với PKGX</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -254,13 +257,37 @@ export function GeneralConfigTab() {
               onCheckedChange={(checked) => updateSyncSetting.mutate({ key: 'autoSyncEnabled', value: checked })} 
             />
           </div>
+          
+          {/* Default Branch for PKGX Inventory Sync */}
+          <div className="space-y-2 pt-2 border-t">
+            <div>
+              <p className="font-medium">Kho đồng bộ tồn kho PKGX</p>
+              <p className="text-sm text-muted-foreground">Chọn kho để lấy số lượng tồn kho khi đồng bộ lên PKGX</p>
+            </div>
+            <Select
+              value={settings?.defaultBranchId || 'all'}
+              onValueChange={(value) => setDefaultBranchId.mutate(value === 'all' ? undefined : value)}
+            >
+              <SelectTrigger className="w-full sm:w-70">
+                <SelectValue placeholder="Chọn kho..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tổng tất cả chi nhánh</SelectItem>
+                {branches?.map((branch) => (
+                  <SelectItem key={branch.systemId} value={branch.systemId}>
+                    {branch.name} {branch.isDefault ? '(Mặc định)' : ''}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </CardContent>
       </Card>
       
       {/* Stats Card */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Thống kê</CardTitle>
+          <CardTitle size="lg">Thống kê</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

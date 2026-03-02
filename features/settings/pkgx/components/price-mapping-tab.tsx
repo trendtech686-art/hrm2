@@ -1,50 +1,100 @@
-import * as React from 'react';
+﻿import * as React from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../../components/ui/card';
 import { Label } from '../../../../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../components/ui/select';
 import { Button } from '../../../../components/ui/button';
-import { Save } from 'lucide-react';
+import { Loader2, Save } from 'lucide-react';
 import { toast } from 'sonner';
-import { usePkgxSettings, usePkgxPriceMappingMutations, usePkgxLogMutations } from '../hooks/use-pkgx-settings';
 import { useAllPricingPolicies } from '../../pricing/hooks/use-all-pricing-policies';
 import { PKGX_PRICE_FIELDS } from '../constants';
 import type { SystemId } from '../../../../lib/id-types';
 
+type PriceMapping = Record<string, SystemId | null>;
+
+// Hook to fetch price mappings from database
+function usePriceMappings() {
+  return useQuery({
+    queryKey: ['pkgx', 'price-mappings'],
+    queryFn: async (): Promise<PriceMapping> => {
+      const res = await fetch('/api/pkgx/price-mappings');
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error);
+      
+      // Convert array of mappings to key-value object
+      const mappings: PriceMapping = {};
+      for (const field of PKGX_PRICE_FIELDS) {
+        mappings[field.key] = null;
+      }
+      for (const m of json.data) {
+        const field = PKGX_PRICE_FIELDS.find(f => f.field === m.priceType);
+        if (field) {
+          mappings[field.key] = m.pricingPolicyId;
+        }
+      }
+      return mappings;
+    },
+    staleTime: 0,
+  });
+}
+
+// Hook to update price mappings
+function usePriceMappingMutation() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (data: PriceMapping) => {
+      const res = await fetch('/api/pkgx/price-mappings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error || 'Failed to update');
+      return json.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pkgx', 'price-mappings'] });
+    },
+  });
+}
+
 export function PriceMappingTab() {
-  const { data: settings } = usePkgxSettings();
-  const { updatePriceMapping } = usePkgxPriceMappingMutations({ onSuccess: () => {} });
-  const { addLog } = usePkgxLogMutations();
+  const { data: serverMapping, isLoading } = usePriceMappings();
   const { data: pricingPolicies = [] } = useAllPricingPolicies();
+  const mutation = usePriceMappingMutation();
+  
+  // Local draft state for unsaved changes
+  const [draft, setDraft] = React.useState<PriceMapping>({});
+  
+  // Sync draft with server data when it loads/changes
+  React.useEffect(() => {
+    if (serverMapping) {
+      setDraft(serverMapping);
+    }
+  }, [serverMapping]);
 
   // Filter only selling price policies
   const sellingPolicies = pricingPolicies.filter((p) => p.type === 'Bán hàng' && p.isActive);
 
-  const handleChange = (field: keyof NonNullable<typeof settings>['priceMapping'], value: string) => {
-    updatePriceMapping.mutate({ field, policyId: value === 'none' ? null : (value as SystemId) });
+  // Handle change - update draft only
+  const handleChange = (field: string, value: string) => {
+    setDraft(prev => ({
+      ...prev,
+      [field]: value === 'none' ? null : value as SystemId
+    }));
   };
-
+  
+  // Save to server
   const handleSave = () => {
-    // Log the mapping save
-    const priceMapping = settings?.priceMapping ?? {};
-    const _mappingSummary = PKGX_PRICE_FIELDS
-      .filter(pf => priceMapping[pf.key as keyof NonNullable<typeof settings>['priceMapping']])
-      .map(pf => {
-        const policyId = priceMapping[pf.key as keyof NonNullable<typeof settings>['priceMapping']];
-        const policy = pricingPolicies.find(p => p.systemId === policyId);
-        return `${pf.field} → ${policy?.name || policyId}`;
-      })
-      .join(', ');
-    
-    addLog.mutate({
-      action: 'save_mapping',
-      status: 'success',
-      message: 'Đã lưu mapping bảng giá',
-      details: {
-        total: PKGX_PRICE_FIELDS.filter(pf => priceMapping[pf.key as keyof NonNullable<typeof settings>['priceMapping']]).length,
+    mutation.mutate(draft, {
+      onSuccess: () => {
+        toast.success('Đã lưu mapping bảng giá');
+      },
+      onError: (err) => {
+        toast.error(`Lỗi: ${err.message}`);
       }
     });
-    
-    toast.success('Đã lưu mapping bảng giá');
   };
 
   const getPolicyName = (policyId: SystemId | null) => {
@@ -53,10 +103,20 @@ export function PriceMappingTab() {
     return policy?.name || policyId;
   };
 
+  if (isLoading) {
+    return (
+      <Card>
+        <CardContent className="flex items-center justify-center py-8">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg">Mapping Bảng giá HRM → PKGX</CardTitle>
+        <CardTitle size="lg">Mapping Bảng giá HRM → PKGX</CardTitle>
         <CardDescription>
           Chọn bảng giá trong HRM tương ứng với mỗi loại giá trên PKGX
         </CardDescription>
@@ -69,8 +129,8 @@ export function PriceMappingTab() {
               <p className="text-sm text-muted-foreground">{priceField.description}</p>
             </div>
             <Select
-              value={(settings?.priceMapping ?? {})[priceField.key as keyof NonNullable<typeof settings>['priceMapping']] || 'none'}
-              onValueChange={(value) => handleChange(priceField.key as keyof NonNullable<typeof settings>['priceMapping'], value)}
+              value={draft[priceField.key] || 'none'}
+              onValueChange={(value) => handleChange(priceField.key, value)}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Chọn bảng giá..." />
@@ -87,6 +147,17 @@ export function PriceMappingTab() {
           </div>
         ))}
 
+        <div className="flex items-center gap-4 pt-4 border-t">
+          <Button onClick={handleSave} disabled={mutation.isPending}>
+            {mutation.isPending ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4 mr-2" />
+            )}
+            Lưu mapping
+          </Button>
+        </div>
+
         <div className="pt-4 border-t">
           <h4 className="font-medium mb-2">Tóm tắt mapping hiện tại:</h4>
           <div className="bg-muted p-4 rounded-lg text-sm space-y-1">
@@ -94,18 +165,11 @@ export function PriceMappingTab() {
               <div key={priceField.key} className="flex justify-between">
                 <span className="text-muted-foreground">{priceField.field}:</span>
                 <span className="font-medium">
-                  {getPolicyName((settings?.priceMapping as any)?.[priceField.key])}
+                  {getPolicyName(draft[priceField.key] ?? null)}
                 </span>
               </div>
             ))}
           </div>
-        </div>
-
-        <div className="flex justify-end pt-4">
-          <Button onClick={handleSave}>
-            <Save className="h-4 w-4 mr-2" />
-            Lưu mapping
-          </Button>
         </div>
       </CardContent>
     </Card>

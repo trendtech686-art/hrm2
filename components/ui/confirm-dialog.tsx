@@ -18,7 +18,7 @@ interface ConfirmDialogProps {
   confirmText?: string;
   cancelText?: string;
   variant?: "default" | "destructive";
-  onConfirm: () => void;
+  onConfirm: () => void | Promise<void>;
 }
 
 export const ConfirmDialog = React.memo(function ConfirmDialog({
@@ -31,9 +31,16 @@ export const ConfirmDialog = React.memo(function ConfirmDialog({
   variant = "default",
   onConfirm,
 }: ConfirmDialogProps) {
-  const handleConfirm = React.useCallback(() => {
-    onConfirm();
-    onOpenChange(false);
+  const [isLoading, setIsLoading] = React.useState(false);
+
+  const handleConfirm = React.useCallback(async () => {
+    setIsLoading(true);
+    try {
+      await onConfirm();
+    } finally {
+      setIsLoading(false);
+      onOpenChange(false);
+    }
   }, [onConfirm, onOpenChange]);
   
   // ⚡ OPTIMIZE: Don't render content when closed
@@ -47,14 +54,15 @@ export const ConfirmDialog = React.memo(function ConfirmDialog({
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={() => onOpenChange(false)}>
+          <AlertDialogCancel onClick={() => onOpenChange(false)} disabled={isLoading}>
             {cancelText}
           </AlertDialogCancel>
           <AlertDialogAction
             onClick={handleConfirm}
+            disabled={isLoading}
             className={variant === "destructive" ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : ""}
           >
-            {confirmText}
+            {isLoading ? "Đang xử lý..." : confirmText}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

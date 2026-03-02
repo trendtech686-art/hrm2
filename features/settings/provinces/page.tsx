@@ -1,9 +1,10 @@
-'use client'
+﻿'use client'
 
 import * as React from "react";
 import dynamic from "next/dynamic";
-import { useFuseFilter } from "@/hooks/use-fuse-search";
-import { useProvinces, useDistricts, useWards, useProvinceMutations, useDistrictMutations, useWardMutations } from "./hooks/use-provinces";
+import { simpleSearch } from "@/lib/simple-search";
+import { useAllProvinces, useDistricts, useWards, useProvinceMutations, useDistrictMutations, useWardMutations } from "./hooks/use-provinces";
+import { fetchAllWards } from "./api/provinces-api";
 import { asSystemId, asBusinessId } from "@/lib/id-types";
 import { ProvinceForm, type ProvinceFormValues } from "./form";
 import { WardForm, type WardFormValues } from "./ward-form";
@@ -31,8 +32,8 @@ function useDebounce<T>(value: T, delay: number): T { const [d, setD] = React.us
 type ImportPreviewState = { provinces: Array<Omit<Province, "systemId">>; wards: Array<Omit<Ward, "systemId">>; summary: { provinceCount: number; wardCount: number } };
 
 export function ProvincesPage() {
-  const { data: queryData } = useProvinces({ limit: 1000 });
-  const allProvinces = React.useMemo(() => queryData?.data ?? [], [queryData?.data]);
+  const { data: allProvincesData } = useAllProvinces();
+  const allProvinces = React.useMemo(() => allProvincesData ?? [], [allProvincesData]);
   const { add: addProvince, update: updateProvince, remove: removeProvince } = useProvinceMutations({
     onSuccess: () => {},
     onError: (error) => toast.error(error.message),
@@ -99,8 +100,8 @@ export function ProvincesPage() {
     mode === "3-level" && selectedProvinceBusinessId ? { provinceId: selectedProvinceBusinessId } : undefined,
     [mode, selectedProvinceBusinessId]
   );
-  const { data: districtsResult } = useDistricts(districtsFilter as any);
-  const districtsData = districtsResult?.data ?? [];
+  const { data: districtsResult } = useDistricts(districtsFilter);
+  const districtsData = React.useMemo(() => districtsResult?.data ?? [], [districtsResult?.data]);
   
   // Fetch wards based on mode (depend only on primitive ids to keep stable)
   const wardsFilter = React.useMemo(() => {
@@ -109,8 +110,8 @@ export function ProvincesPage() {
     if (mode === "3-level" && selectedDistrictId) return { districtId: selectedDistrictId };
     return undefined;
   }, [mode, selectedProvinceBusinessId, selectedDistrictId]);
-  const { data: wardsResult } = useWards(wardsFilter as any);
-  const wardsData = wardsResult?.data ?? [];
+  const { data: wardsResult } = useWards(wardsFilter);
+  const wardsData = React.useMemo(() => wardsResult?.data ?? [], [wardsResult?.data]);
 
   // Memoize processed data
   const districtsForProvince = React.useMemo(() => mode === "3-level" ? districtsData : [], [mode, districtsData]);
@@ -123,44 +124,128 @@ export function ProvincesPage() {
     return wardsData;
   }, [mode, wardsData]);
 
-  const provinceFuseOptions = React.useMemo(() => ({ keys: ["name", "id"], threshold: 0.3 }), []);
-  const searchedProvinces = useFuseFilter(provinces, provinceSearch, provinceFuseOptions);
-  const filteredProvinces = React.useMemo(() => provinceSearch ? searchedProvinces : provinces, [searchedProvinces, provinceSearch, provinces]);
+  const filteredProvinces = React.useMemo(() => 
+    simpleSearch(provinces, provinceSearch, { keys: ['name', 'id'] }), 
+    [provinces, provinceSearch]
+  );
   const orderedProvinces = React.useMemo(() => [...filteredProvinces].sort((a, b) => a.name.localeCompare(b.name)), [filteredProvinces]);
 
-  const districtFuseOptions = React.useMemo(() => ({ keys: ["name"], threshold: 0.3 }), []);
-  const searchedDistricts = useFuseFilter(districtsForProvince as any, districtSearch, districtFuseOptions);
-  const filteredDistricts = React.useMemo(() => districtSearch ? searchedDistricts : districtsForProvince, [searchedDistricts, districtSearch, districtsForProvince]);
+  const filteredDistricts = React.useMemo(() => 
+    simpleSearch(districtsForProvince, districtSearch, { keys: ['name'] }), 
+    [districtsForProvince, districtSearch]
+  );
 
-  const wardFuseOptions = React.useMemo(() => ({ keys: ["name", "id"], threshold: 0.3 }), []);
-  const searchedWards = useFuseFilter(wardsForSelectedProvince as any, wardSearch, wardFuseOptions);
-  const filteredWards = React.useMemo(() => wardSearch ? searchedWards : wardsForSelectedProvince, [searchedWards, wardSearch, wardsForSelectedProvince]);
+  const filteredWards = React.useMemo(() => 
+    simpleSearch(wardsForSelectedProvince, wardSearch, { keys: ['name', 'id'] }), 
+    [wardsForSelectedProvince, wardSearch]
+  );
 
   const handleAddProvince = React.useCallback(() => { setEditingProvince(null); setIsProvinceFormOpen(true); }, []);
   const handleEditProvince = (p: Province) => { setEditingProvince(p); setIsProvinceFormOpen(true); };
   const handleDeleteProvince = (id: string) => setDialogState({ type: "province", systemId: id });
-  const handleProvinceFormSubmit = (v: ProvinceFormValues) => { if (editingProvince) (updateProvince as any).mutate({ systemId: editingProvince.systemId, ...v }); else (addProvince as any).mutate(v); setIsProvinceFormOpen(false); };
+  const handleProvinceFormSubmit = (v: ProvinceFormValues) => { if (editingProvince) updateProvince.mutateAsync({ systemId: editingProvince.systemId, data: v }); else addProvince.mutate({ ...v, level: mode }); setIsProvinceFormOpen(false); };
   const handleAddWard = () => { setEditingWard(null); setIsWardFormOpen(true); };
   const handleEditWard = (w: Ward) => { setEditingWard(w); setIsWardFormOpen(true); };
   const handleDeleteWard = (id: string) => setDialogState({ type: "ward", systemId: id });
-  const handleWardFormSubmit = (v: WardFormValues) => { if (!selectedProvince) return; const fv = { ...v, provinceId: selectedProvince.id }; if (editingWard) (updateWard as any).mutate({ systemId: editingWard.systemId, ...fv }); else (addWard as any).mutate(fv); setIsWardFormOpen(false); };
+  const handleWardFormSubmit = (v: WardFormValues) => { if (!selectedProvince) return; const fv = { ...v, provinceId: selectedProvince.id }; if (editingWard) updateWard.mutate({ systemId: editingWard.systemId, data: fv }); else addWard.mutate(fv); setIsWardFormOpen(false); };
   const handleAddDistrict = () => { setEditingDistrict(null); setIsDistrictFormOpen(true); };
   const handleEditDistrict = (d: District) => { setEditingDistrict(d); setIsDistrictFormOpen(true); };
   const handleDeleteDistrict = (id: string) => setDialogState({ type: "district", systemId: id });
-  const handleDistrictFormSubmit = (v: DistrictFormValues) => { if (!selectedProvince) return; const fv = { ...v, provinceId: selectedProvince.id }; if (editingDistrict) (updateDistrict as any).mutate({ systemId: editingDistrict.systemId, ...fv }); else (addDistrict as any).mutate(fv); setIsDistrictFormOpen(false); };
+  const handleDistrictFormSubmit = (v: DistrictFormValues) => { if (!selectedProvince) return; const fv = { ...v, provinceId: selectedProvince.id }; if (editingDistrict) updateDistrict.mutate({ systemId: editingDistrict.systemId, data: fv }); else addDistrict.mutate(fv); setIsDistrictFormOpen(false); };
 
-  const confirmDelete = () => { if (!dialogState) return; if (dialogState.type === "province") { if (dialogState.systemId === selectedProvinceId) { const fb = provinces.find(p => p.systemId !== dialogState.systemId); setSelectedProvinceId(fb?.systemId ?? null); setSelectedDistrictId(null); } removeProvince(asSystemId(dialogState.systemId)); } else if (dialogState.type === "ward") removeWard(asSystemId(dialogState.systemId)); else if (dialogState.type === "district") { const d = districtsForProvince.find(x => x.systemId === dialogState.systemId); if (d && d.id === selectedDistrictId) setSelectedDistrictId(null); removeDistrict(asSystemId(dialogState.systemId)); } setDialogState(null); };
+  const confirmDelete = () => { if (!dialogState) return; if (dialogState.type === "province") { if (dialogState.systemId === selectedProvinceId) { const fb = provinces.find(p => p.systemId !== dialogState.systemId); setSelectedProvinceId(fb?.systemId ?? null); setSelectedDistrictId(null); } removeProvince.mutate(asSystemId(dialogState.systemId)); } else if (dialogState.type === "ward") removeWard.mutate(asSystemId(dialogState.systemId)); else if (dialogState.type === "district") { const d = districtsForProvince.find((x: District) => x.systemId === dialogState.systemId); if (d && d.id === selectedDistrictId) setSelectedDistrictId(null); removeDistrict.mutate(asSystemId(dialogState.systemId)); } setDialogState(null); };
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (!file) return; const XLSX = await import('xlsx'); const reader = new FileReader(); reader.onload = le => { try { const data = le.target?.result; const wb = XLSX.read(data, { type: "binary" }); const ws = wb.Sheets[wb.SheetNames[0]]; const json = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws); const pm = new Map<string, Omit<Province, "systemId">>(); const wards: Array<Omit<Ward, "systemId">> = []; json.forEach(r => { const pid = r["Mã tỉnh (BNV)"] ?? r["Ma Tinh"]; const pn = r["Tên tỉnh/TP mới"] ?? r["Ten tinh"]; const wc = r["Mã phường/xã mới"] ?? r["Ma phuong/xa"]; const wn = r["Tên Phường/Xã mới"] ?? r["Ten Phuong/Xa"]; if (!pid || !pn || !wc || !wn) return; const id = String(pid).padStart(2, "0"); if (!pm.has(id)) pm.set(id, { id: asBusinessId(id), name: String(pn).trim() }); wards.push({ id: String(wc).trim(), name: String(wn).trim(), provinceId: asBusinessId(id), provinceName: String(pn).trim() }); }); if (pm.size === 0 || wards.length === 0) { toast.error('Không tìm thấy dữ liệu hợp lệ'); return; } setImportPreview({ provinces: Array.from(pm.values()), wards, summary: { provinceCount: pm.size, wardCount: wards.length } }); setIsImportDialogOpen(true); } catch (err) { toast.error('Lỗi đọc file', { description: err instanceof Error ? err.message : 'File không hợp lệ' }); } }; reader.readAsBinaryString(file); e.target.value = ""; };
-  const handleConfirmImport = () => { if (!importPreview) return; setIsImporting(true); try { 
-    // Note: importAdministrativeUnits needs implementation
-    toast.info('Import administrative units'); 
-    setIsImportDialogOpen(false); setImportPreview(null); } catch (err) { toast.error('Không thể ghi dữ liệu', { description: err instanceof Error ? err.message : 'Thử lại sau' }); } finally { setIsImporting(false); } };
+  const handleConfirmImport = async () => { 
+    if (!importPreview) return; 
+    setIsImporting(true); 
+    
+    let provincesInserted = 0;
+    let wardsInserted = 0;
+    let failed = 0;
+    const errors: string[] = [];
+    
+    try { 
+      // Import provinces first
+      for (const province of importPreview.provinces) {
+        try {
+          // Check if province already exists
+          const existing = provinces.find(p => p.id === province.id);
+          if (existing) {
+            // Update existing
+            await updateProvince.mutateAsync({ 
+              systemId: existing.systemId, 
+              data: { name: province.name, level: mode } 
+            });
+          } else {
+            // Create new
+            await addProvince.mutateAsync({ 
+              id: province.id, 
+              name: province.name,
+              level: mode,
+            } as Parameters<typeof addProvince.mutateAsync>[0]);
+          }
+          provincesInserted++;
+        } catch (err) {
+          failed++;
+          errors.push(`Tỉnh ${province.name}: ${err instanceof Error ? err.message : 'Lỗi'}`);
+        }
+      }
+      
+      // Import wards
+      for (const ward of importPreview.wards) {
+        try {
+          await addWard.mutateAsync({
+            id: ward.id,
+            name: ward.name,
+            provinceId: ward.provinceId,
+            level: mode,
+          } as Parameters<typeof addWard.mutateAsync>[0]);
+          wardsInserted++;
+        } catch (_err) {
+          // Ward might already exist - silently skip
+          failed++;
+        }
+      }
+      
+      toast.success('Import hoàn tất', { 
+        description: `${provincesInserted} tỉnh, ${wardsInserted} phường xã` 
+      });
+      
+      // Log to ImportExportLog
+      try {
+        await fetch('/api/import-export-logs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'import',
+            entityType: 'administrative-units',
+            fileName: 'Đơn vị hành chính',
+            totalRows: importPreview.provinces.length + importPreview.wards.length,
+            successRows: provincesInserted + wardsInserted,
+            failedRows: failed,
+            skippedRows: 0,
+            status: failed === 0 ? 'completed' : 'completed_with_errors',
+            errorDetails: errors.slice(0, 10).map((e, i) => ({ row: i + 1, message: e })),
+          }),
+        });
+      } catch (logErr) {
+        console.error('[Provinces Import] Failed to log import:', logErr);
+      }
+      
+      setIsImportDialogOpen(false); 
+      setImportPreview(null); 
+    } catch (err) { 
+      toast.error('Không thể ghi dữ liệu', { description: err instanceof Error ? err.message : 'Thử lại sau' }); 
+    } finally { 
+      setIsImporting(false); 
+    } 
+  };
   
   // Use ref to avoid re-creating headerActions when provinces changes
   const provincesRef = React.useRef(provinces);
   provincesRef.current = provinces;
-  const handleExport = React.useCallback(async () => { const pe = provincesRef.current.map(({ systemId: _s, ...r }) => ({ "Mã tỉnh": r.id, "Tên Tỉnh/Thành phố": r.name })); const res = await fetch('/api/administrative-units/wards?level=2-level&limit=20000'); const json = await res.json(); const w2 = json.success ? json.data : []; const we = w2.map(({ systemId: _s, ...r }: Ward) => ({ "Mã tỉnh": r.provinceId, "Mã Phường/Xã": r.id, "Tên Phường/Xã": r.name })); const XLSX = await import('xlsx'); const pws = XLSX.utils.json_to_sheet(pe); const wws = XLSX.utils.json_to_sheet(we); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, pws, "TinhThanh"); XLSX.utils.book_append_sheet(wb, wws, "PhuongXa"); XLSX.writeFile(wb, "Danh_sach_Don_vi_hanh_chinh.xlsx"); }, []);
+  const handleExport = React.useCallback(async () => { const pe = provincesRef.current.map(({ systemId: _s, ...r }) => ({ "Mã tỉnh": r.id, "Tên Tỉnh/Thành phố": r.name })); const w2 = await fetchAllWards(); const we = w2.map(({ systemId: _s, ...r }: Ward) => ({ "Mã tỉnh": r.provinceId, "Mã Phường/Xã": r.id, "Tên Phường/Xã": r.name })); const XLSX = await import('xlsx'); const pws = XLSX.utils.json_to_sheet(pe); const wws = XLSX.utils.json_to_sheet(we); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, pws, "TinhThanh"); XLSX.utils.book_append_sheet(wb, wws, "PhuongXa"); XLSX.writeFile(wb, "Danh_sach_Don_vi_hanh_chinh.xlsx"); }, []);
   const handleImportButtonClick = React.useCallback(() => { importInputRef.current?.click(); }, []);
 
   const headerActions = React.useMemo(() => [<SettingsActionButton key="import" variant="outline" onClick={handleImportButtonClick}><Upload className="h-4 w-4" />Nhập file</SettingsActionButton>, <SettingsActionButton key="export" variant="outline" onClick={handleExport}><Download className="h-4 w-4" />Xuất file</SettingsActionButton>, <SettingsActionButton key="add" onClick={handleAddProvince}><PlusCircle className="h-4 w-4" />Thêm tỉnh thành</SettingsActionButton>], [handleImportButtonClick, handleExport, handleAddProvince]);
@@ -177,7 +262,7 @@ export function ProvincesPage() {
       <input ref={importInputRef} type="file" className="hidden" accept=".xlsx, .xls" onChange={handleImport} />
       <div className="mb-4 flex shrink-0 items-center"><Tabs value={mode} onValueChange={v => { setMode(v as "2-level" | "3-level"); setSelectedDistrictId(null); }}><TabsList><TabsTrigger value="2-level">2 cấp (Tỉnh → Phường)</TabsTrigger><TabsTrigger value="3-level">3 cấp (Tỉnh → Quận → Phường)</TabsTrigger></TabsList></Tabs></div>
 
-      {mode === "2-level" ? (<div className="flex min-h-0 grow gap-4">{renderProvinceList()}<div className="flex w-2/3 flex-col">{selectedProvince ? <Card className="flex grow flex-col"><CardHeader><div className="flex items-center justify-between"><div><CardTitle>{selectedProvince.name}</CardTitle><CardDescription>Mã: {selectedProvince.id} • {filteredWards.length} phường/xã</CardDescription></div><Button size="sm" onClick={handleAddWard}><PlusCircle className="mr-2 h-4 w-4" />Thêm phường/xã</Button></div><div className="relative pt-2"><Search className="pointer-events-none absolute left-2.5 top-4.5 h-4 w-4 text-muted-foreground" /><Input placeholder="Tìm phường/xã..." className="h-9 pl-8" value={wardSearchInput} onChange={e => setWardSearchInput(e.target.value)} /></div></CardHeader><CardContent className="flex grow flex-col p-0">{renderWardPanel(true)}</CardContent></Card> : <Card className="flex h-full items-center justify-center"><div className="text-center text-muted-foreground">Chọn một Tỉnh/Thành phố.</div></Card>}</div></div>) : (<div className="flex min-h-0 grow gap-4">{renderProvinceList()}<Card className="flex w-1/4 flex-col"><CardHeader><div className="flex items-center justify-between"><CardTitle className="text-base">Quận/Huyện</CardTitle>{selectedProvince && <Button size="icon" variant="ghost" className="h-8 w-8" onClick={handleAddDistrict}><PlusCircle className="h-4 w-4" /></Button>}</div>{selectedProvince && <div className="relative pt-2"><Search className="pointer-events-none absolute left-2.5 top-4.5 h-4 w-4 text-muted-foreground" /><Input placeholder="Tìm quận/huyện..." className="h-9 pl-8" value={districtSearchInput} onChange={e => setDistrictSearchInput(e.target.value)} /></div>}</CardHeader><CardContent className="grow overflow-hidden p-2">{selectedProvince ? <ScrollArea className="h-full"><div className="space-y-2 pb-2">{filteredDistricts.map(d => <DistrictItem key={d.systemId} district={d} isActive={selectedDistrictId === d.id} onSelect={setSelectedDistrictId} onEdit={handleEditDistrict} onDelete={handleDeleteDistrict} />)}</div></ScrollArea> : <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Chọn tỉnh/TP trước</div>}</CardContent></Card><Card className="flex flex-1 flex-col"><CardHeader><div className="flex items-center justify-between"><div><CardTitle className="text-base">Phường/Xã</CardTitle>{selectedDistrictId && <CardDescription className="mt-1 text-xs">{districtsForProvince.find(d => d.id === selectedDistrictId)?.name} • {filteredWards.length} phường/xã</CardDescription>}</div>{selectedDistrictId && <Button size="sm" onClick={handleAddWard}><PlusCircle className="mr-2 h-4 w-4" />Thêm</Button>}</div>{selectedDistrictId && <div className="relative pt-2"><Search className="pointer-events-none absolute left-2.5 top-4.5 h-4 w-4 text-muted-foreground" /><Input placeholder="Tìm phường/xã..." className="h-9 pl-8" value={wardSearchInput} onChange={e => setWardSearchInput(e.target.value)} /></div>}</CardHeader><CardContent className="flex flex-1 flex-col p-0">{selectedDistrictId ? renderWardPanel(true) : <div className="flex h-full items-center justify-center text-muted-foreground">Chọn quận/huyện để xem phường/xã</div>}</CardContent></Card></div>)}
+      {mode === "2-level" ? (<div className="flex min-h-0 grow gap-4">{renderProvinceList()}<div className="flex w-2/3 flex-col">{selectedProvince ? <Card className="flex grow flex-col"><CardHeader><div className="flex items-center justify-between"><div><CardTitle>{selectedProvince.name}</CardTitle><CardDescription>Mã: {selectedProvince.id} • {filteredWards.length} phường/xã</CardDescription></div><Button size="sm" onClick={handleAddWard}><PlusCircle className="mr-2 h-4 w-4" />Thêm phường/xã</Button></div><div className="relative pt-2"><Search className="pointer-events-none absolute left-2.5 top-4.5 h-4 w-4 text-muted-foreground" /><Input placeholder="Tìm phường/xã..." className="h-9 pl-8" value={wardSearchInput} onChange={e => setWardSearchInput(e.target.value)} /></div></CardHeader><CardContent className="flex grow flex-col p-0">{renderWardPanel(true)}</CardContent></Card> : <Card className="flex h-full items-center justify-center"><div className="text-center text-muted-foreground">Chọn một Tỉnh/Thành phố.</div></Card>}</div></div>) : (<div className="flex min-h-0 grow gap-4">{renderProvinceList()}<Card className="flex w-1/4 flex-col"><CardHeader><div className="flex items-center justify-between"><CardTitle>Quận/Huyện</CardTitle>{selectedProvince && <Button size="icon" variant="ghost" className="h-8 w-8" onClick={handleAddDistrict}><PlusCircle className="h-4 w-4" /></Button>}</div>{selectedProvince && <div className="relative pt-2"><Search className="pointer-events-none absolute left-2.5 top-4.5 h-4 w-4 text-muted-foreground" /><Input placeholder="Tìm quận/huyện..." className="h-9 pl-8" value={districtSearchInput} onChange={e => setDistrictSearchInput(e.target.value)} /></div>}</CardHeader><CardContent className="grow overflow-hidden p-2">{selectedProvince ? <ScrollArea className="h-full"><div className="space-y-2 pb-2">{filteredDistricts.map(d => <DistrictItem key={d.systemId} district={d} isActive={selectedDistrictId === d.id} onSelect={setSelectedDistrictId} onEdit={handleEditDistrict} onDelete={handleDeleteDistrict} />)}</div></ScrollArea> : <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Chọn tỉnh/TP trước</div>}</CardContent></Card><Card className="flex flex-1 flex-col"><CardHeader><div className="flex items-center justify-between"><div><CardTitle>Phường/Xã</CardTitle>{selectedDistrictId && <CardDescription className="mt-1 text-xs">{districtsForProvince.find(d => d.id === selectedDistrictId)?.name} • {filteredWards.length} phường/xã</CardDescription>}</div>{selectedDistrictId && <Button size="sm" onClick={handleAddWard}><PlusCircle className="mr-2 h-4 w-4" />Thêm</Button>}</div>{selectedDistrictId && <div className="relative pt-2"><Search className="pointer-events-none absolute left-2.5 top-4.5 h-4 w-4 text-muted-foreground" /><Input placeholder="Tìm phường/xã..." className="h-9 pl-8" value={wardSearchInput} onChange={e => setWardSearchInput(e.target.value)} /></div>}</CardHeader><CardContent className="flex flex-1 flex-col p-0">{selectedDistrictId ? renderWardPanel(true) : <div className="flex h-full items-center justify-center text-muted-foreground">Chọn quận/huyện để xem phường/xã</div>}</CardContent></Card></div>)}
 
       <Dialog open={isProvinceFormOpen} onOpenChange={setIsProvinceFormOpen}><DialogContent><DialogHeader><DialogTitle>{editingProvince ? "Chỉnh sửa Tỉnh thành" : "Thêm Tỉnh thành mới"}</DialogTitle></DialogHeader><ProvinceForm initialData={editingProvince} onSubmit={handleProvinceFormSubmit} onCancel={() => setIsProvinceFormOpen(false)} /></DialogContent></Dialog>
       <Dialog open={isWardFormOpen} onOpenChange={setIsWardFormOpen}><DialogContent><DialogHeader><DialogTitle>{editingWard ? "Chỉnh sửa Phường/Xã" : "Thêm Phường/Xã mới"}</DialogTitle></DialogHeader><WardForm initialData={editingWard} onSubmit={handleWardFormSubmit} onCancel={() => setIsWardFormOpen(false)} /></DialogContent></Dialog>

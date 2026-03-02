@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma'
 import { Prisma } from '@/generated/prisma/client'
 import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
 import { createJobTitleSchema } from './validation'
+import { generateNextIdsWithTx } from '@/lib/id-system'
 
 // GET /api/job-titles - List all job titles
 export async function GET(request: Request) {
@@ -68,14 +69,23 @@ export async function POST(request: Request) {
   const body = validation.data
 
   try {
-    const jobTitle = await prisma.jobTitle.create({
-      data: {
-        systemId: `JOB${String(Date.now()).slice(-6).padStart(6, '0')}`,
-        id: body.id,
-        name: body.name,
-        description: body.description,
-      },
-    })
+    const jobTitle = await prisma.$transaction(async (tx) => {
+      // Generate IDs using unified ID system
+      const { systemId, businessId } = await generateNextIdsWithTx(
+        tx,
+        'job-titles',
+        body.id?.trim() || undefined
+      );
+
+      return tx.jobTitle.create({
+        data: {
+          systemId,
+          id: businessId,
+          name: body.name,
+          description: body.description,
+        },
+      });
+    });
 
     return apiSuccess(jobTitle, 201)
   } catch (error) {

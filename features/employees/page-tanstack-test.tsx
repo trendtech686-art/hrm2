@@ -8,7 +8,8 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { TanStackDataTable } from '../../components/data-table/tanstack-data-table';
 import { createEmployeeColumns } from './tanstack-columns';
-import { useEmployeeStore } from './store';
+import { useActiveEmployees } from './hooks/use-all-employees';
+import { useEmployeeMutations, useDeletedEmployees } from './hooks/use-employees';
 import { useAllBranches } from '@/features/settings/branches/hooks/use-all-branches';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { asSystemId } from '@/lib/id-types';
@@ -29,24 +30,16 @@ import type { Employee } from '@/lib/types/prisma-extended';
 
 export function EmployeesPageTanStackTest() {
   const router = useRouter();
-  const { data: employees, remove, getActive } = useEmployeeStore();
+  const { data: activeEmployees } = useActiveEmployees();
+  const { data: deletedEmployees } = useDeletedEmployees();
+  const { remove: removeMutation } = useEmployeeMutations({});
   const { data: branches } = useAllBranches();
 
   const [isAlertOpen, setIsAlertOpen] = React.useState(false);
   const [idToDelete, setIdToDelete] = React.useState<string | null>(null);
   const [selectedRows, setSelectedRows] = React.useState<Employee[]>([]);
 
-  // Get active employees only - employees triggers re-evaluation when store changes
-  const activeEmployees = React.useMemo(
-    () => getActive(),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [getActive, employees]
-  );
-
-  const deletedCount = React.useMemo(
-    () => employees.filter((e: Employee) => e.isDeleted).length,
-    [employees]
-  );
+  const deletedCount = deletedEmployees?.length ?? 0;
 
   // Handle delete
   const handleDelete = (systemId: string) => {
@@ -56,7 +49,7 @@ export function EmployeesPageTanStackTest() {
 
   const confirmDelete = () => {
     if (idToDelete) {
-      remove(asSystemId(idToDelete));
+      removeMutation.mutate(asSystemId(idToDelete));
       toast.success('Đã xóa nhân viên');
       setIsAlertOpen(false);
       setIdToDelete(null);
@@ -191,7 +184,7 @@ export function EmployeesPageTanStackTest() {
                       `Xác nhận xóa ${selectedRows.length} nhân viên đã chọn?`
                     )
                   ) {
-                    selectedRows.forEach(emp => remove(emp.systemId));
+                    selectedRows.forEach(emp => removeMutation.mutate(emp.systemId));
                     toast.success(`Đã xóa ${selectedRows.length} nhân viên`);
                   }
                 }}

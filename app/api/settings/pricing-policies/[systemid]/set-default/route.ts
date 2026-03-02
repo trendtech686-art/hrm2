@@ -2,8 +2,6 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils';
 
-const TYPE = 'pricing-policy';
-
 // POST - Set as default pricing policy
 export async function POST(
   _request: NextRequest,
@@ -14,32 +12,27 @@ export async function POST(
 
   try {
     const { systemid } = await params;
-    const setting = await prisma.settingsData.findFirst({
-      where: { systemId: systemid, type: TYPE, isDeleted: false },
+    const policy = await prisma.pricingPolicy.findUnique({
+      where: { systemId: systemid },
     });
 
-    if (!setting) {
+    if (!policy) {
       return apiError('Pricing policy not found', 404);
     }
 
-    const policyType = (setting.metadata as any)?.type;
+    const policyType = policy.type;
 
     // Unset all other defaults of same type
-    await prisma.settingsData.updateMany({
+    await prisma.pricingPolicy.updateMany({
       where: {
         systemId: { not: systemid },
-        type: TYPE,
-        isDeleted: false,
-        metadata: {
-          path: ['type'],
-          equals: policyType,
-        },
+        type: policyType,
       },
       data: { isDefault: false },
     });
 
     // Set this as default
-    const updated = await prisma.settingsData.update({
+    const updated = await prisma.pricingPolicy.update({
       where: { systemId: systemid },
       data: {
         isDefault: true,

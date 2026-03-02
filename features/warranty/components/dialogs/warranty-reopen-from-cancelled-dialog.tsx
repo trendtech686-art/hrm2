@@ -19,7 +19,7 @@ import { Textarea } from '../../../../components/ui/textarea';
 import type { WarrantyTicket, WarrantyHistory } from '../../types';
 import { useWarrantyMutations } from '../../hooks/use-warranties';
 import { useWarrantyFinder } from '../../hooks/use-all-warranties';
-import { useProducts } from '../../../products/hooks/use-products';
+import { useAllProducts } from '../../../products/hooks/use-all-products';
 import { useProductMutations } from '../../../products/hooks/use-products';
 import { useAuth } from '../../../../contexts/auth-context';
 import { toISODateTime, getCurrentDate } from '../../../../lib/date-utils';
@@ -50,8 +50,7 @@ export function WarrantyReopenFromCancelledDialog({ open, onOpenChange, ticket }
   });
   const { update: updateProduct } = useProductMutations();
   const { findById } = useWarrantyFinder();
-  const { data: productsData } = useProducts({ limit: 1000 });
-  const products = productsData?.data ?? [];
+  const { data: products } = useAllProducts();
 
   const handleReopen = React.useCallback(() => {
     if (!ticket || !reopenReason.trim()) {
@@ -61,7 +60,7 @@ export function WarrantyReopenFromCancelledDialog({ open, onOpenChange, ticket }
 
     try {
       // ✅ RE-COMMIT STOCK: Commit stock again when reopening from cancelled
-      const replacedProducts = ticket.products.filter(p => p.resolution === 'replace');
+      const replacedProducts = (ticket.products || []).filter(p => p.resolution === 'replace');
       
       if (replacedProducts.length > 0) {
         replacedProducts.forEach(warrantyProduct => {
@@ -81,17 +80,17 @@ export function WarrantyReopenFromCancelledDialog({ open, onOpenChange, ticket }
           if (!product) return;
 
           const quantityToCommit = warrantyProduct.quantity || 1;
-          const branchInventory = (product as any).inventory?.find((inv: any) => inv.branchSystemId === ticket.branchSystemId);
+          const branchInventory = (product as { inventory?: Array<{ branchSystemId: string; committed: number }> }).inventory?.find((inv) => inv.branchSystemId === ticket.branchSystemId);
           
           if (branchInventory) {
+            // Note: inventory updates should be handled via dedicated API
+            // This is a temporary workaround using type assertion
             updateProduct.mutate({
               systemId: productSystemId,
-              inventory: (product as any).inventory?.map((inv: any) => 
-                  inv.branchSystemId === ticket.branchSystemId
-                    ? { ...inv, committed: inv.committed + quantityToCommit }
-                    : inv
-                )
-            });
+              committedByBranch: {
+                [ticket.branchSystemId]: branchInventory.committed + quantityToCommit
+              }
+            } as Parameters<typeof updateProduct.mutate>[0]);
           }
         });
         
@@ -124,9 +123,9 @@ export function WarrantyReopenFromCancelledDialog({ open, onOpenChange, ticket }
         note: `Lý do mở lại: ${reopenReason}${inventoryNote}`,
       };
 
-      (update as any).mutate({ systemId: ticket.systemId, data: {
+      update.mutate({ systemId: ticket.systemId, data: {
         cancelledAt: undefined,
-        status: 'pending', // ✅ Reset to pending (ready to process) instead of incomplete
+        status: 'RECEIVED', // ✅ Reset to RECEIVED (ready to process) - Prisma enum value
         returnedAt: undefined, // ✅ Clear returnedAt timestamp
         processedAt: undefined, // ✅ Clear processedAt timestamp
         processingStartedAt: undefined, // ✅ Clear processingStartedAt timestamp

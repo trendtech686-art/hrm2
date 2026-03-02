@@ -1,10 +1,9 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { formatDateTime as formatDateTimeUtil, formatTimeForDisplay as formatTime } from '../../lib/date-utils';
-import { numberToWords } from '../../lib/print-service';
-import { useSalesReturnFinder } from './hooks/use-all-sales-returns';
+import { formatDateTime as formatDateTimeUtil } from '../../lib/date-utils';
+import { useSalesReturn } from './hooks/use-sales-returns';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { useAuth } from '../../contexts/auth-context';
 import { useBranchFinder } from '../settings/branches/hooks/use-all-branches';
@@ -15,15 +14,7 @@ import {
   mapSalesReturnToPrintData, 
   createStoreSettingsFromBranch 
 } from '../../lib/print/sales-return-print-helper';
-import { 
-  convertReceiptForPrint,
-  mapReceiptToPrintData,
-  createStoreSettings as createReceiptStoreSettings,
-} from '../../lib/print/receipt-print-helper';
-import { 
-  convertPaymentForPrint,
-  mapPaymentToPrintData,
-} from '../../lib/print/payment-print-helper';
+// ✅ REMOVED: Receipt/Payment print helpers - không cần fetch full data
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
@@ -31,18 +22,15 @@ import Link from 'next/link';
 import { Printer, ArrowLeft } from 'lucide-react';
 import { DetailField } from '../../components/ui/detail-field';
 import { Separator } from '../../components/ui/separator';
-import { useReceiptFinder } from '../receipts/hooks/use-all-receipts';
-import { usePaymentFinder } from '../payments/hooks/use-all-payments';
-import type { Receipt } from '../receipts/types';
-import type { Payment } from '../payments/types';
-import { useCustomerFinder } from '../customers/hooks/use-all-customers';
-import { useEmployeeFinder } from '../employees/hooks/use-all-employees';
+// ✅ REMOVED: useReceiptFinder, usePaymentFinder, useCustomerFinder, useEmployeeFinder
+// - Không cần fetch all data, API đã trả về customerSystemId, creatorSystemId
 import { ROUTES, generatePath } from '../../lib/router';
 import type { BreadcrumbItem } from '../../lib/breadcrumb-system';
 import { SalesReturnWorkflowCard } from './components/sales-return-workflow-card';
 import type { Subtask } from '../../components/shared/subtask-list';
 import { Comments, type Comment as CommentType } from '../../components/Comments';
 import { ActivityHistory } from '../../components/ActivityHistory';
+import { useActivityHistory } from '../../hooks/use-activity-logs';
 import { asSystemId, type SystemId } from '../../lib/id-types';
 import { ReadOnlyProductsTable } from '../../components/shared/read-only-products-table';
 import { useComments } from '../../hooks/use-comments';
@@ -60,15 +48,16 @@ const formatDate = (dateString?: string) => {
 export function SalesReturnDetailPage() {
     const { systemId } = useParams<{ systemId: string }>();
     const router = useRouter();
-    const { findById } = useSalesReturnFinder();
-    const { findById: findReceiptById } = useReceiptFinder();
-    const { findById: findPaymentById } = usePaymentFinder();
-    const { findById: findCustomerById } = useCustomerFinder();
-    const { findById: findEmployeeById } = useEmployeeFinder();
+    const { data: salesReturn, isLoading: isLoadingSalesReturn } = useSalesReturn(systemId);
+    // ✅ REMOVED: useReceiptFinder, usePaymentFinder - không cần fetch all, chỉ cần systemId từ salesReturn
+    // ✅ REMOVED: useCustomerFinder, useEmployeeFinder - API đã trả về customerSystemId, creatorSystemId
     const { findById: findBranchById } = useBranchFinder();
     const { info: storeInfo } = useStoreInfoData();
     const { employee: authEmployee } = useAuth();
     const [subtasks, setSubtasks] = React.useState<Subtask[]>([]);
+
+    // ✅ Fetch activity history from database
+    const { history: activityHistory } = useActivityHistory('sales_return', salesReturn?.systemId || '', !!salesReturn);
 
     // ✅ Sử dụng useComments hook thay vì localStorage trực tiếp
     const { 
@@ -110,30 +99,46 @@ export function SalesReturnDetailPage() {
         avatar: authEmployee?.avatar,
     }), [authEmployee]);
 
-    const salesReturn = React.useMemo(() => (systemId ? findById(systemId) : null), [systemId, findById]);
+    // ✅ Không cần fetch all customers/employees - dùng trực tiếp systemId từ API
+    // customer/creator lookup removed - API đã trả về customerSystemId, creatorSystemId, customerName, creatorName
+
+    // ✅ relatedTransaction - chỉ cần hiển thị link, không cần fetch full data
+    // Helper: Convert systemId to business ID (PAYMENT000049 -> PC000049, RECEIPT000049 -> PT000049)
+    const toBusinessId = (systemId: string, type: 'payment' | 'receipt'): string => {
+        const prefix = type === 'payment' ? 'PC' : 'PT';
+        const match = systemId.match(/\d+/);
+        if (match) {
+            return `${prefix}${match[0]}`;
+        }
+        return systemId;
+    };
     
-    const customer = React.useMemo(() => {
-        if (!salesReturn?.customerSystemId) return null;
-        return findCustomerById(salesReturn.customerSystemId);
-    }, [salesReturn?.customerSystemId, findCustomerById]);
-
-    const creator = React.useMemo(() => {
-        if (!salesReturn?.creatorSystemId) return null;
-        return findEmployeeById(salesReturn.creatorSystemId);
-    }, [salesReturn?.creatorSystemId, findEmployeeById]);
-
-    const relatedTransaction = React.useMemo((): (Receipt | Payment | null) => {
+    const relatedTransactionInfo = React.useMemo(() => {
         if (!salesReturn) return null;
         // Check for payment voucher (refund to customer)
         if (salesReturn.paymentVoucherSystemIds && salesReturn.paymentVoucherSystemIds.length > 0) {
-            return findPaymentById(salesReturn.paymentVoucherSystemIds[0]) ?? null;
+            const systemId = salesReturn.paymentVoucherSystemIds[0];
+            const apiBusinessId = ((salesReturn as Record<string, unknown>).paymentVoucherIds as string[] | undefined)?.[0];
+            return { 
+                systemId, 
+                // ✅ Use business ID from API, or convert from systemId
+                businessId: apiBusinessId || toBusinessId(systemId, 'payment'),
+                type: 'payment' as const,
+            };
         }
         // Check for receipt voucher (customer pays difference)
         if (salesReturn.receiptVoucherSystemIds && salesReturn.receiptVoucherSystemIds.length > 0) {
-            return findReceiptById(salesReturn.receiptVoucherSystemIds[0]) ?? null;
+            const systemId = salesReturn.receiptVoucherSystemIds[0];
+            const apiBusinessId = ((salesReturn as Record<string, unknown>).receiptVoucherIds as string[] | undefined)?.[0];
+            return { 
+                systemId, 
+                // ✅ Use business ID from API, or convert from systemId
+                businessId: apiBusinessId || toBusinessId(systemId, 'receipt'),
+                type: 'receipt' as const,
+            };
         }
         return null;
-    }, [salesReturn, findPaymentById, findReceiptById]);
+    }, [salesReturn]);
 
     const { print } = usePrint(salesReturn?.branchSystemId);
 
@@ -145,7 +150,7 @@ export function SalesReturnDetailPage() {
 
         const returnForPrint = convertSalesReturnForPrint(salesReturn, {
             branch,
-            customer,
+            customer: undefined, // ✅ Customer lookup removed for performance
         });
 
         const mappedData = mapSalesReturnToPrintData(returnForPrint, storeSettings);
@@ -196,64 +201,10 @@ export function SalesReturnDetailPage() {
             data: mappedData,
             lineItems: lineItems
         });
-    }, [salesReturn, customer, findBranchById, storeInfo, print]);
+    }, [salesReturn, findBranchById, storeInfo, print]);
 
-    const handlePrintTransaction = React.useCallback((e: React.MouseEvent) => {
-        e.stopPropagation();
-        if (!relatedTransaction || !salesReturn) return;
-
-        const branch = findBranchById(salesReturn.branchSystemId);
-        const storeSettings = createReceiptStoreSettings(storeInfo);
-
-        const isReceipt = salesReturn.receiptVoucherSystemIds?.includes(relatedTransaction.systemId);
-        const type = isReceipt ? 'receipt' : 'payment';
-        const amount = relatedTransaction.amount;
-
-        let printData;
-        
-        if (isReceipt) {
-            // Use helper to convert receipt
-            const receiptForPrint = convertReceiptForPrint(relatedTransaction as Receipt, {
-                branch: branch || undefined,
-            });
-            // Override with customer info from sales return
-            receiptForPrint.payerName = salesReturn.customerName;
-            receiptForPrint.payerPhone = customer?.phone;
-            receiptForPrint.payerAddress = customer?.addresses?.[0] ? 
-                [customer.addresses[0].street, customer.addresses[0].ward, customer.addresses[0].district, customer.addresses[0].province].filter(Boolean).join(', ') 
-                : undefined;
-            receiptForPrint.payerType = 'Khách hàng';
-            receiptForPrint.documentRootCode = salesReturn.id;
-            
-            printData = mapReceiptToPrintData(receiptForPrint, storeSettings);
-        } else {
-            // Use helper to convert payment
-            const paymentForPrint = convertPaymentForPrint(relatedTransaction as Payment, {
-                branch: branch || undefined,
-            });
-            // Override with customer info from sales return
-            paymentForPrint.recipientName = salesReturn.customerName;
-            paymentForPrint.recipientPhone = customer?.phone;
-            paymentForPrint.recipientAddress = customer?.addresses?.[0] ? 
-                [customer.addresses[0].street, customer.addresses[0].ward, customer.addresses[0].district, customer.addresses[0].province].filter(Boolean).join(', ') 
-                : undefined;
-            paymentForPrint.recipientType = 'Khách hàng';
-            paymentForPrint.documentRootCode = salesReturn.id;
-            
-            printData = mapPaymentToPrintData(paymentForPrint, storeSettings);
-        }
-
-        // Add extra fields
-        printData['amount_text'] = numberToWords(amount);
-        printData['print_date'] = formatDateTimeUtil(new Date());
-        printData['print_time'] = formatTime(new Date());
-        printData['receipt_barcode'] = relatedTransaction.id;
-        printData['description'] = relatedTransaction.description;
-        printData['payment_method'] = relatedTransaction.paymentMethodName;
-
-        print(type, { data: printData });
-
-    }, [relatedTransaction, salesReturn, customer, findBranchById, storeInfo, print]);
+    // ✅ Simplified: Chỉ navigate đến trang receipt/payment để in từ đó
+    // Bỏ handlePrintTransaction phức tạp - không cần fetch full receipt/payment data
 
     const headerActions = React.useMemo(() => [
         <Button
@@ -291,9 +242,7 @@ export function SalesReturnDetailPage() {
 
     const pageHeaderConfig = React.useMemo(() => ({
         title: salesReturn ? `Phiếu trả hàng ${salesReturn.id}` : 'Phiếu trả hàng',
-        subtitle: salesReturn
-            ? `${salesReturn.customerName} | ${salesReturn.branchName} | Giá trị ${formatCurrency(salesReturn.totalReturnValue)} VND`
-            : 'Đang tải dữ liệu phiếu trả hàng',
+        subtitle: isLoadingSalesReturn ? 'Đang tải dữ liệu phiếu trả hàng' : undefined,
         breadcrumb,
         showBackButton: true,
         backPath: ROUTES.SALES.RETURNS,
@@ -303,9 +252,29 @@ export function SalesReturnDetailPage() {
             </Badge>
         ) : undefined,
         actions: headerActions,
-    }), [salesReturn, headerActions, breadcrumb]);
+    }), [salesReturn, headerActions, breadcrumb, isLoadingSalesReturn]);
 
     usePageHeader(pageHeaderConfig);
+
+    // Show loading state - shadcn Skeleton
+    if (isLoadingSalesReturn) {
+        return (
+            <div className="space-y-4 md:space-y-6">
+                {/* Status skeleton */}
+                <div className="h-16 bg-muted animate-pulse rounded-lg" />
+                
+                {/* Main grid skeleton */}
+                <div className="grid grid-cols-1 lg:grid-cols-10 gap-4">
+                    <div className="lg:col-span-4 h-48 bg-muted animate-pulse rounded-lg" />
+                    <div className="lg:col-span-3 h-48 bg-muted animate-pulse rounded-lg" />
+                    <div className="lg:col-span-3 h-48 bg-muted animate-pulse rounded-lg" />
+                </div>
+                
+                {/* Products table skeleton */}
+                <div className="h-64 bg-muted animate-pulse rounded-lg" />
+            </div>
+        );
+    }
 
     if (!salesReturn) {
         return (
@@ -330,7 +299,7 @@ export function SalesReturnDetailPage() {
                         <Badge variant="secondary" className="text-body-sm">Đã hoàn thành</Badge>
                         <Separator orientation="vertical" className="h-6" />
                         <span className="text-body-sm text-muted-foreground">
-                            Ngày tạo: {formatDate(salesReturn.returnDate)}
+                            Ngày tạo: {formatDate(salesReturn.createdAt || salesReturn.returnDate)}
                         </span>
                     </div>
                 </CardContent>
@@ -341,7 +310,7 @@ export function SalesReturnDetailPage() {
                 {/* Left Column - Customer & Order Info - 40% */}
                 <Card className="lg:col-span-4">
                     <CardHeader>
-                        <CardTitle className="text-h4">Thông tin trả hàng</CardTitle>
+                        <CardTitle>Thông tin trả hàng</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <DetailField label="Đơn hàng gốc">
@@ -351,54 +320,102 @@ export function SalesReturnDetailPage() {
                                 {salesReturn.orderId}
                             </Link>
                         </DetailField>
+                        {salesReturn.exchangeOrderSystemId && (
+                            <DetailField label="Đơn đổi hàng">
+                                <Link href={`/orders/${salesReturn.exchangeOrderSystemId}`} 
+                                    className="text-primary hover:underline font-medium"
+                                >
+                                    {salesReturn.exchangeOrderId || salesReturn.exchangeOrderSystemId}
+                                </Link>
+                            </DetailField>
+                        )}
+                        {salesReturn.exchangeTrackingCode && (
+                            <DetailField label="Mã vận đơn" value={salesReturn.exchangeTrackingCode} />
+                        )}
                         <DetailField label="Khách hàng">
-                            {customer ? (
-                                <Link href={`/customers/${customer.systemId}`}
+                            {salesReturn.customerSystemId ? (
+                                <Link href={`/customers/${salesReturn.customerSystemId}`}
                                     className="text-primary hover:underline font-medium cursor-pointer"
                                 >
                                     {salesReturn.customerName}
                                 </Link>
                             ) : (
-                                <span>{salesReturn.customerName}</span>
+                                <span>{salesReturn.customerName || '-'}</span>
                             )}
                         </DetailField>
                         <DetailField label="Chi nhánh" value={salesReturn.branchName} />
                         <DetailField label="Người tạo">
-                            {creator ? (
-                                <Link href={`/employees/${creator.systemId}`}
+                            {salesReturn.creatorSystemId ? (
+                                <Link href={`/employees/${salesReturn.creatorSystemId}`}
                                     className="text-primary hover:underline font-medium cursor-pointer"
                                 >
                                     {salesReturn.creatorName}
                                 </Link>
                             ) : (
-                                <span>{salesReturn.creatorName}</span>
+                                <span>{salesReturn.creatorName || '-'}</span>
                             )}
                         </DetailField>
+                        <DetailField label="Ngày trả hàng" value={formatDate(salesReturn.returnDate)} />
+                        {salesReturn.deliveryMethod && (
+                            <DetailField label="Hình thức giao" value={
+                                salesReturn.deliveryMethod === 'pickup' ? 'Nhận tại cửa hàng' : 
+                                salesReturn.deliveryMethod === 'ship' ? 'Giao hàng' : 
+                                salesReturn.deliveryMethod === 'shipping-partner' ? 'Giao hàng qua đối tác' :
+                                salesReturn.deliveryMethod === 'self-delivery' ? 'Tự giao hàng' :
+                                salesReturn.deliveryMethod
+                            } />
+                        )}
                     </CardContent>
                 </Card>
 
                 {/* Middle Column - Financial Summary - 30% */}
                 <Card className="lg:col-span-3">
                     <CardHeader>
-                        <CardTitle className="text-h4">Tổng quan tài chính</CardTitle>
+                        <CardTitle>Tổng quan tài chính</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3">
                         <div className="flex justify-between items-center text-body-sm">
                             <span className="text-muted-foreground">Tổng giá trị hàng trả</span>
-                            <span className="font-medium">{formatCurrency(salesReturn.totalReturnValue)}</span>
+                            <span className="font-medium">{formatCurrency(salesReturn.totalReturnValue || salesReturn.items?.reduce((sum, i) => sum + (i.totalValue || 0), 0) || 0)}</span>
                         </div>
                         <div className="flex justify-between items-center text-body-sm">
                             <span className="text-muted-foreground">Tổng giá trị hàng đổi</span>
-                            <span className="font-medium">{formatCurrency(salesReturn.grandTotalNew)}</span>
+                            <span className="font-medium">{formatCurrency(salesReturn.grandTotalNew || salesReturn.exchangeItems?.reduce((sum, i) => sum + ((i.quantity || 0) * (i.unitPrice || 0)), 0) || 0)}</span>
                         </div>
+                        {(salesReturn.shippingFeeNew ?? 0) > 0 && (
+                            <div className="flex justify-between items-center text-body-sm">
+                                <span className="text-muted-foreground">Phí vận chuyển</span>
+                                <span className="font-medium">{formatCurrency(salesReturn.shippingFeeNew)}</span>
+                            </div>
+                        )}
+                        {salesReturn.finalAmount !== 0 && (
+                            <div className="flex justify-between items-center text-body-sm">
+                                <span className="text-muted-foreground">Chênh lệch</span>
+                                <span className={`font-medium ${salesReturn.finalAmount > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                    {salesReturn.finalAmount > 0 ? '+' : ''}{formatCurrency(salesReturn.finalAmount)}
+                                </span>
+                            </div>
+                        )}
                         <Separator />
                         {(() => {
                             // Tính số tiền thực tế đã hoàn/thu
                             const totalRefunded = (salesReturn.refunds || []).reduce((sum, r) => sum + (r.amount || 0), 0) || salesReturn.refundAmount || 0;
                             const totalPaid = (salesReturn.payments || []).reduce((sum, p) => sum + (p.amount || 0), 0);
+                            // ✅ Kiểm tra có phiếu thu/chi không (trường hợp payments/refunds array rỗng nhưng có voucher)
+                            const hasReceiptVouchers = (salesReturn.receiptVoucherSystemIds || []).length > 0;
+                            const hasPaymentVouchers = (salesReturn.paymentVoucherSystemIds || []).length > 0;
                             
-                            // Nếu không có hoàn tiền và không có thanh toán
-                            if (totalRefunded === 0 && totalPaid === 0) {
+                            // ✅ Tính chênh lệch từ giá trị hàng nếu finalAmount = 0
+                            // Chênh lệch = Tổng giá trị hàng đổi - Tổng giá trị hàng trả
+                            const totalReturnValue = salesReturn.totalReturnValue || salesReturn.items?.reduce((sum, i) => sum + (i.totalValue || 0), 0) || 0;
+                            const totalExchangeValue = salesReturn.grandTotalNew || salesReturn.exchangeItems?.reduce((sum, i) => sum + ((i.quantity || 0) * (i.unitPrice || 0)), 0) || 0;
+                            const calculatedDiff = totalExchangeValue - totalReturnValue;
+                            
+                            // ✅ Sử dụng finalAmount nếu có, nếu không thì tính từ chênh lệch
+                            const finalAmount = salesReturn.finalAmount !== 0 ? salesReturn.finalAmount : calculatedDiff;
+                            
+                            // Nếu không có hoàn tiền và không có thanh toán VÀ không có phiếu thu/chi
+                            if (totalRefunded === 0 && totalPaid === 0 && !hasReceiptVouchers && !hasPaymentVouchers && calculatedDiff === 0) {
                                 return (
                                     <div className="flex justify-between items-center pt-2">
                                         <span className="text-body-sm font-medium text-muted-foreground">Không phát sinh thanh toán</span>
@@ -407,43 +424,42 @@ export function SalesReturnDetailPage() {
                                 );
                             }
                             
-                            // Có hoàn tiền
-                            if (totalRefunded > 0) {
+                            // Có hoàn tiền hoặc có phiếu chi (finalAmount < 0 hoặc có refund)
+                            if (totalRefunded > 0 || hasPaymentVouchers || finalAmount < 0) {
+                                const refundAmount = totalRefunded > 0 ? totalRefunded : Math.abs(finalAmount);
                                 return (
                                     <div className="flex justify-between items-center pt-2">
                                         <span className="font-semibold">Đã hoàn lại khách</span>
-                                        <span className="text-h3 text-green-600">{formatCurrency(totalRefunded)}</span>
+                                        <span className="text-h3 text-green-600">{formatCurrency(refundAmount)}</span>
                                     </div>
                                 );
                             }
                             
-                            // Có thanh toán từ khách
-                            if (totalPaid > 0) {
+                            // Có thanh toán từ khách hoặc có phiếu thu (finalAmount > 0 hoặc có chênh lệch dương)
+                            if (totalPaid > 0 || hasReceiptVouchers || finalAmount > 0) {
+                                // ✅ Ưu tiên: totalPaid > calculatedDiff > finalAmount
+                                const paidAmount = totalPaid > 0 ? totalPaid : (calculatedDiff > 0 ? calculatedDiff : finalAmount);
                                 return (
                                     <div className="flex justify-between items-center pt-2">
                                         <span className="font-semibold">Khách đã trả thêm</span>
-                                        <span className="text-h3 text-red-600">{formatCurrency(totalPaid)}</span>
+                                        <span className="text-h3 text-red-600">{formatCurrency(paidAmount)}</span>
                                     </div>
                                 );
                             }
                             
                             return null;
                         })()}
-                        {relatedTransaction && (
+                        {relatedTransactionInfo && (
                             <>
                                 <Separator />
-                                <DetailField label="Chứng từ thanh toán">
-                                    <div className="flex items-center gap-2">
-                                        <Link href={`/${'id' in relatedTransaction && relatedTransaction.id.startsWith('PT-') ? 'receipts' : 'payments'}/${relatedTransaction.systemId}`} 
-                                            className="text-primary hover:underline font-medium"
-                                        >
-                                            {relatedTransaction.id}
-                                        </Link>
-                                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handlePrintTransaction} title="In phiếu">
-                                            <Printer className="h-3 w-3" />
-                                        </Button>
-                                    </div>
-                                </DetailField>
+                                <div className="flex justify-between items-center text-body-sm">
+                                    <span className="text-muted-foreground">Chứng từ thanh toán</span>
+                                    <Link href={`/${relatedTransactionInfo.type === 'receipt' ? 'receipts' : 'payments'}/${relatedTransactionInfo.systemId}`} 
+                                        className="text-primary hover:underline font-medium"
+                                    >
+                                        {relatedTransactionInfo.businessId}
+                                    </Link>
+                                </div>
                             </>
                         )}
                     </CardContent>
@@ -463,7 +479,7 @@ export function SalesReturnDetailPage() {
             {salesReturn.reason && (
                 <Card>
                     <CardHeader>
-                        <CardTitle className="text-h4">Lý do trả hàng</CardTitle>
+                        <CardTitle>Lý do trả hàng</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <p className="text-body-sm text-muted-foreground">{salesReturn.reason}</p>
@@ -474,18 +490,20 @@ export function SalesReturnDetailPage() {
             {salesReturn.items.length > 0 && (
                  <Card>
                     <CardHeader>
-                        <CardTitle className="text-h4">Sản phẩm trả lại</CardTitle>
+                        <CardTitle>Sản phẩm trả lại</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <ReadOnlyProductsTable
                             lineItems={salesReturn.items.map(item => ({
-                                productSystemId: item.productSystemId,
-                                productId: item.productId,
+                                // ✅ API đã transform sang ReturnLineItem type
+                                productSystemId: item.productSystemId || '',
+                                productId: item.productId || '', // business ID (ZP8)
                                 productName: item.productName,
-                                returnQuantity: item.returnQuantity,
-                                unitPrice: item.unitPrice,
-                                totalValue: item.totalValue,
+                                returnQuantity: item.returnQuantity || 0,
+                                unitPrice: item.unitPrice || 0,
+                                totalValue: item.totalValue || 0,
                                 note: item.note,
+                                thumbnailImage: item.thumbnailImage, // ✅ API trả về thumbnailImage
                             }))}
                             showStorageLocation={false}
                             showDiscount={false}
@@ -500,7 +518,7 @@ export function SalesReturnDetailPage() {
             {salesReturn.exchangeItems.length > 0 && (
                 <Card>
                     <CardHeader>
-                        <CardTitle className="text-h4">Sản phẩm đổi (lấy thêm)</CardTitle>
+                        <CardTitle>Sản phẩm đổi (lấy thêm)</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <ReadOnlyProductsTable
@@ -526,7 +544,7 @@ export function SalesReturnDetailPage() {
             {salesReturn.note && (
                 <Card>
                     <CardHeader>
-                        <CardTitle className="text-h4">Ghi chú</CardTitle>
+                        <CardTitle>Ghi chú</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <p className="text-body-sm text-muted-foreground">{salesReturn.note}</p>
@@ -549,8 +567,7 @@ export function SalesReturnDetailPage() {
 
             {/* Activity History */}
             <ActivityHistory
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                history={((salesReturn as Record<string, unknown>).activityHistory as any[]) || []}
+                history={activityHistory}
                 title="Lịch sử hoạt động"
                 emptyMessage="Chưa có lịch sử hoạt động"
                 groupByDate

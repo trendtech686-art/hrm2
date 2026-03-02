@@ -58,7 +58,6 @@ import type {
   LifecycleStage,
   CustomerSlaSetting,
 } from './types';
-import { SLA_TYPE_LABELS } from './types';
 
 // Base props interface
 interface BaseFormDialogProps<T> {
@@ -131,7 +130,13 @@ export function CustomerTypeFormDialog({
                 <FormItem>
                   <FormLabel>Mã loại khách hàng <span className="text-destructive">*</span></FormLabel>
                   <FormControl>
-                    <Input placeholder="VD: CT001" {...field} value={field.value ?? ''} />
+                    <Input 
+                      placeholder="VD: CT001" 
+                      {...field} 
+                      value={field.value ?? ''} 
+                      className="uppercase"
+                      onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -279,7 +284,13 @@ export function CustomerGroupFormDialog({
                 <FormItem>
                   <FormLabel>Mã nhóm <span className="text-destructive">*</span></FormLabel>
                   <FormControl>
-                    <Input placeholder="VD: VIP001" {...field} value={field.value ?? ''} />
+                    <Input 
+                      placeholder="VD: VIP001" 
+                      {...field} 
+                      value={field.value ?? ''} 
+                      className="uppercase"
+                      onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -469,7 +480,13 @@ export function CustomerSourceFormDialog({
                 <FormItem>
                   <FormLabel>Mã nguồn <span className="text-destructive">*</span></FormLabel>
                   <FormControl>
-                    <Input placeholder="VD: FB001" {...field} value={field.value ?? ''} />
+                    <Input 
+                      placeholder="VD: FB001" 
+                      {...field} 
+                      value={field.value ?? ''} 
+                      className="uppercase"
+                      onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -638,7 +655,13 @@ export function PaymentTermFormDialog({
                 <FormItem>
                   <FormLabel>Mã hạn thanh toán <span className="text-destructive">*</span></FormLabel>
                   <FormControl>
-                    <Input placeholder="VD: NET30" {...field} value={field.value ?? ''} />
+                    <Input 
+                      placeholder="VD: NET30" 
+                      {...field} 
+                      value={field.value ?? ''} 
+                      className="uppercase"
+                      onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -807,7 +830,13 @@ export function CreditRatingFormDialog({
                 <FormItem>
                   <FormLabel>Mã xếp hạng <span className="text-destructive">*</span></FormLabel>
                   <FormControl>
-                    <Input placeholder="VD: AAA" {...field} value={field.value ?? ''} />
+                    <Input 
+                      placeholder="VD: AAA" 
+                      {...field} 
+                      value={field.value ?? ''} 
+                      className="uppercase"
+                      onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -998,7 +1027,13 @@ export function LifecycleStageFormDialog({
                 <FormItem>
                   <FormLabel>Mã giai đoạn <span className="text-destructive">*</span></FormLabel>
                   <FormControl>
-                    <Input placeholder="VD: LEAD" {...field} value={field.value ?? ''} />
+                    <Input 
+                      placeholder="VD: LEAD" 
+                      {...field} 
+                      value={field.value ?? ''} 
+                      className="uppercase"
+                      onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -1126,30 +1161,47 @@ export function LifecycleStageFormDialog({
 // ============================================
 // Customer SLA Setting Form Dialog
 // Đơn giản hóa: chỉ cho EDIT, không thêm mới
-// Mỗi loại SLA chỉ có 1 record cố định
+// Cho phép thêm mới và chỉnh sửa SLA
 // ============================================
 export function CustomerSlaSettingFormDialog({
   open,
   onOpenChange,
   initialData,
   onSubmit,
+  existingIds: _existingIds = [],
 }: BaseFormDialogProps<CustomerSlaSetting>) {
-  // All hooks must be called before any early returns (React hooks rules)
+  const isEditing = !!initialData;
+  
   const form = useForm<CustomerSlaSettingFormData>({
     resolver: zodResolver(customerSlaSettingSchema) as UseFormProps<CustomerSlaSettingFormData>["resolver"],
-    defaultValues: initialData as unknown as CustomerSlaSettingFormData,
+    defaultValues: initialData ? (initialData as unknown as CustomerSlaSettingFormData) : {
+      id: '',
+      name: '',
+      description: '',
+      targetDays: 7,
+      warningDays: 2,
+      criticalDays: 3,
+      isActive: true,
+    },
   });
 
   React.useEffect(() => {
-    if (open && initialData) {
-      form.reset(initialData as unknown as CustomerSlaSettingFormData);
+    if (open) {
+      if (initialData) {
+        form.reset(initialData as unknown as CustomerSlaSettingFormData);
+      } else {
+        form.reset({
+          id: '',
+          name: '',
+          description: '',
+          targetDays: 7,
+          warningDays: 2,
+          criticalDays: 3,
+          isActive: true,
+        });
+      }
     }
   }, [open, initialData, form]);
-
-  // SLA chỉ cho phép edit, không thêm mới
-  if (!initialData) {
-    return null;
-  }
 
   const handleSubmit = (values: CustomerSlaSettingFormData) => {
     onSubmit(values);
@@ -1160,14 +1212,30 @@ export function CustomerSlaSettingFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Chỉnh sửa {SLA_TYPE_LABELS[initialData.slaType]}</DialogTitle>
+          <DialogTitle>{isEditing ? 'Chỉnh sửa SLA' : 'Thêm SLA mới'}</DialogTitle>
           <DialogDescription>
-            Thiết lập thời gian và ngưỡng cảnh báo
+            {isEditing ? 'Thiết lập thời gian và ngưỡng cảnh báo' : 'Nhập thông tin SLA mới'}
           </DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+            {!isEditing && (
+              <FormField
+                control={form.control}
+                name="id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Mã SLA</FormLabel>
+                    <FormControl>
+                      <Input {...field} value={field.value ?? ''} placeholder="VD: FOLLOW_UP" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+            
             <FormField
               control={form.control}
               name="name"
@@ -1175,7 +1243,7 @@ export function CustomerSlaSettingFormDialog({
                 <FormItem>
                   <FormLabel>Tên hiển thị</FormLabel>
                   <FormControl>
-                    <Input {...field} value={field.value ?? ''} />
+                    <Input {...field} value={field.value ?? ''} placeholder="VD: Liên hệ định kỳ" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -1265,7 +1333,7 @@ export function CustomerSlaSettingFormDialog({
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Hủy
               </Button>
-              <Button type="submit">Cập nhật</Button>
+              <Button type="submit">{isEditing ? 'Cập nhật' : 'Thêm mới'}</Button>
             </DialogFooter>
           </form>
         </Form>

@@ -11,12 +11,7 @@ import type { ColumnDef } from '../../components/data-table/types';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
 import { Button } from "../../components/ui/button";
 import { MoreHorizontal, RotateCcw, Globe } from "lucide-react";
-import { usePricingPolicyStore } from '../settings/pricing/store';
-import { useProductCategoryStore } from '../settings/inventory/product-category-store';
 import { PkgxProductActionsCell } from './pkgx-product-actions-cell';
-import { useBrandStore } from '../settings/inventory/brand-store';
-import { useSupplierStore } from '../suppliers/store';
-import { useEmployeeStore } from '../employees/store';
 import { StockAlertBadge } from './components/stock-alert-badges';
 import { formatDateForDisplay } from '@/lib/date-utils';
 import { InlineEditableCell, InlineEditableNumberCell } from '../../components/shared/inline-editable-cell';
@@ -29,33 +24,45 @@ import {
   getSeoStatusBadge,
   getProductTypeConfig,
 } from './column-helpers';
+import type { PkgxProductActionsCellProps } from './pkgx-product-actions-cell';
+
+// Type for all PKGX handlers passed from page.tsx
+export type PkgxHandlers = Omit<PkgxProductActionsCellProps, 'product'>;
+
+// Lookup functions passed from page.tsx (sourced from React Query hooks)
+export type ColumnLookups = {
+  findCategory?: (id: string) => { name: string; path?: string | null } | undefined;
+  findBrand?: (id: string) => { name: string } | undefined;
+  findSupplier?: (id: string) => { name: string } | undefined;
+  findEmployee?: (id: string) => { fullName: string } | undefined;
+  pricingPolicies?: Array<{ systemId: string; name: string; type: string; isActive: boolean; isDefault: boolean; profitMargin?: number | null }>;
+};
 
 export const getColumns = (
   onDelete: (systemId: string) => void,
   onRestore: (systemId: string) => void,
   router: AppRouterInstance,
   onPrintLabel?: (product: Product) => void,
-  // PKGX handlers - used by PkgxProductActionsCell
-  onPkgxPublish?: (product: Product) => void,
-  onPkgxLink?: (product: Product) => void,
-  onPkgxUnlink?: (product: Product) => void,
-  onPkgxSyncImages?: (product: Product) => void,
+  // PKGX handlers - all handlers in one object
+  pkgxHandlers?: PkgxHandlers,
   // Status & Inline edit handlers
-  onStatusChange?: (product: Product, newStatus: 'active' | 'inactive') => void,
+  onStatusChange?: (product: Product, newStatus: 'ACTIVE' | 'INACTIVE') => void,
   onInventoryChange?: (product: Product, newQuantity: number) => void,
   // Field update handler for inline editing
   onFieldUpdate?: (product: Product, field: string, value: string | number | boolean) => void,
+  // Lookup functions from React Query hooks
+  lookups?: ColumnLookups,
 ): ColumnDef<Product>[] => {
   
-  const { data: pricingPolicies } = usePricingPolicyStore.getState();
+  const pricingPolicies = lookups?.pricingPolicies ?? [];
   const activePricingPolicies = pricingPolicies.filter(p => p.isActive);
   const _defaultSellingPolicy = pricingPolicies.find(p => p.type === 'Bán hàng' && p.isDefault);
 
-  // Pre-fetch lookup data to avoid repeated store access in cell renders
-  const categoryStore = useProductCategoryStore.getState();
-  const brandStore = useBrandStore.getState();
-  const supplierStore = useSupplierStore.getState();
-  const employeeStore = useEmployeeStore.getState();
+  // Lookup functions from React Query hooks (passed from page.tsx)
+  const findCategory = lookups?.findCategory;
+  const findBrand = lookups?.findBrand;
+  const findSupplier = lookups?.findSupplier;
+  const findEmployee = lookups?.findEmployee;
 
   return [
     {
@@ -122,7 +129,7 @@ export const getColumns = (
       cell: ({ row }) => {
         const categoryId = row.categorySystemId;
         if (!categoryId) return row.category || '-';
-        const category = categoryStore.findById(categoryId);
+        const category = findCategory?.(categoryId);
         return category ? (category.path || category.name) : (row.category || '-');
       },
       meta: { displayName: "Danh mục" },
@@ -155,13 +162,13 @@ export const getColumns = (
       accessorKey: "status",
       header: "Trạng thái",
       cell: ({ row }) => {
-        const isActive = row.status === 'active';
+        const isActive = row.status?.toString().toUpperCase() === 'ACTIVE';
         return (
           <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
             <Switch
               checked={isActive}
               onCheckedChange={(checked) => {
-                onStatusChange?.(row, checked ? 'active' : 'inactive');
+                onStatusChange?.(row, checked ? 'ACTIVE' : 'INACTIVE');
               }}
             />
             <span className={`text-xs ${isActive ? 'text-foreground' : 'text-muted-foreground'}`}>
@@ -202,7 +209,9 @@ export const getColumns = (
         if (row.type === 'combo') {
           return <span className="text-muted-foreground italic">Ảo</span>;
         }
-        const totalInventory = Object.values(row.inventoryByBranch).reduce((sum, qty) => sum + qty, 0);
+        const totalInventory = row.inventoryByBranch 
+          ? Object.values(row.inventoryByBranch).reduce((sum, qty) => sum + qty, 0)
+          : 0;
         
         if (onInventoryChange) {
           return (
@@ -282,9 +291,15 @@ export const getColumns = (
       accessorKey: "brandSystemId",
       header: "Thương hiệu",
       cell: ({ row }) => {
+        // Use brandName directly from API response (denormalized for performance)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const brandName = (row as any).brandName;
+        if (brandName) return brandName;
+        
+        // Fallback to store lookup for backward compatibility
         const brandId = row.brandSystemId;
         if (!brandId) return '-';
-        const brand = brandStore.findById(brandId);
+        const brand = findBrand?.(brandId);
         return brand ? brand.name : '-';
       },
       meta: { displayName: "Thương hiệu" },
@@ -391,7 +406,7 @@ export const getColumns = (
       cell: ({ row }) => {
         const supplierId = row.primarySupplierSystemId;
         if (!supplierId) return '-';
-        const supplier = supplierStore.findById(supplierId);
+        const supplier = findSupplier?.(supplierId);
         return supplier ? supplier.name : '-';
       },
       meta: { displayName: "Nhà cung cấp chính" },
@@ -406,13 +421,7 @@ export const getColumns = (
       },
       meta: { displayName: "Ngày nhập gần nhất" },
     },
-    {
-      id: "minPrice",
-      accessorKey: "minPrice",
-      header: "Giá tối thiểu",
-      cell: ({ row }) => formatCurrency(row.minPrice),
-      meta: { displayName: "Giá tối thiểu" },
-    },
+    // === minPrice removed - field deleted ===
     // ═══════════════════════════════════════════════════════════════
     // KHO - Mức đặt hàng, tồn kho an toàn, tối đa
     // ═══════════════════════════════════════════════════════════════
@@ -515,13 +524,7 @@ export const getColumns = (
       ),
       meta: { displayName: "Trạng thái PKGX" },
     },
-    {
-      id: "pkgxSlug",
-      accessorKey: "pkgxSlug",
-      header: "Slug PKGX",
-      cell: ({ row }) => row.pkgxSlug || '-',
-      meta: { displayName: "Slug PKGX" },
-    },
+    // === pkgxSlug removed - stored in seoPkgx JSON ===
     {
       id: "isPublished",
       accessorKey: "isPublished",
@@ -663,19 +666,6 @@ export const getColumns = (
       meta: { displayName: "Video" },
     },
     // ═══════════════════════════════════════════════════════════════
-    // THUẾ
-    // ═══════════════════════════════════════════════════════════════
-    {
-      id: "taxRate",
-      accessorKey: "taxRate",
-      header: "Thuế suất",
-      cell: ({ row }) => {
-        if (row.taxRate === undefined) return '-';
-        return `${row.taxRate}%`;
-      },
-      meta: { displayName: "Thuế suất" },
-    },
-    // ═══════════════════════════════════════════════════════════════
     // KHO - Theo dõi tồn kho & Vị trí
     // ═══════════════════════════════════════════════════════════════
     {
@@ -793,23 +783,7 @@ export const getColumns = (
     // ═══════════════════════════════════════════════════════════════
     // SALES ANALYTICS - Phân tích bán hàng
     // ═══════════════════════════════════════════════════════════════
-    {
-      id: "totalRevenue",
-      accessorKey: "totalRevenue",
-      header: "Tổng doanh thu",
-      cell: ({ row }) => formatCurrency(row.totalRevenue),
-      meta: { displayName: "Tổng doanh thu" },
-    },
-    {
-      id: "lastSoldDate",
-      accessorKey: "lastSoldDate",
-      header: "Ngày bán cuối",
-      cell: ({ row }) => {
-        if (!row.lastSoldDate) return '-';
-        return formatDateForDisplay(row.lastSoldDate);
-      },
-      meta: { displayName: "Ngày bán cuối" },
-    },
+    // === totalRevenue, lastSoldDate removed - computed from orders ===
     {
       id: "viewCount",
       accessorKey: "viewCount",
@@ -874,13 +848,7 @@ export const getColumns = (
       size: 100,
       meta: { displayName: "SEO Trendtech", group: "SEO" },
     },
-    {
-      id: "trendtechSlug",
-      accessorKey: "trendtechSlug",
-      header: "Slug Trendtech",
-      cell: ({ row }) => row.trendtechSlug || '-',
-      meta: { displayName: "Slug Trendtech" },
-    },
+    // === trendtechSlug removed - stored in seoTrendtech JSON ===
     // ═══════════════════════════════════════════════════════════════
     // THÔNG TIN HỆ THỐNG - Người tạo, cập nhật
     // ═══════════════════════════════════════════════════════════════
@@ -898,7 +866,7 @@ export const getColumns = (
       cell: ({ row }) => {
         const employeeId = row.createdBy;
         if (!employeeId) return '-';
-        const employee = employeeStore.findById(employeeId);
+        const employee = findEmployee?.(employeeId);
         return employee ? employee.fullName : '-';
       },
       meta: { displayName: "Người tạo" },
@@ -910,7 +878,7 @@ export const getColumns = (
       cell: ({ row }) => {
         const employeeId = row.updatedBy;
         if (!employeeId) return '-';
-        const employee = employeeStore.findById(employeeId);
+        const employee = findEmployee?.(employeeId);
         return employee ? employee.fullName : '-';
       },
       meta: { displayName: "Người cập nhật" },
@@ -924,10 +892,7 @@ export const getColumns = (
       cell: ({ row }) => (
         <PkgxProductActionsCell
           product={row}
-          onPkgxPublish={onPkgxPublish}
-          onPkgxLink={onPkgxLink}
-          onPkgxUnlink={onPkgxUnlink}
-          onPkgxSyncImages={onPkgxSyncImages}
+          {...pkgxHandlers}
         />
       ),
       meta: {

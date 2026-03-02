@@ -86,7 +86,7 @@ export function getWarrantyFormDefaultValues() {
     receivedImages: [] as string[],
     processedImages: [] as string[],
     products: [] as WarrantyProduct[],
-    status: 'incomplete' as const,
+    status: 'RECEIVED' as const,
     notes: '',
     settlementMethod: '',
     settlementAmount: 0,

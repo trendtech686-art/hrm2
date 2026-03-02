@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
@@ -399,12 +399,8 @@ export function StockTransferDetailPage() {
       return;
     }
 
-    const success = cancelTransfer(transfer.systemId, cancelReason);
-    if (success) {
-      toast.success('Đã hủy phiếu chuyển kho');
-    } else {
-      toast.error('Không thể hủy phiếu chuyển kho');
-    }
+    cancelTransfer(transfer.systemId, cancelReason);
+    toast.success('Đã hủy phiếu chuyển kho');
     setCancelDialogOpen(false);
     setCancelReason('');
   };
@@ -426,7 +422,7 @@ export function StockTransferDetailPage() {
         {/* Column 1: Thông tin chuyển kho */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-h3">Thông tin chuyển kho</CardTitle>
+            <CardTitle size="lg">Thông tin chuyển kho</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <DetailField label="Mã phiếu" value={transfer.id} />
@@ -457,7 +453,7 @@ export function StockTransferDetailPage() {
         {/* Column 2: Thông tin xử lý */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-h3">Thông tin xử lý</CardTitle>
+            <CardTitle size="lg">Thông tin xử lý</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <DetailField label="Ngày tạo" value={formatDateTime(transfer.createdDate)} />
@@ -503,7 +499,7 @@ export function StockTransferDetailPage() {
       {/* Product List - Full Width */}
       <Card>
             <CardHeader>
-              <CardTitle className="text-h3">Danh sách sản phẩm ({transfer.items.length})</CardTitle>
+              <CardTitle size="lg">Danh sách sản phẩm ({transfer.items.length})</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
@@ -511,15 +507,25 @@ export function StockTransferDetailPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>#</TableHead>
-                      <TableHead className="w-[60px]">Hình ảnh</TableHead>
+                      <TableHead className="w-15">Hình ảnh</TableHead>
                       <TableHead>Sản phẩm</TableHead>
-                      <TableHead className="w-[100px]">Loại SP</TableHead>
+                      <TableHead className="w-25">Loại SP</TableHead>
                       <TableHead className="text-center">SL chuyển</TableHead>
                       {transfer.status === 'completed' && (
                         <TableHead className="text-center">SL nhận</TableHead>
                       )}
-                      <TableHead className="text-center">CN Chuyển (Trước → Sau)</TableHead>
-                      <TableHead className="text-center">CN Nhận (Trước → Sau)</TableHead>
+                      <TableHead className="text-center">
+                        <div className="flex flex-col">
+                          <span>{transfer.fromBranchName}</span>
+                          <span className="text-xs font-normal text-muted-foreground">(Trước → Sau)</span>
+                        </div>
+                      </TableHead>
+                      <TableHead className="text-center">
+                        <div className="flex flex-col">
+                          <span>{transfer.toBranchName}</span>
+                          <span className="text-xs font-normal text-muted-foreground">(Trước → Sau)</span>
+                        </div>
+                      </TableHead>
                       <TableHead className="text-right">Đơn giá</TableHead>
                       <TableHead className="text-right">Thành tiền</TableHead>
                       <TableHead>Ghi chú</TableHead>
@@ -687,13 +693,13 @@ export function StockTransferDetailPage() {
             </DialogDescription>
           </DialogHeader>
           
-          <div className="overflow-x-auto max-h-[400px]">
+          <div className="overflow-x-auto max-h-100">
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Sản phẩm</TableHead>
-                  <TableHead className="text-center w-[100px]">SL chuyển</TableHead>
-                  <TableHead className="text-center w-[120px]">SL nhận</TableHead>
+                  <TableHead className="text-center w-25">SL chuyển</TableHead>
+                  <TableHead className="text-center w-30">SL nhận</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

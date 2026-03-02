@@ -1,7 +1,8 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
+import { generateSubEntityId } from '@/lib/id-utils';
 import { useAllTaskTemplates } from '../hooks/use-all-task-templates';
 import { useTaskTemplateMutations } from '../hooks/use-task-templates';
 import { useAllEmployees } from '@/features/employees/hooks/use-all-employees';
@@ -69,7 +70,7 @@ export function TaskTemplatesPage() {
   const { data: templates, getMostUsed, search } = useAllTaskTemplates();
   const { incrementUsage } = useTaskTemplateMutations();
   const { data: employees } = useAllEmployees();
-  const { data: tasksData } = useTasks({ limit: 1000 });
+  const { data: tasksData } = useTasks();
   const _tasks = tasksData?.data ?? [];
   const { create: createTaskMutation } = useTaskMutations({
     onSuccess: () => {
@@ -166,8 +167,8 @@ export function TaskTemplatesPage() {
       }
 
       // Convert template subtasks to task subtasks
-      const subtasks = selectedTemplate.subtasks.map((st, idx) => ({
-        id: `subtask-${Date.now()}-${idx}`,
+      const subtasks = selectedTemplate.subtasks.map((st, _idx) => ({
+        id: generateSubEntityId('SUBTASK'),
         title: st.title,
         completed: false,
       }));
@@ -209,7 +210,7 @@ export function TaskTemplatesPage() {
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tổng mẫu</CardTitle>
+            <CardTitle size="sm">Tổng mẫu</CardTitle>
             <FileText className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -219,7 +220,7 @@ export function TaskTemplatesPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Danh mục</CardTitle>
+            <CardTitle size="sm">Danh mục</CardTitle>
             <ListChecks className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -231,7 +232,7 @@ export function TaskTemplatesPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Dùng nhiều nhất</CardTitle>
+            <CardTitle size="sm">Dùng nhiều nhất</CardTitle>
             <Rocket className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -244,7 +245,7 @@ export function TaskTemplatesPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tổng lượt dùng</CardTitle>
+            <CardTitle size="sm">Tổng lượt dùng</CardTitle>
             <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -308,7 +309,7 @@ export function TaskTemplatesPage() {
                   <CardHeader>
                     <div className="flex items-start justify-between">
                       <div className="space-y-1 flex-1">
-                        <CardTitle className="text-base">{template.name}</CardTitle>
+                        <CardTitle>{template.name}</CardTitle>
                         <CardDescription className="line-clamp-2">
                           {template.description}
                         </CardDescription>
@@ -360,7 +361,7 @@ export function TaskTemplatesPage() {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => templateStore.duplicate(template.systemId)}
+                        onClick={() => router.push(`/tasks/templates/new?duplicate=${template.systemId}`)}
                       >
                         <Copy className="h-3 w-3" />
                       </Button>

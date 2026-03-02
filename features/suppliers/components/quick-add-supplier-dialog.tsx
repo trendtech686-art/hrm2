@@ -15,6 +15,7 @@ import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
 import { VirtualizedCombobox } from "../../../components/ui/virtualized-combobox";
 import { asBusinessId } from "@/lib/id-types";
+import type { Supplier } from "@/lib/types/prisma-extended";
 
 interface QuickAddSupplierDialogProps {
   open: boolean;
@@ -27,10 +28,11 @@ export function QuickAddSupplierDialog({
   onOpenChange,
   onSuccess,
 }: QuickAddSupplierDialogProps) {
-  const { create: _create } = useSupplierMutations({
-    onCreateSuccess: (supplier: any) => {
-      toast.success(`Đã thêm nhà cung cấp "${supplier.name}"`);
-      if (onSuccess) onSuccess(supplier.id);
+  const { create: add } = useSupplierMutations({
+    onCreateSuccess: (supplier: unknown) => {
+      const s = supplier as Supplier;
+      toast.success(`Đã thêm nhà cung cấp "${s.name}"`);
+      if (onSuccess) onSuccess(s.id);
       onOpenChange(false);
     },
     onError: (err) => toast.error(err.message)
@@ -135,16 +137,14 @@ export function QuickAddSupplierDialog({
         status: "Đang Giao Dịch" as const,
       };
 
-      (add as any).mutate(newSupplier);
+      add.mutate(newSupplier);
 
       toast.success(`Đã thêm nhà cung cấp "${newSupplier.name}"`);
 
       onOpenChange(false);
       
-      // Call success callback with new supplier systemId
-      if (onSuccess) {
-        onSuccess((newSupplier as any).systemId || '');
-      }
+      // Call success callback with new supplier - systemId will be assigned by the server
+      // The onCreateSuccess callback will handle the proper systemId
     } catch (_error) {
       toast.error('Không thể thêm nhà cung cấp. Vui lòng thử lại.');
     } finally {

@@ -5,7 +5,10 @@
  */
 
 import * as React from 'react';
-import { useSuppliers } from './use-suppliers';
+import { useQuery } from '@tanstack/react-query';
+import { fetchAllPages } from '@/lib/fetch-all-pages';
+import { fetchSuppliers } from '../api/suppliers-api';
+import { supplierKeys } from './use-suppliers';
 import type { Supplier } from '@/lib/types/prisma-extended';
 import type { SystemId } from '@/lib/id-types';
 
@@ -13,16 +16,35 @@ import type { SystemId } from '@/lib/id-types';
 const EMPTY_SUPPLIERS: Supplier[] = [];
 
 /**
- * Returns all suppliers as a flat array
- * Compatible with legacy store pattern: { data: suppliers }
+ * Options for useAllSuppliers hook
+ * @property enabled - Whether to fetch data (default: true). Set to false for lazy loading
  */
-export function useAllSuppliers() {
-  const query = useSuppliers({ limit: 500 });
+export interface UseAllSuppliersOptions {
+  enabled?: boolean;
+}
+
+/**
+ * Returns all suppliers as a flat array
+ * Auto-pagination: no hardcoded limit cap (MODULE-QUALITY-CRITERIA §1.3)
+ * 
+ * @example
+ * // Lazy loading - chỉ load khi cần
+ * const { data } = useAllSuppliers({ enabled: isDropdownOpen });
+ */
+export function useAllSuppliers(options: UseAllSuppliersOptions = {}) {
+  const { enabled = true } = options;
+  const query = useQuery({
+    queryKey: [...supplierKeys.all, 'all'],
+    queryFn: () => fetchAllPages((p) => fetchSuppliers(p)),
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    enabled,
+  });
   
   // ✅ Memoize data to prevent unnecessary re-renders
   const data = React.useMemo(() => 
-    query.data?.data || EMPTY_SUPPLIERS,
-    [query.data?.data]
+    (query.data || EMPTY_SUPPLIERS) as Supplier[],
+    [query.data]
   );
   
   return {
@@ -36,8 +58,8 @@ export function useAllSuppliers() {
 /**
  * Returns only active suppliers
  */
-export function useActiveSuppliers() {
-  const { data, isLoading, isError, error } = useAllSuppliers();
+export function useActiveSuppliers(options: UseAllSuppliersOptions = {}) {
+  const { data, isLoading, isError, error } = useAllSuppliers(options);
   
   const activeSuppliers = React.useMemo(
     () => data.filter(s => s.status === 'Đang Giao Dịch' && !s.isDeleted),

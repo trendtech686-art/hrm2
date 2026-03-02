@@ -24,7 +24,7 @@ import { JobTitleForm, type JobTitleFormValues } from "./job-title-form"
 import type { JobTitle } from '@/lib/types/prisma-extended'
 import { Button } from "../../../components/ui/button"
 import { PlusCircle } from "lucide-react"
-import { useFuseFilter } from "../../../hooks/use-fuse-search"
+import { simpleSearch } from "@/lib/simple-search"
 import { asBusinessId, type SystemId } from "@/lib/id-types"
 import { Input } from "../../../components/ui/input"
 import { SimpleSettingsTable } from "../../../components/settings/SimpleSettingsTable"
@@ -45,6 +45,8 @@ export function JobTitlesPageContent() {
   const [idToDelete, setIdToDelete] = React.useState<SystemId | null>(null)
   const [isFormOpen, setIsFormOpen] = React.useState(false)
   const [editingJobTitle, setEditingJobTitle] = React.useState<JobTitle | null>(null)
+  const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({})
+  const [isBulkDeleteOpen, setIsBulkDeleteOpen] = React.useState(false)
   
   const [globalFilter, setGlobalFilter] = React.useState('');
 
@@ -60,8 +62,10 @@ export function JobTitlesPageContent() {
 
   const columns = React.useMemo(() => getColumns(handleDelete, handleEdit), [handleDelete, handleEdit]);
   
-  const fuseOptions = React.useMemo(() => ({ keys: ["id", "name", "description"] }), []);
-  const searchedData = useFuseFilter(jobTitles, globalFilter, fuseOptions);
+  const searchedData = React.useMemo(() => 
+    simpleSearch(jobTitles, globalFilter, { keys: ['id', 'name', 'description'] }), 
+    [jobTitles, globalFilter]
+  );
   
   const confirmDelete = () => {
     if (idToDelete) {
@@ -69,6 +73,21 @@ export function JobTitlesPageContent() {
     }
     setIsAlertOpen(false)
     setIdToDelete(null)
+  }
+
+  const handleBulkDelete = React.useCallback((selectedItems: { systemId: string }[]) => {
+    if (selectedItems.length === 0) return
+    setIsBulkDeleteOpen(true)
+  }, [])
+
+  const confirmBulkDelete = () => {
+    const selectedIds = Object.keys(rowSelection)
+    selectedIds.forEach(id => {
+      remove.mutate(id as SystemId)
+    })
+    toast.success(`Đã xóa ${selectedIds.length} chức vụ`)
+    setRowSelection({})
+    setIsBulkDeleteOpen(false)
   }
 
   const handleAddNew = () => {
@@ -100,11 +119,9 @@ export function JobTitlesPageContent() {
     setEditingJobTitle(null);
   };
   
-  const filteredData = React.useMemo(() => globalFilter ? searchedData : jobTitles, [jobTitles, globalFilter, searchedData]);
-  
   const sortedData = React.useMemo(() => {
-    return [...filteredData].sort((a, b) => a.name.localeCompare(b.name));
-  }, [filteredData]);
+    return [...searchedData].sort((a, b) => a.name.localeCompare(b.name));
+  }, [searchedData]);
 
   // Loading state
   if (isLoading) {
@@ -145,6 +162,7 @@ export function JobTitlesPageContent() {
           <SimpleSettingsTable
             data={sortedData}
             columns={columns}
+            isLoading={isLoading}
             emptyTitle="Chưa có chức vụ"
             emptyDescription="Tạo chức vụ đầu tiên để phân quyền nhân sự"
             emptyAction={
@@ -152,6 +170,12 @@ export function JobTitlesPageContent() {
                 Thêm chức vụ
               </Button>
             }
+            enableSelection
+            rowSelection={rowSelection}
+            setRowSelection={setRowSelection}
+            onBulkDelete={handleBulkDelete}
+            enablePagination
+            pagination={{ pageSize: 10, showInfo: true }}
           />
         </CardContent>
       </Card>
@@ -167,6 +191,19 @@ export function JobTitlesPageContent() {
             <AlertDialogAction onClick={confirmDelete} disabled={remove.isPending}>
               {remove.isPending ? 'Đang xóa...' : 'Tiếp tục'}
             </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={isBulkDeleteOpen} onOpenChange={setIsBulkDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Xóa {Object.keys(rowSelection).length} chức vụ?</AlertDialogTitle>
+            <AlertDialogDescription>Hành động này không thể hoàn tác. Các chức vụ đã chọn sẽ bị xóa vĩnh viễn.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Hủy</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmBulkDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Xóa tất cả</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

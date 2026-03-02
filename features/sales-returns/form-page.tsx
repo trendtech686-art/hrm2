@@ -1,9 +1,10 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useForm, useFieldArray, Controller, useWatch, FormProvider } from 'react-hook-form';
+import { useQueryClient } from '@tanstack/react-query';
 import { toISODateTime } from '../../lib/date-utils';
 import { CheckCircle2, AlertTriangle, PackageOpen } from 'lucide-react';
 import { toast } from 'sonner';
@@ -25,15 +26,17 @@ import {
 import type { LineItem as ExchangeLineItem, PackageInfo } from '@/lib/types/prisma-extended';
 import type { Product } from '@/lib/types/prisma-extended';
 import { asSystemId } from '@/lib/id-types';
+import { generateSubEntityId } from '@/lib/id-utils';
 
-// Stores
+// Stores - Optimized: only load what's needed
 import { useOrderFinder } from '../orders/hooks/use-all-orders';
-import { useAllCustomers, useCustomerFinder } from '../customers/hooks/use-all-customers';
+import { useCustomerFinder } from '../customers/hooks/use-all-customers';
 import { useAllBranches } from '../settings/branches/hooks/use-all-branches';
-import { useSalesReturns, useSalesReturnMutations } from './hooks/use-sales-returns';
-import { useProductStore } from '../products/store';
-import { useAllCashAccounts } from '../cashbook/hooks/use-all-cash-accounts';
+import { useSalesReturnMutations } from './hooks/use-sales-returns';
+import { useAllSalesReturns } from './hooks/use-all-sales-returns';
+import { useProductFinder } from '../products/hooks/use-all-products';
 import { useProductTypeFinder } from '../settings/inventory/hooks/use-all-product-types';
+import { useAllCashAccounts } from '../cashbook/hooks/use-all-cash-accounts';
 
 // UI Components
 import { usePageHeader } from '../../contexts/page-header-context';
@@ -74,29 +77,32 @@ const _FinancialCalculations = () => {
 export function SalesReturnFormPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const router = useRouter();
+  const queryClient = useQueryClient();
 
-  // Stores
+  // Stores - Optimized: use finders instead of loading all data
   const { findById: findOrder } = useOrderFinder();
   const order = findOrder(systemId!);
-  const { data: customerData } = useAllCustomers();
   const { findById: findCustomer } = useCustomerFinder();
-  const customers = customerData; // For GHTK API
   const customer = order ? findCustomer(order.customerSystemId) : null;
   const { data: branches } = useAllBranches();
-    const { data: srQueryData } = useSalesReturns({ limit: 1000 });
-    const allSalesReturns = React.useMemo(() => srQueryData?.data ?? [], [srQueryData?.data]);
-    const { create: _create } = useSalesReturnMutations({
-      onCreateSuccess: () => {
-        toast.success('Tạo phiếu trả hàng thành công');
-        router.push(ROUTES.SALES.RETURNS);
-      },
-      onError: (err) => toast.error(err.message)
-    });
-    const { employee: authEmployee } = useAuth();
-    const creatorName = authEmployee?.fullName ?? 'Hệ thống';
-    const creatorSystemId = authEmployee?.systemId ?? 'SYSTEM';
-    const { add: _addProduct, data: allProducts } = useProductStore(); // For GHTK API
-    const products = React.useMemo(() => Array.isArray(allProducts) ? allProducts : [], [allProducts]);
+  
+  // ✅ Optimized: use dedicated hook that only fetches needed data
+  const { data: allSalesReturns } = useAllSalesReturns();
+  
+  const { create: _create } = useSalesReturnMutations({
+    onCreateSuccess: () => {
+      toast.success('Tạo phiếu trả hàng thành công');
+      router.push(ROUTES.SALES.RETURNS);
+    },
+    onError: (err) => toast.error(err.message)
+  });
+  const { employee: authEmployee } = useAuth();
+  const creatorName = authEmployee?.fullName ?? 'Hệ thống';
+  const creatorSystemId = authEmployee?.systemId ?? 'SYSTEM';
+  
+  // ✅ Optimized: use finder instead of loading all products
+  const { findById: findProductById } = useProductFinder();
+    
     const { findById: findProductTypeById } = useProductTypeFinder();
   const { accounts: _accounts } = useAllCashAccounts();
   const { data: _paymentMethodsData } = useAllPaymentMethods();
@@ -134,6 +140,11 @@ export function SalesReturnFormPage() {
     return (product.type && productTypeFallbackLabels[product.type]) || 'Hàng hóa';
   }, [findProductTypeById]);
   
+  // ✅ Memoize products lookup for ReturnItemRow - only create when needed
+  const getProductData = React.useCallback((productSystemId: string) => {
+    return findProductById(productSystemId);
+  }, [findProductById]);
+  
   const handlePreview = React.useCallback((image: string, title: string) => {
     setPreviewState({ open: true, image, title });
   }, []);
@@ -157,6 +168,19 @@ export function SalesReturnFormPage() {
     }
   }, [defaultSellingPolicy, selectedPricingPolicy]);
 
+  // ✅ Check if order has been dispatched - redirect if not
+  React.useEffect(() => {
+    if (!order) return;
+    
+    const validDispatchStatuses = ['Xuất kho toàn bộ', 'FULLY_STOCKED_OUT', 'Xuất kho một phần', 'PARTIALLY_STOCKED_OUT'];
+    const isDispatched = validDispatchStatuses.includes(order.stockOutStatus || '');
+    
+    if (!isDispatched) {
+      toast.error('Không thể tạo phiếu trả hàng cho đơn chưa xuất kho');
+      router.push(`/orders/${systemId}`);
+    }
+  }, [order, router, systemId]);
+
   const form = useForm<FormValues>({
     defaultValues: {
       branchSystemId: order?.branchSystemId || branches.find(b => b.isDefault)?.systemId || branches[0]?.systemId,
@@ -175,7 +199,30 @@ export function SalesReturnFormPage() {
     },
   });
 
-  const { control, handleSubmit, setValue, reset, getValues, setError } = form;
+  const { control, handleSubmit, setValue, reset, getValues, setError, formState: { errors: _errors } } = form;
+
+  // ✅ Update exchangeItems prices when pricing policy changes
+  const prevPricingPolicyRef = React.useRef<string | undefined>(undefined);
+  React.useEffect(() => {
+    // Skip if policy didn't actually change or is first load
+    if (!selectedPricingPolicy || prevPricingPolicyRef.current === selectedPricingPolicy) {
+      prevPricingPolicyRef.current = selectedPricingPolicy;
+      return;
+    }
+    prevPricingPolicyRef.current = selectedPricingPolicy;
+    
+    // Get current exchange items and update their prices
+    const currentExchangeItems = getValues('exchangeItems');
+    if (!currentExchangeItems || currentExchangeItems.length === 0) return;
+    
+    currentExchangeItems.forEach((item, index) => {
+      const product = findProductById(item.productSystemId);
+      if (product?.prices) {
+        const newPrice = product.prices[selectedPricingPolicy] ?? product.prices[Object.keys(product.prices)[0]] ?? 0;
+        setValue(`exchangeItems.${index}.unitPrice`, newPrice, { shouldDirty: true });
+      }
+    });
+  }, [selectedPricingPolicy, findProductById, getValues, setValue]);
 
   const { fields } = useFieldArray({
     control,
@@ -220,38 +267,63 @@ export function SalesReturnFormPage() {
    const returnableQuantities = React.useMemo(() => {
     if (!order) return {};
     const returnsForThisOrder = allSalesReturns.filter(pr => pr.orderSystemId === order.systemId);
+    
     const quantities: Record<string, number> = {};
     order.lineItems.forEach(item => {
+        // ✅ Dùng productId hoặc productSystemId (API trả về productId chứa systemId từ DB)
+        const productKey = item.productSystemId || item.productId;
         const totalReturned = returnsForThisOrder.reduce((sum, sr) => {
-            const returnItem = sr.items.find(i => i.productSystemId === item.productSystemId);
+            const returnItem = sr.items.find(i => i.productSystemId === productKey);
             return sum + (returnItem ? returnItem.returnQuantity : 0);
         }, 0);
-        quantities[item.productSystemId] = item.quantity - totalReturned;
+        quantities[productKey] = item.quantity - totalReturned;
     });
     return quantities;
   }, [order, allSalesReturns]);
 
+  // ✅ Stable ref for returnableQuantities to use in useEffect
+  const returnableQuantitiesRef = React.useRef(returnableQuantities);
+  returnableQuantitiesRef.current = returnableQuantities;
 
+  // ✅ Track initialization to prevent infinite loops
+  const isInitializedRef = React.useRef(false);
+  
   React.useEffect(() => {
-      if (!order || !branches.length) return;
+      // ✅ Wait for all data to be loaded before initializing
+      if (!order || !branches.length || allSalesReturns === undefined) return;
       
-      // Map items từ đơn hàng
-      const initialItems = order.lineItems.map(item => ({
-          productSystemId: item.productSystemId,
-          productId: item.productId,
-          productName: item.productName,
-          orderedQuantity: item.quantity,
-          returnableQuantity: returnableQuantities[item.productSystemId] || 0,
-          returnQuantity: 0,
-          unitPrice: item.unitPrice,
-          originalUnitPrice: item.unitPrice,
-          totalValue: 0,
-          note: item.note || '', // Lấy ghi chú từ đơn hàng
-      }));
+      // ✅ Only initialize once to prevent infinite loops
+      if (isInitializedRef.current) return;
+      isInitializedRef.current = true;
+      
+      // Map items từ đơn hàng - ✅ bao gồm thumbnailImage từ product
+      const initialItems = order.lineItems.map(item => {
+          // ✅ Dùng productSystemId hoặc productId (API trả về productId chứa systemId từ DB)
+          const productKey = (item.productSystemId || item.productId) as string;
+          return {
+              productSystemId: asSystemId(productKey),
+              productId: item.productId,
+              productName: item.productName,
+              orderedQuantity: item.quantity,
+              returnableQuantity: returnableQuantities[productKey] || 0,
+              returnQuantity: 0,
+              unitPrice: item.unitPrice,
+              originalUnitPrice: item.unitPrice,
+              totalValue: 0,
+              note: item.note || '', // Lấy ghi chú từ đơn hàng
+              thumbnailImage: (item as { product?: { thumbnailImage?: string; imageUrl?: string } }).product?.thumbnailImage || (item as { product?: { imageUrl?: string } }).product?.imageUrl,
+          };
+      });
       
       // Lấy chi nhánh từ đơn hàng, nếu không có thì lấy default
       const branchSystemId = order.branchSystemId || branches.find(b => b.isDefault)?.systemId || branches[0]?.systemId;
       
+      // ✅ Lấy địa chỉ giao hàng: ưu tiên từ đơn hàng gốc, fallback sang customer
+      const orderShippingAddress = order.shippingAddress;
+      const customerDefaultAddr = customer?.addresses?.find(a => a.isDefaultShipping);
+      // Cast to FormValues shippingAddress type - using explicit any to bypass complex type
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const shippingAddress = (orderShippingAddress || customerDefaultAddr || null) as any;
       
       // Reset form với data mới
       reset({
@@ -266,20 +338,14 @@ export function SalesReturnFormPage() {
           configuration: {},
           packageInfo: { codAmount: 0 },
           grandTotal: 0,
-          shippingAddress: customer?.addresses?.find(a => a.isDefaultShipping) || null,
+          shippingAddress,
           subtasks: [],
       });
-  }, [order, branches, reset, returnableQuantities, customer]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [order, branches, allSalesReturns]);
   
-  // ✅ Update shipping address when customer is loaded/changed
-  React.useEffect(() => {
-    if (customer && customer.addresses && customer.addresses.length > 0) {
-      const defaultShippingAddr = customer.addresses.find(a => a.isDefaultShipping);
-      if (defaultShippingAddr) {
-        setValue('shippingAddress', defaultShippingAddr);
-      }
-    }
-  }, [customer, setValue]);
+  // ✅ NOTE: Removed auto-update shipping address from customer
+  // - Shipping address should come from ORDER first, not customer
   
   const watchIsReceived = useWatch({ control, name: "isReceived" }) ?? true;
   
@@ -302,13 +368,13 @@ export function SalesReturnFormPage() {
       const totalExchangeValue = subtotalExchangeValue - orderDiscountValue + shippingFee;
       const finalAmount = totalExchangeValue - totalReturnValue;
       
-      // Max refundable
-      const totalPaidOnOriginalOrder = order ? order.payments.reduce((sum, p) => sum + p.amount, 0) : 0;
+      // Max refundable - ✅ Convert Decimal string to Number
+      const totalPaidOnOriginalOrder = order ? order.payments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0) : 0;
       const previousReturnsForOrder = order ? allSalesReturns.filter(sr => sr.orderSystemId === order.systemId) : [];
-      const totalReturnedValuePreviously = previousReturnsForOrder.reduce((sum, sr) => sum + sr.totalReturnValue, 0);
-      const totalRefundedPreviously = previousReturnsForOrder.reduce((sum, sr) => sum + (sr.refundAmount || 0), 0);
+      const totalReturnedValuePreviously = previousReturnsForOrder.reduce((sum, sr) => sum + (Number(sr.totalReturnValue) || 0), 0);
+      const totalRefundedPreviously = previousReturnsForOrder.reduce((sum, sr) => sum + (Number(sr.refundAmount) || 0), 0);
       
-      const valueOfGoodsKept = (order?.grandTotal || 0) - totalReturnedValuePreviously - totalReturnValue;
+      const valueOfGoodsKept = (Number(order?.grandTotal) || 0) - totalReturnedValuePreviously - totalReturnValue;
       const netPaid = totalPaidOnOriginalOrder - totalRefundedPreviously;
       const potentialRefund = netPaid - valueOfGoodsKept;
       const maxRefundableAmount = Math.max(0, potentialRefund);
@@ -337,6 +403,13 @@ export function SalesReturnFormPage() {
             form="sales-return-form"
             className="h-9 px-4"
             disabled={isSubmitting}
+            onClick={() => {
+                // Fallback: manually trigger form submit if form attribute doesn't work
+                const formEl = document.getElementById('sales-return-form') as HTMLFormElement;
+                if (formEl) {
+                    formEl.requestSubmit();
+                }
+            }}
         >
             {isSubmitting ? 'Đang xử lý...' : 'Hoàn trả'}
         </Button>
@@ -361,18 +434,44 @@ export function SalesReturnFormPage() {
 
     const pageHeaderConfig = React.useMemo(() => ({
         title: order ? `Tạo phiếu trả cho ${order.id}` : 'Tạo phiếu trả hàng',
-        subtitle: order ? `${customer?.name || 'Khách lẻ'} | ${order.branchName}` : 'Chọn đơn hàng để bắt đầu khởi tạo phiếu trả',
+        subtitle: undefined, // Removed subtitle per UX requirement
         breadcrumb,
         showBackButton: true,
         backPath: backDestination,
         actions: headerActions,
-    }), [order, customer?.name, backDestination, headerActions, breadcrumb]);
+    }), [order, backDestination, headerActions, breadcrumb]);
 
     usePageHeader(pageHeaderConfig);
 
-  if (!order || !customer || !branches.length) {
-    return <div>Đang tải hoặc không tìm thấy đơn hàng...</div>;
+  // Loading state
+  if (!branches.length) {
+    return (
+      <div className="flex items-center justify-center min-h-100">
+        <div className="text-center space-y-4">
+          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />
+          <p className="text-muted-foreground">Đang tải dữ liệu...</p>
+        </div>
+      </div>
+    );
   }
+
+  // Order not found
+  if (!order) {
+    return (
+      <div className="flex items-center justify-center min-h-100">
+        <div className="text-center space-y-4">
+          <PackageOpen className="h-16 w-16 mx-auto text-muted-foreground" />
+          <h2 className="text-xl font-semibold">Không tìm thấy đơn hàng</h2>
+          <p className="text-muted-foreground">Đơn hàng {systemId} không tồn tại hoặc đã bị xóa.</p>
+          <Button variant="outline" onClick={() => router.push('/orders')}>
+            ← Quay về danh sách đơn hàng
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Note: Customer can be null for "Khách lẻ" orders - we allow this
   
   const handleSelectProducts = (selectedProducts: Product[]) => {
       const currentItems = getValues('exchangeItems') || [];
@@ -381,7 +480,7 @@ export function SalesReturnFormPage() {
           const policyId = selectedPricingPolicy || defaultSellingPolicy?.systemId;
           const price = (policyId && product.prices?.[policyId]) 
               ? product.prices[policyId]
-              : (product.sellingPrice || Object.values(product.prices || {})[0] || 0);
+              : (Object.values(product.prices || {})[0] || 0);
           
           // If split line is disabled, try to find existing item and increase quantity
           if (!enableSplitLine) {
@@ -418,7 +517,7 @@ export function SalesReturnFormPage() {
   };
 
   const onSubmit = async (values: FormValues) => {
-    if (!order || !customer) return;
+    if (!order) return;
     
     // ✅ Prevent double submission
     if (isSubmitting) {
@@ -439,6 +538,27 @@ export function SalesReturnFormPage() {
           toast.error('Vui lòng chọn sản phẩm để trả hoặc đổi.');
           setIsSubmitting(false);
           return;
+        }
+        
+        // ✅ CRITICAL: Validate return quantities BEFORE calling any external API (like GHTK)
+        // This prevents creating GHTK orders for invalid sales returns
+        for (const item of returnItems) {
+            const returnableQty = item.returnableQuantity ?? item.orderedQuantity ?? 0;
+            if (item.returnQuantity > returnableQty) {
+                const alreadyReturned = (item.orderedQuantity ?? 0) - returnableQty;
+                toast.error('Lỗi tạo phiếu trả hàng', {
+                    description: `Sản phẩm "${item.productName}" chỉ còn có thể trả ${returnableQty} (đã trả ${alreadyReturned}/${item.orderedQuantity})`,
+                });
+                setIsSubmitting(false);
+                return;
+            }
+            if (returnableQty <= 0 && item.returnQuantity > 0) {
+                toast.error('Lỗi tạo phiếu trả hàng', {
+                    description: `Sản phẩm "${item.productName}" đã được trả hết, không thể trả thêm.`,
+                });
+                setIsSubmitting(false);
+                return;
+            }
         }
         
         // Calculate financials
@@ -479,22 +599,26 @@ export function SalesReturnFormPage() {
         }
     }
     
-    // ✅ Validate payment total when finalAmount > 0
+    // ✅ Validate payment - allow partial payment (customer can pay the rest later on exchange order)
+    // Only show warning, don't block submission
     if (finalAmount > 0 && values.payments && values.payments.length > 0) {
         const totalPaymentAmount = values.payments.reduce((sum, p) => sum + (p.amount || 0), 0);
-        const difference = Math.abs(totalPaymentAmount - finalAmount);
-        if (difference > 0.01) {
-            toast.error(`Tổng thanh toán (${formatCurrency(totalPaymentAmount)}) không khớp với số tiền cần thu (${formatCurrency(finalAmount)}). Vui lòng kiểm tra lại.`);
+        if (totalPaymentAmount > finalAmount) {
+            toast.error(`Số tiền thanh toán (${formatCurrency(totalPaymentAmount)}) vượt quá số tiền cần thu (${formatCurrency(finalAmount)}). Vui lòng kiểm tra lại.`);
             setIsSubmitting(false);
             return;
+        }
+        // Allow partial payment - remaining will be collected on exchange order
+        if (totalPaymentAmount < finalAmount) {
+            // Partial payment - remaining will be COD on exchange order
         }
     }
 
     const returnPayload = {
         orderSystemId: order.systemId,
         orderId: order.id,
-        customerSystemId: customer.systemId,
-        customerName: customer.name,
+        customerSystemId: customer?.systemId || order.customerSystemId,
+        customerName: customer?.name || order.customerName || 'Khách lẻ',
         branchSystemId: asSystemId(values.branchSystemId),  // ✅ Đúng tên field: branchSystemId
         branchName: branch.name,
         returnDate: toISODateTime(new Date()),
@@ -565,13 +689,13 @@ export function SalesReturnFormPage() {
             }
 
             // Build GHTK request body from form data
-            const customer = customers.find(c => c.systemId === order?.customerSystemId);
+            // ✅ customer already available from findCustomer() above
             
             // ✅ Use shipping address from FORM, not from original order
             const shippingAddress = values.shippingAddress;
             
             
-            if (!shippingAddress || !customer) {
+            if (!shippingAddress) {
                 toast.error('Thiếu thông tin giao hàng', { 
                     description: 'Vui lòng cấu hình đầy đủ thông tin vận chuyển GHTK trước khi tạo đơn' 
                 });
@@ -582,6 +706,23 @@ export function SalesReturnFormPage() {
             // Build full address: Try all possible address fields
             // Address may be split across: street, address, fullAddress, houseNumber, etc.
             const shippingAddrAny = shippingAddress as Record<string, unknown>;
+            
+            // ✅ Get phone number: Try multiple field names
+            const customerPhone = (shippingAddrAny.phone as string) || 
+                                  (shippingAddrAny.contactPhone as string) || 
+                                  (shippingAddrAny.tel as string) ||
+                                  customer?.phone || 
+                                  order.customerPhone ||
+                                  '';
+            
+            if (!customerPhone) {
+                toast.error('Lỗi tạo đơn GHTK', { 
+                    description: 'Vui lòng nhập số điện thoại người nhận hàng hóa' 
+                });
+                setIsSubmitting(false);
+                return;
+            }
+            
             const addressParts = [
                 shippingAddrAny.houseNumber as string | undefined,
                 shippingAddrAny.street as string | undefined,
@@ -603,11 +744,11 @@ export function SalesReturnFormPage() {
             }
 
             // Build products array from exchange items
-            const products = values.exchangeItems.map(item => {
-                const product = products.find(p => p.systemId === item.productSystemId);
+            const ghtkProducts = values.exchangeItems.map(item => {
+                const productData = findProductById(item.productSystemId);
                 return {
-                    name: product?.name || item.productName || 'Sản phẩm',
-                    weight: product?.weight || 100, // Keep in grams (don't divide by 1000)
+                    name: productData?.name || item.productName || 'Sản phẩm',
+                    weight: productData?.weight || 100, // Keep in grams (don't divide by 1000)
                     quantity: item.quantity,
                     price: item.unitPrice || 0,
                 };
@@ -631,8 +772,8 @@ export function SalesReturnFormPage() {
             }
 
             const ghtkParams: GHTKCreateOrderParams = {
-                // ✅ Unique order ID: Include timestamp to avoid collision when multiple returns from same order
-                orderId: `RETURN_${order?.id}_${Date.now()}`,
+                // ✅ Unique order ID: Include unique suffix to avoid collision when multiple returns from same order
+                orderId: `RETURN_${order?.id}_${generateSubEntityId('R')}`,
                 
                 // Pickup info from partner warehouse
                 pickName: pickupAddress.partnerWarehouseName as string || 'Cửa hàng',
@@ -643,8 +784,8 @@ export function SalesReturnFormPage() {
                 pickWard: pickupAddress.partnerWarehouseWard as string || '',
                 
                 // Customer info from FORM (user may have edited)
-                customerName: (shippingAddrAny.name as string) || (shippingAddrAny.contactName as string) || customer.name || '',
-                customerTel: (shippingAddrAny.phone as string) || (shippingAddrAny.contactPhone as string) || customer.phone || '',
+                customerName: (shippingAddrAny.name as string) || (shippingAddrAny.contactName as string) || customer?.name || order.customerName || 'Khách lẻ',
+                customerTel: customerPhone, // ✅ Use validated phone from above
                 // Use the fully built address with all parts
                 customerAddress: customerAddress,
                 customerProvince: (shippingAddress.province as string) || '',
@@ -653,7 +794,7 @@ export function SalesReturnFormPage() {
                 customerHamlet: 'Khác',
                 
                 // Products
-                products,
+                products: ghtkProducts,
                 
                 // Payment
                 pickMoney: (values.packageInfo?.codAmount as number) || 0,
@@ -676,10 +817,21 @@ export function SalesReturnFormPage() {
                 toast.success('Đã tạo đơn GHTK thành công', { 
                     description: `Mã vận đơn: ${result.order.label}` 
                 });
-                // Update packageInfo with tracking code (stored in extended Record<string, unknown>)
+                // ✅ Update packageInfo with tracking code AND fee from GHTK response
+                // fee = "Phí trả ĐTVC" (shipping fee to delivery partner)
+                // Fallback to ship_money if fee is not available
+                const ghtkFee = parseInt(result.order.fee || '0') || result.order.ship_money || 0;
+                // ✅ isFreeship: 1 = Shop trả = "Người gửi", 0 = Khách trả = "Người nhận"
+                const isFreeship = (values.packageInfo?.codAmount || 0) === 0 ? 1 : 0;
+                const payer = isFreeship === 1 ? 'Người gửi' : 'Người nhận';
+                // ✅ Preserve codAmount from form input
+                const formCodAmount = values.packageInfo?.codAmount || 0;
                 returnPayload.packageInfo = {
-                    ...(returnPayload.packageInfo || { weight: 0, length: 0, width: 0, height: 0, codAmount: 0 }),
+                    ...(returnPayload.packageInfo || { weight: 0, length: 0, width: 0, height: 0 }),
+                    codAmount: formCodAmount, // ✅ Explicitly preserve codAmount from form
                     trackingCode: result.order.label,
+                    shippingFeeToPartner: ghtkFee, // ✅ Store GHTK fee for API to save
+                    payer: payer, // ✅ Store payer for API to save
                 } as unknown as PackageInfo;
             } else {
                 toast.error('Tạo đơn GHTK thất bại', { 
@@ -697,26 +849,89 @@ export function SalesReturnFormPage() {
             return; // Don't create return if GHTK failed
         }
     }
-    // Note: addReturn needs to use mutations
-    const newReturnSystemId = asSystemId(`SR${(returnPayload as any).systemId || Date.now()}`);
-    const newReturn = { ...returnPayload, systemId: newReturnSystemId };
-    const newOrderSystemId = newReturn.systemId;
     
-    
-    // ✅ Navigate to new exchange order if created, otherwise back to original order
-    if (newOrderSystemId) {
-        toast.success('Tạo phiếu trả hàng và đơn đổi hàng thành công!', {
-            description: `Đang chuyển đến đơn đổi hàng mới...`,
-            duration: 2000,
+    // ✅ Call API to create sales return
+    try {
+        const returnItems = returnPayload.items?.filter(item => (item.returnQuantity || 0) > 0) || [];
+        
+        // ✅ Extract trackingCode from packageInfo if set (e.g., from GHTK)
+        const ghtkTrackingCode = (returnPayload.packageInfo as unknown as Record<string, unknown>)?.trackingCode as string | undefined;
+        
+        const response = await fetch('/api/sales-returns', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                orderId: order.systemId,
+                reason: returnPayload.reason,
+                branchId: values.branchSystemId,
+                isReceived: values.isReceived,
+                // ✅ Pass delivery method for exchange order creation
+                deliveryMethod: values.deliveryMethod,
+                // ✅ Pass tracking code from GHTK if available
+                exchangeTrackingCode: ghtkTrackingCode,
+                // ✅ Pass shipping info for exchange order
+                shippingPartnerId: returnPayload.shippingPartnerId,
+                shippingServiceId: returnPayload.shippingServiceId,
+                shippingAddress: returnPayload.shippingAddress,
+                packageInfo: returnPayload.packageInfo,
+                items: returnItems.map(item => ({
+                    // ✅ Gửi productSystemId (PROD112654) - API cần systemId để lookup trong order.lineItems
+                    productSystemId: item.productSystemId,
+                    productId: item.productId, // Business ID (ZP8) - for display
+                    quantity: item.returnQuantity,
+                    unitPrice: item.unitPrice,
+                    reason: item.note,
+                })),
+                // ✅ Pass exchange items to API - will subtract from inventory
+                exchangeItems: values.exchangeItems?.map(item => ({
+                    productSystemId: item.productSystemId,
+                    productId: item.productId,
+                    productName: item.productName,
+                    quantity: item.quantity,
+                    unitPrice: item.unitPrice,
+                    discount: item.discount || 0,
+                    discountType: item.discountType || 'fixed',
+                })),
+                createdBy: creatorSystemId,
+                // ✅ Pass financial data for payment/receipt voucher creation
+                totalReturnValue: returnPayload.totalReturnValue,
+                subtotalNew: returnPayload.subtotalNew,
+                shippingFeeNew: returnPayload.shippingFeeNew,
+                grandTotalNew: returnPayload.grandTotalNew,
+                finalAmount: returnPayload.finalAmount,
+                payments: returnPayload.payments,
+                refunds: returnPayload.refunds,
+            }),
         });
-        // Navigate to the new exchange order
-        setTimeout(() => {
-            router.push(`/orders/${newOrderSystemId}`);
-        }, 500);
-    } else if (newReturn) {
-        toast.success('Tạo phiếu trả hàng thành công!');
-        // Navigate back to original order if no exchange order
+        
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.message || 'Failed to create sales return');
+        }
+        
+        const newReturn = await response.json();
+        
+        // ✅ Invalidate sales returns and orders queries to refresh data on order detail page
+        await Promise.all([
+            queryClient.invalidateQueries({ queryKey: ['sales-returns'] }),
+            queryClient.invalidateQueries({ queryKey: ['orders'] }),
+        ]);
+        
+        const hasExchangeItems = values.exchangeItems && values.exchangeItems.length > 0;
+        const returnId = newReturn.data?.id || newReturn.id;
+        
+        toast.success(hasExchangeItems ? 'Tạo phiếu trả hàng và đổi hàng thành công!' : 'Tạo phiếu trả hàng thành công!', {
+            description: `Mã phiếu: ${returnId}. Tồn kho đã được cập nhật.`,
+            duration: 3000,
+        });
+        
+        // ✅ Always navigate back to order detail page for consistent UX
         router.push(`/orders/${order.systemId}`);
+    } catch (error) {
+        console.error('❌ Create sales return error:', error);
+        toast.error('Lỗi tạo phiếu trả hàng', {
+            description: (error as Error)?.message || 'Vui lòng thử lại sau',
+        });
     }
     
     setIsSubmitting(false);
@@ -727,15 +942,18 @@ export function SalesReturnFormPage() {
   
   return (
     <FormProvider {...form}>
-      <form id="sales-return-form" onSubmit={handleSubmit(onSubmit)}>
+      <form id="sales-return-form" onSubmit={handleSubmit(onSubmit, (validationErrors) => {
+        console.error('[SalesReturnForm] Form validation failed:', validationErrors);
+        toast.error('Vui lòng kiểm tra lại thông tin form');
+      })}>
         <div className="space-y-4">
             {/* Row 1: Thông tin phiếu + Thông tin bổ sung + Quy trình xử lý */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                 <Card>
-                    <CardHeader><CardTitle className="text-h4">Thông tin phiếu</CardTitle></CardHeader>
+                    <CardHeader><CardTitle>Thông tin phiếu</CardTitle></CardHeader>
                     <CardContent>
                         <div className="grid grid-cols-2 gap-4 text-body-sm">
-                            <p>Khách hàng: <a className="font-semibold text-primary hover:underline">{customer.name}</a></p>
+                            <p>Khách hàng: <span className="font-semibold text-primary">{customer?.name || order.customerName || 'Khách lẻ'}</span></p>
                             <p>Mã đơn hàng gốc: <Link href={`/orders/${order.systemId}`} className="font-semibold text-primary hover:underline">{order.id}</Link></p>
                             <FormField 
                                 control={control} 
@@ -745,7 +963,7 @@ export function SalesReturnFormPage() {
                                         <FormLabel>Chi nhánh trả hàng</FormLabel>
                                         <Select 
                                             onValueChange={field.onChange} 
-                                            value={field.value}
+                                            value={field.value || ""}
                                         >
                                             <FormControl>
                                                 <SelectTrigger className="w-45 h-8">
@@ -770,12 +988,12 @@ export function SalesReturnFormPage() {
                     </CardContent>
                 </Card>
                 <Card>
-                     <CardHeader><CardTitle className="text-h4">Thông tin bổ sung</CardTitle></CardHeader>
+                     <CardHeader><CardTitle>Thông tin bổ sung</CardTitle></CardHeader>
                      <CardContent className="space-y-4">
                         <FormField control={control} name="returnReason" render={({ field }) => (
                             <FormItem>
                                 <FormLabel>Lý do trả hàng</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value}>
+                                <Select onValueChange={field.onChange} value={field.value || ""}>
                                     <FormControl>
                                         <SelectTrigger>
                                             <SelectValue placeholder="Chọn lý do" />
@@ -813,7 +1031,7 @@ export function SalesReturnFormPage() {
             <Card>
                  <CardHeader>
                     <div className="flex items-center justify-between">
-                        <CardTitle className="text-h4">Sản phẩm trả</CardTitle>
+                        <CardTitle>Sản phẩm trả</CardTitle>
                          <div className="flex items-center space-x-2">
                              <Label htmlFor="returnAll" className="font-normal">Trả toàn bộ</Label>
                             <Controller
@@ -850,7 +1068,7 @@ export function SalesReturnFormPage() {
                                         field={field}
                                         control={control}
                                         setValue={setValue}
-                                        products={products}
+                                        getProductData={getProductData}
                                         expandedCombos={expandedCombos}
                                         toggleComboRow={toggleComboRow}
                                         handlePreview={handlePreview}
@@ -867,7 +1085,7 @@ export function SalesReturnFormPage() {
 
             {/* Row 3: Nhận hàng trả lại */}
             <Card>
-                <CardHeader><CardTitle className="text-h4">Nhận hàng trả lại</CardTitle></CardHeader>
+                <CardHeader><CardTitle>Nhận hàng trả lại</CardTitle></CardHeader>
                 <CardContent className="space-y-4">
                     <p className="text-body-sm text-muted-foreground">Hàng trả lại được nhập vào kho chi nhánh {branches.find(b => b.systemId === getValues('branchSystemId'))?.name || 'mặc định'}</p>
                     
@@ -900,7 +1118,7 @@ export function SalesReturnFormPage() {
             {/* Row 4: Đổi hàng */}
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                    <CardTitle className="text-h4">Đổi hàng</CardTitle>
+                    <CardTitle>Đổi hàng</CardTitle>
                     <ProductTableToolbar
                         enableSplitLine={enableSplitLine}
                         onSplitLineChange={setEnableSplitLine}
@@ -980,7 +1198,8 @@ export function SalesReturnFormPage() {
         <ProductSelectionDialog 
             isOpen={isProductSelectionOpen} 
             onOpenChange={setIsProductSelectionOpen} 
-            onSelect={handleSelectProducts} 
+            onSelect={handleSelectProducts}
+            pricingPolicyId={selectedPricingPolicy}
         />
         <ImagePreviewDialog
             images={previewState.image ? [previewState.image] : []}

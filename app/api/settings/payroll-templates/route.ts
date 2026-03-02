@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma'
 import { Prisma } from '@/generated/prisma/client'
 import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
 import { z } from 'zod'
+import { generateIdWithPrefix } from '@/lib/id-generator'
 
 const SETTING_KEY = 'payroll-templates'
 const SETTING_GROUP = 'hrm'
@@ -73,7 +74,7 @@ export async function PUT(request: Request) {
         updatedAt: new Date(),
       },
       create: {
-        systemId: `SET_PAYTPL_${Date.now()}`,
+        systemId: await generateIdWithPrefix('SET_PAYTPL', prisma),
         key: SETTING_KEY,
         group: SETTING_GROUP,
         type: 'json',

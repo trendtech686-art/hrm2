@@ -54,6 +54,7 @@ import {
 } from '../../../components/ui/dropdown-menu';
 import { ConfirmDialog } from '../../../components/ui/confirm-dialog';
 import { toast } from 'sonner';
+import { generateSubEntityId } from '@/lib/id-utils';
 import { useSettingsPageHeader } from '../use-settings-page-header';
 import { useTabActionRegistry } from '../use-tab-action-registry';
 
@@ -81,29 +82,15 @@ import {
 // Re-export for backward compatibility
 export type { CardColorSettings, ComplaintType };
 
-// Export function to load complaint types from other components
-export function loadComplaintTypes(): ComplaintType[] {
-  return clone(useComplaintsSettingsStore.getState().data.complaintTypes);
-}
-
 // ============================================
 // MAIN COMPONENT
 // ============================================
 
-import { useComplaintsSettings, useComplaintsSettingsMutations, loadCardColorSettings } from './hooks/use-complaints-settings';
-import { useComplaintsSettingsStore } from './store';
-
-export { loadCardColorSettings };
+import { useComplaintsSettings, useComplaintsSettingsMutations } from './hooks/use-complaints-settings';
 
 export function ComplaintsSettingsPage() {
   const [activeTab, setActiveTab] = React.useState('sla');
-  const { headerActions, registerActions } = useTabActionRegistry(activeTab);
-  const registerSlaActions = React.useMemo(() => registerActions('sla'), [registerActions]);
-  const registerComplaintTypeActions = React.useMemo(() => registerActions('complaint-types'), [registerActions]);
-  const registerCardColorActions = React.useMemo(() => registerActions('card-colors'), [registerActions]);
-  const registerTemplateActions = React.useMemo(() => registerActions('templates'), [registerActions]);
-  const registerNotificationActions = React.useMemo(() => registerActions('notifications'), [registerActions]);
-  const registerPublicTrackingActions = React.useMemo(() => registerActions('public-tracking'), [registerActions]);
+  const { headerActions, setHeaderActions } = useTabActionRegistry(activeTab);
 
   // Fetch settings from React Query
   const { data: settings } = useComplaintsSettings();
@@ -199,17 +186,17 @@ export function ComplaintsSettingsPage() {
   };
 
   const handleSaveSLA = () => {
-    // Validation for each priority level
-    const priorities = ['low', 'medium', 'high', 'urgent'] as const;
+    // Validation for each priority level - ✅ Match Prisma ComplaintPriority enum
+    const priorities = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'] as const;
     const errors: string[] = [];
 
     priorities.forEach(priority => {
       const settings = sla[priority];
       const priorityLabel = {
-        low: 'Thấp',
-        medium: 'Trung bình',
-        high: 'Cao',
-        urgent: 'Khẩn cấp'
+        LOW: 'Thấp',
+        MEDIUM: 'Trung bình',
+        HIGH: 'Cao',
+        CRITICAL: 'Khẩn cấp'
       }[priority];
 
       if (settings.responseTime <= 0) {
@@ -258,7 +245,7 @@ export function ComplaintsSettingsPage() {
 
   const handleAddTemplate = () => {
     setEditingTemplate({
-      id: Date.now().toString(),
+      id: generateSubEntityId('complaint-setting'),
       name: '',
       content: '',
       category: 'general',
@@ -371,7 +358,7 @@ export function ComplaintsSettingsPage() {
     }));
   };
 
-  const handleSavePublicTracking = () => {
+  const handleSavePublicTracking = async () => {
     updateSection.mutate({ type: 'tracking', data: publicTracking });
     toast.success('Đã lưu cài đặt tracking công khai', {
       description: 'Các tùy chọn liên kết công khai đã được cập nhật thành công.',
@@ -465,11 +452,12 @@ export function ComplaintsSettingsPage() {
     }
 
     if (cardColors.enablePriorityColors) {
+      // ✅ Match Prisma ComplaintPriority enum
       const priorities = [
-        { key: 'low', label: 'Thấp' },
-        { key: 'medium', label: 'Trung bình' },
-        { key: 'high', label: 'Cao' },
-        { key: 'urgent', label: 'Khẩn cấp' },
+        { key: 'LOW', label: 'Thấp' },
+        { key: 'MEDIUM', label: 'Trung bình' },
+        { key: 'HIGH', label: 'Cao' },
+        { key: 'CRITICAL', label: 'Khẩn cấp' },
       ];
       
       priorities.forEach(({ key, label }) => {
@@ -528,7 +516,7 @@ export function ComplaintsSettingsPage() {
 
   const handleAddType = () => {
     const newType: ComplaintType = {
-      id: Date.now().toString(),
+      id: generateSubEntityId('complaint-setting'),
       name: '',
       description: '',
       order: complaintTypes.length + 1,
@@ -595,86 +583,72 @@ export function ComplaintsSettingsPage() {
   // RENDER
   // ============================================
 
-    React.useEffect(() => {
-      if (activeTab !== 'sla') {
-        return;
-      }
+  // ✅ Use refs to avoid stale closures in header action buttons
+  // Handlers capture current state on every render; refs always point to latest version
+  const handlersRef = React.useRef({
+    saveSLA: handleSaveSLA,
+    addType: handleAddType,
+    saveCardColors: handleSaveCardColors,
+    addTemplate: handleAddTemplate,
+    saveNotifications: () => { handleSaveNotifications(); handleSaveReminders(); },
+    savePublicTracking: handleSavePublicTracking,
+  });
+  handlersRef.current = {
+    saveSLA: handleSaveSLA,
+    addType: handleAddType,
+    saveCardColors: handleSaveCardColors,
+    addTemplate: handleAddTemplate,
+    saveNotifications: () => { handleSaveNotifications(); handleSaveReminders(); },
+    savePublicTracking: handleSavePublicTracking,
+  };
 
-      registerSlaActions([
-        <SettingsActionButton key="save" onClick={handleSaveSLA}>
-          <Save className="h-4 w-4" /> Lưu cài đặt
-        </SettingsActionButton>,
-      ]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [activeTab, registerSlaActions]);
-
-    React.useEffect(() => {
-      if (activeTab !== 'complaint-types') {
-        return;
-      }
-
-      registerComplaintTypeActions([
-        <SettingsActionButton key="add" onClick={handleAddType}>
-          <Plus className="h-4 w-4" /> Thêm loại mới
-        </SettingsActionButton>,
-      ]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [activeTab, registerComplaintTypeActions]);
-
-    React.useEffect(() => {
-      if (activeTab !== 'card-colors') {
-        return;
-      }
-
-      registerCardColorActions([
-        <SettingsActionButton key="save" onClick={handleSaveCardColors}>
-          <Save className="h-4 w-4" /> Lưu cài đặt
-        </SettingsActionButton>,
-      ]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [activeTab, registerCardColorActions]);
-
-    React.useEffect(() => {
-      if (activeTab !== 'templates') {
-        return;
-      }
-
-      registerTemplateActions([
-        <SettingsActionButton key="add" onClick={handleAddTemplate}>
-          <Plus className="h-4 w-4" /> Thêm mẫu
-        </SettingsActionButton>,
-      ]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [activeTab, registerTemplateActions]);
-
-    React.useEffect(() => {
-      if (activeTab !== 'notifications') {
-        return;
-      }
-
-      registerNotificationActions([
-        <SettingsActionButton key="save" onClick={() => {
-          handleSaveNotifications();
-          handleSaveReminders();
-        }}>
-          <Save className="h-4 w-4" /> Lưu cài đặt
-        </SettingsActionButton>,
-      ]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [activeTab, registerNotificationActions]);
-
-    React.useEffect(() => {
-      if (activeTab !== 'public-tracking') {
-        return;
-      }
-
-      registerPublicTrackingActions([
-        <SettingsActionButton key="save" onClick={handleSavePublicTracking}>
-          <Save className="h-4 w-4" /> Lưu cài đặt
-        </SettingsActionButton>,
-      ]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [activeTab, registerPublicTrackingActions]);
+  // Single effect that registers header actions when active tab changes
+  React.useEffect(() => {
+    switch (activeTab) {
+      case 'sla':
+        setHeaderActions([
+          <SettingsActionButton key="save" onClick={() => handlersRef.current.saveSLA()}>
+            <Save className="h-4 w-4" /> Lưu cài đặt
+          </SettingsActionButton>,
+        ]);
+        break;
+      case 'complaint-types':
+        setHeaderActions([
+          <SettingsActionButton key="add" onClick={() => handlersRef.current.addType()}>
+            <Plus className="h-4 w-4" /> Thêm loại mới
+          </SettingsActionButton>,
+        ]);
+        break;
+      case 'card-colors':
+        setHeaderActions([
+          <SettingsActionButton key="save" onClick={() => handlersRef.current.saveCardColors()}>
+            <Save className="h-4 w-4" /> Lưu cài đặt
+          </SettingsActionButton>,
+        ]);
+        break;
+      case 'templates':
+        setHeaderActions([
+          <SettingsActionButton key="add" onClick={() => handlersRef.current.addTemplate()}>
+            <Plus className="h-4 w-4" /> Thêm mẫu
+          </SettingsActionButton>,
+        ]);
+        break;
+      case 'notifications':
+        setHeaderActions([
+          <SettingsActionButton key="save" onClick={() => handlersRef.current.saveNotifications()}>
+            <Save className="h-4 w-4" /> Lưu cài đặt
+          </SettingsActionButton>,
+        ]);
+        break;
+      case 'public-tracking':
+        setHeaderActions([
+          <SettingsActionButton key="save" onClick={() => handlersRef.current.savePublicTracking()}>
+            <Save className="h-4 w-4" /> Lưu cài đặt
+          </SettingsActionButton>,
+        ]);
+        break;
+    }
+  }, [activeTab, setHeaderActions]);
 
   const tabs = React.useMemo(
     () => [
@@ -762,11 +736,11 @@ export function ComplaintsSettingsPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[50px]">STT</TableHead>
+                      <TableHead className="w-12">STT</TableHead>
                       <TableHead>Tên loại</TableHead>
                       <TableHead>Mô tả</TableHead>
-                      <TableHead className="w-[100px]">Trạng thái</TableHead>
-                      <TableHead className="w-[80px] text-right">Thao tác</TableHead>
+                      <TableHead className="w-25">Trạng thái</TableHead>
+                      <TableHead className="w-20 text-right">Thao tác</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -997,29 +971,29 @@ export function ComplaintsSettingsPage() {
                 >
                   <div className="space-y-4">
                     <TailwindColorPicker
-                      value={cardColors.priorityColors.low}
-                      onChange={(value) => handlePriorityColorChange('low', value)}
+                      value={cardColors.priorityColors.LOW}
+                      onChange={(value) => handlePriorityColorChange('LOW', value)}
                       label="Ưu tiên thấp"
                       placeholder="Ví dụ: bg-slate-50 border-slate-200"
                     />
 
                     <TailwindColorPicker
-                      value={cardColors.priorityColors.medium}
-                      onChange={(value) => handlePriorityColorChange('medium', value)}
+                      value={cardColors.priorityColors.MEDIUM}
+                      onChange={(value) => handlePriorityColorChange('MEDIUM', value)}
                       label="Ưu tiên trung bình"
                       placeholder="Ví dụ: bg-amber-50 border-amber-200"
                     />
 
                     <TailwindColorPicker
-                      value={cardColors.priorityColors.high}
-                      onChange={(value) => handlePriorityColorChange('high', value)}
+                      value={cardColors.priorityColors.HIGH}
+                      onChange={(value) => handlePriorityColorChange('HIGH', value)}
                       label="Ưu tiên cao"
                       placeholder="Ví dụ: bg-orange-50 border-orange-300"
                     />
 
                     <TailwindColorPicker
-                      value={cardColors.priorityColors.urgent}
-                      onChange={(value) => handlePriorityColorChange('urgent', value)}
+                      value={cardColors.priorityColors.CRITICAL}
+                      onChange={(value) => handlePriorityColorChange('CRITICAL', value)}
                       label="Khẩn cấp"
                       placeholder="Ví dụ: bg-red-100 border-red-300"
                     />
@@ -1089,7 +1063,7 @@ export function ComplaintsSettingsPage() {
                     <TableRow>
                       <TableHead>Tên mẫu</TableHead>
                       <TableHead>Danh mục</TableHead>
-                      <TableHead className="w-[80px] text-right">Thao tác</TableHead>
+                      <TableHead className="w-20 text-right">Thao tác</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1492,6 +1466,70 @@ export function ComplaintsSettingsPage() {
                           id="show-timeline"
                           checked={publicTracking.showTimeline}
                           onCheckedChange={() => handlePublicTrackingChange('showTimeline')}
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-1">
+                          <Label htmlFor="show-order-info" className="cursor-pointer">
+                            Hiển thị thông tin đơn hàng
+                          </Label>
+                          <p className="text-sm text-muted-foreground">
+                            Hiển thị chi tiết đơn hàng liên quan (mã đơn, địa chỉ, ngày bán...)
+                          </p>
+                        </div>
+                        <Switch
+                          id="show-order-info"
+                          checked={publicTracking.showOrderInfo ?? true}
+                          onCheckedChange={() => handlePublicTrackingChange('showOrderInfo')}
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-1">
+                          <Label htmlFor="show-products" className="cursor-pointer">
+                            Hiển thị sản phẩm bị ảnh hưởng
+                          </Label>
+                          <p className="text-sm text-muted-foreground">
+                            Hiển thị danh sách sản phẩm và chi tiết thiếu/hỏng/thừa
+                          </p>
+                        </div>
+                        <Switch
+                          id="show-products"
+                          checked={publicTracking.showProducts ?? true}
+                          onCheckedChange={() => handlePublicTrackingChange('showProducts')}
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-1">
+                          <Label htmlFor="show-images" className="cursor-pointer">
+                            Hiển thị hình ảnh
+                          </Label>
+                          <p className="text-sm text-muted-foreground">
+                            Hiển thị hình ảnh từ khách hàng và nhân viên kiểm tra
+                          </p>
+                        </div>
+                        <Switch
+                          id="show-images"
+                          checked={publicTracking.showImages ?? true}
+                          onCheckedChange={() => handlePublicTrackingChange('showImages')}
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-1">
+                          <Label htmlFor="show-resolution" className="cursor-pointer">
+                            Hiển thị kết quả giải quyết
+                          </Label>
+                          <p className="text-sm text-muted-foreground">
+                            Hiển thị ghi chú giải quyết và phương án xử lý
+                          </p>
+                        </div>
+                        <Switch
+                          id="show-resolution"
+                          checked={publicTracking.showResolution ?? true}
+                          onCheckedChange={() => handlePublicTrackingChange('showResolution')}
                         />
                       </div>
                     </div>

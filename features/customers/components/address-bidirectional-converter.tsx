@@ -206,10 +206,10 @@ export function AddressBidirectionalConverter({
               return (
                 <div className="space-y-3">
                   <div className="text-sm font-medium bg-blue-50 border border-blue-200 p-2.5 sm:p-3 rounded-lg flex items-center gap-2">
-                    <Info className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                    <Info className="h-4 w-4 text-blue-600 shrink-0" />
                     <span className="text-xs sm:text-sm">Chọn Phường/Xã 2 cấp phù hợp ({allNewWardMappings.length} kết quả) *</span>
                   </div>
-                  <div className="grid grid-cols-1 gap-2 max-h-[300px] sm:max-h-[400px] overflow-y-auto border rounded-lg p-2 sm:p-3">
+                  <div className="grid grid-cols-1 gap-2 max-h-75 sm:max-h-100 overflow-y-auto border rounded-lg p-2 sm:p-3">
                     {allNewWardMappings.map((mapping, idx) => (
                       <label
                         key={idx}
@@ -224,14 +224,14 @@ export function AddressBidirectionalConverter({
                           name="ward-selection"
                           checked={selectedWardMapping?.newWardName === mapping.newWardName && selectedWardMapping?.oldWardName === mapping.oldWardName}
                           onChange={() => setSelectedWardMapping(mapping)}
-                          className="mt-0.5 sm:mt-1 h-4 w-4 flex-shrink-0"
+                          className="mt-0.5 sm:mt-1 h-4 w-4 shrink-0"
                         />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between gap-2 mb-1">
                             <div className="font-semibold text-green-700 flex-1 text-xs sm:text-sm">
                               {mapping.newWardName}
                             </div>
-                            <div className="text-xs bg-green-100 text-green-700 px-1.5 sm:px-2 py-0.5 rounded whitespace-nowrap flex-shrink-0">
+                            <div className="text-xs bg-green-100 text-green-700 px-1.5 sm:px-2 py-0.5 rounded whitespace-nowrap shrink-0">
                               {mapping.provinceName}
                             </div>
                           </div>
@@ -268,7 +268,7 @@ export function AddressBidirectionalConverter({
           <Button 
             onClick={handleConvert3To2}
             disabled={!selectedWardMapping}
-            className="w-full sm:w-auto sm:min-w-[180px] order-1 sm:order-2"
+            className="w-full sm:w-auto sm:min-w-45 order-1 sm:order-2"
           >
             <RefreshCw className="h-4 w-4 mr-2" />
             Tạo địa chỉ mới

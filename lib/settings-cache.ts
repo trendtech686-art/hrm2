@@ -41,6 +41,17 @@ let settingsCache: GeneralSettings | null = null
 let isLoading = false
 let loadPromise: Promise<GeneralSettings | null> | null = null
 
+function buildApiUrl(path: string): string {
+  if (typeof window !== 'undefined') return path
+
+  const base =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.NEXTAUTH_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
+
+  return path.startsWith('http') ? path : `${base}${path}`
+}
+
 /**
  * Load general settings from database API
  * Should be called once when app initializes
@@ -62,7 +73,10 @@ export async function loadGeneralSettings(): Promise<GeneralSettings> {
   loadPromise = (async () => {
     try {
       // Try API first
-      const res = await fetch('/api/settings?group=general')
+      const res = await fetch(buildApiUrl('/api/settings?group=general'), {
+        credentials: 'include',
+        cache: 'no-store',
+      })
       if (res.ok) {
         const data = await res.json()
         

@@ -1,6 +1,7 @@
 import * as React from "react";
 import { Plus, Package } from "lucide-react";
-import { useActiveProducts } from "../../products/hooks/use-all-products";
+import { useProduct } from "../../../hooks/api/use-products";
+import { useInfiniteMeiliProductSearch } from "../../../hooks/use-meilisearch";
 import { VirtualizedCombobox, type ComboboxOption } from "../../../components/ui/virtualized-combobox";
 import { QuickAddProductDialog } from "../../products/components/quick-add-product-dialog";
 
@@ -21,22 +22,6 @@ const formatCurrency = (value: number) => {
   }).format(value);
 };
 
-// Calculate total inventory (on-hand stock) - pure function, no component state dependency
-const getTotalInventory = (product: { inventoryByBranch?: Record<string, number> }): number => {
-  if (!product.inventoryByBranch) return 0;
-  const values = Object.values(product.inventoryByBranch) as number[];
-  return values.reduce((sum: number, qty: number) => sum + (qty || 0), 0);
-};
-
-// Calculate available stock (on-hand - committed) - pure function, no component state dependency
-const getAvailableStock = (product: { inventoryByBranch?: Record<string, number>; committedByBranch?: Record<string, number> }): number => {
-  const onHand = getTotalInventory(product);
-  if (!product.committedByBranch) return onHand;
-  const committedValues = Object.values(product.committedByBranch) as number[];
-  const committed: number = committedValues.reduce((sum: number, qty: number) => sum + (qty || 0), 0);
-  return onHand - committed;
-};
-
 export function ProductCombobox({
   value,
   onValueChange,
@@ -44,19 +29,42 @@ export function ProductCombobox({
   className: _className,
   excludeProductIds = [],
 }: ProductComboboxProps) {
-  const { data: activeProducts } = useActiveProducts();
+  const [searchQuery, setSearchQuery] = React.useState('');
   const [showAddDialog, setShowAddDialog] = React.useState(false);
-
-  // Only show active products not yet added - exclude combos (can't import combos)
-  const availableProducts = React.useMemo(() => {
-    return activeProducts.filter((p) => !excludeProductIds.includes(p.systemId) && p.type !== 'combo');
-  }, [excludeProductIds, activeProducts]);
-
-  // Find selected product
-  const selectedProduct = React.useMemo(
-    () => availableProducts.find((p) => p.systemId === value),
-    [availableProducts, value]
-  );
+  const [pendingProductId, setPendingProductId] = React.useState<string | null>(null);
+  
+  // ✅ Use Meilisearch for fast product search
+  // ✅ Infinite scroll support - load more on scroll
+  const {
+    data: searchResult,
+    isLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteMeiliProductSearch({ 
+    query: searchQuery,
+    debounceMs: 150,
+  });
+  
+  // ✅ Fetch full product data when selected from Meilisearch
+  const { data: selectedProduct } = useProduct(pendingProductId ?? value ?? undefined);
+  
+  // When full product is loaded, call onValueChange
+  React.useEffect(() => {
+    if (selectedProduct && pendingProductId) {
+      onValueChange(selectedProduct.systemId);
+      setPendingProductId(null);
+    }
+  }, [selectedProduct, pendingProductId, onValueChange]);
+  
+  // ✅ Filter Meilisearch results (exclude already added and combo products) - flatten pages
+  const searchProducts = React.useMemo(() => {
+    const products = searchResult?.pages.flatMap(page => page.data) || [];
+    return products.filter(p => 
+      !excludeProductIds.includes(p.systemId) && 
+      p.status !== 'combo'
+    );
+  }, [searchResult, excludeProductIds]);
 
   // Convert to ComboboxOption format with "Add new" button at top
   const options: ComboboxOption[] = React.useMemo(() => {
@@ -66,23 +74,19 @@ export function ProductCombobox({
       subtitle: "",
     };
 
-    const productOptions: ComboboxOption[] = availableProducts.map((p) => {
-      const totalStock = getTotalInventory(p);
-      const availableStock = getAvailableStock(p);
+    const productOptions: ComboboxOption[] = searchProducts.map((p) => {
       return {
         value: p.systemId,
         label: p.name,
         subtitle: p.id,
         metadata: {
-          costPrice: p.costPrice,
-          stock: totalStock,
-          availableStock: availableStock,
+          costPrice: p.costPrice || 0,
         }
       } as ComboboxOption;
     });
 
     return [addNewOption, ...productOptions];
-  }, [availableProducts]);
+  }, [searchProducts]);
 
   // Selected value in ComboboxOption format
   const selectedValue: ComboboxOption | null = selectedProduct
@@ -92,8 +96,6 @@ export function ProductCombobox({
         subtitle: selectedProduct.id,
         metadata: {
           costPrice: selectedProduct.costPrice,
-          stock: getTotalInventory(selectedProduct),
-          availableStock: getAvailableStock(selectedProduct),
         }
       } as ComboboxOption)
     : null;
@@ -101,8 +103,9 @@ export function ProductCombobox({
   const handleChange = (option: ComboboxOption | null) => {
     if (option?.value === ADD_NEW_VALUE) {
       setShowAddDialog(true);
-    } else {
-      onValueChange(option?.value || "");
+    } else if (option) {
+      // Set pending product ID to trigger full product fetch
+      setPendingProductId(option.value);
     }
   };
 
@@ -116,10 +119,15 @@ export function ProductCombobox({
         value={selectedValue}
         onChange={handleChange}
         options={options}
+        onSearchChange={setSearchQuery}
+        isLoading={isLoading || !!pendingProductId}
         placeholder={placeholder}
         searchPlaceholder="Tìm kiếm tên, mã SKU, Barcode..."
         emptyPlaceholder="Không tìm thấy sản phẩm"
         estimatedItemHeight={64}
+        onLoadMore={() => fetchNextPage()}
+        hasMore={hasNextPage}
+        isLoadingMore={isFetchingNextPage}
         renderOption={(option, isSelected) => {
           // Special render for "Add new" button
           if (option.value === ADD_NEW_VALUE) {
@@ -131,11 +139,11 @@ export function ProductCombobox({
             );
           }
 
-          // Normal product render - giống bulk selector
-          const meta = (option as { metadata?: { stock?: number; unitName?: string; costPrice?: number; availableStock?: number } }).metadata;
+          // Normal product render - simplified for Meilisearch
+          const meta = (option as { metadata?: { costPrice?: number } }).metadata;
           return (
             <div className="flex items-start gap-3 flex-1 min-w-0">
-              <div className="w-10 h-9 flex-shrink-0 bg-muted rounded flex items-center justify-center">
+              <div className="w-10 h-9 shrink-0 bg-muted rounded flex items-center justify-center">
                 <Package className="h-5 w-5 text-muted-foreground" />
               </div>
               <div className="flex-1 min-w-0 flex items-center justify-between gap-4">
@@ -146,21 +154,15 @@ export function ProductCombobox({
                   )}
                 </div>
                 {meta && (
-                  <div className="text-body-xs text-right space-y-0.5 flex-shrink-0">
+                  <div className="text-body-xs text-right shrink-0">
                     <p className="text-muted-foreground">
                       Giá: <span className="font-medium text-foreground">{formatCurrency(meta.costPrice ?? 0)}</span>
-                    </p>
-                    <p className="text-muted-foreground">
-                      Tồn: <span className="font-medium text-foreground">{meta.stock}</span> | 
-                      Có thể bán: <span className={`font-medium ${(meta.availableStock ?? 0) > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {meta.availableStock}
-                      </span>
                     </p>
                   </div>
                 )}
               </div>
               {isSelected && (
-                <svg className="h-4 w-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <svg className="h-4 w-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                 </svg>
               )}

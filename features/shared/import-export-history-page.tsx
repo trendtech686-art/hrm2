@@ -25,9 +25,11 @@ import {
 import { Input } from "../../components/ui/input"
 import { Label } from "../../components/ui/label"
 import type { ColumnDef } from '../../components/data-table/types';
-import { toast } from "sonner"
 import { 
-  useImportExportStore,
+  useImportExportLogs,
+  useImportExportLogsMutations,
+} from '../../lib/import-export/hooks/use-import-export-logs';
+import {
   type ImportLogEntry,
   type ExportLogEntry,
   formatFileSize,
@@ -122,16 +124,14 @@ function transformStoreLogs(
 export function ImportExportHistoryPage() {
   const _router = useRouter();
   
-  // Get logs from store
-  const importLogs = useImportExportStore(state => state.importLogs)
-  const exportLogs = useImportExportStore(state => state.exportLogs)
-  const deleteLog = useImportExportStore(state => state.deleteLog)
-  const clearLogs = useImportExportStore(state => state.clearLogs)
+  // Get logs from React Query
+  const { data: logsData } = useImportExportLogs();
+  const { remove: removeLogMutation, clear: clearLogsMutation } = useImportExportLogsMutations();
   
   // Transform store logs to display format
   const logs = React.useMemo(() => 
-    transformStoreLogs(importLogs, exportLogs),
-    [importLogs, exportLogs]
+    transformStoreLogs(logsData?.importLogs ?? [], logsData?.exportLogs ?? []),
+    [logsData?.importLogs, logsData?.exportLogs]
   )
   
   // Filters
@@ -159,8 +159,7 @@ export function ImportExportHistoryPage() {
         size="sm"
         onClick={() => {
           if (confirm('Bạn có chắc muốn xóa tất cả lịch sử?')) {
-            clearLogs()
-            toast.success('Đã xóa tất cả lịch sử')
+            clearLogsMutation.mutate(undefined)
           }
         }}
       >
@@ -231,8 +230,7 @@ export function ImportExportHistoryPage() {
   // Actions
   const handleDelete = (systemId: string, action: 'import' | 'export') => {
     if (confirm('Bạn có chắc muốn xóa log này?')) {
-      deleteLog(systemId, action)
-      toast.success('Đã xóa log')
+      removeLogMutation.mutate({ id: systemId, type: action });
     }
   }
 

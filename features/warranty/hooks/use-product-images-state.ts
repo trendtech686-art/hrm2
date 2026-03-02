@@ -69,6 +69,7 @@ export function useProductImagesState(
 
   // Handler - update staging files for a product
   const handleStagingFilesChange = React.useCallback((productSystemId: string, files: StagingFile[]) => {
+    console.log('[PRODUCT IMAGES] Staging files changed:', { productSystemId, filesCount: files.length, files });
     setProductStagingFiles(prev => ({
       ...prev,
       [productSystemId]: files,
@@ -77,6 +78,7 @@ export function useProductImagesState(
 
   // Handler - update session ID for a product
   const handleSessionChange = React.useCallback((productSystemId: string, sessionId: string) => {
+    console.log('[PRODUCT IMAGES] Session changed:', { productSystemId, sessionId });
     setProductSessionIds(prev => ({
       ...prev,
       [productSystemId]: sessionId,

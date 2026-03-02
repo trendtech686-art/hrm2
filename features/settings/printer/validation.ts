@@ -30,7 +30,7 @@ export const templateTypeSchema = z.enum([
   'attendance',
 ]);
 
-export const paperSizeSchema = z.enum(['A4', 'A5', 'A6', 'K80', 'K57']);
+export const paperSizeSchema = z.enum(['A4', 'A5', 'A6', 'K80', 'K57', '50x30']);
 
 // =============================================
 // PRINT TEMPLATE SCHEMAS

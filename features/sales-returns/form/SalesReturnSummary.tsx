@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import * as React from 'react';
 import { useParams } from 'next/navigation';
@@ -22,37 +22,26 @@ import { useAllPaymentMethods } from '@/features/settings/payments/hooks/use-all
 
 import { formatCurrency, type FormValues } from './types';
 
-export const SalesReturnSummary = () => {
+export const SalesReturnSummary = React.memo(function SalesReturnSummary() {
   const { control, setValue, getValues } = useFormContext<FormValues>();
   const { systemId } = useParams<{ systemId: string }>();
+  
+  // Ref for shipping fee input focus
+  const shippingFeeInputRef = React.useRef<HTMLInputElement>(null);
 
-  // Watch everything needed for calculations
-  const watchedReturnItemsRaw = useWatch({ control, name: 'items' });
-  const watchedExchangeItemsRaw = useWatch({ control, name: 'exchangeItems' });
-  const watchedPaymentsRaw = useWatch({ control, name: 'payments' });
-  const watchedRefundsRaw = useWatch({ control, name: 'refunds' });
-
-  // Memoize to prevent new array reference on each render
-  const watchedReturnItems = React.useMemo(
-    () => watchedReturnItemsRaw || [],
-    [watchedReturnItemsRaw]
-  );
-  const watchedExchangeItems = React.useMemo(
-    () => watchedExchangeItemsRaw || [],
-    [watchedExchangeItemsRaw]
-  );
-  const watchedPayments = React.useMemo(
-    () => watchedPaymentsRaw || [],
-    [watchedPaymentsRaw]
-  );
-  const watchedRefunds = React.useMemo(
-    () => watchedRefundsRaw || [],
-    [watchedRefundsRaw]
-  );
-  const watchedOrderDiscount = useWatch({ control, name: 'orderDiscount' }) || 0;
-  const watchedOrderDiscountType =
-    useWatch({ control, name: 'orderDiscountType' }) || 'fixed';
-  const watchedShippingFee = useWatch({ control, name: 'shippingFee' }) || 0;
+  // ✅ Optimized: Watch all form values at once instead of multiple useWatch calls
+  const watchedValues = useWatch({ control });
+  
+  // Destructure watched values with memoization
+  const { 
+    items: watchedReturnItems = [], 
+    exchangeItems: watchedExchangeItems = [],
+    payments: watchedPayments = [],
+    refunds: watchedRefunds = [],
+    orderDiscount: watchedOrderDiscount = 0,
+    orderDiscountType: watchedOrderDiscountType = 'fixed',
+    shippingFee: watchedShippingFee = 0,
+  } = watchedValues;
 
   // Stores
   const { findById: findOrder } = useOrderFinder();
@@ -72,7 +61,21 @@ export const SalesReturnSummary = () => {
   );
 
   const subtotalExchangeValue = React.useMemo(
-    () => (watchedExchangeItems || []).reduce((sum, item) => sum + item.total, 0),
+    () => (watchedExchangeItems || []).reduce((sum, item) => {
+      // ✅ Calculate total inline instead of using item.total (which may not update reactively)
+      const quantity = Number(item.quantity) || 0;
+      const unitPrice = Number(item.unitPrice) || 0;
+      const discount = Number(item.discount) || 0;
+      const discountType = item.discountType || 'fixed';
+      
+      const lineGross = unitPrice * quantity;
+      const discountAmount = discountType === 'percentage' 
+        ? (lineGross * discount) / 100 
+        : discount;
+      const lineTotal = lineGross - discountAmount;
+      
+      return sum + lineTotal;
+    }, 0),
     [watchedExchangeItems]
   );
 
@@ -88,22 +91,29 @@ export const SalesReturnSummary = () => {
   const finalAmount = totalExchangeValue - totalReturnValue;
   const isRefunding = finalAmount < 0;
 
-  // Side effects
-  const prevFinalAmountRef = React.useRef<number>(finalAmount);
+  // ✅ Calculate total paid in form (from payments array)
+  const totalPaidInForm = React.useMemo(() => {
+    return (watchedPayments || []).reduce((sum, p) => sum + (p.amount || 0), 0);
+  }, [watchedPayments]);
+
+  // ✅ COD = finalAmount - đã thanh toán (số tiền khách còn phải trả khi nhận hàng)
+  const codAmount = React.useMemo(() => {
+    if (finalAmount <= 0) return 0;
+    return Math.max(0, finalAmount - totalPaidInForm);
+  }, [finalAmount, totalPaidInForm]);
+
+  // Side effects - update form values when codAmount changes
+  const prevCodRef = React.useRef<{ finalAmount: number; codAmount: number }>({ finalAmount, codAmount });
   React.useEffect(() => {
-    if (prevFinalAmountRef.current !== finalAmount) {
-      if (finalAmount > 0) {
-        setValue('packageInfo.codAmount' as keyof FormValues, finalAmount, {
-          shouldDirty: false,
-        });
-        setValue('grandTotal', finalAmount, { shouldDirty: false });
-      } else {
-        setValue('packageInfo.codAmount' as keyof FormValues, 0, { shouldDirty: false });
-        setValue('grandTotal', 0, { shouldDirty: false });
-      }
-      prevFinalAmountRef.current = finalAmount;
+    const prev = prevCodRef.current;
+    if (prev.finalAmount !== finalAmount || prev.codAmount !== codAmount) {
+      setValue('packageInfo.codAmount' as keyof FormValues, codAmount, {
+        shouldDirty: false,
+      });
+      setValue('grandTotal', finalAmount > 0 ? finalAmount : 0, { shouldDirty: false });
+      prevCodRef.current = { finalAmount, codAmount };
     }
-  }, [finalAmount, setValue]);
+  }, [finalAmount, codAmount, setValue]);
 
   const totalPaidOnOriginalOrder = React.useMemo(() => {
     if (!order) return 0;
@@ -170,7 +180,7 @@ export const SalesReturnSummary = () => {
   // ============================================================================
 
   const renderRefundMethodRow = (
-    refund: { method: string; accountSystemId: string; amount: number },
+    refund: { method?: string; accountSystemId?: string; amount?: number },
     index: number
   ) => {
     const selectedMethod = refund?.method || '';
@@ -285,7 +295,7 @@ export const SalesReturnSummary = () => {
   };
 
   const renderPaymentMethodRow = (
-    payment: { method: string; accountSystemId: string; amount: number },
+    payment: { method?: string; accountSystemId?: string; amount?: number },
     index: number
   ) => {
     const selectedMethod = payment?.method || '';
@@ -408,10 +418,10 @@ export const SalesReturnSummary = () => {
       {/* Row 5: Layout 2 cột - Ghi chú/Tags + Thanh toán */}
       <div className="flex flex-col md:flex-row gap-4 items-start">
         {/* Left: Ghi chú và Tags */}
-        <div className="flex-grow-[6] w-full md:w-0 space-y-4">
+        <div className="grow-6 w-full md:w-0 space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="text-h4">Ghi chú đơn hàng</CardTitle>
+              <CardTitle>Ghi chú đơn hàng</CardTitle>
             </CardHeader>
             <CardContent>
               <FormField
@@ -435,7 +445,7 @@ export const SalesReturnSummary = () => {
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-h4">Tags</CardTitle>
+              <CardTitle>Tags</CardTitle>
             </CardHeader>
             <CardContent>
               <FormField
@@ -458,10 +468,10 @@ export const SalesReturnSummary = () => {
         </div>
 
         {/* Right: Thanh toán */}
-        <div className="flex-grow-[4] w-full md:w-0">
+        <div className="grow-4 w-full md:w-0">
           <Card>
             <CardHeader>
-              <CardTitle className="text-h4">Thanh toán</CardTitle>
+              <CardTitle>Thanh toán</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex justify-between text-body-sm">
@@ -480,7 +490,9 @@ export const SalesReturnSummary = () => {
                     size="icon"
                     className="h-8 w-8"
                     onClick={() => {
-                      // Logic thêm phí sẽ được implement sau
+                      // Focus vào input phí giao hàng
+                      shippingFeeInputRef.current?.focus();
+                      shippingFeeInputRef.current?.select();
                     }}
                   >
                     <PlusCircle className="h-4 w-4" />
@@ -491,6 +503,7 @@ export const SalesReturnSummary = () => {
                   name="shippingFee"
                   render={({ field }) => (
                     <CurrencyInput
+                      ref={shippingFeeInputRef}
                       value={(field.value as number) || 0}
                       onChange={field.onChange}
                       className="h-9 w-40 text-right"
@@ -548,7 +561,7 @@ export const SalesReturnSummary = () => {
       {/* Row 6: Thanh toán - LUÔN HIỂN THỊ */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-h4">
+          <CardTitle>
             {finalAmount < 0
               ? 'Hoàn tiền'
               : finalAmount > 0
@@ -776,4 +789,4 @@ export const SalesReturnSummary = () => {
       </Card>
     </>
   );
-};
+});

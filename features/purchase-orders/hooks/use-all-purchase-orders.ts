@@ -5,19 +5,37 @@
  */
 
 import * as React from 'react';
-import { usePurchaseOrders } from './use-purchase-orders';
+import { useQuery } from '@tanstack/react-query';
+import { fetchAllPages } from '@/lib/fetch-all-pages';
+import { fetchPurchaseOrders } from '../api/purchase-orders-api';
+import { purchaseOrderKeys } from './use-purchase-orders';
 import type { PurchaseOrder } from '@/lib/types/prisma-extended';
 import type { SystemId } from '@/lib/id-types';
+
+/**
+ * Options for useAllPurchaseOrders hook
+ * @property enabled - Whether to fetch data (default: true). Set to false for lazy loading
+ */
+export interface UseAllPurchaseOrdersOptions {
+  enabled?: boolean;
+}
 
 /**
  * Returns all purchase orders as a flat array
  * Compatible with legacy store pattern: { data: orders }
  */
-export function useAllPurchaseOrders() {
-  const query = usePurchaseOrders({ limit: 500 });
+export function useAllPurchaseOrders(options: UseAllPurchaseOrdersOptions = {}) {
+  const { enabled = true } = options;
+  const query = useQuery({
+    queryKey: [...purchaseOrderKeys.all, 'all'],
+    queryFn: () => fetchAllPages((p) => fetchPurchaseOrders(p)),
+    staleTime: 10 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+    enabled,
+  });
   
   return {
-    data: query.data?.data || [],
+    data: query.data || [],
     isLoading: query.isLoading,
     isError: query.isError,
     error: query.error,

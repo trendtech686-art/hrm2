@@ -11,8 +11,12 @@ export interface ComplaintsParams {
   limit?: number;
   search?: string;
   status?: string;
+  type?: string;
+  assignedTo?: string;
   customerId?: string;
   orderId?: string;
+  orderSystemId?: string;
+  branchId?: string;
   startDate?: string;
   endDate?: string;
   sortBy?: string;

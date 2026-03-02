@@ -96,11 +96,11 @@ export function mapProductToLabelPrintData(
   overrides: Partial<ProductLabelForPrint> = {},
 ): PrintData {
   const firstPrice = Object.values(product.prices || {})[0];
-  const resolvedPrice = overrides.price ?? product.sellingPrice ?? firstPrice;
+  const resolvedPrice = overrides.price ?? firstPrice;
 
   return mapProductLabelToPrintData(
     {
-      sku: overrides.sku || product.id || product.sku || '',
+      sku: overrides.sku || product.id || '',
       name: overrides.name || product.name,
       nameVat: overrides.nameVat || product.nameVat || product.name,
       unit: overrides.unit || product.unit,

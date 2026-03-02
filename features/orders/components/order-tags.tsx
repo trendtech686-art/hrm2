@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
 import { X } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -40,7 +40,7 @@ export function OrderTags({ disabled = false }: OrderTagsProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Tags</CardTitle>
+        <CardTitle>Tags</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         <Input

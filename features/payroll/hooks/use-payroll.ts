@@ -3,14 +3,11 @@
  * Provides data fetching and mutations for payroll management
  */
 
-import * as React from 'react';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { fetchAllPages } from '@/lib/fetch-all-pages';
 import {
   fetchPayrolls,
   fetchPayrollById,
-  createPayroll,
-  updatePayroll,
-  deletePayroll,
   lockPayroll,
   cancelPayroll,
   fetchPayslips,
@@ -32,6 +29,11 @@ import {
   type PayrollTemplateFilters,
   type PayrollTemplate,
 } from '../api/payroll-api';
+import {
+  createPayrollAction,
+  updatePayrollAction,
+  deletePayrollAction,
+} from '@/app/actions/payroll';
 import {
   createBatchWithPayslips,
   updateBatchStatus as updateBatchStatusAPI,
@@ -117,7 +119,11 @@ export function usePayrollMutations(options: MutationCallbacks = {}) {
   };
 
   const create = useMutation({
-    mutationFn: (data: PayrollCreateInput) => createPayroll(data),
+    mutationFn: async (data: PayrollCreateInput) => {
+      const result = await createPayrollAction(data as Parameters<typeof createPayrollAction>[0]);
+      if (!result.success) throw new Error(result.error || 'Failed to create payroll');
+      return result.data;
+    },
     onSuccess: () => {
       invalidatePayroll();
       options.onSuccess?.();
@@ -126,8 +132,11 @@ export function usePayrollMutations(options: MutationCallbacks = {}) {
   });
 
   const update = useMutation({
-    mutationFn: ({ systemId, data }: { systemId: string; data: PayrollUpdateInput }) =>
-      updatePayroll(systemId, data),
+    mutationFn: async ({ systemId, data }: { systemId: string; data: PayrollUpdateInput }) => {
+      const result = await updatePayrollAction({ systemId, ...data } as Parameters<typeof updatePayrollAction>[0]);
+      if (!result.success) throw new Error(result.error || 'Failed to update payroll');
+      return result.data;
+    },
     onSuccess: () => {
       invalidatePayroll();
       options.onSuccess?.();
@@ -136,7 +145,11 @@ export function usePayrollMutations(options: MutationCallbacks = {}) {
   });
 
   const remove = useMutation({
-    mutationFn: (systemId: string) => deletePayroll(systemId),
+    mutationFn: async (systemId: string) => {
+      const result = await deletePayrollAction(systemId);
+      if (!result.success) throw new Error(result.error || 'Failed to delete payroll');
+      return result.data;
+    },
     onSuccess: () => {
       invalidatePayroll();
       options.onSuccess?.();
@@ -197,7 +210,7 @@ export function usePayslips(filters: PayslipFilters = {}) {
 export function usePayslipsByBatch(batchId: string | undefined) {
   return useQuery({
     queryKey: payslipKeys.byBatch(batchId!),
-    queryFn: () => fetchPayslips({ batchId: batchId!, limit: 200 }),
+    queryFn: () => fetchPayslips({ batchId: batchId! }),
     enabled: !!batchId,
     staleTime: 1000 * 60,
     placeholderData: keepPreviousData,
@@ -380,7 +393,6 @@ export function useCurrentMonthPayroll() {
 export function useEmployeePayslips(employeeId: string | undefined) {
   return usePayslips({
     employeeId: employeeId || '',
-    limit: 12, // Last 12 months
   });
 }
 
@@ -509,19 +521,53 @@ export function usePayrollTemplateExtended(options: MutationCallbacks = {}) {
 // ============== Convenience Hooks ==============
 
 /**
+ * Hook for lightweight summary card data (server-side aggregation)
+ * Replaces useAllPayrollBatches() for dashboard summary cards
+ * Supports initialData from server-side prefetch for instant display
+ */
+export function usePayrollStats(initialData?: Record<string, unknown>) {
+  return useQuery({
+    queryKey: [...payrollKeys.all, 'stats'],
+    queryFn: () => import('../api/payroll-api').then(m => m.fetchPayrollStats()),
+    staleTime: 1000 * 60 * 2,
+    gcTime: 10 * 60 * 1000,
+    initialData: initialData as Awaited<ReturnType<typeof import('../api/payroll-api').fetchPayrollStats>> | undefined,
+    initialDataUpdatedAt: initialData ? Date.now() : undefined,
+  });
+}
+
+/**
  * Hook to fetch all batches as flat array
+ * Uses auto-pagination to fetch ALL pages (§1.3 compliant)
  */
 export function useAllPayrollBatches() {
-  const { data, ...rest } = usePayrolls({ limit: 1000 });
-  const batches = React.useMemo(() => data?.data ?? [], [data?.data]);
-  return { data: batches, ...rest };
+  const query = useQuery({
+    queryKey: [...payrollKeys.all, 'all-batches'],
+    queryFn: () => fetchAllPages((p) => fetchPayrolls(p)),
+    staleTime: 2 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+  });
+  return { ...query, data: query.data ?? [] };
+}
+
+/**
+ * Hook to fetch payroll batches with server-side pagination
+ * Alias for usePayrolls with proper return structure
+ */
+export function usePayrollBatches(filters: PayrollFilters = {}) {
+  return usePayrolls(filters);
 }
 
 /**
  * Hook to fetch all payslips as flat array
+ * Uses auto-pagination to fetch ALL pages (§1.3 compliant)
  */
 export function useAllPayslips() {
-  const { data, ...rest } = usePayslips({ limit: 1000 });
-  const payslips = React.useMemo(() => data?.data ?? [], [data?.data]);
-  return { data: payslips, ...rest };
+  const query = useQuery({
+    queryKey: [...payrollKeys.all, 'all-payslips'],
+    queryFn: () => fetchAllPages((p) => fetchPayslips(p)),
+    staleTime: 2 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+  });
+  return { ...query, data: query.data ?? [] };
 }

@@ -52,11 +52,12 @@ export async function PATCH(
   const { systemId } = await params;
   try {
     const body = await request.json();
-    const { name, description, color, isDefault, isActive, orderIndex, ...rest } = body;
+    const { id, name, description, color, isDefault, isActive, orderIndex, ...rest } = body;
 
     const setting = await prisma.customerSetting.update({
       where: { systemId },
       data: {
+        ...(id !== undefined && { id }),
         ...(name !== undefined && { name }),
         ...(description !== undefined && { description }),
         ...(color !== undefined && { color }),

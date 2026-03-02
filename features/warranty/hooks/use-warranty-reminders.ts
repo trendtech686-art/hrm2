@@ -5,10 +5,11 @@
  */
 
 import { useState, useCallback } from 'react';
-import { updateWarranty } from '../api/warranties-api';
+import { updateWarrantyAction } from '@/app/actions/warranty';
 import type { WarrantyTicket } from '../types';
 import { notifyWarrantyReminder } from '../notification-utils';
 import { useWarrantyReminderTemplates, DEFAULT_WARRANTY_REMINDER_TEMPLATES } from '../../../hooks/use-reminder-settings';
+import { generateSubEntityId } from '../../../lib/id-utils';
 
 export interface ReminderTemplate {
   id: string;
@@ -103,7 +104,7 @@ export function useWarrantyReminders() {
       const message = customMessage || formatReminderMessage(template.message, ticket);
 
       const _reminder: WarrantyReminder = {
-        id: `reminder_${Date.now()}`,
+        id: generateSubEntityId('REMINDER'),
         ticketSystemId: ticket.systemId,
         ticketId: ticket.id,
         templateId,
@@ -114,20 +115,16 @@ export function useWarrantyReminders() {
         status: 'sent',
       };
 
-      // Store reminder via API update
-      await updateWarranty(ticket.systemId, {
-        history: [
-          ...(ticket.history || []),
-          {
-            systemId: `WH_${Date.now()}_${Math.random().toString(36).substr(2, 9)}` as any,
-            action: 'reminder_sent',
-            actionLabel: 'Gửi nhắc nhở',
-            performedBy: 'current_user',
-            performedAt: new Date().toISOString(),
-            note: message,
-          }
-        ]
+      // Store reminder via Server Action
+      const result = await updateWarrantyAction({
+        systemId: ticket.systemId,
+        // Note: history update should be done via dedicated action
+        note: `[Reminder] ${message}`,
       });
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to update warranty');
+      }
 
       // Send notification
       notifyWarrantyReminder(ticket.id, message);

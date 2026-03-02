@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react';
 import { useParams } from 'next/navigation';
@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 import { Edit2, MessageSquare, Printer, XCircle, Bell, Clock, AlertCircle, Copy } from 'lucide-react';
 // formatDate import removed - not used
 import { cn } from '../../lib/utils';
-import type { WarrantyTicket } from './types';
+import type { WarrantyTicket, WarrantyHistory } from './types';
 import { WARRANTY_STATUS_LABELS, WARRANTY_STATUS_COLORS } from './types';
 import { useWarrantyMutations } from './hooks/use-warranties';
 import { useWarranty } from './hooks/use-warranties';
@@ -54,7 +54,7 @@ import { ROUTES, generatePath } from '../../lib/router';
 import { WarrantyCommentsSection } from './components/sections/comments-section';
 import { WarrantyHistorySection } from './components/sections/history-section';
 
-import { useAllOrders } from '../orders/hooks/use-all-orders';
+import { useOrder } from '../orders/hooks/use-orders';
 import { asSystemId } from '@/lib/id-types';
 import { usePrint } from '../../lib/use-print';
 import { 
@@ -136,7 +136,7 @@ export function WarrantyDetailPage() {
   const addHistory = React.useCallback((systemId: string, entry: unknown) => {
     // This would need the current ticket's history array
     if (!ticket?.history) return;
-    const newHistory = [...(ticket.history as any[]), entry] as any[];
+    const newHistory = [...ticket.history, entry as WarrantyHistory];
     updateMutation.mutate({ systemId, data: { history: newHistory } });
   }, [ticket?.history, updateMutation]);
 
@@ -144,7 +144,8 @@ export function WarrantyDetailPage() {
   const totalSettlementAmount = settlement.totalPayment;
   const settlementState = settlement.processingState;
 
-  const { data: orders } = useAllOrders();
+  // ⚡ OPTIMIZED: Fetch only the linked order instead of all orders
+  const { data: linkedOrder } = useOrder(ticket?.linkedOrderSystemId);
 
   const [showCancelDialog, setShowCancelDialog] = React.useState(false);
   const [showReopenDialog, setShowReopenDialog] = React.useState(false);
@@ -153,11 +154,6 @@ export function WarrantyDetailPage() {
   const [previewImages, setPreviewImages] = React.useState<string[]>([]);
   const [previewIndex, setPreviewIndex] = React.useState(0);
   const [showImagePreview, setShowImagePreview] = React.useState(false);
-
-  const linkedOrder = React.useMemo(() => {
-    if (!ticket?.linkedOrderSystemId) return undefined;
-    return orders.find((order) => order.systemId === ticket.linkedOrderSystemId);
-  }, [orders, ticket?.linkedOrderSystemId]);
 
   const {
     isOpen: isReturnDialogOpen,
@@ -179,7 +175,6 @@ export function WarrantyDetailPage() {
   } = useReturnMethodDialog({
     ticket,
     linkedOrder,
-    orders,
     currentUserName: currentUser.name,
   });
 
@@ -239,7 +234,7 @@ export function WarrantyDetailPage() {
   } = useWarrantyReminders();
 
   const responseTemplates = React.useMemo(() => RESPONSE_TEMPLATES, []);
-  const isReturned = ticket?.status === 'returned';
+  const isReturned = ticket?.status === 'RETURNED';
 
   const { findById: findBranchById } = useBranchFinder();
   const { info: storeInfo } = useStoreInfoData();
@@ -339,8 +334,8 @@ export function WarrantyDetailPage() {
       );
     } else {
       // Normal status flow buttons
-      if (ticket?.status === 'incomplete') {
-        // Show primary "Cập nhật thông tin" button for incomplete status
+      if (ticket?.status === 'RECEIVED') {
+        // Show primary "Bắt đầu xử lý" button for RECEIVED status
         actionButtons.push(
           <Button 
             key="complete-info"
@@ -348,9 +343,7 @@ export function WarrantyDetailPage() {
             variant="default"
             className="h-9"
             onClick={() => {
-              if (ticket) {
-                addHistory(ticket.systemId, { action: 'Cập nhật thông tin sản phẩm bảo hành', performedBy: currentUser.name } as any);
-              }
+              // Navigate to update page (history will be logged on actual save)
               router.push(`/warranty/${systemId}/update`);
             }}
           >
@@ -359,14 +352,14 @@ export function WarrantyDetailPage() {
           </Button>
         );
       }
-      if (ticket?.status === 'pending') {
+      if (ticket?.status === 'PROCESSING') {
         actionButtons.push(
-          <Button key="to-processed" size="sm" variant="outline" className="h-9" onClick={() => handleStatusChange('processed')}>
-            Đánh dấu Đã xử lý
+          <Button key="to-completed" size="sm" variant="outline" className="h-9" onClick={() => handleStatusChange('COMPLETED')}>
+            Đánh dấu Hoàn tất
           </Button>
         );
       }
-      if (ticket?.status === 'processed' || ticket?.status === 'returned') {
+      if (ticket?.status === 'COMPLETED' || ticket?.status === 'RETURNED') {
         actionButtons.push(
           <Button 
             key="to-returned" 
@@ -375,12 +368,12 @@ export function WarrantyDetailPage() {
             className="h-9"
             onClick={openReturnDialog}
           >
-            {ticket?.status === 'returned' ? 'Cập nhật trả hàng' : 'Đã trả hàng cho khách'}
+            {ticket?.status === 'RETURNED' ? 'Cập nhật trả hàng' : 'Đã trả hàng cho khách'}
           </Button>
         );
       }
-      if (ticket?.status === 'returned') {
-        // Show "Kết thúc" button - no validation, just allow completion
+      if (ticket?.status === 'RETURNED') {
+        // Show "Kết thúc" button - ticket already returned to customer
         actionButtons.push(
           <Button 
             key="complete" 
@@ -395,8 +388,8 @@ export function WarrantyDetailPage() {
         );
       }
       
-      if (ticket?.status === 'completed') {
-        // If completed, show "Mở lại" to go back to returned
+      if (ticket?.status === 'CANCELLED') {
+        // If cancelled via completion, show "Mở lại"
         actionButtons.push(
           <Button 
             key="reopen-from-completed" 
@@ -421,9 +414,8 @@ export function WarrantyDetailPage() {
           variant="outline"
           className="h-9"
           onClick={() => {
-            if (ticket) {
-              addHistory(ticket.systemId, { action: 'Mở chế độ chỉnh sửa', performedBy: currentUser.name } as any);
-            }
+            // Navigate directly to edit page without logging history
+            // (history logging will happen when user saves changes)
             router.push(`/warranty/${systemId}/edit`);
           }}
         >
@@ -433,9 +425,8 @@ export function WarrantyDetailPage() {
       );
     }
 
-    // Cancel button - only show if not already cancelled or completed (RIGHT SIDE)
-    // Allow cancelling at any status except completed
-    if (!ticket?.cancelledAt && ticket?.status !== 'completed') {
+    // Cancel button - only show if not already cancelled (RIGHT SIDE)
+    if (!ticket?.cancelledAt && ticket?.status !== 'CANCELLED') {
       actionButtons.push(
         <Button
           key="cancel"
@@ -452,7 +443,7 @@ export function WarrantyDetailPage() {
     }
 
     return actionButtons;
-  }, [ticket, systemId, isReturned, currentUser.name, router, addHistory, handleStatusChange, handleCompleteTicket, openReminderModal, isCompletingTicket, handlePrint, openReturnDialog]);
+  }, [ticket, systemId, isReturned, router, handleStatusChange, handleCompleteTicket, openReminderModal, isCompletingTicket, handlePrint, openReturnDialog]);
 
   // Page header - title auto-generated from breadcrumb, Badge below title
   const statusBadge = ticket ? (
@@ -504,9 +495,7 @@ export function WarrantyDetailPage() {
       size="sm"
       variant="outline"
       onClick={() => {
-        if (ticket) {
-          addHistory(ticket.systemId, { action: 'In phiếu bảo hành', performedBy: currentUser.name } as any);
-        }
+        // Just print without logging history (print action doesn't need tracking)
         window.print();
       }}
       className="h-9"
@@ -515,7 +504,7 @@ export function WarrantyDetailPage() {
       In
     </Button>,
     ...actions.filter(a => a.key !== 'print' && a.key !== 'get-link'),
-  ], [actions, ticket, addHistory, currentUser.name]);
+  ], [actions]);
   
   const headerTitle = ticket ? `Phiếu bảo hành ${ticket.id}` : 'Chi tiết phiếu bảo hành';
 
@@ -564,10 +553,10 @@ export function WarrantyDetailPage() {
 
   return (
     <div className="h-full flex flex-col">
-        <ScrollArea className="flex-grow">
+        <ScrollArea className="grow">
           <div className="pr-4 space-y-4">
-            {/* Warning Banner for Incomplete Status */}
-            {ticket?.status === 'incomplete' && (
+            {/* Warning Banner - Show only when RECEIVED status AND no products */}
+            {ticket?.status === 'RECEIVED' && (!ticket.products || (ticket.products as unknown[]).length === 0) && (
               <div className="bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-900 rounded-lg p-4">
                 <div className="flex items-start gap-3">
                   <AlertCircle className="h-5 w-5 text-orange-600 mt-0.5" />
@@ -576,7 +565,7 @@ export function WarrantyDetailPage() {
                       Phiếu chưa đầy đủ thông tin
                     </h3>
                     <p className="text-body-sm text-orange-800 dark:text-orange-200">
-                      Vui lòng cập nhật <strong>Danh sách sản phẩm bảo hành</strong> để chuyển sang trạng thái "Chưa xử lý" và tiếp tục xử lý phiếu.
+                      Vui lòng cập nhật <strong>Danh sách sản phẩm bảo hành</strong> để chuyển sang trạng thái "Đang xử lý" và tiếp tục xử lý phiếu.
                     </p>
                   </div>
                 </div>
@@ -617,7 +606,6 @@ export function WarrantyDetailPage() {
                   branchName={ticket.branchName}
                   ticket={ticket}
                   settlement={settlement}
-                  orders={orders}
                 />
 
                 <CustomerInfoCard ticket={ticket} />
@@ -653,17 +641,17 @@ export function WarrantyDetailPage() {
             {/* ===== ROW 3: Products Table (with integrated summary) ===== */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-h4">Danh sách sản phẩm bảo hành</CardTitle>
+                <CardTitle>Danh sách sản phẩm bảo hành</CardTitle>
               </CardHeader>
               <CardContent>
-                <WarrantyProductsDetailTable products={ticket.products} ticket={ticket} />
+                <WarrantyProductsDetailTable products={ticket.products || []} ticket={ticket} />
               </CardContent>
             </Card>
 
             {/* ===== ROW 4: Notes ===== */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-h4">Ghi chú</CardTitle>
+                <CardTitle>Ghi chú</CardTitle>
               </CardHeader>
               <CardContent>
                 {ticket.notes ? (
@@ -751,7 +739,7 @@ export function WarrantyDetailPage() {
               <Card key={template.id} className="hover:shadow-md transition-shadow">
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
-                    <CardTitle className="text-h4">{template.name}</CardTitle>
+                    <CardTitle>{template.name}</CardTitle>
                     <Button
                       size="sm"
                       variant="outline"

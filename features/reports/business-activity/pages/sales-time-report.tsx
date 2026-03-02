@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Sales Time Report Page
  * 
  * Báo cáo hoạt động kinh doanh - Bán hàng theo thời gian
@@ -384,7 +384,7 @@ export function SalesTimeReportPage() {
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-base font-medium">
+            <CardTitle>
               Chi tiết theo {timeGrouping === 'day' ? 'ngày' : timeGrouping === 'week' ? 'tuần' : timeGrouping === 'month' ? 'tháng' : timeGrouping}
             </CardTitle>
             <Button variant="outline" size="sm">

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
@@ -24,9 +24,10 @@ import {
 } from '../../lib/print/receipt-print-helper';
 import { useComments } from '../../hooks/use-comments';
 
-const formatCurrency = (value?: number) => {
-  if (typeof value !== 'number') return '0';
-  return new Intl.NumberFormat('vi-VN').format(value);
+const formatCurrency = (value?: number | string | null) => {
+  const num = Number(value);
+  if (isNaN(num)) return '0';
+  return new Intl.NumberFormat('vi-VN').format(num);
 };
 
 const getStatusBadge = (status?: string) => {
@@ -59,7 +60,11 @@ export function ReceiptDetailPage() {
     const storeSettings = createStoreSettings(storeInfo);
     const forPrint = convertReceiptForPrint(receipt);
     
-    print('receipt', { data: mapReceiptToPrintData(forPrint, storeSettings) });
+    print('receipt', { 
+      data: mapReceiptToPrintData(forPrint, storeSettings),
+      entityType: 'receipt',
+      entityId: receipt.systemId,
+    });
   }, [receipt, storeInfo, print]);
 
   // Get current employee for comments
@@ -226,7 +231,7 @@ export function ReceiptDetailPage() {
       {/* Thông tin phiếu thu */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-h6 font-semibold">Thông tin phiếu thu</CardTitle>
+          <CardTitle>Thông tin phiếu thu</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
           {/* Số tiền */}
@@ -327,7 +332,7 @@ export function ReceiptDetailPage() {
       
       {/* Activity History */}
       <ActivityHistory
-        history={receipt.activityHistory || []}
+        history={[]} // TODO: Fetch from ActivityLog table
         title="Lịch sử thao tác"
         emptyMessage="Chưa có lịch sử thao tác"
         showFilters={false}

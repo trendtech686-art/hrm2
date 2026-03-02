@@ -10,11 +10,10 @@ export async function GET(request: Request) {
 
   try {
     const { searchParams } = new URL(request.url)
-    const userId = searchParams.get('userId')
+    // ✅ Use userId from query or fallback to session user id
+    const userId = searchParams.get('userId') || session.user?.id
     const key = searchParams.get('key')
     const category = searchParams.get('category')
-
-    console.log('[user-preferences] GET request:', { userId, key, category })
 
     if (!userId) {
       return apiError('userId là bắt buộc', 400)
@@ -35,11 +34,8 @@ export async function GET(request: Request) {
       orderBy: { key: 'asc' },
     })
 
-    console.log('[user-preferences] Found:', preferences.length, 'preferences')
-
     // If single key requested, return just the value
     if (key && preferences.length === 1) {
-      console.log('[user-preferences] Returning single preference:', preferences[0])
       return apiSuccess(preferences[0])
     }
 
@@ -68,6 +64,11 @@ export async function POST(request: Request) {
   const body = validation.data
 
   try {
+    // Build update/create data — only include defined fields to avoid Prisma errors
+    const updateData: Record<string, unknown> = { updatedAt: new Date() }
+    if (body.value !== undefined) updateData.value = body.value
+    if (body.category !== undefined) updateData.category = body.category
+
     const preference = await prisma.userPreference.upsert({
       where: {
         userId_key: {
@@ -75,22 +76,18 @@ export async function POST(request: Request) {
           key: body.key,
         },
       },
-      update: {
-        value: body.value,
-        category: body.category,
-        updatedAt: new Date(),
-      },
+      update: updateData,
       create: {
         userId: body.userId,
         key: body.key,
         value: body.value ?? {},
-        category: body.category,
+        category: body.category ?? null,
       },
     })
 
     return apiSuccess(preference)
   } catch (error) {
-    console.error('Error saving user preference:', error)
+    console.error('Error saving user preference:', error, error instanceof Error ? error.stack : '')
     return apiError('Failed to save user preference', 500)
   }
 }
@@ -138,26 +135,36 @@ export async function PUT(request: Request) {
   }
 }
 
-// DELETE /api/user-preferences?userId=xxx&key=xxx
+// DELETE /api/user-preferences - Delete by body or query params
 export async function DELETE(request: Request) {
   const session = await requireAuth()
   if (!session) return apiError('Unauthorized', 401)
 
   try {
-    const { searchParams } = new URL(request.url)
-    const userId = searchParams.get('userId')
-    const key = searchParams.get('key')
+    // ✅ Try to read from body first (frontend sends JSON body)
+    let userId: string | null = null
+    let key: string | null = null
+    
+    try {
+      const body = await request.json()
+      userId = body.userId || session.user?.id
+      key = body.key
+    } catch {
+      // If body parsing fails, try query params
+      const { searchParams } = new URL(request.url)
+      userId = searchParams.get('userId') || session.user?.id
+      key = searchParams.get('key')
+    }
 
     if (!userId || !key) {
       return apiError('userId và key là bắt buộc', 400)
     }
 
-    await prisma.userPreference.delete({
+    // ✅ Use deleteMany instead of delete to avoid P2025 error when record doesn't exist
+    await prisma.userPreference.deleteMany({
       where: {
-        userId_key: {
-          userId,
-          key,
-        },
+        userId,
+        key,
       },
     })
 

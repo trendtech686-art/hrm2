@@ -1,4 +1,4 @@
-import * as React from 'react';
+﻿import * as React from 'react';
 import type { Supplier } from '@/lib/types/prisma-extended';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
@@ -35,7 +35,7 @@ export function SupplierCard({ supplier, onEdit, onDelete, onRestore, navigate }
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <CardTitle className="text-h3 truncate">{supplier.name}</CardTitle>
+              <CardTitle size="lg" className="truncate">{supplier.name}</CardTitle>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-body-sm text-muted-foreground font-mono">{supplier.id}</span>

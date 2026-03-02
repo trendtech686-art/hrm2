@@ -60,6 +60,14 @@ export async function PUT(request: Request, { params }: RouteParams) {
         address: body.address,
         phone: body.phone,
         isDefault: body.isDefault,
+        managerId: body.managerId ?? null,
+        province: body.province ?? null,
+        provinceId: body.provinceId ?? null,
+        district: body.district ?? null,
+        districtId: body.districtId ?? null,
+        ward: body.ward ?? null,
+        wardCode: body.wardCode ?? null,
+        addressLevel: body.addressLevel ?? null,
       },
     })
 

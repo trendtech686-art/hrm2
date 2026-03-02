@@ -2,6 +2,29 @@ import { prisma } from '@/lib/prisma'
 import { Prisma } from '@/generated/prisma/client'
 import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
 
+// Helper: compute path + level
+async function computePathAndLevel(name: string, parentId?: string | null) {
+  if (!parentId) {
+    return { path: name, level: 0 }
+  }
+
+  const parent = await prisma.category.findUnique({
+    where: { systemId: parentId },
+    select: { path: true, level: true, name: true },
+  })
+
+  if (!parent) {
+    return { path: name, level: 0 }
+  }
+
+  const parentPath = parent.path || parent.name
+  const parentLevel = parent.level ?? 0
+  return {
+    path: `${parentPath} > ${name}`,
+    level: parentLevel + 1,
+  }
+}
+
 interface RouteParams {
   params: Promise<{ systemId: string }>
 }
@@ -59,14 +82,51 @@ export async function PUT(request: Request, { params }: RouteParams) {
     const { systemId } = await params
     const body = await request.json()
 
+    const existing = await prisma.category.findUnique({
+      where: { systemId },
+      select: {
+        name: true,
+        parentId: true,
+        slug: true,
+        seoTitle: true,
+        metaDescription: true,
+        seoKeywords: true,
+        shortDescription: true,
+        longDescription: true,
+        ogImage: true,
+        websiteSeo: true,
+        isActive: true,
+      },
+    })
+
+    if (!existing) {
+      return apiNotFound('Danh mục')
+    }
+
+    const name = body.name ?? existing.name
+    const parentId = body.parentId === undefined ? existing.parentId : (body.parentId || null)
+    const { path, level } = await computePathAndLevel(name, parentId)
+
     const category = await prisma.category.update({
       where: { systemId },
       data: {
-        name: body.name,
+        name,
         description: body.description,
         imageUrl: body.thumbnail || body.imageUrl,
-        parentId: body.parentId,
+        thumbnail: body.thumbnail || body.imageUrl,
+        parentId,
         sortOrder: body.sortOrder,
+        slug: body.slug ?? existing.slug,
+        seoTitle: body.seoTitle ?? existing.seoTitle,
+        metaDescription: body.metaDescription ?? existing.metaDescription,
+        seoKeywords: body.seoKeywords ?? existing.seoKeywords,
+        shortDescription: body.shortDescription ?? existing.shortDescription,
+        longDescription: body.longDescription ?? existing.longDescription,
+        ogImage: body.ogImage ?? existing.ogImage,
+        websiteSeo: body.websiteSeo ?? existing.websiteSeo,
+        isActive: body.isActive ?? existing.isActive,
+        path,
+        level,
       },
       include: {
         parent: true,
@@ -92,15 +152,35 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     const { systemId } = await params
     const body = await request.json()
 
+    const existing = await prisma.category.findUnique({ where: { systemId } })
+    if (!existing) {
+      return apiNotFound('Danh mục')
+    }
+
+    const name = body.name ?? existing.name
+    const parentId = body.parentId === undefined ? existing.parentId : (body.parentId || null)
+    const { path, level } = await computePathAndLevel(name, parentId)
+
     const category = await prisma.category.update({
       where: { systemId },
       data: {
-        ...(body.name !== undefined && { name: body.name }),
-        ...(body.description !== undefined && { description: body.description }),
-        ...(body.imageUrl !== undefined && { imageUrl: body.imageUrl }),
-        ...(body.thumbnail !== undefined && { imageUrl: body.thumbnail }),
-        ...(body.parentId !== undefined && { parentId: body.parentId }),
-        ...(body.sortOrder !== undefined && { sortOrder: body.sortOrder }),
+        name,
+        description: body.description ?? existing.description,
+        imageUrl: body.thumbnail || body.imageUrl || existing.imageUrl,
+        thumbnail: body.thumbnail || existing.thumbnail || body.imageUrl,
+        parentId,
+        sortOrder: body.sortOrder ?? existing.sortOrder,
+        slug: body.slug ?? existing.slug,
+        seoTitle: body.seoTitle ?? existing.seoTitle,
+        metaDescription: body.metaDescription ?? existing.metaDescription,
+        seoKeywords: body.seoKeywords ?? existing.seoKeywords,
+        shortDescription: body.shortDescription ?? existing.shortDescription,
+        longDescription: body.longDescription ?? existing.longDescription,
+        ogImage: body.ogImage ?? existing.ogImage,
+        websiteSeo: body.websiteSeo ?? existing.websiteSeo,
+        isActive: body.isActive ?? existing.isActive,
+        path,
+        level,
       },
       include: {
         parent: true,
@@ -125,9 +205,24 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
   try {
     const { systemId } = await params
 
-    await prisma.category.update({
-      where: { systemId },
-      data: { isDeleted: true },
+    // Use transaction to ensure consistency
+    await prisma.$transaction(async (tx) => {
+      // 1. Update children to become orphans (remove parent reference)
+      await tx.category.updateMany({
+        where: { parentId: systemId, isDeleted: false },
+        data: { parentId: null, level: 0 },
+      })
+
+      // 2. Delete PKGX mapping for this category
+      await tx.pkgxCategoryMapping.deleteMany({
+        where: { hrmCategoryId: systemId },
+      })
+
+      // 3. Soft delete the category
+      await tx.category.update({
+        where: { systemId },
+        data: { isDeleted: true },
+      })
     })
 
     return apiSuccess({ success: true })

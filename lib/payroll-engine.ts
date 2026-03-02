@@ -51,6 +51,9 @@ export type PayrollRunOptions = {
   selectedPenaltySystemIds?: SystemId[]; // When mode = 'selected'
   penalties?: Penalty[]; // Injected penalty data (replaces .getState())
   
+  // ✅ Attendance data - MUST be injected from database (no more localStorage)
+  attendanceData?: AttendanceSnapshot[]; // Pre-fetched attendance snapshots
+  
   // Validation options
   requireLockedAttendance?: boolean; // Default: true
   skipAttendanceValidation?: boolean; // For manual overrides
@@ -603,17 +606,15 @@ const calculateForEmployee = (
   components: PayrollComponent[],
   penaltyMode: PenaltySelectionMode,
   selectedPenaltySystemIds?: SystemId[],
-  allPenalties?: Penalty[]
+  allPenalties?: Penalty[],
+  preloadedAttendance?: AttendanceSnapshot | null // ✅ Injected attendance
 ): {
   payslip: CalculatedPayslip;
   penalties: DeductedPenaltyInfo[];
   warning?: PayrollWarning;
 } => {
-  // Get attendance
-  const attendance = attendanceSnapshotService.getSnapshot({
-    monthKey: periodMonthKey,
-    employeeSystemId: employee.employeeSystemId,
-  }) as any;
+  // ✅ Use preloaded attendance data instead of fetching
+  const attendance = preloadedAttendance ?? null;
 
   // Filter applicable components
   const applicableComponents = components.filter((c) => {
@@ -636,7 +637,7 @@ const calculateForEmployee = (
     calculateComponent(
       comp,
       employee,
-      attendance as any,
+      attendance,
       employee.customComponentOverrides?.[comp.systemId]
     )
   );
@@ -665,7 +666,7 @@ const calculateForEmployee = (
     components: componentEntries,
     totals,
     deductedPenaltySystemIds,
-    attendanceSnapshot: attendance as any,
+    attendanceSnapshot: attendance,
   };
 
   const deductedPenalties: DeductedPenaltyInfo[] = penalties.map((p) => ({
@@ -690,6 +691,8 @@ export const payrollEngine = {
    * Calculate payroll for multiple employees
    * Returns calculation results - NO IDs generated
    * Store will handle ID generation when saving
+   * 
+   * ✅ IMPORTANT: attendanceData MUST be pre-fetched from database and passed in
    */
   calculate(options: PayrollRunOptions): PayrollCalculationResult {
     const {
@@ -699,6 +702,7 @@ export const payrollEngine = {
       penaltyMode,
       selectedPenaltySystemIds,
       penalties,
+      attendanceData = [], // ✅ Injected attendance snapshots
       requireLockedAttendance = true,
       skipAttendanceValidation = false,
     } = options;
@@ -707,6 +711,12 @@ export const payrollEngine = {
     const errors: PayrollError[] = [];
     const allDeductedPenalties: DeductedPenaltyInfo[] = [];
     const payslips: CalculatedPayslip[] = [];
+
+    // ✅ Build lookup map for attendance data
+    const attendanceLookup = new Map<SystemId, AttendanceSnapshot>();
+    attendanceData.forEach((snapshot) => {
+      attendanceLookup.set(snapshot.employeeSystemId, snapshot);
+    });
 
     // Validate inputs
     if (!components.length) {
@@ -743,13 +753,11 @@ export const payrollEngine = {
 
     // Process each employee
     for (const employee of employees) {
+      // ✅ Get attendance from preloaded data
+      const attendance = attendanceLookup.get(employee.employeeSystemId) ?? null;
+      
       // Attendance validation
       if (!skipAttendanceValidation) {
-        const attendance = attendanceSnapshotService.getSnapshot({
-          monthKey: periodMonthKey,
-          employeeSystemId: employee.employeeSystemId,
-        });
-
         if (!attendance) {
           warnings.push({
             type: 'attendance-missing',
@@ -757,7 +765,7 @@ export const payrollEngine = {
             employeeName: employee.employeeName,
             message: `Không có dữ liệu chấm công cho ${employee.employeeName} trong kỳ ${periodMonthKey}`,
           });
-        } else if (requireLockedAttendance && !(attendance as any).locked) {
+        } else if (requireLockedAttendance && !attendance.locked) {
           warnings.push({
             type: 'attendance-unlocked',
             employeeSystemId: employee.employeeSystemId,
@@ -767,14 +775,15 @@ export const payrollEngine = {
         }
       }
 
-      // Calculate
+      // ✅ Calculate with preloaded attendance
       const { payslip, penalties: deductedPenalties } = calculateForEmployee(
         employee,
         periodMonthKey,
         components,
         penaltyMode,
         selectedPenaltySystemIds,
-        penalties
+        penalties,
+        attendance // ✅ Pass preloaded attendance
       );
 
       payslips.push(payslip);
@@ -875,7 +884,7 @@ export const payrollEngine = {
           employeeName,
           message: `Không có dữ liệu chấm công cho kỳ ${periodMonthKey}`,
         });
-      } else if (!(attendance as any).locked) {
+      } else if (typeof attendance === 'object' && 'locked' in attendance && !attendance.locked) {
         issues.push({
           type: 'attendance-unlocked',
           employeeSystemId,

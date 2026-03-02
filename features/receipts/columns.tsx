@@ -276,7 +276,7 @@ export const getColumns = (
         id: "createdBy",
         accessorKey: "createdBy",
         header: "Người tạo",
-        cell: ({ row }) => row.createdBy,
+        cell: ({ row }) => (row as Receipt & { createdByName?: string }).createdByName || row.createdBy,
         meta: {
             displayName: "Người tạo",
             group: "Thông tin hệ thống"

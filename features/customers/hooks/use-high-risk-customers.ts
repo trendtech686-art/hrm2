@@ -28,7 +28,7 @@ export function useHighRiskDebtCustomers(): Customer[] {
       const debt = customer.currentDebt || 0;
       if (debt <= 0) return false;
       
-      const dueDate = (customer as any).debtDueDate ? new Date((customer as any).debtDueDate) : null;
+      const dueDate = customer.oldestDebtDueDate ? new Date(customer.oldestDebtDueDate) : null;
       if (!dueDate) return false;
       
       const daysUntilDue = Math.floor((dueDate.getTime() - now.getTime()) / MS_PER_DAY);
@@ -56,14 +56,14 @@ export function useOverdueDebtCustomers(): Customer[] {
       const debt = customer.currentDebt || 0;
       if (debt <= 0) return false;
       
-      const dueDate = (customer as any).debtDueDate ? new Date((customer as any).debtDueDate) : null;
+      const dueDate = customer.oldestDebtDueDate ? new Date(customer.oldestDebtDueDate) : null;
       if (!dueDate) return false;
       
       return dueDate < now;
     }).sort((a, b) => {
       // Sort by: overdue days DESC, debt amount DESC
-      const aDueDate = (a as any).debtDueDate ? new Date((a as any).debtDueDate).getTime() : 0;
-      const bDueDate = (b as any).debtDueDate ? new Date((b as any).debtDueDate).getTime() : 0;
+      const aDueDate = a.oldestDebtDueDate ? new Date(a.oldestDebtDueDate).getTime() : 0;
+      const bDueDate = b.oldestDebtDueDate ? new Date(b.oldestDebtDueDate).getTime() : 0;
       
       if (aDueDate !== bDueDate) {
         return aDueDate - bDueDate; // Earlier date first (more overdue)
@@ -90,15 +90,15 @@ export function useDueSoonCustomers(): Customer[] {
       const debt = customer.currentDebt || 0;
       if (debt <= 0) return false;
       
-      const dueDate = (customer as any).debtDueDate ? new Date((customer as any).debtDueDate) : null;
+      const dueDate = customer.oldestDebtDueDate ? new Date(customer.oldestDebtDueDate) : null;
       if (!dueDate) return false;
       
       const daysUntilDue = Math.floor((dueDate.getTime() - now.getTime()) / MS_PER_DAY);
       
       return daysUntilDue >= 1 && daysUntilDue <= 3;
     }).sort((a, b) => {
-      const aDueDate = (a as any).debtDueDate ? new Date((a as any).debtDueDate).getTime() : Infinity;
-      const bDueDate = (b as any).debtDueDate ? new Date((b as any).debtDueDate).getTime() : Infinity;
+      const aDueDate = a.oldestDebtDueDate ? new Date(a.oldestDebtDueDate).getTime() : Infinity;
+      const bDueDate = b.oldestDebtDueDate ? new Date(b.oldestDebtDueDate).getTime() : Infinity;
       return aDueDate - bDueDate;
     });
   }, [activeCustomers]);

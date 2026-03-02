@@ -161,7 +161,7 @@ export function BrandFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[650px] max-h-[85vh]">
+      <DialogContent className="sm:max-w-162.5 max-h-[85vh]">
         <DialogHeader>
           <DialogTitle>
             {initialData ? "Chỉnh sửa thương hiệu" : "Thêm thương hiệu mới"}
@@ -186,7 +186,7 @@ export function BrandFormDialog({
                 </TabsTrigger>
               </TabsList>
 
-              <ScrollArea className="h-[400px] pr-4">
+              <ScrollArea className="h-100 pr-4">
                 <TabsContent value="general" className="space-y-4 mt-4">
                   <FormField
                     control={form.control}
@@ -195,7 +195,12 @@ export function BrandFormDialog({
                       <FormItem>
                         <FormLabel>Mã thương hiệu</FormLabel>
                         <FormControl>
-                          <Input placeholder="VD: APPLE" {...field} />
+                          <Input 
+                            placeholder="VD: APPLE" 
+                            {...field} 
+                            className="uppercase"
+                            onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                          />
                         </FormControl>
                         <FormDescription>
                           Mã định danh duy nhất, viết liền không dấu.

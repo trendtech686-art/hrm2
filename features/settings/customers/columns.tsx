@@ -5,8 +5,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../../../components/ui/dropdown-menu";
 import { MoreHorizontal } from "lucide-react";
@@ -21,7 +19,6 @@ import type {
   LifecycleStage,
   CustomerSlaSetting,
 } from "./types";
-import { SLA_TYPE_LABELS } from "./types";
 
 interface ColumnFactoryOptions<TItem extends BaseSetting> {
   onEdit: (item: TItem) => void;
@@ -32,7 +29,7 @@ interface ColumnFactoryOptions<TItem extends BaseSetting> {
 
 const createActionColumn = <TItem extends BaseSetting>({ onEdit, onDelete }: ColumnFactoryOptions<TItem>): ColumnDef<TItem> => ({
   id: "actions",
-  header: () => <div className="text-right">Thao tác</div>,
+  header: "",
   cell: ({ row }) => (
     <div className="text-right">
       <DropdownMenu>
@@ -43,8 +40,6 @@ const createActionColumn = <TItem extends BaseSetting>({ onEdit, onDelete }: Col
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuLabel>Thao tác</DropdownMenuLabel>
-          <DropdownMenuSeparator />
           <DropdownMenuItem onSelect={() => onEdit(row)}>
             Chỉnh sửa
           </DropdownMenuItem>
@@ -93,7 +88,7 @@ const baseColumns = <TItem extends BaseSetting>() => ([
   {
     id: "id",
     header: "Mã",
-    cell: ({ row }: { row: TItem }) => <span className="font-semibold uppercase">{row.id}</span>,
+    cell: ({ row }: { row: TItem }) => <span className="text-sm">{row.id}</span>,
     meta: { displayName: "Mã" },
   },
   {
@@ -208,19 +203,13 @@ export const getLifecycleStageColumns = (options: ColumnFactoryOptions<Lifecycle
   createActionColumn(options),
 ];
 
-// SLA columns - đơn giản hóa: không có Mặc định, không có Trạng thái, không có Xóa
-// Chỉ có 3 loại SLA cố định, user chỉ có thể edit
+// SLA columns - giống các tab khác với đầy đủ tính năng
 export const getCustomerSlaColumns = (options: ColumnFactoryOptions<CustomerSlaSetting>): ColumnDef<CustomerSlaSetting>[] => [
   {
-    id: "slaType",
-    header: "Loại SLA",
-    cell: ({ row }) => (
-      <span className="font-medium whitespace-nowrap">
-        {SLA_TYPE_LABELS[row.slaType] || row.slaType}
-      </span>
-    ),
-    meta: { displayName: "Loại SLA" },
-    size: 130,
+    id: "id",
+    header: "Mã",
+    cell: ({ row }) => <span className="text-sm">{row.id}</span>,
+    meta: { displayName: "Mã" },
   },
   {
     id: "name",
@@ -228,6 +217,14 @@ export const getCustomerSlaColumns = (options: ColumnFactoryOptions<CustomerSlaS
     cell: ({ row }) => <span className="font-medium">{row.name}</span>,
     meta: { displayName: "Tên" },
     size: 150,
+  },
+  {
+    id: "description",
+    header: "Mô tả",
+    cell: ({ row }) => (
+      <span className="text-sm text-muted-foreground">{row.description || "—"}</span>
+    ),
+    meta: { displayName: "Mô tả" },
   },
   {
     id: "targetDays",
@@ -251,32 +248,6 @@ export const getCustomerSlaColumns = (options: ColumnFactoryOptions<CustomerSlaS
     meta: { displayName: "Ngưỡng cảnh báo" },
     size: 120,
   },
-  {
-    id: "criticalDays",
-    header: "Nghiêm trọng",
-    cell: ({ row }) => (
-      <span className="text-sm text-red-700">
-        Quá {row.criticalDays} ngày
-      </span>
-    ),
-    meta: { displayName: "Ngưỡng nghiêm trọng" },
-    size: 120,
-  },
-  {
-    id: "actions",
-    header: () => <div className="text-right">Thao tác</div>,
-    cell: ({ row }) => (
-      <div className="text-right">
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          onClick={() => options.onEdit(row)}
-        >
-          Sửa
-        </Button>
-      </div>
-    ),
-    meta: { displayName: "Thao tác" },
-    size: 100,
-  },
+  createActiveColumn<CustomerSlaSetting>(options.onToggleActive),
+  createActionColumn(options),
 ];

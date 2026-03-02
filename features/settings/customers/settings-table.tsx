@@ -5,8 +5,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../../../components/ui/dropdown-menu';
 import { Badge } from '../../../components/ui/badge';
@@ -43,7 +41,7 @@ export function SettingsTable<T extends BaseSetting>({
             <TableHead>Mô tả</TableHead>
             {renderExtraColumns && <TableHead>Chi tiết</TableHead>}
             <TableHead>Trạng thái</TableHead>
-            <TableHead className="text-right">Thao tác</TableHead>
+            <TableHead className="text-right"></TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -78,8 +76,6 @@ export function SettingsTable<T extends BaseSetting>({
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuLabel>Thao tác</DropdownMenuLabel>
-                      <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={() => onEdit(item)}>
                         <Pencil className="mr-2 h-4 w-4" />
                         Chỉnh sửa

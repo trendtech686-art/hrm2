@@ -1,4 +1,4 @@
-import * as React from "react";
+﻿import * as React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { Label } from "../../../components/ui/label";
 import { Input } from "../../../components/ui/input";
@@ -59,7 +59,7 @@ export function OrderInfoCard({
   return (
     <Card className="h-full flex flex-col">
       <CardHeader className="flex-shrink-0">
-        <CardTitle className="text-base">Thông tin đơn</CardTitle>
+        <CardTitle>Thông tin đơn</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4 flex-1 overflow-y-auto">
         {/* Mã đơn */}

@@ -1,24 +1,20 @@
 import * as React from "react";
-import { Plus, MoreHorizontal } from "lucide-react";
-import { useCashAccounts, useCashAccountMutations } from "../../cashbook/hooks/use-cashbook";
-import { useAllReceipts } from "../../receipts/hooks/use-all-receipts";
-import { useAllPayments } from "../../payments/hooks/use-all-payments";
+import { Plus } from "lucide-react";
+import { useCashAccountMutations } from "../../cashbook/hooks/use-cashbook";
+import { useAllCashAccounts } from "./hooks/use-cash-accounts";
+import { useAccountBalances } from "../../cashbook/hooks/use-account-balances";
 import { useAllBranches } from "../branches/hooks/use-all-branches";
 import type { CashAccount } from "../../cashbook/types";
 import { CashAccountForm, type CashAccountFormValues } from "./form";
+import { getCashAccountColumns } from "./columns";
 import { Button } from "../../../components/ui/button";
-import { Switch } from "../../../components/ui/switch";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "../../../components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../../components/ui/alert-dialog";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../../components/ui/table";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "../../../components/ui/dropdown-menu";
-import { Badge } from "../../../components/ui/badge";
 import { toast } from "sonner";
 import { asBusinessId, asSystemId, type SystemId } from "../../../lib/id-types";
+import { SimpleSettingsTable } from "../../../components/settings/SimpleSettingsTable";
 import { SettingsActionButton } from "../../../components/settings/SettingsActionButton";
 import type { RegisterTabActions } from "../use-tab-action-registry";
-
-const formatCurrency = (value: number) => new Intl.NumberFormat('vi-VN').format(value);
 
 type CashAccountsPageContentProps = {
   isActive: boolean;
@@ -26,33 +22,49 @@ type CashAccountsPageContentProps = {
 };
 
 export function CashAccountsPageContent({ isActive, onRegisterActions }: CashAccountsPageContentProps) {
-  const { data: queryData } = useCashAccounts({ limit: 500 });
-  const data = React.useMemo(() => queryData?.data ?? [], [queryData?.data]);
-  const { create, update, remove, setDefault } = useCashAccountMutations({
+  const { data: queryData } = useAllCashAccounts();
+  const data = React.useMemo(() => (queryData?.data ?? []) as unknown as CashAccount[], [queryData?.data]);
+  const { create, update, remove, setDefault, isLoading: isMutating } = useCashAccountMutations({
     onSuccess: () => {},
     onError: (error) => toast.error(error.message),
   });
-  const { data: receipts } = useAllReceipts();
-  const { data: payments } = useAllPayments();
+  // ✅ Use server-side API for balance calculation (optimized)
+  const { data: accountBalances } = useAccountBalances();
   const { data: branches } = useAllBranches();
   
-  // Tính số dư hiện tại cho mỗi tài khoản
+  // Merge account data with server-calculated balances
   const accountsWithBalance = React.useMemo(() => {
+    if (!accountBalances) {
+      // Fallback: return accounts without balance calculation while loading
+      return data.map(account => ({
+        ...account,
+        currentBalance: account.initialBalance,
+        isLowBalance: false,
+        isHighBalance: false,
+      }));
+    }
+    
+    // Create a map for quick lookup
+    const balanceMap = new Map(accountBalances.map(b => [b.systemId, b]));
+    
     return data.map(account => {
-      const accountReceipts = receipts.filter(r => r.accountSystemId === account.systemId);
-      const accountPayments = payments.filter(p => p.accountSystemId === account.systemId);
-      
-      const totalIn = accountReceipts.reduce((sum, r) => sum + r.amount, 0);
-      const totalOut = accountPayments.reduce((sum, p) => sum + p.amount, 0);
-      const currentBalance = account.initialBalance + totalIn - totalOut;
-      
-      // Kiểm tra cảnh báo
-      const isLowBalance = account.minBalance && currentBalance < account.minBalance;
-      const isHighBalance = account.maxBalance && currentBalance > account.maxBalance;
-      
-      return { ...account, currentBalance, isLowBalance, isHighBalance };
+      const balance = balanceMap.get(account.systemId);
+      if (balance) {
+        return {
+          ...account,
+          currentBalance: balance.currentBalance,
+          isLowBalance: balance.isLowBalance,
+          isHighBalance: balance.isHighBalance,
+        };
+      }
+      return {
+        ...account,
+        currentBalance: account.initialBalance,
+        isLowBalance: false,
+        isHighBalance: false,
+      };
     });
-  }, [data, receipts, payments]);
+  }, [data, accountBalances]);
   
   const [isFormOpen, setIsFormOpen] = React.useState(false);
   const [editingItem, setEditingItem] = React.useState<CashAccount | null>(null);
@@ -70,36 +82,36 @@ export function CashAccountsPageContent({ isActive, onRegisterActions }: CashAcc
     setIsAlertOpen(true);
   };
   
-  const handleToggleStatus = async (item: CashAccount, isActive: boolean) => {
-    await update.mutateAsync({ systemId: item.systemId, data: { ...item, isActive } });
-    toast.success(isActive ? `Đã kích hoạt "${item.name}"` : `Đã tắt "${item.name}"`);
-  };
+  const handleToggleStatus = React.useCallback((item: CashAccount, isActive: boolean) => {
+    update.mutate(
+      { systemId: item.systemId, data: { ...item, isActive } },
+      { onSuccess: () => toast.success(isActive ? `Đã kích hoạt "${item.name}"` : `Đã tắt "${item.name}"`) }
+    );
+  }, [update]);
   
-  const handleToggleDefault = React.useCallback(async (item: CashAccount, checked: boolean) => {
+  const handleToggleDefault = React.useCallback((item: CashAccount, checked: boolean) => {
     if (checked) {
-      await setDefault.mutateAsync(item.systemId);
-      toast.success(`Đã đặt "${item.name}" làm mặc định`);
+      setDefault.mutate(item.systemId, { onSuccess: () => toast.success(`Đã đặt "${item.name}" làm mặc định`) });
     } else {
       const otherAccounts = data.filter(a => a.systemId !== item.systemId);
       if (otherAccounts.length > 0) {
-        await setDefault.mutateAsync(otherAccounts[0].systemId);
-        toast.success(`Đã đặt "${otherAccounts[0].name}" làm mặc định`);
+        setDefault.mutate(otherAccounts[0].systemId, { 
+          onSuccess: () => toast.success(`Đã đặt "${otherAccounts[0].name}" làm mặc định`) 
+        });
       } else {
         toast.error('Phải có ít nhất một tài khoản mặc định');
       }
     }
   }, [data, setDefault]);
   
-  const handleSetDefault = async (item: CashAccount) => {
-    await setDefault.mutateAsync(item.systemId);
-    toast.success(`Đã đặt "${item.name}" làm mặc định`);
-  };
+  const handleSetDefault = React.useCallback((item: CashAccount) => {
+    setDefault.mutate(item.systemId, { onSuccess: () => toast.success(`Đã đặt "${item.name}" làm mặc định`) });
+  }, [setDefault]);
   
-  const confirmDelete = async () => {
+  const confirmDelete = () => {
     if (idToDelete) {
       const item = data.find(a => a.systemId === idToDelete);
-      await remove.mutateAsync(idToDelete);
-      toast.success(`Đã xóa "${item?.name}"`);
+      remove.mutate(idToDelete, { onSuccess: () => toast.success(`Đã xóa "${item?.name}"`) });
     }
     setIsAlertOpen(false);
     setIdToDelete(null);
@@ -142,17 +154,19 @@ export function CashAccountsPageContent({ isActive, onRegisterActions }: CashAcc
     };
   };
 
-  const handleFormSubmit = async (values: CashAccountFormValues) => {
+  const handleFormSubmit = (values: CashAccountFormValues) => {
     try {
       const payload = normalizeFormValues(values);
       if (editingItem) {
-        await update.mutateAsync({ systemId: editingItem.systemId, data: { ...editingItem, ...payload } });
-        toast.success("Cập nhật thành công");
+        update.mutate(
+          { systemId: editingItem.systemId, data: { ...editingItem, ...payload } },
+          { onSuccess: () => toast.success("Cập nhật thành công") }
+        );
       } else {
-        await create.mutateAsync(payload);
-        toast.success("Thêm mới thành công");
+        create.mutate(payload, { onSuccess: () => toast.success("Thêm mới thành công") });
       }
       setIsFormOpen(false);
+      setEditingItem(null);
     } catch (error) {
       toast.error("Có lỗi xảy ra", {
         description: error instanceof Error ? error.message : "Lỗi không xác định",
@@ -160,137 +174,89 @@ export function CashAccountsPageContent({ isActive, onRegisterActions }: CashAcc
     }
   };
 
-  React.useEffect(() => {
-    if (!isActive) {
-      return;
-    }
-
+  // Register header actions - use ref to avoid stale closures
+  const handleAddNewRef = React.useRef(handleAddNew);
+  handleAddNewRef.current = handleAddNew;
+  
+  React.useLayoutEffect(() => {
+    if (!isActive) return;
     onRegisterActions([
-      <SettingsActionButton key="add-cash-account" onClick={handleAddNew}>
+      <SettingsActionButton key="add-cash-account" onClick={() => handleAddNewRef.current()}>
         <Plus className="mr-2 h-4 w-4" /> Thêm tài khoản quỹ
       </SettingsActionButton>,
     ]);
-  }, [handleAddNew, isActive, onRegisterActions]);
+  }, [isActive, onRegisterActions]);
+
+  const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
+  const [isBulkDeleteOpen, setIsBulkDeleteOpen] = React.useState(false);
+  const selectedCount = Object.keys(rowSelection).length;
+
+  const handleBulkDelete = React.useCallback((selectedItems: { systemId: string }[]) => {
+    if (selectedItems.length === 0) return;
+    setIsBulkDeleteOpen(true);
+  }, []);
+
+  const confirmBulkDelete = async () => {
+    const selectedIds = Object.keys(rowSelection);
+    for (const id of selectedIds) {
+      await remove.mutateAsync(id as SystemId);
+    }
+    toast.success(`Đã xóa ${selectedIds.length} tài khoản`);
+    setRowSelection({});
+    setIsBulkDeleteOpen(false);
+  };
+
+  const getBranchName = React.useCallback((branchSystemId?: string) => {
+    if (!branchSystemId) return '';
+    const branch = branches.find(b => b.systemId === branchSystemId);
+    return branch?.name || '';
+  }, [branches]);
+
+  const columns = React.useMemo(
+    () => getCashAccountColumns({
+      onEdit: handleEdit,
+      onDelete: handleDeleteRequest,
+      onToggleStatus: handleToggleStatus,
+      onToggleDefault: handleToggleDefault,
+      onSetDefault: handleSetDefault,
+      getBranchName,
+    }),
+    [handleEdit, handleToggleStatus, handleToggleDefault, handleSetDefault, getBranchName]
+  );
 
   return (
     <div className="space-y-4">
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Mã tài khoản</TableHead>
-              <TableHead>Tên tài khoản</TableHead>
-              <TableHead>Loại</TableHead>
-              <TableHead>Ngân hàng</TableHead>
-              <TableHead>Chi nhánh</TableHead>
-              <TableHead className="text-right">Số dư hiện tại</TableHead>
-              <TableHead>Mặc định</TableHead>
-              <TableHead>Trạng thái</TableHead>
-              <TableHead className="text-right">Thao tác</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {accountsWithBalance.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={9} className="h-24 text-center">
-                  Chưa có dữ liệu
-                </TableCell>
-              </TableRow>
-            ) : (
-              accountsWithBalance.map((item) => {
-                const branch = branches.find(b => b.systemId === item.branchSystemId);
-                return (
-                  <TableRow key={item.systemId}>
-                    <TableCell className="font-medium">{item.id}</TableCell>
-                    <TableCell className="font-medium">{item.name}</TableCell>
-                    <TableCell>
-                      <Badge variant={item.type === 'cash' ? 'default' : 'secondary'}>
-                        {item.type === 'cash' ? 'Tiền mặt' : 'Ngân hàng'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {item.type === 'bank' && item.bankName ? (
-                        <div>
-                          <div className="font-medium">{item.bankName}</div>
-                          {item.bankAccountNumber && (
-                            <div className="text-xs text-muted-foreground">
-                              {item.bankAccountNumber}
-                            </div>
-                          )}
-                        </div>
-                      ) : '—'}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {branch?.name || '—'}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="font-medium">
-                        {formatCurrency(item.currentBalance)}
-                      </div>
-                      {(item.isLowBalance || item.isHighBalance) && (
-                        <div className="text-xs text-orange-600">
-                          {item.isLowBalance && '⚠ Dưới mức tối thiểu'}
-                          {item.isHighBalance && '⚠ Vượt mức tối đa'}
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Switch 
-                        checked={item.isDefault} 
-                        onCheckedChange={(checked) => handleToggleDefault(item, checked)}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Switch 
-                        checked={item.isActive} 
-                        onCheckedChange={(checked) => handleToggleStatus(item, checked)}
-                      />
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-8 w-8 p-0">
-                            <span className="sr-only">Mở menu</span>
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>Thao tác</DropdownMenuLabel>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={() => handleEdit(item)}>
-                            Chỉnh sửa
-                          </DropdownMenuItem>
-                          {!item.isDefault && (
-                            <DropdownMenuItem onClick={() => handleSetDefault(item)}>
-                              Đặt làm mặc định
-                            </DropdownMenuItem>
-                          )}
-                          <DropdownMenuItem
-                            onClick={() => handleDeleteRequest(item.systemId)}
-                            className="text-destructive"
-                          >
-                            Xóa
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                );
-              })
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <SimpleSettingsTable
+        data={accountsWithBalance}
+        columns={columns}
+        emptyTitle="Chưa có tài khoản quỹ"
+        emptyDescription="Thêm tài khoản quỹ đầu tiên để bắt đầu"
+        emptyAction={
+          <Button size="sm" onClick={handleAddNew}>
+            Thêm tài khoản quỹ
+          </Button>
+        }
+        enableSelection
+        rowSelection={rowSelection}
+        setRowSelection={setRowSelection}
+        onBulkDelete={handleBulkDelete}
+        enablePagination
+        pagination={{ pageSize: 10, showInfo: true }}
+      />
       
-      <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+      <Dialog open={isFormOpen} onOpenChange={(open) => {
+        if (!isMutating) setIsFormOpen(open);
+      }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{editingItem ? 'Cập nhật tài khoản quỹ' : 'Thêm tài khoản quỹ'}</DialogTitle>
           </DialogHeader>
-          <CashAccountForm initialData={editingItem} onSubmit={handleFormSubmit} />
+          <CashAccountForm key={editingItem?.systemId ?? 'new'} initialData={editingItem} onSubmit={handleFormSubmit} />
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setIsFormOpen(false)}>Hủy</Button>
-            <Button type="submit" form="cash-account-form">Lưu</Button>
+            <Button type="button" variant="outline" onClick={() => setIsFormOpen(false)} disabled={isMutating}>Hủy</Button>
+            <Button type="submit" form="cash-account-form" disabled={isMutating}>
+              {isMutating ? 'Đang lưu...' : 'Lưu'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -306,6 +272,21 @@ export function CashAccountsPageContent({ isActive, onRegisterActions }: CashAcc
           <AlertDialogFooter>
             <AlertDialogCancel>Hủy</AlertDialogCancel>
             <AlertDialogAction onClick={confirmDelete}>Xóa</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={isBulkDeleteOpen} onOpenChange={setIsBulkDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Xóa {selectedCount} tài khoản?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Hành động này không thể hoàn tác. Các tài khoản đã chọn sẽ bị xóa vĩnh viễn.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Hủy</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmBulkDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Xóa tất cả</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -1,18 +1,18 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react';
+import { useRouter } from 'next/navigation';
 import { usePageHeader } from '../../contexts/page-header-context';
-import { useAllOrders } from '../orders/hooks/use-all-orders';
+import { useAllReconciliationItems, type ReconciliationItemFromAPI } from './hooks/use-all-reconciliation-items';
 import { useReconciliationActions } from '../orders/hooks/use-reconciliation-actions';
-import type { Packaging } from '../orders/types';
 import { ResponsiveDataTable } from '../../components/data-table/responsive-data-table';
 import { getColumns } from './columns';
 import { Card, CardContent, CardTitle } from '../../components/ui/card';
 import { PageToolbar } from '../../components/layout/page-toolbar';
 import { PageFilters } from '../../components/layout/page-filters';
 import { Button } from '../../components/ui/button';
-import { CheckCircle2, Download } from 'lucide-react';
-import { useFuseFilter } from '../../hooks/use-fuse-search';
+import { CheckCircle2, Download, Settings } from 'lucide-react';
+import { simpleSearch } from '../../lib/simple-search';
 import dynamic from 'next/dynamic';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../../components/ui/alert-dialog';
 import { DynamicDataTableColumnCustomizer as DataTableColumnCustomizer } from '../../components/data-table/dynamic-column-customizer';
@@ -35,14 +35,20 @@ const formatCurrency = (value?: number) => {
     return new Intl.NumberFormat('vi-VN').format(value);
 };
 
-export type ReconciliationItem = Packaging & {
+import type { ReconciliationStats } from '@/lib/data/reconciliation';
+
+export type ReconciliationItem = ReconciliationItemFromAPI & {
     orderSystemId: SystemId;
-    orderId: string;
-    customerName: string;
+    [key: string]: unknown;
 };
 
-export function ReconciliationPage() {
-    const { data: allOrders } = useAllOrders();
+export interface ReconciliationPageProps {
+    initialStats?: ReconciliationStats;
+}
+
+export function ReconciliationPage({ initialStats: _initialStats }: ReconciliationPageProps = {}) {
+    const router = useRouter();
+    const { data: allReconciliationItems } = useAllReconciliationItems();
     const { confirmCodReconciliation, isReconciling: _isReconciling } = useReconciliationActions();
     const { employee: authEmployee } = useAuth();
     const { isMobile } = useBreakpoint();
@@ -67,28 +73,18 @@ export function ReconciliationPage() {
     const [pinnedColumns, setPinnedColumns] = React.useState<string[]>([]);
 
 
-    const reconciliationList = React.useMemo<ReconciliationItem[]>(() => {
-        const items: ReconciliationItem[] = [];
-        allOrders.forEach(order => {
-            order.packagings.forEach(pkg => {
-                if (pkg.deliveryStatus === 'Đã giao hàng' && pkg.codAmount && pkg.codAmount > 0 && pkg.reconciliationStatus !== 'Đã đối soát') {
-                    items.push({
-                        ...pkg,
-                        orderSystemId: asSystemId(order.systemId),
-                        orderId: order.id,
-                        customerName: order.customerName,
-                    });
-                }
-            });
-        });
-        return items;
-    }, [allOrders]);
+    // ✅ Data from dedicated API - no longer loads ALL orders
+    const reconciliationList = React.useMemo<ReconciliationItem[]>(() =>
+        allReconciliationItems.map(item => ({
+            ...item,
+            orderSystemId: asSystemId(item.orderSystemId),
+        })),
+    [allReconciliationItems]);
 
-    const fuseOptions = React.useMemo(() => ({ 
-        keys: ['trackingCode', 'orderId', 'customerName', 'carrier'],
-        threshold: 0.4 
-    }), []);
-    const searchedData = useFuseFilter(reconciliationList, globalFilter, fuseOptions);
+    const searchedData = React.useMemo(() => 
+        simpleSearch(reconciliationList, globalFilter, { keys: ['trackingCode', 'orderId', 'customerName', 'carrier'] }), 
+        [reconciliationList, globalFilter]
+    );
 
     const filteredData = React.useMemo(() => {
         return globalFilter ? searchedData : reconciliationList;
@@ -177,10 +173,16 @@ export function ReconciliationPage() {
             {!isMobile && (
                 <PageToolbar
                     leftActions={
+                        <>
+                        <Button variant="outline" size="sm" onClick={() => router.push('/settings/payments')}>
+                            <Settings className="h-4 w-4 mr-2" />
+                            Cài đặt
+                        </Button>
                         <Button variant="outline" size="sm" onClick={() => setExportDialogOpen(true)}>
                             <Download className="h-4 w-4 mr-2" />
                             Xuất Excel
                         </Button>
+                        </>
                     }
                     rightActions={
                         <DataTableColumnCustomizer
@@ -204,7 +206,7 @@ export function ReconciliationPage() {
             />
 
             <ResponsiveDataTable<ReconciliationItem>
-                className="flex-grow"
+                className="row"
                 columns={columns}
                 data={paginatedData}
                 rowCount={filteredData.length}
@@ -229,7 +231,7 @@ export function ReconciliationPage() {
                         <CardContent className="p-4 space-y-3">
                             <div className="flex justify-between items-start">
                                 <div className="space-y-1">
-                                    <CardTitle className="text-sm font-semibold">{item.orderId}</CardTitle>
+                                    <CardTitle size="sm">{item.orderId}</CardTitle>
                                     <div className="text-sm text-muted-foreground">{item.customerName}</div>
                                 </div>
                                 <Badge variant="secondary">{item.reconciliationStatus || 'Chưa đối soát'}</Badge>

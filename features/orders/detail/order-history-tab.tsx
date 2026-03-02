@@ -4,9 +4,8 @@ import * as React from 'react';
 import Link from 'next/link';
 import type { Order } from '@/lib/types/prisma-extended';
 import type { SalesReturn } from '@/features/sales-returns/types';
-import { useAllReceipts } from '@/features/receipts/hooks/use-all-receipts';
-import { useAllPayments } from '@/features/payments/hooks/use-all-payments';
-import { useAllWarranties } from '@/features/warranty/hooks/use-all-warranties';
+// ⚡ PERFORMANCE: Use order-specific hooks instead of loading ALL data
+import { useOrderReceipts, useOrderPayments, useOrderWarranties } from '../hooks/use-order-financial-data';
 import { useEmployeeFinder } from '@/features/employees/hooks/use-all-employees';
 import { ActivityHistory, type HistoryEntry } from '@/components/ActivityHistory';
 import { asSystemId, type SystemId } from '@/lib/id-types';
@@ -19,15 +18,24 @@ interface OrderHistoryTabProps {
 }
 
 export function OrderHistoryTab({ order, salesReturnsForOrder, orderComments: _orderComments }: OrderHistoryTabProps) {
-    const { data: receipts } = useAllReceipts();
-    const { data: payments } = useAllPayments();
-    const { data: warranties } = useAllWarranties();
+    // ⚡ OPTIMIZED: Fetch only data for this order, not ALL receipts/payments/warranties
+    const { data: receipts } = useOrderReceipts(order?.systemId);
+    const { data: payments } = useOrderPayments(order?.systemId);
+    const { data: warranties } = useOrderWarranties(order?.systemId);
     const { findById: findEmployeeById } = useEmployeeFinder();
     const allTransactions = React.useMemo(() => [...receipts, ...payments], [receipts, payments]);
 
-    const parseTimestamp = React.useCallback((value?: string) => {
+    const parseTimestamp = React.useCallback((value?: string | Date | number) => {
         if (!value) return undefined;
-        return new Date(value.includes('T') ? value : value.replace(' ', 'T'));
+        // Handle Date objects
+        if (value instanceof Date) return value;
+        // Handle numbers (timestamps)
+        if (typeof value === 'number') return new Date(value);
+        // Handle strings
+        if (typeof value === 'string') {
+            return new Date(value.includes('T') ? value : value.replace(' ', 'T'));
+        }
+        return undefined;
     }, []);
 
     const buildUser = React.useCallback((systemId?: SystemId | string, fallbackName?: string) => {

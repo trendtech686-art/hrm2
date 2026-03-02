@@ -48,8 +48,8 @@ export function WarrantyCardContextMenu({
         {children}
       </ContextMenuTrigger>
       <ContextMenuContent className="w-56">
-        {/* NEW: Mới tạo */}
-        {status === 'incomplete' && (
+        {/* RECEIVED: Mới tạo */}
+        {status === 'RECEIVED' && (
           <>
             <ContextMenuItem onSelect={() => onEdit(ticket.systemId)}>
               Sửa thông tin
@@ -75,8 +75,8 @@ export function WarrantyCardContextMenu({
           </>
         )}
 
-        {/* PENDING: Chưa xử lý */}
-        {status === 'pending' && (
+        {/* PROCESSING: Chưa xử lý */}
+        {status === 'PROCESSING' && (
           <>
             <ContextMenuItem onSelect={() => onEdit(ticket.systemId)}>
               Sửa thông tin
@@ -95,8 +95,8 @@ export function WarrantyCardContextMenu({
           </>
         )}
 
-        {/* PROCESSED: Đã xử lý */}
-        {status === 'processed' && (
+        {/* COMPLETED: Đã xử lý */}
+        {status === 'COMPLETED' && (
           <>
             <ContextMenuItem onSelect={() => onMarkReturned(ticket.systemId)}>
               Đã trả hàng cho khách
@@ -108,14 +108,7 @@ export function WarrantyCardContextMenu({
         )}
 
         {/* RETURNED: Đã trả */}
-        {status === 'returned' && (
-          <ContextMenuItem onSelect={() => onGetLink(ticket.systemId)}>
-            Copy link tracking
-          </ContextMenuItem>
-        )}
-
-        {/* COMPLETED: Kết thúc */}
-        {status === 'completed' && (
+        {status === 'RETURNED' && (
           <ContextMenuItem onSelect={() => onGetLink(ticket.systemId)}>
             Copy link tracking
           </ContextMenuItem>

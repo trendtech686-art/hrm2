@@ -4,10 +4,9 @@ import * as React from 'react';
 import { formatDateCustom, toISODate } from '../../lib/date-utils';
 import { useRouter } from 'next/navigation';
 import { ROUTES } from '../../lib/router';
-import { startOfMonth, endOfMonth, isAfter, isBefore, isWithinInterval, isSameDay, differenceInMilliseconds, parse as dateParse } from 'date-fns';
+import { startOfMonth, endOfMonth, parse, differenceInMilliseconds } from 'date-fns';
 import { usePageHeader } from '../../contexts/page-header-context';
-import { useAllReceipts } from '../receipts/hooks/use-all-receipts';
-import { useAllPayments } from '../payments/hooks/use-all-payments';
+import { useAllCashbookData } from './hooks/use-all-cashbook-data';
 import { useAllBranches } from '../settings/branches/hooks/use-all-branches';
 import { useAllCustomers } from '../customers/hooks/use-all-customers';
 import { useAllReceiptTypes } from '../settings/receipt-types/hooks/use-all-receipt-types';
@@ -34,18 +33,6 @@ const PIE_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4
 
 export function CashbookReportsPage() {
   const router = useRouter();
-
-  const { data: receipts } = useAllReceipts();
-  const { data: payments } = useAllPayments();
-  const vouchers = React.useMemo(() => [
-    ...receipts.map(r => ({ ...r, type: 'receipt' as const })),
-    ...payments.map(p => ({ ...p, type: 'payment' as const }))
-  ], [receipts, payments]);
-  const { data: branches } = useAllBranches();
-  const { data: _customers = [] } = useAllCustomers();
-  const { data: _receiptTypes } = useAllReceiptTypes();
-  const { data: _paymentTypes } = useAllPaymentTypes();
-  
   const isMobile = useMediaQuery("(max-width: 768px)");
   
   const [branchFilter, setBranchFilter] = React.useState<string>('all');
@@ -53,37 +40,33 @@ export function CashbookReportsPage() {
     toISODate(startOfMonth(new Date())),
     toISODate(endOfMonth(new Date()))
   ]);
+
+  // ✅ Auto-paginated: fetches ALL transactions for the filtered date range
+  const { data: cashbookData } = useAllCashbookData({
+    startDate: dateRange?.[0],
+    endDate: dateRange?.[1],
+    branchId: branchFilter !== 'all' ? branchFilter : undefined,
+  });
+
+  const vouchers = React.useMemo(() => {
+    if (!cashbookData?.transactions) return [];
+    return cashbookData.transactions.map(t => ({
+      ...t,
+      type: t.type as 'receipt' | 'payment',
+      // Map additional fields from raw API response
+      paymentReceiptTypeName: (t as { paymentReceiptTypeName?: string | null }).paymentReceiptTypeName || null,
+      customerSystemId: (t as { customerSystemId?: string | null }).customerSystemId || null,
+      customerName: (t as { customerName?: string | null }).customerName || null,
+    }));
+  }, [cashbookData?.transactions]);
+
+  const { data: branches } = useAllBranches();
+  const { data: _customers = [] } = useAllCustomers();
+  const { data: _receiptTypes } = useAllReceiptTypes();
+  const { data: _paymentTypes } = useAllPaymentTypes();
   
-  // ✅ Filter vouchers by branch and date range
-  const filteredVouchers = React.useMemo(() => {
-    let result = vouchers;
-    
-    // Branch filter
-    if (branchFilter && branchFilter !== 'all') {
-      result = result.filter(v => v.branchSystemId === branchFilter);
-    }
-    
-    // Date range filter
-    if (dateRange && (dateRange[0] || dateRange[1])) {
-      result = result.filter(v => {
-        if (!v.date) return false;
-        const voucherDate = new Date(v.date);
-        const start = dateRange[0] ? new Date(dateRange[0]) : null;
-        const end = dateRange[1] ? new Date(dateRange[1]) : null;
-        
-        if (start && end) {
-          return isWithinInterval(voucherDate, { start, end });
-        } else if (start) {
-          return isAfter(voucherDate, start) || isSameDay(voucherDate, start);
-        } else if (end) {
-          return isBefore(voucherDate, end) || isSameDay(voucherDate, end);
-        }
-        return true;
-      });
-    }
-    
-    return result;
-  }, [vouchers, branchFilter, dateRange]);
+  // Data already filtered from server, no need for client-side filter
+  const filteredVouchers = vouchers;
   
   // ✅ Calculate summary stats
   const summaryStats = React.useMemo(() => {
@@ -125,8 +108,8 @@ export function CashbookReportsPage() {
     });
     
     return Array.from(dayMap.values()).sort((a, b) => {
-      const dateA = dateParse(a.date, 'dd/MM', new Date());
-      const dateB = dateParse(b.date, 'dd/MM', new Date());
+      const dateA = parse(a.date, 'dd/MM', new Date());
+      const dateB = parse(b.date, 'dd/MM', new Date());
       return differenceInMilliseconds(dateA, dateB);
     });
   }, [filteredVouchers]);
@@ -245,7 +228,7 @@ export function CashbookReportsPage() {
         <CardContent className="p-4">
           <div className="flex flex-col sm:flex-row gap-2">
             <Select value={branchFilter} onValueChange={setBranchFilter}>
-              <SelectTrigger className="w-full sm:w-[180px]">
+              <SelectTrigger className="w-full sm:w-45">
                 <SelectValue placeholder="Chi nhánh" />
               </SelectTrigger>
               <SelectContent>
@@ -405,7 +388,7 @@ export function CashbookReportsPage() {
                 </PieChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-[250px] flex items-center justify-center text-muted-foreground">
+              <div className="h-62.5 flex items-center justify-center text-muted-foreground">
                 Không có dữ liệu
               </div>
             )}
@@ -439,7 +422,7 @@ export function CashbookReportsPage() {
                 </PieChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-[250px] flex items-center justify-center text-muted-foreground">
+              <div className="h-62 flex items-center justify-center text-muted-foreground">
                 Không có dữ liệu
               </div>
             )}

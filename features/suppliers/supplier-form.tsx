@@ -2,9 +2,10 @@ import * as React from "react";
 import { useForm, useWatch } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
+import { toast } from "sonner"
 import type { Supplier } from '@/lib/types/prisma-extended'
 import { useAllEmployees } from "../employees/hooks/use-all-employees"
-import { useSuppliers } from "./hooks/use-suppliers";
+import { useAllSuppliers } from "./hooks/use-all-suppliers";
 // ✅ REMOVED: import { generateNextId } - use id: '' instead
 import {
   Form,
@@ -21,7 +22,7 @@ import { VirtualizedCombobox } from "../../components/ui/virtualized-combobox";
 import { Switch } from "../../components/ui/switch";
 
 const supplierFormSchema = z.object({
-  id: z.string().min(1, "Mã nhà cung cấp là bắt buộc"),
+  id: z.string().optional().or(z.literal("")),
   name: z.string().min(1, "Tên nhà cung cấp là bắt buộc"),
   taxCode: z.string()
     .regex(/^[0-9]{10}$|^[0-9]{13}$/, "Mã số thuế phải có 10 hoặc 13 chữ số")
@@ -31,7 +32,7 @@ const supplierFormSchema = z.object({
   email: z.string().email("Email không hợp lệ").optional().or(z.literal("")),
   address: z.string().optional().or(z.literal("")),
   website: z.string().url("Website không hợp lệ").optional().or(z.literal("")),
-  accountManager: z.string().min(1, "Người phụ trách là bắt buộc"),
+  accountManager: z.string().optional().or(z.literal("")),
   status: z.enum(["Đang Giao Dịch", "Ngừng Giao Dịch"]),
   currentDebt: z.number().optional(),
   bankAccount: z.string()
@@ -50,12 +51,12 @@ type SupplierFormProps = {
   initialData: Supplier | null
   onSubmit: (values: SupplierFormValues) => void;
   onCancel: () => void;
+  formRef?: React.RefObject<HTMLFormElement | null>;
 }
 
-export function SupplierForm({ initialData, onSubmit, onCancel: _onCancel }: SupplierFormProps) {
+export function SupplierForm({ initialData, onSubmit, onCancel: _onCancel, formRef }: SupplierFormProps) {
   const { data: employees } = useAllEmployees();
-  const { data: suppliersData } = useSuppliers({ limit: 1000 });
-  const _suppliers = suppliersData?.data ?? [];
+  const { data: _suppliers } = useAllSuppliers();
   
   const form = useForm<SupplierFormData>({
     resolver: zodResolver(supplierFormSchema),
@@ -90,15 +91,32 @@ export function SupplierForm({ initialData, onSubmit, onCancel: _onCancel }: Sup
     return employeeOptions.find(opt => opt.value === accountManagerValue) || null;
   }, [accountManagerValue, employeeOptions]);
 
+  // Handle form validation errors
+  const handleFormSubmit = form.handleSubmit(
+    (data) => {
+      onSubmit(data);
+    },
+    (errors) => {
+      // Show first validation error as toast
+      const firstError = Object.values(errors)[0];
+      if (firstError?.message) {
+        toast.error(firstError.message as string);
+      } else {
+        toast.error('Vui lòng kiểm tra lại thông tin nhập vào');
+      }
+      console.error('Form validation errors:', errors);
+    }
+  );
+
   return (
     <Form {...form}>
-      <form id="supplier-form" onSubmit={form.handleSubmit((data) => onSubmit(data))} className="space-y-6">
+      <form ref={formRef} id="supplier-form" onSubmit={handleFormSubmit} className="space-y-6">
         {/* Thông tin cơ bản */}
         <div className="space-y-4">
           <h3 className="text-h3 font-semibold">Thông tin cơ bản</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField control={form.control} name="id" render={({ field }) => (
-                <FormItem><FormLabel>Mã nhà cung cấp *</FormLabel><FormControl><Input placeholder="VD: NCC000001" {...field} disabled={!!initialData} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>Mã nhà cung cấp</FormLabel><FormControl><Input placeholder="Tự động tạo nếu để trống" {...field} /></FormControl><FormMessage /></FormItem>
             )} />
             <FormField control={form.control} name="name" render={({ field }) => (
               <FormItem><FormLabel>Tên nhà cung cấp *</FormLabel><FormControl><Input placeholder="Nhập tên nhà cung cấp" {...field} /></FormControl><FormMessage /></FormItem>
@@ -158,7 +176,7 @@ export function SupplierForm({ initialData, onSubmit, onCancel: _onCancel }: Sup
           <h3 className="text-h3 font-semibold">Thông tin quản lý</h3>
           <FormField control={form.control} name="accountManager" render={({ field }) => (
               <FormItem>
-              <FormLabel>Người phụ trách *</FormLabel>
+              <FormLabel>Người phụ trách</FormLabel>
               <FormControl>
                 <VirtualizedCombobox
                   options={employeeOptions}

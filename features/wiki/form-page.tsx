@@ -3,7 +3,8 @@
 import * as React from 'react';
 import { useRouter, useParams, usePathname } from 'next/navigation';
 import { useForm } from 'react-hook-form';
-import { useWikiById, useWikiMutations, useWikiArticles } from './hooks/use-wiki';
+import { toast } from 'sonner';
+import { useWikiById, useWikiMutations, useWikiCategories } from './hooks/use-wiki';
 import { useAllEmployees } from '../employees/hooks/use-all-employees';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { Card, CardContent } from '../../components/ui/card';
@@ -28,8 +29,7 @@ export function WikiFormPage() {
   const pathname = usePathname();
   
   const { data: articleFromQuery, isLoading } = useWikiById(systemId);
-  const { data: articlesData } = useWikiArticles({ limit: 1000 });
-  const articles = React.useMemo(() => articlesData?.data ?? [], [articlesData?.data]);
+  const { data: categories = [] } = useWikiCategories();
   
   const { create: createMutation, update: updateMutation } = useWikiMutations({
     onSuccess: () => {
@@ -77,7 +77,7 @@ export function WikiFormPage() {
     actions: headerActions,
   });
 
-  const existingCategories = React.useMemo(() => [...new Set(articles.map(a => a.category))], [articles]);
+  const existingCategories = categories;
 
   const form = useForm<WikiFormValues>({
     defaultValues: {

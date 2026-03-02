@@ -1,4 +1,4 @@
-import * as React from 'react';
+﻿import * as React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../../components/ui/card';
 import { Label } from '../../../../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../components/ui/select';
@@ -43,7 +43,7 @@ export function PriceMappingTab() {
       {/* Info Card */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Mapping giá</CardTitle>
+          <CardTitle size="lg">Mapping giá</CardTitle>
           <CardDescription>
             Liên kết bảng giá HRM với các loại giá trên Trendtech
           </CardDescription>
@@ -60,7 +60,7 @@ export function PriceMappingTab() {
       {/* Price Mapping */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Giá bán (price)</CardTitle>
+          <CardTitle size="lg">Giá bán (price)</CardTitle>
           <CardDescription>
             Giá hiển thị cho khách hàng trên website
           </CardDescription>
@@ -111,7 +111,7 @@ export function PriceMappingTab() {
       {/* Compare At Price Mapping */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Giá gốc (compareAtPrice)</CardTitle>
+          <CardTitle size="lg">Giá gốc (compareAtPrice)</CardTitle>
           <CardDescription>
             Giá gốc để gạch ngang, tạo hiệu ứng giảm giá
           </CardDescription>

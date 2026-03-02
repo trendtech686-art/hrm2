@@ -9,6 +9,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { getModuleSettingSection, updateModuleSettingSection } from '@/app/actions/settings/module-settings';
 
 export const warrantySettingsKeys = {
   all: ['settings', 'warranty'] as const,
@@ -18,10 +19,16 @@ export const warrantySettingsKeys = {
 type WarrantySettingType = 'sla-targets' | 'notifications' | 'tracking' | 'reminder-templates' | 'cardColors';
 
 // Type definitions
+interface SlaPriorityTarget {
+  responseTime: number;
+  resolveTime: number;
+}
+
 interface SlaTargets {
-  response: number;
-  processing: number;
-  return: number;
+  low: SlaPriorityTarget;
+  medium: SlaPriorityTarget;
+  high: SlaPriorityTarget;
+  urgent: SlaPriorityTarget;
 }
 
 interface NotificationSettings {
@@ -41,9 +48,15 @@ interface TrackingSettings {
   allowCustomerComments: boolean;
   showEmployeeName: boolean;
   showTimeline: boolean;
+  showProductList: boolean;
+  showSummary: boolean;
+  showPayment: boolean;
+  showReceivedImages: boolean;
+  showProcessedImages: boolean;
+  showHistory: boolean;
 }
 
-interface CardColorSettings {
+export interface CardColorSettings {
   statusColors: Record<string, string>;
   priorityColors?: Record<string, string>;
   overdueColor?: string;
@@ -65,9 +78,10 @@ export interface WarrantySettings {
 // Default values
 const DEFAULTS: Record<WarrantySettingType, WarrantySettingValue> = {
   'sla-targets': {
-    response: 2 * 60,
-    processing: 24 * 60,
-    return: 48 * 60,
+    low: { responseTime: 480, resolveTime: 72 },    // 8h response, 72h resolve
+    medium: { responseTime: 240, resolveTime: 48 }, // 4h response, 48h resolve
+    high: { responseTime: 120, resolveTime: 24 },   // 2h response, 24h resolve
+    urgent: { responseTime: 60, resolveTime: 12 },  // 1h response, 12h resolve
   },
   'notifications': {
     emailOnCreate: true,
@@ -85,6 +99,12 @@ const DEFAULTS: Record<WarrantySettingType, WarrantySettingValue> = {
     allowCustomerComments: false,
     showEmployeeName: true,
     showTimeline: true,
+    showProductList: true,
+    showSummary: true,
+    showPayment: true,
+    showReceivedImages: true,
+    showProcessedImages: true,
+    showHistory: true,
   },
   'reminder-templates': [],
   'cardColors': {
@@ -97,28 +117,34 @@ const DEFAULTS: Record<WarrantySettingType, WarrantySettingValue> = {
 async function fetchWarrantySettingSection<T = WarrantySettingValue>(
   type: WarrantySettingType
 ): Promise<T> {
-  const response = await fetch(`/api/warranty-settings?type=${type}`);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch ${type} settings`);
+  const result = await getModuleSettingSection<T>('warranty', type);
+  if (!result.success) {
+    throw new Error(result.error);
   }
-  const result = await response.json();
-  return result.data ?? (DEFAULTS[type] as T);
+  const defaults = DEFAULTS[type] as T;
+  // For plain objects: merge DB data with defaults to ensure new fields have values
+  // For arrays: return DB data as-is (array spread produces objects, not arrays)
+  if (
+    result.data &&
+    typeof result.data === 'object' &&
+    !Array.isArray(result.data) &&
+    typeof defaults === 'object' &&
+    !Array.isArray(defaults)
+  ) {
+    return { ...defaults, ...result.data } as T;
+  }
+  return result.data ?? defaults;
 }
 
 async function updateWarrantySettingSection(
   type: WarrantySettingType,
   data: WarrantySettingValue
 ): Promise<WarrantySettingValue> {
-  const response = await fetch('/api/warranty-settings', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ type, data }),
-  });
-  if (!response.ok) {
-    throw new Error(`Failed to update ${type} settings`);
+  const result = await updateModuleSettingSection('warranty', type, data);
+  if (!result.success) {
+    throw new Error(result.error);
   }
-  const result = await response.json();
-  return result.data;
+  return result.data as WarrantySettingValue;
 }
 
 /**
@@ -168,25 +194,26 @@ export function useWarrantySettingsMutations() {
   const updateSection = useMutation({
     mutationFn: ({ type, data }: { type: WarrantySettingType; data: WarrantySettingValue }) =>
       updateWarrantySettingSection(type, data),
+    onMutate: async (variables) => {
+      // Cancel outgoing refetches to avoid overwriting optimistic update
+      await queryClient.cancelQueries({ queryKey: warrantySettingsKeys.section(variables.type) });
+      // Snapshot previous value
+      const previous = queryClient.getQueryData(warrantySettingsKeys.section(variables.type));
+      // Optimistically update cache
+      queryClient.setQueryData(warrantySettingsKeys.section(variables.type), variables.data);
+      return { previous };
+    },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: warrantySettingsKeys.section(variables.type) });
-      toast.success('Đã lưu cài đặt');
     },
-    onError: (error: Error) => {
+    onError: (error: Error, variables, context) => {
+      // Rollback on error
+      if (context?.previous !== undefined) {
+        queryClient.setQueryData(warrantySettingsKeys.section(variables.type), context.previous);
+      }
       toast.error(`Lỗi: ${error.message}`);
     },
   });
 
   return { updateSection };
-}
-
-/**
- * Legacy compatibility function - load card colors
- */
-export function loadCardColorSettings(): CardColorSettings {
-  // For legacy sync code - fetch from cache or return defaults
-  const cachedData = typeof window !== 'undefined' 
-    ? (window as unknown as { __warrantyCardColors?: CardColorSettings }).__warrantyCardColors
-    : undefined;
-  return cachedData ?? (DEFAULTS['cardColors'] as CardColorSettings);
 }

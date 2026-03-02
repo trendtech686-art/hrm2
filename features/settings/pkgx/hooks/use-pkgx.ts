@@ -4,6 +4,7 @@
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import * as api from '../api/pkgx-api';
+import { pkgxKeys as settingsKeys } from './use-pkgx-settings';
 
 export const pkgxKeys = {
   all: ['pkgx'] as const,
@@ -20,7 +21,14 @@ export function usePkgxCategories() {
 
 export function useSyncPkgxCategories(opts?: { onSuccess?: () => void }) {
   const qc = useQueryClient();
-  return useMutation({ mutationFn: api.syncPkgxCategories, onSuccess: () => { qc.invalidateQueries({ queryKey: pkgxKeys.categories() }); opts?.onSuccess?.(); } });
+  return useMutation({ 
+    mutationFn: api.syncPkgxCategories, 
+    onSuccess: () => { 
+      qc.invalidateQueries({ queryKey: pkgxKeys.categories() }); 
+      qc.invalidateQueries({ queryKey: settingsKeys.settings() }); 
+      opts?.onSuccess?.(); 
+    } 
+  });
 }
 
 // PKGX Brands
@@ -30,7 +38,14 @@ export function usePkgxBrands() {
 
 export function useSyncPkgxBrands(opts?: { onSuccess?: () => void }) {
   const qc = useQueryClient();
-  return useMutation({ mutationFn: api.syncPkgxBrands, onSuccess: () => { qc.invalidateQueries({ queryKey: pkgxKeys.brands() }); opts?.onSuccess?.(); } });
+  return useMutation({ 
+    mutationFn: api.syncPkgxBrands, 
+    onSuccess: () => { 
+      qc.invalidateQueries({ queryKey: pkgxKeys.brands() }); 
+      qc.invalidateQueries({ queryKey: settingsKeys.settings() }); 
+      opts?.onSuccess?.(); 
+    } 
+  });
 }
 
 // Category Mappings

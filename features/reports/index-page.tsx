@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Reports Index Page
  * 
  * Trang tổng quan báo cáo - hiển thị danh sách các nhóm báo cáo
@@ -239,7 +239,7 @@ export function ReportsIndexPage() {
                   <group.icon className="h-5 w-5" />
                 </div>
                 <div>
-                  <CardTitle className="text-lg">{group.title}</CardTitle>
+                  <CardTitle size="lg">{group.title}</CardTitle>
                   <CardDescription>{group.description}</CardDescription>
                 </div>
               </div>

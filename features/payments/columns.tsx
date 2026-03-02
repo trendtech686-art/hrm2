@@ -136,7 +136,7 @@ export const getColumns = (
         accessorKey: "recipientName",
         header: "Người nhận",
         cell: ({ row }) => (
-            <div className="max-w-[200px] truncate" title={row.recipientName}>
+            <div className="max-w-50 truncate" title={row.recipientName}>
                 {row.recipientName}
             </div>
         ),
@@ -172,7 +172,7 @@ export const getColumns = (
         cell: ({ row }) => {
             const account = accounts.find(a => a.systemId === row.accountSystemId);
             return (
-                <div className="max-w-[150px] truncate" title={account?.name}>
+                <div className="max-w-37.5 truncate" title={account?.name}>
                     {account?.name || row.accountSystemId}
                 </div>
             );
@@ -217,7 +217,7 @@ export const getColumns = (
         accessorKey: "description",
         header: "Diễn giải",
         cell: ({ row }) => (
-            <div className="max-w-[300px] truncate" title={row.description}>
+            <div className="max-w-75 truncate" title={row.description}>
                 {row.description}
             </div>
         ),
@@ -283,6 +283,8 @@ export const getColumns = (
         accessorKey: "createdBy",
         header: "Người tạo",
         cell: ({ row }) => {
+            const payment = row as Payment & { createdByName?: string };
+            if (payment.createdByName) return payment.createdByName;
             const employee = employees.find(e => e.systemId === row.createdBy);
             return employee?.fullName || row.createdBy || '';
         },

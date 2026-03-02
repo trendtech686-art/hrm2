@@ -11,18 +11,47 @@ import type { Prisma } from '@/generated/prisma/client';
 import { InventoryCheckStatus } from '@/generated/prisma/client';
 import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils';
 import { createInventoryCheckSchema } from './validation';
+import { generateNextIdsWithTx } from '@/lib/id-system';
 
-// Interface for inventory check item input
+// Interface for inventory check item input (matches frontend)
 interface InventoryCheckItemInput {
-  systemId: string;
+  productSystemId: string;
   productId: string;
-  expectedQuantity?: number;
+  productName?: string;
+  unit?: string;
+  systemQuantity?: number;
   actualQuantity?: number;
   difference?: number;
-  notes?: string;
+  reason?: string;
+  note?: string;
 }
 
 // GET - List inventory checks
+// Helper to map DB item to app type
+function mapInventoryCheckItem(item: {
+  systemId: string;
+  checkId: string;
+  productId: string | null;
+  productName: string;
+  productSku: string;
+  systemQty: number;
+  actualQty: number;
+  difference: number;
+  notes: string | null;
+}) {
+  return {
+    productSystemId: item.productId || item.productSku,
+    productId: item.productSku,
+    productName: item.productName,
+    unit: '',
+    systemQuantity: item.systemQty,
+    actualQuantity: item.actualQty,
+    difference: item.difference,
+    reason: undefined,
+    note: item.notes,
+  };
+}
+
 export async function GET(request: NextRequest) {
   const session = await requireAuth();
   if (!session) return apiError('Unauthorized', 401);
@@ -31,6 +60,9 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const { page, limit, skip } = parsePagination(searchParams);
     const search = searchParams.get('search') || '';
+    const status = searchParams.get('status');
+    const sortBy = searchParams.get('sortBy') || 'createdAt';
+    const sortOrder = (searchParams.get('sortOrder') || 'desc') as 'asc' | 'desc';
     const _includeDeleted = searchParams.get('includeDeleted') === 'true';
 
     const where: Prisma.InventoryCheckWhereInput = {};
@@ -44,12 +76,19 @@ export async function GET(request: NextRequest) {
       ];
     }
 
+    if (status && status !== 'all') {
+      where.status = status as InventoryCheckStatus;
+    }
+
+    // Build orderBy
+    const orderBy: Prisma.InventoryCheckOrderByWithRelationInput = { [sortBy]: sortOrder };
+
     const [data, total] = await Promise.all([
       prisma.inventoryCheck.findMany({
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy,
         include: {
           items: true,
         },
@@ -57,7 +96,13 @@ export async function GET(request: NextRequest) {
       prisma.inventoryCheck.count({ where }),
     ]);
 
-    return apiPaginated(data, { page, limit, total });
+    // Map items to app types
+    const mappedData = data.map(check => ({
+      ...check,
+      items: check.items.map(mapInventoryCheckItem),
+    }));
+
+    return apiPaginated(mappedData, { page, limit, total });
   } catch (error) {
     console.error('[Inventory Checks API] GET error:', error);
     return apiError('Failed to fetch inventory checks', 500);
@@ -73,43 +118,44 @@ export async function POST(request: NextRequest) {
   if (!result.success) return apiError(result.error, 400);
 
   try {
-    const {
-      systemId,
-      id,
-      branchId,
-      employeeId,
-      checkDate,
-      status,
-      notes,
-      items,
-      createdBy,
-    } = result.data;
+    const data = result.data;
 
-    const inventoryCheck = await prisma.inventoryCheck.create({
-      data: {
-        systemId,
-        id,
-        branchId,
-        employeeId: employeeId || null,
-        checkDate: checkDate ? new Date(checkDate) : new Date(),
-        status: (status || 'DRAFT') as InventoryCheckStatus,
-        notes: notes || null,
-        createdBy: createdBy || null,
-        items: items?.length ? {
-          create: items.map((item: InventoryCheckItemInput) => ({
-            productId: item.productId,
-            productName: item.productId, // Will be resolved from product
-            productSku: item.productId, // Will be resolved from product
-            systemQty: item.expectedQuantity || 0,
-            actualQty: item.actualQuantity || 0,
-            difference: item.difference || 0,
-            notes: item.notes || null,
-          })),
-        } : undefined,
-      },
-      include: {
-        items: true,
-      },
+    const inventoryCheck = await prisma.$transaction(async (tx) => {
+      // Generate IDs using unified ID system
+      const { systemId, businessId } = await generateNextIdsWithTx(
+        tx,
+        'inventory-checks',
+        data.id?.trim() || undefined
+      );
+
+      return tx.inventoryCheck.create({
+        data: {
+          systemId,
+          id: businessId,
+          branchId: data.branchSystemId, // Map branchSystemId to branchId
+          branchSystemId: data.branchSystemId,
+          branchName: data.branchName || null,
+          employeeId: data.employeeId || null,
+          checkDate: data.checkDate ? new Date(data.checkDate) : new Date(),
+          status: (data.status?.toUpperCase() || 'DRAFT') as InventoryCheckStatus,
+          notes: data.note || data.notes || null,
+          createdBy: data.createdBy || null,
+          items: data.items?.length ? {
+            create: data.items.map((item: InventoryCheckItemInput) => ({
+              productId: item.productSystemId, // Use productSystemId
+              productName: item.productName || item.productId,
+              productSku: item.productId,
+              systemQty: item.systemQuantity || 0,
+              actualQty: item.actualQuantity || 0,
+              difference: item.difference || 0,
+              notes: item.note || null,
+            })),
+          } : undefined,
+        },
+        include: {
+          items: true,
+        },
+      });
     });
 
     return apiSuccess(inventoryCheck, 201);

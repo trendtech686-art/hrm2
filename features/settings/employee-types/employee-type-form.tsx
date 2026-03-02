@@ -48,6 +48,17 @@ export function EmployeeTypeForm({ initialData, onSubmit, onCancel, isLoading }:
     },
   })
 
+  // Reset form when initialData changes
+  React.useEffect(() => {
+    form.reset({
+      id: initialData?.id || '',
+      name: initialData?.name || '',
+      description: initialData?.description || '',
+      isDefault: initialData?.isDefault || false,
+      sortOrder: initialData?.sortOrder || 0,
+    });
+  }, [initialData, form]);
+
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     e.stopPropagation() // Prevent bubbling to parent form

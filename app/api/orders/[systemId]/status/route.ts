@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { OrderStatus } from '@/generated/prisma/client';
 import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils';
+import { updateCustomerDebt } from '@/lib/services/customer-debt-service';
 
 interface RouteParams {
   params: Promise<{ systemId: string }>;
@@ -56,6 +57,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const statusTimestamps: Partial<Record<OrderStatus, object>> = {
       CONFIRMED: { approvedDate: new Date() },
       DELIVERED: { completedDate: new Date() },
+      COMPLETED: { completedDate: new Date() },
       CANCELLED: { cancelledDate: new Date() },
     };
 
@@ -73,6 +75,14 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         payments: true,
       },
     });
+
+    // ✅ Update customer debt when order is DELIVERED or COMPLETED
+    const debtAffectingStatuses: OrderStatus[] = ['DELIVERED', 'COMPLETED'];
+    if (debtAffectingStatuses.includes(status as OrderStatus) && updatedOrder.customer?.systemId) {
+      await updateCustomerDebt(updatedOrder.customer.systemId).catch(err => {
+        console.error('[Order Status] Failed to update customer debt:', err);
+      });
+    }
 
     return apiSuccess(updatedOrder);
   } catch (error) {

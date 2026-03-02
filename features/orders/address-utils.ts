@@ -2,7 +2,19 @@ import type { OrderAddress } from '@/lib/types/prisma-extended';
 
 export const formatOrderAddress = (address?: string | OrderAddress | null): string => {
     if (!address) return '';
+    
+    // If string, try to parse as JSON first
     if (typeof address === 'string') {
+        // Check if it looks like JSON
+        if (address.trim().startsWith('{')) {
+            try {
+                const parsed = JSON.parse(address) as OrderAddress;
+                return formatOrderAddress(parsed);
+            } catch {
+                // Not valid JSON, return as-is
+                return address;
+            }
+        }
         return address;
     }
 

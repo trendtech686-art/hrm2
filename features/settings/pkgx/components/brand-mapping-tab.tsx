@@ -1,4 +1,4 @@
-import * as React from 'react';
+﻿import * as React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../../components/ui/card';
 import { OptimizedImage } from '../../../../components/ui/optimized-image';
 import { Button } from '../../../../components/ui/button';
@@ -8,13 +8,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../../components
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../../../components/ui/dialog';
 import { Label as _Label } from '../../../../components/ui/label';
 import { ScrollArea } from '../../../../components/ui/scroll-area';
-import { Plus, Pencil, Trash2, RefreshCw, Search, Loader2, Award, Link, Unlink, CheckCircle2, MoreHorizontal, ExternalLink, Upload, AlignLeft, Globe, Link2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, RefreshCw, Search, Loader2, Award, Link, Unlink, CheckCircle2, MoreHorizontal, ExternalLink, Upload, AlignLeft, Globe, Link2, Download } from 'lucide-react';
+import { Progress } from '../../../../components/ui/progress';
 import { Checkbox } from '../../../../components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../../../../components/ui/dropdown-menu';
 import { getBrandById, updateBrand } from '../../../../lib/pkgx/api-service';
 import { toast } from 'sonner';
-import { usePkgxSettingsStore } from '../store';
+import { usePkgxSettings, usePkgxBrandMappingMutations, usePkgxLogMutations } from '../hooks/use-pkgx-settings';
+import { useSyncPkgxBrands } from '../hooks/use-pkgx';
 import { useActiveBrands } from '@/features/brands/hooks/use-all-brands';
+import { brandKeys } from '@/features/brands/hooks/use-brands';
+import { useQueryClient } from '@tanstack/react-query';
 import { ResponsiveDataTable } from '../../../../components/data-table/responsive-data-table';
 import type { ColumnDef } from '../../../../components/data-table/types';
 import type { PkgxBrandMapping, PkgxBrand, PkgxBrandFromApi } from '../types';
@@ -24,6 +28,7 @@ import type { BrandMappingInput } from '../validation';
 import { PkgxMappingDialog } from '../../../../components/shared/pkgx-mapping-dialog';
 import { PkgxSyncConfirmDialog } from './pkgx-sync-confirm-dialog';
 import { asSystemId } from '@/lib/id-types';
+import { generateSubEntityId } from '@/lib/id-utils';
 
 // Extended type for PKGX brands table
 interface PkgxBrandRow extends PkgxBrand {
@@ -37,14 +42,11 @@ interface MappingRow extends PkgxBrandMapping {
 }
 
 export function BrandMappingTab() {
-  const { 
-    settings, 
-    addBrandMapping, 
-    updateBrandMapping, 
-    deleteBrandMapping,
-    syncBrandsFromPkgx,
-    addLog,
-  } = usePkgxSettingsStore();
+  const queryClient = useQueryClient();
+  const { data: settings } = usePkgxSettings();
+  const { addBrandMapping, updateBrandMapping, deleteBrandMapping } = usePkgxBrandMappingMutations({ onSuccess: () => {} });
+  const syncBrands = useSyncPkgxBrands({ onSuccess: () => toast.success('Đã đồng bộ thương hiệu từ PKGX') });
+  const { addLog } = usePkgxLogMutations();
   const { data: brandsData } = useActiveBrands();
   
   const [searchTerm, setSearchTerm] = React.useState('');
@@ -52,6 +54,10 @@ export function BrandMappingTab() {
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
   const [editingMapping, setEditingMapping] = React.useState<PkgxBrandMapping | null>(null);
   const [isSyncing, setIsSyncing] = React.useState(false);
+  const [isImporting, setIsImporting] = React.useState(false);
+  const [isPaused, setIsPaused] = React.useState(false);
+  const [importProgress, setImportProgress] = React.useState({ current: 0, total: 0, currentName: '' });
+  const pauseRef = React.useRef(false);
   
   // Detail dialog state
   const [isDetailDialogOpen, setIsDetailDialogOpen] = React.useState(false);
@@ -72,7 +78,7 @@ export function BrandMappingTab() {
   // Use shared PKGX entity sync hook
   const entitySync = usePkgxEntitySync({
     entityType: 'brand',
-    onLog: addLog,
+    onLog: (log) => addLog.mutate(log),
   });
   
   const hrmBrands = React.useMemo(
@@ -85,24 +91,24 @@ export function BrandMappingTab() {
   
   // Validation hook
   const validation = useBrandMappingValidation({
-    existingMappings: settings.brandMappings,
+    existingMappings: settings?.brandMappings ?? [],
     hrmBrands: hrmBrands,
-    pkgxBrands: settings.brands,
+    pkgxBrands: settings?.brands ?? [],
     editingMappingId: editingMapping?.id,
     debounceMs: 300,
   });
   
   // Find if PKGX brand is mapped
   const findMapping = React.useCallback((pkgxBrandId: number) => {
-    return settings.brandMappings.find(m => m.pkgxBrandId === pkgxBrandId);
-  }, [settings.brandMappings]);
+    return settings?.brandMappings?.find(m => m.pkgxBrandId === pkgxBrandId);
+  }, [settings?.brandMappings]);
   
   // PKGX Brands data for table
   const pkgxBrandsData = React.useMemo((): PkgxBrandRow[] => {
-    let filtered = settings.brands;
+    let filtered = settings?.brands ?? [];
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
-      filtered = settings.brands.filter(b => 
+      filtered = (settings?.brands ?? []).filter(b => 
         b.name.toLowerCase().includes(term) ||
         b.id.toString().includes(term)
       );
@@ -112,23 +118,23 @@ export function BrandMappingTab() {
       systemId: b.id.toString(),
       mappedToHrm: findMapping(b.id)?.hrmBrandName,
     }));
-  }, [settings.brands, searchTerm, findMapping]);
+  }, [settings?.brands, searchTerm, findMapping]);
   
   // Mappings data for table
   const mappingsData = React.useMemo((): MappingRow[] => {
-    let filtered = settings.brandMappings;
+    let filtered = settings?.brandMappings ?? [];
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
-      filtered = settings.brandMappings.filter(m =>
+      filtered = (settings?.brandMappings ?? []).filter(m =>
         m.hrmBrandName.toLowerCase().includes(term) ||
         m.pkgxBrandName.toLowerCase().includes(term)
       );
     }
     return filtered.map(m => ({
       ...m,
-      systemId: m.id,
+      systemId: m.systemId || m.id || `brandmap-${m.pkgxBrandId}`,
     }));
-  }, [settings.brandMappings, searchTerm]);
+  }, [settings?.brandMappings, searchTerm]);
   
   // Paginated data
   const paginatedPkgxData = React.useMemo(() => {
@@ -172,7 +178,7 @@ export function BrandMappingTab() {
         selectedMappedBrands.forEach(brand => {
           const mapping = findMapping(brand.id);
           if (mapping) {
-            deleteBrandMapping(mapping.id);
+            deleteBrandMapping.mutate(mapping.systemId || mapping.id || '');
           }
         });
         toast.success(`Đã hủy mapping ${selectedMappedBrands.length} thương hiệu`);
@@ -209,7 +215,7 @@ export function BrandMappingTab() {
       accessorKey: 'id',
       header: 'ID',
       size: 70,
-      cell: ({ row }) => <span className="font-mono text-xs">{row.id}</span>,
+      cell: ({ row }) => <span className="text-xs">{row.id}</span>,
     },
     {
       id: 'name',
@@ -360,18 +366,18 @@ export function BrandMappingTab() {
       accessorKey: 'pkgxBrandId',
       header: 'ID PKGX',
       size: 80,
-      cell: ({ row }) => <span className="font-mono text-muted-foreground">{row.pkgxBrandId}</span>,
+      cell: ({ row }) => <span className="text-muted-foreground">{row.pkgxBrandId}</span>,
     },
     {
       id: 'actions',
-      header: 'Hành động',
+      header: '',
       size: 100,
       cell: ({ row }) => (
         <div className="flex justify-end gap-1">
           <Button variant="ghost" size="sm" onClick={() => handleOpenDialog(row)}>
             <Pencil className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => handleDelete(row.id)}>
+          <Button variant="ghost" size="sm" onClick={() => handleDelete(row.systemId)}>
             <Trash2 className="h-4 w-4 text-destructive" />
           </Button>
         </div>
@@ -390,8 +396,8 @@ export function BrandMappingTab() {
   const handleUnlinkBrand = (pkgxBrandId: number) => {
     const mapping = findMapping(pkgxBrandId);
     if (mapping) {
-      deleteBrandMapping(mapping.id);
-      addLog({
+      deleteBrandMapping.mutate(mapping.systemId || mapping.id || '');
+      addLog.mutate({
         action: 'unlink_mapping',
         status: 'success',
         message: `Đã hủy liên kết thương hiệu: ${mapping.hrmBrandName} ↔ ${mapping.pkgxBrandName}`,
@@ -404,7 +410,7 @@ export function BrandMappingTab() {
   const handleOpenDialog = (mapping?: PkgxBrandMapping) => {
     if (mapping) {
       setEditingMapping(mapping);
-      setSelectedHrmBrand(mapping.hrmBrandSystemId);
+      setSelectedHrmBrand((mapping.hrmBrandId || mapping.hrmBrandSystemId || '') as string);
       setSelectedPkgxBrand(mapping.pkgxBrandId.toString());
     } else {
       setEditingMapping(null);
@@ -430,7 +436,7 @@ export function BrandMappingTab() {
         hrmBrandSystemId: selectedHrmBrand || '',
         hrmBrandName: hrmBrands.find(b => b.systemId === selectedHrmBrand)?.name || '',
         pkgxBrandId: selectedPkgxBrand ? parseInt(selectedPkgxBrand) : '',
-        pkgxBrandName: settings.brands.find(b => b.id === parseInt(selectedPkgxBrand))?.name || '',
+        pkgxBrandName: settings?.brands?.find(b => b.id === parseInt(selectedPkgxBrand))?.name || '',
       };
       validation.validateAsync(input);
     }
@@ -443,7 +449,7 @@ export function BrandMappingTab() {
       hrmBrandSystemId: selectedHrmBrand || '',
       hrmBrandName: hrmBrands.find(b => b.systemId === selectedHrmBrand)?.name || '',
       pkgxBrandId: selectedPkgxBrand ? parseInt(selectedPkgxBrand) : '',
-      pkgxBrandName: settings.brands.find(b => b.id === parseInt(selectedPkgxBrand))?.name || '',
+      pkgxBrandName: settings?.brands?.find(b => b.id === parseInt(selectedPkgxBrand))?.name || '',
     };
     
     // Run final validation
@@ -462,7 +468,7 @@ export function BrandMappingTab() {
     }
     
     const hrmBrand = hrmBrands.find((b) => b.systemId === selectedHrmBrand);
-    const pkgxBrand = settings.brands.find((b) => b.id === parseInt(selectedPkgxBrand));
+    const pkgxBrand = settings?.brands?.find((b) => b.id === parseInt(selectedPkgxBrand));
     
     if (!hrmBrand || !pkgxBrand) {
       toast.error('Không tìm thấy thương hiệu');
@@ -470,13 +476,14 @@ export function BrandMappingTab() {
     }
     
     if (editingMapping) {
-      updateBrandMapping(editingMapping.id, {
-        hrmBrandSystemId: hrmBrand.systemId,
+      updateBrandMapping.mutate({ id: editingMapping.systemId || editingMapping.id || '', updates: {
+        systemId: editingMapping.systemId || editingMapping.id || '',
+        hrmBrandId: asSystemId(hrmBrand.systemId),
         hrmBrandName: hrmBrand.name,
         pkgxBrandId: pkgxBrand.id,
         pkgxBrandName: pkgxBrand.name,
-      });
-      addLog({
+      }});
+      addLog.mutate({
         action: 'save_mapping',
         status: 'success',
         message: `Cập nhật mapping thương hiệu: ${hrmBrand.name} → ${pkgxBrand.name}`,
@@ -484,14 +491,14 @@ export function BrandMappingTab() {
       });
       toast.success('Đã cập nhật mapping thương hiệu');
     } else {
-      addBrandMapping({
-        id: `brandmap-${Date.now()}`,
-        hrmBrandSystemId: hrmBrand.systemId,
+      addBrandMapping.mutate({
+        systemId: generateSubEntityId('BRANDMAP'),
+        hrmBrandId: asSystemId(hrmBrand.systemId),
         hrmBrandName: hrmBrand.name,
         pkgxBrandId: pkgxBrand.id,
         pkgxBrandName: pkgxBrand.name,
       });
-      addLog({
+      addLog.mutate({
         action: 'save_mapping',
         status: 'success',
         message: `Thêm mapping thương hiệu: ${hrmBrand.name} → ${pkgxBrand.name}`,
@@ -504,10 +511,10 @@ export function BrandMappingTab() {
   };
   
   const handleDelete = (id: string) => {
-    const mapping = settings.brandMappings.find(m => m.id === id);
-    deleteBrandMapping(id);
+    const mapping = settings?.brandMappings?.find(m => m.id === id);
+    deleteBrandMapping.mutate(id);
     if (mapping) {
-      addLog({
+      addLog.mutate({
         action: 'save_mapping',
         status: 'info',
         message: `Xóa mapping thương hiệu: ${mapping.hrmBrandName}`,
@@ -520,13 +527,208 @@ export function BrandMappingTab() {
   const handleSyncFromPkgx = async () => {
     setIsSyncing(true);
     try {
-      await syncBrandsFromPkgx();
-      toast.success('Đã đồng bộ thương hiệu từ PKGX');
+      await syncBrands.mutateAsync();
+      addLog.mutate({
+        action: 'sync_brands',
+        status: 'success',
+        message: 'Đồng bộ thương hiệu từ PKGX thành công',
+      });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Lỗi khi đồng bộ thương hiệu');
+      addLog.mutate({
+        action: 'sync_brands',
+        status: 'error',
+        message: error instanceof Error ? error.message : 'Lỗi khi đồng bộ thương hiệu',
+      });
     } finally {
       setIsSyncing(false);
     }
+  };
+  
+  // Import brands from PKGX to HRM and auto-mapping
+  const handleImportAndMap = async () => {
+    if (!settings) {
+      toast.error('Không thể tải cấu hình PKGX');
+      return;
+    }
+    
+    // Check if PKGX integration is enabled
+    if (!settings.enabled) {
+      toast.error('Tích hợp PKGX chưa được bật. Vui lòng bật trong Cấu hình chung.');
+      return;
+    }
+    
+    // Get unmapped PKGX brands
+    const unmappedBrands = settings.brands.filter(pkgxBrand => !findMapping(pkgxBrand.id));
+    
+    if (unmappedBrands.length === 0) {
+      toast.info('Tất cả thương hiệu PKGX đã được mapping');
+      return;
+    }
+    
+    setIsImporting(true);
+    setIsPaused(false);
+    pauseRef.current = false;
+    setImportProgress({ current: 0, total: unmappedBrands.length, currentName: '' });
+    let successCount = 0;
+    let errorCount = 0;
+    const errorMessages: string[] = [];
+    const REFRESH_BATCH_SIZE = 3; // Refresh UI sau mỗi 3 brand
+    
+    try {
+      for (let i = 0; i < unmappedBrands.length; i++) {
+        // Check for pause
+        while (pauseRef.current) {
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
+        
+        const pkgxBrand = unmappedBrands[i];
+        setImportProgress({ current: i + 1, total: unmappedBrands.length, currentName: pkgxBrand.name });
+        try {
+          // Build brand data - only include defined values
+          // Get full brand data from PKGX API (including SEO fields)
+          const pkgxDetailResponse = await getBrandById(Number(pkgxBrand.id), settings);
+          const pkgxFullData = pkgxDetailResponse.success && pkgxDetailResponse.data 
+            ? pkgxDetailResponse.data 
+            : null;
+          
+          console.log(`[Import Brand] Full PKGX data for "${pkgxBrand.name}":`, pkgxFullData);
+          
+          const brandData: Record<string, unknown> = {
+            id: `PKGX-${pkgxBrand.id}`,
+            name: pkgxBrand.name,
+          };
+          
+          // Add basic fields
+          const logo = pkgxBrand.logo || pkgxBrand.brand_logo;
+          const description = pkgxBrand.description || pkgxBrand.brand_desc;
+          const websiteUrl = pkgxBrand.siteUrl || pkgxBrand.site_url;
+          
+          if (logo) brandData.logo = logo;
+          if (description) brandData.description = description;
+          if (websiteUrl) brandData.website = websiteUrl;
+          
+          // Add SEO fields from full PKGX data (API returns: meta_title, meta_desc, keywords, short_desc, long_desc)
+          if (pkgxFullData) {
+            if (pkgxFullData.meta_title) brandData.seoTitle = pkgxFullData.meta_title;
+            if (pkgxFullData.meta_desc) brandData.metaDescription = pkgxFullData.meta_desc;
+            if (pkgxFullData.keywords) brandData.seoKeywords = pkgxFullData.keywords;
+            if (pkgxFullData.short_desc) brandData.shortDescription = pkgxFullData.short_desc;
+            if (pkgxFullData.long_desc) brandData.longDescription = pkgxFullData.long_desc;
+            
+            // Also save to websiteSeo.pkgx nested object
+            brandData.websiteSeo = {
+              pkgx: {
+                seoTitle: pkgxFullData.meta_title || '',
+                metaDescription: pkgxFullData.meta_desc || '',
+                seoKeywords: pkgxFullData.keywords || '',
+                shortDescription: pkgxFullData.short_desc || '',
+                longDescription: pkgxFullData.long_desc || '',
+              }
+            };
+          }
+          
+          // Create HRM brand via API
+          const response = await fetch('/api/brands', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(brandData),
+          });
+          
+          if (!response.ok) {
+            const responseText = await response.text();
+            let errorMessage = `HTTP ${response.status}`;
+            try {
+              const errorData = JSON.parse(responseText);
+              errorMessage = errorData?.message || errorData?.error || response.statusText;
+            } catch {
+              errorMessage = responseText || response.statusText;
+            }
+            console.error(`[Import Brand] API Error for "${pkgxBrand.name}":`, response.status, errorMessage);
+            throw new Error(errorMessage);
+          }
+          
+          const newBrand = await response.json();
+          console.log(`[Import Brand] Created brand "${pkgxBrand.name}":`, newBrand);
+          
+          // Create mapping directly via fast API endpoint (instead of slow mutation)
+          const mappingResponse = await fetch('/api/settings/pkgx/brand-mappings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              hrmBrandId: newBrand.systemId,
+              hrmBrandName: newBrand.name,
+              pkgxBrandId: Number(pkgxBrand.id),
+              pkgxBrandName: pkgxBrand.name,
+            }),
+          });
+          
+          if (!mappingResponse.ok) {
+            const mappingError = await mappingResponse.text();
+            console.error(`[Import Brand] Mapping error for "${pkgxBrand.name}":`, mappingError);
+            // Brand created but mapping failed - still count as partial success
+          }
+          
+          successCount++;
+          
+          // Refresh UI sau mỗi batch để user thấy data realtime
+          if (successCount % REFRESH_BATCH_SIZE === 0) {
+            await queryClient.invalidateQueries({ queryKey: brandKeys.all });
+            await queryClient.invalidateQueries({ queryKey: ['pkgx', 'settings'] });
+          }
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : 'Lỗi không xác định';
+          console.error(`[Import Brand] Error importing brand "${pkgxBrand.name}":`, errorMsg);
+          errorMessages.push(`${pkgxBrand.name}: ${errorMsg}`);
+          errorCount++;
+        }
+      }
+      
+      // Invalidate all queries to refresh UI
+      await queryClient.invalidateQueries({ queryKey: brandKeys.all });
+      await queryClient.invalidateQueries({ queryKey: ['pkgx', 'settings'] });
+      
+      addLog.mutate({
+        action: 'sync_brands',
+        status: errorCount > 0 ? 'partial' : 'success',
+        message: `Import xong: ${successCount} thành công, ${errorCount} lỗi`,
+      });
+      
+      if (successCount > 0) {
+        toast.success(`Đã import & mapping ${successCount} thương hiệu từ PKGX`);
+      }
+      if (errorCount > 0) {
+        // Show first 3 error messages
+        const errorSummary = errorMessages.slice(0, 3).join('\n');
+        const moreCount = errorMessages.length > 3 ? `\n...và ${errorMessages.length - 3} lỗi khác` : '';
+        toast.error(`${errorCount} thương hiệu import thất bại:\n${errorSummary}${moreCount}`, { duration: 8000 });
+      }
+    } catch (error) {
+      toast.error('Lỗi khi import thương hiệu');
+      addLog.mutate({
+        action: 'sync_brands',
+        status: 'error',
+        message: error instanceof Error ? error.message : 'Lỗi khi import thương hiệu',
+      });
+    } finally {
+      setIsImporting(false);
+      setIsPaused(false);
+      pauseRef.current = false;
+      setImportProgress({ current: 0, total: 0, currentName: '' });
+    }
+  };
+  
+  // Pause/Resume import
+  const handlePauseImport = () => {
+    pauseRef.current = true;
+    setIsPaused(true);
+    toast.info('Đã tạm dừng import');
+  };
+  
+  const handleResumeImport = () => {
+    pauseRef.current = false;
+    setIsPaused(false);
+    toast.info('Tiếp tục import...');
   };
   
   // View brand detail
@@ -577,7 +779,7 @@ export function BrandMappingTab() {
         setSelectedBrandForDetail(response.data);
       }
       
-      addLog({
+      addLog.mutate({
         action: 'sync_all',
         status: 'success',
         message: `Đẩy thương hiệu từ HRM sang PKGX: ${hrmBrand.name}`,
@@ -641,7 +843,7 @@ export function BrandMappingTab() {
           <Pencil className="h-4 w-4 mr-2" />
           Sửa
         </Button>
-        <Button variant="outline" size="sm" className="flex-1" onClick={() => handleDelete(row.id)}>
+        <Button variant="outline" size="sm" className="flex-1" onClick={() => handleDelete(row.systemId)}>
           <Trash2 className="h-4 w-4 mr-2 text-destructive" />
           Xóa
         </Button>
@@ -649,21 +851,30 @@ export function BrandMappingTab() {
     </div>
   );
   
+  // Guard: return early if settings not loaded (AFTER all hooks)
+  if (!settings) {
+    return <div className="p-4">Loading...</div>;
+  }
+  
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <CardTitle className="text-lg">Mapping thương hiệu</CardTitle>
+              <CardTitle size="lg">Mapping thương hiệu</CardTitle>
               <CardDescription>
                 Liên kết thương hiệu HRM với thương hiệu PKGX để đồng bộ sản phẩm
               </CardDescription>
             </div>
-            <div className="flex gap-2">
-              <Button onClick={handleSyncFromPkgx} disabled={isSyncing} variant="outline">
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={handleSyncFromPkgx} disabled={isSyncing || isImporting} variant="outline">
                 {isSyncing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
                 Đồng bộ từ PKGX
+              </Button>
+              <Button onClick={handleImportAndMap} disabled={isImporting || isSyncing} variant="outline">
+                {isImporting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
+                Import & Mapping
               </Button>
               <Button onClick={() => handleOpenDialog()}>
                 <Plus className="h-4 w-4 mr-2" />
@@ -671,6 +882,33 @@ export function BrandMappingTab() {
               </Button>
             </div>
           </div>
+          {isImporting && importProgress.total > 0 && (
+            <div className="mt-4 space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">
+                  {isPaused ? 'Đã tạm dừng...' : 'Đang import thương hiệu...'}
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">{importProgress.current}/{importProgress.total}</span>
+                  {isPaused ? (
+                    <Button size="sm" variant="outline" onClick={handleResumeImport}>
+                      <RefreshCw className="h-3 w-3 mr-1" />
+                      Tiếp tục
+                    </Button>
+                  ) : (
+                    <Button size="sm" variant="outline" onClick={handlePauseImport}>
+                      <Loader2 className="h-3 w-3 mr-1" />
+                      Tạm dừng
+                    </Button>
+                  )}
+                </div>
+              </div>
+              <Progress value={(importProgress.current / importProgress.total) * 100} className="h-2" />
+              {importProgress.currentName && (
+                <p className="text-xs text-muted-foreground truncate">Đang xử lý: {importProgress.currentName}</p>
+              )}
+            </div>
+          )}
         </CardHeader>
         <CardContent>
           <div className="space-y-4">

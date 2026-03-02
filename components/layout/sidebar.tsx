@@ -91,6 +91,7 @@ const menuGroups: MenuGroup[] = [
         { href: '/stock-transfers', label: 'Chuyển kho', icon: ArrowLeftRight, roles: ['Admin', 'Warehouse'] },
         { href: '/inventory-checks', label: 'Kiểm kê định kỳ', icon: ClipboardCheck, roles: ['Admin', 'Warehouse'] },
         { href: '/cost-adjustments', label: 'Điều chỉnh giá vốn', icon: CircleDollarSign, roles: ['Admin', 'Warehouse'] },
+        { href: '/price-adjustments', label: 'Điều chỉnh giá bán', icon: CircleDollarSign, roles: ['Admin', 'Warehouse'] },
     ]
   },
   {

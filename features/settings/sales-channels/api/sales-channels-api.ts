@@ -4,6 +4,7 @@
  */
 
 import type { SalesChannel } from '@/lib/types/prisma-extended';
+import { fetchAllPages } from '@/lib/fetch-all-pages';
 
 export interface SalesChannelFilters {
   page?: number;
@@ -89,6 +90,5 @@ export async function setDefaultSalesChannel(systemId: string): Promise<SalesCha
 }
 
 export async function fetchAppliedSalesChannels(): Promise<SalesChannel[]> {
-  const response = await fetchSalesChannels({ isApplied: true, limit: 100 });
-  return response.data;
+  return fetchAllPages((p) => fetchSalesChannels({ ...p, isApplied: true }));
 }

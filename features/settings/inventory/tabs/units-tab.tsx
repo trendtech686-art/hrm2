@@ -5,7 +5,8 @@ import { Plus } from "lucide-react";
 import { asBusinessId, type SystemId } from "@/lib/id-types";
 import { toast } from "sonner";
 
-import { useUnits, useUnitMutations } from "../../units/hooks/use-units";
+import { useUnitMutations } from "../../units/hooks/use-units";
+import { useAllUnits } from "../../units/hooks/use-all-units";
 import { UnitForm, type UnitFormValues } from "../../units/form";
 import { getUnitColumns } from "../../units/columns";
 import type { Unit } from "../../units/types";
@@ -21,8 +22,7 @@ import { SettingsActionButton } from "@/components/settings/SettingsActionButton
 type TabContentProps = { isActive: boolean; onRegisterActions: RegisterTabActions };
 
 export function UnitsTabContent({ isActive, onRegisterActions }: TabContentProps) {
-  const { data: queryData } = useUnits({ limit: 1000 });
-  const data = React.useMemo(() => queryData?.data ?? [], [queryData?.data]);
+  const { data } = useAllUnits();
   const { create, update, remove } = useUnitMutations({
     onError: (err) => toast.error(err.message)
   });
@@ -30,6 +30,8 @@ export function UnitsTabContent({ isActive, onRegisterActions }: TabContentProps
   const [editingUnit, setEditingUnit] = React.useState<Unit | null>(null);
   const [isAlertOpen, setIsAlertOpen] = React.useState(false);
   const [idToDelete, setIdToDelete] = React.useState<SystemId | null>(null);
+  const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
+  const [isBulkDeleteOpen, setIsBulkDeleteOpen] = React.useState(false);
 
   const handleAddNew = React.useCallback(() => { setEditingUnit(null); setIsFormOpen(true); }, []);
   const handleEdit = React.useCallback((unit: Unit) => { setEditingUnit(unit); setIsFormOpen(true); }, []);
@@ -53,6 +55,9 @@ export function UnitsTabContent({ isActive, onRegisterActions }: TabContentProps
   const onRegisterActionsRef = React.useRef(onRegisterActions);
   React.useEffect(() => { onRegisterActionsRef.current = onRegisterActions; }, [onRegisterActions]);
   const confirmDelete = () => { if (idToDelete) { remove.mutate(idToDelete); } setIsAlertOpen(false); setIdToDelete(null); };
+
+  const handleBulkDelete = React.useCallback((selectedItems: { systemId: string }[]) => { if (selectedItems.length === 0) return; setIsBulkDeleteOpen(true); }, []);
+  const confirmBulkDelete = () => { const selectedIds = Object.keys(rowSelection); selectedIds.forEach(id => { remove.mutate(id as SystemId); }); toast.success(`Đã xóa ${selectedIds.length} đơn vị tính`); setRowSelection({}); setIsBulkDeleteOpen(false); };
   
   const handleFormSubmit = (values: UnitFormValues) => {
     const payload = { ...values, id: asBusinessId(values.id) };
@@ -68,16 +73,23 @@ export function UnitsTabContent({ isActive, onRegisterActions }: TabContentProps
   const columns = React.useMemo(() => getUnitColumns({ onEdit: handleEdit, onDelete: handleDeleteRequest, onToggleDefault: handleToggleDefault, onToggleActive: handleToggleActive }), [handleDeleteRequest, handleEdit, handleToggleDefault, handleToggleActive]);
   const sortedData = React.useMemo(() => [...data].sort((a, b) => a.name.localeCompare(b.name)), [data]);
   
+  const actionButton = React.useMemo(() => [
+    <SettingsActionButton key="add-unit" onClick={handleAddNew}>
+      <Plus className="mr-2 h-4 w-4" /> Thêm đơn vị tính
+    </SettingsActionButton>
+  ], [handleAddNew]);
+
   React.useEffect(() => { 
     if (!isActive) return; 
-    onRegisterActionsRef.current([<SettingsActionButton key="add-unit" onClick={handleAddNew}><Plus className="mr-2 h-4 w-4" /> Thêm đơn vị tính</SettingsActionButton>]); 
-  }, [handleAddNew, isActive]);
+    onRegisterActionsRef.current(actionButton); 
+  }, [actionButton, isActive]);
 
   return (
     <>
-      <Card><CardHeader><div className="flex items-center justify-between"><div><CardTitle>Danh sách Đơn vị tính</CardTitle><CardDescription>Quản lý các đơn vị tính được sử dụng cho sản phẩm.</CardDescription></div></div></CardHeader><CardContent><SimpleSettingsTable data={sortedData} columns={columns} emptyTitle="Chưa có đơn vị tính" emptyDescription="Thêm đơn vị đầu tiên để chuẩn hóa quy đổi sản phẩm" emptyAction={<Button size="sm" onClick={handleAddNew}>Thêm đơn vị tính</Button>} /></CardContent></Card>
+      <Card><CardHeader><div className="flex items-center justify-between"><div><CardTitle>Danh sách Đơn vị tính</CardTitle><CardDescription>Quản lý các đơn vị tính được sử dụng cho sản phẩm.</CardDescription></div></div></CardHeader><CardContent><SimpleSettingsTable data={sortedData} columns={columns} emptyTitle="Chưa có đơn vị tính" emptyDescription="Thêm đơn vị đầu tiên để chuẩn hóa quy đổi sản phẩm" emptyAction={<Button size="sm" onClick={handleAddNew}>Thêm đơn vị tính</Button>} enableSelection rowSelection={rowSelection} setRowSelection={setRowSelection} onBulkDelete={handleBulkDelete} enablePagination pagination={{ pageSize: 10, showInfo: true }} /></CardContent></Card>
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}><DialogContent><DialogHeader><DialogTitle>{editingUnit ? 'Chỉnh sửa Đơn vị tính' : 'Thêm Đơn vị tính'}</DialogTitle></DialogHeader><UnitForm initialData={editingUnit} onSubmit={handleFormSubmit} /><DialogFooter><Button type="button" variant="outline" onClick={() => setIsFormOpen(false)}>Hủy</Button><Button type="submit" form="unit-form">Lưu</Button></DialogFooter></DialogContent></Dialog>
       <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Bạn có chắc chắn muốn xóa?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể được hoàn tác.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={confirmDelete}>Xóa</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+      <AlertDialog open={isBulkDeleteOpen} onOpenChange={setIsBulkDeleteOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Xóa {Object.keys(rowSelection).length} đơn vị tính?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể được hoàn tác.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={confirmBulkDelete}>Xóa</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
     </>
   );
 }

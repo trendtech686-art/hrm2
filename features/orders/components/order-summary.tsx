@@ -1,4 +1,4 @@
-import * as React from 'react';
+﻿import * as React from 'react';
 import { toast } from 'sonner';
 import { useFormContext, useWatch, useFieldArray, Controller } from 'react-hook-form';
 import { PlusCircle, X } from 'lucide-react';
@@ -97,15 +97,24 @@ export function OrderSummary({ disabled }: { disabled: boolean }) {
         toast.success(`Phí gợi ý từ ${partner?.name || 'hãng vận chuyển'}: ${formatCurrency(suggestedFee)}đ`);
     }, [deliveryMethod, customer, weight, shippingPartnerId, partners, setValue]);
     
-    const paymentMethods = [
-        { value: 'Tiền mặt', label: 'Tiền mặt' },
-        { value: 'Chuyển khoản', label: 'Chuyển khoản' },
-        { value: 'Quẹt thẻ', label: 'Quẹt thẻ' },
-    ];
+    // ✅ Use payment methods from settings API
+    const paymentMethods = React.useMemo(() => {
+        if (paymentMethodsData && paymentMethodsData.length > 0) {
+            return paymentMethodsData
+                .filter(pm => pm.isActive)
+                .map(pm => ({ value: pm.name, label: pm.name }));
+        }
+        // Fallback if no data
+        return [
+            { value: 'Tiền mặt', label: 'Tiền mặt' },
+            { value: 'Chuyển khoản', label: 'Chuyển khoản' },
+            { value: 'Quẹt thẻ', label: 'Quẹt thẻ' },
+        ];
+    }, [paymentMethodsData]);
     
     return (
       <Card>
-        <CardHeader><CardTitle className="text-base font-semibold">Thanh toán</CardTitle></CardHeader>
+        <CardHeader><CardTitle>Thanh toán</CardTitle></CardHeader>
         <CardContent className="p-4 space-y-2 text-sm">
           <div className="flex items-center justify-between py-1"><span className="text-muted-foreground">Tổng tiền ({lineItems.length} sản phẩm)</span><span className="font-medium text-foreground">{formatCurrency(subtotal)}</span></div>
           <div className="flex items-center justify-between py-1">

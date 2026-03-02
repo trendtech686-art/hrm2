@@ -85,6 +85,16 @@ export function PaymentConfirmationDialog({
   }, [isOpen, amountRemaining, reset, getDefaultAccount]);
 
 
+  const onFormSubmit = React.useCallback((values: PaymentConfirmationFormValues) => {
+    console.log('[PaymentDialog] Form submitted with values:', values);
+    onSubmit(values);
+  }, [onSubmit]);
+
+  const handlePaymentClick = React.useCallback(() => {
+    console.log('[PaymentDialog] handlePaymentClick - triggering submit');
+    handleSubmit(onFormSubmit)();
+  }, [handleSubmit, onFormSubmit]);
+
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md" open={isOpen}>
@@ -92,7 +102,7 @@ export function PaymentConfirmationDialog({
           <DialogTitle>Xác nhận thanh toán</DialogTitle>
         </DialogHeader>
         <Form {...form}>
-          <form id="payment-confirmation-form" onSubmit={handleSubmit(onSubmit)} className="space-y-4 pt-4">
+          <div className="space-y-4 pt-4">
             <FormField control={control} name="paymentMethod" render={({ field }) => (
               <FormItem>
                 <FormLabel>Phương thức thanh toán</FormLabel>
@@ -150,9 +160,9 @@ export function PaymentConfirmationDialog({
             )}/>
             <DialogFooter className="mt-4">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Thoát</Button>
-              <Button type="submit">Thanh toán</Button>
+              <Button type="button" onClick={handlePaymentClick}>Thanh toán</Button>
             </DialogFooter>
-          </form>
+          </div>
         </Form>
       </DialogContent>
     </Dialog>

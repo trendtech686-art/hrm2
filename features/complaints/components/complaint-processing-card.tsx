@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { Button } from "../../../components/ui/button";
 import { Label } from "../../../components/ui/label";
@@ -24,8 +24,8 @@ export const ComplaintProcessingCard: React.FC<Props> = React.memo(({
   const hasCompensationHistory = extendedComplaint.compensationMetadata || (complaint.cancelledPaymentsReceipts?.length ?? 0) > 0;
   const hasInventoryHistory = complaint.inventoryAdjustment || (complaint.inventoryHistory?.length ?? 0) > 0;
   
-  // Check if there's a verified-correct action in timeline
-  const hasVerifiedCorrect = complaint.timeline.some(a => a.actionType === 'verified-correct');
+  // Check if there's a verified-correct action in timeline - ✅ Add null check
+  const hasVerifiedCorrect = complaint.timeline?.some(a => a.actionType === 'verified-correct') ?? false;
   
   // Check if CURRENTLY verified-incorrect
   const _isCurrentlyIncorrect = complaint.verification === 'verified-incorrect';
@@ -49,7 +49,7 @@ export const ComplaintProcessingCard: React.FC<Props> = React.memo(({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">
+        <CardTitle>
           Xử lý khiếu nại
         </CardTitle>
       </CardHeader>
@@ -58,15 +58,15 @@ export const ComplaintProcessingCard: React.FC<Props> = React.memo(({
           {/* Action Buttons - Show ONLY if complaint is currently verified-correct AND not processed yet */}
           {complaint.verification === 'verified-correct' && (() => {
               // Get LAST verified-correct action from timeline
-              const lastVerifiedCorrect = [...complaint.timeline]
+              const lastVerifiedCorrect = [...(complaint.timeline || [])]
                 .reverse()
                 .find(a => a.actionType === 'verified-correct');
               
               if (!lastVerifiedCorrect) return null; // No verified-correct action yet
               
               // Check if this action has metadata (already processed)
-              const actionMetadata = lastVerifiedCorrect.metadata;
-              const hasPaymentOrReceipt = actionMetadata?.paymentSystemId || actionMetadata?.receiptSystemId;
+              const actionMetadata = lastVerifiedCorrect.metadata as { paymentSystemId?: string; receiptSystemId?: string; inventoryCheckSystemId?: string; penaltySystemIds?: string[] } | undefined;
+              const hasPaymentOrReceipt = actionMetadata?.paymentSystemId || actionMetadata?.receiptSystemId || ((actionMetadata?.penaltySystemIds?.length ?? 0) > 0);
               const hasInventoryCheck = actionMetadata?.inventoryCheckSystemId;
               
               // Show buttons if NOT yet processed

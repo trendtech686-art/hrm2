@@ -1,4 +1,4 @@
-import * as React from 'react';
+﻿import * as React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/ui/card';
 import { Separator } from '../../../../components/ui/separator';
 import { Badge } from '../../../../components/ui/badge';
@@ -18,10 +18,13 @@ interface WarrantySummaryCardProps {
  * Khác với WarrantySummary (dùng cho form), component này nhận props trực tiếp
  */
 export const WarrantySummaryCard = React.memo(function WarrantySummaryCard({ 
-  products, 
+  products: rawProducts, 
   shippingFee, 
   settlement,
 }: WarrantySummaryCardProps) {
+  // ✅ Ensure products is always an array to prevent reduce errors
+  const products = React.useMemo(() => rawProducts || [], [rawProducts]);
+  
   const currencyFormatter = React.useMemo(() => new Intl.NumberFormat('vi-VN'), []);
   const {
     totalPayment: settlementTotal,
@@ -108,7 +111,7 @@ export const WarrantySummaryCard = React.memo(function WarrantySummaryCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-h4">Thanh toán</CardTitle>
+        <CardTitle>Thanh toán</CardTitle>
       </CardHeader>
       <CardContent className="space-y-2.5">
         {/* Tổng giá trị bảo hành */}

@@ -11,6 +11,8 @@ import { useAllProducts } from '@/features/products/hooks/use-all-products';
 import { useBranchFinder } from '@/features/settings/branches/hooks/use-all-branches';
 import { useStoreInfoData } from '@/features/settings/store-info/hooks/use-store-info';
 import { useCustomerFinder } from '@/features/customers/hooks/use-all-customers';
+import { usePaymentFinder } from '@/features/payments/hooks/use-all-payments';
+import { useReceiptFinder } from '@/features/receipts/hooks/use-all-receipts';
 import { usePrint } from '@/lib/use-print';
 import { mapSalesReturnToPrintData, type SalesReturnForPrint } from '@/lib/print-mappers/sales-return.mapper';
 import type { StoreSettings } from '@/lib/print-service';
@@ -36,6 +38,8 @@ export function ReturnHistoryTab({ order, salesReturnsForOrder, getProductTypeLa
     const { info: storeInfo } = useStoreInfoData();
     const { print } = usePrint(order.branchSystemId);
     const { findById: findCustomerById } = useCustomerFinder();
+    const { findById: findPaymentById } = usePaymentFinder();
+    const { findById: findReceiptById } = useReceiptFinder();
 
     const toggleComboRow = React.useCallback((key: string) => {
         setExpandedCombos(prev => ({ ...prev, [key]: !prev[key] }));
@@ -96,8 +100,8 @@ export function ReturnHistoryTab({ order, salesReturnsForOrder, getProductTypeLa
         mappedData['{note}'] = salesReturn.note || '';
         
         let refundStatus = 'Chưa hoàn tiền';
-        const totalRefunded = (salesReturn.refunds || []).reduce((sum, r) => sum + (r.amount || 0), 0) || salesReturn.refundAmount || 0;
-        const totalPaid = (salesReturn.payments || []).reduce((sum, p) => sum + (p.amount || 0), 0);
+        const totalRefunded = (salesReturn.refunds || []).reduce((sum, r) => sum + (Number(r.amount) || 0), 0) || Number(salesReturn.refundAmount) || 0;
+        const totalPaid = (salesReturn.payments || []).reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
         
         if (salesReturn.finalAmount < 0) {
              if (totalRefunded >= Math.abs(salesReturn.finalAmount)) {
@@ -145,19 +149,27 @@ export function ReturnHistoryTab({ order, salesReturnsForOrder, getProductTypeLa
                             <TableHead>Ngày trả hàng</TableHead>
                             <TableHead className="text-center">Số lượng hàng trả</TableHead>
                             <TableHead className="text-right">Giá trị hàng trả</TableHead>
-                            <TableHead>Mã đơn đổi</TableHead>
+                            <TableHead>Mã vận đơn</TableHead>
                             <TableHead className="text-center">Số lượng hàng đổi</TableHead>
                             <TableHead className="text-right">Giá trị hàng đổi</TableHead>
                             <TableHead className="text-right">Chênh lệch</TableHead>
+                            <TableHead>Phiếu thu/chi</TableHead>
                             <TableHead className="w-10"></TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {salesReturnsForOrder.map(returnSlip => {
                             const isExpanded = expandedReturnId === returnSlip.systemId;
-                            const totalReturnQty = returnSlip.items.reduce((sum, item) => sum + item.returnQuantity, 0);
-                            const totalExchangeQty = returnSlip.exchangeItems?.reduce((sum, item) => sum + item.quantity, 0) || 0;
+                            const totalReturnQty = (returnSlip.items || []).reduce((sum, item) => sum + (Number(item.returnQuantity) || 0), 0);
+                            const totalExchangeQty = (returnSlip.exchangeItems || []).reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
                             const exchangeOrder = returnSlip.exchangeOrderSystemId ? orders.find(o => o.systemId === returnSlip.exchangeOrderSystemId) : null;
+                            
+                            // ✅ Tìm packaging cho đổi hàng: ưu tiên packaging có notes chứa phiếu trả, hoặc packaging mới nhất có INSTORE/SHIP
+                            const exchangePackaging = exchangeOrder?.packagings?.find(
+                              pkg => pkg.notes?.includes(returnSlip.id) || 
+                                     (pkg.trackingCode?.startsWith('INSTORE-') || pkg.trackingCode?.startsWith('SHIP-'))
+                            ) || (exchangeOrder?.packagings?.length ? exchangeOrder.packagings[exchangeOrder.packagings.length - 1] : null);
+                            const exchangeTrackingCode = exchangePackaging?.trackingCode;
 
                             return (
                                 <React.Fragment key={returnSlip.systemId}>
@@ -184,19 +196,39 @@ export function ReturnHistoryTab({ order, salesReturnsForOrder, getProductTypeLa
                                                 {returnSlip.isReceived ? 'Đã nhận' : 'Chưa nhận'}
                                             </span>
                                         </TableCell>
-                                        <TableCell>{formatDate(returnSlip.returnDate)}</TableCell>
+                                        <TableCell>
+                                            {returnSlip.returnDate 
+                                                ? formatDate(returnSlip.returnDate) 
+                                                : (returnSlip.createdAt 
+                                                    ? formatDate(returnSlip.createdAt) 
+                                                    : <span className="text-muted-foreground">-</span>
+                                                )
+                                            }
+                                        </TableCell>
                                         <TableCell className="text-center">{totalReturnQty}</TableCell>
                                         <TableCell className="text-right font-medium">{formatCurrency(returnSlip.totalReturnValue)}</TableCell>
                                         <TableCell>
-                                            {exchangeOrder ? (
+                                            {exchangeTrackingCode ? (
+                                                <Link href={`/orders/${exchangeOrder?.systemId || order.systemId}`} 
+                                                    onClick={e => e.stopPropagation()} 
+                                                    className="text-primary hover:underline font-mono text-xs"
+                                                >
+                                                    {exchangeTrackingCode}
+                                                </Link>
+                                            ) : exchangeOrder ? (
                                                 <Link href={`/orders/${exchangeOrder.systemId}`} 
                                                     onClick={e => e.stopPropagation()} 
                                                     className="text-primary hover:underline"
                                                 >
                                                     {exchangeOrder.id}
                                                 </Link>
+                                            ) : totalExchangeQty > 0 ? (
+                                                // ✅ Show delivery method or fallback to "Nhận tại CH"
+                                                <span className="text-blue-600 text-xs">
+                                                    {returnSlip.deliveryMethod === 'pickup' ? 'Nhận tại CH' : (returnSlip.deliveryMethod || 'Chờ xử lý')}
+                                                </span>
                                             ) : (
-                                                <span className="text-muted-foreground">-</span>
+                                                <span className="text-muted-foreground text-xs">-</span>
                                             )}
                                         </TableCell>
                                         <TableCell className="text-center">
@@ -207,19 +239,85 @@ export function ReturnHistoryTab({ order, salesReturnsForOrder, getProductTypeLa
                                         </TableCell>
                                         <TableCell className="text-right font-semibold">
                                             {(() => {
-                                                const totalRefunded = (returnSlip.refunds || []).reduce((sum, r) => sum + (r.amount || 0), 0) || returnSlip.refundAmount || 0;
-                                                const totalPaid = (returnSlip.payments || []).reduce((sum, p) => sum + (p.amount || 0), 0);
+                                                // Chênh lệch = grandTotalNew - totalReturnValue (finalAmount)
+                                                const difference = Number(returnSlip.finalAmount) || (Number(returnSlip.grandTotalNew) - Number(returnSlip.totalReturnValue));
                                                 
-                                                if (totalRefunded === 0 && totalPaid === 0) {
-                                                    return <span className="text-muted-foreground">-</span>;
+                                                if (difference === 0) {
+                                                    return <span className="text-muted-foreground">0</span>;
                                                 }
                                                 
-                                                if (totalRefunded > 0) {
-                                                    return <span className="text-green-600">-{formatCurrency(totalRefunded)}</span>;
+                                                if (difference > 0) {
+                                                    // Khách cần trả thêm
+                                                    return <span className="text-amber-600">+{formatCurrency(difference)}</span>;
                                                 }
                                                 
-                                                if (totalPaid > 0) {
-                                                    return <span className="text-amber-600">{formatCurrency(totalPaid)}</span>;
+                                                // Cần hoàn tiền cho khách
+                                                return <span className="text-green-600">{formatCurrency(difference)}</span>;
+                                            })()}
+                                        </TableCell>
+                                        <TableCell>
+                                            {(() => {
+                                                // ✅ Use business IDs from API directly instead of lookup
+                                                const paymentIds = returnSlip.paymentVoucherSystemIds || (returnSlip.paymentVoucherSystemId ? [returnSlip.paymentVoucherSystemId] : []);
+                                                const receiptIds = returnSlip.receiptVoucherSystemIds || [];
+                                                const refundAmount = Number(returnSlip.refundAmount) || 0;
+                                                const finalAmount = Number(returnSlip.finalAmount) || 0;
+                                                
+                                                // ✅ Use paymentVoucherIds/receiptVoucherIds (business IDs) if available
+                                                // Otherwise fallback to finder lookup
+                                                const paymentBusinessIds = (returnSlip as unknown as { paymentVoucherIds?: string[] }).paymentVoucherIds || [];
+                                                const receiptBusinessIds = (returnSlip as unknown as { receiptVoucherIds?: string[] }).receiptVoucherIds || [];
+                                                
+                                                const payments = paymentBusinessIds.length > 0 
+                                                    ? paymentBusinessIds.map((id, idx) => ({ systemId: paymentIds[idx] || id, id }))
+                                                    : paymentIds.map(id => findPaymentById(id)).filter(Boolean);
+                                                const receipts = receiptBusinessIds.length > 0
+                                                    ? receiptBusinessIds.map((id, idx) => ({ systemId: receiptIds[idx] || id, id }))
+                                                    : receiptIds.map(id => findReceiptById(id)).filter(Boolean);
+                                                
+                                                // Nếu có payments/receipts, hiển thị với link
+                                                if (payments.length > 0 || receipts.length > 0) {
+                                                    return (
+                                                        <div className="flex flex-col gap-0.5 text-xs">
+                                                            {payments.map((payment) => (
+                                                                <Link 
+                                                                    key={payment!.systemId}
+                                                                    href={`/payments/${payment!.systemId}`}
+                                                                    onClick={e => e.stopPropagation()}
+                                                                    className="text-green-600 hover:underline"
+                                                                >
+                                                                    {payment!.id}
+                                                                </Link>
+                                                            ))}
+                                                            {receipts.map((receipt) => (
+                                                                <Link 
+                                                                    key={receipt!.systemId}
+                                                                    href={`/receipts/${receipt!.systemId}`}
+                                                                    onClick={e => e.stopPropagation()}
+                                                                    className="text-blue-600 hover:underline"
+                                                                >
+                                                                    {receipt!.id}
+                                                                </Link>
+                                                            ))}
+                                                        </div>
+                                                    );
+                                                }
+                                                
+                                                // Fallback: nếu có refundAmount hoặc finalAmount nhưng không có link voucher
+                                                if (refundAmount > 0 || finalAmount < 0) {
+                                                    return (
+                                                        <span className="text-green-600 text-xs">
+                                                            Đã chi: {formatCurrency(Math.abs(refundAmount || finalAmount))}
+                                                        </span>
+                                                    );
+                                                }
+                                                
+                                                if (finalAmount > 0) {
+                                                    return (
+                                                        <span className="text-blue-600 text-xs">
+                                                            Đã thu: {formatCurrency(finalAmount)}
+                                                        </span>
+                                                    );
                                                 }
                                                 
                                                 return <span className="text-muted-foreground">-</span>;
@@ -239,11 +337,11 @@ export function ReturnHistoryTab({ order, salesReturnsForOrder, getProductTypeLa
                                     </TableRow>
                                     {isExpanded && (
                                         <TableRow className="bg-muted/50 hover:bg-muted/50">
-                                            <TableCell colSpan={11} className="p-4">
+                                            <TableCell colSpan={12} className="p-4">
                                                 <div className="space-y-4">
                                                     <div>
                                                         <h4 className="font-semibold mb-2">Chi tiết hàng trả</h4>
-                                                        <div className="border rounded-md bg-background">
+                                                        <div className="border border-border rounded-md bg-background">
                                                             <Table>
                                                                 <TableHeader>
                                                                     <TableRow>
@@ -265,7 +363,7 @@ export function ReturnHistoryTab({ order, salesReturnsForOrder, getProductTypeLa
                                                                         const comboChildren = isCombo && product?.comboItems ? product.comboItems : [];
                                                                         
                                                                         return (
-                                                                            <React.Fragment key={item.productSystemId}>
+                                                                            <React.Fragment key={`${returnSlip.systemId}-${item.productSystemId}-${index}`}>
                                                                                 <TableRow>
                                                                                     <TableCell className="text-center text-muted-foreground">
                                                                                         <div className="flex items-center justify-center gap-1">
@@ -297,6 +395,7 @@ export function ReturnHistoryTab({ order, salesReturnsForOrder, getProductTypeLa
                                                                                             productName={item.productName || ''} 
                                                                                             size="sm"
                                                                                             onPreview={onPreview}
+                                                                                            itemThumbnailImage={(item as { thumbnailImage?: string }).thumbnailImage}
                                                                                         />
                                                                                     </TableCell>
                                                                                     <TableCell>
@@ -305,7 +404,7 @@ export function ReturnHistoryTab({ order, salesReturnsForOrder, getProductTypeLa
                                                                                                 <Link href={`/products/${item.productSystemId}`}
                                                                                                     className="font-medium text-primary hover:underline"
                                                                                                 >
-                                                                                                    {item.productName}
+                                                                                                    {item.productName || product?.name}
                                                                                                 </Link>
                                                                                                 {isCombo && (
                                                                                                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground font-semibold">
@@ -319,7 +418,7 @@ export function ReturnHistoryTab({ order, salesReturnsForOrder, getProductTypeLa
                                                                                                 <Link href={`/products/${item.productSystemId}`}
                                                                                                     className="text-primary hover:underline"
                                                                                                 >
-                                                                                                    {item.productId}
+                                                                                                    {product?.id || item.productId}
                                                                                                 </Link>
                                                                                                 {item.note && (
                                                                                                     <>
@@ -389,7 +488,7 @@ export function ReturnHistoryTab({ order, salesReturnsForOrder, getProductTypeLa
                                                     {returnSlip.exchangeItems && returnSlip.exchangeItems.length > 0 && (
                                                         <div>
                                                             <h4 className="font-semibold mb-2">Chi tiết hàng đổi</h4>
-                                                            <div className="border rounded-md bg-background">
+                                                            <div className="border border-border rounded-md bg-background">
                                                                 <Table>
                                                                     <TableHeader>
                                                                         <TableRow>

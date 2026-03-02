@@ -20,11 +20,41 @@ export interface OrderSearchParams {
 }
 
 /**
- * Search orders with server-side filtering
- * This simulates an API call but uses Zustand store for now
- * TODO: Replace with actual API endpoint when backend is ready
+ * Search orders with real API call
+ * ⚡ OPTIMIZED: Uses server-side search instead of client-side filtering
  */
 export async function searchOrders(
+  params: OrderSearchParams
+): Promise<OrderSearchResult[]> {
+  const { query, limit = 50, branchSystemId, status } = params;
+  
+  const searchParams = new URLSearchParams();
+  if (query) searchParams.set('search', query);
+  if (limit) searchParams.set('limit', String(limit));
+  if (branchSystemId) searchParams.set('branchSystemId', branchSystemId);
+  if (status) searchParams.set('status', status);
+  
+  try {
+    const response = await fetch(`/api/orders?${searchParams}`);
+    if (!response.ok) {
+      throw new Error(`Search failed: ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    const orders: Order[] = data.data || [];
+    
+    return orders.map(orderToSearchResult);
+  } catch (error) {
+    console.error('Failed to search orders:', error);
+    return [];
+  }
+}
+
+/**
+ * @deprecated Use searchOrders() without ordersData parameter
+ * Legacy function kept for backward compatibility
+ */
+export async function searchOrdersLegacy(
   params: OrderSearchParams,
   ordersData: Order[]
 ): Promise<OrderSearchResult[]> {

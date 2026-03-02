@@ -422,7 +422,7 @@ export function AttendanceImportDialog({ isOpen, onOpenChange, employees, onConf
         reader.readAsBinaryString(file);
     };
     
-    const handleConfirm = () => {
+    const handleConfirm = async () => {
         const validData = previewData.filter(row => row.status === 'ok' && row.employeeSystemId);
         const groupedData: Record<SystemId, { day: number; checkIn?: string; morningCheckOut?: string; afternoonCheckIn?: string; checkOut?: string; overtimeCheckIn?: string; overtimeCheckOut?: string }[]> = {};
         
@@ -443,7 +443,37 @@ export function AttendanceImportDialog({ isOpen, onOpenChange, employees, onConf
             groupedData[key].push(entry);
         });
 
+        // Call parent handler
         onConfirmImport(groupedData, selectedMonth);
+        
+        // Log import to ImportExportLog
+        const inserted = validData.length;
+        const failed = previewData.filter(r => r.status === 'error').length;
+        const _skipped = previewData.filter(r => r.status === 'warning').length;
+        const monthKey = formatDateCustom(selectedMonth, 'yyyy-MM');
+        
+        try {
+            await fetch('/api/import-export-logs', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: 'import',
+                    entityType: 'attendance',
+                    fileName: file?.name || `Chấm công ${monthKey}`,
+                    totalRecords: previewData.length,
+                    successCount: inserted,
+                    errorCount: failed,
+                    status: failed === 0 ? 'success' : 'partial',
+                    errors: previewData.filter(r => r.status === 'error').slice(0, 10).map(r => ({
+                        row: r.excelRow,
+                        message: r.message,
+                    })),
+                }),
+            });
+        } catch (logError) {
+            console.error('[Attendance Import] Failed to log import:', logError);
+        }
+        
         onOpenChange(false);
     };
 
@@ -603,7 +633,7 @@ export function AttendanceImportDialog({ isOpen, onOpenChange, employees, onConf
                     </DialogHeader>
                     
                     {step === 'upload' && (
-                        <div className="flex-grow flex flex-col justify-center items-center gap-4 px-4 py-6">
+                        <div className="grow flex flex-col justify-center items-center gap-4 px-4 py-6">
                             <MonthYearPicker value={selectedMonth} onChange={setSelectedMonth} />
                             <div 
                                 className={cn(
@@ -636,9 +666,9 @@ export function AttendanceImportDialog({ isOpen, onOpenChange, employees, onConf
                     )}
 
                     {step === 'preview' && (
-                        <div className="flex-grow flex flex-col min-h-0 px-4">
+                        <div className="grow flex flex-col min-h-0 px-4">
                             {/* Header with title and summary */}
-                            <div className="flex-shrink-0 flex justify-between items-center mb-2">
+                            <div className="shrink-0 flex justify-between items-center mb-2">
                                 <h3 className="text-sm font-semibold">Xem trước dữ liệu cho tháng {formatDateCustom(selectedMonth, 'MM/yyyy')}</h3>
                                 <div className="flex items-center gap-3 text-xs">
                                     {numSelected > 0 && (
@@ -656,7 +686,7 @@ export function AttendanceImportDialog({ isOpen, onOpenChange, employees, onConf
                             </div>
 
                             {/* Search bar */}
-                            <div className="flex-shrink-0 flex items-center gap-2 mb-2">
+                            <div className="shrink-0 flex items-center gap-2 mb-2">
                                 <div className="relative flex-1 max-w-xs">
                                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                                     <Input
@@ -672,8 +702,8 @@ export function AttendanceImportDialog({ isOpen, onOpenChange, employees, onConf
                             </div>
 
                             {/* Table with horizontal and vertical scroll */}
-                            <ScrollArea className="flex-grow border rounded-md h-[350px]">
-                                <div className="min-w-[800px]">
+                            <ScrollArea className="grow border rounded-md h-88">
+                                <div className="min-w-200">
                                     <Table>
                                         <TableHeader className="sticky top-0 bg-muted z-10">
                                             <TableRow className="hover:bg-muted">
@@ -685,7 +715,7 @@ export function AttendanceImportDialog({ isOpen, onOpenChange, employees, onConf
                                                     />
                                                 </TableHead>
                                                 <TableHead className="w-16 p-2 text-xs">Trạng thái</TableHead>
-                                                <TableHead className="p-2 text-xs min-w-[120px]">Nhân viên</TableHead>
+                                                <TableHead className="p-2 text-xs min-w-30">Nhân viên</TableHead>
                                                 <TableHead className="w-14 p-2 text-xs text-center">Ngày</TableHead>
                                                 <TableHead className="w-16 p-2 text-xs text-center">Sáng vào</TableHead>
                                                 <TableHead className="w-16 p-2 text-xs text-center">Sáng ra</TableHead>
@@ -693,7 +723,7 @@ export function AttendanceImportDialog({ isOpen, onOpenChange, employees, onConf
                                                 <TableHead className="w-16 p-2 text-xs text-center">Chiều ra</TableHead>
                                                 <TableHead className="w-16 p-2 text-xs text-center">TC vào</TableHead>
                                                 <TableHead className="w-16 p-2 text-xs text-center">TC ra</TableHead>
-                                                <TableHead className="p-2 text-xs min-w-[100px]">Ghi chú</TableHead>
+                                                <TableHead className="p-2 text-xs min-w-25">Ghi chú</TableHead>
                                                 <TableHead className="w-16 p-2 text-xs text-right">Hành động</TableHead>
                                             </TableRow>
                                         </TableHeader>
@@ -720,12 +750,12 @@ export function AttendanceImportDialog({ isOpen, onOpenChange, employees, onConf
                                                         <TableCell className="text-center p-2">{statusIcons[row.status]}</TableCell>
                                                         <TableCell className="p-2 text-xs">{row.employeeName || '-'}</TableCell>
                                                         <TableCell className="p-2 text-xs text-center">{row.day || '-'}</TableCell>
-                                                        <TableCell className="p-2 text-xs text-center font-mono">{row.checkIn || '-'}</TableCell>
-                                                        <TableCell className="p-2 text-xs text-center font-mono">{row.morningCheckOut || '-'}</TableCell>
-                                                        <TableCell className="p-2 text-xs text-center font-mono">{row.afternoonCheckIn || '-'}</TableCell>
-                                                        <TableCell className="p-2 text-xs text-center font-mono">{row.checkOut || '-'}</TableCell>
-                                                        <TableCell className="p-2 text-xs text-center font-mono">{row.overtimeCheckIn || '-'}</TableCell>
-                                                        <TableCell className="p-2 text-xs text-center font-mono">{row.overtimeCheckOut || '-'}</TableCell>
+                                                        <TableCell className="p-2 text-xs text-center">{row.checkIn || '-'}</TableCell>
+                                                        <TableCell className="p-2 text-xs text-center">{row.morningCheckOut || '-'}</TableCell>
+                                                        <TableCell className="p-2 text-xs text-center">{row.afternoonCheckIn || '-'}</TableCell>
+                                                        <TableCell className="p-2 text-xs text-center">{row.checkOut || '-'}</TableCell>
+                                                        <TableCell className="p-2 text-xs text-center">{row.overtimeCheckIn || '-'}</TableCell>
+                                                        <TableCell className="p-2 text-xs text-center">{row.overtimeCheckOut || '-'}</TableCell>
                                                         <TableCell className={cn("p-2 text-xs", row.status !== 'ok' ? 'text-destructive' : 'text-muted-foreground')}>
                                                             {row.message}
                                                         </TableCell>
@@ -765,7 +795,7 @@ export function AttendanceImportDialog({ isOpen, onOpenChange, employees, onConf
 
                             {/* Pagination */}
                             {totalPages > 1 && (
-                                <div className="flex-shrink-0 flex items-center justify-between mt-2 py-2 border-t">
+                                <div className="shrink-0 flex items-center justify-between mt-2 py-2 border-t">
                                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                         <span>Hiển thị</span>
                                         <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setCurrentPage(1); }}>

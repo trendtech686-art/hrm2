@@ -179,6 +179,16 @@ export function useShippingCalculator() {
               const apiToken = (defaultAccount.credentials as { apiToken?: string; partnerCode?: string }).apiToken || '';
               const partnerCodeStr = (defaultAccount.credentials as { apiToken?: string; partnerCode?: string }).partnerCode || 'GHTK';
               
+              console.log('[ShippingCalculator] GHTK Request:', {
+                hasApiToken: !!apiToken,
+                partnerCode: partnerCodeStr,
+                weight: request.weight,
+                toProvince: request.toProvince,
+                toDistrict: request.toDistrict,
+                toWard: request.toWard || request.toWardCode,
+                fromProvince: request.fromProvince,
+                fromDistrict: request.fromDistrict,
+              });
               
               if (!apiToken) {
                 throw new Error('❌ Missing GHTK API Token. Vui lòng cấu hình token trong Settings > Shipping Partners > GHTK');
@@ -247,6 +257,13 @@ export function useShippingCalculator() {
 
               const fees = await response.json();
               
+              console.log('[ShippingCalculator] GHTK API Response:', {
+                success: fees.success,
+                hasFee: !!fees.fee,
+                message: fees.message,
+                fee: fees.fee,
+              });
+              
               // ✅ Check again after async operation
               if (!shouldContinue()) {
                 throw new Error('REQUEST_CANCELLED');
@@ -296,6 +313,7 @@ export function useShippingCalculator() {
                 }];
               } else {
                 const errorMsg = fees.message || 'GHTK API Error';
+                console.error('[ShippingCalculator] GHTK API Error:', errorMsg, fees);
                 throw new Error(errorMsg);
               }
             } catch (error) {
@@ -305,6 +323,8 @@ export function useShippingCalculator() {
                 services = [];
                 break;
               }
+              
+              console.error('[ShippingCalculator] GHTK Error caught:', error);
               
               // Fallback to mock data
               services = [{

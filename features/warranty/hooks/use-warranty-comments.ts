@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { asSystemId, type SystemId } from '@/lib/id-types';
+import { generateSubEntityId } from '@/lib/id-utils';
 import type { WarrantyTicket } from '../types';
 
 interface CurrentUser {
@@ -77,7 +78,7 @@ export function useWarrantyComments({
     if (!ticket) return;
 
     const newComment = {
-      systemId: asSystemId(`WC_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`),
+      systemId: asSystemId(generateSubEntityId('WC')),
       content,
       contentText: content,
       createdBy: currentUser.name,

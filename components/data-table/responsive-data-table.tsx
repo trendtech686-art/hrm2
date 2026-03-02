@@ -74,6 +74,7 @@ interface DesktopDataTableProps<TData extends { systemId: string }> {
   pinnedColumns: string[];
   setPinnedColumns: React.Dispatch<React.SetStateAction<string[]>>;
   onRowClick?: ((row: TData) => void) | undefined;
+  onRowHover?: ((row: TData) => void) | undefined;
   getRowStyle?: ((row: TData) => React.CSSProperties) | undefined;
   className?: string | undefined;
 }
@@ -90,6 +91,16 @@ interface ResponsiveDataTableProps<TData extends { systemId: string }> {
   mobileVirtualized?: boolean | undefined;
   mobileRowHeight?: number | undefined;
   mobileListHeight?: number | undefined;
+  
+  // Desktop virtualization (for large datasets without server-side pagination)
+  /** Enable virtual scrolling for desktop table when data > virtualThreshold */
+  desktopVirtualized?: boolean | undefined;
+  /** Threshold to auto-enable virtualization (default: 100 rows) */
+  virtualThreshold?: number | undefined;
+  /** Height of virtual scroll container (default: 600px) */
+  virtualHeight?: number | undefined;
+  /** Estimated row height for virtualization (default: 53px) */
+  virtualRowHeight?: number | undefined;
   
   // States
   isLoading?: boolean | undefined;
@@ -122,6 +133,7 @@ interface ResponsiveDataTableProps<TData extends { systemId: string }> {
   pinnedColumns?: string[] | undefined;
   setPinnedColumns?: React.Dispatch<React.SetStateAction<string[]>> | undefined;
   onRowClick?: ((row: TData) => void) | undefined;
+  onRowHover?: ((row: TData) => void) | undefined;
   getRowStyle?: ((row: TData) => React.CSSProperties) | undefined;
   className?: string | undefined;
 }
@@ -162,6 +174,11 @@ export function ResponsiveDataTable<TData extends { systemId: string }>({
   mobileVirtualized = false,
   mobileRowHeight = 180,
   mobileListHeight = 600,
+  // Desktop virtualization (future use for large client-side datasets)
+  desktopVirtualized: _desktopVirtualized = false,
+  virtualThreshold: _virtualThreshold = 100,
+  virtualHeight: _virtualHeight = 600,
+  virtualRowHeight: _virtualRowHeight = 53,
   pageCount,
   pagination,
   setPagination,
@@ -186,6 +203,7 @@ export function ResponsiveDataTable<TData extends { systemId: string }>({
   pinnedColumns = [],
   setPinnedColumns = () => {},
   onRowClick,
+  onRowHover,
   getRowStyle,
   className,
 }: ResponsiveDataTableProps<TData>) {
@@ -277,6 +295,7 @@ export function ResponsiveDataTable<TData extends { systemId: string }>({
     pinnedColumns,
     setPinnedColumns,
     onRowClick,
+    onRowHover,
     getRowStyle,
     className,
   };
@@ -401,6 +420,7 @@ function DesktopDataTable<TData extends { systemId: string }>({
   pinnedColumns,
   setPinnedColumns: _setPinnedColumns,
   onRowClick,
+  onRowHover,
   getRowStyle,
   className,
 }: DesktopDataTableProps<TData>) {
@@ -696,13 +716,13 @@ function DesktopDataTable<TData extends { systemId: string }>({
           <div
             ref={headerScrollRef}
             onScroll={() => syncScroll('header')}
-            className="sticky top-[136px] z-30 overflow-x-auto rounded-t-md border border-border border-b-0 bg-muted shadow-[0_2px_8px_rgba(0,0,0,0.08)] [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+            className="sticky top-34 z-30 overflow-x-auto rounded-t-md border border-border border-b-0 bg-muted shadow-[0_2px_8px_rgba(0,0,0,0.08)] [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
           >
             <Table ref={headerTableRef}>
               <TableHeader className="bg-muted">
                 {numSelected > 0 && (
                   <tr className="absolute inset-x-0 top-0 z-50 h-9 bg-muted border-b border-border shadow-md">
-                    <th className="sticky left-0 z-[60] bg-muted px-3 w-[48px]">
+                    <th className="sticky left-0 z-60 bg-muted px-3 w-12">
                       {columns.find(c => c.id === 'select') &&
                         typeof columns.find(c => c.id === 'select')!.header === 'function' &&
                         // @ts-expect-error - header function type is complex with selection props
@@ -713,7 +733,7 @@ function DesktopDataTable<TData extends { systemId: string }>({
                         })
                       }
                     </th>
-                    <th className="sticky left-[48px] z-[60] h-9 bg-muted">
+                    <th className="sticky left-12 z-60 h-9 bg-muted">
                       <div className="flex items-center gap-3 px-4">
                         <span className="text-sm font-medium">{numSelected} mục đã chọn</span>
                         {bulkActions && bulkActions.length > 0 && (
@@ -783,11 +803,12 @@ function DesktopDataTable<TData extends { systemId: string }>({
                     <TableRow
                       data-state={rowSelection[row.systemId] && "selected"}
                       onClick={() => onRowClick?.(row)}
+                      onMouseEnter={() => onRowHover?.(row)}
                       className={cn('group', onRowClick && 'cursor-pointer')}
                       style={getRowStyle?.(row)}
                     >
                       {displayColumns.map((column, colIndex) => {
-                        const isInteractiveColumn = ['select', 'control', 'actions', 'expander'].includes(column.id);
+                        const isInteractiveColumn = ['select', 'control', 'actions', 'expander', 'pkgx', 'pkgxActions'].includes(column.id);
 
                         const stickyMeta = (column.meta as ColumnMeta | undefined)?.sticky;
                         const hasFixedSize = column.size !== undefined;
@@ -900,7 +921,7 @@ function DesktopDataTable<TData extends { systemId: string }>({
         </div>
       )}
 
-      <div className="flex-shrink-0 border-t border-border bg-background px-6 py-3">
+      <div className="shrink-0 border-t border-border bg-background px-6 py-3">
         <DataTablePagination
           pageIndex={pagination.pageIndex}
           pageSize={pagination.pageSize}

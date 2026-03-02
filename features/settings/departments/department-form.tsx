@@ -22,7 +22,7 @@ type DepartmentFormProps = {
 }
 
 export function DepartmentForm({ initialData, onSubmit }: DepartmentFormProps) {
-  const { data: departmentsData } = useDepartments({ limit: 1000 });
+  const { data: departmentsData } = useDepartments();
   const _departments = departmentsData?.data ?? [];
   const form = useForm<DepartmentFormValues>({
     defaultValues: initialData || {
@@ -30,6 +30,18 @@ export function DepartmentForm({ initialData, onSubmit }: DepartmentFormProps) {
       name: "",
     },
   })
+
+  // Reset form when initialData changes
+  React.useEffect(() => {
+    if (initialData) {
+      form.reset(initialData);
+    } else {
+      form.reset({
+        id: '',
+        name: '',
+      });
+    }
+  }, [initialData, form]);
 
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault()

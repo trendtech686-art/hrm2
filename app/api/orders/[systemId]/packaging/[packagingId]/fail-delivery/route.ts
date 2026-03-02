@@ -43,7 +43,10 @@ export async function POST(request: Request, { params }: RouteParams) {
       // Update order status
       const updated = await tx.order.update({
         where: { systemId },
-        data: { status: 'FAILED_DELIVERY' },
+        data: { 
+          status: 'FAILED_DELIVERY',
+          deliveryStatus: 'RESCHEDULED', // ✅ Also update order-level deliveryStatus
+        },
         include: {
           customer: true,
           lineItems: {

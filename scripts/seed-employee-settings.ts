@@ -753,7 +753,7 @@ async function main() {
     },
     allowRollover: true,
     rolloverExpirationDate: '03-31',
-    salaryComponents: salaryComponents,
+    // salaryComponents được lưu riêng trong SettingsData table
     payrollCycle: 'monthly',
     payday: 5,
     payrollLockDate: 5,
@@ -799,7 +799,7 @@ async function main() {
       updatedAt: new Date(),
     },
     create: {
-      systemId: `SET_EMP_${Date.now()}`,
+      systemId: `SET_EMP_${crypto.randomUUID().slice(0, 8).toUpperCase()}`,
       key: 'employee-settings',
       group: 'hrm',
       type: 'json',
@@ -808,7 +808,60 @@ async function main() {
       description: 'Employee management settings',
     },
   });
-  console.log(`  ✅ Employee Settings: ${leaveTypes.length} loại nghỉ phép, ${salaryComponents.length} thành phần lương`);
+  console.log(`  ✅ Employee Settings: ${leaveTypes.length} loại nghỉ phép`);
+
+  // 1b. Xóa salary components cũ với format không đúng
+  console.log('\n📝 Đang xóa salary components cũ (nếu có)...');
+  await prisma.settingsData.deleteMany({
+    where: {
+      type: { in: ['minimum_wage', 'base_salary', 'allowance'] },
+    },
+  });
+
+  // 1c. Seed Salary Components into SettingsData table (for UI)
+  console.log('\n📝 Đang seed Salary Components vào SettingsData...');
+  for (const comp of salaryComponents) {
+    await prisma.settingsData.upsert({
+      where: { systemId: comp.systemId },
+      update: {
+        id: comp.id,
+        name: comp.name,
+        description: comp.description,
+        type: comp.category === 'contribution' ? 'contribution' : comp.category === 'deduction' ? 'deduction' : 'earning',
+        isActive: comp.isActive,
+        metadata: {
+          category: comp.category,
+          type: comp.type,
+          amount: comp.amount ?? 0,
+          formula: comp.formula ?? null,
+          taxable: comp.taxable,
+          partOfSocialInsurance: comp.partOfSocialInsurance,
+          sortOrder: comp.sortOrder,
+          applicableDepartmentSystemIds: comp.applicableDepartmentSystemIds,
+        },
+        updatedAt: new Date(),
+      },
+      create: {
+        systemId: comp.systemId,
+        id: comp.id,
+        name: comp.name,
+        description: comp.description,
+        type: comp.category === 'contribution' ? 'contribution' : comp.category === 'deduction' ? 'deduction' : 'earning',
+        isActive: comp.isActive,
+        metadata: {
+          category: comp.category,
+          type: comp.type,
+          amount: comp.amount ?? 0,
+          formula: comp.formula ?? null,
+          taxable: comp.taxable,
+          partOfSocialInsurance: comp.partOfSocialInsurance,
+          sortOrder: comp.sortOrder,
+          applicableDepartmentSystemIds: comp.applicableDepartmentSystemIds,
+        },
+      },
+    });
+  }
+  console.log(`  ✅ SettingsData: ${salaryComponents.length} thành phần lương`);
 
   // 2. Seed Penalty Types
   console.log('\n📝 Đang seed Loại phạt nhân viên...');
@@ -853,7 +906,7 @@ async function main() {
       updatedAt: new Date(),
     },
     create: {
-      systemId: `SET_PAYTPL_${Date.now()}`,
+      systemId: `SET_PAYTPL_${crypto.randomUUID().slice(0, 8).toUpperCase()}`,
       key: 'payroll-templates',
       group: 'hrm',
       type: 'json',

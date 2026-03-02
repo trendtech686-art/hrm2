@@ -5,6 +5,8 @@ import * as React from 'react';
 import { toast } from 'sonner';
 import type { Product } from '@/features/products/types';
 import type { Order } from '@/features/orders/types';
+import { generateSubEntityId } from '@/lib/id-utils';
+import { useAllPricingPolicies } from '@/features/settings/pricing/hooks/use-all-pricing-policies';
 import {
   checkProductWarranty,
   checkMultipleProductsWarranty,
@@ -34,18 +36,42 @@ export function useProductSelection({
   append,
 }: UseProductSelectionOptions): UseProductSelectionResult {
   const [warrantyCheckResults, setWarrantyCheckResults] = React.useState<Record<string, WarrantyCheckResult>>({});
+  
+  // ✅ Lấy default pricing policy để set giá mặc định
+  const { data: pricingPolicies = [] } = useAllPricingPolicies();
+  const defaultPricingPolicy = React.useMemo(() => {
+    return pricingPolicies.find(p => p.isDefault && p.type === 'Bán hàng');
+  }, [pricingPolicies]);
+
+  // ✅ Helper function để lấy giá mặc định từ product
+  const getDefaultPrice = React.useCallback((product: Product): number => {
+    // 1. Ưu tiên giá từ bảng giá mặc định
+    if (defaultPricingPolicy && product.prices?.[defaultPricingPolicy.systemId] !== undefined) {
+      return product.prices[defaultPricingPolicy.systemId];
+    }
+    // 2. Fallback: lấy giá đầu tiên trong bảng prices
+    if (product.prices && Object.keys(product.prices).length > 0) {
+      const firstPolicyId = Object.keys(product.prices)[0];
+      return product.prices[firstPolicyId] || 0;
+    }
+    // 3. Fallback cuối: costPrice
+    return product.costPrice || 0;
+  }, [defaultPricingPolicy]);
 
   const handleSelectProduct = React.useCallback((product: Product) => {
+    const defaultPrice = getDefaultPrice(product);
+    
     const newProduct = createWarrantyProductFromSelection({
       systemId: product.systemId,
       id: product.id,
       name: product.name,
-      costPrice: product.costPrice,
+      costPrice: defaultPrice, // ✅ Sử dụng giá mặc định thay vì costPrice
       warrantyPeriodMonths: product.warrantyPeriodMonths,
+      thumbnailImage: product.thumbnailImage, // ✅ Thêm ảnh sản phẩm
     });
 
     // Sử dụng systemId cố định
-    newProduct.systemId = `WP_${Date.now()}`;
+    newProduct.systemId = generateSubEntityId('WP');
 
     append(newProduct);
     
@@ -84,16 +110,19 @@ export function useProductSelection({
         [product.name]: checkResult,
       }));
     }
-  }, [customerName, allOrders, append]);
+  }, [customerName, allOrders, append, getDefaultPrice]);
 
   const handleSelectProducts = React.useCallback((products: Product[]) => {
     const newProducts = products.map((product) => {
+      const defaultPrice = getDefaultPrice(product);
+      
       const newProduct = createWarrantyProductFromSelection({
         systemId: product.systemId,
         id: product.id,
         name: product.name,
-        costPrice: product.costPrice,
+        costPrice: defaultPrice, // ✅ Sử dụng giá mặc định
         warrantyPeriodMonths: product.warrantyPeriodMonths,
+        thumbnailImage: product.thumbnailImage, // ✅ Thêm ảnh sản phẩm
       });
       return newProduct;
     });
@@ -128,7 +157,7 @@ export function useProductSelection({
         });
       }
     }
-  }, [customerName, allOrders, productInsertPosition, append]);
+  }, [customerName, allOrders, productInsertPosition, append, getDefaultPrice]);
 
   return {
     warrantyCheckResults,

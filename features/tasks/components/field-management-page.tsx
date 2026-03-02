@@ -1,4 +1,5 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
+import { generateSubEntityId } from '@/lib/id-utils';
 import { Plus, Edit, Trash2, Copy, Eye, EyeOff, GripVertical } from 'lucide-react';
 import { useAllCustomFields } from '../hooks/use-all-custom-fields';
 import { useCustomFieldMutations } from '../hooks/use-custom-fields';
@@ -119,7 +120,7 @@ export function FieldManagementPage() {
     const duplicate: Omit<CustomFieldDefinition, 'systemId' | 'createdAt' | 'updatedAt'> = {
       ...field,
       name: `${field.name} (Copy)`,
-      id: `${field.id}_copy_${Date.now()}`,
+      id: `${field.id}_copy_${generateSubEntityId('FIELD')}`,
       createdBy: 'CURRENT_USER',
     };
     create.mutate(duplicate);
@@ -131,7 +132,7 @@ export function FieldManagementPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Tổng số trường</CardTitle>
+            <CardTitle size="sm" className="text-muted-foreground">Tổng số trường</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.total}</div>
@@ -139,7 +140,7 @@ export function FieldManagementPage() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Đang hoạt động</CardTitle>
+            <CardTitle size="sm" className="text-muted-foreground">Đang hoạt động</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.active}</div>
@@ -147,7 +148,7 @@ export function FieldManagementPage() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Danh mục</CardTitle>
+            <CardTitle size="sm" className="text-muted-foreground">Danh mục</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.categories}</div>
@@ -235,7 +236,7 @@ export function FieldManagementPage() {
                   <div className="space-y-1 flex-1">
                     <div className="flex items-center gap-2">
                       <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />
-                      <CardTitle className="text-lg">{field.name}</CardTitle>
+                      <CardTitle size="lg">{field.name}</CardTitle>
                       <Badge variant="outline">
                         {FIELD_TYPES.find(t => t.value === field.type)?.label}
                       </Badge>

@@ -17,6 +17,8 @@ interface ApiResponse<T> {
 const API_BASE = '/api/settings/payment-types';
 
 export type PaymentTypeFilters = {
+  page?: number;
+  limit?: number;
   isActive?: boolean;
 };
 
@@ -25,6 +27,8 @@ export type PaymentTypeUpdateInput = Partial<Omit<PaymentType, 'systemId'>>;
 
 export async function fetchPaymentTypes(filters: PaymentTypeFilters = {}): Promise<ApiResponse<PaymentType[]>> {
   const params = new URLSearchParams();
+  if (filters.page) params.append('page', String(filters.page));
+  if (filters.limit) params.append('limit', String(filters.limit));
   if (filters.isActive !== undefined) params.append('isActive', String(filters.isActive));
   
   const url = params.toString() ? `${API_BASE}?${params}` : API_BASE;

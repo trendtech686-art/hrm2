@@ -4,6 +4,7 @@
  */
 
 import type { LogEntry, LogChange } from '@/lib/types/prisma-extended';
+import { fetchAllPages } from '@/lib/fetch-all-pages';
 
 export interface AuditLogFilters {
   page?: number;
@@ -71,11 +72,10 @@ export async function fetchEntityAuditLogs(
   entityId: string,
   entityType?: string
 ): Promise<LogEntry[]> {
-  const filters: AuditLogFilters = { entityId, limit: 100 };
+  const filters: Omit<AuditLogFilters, 'page' | 'limit'> = { entityId };
   if (entityType) filters.entityType = entityType;
   
-  const response = await fetchAuditLogs(filters);
-  return response.data;
+  return fetchAllPages((p) => fetchAuditLogs({ ...filters, ...p }));
 }
 
 /**

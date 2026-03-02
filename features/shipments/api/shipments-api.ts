@@ -3,22 +3,26 @@
  * Handles all shipment-related API calls
  */
 
-import type { Shipment } from '@/lib/types/prisma-extended';
+import type { Shipment, ShipmentView } from '@/lib/types/prisma-extended';
 
 export interface ShipmentFilters {
   page?: number;
   limit?: number;
   search?: string;
   status?: string;
+  deliveryStatus?: string;
   orderId?: string;
+  branchId?: string;
   carrier?: string;
   reconciliationStatus?: string;
   fromDate?: string;
   toDate?: string;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
 }
 
 export interface ShipmentResponse {
-  data: Shipment[];
+  data: ShipmentView[];
   pagination: {
     page: number;
     limit: number;
@@ -64,11 +68,15 @@ export async function fetchShipments(
   if (filters.limit) params.set('limit', String(filters.limit));
   if (filters.search) params.set('search', filters.search);
   if (filters.status) params.set('status', filters.status);
+  if (filters.deliveryStatus) params.set('deliveryStatus', filters.deliveryStatus);
   if (filters.orderId) params.set('orderId', filters.orderId);
+  if (filters.branchId) params.set('branchId', filters.branchId);
   if (filters.carrier) params.set('carrier', filters.carrier);
   if (filters.reconciliationStatus) params.set('reconciliationStatus', filters.reconciliationStatus);
   if (filters.fromDate) params.set('fromDate', filters.fromDate);
   if (filters.toDate) params.set('toDate', filters.toDate);
+  if (filters.sortBy) params.set('sortBy', filters.sortBy);
+  if (filters.sortOrder) params.set('sortOrder', filters.sortOrder);
 
   const url = params.toString() ? `${BASE_URL}?${params}` : BASE_URL;
   const response = await fetch(url);

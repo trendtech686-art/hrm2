@@ -2,14 +2,11 @@ import type { WarrantyTicket, WarrantyProduct, WarrantyHistory, SettlementMethod
 import type { Payment } from '../payments/types';
 import type { Receipt } from '../receipts/types';
 import type { Order } from '../orders/types';
-import { fetchWarranties } from './api/warranties-api';
-import { usePaymentStore } from '../payments/store';
-import { useReceiptStore } from '../receipts/store';
-import { useOrderStore } from '../orders/store';
-import { useBranchStore } from '../settings/branches/store';
 
-export interface PublicWarrantyProduct extends Pick<WarrantyProduct, 'systemId' | 'productName' | 'quantity' | 'resolution' | 'unitPrice' | 'deductionAmount' | 'issueDescription'> {
+export interface PublicWarrantyProduct extends Pick<WarrantyProduct, 'systemId' | 'productName' | 'quantity' | 'resolution' | 'unitPrice' | 'deductionAmount' | 'issueDescription' | 'notes'> {
+  sku: string | null;
   productImages: string[];
+  catalogImage: string | null;
 }
 
 export interface PublicWarrantyHistory extends Pick<WarrantyHistory, 'systemId' | 'action' | 'actionLabel' | 'performedAt' | 'performedBy' | 'note'> {}
@@ -57,15 +54,38 @@ export interface PublicWarrantyReceipt extends Pick<Receipt, 'systemId' | 'id' |
 
 export interface PublicWarrantyOrder extends Pick<Order, 'systemId' | 'id' | 'customerName'> {}
 
+export interface PublicWarrantyComment {
+  systemId: string;
+  content: string;
+  createdByName: string;
+  createdAt: string;
+  updatedAt?: string;
+  parentId?: string;
+}
+
 export interface PublicWarrantyResponse {
   ticket: PublicWarrantyTicket;
+  comments: PublicWarrantyComment[];
   payments: PublicWarrantyPayment[];
   receipts: PublicWarrantyReceipt[];
   orders: PublicWarrantyOrder[];
   hotline: string;
+  companyName?: string;
+  settings?: {
+    enabled: boolean;
+    showEmployeeName: boolean;
+    showTimeline: boolean;
+    allowCustomerComments: boolean;
+    showProductList: boolean;
+    showSummary: boolean;
+    showPayment: boolean;
+    showReceivedImages: boolean;
+    showProcessedImages: boolean;
+    showHistory: boolean;
+  };
 }
 
-function sanitizeTicket(ticket: WarrantyTicket): PublicWarrantyTicket {
+function _sanitizeTicket(ticket: WarrantyTicket): PublicWarrantyTicket {
   const settlementMethods: PublicSettlementMethod[] = ticket.settlement?.methods
     ?.filter(method => method.status === 'completed')
     .map(method => ({
@@ -92,12 +112,15 @@ function sanitizeTicket(ticket: WarrantyTicket): PublicWarrantyTicket {
     products: (ticket.products || []).map(product => ({
       systemId: product.systemId,
       productName: product.productName,
+      sku: (product.sku as string) || null,
       quantity: product.quantity,
       resolution: product.resolution,
       unitPrice: product.unitPrice,
       deductionAmount: product.deductionAmount,
       issueDescription: product.issueDescription,
+      notes: product.notes,
       productImages: product.productImages || [],
+      catalogImage: null,
     })),
     receivedImages: ticket.receivedImages || [],
     processedImages: ticket.processedImages,
@@ -131,74 +154,10 @@ function sanitizeTicket(ticket: WarrantyTicket): PublicWarrantyTicket {
   };
 }
 
-export async function fetchPublicWarrantyTicket(trackingCode: string): Promise<PublicWarrantyResponse | null> {
-  // Fetch warranties from API
-  const warrantyResponse = await fetchWarranties({ limit: 1000 });
-  const warranties = warrantyResponse.data || [];
-  const ticket = warranties.find(item => item.publicTrackingCode === trackingCode);
-  
-  if (!ticket) {
-    return null;
-  }
-
-  // Fetch related data from stores (already hydrated)
-  const { data: payments } = usePaymentStore.getState();
-  const { data: receipts } = useReceiptStore.getState();
-  const { data: orders } = useOrderStore.getState();
-  const { data: branches } = useBranchStore.getState();
-
-  const relatedPayments = payments
-    .filter(payment => payment.linkedWarrantySystemId === ticket.systemId && payment.status !== 'cancelled')
-    .map(payment => ({
-      systemId: payment.systemId,
-      id: payment.id,
-      amount: payment.amount,
-      createdAt: payment.createdAt,
-      paymentMethodName: payment.paymentMethodName,
-      linkedOrderSystemId: payment.linkedOrderSystemId,
-      description: payment.description,
-      status: payment.status,
-    })) as PublicWarrantyPayment[];
-
-  const relatedReceipts = receipts
-    .filter(receipt => receipt.linkedWarrantySystemId === ticket.systemId && receipt.status !== 'cancelled')
-    .map(receipt => ({
-      systemId: receipt.systemId,
-      id: receipt.id,
-      amount: receipt.amount,
-      createdAt: receipt.createdAt,
-      paymentMethodName: receipt.paymentMethodName,
-      description: receipt.description,
-      status: receipt.status,
-    })) as PublicWarrantyReceipt[];
-
-  const linkedOrderIds = new Set<string>();
-  if (ticket.linkedOrderSystemId) {
-    linkedOrderIds.add(ticket.linkedOrderSystemId);
-  }
-  relatedPayments.forEach(payment => {
-    if (payment.linkedOrderSystemId) {
-      linkedOrderIds.add(payment.linkedOrderSystemId);
-    }
-  });
-
-  const relatedOrders = orders
-    .filter(order => linkedOrderIds.has(order.systemId))
-    .map(order => ({
-      systemId: order.systemId,
-      id: order.id,
-      customerName: order.customerName,
-    })) as PublicWarrantyOrder[];
-
-  const branchHotline = branches.find(branch => branch.systemId === ticket.branchSystemId)?.phone;
-  const defaultBranchHotline = branches.find(branch => branch.isDefault)?.phone;
-  const hotline = branchHotline || defaultBranchHotline || '1900-xxxx';
-
-  return {
-    ticket: sanitizeTicket(ticket),
-    payments: relatedPayments,
-    receipts: relatedReceipts,
-    orders: relatedOrders,
-    hotline,
-  };
-}
+/**
+ * @deprecated This function is unused. Public warranty tracking uses
+ * the API endpoint /api/public/warranty-tracking via use-public-tracking.ts hook.
+ * Kept only for reference.
+ */
+// fetchPublicWarrantyTicket function was removed - it relied on deprecated Zustand stores.
+// Use the server-side API endpoint instead.

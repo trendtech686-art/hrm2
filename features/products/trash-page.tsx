@@ -98,14 +98,18 @@ export function ProductsTrashPage() {
               )}
             </div>
             {product.status && (
-              <Badge variant={
-                product.status === 'active' ? 'success' : 
-                product.status === 'discontinued' ? 'destructive' : 
-                'secondary'
-              }>
-                {product.status === 'active' ? 'Hoạt động' : 
-                 product.status === 'discontinued' ? 'Ngừng kinh doanh' : 
-                 'Tạm ngừng'}
+              <Badge variant={(() => {
+                const status = product.status.toString().toLowerCase();
+                if (status === 'active') return 'success';
+                if (status === 'discontinued') return 'destructive';
+                return 'secondary';
+              })()}>
+                {(() => {
+                  const status = product.status.toString().toLowerCase();
+                  if (status === 'active') return 'Hoạt động';
+                  if (status === 'discontinued') return 'Ngừng kinh doanh';
+                  return 'Tạm ngừng';
+                })()}
               </Badge>
             )}
           </div>

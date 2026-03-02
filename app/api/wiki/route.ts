@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma'
 import { Prisma } from '@/generated/prisma/client'
 import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
 import { createWikiSchema } from './validation'
+import { generateNextIdsWithTx } from '@/lib/id-system'
 
 // GET /api/wiki - List all wiki articles
 export async function GET(request: Request) {
@@ -88,30 +89,29 @@ export async function POST(request: Request) {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/(^-|-$)/g, '')
 
-    // Generate business ID
-    const lastWiki = await prisma.wiki.findFirst({
-      orderBy: { createdAt: 'desc' },
-      select: { id: true },
-    })
-    const lastNum = lastWiki?.id 
-      ? parseInt(lastWiki.id.replace('TL', '')) 
-      : 0
-    const id = `TL${String(lastNum + 1).padStart(6, '0')}`
+    const wiki = await prisma.$transaction(async (tx) => {
+      // Generate IDs using unified ID system
+      const { systemId, businessId } = await generateNextIdsWithTx(
+        tx,
+        'wiki',
+        undefined
+      );
 
-    const wiki = await prisma.wiki.create({
-      data: {
-        systemId: `WIKI${String(Date.now()).slice(-6).padStart(6, '0')}`,
-        id,
-        title: body.title,
-        slug,
-        content: body.content,
-        category: body.categoryId || body.category,
-        tags: body.tags || [],
-        isPublished: body.isPublished ?? false,
-        authorId: body.authorId,
-        updatedAt: new Date(),
-      },
-    })
+      return tx.wiki.create({
+        data: {
+          systemId,
+          id: businessId,
+          title: body.title,
+          slug,
+          content: body.content,
+          category: body.categoryId || body.category,
+          tags: body.tags || [],
+          isPublished: body.isPublished ?? false,
+          authorId: body.authorId,
+          updatedAt: new Date(),
+        },
+      });
+    });
 
     return apiSuccess(wiki, 201)
   } catch (error) {

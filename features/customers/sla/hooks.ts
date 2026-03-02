@@ -7,7 +7,7 @@ import { useCustomersWithComputedDebt } from '../hooks/use-computed-debt';
 export function useCustomerSlaEvaluation() {
   const { data: customers } = useAllCustomers();
   const { data: slaSettingsData } = useCustomerSlaSettings();
-  const slaSettings = React.useMemo(() => Array.isArray(slaSettingsData) ? slaSettingsData : (slaSettingsData as any)?.data ?? [], [slaSettingsData]);
+  const slaSettings = React.useMemo(() => slaSettingsData ?? [], [slaSettingsData]);
   const evaluate = useCustomerSlaEngineStore((state) => state.evaluate);
   const storeState = useCustomerSlaEngineStore();
 

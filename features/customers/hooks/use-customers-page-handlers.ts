@@ -13,7 +13,6 @@ import { useCustomerMutations, useBulkCustomerMutations, useTrashMutations } fro
 
 const TABLE_STATE_STORAGE_KEY = 'customers-table-state';
 
-type SlaFilterValue = CustomerQueryParams['slaFilter'];
 type DebtFilterValue = CustomerQueryParams['debtFilter'];
 
 const defaultTableState: CustomerQueryParams = {
@@ -22,7 +21,6 @@ const defaultTableState: CustomerQueryParams = {
   typeFilter: 'all',
   dateRange: undefined,
   showDeleted: false,
-  slaFilter: 'all',
   debtFilter: 'all',
   pagination: { pageIndex: 0, pageSize: 10 },
   sorting: DEFAULT_CUSTOMER_SORT,
@@ -75,15 +73,6 @@ export function useCustomerTableState() {
     [setTableState]
   );
 
-  const setSlaFilter = React.useCallback(
-    (value: React.SetStateAction<SlaFilterValue>) =>
-      setTableState((prev) => ({
-        ...prev,
-        slaFilter: resolveStateAction(prev.slaFilter, value),
-      })),
-    [setTableState]
-  );
-
   const setDebtFilter = React.useCallback(
     (value: React.SetStateAction<DebtFilterValue>) =>
       setTableState((prev) => ({
@@ -130,7 +119,6 @@ export function useCustomerTableState() {
     setSearch,
     setStatusFilter,
     setTypeFilter,
-    setSlaFilter,
     setDebtFilter,
     setDateRange,
     setPagination,

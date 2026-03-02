@@ -28,6 +28,9 @@ export function useLazyImage(options?: IntersectionObserverInit) {
   const ref = useRef<HTMLDivElement>(null);
   const [isInView, setIsInView] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
+  
+  // Memoize options to prevent re-creating observer on every render
+  const optionsRef = useRef(options);
 
   useEffect(() => {
     const element = ref.current;
@@ -54,7 +57,7 @@ export function useLazyImage(options?: IntersectionObserverInit) {
         root: null, // viewport
         rootMargin: '100px', // Start loading 100px before entering viewport
         threshold: 0,
-        ...options,
+        ...optionsRef.current,
       }
     );
 
@@ -63,7 +66,7 @@ export function useLazyImage(options?: IntersectionObserverInit) {
     return () => {
       observer.disconnect();
     };
-  }, [options]);
+  }, []); // Empty deps - only run once on mount
 
   return { ref, isInView, isLoaded, setIsLoaded };
 }

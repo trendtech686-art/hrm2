@@ -2,6 +2,8 @@ import { prisma } from '@/lib/prisma'
 import { Prisma } from '@/generated/prisma/client'
 import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
 import { createBrandSchema } from './validation'
+import { generateNextIds } from '@/lib/id-system'
+import { cache, CACHE_TTL } from '@/lib/cache'
 
 // GET /api/brands - List all brands
 export async function GET(request: Request) {
@@ -26,6 +28,10 @@ export async function GET(request: Request) {
     }
 
     if (all) {
+      const cacheKey = search ? `brands:all:${search}` : 'brands:all'
+      const cached = cache.get(cacheKey)
+      if (cached) return apiSuccess(cached)
+
       const brands = await prisma.brand.findMany({
         where,
         orderBy: { name: 'asc' },
@@ -33,7 +39,9 @@ export async function GET(request: Request) {
           _count: { select: { products: true } },
         },
       })
-      return apiSuccess({ data: brands })
+      const result = { data: brands }
+      cache.set(cacheKey, result, CACHE_TTL.LONG)
+      return apiSuccess(result)
     }
 
     const [brands, total] = await Promise.all([
@@ -67,23 +75,45 @@ export async function POST(request: Request) {
   try {
     const body = result.data
 
+    // Log the incoming data for debugging
+    console.log('[POST /api/brands] Creating brand:', { id: body.id, name: body.name, hasLogo: !!body.logo, hasLogoUrl: !!body.logoUrl })
+
+    // Generate sequential systemId - use 'brands' entity type (not 'BRAND')
+    const { systemId } = await generateNextIds('brands')
+
     const brand = await prisma.brand.create({
       data: {
-        systemId: `BRAND${String(Date.now()).slice(-6).padStart(6, '0')}`,
+        systemId,
         id: body.id,
         name: body.name,
         description: body.description,
-        logoUrl: body.logo || body.logoUrl,
+        logo: body.logo,
+        logoUrl: body.logoUrl,
         website: body.website,
+        // SEO fields
+        seoTitle: body.seoTitle,
+        metaDescription: body.metaDescription,
+        seoKeywords: body.seoKeywords,
+        shortDescription: body.shortDescription,
+        longDescription: body.longDescription,
+        // Multi-website SEO (JSON field)
+        websiteSeo: body.websiteSeo || Prisma.JsonNull,
       },
     })
 
+    console.log('[POST /api/brands] Brand created successfully:', { systemId, id: body.id, name: body.name })
+    
+    // Invalidate brands cache
+    cache.deletePattern('^brands:')
+    
     return apiSuccess(brand, 201)
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-      return apiError('Mã thương hiệu đã tồn tại', 400)
+      const target = error.meta?.target as string[] | undefined
+      console.error('[POST /api/brands] Unique constraint violation:', { code: error.code, target, body: result.data })
+      return apiError(`Mã thương hiệu đã tồn tại: ${target?.join(', ') || 'unknown field'}`, 400)
     }
-    console.error('Error creating brand:', error)
-    return apiError('Failed to create brand', 500)
+    console.error('[POST /api/brands] Error creating brand:', error instanceof Error ? error.message : error, { body: result.data })
+    return apiError(`Failed to create brand: ${error instanceof Error ? error.message : 'Unknown error'}`, 500)
   }
 }

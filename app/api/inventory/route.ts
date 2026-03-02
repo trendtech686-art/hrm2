@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma'
 import type { Prisma } from '@/generated/prisma/client'
 import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
 import { createInventorySchema } from './validation'
+import { generateNextIds } from '@/lib/id-system'
 
 // GET /api/inventory - List all inventory
 export async function GET(request: Request) {
@@ -83,10 +84,13 @@ export async function POST(request: Request) {
   const body = validation.data
 
   try {
+    // Generate inventory ID
+    const { systemId } = await generateNextIds('inventory-receipts')
+    
     // Create new inventory record
     const inventory = await prisma.inventory.create({
       data: {
-        systemId: `INV${String(Date.now()).slice(-10).padStart(10, '0')}`,
+        systemId,
         productId: body.productId,
         locationId: body.locationId || '',
         quantity: body.quantity || 0,

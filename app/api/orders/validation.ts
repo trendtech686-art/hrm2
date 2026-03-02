@@ -26,30 +26,66 @@ const lineItemSchema = z.object({
   note: z.string().optional(),
 })
 
-// Create order schema
-export const createOrderSchema = z.object({
+// Base order schema - accepts both API field names (customerId/branchId) and form field names (customerSystemId/branchSystemId)
+const baseOrderSchema = z.object({
   id: z.string().optional(),
-  customerId: z.string().min(1, 'Customer is required'),
-  branchId: z.string().min(1, 'Branch is required'),
+  // Support both field names for customer
+  customerId: z.string().optional(),
+  customerSystemId: z.string().optional(),
+  customerName: z.string().optional(),
+  // Support both field names for branch
+  branchId: z.string().optional(),
+  branchSystemId: z.string().optional(),
+  branchName: z.string().optional(),
+  // Support both field names for salesperson
   salespersonId: z.string().optional(),
+  salespersonSystemId: z.string().optional(),
   salespersonName: z.string().optional(),
+  salesperson: z.string().optional(), // Alternative field for salesperson name
   lineItems: z.array(lineItemSchema).min(1, 'At least one line item is required'),
   orderDate: z.string().optional(),
   expectedDeliveryDate: z.string().optional(),
-  shippingAddress: z.string().optional(),
+  expectedPaymentMethod: z.string().optional(),
+  // ✅ Accept shippingAddress as string OR object (address snapshot)
+  shippingAddress: z.union([z.string(), z.record(z.string(), z.unknown())]).optional(),
+  billingAddress: z.union([z.string(), z.record(z.string(), z.unknown())]).optional(),
   status: z.string().optional().default('PENDING'),
   paymentStatus: z.string().optional().default('UNPAID'),
+  deliveryStatus: z.string().optional(),
+  stockOutStatus: z.string().optional(),
+  returnStatus: z.string().optional(),
+  printStatus: z.string().optional(),
   deliveryMethod: z.string().optional().default('SHIPPING'),
   shippingFee: z.number().optional().default(0),
   tax: z.number().optional().default(0),
   discount: z.number().optional().default(0),
+  subtotal: z.number().optional(),
+  grandTotal: z.number().optional(),
+  paidAmount: z.number().optional(),
+  codAmount: z.number().optional(),
   notes: z.string().optional(),
   source: z.string().optional(),
+  tags: z.array(z.string()).optional(),
+  packagings: z.array(z.unknown()).optional(),
+  payments: z.array(z.unknown()).optional(),
+  assignedPackerSystemId: z.string().optional(),
+  assignedPackerName: z.string().optional(),
+  completedDate: z.string().nullable().optional(),
+  createdAt: z.string().optional(),
   createdBy: z.string().optional(),
 })
 
-// Update order schema
-export const updateOrderSchema = createOrderSchema.partial()
+// Create order schema with validation refinements
+export const createOrderSchema = baseOrderSchema.refine(
+  (data) => data.customerId || data.customerSystemId,
+  { message: 'Customer is required', path: ['customerId'] }
+).refine(
+  (data) => data.branchId || data.branchSystemId,
+  { message: 'Branch is required', path: ['branchId'] }
+)
+
+// Update order schema - use base schema (without refine) for partial updates
+export const updateOrderSchema = baseOrderSchema.partial()
 
 export type ListOrdersInput = z.infer<typeof listOrdersSchema>
 export type CreateOrderInput = z.infer<typeof createOrderSchema>

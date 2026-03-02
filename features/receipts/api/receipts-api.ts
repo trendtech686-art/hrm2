@@ -23,13 +23,25 @@ export interface ReceiptsParams {
   endDate?: string;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
+  // ✅ New filters for order detail page performance
+  linkedOrderSystemId?: string;
+  linkedSalesReturnSystemId?: string;
+  customerSystemId?: string;
+  // ✅ Filter for supplier detail page
+  supplierId?: string;
+  // ✅ Filter for warranty detail page
+  linkedWarrantySystemId?: string;
+  enabled?: boolean;
 }
 
 export interface ReceiptsResponse {
   data: Receipt[];
-  total: number;
-  page: number;
-  pageSize: number;
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
 }
 
 export async function fetchReceipts(params: ReceiptsParams = {}): Promise<ReceiptsResponse> {
@@ -48,6 +60,14 @@ export async function fetchReceipts(params: ReceiptsParams = {}): Promise<Receip
   if (params.endDate) searchParams.set('endDate', params.endDate);
   if (params.sortBy) searchParams.set('sortBy', params.sortBy);
   if (params.sortOrder) searchParams.set('sortOrder', params.sortOrder);
+  // ✅ New filters for order detail page
+  if (params.linkedOrderSystemId) searchParams.set('linkedOrderSystemId', params.linkedOrderSystemId);
+  if (params.linkedSalesReturnSystemId) searchParams.set('linkedSalesReturnSystemId', params.linkedSalesReturnSystemId);
+  if (params.customerSystemId) searchParams.set('customerSystemId', params.customerSystemId);
+  // ✅ Filter for supplier detail page
+  if (params.supplierId) searchParams.set('supplierId', params.supplierId);
+  // ✅ Filter for warranty detail page
+  if (params.linkedWarrantySystemId) searchParams.set('linkedWarrantySystemId', params.linkedWarrantySystemId);
   
   const url = searchParams.toString() ? `${BASE_URL}?${searchParams}` : BASE_URL;
   const response = await fetch(url);

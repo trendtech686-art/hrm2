@@ -52,15 +52,13 @@ export async function fetchPricingPolicies(
 
   // Try new endpoint first, fallback to legacy
   let url = params.toString() ? `${BASE_URL}?${params}` : BASE_URL;
-  console.log('[fetchPricingPolicies] Calling:', url);
   
-  let response = await fetch(url);
+  let response = await fetch(url, { credentials: 'include' });
   
   // Fallback to legacy endpoint
   if (!response.ok && response.status === 404) {
     url = `${LEGACY_URL}${params.toString() ? '&' + params : ''}`;
-    console.log('[fetchPricingPolicies] Fallback to legacy:', url);
-    response = await fetch(url);
+    response = await fetch(url, { credentials: 'include' });
   }
   
   if (!response.ok) {
@@ -69,7 +67,6 @@ export async function fetchPricingPolicies(
   }
   
   const result = await response.json();
-  console.log('[fetchPricingPolicies] Result:', result);
   
   return {
     data: result.data || [],
@@ -83,7 +80,7 @@ export async function fetchPricingPolicies(
 export async function fetchPricingPolicyById(
   systemId: string
 ): Promise<PricingPolicy> {
-  const response = await fetch(`${BASE_URL}/${systemId}`);
+  const response = await fetch(`${BASE_URL}/${systemId}`, { credentials: 'include' });
   
   if (!response.ok) {
     throw new Error('Failed to fetch pricing policy');
@@ -101,6 +98,7 @@ export async function createPricingPolicy(
   const response = await fetch(BASE_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: JSON.stringify(data),
   });
   
@@ -122,6 +120,7 @@ export async function updatePricingPolicy(
   const response = await fetch(`${BASE_URL}/${systemId}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: JSON.stringify(data),
   });
   
@@ -139,6 +138,7 @@ export async function updatePricingPolicy(
 export async function deletePricingPolicy(systemId: string): Promise<void> {
   const response = await fetch(`${BASE_URL}/${systemId}`, {
     method: 'DELETE',
+    credentials: 'include',
   });
   
   if (!response.ok) {
@@ -154,6 +154,7 @@ export async function setDefaultPricingPolicy(
 ): Promise<PricingPolicy> {
   const response = await fetch(`${BASE_URL}/${systemId}/set-default`, {
     method: 'POST',
+    credentials: 'include',
   });
   
   if (!response.ok) {
@@ -167,7 +168,7 @@ export async function setDefaultPricingPolicy(
  * Get active pricing policies
  */
 export async function fetchActivePricingPolicies(): Promise<PricingPolicy[]> {
-  const response = await fetchPricingPolicies({ isActive: true, limit: 100 });
+  const response = await fetchPricingPolicies({ isActive: true });
   return response.data || [];
 }
 
@@ -177,6 +178,6 @@ export async function fetchActivePricingPolicies(): Promise<PricingPolicy[]> {
 export async function fetchPricingPoliciesByType(
   type: 'Nhập hàng' | 'Bán hàng'
 ): Promise<PricingPolicy[]> {
-  const response = await fetchPricingPolicies({ type, isActive: true, limit: 100 });
+  const response = await fetchPricingPolicies({ type, isActive: true });
   return response.data || [];
 }

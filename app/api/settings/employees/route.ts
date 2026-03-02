@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma'
 import { Prisma } from '@/generated/prisma/client'
 import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
 import { employeeSettingsSchema } from './validation'
+import { generateIdWithPrefix } from '@/lib/id-generator'
 
 const SETTING_KEY = 'employee-settings'
 const SETTING_GROUP = 'hrm'
@@ -54,7 +55,7 @@ export async function PUT(request: Request) {
         updatedAt: new Date(),
       },
       create: {
-        systemId: `SET_EMP_${Date.now()}`,
+        systemId: await generateIdWithPrefix('SET_EMP', prisma),
         key: SETTING_KEY,
         group: SETTING_GROUP,
         type: 'json',

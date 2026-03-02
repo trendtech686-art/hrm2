@@ -26,11 +26,7 @@ const findProduct = (identifier: string, products: Product[]) => {
   if (!identifier || !products) return undefined;
   const normalized = identifier.trim().toUpperCase();
   
-  const byId = products.find(p => p.id.toUpperCase() === normalized);
-  if (byId) return byId;
-  
-  const bySku = products.find(p => p.sku?.toUpperCase() === normalized);
-  return bySku;
+  return products.find(p => p.id.toUpperCase() === normalized);
 };
 
 const findBranch = (identifier: string, branches: Branch[]) => {
@@ -317,7 +313,7 @@ export const inventoryCheckImportExportConfig: ImportExportConfig<InventoryCheck
     // Build InventoryCheck objects
     const checks: InventoryCheck[] = [];
     const now = new Date().toISOString();
-    const defaultBranch = getDefaultBranch();
+    const defaultBranch = (getDefaultBranch as (branches?: Branch[]) => Branch | undefined)();
     
     for (const [checkId, rows] of checkMap.entries()) {
       if (rows.length === 0) continue;
@@ -325,7 +321,7 @@ export const inventoryCheckImportExportConfig: ImportExportConfig<InventoryCheck
       const firstRow = rows[0];
       
       // Lookup branch
-      const branch = findBranch(firstRow.branchIdOrName || '') || defaultBranch;
+      const branch = (findBranch as (id: string, branches?: Branch[]) => Branch | undefined)(firstRow.branchIdOrName || '') || defaultBranch;
       
       if (!branch) continue;
       
@@ -334,7 +330,7 @@ export const inventoryCheckImportExportConfig: ImportExportConfig<InventoryCheck
       for (const row of rows) {
         if (!row.productIdOrSku) continue;
         
-        const product = findProduct(row.productIdOrSku || '');
+        const product = (findProduct as (id: string, products?: Product[]) => Product | undefined)(row.productIdOrSku || '');
         
         const systemQuantity = Math.max(0, Math.floor(Number(row.systemQuantity) || 0));
         const actualQuantity = Math.max(0, Math.floor(Number(row.actualQuantity) || 0));

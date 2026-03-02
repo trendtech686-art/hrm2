@@ -31,6 +31,18 @@ export function WardForm({ initialData, onSubmit, onCancel }: WardFormProps) {
     },
   })
 
+  // Reset form when initialData changes
+  React.useEffect(() => {
+    if (initialData) {
+      form.reset(initialData);
+    } else {
+      form.reset({
+        id: '',
+        name: '',
+      });
+    }
+  }, [initialData, form]);
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">

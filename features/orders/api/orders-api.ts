@@ -9,6 +9,7 @@
  */
 
 import type { Order } from '@/lib/types/prisma-extended';
+import { convertOrderForApi } from '@/lib/constants/order-enums';
 
 const API_BASE = '/api/orders';
 
@@ -22,6 +23,8 @@ export interface OrdersParams {
   endDate?: string;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
+  stockOutStatus?: string;
+  enabled?: boolean;
 }
 
 export interface PaginatedResponse<T> {
@@ -125,10 +128,13 @@ export async function fetchOrder(id: string): Promise<Order> {
  * Create new order
  */
 export async function createOrder(data: CreateOrderInput): Promise<Order> {
+  // Convert Vietnamese status strings to Prisma enum values
+  const convertedData = convertOrderForApi(data as unknown as Record<string, unknown>);
+  
   const res = await fetch(API_BASE, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
+    body: JSON.stringify(convertedData),
   });
   
   if (!res.ok) {
@@ -143,10 +149,13 @@ export async function createOrder(data: CreateOrderInput): Promise<Order> {
  * Update existing order
  */
 export async function updateOrder({ id, ...data }: UpdateOrderInput): Promise<Order> {
+  // Convert Vietnamese status strings to Prisma enum values
+  const convertedData = convertOrderForApi(data as Record<string, unknown>);
+  
   const res = await fetch(`${API_BASE}/${id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
+    body: JSON.stringify(convertedData),
   });
   
   if (!res.ok) {
@@ -184,5 +193,109 @@ export async function fetchOrderStats(): Promise<{
   if (!res.ok) {
     throw new Error(`Failed to fetch order stats: ${res.statusText}`);
   }
+  return res.json();
+}
+
+// ========================================
+// CURSOR-BASED PAGINATION (for large datasets)
+// ========================================
+
+export interface CursorOrdersParams {
+  limit?: number;
+  cursor?: string;  // systemId of last item
+  direction?: 'next' | 'prev';
+  search?: string;
+  status?: string;
+  paymentStatus?: string;
+  deliveryStatus?: string;
+  customerId?: string;
+  branchId?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface CursorPaginatedResponse<T> {
+  data: T[];
+  pagination: {
+    hasNextPage: boolean;
+    hasPreviousPage: boolean;
+    nextCursor: string | null;
+    previousCursor: string | null;
+    limit: number;
+  };
+}
+
+/**
+ * Fetch orders with cursor-based pagination
+ * RECOMMENDED for large datasets (1000+ records)
+ * 
+ * @example
+ * // First page
+ * const { data, pagination } = await fetchOrdersCursor({ limit: 20 });
+ * 
+ * // Next page
+ * const nextPage = await fetchOrdersCursor({ 
+ *   limit: 20, 
+ *   cursor: pagination.nextCursor 
+ * });
+ */
+export async function fetchOrdersCursor(
+  params: CursorOrdersParams = {}
+): Promise<CursorPaginatedResponse<Order>> {
+  const { limit = 20, cursor, direction = 'next', ...rest } = params;
+  
+  const searchParams = new URLSearchParams({
+    limit: String(Math.min(limit, 100)), // Max 100
+  });
+  
+  if (cursor) {
+    searchParams.set('cursor', cursor);
+  }
+  if (direction !== 'next') {
+    searchParams.set('direction', direction);
+  }
+  
+  // Add optional filter params
+  Object.entries(rest).forEach(([key, value]) => {
+    if (value != null && value !== '' && value !== 'all') {
+      searchParams.set(key, String(value));
+    }
+  });
+  
+  const res = await fetch(`${API_BASE}/cursor?${searchParams}`);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch orders: ${res.statusText}`);
+  }
+  
+  return res.json();
+}
+
+// ========================================
+// ORDER ACTIONS
+// ========================================
+
+/**
+ * Duplicate (copy) an order
+ * Creates a new order with same line items, reset to PENDING status
+ * 
+ * @example
+ * const newOrder = await duplicateOrder('ORDER000001');
+ * console.log(newOrder.id); // 'DH000123' (new order)
+ */
+export async function duplicateOrder(
+  systemId: string, 
+  options?: { notes?: string; preserveNotes?: boolean }
+): Promise<Order & { duplicatedFrom: string }> {
+  const res = await fetch(`${API_BASE}/${systemId}/duplicate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(options || {}),
+  });
+  
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({}));
+    throw new Error(error.message || 'Sao chép đơn hàng thất bại');
+  }
+  
   return res.json();
 }

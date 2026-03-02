@@ -1,10 +1,6 @@
-import Fuse from 'fuse.js';
-import type { IFuseOptions } from 'fuse.js';
+import { simpleSearch } from '../../lib/simple-search';
 import { isDateAfter, isDateBefore } from '../../lib/date-utils';
 import type { Customer } from '@/lib/types/prisma-extended';
-import { useCustomerStore } from './store';
-import { useCustomerSlaEngineStore } from './sla/store';
-import type { SystemId } from '@/lib/id-types';
 
 export type CustomerSortKey = 'name' | 'id' | 'createdAt' | 'status' | 'type';
 
@@ -19,7 +15,6 @@ export interface CustomerQueryParams {
   typeFilter: string;
   dateRange?: [string | undefined, string | undefined] | undefined;
   showDeleted: boolean;
-  slaFilter: 'all' | 'followUp' | 'reengage' | 'debt' | 'health';
   debtFilter: 'all' | 'totalOverdue' | 'overdue' | 'dueSoon' | 'hasDebt';
   pagination: { pageIndex: number; pageSize: number };
   sorting: { id: CustomerSortKey; desc: boolean };
@@ -36,10 +31,8 @@ interface PipelineResult {
   filtered: Customer[];
 }
 
-const fuseOptions: IFuseOptions<Customer> = {
-  keys: ['name', 'email', 'phone', 'company', 'taxCode', 'id'],
-  threshold: 0.3,
-};
+// Search keys for customers
+const CUSTOMER_SEARCH_KEYS: (keyof Customer)[] = ['name', 'email', 'phone', 'company', 'taxCode', 'id'];
 
 function applyFilters(customers: Customer[], params: CustomerQueryParams): PipelineResult {
   const {
@@ -49,7 +42,6 @@ function applyFilters(customers: Customer[], params: CustomerQueryParams): Pipel
     dateRange,
     showDeleted,
     sorting,
-    slaFilter,
     debtFilter,
   } = params;
 
@@ -75,26 +67,6 @@ function applyFilters(customers: Customer[], params: CustomerQueryParams): Pipel
       if (toDate && isDateAfter(createdDate, toDate)) return false;
       return true;
     });
-  }
-
-  // Apply SLA filter
-  if (slaFilter !== 'all') {
-    const slaIndex = useCustomerSlaEngineStore.getState().index;
-    if (slaIndex) {
-      const relevantSystemIds = new Set<SystemId>();
-      
-      if (slaFilter === 'followUp') {
-        slaIndex.followUpAlerts.forEach(alert => relevantSystemIds.add(alert.systemId));
-      } else if (slaFilter === 'reengage') {
-        slaIndex.reEngagementAlerts.forEach(alert => relevantSystemIds.add(alert.systemId));
-      } else if (slaFilter === 'debt') {
-        slaIndex.debtAlerts.forEach(alert => relevantSystemIds.add(alert.systemId));
-      } else if (slaFilter === 'health') {
-        slaIndex.healthAlerts.forEach(alert => relevantSystemIds.add(alert.systemId));
-      }
-      
-      dataset = dataset.filter(customer => relevantSystemIds.has(customer.systemId));
-    }
   }
 
   // Apply Debt filter
@@ -135,8 +107,10 @@ function applyFilters(customers: Customer[], params: CustomerQueryParams): Pipel
   }
 
   if (search.trim()) {
-    const fuse = new Fuse(dataset, fuseOptions);
-    dataset = fuse.search(search.trim()).map(result => result.item);
+    // Use simple search instead of Fuse.js
+    dataset = simpleSearch(dataset, search.trim(), {
+      keys: CUSTOMER_SEARCH_KEYS,
+    });
   }
 
   const sorter = sorting.id as keyof Customer;
@@ -151,17 +125,13 @@ function applyFilters(customers: Customer[], params: CustomerQueryParams): Pipel
   return { filtered: dataset };
 }
 
-export async function fetchCustomersPage(params: CustomerQueryParams): Promise<CustomerQueryResult> {
-  const { data } = useCustomerStore.getState();
+export async function fetchCustomersPage(params: CustomerQueryParams, data: Customer[]): Promise<CustomerQueryResult> {
   const { filtered } = applyFilters(data, params);
 
   const { pageIndex, pageSize } = params.pagination;
   const start = pageIndex * pageSize;
   const end = start + pageSize;
   const pagedItems = filtered.slice(start, end);
-
-  // Simulate async server latency
-  await new Promise(resolve => setTimeout(resolve, 120));
 
   return {
     items: pagedItems,
@@ -171,8 +141,4 @@ export async function fetchCustomersPage(params: CustomerQueryParams): Promise<C
   };
 }
 
-export function getFilteredCustomersSnapshot(params: CustomerQueryParams): Customer[] {
-  const { data } = useCustomerStore.getState();
-  const { filtered } = applyFilters(data, params);
-  return filtered;
-}
+

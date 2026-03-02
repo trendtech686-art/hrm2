@@ -3,10 +3,14 @@
  * 
  * ⚠️ IMPORTANT: Direct import pattern
  * Import this file directly: import { useOrderMutations } from '@/features/orders/hooks/use-order-mutations'
+ * 
+ * Updated to use Server Actions for critical operations (Phase 2 migration)
  */
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createOrder, updateOrder, deleteOrder } from '../api/orders-api';
+import { updateOrderStatusAction } from '@/app/actions/orders';
+import { OrderStatus } from '@/generated/prisma/client';
 import { orderKeys } from './use-orders';
 
 interface UseOrderMutationsOptions {
@@ -157,3 +161,166 @@ export function useOptimisticOrderUpdate() {
     },
   });
 }
+
+/**
+ * Hook for optimistic order status update
+ * 
+ * Instantly updates UI when changing order status
+ * 
+ * @example
+ * ```tsx
+ * const { mutate: updateStatus, isPending } = useOptimisticOrderStatusUpdate({
+ *   onSuccess: () => toast.success('Cập nhật trạng thái thành công'),
+ *   onError: (err) => toast.error(err.message),
+ * });
+ * 
+ * // Update status with optimistic UI
+ * updateStatus({ systemId: 'ORDER000001', status: 'CONFIRMED' });
+ * ```
+ */
+export function useOptimisticOrderStatusUpdate(options?: {
+  onSuccess?: () => void;
+  onError?: (error: Error) => void;
+}) {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async ({ systemId, status }: { systemId: string; status: string }) => {
+      // Use Server Action instead of direct API call
+      const result = await updateOrderStatusAction({ 
+        systemId, 
+        status: status as OrderStatus 
+      });
+      if (!result.success) {
+        throw new Error(result.error || 'Cập nhật trạng thái thất bại');
+      }
+      return result.data;
+    },
+    // Optimistic update
+    onMutate: async ({ systemId, status }) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: orderKeys.detail(systemId) });
+      await queryClient.cancelQueries({ queryKey: orderKeys.lists() });
+      
+      // Snapshot previous value
+      const previousOrder = queryClient.getQueryData(orderKeys.detail(systemId));
+      const previousLists = queryClient.getQueriesData({ queryKey: orderKeys.lists() });
+      
+      // Optimistically update detail
+      queryClient.setQueryData(orderKeys.detail(systemId), (old: unknown) => {
+        if (!old) return old;
+        return { ...(old as object), status };
+      });
+      
+      // Optimistically update in lists
+      queryClient.setQueriesData(
+        { queryKey: orderKeys.lists() },
+        (old: { data?: Array<{ systemId: string; status?: string }>, pagination?: unknown } | undefined) => {
+          if (!old?.data) return old;
+          return {
+            ...old,
+            data: old.data.map(item => 
+              item.systemId === systemId ? { ...item, status } : item
+            ),
+          };
+        }
+      );
+      
+      return { previousOrder, previousLists };
+    },
+    // Rollback on error
+    onError: (err, { systemId }, context) => {
+      if (context?.previousOrder) {
+        queryClient.setQueryData(orderKeys.detail(systemId), context.previousOrder);
+      }
+      if (context?.previousLists) {
+        context.previousLists.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+      options?.onError?.(err as Error);
+    },
+    onSuccess: () => {
+      options?.onSuccess?.();
+    },
+    // Refetch to sync with server
+    onSettled: (_data, _error, { systemId }) => {
+      queryClient.invalidateQueries({ queryKey: orderKeys.detail(systemId) });
+      queryClient.invalidateQueries({ queryKey: orderKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: orderKeys.stats() });
+    },
+  });
+}
+
+// ========================================
+// DUPLICATE ORDER HOOK
+// ========================================
+
+interface UseDuplicateOrderOptions {
+  onSuccess?: (newOrder: { id: string; systemId: string; duplicatedFrom: string }) => void;
+  onError?: (error: Error) => void;
+}
+
+/**
+ * Hook for duplicating (copying) an order
+ * 
+ * @example
+ * ```tsx
+ * function OrderActions({ order }) {
+ *   const router = useRouter();
+ *   const { duplicate, isDuplicating } = useDuplicateOrder({
+ *     onSuccess: (newOrder) => {
+ *       toast.success(`Đã sao chép thành ${newOrder.id}`);
+ *       router.push(`/orders/${newOrder.id}/edit`);
+ *     },
+ *   });
+ *   
+ *   return (
+ *     <Button 
+ *       onClick={() => duplicate(order.systemId)}
+ *       loading={isDuplicating}
+ *     >
+ *       <CopyIcon /> Sao chép
+ *     </Button>
+ *   );
+ * }
+ * ```
+ */
+export function useDuplicateOrder(options: UseDuplicateOrderOptions = {}) {
+  const queryClient = useQueryClient();
+  
+  const mutation = useMutation({
+    mutationFn: async ({ 
+      systemId, 
+      notes, 
+      preserveNotes 
+    }: { 
+      systemId: string; 
+      notes?: string; 
+      preserveNotes?: boolean;
+    }) => {
+      const { duplicateOrder } = await import('../api/orders-api');
+      return duplicateOrder(systemId, { notes, preserveNotes });
+    },
+    onSuccess: (data) => {
+      // Invalidate order lists to show new order
+      queryClient.invalidateQueries({ queryKey: orderKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: orderKeys.stats() });
+      options?.onSuccess?.(data);
+    },
+    onError: (error) => {
+      options?.onError?.(error as Error);
+    },
+  });
+  
+  return {
+    duplicate: (systemId: string, opts?: { notes?: string; preserveNotes?: boolean }) => 
+      mutation.mutate({ systemId, ...opts }),
+    duplicateAsync: (systemId: string, opts?: { notes?: string; preserveNotes?: boolean }) => 
+      mutation.mutateAsync({ systemId, ...opts }),
+    isDuplicating: mutation.isPending,
+    error: mutation.error,
+    reset: mutation.reset,
+  };
+}
+

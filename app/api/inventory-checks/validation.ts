@@ -11,27 +11,32 @@ export const listInventoryChecksSchema = z.object({
   includeDeleted: z.string().optional().transform(v => v === 'true'),
 })
 
-// Inventory check item schema
+// Inventory check item schema - match frontend structure
 const inventoryCheckItemSchema = z.object({
-  systemId: z.string(),
+  productSystemId: z.string(),
   productId: z.string(),
-  expectedQuantity: z.number().optional().default(0),
+  productName: z.string().optional(),
+  unit: z.string().optional(),
+  systemQuantity: z.number().optional().default(0),
   actualQuantity: z.number().optional().default(0),
   difference: z.number().optional().default(0),
-  notes: z.string().optional(),
+  reason: z.string().optional(),
+  note: z.string().optional(),
 })
 
-// Create inventory check schema
+// Create inventory check schema - match frontend structure
 export const createInventoryCheckSchema = z.object({
-  systemId: z.string(),
-  id: z.string(),
-  branchId: z.string(),
+  id: z.string().optional(), // Business ID (auto-generated if empty)
+  branchSystemId: z.string(), // Required branch
+  branchName: z.string().optional(),
   employeeId: z.string().optional(),
   checkDate: z.string().optional(),
   status: z.string().optional().default('DRAFT'),
-  notes: z.string().optional(),
+  note: z.string().optional(),
+  notes: z.string().optional(), // Alias for note
   items: z.array(inventoryCheckItemSchema).optional(),
   createdBy: z.string().optional(),
+  createdAt: z.string().optional(),
 })
 
 // Update inventory check schema

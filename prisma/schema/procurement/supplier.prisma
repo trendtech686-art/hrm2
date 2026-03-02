@@ -27,7 +27,6 @@ model Supplier {
   currentDebt     Decimal? @db.Decimal(15, 2) // Current debt (separate from totalDebt)
   bankName        String? // Tên ngân hàng
   notes           String? // Ghi chú
-  activityHistory Json? // Array of HistoryEntry
 
   // === RELATIONS ===
   payments         Payment[]

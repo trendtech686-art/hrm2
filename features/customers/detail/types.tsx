@@ -14,7 +14,7 @@ import {
   DropdownMenuTrigger,
 } from '../../../components/ui/dropdown-menu';
 import type { ColumnDef } from '../../../components/data-table/types';
-import type { Order, OrderMainStatus } from '../../orders/types';
+import type { Order } from '../../orders/types';
 import type { WarrantyTicket } from '../../warranty/types';
 import type { Complaint } from '../../complaints/types';
 import { WARRANTY_STATUS_LABELS, WARRANTY_STATUS_COLORS } from '../../warranty/types';
@@ -88,11 +88,24 @@ export type DebtTransaction = {
 // Status Variants
 // ============================================
 
-export const orderStatusVariants: Record<OrderMainStatus, "success" | "default" | "secondary" | "warning" | "destructive"> = {
+export const orderStatusVariants: Record<string, "success" | "default" | "secondary" | "warning" | "destructive"> = {
   "Đặt hàng": "secondary",
   "Đang giao dịch": "warning",
   "Hoàn thành": "success",
   "Đã hủy": "destructive",
+  // Prisma enum values
+  "PENDING": "secondary",
+  "CONFIRMED": "secondary",
+  "PROCESSING": "warning",
+  "PACKING": "warning",
+  "PACKED": "warning",
+  "READY_FOR_PICKUP": "warning",
+  "SHIPPING": "warning",
+  "DELIVERED": "success",
+  "COMPLETED": "success",
+  "FAILED_DELIVERY": "destructive",
+  "RETURNED": "destructive",
+  "CANCELLED": "destructive",
 };
 
 // ============================================
@@ -439,9 +452,15 @@ export const debtColumns: ColumnDef<DebtTransaction>[] = [
       const displayValue = row.displayAmount !== undefined ? row.displayAmount : row.change;
       const isRefundFromReturn = row.type === 'payment' && row.displayAmount !== undefined;
       const isRefundFromComplaint = row.type === 'complaint-payment';
+      
+      // Positive = khách nợ thêm (đơn hàng) → màu đỏ (nợ tăng)
+      // Negative = khách trả nợ (thanh toán) → màu xanh lá (nợ giảm)
+      const isDebtIncrease = displayValue > 0;
+      const prefix = isDebtIncrease ? '+' : '';
+      
       return (
-        <span className={displayValue > 0 ? 'text-blue-600' : 'text-green-600'}>
-          {formatCurrency(displayValue)}
+        <span className={isDebtIncrease ? 'text-red-600' : 'text-green-600'}>
+          {prefix}{formatCurrency(displayValue)}
           {(isRefundFromReturn || isRefundFromComplaint) && <span className="text-xs text-muted-foreground ml-1">(tiền mặt)</span>}
         </span>
       );

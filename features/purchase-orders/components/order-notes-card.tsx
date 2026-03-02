@@ -1,4 +1,4 @@
-import * as React from "react";
+﻿import * as React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { Label } from "../../../components/ui/label";
 import { Textarea } from "../../../components/ui/textarea";
@@ -20,7 +20,7 @@ export function OrderNotesCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Ghi chú đơn</CardTitle>
+        <CardTitle>Ghi chú đơn</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">

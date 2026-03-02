@@ -5,7 +5,8 @@
 
 import * as React from 'react';
 import { useReactFlow, type Node } from 'reactflow';
-import { useEmployeeStore } from '../../../../employees/store';
+import { useAllEmployees } from '../../../../employees/hooks/use-all-employees';
+import { useEmployeeMutations } from '../../../../employees/hooks/use-employees';
 import type { Employee } from '@/lib/types/prisma-extended';
 import { useAllDepartments } from '../../hooks/use-all-departments';
 import { toast } from 'sonner';
@@ -23,8 +24,14 @@ import {
 } from '../utils/hierarchy-helpers';
 
 export function useOrgChart() {
-  const { data: employees, update: updateEmployee } = useEmployeeStore();
+  const { data: employees } = useAllEmployees();
+  const { update: updateEmployeeMutation } = useEmployeeMutations({});
   const { data: departments } = useAllDepartments();
+  
+  // Wrapper to match the old store API signature
+  const updateEmployee = React.useCallback((systemId: string, data: Partial<Employee>) => {
+    updateEmployeeMutation.mutate({ systemId, ...data });
+  }, [updateEmployeeMutation]);
   const { fitView: _fitView, setCenter, setNodes: setReactFlowNodes, getNodes } = useReactFlow();
 
   // State

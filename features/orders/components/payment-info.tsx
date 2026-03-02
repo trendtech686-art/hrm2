@@ -7,7 +7,7 @@ import { DetailField } from '../../../components/ui/detail-field';
 import { cn } from '../../../lib/utils';
 import { ChevronRight, ChevronDown, Printer, Banknote, Minus } from 'lucide-react';
 import { Badge } from '../../../components/ui/badge';
-import { useAllEmployees, useEmployeeFinder } from '../../employees/hooks/use-all-employees';
+import { useEmployeeFinder } from '../../employees/hooks/use-all-employees';
 import { useBranchFinder } from '../../settings/branches/hooks/use-all-branches';
 import { useStoreInfoData } from '../../settings/store-info/hooks/use-store-info';
 import { usePrint } from '../../../lib/use-print';
@@ -29,25 +29,27 @@ interface PaymentInfoProps {
 
 export function PaymentInfo({ payment, order }: PaymentInfoProps) {
     const [isExpanded, setIsExpanded] = React.useState(false);
+    // ✅ Use useEmployeeFinder only - it now searches both systemId and business ID
     const { findById: findEmployeeById } = useEmployeeFinder();
-    const { data: employees } = useAllEmployees();
     const { findById: findBranchById } = useBranchFinder();
     const { info: storeInfo } = useStoreInfoData();
     const { print } = usePrint(order.branchSystemId);
 
     const creator = React.useMemo(() => {
-        // Try finding by System ID first
-        const bySystemId = findEmployeeById(payment.createdBy);
-        if (bySystemId) return bySystemId;
-        
-        // Fallback: Try finding by Business ID (e.g. EMP000001)
-        return employees.find(e => e.id === (payment.createdBy as unknown as string));
-    }, [findEmployeeById, employees, payment.createdBy]);
+        // ✅ useEmployeeFinder now searches by both systemId and business ID
+        return findEmployeeById(payment.createdBy);
+    }, [findEmployeeById, payment.createdBy]);
     
     // Determine if this is a payment (negative amount) or receipt (positive amount)
     const isPayment = payment.amount < 0;
     const isWarrantyPayment = !!(payment as { linkedWarrantySystemId?: string }).linkedWarrantySystemId;
-    const detailLink = isPayment ? `/payments/${payment.systemId}` : `/receipts/${payment.systemId}`;
+    
+    // Get linked receipt/payment systemId for navigation
+    const linkedReceiptSystemId = (payment as { linkedReceiptSystemId?: string }).linkedReceiptSystemId;
+    const linkedPaymentSystemId = (payment as { linkedPaymentSystemId?: string }).linkedPaymentSystemId;
+    const detailLink = isPayment 
+        ? (linkedPaymentSystemId ? `/payments/${linkedPaymentSystemId}` : null)
+        : (linkedReceiptSystemId ? `/receipts/${linkedReceiptSystemId}` : null);
 
     const handlePrint = (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -145,20 +147,27 @@ export function PaymentInfo({ payment, order }: PaymentInfoProps) {
             {/* Header */}
             <div className="flex items-center p-3 cursor-pointer" onClick={() => setIsExpanded(!isExpanded)}>
                 {isPayment ? (
-                    <Minus className="h-4 w-4 text-red-500 mr-3 flex-shrink-0" />
+                    <Minus className="h-4 w-4 text-red-500 mr-3 shrink-0" />
                 ) : (
-                    <Banknote className="h-4 w-4 text-green-500 mr-3 flex-shrink-0" />
+                    <Banknote className="h-4 w-4 text-green-500 mr-3 shrink-0" />
                 )}
-                <Link href={detailLink} 
-                    className="font-semibold font-mono text-primary hover:underline"
-                    onClick={(e) => e.stopPropagation()} // Prevent collapsing when clicking link
-                >
-                    {payment.id}
-                </Link>
+                {/* Link to receipt/payment detail page if linked, otherwise show as text */}
+                {detailLink ? (
+                    <Link href={detailLink} 
+                        className="font-semibold text-primary hover:underline"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {payment.id}
+                    </Link>
+                ) : (
+                    <span className="font-semibold text-foreground">
+                        {payment.id}
+                    </span>
+                )}
                 {isWarrantyPayment && (
                     <Badge variant="secondary" className="ml-2 text-xs">Bảo hành</Badge>
                 )}
-                <div className="flex-grow text-right text-muted-foreground px-4">
+                <div className="grow text-right text-muted-foreground px-4">
                     {formatDate(payment.date)}
                 </div>
                 <div className={cn(
@@ -167,10 +176,10 @@ export function PaymentInfo({ payment, order }: PaymentInfoProps) {
                 )}>
                     {isPayment ? '-' : '+'}{formatCurrency(Math.abs(payment.amount))}
                 </div>
-                <Button variant="ghost" size="icon" className="h-8 w-8 ml-2 flex-shrink-0" onClick={handlePrint} title="In phiếu">
+                <Button variant="ghost" size="icon" className="h-8 w-8 ml-2 shrink-0" onClick={handlePrint} title="In phiếu">
                     <Printer className="h-4 w-4" />
                 </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8 ml-2 flex-shrink-0">
+                <Button variant="ghost" size="icon" className="h-8 w-8 ml-2 shrink-0">
                     {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                 </Button>
             </div>
@@ -209,3 +218,6 @@ export function PaymentInfo({ payment, order }: PaymentInfoProps) {
         </div>
     );
 }
+
+// ✅ Export memoized component for performance
+export const MemoizedPaymentInfo = React.memo(PaymentInfo);

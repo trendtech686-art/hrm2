@@ -10,9 +10,24 @@ import { asSystemId } from '@/lib/id-types';
  * Theo chuẩn ImportExportConfig để dùng với GenericImportDialogV2 và GenericExportDialogV2
  */
 
+// Pricing Policy type for import/export
+type PricingPolicyBasic = {
+  systemId: string;
+  id: string;
+  name: string;
+};
+
+// Product Type type for import/export
+type ProductTypeBasic = {
+  systemId: string;
+  id: string;
+  name: string;
+  isDefault?: boolean;
+};
+
 // Helper: Get all pricing policies
 // NOTE: Returns empty array - should be called server-side with actual Prisma query
-const getAllPricingPolicies = async (): Promise<any[]> => {
+const getAllPricingPolicies = async (): Promise<PricingPolicyBasic[]> => {
   // return await prisma.pricingPolicy.findMany({ where: { isDeleted: false } });
   return [];
 };
@@ -20,7 +35,7 @@ const getAllPricingPolicies = async (): Promise<any[]> => {
 // ===== PRODUCT TYPE HELPERS =====
 // Helper: Get all active product types from settings
 // NOTE: Returns empty array - should be called server-side with actual Prisma query
-const getAllProductTypes = async (): Promise<any[]> => {
+const getAllProductTypes = async (): Promise<ProductTypeBasic[]> => {
   // return await prisma.productType.findMany({ where: { isDeleted: false, isActive: true } });
   return [];
 };
@@ -446,32 +461,6 @@ export const productFields: FieldConfig<Product>[] = [
     },
   },
   {
-    key: 'sellingPrice',
-    label: 'Giá bán',
-    required: false,
-    type: 'number',
-    exportGroup: 'Giá',
-    example: '250000',
-    importTransform: (value: unknown) => {
-      if (!value) return 0;
-      const num = Number(String(value).replace(/[,.\s]/g, ''));
-      return isNaN(num) ? 0 : num;
-    },
-  },
-  {
-    key: 'minPrice',
-    label: 'Giá tối thiểu',
-    required: false,
-    type: 'number',
-    exportGroup: 'Giá',
-    example: '200000',
-    importTransform: (value: unknown) => {
-      if (!value) return undefined;
-      const num = Number(String(value).replace(/[,.\s]/g, ''));
-      return isNaN(num) ? undefined : num;
-    },
-  },
-  {
     key: 'taxRate',
     label: 'Thuế suất (%)',
     required: false,
@@ -793,47 +782,7 @@ export const productFields: FieldConfig<Product>[] = [
     required: false,
     type: 'string',
     exportGroup: 'E-commerce',
-    hidden: true, // Ẩn field cũ, dùng pkgxSlug/trendtechSlug thay thế
-    example: 'ao-so-mi-nam-trang-oxford',
-    importTransform: (value: unknown) => {
-      if (!value) return undefined;
-      // Convert to URL-friendly slug
-      return String(value).trim()
-        .toLowerCase()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '') // Remove diacritics
-        .replace(/đ/g, 'd')
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '');
-    },
-  },
-  // Slug riêng cho PKGX website
-  {
-    key: 'pkgxSlug',
-    label: 'Slug PKGX',
-    required: false,
-    type: 'string',
-    exportGroup: 'E-commerce PKGX',
-    example: 'ao-so-mi-nam-trang-oxford',
-    importTransform: (value: unknown) => {
-      if (!value) return undefined;
-      // Convert to URL-friendly slug
-      return String(value).trim()
-        .toLowerCase()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '') // Remove diacritics
-        .replace(/đ/g, 'd')
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '');
-    },
-  },
-  // Slug riêng cho Trendtech website
-  {
-    key: 'trendtechSlug',
-    label: 'Slug Trendtech',
-    required: false,
-    type: 'string',
-    exportGroup: 'E-commerce Trendtech',
+    hidden: true, // Ẩn field cũ, slug lưu trong seoPkgx/seoTrendtech JSON
     example: 'ao-so-mi-nam-trang-oxford',
     importTransform: (value: unknown) => {
       if (!value) return undefined;
@@ -959,27 +908,6 @@ export const productFields: FieldConfig<Product>[] = [
     },
   },
   {
-    key: 'totalRevenue',
-    label: 'Tổng doanh thu',
-    required: false,
-    type: 'number',
-    exportGroup: 'Phân tích',
-    hidden: true, // Chỉ export, không import
-    importTransform: (value: unknown) => {
-      if (!value) return undefined;
-      const num = Number(String(value).replace(/[,.\s]/g, ''));
-      return isNaN(num) ? undefined : num;
-    },
-  },
-  {
-    key: 'lastSoldDate',
-    label: 'Ngày bán gần nhất',
-    required: false,
-    type: 'date',
-    exportGroup: 'Phân tích',
-    hidden: true,
-  },
-  {
     key: 'viewCount',
     label: 'Lượt xem',
     required: false,
@@ -1073,13 +1001,15 @@ export const productImportExportConfig: ImportExportConfig<Product> = {
       // Normalize Excel header: strip (*) marker and lowercase
       const normalizedExcelHeader = key.replace(/\s*\(\*\)\s*$/, '').toLowerCase();
       
-      // Check if this column is a pricing policy code (e.g., PL_10, BANLE, VIP)
-      const policySystemId = getPricingPolicySystemId(key);
-      if (policySystemId && value !== undefined && value !== null && value !== '') {
-        // This is a pricing column - parse price value
+      // Check if this column looks like a pricing policy code (e.g., PL_10, BANLE, VIP)
+      // Store as price__ prefixed key for later async processing
+      const isPriceColumn = /^(giá|gia)\s*:/i.test(key) || /^(PL_|price|giá)/i.test(key);
+      if (isPriceColumn && value !== undefined && value !== null && value !== '') {
+        // This is a pricing column - parse price value and store for later processing
         const priceValue = Number(String(value).replace(/[,.\s]/g, ''));
         if (!isNaN(priceValue) && priceValue > 0) {
-          prices[policySystemId] = priceValue;
+          // Store with original key for async lookup later
+          normalized[`__price__${key}`] = priceValue;
         }
       } else {
         // Normal field - map to key
@@ -1136,8 +1066,6 @@ export const productImportExportConfig: ImportExportConfig<Product> = {
       productTypeSystemId, // Luôn set productTypeSystemId
       status: cleanRow.status || 'active',
       unit: cleanRow.unit || 'Cái',
-      costPrice: cleanRow.costPrice ?? 0,
-      sellingPrice: cleanRow.sellingPrice ?? 0,
       isStockTracked: cleanRow.isStockTracked ?? true,
       prices: cleanRow.prices || {},
       inventoryByBranch,
@@ -1150,19 +1078,6 @@ export const productImportExportConfig: ImportExportConfig<Product> = {
   validateRow: (row, _index, existingData, mode) => {
     const errors: Array<{ field?: string; message: string; type?: 'error' | 'warning' }> = [];
     const rowWithInitialStock = row as Partial<Product> & { initialStock?: number };
-    
-    // Check unique SKU - only in insert-only mode
-    if (row.sku && mode === 'insert-only') {
-      const duplicate = existingData.find(
-        p => p.sku === row.sku && p.id !== row.id
-      );
-      if (duplicate) {
-        errors.push({
-          field: 'sku',
-          message: `SKU đã được sử dụng bởi ${duplicate.name} (${duplicate.id})`,
-        });
-      }
-    }
     
     // Check unique barcode - only in insert-only mode
     if (row.barcode && mode === 'insert-only') {
@@ -1196,15 +1111,6 @@ export const productImportExportConfig: ImportExportConfig<Product> = {
           });
         }
       }
-    }
-    
-    // Cảnh báo giá bán < giá vốn
-    if (row.costPrice && row.sellingPrice && row.costPrice > row.sellingPrice) {
-      errors.push({
-        field: 'sellingPrice',
-        message: `Giá bán (${row.sellingPrice?.toLocaleString()}) thấp hơn giá vốn (${row.costPrice?.toLocaleString()})`,
-        type: 'warning',
-      });
     }
     
     return errors;

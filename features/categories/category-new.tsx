@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
@@ -28,8 +28,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useProductCategoryStore } from '../settings/inventory/product-category-store';
-import { asSystemId } from '@/lib/id-types';
+import { useAllCategories } from '../categories/hooks/use-all-categories';
+import { useCategoryMutations } from '../categories/hooks/use-categories';
 import { toast } from 'sonner';
 import { NewDocumentsUpload } from '@/components/ui/new-documents-upload';
 import { FileUploadAPI, type StagingFile } from '@/lib/file-upload-api';
@@ -66,7 +66,16 @@ type CategoryFormValues = z.infer<typeof categoryFormSchema>;
 
 export function CategoryNewPage() {
   const router = useRouter();
-  const { data, add } = useProductCategoryStore();
+  const { data = [] } = useAllCategories();
+  const { create } = useCategoryMutations({
+    onCreateSuccess: (category) => {
+      toast.success('Đã tạo danh mục mới');
+      router.push(`/categories/${category.systemId}`);
+    },
+    onError: (error) => {
+      toast.error('Lỗi khi tạo danh mục: ' + error.message);
+    },
+  });
   
   // Get all active categories for parent selection
   const availableParents = React.useMemo(() => 
@@ -145,11 +154,11 @@ export function CategoryNewPage() {
       trendtechOgImage = trendtechImageFiles[0]?.url || '';
     }
     
-    // add() will auto-generate systemId, businessId, path, level
-    const newCategory = add({
+    // Create category via server action
+    create.mutate({
       name: formData.name,
-      parentId: formData.parentId ? asSystemId(formData.parentId) : undefined,
-      thumbnailImage: imageUrl || undefined,
+      parentId: formData.parentId || undefined,
+      imageUrl: imageUrl || undefined,
       isActive: formData.isActive ?? true,
       websiteSeo: {
         pkgx: {
@@ -162,10 +171,7 @@ export function CategoryNewPage() {
         },
       },
     });
-    
-    toast.success('Đã tạo danh mục mới');
-    router.push(`/categories/${newCategory.systemId}`);
-  }, [imageFiles, imageSessionId, pkgxImageFiles, trendtechImageFiles, add, router]);
+  }, [imageFiles, imageSessionId, pkgxImageFiles, trendtechImageFiles, create]);
 
   // Header actions
   const headerActions = React.useMemo(() => [
@@ -205,7 +211,7 @@ export function CategoryNewPage() {
             <TabsContent value="general" className="space-y-4 mt-4">
               <Card>
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Thông tin cơ bản</CardTitle>
+                  <CardTitle>Thông tin cơ bản</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <FormField
@@ -293,7 +299,7 @@ export function CategoryNewPage() {
               {/* Thumbnail Upload */}
               <Card>
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Ảnh đại diện</CardTitle>
+                  <CardTitle>Ảnh đại diện</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <NewDocumentsUpload
@@ -304,7 +310,7 @@ export function CategoryNewPage() {
                     onChange={setImageFiles}
                     sessionId={imageSessionId}
                     onSessionChange={setImageSessionId}
-                    className="min-h-[120px]"
+                    className="min-h-30"
                   />
                 </CardContent>
               </Card>
@@ -316,7 +322,7 @@ export function CategoryNewPage() {
                 <CardHeader>
                   <div className="flex items-center gap-2">
                     <Globe className="h-4 w-4 text-red-500" />
-                    <CardTitle className="text-base">SEO cho PKGX</CardTitle>
+                    <CardTitle>SEO cho PKGX</CardTitle>
                   </div>
                   <CardDescription>phukiengiaxuong.com.vn</CardDescription>
                 </CardHeader>
@@ -351,7 +357,7 @@ export function CategoryNewPage() {
                         <FormControl>
                           <Textarea 
                             placeholder="Mô tả SEO cho PKGX" 
-                            className="min-h-[80px]"
+                            className="min-h-30"
                             {...field} 
                           />
                         </FormControl>
@@ -474,7 +480,7 @@ export function CategoryNewPage() {
                 <CardHeader>
                   <div className="flex items-center gap-2">
                     <Globe className="h-4 w-4 text-blue-500" />
-                    <CardTitle className="text-base">SEO cho Trendtech</CardTitle>
+                    <CardTitle>SEO cho Trendtech</CardTitle>
                   </div>
                   <CardDescription>trendtech.vn</CardDescription>
                 </CardHeader>
@@ -509,7 +515,7 @@ export function CategoryNewPage() {
                         <FormControl>
                           <Textarea 
                             placeholder="Mô tả SEO cho Trendtech" 
-                            className="min-h-[80px]"
+                            className="min-h-20"
                             {...field} 
                           />
                         </FormControl>

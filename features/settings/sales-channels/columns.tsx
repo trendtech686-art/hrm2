@@ -60,7 +60,7 @@ export const getSalesChannelColumns = ({
     },
     {
         id: 'actions',
-        header: () => <div className="text-right">Thao tác</div>,
+        header: '',
         cell: ({ row }) => (
             <div className="text-right">
                 <DropdownMenu>
@@ -77,6 +77,6 @@ export const getSalesChannelColumns = ({
                 </DropdownMenu>
             </div>
         ),
-        meta: { displayName: 'Thao tác' }
+        meta: { displayName: '' }
     }
 ];

@@ -6,7 +6,8 @@ import React from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import type { WarrantyTicket } from '../types';
-import { useWarranties, useWarrantyMutations } from './use-warranties';
+import { useWarrantyMutations } from './use-warranties';
+import { useAllWarranties } from './use-all-warranties';
 import { asSystemId } from '@/lib/id-types';
 import { ROUTES, generatePath } from '@/lib/router';
 
@@ -16,8 +17,7 @@ type CancelWorkflowOptions = {
 
 export function useWarrantyListHandlers() {
   const router = useRouter();
-  const { data: warrantyData } = useWarranties({ limit: 1000 });
-  const tickets = React.useMemo(() => warrantyData?.data ?? [], [warrantyData?.data]);
+  const { data: tickets } = useAllWarranties();
   const { update: updateMutation } = useWarrantyMutations();
 
   const handleEdit = React.useCallback(
@@ -49,8 +49,8 @@ export function useWarrantyListHandlers() {
       return;
     }
 
-    updateMutation.mutate({ systemId: normalizedId, data: { status: 'pending', statusReason: 'Bắt đầu xử lý từ danh sách' } });
-    toast.success('Đã chuyển sang trạng thái Chưa xử lý');
+    updateMutation.mutate({ systemId: normalizedId, data: { status: 'PROCESSING', statusReason: 'Bắt đầu xử lý từ danh sách' } });
+    toast.success('Đã chuyển sang trạng thái Đang xử lý');
   }, [tickets, updateMutation]);
 
   const handleMarkProcessed = React.useCallback((systemId: string) => {
@@ -61,7 +61,7 @@ export function useWarrantyListHandlers() {
       return;
     }
 
-    updateMutation.mutate({ systemId: normalizedId, data: { status: 'processed', statusReason: 'Hoàn thành xử lý từ danh sách' } });
+    updateMutation.mutate({ systemId: normalizedId, data: { status: 'COMPLETED', statusReason: 'Hoàn thành xử lý từ danh sách' } });
     toast.success('Đã hoàn thành xử lý');
   }, [tickets, updateMutation]);
 
@@ -81,8 +81,7 @@ export function useWarrantyListHandlers() {
 export function useWarrantyCancelWorkflow(
   setRowSelection: React.Dispatch<React.SetStateAction<Record<string, boolean>>>
 ) {
-  const { data: warrantyData } = useWarranties({ limit: 1000 });
-  const tickets = React.useMemo(() => warrantyData?.data ?? [], [warrantyData?.data]);
+  const { data: tickets } = useAllWarranties();
   
   const [cancelDialogOpen, setCancelDialogOpen] = React.useState(false);
   const [cancelQueue, setCancelQueue] = React.useState<WarrantyTicket[]>([]);
@@ -101,7 +100,7 @@ export function useWarrantyCancelWorkflow(
     const normalized = ticketsToCancel
       .filter((ticket): ticket is WarrantyTicket => Boolean(ticket))
       .filter((ticket, index, self) => self.findIndex((item) => item.systemId === ticket.systemId) === index)
-      .filter((ticket) => ticket.status !== 'cancelled' && !ticket.cancelledAt);
+      .filter((ticket) => ticket.status !== 'CANCELLED' && !ticket.cancelledAt);
 
     const skipped = ticketsToCancel.length - normalized.length;
 

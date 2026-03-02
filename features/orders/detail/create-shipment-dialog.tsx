@@ -13,9 +13,10 @@ import type { OrderFormValues } from '../components/order-form-page';
 interface CreateShipmentDialogProps {
     isOpen: boolean; 
     onOpenChange: (open: boolean) => void; 
-    onSubmit: (data: Partial<OrderFormValues>) => Promise<{ success: boolean; message?: string } | undefined>;
+    onSubmit: (data: Partial<OrderFormValues>, packagingSystemId?: string) => Promise<{ success: boolean; message?: string } | undefined>;
     order: Order | null;
     customer: Customer | null;
+    packagingSystemId?: string;  // Specific packaging to create shipment for
 }
 
 export function CreateShipmentDialog({
@@ -23,6 +24,7 @@ export function CreateShipmentDialog({
     onSubmit, 
     order,
     customer,
+    packagingSystemId,
 }: CreateShipmentDialogProps) {
     const [isLoading, setIsLoading] = React.useState(false);
     const form = useForm<OrderFormValues>();
@@ -45,7 +47,7 @@ export function CreateShipmentDialog({
         if (!order) return;
         setIsLoading(true);
         try {
-            const result = await onSubmit(data);
+            const result = await onSubmit(data, packagingSystemId);
             if (result && result.success) {
                 toast.success('Thành công', { description: result.message || 'Đã tạo đơn vận chuyển' });
                 onOpenChange(false);
@@ -68,11 +70,11 @@ export function CreateShipmentDialog({
                     <DialogDescription>Cấu hình và tạo đơn vận chuyển qua đối tác.</DialogDescription>
                 </DialogHeader>
                 <FormProvider {...form}>
-                    <form id="create-shipping-form-dialog" onSubmit={handleSubmit(handleFormSubmit)} className="flex-grow overflow-hidden flex flex-col">
-                        <div className="flex-grow overflow-auto p-1">
+                    <form id="create-shipping-form-dialog" onSubmit={handleSubmit(handleFormSubmit)} className="grow overflow-hidden flex flex-col">
+                        <div className="grow overflow-auto p-1">
                           <ShippingIntegration hideTabs />
                         </div>
-                         <DialogFooter className="mt-4 flex-shrink-0">
+                         <DialogFooter className="mt-4 shrink-0">
                             <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>Hủy</Button>
                             <Button type="submit" disabled={isLoading}>
                                 {isLoading && <Spinner className="mr-2 h-4 w-4" />}

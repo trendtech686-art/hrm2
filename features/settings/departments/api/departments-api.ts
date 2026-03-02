@@ -14,6 +14,7 @@ export interface DepartmentsParams {
   search?: string;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
+  all?: boolean;
 }
 
 export interface DepartmentsResponse {
@@ -26,6 +27,7 @@ export interface DepartmentsResponse {
 export async function fetchDepartments(params: DepartmentsParams = {}): Promise<DepartmentsResponse> {
   const searchParams = new URLSearchParams();
   
+  if (params.all) searchParams.set('all', 'true');
   if (params.page) searchParams.set('page', String(params.page));
   if (params.limit) searchParams.set('limit', String(params.limit));
   if (params.search) searchParams.set('search', params.search);

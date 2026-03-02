@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma'
 import { Prisma } from '@/generated/prisma/client'
 import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
 import { createEmployeeTypeSchema } from './validation'
+import { generateNextIds } from '@/lib/id-system'
 
 // GET /api/employee-types - List all employee types
 export async function GET(request: Request) {
@@ -72,8 +73,11 @@ export async function POST(request: Request) {
       })
     }
 
+    // Generate ID
+    const { systemId } = await generateNextIds('employee-types')
+    
     const dataToCreate = {
-      systemId: `EMPTYPE${String(Date.now()).slice(-6).padStart(6, '0')}`,
+      systemId,
       id: body.id,
       name: body.name,
       description: body.description,

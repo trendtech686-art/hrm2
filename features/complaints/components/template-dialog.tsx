@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../../../components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { Button } from "../../../components/ui/button";
@@ -34,7 +34,7 @@ export const TemplateDialog: React.FC<Props> = ({ open, onOpenChange, templates 
             <Card key={template.id} className="hover:shadow-md transition-shadow">
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
-                  <CardTitle className="text-base">{template.name}</CardTitle>
+                  <CardTitle>{template.name}</CardTitle>
                   <Button
                     size="sm"
                     variant="outline"

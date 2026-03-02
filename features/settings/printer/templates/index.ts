@@ -21,6 +21,7 @@ export { SUPPLIER_RETURN_TEMPLATE } from './supplier-return';
 export { COMPLAINT_TEMPLATE } from './complaint';
 export { PENALTY_TEMPLATE } from './penalty';
 export { COST_ADJUSTMENT_TEMPLATE } from './cost-adjustment';
+export { PRICE_ADJUSTMENT_TEMPLATE } from './price-adjustment';
 export { PAYROLL_TEMPLATE } from './payroll';
 export { PAYSLIP_TEMPLATE } from './payslip';
 
@@ -59,6 +60,7 @@ import { SUPPLIER_RETURN_TEMPLATE } from './supplier-return';
 import { COMPLAINT_TEMPLATE } from './complaint';
 import { PENALTY_TEMPLATE } from './penalty';
 import { COST_ADJUSTMENT_TEMPLATE } from './cost-adjustment';
+import { PRICE_ADJUSTMENT_TEMPLATE } from './price-adjustment';
 import { PAYROLL_TEMPLATE } from './payroll';
 import { PAYSLIP_TEMPLATE } from './payslip';
 import { ATTENDANCE_TEMPLATE } from './attendance';
@@ -98,6 +100,7 @@ export const DEFAULT_TEMPLATES: Record<TemplateType, string> = {
   'penalty': PENALTY_TEMPLATE,
   'leave': PENALTY_TEMPLATE, // TODO: Create dedicated LEAVE_TEMPLATE
   'cost-adjustment': COST_ADJUSTMENT_TEMPLATE,
+  'price-adjustment': PRICE_ADJUSTMENT_TEMPLATE,
   'handover': HANDOVER_TEMPLATE,
   'payroll': PAYROLL_TEMPLATE,
   'payslip': PAYSLIP_TEMPLATE,

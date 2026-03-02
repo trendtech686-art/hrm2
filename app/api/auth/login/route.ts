@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import { validateBody, apiError } from '@/lib/api-utils'
+import { checkRateLimit } from '@/lib/security-utils'
 import { loginSchema } from './validation'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production'
@@ -11,6 +12,13 @@ const TOKEN_MAX_AGE = 7 * 24 * 60 * 60 // 7 days in seconds
 
 // POST /api/auth/login - No auth required
 export async function POST(request: Request) {
+  // Rate limit: 5 attempts per minute per IP
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+  const rateLimit = checkRateLimit(`login:${ip}`, 5, 60_000)
+  if (!rateLimit.allowed) {
+    return apiError('Quá nhiều lần thử. Vui lòng đợi 1 phút.', 429)
+  }
+
   const validation = await validateBody(request, loginSchema)
   if (!validation.success) {
     return apiError(validation.error, 400)

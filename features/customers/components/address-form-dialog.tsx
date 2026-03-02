@@ -20,10 +20,10 @@ import {
 } from '../../../components/ui/dialog';
 import { VirtualizedCombobox } from '../../../components/ui/virtualized-combobox';
 import { toast } from 'sonner';
-import { useProvinceStore } from '../../settings/provinces/store';
-import { useProvinceData } from '../../settings/provinces/hooks/use-province-data';
+import { useProvinces, useDistricts, useWards2Level, useWards3Level } from '../../settings/provinces/hooks/use-administrative-units';
 import { autoFillDistrict } from '../../settings/provinces/ward-district-mapping';
 import { removeVietnameseAccents } from '../../../lib/filename-utils';
+import { asBusinessId } from '../../../lib/id-types';
 import type { CustomerAddress } from '../types';
 
 interface AddressFormDialogProps {
@@ -45,17 +45,14 @@ export function AddressFormDialog({
   title,
   description,
 }: AddressFormDialogProps) {
-  // Load province data from API when dialog is used
-  const { isLoading: isLoadingProvinces, isReady: _isProvincesReady } = useProvinceData();
-  
-  const {
-    data: provinces,
-    getProvinces2Level,
-    getProvinces3Level,
-    getDistricts3LevelByProvinceId,
-    getWards2LevelByProvinceId,
-    getWards3LevelByDistrictId,
-  } = useProvinceStore();
+  // Load province data via React Query
+  const { data: allProvinces = [], isLoading: isLoadingProvinces } = useProvinces();
+  const { data: allDistricts = [] } = useDistricts();
+  const isProvincesReady = allProvinces.length > 0 && allDistricts.length > 0;
+
+  // Province subsets by level
+  const provinces2Level = React.useMemo(() => allProvinces.filter(p => p.level === '2-level'), [allProvinces]);
+  const provinces3Level = React.useMemo(() => allProvinces.filter(p => p.level === '3-level'), [allProvinces]);
 
   const [addressLevel, setAddressLevel] = React.useState<'2-level' | '3-level'>('2-level');
   const [formData, setFormData] = React.useState({
@@ -76,21 +73,156 @@ export function AddressFormDialog({
     inputLevel: '2-level' as '2-level' | '3-level',
   });
 
-  // Reset form when dialog opens/closes or editingAddress changes
+  // Debug: Log component state on every render
+  console.log('[AddressFormDialog] Render state:', { 
+    isOpen, 
+    hasEditingAddress: !!editingAddress, 
+    isProvincesReady, 
+    isLoadingProvinces,
+    editingAddressProvince: editingAddress?.province,
+    editingAddressDistrict: editingAddress?.district 
+  });
+
+  // Track if we've already initialized the form for this editingAddress
+  const [hasInitialized, setHasInitialized] = React.useState(false);
+  // Track if we still need to resolve wardId after wards load
+  const [wardInitPending, setWardInitPending] = React.useState(false);
+
+  // Reset hasInitialized when editingAddress changes
   React.useEffect(() => {
-    if (isOpen) {
-      if (editingAddress) {
-        const level = editingAddress.inputLevel || '2-level';
-        setAddressLevel(level);
+    setHasInitialized(false);
+  }, [editingAddress?.id]);
+
+  // Initialize form when dialog opens and provinces are ready
+  React.useEffect(() => {
+    console.log('[AddressFormDialog] useEffect triggered', { 
+      isOpen, 
+      isProvincesReady, 
+      hasEditingAddress: !!editingAddress,
+      hasInitialized 
+    });
+    
+    // Skip if not open or already initialized
+    if (!isOpen) return;
+    if (hasInitialized) return;
+    
+    // Wait for provinces to load before doing lookup
+    if (!isProvincesReady) {
+      console.log('[AddressFormDialog] Waiting for provinces to load...', { isLoadingProvinces, isProvincesReady });
+      return;
+    }
+    
+    console.log('[AddressFormDialog] Provinces ready, initializing form', { isOpen, hasEditingAddress: !!editingAddress });
+    setHasInitialized(true);
+    
+    if (editingAddress) {
+      const level = editingAddress.inputLevel || '3-level'; // Default to 3-level for imported data
+      setAddressLevel(level);
+      
+      // Helper: normalize text for matching
+      const normalize = (text: string) =>
+        text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd');
+      
+      // Get IDs from names if not provided (for imported data)
+      let provinceId = editingAddress.provinceId || '';
+      let districtId = editingAddress.districtId || 0;
+      const wardId = editingAddress.wardId || '';
+        
+        // Auto-lookup provinceId from province name if not provided
+        if (!provinceId && editingAddress.province) {
+          const levelProvinces = level === '2-level' ? provinces2Level : provinces3Level;
+          console.log('[AddressFormDialog] Looking up province:', editingAddress.province, 'in', levelProvinces.length, 'provinces');
+          const normalizedInput = normalize(editingAddress.province);
+          const foundProvince = levelProvinces.find((p) => {
+            const normalizedName = normalize(p.name);
+            return normalizedName === normalizedInput || 
+                   normalizedName.includes(normalizedInput) || 
+                   normalizedInput.includes(normalizedName);
+          });
+          if (foundProvince) {
+            provinceId = foundProvince.id;
+            console.log('[AddressFormDialog] Auto-found provinceId:', provinceId, 'for:', editingAddress.province);
+          }
+        }
+        
+        // If we still don't have provinceId but have district name, try to find province from district
+        if (!provinceId && editingAddress.district && level === '3-level') {
+          const allDistricts3Level = allDistricts.filter(d => d.level === '3-level');
+          console.log('[AddressFormDialog] Reverse lookup: searching district:', editingAddress.district, 'in', allDistricts3Level.length, 'districts');
+          
+          const normalizedDistrictInput = normalize(editingAddress.district);
+          console.log('[AddressFormDialog] Normalized district input:', normalizedDistrictInput);
+          
+          const foundDistrict = allDistricts3Level.find((d) => {
+            const normalizedName = normalize(d.name);
+            return normalizedName === normalizedDistrictInput || 
+                   normalizedName.includes(normalizedDistrictInput) || 
+                   normalizedDistrictInput.includes(normalizedName);
+          });
+          if (foundDistrict) {
+            provinceId = foundDistrict.provinceId;
+            districtId = foundDistrict.id;
+            console.log('[AddressFormDialog] Reverse-found provinceId from district:', provinceId, 'districtId:', districtId);
+          } else {
+            console.log('[AddressFormDialog] District NOT FOUND. First 5 districts:', allDistricts3Level.slice(0, 5).map(d => d.name));
+          }
+        }
+        
+        // Auto-lookup districtId from district name if not provided (but we have provinceId)
+        if (!districtId && editingAddress.district && provinceId) {
+          const provinceDistricts = allDistricts.filter(d => d.provinceId === asBusinessId(provinceId));
+          const normalizedInput = normalize(editingAddress.district);
+          const foundDistrict = provinceDistricts.find((d) => {
+            const normalizedName = normalize(d.name);
+            return normalizedName === normalizedInput || 
+                   normalizedName.includes(normalizedInput) || 
+                   normalizedInput.includes(normalizedName);
+          });
+          if (foundDistrict) {
+            districtId = foundDistrict.id;
+            console.log('[AddressFormDialog] Auto-found districtId:', districtId, 'for:', editingAddress.district);
+          }
+        }
+        
+        // Ward lookup will be deferred to phase 2 effect (after wards load via React Query)
+        // Mark ward init pending if we don't have wardId yet
+        if (!wardId && editingAddress.ward) {
+          setWardInitPending(true);
+        }
+        
+        // ALWAYS get province name from loaded data when we have provinceId
+        // This ensures the name matches exactly with dropdown options
+        let provinceName = editingAddress.province || '';
+        let districtName = editingAddress.district || '';
+        if (provinceId) {
+          const levelProvinces = level === '2-level' ? provinces2Level : provinces3Level;
+          const foundProvince = levelProvinces.find(p => p.id === provinceId);
+          if (foundProvince) {
+            provinceName = foundProvince.name;
+            console.log('[AddressFormDialog] Using province name from data:', provinceName);
+          }
+          
+          // Also get district name to ensure match
+          if (districtId) {
+            const foundDistrict = allDistricts.find(d => d.id === districtId);
+            if (foundDistrict) {
+              districtName = foundDistrict.name;
+              console.log('[AddressFormDialog] Using district name from data:', districtName);
+            }
+          }
+        }
+        
+        console.log('[AddressFormDialog] Final lookup results:', { provinceId, provinceName, districtId, districtName, wardId });
+        
         const newFormData = {
           label: editingAddress.label || '',
           street: editingAddress.street || '',
-          province: editingAddress.province || '',
-          provinceId: editingAddress.provinceId || '',
-          district: editingAddress.district || '',
-          districtId: editingAddress.districtId || 0,
+          province: provinceName,
+          provinceId,
+          district: districtName,
+          districtId,
           ward: editingAddress.ward || '',
-          wardId: editingAddress.wardId || '',
+          wardId,
           wardCode: '', // wardCode not in EnhancedCustomerAddress type
           contactName: editingAddress.contactName || '',
           contactPhone: editingAddress.contactPhone || '',
@@ -99,6 +231,7 @@ export function AddressFormDialog({
           isDefaultBilling: editingAddress.isDefaultBilling || false,
           inputLevel: level,
         };
+        console.log('[AddressFormDialog] Setting form data:', newFormData);
         setFormData(newFormData);
       } else {
         setAddressLevel('2-level');
@@ -120,13 +253,43 @@ export function AddressFormDialog({
           inputLevel: '2-level',
         });
       }
+  }, [isOpen, editingAddress, isProvincesReady, hasInitialized, isLoadingProvinces, provinces2Level, provinces3Level, allDistricts]);
+
+  // Ward query hooks (enabled after province/district selection is set)
+  const { data: wards2Level = [] } = useWards2Level(
+    addressLevel === '2-level' && formData.provinceId ? formData.provinceId : undefined
+  );
+  const { data: wards3Level = [] } = useWards3Level(
+    addressLevel === '3-level' && formData.districtId ? formData.districtId : undefined
+  );
+
+  // Phase 2: Resolve wardId once wards are loaded (deferred from init)
+  React.useEffect(() => {
+    if (!wardInitPending || !editingAddress?.ward) return;
+    
+    const wardsToSearch = addressLevel === '2-level' ? wards2Level : wards3Level;
+    if (wardsToSearch.length === 0) return;
+    
+    const normalize = (text: string) =>
+      text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd');
+    const normalizedInput = normalize(editingAddress.ward);
+    const foundWard = wardsToSearch.find((w) => {
+      const normalizedName = normalize(w.name);
+      return normalizedName === normalizedInput || 
+             normalizedName.includes(normalizedInput) || 
+             normalizedInput.includes(normalizedName);
+    });
+    if (foundWard) {
+      console.log('[AddressFormDialog] Phase 2: Auto-found wardId:', foundWard.id, 'for:', editingAddress.ward);
+      setFormData(prev => ({ ...prev, wardId: foundWard.id }));
     }
-  }, [isOpen, editingAddress]);
+    setWardInitPending(false);
+  }, [wardInitPending, editingAddress?.ward, addressLevel, wards2Level, wards3Level]);
 
   // Get provinces based on address level (MUST be before selectedProvince)
   const activeProvinces = React.useMemo(() => {
-    return addressLevel === '2-level' ? getProvinces2Level() : getProvinces3Level();
-  }, [addressLevel, getProvinces2Level, getProvinces3Level]);
+    return addressLevel === '2-level' ? provinces2Level : provinces3Level;
+  }, [addressLevel, provinces2Level, provinces3Level]);
 
   // Get available districts and wards based on selection
   // IMPORTANT: Lookup province by BOTH name and provinceId for compatibility
@@ -168,7 +331,7 @@ export function AddressFormDialog({
     
     // Use 3-level districts for 3-level address
     const districtsFromProvince = addressLevel === '3-level' 
-      ? getDistricts3LevelByProvinceId(selectedProvince.id)
+      ? allDistricts.filter(d => d.provinceId === selectedProvince.id)
       : []; // 2-level doesn't have districts
     
     // If we have a districtId but it's not in the available list,
@@ -177,9 +340,8 @@ export function AddressFormDialog({
     if (formData.districtId && formData.district) {
       const hasDistrict = districtsFromProvince.some(d => d.id === formData.districtId);
       if (!hasDistrict) {
-        // Get district by ID directly
-        const store = useProvinceStore.getState();
-        const districtById = store.getDistrictById(formData.districtId);
+        // Get district by ID directly from all districts
+        const districtById = allDistricts.find(d => d.id === formData.districtId);
         if (districtById) {
           return [districtById, ...districtsFromProvince];
         }
@@ -194,7 +356,7 @@ export function AddressFormDialog({
     }
     
     return districtsFromProvince;
-  }, [selectedProvince, addressLevel, getDistricts3LevelByProvinceId, formData.districtId, formData.district]);
+  }, [selectedProvince, addressLevel, allDistricts, formData.districtId, formData.district]);
 
   // For 3-level: If we have districtId but it's not in availableDistricts,
   // it might be from wards-3level-data with different provinceId mapping
@@ -206,21 +368,16 @@ export function AddressFormDialog({
     const fromAvailable = availableDistricts.find(d => d.id === formData.districtId);
     if (fromAvailable) return fromAvailable;
     
-    // Try direct lookup by ID (for cross-province cases)
-    const store = useProvinceStore.getState();
-    return store.getDistrictById(formData.districtId) || null;
-  }, [formData.districtId, availableDistricts]);
+    // Try direct lookup by ID from all districts (for cross-province cases)
+    return allDistricts.find(d => d.id === formData.districtId) || null;
+  }, [formData.districtId, availableDistricts, allDistricts]);
 
   const availableWards = React.useMemo(() => {
     if (addressLevel === '2-level') {
-      if (!selectedProvince) return [];
-      return getWards2LevelByProvinceId(selectedProvince.id);
+      return wards2Level;
     }
-    
-    // For 3-level, use districtId directly (not requiring selectedProvince)
-    if (!formData.districtId) return [];
-    return getWards3LevelByDistrictId(formData.districtId);
-  }, [selectedProvince, formData.districtId, addressLevel, getWards2LevelByProvinceId, getWards3LevelByDistrictId]);
+    return wards3Level;
+  }, [addressLevel, wards2Level, wards3Level]);
 
   // Prepare options for comboboxes - use activeProvinces based on level
   const provinceOptions = React.useMemo(
@@ -265,13 +422,8 @@ export function AddressFormDialog({
   const selectedWard = React.useMemo(() => {
     if (!formData.wardId) return null;
     
-    // First try from available wards
-    const fromAvailable = availableWards.find(w => w.id === formData.wardId);
-    if (fromAvailable) return fromAvailable;
-    
-    // Try direct lookup by ID
-    const store = useProvinceStore.getState();
-    return store.getWardById(formData.wardId) || null;
+    // Look up from available wards (already loaded via React Query)
+    return availableWards.find(w => w.id === formData.wardId) || null;
   }, [formData.wardId, availableWards]);
 
   const wardOptions = React.useMemo(() => {
@@ -467,7 +619,7 @@ export function AddressFormDialog({
                   options={provinceOptions}
                   value={provinceOptions.find((opt) => opt.value === formData.province) || null}
                   onChange={(option) => {
-                    const selectedProv = provinces.find((p) => p.name === option?.value);
+                    const selectedProv = allProvinces.find((p) => p.name === option?.value);
                     setFormData((prev) => ({
                       ...prev,
                       province: option ? option.value : '',

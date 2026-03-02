@@ -138,6 +138,9 @@ export async function POST(request: NextRequest) {
     // Get response as text first
     const responseText = await response.text();
     
+    console.log(`[GHTK-SUBMIT-${requestId}] Response status:`, response.status);
+    console.log(`[GHTK-SUBMIT-${requestId}] Response text:`, responseText.substring(0, 1000));
+    
     // Try to parse as JSON
     let data;
     try {
@@ -148,6 +151,12 @@ export async function POST(request: NextRequest) {
       });
       
       return apiError('GHTK API returned invalid response', 500);
+    }
+    
+    // ✅ If GHTK returns success: false, return error with message
+    if (data.success === false) {
+      console.error(`[GHTK-SUBMIT-${requestId}] ❌ GHTK API error:`, data.message);
+      return apiError(data.message || 'GHTK API error', 400);
     }
     
     const _duration = Date.now() - startTime;

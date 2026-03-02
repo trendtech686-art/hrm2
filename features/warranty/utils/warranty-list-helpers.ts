@@ -1,6 +1,6 @@
 import type { WarrantyTicket } from '../types';
 import { checkWarrantyOverdue } from '../warranty-sla-utils';
-import type { loadCardColorSettings } from '../../settings/warranty/warranty-settings-page';
+import type { CardColorSettings } from '../../settings/warranty/hooks/use-warranty-settings';
 
 /**
  * Parse Tailwind color class to CSS style
@@ -37,7 +37,7 @@ export function parseColorClass(colorClass: string): React.CSSProperties {
  */
 export function getWarrantyRowStyle(
   ticket: WarrantyTicket,
-  cardColors: ReturnType<typeof loadCardColorSettings>
+  cardColors: CardColorSettings
 ): React.CSSProperties {
   // Check if overdue and overdue color is enabled (Priority 1)
   const overdueStatus = checkWarrantyOverdue(ticket);
@@ -47,7 +47,7 @@ export function getWarrantyRowStyle(
   
   if (cardColors.enableOverdueColor && isOverdue) {
     const colorClass = cardColors.overdueColor;
-    return parseColorClass(colorClass);
+    return parseColorClass(colorClass || '');
   }
   
   // Check status color if enabled (Priority 2)
@@ -68,19 +68,19 @@ export function calculateWarrantyStats(tickets: WarrantyTicket[]) {
   return tickets.reduce(
     (acc, ticket) => {
       acc.total += 1;
-      if (ticket.status === 'incomplete') acc.incomplete += 1;
-      if (ticket.status === 'pending') acc.pending += 1;
-      if (ticket.status === 'processed') acc.processed += 1;
-      if (ticket.status === 'returned') acc.returned += 1;
-      if (ticket.status === 'completed') acc.completed += 1;
-      if (ticket.status === 'cancelled') acc.cancelled += 1;
+      if (ticket.status === 'RECEIVED') acc.received += 1;
+      if (ticket.status === 'PROCESSING') acc.processing += 1;
+      if (ticket.status === 'WAITING_PARTS') acc.waitingParts += 1;
+      if (ticket.status === 'COMPLETED') acc.completed += 1;
+      if (ticket.status === 'RETURNED') acc.returned += 1;
+      if (ticket.status === 'CANCELLED') acc.cancelled += 1;
       const overdue = checkWarrantyOverdue(ticket);
       if (overdue.isOverdueResponse || overdue.isOverdueProcessing || overdue.isOverdueReturn) {
         acc.overdue += 1;
       }
       return acc;
     },
-    { total: 0, incomplete: 0, pending: 0, processed: 0, returned: 0, completed: 0, cancelled: 0, overdue: 0 }
+    { total: 0, received: 0, processing: 0, waitingParts: 0, completed: 0, returned: 0, cancelled: 0, overdue: 0 }
   );
 }
 

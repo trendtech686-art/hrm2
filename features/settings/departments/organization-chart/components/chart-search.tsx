@@ -16,7 +16,7 @@ import {
 import { Card, CardContent } from '../../../../../components/ui/card';
 import type { Employee } from '../../../../employees/types';
 import type { Department } from '../../types';
-import Fuse from 'fuse.js';
+import { simpleSearch } from '../../../../../lib/simple-search';
 
 interface ChartSearchProps {
   employees: Employee[];
@@ -35,28 +35,22 @@ export function ChartSearch({
 }: ChartSearchProps) {
   const [searchQuery, setSearchQuery] = React.useState('');
 
-  const fuse = React.useMemo(
-    () =>
-      new Fuse(
-        employees.filter(e => 
-          e.employmentStatus === 'Đang làm việc' ||
-          !e.employmentStatus
-        ),
-        {
-          keys: ['fullName', 'id', 'jobTitle', 'department'],
-          threshold: 0.3
-        }
-      ),
+  // Filter active employees
+  const activeEmployees = React.useMemo(
+    () => employees.filter(e => 
+      e.employmentStatus === 'Đang làm việc' ||
+      !e.employmentStatus
+    ),
     [employees]
   );
 
   const searchResults = React.useMemo(() => {
     if (!searchQuery) return [];
-    return fuse
-      .search(searchQuery)
-      .map(result => result.item)
-      .slice(0, 10);
-  }, [searchQuery, fuse]);
+    // Use simple search instead of Fuse.js
+    return simpleSearch(activeEmployees, searchQuery, {
+      keys: ['fullName', 'id', 'jobTitle', 'department'],
+    }).slice(0, 10);
+  }, [searchQuery, activeEmployees]);
 
   const handleSelect = (employee: Employee) => {
     onEmployeeSelect(employee);

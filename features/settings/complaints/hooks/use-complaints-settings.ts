@@ -9,7 +9,8 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import type { ComplaintsSettingsState, CardColorSettings } from '../types';
+import { getModuleSettingSection, updateModuleSettingSection } from '@/app/actions/settings/module-settings';
+import type { ComplaintsSettingsState, CardColorSettings, ComplaintType as _ComplaintType } from '../types';
 import { createDefaultComplaintsSettings, clone } from '../types';
 
 export const complaintsSettingsKeys = {
@@ -36,27 +37,28 @@ const DEFAULTS: Record<ComplaintsSettingType, unknown> = {
 async function fetchComplaintsSettingSection<T = unknown>(
   type: ComplaintsSettingType
 ): Promise<T> {
-  const response = await fetch(`/api/complaints-settings?type=${type}`);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch ${type} settings`);
+  const result = await getModuleSettingSection<T>('complaints', type);
+  if (!result.success) {
+    throw new Error(result.error);
   }
-  const result = await response.json();
-  return result.data ?? clone(DEFAULTS[type] as T);
+  // Merge DB data with defaults so new fields added later get default values
+  // instead of being undefined (which causes them to be lost on JSON serialization)
+  // Only merge plain objects (e.g. publicTracking), NOT arrays (e.g. complaintTypes)
+  const defaults = clone(DEFAULTS[type] as T);
+  if (result.data && typeof result.data === 'object' && !Array.isArray(result.data) && typeof defaults === 'object' && !Array.isArray(defaults)) {
+    return { ...defaults, ...result.data } as T;
+  }
+  return result.data ?? defaults;
 }
 
 async function updateComplaintsSettingSection(
   type: ComplaintsSettingType,
   data: unknown
 ): Promise<unknown> {
-  const response = await fetch('/api/complaints-settings', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ type, data }),
-  });
-  if (!response.ok) {
-    throw new Error(`Failed to update ${type} settings`);
+  const result = await updateModuleSettingSection('complaints', type, data);
+  if (!result.success) {
+    throw new Error(result.error);
   }
-  const result = await response.json();
   return result.data;
 }
 
@@ -115,7 +117,6 @@ export function useComplaintsSettingsMutations() {
       updateComplaintsSettingSection(type, data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: complaintsSettingsKeys.section(variables.type) });
-      toast.success('Đã lưu cài đặt');
     },
     onError: (error: Error) => {
       toast.error(`Lỗi: ${error.message}`);
@@ -123,15 +124,4 @@ export function useComplaintsSettingsMutations() {
   });
 
   return { updateSection };
-}
-
-/**
- * Legacy compatibility function - load card colors
- */
-export function loadCardColorSettings(): CardColorSettings {
-  // For legacy sync code - fetch from cache or return defaults
-  const cachedData = typeof window !== 'undefined' 
-    ? (window as unknown as { __complaintsCardColors?: CardColorSettings }).__complaintsCardColors
-    : undefined;
-  return cachedData ?? clone(defaultSettings.cardColors);
 }

@@ -516,7 +516,7 @@ export function ServiceConfigForm({ service, config = {}, onConfigChange, grandT
     return (
       <React.Fragment>
         <div className="space-y-4">
-          <h3 className="font-semibold text-lg border-b pb-2">Cấu hình vận chuyển</h3>
+          <h3 className="font-semibold text-lg border-b border-border pb-2">Cấu hình vận chuyển</h3>
 
         {/* Row 1: 2 columns */}
         <div className="grid grid-cols-2 gap-4">
@@ -576,7 +576,7 @@ export function ServiceConfigForm({ service, config = {}, onConfigChange, grandT
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-[400px] p-0">
+              <PopoverContent className="w-100 p-0">
                 <Command>
                   <CommandInput placeholder="Tìm kho..." />
                   <CommandEmpty>
@@ -638,7 +638,7 @@ export function ServiceConfigForm({ service, config = {}, onConfigChange, grandT
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-[400px] p-0" align="start">
+              <PopoverContent className="w-100 p-0" align="start">
                 <Command>
                   <CommandGroup>
                     <CommandItem
@@ -766,14 +766,15 @@ export function ServiceConfigForm({ service, config = {}, onConfigChange, grandT
                   ) : specificAddresses.length === 0 ? (
                     specificAddressError ? "Lỗi tải địa chỉ" : "Chưa có địa chỉ"
                   ) : options.specificAddress ? (
-                    specificAddresses.find((addr) => addr.id === options.specificAddress)?.name || "Chọn địa chỉ"
+                    // ✅ FIX: Match by name since onSelect saves the name, not the ID
+                    specificAddresses.find((addr) => addr.name === options.specificAddress)?.name || options.specificAddress
                   ) : (
                     "Chọn địa chỉ chi tiết"
                   )}
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-[400px] p-0">
+              <PopoverContent className="w-100 p-0">
                 <Command>
                   <CommandInput placeholder="Tìm địa chỉ..." />
                   <CommandEmpty>
@@ -782,7 +783,7 @@ export function ServiceConfigForm({ service, config = {}, onConfigChange, grandT
                       : "Không tìm thấy địa chỉ nào."
                     }
                   </CommandEmpty>
-                  <CommandGroup className="max-h-[200px] overflow-auto">
+                  <CommandGroup className="max-h-50 overflow-auto">
                     {specificAddresses.map((addr) => (
                       <CommandItem
                         key={addr.id}
@@ -1285,7 +1286,7 @@ export function ServiceConfigForm({ service, config = {}, onConfigChange, grandT
   if (service.partnerCode === 'GHN') {
     return (
       <div className="space-y-4">
-        <h3 className="font-semibold text-lg border-b pb-2">Cấu hình vận chuyển</h3>
+        <h3 className="font-semibold text-lg border-b border-border pb-2">Cấu hình vận chuyển</h3>
         
         <div className="space-y-2">
           <Label>Gói dịch vụ</Label>

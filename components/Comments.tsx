@@ -1,4 +1,4 @@
-import * as React from 'react';
+﻿import * as React from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
@@ -211,7 +211,7 @@ export function Comments<
       <div key={comment.id} className={cn("space-y-2", depth > 0 && "ml-12")}>
         <div className="flex gap-3">
           {/* Avatar */}
-          <Avatar className="h-8 w-8 flex-shrink-0">
+          <Avatar className="h-8 w-8 shrink-0">
             <AvatarImage src={comment.author.avatar} />
             <AvatarFallback>{comment.author.name.charAt(0)}</AvatarFallback>
           </Avatar>
@@ -247,7 +247,7 @@ export function Comments<
                       cancelEdit();
                     }
                   }}
-                  className="min-h-[80px]"
+                  className="min-h-20"
                   autoFocus
                 />
                 <div className="flex gap-2">
@@ -320,7 +320,7 @@ export function Comments<
                     }
                   }}
                   placeholder={`Trả lời ${comment.author.name}...`}
-                  className="min-h-[80px]"
+                  className="min-h-20"
                   autoFocus
                 />
                 <div className="flex gap-2">
@@ -350,7 +350,7 @@ export function Comments<
   return (
     <Card className={className}>
       <CardHeader>
-        <CardTitle className="text-h5 flex items-center gap-2">
+        <CardTitle className="flex items-center gap-2">
           <MessageSquare className="h-4 w-4" />
           {title}
           <Badge variant="secondary" className="ml-auto">

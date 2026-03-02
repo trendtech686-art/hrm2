@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { toast } from 'sonner';
 import type { WarrantyTicket } from '../types';
-import { updateWarranty } from '../api/warranties-api';
+import { updateWarrantyAction } from '@/app/actions/warranty';
 import { asSystemId } from '@/lib/id-types';
 import { ROUTES, generatePath } from '@/lib/router';
 import type { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime';
@@ -43,8 +43,12 @@ export function useWarrantyListHandlers(
       return;
     }
 
-    await updateWarranty(normalizedId, { status: 'pending' });
-    toast.success('Đã chuyển sang trạng thái Chưa xử lý');
+    const result = await updateWarrantyAction({ systemId: normalizedId, status: 'PROCESSING' });
+    if (!result.success) {
+      toast.error(result.error || 'Không thể cập nhật trạng thái');
+      return;
+    }
+    toast.success('Đã chuyển sang trạng thái Đang xử lý');
   }, [tickets]);
 
   const handleMarkProcessed = React.useCallback(async (systemId: string) => {
@@ -55,7 +59,11 @@ export function useWarrantyListHandlers(
       return;
     }
 
-    await updateWarranty(normalizedId, { status: 'processed' });
+    const result = await updateWarrantyAction({ systemId: normalizedId, status: 'COMPLETED' });
+    if (!result.success) {
+      toast.error(result.error || 'Không thể cập nhật trạng thái');
+      return;
+    }
     toast.success('Đã hoàn thành xử lý');
   }, [tickets]);
 

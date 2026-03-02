@@ -1,7 +1,6 @@
 import * as React from 'react';
 import { useWarrantyFinder } from './use-all-warranties';
-import { useAllPayments } from '../../payments/hooks/use-all-payments';
-import { useAllReceipts } from '../../receipts/hooks/use-all-receipts';
+import { useWarrantyPayments, useWarrantyReceipts } from './use-warranty-financial-data';
 import { calculateWarrantyProcessingState } from '../components/logic/processing';
 import { calculateWarrantySettlementTotal } from '../utils/payment-calculations';
 import type { SettlementMethod, WarrantySettlement, WarrantyTicket } from '../types';
@@ -22,13 +21,20 @@ interface WarrantySettlementOptions {
   ticket?: WarrantyTicket | null;
 }
 
+/**
+ * Hook tính toán settlement state cho warranty
+ * 
+ * ⚠️ PERFORMANCE: Sử dụng limit 100 cho payments/receipts
+ * Đủ để tính toán warranty settlement với data gần đây
+ */
 export function useWarrantySettlement(
   warrantySystemId?: string | null,
   options?: WarrantySettlementOptions,
 ): WarrantySettlementState {
   const { findById } = useWarrantyFinder();
-  const { data: payments } = useAllPayments();
-  const { data: receipts } = useAllReceipts();
+  // ⚡ PERFORMANCE: Only fetch data for this specific warranty
+  const { data: payments } = useWarrantyPayments(warrantySystemId);
+  const { data: receipts } = useWarrantyReceipts(warrantySystemId);
   const overrideTicket = options?.ticket ?? null;
   const normalizedWarrantySystemId = React.useMemo(
     () => (warrantySystemId ? asSystemId(warrantySystemId) : undefined),

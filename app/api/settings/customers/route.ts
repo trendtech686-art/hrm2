@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { Prisma } from '@/generated/prisma/client';
 import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils';
 import { createCustomerSettingSchema } from './validation';
+import { generateIdWithPrefix } from '@/lib/id-generator';
 
 // Valid customer setting types
 const VALID_TYPES = [
@@ -90,7 +91,7 @@ export async function POST(request: NextRequest) {
     const created = await prisma.customerSetting.create({
       data: {
         systemId: systemId || undefined, // Let Prisma generate if not provided
-        id: id || crypto.randomUUID(),
+        id: id || await generateIdWithPrefix('CSETT', prisma),
         name,
         type,
         description,

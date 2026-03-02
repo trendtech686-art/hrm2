@@ -1,5 +1,6 @@
 import { toast } from 'sonner';
 import { asSystemId } from '@/lib/id-types';
+import { generateSubEntityId } from '@/lib/id-utils';
 import type { Complaint, ComplaintAction } from '../types';
 import type { SystemId } from '@/lib/id-types';
 
@@ -25,7 +26,7 @@ interface User {
 export async function handleReopenAfterResolved(
   complaint: Complaint,
   currentUser: User,
-  updateComplaint: (systemId: SystemId, updates: Partial<Complaint>) => void
+  updateComplaint: (systemId: SystemId, updates: Partial<Complaint>) => Promise<void> | void
 ): Promise<{ success: boolean; message: string }> {
   try {
     
@@ -35,7 +36,7 @@ export async function handleReopenAfterResolved(
     const timeline: ComplaintAction[] = [
       ...complaint.timeline,
       {
-        id: asSystemId(`action_${Date.now()}`),
+        id: asSystemId(generateSubEntityId('ACTION')),
         actionType: "reopened",
         performedBy: asSystemId(currentUser.systemId),
         performedAt: new Date(),

@@ -19,6 +19,14 @@ export const createBrandSchema = z.object({
   logo: z.string().optional(),
   logoUrl: z.string().optional(),
   website: z.string().optional(),
+  // SEO fields
+  seoTitle: z.string().optional(),
+  metaDescription: z.string().optional(),
+  seoKeywords: z.string().optional(),
+  shortDescription: z.string().optional(),
+  longDescription: z.string().optional(),
+  // Multi-website SEO
+  websiteSeo: z.any().optional(),
 })
 
 // Update brand schema

@@ -7,17 +7,14 @@
  */
 
 import * as React from 'react';
-import { Package, AlertTriangle } from 'lucide-react';
+import { Package } from 'lucide-react';
 import type { Product } from '../types';
-import { useActiveProducts } from '../hooks/use-all-products';
-import { useAllPricingPolicies } from '../../settings/pricing/hooks/use-all-pricing-policies';
-import { useAllBranches } from '../../settings/branches/hooks/use-all-branches';
+import { useProduct } from '../../../hooks/api/use-products';
+import { useInfiniteMeiliProductSearch } from '../../../hooks/use-meilisearch';
 import { useImageStore } from '../image-store';
 import { FileUploadAPI } from '../../../lib/file-upload-api';
 import { LazyImage } from '../../../components/ui/lazy-image';
 import { VirtualizedCombobox, type ComboboxOption } from '../../../components/ui/virtualized-combobox';
-import { canAddToCombo } from '../combo-utils';
-import type { SystemId } from '@/lib/id-types';
 
 const formatCurrency = (value?: number) => {
     if (typeof value !== 'number' || isNaN(value)) return '0';
@@ -35,79 +32,61 @@ export function ComboProductSearch({
     excludeProductIds,
     disabled = false 
 }: ComboProductSearchProps) {
-    const { data: activeProducts } = useActiveProducts();
-    const { data: pricingPolicies } = useAllPricingPolicies();
-    const { data: branches = [] } = useAllBranches();
     const [selectedValue, setSelectedValue] = React.useState<ComboboxOption | null>(null);
-
-    // Get default selling policy
-    const defaultPricingPolicy = React.useMemo(() => {
-        return pricingPolicies.find(p => p.isDefault && p.type === 'Bán hàng');
-    }, [pricingPolicies]);
-
-    // Only show products that can be added to combo (exclude combos, discontinued, deleted)
-    // Also exclude products already in the combo
-    const availableProducts = React.useMemo(() => {
-        return activeProducts.filter(p => 
-            canAddToCombo(p) && !excludeProductIds.has(p.systemId)
-        );
-    }, [activeProducts, excludeProductIds]);
-
-    // Calculate total available stock (on-hand - committed) across all branches
-    const getAvailableStock = (product: Product): number => {
-        let totalAvailable = 0;
-        const inventoryByBranch = product.inventoryByBranch || {};
-        const committedByBranch = product.committedByBranch || {};
-        
-        for (const branchId of Object.keys(inventoryByBranch)) {
-            const onHand = inventoryByBranch[branchId as SystemId] || 0;
-            const committed = committedByBranch[branchId as SystemId] || 0;
-            totalAvailable += Math.max(0, onHand - committed);
+    const [searchQuery, setSearchQuery] = React.useState('');
+    const [pendingProductId, setPendingProductId] = React.useState<string | null>(null);
+    
+    // ✅ Use Meilisearch for fast product search
+    // ✅ Infinite scroll support - load more on scroll
+    const {
+        data: searchResult,
+        isLoading: isLoadingProducts,
+        fetchNextPage,
+        hasNextPage,
+        isFetchingNextPage,
+    } = useInfiniteMeiliProductSearch({ 
+        query: searchQuery,
+        debounceMs: 150,
+    });
+    
+    // ✅ Fetch full product data when selected from Meilisearch
+    const { data: selectedProduct } = useProduct(pendingProductId ?? undefined);
+    
+    // When full product is loaded, call onSelectProduct
+    React.useEffect(() => {
+        if (selectedProduct && pendingProductId) {
+            onSelectProduct(selectedProduct);
+            setPendingProductId(null);
         }
-        
-        return totalAvailable;
-    };
+    }, [selectedProduct, pendingProductId, onSelectProduct]);
+    
+    // ✅ Filter Meilisearch results (exclude combo products and already selected) - flatten pages
+    const searchProducts = React.useMemo(() => {
+        const products = searchResult?.pages.flatMap(page => page.data) || [];
+        return products.filter(p => 
+            p.status !== 'combo' && !excludeProductIds.has(p.systemId)
+        );
+    }, [searchResult, excludeProductIds]);
 
-    // Convert to ComboboxOption format
+    // Convert Meilisearch results to ComboboxOption format
     const options: ComboboxOption[] = React.useMemo(() => {
-        return availableProducts.map((p) => {
-            const availableStock = getAvailableStock(p);
-            const price = defaultPricingPolicy 
-                ? p.prices[defaultPricingPolicy.systemId] 
-                : (Object.values(p.prices || {})[0] || 0);
-            const totalOnHand = Object.values(p.inventoryByBranch || {}).reduce((sum, qty) => sum + qty, 0);
-            const branchDetails = branches.map(branch => {
-                const onHand = p.inventoryByBranch?.[branch.systemId as SystemId] || 0;
-                const committed = p.committedByBranch?.[branch.systemId as SystemId] || 0;
-                return {
-                    name: branch.name,
-                    onHand,
-                    sellable: Math.max(0, onHand - committed),
-                };
-            });
-            
+        return searchProducts.map((p) => {
             return {
                 value: p.systemId,
                 label: p.name,
                 subtitle: p.id, // SKU
                 metadata: {
-                    price: price,
-                    availableStock: availableStock,
-                    isLowStock: availableStock <= 0,
-                    totalOnHand,
-                    costPrice: p.costPrice,
-                    branchDetails,
+                    costPrice: p.costPrice || 0,
+                    thumbnailImage: p.thumbnailImage,
                 }
             } as ComboboxOption;
         });
-    }, [availableProducts, defaultPricingPolicy, branches]);
+    }, [searchProducts]);
 
     const handleChange = (option: ComboboxOption | null) => {
         if (option) {
-            const product = availableProducts.find(p => p.systemId === option.value);
-            if (product) {
-                onSelectProduct(product);
-            }
+            // Set pending product ID to trigger full product fetch
+            setPendingProductId(option.value);
         }
         
         // Reset selection after selecting
@@ -116,7 +95,7 @@ export function ComboProductSearch({
 
     // Product Thumbnail component for combobox options
     const ProductOptionThumbnail = React.memo(({ productSystemId }: { productSystemId: string }) => {
-        const product = availableProducts.find(p => p.systemId === productSystemId);
+        const searchProduct = searchProducts.find(p => p.systemId === productSystemId);
         const permanentImages = useImageStore(state => state.permanentImages[productSystemId]);
         const lastFetched = useImageStore(state => state.permanentMeta[productSystemId]?.lastFetched);
         const updatePermanentImages = useImageStore(state => state.updatePermanentImages);
@@ -126,9 +105,7 @@ export function ComboProductSearch({
         
         const displayImage = storeThumbnail
             || storeGallery
-            || product?.thumbnailImage
-            || product?.galleryImages?.[0]
-            || product?.images?.[0];
+            || searchProduct?.thumbnailImage;
 
         React.useEffect(() => {
             if (!lastFetched && productSystemId) {
@@ -150,21 +127,20 @@ export function ComboProductSearch({
 
         if (displayImage) {
             return (
-                <div className="w-10 h-10 flex-shrink-0 rounded overflow-hidden bg-muted">
+                <div className="w-10 h-10 shrink-0 rounded overflow-hidden bg-muted">
                     <LazyImage src={displayImage} alt="" className="w-full h-full object-cover" />
                 </div>
             );
         }
         return (
-            <div className="w-10 h-10 flex-shrink-0 bg-muted rounded flex items-center justify-center">
+            <div className="w-10 h-10 shrink-0 bg-muted rounded flex items-center justify-center">
                 <Package className="h-5 w-5 text-muted-foreground" />
             </div>
         );
     });
 
     const renderOption = (option: ComboboxOption) => {
-        const metadata = option.metadata as { isLowStock?: boolean; costPrice?: number; totalOnHand?: number; availableStock?: number } | undefined;
-        const isLowStock = metadata?.isLowStock;
+        const metadata = option.metadata as { costPrice?: number } | undefined;
         
         return (
             <div className="flex items-center gap-3 w-full py-1">
@@ -173,12 +149,8 @@ export function ComboProductSearch({
                     <p className="text-body-sm font-medium truncate">{option.label}</p>
                     <p className="text-body-xs text-muted-foreground">{option.subtitle}</p>
                 </div>
-                <div className="text-right flex-shrink-0">
+                <div className="text-right shrink-0">
                     <p className="text-body-sm font-medium">{formatCurrency(metadata?.costPrice)}</p>
-                    <p className={`text-body-xs ${isLowStock ? 'text-destructive' : 'text-muted-foreground'}`}>
-                        {isLowStock && <AlertTriangle className="h-3 w-3 inline mr-0.5" />}
-                        Tồn: {metadata?.totalOnHand || 0} | Bán: {metadata?.availableStock || 0}
-                    </p>
                 </div>
             </div>
         );
@@ -190,10 +162,15 @@ export function ComboProductSearch({
                 options={options}
                 value={selectedValue}
                 onChange={handleChange}
+                onSearchChange={setSearchQuery}
+                isLoading={isLoadingProducts || !!pendingProductId}
                 placeholder="Thêm sản phẩm (F3)"
                 searchPlaceholder="Tìm kiếm theo tên, mã SKU..."
                 emptyPlaceholder="Không tìm thấy sản phẩm phù hợp"
                 disabled={disabled}
+                onLoadMore={() => fetchNextPage()}
+                hasMore={hasNextPage}
+                isLoadingMore={isFetchingNextPage}
                 renderOption={renderOption}
             />
         </div>

@@ -1,11 +1,12 @@
 ﻿import * as React from 'react';
 import { toast } from 'sonner';
 import { getBaseUrl, getFileUrl } from '@/lib/api-config';
-import { useDocumentStore } from '../document-store';
+import { useEmployeeDocuments } from '../hooks/use-employee-documents';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { OptimizedImage } from '@/components/ui/optimized-image';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { 
   Download, 
@@ -18,7 +19,7 @@ import {
   Copy,
   X
 } from 'lucide-react';
-import type { EmployeeDocument, ServerFile } from '../document-store';
+import type { EmployeeDocument, ServerFile } from '../hooks/use-employee-documents';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 
@@ -50,29 +51,23 @@ interface EmployeeDocumentsProps {
 }
 
 export function EmployeeDocuments({ employeeSystemId }: EmployeeDocumentsProps) {
-  const { documents, refreshDocuments, loadedEmployees } = useDocumentStore();
+  const { data: documents = [], isLoading, error: queryError, refetch } = useEmployeeDocuments(employeeSystemId);
   const [searchQuery, setSearchQuery] = React.useState('');
-  const [isLoading, setIsLoading] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
+  const [error, setError] = React.useState<string | null>(queryError ? 'Không thể tải tài liệu. Vui lòng kiểm tra kết nối server.' : null);
   
   // Preview modal state - React-based instead of DOM manipulation (fixes memory leak)
   const [previewFile, setPreviewFile] = React.useState<ServerFile | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = React.useState(false);
-  
-  // Check if data is already cached
-  const isCached = loadedEmployees.has(employeeSystemId);
 
-  // Get documents for this employee
+  // Get documents for this employee (with search filter)
   const employeeDocuments = React.useMemo(() => {
-    const filtered = documents.filter(doc => doc.employeeSystemId === employeeSystemId);
+    if (!searchQuery) return documents;
     
-    if (!searchQuery) return filtered;
-    
-    return filtered.filter(doc => 
+    return documents.filter(doc => 
       doc.documentName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       doc.files.some(file => file.name.toLowerCase().includes(searchQuery.toLowerCase()))
     );
-  }, [documents, employeeSystemId, searchQuery]);
+  }, [documents, searchQuery]);
 
   // Group documents by type
   const documentsByType = React.useMemo(() => {
@@ -106,21 +101,11 @@ export function EmployeeDocuments({ employeeSystemId }: EmployeeDocumentsProps) 
     return result;
   }, [employeeDocuments]);
 
-  // Load documents - force refresh to ensure latest data
+  // Sync query error to local state
   React.useEffect(() => {
-    if (employeeSystemId) {
-      setIsLoading(true);
-      setError(null);
-      
-      // Always force refresh to get latest documents
-      refreshDocuments(employeeSystemId, true)
-        .catch((err) => {
-          console.error('Failed to load documents:', err);
-          setError('Không thể tải tài liệu. Vui lòng kiểm tra kết nối server.');
-        })
-        .finally(() => setIsLoading(false));
-    }
-  }, [employeeSystemId, refreshDocuments]);
+    if (queryError) setError('Không thể tải tài liệu. Vui lòng kiểm tra kết nối server.');
+    else setError(null);
+  }, [queryError]);
 
   const handleDownload = async (file: ServerFile) => {
     try {
@@ -203,7 +188,7 @@ export function EmployeeDocuments({ employeeSystemId }: EmployeeDocumentsProps) 
     setPreviewFile(null);
   };
 
-  if (isLoading && !isCached) {
+  if (isLoading && documents.length === 0) {
     return (
       <Card>
         <CardContent className="flex items-center justify-center p-8">
@@ -231,8 +216,7 @@ export function EmployeeDocuments({ employeeSystemId }: EmployeeDocumentsProps) 
               size="sm"
               onClick={() => {
                 setError(null);
-                setIsLoading(true);
-                refreshDocuments(employeeSystemId).finally(() => setIsLoading(false));
+                refetch();
               }}
             >
               Thử lại
@@ -297,7 +281,7 @@ export function EmployeeDocuments({ employeeSystemId }: EmployeeDocumentsProps) 
           {Object.keys(documentsByName['legal']).length > 0 && (
             <Card className="border-l-4 border-l-blue-500">
               <CardHeader className="pb-3">
-                <CardTitle className="text-h6 text-primary">1. Tài liệu pháp lý</CardTitle>
+                <CardTitle className="text-primary">1. Tài liệu pháp lý</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -317,15 +301,14 @@ export function EmployeeDocuments({ employeeSystemId }: EmployeeDocumentsProps) 
                               <div className="flex flex-col gap-2">
                                 <div className="w-full aspect-square rounded bg-muted flex items-center justify-center overflow-hidden">
                                   {isImage ? (
-                                    <img 
+                                    <OptimizedImage 
                                       src={file.url} 
                                       alt={file.name}
-                                      className="w-full h-full object-cover cursor-pointer"
+                                      fill
+                                      containerClassName="w-full h-full"
+                                      className="object-cover cursor-pointer"
                                       onClick={() => handlePreview(file)}
-                                      onError={(e) => {
-                                        e.currentTarget.style.display = 'none';
-                                        e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                                      }}
+                                      fallback={<FileIcon className="w-12 h-12 text-muted-foreground" />}
                                     />
                                   ) : (
                                     <FileIcon className="w-12 h-12 text-muted-foreground" />
@@ -368,7 +351,7 @@ export function EmployeeDocuments({ employeeSystemId }: EmployeeDocumentsProps) 
           {Object.keys(documentsByName['work-process']).length > 0 && (
             <Card className="border-l-4 border-l-green-500">
               <CardHeader className="pb-3">
-                <CardTitle className="text-h6 text-primary">2. Tài liệu trong quá trình làm việc</CardTitle>
+                <CardTitle className="text-primary">2. Tài liệu trong quá trình làm việc</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -388,15 +371,14 @@ export function EmployeeDocuments({ employeeSystemId }: EmployeeDocumentsProps) 
                               <div className="flex flex-col gap-2">
                                 <div className="w-full aspect-square rounded bg-muted flex items-center justify-center overflow-hidden">
                                   {isImage ? (
-                                    <img 
+                                    <OptimizedImage 
                                       src={file.url} 
                                       alt={file.name}
-                                      className="w-full h-full object-cover cursor-pointer"
+                                      fill
+                                      containerClassName="w-full h-full"
+                                      className="object-cover cursor-pointer"
                                       onClick={() => handlePreview(file)}
-                                      onError={(e) => {
-                                        e.currentTarget.style.display = 'none';
-                                        e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                                      }}
+                                      fallback={<FileIcon className="w-12 h-12 text-muted-foreground" />}
                                     />
                                   ) : (
                                     <FileIcon className="w-12 h-12 text-muted-foreground" />
@@ -439,7 +421,7 @@ export function EmployeeDocuments({ employeeSystemId }: EmployeeDocumentsProps) 
           {Object.keys(documentsByName['termination']).length > 0 && (
             <Card className="border-l-4 border-l-red-500">
               <CardHeader className="pb-3">
-                <CardTitle className="text-h6 text-primary">3. Tài liệu khi nghỉ việc</CardTitle>
+                <CardTitle className="text-primary">3. Tài liệu khi nghỉ việc</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -459,15 +441,14 @@ export function EmployeeDocuments({ employeeSystemId }: EmployeeDocumentsProps) 
                               <div className="flex flex-col gap-2">
                                 <div className="w-full aspect-square rounded bg-muted flex items-center justify-center overflow-hidden">
                                   {isImage ? (
-                                    <img 
+                                    <OptimizedImage 
                                       src={file.url} 
                                       alt={file.name}
-                                      className="w-full h-full object-cover cursor-pointer"
+                                      fill
+                                      containerClassName="w-full h-full"
+                                      className="object-cover cursor-pointer"
                                       onClick={() => handlePreview(file)}
-                                      onError={(e) => {
-                                        e.currentTarget.style.display = 'none';
-                                        e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                                      }}
+                                      fallback={<FileIcon className="w-12 h-12 text-muted-foreground" />}
                                     />
                                   ) : (
                                     <FileIcon className="w-12 h-12 text-muted-foreground" />
@@ -534,9 +515,11 @@ export function EmployeeDocuments({ employeeSystemId }: EmployeeDocumentsProps) 
               className="flex items-center justify-center w-full h-full min-h-[50vh]"
               onClick={(e) => e.stopPropagation()}
             >
-              <img
+              <OptimizedImage
                 src={previewFile.url}
                 alt={previewFile.originalName || previewFile.name}
+                width={800}
+                height={600}
                 className="max-w-full max-h-[85vh] object-contain rounded-lg"
               />
             </div>

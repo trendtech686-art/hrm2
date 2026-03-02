@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import * as React from 'react';
 import { formatDate as formatDateUtil } from '@/lib/date-utils';
@@ -29,7 +29,7 @@ export function BusinessTab({ customer }: BusinessTabProps) {
       {(customer.company || customer.taxCode || customer.representative || customer.position) ? (
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-body-base font-medium">Thông tin doanh nghiệp</CardTitle>
+            <CardTitle>Thông tin doanh nghiệp</CardTitle>
           </CardHeader>
           <CardContent>
             <dl className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-4">
@@ -54,7 +54,7 @@ export function BusinessTab({ customer }: BusinessTabProps) {
       {customer.contract && (
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-body-base font-medium">Hợp đồng</CardTitle>
+            <CardTitle>Hợp đồng</CardTitle>
           </CardHeader>
           <CardContent>
             <dl className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-4">

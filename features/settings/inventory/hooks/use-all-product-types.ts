@@ -5,19 +5,27 @@
  */
 
 import * as React from 'react';
-import { useProductTypes } from './use-product-types';
+import { useQuery } from '@tanstack/react-query';
+import { fetchAllPages } from '@/lib/fetch-all-pages';
+import { fetchProductTypes } from '../api/product-types-api';
+import { productTypeKeys } from './use-product-types';
 import type { ProductTypeSettings } from '@/lib/types/prisma-extended';
 import type { SystemId } from '@/lib/id-types';
 
 /**
  * Returns all product types as a flat array
- * Compatible with legacy store pattern: { data: productTypes }
+ * Auto-pagination: no hardcoded limit cap (MODULE-QUALITY-CRITERIA §1.3)
  */
 export function useAllProductTypes() {
-  const query = useProductTypes({ limit: 50 });
+  const query = useQuery({
+    queryKey: [...productTypeKeys.all, 'all'],
+    queryFn: () => fetchAllPages((p) => fetchProductTypes(p)),
+    staleTime: 10 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+  });
   
   return {
-    data: (query.data?.data || []) as ProductTypeSettings[],
+    data: (query.data || []) as ProductTypeSettings[],
     isLoading: query.isLoading,
     isError: query.isError,
     error: query.error,

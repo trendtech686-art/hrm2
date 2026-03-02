@@ -145,9 +145,9 @@ export async function cancelBatch(
   systemId: string,
   data: CancelBatchInput = {}
 ): Promise<{
-  batch: PayrollBatch;
-  cancelledPayments: string[];
-  rolledBackPenalties: string[];
+  message: string;
+  cancelledPayments: number;
+  rolledBackPenalties: number;
 }> {
   const response = await fetch(`/api/payroll/${systemId}/cancel`, {
     method: 'POST',

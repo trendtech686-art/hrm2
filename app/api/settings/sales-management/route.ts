@@ -4,6 +4,7 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { requireAuth, apiError } from '@/lib/api-utils';
 
 type PrintCopiesOption = '1' | '2' | '3';
 
@@ -47,6 +48,9 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
+  const session = await requireAuth()
+  if (!session) return apiError('Chưa đăng nhập', 401)
+
   try {
     const body = await request.json();
     

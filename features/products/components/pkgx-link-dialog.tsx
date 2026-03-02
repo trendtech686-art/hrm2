@@ -14,8 +14,7 @@ import { VirtualizedCombobox, type ComboboxOption } from '@/components/ui/virtua
 import { useAllProducts } from '../hooks/use-all-products';
 import { useProductMutations } from '../hooks/use-products';
 import type { Product } from '../types';
-import type { PkgxProduct } from '@/features/settings/pkgx/types';
-import { usePkgxSettings, usePkgxProductsMutations } from '@/features/settings/pkgx/hooks/use-pkgx-settings';
+import { usePkgxProductsCache } from '@/features/settings/pkgx/hooks/use-pkgx-settings';
 
 interface PkgxLinkDialogProps {
   open: boolean;
@@ -31,47 +30,20 @@ export function PkgxLinkDialog({
   onSuccess,
 }: PkgxLinkDialogProps) {
   const { update: updateMutation } = useProductMutations();
-  const { data: pkgxSettings } = usePkgxSettings();
-  const { setPkgxProducts: setProducts } = usePkgxProductsMutations();
-  const cachedPkgxProducts = React.useMemo(() => pkgxSettings?.pkgxProducts ?? [], [pkgxSettings?.pkgxProducts]);
+  
+  // Use products cache - loads from /api/pkgx/products-cache on demand
+  const { data: pkgxProductsData, isLoading, refetch } = usePkgxProductsCache();
+  const pkgxProducts = React.useMemo(() => pkgxProductsData?.products ?? [], [pkgxProductsData?.products]);
   
   const [selectedPkgxProduct, setSelectedPkgxProduct] = React.useState<ComboboxOption | null>(null);
-  const [pkgxProducts, setPkgxProductsLocal] = React.useState<PkgxProduct[]>([]);
-  const [isLoading, setIsLoading] = React.useState(false);
   const [isSyncing, setIsSyncing] = React.useState(false);
-  const [hasFetched, setHasFetched] = React.useState(false);
 
-  const loadPkgxProducts = React.useCallback(async () => {
-    setIsLoading(true);
-    try {
-      // fetchPkgxProducts not available - use placeholder
-      const response: any = { success: false, data: null };
-      if (response.success && response.data && response.data.data) {
-        // API trả về { data: PkgxProduct[], pagination: {...} }
-        const productsArray = Array.isArray(response.data.data) ? response.data.data : [];
-        setPkgxProductsLocal(productsArray);
-        setProducts.mutate(productsArray); // Lưu vào store để dùng chung
-        setHasFetched(true);
-      }
-    } catch (error) {
-      console.error('Failed to load PKGX products:', error);
-      toast.error('Không thể tải danh sách sản phẩm PKGX');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [setProducts]);
-
-  // Load PKGX products khi mở dialog - chỉ chạy 1 lần
+  // Load PKGX products khi mở dialog lần đầu
   React.useEffect(() => {
-    if (open && !hasFetched) {
-      if (cachedPkgxProducts && cachedPkgxProducts.length > 0) {
-        setPkgxProductsLocal(cachedPkgxProducts);
-        setHasFetched(true);
-      } else {
-        loadPkgxProducts();
-      }
+    if (open && pkgxProducts.length === 0 && !isLoading) {
+      refetch();
     }
-  }, [open, hasFetched, cachedPkgxProducts, loadPkgxProducts]);
+  }, [open, pkgxProducts.length, isLoading, refetch]);
 
   // Reset state khi đóng dialog
   React.useEffect(() => {
@@ -128,7 +100,7 @@ export function PkgxLinkDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-125">
         <DialogHeader>
           <DialogTitle>Liên kết với sản phẩm PKGX</DialogTitle>
           <DialogDescription>

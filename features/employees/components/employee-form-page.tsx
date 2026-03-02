@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { ArrowLeft, Edit, Loader2 } from 'lucide-react';
 import { usePageHeader } from '@/contexts/page-header-context';
 import { useEmployee, useEmployeeMutations } from '../hooks/use-employees';
-import { useDocumentStore } from '../document-store';
+import { useDocumentMutations } from '../hooks/use-employee-documents';
 import { EmployeeForm, type EmployeeFormSubmitPayload } from './employee-form';
 import { FileUploadAPI } from '@/lib/file-upload-api';
 import { asSystemId } from '@/lib/id-types';
@@ -26,7 +26,7 @@ export function EmployeeFormPage() {
   const { data: employee, isLoading: isLoadingEmployee } = useEmployee(systemId);
   const { create: createMutation, update: updateMutation } = useEmployeeMutations();
   
-  const { updateDocumentFiles, clearStagingDocuments } = useDocumentStore();
+  const { updateDocumentFiles } = useDocumentMutations(systemId);
   const { upsert: upsertPayrollProfile, remove: removePayrollProfile } = usePayrollProfileMutations();
 
   // Handle cancel navigation
@@ -78,7 +78,7 @@ export function EmployeeFormPage() {
       } else {
         // Add new employee
         const newEmployee = await createMutation.mutateAsync(employeeData as Omit<Employee, 'systemId'>);
-        targetEmployeeSystemId = newEmployee.systemId;
+        targetEmployeeSystemId = newEmployee!.systemId;
         
         toast.success("Thêm mới thành công", {
           description: `Đã thêm nhân viên ${employeeData.fullName} vào hệ thống.`,
@@ -127,9 +127,8 @@ export function EmployeeFormPage() {
                   employeeInfo
                 );
                 
-                // Update document store với confirmed files
+                // Update React Query cache with confirmed files
                 updateDocumentFiles(
-                  targetEmployeeSystemId,
                   documentType,
                   documentName,
                   confirmedFiles
@@ -147,8 +146,7 @@ export function EmployeeFormPage() {
             }
           }
           
-          // Clear staging after successful confirmation
-          clearStagingDocuments();
+          // Staging is managed in component state — no global cleanup needed
           
           toast.success("Đã lưu tài liệu thành công!", {
             description: `Tài liệu đã được lưu với tên thông minh.`
@@ -165,8 +163,59 @@ export function EmployeeFormPage() {
       router.push(`/employees/${targetEmployeeSystemId}`);
     } catch (error) {
       console.error('Employee form submission failed:', error);
-      toast.error("Lỗi khi lưu thông tin", {
-        description: error instanceof Error ? error.message : "Lỗi không xác định"
+      
+      // Parse validation errors for better user feedback
+      const errorMessage = error instanceof Error ? error.message : "Lỗi không xác định";
+      
+      // Map field names to Vietnamese labels and tabs
+      const fieldToTabMap: Record<string, { label: string; tab: string }> = {
+        fullName: { label: 'Họ tên', tab: 'Thông tin cá nhân' },
+        dob: { label: 'Ngày sinh', tab: 'Thông tin cá nhân' },
+        gender: { label: 'Giới tính', tab: 'Thông tin cá nhân' },
+        phone: { label: 'Số điện thoại', tab: 'Thông tin cá nhân' },
+        personalEmail: { label: 'Email cá nhân', tab: 'Thông tin cá nhân' },
+        nationalId: { label: 'CCCD/CMND', tab: 'Thông tin cá nhân' },
+        permanentAddress: { label: 'Địa chỉ thường trú', tab: 'Địa chỉ' },
+        temporaryAddress: { label: 'Địa chỉ tạm trú', tab: 'Địa chỉ' },
+        departmentId: { label: 'Phòng ban', tab: 'Thông tin công việc' },
+        branchId: { label: 'Chi nhánh', tab: 'Thông tin công việc' },
+        jobTitleId: { label: 'Chức danh', tab: 'Thông tin công việc' },
+        hireDate: { label: 'Ngày vào làm', tab: 'Thông tin công việc' },
+        workEmail: { label: 'Email công việc', tab: 'Đăng nhập' },
+        password: { label: 'Mật khẩu', tab: 'Đăng nhập' },
+      };
+      
+      // Try to extract field errors from the message
+      const fieldErrors: string[] = [];
+      const affectedTabs = new Set<string>();
+      
+      // Parse error format: "field1: message1, field2: message2"
+      const errorParts = errorMessage.split(', ');
+      for (const part of errorParts) {
+        const colonIdx = part.indexOf(':');
+        if (colonIdx > 0) {
+          const fieldName = part.substring(0, colonIdx).trim();
+          const fieldInfo = fieldToTabMap[fieldName];
+          if (fieldInfo) {
+            fieldErrors.push(`${fieldInfo.label}: ${part.substring(colonIdx + 1).trim()}`);
+            affectedTabs.add(fieldInfo.tab);
+          } else {
+            fieldErrors.push(part);
+          }
+        }
+      }
+      
+      const description = fieldErrors.length > 0
+        ? `${fieldErrors.slice(0, 3).join('\n')}${fieldErrors.length > 3 ? `\n...và ${fieldErrors.length - 3} lỗi khác` : ''}`
+        : errorMessage;
+        
+      const tabHint = affectedTabs.size > 0 
+        ? ` (Kiểm tra tab: ${Array.from(affectedTabs).join(', ')})`
+        : '';
+      
+      toast.error(`Lỗi khi lưu thông tin${tabHint}`, {
+        description,
+        duration: 8000, // Show longer for user to read
       });
     }
   };

@@ -323,11 +323,11 @@ export function InsuranceTaxSettings() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[80px]">Bậc</TableHead>
+                  <TableHead className="w-20">Bậc</TableHead>
                   <TableHead>Từ (đồng)</TableHead>
                   <TableHead>Đến (đồng)</TableHead>
-                  <TableHead className="w-[120px]">Thuế suất (%)</TableHead>
-                  <TableHead className="w-[80px]"></TableHead>
+                  <TableHead className="w-30">Thuế suất (%)</TableHead>
+                  <TableHead className="w-20"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

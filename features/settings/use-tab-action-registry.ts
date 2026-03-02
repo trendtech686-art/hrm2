@@ -10,35 +10,26 @@ export type TabActionRegistry = {
 
 export function useTabActionRegistry(activeTab: string): TabActionRegistry {
   const [headerActions, setHeaderActions] = React.useState<React.ReactNode[]>([]);
-  const lastActionsRef = React.useRef<React.ReactNode[] | null>(null);
-
-  const sameActions = React.useCallback((a: React.ReactNode[] | null, b: React.ReactNode[] | null) => {
-    if (a === b) return true;
-    if (!a || !b) return false;
-    if (a.length !== b.length) return false;
-    for (let i = 0; i < a.length; i += 1) {
-      if (a[i] !== b[i]) return false;
-    }
-    return true;
-  }, []);
+  // Track which tab registered actions last
+  const lastRegisteredTabRef = React.useRef<string | null>(null);
 
   const registerActions = React.useCallback(
     (tabValue: string) => (actions?: React.ReactNode[]) => {
+      const next = actions ?? [];
+      
+      // Always update if this is the active tab
+      // This ensures fresh handlers are used (no stale closures)
       if (tabValue === activeTab) {
-        const next = actions ?? [];
-        if (!sameActions(lastActionsRef.current, next)) {
-          lastActionsRef.current = next;
-          setHeaderActions(next);
-        }
+        lastRegisteredTabRef.current = tabValue;
+        setHeaderActions(next);
       }
     },
-    [activeTab, sameActions],
+    [activeTab],
   );
 
-  React.useEffect(() => {
-    lastActionsRef.current = null;
-    setHeaderActions([]);
-  }, [activeTab]);
+  // Don't clear actions on tab change - let the new active tab overwrite
+  // This avoids race conditions between clearing and registering
+  // The new active tab will call registerActions which will setHeaderActions with fresh content
 
   return {
     headerActions,

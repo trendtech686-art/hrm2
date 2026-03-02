@@ -17,11 +17,16 @@ export function getApiBaseUrl(): string {
 
 /**
  * Get the base URL without /api suffix
- * Falls back to localhost:3001 for development
+ * For client-side: uses window.location.origin
+ * For server-side: falls back to localhost:3000
  */
 export function getBaseUrl(): string {
-  const apiUrl = getApiBaseUrl();
-  return apiUrl.replace('/api', '');
+  // Client-side: use window.location.origin
+  if (typeof window !== 'undefined') {
+    return window.location.origin;
+  }
+  // Server-side: use environment variable or default
+  return process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
 }
 
 /**

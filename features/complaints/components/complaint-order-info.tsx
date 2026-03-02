@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import React from 'react';
 import { useRouter } from 'next/navigation';
@@ -29,7 +29,7 @@ export const ComplaintOrderInfo: React.FC<Props> = React.memo(({ complaint, rela
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg">Thông tin đơn hàng</CardTitle>
+        <CardTitle size="lg">Thông tin đơn hàng</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3 text-sm">
@@ -95,7 +95,7 @@ export const ComplaintOrderInfo: React.FC<Props> = React.memo(({ complaint, rela
           <div className="flex justify-between">
             <span className="text-muted-foreground">Ngày bán:</span>
             <span className="font-medium">
-              {relatedOrder ? formatDateForDisplay(relatedOrder.orderDate) : "N/A"}
+              {relatedOrder?.orderDate ? formatDateForDisplay(relatedOrder.orderDate) : "Chưa có"}
             </span>
           </div>
           <div className="flex justify-between">
@@ -126,16 +126,19 @@ export const ComplaintOrderInfo: React.FC<Props> = React.memo(({ complaint, rela
             <span className="text-muted-foreground">Nhân viên xử lý:</span>
             <button
               onClick={() => {
-                if (complaint.assignedTo) {
-                  router.push(`/employees/${complaint.assignedTo}`);
+                const assigneeOrCreator = complaint.assignedTo || complaint.createdBy;
+                if (assigneeOrCreator) {
+                  router.push(`/employees/${assigneeOrCreator}`);
                 }
               }}
               className="font-medium text-primary hover:underline cursor-pointer disabled:text-muted-foreground disabled:no-underline disabled:cursor-default"
-              disabled={!complaint.assignedTo}
+              disabled={!complaint.assignedTo && !complaint.createdBy}
             >
               {complaint.assignedTo 
                 ? employees.find((e) => e.systemId === complaint.assignedTo)?.fullName || "Chưa xác định"
-                : "Chưa phân công"}
+                : complaint.createdBy
+                  ? `${employees.find((e) => e.systemId === complaint.createdBy)?.fullName || "Người tạo"} (người tạo)`
+                  : "Chưa phân công"}
             </button>
           </div>
         </div>

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react';
 import { useParams } from 'next/navigation';
@@ -19,7 +19,6 @@ const ImagePreviewDialog = React.lazy(() =>
 import { SlaTimer, COMPLAINT_SLA_CONFIGS } from '@/components/SlaTimer';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { useComplaintMutations } from '../hooks/use-complaints';
 import { asSystemId } from '@/lib/id-types';
 import { formatOrderAddress } from '@/features/orders/address-utils';
 import { 
@@ -27,18 +26,13 @@ import {
   complaintStatusColors,
   complaintTypeLabels,
   complaintVerificationLabels,
-  type Complaint,
-  type ComplaintAction,
+  complaintResolutionLabels,
   type ComplaintImage,
-  type ComplaintStatus
+  type ComplaintStatus,
+  type ComplaintResolution,
 } from '../types';
-import { 
-  loadTrackingSettings, 
-  canCustomerComment, 
-  shouldShowEmployeeName,
-  shouldShowTimeline
-} from '../tracking-utils';
-import { usePublicComplaintTracking } from '../hooks/use-public-tracking';
+import { usePublicComplaintTracking, addPublicComment, type PublicCompensationItem } from '../hooks/use-public-tracking';
+import { useQueryClient } from '@tanstack/react-query';
 
 /**
  * Public Complaint Tracking Page
@@ -46,28 +40,21 @@ import { usePublicComplaintTracking } from '../hooks/use-public-tracking';
  */
 export function PublicComplaintTrackingPage() {
   const { complaintId } = useParams<{ complaintId: string }>();
-  const { update: updateMutation } = useComplaintMutations({
-    onSuccess: () => toast.success('Đã cập nhật khiếu nại'),
-    onError: (err) => toast.error(err.message)
-  });
+  const queryClient = useQueryClient();
   
-  const updateComplaint = React.useCallback((systemId: string, data: Partial<Complaint>) => {
-    updateMutation.mutate({ systemId, data });
-  }, [updateMutation]);
-  
-  // Use optimized hook to fetch only necessary data
+  // Use public API hook (no authentication required)
   const { 
     complaint, 
     hotline, 
     companyName,
-    compensationPayment,
-    compensationReceipt,
     comments,
     timelineActions,
     relatedOrder,
+    settings,
+    isLoading,
+    isError,
+    error,
   } = usePublicComplaintTracking(complaintId);
-  
-  const [settings] = React.useState(() => loadTrackingSettings());
   
   // Image preview state
   const [showImagePreview, setShowImagePreview] = React.useState(false);
@@ -76,7 +63,11 @@ export function PublicComplaintTrackingPage() {
   const [imageLoadingStates, setImageLoadingStates] = React.useState<Record<string, boolean>>({});
 
   // Current user (customer in tracking page)
-  const currentUser = { systemId: 'CUSTOMER', name: 'Khách hàng' };
+  const _currentUser = { systemId: 'CUSTOMER', name: 'Khách hàng' };
+
+  // Compensation data (no longer in public API, set to null)
+  const compensationPayment: PublicCompensationItem | null = null;
+  const compensationReceipt: PublicCompensationItem | null = null;
   
   // Calculate status progress (0-100)
   const statusProgress = React.useMemo(() => {
@@ -92,7 +83,7 @@ export function PublicComplaintTrackingPage() {
   }, [complaint]);
   
   // Memoize compensation data for easier access
-  const compensationData = React.useMemo(() => ({
+  const compensationData = React.useMemo<{ payment: PublicCompensationItem | null; receipt: PublicCompensationItem | null }>(() => ({
     payment: compensationPayment,
     receipt: compensationReceipt,
   }), [compensationPayment, compensationReceipt]);
@@ -139,25 +130,18 @@ export function PublicComplaintTrackingPage() {
     toast.error('Không thể tải hình ảnh');
   }, []);
 
-  // Comment handlers
-  const handleAddComment = React.useCallback((content: string, contentText: string, attachments: string[], mentions: string[]) => {
-    if (!complaint) return;
-    
-    const newAction: ComplaintAction = {
-      id: asSystemId(`action_${Date.now()}`),
-      actionType: 'commented',
-      performedBy: asSystemId(currentUser.systemId),
-      performedAt: new Date(),
-      note: contentText,
-      images: attachments,
-      metadata: mentions.length > 0 ? { mentions } : {},
-    };
-    
-    updateComplaint(complaint.systemId, {
-      timeline: [...complaint.timeline, newAction],
-    } as Partial<Complaint>);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- currentUser is a stable constant defined in component
-  }, [complaint, updateComplaint]);
+  // Comment handlers - use public API
+  const handleAddComment = React.useCallback(async (content: string, _contentText: string, _attachments: string[], _mentions: string[]) => {
+    if (!complaintId) return;
+    try {
+      await addPublicComment(complaintId, content);
+      toast.success('Đã gửi bình luận');
+      // Refetch tracking data
+      queryClient.invalidateQueries({ queryKey: ['public-complaint-tracking', complaintId] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Lỗi gửi bình luận');
+    }
+  }, [complaintId, queryClient]);
 
   const handleEditComment = React.useCallback((_commentId: string, _content: string, _contentText: string) => {
     // Not supported in public tracking
@@ -201,20 +185,36 @@ export function PublicComplaintTrackingPage() {
   
   const StatusIcon = complaint ? getStatusIcon(complaint.status) : AlertCircle;
 
-  // Check if tracking is enabled
-  if (!settings.enabled) {
+  // Loading state
+  if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
+      <div className="flex min-h-screen items-center justify-center bg-background px-4">
+        <div className="space-y-4 w-full max-w-2xl">
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-40 w-full" />
+          <Skeleton className="h-60 w-full" />
+        </div>
+      </div>
+    );
+  }
+
+  // Error or tracking disabled
+  if (isError || !settings.enabled) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background px-4">
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-orange-600">
               <AlertCircle className="h-5 w-5" />
-              Tính năng tạm thời không khả dụng
+              {isError ? 'Lỗi tải dữ liệu' : 'Tính năng tạm thời không khả dụng'}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground">
-              Tính năng theo dõi công khai hiện đang tắt. Vui lòng liên hệ bộ phận hỗ trợ để được hỗ trợ.
+              {isError 
+                ? (error instanceof Error ? error.message : 'Đã xảy ra lỗi khi tải thông tin khiếu nại')
+                : 'Tính năng theo dõi công khai hiện đang tắt. Vui lòng liên hệ bộ phận hỗ trợ để được hỗ trợ.'
+              }
             </p>
           </CardContent>
         </Card>
@@ -225,7 +225,7 @@ export function PublicComplaintTrackingPage() {
   // Not found
   if (!complaint) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
+      <div className="flex min-h-screen items-center justify-center bg-background px-4">
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-destructive">
@@ -249,45 +249,52 @@ export function PublicComplaintTrackingPage() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header với branding */}
-      <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-14 max-w-screen-2xl items-center">
-          <div className="flex flex-1 items-center justify-between">
+      <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
+        <div className="container flex h-14 max-w-screen-2xl items-center px-4 sm:px-6">
+          <div className="flex flex-1 items-center justify-between gap-2">
             {/* Logo + Company Name */}
             <div className="flex items-center gap-2">
-              <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary/10">
-                <Package className="h-5 w-5 text-primary" />
+              <div className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-md bg-primary/10">
+                <Package className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
               </div>
-              <div className="hidden sm:block">
-                <p className="text-sm font-medium leading-none">{companyName}</p>
-                <p className="text-xs text-muted-foreground">Hệ thống theo dõi khiếu nại</p>
+              <div>
+                <p className="text-xs sm:text-sm font-medium leading-none">{companyName}</p>
+                <p className="text-[10px] sm:text-xs text-muted-foreground hidden xs:block">Hệ thống theo dõi khiếu nại</p>
               </div>
             </div>
             
             {/* Tracking Code */}
             <div className="text-right">
-              <p className="text-xs text-muted-foreground">Mã tra cứu</p>
-              <p className="font-mono text-sm font-semibold">{complaint.publicTrackingCode || complaint.id}</p>
+              <p className="text-[10px] sm:text-xs text-muted-foreground">Mã tra cứu</p>
+              <p className="font-mono text-xs sm:text-sm font-semibold">{complaint.publicTrackingCode || complaint.id}</p>
             </div>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <div className="container max-w-screen-2xl py-6 lg:py-8">
-        <div className="space-y-6">
+      <div className="container max-w-screen-2xl px-4 sm:px-6 py-4 sm:py-6 lg:py-8">
+        <div className="space-y-4 sm:space-y-6">
+        
+        {/* Complaint Title */}
+        {complaint.title && (
+          <div>
+            <h1 className="text-lg sm:text-xl font-semibold">{complaint.title}</h1>
+          </div>
+        )}
         
         {/* Status Card với progress */}
-        <Card className="border-l-4" style={{ borderLeftColor: complaintStatusColors[complaint.status] }}>
-          <CardContent className="p-6">
-            <div className="space-y-6">
+        <Card className="border-l-4" style={{ borderLeftColor: complaintStatusColors[complaint.status] || '#6b7280' }}>
+          <CardContent className="p-4 sm:p-6">
+            <div className="space-y-4 sm:space-y-6">
               {/* Status Header */}
-              <div className="flex items-start justify-between gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
                 <div className="flex-1 space-y-1">
                   <div className="flex items-center gap-2">
-                    <StatusIcon className="h-5 w-5 shrink-0" style={{ color: complaintStatusColors[complaint.status] }} />
-                    <h2 className="text-2xl font-bold tracking-tight">{complaintStatusLabels[complaint.status]}</h2>
+                    <StatusIcon className="h-5 w-5 shrink-0" style={{ color: complaintStatusColors[complaint.status] || '#6b7280' }} />
+                    <h2 className="text-xl sm:text-2xl font-bold tracking-tight">{complaintStatusLabels[complaint.status] || complaint.status}</h2>
                   </div>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-xs sm:text-sm text-muted-foreground">
                     Khiếu nại #{complaint.id} • Tạo lúc {formatDateTimeForDisplay(complaint.createdAt)}
                   </p>
                 </div>
@@ -331,25 +338,25 @@ export function PublicComplaintTrackingPage() {
         
         {/* Order Information */}
         <Card>
-          <CardHeader>
+          <CardHeader className="pb-3 sm:pb-4">
             <CardTitle className="flex items-center gap-2">
               <Receipt className="h-5 w-5" />
-              Thông tin đơn hàng
+              Thông tin khiếu nại
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid gap-4 text-sm sm:grid-cols-2">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Loại khiếu nại:</span>
-                <span className="font-medium">{complaintTypeLabels[complaint.type]}</span>
+            <div className="grid gap-3 text-sm sm:grid-cols-2">
+              <div className="flex justify-between gap-2">
+                <span className="text-muted-foreground shrink-0">Loại khiếu nại:</span>
+                <span className="font-medium text-right">{complaintTypeLabels[complaint.type] || complaint.type}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Trạng thái xác minh:</span>
-                <span className="font-medium">{complaintVerificationLabels[complaint.verification]}</span>
+              <div className="flex justify-between gap-2">
+                <span className="text-muted-foreground shrink-0">Trạng thái xác minh:</span>
+                <span className="font-medium text-right">{complaintVerificationLabels[complaint.verification] || complaint.verification}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Ngày tạo:</span>
-                <span className="font-medium">
+              <div className="flex justify-between gap-2">
+                <span className="text-muted-foreground shrink-0">Ngày tạo:</span>
+                <span className="font-medium text-right">
                   {new Date(complaint.createdAt).toLocaleDateString('vi-VN', {
                     year: 'numeric',
                     month: '2-digit',
@@ -359,10 +366,24 @@ export function PublicComplaintTrackingPage() {
                   })}
                 </span>
               </div>
+              {complaint.resolvedAt && (
+                <div className="flex justify-between gap-2">
+                  <span className="text-muted-foreground shrink-0">Ngày giải quyết:</span>
+                  <span className="font-medium text-right">
+                    {new Date(complaint.resolvedAt).toLocaleDateString('vi-VN', {
+                      year: 'numeric',
+                      month: '2-digit',
+                      day: '2-digit',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </span>
+                </div>
+              )}
               {complaint.endedAt && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Ngày kết thúc:</span>
-                  <span className="font-medium">
+                <div className="flex justify-between gap-2">
+                  <span className="text-muted-foreground shrink-0">Ngày kết thúc:</span>
+                  <span className="font-medium text-right">
                     {new Date(complaint.endedAt).toLocaleDateString('vi-VN', {
                       year: 'numeric',
                       month: '2-digit',
@@ -373,69 +394,166 @@ export function PublicComplaintTrackingPage() {
                   </span>
                 </div>
               )}
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Mã đơn hàng:</span>
-                <span className="font-medium">{complaint.orderCode || complaint.orderSystemId}</span>
+              <div className="flex justify-between gap-2">
+                <span className="text-muted-foreground shrink-0">Khách hàng:</span>
+                <span className="font-medium text-right">{complaint.customerName || 'Không rõ'}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Mã vận đơn:</span>
-                <span className="font-medium">
-                  {relatedOrder?.packagings?.[0]?.trackingCode || 'Chưa có'}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Khách hàng:</span>
-                <span className="font-medium">{complaint.customerName}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Số điện thoại:</span>
-                <span className="font-medium">{complaint.customerPhone}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Địa chỉ giao hàng:</span>
-                <span className="font-medium text-right">{formatOrderAddress(relatedOrder?.shippingAddress) || 'Chưa có'}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Người tạo đơn:</span>
-                <span className="font-medium">{relatedOrder?.salesperson || 'Chưa có'}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Ngày bán:</span>
-                <span className="font-medium">
-                  {relatedOrder ? formatDateForDisplay(relatedOrder.orderDate) : 'N/A'}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Giá trị đơn:</span>
-                <span className="font-medium">
-                  {complaint.orderValue ? complaint.orderValue.toLocaleString('vi-VN') : (relatedOrder?.grandTotal || 0).toLocaleString('vi-VN')} đ
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Thời gian giao hàng:</span>
-                <span className="font-medium">
-                  {relatedOrder?.expectedDeliveryDate ? formatDateForDisplay(relatedOrder.expectedDeliveryDate) : 'Chưa có'}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Thời gian xuất kho:</span>
-                <span className="font-medium">
-                  {relatedOrder?.packagings?.[0]?.requestDate ? formatDateForDisplay(relatedOrder.packagings[0].requestDate) : 'Chưa xuất'}
-                </span>
-              </div>
+              {complaint.customerPhone && (
+                <div className="flex justify-between gap-2">
+                  <span className="text-muted-foreground shrink-0">Số điện thoại:</span>
+                  <span className="font-medium text-right">{complaint.customerPhone}</span>
+                </div>
+              )}
+              {complaint.customerEmail && (
+                <div className="flex justify-between gap-2">
+                  <span className="text-muted-foreground shrink-0">Email:</span>
+                  <span className="font-medium text-right">{complaint.customerEmail}</span>
+                </div>
+              )}
+              {(complaint.orderCode || complaint.orderSystemId) && (
+                <div className="flex justify-between gap-2">
+                  <span className="text-muted-foreground shrink-0">Mã đơn hàng:</span>
+                  <span className="font-medium text-right">{complaint.orderCode || complaint.orderSystemId}</span>
+                </div>
+              )}
+              {complaint.orderValue != null && complaint.orderValue > 0 && (
+                <div className="flex justify-between gap-2">
+                  <span className="text-muted-foreground shrink-0">Giá trị đơn:</span>
+                  <span className="font-medium text-right">
+                    {complaint.orderValue.toLocaleString('vi-VN')} đ
+                  </span>
+                </div>
+              )}
+              {complaint.branchName && (
+                <div className="flex justify-between gap-2">
+                  <span className="text-muted-foreground shrink-0">Chi nhánh:</span>
+                  <span className="font-medium text-right">{complaint.branchName}</span>
+                </div>
+              )}
+              {settings.showEmployeeName && complaint.assigneeName && (
+                <div className="flex justify-between gap-2">
+                  <span className="text-muted-foreground shrink-0">Người xử lý:</span>
+                  <span className="font-medium text-right">{complaint.assigneeName}</span>
+                </div>
+              )}
             </div>
 
-            <div className="space-y-2 border-t pt-4">
+            {/* Related Order Details - only show when linked order exists and setting enabled */}
+            {settings.showOrderInfo && relatedOrder && (
+              <div className="space-y-3 border-t pt-4">
+                <p className="text-sm font-medium">Chi tiết đơn hàng liên quan</p>
+                <div className="grid gap-3 text-sm sm:grid-cols-2">
+                  {relatedOrder?.packagings?.[0]?.trackingCode && (
+                    <div className="flex justify-between gap-2">
+                      <span className="text-muted-foreground shrink-0">Mã vận đơn:</span>
+                      <span className="font-medium text-right">{relatedOrder.packagings[0].trackingCode}</span>
+                    </div>
+                  )}
+                  {relatedOrder?.shippingAddress && (
+                    <div className="flex justify-between gap-2">
+                      <span className="text-muted-foreground shrink-0">Địa chỉ giao hàng:</span>
+                      <span className="font-medium text-right">{formatOrderAddress(relatedOrder.shippingAddress)}</span>
+                    </div>
+                  )}
+                  {relatedOrder?.salesperson && (
+                    <div className="flex justify-between gap-2">
+                      <span className="text-muted-foreground shrink-0">Người tạo đơn:</span>
+                      <span className="font-medium text-right">{relatedOrder.salesperson}</span>
+                    </div>
+                  )}
+                  {relatedOrder?.orderDate && (
+                    <div className="flex justify-between gap-2">
+                      <span className="text-muted-foreground shrink-0">Ngày bán:</span>
+                      <span className="font-medium text-right">{formatDateForDisplay(relatedOrder.orderDate)}</span>
+                    </div>
+                  )}
+                  {relatedOrder?.grandTotal != null && relatedOrder.grandTotal > 0 && (
+                    <div className="flex justify-between gap-2">
+                      <span className="text-muted-foreground shrink-0">Giá trị đơn hàng:</span>
+                      <span className="font-medium text-right">
+                        {relatedOrder.grandTotal.toLocaleString('vi-VN')} đ
+                      </span>
+                    </div>
+                  )}
+                  {relatedOrder?.expectedDeliveryDate && (
+                    <div className="flex justify-between gap-2">
+                      <span className="text-muted-foreground shrink-0">Dự kiến giao:</span>
+                      <span className="font-medium text-right">{formatDateForDisplay(relatedOrder.expectedDeliveryDate)}</span>
+                    </div>
+                  )}
+                  {relatedOrder?.packagings?.[0]?.requestDate && (
+                    <div className="flex justify-between gap-2">
+                      <span className="text-muted-foreground shrink-0">Ngày xuất kho:</span>
+                      <span className="font-medium text-right">{formatDateForDisplay(relatedOrder.packagings[0].requestDate)}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-3 border-t pt-4">
               <p className="text-sm font-medium text-muted-foreground">Mô tả khiếu nại</p>
               <p className="text-sm leading-relaxed whitespace-pre-wrap">{complaint.description}</p>
-              {complaint.resolutionNote && (<p className="text-sm leading-relaxed whitespace-pre-wrap">{complaint.resolutionNote}</p> )}
-    
             </div>
+
+            {/* Kết quả xử lý */}
+            {settings.showResolution && (complaint.resolution || complaint.resolutionNote || complaint.investigationNote || complaint.proposedSolution) && (
+              <div className="space-y-3 border-t pt-4">
+                <p className="text-sm font-semibold flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-600" />
+                  Kết quả xử lý
+                </p>
+                
+                {complaint.resolution && (
+                  <div className="flex justify-between gap-2">
+                    <span className="text-muted-foreground shrink-0 text-sm">Phương án:</span>
+                    <span className="font-medium text-sm text-right">{complaintResolutionLabels[complaint.resolution as ComplaintResolution] || complaint.resolution}</span>
+                  </div>
+                )}
+
+                {complaint.compensationAmount != null && complaint.compensationAmount > 0 && (
+                  <div className="flex justify-between gap-2">
+                    <span className="text-muted-foreground shrink-0 text-sm">Số tiền bồi thường:</span>
+                    <span className="font-semibold text-sm text-right text-red-600">
+                      {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(complaint.compensationAmount)}
+                    </span>
+                  </div>
+                )}
+
+                {complaint.compensationDescription && (
+                  <div className="space-y-1.5">
+                    <p className="text-sm text-muted-foreground">Nội dung bồi thường</p>
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap rounded-md bg-red-50 dark:bg-red-950/20 p-3 border border-red-200 dark:border-red-900">{complaint.compensationDescription}</p>
+                  </div>
+                )}
+
+                {complaint.resolutionNote && (
+                  <div className="space-y-1.5">
+                    <p className="text-sm text-muted-foreground">Ghi chú giải quyết</p>
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap rounded-md bg-green-50 dark:bg-green-950/20 p-3 border border-green-200 dark:border-green-900">{complaint.resolutionNote}</p>
+                  </div>
+                )}
+
+                {complaint.investigationNote && (
+                  <div className="space-y-1.5">
+                    <p className="text-sm text-muted-foreground">Ghi chú kiểm tra</p>
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap rounded-md bg-blue-50 dark:bg-blue-950/20 p-3 border border-blue-200 dark:border-blue-900">{complaint.investigationNote}</p>
+                  </div>
+                )}
+
+                {complaint.proposedSolution && (
+                  <div className="space-y-1.5">
+                    <p className="text-sm text-muted-foreground">Đề xuất giải pháp</p>
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap rounded-md bg-amber-50 dark:bg-amber-950/20 p-3 border border-amber-200 dark:border-amber-900">{complaint.proposedSolution}</p>
+                  </div>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
         
         {/* Timeline - Lịch sử xử lý */}
-        {shouldShowTimeline() && timelineActions.length > 0 && (
+        {settings.showTimeline && timelineActions.length > 0 && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -460,11 +578,11 @@ export function PublicComplaintTrackingPage() {
                       </div>
                       
                       <div className="space-y-1">
-                        <div className="flex items-center justify-between gap-2">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-2">
                           <p className="text-sm font-medium">{getActionLabel(action.actionType)}</p>
-                          <p className="text-xs text-muted-foreground">
+                          <p className="text-xs text-muted-foreground whitespace-nowrap">
                             {formatDateTimeForDisplay(action.performedAt)}
-                            {shouldShowEmployeeName() && action.performedBy && ` • ${action.performedBy}`}
+                            {settings.showEmployeeName && (action.performedByName || action.performedBy) && ` • ${action.performedByName || action.performedBy}`}
                           </p>
                         </div>
                         {action.note && (
@@ -506,11 +624,11 @@ export function PublicComplaintTrackingPage() {
         )}
 
         {/* Affected Products - Bê nguyên component từ detail page */}
-        {complaint.affectedProducts && complaint.affectedProducts.length > 0 && (
+        {settings.showProducts && complaint.affectedProducts && complaint.affectedProducts.length > 0 && (
           <>
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                <CardTitle size="lg" className="flex items-center gap-2">
                   <Package className="h-5 w-5" />
                   Sản phẩm bị ảnh hưởng
                 </CardTitle>
@@ -548,8 +666,22 @@ export function PublicComplaintTrackingPage() {
                     
                     return (
                       <div key={idx} className="border rounded-lg p-3 space-y-2 bg-card">
-                        <div className="font-medium text-sm">{item.productName}</div>
-                        <div className="text-xs text-muted-foreground">{item.productId}</div>
+                        <div className="flex items-start gap-3">
+                          {item.productImage && (
+                            <div className="h-12 w-12 shrink-0 rounded-md overflow-hidden border bg-muted">
+                              <img
+                                src={item.productImage}
+                                alt={item.productName}
+                                className="h-full w-full object-cover"
+                                loading="lazy"
+                              />
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-sm truncate">{item.productName}</div>
+                            <div className="text-xs text-muted-foreground">{item.productBusinessId || item.productId}</div>
+                          </div>
+                        </div>
                         
                         <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t">
                           <div>
@@ -618,7 +750,7 @@ export function PublicComplaintTrackingPage() {
                   <table className="w-full text-sm">
                     <thead className="bg-muted/50 border-b">
                       <tr>
-                        <th className="text-left p-2 font-medium min-w-[180px]">Sản phẩm</th>
+                        <th className="text-left p-2 font-medium min-w-45">Sản phẩm</th>
                         <th className="text-right p-2 font-medium w-24">Đơn giá</th>
                         <th className="text-center p-2 font-medium w-20">SL đặt</th>
                         <th className="text-left p-2 font-medium w-28">Loại</th>
@@ -627,7 +759,7 @@ export function PublicComplaintTrackingPage() {
                         <th className="text-center p-2 font-medium w-20">Thiếu</th>
                         <th className="text-center p-2 font-medium w-20">Hỏng</th>
                         <th className="text-right p-2 font-medium w-28">Tổng tiền</th>
-                        <th className="text-left p-2 font-medium min-w-[150px]">Ghi chú</th>
+                        <th className="text-left p-2 font-medium min-w-37">Ghi chú</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -662,8 +794,22 @@ export function PublicComplaintTrackingPage() {
                         return (
                           <tr key={idx} className="border-b last:border-0">
                             <td className="p-2">
-                              <div className="font-medium text-sm">{item.productName}</div>
-                              <div className="text-xs text-muted-foreground">{item.productId}</div>
+                              <div className="flex items-center gap-2">
+                                {item.productImage && (
+                                  <div className="h-10 w-10 shrink-0 rounded-md overflow-hidden border bg-muted">
+                                    <img
+                                      src={item.productImage}
+                                      alt={item.productName}
+                                      className="h-full w-full object-cover"
+                                      loading="lazy"
+                                    />
+                                  </div>
+                                )}
+                                <div className="min-w-0">
+                                  <div className="font-medium text-sm truncate">{item.productName}</div>
+                                  <div className="text-xs text-muted-foreground">{item.productBusinessId || item.productId}</div>
+                                </div>
+                              </div>
                             </td>
                             <td className="p-2 text-right text-sm">
                               {(item.unitPrice || 0).toLocaleString('vi-VN')}đ
@@ -714,7 +860,7 @@ export function PublicComplaintTrackingPage() {
             {/* Tổng kết sản phẩm bị ảnh hưởng */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                <CardTitle size="lg" className="flex items-center gap-2">
                   <AlertTriangle className="h-5 w-5" />
                   Tổng kết sản phẩm bị ảnh hưởng
                 </CardTitle>
@@ -816,7 +962,7 @@ export function PublicComplaintTrackingPage() {
         {compensationData && (compensationData.payment || compensationData.receipt) && (
           <Card>
             <CardHeader className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 md:py-5">
-              <CardTitle className="text-sm sm:text-base md:text-lg font-semibold flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2">
                 <Receipt className="h-4 w-4 sm:h-5 sm:w-5 shrink-0" />
                 Thông tin bù trừ
               </CardTitle>
@@ -890,10 +1036,10 @@ export function PublicComplaintTrackingPage() {
         )}
 
         {/* Customer Images */}
-        {complaint.images && complaint.images.filter(img => img.type === 'initial').length > 0 && (
+        {settings.showImages && complaint.images && complaint.images.filter(img => img.type === 'initial').length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle className="text-base sm:text-lg font-semibold flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2">
                 <ImageIcon className="h-5 w-5" />
                 Hình ảnh từ khách hàng ({complaint.images.filter(img => img.type === 'initial').length})
               </CardTitle>
@@ -935,10 +1081,10 @@ export function PublicComplaintTrackingPage() {
         )}
 
         {/* Employee Images */}
-        {complaint.employeeImages && complaint.employeeImages.length > 0 && (
+        {settings.showImages && complaint.employeeImages && complaint.employeeImages.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle className="text-base sm:text-lg font-semibold flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2">
                 <ImageIcon className="h-5 w-5" />
                 Hình ảnh kiểm tra từ nhân viên ({complaint.employeeImages.length})
               </CardTitle>
@@ -978,17 +1124,17 @@ export function PublicComplaintTrackingPage() {
         )}
 
         {/* Video Links */}
-        {(complaint as Complaint & { videoLinks?: string }).videoLinks && ((complaint as Complaint & { videoLinks?: string }).videoLinks?.trim().length ?? 0) > 0 && (
+        {complaint.videoLinks && (complaint.videoLinks?.trim().length ?? 0) > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle className="text-base sm:text-lg font-semibold flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2">
                 <ImageIcon className="h-5 w-5" />
                 Video bằng chứng
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {((complaint as Complaint & { videoLinks?: string }).videoLinks || '').split('\n').filter((link: string) => link.trim()).map((link: string, idx: number) => {
+                {(complaint.videoLinks || '').split('\n').filter((link: string) => link.trim()).map((link: string, idx: number) => {
                   const trimmedLink = link.trim();
                   const isGoogleDrive = trimmedLink.includes('drive.google.com');
                   const isYouTube = trimmedLink.includes('youtube.com') || trimmedLink.includes('youtu.be');
@@ -1046,7 +1192,7 @@ export function PublicComplaintTrackingPage() {
         )}
 
         {/* Customer Comments */}
-        {canCustomerComment() && (
+        {settings.allowCustomerComments && (
           <Comments
             entityType="complaint"
             entityId={complaint.systemId}
@@ -1083,15 +1229,15 @@ export function PublicComplaintTrackingPage() {
         )}
 
         {/* Footer */}
-        <footer className="space-y-3 py-8 text-center">
+        <footer className="space-y-2 sm:space-y-3 py-6 sm:py-8 text-center">
           <div className="flex items-center justify-center gap-2 text-muted-foreground">
             <Package className="h-4 w-4" />
-            <p className="text-sm">{companyName}</p>
+            <p className="text-xs sm:text-sm">{companyName}</p>
           </div>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-xs sm:text-sm text-muted-foreground">
             Có thắc mắc? Liên hệ hotline: <a href={`tel:${hotline}`} className="font-semibold transition-colors hover:text-primary">{hotline}</a>
           </p>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-[10px] sm:text-xs text-muted-foreground">
             © {new Date().getFullYear()} {companyName}. Mã khiếu nại: <span className="font-mono">{complaint.id}</span>
           </p>
         </footer>

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * ID Counter Settings Page
  * 
  * Centralized management for:
@@ -48,34 +48,24 @@ import {
   ID_CONFIG, 
   getEntityCategories, 
   type EntityType,
-} from '../../../lib/id-config';
+} from '../../../lib/id-config-constants'; // ✅ Client-safe import
 
 // ✅ Import reusable components
 import { StatsCard } from '../../../components/settings/stats-card';
 import { CounterTable, type CounterTableRow } from '../../../components/settings/counter-table';
 import { IDTester } from '../../../components/settings/id-tester';
 
-// Import React Query hooks
-import { useEmployees } from '../../employees/hooks/use-employees';
-import { useCustomers } from '../../customers/hooks/use-customers';
-import { useComplaints } from '../../complaints/hooks/use-complaints';
-import { useWarranties } from '../../warranty/hooks/use-warranties';
-import { useOrders } from '../../orders/hooks/use-orders';
-import { useProducts } from '../../products/hooks/use-products';
+// Import React Query hooks - only for small datasets
 import { useBranches } from '../branches/hooks/use-branches';
 import { useDepartments } from '../departments/hooks/use-departments';
 import { useJobTitles } from '../job-titles/hooks/use-job-titles';
-import { usePenalties } from '../penalties/hooks/use-penalties';
-import { useLeaves } from '../../leaves/hooks/use-leaves';
-import { useSuppliers } from '../../suppliers/hooks/use-suppliers';
-import { usePurchaseOrders } from '../../purchase-orders/hooks/use-purchase-orders';
-import { usePurchaseReturns } from '../../purchase-returns/hooks/use-purchase-returns';
-import { useInventoryReceipts } from '../../inventory-receipts/hooks/use-inventory-receipts';
 import { useReceiptTypes } from '../receipt-types/hooks/use-receipt-types';
 import { usePaymentTypes } from '../payments/types/hooks/use-payment-types';
-import { usePaymentMethods } from '../payments/hooks/use-payment-methods';
+import { usePaymentMethods } from '../payments/methods/hooks/use-payment-methods';
 import { useProvinces } from '../provinces/hooks/use-provinces';
 import { useUnits } from '../units/hooks/use-units';
+// 🚀 Use counts API instead of loading all data
+import { useEntityCounts } from '../../../hooks/api/use-entity-counts';
 
 // ✅ Update interface to match component
 interface CounterInfo extends CounterTableRow {
@@ -98,22 +88,13 @@ export function IDCounterSettingsPage() {
     ],
   });
 
-  // Fetch data from React Query hooks
-  const { data: employeesData } = useEmployees({ limit: 10000 });
-  const { data: customersData } = useCustomers({ limit: 10000 });
-  const { data: complaintsData } = useComplaints({ limit: 10000 });
-  const { data: warrantiesData } = useWarranties({ limit: 10000 });
-  const { data: ordersData } = useOrders({ limit: 10000 });
-  const { data: productsData } = useProducts({ limit: 10000 });
+  // 🚀 OPTIMIZED: Use single API call for counts instead of loading all data
+  const { data: entityCounts } = useEntityCounts();
+  
+  // Only load small datasets that need all data
   const { data: branchesData } = useBranches();
   const { data: departmentsData } = useDepartments();
   const { data: jobTitlesData } = useJobTitles();
-  const { data: penaltiesData } = usePenalties({ limit: 10000 });
-  const { data: leavesData } = useLeaves({ limit: 10000 });
-  const { data: suppliersData } = useSuppliers({ limit: 10000 });
-  const { data: purchaseOrdersData } = usePurchaseOrders({ limit: 10000 });
-  const { data: purchaseReturnsData } = usePurchaseReturns({ limit: 10000 });
-  const { data: inventoryReceiptsData } = useInventoryReceipts({ limit: 10000 });
   const { data: receiptTypesData } = useReceiptTypes();
   const { data: paymentTypesData } = usePaymentTypes();
   const { data: paymentMethodsData } = usePaymentMethods();
@@ -124,27 +105,49 @@ export function IDCounterSettingsPage() {
   const counterData = React.useMemo((): CounterInfo[] => {
     const data: CounterInfo[] = [];
     
-    // Helper to add counter info
-    const addCounter = (
+    // Helper to add counter info from counts API
+    const addCounterFromStats = (
       entityType: EntityType,
-      counter: number,
+      stats?: { count: number; lastId?: string }
+    ) => {
+      const config = ID_CONFIG[entityType];
+      if (!config || !stats) return;
+      
+      const nextId = `${config.prefix}${String(stats.count + 1).padStart(config.digitCount, '0')}`;
+      
+      // Health check
+      let health: 'good' | 'warning' | 'error' = 'good';
+      if (stats.count > 0 && !stats.lastId) health = 'warning';
+      
+      data.push({
+        entityType,
+        config,
+        currentCounter: stats.count,
+        totalItems: stats.count,
+        nextId,
+        lastCreated: stats.lastId,
+        health,
+      });
+    };
+
+    // Helper for small datasets loaded directly
+    const addCounterFromData = (
+      entityType: EntityType,
       items: unknown[],
       lastItem?: { id?: string }
     ) => {
       const config = ID_CONFIG[entityType];
       if (!config) return;
       
-      const nextId = `${config.prefix}${String(counter + 1).padStart(config.digitCount, '0')}`;
+      const nextId = `${config.prefix}${String(items.length + 1).padStart(config.digitCount, '0')}`;
       
-      // Health check
       let health: 'good' | 'warning' | 'error' = 'good';
-      if (items.length > 0 && counter === 0) health = 'warning';
-      if (items.length > counter + 10) health = 'warning'; // Counter too low
+      if (items.length > 0 && !lastItem?.id) health = 'warning';
       
       data.push({
         entityType,
         config,
-        currentCounter: counter,
+        currentCounter: items.length,
         totalItems: items.length,
         nextId,
         lastCreated: lastItem?.id,
@@ -152,103 +155,60 @@ export function IDCounterSettingsPage() {
       });
     };
 
-    // Employees
-    const employees = employeesData?.data ?? [];
-    addCounter('employees', 0, employees, employees[employees.length - 1]);
+    // Use counts API for large entities
+    if (entityCounts) {
+      addCounterFromStats('employees', entityCounts.employees);
+      addCounterFromStats('customers', entityCounts.customers);
+      addCounterFromStats('complaints', entityCounts.complaints);
+      addCounterFromStats('warranty', entityCounts.warranties);
+      addCounterFromStats('orders', entityCounts.orders);
+      addCounterFromStats('products', entityCounts.products);
+      addCounterFromStats('penalties', entityCounts.penalties);
+      addCounterFromStats('leaves', entityCounts.leaves);
+      addCounterFromStats('suppliers', entityCounts.suppliers);
+      addCounterFromStats('purchase-orders', entityCounts.purchaseOrders);
+      addCounterFromStats('purchase-returns', entityCounts.purchaseReturns);
+      addCounterFromStats('inventory-receipts', entityCounts.inventoryReceipts);
+    }
 
-    // Customers
-    const customers = customersData?.data ?? [];
-    addCounter('customers', 0, customers, customers[customers.length - 1]);
-
-    // Complaints
-    const complaints = complaintsData?.data ?? [];
-    addCounter('complaints', 0, complaints, complaints[complaints.length - 1]);
-
-    // Warranty
-    const warranties = warrantiesData?.data ?? [];
-    addCounter('warranty', 0, warranties, warranties[warranties.length - 1]);
-
-    // Orders
-    const orders = ordersData?.data ?? [];
-    addCounter('orders', 0, orders, orders[orders.length - 1]);
-
-    // Products
-    const products = productsData?.data ?? [];
-    addCounter('products', 0, products, products[products.length - 1]);
-
-    // Branches
-    const branches = (branchesData as any)?.data ?? branchesData ?? [];
-    addCounter('branches', 0, branches as any, branches[branches.length - 1]);
+    // Small datasets - load directly
+    const branches = (branchesData as { data?: { id?: string }[] } | undefined)?.data ?? (branchesData as { id?: string }[] | undefined) ?? [];
+    addCounterFromData('branches', branches, branches[branches.length - 1]);
 
     // Departments
-    const departments = (departmentsData as any)?.data ?? departmentsData ?? [];
-    addCounter('departments', 0, departments as any, departments[departments.length - 1]);
+    const departments = (departmentsData as { data?: { id?: string }[] } | undefined)?.data ?? (departmentsData as { id?: string }[] | undefined) ?? [];
+    addCounterFromData('departments', departments, departments[departments.length - 1]);
 
     // Job Titles
-    const jobTitles = (jobTitlesData as any)?.data ?? jobTitlesData ?? [];
-    addCounter('job-titles', 0, jobTitles as any, jobTitles[jobTitles.length - 1]);
-
-    // Penalties
-    const penalties = penaltiesData?.data ?? [];
-    addCounter('penalties', 0, penalties, penalties[penalties.length - 1]);
-
-    // Leaves
-    const leaves = leavesData?.data ?? [];
-    addCounter('leaves', 0, leaves, leaves[leaves.length - 1]);
-
-    // Suppliers
-    const suppliers = suppliersData?.data ?? [];
-    addCounter('suppliers', 0, suppliers, suppliers[suppliers.length - 1]);
-
-    // Purchase Orders
-    const purchaseOrders = purchaseOrdersData?.data ?? [];
-    addCounter('purchase-orders', 0, purchaseOrders, purchaseOrders[purchaseOrders.length - 1]);
-
-    // Purchase Returns
-    const purchaseReturns = purchaseReturnsData?.data ?? [];
-    addCounter('purchase-returns', 0, purchaseReturns, purchaseReturns[purchaseReturns.length - 1]);
-
-    // Inventory Receipts
-    const inventoryReceipts = inventoryReceiptsData?.data ?? [];
-    addCounter('inventory-receipts', 0, inventoryReceipts, inventoryReceipts[inventoryReceipts.length - 1]);
+    const jobTitles = (jobTitlesData as { data?: { id?: string }[] } | undefined)?.data ?? (jobTitlesData as { id?: string }[] | undefined) ?? [];
+    addCounterFromData('job-titles', jobTitles, jobTitles[jobTitles.length - 1]);
 
     // Receipt Types
-    const receiptTypes = (receiptTypesData as any)?.data ?? receiptTypesData ?? [];
-    addCounter('receipt-types', 0, receiptTypes as any, receiptTypes[receiptTypes.length - 1]);
+    const receiptTypes = (receiptTypesData as { data?: { id?: string }[] } | undefined)?.data ?? (receiptTypesData as { id?: string }[] | undefined) ?? [];
+    addCounterFromData('receipt-types', receiptTypes, receiptTypes[receiptTypes.length - 1]);
 
     // Payment Types
-    const paymentTypes = (paymentTypesData as any)?.data ?? paymentTypesData ?? [];
-    addCounter('payment-types', 0, paymentTypes as any, paymentTypes[paymentTypes.length - 1]);
+    const paymentTypes = (paymentTypesData as { data?: { id?: string }[] } | undefined)?.data ?? (paymentTypesData as { id?: string }[] | undefined) ?? [];
+    addCounterFromData('payment-types', paymentTypes, paymentTypes[paymentTypes.length - 1]);
 
     // Payment Methods
-    const paymentMethods = (paymentMethodsData as any)?.data ?? paymentMethodsData ?? [];
-    addCounter('payment-methods', 0, paymentMethods as any, paymentMethods[paymentMethods.length - 1]);
+    const paymentMethods = (paymentMethodsData as { data?: { id?: string }[] } | undefined)?.data ?? (paymentMethodsData as { id?: string }[] | undefined) ?? [];
+    addCounterFromData('payment-methods', paymentMethods, paymentMethods[paymentMethods.length - 1]);
 
     // Provinces
-    const provinces = (provincesData as any)?.data ?? provincesData ?? [];
-    addCounter('provinces', 0, provinces as any, provinces[provinces.length - 1]);
+    const provinces = (provincesData as { data?: { id?: string }[] } | undefined)?.data ?? (provincesData as { id?: string }[] | undefined) ?? [];
+    addCounterFromData('provinces', provinces, provinces[provinces.length - 1]);
 
     // Units
-    const units = Array.isArray(unitsData) ? unitsData : (unitsData as any)?.items ?? [];
-    addCounter('units', 0, units, units[units.length - 1]);
+    const units = Array.isArray(unitsData) ? unitsData : (unitsData as { items?: { id?: string }[] } | undefined)?.items ?? [];
+    addCounterFromData('units', units, units[units.length - 1]);
 
     return data;
   }, [
-    employeesData,
-    customersData,
-    complaintsData,
-    warrantiesData,
-    ordersData,
-    productsData,
+    entityCounts,
     branchesData,
     departmentsData,
     jobTitlesData,
-    penaltiesData,
-    leavesData,
-    suppliersData,
-    purchaseOrdersData,
-    purchaseReturnsData,
-    inventoryReceiptsData,
     receiptTypesData,
     paymentTypesData,
     paymentMethodsData,
@@ -319,7 +279,7 @@ export function IDCounterSettingsPage() {
         />
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
+            <CardTitle size="sm" className="flex items-center gap-2">
               <CheckCircle2 className="h-4 w-4" />
               Health Status
             </CardTitle>
@@ -351,7 +311,7 @@ export function IDCounterSettingsPage() {
           {/* Filters */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Bộ lọc</CardTitle>
+              <CardTitle>Bộ lọc</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex gap-4">
@@ -455,7 +415,7 @@ export function IDCounterSettingsPage() {
                             <div className="text-xs text-muted-foreground">
                               Digits: {config.digitCount}
                             </div>
-                            {config.validation?.allowCustomId && (
+                            {config.allowCustomId && (
                               <Badge variant="secondary" className="text-[10px]">Custom ID OK</Badge>
                             )}
                           </div>
@@ -497,7 +457,7 @@ export function IDCounterSettingsPage() {
                 </div>
                 <div>
                   <Label className="text-xs text-muted-foreground">Total Items</Label>
-                  <p className="font-mono text-sm">{selectedEntity.totalItems}</p>
+                  <p className="text-sm">{selectedEntity.totalItems}</p>
                 </div>
                 <div>
                   <Label className="text-xs text-muted-foreground">Next ID</Label>
@@ -514,7 +474,7 @@ export function IDCounterSettingsPage() {
                 <div>
                   <Label className="text-xs text-muted-foreground">Custom ID Allowed</Label>
                   <p className="font-mono text-sm">
-                    {selectedEntity.config.validation?.allowCustomId ? 'Yes' : 'No'}
+                    {selectedEntity.config.allowCustomId ? 'Yes' : 'No'}
                   </p>
                 </div>
               </div>

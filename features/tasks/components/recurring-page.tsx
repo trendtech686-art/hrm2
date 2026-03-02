@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
@@ -57,7 +57,7 @@ export function RecurringTasksPage() {
     onSuccess: () => toast.success('Đã cập nhật'),
     onError: (error) => toast.error(error.message),
   });
-  const { data: tasksData } = useTasks({ limit: 1000 });
+  const { data: tasksData } = useTasks();
   const _tasks = tasksData?.data ?? [];
   const { data: employees } = useAllEmployees();
   const { create: _createTaskMutation } = useTaskMutations({
@@ -152,7 +152,7 @@ export function RecurringTasksPage() {
       updatedAt: new Date().toISOString(),
     };
 
-    (createRecurring as any).mutate(recurringTask);
+    createRecurring.mutate(recurringTask);
     toast.success('Đã tạo công việc lặp lại');
     setShowCreateDialog(false);
     
@@ -177,7 +177,7 @@ export function RecurringTasksPage() {
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Đang hoạt động</CardTitle>
+            <CardTitle size="sm">Đang hoạt động</CardTitle>
             <Play className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
@@ -187,7 +187,7 @@ export function RecurringTasksPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tạm dừng</CardTitle>
+            <CardTitle size="sm">Tạm dừng</CardTitle>
             <Pause className="h-4 w-4 text-orange-600" />
           </CardHeader>
           <CardContent>
@@ -197,7 +197,7 @@ export function RecurringTasksPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tổng công việc đã tạo</CardTitle>
+            <CardTitle size="sm">Tổng công việc đã tạo</CardTitle>
             <CheckCircle2 className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
@@ -209,7 +209,7 @@ export function RecurringTasksPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Sắp tới hôm nay</CardTitle>
+            <CardTitle size="sm">Sắp tới hôm nay</CardTitle>
             <Calendar className="h-4 w-4 text-purple-600" />
           </CardHeader>
           <CardContent>
@@ -229,8 +229,8 @@ export function RecurringTasksPage() {
               <RecurringTaskCard
                 key={task.systemId}
                 task={task}
-                onTogglePause={() => (updateRecurring as any).mutate({ systemId: task.systemId, isPaused: !task.isPaused })}
-                onDeactivate={() => (updateRecurring as any).mutate({ systemId: task.systemId, isActive: false })}
+                onTogglePause={() => updateRecurring.mutate({ systemId: task.systemId, data: { isPaused: !task.isPaused } })}
+                onDeactivate={() => updateRecurring.mutate({ systemId: task.systemId, data: { isActive: false } })}
               />
             ))}
           </div>
@@ -246,8 +246,8 @@ export function RecurringTasksPage() {
               <RecurringTaskCard
                 key={task.systemId}
                 task={task}
-                onTogglePause={() => (updateRecurring as any).mutate({ systemId: task.systemId, isPaused: !task.isPaused })}
-                onDeactivate={() => (updateRecurring as any).mutate({ systemId: task.systemId, isActive: false })}
+                onTogglePause={() => updateRecurring.mutate({ systemId: task.systemId, data: { isPaused: !task.isPaused } })}
+                onDeactivate={() => updateRecurring.mutate({ systemId: task.systemId, data: { isActive: false } })}
               />
             ))}
           </div>
@@ -438,7 +438,7 @@ function RecurringTaskCard({
       <CardHeader>
         <div className="flex items-start justify-between">
           <div className="space-y-1 flex-1">
-            <CardTitle className="text-base">{task.title}</CardTitle>
+            <CardTitle>{task.title}</CardTitle>
             <CardDescription className="line-clamp-2">
               {task.description || 'Không có mô tả'}
             </CardDescription>

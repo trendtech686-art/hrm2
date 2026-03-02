@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
@@ -48,7 +48,7 @@ export function WarrantyReceivedImagesCard({
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-h4">Hình ảnh lúc nhận</CardTitle>
+        <CardTitle>Hình ảnh lúc nhận</CardTitle>
       </CardHeader>
       <CardContent className="pt-0 space-y-3">
         {/* Existing permanent files */}

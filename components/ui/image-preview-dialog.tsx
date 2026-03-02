@@ -235,7 +235,7 @@ export function ImagePreviewDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-5xl max-w-full h-[100dvh] sm:h-[90vh] flex flex-col p-3 sm:p-6 gap-3 sm:gap-4" ref={containerRef}>
+      <DialogContent className="sm:max-w-5xl max-w-full h-dvh sm:h-[90vh] flex flex-col p-3 sm:p-6 gap-3 sm:gap-4" ref={containerRef}>
         <DialogHeader className="pb-0">
           <DialogTitle className="text-base sm:text-lg">
             {title}

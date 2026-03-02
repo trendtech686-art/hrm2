@@ -142,7 +142,7 @@ export function QuickAddProductDialog({
         inTransitByBranch: {},
       };
 
-      (createMutation.mutate as any)(newProduct);
+      createMutation.mutate(newProduct);
     } catch (_error) {
       toast.error('Không thể thêm sản phẩm. Vui lòng thử lại.');
     } finally {

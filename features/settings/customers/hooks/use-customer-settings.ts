@@ -116,6 +116,8 @@ export function useCustomerSlaSettingMutations(opts?: { onSuccess?: () => void }
   const qc = useQueryClient();
   const invalidate = () => qc.invalidateQueries({ queryKey: customerSettingsKeys.slaSettings() });
   return {
+    create: useMutation({ mutationFn: api.createCustomerSlaSetting, onSuccess: () => { invalidate(); opts?.onSuccess?.(); } }),
     update: useMutation({ mutationFn: ({ systemId, data }: { systemId: string; data: Partial<CustomerSlaSetting> }) => api.updateCustomerSlaSetting(systemId, data), onSuccess: () => { invalidate(); opts?.onSuccess?.(); } }),
+    remove: useMutation({ mutationFn: api.deleteCustomerSlaSetting, onSuccess: () => { invalidate(); opts?.onSuccess?.(); } }),
   };
 }

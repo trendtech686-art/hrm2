@@ -2,7 +2,6 @@ import * as React from 'react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../../../../components/ui/accordion';
 import { Badge } from '../../../../components/ui/badge';
 import { CheckCircle } from 'lucide-react';
-import type { Order } from '../../../orders/types';
 import type { WarrantyTransactionGroup } from '../../types/transactions';
 import type { SettlementMethod } from '../../types';
 import { WarrantyTransactionItem } from './warranty-transaction-item';
@@ -10,11 +9,10 @@ import { WarrantyTransactionItem } from './warranty-transaction-item';
 interface WarrantyTransactionGroupsProps {
   groups: WarrantyTransactionGroup[];
   totalPayment: number;
-  orders: Order[];
   settlementMethods?: SettlementMethod[];
 }
 
-export function WarrantyTransactionGroups({ groups, totalPayment, orders, settlementMethods = [] }: WarrantyTransactionGroupsProps) {
+export function WarrantyTransactionGroups({ groups, totalPayment, settlementMethods = [] }: WarrantyTransactionGroupsProps) {
   // All hooks must be called before any early returns (React hooks rules)
   const methodByVoucherId = React.useMemo(() => {
     const map = new Map<string, SettlementMethod>();
@@ -89,7 +87,6 @@ export function WarrantyTransactionGroups({ groups, totalPayment, orders, settle
                       <WarrantyTransactionItem
                         key={transaction.systemId}
                         transaction={transaction}
-                        orders={orders}
                         settlementMethod={relatedMethod}
                       />
                     );

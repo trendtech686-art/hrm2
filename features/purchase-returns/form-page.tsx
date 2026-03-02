@@ -1,19 +1,20 @@
 'use client'
 
 import * as React from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { useForm, useFieldArray, Controller, useWatch } from 'react-hook-form';
 import { formatDateCustom, parseDate, getCurrentDate, toISODate } from '@/lib/date-utils';
 import { ArrowLeft, InfoIcon, AlertCircle } from 'lucide-react';
 
-import { usePurchaseOrders } from '../purchase-orders/hooks/use-purchase-orders';
+import { useAllPurchaseOrders } from '../purchase-orders/hooks/use-all-purchase-orders';
 import { useSupplierFinder } from '../suppliers/hooks/use-all-suppliers';
 import { useBranchFinder } from '../settings/branches/hooks/use-all-branches';
-import { usePurchaseReturns, usePurchaseReturnMutations } from './hooks/use-purchase-returns';
+import { usePurchaseReturnMutations } from './hooks/use-purchase-returns';
+import { useAllPurchaseReturns } from './hooks/use-all-purchase-returns';
 import type { PurchaseReturnLineItem } from '@/lib/types/prisma-extended';
 import { useAuth } from '../../contexts/auth-context';
 import { useAllCashAccounts } from '../cashbook/hooks/use-all-cash-accounts';
-import { useAllPayments } from '../payments/hooks/use-all-payments';
+// ⚡ PERFORMANCE: Removed useAllPayments - using PO-specific hooks instead
 
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -29,6 +30,7 @@ import type { Payment } from '../payments/types';
 import { asBusinessId, asSystemId } from '@/lib/id-types';
 // REMOVED: Voucher store no longer exists
 // import { useVoucherStore } from '../vouchers/store';
+import { usePurchaseOrderInventoryReceipts, usePurchaseOrderPayments } from '../purchase-orders/hooks/use-po-related-data';
 import { useAllInventoryReceipts } from '../inventory-receipts/hooks/use-all-inventory-receipts';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../components/ui/tooltip';
 import { Alert, AlertDescription } from '../../components/ui/alert';
@@ -68,20 +70,34 @@ type PurchaseReturnFormValues = {
 
 export function PurchaseReturnFormPage() {
   const { systemId: systemIdParam } = useParams<{ systemId: string }>();
+  const searchParams = useSearchParams();
+  const purchaseOrderIdFromQuery = searchParams.get('purchaseOrderId');
   const router = useRouter();
-  const isSelectMode = !systemIdParam;
+  const isSelectMode = !systemIdParam && !purchaseOrderIdFromQuery;
 
-  // Stores
-  const { data: poQueryData } = usePurchaseOrders({ limit: 1000 });
-  const allPurchaseOrders = poQueryData?.data ?? [];
-  const poSystemId = systemIdParam ? asSystemId(systemIdParam) : null;
+  // ✅ Auto-pagination (MODULE-QUALITY-CRITERIA §1.3)
+  const { data: allPurchaseOrders } = useAllPurchaseOrders();
+  
+  // Find PO from systemIdParam (URL path) or purchaseOrderIdFromQuery (URL query param)
+  const poSystemId = React.useMemo(() => {
+    if (systemIdParam) return asSystemId(systemIdParam);
+    if (purchaseOrderIdFromQuery) {
+      // purchaseOrderIdFromQuery could be systemId or businessId (PURCHASE000005)
+      const foundPO = allPurchaseOrders.find(p => 
+        p.systemId === purchaseOrderIdFromQuery || 
+        p.id === purchaseOrderIdFromQuery
+      );
+      if (foundPO) return asSystemId(foundPO.systemId);
+    }
+    return null;
+  }, [systemIdParam, purchaseOrderIdFromQuery, allPurchaseOrders]);
+  
   const po = poSystemId ? allPurchaseOrders.find(p => p.systemId === poSystemId) : null;
   const { findById: findSupplier } = useSupplierFinder();
   const { findById: findBranch } = useBranchFinder();
   const supplier = po ? findSupplier(asSystemId(po.supplierSystemId)) : null;
   const branch = po ? findBranch(asSystemId(po.branchSystemId)) : null;
-  const { data: prQueryData } = usePurchaseReturns({ limit: 1000 });
-  const allPurchaseReturns = React.useMemo(() => prQueryData?.data ?? [], [prQueryData]);
+  const { data: allPurchaseReturns } = useAllPurchaseReturns();
   const { create } = usePurchaseReturnMutations({
     onCreateSuccess: () => {
       toast.success('Tạo phiếu hoàn trả thành công');
@@ -92,8 +108,16 @@ export function PurchaseReturnFormPage() {
   const { employee: authEmployee } = useAuth();
   const creatorName = authEmployee?.fullName || 'Hệ thống';
   const { accounts } = useAllCashAccounts();
-  const { data: allPayments } = useAllPayments();
-  const { data: allInventoryReceipts } = useAllInventoryReceipts();
+  
+  // ⚡ PERFORMANCE: Only fetch data when PO is selected (edit mode)
+  const { data: poPayments } = usePurchaseOrderPayments(poSystemId);
+  const { data: poInventoryReceipts } = usePurchaseOrderInventoryReceipts(poSystemId);
+  
+  // For select mode only: need all receipts to show which POs can be returned
+  // This is intentional - we need to display receipt info for each PO in the list
+  const { data: allInventoryReceiptsForSelect } = useAllInventoryReceipts();
+  const allInventoryReceipts = isSelectMode ? (allInventoryReceiptsForSelect || []) : [];
+  
   // State for confirmation dialog
   const [showConfirmDialog, setShowConfirmDialog] = React.useState(false);
   const [pendingSubmit, setPendingSubmit] = React.useState<PurchaseReturnFormValues | null>(null);
@@ -117,20 +141,25 @@ export function PurchaseReturnFormPage() {
     name: "items",
   });
 
-  // Check nếu chưa có phiếu nhập kho
-  const receipts = React.useMemo(
-    () => (po ? allInventoryReceipts.filter(r => r.purchaseOrderSystemId === asSystemId(po.systemId)) : []),
-    [allInventoryReceipts, po]
-  );
+  // Check nếu chưa có phiếu nhập kho - fallback to deliveryStatus for old orders
+  // ⚡ Already filtered by API - no need for client-side filter
+  const receipts = poInventoryReceipts;
+
+  // Check if order was received (either via linked receipts or deliveryStatus for old orders)
+  const hasReceivedGoods = React.useMemo(() => {
+    if (receipts.length > 0) return true;
+    if (po?.deliveryStatus === 'Đã nhập') return true;
+    return false;
+  }, [receipts, po]);
 
   React.useEffect(() => {
-    if (po && receipts.length === 0) {
+    if (po && !hasReceivedGoods) {
       toast.error('Không thể tạo phiếu trả', {
-        description: 'Đơn nhập hàng này chưa có phiếu nhập kho nào.'
+        description: 'Đơn nhập hàng này chưa được nhập kho.'
       });
       router.back();
     }
-  }, [po, receipts, router]);
+  }, [po, hasReceivedGoods, router]);
 
   // Tính số lượng có thể hoàn trả cho mỗi sản phẩm
   const returnableQuantities = React.useMemo(() => {
@@ -141,10 +170,17 @@ export function PurchaseReturnFormPage() {
     const quantities: Record<string, number> = {};
 
     po.lineItems.forEach(item => {
-      const totalReceived = receipts.reduce((sum, receipt) => {
-        const receiptItem = receipt.items.find(i => i.productSystemId === item.productSystemId);
-        return sum + (receiptItem ? Number(receiptItem.receivedQuantity) : 0);
-      }, 0);
+      // If we have linked receipts, calculate from them
+      let totalReceived = 0;
+      if (receipts.length > 0) {
+        totalReceived = receipts.reduce((sum, receipt) => {
+          const receiptItem = receipt.items.find(i => i.productSystemId === item.productSystemId);
+          return sum + (receiptItem ? Number(receiptItem.receivedQuantity) : 0);
+        }, 0);
+      } else if (po.deliveryStatus === 'Đã nhập') {
+        // Fallback for old orders without linked receipts: assume full quantity received
+        totalReceived = item.quantity;
+      }
 
       const totalReturned = returns.reduce((sum, pr) => {
         const returnItem = pr.items.find(i => i.productSystemId === item.productSystemId);
@@ -158,7 +194,8 @@ export function PurchaseReturnFormPage() {
   }, [po, poSystemId, receipts, allPurchaseReturns]);
 
   React.useEffect(() => {
-    if (po && receipts.length > 0) {
+    // Initialize form when we have a PO and confirmed received goods
+    if (po && hasReceivedGoods) {
       const initialItems: FormLineItem[] = po.lineItems.map(item => {
         const productSystemId = asSystemId(item.productSystemId);
         const productId = asBusinessId(item.productId);
@@ -189,7 +226,7 @@ export function PurchaseReturnFormPage() {
         accountSystemId: defaultCashAccount?.systemId || '',
       });
     }
-  }, [po, branch, reset, accounts, returnableQuantities, receipts]);
+  }, [po, branch, reset, accounts, returnableQuantities, hasReceivedGoods]);
   
   const watchedItemsRaw = useWatch({ control, name: "items" });
   const watchedItems = React.useMemo(() => watchedItemsRaw || [], [watchedItemsRaw]);
@@ -215,17 +252,14 @@ export function PurchaseReturnFormPage() {
   }, [previousReturns]);
 
   // Total amount paid to supplier (payments to this PO)
+  // ⚡ Now using PO-specific payments - already filtered by API
   const totalPaid = React.useMemo(() => {
-    if (!po) return 0;
-    // Filter payments to this supplier/PO (check if payment references this PO)
-    return allPayments
-      .filter((p: Payment) => 
-        p.status === 'completed' && 
-        p.recipientTypeName === 'Nhà cung cấp' &&
-        p.recipientName === supplier?.name
-      )
+    if (!po || !poPayments) return 0;
+    // poPayments is already filtered by purchaseOrderSystemId
+    return poPayments
+      .filter((p: Payment) => p.status === 'completed')
       .reduce((sum, p) => sum + p.amount, 0);
-  }, [po, allPayments, supplier]);
+  }, [po, poPayments]);
   
   // Logic tính số tiền tối đa có thể yêu cầu NCC hoàn lại
   const maxRefundableAmount = React.useMemo(() => {
@@ -312,9 +346,12 @@ export function PurchaseReturnFormPage() {
   // If no PO selected, show PO selection screen
   if (!systemIdParam) {
     // Filter POs that have been received (can be returned)
+    // Allow return if deliveryStatus indicates goods were received, 
+    // OR if there are inventory receipts linked to this PO
     const returnablePOs = allPurchaseOrders.filter(po => {
+      const hasReceivedStatus = po.deliveryStatus === 'Đã nhập';
       const receiptsForPO = allInventoryReceipts.filter(r => r.purchaseOrderSystemId === asSystemId(po.systemId));
-      return receiptsForPO.length > 0 && po.status !== 'Đã hủy';
+      return (hasReceivedStatus || receiptsForPO.length > 0) && po.status !== 'Đã hủy';
     });
 
     return (

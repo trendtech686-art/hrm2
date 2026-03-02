@@ -16,8 +16,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../../../components/ui/dropdown-menu';
 
@@ -67,10 +65,10 @@ export function SettingsTable<T extends {
           <TableRow>
             <TableHead>Tên</TableHead>
             <TableHead>Mô tả</TableHead>
-            {onToggleDefault && <TableHead className="w-[100px]">Mặc định</TableHead>}
-            {onToggleActive && <TableHead className="w-[100px]">Hoạt động</TableHead>}
+            {onToggleDefault && <TableHead className="w-25">Mặc định</TableHead>}
+            {onToggleActive && <TableHead className="w-25">Hoạt động</TableHead>}
             {renderExtraColumns && <TableHead>Thông tin</TableHead>}
-            <TableHead className="w-[100px] text-right">Thao tác</TableHead>
+            <TableHead className="w-25"></TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -114,8 +112,6 @@ export function SettingsTable<T extends {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuLabel>Thao tác</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={() => onEdit(item)}>
                       Sửa
                     </DropdownMenuItem>

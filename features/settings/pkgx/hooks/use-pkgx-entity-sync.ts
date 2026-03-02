@@ -2,7 +2,9 @@ import * as React from 'react';
 import { toast } from 'sonner';
 import { RefreshCw, Search, AlignLeft, FolderEdit, DollarSign, Package, Tag } from 'lucide-react';
 import { updateCategory, updateCategoryBasic, updateBrand, updateProduct as updatePkgxProduct } from '../../../../lib/pkgx/api-service';
+import { usePkgxSettings } from './use-pkgx-settings';
 import type { LucideIcon } from 'lucide-react';
+import type { PkgxSettings } from '../types';
 
 // ========================================
 // Types
@@ -17,7 +19,8 @@ export type SyncActionKey =
   | 'sync_description'
   | 'sync_price'
   | 'sync_inventory'
-  | 'sync_flags';
+  | 'sync_flags'
+  | 'sync_images';
 
 export interface SyncAction {
   key: SyncActionKey;
@@ -127,6 +130,7 @@ const mapActionKeyToLogAction = (actionKey: SyncActionKey): PkgxSyncLogAction =>
     case 'sync_seo': return 'sync_seo';
     case 'sync_price': return 'sync_price';
     case 'sync_inventory': return 'sync_inventory';
+    case 'sync_images': return 'upload_image';
     case 'sync_basic':
     case 'sync_description':
     case 'sync_flags':
@@ -234,6 +238,9 @@ export const SYNC_ACTIONS: SyncAction[] = [
 export function usePkgxEntitySync(options: UsePkgxEntitySyncOptions) {
   const { entityType, onLog, getPkgxCatIdByHrmCategory, getPkgxBrandIdByHrmBrand } = options;
   
+  // Get fresh settings for API calls
+  const { data: _pkgxSettings, refetch: refetchSettings } = usePkgxSettings();
+  
   const [isSyncing, setIsSyncing] = React.useState(false);
   const [confirmAction, setConfirmAction] = React.useState<ConfirmActionState>({
     open: false,
@@ -286,6 +293,10 @@ export function usePkgxEntitySync(options: UsePkgxEntitySyncOptions) {
   ) => {
     setIsSyncing(true);
     try {
+      // Force refetch settings để đảm bảo enabled status mới nhất
+      const { data: freshSettings } = await refetchSettings();
+      console.log('🔍 Category Sync Fresh Settings:', { enabled: freshSettings?.enabled });
+      
       const pkgxSeo = hrmCategory.websiteSeo?.pkgx;
       let payload: Record<string, unknown> = {};
       let successMessage = '';
@@ -310,7 +321,7 @@ export function usePkgxEntitySync(options: UsePkgxEntitySyncOptions) {
           };
           successMessage = `Đã đồng bộ thông tin cơ bản cho danh mục: ${hrmCategory.name}`;
           // Use updateCategoryBasic for basic info
-          const basicResponse = await updateCategoryBasic(pkgxCatId, payload);
+          const basicResponse = await updateCategoryBasic(pkgxCatId, payload, freshSettings as PkgxSettings);
           if (basicResponse.success) {
             toast.success(successMessage);
             onLog?.({
@@ -348,7 +359,7 @@ export function usePkgxEntitySync(options: UsePkgxEntitySyncOptions) {
           return false;
       }
       
-      const response = await updateCategory(pkgxCatId, payload);
+      const response = await updateCategory(pkgxCatId, payload, freshSettings as PkgxSettings);
       if (response.success) {
         toast.success(successMessage);
         onLog?.({
@@ -368,7 +379,7 @@ export function usePkgxEntitySync(options: UsePkgxEntitySyncOptions) {
     } finally {
       setIsSyncing(false);
     }
-  }, [onLog]);
+  }, [onLog, refetchSettings]);
   
   // ========================================
   // Brand Sync Handlers
@@ -381,6 +392,10 @@ export function usePkgxEntitySync(options: UsePkgxEntitySyncOptions) {
   ) => {
     setIsSyncing(true);
     try {
+      // Force refetch settings để đảm bảo enabled status mới nhất
+      const { data: freshSettings } = await refetchSettings();
+      console.log('🔍 Entity Sync Fresh Settings:', { enabled: freshSettings?.enabled, apiKey: freshSettings?.apiKey?.slice(0, 10) + '...' });
+      
       const pkgxSeo = hrmBrand.websiteSeo?.pkgx;
       let payload: Record<string, unknown> = {};
       let successMessage = '';
@@ -429,7 +444,7 @@ export function usePkgxEntitySync(options: UsePkgxEntitySyncOptions) {
           return false;
       }
       
-      const response = await updateBrand(pkgxBrandId, payload);
+      const response = await updateBrand(pkgxBrandId, payload, freshSettings as PkgxSettings);
       if (response.success) {
         toast.success(successMessage);
         onLog?.({
@@ -449,7 +464,7 @@ export function usePkgxEntitySync(options: UsePkgxEntitySyncOptions) {
     } finally {
       setIsSyncing(false);
     }
-  }, [onLog]);
+  }, [onLog, refetchSettings]);
   
   // ========================================
   // Product Sync Handlers
@@ -462,6 +477,10 @@ export function usePkgxEntitySync(options: UsePkgxEntitySyncOptions) {
   ) => {
     setIsSyncing(true);
     try {
+      // Force refetch settings để đảm bảo enabled status mới nhất
+      const { data: freshSettings } = await refetchSettings();
+      console.log('🔍 Product Sync Fresh Settings:', { enabled: freshSettings?.enabled });
+      
       let payload: Record<string, unknown> = {};
       let successMessage = '';
       
@@ -556,12 +575,18 @@ export function usePkgxEntitySync(options: UsePkgxEntitySyncOptions) {
           successMessage = `Đã đồng bộ flags cho sản phẩm: ${hrmProduct.name}`;
           break;
           
+        case 'sync_images':
+          // TODO: Implement image sync - upload images to PKGX
+          toast.info('Chức năng đồng bộ hình ảnh đang được phát triển');
+          setIsSyncing(false);
+          return false;
+          
         default:
           setIsSyncing(false);
           return false;
       }
       
-      const response = await updatePkgxProduct(pkgxProductId, payload);
+      const response = await updatePkgxProduct(pkgxProductId, payload, freshSettings as PkgxSettings);
       if (response.success) {
         toast.success(successMessage);
         onLog?.({
@@ -581,7 +606,7 @@ export function usePkgxEntitySync(options: UsePkgxEntitySyncOptions) {
     } finally {
       setIsSyncing(false);
     }
-  }, [onLog, getPkgxCatIdByHrmCategory, getPkgxBrandIdByHrmBrand]);
+  }, [onLog, getPkgxCatIdByHrmCategory, getPkgxBrandIdByHrmBrand, refetchSettings]);
   
   // ========================================
   // Generic sync handler based on entity type

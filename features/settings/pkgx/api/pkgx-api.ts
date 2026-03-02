@@ -10,10 +10,17 @@
  * - GET/POST /api/settings/pkgx/sync-logs - Sync logs
  */
 
-import type { PkgxCategory, PkgxBrand, PkgxCategoryMapping, PkgxBrandMapping } from '@/lib/types/prisma-extended';
+import type { PkgxCategory, PkgxBrand, PkgxCategoryMapping, PkgxBrandMapping, PkgxSettings } from '@/lib/types/prisma-extended';
 import { getCategories as fetchExternalCategories, getBrands as fetchExternalBrands } from '@/lib/pkgx/api-service';
 
 const BASE_URL = '/api/settings/pkgx';
+
+// Helper to get PKGX settings
+async function getPkgxSettings(): Promise<PkgxSettings> {
+  const res = await fetch('/api/pkgx/settings');
+  const json = await res.json();
+  return json.data || {};
+}
 
 // ========================================
 // PKGX Categories (Database)
@@ -27,8 +34,11 @@ export async function fetchPkgxCategories(): Promise<PkgxCategory[]> {
 }
 
 export async function syncPkgxCategories(): Promise<{ count: number }> {
+  // 0. Get settings first
+  const settings = await getPkgxSettings();
+  
   // 1. Fetch from external PKGX API
-  const response = await fetchExternalCategories();
+  const response = await fetchExternalCategories(settings);
   
   if (!response.success || !response.data) {
     throw new Error(response.error || 'Failed to fetch categories from PKGX');
@@ -36,16 +46,37 @@ export async function syncPkgxCategories(): Promise<{ count: number }> {
   
   const externalCategories = response.data.data || [];
   
-  // 2. Save to database
+  // 2. Transform from PKGX API format to HRM format
+  const transformedCategories = externalCategories.map((cat) => ({
+    id: cat.cat_id,
+    name: cat.cat_name,
+    parentId: cat.parent_id || null,
+    sortOrder: cat.sort_order || 0,
+    isShow: cat.is_show ?? 1,
+    catDesc: cat.cat_desc,
+    longDesc: cat.long_desc,
+    keywords: cat.keywords,
+    metaTitle: cat.meta_title,
+    metaDesc: cat.meta_desc,
+    catAlias: cat.cat_alias,
+    style: cat.style,
+    grade: cat.grade,
+    filterAttr: cat.filter_attr,
+  }));
+  
+  // 3. Save to database
   const res = await fetch(`${BASE_URL}/categories`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ categories: externalCategories }),
+    body: JSON.stringify({ categories: transformedCategories }),
   });
-  if (!res.ok) throw new Error('Failed to sync categories to database');
+  if (!res.ok) {
+    const errorJson = await res.json().catch(() => ({}));
+    throw new Error(errorJson.error || 'Failed to sync categories to database');
+  }
   const json = await res.json();
   
-  // 3. Log sync
+  // 4. Log sync
   await fetch(`${BASE_URL}/sync-logs`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -53,13 +84,13 @@ export async function syncPkgxCategories(): Promise<{ count: number }> {
       syncType: 'categories',
       action: 'sync',
       status: 'success',
-      itemsTotal: externalCategories.length,
-      itemsSuccess: json.synced || externalCategories.length,
+      itemsTotal: transformedCategories.length,
+      itemsSuccess: json.synced || transformedCategories.length,
       itemsFailed: 0,
     }),
   });
   
-  return { count: json.synced || externalCategories.length };
+  return { count: json.synced || transformedCategories.length };
 }
 
 // ========================================
@@ -74,8 +105,11 @@ export async function fetchPkgxBrands(): Promise<PkgxBrand[]> {
 }
 
 export async function syncPkgxBrands(): Promise<{ count: number }> {
+  // 0. Get settings first
+  const settings = await getPkgxSettings();
+  
   // 1. Fetch from external PKGX API
-  const response = await fetchExternalBrands();
+  const response = await fetchExternalBrands(settings);
   
   if (!response.success || !response.data) {
     throw new Error(response.error || 'Failed to fetch brands from PKGX');
@@ -83,16 +117,35 @@ export async function syncPkgxBrands(): Promise<{ count: number }> {
   
   const externalBrands = response.data.data || [];
   
-  // 2. Save to database
+  // 2. Transform from PKGX API format to HRM format
+  const transformedBrands = externalBrands.map((brand) => ({
+    id: brand.brand_id,
+    name: brand.brand_name,
+    logo: brand.brand_logo,
+    description: brand.brand_desc,
+    siteUrl: brand.site_url,
+    sortOrder: brand.sort_order || 0,
+    isShow: brand.is_show ?? 1,
+    keywords: brand.keywords,
+    metaTitle: brand.meta_title,
+    metaDesc: brand.meta_desc,
+    shortDescription: brand.short_desc,
+    longDescription: brand.long_desc,
+  }));
+  
+  // 3. Save to database
   const res = await fetch(`${BASE_URL}/brands`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ brands: externalBrands }),
+    body: JSON.stringify({ brands: transformedBrands }),
   });
-  if (!res.ok) throw new Error('Failed to sync brands to database');
+  if (!res.ok) {
+    const errorJson = await res.json().catch(() => ({}));
+    throw new Error(errorJson.error || 'Failed to sync brands to database');
+  }
   const json = await res.json();
   
-  // 3. Log sync
+  // 4. Log sync
   await fetch(`${BASE_URL}/sync-logs`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -100,13 +153,13 @@ export async function syncPkgxBrands(): Promise<{ count: number }> {
       syncType: 'brands',
       action: 'sync',
       status: 'success',
-      itemsTotal: externalBrands.length,
-      itemsSuccess: json.synced || externalBrands.length,
+      itemsTotal: transformedBrands.length,
+      itemsSuccess: json.synced || transformedBrands.length,
       itemsFailed: 0,
     }),
   });
   
-  return { count: json.synced || externalBrands.length };
+  return { count: json.synced || transformedBrands.length };
 }
 
 // ========================================
@@ -118,11 +171,14 @@ export async function fetchCategoryMappings(): Promise<PkgxCategoryMapping[]> {
   if (!res.ok) throw new Error('Failed to fetch category mappings');
   const json = await res.json();
   return (json.data || []).map((m: Record<string, unknown>) => ({
-    id: m.systemId,
-    hrmCategorySystemId: m.hrmCategoryId,
-    hrmCategoryName: m.hrmCategoryName,
-    pkgxCatId: m.pkgxCategoryId,
-    pkgxCatName: m.pkgxCategoryName,
+    systemId: m.systemId as string,
+    id: m.systemId as string, // Alias for backward compat
+    hrmCategoryId: m.hrmCategoryId as string,
+    hrmCategorySystemId: m.hrmCategoryId as string, // Alias for backward compat
+    hrmCategoryName: m.hrmCategoryName as string,
+    pkgxCategoryId: m.pkgxCategoryId as number,
+    pkgxCatId: m.pkgxCategoryId as number, // Alias for backward compat
+    pkgxCategoryName: m.pkgxCategoryName as string,
   }));
 }
 
@@ -131,10 +187,10 @@ export async function saveCategoryMapping(data: PkgxCategoryMapping): Promise<Pk
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      hrmCategoryId: data.hrmCategorySystemId,
+      hrmCategoryId: data.hrmCategoryId || data.hrmCategorySystemId,
       hrmCategoryName: data.hrmCategoryName,
-      pkgxCategoryId: data.pkgxCatId,
-      pkgxCategoryName: data.pkgxCatName,
+      pkgxCategoryId: data.pkgxCategoryId || data.pkgxCatId,
+      pkgxCategoryName: data.pkgxCategoryName,
     }),
   });
   if (!res.ok) {
@@ -144,11 +200,14 @@ export async function saveCategoryMapping(data: PkgxCategoryMapping): Promise<Pk
   const json = await res.json();
   const m = json.data;
   return {
-    id: m.systemId,
-    hrmCategorySystemId: m.hrmCategoryId,
+    systemId: m.systemId,
+    id: m.systemId, // Alias
+    hrmCategoryId: m.hrmCategoryId,
+    hrmCategorySystemId: m.hrmCategoryId, // Alias
     hrmCategoryName: m.hrmCategoryName,
-    pkgxCatId: m.pkgxCategoryId,
-    pkgxCatName: m.pkgxCategoryName,
+    pkgxCategoryId: m.pkgxCategoryId,
+    pkgxCatId: m.pkgxCategoryId, // Alias
+    pkgxCategoryName: m.pkgxCategoryName,
   };
 }
 
@@ -168,11 +227,13 @@ export async function fetchBrandMappings(): Promise<PkgxBrandMapping[]> {
   if (!res.ok) throw new Error('Failed to fetch brand mappings');
   const json = await res.json();
   return (json.data || []).map((m: Record<string, unknown>) => ({
-    id: m.systemId,
-    hrmBrandSystemId: m.hrmBrandId,
-    hrmBrandName: m.hrmBrandName,
-    pkgxBrandId: m.pkgxBrandId,
-    pkgxBrandName: m.pkgxBrandName,
+    systemId: m.systemId as string,
+    id: m.systemId as string, // Alias for backward compat
+    hrmBrandId: m.hrmBrandId as string,
+    hrmBrandSystemId: m.hrmBrandId as string, // Alias for backward compat
+    hrmBrandName: m.hrmBrandName as string,
+    pkgxBrandId: m.pkgxBrandId as number,
+    pkgxBrandName: m.pkgxBrandName as string,
   }));
 }
 
@@ -181,7 +242,7 @@ export async function saveBrandMapping(data: PkgxBrandMapping): Promise<PkgxBran
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      hrmBrandId: data.hrmBrandSystemId,
+      hrmBrandId: data.hrmBrandId || data.hrmBrandSystemId,
       hrmBrandName: data.hrmBrandName,
       pkgxBrandId: data.pkgxBrandId,
       pkgxBrandName: data.pkgxBrandName,
@@ -194,8 +255,10 @@ export async function saveBrandMapping(data: PkgxBrandMapping): Promise<PkgxBran
   const json = await res.json();
   const m = json.data;
   return {
-    id: m.systemId,
-    hrmBrandSystemId: m.hrmBrandId,
+    systemId: m.systemId,
+    id: m.systemId, // Alias
+    hrmBrandId: m.hrmBrandId,
+    hrmBrandSystemId: m.hrmBrandId, // Alias
     hrmBrandName: m.hrmBrandName,
     pkgxBrandId: m.pkgxBrandId,
     pkgxBrandName: m.pkgxBrandName,

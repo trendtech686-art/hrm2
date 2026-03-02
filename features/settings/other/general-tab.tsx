@@ -1,14 +1,12 @@
 'use client';
 
 import * as React from 'react';
-import { Save, Building, Clock, Monitor, Upload, Trash2, UserCog, Palette, Image } from 'lucide-react';
+import { Save, Clock, Monitor, Upload, Trash2, UserCog, Palette, Image } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { OptimizedImage } from '@/components/ui/optimized-image';
 import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
 import { SettingsActionButton } from '@/components/settings/SettingsActionButton';
 import { useGeneralSettings, type GeneralSettings } from '@/hooks/use-system-settings';
 import { toast } from 'sonner';
@@ -141,60 +139,6 @@ export function GeneralTabContent({ isActive, onRegisterActions }: TabContentPro
 
   return (
     <div className="space-y-6">
-      {/* Thông tin doanh nghiệp */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Building className="h-5 w-5" />
-            Thông tin doanh nghiệp
-          </CardTitle>
-          <CardDescription>Thông tin định danh cơ bản, hiển thị trên báo cáo và hợp đồng</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="companyName">Tên công ty <span className="text-destructive">*</span></Label>
-              <Input id="companyName" value={settings.companyName} onChange={(e) => handleChange('companyName', e.target.value)} placeholder="VD: Công ty TNHH ABC" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="taxCode">Mã số thuế</Label>
-              <Input id="taxCode" value={settings.taxCode} onChange={(e) => handleChange('taxCode', e.target.value)} placeholder="VD: 0123456789" />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="companyAddress">Địa chỉ</Label>
-            <Input id="companyAddress" value={settings.companyAddress} onChange={(e) => handleChange('companyAddress', e.target.value)} placeholder="VD: 123 Nguyễn Văn A, Quận 1, TP.HCM" />
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="phoneNumber">Số điện thoại</Label>
-              <Input id="phoneNumber" value={settings.phoneNumber} onChange={(e) => handleChange('phoneNumber', e.target.value)} placeholder="VD: 028 1234 5678" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email liên hệ</Label>
-              <Input id="email" type="email" value={settings.email} onChange={(e) => handleChange('email', e.target.value)} placeholder="VD: info@company.com" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="website">Website</Label>
-              <Input id="website" value={settings.website} onChange={(e) => handleChange('website', e.target.value)} placeholder="VD: https://company.com" />
-            </div>
-          </div>
-          <Separator />
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="legalRepresentative">Người đại diện pháp luật</Label>
-              <Input id="legalRepresentative" value={settings.legalRepresentative} onChange={(e) => handleChange('legalRepresentative', e.target.value)} placeholder="VD: Nguyễn Văn A" />
-              <p className="text-xs text-muted-foreground">Tên người ký mặc định trên hợp đồng/quyết định</p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="adminEmail">Email quản trị (Admin)</Label>
-              <Input id="adminEmail" type="email" value={settings.adminEmail} onChange={(e) => handleChange('adminEmail', e.target.value)} placeholder="VD: admin@company.com" />
-              <p className="text-xs text-muted-foreground">Nhận thông báo lỗi hệ thống, báo cáo tổng hợp</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Vai trò mặc định */}
       <Card>
         <CardHeader>

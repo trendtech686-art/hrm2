@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma'
-import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
+import { requireAuth, validateBody, apiSuccess, apiSuccessCached, apiError, parsePagination } from '@/lib/api-utils'
 import { z } from 'zod'
+import { generateNextIds } from '@/lib/id-system'
 
 // Validation schema
 const createTaxSchema = z.object({
@@ -20,8 +21,7 @@ export async function GET(request: Request) {
 
   try {
     const { searchParams } = new URL(request.url)
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '50')
+    const { page, limit, skip } = parsePagination(searchParams)
     const isDefaultSale = searchParams.get('isDefaultSale')
     const isDefaultPurchase = searchParams.get('isDefaultPurchase')
 
@@ -34,14 +34,14 @@ export async function GET(request: Request) {
     const [taxes, total] = await Promise.all([
       prisma.tax.findMany({
         where,
-        skip: (page - 1) * limit,
+        skip,
         take: limit,
         orderBy: { name: 'asc' },
       }),
       prisma.tax.count({ where }),
     ])
 
-    return apiSuccess({
+    return apiSuccessCached({
       data: taxes,
       pagination: {
         page,
@@ -84,10 +84,13 @@ export async function POST(request: Request) {
       })
     }
 
+    // Generate IDs
+    const { systemId, businessId } = await generateNextIds('taxes')
+    
     const tax = await prisma.tax.create({
       data: {
-        systemId: body.systemId || `TAX_${Date.now()}`,
-        id: body.id || `TAX${Date.now()}`,
+        systemId: body.systemId || systemId,
+        id: body.id || businessId,
         name: body.name,
         rate: body.rate,
         description: body.description || '',

@@ -1,7 +1,7 @@
 model InventoryCheckItem {
   systemId       String         @id @default(uuid())
   checkId        String
-  productId      String
+  productId      String?
   productName    String
   productSku     String
   systemQty      Int

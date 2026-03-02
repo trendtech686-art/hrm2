@@ -1,4 +1,4 @@
-import * as React from 'react';
+﻿import * as React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Users, Calendar, AlertTriangle, Clock, TrendingUp, Award } from 'lucide-react';
 import type { AttendanceDataRow } from '../types';
@@ -19,9 +19,10 @@ export function StatisticsDashboard({ data, currentDate: _currentDate }: Statist
     const totalOTHours = data.reduce((sum, emp) => sum + emp.otHours, 0);
     
     const avgWorkDays = totalEmployees > 0 ? (totalWorkDays / totalEmployees).toFixed(1) : 0;
-    const attendanceRate = totalEmployees > 0 
-      ? ((totalWorkDays / (totalWorkDays + totalAbsentDays)) * 100).toFixed(1)
-      : 0;
+    const totalPossibleDays = totalWorkDays + totalAbsentDays;
+    const attendanceRate = totalPossibleDays > 0 
+      ? ((totalWorkDays / totalPossibleDays) * 100).toFixed(1)
+      : '0';
     
     // Find top performers
     const topOTEmployee = data.reduce((max, emp) => emp.otHours > max.otHours ? emp : max, data[0] || { otHours: 0, fullName: '-' });
@@ -89,25 +90,25 @@ export function StatisticsDashboard({ data, currentDate: _currentDate }: Statist
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-4">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
       {statCards.map((stat, index) => (
         <Card key={index} className="overflow-hidden">
-          <CardHeader className="pb-2">
+          <CardHeader className="p-2 pb-1">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-body-sm font-medium text-muted-foreground">
+              <CardTitle size="sm" className="text-muted-foreground leading-tight">
                 {stat.title}
               </CardTitle>
-              <div className={cn('p-2 rounded-md', stat.bgColor)}>
-                <stat.icon className={cn('h-4 w-4', stat.color)} />
+              <div className={cn('p-1 rounded-md', stat.bgColor)}>
+                <stat.icon className={cn('h-3 w-3', stat.color)} />
               </div>
             </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-h4 font-bold truncate" title={String(stat.value)}>
+          <CardContent className="p-2 pt-0">
+            <div className="text-sm font-semibold truncate" title={String(stat.value)}>
               {stat.value}
             </div>
             {stat.subtitle && (
-              <p className="text-body-xs text-muted-foreground mt-1">
+              <p className="text-[10px] text-muted-foreground">
                 {stat.subtitle}
               </p>
             )}

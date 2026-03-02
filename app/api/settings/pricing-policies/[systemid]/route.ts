@@ -4,8 +4,6 @@ import { Prisma } from '@/generated/prisma/client';
 import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils';
 import { z } from 'zod';
 
-const TYPE = 'pricing-policy';
-
 const updatePricingPolicySchema = z.object({
   id: z.string().optional(),
   name: z.string().optional(),
@@ -15,7 +13,7 @@ const updatePricingPolicySchema = z.object({
   isActive: z.boolean().optional(),
 });
 
-// GET - Get single pricing policy
+// GET - Get single pricing policy from PricingPolicy table
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ systemid: string }> }
@@ -25,25 +23,24 @@ export async function GET(
 
   try {
     const { systemid } = await params;
-    const setting = await prisma.settingsData.findFirst({
-      where: { systemId: systemid, type: TYPE, isDeleted: false },
+    const policy = await prisma.pricingPolicy.findUnique({
+      where: { systemId: systemid },
     });
 
-    if (!setting) {
+    if (!policy) {
       return apiError('Pricing policy not found', 404);
     }
 
     return apiSuccess({
-      systemId: setting.systemId,
-      id: setting.id,
-      name: setting.name,
-      type: setting.type,
-      description: setting.description,
-      isDefault: setting.isDefault,
-      isActive: setting.isActive,
-      createdAt: setting.createdAt.toISOString(),
-      updatedAt: setting.updatedAt.toISOString(),
-      ...(setting.metadata as Record<string, unknown> || {}),
+      systemId: policy.systemId,
+      id: policy.id,
+      name: policy.name,
+      type: policy.type,
+      description: policy.description,
+      isDefault: policy.isDefault,
+      isActive: policy.isActive,
+      createdAt: policy.createdAt.toISOString(),
+      updatedAt: policy.updatedAt.toISOString(),
     });
   } catch (error) {
     console.error('[Pricing Policy API] GET error:', error);
@@ -66,8 +63,8 @@ export async function PATCH(
 
   try {
     const { systemid } = await params;
-    const existing = await prisma.settingsData.findFirst({
-      where: { systemId: systemid, type: TYPE, isDeleted: false },
+    const existing = await prisma.pricingPolicy.findUnique({
+      where: { systemId: systemid },
     });
 
     if (!existing) {
@@ -78,41 +75,29 @@ export async function PATCH(
 
     // If setting as default, unset other defaults of same type
     if (isDefault) {
-      const policyType = type ?? (existing.metadata as any)?.type;
-      await prisma.settingsData.updateMany({
+      const policyType = type ?? existing.type;
+      await prisma.pricingPolicy.updateMany({
         where: {
           systemId: { not: systemid },
-          type: TYPE,
-          isDeleted: false,
-          metadata: {
-            path: ['type'],
-            equals: policyType,
-          },
+          type: policyType,
         },
         data: { isDefault: false },
       });
     }
 
     // Build update data
-    const updateData: Prisma.SettingsDataUpdateInput = {
+    const updateData: Prisma.PricingPolicyUpdateInput = {
       updatedBy: session.user.id,
     };
 
     if (id !== undefined) updateData.id = id;
     if (name !== undefined) updateData.name = name;
     if (description !== undefined) updateData.description = description;
+    if (type !== undefined) updateData.type = type;
     if (isDefault !== undefined) updateData.isDefault = isDefault;
     if (isActive !== undefined) updateData.isActive = isActive;
 
-    // Update metadata if type changed
-    if (type !== undefined) {
-      updateData.metadata = {
-        ...(existing.metadata as Record<string, unknown> || {}),
-        type,
-      } as Prisma.InputJsonValue;
-    }
-
-    const updated = await prisma.settingsData.update({
+    const updated = await prisma.pricingPolicy.update({
       where: { systemId: systemid },
       data: updateData,
     });
@@ -127,7 +112,6 @@ export async function PATCH(
       isActive: updated.isActive,
       createdAt: updated.createdAt.toISOString(),
       updatedAt: updated.updatedAt.toISOString(),
-      ...(updated.metadata as Record<string, unknown> || {}),
     });
   } catch (error) {
     console.error('[Pricing Policy API] PATCH error:', error);
@@ -145,22 +129,17 @@ export async function DELETE(
 
   try {
     const { systemid } = await params;
-    const existing = await prisma.settingsData.findFirst({
-      where: { systemId: systemid, type: TYPE, isDeleted: false },
+    const existing = await prisma.pricingPolicy.findUnique({
+      where: { systemId: systemid },
     });
 
     if (!existing) {
       return apiError('Pricing policy not found', 404);
     }
 
-    // Soft delete
-    await prisma.settingsData.update({
+    // Hard delete (PricingPolicy doesn't have isDeleted field)
+    await prisma.pricingPolicy.delete({
       where: { systemId: systemid },
-      data: {
-        isDeleted: true,
-        deletedAt: new Date(),
-        updatedBy: session.user.id,
-      },
     });
 
     return apiSuccess({ message: 'Pricing policy deleted successfully' });

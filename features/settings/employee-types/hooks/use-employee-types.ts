@@ -5,6 +5,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { generateSubEntityId } from '@/lib/id-utils';
 import {
   fetchEmployeeTypes,
   fetchEmployeeType,
@@ -12,6 +13,7 @@ import {
   updateEmployeeType,
   deleteEmployeeType,
   type EmployeeTypesParams,
+  type EmployeeTypesResponse,
   type EmployeeTypeSetting,
 } from '../api/employee-types-api';
 
@@ -55,31 +57,134 @@ export function useEmployeeTypeMutations(options: UseEmployeeTypeMutationsOption
   
   const create = useMutation({
     mutationFn: createEmployeeType,
+    onMutate: async (newData) => {
+      // Cancel outgoing queries
+      await queryClient.cancelQueries({ queryKey: employeeTypeKeys.lists() });
+      
+      // Snapshot previous value
+      const previousData = queryClient.getQueriesData({ queryKey: employeeTypeKeys.lists() });
+      
+      // Optimistically add to all list queries
+      queryClient.setQueriesData({ queryKey: employeeTypeKeys.lists() }, (old: unknown) => {
+        if (!old) return old;
+        const oldData = old as EmployeeTypesResponse | EmployeeTypeSetting[];
+        const dataArray = Array.isArray(oldData) ? oldData : (oldData.data ?? []);
+        const tempItem = {
+          ...newData,
+          systemId: generateSubEntityId('TEMP'),
+          id: generateSubEntityId('TEMP'),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        return Array.isArray(oldData) ? [...dataArray, tempItem] : { ...oldData, data: [...dataArray, tempItem] };
+      });
+      
+      return { previousData };
+    },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: employeeTypeKeys.all });
+      // Replace temp item with real data
+      queryClient.setQueriesData({ queryKey: employeeTypeKeys.lists() }, (old: unknown) => {
+        if (!old) return old;
+        const oldData = old as EmployeeTypesResponse | EmployeeTypeSetting[];
+        const dataArray = Array.isArray(oldData) ? oldData : (oldData.data ?? []);
+        const filtered = dataArray.filter((item: EmployeeTypeSetting) => !item.systemId?.startsWith('temp-'));
+        return Array.isArray(oldData) ? [...filtered, data] : { ...oldData, data: [...filtered, data] };
+      });
       options.onCreateSuccess?.(data);
     },
-    onError: options.onError,
+    onError: (error, _, context) => {
+      // Rollback on error
+      context?.previousData?.forEach(([queryKey, data]) => {
+        queryClient.setQueryData(queryKey, data);
+      });
+      options.onError?.(error as Error);
+    },
   });
   
   const update = useMutation({
     mutationFn: ({ systemId, data }: { systemId: string; data: Partial<EmployeeTypeSetting> }) => 
       updateEmployeeType(systemId, data),
+    onMutate: async ({ systemId, data: updateData }) => {
+      // Cancel outgoing queries
+      await queryClient.cancelQueries({ queryKey: employeeTypeKeys.lists() });
+      await queryClient.cancelQueries({ queryKey: employeeTypeKeys.detail(systemId) });
+      
+      // Snapshot previous values
+      const previousLists = queryClient.getQueriesData({ queryKey: employeeTypeKeys.lists() });
+      const previousDetail = queryClient.getQueryData(employeeTypeKeys.detail(systemId));
+      
+      // Optimistically update in lists
+      queryClient.setQueriesData({ queryKey: employeeTypeKeys.lists() }, (old: unknown) => {
+        if (!old) return old;
+        const oldData = old as EmployeeTypesResponse | EmployeeTypeSetting[];
+        const dataArray = Array.isArray(oldData) ? oldData : (oldData.data ?? []);
+        const updated = dataArray.map((item: EmployeeTypeSetting) =>
+          item.systemId === systemId ? { ...item, ...updateData, updatedAt: new Date().toISOString() } : item
+        );
+        return Array.isArray(oldData) ? updated : { ...oldData, data: updated };
+      });
+      
+      // Optimistically update detail
+      queryClient.setQueryData(employeeTypeKeys.detail(systemId), (old: unknown) =>
+        old ? { ...(old as EmployeeTypeSetting), ...updateData, updatedAt: new Date().toISOString() } : old
+      );
+      
+      return { previousLists, previousDetail, systemId };
+    },
     onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: employeeTypeKeys.detail(variables.systemId) });
-      queryClient.invalidateQueries({ queryKey: employeeTypeKeys.lists() });
+      // Update with server data
+      queryClient.setQueriesData({ queryKey: employeeTypeKeys.lists() }, (old: unknown) => {
+        if (!old) return old;
+        const oldData = old as EmployeeTypesResponse | EmployeeTypeSetting[];
+        const dataArray = Array.isArray(oldData) ? oldData : (oldData.data ?? []);
+        const updated = dataArray.map((item: EmployeeTypeSetting) => (item.systemId === variables.systemId ? data : item));
+        return Array.isArray(oldData) ? updated : { ...oldData, data: updated };
+      });
+      queryClient.setQueryData(employeeTypeKeys.detail(variables.systemId), data);
       options.onUpdateSuccess?.(data);
     },
-    onError: options.onError,
+    onError: (error, _, context) => {
+      // Rollback on error
+      context?.previousLists?.forEach(([queryKey, data]) => {
+        queryClient.setQueryData(queryKey, data);
+      });
+      if (context?.previousDetail && context?.systemId) {
+        queryClient.setQueryData(employeeTypeKeys.detail(context.systemId), context.previousDetail);
+      }
+      options.onError?.(error as Error);
+    },
   });
   
   const remove = useMutation({
     mutationFn: deleteEmployeeType,
+    onMutate: async (systemId) => {
+      // Cancel outgoing queries
+      await queryClient.cancelQueries({ queryKey: employeeTypeKeys.lists() });
+      
+      // Snapshot previous value
+      const previousData = queryClient.getQueriesData({ queryKey: employeeTypeKeys.lists() });
+      
+      // Optimistically remove from lists
+      queryClient.setQueriesData({ queryKey: employeeTypeKeys.lists() }, (old: unknown) => {
+        if (!old) return old;
+        const oldData = old as EmployeeTypesResponse | EmployeeTypeSetting[];
+        const dataArray = Array.isArray(oldData) ? oldData : (oldData.data ?? []);
+        const filtered = dataArray.filter((item: EmployeeTypeSetting) => item.systemId !== systemId);
+        return Array.isArray(oldData) ? filtered : { ...oldData, data: filtered };
+      });
+      
+      return { previousData };
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: employeeTypeKeys.all });
       options.onDeleteSuccess?.();
     },
-    onError: options.onError,
+    onError: (error, _, context) => {
+      // Rollback on error
+      context?.previousData?.forEach(([queryKey, data]) => {
+        queryClient.setQueryData(queryKey, data);
+      });
+      options.onError?.(error as Error);
+    },
   });
   
   return { create, update, remove };

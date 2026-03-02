@@ -3,15 +3,17 @@
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useSearchParamsWithSetter } from '@/lib/hooks/use-search-params-setter';
-import { usePurchaseOrders, usePurchaseOrderMutations } from './hooks/use-purchase-orders';
+import { usePurchaseOrderMutations } from './hooks/use-purchase-orders';
 import { usePurchaseOrder } from './hooks/use-purchase-orders';
+import { useAllPurchaseOrders } from './hooks/use-all-purchase-orders';
 import { ROUTES } from '../../lib/router';
 import { useAllBranches } from '../settings/branches/hooks/use-all-branches';
 import { useAllEmployees } from '../employees/hooks/use-all-employees';
 import { useAuth } from '../../contexts/auth-context';
 import { useAllProducts, useProductFinder } from '../products/hooks/use-all-products';
 import { useAllSuppliers } from '../suppliers/hooks/use-all-suppliers';
-import { useInventoryReceipts, useInventoryReceiptMutations } from '../inventory-receipts/hooks/use-inventory-receipts';
+import { useInventoryReceiptMutations } from '../inventory-receipts/hooks/use-inventory-receipts';
+import { useAllInventoryReceipts } from '../inventory-receipts/hooks/use-all-inventory-receipts';
 import { useStockHistoryMutations } from '../stock-history/hooks/use-stock-history';
 // REMOVED: Voucher store no longer exists
 // import { useVoucherStore } from '../vouchers/store';
@@ -22,13 +24,14 @@ import type { Payment } from '../payments/types';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { toast } from 'sonner';
 import { getCurrentDate, toISODate, formatDateCustom } from '../../lib/date-utils';
-import type { PurchaseOrder, PurchaseOrderPaymentStatus as PaymentStatus, PurchaseOrderStatus, PurchaseOrderDeliveryStatus as DeliveryStatus } from '@/lib/types/prisma-extended';
+import type { PurchaseOrderPaymentStatus as PaymentStatus, PurchaseOrderStatus, PurchaseOrderDeliveryStatus as DeliveryStatus } from '@/lib/types/prisma-extended';
 import { Button } from '../../components/ui/button';
 import { SupplierSelectionCard } from './components/supplier-selection-card';
 import { OrderInfoCard } from './components/order-info-card';
 import {
   ProductSelectionCard,
   type ProductLineItem,
+  type CostCalculationMethod,
 } from './components/product-selection-card';
 import { OrderNotesCard } from './components/order-notes-card';
 import {
@@ -47,25 +50,23 @@ export function PurchaseOrderFormPage() {
   
   const purchaseOrderSystemId = systemIdParam ? asSystemId(systemIdParam) : null;
   
-  const { data: queryData } = usePurchaseOrders({ limit: 1000 });
-  const _allOrders = queryData?.data ?? [];
+  const { data: _allOrders } = useAllPurchaseOrders();
   const { data: existingOrder } = usePurchaseOrder(purchaseOrderSystemId);
   
   const { create, update } = usePurchaseOrderMutations({
+    // Không redirect trong callback - để handleSave xử lý tuần tự
     onCreateSuccess: () => {
-      toast.success('Tạo đơn nhập hàng thành công');
-      router.push('/purchase-orders');
+      // Không redirect ở đây vì cần đợi các operations khác hoàn tất
     },
     onUpdateSuccess: () => {
-      toast.success('Cập nhật đơn nhập hàng thành công');
-      router.push('/purchase-orders');
+      // Không redirect ở đây vì cần đợi các operations khác hoàn tất
     },
     onError: (err) => toast.error(err.message)
   });
   
   // Helper function for processing inventory receipt
-  const processInventoryReceipt = React.useCallback((poSystemId: string) => {
-    (update as any).mutate({ systemId: poSystemId, deliveryStatus: 'Đã nhập kho' });
+  const _processInventoryReceipt = React.useCallback((poSystemId: string) => {
+    update.mutate({ systemId: poSystemId, data: { deliveryStatus: 'Đã nhập' as DeliveryStatus } });
   }, [update]);
   
   const { data: branches } = useAllBranches();
@@ -74,13 +75,23 @@ export function PurchaseOrderFormPage() {
   const { data: products } = useAllProducts();
   const { findById: findProductById } = useProductFinder();
   const { data: suppliers } = useAllSuppliers();
-  const { data: irQueryData } = useInventoryReceipts({ limit: 1000 });
-  const _allReceipts = irQueryData?.data ?? [];
+  
+  // Refs để giữ giá trị mới nhất của data (tránh stale closure)
+  const suppliersRef = React.useRef(suppliers);
+  const branchesRef = React.useRef(branches);
+  const employeesRef = React.useRef(employees);
+  React.useEffect(() => {
+    suppliersRef.current = suppliers;
+    branchesRef.current = branches;
+    employeesRef.current = employees;
+  }, [suppliers, branches, employees]);
+  
+  const { data: _allReceipts } = useAllInventoryReceipts();
   const { create: createInventoryReceipt } = useInventoryReceiptMutations({
     onCreateSuccess: () => {},
     onError: (err) => toast.error(err.message)
   });
-  const { create: createStockHistory } = useStockHistoryMutations({
+  const { create: _createStockHistory } = useStockHistoryMutations({
     onSuccess: () => {},
     onError: (err) => toast.error(err.message)
   });
@@ -131,12 +142,37 @@ export function PurchaseOrderFormPage() {
     ? asSystemId(branches[0].systemId)
     : null;
   const [branchId, setBranchId] = React.useState<SystemId | null>(defaultBranchId);
+  
+  // Ref để giữ giá trị mới nhất của branchId
+  const branchIdRef = React.useRef<SystemId | null>(branchId);
+  React.useEffect(() => {
+    branchIdRef.current = branchId;
+  }, [branchId]);
+  
+  // Set branchId mặc định khi branches load xong
+  React.useEffect(() => {
+    if (!isEditMode && !branchId && branches.length > 0) {
+      const defaultBranch = branches.find(b => b.isDefault) || branches[0];
+      if (defaultBranch?.systemId) {
+        setBranchId(asSystemId(defaultBranch.systemId));
+      }
+    }
+  }, [isEditMode, branchId, branches]);
+  
   const defaultEmployeeSystemId: SystemId | null = existingOrder?.buyerSystemId
     ? asSystemId(existingOrder.buyerSystemId)
     : authEmployee?.systemId
     ? asSystemId(authEmployee.systemId)
     : null;
   const [employeeId, setEmployeeId] = React.useState<SystemId | null>(defaultEmployeeSystemId);
+  
+  // Ref để giữ giá trị mới nhất của employeeId
+  const employeeIdRef = React.useRef<SystemId | null>(employeeId);
+  React.useEffect(() => {
+    employeeIdRef.current = employeeId;
+  }, [employeeId]);
+  
+  // Set employeeId mặc định khi authEmployee load xong
   React.useEffect(() => {
     if (!isEditMode && !employeeId && authEmployee?.systemId) {
       setEmployeeId(asSystemId(authEmployee.systemId));
@@ -163,6 +199,7 @@ export function PurchaseOrderFormPage() {
   const [shippingFees, setShippingFees] = React.useState<Fee[]>([]);
   const [otherFees, setOtherFees] = React.useState<Fee[]>([]);
   const [payments, setPayments] = React.useState<PaymentRecord[]>([]);
+  const [costCalculationMethod, setCostCalculationMethod] = React.useState<CostCalculationMethod>('with_fees');
   const [isSaving, setIsSaving] = React.useState(false);
   
   // Track unsaved changes
@@ -349,7 +386,8 @@ export function PurchaseOrderFormPage() {
     const currentPayments = paymentsRef.current;
     const currentDiscount = discountRef.current;
     const currentDiscountType = discountTypeRef.current;
-    
+    const currentBranchId = branchIdRef.current;
+    const currentEmployeeId = employeeIdRef.current;
     
     // Validation
     if (!currentSupplierId) {
@@ -359,22 +397,22 @@ export function PurchaseOrderFormPage() {
       return;
     }
 
-    if (!branchId) {
+    if (!currentBranchId) {
       toast.error('Lỗi', {
         description: 'Vui lòng chọn chi nhánh',
       });
       return;
     }
 
-    if (!employeeId) {
+    if (!currentEmployeeId) {
       toast.error('Lỗi', {
         description: 'Vui lòng chọn nhân viên',
       });
       return;
     }
 
-    const branchSystemId: SystemId = branchId;
-    const employeeSystemId: SystemId = employeeId;
+    const branchSystemId: SystemId = currentBranchId;
+    const employeeSystemId: SystemId = currentEmployeeId;
 
     if (currentItems.length === 0) {
       toast.error('Lỗi', {
@@ -396,9 +434,34 @@ export function PurchaseOrderFormPage() {
       setIsSaving(true);
 
       try {
-        const supplier = suppliers.find((s) => s.systemId === currentSupplierId);
-        const branch = branches.find((b) => b.systemId === branchSystemId);
-        const employee = employees.find((e) => e.systemId === employeeSystemId);
+        // Sử dụng refs để lấy giá trị mới nhất (tránh stale closure)
+        const currentSuppliers = suppliersRef.current || [];
+        const currentBranches = branchesRef.current || [];
+        const currentEmployees = employeesRef.current || [];
+        
+        const supplier = currentSuppliers.find((s) => s.systemId === currentSupplierId);
+        const branch = currentBranches.find((b) => b.systemId === branchSystemId);
+        const employee = currentEmployees.find((e) => e.systemId === employeeSystemId);
+
+        // Debug logging
+        console.log('[PO Form] Creating order with:', {
+          supplierId: currentSupplierId,
+          supplierFound: !!supplier,
+          suppliersCount: currentSuppliers.length,
+          supplierSystemIds: currentSuppliers.slice(0, 5).map(s => s.systemId),
+          branchId: branchSystemId,
+          employeeId: employeeSystemId,
+          itemsCount: currentItems.length,
+        });
+
+        if (!supplier) {
+          console.error('[PO Form] Supplier not found. Available suppliers:', currentSuppliers.map(s => ({ systemId: s.systemId, id: s.id, name: s.name })));
+          toast.error('Lỗi', {
+            description: 'Không tìm thấy thông tin nhà cung cấp. Vui lòng chọn lại.',
+          });
+          setIsSaving(false);
+          return;
+        }
 
         // Use order ID from state (will be auto-generated if empty)
         const finalOrderId = orderId || '';
@@ -445,8 +508,10 @@ export function PurchaseOrderFormPage() {
           initialStatus = 'Đang giao dịch';
         }
 
-        const orderData: Omit<PurchaseOrder, 'systemId'> = {
+        const orderData = {
           id: finalOrderId,
+          // API validation cần supplierId
+          supplierId: currentSupplierId,
           supplierSystemId: currentSupplierId,
           supplierName: supplier?.name || '',
           branchSystemId,
@@ -455,10 +520,12 @@ export function PurchaseOrderFormPage() {
           buyer: employee?.fullName || '',
           reference: reference || undefined,
           orderDate: toISODate(getCurrentDate()),
+          expectedDate: deliveryDate ? toISODate(deliveryDate) : undefined,
           deliveryDate: deliveryDate ? toISODate(deliveryDate) : undefined,
-          lineItems: currentItems.map((item) => ({
+          // API validation cần items với productId
+          items: currentItems.map((item) => ({
+            productId: item.product.systemId, // API dùng productId để tham chiếu
             productSystemId: item.product.systemId,
-            productId: item.product.id || item.product.systemId,
             productName: item.product.name,
             sku: item.product.id,
             unit: item.product.unit,
@@ -466,15 +533,34 @@ export function PurchaseOrderFormPage() {
             quantity: item.quantity,
             unitPrice: item.unitPrice,
             discount: item.discount,
-            discountType: item.discountType === 'percent' ? 'percentage' : 'fixed',
+            discountType: (item.discountType === 'percent' ? 'percentage' : 'fixed') as 'percentage' | 'fixed',
             taxRate: item.tax || 0,
+            total: item.total,
             note: item.notes,
           })),
+          lineItems: currentItems.map((item) => {
+            const discountTypeValue: 'percentage' | 'fixed' = item.discountType === 'percent' ? 'percentage' : 'fixed';
+            return {
+              productSystemId: item.product.systemId,
+              productId: item.product.id || item.product.systemId,
+              productName: item.product.name,
+              sku: item.product.id,
+              unit: item.product.unit,
+              imageUrl: item.product.thumbnailImage ?? item.product.images?.[0],
+              quantity: item.quantity,
+              unitPrice: item.unitPrice,
+              discount: item.discount,
+              discountType: discountTypeValue,
+              taxRate: item.tax || 0,
+              note: item.notes,
+            };
+          }),
           subtotal: calculatedSubtotal,
           discount: currentDiscount,
           discountType: currentDiscountType,
           shippingFee: calculatedShippingFee,
           tax: calculatedTax,
+          total: calculatedGrandTotal,
           grandTotal: calculatedGrandTotal,
           notes: notes || undefined,
           status: initialStatus,
@@ -486,80 +572,91 @@ export function PurchaseOrderFormPage() {
         };
 
 
-        let createdOrder: PurchaseOrder;
+        // Both create and update mutations return the Prisma PurchaseOrder type with similar shape
+        // We use const assignment to let TypeScript infer the type correctly
+        let createdOrderResult: Awaited<ReturnType<typeof create.mutateAsync>> | Awaited<ReturnType<typeof update.mutateAsync>>;
         if (isEditMode && purchaseOrderSystemId) {
-          (update as any).mutate({ ...orderData, systemId: purchaseOrderSystemId });
-          createdOrder = { ...orderData, systemId: purchaseOrderSystemId } as PurchaseOrder;
+          // Update mode - đợi kết quả để đảm bảo update thành công
+          createdOrderResult = await update.mutateAsync({ 
+            systemId: purchaseOrderSystemId, 
+            data: orderData 
+          });
           toast.success('Thành công', {
             description: 'Đã cập nhật đơn nhập hàng',
           });
         } else {
-          (create as any).mutate(orderData);
-          createdOrder = orderData as PurchaseOrder;
+          // Create mode - đợi kết quả để có systemId thực từ DB
+          createdOrderResult = await create.mutateAsync(orderData);
           toast.success('Thành công', {
-            description: `Đã tạo đơn nhập hàng ${finalOrderId}`,
+            description: `Đã tạo đơn nhập hàng ${createdOrderResult.id}`,
           });
         }
+        // Extract fields we need with proper typing
+        const createdOrder = {
+          systemId: createdOrderResult.systemId,
+          id: createdOrderResult.id,
+          supplierSystemId: createdOrderResult.supplierSystemId,
+          supplierName: createdOrderResult.supplierName,
+          shippingFee: createdOrderResult.shippingFee,
+          tax: createdOrderResult.tax,
+        };
 
       // ========================================
       // XỬ LÝ KHI "TẠO & NHẬP HÀNG"
       // ========================================
       if (receiveImmediately && !isEditMode) {
-        // 1. Tạo phiếu nhập kho
+        // ✅ Lấy fees từ order đã create (đảm bảo data consistent)
+        // createdOrder đã có shippingFee và tax (chi phí khác) từ DB
+        const totalShippingFee = Number(createdOrder.shippingFee) || currentShippingFees.reduce((sum, fee) => sum + fee.amount, 0);
+        const totalOtherFees = Number(createdOrder.tax) || currentOtherFees.reduce((sum, fee) => sum + fee.amount, 0);
+        
+        console.log(`[PO Form] ⚠️ Sending to inventory receipt: shippingFee=${totalShippingFee}, otherFees=${totalOtherFees}`);
+        console.log(`[PO Form] createdOrder.shippingFee:`, createdOrder.shippingFee);
+        console.log(`[PO Form] createdOrder.tax:`, createdOrder.tax);
+        
+        // 1. Tạo phiếu nhập kho và đợi kết quả
+        // Note: shippingFee, otherFees, costCalculationMethod are stored in the PurchaseOrder
+        // and will be used when calculating inventory costs on the server side
         const receiptData = {
-          id: asBusinessId(''),
-          purchaseOrderSystemId: asSystemId(createdOrder.systemId),
-          purchaseOrderId: createdOrder.id ? asBusinessId(createdOrder.id) : asBusinessId(''),
-          supplierSystemId: asSystemId(createdOrder.supplierSystemId),
-          supplierName: createdOrder.supplierName,
-          receivedDate: formatDateCustom(getCurrentDate(), 'yyyy-MM-dd HH:mm'),
-          receiverSystemId: employeeSystemId,
-          receiverName: employee?.fullName || '',
+          type: 'PURCHASE' as const,
+          branchId: branchSystemId,
           branchSystemId,
           branchName: branch?.name,
-          warehouseName: branch?.name ? `Kho ${branch.name}` : undefined,
+          supplierSystemId: createdOrder.supplierSystemId ?? undefined,
+          supplierName: createdOrder.supplierName ?? undefined,
+          purchaseOrderSystemId: createdOrder.systemId,
+          purchaseOrderId: createdOrder.id,
+          receiptDate: formatDateCustom(getCurrentDate(), 'yyyy-MM-dd HH:mm'),
+          notes: `Nhập kho tự động khi tạo đơn. Chi phí vận chuyển: ${totalShippingFee}, Chi phí khác: ${totalOtherFees}`,
+          createdBy: employee?.systemId,
           items: currentItems.map(item => ({
-            productSystemId: item.product.systemId,
-            productId: item.product.id,
+            productId: item.product.systemId, // use systemId as productId
+            productSku: item.product.id || '', // use business id as sku
             productName: item.product.name,
-            orderedQuantity: item.quantity,
-            receivedQuantity: item.quantity,
-            unitPrice: item.unitPrice,
+            quantity: item.quantity,
+            unitCost: item.unitPrice,
+            totalCost: item.quantity * item.unitPrice,
           })),
-          notes: 'Nhập kho tự động khi tạo đơn',
         };
 
-        createInventoryReceipt.mutate(receiptData);
+        // Đợi tạo phiếu nhập kho thành công trước khi update status
+        await createInventoryReceipt.mutateAsync(receiptData);
 
-        // 2. Cập nhật tồn kho + ghi lịch sử
-        currentItems.forEach(item => {
-          const productBeforeUpdate = findProductById(item.product.systemId);
-          const oldStock = productBeforeUpdate?.inventoryByBranch?.[branchSystemId] || 0;
-          
-          // Note: Inventory updates now happen server-side
+        // Note: Inventory updates and stock history are now handled server-side
+        // in the inventory-receipts API, no need to call separately
 
-          // Ghi lịch sử kho
-          createStockHistory.mutate({
-            productId: item.product.systemId,
-            date: formatDateCustom(getCurrentDate(), 'yyyy-MM-dd HH:mm'),
-            employeeName: employee?.fullName || '',
-            action: 'Nhập hàng từ NCC',
-            quantityChange: item.quantity,
-            newStockLevel: oldStock + item.quantity,
-            documentId: receiptData.id,
-            branch: branch?.name || '',
-            branchSystemId,
-          });
+        // 3. Cập nhật delivery status - đợi để đảm bảo thành công
+        await update.mutateAsync({ 
+          systemId: createdOrder.systemId, 
+          data: { deliveryStatus: 'Đã nhập' as DeliveryStatus } 
         });
-
-        // 3. Cập nhật delivery status trong store
-        processInventoryReceipt(createdOrder.systemId); // ✅ Fixed: Use systemId
 
         // 4. Xử lý thanh toán nếu có payment records
         if (currentPayments.length > 0) {
           const totalPayments = currentPayments.reduce((sum, p) => sum + p.amount, 0);
           
-          currentPayments.forEach((payment, _index) => {
+          // Tạo thanh toán tuần tự để tránh race condition với systemId
+          for (const payment of currentPayments) {
             const paymentCategory = paymentTypes.find(pt => pt.name === 'Thanh toán cho đơn nhập hàng');
 
             const timestamp = formatDateCustom(getCurrentDate(), 'yyyy-MM-dd HH:mm');
@@ -584,28 +681,25 @@ export function PurchaseOrderFormPage() {
               status: 'completed' as const,
               category: 'supplier_payment' as const,
               affectsDebt: true,
-              purchaseOrderSystemId: asSystemId(createdOrder.systemId),
-              purchaseOrderId: asBusinessId(createdOrder.id),
-              originalDocumentId: createdOrder.id,
+              // Link to purchase order - use systemId for FK, id for display
+              purchaseOrderId: asBusinessId(createdOrder.systemId), // FK reference
+              purchaseOrderSystemId: asSystemId(createdOrder.systemId), // Additional linking field
+              purchaseOrderBusinessId: asBusinessId(createdOrder.id || ''), // Business ID for display
+              originalDocumentId: createdOrder.id || '', // Business ID for matching
             } satisfies Omit<Payment, 'systemId'>;
 
-            createPayment.mutate(newPayment);
-          });
+            await createPayment.mutateAsync(newPayment);
+          }
 
           // Cập nhật payment status
+          // Note: payments are stored separately via createPayment.mutateAsync above
+          // The paymentStatus field is updated here to reflect the payment state
           const updatedPaymentStatus = totalPayments >= grandTotal ? 'Đã thanh toán' : 'Thanh toán một phần';
-          (update as any).mutate({
+          update.mutate({
             systemId: createdOrder.systemId,
-            paymentStatus: updatedPaymentStatus,
-            payments: currentPayments.map((p, idx) => ({
-              systemId: `PAY${finalOrderId}${String(idx + 1).padStart(3, '0')}`,
-              id: `PAY_${finalOrderId}_${idx + 1}`,
-              method: p.paymentMethodName,
-              amount: p.amount,
-              paymentDate: formatDateCustom(getCurrentDate(), 'yyyy-MM-dd'),
-              reference: p.note,
-              payerName: employee?.fullName || '',
-            })),
+            data: {
+              paymentStatus: updatedPaymentStatus,
+            }
           });
         }
 
@@ -624,73 +718,9 @@ export function PurchaseOrderFormPage() {
           });
         }
 
-        // 5. Tạo phiếu chi cho Phí vận chuyển và Chi phí khác (Trả bên thứ 3)
-        if (currentShippingFees.length > 0 || currentOtherFees.length > 0) {
-          const expenseCategory = paymentTypes.find(pt => pt.name === 'Chi phí nhập hàng') || paymentTypes[0];
-          const timestamp = formatDateCustom(getCurrentDate(), 'yyyy-MM-dd HH:mm');
-
-          // Tạo phiếu chi cho từng khoản phí vận chuyển
-          currentShippingFees.forEach(fee => {
-             if (fee.amount <= 0) return;
-             const feePayment = {
-              id: '' as Payment['id'],
-              date: timestamp,
-              amount: fee.amount,
-              recipientTypeSystemId: asSystemId('KHAC'),
-              recipientTypeName: 'Khác',
-              recipientName: 'Đơn vị vận chuyển',
-              recipientSystemId: asSystemId(''),
-              description: `Chi phí vận chuyển cho đơn nhập hàng ${finalOrderId} - ${fee.name}`,
-              paymentMethodSystemId: asSystemId('CASH'), // Mặc định tiền mặt
-              paymentMethodName: 'Tiền mặt',
-              accountSystemId: asSystemId(''),
-              paymentReceiptTypeSystemId: asSystemId(expenseCategory?.systemId || ''),
-              paymentReceiptTypeName: 'Chi phí nhập hàng',
-              branchSystemId: asSystemId(branchSystemId),
-              branchName: branch?.name || '',
-              createdBy: asSystemId(employee?.systemId || ''),
-              createdAt: timestamp,
-              status: 'completed' as const,
-              category: 'expense' as const,
-              affectsDebt: false,
-              purchaseOrderSystemId: asSystemId(createdOrder.systemId),
-              purchaseOrderId: asBusinessId(createdOrder.id),
-              originalDocumentId: createdOrder.id,
-            } satisfies Omit<Payment, 'systemId'>;
-            createPayment.mutate(feePayment);
-          });
-
-          // Tạo phiếu chi cho từng khoản phí khác
-          currentOtherFees.forEach(fee => {
-             if (fee.amount <= 0) return;
-             const feePayment = {
-              id: '' as Payment['id'],
-              date: timestamp,
-              amount: fee.amount,
-              recipientTypeSystemId: asSystemId('KHAC'),
-              recipientTypeName: 'Khác',
-              recipientName: 'Bên thứ 3',
-              recipientSystemId: asSystemId(''),
-              description: `Chi phí khác cho đơn nhập hàng ${finalOrderId} - ${fee.name}`,
-              paymentMethodSystemId: asSystemId('CASH'), // Mặc định tiền mặt
-              paymentMethodName: 'Tiền mặt',
-              accountSystemId: asSystemId(''),
-              paymentReceiptTypeSystemId: asSystemId(expenseCategory?.systemId || ''),
-              paymentReceiptTypeName: 'Chi phí nhập hàng',
-              branchSystemId: asSystemId(branchSystemId),
-              branchName: branch?.name || '',
-              createdBy: asSystemId(employee?.systemId || ''),
-              createdAt: timestamp,
-              status: 'completed' as const,
-              category: 'expense' as const,
-              affectsDebt: false,
-              purchaseOrderSystemId: asSystemId(createdOrder.systemId),
-              purchaseOrderId: asBusinessId(createdOrder.id),
-              originalDocumentId: createdOrder.id,
-            } satisfies Omit<Payment, 'systemId'>;
-            createPayment.mutate(feePayment);
-          });
-        }
+        // Note: Chi phí vận chuyển và chi phí khác (trả bên thứ 3) được lưu vào đơn hàng
+        // để tính giá vốn, nhưng KHÔNG tự động tạo phiếu chi.
+        // Phiếu chi sẽ được tạo riêng khi user thực sự thanh toán cho bên thứ 3.
       }
 
       // Chuyển đến trang chi tiết đơn vừa tạo/cập nhật
@@ -780,7 +810,7 @@ export function PurchaseOrderFormPage() {
   return (
     <div className="w-full h-full space-y-4 pb-20 lg:pb-4">
       {/* Row 1: Supplier Info (70%) + Order Info (30%) - Mobile: Stack vertical */}
-      <div className="grid grid-cols-1 lg:grid-cols-10 gap-4 h-auto lg:h-[340px]">
+      <div className="grid grid-cols-1 lg:grid-cols-10 gap-4 h-auto lg:h-85">
         <div className="lg:col-span-7 h-full overflow-hidden order-2 lg:order-1">
           <SupplierSelectionCard value={supplierId ?? undefined} onChange={handleSetSupplierId} />
         </div>
@@ -809,6 +839,10 @@ export function PurchaseOrderFormPage() {
           items={items}
           onItemsChange={setItems}
           supplierId={supplierId ?? undefined}
+          costCalculationMethod={costCalculationMethod}
+          onCostCalculationMethodChange={setCostCalculationMethod}
+          totalFees={shippingFees.reduce((sum, f) => sum + f.amount, 0) + otherFees.reduce((sum, f) => sum + f.amount, 0)}
+          totalQuantity={totalQuantity}
         />
 
         {/* Row 3: Notes (60%) + Summary (40%) - Mobile: Stack vertical */}

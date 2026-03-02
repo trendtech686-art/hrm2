@@ -4,11 +4,10 @@ import * as React from "react";
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { ROUTES } from '@/lib/router';
-import { isDateSame, isDateBetween, isDateAfter, isDateBefore, isValidDate, getStartOfDay, getEndOfDay } from '@/lib/date-utils';
 import { useActiveEmployees } from "./hooks/use-all-employees";
-import { useEmployeeMutations, useDeletedEmployees, useTrashMutations } from "./hooks/use-employees";
+import { useEmployeeFilterOptions } from "./hooks/use-employee-filter-options";
+import { useEmployees, useEmployeeMutations, useTrashMutations, useEmployeeStats, type EmployeeStats, type UpdateEmployeeInput } from "./hooks/use-employees";
 import { useAllBranches } from "@/hooks/use-branches";
-import { useDefaultPageSize } from "../settings/global/hooks/use-global-settings";
 import { type SystemId } from '@/lib/id-types';
 import { getColumns } from "./columns";
 import { ResponsiveDataTable } from "@/components/data-table/responsive-data-table";
@@ -16,9 +15,8 @@ import { DataTableFacetedFilter } from "@/components/data-table/data-table-facet
 import { toast } from "sonner";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { PlusCircle, Trash2, Upload, Download } from "lucide-react";
+import { PlusCircle, Trash2, Upload, Download, Users, UserCheck, Clock, Settings } from "lucide-react";
 import type { Employee } from '@/lib/types/prisma-extended';
-import { useFuseFilter } from "@/hooks/use-fuse-search";
 import { usePageHeader } from "@/contexts/page-header-context";
 import { DynamicDataTableColumnCustomizer as DataTableColumnCustomizer } from "@/components/data-table/dynamic-column-customizer";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -27,13 +25,64 @@ import { PageToolbar } from "@/components/layout/page-toolbar";
 import { PageFilters } from "@/components/layout/page-filters";
 import { useColumnLayout } from "@/hooks/use-column-visibility";
 import { MobileEmployeeCard } from "./components/mobile-employee-card";
+import { StatsCard, StatsCardGrid } from "@/components/shared/stats-card";
+
 
 const EmployeeImportDialog = dynamic(() => import("./components/employee-import-export-dialogs").then(m => ({ default: m.EmployeeImportDialog })), { ssr: false });
 const EmployeeExportDialog = dynamic(() => import("./components/employee-import-export-dialogs").then(m => ({ default: m.EmployeeExportDialog })), { ssr: false });
 
-export function EmployeesPage() {
-  const { data: activeEmployees } = useActiveEmployees();
-  const { data: deletedEmployeesData } = useDeletedEmployees();
+export interface EmployeesPageProps {
+  initialStats?: EmployeeStats;
+}
+
+export function EmployeesPage({ initialStats }: EmployeesPageProps = {}) {
+  // Stats from Server Component (instant, no loading)
+  const { data: stats } = useEmployeeStats(initialStats);
+  
+  // Server-side pagination state
+  const [searchQuery, setSearchQuery] = React.useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = React.useState('');
+  const [branchFilter, setBranchFilter] = React.useState('all');
+  const [departmentFilter, setDepartmentFilter] = React.useState<Set<string>>(new Set());
+  const [jobTitleFilter, setJobTitleFilter] = React.useState<Set<string>>(new Set());
+  const [statusFilter, setStatusFilter] = React.useState<Set<string>>(new Set());
+  const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 20 });
+  const [sorting, setSorting] = React.useState<{ id: string; desc: boolean }>({ id: 'createdAt', desc: true });
+  
+  // Debounce search
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+      setPagination(prev => ({ ...prev, pageIndex: 0 }));
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+  
+  // Reset page when filters change
+  React.useEffect(() => {
+    setPagination(prev => ({ ...prev, pageIndex: 0 }));
+  }, [branchFilter, departmentFilter, jobTitleFilter, statusFilter]);
+  
+  // Server-side paginated query
+  const { data: employeesData, isLoading: isLoadingEmployees } = useEmployees({
+    page: pagination.pageIndex + 1,
+    limit: pagination.pageSize,
+    search: debouncedSearchQuery || undefined,
+    branchId: branchFilter !== 'all' ? branchFilter : undefined,
+    department: departmentFilter.size === 1 ? Array.from(departmentFilter)[0] : undefined,
+    jobTitle: jobTitleFilter.size === 1 ? Array.from(jobTitleFilter)[0] : undefined,
+    status: statusFilter.size === 1 ? Array.from(statusFilter)[0] : undefined,
+    sortBy: sorting.id,
+    sortOrder: sorting.desc ? 'desc' : 'asc',
+  });
+  
+  const employees = React.useMemo(() => employeesData?.data ?? [], [employeesData?.data]);
+  const totalRows = employeesData?.pagination?.total ?? 0;
+  const pageCount = employeesData?.pagination?.totalPages ?? 1;
+  
+  // ✅ Lightweight filter options — replaces heavy useActiveEmployees() for dropdown filters
+  const { departments: filterDepartments, jobTitles: filterJobTitles } = useEmployeeFilterOptions();
+  
   const { data: branches } = useAllBranches();
   const { create, update, remove: deleteMutation } = useEmployeeMutations({
     onCreateSuccess: () => toast.success("Đã thêm nhân viên mới"),
@@ -43,7 +92,6 @@ export function EmployeesPage() {
   });
   const { restore: restoreMutation } = useTrashMutations();
   const router = useRouter();
-  const defaultPageSize = useDefaultPageSize();
   const isMobile = !useMediaQuery("(min-width: 768px)");
 
   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
@@ -52,18 +100,10 @@ export function EmployeesPage() {
   const [isBulkDeleteAlertOpen, setIsBulkDeleteAlertOpen] = React.useState(false);
   const [isImportV2Open, setIsImportV2Open] = React.useState(false);
   const [isExportV2Open, setIsExportV2Open] = React.useState(false);
-  const [sorting, setSorting] = React.useState<{ id: string; desc: boolean }>({ id: 'createdAt', desc: true });
-  const [globalFilter, setGlobalFilter] = React.useState('');
-  const [debouncedGlobalFilter, setDebouncedGlobalFilter] = React.useState('');
-  const [branchFilter, setBranchFilter] = React.useState('all');
-  const [dateFilter, _setDateFilter] = React.useState<[string | undefined, string | undefined] | undefined>();
-  const [departmentFilter, setDepartmentFilter] = React.useState<Set<string>>(new Set());
-  const [jobTitleFilter, setJobTitleFilter] = React.useState<Set<string>>(new Set());
-  const [statusFilter, setStatusFilter] = React.useState<Set<string>>(new Set());
-  const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: defaultPageSize });
   const [expanded, setExpanded] = React.useState<Record<string, boolean>>({});
 
-  React.useEffect(() => { const t = setTimeout(() => setDebouncedGlobalFilter(globalFilter), 300); return () => clearTimeout(t); }, [globalFilter]);
+  // ✅ Lazy-load all employees ONLY when import/export dialog is open (not for filters!)
+  const { data: allEmployeesForFilters } = useActiveEmployees({ enabled: isImportV2Open || isExportV2Open });
 
   const columnLayoutDefaults = React.useMemo(() => ({ visibility: {}, order: [] as string[], pinned: [] as string[] }), []);
   const [columnLayout, columnLayoutSetters, isColumnLayoutLoading] = useColumnLayout('employees', columnLayoutDefaults);
@@ -79,7 +119,7 @@ export function EmployeesPage() {
   }, [restoreMutation]);
 
   const columns = React.useMemo(() => getColumns(handleDelete, handleRestore, router, branches), [handleDelete, handleRestore, router, branches]);
-  const deletedCount = deletedEmployeesData?.length || 0;
+  const deletedCount = stats?.deleted ?? 0;
 
   const defaultVisibleColumns = React.useMemo(() => new Set(['id', 'fullName', 'workEmail', 'phone', 'branch', 'department', 'jobTitle', 'hireDate', 'employmentStatus', 'dob', 'gender', 'nationalId', 'permanentAddress', 'bankName', 'bankAccountNumber', 'baseSalary', 'contractType', 'annualLeaveBalance', 'sickLeaveBalance']), []);
   const defaultsInitialized = React.useRef(false);
@@ -98,7 +138,7 @@ export function EmployeesPage() {
 
   const confirmDelete = () => { 
     if (idToDelete) { 
-      const emp = activeEmployees.find(e => e.systemId === idToDelete); 
+      const emp = employees.find(e => e.systemId === idToDelete); 
       deleteMutation.mutate(idToDelete, {
         onSuccess: () => {
           toast.success("Đã xóa nhân viên vào thùng rác", { description: `Nhân viên ${emp?.fullName || ''} đã được chuyển vào thùng rác.` });
@@ -124,29 +164,18 @@ export function EmployeesPage() {
     setIsBulkDeleteAlertOpen(false); 
   };
 
-  const fuseOpts = React.useMemo(() => ({ keys: ["id", "fullName", "workEmail", "phone", "personalEmail", "department", "jobTitle"], threshold: 0.3, ignoreLocation: true, useExtendedSearch: false }), []);
-  const searchedEmployees = useFuseFilter(activeEmployees, debouncedGlobalFilter.trim(), fuseOpts);
-  const getDeptName = React.useCallback((d: unknown): string | undefined => typeof d === 'object' && d ? (d as { name?: string }).name : d as string | undefined, []);
-  const getJobTitleName = React.useCallback((j: unknown): string | undefined => typeof j === 'object' && j ? (j as { name?: string }).name : j as string | undefined, []);
+  // Server-side pagination: data is already filtered/sorted/paginated by API
+  const allSelectedRows = React.useMemo(() => employees.filter(e => rowSelection[e.systemId]), [employees, rowSelection]);
 
-  const filteredData = React.useMemo(() => { let f = activeEmployees; if (branchFilter !== 'all') f = f.filter(e => e.branchSystemId === branchFilter); if (departmentFilter.size > 0) f = f.filter(e => { const n = getDeptName(e.department); return n && departmentFilter.has(n); }); if (jobTitleFilter.size > 0) f = f.filter(e => { const n = getJobTitleName(e.jobTitle); return n && jobTitleFilter.has(n); }); if (statusFilter.size > 0) f = f.filter(e => e.employmentStatus && statusFilter.has(e.employmentStatus)); if (debouncedGlobalFilter?.trim()) { const ids = new Set(searchedEmployees.map(e => e.systemId)); f = f.filter(e => ids.has(e.systemId)); } if (dateFilter && (dateFilter[0] || dateFilter[1])) { const [start, end] = dateFilter; const s = start ? getStartOfDay(start) : null, e = end ? getEndOfDay(end) : null; f = f.filter(emp => { const d = new Date(emp.hireDate); if (!isValidDate(d)) return false; if (s && !e) return isDateAfter(d, s) || isDateSame(d, s); if (!s && e) return isDateBefore(d, e) || isDateSame(d, e); if (s && e) return isDateBetween(d, s, e); return true; }); } return f; }, [activeEmployees, debouncedGlobalFilter, dateFilter, searchedEmployees, branchFilter, departmentFilter, jobTitleFilter, statusFilter, getDeptName, getJobTitleName]);
-
-  React.useEffect(() => { setPagination(p => ({ ...p, pageIndex: 0 })); }, [debouncedGlobalFilter, branchFilter, departmentFilter, jobTitleFilter, statusFilter, dateFilter]);
-
-  const sortedData = React.useMemo(() => { const s = [...filteredData]; if (sorting.id) s.sort((a, b) => { const av = a[sorting.id as keyof Employee], bv = b[sorting.id as keyof Employee]; if (av == null) return 1; if (bv == null) return -1; if (sorting.id === 'createdAt' || sorting.id === 'hireDate') { const at = av ? new Date(av as string | number | Date).getTime() : 0, bt = bv ? new Date(bv as string | number | Date).getTime() : 0; return sorting.desc ? bt - at : at - bt; } if (av < bv) return sorting.desc ? 1 : -1; if (av > bv) return sorting.desc ? -1 : 1; return 0; }); return s; }, [filteredData, sorting]);
-
-  const pageCount = Math.ceil(sortedData.length / pagination.pageSize);
-  const paginatedData = React.useMemo(() => sortedData.slice(pagination.pageIndex * pagination.pageSize, (pagination.pageIndex + 1) * pagination.pageSize), [sortedData, pagination]);
-  const allSelectedRows = React.useMemo(() => activeEmployees.filter(e => rowSelection[e.systemId]), [activeEmployees, rowSelection]);
-
-  const departmentOpts = React.useMemo(() => { const set = new Set<string>(); activeEmployees.forEach(e => { const n = getDeptName(e.department); if (n) set.add(n); }); return Array.from(set).sort().map(d => ({ label: d, value: d })); }, [activeEmployees, getDeptName]);
-  const jobTitleOpts = React.useMemo(() => { const set = new Set<string>(); activeEmployees.forEach(e => { const n = getJobTitleName(e.jobTitle); if (n) set.add(n); }); return Array.from(set).sort().map(j => ({ label: j, value: j })); }, [activeEmployees, getJobTitleName]);
+  // ✅ Filter options from dedicated lightweight API (NOT from all employees)
+  const departmentOpts = React.useMemo(() => filterDepartments.map(d => ({ label: d, value: d })), [filterDepartments]);
+  const jobTitleOpts = React.useMemo(() => filterJobTitles.map(j => ({ label: j, value: j })), [filterJobTitles]);
   const statusOpts = React.useMemo(() => [{ label: 'Đang làm việc', value: 'Đang làm việc' }, { label: 'Đã nghỉ việc', value: 'Đã nghỉ việc' }, { label: 'Tạm nghỉ', value: 'Tạm nghỉ' }], []);
 
-  const handleImportV2 = React.useCallback(async (data: Partial<Employee>[], mode: 'insert-only' | 'update-only' | 'upsert', _branchId?: string) => { let inserted = 0, updated = 0, skipped = 0, failed = 0; const errors: Array<{ row: number; message: string }> = []; for (let i = 0; i < data.length; i++) { const item = data[i]; try { const existing = item.id ? activeEmployees.find(e => e.id === item.id) : null; if (existing) { if (mode === 'insert-only') { skipped++; continue; } await update.mutateAsync({ systemId: existing.systemId, ...item } as any); updated++; } else { if (mode === 'update-only') { errors.push({ row: i + 2, message: `Không tìm thấy nhân viên với mã ${item.id}` }); failed++; continue; } const { systemId: _s, ...newData } = item as Partial<Employee> & { systemId?: string }; await create.mutateAsync(newData as Omit<Employee, 'systemId'>); inserted++; } } catch (e) { errors.push({ row: i + 2, message: String(e) }); failed++; } } return { success: inserted + updated, failed, inserted, updated, skipped, errors }; }, [activeEmployees, update, create]);
+  const handleImportV2 = React.useCallback(async (data: Partial<Employee>[], mode: 'insert-only' | 'update-only' | 'upsert', _branchId?: string) => { let inserted = 0, updated = 0, skipped = 0, failed = 0; const errors: Array<{ row: number; message: string }> = []; for (let i = 0; i < data.length; i++) { const item = data[i]; try { const existing = item.id ? (allEmployeesForFilters ?? []).find(e => e.id === item.id) : null; if (existing) { if (mode === 'insert-only') { skipped++; continue; } await update.mutateAsync({ systemId: existing.systemId, ...item } as UpdateEmployeeInput); updated++; } else { if (mode === 'update-only') { errors.push({ row: i + 2, message: `Không tìm thấy nhân viên với mã ${item.id}` }); failed++; continue; } const { systemId: _s, ...newData } = item as Partial<Employee> & { systemId?: string }; await create.mutateAsync(newData as Omit<Employee, 'systemId'>); inserted++; } } catch (e) { errors.push({ row: i + 2, message: String(e) }); failed++; } } return { success: inserted + updated, failed, inserted, updated, skipped, errors }; }, [allEmployeesForFilters, update, create]);
 
   const currentUser = React.useMemo(() => ({ name: 'Admin', systemId: 'USR000001' as SystemId }), []);
-  const bulkActions = [{ label: "Chuyển vào thùng rác", onSelect: () => setIsBulkDeleteAlertOpen(true) }, { label: "Đang làm việc", onSelect: (rows: Employee[]) => { Promise.all(rows.map(e => update.mutateAsync({ systemId: e.systemId, employmentStatus: "Đang làm việc" } as any))).then(() => { toast.success("Đã cập nhật trạng thái", { description: `${rows.length} nhân viên đã chuyển sang "Đang làm việc"` }); setRowSelection({}); }).catch(() => toast.error("Có lỗi khi cập nhật trạng thái")); } }, { label: "Nghỉ việc", onSelect: (rows: Employee[]) => { Promise.all(rows.map(e => update.mutateAsync({ systemId: e.systemId, employmentStatus: "Đã nghỉ việc" } as any))).then(() => { toast.success("Đã cập nhật trạng thái", { description: `${rows.length} nhân viên đã chuyển sang "Đã nghỉ việc"` }); setRowSelection({}); }).catch(() => toast.error("Có lỗi khi cập nhật trạng thái")); } }];
+  const bulkActions = [{ label: "Chuyển vào thùng rác", onSelect: () => setIsBulkDeleteAlertOpen(true) }, { label: "Đang làm việc", onSelect: (rows: Employee[]) => { Promise.all(rows.map(e => update.mutateAsync({ systemId: e.systemId, employmentStatus: "Đang làm việc" } as UpdateEmployeeInput))).then(() => { toast.success("Đã cập nhật trạng thái", { description: `${rows.length} nhân viên đã chuyển sang "Đang làm việc"` }); setRowSelection({}); }).catch(() => toast.error("Có lỗi khi cập nhật trạng thái")); } }, { label: "Nghỉ việc", onSelect: (rows: Employee[]) => { Promise.all(rows.map(e => update.mutateAsync({ systemId: e.systemId, employmentStatus: "Đã nghỉ việc" } as UpdateEmployeeInput))).then(() => { toast.success("Đã cập nhật trạng thái", { description: `${rows.length} nhân viên đã chuyển sang "Đã nghỉ việc"` }); setRowSelection({}); }).catch(() => toast.error("Có lỗi khi cập nhật trạng thái")); } }];
   const handleRowClick = (row: Employee) => router.push(ROUTES.HRM.EMPLOYEE_VIEW.replace(':systemId', row.systemId));
 
   const headerActions = React.useMemo(() => [<Button key="trash" variant="outline" size="sm" className="h-9" onClick={() => router.push('/employees/trash')}><Trash2 className="mr-2 h-4 w-4" />Thùng rác ({deletedCount})</Button>, <Button key="add" size="sm" className="h-9" onClick={() => router.push('/employees/new')}><PlusCircle className="mr-2 h-4 w-4" />Thêm nhân viên</Button>], [router, deletedCount]);
@@ -154,13 +183,35 @@ export function EmployeesPage() {
 
   return (
     <div className="flex flex-col w-full h-full">
-      {!isMobile && <PageToolbar leftActions={<><Button variant="outline" size="sm" className="h-9" onClick={() => setIsImportV2Open(true)}><Upload className="mr-2 h-4 w-4" />Nhập Excel</Button><Button variant="outline" size="sm" className="h-9" onClick={() => setIsExportV2Open(true)}><Download className="mr-2 h-4 w-4" />Xuất Excel</Button></>} rightActions={<DataTableColumnCustomizer columns={columns} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} onResetToDefault={resetColumnLayout} />} />}
-      <PageFilters searchValue={globalFilter} onSearchChange={setGlobalFilter} searchPlaceholder="Tìm kiếm nhân viên (tên, mã, email, SĐT)..."><Select value={branchFilter} onValueChange={setBranchFilter}><SelectTrigger className="w-full sm:w-[180px] h-9"><SelectValue placeholder="Tất cả chi nhánh" /></SelectTrigger><SelectContent><SelectItem value="all">Tất cả chi nhánh</SelectItem>{branches.map(b => <SelectItem key={b.systemId} value={b.systemId}>{b.name}</SelectItem>)}</SelectContent></Select>{departmentOpts.length > 0 && <DataTableFacetedFilter title="Phòng ban" options={departmentOpts} selectedValues={departmentFilter} onSelectedValuesChange={setDepartmentFilter} />}{jobTitleOpts.length > 0 && <DataTableFacetedFilter title="Chức danh" options={jobTitleOpts} selectedValues={jobTitleFilter} onSelectedValuesChange={setJobTitleFilter} />}<DataTableFacetedFilter title="Trạng thái" options={statusOpts} selectedValues={statusFilter} onSelectedValuesChange={setStatusFilter} /></PageFilters>
-      <div className="w-full py-4"><ResponsiveDataTable columns={columns} data={paginatedData} renderMobileCard={e => <MobileEmployeeCard employee={e} onDelete={handleDelete} />} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowCount={filteredData.length} rowSelection={rowSelection} setRowSelection={setRowSelection} onBulkDelete={() => setIsBulkDeleteAlertOpen(true)} bulkActions={bulkActions} allSelectedRows={allSelectedRows} expanded={expanded} setExpanded={setExpanded} sorting={sorting} setSorting={setSorting as React.Dispatch<React.SetStateAction<{ id: string; desc: boolean }>>} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} onRowClick={handleRowClick} /></div>
+      {!isMobile && <PageToolbar leftActions={<><Button variant="outline" size="sm" onClick={() => router.push('/settings/employees')}><Settings className="h-4 w-4 mr-2" />Cài đặt</Button><Button variant="outline" size="sm" className="h-9" onClick={() => setIsImportV2Open(true)}><Upload className="mr-2 h-4 w-4" />Nhập Excel</Button><Button variant="outline" size="sm" className="h-9" onClick={() => setIsExportV2Open(true)}><Download className="mr-2 h-4 w-4" />Xuất Excel</Button></>} rightActions={<DataTableColumnCustomizer columns={columns} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} onResetToDefault={resetColumnLayout} />} />}
+      <PageFilters searchValue={searchQuery} onSearchChange={setSearchQuery} searchPlaceholder="Tìm kiếm nhân viên (tên, mã, email, SĐT)..."><Select value={branchFilter} onValueChange={setBranchFilter}><SelectTrigger className="w-full sm:w-45 h-9"><SelectValue placeholder="Tất cả chi nhánh" /></SelectTrigger><SelectContent><SelectItem value="all">Tất cả chi nhánh</SelectItem>{branches.map(b => <SelectItem key={b.systemId} value={b.systemId}>{b.name}</SelectItem>)}</SelectContent></Select>{departmentOpts.length > 0 && <DataTableFacetedFilter title="Phòng ban" options={departmentOpts} selectedValues={departmentFilter} onSelectedValuesChange={setDepartmentFilter} />}{jobTitleOpts.length > 0 && <DataTableFacetedFilter title="Chức danh" options={jobTitleOpts} selectedValues={jobTitleFilter} onSelectedValuesChange={setJobTitleFilter} />}<DataTableFacetedFilter title="Trạng thái" options={statusOpts} selectedValues={statusFilter} onSelectedValuesChange={setStatusFilter} /></PageFilters>
+      
+      {/* Stats Cards - instant display from Server Component */}
+      <StatsCardGrid columns={3} className="my-4">
+        <StatsCard
+          title="Tổng nhân viên"
+          value={stats?.total ?? 0}
+          icon={Users}
+        />
+        <StatsCard
+          title="Đang làm việc"
+          value={stats?.active ?? 0}
+          icon={UserCheck}
+          variant="success"
+        />
+        <StatsCard
+          title="Nghỉ phép"
+          value={stats?.onLeave ?? 0}
+          icon={Clock}
+          variant="warning"
+        />
+      </StatsCardGrid>
+
+      <div className="w-full py-4"><ResponsiveDataTable columns={columns} data={employees} renderMobileCard={e => <MobileEmployeeCard employee={e} onDelete={handleDelete} />} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowCount={totalRows} rowSelection={rowSelection} setRowSelection={setRowSelection} onBulkDelete={() => setIsBulkDeleteAlertOpen(true)} bulkActions={bulkActions} allSelectedRows={allSelectedRows} expanded={expanded} setExpanded={setExpanded} sorting={sorting} setSorting={setSorting as React.Dispatch<React.SetStateAction<{ id: string; desc: boolean }>>} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} onRowClick={handleRowClick} isLoading={isLoadingEmployees} /></div>
       <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Xác nhận xóa nhân viên</AlertDialogTitle><AlertDialogDescription>Nhân viên sẽ được chuyển vào thùng rác.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel className="h-9">Hủy</AlertDialogCancel><AlertDialogAction className="h-9" onClick={confirmDelete}>Tiếp tục</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
       <AlertDialog open={isBulkDeleteAlertOpen} onOpenChange={setIsBulkDeleteAlertOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Xác nhận xóa {Object.keys(rowSelection).length} nhân viên</AlertDialogTitle><AlertDialogDescription>Các nhân viên sẽ được chuyển vào thùng rác.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel className="h-9">Hủy</AlertDialogCancel><AlertDialogAction className="h-9" onClick={confirmBulkDelete}>Tiếp tục</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
-      <EmployeeImportDialog open={isImportV2Open} onOpenChange={setIsImportV2Open} branches={branches.map(b => ({ systemId: b.systemId, name: b.name }))} requireBranch={true} defaultBranchId={branches[0]?.systemId} existingData={activeEmployees} onImport={handleImportV2} currentUser={currentUser} />
-      <EmployeeExportDialog open={isExportV2Open} onOpenChange={setIsExportV2Open} allData={activeEmployees} filteredData={sortedData} currentPageData={paginatedData} selectedData={allSelectedRows} appliedFilters={{ branch: branchFilter !== 'all' ? branchFilter : undefined, department: departmentFilter.size > 0 ? Array.from(departmentFilter) : undefined, jobTitle: jobTitleFilter.size > 0 ? Array.from(jobTitleFilter) : undefined, status: statusFilter.size > 0 ? Array.from(statusFilter) : undefined, search: debouncedGlobalFilter || undefined }} currentUser={currentUser} />
+      <EmployeeImportDialog open={isImportV2Open} onOpenChange={setIsImportV2Open} branches={branches.map(b => ({ systemId: b.systemId, name: b.name }))} requireBranch={true} defaultBranchId={branches[0]?.systemId} existingData={allEmployeesForFilters ?? []} onImport={handleImportV2} currentUser={currentUser} />
+      <EmployeeExportDialog open={isExportV2Open} onOpenChange={setIsExportV2Open} allData={allEmployeesForFilters ?? []} filteredData={employees} currentPageData={employees} selectedData={allSelectedRows} appliedFilters={{ branch: branchFilter !== 'all' ? branchFilter : undefined, department: departmentFilter.size > 0 ? Array.from(departmentFilter) : undefined, jobTitle: jobTitleFilter.size > 0 ? Array.from(jobTitleFilter) : undefined, status: statusFilter.size > 0 ? Array.from(statusFilter) : undefined, search: debouncedSearchQuery || undefined }} currentUser={currentUser} />
     </div>
   );
 }

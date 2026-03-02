@@ -1,4 +1,4 @@
-import * as React from 'react';
+﻿import * as React from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { Inbox } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
@@ -36,7 +36,7 @@ export function SettingsPlaceholder({
             <Icon className="h-5 w-5 text-muted-foreground" />
           </div>
           <div>
-            <CardTitle className="text-h5 font-semibold">{title}</CardTitle>
+            <CardTitle>{title}</CardTitle>
             <CardDescription>{description}</CardDescription>
           </div>
         </div>

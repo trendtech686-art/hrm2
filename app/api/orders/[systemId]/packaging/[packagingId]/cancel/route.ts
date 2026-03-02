@@ -13,7 +13,7 @@ export async function POST(request: Request, { params }: RouteParams) {
   try {
     const { systemId, packagingId } = await params;
     const body = await request.json();
-    const { reason } = body;
+    const { reason, cancelingEmployeeId, cancelingEmployeeName } = body;
 
     // Get the packaging
     const packaging = await prisma.packaging.findUnique({
@@ -28,12 +28,15 @@ export async function POST(request: Request, { params }: RouteParams) {
       return apiError('Packaging does not belong to this order', 400);
     }
 
-    if (packaging.confirmDate) {
-      return apiError('Cannot cancel completed packaging', 400);
-    }
-
+    // ✅ Only prevent cancel if already cancelled
     if (packaging.cancelDate) {
       return apiError('Packaging already cancelled', 400);
+    }
+    
+    // ✅ Prevent cancel if delivery is in progress or completed
+    const nonCancellableDeliveryStatuses = ['SHIPPING', 'DELIVERED'];
+    if (packaging.deliveryStatus && nonCancellableDeliveryStatuses.includes(packaging.deliveryStatus)) {
+      return apiError('Cannot cancel packaging that is being delivered or already delivered', 400);
     }
 
     // Transaction: cancel packaging and update order status
@@ -45,6 +48,8 @@ export async function POST(request: Request, { params }: RouteParams) {
           status: 'CANCELLED',
           cancelDate: new Date(),
           cancelReason: reason,
+          cancelingEmployeeId: cancelingEmployeeId || session.user?.id,
+          cancelingEmployeeName: cancelingEmployeeName || session.user?.name || 'Hệ thống',
         },
       });
 

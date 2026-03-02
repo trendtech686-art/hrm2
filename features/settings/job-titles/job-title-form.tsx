@@ -1,7 +1,6 @@
 import * as React from "react";
 import { useForm } from "react-hook-form"
 import type { JobTitle } from '@/lib/types/prisma-extended'
-import { useJobTitleStore } from "./store";
 
 import { Button } from "../../../components/ui/button"
 import {
@@ -24,7 +23,6 @@ type JobTitleFormProps = {
 }
 
 export function JobTitleForm({ initialData, onSubmit, onCancel }: JobTitleFormProps) {
-  const { data: _jobTitles } = useJobTitleStore();
   const form = useForm<JobTitleFormValues>({
     defaultValues: initialData || {
       id: "", // ✅ Empty string = auto-generate
@@ -32,6 +30,19 @@ export function JobTitleForm({ initialData, onSubmit, onCancel }: JobTitleFormPr
       description: "",
     },
   })
+
+  // Reset form when initialData changes
+  React.useEffect(() => {
+    if (initialData) {
+      form.reset(initialData);
+    } else {
+      form.reset({
+        id: '',
+        name: '',
+        description: '',
+      });
+    }
+  }, [initialData, form]);
 
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -49,7 +60,13 @@ export function JobTitleForm({ initialData, onSubmit, onCancel }: JobTitleFormPr
             <FormItem>
               <FormLabel>Mã chức vụ</FormLabel>
               <FormControl>
-                <Input placeholder="VD: NV, TP" {...field} value={field.value ?? ''} />
+                <Input 
+                  placeholder="VD: NV, TP" 
+                  {...field} 
+                  value={field.value ?? ''} 
+                  className="uppercase"
+                  onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>

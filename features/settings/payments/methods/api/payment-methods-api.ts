@@ -18,14 +18,18 @@ const API_BASE = '/api/settings/payment-methods';
 
 export type PaymentMethodFilters = {
   isActive?: boolean;
+  page?: number;
+  limit?: number;
 };
 
-export type PaymentMethodCreateInput = Omit<PaymentMethod, 'systemId' | 'isDefault' | 'createdAt' | 'updatedAt'>;
+export type PaymentMethodCreateInput = Omit<PaymentMethod, 'systemId' | 'createdAt' | 'updatedAt'>;
 export type PaymentMethodUpdateInput = Partial<PaymentMethodCreateInput>;
 
 export async function fetchPaymentMethods(filters: PaymentMethodFilters = {}): Promise<ApiResponse<PaymentMethod[]>> {
   const params = new URLSearchParams();
   if (filters.isActive !== undefined) params.append('isActive', String(filters.isActive));
+  if (filters.page !== undefined) params.append('page', String(filters.page));
+  if (filters.limit !== undefined) params.append('limit', String(filters.limit));
   
   const url = params.toString() ? `${API_BASE}?${params}` : API_BASE;
   const response = await fetch(url);

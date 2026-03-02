@@ -20,7 +20,7 @@ import { toast } from 'sonner';
 
 export function TaskCalendarView() {
   usePageHeader();
-  const { data: tasksData } = useTasks({ limit: 1000 });
+  const { data: tasksData } = useTasks();
   const tasks = React.useMemo(() => tasksData?.data ?? [], [tasksData?.data]);
   const { update: updateMutation } = useTaskMutations();
   

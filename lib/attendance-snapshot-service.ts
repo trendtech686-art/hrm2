@@ -57,21 +57,25 @@ const buildSnapshot = (
 });
 
 /**
- * Fetch locked months from localStorage (temporary solution until backend persistence is implemented)
- * In production, this should be an API call to the backend
+ * Fetch locked months from database via API
  */
-const getLockedMonthsFromStorage = (): Record<string, boolean> => {
-  if (typeof window === 'undefined') return {};
+const getLockedMonthsFromAPI = async (): Promise<Record<string, boolean>> => {
   try {
-    const stored = localStorage.getItem('attendance-locked-months');
-    return stored ? JSON.parse(stored) : {};
-  } catch {
+    const response = await fetch('/api/attendance/locks');
+    if (!response.ok) {
+      console.error('Failed to fetch locked months:', response.statusText);
+      return {};
+    }
+    const data = await response.json();
+    return data.lockedMonths || {};
+  } catch (error) {
+    console.error('Error fetching locked months:', error);
     return {};
   }
 };
 
-const getLatestLockedMonthKey = (): string | undefined => {
-  const lockedMonths = getLockedMonthsFromStorage();
+const getLatestLockedMonthKey = async (): Promise<string | undefined> => {
+  const lockedMonths = await getLockedMonthsFromAPI();
   const lockedKeys = Object.entries(lockedMonths)
     .filter(([, isLocked]) => Boolean(isLocked))
     .map(([monthKey]) => monthKey)
@@ -91,7 +95,7 @@ export const attendanceSnapshotService = {
       if (!targetRow) {
         return null;
       }
-      const lockedMonths = getLockedMonthsFromStorage();
+      const lockedMonths = await getLockedMonthsFromAPI();
       const locked = Boolean(lockedMonths[monthKey]);
       return buildSnapshot(targetRow, { monthKey, employeeSystemId }, locked);
     } catch (error) {
@@ -100,7 +104,7 @@ export const attendanceSnapshotService = {
     }
   },
   async getLatestLockedSnapshot(employeeSystemId: SystemId): Promise<AttendanceSnapshot | null> {
-    const latestLockedKey = getLatestLockedMonthKey();
+    const latestLockedKey = await getLatestLockedMonthKey();
     if (!latestLockedKey) {
       return null;
     }

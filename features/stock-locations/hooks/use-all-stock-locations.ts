@@ -1,18 +1,28 @@
 /**
  * useAllStockLocations - Convenience hook for flat array of stock locations
- * Returns all stock locations data without pagination
+ * Auto-pagination: no hardcoded limit cap (MODULE-QUALITY-CRITERIA §1.3)
  */
 
 import * as React from 'react';
-import { useStockLocations } from './use-stock-locations';
+import { useQuery } from '@tanstack/react-query';
+import { fetchAllPages } from '@/lib/fetch-all-pages';
+import { fetchStockLocations } from '../api/stock-locations-api';
+import { stockLocationKeys } from './use-stock-locations';
 import type { StockLocation } from '@/lib/types/prisma-extended';
 import type { SystemId } from '@/lib/id-types';
 
 export function useAllStockLocations() {
-  const { data, ...rest } = useStockLocations({});
+  const query = useQuery({
+    queryKey: [...stockLocationKeys.all, 'all'],
+    queryFn: () => fetchAllPages((p) => fetchStockLocations(p)),
+    staleTime: 10 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+  });
   return {
-    data: data?.data || [] as StockLocation[],
-    ...rest,
+    data: (query.data || []) as StockLocation[],
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
   };
 }
 

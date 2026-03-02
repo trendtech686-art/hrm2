@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma'
 import type { Prisma } from '@/generated/prisma/client'
 import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
 import { createAuditLogSchema } from './validation'
+import { generateNextIds } from '@/lib/id-system'
 
 // GET /api/audit-logs - List audit logs
 export async function GET(request: Request) {
@@ -71,9 +72,11 @@ export async function POST(request: Request) {
   const body = validation.data
 
   try {
+    const { systemId } = await generateNextIds('audit-log')
+    
     const log = await prisma.auditLog.create({
       data: {
-        systemId: `ACT${String(Date.now()).slice(-6).padStart(6, '0')}`,
+        systemId,
         entityType: body.entityType,
         entityId: body.entityId,
         action: body.action,

@@ -17,7 +17,6 @@ import { Button } from '@/components/ui/button';
 import { NumberInput } from '@/components/ui/number-input';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import { OptimizedImage } from '@/components/ui/optimized-image';
-import { useProductImage } from '@/features/products/components/product-image';
 
 import type { Product } from '@/lib/types/prisma-extended';
 import { formatCurrency, type FormLineItem, type FormValues } from './types';
@@ -30,6 +29,7 @@ interface ProductThumbnailCellProps {
   productSystemId: string;
   product?: {
     thumbnailImage?: string;
+    imageUrl?: string;
     galleryImages?: string[];
     images?: string[];
     name?: string;
@@ -40,13 +40,14 @@ interface ProductThumbnailCellProps {
 }
 
 export const ProductThumbnailCell = ({
-  productSystemId,
+  productSystemId: _productSystemId,
   product,
   productName,
   size = 'md',
   onPreview,
 }: ProductThumbnailCellProps) => {
-  const imageUrl = useProductImage(productSystemId, product);
+  // ✅ Dùng trực tiếp thumbnailImage từ product data như dialog chọn sản phẩm
+  const imageUrl = product?.thumbnailImage || product?.imageUrl || product?.galleryImages?.[0] || product?.images?.[0];
 
   const sizeClasses = size === 'sm' ? 'w-10 h-9' : 'w-12 h-10';
   const iconSize = size === 'sm' ? 'h-4 w-4' : 'h-4 w-4';
@@ -91,7 +92,8 @@ interface ReturnItemRowProps {
   field: FormLineItem & { id: string };
   control: UseFormReturn<FormValues>['control'];
   setValue: UseFormReturn<FormValues>['setValue'];
-  products: Product[];
+  // ✅ Optimized: use callback instead of full array to prevent re-renders
+  getProductData: (systemId: string) => Product | undefined;
   expandedCombos: Record<string, boolean>;
   toggleComboRow: (id: string) => void;
   handlePreview: (img: string, title: string) => void;
@@ -104,7 +106,7 @@ export const ReturnItemRow = React.memo(function ReturnItemRow({
   field,
   control,
   setValue,
-  products,
+  getProductData,
   expandedCombos,
   toggleComboRow,
   handlePreview,
@@ -116,29 +118,35 @@ export const ReturnItemRow = React.memo(function ReturnItemRow({
     name: `items.${index}.returnQuantity`,
   });
   const unitPrice = useWatch({ control, name: `items.${index}.unitPrice` });
+  const originalUnitPrice = useWatch({ control, name: `items.${index}.originalUnitPrice` });
   const note = useWatch({ control, name: `items.${index}.note` });
 
-  const product = products.find((p) => p.systemId === field.productSystemId);
+  // ✅ Optimized: use callback instead of array.find
+  const product = getProductData(field.productSystemId);
+  
   const isCombo =
     product?.type === 'combo' && (product?.comboItems?.length ?? 0) > 0;
   const isExpanded = expandedCombos[field.productSystemId] ?? false;
-  const comboItems =
-    isCombo && product?.comboItems
-      ? product.comboItems.map(
-          (ci: { productSystemId: string; quantity: number }) => {
-            const childProduct = products.find(
-              (p) => p.systemId === ci.productSystemId
-            );
-            return { ...ci, product: childProduct };
-          }
-        )
-      : [];
+  
+  // ✅ Memoize combo items to prevent recalculation
+  const comboItems = React.useMemo(() => {
+    if (!isCombo || !product?.comboItems) return [];
+    return product.comboItems.map(
+      (ci: { productSystemId: string; quantity: number }) => {
+        const childProduct = getProductData(ci.productSystemId);
+        return { ...ci, product: childProduct };
+      }
+    );
+  }, [isCombo, product?.comboItems, getProductData]);
 
   const totalValue = (returnQuantity || 0) * (unitPrice || 0);
+  
+  // ✅ Kiểm tra xem sản phẩm còn có thể trả không
+  const isFullyReturned = field.returnableQuantity <= 0;
 
   return (
     <React.Fragment>
-      <TableRow>
+      <TableRow className={isFullyReturned ? 'opacity-50 bg-muted/30' : ''}>
         <TableCell className="text-center text-muted-foreground">
           <div className="flex items-center justify-center gap-1">
             {isCombo && (
@@ -163,7 +171,14 @@ export const ReturnItemRow = React.memo(function ReturnItemRow({
           <div className="flex items-center gap-3">
             <ProductThumbnailCell
               productSystemId={field.productSystemId}
-              product={product}
+              product={{
+                // ✅ Ưu tiên thumbnailImage từ field (lấy từ order), fallback sang product lookup
+                thumbnailImage: field.thumbnailImage || product?.thumbnailImage,
+                imageUrl: (product as { imageUrl?: string })?.imageUrl,
+                galleryImages: product?.galleryImages,
+                images: product?.images,
+                name: product?.name,
+              }}
               productName={field.productName}
               onPreview={handlePreview}
             />
@@ -220,45 +235,58 @@ export const ReturnItemRow = React.memo(function ReturnItemRow({
           </div>
         </TableCell>
         <TableCell>
-          <div className="flex items-center gap-2">
+          {isFullyReturned ? (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-red-500 font-medium">Đã trả hết</span>
+              <span className="text-muted-foreground text-xs">({field.orderedQuantity}/{field.orderedQuantity})</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <Controller
+                control={control}
+                name={`items.${index}.returnQuantity`}
+                render={({ field: qtyField }) => (
+                  <NumberInput
+                    {...qtyField}
+                    className="h-8 text-center w-16"
+                    format={false}
+                    min={0}
+                    max={field.returnableQuantity}
+                    onChange={(val) => {
+                      // Đảm bảo không vượt quá số lượng còn có thể trả
+                      const clampedVal = Math.min(val || 0, field.returnableQuantity);
+                      qtyField.onChange(clampedVal);
+                      setValue('returnAll', false);
+                    }}
+                  />
+                )}
+              />
+              <span className="text-muted-foreground">/ {field.returnableQuantity}</span>
+            </div>
+          )}
+        </TableCell>
+        <TableCell className="text-right">
+          {formatCurrency(originalUnitPrice || 0)}
+        </TableCell>
+        <TableCell>
+          {isFullyReturned ? (
+            <span className="text-muted-foreground">-</span>
+          ) : (
             <Controller
               control={control}
-              name={`items.${index}.returnQuantity`}
-              render={({ field: qtyField }) => (
-                <NumberInput
-                  {...qtyField}
-                  className="h-8 text-center"
-                  format={false}
-                  min={0}
-                  max={field.returnableQuantity}
-                  onChange={(val) => {
-                    qtyField.onChange(val);
-                    setValue('returnAll', false);
-                  }}
+              name={`items.${index}.unitPrice`}
+              render={({ field: priceField }) => (
+                <CurrencyInput
+                  value={priceField.value as number}
+                  onChange={priceField.onChange}
+                  className="h-8 text-right"
                 />
               )}
             />
-            <span>/ {field.returnableQuantity}</span>
-          </div>
-        </TableCell>
-        <TableCell className="text-right">
-          {formatCurrency(field.originalUnitPrice)}
-        </TableCell>
-        <TableCell>
-          <Controller
-            control={control}
-            name={`items.${index}.unitPrice`}
-            render={({ field: priceField }) => (
-              <CurrencyInput
-                value={priceField.value as number}
-                onChange={priceField.onChange}
-                className="h-8 text-right"
-              />
-            )}
-          />
+          )}
         </TableCell>
         <TableCell className="text-right font-semibold">
-          {formatCurrency(totalValue)}
+          {isFullyReturned ? <span className="text-muted-foreground">-</span> : formatCurrency(totalValue)}
         </TableCell>
       </TableRow>
       {/* Combo child rows */}

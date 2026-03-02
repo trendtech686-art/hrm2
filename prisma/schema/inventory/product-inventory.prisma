@@ -1,12 +1,13 @@
 model ProductInventory {
-  productId String
-  branchId  String
-  onHand    Int      @default(0)
-  committed Int      @default(0)
-  inTransit Int      @default(0)
-  updatedAt DateTime @updatedAt
-  branch    Branch   @relation(fields: [branchId], references: [systemId])
-  product   Product  @relation(fields: [productId], references: [systemId])
+  productId  String
+  branchId   String
+  onHand     Int      @default(0) // Tồn kho thực tế
+  committed  Int      @default(0) // Chờ xuất kho - đã đặt hàng, chờ xuất
+  inTransit  Int      @default(0) // Đang về - hàng đang chuyển về kho
+  inDelivery Int      @default(0) // Đang giao - hàng đã xuất, đang ship cho khách
+  updatedAt  DateTime @updatedAt
+  branch     Branch   @relation(fields: [branchId], references: [systemId])
+  product    Product  @relation(fields: [productId], references: [systemId])
 
   @@id([productId, branchId])
   @@map("product_inventory")

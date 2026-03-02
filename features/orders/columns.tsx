@@ -4,13 +4,32 @@ import * as React from "react";
 import type { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import Link from 'next/link';
 import { formatDate } from '@/lib/date-utils';
-import type { Order, OrderMainStatus, OrderPaymentStatus, OrderDeliveryStatus, OrderPrintStatus, OrderStockOutStatus, OrderReturnStatus, Packaging } from '@/lib/types/prisma-extended';
+import type { Order, Packaging } from '@/lib/types/prisma-extended';
 import { Checkbox } from "../../components/ui/checkbox";
 import { Badge } from "../../components/ui/badge";
 import type { ColumnDef } from '../../components/data-table/types';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
 import { Button } from "../../components/ui/button";
 import { MoreHorizontal } from "lucide-react";
+import {
+  ORDER_STATUS_LABELS,
+  DELIVERY_METHOD_LABELS,
+} from '@/lib/constants/order-enums';
+
+// Source labels for Vietnamese display
+const ORDER_SOURCE_LABELS: Record<string, string> = {
+  'DOIHANG': 'Đổi hàng',
+  'Bán sỉ': 'Bán sỉ',
+  'Website': 'Website',
+  'Facebook': 'Facebook',
+  'Zalo': 'Zalo',
+  'Shopee': 'Shopee',
+  'Lazada': 'Lazada',
+  'Tiki': 'Tiki',
+  'TikTok': 'TikTok',
+  'POS': 'POS',
+  'Offline': 'Tại cửa hàng',
+};
 
 // This is a temporary type for the column until the Order type is fully updated.
 type OrderPackagingStatus_DEPRECATED = 'Chưa đóng gói' | 'Chờ xác nhận đóng gói' | 'Đóng gói toàn bộ';
@@ -20,14 +39,35 @@ const formatCurrency = (value?: number) => {
     return new Intl.NumberFormat('vi-VN').format(value);
 };
 
-const mainStatusVariants: Record<OrderMainStatus, "success" | "default" | "secondary" | "warning" | "destructive"> = {
+// ✅ Main status variants - support both English enum and Vietnamese display
+const mainStatusVariants: Record<string, "success" | "default" | "secondary" | "warning" | "destructive"> = {
+    // English enum values
+    "PENDING": "secondary",
+    "CONFIRMED": "default",
+    "PROCESSING": "warning",
+    "PACKING": "warning",
+    "PACKED": "default",
+    "READY_FOR_PICKUP": "warning",
+    "SHIPPING": "warning",
+    "DELIVERED": "success",
+    "COMPLETED": "success",
+    "FAILED_DELIVERY": "destructive",
+    "RETURNED": "destructive",
+    "CANCELLED": "destructive",
+    // Vietnamese display values (fallback)
     "Đặt hàng": "secondary",
     "Đang giao dịch": "warning",
     "Hoàn thành": "success",
     "Đã hủy": "destructive",
 };
 
-const paymentStatusVariants: Record<OrderPaymentStatus, "success" | "warning" | "secondary"> = {
+// ✅ Payment status variants - support both English enum and Vietnamese display
+const paymentStatusVariants: Record<string, "success" | "warning" | "secondary"> = {
+  // English enum
+  'UNPAID': 'warning',
+  'PARTIAL': 'warning',
+  'PAID': 'success',
+  // Vietnamese
   'Chưa thanh toán': 'warning',
   'Thanh toán 1 phần': 'warning',
   'Thanh toán toàn bộ': 'success',
@@ -39,7 +79,17 @@ const packagingStatusVariants: Record<OrderPackagingStatus_DEPRECATED, "success"
   'Đóng gói toàn bộ': 'success',
 };
 
-const deliveryStatusVariants: Record<OrderDeliveryStatus, "success" | "warning" | "secondary" | "default" | "destructive"> = {
+// ✅ Delivery status variants - support both English enum and Vietnamese display
+const deliveryStatusVariants: Record<string, "success" | "warning" | "secondary" | "default" | "destructive"> = {
+  // English enum
+  'PENDING_PACK': 'secondary',
+  'PACKED': 'default',
+  'PENDING_SHIP': 'warning',
+  'SHIPPING': 'warning',
+  'DELIVERED': 'success',
+  'RESCHEDULED': 'destructive',
+  'CANCELLED': 'destructive',
+  // Vietnamese
   'Chờ đóng gói': 'secondary',
   'Đã đóng gói': 'default',
   'Chờ lấy hàng': 'warning',
@@ -49,20 +99,41 @@ const deliveryStatusVariants: Record<OrderDeliveryStatus, "success" | "warning" 
   'Đã hủy': 'destructive',
 };
 
-const printStatusVariants: Record<OrderPrintStatus, "success" | "secondary"> = {
+// ✅ Print status variants - support both English enum and Vietnamese display
+const printStatusVariants: Record<string, "success" | "secondary"> = {
+  // English enum
+  'NOT_PRINTED': 'secondary',
+  'PRINTED': 'success',
+  // Vietnamese
   'Đã in': 'success',
   'Chưa in': 'secondary',
 };
 
-const stockOutStatusVariants: Record<OrderStockOutStatus, "success" | "secondary"> = {
+// ✅ Stock out status variants - support both English enum and Vietnamese display
+const stockOutStatusVariants: Record<string, "success" | "secondary"> = {
+  // English enum
+  'NOT_STOCKED_OUT': 'secondary',
+  'FULLY_STOCKED_OUT': 'success',
+  // Vietnamese
   'Chưa xuất kho': 'secondary',
   'Xuất kho toàn bộ': 'success',
 };
 
-const returnStatusVariants: Record<OrderReturnStatus, "warning" | "destructive" | "secondary"> = {
+// ✅ Return status variants - support both English enum and Vietnamese display
+const returnStatusVariants: Record<string, "warning" | "destructive" | "secondary"> = {
+  // English enum
+  'NO_RETURN': 'secondary',
+  'PARTIAL_RETURN': 'warning',
+  'FULL_RETURN': 'destructive',
+  // Vietnamese
   'Chưa trả hàng': 'secondary',
   'Trả hàng một phần': 'warning',
   'Trả hàng toàn bộ': 'destructive',
+};
+
+// ✅ Helper to get Vietnamese label for status
+const getLabel = (value: string, labels: Record<string, string>): string => {
+  return labels[value] || value;
 };
 
 
@@ -118,6 +189,7 @@ export const getColumns = (
     cell: ({ row }) => (
       <Link href={`/orders/${row.systemId}`} 
         className="text-body-sm font-medium text-primary hover:underline"
+        prefetch={true}
       >
         {row.id}
       </Link>
@@ -157,15 +229,20 @@ export const getColumns = (
     id: "grandTotal",
     accessorKey: "grandTotal",
     header: "Tổng tiền",
-    cell: ({ row }) => formatCurrency(row.grandTotal),
+    cell: ({ row }) => formatCurrency(Number(row.grandTotal) || 0),
     meta: { displayName: "Tổng tiền", group: "Tài chính" },
   },
   {
     id: 'totalPaid',
     header: 'Đã thanh toán',
     cell: ({ row }) => {
-        const totalPaid = (row.payments || []).reduce((sum, p) => sum + p.amount, 0);
-        return formatCurrency(totalPaid);
+        // ✅ Convert Decimal string to Number
+        const totalPaid = (row.payments || []).reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+        // ✅ For exchange orders, add linkedSalesReturnValue as "paid" (since it's deducted from return)
+        const linkedReturnValue = Number(row.linkedSalesReturnValue) || 0;
+        // Total paid = actual payments + value from sales return deduction
+        const effectivePaid = totalPaid + linkedReturnValue;
+        return formatCurrency(effectivePaid);
     },
     meta: { displayName: 'Đã thanh toán', group: "Tài chính" }
   },
@@ -173,9 +250,12 @@ export const getColumns = (
     id: 'debt',
     header: 'Còn lại',
     cell: ({ row }) => {
-        const totalPaid = (row.payments || []).reduce((sum, p) => sum + p.amount, 0);
-        const remaining = row.grandTotal - totalPaid;
-        return <span className={remaining > 0 ? 'text-body-sm text-destructive font-semibold' : ''}>{formatCurrency(remaining)}</span>;
+        // ✅ Convert Decimal string to Number
+        const totalPaid = (row.payments || []).reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+        // ✅ For exchange orders, subtract linkedSalesReturnValue
+        const linkedReturnValue = Number(row.linkedSalesReturnValue) || 0;
+        const remaining = (Number(row.grandTotal) || 0) - linkedReturnValue - totalPaid;
+        return <span className={remaining > 0 ? 'text-body-sm text-destructive font-semibold' : ''}>{formatCurrency(Math.max(0, remaining))}</span>;
     },
     meta: { displayName: 'Còn lại', group: "Tài chính" }
   },
@@ -190,14 +270,40 @@ export const getColumns = (
     id: "status",
     accessorKey: "status",
     header: "Trạng thái",
-    cell: ({ row }) => <Badge variant={mainStatusVariants[row.status]}>{row.status}</Badge>,
+    cell: ({ row }) => {
+      const label = getLabel(row.status, ORDER_STATUS_LABELS);
+      return <Badge variant={mainStatusVariants[row.status] || 'default'}>{label}</Badge>;
+    },
     meta: { displayName: "Trạng thái", group: "Trạng thái" },
   },
   {
     id: "paymentStatus",
     accessorKey: "paymentStatus",
     header: "TT Thanh toán",
-    cell: ({ row }) => <Badge variant={paymentStatusVariants[row.paymentStatus]}>{row.paymentStatus}</Badge>,
+    cell: ({ row }) => {
+      // ✅ For exchange orders, calculate actual payment status
+      const totalPaid = (row.payments || []).reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+      const linkedReturnValue = Number(row.linkedSalesReturnValue) || 0;
+      const effectivePaid = totalPaid + linkedReturnValue;
+      const grandTotal = Number(row.grandTotal) || 0;
+      
+      // Determine actual payment status
+      let actualStatus: string;
+      let label: string;
+      
+      if (effectivePaid >= grandTotal && grandTotal > 0) {
+        actualStatus = 'PAID';
+        label = 'Đã thanh toán';
+      } else if (effectivePaid > 0) {
+        actualStatus = 'PARTIAL';
+        label = 'Thanh toán 1 phần';
+      } else {
+        actualStatus = 'UNPAID';
+        label = 'Chưa thanh toán';
+      }
+      
+      return <Badge variant={paymentStatusVariants[actualStatus] || 'secondary'}>{label}</Badge>;
+    },
     meta: { displayName: "TT Thanh toán", group: "Trạng thái" },
   },
   {
@@ -206,6 +312,7 @@ export const getColumns = (
     header: "TT Đóng gói",
     cell: ({ row }) => {
       const packagings = row.packagings || [];
+      // ✅ API already returns Vietnamese labels for packaging status
       let status: OrderPackagingStatus_DEPRECATED = 'Chưa đóng gói';
       if (packagings.some((p: Packaging) => p.status === 'Đã đóng gói')) {
         status = 'Đóng gói toàn bộ';
@@ -220,28 +327,44 @@ export const getColumns = (
     id: "deliveryStatus",
     accessorKey: "deliveryStatus",
     header: "TT Giao hàng",
-    cell: ({ row }) => <Badge variant={deliveryStatusVariants[row.deliveryStatus]}>{row.deliveryStatus}</Badge>,
+    cell: ({ row }) => {
+      // ✅ API already returns Vietnamese label, use directly
+      const status = row.deliveryStatus || 'Chờ đóng gói';
+      return <Badge variant={deliveryStatusVariants[status] || 'secondary'}>{status}</Badge>;
+    },
     meta: { displayName: "TT Giao hàng", group: "Trạng thái" },
   },
   {
     id: "printStatus",
     accessorKey: "printStatus",
     header: "TT In",
-    cell: ({ row }) => <Badge variant={printStatusVariants[row.printStatus]}>{row.printStatus}</Badge>,
+    cell: ({ row }) => {
+      // API already returns Vietnamese label
+      const status = row.printStatus || 'Chưa in';
+      return <Badge variant={printStatusVariants[status] || 'secondary'}>{status}</Badge>;
+    },
     meta: { displayName: "TT In", group: "Trạng thái" },
   },
   {
     id: "stockOutStatus",
     accessorKey: "stockOutStatus",
     header: "TT Xuất kho",
-    cell: ({ row }) => <Badge variant={stockOutStatusVariants[row.stockOutStatus]}>{row.stockOutStatus}</Badge>,
+    cell: ({ row }) => {
+      // ✅ API already returns Vietnamese label, use directly
+      const status = row.stockOutStatus || 'Chưa xuất kho';
+      return <Badge variant={stockOutStatusVariants[status] || 'secondary'}>{status}</Badge>;
+    },
     meta: { displayName: "TT Xuất kho", group: "Trạng thái" },
   },
   {
     id: "returnStatus",
     accessorKey: "returnStatus",
     header: "TT Trả hàng",
-    cell: ({ row }) => <Badge variant={returnStatusVariants[row.returnStatus]}>{row.returnStatus}</Badge>,
+    cell: ({ row }) => {
+      // API already returns Vietnamese label
+      const status = row.returnStatus || 'Chưa trả hàng';
+      return <Badge variant={returnStatusVariants[status] || 'secondary'}>{status}</Badge>;
+    },
     meta: { displayName: "TT Trả hàng", group: "Trạng thái" },
   },
   {
@@ -259,15 +382,219 @@ export const getColumns = (
     id: 'source',
     accessorKey: 'source',
     header: 'Nguồn',
-    cell: ({ row }) => row.source || '-',
+    cell: ({ row }) => ORDER_SOURCE_LABELS[row.source || ''] || row.source || '-',
     meta: { displayName: 'Nguồn', group: "Thông tin chung" }
   },
   {
     id: 'deliveryMethod',
     accessorKey: 'deliveryMethod',
     header: 'Hình thức giao',
-    cell: ({ row }) => row.deliveryMethod || '-',
-    meta: { displayName: 'Hình thức giao', group: "Thông tin chung" }
+    cell: ({ row }) => DELIVERY_METHOD_LABELS[row.deliveryMethod || ''] || row.deliveryMethod || '-',
+    meta: { displayName: 'Hình thức giao', group: "Giao hàng" }
+  },
+  // ========== THÔNG TIN KHÁCH HÀNG ==========
+  {
+    id: 'customerPhone',
+    accessorKey: 'customerPhone',
+    header: 'SĐT khách',
+    cell: ({ row }) => row.customerPhone || '-',
+    meta: { displayName: 'SĐT khách', group: "Thông tin khách hàng" }
+  },
+  {
+    id: 'customerEmail',
+    accessorKey: 'customerEmail',
+    header: 'Email khách',
+    cell: ({ row }) => row.customerEmail || '-',
+    meta: { displayName: 'Email khách', group: "Thông tin khách hàng" }
+  },
+  {
+    id: 'customerId',
+    accessorKey: 'customerId',
+    header: 'Mã khách hàng',
+    cell: ({ row }) => row.customerId || '-',
+    meta: { displayName: 'Mã khách hàng', group: "Thông tin khách hàng" }
+  },
+  {
+    id: 'customerArea',
+    // Note: No accessorKey - this is computed from shippingAddress
+    header: 'Khu vực',
+    cell: ({ row }) => {
+      // Try to get from shippingAddress
+      const addr = row.shippingAddress;
+      if (typeof addr === 'object' && addr) {
+        return [addr.district, addr.province].filter(Boolean).join(', ') || '-';
+      }
+      return '-';
+    },
+    meta: { displayName: 'Khu vực', group: "Thông tin khách hàng" }
+  },
+  {
+    id: 'shippingAddressDisplay',
+    accessorKey: 'shippingAddress',
+    header: 'Địa chỉ giao',
+    cell: ({ row }) => {
+      const addr = row.shippingAddress;
+      if (typeof addr === 'object' && addr) {
+        return [addr.address, addr.ward, addr.district, addr.province].filter(Boolean).join(', ') || '-';
+      }
+      return typeof addr === 'string' ? addr : '-';
+    },
+    meta: { displayName: 'Địa chỉ giao', group: "Thông tin khách hàng" }
+  },
+  // ========== THÔNG TIN GIAO HÀNG ==========
+  {
+    id: 'trackingCode',
+    // Note: No accessorKey - this is computed from packagings
+    header: 'Mã vận đơn',
+    cell: ({ row }) => {
+      const pkg = row.packagings?.find((p: Packaging) => p.trackingCode);
+      return pkg?.trackingCode || '-';
+    },
+    meta: { displayName: 'Mã vận đơn', group: "Giao hàng" }
+  },
+  {
+    id: 'carrier',
+    // Note: No accessorKey - this is computed from packagings
+    header: 'Đối tác VC',
+    cell: ({ row }) => {
+      const pkg = row.packagings?.find((p: Packaging) => p.carrier);
+      return pkg?.carrier || '-';
+    },
+    meta: { displayName: 'Đối tác VC', group: "Giao hàng" }
+  },
+  {
+    id: 'shippingFee',
+    accessorKey: 'shippingFee',
+    header: 'Phí GH thu khách',
+    cell: ({ row }) => formatCurrency(row.shippingFee),
+    meta: { displayName: 'Phí GH thu khách', group: "Giao hàng" }
+  },
+  {
+    id: 'shippingFeeToPartner',
+    // Note: No accessorKey - this is computed from packagings
+    header: 'Phí trả ĐTVC',
+    cell: ({ row }) => {
+      const pkg = row.packagings?.find((p: Packaging) => p.shippingFeeToPartner);
+      return formatCurrency(pkg?.shippingFeeToPartner);
+    },
+    meta: { displayName: 'Phí trả ĐTVC', group: "Giao hàng" }
+  },
+  // ========== THỜI GIAN ==========
+  {
+    id: 'expectedDeliveryDate',
+    accessorKey: 'expectedDeliveryDate',
+    header: 'Ngày hẹn giao',
+    cell: ({ row }) => row.expectedDeliveryDate ? formatDate(row.expectedDeliveryDate) : '-',
+    meta: { displayName: 'Ngày hẹn giao', group: "Thời gian" }
+  },
+  {
+    id: 'approvedDate',
+    accessorKey: 'approvedDate',
+    header: 'Ngày duyệt',
+    cell: ({ row }) => row.approvedDate ? formatDate(row.approvedDate) : '-',
+    meta: { displayName: 'Ngày duyệt', group: "Thời gian" }
+  },
+  {
+    id: 'completedDate',
+    accessorKey: 'completedDate',
+    header: 'Ngày hoàn thành',
+    cell: ({ row }) => row.completedDate ? formatDate(row.completedDate) : '-',
+    meta: { displayName: 'Ngày hoàn thành', group: "Thời gian" }
+  },
+  {
+    id: 'cancelledDate',
+    accessorKey: 'cancelledDate',
+    header: 'Ngày hủy',
+    cell: ({ row }) => row.cancelledDate ? formatDate(row.cancelledDate) : '-',
+    meta: { displayName: 'Ngày hủy', group: "Thời gian" }
+  },
+  {
+    id: 'createdAt',
+    accessorKey: 'createdAt',
+    header: 'Ngày ghi nhận',
+    cell: ({ row }) => row.createdAt ? formatDate(row.createdAt) : '-',
+    meta: { displayName: 'Ngày ghi nhận', group: "Thời gian" }
+  },
+  // ========== THANH TOÁN ==========
+  {
+    id: 'expectedPaymentMethod',
+    accessorKey: 'expectedPaymentMethod',
+    header: 'PT thanh toán dự kiến',
+    cell: ({ row }) => row.expectedPaymentMethod || '-',
+    meta: { displayName: 'PT thanh toán dự kiến', group: "Thanh toán" }
+  },
+  {
+    id: 'externalReference',
+    accessorKey: 'externalReference',
+    header: 'Tham chiếu TT',
+    cell: ({ row }) => row.externalReference || '-',
+    meta: { displayName: 'Tham chiếu TT', group: "Thanh toán" }
+  },
+  // ========== NHÂN VIÊN ==========
+  {
+    id: 'createdByName',
+    accessorKey: 'createdByName',
+    header: 'NV tạo đơn',
+    cell: ({ row }) => row.createdByName || '-',
+    meta: { displayName: 'NV tạo đơn', group: "Nhân viên" }
+  },
+  {
+    id: 'assignedPackerName',
+    accessorKey: 'assignedPackerName',
+    header: 'NV được gán',
+    cell: ({ row }) => row.assignedPackerName || '-',
+    meta: { displayName: 'NV được gán', group: "Nhân viên" }
+  },
+  // ========== THÔNG TIN KHÁC ==========
+  {
+    id: 'tags',
+    accessorKey: 'tags',
+    header: 'Tags',
+    cell: ({ row }) => {
+      const tags = row.tags || [];
+      if (!tags.length) return '-';
+      return (
+        <div className="flex flex-wrap gap-1">
+          {tags.slice(0, 3).map((tag: string) => (
+            <Badge key={tag} variant="outline" className="text-xs">{tag}</Badge>
+          ))}
+          {tags.length > 3 && <span className="text-xs text-muted-foreground">+{tags.length - 3}</span>}
+        </div>
+      );
+    },
+    meta: { displayName: 'Tags', group: "Thông tin khác" }
+  },
+  {
+    id: 'notes',
+    accessorKey: 'notes',
+    header: 'Ghi chú',
+    cell: ({ row }) => {
+      const notes = row.notes || '';
+      if (!notes) return '-';
+      return <span className="truncate max-w-50 block" title={notes}>{notes}</span>;
+    },
+    meta: { displayName: 'Ghi chú', group: "Thông tin khác" }
+  },
+  {
+    id: 'cancellationReason',
+    accessorKey: 'cancellationReason',
+    header: 'Lý do hủy',
+    cell: ({ row }) => row.cancellationReason || '-',
+    meta: { displayName: 'Lý do hủy', group: "Thông tin khác" }
+  },
+  {
+    id: 'referenceUrl',
+    accessorKey: 'referenceUrl',
+    header: 'Link đơn kênh',
+    cell: ({ row }) => {
+      if (!row.referenceUrl) return '-';
+      return (
+        <a href={row.referenceUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate max-w-37.5 block">
+          Link
+        </a>
+      );
+    },
+    meta: { displayName: 'Link đơn kênh', group: "Thông tin khác" }
   },
    {
     id: "actions",

@@ -4,17 +4,23 @@ import React from "react";
 import { useRouter } from 'next/navigation';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { CheckCircle, Info } from "lucide-react";
 import type { Complaint } from "../types";
-import { usePaymentStore } from "../../payments/store";
+import { useAllPayments } from "../../payments/hooks/use-all-payments";
 import { useAllReceipts } from "../../receipts/hooks/use-all-receipts";
-import { useInventoryCheckStore } from "../../inventory-checks/store";
+import { useAllInventoryChecks } from "../../inventory-checks/hooks/use-all-inventory-checks";
+import { usePenaltiesByIds } from "../../settings/penalties/hooks/use-penalties";
 import { formatDateTimeForDisplay } from "@/lib/date-utils";
 
 interface Props {
   complaint: Complaint;
   actionTimestamp?: Date | string; // Neu co truyen timestamp cu the, dung cai do thay vi tim tu timeline
 }
+
+// Helper: check if penalty is cancelled (handles both Vietnamese and English status)
+const isPenaltyCancelled = (status?: string) => 
+  status === 'Đã hủy' || status?.toLowerCase() === 'cancelled';
 
 /**
  * Accordion hiển thị thông tin bù trừ khách hàng (phiếu chi/thu, kiểm kho)
@@ -32,7 +38,8 @@ export const ComplaintCompensationSection: React.FC<Props> = ({ complaint, actio
   // Nguoc lai tim action verified-correct dau tien
   let verificationNote = "";
   let compensationDateTime = "N/A";
-  let actionMetadata: { paymentSystemId?: string; receiptSystemId?: string; inventoryCheckSystemId?: string } | null = null;
+  type ActionMetadataType = { paymentSystemId?: string; receiptSystemId?: string; inventoryCheckSystemId?: string; penaltySystemIds?: string[] };
+  let actionMetadata: ActionMetadataType | null = null;
   
   if (actionTimestamp) {
     // Dung timestamp truyen vao
@@ -44,18 +51,18 @@ export const ComplaintCompensationSection: React.FC<Props> = ({ complaint, actio
       minute: '2-digit',
     });
     
-    // Tim action tuong ung voi timestamp nay
-    const matchingAction = complaint.timeline.find(
+    // Tim action tuong ung voi timestamp nay - ✅ Add null check
+    const matchingAction = complaint.timeline?.find(
       a => a.actionType === 'verified-correct' && 
            new Date(a.performedAt).getTime() === new Date(actionTimestamp).getTime()
     );
     verificationNote = matchingAction?.note || "";
-    actionMetadata = (matchingAction?.metadata ?? null) as { paymentSystemId?: string; receiptSystemId?: string; inventoryCheckSystemId?: string } | null;
+    actionMetadata = (matchingAction?.metadata ?? null) as ActionMetadataType | null;
   } else {
-    // Tim action verified-correct dau tien (backward compatibility)
-    const firstVerifyAction = complaint.timeline.find(a => a.actionType === "verified-correct");
+    // Tim action verified-correct dau tien (backward compatibility) - ✅ Add null check
+    const firstVerifyAction = complaint.timeline?.find(a => a.actionType === "verified-correct");
     verificationNote = firstVerifyAction?.note || "";
-    actionMetadata = (firstVerifyAction?.metadata ?? null) as { paymentSystemId?: string; receiptSystemId?: string; inventoryCheckSystemId?: string } | null;
+    actionMetadata = (firstVerifyAction?.metadata ?? null) as ActionMetadataType | null;
     compensationDateTime = firstVerifyAction
       ? new Date(firstVerifyAction.performedAt).toLocaleString("vi-VN", {
           year: 'numeric',
@@ -79,15 +86,15 @@ export const ComplaintCompensationSection: React.FC<Props> = ({ complaint, actio
   const _compensationMetadata = (complaint as unknown as { compensationMetadata?: unknown }).compensationMetadata;
   
   // ============================================================
-  // STATE - Subscribe directly to stores for real-time updates
+  // STATE - Use React Query hooks for data fetching from DB
   // ============================================================
-  const payments = usePaymentStore(state => state.data);
+  const { data: payments = [] } = useAllPayments();
   const { data: receipts } = useAllReceipts();
-  const inventoryCheckStore = useInventoryCheckStore();
-  const inventoryChecks = inventoryCheckStore.data;
+  const { data: inventoryChecks = [] } = useAllInventoryChecks();
+  const { data: allPenalties = [] } = usePenaltiesByIds(actionMetadata?.penaltySystemIds || []);
   
   // ============================================================
-  // PAYMENT/RECEIPT DATA - Find from store directly
+  // PAYMENT/RECEIPT/PENALTY DATA - Find from store directly
   // ============================================================
   // ⚠️ CRITICAL: Lấy phiếu TỪ ACTION METADATA (paymentSystemId, receiptSystemId)
   // Đảm bảo mỗi card hiển thị đúng phiếu tại thời điểm action đó, kể cả đã bị hủy
@@ -101,11 +108,14 @@ export const ComplaintCompensationSection: React.FC<Props> = ({ complaint, actio
   const inventoryCheck = inventoryCheckSystemId && Array.isArray(inventoryChecks)
     ? inventoryChecks.find(ic => ic.systemId === inventoryCheckSystemId)
     : null;
+
+  // ⭐ Penalties fetched by IDs from action metadata (server-side)
+  const penalties = allPenalties as Array<{ systemId: string; id: string; amount: number; penaltyTypeName?: string | null; employeeName?: string | null; status?: string }>;
   
   // Debug
   
-  // Check if this action has been processed (has payment/receipt)
-  const hasBeenProcessed = !!actionMetadata?.paymentSystemId || !!actionMetadata?.receiptSystemId;
+  // Check if this action has been processed (has payment/receipt OR inventory check OR penalties)
+  const hasBeenProcessed = !!actionMetadata?.paymentSystemId || !!actionMetadata?.receiptSystemId || !!actionMetadata?.inventoryCheckSystemId || (actionMetadata?.penaltySystemIds?.length ?? 0) > 0;
   
   const _cancelledHistory = complaint.cancelledPaymentsReceipts || [];
   
@@ -115,10 +125,13 @@ export const ComplaintCompensationSection: React.FC<Props> = ({ complaint, actio
   // BADGE STATE - Đã hủy
   // ============================================================
   // Badge "Đã hủy" hiển thị khi phiếu có status = 'cancelled'
+  // ⚠️ Inventory check status is Prisma enum (UPPERCASE), others may be lowercase
+  const icStatus = inventoryCheck?.status?.toLowerCase();
   const hasBeenCancelled = 
     payment?.status === 'cancelled' || 
     receipt?.status === 'cancelled' ||
-    inventoryCheck?.status === 'cancelled';
+    icStatus === 'cancelled' ||
+    penalties.some(p => p.status === 'Đã hủy' || p.status === 'cancelled');
   
   // Debug
   
@@ -134,7 +147,7 @@ export const ComplaintCompensationSection: React.FC<Props> = ({ complaint, actio
               <CheckCircle className="h-4 w-4 text-green-600" />
               <div className="text-left flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-medium">Đã xác nhận đúng - {compensationDateTime}</span>
+                  <span className="text-sm font-medium">Đã xác nhận đúng - {compensationDateTime}</span>
                   {hasBeenCancelled && (
                     <Badge variant="destructive" className="text-xs">
                       Đã hủy
@@ -169,7 +182,7 @@ export const ComplaintCompensationSection: React.FC<Props> = ({ complaint, actio
                   } transition-colors cursor-pointer`}
                   onClick={() => router.push(`/payments/${payment.systemId}`)}
                 >
-                  <div className="flex items-center gap-2 flex-col items-start">
+                  <div className="flex gap-2 flex-col items-start">
                     <div className="flex items-center gap-2">
                       <span className={`text-sm text-muted-foreground ${payment.status === 'cancelled' ? 'line-through' : ''}`}>
                         Phiếu chi:
@@ -205,7 +218,7 @@ export const ComplaintCompensationSection: React.FC<Props> = ({ complaint, actio
                   } transition-colors cursor-pointer`}
                   onClick={() => router.push(`/receipts/${receipt.systemId}`)}
                 >
-                  <div className="flex items-center gap-2 flex-col items-start">
+                  <div className="flex gap-2 flex-col items-start">
                     <div className="flex items-center gap-2">
                       <span className={`text-sm text-muted-foreground ${receipt.status === 'cancelled' ? 'line-through' : ''}`}>
                         Phiếu thu:
@@ -232,46 +245,114 @@ export const ComplaintCompensationSection: React.FC<Props> = ({ complaint, actio
               )}
               
               {/* Phiếu kiểm hàng */}
-              {inventoryCheck && (
+              {inventoryCheck && (() => {
+                const icCancelled = inventoryCheck.status?.toLowerCase() === 'cancelled';
+                const icBalanced = inventoryCheck.status?.toLowerCase() === 'balanced';
+                return (
                 <div className="space-y-2">
                   <div 
                     className={`flex items-center justify-between p-3 rounded-md border ${
-                      inventoryCheck.status === 'cancelled' 
+                      icCancelled 
                         ? 'bg-muted/50 opacity-60' 
                         : 'bg-card hover:bg-accent'
                     } transition-colors cursor-pointer`}
                     onClick={() => router.push(`/inventory-checks/${inventoryCheck.systemId}`)}
                   >
-                    <div className="flex items-center gap-2 flex-col items-start">
+                    <div className="flex gap-2 flex-col items-start">
                       <div className="flex items-center gap-2">
-                        <span className={`text-sm text-muted-foreground ${inventoryCheck.status === 'cancelled' ? 'line-through' : ''}`}>
+                        <span className={`text-sm text-muted-foreground ${icCancelled ? 'line-through' : ''}`}>
                           Phiếu kiểm hàng:
                         </span>
-                        <span className={`text-sm text-primary hover:underline font-medium ${inventoryCheck.status === 'cancelled' ? 'line-through' : ''}`}>
+                        <span className={`text-sm text-primary hover:underline font-medium ${icCancelled ? 'line-through' : ''}`}>
                           {inventoryCheck.id}
                         </span>
-                        {inventoryCheck.status === 'cancelled' && (
+                        {icCancelled && (
                           <Badge variant="secondary" className="text-xs">
                             Đã hủy
                           </Badge>
                         )}
+                        {!icCancelled && !icBalanced && (
+                          <Badge variant="outline" className="text-xs text-amber-600 border-amber-300">
+                            Cần cân bằng
+                          </Badge>
+                        )}
+                        {inventoryCheck.items && inventoryCheck.items.length > 0 && (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="inline-flex items-center" onClick={(e) => e.stopPropagation()}>
+                                  <Info className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground transition-colors" />
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="max-w-xs">
+                                <div className="text-xs space-y-1">
+                                  <p className="font-medium mb-1">Sản phẩm kiểm kê:</p>
+                                  {inventoryCheck.items.map((item: { productName: string; difference: number }, idx: number) => (
+                                    <div key={idx}>
+                                      {item.productName}: <span className={item.difference > 0 ? 'text-green-600' : 'text-red-600'}>{item.difference > 0 ? '+' : ''}{item.difference}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
                       </div>
-                      {inventoryCheck.status === 'cancelled' && inventoryCheck.cancelledAt && (
+                      {icCancelled && inventoryCheck.cancelledAt && (
                         <span className="text-xs text-muted-foreground">
                           Hủy lúc: {formatDateTimeForDisplay(inventoryCheck.cancelledAt)}
                         </span>
                       )}
                     </div>
-                    <div className={`text-sm font-medium ${inventoryCheck.status === 'cancelled' ? 'text-muted-foreground' : ''}`}>
-                      {inventoryCheck.items?.map((item: { productName: string; difference: number }, idx: number) => (
-                        <div key={idx} className={inventoryCheck.status === 'cancelled' ? 'line-through' : ''}>
-                          {item.productName}: {item.difference > 0 ? '+' : ''}{item.difference}
-                        </div>
-                      ))}
-                    </div>
                   </div>
                 </div>
-              )}
+                );
+              })()}
+              
+              {/* Phiếu phạt */}
+              {penalties.length > 0 && penalties.map((penalty) => {
+                const penCancelled = isPenaltyCancelled(penalty.status);
+                return (
+                <div 
+                  key={penalty.systemId}
+                  className={`flex items-center justify-between p-3 rounded-md border ${
+                    penCancelled 
+                      ? 'bg-muted/50 opacity-60' 
+                      : 'bg-card hover:bg-accent'
+                  } transition-colors cursor-pointer`}
+                  onClick={() => router.push(`/penalties/${penalty.systemId}`)}
+                >
+                  <div className="flex gap-2 flex-col items-start">
+                    <div className="flex items-center gap-2">
+                      <span className={`text-sm text-muted-foreground ${penCancelled ? 'line-through' : ''}`}>
+                        Phiếu phạt:
+                      </span>
+                      <span className={`text-sm text-primary hover:underline font-medium ${penCancelled ? 'line-through' : ''}`}>
+                        {penalty.id}
+                      </span>
+                      {penalty.penaltyTypeName && (
+                        <Badge variant="outline" className="text-xs">
+                          {penalty.penaltyTypeName}
+                        </Badge>
+                      )}
+                      {penCancelled && (
+                        <Badge variant="secondary" className="text-xs">
+                          Đã hủy
+                        </Badge>
+                      )}
+                    </div>
+                    {penalty.employeeName && (
+                      <span className={`text-xs text-muted-foreground ${penCancelled ? 'line-through' : ''}`}>
+                        NV: {penalty.employeeName}
+                      </span>
+                    )}
+                  </div>
+                  <span className={`text-sm font-medium ${penCancelled ? 'text-muted-foreground line-through' : 'text-orange-600 dark:text-orange-400'}`}>
+                    {Number(penalty.amount).toLocaleString('vi-VN')} đ
+                  </span>
+                </div>
+                );
+              })}
             </div>
             )}
           </AccordionContent>

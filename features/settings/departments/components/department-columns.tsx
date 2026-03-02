@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
@@ -157,7 +157,7 @@ export const DropZone = React.memo(function DropZone({
       </div>
       <div className="space-y-2">
         {children || (
-          <div className="flex min-h-[72px] flex-col items-center justify-center rounded-xl border border-dashed border/60 p-4 text-center text-xs text-muted-foreground">
+          <div className="flex min-h-18 flex-col items-center justify-center rounded-xl border border-dashed border/60 p-4 text-center text-xs text-muted-foreground">
             <span>{helperText ?? 'Kéo thả để thêm vào nhóm này'}</span>
           </div>
         )}
@@ -195,11 +195,11 @@ export const DepartmentColumn = React.memo(function DepartmentColumn({
   const memberZoneId = `dept-${department.systemId}-members`;
 
   return (
-    <Card className="flex h-full w-[280px] flex-shrink-0 flex-col sm:w-[300px] md:w-[320px]">
+    <Card className="flex h-full w-70 shrink-0 flex-col sm:w-75 md:w-80">
       <CardHeader className="border-b bg-muted/40 py-3">
         <div className="flex items-center justify-between gap-2">
           <div>
-            <CardTitle className="text-base leading-6">{department.name}</CardTitle>
+            <CardTitle>{department.name}</CardTitle>
             <CardDescription>{employees.length} thành viên</CardDescription>
           </div>
           <span className="rounded-full bg-background px-3 py-1 text-xs font-semibold text-primary">
@@ -274,10 +274,10 @@ export const UnassignedColumn = React.memo(function UnassignedColumn({
   const { setNodeRef, isOver } = useDroppable({ id: unassignedZoneId });
 
   return (
-    <Card className="flex h-full w-[280px] flex-shrink-0 flex-col bg-gradient-to-br from-orange-50/60 to-card dark:from-orange-950/20 dark:to-card sm:w-[300px] md:w-[320px]">
+    <Card className="flex h-full w-70 shrink-0 flex-col bg-linear-to-br from-orange-50/60 to-card dark:from-orange-950/20 dark:to-card sm:w-75 md:w-[320px]">
       <CardHeader className="pb-3">
         <div className="mb-2 flex items-center justify-between">
-          <CardTitle className="text-base">Chưa có phòng ban</CardTitle>
+          <CardTitle>Chưa có phòng ban</CardTitle>
           <span className="rounded-full bg-orange-500 px-2 py-0.5 text-xs font-semibold text-white">
             {employees.length}
           </span>
@@ -286,7 +286,7 @@ export const UnassignedColumn = React.memo(function UnassignedColumn({
           Kéo nhân viên sang phòng ban phù hợp hoặc sử dụng ô tìm kiếm để lọc nhanh.
         </CardDescription>
         <div className="relative pt-3">
-          <Search className="absolute left-2.5 top-[22px] h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Search className="absolute left-2.5 top-5.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Tìm nhân viên..."
             className="h-9 w-full pl-8"

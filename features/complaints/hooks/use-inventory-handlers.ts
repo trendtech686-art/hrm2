@@ -7,13 +7,14 @@ import * as React from 'react';
 import { toast } from 'sonner';
 import { Complaint, ComplaintAction } from '../types';
 import { asSystemId, asBusinessId, type SystemId, type BusinessId } from '@/lib/id-types';
+import { generateSubEntityId } from '@/lib/id-utils';
 import type { Order } from '../../orders/types';
 import type { Employee } from '../../employees/types';
 
 interface UseInventoryHandlersProps {
   complaint: Complaint | null;
   currentUser: { systemId: SystemId; name: string };
-  updateComplaint: (systemId: SystemId, updates: Partial<Complaint>) => void;
+  updateComplaint: (systemId: SystemId, updates: Partial<Complaint>) => Promise<void> | void;
   relatedOrder: Order | null | undefined;
   employee: Employee | null | undefined;
 }
@@ -58,11 +59,9 @@ export function useInventoryHandlers({
         branchSystemId = employee?.branchSystemId || asSystemId('BRANCH000001');
       }
 
-      // LAZY LOAD: Import InventoryCheckStore instead of ProductStore
-      const { useInventoryCheckStore } = await import('../../inventory-checks/store');
-      const { useProductStore } = await import('../../products/store');
-      const addInventoryCheck = useInventoryCheckStore.getState().add;
-      const products = useProductStore.getState().data;
+      // LAZY LOAD: Import Server Actions
+      const { createInventoryCheckAction } = await import('@/app/actions/inventory-checks');
+      const { getProductAction } = await import('@/app/actions/products');
       
       // Build inventory check items
       type DifferenceReason = 'other' | 'damaged' | 'wear' | 'return' | 'transfer' | 'production';
@@ -78,22 +77,25 @@ export function useInventoryHandlers({
         note?: string;
       }> = [];
       
-      const adjustmentEntries = Object.entries(inventoryAdjustments) as Array<[SystemId, number]>;
+      const adjustmentEntries = Object.entries(inventoryAdjustments) as Array<[string, number]>;
 
-      for (const [productSystemId, quantityAdjusted] of adjustmentEntries) {
+      for (const [compositeKey, quantityAdjusted] of adjustmentEntries) {
         if (quantityAdjusted === 0) continue;
         
-        const affectedProduct = complaint.affectedProducts?.find(p => p.productSystemId === productSystemId);
+        // Parse composite key: "productSystemId_index" to get index
+        const idx = parseInt(compositeKey.split('_').pop() || '0', 10);
+        const affectedProduct = complaint.affectedProducts?.[idx];
         if (!affectedProduct) continue;
         
-        // Get current product to find system quantity
-        const product = products.find(p => p.systemId === productSystemId);
-        interface ProductWithInventory {
-          inventory?: Array<{ branchSystemId: string; quantity: number }>;
-        }
-        const productWithInv = product as unknown as ProductWithInventory | undefined;
-        const branchInventory = productWithInv?.inventory?.find((inv) => inv.branchSystemId === branchSystemId);
-        const systemQuantity = branchInventory?.quantity || 0;
+        const productSystemId = asSystemId(affectedProduct.productSystemId);
+        
+        // Get current product from DB to find system quantity
+        const productResult = await getProductAction(productSystemId);
+        const product = productResult.success ? productResult.data : null;
+        
+        // Get inventory for branch from inventoryByBranch JSON field
+        const inventoryByBranch = (product?.inventoryByBranch as Record<string, number>) ?? {};
+        const systemQuantity = inventoryByBranch[branchSystemId] || 0;
         const actualQuantity = systemQuantity + quantityAdjusted;
         
         inventoryCheckItems.push({
@@ -109,17 +111,31 @@ export function useInventoryHandlers({
         });
       }
       
-      // Create inventory check record (draft status)
-      const inventoryCheck = addInventoryCheck({
-        id: asBusinessId(''), // Empty = auto-generate PKK business ID
+      // Create inventory check record (draft status) using Server Action
+      const createResult = await createInventoryCheckAction({
+        branchId: branchSystemId,
         branchSystemId,
         branchName: relatedOrder?.branchName || 'Chi nhánh',
-        status: 'draft',
+        checkDate: new Date().toISOString(),
+        description: `Kiểm kê từ khiếu nại ${complaint.id}: ${reason}`,
         createdBy: currentUser.systemId,
-        createdAt: new Date().toISOString(),
-        note: `Kiểm kê từ khiếu nại ${complaint.id}: ${reason}`,
-        items: inventoryCheckItems,
+        items: inventoryCheckItems.map(item => ({
+          productId: item.productId,
+          productSystemId: item.productSystemId,
+          productName: item.productName,
+          systemQuantity: item.systemQuantity,
+          actualQuantity: item.actualQuantity,
+          difference: item.difference,
+          notes: item.note,
+        })),
       });
+      
+      if (!createResult.success || !createResult.data) {
+        toast.error(createResult.error || 'Lỗi tạo phiếu kiểm kê');
+        return;
+      }
+      
+      const inventoryCheck = createResult.data;
       
       // ⚠️ IMPORTANT: Tìm action verified-correct CUỐI CÙNG trong timeline và update metadata
       const updatedTimeline = [...complaint.timeline];
@@ -144,7 +160,7 @@ export function useInventoryHandlers({
       ).join(', ');
       
       const inventoryAction: ComplaintAction = {
-        id: asSystemId(`action_${Date.now()}`),
+        id: asSystemId(generateSubEntityId('ACTION')),
         actionType: "commented" as const,
         performedBy: currentUser.systemId,
         performedAt: new Date(),

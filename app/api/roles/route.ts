@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma'
 import { Prisma } from '@/generated/prisma/client'
 import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
 import { createRoleSchema } from './validation'
+import { generateNextIds } from '@/lib/id-system'
 
 // GET /api/roles - List all roles
 export async function GET(request: Request) {
@@ -62,9 +63,11 @@ export async function POST(request: Request) {
   const body = validation.data
 
   try {
+    const { systemId } = await generateNextIds('settings')
+    
     const role = await prisma.roleSetting.create({
       data: {
-        systemId: `ROLE${String(Date.now()).slice(-6).padStart(6, '0')}`,
+        systemId,
         id: body.id,
         name: body.name,
         description: body.description,

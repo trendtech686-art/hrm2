@@ -20,7 +20,7 @@ import { SettingsActionButton } from '../../components/settings/SettingsActionBu
 import { useColumnVisibility } from '../../hooks/use-column-visibility';
 
 export function StockLocationsPage() {
-  const { data: queryData } = useStockLocations({ limit: 1000 });
+  const { data: queryData } = useStockLocations({ limit: 100 });
   const data = React.useMemo(() => queryData?.data ?? [], [queryData?.data]);
   const { create, update, remove } = useStockLocationMutations({
     onSuccess: () => toast.success('Thành công'),

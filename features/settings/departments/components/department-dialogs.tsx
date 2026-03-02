@@ -27,7 +27,7 @@ export const ManageDepartmentsDialog = React.memo(function ManageDepartmentsDial
   isOpen: boolean; 
   onOpenChange: (open: boolean) => void; 
 }) {
-  const { data: departmentsData } = useDepartments({ limit: 1000 });
+  const { data: departmentsData } = useDepartments();
   const data = departmentsData?.data ?? [];
   const { create, update, remove } = useDepartmentMutations({
     onCreateSuccess: () => toast.success('Thêm mới thành công'),
@@ -71,9 +71,9 @@ export const ManageDepartmentsDialog = React.memo(function ManageDepartmentsDial
             <ScrollArea className="h-72 border rounded-md">
               {data.map(dep => (
                 <div key={dep.systemId} className="flex items-center p-2 border-b">
-                  <span className="flex-grow">{dep.name}</span>
+                  <span className="grow">{dep.name}</span>
                   <Button variant="ghost" size="sm" onClick={() => setEditingDepartment(dep)}>Sửa</Button>
-                  <Button variant="ghost" size="sm" className="text-destructive" onClick={() => (remove as any).mutate(dep.systemId)}>Xóa</Button>
+                  <Button variant="ghost" size="sm" className="text-destructive" onClick={() => remove.mutate(dep.systemId)}>Xóa</Button>
                 </div>
               ))}
             </ScrollArea>

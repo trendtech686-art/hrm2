@@ -1,4 +1,4 @@
-import * as React from 'react';
+﻿import * as React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './card';
 import { cn } from '../../lib/utils';
 import { LucideIcon, TrendingUp, TrendingDown } from 'lucide-react';
@@ -26,7 +26,7 @@ export function StatsCard({
   return (
     <Card className={className}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-h6 font-medium">{title}</CardTitle>
+        <CardTitle>{title}</CardTitle>
         {Icon && (
           <Icon className="h-4 w-4 text-muted-foreground" />
         )}

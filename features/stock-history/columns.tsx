@@ -22,7 +22,27 @@ export const getStockHistoryColumns = (
     { id: 'date', accessorKey: 'date', header: 'Ngày ghi nhận', cell: ({ row }) => formatDate(row.date), meta: { displayName: 'Ngày ghi nhận' } },
     { id: 'employeeName', accessorKey: 'employeeName', header: 'Nhân viên', cell: ({ row }) => row.employeeName, meta: { displayName: 'Nhân viên' } },
     { id: 'action', accessorKey: 'action', header: 'Thao tác', cell: ({ row }) => row.action, meta: { displayName: 'Thao tác' } },
-    { id: 'quantityChange', accessorKey: 'quantityChange', header: 'SL thay đổi', cell: ({ row }) => <span className={row.quantityChange > 0 ? 'text-green-600' : 'text-red-600'}>{row.quantityChange > 0 ? `+${row.quantityChange}` : row.quantityChange}</span>, meta: { displayName: 'SL thay đổi' } },
+    { 
+      id: 'quantityChange', 
+      accessorKey: 'quantityChange', 
+      header: 'SL thay đổi', 
+      cell: ({ row }) => {
+        // StockHistory only records actual stock changes (nhập/xuất kho)
+        // "Giữ" (committed) is not recorded here - only shown in "Có thể bán"
+        if (row.quantityChange === 0) {
+          return <span className="text-muted-foreground">0</span>;
+        }
+        return (
+          <span className={row.quantityChange > 0 ? 'text-green-600' : 'text-red-600'}>
+            {row.quantityChange > 0 ? `+${row.quantityChange}` : row.quantityChange}
+          </span>
+        );
+      }, 
+      meta: { displayName: 'SL thay đổi' } 
+    },
+    // ✅ newStockLevel is CALCULATED by API from running sum of quantityChange
+    // This ensures single source of truth: ProductInventory.onHand = current stock
+    // StockHistory only stores quantityChange, newStockLevel is derived
     { id: 'newStockLevel', accessorKey: 'newStockLevel', header: 'Tồn kho', cell: ({ row }) => <span className="font-semibold">{row.newStockLevel}</span>, meta: { displayName: 'Tồn kho' } },
     { 
       id: 'documentId', 
@@ -35,7 +55,8 @@ export const getStockHistoryColumns = (
         if (docId.startsWith('PO')) {
             const po = purchaseOrders.find(p => p.id === docId);
             if (po) linkPath = `/purchase-orders/${po.systemId}`;
-        } else if (docId.startsWith('PNK')) {
+        } else if (docId.startsWith('PNK') || docId.startsWith('NK')) {
+            // Support both PNK (old) and NK (new) prefixes for inventory receipts
             const receipt = inventoryReceipts.find(r => r.id === docId);
             if (receipt) linkPath = `/inventory-receipts/${receipt.systemId}`;
         } else if (docId.startsWith('DH')) {
@@ -45,8 +66,8 @@ export const getStockHistoryColumns = (
             // ✅ Add warranty link support
             const warranty = warranties.find(w => w.id === docId);
             if (warranty) linkPath = `/warranty/${warranty.systemId}`;
-        } else if (docId.startsWith('PKK')) {
-            // ✅ Add inventory check link support
+        } else if (docId.startsWith('PKK') || docId.startsWith('INVCHECK')) {
+            // ✅ Add inventory check link support (PKK or INVCHECK prefix)
             const invCheck = inventoryChecks.find(ic => ic.id === docId);
             if (invCheck) linkPath = `/inventory-checks/${invCheck.systemId}`;
         } else if (docId.startsWith('PCK')) {

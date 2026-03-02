@@ -30,12 +30,19 @@ export const formatDateTime = (dateStr?: string | null): string => {
 // STATUS HELPERS
 // ═══════════════════════════════════════════════════════════════
 
-export type ProductStatus = 'active' | 'inactive' | 'discontinued';
+export type ProductStatus =
+  | 'active'
+  | 'inactive'
+  | 'discontinued'
+  | 'ACTIVE'
+  | 'INACTIVE'
+  | 'DISCONTINUED';
 
 export const getStatusBadgeVariant = (
   status?: ProductStatus
 ): 'success' | 'secondary' | 'destructive' => {
-  switch (status) {
+  const normalized = status?.toString().toLowerCase();
+  switch (normalized) {
     case 'active':
       return 'success';
     case 'inactive':
@@ -48,7 +55,8 @@ export const getStatusBadgeVariant = (
 };
 
 export const getStatusLabel = (status?: ProductStatus): string => {
-  switch (status) {
+  const normalized = status?.toString().toLowerCase();
+  switch (normalized) {
     case 'active':
       return 'Đang bán';
     case 'inactive':
@@ -122,7 +130,8 @@ export const getSeoStatusBadge = (score: number): React.ReactNode => {
 import { ShoppingCart, Wrench, FileDigit, Layers } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
-export type ProductType = 'physical' | 'service' | 'digital' | 'combo';
+type NormalizedProductType = 'physical' | 'service' | 'digital' | 'combo';
+export type ProductType = NormalizedProductType | Uppercase<NormalizedProductType>;
 
 export interface ProductTypeConfig {
   label: string;
@@ -130,7 +139,7 @@ export interface ProductTypeConfig {
   variant: 'default' | 'secondary' | 'destructive' | 'outline';
 }
 
-export const productTypeConfig: Record<ProductType, ProductTypeConfig> = {
+export const productTypeConfig: Record<NormalizedProductType, ProductTypeConfig> = {
   physical: { label: 'Hàng hóa', icon: ShoppingCart, variant: 'secondary' },
   service: { label: 'Dịch vụ', icon: Wrench, variant: 'secondary' },
   digital: { label: 'Sản phẩm số', icon: FileDigit, variant: 'secondary' },
@@ -138,5 +147,6 @@ export const productTypeConfig: Record<ProductType, ProductTypeConfig> = {
 };
 
 export const getProductTypeConfig = (type?: string): ProductTypeConfig => {
-  return productTypeConfig[(type || 'physical') as ProductType] || productTypeConfig.physical;
+  const normalized = (type || 'physical').toString().toLowerCase() as NormalizedProductType;
+  return productTypeConfig[normalized] || productTypeConfig.physical;
 };

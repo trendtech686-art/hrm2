@@ -12,7 +12,6 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils';
-import { formatDateCustom, getCurrentDate } from '@/lib/date-utils';
 
 type RouteParams = {
   params: Promise<{ systemId: string }>;
@@ -24,7 +23,7 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
 
   try {
     const { systemId } = await params;
-    const now = formatDateCustom(getCurrentDate(), 'yyyy-MM-dd HH:mm');
+    const now = new Date();
 
     // Fetch transfer with items
     const transfer = await prisma.stockTransfer.findUnique({
@@ -64,6 +63,8 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
 
       // 2. Dispatch stock from source branch for each item
       for (const item of transfer.items) {
+        if (!item.productId) continue; // Skip items without product (deleted products)
+        
         const product = await tx.product.findUnique({
           where: { systemId: item.productId },
         });
@@ -72,49 +73,91 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
           throw new Error(`Product not found: ${item.productId}`);
         }
 
-        // Get current inventory
-        const currentInventory = (product.inventoryByBranch as Record<string, number> | null)?.[transfer.fromBranchId] || 0;
-        
-        if (currentInventory < item.quantity) {
-          throw new Error(`Insufficient stock for ${product.name}. Available: ${currentInventory}, Required: ${item.quantity}`);
-        }
-
-        // Update inventory: -stock, +inTransit
-        const newInventoryByBranch = { ...(product.inventoryByBranch as Record<string, number> | null || {}) };
-        const newInTransitByBranch = { ...(product.inTransitByBranch as Record<string, number> | null || {}) };
-        
-        newInventoryByBranch[transfer.fromBranchId] = currentInventory - item.quantity;
-        newInTransitByBranch[transfer.fromBranchId] = (newInTransitByBranch[transfer.fromBranchId] || 0) + item.quantity;
-
-        await tx.product.update({
-          where: { systemId: item.productId },
-          data: {
-            inventoryByBranch: newInventoryByBranch,
-            inTransitByBranch: newInTransitByBranch,
+        // ✅ Use ProductInventory table instead of Product.inventoryByBranch
+        const inventory = await tx.productInventory.findUnique({
+          where: {
+            productId_branchId: {
+              productId: item.productId,
+              branchId: transfer.fromBranchId,
+            },
           },
         });
 
-        // 3. Create stock history entry
-        // TODO: StockHistory table doesn't exist yet - implement when available
-        /* await tx.stockHistory.create({
+        const currentStock = inventory?.onHand || 0;
+        
+        if (currentStock < item.quantity) {
+          throw new Error(`Insufficient stock for ${product.name}. Available: ${currentStock}, Required: ${item.quantity}`);
+        }
+
+        const newStockLevel = currentStock - item.quantity;
+
+        // ✅ Update source branch: -onHand (stock leaves source)
+        await tx.productInventory.upsert({
+          where: {
+            productId_branchId: {
+              productId: item.productId,
+              branchId: transfer.fromBranchId,
+            },
+          },
+          update: {
+            onHand: { decrement: item.quantity },
+            updatedAt: new Date(),
+          },
+          create: {
+            productId: item.productId,
+            branchId: transfer.fromBranchId,
+            onHand: -item.quantity, // Should not happen normally
+          },
+        });
+
+        // ✅ Update destination branch: +inTransit (stock in transit TO destination)
+        await tx.productInventory.upsert({
+          where: {
+            productId_branchId: {
+              productId: item.productId,
+              branchId: transfer.toBranchId,
+            },
+          },
+          update: {
+            inTransit: { increment: item.quantity },
+            updatedAt: new Date(),
+          },
+          create: {
+            productId: item.productId,
+            branchId: transfer.toBranchId,
+            onHand: 0,
+            inTransit: item.quantity,
+          },
+        });
+
+        // ✅ Create stock history entry
+        await tx.stockHistory.create({
           data: {
             productId: item.productId,
-            date: now,
-            employeeName: employee?.fullName || session.user.name || 'System',
+            branchId: transfer.fromBranchId,
             action: 'Xuất chuyển kho',
+            source: 'Chuyển kho',
             quantityChange: -item.quantity,
-            newStockLevel: newInventoryByBranch[transfer.fromBranchId],
+            newStockLevel: newStockLevel,
             documentId: transfer.id,
-            branchSystemId: transfer.fromBranchId,
-            branch: transfer.fromBranchName || '',
+            documentType: 'stock_transfer',
+            employeeId: session.user.id,
+            employeeName: employee?.fullName || session.user.name || 'System',
+            note: `Chuyển kho đến ${transfer.toBranchName || transfer.toBranchId}`,
           },
-        }); */
+        });
       }
 
       return updatedTransfer;
     });
 
-    return apiSuccess(result);
+    // Transform status to lowercase for frontend compatibility
+    const transformedResult = {
+      ...result,
+      status: result.status.toLowerCase(),
+    };
+
+    return apiSuccess(transformedResult);
   } catch (error) {
     console.error('[Stock Transfer Start] Error:', error);
     const message = error instanceof Error ? error.message : 'Failed to start transfer';

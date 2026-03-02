@@ -31,7 +31,31 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       return apiError('Stock transfer not found', 404);
     }
 
-    return apiSuccess(stockTransfer);
+    // Transform items to match frontend expectations
+    const transformedItems = stockTransfer.items.map(item => ({
+      ...item,
+      // Map database fields to frontend expected fields
+      productSystemId: item.productId, // DB productId is actually productSystemId
+      productId: item.productSku, // DB productSku is actually the business ID
+      receivedQuantity: item.receivedQty,
+    }));
+
+    // Transform status to lowercase and convert dates for frontend compatibility
+    const transformedResult = {
+      ...stockTransfer,
+      status: stockTransfer.status.toLowerCase(),
+      items: transformedItems,
+      // Ensure dates are ISO strings for JSON serialization
+      createdDate: stockTransfer.createdDate?.toISOString() || stockTransfer.createdAt?.toISOString(),
+      createdAt: stockTransfer.createdAt?.toISOString(),
+      updatedAt: stockTransfer.updatedAt?.toISOString(),
+      transferDate: stockTransfer.transferDate?.toISOString(),
+      transferredDate: stockTransfer.transferredDate?.toISOString() || null,
+      receivedDate: stockTransfer.receivedDate?.toISOString() || null,
+      cancelledDate: stockTransfer.cancelledDate?.toISOString() || null,
+    };
+
+    return apiSuccess(transformedResult);
   } catch (error) {
     console.error('[Stock Transfers API] GET by ID error:', error);
     return apiError('Failed to fetch stock transfer', 500);
@@ -55,7 +79,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const stockTransfer = await prisma.stockTransfer.update({
       where: { systemId },
       data: {
-        ...(status !== undefined && { status: status as StockTransferStatus }),
+        ...(status !== undefined && { status: status.toUpperCase() as StockTransferStatus }),
         ...(notes !== undefined && { notes }),
         ...(updatedBy !== undefined && { updatedBy }),
         updatedAt: new Date(),
@@ -65,7 +89,13 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       },
     });
 
-    return apiSuccess(stockTransfer);
+    // Transform status to lowercase for frontend compatibility
+    const transformedResult = {
+      ...stockTransfer,
+      status: stockTransfer.status.toLowerCase(),
+    };
+
+    return apiSuccess(transformedResult);
   } catch (error) {
     console.error('[Stock Transfers API] PATCH error:', error);
     return apiError('Failed to update stock transfer', 500);

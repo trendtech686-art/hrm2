@@ -26,6 +26,7 @@ import {
   Pencil,
   Check,
   X,
+  ExternalLink,
 } from "lucide-react"
 import {
   Dialog,
@@ -326,7 +327,11 @@ interface ImportResultData {
   updated: number
   skipped: number
   errors: Array<{ row: number; message: string }>
+  isBackgroundJob?: boolean // Flag for background job imports
 }
+
+// Address level type for import
+type AddressLevel = '2-level' | '3-level';
 
 interface GenericImportDialogV2Props<T> {
   open: boolean
@@ -339,6 +344,9 @@ interface GenericImportDialogV2Props<T> {
   branches?: Branch[]
   requireBranch?: boolean
   defaultBranchId?: string // Chi nhánh mặc định (auto-fill)
+  
+  // Address level option (for customers/employees with address fields)
+  showAddressLevelOption?: boolean // Hiển thị option chọn 2/3 cấp địa chỉ
   
   // Existing data for duplicate checking
   existingData?: T[]
@@ -368,6 +376,7 @@ export function GenericImportDialogV2<T>({
   branches: branchesProp,
   requireBranch = false,
   defaultBranchId,
+  showAddressLevelOption = false,
   existingData = [],
   onImport,
   currentUser,
@@ -397,6 +406,7 @@ export function GenericImportDialogV2<T>({
   const [branchError, setBranchError] = React.useState<string>('')
   const [excelFile, setExcelFile] = React.useState<ExcelFile | null>(null)
   const [importMode, setImportMode] = React.useState<ImportMode>('upsert')
+  const [addressLevel, setAddressLevel] = React.useState<AddressLevel>('3-level')
   
   // Preview state
   const [previewResult, setPreviewResult] = React.useState<ImportPreviewResult<T> | null>(null)
@@ -410,6 +420,7 @@ export function GenericImportDialogV2<T>({
   // Import state
   const [_isImporting, setIsImporting] = React.useState(false)
   const [importProgress, setImportProgress] = React.useState(0)
+  const [_importProgressMessage, setImportProgressMessage] = React.useState('')
   const [importResult, setImportResult] = React.useState<ImportResultData | null>(null)
 
   // Auto-fill chi nhánh mặc định khi mở dialog hoặc khi store load xong
@@ -428,6 +439,7 @@ export function GenericImportDialogV2<T>({
         setBranchError('')
         setExcelFile(null)
         setImportMode('upsert')
+        setAddressLevel('3-level')
         setPreviewResult(null)
         setPreviewTab('all')
         setPreviewPage(0)
@@ -473,9 +485,17 @@ export function GenericImportDialogV2<T>({
   }, [importMode]) // Only re-run when mode changes
 
   // Get visible fields for preview table - show ALL non-hidden fields
+  // Filter out ward field if using 2-level address
   const visibleFields = React.useMemo(() => {
-    return config.fields.filter(f => !f.hidden)
-  }, [config.fields])
+    let fields = config.fields.filter(f => !f.hidden)
+    
+    // If using 2-level address, hide ward field
+    if (showAddressLevelOption && addressLevel === '2-level') {
+      fields = fields.filter(f => f.key !== 'ward')
+    }
+    
+    return fields
+  }, [config.fields, showAddressLevelOption, addressLevel])
 
   // Filtered preview rows based on current tab
   const filteredPreviewRows = React.useMemo(() => {
@@ -612,10 +632,16 @@ export function GenericImportDialogV2<T>({
       const XLSX = await import('xlsx')
       
       // Create template with headers only
+      // Use the same visibleFields logic (filters by hidden and addressLevel)
       const headers: Record<string, string> = {}
-      const visibleFields = config.fields.filter(field => !field.hidden)
+      let templateFields = config.fields.filter(field => !field.hidden)
       
-      visibleFields.forEach(field => {
+      // If using 2-level address, exclude ward field from template
+      if (showAddressLevelOption && addressLevel === '2-level') {
+        templateFields = templateFields.filter(f => f.key !== 'ward')
+      }
+      
+      templateFields.forEach(field => {
         headers[field.key as string] = field.label
       })
       
@@ -637,7 +663,7 @@ export function GenericImportDialogV2<T>({
       // Sample row: Example values (dữ liệu mẫu từ field.example)
       // Note: Required fields are marked with (*) in the label
       const exampleRow: Record<string, unknown> = {}
-      visibleFields.forEach(field => {
+      templateFields.forEach(field => {
         if (field.example) {
           exampleRow[field.key as string] = field.example
         } else if (field.defaultValue !== undefined) {
@@ -676,7 +702,7 @@ export function GenericImportDialogV2<T>({
       XLSX.utils.book_append_sheet(wb, ws, 'Data')
       
       // Auto-size columns based on header length and example values
-      const allFields = [...visibleFields, ...pricingColumns.map(c => ({ label: c.label, example: c.example }))]
+      const allFields = [...templateFields, ...pricingColumns.map(c => ({ label: c.label, example: c.example }))]
       const colWidths = allFields.map(field => {
         const headerLen = field.label.length
         const exampleLen = String(field.example || '').length
@@ -787,51 +813,62 @@ export function GenericImportDialogV2<T>({
         return
       }
 
-      // Simulate progress
-      const progressInterval = setInterval(() => {
-        setImportProgress(prev => Math.min(prev + 5, 90))
-      }, 100)
+      // Show progress while waiting
+      setImportProgress(10)
+      setImportProgressMessage('Đang gửi dữ liệu...')
 
-      // Import
+      // Import - for background jobs, this returns immediately
       const result = await onImport(validRows, importMode, selectedBranchId || undefined)
       
-      clearInterval(progressInterval)
       setImportProgress(100)
+      setImportProgressMessage('Hoàn thành!')
       setImportResult(result)
       setIsImporting(false)
       
-      // Log import
-      const branch = branches?.find(b => b.systemId === selectedBranchId)
-      await addImport.mutateAsync({
-        entityType: config.entityType,
-        entityDisplayName: config.entityDisplayName,
-        fileName: excelFile?.file.name || 'unknown',
-        fileSize: excelFile?.file.size || 0,
-        totalRows: validRows.length, // Only count selected rows
-        successCount: result.success,
-        errorCount: result.failed,
-        skippedCount: result.skipped,
-        insertedCount: result.inserted,
-        updatedCount: result.updated,
-        mode: importMode,
-        performedBy: currentUser?.name || 'System',
-        performedById: currentUser?.systemId || ('' as SystemId),
-        performedAt: new Date().toISOString(),
-        branchId: selectedBranchId || undefined,
-        branchName: branch?.name,
-        errors: result.errors.slice(0, 50).map(e => ({
-          row: e.row,
-          message: e.message,
-        })),
-        status: result.failed === 0 ? 'success' : result.success > 0 ? 'partial' : 'failed',
-      })
+      // Log import (skip if background job already created the log)
+      // Background jobs create their own log entry, so we only log for sync imports
+      if (result.success > 0 || result.failed > 0) {
+        try {
+          const branch = branches?.find(b => b.systemId === selectedBranchId)
+          await addImport.mutateAsync({
+            entityType: config.entityType,
+            entityDisplayName: config.entityDisplayName,
+            fileName: excelFile?.file.name || 'unknown',
+            fileSize: excelFile?.file.size || 0,
+            totalRows: validRows.length, // Only count selected rows
+            successCount: result.success,
+            errorCount: result.failed,
+            skippedCount: result.skipped,
+            insertedCount: result.inserted,
+            updatedCount: result.updated,
+            mode: importMode,
+            performedBy: currentUser?.name || 'System',
+            performedById: currentUser?.systemId || ('' as SystemId),
+            performedAt: new Date().toISOString(),
+            branchId: selectedBranchId || undefined,
+            branchName: branch?.name,
+            errors: result.errors.slice(0, 50).map(e => ({
+              row: e.row,
+              message: e.message,
+            })),
+            status: result.failed === 0 ? 'success' : result.success > 0 ? 'partial' : 'failed',
+          })
+        } catch (logError) {
+          // Ignore log errors - background job may have already created the log
+          console.warn('Failed to add import log (may be handled by background job):', logError)
+        }
+      }
       
       setStep('result')
       
-      if (result.failed === 0) {
-        toast.success(`Đã nhập thành công ${result.success} ${config.entityDisplayName}`)
-      } else {
-        toast.warning(`Đã nhập ${result.success} ${config.entityDisplayName}, ${result.failed} lỗi`)
+      // Only show toast for sync imports (not background jobs)
+      // Background jobs show their own toast in handleImportV2
+      if (!result.isBackgroundJob) {
+        if (result.failed === 0) {
+          toast.success(`Đã nhập thành công ${result.success} ${config.entityDisplayName}`)
+        } else {
+          toast.warning(`Đã nhập ${result.success} ${config.entityDisplayName}, ${result.failed} lỗi`)
+        }
       }
     } catch (error) {
       console.error('Import error:', error)
@@ -1014,6 +1051,35 @@ export function GenericImportDialogV2<T>({
                       {importMode === 'insert-only' && 'Bỏ qua các bản ghi đã tồn tại'}
                       {importMode === 'update-only' && 'Chỉ cập nhật bản ghi đã tồn tại, bỏ qua bản ghi mới'}
                       {importMode === 'upsert' && 'Cập nhật bản ghi đã tồn tại, thêm mới bản ghi chưa có'}
+                    </p>
+                  </div>
+                )}
+
+                {/* Address Level Option */}
+                {showAddressLevelOption && (
+                  <div className="space-y-2 border-t pt-3">
+                    <Label>Cấp địa chỉ</Label>
+                    <RadioGroup
+                      value={addressLevel}
+                      onValueChange={(v) => setAddressLevel(v as AddressLevel)}
+                      className="flex gap-4"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="2-level" id="addr-2-level" />
+                        <Label htmlFor="addr-2-level" className="font-normal cursor-pointer">
+                          2 cấp (Tỉnh/Thành - Quận/Huyện)
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="3-level" id="addr-3-level" />
+                        <Label htmlFor="addr-3-level" className="font-normal cursor-pointer">
+                          3 cấp (Tỉnh/Thành - Quận/Huyện - Phường/Xã)
+                        </Label>
+                      </div>
+                    </RadioGroup>
+                    <p className="text-xs text-muted-foreground">
+                      {addressLevel === '2-level' && 'File mẫu sẽ không có cột Phường/Xã'}
+                      {addressLevel === '3-level' && 'File mẫu sẽ có đầy đủ cả 3 cấp địa chỉ'}
                     </p>
                   </div>
                 )}
@@ -1236,57 +1302,89 @@ export function GenericImportDialogV2<T>({
           {/* Step 4: Result */}
           {step === 'result' && importResult && (
             <div className="space-y-6 py-6">
-              <div className="text-center">
-                {importResult.failed === 0 ? (
-                  <CheckCircle2 className="mx-auto h-16 w-16 text-green-600 mb-4" />
-                ) : importResult.success > 0 ? (
-                  <AlertCircle className="mx-auto h-16 w-16 text-amber-600 mb-4" />
-                ) : (
-                  <XCircle className="mx-auto h-16 w-16 text-destructive mb-4" />
-                )}
-                <h3 className="text-xl font-semibold mb-2">
-                  {importResult.failed === 0 ? 'Nhập dữ liệu thành công!' : 
-                   importResult.success > 0 ? 'Nhập dữ liệu hoàn tất' : 'Nhập dữ liệu thất bại'}
-                </h3>
-              </div>
-              
-              <div className="grid grid-cols-3 gap-4">
-                <div className="rounded-lg border p-4 text-center">
-                  <div className="text-3xl font-bold text-green-600">{importResult.success}</div>
-                  <div className="text-sm text-muted-foreground">Thành công</div>
-                  {importResult.inserted > 0 && (
-                    <div className="text-xs text-muted-foreground">
-                      ({importResult.inserted} mới, {importResult.updated} cập nhật)
+              {/* Check if this is a background job */}
+              {importResult.isBackgroundJob ? (
+                // Background job - show redirect message
+                <div className="text-center space-y-4">
+                  <CheckCircle2 className="mx-auto h-16 w-16 text-green-600" />
+                  <h3 className="text-xl font-semibold">Đã tạo lệnh nhập dữ liệu!</h3>
+                  <p className="text-muted-foreground">
+                    Dữ liệu đang được xử lý trong nền. Bạn có thể đóng cửa sổ này và tiếp tục làm việc.
+                  </p>
+                  <div className="bg-muted/50 rounded-lg p-4 space-y-2">
+                    <p className="text-sm font-medium">Theo dõi tiến trình tại:</p>
+                    <a 
+                      href="/settings/import-export-logs" 
+                      className="text-sm text-primary hover:underline inline-flex items-center gap-1"
+                      target="_blank"
+                    >
+                      Cài đặt → Lịch sử nhập xuất
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </div>
+                </div>
+              ) : (
+                // Sync import - show actual results
+                <>
+                  <div className="text-center">
+                    {importResult.failed === 0 ? (
+                      <CheckCircle2 className="mx-auto h-16 w-16 text-green-600 mb-4" />
+                    ) : importResult.success > 0 ? (
+                      <AlertCircle className="mx-auto h-16 w-16 text-amber-600 mb-4" />
+                    ) : (
+                      <XCircle className="mx-auto h-16 w-16 text-destructive mb-4" />
+                    )}
+                    <h3 className="text-xl font-semibold mb-2">
+                      {importResult.failed === 0 ? 'Nhập dữ liệu thành công!' : 
+                       importResult.success > 0 ? 'Nhập dữ liệu hoàn tất' : 'Nhập dữ liệu thất bại'}
+                    </h3>
+                  </div>
+                  
+                  {/* Result cards - 4 columns for insert/update/failed/skipped */}
+                  <div className="grid grid-cols-4 gap-3">
+                    <div className="rounded-lg border p-4 text-center">
+                      <div className="text-2xl font-bold text-green-600">{importResult.inserted || 0}</div>
+                      <div className="text-sm text-muted-foreground">Thêm mới</div>
                     </div>
-                  )}
-                </div>
-                <div className="rounded-lg border p-4 text-center">
-                  <div className="text-3xl font-bold text-destructive">{importResult.failed}</div>
-                  <div className="text-sm text-muted-foreground">Thất bại</div>
-                </div>
-                <div className="rounded-lg border p-4 text-center">
-                  <div className="text-3xl font-bold text-muted-foreground">{importResult.skipped}</div>
-                  <div className="text-sm text-muted-foreground">Bỏ qua</div>
-                </div>
-              </div>
-              
-              {/* Error Details */}
-              {importResult.errors.length > 0 && (
-                <Alert variant="destructive">
-                  <XCircle className="h-4 w-4" />
-                  <AlertTitle>Chi tiết lỗi</AlertTitle>
-                  <AlertDescription>
-                    <ScrollArea className="h-[150px] mt-2">
-                      <div className="space-y-1">
-                        {importResult.errors.map((error, idx) => (
-                          <div key={idx} className="text-sm">
-                            <strong>Dòng {error.row}:</strong> {error.message}
+                    <div className="rounded-lg border p-4 text-center">
+                      <div className="text-2xl font-bold text-blue-600">{importResult.updated || 0}</div>
+                      <div className="text-sm text-muted-foreground">Cập nhật</div>
+                    </div>
+                    <div className="rounded-lg border p-4 text-center">
+                      <div className="text-2xl font-bold text-destructive">{importResult.failed}</div>
+                      <div className="text-sm text-muted-foreground">Thất bại</div>
+                    </div>
+                    <div className="rounded-lg border p-4 text-center">
+                      <div className="text-2xl font-bold text-muted-foreground">{importResult.skipped}</div>
+                      <div className="text-sm text-muted-foreground">Bỏ qua</div>
+                    </div>
+                  </div>
+                  
+                  {/* Summary */}
+                  <div className="text-center text-sm text-muted-foreground">
+                    Tổng cộng: <span className="font-medium text-foreground">{importResult.success}</span> thành công 
+                    / {importResult.success + importResult.failed + importResult.skipped} dòng
+                  </div>
+                  
+                  {/* Error Details */}
+                  {importResult.errors.length > 0 && (
+                    <Alert variant="destructive">
+                      <XCircle className="h-4 w-4" />
+                      <AlertTitle>Chi tiết lỗi ({importResult.errors.length} dòng)</AlertTitle>
+                      <AlertDescription>
+                        <ScrollArea className="h-[150px] mt-2">
+                          <div className="space-y-1">
+                            {importResult.errors.map((error, idx) => (
+                              <div key={idx} className="text-sm">
+                                <strong>Dòng {error.row}:</strong> {error.message}
+                              </div>
+                            ))}
                           </div>
-                        ))}
-                      </div>
-                    </ScrollArea>
-                  </AlertDescription>
-                </Alert>
+                        </ScrollArea>
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                </>
               )}
             </div>
           )}

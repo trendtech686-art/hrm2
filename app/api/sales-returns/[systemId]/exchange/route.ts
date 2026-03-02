@@ -83,8 +83,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return apiError(`Insufficient inventory for exchange. Available: ${availableQuantity}`, 400);
     }
 
-    // Calculate exchange value
-    const newProductPrice = Number(newProduct.sellingPrice || newProduct.costPrice || 0);
+    // Calculate exchange value - use costPrice since sellingPrice was removed
+    const newProductPrice = Number(newProduct.costPrice || 0);
     const exchangeTotal = newProductPrice * newQuantity;
 
     // Perform exchange in atomic transaction
@@ -122,6 +122,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
       // Update inventory for returned items (add back to stock)
       for (const item of salesReturn.items) {
+        if (!item.productId) continue;
+        
         const itemInventory = await tx.productInventory.findUnique({
           where: {
             productId_branchId: {
@@ -130,6 +132,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             },
           },
         });
+
+        const oldStock = itemInventory?.onHand || 0;
+        const newStock = oldStock + item.quantity;
 
         if (itemInventory) {
           await tx.productInventory.update({
@@ -155,9 +160,40 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             },
           });
         }
+        
+        // ✅ Create stock history record for returned item
+        await tx.stockHistory.create({
+          data: {
+            productId: item.productId,
+            branchId: branchId,
+            action: 'Nhập kho đổi hàng',
+            source: 'Phiếu trả hàng',
+            quantityChange: item.quantity,
+            newStockLevel: newStock,
+            documentId: salesReturn.id,
+            documentType: 'sales_return',
+            employeeId: session.user?.id,
+            employeeName: session.user?.name || undefined,
+            note: `Nhập kho hàng đổi - ${item.productName || item.productId}`,
+          },
+        });
       }
 
+      // Get current inventory for new product to calculate new stock level
+      const newProductInventory = await tx.productInventory.findUnique({
+        where: {
+          productId_branchId: {
+            productId: newProductSystemId,
+            branchId: branchId,
+          },
+        },
+      });
+      const newProductOldStock = newProductInventory?.onHand || 0;
+      const newProductNewStock = Math.max(0, newProductOldStock - newQuantity);
+
       // Update inventory for new product (subtract from stock)
+      // ✅ Update inventory for new product - only decrement onHand (stock out)
+      // No need to increment committed since we're immediately giving it to customer
       await tx.productInventory.update({
         where: {
           productId_branchId: {
@@ -167,8 +203,24 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         },
         data: {
           onHand: { decrement: newQuantity },
-          committed: { increment: newQuantity },
           updatedAt: new Date(),
+        },
+      });
+      
+      // ✅ Create stock history record for exchange out item
+      await tx.stockHistory.create({
+        data: {
+          productId: newProductSystemId,
+          branchId: branchId,
+          action: 'Xuất kho đổi hàng',
+          source: 'Phiếu trả hàng',
+          quantityChange: -newQuantity,
+          newStockLevel: newProductNewStock,
+          documentId: salesReturn.id,
+          documentType: 'sales_return',
+          employeeId: session.user?.id,
+          employeeName: session.user?.name || undefined,
+          note: `Xuất kho hàng đổi cho khách - ${newProductSystemId}`,
         },
       });
 

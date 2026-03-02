@@ -1,8 +1,10 @@
 /**
  * Stock History API Layer
  * Handles all stock history-related API calls
+ * Read operations use API routes, mutations use Server Actions
  */
 
+import { createStockHistory as createStockHistoryAction } from '@/app/actions/stock-history';
 import type { StockHistoryEntry, StockHistoryAction } from '@/lib/types/prisma-extended';
 
 export interface StockHistoryFilters {
@@ -29,17 +31,18 @@ export interface StockHistoryResponse {
 export interface StockHistoryCreateInput {
   systemId?: string;
   productId: string;
-  date: string;
-  employeeName: string;
+  branchId: string; // API uses branchId
   action: StockHistoryAction | string;
+  source?: string;
   quantityChange: number;
   newStockLevel: number;
-  documentId: string;
-  branchSystemId: string;
-  branch: string;
+  documentId?: string;
+  documentType?: string;
+  employeeName?: string;
+  note?: string;
 }
 
-const BASE_URL = '/api/inventory/stock-history';
+const BASE_URL = '/api/stock-history';
 
 /**
  * Fetch stock history with filters
@@ -85,23 +88,16 @@ export async function fetchProductStockHistory(
 }
 
 /**
- * Create stock history entry
+ * Create stock history entry (uses Server Action)
  */
 export async function createStockHistory(
   data: StockHistoryCreateInput
 ): Promise<StockHistoryEntry> {
-  const response = await fetch(BASE_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-  
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.error || 'Failed to create stock history entry');
+  const result = await createStockHistoryAction(data);
+  if (!result.success) {
+    throw new Error(result.error || 'Failed to create stock history entry');
   }
-  
-  return response.json();
+  return result.data!;
 }
 
 /**

@@ -7,7 +7,9 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { requireAuth, apiError } from '@/lib/api-utils';
 import { defaultGlobalSettings, type GlobalSettings } from '@/features/settings/global/global-settings-service';
+import { generateIdWithPrefix } from '@/lib/id-generator';
 
 const SETTING_KEY = 'global';
 const SETTING_GROUP = 'global';
@@ -35,6 +37,9 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
+  const session = await requireAuth()
+  if (!session) return apiError('Chưa đăng nhập', 401)
+
   try {
     const body = await request.json();
     
@@ -49,7 +54,7 @@ export async function PUT(request: Request) {
         value: body as object,
       },
       create: {
-        systemId: `SET_GLOBAL_${Date.now()}`,
+        systemId: await generateIdWithPrefix('SET_GLOBAL', prisma),
         key: SETTING_KEY,
         group: SETTING_GROUP,
         type: 'json',

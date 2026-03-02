@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma'
 import { Prisma } from '@/generated/prisma/client'
 import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
 import { trendtechSettingsSchema } from './validation'
+import { generateIdWithPrefix } from '@/lib/id-generator'
 
 const SETTING_KEY = 'trendtech-settings'
 const SETTING_GROUP = 'integrations'
@@ -67,7 +68,7 @@ export async function PUT(request: Request) {
         updatedAt: new Date(),
       },
       create: {
-        systemId: `SET_TREND_${Date.now()}`,
+        systemId: await generateIdWithPrefix('SETTREND'),
         key: SETTING_KEY,
         group: SETTING_GROUP,
         type: 'json',

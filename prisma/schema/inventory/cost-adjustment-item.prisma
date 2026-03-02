@@ -1,7 +1,7 @@
 model CostAdjustmentItem {
   systemId          String         @id @default(uuid())
   adjustmentId      String
-  productId         String
+  productId         String?
   productSystemId   String? // Product systemId
   productName       String? // Cached product name
   productImage      String? // Product thumbnail

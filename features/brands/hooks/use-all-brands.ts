@@ -5,18 +5,26 @@
  */
 
 import * as React from 'react';
-import { useBrands } from './use-brands';
+import { useQuery } from '@tanstack/react-query';
+import { fetchAllPages } from '@/lib/fetch-all-pages';
+import { fetchBrands } from '../api/brands-api';
+import { brandKeys } from './use-brands';
 import type { SystemId } from '@/lib/id-types';
 
 /**
  * Returns all brands as a flat array
- * Compatible with legacy store pattern: { data: brands }
+ * Auto-pagination: no hardcoded limit cap (MODULE-QUALITY-CRITERIA §1.3)
  */
 export function useAllBrands() {
-  const query = useBrands({ limit: 500 });
+  const query = useQuery({
+    queryKey: [...brandKeys.all, 'all'],
+    queryFn: () => fetchAllPages((p) => fetchBrands(p)),
+    staleTime: 10 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+  });
   
   return {
-    data: query.data?.data || [],
+    data: query.data || [],
     isLoading: query.isLoading,
     isError: query.isError,
     error: query.error,

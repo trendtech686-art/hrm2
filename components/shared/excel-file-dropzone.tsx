@@ -243,7 +243,7 @@ export function ExcelFileDropzone({
               )}
             </div>
             <div className="space-y-1">
-              <p className="text-sm font-medium truncate max-w-[250px]">{value.file.name}</p>
+              <p className="text-sm font-medium truncate max-w-62.5">{value.file.name}</p>
               <p className="text-xs text-muted-foreground">
                 {formatFileSize(value.file.size)}
                 {value.status === 'uploaded' && ' • Đã tải lên server'}

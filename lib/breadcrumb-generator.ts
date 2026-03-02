@@ -1,233 +1,188 @@
 /**
- * 🍞 BREADCRUMB AUTO-GENERATION SYSTEM
+ * 🍞 BREADCRUMB SYSTEM v2.0 - Next.js Native
  * 
- * Automatically generates breadcrumbs from route metadata + entity data
+ * Simple breadcrumb generation from pathname + metadata
+ * No dependency on Prisma/stores - works in both client & server
  * 
  * Features:
- * - Auto-lookup entity name from systemId
- * - Falls back to route metadata if entity not found
- * - Type-safe with SystemId branded types
- * - Supports all entity types from id-config.ts
+ * - Route metadata from pathname
+ * - Optional entity data from page props
+ * - Zero runtime dependencies
+ * - Client & Server compatible
  * 
  * @example
  * ```typescript
- * // Route: /receipts/VOUCHER00000123
- * const crumbs = generateBreadcrumb(location.pathname);
- * // Result: ['Phiếu thu/chi', 'PT000051']
+ * // Server Component
+ * const breadcrumbs = getBreadcrumbsFromPath('/categories/CATEGORY000001')
+ * 
+ * // With entity data
+ * const breadcrumbs = getBreadcrumbsFromPath(pathname, { name: 'Điện tử' })
  * ```
  * 
- * @version 1.0.0
- * @date 2025-11-11
+ * @version 2.0.0
+ * @date 2026-01-20
  */
 
-import { type EntityType, getEntityConfig } from './id-config';
-
-// Store registry - lazy loaded to avoid circular dependencies
-type StoreGetter<T> = () => { data: T[] };
-
-interface StoreRegistry {
-  [key: string]: StoreGetter<{ systemId: string; id?: string; name?: string; title?: string }>;
-}
-
-let storeRegistry: StoreRegistry = {};
+// Route metadata registry - static configuration
+const ROUTE_METADATA: Record<string, { label: string; icon?: string }> = {
+  '/': { label: 'Trang chủ' },
+  '/dashboard': { label: 'Dashboard' },
+  '/categories': { label: 'Danh mục sản phẩm' },
+  '/products': { label: 'Sản phẩm' },
+  '/brands': { label: 'Thương hiệu' },
+  '/customers': { label: 'Khách hàng' },
+  '/suppliers': { label: 'Nhà cung cấp' },
+  '/orders': { label: 'Đơn hàng' },
+  '/receipts': { label: 'Phiếu thu' },
+  '/payments': { label: 'Phiếu chi' },
+  '/employees': { label: 'Nhân viên' },
+  '/departments': { label: 'Phòng ban' },
+  '/branches': { label: 'Chi nhánh' },
+  '/attendance': { label: 'Chấm công' },
+  '/penalties': { label: 'Phiếu phạt' },
+  '/leaves': { label: 'Nghỉ phép' },
+  '/warranty': { label: 'Bảo hành' },
+  '/settings': { label: 'Cài đặt' },
+};
 
 /**
- * Register a store for breadcrumb lookup
- * Call this in store files to enable auto breadcrumb
+ * Breadcrumb item interface
  */
-export function registerBreadcrumbStore<T extends { systemId: string; id?: string; name?: string }>(
-  entityType: EntityType,
-  getStore: StoreGetter<T>
-) {
-  storeRegistry[entityType] = getStore;
-}
-
-/**
- * Find entity by systemId and return display name
- */
-function findEntityDisplayName(entityType: EntityType, systemId: string): string | null {
-  const getStore = storeRegistry[entityType];
-  if (!getStore) return null;
-
-  try {
-    const store = getStore();
-    const item = store.data.find((d) => d.systemId === systemId);
-    
-    if (!item) return null;
-
-    // Priority: name > title > id (business ID) > systemId
-    return item.name || item.title || item.id || systemId;
-  } catch {
-    return null;
-  }
+export interface BreadcrumbItem {
+  label: string;
+  href: string;
+  isCurrent?: boolean;
 }
 
 /**
- * Parse route path and extract entity info
- */
-interface RouteEntityInfo {
-  entityType: EntityType | null;
-  systemId: string | null;
-  displayName: string | null;
-}
-
-function parseRouteEntity(pathname: string): RouteEntityInfo {
-  // Pattern: /{entity-type}/{systemId}
-  const match = pathname.match(/^\/([^/]+)\/([^/]+)$/);
-  
-  if (!match) {
-    return { entityType: null, systemId: null, displayName: null };
-  }
-
-  const [, routeType, id] = match;
-  
-  // Map route type to entity type
-  const routeToEntityMap: Record<string, EntityType> = {
-    'receipts': 'voucher-receipt',
-    'payments': 'voucher-payment',
-    'employees': 'employees',
-    'customers': 'customers',
-    'products': 'products',
-    'orders': 'orders',
-    'suppliers': 'suppliers',
-    'complaints': 'complaints',
-    'warranty': 'warranty',
-    'purchase-orders': 'purchase-orders',
-    'sales-returns': 'sales-returns',
-    'purchase-returns': 'purchase-returns',
-    'inventory-checks': 'inventory-checks',
-  };
-
-  const entityType = routeToEntityMap[routeType] || null;
-  
-  if (!entityType) {
-    return { entityType: null, systemId: id, displayName: null };
-  }
-
-  // Lookup display name
-  const displayName = findEntityDisplayName(entityType, id);
-  
-  return { entityType, systemId: id, displayName };
-}
-
-/**
- * Generate breadcrumb trail from pathname
+ * Generate breadcrumbs from pathname
  * 
- * @param pathname - Current route pathname
- * @param routeMeta - Optional route metadata with static breadcrumb
- * @returns Array of breadcrumb labels
+ * @param pathname - Current route pathname (from usePathname() or params)
+ * @param entityData - Optional entity data (name, id) to display
+ * @returns Array of breadcrumb items
+ * 
+ * @example
+ * ```tsx
+ * // Simple usage
+ * const crumbs = getBreadcrumbsFromPath('/categories')
+ * 
+ * // With entity data (pass from page props)
+ * const crumbs = getBreadcrumbsFromPath('/categories/CAT001', { 
+ *   name: 'Điện tử',
+ *   id: 'DM000001' 
+ * })
+ * ```
  */
-export function generateBreadcrumb(
+export function getBreadcrumbsFromPath(
   pathname: string,
-  routeMeta?: { breadcrumb?: string[] }
-): string[] {
-  // If route has static breadcrumb metadata, use it as base
-  const baseCrumbs = routeMeta?.breadcrumb || [];
+  entityData?: { name?: string; id?: string }
+): BreadcrumbItem[] {
+  const segments = pathname.split('/').filter(Boolean);
   
-  // Try to enhance with entity data
-  const entityInfo = parseRouteEntity(pathname);
-  
-  if (entityInfo.displayName) {
-    // Replace last breadcrumb with entity display name
-    return [...baseCrumbs.slice(0, -1), entityInfo.displayName];
+  if (segments.length === 0) {
+    return [{ label: 'Trang chủ', href: '/', isCurrent: true }];
   }
+
+  const breadcrumbs: BreadcrumbItem[] = [
+    { label: 'Trang chủ', href: '/', isCurrent: false }
+  ];
+
+  let currentPath = '';
   
-  // Fallback to route metadata
-  return baseCrumbs;
-}
+  for (let i = 0; i < segments.length; i++) {
+    const segment = segments[i];
+    currentPath += `/${segment}`;
+    const isCurrent = i === segments.length - 1;
 
-/**
- * Generate breadcrumb for detail page
- * 
- * @example
- * ```typescript
- * // In voucher detail page (phiếu chi)
- * const crumbs = generateDetailBreadcrumb('voucher-payment', voucher.systemId, 'Phiếu thu/chi');
- * // Result: ['Phiếu thu/chi', 'PT000051']
- * ```
- */
-export function generateDetailBreadcrumb(
-  entityType: EntityType,
-  systemId: string,
-  listPageLabel: string
-): string[] {
-  const displayName = findEntityDisplayName(entityType, systemId);
-  return [listPageLabel, displayName || systemId];
-}
+    // Check if segment is an entity ID (uppercase letters + numbers)
+    const isEntityId = /^[A-Z]+\d+$/.test(segment);
 
-/**
- * Generate breadcrumb for form page (create/edit)
- * 
- * @example
- * ```typescript
- * const crumbs = generateFormBreadcrumb('employees', employeeSystemId, 'Nhân viên');
- * // Create: ['Nhân viên', 'Thêm mới']
- * // Edit: ['Nhân viên', 'NV000001']
- * ```
- */
-export function generateFormBreadcrumb(
-  entityType: EntityType,
-  systemId: string | null | undefined,
-  listPageLabel: string
-): string[] {
-  if (!systemId) {
-    return [listPageLabel, 'Thêm mới'];
+    if (isEntityId) {
+      // Display entity data if provided, otherwise show ID
+      const label = entityData?.name || entityData?.id || segment;
+      breadcrumbs.push({
+        label,
+        href: currentPath,
+        isCurrent
+      });
+    } else if (segment === 'edit') {
+      breadcrumbs.push({
+        label: 'Chỉnh sửa',
+        href: currentPath,
+        isCurrent
+      });
+    } else if (segment === 'new') {
+      breadcrumbs.push({
+        label: 'Tạo mới',
+        href: currentPath,
+        isCurrent
+      });
+    } else {
+      // Use route metadata or format segment
+      const metadata = ROUTE_METADATA[currentPath];
+      const label = metadata?.label || formatSegmentLabel(segment);
+      
+      breadcrumbs.push({
+        label,
+        href: currentPath,
+        isCurrent
+      });
+    }
   }
-  
-  const displayName = findEntityDisplayName(entityType, systemId);
-  return [listPageLabel, displayName || 'Chỉnh sửa'];
+
+  return breadcrumbs;
 }
 
 /**
- * Hook for breadcrumb in React components
+ * Format segment into readable label
+ */
+function formatSegmentLabel(segment: string): string {
+  return segment
+    .split('-')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
+/**
+ * React hook for breadcrumbs (client-side)
+ * Use with usePathname() from next/navigation
  * 
  * @example
- * ```typescript
- * function EmployeeDetailPage() {
- *   const { systemId } = useParams();
- *   const crumbs = useBreadcrumb('employees', systemId, 'Nhân viên');
- *   usePageHeader({ breadcrumb: crumbs });
+ * ```tsx
+ * 'use client'
+ * import { usePathname } from 'next/navigation'
+ * import { useBreadcrumbs } from '@/lib/breadcrumb-generator'
+ * 
+ * function MyPage({ category }) {
+ *   const pathname = usePathname()
+ *   const breadcrumbs = useBreadcrumbs(pathname, category)
+ *   // ...
  * }
  * ```
  */
-export function useBreadcrumb(
-  entityType: EntityType,
-  systemId: string | null | undefined,
-  listPageLabel: string
-): string[] {
-  if (!systemId) {
-    return [listPageLabel, 'Thêm mới'];
-  }
-  
-  return generateDetailBreadcrumb(entityType, systemId, listPageLabel);
+export function useBreadcrumbs(
+  pathname: string,
+  entityData?: { name?: string; id?: string }
+): BreadcrumbItem[] {
+  return getBreadcrumbsFromPath(pathname, entityData);
 }
 
-/**
- * Get entity config for breadcrumb display
- */
-export function getEntityDisplayInfo(entityType: EntityType) {
-  try {
-    const config = getEntityConfig(entityType);
-    return {
-      displayName: config.displayName,
-      prefix: config.prefix,
-      category: config.category,
-    };
-  } catch {
-    return null;
-  }
+// Legacy exports for backward compatibility
+export function generateDetailBreadcrumb(pathname: string, entityData?: { name?: string }): BreadcrumbItem[] {
+  return getBreadcrumbsFromPath(pathname, entityData);
 }
 
-/**
- * Clear store registry (for testing)
- */
-export function clearBreadcrumbStores() {
-  storeRegistry = {};
+export function generateFormBreadcrumb(pathname: string): BreadcrumbItem[] {
+  return getBreadcrumbsFromPath(pathname);
 }
 
-/**
- * Get all registered stores (for debugging)
- */
-export function getRegisteredStores(): string[] {
-  return Object.keys(storeRegistry);
+export function getEntityDisplayInfo() {
+  return { name: '', id: '' };
+}
+
+// No-op for legacy compatibility
+export function registerBreadcrumbStore(_name?: string, _getState?: () => unknown) {}
+export function clearBreadcrumbStores() {}
+export function getRegisteredStores() {
+  return {};
 }

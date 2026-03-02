@@ -1,147 +1,168 @@
-/**
+﻿/**
  * Public Warranty Tracking Page
  * Allow customers to track their warranty ticket status without login
- * Pattern copied from Complaints tracking system
+ * 
+ * Mobile-first, shadcn/ui components
+ * Horizontal status timeline at top
+ * Card visibility controlled by admin settings
  */
 
 import * as React from 'react';
 import { useParams } from 'next/navigation';
-import { Package, Clock, CheckCircle, CheckCircle2, XCircle, AlertCircle, Phone, MapPin, Calendar, User, Image as ImageIcon, ExternalLink, Truck, DollarSign } from 'lucide-react';
+import { Clock, CheckCircle, XCircle, AlertCircle, Package, Send } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
+import { Button } from '../../components/ui/button';
 import { Separator } from '../../components/ui/separator';
 import { ScrollArea } from '../../components/ui/scroll-area';
+import { Textarea } from '../../components/ui/textarea';
 import { formatDateTime } from '../../lib/date-utils';
 import { cn } from '../../lib/utils';
-import { WARRANTY_STATUS_LABELS, WARRANTY_STATUS_COLORS } from './types';
+import { OptimizedImage } from '../../components/ui/optimized-image';
+import { WARRANTY_STATUS_LABELS, WARRANTY_STATUS_COLORS, RESOLUTION_LABELS } from './types';
 import type { WarrantyStatus } from './types';
-import type { PublicWarrantyTicket } from './public-warranty-api';
-import { 
-  loadTrackingSettings, 
-  shouldShowEmployeeName,
-  shouldShowTimeline,
+import type { PublicWarrantyTicket, PublicWarrantyProduct, PublicWarrantyPayment, PublicWarrantyReceipt, PublicWarrantyOrder, PublicWarrantyComment } from './public-warranty-api';
+import {
+  loadTrackingSettings,
 } from './tracking-utils';
-import { WarrantyProductsDetailTable } from './components/warranty-products-detail-table';
 import { usePublicTracking } from './hooks/use-public-tracking';
 
-// Lazy load ImagePreviewDialog để giảm bundle size ban đầu
-const ImagePreviewDialog = React.lazy(() => 
+// Lazy load ImagePreviewDialog
+const ImagePreviewDialog = React.lazy(() =>
   import('../../components/ui/image-preview-dialog').then(module => ({
     default: module.ImagePreviewDialog
   }))
 );
 
-/**
- * Get status icon
- */
-function getStatusIcon(status: WarrantyStatus) {
-  const icons: Record<WarrantyStatus, React.ElementType> = {
-    incomplete: AlertCircle,
-    pending: Clock,
-    processed: CheckCircle,
-    returned: Package,
-    completed: CheckCircle2,
-    cancelled: XCircle,
-  };
-  return icons[status] || AlertCircle; // Fallback to AlertCircle if status not found
+// ============================================
+// Settings type with card visibility
+// ============================================
+interface TrackingSettings {
+  enabled: boolean;
+  showEmployeeName: boolean;
+  showTimeline: boolean;
+  allowCustomerComments: boolean;
+  showProductList: boolean;
+  showSummary: boolean;
+  showPayment: boolean;
+  showReceivedImages: boolean;
+  showProcessedImages: boolean;
+  showHistory: boolean;
 }
 
-/**
- * Status timeline component
- */
+const defaultSettings: TrackingSettings = {
+  enabled: true,
+  showEmployeeName: true,
+  showTimeline: true,
+  allowCustomerComments: false,
+  showProductList: true,
+  showSummary: true,
+  showPayment: true,
+  showReceivedImages: true,
+  showProcessedImages: true,
+  showHistory: true,
+};
+
+// ============================================
+// Horizontal Status Timeline
+// ============================================
 function StatusTimeline({ ticket }: { ticket: PublicWarrantyTicket }) {
-  const baseStatuses: WarrantyStatus[] = ['incomplete', 'pending', 'processed', 'returned', 'completed'];
+  const baseStatuses: WarrantyStatus[] = ['RECEIVED', 'PROCESSING', 'COMPLETED', 'RETURNED'];
   const statuses: WarrantyStatus[] =
-    ticket.status === 'cancelled' ? [...baseStatuses, 'cancelled'] : baseStatuses;
+    ticket.status === 'CANCELLED' ? [...baseStatuses, 'CANCELLED'] : baseStatuses;
   const currentIndex = statuses.indexOf(ticket.status);
 
   return (
-    <div className="space-y-4">
-      {statuses.map((status, index) => {
-        const Icon = getStatusIcon(status);
-        const isPast = index <= currentIndex;
-        const isCurrent = index === currentIndex;
-        const timestamp = getStatusTimestamp(ticket, status);
+    <div className="w-full overflow-x-auto pb-2">
+      <div className="flex items-start min-w-120">
+        {statuses.map((status, index) => {
+          const isPast = index <= currentIndex;
+          const isCurrent = index === currentIndex;
+          const isCancelled = status === 'CANCELLED';
+          const timestamp = getStatusTimestamp(ticket, status);
 
-        return (
-          <div key={status} className="flex gap-4">
-            {/* Icon & Line */}
-            <div className="flex flex-col items-center">
-              <div
-                className={cn(
-                  'rounded-full p-2 border-2',
-                  isPast
-                    ? 'bg-primary border-primary text-primary-foreground'
-                    : 'bg-muted border-muted-foreground/20 text-muted-foreground'
-                )}
-              >
-                <Icon className="h-4 w-4" />
-              </div>
-              {index < statuses.length - 1 && (
+          return (
+            <div key={status} className="flex-1 flex flex-col items-center relative">
+              {/* Connector line */}
+              {index > 0 && (
                 <div
                   className={cn(
-                    'w-0.5 h-12 my-1',
-                    isPast ? 'bg-primary' : 'bg-muted-foreground/20'
+                    'absolute top-4 right-1/2 w-full h-0.5 z-0',
+                    isPast ? (isCancelled ? 'bg-destructive/40' : 'bg-primary') : 'bg-muted-foreground/20'
                   )}
                 />
               )}
-            </div>
 
-            {/* Content */}
-            <div className="flex-1 pb-8">
-              <div className="flex items-center gap-2 mb-1">
-                <span className={cn('font-medium', isCurrent && 'text-primary')}>
+              {/* Status dot */}
+              <div
+                className={cn(
+                  'relative z-10 flex items-center justify-center w-8 h-8 rounded-full border-2 transition-all',
+                  isCurrent && !isCancelled && 'bg-primary border-primary text-primary-foreground ring-4 ring-primary/20',
+                  isCurrent && isCancelled && 'bg-destructive border-destructive text-destructive-foreground ring-4 ring-destructive/20',
+                  isPast && !isCurrent && 'bg-primary border-primary text-primary-foreground',
+                  !isPast && 'bg-background border-muted-foreground/30 text-muted-foreground',
+                )}
+              >
+                {isPast && !isCancelled && <CheckCircle className="h-4 w-4" />}
+                {isCancelled && isPast && <XCircle className="h-4 w-4" />}
+                {!isPast && <span className="text-xs font-medium">{index + 1}</span>}
+              </div>
+
+              {/* Label */}
+              <div className="mt-2 text-center px-1">
+                <p className={cn(
+                  'text-xs font-medium leading-tight',
+                  isCurrent && 'text-primary',
+                  !isPast && !isCurrent && 'text-muted-foreground',
+                )}>
                   {WARRANTY_STATUS_LABELS[status]}
-                </span>
+                </p>
                 {isCurrent && (
-                  <Badge variant="default" className="h-5">
+                  <Badge variant="default" className="mt-1 h-4 text-[10px] px-1.5">
                     Hiện tại
                   </Badge>
                 )}
+                {timestamp && (
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    {formatDateTime(timestamp)}
+                  </p>
+                )}
               </div>
-              {timestamp && (
-                <div className="text-body-sm text-muted-foreground">
-                  {formatDateTime(timestamp)}
-                </div>
-              )}
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 }
 
-/**
- * Get timestamp for a specific status from history
- */
+// ============================================
+// Get timestamp for status from history
+// ============================================
 function getStatusTimestamp(ticket: PublicWarrantyTicket, status: WarrantyStatus): string | null {
   const directTimestampByStatus: Partial<Record<WarrantyStatus, string | undefined>> = {
-    incomplete: ticket.createdAt,
-    pending: ticket.processingStartedAt,
-    processed: ticket.processedAt,
-    returned: ticket.returnedAt,
-    completed: ticket.completedAt,
-    cancelled: ticket.cancelledAt,
+    RECEIVED: ticket.createdAt,
+    PROCESSING: ticket.processingStartedAt,
+    WAITING_PARTS: undefined,
+    COMPLETED: ticket.processedAt,
+    RETURNED: ticket.returnedAt,
+    CANCELLED: ticket.cancelledAt,
   };
 
   const directTimestamp = directTimestampByStatus[status];
-  if (directTimestamp) {
-    return directTimestamp;
-  }
+  if (directTimestamp) return directTimestamp;
 
   const statusLabel = (WARRANTY_STATUS_LABELS[status] || '').toLowerCase();
-
   const completionKeywords = ['hoàn tất phiếu', 'kết thúc phiếu', 'complete'];
 
   const historyEntry = ticket.history.find((entry) => {
     const action = (entry.action || '').toLowerCase();
     const actionLabel = (entry.actionLabel || '').toLowerCase();
 
-    if (status === 'completed') {
+    if (status === 'RETURNED') {
       return completionKeywords.some((keyword) => action.includes(keyword) || actionLabel.includes(keyword))
-        || action.includes('-> completed')
-        || action.includes(': completed');
+        || action.includes('-> RETURNED')
+        || action.includes(': RETURNED');
     }
 
     return (
@@ -156,45 +177,729 @@ function getStatusTimestamp(ticket: PublicWarrantyTicket, status: WarrantyStatus
   return historyEntry?.performedAt || null;
 }
 
-/**
- * Public Tracking Page Component
- */
+// ============================================
+// Products Table (Public - no auth needed)
+// ============================================
+function PublicProductsTable({ products, onImageClick }: {
+  products: PublicWarrantyProduct[];
+  onImageClick: (images: string[], index: number) => void;
+}) {
+  if (products.length === 0) {
+    return (
+      <div className="text-center py-8 text-muted-foreground text-sm">
+        Chưa có sản phẩm nào
+      </div>
+    );
+  }
+
+  const getResolutionBadge = (resolution: string) => {
+    const variants: Record<string, string> = {
+      return: 'bg-green-100 text-green-800',
+      replace: 'bg-blue-100 text-blue-800',
+      deduct: 'bg-orange-100 text-orange-800',
+      out_of_stock: 'bg-red-100 text-red-800',
+    };
+    return variants[resolution] || 'bg-gray-100 text-gray-800';
+  };
+
+  return (
+    <>
+      {/* Mobile: Card layout */}
+      <div className="block lg:hidden space-y-3">
+        {products.map((product, index) => {
+          const warrantyImages = (product.productImages || []).filter(Boolean);
+          return (
+            <Card key={product.systemId} className="overflow-hidden">
+              <CardContent className="p-3 sm:p-4">
+                <div className="space-y-3">
+                  {/* Header: Image + Name + Badge */}
+                  <div className="flex gap-3">
+                    {product.catalogImage ? (
+                      <div className="shrink-0 w-14 h-14 rounded-md overflow-hidden border border-muted">
+                        <OptimizedImage src={product.catalogImage} alt={product.productName} width={56} height={56} className="w-full h-full object-cover" />
+                      </div>
+                    ) : (
+                      <div className="shrink-0 w-14 h-14 rounded-md bg-muted flex items-center justify-center">
+                        <Package className="h-6 w-6 text-muted-foreground" />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm leading-snug">{product.productName}</p>
+                      {product.sku && (
+                        <p className="text-xs text-muted-foreground font-mono mt-0.5">{product.sku}</p>
+                      )}
+                    </div>
+                    <Badge className={cn(getResolutionBadge(product.resolution), "text-xs px-2 py-0.5 h-fit")}>
+                      {RESOLUTION_LABELS[product.resolution] || product.resolution}
+                    </Badge>
+                  </div>
+
+                  <Separator />
+
+                  {/* Quantity & Price */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-0.5">Số lượng</p>
+                      <p className="font-semibold text-sm">{product.quantity || 1}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-0.5">Đơn giá</p>
+                      <p className="font-semibold text-sm font-mono">
+                        {new Intl.NumberFormat('vi-VN').format(product.unitPrice || 0)} đ
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Warranty images */}
+                  {warrantyImages.length > 0 && (
+                    <>
+                      <Separator />
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1.5">Hình ảnh bảo hành</p>
+                        <div className="flex gap-1.5 flex-wrap">
+                          {warrantyImages.slice(0, 3).map((url, imgIdx) => (
+                            <button
+                              key={imgIdx}
+                              onClick={() => onImageClick(warrantyImages, imgIdx)}
+                              className="relative w-14 h-14 shrink-0 rounded border overflow-hidden hover:ring-2 ring-primary transition-all"
+                            >
+                              <OptimizedImage src={url} alt={`SP ${index + 1}`} width={56} height={56} className="w-full h-full object-cover" />
+                            </button>
+                          ))}
+                          {warrantyImages.length > 3 && (
+                            <div className="w-14 h-14 rounded border bg-muted flex items-center justify-center text-xs font-medium text-muted-foreground">
+                              +{warrantyImages.length - 3}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Notes */}
+                  {(product.issueDescription || product.notes) && (
+                    <>
+                      <Separator />
+                      <div className="space-y-1">
+                        {product.issueDescription && (
+                          <p className="text-xs text-orange-600 font-medium">
+                            <span className="text-muted-foreground">Vấn đề: </span>{product.issueDescription}
+                          </p>
+                        )}
+                        {product.notes && (
+                          <p className="text-xs text-muted-foreground">{product.notes}</p>
+                        )}
+                      </div>
+                    </>
+                  )}
+
+                  {/* Total */}
+                  <Separator />
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-muted-foreground">Thành tiền:</span>
+                    <span className="font-bold text-sm">
+                      {new Intl.NumberFormat('vi-VN').format((product.quantity || 1) * (product.unitPrice || 0))} đ
+                    </span>
+                  </div>
+
+                  {/* Compensation */}
+                  {product.resolution === 'out_of_stock' && (
+                    <div className="flex justify-between items-center bg-red-50 -mx-3 -mb-3 px-3 py-2 sm:-mx-4 sm:-mb-4 sm:px-4">
+                      <span className="text-xs font-medium text-red-700">Bù trừ:</span>
+                      <span className="font-bold text-sm text-red-600">
+                        {new Intl.NumberFormat('vi-VN').format((product.quantity || 1) * (product.unitPrice || 0))} đ
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+
+      {/* Desktop: Table layout */}
+      <div className="hidden lg:block overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b">
+              <th className="text-center py-3 px-2 w-12 font-medium text-muted-foreground">STT</th>
+              <th className="text-left py-3 px-2 min-w-50 font-medium text-muted-foreground">Tên sản phẩm</th>
+              <th className="text-center py-3 px-2 w-16 font-medium text-muted-foreground">SL</th>
+              <th className="text-right py-3 px-2 w-28 font-medium text-muted-foreground">Đơn giá</th>
+              <th className="text-left py-3 px-2 w-28 font-medium text-muted-foreground">Hình ảnh</th>
+              <th className="text-left py-3 px-2 w-28 font-medium text-muted-foreground">Kết quả</th>
+              <th className="text-left py-3 px-2 min-w-35 font-medium text-muted-foreground">Ghi chú</th>
+              <th className="text-right py-3 px-2 w-28 font-medium text-muted-foreground">Thành tiền</th>
+              <th className="text-right py-3 px-2 w-28 font-medium text-muted-foreground">Bù trừ</th>
+            </tr>
+          </thead>
+          <tbody>
+            {products.map((product, index) => {
+              const warrantyImages = (product.productImages || []).filter(Boolean);
+              return (
+                <tr key={product.systemId} className="border-b last:border-0">
+                  <td className="text-center py-3 px-2 font-medium">{index + 1}</td>
+                  <td className="py-3 px-2">
+                    <div className="flex items-start gap-2">
+                      {product.catalogImage ? (
+                        <div className="shrink-0 w-10 h-10 rounded-md overflow-hidden border border-muted">
+                          <OptimizedImage src={product.catalogImage} alt={product.productName} width={40} height={40} className="w-full h-full object-cover" />
+                        </div>
+                      ) : (
+                        <div className="shrink-0 w-10 h-10 rounded-md bg-muted flex items-center justify-center">
+                          <Package className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <p className="font-medium text-sm leading-snug">{product.productName}</p>
+                        {product.sku && (
+                          <p className="text-xs text-muted-foreground font-mono mt-0.5">{product.sku}</p>
+                        )}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="text-center py-3 px-2 font-medium">{product.quantity || 1}</td>
+                  <td className="text-right py-3 px-2 font-mono">
+                    {new Intl.NumberFormat('vi-VN').format(product.unitPrice || 0)} đ
+                  </td>
+                  <td className="py-3 px-2">
+                    {warrantyImages.length > 0 ? (
+                      <div className="flex gap-1 items-center">
+                        {warrantyImages.slice(0, 2).map((url, imgIdx) => (
+                          <button
+                            key={imgIdx}
+                            onClick={() => onImageClick(warrantyImages, imgIdx)}
+                            className="relative w-9 h-9 shrink-0 rounded border overflow-hidden hover:ring-2 ring-primary transition-all"
+                          >
+                            <OptimizedImage src={url} alt={`SP ${index + 1}`} width={36} height={36} className="w-full h-full object-cover" />
+                          </button>
+                        ))}
+                        {warrantyImages.length > 2 && (
+                          <div className="w-9 h-9 rounded border bg-muted flex items-center justify-center text-[10px] font-medium text-muted-foreground">
+                            +{warrantyImages.length - 2}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </td>
+                  <td className="py-3 px-2">
+                    <Badge className={cn(getResolutionBadge(product.resolution), "text-xs px-2 py-0.5")}>
+                      {RESOLUTION_LABELS[product.resolution] || product.resolution}
+                    </Badge>
+                  </td>
+                  <td className="py-3 px-2">
+                    <div className="space-y-0.5">
+                      {product.issueDescription && (
+                        <p className="text-xs text-orange-600 font-medium">Vấn đề: {product.issueDescription}</p>
+                      )}
+                      {product.notes && (
+                        <p className="text-xs text-muted-foreground">{product.notes}</p>
+                      )}
+                      {!product.issueDescription && !product.notes && (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="text-right py-3 px-2 font-mono font-medium">
+                    {new Intl.NumberFormat('vi-VN').format((product.quantity || 1) * (product.unitPrice || 0))} đ
+                  </td>
+                  <td className="text-right py-3 px-2 font-mono font-medium">
+                    {product.resolution === 'out_of_stock' ? (
+                      <span className="text-red-600">
+                        {new Intl.NumberFormat('vi-VN').format((product.quantity || 1) * (product.unitPrice || 0))} đ
+                      </span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
+}
+
+// ============================================
+// Image Gallery Card
+// ============================================
+function ImageGalleryCard({ title, images, onImageClick }: {
+  title: string;
+  images: string[];
+  onImageClick: (images: string[], index: number) => void;
+}) {
+  if (!images || images.length === 0) return null;
+
+  return (
+    <Card>
+      <CardHeader className="pb-3 px-4 pt-4 md:px-6 md:pt-6">
+        <CardTitle className="text-base sm:text-lg">
+          {title} ({images.length})
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="px-4 pb-4 md:px-6 md:pb-6">
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 sm:gap-3">
+          {images.map((url, idx) => (
+            <button
+              key={idx}
+              onClick={() => onImageClick(images, idx)}
+              className="group relative aspect-square rounded-lg overflow-hidden border transition-colors hover:border-primary"
+            >
+              <OptimizedImage
+                src={url}
+                alt={`${title} ${idx + 1}`}
+                fill
+                containerClassName="w-full h-full"
+                className="object-cover transition-transform group-hover:scale-105"
+              />
+              <div className="absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/20" />
+            </button>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ============================================
+// Payment Details Card
+// ============================================
+function PaymentDetailsCard({ ticket, payments, receipts, orders }: {
+  ticket: PublicWarrantyTicket;
+  payments: PublicWarrantyPayment[];
+  receipts: PublicWarrantyReceipt[];
+  orders: PublicWarrantyOrder[];
+}) {
+  const outOfStockValue = (ticket.products || [])
+    .filter(p => p.resolution === 'out_of_stock')
+    .reduce((sum, p) => sum + ((p.quantity || 1) * (p.unitPrice || 0)), 0);
+  const shippingFee = ticket.shippingFee || 0;
+  const netAmount = outOfStockValue + shippingFee;
+
+  const relatedPayments = payments.filter(p => p.status !== 'cancelled');
+  const relatedReceipts = receipts.filter(r => r.status !== 'cancelled');
+
+  const totalPaid = relatedPayments.reduce((sum, p) => sum + p.amount, 0)
+    + relatedReceipts.reduce((sum, r) => sum - r.amount, 0);
+
+  if (netAmount === 0 && relatedPayments.length === 0 && relatedReceipts.length === 0) {
+    return null;
+  }
+
+  const remaining = netAmount - totalPaid;
+  const isPaid = remaining <= 0 && totalPaid > 0;
+
+  const fmt = (n: number) => new Intl.NumberFormat('vi-VN').format(n);
+
+  return (
+    <Card>
+      <CardHeader className="pb-3 px-4 pt-4 md:px-6 md:pt-6">
+        <CardTitle className="text-base sm:text-lg">Thông tin thanh toán</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4 px-4 pb-4 md:px-6 md:pb-6">
+        {/* Amount breakdown */}
+        <div className="space-y-2.5">
+          {outOfStockValue > 0 && (
+            <div className="flex justify-between items-center gap-3">
+              <span className="text-sm text-muted-foreground">Tiền hàng bù trừ (hết hàng)</span>
+              <span className="font-medium text-sm">{fmt(outOfStockValue)} đ</span>
+            </div>
+          )}
+          {shippingFee > 0 && (
+            <div className="flex justify-between items-center gap-3">
+              <span className="text-sm text-muted-foreground">Phí gửi hàng từ khách hàng tới công ty</span>
+              <span className="font-medium text-sm">{fmt(shippingFee)} đ</span>
+            </div>
+          )}
+          {(outOfStockValue > 0 || shippingFee > 0) && (
+            <>
+              <Separator />
+              <div className="flex justify-between items-center gap-3">
+                <span className="font-semibold text-sm">Tổng cần thanh toán</span>
+                <span className="font-bold text-base text-destructive">{fmt(netAmount)} đ</span>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Payment transactions */}
+        {(relatedPayments.length > 0 || relatedReceipts.length > 0) && (
+          <>
+            <Separator />
+            <div className="space-y-3">
+              <p className="text-sm font-semibold">Chi tiết thanh toán</p>
+              <div className="space-y-2.5 pl-3 border-l-2 border-muted">
+                {relatedPayments.map(payment => {
+                  const linkedOrder = payment.linkedOrderSystemId
+                    ? orders.find(o => o.systemId === payment.linkedOrderSystemId)
+                    : null;
+                  return (
+                    <div key={payment.systemId} className="space-y-0.5">
+                      <div className="flex justify-between items-start gap-3">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm">
+                            {linkedOrder
+                              ? `Trừ vào đơn hàng ${linkedOrder.id}`
+                              : payment.paymentMethodName || 'Phương thức khác'}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {formatDateTime(payment.createdAt)}
+                          </p>
+                        </div>
+                        <span className="font-semibold text-emerald-600 whitespace-nowrap text-sm">
+                          +{fmt(payment.amount)} đ
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+                {relatedReceipts.map(receipt => (
+                  <div key={receipt.systemId} className="space-y-0.5">
+                    <div className="flex justify-between items-start gap-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm">{receipt.paymentMethodName || 'Thu tiền'}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {formatDateTime(receipt.createdAt)}
+                        </p>
+                      </div>
+                      <span className="font-semibold text-destructive whitespace-nowrap text-sm">
+                        -{fmt(receipt.amount)} đ
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Summary */}
+              <div className="flex justify-between items-center gap-3 pt-1">
+                <span className="text-sm text-muted-foreground">Đã thanh toán</span>
+                <span className="font-semibold text-emerald-600 text-sm">{fmt(totalPaid)} đ</span>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Remaining */}
+        {remaining > 0 && (
+          <>
+            <Separator />
+            <div className="flex justify-between items-center gap-3 bg-orange-50 -mx-4 px-4 py-2.5 md:-mx-6 md:px-6 rounded-b-lg">
+              <span className="text-sm font-semibold text-orange-800">Còn lại</span>
+              <span className="font-bold text-orange-600 text-base">{fmt(remaining)} đ</span>
+            </div>
+          </>
+        )}
+
+        {isPaid && (
+          <>
+            <Separator />
+            <div className="flex items-center justify-center gap-2 py-2 text-green-600">
+              <CheckCircle className="h-5 w-5" />
+              <span className="font-semibold text-sm">Đã thanh toán đủ</span>
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ============================================
+// Warranty Summary Card
+// ============================================
+function WarrantySummaryCard({ ticket }: { ticket: PublicWarrantyTicket }) {
+  const products = ticket.products || [];
+  if (products.length === 0) return null;
+
+  const totalValue = products.reduce((sum, p) => sum + ((p.quantity || 1) * (p.unitPrice || 0)), 0);
+  const outOfStockValue = products
+    .filter(p => p.resolution === 'out_of_stock')
+    .reduce((sum, p) => sum + ((p.quantity || 1) * (p.unitPrice || 0)), 0);
+  const returnedValue = products
+    .filter(p => p.resolution === 'return')
+    .reduce((sum, p) => sum + ((p.quantity || 1) * (p.unitPrice || 0)), 0);
+  const replacedValue = products
+    .filter(p => p.resolution === 'replace')
+    .reduce((sum, p) => sum + ((p.quantity || 1) * (p.unitPrice || 0)), 0);
+  const totalQty = products.reduce((sum, p) => sum + (p.quantity || 1), 0);
+  const replaceQty = products.filter(p => p.resolution === 'replace').reduce((sum, p) => sum + (p.quantity || 1), 0);
+  const returnQty = products.filter(p => p.resolution === 'return').reduce((sum, p) => sum + (p.quantity || 1), 0);
+  const outOfStockQty = products.filter(p => p.resolution === 'out_of_stock').reduce((sum, p) => sum + (p.quantity || 1), 0);
+  const shippingFee = ticket.shippingFee || 0;
+
+  const fmt = (n: number) => new Intl.NumberFormat('vi-VN').format(n);
+
+  return (
+    <Card>
+      <CardHeader className="pb-3 px-4 pt-4 md:px-6 md:pt-6">
+        <CardTitle className="text-base sm:text-lg">Tổng kết bảo hành</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2.5 px-4 pb-4 md:px-6 md:pb-6">
+        <div className="flex justify-between items-center gap-3">
+          <span className="text-sm text-muted-foreground">Tổng giá trị bảo hành</span>
+          <span className="font-semibold text-sm">{fmt(totalValue)} đ</span>
+        </div>
+
+        {returnedValue > 0 && (
+          <>
+            <Separator />
+            <div className="flex justify-between items-center gap-3">
+              <span className="text-sm text-muted-foreground">Tổng giá trị trả lại</span>
+              <span className="font-medium text-sm">{fmt(returnedValue)} đ</span>
+            </div>
+          </>
+        )}
+
+        {replacedValue > 0 && (
+          <>
+            <Separator />
+            <div className="flex justify-between items-center gap-3">
+              <span className="text-sm text-muted-foreground">Tổng giá trị đổi mới</span>
+              <span className="font-medium text-sm">{fmt(replacedValue)} đ</span>
+            </div>
+          </>
+        )}
+
+        <Separator />
+        <div className="flex justify-between items-center gap-3">
+          <span className="text-sm text-muted-foreground">Tổng hàng bù trừ (hết hàng)</span>
+          <span className="font-medium text-sm">{fmt(outOfStockValue)} đ</span>
+        </div>
+
+        {shippingFee > 0 && (
+          <>
+            <Separator />
+            <div className="flex justify-between items-center gap-3">
+              <span className="text-sm text-muted-foreground">Phí gửi hàng từ khách hàng tới công ty</span>
+              <span className="font-medium text-sm">{fmt(shippingFee)} đ</span>
+            </div>
+          </>
+        )}
+
+        <Separator />
+        <div className="flex justify-between items-center gap-3">
+          <span className="font-semibold">Tổng cộng</span>
+          <span className="text-lg font-bold text-destructive">
+            {fmt(outOfStockValue + shippingFee)} đ
+          </span>
+        </div>
+
+        <Separator />
+        <div className="flex justify-between items-center gap-3">
+          <span className="text-sm text-muted-foreground">Tổng số lượng</span>
+          <span className="font-medium text-sm">{totalQty}</span>
+        </div>
+        {replaceQty > 0 && (
+          <div className="flex justify-between items-center gap-3 pl-4">
+            <span className="text-xs text-muted-foreground">↳ Đổi mới</span>
+            <span className="text-xs font-medium">{replaceQty}</span>
+          </div>
+        )}
+        {returnQty > 0 && (
+          <div className="flex justify-between items-center gap-3 pl-4">
+            <span className="text-xs text-muted-foreground">↳ Trả lại</span>
+            <span className="text-xs font-medium">{returnQty}</span>
+          </div>
+        )}
+        {outOfStockQty > 0 && (
+          <div className="flex justify-between items-center gap-3 pl-4">
+            <span className="text-xs text-muted-foreground">↳ Hết hàng</span>
+            <span className="text-xs font-medium">{outOfStockQty}</span>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ============================================
+// Public Comments Section
+// ============================================
+interface PublicCommentsSectionProps {
+  comments: PublicWarrantyComment[];
+  allowCustomerComments: boolean;
+  trackingCode: string;
+  onCommentAdded?: () => void;
+}
+
+function PublicCommentsSection({
+  comments,
+  allowCustomerComments,
+  trackingCode,
+}: PublicCommentsSectionProps) {
+  const [newComment, setNewComment] = React.useState('');
+  const [submitting, setSubmitting] = React.useState(false);
+  const [localComments, setLocalComments] = React.useState<PublicWarrantyComment[]>(comments);
+  const [submitError, setSubmitError] = React.useState<string | null>(null);
+
+  // Sync with prop changes
+  React.useEffect(() => {
+    setLocalComments(comments);
+  }, [comments]);
+
+  const handleSubmitComment = React.useCallback(async () => {
+    const trimmed = newComment.trim();
+    if (!trimmed || submitting) return;
+
+    setSubmitting(true);
+    setSubmitError(null);
+
+    try {
+      const res = await fetch('/api/public/warranty-tracking/comment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trackingCode, content: trimmed }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Không thể gửi bình luận');
+      }
+
+      const data = await res.json();
+      setLocalComments(prev => [...prev, data.comment]);
+      setNewComment('');
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Lỗi khi gửi bình luận');
+    } finally {
+      setSubmitting(false);
+    }
+  }, [newComment, submitting, trackingCode]);
+
+  const handleKeyDown = React.useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmitComment();
+    }
+  }, [handleSubmitComment]);
+
+  if (localComments.length === 0 && !allowCustomerComments) {
+    return null;
+  }
+
+  return (
+    <Card>
+      <CardHeader className="px-4 pt-4 pb-3 md:px-6 md:pt-6">
+        <CardTitle className="text-base sm:text-lg">Bình luận</CardTitle>
+      </CardHeader>
+      <CardContent className="px-4 pb-4 md:px-6 md:pb-6">
+        {/* Comment list */}
+        {localComments.length > 0 ? (
+          <ScrollArea className={localComments.length > 5 ? 'h-80' : undefined}>
+            <div className="space-y-3">
+              {localComments.map((comment, index) => {
+                const isCustomer = comment.createdByName === 'Khách hàng';
+                return (
+                  <div
+                    key={comment.systemId || index}
+                    className={cn(
+                      'rounded-lg p-3 text-sm',
+                      isCustomer
+                        ? 'bg-blue-50 border border-blue-100 ml-4 sm:ml-8'
+                        : 'bg-muted mr-4 sm:mr-8'
+                    )}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-medium text-xs sm:text-sm">
+                        {comment.createdByName}
+                      </span>
+                      <span className="text-[10px] sm:text-xs text-muted-foreground">
+                        {formatDateTime(comment.createdAt)}
+                      </span>
+                    </div>
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap">{comment.content}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </ScrollArea>
+        ) : (
+          <div className="text-center py-4 text-muted-foreground text-sm">
+            Chưa có bình luận nào
+          </div>
+        )}
+
+        {/* Comment input */}
+        {allowCustomerComments && (
+          <>
+            <Separator className="my-4" />
+            <div className="space-y-2">
+              <Textarea
+                placeholder="Nhập bình luận của bạn..."
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+                onKeyDown={handleKeyDown}
+                rows={2}
+                className="resize-none text-sm"
+                disabled={submitting}
+              />
+              {submitError && (
+                <p className="text-xs text-destructive">{submitError}</p>
+              )}
+              <div className="flex justify-end">
+                <Button
+                  size="sm"
+                  onClick={handleSubmitComment}
+                  disabled={!newComment.trim() || submitting}
+                >
+                  <Send className="h-3.5 w-3.5 mr-1.5" />
+                  {submitting ? 'Đang gửi...' : 'Gửi bình luận'}
+                </Button>
+              </div>
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ============================================
+// Main Page Component
+// ============================================
 export function WarrantyTrackingPage() {
   const { trackingCode } = useParams<{ trackingCode: string }>();
-  
-  // Use optimized hook to fetch only necessary data
-  const { ticket, receipts, payments, orders, hotline, loading, error } = usePublicTracking(trackingCode);
-  
-  // Load tracking settings (recalculate on every render to catch changes)
-  const settings = React.useMemo(() => {
+
+  const { ticket, comments, receipts, payments, orders, hotline, settings: apiSettings, loading, error } = usePublicTracking(trackingCode);
+
+  // Merge API settings with defaults
+  const settings = React.useMemo<TrackingSettings>(() => {
+    if (apiSettings) {
+      return { ...defaultSettings, ...apiSettings };
+    }
     const loaded = loadTrackingSettings();
-    return loaded;
-  }, []);
-  
-  
+    return { ...defaultSettings, ...loaded };
+  }, [apiSettings]);
+
   // Image preview state
   const [showImagePreview, setShowImagePreview] = React.useState(false);
   const [previewImages, setPreviewImages] = React.useState<string[]>([]);
   const [previewIndex, setPreviewIndex] = React.useState(0);
-  
-  // Handle image preview - memoized
+
   const handleImageClick = React.useCallback((images: string[], index: number) => {
     setPreviewImages(images);
     setPreviewIndex(index);
     setShowImagePreview(true);
   }, []);
 
-  // Memoize linked order
+  // Linked order
   const linkedOrder = React.useMemo(() => {
     if (!ticket?.linkedOrderSystemId) return null;
     return orders.find(o => o.systemId === ticket.linkedOrderSystemId);
   }, [ticket?.linkedOrderSystemId, orders]);
 
-  // Check if tracking is enabled
+  // ============================================
+  // Error / Loading states
+  // ============================================
   if (!settings.enabled) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center p-4">
-        <Card className="max-w-md w-full bg-white">
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <Card className="max-w-md w-full">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-orange-600">
               <AlertCircle className="h-5 w-5" />
@@ -202,8 +907,8 @@ export function WarrantyTrackingPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-muted-foreground">
-              Tính năng theo dõi công khai hiện đang tắt. Vui lòng liên hệ bộ phận hỗ trợ để được hỗ trợ.
+            <p className="text-muted-foreground text-sm">
+              Tính năng theo dõi công khai hiện đang tắt. Vui lòng liên hệ bộ phận hỗ trợ.
             </p>
           </CardContent>
         </Card>
@@ -213,8 +918,8 @@ export function WarrantyTrackingPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center p-4">
-        <Card className="max-w-md w-full bg-white">
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <Card className="max-w-md w-full">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Clock className="h-5 w-5 text-primary animate-spin" />
@@ -222,9 +927,7 @@ export function WarrantyTrackingPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-body-sm text-muted-foreground">
-              Vui lòng chờ trong giây lát.
-            </p>
+            <p className="text-sm text-muted-foreground">Vui lòng chờ trong giây lát.</p>
           </CardContent>
         </Card>
       </div>
@@ -233,8 +936,8 @@ export function WarrantyTrackingPage() {
 
   if (error === 'UNKNOWN') {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center p-4">
-        <Card className="max-w-md w-full bg-white">
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <Card className="max-w-md w-full">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-destructive">
               <AlertCircle className="h-5 w-5" />
@@ -242,7 +945,7 @@ export function WarrantyTrackingPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-muted-foreground">
+            <p className="text-muted-foreground text-sm">
               Đã xảy ra lỗi khi tải thông tin phiếu bảo hành. Vui lòng thử lại sau.
             </p>
           </CardContent>
@@ -254,8 +957,8 @@ export function WarrantyTrackingPage() {
   if (!ticket) {
     const isMissingCode = error === 'MISSING_TRACKING_CODE';
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center p-4">
-        <Card className="max-w-md w-full bg-white">
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <Card className="max-w-md w-full">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-destructive">
               <XCircle className="h-5 w-5" />
@@ -263,13 +966,13 @@ export function WarrantyTrackingPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-muted-foreground">
+            <p className="text-muted-foreground text-sm">
               {isMissingCode
                 ? 'Vui lòng kiểm tra lại đường dẫn tra cứu bảo hành.'
                 : 'Phiếu bảo hành không tồn tại hoặc đã bị xóa. Vui lòng kiểm tra lại mã phiếu.'}
             </p>
             {!isMissingCode && trackingCode && (
-              <p className="text-body-sm text-muted-foreground mt-4">
+              <p className="text-xs text-muted-foreground mt-4">
                 Mã phiếu: <span className="font-mono font-semibold">{trackingCode}</span>
               </p>
             )}
@@ -279,20 +982,25 @@ export function WarrantyTrackingPage() {
     );
   }
 
+  // ============================================
+  // Main render
+  // ============================================
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="border-b bg-white">
-        <div className="container max-w-5xl mx-auto px-3 py-3 sm:px-4 sm:py-4 md:py-6">
-          <div className="flex flex-col gap-3 sm:gap-4">
-            <div className="flex items-start justify-between gap-2 sm:gap-3">
+        <div className="container max-w-5xl mx-auto px-4 py-4 md:py-6">
+          <div className="flex flex-col gap-3">
+            <div className="flex items-start justify-between gap-3">
               <div className="space-y-1 min-w-0 flex-1">
-                <h1 className="text-lg sm:text-xl md:text-2xl font-semibold tracking-tight">Phiếu bảo hành {ticket.id}</h1>
-                <p className="text-body-xs sm:text-body-sm text-muted-foreground">
-                  Nhân viên phụ trách: {shouldShowEmployeeName() ? ticket.employeeName : 'Đang xử lý'}
+                <h1 className="text-lg sm:text-xl md:text-2xl font-semibold tracking-tight">
+                  Phiếu bảo hành {ticket.id}
+                </h1>
+                <p className="text-xs sm:text-sm text-muted-foreground">
+                  Nhân viên phụ trách: {settings.showEmployeeName ? ticket.employeeName : 'Đang xử lý'}
                 </p>
               </div>
-              <Badge className={cn("shrink-0 text-[10px] sm:text-body-xs px-2 py-0.5 sm:px-2.5 sm:py-1", WARRANTY_STATUS_COLORS[ticket.status])}>
+              <Badge className={cn("shrink-0 text-[10px] sm:text-xs px-2 py-0.5 sm:px-2.5 sm:py-1", WARRANTY_STATUS_COLORS[ticket.status])}>
                 {WARRANTY_STATUS_LABELS[ticket.status]}
               </Badge>
             </div>
@@ -300,536 +1008,214 @@ export function WarrantyTrackingPage() {
         </div>
       </div>
 
+      {/* Horizontal Timeline - at top before all cards */}
+      {settings.showTimeline && (
+        <div className="border-b bg-white">
+          <div className="container max-w-5xl mx-auto px-4 py-4 md:py-6">
+            <StatusTimeline ticket={ticket} />
+          </div>
+        </div>
+      )}
+
       {/* Main Content */}
-      <div className="container max-w-5xl mx-auto px-3 py-3 sm:px-4 sm:py-4 md:py-6">
-        <div className="grid gap-3 sm:gap-4 md:gap-6">
-        
-        {/* Card 1: Thông tin phiếu bảo hành */}
-        <Card>
-          <CardHeader className="pb-3 px-3 pt-3 sm:px-4 sm:pt-4 md:px-6 md:pt-6">
-            <CardTitle className="flex items-center gap-2 text-h4">
-              <Package className="h-4 w-4 sm:h-5 sm:w-5 shrink-0" />
-              Thông tin phiếu bảo hành
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-3 sm:gap-4 md:gap-6 px-3 pb-3 sm:px-4 sm:pb-4 md:px-6 md:pb-6">
-            <div className="grid gap-2.5 sm:gap-3 md:gap-4 grid-cols-1 sm:grid-cols-2">
-              <div>
-                <div className="text-body-xs sm:text-body-sm text-muted-foreground mb-1">Ngày tạo</div>
-                <div className="font-medium flex items-center gap-1.5 sm:gap-2 flex-wrap text-body-xs sm:text-body-sm">
-                  <Calendar className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground shrink-0" />
-                  <span className="break-all">{formatDateTime(ticket.createdAt)}</span>
-                </div>
-              </div>
-              {ticket.returnedAt && (
-                <div>
-                  <div className="text-body-xs sm:text-body-sm text-muted-foreground mb-1">Ngày trả hàng</div>
-                  <div className="font-medium flex items-center gap-1.5 sm:gap-2 flex-wrap text-body-xs sm:text-body-sm">
-                    <CheckCircle className="h-4 w-4 text-green-600 flex-shrink-0" />
-                    <span className="break-all">{formatDateTime(ticket.returnedAt)}</span>
-                  </div>
-                </div>
-              )}
-              {ticket.linkedOrderSystemId && (
-                <div>
-                  <div className="text-body-xs sm:text-body-sm text-muted-foreground mb-1">Đơn bảo hành được trả vào </div>
-                  <div className="font-mono font-medium text-blue-600 break-all text-body-xs sm:text-body-sm">
-                    {linkedOrder?.id || ticket.linkedOrderSystemId}
-                  </div>
-                </div>
-              )}
-              {ticket.trackingCode && (
-                <div>
-                  <div className="text-body-xs sm:text-body-sm text-muted-foreground mb-1">Mã vận đơn</div>
-                  <div className="font-mono font-medium flex items-center gap-1.5 sm:gap-2 flex-wrap text-body-xs sm:text-body-sm">
-                    <Truck className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                    <span className="break-all">{ticket.trackingCode}</span>
-                  </div>
-                </div>
-              )}
-              {ticket.status === 'returned' && (
-                <div>
-                  <div className="text-body-xs sm:text-body-sm text-muted-foreground mb-1">Phương thức trả hàng</div>
-                  <div className="font-medium text-body-xs sm:text-body-sm">
-                    {ticket.linkedOrderSystemId 
-                      ? `Giao qua đơn hàng (${linkedOrder?.id || ticket.linkedOrderSystemId})`
-                      : 'Khách lấy trực tiếp tại cửa hàng'
-                    }
-                  </div>
-                </div>
-              )}
-              {ticket.shippingFee !== undefined && ticket.shippingFee > 0 && (
-                <div>
-                  <div className="text-body-xs sm:text-body-sm text-muted-foreground mb-1">Phí ship gửi về( shop ko chịu phí cước này sẽ thu thêm )</div>
-                  <div className="font-medium text-orange-600 text-base sm:text-lg">
-                    {ticket.shippingFee.toLocaleString('vi-VN')} đ
-                  </div>
-                </div>
-              )}
-            </div>
+      <div className="container max-w-5xl mx-auto px-4 py-4 md:py-6">
+        <div className="grid gap-4 md:gap-6">
 
-            {/* Customer Info */}
-            <div className="grid gap-3 sm:gap-4">
-              <div className="text-body-xs sm:text-body-sm font-semibold">Thông tin khách hàng</div>
-              <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2">
-                <div className="flex gap-2 sm:gap-3">
-                  <User className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground shrink-0 mt-0.5" />
-                  <div className="grid gap-0.5 sm:gap-1">
-                    <div className="text-body-xs sm:text-body-sm text-muted-foreground">Tên khách hàng</div>
-                    <div className="font-medium text-body-xs sm:text-body-sm">{ticket.customerName}</div>
-                  </div>
-                </div>
-                <div className="flex gap-2 sm:gap-3">
-                  <Phone className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground shrink-0 mt-0.5" />
-                  <div className="grid gap-0.5 sm:gap-1">
-                    <div className="text-body-xs sm:text-body-sm text-muted-foreground">Số điện thoại</div>
-                    <div className="font-medium text-body-xs sm:text-body-sm">{ticket.customerPhone}</div>
-                  </div>
-                </div>
-                {ticket.customerAddress && (
-                  <div className="flex gap-2 sm:gap-3 col-span-1 sm:col-span-2">
-                    <MapPin className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground shrink-0 mt-0.5" />
-                    <div className="grid gap-0.5 sm:gap-1">
-                      <div className="text-body-xs sm:text-body-sm text-muted-foreground">Địa chỉ</div>
-                      <div className="text-body-xs sm:text-body-sm">{ticket.customerAddress}</div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {ticket.notes && (
-              <div className="grid gap-1.5 sm:gap-2">
-                <div className="text-body-xs sm:text-body-sm font-semibold">Ghi chú</div>
-                <p className="text-body-xs sm:text-body-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">{ticket.notes}</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Card 2: Danh sách sản phẩm bảo hành */}
-        <Card>
-          <CardHeader className="pb-3 px-3 pt-3 sm:px-4 sm:pt-4 md:px-6 md:pt-6">
-            <CardTitle className="flex items-center gap-2 text-h4">
-              <Package className="h-4 w-4 sm:h-5 sm:w-5 shrink-0" />
-              Danh sách sản phẩm bảo hành
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <div className="min-w-full px-3 py-3 sm:px-4 sm:py-4 md:px-6 md:py-6">
-                <WarrantyProductsDetailTable products={ticket.products} ticket={ticket} />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Card 3: Tổng kết bảo hành */}
-        {ticket.products.length > 0 && (
+          {/* Card: Thông tin phiếu bảo hành */}
           <Card>
-            <CardHeader className="pb-3 px-3 pt-3 sm:px-4 sm:pt-4 md:px-6 md:pt-6">
-              <CardTitle className="flex items-center gap-2 text-h4">
-                <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5 shrink-0" />
-                Tổng kết bảo hành
+            <CardHeader className="pb-3 px-4 pt-4 md:px-6 md:pt-6">
+              <CardTitle className="text-base sm:text-lg">
+                Thông tin phiếu bảo hành
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2 sm:space-y-2.5 md:space-y-3 px-3 pb-3 sm:px-4 sm:pb-4 md:px-6 md:pb-6">
-              {/* Tổng giá trị bảo hành */}
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-body-xs sm:text-body-sm text-muted-foreground">Tổng giá trị bảo hành</span>
-                <span className="font-semibold text-body-xs sm:text-body-sm">
-                  {new Intl.NumberFormat('vi-VN').format(
-                    ticket.products.reduce((sum, p) => sum + ((p.quantity || 1) * (p.unitPrice || 0)), 0)
-                  )} đ
-                </span>
-              </div>
-
-              <Separator />
-
-              {/* Tổng giá trị trả lại */}
-              {(() => {
-                const returnedValue = ticket.products
-                  .filter(p => p.resolution === 'return')
-                  .reduce((sum, p) => sum + ((p.quantity || 1) * (p.unitPrice || 0)), 0);
-                const returnedQty = ticket.products
-                  .filter(p => p.resolution === 'return')
-                  .reduce((sum, p) => sum + (p.quantity || 1), 0);
-                if (returnedQty > 0) {
-                  return (
-                    <>
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="text-body-xs sm:text-body-sm text-muted-foreground">Tổng giá trị trả lại</span>
-                        <span className="font-medium text-body-xs sm:text-body-sm">
-                          {new Intl.NumberFormat('vi-VN').format(returnedValue)} đ
-                        </span>
-                      </div>
-                      <Separator />
-                    </>
-                  );
-                }
-                return null;
-              })()}
-
-              {/* Tổng giá trị đổi mới */}
-              {(() => {
-                const replacedValue = ticket.products
-                  .filter(p => p.resolution === 'replace')
-                  .reduce((sum, p) => sum + ((p.quantity || 1) * (p.unitPrice || 0)), 0);
-                const replacedQty = ticket.products
-                  .filter(p => p.resolution === 'replace')
-                  .reduce((sum, p) => sum + (p.quantity || 1), 0);
-                if (replacedQty > 0) {
-                  return (
-                    <>
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="text-body-xs sm:text-body-sm text-muted-foreground">Tổng giá trị đổi mới</span>
-                        <span className="font-medium text-body-xs sm:text-body-sm">
-                          {new Intl.NumberFormat('vi-VN').format(replacedValue)} đ
-                        </span>
-                      </div>
-                      <Separator />
-                    </>
-                  );
-                }
-                return null;
-              })()}
-
-              {/* Tổng hàng trừ */}
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-body-xs sm:text-body-sm text-muted-foreground">Tổng hàng trừ</span>
-                <span className="font-medium text-body-xs sm:text-body-sm">
-                  {new Intl.NumberFormat('vi-VN').format(
-                    ticket.products
-                      .filter(p => p.resolution === 'out_of_stock')
-                      .reduce((sum, p) => sum + ((p.quantity || 1) * (p.unitPrice || 0)), 0)
-                  )} đ
-                </span>
-              </div>
-
-              <Separator />
-
-              {/* Phí ship gửi về */}
-              {ticket.shippingFee !== undefined && ticket.shippingFee > 0 && (
-                <>
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-body-xs sm:text-body-sm text-muted-foreground">Phí ship gửi về (shop ko chịu phí cước này sẽ thu thêm)</span>
-                    <span className="font-medium text-body-xs sm:text-body-sm">
-                      {new Intl.NumberFormat('vi-VN').format(ticket.shippingFee)} đ
-                    </span>
+            <CardContent className="grid gap-4 md:gap-6 px-4 pb-4 md:px-6 md:pb-6">
+              <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
+                <div>
+                  <p className="text-xs sm:text-sm text-muted-foreground mb-1">Ngày tạo</p>
+                  <p className="font-medium text-sm">{formatDateTime(ticket.createdAt)}</p>
+                </div>
+                {ticket.returnedAt && (
+                  <div>
+                    <p className="text-xs sm:text-sm text-muted-foreground mb-1">Ngày trả hàng</p>
+                    <p className="font-medium text-sm">{formatDateTime(ticket.returnedAt)}</p>
                   </div>
-                  <Separator />
-                </>
-              )}
-
-              {/* Tổng cộng */}
-              <div className="flex items-center justify-between gap-3">
-                <span className="font-semibold text-body-sm sm:text-body-md">Tổng cộng</span>
-                <span className="text-base sm:text-lg font-bold text-destructive">
-                  {new Intl.NumberFormat('vi-VN').format(
-                    ticket.products
-                      .filter(p => p.resolution === 'out_of_stock')
-                      .reduce((sum, p) => sum + ((p.quantity || 1) * (p.unitPrice || 0)), 0) + (ticket.shippingFee || 0)
-                  )} đ
-                </span>
-              </div>
-
-              <Separator />
-
-              {/* Tổng số lượng */}
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-body-xs sm:text-body-sm text-muted-foreground">Tổng số lượng</span>
-                <span className="font-medium text-body-xs sm:text-body-sm">
-                  {ticket.products.reduce((sum, p) => sum + (p.quantity || 1), 0)}
-                </span>
-              </div>
-
-              {/* Số lượng đổi mới */}
-              <div className="flex items-center justify-between gap-3 pl-3 sm:pl-4">
-                <span className="text-body-xs text-muted-foreground">↳ Đổi mới</span>
-                <span className="text-body-xs font-medium">
-                  {ticket.products
-                    .filter(p => p.resolution === 'replace')
-                    .reduce((sum, p) => sum + (p.quantity || 1), 0)}
-                </span>
-              </div>
-
-              {/* Số lượng trả lại */}
-              <div className="flex items-center justify-between gap-3 pl-3 sm:pl-4">
-                <span className="text-body-xs text-muted-foreground">↳ Trả lại</span>
-                <span className="text-body-xs font-medium">
-                  {ticket.products
-                    .filter(p => p.resolution === 'return')
-                    .reduce((sum, p) => sum + (p.quantity || 1), 0)}
-                </span>
-              </div>
-
-              {/* Số lượng hết hàng */}
-              <div className="flex items-center justify-between gap-3 pl-3 sm:pl-4">
-                <span className="text-body-xs text-muted-foreground">↳ Hết hàng</span>
-                <span className="text-body-xs font-medium">
-                  {ticket.products
-                    .filter(p => p.resolution === 'out_of_stock')
-                    .reduce((sum, p) => sum + (p.quantity || 1), 0)}
-                </span>
-              </div>
-
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Card: Thông tin thanh toán */}
-        {(() => {
-          // Calculate payment details
-          const outOfStockValue = ticket.products
-            .filter(p => p.resolution === 'out_of_stock')
-            .reduce((sum, p) => sum + ((p.quantity || 1) * (p.unitPrice || 0)), 0);
-          const shippingFee = ticket.shippingFee || 0;
-          const netAmount = outOfStockValue + shippingFee;
-
-          // Get related payments and receipts
-          const relatedPayments = payments.filter(p => p.status !== 'cancelled');
-          const relatedReceipts = receipts.filter(r => r.status !== 'cancelled');
-
-          // Calculate totalPaid (payments are positive, receipts are negative)
-          const totalPaid = relatedPayments.reduce((sum, p) => sum + p.amount, 0) 
-                          + relatedReceipts.reduce((sum, r) => sum - r.amount, 0);
-          
-          // Only show if there's something to display
-          if (netAmount === 0 && relatedPayments.length === 0 && relatedReceipts.length === 0) {
-            return null;
-          }
-
-          const remaining = netAmount - totalPaid;
-          const isPaid = remaining <= 0 && totalPaid > 0;
-
-          return (
-            <Card>
-              <CardHeader className="pb-3 px-3 pt-3 sm:px-4 sm:pt-4 md:px-6 md:pt-6">
-                <CardTitle className="flex items-center gap-2 text-h4">
-                  <DollarSign className="h-4 w-4 sm:h-5 sm:w-5 shrink-0" />
-                  Thông tin thanh toán
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 sm:space-y-4 md:space-y-6 px-3 pb-3 sm:px-4 sm:pb-4 md:px-6 md:pb-6">
-                {/* Payment transactions list */}
-                {(relatedPayments.length > 0 || relatedReceipts.length > 0) && (
-                  <>
-                    <div className="space-y-4">
-                      <div className="flex justify-between items-center gap-3">
-                        <span className="text-body-xs sm:text-body-sm text-muted-foreground">Đã thanh toán:</span>
-                        <span className="font-semibold text-emerald-600 text-body-xs sm:text-body-sm">
-                          {totalPaid.toLocaleString('vi-VN')} đ
-                        </span>
-                      </div>
-
-                      {/* List all payment transactions */}
-                      <div className="space-y-3 pl-3 sm:pl-4 border-l-2 border">
-                        {relatedPayments.map(payment => {
-                          const linkedOrder = payment.linkedOrderSystemId
-                            ? orders.find(o => o.systemId === payment.linkedOrderSystemId)
-                            : null;
-                          
-                          return (
-                            <div key={payment.systemId} className="space-y-1">
-                              <div className="flex justify-between items-start gap-2 sm:gap-4">
-                                <div className="flex-1 min-w-0">
-                                  <div className="font-medium text-body-xs sm:text-body-sm">
-                                    {linkedOrder 
-                                      ? `Trừ vào đơn hàng ${linkedOrder.id}` 
-                                      : payment.paymentMethodName || 'Phương thức khác'
-                                    }
-                                  </div>
-                                  <div className="text-[10px] sm:text-body-xs text-muted-foreground mt-1">
-                                    {formatDateTime(payment.createdAt)}
-                                  </div>
-                                </div>
-                                <span className="font-semibold text-emerald-600 whitespace-nowrap text-body-xs sm:text-body-sm">
-                                  {payment.amount.toLocaleString('vi-VN')} đ
-                                </span>
-                              </div>
-                            </div>
-                          );
-                        })}
-
-                        {relatedReceipts.map(receipt => (
-                          <div key={receipt.systemId} className="space-y-1">
-                            <div className="flex justify-between items-start gap-2 sm:gap-4">
-                              <div className="flex-1 min-w-0">
-                                <div className="font-medium text-body-xs sm:text-body-sm">
-                                  {receipt.paymentMethodName || 'Thu tiền'}
-                                </div>
-                                <div className="text-[10px] sm:text-body-xs text-muted-foreground mt-1">
-                                  {formatDateTime(receipt.createdAt)}
-                                </div>
-                              </div>
-                              <span className="font-semibold text-destructive whitespace-nowrap text-body-xs sm:text-body-sm">
-                                -{receipt.amount.toLocaleString('vi-VN')} đ
-                              </span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </>
                 )}
-
-                {/* Remaining amount or completion status */}
-                {remaining > 0 && (
-                  <>
-                    <Separator />
-                    <div className="flex justify-between items-center gap-3">
-                      <span className="text-body-xs sm:text-body-sm text-muted-foreground">Còn lại:</span>
-                      <span className="font-semibold text-orange-600 text-body-xs sm:text-body-sm">
-                        {remaining.toLocaleString('vi-VN')} đ
-                      </span>
-                    </div>
-                  </>
+                {ticket.linkedOrderSystemId && (
+                  <div>
+                    <p className="text-xs sm:text-sm text-muted-foreground mb-1">Đơn bảo hành được trả vào</p>
+                    <p className="font-mono font-medium text-blue-600 text-sm">
+                      {linkedOrder?.id || ticket.linkedOrderSystemId}
+                    </p>
+                  </div>
                 )}
-
-                {isPaid && (
-                  <>
-                    <Separator />
-                    <div className="flex items-center justify-center gap-2 py-2 text-green-600">
-                      <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5" />
-                      <span className="font-semibold text-body-xs sm:text-body-sm">Đã thanh toán đủ</span>
-                    </div>
-                  </>
+                {ticket.trackingCode && (
+                  <div>
+                    <p className="text-xs sm:text-sm text-muted-foreground mb-1">Mã vận đơn</p>
+                    <p className="font-mono font-medium text-sm">{ticket.trackingCode}</p>
+                  </div>
                 )}
-              </CardContent>
-            </Card>
-          );
-        })()}
-
-        {/* Images - Received */}
-        {ticket.receivedImages && ticket.receivedImages.length > 0 && (
-          <Card>
-            <CardHeader className="pb-3 px-3 pt-3 sm:px-4 sm:pt-4 md:px-6 md:pt-6">
-              <CardTitle className="flex items-center gap-2 text-h4">
-                <ImageIcon className="h-4 w-4 sm:h-5 sm:w-5 shrink-0" />
-                Hình ảnh lúc nhận ({ticket.receivedImages.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="px-3 pb-3 sm:px-4 sm:pb-4 md:px-6 md:pb-6">
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3 md:gap-4">
-                {ticket.receivedImages.map((url, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => handleImageClick(ticket.receivedImages, idx)}
-                    className="group relative aspect-square rounded-lg overflow-hidden border transition-colors hover:border-primary"
-                  >
-                    <img
-                      src={url}
-                      alt={`Hình nhận ${idx + 1}`}
-                      className="h-full w-full object-cover transition-transform group-hover:scale-105"
-                      loading="lazy"
-                    />
-                    <div className="absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/20 flex items-center justify-center">
-                      <ExternalLink className="h-5 w-5 text-white opacity-0 transition-opacity group-hover:opacity-100" />
-                    </div>
-                  </button>
-                ))}
+                {ticket.status === 'RETURNED' && (
+                  <div>
+                    <p className="text-xs sm:text-sm text-muted-foreground mb-1">Phương thức trả hàng</p>
+                    <p className="font-medium text-sm">
+                      {ticket.linkedOrderSystemId
+                        ? `Giao qua đơn hàng (${linkedOrder?.id || ticket.linkedOrderSystemId})`
+                        : 'Khách lấy trực tiếp tại cửa hàng'}
+                    </p>
+                  </div>
+                )}
+                {ticket.shippingFee !== undefined && ticket.shippingFee > 0 && (
+                  <div>
+                    <p className="text-xs sm:text-sm text-muted-foreground mb-1">
+                      Phí gửi hàng từ khách hàng tới công ty
+                    </p>
+                    <p className="font-medium text-orange-600 text-base sm:text-lg">
+                      {ticket.shippingFee.toLocaleString('vi-VN')} đ
+                    </p>
+                  </div>
+                )}
               </div>
-            </CardContent>
-          </Card>
-        )}
 
-        {/* Images - Processed */}
-        {ticket.processedImages && ticket.processedImages.length > 0 && (
-          <Card>
-            <CardHeader className="pb-3 px-3 pt-3 sm:px-4 sm:pt-4 md:px-6 md:pt-6">
-              <CardTitle className="flex items-center gap-2 text-h4">
-                <ImageIcon className="h-4 w-4 sm:h-5 sm:w-5 shrink-0" />
-                Hình ảnh đã xử lý ({ticket.processedImages.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="px-3 pb-3 sm:px-4 sm:pb-4 md:px-6 md:pb-6">
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3 md:gap-4">
-                {ticket.processedImages.map((url, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => handleImageClick(ticket.processedImages || [], idx)}
-                    className="group relative aspect-square rounded-lg overflow-hidden border hover:border-primary transition-colors cursor-pointer"
-                  >
-                    <img
-                      src={url}
-                      alt={`Hình xử lý ${idx + 1}`}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                      loading="lazy"
-                    />
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                      <ExternalLink className="h-5 w-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+              {/* Customer Info */}
+              <div className="grid gap-3">
+                <p className="text-sm font-semibold">Thông tin khách hàng</p>
+                <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
+                  <div>
+                    <p className="text-xs sm:text-sm text-muted-foreground mb-0.5">Tên khách hàng</p>
+                    <p className="font-medium text-sm">{ticket.customerName}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs sm:text-sm text-muted-foreground mb-0.5">Số điện thoại</p>
+                    <p className="font-medium text-sm">{ticket.customerPhone}</p>
+                  </div>
+                  {ticket.customerAddress && (
+                    <div className="col-span-1 sm:col-span-2">
+                      <p className="text-xs sm:text-sm text-muted-foreground mb-0.5">Địa chỉ</p>
+                      <p className="text-sm">{ticket.customerAddress}</p>
                     </div>
-                  </button>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Status Timeline Card */}
-        {shouldShowTimeline() && (
-          <Card className="bg-white">
-            <CardHeader className="px-3 pt-3 pb-3 sm:px-4 sm:pt-4 md:px-6 md:pt-6">
-              <CardTitle className="text-h4">Tiến trình xử lý</CardTitle>
-            </CardHeader>
-            <CardContent className="px-3 pb-3 sm:px-4 sm:pb-4 md:px-6 md:pb-6">
-              <StatusTimeline ticket={ticket} />
-            </CardContent>
-          </Card>
-        )}
-
-        {/* History Card */}
-        {shouldShowTimeline() && (
-          <Card className="bg-white">
-            <CardHeader className="px-3 pt-3 pb-3 sm:px-4 sm:pt-4 md:px-6 md:pt-6">
-              <CardTitle className="text-h4">Lịch sử thao tác</CardTitle>
-            </CardHeader>
-            <CardContent className="px-3 pb-3 sm:px-4 sm:pb-4 md:px-6 md:pb-6">
-              <ScrollArea className="h-[300px]">
-                <div className="space-y-4">
-                  {ticket.history.length === 0 ? (
-                    <div className="text-center py-8 text-muted-foreground">
-                      Chưa có lịch sử nào
-                    </div>
-                  ) : (
-                    ticket.history
-                      .slice()
-                      .reverse()
-                      .map((entry, index) => (
-                        <div key={index} className="flex gap-2 sm:gap-3">
-                          <div className="flex-shrink-0 mt-1">
-                            <div className="h-2 w-2 rounded-full bg-primary" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="font-medium text-body-xs sm:text-body-sm">{entry.actionLabel || entry.action}</div>
-                            <div className="text-[10px] sm:text-body-xs text-muted-foreground">
-                              {formatDateTime(entry.performedAt)} • {entry.performedBy}
-                            </div>
-                            {entry.note && (
-                              <div className="text-body-xs sm:text-body-sm text-muted-foreground mt-1">
-                                {entry.note}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ))
                   )}
                 </div>
-              </ScrollArea>
+              </div>
+
+              {ticket.notes && (
+                <div className="grid gap-1.5">
+                  <p className="text-sm font-semibold">Ghi chú</p>
+                  <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">{ticket.notes}</p>
+                </div>
+              )}
             </CardContent>
           </Card>
-        )}
 
-        {/* Footer */}
-        <div className="text-center text-muted-foreground py-6 sm:py-8 border-t">
-          <p className="text-body-xs sm:text-body-sm md:text-body-md px-4">
-            Có thắc mắc? Liên hệ hotline: <span className="font-semibold text-primary text-body-sm sm:text-body-md md:text-body-lg">{hotline}</span>
-          </p>
-        </div>
+          {/* Card: Danh sách sản phẩm bảo hành */}
+          {settings.showProductList && (
+            <Card>
+              <CardHeader className="pb-3 px-4 pt-4 md:px-6 md:pt-6">
+                <CardTitle className="text-base sm:text-lg">
+                  Danh sách sản phẩm bảo hành
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4 md:px-6 md:pb-6">
+                <PublicProductsTable
+                  products={ticket.products || []}
+                  onImageClick={handleImageClick}
+                />
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Card: Tổng kết bảo hành */}
+          {settings.showSummary && (
+            <WarrantySummaryCard ticket={ticket} />
+          )}
+
+          {/* Card: Thông tin thanh toán */}
+          {settings.showPayment && (
+            <PaymentDetailsCard
+              ticket={ticket}
+              payments={payments}
+              receipts={receipts}
+              orders={orders}
+            />
+          )}
+
+          {/* Card: Hình ảnh lúc nhận */}
+          {settings.showReceivedImages && (
+            <ImageGalleryCard
+              title="Hình ảnh lúc nhận"
+              images={ticket.receivedImages || []}
+              onImageClick={handleImageClick}
+            />
+          )}
+
+          {/* Card: Hình ảnh đã xử lý */}
+          {settings.showProcessedImages && (
+            <ImageGalleryCard
+              title="Hình ảnh đã xử lý"
+              images={ticket.processedImages || []}
+              onImageClick={handleImageClick}
+            />
+          )}
+
+          {/* Card: Lịch sử thao tác */}
+          {settings.showHistory && settings.showTimeline && (
+            <Card>
+              <CardHeader className="px-4 pt-4 pb-3 md:px-6 md:pt-6">
+                <CardTitle className="text-base sm:text-lg">Lịch sử thao tác</CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4 md:px-6 md:pb-6">
+                <ScrollArea className="h-75">
+                  <div className="space-y-4">
+                    {ticket.history.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground text-sm">
+                        Chưa có lịch sử nào
+                      </div>
+                    ) : (
+                      ticket.history
+                        .slice()
+                        .reverse()
+                        .map((entry, index) => (
+                          <div key={index} className="flex gap-3">
+                            <div className="shrink-0 mt-1.5">
+                              <div className="h-2 w-2 rounded-full bg-primary" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-sm">{entry.actionLabel || entry.action}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {formatDateTime(entry.performedAt)} • {entry.performedBy}
+                              </p>
+                              {entry.note && (
+                                <p className="text-sm text-muted-foreground mt-1">{entry.note}</p>
+                              )}
+                            </div>
+                          </div>
+                        ))
+                    )}
+                  </div>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Card: Bình luận */}
+          {settings.allowCustomerComments && (
+            <PublicCommentsSection
+              comments={comments}
+              allowCustomerComments={settings.allowCustomerComments}
+              trackingCode={trackingCode || ''}
+            />
+          )}
+
+          {/* Footer */}
+          <div className="text-center text-muted-foreground py-6 sm:py-8 border-t">
+            <p className="text-sm md:text-base px-4">
+              Có thắc mắc? Liên hệ hotline:{' '}
+              <span className="font-semibold text-primary text-base md:text-lg">{hotline}</span>
+            </p>
+          </div>
         </div>
       </div>
 
-      {/* Image Preview Dialog - Lazy loaded */}
+      {/* Image Preview Dialog */}
       {showImagePreview && (
         <React.Suspense fallback={null}>
           <ImagePreviewDialog

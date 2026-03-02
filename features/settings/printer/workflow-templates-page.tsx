@@ -15,6 +15,7 @@
 
 import * as React from 'react';
 import { useSettingsPageHeader } from '../use-settings-page-header';
+import { useColumnLayout } from '../../../hooks/use-column-visibility';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { SubtaskList, type Subtask } from '../../../components/shared/subtask-list';
@@ -45,7 +46,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../../../components/ui/dropdown-menu';
 import {
@@ -332,7 +332,7 @@ function createColumns(
       header: 'Mô tả',
       size: 250,
       cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground truncate block max-w-[230px]">
+        <span className="text-sm text-muted-foreground truncate block max-w-57.5">
           {row.description || '-'}
         </span>
       ),
@@ -361,9 +361,9 @@ function createColumns(
     },
     {
       id: 'actions',
-      header: 'Thao tác',
+      header: '',
       size: 80,
-      meta: { displayName: 'Thao tác', sticky: 'right' },
+      meta: { displayName: '', sticky: 'right' },
       cell: ({ row }) => (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -375,7 +375,6 @@ function createColumns(
             <DropdownMenuItem onClick={() => onEdit(row)}>
               Sửa
             </DropdownMenuItem>
-            <DropdownMenuSeparator />
             <DropdownMenuItem 
               onClick={() => onDelete(row.systemId)}
               className="text-destructive focus:text-destructive"
@@ -401,9 +400,7 @@ export function WorkflowTemplatesPage() {
   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
   const [expanded, setExpanded] = React.useState<Record<string, boolean>>({});
   const [sorting, setSorting] = React.useState<{ id: string; desc: boolean }>({ id: 'createdAt', desc: true });
-  const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>({});
-  const [columnOrder, setColumnOrder] = React.useState<string[]>([]);
-  const [pinnedColumns, setPinnedColumns] = React.useState<string[]>(['select', 'actions']);
+  const [{ visibility: columnVisibility, order: columnOrder, pinned: pinnedColumns }, { setVisibility: setColumnVisibility, setOrder: setColumnOrder, setPinned: setPinnedColumns }] = useColumnLayout('workflow-templates', { pinned: ['select', 'actions'] });
   
   // Dialog states
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);

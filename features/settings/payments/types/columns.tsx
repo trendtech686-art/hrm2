@@ -12,6 +12,7 @@ interface ColumnOptions {
   onDelete: (systemId: SystemId) => void;
   onToggleStatus: (item: PaymentType, isActive: boolean) => void;
   onToggleDefault: (item: PaymentType, isDefault: boolean) => void;
+  onToggleBusinessResult: (item: PaymentType, isBusinessResult: boolean) => void;
 }
 
 export const getPaymentTypeColumns = ({
@@ -19,12 +20,13 @@ export const getPaymentTypeColumns = ({
   onDelete,
   onToggleStatus,
   onToggleDefault,
+  onToggleBusinessResult,
 }: ColumnOptions): ColumnDef<PaymentType>[] => [
   { 
     id: 'id',
     accessorKey: 'id',
     header: 'Mã loại',
-    cell: ({ row }) => <span className="font-semibold uppercase">{row.id}</span>,
+    cell: ({ row }) => <span className="font-medium">{row.id}</span>,
     meta: { displayName: 'Mã loại' }
   },
   { 
@@ -42,6 +44,18 @@ export const getPaymentTypeColumns = ({
       <span className="text-sm text-muted-foreground">{row.description || "—"}</span>
     ),
     meta: { displayName: 'Mô tả' } 
+  },
+  { 
+    id: 'isBusinessResult', 
+    accessorKey: 'isBusinessResult', 
+    header: 'Hạch toán', 
+    cell: ({ row }) => (
+      <Switch 
+        checked={row.isBusinessResult ?? false} 
+        onCheckedChange={(checked) => onToggleBusinessResult(row, checked)}
+      />
+    ),
+    meta: { displayName: 'Hạch toán' } 
   },
   { 
     id: 'isDefault', 
@@ -69,7 +83,7 @@ export const getPaymentTypeColumns = ({
   },
   {
     id: 'actions',
-    header: () => <div className="text-right">Thao tác</div>,
+    header: '',
     cell: ({ row }) => (
       <div className="text-right">
         <DropdownMenu>

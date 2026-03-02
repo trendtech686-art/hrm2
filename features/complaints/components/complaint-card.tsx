@@ -45,10 +45,10 @@ export function ComplaintCard({ complaint, onClick, employees }: ComplaintCardPr
         "p-4 cursor-pointer transition-all hover:shadow-md",
         "border-l-4",
         isOverdue && "border-l-red-500 bg-red-50",
-        !isOverdue && complaint.priority === 'urgent' && "border-l-red-400 bg-red-50",
-        !isOverdue && complaint.priority === 'high' && "border-l-orange-400 bg-orange-50",
-        !isOverdue && complaint.priority === 'medium' && "border-l-amber-400 bg-amber-50",
-        !isOverdue && complaint.priority === 'low' && "border-l-slate-400 bg-slate-50"
+        !isOverdue && complaint.priority === 'CRITICAL' && "border-l-red-400 bg-red-50",
+        !isOverdue && complaint.priority === 'HIGH' && "border-l-orange-400 bg-orange-50",
+        !isOverdue && complaint.priority === 'MEDIUM' && "border-l-amber-400 bg-amber-50",
+        !isOverdue && complaint.priority === 'LOW' && "border-l-slate-400 bg-slate-50"
       )}
     >
       {/* Header */}

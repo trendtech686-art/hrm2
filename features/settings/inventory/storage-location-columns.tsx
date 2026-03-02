@@ -7,8 +7,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../../../components/ui/dropdown-menu";
 import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
@@ -29,7 +27,7 @@ export const getStorageLocationColumns = ({
   {
     id: "id",
     header: "Mã",
-    cell: ({ row }) => <span className="font-mono text-sm">{row.id}</span>,
+    cell: ({ row }) => <span className="text-sm">{row.id}</span>,
     meta: { displayName: "Mã" },
     size: 120,
   },
@@ -75,7 +73,7 @@ export const getStorageLocationColumns = ({
   },
   {
     id: "actions",
-    header: () => <div className="text-right">Thao tác</div>,
+    header: "",
     cell: ({ row }) => (
       <div className="text-right">
         <DropdownMenu>
@@ -86,8 +84,6 @@ export const getStorageLocationColumns = ({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Thao tác</DropdownMenuLabel>
-            <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={() => onEdit(row)}>
               <Pencil className="mr-2 h-4 w-4" />
               Chỉnh sửa

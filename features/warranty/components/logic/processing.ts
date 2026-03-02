@@ -76,7 +76,7 @@ export function shouldHideCard(ticket: WarrantyTicket | null, hasTransactions: b
 	if (!ticket) return true;
 
 	return !hasTransactions &&
-		(ticket.status === 'incomplete' || ticket.status === 'pending' || !!ticket.cancelledAt);
+		(ticket.status === 'RECEIVED' || ticket.status === 'PROCESSING' || !!ticket.cancelledAt);
 }
 
 export function canShowActionButtons(
@@ -93,9 +93,8 @@ export function canShowActionButtons(
 	const hasRemainingAmount = remainingAmount > 0;
 
 	const isInProcessingStage =
-		ticket.status === 'processed' ||
-		ticket.status === 'returned' ||
-		ticket.status === 'completed';
+		ticket.status === 'COMPLETED' ||
+		ticket.status === 'RETURNED';
 
 	const hasExistingTransactions = hasTransactions;
 

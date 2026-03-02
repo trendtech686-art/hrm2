@@ -1,10 +1,18 @@
 /**
  * Packaging React Query Hooks
+ * 
+ * ⚠️ Direct import: import { usePackagingSlips } from '@/features/packaging/hooks/use-packaging'
  */
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import * as api from '../api/packaging-api';
 import type { PackagingFilters } from '../api/packaging-api';
+import {
+  completePackagingAction,
+  cancelPackagingAction,
+  updatePackagingAction,
+  markAsPrintedAction,
+} from '@/app/actions/packagings';
 
 export const packagingKeys = {
   all: ['packaging'] as const,
@@ -24,16 +32,51 @@ export function usePackagingSlips(filters: PackagingFilters = {}) {
 }
 
 export function usePackagingById(systemId: string | undefined) {
-  return useQuery({ queryKey: packagingKeys.detail(systemId!), queryFn: () => api.fetchPackagingById(systemId!), enabled: !!systemId });
+  return useQuery({ 
+    queryKey: packagingKeys.detail(systemId!), 
+    queryFn: () => api.fetchPackagingById(systemId!), 
+    enabled: !!systemId,
+    retry: 1, // Retry once on failure
+    staleTime: 1000 * 60 * 2, // 2 minutes
+  });
 }
 
 export function usePackagingMutations(opts?: { onSuccess?: () => void }) {
   const qc = useQueryClient();
   const invalidate = () => qc.invalidateQueries({ queryKey: packagingKeys.all });
+  
   return {
-    confirm: useMutation({ mutationFn: api.confirmPackaging, onSuccess: () => { invalidate(); opts?.onSuccess?.(); } }),
-    cancel: useMutation({ mutationFn: ({ systemId, reason }: { systemId: string; reason: string }) => api.cancelPackaging(systemId, reason), onSuccess: () => { invalidate(); opts?.onSuccess?.(); } }),
-    assign: useMutation({ mutationFn: ({ systemId, employeeSystemId }: { systemId: string; employeeSystemId: string }) => api.assignPackaging(systemId, employeeSystemId), onSuccess: () => { invalidate(); opts?.onSuccess?.(); } }),
-    print: useMutation({ mutationFn: api.printPackaging, onSuccess: opts?.onSuccess }),
+    confirm: useMutation({ 
+      mutationFn: async (systemId: string) => {
+        const result = await completePackagingAction(systemId, '');
+        if (!result.success) throw new Error(result.error || 'Failed to confirm packaging');
+        return result.data!;
+      }, 
+      onSuccess: () => { invalidate(); opts?.onSuccess?.(); } 
+    }),
+    cancel: useMutation({ 
+      mutationFn: async ({ systemId, reason }: { systemId: string; reason: string }) => {
+        const result = await cancelPackagingAction(systemId, '', reason);
+        if (!result.success) throw new Error(result.error || 'Failed to cancel packaging');
+        return result.data!;
+      }, 
+      onSuccess: () => { invalidate(); opts?.onSuccess?.(); } 
+    }),
+    assign: useMutation({ 
+      mutationFn: async ({ systemId, employeeSystemId }: { systemId: string; employeeSystemId: string }) => {
+        const result = await updatePackagingAction({ systemId, assignedEmployeeId: employeeSystemId });
+        if (!result.success) throw new Error(result.error || 'Failed to assign packaging');
+        return result.data!;
+      }, 
+      onSuccess: () => { invalidate(); opts?.onSuccess?.(); } 
+    }),
+    print: useMutation({ 
+      mutationFn: async (systemId: string) => {
+        const result = await markAsPrintedAction(systemId);
+        if (!result.success) throw new Error(result.error || 'Failed to mark as printed');
+        return result.data!;
+      }, 
+      onSuccess: opts?.onSuccess 
+    }),
   };
 }

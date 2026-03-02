@@ -3,7 +3,7 @@
  * Tách từ page.tsx để giảm kích thước file
  */
 import * as React from 'react';
-import { formatDateCustom, parseDate } from '@/lib/date-utils';
+import { formatDateCustom } from '@/lib/date-utils';
 import type { ColumnDef } from '@/components/data-table/types';
 import type { InventoryReceipt } from '@/lib/types/prisma-extended';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -58,7 +58,10 @@ export function getColumns(
       id: 'receivedDate',
       accessorKey: 'receivedDate',
       header: 'Ngày nhập',
-      cell: ({ row }) => formatDateCustom(parseDate(row.receivedDate)!, 'dd/MM/yyyy HH:mm'),
+      cell: ({ row }) => {
+        if (!row.receivedDate) return '-';
+        return formatDateCustom(row.receivedDate, 'dd/MM/yyyy HH:mm');
+      },
       meta: { displayName: 'Ngày nhập' },
       size: 150,
     },
@@ -66,14 +69,14 @@ export function getColumns(
       id: 'supplierName',
       accessorKey: 'supplierName',
       header: 'Nhà cung cấp',
-      cell: ({ row }) => row.supplierName,
+      cell: ({ row }) => row.supplierName || 'Nhập trực tiếp',
       meta: { displayName: 'Nhà cung cấp' },
     },
     {
       id: 'purchaseOrderId',
       accessorKey: 'purchaseOrderId',
       header: 'Đơn mua hàng',
-      cell: ({ row }) => row.purchaseOrderId,
+      cell: ({ row }) => row.purchaseOrderId || 'Không có',
       meta: { displayName: 'Đơn mua hàng' },
       size: 140,
     },
@@ -81,7 +84,11 @@ export function getColumns(
       id: 'totalQuantity',
       header: 'Tổng SL nhập',
       cell: ({ row }) => {
-        const total = row.items.reduce((sum, item) => sum + Number(item.receivedQuantity), 0);
+        const items = row.items || [];
+        const total = items.reduce((sum, item) => {
+          const qty = Number(item.receivedQuantity) || 0;
+          return sum + qty;
+        }, 0);
         return <span className="font-medium">{total}</span>;
       },
       meta: { displayName: 'Tổng SL nhập' },
@@ -91,7 +98,7 @@ export function getColumns(
       id: 'receiverName',
       accessorKey: 'receiverName',
       header: 'Người nhận',
-      cell: ({ row }) => row.receiverName,
+      cell: ({ row }) => row.receiverName || '-',
       meta: { displayName: 'Người nhận' },
       size: 150,
     },
@@ -100,7 +107,10 @@ export function getColumns(
       accessorKey: 'notes',
       header: 'Ghi chú',
       cell: ({ row }) => (
-        <span className="text-body-xs max-w-xs line-clamp-2">
+        <span 
+          className="text-body-xs max-w-50 line-clamp-2 cursor-help" 
+          title={row.notes || ''}
+        >
           {row.notes || '-'}
         </span>
       ),

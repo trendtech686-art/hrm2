@@ -2,6 +2,11 @@
  * Hook tổng hợp handlers cho PurchaseOrders page
  * Kết hợp receive workflow, cancel workflow, và print handlers
  * Sử dụng để giảm kích thước page.tsx < 300 lines
+ * 
+ * ⚡ PERFORMANCE NOTE: Bulk payment workflow needs all payments data.
+ * This is intentional - when user selects multiple POs for bulk pay,
+ * we need to calculate remaining amount for each. Data is loaded 
+ * only when bulk pay dialog is opened.
  */
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
@@ -9,12 +14,13 @@ import { toast } from 'sonner';
 import { formatDateCustom, getCurrentDate } from '@/lib/date-utils';
 import { asBusinessId, asSystemId } from '@/lib/id-types';
 import type { PurchaseOrder } from '@/lib/types/prisma-extended';
-import { usePurchaseOrders, usePurchaseOrderMutations } from '../hooks/use-purchase-orders';
+import { useAllPurchaseOrders } from './use-all-purchase-orders';
+import { usePurchaseOrderMutations } from '../hooks/use-purchase-orders';
 import { useAllPayments } from '@/features/payments/hooks/use-all-payments';
-import { usePaymentStore } from '@/features/payments/store';
+import { usePaymentMutations } from '@/features/payments/hooks/use-payments';
 import { useAllCashAccounts } from '@/features/cashbook/hooks/use-all-cash-accounts';
 import { useAllPaymentTypes } from '@/features/settings/payments/types/hooks/use-all-payment-types';
-import { usePurchaseReturns } from '@/features/purchase-returns/hooks/use-purchase-returns';
+import { useAllPurchaseReturns } from '@/features/purchase-returns/hooks/use-all-purchase-returns';
 import { useAuth } from '@/contexts/auth-context';
 import { sumPaymentsForPurchaseOrder } from '../payment-utils';
 import type { Payment } from '@/features/payments/types';
@@ -31,22 +37,36 @@ export type { ReceiveDialogState, ReceiveLineItemForm, CancelPODialogState };
  */
 export function usePurchaseOrdersPageHandlers() {
   const router = useRouter();
-  const { data: queryData } = usePurchaseOrders({ limit: 1000 });
-  const purchaseOrders = React.useMemo(() => queryData?.data ?? [], [queryData?.data]);
+  const { data: purchaseOrders } = useAllPurchaseOrders();
   const { update: updatePO } = usePurchaseOrderMutations({});
-  const { data: allPayments } = useAllPayments();
+  
+  // Row selection state - defined early so we can conditionally load payments
+  const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
+  const [isBulkPayAlertOpen, setIsBulkPayAlertOpen] = React.useState(false);
+  
+  // ⚡ PERFORMANCE: Only load payments when bulk pay dialog is open
+  // This is a bulk operation that genuinely needs all payments for selected POs
+  const { data: allPayments } = useAllPayments({ enabled: isBulkPayAlertOpen });
+  
   const { accounts } = useAllCashAccounts();
   const { data: paymentTypes } = useAllPaymentTypes();
-  const { data: prQueryData } = usePurchaseReturns({ limit: 1000 });
-  const allPurchaseReturns = React.useMemo(() => prQueryData?.data ?? [], [prQueryData?.data]);
+  const { data: allPurchaseReturns } = useAllPurchaseReturns();
   const { employee: loggedInUser } = useAuth();
+  
+  const { create: createPayment } = usePaymentMutations({});
   
   const currentUserSystemId = loggedInUser?.systemId ?? 'SYSTEM';
   const currentUserName = loggedInUser?.fullName ?? 'Hệ thống';
   
   // Helper functions
   const bulkCancel = React.useCallback((systemIds: string[], userId: string, _userName: string) => {
-    systemIds.forEach(id => (updatePO as any).mutate({ systemId: id, status: 'cancelled', cancelledBy: userId, cancelledAt: new Date().toISOString() }));
+    systemIds.forEach(id => updatePO.mutate({ 
+      systemId: id, 
+      data: { 
+        status: 'cancelled', 
+        updatedBy: userId 
+      } 
+    }));
   }, [updatePO]);
   
   const syncAllPurchaseOrderStatuses = React.useCallback(() => {
@@ -57,10 +77,6 @@ export function usePurchaseOrdersPageHandlers() {
   const receiveWorkflow = usePurchaseOrderReceiveWorkflow();
   const cancelWorkflow = usePurchaseOrderCancelWorkflow();
   const printHandlers = usePurchaseOrderPrintHandlers();
-
-  // Row selection state
-  const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
-  const [isBulkPayAlertOpen, setIsBulkPayAlertOpen] = React.useState(false);
 
   // Computed values
   const selectedOrders = React.useMemo(() => {
@@ -128,7 +144,6 @@ export function usePurchaseOrdersPageHandlers() {
 
   const confirmBulkPay = React.useCallback(() => {
     const paymentCategory = paymentTypes.find(pt => pt.name === 'Thanh toán cho đơn nhập hàng');
-    const { add: addPayment } = usePaymentStore.getState();
     const paymentMethodName = 'Chuyển khoản';
     const paymentMethodSystemId = 'BANK_TRANSFER';
     let totalPaymentsCreated = 0;
@@ -175,7 +190,7 @@ export function usePurchaseOrdersPageHandlers() {
           purchaseOrderId: asBusinessId(po.id),
           originalDocumentId: po.id,
         } satisfies Omit<Payment, 'systemId'>;
-        addPayment(newPayment);
+        createPayment.mutate(newPayment);
         totalPaymentsCreated += 1;
       }
     });
@@ -189,7 +204,7 @@ export function usePurchaseOrdersPageHandlers() {
 
     setRowSelection({});
     setIsBulkPayAlertOpen(false);
-  }, [selectedOrders, allPayments, allPurchaseReturns, accounts, paymentTypes, currentUserSystemId, syncAllPurchaseOrderStatuses]);
+  }, [selectedOrders, allPayments, allPurchaseReturns, accounts, paymentTypes, currentUserSystemId, createPayment, syncAllPurchaseOrderStatuses]);
 
   // Print dialog handlers
   const handlePrintConfirm = React.useCallback((options: Parameters<typeof printHandlers.handlePrintConfirm>[0]) => {

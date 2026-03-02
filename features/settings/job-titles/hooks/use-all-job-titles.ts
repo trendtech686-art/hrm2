@@ -1,11 +1,15 @@
 /**
  * useAllJobTitles - Convenience hook for components needing all job titles
+ * Uses fetchAllPages auto-pagination to load ALL records
  */
 
 import * as React from 'react';
 import { useCallback } from 'react';
-import { useJobTitles } from './use-job-titles';
+import { useQuery } from '@tanstack/react-query';
+import { fetchAllPages } from '@/lib/fetch-all-pages';
+import { fetchJobTitles } from '../api/job-titles-api';
 import type { JobTitle } from '../api/job-titles-api';
+import { jobTitleKeys } from './use-job-titles';
 
 // Stable empty array to prevent re-renders
 const EMPTY_JOB_TITLES: JobTitle[] = [];
@@ -14,12 +18,16 @@ const EMPTY_JOB_TITLES: JobTitle[] = [];
  * Returns all job titles as a flat array
  */
 export function useAllJobTitles() {
-  const query = useJobTitles({ limit: 500 });
+  const query = useQuery({
+    queryKey: [...jobTitleKeys.all, 'all'],
+    queryFn: () => fetchAllPages((p) => fetchJobTitles(p)),
+    staleTime: 10 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+  });
   
-  // Memoize data to prevent unnecessary re-renders
   const data = React.useMemo(() => 
-    query.data?.data || EMPTY_JOB_TITLES,
-    [query.data?.data]
+    query.data || EMPTY_JOB_TITLES,
+    [query.data]
   );
   
   return {

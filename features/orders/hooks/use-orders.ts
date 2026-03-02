@@ -12,7 +12,8 @@
  */
 
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
-import { fetchOrders, fetchOrder, fetchOrderStats, type OrdersParams } from '../api/orders-api';
+import { fetchOrders, fetchOrder, fetchOrderStats, type OrdersParams, type PaginatedResponse } from '../api/orders-api';
+import type { Order } from '@/lib/types/prisma-extended';
 
 // Query keys - exported for invalidation
 export const orderKeys = {
@@ -24,14 +25,36 @@ export const orderKeys = {
   stats: () => [...orderKeys.all, 'stats'] as const,
 };
 
+// Types for initial data from Server Components - matches fetchOrderStats return type
+export interface OrderStats {
+  totalOrders: number;
+  pendingOrders: number;
+  totalRevenue: number;
+  todayOrders: number;
+}
+
+/**
+ * Hook for fetching order statistics with optional initial data from Server Component
+ */
+export function useOrderStats(initialData?: OrderStats) {
+  return useQuery({
+    queryKey: orderKeys.stats(),
+    queryFn: fetchOrderStats,
+    initialData,
+    staleTime: initialData ? 60_000 : 0,
+    gcTime: 5 * 60 * 1000,
+  });
+}
+
 /**
  * Hook for fetching paginated orders list
+ * Supports initialData from Server Component for instant hydration
  * 
  * @example
  * ```tsx
- * function OrdersPage() {
+ * function OrdersPage({ initialData }) {
  *   const [page, setPage] = useState(1);
- *   const { data, isLoading, error } = useOrders({ page, limit: 50 });
+ *   const { data, isLoading, error } = useOrders({ page, limit: 50 }, initialData);
  *   
  *   if (isLoading) return <Skeleton />;
  *   if (error) return <ErrorMessage error={error} />;
@@ -46,13 +69,19 @@ export const orderKeys = {
  * }
  * ```
  */
-export function useOrders(params: OrdersParams = {}) {
+export function useOrders(
+  params: OrdersParams & { enabled?: boolean } = {},
+  initialData?: PaginatedResponse<Order>
+) {
+  const { enabled = true, ...fetchParams } = params;
   return useQuery({
-    queryKey: orderKeys.list(params),
-    queryFn: () => fetchOrders(params),
-    staleTime: 30_000, // 30 seconds
+    queryKey: orderKeys.list(fetchParams),
+    queryFn: () => fetchOrders(fetchParams),
+    initialData,
+    staleTime: initialData ? 60_000 : 30_000,
     gcTime: 5 * 60 * 1000, // 5 minutes (formerly cacheTime)
     placeholderData: keepPreviousData, // Keep old data while fetching new page
+    enabled,
   });
 }
 
@@ -67,24 +96,19 @@ export function useOrders(params: OrdersParams = {}) {
  * }
  * ```
  */
-export function useOrder(id: string | null | undefined) {
+export function useOrder(id: string | null | undefined, initialData?: Order) {
   return useQuery({
     queryKey: orderKeys.detail(id!),
     queryFn: () => fetchOrder(id!),
+    initialData,
     enabled: !!id, // Only fetch if id is provided
-    staleTime: 60_000, // 1 minute for detail view
+    staleTime: initialData ? 60_000 : 30_000,
     gcTime: 10 * 60 * 1000, // 10 minutes
   });
 }
 
 /**
- * Hook for fetching order statistics (dashboard)
- */
-export function useOrderStats() {
-  return useQuery({
-    queryKey: orderKeys.stats(),
-    queryFn: fetchOrderStats,
-    staleTime: 60_000, // 1 minute
+ * Hook for searching orders with debounce
     gcTime: 5 * 60 * 1000,
   });
 }

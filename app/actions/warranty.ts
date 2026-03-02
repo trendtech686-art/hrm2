@@ -1,0 +1,684 @@
+'use server'
+
+/**
+ * Server Actions for Warranty Management
+ * 
+ * These are server-side functions that can be called directly from Client Components.
+ * They use Prisma transactions for atomic operations.
+ * 
+ * @see https://nextjs.org/docs/app/building-your-application/data-fetching/server-actions-and-mutations
+ */
+
+import { prisma } from '@/lib/prisma'
+import { auth } from '@/auth'
+import { revalidatePath } from '@/lib/revalidation'
+import { generateSubEntityId } from '@/lib/id-utils'
+import type { WarrantyStatus } from '@/lib/types/prisma-extended'
+import type { ActionResult } from '@/types/action-result'
+import { createWarrantySchema, updateWarrantySchema } from '@/features/warranty/validation'
+
+// ====================================
+// TYPES
+// ====================================
+
+export type CancelWarrantyInput = {
+  systemId: string
+  reason: string
+  cancelVouchers?: boolean
+}
+
+export type UpdateStatusInput = {
+  systemId: string
+  newStatus: WarrantyStatus
+  note?: string
+}
+
+export type CompleteWarrantyInput = {
+  systemId: string
+  note?: string
+}
+
+export type ReopenWarrantyInput = {
+  systemId: string
+  reason?: string
+}
+
+// ====================================
+// CANCEL WARRANTY
+// ====================================
+
+/**
+ * Cancel a warranty ticket with all related operations in a transaction
+ * - Updates warranty status to CANCELLED
+ * - Cancels related vouchers (payments/receipts)
+ * - Creates history record
+ */
+export async function cancelWarrantyAction(
+  input: CancelWarrantyInput
+): Promise<ActionResult> {
+  const session = await auth()
+  if (!session?.user) {
+    return { success: false, error: 'Không có quyền truy cập' }
+  }
+
+  const { systemId, reason, cancelVouchers = true } = input
+
+  if (!reason.trim()) {
+    return { success: false, error: 'Vui lòng nhập lý do hủy phiếu' }
+  }
+
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Find warranty
+      const warranty = await tx.warranty.findUnique({
+        where: { systemId },
+        include: {
+          product: true,
+        },
+      })
+
+      if (!warranty) {
+        throw new Error('WARRANTY_NOT_FOUND')
+      }
+
+      // 2. Validate status
+      if (warranty.status === 'CANCELLED') {
+        throw new Error('ALREADY_CANCELLED')
+      }
+
+      const now = new Date()
+      const userName = session.user?.name || session.user?.email || 'Unknown'
+
+      // 3. Cancel related vouchers if requested
+      let cancelledPayments = 0
+      let cancelledReceipts = 0
+
+      if (cancelVouchers) {
+        // Cancel payments linked to this warranty
+        const paymentsToCancel = await tx.payment.findMany({
+          where: {
+            linkedWarrantySystemId: systemId,
+            status: { not: 'cancelled' },
+          },
+        })
+        
+        for (const payment of paymentsToCancel) {
+          await tx.payment.update({
+            where: { systemId: payment.systemId },
+            data: {
+              status: 'cancelled',
+              cancelledAt: now,
+              description: `[HỦY] ${reason}${payment.description ? ` | Gốc: ${payment.description}` : ''}`,
+            },
+          })
+        }
+        cancelledPayments = paymentsToCancel.length
+
+        // Cancel receipts linked to this warranty
+        const receiptsToCancel = await tx.receipt.findMany({
+          where: {
+            linkedWarrantySystemId: systemId,
+            status: { not: 'cancelled' },
+          },
+        })
+        
+        for (const receipt of receiptsToCancel) {
+          await tx.receipt.update({
+            where: { systemId: receipt.systemId },
+            data: {
+              status: 'cancelled',
+              cancelledAt: now,
+              description: `[HỦY] ${reason}${receipt.description ? ` | Gốc: ${receipt.description}` : ''}`,
+            },
+          })
+        }
+        cancelledReceipts = receiptsToCancel.length
+      }
+
+      // 4. Create history entry
+      const historyEntry = {
+        systemId: generateSubEntityId('WH'),
+        action: 'CANCEL',
+        actionLabel: 'Đã hủy phiếu',
+        entityType: 'status',
+        performedBy: userName,
+        performedAt: now.toISOString(),
+        note: `Lý do: ${reason}${cancelledPayments || cancelledReceipts ? ` | Đã hủy ${cancelledPayments} phiếu chi, ${cancelledReceipts} phiếu thu` : ''}`,
+      }
+
+      // 5. Update warranty
+      const existingHistory = warranty.history as unknown[] || []
+      
+      const updatedWarranty = await tx.warranty.update({
+        where: { systemId },
+        data: {
+          status: 'CANCELLED',
+          cancelledAt: now,
+          cancelReason: reason,
+          linkedOrderSystemId: null, // Unlink order
+          history: [...existingHistory, historyEntry] as unknown as undefined,
+          updatedAt: now,
+          updatedBy: userName,
+        },
+      })
+
+      return {
+        warranty: updatedWarranty,
+        cancelledPayments,
+        cancelledReceipts,
+      }
+    })
+
+    // Revalidate cache
+    revalidatePath(`/warranty/${systemId}`)
+    revalidatePath('/warranty')
+
+    return {
+      success: true,
+      data: result,
+    }
+  } catch (error) {
+    console.error('cancelWarrantyAction error:', error)
+
+    if (error instanceof Error) {
+      if (error.message === 'WARRANTY_NOT_FOUND') {
+        return { success: false, error: 'Phiếu bảo hành không tồn tại' }
+      }
+      if (error.message === 'ALREADY_CANCELLED') {
+        return { success: false, error: 'Phiếu bảo hành đã bị hủy' }
+      }
+    }
+
+    return { success: false, error: 'Không thể hủy phiếu bảo hành' }
+  }
+}
+
+// ====================================
+// UPDATE WARRANTY STATUS
+// ====================================
+
+/**
+ * Update warranty status with validation
+ */
+export async function updateWarrantyStatusAction(
+  input: UpdateStatusInput
+): Promise<ActionResult> {
+  const session = await auth()
+  if (!session?.user) {
+    return { success: false, error: 'Không có quyền truy cập' }
+  }
+
+  const { systemId, newStatus, note } = input
+
+  // Valid transitions map
+  const validTransitions: Record<WarrantyStatus, WarrantyStatus[]> = {
+    RECEIVED: ['PROCESSING', 'CANCELLED'],
+    PROCESSING: ['WAITING_PARTS', 'COMPLETED', 'CANCELLED'],
+    WAITING_PARTS: ['PROCESSING', 'COMPLETED', 'CANCELLED'],
+    COMPLETED: ['RETURNED', 'CANCELLED'],
+    RETURNED: [], // Final state
+    CANCELLED: ['RECEIVED'], // Can reopen
+  }
+
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const warranty = await tx.warranty.findUnique({
+        where: { systemId },
+      })
+
+      if (!warranty) {
+        throw new Error('WARRANTY_NOT_FOUND')
+      }
+
+      // Validate transition
+      const currentStatus = warranty.status as WarrantyStatus
+      const allowedStatuses = validTransitions[currentStatus]
+
+      if (!allowedStatuses.includes(newStatus)) {
+        throw new Error(`INVALID_TRANSITION:${currentStatus}:${newStatus}`)
+      }
+
+      const now = new Date()
+      const userName = session.user?.name || session.user?.email || 'Unknown'
+
+      // Build history entry
+      const statusLabels: Record<WarrantyStatus, string> = {
+        RECEIVED: 'Đã tiếp nhận',
+        PROCESSING: 'Đang xử lý',
+        WAITING_PARTS: 'Chờ linh kiện',
+        COMPLETED: 'Hoàn tất',
+        RETURNED: 'Đã trả',
+        CANCELLED: 'Đã hủy',
+      }
+
+      const historyEntry = {
+        systemId: generateSubEntityId('WH'),
+        action: `STATUS_CHANGE_${newStatus}`,
+        actionLabel: `Chuyển sang ${statusLabels[newStatus]}`,
+        entityType: 'status',
+        performedBy: userName,
+        performedAt: now.toISOString(),
+        note: note || undefined,
+      }
+
+      const existingHistory = warranty.history as unknown[] || []
+
+      // Build update data based on new status
+      const updateData: Record<string, unknown> = {
+        status: newStatus,
+        history: [...existingHistory, historyEntry],
+        updatedAt: now,
+        updatedBy: userName,
+      }
+
+      // Add timestamp fields based on status
+      if (newStatus === 'PROCESSING' && !warranty.processingStartedAt) {
+        updateData.processingStartedAt = now
+      }
+      if (newStatus === 'COMPLETED') {
+        updateData.processedAt = now
+      }
+      if (newStatus === 'RETURNED') {
+        updateData.returnedAt = now
+      }
+      if (newStatus === 'CANCELLED') {
+        updateData.cancelledAt = now
+      }
+
+      const updatedWarranty = await tx.warranty.update({
+        where: { systemId },
+        data: updateData as never,
+      })
+
+      return updatedWarranty
+    })
+
+    revalidatePath(`/warranty/${systemId}`)
+    revalidatePath('/warranty')
+
+    return { success: true, data: result }
+  } catch (error) {
+    console.error('updateWarrantyStatusAction error:', error)
+
+    if (error instanceof Error) {
+      if (error.message === 'WARRANTY_NOT_FOUND') {
+        return { success: false, error: 'Phiếu bảo hành không tồn tại' }
+      }
+      if (error.message.startsWith('INVALID_TRANSITION')) {
+        const [, from, to] = error.message.split(':')
+        return { success: false, error: `Không thể chuyển từ ${from} sang ${to}` }
+      }
+    }
+
+    return { success: false, error: 'Không thể cập nhật trạng thái' }
+  }
+}
+
+// ====================================
+// COMPLETE WARRANTY (Final close)
+// ====================================
+
+/**
+ * Complete/close a warranty ticket (after RETURNED status)
+ */
+export async function completeWarrantyAction(
+  input: CompleteWarrantyInput
+): Promise<ActionResult> {
+  const session = await auth()
+  if (!session?.user) {
+    return { success: false, error: 'Không có quyền truy cập' }
+  }
+
+  const { systemId, note } = input
+
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const warranty = await tx.warranty.findUnique({
+        where: { systemId },
+      })
+
+      if (!warranty) {
+        throw new Error('WARRANTY_NOT_FOUND')
+      }
+
+      // Only allow completing from RETURNED status
+      if (warranty.status !== 'RETURNED') {
+        throw new Error('MUST_BE_RETURNED')
+      }
+
+      const now = new Date()
+      const userName = session.user?.name || session.user?.email || 'Unknown'
+
+      const historyEntry = {
+        systemId: generateSubEntityId('WH'),
+        action: 'COMPLETE',
+        actionLabel: 'Kết thúc phiếu bảo hành',
+        entityType: 'status',
+        performedBy: userName,
+        performedAt: now.toISOString(),
+        note: note || 'Phiếu bảo hành đã hoàn tất',
+      }
+
+      const existingHistory = warranty.history as unknown[] || []
+
+      const updatedWarranty = await tx.warranty.update({
+        where: { systemId },
+        data: {
+          completedAt: now,
+          history: [...existingHistory, historyEntry] as unknown as undefined,
+          updatedAt: now,
+          updatedBy: userName,
+        },
+      })
+
+      return updatedWarranty
+    })
+
+    revalidatePath(`/warranty/${systemId}`)
+    revalidatePath('/warranty')
+
+    return { success: true, data: result }
+  } catch (error) {
+    console.error('completeWarrantyAction error:', error)
+
+    if (error instanceof Error) {
+      if (error.message === 'WARRANTY_NOT_FOUND') {
+        return { success: false, error: 'Phiếu bảo hành không tồn tại' }
+      }
+      if (error.message === 'MUST_BE_RETURNED') {
+        return { success: false, error: 'Chỉ có thể kết thúc phiếu đã trả hàng' }
+      }
+    }
+
+    return { success: false, error: 'Không thể kết thúc phiếu bảo hành' }
+  }
+}
+
+// ====================================
+// REOPEN WARRANTY
+// ====================================
+
+/**
+ * Reopen a cancelled warranty
+ */
+export async function reopenWarrantyAction(
+  input: ReopenWarrantyInput
+): Promise<ActionResult> {
+  const session = await auth()
+  if (!session?.user) {
+    return { success: false, error: 'Không có quyền truy cập' }
+  }
+
+  const { systemId, reason } = input
+
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const warranty = await tx.warranty.findUnique({
+        where: { systemId },
+      })
+
+      if (!warranty) {
+        throw new Error('WARRANTY_NOT_FOUND')
+      }
+
+      if (warranty.status !== 'CANCELLED') {
+        throw new Error('NOT_CANCELLED')
+      }
+
+      const now = new Date()
+      const userName = session.user?.name || session.user?.email || 'Unknown'
+
+      const historyEntry = {
+        systemId: generateSubEntityId('WH'),
+        action: 'REOPEN',
+        actionLabel: 'Mở lại phiếu bảo hành',
+        entityType: 'status',
+        performedBy: userName,
+        performedAt: now.toISOString(),
+        note: reason || 'Mở lại phiếu đã hủy',
+      }
+
+      const existingHistory = warranty.history as unknown[] || []
+
+      const updatedWarranty = await tx.warranty.update({
+        where: { systemId },
+        data: {
+          status: 'RECEIVED',
+          cancelledAt: null,
+          cancelReason: null,
+          history: [...existingHistory, historyEntry] as unknown as undefined,
+          updatedAt: now,
+          updatedBy: userName,
+        },
+      })
+
+      return updatedWarranty
+    })
+
+    revalidatePath(`/warranty/${systemId}`)
+    revalidatePath('/warranty')
+
+    return { success: true, data: result }
+  } catch (error) {
+    console.error('reopenWarrantyAction error:', error)
+
+    if (error instanceof Error) {
+      if (error.message === 'WARRANTY_NOT_FOUND') {
+        return { success: false, error: 'Phiếu bảo hành không tồn tại' }
+      }
+      if (error.message === 'NOT_CANCELLED') {
+        return { success: false, error: 'Chỉ có thể mở lại phiếu đã hủy' }
+      }
+    }
+
+    return { success: false, error: 'Không thể mở lại phiếu bảo hành' }
+  }
+}
+
+// ====================================
+// CREATE WARRANTY
+// ====================================
+
+export type CreateWarrantyInput = {
+  customerId: string
+  customerName: string
+  customerPhone: string
+  orderId?: string
+  productId?: string
+  productName: string
+  productSku?: string
+  title: string
+  branchId?: string
+  branchSystemId?: string
+  branchName?: string
+  issueDescription?: string
+  warrantyType?: string
+  returnMethod?: string
+  status?: string
+  priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
+  receivedDate?: string | Date
+  createdBy?: string
+}
+
+export async function createWarrantyAction(
+  input: CreateWarrantyInput
+): Promise<ActionResult> {
+  const session = await auth()
+  if (!session?.user) {
+    return { success: false, error: 'Không có quyền truy cập' }
+  }
+
+  const validated = createWarrantySchema.safeParse(input)
+  if (!validated.success) {
+    return { success: false, error: validated.error.issues[0]?.message || 'Dữ liệu không hợp lệ' }
+  }
+
+  try {
+    const { generateIdWithPrefix } = await import('@/lib/id-generator')
+    const systemId = await generateIdWithPrefix('WRT', prisma)
+    const userName = session.user?.name || session.user?.email || 'Unknown'
+    const now = new Date()
+
+    const warranty = await prisma.warranty.create({
+      data: {
+        systemId,
+        id: systemId,
+        customerId: input.customerId,
+        customerName: input.customerName,
+        customerPhone: input.customerPhone,
+        orderId: input.orderId,
+        productId: input.productId,
+        productName: input.productName,
+        title: input.title,
+        branchId: input.branchId,
+        branchSystemId: input.branchSystemId,
+        branchName: input.branchName,
+        issueDescription: input.issueDescription,
+        status: (input.status || 'RECEIVED') as WarrantyStatus,
+        priority: input.priority || 'MEDIUM',
+        receivedAt: input.receivedDate ? new Date(input.receivedDate) : now,
+        createdAt: now,
+        createdBy: input.createdBy || userName,
+        updatedAt: now,
+        updatedBy: userName,
+        history: [{
+          systemId: generateSubEntityId('WH'),
+          action: 'CREATE',
+          actionLabel: 'Tạo phiếu',
+          entityType: 'status',
+          performedBy: userName,
+          performedAt: now.toISOString(),
+        }],
+      },
+    })
+
+    revalidatePath('/warranty')
+
+    return { success: true, data: warranty }
+  } catch (error) {
+    console.error('createWarrantyAction error:', error)
+    return { success: false, error: 'Không thể tạo phiếu bảo hành' }
+  }
+}
+
+// ====================================
+// UPDATE WARRANTY
+// ====================================
+
+export type UpdateWarrantyInput = {
+  systemId: string
+  customerName?: string
+  customerPhone?: string
+  productName?: string
+  productSku?: string
+  issueDescription?: string
+  warrantyType?: string
+  returnMethod?: string
+  priority?: string
+  status?: string
+  expectedDate?: string | Date | null
+  note?: string
+  updatedBy?: string
+}
+
+export async function updateWarrantyAction(
+  input: UpdateWarrantyInput
+): Promise<ActionResult> {
+  const session = await auth()
+  if (!session?.user) {
+    return { success: false, error: 'Không có quyền truy cập' }
+  }
+
+  const validated = updateWarrantySchema.safeParse(input)
+  if (!validated.success) {
+    return { success: false, error: validated.error.issues[0]?.message || 'Dữ liệu không hợp lệ' }
+  }
+
+  try {
+    const { systemId, ...updateData } = input
+    const userName = session.user?.name || session.user?.email || 'Unknown'
+    const now = new Date()
+
+    const existing = await prisma.warranty.findUnique({
+      where: { systemId },
+    })
+
+    if (!existing) {
+      return { success: false, error: 'Phiếu bảo hành không tồn tại' }
+    }
+
+    // Build update data
+    const data: Record<string, unknown> = {
+      updatedAt: now,
+      updatedBy: updateData.updatedBy || userName,
+    }
+
+    if (updateData.customerName !== undefined) data.customerName = updateData.customerName
+    if (updateData.customerPhone !== undefined) data.customerPhone = updateData.customerPhone
+    if (updateData.productName !== undefined) data.productName = updateData.productName
+    if (updateData.productSku !== undefined) data.productSku = updateData.productSku
+    if (updateData.issueDescription !== undefined) data.issueDescription = updateData.issueDescription
+    if (updateData.warrantyType !== undefined) data.warrantyType = updateData.warrantyType
+    if (updateData.returnMethod !== undefined) data.returnMethod = updateData.returnMethod
+    if (updateData.priority !== undefined) data.priority = updateData.priority
+    if (updateData.status !== undefined) data.status = updateData.status
+    if (updateData.expectedDate !== undefined) {
+      data.expectedDate = updateData.expectedDate ? new Date(updateData.expectedDate) : null
+    }
+    if (updateData.note !== undefined) data.notes = updateData.note
+
+    const warranty = await prisma.warranty.update({
+      where: { systemId },
+      data,
+    })
+
+    revalidatePath(`/warranty/${systemId}`)
+    revalidatePath('/warranty')
+
+    return { success: true, data: warranty }
+  } catch (error) {
+    console.error('updateWarrantyAction error:', error)
+    return { success: false, error: 'Không thể cập nhật phiếu bảo hành' }
+  }
+}
+
+// ====================================
+// DELETE WARRANTY
+// ====================================
+
+export async function deleteWarrantyAction(
+  systemId: string
+): Promise<ActionResult> {
+  const session = await auth()
+  if (!session?.user) {
+    return { success: false, error: 'Không có quyền truy cập' }
+  }
+
+  try {
+    const existing = await prisma.warranty.findUnique({
+      where: { systemId },
+    })
+
+    if (!existing) {
+      return { success: false, error: 'Phiếu bảo hành không tồn tại' }
+    }
+
+    // Soft delete - update isDeleted flag
+    await prisma.warranty.update({
+      where: { systemId },
+      data: {
+        isDeleted: true,
+        deletedAt: new Date(),
+        updatedAt: new Date(),
+        updatedBy: session.user?.name || session.user?.email || 'Unknown',
+      },
+    })
+
+    revalidatePath('/warranty')
+
+    return { success: true }
+  } catch (error) {
+    console.error('deleteWarrantyAction error:', error)
+    return { success: false, error: 'Không thể xóa phiếu bảo hành' }
+  }
+}

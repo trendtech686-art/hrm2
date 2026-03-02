@@ -10,10 +10,12 @@ model Product {
   type                 ProductType   @default(PHYSICAL)
   brandId              String?
   unit                 String        @default("Cái")
-  costPrice            Decimal       @default(0) @db.Decimal(15, 2)
-  sellingPrice         Decimal?      @db.Decimal(15, 2)
-  minPrice             Decimal?      @db.Decimal(15, 2)
-  taxRate              Decimal?      @db.Decimal(5, 2)
+  
+  // Pricing - Giá vốn & Giá nhập
+  costPrice            Decimal       @default(0) @db.Decimal(15, 2) // Giá vốn tính toán (TB/FIFO)
+  lastPurchasePrice    Decimal?      @db.Decimal(15, 2) // Giá nhập gần nhất
+  lastPurchaseDate     DateTime? // Ngày nhập gần nhất
+  
   isStockTracked       Boolean       @default(true)
   reorderLevel         Int?
   safetyStock          Int?
@@ -26,7 +28,6 @@ model Product {
   isPublished          Boolean       @default(false)
   isFeatured           Boolean       @default(false)
   sortOrder            Int?
-  seoTitle             String?
   seoDescription       String?
   seoKeywords          String?
   slug                 String?       @unique
@@ -39,12 +40,11 @@ model Product {
   updatedAt            DateTime      @updatedAt
   createdBy            String?
   updatedBy            String?
-  sku                  String?       @default("") @db.VarChar(100)
 
-  // === MISSING FIELDS FROM types.ts (Phase 7) ===
+  // === ADDITIONAL FIELDS ===
 
   // SEO & Content
-  ktitle       String? // Tiêu đề SEO-friendly
+  ktitle       String? // Tiêu đề SEO (thay thế seoTitle)
   videoLinks   String[] // Video links (YouTube, TikTok, etc.)
   seoPkgx      Json? // SEO data for PKGX website
   seoTrendtech Json? // SEO data for Trendtech website
@@ -60,17 +60,20 @@ model Product {
   tags                    String[] // Tags for filtering
 
   // External IDs
-  pkgxId      Int? // PKGX website ID
+  pkgxId      Int? // PKGX website ID (goods_id from PKGX)
   trendtechId Int? // Trendtech website ID
 
-  // Purchasing
-  lastPurchasePrice Decimal?  @db.Decimal(15, 2)
-  lastPurchaseDate  DateTime?
-
-  // Inventory by branch (JSON maps)
-  inventoryByBranch Json? // { branchSystemId: quantity }
-  committedByBranch Json? // { branchSystemId: committed }
-  inTransitByBranch Json? // { branchSystemId: inTransit }
+  // Inventory by branch (JSON maps) - Cache cho hiển thị nhanh
+  inventoryByBranch  Json? // { branchSystemId: quantity } - Tồn kho
+  committedByBranch  Json? // { branchSystemId: committed } - Đang giao dịch (đơn pending)
+  inTransitByBranch  Json? // { branchSystemId: inTransit } - Hàng đang về (chuyển kho/nhập)
+  inDeliveryByBranch Json? // { branchSystemId: inDelivery } - Hàng đang giao (đơn đang ship)
+  
+  // Computed inventory totals - Pre-calculated for fast filtering/sorting
+  totalInventory     Int       @default(0) // Sum of all inventoryByBranch values
+  totalCommitted     Int       @default(0) // Sum of all committedByBranch values
+  totalAvailable     Int       @default(0) // totalInventory - totalCommitted
+  inventoryUpdatedAt DateTime? // Last time inventory was recalculated
 
   // Dimensions
   dimensions Json? // { length, width, height } in cm
@@ -92,8 +95,6 @@ model Product {
   comboDiscount    Decimal? @db.Decimal(15, 2)
 
   // E-commerce fields
-  pkgxSlug      String? // URL-friendly slug for PKGX
-  trendtechSlug String? // URL-friendly slug for Trendtech
   isNewArrival  Boolean   @default(false)
   isBestSeller  Boolean   @default(false)
   isOnSale      Boolean   @default(false)
@@ -104,16 +105,9 @@ model Product {
   variantAttributes Json? // Array of VariantAttribute { name, code, options[] }
   variants          Json? // Array of ProductVariant
 
-  // Sales Analytics
-  totalRevenue Decimal?  @db.Decimal(15, 2)
-  lastSoldDate DateTime?
-
   // Lifecycle
   launchedDate     DateTime? // Ngày ra mắt
   discontinuedDate DateTime? // Ngày ngừng kinh doanh
-
-  // Activity History
-  activityHistory Json? // Array of HistoryEntry
 
   // === RELATIONS ===
   inventoryRecords  Inventory[]
@@ -124,9 +118,23 @@ model Product {
   brand             Brand?              @relation(fields: [brandId], references: [systemId])
   purchaseItems     PurchaseOrderItem[]
   warranties        Warranty[]
+  stockHistory      StockHistory[]
 
   @@index([brandId])
   @@index([isPublished])
   @@index([status])
+  @@index([isDeleted])
+  @@index([createdAt])
+  @@index([name])
+  @@index([id])
+  @@index([pkgxId])
+  @@index([barcode])
+  @@index([isDeleted, status])
+  @@index([isDeleted, createdAt(sort: Desc)])
+  @@index([isDeleted, status, createdAt(sort: Desc)])
+  @@index([isDeleted, brandId])
+  @@index([type])
+  @@index([totalInventory])
+  @@index([isDeleted, totalInventory])
   @@map("products")
 }

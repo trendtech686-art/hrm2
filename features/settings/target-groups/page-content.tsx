@@ -1,6 +1,7 @@
 import * as React from "react";
 import { Plus } from "lucide-react";
-import { useTargetGroups, useTargetGroupMutations } from "./hooks/use-target-groups";
+import { useTargetGroupMutations } from "./hooks/use-target-groups";
+import { useAllTargetGroups } from "./hooks/use-all-target-groups";
 import type { TargetGroup } from '@/lib/types/prisma-extended';
 import { TargetGroupForm, type TargetGroupFormValues } from "./form";
 import { asBusinessId, type SystemId } from "@/lib/id-types";
@@ -19,8 +20,7 @@ type TargetGroupsPageContentProps = {
 };
 
 export function TargetGroupsPageContent({ isActive, onRegisterActions }: TargetGroupsPageContentProps) {
-  const { data: queryData } = useTargetGroups({ limit: 1000 });
-  const data = React.useMemo(() => queryData?.data ?? [], [queryData?.data]);
+  const { data } = useAllTargetGroups();
   const { create, update, remove } = useTargetGroupMutations({
     onSuccess: () => {},
     onError: (err) => toast.error(err.message)
@@ -30,6 +30,8 @@ export function TargetGroupsPageContent({ isActive, onRegisterActions }: TargetG
   const [editingItem, setEditingItem] = React.useState<TargetGroup | null>(null);
   const [isAlertOpen, setIsAlertOpen] = React.useState(false);
   const [idToDelete, setIdToDelete] = React.useState<SystemId | null>(null);
+  const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
+  const [isBulkDeleteOpen, setIsBulkDeleteOpen] = React.useState(false);
   
   const handleAddNew = React.useCallback(() => {
     setEditingItem(null);
@@ -44,28 +46,27 @@ export function TargetGroupsPageContent({ isActive, onRegisterActions }: TargetG
   
   const handleToggleDefault = React.useCallback((item: TargetGroup, isDefault: boolean) => {
     if (isDefault) {
-      // Tắt mặc định của tất cả các nhóm khác
-      data.forEach(d => {
-        if (d.systemId !== item.systemId && d.isDefault) {
-          (update as any).mutate({ systemId: d.systemId, isDefault: false });
-        }
-      });
-      (update as any).mutate({ systemId: item.systemId, isDefault: true });
+      // Backend sẽ tự động tắt mặc định của các nhóm khác
+      update.mutate({ systemId: item.systemId, data: { isDefault: true } });
       toast.success(`Đã đặt "${item.name}" làm mặc định`);
     } else {
-      const other = data.find(d => d.systemId !== item.systemId && d.isActive !== false);
-      if (other) {
-        (update as any).mutate({ systemId: item.systemId, isDefault: false });
-        (update as any).mutate({ systemId: other.systemId, isDefault: true });
-        toast.success(`Đã chuyển mặc định sang "${other.name}"`);
-      } else {
+      // Không cho phép tắt mặc định nếu chỉ còn 1 item
+      const activeItems = data.filter(d => d.isActive !== false);
+      if (activeItems.length <= 1) {
         toast.error("Phải có ít nhất một nhóm đối tượng mặc định");
+        return;
+      }
+      // Chuyển mặc định sang item active khác
+      const other = activeItems.find(d => d.systemId !== item.systemId);
+      if (other) {
+        update.mutate({ systemId: other.systemId, data: { isDefault: true } });
+        toast.success(`Đã chuyển mặc định sang "${other.name}"`);
       }
     }
   }, [data, update]);
 
   const handleToggleStatus = React.useCallback((item: TargetGroup, isActive: boolean) => {
-    (update as any).mutate({ systemId: item.systemId, isActive });
+    update.mutate({ systemId: item.systemId, data: { isActive } });
     toast.success(isActive ? "Đã kích hoạt" : "Đã ngừng hoạt động");
   }, [update]);
   
@@ -78,6 +79,21 @@ export function TargetGroupsPageContent({ isActive, onRegisterActions }: TargetG
     }
     setIsAlertOpen(false);
     setIdToDelete(null);
+  };
+
+  const handleBulkDelete = React.useCallback((selectedItems: { systemId: string }[]) => {
+    if (selectedItems.length === 0) return;
+    setIsBulkDeleteOpen(true);
+  }, []);
+
+  const confirmBulkDelete = () => {
+    const selectedIds = Object.keys(rowSelection);
+    selectedIds.forEach(id => {
+      remove.mutate(id as SystemId);
+    });
+    toast.success(`Đã xóa ${selectedIds.length} nhóm đối tượng`);
+    setRowSelection({});
+    setIsBulkDeleteOpen(false);
   };
   
   const handleFormSubmit = (values: TargetGroupFormValues) => {
@@ -113,17 +129,18 @@ export function TargetGroupsPageContent({ isActive, onRegisterActions }: TargetG
     }
   };
 
-  React.useEffect(() => {
-    if (!isActive) {
-      return;
-    }
-
+  // Register header actions - use ref to avoid stale closures
+  const handleAddNewRef = React.useRef(handleAddNew);
+  handleAddNewRef.current = handleAddNew;
+  
+  React.useLayoutEffect(() => {
+    if (!isActive) return;
     onRegisterActions([
-      <SettingsActionButton key="add-target-group" onClick={handleAddNew}>
+      <SettingsActionButton key="add-target-group" onClick={() => handleAddNewRef.current()}>
         <Plus className="mr-2 h-4 w-4" /> Thêm nhóm đối tượng
       </SettingsActionButton>,
     ]);
-  }, [handleAddNew, isActive, onRegisterActions]);
+  }, [isActive, onRegisterActions]);
 
   const columns = React.useMemo(
     () => getTargetGroupColumns({
@@ -137,19 +154,23 @@ export function TargetGroupsPageContent({ isActive, onRegisterActions }: TargetG
 
   return (
     <div className="space-y-4">
-      <div className="rounded-md border">
-        <SimpleSettingsTable
-          data={data}
-          columns={columns}
-          emptyTitle="Chưa có nhóm đối tượng"
-          emptyDescription="Thêm nhóm đối tượng đầu tiên để phân loại"
-          emptyAction={
-            <Button size="sm" onClick={handleAddNew}>
-              Thêm nhóm đối tượng
-            </Button>
-          }
-        />
-      </div>
+      <SimpleSettingsTable
+        data={data}
+        columns={columns}
+        emptyTitle="Chưa có nhóm đối tượng"
+        emptyDescription="Thêm nhóm đối tượng đầu tiên để phân loại"
+        emptyAction={
+          <Button size="sm" onClick={handleAddNew}>
+            Thêm nhóm đối tượng
+          </Button>
+        }
+        enableSelection
+        rowSelection={rowSelection}
+        setRowSelection={setRowSelection}
+        onBulkDelete={handleBulkDelete}
+        enablePagination
+        pagination={{ pageSize: 10, showInfo: true }}
+      />
       
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
         <DialogContent>
@@ -175,6 +196,21 @@ export function TargetGroupsPageContent({ isActive, onRegisterActions }: TargetG
           <AlertDialogFooter>
             <AlertDialogCancel>Hủy</AlertDialogCancel>
             <AlertDialogAction onClick={confirmDelete}>Xóa</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={isBulkDeleteOpen} onOpenChange={setIsBulkDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Xóa {Object.keys(rowSelection).length} nhóm đối tượng?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Hành động này không thể hoàn tác. Các nhóm đối tượng đã chọn sẽ bị xóa vĩnh viễn.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Hủy</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmBulkDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Xóa tất cả</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -146,17 +146,18 @@ function SortableSubtask<T>({
       {/* Drag Handle */}
       {!readonly && (
         <button
-          className="cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 pt-0.5"
+          className="cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity shrink-0 pt-0.5"
           {...attributes}
           {...listeners}
           onClick={(e) => e.stopPropagation()}
+          suppressHydrationWarning // DndKit generates different aria-describedby on server vs client
         >
           <GripVertical className={`text-muted-foreground ${compact ? 'h-3.5 w-3.5' : 'h-4 w-4'}`} />
         </button>
       )}
 
       {/* Checkbox */}
-      <div className="flex-shrink-0 pt-0.5" onClick={(e) => e.stopPropagation()}>
+      <div className="shrink-0 pt-0.5" onClick={(e) => e.stopPropagation()}>
         <Checkbox
           checked={subtask.completed}
           onCheckedChange={(checked) =>
@@ -251,7 +252,7 @@ function SortableSubtask<T>({
             </AvatarFallback>
           </Avatar>
           {!compact && (
-            <span className="text-xs text-muted-foreground truncate max-w-[100px]">
+            <span className="text-xs text-muted-foreground truncate max-w-25">
               {subtask.assigneeName}
             </span>
           )}
@@ -316,6 +317,12 @@ export function SubtaskList<T = unknown>({
   const [newSubtaskTitle, setNewSubtaskTitle] = React.useState('');
   const [isAdding, setIsAdding] = React.useState(false);
   const [addingParentId, setAddingParentId] = React.useState<string | undefined>();
+  
+  // Fix hydration mismatch: only render DndContext after mount
+  const [isMounted, setIsMounted] = React.useState(false);
+  React.useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -410,50 +417,68 @@ export function SubtaskList<T = unknown>({
 
       {/* Subtasks List */}
       {subtasks.length > 0 ? (
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={handleDragEnd}
-        >
-          <SortableContext
-            items={parentSubtasks.map((s) => s.id)}
-            strategy={verticalListSortingStrategy}
+        isMounted ? (
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
           >
-            <div className="space-y-2">
-              {parentSubtasks.map((subtask) => (
-                <div key={subtask.id} className="space-y-2">
-                  {/* Parent Subtask */}
-                  <SortableSubtask
-                    subtask={subtask}
-                    onToggleComplete={onToggleComplete}
-                    onUpdate={onUpdate}
-                    onDelete={onDelete}
-                    onAddNested={allowNested ? handleAddNested : undefined}
-                    showAssignee={showAssignee}
-                    readonly={readonly}
-                    compact={compact}
-                  />
+            <SortableContext
+              items={parentSubtasks.map((s) => s.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="space-y-2">
+                {parentSubtasks.map((subtask) => (
+                  <div key={subtask.id} className="space-y-2">
+                    {/* Parent Subtask */}
+                    <SortableSubtask
+                      subtask={subtask}
+                      onToggleComplete={onToggleComplete}
+                      onUpdate={onUpdate}
+                      onDelete={onDelete}
+                      onAddNested={allowNested ? handleAddNested : undefined}
+                      showAssignee={showAssignee}
+                      readonly={readonly}
+                      compact={compact}
+                    />
 
-                  {/* Nested Subtasks */}
-                  {allowNested &&
-                    getNestedSubtasks(subtask.id).map((nested) => (
-                      <SortableSubtask
-                        key={nested.id}
-                        subtask={nested}
-                        isNested
-                        onToggleComplete={onToggleComplete}
-                        onUpdate={onUpdate}
-                        onDelete={onDelete}
-                        showAssignee={showAssignee}
-                        readonly={readonly}
-                        compact={compact}
-                      />
-                    ))}
+                    {/* Nested Subtasks */}
+                    {allowNested &&
+                      getNestedSubtasks(subtask.id).map((nested) => (
+                        <SortableSubtask
+                          key={nested.id}
+                          subtask={nested}
+                          isNested
+                          onToggleComplete={onToggleComplete}
+                          onUpdate={onUpdate}
+                          onDelete={onDelete}
+                          showAssignee={showAssignee}
+                          readonly={readonly}
+                          compact={compact}
+                        />
+                      ))}
+                  </div>
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
+        ) : (
+          // Render static list during SSR to avoid hydration mismatch
+          <div className="space-y-2">
+            {parentSubtasks.map((subtask) => (
+              <div key={subtask.id} className="space-y-2">
+                <div className="group flex items-start gap-2 p-2 rounded-lg border bg-card hover:bg-muted/50 transition-colors">
+                  <div className="shrink-0 pt-0.5">
+                    <Checkbox checked={subtask.completed} disabled />
+                  </div>
+                  <span className={`flex-1 text-sm ${subtask.completed ? 'line-through text-muted-foreground' : ''}`}>
+                    {subtask.title}
+                  </span>
                 </div>
-              ))}
-            </div>
-          </SortableContext>
-        </DndContext>
+              </div>
+            ))}
+          </div>
+        )
       ) : (
         <div className="text-center py-8 text-muted-foreground text-sm border border-dashed rounded-lg">
           {emptyMessage}

@@ -12,7 +12,25 @@ export async function POST(request: Request, { params }: RouteParams) {
 
   try {
     const { systemId, packagingId } = await params;
-    const _body = await request.json();
+    const body = await request.json();
+    
+    // Extract GHTK data from request body (sent from client after calling GHTK API)
+    const { 
+      trackingCode, 
+      trackingId,
+      estimatedPickTime,
+      estimatedDeliverTime,
+      shippingFee,
+      weight,
+      dimensions,
+      codAmount,
+      payer,
+      service,
+    } = body;
+    
+    if (!trackingCode) {
+      return apiError('trackingCode is required', 400);
+    }
 
     // Get the packaging
     const packaging = await prisma.packaging.findUnique({
@@ -31,19 +49,28 @@ export async function POST(request: Request, { params }: RouteParams) {
     if (packaging.orderId !== systemId) {
       return apiError('Packaging does not belong to this order', 400);
     }
-
-    // TODO: Call GHTK API to create shipment
-    // This is a placeholder - actual implementation needs GHTK API integration
-    const ghtkResponse = {
-      success: true,
-      trackingCode: `GHTK${Date.now()}`,
-      estimatedDelivery: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000), // 3 days
-    };
+    
+    // Check if packaging already has a shipment
+    const existingShipment = await prisma.shipment.findUnique({
+      where: { packagingSystemId: packagingId },
+    });
+    
+    if (existingShipment) {
+      return apiError('Phiếu đóng gói này đã có đơn vận chuyển', 400);
+    }
 
     // Transaction: create shipment with GHTK data
     const updatedOrder = await prisma.$transaction(async (tx) => {
-      // Generate shipment systemId
-      const shipmentId = `SH${Date.now()}`;
+      // Get last shipment systemId to generate next one sequentially
+      const lastShipment = await tx.shipment.findFirst({
+        orderBy: { systemId: 'desc' },
+        select: { systemId: true },
+        where: { systemId: { startsWith: 'SHIPMENT' } },
+      });
+      const lastNum = lastShipment?.systemId 
+        ? parseInt(lastShipment.systemId.replace('SHIPMENT', '')) || 0
+        : 0;
+      const shipmentId = `SHIPMENT${String(lastNum + 1).padStart(6, '0')}`;
       
       // Create shipment
       await tx.shipment.create({
@@ -53,16 +80,43 @@ export async function POST(request: Request, { params }: RouteParams) {
           orderId: packaging.orderId,
           packagingSystemId: packaging.systemId,
           carrier: 'GHTK',
-          trackingCode: ghtkResponse.trackingCode,
-          estimatedDeliverTime: ghtkResponse.estimatedDelivery,
+          trackingCode: trackingCode,
+          estimatedDeliverTime: estimatedDeliverTime ? new Date(estimatedDeliverTime) : null,
           status: 'PENDING',
+        },
+      });
+      
+      // Update packaging with GHTK info
+      await tx.packaging.update({
+        where: { systemId: packagingId },
+        data: {
+          trackingCode: trackingCode,
+          ghtkTrackingId: trackingId != null ? String(trackingId) : null,
+          estimatedPickTime: estimatedPickTime ? new Date(estimatedPickTime) : null,
+          estimatedDeliverTime: estimatedDeliverTime ? new Date(estimatedDeliverTime) : null,
+          shippingFeeToPartner: shippingFee != null ? String(shippingFee) : undefined,
+          weight: weight,
+          dimensions: dimensions,
+          codAmount: codAmount != null ? String(codAmount) : undefined,
+          payer: payer,
+          service: service,
+          carrier: 'GHTK',
+          deliveryMethod: 'SHIPPING', // ✅ Use enum value
+          deliveryStatus: 'PENDING_SHIP', // ✅ Use enum value - enables action buttons
+          partnerStatus: 'Chờ lấy hàng',
+          ghtkStatusId: 1,
+          lastSyncedAt: new Date(),
         },
       });
 
       // Update order status
       const updated = await tx.order.update({
         where: { systemId },
-        data: { status: 'SHIPPING' },
+        data: { 
+          status: 'SHIPPING',
+          trackingCode: trackingCode,
+          shippingCarrier: 'GHTK',
+        },
         include: {
           customer: true,
           lineItems: {
@@ -80,8 +134,15 @@ export async function POST(request: Request, { params }: RouteParams) {
 
       return updated;
     });
+    
+    console.log(`[GHTK API] Created shipment for packaging ${packagingId} with tracking ${trackingCode}`);
 
-    return apiSuccess(updatedOrder);
+    return apiSuccess({ 
+      success: true, 
+      message: 'Đã tạo đơn vận chuyển GHTK thành công',
+      trackingCode,
+      order: updatedOrder,
+    });
   } catch (error) {
     console.error('Error creating GHTK shipment:', error);
     return apiError('Failed to create GHTK shipment', 500);

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { asSystemId } from '@/lib/id-types';
 import type { WarrantyTicket } from '../types';
-import { updateWarranty } from '../api/warranties-api';
+import { updateWarrantyAction } from '@/app/actions/warranty';
 import { ROUTES, generatePath } from '@/lib/router';
 
 interface CancelWorkflowState {
@@ -53,7 +53,7 @@ export function useWarrantyHandlers(
     const normalized = ticketsToCancel
       .filter((ticket): ticket is WarrantyTicket => Boolean(ticket))
       .filter((ticket, index, self) => self.findIndex((item) => item.systemId === ticket.systemId) === index)
-      .filter((ticket) => ticket.status !== 'cancelled' && !ticket.cancelledAt);
+      .filter((ticket) => ticket.status !== 'CANCELLED' && !ticket.cancelledAt);
 
     const skipped = ticketsToCancel.length - normalized.length;
 
@@ -123,8 +123,12 @@ export function useWarrantyHandlers(
       return;
     }
 
-    await updateWarranty(normalizedId, { status: 'pending' });
-    toast.success('Đã chuyển sang trạng thái Chưa xử lý');
+    const result = await updateWarrantyAction({ systemId: normalizedId, status: 'PROCESSING' });
+    if (!result.success) {
+      toast.error(result.error || 'Không thể cập nhật trạng thái');
+      return;
+    }
+    toast.success('Đã chuyển sang trạng thái Đang xử lý');
   }, [tickets]);
 
   const handleMarkProcessed = React.useCallback(async (systemId: string) => {
@@ -135,7 +139,11 @@ export function useWarrantyHandlers(
       return;
     }
 
-    await updateWarranty(normalizedId, { status: 'processed' });
+    const result = await updateWarrantyAction({ systemId: normalizedId, status: 'COMPLETED' });
+    if (!result.success) {
+      toast.error(result.error || 'Không thể cập nhật trạng thái');
+      return;
+    }
     toast.success('Đã hoàn thành xử lý');
   }, [tickets]);
 

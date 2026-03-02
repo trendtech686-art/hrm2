@@ -1,4 +1,4 @@
-import * as React from 'react';
+﻿import * as React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../../components/ui/card';
 import { Button } from '../../../../components/ui/button';
 import { Badge } from '../../../../components/ui/badge';
@@ -72,7 +72,7 @@ export function LogTab() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
-            <CardTitle className="text-lg">Lịch sử hoạt động</CardTitle>
+            <CardTitle size="lg">Lịch sử hoạt động</CardTitle>
             <CardDescription>Log các thao tác đồng bộ với Trendtech</CardDescription>
           </div>
           {logs.length > 0 && (

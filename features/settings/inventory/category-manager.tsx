@@ -22,7 +22,6 @@ import {
   AlertDialogTitle,
 } from '../../../components/ui/alert-dialog';
 import type { ProductCategory } from './types';
-import { type SystemId } from '@/lib/id-types';
 import { CategoryDetailForm, type CategoryFormValues } from './category-detail-form';
 
 // Re-export CategoryFormValues for backward compatibility
@@ -35,9 +34,9 @@ export type { CategoryFormValues } from './category-detail-form';
 interface CategoryManagerProps {
   categories: ProductCategory[];
   onAdd: (data: CategoryFormValues) => void;
-  onUpdate: (systemId: SystemId, data: Partial<CategoryFormValues>) => void;
-  onDelete: (systemId: SystemId) => void;
-  onMove: (systemId: SystemId, newParentId: SystemId | undefined, newSortOrder: number) => void;
+  onUpdate: (systemId: string, data: Partial<CategoryFormValues>) => void;
+  onDelete: (systemId: string) => void;
+  onMove: (systemId: string, newParentId: string | null | undefined, newSortOrder: number) => void;
   existingIds: string[];
   /** Ref để expose hàm addNew từ PageHeader */
   addNewRef?: React.RefObject<{ addNew: () => void } | null>;
@@ -50,12 +49,12 @@ interface CategoryManagerProps {
 interface TreeNodeProps {
   category: ProductCategory;
   allCategories: ProductCategory[];
-  selectedId: SystemId | null;
+  selectedId: string | null;
   onSelect: (category: ProductCategory) => void;
-  onAddChild: (parentId: SystemId) => void;
+  onAddChild: (parentId: string) => void;
   level: number;
-  expandedIds: Set<SystemId>;
-  onToggleExpand: (id: SystemId) => void;
+  expandedIds: Set<string>;
+  onToggleExpand: (id: string) => void;
   searchTerm: string;
 }
 
@@ -206,9 +205,9 @@ export function CategoryManager({
 }: CategoryManagerProps) {
   const [selectedCategory, setSelectedCategory] = React.useState<ProductCategory | null>(null);
   const [isNewMode, setIsNewMode] = React.useState(false);
-  const [newParentId, setNewParentId] = React.useState<SystemId | undefined>(undefined);
+  const [newParentId, setNewParentId] = React.useState<string | undefined>(undefined);
   const [searchTerm, setSearchTerm] = React.useState('');
-  const [expandedIds, setExpandedIds] = React.useState<Set<SystemId>>(new Set());
+  const [expandedIds, setExpandedIds] = React.useState<Set<string>>(new Set());
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
 
   // Expose addNew function via ref for PageHeader
@@ -231,7 +230,7 @@ export function CategoryManager({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally only run on mount to expand all initially
   }, []);
 
-  const handleToggleExpand = (id: SystemId) => {
+  const handleToggleExpand = (id: string) => {
     setExpandedIds(prev => {
       const next = new Set(prev);
       if (next.has(id)) {
@@ -263,7 +262,7 @@ export function CategoryManager({
     setNewParentId(undefined);
   };
 
-  const handleAddChild = (parentId: SystemId) => {
+  const handleAddChild = (parentId: string) => {
     setSelectedCategory(null);
     setIsNewMode(true);
     setNewParentId(parentId);

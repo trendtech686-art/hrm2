@@ -56,7 +56,7 @@ export function CashAccountForm({ initialData, onSubmit }: FormProps) {
         return {
           id: String(account.id),
           name: account.name,
-          initialBalance: account.initialBalance,
+          initialBalance: Number(account.initialBalance) || 0,
           type: account.type,
           bankAccountNumber: account.bankAccountNumber ?? undefined,
           bankBranch: account.bankBranch ?? undefined,
@@ -66,8 +66,8 @@ export function CashAccountForm({ initialData, onSubmit }: FormProps) {
           bankName: account.bankName ?? undefined,
           bankCode: account.bankCode ?? undefined,
           accountHolder: account.accountHolder ?? undefined,
-          minBalance: account.minBalance ?? undefined,
-          maxBalance: account.maxBalance ?? undefined,
+          minBalance: account.minBalance != null ? Number(account.minBalance) : undefined,
+          maxBalance: account.maxBalance != null ? Number(account.maxBalance) : undefined,
           managedBy: account.managedBy ? String(account.managedBy) : undefined,
         };
       }

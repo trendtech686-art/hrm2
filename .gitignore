@@ -29,3 +29,8 @@ dist-ssr
 !/uploads/.gitkeep
 # Next.js build output
 .next/
+
+# Environment variables (contain secrets)
+.env
+.env.local
+.env.*.local

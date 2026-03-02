@@ -83,11 +83,18 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     const brand = await prisma.brand.update({
       where: { systemId },
       data: {
+        ...(body.id !== undefined && { id: body.id }),
         ...(body.name !== undefined && { name: body.name }),
         ...(body.description !== undefined && { description: body.description }),
         ...(body.logo !== undefined && { logoUrl: body.logo }),
         ...(body.logoUrl !== undefined && { logoUrl: body.logoUrl }),
         ...(body.website !== undefined && { website: body.website }),
+        ...(body.isActive !== undefined && { isActive: body.isActive }),
+        ...(body.seoTitle !== undefined && { seoTitle: body.seoTitle }),
+        ...(body.metaDescription !== undefined && { metaDescription: body.metaDescription }),
+        ...(body.shortDescription !== undefined && { shortDescription: body.shortDescription }),
+        ...(body.longDescription !== undefined && { longDescription: body.longDescription }),
+        ...(body.websiteSeo !== undefined && { websiteSeo: body.websiteSeo }),
       },
     })
 
@@ -109,9 +116,18 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
   try {
     const { systemId } = await params
 
-    await prisma.brand.update({
-      where: { systemId },
-      data: { isDeleted: true },
+    // Use transaction to ensure consistency
+    await prisma.$transaction(async (tx) => {
+      // 1. Delete PKGX mapping for this brand
+      await tx.pkgxBrandMapping.deleteMany({
+        where: { hrmBrandId: systemId },
+      })
+
+      // 2. Soft delete the brand
+      await tx.brand.update({
+        where: { systemId },
+        data: { isDeleted: true },
+      })
     })
 
     return apiSuccess({ success: true })

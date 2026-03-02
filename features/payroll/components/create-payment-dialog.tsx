@@ -16,7 +16,7 @@ import { toast } from 'sonner';
 import type { PayrollBatch, Payslip } from '../../../lib/payroll-types';
 import type { SystemId } from '../../../lib/id-types';
 import type { Employee } from '../../employees/types';
-import { usePaymentStore } from '../../payments/store';
+import { usePaymentMutations } from '../../payments/hooks/use-payments';
 import { useAllCashAccounts } from '../../cashbook/hooks/use-all-cash-accounts';
 import { getCurrentUserSystemId } from '../../../contexts/auth-context';
 import { asSystemId } from '../../../lib/id-types';
@@ -58,7 +58,7 @@ export function CreatePaymentDialog({
   const [isCreating, setIsCreating] = React.useState(false);
 
   // Stores
-  const paymentStore = usePaymentStore();
+  const { create: createPayment } = usePaymentMutations({});
   const { accounts: cashAccounts } = useAllCashAccounts();
 
   // Computed
@@ -126,15 +126,26 @@ export function CreatePaymentDialog({
       for (const payslip of payslipsWithPay) {
         const employee = employeeLookup[payslip.employeeSystemId];
         const employeeName = employee?.fullName ?? `Nhân viên ${payslip.employeeId}`;
+        
+        // Format monthKey from yyyy-MM to MM/yyyy
+        const monthKey = batch.payPeriod?.monthKey ?? '';
+        const formattedMonth = monthKey 
+          ? `${monthKey.split('-')[1]}/${monthKey.split('-')[0]}` 
+          : '';
 
-        paymentStore.add({
+        // Ensure amount is a number (not Decimal object)
+        const netPayAmount = typeof payslip.totals.netPay === 'object' 
+          ? Number(payslip.totals.netPay) 
+          : payslip.totals.netPay;
+
+        await createPayment.mutateAsync({
           date: today,
-          amount: payslip.totals.netPay,
+          amount: netPayAmount,
           recipientTypeSystemId: 'NHANVIEN' as SystemId,
           recipientTypeName: 'Nhân viên',
           recipientName: employeeName,
           recipientSystemId: payslip.employeeSystemId,
-          description: `Chi lương tháng ${batch.payPeriod?.monthKey ?? ''} - ${employeeName}`,
+          description: `Chi lương tháng ${formattedMonth} - ${employeeName}`,
           paymentMethodSystemId: 'CHUYENKHOAN' as SystemId,
           paymentMethodName: 'Chuyển khoản',
           accountSystemId: selectedAccount.systemId,
@@ -143,7 +154,6 @@ export function CreatePaymentDialog({
           branchSystemId: 'BRANCH-001' as SystemId,
           branchName: 'Chi nhánh chính',
           createdBy: currentUserId,
-          createdAt: now,
           status: 'completed',
           category: 'salary',
           affectsDebt: false,
@@ -177,7 +187,7 @@ export function CreatePaymentDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[450px]">
+      <DialogContent className="sm:max-w-112.5">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Banknote className="h-5 w-5" />

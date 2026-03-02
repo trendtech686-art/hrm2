@@ -203,8 +203,9 @@ export interface ImportExportConfig<T> {
   
   // Post-transform row (sau khi transform field values)
   // Dùng để enrich data, lookup IDs, etc.
-  // Params: row, index, branchSystemId (for inventory)
-  postTransformRow?: (row: Partial<T>, index?: number, branchSystemId?: string) => Partial<T>;
+  // Params: row, index, branchSystemId or context (for payment/receipt configs)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  postTransformRow?: (row: Partial<T>, index?: number, branchSystemIdOrContext?: any) => Partial<T>;
   
   // Max rows
   maxRows?: number;              // Default: 1000

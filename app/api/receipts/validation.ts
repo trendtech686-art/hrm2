@@ -15,14 +15,35 @@ export const listReceiptsSchema = z.object({
 // Create receipt schema
 export const createReceiptSchema = z.object({
   id: z.string().optional(),
+  // Legacy fields
   customerId: z.string().optional(),
   orderId: z.string().optional(),
   branchId: z.string().optional(),
-  amount: z.number().min(0, 'Số tiền phải >= 0'),
   method: z.string().optional(),
   paymentMethod: z.string().optional(),
   receiptDate: z.string().optional(),
+  // New systemId-based fields
+  branchSystemId: z.string().optional(),
+  branchName: z.string().optional(),
+  customerSystemId: z.string().optional(),
+  customerName: z.string().optional(),
+  payerTypeSystemId: z.string().optional(),
+  payerTypeName: z.string().optional(),
+  payerSystemId: z.string().optional(),
+  payerName: z.string().optional(),
+  paymentMethodSystemId: z.string().optional(),
+  paymentMethodName: z.string().optional(),
+  accountSystemId: z.string().optional(),
+  paymentReceiptTypeSystemId: z.string().optional(),
+  paymentReceiptTypeName: z.string().optional(),
+  // Common fields
+  date: z.string().optional(),
+  amount: z.number().min(0, 'Số tiền phải >= 0'),
   description: z.string().optional(),
+  affectsDebt: z.boolean().optional(),
+  status: z.string().optional(),
+  category: z.string().optional(),
+  createdBy: z.string().optional(),
 })
 
 // Update receipt schema

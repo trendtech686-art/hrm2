@@ -22,6 +22,9 @@ export interface EmployeesParams {
   status?: string;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
+  // Filter by name (not ID)
+  department?: string;
+  jobTitle?: string;
 }
 
 export interface PaginatedResponse<T> {
@@ -42,6 +45,7 @@ export interface CreateEmployeeInput {
   branchId?: string;
   jobTitleId?: string;
   hireDate?: string;
+  role?: string;
   // Optional fields for updates
   isDeleted?: boolean;
   employmentStatus?: string;
@@ -55,12 +59,11 @@ export interface UpdateEmployeeInput extends Partial<CreateEmployeeInput> {
  * Fetch paginated employees list
  */
 export async function fetchEmployees(params: EmployeesParams = {}): Promise<PaginatedResponse<Employee>> {
-  const { page = 1, limit = 50, ...rest } = params;
+  const { page, limit, ...rest } = params;
   
-  const searchParams = new URLSearchParams({
-    page: String(page),
-    limit: String(limit),
-  });
+  const searchParams = new URLSearchParams();
+  if (page != null) searchParams.set('page', String(page));
+  if (limit != null) searchParams.set('limit', String(limit));
   
   // Add optional params
   Object.entries(rest).forEach(([key, value]) => {
@@ -169,35 +172,40 @@ export async function searchEmployees(query: string, limit = 20): Promise<Employ
 }
 
 /**
- * Fetch employees by department
+ * Fetch employees by department (auto-paginated — fetches all pages)
  */
 export async function fetchEmployeesByDepartment(departmentId: string): Promise<Employee[]> {
-  const res = await fetch(`${API_BASE}?departmentId=${departmentId}&limit=100`, {
-    credentials: 'include',
-  });
-  
-  if (!res.ok) {
-    throw new Error(`Failed to fetch employees by department: ${res.statusText}`);
-  }
-  
-  const json = await res.json();
-  return json.data || [];
+  return fetchAllEmployeePages({ departmentId });
 }
 
 /**
- * Fetch employees by branch
+ * Fetch employees by branch (auto-paginated — fetches all pages)
  */
 export async function fetchEmployeesByBranch(branchId: string): Promise<Employee[]> {
-  const res = await fetch(`${API_BASE}?branchId=${branchId}&limit=100`, {
-    credentials: 'include',
-  });
+  return fetchAllEmployeePages({ branchId });
+}
+
+/**
+ * Internal helper: auto-paginate to fetch ALL employees matching given filters.
+ * Fetches page 1, discovers totalPages, then fetches remaining pages in parallel.
+ */
+async function fetchAllEmployeePages(filters: Omit<EmployeesParams, 'page' | 'limit'>): Promise<Employee[]> {
+  const PAGE_SIZE = 100;
   
-  if (!res.ok) {
-    throw new Error(`Failed to fetch employees by branch: ${res.statusText}`);
-  }
+  // Step 1: Fetch first page to discover totalPages
+  const firstPage = await fetchEmployees({ ...filters, page: 1, limit: PAGE_SIZE });
+  const totalPages = firstPage.pagination?.totalPages || 1;
   
-  const json = await res.json();
-  return json.data || [];
+  if (totalPages <= 1) return firstPage.data || [];
+  
+  // Step 2: Fetch remaining pages in parallel
+  const remaining = await Promise.all(
+    Array.from({ length: totalPages - 1 }, (_, i) =>
+      fetchEmployees({ ...filters, page: i + 2, limit: PAGE_SIZE })
+    )
+  );
+  
+  return [...firstPage.data, ...remaining.flatMap(r => r.data || [])];
 }
 /**
  * Fetch deleted employees (trash)

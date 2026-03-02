@@ -351,8 +351,8 @@ export function useSalesProductReport(
           productMap.set(prodId, {
             productSystemId: prodId as SystemId,
             productName: product?.name || item.productName || 'Unknown',
-            productCode: product?.sku,
-            sku: product?.sku,
+            productCode: product?.id,
+            sku: product?.id,
             categoryName: product?.categories?.[0],
             brandName: product?.brandSystemId ? findBrandById(product.brandSystemId)?.name : undefined,
             quantitySold: 0,

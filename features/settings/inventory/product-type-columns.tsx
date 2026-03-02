@@ -7,8 +7,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../../../components/ui/dropdown-menu";
 import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
@@ -26,6 +24,13 @@ export const getProductTypeColumns = ({
   onToggleDefault,
   onToggleActive,
 }: ColumnOptions): ColumnDef<ProductType>[] => [
+  {
+    id: "id",
+    header: "Mã loại",
+    cell: ({ row }) => <span className="text-sm">{row.id}</span>,
+    meta: { displayName: "Mã loại" },
+    size: 120,
+  },
   {
     id: "name",
     header: "Tên loại",
@@ -68,7 +73,7 @@ export const getProductTypeColumns = ({
   },
   {
     id: "actions",
-    header: () => <div className="text-right">Thao tác</div>,
+    header: "",
     cell: ({ row }) => (
       <div className="text-right">
         <DropdownMenu>
@@ -79,8 +84,6 @@ export const getProductTypeColumns = ({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Thao tác</DropdownMenuLabel>
-            <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={() => onEdit(row)}>
               <Pencil className="mr-2 h-4 w-4" />
               Chỉnh sửa

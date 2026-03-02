@@ -1,4 +1,4 @@
-import * as React from 'react';
+﻿import * as React from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { SubtaskList, type Subtask } from '../../../components/shared/subtask-list';
@@ -16,52 +16,92 @@ export function SalesReturnWorkflowCard({
   onSubtasksChange,
   readonly = false,
 }: SalesReturnWorkflowCardProps) {
-  // Initialize subtasks from template if empty
-  const workflowSubtasks = React.useMemo((): Subtask[] => {
-    if (subtasks && subtasks.length > 0) {
-      return subtasks;
+  // ✅ FIX: Use local state for immediate UI updates, sync to form via debounce
+  const [localSubtasks, setLocalSubtasks] = React.useState<Subtask[]>(() => {
+    if (subtasks && subtasks.length > 0) return subtasks;
+    return getWorkflowTemplate('sales-returns');
+  });
+  
+  // Track if initialized
+  const initializedRef = React.useRef(false);
+  const syncTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  
+  // Initialize on mount if subtasks are empty
+  React.useEffect(() => {
+    if (initializedRef.current) return;
+    initializedRef.current = true;
+    
+    if (!subtasks || subtasks.length === 0) {
+      const template = getWorkflowTemplate('sales-returns');
+      if (template.length > 0) {
+        setLocalSubtasks(template);
+        // Sync to form after a short delay
+        syncTimeoutRef.current = setTimeout(() => {
+          onSubtasksChange(template);
+        }, 100);
+      }
     }
     
-    // Get default workflow template for sales-returns
-    const template = getWorkflowTemplate('sales-returns');
-    if (template.length > 0) {
-      // Auto-save to form
-      onSubtasksChange(template);
-      return template;
-    }
-    
-    return [];
+    return () => {
+      if (syncTimeoutRef.current) {
+        clearTimeout(syncTimeoutRef.current);
+      }
+    };
   }, [subtasks, onSubtasksChange]);
+  
+  // Sync from parent if subtasks change externally
+  React.useEffect(() => {
+    if (subtasks && subtasks.length > 0 && subtasks !== localSubtasks) {
+      // Only update if the data is actually different (by comparing IDs and completed status)
+      const isEqual = subtasks.length === localSubtasks.length &&
+        subtasks.every((s, i) => s.id === localSubtasks[i]?.id && s.completed === localSubtasks[i]?.completed);
+      if (!isEqual) {
+        setLocalSubtasks(subtasks);
+      }
+    }
+  }, [subtasks, localSubtasks]);
 
   const handleToggleComplete = React.useCallback(
     (id: string, completed: boolean) => {
-      const toggledSubtask = workflowSubtasks.find((s) => s.id === id);
+      const toggledSubtask = localSubtasks.find((s) => s.id === id);
       if (!toggledSubtask) return;
 
-      const updatedSubtasks = workflowSubtasks.map((subtask) =>
+      const updatedSubtasks = localSubtasks.map((subtask) =>
         subtask.id === id 
           ? { ...subtask, completed, completedAt: completed ? new Date() : undefined } 
           : subtask
       );
 
-      onSubtasksChange(updatedSubtasks);
+      // ✅ Update local state immediately for instant UI feedback
+      setLocalSubtasks(updatedSubtasks);
+
+      // ✅ Debounce sync to parent form to avoid expensive re-renders
+      if (syncTimeoutRef.current) {
+        clearTimeout(syncTimeoutRef.current);
+      }
+      syncTimeoutRef.current = setTimeout(() => {
+        onSubtasksChange(updatedSubtasks);
+      }, 300); // 300ms debounce
 
       const action = completed ? 'Hoàn thành bước' : 'Bỏ hoàn thành bước';
       toast.success(`${action}: ${toggledSubtask.title}`);
     },
-    [workflowSubtasks, onSubtasksChange]
+    [localSubtasks, onSubtasksChange]
   );
 
   const handleAllCompleted = React.useCallback(() => {
     toast.success('Đã hoàn thành toàn bộ quy trình xử lý!');
   }, []);
+  
+  // Use local state for rendering
+  const workflowSubtasks = localSubtasks;
 
   // Show message if no workflow template is configured
   if (workflowSubtasks.length === 0) {
     return (
       <Card className="h-full border-dashed">
         <CardHeader>
-          <CardTitle className="text-base">Quy trình xử lý</CardTitle>
+          <CardTitle>Quy trình xử lý</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="text-center py-4 text-muted-foreground">
@@ -78,7 +118,7 @@ export function SalesReturnWorkflowCard({
   return (
     <Card className="h-full">
       <CardHeader>
-        <CardTitle className="text-base">Quy trình xử lý</CardTitle>
+        <CardTitle>Quy trình xử lý</CardTitle>
       </CardHeader>
       <CardContent>
         <SubtaskList

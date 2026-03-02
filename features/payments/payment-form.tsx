@@ -41,15 +41,29 @@ interface PaymentFormProps {
 
 export function PaymentForm({ initialData, onSubmit, isEditing = false }: PaymentFormProps) {
   const router = useRouter();
+  
+  // === Settings data (nhỏ, luôn load) ===
   const { data: paymentTypes } = useAllPaymentTypes();
   const { data: paymentMethods } = useAllPaymentMethods();
   const { data: targetGroups } = useAllTargetGroups();
   const { accounts } = useAllCashAccounts();
   const { data: branches } = useAllBranches();
-  const { data: customers } = useAllCustomers();
-  const { data: suppliers } = useAllSuppliers();
-  const { data: employees } = useAllEmployees();
   const { data: shippingPartners } = useAllShippingPartners();
+  
+  // === State để track target group được chọn (để lazy load recipients) ===
+  const [selectedTargetGroupId, setSelectedTargetGroupId] = React.useState<string | undefined>(() => {
+    // Xác định initial target group từ initialData hoặc default NHACUNGCAP
+    if (initialData?.recipientTypeSystemId) {
+      const group = targetGroups.find(tg => tg.systemId === initialData.recipientTypeSystemId);
+      return group?.id;
+    }
+    return 'NHACUNGCAP'; // Default load suppliers
+  });
+
+  // === Lazy load recipients dựa trên target group đã chọn ===
+  const { data: customers } = useAllCustomers({ enabled: selectedTargetGroupId === 'KHACHHANG' });
+  const { data: suppliers } = useAllSuppliers({ enabled: selectedTargetGroupId === 'NHACUNGCAP' });
+  const { data: employees } = useAllEmployees({ enabled: selectedTargetGroupId === 'NHANVIEN' });
 
   // Chỉ lấy active items
   const activePaymentTypes = paymentTypes.filter(pt => pt.isActive);
@@ -124,6 +138,14 @@ export function PaymentForm({ initialData, onSubmit, isEditing = false }: Paymen
   // Watch paymentMethodSystemId và recipientTypeSystemId để filter
   const paymentMethodSystemId = form.watch('paymentMethodSystemId');
   const recipientTypeSystemId = form.watch('recipientTypeSystemId');
+
+  // Sync selectedTargetGroupId với form value để lazy load recipients đúng
+  React.useEffect(() => {
+    const group = targetGroups.find(tg => tg.systemId === recipientTypeSystemId);
+    if (group?.id) {
+      setSelectedTargetGroupId(group.id);
+    }
+  }, [recipientTypeSystemId, targetGroups]);
 
   // Lấy payment method và target group để filter
   const selectedPaymentMethod = React.useMemo(

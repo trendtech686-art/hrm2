@@ -37,6 +37,7 @@ import {
 import { TipTapEditor } from '@/components/ui/tiptap-editor';
 import { SettingsActionButton } from '@/components/settings/SettingsActionButton';
 import { toast } from 'sonner';
+import { generateSubEntityId } from '@/lib/id-utils';
 import type { TabContentProps } from './types';
 
 interface Redirect301 {
@@ -208,7 +209,7 @@ export function WebsiteTabContent({ isActive, onRegisterActions }: TabContentPro
   const handleRedirectDialogSubmit = () => {
     if (redirectDialogMode === 'add') {
       const newRedirect: Redirect301 = {
-        id: Date.now().toString(),
+        id: generateSubEntityId('widget'),
         fromUrl: redirectFormData.fromUrl,
         toUrl: redirectFormData.toUrl,
         isActive: redirectFormData.isActive,
@@ -409,7 +410,7 @@ export function WebsiteTabContent({ isActive, onRegisterActions }: TabContentPro
                 value={settings.sslCertExpiry}
                 onChange={(e) => handleChange('sslCertExpiry', e.target.value)}
                 disabled={!settings.sslEnabled}
-                className="max-w-[200px]"
+                className="max-w-50"
               />
               {settings.sslEnabled && settings.sslCertExpiry && (
                 <Badge variant={
@@ -460,7 +461,7 @@ export function WebsiteTabContent({ isActive, onRegisterActions }: TabContentPro
                 setRedirectPage(1);
               }}
             >
-              <SelectTrigger className="w-[140px]">
+              <SelectTrigger className="w-50">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -499,10 +500,10 @@ export function WebsiteTabContent({ isActive, onRegisterActions }: TabContentPro
                 ) : (
                   paginatedRedirects.map(redirect => (
                     <TableRow key={redirect.id}>
-                      <TableCell className="font-mono text-sm truncate max-w-[200px]" title={redirect.fromUrl}>
+                      <TableCell className="text-sm truncate max-w-50" title={redirect.fromUrl}>
                         {redirect.fromUrl}
                       </TableCell>
-                      <TableCell className="font-mono text-sm truncate max-w-[200px]" title={redirect.toUrl}>
+                      <TableCell className="text-sm truncate max-w-50" title={redirect.toUrl}>
                         {redirect.toUrl}
                       </TableCell>
                       <TableCell className="text-center">
@@ -632,7 +633,7 @@ export function WebsiteTabContent({ isActive, onRegisterActions }: TabContentPro
               
               <div className="space-y-2">
                 <Label>Nội dung trang</Label>
-                <div className="min-h-[150px] border rounded-md">
+                <div className="min-h-37.5 border rounded-md">
                   <TipTapEditor 
                     content={settings.custom404Content}
                     onChange={(content) => handleChange('custom404Content', content)}

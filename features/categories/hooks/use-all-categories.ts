@@ -5,18 +5,26 @@
  */
 
 import * as React from 'react';
-import { useCategories } from './use-categories';
+import { useQuery } from '@tanstack/react-query';
+import { fetchAllPages } from '@/lib/fetch-all-pages';
+import { fetchCategories } from '../api/categories-api';
+import { categoryKeys } from './use-categories';
 import type { SystemId } from '@/lib/id-types';
 
 /**
  * Returns all categories as a flat array
- * Compatible with legacy store pattern: { data: categories }
+ * Auto-pagination: no hardcoded limit cap (MODULE-QUALITY-CRITERIA §1.3)
  */
 export function useAllCategories() {
-  const query = useCategories({ limit: 500 });
+  const query = useQuery({
+    queryKey: [...categoryKeys.all, 'all'],
+    queryFn: () => fetchAllPages((p) => fetchCategories(p)),
+    staleTime: 10 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+  });
   
   return {
-    data: query.data?.data || [],
+    data: query.data || [],
     isLoading: query.isLoading,
     isError: query.isError,
     error: query.error,

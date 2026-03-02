@@ -1,4 +1,4 @@
-import * as React from 'react';
+﻿import * as React from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { SubtaskList, type Subtask } from '../../../components/shared/subtask-list';
@@ -95,7 +95,7 @@ export function OrderWorkflowCard({
     return (
       <Card className="border-dashed">
         <CardHeader>
-          <CardTitle className="text-base font-semibold">Quy trình xử lý</CardTitle>
+          <CardTitle>Quy trình xử lý</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="text-center py-4 text-muted-foreground">
@@ -112,7 +112,7 @@ export function OrderWorkflowCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base font-semibold">Quy trình xử lý</CardTitle>
+        <CardTitle>Quy trình xử lý</CardTitle>
       </CardHeader>
       <CardContent>
         <SubtaskList

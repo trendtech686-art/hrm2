@@ -1,7 +1,7 @@
 model PurchaseReturnItem {
   systemId       String         @id
   returnId       String
-  productId      String
+  productId      String?
   quantity       Int
   unitPrice      Decimal        @db.Decimal(15, 2)
   total          Decimal        @db.Decimal(15, 2)

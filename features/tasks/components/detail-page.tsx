@@ -1,7 +1,8 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { generateSubEntityId } from '@/lib/id-utils';
 import { useTaskById, useTaskMutations } from '../hooks/use-tasks';
 import { useAllEmployees } from '@/features/employees/hooks/use-all-employees';
 import { useAuth } from '@/contexts/auth-context';
@@ -21,7 +22,7 @@ import { ApprovalDialog } from './ApprovalDialog';
 import { EvidenceViewer } from './EvidenceViewer';
 import { EvidenceThumbnailGrid } from './EvidenceThumbnailGrid';
 import { SlaTimer } from '@/components/SlaTimer';
-import { loadSLASettings } from '@/features/settings/tasks/tasks-settings-page';
+import { useTasksSettings } from '@/features/settings/tasks/hooks/use-tasks-settings';
 import { asSystemId } from '@/lib/id-types';
 import { ArrowLeft, Edit, Trash2, Calendar, Clock, User, Flag, CheckCircle, Eye, AlertCircle } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
@@ -176,7 +177,8 @@ export function TaskDetailPage() {
 
   // All hooks must be called before any early returns (React hooks rules)
   // SLA calculation
-  const slaSettings = React.useMemo(() => loadSLASettings(), []);
+  const { data: tasksSettings } = useTasksSettings();
+  const slaSettings = tasksSettings.sla;
   
   const slaDeadlines = React.useMemo(() => {
     // Check all required conditions
@@ -274,7 +276,7 @@ export function TaskDetailPage() {
                   </Badge>
                 )}
               </div>
-              <CardTitle className="text-h4">{task.title}</CardTitle>
+              <CardTitle>{task.title}</CardTitle>
             </div>
           </div>
         </CardHeader>
@@ -455,7 +457,7 @@ export function TaskDetailPage() {
                 }
                 const currentSubtasks = task.subtasks || [];
                 const newSubtask = {
-                  id: `subtask-${Date.now()}`,
+                  id: generateSubEntityId('SUBTASK'),
                   title,
                   completed: false,
                   order: currentSubtasks.length,
@@ -559,7 +561,7 @@ export function TaskDetailPage() {
               }
               
               const newComment = {
-                id: `comment-${Date.now()}`,
+                id: generateSubEntityId('COMMENT'),
                 taskId: task.systemId,
                 userId: employee?.systemId || 'current-user',
                 userName: employee?.fullName || 'User',
@@ -599,7 +601,7 @@ export function TaskDetailPage() {
       {/* Metadata Section */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-h4 font-semibold">Thông tin hệ thống</CardTitle>
+          <CardTitle>Thông tin hệ thống</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-body-sm">

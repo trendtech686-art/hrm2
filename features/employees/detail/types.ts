@@ -1,7 +1,7 @@
 'use client'
 
 import type { Employee, EmployeeAddress } from '@/lib/types/prisma-extended';
-import type { Payslip, PayrollBatch } from '@/lib/payroll-types';
+import type { PayrollTotals, PayrollComponentEntry, PayrollBatchStatus } from '@/lib/payroll-types';
 import type { PenaltyStatus } from '@/features/settings/penalties/types';
 import type { LeaveStatus } from '@/features/leaves/types';
 import { formatDateCustom } from '@/lib/date-utils';
@@ -65,6 +65,32 @@ export const employmentStatusBadgeVariants: Record<Employee["employmentStatus"],
 
 // ============ Types ============
 
+// Flexible types for payslip/batch data (works with both Zustand store and server API data)
+// Compatible with PayslipLike/PayrollBatchLike from lib/print/payroll-print-helper.ts
+export interface PayslipLike {
+    systemId: string;
+    id: string;
+    batchSystemId?: string;
+    employeeSystemId: string;
+    employeeId?: string;
+    departmentSystemId?: string;
+    periodMonthKey?: string;
+    components?: PayrollComponentEntry[];
+    totals: PayrollTotals;
+    createdAt?: string;
+    updatedAt?: string;
+    lockedAt?: string;
+}
+
+export interface PayrollBatchLike {
+    systemId: string;
+    id: string;
+    title: string;
+    status: PayrollBatchStatus;
+    payPeriod?: { monthKey?: string };
+    payrollDate?: string;
+}
+
 export interface PayrollHistoryRow {
     systemId: string;
     batchId: string;
@@ -79,9 +105,9 @@ export interface PayrollHistoryRow {
     netPay: number;
     batchSystemId?: string;
     payslipSystemId: string;
-    // For print functionality
-    slip: Payslip;
-    batch?: PayrollBatch;
+    // For print functionality — uses flexible types
+    slip: PayslipLike;
+    batch?: PayrollBatchLike;
 }
 
 export interface AttendanceHistoryRow {

@@ -7,9 +7,6 @@ import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tansta
 import {
   fetchWikiArticles,
   fetchWikiById,
-  createWiki,
-  updateWiki,
-  deleteWiki,
   fetchWikiCategories,
   fetchWikiTags,
   searchWiki,
@@ -17,6 +14,27 @@ import {
   type WikiCreateInput,
   type WikiUpdateInput,
 } from '../api/wiki-api';
+import {
+  createWikiAction,
+  updateWikiAction,
+  deleteWikiAction,
+  type CreateWikiInput,
+  type UpdateWikiInput,
+  type DeleteWikiInput,
+} from '@/app/actions/wiki';
+import type { WikiArticle as Wiki } from '@/lib/types/prisma-extended';
+
+// Helper to convert legacy update format to flat format
+function toUpdateWikiInput(input: UpdateWikiInput | { systemId: string; data: Record<string, unknown> }): UpdateWikiInput {
+  const i = input as Record<string, unknown>;
+  if (i.data && typeof i.data === 'object') {
+    return {
+      systemId: i.systemId as string,
+      ...(i.data as Record<string, unknown>),
+    } as UpdateWikiInput;
+  }
+  return input as UpdateWikiInput;
+}
 
 // Query keys factory
 export const wikiKeys = {
@@ -104,7 +122,14 @@ export function useWikiMutations(options: MutationCallbacks = {}) {
   };
 
   const create = useMutation({
-    mutationFn: (data: WikiCreateInput) => createWiki(data),
+    mutationFn: async (data: CreateWikiInput | WikiCreateInput) => {
+      const input = data as CreateWikiInput;
+      const result = await createWikiAction(input);
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to create wiki');
+      }
+      return result.data as Wiki;
+    },
     onSuccess: () => {
       invalidateWiki();
       options.onSuccess?.();
@@ -113,8 +138,14 @@ export function useWikiMutations(options: MutationCallbacks = {}) {
   });
 
   const update = useMutation({
-    mutationFn: ({ systemId, data }: { systemId: string; data: WikiUpdateInput }) =>
-      updateWiki(systemId, data),
+    mutationFn: async (input: UpdateWikiInput | { systemId: string; data: WikiUpdateInput }) => {
+      const data = toUpdateWikiInput(input);
+      const result = await updateWikiAction(data);
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to update wiki');
+      }
+      return result.data as Wiki;
+    },
     onSuccess: () => {
       invalidateWiki();
       options.onSuccess?.();
@@ -123,7 +154,13 @@ export function useWikiMutations(options: MutationCallbacks = {}) {
   });
 
   const remove = useMutation({
-    mutationFn: (systemId: string) => deleteWiki(systemId),
+    mutationFn: async (systemId: string) => {
+      const result = await deleteWikiAction({ systemId } as DeleteWikiInput);
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to delete wiki');
+      }
+      return result.data;
+    },
     onSuccess: () => {
       invalidateWiki();
       options.onSuccess?.();

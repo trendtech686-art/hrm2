@@ -3,12 +3,12 @@ import type { Complaint } from './types';
 // Storage key
 const _STORAGE_KEY = 'complaints-sla-settings';
 
-// Default SLA settings
+// Default SLA settings - ✅ Match Prisma ComplaintPriority enum
 export const defaultSLA = {
-  low: { responseTime: 240, resolveTime: 48 },
-  medium: { responseTime: 120, resolveTime: 24 },
-  high: { responseTime: 60, resolveTime: 12 },
-  urgent: { responseTime: 30, resolveTime: 4 },
+  LOW: { responseTime: 240, resolveTime: 48 },
+  MEDIUM: { responseTime: 120, resolveTime: 24 },
+  HIGH: { responseTime: 60, resolveTime: 12 },
+  CRITICAL: { responseTime: 30, resolveTime: 4 },
 };
 
 export interface OverdueStatus {
@@ -29,11 +29,11 @@ function loadSLASettings() {
 export function checkOverdue(complaint: Complaint): OverdueStatus {
   const now = new Date();
   const createdAt = new Date(complaint.createdAt);
-  const priority = complaint.priority || 'medium';
+  const priority = complaint.priority || 'MEDIUM';
   
   // Load SLA from localStorage
   const slaSettings = loadSLASettings();
-  const sla = slaSettings[priority as keyof typeof defaultSLA] || slaSettings.medium;
+  const sla = slaSettings[priority as keyof typeof defaultSLA] || slaSettings.MEDIUM;
 
   const minutesElapsed = (now.getTime() - createdAt.getTime()) / (1000 * 60);
   const hoursElapsed = minutesElapsed / 60;

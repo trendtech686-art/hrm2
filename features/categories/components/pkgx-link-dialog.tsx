@@ -20,6 +20,7 @@ import {
   usePkgxCategoryMappingMutations,
   usePkgxCategoryMappings 
 } from '@/features/settings/pkgx/hooks/use-pkgx-settings';
+import { asSystemId } from '@/lib/id-types';
 
 interface PkgxCategoryLinkDialogProps {
   open: boolean;
@@ -49,7 +50,7 @@ export function PkgxCategoryLinkDialog({
   const loadPkgxCategories = React.useCallback(async () => {
     setIsLoading(true);
     try {
-      const response = await fetchPkgxCategories();
+      const response = await fetchPkgxCategories(pkgxSettings);
       if (response.success && response.data && response.data.data) {
         // API trả về { error, message, total, data: PkgxCategoryFromApi[] }
         // Cần map từ PkgxCategoryFromApi -> PkgxCategory
@@ -72,7 +73,7 @@ export function PkgxCategoryLinkDialog({
     } finally {
       setIsLoading(false);
     }
-  }, [setCategories]);
+  }, [setCategories, pkgxSettings]);
 
   // Load PKGX categories khi mở dialog - chỉ chạy 1 lần
   React.useEffect(() => {
@@ -122,11 +123,11 @@ export function PkgxCategoryLinkDialog({
       
       // Add mapping to store
       addCategoryMapping.mutate({
-        id: `category-mapping-${category.systemId}-${pkgxCatId}`,
-        hrmCategorySystemId: category.systemId,
+        systemId: `category-mapping-${category.systemId}-${pkgxCatId}`,
+        hrmCategoryId: asSystemId(category.systemId),
         hrmCategoryName: category.name,
-        pkgxCatId: pkgxCatId,
-        pkgxCatName: selectedPkgxCategory.label,
+        pkgxCategoryId: pkgxCatId,
+        pkgxCategoryName: selectedPkgxCategory.label,
       });
       
       // Log to console
@@ -146,7 +147,7 @@ export function PkgxCategoryLinkDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-125">
         <DialogHeader>
           <DialogTitle>Liên kết với danh mục PKGX</DialogTitle>
           <DialogDescription>

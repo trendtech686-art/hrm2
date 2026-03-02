@@ -12,13 +12,18 @@ export const listCashAccountsSchema = z.object({
 export const createCashAccountSchema = z.object({
   id: z.string().min(1, 'Mã quỹ là bắt buộc'),
   name: z.string().min(1, 'Tên quỹ là bắt buộc'),
-  type: z.string().optional(),
-  accountType: z.string().optional(),
-  balance: z.number().optional(),
-  currentBalance: z.number().optional(),
+  type: z.enum(['cash', 'bank', 'CASH', 'BANK']).optional().default('cash'),
+  initialBalance: z.number().optional().default(0),
+  bankAccountNumber: z.string().optional(),
+  bankBranch: z.string().optional(),
   bankName: z.string().optional(),
-  accountNumber: z.string().optional(),
+  bankCode: z.string().optional(),
+  accountHolder: z.string().optional(),
+  branchSystemId: z.string().optional(),
+  minBalance: z.number().optional(),
+  maxBalance: z.number().optional(),
   isActive: z.boolean().optional().default(true),
+  isDefault: z.boolean().optional().default(false),
 })
 
 // Update cash account schema

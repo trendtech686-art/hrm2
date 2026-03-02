@@ -3,16 +3,36 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
+import { useQueryClient } from '@tanstack/react-query';
 
 import { useAuth } from '../../../contexts/auth-context';
-import { asBusinessId } from '../../../lib/id-types';
 import { getCurrentDate, toISODateTime } from '../../../lib/date-utils';
 import { FileUploadAPI, type StagingFile } from '../../../lib/file-upload-api';
+import { generateSubEntityId } from '../../../lib/id-utils';
 
 import type { WarrantyFormValues, WarrantyProduct, SettlementType, WarrantyTicket } from '../types';
 import type { ProductImagesState } from './use-warranty-form-state';
+import type { SimpleImageFile } from './use-product-images-state';
 import { validateWarrantyFormData, validateBranchAndEmployee } from '../utils/warranty-form-validation';
 import { calculateWarrantySummary, extractCustomerAddress } from '../utils/warranty-form-helpers';
+import { createWarranty, updateWarranty } from '../api/warranties-api';
+import { warrantyKeys } from './use-warranties';
+
+// Type for the ref-based getter function
+type GetProductImagesStateFn = () => {
+  productPermanentFiles: Record<string, SimpleImageFile[]>;
+  productStagingFiles: Record<string, StagingFile[]>;
+  productSessionIds: Record<string, string>;
+  productFilesToDelete: Record<string, string[]>;
+};
+
+// Type for received/processed images ref-based getter
+type GetImagesStateFn = () => {
+  stagingFiles: StagingFile[];
+  sessionId: string | null;
+  permanentFiles: StagingFile[];
+  filesToDelete: string[];
+};
 
 export interface UseWarrantyFormSubmitOptions {
   isEditing: boolean;
@@ -20,11 +40,10 @@ export interface UseWarrantyFormSubmitOptions {
   allTickets: WarrantyTicket[];
   branches: Array<{ systemId: string; name: string }>;
   employees: Array<{ systemId: string; fullName: string }>;
-  generateNextSystemId: () => string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  add: (data: any) => WarrantyTicket | undefined;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  update: (systemId: string, data: any) => void;
+  // Legacy callbacks - no longer used but kept for backward compatibility
+  add?: (data: unknown) => WarrantyTicket | undefined;
+  update?: (systemId: string, data: unknown) => void;
+  // Legacy props - kept for backward compatibility but prefer using refs
   receivedPermanentFiles: StagingFile[];
   receivedStagingFiles: StagingFile[];
   receivedSessionId: string | null;
@@ -35,13 +54,19 @@ export interface UseWarrantyFormSubmitOptions {
   processedSessionId: string | null;
   processedFilesToDelete: string[];
   setProcessedFilesToDelete: React.Dispatch<React.SetStateAction<string[]>>;
-  productImagesState: ProductImagesState;
+  // ✅ Use ref-based getter instead of state prop (avoids stale closure issues)
+  getProductImagesStateRef?: React.MutableRefObject<GetProductImagesStateFn | null>;
+  // ✅ Ref-based getters for received/processed images
+  getReceivedImagesStateRef?: React.MutableRefObject<GetImagesStateFn | null>;
+  getProcessedImagesStateRef?: React.MutableRefObject<GetImagesStateFn | null>;
+  // Legacy prop - kept for backward compatibility but not used
+  productImagesState?: ProductImagesState;
   setIsSubmitting: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 /**
  * Hook xử lý submit cho warranty form
- * Tách riêng logic submit để giảm kích thước file form page chính
+ * Sử dụng React Query mutations để gọi API
  */
 export function useWarrantyFormSubmit(options: UseWarrantyFormSubmitOptions) {
   const {
@@ -50,28 +75,86 @@ export function useWarrantyFormSubmit(options: UseWarrantyFormSubmitOptions) {
     allTickets,
     branches,
     employees,
-    generateNextSystemId,
-    add,
-    update,
-    receivedPermanentFiles,
-    receivedStagingFiles,
-    receivedSessionId,
-    receivedFilesToDelete,
+    receivedPermanentFiles: receivedPermanentFilesFallback,
+    receivedStagingFiles: receivedStagingFilesFallback,
+    receivedSessionId: receivedSessionIdFallback,
+    receivedFilesToDelete: receivedFilesToDeleteFallback,
     setReceivedFilesToDelete,
-    processedPermanentFiles,
-    processedStagingFiles,
-    processedSessionId,
-    processedFilesToDelete,
+    processedPermanentFiles: processedPermanentFilesFallback,
+    processedStagingFiles: processedStagingFilesFallback,
+    processedSessionId: processedSessionIdFallback,
+    processedFilesToDelete: processedFilesToDeleteFallback,
     setProcessedFilesToDelete,
-    productImagesState,
+    getProductImagesStateRef,
+    getReceivedImagesStateRef,
+    getProcessedImagesStateRef,
     setIsSubmitting,
   } = options;
   
   const router = useRouter();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   
   const onSubmit = React.useCallback(async (data: WarrantyFormValues) => {
+    // ✅ Get received/processed images state from refs at submit time (avoids stale closure)
+    const receivedImagesState = getReceivedImagesStateRef?.current?.() ?? {
+      stagingFiles: receivedStagingFilesFallback,
+      sessionId: receivedSessionIdFallback,
+      permanentFiles: receivedPermanentFilesFallback,
+      filesToDelete: receivedFilesToDeleteFallback,
+    };
+    
+    const processedImagesState = getProcessedImagesStateRef?.current?.() ?? {
+      stagingFiles: processedStagingFilesFallback,
+      sessionId: processedSessionIdFallback,
+      permanentFiles: processedPermanentFilesFallback,
+      filesToDelete: processedFilesToDeleteFallback,
+    };
+    
+    // Use values from refs
+    const receivedStagingFiles = receivedImagesState.stagingFiles;
+    const receivedSessionId = receivedImagesState.sessionId;
+    const receivedPermanentFiles = receivedImagesState.permanentFiles;
+    const receivedFilesToDelete = receivedImagesState.filesToDelete;
+    
+    const processedStagingFiles = processedImagesState.stagingFiles;
+    const processedSessionId = processedImagesState.sessionId;
+    const processedPermanentFiles = processedImagesState.permanentFiles;
+    const processedFilesToDelete = processedImagesState.filesToDelete;
+    
+    // DEBUG: Log images state at submit time
+    console.log('[WARRANTY SUBMIT] Images state:', {
+      received: {
+        stagingCount: receivedStagingFiles.length,
+        sessionId: receivedSessionId,
+        permanentCount: receivedPermanentFiles.length,
+        stagingFiles: receivedStagingFiles.map(f => ({ id: f.id, sessionId: f.sessionId })),
+      },
+      processed: {
+        stagingCount: processedStagingFiles.length,
+        sessionId: processedSessionId,
+        permanentCount: processedPermanentFiles.length,
+      },
+    });
+    
     setIsSubmitting(true);
+    
+    // ✅ Get product images state from ref at submit time (avoids stale closure)
+    const currentProductImagesState = getProductImagesStateRef?.current?.() ?? {
+      productPermanentFiles: {},
+      productStagingFiles: {},
+      productSessionIds: {},
+      productFilesToDelete: {},
+    };
+    
+    // DEBUG: Log product images state
+    console.log('[WARRANTY SUBMIT] Product Images State:', {
+      hasRef: !!getProductImagesStateRef?.current,
+      productPermanentFiles: currentProductImagesState.productPermanentFiles,
+      productStagingFiles: currentProductImagesState.productStagingFiles,
+      productSessionIds: currentProductImagesState.productSessionIds,
+      products: data.products?.map(p => ({ systemId: p.systemId, name: p.productName })),
+    });
     
     try {
       // ===== VALIDATION =====
@@ -105,10 +188,12 @@ export function useWarrantyFormSubmit(options: UseWarrantyFormSubmitOptions) {
       let productsWithConfirmedImages: WarrantyProduct[] = data.products || [];
       let targetWarrantyId: string | null = isEditing && ticket ? ticket.systemId : null;
 
-      // Pre-generate systemId for new ticket
+      // Pre-generate systemId for new ticket (for file uploads)
+      // Note: Actual systemId will be generated by API, this is just for file path
       let preGeneratedSystemId: string | null = null;
       if (!isEditing) {
-        preGeneratedSystemId = generateNextSystemId ? generateNextSystemId() : `WARRANTY${Date.now()}`;
+        // Generate a temporary ID for file uploads - will be replaced by API-generated ID
+        preGeneratedSystemId = generateSubEntityId('WARRANTY');
         targetWarrantyId = preGeneratedSystemId;
       }
 
@@ -134,25 +219,45 @@ export function useWarrantyFormSubmit(options: UseWarrantyFormSubmitOptions) {
           warrantyId: targetWarrantyId || ''
         };
 
-        // Confirm received images
-        if (receivedSessionId && receivedStagingFiles.length > 0 && receivedStagingFiles.some(img => img.sessionId)) {
+        // Confirm received images - get sessionId directly from files (like employees)
+        const receivedFilesWithSession = receivedStagingFiles.filter(f => f.sessionId);
+        const actualReceivedSessionId = receivedFilesWithSession[0]?.sessionId;
+        
+        console.log('[WARRANTY SUBMIT] Received images confirm:', {
+          stagingFilesCount: receivedStagingFiles.length,
+          filesWithSessionCount: receivedFilesWithSession.length,
+          actualSessionId: actualReceivedSessionId,
+          stagingFiles: receivedStagingFiles.map(f => ({ id: f.id, sessionId: f.sessionId, url: f.url?.substring(0, 50) })),
+        });
+        
+        if (actualReceivedSessionId && receivedFilesWithSession.length > 0) {
           const confirmToast = toast.loading('Đang lưu hình ảnh lúc nhận...');
           try {
             const confirmedFiles = await FileUploadAPI.confirmStagingFiles(
-              receivedSessionId,
+              actualReceivedSessionId,
               targetWarrantyId!,
               'warranty',
               'received',
               warrantyInfo
             );
+            
+            console.log('[WARRANTY SUBMIT] Received confirmed files:', {
+              confirmedFilesCount: confirmedFiles.length,
+              confirmedFiles: confirmedFiles.map(f => ({ id: f.id, url: f.url })),
+              cleanedReceivedCount: cleanedReceivedFiles.length,
+            });
+            
             finalReceivedImageUrls = [
               ...cleanedReceivedFiles.map(f => f.url),
               ...confirmedFiles.map(f => f.url)
             ];
+            
+            console.log('[WARRANTY SUBMIT] Final received URLs:', finalReceivedImageUrls);
+            
             toast.success('✓ Đã lưu hình ảnh lúc nhận', { id: confirmToast });
             
             try {
-              await FileUploadAPI.deleteStagingFiles(receivedSessionId);
+              await FileUploadAPI.deleteStagingFiles(actualReceivedSessionId);
             } catch (_cleanupError) {
               // Ignore cleanup errors
             }
@@ -164,12 +269,15 @@ export function useWarrantyFormSubmit(options: UseWarrantyFormSubmitOptions) {
           finalReceivedImageUrls = cleanedReceivedFiles.map(img => img.url);
         }
 
-        // Confirm processed images
-        if (processedSessionId && processedStagingFiles.length > 0 && processedStagingFiles.some(img => img.sessionId)) {
+        // Confirm processed images - get sessionId directly from files (like employees)
+        const processedFilesWithSession = processedStagingFiles.filter(f => f.sessionId);
+        const actualProcessedSessionId = processedFilesWithSession[0]?.sessionId;
+        
+        if (actualProcessedSessionId && processedFilesWithSession.length > 0) {
           const confirmToast = toast.loading('Đang lưu hình ảnh đã xử lý...');
           try {
             const confirmedFiles = await FileUploadAPI.confirmStagingFiles(
-              processedSessionId,
+              actualProcessedSessionId,
               targetWarrantyId!,
               'warranty',
               'processed',
@@ -182,7 +290,7 @@ export function useWarrantyFormSubmit(options: UseWarrantyFormSubmitOptions) {
             toast.success('✓ Đã lưu hình ảnh đã xử lý', { id: confirmToast });
             
             try {
-              await FileUploadAPI.deleteStagingFiles(processedSessionId);
+              await FileUploadAPI.deleteStagingFiles(actualProcessedSessionId);
             } catch (_cleanupError) {
               // Ignore cleanup errors
             }
@@ -200,14 +308,25 @@ export function useWarrantyFormSubmit(options: UseWarrantyFormSubmitOptions) {
             const productSystemId = product.systemId;
             if (!productSystemId) return product;
             
-            const sessionId = productImagesState.productSessionIds[productSystemId];
-            const stagingFiles = productImagesState.productStagingFiles[productSystemId] || [];
-            const permanentFiles = productImagesState.productPermanentFiles[productSystemId] || [];
-            const filesToDelete = productImagesState.productFilesToDelete[productSystemId] || [];
+            const stagingFiles = currentProductImagesState.productStagingFiles[productSystemId] || [];
+            const permanentFiles = currentProductImagesState.productPermanentFiles[productSystemId] || [];
+            const filesToDelete = currentProductImagesState.productFilesToDelete[productSystemId] || [];
             
             const cleanedPermanentFiles = permanentFiles.filter(f => !filesToDelete.includes(f.id));
             
-            if (!sessionId || stagingFiles.length === 0 || !stagingFiles.some(f => f.sessionId)) {
+            // Get sessionId directly from staging files (like employees)
+            const filesWithSession = stagingFiles.filter(f => f.sessionId);
+            const actualSessionId = filesWithSession[0]?.sessionId;
+            
+            console.log(`[WARRANTY SUBMIT] Product ${index} images:`, {
+              productSystemId,
+              stagingFilesCount: stagingFiles.length,
+              filesWithSessionCount: filesWithSession.length,
+              actualSessionId,
+              stagingFiles: stagingFiles.map(f => ({ id: f.id, sessionId: f.sessionId })),
+            });
+            
+            if (!actualSessionId || filesWithSession.length === 0) {
               return {
                 ...product,
                 productImages: cleanedPermanentFiles.map(f => f.url),
@@ -218,7 +337,7 @@ export function useWarrantyFormSubmit(options: UseWarrantyFormSubmitOptions) {
             
             try {
               const confirmedFiles = await FileUploadAPI.confirmStagingFiles(
-                sessionId,
+                actualSessionId,
                 targetWarrantyId!,
                 'warranty',
                 `product-${index}`,
@@ -237,7 +356,7 @@ export function useWarrantyFormSubmit(options: UseWarrantyFormSubmitOptions) {
               toast.success(`✓ Đã lưu hình ảnh SP ${index + 1}`, { id: confirmToast });
               
               try {
-                await FileUploadAPI.deleteStagingFiles(sessionId);
+                await FileUploadAPI.deleteStagingFiles(actualSessionId);
               } catch (_cleanupError) {
                 // Ignore cleanup errors
               }
@@ -278,11 +397,11 @@ export function useWarrantyFormSubmit(options: UseWarrantyFormSubmitOptions) {
         products: productsWithConfirmedImages || [],
         processedImages: finalProcessedImageUrls,
         status: (productsWithConfirmedImages && productsWithConfirmedImages.length > 0) 
-          ? 'pending' as const
-          : 'incomplete' as const,
+          ? 'PROCESSING' as const
+          : 'RECEIVED' as const,
         summary,
         settlement: data.settlementMethod ? {
-          systemId: `SET_${Date.now()}`,
+          systemId: generateSubEntityId('SET'),
           warrantyId: '',
           settlementType: data.settlementMethod as SettlementType,
           totalAmount: 0,
@@ -304,36 +423,47 @@ export function useWarrantyFormSubmit(options: UseWarrantyFormSubmitOptions) {
       };
 
       if (isEditing && ticket) {
-        // ===== UPDATE EXISTING TICKET =====
+        // ===== UPDATE EXISTING TICKET (via API) =====
         const { history: _history, comments: _comments, createdAt: _createdAt, createdBy: _createdBy, ...updateData } = ticketData;
         
         const hasProducts = productsWithConfirmedImages && productsWithConfirmedImages.length > 0;
-        const shouldTransitionToComplete = ticket.status === 'incomplete' && hasProducts;
+        const shouldTransitionToProcessing = ticket.status === 'RECEIVED' && hasProducts;
         
-        if (shouldTransitionToComplete) {
-          updateData.status = 'pending';
+        if (shouldTransitionToProcessing) {
+          updateData.status = 'PROCESSING';
         }
         
-        update(ticket.systemId, updateData);
+        // DEBUG: Log data before sending to API
+        console.log('[WARRANTY SUBMIT] Sending update to API:', {
+          systemId: ticket.systemId,
+          receivedImages: updateData.receivedImages,
+          processedImages: updateData.processedImages,
+          productsCount: updateData.products?.length,
+          productImages: updateData.products?.map((p: WarrantyProduct) => ({ systemId: p.systemId, images: p.productImages })),
+        });
         
-        if (shouldTransitionToComplete) {
-          toast.success('Đã cập nhật phiếu và chuyển sang "Chưa xử lý"', {
-            description: `Mã: ${ticket.id}`,
+        // Call API to update
+        const updatedWarranty = await updateWarranty(ticket.systemId, updateData as Partial<WarrantyTicket>);
+        
+        // Invalidate queries to refetch
+        queryClient.invalidateQueries({ queryKey: warrantyKeys.all });
+        
+        if (shouldTransitionToProcessing) {
+          toast.success('Đã cập nhật phiếu và chuyển sang "Đang xử lý"', {
+            description: `Mã: ${updatedWarranty.id}`,
             duration: 3000
           });
         } else {
           toast.success('Đã cập nhật phiếu', {
-            description: `Mã: ${ticket.id}`,
+            description: `Mã: ${updatedWarranty.id}`,
             duration: 3000
           });
         }
         
         router.push(`/warranty/${ticket.systemId}`);
       } else {
-        // ===== CREATE NEW TICKET =====
-        const finalTicket = add({
-          id: asBusinessId(''),
-          systemId: preGeneratedSystemId!,
+        // ===== CREATE NEW TICKET (via API) =====
+        const createPayload = {
           branchSystemId: data.branchSystemId,
           branchName: branch.name,
           employeeSystemId: data.employeeSystemId,
@@ -349,12 +479,12 @@ export function useWarrantyFormSubmit(options: UseWarrantyFormSubmitOptions) {
           products: productsWithConfirmedImages,
           processedImages: finalProcessedImageUrls,
           status: (productsWithConfirmedImages && productsWithConfirmedImages.length > 0) 
-            ? 'pending' as const
-            : 'incomplete' as const,
+            ? 'PROCESSING' as const
+            : 'RECEIVED' as const,
           summary,
           settlement: data.settlementMethod ? {
-            systemId: `SET_${Date.now()}`,
-            warrantyId: preGeneratedSystemId!,
+            systemId: generateSubEntityId('SET'),
+            warrantyId: '',
             settlementType: data.settlementMethod as SettlementType,
             totalAmount: 0,
             settledAmount: 0,
@@ -370,16 +500,20 @@ export function useWarrantyFormSubmit(options: UseWarrantyFormSubmitOptions) {
           comments: [],
           notes: data.notes || '',
           createdBy: user?.name || 'Admin',
-          createdAt: toISODateTime(getCurrentDate()),
-          updatedAt: toISODateTime(getCurrentDate()),
-        });
+        };
+        
+        // Call API to create
+        const createdWarranty = await createWarranty(createPayload as Partial<WarrantyTicket>);
+        
+        // Invalidate queries to refetch
+        queryClient.invalidateQueries({ queryKey: warrantyKeys.all });
         
         toast.success('Đã tạo phiếu bảo hành', { 
-          description: `Mã: ${finalTicket?.id || finalTicket?.systemId} - Khách: ${data.customer?.name}`,
+          description: `Mã: ${createdWarranty.id} - Khách: ${data.customer?.name}`,
           duration: 3000
         });
         
-        router.push(`/warranty/${preGeneratedSystemId}`);
+        router.push(`/warranty/${createdWarranty.systemId}`);
       }
     } catch (error) {
       console.error('Error saving warranty ticket:', error);
@@ -399,23 +533,25 @@ export function useWarrantyFormSubmit(options: UseWarrantyFormSubmitOptions) {
     allTickets,
     branches,
     employees,
-    generateNextSystemId,
-    add,
-    update,
-    receivedPermanentFiles,
-    receivedStagingFiles,
-    receivedSessionId,
-    receivedFilesToDelete,
+    // ✅ Use refs instead of state values to avoid stale closures
+    getReceivedImagesStateRef,
+    getProcessedImagesStateRef,
+    getProductImagesStateRef,
+    // Fallback values (only used if refs not provided)
+    receivedPermanentFilesFallback,
+    receivedStagingFilesFallback,
+    receivedSessionIdFallback,
+    receivedFilesToDeleteFallback,
+    processedPermanentFilesFallback,
+    processedStagingFilesFallback,
+    processedSessionIdFallback,
+    processedFilesToDeleteFallback,
     setReceivedFilesToDelete,
-    processedPermanentFiles,
-    processedStagingFiles,
-    processedSessionId,
-    processedFilesToDelete,
     setProcessedFilesToDelete,
-    productImagesState,
     setIsSubmitting,
     router,
     user,
+    queryClient,
   ]);
   
   return { onSubmit };

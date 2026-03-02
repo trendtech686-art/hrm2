@@ -3,8 +3,25 @@
  * Map Sapo branches to partner warehouses - Simple list view
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Card, CardContent } from '@/components/ui/card';
+import { MapPin, Loader2, RefreshCw, Check, ChevronsUpDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import {
   Select,
   SelectContent,
@@ -12,8 +29,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Card, CardContent } from '@/components/ui/card';
-import { MapPin, Loader2, RefreshCw } from 'lucide-react';
 import type { PartnerAccount, PickupAddress } from '@/lib/types/shipping-config';
 import { useAllBranches } from '@/features/settings/branches/hooks/use-all-branches';
 import { toast } from 'sonner';
@@ -51,6 +66,16 @@ export function PickupAddressesTab({
   const [loadingWarehouses, setLoadingWarehouses] = useState(false);
   const [partnerWarehouses, setPartnerWarehouses] = useState<PartnerWarehouse[]>([]);
   const [mappings, setMappings] = useState<BranchMapping[]>([]);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  
+  // Checkbox state for bulk selection
+  const [selectedBranchIds, setSelectedBranchIds] = useState<Set<string>>(new Set());
+  
+  // Combobox open state per branch
+  const [openPopover, setOpenPopover] = useState<string | null>(null);
 
   // Expose methods to parent
   useEffect(() => {
@@ -147,6 +172,50 @@ export function PickupAddressesTab({
     setMappings(newMappings);
   };
 
+  // Bulk mapping change for selected branches
+  const handleBulkMappingChange = (warehouseId: string) => {
+    const newMappings = mappings.map(m => 
+      selectedBranchIds.has(m.branchId) ? { ...m, warehouseId } : m
+    );
+    setMappings(newMappings);
+    setSelectedBranchIds(new Set()); // Clear selection after bulk action
+  };
+
+  // Pagination logic
+  const paginatedBranches = useMemo(() => {
+    const startIndex = (currentPage - 1) * pageSize;
+    return branches.slice(startIndex, startIndex + pageSize);
+  }, [branches, currentPage, pageSize]);
+
+  const totalPages = Math.ceil(branches.length / pageSize);
+
+  // Select all logic
+  const isAllSelected = paginatedBranches.length > 0 && 
+    paginatedBranches.every(b => selectedBranchIds.has(b.systemId));
+  const isSomeSelected = paginatedBranches.some(b => selectedBranchIds.has(b.systemId)) && !isAllSelected;
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      const newSelected = new Set(selectedBranchIds);
+      paginatedBranches.forEach(b => newSelected.add(b.systemId));
+      setSelectedBranchIds(newSelected);
+    } else {
+      const newSelected = new Set(selectedBranchIds);
+      paginatedBranches.forEach(b => newSelected.delete(b.systemId));
+      setSelectedBranchIds(newSelected);
+    }
+  };
+
+  const handleSelectOne = (branchId: string, checked: boolean) => {
+    const newSelected = new Set(selectedBranchIds);
+    if (checked) {
+      newSelected.add(branchId);
+    } else {
+      newSelected.delete(branchId);
+    }
+    setSelectedBranchIds(newSelected);
+  };
+
   // Convert mappings to pickup addresses
   const convertMappingsToPickupAddresses = (
     currentMappings: BranchMapping[]
@@ -224,25 +293,88 @@ export function PickupAddressesTab({
         ) : (
           <Card>
             <CardContent className="p-0">
+              {/* Bulk actions bar */}
+              {selectedBranchIds.size > 0 && (
+                <div className="flex items-center gap-4 p-4 bg-blue-50 border-b">
+                  <span className="text-sm font-medium">
+                    Đã chọn {selectedBranchIds.size} chi nhánh
+                  </span>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        Gán kho cho tất cả
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[400px] p-0" align="start">
+                      <Command>
+                        <CommandInput placeholder="Tìm kho..." />
+                        <CommandList className="max-h-[300px] overflow-y-auto">
+                          <CommandEmpty>Không tìm thấy kho</CommandEmpty>
+                          <CommandGroup>
+                            {partnerWarehouses.map((warehouse) => (
+                              <CommandItem
+                                key={warehouse.id}
+                                value={`${warehouse.name} ${warehouse.address}`}
+                                onSelect={() => handleBulkMappingChange(warehouse.id)}
+                              >
+                                <div className="py-1">
+                                  <div className="font-medium">{warehouse.name}</div>
+                                  <div className="text-xs text-muted-foreground">
+                                    {warehouse.address}
+                                  </div>
+                                </div>
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => setSelectedBranchIds(new Set())}
+                  >
+                    Bỏ chọn
+                  </Button>
+                </div>
+              )}
+
               {/* Table Header */}
-              <div className="grid grid-cols-12 gap-4 p-4 bg-muted/50 border-b font-semibold text-sm">
-                <div className="col-span-3">Chi nhánh Sapo</div>
+              <div className="grid grid-cols-12 gap-4 p-4 bg-muted/50 border-b font-semibold text-sm items-center">
+                <div className="col-span-1 flex items-center">
+                  <Checkbox
+                    checked={isAllSelected ? true : isSomeSelected ? "indeterminate" : false}
+                    onCheckedChange={handleSelectAll}
+                  />
+                </div>
+                <div className="col-span-2">Chi nhánh Sapo</div>
                 <div className="col-span-5">Địa chỉ</div>
                 <div className="col-span-4">Kho</div>
               </div>
 
               {/* Table Body */}
               <div className="divide-y">
-                {branches.map((branch) => {
+                {paginatedBranches.map((branch) => {
                   const mapping = mappings.find(m => m.branchId === branch.systemId);
                   const selectedWarehouse = partnerWarehouses.find(
                     w => w.id === mapping?.warehouseId
                   );
+                  const isOpen = openPopover === branch.systemId;
 
                   return (
-                    <div key={branch.systemId} className="grid grid-cols-12 gap-4 p-4 hover:bg-muted/30 transition-colors">
+                    <div key={branch.systemId} className="grid grid-cols-12 gap-4 p-4 hover:bg-muted/30 transition-colors items-center">
+                      {/* Checkbox */}
+                      <div className="col-span-1">
+                        <Checkbox
+                          checked={selectedBranchIds.has(branch.systemId)}
+                          onCheckedChange={(checked) => handleSelectOne(branch.systemId, checked === true)}
+                        />
+                      </div>
+
                       {/* Chi nhánh Sapo */}
-                      <div className="col-span-3">
+                      <div className="col-span-2">
                         <div className="font-medium">{branch.name}</div>
                         {branch.id && (
                           <div className="text-xs text-muted-foreground mt-1">
@@ -266,30 +398,58 @@ export function PickupAddressesTab({
                         )}
                       </div>
 
-                      {/* Kho */}
+                      {/* Kho - Combobox */}
                       <div className="col-span-4">
-                        <Select
-                          value={mapping?.warehouseId || ''}
-                          onValueChange={(value) => handleMappingChange(branch.systemId, value)}
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Chọn kho giao hàng" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {partnerWarehouses.map((warehouse) => (
-                              <SelectItem key={warehouse.id} value={warehouse.id}>
-                                <div className="py-1">
-                                  <div className="font-medium">{warehouse.name}</div>
-                                  <div className="text-xs text-muted-foreground">
-                                    {warehouse.address}, {[warehouse.ward, warehouse.district, warehouse.province]
-                                      .filter(Boolean)
-                                      .join(', ')}
-                                  </div>
-                                </div>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <Popover open={isOpen} onOpenChange={(open) => setOpenPopover(open ? branch.systemId : null)}>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              role="combobox"
+                              aria-expanded={isOpen}
+                              className="w-full justify-between"
+                            >
+                              {selectedWarehouse ? (
+                                <span className="truncate">{selectedWarehouse.name}</span>
+                              ) : (
+                                <span className="text-muted-foreground">Chọn kho giao hàng</span>
+                              )}
+                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[400px] p-0" align="start">
+                            <Command>
+                              <CommandInput placeholder="Tìm kho..." />
+                              <CommandList className="max-h-[300px] overflow-y-auto">
+                                <CommandEmpty>Không tìm thấy kho</CommandEmpty>
+                                <CommandGroup>
+                                  {partnerWarehouses.map((warehouse) => (
+                                    <CommandItem
+                                      key={warehouse.id}
+                                      value={`${warehouse.name} ${warehouse.address}`}
+                                      onSelect={() => {
+                                        handleMappingChange(branch.systemId, warehouse.id);
+                                        setOpenPopover(null);
+                                      }}
+                                    >
+                                      <Check
+                                        className={cn(
+                                          "mr-2 h-4 w-4",
+                                          mapping?.warehouseId === warehouse.id ? "opacity-100" : "opacity-0"
+                                        )}
+                                      />
+                                      <div className="py-1">
+                                        <div className="font-medium">{warehouse.name}</div>
+                                        <div className="text-xs text-muted-foreground">
+                                          {warehouse.address}
+                                        </div>
+                                      </div>
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
                         {selectedWarehouse && (
                           <div className="text-xs text-muted-foreground mt-2">
                             ID: {selectedWarehouse.id}
@@ -301,6 +461,75 @@ export function PickupAddressesTab({
                 })}
               </div>
             </CardContent>
+
+            {/* Pagination */}
+            {branches.length > pageSize && (
+              <div className="flex items-center justify-between px-4 py-3 border-t">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">
+                    Hiển thị {((currentPage - 1) * pageSize) + 1} - {Math.min(currentPage * pageSize, branches.length)} trên {branches.length} chi nhánh
+                  </span>
+                  <Select
+                    value={String(pageSize)}
+                    onValueChange={(value) => {
+                      setPageSize(Number(value));
+                      setCurrentPage(1);
+                    }}
+                  >
+                    <SelectTrigger className="w-[70px] h-8">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="5">5</SelectItem>
+                      <SelectItem value="10">10</SelectItem>
+                      <SelectItem value="20">20</SelectItem>
+                      <SelectItem value="50">50</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => setCurrentPage(1)}
+                    disabled={currentPage === 1}
+                  >
+                    <ChevronsLeft className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <span className="text-sm px-2">
+                    Trang {currentPage} / {totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => setCurrentPage(totalPages)}
+                    disabled={currentPage === totalPages}
+                  >
+                    <ChevronsRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
 
             {/* Note Section */}
             <div className="border-t bg-amber-50 p-4">

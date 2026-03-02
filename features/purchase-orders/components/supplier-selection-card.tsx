@@ -1,4 +1,4 @@
-import * as React from "react";
+﻿import * as React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { Label } from "../../../components/ui/label";
 import { Button } from "../../../components/ui/button";
@@ -66,7 +66,7 @@ export function SupplierSelectionCard({
   return (
     <Card className="h-full flex flex-col">
       <CardHeader className="flex-shrink-0">
-        <CardTitle className="text-base">Thông tin nhà cung cấp</CardTitle>
+        <CardTitle>Thông tin nhà cung cấp</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4 flex-1 overflow-y-auto">
         {!selectedSupplier ? (

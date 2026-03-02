@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -8,7 +8,7 @@ import { Loader2, Upload, X, CheckCircle2 } from 'lucide-react';
 import type { Task } from '../types';
 import { cn } from '@/lib/utils';
 import { FileUploadAPI, type UploadedAsset } from '@/lib/file-upload-api';
-import { loadEvidenceSettings } from '@/features/settings/tasks/tasks-settings-page';
+import { useTasksSettings } from '@/features/settings/tasks/hooks/use-tasks-settings';
 
 interface CompletionDialogProps {
   task: Task;
@@ -26,8 +26,9 @@ export function CompletionDialog({ task, open, onClose, onSubmit }: CompletionDi
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Load evidence settings from settings page
-  const evidenceSettings = useMemo(() => loadEvidenceSettings(), []);
+  // Load evidence settings from DB via React Query
+  const { data: tasksSettings } = useTasksSettings();
+  const evidenceSettings = tasksSettings.evidence;
   const maxImages = evidenceSettings.maxImages;
   const minNoteLength = evidenceSettings.minNoteLength;
   const maxSizeMB = evidenceSettings.imageMaxSizeMB;

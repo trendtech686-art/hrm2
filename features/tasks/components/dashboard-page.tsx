@@ -1,11 +1,12 @@
-/**
+﻿/**
  * Tasks Dashboard Page
  * Analytics and insights for task management
  */
 
 import * as React from 'react';
-import { useAllTasks } from '../hooks/use-all-tasks';
-import { useAllEmployees } from '@/features/employees/hooks/use-all-employees';
+import { useTasks, useTaskDashboardStats } from '../hooks/use-tasks';
+import type { TaskFilters } from '../api/tasks-api';
+import { fetchTasks } from '../api/tasks-api';
 import { useAuth } from '@/contexts/auth-context';
 import { usePageHeader } from '@/contexts/page-header-context';
 import { formatDateForDisplay } from '@/lib/date-utils';
@@ -38,136 +39,83 @@ import { Task } from '../types';
 type DateRange = '7d' | '30d' | '90d' | 'all';
 
 export function TasksDashboardPage() {
-  const { data: tasks } = useAllTasks();
-  const { data: employees } = useAllEmployees();
   const { isAdmin: _isAdmin } = useAuth();
   const [dateRange, setDateRange] = React.useState<DateRange>('30d');
 
-  // Filter tasks by date range
-  const filteredTasks = React.useMemo(() => {
-    if (dateRange === 'all') return tasks;
-
+  // Compute server-side createdFrom based on date range
+  const createdFrom = React.useMemo(() => {
+    if (dateRange === 'all') return undefined;
     const days = parseInt(dateRange);
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - days);
+    return cutoffDate.toISOString().split('T')[0];
+  }, [dateRange]);
 
-    return tasks.filter(
-      task => new Date(task.createdAt) >= cutoffDate
-    );
-  }, [tasks, dateRange]);
+  // Server-side aggregated stats — no raw task data loaded for metrics
+  const { data: stats } = useTaskDashboardStats(createdFrom);
 
-  // Calculate metrics
+  // Only fetch page 1 of recent tasks for the table (10 items)
+  const recentTasksFilters: TaskFilters = React.useMemo(() => ({
+    createdFrom,
+    page: 1,
+  }), [createdFrom]);
+  const recentTasksQuery = useTasks(recentTasksFilters);
+  const recentTasks = recentTasksQuery.data?.data || [];
+
+  // Metrics from server-side stats
   const metrics = React.useMemo(() => {
-    const total = filteredTasks.length;
-    const notStarted = filteredTasks.filter(t => t.status === 'Chưa bắt đầu').length;
-    const inProgress = filteredTasks.filter(t => t.status === 'Đang thực hiện').length;
-    const waiting = filteredTasks.filter(t => t.status === 'Đang chờ').length;
-    const completed = filteredTasks.filter(t => t.status === 'Hoàn thành').length;
-    const cancelled = filteredTasks.filter(t => t.status === 'Đã hủy').length;
-
-    // Overdue tasks
-    const now = new Date();
-    const overdue = filteredTasks.filter(
-      t => t.dueDate && 
-           new Date(t.dueDate) < now && 
-           t.status !== 'Hoàn thành' && 
-           t.status !== 'Đã hủy'
-    ).length;
-
-    // On-time completion rate
-    const completedWithDueDate = filteredTasks.filter(
-      t => t.status === 'Hoàn thành' && t.dueDate && t.completedDate
-    );
-    const completedOnTime = completedWithDueDate.filter(
-      t => new Date(t.completedDate!) <= new Date(t.dueDate!)
-    ).length;
-    const onTimeRate = completedWithDueDate.length > 0
-      ? Math.round((completedOnTime / completedWithDueDate.length) * 100)
-      : 0;
-
-    // Average completion time
-    const completedTasksWithDates = filteredTasks.filter(
-      t => t.status === 'Hoàn thành' && t.startDate && t.completedDate
-    );
-    const avgCompletionDays = completedTasksWithDates.length > 0
-      ? Math.round(
-          completedTasksWithDates.reduce((sum, t) => {
-            const start = new Date(t.startDate!);
-            const end = new Date(t.completedDate!);
-            const days = (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
-            return sum + days;
-          }, 0) / completedTasksWithDates.length
-        )
-      : 0;
-
-    // Priority distribution
-    const highPriority = filteredTasks.filter(
-      t => (t.priority === 'Cao' || t.priority === 'Khẩn cấp') &&
-           t.status !== 'Hoàn thành' &&
-           t.status !== 'Đã hủy'
-    ).length;
-
-    return {
-      total,
-      notStarted,
-      inProgress,
-      waiting,
-      completed,
-      cancelled,
-      overdue,
-      onTimeRate,
-      avgCompletionDays,
-      highPriority,
-      completionRate: total > 0 ? Math.round((completed / total) * 100) : 0,
-    };
-  }, [filteredTasks]);
-
-  // Workload by assignee
-  const workloadByAssignee = React.useMemo(() => {
-    const workload: Record<string, {
-      name: string;
-      total: number;
-      inProgress: number;
-      completed: number;
-      overdue: number;
-    }> = {};
-
-    employees.forEach(emp => {
-      workload[emp.systemId] = {
-        name: emp.fullName,
-        total: 0,
-        inProgress: 0,
-        completed: 0,
-        overdue: 0,
+    if (!stats) {
+      return {
+        total: 0, notStarted: 0, inProgress: 0, waiting: 0,
+        completed: 0, cancelled: 0, overdue: 0, onTimeRate: 0,
+        avgCompletionDays: 0, highPriority: 0, completionRate: 0,
       };
-    });
+    }
+    return {
+      total: stats.total,
+      notStarted: stats.byStatus.notStarted,
+      inProgress: stats.byStatus.inProgress,
+      waiting: stats.byStatus.review,
+      completed: stats.byStatus.completed,
+      cancelled: stats.byStatus.cancelled,
+      overdue: stats.overdue,
+      onTimeRate: stats.onTimeRate,
+      avgCompletionDays: stats.avgCompletionDays,
+      highPriority: stats.highPriority,
+      completionRate: stats.completionRate,
+    };
+  }, [stats]);
 
-    const now = new Date();
-    filteredTasks.forEach(task => {
-      if (!task.assigneeId || !workload[task.assigneeId]) return;
+  // Workload by assignee — from server-side stats
+  const workloadByAssignee = React.useMemo(() => {
+    return (stats?.byAssignee || []).slice(0, 5);
+  }, [stats]);
 
-      workload[task.assigneeId].total++;
-      
-      if (task.status === 'Đang thực hiện') {
-        workload[task.assigneeId].inProgress++;
-      }
-      
-      if (task.status === 'Hoàn thành') {
-        workload[task.assigneeId].completed++;
-      }
-      
-      if (task.dueDate && 
-          new Date(task.dueDate) < now && 
-          task.status !== 'Hoàn thành' && 
-          task.status !== 'Đã hủy') {
-        workload[task.assigneeId].overdue++;
-      }
-    });
+  // CSV export — fetch all pages on demand
+  const handleExportCSV = React.useCallback(async () => {
+    try {
+      // Fetch all tasks progressively for export
+      const firstPage = await fetchTasks({ createdFrom, page: 1 });
+      const totalPages = firstPage.pagination?.totalPages || 1;
 
-    return Object.values(workload)
-      .filter(w => w.total > 0)
-      .sort((a, b) => b.total - a.total);
-  }, [filteredTasks, employees]);
+      let allTasks = [...firstPage.data];
+      if (totalPages > 1) {
+        const remainingPages = await Promise.all(
+          Array.from({ length: totalPages - 1 }, (_, i) =>
+            fetchTasks({ createdFrom, page: i + 2 })
+          )
+        );
+        remainingPages.forEach((page) => {
+          allTasks = [...allTasks, ...page.data];
+        });
+      }
+
+      const csv = generateCSV(allTasks);
+      downloadCSV(csv, `tasks-export-${dateRange}.csv`);
+    } catch (error) {
+      console.error('Export failed:', error);
+    }
+  }, [createdFrom, dateRange]);
 
   // Set page header
   usePageHeader({
@@ -177,11 +125,6 @@ export function TasksDashboardPage() {
       { label: 'Dashboard', href: '/tasks/dashboard', isCurrent: true },
     ],
   });
-
-  const handleExportCSV = () => {
-    const csv = generateCSV(filteredTasks);
-    downloadCSV(csv, `tasks-export-${dateRange}.csv`);
-  };
 
   return (
     <div className="space-y-6">
@@ -195,7 +138,7 @@ export function TasksDashboardPage() {
         </div>
         <div className="flex items-center gap-2">
           <Select value={dateRange} onValueChange={(v) => setDateRange(v as DateRange)}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-45">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -346,7 +289,7 @@ export function TasksDashboardPage() {
           <CardDescription>10 công việc mới nhất</CardDescription>
         </CardHeader>
         <CardContent>
-          <RecentTasksTable tasks={filteredTasks.slice(0, 10)} />
+          <RecentTasksTable tasks={recentTasks.slice(0, 10)} />
         </CardContent>
       </Card>
     </div>
@@ -389,7 +332,7 @@ function MetricCard({
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-body-sm font-medium">{title}</CardTitle>
+        <CardTitle size="sm">{title}</CardTitle>
         <div className={cn('p-2 rounded-lg', iconColors[color])}>
           <Icon className="h-4 w-4" />
         </div>

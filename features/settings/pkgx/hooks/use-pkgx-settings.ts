@@ -18,8 +18,8 @@ import type {
   PkgxSyncLog,
   PkgxProduct,
 } from '../types';
+import { DEFAULT_PKGX_SETTINGS } from '../types';
 import type { SystemId } from '@/lib/id-types';
-import { createInitialSettings } from '../store/config-slice';
 
 // ========================================
 // Query Keys
@@ -35,11 +35,237 @@ export const pkgxKeys = {
 // API Functions
 // ========================================
 
-async function fetchPkgxSettings(): Promise<PkgxSettings> {
-  const res = await fetch('/api/pkgx/settings');
-  const json = await res.json();
-  if (!json.success) throw new Error(json.error || 'Failed to fetch settings');
-  return { ...createInitialSettings(), ...json.data };
+/**
+ * Fetch lightweight PKGX settings - only mappings, no products/logs
+ * Use this for Products list page for better performance
+ */
+async function fetchPkgxMappingsOnly(): Promise<PkgxSettings> {
+  // Fetch core data in parallel for better performance
+  const [
+    settingsRes,
+    categoriesRes,
+    brandsRes,
+    categoryMappingsRes,
+    brandMappingsRes,
+    priceMappingsRes,
+  ] = await Promise.all([
+    fetch('/api/pkgx/settings'),
+    fetch('/api/settings/pkgx/categories'),
+    fetch('/api/settings/pkgx/brands'),
+    fetch('/api/settings/pkgx/category-mappings'),
+    fetch('/api/settings/pkgx/brand-mappings'),
+    fetch('/api/pkgx/price-mappings'),
+  ]);
+
+  const [
+    settingsJson,
+    categoriesJson,
+    brandsJson,
+    categoryMappingsJson,
+    brandMappingsJson,
+    priceMappingsJson,
+  ] = await Promise.all([
+    settingsRes.json(),
+    categoriesRes.json(),
+    brandsRes.json(),
+    categoryMappingsRes.json(),
+    brandMappingsRes.json(),
+    priceMappingsRes.json(),
+  ]);
+
+  const baseSettings = settingsJson.success ? settingsJson.data : {};
+  const categories = categoriesJson.data || [];
+  const brands = brandsJson.data || [];
+  
+  const categoryMappings = (categoryMappingsJson.data || []).map((m: Record<string, unknown>) => ({
+    systemId: m.systemId as string,
+    id: m.systemId as string,
+    hrmCategoryId: m.hrmCategoryId as string,
+    hrmCategorySystemId: m.hrmCategoryId as string,
+    hrmCategoryName: m.hrmCategoryName as string,
+    pkgxCategoryId: m.pkgxCategoryId as number,
+    pkgxCatId: m.pkgxCategoryId as number,
+    pkgxCategoryName: m.pkgxCategoryName as string,
+    pkgxCatName: m.pkgxCategoryName as string,
+  }));
+  
+  const brandMappings = (brandMappingsJson.data || []).map((m: Record<string, unknown>) => ({
+    systemId: m.systemId as string,
+    id: m.systemId as string,
+    hrmBrandId: m.hrmBrandId as string,
+    hrmBrandSystemId: m.hrmBrandId as string,
+    hrmBrandName: m.hrmBrandName as string,
+    pkgxBrandId: m.pkgxBrandId as number,
+    pkgxBrandName: m.pkgxBrandName as string,
+  }));
+  
+  const priceMappingsArray = priceMappingsJson.success ? priceMappingsJson.data : [];
+  
+  const priceTypeToField: Record<string, string> = {
+    'shop_price': 'shopPrice',
+    'market_price': 'marketPrice',
+    'partner_price': 'partnerPrice',
+    'ace_price': 'acePrice',
+    'deal_price': 'dealPrice',
+  };
+  const priceMapping: Record<string, string | null> = {};
+  for (const m of priceMappingsArray) {
+    const fieldName = priceTypeToField[m.priceType];
+    if (fieldName) {
+      priceMapping[fieldName] = m.pricingPolicyId || null;
+    }
+  }
+
+  return { 
+    ...DEFAULT_PKGX_SETTINGS, 
+    ...baseSettings,
+    categories,
+    brands,
+    categoryMappings,
+    brandMappings,
+    priceMapping,
+    pkgxProducts: [], // Not loaded for performance
+    logs: [], // Not loaded for performance
+  };
+}
+
+/**
+ * Fetch full PKGX settings including products and logs
+ * Use this for PKGX settings page
+ */
+async function fetchPkgxSettings(productsLimit = 100, logsLimit = 100): Promise<PkgxSettings> {
+  // Fetch all data in parallel for better performance
+  const [
+    settingsRes,
+    categoriesRes,
+    brandsRes,
+    categoryMappingsRes,
+    brandMappingsRes,
+    priceMappingsRes,
+    productsRes,
+    logsRes,
+  ] = await Promise.all([
+    fetch('/api/pkgx/settings'),
+    fetch('/api/settings/pkgx/categories'),
+    fetch('/api/settings/pkgx/brands'),
+    fetch('/api/settings/pkgx/category-mappings'),
+    fetch('/api/settings/pkgx/brand-mappings'),
+    fetch('/api/pkgx/price-mappings'),
+    fetch(`/api/settings/pkgx/products?limit=${productsLimit}`),
+    fetch(`/api/settings/pkgx/logs?limit=${logsLimit}`),
+  ]);
+
+  const [
+    settingsJson,
+    categoriesJson,
+    brandsJson,
+    categoryMappingsJson,
+    brandMappingsJson,
+    priceMappingsJson,
+    productsJson,
+    logsJson,
+  ] = await Promise.all([
+    settingsRes.json(),
+    categoriesRes.json(),
+    brandsRes.json(),
+    categoryMappingsRes.json(),
+    brandMappingsRes.json(),
+    priceMappingsRes.json(),
+    productsRes.json(),
+    logsRes.json(),
+  ]);
+
+  const baseSettings = settingsJson.success ? settingsJson.data : {};
+  const categories = categoriesJson.data || [];
+  const brands = brandsJson.data || [];
+  
+  const categoryMappings = (categoryMappingsJson.data || []).map((m: Record<string, unknown>) => ({
+    systemId: m.systemId as string,
+    id: m.systemId as string,
+    hrmCategoryId: m.hrmCategoryId as string,
+    hrmCategorySystemId: m.hrmCategoryId as string,
+    hrmCategoryName: m.hrmCategoryName as string,
+    pkgxCategoryId: m.pkgxCategoryId as number,
+    pkgxCatId: m.pkgxCategoryId as number,
+    pkgxCategoryName: m.pkgxCategoryName as string,
+    pkgxCatName: m.pkgxCategoryName as string,
+  }));
+  
+  const brandMappings = (brandMappingsJson.data || []).map((m: Record<string, unknown>) => ({
+    systemId: m.systemId as string,
+    id: m.systemId as string,
+    hrmBrandId: m.hrmBrandId as string,
+    hrmBrandSystemId: m.hrmBrandId as string,
+    hrmBrandName: m.hrmBrandName as string,
+    pkgxBrandId: m.pkgxBrandId as number,
+    pkgxBrandName: m.pkgxBrandName as string,
+  }));
+  
+  const priceMappingsArray = priceMappingsJson.success ? priceMappingsJson.data : [];
+  
+  // Convert array to object format for UI: { shopPrice: 'POLICY_ID', ... }
+  const priceTypeToField: Record<string, string> = {
+    'shop_price': 'shopPrice',
+    'market_price': 'marketPrice',
+    'partner_price': 'partnerPrice',
+    'ace_price': 'acePrice',
+    'deal_price': 'dealPrice',
+  };
+  const priceMapping: Record<string, string | null> = {};
+  for (const m of priceMappingsArray) {
+    const fieldName = priceTypeToField[m.priceType];
+    if (fieldName) {
+      priceMapping[fieldName] = m.pricingPolicyId || null;
+    }
+  }
+  
+  const pkgxProducts: PkgxProduct[] = (productsJson.data || []).map((p: Record<string, unknown>) => ({
+    goods_id: p.id as number,
+    goods_number: p.goodsNumber as string,
+    goods_name: p.name as string,
+    cat_id: p.catId as number,
+    cat_name: p.catName as string,
+    brand_id: p.brandId as number,
+    brand_name: p.brandName as string,
+    shop_price: p.shopPrice as string,
+    market_price: p.marketPrice as string,
+    partner_price: p.partnerPrice as string,
+    ace_price: p.acePrice as string,
+    deal_price: p.dealPrice as string,
+    goods_number2: p.goodsNumber2 as string,
+    goods_weight: p.goodsWeight as string,
+    goods_quantity: p.goodsQuantity as number,
+    warn_number: p.warnNumber as number,
+    goods_thumb: p.goodsThumb as string,
+    original_img: p.originalImg as string,
+    goods_brief: p.goodsBrief as string,
+    goods_desc: p.goodsDesc as string,
+    is_best: p.isBest as number,
+    is_new: p.isNew as number,
+    is_hot: p.isHot as number,
+    is_home: p.isHome as number,
+    is_onsale: p.isOnsale as number,
+    is_real: p.isReal as number,
+    keywords: p.keywords as string,
+    ktitle: p.ktitle as string,
+    goods_alias: p.goodsAlias as string,
+    last_update: p.lastUpdate as number,
+  }));
+  
+  // Parse logs from already-fetched data
+  const logs: PkgxSyncLog[] = logsJson?.data || [];
+  
+  return { 
+    ...DEFAULT_PKGX_SETTINGS, 
+    ...baseSettings,
+    categories,
+    brands,
+    categoryMappings,
+    brandMappings,
+    priceMapping,
+    pkgxProducts,
+    logs,
+  };
 }
 
 async function updatePkgxSection(section: string, data: unknown): Promise<void> {
@@ -59,8 +285,24 @@ async function updatePkgxSection(section: string, data: unknown): Promise<void> 
 export function usePkgxSettings() {
   return useQuery({
     queryKey: pkgxKeys.settings(),
-    queryFn: fetchPkgxSettings,
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    queryFn: () => fetchPkgxSettings(),
+    staleTime: 1000 * 60 * 2, // 2 minutes - prevent excessive refetches
+    gcTime: 1000 * 60 * 5, // 5 minutes garbage collection
+    refetchOnWindowFocus: false, // Don't refetch on window focus
+  });
+}
+
+/**
+ * Lightweight hook for pages that only need mappings (not PKGX products list)
+ * Use this instead of usePkgxSettings on Products list page for better performance
+ */
+export function usePkgxMappings() {
+  return useQuery({
+    queryKey: [...pkgxKeys.settings(), 'mappings-only'],
+    queryFn: fetchPkgxMappingsOnly,
+    staleTime: 1000 * 60 * 5, // 5 minutes - mappings don't change frequently
+    gcTime: 1000 * 60 * 10, // 10 minutes garbage collection
+    refetchOnWindowFocus: false,
   });
 }
 
@@ -160,6 +402,35 @@ export function usePkgxLogs() {
 // Mutation Hooks
 // ========================================
 
+/**
+ * Generic mutation hook for updating any section of PKGX settings
+ * Used for batch updates (e.g., price mapping) instead of per-field mutations
+ */
+export function usePkgxSectionMutation(section: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: unknown) => {
+      // Use optimized endpoint for priceMapping - uses PkgxPriceMapping table directly
+      if (section === 'priceMapping') {
+        const res = await fetch('/api/pkgx/price-mappings', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error || 'Failed to update price mapping');
+        return;
+      }
+      // Fallback to generic endpoint for other sections
+      await updatePkgxSection(section, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: pkgxKeys.settings() });
+    },
+  });
+}
+
 export function usePkgxConfigMutations(options?: { onSuccess?: () => void }) {
   const queryClient = useQueryClient();
 
@@ -215,7 +486,21 @@ export function usePkgxConfigMutations(options?: { onSuccess?: () => void }) {
     },
   });
 
-  return { setApiUrl, setApiKey, setEnabled, setConnectionStatus };
+  const setDefaultBranchId = useMutation({
+    mutationFn: async (branchId: string | undefined) => {
+      await updatePkgxSection('defaultBranchId', branchId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: pkgxKeys.settings() });
+      toast.success('Đã cập nhật kho mặc định');
+      options?.onSuccess?.();
+    },
+    onError: (error: Error) => {
+      toast.error(`Lỗi cập nhật kho: ${error.message}`);
+    },
+  });
+
+  return { setApiUrl, setApiKey, setEnabled, setConnectionStatus, setDefaultBranchId };
 }
 
 export function usePkgxCategoryMutations(options?: { onSuccess?: () => void }) {
@@ -492,14 +777,22 @@ export function usePkgxLogMutations() {
 
   const addLog = useMutation({
     mutationFn: async (log: Omit<PkgxSyncLog, 'id' | 'timestamp'>) => {
-      const settings = queryClient.getQueryData(pkgxKeys.settings()) as PkgxSettings;
-      const newLog: PkgxSyncLog = {
-        ...log,
-        id: Date.now().toString(),
-        timestamp: new Date().toISOString(),
-      };
-      const logs = [...(settings?.logs ?? []), newLog];
-      await updatePkgxSection('logs', logs);
+      const res = await fetch('/api/settings/pkgx/logs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: log.action,
+          status: log.status,
+          message: log.message,
+          syncType: log.details?.productName || 'general',
+          itemsTotal: log.details?.total || 0,
+          itemsSuccess: log.details?.success || 0,
+          itemsFailed: log.details?.failed || 0,
+          details: log.details,
+        }),
+      });
+      if (!res.ok) throw new Error('Failed to create log');
+      return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: pkgxKeys.settings() });
@@ -508,7 +801,8 @@ export function usePkgxLogMutations() {
 
   const clearLogs = useMutation({
     mutationFn: async () => {
-      await updatePkgxSection('logs', []);
+      const res = await fetch('/api/settings/pkgx/logs', { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to clear logs');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: pkgxKeys.settings() });
@@ -524,24 +818,206 @@ export function usePkgxProductsMutations() {
 
   const setPkgxProducts = useMutation({
     mutationFn: async (products: PkgxProduct[]) => {
-      await updatePkgxSection('pkgxProducts', products);
-      await updatePkgxSection('pkgxProductsLastFetch', new Date().toISOString());
+      console.log('[setPkgxProducts] Saving', products.length, 'products to database...');
+      // Transform PkgxProduct[] to API format and save to database
+      const apiProducts = products.map(p => ({
+        id: p.goods_id,
+        goodsSn: p.goods_sn, // SKU from PKGX API
+        goodsNumber: p.goods_number,
+        name: p.goods_name || `Product ${p.goods_id}`, // Fallback if name is missing
+        catId: p.cat_id,
+        catName: p.cat_name,
+        brandId: p.brand_id,
+        brandName: p.brand_name,
+        shopPrice: p.shop_price ? parseFloat(String(p.shop_price)) : null,
+        marketPrice: p.market_price ? parseFloat(String(p.market_price)) : null,
+        partnerPrice: p.partner_price ? parseFloat(String(p.partner_price)) : null,
+        acePrice: p.ace_price ? parseFloat(String(p.ace_price)) : null,
+        dealPrice: p.deal_price ? parseFloat(String(p.deal_price)) : null,
+        goodsNumber2: p.goods_number2,
+        goodsWeight: p.goods_weight ? parseFloat(String(p.goods_weight)) : null,
+        goodsQuantity: p.goods_quantity,
+        warnNumber: p.warn_number,
+        goodsThumb: p.goods_thumb,
+        originalImg: p.original_img,
+        goodsBrief: p.goods_brief,
+        goodsDesc: p.goods_desc,
+        isBest: p.is_best,
+        isNew: p.is_new,
+        isHot: p.is_hot,
+        isHome: p.is_home,
+        isOnsale: p.is_onsale,
+        isReal: p.is_real,
+        keywords: p.keywords,
+        ktitle: p.ktitle,
+        goodsAlias: p.goods_alias,
+        lastUpdate: p.last_update,
+      }));
+      
+      const res = await fetch('/api/settings/pkgx/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ products: apiProducts }),
+      });
+      const json = await res.json();
+      console.log('[setPkgxProducts] API response:', json);
+      if (!json.success) throw new Error(json.error || 'Failed to sync products to database');
+      return json;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log('[setPkgxProducts] Success:', data);
       queryClient.invalidateQueries({ queryKey: pkgxKeys.settings() });
+      queryClient.invalidateQueries({ queryKey: ['pkgx', 'products'] });
+    },
+    onError: (error) => {
+      console.error('[setPkgxProducts] Error:', error);
     },
   });
 
   const clearPkgxProducts = useMutation({
     mutationFn: async () => {
-      await updatePkgxSection('pkgxProducts', []);
+      const res = await fetch('/api/settings/pkgx/products', {
+        method: 'DELETE',
+      });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error || 'Failed to clear products');
+      return json;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: pkgxKeys.settings() });
+      queryClient.invalidateQueries({ queryKey: ['pkgx', 'products'] });
     },
   });
 
   return { setPkgxProducts, clearPkgxProducts };
+}
+
+// Hook to fetch products from database with server-side pagination
+export function usePkgxProductsPaginated(options: {
+  page: number;
+  limit: number;
+  search?: string;
+  catId?: number;
+  brandId?: number;
+  mapped?: boolean | null;
+}) {
+  const { page, limit, search, catId, brandId, mapped } = options;
+  
+  return useQuery({
+    queryKey: ['pkgx', 'products', 'paginated', page, limit, search, catId, brandId, mapped],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: String(limit),
+      });
+      if (search) params.set('search', search);
+      if (catId) params.set('catId', String(catId));
+      if (brandId) params.set('brandId', String(brandId));
+      if (mapped !== null && mapped !== undefined) params.set('mapped', String(mapped));
+      
+      const res = await fetch(`/api/settings/pkgx/products?${params}`);
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error || 'Failed to fetch products');
+      
+      // Transform DB format back to PKGX API format for UI compatibility
+      const products: PkgxProduct[] = (json.data || []).map((p: Record<string, unknown>) => ({
+        goods_id: p.id as number,
+        goods_sn: (p.goodsSn || p.goodsNumber || '') as string,
+        goods_number: p.goodsNumber as string,
+        goods_name: p.name as string,
+        cat_id: p.catId as number,
+        cat_name: p.catName as string,
+        brand_id: p.brandId as number,
+        brand_name: p.brandName as string,
+        shop_price: p.shopPrice as string,
+        market_price: p.marketPrice as string,
+        partner_price: p.partnerPrice as string,
+        ace_price: p.acePrice as string,
+        deal_price: p.dealPrice as string,
+        goods_number2: p.goodsNumber2 as string,
+        goods_weight: p.goodsWeight as string,
+        goods_quantity: p.goodsQuantity as number,
+        warn_number: p.warnNumber as number,
+        goods_thumb: p.goodsThumb as string,
+        original_img: p.originalImg as string,
+        goods_brief: p.goodsBrief as string,
+        goods_desc: p.goodsDesc as string,
+        is_best: p.isBest as number,
+        is_new: p.isNew as number,
+        is_hot: p.isHot as number,
+        is_home: p.isHome as number,
+        is_onsale: p.isOnsale as number,
+        is_real: p.isReal as number,
+        keywords: p.keywords as string,
+        ktitle: p.ktitle as string,
+        goods_alias: p.goodsAlias as string,
+        last_update: p.lastUpdate as number,
+      }));
+      
+      return { 
+        products, 
+        total: json.total as number,
+        page: json.page as number,
+        limit: json.limit as number,
+        totalPages: json.totalPages as number,
+      };
+    },
+    staleTime: 0, // Always refetch when params change
+  });
+}
+
+// Hook to fetch ALL products from database (for mapping lookup and import)
+// Only use when you need full list - prefer paginated version for display
+export function usePkgxProductsCache() {
+  return useQuery({
+    queryKey: ['pkgx', 'products', 'all'],
+    queryFn: async () => {
+      console.log('[usePkgxProductsCache] Fetching ALL from API...');
+      const res = await fetch('/api/settings/pkgx/products');
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error || 'Failed to fetch products');
+      // Transform DB format back to PKGX API format for UI compatibility
+      const products: PkgxProduct[] = (json.data || []).map((p: Record<string, unknown>) => ({
+        goods_id: p.id as number,
+        goods_sn: (p.goodsSn || p.goodsNumber || '') as string,
+        goods_number: p.goodsNumber as string,
+        goods_name: p.name as string,
+        cat_id: p.catId as number,
+        cat_name: p.catName as string,
+        brand_id: p.brandId as number,
+        brand_name: p.brandName as string,
+        shop_price: p.shopPrice as string,
+        market_price: p.marketPrice as string,
+        partner_price: p.partnerPrice as string,
+        ace_price: p.acePrice as string,
+        deal_price: p.dealPrice as string,
+        goods_number2: p.goodsNumber2 as string,
+        goods_weight: p.goodsWeight as string,
+        goods_quantity: p.goodsQuantity as number,
+        warn_number: p.warnNumber as number,
+        goods_thumb: p.goodsThumb as string,
+        original_img: p.originalImg as string,
+        goods_brief: p.goodsBrief as string,
+        goods_desc: p.goodsDesc as string,
+        is_best: p.isBest as number,
+        is_new: p.isNew as number,
+        is_hot: p.isHot as number,
+        is_home: p.isHome as number,
+        is_onsale: p.isOnsale as number,
+        is_real: p.isReal as number,
+        keywords: p.keywords as string,
+        ktitle: p.ktitle as string,
+        goods_alias: p.goodsAlias as string,
+        last_update: p.lastUpdate as number,
+      }));
+      return { 
+        products, 
+        lastFetch: null, 
+        count: json.total || products.length,
+      };
+    },
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
 }
 
 // ========================================
@@ -589,6 +1065,19 @@ export function usePkgxGetters() {
     [getBrandMappingByHrmId]
   );
 
+  // Reverse lookups: by PKGX ID
+  const getCategoryMappingByPkgxId = useCallback(
+    (pkgxCatId: number) =>
+      settings?.categoryMappings?.find((m) => m.pkgxCategoryId === pkgxCatId),
+    [settings?.categoryMappings]
+  );
+
+  const getBrandMappingByPkgxId = useCallback(
+    (pkgxBrandId: number) =>
+      settings?.brandMappings?.find((m) => m.pkgxBrandId === pkgxBrandId),
+    [settings?.brandMappings]
+  );
+
   return {
     getCategoryById,
     getBrandById,
@@ -596,5 +1085,7 @@ export function usePkgxGetters() {
     getBrandMappingByHrmId,
     getPkgxCatIdByHrmCategory,
     getPkgxBrandIdByHrmBrand,
+    getCategoryMappingByPkgxId,
+    getBrandMappingByPkgxId,
   };
 }

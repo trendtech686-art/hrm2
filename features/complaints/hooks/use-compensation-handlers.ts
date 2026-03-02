@@ -5,7 +5,9 @@
 
 import * as React from 'react';
 import { toast } from 'sonner';
+import { useQueryClient } from '@tanstack/react-query';
 import { asSystemId } from '@/lib/id-types';
+import { generateSubEntityId } from '@/lib/id-utils';
 import type { SystemId } from '@/lib/id-types';
 import { complaintNotifications } from '../notification-utils';
 import type { Complaint, ComplaintAction } from '../types';
@@ -22,6 +24,7 @@ export function useCompensationHandlers({
   updateComplaint,
   currentUser,
 }: UseCompensationHandlersProps) {
+  const queryClient = useQueryClient();
   
   // ==========================================
   // PROCESS COMPENSATION BUTTON
@@ -44,7 +47,7 @@ export function useCompensationHandlers({
     if (!complaint) return;
 
     // ⚠️ CRITICAL: Tìm action verified-correct CUỐI CÙNG trong timeline và update metadata
-    const updatedTimeline = [...complaint.timeline];
+    const updatedTimeline = [...(complaint.timeline || [])];
     const lastVerifiedCorrectIndex = updatedTimeline
       .map((a, i) => ({ action: a, index: i }))
       .reverse()
@@ -77,7 +80,7 @@ export function useCompensationHandlers({
     }
     
     const compensationAction: ComplaintAction = {
-      id: asSystemId(`action_${Date.now()}`),
+      id: asSystemId(generateSubEntityId('ACTION')),
       actionType: "commented" as const,
       performedBy: asSystemId(currentUser.systemId),
       performedAt: new Date(),
@@ -102,9 +105,20 @@ export function useCompensationHandlers({
       // Mỗi action tự lưu metadata của riêng nó
     } as Partial<Complaint>);
 
+    // ✅ Invalidate related queries so compensation section shows new data
+    if (result.payment) {
+      queryClient.invalidateQueries({ queryKey: ['payments'] });
+    }
+    if (result.penalties && result.penalties.length > 0) {
+      queryClient.invalidateQueries({ queryKey: ['penalties'] });
+    }
+    if (result.inventoryCheckSystemId) {
+      queryClient.invalidateQueries({ queryKey: ['inventory-checks'] });
+    }
+
     complaintNotifications.onVerified("Đã xác nhận khiếu nại đúng, ghi nhận giải pháp và tạo phiếu chi");
     toast.success("Đã tạo phiếu bù trừ thành công!");
-  }, [complaint, updateComplaint, currentUser]);
+  }, [complaint, updateComplaint, currentUser, queryClient]);
 
   return {
     handleProcessCompensation,

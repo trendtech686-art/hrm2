@@ -1,0 +1,72 @@
+version: '3.8'
+
+services:
+  # ===========================================
+  # Meilisearch - Fast Search Engine
+  # ===========================================
+  meilisearch:
+    image: getmeili/meilisearch:v1.6
+    container_name: hrm2-meilisearch
+    restart: unless-stopped
+    ports:
+      - "7700:7700"
+    environment:
+      # Master key for production (generate with: openssl rand -base64 32)
+      - MEILI_MASTER_KEY=${MEILISEARCH_MASTER_KEY:-devMasterKey123456}
+      # Environment: development or production
+      - MEILI_ENV=${MEILISEARCH_ENV:-development}
+      # Max indexing memory
+      - MEILI_MAX_INDEXING_MEMORY=1Gb
+      # Max indexing threads
+      - MEILI_MAX_INDEXING_THREADS=2
+    volumes:
+      - meilisearch_data:/meili_data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7700/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # ===========================================
+  # PostgreSQL (if you want to run in Docker)
+  # ===========================================
+  # postgres:
+  #   image: postgres:16-alpine
+  #   container_name: hrm2-postgres
+  #   restart: unless-stopped
+  #   ports:
+  #     - "5433:5432"
+  #   environment:
+  #     - POSTGRES_USER=erp_user
+  #     - POSTGRES_PASSWORD=erp_password
+  #     - POSTGRES_DB=erp_db
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U erp_user -d erp_db"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+
+volumes:
+  meilisearch_data:
+    driver: local
+  # postgres_data:
+  #   driver: local
+
+# ===========================================
+# Usage:
+# ===========================================
+# Start Meilisearch:
+#   docker-compose up -d meilisearch
+#
+# View logs:
+#   docker-compose logs -f meilisearch
+#
+# Stop:
+#   docker-compose down
+#
+# Reset data:
+#   docker-compose down -v
+# ===========================================

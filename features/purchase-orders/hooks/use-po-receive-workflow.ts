@@ -1,16 +1,17 @@
 /**
  * Hook cho receive goods workflow của PurchaseOrder
- * Tách từ page.tsx để giảm kích thước file
+ * Migrated to React Query - uses server-side APIs
  */
 import React from 'react';
 import { toast } from 'sonner';
 import { formatDateCustom } from '@/lib/date-utils';
-import { asBusinessId, asSystemId, type SystemId } from '@/lib/id-types';
+import { asSystemId, type SystemId } from '@/lib/id-types';
 import type { PurchaseOrder } from '@/lib/types/prisma-extended';
-import { usePurchaseOrderStore } from '../store';
-import { useInventoryReceipts, useInventoryReceiptMutations } from '@/features/inventory-receipts/hooks/use-inventory-receipts';
-import { useProductStore } from '@/features/products/store';
-import { useStockHistoryStore } from '@/features/stock-history/store';
+import { usePurchaseOrderMutations } from './use-purchase-orders';
+import { useAllInventoryReceipts } from '@/features/inventory-receipts/hooks/use-all-inventory-receipts';
+import { useInventoryReceiptMutations } from '@/features/inventory-receipts/hooks/use-inventory-receipts';
+import { useProductFinder } from '@/features/products/hooks/use-all-products';
+import { useProductMutations } from '@/features/products/hooks/use-products';
 import { useAllBranches } from '@/features/settings/branches/hooks/use-all-branches';
 import { useAuth } from '@/contexts/auth-context';
 
@@ -49,20 +50,19 @@ const initialReceiveState: ReceiveDialogState = {
 };
 
 export function usePurchaseOrderReceiveWorkflow() {
-  const { processInventoryReceipt } = usePurchaseOrderStore();
-  const { data: irQueryData } = useInventoryReceipts({ limit: 1000 });
-  const allReceipts = React.useMemo(() => irQueryData?.data ?? [], [irQueryData?.data]);
+  const { processReceipt: processReceiptMutation } = usePurchaseOrderMutations({});
+  const { data: allReceipts } = useAllInventoryReceipts();
   const { create: createInventoryReceipt } = useInventoryReceiptMutations({
     onCreateSuccess: () => {},
     onError: (err) => toast.error(err.message)
   });
-  const { updateInventory, findById: findProductById } = useProductStore();
-  const { addEntry: addStockHistoryEntry } = useStockHistoryStore();
+  const { findById: _findProductById } = useProductFinder();
+  const { updateInventory: _updateInventoryMutation } = useProductMutations({});
   const { data: branches } = useAllBranches();
   const { employee: loggedInUser } = useAuth();
   
   const currentUserSystemId = loggedInUser?.systemId ?? 'SYSTEM';
-  const currentUserName = loggedInUser?.fullName ?? 'Hệ thống';
+  const _currentUserName = loggedInUser?.fullName ?? 'Hệ thống';
 
   const [receiveDialogState, setReceiveDialogState] = React.useState<ReceiveDialogState>(initialReceiveState);
   const [pendingReceiveQueue, setPendingReceiveQueue] = React.useState<PurchaseOrder[]>([]);
@@ -179,7 +179,7 @@ export function usePurchaseOrderReceiveWorkflow() {
     }));
   }, [branches]);
 
-  const handleSubmitReceiveDialog = React.useCallback(() => {
+  const handleSubmitReceiveDialog = React.useCallback(async () => {
     if (!receiveDialogState.purchaseOrder || !requireLoggedInEmployee()) {
       return;
     }
@@ -216,59 +216,40 @@ export function usePurchaseOrderReceiveWorkflow() {
         : formatDateCustom(new Date(), 'yyyy-MM-dd HH:mm');
 
       const branchSystemId = receiveDialogState.targetBranchSystemId;
-      const receiptPayload = {
-        id: asBusinessId(receiveDialogState.documentCode?.trim() || ''),
-        purchaseOrderSystemId: asSystemId(receiveDialogState.purchaseOrder.systemId),
-        purchaseOrderId: asBusinessId(
-          receiveDialogState.purchaseOrder.id || receiveDialogState.purchaseOrder.systemId,
-        ),
-        supplierSystemId: asSystemId(receiveDialogState.purchaseOrder.supplierSystemId),
-        supplierName: receiveDialogState.purchaseOrder.supplierName,
-        receivedDate: normalizedDate,
-        receiverSystemId: asSystemId(currentUserSystemId),
-        receiverName: currentUserName,
-        notes: receiveDialogState.notes,
-        branchSystemId,
+      const receiptPayload: Parameters<typeof createInventoryReceipt.mutateAsync>[0] = {
+        type: 'PURCHASE',
+        branchId: branchSystemId,
+        branchSystemId: branchSystemId,
         branchName: receiveDialogState.targetBranchName,
-        warehouseName: receiveDialogState.warehouseName,
+        purchaseOrderSystemId: receiveDialogState.purchaseOrder.systemId,
+        purchaseOrderId: receiveDialogState.purchaseOrder.id || receiveDialogState.purchaseOrder.systemId,
+        supplierSystemId: receiveDialogState.purchaseOrder.supplierSystemId,
+        supplierName: receiveDialogState.purchaseOrder.supplierName,
+        receiptDate: normalizedDate,
+        createdBy: currentUserSystemId,
         items: itemsToReceive.map(item => ({
+          productId: item.productId || item.productSystemId,
           productSystemId: item.productSystemId,
-          productId: asBusinessId(item.productId || ''),
           productName: item.productName,
-          orderedQuantity: item.orderedQuantity,
-          receivedQuantity: item.receivedQuantity,
+          quantity: item.receivedQuantity,
           unitPrice: item.unitPrice,
         })),
       };
 
-      // Create the receipt synchronously and get the ID for stock history
-      let createdReceiptId = receiptPayload.id;
-      createInventoryReceipt.mutate(receiptPayload, {
-        onSuccess: (receipt) => {
-          createdReceiptId = receipt.id;
-        }
-      });
+      // Create the inventory receipt - API also creates stock history AND updates ProductInventory
+      // ✅ FIX: Removed duplicate updateInventoryMutation call - createInventoryReceipt already handles:
+      //   1. Creating inventory receipt record
+      //   2. Updating ProductInventory.onHand
+      //   3. Creating StockHistory entries
+      // Previously we were calling updateInventoryMutation AGAIN which caused:
+      //   - Double inventory update (onHand was incremented twice)
+      //   - Duplicate StockHistory entries
+      //   - Mismatch between ProductInventory.onHand and StockHistory.newStockLevel
+      await createInventoryReceipt.mutateAsync(receiptPayload);
 
-      itemsToReceive.forEach(item => {
-        const productBeforeUpdate = findProductById(item.productSystemId);
-        const oldStock = productBeforeUpdate?.inventoryByBranch?.[branchSystemId] || 0;
-
-        updateInventory(item.productSystemId, branchSystemId, item.receivedQuantity);
-
-        addStockHistoryEntry({
-          productId: item.productSystemId,
-          date: new Date().toISOString(),
-          employeeName: currentUserName,
-          action: `Nhập hàng từ NCC (${receiveDialogState.purchaseOrder?.id})`,
-          quantityChange: item.receivedQuantity,
-          newStockLevel: oldStock + item.receivedQuantity,
-          documentId: createdReceiptId,
-          branch: receiveDialogState.targetBranchName,
-          branchSystemId,
-        });
-      });
-
-      processInventoryReceipt(receiveDialogState.purchaseOrder.systemId);
+      // Update PO status via API
+      await processReceiptMutation.mutateAsync(receiveDialogState.purchaseOrder.systemId);
+      
       toast.success('Đã lưu phiếu nhập', {
         description: `Hoàn tất nhập hàng cho đơn ${receiveDialogState.purchaseOrder.id}.`,
       });
@@ -280,6 +261,10 @@ export function usePurchaseOrderReceiveWorkflow() {
       } else {
         closeReceiveDialog();
       }
+    } catch (error) {
+      toast.error('Lỗi lưu phiếu nhập', {
+        description: error instanceof Error ? error.message : 'Đã xảy ra lỗi',
+      });
     } finally {
       setIsSubmittingReceive(false);
     }
@@ -287,12 +272,8 @@ export function usePurchaseOrderReceiveWorkflow() {
     receiveDialogState, 
     requireLoggedInEmployee, 
     currentUserSystemId, 
-    currentUserName, 
     createInventoryReceipt, 
-    findProductById, 
-    updateInventory, 
-    addStockHistoryEntry, 
-    processInventoryReceipt, 
+    processReceiptMutation, 
     pendingReceiveQueue, 
     openReceiveDialogForOrder, 
     closeReceiveDialog

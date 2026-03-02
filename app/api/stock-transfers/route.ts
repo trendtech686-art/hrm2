@@ -11,14 +11,16 @@ import type { Prisma } from '@/generated/prisma/client';
 import { StockTransferStatus } from '@/generated/prisma/client';
 import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils';
 import { createStockTransferSchema } from './validation';
+import { generateNextIdsWithTx } from '@/lib/id-system';
 
 // Interface for stock transfer item input
 interface StockTransferItemInput {
-  systemId: string;
+  productSystemId: string;
   productId: string;
   productName?: string;
   productSku?: string;
   quantity?: number;
+  note?: string;
   notes?: string;
 }
 
@@ -31,6 +33,11 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const { page, limit, skip } = parsePagination(searchParams);
     const search = searchParams.get('search') || '';
+    const status = searchParams.get('status');
+    const fromBranchId = searchParams.get('fromBranchId');
+    const toBranchId = searchParams.get('toBranchId');
+    const sortBy = searchParams.get('sortBy') || 'createdAt';
+    const sortOrder = (searchParams.get('sortOrder') || 'desc') as 'asc' | 'desc';
     const _includeDeleted = searchParams.get('includeDeleted') === 'true';
 
     const where: Prisma.StockTransferWhereInput = {};
@@ -45,20 +52,63 @@ export async function GET(request: NextRequest) {
       ];
     }
 
+    if (status && status !== 'all') {
+      where.status = status as StockTransferStatus;
+    }
+
+    if (fromBranchId && fromBranchId !== 'all') {
+      where.fromBranchSystemId = fromBranchId;
+    }
+
+    if (toBranchId && toBranchId !== 'all') {
+      where.toBranchSystemId = toBranchId;
+    }
+
+    // Build orderBy
+    const orderBy: Prisma.StockTransferOrderByWithRelationInput = { [sortBy]: sortOrder };
+
     const [data, total] = await Promise.all([
       prisma.stockTransfer.findMany({
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy,
         include: {
-          items: true,
+          items: {
+            include: {
+              stockTransfer: false,
+            },
+          },
         },
       }),
       prisma.stockTransfer.count({ where }),
     ]);
 
-    return apiPaginated(data, { page, limit, total });
+    // Get all product IDs from items to fetch costPrices
+    const productIds = [...new Set(data.flatMap(t => t.items.map(i => i.productId).filter(Boolean)))];
+    const products = productIds.length > 0 
+      ? await prisma.product.findMany({
+          where: { systemId: { in: productIds as string[] } },
+          select: { systemId: true, costPrice: true },
+        })
+      : [];
+    const productPriceMap = new Map(products.map(p => [p.systemId, p.costPrice]));
+
+    // Transform data with calculated totalValue
+    const transformedData = data.map(transfer => {
+      const totalValue = transfer.items.reduce((sum, item) => {
+        const costPrice = item.productId ? (productPriceMap.get(item.productId) || 0) : 0;
+        return sum + (Number(costPrice) * item.quantity);
+      }, 0);
+      
+      return {
+        ...transfer,
+        status: transfer.status.toLowerCase(),
+        totalValue,
+      };
+    });
+
+    return apiPaginated(transformedData, { page, limit, total });
   } catch (error) {
     console.error('[Stock Transfers API] GET error:', error);
     return apiError('Failed to fetch stock transfers', 500);
@@ -71,51 +121,78 @@ export async function POST(request: NextRequest) {
   if (!session) return apiError('Unauthorized', 401);
 
   const result = await validateBody(request, createStockTransferSchema);
-  if (!result.success) return apiError(result.error, 400);
+  if (!result.success) {
+    console.error('[Stock Transfers API] Validation error:', result.error);
+    return apiError(result.error, 400);
+  }
 
   try {
-    const {
-      systemId,
-      id,
-      fromBranchId,
-      toBranchId,
-      employeeId,
-      transferDate,
-      receivedDate,
-      status,
-      notes,
-      items,
-      createdBy,
-    } = result.data;
+    const data = result.data;
+    console.log('[Stock Transfers API] Creating with data:', JSON.stringify(data, null, 2));
+    
+    // Normalize branch IDs - support both old format (fromBranchId) and new format (fromBranchSystemId)
+    const fromBranchId = data.fromBranchSystemId || data.fromBranchId || '';
+    const toBranchId = data.toBranchSystemId || data.toBranchId || '';
+    
+    if (!fromBranchId || !toBranchId) {
+      return apiError('Chi nhánh nguồn và chi nhánh đích là bắt buộc', 400);
+    }
 
-    const stockTransfer = await prisma.stockTransfer.create({
-      data: {
-        systemId,
-        id,
-        fromBranchId,
-        toBranchId,
-        employeeId: employeeId || null,
-        transferDate: transferDate ? new Date(transferDate) : new Date(),
-        receivedDate: receivedDate ? new Date(receivedDate) : null,
-        status: (status || 'DRAFT') as StockTransferStatus,
-        notes: notes || null,
-        createdBy: createdBy || null,
-        items: items?.length ? {
-          create: items.map((item: StockTransferItemInput) => ({
-            systemId: item.systemId,
-            productId: item.productId,
-            productName: item.productName || '',
-            productSku: item.productSku || '',
-            quantity: item.quantity || 1,
-          })),
-        } : undefined,
-      },
-      include: {
-        items: true,
-      },
+    const stockTransfer = await prisma.$transaction(async (tx) => {
+      // Generate IDs
+      const { systemId, businessId } = await generateNextIdsWithTx(
+        tx,
+        'stock-transfers',
+        data.id?.trim() || undefined
+      );
+      
+      // Generate item systemIds
+      const itemsWithIds = data.items?.map((item: StockTransferItemInput, index: number) => ({
+        systemId: `${systemId}-ITEM${String(index + 1).padStart(3, '0')}`,
+        productId: item.productSystemId || item.productId, // Support both formats
+        productName: item.productName || '',
+        productSku: item.productSku || item.productId || '', // Use productId as SKU fallback
+        quantity: item.quantity || 1,
+      })) || [];
+      
+      return tx.stockTransfer.create({
+        data: {
+          systemId,
+          id: businessId,
+          fromBranchId,
+          toBranchId,
+          fromBranchSystemId: data.fromBranchSystemId || fromBranchId,
+          fromBranchName: data.fromBranchName || null,
+          toBranchSystemId: data.toBranchSystemId || toBranchId,
+          toBranchName: data.toBranchName || null,
+          referenceCode: data.referenceCode || null,
+          employeeId: data.employeeId || null,
+          transferDate: data.transferDate ? new Date(data.transferDate) : new Date(),
+          receivedDate: data.receivedDate ? new Date(data.receivedDate) : null,
+          status: ((data.status || 'draft').toUpperCase()) as StockTransferStatus,
+          notes: data.notes || data.note || null,
+          note: data.note || data.notes || null,
+          createdBy: data.createdBy || null,
+          createdBySystemId: data.createdBySystemId || null,
+          createdByName: data.createdByName || null,
+          updatedBy: data.updatedBy || null,
+          items: itemsWithIds.length ? {
+            create: itemsWithIds,
+          } : undefined,
+        },
+        include: {
+          items: true,
+        },
+      });
     });
 
-    return apiSuccess(stockTransfer, 201);
+    // Transform status to lowercase for frontend compatibility
+    const transformedResult = {
+      ...stockTransfer,
+      status: stockTransfer.status.toLowerCase(),
+    };
+
+    return apiSuccess(transformedResult, 201);
   } catch (error) {
     console.error('[Stock Transfers API] POST error:', error);
     return apiError('Failed to create stock transfer', 500);

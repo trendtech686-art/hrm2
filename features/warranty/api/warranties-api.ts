@@ -12,6 +12,7 @@ export interface WarrantiesParams {
   search?: string;
   status?: string;
   customerId?: string;
+  orderSystemId?: string;
   branchId?: string;
   startDate?: string;
   endDate?: string;

@@ -1,4 +1,4 @@
-import * as React from 'react';
+﻿import * as React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/ui/card';
 import { Button } from '../../../../components/ui/button';
 import { Input } from '../../../../components/ui/input';
@@ -74,7 +74,7 @@ export function BrandListTab() {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-        <CardTitle className="text-lg">Danh sách thương hiệu PKGX</CardTitle>
+        <CardTitle size="lg">Danh sách thương hiệu PKGX</CardTitle>
         <Button onClick={handleOpenAdd} size="sm">
           <Plus className="h-4 w-4 mr-1" /> Thêm thương hiệu
         </Button>
@@ -90,7 +90,7 @@ export function BrandListTab() {
           />
         </div>
 
-        <div className="border rounded-lg max-h-[500px] overflow-auto">
+        <div className="border rounded-lg max-h-125 overflow-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -102,7 +102,7 @@ export function BrandListTab() {
             <TableBody>
               {filteredBrands.map((brand) => (
                 <TableRow key={brand.id}>
-                  <TableCell className="font-mono">{brand.id}</TableCell>
+                  <TableCell>{brand.id}</TableCell>
                   <TableCell>{brand.name}</TableCell>
                   <TableCell className="text-right">
                     <Button variant="ghost" size="icon" onClick={() => handleOpenEdit(brand)}>

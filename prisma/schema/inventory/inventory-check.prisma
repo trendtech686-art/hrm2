@@ -29,9 +29,6 @@ model InventoryCheck {
   // Items (stored as JSON for flexibility)
   checkItems Json? // Array of InventoryCheckItem with reason
 
-  // Activity History
-  activityHistory Json?
-
   // === RELATIONS ===
   items InventoryCheckItem[]
 

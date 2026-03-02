@@ -14,13 +14,12 @@ import { Button } from '@/components/ui/button';
 import { PayrollStatusBadge } from '@/features/payroll/components/status-badge';
 import { PayslipPrintButton } from '@/features/payroll/components/payslip-print-button';
 import { formatDate } from '@/lib/date-utils';
-import { formatCurrency, formatMonthLabel } from './types';
-import type { Payslip, PayrollBatch } from '@/lib/payroll-types';
+import { formatCurrency, formatMonthLabel, type PayslipLike, type PayrollBatchLike } from './types';
 
-// Use actual types from payroll module
+// Use flexible types for payslip/batch data (works with both store and server API)
 interface SelectedPayslipType {
-  slip: Payslip;
-  batch?: PayrollBatch;
+  slip: PayslipLike;
+  batch?: PayrollBatchLike;
 }
 
 interface PayslipDetailDialogProps {
@@ -46,7 +45,7 @@ export function PayslipDetailDialog({
           <DialogDescription>
             {selectedPayslip?.batch?.id ?? 'Phiếu lương'} -{' '}
             {formatMonthLabel(
-              selectedPayslip?.batch?.payPeriod.monthKey ??
+              selectedPayslip?.batch?.payPeriod?.monthKey ??
                 selectedPayslip?.slip.periodMonthKey
             )}
           </DialogDescription>
@@ -71,7 +70,7 @@ export function PayslipDetailDialog({
               <span className="text-muted-foreground">Kỳ lương:</span>
               <span className="font-medium">
                 {formatMonthLabel(
-                  selectedPayslip.batch?.payPeriod.monthKey ??
+                  selectedPayslip.batch?.payPeriod?.monthKey ??
                     selectedPayslip.slip.periodMonthKey
                 )}
               </span>
@@ -289,8 +288,8 @@ export function PayslipDetailDialog({
 
           <div className="flex justify-between gap-2 pt-2">
             <PayslipPrintButton
-              payslipData={selectedPayslip.slip}
-              batchData={selectedPayslip.batch}
+              payslipData={selectedPayslip.slip as never}
+              batchData={selectedPayslip.batch as never}
               variant="outline"
               className="flex-1"
             />

@@ -15,10 +15,10 @@ import {
   Flag, 
   Image, 
   ExternalLink, 
-  Unlink 
+  Unlink,
+  Upload 
 } from "lucide-react";
 import { toast } from "sonner";
-import { asSystemId } from '../../../lib/id-types';
 import type { Product } from "@/lib/types/prisma-extended"
 import type { BulkSyncActionKey } from "../../settings/pkgx/hooks/use-pkgx-bulk-sync"
 
@@ -35,14 +35,14 @@ export interface BulkAction {
 
 interface CreateBulkActionsParams {
   handlePrintLabels: (products: Product[]) => void;
-  remove: (id: ReturnType<typeof asSystemId>) => void;
-  update: (id: ReturnType<typeof asSystemId>, data: Partial<Product>) => void;
+  bulkDelete: (systemIds: string[]) => void;
+  bulkUpdateStatus: (params: { systemIds: string[]; status: string }) => void;
   setRowSelection: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
 }
 
 interface CreatePkgxBulkActionsParams {
   triggerBulkSync: (entities: Product[], action: BulkSyncActionKey) => void;
-  update: (id: ReturnType<typeof asSystemId>, data: Partial<Product>) => void;
+  update: (systemId: string, data: Partial<Product>) => void;
   setRowSelection: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
 }
 
@@ -52,8 +52,8 @@ interface CreatePkgxBulkActionsParams {
 
 export function createBulkActions({
   handlePrintLabels,
-  remove,
-  update,
+  bulkDelete,
+  bulkUpdateStatus,
   setRowSelection,
 }: CreateBulkActionsParams): BulkAction[] {
   return [
@@ -69,32 +69,24 @@ export function createBulkActions({
       label: "Chuyển vào thùng rác",
       icon: Trash2,
       onSelect: (selectedRows: Product[]) => {
-        const systemIds = selectedRows.map(p => p.systemId);
-        systemIds.forEach(id => remove(asSystemId(id)));
+        bulkDelete(selectedRows.map(p => p.systemId));
         setRowSelection({});
-        toast.success(`Đã chuyển ${selectedRows.length} sản phẩm vào thùng rác`);
       }
     },
     {
       label: "Đang hoạt động",
       icon: Play,
       onSelect: (selectedRows: Product[]) => {
-        selectedRows.forEach(product => {
-          update(asSystemId(product.systemId), { ...product, status: 'active' });
-        });
+        bulkUpdateStatus({ systemIds: selectedRows.map(p => p.systemId), status: 'ACTIVE' });
         setRowSelection({});
-        toast.success(`Đã cập nhật ${selectedRows.length} sản phẩm sang trạng thái "Đang hoạt động"`);
       }
     },
     {
       label: "Ngừng kinh doanh",
       icon: StopCircle,
       onSelect: (selectedRows: Product[]) => {
-        selectedRows.forEach(product => {
-          update(asSystemId(product.systemId), { ...product, status: 'discontinued' });
-        });
+        bulkUpdateStatus({ systemIds: selectedRows.map(p => p.systemId), status: 'INACTIVE' });
         setRowSelection({});
-        toast.success(`Đã cập nhật ${selectedRows.length} sản phẩm sang trạng thái "Ngừng kinh doanh"`);
       }
     }
   ];
@@ -110,6 +102,18 @@ export function createPkgxBulkActions({
   setRowSelection,
 }: CreatePkgxBulkActionsParams): BulkAction[] {
   return [
+    {
+      label: "Đăng lên PKGX",
+      icon: Upload,
+      onSelect: (selectedRows: Product[]) => {
+        const notLinkedProducts = selectedRows.filter(p => !p.pkgxId);
+        if (notLinkedProducts.length === 0) {
+          toast.info('Tất cả sản phẩm đã được liên kết PKGX');
+          return;
+        }
+        triggerBulkSync(notLinkedProducts, 'publish');
+      }
+    },
     {
       label: "Đồng bộ tất cả",
       icon: RefreshCw,
@@ -202,7 +206,7 @@ export function createPkgxBulkActions({
         
         for (const product of linkedProducts) {
           try {
-            update(asSystemId(product.systemId), { pkgxId: undefined });
+            update(product.systemId, { pkgxId: undefined });
             successCount++;
           } catch {
             // ignore

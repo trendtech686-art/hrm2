@@ -23,7 +23,6 @@ import { cn } from '../../../lib/utils';
 import { Button } from '../../../components/ui/button';
 import { Badge } from '../../../components/ui/badge';
 import type { ProductCategory } from './types';
-import { asSystemId, type SystemId } from '@/lib/id-types';
 
 type DropPosition = 'before' | 'inside' | 'after' | null;
 
@@ -33,19 +32,19 @@ const getCategorySummary = (category?: ProductCategory | null) =>
 interface CategoryTreeProps {
   categories: ProductCategory[];
   onEdit: (category: ProductCategory) => void;
-  onDelete: (systemId: SystemId) => void;
-  onAddChild: (parentId: SystemId) => void;
-  onMove: (systemId: SystemId, newParentId: SystemId | undefined, newSortOrder: number) => void;
+  onDelete: (systemId: string) => void;
+  onAddChild: (parentId: string) => void;
+  onMove: (systemId: string, newParentId: string | null | undefined, newSortOrder: number) => void;
 }
 
 interface TreeNodeProps {
   category: ProductCategory;
   allCategories: ProductCategory[];
   onEdit: (category: ProductCategory) => void;
-  onDelete: (systemId: SystemId) => void;
-  onAddChild: (parentId: SystemId) => void;
+  onDelete: (systemId: string) => void;
+  onAddChild: (parentId: string) => void;
   level: number;
-  overId: SystemId | null;
+  overId: string | null;
   dropPosition: DropPosition;
 }
 
@@ -222,8 +221,8 @@ function TreeNode({ category, allCategories, onEdit, onDelete, onAddChild, level
 }
 
 export function CategoryTree({ categories, onEdit, onDelete, onAddChild, onMove }: CategoryTreeProps) {
-  const [activeId, setActiveId] = React.useState<SystemId | null>(null);
-  const [overId, setOverId] = React.useState<SystemId | null>(null);
+  const [activeId, setActiveId] = React.useState<string | null>(null);
+  const [overId, setOverId] = React.useState<string | null>(null);
   const [dropPosition, setDropPosition] = React.useState<DropPosition>(null);
   
   const sensors = useSensors(
@@ -250,7 +249,7 @@ export function CategoryTree({ categories, onEdit, onDelete, onAddChild, onMove 
   const handleDragStart = (event: DragStartEvent) => {
     const { id } = event.active;
     if (typeof id === 'string') {
-      setActiveId(asSystemId(id));
+      setActiveId(id);
     } else {
       setActiveId(null);
     }
@@ -258,7 +257,7 @@ export function CategoryTree({ categories, onEdit, onDelete, onAddChild, onMove 
 
   const handleDragOver = (event: DragOverEvent) => {
     const overIdentifier = event.over?.id;
-    const nextOverId = typeof overIdentifier === 'string' ? asSystemId(overIdentifier) : null;
+    const nextOverId = typeof overIdentifier === 'string' ? overIdentifier : null;
     setOverId(nextOverId);
 
     if (!nextOverId || !event.over) {
@@ -311,8 +310,8 @@ export function CategoryTree({ categories, onEdit, onDelete, onAddChild, onMove 
       return;
     }
 
-    const activeSystemId = asSystemId(active.id);
-    const overSystemId = asSystemId(over.id);
+    const activeSystemId = active.id;
+    const overSystemId = over.id;
 
     if (activeSystemId === overSystemId) {
       setActiveId(null);
@@ -326,7 +325,7 @@ export function CategoryTree({ categories, onEdit, onDelete, onAddChild, onMove 
 
     if (activeCategory && overCategory) {
         // Check circular reference
-        const isMovingIntoOwnDescendant = (parentId: SystemId, targetId: SystemId): boolean => {
+        const isMovingIntoOwnDescendant = (parentId: string, targetId: string): boolean => {
           const target = categories.find(c => c.systemId === targetId);
           if (!target) return false;
           if (target.systemId === parentId) return true;
@@ -341,7 +340,7 @@ export function CategoryTree({ categories, onEdit, onDelete, onAddChild, onMove 
           return;
         }
 
-        let newParentId: SystemId | undefined;
+        let newParentId: string | null | undefined;
         let newSortOrder: number;
 
         if (dropPosition === 'before') {

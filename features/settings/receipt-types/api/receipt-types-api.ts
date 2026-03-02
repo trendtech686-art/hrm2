@@ -3,6 +3,7 @@
  */
 
 import type { ReceiptType } from '@/lib/types/prisma-extended';
+import { fetchAllPages } from '@/lib/fetch-all-pages';
 
 export interface ReceiptTypeFilters {
   page?: number;
@@ -94,6 +95,5 @@ export async function setDefaultReceiptType(systemId: string): Promise<ReceiptTy
 }
 
 export async function fetchActiveReceiptTypes(): Promise<ReceiptType[]> {
-  const response = await fetchReceiptTypes({ isActive: true, limit: 100 });
-  return response.data;
+  return fetchAllPages((p) => fetchReceiptTypes({ ...p, isActive: true }));
 }

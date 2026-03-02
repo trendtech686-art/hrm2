@@ -1,9 +1,9 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react';
 import { toast } from 'sonner';
 import { useRouter, useParams } from 'next/navigation';
-import { useAllOrders } from '../orders/hooks/use-all-orders';
+import { useOrder } from '../orders/hooks/use-orders';
 import { usePackagingActions } from '../orders/hooks/use-packaging-actions';
 import { useCustomerFinder } from '../customers/hooks/use-all-customers';
 import { useProductFinder } from '../products/hooks/use-all-products';
@@ -94,7 +94,6 @@ const StatusTimeline = ({ deliveryStatus }: { deliveryStatus?: OrderDeliveryStat
 export function ShipmentDetailPage() {
     const { systemId } = useParams<{ systemId: string }>();
     const router = useRouter();
-    const { data: allOrders } = useAllOrders();
     const { dispatchFromWarehouse, isDispatching } = usePackagingActions();
     const { findById: findShipmentById } = useShipmentFinder();
     const { findById: findCustomerById } = useCustomerFinder();
@@ -149,16 +148,21 @@ export function ShipmentDetailPage() {
         return findShipmentById(systemId);
     }, [systemId, findShipmentById]);
 
+    // ⚡ PERFORMANCE: Fetch only the order linked to this shipment
+    const orderSystemId = shipment?.orderSystemId || shipment?.orderId;
+    const { data: orderData } = useOrder(orderSystemId || null);
+    
     // Find order and packaging using shipment's links
     const { order, packaging } = React.useMemo(() => {
         if (!shipment) return { order: null, packaging: null };
         
-        const o = allOrders.find(ord => ord.systemId === shipment.orderSystemId);
+        // Use the fetched order directly
+        const o = orderData;
         if (!o) return { order: null, packaging: null };
         
         const p = o.packagings.find(pkg => pkg.systemId === shipment.packagingSystemId);
         return { order: o, packaging: p };
-    }, [shipment, allOrders]);
+    }, [shipment, orderData]);
     
     const customer = React.useMemo(() => {
         if (!order) return null;
@@ -362,7 +366,7 @@ export function ShipmentDetailPage() {
                 <div className="space-y-4 lg:order-2">
                     <Card>
                         <CardHeader>
-                            <CardTitle className="text-h6 font-semibold">Thông tin người nhận</CardTitle>
+                            <CardTitle>Thông tin người nhận</CardTitle>
                         </CardHeader>
                         <CardContent className="text-sm space-y-3">
                             {customer ? (
@@ -383,7 +387,7 @@ export function ShipmentDetailPage() {
                     
                     <Card>
                         <CardHeader>
-                            <CardTitle className="text-h6 font-semibold">Thông tin đối tác vận chuyển</CardTitle>
+                            <CardTitle>Thông tin đối tác vận chuyển</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-3">
                             <DetailField label="Hãng vận chuyển" value={packaging.carrier || 'Chưa có'} />
@@ -401,7 +405,7 @@ export function ShipmentDetailPage() {
                 {/* Left Column - Status History Timeline */}
                 <Card className="lg:col-span-2 lg:order-1">
                     <CardHeader className="flex flex-row items-center justify-between">
-                        <CardTitle className="text-h6 font-semibold">Lịch sử trạng thái đơn giao hàng</CardTitle>
+                        <CardTitle>Lịch sử trạng thái đơn giao hàng</CardTitle>
                         <Button  
                             variant="link" 
                             size="sm" 
@@ -455,7 +459,7 @@ export function ShipmentDetailPage() {
 
             {/* Activity History */}
             <ActivityHistory
-                history={shipment.activityHistory || []}
+                history={[]} // TODO: Fetch from ActivityLog table
                 title="Lịch sử hoạt động"
                 emptyMessage="Chưa có lịch sử hoạt động"
                 groupByDate

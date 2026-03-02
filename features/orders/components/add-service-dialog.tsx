@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { generateSubEntityId } from '@/lib/id-utils';
 import { useFormContext } from 'react-hook-form';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -53,9 +54,9 @@ export function AddServiceDialog({ open, onOpenChange, disabled = false, onAppen
 
     // Add as a line item (virtual product)
     const newItem: ServiceLineItem = {
-      id: `service_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      id: generateSubEntityId('SVC'),
       systemId: '',
-      productSystemId: `virtual_service_${Date.now()}`,
+      productSystemId: generateSubEntityId('VSVC'),
       productId: 'DỊCH-VỤ',
       productName: serviceName,
       quantity: serviceQuantity,

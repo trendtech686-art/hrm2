@@ -22,8 +22,12 @@ export const createSupplierSchema = z.object({
   address: z.string().optional(),
   taxCode: z.string().optional(),
   bankAccount: z.string().optional(),
+  bankName: z.string().optional(),
   website: z.string().optional(),
-  status: z.string().optional().default('active'),
+  accountManager: z.string().optional(),
+  currentDebt: z.number().optional(),
+  notes: z.string().optional(),
+  status: z.string().optional().default('Đang Giao Dịch'),
 })
 
 // Update supplier schema

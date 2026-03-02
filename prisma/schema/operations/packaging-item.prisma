@@ -1,7 +1,7 @@
 model PackagingItem {
   systemId    String    @id @default(uuid())
   packagingId String
-  productId   String
+  productId   String?
   requiredQty Int
   packedQty   Int       @default(0)
   packaging   Packaging @relation(fields: [packagingId], references: [systemId], onDelete: Cascade)

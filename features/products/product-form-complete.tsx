@@ -13,13 +13,14 @@ import { useActiveBrands } from "../brands/hooks/use-all-brands";
 import { useImporterFinder } from "../settings/inventory/hooks/use-inventory-settings";
 import { useActiveProductTypes } from "../settings/inventory/hooks/use-all-product-types";
 import { useAllCategories } from "../categories/hooks/use-all-categories";
-import { useImageUpload } from '../../hooks/use-image-upload';
 import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
 import { Globe } from "lucide-react";
 import { MIN_COMBO_ITEMS, MAX_COMBO_ITEMS, calculateComboCostPrice, calculateFinalComboPricesByPolicy } from './combo-utils';
-import type { SystemId } from '@/lib/id-types';
-import { FileUploadAPI, type StagingFile } from '@/lib/file-upload-api';
+import { asSystemId, type SystemId } from '@/lib/id-types';
+import { generateSubEntityId } from '@/lib/id-utils';
+import { FileUploadAPI } from '@/lib/file-upload-api';
+import type { UploadedImage } from '@/components/ui/simple-image-upload';
 import {
   BasicInfoTab,
   ImagesTab,
@@ -55,7 +56,7 @@ export function ProductFormComplete({
   const { data: pricingPolicies } = useAllPricingPolicies();
   const { data: units } = useAllUnits();
   const { data: suppliers } = useAllSuppliers();
-  const { data: _branches } = useAllBranches();
+  const { data: branches } = useAllBranches();
   const { settings: slaSettings } = useSlaSettingsData();
   const { settings: logisticsSettings } = useLogisticsSettingsData();
   const { getActive: getActiveStorageLocations } = useStorageLocationFinder();
@@ -66,114 +67,82 @@ export function ProductFormComplete({
   const getActiveProductTypes = React.useCallback(() => activeProductTypes, [activeProductTypes]);
   const { data: productCategories } = useAllCategories();
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-  // IMAGE MANAGEMENT - Load existing images for edit mode
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-  const [_isLoadingImages, setIsLoadingImages] = React.useState(false);
-  const [_loadedThumbnails, setLoadedThumbnails] = React.useState<StagingFile[]>([]);
-  const [_loadedGallery, setLoadedGallery] = React.useState<StagingFile[]>([]);
+  // ═══════════════════════════════════════════════════════════════
+  // SIMPLIFIED IMAGE MANAGEMENT
+  // Images are uploaded permanently when selected, no staging needed
+  // ═══════════════════════════════════════════════════════════════
+  const [thumbnailImage, setThumbnailImage] = React.useState<UploadedImage | null>(null);
+  const [galleryImages, setGalleryImages] = React.useState<UploadedImage[]>([]);
 
-  // Load images from server when editing
+  // Load existing images when editing
   React.useEffect(() => {
-    if (initialData?.systemId && isEditMode) {
-      setIsLoadingImages(true);
-      
+    if (isEditMode && initialData) {
+      // Load thumbnail from File table first, then fallback to product.thumbnailImage
       FileUploadAPI.getProductFiles(initialData.systemId)
         .then((files) => {
+          const thumbnailFile = files.find(f => f.documentName === 'thumbnail');
+          const galleryFiles = files.filter(f => f.documentName === 'gallery');
           
-          // Separate thumbnail and gallery files
-          const thumbnails: StagingFile[] = [];
-          const gallery: StagingFile[] = [];
-          
-          files.forEach(file => {
-            const stagingFile: StagingFile = {
-              id: file.id,
-              sessionId: '', // No session for existing files
-              name: file.name,
-              originalName: file.originalName,
-              slug: file.slug,
-              filename: file.filename,
-              size: file.size,
-              type: file.type,
-              url: file.url,
-              status: 'permanent' as const,
-              uploadedAt: file.uploadedAt,
-              metadata: file.metadata
-            };
-            
-            if (file.documentName === 'thumbnail') {
-              thumbnails.push(stagingFile);
-            } else if (file.documentName === 'gallery') {
-              gallery.push(stagingFile);
-            }
-          });
-          
-          setLoadedThumbnails(thumbnails);
-          setLoadedGallery(gallery);
-          
-          // Also set to staging files for the upload components
-          if (thumbnails.length > 0) {
-            setThumbnailStagingFiles(thumbnails);
+          if (thumbnailFile) {
+            setThumbnailImage({
+              id: thumbnailFile.id,
+              url: thumbnailFile.url,
+              name: thumbnailFile.originalName,
+              size: thumbnailFile.size,
+            });
+          } else if (initialData.thumbnailImage) {
+            // Fallback to product URL (PKGX imported products)
+            setThumbnailImage({
+              id: generateSubEntityId('url'),
+              url: initialData.thumbnailImage,
+              name: 'thumbnail.jpg',
+              size: 0,
+            });
           }
-          if (gallery.length > 0) {
-            setGalleryStagingFiles(gallery);
+          
+          if (galleryFiles.length > 0) {
+            setGalleryImages(galleryFiles.map(f => ({
+              id: f.id,
+              url: f.url,
+              name: f.originalName,
+              size: f.size,
+            })));
+          } else {
+            // Fallback to product gallery URLs
+            const productGallery = initialData.galleryImages ?? initialData.images ?? [];
+            if (productGallery.length > 0) {
+              setGalleryImages(productGallery.map((url: string, idx: number) => ({
+                id: generateSubEntityId('url'),
+                url,
+                name: `gallery-${idx}.jpg`,
+                size: 0,
+              })));
+            }
           }
         })
         .catch((error) => {
           console.error('[ProductForm] Failed to load images:', error);
-        })
-        .finally(() => {
-          setIsLoadingImages(false);
+          // Fallback to product URLs on error
+          if (initialData.thumbnailImage) {
+            setThumbnailImage({
+              id: generateSubEntityId('url'),
+              url: initialData.thumbnailImage,
+              name: 'thumbnail.jpg',
+              size: 0,
+            });
+          }
+          const productGallery = initialData.galleryImages ?? initialData.images ?? [];
+          if (productGallery.length > 0) {
+            setGalleryImages(productGallery.map((url: string, idx: number) => ({
+              id: generateSubEntityId('url'),
+              url,
+              name: `gallery-${idx}.jpg`,
+              size: 0,
+            })));
+          }
         });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- setThumbnailStagingFiles/setGalleryStagingFiles are stable setState from useImageUpload
-  }, [initialData?.systemId, isEditMode]);
-
-  // Image upload management - THUMBNAIL (single main image)
-  const thumbnailUploadOptions = React.useMemo(
-    () => ({
-      entityType: 'product' as const,
-    }),
-    []
-  );
-
-  const {
-    stagingFiles: thumbnailStagingFiles,
-    sessionId: thumbnailSessionId,
-    setStagingFiles: setThumbnailStagingFiles,
-    setSessionId: setThumbnailSessionId,
-    confirmImages: confirmThumbnailImages,
-    hasImages: hasThumbnailImages,
-  } = useImageUpload(thumbnailUploadOptions);
-
-  // Image upload management - GALLERY (album images)
-  const galleryUploadOptions = React.useMemo(
-    () => ({
-      entityType: 'product' as const,
-    }),
-    []
-  );
-
-  const {
-    stagingFiles: galleryStagingFiles,
-    sessionId: gallerySessionId,
-    setStagingFiles: setGalleryStagingFiles,
-    setSessionId: setGallerySessionId,
-    confirmImages: confirmGalleryImages,
-    hasImages: hasGalleryImages,
-  } = useImageUpload(galleryUploadOptions);
-
-  // Combined check for any images
-  const _hasImages = hasThumbnailImages || hasGalleryImages;
-
-  // Combined confirm function
-  const _confirmImages = async (productId: string, values: Record<string, unknown>) => {
-    const results = await Promise.all([
-      hasThumbnailImages ? confirmThumbnailImages(productId, { ...values, documentName: 'thumbnail' }) : Promise.resolve(null),
-      hasGalleryImages ? confirmGalleryImages(productId, { ...values, documentName: 'gallery' }) : Promise.resolve(null),
-    ]);
-    return results.flat().filter(Boolean);
-  };
+  }, [initialData?.systemId, isEditMode, initialData]);
   
   const [tags, setTags] = React.useState<string[]>(initialData?.tags || []);
   const [tagInput, setTagInput] = React.useState('');
@@ -250,18 +219,83 @@ export function ProductFormComplete({
     [getDefaultImporter]
   );
 
-  const defaultValues = React.useMemo<ProductFormCompleteValues>(() => {
+  const defaultValues = React.useMemo((): ProductFormCompleteValues => {
     if (initialData) {
+      // ✅ Transform prices from API array to form object format
+      // API returns: ProductPrice[] with { pricingPolicyId, price }
+      // Form needs: Record<string, number> with { [policyId]: price }
+      const pricesObject: Record<string, number> = {};
+      const apiPrices = (initialData as unknown as { prices?: Array<{ pricingPolicyId: string; price: number | string }> }).prices;
+      if (Array.isArray(apiPrices)) {
+        apiPrices.forEach((p) => {
+          pricesObject[p.pricingPolicyId] = typeof p.price === 'string' ? parseFloat(p.price) : p.price;
+        });
+      } else if (initialData.prices && typeof initialData.prices === 'object') {
+        // Already in correct format
+        Object.assign(pricesObject, initialData.prices);
+      }
+
+      // ✅ Transform productCategories from API array to categorySystemId
+      // API returns: productCategories[] with { categoryId }
+      // Form needs: categorySystemId (single) - take first one
+      let categorySystemId: SystemId | undefined = initialData.categorySystemId ?? undefined;
+      const categorySystemIds: SystemId[] = initialData.categorySystemIds ?? [];
+      const apiProductCategories = (initialData as unknown as { productCategories?: Array<{ categoryId: string }> }).productCategories;
+      if (Array.isArray(apiProductCategories) && apiProductCategories.length > 0) {
+        categorySystemId = asSystemId(apiProductCategories[0].categoryId);
+      } else if (categorySystemIds.length > 0) {
+        categorySystemId = categorySystemIds[0];
+      }
+
+      // ✅ Get brandSystemId from brandId field (Prisma relation field)
+      const brandSystemId: SystemId | undefined = initialData.brandSystemId ?? (initialData as unknown as { brandId?: string }).brandId ? asSystemId((initialData as unknown as { brandId?: string }).brandId!) : undefined;
+
+      // ✅ Get productTypeSystemId - ensure it's passed through
+      const productTypeSystemId: SystemId | undefined = initialData.productTypeSystemId ? asSystemId(initialData.productTypeSystemId) : undefined;
+
+      // Debug log to verify data transformation
+      console.log('[ProductForm] Transform initialData:', {
+        id: initialData.id,
+        brandId: (initialData as unknown as { brandId?: string }).brandId,
+        brandSystemId,
+        productTypeSystemId,
+        pricesCount: Object.keys(pricesObject).length,
+        prices: pricesObject,
+        categorySystemId,
+      });
+
       return {
         ...initialData,
         systemId: initialData.systemId,
         id: initialData.id,
         title: initialData.ktitle ?? '',
+        unit: initialData.unit ?? 'Cái',
+        status: (initialData.status?.toUpperCase() as 'ACTIVE' | 'INACTIVE' | 'DISCONTINUED') || 'ACTIVE',
+        type: (initialData.type?.toLowerCase() as 'physical' | 'service' | 'digital' | 'combo') || 'physical',
+        // ✅ Weight default 5g nếu null
+        weight: initialData.weight ?? 5,
+        weightUnit: ((initialData.weightUnit as string) === 'GRAM' ? 'g' : initialData.weightUnit) ?? 'g',
         comboItems: initialData.comboItems ?? [],
         comboPricingType: initialData.comboPricingType ?? 'fixed',
         comboDiscount: initialData.comboDiscount ?? 0,
+        // ✅ SEO data từ database
         seoPkgx: initialData.seoPkgx || {},
         seoTrendtech: initialData.seoTrendtech || {},
+        // ✅ Display flags từ database
+        isPublished: initialData.isPublished ?? false,
+        isFeatured: initialData.isFeatured ?? false,
+        isNewArrival: initialData.isNewArrival ?? false,
+        isBestSeller: initialData.isBestSeller ?? false,
+        isOnSale: initialData.isOnSale ?? false,
+        // ✅ Dates từ database - format cho date input
+        launchedDate: initialData.launchedDate ? new Date(initialData.launchedDate).toISOString().split('T')[0] : undefined,
+        publishedAt: initialData.publishedAt ? new Date(initialData.publishedAt).toISOString().split('T')[0] : undefined,
+        // ✅ Transformed fields from API response
+        prices: pricesObject,
+        categorySystemId,
+        categorySystemIds: categorySystemIds.length > 0 ? categorySystemIds : (categorySystemId ? [categorySystemId] : []),
+        brandSystemId,
+        productTypeSystemId,
       };
     }
 
@@ -277,9 +311,9 @@ export function ProductFormComplete({
       description: '',
       shortDescription: '',
       seoDescription: '',
-      unit: 'CÃ¡i',
-      type: defaultType ?? 'physical',
-      status: 'active',
+      unit: 'Cái',
+      type: (defaultType?.toLowerCase() as 'physical' | 'service' | 'digital' | 'combo') ?? 'physical',
+      status: 'ACTIVE',
       costPrice: 0,
       prices: {},
       inventoryByBranch: {},
@@ -289,8 +323,9 @@ export function ProductFormComplete({
       reorderLevel: slaSettings.defaultReorderLevel,
       safetyStock: slaSettings.defaultSafetyStock,
       maxStock: slaSettings.defaultMaxStock,
-      weight: logisticsPreset.weight,
-      weightUnit: logisticsPreset.weightUnit ?? 'g',
+      // ✅ Weight default 5g
+      weight: logisticsPreset.weight || 5,
+      weightUnit: ((logisticsPreset.weightUnit as string) === 'GRAM' ? 'g' : logisticsPreset.weightUnit) ?? 'g',
       dimensions: {
         length: logisticsPreset.length,
         width: logisticsPreset.width,
@@ -301,7 +336,6 @@ export function ProductFormComplete({
       comboDiscount: 0,
       storageLocationSystemId: defaultStorageLocation?.systemId,
       // E-commerce defaults
-      slug: '',
       isPublished: false,
       isFeatured: false,
       isNewArrival: false,
@@ -322,7 +356,7 @@ export function ProductFormComplete({
 
   React.useEffect(() => {
     if (!initialData && defaultType) {
-      form.setValue('type', defaultType);
+      form.setValue('type', defaultType.toUpperCase() as ProductFormCompleteValues['type']);
     }
   }, [defaultType, initialData, form]);
 
@@ -421,7 +455,7 @@ export function ProductFormComplete({
           const firstPrice = Object.values(product.prices || {}).find(
             (value): value is number => typeof value === 'number' && value > 0
           );
-          unitPrice = firstPrice || product.minPrice || 0;
+          unitPrice = firstPrice || 0;
         }
         totalOriginalPrice += unitPrice * item.quantity;
       }
@@ -529,29 +563,21 @@ export function ProductFormComplete({
       return;
     }
     
-    // Build image files to pass to parent
-    const imageFiles: Record<string, StagingFile[]> = {};
+    // Convert categorySystemId (single) to categorySystemIds (array) for API
+    const categorySystemIds = values.categorySystemId 
+      ? [values.categorySystemId] 
+      : (values.categorySystemIds || []);
     
-    if (thumbnailStagingFiles.length > 0 && thumbnailSessionId) {
-      imageFiles['thumbnail'] = thumbnailStagingFiles.map(f => ({
-        ...f,
-        sessionId: thumbnailSessionId,
-      }));
-    }
-    
-    if (galleryStagingFiles.length > 0 && gallerySessionId) {
-      imageFiles['gallery'] = galleryStagingFiles.map(f => ({
-        ...f,
-        sessionId: gallerySessionId,
-      }));
-    }
-    
-    
-    // Submit the form data with image files
+    // Submit the form data with images
+    // Images are already saved permanently when uploaded, but we need to include URLs for new products
     onSubmit({
       ...values,
       tags,
-      _imageFiles: Object.keys(imageFiles).length > 0 ? imageFiles : undefined,
+      // Ensure categorySystemIds is always an array
+      categorySystemIds,
+      // Include image URLs for creating/updating product record
+      thumbnailImage: thumbnailImage?.url,
+      galleryImages: galleryImages.map(img => img.url),
     });
   };
 
@@ -564,11 +590,11 @@ export function ProductFormComplete({
       >
         <Tabs defaultValue="basic" className="w-full">
           <TabsList className="grid w-full grid-cols-8">
-            <TabsTrigger value="basic">CÆ¡ báº£n &amp; GiÃ¡ bÃ¡n</TabsTrigger>
-            <TabsTrigger value="images">HÃ¬nh áº£nh</TabsTrigger>
+            <TabsTrigger value="basic">Cơ bản & Giá bán</TabsTrigger>
+            <TabsTrigger value="images">Hình ảnh</TabsTrigger>
             <TabsTrigger value="inventory">Kho</TabsTrigger>
-            <TabsTrigger value="logistics">Váº­n chuyá»ƒn</TabsTrigger>
-            <TabsTrigger value="label">Tem phá»¥</TabsTrigger>
+            <TabsTrigger value="logistics">Vận chuyển</TabsTrigger>
+            <TabsTrigger value="label">Tem phụ</TabsTrigger>
             <TabsTrigger value="seo-default" className="gap-1">
               <Globe className="h-3 w-3" />
               SEO Chung
@@ -603,20 +629,21 @@ export function ProductFormComplete({
           {/* Tab 2: Images */}
           <TabsContent value="images" className="space-y-4 mt-4">
             <ImagesTab
-              thumbnailStagingFiles={thumbnailStagingFiles}
-              setThumbnailStagingFiles={setThumbnailStagingFiles}
-              thumbnailSessionId={thumbnailSessionId}
-              setThumbnailSessionId={setThumbnailSessionId}
-              galleryStagingFiles={galleryStagingFiles}
-              setGalleryStagingFiles={setGalleryStagingFiles}
-              gallerySessionId={gallerySessionId}
-              setGallerySessionId={setGallerySessionId}
+              productId={initialData?.systemId}
+              thumbnailImage={thumbnailImage}
+              onThumbnailChange={setThumbnailImage}
+              galleryImages={galleryImages}
+              onGalleryChange={setGalleryImages}
             />
           </TabsContent>
 
           {/* Tab 3: Inventory */}
           <TabsContent value="inventory" className="space-y-4 mt-4">
-            <InventoryTab storageLocationOptions={storageLocationOptions} />
+            <InventoryTab 
+              storageLocationOptions={storageLocationOptions} 
+              branches={branches}
+              isEditMode={isEditMode}
+            />
           </TabsContent>
 
           {/* Tab 4: Logistics */}

@@ -69,6 +69,7 @@ export function DataTableColumnCustomizer<TData>({
   const [localOrder, setLocalOrder] = React.useState<string[]>([]);
   const [localPinned, setLocalPinned] = React.useState<string[]>([]);
   const [search, setSearch] = React.useState('');
+  const [visibleSearch, setVisibleSearch] = React.useState('');
   
   // @dnd-kit sensors
   const sensors = useSensors(
@@ -165,13 +166,14 @@ export function DataTableColumnCustomizer<TData>({
   const { pinnedVisibleColumns, unpinnedVisibleColumns } = React.useMemo(() => {
     const visibleCols = localOrder
       .map(id => allConfigurableColumns.find(c => c.id === id))
-      .filter((c): c is ColumnDef<TData> => !!c && localVisibility[c.id]);
+      .filter((c): c is ColumnDef<TData> => !!c && localVisibility[c.id])
+      .filter(c => (c.meta?.displayName ?? c.id).toLowerCase().includes(visibleSearch.toLowerCase()));
 
     const pinned = visibleCols.filter(c => localPinned.includes(c.id));
     const unpinned = visibleCols.filter(c => !localPinned.includes(c.id));
     
     return { pinnedVisibleColumns: pinned, unpinnedVisibleColumns: unpinned };
-  }, [localOrder, localPinned, localVisibility, allConfigurableColumns]);
+  }, [localOrder, localPinned, localVisibility, allConfigurableColumns, visibleSearch]);
 
   const groupedAvailableColumns = React.useMemo(() => {
     return availableColumns.reduce((groups, col) => {
@@ -238,7 +240,7 @@ export function DataTableColumnCustomizer<TData>({
         >
           <GripVertical className="h-5 w-5 mr-2 text-muted-foreground" />
         </div>
-        <span className="flex-grow text-sm">{ col.meta?.displayName ?? col.id }</span>
+        <span className="grow text-sm">{ col.meta?.displayName ?? col.id }</span>
         
         <Button 
           variant="ghost" 
@@ -277,7 +279,7 @@ export function DataTableColumnCustomizer<TData>({
             Chọn, sắp xếp và ghim các cột để tùy chỉnh giao diện bảng của bạn.
           </DialogDescription>
         </DialogHeader>
-        <div className="flex flex-col md:flex-row gap-6 flex-grow min-h-0">
+        <div className="flex flex-col md:flex-row gap-6 grow min-h-0">
             {/* Left Panel: Available Columns */}
             <div className="flex flex-col border border-border rounded-lg flex-1 min-h-0">
                 <div className="p-4 border-b border-border">
@@ -292,7 +294,7 @@ export function DataTableColumnCustomizer<TData>({
                         />
                     </div>
                 </div>
-                <ScrollArea className="flex-grow p-4">
+                <ScrollArea className="grow p-4">
                     <div className="space-y-4">
                         {Object.keys(groupedAvailableColumns).map((groupName) => {
                             const cols = groupedAvailableColumns[groupName];
@@ -324,9 +326,18 @@ export function DataTableColumnCustomizer<TData>({
             {/* Right Panel: Visible Columns */}
             <div className="flex flex-col border border-border rounded-lg flex-1 min-h-0">
                  <div className="p-4 border-b border-border">
-                    <h3 className="font-semibold">Cột hiển thị</h3>
+                    <h3 className="font-semibold mb-2">Cột hiển thị</h3>
+                    <div className="relative">
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                            placeholder="Tìm kiếm cột..."
+                            className="w-full pl-8 h-9"
+                            value={visibleSearch}
+                            onChange={(e) => setVisibleSearch(e.target.value)}
+                        />
+                    </div>
                  </div>
-                 <ScrollArea className="flex-grow p-2">
+                 <ScrollArea className="grow p-2">
                     <DndContext
                       sensors={sensors}
                       collisionDetection={closestCenter}
@@ -372,11 +383,11 @@ export function DataTableColumnCustomizer<TData>({
                  </ScrollArea>
             </div>
         </div>
-        <DialogFooter className="pt-6 mt-auto flex-shrink-0">
+        <DialogFooter className="pt-6 mt-auto shrink-0">
           <Button type="button" variant="outline" size="sm" onClick={handleReset}>
             Quay về mặc định
           </Button>
-          <div className="flex-grow" />
+          <div className="grow" />
           <Button type="button" variant="outline" size="sm" onClick={() => setOpen(false)}>
             Thoát
           </Button>

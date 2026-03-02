@@ -1,4 +1,4 @@
-import * as React from 'react';
+﻿import * as React from 'react';
 import { useFormContext } from 'react-hook-form';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/ui/card';
 import { FormField, FormItem, FormLabel, FormControl } from '../../../../components/ui/form';
@@ -49,7 +49,7 @@ export function WarrantyFormInfoCard({ disabled }: { disabled?: boolean }) {
   return (
     <Card className="flex flex-col h-full">
       <CardHeader className="flex-shrink-0">
-        <CardTitle className="text-base font-semibold">Thông tin bổ sung</CardTitle>
+        <CardTitle>Thông tin bổ sung</CardTitle>
       </CardHeader>
       <CardContent className="flex-1 overflow-y-auto space-y-4">
         {/* Mã phiếu bảo hành */}

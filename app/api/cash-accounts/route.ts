@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma'
 import { Prisma, CashAccountType } from '@/generated/prisma/client'
 import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
 import { createCashAccountSchema } from './validation'
+import { generateNextIds } from '@/lib/id-system'
 
 // GET /api/cash-accounts - List all cash accounts
 export async function GET(request: Request) {
@@ -21,7 +22,18 @@ export async function GET(request: Request) {
       orderBy: { name: 'asc' },
     })
 
-    return apiSuccess({ data: accounts })
+    // Map to frontend format
+    const data = accounts.map(acc => ({
+      ...acc,
+      type: acc.type.toLowerCase() as 'cash' | 'bank',
+      branchSystemId: acc.branchId, // Map DB field to frontend field
+      initialBalance: Number(acc.initialBalance) || 0,
+      balance: Number(acc.balance) || 0,
+      minBalance: acc.minBalance ? Number(acc.minBalance) : undefined,
+      maxBalance: acc.maxBalance ? Number(acc.maxBalance) : undefined,
+    }))
+
+    return apiSuccess({ data })
   } catch (error) {
     console.error('Error fetching cash accounts:', error)
     return apiError('Failed to fetch cash accounts', 500)
@@ -40,16 +52,28 @@ export async function POST(request: Request) {
   const body = validation.data
 
   try {
+    const cashType = (body.type?.toUpperCase() === 'BANK' ? 'BANK' : 'CASH') as CashAccountType;
+    
+    const { systemId, businessId } = await generateNextIds('cash-accounts')
+    
     const account = await prisma.cashAccount.create({
       data: {
-        systemId: `CASH${String(Date.now()).slice(-6).padStart(6, '0')}`,
-        id: body.id,
+        systemId,
+        id: body.id || businessId,
         name: body.name,
-        type: (body.type || body.accountType || 'CASH') as CashAccountType,
-        balance: body.balance || body.currentBalance || 0,
+        type: cashType,
+        balance: body.initialBalance ?? 0,
+        initialBalance: body.initialBalance ?? 0,
         bankName: body.bankName,
-        accountNumber: body.accountNumber,
+        bankAccountNumber: body.bankAccountNumber,
+        bankBranch: body.bankBranch,
+        bankCode: body.bankCode,
+        accountHolder: body.accountHolder,
+        branchId: body.branchSystemId,
+        minBalance: body.minBalance,
+        maxBalance: body.maxBalance,
         isActive: body.isActive ?? true,
+        isDefault: body.isDefault ?? false,
       },
     })
 

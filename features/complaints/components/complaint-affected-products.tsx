@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import React from 'react';
 import { useRouter } from 'next/navigation';
@@ -31,7 +31,7 @@ export const ComplaintAffectedProducts: React.FC<Props> = React.memo(({ complain
   const lastVerifiedCorrect = React.useMemo(() => {
     if (complaint.verification !== 'verified-correct') return null;
     
-    return [...complaint.timeline]
+    return [...(complaint.timeline || [])]
       .reverse()
       .find(a => a.actionType === 'verified-correct');
   }, [complaint.timeline, complaint.verification]);
@@ -47,7 +47,7 @@ export const ComplaintAffectedProducts: React.FC<Props> = React.memo(({ complain
       {/* Card: Sản phẩm bị ảnh hưởng */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Sản phẩm bị ảnh hưởng</CardTitle>
+          <CardTitle size="lg">Sản phẩm bị ảnh hưởng</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="border rounded-lg overflow-x-auto">
@@ -55,7 +55,7 @@ export const ComplaintAffectedProducts: React.FC<Props> = React.memo(({ complain
               <thead className="bg-muted/50 border-b">
                 <tr>
                   <th className="text-center p-2 font-medium w-16">Ảnh</th>
-                  <th className="text-left p-2 font-medium min-w-[200px]">Sản phẩm</th>
+                  <th className="text-left p-2 font-medium min-w-50">Sản phẩm</th>
                   <th className="text-right p-2 font-medium w-24">Đơn giá</th>
                   <th className="text-center p-2 font-medium w-20">SL đặt</th>
                   <th className="text-left p-2 font-medium w-20">Loại lỗi</th>
@@ -66,16 +66,23 @@ export const ComplaintAffectedProducts: React.FC<Props> = React.memo(({ complain
                     <th className="text-center p-2 font-medium w-24">Thực tế</th>
                   )}
                   <th className="text-right p-2 font-medium w-28">Tổng tiền</th>
-                  <th className="text-left p-2 font-medium min-w-[120px]">Ghi chú</th>
+                  <th className="text-left p-2 font-medium min-w-30">Ghi chú</th>
                 </tr>
               </thead>
               <tbody>
                 {complaint.affectedProducts.map((item, idx) => {
-                  const product = findProductById(item.productSystemId);
-                  const productTypeName = product?.productTypeSystemId 
-                    ? getProductTypeName(product.productTypeSystemId)
+                  // ✅ Use enriched product data from API when available
+                  const enrichedItem = item as typeof item & { productImage?: string; productBusinessId?: string; productTypeSystemId?: string };
+                  const product = findProductById(item.productSystemId) || findProductById(item.productId as unknown as SystemId);
+                  const productTypeName = (enrichedItem.productTypeSystemId || product?.productTypeSystemId)
+                    ? getProductTypeName((enrichedItem.productTypeSystemId || product?.productTypeSystemId) as SystemId)
                     : 'Hàng hóa';
-                  const imageUrl = product?.thumbnailImage || product?.galleryImages?.[0] || product?.images?.[0];
+                  // ✅ Use enriched image from API, then fall back to product finder
+                  const imageUrl = enrichedItem.productImage || product?.thumbnailImage || product?.galleryImages?.[0] || product?.images?.[0];
+                  // ✅ Show actual business ID (e.g. "ZP8"), not systemId (e.g. "PROD112654")
+                  const displayId = enrichedItem.productBusinessId || product?.id || null;
+                  // ✅ Correct systemId for product link navigation
+                  const productSystemId = item.productSystemId || product?.systemId || item.productId;
                   
                   const totalAmount = (
                     (item.quantityMissing || 0) + 
@@ -100,7 +107,7 @@ export const ComplaintAffectedProducts: React.FC<Props> = React.memo(({ complain
                     : 0;
                   
                   // Get confirmed quantity from verification
-                  const confirmedQty = confirmedQuantities?.[item.productSystemId];
+                  const confirmedQty = confirmedQuantities?.[item.productSystemId] ?? confirmedQuantities?.[item.productId as unknown as SystemId];
                   const hasDifference = confirmedQty !== undefined && confirmedQty !== customerReported;
                   
                   return (
@@ -125,15 +132,19 @@ export const ComplaintAffectedProducts: React.FC<Props> = React.memo(({ complain
                       </td>
                       <td className="p-2">
                         <button
-                          onClick={() => router.push(`/products/${item.productSystemId}`)}
+                          onClick={() => router.push(`/products/${productSystemId}`)}
                           className="font-medium text-sm text-primary hover:underline text-left"
                         >
                           {item.productName}
                         </button>
                         <div className="flex items-center gap-1 text-xs text-muted-foreground">
                           <span>{productTypeName}</span>
-                          <span>-</span>
-                          <span>{item.productId}</span>
+                          {displayId && (
+                            <>
+                              <span>-</span>
+                              <span className="font-mono">{displayId}</span>
+                            </>
+                          )}
                         </div>
                       </td>
                       <td className="p-2 text-right text-sm">
@@ -186,7 +197,7 @@ export const ComplaintAffectedProducts: React.FC<Props> = React.memo(({ complain
       {/* Card: Tổng kết sản phẩm */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Tổng kết sản phẩm bị ảnh hưởng</CardTitle>
+          <CardTitle size="lg">Tổng kết sản phẩm bị ảnh hưởng</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">

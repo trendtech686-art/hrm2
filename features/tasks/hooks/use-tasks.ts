@@ -7,21 +7,39 @@ import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tansta
 import {
   fetchTasks,
   fetchTaskById,
-  createTask,
-  updateTask,
-  deleteTask,
-  restoreTask,
-  updateTaskStatus,
-  completeTask,
   fetchTaskActivities,
-  addTaskComment,
-  toggleTaskTimer,
   fetchSubtasks,
+  fetchTaskDashboardStats,
   type TaskFilters,
   type TaskCreateInput,
   type TaskUpdateInput,
 } from '../api/tasks-api';
+import {
+  createTaskAction,
+  updateTaskAction,
+  deleteTaskAction,
+  restoreTaskAction,
+  updateTaskStatusAction,
+  completeTaskAction,
+  addTaskCommentAction,
+  toggleTaskTimerAction,
+  type CreateTaskInput,
+  type UpdateTaskInput,
+} from '@/app/actions/tasks';
 import type { TaskStatus } from '@/lib/types/prisma-extended';
+import type { Task } from '@prisma/client';
+
+// Helper to convert legacy update format to flat format
+function toUpdateTaskInput(input: UpdateTaskInput | { systemId: string; data: TaskUpdateInput }): UpdateTaskInput {
+  const i = input as Record<string, unknown>;
+  if (i.data && typeof i.data === 'object') {
+    return {
+      systemId: i.systemId as string,
+      ...(i.data as Record<string, unknown>),
+    } as UpdateTaskInput;
+  }
+  return input as UpdateTaskInput;
+}
 
 // Query keys factory
 export const taskKeys = {
@@ -33,7 +51,48 @@ export const taskKeys = {
   activities: (id: string) => [...taskKeys.all, 'activities', id] as const,
   subtasks: (parentId: string) => [...taskKeys.all, 'subtasks', parentId] as const,
   myTasks: (assigneeId: string) => [...taskKeys.all, 'my', assigneeId] as const,
+  stats: () => [...taskKeys.all, 'stats'] as const,
+  dashboardStats: (createdFrom?: string) => [...taskKeys.all, 'dashboard-stats', createdFrom] as const,
 };
+
+// Types for initial data from Server Components
+export interface TaskStats {
+  todo: number;
+  inProgress: number;
+  completed: number;
+  overdue: number;
+}
+
+/**
+ * Hook for task statistics with optional initial data from Server Component
+ */
+export function useTaskStats(initialData?: TaskStats) {
+  return useQuery({
+    queryKey: taskKeys.stats(),
+    queryFn: async () => {
+      const res = await fetch('/api/tasks/stats');
+      if (!res.ok) throw new Error('Failed to fetch task stats');
+      return res.json() as Promise<TaskStats>;
+    },
+    initialData,
+    staleTime: initialData ? 60_000 : 0,
+    gcTime: 10 * 60 * 1000,
+  });
+}
+
+/**
+ * Hook for comprehensive dashboard statistics — server-side aggregation.
+ * No raw task data is loaded; all metrics computed on the server.
+ */
+export function useTaskDashboardStats(createdFrom?: string) {
+  return useQuery({
+    queryKey: taskKeys.dashboardStats(createdFrom),
+    queryFn: () => fetchTaskDashboardStats({ createdFrom }),
+    staleTime: 1000 * 60 * 2, // 2 minutes
+    gcTime: 10 * 60 * 1000,
+    placeholderData: keepPreviousData,
+  });
+}
 
 /**
  * Hook to fetch tasks with filters
@@ -99,7 +158,14 @@ export function useTaskMutations(options: MutationCallbacks = {}) {
   };
 
   const create = useMutation({
-    mutationFn: (data: TaskCreateInput) => createTask(data),
+    mutationFn: async (data: CreateTaskInput | TaskCreateInput) => {
+      const input = data as CreateTaskInput;
+      const result = await createTaskAction(input);
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to create task');
+      }
+      return result.data as Task;
+    },
     onSuccess: () => {
       invalidateTasks();
       options.onSuccess?.();
@@ -108,8 +174,14 @@ export function useTaskMutations(options: MutationCallbacks = {}) {
   });
 
   const update = useMutation({
-    mutationFn: ({ systemId, data }: { systemId: string; data: TaskUpdateInput }) =>
-      updateTask(systemId, data),
+    mutationFn: async (input: UpdateTaskInput | { systemId: string; data: TaskUpdateInput }) => {
+      const data = toUpdateTaskInput(input);
+      const result = await updateTaskAction(data);
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to update task');
+      }
+      return result.data as Task;
+    },
     onSuccess: () => {
       invalidateTasks();
       options.onSuccess?.();
@@ -118,7 +190,13 @@ export function useTaskMutations(options: MutationCallbacks = {}) {
   });
 
   const remove = useMutation({
-    mutationFn: (systemId: string) => deleteTask(systemId),
+    mutationFn: async (systemId: string) => {
+      const result = await deleteTaskAction(systemId);
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to delete task');
+      }
+      return result.data as Task;
+    },
     // Optimistic delete - UI cập nhật ngay lập tức
     onMutate: async (systemId) => {
       await queryClient.cancelQueries({ queryKey: taskKeys.lists() });
@@ -155,7 +233,13 @@ export function useTaskMutations(options: MutationCallbacks = {}) {
   });
 
   const restore = useMutation({
-    mutationFn: (systemId: string) => restoreTask(systemId),
+    mutationFn: async (systemId: string) => {
+      const result = await restoreTaskAction(systemId);
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to restore task');
+      }
+      return result.data as Task;
+    },
     onSuccess: () => {
       invalidateTasks();
       options.onSuccess?.();
@@ -164,8 +248,13 @@ export function useTaskMutations(options: MutationCallbacks = {}) {
   });
 
   const changeStatus = useMutation({
-    mutationFn: ({ systemId, status }: { systemId: string; status: TaskStatus }) =>
-      updateTaskStatus(systemId, status),
+    mutationFn: async ({ systemId, status }: { systemId: string; status: TaskStatus }) => {
+      const result = await updateTaskStatusAction(systemId, status as unknown as import('@prisma/client').TaskStatus);
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to update task status');
+      }
+      return result.data as Task;
+    },
     onSuccess: () => {
       invalidateTasks();
       options.onSuccess?.();
@@ -174,7 +263,13 @@ export function useTaskMutations(options: MutationCallbacks = {}) {
   });
 
   const complete = useMutation({
-    mutationFn: (systemId: string) => completeTask(systemId),
+    mutationFn: async (systemId: string) => {
+      const result = await completeTaskAction(systemId);
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to complete task');
+      }
+      return result.data as Task;
+    },
     onSuccess: () => {
       invalidateTasks();
       options.onSuccess?.();
@@ -183,8 +278,13 @@ export function useTaskMutations(options: MutationCallbacks = {}) {
   });
 
   const addComment = useMutation({
-    mutationFn: ({ systemId, content }: { systemId: string; content: string }) =>
-      addTaskComment(systemId, content),
+    mutationFn: async ({ systemId, content }: { systemId: string; content: string }) => {
+      const result = await addTaskCommentAction(systemId, content);
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to add comment');
+      }
+      return result.data as Task;
+    },
     onSuccess: (_, { systemId }) => {
       queryClient.invalidateQueries({ queryKey: taskKeys.activities(systemId) });
       options.onSuccess?.();
@@ -193,8 +293,13 @@ export function useTaskMutations(options: MutationCallbacks = {}) {
   });
 
   const toggleTimer = useMutation({
-    mutationFn: ({ systemId, action }: { systemId: string; action: 'start' | 'stop' }) =>
-      toggleTaskTimer(systemId, action),
+    mutationFn: async ({ systemId, action }: { systemId: string; action: 'start' | 'stop' }) => {
+      const result = await toggleTaskTimerAction(systemId, action);
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to toggle timer');
+      }
+      return result.data as Task;
+    },
     onSuccess: () => {
       invalidateTasks();
       options.onSuccess?.();
@@ -229,7 +334,6 @@ export function useTaskMutations(options: MutationCallbacks = {}) {
 export function useMyTasks(assigneeId: string | undefined) {
   return useTasks({
     assigneeId: assigneeId || '',
-    limit: 50,
   });
 }
 

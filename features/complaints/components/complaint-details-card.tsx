@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import React from 'react';
 import { useRouter } from 'next/navigation';
@@ -21,7 +21,7 @@ export const ComplaintDetailsCard: React.FC<Props> = React.memo(({ complaint, cu
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg">{complaint.id}</CardTitle>
+        <CardTitle size="lg">{complaint.id}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Tracking Link - If enabled */}
@@ -93,11 +93,11 @@ export const ComplaintDetailsCard: React.FC<Props> = React.memo(({ complaint, cu
               </span>
             </div>
           )}
-          {complaint.isVerifiedCorrect !== undefined && (
+          {complaint.verification && complaint.verification !== 'pending-verification' && (
             <div className="flex items-center gap-2">
               <span className="text-muted-foreground">Xác minh:</span>
-              <span className={cn("font-medium", complaint.isVerifiedCorrect ? "text-red-600" : "text-green-600")}>
-                {complaint.isVerifiedCorrect ? "Lỗi thật" : "Khách sai"}
+              <span className={cn("font-medium", complaint.verification === 'verified-correct' ? "text-red-600" : "text-green-600")}>
+                {complaint.verification === 'verified-correct' ? "Lỗi thật" : "Khách sai"}
               </span>
             </div>
           )}

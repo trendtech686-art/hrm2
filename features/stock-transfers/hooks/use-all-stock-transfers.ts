@@ -1,17 +1,33 @@
 /**
  * useAllStockTransfers - Convenience hook for flat array of stock transfers
- * Returns all stock transfers data without pagination
+ * Auto-pagination: no hardcoded limit cap (MODULE-QUALITY-CRITERIA §1.3)
  */
 
 import * as React from 'react';
-import { useStockTransfers } from './use-stock-transfers';
+import { useQuery } from '@tanstack/react-query';
+import { fetchAllPages } from '@/lib/fetch-all-pages';
+import { fetchStockTransfers } from '../api/stock-transfers-api';
+import { stockTransferKeys } from './use-stock-transfers';
 import { asBusinessId, type BusinessId } from '@/lib/id-types';
 
-export function useAllStockTransfers() {
-  const { data, ...rest } = useStockTransfers({ limit: 30 });
+interface UseAllStockTransfersOptions {
+  enabled?: boolean;
+}
+
+export function useAllStockTransfers(options: UseAllStockTransfersOptions = {}) {
+  const { enabled = true } = options;
+  const query = useQuery({
+    queryKey: [...stockTransferKeys.all, 'all'],
+    queryFn: () => fetchAllPages((p) => fetchStockTransfers(p)),
+    staleTime: 2 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    enabled,
+  });
   return {
-    data: data?.data ?? [],
-    ...rest,
+    data: query.data ?? [],
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
   };
 }
 

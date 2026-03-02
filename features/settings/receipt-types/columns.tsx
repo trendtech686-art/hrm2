@@ -5,8 +5,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../../../components/ui/dropdown-menu";
 import { Button } from "../../../components/ui/button";
@@ -17,6 +15,7 @@ interface ColumnOptions {
   onEdit: (receiptType: ReceiptType) => void;
   onToggleDefault: (receiptType: ReceiptType, isDefault: boolean) => void;
   onToggleStatus: (receiptType: ReceiptType, isActive: boolean) => void;
+  onToggleBusinessResult: (receiptType: ReceiptType, isBusinessResult: boolean) => void;
   onDelete: (systemId: ReceiptType["systemId"]) => void;
 }
 
@@ -24,12 +23,13 @@ export const getReceiptTypeColumns = ({
   onEdit,
   onToggleDefault,
   onToggleStatus,
+  onToggleBusinessResult,
   onDelete,
 }: ColumnOptions): ColumnDef<ReceiptType>[] => [
   {
     id: "id",
     header: "Mã loại",
-    cell: ({ row }) => <span className="font-semibold uppercase">{row.id}</span>,
+    cell: ({ row }) => <span className="font-medium">{row.id}</span>,
     meta: { displayName: "Mã loại" },
   },
   {
@@ -45,6 +45,17 @@ export const getReceiptTypeColumns = ({
       <span className="text-sm text-muted-foreground">{row.description || "—"}</span>
     ),
     meta: { displayName: "Mô tả" },
+  },
+  {
+    id: "isBusinessResult",
+    header: "Hạch toán",
+    cell: ({ row }) => (
+      <Switch 
+        checked={row.isBusinessResult ?? false} 
+        onCheckedChange={(checked) => onToggleBusinessResult(row, checked)}
+      />
+    ),
+    meta: { displayName: "Hạch toán" },
   },
   {
     id: "default",
@@ -70,7 +81,7 @@ export const getReceiptTypeColumns = ({
   },
   {
     id: "actions",
-    header: () => <div className="text-right">Thao tác</div>,
+    header: '',
     cell: ({ row }) => (
       <div className="text-right">
         <DropdownMenu>
@@ -81,8 +92,6 @@ export const getReceiptTypeColumns = ({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Thao tác</DropdownMenuLabel>
-            <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={() => onEdit(row)}>
               Chỉnh sửa
             </DropdownMenuItem>

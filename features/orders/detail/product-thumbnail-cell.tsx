@@ -11,6 +11,7 @@ interface ProductThumbnailCellProps {
     productName: string;
     size?: 'sm' | 'md';
     onPreview?: (image: string, title: string) => void;
+    itemThumbnailImage?: string; // Fallback image when product not in cache
 }
 
 export function ProductThumbnailCell({ 
@@ -18,9 +19,12 @@ export function ProductThumbnailCell({
     product,
     productName, 
     size = 'md',
-    onPreview 
+    onPreview,
+    itemThumbnailImage,
 }: ProductThumbnailCellProps) {
-    const imageUrl = useProductImage(productSystemId, product);
+    const hookImageUrl = useProductImage(productSystemId, product);
+    // Use hook result or fallback to itemThumbnailImage
+    const imageUrl = hookImageUrl || itemThumbnailImage;
     
     const sizeClasses = size === 'sm' 
         ? 'w-10 h-9' 

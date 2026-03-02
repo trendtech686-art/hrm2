@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import * as React from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Combobox } from '@/components/ui/combobox';
+import { DatePicker } from '@/components/ui/date-picker';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import { ComboSection } from '../components/combo-section';
 import type { ProductFormCompleteValues, ComboboxOption } from './types';
@@ -68,7 +69,7 @@ export function BasicInfoTab({
       {/* Card 1: Thông tin cơ bản */}
       <Card>
         <CardHeader className="pb-4">
-          <CardTitle className="text-h3">Thông tin cơ bản</CardTitle>
+          <CardTitle size="lg">Thông tin cơ bản</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Mobile: Stack, Desktop: 3 columns */}
@@ -83,6 +84,7 @@ export function BasicInfoTab({
                     <Input
                       className="h-9"
                       {...field}
+                      value={field.value || ''}
                       placeholder="SP000001"
                     />
                   </FormControl>
@@ -97,7 +99,7 @@ export function BasicInfoTab({
                 <FormItem className="sm:col-span-1 md:col-span-2">
                   <FormLabel>Tên sản phẩm *</FormLabel>
                   <FormControl>
-                    <Input className="h-9" {...field} placeholder="Nhập tên sản phẩm" />
+                    <Input className="h-9" {...field} value={field.value || ''} placeholder="Nhập tên sản phẩm" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -134,7 +136,7 @@ export function BasicInfoTab({
                 <FormItem>
                   <FormLabel>Mã vạch</FormLabel>
                   <FormControl>
-                    <Input className="h-9" {...field} placeholder="Nhập mã vạch" />
+                    <Input className="h-9" {...field} value={field.value || ''} placeholder="Nhập mã vạch" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -156,9 +158,9 @@ export function BasicInfoTab({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="active">Đang kinh doanh</SelectItem>
-                      <SelectItem value="inactive">Ngừng kinh doanh</SelectItem>
-                      <SelectItem value="discontinued">Ngừng sản xuất</SelectItem>
+                      <SelectItem value="ACTIVE">Đang kinh doanh</SelectItem>
+                      <SelectItem value="INACTIVE">Ngừng kinh doanh</SelectItem>
+                      <SelectItem value="DISCONTINUED">Ngừng sản xuất</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -258,33 +260,7 @@ export function BasicInfoTab({
             />
           </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <FormField
-              control={form.control}
-              name="taxRate"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Thuế suất (%)</FormLabel>
-                  <FormControl>
-                    <Input
-                      className="h-9"
-                      type="number"
-                      min={0}
-                      max={100}
-                      {...field}
-                      value={field.value ?? ''}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        field.onChange(val === '' ? undefined : parseFloat(val));
-                      }}
-                      placeholder="VD: 10"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <FormField
               control={form.control}
               name="launchedDate"
@@ -292,11 +268,10 @@ export function BasicInfoTab({
                 <FormItem>
                   <FormLabel>Ngày ra mắt</FormLabel>
                   <FormControl>
-                    <Input
-                      className="h-9"
-                      type="date"
-                      {...field}
-                      value={field.value || ''}
+                    <DatePicker
+                      value={field.value ? new Date(field.value) : undefined}
+                      onChange={(date) => field.onChange(date ? date.toISOString().split('T')[0] : '')}
+                      placeholder="Chọn ngày"
                     />
                   </FormControl>
                   <FormMessage />
@@ -311,11 +286,10 @@ export function BasicInfoTab({
                 <FormItem>
                   <FormLabel>Ngày ngừng KD</FormLabel>
                   <FormControl>
-                    <Input
-                      className="h-9"
-                      type="date"
-                      {...field}
-                      value={field.value || ''}
+                    <DatePicker
+                      value={field.value ? new Date(field.value) : undefined}
+                      onChange={(date) => field.onChange(date ? date.toISOString().split('T')[0] : '')}
+                      placeholder="Chọn ngày"
                     />
                   </FormControl>
                   <FormMessage />
@@ -368,7 +342,7 @@ export function BasicInfoTab({
                 <FormLabel>Ghi chú nội bộ</FormLabel>
                 <FormControl>
                   <Textarea
-                    className="min-h-[80px]"
+                    className="min-h-20"
                     {...field}
                     value={field.value || ''}
                     placeholder="Ghi chú riêng cho người bán (không hiển thị cho khách hàng)..."
@@ -387,7 +361,7 @@ export function BasicInfoTab({
       {/* Card: Cài đặt hiển thị website */}
       <Card>
         <CardHeader className="pb-4">
-          <CardTitle className="text-h3">Cài đặt hiển thị website</CardTitle>
+          <CardTitle size="lg">Cài đặt hiển thị website</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -395,7 +369,7 @@ export function BasicInfoTab({
               control={form.control}
               name="isPublished"
               render={({ field }) => (
-                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border  border-border p-3">
                   <div className="space-y-0.5">
                     <FormLabel>Đăng web</FormLabel>
                     <FormDescription className="text-xs">
@@ -416,7 +390,7 @@ export function BasicInfoTab({
               control={form.control}
               name="isFeatured"
               render={({ field }) => (
-                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border border-border p-3">
                   <div className="space-y-0.5">
                     <FormLabel>Nổi bật</FormLabel>
                     <FormDescription className="text-xs">
@@ -437,7 +411,7 @@ export function BasicInfoTab({
               control={form.control}
               name="isNewArrival"
               render={({ field }) => (
-                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border border-border p-3">
                   <div className="space-y-0.5">
                     <FormLabel>Mới về</FormLabel>
                     <FormDescription className="text-xs">
@@ -458,7 +432,7 @@ export function BasicInfoTab({
               control={form.control}
               name="isBestSeller"
               render={({ field }) => (
-                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border border-border p-3">
                   <div className="space-y-0.5">
                     <FormLabel>Bán chạy</FormLabel>
                     <FormDescription className="text-xs">
@@ -479,7 +453,7 @@ export function BasicInfoTab({
               control={form.control}
               name="isOnSale"
               render={({ field }) => (
-                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border border-border p-3">
                   <div className="space-y-0.5">
                     <FormLabel>Đang giảm giá</FormLabel>
                     <FormDescription className="text-xs">
@@ -506,7 +480,8 @@ export function BasicInfoTab({
                     <Input
                       type="number"
                       {...field}
-                      onChange={(e) => field.onChange(Number(e.target.value))}
+                      value={field.value ?? ''}
+                      onChange={(e) => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))}
                       placeholder="0"
                     />
                   </FormControl>
@@ -522,7 +497,11 @@ export function BasicInfoTab({
               <FormItem>
                 <FormLabel>Ngày đăng web</FormLabel>
                 <FormControl>
-                  <Input type="date" {...field} />
+                  <DatePicker
+                    value={field.value ? new Date(field.value) : undefined}
+                    onChange={(date) => field.onChange(date ? date.toISOString().split('T')[0] : '')}
+                    placeholder="Chọn ngày"
+                  />
                 </FormControl>
                 <FormDescription>
                   Ngày sản phẩm được đăng lên website
@@ -543,7 +522,7 @@ export function BasicInfoTab({
       <Card>
         <CardHeader className="pb-4">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-h3">Giá mua &amp; Giá vốn</CardTitle>
+            <CardTitle size="lg">Giá mua &amp; Giá vốn</CardTitle>
             {isComboProduct && comboItems && comboItems.length > 0 && (
               <Badge variant="secondary" className="text-body-xs">
                 <Info className="h-3 w-3 mr-1" />
@@ -624,26 +603,6 @@ export function BasicInfoTab({
                   )}
                 />
 
-                <FormField
-                  control={form.control}
-                  name="minPrice"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Giá tối thiểu</FormLabel>
-                      <FormControl>
-                        <CurrencyInput
-                          value={field.value}
-                          onChange={field.onChange}
-                          placeholder="0"
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        Giá thấp nhất cho phép bán
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
               </>
             )}
           </div>
@@ -654,7 +613,7 @@ export function BasicInfoTab({
       <Card>
         <CardHeader className="pb-4">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-h3">Bảng giá bán theo chính sách</CardTitle>
+            <CardTitle size="lg">Bảng giá bán theo chính sách</CardTitle>
             {isComboProduct && comboItems && comboItems.length > 0 && (
               <Badge variant="secondary" className="text-body-xs">
                 <Info className="h-3 w-3 mr-1" />

@@ -255,17 +255,27 @@ export const paymentImportExportConfig: ImportExportConfig<Payment> = {
   },
   
   // Transform row to Payment object
-  postTransformRow: (row) => {
+  postTransformRow: (row, _index, context?: { storeContext?: { branchStore?: { data: Branch[] }; paymentTypeStore?: { data: PaymentType[] }; paymentMethodStore?: { data: PaymentMethod[] }; targetGroupStore?: { data: TargetGroup[] }; customerStore?: { data: Customer[] }; supplierStore?: { data: Supplier[] }; employeeStore?: { data: Employee[] } } }) => {
     const now = new Date().toISOString();
-    const defaultBranch = (getDefaultBranch as any)();
-    const defaultPaymentMethod = (getDefaultPaymentMethod as any)();
+    
+    // Get data from context
+    const branches = context?.storeContext?.branchStore?.data || [];
+    const paymentTypes = context?.storeContext?.paymentTypeStore?.data || [];
+    const paymentMethods = context?.storeContext?.paymentMethodStore?.data || [];
+    const targetGroups = context?.storeContext?.targetGroupStore?.data || [];
+    const customers = context?.storeContext?.customerStore?.data || [];
+    const suppliers = context?.storeContext?.supplierStore?.data || [];
+    const employees = context?.storeContext?.employeeStore?.data || [];
+    
+    const defaultBranch = getDefaultBranch(branches);
+    const defaultPaymentMethod = getDefaultPaymentMethod(paymentMethods);
     
     // Lookup entities
-    const branch = (findBranch as any)(row.branchName as string) || defaultBranch;
-    const paymentType = (findPaymentType as any)(row.paymentReceiptTypeName as string);
-    const paymentMethod = (findPaymentMethod as any)(row.paymentMethodName as string) || defaultPaymentMethod;
-    const targetGroup = (findTargetGroup as any)(row.recipientTypeName as string);
-    const recipient = (findRecipient as any)(row.recipientTypeName as string || '', row.recipientName as string || '');
+    const branch = findBranch(row.branchName as string, branches) || defaultBranch;
+    const paymentType = findPaymentType(row.paymentReceiptTypeName as string, paymentTypes);
+    const paymentMethod = findPaymentMethod(row.paymentMethodName as string, paymentMethods) || defaultPaymentMethod;
+    const targetGroup = findTargetGroup(row.recipientTypeName as string, targetGroups);
+    const recipient = findRecipient(row.recipientTypeName as string || '', row.recipientName as string || '', customers, suppliers, employees);
     
     return {
       systemId: asSystemId(''), // Will be generated

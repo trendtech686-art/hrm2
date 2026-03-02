@@ -31,7 +31,7 @@ export interface ComplaintPermissions {
  * @returns Object chứa các quyền hạn
  */
 export function useComplaintPermissions(complaint?: Complaint | null): ComplaintPermissions {
-  const { user, employee } = useAuth();
+  const { user, employee, isAdmin } = useAuth();
   
   return React.useMemo(() => {
     // Không có user → không có quyền gì
@@ -53,7 +53,7 @@ export function useComplaintPermissions(complaint?: Complaint | null): Complaint
     }
 
     const currentUserSystemId = employee.systemId; // ⭐ Dùng systemId của employee
-    const isAdmin = user.role === 'admin';
+    // isAdmin is now from useAuth() hook directly
 
     // Không có complaint → chỉ cho phép view danh sách
     if (!complaint) {
@@ -77,18 +77,23 @@ export function useComplaintPermissions(complaint?: Complaint | null): Complaint
   // ============================================
 
   const isCreator = complaint.createdBy === currentUserSystemId;
-  const isAssignee = complaint.assignedTo === currentUserSystemId;
+  // Support both assignedTo (mapped) and assigneeId (raw Prisma)
+  const isAssignee = (complaint.assignedTo === currentUserSystemId) || 
+    ((complaint as unknown as { assigneeId?: string }).assigneeId === currentUserSystemId);
   const isResponsible = complaint.responsibleUserId === currentUserSystemId;
 
   // ============================================
   // STATUS-BASED RULES
   // ============================================
-
-  const isPending = complaint.status === 'pending';
-  const isInvestigating = complaint.status === 'investigating';
-  const isResolved = complaint.status === 'resolved';
-  const isCancelled = complaint.status === 'cancelled';
-  const isClosed = isResolved || isCancelled;
+  // Support both Prisma enum (uppercase) and legacy app types (lowercase)
+  const statusLower = complaint.status?.toLowerCase?.() || complaint.status;
+  
+  const isPending = statusLower === 'pending' || statusLower === 'open';
+  const isInvestigating = statusLower === 'investigating' || statusLower === 'in_progress';
+  const isResolved = statusLower === 'resolved';
+  const isCancelled = statusLower === 'cancelled' || statusLower === 'closed';
+  const isEnded = statusLower === 'ended';
+  const isClosed = isResolved || isCancelled || isEnded;
 
   // ============================================
   // PERMISSION LOGIC
@@ -112,9 +117,11 @@ export function useComplaintPermissions(complaint?: Complaint | null): Complaint
   // Chỉ khi status = investigating
   const canInvestigate = (isAssignee || isAdmin) && isInvestigating;
 
-  // VERIFY: Chỉ assignee (người xử lý) hoặc admin
-  // Có thể verify ngay khi status = investigating (không bắt buộc có investigationNote)
-  const canVerify = (isAssignee || isAdmin) && 
+  // VERIFY: Assignee (người xử lý), creator, hoặc admin có thể verify
+  // Nếu chưa assign thì creator có quyền verify
+  // Có thể verify ngay khi status = investigating hoặc pending (OPEN)
+  const hasNoAssignee = !complaint.assignedTo && !(complaint as unknown as { assigneeId?: string }).assigneeId;
+  const canVerify = (isAssignee || isAdmin || (isCreator && hasNoAssignee)) && 
     (isInvestigating || isPending); // Cho phép verify luôn khi pending hoặc investigating
 
   // RESOLVE: Chỉ creator (manager) hoặc admin
@@ -175,7 +182,7 @@ export function useComplaintPermissions(complaint?: Complaint | null): Complaint
 
   return permissions;
   // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally tracking specific complaint properties only
-  }, [user, employee, complaint?.systemId, complaint?.status, complaint?.verification, complaint?.createdBy, complaint?.assignedTo, complaint?.responsibleUserId, complaint?.investigationNote]);
+  }, [user, employee, isAdmin, complaint?.systemId, complaint?.status, complaint?.verification, complaint?.createdBy, complaint?.assignedTo, complaint?.responsibleUserId, complaint?.investigationNote]);
 }
 
 /**

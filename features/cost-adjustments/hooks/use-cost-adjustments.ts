@@ -1,21 +1,25 @@
 /**
  * Cost Adjustments React Query Hooks
  * Provides data fetching and mutations for cost adjustments
+ * 
+ * ⚠️ Direct import: import { useCostAdjustments } from '@/features/cost-adjustments/hooks/use-cost-adjustments'
  */
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import {
   fetchCostAdjustments,
   fetchCostAdjustmentById,
-  createCostAdjustment,
-  updateCostAdjustment,
-  deleteCostAdjustment,
-  confirmCostAdjustment,
-  cancelCostAdjustment,
   type CostAdjustmentFilters,
-  type CostAdjustmentCreateInput,
-  type CostAdjustmentUpdateInput,
 } from '../api/cost-adjustments-api';
+import {
+  createCostAdjustmentAction,
+  updateCostAdjustmentAction,
+  deleteCostAdjustmentAction,
+  confirmCostAdjustmentAction,
+  cancelCostAdjustmentAction,
+  type CreateCostAdjustmentInput,
+  type UpdateCostAdjustmentInput,
+} from '@/app/actions/cost-adjustments';
 import type { CostAdjustmentStatus } from '../types';
 
 // Query keys factory
@@ -58,7 +62,6 @@ export function useCostAdjustmentById(systemId: string | undefined) {
 export function useCostAdjustmentsByProduct(productId: string | undefined) {
   return useCostAdjustments({
     productId: productId || '',
-    limit: 50,
   });
 }
 
@@ -78,7 +81,11 @@ export function useCostAdjustmentMutations(options: MutationCallbacks = {}) {
   };
 
   const create = useMutation({
-    mutationFn: (data: CostAdjustmentCreateInput) => createCostAdjustment(data),
+    mutationFn: async (data: CreateCostAdjustmentInput) => {
+      const result = await createCostAdjustmentAction(data);
+      if (!result.success) throw new Error(result.error || 'Failed to create cost adjustment');
+      return result.data!;
+    },
     onSuccess: () => {
       invalidateAdjustments();
       options.onSuccess?.();
@@ -87,8 +94,11 @@ export function useCostAdjustmentMutations(options: MutationCallbacks = {}) {
   });
 
   const update = useMutation({
-    mutationFn: ({ systemId, data }: { systemId: string; data: CostAdjustmentUpdateInput }) =>
-      updateCostAdjustment(systemId, data),
+    mutationFn: async ({ systemId, data }: { systemId: string; data: Partial<UpdateCostAdjustmentInput> }) => {
+      const result = await updateCostAdjustmentAction({ systemId, ...data });
+      if (!result.success) throw new Error(result.error || 'Failed to update cost adjustment');
+      return result.data!;
+    },
     onSuccess: () => {
       invalidateAdjustments();
       options.onSuccess?.();
@@ -97,7 +107,11 @@ export function useCostAdjustmentMutations(options: MutationCallbacks = {}) {
   });
 
   const remove = useMutation({
-    mutationFn: (systemId: string) => deleteCostAdjustment(systemId),
+    mutationFn: async (systemId: string) => {
+      const result = await deleteCostAdjustmentAction(systemId);
+      if (!result.success) throw new Error(result.error || 'Failed to delete cost adjustment');
+      return result.data;
+    },
     onSuccess: () => {
       invalidateAdjustments();
       options.onSuccess?.();
@@ -106,7 +120,11 @@ export function useCostAdjustmentMutations(options: MutationCallbacks = {}) {
   });
 
   const confirm = useMutation({
-    mutationFn: (systemId: string) => confirmCostAdjustment(systemId),
+    mutationFn: async ({ systemId, confirmedBy }: { systemId: string; confirmedBy?: string; confirmedByName?: string }) => {
+      const result = await confirmCostAdjustmentAction(systemId, confirmedBy || '');
+      if (!result.success) throw new Error(result.error || 'Failed to confirm cost adjustment');
+      return result.data!;
+    },
     onSuccess: () => {
       invalidateAdjustments();
       options.onSuccess?.();
@@ -115,7 +133,16 @@ export function useCostAdjustmentMutations(options: MutationCallbacks = {}) {
   });
 
   const cancel = useMutation({
-    mutationFn: (systemId: string) => cancelCostAdjustment(systemId),
+    mutationFn: async ({ systemId }: { 
+      systemId: string; 
+      cancelledBy?: string; 
+      cancelledByName?: string; 
+      reason?: string;
+    }) => {
+      const result = await cancelCostAdjustmentAction(systemId);
+      if (!result.success) throw new Error(result.error || 'Failed to cancel cost adjustment');
+      return result.data!;
+    },
     onSuccess: () => {
       invalidateAdjustments();
       options.onSuccess?.();

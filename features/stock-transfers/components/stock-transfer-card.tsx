@@ -95,7 +95,7 @@ export function StockTransferCard({ transfer, onDelete }: StockTransferCardProps
             <p className="text-body-xs text-muted-foreground">Từ</p>
             <p className="font-medium text-body-sm">{transfer.fromBranchName}</p>
           </div>
-          <ArrowRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+          <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
           <div className="flex-1 text-center">
             <p className="text-body-xs text-muted-foreground">Đến</p>
             <p className="font-medium text-body-sm">{transfer.toBranchName}</p>

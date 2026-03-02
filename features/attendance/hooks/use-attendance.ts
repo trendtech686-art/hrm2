@@ -8,15 +8,16 @@ import {
   fetchAttendance,
   fetchAttendanceByMonth,
   fetchAttendanceById,
-  createAttendance,
-  updateAttendance,
-  deleteAttendance,
   lockAttendanceMonth,
-  bulkUpdateAttendance,
   type AttendanceFilters,
   type AttendanceCreateInput,
   type AttendanceUpdateInput,
 } from '../api/attendance-api';
+import {
+  createAttendanceAction,
+  updateAttendanceAction,
+  deleteAttendanceAction,
+} from '@/app/actions/attendance';
 
 // Query keys factory
 export const attendanceKeys = {
@@ -83,7 +84,11 @@ export function useAttendanceMutations(options: MutationCallbacks = {}) {
   };
 
   const create = useMutation({
-    mutationFn: (data: AttendanceCreateInput) => createAttendance(data),
+    mutationFn: async (data: AttendanceCreateInput) => {
+      const result = await createAttendanceAction(data as Parameters<typeof createAttendanceAction>[0]);
+      if (!result.success) throw new Error(result.error || 'Failed to create attendance');
+      return result.data;
+    },
     onSuccess: () => {
       invalidateAttendance();
       options.onSuccess?.();
@@ -92,8 +97,11 @@ export function useAttendanceMutations(options: MutationCallbacks = {}) {
   });
 
   const update = useMutation({
-    mutationFn: ({ systemId, data }: { systemId: string; data: AttendanceUpdateInput }) =>
-      updateAttendance(systemId, data),
+    mutationFn: async ({ systemId, data }: { systemId: string; data: AttendanceUpdateInput }) => {
+      const result = await updateAttendanceAction({ systemId, ...data });
+      if (!result.success) throw new Error(result.error || 'Failed to update attendance');
+      return result.data;
+    },
     onSuccess: () => {
       invalidateAttendance();
       options.onSuccess?.();
@@ -102,7 +110,11 @@ export function useAttendanceMutations(options: MutationCallbacks = {}) {
   });
 
   const remove = useMutation({
-    mutationFn: (systemId: string) => deleteAttendance(systemId),
+    mutationFn: async (systemId: string) => {
+      const result = await deleteAttendanceAction(systemId);
+      if (!result.success) throw new Error(result.error || 'Failed to delete attendance');
+      return result.data;
+    },
     onSuccess: () => {
       invalidateAttendance();
       options.onSuccess?.();
@@ -121,8 +133,16 @@ export function useAttendanceMutations(options: MutationCallbacks = {}) {
   });
 
   const bulkUpdate = useMutation({
-    mutationFn: (records: Array<{ systemId: string; data: AttendanceUpdateInput }>) =>
-      bulkUpdateAttendance(records),
+    mutationFn: async (records: Array<{ systemId: string; data: AttendanceUpdateInput }>) => {
+      // Use the bulk API endpoint instead of N sequential server actions
+      const response = await fetch('/api/attendance/bulk', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ records }),
+      });
+      if (!response.ok) throw new Error('Failed to bulk update attendance');
+      return response.json();
+    },
     onSuccess: () => {
       invalidateAttendance();
       options.onSuccess?.();

@@ -6,7 +6,7 @@ import dynamic from 'next/dynamic';
 import { toast } from 'sonner';
 import { formatDate } from '../../lib/date-utils';
 import { usePageHeader } from '../../contexts/page-header-context';
-import { useSalesReturns } from './hooks/use-sales-returns';
+import { useAllSalesReturns } from './hooks/use-all-sales-returns';
 import { useAllBranches } from '../settings/branches/hooks/use-all-branches';
 import { useStoreInfoData } from '../settings/store-info/hooks/use-store-info';
 import { usePrint } from '../../lib/use-print';
@@ -25,12 +25,11 @@ import { Badge } from '../../components/ui/badge';
 import { Avatar, AvatarFallback } from '../../components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
-import { PlusCircle, Undo2, MoreHorizontal, Package, Calendar, User, Printer, Download } from 'lucide-react';
+import { PlusCircle, Undo2, MoreHorizontal, Package, Calendar, User, Printer, Download, Settings } from 'lucide-react';
 import { TouchButton } from '../../components/mobile/touch-button';
 import { useMediaQuery } from '../../lib/use-media-query';
 import { useAuth } from '../../contexts/auth-context';
 import type { SalesReturn } from '@/lib/types/prisma-extended';
-import { useFuseFilter } from '../../hooks/use-fuse-search';
 import { ROUTES } from '../../lib/router';
 import { useColumnVisibility } from '../../hooks/use-column-visibility';
 
@@ -40,8 +39,19 @@ const formatCurrency = (value?: number) => typeof value === 'number' ? new Intl.
 
 export function SalesReturnsPage() {
     const router = useRouter();
-    const { data: queryData } = useSalesReturns({ limit: 1000 });
-    const returns = React.useMemo(() => queryData?.data ?? [], [queryData?.data]);
+    const [search, setSearch] = React.useState('');
+    const [debouncedSearch, setDebouncedSearch] = React.useState('');
+    
+    React.useEffect(() => { const t = setTimeout(() => setDebouncedSearch(search), 300); return () => clearTimeout(t); }, [search]);
+    
+    // ✅ Auto-pagination: load tất cả (MODULE-QUALITY-CRITERIA §1.3)
+    const { data: allReturns } = useAllSalesReturns();
+    const returns = React.useMemo(() => {
+        if (!debouncedSearch) return allReturns;
+        const q = debouncedSearch.toLowerCase();
+        return allReturns.filter(r => r.id?.toLowerCase().includes(q) || (r as unknown as Record<string, unknown>).customerName?.toString().toLowerCase().includes(q));
+    }, [allReturns, debouncedSearch]);
+    const _total = allReturns.length;
     const { data: branches } = useAllBranches();
     const { info: storeInfo } = useStoreInfoData();
     const { employee: currentUser } = useAuth();
@@ -50,13 +60,13 @@ export function SalesReturnsPage() {
     const mobileScrollRef = React.useRef<HTMLDivElement>(null);
 
      
-    const activeReturns = React.useMemo(() => returns.filter(r => (r as any).status !== 'Đã hủy'), [returns]);
+    const activeReturns = React.useMemo(() => returns.filter(r => (r as unknown as Record<string, unknown>).status !== 'Đã hủy'), [returns]);
 
     const [exportDialogOpen, setExportDialogOpen] = React.useState(false), [printDialogOpen, setPrintDialogOpen] = React.useState(false);
     const [itemsToPrint, setItemsToPrint] = React.useState<SalesReturn[]>([]);
-    const [sorting, setSorting] = React.useState({ id: 'createdAt', desc: true }), [globalFilter, setGlobalFilter] = React.useState('');
-    const [debouncedGlobalFilter, setDebouncedGlobalFilter] = React.useState(''), [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 40 });
-    const [rowSelection, setRowSelection] = React.useState({}), [expanded, setExpanded] = React.useState<Record<string, boolean>>({});
+    const [sorting, setSorting] = React.useState({ id: 'createdAt', desc: true });
+    const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 40 });
+    const [rowSelection, setRowSelection] = React.useState({}), [expanded, setExpanded] = React.useState<Record<string, boolean>>();
     const [branchFilter, setBranchFilter] = React.useState('all'), [statusFilter, setStatusFilter] = React.useState<Set<string>>(new Set());
     const [columnOrder, setColumnOrder] = React.useState<string[]>([]), [pinnedColumns, setPinnedColumns] = React.useState<string[]>(['id']);
     const [mobileLoadedCount, setMobileLoadedCount] = React.useState(20);
@@ -79,7 +89,8 @@ export function SalesReturnsPage() {
         showBackButton: false, actions: headerActions,
     }), [headerActions]));
 
-    React.useEffect(() => { const timer = setTimeout(() => setDebouncedGlobalFilter(globalFilter), 300); return () => clearTimeout(timer); }, [globalFilter]);
+    // Reset pagination on search change
+    React.useEffect(() => { setPagination(p => ({ ...p, pageIndex: 0 })); }, [debouncedSearch]);
 
     const handleBulkPrint = React.useCallback((rows: SalesReturn[]) => { setItemsToPrint(rows); setPrintDialogOpen(true); }, []);
 
@@ -113,9 +124,7 @@ export function SalesReturnsPage() {
 
     React.useEffect(() => { setColumnOrder(columns.map(c => c.id).filter(Boolean) as string[]); }, [columns]);
 
-    const fuseOptions = React.useMemo(() => ({ keys: ['id', 'orderId', 'customerName', 'creatorName'], threshold: 0.3, ignoreLocation: true }), []);
-    const searchedData = useFuseFilter(activeReturns, debouncedGlobalFilter, fuseOptions);
-
+    // Server-side search - filter only by non-search facets (branch, status)
     const filteredData = React.useMemo(() => {
         let filtered = activeReturns;
         if (branchFilter !== 'all') {
@@ -123,14 +132,10 @@ export function SalesReturnsPage() {
             if (selectedBranch) filtered = filtered.filter(r => r.branchName === selectedBranch.name);
         }
         if (statusFilter.size > 0) filtered = filtered.filter(r => statusFilter.has(r.isReceived ? 'Đã nhận' : 'Chưa nhận'));
-        if (debouncedGlobalFilter?.trim()) {
-            const searchedIds = new Set(searchedData.map(s => s.systemId));
-            filtered = filtered.filter(r => searchedIds.has(r.systemId));
-        }
         return filtered;
-    }, [activeReturns, debouncedGlobalFilter, searchedData, branchFilter, statusFilter, branches]);
+    }, [activeReturns, branchFilter, statusFilter, branches]);
 
-    React.useEffect(() => { setPagination(p => ({ ...p, pageIndex: 0 })); }, [debouncedGlobalFilter, branchFilter, statusFilter]);
+    React.useEffect(() => { setPagination(p => ({ ...p, pageIndex: 0 })); }, [branchFilter, statusFilter]);
 
     const sortedData = React.useMemo(() => {
         const sorted = [...filteredData];
@@ -164,10 +169,10 @@ export function SalesReturnsPage() {
         return () => window.removeEventListener('scroll', handleScroll);
     }, [isMobile, mobileLoadedCount, sortedData.length]);
 
-    React.useEffect(() => { setMobileLoadedCount(20); }, [debouncedGlobalFilter, branchFilter, statusFilter]);
+    React.useEffect(() => { setMobileLoadedCount(20); }, [debouncedSearch, branchFilter, statusFilter]);
 
     const statusOptions = React.useMemo(() => [{ label: 'Đã nhận', value: 'Đã nhận' }, { label: 'Chưa nhận', value: 'Chưa nhận' }], []);
-    const handleRowClick = (row: SalesReturn) => router.push('/returns/' + row.systemId);
+    const handleRowClick = (row: SalesReturn) => router.push('/sales-returns/' + row.systemId);
     const allSelectedRows = React.useMemo(() => activeReturns.filter(r => rowSelection[r.systemId]), [activeReturns, rowSelection]);
     const bulkActions = React.useMemo(() => [{ label: 'In phiếu trả hàng', icon: Printer, onSelect: handleBulkPrint }], [handleBulkPrint]);
 
@@ -205,11 +210,11 @@ export function SalesReturnsPage() {
         <div className='flex flex-col w-full h-full'>
             {!isMobile && (
                 <PageToolbar
-                    leftActions={<Button variant="outline" size="sm" onClick={() => setExportDialogOpen(true)}><Download className="h-4 w-4 mr-2" />Xuất Excel</Button>}
+                    leftActions={<><Button variant="outline" size="sm" onClick={() => router.push('/settings/sales-config')}><Settings className="h-4 w-4 mr-2" />Cài đặt</Button><Button variant="outline" size="sm" onClick={() => setExportDialogOpen(true)}><Download className="h-4 w-4 mr-2" />Xuất Excel</Button></>}
                     rightActions={<DataTableColumnCustomizer columns={columns} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} />}
                 />
             )}
-            <PageFilters searchValue={globalFilter} onSearchChange={setGlobalFilter} searchPlaceholder='Tìm kiếm phiếu trả hàng (mã phiếu, mã đơn, khách hàng)...'>
+            <PageFilters searchValue={search} onSearchChange={setSearch} searchPlaceholder='Tìm kiếm phiếu trả hàng (mã phiếu, mã đơn, khách hàng)...'>
                 <Select value={branchFilter} onValueChange={setBranchFilter}>
                     <SelectTrigger className='w-full sm:w-45'><SelectValue placeholder='Tất cả chi nhánh' /></SelectTrigger>
                     <SelectContent><SelectItem value='all'>Tất cả chi nhánh</SelectItem>{branches.map(b => <SelectItem key={b.systemId} value={b.systemId}>{b.name}</SelectItem>)}</SelectContent>

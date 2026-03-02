@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
@@ -33,10 +33,16 @@ import {
   FormLabel,
   FormMessage,
 } from '../../../components/ui/form';
-import type { ProductCategory } from './types';
+import type { ProductCategory, WebsiteSeoData } from './types';
 // SystemId is imported indirectly via ProductCategory type
 import { nanoid } from 'nanoid';
 import { SeoAnalysisPanel } from '../../../components/shared/seo-preview';
+
+// Helper to safely access websiteSeo
+function getWebsiteSeo(category?: ProductCategory | null): Record<string, WebsiteSeoData> | undefined {
+  if (!category?.websiteSeo) return undefined;
+  return category.websiteSeo as Record<string, WebsiteSeoData>;
+}
 
 // =============================================================================
 // FORM SCHEMA
@@ -127,8 +133,8 @@ export function CategoryDetailForm({
       sortOrder: category?.sortOrder || 0,
       isActive: category?.isActive !== undefined ? category.isActive : true,
       websiteSeo: {
-        pkgx: category?.websiteSeo?.pkgx || {},
-        trendtech: category?.websiteSeo?.trendtech || {},
+        pkgx: getWebsiteSeo(category)?.pkgx || {},
+        trendtech: getWebsiteSeo(category)?.trendtech || {},
       },
     },
   });
@@ -147,8 +153,8 @@ export function CategoryDetailForm({
       sortOrder: category?.sortOrder || 0,
       isActive: category?.isActive !== undefined ? category.isActive : true,
       websiteSeo: {
-        pkgx: category?.websiteSeo?.pkgx || {},
-        trendtech: category?.websiteSeo?.trendtech || {},
+        pkgx: getWebsiteSeo(category)?.pkgx || {},
+        trendtech: getWebsiteSeo(category)?.trendtech || {},
       },
     });
     // Reset image upload state
@@ -236,7 +242,7 @@ export function CategoryDetailForm({
     if (!category?.parentId && !parentCategory) return 'Danh mục gốc';
     
     const path: string[] = [];
-    let currentParentId = category?.parentId || parentCategory?.systemId;
+    let currentParentId: string | null | undefined = category?.parentId || parentCategory?.systemId;
     
     while (currentParentId) {
       const parent = allCategories.find(c => c.systemId === currentParentId);
@@ -320,7 +326,7 @@ export function CategoryDetailForm({
                 {/* Basic Info Card */}
                 <Card>
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-base">Thông tin cơ bản</CardTitle>
+                    <CardTitle>Thông tin cơ bản</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
@@ -439,7 +445,7 @@ export function CategoryDetailForm({
                                   <div className="flex items-center flex-1 min-w-0">
                                     <Check
                                       className={cn(
-                                        'mr-2 h-4 w-4 flex-shrink-0',
+                                        'mr-2 h-4 w-4 shrink-0',
                                         isSelected ? 'opacity-100' : 'opacity-0'
                                       )}
                                     />
@@ -498,7 +504,7 @@ export function CategoryDetailForm({
                 {/* Thumbnail Card */}
                 <Card>
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-base">Ảnh đại diện</CardTitle>
+                    <CardTitle>Ảnh đại diện</CardTitle>
                     <CardDescription>Ảnh hiển thị cho danh mục (tối đa 1 ảnh, 2MB)</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
@@ -529,7 +535,7 @@ export function CategoryDetailForm({
                       onChange={setThumbnailFiles}
                       sessionId={thumbnailSessionId}
                       onSessionChange={setThumbnailSessionId}
-                      className="min-h-[120px]"
+                      className="min-h-30"
                     />
                   </CardContent>
                 </Card>
@@ -541,7 +547,7 @@ export function CategoryDetailForm({
                   <CardHeader className="pb-3">
                     <div className="flex items-center gap-2">
                       <Globe className="h-4 w-4" />
-                      <CardTitle className="text-base">SEO Mặc định</CardTitle>
+                      <CardTitle>SEO Mặc định</CardTitle>
                     </div>
                     <CardDescription>
                       Thông tin SEO chung - sẽ được dùng cho tất cả website nếu không có SEO riêng
@@ -639,7 +645,7 @@ export function CategoryDetailForm({
                   <CardHeader className="pb-3">
                     <div className="flex items-center gap-2">
                       <Globe className="h-4 w-4" style={{ color: '#ef4444' }} />
-                      <CardTitle className="text-base">SEO cho PKGX</CardTitle>
+                      <CardTitle>SEO cho PKGX</CardTitle>
                     </div>
                     <CardDescription>phukiengiaxuong.com.vn - Override SEO chung</CardDescription>
                   </CardHeader>
@@ -746,7 +752,7 @@ export function CategoryDetailForm({
                 {/* SEO Analysis Panel - PKGX */}
                 <Card>
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-base">📊 Phân tích SEO</CardTitle>
+                    <CardTitle>📊 Phân tích SEO</CardTitle>
                     <CardDescription>Điểm số và xem trước kết quả tìm kiếm Google</CardDescription>
                   </CardHeader>
                   <CardContent>
@@ -767,7 +773,7 @@ export function CategoryDetailForm({
                   <CardHeader className="pb-3">
                     <div className="flex items-center gap-2">
                       <Globe className="h-3 w-3" style={{ color: '#3b82f6' }} />
-                      <CardTitle className="text-base">SEO cho Trendtech</CardTitle>
+                      <CardTitle>SEO cho Trendtech</CardTitle>
                     </div>
                     <CardDescription>Coming soon</CardDescription>
                   </CardHeader>
@@ -874,7 +880,7 @@ export function CategoryDetailForm({
                 {/* SEO Analysis Panel - Trendtech */}
                 <Card>
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-base">📊 Phân tích SEO</CardTitle>
+                    <CardTitle>📊 Phân tích SEO</CardTitle>
                     <CardDescription>Điểm số và xem trước kết quả tìm kiếm Google</CardDescription>
                   </CardHeader>
                   <CardContent>

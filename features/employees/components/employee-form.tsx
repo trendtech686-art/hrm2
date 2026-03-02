@@ -16,8 +16,7 @@ import { useAllEmployeeTypes } from '@/features/settings/employee-types/hooks/us
 import { useAllEmployees } from '../hooks/use-all-employees';
 import { useAllBranches } from '@/hooks/use-branches';
 import { useProvinces } from "@/features/settings/provinces/hooks/use-administrative-units";
-import { useDocumentStore } from '../document-store';
-import { useShallow } from 'zustand/react/shallow';
+import { useEmployeeDocuments } from '../hooks/use-employee-documents';
 import { FileUploadAPI } from '@/lib/file-upload-api';
 import type { StagingFile, UploadedFile } from '@/lib/file-upload-api';
 import { AddressFormDialog } from '@/features/customers/components/address-form-dialog';
@@ -44,12 +43,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { VirtualizedCombobox, type ComboboxOption } from "@/components/ui/virtualized-combobox";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useEmployeeSettings } from "@/features/settings/employees/hooks/use-employee-settings";
-import { type EmployeePayrollProfileInput } from "../employee-comp-store";
+import type { EmployeePayrollProfileInput } from "../types";
 import { useResolvedPayrollProfile } from "../hooks/use-payroll-profiles";
 // Helper type for local form state for addresses
 type AddressParts = {
@@ -184,6 +184,21 @@ export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEdi
   const { data: employees } = useAllEmployees();
   const { data: branches } = useAllBranches();
   const { data: provinces = [] } = useProvinces();
+  
+  // Convert to Combobox options format
+  const branchOptions: ComboboxOption[] = React.useMemo(() => 
+    (branches ?? []).map(b => ({ value: b.systemId, label: b.name })),
+    [branches]
+  );
+  const departmentOptions: ComboboxOption[] = React.useMemo(() => 
+    (departments ?? []).map(d => ({ value: d.systemId, label: d.name })),
+    [departments]
+  );
+  const jobTitleOptions: ComboboxOption[] = React.useMemo(() => 
+    (jobTitles ?? []).map(jt => ({ value: jt.systemId, label: jt.name })),
+    [jobTitles]
+  );
+  
   // Get settings from React Query (Prisma)
   const { data: employeeSettings } = useEmployeeSettings();
   const _workShifts = employeeSettings?.workShifts ?? [];
@@ -195,17 +210,8 @@ export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEdi
   // Use React Query for payroll profile
   const { profile: payrollProfile } = useResolvedPayrollProfile(initialData?.systemId);
   
-  const { 
-    updateStagingDocument,
-    getDocuments,
-    refreshDocuments
-  } = useDocumentStore(
-    useShallow((state) => ({
-      updateStagingDocument: state.updateStagingDocument,
-      getDocuments: state.getDocuments,
-      refreshDocuments: state.refreshDocuments,
-    }))
-  );
+  // React Query: fetch existing documents for edit mode
+  const { data: existingDocuments = [], refetch: refetchDocuments } = useEmployeeDocuments(initialData?.systemId);
 
   const defaultSalaryComponentSystemIds = React.useMemo(
     () => salaryComponents.map((component) => component.systemId),
@@ -490,62 +496,44 @@ export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEdi
   // Initialize document files - load existing cho edit mode, reset cho new
   React.useEffect(() => {
     if (initialData?.systemId) {
+      // React Query handles fetching — just sync to local state when data arrives
       setIsLoadingDocuments(true);
-      
-      // IMPORTANT: ALWAYS force refresh từ server để đảm bảo data mới nhất
-      // Đặc biệt sau khi xóa file, phải reload để UI cập nhật
-      refreshDocuments(initialData.systemId, true) // force = true
-        .then(() => {
-          // Sau đó load vào local state
-          loadExistingDocuments(initialData.systemId);
-        })
-        .catch((_error) => {
-          // Vẫn cố load local nếu có
-          loadExistingDocuments(initialData.systemId);
-        })
-        .finally(() => {
-          setIsLoadingDocuments(false);
-        });
     } else {
       setDocumentFiles({});
       setDocumentSessions({});
       setIsLoadingDocuments(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally omit loadExistingDocuments and refreshDocuments to always get fresh function
   }, [initialData?.systemId]);
 
-  // Load existing documents for edit mode
-  const loadExistingDocuments = React.useCallback(async (employeeSystemId: string) => {
-    try {
-      const existingDocs = getDocuments(employeeSystemId);
-      
-      const loadedFiles: Record<string, StagingFile[]> = {};
-      
-      existingDocs.forEach(doc => {
-        const key = `${doc.documentType}-${doc.documentName}`;
-        
-        // Convert ServerFile[] to StagingFile[] format for display
-        loadedFiles[key] = doc.files.map(file => ({
-          id: file.id,
-          sessionId: '', // No session for existing files
-          name: file.name,
-          originalName: file.originalName || file.name,
-          slug: file.slug || '',
-          filename: file.filename,
-          size: file.size,
-          type: file.type,
-          url: file.url, // This will have /uploads/permanent/ path
-          status: 'permanent' as const, // Existing files are permanent
-          uploadedAt: file.uploadedAt || '',
-          metadata: typeof file.metadata === 'string' ? file.metadata : (file.metadata || {})
-        }));
-      });
-      
-      setDocumentFiles(loadedFiles);
-    } catch (_error) {
-      // Silent error
-    }
-  }, [getDocuments]);
+  // Sync React Query data → local document state (for edit mode)
+  React.useEffect(() => {
+    if (!initialData?.systemId || existingDocuments.length === 0) return;
+    const loadedFiles: Record<string, StagingFile[]> = {};
+    existingDocuments.forEach(doc => {
+      const key = `${doc.documentType}-${doc.documentName}`;
+      loadedFiles[key] = doc.files.map(file => ({
+        id: file.id,
+        sessionId: '',
+        name: file.name,
+        originalName: file.originalName || file.name,
+        slug: file.slug || '',
+        filename: file.filename,
+        size: file.size,
+        type: file.type,
+        url: file.url,
+        status: 'permanent' as const,
+        uploadedAt: file.uploadedAt || '',
+        metadata: typeof file.metadata === 'string' ? file.metadata : (file.metadata || {})
+      }));
+    });
+    setDocumentFiles(loadedFiles);
+    setIsLoadingDocuments(false);
+  }, [existingDocuments, initialData?.systemId]);
+
+  // Load existing documents for edit mode — reads from React Query cache
+  const _loadExistingDocuments = React.useCallback((_employeeSystemId: string) => {
+    // No-op: React Query data is synced via the effect above
+  }, []);
 
   // Document upload handler - LUÔN staging trước, kể cả nhân viên cũ
   const handleDocumentUpload = React.useCallback((documentType: string, documentName: string, newStagingFiles: StagingFile[], sessionId?: string) => {
@@ -569,10 +557,8 @@ export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEdi
         [key]: sessionId
       }));
       
-      // Cập nhật staging store
-      updateStagingDocument(documentType, documentName, newStagingFiles, sessionId);
     }
-  }, [updateStagingDocument]);
+  }, []);
 
   // Handle session change for staging documents
   const handleSessionChange = React.useCallback((documentType: string, documentName: string, sessionId: string) => {
@@ -643,11 +629,10 @@ export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEdi
   const handleRefreshDocuments = React.useCallback(async () => {
     if (initialData?.systemId) {
       setIsLoadingDocuments(true);
-      await refreshDocuments(initialData.systemId, true); // force = true
-      loadExistingDocuments(initialData.systemId);
+      await refetchDocuments();
       setIsLoadingDocuments(false);
     }
-  }, [initialData?.systemId, refreshDocuments, loadExistingDocuments]);
+  }, [initialData?.systemId, refetchDocuments]);
 
   // Mark/unmark file for deletion (safe mode)
   const handleMarkForDeletion = React.useCallback((fileId: string) => {
@@ -882,19 +867,19 @@ export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEdi
         <Tabs defaultValue="personal" className="w-full">
           <div className="w-full overflow-x-auto overflow-y-hidden mb-4 pb-1" style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'thin' }}>
             <TabsList className="inline-flex w-auto gap-1 p-1 h-auto justify-start">
-              <TabsTrigger value="personal" className="flex-shrink-0 px-3 py-2 text-sm font-normal whitespace-nowrap">
+              <TabsTrigger value="personal" className="shrink-0 px-3 py-2 text-sm font-normal whitespace-nowrap">
                 Thông tin cá nhân
               </TabsTrigger>
-              <TabsTrigger value="addresses" className="flex-shrink-0 px-3 py-2 text-sm font-normal whitespace-nowrap">
+              <TabsTrigger value="addresses" className="shrink-0 px-3 py-2 text-sm font-normal whitespace-nowrap">
                 Địa chỉ
               </TabsTrigger>
-              <TabsTrigger value="employment" className="flex-shrink-0 px-3 py-2 text-sm font-normal whitespace-nowrap">
+              <TabsTrigger value="employment" className="shrink-0 px-3 py-2 text-sm font-normal whitespace-nowrap">
                 Thông tin công việc
               </TabsTrigger>
-              <TabsTrigger value="account" className="flex-shrink-0 px-3 py-2 text-sm font-normal whitespace-nowrap">
+              <TabsTrigger value="account" className="shrink-0 px-3 py-2 text-sm font-normal whitespace-nowrap">
                 Đăng nhập
               </TabsTrigger>
-              <TabsTrigger value="documents" className="flex-shrink-0 px-3 py-2 text-sm font-normal whitespace-nowrap">
+              <TabsTrigger value="documents" className="shrink-0 px-3 py-2 text-sm font-normal whitespace-nowrap">
                 Tài liệu
               </TabsTrigger>
             </TabsList>
@@ -1225,22 +1210,36 @@ export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEdi
                   render={({ field }) => ( 
                     <FormItem>
                       <FormLabel>Chi nhánh <span className="text-destructive">*</span></FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value as string | undefined}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Chọn chi nhánh" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {branches.map(b => <SelectItem key={b.systemId} value={b.systemId}>{b.name}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
+                      <FormControl>
+                        <VirtualizedCombobox
+                          value={branchOptions.find(o => o.value === field.value) ?? null}
+                          onChange={(option) => field.onChange(option?.value ?? '')}
+                          options={branchOptions}
+                          placeholder="Chọn chi nhánh"
+                          searchPlaceholder="Tìm chi nhánh..."
+                          emptyPlaceholder="Không tìm thấy chi nhánh"
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem> 
                   )} 
                 />
-                {/* FIX: Explicitly cast `field.value` to string to resolve type incompatibility with the Select component. */}
-                <FormField name="department" control={form.control} render={({ field }) => ( <FormItem><FormLabel>Phòng ban</FormLabel><Select onValueChange={field.onChange} value={field.value as string | undefined}><FormControl><SelectTrigger><SelectValue placeholder="Chọn phòng ban" /></SelectTrigger></FormControl><SelectContent>{departments.map(d => (<SelectItem key={d.systemId} value={d.systemId}>{d.name}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem> )} />
+                <FormField name="department" control={form.control} render={({ field }) => ( 
+                  <FormItem>
+                    <FormLabel>Phòng ban</FormLabel>
+                    <FormControl>
+                      <VirtualizedCombobox
+                        value={departmentOptions.find(o => o.value === field.value) ?? null}
+                        onChange={(option) => field.onChange(option?.value ?? '')}
+                        options={departmentOptions}
+                        placeholder="Chọn phòng ban"
+                        searchPlaceholder="Tìm phòng ban..."
+                        emptyPlaceholder="Không tìm thấy phòng ban"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem> 
+                )} />
                 <FormField 
                   name="jobTitle" 
                   control={form.control}
@@ -1250,16 +1249,16 @@ export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEdi
                   render={({ field }) => ( 
                     <FormItem>
                       <FormLabel>Chức danh <span className="text-destructive">*</span></FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value as string | undefined}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Chọn chức danh" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {jobTitles.map(jt => (<SelectItem key={jt.systemId} value={jt.systemId}>{jt.name}</SelectItem>))}
-                        </SelectContent>
-                      </Select>
+                      <FormControl>
+                        <VirtualizedCombobox
+                          value={jobTitleOptions.find(o => o.value === field.value) ?? null}
+                          onChange={(option) => field.onChange(option?.value ?? '')}
+                          options={jobTitleOptions}
+                          placeholder="Chọn chức danh"
+                          searchPlaceholder="Tìm chức danh..."
+                          emptyPlaceholder="Không tìm thấy chức danh"
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem> 
                   )} 

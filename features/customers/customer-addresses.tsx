@@ -3,7 +3,8 @@ import { Button } from '../../components/ui/button';
 import { Card, CardContent } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
 import { Switch } from '../../components/ui/switch';
-import { MapPin as _MapPin, Plus, Edit as _Edit, Trash2 as _Trash2, Check as _Check, ArrowLeftRight as _ArrowLeftRight, X as _X, MoreHorizontal, Eye as _Eye } from 'lucide-react';
+import { Checkbox } from '../../components/ui/checkbox';
+import { MapPin as _MapPin, Plus, Edit as _Edit, Trash2, Check as _Check, ArrowLeftRight as _ArrowLeftRight, X as _X, MoreHorizontal, Eye as _Eye, ChevronLeft, ChevronRight } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -36,12 +37,15 @@ import type { EnhancedCustomerAddress } from './types/enhanced-address';
 // Use EnhancedCustomerAddress as CustomerAddress
 export type CustomerAddress = EnhancedCustomerAddress;
 
+const PAGE_SIZE = 5;
+
 interface CustomerAddressesProps {
   addresses: CustomerAddress[];
-  onUpdate: (addresses: CustomerAddress[]) => void;
+  onUpdate?: (addresses: CustomerAddress[]) => void;
+  readonly?: boolean;
 }
 
-export function CustomerAddresses({ addresses = [], onUpdate }: CustomerAddressesProps) {
+export function CustomerAddresses({ addresses = [], onUpdate, readonly = false }: CustomerAddressesProps) {
   
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
   const [isConverterOpen, setIsConverterOpen] = React.useState(false);
@@ -49,6 +53,46 @@ export function CustomerAddresses({ addresses = [], onUpdate }: CustomerAddresse
   const [deletingAddress, setDeletingAddress] = React.useState<CustomerAddress | null>(null);
   const [convertingAddress, setConvertingAddress] = React.useState<CustomerAddress | null>(null);
   const [editingAddress, setEditingAddress] = React.useState<CustomerAddress | null>(null);
+  
+  // Pagination
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const totalPages = Math.ceil(addresses.length / PAGE_SIZE);
+  const paginatedAddresses = addresses.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  
+  // Checkbox selection
+  const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());
+  const allSelected = paginatedAddresses.length > 0 && paginatedAddresses.every(addr => selectedIds.has(addr.id));
+  const someSelected = paginatedAddresses.some(addr => selectedIds.has(addr.id));
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      const newIds = new Set(selectedIds);
+      paginatedAddresses.forEach(addr => newIds.add(addr.id));
+      setSelectedIds(newIds);
+    } else {
+      const newIds = new Set(selectedIds);
+      paginatedAddresses.forEach(addr => newIds.delete(addr.id));
+      setSelectedIds(newIds);
+    }
+  };
+
+  const handleSelectOne = (id: string, checked: boolean) => {
+    const newIds = new Set(selectedIds);
+    if (checked) {
+      newIds.add(id);
+    } else {
+      newIds.delete(id);
+    }
+    setSelectedIds(newIds);
+  };
+  
+  const handleDeleteSelected = () => {
+    if (selectedIds.size === 0 || !onUpdate) return;
+    const newAddresses = addresses.filter(addr => !selectedIds.has(addr.id));
+    onUpdate(newAddresses);
+    setSelectedIds(new Set());
+    toast.success(`Đã xóa ${selectedIds.size} địa chỉ`);
+  };
 
   const handleAddNew = () => {
     setEditingAddress(null);
@@ -66,6 +110,7 @@ export function CustomerAddresses({ addresses = [], onUpdate }: CustomerAddresse
   };
 
   const handleConverterSave = (convertedAddress: Partial<CustomerAddress>) => {
+    if (!onUpdate) return;
     // Add converted address to list
     const newAddress: CustomerAddress = {
       ...convertedAddress,
@@ -128,7 +173,7 @@ export function CustomerAddresses({ addresses = [], onUpdate }: CustomerAddresse
       });
     }
 
-    onUpdate(newAddresses);
+    onUpdate?.(newAddresses);
     
     const types: string[] = [];
     if (addressData.isDefaultShipping) types.push('Mặc định giao hàng');
@@ -169,14 +214,14 @@ export function CustomerAddresses({ addresses = [], onUpdate }: CustomerAddresse
       return addr;
     });
     
-    onUpdate(updatedAddresses);
+    onUpdate?.(updatedAddresses);
     
     const typeLabel = type === 'shipping' ? 'giao hàng' : 'hóa đơn';
     toast.success(`Đã đặt làm địa chỉ mặc định ${typeLabel}`);
   };
 
   const confirmDelete = () => {
-    if (!deletingAddress) return;
+    if (!deletingAddress || !onUpdate) return;
 
     const newAddresses = addresses.filter(addr => addr.id !== deletingAddress.id);
     onUpdate(newAddresses);
@@ -191,13 +236,28 @@ export function CustomerAddresses({ addresses = [], onUpdate }: CustomerAddresse
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 p-4 rounded-md">
       <div className="flex items-center justify-between">
-        <h3 className="text-base font-medium">Danh sách địa chỉ</h3>
-        <Button onClick={handleAddNew} size="sm">
-          <Plus className="mr-2 h-4 w-4" />
-          Thêm địa chỉ
-        </Button>
+        <div className="flex items-center gap-2">
+          <h3 className="text-base font-medium">Quản lý địa chỉ</h3>
+          {!readonly && selectedIds.size > 0 && (
+            <Button 
+              type="button" 
+              variant="destructive" 
+              size="sm"
+              onClick={handleDeleteSelected}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Xóa {selectedIds.size} địa chỉ
+            </Button>
+          )}
+        </div>
+        {!readonly && (
+          <Button type="button" onClick={handleAddNew} size="sm">
+            <Plus className="mr-2 h-4 w-4" />
+            Thêm địa chỉ
+          </Button>
+        )}
       </div>
 
       {addresses.length === 0 ? (
@@ -207,30 +267,50 @@ export function CustomerAddresses({ addresses = [], onUpdate }: CustomerAddresse
           </CardContent>
         </Card>
       ) : (
-        <div className="rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Tên địa chỉ</TableHead>
-                <TableHead>Địa chỉ</TableHead>
-                <TableHead>Tỉnh/TP</TableHead>
-                <TableHead>Quận/Huyện</TableHead>
-                <TableHead>Phường/Xã</TableHead>
-                <TableHead>Loại</TableHead>
-                <TableHead>Liên hệ</TableHead>
-                <TableHead>SĐT</TableHead>
-                <TableHead className="text-center">MĐ GH</TableHead>
-                <TableHead className="text-center">MĐ HĐ</TableHead>
-                <TableHead className="w-[50px]"></TableHead>
+        <div className="space-y-2">
+          <div className="rounded-md border border-border ">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  {!readonly && (
+                    <TableHead className="w-10">
+                      <Checkbox 
+                        checked={allSelected}
+                        onCheckedChange={handleSelectAll}
+                        aria-label="Chọn tất cả"
+                        className={someSelected && !allSelected ? 'opacity-50' : ''}
+                      />
+                    </TableHead>
+                  )}
+                  <TableHead>Tên địa chỉ</TableHead>
+                  <TableHead>Địa chỉ</TableHead>
+                  <TableHead>Tỉnh/TP</TableHead>
+                  <TableHead>Quận/Huyện</TableHead>
+                  <TableHead>Phường/Xã</TableHead>
+                  <TableHead>Loại</TableHead>
+                  <TableHead>Liên hệ</TableHead>
+                  <TableHead>SĐT</TableHead>
+                  <TableHead className="text-center">MĐ GH</TableHead>
+                  <TableHead className="text-center">MĐ HĐ</TableHead>
+                  {!readonly && <TableHead className="w-12"></TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
-              {addresses.map((address) => (
+              {paginatedAddresses.map((address) => (
                 <TableRow 
                   key={address.id} 
-                  className="cursor-pointer"
-                  onClick={() => handleEdit(address)}
+                  className={readonly ? "" : "cursor-pointer"}
+                  onClick={readonly ? undefined : () => handleEdit(address)}
                 >
+                  {!readonly && (
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <Checkbox 
+                        checked={selectedIds.has(address.id)}
+                        onCheckedChange={(checked) => handleSelectOne(address.id, !!checked)}
+                        aria-label={`Chọn địa chỉ ${address.label}`}
+                      />
+                    </TableCell>
+                  )}
                   <TableCell className="font-medium">{address.label}</TableCell>
                   <TableCell>{address.street}</TableCell>
                   <TableCell>{address.province}</TableCell>
@@ -246,50 +326,88 @@ export function CustomerAddresses({ addresses = [], onUpdate }: CustomerAddresse
                   <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
                     <Switch 
                       checked={address.isDefaultShipping} 
-                      onCheckedChange={() => handleSetDefault(address.id, 'shipping')}
+                      onCheckedChange={readonly ? undefined : () => handleSetDefault(address.id, 'shipping')}
+                      disabled={readonly}
                     />
                   </TableCell>
                   <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
                     <Switch 
                       checked={address.isDefaultBilling} 
-                      onCheckedChange={() => handleSetDefault(address.id, 'billing')}
+                      onCheckedChange={readonly ? undefined : () => handleSetDefault(address.id, 'billing')}
+                      disabled={readonly}
                     />
                   </TableCell>
-                  <TableCell onClick={(e) => e.stopPropagation()}>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <MoreHorizontal className="h-4 w-4" />
-                          <span className="sr-only">Mở menu</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleEdit(address)}>
-                          Sửa
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => handleConvert(address)}>
-                          {address.inputLevel === '2-level' ? 'Chuyển sang 3 cấp' : 'Chuyển sang 2 cấp'}
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem 
-                          onClick={() => handleDelete(address.id)}
-                          className="text-destructive focus:text-destructive"
-                        >
-                          Xóa
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
+                  {!readonly && (
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button type="button" variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreHorizontal className="h-4 w-4" />
+                            <span className="sr-only">Mở menu</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleEdit(address)}>
+                            Sửa
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => handleConvert(address)}>
+                            {address.inputLevel === '2-level' ? 'Chuyển sang 3 cấp' : 'Chuyển sang 2 cấp'}
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem 
+                            onClick={() => handleDelete(address.id)}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            Xóa
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))}
             </TableBody>
           </Table>
+          </div>
+          
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-2 py-2">
+              <div className="text-sm text-muted-foreground">
+                Hiển thị {(currentPage - 1) * PAGE_SIZE + 1} - {Math.min(currentPage * PAGE_SIZE, addresses.length)} / {addresses.length} địa chỉ
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-sm">
+                  Trang {currentPage} / {totalPages}
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Add/Edit Dialog */}
+      {/* Add/Edit Dialog - key forces re-mount when editingAddress changes */}
       <AddressFormDialog
+        key={editingAddress?.id || 'new'}
         isOpen={isDialogOpen}
         onOpenChange={setIsDialogOpen}
         onSave={handleSave}

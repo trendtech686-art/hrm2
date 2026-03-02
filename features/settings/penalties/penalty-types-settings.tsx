@@ -57,8 +57,8 @@ import { useSettingsPageHeader } from '../use-settings-page-header';
 // ============================================
 
 export function PenaltyTypesSettings() {
-  const { data: queryData } = usePenaltyTypes({ limit: 1000 });
-  const penaltyTypes = React.useMemo(() => queryData?.data ?? [], [queryData?.data]);
+  const { data: queryData } = usePenaltyTypes();
+  const penaltyTypes = React.useMemo(() => (queryData?.data ?? []) as unknown as PenaltyType[], [queryData?.data]);
   const { create, update, remove } = usePenaltyTypeMutations({
     onCreateSuccess: () => toast.success('Đã thêm loại phạt mới'),
     onUpdateSuccess: () => toast.success('Đã cập nhật loại phạt'),
@@ -94,7 +94,7 @@ export function PenaltyTypesSettings() {
   
   // Sort by order
   const sortedTypes = React.useMemo(() => 
-    [...penaltyTypes].sort((a, b) => ((a as any).order ?? 0) - ((b as any).order ?? 0)),
+    [...penaltyTypes].sort((a, b) => ((a as PenaltyType & { sortOrder?: number }).sortOrder ?? (a as PenaltyType).order ?? 0) - ((b as PenaltyType & { sortOrder?: number }).sortOrder ?? (b as PenaltyType).order ?? 0)),
     [penaltyTypes]
   );
   
@@ -153,7 +153,8 @@ export function PenaltyTypesSettings() {
         defaultAmount: formData.defaultAmount,
         category: formData.category,
         isActive: formData.isActive,
-      } as any);
+        sortOrder: penaltyTypes.length + 1,
+      });
     }
     
     setIsDialogOpen(false);
@@ -250,7 +251,7 @@ export function PenaltyTypesSettings() {
                     <TableCell className="text-center">
                       <Switch
                         checked={type.isActive}
-                        onCheckedChange={() => handleToggleActive(type as any)}
+                        onCheckedChange={() => handleToggleActive(type)}
                       />
                     </TableCell>
                     <TableCell>
@@ -261,13 +262,13 @@ export function PenaltyTypesSettings() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleEdit(type as any)}>
+                          <DropdownMenuItem onClick={() => handleEdit(type)}>
                             <Pencil className="h-4 w-4 mr-2" />
                             Chỉnh sửa
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem 
-                            onClick={() => handleDelete(type as any)}
+                            onClick={() => handleDelete(type)}
                             className="text-destructive"
                           >
                             <Trash2 className="h-4 w-4 mr-2" />

@@ -37,6 +37,19 @@ export function DistrictForm({ initialData, provinceId, onSubmit, onCancel }: Di
     }
   })
 
+  // Reset form when initialData changes
+  React.useEffect(() => {
+    if (initialData) {
+      form.reset({ ...initialData, provinceId });
+    } else {
+      form.reset({
+        id: 0,
+        name: '',
+        provinceId: provinceId
+      });
+    }
+  }, [initialData, provinceId, form]);
+
   const handleSubmit = (data: DistrictFormValues) => {
     onSubmit({
       ...data,

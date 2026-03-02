@@ -2,11 +2,17 @@
  * GHTK Print Label API
  * GET /api/shipping/ghtk/print-label/[trackingCode]
  * 
- * Proxy to get GHTK shipping label (returns PDF URL or base64)
+ * Proxy to get GHTK shipping label (returns PDF binary)
+ * Query params:
+ *   - original: portrait | landscape (default: portrait)
+ *   - page_size: A5 | A6 (default: A6)
+ * 
+ * Note: Credentials are loaded from database (Setting table)
  */
 
-import { NextRequest } from 'next/server';
-import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils';
+import { NextRequest, NextResponse } from 'next/server';
+import { requireAuth, apiError } from '@/lib/api-utils';
+import { loadGHTKConfig } from '@/lib/ghtk-sync';
 
 const GHTK_API_BASE = 'https://services.giaohangtietkiem.vn';
 
@@ -26,15 +32,25 @@ export async function GET(
 
   try {
     const { searchParams } = new URL(request.url);
-    const apiToken = searchParams.get('apiToken');
-    const partnerCode = searchParams.get('partnerCode');
+    const original = searchParams.get('original') || 'portrait'; // portrait | landscape
+    const pageSize = searchParams.get('page_size') || 'A6'; // A5 | A6
 
-    if (!apiToken) {
-      return apiError('API Token is required', 400);
+    // ✅ Load credentials from database instead of client
+    const ghtkConfig = await loadGHTKConfig();
+    if (!ghtkConfig) {
+      return apiError('Chưa cấu hình GHTK. Vui lòng vào Cài đặt → Đối tác vận chuyển.', 400);
     }
 
+    const { apiToken, partnerCode } = ghtkConfig;
 
-    const response = await fetch(`${GHTK_API_BASE}/services/label/${trackingCode}`, {
+    // Build GHTK label URL with params
+    const ghtkUrl = new URL(`${GHTK_API_BASE}/services/label/${trackingCode}`);
+    ghtkUrl.searchParams.set('original', original);
+    ghtkUrl.searchParams.set('page_size', pageSize);
+
+    console.log(`[GHTK-LABEL-${requestId}] Fetching label from:`, ghtkUrl.toString());
+
+    const response = await fetch(ghtkUrl.toString(), {
       method: 'GET',
       headers: {
         'Token': apiToken,
@@ -42,10 +58,30 @@ export async function GET(
       },
     });
 
-    const data = await response.json();
+    // Check content type - GHTK returns PDF on success, JSON on error
+    const contentType = response.headers.get('content-type') || '';
     
-
-    return apiSuccess(data);
+    if (contentType.includes('application/pdf')) {
+      // ✅ Success - return PDF binary
+      const pdfBuffer = await response.arrayBuffer();
+      
+      console.log(`[GHTK-LABEL-${requestId}] ✅ PDF received, size: ${pdfBuffer.byteLength} bytes`);
+      
+      return new NextResponse(pdfBuffer, {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/pdf',
+          'Content-Disposition': `inline; filename="label-${trackingCode}.pdf"`,
+          'Content-Length': pdfBuffer.byteLength.toString(),
+        },
+      });
+    } else {
+      // ❌ Error - GHTK returns JSON error
+      const errorData = await response.json();
+      console.error(`[GHTK-LABEL-${requestId}] ❌ Error from GHTK:`, errorData);
+      
+      return apiError(errorData.message || 'Failed to get label from GHTK', response.status);
+    }
   } catch (error) {
     console.error(`[GHTK-LABEL-${requestId}] Print label error:`, error);
     return apiError(error instanceof Error ? error.message : 'Unknown error', 500);

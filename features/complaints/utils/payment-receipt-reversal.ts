@@ -11,7 +11,6 @@
  */
 
 import type { Complaint } from '../types';
-import { asSystemId } from '@/lib/id-types';
 import type { SystemId, BusinessId } from '@/lib/id-types';
 
 export interface ReversalResult {
@@ -33,6 +32,7 @@ export interface ReversalResult {
     reason: string;
     inventoryCheckSystemId: SystemId;
   };
+  cancelledPenaltyIds?: SystemId[]; // Danh sách phiếu phạt đã hủy
 }
 
 /**
@@ -59,32 +59,30 @@ export async function cancelPaymentsReceiptsAndInventoryChecks(
 
   try {
     // ============================================
-    // STEP 1: LAZY LOAD STORES
+    // STEP 1: LAZY LOAD SERVER ACTIONS
     // ============================================
-    const { useReceiptStore } = await import('../../receipts/store');
-    const { usePaymentStore } = await import('../../payments/store');
-    const { useProductStore } = await import('../../products/store');
-    
-    const receiptStore = useReceiptStore.getState();
-    const paymentStore = usePaymentStore.getState();
-    const _productStore = useProductStore.getState();
+    const { cancelPaymentAction } = await import('@/app/actions/payments');
+    const { cancelReceiptAction } = await import('@/app/actions/receipts');
+    const { forceCancelInventoryCheckAction } = await import('@/app/actions/inventory-checks');
+    const { cancelPenalty } = await import('@/app/actions/settings/penalties');
 
     // ============================================
     // STEP 2: TÌM PHIẾU LIÊN QUAN
     // ============================================
     // ⚠️ CRITICAL: Phiếu chi/thu/kiểm kho được lưu trong METADATA của action verified-correct CUỐI CÙNG
-    const lastVerifiedCorrect = [...complaint.timeline]
+    const lastVerifiedCorrect = [...(complaint.timeline || [])]
       .reverse()
       .find(a => a.actionType === 'verified-correct');
     
-    const actionMetadata = lastVerifiedCorrect?.metadata as { paymentSystemId?: SystemId; receiptSystemId?: SystemId; inventoryCheckSystemId?: SystemId } | undefined;
+    const actionMetadata = lastVerifiedCorrect?.metadata as { paymentSystemId?: SystemId; receiptSystemId?: SystemId; inventoryCheckSystemId?: SystemId; penaltySystemIds?: SystemId[] } | undefined;
     const paymentSystemId = actionMetadata?.paymentSystemId;
     const receiptSystemId = actionMetadata?.receiptSystemId;
     const inventoryCheckSystemId = actionMetadata?.inventoryCheckSystemId;
+    const penaltySystemIds = actionMetadata?.penaltySystemIds || [];
     
     
     // Check if there's anything to cancel
-    if (!paymentSystemId && !receiptSystemId && !inventoryCheckSystemId) {
+    if (!paymentSystemId && !receiptSystemId && !inventoryCheckSystemId && penaltySystemIds.length === 0) {
       return result;
     }
 
@@ -92,82 +90,55 @@ export async function cancelPaymentsReceiptsAndInventoryChecks(
     // STEP 3: XỬ LÝ PHIẾU CHI (BÙ TRỪ KHÁCH)
     // ============================================
     if (paymentSystemId) {
-      const payment = paymentStore.data.find(v => v.systemId === paymentSystemId);
+      // ✅ Use Server Action to cancel payment in database
+      const cancelResult = await cancelPaymentAction({
+        systemId: paymentSystemId,
+        reason: reason,
+      });
       
-      
-      if (payment) {
+      if (cancelResult.success && cancelResult.data) {
+        const payment = cancelResult.data as { systemId: string; id: string; amount: number };
         result.totalAmount += payment.amount || 0;
+        result.cancelledPaymentsReceipts.push(`Phiếu chi ${payment.id} (${payment.amount.toLocaleString('vi-VN')}đ)`);
         
-        // ✅ LUÔN LUÔN mark as cancelled (KHÔNG BAO GIỜ XÓA - audit trail)
-        if (payment.status !== 'cancelled') {
-          
-          paymentStore.update(payment.systemId, {
-            ...payment,
-            status: 'cancelled',
-            cancelledAt: new Date().toISOString(),
-            // Note: cancelledBy not in Payment type, tracked in history
-          });
-          
-          // Verify the update worked
-          const _updatedPayment = paymentStore.data.find(v => v.systemId === paymentSystemId);
-          
-          result.cancelledPaymentsReceipts.push(`Phiếu chi ${payment.id} (${payment.amount.toLocaleString('vi-VN')}đ)`);
-          
-          // Track history
-          result.cancelledPaymentsReceiptsHistory.push({
-            paymentReceiptSystemId: payment.systemId,
-            paymentReceiptId: payment.id,
-            type: 'payment',
-            amount: payment.amount,
-            cancelledAt: new Date(),
-            cancelledBy: currentUser.systemId,
-            cancelledReason: reason,
-          });
-          
-        }
-        // else: already cancelled, skip
+        // Track history
+        result.cancelledPaymentsReceiptsHistory.push({
+          paymentReceiptSystemId: payment.systemId as SystemId,
+          paymentReceiptId: payment.id as BusinessId,
+          type: 'payment',
+          amount: payment.amount,
+          cancelledAt: new Date(),
+          cancelledBy: currentUser.systemId,
+          cancelledReason: reason,
+        });
       }
-      // else: payment not found, skip
     }
 
     // ============================================
     // STEP 4: XỬ LÝ PHIẾU THU (PHẠT NHÂN VIÊN)
     // ============================================
     if (receiptSystemId) {
-      const receipt = receiptStore.data.find(v => v.systemId === receiptSystemId);
+      // ✅ Use Server Action to cancel receipt in database
+      const cancelResult = await cancelReceiptAction({
+        systemId: receiptSystemId,
+        reason: reason,
+      });
       
-      
-      if (receipt) {
+      if (cancelResult.success && cancelResult.data) {
+        const receipt = cancelResult.data as { systemId: string; id: string; amount: number };
         result.totalAmount += receipt.amount || 0;
+        result.cancelledPaymentsReceipts.push(`Phiếu thu ${receipt.id} (${receipt.amount.toLocaleString('vi-VN')}đ)`);
         
-        // ✅ LUÔN LUÔN mark as cancelled (KHÔNG BAO GIỜ XÓA - audit trail)
-        if (receipt.status !== 'cancelled') {
-          
-          receiptStore.update(receipt.systemId, {
-            ...receipt,
-            status: 'cancelled',
-            cancelledAt: new Date().toISOString(),
-          });
-          
-          // Verify the update worked
-          const _updatedReceipt = receiptStore.data.find(v => v.systemId === receiptSystemId);
-          
-          
-          result.cancelledPaymentsReceipts.push(`Phiếu thu ${receipt.id} (${receipt.amount.toLocaleString('vi-VN')}đ)`);
-          
-          // Track history
-          result.cancelledPaymentsReceiptsHistory.push({
-            paymentReceiptSystemId: receipt.systemId,
-            paymentReceiptId: receipt.id,
-            type: 'receipt',
-            amount: receipt.amount,
-            cancelledAt: new Date(),
-            cancelledBy: currentUser.systemId,
-            cancelledReason: reason,
-          });
-          
-        }
-        // else: already cancelled, skip
+        // Track history
+        result.cancelledPaymentsReceiptsHistory.push({
+          paymentReceiptSystemId: receipt.systemId as SystemId,
+          paymentReceiptId: receipt.id as BusinessId,
+          type: 'receipt',
+          amount: receipt.amount,
+          cancelledAt: new Date(),
+          cancelledBy: currentUser.systemId,
+          cancelledReason: reason,
+        });
       }
     }
 
@@ -176,21 +147,14 @@ export async function cancelPaymentsReceiptsAndInventoryChecks(
     // ============================================
     // SKIP nếu skipInventoryCheck = true (khi hủy khiếu nại)
     if (inventoryCheckSystemId && !options?.skipInventoryCheck) {
-      const { useInventoryCheckStore } = await import('../../inventory-checks/store');
-      const inventoryCheckStore = useInventoryCheckStore.getState();
-      const inventoryCheck = inventoryCheckStore.data.find(ic => ic.systemId === inventoryCheckSystemId);
+      // ✅ Use Server Action to cancel inventory check in database
+      const cancelResult = await forceCancelInventoryCheckAction({
+        systemId: inventoryCheckSystemId,
+        reason: reason,
+        cancelledBy: currentUser.systemId,
+      });
       
-      if (inventoryCheck && inventoryCheck.status !== 'cancelled') {
-        // Hủy phiếu kiểm kê (phiếu tự động khôi phục kho)
-        inventoryCheckStore.update(inventoryCheck.systemId, {
-          ...inventoryCheck,
-          status: 'cancelled',
-          cancelledAt: new Date().toISOString(),
-          cancelledBy: asSystemId(currentUser.systemId),
-          cancelledReason: reason,
-        });
-        
-        
+      if (cancelResult.success && cancelResult.data) {
         // Lưu lịch sử
         result.inventoryHistory = {
           adjustedAt: new Date(),
@@ -200,7 +164,22 @@ export async function cancelPaymentsReceiptsAndInventoryChecks(
           inventoryCheckSystemId,
         };
       }
-      // else: already cancelled, skip
+    }
+
+    // ============================================
+    // STEP 6: HỦY PHIẾU PHẠT
+    // ============================================
+    if (penaltySystemIds.length > 0) {
+      const cancelledIds: SystemId[] = [];
+      for (const penaltyId of penaltySystemIds) {
+        const cancelResult = await cancelPenalty(penaltyId, reason);
+        if (cancelResult.success) {
+          cancelledIds.push(penaltyId);
+        }
+      }
+      if (cancelledIds.length > 0) {
+        result.cancelledPenaltyIds = cancelledIds;
+      }
     }
 
     return result;

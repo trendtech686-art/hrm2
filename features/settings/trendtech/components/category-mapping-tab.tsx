@@ -1,4 +1,4 @@
-import * as React from 'react';
+﻿import * as React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../../components/ui/card';
 import { Button } from '../../../../components/ui/button';
 import { Badge } from '../../../../components/ui/badge';
@@ -88,7 +88,7 @@ export function CategoryMappingTab() {
       {/* Sync Card */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Danh sách danh mục Trendtech</CardTitle>
+          <CardTitle size="lg">Danh sách danh mục Trendtech</CardTitle>
           <CardDescription>
             Đồng bộ danh sách danh mục từ website Trendtech
           </CardDescription>
@@ -118,7 +118,7 @@ export function CategoryMappingTab() {
       {/* Mapping Table */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Mapping danh mục</CardTitle>
+          <CardTitle size="lg">Mapping danh mục</CardTitle>
           <CardDescription>
             Liên kết danh mục HRM với danh mục Trendtech
           </CardDescription>
@@ -167,7 +167,7 @@ export function CategoryMappingTab() {
       {/* Add Mapping Card */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Thêm mapping mới</CardTitle>
+          <CardTitle size="lg">Thêm mapping mới</CardTitle>
         </CardHeader>
         <CardContent>
           <AddMappingForm

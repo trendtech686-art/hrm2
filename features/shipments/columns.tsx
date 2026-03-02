@@ -3,7 +3,6 @@ import type { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.
 import Link from 'next/link';
 import { formatDate } from '@/lib/date-utils';
 import type { ShipmentView } from '@/lib/types/prisma-extended';
-import type { OrderDeliveryStatus, OrderPrintStatus } from '../orders/types';
 import type { ColumnDef } from '../../components/data-table/types';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
@@ -17,7 +16,7 @@ const formatCurrency = (value?: number) => {
 
 
 
-const deliveryStatusVariants: Record<OrderDeliveryStatus, "success" | "warning" | "secondary" | "default" | "destructive"> = {
+const deliveryStatusVariants: Record<string, "success" | "warning" | "secondary" | "default" | "destructive"> = {
   'Chờ đóng gói': 'secondary',
   'Đã đóng gói': 'default',
   'Chờ lấy hàng': 'warning',
@@ -25,11 +24,21 @@ const deliveryStatusVariants: Record<OrderDeliveryStatus, "success" | "warning" 
   'Đã giao hàng': 'success',
   'Chờ giao lại': 'destructive',
   'Đã hủy': 'destructive',
+  // Prisma enum values
+  'PENDING_PACK': 'secondary',
+  'PACKED': 'default',
+  'PENDING_SHIP': 'warning',
+  'SHIPPING': 'warning',
+  'DELIVERED': 'success',
+  'RESCHEDULED': 'destructive',
+  'CANCELLED': 'destructive',
 };
 
-const printStatusVariants: Record<OrderPrintStatus, "success" | "secondary"> = {
+const printStatusVariants: Record<string, "success" | "secondary"> = {
   'Đã in': 'success',
   'Chưa in': 'secondary',
+  'PRINTED': 'success',
+  'NOT_PRINTED': 'secondary',
 };
 
 export const getColumns = (
@@ -78,7 +87,7 @@ export const getColumns = (
     { id: 'partnerStatus', accessorKey: 'partnerStatus', header: 'Trạng thái đối tác', cell: ({ row }) => row.partnerStatus || '-', meta: { displayName: 'Trạng thái đối tác' } },
     { id: 'payer', accessorKey: 'payer', header: 'Người trả phí', cell: ({ row }) => row.payer || '-', meta: { displayName: 'Người trả phí' } },
     { id: 'packagingSystemId', accessorKey: 'packagingSystemId', header: 'Mã đóng gói', cell: ({ row }) => <Link href={`/packaging/${row.packagingSystemId}`} className="font-mono text-primary hover:underline">{row.packagingSystemId}</Link>, meta: { displayName: 'Mã đóng gói' } },
-    { id: 'orderId', accessorKey: 'orderId', header: 'Mã đơn hàng', cell: ({ row }) => <Link href={`/orders/${row.orderSystemId}`} className="text-primary hover:underline">{row.orderId}</Link>, meta: { displayName: 'Mã đơn hàng' } },
+    { id: 'orderId', accessorKey: 'orderId', header: 'Mã đơn hàng', cell: ({ row }) => <Link href={`/orders/${row.orderSystemId || row.orderId}`} className="text-primary hover:underline">{row.orderId}</Link>, meta: { displayName: 'Mã đơn hàng' } },
     { id: 'printStatus', accessorKey: 'printStatus', header: 'Trạng thái in', cell: ({ row }) => <Badge variant={printStatusVariants[row.printStatus]}>{row.printStatus}</Badge>, meta: { displayName: 'Trạng thái in' } },
     { id: 'dispatchedAt', accessorKey: 'dispatchedAt', header: 'Ngày xuất kho', cell: ({ row }) => formatDate(row.dispatchedAt), meta: { displayName: 'Ngày xuất kho' } },
     { id: 'totalProductQuantity', accessorKey: 'totalProductQuantity', header: 'Tổng SL SP', cell: ({ row }) => row.totalProductQuantity, meta: { displayName: 'Tổng số lượng sản phẩm' } },
@@ -102,7 +111,7 @@ export const getColumns = (
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => router ? router.push(`/orders/${row.orderSystemId}`) : (window.location.href = `/orders/${row.orderSystemId}`)}>
+                        <DropdownMenuItem onClick={() => router ? router.push(`/orders/${row.orderSystemId || row.orderId}`) : (window.location.href = `/orders/${row.orderSystemId || row.orderId}`)}>
                             Xem đơn hàng
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => onPrintDelivery?.(row.systemId)}>

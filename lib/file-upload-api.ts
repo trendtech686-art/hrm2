@@ -8,6 +8,8 @@
 // 4. Cleanup job deletes orphan staging files after 24h
 // ═══════════════════════════════════════════════════════════════
 
+import { generateSubEntityId } from '@/lib/id-utils';
+
 // ═══════════════════════════════════════════════════════════════
 // TYPES
 // ═══════════════════════════════════════════════════════════════
@@ -110,7 +112,7 @@ interface ConfirmResponse {
 // ═══════════════════════════════════════════════════════════════
 
 function generateSessionId(): string {
-  return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  return generateSubEntityId('SESSION');
 }
 
 function mapResponseToStagingFile(data: UploadResponse['data'], sessionId: string): StagingFile {
@@ -169,6 +171,13 @@ export class FileUploadAPI {
     const actualSessionId = sessionId || generateSessionId();
     const uploadedFiles: StagingFile[] = [];
 
+    console.log('[FileUploadAPI] uploadToStaging called:', {
+      filesCount: files.length,
+      providedSessionId: sessionId,
+      actualSessionId,
+      fileNames: files.map(f => f.name),
+    });
+
     for (const file of files) {
       const formData = new FormData();
       formData.append('file', file);
@@ -177,12 +186,26 @@ export class FileUploadAPI {
       formData.append('status', 'staging'); // Upload as staging by default
       formData.append('isImage', String(file.type.startsWith('image/')));
 
+      console.log('[FileUploadAPI] Uploading file:', {
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        sessionId: actualSessionId,
+      });
+
       const response = await fetch('/api/upload', {
         method: 'POST',
         body: formData,
       });
 
       const result: UploadResponse = await response.json();
+
+      console.log('[FileUploadAPI] Upload response:', {
+        success: result.success,
+        fileId: result.data?.id,
+        sessionId: result.data?.sessionId,
+        status: result.data?.status,
+      });
 
       if (!result.success || !result.data) {
         throw new Error(result.message || 'Upload failed');
@@ -220,10 +243,10 @@ export class FileUploadAPI {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           sessionId,
-          entityType: 'employees', // Entity type for file organization
+          entityType: documentType, // Use the actual entity type (customers, products, employees, etc.)
           entityId: entitySystemId,
           documentType, // Document category (legal, work-process, etc.)
-          documentName, // Document name (Sơ yếu lý lịch, etc.)
+          documentName, // Document name (customer-images, thumbnail, etc.)
         }),
       });
 
@@ -234,10 +257,17 @@ export class FileUploadAPI {
         return [];
       }
 
-      console.info(`[FileUploadAPI] Confirmed ${result.data?.confirmedCount || 0} files for ${entitySystemId}/${documentType}/${documentName}`);
+      // API returns flat response (not wrapped in data), but ConfirmResponse type expects data wrapper
+      // Handle both cases for backward compatibility
+      type FlatConfirmResponse = ConfirmResponse & { confirmedCount?: number; files?: NonNullable<ConfirmResponse['data']>['files'] };
+      const flatResult = result as FlatConfirmResponse;
+      const confirmedCount = flatResult.confirmedCount ?? result.data?.confirmedCount ?? 0;
+      const files = flatResult.files ?? result.data?.files ?? [];
+
+      console.info(`[FileUploadAPI] Confirmed ${confirmedCount} files for ${entitySystemId}/${documentType}/${documentName}`);
       
       // Map response to ServerFile format
-      return (result.data?.files || []).map(f => ({
+      return files.map((f) => ({
         id: f.id,
         employeeId: entitySystemId,
         documentType,
@@ -285,7 +315,12 @@ export class FileUploadAPI {
         return [];
       }
 
-      return (result.data?.files || []).map(f => ({
+      // Handle flat response (API doesn't wrap in data)
+      type FlatConfirmResponse = ConfirmResponse & { files?: NonNullable<ConfirmResponse['data']>['files'] };
+      const flatResult = result as FlatConfirmResponse;
+      const files = flatResult.files ?? result.data?.files ?? [];
+
+      return files.map((f) => ({
         id: f.id,
         employeeId: entitySystemId,
         documentType,
@@ -333,13 +368,13 @@ export class FileUploadAPI {
    */
   static async getFiles(
     entityId: string,
-    documentType?: string,
+    entityType?: string,
     includeStaging?: boolean
   ): Promise<ServerFile[]> {
     try {
       const params = new URLSearchParams();
       params.append('entityId', entityId);
-      if (documentType) params.append('documentType', documentType);
+      if (entityType) params.append('entityType', entityType);
       if (includeStaging) params.append('includeStaging', 'true');
 
       const response = await fetch(`/api/upload?${params}`);
@@ -352,7 +387,7 @@ export class FileUploadAPI {
       return (result.data || []).map((file: UploadResponse['data'] & { documentName?: string }) => ({
         id: file?.id || '',
         employeeId: entityId,
-        documentType: file?.documentType || documentType || '',
+        documentType: file?.documentType || entityType || '',
         documentName: file?.documentName || '',
         name: file?.originalName || '',
         originalName: file?.originalName || '',

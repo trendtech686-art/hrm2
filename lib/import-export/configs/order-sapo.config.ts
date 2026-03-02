@@ -205,10 +205,6 @@ const findProduct = (identifier: string, products: Product[]) => {
   const byId = products.find(p => p.id.toUpperCase() === normalized);
   if (byId) return byId;
   
-  // Find by sku
-  const bySku = products.find(p => p.sku?.toUpperCase() === normalized);
-  if (bySku) return bySku;
-  
   // Find by barcode
   const byBarcode = products.find(p => p.barcode?.toUpperCase() === normalized);
   return byBarcode;
@@ -576,7 +572,7 @@ export const sapoOrderImportConfig: ImportExportConfig<Order> = {
   },
   
   // Transform: Group rows by orderId and build Order objects
-  beforeImport: async (data: Order[], context?: any) => {
+  beforeImport: async (data: Order[], context?: { storeContext?: { customerStore?: { data: Customer[] }; productStore?: { data: Product[] }; branchStore?: { data: Branch[] }; employeeStore?: { data: Employee[] } } }) => {
     const importRows = data as unknown as SapoOrderImportRow[];
     
     // Get data from storeContext
@@ -626,7 +622,7 @@ export const sapoOrderImportConfig: ImportExportConfig<Order> = {
         const product = findProduct(row.productId || '', products) || findProduct(row.barcode || '', products);
         
         const quantity = Math.max(1, Math.floor(Number(row.quantity) || 1));
-        const unitPrice = Number(row.unitPrice) || (product?.sellingPrice ?? 0);
+        const unitPrice = Number(row.unitPrice) || (product?.costPrice ?? 0);
         const discount = Number(row.lineDiscountAmount) || 0;
         
         lineItems.push({

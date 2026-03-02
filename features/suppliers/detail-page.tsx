@@ -17,10 +17,10 @@ import { useAuth } from '../../contexts/auth-context';
 import { RelatedDataTable } from '../../components/data-table/related-data-table';
 import type { ColumnDef } from '../../components/data-table/types';
 import { useAllPurchaseOrders } from '../purchase-orders/hooks/use-all-purchase-orders';
-import { useAllPayments } from '../payments/hooks/use-all-payments';
+import { useSupplierPayments, useSupplierReceipts, useSupplierPurchaseReturns } from './hooks/use-supplier-financial-data';
 import { useAllEmployees, useEmployeeFinder } from '../employees/hooks/use-all-employees';
 import type { PurchaseOrder, PaymentStatus } from '../purchase-orders/types';
-import { useAllPurchaseReturns } from '../purchase-returns/hooks/use-all-purchase-returns';
+import type { Payment, Receipt } from '@/lib/types/prisma-extended';
 import { asSystemId, type SystemId } from '@/lib/id-types';
 import { ROUTES, generatePath } from '../../lib/router';
 import type { BreadcrumbItem } from '../../lib/breadcrumb-system';
@@ -67,17 +67,43 @@ const debtColumns: ColumnDef<DebtRecord>[] = [
     { id: 'balance', accessorKey: 'balance', header: 'Số dư cuối', cell: ({ row }) => <span className="font-semibold">{formatCurrency(row.balance)}</span>, meta: { displayName: 'Số dư cuối' } },
 ];
 
+// Columns for Payments (Phiếu chi - money going out to supplier)
+const paymentColumns: ColumnDef<Payment>[] = [
+    { id: 'id', accessorKey: 'id', header: 'Mã phiếu', cell: ({ row }) => <span className="font-medium text-primary">{row.id}</span>, meta: { displayName: 'Mã phiếu' } },
+    { id: 'date', accessorKey: 'date', header: 'Ngày', cell: ({ row }) => formatDate(row.date), meta: { displayName: 'Ngày' } },
+    { id: 'amount', accessorKey: 'amount', header: 'Số tiền', cell: ({ row }) => <span className="font-semibold text-red-600">{formatCurrency(row.amount)}</span>, meta: { displayName: 'Số tiền' } },
+    { id: 'description', accessorKey: 'description', header: 'Diễn giải', cell: ({ row }) => row.description || '-', meta: { displayName: 'Diễn giải' } },
+    { id: 'paymentMethodName', accessorKey: 'paymentMethodName', header: 'Phương thức', cell: ({ row }) => row.paymentMethodName || '-', meta: { displayName: 'Phương thức' } },
+    { id: 'status', accessorKey: 'status', header: 'Trạng thái', cell: ({ row }) => <Badge variant={row.status === 'completed' ? 'success' : 'secondary'}>{row.status === 'completed' ? 'Hoàn thành' : 'Đã hủy'}</Badge>, meta: { displayName: 'Trạng thái' } },
+];
+
+// Columns for Receipts (Phiếu thu - money coming in from supplier, e.g., refunds)
+const receiptColumns: ColumnDef<Receipt>[] = [
+    { id: 'id', accessorKey: 'id', header: 'Mã phiếu', cell: ({ row }) => <span className="font-medium text-primary">{row.id}</span>, meta: { displayName: 'Mã phiếu' } },
+    { id: 'date', accessorKey: 'date', header: 'Ngày', cell: ({ row }) => formatDate(row.date), meta: { displayName: 'Ngày' } },
+    { id: 'amount', accessorKey: 'amount', header: 'Số tiền', cell: ({ row }) => <span className="font-semibold text-green-600">{formatCurrency(row.amount)}</span>, meta: { displayName: 'Số tiền' } },
+    { id: 'description', accessorKey: 'description', header: 'Diễn giải', cell: ({ row }) => row.description || '-', meta: { displayName: 'Diễn giải' } },
+    { id: 'paymentMethodName', accessorKey: 'paymentMethodName', header: 'Phương thức', cell: ({ row }) => row.paymentMethodName || '-', meta: { displayName: 'Phương thức' } },
+    { id: 'status', accessorKey: 'status', header: 'Trạng thái', cell: ({ row }) => <Badge variant={row.status === 'completed' ? 'success' : 'secondary'}>{row.status === 'completed' ? 'Hoàn thành' : 'Đã hủy'}</Badge>, meta: { displayName: 'Trạng thái' } },
+];
+
 
 export function SupplierDetailPage() {
     const { systemId: systemIdParam } = useParams<{ systemId: string }>();
   const router = useRouter();
   const { findById } = useSupplierFinder();
   const { data: allPurchaseOrders } = useAllPurchaseOrders();
-  const { data: allPayments } = useAllPayments();
-  const { data: allPurchaseReturns } = useAllPurchaseReturns();
   const { employee: authEmployee } = useAuth();
   const { findById: findEmployeeById } = useEmployeeFinder();
   const { data: employees } = useAllEmployees();
+
+    const supplierSystemId = React.useMemo<SystemId | null>(() => (systemIdParam ? asSystemId(systemIdParam) : null), [systemIdParam]);
+    const supplier = React.useMemo(() => (supplierSystemId ? findById(supplierSystemId) : null), [supplierSystemId, findById]);
+
+  // ⚡ OPTIMIZED: Use supplier-specific hooks instead of loading all data
+  const { data: supplierPayments } = useSupplierPayments(supplierSystemId);
+  const { data: supplierReceipts } = useSupplierReceipts(supplierSystemId);
+  const { data: supplierPurchaseReturns } = useSupplierPurchaseReturns(supplierSystemId);
 
   // Helper để lấy tên nhân viên từ systemId hoặc trả về giá trị gốc nếu đã là tên
   const getEmployeeName = React.useCallback((creatorValue: string): string => {
@@ -89,9 +115,6 @@ export function SupplierDetailPage() {
     }
     return creatorValue;
   }, [findEmployeeById, employees]);
-
-    const supplierSystemId = React.useMemo<SystemId | null>(() => (systemIdParam ? asSystemId(systemIdParam) : null), [systemIdParam]);
-    const supplier = React.useMemo(() => (supplierSystemId ? findById(supplierSystemId) : null), [supplierSystemId, findById]);
 
     // ✅ Sử dụng useComments hook thay vì localStorage trực tiếp
     const { 
@@ -137,6 +160,7 @@ export function SupplierDetailPage() {
         avatar: authEmployee?.avatar,
     }), [authEmployee]);
   
+  // ⚡ OPTIMIZED: Filter POs for this supplier (still need client-side filter since allPurchaseOrders doesn't support supplierId filter)
   const supplierPurchaseOrders = React.useMemo(() => 
         allPurchaseOrders.filter(po => supplier ? po.supplierSystemId === supplier.systemId : false), 
     [allPurchaseOrders, supplier]);
@@ -153,8 +177,8 @@ export function SupplierDetailPage() {
         change: po.grandTotal, // Increases debt
     }));
 
-    const paymentTransactions = allPayments
-        .filter(payment => payment.recipientSystemId === supplier.systemId)
+    // ⚡ OPTIMIZED: Using supplierPayments hook data instead of filtering allPayments
+    const paymentTransactions = supplierPayments
         .map(payment => ({
             systemId: `payment-${payment.systemId}`,
             documentId: payment.id,
@@ -164,8 +188,8 @@ export function SupplierDetailPage() {
             change: -payment.amount, // Decreases debt
         }));
 
-    const returnTransactions = allPurchaseReturns
-        .filter(pr => pr.supplierSystemId === supplier.systemId)
+    // ⚡ OPTIMIZED: Using supplierPurchaseReturns hook data  
+    const returnTransactions = supplierPurchaseReturns
         .map(pr => ({
             systemId: `return-${pr.systemId}`,
             documentId: pr.id,
@@ -189,7 +213,7 @@ export function SupplierDetailPage() {
         supplierDebtTransactions: transactionsWithBalance.reverse(),
         calculatedDebt: runningBalance
     };
-  }, [supplier, supplierPurchaseOrders, allPayments, allPurchaseReturns, getEmployeeName]);
+  }, [supplier, supplierPurchaseOrders, supplierPayments, supplierPurchaseReturns, getEmployeeName]);
 
         const headerActions = React.useMemo(() => [
                 <Button
@@ -255,7 +279,7 @@ export function SupplierDetailPage() {
         <CardHeader>
             <div className="flex items-start justify-between">
             <div>
-                <CardTitle className="text-h2">{supplier.name}</CardTitle>
+                <CardTitle size="lg">{supplier.name}</CardTitle>
                 <CardDescription className="mt-1">
                 Mã NCC: {supplier.id}
                 </CardDescription>
@@ -282,6 +306,8 @@ export function SupplierDetailPage() {
         <Tabs defaultValue="purchase-history">
             <TabsList>
                 <TabsTrigger value="purchase-history">Lịch sử nhập hàng</TabsTrigger>
+                <TabsTrigger value="payments">Phiếu chi ({supplierPayments.length})</TabsTrigger>
+                <TabsTrigger value="receipts">Phiếu thu ({supplierReceipts.length})</TabsTrigger>
                 <TabsTrigger value="debt">Công nợ</TabsTrigger>
             </TabsList>
             <TabsContent value="purchase-history" className="mt-4">
@@ -296,6 +322,46 @@ export function SupplierDetailPage() {
                             dateFilterTitle="Ngày đặt"
                             exportFileName={`Lich_su_nhap_hang_${supplier.id}`}
                             onRowClick={(row) => router.push(`/purchase-orders/${row.systemId}`)}
+                        />
+                    </CardContent>
+                </Card>
+            </TabsContent>
+            <TabsContent value="payments" className="mt-4">
+                <Card>
+                    <CardHeader>
+                        <CardTitle size="lg">Phiếu chi cho {supplier.name}</CardTitle>
+                        <CardDescription>Các khoản thanh toán cho nhà cung cấp</CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-4">
+                        <RelatedDataTable 
+                            data={supplierPayments}
+                            columns={paymentColumns}
+                            searchKeys={['id', 'description']}
+                            searchPlaceholder="Tìm theo mã phiếu, diễn giải..."
+                            dateFilterColumn="date"
+                            dateFilterTitle="Ngày chi"
+                            exportFileName={`Phieu_chi_NCC_${supplier.id}`}
+                            onRowClick={(row) => router.push(`/payments/${row.systemId}`)}
+                        />
+                    </CardContent>
+                </Card>
+            </TabsContent>
+            <TabsContent value="receipts" className="mt-4">
+                <Card>
+                    <CardHeader>
+                        <CardTitle size="lg">Phiếu thu từ {supplier.name}</CardTitle>
+                        <CardDescription>Các khoản hoàn tiền từ nhà cung cấp</CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-4">
+                        <RelatedDataTable 
+                            data={supplierReceipts}
+                            columns={receiptColumns}
+                            searchKeys={['id', 'description']}
+                            searchPlaceholder="Tìm theo mã phiếu, diễn giải..."
+                            dateFilterColumn="date"
+                            dateFilterTitle="Ngày thu"
+                            exportFileName={`Phieu_thu_NCC_${supplier.id}`}
+                            onRowClick={(row) => router.push(`/receipts/${row.systemId}`)}
                         />
                     </CardContent>
                 </Card>
@@ -332,7 +398,7 @@ export function SupplierDetailPage() {
 
         {/* Activity History */}
         <ActivityHistory
-            history={supplier.activityHistory || []}
+            history={[]} // TODO: Fetch from ActivityLog table
             title="Lịch sử hoạt động"
             emptyMessage="Chưa có lịch sử hoạt động"
             groupByDate

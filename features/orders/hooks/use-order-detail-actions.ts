@@ -6,7 +6,7 @@
 import { useCallback } from 'react';
 import { toast } from 'sonner';
 import { useOrderActions } from './use-order-actions';
-import { useOrderStore } from '../store';
+
 import type { SystemId } from '@/lib/id-types';
 
 interface UseOrderDetailActionsOptions {
@@ -28,14 +28,6 @@ interface PaymentData {
 export function useOrderDetailActions(options: UseOrderDetailActionsOptions = {}) {
   const actions = useOrderActions(options);
 
-  // Helper to sync store
-  const syncStore = useCallback(() => {
-    const storeState = useOrderStore.getState();
-    if (storeState.loadFromAPI) {
-      storeState.loadFromAPI();
-    }
-  }, []);
-
   // ============================================
   // ORDER LIFECYCLE
   // ============================================
@@ -48,14 +40,14 @@ export function useOrderDetailActions(options: UseOrderDetailActionsOptions = {}
           reason: opts?.reason || '',
           restockItems: opts?.restock ?? true,
         });
-        syncStore();
-        toast.success('Đã hủy đơn hàng');
+
+        toast.success('ÄÃ£ há»§y Ä‘Æ¡n hÃ ng');
       } catch (error) {
-        toast.error('Lỗi khi hủy đơn hàng');
+        toast.error('Lá»—i khi há»§y Ä‘Æ¡n hÃ ng');
         throw error;
       }
     },
-    [actions.cancel, syncStore]
+    [actions.cancel]
   );
 
   const addPayment = useCallback(
@@ -67,14 +59,14 @@ export function useOrderDetailActions(options: UseOrderDetailActionsOptions = {}
           paymentMethodId: paymentData.paymentMethodId,
           note: paymentData.note,
         });
-        syncStore();
-        toast.success('Đã thêm thanh toán');
+
+        toast.success('ÄÃ£ thÃªm thanh toÃ¡n');
       } catch (error) {
-        toast.error('Lỗi khi thêm thanh toán');
+        toast.error('Lá»—i khi thÃªm thanh toÃ¡n');
         throw error;
       }
     },
-    [actions.addPayment, syncStore]
+    [actions.addPayment]
   );
 
   // ============================================
@@ -88,14 +80,14 @@ export function useOrderDetailActions(options: UseOrderDetailActionsOptions = {}
           systemId: String(orderSystemId),
           assignedEmployeeId: assignedEmployeeId ? String(assignedEmployeeId) : undefined,
         });
-        syncStore();
-        toast.success('Đã tạo yêu cầu đóng gói');
+
+        toast.success('ÄÃ£ táº¡o yÃªu cáº§u Ä‘Ã³ng gÃ³i');
       } catch (error) {
-        toast.error('Lỗi khi tạo yêu cầu đóng gói');
+        toast.error('Lá»—i khi táº¡o yÃªu cáº§u Ä‘Ã³ng gÃ³i');
         throw error;
       }
     },
-    [actions.requestPackaging, syncStore]
+    [actions.requestPackaging]
   );
 
   const confirmPackaging = useCallback(
@@ -105,14 +97,14 @@ export function useOrderDetailActions(options: UseOrderDetailActionsOptions = {}
           systemId: String(orderSystemId),
           packagingId: String(packagingSystemId),
         });
-        syncStore();
-        toast.success('Xác nhận đóng gói thành công');
+
+        toast.success('XÃ¡c nháº­n Ä‘Ã³ng gÃ³i thÃ nh cÃ´ng');
       } catch (error) {
-        toast.error('Lỗi khi xác nhận đóng gói');
+        toast.error('Lá»—i khi xÃ¡c nháº­n Ä‘Ã³ng gÃ³i');
         throw error;
       }
     },
-    [actions.confirmPacking, syncStore]
+    [actions.confirmPacking]
   );
 
   const cancelPackagingRequest = useCallback(
@@ -123,14 +115,14 @@ export function useOrderDetailActions(options: UseOrderDetailActionsOptions = {}
           packagingId: String(packagingSystemId),
           reason: reason || '',
         });
-        syncStore();
-        toast.success('Hủy yêu cầu đóng gói thành công');
+
+        toast.success('Há»§y yÃªu cáº§u Ä‘Ã³ng gÃ³i thÃ nh cÃ´ng');
       } catch (error) {
-        toast.error('Lỗi khi hủy yêu cầu đóng gói');
+        toast.error('Lá»—i khi há»§y yÃªu cáº§u Ä‘Ã³ng gÃ³i');
         throw error;
       }
     },
-    [actions.cancelPacking, syncStore]
+    [actions.cancelPacking]
   );
 
   // ============================================
@@ -144,14 +136,14 @@ export function useOrderDetailActions(options: UseOrderDetailActionsOptions = {}
           systemId: String(orderSystemId),
           packagingId: String(packagingSystemId),
         });
-        syncStore();
-        toast.success('Đã chuyển sang nhận tại cửa hàng');
+
+        toast.success('ÄÃ£ chuyá»ƒn sang nháº­n táº¡i cá»­a hÃ ng');
       } catch (error) {
-        toast.error('Lỗi khi xử lý');
+        toast.error('Lá»—i khi xá»­ lÃ½');
         throw error;
       }
     },
-    [actions.selectInStorePickup, syncStore]
+    [actions.selectInStorePickup]
   );
 
   const confirmInStorePickup = useCallback(
@@ -161,14 +153,14 @@ export function useOrderDetailActions(options: UseOrderDetailActionsOptions = {}
           systemId: String(orderSystemId),
           packagingId: String(packagingSystemId),
         });
-        syncStore();
-        toast.success('Xác nhận khách đã nhận hàng');
+
+        toast.success('XÃ¡c nháº­n khÃ¡ch Ä‘Ã£ nháº­n hÃ ng');
       } catch (error) {
-        toast.error('Lỗi khi xác nhận');
+        toast.error('Lá»—i khi xÃ¡c nháº­n');
         throw error;
       }
     },
-    [actions.confirmPickup, syncStore]
+    [actions.confirmPickup]
   );
 
   const dispatchFromWarehouse = useCallback(
@@ -178,14 +170,14 @@ export function useOrderDetailActions(options: UseOrderDetailActionsOptions = {}
           systemId: String(orderSystemId),
           packagingId: String(packagingSystemId),
         });
-        syncStore();
-        toast.success('Xuất kho thành công');
+
+        toast.success('Xuáº¥t kho thÃ nh cÃ´ng');
       } catch (error) {
-        toast.error('Lỗi khi xuất kho');
+        toast.error('Lá»—i khi xuáº¥t kho');
         throw error;
       }
     },
-    [actions.dispatch, syncStore]
+    [actions.dispatch]
   );
 
   const completeDelivery = useCallback(
@@ -195,14 +187,14 @@ export function useOrderDetailActions(options: UseOrderDetailActionsOptions = {}
           systemId: String(orderSystemId),
           packagingId: String(packagingSystemId),
         });
-        syncStore();
-        toast.success('Giao hàng thành công');
+
+        toast.success('Giao hÃ ng thÃ nh cÃ´ng');
       } catch (error) {
-        toast.error('Lỗi khi cập nhật trạng thái giao hàng');
+        toast.error('Lá»—i khi cáº­p nháº­t tráº¡ng thÃ¡i giao hÃ ng');
         throw error;
       }
     },
-    [actions.complete, syncStore]
+    [actions.complete]
   );
 
   const failDelivery = useCallback(
@@ -213,14 +205,14 @@ export function useOrderDetailActions(options: UseOrderDetailActionsOptions = {}
           packagingId: String(packagingSystemId),
           reason: reason || '',
         });
-        syncStore();
-        toast.success('Đã đánh dấu giao hàng thất bại');
+
+        toast.success('ÄÃ£ Ä‘Ã¡nh dáº¥u giao hÃ ng tháº¥t báº¡i');
       } catch (error) {
-        toast.error('Lỗi khi cập nhật trạng thái');
+        toast.error('Lá»—i khi cáº­p nháº­t tráº¡ng thÃ¡i');
         throw error;
       }
     },
-    [actions.fail, syncStore]
+    [actions.fail]
   );
 
   const cancelDelivery = useCallback(
@@ -232,14 +224,14 @@ export function useOrderDetailActions(options: UseOrderDetailActionsOptions = {}
           reason: reason || '',
           restockItems,
         });
-        syncStore();
-        toast.success('Hủy giao hàng thành công');
+
+        toast.success('Há»§y giao hÃ ng thÃ nh cÃ´ng');
       } catch (error) {
-        toast.error('Lỗi khi hủy giao hàng');
+        toast.error('Lá»—i khi há»§y giao hÃ ng');
         throw error;
       }
     },
-    [actions.cancelDelivery, syncStore]
+    [actions.cancelDelivery]
   );
 
   // Alias for backward compatibility
@@ -250,21 +242,22 @@ export function useOrderDetailActions(options: UseOrderDetailActionsOptions = {}
   // ============================================
 
   const confirmPartnerShipment = useCallback(
-    async (orderSystemId: string | SystemId, provider: string, serviceType?: string) => {
+    async (orderSystemId: string | SystemId, provider: string, serviceType?: string, packagingId?: string) => {
       try {
         await actions.requestShipment.mutateAsync({
           systemId: String(orderSystemId),
           provider,
           serviceType,
+          packagingId,
         });
-        syncStore();
-        toast.success('Đã tạo vận đơn');
+
+        toast.success('ÄÃ£ táº¡o váº­n Ä‘Æ¡n');
       } catch (error) {
-        toast.error('Lỗi khi tạo vận đơn');
+        toast.error('Lá»—i khi táº¡o váº­n Ä‘Æ¡n');
         throw error;
       }
     },
-    [actions.requestShipment, syncStore]
+    [actions.requestShipment]
   );
 
   // ============================================
@@ -279,16 +272,16 @@ export function useOrderDetailActions(options: UseOrderDetailActionsOptions = {}
           packagingId: String(packagingSystemId),
           trackingCode,
         });
-        syncStore();
-        toast.success('Đã hủy vận đơn GHTK');
+
+        toast.success('ÄÃ£ há»§y váº­n Ä‘Æ¡n GHTK');
         return { success: true };
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown error';
-        toast.error(`Lỗi khi hủy vận đơn GHTK: ${message}`);
+        toast.error(`Lá»—i khi há»§y váº­n Ä‘Æ¡n GHTK: ${message}`);
         return { success: false, message };
       }
     },
-    [actions.cancelGhtk, syncStore]
+    [actions.cancelGhtk]
   );
 
   const syncGHTKShipment = useCallback(
@@ -298,21 +291,22 @@ export function useOrderDetailActions(options: UseOrderDetailActionsOptions = {}
           systemId: String(orderSystemId),
           packagingId: String(packagingSystemId),
         });
-        syncStore();
-        toast.success('Đồng bộ vận đơn GHTK thành công');
+
+        toast.success('Äá»“ng bá»™ váº­n Ä‘Æ¡n GHTK thÃ nh cÃ´ng');
         return { success: true };
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown error';
-        toast.error(`Lỗi khi đồng bộ: ${message}`);
+        toast.error(`Lá»—i khi Ä‘á»“ng bá»™: ${message}`);
         return { success: false, message };
       }
     },
-    [actions.syncGhtk, syncStore]
+    [actions.syncGhtk]
   );
 
   return {
     // Order lifecycle
     cancelOrder,
+    bulkCancelOrders: actions.bulkCancel.mutateAsync,
     addPayment,
 
     // Packaging

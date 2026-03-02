@@ -46,9 +46,23 @@ export const getColumns = (onPrint?: (returnId: string) => void): ColumnDef<Sale
         id: "id",
         accessorKey: "id",
         header: "Mã đơn trả hàng",
-        cell: ({ row }) => <Link href={`/returns/${row.systemId}`} className="font-medium text-primary hover:underline">{row.id}</Link>,
+        cell: ({ row }) => <Link href={`/sales-returns/${row.systemId}`} className="font-medium text-primary hover:underline">{row.id}</Link>,
         meta: { displayName: "Mã đơn trả hàng" },
         size: 120,
+    },
+    {
+        id: "orderId",
+        accessorKey: "orderId",
+        header: "Mã đơn hàng gốc",
+        cell: ({ row }) => row.orderId ? (
+            <Link href={`/orders/${row.orderSystemId}`} className="text-primary hover:underline">
+                {row.orderId}
+            </Link>
+        ) : (
+            <span className="text-muted-foreground">-</span>
+        ),
+        meta: { displayName: "Mã đơn hàng gốc" },
+        size: 130,
     },
     {
         id: "status",
@@ -79,7 +93,9 @@ export const getColumns = (onPrint?: (returnId: string) => void): ColumnDef<Sale
         accessorKey: "items",
         header: "Số lượng hàng trả",
         cell: ({ row }) => {
-            const totalQty = row.items.reduce((sum, item) => sum + item.returnQuantity, 0);
+            // ✅ Safe calculation with fallbacks for undefined values
+            const items = row.items || [];
+            const totalQty = items.reduce((sum, item) => sum + (Number(item.returnQuantity) || Number((item as { quantity?: number }).quantity) || 0), 0);
             return <span className="text-center block">{totalQty}</span>;
         },
         meta: { displayName: "Số lượng hàng trả" },
@@ -95,12 +111,11 @@ export const getColumns = (onPrint?: (returnId: string) => void): ColumnDef<Sale
     },
     {
         id: "exchangeOrderId",
-        accessorKey: "exchangeOrderSystemId",
+        accessorKey: "exchangeOrderId",
         header: "Mã đơn đổi",
         cell: ({ row }) => row.exchangeOrderSystemId ? (
             <Link href={`/orders/${row.exchangeOrderSystemId}`} className="text-primary hover:underline">
-                {/* We need to get the order ID from systemId - will show systemId for now */}
-                {row.exchangeOrderSystemId.replace('ORD', 'DH')}
+                {row.exchangeOrderId || row.exchangeOrderSystemId.replace('ORDER', 'DH')}
             </Link>
         ) : (
             <span className="text-muted-foreground">-</span>
@@ -109,11 +124,24 @@ export const getColumns = (onPrint?: (returnId: string) => void): ColumnDef<Sale
         size: 120,
     },
     {
+        id: "exchangeTrackingCode",
+        accessorKey: "exchangeTrackingCode",
+        header: "Mã vận đơn",
+        cell: ({ row }) => row.exchangeTrackingCode ? (
+            <span className="text-sm font-mono">{row.exchangeTrackingCode}</span>
+        ) : (
+            <span className="text-muted-foreground">-</span>
+        ),
+        meta: { displayName: "Mã vận đơn" },
+        size: 150,
+    },
+    {
         id: "exchangeQuantity",
         accessorKey: "exchangeItems",
         header: "Số lượng hàng đổi",
         cell: ({ row }) => {
-            const totalQty = row.exchangeItems?.reduce((sum, item) => sum + item.quantity, 0) || 0;
+            const items = row.exchangeItems || [];
+            const totalQty = items.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
             return totalQty > 0 ? <span className="text-center block">{totalQty}</span> : <span className="text-muted-foreground text-center block">-</span>;
         },
         meta: { displayName: "Số lượng hàng đổi" },

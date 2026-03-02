@@ -12,7 +12,6 @@ import {
   CheckCircle2,
   XCircle,
   AlertTriangle as _AlertTriangle,
-  Phone,
   Package,
   Calendar,
   User,
@@ -28,9 +27,10 @@ import {
 } from '../../components/ui/dropdown-menu';
 import { Complaint, complaintStatusLabels as _complaintStatusLabels, complaintStatusColors as _complaintStatusColors, complaintTypeLabels, complaintTypeColors as _complaintTypeColors } from './types';
 import { checkOverdue, formatTimeLeft as _formatTimeLeft } from './sla-utils';
+import type { ComplaintType } from '@/features/settings/complaints/types';
 import { formatDate } from '../../lib/date-utils';
-import { generateTrackingUrl as _generateTrackingUrl, getTrackingCode as _getTrackingCode, isTrackingEnabled } from './tracking-utils';
-import { toast } from 'sonner';
+import { generateTrackingUrl as _generateTrackingUrl, getTrackingCode as _getTrackingCode } from './tracking-utils';
+import { toast as _toast } from 'sonner';
 
 export const getColumns = (
   onView: (systemId: string) => void,
@@ -40,7 +40,9 @@ export const getColumns = (
   onCancel: (systemId: string) => void,
   onGetLink: (systemId: string) => void,
   employees: Array<{ systemId: string; fullName: string }>,
-  router: AppRouterInstance
+  router: AppRouterInstance,
+  complaintTypes: ComplaintType[] = [],
+  _trackingEnabled: boolean = false,
 ): ColumnDef<Complaint>[] => [
   // Select column
   {
@@ -91,15 +93,12 @@ export const getColumns = (
     accessorKey: 'orderCode',
     header: 'Mã đơn hàng',
     cell: ({ row }) => (
-      <div className="flex items-center gap-2">
-        <Package className="h-4 w-4 text-muted-foreground" />
-        <button
-          onClick={() => router.push(`/orders/${row.orderSystemId}`)}
-          className="font-medium text-primary hover:underline"
-        >
-          {row.orderCode || row.orderSystemId}
-        </button>
-      </div>
+      <button
+        onClick={() => router.push(`/orders/${row.orderSystemId}`)}
+        className="font-medium text-primary hover:underline"
+      >
+        {row.orderCode || row.orderSystemId}
+      </button>
     ),
     size: 140,
     meta: {
@@ -120,8 +119,7 @@ export const getColumns = (
         >
           {row.customerName}
         </button>
-        <span className="text-body-xs text-muted-foreground flex items-center gap-1">
-          <Phone className="h-3 w-3" />
+        <span className="text-body-xs text-muted-foreground">
           {row.customerPhone}
         </span>
       </div>
@@ -139,14 +137,16 @@ export const getColumns = (
     header: 'Loại khiếu nại',
     cell: ({ row }) => {
       const type = row.type;
-      const typeLabels = {
+      // Dynamic labels from settings, fallback to hardcoded
+      const settingsLabel = complaintTypes.find(t => t.id === type || t.name.toLowerCase() === type)?.name;
+      const fallbackLabels: Record<string, string> = {
         'wrong-product': 'Sai hàng',
         'missing-items': 'Thiếu hàng',
         'wrong-packaging': 'Đóng gói sai quy cách',
         'warehouse-defect': 'Trả hàng lỗi do kho',
         'product-condition': 'Khách phàn nàn về tình trạng hàng',
       };
-      return <span>{typeLabels[type as keyof typeof typeLabels] || complaintTypeLabels[type]}</span>;
+      return <span>{settingsLabel || fallbackLabels[type as keyof typeof fallbackLabels] || complaintTypeLabels[type] || type}</span>;
     },
     size: 180,
     meta: {
@@ -161,13 +161,18 @@ export const getColumns = (
     header: 'Mức độ',
     cell: ({ row }) => {
       const priority = row.priority;
-      const priorityLabels = {
+      const priorityLabels: Record<string, string> = {
+        LOW: 'Thấp',
+        MEDIUM: 'Trung bình',
+        HIGH: 'Cao',
+        CRITICAL: 'Khẩn cấp',
+        // Legacy lowercase values (fallback)
         low: 'Thấp',
         medium: 'Trung bình',
         high: 'Cao',
         urgent: 'Khẩn cấp',
       };
-      return <span>{priorityLabels[priority as keyof typeof priorityLabels] || 'Trung bình'}</span>;
+      return <span>{priorityLabels[priority] || 'Trung bình'}</span>;
     },
     size: 130,
     meta: {
@@ -182,14 +187,20 @@ export const getColumns = (
     header: 'Trạng thái',
     cell: ({ row }) => {
       const status = row.status;
-      const statusLabels = {
+      const statusLabels: Record<string, string> = {
         pending: 'Chờ xử lý',
         investigating: 'Đang kiểm tra',
         resolved: 'Đã giải quyết',
         cancelled: 'Đã hủy',
         ended: 'Kết thúc',
+        open: 'Mở',
+        // Prisma enum values
+        OPEN: 'Chờ xử lý',
+        IN_PROGRESS: 'Đang xử lý',
+        RESOLVED: 'Đã giải quyết',
+        CLOSED: 'Đã đóng',
       };
-      return <span>{statusLabels[status as keyof typeof statusLabels] || status}</span>;
+      return <span>{statusLabels[status] || status}</span>;
     },
     size: 140,
     meta: {
@@ -390,7 +401,7 @@ export const getColumns = (
     accessorKey: 'description',
     header: 'Mô tả',
     cell: ({ row }) => (
-      <div className="max-w-[300px] line-clamp-2" title={row.description}>
+      <div className="max-w-75 line-clamp-2" title={row.description}>
         {row.description}
       </div>
     ),
@@ -411,7 +422,7 @@ export const getColumns = (
         return <span className="text-muted-foreground italic">Chưa có</span>;
       }
       return (
-        <div className="max-w-[300px] line-clamp-2" title={resolutionNote}>
+        <div className="max-w-75 line-clamp-2" title={resolutionNote}>
           {resolutionNote}
         </div>
       );
@@ -446,14 +457,7 @@ export const getColumns = (
                 Sửa
               </DropdownMenuItem>
               <DropdownMenuItem 
-                onClick={() => {
-                  // Check if tracking is enabled
-                  if (!isTrackingEnabled()) {
-                    toast.error('Chức năng tracking chưa được bật. Vui lòng bật trong Cài đặt.');
-                    return;
-                  }
-                  onGetLink(complaint.systemId);
-                }}
+                onClick={() => onGetLink(complaint.systemId)}
               >
                 Get Tracking
               </DropdownMenuItem>

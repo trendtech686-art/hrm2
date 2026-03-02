@@ -38,15 +38,53 @@ export async function POST(_request: Request, { params }: RouteParams) {
         where: { systemId: packagingId },
         data: {
           deliveredDate: new Date(),
+          deliveryStatus: 'DELIVERED',
         },
       });
+
+      // Calculate payment status to determine order status
+      const orderPayments = await tx.orderPayment.findMany({
+        where: { orderId: systemId },
+      });
+      const totalPaidFromPayments = orderPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+      
+      // ✅ For exchange orders, also get receipts linked to this order (from sales return)
+      const linkedReceipts = await tx.receipt.findMany({
+        where: {
+          linkedOrderSystemId: systemId,
+          status: 'completed',
+        },
+      });
+      // ✅ Exclude receipts already linked to OrderPayment (to avoid double counting)
+      const linkedReceiptSystemIds = new Set(
+        orderPayments.filter(p => p.linkedReceiptSystemId).map(p => p.linkedReceiptSystemId)
+      );
+      const totalPaidFromReceipts = linkedReceipts
+        .filter(r => !linkedReceiptSystemIds.has(r.systemId))
+        .reduce((sum, r) => sum + Number(r.amount || 0), 0);
+      
+      const totalPaid = totalPaidFromPayments + totalPaidFromReceipts;
+      const grandTotal = Number(packaging.order.grandTotal || 0);
+      // ✅ For exchange orders, subtract linkedSalesReturnValue from grandTotal
+      const linkedReturnValue = Number(packaging.order.linkedSalesReturnValue || 0);
+      const netGrandTotal = Math.max(0, grandTotal - linkedReturnValue);
+      const isFullyPaid = totalPaid >= netGrandTotal;
+      
+      // ✅ Update paymentStatus based on payment
+      const newPaymentStatus = isFullyPaid ? 'PAID' : (totalPaid > 0 ? 'PARTIAL' : 'UNPAID');
+      
+      // Only set COMPLETED if fully paid, otherwise set PROCESSING (delivered but awaiting payment)
+      const newStatus = isFullyPaid ? 'COMPLETED' : 'PROCESSING';
+      const completedDate = isFullyPaid ? new Date() : undefined;
 
       // Update order status
       const updated = await tx.order.update({
         where: { systemId },
         data: {
-          status: 'DELIVERED',
-          completedDate: new Date(),
+          status: newStatus,
+          paymentStatus: newPaymentStatus, // ✅ Also update paymentStatus
+          deliveryStatus: 'DELIVERED', // ✅ Use enum value, not Vietnamese
+          ...(completedDate && { completedDate }),
         },
         include: {
           customer: true,
@@ -62,6 +100,63 @@ export async function POST(_request: Request, { params }: RouteParams) {
           },
         },
       });
+
+      // ✅ Update ProductInventory - customer picked up
+      // -committed (release reservation), -onHand (physical stock out), +totalSold
+      const branchId = updated.branchId;
+      if (branchId && updated.lineItems.length > 0) {
+        for (const item of updated.lineItems) {
+          const productId = item.productId;
+          if (!productId) continue;
+          
+          const inventory = await tx.productInventory.findUnique({
+            where: {
+              productId_branchId: { productId, branchId },
+            },
+          });
+          
+          if (inventory) {
+            const newOnHand = Math.max(0, inventory.onHand - item.quantity);
+            await tx.productInventory.update({
+              where: {
+                productId_branchId: { productId, branchId },
+              },
+              data: {
+                committed: { decrement: Math.min(inventory.committed, item.quantity) },
+                onHand: { decrement: Math.min(inventory.onHand, item.quantity) },
+                updatedAt: new Date(),
+              },
+            });
+            
+            // ✅ Create stock history record
+            await tx.stockHistory.create({
+              data: {
+                productId,
+                branchId,
+                action: 'Xuất kho khách nhận',
+                source: 'Đơn hàng',
+                quantityChange: -item.quantity,
+                newStockLevel: newOnHand,
+                documentId: updated.id,
+                documentType: 'order',
+                employeeId: session.user?.id,
+                employeeName: session.user?.name || undefined,
+                note: `Xuất kho - khách nhận hàng tại cửa hàng - ${item.productName || productId}`,
+              },
+            });
+          }
+          
+          // Update totalSold on Product
+          await tx.product.update({
+            where: { systemId: productId },
+            data: {
+              totalSold: { increment: item.quantity },
+            },
+          });
+        }
+        
+        console.log(`[Confirm Pickup] Updated inventory for ${updated.lineItems.length} products: -committed, -onHand, +totalSold`);
+      }
 
       return updated;
     });

@@ -16,20 +16,31 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { TabsContent } from '../../../components/ui/tabs';
 import { SettingsVerticalTabs } from '../../../components/settings/SettingsVerticalTabs';
 import { SettingsActionButton } from '../../../components/settings/SettingsActionButton';
+import { SimpleSettingsTable } from '../../../components/settings/SimpleSettingsTable';
 import { toast } from 'sonner';
-import { Shield, Plus, Edit, Trash2, Save, RotateCcw, Copy, Users, Search, UserCog, Key, RefreshCw, Eye, EyeOff, Clipboard, MoreHorizontal, Loader2 } from 'lucide-react';
+import { Plus, Save, Search, Eye, EyeOff, Clipboard, MoreHorizontal, Loader2, Edit, Shield, Key ,RefreshCw ,UserCog  } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../../components/ui/dropdown-menu';
 import { PERMISSION_GROUPS, PERMISSION_LABELS, type Permission } from '../../employees/permissions';
 import { useRoleSettings, useRoleMutations, type CustomRole } from './hooks/use-role-settings';
 import { useAllEmployees } from '../../employees/hooks/use-all-employees';
 import { useEmployeeMutations } from '../../employees/hooks/use-employees';
+import { useDepartments } from '../departments/hooks/use-departments';
+import { getRoleColumns } from './role-columns';
 import type { Employee } from '@/lib/types/prisma-extended';
 
 export function EmployeeRolesPage() {
   const { data: roles = [] } = useRoleSettings();
   const { addRole, updateRole, deleteRole, resetRole } = useRoleMutations();
   const { data: employees, isLoading: isLoadingEmployees } = useAllEmployees();
+  const { data: departmentsData } = useDepartments();
   const { update: updateEmployeeMutation } = useEmployeeMutations();
+  
+  // Helper function to get department name by systemId
+  const getDepartmentName = React.useCallback((departmentId: string | null | undefined) => {
+    if (!departmentId || !departmentsData?.data) return '—';
+    const dept = departmentsData.data.find(d => d.systemId === departmentId);
+    return dept?.name || '—';
+  }, [departmentsData]);
   
   const [activeTab, setActiveTab] = React.useState('roles');
   const [selectedRole, setSelectedRole] = React.useState<CustomRole | null>(null);
@@ -112,24 +123,24 @@ export function EmployeeRolesPage() {
     return counts;
   }, [employees]);
 
-  const handleEditRole = (role: CustomRole) => {
+  const handleEditRole = React.useCallback((role: CustomRole) => {
     setSelectedRole(role);
     setEditingPermissions([...role.permissions]);
     setShowPermissionsDialog(true);
-  };
+  }, []);
 
-  const handleEditRoleInfo = (role: CustomRole) => {
+  const handleEditRoleInfo = React.useCallback((role: CustomRole) => {
     setSelectedRole(role);
     setRoleForm({ name: role.name, description: role.description });
     setShowEditDialog(true);
-  };
+  }, []);
 
-  const handleDuplicateRole = (role: CustomRole) => {
+  const handleDuplicateRole = React.useCallback((role: CustomRole) => {
     addRole(`${role.name} (Copy)`, role.description);
     toast.success(`Đã sao chép vai trò "${role.name}"`);
-  };
+  }, [addRole]);
 
-  const handleDeleteClick = (role: CustomRole) => {
+  const handleDeleteClick = React.useCallback((role: CustomRole) => {
     // Check if any employee is using this role
     const count = employeeCountByRole[role.id] || 0;
     if (count > 0) {
@@ -138,7 +149,7 @@ export function EmployeeRolesPage() {
     }
     setRoleToDelete(role);
     setShowDeleteDialog(true);
-  };
+  }, [employeeCountByRole]);
 
   const handleConfirmDelete = () => {
     if (roleToDelete) {
@@ -205,13 +216,13 @@ export function EmployeeRolesPage() {
     toast.success('Đã lưu cấu hình phân quyền');
   };
 
-  const handleResetRole = (roleId: string) => {
+  const handleResetRole = React.useCallback((roleId: string) => {
     resetRole(roleId);
     toast.success('Đã khôi phục quyền mặc định');
-  };
+  }, [resetRole]);
 
   const handleChangeEmployeeRole = (employee: Employee, newRole: string) => {
-    (updateEmployeeMutation as any).mutate(
+    updateEmployeeMutation.mutate(
       { systemId: employee.systemId, role: newRole },
       {
         onSuccess: () => toast.success(`Đã cập nhật vai trò cho ${employee.fullName}`),
@@ -314,6 +325,16 @@ export function EmployeeRolesPage() {
     }
   };
 
+  // Columns for SimpleSettingsTable
+  const roleColumns = React.useMemo(() => getRoleColumns({
+    onEditInfo: handleEditRoleInfo,
+    onDuplicate: handleDuplicateRole,
+    onEditPermissions: handleEditRole,
+    onReset: handleResetRole,
+    onDelete: handleDeleteClick,
+    employeeCountByRole,
+  }), [employeeCountByRole, handleEditRoleInfo, handleDuplicateRole, handleEditRole, handleResetRole, handleDeleteClick]);
+
   return (
     <>
       <SettingsVerticalTabs value={activeTab} onValueChange={setActiveTab} tabs={tabs}>
@@ -325,110 +346,10 @@ export function EmployeeRolesPage() {
               <CardDescription>Quản lý các vai trò và quyền hạn trong hệ thống</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="border rounded-md">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[200px]">Tên vai trò</TableHead>
-                      <TableHead className="w-[250px]">Mô tả</TableHead>
-                      <TableHead className="w-[100px] text-center">Số quyền</TableHead>
-                      <TableHead className="w-[120px] text-center">Nhân viên</TableHead>
-                      <TableHead className="w-[100px] text-center">Loại</TableHead>
-                      <TableHead className="w-[180px] text-right">Thao tác</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {roles.map((role) => (
-                      <TableRow key={role.id}>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Shield className="h-4 w-4 text-muted-foreground" />
-                            <span className="font-medium">{role.name}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {role.description}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Badge variant="outline">{role.permissions.length}</Badge>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Badge variant="secondary">
-                            <Users className="h-3 w-3 mr-1" />
-                            {employeeCountByRole[role.id] || 0}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          {role.isDefault ? (
-                            <Badge variant="outline" className="text-xs">Mặc định</Badge>
-                          ) : (
-                            <Badge variant="secondary" className="text-xs">Tùy chỉnh</Badge>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => handleEditRoleInfo(role)}
-                              title="Sửa thông tin"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => handleDuplicateRole(role)}
-                              title="Sao chép"
-                            >
-                              <Copy className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-primary"
-                              onClick={() => handleEditRole(role)}
-                              title="Phân quyền"
-                            >
-                              <Shield className="h-4 w-4" />
-                            </Button>
-                            {role.isDefault ? (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                                onClick={() => handleResetRole(role.id)}
-                                title="Khôi phục mặc định"
-                              >
-                                <RotateCcw className="h-4 w-4" />
-                              </Button>
-                            ) : (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                                onClick={() => handleDeleteClick(role)}
-                                title="Xóa vai trò"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                    {roles.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                          Chưa có vai trò nào. Thêm vai trò mới để bắt đầu.
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
+              <SimpleSettingsTable
+                data={roles}
+                columns={roleColumns}
+                enableSelection={false} emptyTitle={''}              />
             </CardContent>
           </Card>
 
@@ -471,7 +392,7 @@ export function EmployeeRolesPage() {
                   />
                 </div>
                 <Select value={roleFilter} onValueChange={setRoleFilter}>
-                  <SelectTrigger className="w-full sm:w-[200px]">
+                  <SelectTrigger className="w-full sm:w-50">
                     <SelectValue placeholder="Lọc theo vai trò" />
                   </SelectTrigger>
                   <SelectContent>
@@ -486,16 +407,16 @@ export function EmployeeRolesPage() {
               </div>
 
               {/* Employee Table */}
-              <div className="border rounded-md">
+              <div className="border border-border rounded-md">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[80px]">Mã NV</TableHead>
+                      <TableHead className="w-20">Mã NV</TableHead>
                       <TableHead>Họ và tên</TableHead>
-                      <TableHead className="w-[200px]">Email</TableHead>
-                      <TableHead className="w-[150px]">Phòng ban</TableHead>
-                      <TableHead className="w-[180px]">Vai trò</TableHead>
-                      <TableHead className="w-[100px] text-right">Thao tác</TableHead>
+                      <TableHead className="w-50">Email</TableHead>
+                      <TableHead className="w-37.5">Phòng ban</TableHead>
+                      <TableHead className="w-45">Vai trò</TableHead>
+                      <TableHead className="w-25 text-right">Thao tác</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -522,7 +443,7 @@ export function EmployeeRolesPage() {
                           {employee.workEmail || '—'}
                         </TableCell>
                         <TableCell className="text-muted-foreground">
-                          {employee.departmentId || '—'}
+                          {getDepartmentName(employee.departmentId)}
                         </TableCell>
                         <TableCell>
                           <Select
@@ -871,7 +792,7 @@ export function EmployeeRolesPage() {
               <div className="bg-muted p-3 rounded-md space-y-2">
                 <p className="text-sm font-medium text-foreground">Mật khẩu mới:</p>
                 <div className="flex items-center gap-2">
-                  <code className="flex-1 bg-background px-3 py-2 rounded border text-sm font-mono">
+                  <code className="flex-1 bg-background px-3 py-2 rounded border  border-border text-sm font-mono">
                     {generatedPassword}
                   </code>
                   <Button

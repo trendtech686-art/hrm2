@@ -2,24 +2,24 @@ import * as React from 'react';
 import { Badge } from '../../../../components/ui/badge';
 import { ExternalLink } from 'lucide-react';
 import Link from 'next/link';
-import type { Order } from '../../../orders/types';
 import type { WarrantyTransaction } from '../../types/transactions';
 import type { SettlementMethod } from '../../types';
 import { SETTLEMENT_STATUS_LABELS, SETTLEMENT_TYPE_LABELS } from '../../types';
 import { formatDateTimeForDisplay } from '@/lib/date-utils';
+import { useOrder } from '../../../orders/hooks/use-orders';
 
 interface WarrantyTransactionItemProps {
   transaction: WarrantyTransaction;
-  orders: Order[];
   settlementMethod?: SettlementMethod | null | undefined;
 }
 
-export function WarrantyTransactionItem({ transaction, orders, settlementMethod }: WarrantyTransactionItemProps) {
+export function WarrantyTransactionItem({ transaction, settlementMethod }: WarrantyTransactionItemProps) {
   const paymentTransaction = transaction.kind === 'payment' ? transaction : null;
   const _receiptTransaction = transaction.kind === 'receipt' ? transaction : null;
-  const linkedOrder = paymentTransaction?.linkedOrderSystemId
-    ? orders.find(order => order.systemId === paymentTransaction.linkedOrderSystemId)
-    : null;
+  
+  // ⚡ OPTIMIZED: Fetch only the linked order instead of receiving all orders from parent
+  const { data: linkedOrder } = useOrder(paymentTransaction?.linkedOrderSystemId);
+  
   const methodTypeLabel = settlementMethod ? SETTLEMENT_TYPE_LABELS[settlementMethod.type] : null;
   const methodStatusLabel = settlementMethod ? SETTLEMENT_STATUS_LABELS[settlementMethod.status] : null;
   const methodStatusVariant = settlementMethod?.status === 'completed'

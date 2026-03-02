@@ -73,12 +73,13 @@ export function createSlug(name: string): string {
  * Map HRM Product → Trendtech Payload để tạo/cập nhật sản phẩm
  */
 export function mapHrmToTrendtechPayload(settings: TrendtechSettings, product: Product): TrendtechProductPayload {
+  const trendtechSeo = product.seoTrendtech;
   const payload: TrendtechProductPayload = {
     name: product.name,
     sku: product.id,
-    slug: product.trendtechSlug || createSlug(product.name),
+    slug: trendtechSeo?.slug || createSlug(product.name),
     quantity: getTotalInventory(product),
-    price: product.costPrice || 0, // Default, will be overwritten by mapping
+    price: 0, // Default, will be overwritten by mapping
   };
 
   // Map category
@@ -96,9 +97,6 @@ export function mapHrmToTrendtechPayload(settings: TrendtechSettings, product: P
   const compareAtPrice = getPriceByMapping(settings, product, 'compareAtPrice');
   if (compareAtPrice !== undefined) payload.compareAtPrice = compareAtPrice;
 
-  // Map cost price
-  if (product.costPrice) payload.costPrice = product.costPrice;
-
   // Map content
   if (product.description) payload.description = product.description;
   if (product.shortDescription) payload.shortDescription = product.shortDescription;
@@ -108,7 +106,6 @@ export function mapHrmToTrendtechPayload(settings: TrendtechSettings, product: P
   if (product.galleryImages?.length) payload.images = product.galleryImages;
 
   // Map SEO - Ưu tiên từ seoTrendtech nếu có, fallback về field gốc
-  const trendtechSeo = product.seoTrendtech;
   payload.metaTitle = trendtechSeo?.seoTitle || product.ktitle || product.name;
   payload.metaDescription = trendtechSeo?.metaDescription || product.seoDescription || product.shortDescription || '';
   payload.metaKeywords = trendtechSeo?.seoKeywords || product.seoKeywords || product.tags?.join(', ') || '';
@@ -129,7 +126,7 @@ export function mapHrmToTrendtechPayload(settings: TrendtechSettings, product: P
 export function mapTrendtechToHrmFields(trendtechProduct: TrendtechProduct): Partial<Product> {
   return {
     trendtechId: trendtechProduct.id,
-    trendtechSlug: trendtechProduct.slug,
+    // Slug stored in seoTrendtech JSON
   };
 }
 

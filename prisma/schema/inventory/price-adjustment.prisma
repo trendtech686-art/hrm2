@@ -1,0 +1,41 @@
+model PriceAdjustment {
+  systemId            String                @id
+  id                  String                @unique
+  branchId            String
+  employeeId          String?
+  pricingPolicyId     String                // Bảng giá được điều chỉnh
+  pricingPolicyName   String?               // Tên bảng giá
+  adjustmentDate      DateTime              @default(now())
+  status              PriceAdjustmentStatus @default(DRAFT)
+  type                String                @default("manual") // 'manual' | 'import' | 'batch'
+  reason              String?
+  note                String?
+  referenceCode       String? // Mã tham chiếu
+  // Created info
+  createdDate         DateTime              @default(now())
+  createdBySystemId   String?
+  createdByName       String?
+  // Confirmed info
+  confirmedDate       DateTime?
+  confirmedBySystemId String?
+  confirmedByName     String?
+  // Cancelled info
+  cancelledDate       DateTime?
+  cancelledBySystemId String?
+  cancelledByName     String?
+  cancelReason        String?
+  // Audit
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  createdBy           String?
+  updatedBy           String?
+  items               PriceAdjustmentItem[]
+
+  @@map("price_adjustments")
+}
+
+enum PriceAdjustmentStatus {
+  DRAFT
+  CONFIRMED
+  CANCELLED
+}

@@ -9,12 +9,51 @@
  */
 
 import type { SystemId, BusinessId } from '@/lib/id-types';
-import type { HistoryEntry } from '@/lib/activity-history-helper';
+
+// ============================================
+// ACTIVITY LOG - CENTRALIZED LOG TYPE
+// ============================================
+
+/**
+ * Entity types that can have activity logs
+ */
+export type ActivityLogEntityType = 
+  | 'product'
+  | 'order'
+  | 'customer'
+  | 'employee'
+  | 'supplier'
+  | 'purchase_order'
+  | 'purchase_return'
+  | 'sales_return'
+  | 'shipment'
+  | 'inventory_check'
+  | 'receipt'
+  | 'payment'
+  | 'leave'
+  | 'penalty';
+
+/**
+ * ActivityLog - Centralized activity history for all entities
+ */
+export type ActivityLog = {
+  systemId: string;
+  entityType: ActivityLogEntityType;
+  entityId: string;
+  action: string;
+  actionType?: 'create' | 'update' | 'delete' | 'status' | 'system';
+  changes?: Record<string, { from: unknown; to: unknown }>;
+  metadata?: Record<string, unknown>;
+  note?: string;
+  createdAt: string;
+  createdBy?: SystemId;
+};
 
 import type { CostAdjustmentModel } from '@/generated/prisma/models/CostAdjustment';
 import type { CostAdjustmentItemModel } from '@/generated/prisma/models/CostAdjustmentItem';
 import type { InventoryCheckModel } from '@/generated/prisma/models/InventoryCheck';
 import type { InventoryCheckItemModel } from '@/generated/prisma/models/InventoryCheckItem';
+import type { CategoryModel } from '@/generated/prisma/models/Category';
 
 // ============================================
 // COST ADJUSTMENT - PRISMA TYPES
@@ -162,7 +201,6 @@ export type InventoryCheck = {
   cancelledReason?: string | null;
   note?: string | null;
   items: InventoryCheckItem[];
-  activityHistory?: HistoryEntry[];
 };
 
 // ============================================
@@ -199,7 +237,6 @@ export type Supplier = {
   isDeleted?: boolean;
   createdBy?: SystemId;
   updatedBy?: SystemId;
-  activityHistory?: HistoryEntry[];
 };
 
 // ============================================
@@ -316,6 +353,17 @@ export type Customer = {
   representative?: string;
   position?: string;
   addresses?: CustomerAddress[];
+  
+  // Personal info (added for import)
+  gender?: string;
+  dateOfBirth?: Date | string;
+  
+  // Flat address fields (added for import)
+  address?: string;
+  province?: string;
+  district?: string;
+  ward?: string;
+  
   shippingAddress_street?: string;
   shippingAddress_ward?: string;
   shippingAddress_district?: string;
@@ -388,6 +436,7 @@ export type Customer = {
   updatedBy?: SystemId;
   totalOrders?: number;
   totalSpent?: number;
+  totalProductsBought?: number;
   totalQuantityPurchased?: number;
   totalQuantityReturned?: number;
   lastPurchaseDate?: string;
@@ -397,7 +446,6 @@ export type Customer = {
   followUpReason?: string;
   followUpAssigneeId?: SystemId;
   followUpAssigneeName?: string;
-  activityHistory?: HistoryEntry[];
 };
 
 // ============================================
@@ -582,7 +630,6 @@ export type Employee = {
   isDeleted?: boolean;
   createdBy?: SystemId;
   updatedBy?: SystemId;
-  activityHistory?: HistoryEntry[];
 };
 
 // ============================================
@@ -595,7 +642,7 @@ import type { ProductModel } from '@/generated/prisma/models/Product';
 export type { ProductModel };
 
 // Status & Type enums
-export type ProductStatus = 'active' | 'inactive' | 'discontinued';
+export type ProductStatus = 'active' | 'inactive' | 'discontinued' | 'ACTIVE' | 'INACTIVE' | 'DISCONTINUED';
 export type ProductType = 'physical' | 'service' | 'digital' | 'combo';
 
 // SEO types
@@ -687,20 +734,18 @@ export type Product = {
   
   // Pricing
   unit: string;
-  costPrice: number;
-  lastPurchasePrice?: number;
+  costPrice: number; // Giá vốn tính toán (TB/FIFO)
+  lastPurchasePrice?: number; // Giá nhập gần nhất
   lastPurchaseDate?: string;
   prices: Record<string, number>;
-  minPrice?: number;
-  sellingPrice?: number;
-  taxRate?: number;
-  sku?: string;
+  // taxRate removed - not used for products
   
   // Inventory
   isStockTracked?: boolean;
   inventoryByBranch: Record<SystemId, number>;
   committedByBranch: Record<SystemId, number>;
   inTransitByBranch: Record<SystemId, number>;
+  inDeliveryByBranch?: Record<SystemId, number>; // Hàng đang giao
   reorderLevel?: number;
   safetyStock?: number;
   maxStock?: number;
@@ -730,8 +775,6 @@ export type Product = {
   comboDiscount?: number;
   
   // E-commerce fields
-  pkgxSlug?: string;
-  trendtechSlug?: string;
   isPublished?: boolean;
   isFeatured?: boolean;
   isNewArrival?: boolean;
@@ -747,8 +790,6 @@ export type Product = {
   
   // Analytics
   totalSold?: number;
-  totalRevenue?: number;
-  lastSoldDate?: string;
   viewCount?: number;
   
   // Lifecycle
@@ -762,7 +803,6 @@ export type Product = {
   isDeleted?: boolean;
   createdBy?: SystemId;
   updatedBy?: SystemId;
-  activityHistory?: HistoryEntry[];
 };
 
 // ============================================
@@ -774,21 +814,23 @@ import type { OrderModel } from '@/generated/prisma/models/Order';
 // Re-export Prisma base model
 export type { OrderModel };
 
-// Order status types
-export type OrderMainStatus = 'Đặt hàng' | 'Đang giao dịch' | 'Hoàn thành' | 'Đã hủy';
-export type OrderPaymentStatus = 'Chưa thanh toán' | 'Thanh toán 1 phần' | 'Thanh toán toàn bộ';
-export type PackagingStatus = 'Chờ đóng gói' | 'Đã đóng gói' | 'Hủy đóng gói';
-export type OrderDeliveryStatus = 'Chờ đóng gói' | 'Đã đóng gói' | 'Chờ lấy hàng' | 'Đang giao hàng' | 'Đã giao hàng' | 'Chờ giao lại' | 'Đã hủy';
-export type OrderPrintStatus = 'Đã in' | 'Chưa in';
-export type OrderDeliveryMethod = 'Nhận tại cửa hàng' | 'Dịch vụ giao hàng';
-export type OrderStockOutStatus = 'Chưa xuất kho' | 'Xuất kho toàn bộ';
-export type OrderReturnStatus = 'Chưa trả hàng' | 'Trả hàng một phần' | 'Trả hàng toàn bộ';
+// Order status types - support both Vietnamese labels and Prisma enum values
+export type OrderMainStatus = 'Đặt hàng' | 'Đang giao dịch' | 'Hoàn thành' | 'Đã hủy' | 'PENDING' | 'CONFIRMED' | 'PROCESSING' | 'PACKING' | 'PACKED' | 'READY_FOR_PICKUP' | 'SHIPPING' | 'DELIVERED' | 'COMPLETED' | 'FAILED_DELIVERY' | 'RETURNED' | 'CANCELLED';
+export type OrderPaymentStatus = 'Chưa thanh toán' | 'Thanh toán 1 phần' | 'Thanh toán toàn bộ' | 'UNPAID' | 'PARTIAL' | 'PAID';
+export type PackagingStatus = 'Chờ đóng gói' | 'Đã đóng gói' | 'Hủy đóng gói' | 'PENDING' | 'PACKED' | 'CANCELLED';
+export type OrderDeliveryStatus = 'Chờ đóng gói' | 'Đã đóng gói' | 'Chờ lấy hàng' | 'Đang giao hàng' | 'Đã giao hàng' | 'Chờ giao lại' | 'Đã hủy' | 'PENDING_PACK' | 'PACKED' | 'PENDING_SHIP' | 'SHIPPING' | 'DELIVERED' | 'RESCHEDULED' | 'CANCELLED';
+export type OrderPrintStatus = 'Đã in' | 'Chưa in' | 'PRINTED' | 'NOT_PRINTED';
+export type OrderDeliveryMethod = 'Nhận tại cửa hàng' | 'Dịch vụ giao hàng' | 'IN_STORE_PICKUP' | 'DELIVERY_SERVICE';
+export type OrderStockOutStatus = 'Chưa xuất kho' | 'Xuất kho toàn bộ' | 'NOT_STOCKED_OUT' | 'PARTIALLY_STOCKED_OUT' | 'FULLY_STOCKED_OUT' | 'Xuất kho một phần';
+export type OrderReturnStatus = 'Chưa trả hàng' | 'Trả hàng một phần' | 'Trả hàng toàn bộ' | 'NO_RETURN' | 'PARTIAL_RETURN' | 'FULL_RETURN';
 
 /**
  * Order shipping/billing address
  */
 export type OrderAddress = {
   street?: string;
+  /** @alias street - for compatibility */
+  address?: string;
   ward?: string;
   district?: string;
   province?: string;
@@ -842,6 +884,7 @@ export type OrderPayment = {
   createdBy: SystemId;
   description: string;
   linkedWarrantySystemId?: SystemId;
+  linkedReceiptSystemId?: SystemId; // Link to Receipt for navigation and deduplication
 };
 
 /**
@@ -895,6 +938,10 @@ export type Packaging = {
     reason_code?: string;
     reason_text?: string;
   }>;
+  // In-store pickup info
+  requestorName?: string;
+  requestorPhone?: string;
+  requestorId?: string;
 };
 
 /**
@@ -904,7 +951,10 @@ export type Order = {
   systemId: SystemId;
   id: BusinessId;
   customerSystemId: SystemId;
+  customerId?: BusinessId;
   customerName: string;
+  customerPhone?: string;
+  customerEmail?: string;
   shippingAddress?: string | OrderAddress;
   billingAddress?: string | OrderAddress;
   branchSystemId: SystemId;
@@ -962,7 +1012,11 @@ export type Order = {
   createdAt?: string;
   updatedAt?: string;
   createdBy?: SystemId;
+  createdByName?: string;
   updatedBy?: SystemId;
+  // Optional included relations from API
+  customer?: Customer;
+  branch?: { systemId: SystemId; id?: BusinessId; name: string; address?: string; province?: string };
   subtasks?: Array<{
     id: string;
     title: string;
@@ -976,7 +1030,6 @@ export type Order = {
     metadata?: Record<string, unknown>;
     dueDate?: string;
   }>;
-  activityHistory?: HistoryEntry[];
 };
 
 /**
@@ -1003,7 +1056,7 @@ export type GHTKWebhookPayload = {
  * Purchase Order status types
  */
 export type PurchaseOrderStatus = "Đặt hàng" | "Đang giao dịch" | "Hoàn thành" | "Đã hủy" | "Kết thúc" | "Đã trả hàng";
-export type PurchaseOrderDeliveryStatus = "Chưa nhập" | "Đã nhập một phần" | "Đã nhập";
+export type PurchaseOrderDeliveryStatus = "Chưa nhập" | "Đã nhập";
 export type PurchaseOrderPaymentStatus = "Chưa thanh toán" | "Thanh toán một phần" | "Đã thanh toán";
 export type PurchaseOrderReturnStatus = "Chưa hoàn trả" | "Hoàn hàng một phần" | "Hoàn hàng toàn bộ";
 export type PurchaseOrderRefundStatus = "Chưa hoàn tiền" | "Hoàn tiền một phần" | "Hoàn tiền toàn bộ";
@@ -1075,7 +1128,6 @@ export type PurchaseOrder = {
   updatedAt?: string;
   createdBy?: string;
   updatedBy?: string;
-  activityHistory?: HistoryEntry[];
 };
 
 // ============================================
@@ -1134,7 +1186,6 @@ export type Shipment = {
   lastSyncedAt?: string;
   actualWeight?: number;
   actualFee?: number;
-  activityHistory?: HistoryEntry[];
 };
 
 /**
@@ -1198,6 +1249,7 @@ export type ReturnLineItem = {
   unitPrice: number;
   totalValue: number;
   note?: string;
+  thumbnailImage?: string; // Product image for display
 };
 
 /**
@@ -1231,6 +1283,8 @@ export type SalesReturn = {
   isReceived: boolean;
   exchangeItems: LineItem[];
   exchangeOrderSystemId?: SystemId;
+  exchangeOrderId?: BusinessId;
+  exchangeTrackingCode?: string;
   subtotalNew: number;
   shippingFeeNew: number;
   discountNew?: number;
@@ -1306,7 +1360,6 @@ export type PurchaseReturn = {
   updatedAt?: string;
   createdBy?: SystemId;
   updatedBy?: SystemId;
-  activityHistory?: HistoryEntry[];
 };
 
 // ============================================
@@ -1340,6 +1393,7 @@ export type InventoryReceipt = {
   createdAt?: string;
   updatedAt?: string;
   createdBy?: SystemId;
+  createdByName?: string; // Tên người tạo phiếu (lookup from Employee)
   updatedBy?: SystemId;
 };
 
@@ -1405,6 +1459,7 @@ export type Payment = {
   branchSystemId: SystemId;
   branchName: string;
   createdBy: SystemId;
+  createdByName?: string | undefined;
   createdAt: string;
   status: PaymentStatus;
   category?: PaymentCategory | undefined;
@@ -1414,6 +1469,7 @@ export type Payment = {
   originalDocumentId?: string | undefined;
   purchaseOrderSystemId?: SystemId | undefined;
   purchaseOrderId?: BusinessId | undefined;
+  purchaseOrderBusinessId?: BusinessId | undefined; // Business ID for display
   linkedWarrantySystemId?: SystemId | undefined;
   linkedComplaintSystemId?: SystemId | undefined;
   linkedOrderSystemId?: SystemId | undefined;
@@ -1424,11 +1480,10 @@ export type Payment = {
   customerName?: string | undefined;
   affectsDebt: boolean;
   runningBalance?: number | undefined;
-  activityHistory?: HistoryEntry[] | undefined;
 };
 
 // ============================================
-// RECEIPT TYPE (Loại Phiếu Thu)
+// RECEIPT TYPE (Điểm Lưu kho)
 // ============================================
 export type ReceiptType = {
   systemId: SystemId;
@@ -1494,6 +1549,7 @@ export type Receipt = {
   branchSystemId: SystemId;
   branchName: string;
   createdBy: SystemId;
+  createdByName?: string | undefined;
   createdAt: string;
   status: ReceiptStatus;
   category?: ReceiptCategory | undefined;
@@ -1512,7 +1568,6 @@ export type Receipt = {
   affectsDebt: boolean;
   runningBalance?: number | undefined;
   orderAllocations?: ReceiptOrderAllocation[] | undefined;
-  activityHistory?: HistoryEntry[] | undefined;
 };
 
 // ============================================
@@ -1544,6 +1599,11 @@ export type CashAccount = {
 // ============================================
 // STOCK HISTORY
 // ============================================
+// STOCK HISTORY
+// ============================================
+/**
+ * Stock History Actions - Types of inventory changes
+ */
 export type StockHistoryAction = 
   | 'Nhập hàng từ NCC' 
   | 'Xuất bán' 
@@ -1553,6 +1613,15 @@ export type StockHistoryAction =
   | 'Trả hàng'
   | 'Khác';
 
+/**
+ * Stock History Entry - Records inventory changes
+ * 
+ * IMPORTANT - Single Source of Truth:
+ * - ProductInventory.onHand = current stock level (source of truth)
+ * - StockHistory.quantityChange = historical changes
+ * - StockHistory.newStockLevel = DERIVED value (calculated by API from running sum of quantityChange)
+ *   This is NOT read from database - it's calculated on-the-fly to ensure consistency
+ */
 export type StockHistoryEntry = {
   systemId: SystemId;
   productId: SystemId;
@@ -1560,6 +1629,10 @@ export type StockHistoryEntry = {
   employeeName: string;
   action: StockHistoryAction | string;
   quantityChange: number;
+  /** 
+   * ✅ DERIVED VALUE - Calculated by API from running sum of quantityChange
+   * Do NOT use the database value directly - use the API response
+   */
   newStockLevel: number;
   documentId: BusinessId;
   branchSystemId: SystemId;
@@ -1626,6 +1699,8 @@ export type StockTransfer = {
   updatedAt?: string;
   createdBy?: SystemId;
   updatedBy?: SystemId;
+  // Computed fields from API
+  totalValue?: number;
 };
 
 export type StockTransferFormData = {
@@ -1795,32 +1870,32 @@ export type WikiArticle = {
 };
 
 // ============================================
-// WARRANTY TYPES
+// WARRANTY TYPES - Match Prisma enum WarrantyStatus
 // ============================================
 export type WarrantyStatus = 
-  | 'incomplete'
-  | 'pending'
-  | 'processed'
-  | 'returned'
-  | 'completed'
-  | 'cancelled';
+  | 'RECEIVED'       // Đã tiếp nhận
+  | 'PROCESSING'     // Đang xử lý
+  | 'WAITING_PARTS'  // Chờ linh kiện
+  | 'COMPLETED'      // Hoàn tất
+  | 'RETURNED'       // Đã trả
+  | 'CANCELLED';     // Đã hủy
 
 export const WARRANTY_STATUS_LABELS: Record<WarrantyStatus, string> = {
-  incomplete: 'Chưa đầy đủ',
-  pending: 'Chưa xử lý',
-  processed: 'Đã xử lý',
-  returned: 'Đã trả',
-  completed: 'Kết thúc',
-  cancelled: 'Đã hủy',
+  RECEIVED: 'Đã tiếp nhận',
+  PROCESSING: 'Đang xử lý',
+  WAITING_PARTS: 'Chờ linh kiện',
+  COMPLETED: 'Hoàn tất',
+  RETURNED: 'Đã trả',
+  CANCELLED: 'Đã hủy',
 };
 
 export const WARRANTY_STATUS_COLORS: Record<WarrantyStatus, string> = {
-  incomplete: 'bg-orange-100 text-orange-800',
-  pending: 'bg-yellow-100 text-yellow-800',
-  processed: 'bg-green-100 text-green-800',
-  returned: 'bg-gray-100 text-gray-800',
-  completed: 'bg-blue-100 text-blue-800',
-  cancelled: 'bg-red-100 text-red-800 line-through',
+  RECEIVED: 'bg-yellow-100 text-yellow-800',
+  PROCESSING: 'bg-blue-100 text-blue-800',
+  WAITING_PARTS: 'bg-orange-100 text-orange-800',
+  COMPLETED: 'bg-green-100 text-green-800',
+  RETURNED: 'bg-gray-100 text-gray-800',
+  CANCELLED: 'bg-red-100 text-red-800 line-through',
 };
 
 export type WarrantySettlementStatus = 'pending' | 'partial' | 'completed';
@@ -1877,12 +1952,12 @@ export const SETTLEMENT_STATUS_LABELS: Record<SettlementStatus, string> = {
 };
 
 export const WARRANTY_STATUS_TRANSITIONS: Record<WarrantyStatus, WarrantyStatus[]> = {
-  incomplete: ['pending'],
-  pending: ['processed'],
-  processed: ['returned'],
-  returned: ['completed'],
-  completed: [],
-  cancelled: [],
+  RECEIVED: ['PROCESSING', 'WAITING_PARTS'],
+  PROCESSING: ['COMPLETED', 'WAITING_PARTS'],
+  WAITING_PARTS: ['PROCESSING'],
+  COMPLETED: ['RETURNED'],
+  RETURNED: [],
+  CANCELLED: [],
 };
 
 export function canTransitionStatus(currentStatus: WarrantyStatus, newStatus: WarrantyStatus): boolean {
@@ -2195,7 +2270,6 @@ export type LeaveRequest = {
   updatedAt?: string;
   createdBy?: SystemId;
   updatedBy?: SystemId;
-  activityHistory?: HistoryEntry[];
 };
 
 // ============================================
@@ -2353,7 +2427,7 @@ export type Complaint = {
   endedBy?: SystemId;
   endedAt?: Date;
   updatedAt: Date;
-  priority: "low" | "medium" | "high" | "urgent";
+  priority: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"; // ✅ Match Prisma ComplaintPriority enum
   tags?: string[];
   timeline: ComplaintAction[];
   subtasks?: import('@/components/shared/subtask-list').Subtask[];
@@ -2411,18 +2485,19 @@ export const complaintVerificationColors: Record<ComplaintVerification, string> 
   "pending-verification": "bg-gray-500/10 text-gray-700 border-gray-200",
 };
 
+// ✅ Match Prisma ComplaintPriority enum: LOW, MEDIUM, HIGH, CRITICAL
 export const complaintPriorityLabels = {
-  low: "Thấp",
-  medium: "Trung bình",
-  high: "Cao",
-  urgent: "Khẩn cấp",
+  LOW: "Thấp",
+  MEDIUM: "Trung bình",
+  HIGH: "Cao",
+  CRITICAL: "Khẩn cấp",
 };
 
 export const complaintPriorityColors = {
-  low: "bg-gray-500/10 text-gray-700 border-gray-200",
-  medium: "bg-blue-500/10 text-blue-700 border-blue-200",
-  high: "bg-orange-500/10 text-orange-700 border-orange-200",
-  urgent: "bg-red-500/10 text-red-700 border-red-200",
+  LOW: "bg-gray-500/10 text-gray-700 border-gray-200",
+  MEDIUM: "bg-blue-500/10 text-blue-700 border-blue-200",
+  HIGH: "bg-orange-500/10 text-orange-700 border-orange-200",
+  CRITICAL: "bg-red-500/10 text-red-700 border-red-200",
 };
 
 export function getComplaintTypeLabel(type: ComplaintType): string {
@@ -2722,7 +2797,6 @@ export type Penalty = {
   updatedAt?: string;
   createdBy?: SystemId;
   updatedBy?: SystemId;
-  activityHistory?: HistoryEntry[];
 };
 
 export type PenaltyType = {
@@ -2782,28 +2856,13 @@ export type ProductTypeSettings = {
   updatedAt?: string | undefined;
 };
 
-export type ProductCategory = {
-  systemId: SystemId;
-  id: BusinessId;
-  name: string;
-  slug?: string | undefined;
-  seoTitle?: string | undefined;
-  metaDescription?: string | undefined;
-  seoKeywords?: string | undefined;
-  shortDescription?: string | undefined;
-  longDescription?: string | undefined;
-  websiteSeo?: MultiWebsiteSeo | undefined;
-  parentId?: SystemId | undefined;
-  path?: string | undefined;
-  level?: number | undefined;
-  color?: string | undefined;
-  icon?: string | undefined;
-  thumbnailImage?: string | undefined;
-  sortOrder?: number | undefined;
-  isActive?: boolean | undefined;
-  isDeleted?: boolean | undefined;
-  createdAt?: string | undefined;
-  updatedAt?: string | undefined;
+/**
+ * ProductCategory - Alias for Prisma CategoryModel
+ * Use this type for category operations to ensure compatibility with Prisma
+ */
+export type ProductCategory = CategoryModel & {
+  // Optional alias fields for backward compatibility
+  thumbnailImage?: string | null;
 };
 
 export type Brand = {
@@ -3131,12 +3190,13 @@ export type TemplateType =
   | 'penalty'
   | 'leave'
   | 'cost-adjustment'
+  | 'price-adjustment'
   | 'handover'
   | 'payroll'
   | 'payslip'
   | 'attendance';
 
-export type PaperSize = 'A4' | 'A5' | 'A6' | 'K80' | 'K57';
+export type PaperSize = 'A4' | 'A5' | 'A6' | 'K80' | 'K57' | '50x30';
 
 export interface PrintTemplate {
   id: string;
@@ -3185,6 +3245,7 @@ export const PAPER_SIZES: { value: PaperSize; label: string }[] = [
   { value: 'A6', label: 'Khổ A6' },
   { value: 'K80', label: 'Khổ K80 (Máy in nhiệt)' },
   { value: 'K57', label: 'Khổ K57 (Máy in nhiệt nhỏ)' },
+  { value: '50x30', label: 'Khổ 50x30mm (Tem phụ)' },
 ];
 
 // ============================================
@@ -3330,16 +3391,22 @@ export type PkgxGalleryImage = {
 };
 
 export type PkgxCategoryMapping = {
-  id: string;
-  hrmCategorySystemId: SystemId;
+  systemId: string;
+  id?: string; // Alias for systemId for backward compat
+  hrmCategoryId: SystemId;
+  hrmCategorySystemId?: SystemId; // Alias for backward compat
   hrmCategoryName: string;
-  pkgxCatId: number;
-  pkgxCatName: string;
+  pkgxCategoryId: number;
+  pkgxCatId?: number; // Alias for backward compat
+  pkgxCategoryName: string;
+  pkgxCatName?: string; // Alias for backward compat
 };
 
 export type PkgxBrandMapping = {
-  id: string;
-  hrmBrandSystemId: SystemId;
+  systemId: string;
+  id?: string; // Alias for systemId for backward compat
+  hrmBrandId: SystemId;
+  hrmBrandSystemId?: SystemId; // Alias for backward compat
   hrmBrandName: string;
   pkgxBrandId: number;
   pkgxBrandName: string;
@@ -3389,6 +3456,14 @@ export type PkgxProduct = {
   meta_title?: string;
   meta_desc?: string;
   keywords?: string;
+  // Additional fields from PKGX API
+  goods_number2?: string;
+  goods_weight?: number;
+  goods_quantity?: number;
+  is_onsale?: number; // alias for is_on_sale
+  is_real?: number;
+  ktitle?: string;
+  goods_alias?: string;
 };
 
 export type PkgxProductsResponse = {
@@ -3511,10 +3586,11 @@ export type PkgxProductPayload = {
   meta_desc?: string;
   slug?: string;
   is_home?: number | boolean;
-  ishome?: boolean;
-  best?: boolean;
-  hot?: boolean;
-  new?: boolean;
+  // PHP API expects these field names with number values (0 or 1)
+  ishome?: number | boolean;
+  best?: number | boolean;
+  hot?: number | boolean;
+  new?: number | boolean;
   gallery_images?: string[];
 };
 
@@ -3550,6 +3626,7 @@ export type PkgxSyncLog = {
     | 'unlink_product'
     | 'unlink_mapping'
     | 'batch_unlink'
+    | 'bulk_publish'
     | 'bulk_sync_all'
     | 'bulk_sync_basic'
     | 'bulk_sync_price'
@@ -3612,6 +3689,8 @@ export type PkgxSettings = {
   logs: PkgxSyncLog[];
   pkgxProducts: PkgxProduct[];
   pkgxProductsLastFetch?: string;
+  // Default branch for PKGX inventory sync
+  defaultBranchId?: string;
 };
 
 export const DEFAULT_PKGX_SETTINGS: PkgxSettings = {
@@ -3641,6 +3720,7 @@ export const DEFAULT_PKGX_SETTINGS: PkgxSettings = {
   logs: [],
   pkgxProducts: [],
   pkgxProductsLastFetch: undefined,
+  defaultBranchId: undefined, // Use "all" to sum all branches, or specific branchId
 };
 
 export const SYNC_INTERVAL_OPTIONS = [

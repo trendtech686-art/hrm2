@@ -1,22 +1,26 @@
 /**
  * Cashbook React Query Hooks
  * Provides data fetching and mutations for cash accounts
+ * 
+ * ⚠️ Direct import: import { useCashAccounts } from '@/features/cashbook/hooks/use-cashbook'
  */
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import {
   fetchCashAccounts,
   fetchCashAccountById,
-  createCashAccount,
-  updateCashAccount,
-  deleteCashAccount,
-  setDefaultCashAccount,
   fetchAccountBalance,
   fetchActiveCashAccounts,
   type CashAccountFilters,
-  type CashAccountCreateInput,
-  type CashAccountUpdateInput,
 } from '../api/cashbook-api';
+import {
+  createCashAccountAction,
+  updateCashAccountAction,
+  deleteCashAccountAction,
+  setDefaultCashAccountAction,
+  type CreateCashAccountInput,
+  type UpdateCashAccountInput,
+} from '@/app/actions/cashbook';
 
 // Query keys factory
 export const cashbookKeys = {
@@ -36,8 +40,8 @@ export function useCashAccounts(filters: CashAccountFilters = {}) {
   return useQuery({
     queryKey: cashbookKeys.list(filters),
     queryFn: () => fetchCashAccounts(filters),
-    staleTime: 1000 * 60 * 5, // 5 minutes - accounts don't change often
-    placeholderData: keepPreviousData,
+    staleTime: 0, // ⚠️ QUAN TRỌNG: 0 để refetch ngay sau invalidate
+    gcTime: 1000 * 60 * 60,
   });
 }
 
@@ -88,12 +92,20 @@ interface MutationCallbacks {
 export function useCashAccountMutations(options: MutationCallbacks = {}) {
   const queryClient = useQueryClient();
 
+  // ⚠️ QUAN TRỌNG: refetchType: 'all' để force refetch ngay lập tức
   const invalidateCashbook = () => {
-    queryClient.invalidateQueries({ queryKey: cashbookKeys.all });
+    queryClient.invalidateQueries({ 
+      queryKey: cashbookKeys.all,
+      refetchType: 'all',
+    });
   };
 
   const create = useMutation({
-    mutationFn: (data: CashAccountCreateInput) => createCashAccount(data),
+    mutationFn: async (data: CreateCashAccountInput) => {
+      const result = await createCashAccountAction(data);
+      if (!result.success) throw new Error(result.error || 'Failed to create cash account');
+      return result.data!;
+    },
     onSuccess: () => {
       invalidateCashbook();
       options.onSuccess?.();
@@ -102,8 +114,11 @@ export function useCashAccountMutations(options: MutationCallbacks = {}) {
   });
 
   const update = useMutation({
-    mutationFn: ({ systemId, data }: { systemId: string; data: CashAccountUpdateInput }) =>
-      updateCashAccount(systemId, data),
+    mutationFn: async ({ systemId, data }: { systemId: string; data: Partial<UpdateCashAccountInput> }) => {
+      const result = await updateCashAccountAction({ systemId, ...data });
+      if (!result.success) throw new Error(result.error || 'Failed to update cash account');
+      return result.data!;
+    },
     onSuccess: () => {
       invalidateCashbook();
       options.onSuccess?.();
@@ -112,7 +127,11 @@ export function useCashAccountMutations(options: MutationCallbacks = {}) {
   });
 
   const remove = useMutation({
-    mutationFn: (systemId: string) => deleteCashAccount(systemId),
+    mutationFn: async (systemId: string) => {
+      const result = await deleteCashAccountAction(systemId);
+      if (!result.success) throw new Error(result.error || 'Failed to delete cash account');
+      return result.data;
+    },
     onSuccess: () => {
       invalidateCashbook();
       options.onSuccess?.();
@@ -121,7 +140,11 @@ export function useCashAccountMutations(options: MutationCallbacks = {}) {
   });
 
   const setDefault = useMutation({
-    mutationFn: (systemId: string) => setDefaultCashAccount(systemId),
+    mutationFn: async (systemId: string) => {
+      const result = await setDefaultCashAccountAction(systemId);
+      if (!result.success) throw new Error(result.error || 'Failed to set default account');
+      return result.data!;
+    },
     onSuccess: () => {
       invalidateCashbook();
       options.onSuccess?.();

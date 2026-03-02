@@ -10,8 +10,22 @@ type CardProps = {
   onBalance?: (item: InventoryCheck) => void;
 };
 
+// Helper to normalize status for comparison (DB returns uppercase, app uses lowercase)
+const normalizeStatus = (status?: string) => status?.toLowerCase() || '';
+
 export function InventoryCheckCard({ item, onEdit, onBalance }: CardProps) {
   const preview = item.items?.slice(0,2).map(i => i.productName).join(', ');
+  const status = normalizeStatus(item.status);
+  const statusLabel = status === 'draft' ? 'Nháp' 
+    : status === 'balanced' || status === 'completed' ? 'Đã cân bằng' 
+    : status === 'in_progress' || status === 'pending' ? 'Đang xử lý'
+    : status === 'cancelled' ? 'Đã hủy'
+    : item.status;
+  const statusVariant = status === 'draft' ? 'outline' 
+    : status === 'balanced' || status === 'completed' ? 'secondary'
+    : status === 'in_progress' || status === 'pending' ? 'default'
+    : 'destructive';
+  
   return (
     <div className="p-4 bg-white rounded shadow-sm">
       <div className="flex items-start justify-between">
@@ -20,7 +34,7 @@ export function InventoryCheckCard({ item, onEdit, onBalance }: CardProps) {
           <div className="text-body-sm text-muted-foreground">{item.branchName} • {item.createdAt ? formatDateCustom(new Date(item.createdAt), 'dd/MM/yyyy') : ''}</div>
         </div>
         <div>
-          <Badge>{item.status === 'draft' ? 'Nháp' : item.status === 'balanced' ? 'Đã cân bằng' : 'Đã hủy'}</Badge>
+          <Badge variant={statusVariant}>{statusLabel}</Badge>
         </div>
       </div>
 
@@ -35,7 +49,7 @@ export function InventoryCheckCard({ item, onEdit, onBalance }: CardProps) {
             Sửa
           </Button>
         )}
-        {onBalance && item.status === 'draft' && (
+        {onBalance && status === 'draft' && (
           <Button className="h-9" onClick={() => onBalance(item)}>
             Cân bằng
           </Button>

@@ -9,6 +9,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { getModuleSettingSection, updateModuleSettingSection } from '@/app/actions/settings/module-settings';
 import type { TasksSettingsState, CardColorSettings, SLASettings, EvidenceSettings, TaskType, TaskTemplate } from '../types';
 import { defaultSLA, defaultTemplates, defaultNotifications, defaultReminders, defaultCardColors, defaultTaskTypes, defaultEvidence, clone } from '../types';
 
@@ -34,11 +35,10 @@ const DEFAULTS: Record<TasksSettingType, unknown> = {
 async function fetchTasksSettingSection<T = unknown>(
   type: TasksSettingType
 ): Promise<T> {
-  const response = await fetch(`/api/tasks-settings?type=${type}`);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch ${type} settings`);
+  const result = await getModuleSettingSection<T>('tasks', type);
+  if (!result.success) {
+    throw new Error(result.error);
   }
-  const result = await response.json();
   return result.data ?? clone(DEFAULTS[type] as T);
 }
 
@@ -46,15 +46,10 @@ async function updateTasksSettingSection(
   type: TasksSettingType,
   data: unknown
 ): Promise<unknown> {
-  const response = await fetch('/api/tasks-settings', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ type, data }),
-  });
-  if (!response.ok) {
-    throw new Error(`Failed to update ${type} settings`);
+  const result = await updateModuleSettingSection('tasks', type, data);
+  if (!result.success) {
+    throw new Error(result.error);
   }
-  const result = await response.json();
   return result.data;
 }
 
@@ -121,43 +116,4 @@ export function useTasksSettingsMutations() {
   });
 
   return { updateSection };
-}
-
-/**
- * Legacy compatibility functions
- */
-export function loadCardColorSettings(): CardColorSettings {
-  // For legacy sync code - fetch from cache or return defaults
-  const cachedData = typeof window !== 'undefined' 
-    ? (window as unknown as { __tasksCardColors?: CardColorSettings }).__tasksCardColors
-    : undefined;
-  return cachedData ?? clone(defaultCardColors);
-}
-
-export function loadSLASettings(): SLASettings {
-  const cachedData = typeof window !== 'undefined' 
-    ? (window as unknown as { __tasksSLA?: SLASettings }).__tasksSLA
-    : undefined;
-  return cachedData ?? clone(defaultSLA);
-}
-
-export function loadEvidenceSettings(): EvidenceSettings {
-  const cachedData = typeof window !== 'undefined' 
-    ? (window as unknown as { __tasksEvidence?: EvidenceSettings }).__tasksEvidence
-    : undefined;
-  return cachedData ?? clone(defaultEvidence);
-}
-
-export function loadTaskTypes(): TaskType[] {
-  const cachedData = typeof window !== 'undefined' 
-    ? (window as unknown as { __tasksTaskTypes?: TaskType[] }).__tasksTaskTypes
-    : undefined;
-  return (cachedData ?? clone(defaultTaskTypes)).filter((t: TaskType) => t.isActive);
-}
-
-export function loadTaskTemplates(): TaskTemplate[] {
-  const cachedData = typeof window !== 'undefined' 
-    ? (window as unknown as { __tasksTemplates?: TaskTemplate[] }).__tasksTemplates
-    : undefined;
-  return cachedData ?? clone(defaultTemplates);
 }

@@ -199,8 +199,10 @@ export async function getFileStats(filePath: string) {
 
 // Build public URL for file
 export function getPublicUrl(relativePath: string): string {
+  // Normalize path separators to forward slashes
+  const normalizedPath = relativePath.replace(/\\/g, '/')
   const baseUrl = process.env.NEXT_PUBLIC_UPLOAD_URL || '/api/files'
-  return `${baseUrl}/${relativePath}`
+  return `${baseUrl}/${normalizedPath}`
 }
 
 // Parse form data from request

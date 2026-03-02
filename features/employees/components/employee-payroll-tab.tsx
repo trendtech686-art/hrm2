@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Employee Payroll Tab Component
  * Extracted from employee-form.tsx for better maintainability
  * 
@@ -80,7 +80,7 @@ export function EmployeePayrollTab({
       {!isEditMode && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-h6">Thiết lập ca làm việc</CardTitle>
+            <CardTitle>Thiết lập ca làm việc</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-4 md:grid-cols-2">
             <FormField
@@ -132,7 +132,7 @@ export function EmployeePayrollTab({
       {!isEditMode && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-h6">Thành phần lương</CardTitle>
+            <CardTitle>Thành phần lương</CardTitle>
             <p className="text-sm text-muted-foreground">
               Chọn các khoản thu nhập/phụ cấp sẽ gắn với nhân viên này. Danh sách được lấy trực tiếp từ phần Cài đặt
               &gt; Thành phần lương.
@@ -211,7 +211,7 @@ export function EmployeePayrollTab({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-h6">Trả lương & tài khoản</CardTitle>
+          <CardTitle>Trả lương & tài khoản</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <FormField

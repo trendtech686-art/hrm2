@@ -4,6 +4,7 @@
  */
 
 import type { ShippingPartner, ShippingPartnerStatus } from '@/lib/types/prisma-extended';
+import { fetchAllPages } from '@/lib/fetch-all-pages';
 
 export interface ShippingPartnerFilters {
   page?: number;
@@ -111,11 +112,9 @@ export async function disconnectShippingPartner(systemId: string): Promise<Shipp
 }
 
 export async function fetchActiveShippingPartners(): Promise<ShippingPartner[]> {
-  const response = await fetchShippingPartners({ status: 'Đang hợp tác', limit: 100 });
-  return response.data;
+  return fetchAllPages((p) => fetchShippingPartners({ ...p, status: 'Đang hợp tác' }));
 }
 
 export async function fetchConnectedShippingPartners(): Promise<ShippingPartner[]> {
-  const response = await fetchShippingPartners({ isConnected: true, limit: 100 });
-  return response.data;
+  return fetchAllPages((p) => fetchShippingPartners({ ...p, isConnected: true }));
 }

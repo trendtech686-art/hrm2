@@ -24,9 +24,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Alert, AlertDescription } from '../../../../components/ui/alert';
 import { AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
-import { useAllPayments } from '../../../payments/hooks/use-all-payments';
+import { useWarrantyPayments, useWarrantyReceipts } from '../../hooks/use-warranty-financial-data';
 import { useReceiptMutations } from '../../../receipts/hooks/use-receipts';
-import { useAllReceipts } from '../../../receipts/hooks/use-all-receipts';
 import { useWarrantyMutations } from '../../hooks/use-warranties';
 import { useWarrantyFinder } from '../../hooks/use-all-warranties';
 import type { WarrantyVoucherDialogBaseProps } from '../../types';
@@ -38,7 +37,8 @@ import { calculateWarrantyProcessingState } from '../logic/processing';
 import { calculateWarrantySettlementTotal } from '../../utils/payment-calculations';
 import { useWarrantySettlement } from '../../hooks/use-warranty-settlement';
 import { CurrencyInput } from '../../../../components/ui/currency-input';
-import { addHistory } from '../../store/product-management';
+// addHistory was a Zustand store mutator (now deleted) - history is tracked in DB via mutations
+const addHistory = (..._args: unknown[]) => { /* no-op: store removed, history tracked in DB */ };
 
 interface WarrantyReceiptVoucherDialogProps extends WarrantyVoucherDialogBaseProps {
   existingReceipts?: Receipt[] | undefined;
@@ -62,8 +62,9 @@ export function WarrantyReceiptVoucherDialog({
   const [open, setOpen] = React.useState(false);
   const router = useRouter();
   
-  const { data: payments } = useAllPayments();
-  const { data: receipts } = useAllReceipts();
+  // ⚡ PERFORMANCE: Only fetch data for this specific warranty
+  const { data: payments } = useWarrantyPayments(warrantySystemId);
+  const { data: receipts } = useWarrantyReceipts(warrantySystemId);
   const { create: createReceipt } = useReceiptMutations();
   const { update: _updateWarranty } = useWarrantyMutations();
   const { findById } = useWarrantyFinder();

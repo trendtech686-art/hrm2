@@ -1,4 +1,4 @@
-import * as React from 'react';
+﻿import * as React from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
 import { Checkbox } from './ui/checkbox';
 import { Badge } from './ui/badge';
@@ -98,7 +98,7 @@ export function Subtasks({
     <Card className={className}>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle className="text-h5 flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2">
             <CheckCircle2 className="h-4 w-4" />
             {title}
           </CardTitle>
@@ -159,9 +159,9 @@ export function Subtasks({
             
             {/* Icon */}
             {subtask.completed ? (
-              <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
+              <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
             ) : (
-              <Circle className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+              <Circle className="h-4 w-4 text-muted-foreground shrink-0" />
             )}
             
             {/* Title */}

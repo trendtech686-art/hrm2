@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, usePathname } from 'next/navigation';
 import { useRouter } from 'next/navigation';
 import { useForm, FormProvider } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -12,10 +12,12 @@ import { usePageHeader } from '../../contexts/page-header-context';
 import { asSystemId } from '../../lib/id-types';
 
 // Types & Store
-import type { WarrantyFormValues, WarrantyTicket } from './types';
-import { useWarrantyMutations } from './hooks/use-warranties';
+import type { WarrantyFormValues } from './types';
 import { useWarranty } from './hooks/use-warranties';
 import { useWarrantyFinder, useAllWarranties } from './hooks/use-all-warranties';
+
+// Customer hook for loading full customer data
+import { useCustomer } from '@/hooks/api/use-customers';
 
 // UI Components
 import { Button } from '../../components/ui/button';
@@ -56,26 +58,13 @@ export function WarrantyFormPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const router = useRouter();
   const { setPageHeader } = usePageHeader();
-  const location = window.location;
+  const pathname = usePathname();
   
   // Check if this is "update mode" (limited editing for incomplete status)
-  const isUpdateMode = location.pathname.includes('/update');
+  const isUpdateMode = pathname.includes('/update');
   
   // ===== STATE MANAGEMENT - Tách ra hook riêng =====
   const formState = useWarrantyFormState();
-  
-  const { create: createMutation, update: updateMutation } = useWarrantyMutations({
-    onCreateSuccess: (warranty) => {
-      toast.success('Đã tạo phiếu bảo hành', { description: `Mã: ${warranty.id}` });
-      router.push(`/warranty/${warranty.systemId}`);
-    },
-    onUpdateSuccess: () => {
-      toast.success('Đã cập nhật phiếu bảo hành');
-    },
-    onError: (error) => {
-      toast.error('Lỗi', { description: error.message });
-    }
-  });
   
   const { findById } = useWarrantyFinder();
   const { data: allTickets } = useAllWarranties();
@@ -95,10 +84,23 @@ export function WarrantyFormPage() {
     return null;
   }, [ticketSystemId, ticketFromQuery, findById]);
 
+  // ✅ Load full customer data when editing (for CustomerSelector to show stats)
+  // Try multiple sources: customers relation (from API), customerId, or customerSystemId
+  const customerIdFromTicket = React.useMemo(() => {
+    if (!ticket) return undefined;
+    // From Prisma relation
+    type TicketWithCustomers = typeof ticket & { customers?: { systemId: string } };
+    if ((ticket as TicketWithCustomers)?.customers?.systemId) return (ticket as TicketWithCustomers).customers?.systemId;
+    // From direct fields
+    type TicketWithDirectFields = typeof ticket & { customerId?: string; customerSystemId?: string };
+    return (ticket as TicketWithDirectFields)?.customerId || (ticket as TicketWithDirectFields)?.customerSystemId;
+  }, [ticket]);
+  const { data: fullCustomerData } = useCustomer(customerIdFromTicket);
+
   // Prevent editing if ticket is returned (đã trả hàng cho khách)
   const isReadOnly = React.useMemo(() => {
     if (!ticket) return false;
-    return ticket.status === 'returned';
+    return ticket.status === 'RETURNED';
   }, [ticket]);
 
   // Form
@@ -126,9 +128,13 @@ export function WarrantyFormPage() {
     form.setValue('processedImages', processedImageUrls, { shouldDirty: false });
   }, [processedImageUrls, form]);
 
+  // Track if we've already shown the redirect toast
+  const hasShownRedirectToastRef = React.useRef(false);
+
   // Redirect if trying to edit a returned ticket
   React.useEffect(() => {
-    if (isReadOnly && isEditing) {
+    if (isReadOnly && isEditing && !hasShownRedirectToastRef.current) {
+      hasShownRedirectToastRef.current = true;
       toast.error('Không thể chỉnh sửa phiếu đã trả hàng cho khách');
       router.push(`/warranty/${systemId}`);
     }
@@ -154,17 +160,102 @@ export function WarrantyFormPage() {
       }
     });
   }, [formState]);
+  
+  // ✅ Ref để lấy state hình ảnh sản phẩm khi submit (không sync liên tục)
+  const getProductImagesStateRef = React.useRef<(() => {
+    productPermanentFiles: Record<string, { id: string; url: string }[]>;
+    productStagingFiles: Record<string, import('@/lib/file-upload-api').StagingFile[]>;
+    productSessionIds: Record<string, string>;
+    productFilesToDelete: Record<string, string[]>;
+  }) | null>(null);
 
-  // Load ticket form data
+  // ✅ Ref để lấy state received/processed images khi submit (tránh stale closure)
+  const getReceivedImagesStateRef = React.useRef<(() => {
+    stagingFiles: import('@/lib/file-upload-api').StagingFile[];
+    sessionId: string | null;
+    permanentFiles: import('@/lib/file-upload-api').StagingFile[];
+    filesToDelete: string[];
+  }) | null>(null);
+  
+  const getProcessedImagesStateRef = React.useRef<(() => {
+    stagingFiles: import('@/lib/file-upload-api').StagingFile[];
+    sessionId: string | null;
+    permanentFiles: import('@/lib/file-upload-api').StagingFile[];
+    filesToDelete: string[];
+  }) | null>(null);
+
+  // ✅ Sync refs với state mới nhất
+  React.useEffect(() => {
+    getReceivedImagesStateRef.current = () => ({
+      stagingFiles: formState.receivedStagingFiles,
+      sessionId: formState.receivedSessionId,
+      permanentFiles: formState.receivedPermanentFiles,
+      filesToDelete: formState.receivedFilesToDelete,
+    });
+  }, [
+    formState.receivedStagingFiles,
+    formState.receivedSessionId,
+    formState.receivedPermanentFiles,
+    formState.receivedFilesToDelete,
+  ]);
+  
+  React.useEffect(() => {
+    getProcessedImagesStateRef.current = () => ({
+      stagingFiles: formState.processedStagingFiles,
+      sessionId: formState.processedSessionId,
+      permanentFiles: formState.processedPermanentFiles,
+      filesToDelete: formState.processedFilesToDelete,
+    });
+  }, [
+    formState.processedStagingFiles,
+    formState.processedSessionId,
+    formState.processedPermanentFiles,
+    formState.processedFilesToDelete,
+  ]);
+
+  // Track if customer has been set to avoid infinite loop
+  const hasSetCustomerRef = React.useRef(false);
+  
+  // Load ticket form data (without customer - loaded separately)
   React.useEffect(() => {
     if (!isEditing || !ticket) return;
     
+    // Reset the flag when ticket changes
+    hasSetCustomerRef.current = false;
+    
+    // ✅ Get customer systemId from multiple sources
+    type TicketWithRelations = typeof ticket & { 
+      customers?: { systemId: string };
+      customerId?: string;
+      customerSystemId?: string;
+    };
+    const ticketWithRelations = ticket as TicketWithRelations;
+    const customerSystemId = ticketWithRelations?.customers?.systemId 
+      || ticketWithRelations?.customerSystemId 
+      || ticketWithRelations?.customerId;
+    
+    // 🔍 DEBUG: Log customer info
+    console.log('[WARRANTY FORM] Loading ticket:', {
+      ticketSystemId: ticket.systemId,
+      customerId: ticketWithRelations?.customerId,
+      customerSystemId: ticketWithRelations?.customerSystemId,
+      customers: ticketWithRelations?.customers,
+      resolvedCustomerSystemId: customerSystemId,
+      products: ticket.products,
+    });
+    
+    // Initial load with customer info from ticket - INCLUDE systemId for stats lookup
+    const basicCustomerData = ticket.customerName ? {
+      systemId: customerSystemId, // ✅ Include systemId for CustomerSelector stats
+      name: ticket.customerName,
+      phone: ticket.customerPhone,
+    } : null;
+    
+    console.log('[WARRANTY FORM] basicCustomerData:', basicCustomerData);
+    
     form.reset({
       id: ticket.id,
-      customer: ticket.customerName ? {
-        name: ticket.customerName,
-        phone: ticket.customerPhone,
-      } : null,
+      customer: basicCustomerData,
       branchSystemId: ticket.branchSystemId || '',
       employeeSystemId: ticket.employeeSystemId || '',
       trackingCode: ticket.trackingCode,
@@ -184,6 +275,24 @@ export function WarrantyFormPage() {
       settlementVoucherCode: '',
     });
   }, [isEditing, ticket, form]);
+  
+  // Update customer with full data when available (only once)
+  React.useEffect(() => {
+    if (!fullCustomerData || hasSetCustomerRef.current) return;
+    
+    hasSetCustomerRef.current = true;
+    form.setValue('customer', fullCustomerData, { shouldDirty: false });
+  }, [fullCustomerData, form]);
+
+  // ✅ Destructure setters for stable references in useEffect
+  const { 
+    setReceivedPermanentFiles, 
+    setReceivedStagingFiles, 
+    setReceivedSessionId,
+    setProcessedPermanentFiles,
+    setProcessedStagingFiles,
+    setProcessedSessionId,
+  } = formState;
 
   // Load received images
   React.useEffect(() => {
@@ -193,10 +302,10 @@ export function WarrantyFormPage() {
       .filter((url): url is string => !!url && typeof url === 'string')
       .map((url, idx) => urlToStagingFile(url, idx, 'existing-received'));
     
-    formState.setReceivedPermanentFiles(receivedPermanent);
-    formState.setReceivedStagingFiles([]);
-    formState.setReceivedSessionId(null);
-  }, [isEditing, ticket, formState]);
+    setReceivedPermanentFiles(receivedPermanent);
+    setReceivedStagingFiles([]);
+    setReceivedSessionId(null);
+  }, [isEditing, ticket, setReceivedPermanentFiles, setReceivedStagingFiles, setReceivedSessionId]);
 
   // Load processed images
   React.useEffect(() => {
@@ -206,27 +315,10 @@ export function WarrantyFormPage() {
       .filter((url): url is string => !!url && typeof url === 'string')
       .map((url, idx) => urlToStagingFile(url, idx, 'existing-processed'));
     
-    formState.setProcessedPermanentFiles(processedPermanent);
-    formState.setProcessedStagingFiles([]);
-    formState.setProcessedSessionId(null);
-  }, [isEditing, ticket, formState]);
-
-  // Sync wrapper functions for form submit hook
-  const add = React.useCallback((data: WarrantyTicket) => {
-    let createdWarranty: WarrantyTicket | undefined;
-    createMutation.mutate(data, {
-      onSuccess: (warranty) => {
-        createdWarranty = warranty as WarrantyTicket;
-      }
-    });
-    return createdWarranty;
-  }, [createMutation]);
-  
-  const update = React.useCallback((systemId: string, data: Partial<WarrantyTicket>) => {
-    updateMutation.mutate({ systemId, data });
-  }, [updateMutation]);
-  
-  const generateNextSystemId = React.useCallback(() => '', []);
+    setProcessedPermanentFiles(processedPermanent);
+    setProcessedStagingFiles([]);
+    setProcessedSessionId(null);
+  }, [isEditing, ticket, setProcessedPermanentFiles, setProcessedStagingFiles, setProcessedSessionId]);
 
   // ===== SUBMIT HANDLER - Tách ra hook riêng =====
   const { onSubmit } = useWarrantyFormSubmit({
@@ -235,11 +327,20 @@ export function WarrantyFormPage() {
     allTickets,
     branches,
     employees,
-    generateNextSystemId,
-    add,
-    update,
     ...formState,
+    getProductImagesStateRef,
+    getReceivedImagesStateRef,
+    getProcessedImagesStateRef,
   });
+
+  // ✅ Handler để submit form từ page header button
+  const handleSubmitClick = React.useCallback(() => {
+    // Trigger form submit programmatically
+    const formElement = document.getElementById('warranty-form') as HTMLFormElement;
+    if (formElement) {
+      formElement.requestSubmit();
+    }
+  }, []);
 
   // Page header - Memoize actions
   const actions = React.useMemo(() => [
@@ -256,15 +357,15 @@ export function WarrantyFormPage() {
     </Button>,
     <Button
       key="save"
-      type="submit"
-      form="warranty-form"
+      type="button"
+      onClick={handleSubmitClick}
       disabled={isReadOnly || formState.isSubmitting}
       size="sm"
       className="h-9"
     >
       {formState.isSubmitting ? 'Đang lưu...' : (isEditing ? 'Lưu thay đổi' : 'Tạo phiếu')}
     </Button>,
-  ], [router, isReadOnly, formState.isSubmitting, isEditing]);
+  ], [router, isReadOnly, formState.isSubmitting, isEditing, handleSubmitClick]);
 
   // Set page header
   React.useEffect(() => {
@@ -293,7 +394,7 @@ export function WarrantyFormPage() {
   return (
     <FormProvider {...form}>
       <form id="warranty-form" onSubmit={form.handleSubmit(onSubmit)} className="h-full flex flex-col">
-        <ScrollArea className="flex-grow">
+        <ScrollArea className="grow">
           <div className="pr-4 space-y-4">
             {/* Read-only warning */}
             {isReadOnly && (
@@ -359,7 +460,7 @@ export function WarrantyFormPage() {
             {/* Hàng 3: Danh sách sản phẩm bảo hành */}
             <WarrantyProductsSection 
               disabled={isReadOnly} 
-              onProductImagesStateChange={formState.setProductImagesState}
+              getImagesStateRef={getProductImagesStateRef}
             />
 
             {/* Hàng 4: Ghi chú (30%) + Thanh toán (70%) */}
@@ -370,6 +471,26 @@ export function WarrantyFormPage() {
               <div className="w-full md:w-[70%]">
                 <WarrantySummary disabled={isReadOnly} />
               </div>
+            </div>
+
+            {/* Sticky Submit Button - Đảm bảo luôn có nút submit trong form */}
+            <div className="sticky bottom-0 bg-background pt-4 pb-2 border-t mt-4 -mx-4 px-4 flex justify-end gap-2 md:hidden">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => router.push('/warranty')}
+                size="sm"
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Hủy
+              </Button>
+              <Button
+                type="submit"
+                disabled={isReadOnly || formState.isSubmitting}
+                size="sm"
+              >
+                {formState.isSubmitting ? 'Đang lưu...' : (isEditing ? 'Lưu thay đổi' : 'Tạo phiếu')}
+              </Button>
             </div>
           </div>
         </ScrollArea>

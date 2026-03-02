@@ -1,4 +1,4 @@
-import * as React from 'react';
+﻿import * as React from 'react';
 import { useFormContext } from 'react-hook-form';
 import { useAllEmployees } from '../../employees/hooks/use-all-employees';
 import { useAllBranches } from '../../settings/branches/hooks/use-all-branches';
@@ -10,7 +10,7 @@ import { DatePicker } from '../../../components/ui/date-picker';
 import { Input } from '../../../components/ui/input';
 import { Separator } from '../../../components/ui/separator';
 import { useSalesChannels } from '../../settings/sales-channels/hooks/use-sales-channels';
-import { usePaymentMethods } from '../../settings/payments/hooks/use-payment-methods';
+import { usePaymentMethods } from '../../settings/payments/methods/hooks/use-payment-methods';
 
 export function OrderInfoCard({ disabled, isBranchLocked = false, isMetadataOnlyMode = false }: { disabled: boolean; isBranchLocked?: boolean; isMetadataOnlyMode?: boolean }) {
     const { control } = useFormContext();
@@ -18,9 +18,9 @@ export function OrderInfoCard({ disabled, isBranchLocked = false, isMetadataOnly
     const { data: branches } = useAllBranches();
     
     // React Query for payment methods and sales channels
-    const { data: pmData } = usePaymentMethods({ limit: 1000 });
+    const { data: pmData } = usePaymentMethods({ isActive: true });
     const paymentMethods = React.useMemo(() => pmData?.data ?? [], [pmData?.data]);
-    const { data: scData } = useSalesChannels({ limit: 1000 });
+    const { data: scData } = useSalesChannels({});
     const salesChannels = React.useMemo(() => scData?.data ?? [], [scData?.data]);
     
     const employeeOptions = React.useMemo(() => employees.map(e => ({ value: e.systemId, label: e.fullName })), [employees]);
@@ -40,10 +40,10 @@ export function OrderInfoCard({ disabled, isBranchLocked = false, isMetadataOnly
 
     return (
         <Card className="flex flex-col h-96.25">
-            <CardHeader className="shrink-0"><CardTitle className="text-base font-semibold">Thông tin bổ sung</CardTitle></CardHeader>
+            <CardHeader className="shrink-0"><CardTitle>Thông tin bổ sung</CardTitle></CardHeader>
             <CardContent className="flex-1 overflow-y-auto space-y-4">
                 <FormField control={control} name="branchSystemId" render={({ field }) => (
-                  <FormItem><FormLabel>Bán tại</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={disabled || isBranchLocked || isMetadataOnlyMode}><FormControl><SelectTrigger><SelectValue placeholder="Chọn chi nhánh" /></SelectTrigger></FormControl><SelectContent>{branchOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}</SelectContent></Select>
+                  <FormItem><FormLabel>Bán tại</FormLabel><Select key={`branch-${field.value || 'empty'}`} onValueChange={field.onChange} value={field.value || undefined} disabled={disabled || isBranchLocked || isMetadataOnlyMode}><FormControl><SelectTrigger><SelectValue placeholder="Chọn chi nhánh" /></SelectTrigger></FormControl><SelectContent>{branchOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}</SelectContent></Select>
                   {isBranchLocked && <p className="text-xs text-muted-foreground mt-1">🔒 Chi nhánh bị khóa sau khi duyệt đơn</p>}
                   </FormItem>
                 )}/>
@@ -163,7 +163,8 @@ export function OrderInfoCard({ disabled, isBranchLocked = false, isMetadataOnly
                     <FormLabel>Đường dẫn (URL)</FormLabel>
                     <FormControl>
                       <Input 
-                        {...field} 
+                        {...field}
+                        value={field.value ?? ''}
                         placeholder="https://example.com/order/123" 
                         disabled={disabled}
                       />
@@ -176,7 +177,8 @@ export function OrderInfoCard({ disabled, isBranchLocked = false, isMetadataOnly
                     <FormLabel>Mã tham chiếu</FormLabel>
                     <FormControl>
                       <Input 
-                        {...field} 
+                        {...field}
+                        value={field.value ?? ''}
                         placeholder="Mã đơn hàng bên ngoài" 
                         disabled={disabled}
                       />

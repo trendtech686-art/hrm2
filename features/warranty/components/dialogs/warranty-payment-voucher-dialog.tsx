@@ -26,10 +26,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Alert, AlertDescription } from '../../../../components/ui/alert';
 import { AlertCircle, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
-import { usePaymentStore } from '../../../payments/store';
-import { useAllPayments } from '../../../payments/hooks/use-all-payments';
-import { useAllReceipts } from '../../../receipts/hooks/use-all-receipts';
-import { addHistory } from '../../store/product-management';
+import { usePaymentMutations } from '../../../payments/hooks/use-payments';
+import { useWarrantyPayments, useWarrantyReceipts } from '../../hooks/use-warranty-financial-data';
+// addHistory was a Zustand store mutator (now deleted) - history is tracked in DB via mutations
+const addHistory = (..._args: unknown[]) => { /* no-op: store removed, history tracked in DB */ };
 import { useAllOrders } from '../../../orders/hooks/use-all-orders';
 import { useOrderMutations } from '../../../orders/hooks/use-order-mutations';
 import { useWarrantyMutations } from '../../hooks/use-warranties';
@@ -94,10 +94,13 @@ export function WarrantyPaymentVoucherDialog({
   const [open, setOpen] = React.useState(false);
   const router = useRouter();
   
-  const { add: addPayment } = usePaymentStore();
-  const { data: payments } = useAllPayments();
-  const { data: receipts } = useAllReceipts();
-  const { data: orders } = useAllOrders();
+  const { create: createPayment } = usePaymentMutations({});
+  // ⚡ PERFORMANCE: Only fetch data for this specific warranty
+  const { data: payments } = useWarrantyPayments(warrantySystemId);
+  const { data: receipts } = useWarrantyReceipts(warrantySystemId);
+  // Fetch all orders (auto-paginated) — filter client-side for unshipped
+  const { data: allOrdersRaw } = useAllOrders({ enabled: open });
+  const orders = React.useMemo(() => allOrdersRaw.filter(o => o.stockOutStatus === 'Chưa xuất kho'), [allOrdersRaw]);
   const { update: updateOrder } = useOrderMutations();
   const { update: _updateWarranty } = useWarrantyMutations();
   const { findById: findWarrantyById } = useWarrantyFinder();
@@ -149,7 +152,7 @@ export function WarrantyPaymentVoucherDialog({
     if (!ticket) return 0;
     
     // Tính totalPayment từ ticket (giống WarrantyProcessingCard)
-    const totalPaymentFromTicket = ticket.products.reduce((sum, p) => {
+    const totalPaymentFromTicket = (ticket.products || []).reduce((sum, p) => {
       if (p.resolution === 'out_of_stock') {
         return sum + ((p.quantity || 0) * (p.unitPrice || 0));
       }
@@ -235,18 +238,21 @@ export function WarrantyPaymentVoucherDialog({
   }, [open, linkedOrderId, warrantyId, reset, defaultPaymentMethod, defaultCashAccount, actualRemainingAmount]);
 
   // Server-side search for orders with debounce - ONLY SHOW ORDERS NOT SHIPPED YET
+  // ✅ FIX: Only search when dialog is open to avoid infinite API calls
   React.useEffect(() => {
+    // Don't search if dialog is not open
+    if (!open) return;
+    
     const performSearch = async () => {
       setIsSearchingOrders(true);
       try {
-        const results = await searchOrders(
-          { query: orderSearchQuery, limit: 50 },
-          orders
-        );
+        // ⚡ OPTIMIZED: Use API-based search first
+        const results = await searchOrders({ query: orderSearchQuery, limit: 50 });
         
         // Filter: Only show orders that:
         // 1. NOT been shipped yet (stockOutStatus === 'Chưa xuất kho')
         // 2. Still have remaining amount to deduct (grandTotal - paidAmount > 0)
+        // NOTE: We need the orders array for this filtering since API doesn't support these filters yet
         const unshippedResults = results.filter(result => {
           const order = orders.find(o => o.systemId === result.value);
           if (!order) return false;
@@ -286,7 +292,7 @@ export function WarrantyPaymentVoucherDialog({
     };
 
     performSearch();
-  }, [orderSearchQuery, orders]);
+  }, [open, orderSearchQuery, orders]);
 
   // Memoize selected order value for VirtualizedCombobox
   const selectedOrderValue = React.useMemo(() => {
@@ -485,7 +491,7 @@ export function WarrantyPaymentVoucherDialog({
       createdAt: isoNow,
     };
 
-    const orderPayment = addPayment(orderDeductionPayment);
+    const orderPayment = await createPayment.mutateAsync(orderDeductionPayment);
 
     const existingOrderPayments = order.payments || [];
     const orderPaymentEntry = {
@@ -540,7 +546,7 @@ export function WarrantyPaymentVoucherDialog({
       createdAt: isoNow,
     };
 
-    const cashPaymentResult = addPayment(cashPayment);
+    const cashPaymentResult = await createPayment.mutateAsync(cashPayment);
 
     addHistory(
       asSystemId(warrantySystemId),
@@ -717,7 +723,7 @@ export function WarrantyPaymentVoucherDialog({
         createdAt: toISODateTime(now) || now.toISOString(),
       };
 
-      const newPayment = addPayment(payment);
+      const newPayment = await createPayment.mutateAsync(payment);
 
       // ============================================================
       // UPDATE ORDER if this is order_deduction

@@ -3,10 +3,30 @@
  */
 import React from 'react';
 import { toast } from 'sonner';
+import { useQueryClient } from '@tanstack/react-query';
 import type { Product } from '../types';
-import { updateProduct, updateMemberPrice, uploadImageFromUrl, processHtmlImagesForPkgx } from '@/lib/pkgx/api-service';
+import { updateProduct, updateMemberPrice, uploadImageSmart, processHtmlImagesForPkgx, createProduct as createPkgxProduct } from '@/lib/pkgx/api-service';
 import { usePkgxSettings } from '@/features/settings/pkgx/hooks/use-pkgx-settings';
 import { useImageStore } from '../image-store';
+import { fetchProduct, updateProduct as updateHrmProduct } from '../api/products-api';
+import { productKeys } from './use-products';
+import { useBrandFinder } from '@/features/brands/hooks/use-all-brands';
+import { useAllPricingPolicies } from '@/features/settings/pricing/hooks/use-all-pricing-policies';
+
+/**
+ * Fetch fresh product data with prices if prices are empty
+ * This is needed because product list API returns empty prices for performance
+ */
+async function ensureProductWithPrices(product: Product): Promise<Product> {
+  // ALWAYS fetch full product data from API to ensure we have all fields
+  // This is important because list page may not have all data (images, seoPkgx, etc.)
+  try {
+    const freshProduct = await fetchProduct(product.systemId);
+    return freshProduct;
+  } catch {
+    return product;
+  }
+}
 
 // Types
 type PkgxLogEntry = {
@@ -38,14 +58,40 @@ type PkgxLogEntry = {
 };
 
 type UsePkgxSyncOptions = {
-  addPkgxLog: (entry: PkgxLogEntry) => void;
+  addPkgxLog?: (entry: PkgxLogEntry) => void;
+};
+
+// Type for imported data from PKGX
+export type PkgxImportedData = {
+  name: string;
+  id: string;
+  description?: string;
+  ktitle?: string;
+  seoDescription?: string;
+  seoKeywords?: string;
+  shortDescription?: string;
+  prices: Record<string, number>;
+  websiteSeo: {
+    pkgx: {
+      seoTitle?: string;
+      metaDescription?: string;
+      seoKeywords?: string;
+      shortDescription?: string;
+      longDescription?: string;
+    };
+  };
 };
 
 /**
  * Hook cung cấp các handlers để đồng bộ sản phẩm với PKGX
  */
-export function usePkgxSync({ addPkgxLog }: UsePkgxSyncOptions) {
-  const { data: pkgxSettings } = usePkgxSettings();
+export function usePkgxSync(options?: UsePkgxSyncOptions) {
+  const addPkgxLog = React.useMemo(() => options?.addPkgxLog ?? (() => {}), [options?.addPkgxLog]);
+  const { data: pkgxSettings, isLoading: isPkgxSettingsLoading } = usePkgxSettings();
+  const queryClient = useQueryClient();
+  const { findById: findBrandById } = useBrandFinder();
+  const { data: pricingPolicies } = useAllPricingPolicies();
+  const defaultSellingPolicy = React.useMemo(() => pricingPolicies.find(p => p.type === 'Bán hàng' && p.isDefault), [pricingPolicies]);
 
   // ═══════════════════════════════════════════════════════════════
   // HELPER: Get price by mapping
@@ -74,7 +120,7 @@ export function usePkgxSync({ addPkgxLog }: UsePkgxSyncOptions) {
   // HELPER: Check if has price mapping
   // ═══════════════════════════════════════════════════════════════
   const hasPriceMapping = React.useMemo(() => {
-    const priceMapping = (pkgxSettings as any)?.priceMapping;
+    const priceMapping = pkgxSettings?.priceMapping;
     return priceMapping && (
       priceMapping.shopPrice || 
       priceMapping.marketPrice || 
@@ -105,8 +151,8 @@ export function usePkgxSync({ addPkgxLog }: UsePkgxSyncOptions) {
   // ═══════════════════════════════════════════════════════════════
   // 1. SYNC GIÁ (bao gồm cả giá thành viên ace)
   // ═══════════════════════════════════════════════════════════════
-  const handlePkgxUpdatePrice = React.useCallback(async (product: Product) => {
-    if (!product.pkgxId) {
+  const handlePkgxUpdatePrice = React.useCallback(async (productInput: Product) => {
+    if (!productInput.pkgxId) {
       toast.error('Sản phẩm chưa được liên kết với PKGX');
       return;
     }
@@ -116,9 +162,15 @@ export function usePkgxSync({ addPkgxLog }: UsePkgxSyncOptions) {
       return;
     }
     
+    // pkgxId is guaranteed to be a number after the check above
+    const pkgxId = productInput.pkgxId;
+    
     toast.loading(`Đang đồng bộ giá...`, { id: 'pkgx-sync-price' });
     
     try {
+      // Ensure we have fresh product data with prices
+      const product = await ensureProductWithPrices(productInput);
+      
       const payload: Record<string, number> = {};
       
       const shopPrice = getPriceByMapping(product, 'shopPrice');
@@ -142,7 +194,7 @@ export function usePkgxSync({ addPkgxLog }: UsePkgxSyncOptions) {
       }
       
       // 1. Sync giá vào bảng goods
-      const response = await updateProduct(product.pkgxId, payload);
+      const response = await updateProduct(pkgxId, payload, pkgxSettings);
       
       if (!response.success) {
         throw new Error(response.error);
@@ -151,9 +203,9 @@ export function usePkgxSync({ addPkgxLog }: UsePkgxSyncOptions) {
       // 2. Sync giá ace vào member_price table (ace = rank_id 8)
       let memberPriceSynced = false;
       if (acePrice !== undefined && acePrice > 0) {
-        const memberPriceResponse = await updateMemberPrice(product.pkgxId, [
+        const memberPriceResponse = await updateMemberPrice(pkgxId, [
           { user_rank: 8, user_price: acePrice }
-        ]);
+        ], pkgxSettings);
         memberPriceSynced = memberPriceResponse.success;
       }
       
@@ -179,11 +231,11 @@ export function usePkgxSync({ addPkgxLog }: UsePkgxSyncOptions) {
       addPkgxLog({
         action: 'sync_price',
         status: 'error',
-        message: `Lỗi đồng bộ giá: ${product.name}`,
-        details: { productId: product.systemId, error: error instanceof Error ? error.message : String(error) },
+        message: `Lỗi đồng bộ giá: ${productInput.name}`,
+        details: { productId: productInput.systemId, error: error instanceof Error ? error.message : String(error) },
       });
     }
-  }, [hasPriceMapping, getPriceByMapping, addPkgxLog]);
+  }, [hasPriceMapping, getPriceByMapping, addPkgxLog, pkgxSettings]);
 
   // ═══════════════════════════════════════════════════════════════
   // 2. SYNC TỒN KHO
@@ -197,13 +249,25 @@ export function usePkgxSync({ addPkgxLog }: UsePkgxSyncOptions) {
     toast.loading(`Đang đồng bộ tồn kho...`, { id: 'pkgx-sync-inventory' });
     
     try {
-      const totalInventory = product.inventoryByBranch
-        ? Object.values(product.inventoryByBranch).reduce((sum, qty) => sum + (qty || 0), 0)
-        : 0;
+      // Get inventory based on defaultBranchId setting
+      // - If no defaultBranchId or "all": sum all branches
+      // - If specific branchId: use only that branch's inventory
+      const defaultBranchId = pkgxSettings?.defaultBranchId;
+      let totalInventory = 0;
+      
+      if (product.inventoryByBranch) {
+        if (!defaultBranchId || defaultBranchId === 'all') {
+          // Sum all branches
+          totalInventory = Object.values(product.inventoryByBranch).reduce((sum, qty) => sum + (qty || 0), 0);
+        } else {
+          // Use specific branch inventory
+          totalInventory = product.inventoryByBranch[defaultBranchId] || 0;
+        }
+      }
       
       const response = await updateProduct(product.pkgxId, {
         goods_number: totalInventory,
-      });
+      }, pkgxSettings);
       
       if (response.success) {
         toast.success(`Đã đồng bộ tồn kho: ${totalInventory} sản phẩm`, { id: 'pkgx-sync-inventory' });
@@ -211,7 +275,7 @@ export function usePkgxSync({ addPkgxLog }: UsePkgxSyncOptions) {
           action: 'sync_inventory',
           status: 'success',
           message: `Đã đồng bộ tồn kho: ${product.name} (${totalInventory})`,
-          details: { productId: product.systemId, pkgxId: product.pkgxId, inventory: totalInventory },
+          details: { productId: product.systemId, pkgxId: product.pkgxId, inventory: totalInventory, branchId: defaultBranchId || 'all' },
         });
       } else {
         throw new Error(response.error);
@@ -225,20 +289,26 @@ export function usePkgxSync({ addPkgxLog }: UsePkgxSyncOptions) {
         details: { productId: product.systemId, error: error instanceof Error ? error.message : String(error) },
       });
     }
-  }, [addPkgxLog]);
+  }, [addPkgxLog, pkgxSettings]);
 
   // ═══════════════════════════════════════════════════════════════
   // 3. SYNC SEO
   // ═══════════════════════════════════════════════════════════════
-  const handlePkgxUpdateSeo = React.useCallback(async (product: Product) => {
-    if (!product.pkgxId) {
+  const handlePkgxUpdateSeo = React.useCallback(async (productInput: Product) => {
+    if (!productInput.pkgxId) {
       toast.error('Sản phẩm chưa được liên kết với PKGX');
       return;
     }
     
+    // pkgxId is guaranteed to be a number after the check above
+    const pkgxId = productInput.pkgxId;
+    
     toast.loading(`Đang đồng bộ SEO...`, { id: 'pkgx-sync-seo' });
     
     try {
+      // Ensure we have fresh product data
+      const product = await ensureProductWithPrices(productInput);
+      
       const pkgxSeo = product.seoPkgx;
       // Fallback chain: SEO PKGX → SEO Chung → tags → name
       const seoPayload = {
@@ -249,7 +319,7 @@ export function usePkgxSync({ addPkgxLog }: UsePkgxSyncOptions) {
       
       // DEBUG: Log payload để kiểm tra
       
-      const response = await updateProduct(product.pkgxId, seoPayload);
+      const response = await updateProduct(pkgxId, seoPayload, pkgxSettings);
       
       if (response.success) {
         toast.success(`Đã đồng bộ SEO cho sản phẩm: ${product.name}`, { id: 'pkgx-sync-seo' });
@@ -257,7 +327,7 @@ export function usePkgxSync({ addPkgxLog }: UsePkgxSyncOptions) {
           action: 'sync_seo',
           status: 'success',
           message: `Đã đồng bộ SEO: ${product.name}`,
-          details: { productId: product.systemId, pkgxId: product.pkgxId },
+          details: { productId: product.systemId, pkgxId },
         });
       } else {
         throw new Error(response.error);
@@ -267,24 +337,30 @@ export function usePkgxSync({ addPkgxLog }: UsePkgxSyncOptions) {
       addPkgxLog({
         action: 'sync_seo',
         status: 'error',
-        message: `Lỗi đồng bộ SEO: ${product.name}`,
-        details: { productId: product.systemId, error: error instanceof Error ? error.message : String(error) },
+        message: `Lỗi đồng bộ SEO: ${productInput.name}`,
+        details: { productId: productInput.systemId, error: error instanceof Error ? error.message : String(error) },
       });
     }
-  }, [addPkgxLog]);
+  }, [addPkgxLog, pkgxSettings]);
 
   // ═══════════════════════════════════════════════════════════════
   // 4. SYNC MÔ TẢ (với xử lý ảnh trong HTML)
   // ═══════════════════════════════════════════════════════════════
-  const handlePkgxSyncDescription = React.useCallback(async (product: Product) => {
-    if (!product.pkgxId) {
+  const handlePkgxSyncDescription = React.useCallback(async (productInput: Product) => {
+    if (!productInput.pkgxId) {
       toast.error('Sản phẩm chưa được liên kết với PKGX');
       return;
     }
     
+    // pkgxId is guaranteed to be a number after the check above
+    const pkgxId = productInput.pkgxId;
+    
     toast.loading(`Đang đồng bộ mô tả...`, { id: 'pkgx-sync-desc' });
     
     try {
+      // Ensure we have fresh product data with descriptions
+      const product = await ensureProductWithPrices(productInput);
+      
       const pkgxSeo = product.seoPkgx;
       
       // Get raw descriptions
@@ -298,7 +374,7 @@ export function usePkgxSync({ addPkgxLog }: UsePkgxSyncOptions) {
       if (rawLongDesc.includes('<img')) {
         toast.loading(`Đang xử lý ảnh trong mô tả...`, { id: 'pkgx-sync-desc' });
         
-        const filenamePrefix = product.sku || product.id || `product-${product.pkgxId}`;
+        const filenamePrefix = product.id || `product-${pkgxId}`;
         const result = await processHtmlImagesForPkgx(rawLongDesc, filenamePrefix);
         
         processedLongDesc = result.processedHtml;
@@ -310,10 +386,10 @@ export function usePkgxSync({ addPkgxLog }: UsePkgxSyncOptions) {
       }
       
       // Sync to PKGX
-      const response = await updateProduct(product.pkgxId, {
+      const response = await updateProduct(pkgxId, {
         goods_desc: processedLongDesc,
         goods_brief: rawShortDesc,
-      });
+      }, pkgxSettings);
       
       if (response.success) {
         const message = imageStats.uploadedCount > 0
@@ -341,11 +417,11 @@ export function usePkgxSync({ addPkgxLog }: UsePkgxSyncOptions) {
       addPkgxLog({
         action: 'sync_description',
         status: 'error',
-        message: `Lỗi đồng bộ mô tả: ${product.name}`,
-        details: { productId: product.systemId, error: error instanceof Error ? error.message : String(error) },
+        message: `Lỗi đồng bộ mô tả: ${productInput.name}`,
+        details: { productId: productInput.systemId, error: error instanceof Error ? error.message : String(error) },
       });
     }
-  }, [addPkgxLog]);
+  }, [addPkgxLog, pkgxSettings]);
 
   // ═══════════════════════════════════════════════════════════════
   // 5. SYNC FLAGS (best, hot, new, ishome, is_on_sale)
@@ -359,13 +435,15 @@ export function usePkgxSync({ addPkgxLog }: UsePkgxSyncOptions) {
     toast.loading(`Đang đồng bộ flags...`, { id: 'pkgx-sync-flags' });
     
     try {
+      const isActive = product.status?.toString().toUpperCase() === 'ACTIVE';
       const response = await updateProduct(product.pkgxId, {
-        best: product.isFeatured || false,
-        hot: product.isBestSeller || false,
-        new: product.isNewArrival || false,
-        ishome: product.isFeatured || false,
-        is_on_sale: product.isPublished ?? (product.status === 'active'),
-      });
+        // PKGX API expects: best, hot, new, ishome (not is_best, is_hot, is_new, is_home)
+        best: product.isFeatured ? 1 : 0,
+        hot: product.isBestSeller ? 1 : 0,
+        new: product.isNewArrival ? 1 : 0,
+        ishome: product.isFeatured ? 1 : 0,
+        is_on_sale: (product.isPublished ?? isActive) ? 1 : 0,
+      }, pkgxSettings);
       
       if (response.success) {
         toast.success(`Đã đồng bộ flags`, { id: 'pkgx-sync-flags' });
@@ -387,7 +465,7 @@ export function usePkgxSync({ addPkgxLog }: UsePkgxSyncOptions) {
         details: { productId: product.systemId, error: error instanceof Error ? error.message : String(error) },
       });
     }
-  }, [addPkgxLog]);
+  }, [addPkgxLog, pkgxSettings]);
 
   // ═══════════════════════════════════════════════════════════════
   // 6. SYNC THÔNG TIN CƠ BẢN (tên, SKU, category, brand, seller_note)
@@ -415,7 +493,7 @@ export function usePkgxSync({ addPkgxLog }: UsePkgxSyncOptions) {
       const brandId = getMappedBrandId(product);
       if (brandId) payload.brand_id = brandId;
 
-      const response = await updateProduct(product.pkgxId, payload);
+      const response = await updateProduct(product.pkgxId, payload, pkgxSettings);
       
       if (response.success) {
         toast.success(`Đã đồng bộ thông tin cơ bản`, { id: 'pkgx-sync-basic' });
@@ -437,7 +515,7 @@ export function usePkgxSync({ addPkgxLog }: UsePkgxSyncOptions) {
         details: { productId: product.systemId, error: error instanceof Error ? error.message : String(error) },
       });
     }
-  }, [getMappedCategoryId, getMappedBrandId, addPkgxLog]);
+  }, [getMappedCategoryId, getMappedBrandId, addPkgxLog, pkgxSettings]);
 
   // ═══════════════════════════════════════════════════════════════
   // 7. SYNC HÌNH ẢNH (ảnh đại diện + album gallery)
@@ -545,7 +623,7 @@ export function usePkgxSync({ addPkgxLog }: UsePkgxSyncOptions) {
       const uploadedGalleryPaths: string[] = [];
       let errorCount = 0;
 
-      // Helper function: Upload ảnh từ URL qua server PKGX (tránh CORS)
+      // Helper function: Upload ảnh từ URL (smart - hỗ trợ cả localhost và public URL)
       const uploadFromUrl = async (imageUrl: string, slugSuffix: string): Promise<string | null> => {
         try {
           // Kiểm tra nếu là đường dẫn local trên PKGX (đã upload trước đó)
@@ -555,10 +633,12 @@ export function usePkgxSync({ addPkgxLog }: UsePkgxSyncOptions) {
             return cleanPath;
           }
 
-          // Gọi API server-to-server để tránh CORS
-          const uploadResult = await uploadImageFromUrl(imageUrl, {
+          // Sử dụng uploadImageSmart - tự động chọn phương thức phù hợp
+          // - Localhost: upload file trực tiếp qua multipart/form-data
+          // - Public URL: PKGX server fetch từ URL
+          const uploadResult = await uploadImageSmart(imageUrl, {
             filenameSlug: `${baseSlug}-${slugSuffix}`,
-          });
+          }, pkgxSettings);
 
           if (!uploadResult.success || !uploadResult.data) {
             throw new Error(uploadResult.error || 'Upload thất bại');
@@ -612,7 +692,7 @@ export function usePkgxSync({ addPkgxLog }: UsePkgxSyncOptions) {
 
       // Sync đường dẫn vào sản phẩm
       toast.loading(`Đang cập nhật sản phẩm...`, { id: 'pkgx-sync-images' });
-      const response = await updateProduct(product.pkgxId, payload);
+      const response = await updateProduct(product.pkgxId, payload, pkgxSettings);
       
       if (response.success) {
         const syncedCount = (uploadedMainImg ? 1 : 0) + uploadedGalleryPaths.length;
@@ -646,20 +726,36 @@ export function usePkgxSync({ addPkgxLog }: UsePkgxSyncOptions) {
         details: { productId: product.systemId, error: error instanceof Error ? error.message : String(error) },
       });
     }
-  }, [addPkgxLog]);
+  }, [addPkgxLog, pkgxSettings]);
 
   // ═══════════════════════════════════════════════════════════════
   // 8. SYNC TẤT CẢ (Full sync, bao gồm xử lý ảnh trong mô tả)
   // ═══════════════════════════════════════════════════════════════
-  const handlePkgxSyncAll = React.useCallback(async (product: Product) => {
-    if (!product.pkgxId) {
+  const handlePkgxSyncAll = React.useCallback(async (productInput: Product) => {
+    if (isPkgxSettingsLoading) {
+      toast.error('Đang tải cấu hình PKGX, vui lòng thử lại sau giây lát.');
+      return;
+    }
+    
+    if (!pkgxSettings?.enabled) {
+      toast.error('Tích hợp PKGX chưa được bật. Vui lòng bật trong Cài đặt > PKGX > Cấu hình chung.');
+      return;
+    }
+    
+    if (!productInput.pkgxId) {
       toast.error('Sản phẩm chưa được liên kết với PKGX');
       return;
     }
     
+    // pkgxId is guaranteed to be a number after the check above
+    const pkgxId = productInput.pkgxId;
+    
     toast.loading(`Đang đồng bộ tất cả thông tin...`, { id: 'pkgx-sync-all' });
     
     try {
+      // Ensure we have fresh product data with prices and descriptions
+      const product = await ensureProductWithPrices(productInput);
+      
       const pkgxSeo = product.seoPkgx;
       
       // Get raw descriptions
@@ -673,11 +769,104 @@ export function usePkgxSync({ addPkgxLog }: UsePkgxSyncOptions) {
       if (rawLongDesc.includes('<img')) {
         toast.loading(`Đang xử lý ảnh trong mô tả...`, { id: 'pkgx-sync-all' });
         
-        const filenamePrefix = product.sku || product.id || `product-${product.pkgxId}`;
-        const result = await processHtmlImagesForPkgx(rawLongDesc, filenamePrefix);
+        const filenamePrefix = product.id || `product-${pkgxId}`;
+        const result = await processHtmlImagesForPkgx(rawLongDesc, filenamePrefix, pkgxSettings);
         
         processedLongDesc = result.processedHtml;
         imageStats = result;
+      }
+      
+      // Tạo slug từ tên sản phẩm cho filename ảnh
+      const baseSlug = (product.name || 'product')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/đ/g, 'd')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '')
+        .substring(0, 50);
+      
+      // Helper: Kiểm tra và upload ảnh nếu là URL external
+      const prepareImageForPkgx = async (imageUrl: string | undefined, suffix: string): Promise<string | undefined> => {
+        if (!imageUrl) return undefined;
+        
+        // Normalize backslash to forward slash trong URL
+        const normalizedUrl = imageUrl.replace(/\\/g, '/');
+        
+        // Nếu đã là path PKGX local (không phải URL), dùng trực tiếp
+        // VD: 'images/...' - path relative trong PKGX CDN
+        if (!normalizedUrl.startsWith('http://') && !normalizedUrl.startsWith('https://') && !normalizedUrl.startsWith('/')) {
+          // Có thể là path như 'images/...' - dùng trực tiếp
+          return normalizedUrl;
+        }
+        
+        // Nếu là URL từ PKGX CDN, extract path
+        if (normalizedUrl.includes('phukiengiaxuong.com.vn/cdn/')) {
+          return normalizedUrl.replace(/.*phukiengiaxuong\.com\.vn\/cdn\//, '');
+        }
+        
+        // Nếu là URL local (bắt đầu bằng /api/files/...), convert sang absolute URL
+        if (normalizedUrl.startsWith('/')) {
+          // URL local - cần upload lên PKGX
+          const absoluteUrl = typeof window !== 'undefined' 
+            ? `${window.location.origin}${normalizedUrl}`
+            : `http://localhost:3000${normalizedUrl}`;
+          
+          toast.loading(`Đang upload ảnh ${suffix}...`, { id: 'pkgx-sync-all' });
+          
+          const uploadResult = await uploadImageSmart(absoluteUrl, {
+            filenameSlug: `${baseSlug}-${suffix}`,
+            goodsId: pkgxId,
+          }, pkgxSettings);
+          
+          if (uploadResult.success && uploadResult.data?.data?.original_img) {
+            return uploadResult.data.data.original_img;
+          }
+          
+          console.error(`Lỗi upload ảnh ${suffix}:`, uploadResult.error);
+          return undefined;
+        }
+        
+        // Là URL external (localhost hoặc khác) - cần upload lên PKGX
+        toast.loading(`Đang upload ảnh ${suffix}...`, { id: 'pkgx-sync-all' });
+        
+        const uploadResult = await uploadImageSmart(normalizedUrl, {
+          filenameSlug: `${baseSlug}-${suffix}`,
+          goodsId: pkgxId,
+        }, pkgxSettings);
+        
+        if (uploadResult.success && uploadResult.data?.data?.original_img) {
+          return uploadResult.data.data.original_img;
+        }
+        
+        console.error(`Lỗi upload ảnh ${suffix}:`, uploadResult.error);
+        return undefined;
+      };
+      
+      // Upload ảnh đại diện nếu cần - normalize URL trước
+      const thumbnailUrl = product.thumbnailImage?.replace(/\\/g, '/');
+      const uploadedMainImg = await prepareImageForPkgx(thumbnailUrl, 'main');
+      
+      // Upload gallery images nếu cần - normalize URL trước
+      const galleryImages = (product.galleryImages || product.images || []).map(url => url?.replace(/\\/g, '/'));
+      const uploadedGalleryPaths: string[] = [];
+      
+      for (let i = 0; i < galleryImages.length; i++) {
+        const galleryPath = await prepareImageForPkgx(galleryImages[i], `gallery-${i + 1}`);
+        if (galleryPath) {
+          uploadedGalleryPaths.push(galleryPath);
+        }
+      }
+      
+      // Get inventory based on defaultBranchId setting
+      const defaultBranchId = pkgxSettings?.defaultBranchId;
+      let inventoryForPkgx = 0;
+      if (product.inventoryByBranch) {
+        if (!defaultBranchId || defaultBranchId === 'all') {
+          inventoryForPkgx = Object.values(product.inventoryByBranch).reduce((sum, qty) => sum + (qty || 0), 0);
+        } else {
+          inventoryForPkgx = product.inventoryByBranch[defaultBranchId] || 0;
+        }
       }
       
       // Build full payload
@@ -686,10 +875,8 @@ export function usePkgxSync({ addPkgxLog }: UsePkgxSyncOptions) {
         goods_name: product.name,
         goods_sn: product.id,
         
-        // Tồn kho
-        goods_number: product.inventoryByBranch
-          ? Object.values(product.inventoryByBranch).reduce((sum, qty) => sum + (qty || 0), 0)
-          : 0,
+        // Tồn kho (từ kho mặc định hoặc tổng)
+        goods_number: inventoryForPkgx,
         
         // SEO
         keywords: pkgxSeo?.seoKeywords || product.tags?.join(', ') || product.name,
@@ -700,21 +887,23 @@ export function usePkgxSync({ addPkgxLog }: UsePkgxSyncOptions) {
         goods_desc: processedLongDesc,
         goods_brief: rawShortDesc,
         
-        // Flags
-        best: product.isFeatured || false,
-        hot: product.isBestSeller || false,
-        new: product.isNewArrival || false,
-        ishome: product.isFeatured || false,
-        is_on_sale: product.isPublished ?? (product.status === 'active'),
+        // Flags - PKGX API expects: best, hot, new, ishome (not is_best, is_hot, is_new, is_home)
+        best: product.isFeatured ? 1 : 0,
+        new: product.isNewArrival ? 1 : 0,
+        hot: product.isBestSeller ? 1 : 0,
+        ishome: product.isFeatured ? 1 : 0,
+        is_on_sale: (product.isPublished ?? (product.status?.toString().toUpperCase() === 'ACTIVE')) ? 1 : 0,
         
-        // Image - ảnh đại diện
-        ...(product.thumbnailImage && { original_img: product.thumbnailImage }),
+        // Seller note (ghi chú nội bộ)
+        seller_note: product.sellerNote || '',
+        
+        // Image - ảnh đại diện (đã upload)
+        ...(uploadedMainImg && { original_img: uploadedMainImg }),
       };
 
-      // Gallery images (album ảnh) - update toàn bộ
-      const galleryImages = product.galleryImages || product.images || [];
-      if (galleryImages.length > 0) {
-        payload.gallery_images = galleryImages;
+      // Gallery images (album ảnh) - đã upload
+      if (uploadedGalleryPaths.length > 0) {
+        payload.gallery_images = uploadedGalleryPaths;
       }
 
       // Map category
@@ -741,12 +930,28 @@ export function usePkgxSync({ addPkgxLog }: UsePkgxSyncOptions) {
       const dealPrice = getPriceByMapping(product, 'dealPrice');
       if (dealPrice !== undefined) payload.deal_price = dealPrice;
 
-      const response = await updateProduct(product.pkgxId, payload);
+      const response = await updateProduct(pkgxId, payload, pkgxSettings);
+      
+      // Sync giá ace vào member_price table (ace = rank_id 8)
+      let memberPriceSynced = false;
+      if (acePrice !== undefined && acePrice > 0) {
+        const memberPriceResponse = await updateMemberPrice(pkgxId, [
+          { user_rank: 8, user_price: acePrice }
+        ], pkgxSettings);
+        memberPriceSynced = memberPriceResponse.success;
+        if (!memberPriceResponse.success) {
+          console.warn('[handlePkgxSyncAll] Failed to sync ace member price:', memberPriceResponse.error);
+        }
+      }
       
       if (response.success) {
-        const message = imageStats.uploadedCount > 0
+        let message = imageStats.uploadedCount > 0
           ? `Đã đồng bộ tất cả (${imageStats.uploadedCount} ảnh trong mô tả đã upload)`
           : `Đã đồng bộ tất cả thông tin`;
+        
+        if (memberPriceSynced) {
+          message += ' + giá ACE thành viên';
+        }
           
         toast.success(message, { id: 'pkgx-sync-all' });
         addPkgxLog({
@@ -755,7 +960,7 @@ export function usePkgxSync({ addPkgxLog }: UsePkgxSyncOptions) {
           message: `${message}: ${product.name}`,
           details: { 
             productId: product.systemId, 
-            pkgxId: product.pkgxId,
+            pkgxId,
             imagesUploaded: imageStats.uploadedCount,
             imagesSkipped: imageStats.skippedCount,
             imageErrors: imageStats.errors,
@@ -769,13 +974,490 @@ export function usePkgxSync({ addPkgxLog }: UsePkgxSyncOptions) {
       addPkgxLog({
         action: 'sync_all',
         status: 'error',
-        message: `Lỗi đồng bộ tất cả: ${product.name}`,
+        message: `Lỗi đồng bộ tất cả: ${productInput.name}`,
+        details: { productId: productInput.systemId, error: error instanceof Error ? error.message : String(error) },
+      });
+    }
+  }, [getMappedCategoryId, getMappedBrandId, getPriceByMapping, addPkgxLog, pkgxSettings, isPkgxSettingsLoading]);
+
+  // ═══════════════════════════════════════════════════════════════
+  // 9. IMPORT DATA TỪ PKGX VỀ HRM (kéo title, meta, name, description, giá)
+  // ═══════════════════════════════════════════════════════════════
+  const handleImportFromPkgx = React.useCallback(async (product: Product, onImportSuccess?: (data: PkgxImportedData) => void) => {
+    if (!product.pkgxId) {
+      toast.error('Sản phẩm chưa được liên kết với PKGX');
+      return;
+    }
+    
+    toast.loading(`Đang import dữ liệu từ PKGX...`, { id: 'pkgx-product-import' });
+    
+    try {
+      const { getProductById } = await import('@/lib/pkgx/api-service');
+      const response = await getProductById(product.pkgxId, pkgxSettings);
+      
+      if (response.success && response.data) {
+        const pkgxData = response.data;
+        
+        // Chuẩn bị data để fill form
+        const importedData = {
+          // Thông tin cơ bản
+          name: pkgxData.goods_name || product.name,
+          id: pkgxData.goods_sn || product.id,
+          description: pkgxData.goods_brief || product.description,
+          
+          // SEO fields (use seoPkgx nested data structure)
+          ktitle: pkgxData.meta_title || product.ktitle,
+          seoDescription: pkgxData.meta_desc || product.seoDescription,
+          seoKeywords: pkgxData.keywords || product.seoKeywords,
+          shortDescription: pkgxData.goods_brief || product.shortDescription,
+          
+          // Giá (nếu có price mapping)
+          prices: {} as Record<string, number>,
+          
+          // Website SEO (lưu vào pkgx nested object)
+          websiteSeo: {
+            pkgx: {
+              seoTitle: pkgxData.meta_title,
+              metaDescription: pkgxData.meta_desc,
+              seoKeywords: pkgxData.keywords,
+              shortDescription: pkgxData.goods_brief,
+              longDescription: pkgxData.goods_desc,
+            }
+          }
+        };
+        
+        // Map prices từ PKGX về HRM pricing policies
+        const priceMapping = pkgxSettings?.priceMapping;
+        if (priceMapping) {
+          if (priceMapping.shopPrice && pkgxData.shop_price) {
+            importedData.prices[priceMapping.shopPrice] = pkgxData.shop_price;
+          }
+          if (priceMapping.marketPrice && pkgxData.market_price) {
+            importedData.prices[priceMapping.marketPrice] = pkgxData.market_price;
+          }
+          if (priceMapping.partnerPrice && pkgxData.partner_price) {
+            importedData.prices[priceMapping.partnerPrice] = pkgxData.partner_price;
+          }
+          if (priceMapping.acePrice && pkgxData.ace_price) {
+            importedData.prices[priceMapping.acePrice] = pkgxData.ace_price;
+          }
+          if (priceMapping.dealPrice && pkgxData.deal_price) {
+            importedData.prices[priceMapping.dealPrice] = pkgxData.deal_price;
+          }
+        }
+        
+        toast.success(`Đã import dữ liệu từ PKGX: ${pkgxData.goods_name}`, { id: 'pkgx-product-import' });
+        
+        // Callback để parent component update form
+        if (onImportSuccess) {
+          onImportSuccess(importedData);
+        }
+        
+        addPkgxLog({
+          action: 'sync_all',
+          status: 'success',
+          message: `Import thành công từ PKGX: ${pkgxData.goods_name}`,
+          details: { productId: product.systemId, pkgxId: product.pkgxId, importedData },
+        });
+      } else {
+        throw new Error(response.error || 'Không tìm thấy dữ liệu');
+      }
+    } catch (error) {
+      toast.error(`Lỗi import từ PKGX: ${error instanceof Error ? error.message : 'Unknown error'}`, { id: 'pkgx-product-import' });
+      addPkgxLog({
+        action: 'sync_all',
+        status: 'error',
+        message: `Lỗi import từ PKGX: ${product.name}`,
         details: { productId: product.systemId, error: error instanceof Error ? error.message : String(error) },
       });
     }
-  }, [getMappedCategoryId, getMappedBrandId, getPriceByMapping, addPkgxLog]);
+  }, [pkgxSettings, addPkgxLog]);
+
+  // ═══════════════════════════════════════════════════════════════
+  // HANDLER: Publish new product to PKGX
+  // ═══════════════════════════════════════════════════════════════
+  const handlePkgxPublish = React.useCallback(async (product: Product) => {
+    if (isPkgxSettingsLoading) {
+      toast.error('Đang tải cấu hình PKGX, vui lòng thử lại sau giây lát.');
+      return;
+    }
+    
+    if (!pkgxSettings?.enabled) {
+      toast.error('Tích hợp PKGX chưa được bật. Vui lòng bật trong Cài đặt > PKGX > Cấu hình chung.');
+      return;
+    }
+    
+    if (product.pkgxId) {
+      toast.error('Sản phẩm đã được liên kết PKGX');
+      return;
+    }
+    
+    toast.loading(`Đang đăng sản phẩm lên PKGX...`, { id: 'pkgx-publish' });
+
+    try {
+      // Ensure we have full product data with prices
+      const fullProduct = await ensureProductWithPrices(product);
+    
+    // Build payload
+    const catMap = pkgxSettings.categoryMappings?.find(m => m.hrmCategorySystemId === fullProduct.categorySystemId);
+    const brand = fullProduct.brandSystemId ? findBrandById(fullProduct.brandSystemId) : undefined;
+    const brandMap = brand ? pkgxSettings.brandMappings?.find(m => m.hrmBrandSystemId === brand.systemId) : undefined;
+    const priceMapping = pkgxSettings.priceMapping ?? {};
+    
+    // Check if category mapping exists - PKGX requires cat_id
+    if (!catMap?.pkgxCatId) {
+      const categoryName = fullProduct.categorySystemId 
+        ? `Danh mục "${fullProduct.categorySystemId}" chưa được mapping với PKGX.`
+        : 'Sản phẩm chưa có danh mục.';
+      toast.error(`Không thể đăng: ${categoryName} Vui lòng vào Cài đặt > PKGX > Mapping Danh mục để thiết lập.`, { id: 'pkgx-publish' });
+      return;
+    }
+    
+    // Get prices from mapping
+    let shopPrice = fullProduct.costPrice || 0;
+    if (priceMapping.shopPrice && fullProduct.prices[priceMapping.shopPrice]) {
+      shopPrice = fullProduct.prices[priceMapping.shopPrice];
+    } else if (defaultSellingPolicy) {
+      shopPrice = fullProduct.prices[defaultSellingPolicy.systemId] || shopPrice;
+    }
+    
+    let marketPrice = shopPrice * 1.2;
+    if (priceMapping.marketPrice && fullProduct.prices[priceMapping.marketPrice]) {
+      marketPrice = fullProduct.prices[priceMapping.marketPrice];
+    }
+    
+    // Get additional prices from mapping
+    let partnerPrice: number | undefined;
+    if (priceMapping.partnerPrice && fullProduct.prices[priceMapping.partnerPrice]) {
+      partnerPrice = fullProduct.prices[priceMapping.partnerPrice];
+    }
+    
+    let acePrice: number | undefined;
+    if (priceMapping.acePrice && fullProduct.prices[priceMapping.acePrice]) {
+      acePrice = fullProduct.prices[priceMapping.acePrice];
+    }
+    
+    let dealPrice: number | undefined;
+    if (priceMapping.dealPrice && fullProduct.prices[priceMapping.dealPrice]) {
+      dealPrice = fullProduct.prices[priceMapping.dealPrice];
+    }
+    
+    // Get inventory based on defaultBranchId setting
+    const defaultBranchId = pkgxSettings?.defaultBranchId;
+    let totalInventory = 0;
+    if (fullProduct.inventoryByBranch) {
+      if (!defaultBranchId || defaultBranchId === 'all') {
+        totalInventory = Object.values(fullProduct.inventoryByBranch).reduce((s, q) => s + (q || 0), 0);
+      } else {
+        totalInventory = fullProduct.inventoryByBranch[defaultBranchId] || 0;
+      }
+    }
+    const seo = fullProduct.seoPkgx;
+    const isActive = fullProduct.status?.toString().toUpperCase() === 'ACTIVE';
+    
+    // ===== STEP: Fetch images from FileUploadAPI (like handlePkgxSyncImages) =====
+    toast.loading(`Đang lấy thông tin hình ảnh...`, { id: 'pkgx-publish' });
+    
+    const thumbnailUrls: string[] = [];
+    const galleryUrls: string[] = [];
+    
+    try {
+      const { FileUploadAPI } = await import('@/lib/file-upload-api');
+      const files = await FileUploadAPI.getProductFiles(fullProduct.systemId);
+      
+      for (const file of files) {
+        if (file.documentName === 'thumbnail' && file.url) {
+          thumbnailUrls.push(file.url);
+        } else if (file.documentName === 'gallery' && file.url) {
+          galleryUrls.push(file.url);
+        }
+      }
+    } catch (fetchError) {
+      console.warn('🖼️ [handlePkgxPublish] Could not fetch files from API:', fetchError);
+    }
+    
+    // Fallback to product object if API has no images
+    if (thumbnailUrls.length === 0 && fullProduct.thumbnailImage) {
+      thumbnailUrls.push(fullProduct.thumbnailImage);
+    }
+    if (galleryUrls.length === 0 && fullProduct.galleryImages?.length) {
+      galleryUrls.push(...fullProduct.galleryImages);
+    }
+    if (thumbnailUrls.length === 0 && galleryUrls.length === 0 && fullProduct.images?.length) {
+      thumbnailUrls.push(fullProduct.images[0]);
+      if (fullProduct.images.length > 1) {
+        galleryUrls.push(...fullProduct.images.slice(1));
+      }
+    }
+    
+    // Also check image-store
+    const imageStoreState = useImageStore.getState();
+    const permanentThumbnails = imageStoreState.getPermanentImages(fullProduct.systemId, 'thumbnail');
+    const permanentGallery = imageStoreState.getPermanentImages(fullProduct.systemId, 'gallery');
+    
+    if (permanentThumbnails.length > 0 && thumbnailUrls.length === 0) {
+      thumbnailUrls.push(...permanentThumbnails.map(f => f.url).filter(Boolean));
+    }
+    if (permanentGallery.length > 0 && galleryUrls.length === 0) {
+      galleryUrls.push(...permanentGallery.map(f => f.url).filter(Boolean));
+    }
+    
+    const mainImage = thumbnailUrls[0] || null;
+    const galleryImages = galleryUrls;
+    
+    // Upload images to PKGX server
+    toast.loading(`Đang upload hình ảnh...`, { id: 'pkgx-publish' });
+    
+    const prepareImageForPkgx = async (imageUrl: string | undefined, suffix: string): Promise<string | undefined> => {
+      if (!imageUrl) {
+        return undefined;
+      }
+      
+      // If already on PKGX server, use as-is
+      if (imageUrl.includes('pkgx.vn') || imageUrl.includes('trendtech')) {
+        return imageUrl;
+      }
+      
+      // Upload to PKGX using smart upload
+      const uploadResult = await uploadImageSmart(
+        imageUrl,
+        { filenameSlug: `${fullProduct.id}-${suffix}` },
+        pkgxSettings
+      );
+      
+      if (uploadResult.success && uploadResult.data?.data?.original_img) {
+        return uploadResult.data.data.original_img;
+      }
+      
+      return undefined;
+    };
+    
+    // Upload thumbnail image (using mainImage from FileUploadAPI)
+    const uploadedMainImg = await prepareImageForPkgx(mainImage?.replace(/\\/g, '/'), 'main');
+    
+    // Upload gallery images (using galleryImages from FileUploadAPI)
+    const uploadedGalleryPaths: string[] = [];
+    
+    for (let i = 0; i < galleryImages.length; i++) {
+      const galleryPath = await prepareImageForPkgx(galleryImages[i]?.replace(/\\/g, '/'), `gallery-${i + 1}`);
+      if (galleryPath) {
+        uploadedGalleryPaths.push(galleryPath);
+      }
+    }
+    
+    // Process images in description HTML
+    toast.loading(`Đang xử lý mô tả...`, { id: 'pkgx-publish' });
+    const rawLongDesc = seo?.longDescription || fullProduct.description || '';
+    const { processedHtml: processedLongDesc } = await processHtmlImagesForPkgx(
+      rawLongDesc,
+      fullProduct.id,
+      pkgxSettings
+    );
+    const rawShortDesc = seo?.shortDescription || fullProduct.shortDescription || '';
+    
+    toast.loading(`Đang tạo sản phẩm trên PKGX...`, { id: 'pkgx-publish' });
+    
+    const payload: Record<string, unknown> = {
+      goods_name: fullProduct.name,
+      goods_sn: fullProduct.id,
+      cat_id: catMap?.pkgxCatId || 0,
+      brand_id: brandMap?.pkgxBrandId || 0,
+      seller_note: fullProduct.sellerNote || '',
+      shop_price: shopPrice,
+      market_price: marketPrice,
+      goods_number: totalInventory,
+      goods_desc: processedLongDesc,
+      goods_brief: rawShortDesc,
+      keywords: seo?.seoKeywords || fullProduct.tags?.join(', ') || fullProduct.name,
+      meta_title: seo?.seoTitle || fullProduct.ktitle || fullProduct.name,
+      meta_desc: seo?.metaDescription || fullProduct.seoDescription || '',
+      best: fullProduct.isFeatured ? 1 : 0,
+      hot: fullProduct.isBestSeller ? 1 : 0,
+      new: fullProduct.isNewArrival ? 1 : 0,
+      ishome: fullProduct.isFeatured ? 1 : 0,
+      is_on_sale: (fullProduct.isPublished ?? isActive) ? 1 : 0,
+    };
+    
+    // Add uploaded images to payload
+    if (uploadedMainImg) {
+      payload.original_img = uploadedMainImg;
+    }
+    if (uploadedGalleryPaths.length > 0) {
+      payload.gallery_images = uploadedGalleryPaths;
+    }
+    
+    // Add additional prices if mapped
+    if (partnerPrice !== undefined) payload.partner_price = partnerPrice;
+    if (acePrice !== undefined) payload.ace_price = acePrice;
+    if (dealPrice !== undefined) payload.deal_price = dealPrice;
+    
+    const response = await createPkgxProduct(payload, pkgxSettings);
+    
+    if (response.success && response.data) {
+      const pkgxId = response.data.goods_id;
+      
+      // PKGX create_product may not support original_img
+      // So we need to call update_product to set the images after creation
+      if (uploadedMainImg || uploadedGalleryPaths.length > 0) {
+        toast.loading(`Đang cập nhật hình ảnh...`, { id: 'pkgx-publish' });
+        
+        const imagePayload: Record<string, unknown> = {};
+        if (uploadedMainImg) {
+          imagePayload.original_img = uploadedMainImg;
+        }
+        if (uploadedGalleryPaths.length > 0) {
+          imagePayload.gallery_images = uploadedGalleryPaths;
+        }
+        
+        await updateProduct(pkgxId, imagePayload, pkgxSettings);
+      }
+      
+      // Update HRM product with pkgxId
+      await updateHrmProduct({ systemId: fullProduct.systemId, pkgxId });
+      
+      // ✅ Cập nhật cache trực tiếp thay vì invalidate (tránh refetch toàn bộ)
+      // Dùng ['products'] để match TẤT CẢ các query products (có các params khác nhau)
+      queryClient.setQueriesData<{ data?: Product[]; items?: Product[]; pagination?: unknown }>(
+        { queryKey: ['products'] },
+        (old) => {
+          if (!old) return old;
+          // Handle both `data` array (from use-products) and `items` array (from use-products-query)
+          if (old.data) {
+            return {
+              ...old,
+              data: old.data.map(p => 
+                p.systemId === fullProduct.systemId 
+                  ? { ...p, pkgxId } 
+                  : p
+              ),
+            };
+          }
+          if (old.items) {
+            return {
+              ...old,
+              items: old.items.map(p => 
+                p.systemId === fullProduct.systemId 
+                  ? { ...p, pkgxId } 
+                  : p
+              ),
+            };
+          }
+          return old;
+        }
+      );
+      
+      // Update single product cache (both formats)
+      queryClient.setQueryData<Product>(
+        productKeys.detail(fullProduct.systemId),
+        (old) => old ? { ...old, pkgxId } : old
+      );
+      queryClient.setQueryData<Product>(
+        ['product', fullProduct.systemId],
+        (old) => old ? { ...old, pkgxId } : old
+      );
+      
+      addPkgxLog({
+        action: 'create_product',
+        status: 'success',
+        message: `Đã đăng: ${fullProduct.name}`,
+        details: { productId: fullProduct.systemId, pkgxId },
+      });
+      
+      toast.success(`Đã đăng lên PKGX: ${fullProduct.name}`, { id: 'pkgx-publish' });
+    } else {
+      throw new Error(response.error || 'Không thể tạo sản phẩm trên PKGX');
+    }
+    } catch (error) {
+      toast.error(`Lỗi đăng sản phẩm: ${error instanceof Error ? error.message : 'Unknown error'}`, { id: 'pkgx-publish' });
+      addPkgxLog({
+        action: 'create_product',
+        status: 'error',
+        message: `Lỗi đăng sản phẩm: ${product.name}`,
+        details: { productId: product.systemId, error: error instanceof Error ? error.message : String(error) },
+      });
+    }
+  }, [pkgxSettings, isPkgxSettingsLoading, findBrandById, defaultSellingPolicy, queryClient, addPkgxLog]);
+
+  // ═══════════════════════════════════════════════════════════════
+  // HANDLER: Unlink product from PKGX (remove pkgxId)
+  // ═══════════════════════════════════════════════════════════════
+  const handlePkgxUnlink = React.useCallback(async (product: Product) => {
+    if (!product.pkgxId) {
+      toast.error('Sản phẩm chưa được liên kết với PKGX');
+      return;
+    }
+    
+    const oldPkgxId = product.pkgxId;
+    toast.loading(`Đang hủy liên kết PKGX...`, { id: 'pkgx-unlink' });
+    
+    try {
+      // Update HRM product to remove pkgxId
+      await updateHrmProduct({ systemId: product.systemId, pkgxId: null });
+      
+      // ✅ Cập nhật cache trực tiếp thay vì invalidate (tránh refetch toàn bộ)
+      // Dùng ['products'] để match TẤT CẢ các query products
+      queryClient.setQueriesData<{ data?: Product[]; items?: Product[]; pagination?: unknown }>(
+        { queryKey: ['products'] },
+        (old) => {
+          if (!old) return old;
+          // Handle both `data` array and `items` array
+          if (old.data) {
+            return {
+              ...old,
+              data: old.data.map(p => 
+                p.systemId === product.systemId 
+                  ? { ...p, pkgxId: undefined } 
+                  : p
+              ),
+            };
+          }
+          if (old.items) {
+            return {
+              ...old,
+              items: old.items.map(p => 
+                p.systemId === product.systemId 
+                  ? { ...p, pkgxId: undefined } 
+                  : p
+              ),
+            };
+          }
+          return old;
+        }
+      );
+      
+      // Update single product cache (both formats)
+      queryClient.setQueryData<Product>(
+        productKeys.detail(product.systemId),
+        (old) => old ? { ...old, pkgxId: undefined } : old
+      );
+      queryClient.setQueryData<Product>(
+        ['product', product.systemId],
+        (old) => old ? { ...old, pkgxId: undefined } : old
+      );
+      
+      toast.success(`Đã hủy liên kết: ${product.name}`, { id: 'pkgx-unlink' });
+      addPkgxLog({
+        action: 'unlink_product',
+        status: 'success',
+        message: `Đã hủy liên kết: ${product.name}`,
+        details: { productId: product.systemId, oldPkgxId },
+      });
+    } catch (error) {
+      toast.error(`Lỗi hủy liên kết: ${error instanceof Error ? error.message : 'Unknown error'}`, { id: 'pkgx-unlink' });
+      addPkgxLog({
+        action: 'unlink_product',
+        status: 'error',
+        message: `Lỗi hủy liên kết: ${product.name}`,
+        details: { productId: product.systemId, error: error instanceof Error ? error.message : String(error) },
+      });
+    }
+  }, [queryClient, addPkgxLog]);
 
   return {
+    // Publish handler (create new)
+    handlePkgxPublish,
+    // Unlink handler
+    handlePkgxUnlink,
     // Sync handlers
     handlePkgxUpdatePrice,
     handlePkgxSyncInventory,
@@ -785,6 +1467,7 @@ export function usePkgxSync({ addPkgxLog }: UsePkgxSyncOptions) {
     handlePkgxSyncBasicInfo,
     handlePkgxSyncImages,
     handlePkgxSyncAll,
+    handleImportFromPkgx,
     // Helpers
     hasPriceMapping,
   };

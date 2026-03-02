@@ -3,7 +3,6 @@
  * Helpers để chuẩn bị dữ liệu in cho bảng lương và phiếu lương
  */
 
-import { attendanceSnapshotService } from '../attendance-snapshot-service';
 import type { SystemId } from '../id-types';
 import { 
   PayrollBatchForPrint,
@@ -90,7 +89,7 @@ export function convertPayrollBatchForPrint(
     const employee = employeeLookup[payslip.employeeSystemId as SystemId];
     const departmentName = payslip.departmentSystemId
       ? departmentLookup[payslip.departmentSystemId as SystemId]?.name
-      : (employee as { departmentName?: string })?.departmentName;
+      : (employee as { department?: string } | undefined)?.department;
 
     return {
       code: payslip.id || payslip.systemId,
@@ -170,7 +169,7 @@ export function convertPayslipForPrint(
   const { employee, departmentName } = options;
 
   // Lấy attendance info: từ totals trước, nếu không có thì lấy từ snapshot
-  let attendance = {
+  const attendance = {
     workDays: payslip.totals.workDays,
     standardWorkDays: payslip.totals.standardWorkDays ?? 26,
     leaveDays: payslip.totals.leaveDays ?? 0,
@@ -183,32 +182,8 @@ export function convertPayslipForPrint(
     earlyDepartures: payslip.totals.earlyDepartures ?? 0,
   };
 
-  // Nếu totals không có workDays (dữ liệu cũ), thử lấy từ attendance snapshot
-  if (attendance.workDays === undefined || attendance.workDays === null) {
-    const monthKey = payslip.periodMonthKey || batch.payPeriod?.monthKey;
-    if (monthKey) {
-      const snapshot = attendanceSnapshotService.getSnapshot({
-        monthKey,
-        employeeSystemId: payslip.employeeSystemId as SystemId,
-      });
-      // Note: snapshot is a Promise, cannot await in sync function
-      // This fallback won't work - leaving attendance as is
-      if ((snapshot as any)?.totals) {
-        attendance = {
-          workDays: (snapshot as any).totals.workDays,
-          standardWorkDays: 26,
-          leaveDays: (snapshot as any).totals.leaveDays,
-          absentDays: (snapshot as any).totals.absentDays,
-          otHours: (snapshot as any).totals.otHours,
-          otHoursWeekday: (snapshot as any).totals.otHoursWeekday ?? 0,
-          otHoursWeekend: (snapshot as any).totals.otHoursWeekend ?? 0,
-          otHoursHoliday: (snapshot as any).totals.otHoursHoliday ?? 0,
-          lateArrivals: (snapshot as any).totals.lateArrivals,
-          earlyDepartures: (snapshot as any).totals.earlyDepartures,
-        };
-      }
-    }
-  }
+  // Note: For legacy data without workDays in totals, the async snapshot lookup
+  // cannot be done in this sync function. Caller should pre-fetch attendance if needed.
 
   return {
     code: payslip.id || payslip.systemId,

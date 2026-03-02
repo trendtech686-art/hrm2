@@ -3,6 +3,8 @@
  * Handles all tax-related API calls
  */
 
+import { fetchAllPages } from '@/lib/fetch-all-pages';
+
 import type { Tax } from '@/lib/types/prisma-extended';
 
 export interface TaxFilters {
@@ -57,7 +59,7 @@ export async function fetchTaxes(
   }
   
   const json = await response.json();
-  return json.data ? json : { data: json, pagination: { page: 1, limit: 50, total: json.length, totalPages: 1 } };
+  return json.data ? json : { data: json, pagination: { page: 1, limit: json.length, total: json.length, totalPages: 1 } };
 }
 
 /**
@@ -167,6 +169,5 @@ export async function setDefaultPurchaseTax(
  * Get all taxes
  */
 export async function fetchAllTaxes(): Promise<Tax[]> {
-  const response = await fetchTaxes({ limit: 100 });
-  return response.data;
+  return fetchAllPages((p) => fetchTaxes(p));
 }

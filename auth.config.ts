@@ -34,7 +34,11 @@ export const authConfig: NextAuthConfig = {
       const isPublicPage = 
         nextUrl.pathname.startsWith("/login") ||
         nextUrl.pathname.startsWith("/api/auth") ||
-        nextUrl.pathname.startsWith("/api/health")
+        nextUrl.pathname.startsWith("/api/health") ||
+        nextUrl.pathname.startsWith("/api/public/") ||
+        nextUrl.pathname.startsWith("/complaint-tracking") ||
+        nextUrl.pathname.startsWith("/warranty-tracking") ||
+        nextUrl.pathname.startsWith("/warranty/tracking")
       
       if (isPublicPage) return true
       if (isLoggedIn) return true

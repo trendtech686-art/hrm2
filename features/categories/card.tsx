@@ -7,10 +7,11 @@ import { Switch } from "@/components/ui/switch";
 import { TouchButton } from "@/components/mobile/touch-button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, Eye, Pencil, Trash2, Image as ImageIcon, MapPin } from "lucide-react";
+import type { WebsiteSeoData } from '@/lib/types/prisma-extended';
 
-const formatDate = (dateString?: string) => {
-  if (!dateString) return '';
-  const date = new Date(dateString);
+const formatDate = (dateValue?: string | Date) => {
+  if (!dateValue) return '';
+  const date = typeof dateValue === 'string' ? new Date(dateValue) : dateValue;
   return new Intl.DateTimeFormat('vi-VN', {
     day: '2-digit',
     month: '2-digit',
@@ -20,7 +21,8 @@ const formatDate = (dateString?: string) => {
 
 // SEO Score calculation
 const calculateSeoScore = (category: ProductCategory, website: 'pkgx' | 'trendtech'): number => {
-  const seo = category.websiteSeo?.[website];
+  const websiteSeo = category.websiteSeo as Record<string, WebsiteSeoData> | undefined;
+  const seo = websiteSeo?.[website];
   if (!seo) return 0;
   
   let score = 0;

@@ -1,6 +1,8 @@
 import { prisma } from '@/lib/prisma'
-import { Prisma, Gender, EmployeeType, EmploymentStatus, ContractType } from '@/generated/prisma/client'
+import { Prisma, Gender, EmployeeType, EmploymentStatus, ContractType, UserRole } from '@/generated/prisma/client'
 import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
+import bcrypt from 'bcryptjs'
+import { generateNextIds } from '@/lib/id-system'
 
 // Helper functions to convert Vietnamese labels to enum values
 const parseGender = (value: string | null | undefined): Gender | undefined => {
@@ -110,9 +112,31 @@ export async function GET(
       return apiNotFound('Employee')
     }
 
+    // Convert Decimal fields to numbers for JSON serialization
+    const convertDecimalToNumber = (value: unknown): number | null => {
+      if (value === null || value === undefined) return null
+      if (typeof value === 'number') return value
+      if (typeof value === 'string') return parseFloat(value) || null
+      // Prisma Decimal objects have a toNumber method
+      if (typeof value === 'object' && value !== null && 'toNumber' in value) {
+        return (value as { toNumber: () => number }).toNumber()
+      }
+      return null
+    }
+
     // Add hasPassword flag for UI to know if user account has password set
     const responseData = {
       ...employee,
+      // Convert Decimal fields to numbers
+      baseSalary: convertDecimalToNumber(employee.baseSalary),
+      socialInsuranceSalary: convertDecimalToNumber(employee.socialInsuranceSalary),
+      positionAllowance: convertDecimalToNumber(employee.positionAllowance),
+      mealAllowance: convertDecimalToNumber(employee.mealAllowance),
+      otherAllowances: convertDecimalToNumber(employee.otherAllowances),
+      // Also expose branchId as branchSystemId for frontend compatibility
+      branchSystemId: employee.branchId,
+      departmentSystemId: employee.departmentId,
+      jobTitleSystemId: employee.jobTitleId,
       hasPassword: !!employee.user, // If user relation exists, password is set
     }
 
@@ -211,8 +235,40 @@ export async function PUT(
         department: true,
         branch: true,
         jobTitle: true,
+        user: true,
       },
     })
+
+    // Handle password update/creation
+    if (body.password && existing.workEmail) {
+      const hashedPassword = await bcrypt.hash(body.password, 10)
+      
+      // Check if user exists
+      const existingUser = await prisma.user.findFirst({
+        where: { employeeId: systemId },
+      })
+      
+      if (existingUser) {
+        // Update existing user's password
+        await prisma.user.update({
+          where: { systemId: existingUser.systemId },
+          data: { password: hashedPassword },
+        })
+      } else {
+        // Create new user
+        const { systemId: userSystemId } = await generateNextIds('users')
+        await prisma.user.create({
+          data: {
+            systemId: userSystemId,
+            email: existing.workEmail,
+            password: hashedPassword,
+            role: 'STAFF' as UserRole,
+            isActive: true,
+            employeeId: systemId,
+          },
+        })
+      }
+    }
 
     return apiSuccess(employee)
   } catch (error) {

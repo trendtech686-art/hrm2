@@ -1,16 +1,21 @@
-import * as React from "react";
+﻿import * as React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { Button } from "../../../components/ui/button";
 import { NumberInput } from "../../../components/ui/number-input";
 import { CurrencyInput } from "../../../components/ui/currency-input";
-import { Package, Plus, X, StickyNote, History, Pencil, Eye, ChevronDown, ChevronRight } from "lucide-react";
+import { Package, Plus, X, StickyNote, History, Pencil, Eye, ChevronDown, ChevronRight, Calculator, HelpCircle } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "../../../components/ui/tooltip";
 import { PurchaseProductSearch } from "../../../components/shared/unified-product-search";
 import { ProductSelectionDialog } from "../../shared/product-selection-dialog";
 import { TaxSelector } from "./tax-selector";
 import { useAllTaxesData } from '../../settings/taxes/hooks/use-all-taxes';
 import { useAllProducts } from "../../products/hooks/use-all-products";
 import { useProductTypeFinder } from "../../settings/inventory/hooks/use-all-product-types";
-import { useAllPurchaseOrders } from "../hooks/use-all-purchase-orders";
 import type { Product } from "../../products/types";
 import { useProductImage } from "../../products/components/product-image";
 import { ImagePreviewDialog } from "../../../components/ui/image-preview-dialog";
@@ -134,10 +139,16 @@ export interface ProductLineItem {
   notes?: string; // Ghi chú cho sản phẩm
 }
 
+export type CostCalculationMethod = "last_purchase" | "weighted_average" | "with_fees";
+
 interface ProductSelectionCardProps {
   items: ProductLineItem[];
   onItemsChange: (items: ProductLineItem[]) => void;
   supplierId?: string | undefined;
+  costCalculationMethod?: CostCalculationMethod;
+  onCostCalculationMethodChange?: (method: CostCalculationMethod) => void;
+  totalFees?: number; // Tổng phí vận chuyển + phí khác
+  totalQuantity?: number; // Tổng số lượng sản phẩm
 }
 
 const formatCurrency = (value: number) => {
@@ -158,9 +169,13 @@ export function ProductSelectionCard({
   items,
   onItemsChange,
   supplierId: _supplierId,
+  costCalculationMethod = 'with_fees',
+  onCostCalculationMethodChange,
+  totalFees = 0,
+  totalQuantity = 0,
 }: ProductSelectionCardProps) {
   const [showBulkSelector, setShowBulkSelector] = React.useState(false);
-  const [priceMode, setPriceMode] = React.useState<"cost" | "recent">("cost");
+  const [priceMode, setPriceMode] = React.useState<"cost" | "purchase" | "recent">("recent");
   const [editingNoteIndex, setEditingNoteIndex] = React.useState<number | null>(null);
   const [tempNote, setTempNote] = React.useState<string>("");
   const [previewState, setPreviewState] = React.useState<{ open: boolean; image: string; title: string }>({
@@ -178,8 +193,9 @@ export function ProductSelectionCard({
   // Get product type store
   const { findById: findProductTypeById } = useProductTypeFinder();
   
-  // Get purchase orders for price history
-  const { data: purchaseOrders } = useAllPurchaseOrders();
+  // DISABLED: Price history gây lag do fetch quá nhiều data
+  // Có thể enable lại khi có API riêng cho price history
+  // const { data: purchaseOrders } = useAllPurchaseOrders();
 
   // Get product type label
   const getProductTypeLabel = React.useCallback((product: Product) => {
@@ -201,31 +217,17 @@ export function ProductSelectionCard({
     setExpandedCombos(prev => ({ ...prev, [index]: !prev[index] }));
   }, []);
   
-  // Get price history for a product
-  const getPriceHistory = React.useCallback((productId: string) => {
-    return purchaseOrders
-      .filter(po => po.status !== 'Đã hủy')
-      .flatMap(po => 
-        po.lineItems
-          .filter(li => li.productSystemId === productId)
-          .map(li => ({
-            date: po.orderDate,
-            price: li.unitPrice,
-            orderId: po.id,
-            quantity: li.quantity
-          }))
-      )
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-      .slice(0, 5); // Lấy 5 lần gần nhất
-  }, [purchaseOrders]);
+  // DISABLED: Price history gây lag - sẽ implement API riêng sau
+  const getPriceHistory = React.useCallback((_productId: string) => {
+    // Tạm return empty array - feature này cần API riêng để không gây lag
+    return [] as { date: string; price: number; orderId: string; quantity: number }[];
+  }, []);
   
   // Calculate average price
-  const getAveragePrice = React.useCallback((productId: string) => {
-    const history = getPriceHistory(productId);
-    if (history.length === 0) return 0;
-    const total = history.reduce((sum, h) => sum + h.price, 0);
-    return Math.round(total / history.length);
-  }, [getPriceHistory]);
+  const getAveragePrice = React.useCallback((_productId: string) => {
+    // Tạm return 0 - feature này cần API riêng
+    return 0;
+  }, []);
   
   // Get default tax rate
   const getDefaultTaxRate = React.useCallback(() => {
@@ -237,12 +239,16 @@ export function ProductSelectionCard({
 
   // Get price based on price mode
   const getProductPrice = React.useCallback((product: Product) => {
-    if (priceMode === 'recent') {
-      // Ưu tiên dùng giá nhập gần nhất nếu có
-      return product.lastPurchasePrice || product.costPrice;
+    if (priceMode === 'cost') {
+      // Giá vốn (đã bao gồm phí phân bổ)
+      return product.costPrice || product.lastPurchasePrice || 0;
     }
-    // Mặc định dùng giá nhập (costPrice)
-    return product.costPrice;
+    if (priceMode === 'purchase') {
+      // Giá nhập (giá mua từ NCC, không bao gồm phí) - dùng lastPurchasePrice
+      return product.lastPurchasePrice || product.costPrice || 0;
+    }
+    // recent: Giá nhập gần nhất = lastPurchasePrice
+    return product.lastPurchasePrice || product.costPrice || 0;
   }, [priceMode]);
 
   // Calculate total based on discount type (memoized)
@@ -284,10 +290,10 @@ export function ProductSelectionCard({
     onItemsChange(updatedItems);
   }, [priceMode, items, getProductPrice, onItemsChange]);
 
-  // Add single product
-  const handleAddProduct = (productId: string) => {
+  // Add single product - nhận trực tiếp product object từ search
+  const handleAddProduct = (product: Product) => {
     // Check if product already exists
-    const existingIndex = items.findIndex(item => item.product.systemId === productId);
+    const existingIndex = items.findIndex(item => item.product.systemId === product.systemId);
     
     if (existingIndex >= 0) {
       // Product exists, increase quantity
@@ -295,13 +301,6 @@ export function ProductSelectionCard({
       updatedItems[existingIndex].quantity += 1;
       updatedItems[existingIndex].total = calculateTotal(updatedItems[existingIndex]);
       onItemsChange(updatedItems);
-      return;
-    }
-
-    // Find product from store
-    const product = allProducts.find((p: Product) => p.systemId === productId);
-    if (!product) {
-      console.error("Product not found:", productId);
       return;
     }
 
@@ -439,14 +438,14 @@ export function ProductSelectionCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Thông tin sản phẩm</CardTitle>
+        <CardTitle>Thông tin sản phẩm</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Search + Bulk Add + Price Mode - Dùng component dùng chung */}
         <div className="flex flex-col sm:flex-row gap-2">
           <div className="flex-1">
             <PurchaseProductSearch
-              onSelectProduct={(product) => handleAddProduct(product.systemId)}
+              onSelectProduct={handleAddProduct}
               placeholder="Tìm theo tên, mã SKU, hoặc quét mã Barcode...(F3)"
               excludeProductIds={excludedProductIds}
             />
@@ -458,15 +457,83 @@ export function ProductSelectionCard({
           >
             Chọn nhiều
           </Button>
-          <Select value={priceMode} onValueChange={(v: "cost" | "recent") => setPriceMode(v)}>
-            <SelectTrigger className="w-full sm:w-[180px] h-9">
+          <Select value={priceMode} onValueChange={(v: "cost" | "purchase" | "recent") => setPriceMode(v)}>
+            <SelectTrigger className="w-full sm:w-40 h-9">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="cost">Giá nhập</SelectItem>
-              <SelectItem value="recent">Giá nhập gần nhất</SelectItem>
+              <SelectItem value="cost">
+                <div className="flex flex-col">
+                  <span>Giá vốn</span>
+                  <span className="text-[10px] text-muted-foreground">Đã bao gồm phí</span>
+                </div>
+              </SelectItem>
+              <SelectItem value="purchase">
+                <div className="flex flex-col">
+                  <span>Giá nhập (NCC)</span>
+                  <span className="text-[10px] text-muted-foreground">Giá mua từ NCC</span>
+                </div>
+              </SelectItem>
+              <SelectItem value="recent">
+                <div className="flex flex-col">
+                  <span>Giá nhập gần nhất</span>
+                  <span className="text-[10px] text-muted-foreground">Lần nhập trước</span>
+                </div>
+              </SelectItem>
             </SelectContent>
           </Select>
+          
+          {/* Cách tính giá vốn */}
+          <div className="flex items-center gap-2 px-2 py-1 bg-muted/50 rounded-md">
+            <Calculator className="h-4 w-4 text-muted-foreground shrink-0" />
+            <Select 
+              value={costCalculationMethod} 
+              onValueChange={(v) => onCostCalculationMethodChange?.(v as CostCalculationMethod)}
+            >
+              <SelectTrigger className="w-full sm:w-44 h-8 border-0 bg-transparent p-0 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="last_purchase">
+                  <div className="flex flex-col">
+                    <span>Giá vốn = Giá nhập</span>
+                    <span className="text-[10px] text-muted-foreground">Giá vốn mới = giá nhập lần này</span>
+                  </div>
+                </SelectItem>
+                <SelectItem value="weighted_average">
+                  <div className="flex flex-col">
+                    <span>Bình quân gia quyền</span>
+                    <span className="text-[10px] text-muted-foreground">(Tồn cũ × Giá cũ + SL nhập × Giá nhập) / Tồn mới</span>
+                  </div>
+                </SelectItem>
+                <SelectItem value="with_fees">
+                  <div className="flex flex-col">
+                    <span>Giá nhập + Phí</span>
+                    <span className="text-[10px] text-muted-foreground">Giá nhập + Tổng chi phí / Số lượng</span>
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-xs">
+                  <div className="space-y-2 text-xs">
+                    <p><strong>Giá vốn = Giá nhập:</strong> Lấy trực tiếp giá nhập lần này làm giá vốn</p>
+                    <p><strong>Bình quân gia quyền:</strong> Tính trung bình theo số lượng tồn kho và giá nhập</p>
+                    <p><strong>Giá nhập + Phí:</strong> Giá nhập + Tổng chi phí / Số lượng</p>
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            {costCalculationMethod === 'with_fees' && totalFees > 0 && totalQuantity > 0 && (
+              <span className="text-xs text-primary font-medium whitespace-nowrap">
+                (+{formatCurrency(Math.round(totalFees / totalQuantity))}đ/SP)
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Products Table - UI giống LineItemsTable */}
@@ -489,15 +556,16 @@ export function ProductSelectionCard({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[50px] text-center">STT</TableHead>
-                  <TableHead className="w-[60px]">Ảnh</TableHead>
-                  <TableHead>Tên sản phẩm</TableHead>
-                  <TableHead className="w-[120px]">Số lượng</TableHead>
-                  <TableHead className="w-[180px]">Đơn giá</TableHead>
-                  <TableHead className="w-[140px]">Thuế</TableHead>
-                  <TableHead className="w-[180px]">Chiết khấu</TableHead>
-                  <TableHead className="w-[120px] text-right">Thành tiền</TableHead>
-                  <TableHead className="w-[50px]"></TableHead>
+                  <TableHead className="w-12.5 text-center">STT</TableHead>
+                  <TableHead className="w-15">Ảnh</TableHead>
+                  <TableHead className="w-15">Tên sản phẩm</TableHead>
+                  <TableHead className="w-30">Số lượng</TableHead>
+                  <TableHead className="w-45">Đơn giá</TableHead>
+                  <TableHead className="w-32 text-right">Giá vốn</TableHead>
+                  <TableHead className="w-32">Thuế</TableHead>
+                  <TableHead className="w-36">Chiết khấu</TableHead>
+                  <TableHead className="w-32 text-right">Thành tiền</TableHead>
+                  <TableHead className="w-10"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -655,9 +723,40 @@ export function ProductSelectionCard({
                             )}
                           </div>
                         </TableCell>
+                        {/* Giá vốn dự kiến - tính cho lô nhập này */}
+                        <TableCell className="text-right">
+                          {(() => {
+                            const feePerUnit = totalQuantity > 0 ? totalFees / totalQuantity : 0;
+                            
+                            // Giá vốn = Giá nhập + Phí phân bổ (cho lô này)
+                            // KHÔNG bình quân với tồn cũ - mỗi lô có giá riêng
+                            let estimatedCost = item.unitPrice;
+                            if (costCalculationMethod === 'last_purchase') {
+                              // Giá nhập gần nhất (không tính phí)
+                              estimatedCost = item.unitPrice;
+                            } else if (costCalculationMethod === 'weighted_average') {
+                              // Bình quân gia quyền không phí = giá nhập
+                              estimatedCost = item.unitPrice;
+                            } else { // with_fees
+                              // Giá nhập + phí phân bổ cho lô này
+                              estimatedCost = Math.round(item.unitPrice + feePerUnit);
+                            }
+                            
+                            return (
+                              <div className="flex flex-col">
+                                <span className="font-medium text-primary">{formatCurrency(estimatedCost)}</span>
+                                {costCalculationMethod === 'with_fees' && feePerUnit > 0 && (
+                                  <span className="text-[10px] text-muted-foreground">
+                                    {formatCurrency(item.unitPrice)} + {formatCurrency(Math.round(feePerUnit))} phí
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })()}
+                        </TableCell>
                         <TableCell>
                           <TaxSelector
-                            value={item.taxId || 'none'}
+                            value={item.taxId || ""}
                             onChange={(taxId, rate) => handleTaxChange(index, taxId, rate)}
                             type="purchase"
                           />
@@ -668,7 +767,7 @@ export function ProductSelectionCard({
                               value={item.discountType}
                               onValueChange={(v: 'percent' | 'fixed') => handleDiscountTypeChange(index, v)}
                             >
-                              <SelectTrigger className="h-9 w-[70px]">
+                              <SelectTrigger className="h-9 w-17.5">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>

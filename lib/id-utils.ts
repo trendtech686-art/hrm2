@@ -1,13 +1,38 @@
 /**
  * ID Utilities
  * Helpers for generating and validating IDs (systemId & business id)
+ * ✅ Client-safe - no Prisma dependency
  */
 
-import { getPrefix, type EntityType } from './smart-prefix';
-import { ID_CONFIG } from './id-config';
+import { getPrefix, type EntityType, ID_CONFIG } from './id-config-constants';
 
 // Re-export EntityType for convenience
-export type { EntityType } from './smart-prefix';
+export type { EntityType } from './id-config-constants';
+
+/**
+ * Generate a unique sub-entity ID with a given prefix
+ * Uses timestamp + random suffix for uniqueness
+ * Format: PREFIX-TIMESTAMP-RANDOM (e.g., "TEMP-1738250400000-a1b2c3")
+ * 
+ * @param prefix - Short prefix to identify the type (e.g., 'TEMP', 'LOG', 'WP')
+ * @returns Unique string ID
+ */
+export function generateSubEntityId(prefix: string): string {
+  const timestamp = Date.now().toString(36); // Base36 for compactness
+  const random = Math.random().toString(36).slice(2, 8); // 6 random chars
+  return `${prefix.toLowerCase()}-${timestamp}-${random}`;
+}
+
+/**
+ * Generate a temporary ID for optimistic updates
+ * Can accept optional prefix, defaults to 'TEMP'
+ * 
+ * @param prefix - Optional prefix (default: 'TEMP')
+ * @returns Unique temporary ID string
+ */
+export function generateTempId(prefix: string = 'TEMP'): string {
+  return generateSubEntityId(prefix);
+}
 
 /**
  * Generate SystemId (6 digits, immutable, internal use only)
@@ -29,7 +54,7 @@ export function generateSystemId(entityType: EntityType, counter: number): strin
  * Format: PREFIX + 6 digits (e.g., "NV000001", "KH000001", "CTV000001")
  * All entities use same 6-digit format for consistency
  * 
- * @param entityType - Entity type from smart-prefix
+ * @param entityType - Entity type from id-config-constants
  * @param counter - Current counter value
  * @param customId - Optional custom ID from user input
  * @returns Generated ID or validated custom ID

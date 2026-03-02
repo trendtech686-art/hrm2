@@ -15,7 +15,7 @@ interface PurchaseReturnDetailViewProps {
 }
 
 export function PurchaseReturnDetailView({ purchaseReturn, allTransactions, onPrintReturn }: PurchaseReturnDetailViewProps) {
-  const _totalReturnValue = purchaseReturn.items.reduce((sum, item) => sum + (item.returnQuantity * item.unitPrice), 0);
+  const _totalReturnValue = purchaseReturn.items.reduce((sum, item) => sum + (Number(item.returnQuantity || 0) * Number(item.unitPrice || 0)), 0);
 
   const refundReceipt = React.useMemo(() => {
     if (purchaseReturn.refundAmount <= 0) return null;
@@ -87,10 +87,10 @@ export function PurchaseReturnDetailView({ purchaseReturn, allTransactions, onPr
                       {item.productId}
                     </Link>
                   </TableCell>
-                  <TableCell>{item.productName}</TableCell>
-                  <TableCell className="text-center">{item.returnQuantity}</TableCell>
-                  <TableCell className="text-right">{formatCurrency(item.unitPrice)}</TableCell>
-                  <TableCell className="text-body-sm font-semibold text-right">{formatCurrency(item.returnQuantity * item.unitPrice)}</TableCell>
+                  <TableCell>{item.productName || '-'}</TableCell>
+                  <TableCell className="text-center">{item.returnQuantity || 0}</TableCell>
+                  <TableCell className="text-right">{formatCurrency(item.unitPrice || 0)}</TableCell>
+                  <TableCell className="text-body-sm font-semibold text-right">{formatCurrency((item.returnQuantity || 0) * (item.unitPrice || 0))}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

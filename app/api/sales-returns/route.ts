@@ -13,8 +13,10 @@ import type { Prisma } from '@/generated/prisma/client';
 import { SalesReturnStatus } from '@/generated/prisma/client';
 import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils';
 import { createSalesReturnSchema } from './validation';
-import { generateIdWithPrefix } from '@/lib/id-generator';
+import { generateNextIdsWithTx } from '@/lib/id-system';
+import type { EntityType } from '@/lib/id-config-constants';
 import { v4 as uuidv4 } from 'uuid';
+import { updateCustomerDebt } from '@/lib/services/customer-debt-service';
 
 // Interface for sales return item input
 interface _SalesReturnItemInput {
@@ -83,7 +85,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const [data, total] = await Promise.all([
+    const [rawData, total] = await Promise.all([
       prisma.salesReturn.findMany({
         where,
         skip,
@@ -91,10 +93,120 @@ export async function GET(request: NextRequest) {
         orderBy: { createdAt: 'desc' },
         include: {
           items: true,
+          // ✅ Include original order to get orderId (business ID)
+          orders: {
+            select: {
+              systemId: true,
+              id: true,
+            },
+          },
+          // ✅ Include exchange order with packaging to get tracking code
+          exchangeOrder: {
+            select: {
+              systemId: true,
+              id: true,
+              packagings: {
+                select: {
+                  trackingCode: true,
+                },
+                take: 1,
+              },
+            },
+          },
         },
       }),
       prisma.salesReturn.count({ where }),
     ]);
+
+    // ✅ Fetch product info for all items across all returns
+    const allProductIds = rawData.flatMap(sr => sr.items.map(item => item.productId).filter(Boolean)) as string[];
+    const uniqueProductIds = [...new Set(allProductIds)];
+    const products = uniqueProductIds.length > 0
+      ? await prisma.product.findMany({
+          where: { systemId: { in: uniqueProductIds } },
+          select: {
+            systemId: true,
+            id: true,
+            name: true,
+            thumbnailImage: true,
+            imageUrl: true,
+          },
+        })
+      : [];
+    const productMap = new Map(products.map(p => [p.systemId, p]));
+
+    // ✅ Fetch payment and receipt info for display (business IDs)
+    const allPaymentSystemIds = rawData.flatMap(sr => sr.paymentVoucherSystemIds || []).filter(Boolean);
+    const allReceiptSystemIds = rawData.flatMap(sr => sr.receiptVoucherSystemIds || []).filter(Boolean);
+    
+    const [paymentsInfo, receiptsInfo] = await Promise.all([
+      allPaymentSystemIds.length > 0
+        ? prisma.payment.findMany({
+            where: { systemId: { in: allPaymentSystemIds } },
+            select: { systemId: true, id: true },
+          })
+        : [],
+      allReceiptSystemIds.length > 0
+        ? prisma.receipt.findMany({
+            where: { systemId: { in: allReceiptSystemIds } },
+            select: { systemId: true, id: true },
+          })
+        : [],
+    ]);
+    
+    const paymentMap = new Map<string, string>(paymentsInfo.map(p => [p.systemId, p.id] as [string, string]));
+    const receiptMap = new Map<string, string>(receiptsInfo.map(r => [r.systemId, r.id] as [string, string]));
+
+    // ✅ Transform data to match ReturnLineItem type
+    const data = rawData.map(sr => ({
+      ...sr,
+      // ✅ Get original order business ID from relation
+      orderId: sr.orders?.id || sr.orderBusinessId || null,
+      orderSystemId: sr.orderId || sr.orderSystemId || null,
+      // ✅ Ensure exchangeOrderSystemId and deliveryMethod are explicitly included
+      exchangeOrderSystemId: sr.exchangeOrderSystemId || null,
+      // ✅ Get exchange order business ID from relation
+      exchangeOrderId: sr.exchangeOrder?.id || null,
+      // ✅ Add payment/receipt business IDs for display without lookup
+      paymentVoucherIds: (sr.paymentVoucherSystemIds || []).map(id => paymentMap.get(id)).filter(Boolean),
+      receiptVoucherIds: (sr.receiptVoucherSystemIds || []).map(id => receiptMap.get(id)).filter(Boolean),
+      // ✅ Get tracking code from exchange order's packaging
+      exchangeTrackingCode: sr.exchangeOrder?.packagings?.[0]?.trackingCode || null,
+      deliveryMethod: sr.deliveryMethod || null,
+      // ✅ Parse exchangeItems from JSON if stored as string
+      exchangeItems: typeof sr.exchangeItems === 'string' 
+        ? JSON.parse(sr.exchangeItems) 
+        : (sr.exchangeItems || []),
+      // Convert Date fields to ISO string
+      returnDate: sr.returnDate?.toISOString() || sr.createdAt?.toISOString() || null,
+      createdAt: sr.createdAt?.toISOString() || null,
+      updatedAt: sr.updatedAt?.toISOString() || null,
+      // Convert Decimal fields to Number
+      subtotal: Number(sr.subtotal) || 0,
+      total: Number(sr.total) || 0,
+      refunded: Number(sr.refunded) || 0,
+      totalReturnValue: Number(sr.totalReturnValue) || 0,
+      subtotalNew: Number(sr.subtotalNew) || 0,
+      shippingFeeNew: Number(sr.shippingFeeNew) || 0,
+      discountNew: Number(sr.discountNew) || 0,
+      grandTotalNew: Number(sr.grandTotalNew) || 0,
+      // ✅ Calculate finalAmount if not stored: grandTotalNew - totalReturnValue
+      finalAmount: Number(sr.finalAmount) || ((Number(sr.grandTotalNew) || 0) - (Number(sr.totalReturnValue) || 0)),
+      refundAmount: Number(sr.refundAmount) || 0,
+      items: sr.items.map(item => {
+        const product = item.productId ? productMap.get(item.productId) : null;
+        return {
+          productSystemId: item.productId || '',
+          productId: item.productSku || product?.id || '', // business ID (SKU)
+          productName: item.productName,
+          returnQuantity: item.quantity,
+          unitPrice: Number(item.unitPrice) || 0,
+          totalValue: Number(item.total) || 0,
+          note: item.reason || undefined,
+          thumbnailImage: product?.thumbnailImage || product?.imageUrl || undefined,
+        };
+      }),
+    }));
 
     return apiPaginated(data, { page, limit, total });
   } catch (error) {
@@ -117,6 +229,26 @@ export async function POST(request: NextRequest) {
       reason,
       items,
       createdBy,
+      exchangeItems,
+      branchId: requestBranchId,
+      isReceived,
+      deliveryMethod: inputDeliveryMethod,
+      // ✅ Tracking code from external shipping partner (e.g., GHTK)
+      exchangeTrackingCode: inputExchangeTrackingCode,
+      // ✅ Shipping info for exchange order
+      shippingPartnerId: inputShippingPartnerId,
+      shippingServiceId: inputShippingServiceId,
+      shippingAddress: inputShippingAddress,
+      packageInfo: inputPackageInfo,
+      configuration: _inputConfiguration,
+      // Financial data
+      totalReturnValue: _inputTotalReturnValue,
+      subtotalNew: _subtotalNew,
+      shippingFeeNew: inputShippingFeeNew,
+      grandTotalNew,
+      finalAmount: inputFinalAmount,
+      payments,
+      refunds,
     } = result.data;
 
     // Validate that order exists
@@ -129,40 +261,89 @@ export async function POST(request: NextRequest) {
       return apiError('Order not found', 404);
     }
 
-    // Validate return items against order
-    if (!items || items.length === 0) {
-      return apiError('At least one return item is required', 400);
+    // ✅ Check if order has been dispatched (xuất kho) - cannot return if not yet dispatched
+    const validDispatchStatuses = ['FULLY_STOCKED_OUT', 'PARTIALLY_STOCKED_OUT'];
+    const validDeliveryStatuses = ['SHIPPING', 'DELIVERED', 'Đang giao hàng', 'Đã giao hàng'];
+    const validOrderStatuses = ['SHIPPING', 'DELIVERED', 'COMPLETED', 'FAILED_DELIVERY'];
+    
+    const isDispatched = validDispatchStatuses.includes(order.stockOutStatus || '') ||
+                         validDeliveryStatuses.includes(order.deliveryStatus || '') ||
+                         validOrderStatuses.includes(order.status);
+    
+    if (!isDispatched) {
+      return apiError('Không thể tạo phiếu trả hàng cho đơn chưa xuất kho. Vui lòng xuất kho trước khi trả hàng.', 400);
+    }
+    
+    const branchId = requestBranchId || order.branchId;
+    
+    // ✅ Fetch sales settings to check allowNegativeStockOut
+    const salesSettings = await prisma.setting.findFirst({
+      where: { key: 'salesManagement' },
+    });
+    const allowNegativeStockOut = salesSettings?.value 
+      ? (JSON.parse(salesSettings.value as string) as { allowNegativeStockOut?: boolean }).allowNegativeStockOut ?? true
+      : true;
+
+    // Validate return items against order (allow empty if only exchanging)
+    const hasReturnItems = items && items.length > 0;
+    const hasExchangeItems = exchangeItems && exchangeItems.length > 0;
+    
+    if (!hasReturnItems && !hasExchangeItems) {
+      return apiError('At least one return item or exchange item is required', 400);
     }
 
-    for (const item of items) {
-      if (!item.productId) {
-        return apiError('Product ID is required for all return items', 400);
-      }
+    // ✅ Fetch all previous returns for this order to calculate returnable quantities
+    const previousReturns = await prisma.salesReturn.findMany({
+      where: { orderId: order.systemId },
+      include: { items: true },
+    });
 
-      const orderItem = order.lineItems.find(li => li.productId === item.productId);
-      if (!orderItem) {
-        return apiError(`Product ${item.productId} not found in order`, 400);
+    // Calculate total already returned for each product
+    const alreadyReturnedQty: Record<string, number> = {};
+    for (const sr of previousReturns) {
+      for (const item of sr.items) {
+        const productId = item.productId || '';
+        alreadyReturnedQty[productId] = (alreadyReturnedQty[productId] || 0) + item.quantity;
       }
+    }
 
-      if ((item.quantity || 0) <= 0) {
-        return apiError('Return quantity must be greater than 0', 400);
-      }
+    if (hasReturnItems) {
+      for (const item of items!) {
+        if (!item.productId) {
+          return apiError('Product ID is required for all return items', 400);
+        }
 
-      if ((item.quantity || 0) > orderItem.quantity) {
-        return apiError(`Return quantity exceeds ordered quantity for product ${item.productId}`, 400);
+        const orderItem = order.lineItems.find(li => li.productId === item.productId);
+        if (!orderItem) {
+          return apiError(`Product ${item.productId} not found in order`, 400);
+        }
+
+        if ((item.quantity || 0) <= 0) {
+          return apiError('Return quantity must be greater than 0', 400);
+        }
+
+        // ✅ Check against RETURNABLE quantity (ordered - already returned)
+        const alreadyReturned = alreadyReturnedQty[item.productId] || 0;
+        const returnableQty = orderItem.quantity - alreadyReturned;
+        
+        if ((item.quantity || 0) > returnableQty) {
+          const productName = orderItem.productName || item.productId;
+          return apiError(`Sản phẩm "${productName}" chỉ còn có thể trả ${returnableQty} (đã trả ${alreadyReturned}/${orderItem.quantity})`, 400);
+        }
       }
     }
 
     // Calculate totals
-    const subtotal = items.reduce((sum, item) => 
+    const returnSubtotal = (items || []).reduce((sum, item) => 
       sum + ((item.unitPrice || 0) * (item.quantity || 0)), 0);
-    const total = subtotal; // Can add fees/adjustments here
+    const exchangeSubtotal = (exchangeItems || []).reduce((sum, item) => 
+      sum + ((item.unitPrice || 0) * (item.quantity || 0)), 0);
+    const total = returnSubtotal;
 
     // Create sales return with atomic transaction
     const salesReturn = await prisma.$transaction(async (tx) => {
-      // Generate IDs
-      const systemId = uuidv4();
-      const businessId = await generateIdWithPrefix('TH', tx); // TH = Trả Hàng
+      // Generate IDs using ID system
+      const { systemId, businessId } = await generateNextIdsWithTx(tx, 'sales-returns' as EntityType);
 
       // Create sales return record
       const newReturn = await tx.salesReturn.create({
@@ -174,26 +355,28 @@ export async function POST(request: NextRequest) {
           customerName: order.customerName,
           customerSystemId: order.customerId,
           employeeId: session.user?.id || null,
-          branchId: order.branchId,
-          branchSystemId: order.branchId,
+          branchId: branchId,
+          branchSystemId: branchId,
           branchName: order.branchName,
           orderSystemId: order.systemId,
           orderBusinessId: order.id,
           returnDate: new Date(),
-          status: SalesReturnStatus.PENDING,
+          status: isReceived ? SalesReturnStatus.APPROVED : SalesReturnStatus.PENDING,
           reason: reason || null,
           note: reason || null,
           notes: reason || null,
-          subtotal,
+          subtotal: returnSubtotal,
           total,
           totalReturnValue: total,
+          subtotalNew: exchangeSubtotal,
+          grandTotalNew: exchangeSubtotal,
           refunded: 0,
-          isReceived: false, // Will be marked as received later
+          isReceived: isReceived || false,
           createdBy: createdBy || session.user?.id || null,
           creatorSystemId: session.user?.id || null,
           creatorName: session.user?.name || null,
           // Store return items as JSON for flexible structure
-          returnItems: items.map(item => ({
+          returnItems: (items || []).map(item => ({
             systemId: item.systemId || uuidv4(),
             productSystemId: item.productId,
             productId: item.productId,
@@ -202,15 +385,31 @@ export async function POST(request: NextRequest) {
             returnValue: (item.unitPrice || 0) * (item.quantity || 0),
             reason: item.reason || null,
           })),
+          // Store exchange items as JSON
+          exchangeItems: hasExchangeItems ? (exchangeItems || []).map(item => ({
+            systemId: uuidv4(),
+            productSystemId: item.productSystemId,
+            productId: item.productId || item.productSystemId,
+            productName: item.productName || '',
+            quantity: item.quantity || 1,
+            unitPrice: item.unitPrice || 0,
+            discount: item.discount || 0,
+            discountType: item.discountType || 'fixed',
+            total: (item.unitPrice || 0) * (item.quantity || 1),
+          })) : [],
           // Create individual item records
           items: {
-            create: items.map(item => {
-              const orderItem = order.lineItems.find(li => li.productId === item.productId);
+            create: (items || []).map(item => {
+              // ✅ Lookup by productSystemId (PROD112654) - matches order.lineItems.productId
+              const productSystemId = item.productSystemId || item.productId;
+              const orderItem = order.lineItems.find(li => li.productId === productSystemId);
               return {
                 systemId: item.systemId || uuidv4(),
-                productId: item.productId!,
+                // ✅ Store productSystemId (PROD112654) để detail page có thể lookup product info
+                productId: productSystemId!,
                 productName: orderItem?.productName || 'Unknown Product',
-                productSku: orderItem?.productSku || 'N/A',
+                // ✅ Store business ID (ZP8) in productSku for display
+                productSku: item.productId || orderItem?.productSku || 'N/A',
                 quantity: item.quantity || 1,
                 unitPrice: item.unitPrice || orderItem?.unitPrice || 0,
                 total: (Number(item.unitPrice) || Number(orderItem?.unitPrice) || 0) * (item.quantity || 1),
@@ -224,13 +423,512 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // Note: Inventory updates will be handled when marking as received
-      // This keeps inventory tracking accurate - don't update until items physically arrive
+      // ✅ Update inventory for exchange items - SUBTRACT from stock
+      if (hasExchangeItems && branchId) {
+        for (const item of exchangeItems!) {
+          const productId = item.productSystemId;
+          const quantity = item.quantity || 1;
+
+          // Check if inventory record exists
+          const inventory = await tx.productInventory.findUnique({
+            where: {
+              productId_branchId: {
+                productId: productId,
+                branchId: branchId,
+              },
+            },
+          });
+
+          const oldStock = inventory?.onHand || 0;
+          const newStock = oldStock - quantity;
+
+          if (inventory) {
+            // ✅ Check available stock ONLY if allowNegativeStockOut is false
+            if (!allowNegativeStockOut) {
+              const available = (inventory.onHand || 0) - (inventory.committed || 0);
+              if (available < quantity) {
+                throw new Error(`Không đủ tồn kho cho sản phẩm ${item.productName || productId}. Tồn: ${available}, Cần: ${quantity}`);
+              }
+            }
+
+            // Update inventory - subtract from onHand
+            await tx.productInventory.update({
+              where: {
+                productId_branchId: {
+                  productId: productId,
+                  branchId: branchId,
+                },
+              },
+              data: {
+                onHand: { decrement: quantity },
+                updatedAt: new Date(),
+              },
+            });
+          } else {
+            // ✅ If allowNegativeStockOut, create inventory with negative value; otherwise throw error
+            if (allowNegativeStockOut) {
+              await tx.productInventory.create({
+                data: {
+                  productId: productId,
+                  branchId: branchId,
+                  onHand: -quantity,
+                  committed: 0,
+                  inTransit: 0,
+                  inDelivery: 0,
+                },
+              });
+            } else {
+              throw new Error(`Không tìm thấy tồn kho cho sản phẩm ${item.productName || productId}`);
+            }
+          }
+
+          // ✅ Create stock history record for exchange item (stock out)
+          await tx.stockHistory.create({
+            data: {
+              productId: productId,
+              branchId: branchId,
+              action: 'Xuất kho đổi hàng',
+              source: 'Phiếu trả hàng',
+              quantityChange: -quantity,
+              newStockLevel: newStock,
+              documentId: newReturn.id,
+              documentType: 'sales_return',
+              employeeId: createdBy || session.user?.id,
+              employeeName: session.user?.name || undefined,
+              note: `Xuất kho cho hàng đổi - ${item.productName || productId}`,
+            },
+          });
+        }
+      }
+
+      // ✅ Update inventory for returned items if isReceived = true (ADD to stock)
+      if (isReceived && hasReturnItems && branchId) {
+        for (const item of items!) {
+          if (!item.productId) continue;
+          
+          const inventory = await tx.productInventory.findUnique({
+            where: {
+              productId_branchId: {
+                productId: item.productId,
+                branchId: branchId,
+              },
+            },
+          });
+
+          const oldStock = inventory?.onHand || 0;
+          const quantity = item.quantity || 0;
+          const newStock = oldStock + quantity;
+
+          if (inventory) {
+            await tx.productInventory.update({
+              where: {
+                productId_branchId: {
+                  productId: item.productId,
+                  branchId: branchId,
+                },
+              },
+              data: {
+                onHand: { increment: quantity },
+                updatedAt: new Date(),
+              },
+            });
+          } else {
+            await tx.productInventory.create({
+              data: {
+                productId: item.productId,
+                branchId: branchId,
+                onHand: quantity,
+                committed: 0,
+                inTransit: 0,
+              },
+            });
+          }
+
+          // ✅ Create stock history record for returned item (stock in)
+          await tx.stockHistory.create({
+            data: {
+              productId: item.productId,
+              branchId: branchId,
+              action: 'Nhập kho trả hàng',
+              source: 'Phiếu trả hàng',
+              quantityChange: quantity,
+              newStockLevel: newStock,
+              documentId: newReturn.id,
+              documentType: 'sales_return',
+              employeeId: createdBy || session.user?.id,
+              employeeName: session.user?.name || undefined,
+              note: `Nhập kho hàng trả - ${item.productId}`,
+            },
+          });
+        }
+      }
 
       return newReturn;
     });
 
-    return apiSuccess(salesReturn, 201);
+    // ========================================
+    // CREATE EXCHANGE ORDER (new order for exchange items)
+    // ========================================
+    let exchangeOrderId: string | null = null;
+    let exchangeOrderBusinessId: string | null = null;
+    let exchangeTrackingCode: string | null = null;
+    
+    if (hasExchangeItems) {
+      // ✅ Retry logic for unique constraint violations
+      const MAX_RETRIES = 3;
+      let lastError: Error | null = null;
+      
+      for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        try {
+          const exchangeOrderResult = await prisma.$transaction(async (tx) => {
+            // Generate IDs for new order
+            const { systemId: orderSystemId, businessId: orderBusinessId, counter: orderCounter } = await generateNextIdsWithTx(tx, 'orders' as EntityType);
+            
+            // Generate packaging ID using order counter with suffix (same format as regular orders)
+            // Example: ORDER000040 → PACKAGE000040-01, DG000040-01
+            const pkgSystemId = `PACKAGE${String(orderCounter).padStart(6, '0')}-01`;
+            const pkgBusinessId = `DG${String(orderCounter).padStart(6, '0')}-01`;
+            
+            // Determine delivery method and tracking code
+            // ✅ All delivery methods should have tracking codes
+            const isPickup = inputDeliveryMethod === 'pickup';
+            // ✅ Use tracking code from GHTK if provided, otherwise generate internal code
+            const trackingCode = inputExchangeTrackingCode || (isPickup ? `INSTORE-${pkgBusinessId}` : `SHIP-${pkgBusinessId}`);
+            const deliveryMethod = isPickup ? 'IN_STORE_PICKUP' : 'SHIPPING';
+            // ✅ DeliveryStatus enum: PENDING_PACK, PACKED, PENDING_SHIP, SHIPPING, DELIVERED, RESCHEDULED, CANCELLED
+            // ✅ For pickup: PACKED (ready for customer to pick up, NOT delivered yet - need staff to confirm stock out)
+            // ✅ For shipping: PENDING_SHIP (waiting to be shipped)
+            const deliveryStatus = isPickup ? 'PACKED' : 'PENDING_SHIP';
+            // ✅ PackagingStatus enum: PENDING, IN_PROGRESS, COMPLETED, CANCELLED
+            // ✅ Packaging is complete (items are packed), but order is NOT complete until stock out is confirmed
+            const packagingStatus = 'COMPLETED';
+            
+            // ✅ Calculate total paid from payments FIRST (needed for COD calculation)
+            const totalPaidFromPayments = (payments || []).reduce((sum, p) => sum + (p.amount || 0), 0);
+            
+            // ✅ Get COD amount from form input (user entered value)
+            // If user specified codAmount in packageInfo, use that value
+            // Otherwise calculate: COD = grandTotal - returnValue - paidAmount
+            const exchangeGrandTotal = grandTotalNew ?? exchangeSubtotal;
+            const returnValue = Number(salesReturn.totalReturnValue) || 0;
+            const netTotal = Math.max(0, exchangeGrandTotal - returnValue);
+            // ✅ Read from validated schema - now has proper types
+            const inputCodAmount = inputPackageInfo?.codAmount;
+            const inputPayer = inputPackageInfo?.payer;
+            const inputShippingFeeToPartner = inputPackageInfo?.shippingFeeToPartner;
+            // ✅ Use form input if provided, otherwise calculate
+            const codAmount = isPickup ? 0 : (inputCodAmount ?? Math.max(0, netTotal - totalPaidFromPayments));
+            
+            const shippingFee = inputShippingFeeNew ?? 0;
+            // ✅ Get shippingFeeToPartner from GHTK response (stored in packageInfo)
+            const shippingFeeToPartner = inputShippingFeeToPartner ?? shippingFee;
+            
+            // Create the exchange order
+            // ✅ Use original order's salesperson to ensure valid foreign key
+          const newOrder = await tx.order.create({
+            data: {
+              systemId: orderSystemId,
+              id: orderBusinessId,
+              customerId: order.customerId,
+              customerName: order.customerName || '',
+              branchId: branchId,
+              branchName: order.branchName || '',
+              salespersonId: order.salespersonId,
+              salespersonName: order.salespersonName || '',
+              // ✅ Order is PROCESSING until staff confirms stock out (even for pickup)
+              status: 'PROCESSING',
+              // ✅ Payment status based on actual payments made
+              paymentStatus: totalPaidFromPayments >= (grandTotalNew ?? exchangeSubtotal) ? 'PAID' 
+                : totalPaidFromPayments > 0 ? 'PARTIAL' 
+                : 'UNPAID',
+              subtotal: exchangeSubtotal,
+              tax: 0,
+              discount: 0,
+              // ✅ Use grandTotalNew if provided (includes shipping), otherwise use subtotal
+              grandTotal: grandTotalNew ?? exchangeSubtotal,
+              // ✅ Use actual paid amount from payments
+              paidAmount: totalPaidFromPayments,
+              // ✅ Add shipping fee and COD amount
+              shippingFee: shippingFee,
+              codAmount: codAmount,
+              orderDate: new Date(),
+              source: 'DOIHANG', // ✅ Use business ID from sales channels settings
+              notes: `Đơn đổi hàng từ phiếu trả ${salesReturn.id} (Đơn gốc: ${order.id})`,
+              createdBy: session.user?.id || createdBy,
+              linkedSalesReturnSystemId: salesReturn.systemId,
+              // ✅ Store return value for display in order detail
+              linkedSalesReturnValue: salesReturn.totalReturnValue,
+              sourceSalesReturnId: salesReturn.id,
+              // ✅ Shipping address for exchange order
+              shippingAddress: inputShippingAddress || undefined,
+              // Line items
+              lineItems: {
+                create: (exchangeItems || []).map((item) => ({
+                  systemId: uuidv4(),
+                  productId: item.productSystemId || null,
+                  productSku: item.productId || item.productSystemId || '',
+                  productName: item.productName || '',
+                  quantity: item.quantity || 1,
+                  unitPrice: item.unitPrice || 0,
+                  discount: item.discount || 0,
+                  discountType: item.discount ? (item.discountType === 'percentage' ? 'PERCENTAGE' : 'FIXED') : null,
+                  tax: 0,
+                  total: (item.unitPrice || 0) * (item.quantity || 1),
+                })),
+              },
+              // Packaging
+              packagings: {
+                create: {
+                  systemId: pkgSystemId,
+                  id: pkgBusinessId,
+                  branchId: branchId,
+                  requestDate: new Date(),
+                  confirmDate: isPickup ? new Date() : null,
+                  requestingEmployeeId: session.user?.id || createdBy,
+                  requestingEmployeeName: session.user?.name || 'System',
+                  confirmingEmployeeId: isPickup ? (session.user?.id || createdBy) : null,
+                  confirmingEmployeeName: isPickup ? (session.user?.name || 'System') : null,
+                  status: packagingStatus,
+                  deliveryStatus: deliveryStatus,
+                  deliveryMethod: deliveryMethod,
+                  trackingCode: trackingCode,
+                  printStatus: 'NOT_PRINTED',
+                  createdBy: session.user?.name || 'System',
+                  notes: `Đổi hàng từ phiếu trả ${salesReturn.id}`,
+                  // ✅ Add requestor info for pickup (người nhận hàng)
+                  requestorName: isPickup ? (order.customerName || 'Khách lẻ') : null,
+                  requestorPhone: isPickup ? (order.customer?.phone || null) : null,
+                  requestorId: isPickup ? order.customerId : null,
+                  // ✅ Add shipping info to packaging
+                  shippingFeeToPartner: shippingFeeToPartner,
+                  codAmount: codAmount,
+                  carrier: inputShippingPartnerId || null,
+                  service: inputShippingServiceId || null,
+                  // ✅ Payer: lấy từ packageInfo (form gửi), default 'Người gửi' for exchange
+                  payer: inputPayer || 'Người gửi',
+                },
+              },
+            },
+            include: {
+              packagings: true,
+            },
+          });
+          
+          return { order: newOrder, trackingCode };
+        });
+        
+        exchangeOrderId = exchangeOrderResult.order.systemId;
+        exchangeOrderBusinessId = exchangeOrderResult.order.id;
+        exchangeTrackingCode = exchangeOrderResult.trackingCode;
+        
+        // Update salesReturn with exchange order info
+        await prisma.salesReturn.update({
+          where: { systemId: salesReturn.systemId },
+          data: {
+            exchangeOrderSystemId: exchangeOrderId,
+            deliveryMethod: inputDeliveryMethod || 'pickup',
+          },
+        });
+        
+        // ✅ Success - break out of retry loop
+        lastError = null;
+        break;
+      } catch (err) {
+        lastError = err as Error;
+        const isUniqueConstraint = (err as Error)?.message?.includes('Unique constraint');
+        console.error(`[SalesReturn] Attempt ${attempt} failed:`, (err as Error)?.message);
+        
+        if (isUniqueConstraint && attempt < MAX_RETRIES) {
+          // Small delay before retry
+          await new Promise(resolve => setTimeout(resolve, 100 * attempt));
+          continue;
+        }
+        
+        console.error('[SalesReturn] Failed to create exchange order:', err);
+        console.error('[SalesReturn] Error details:', JSON.stringify(err, Object.getOwnPropertyNames(err)));
+      }
+      } // end for retry loop
+      
+      // ✅ If all retries failed, throw error
+      if (lastError) {
+        throw new Error(`Không thể tạo đơn hàng đổi: ${lastError.message || 'Lỗi không xác định'}`);
+      }
+    }
+
+    // ========================================
+    // CREATE PAYMENT/RECEIPT VOUCHERS
+    // ========================================
+    const createdPaymentIds: string[] = [];
+    const createdReceiptIds: string[] = [];
+
+    // Create Payment vouchers (phiếu chi) when refunding customer (finalAmount < 0)
+    if (refunds && refunds.length > 0 && (inputFinalAmount ?? 0) < 0) {
+      for (const refund of refunds) {
+        if (!refund.amount || refund.amount <= 0) continue;
+        
+        try {
+          const payment = await prisma.$transaction(async (tx) => {
+            const { systemId, businessId } = await generateNextIdsWithTx(tx, 'payments' as EntityType);
+            
+            return tx.payment.create({
+              data: {
+                systemId,
+                id: businessId,
+                branchId: branchId,
+                branchSystemId: branchId,
+                branchName: order.branchName || undefined,
+                type: 'OTHER_EXPENSE', // Use OTHER_EXPENSE for customer refunds
+                amount: refund.amount,
+                paymentMethod: refund.method || 'CASH',
+                paymentMethodName: refund.method || 'Tiền mặt',
+                paymentDate: new Date(),
+                description: `Hoàn tiền đổi/trả hàng từ đơn ${order.id} (Phiếu trả: ${salesReturn.id})`,
+                // ✅ Recipient info (người nhận tiền hoàn)
+                recipientTypeName: 'Khách hàng',
+                recipientName: order.customerName || 'Khách lẻ',
+                recipientSystemId: order.customerId,
+                // ✅ Customer info
+                customerSystemId: order.customerId,
+                customerName: order.customerName || 'Khách lẻ',
+                // ✅ Account & Type
+                accountSystemId: refund.accountSystemId,
+                paymentReceiptTypeName: 'Hoàn tiền khách hàng',
+                // ✅ Original document
+                originalDocumentId: order.id,
+                category: 'complaint_refund',
+                affectsDebt: true,
+                linkedSalesReturnSystemId: salesReturn.systemId,
+                linkedOrderSystemId: order.systemId,
+                createdBy: createdBy || session.user?.id,
+                status: 'completed',
+              },
+            });
+          });
+          
+          createdPaymentIds.push(payment.systemId);
+        } catch (err) {
+          console.error('[SalesReturn] Failed to create payment voucher:', err);
+        }
+      }
+    }
+
+    // Create Receipt vouchers (phiếu thu) when customer needs to pay more (finalAmount > 0)
+    // ✅ Link to EXCHANGE ORDER (not original order) so payment shows in new order
+    if (payments && payments.length > 0 && (inputFinalAmount ?? 0) > 0) {
+      // ✅ Define linkedOrderId outside transaction so it's accessible in log
+      const paymentLinkedOrderId = exchangeOrderId || order.systemId;
+      const paymentLinkedOrderBusinessId = exchangeOrderBusinessId || order.id;
+      
+      for (const payment of payments) {
+        if (!payment.amount || payment.amount <= 0) continue;
+        
+        try {
+          const receipt = await prisma.$transaction(async (tx) => {
+            const { systemId, businessId } = await generateNextIdsWithTx(tx, 'receipts' as EntityType);
+            
+            return tx.receipt.create({
+              data: {
+                systemId,
+                id: businessId,
+                branchId: branchId,
+                branchSystemId: branchId,
+                branchName: order.branchName || undefined,
+                type: 'CUSTOMER_PAYMENT',
+                amount: payment.amount,
+                paymentMethod: payment.method || 'CASH',
+                paymentMethodName: payment.method || 'Tiền mặt',
+                receiptDate: new Date(),
+                description: `Thu tiền chênh lệch đổi hàng từ đơn ${order.id} (Phiếu trả: ${salesReturn.id})${exchangeOrderBusinessId ? ` → Đơn đổi: ${exchangeOrderBusinessId}` : ''}`,
+                // ✅ Payer info (người nộp tiền)
+                payerTypeName: 'Khách hàng',
+                payerName: order.customerName || 'Khách lẻ',
+                payerSystemId: order.customerId,
+                // ✅ Customer info
+                customerSystemId: order.customerId,
+                customerName: order.customerName || 'Khách lẻ',
+                // ✅ Account & Type
+                accountSystemId: payment.accountSystemId,
+                paymentReceiptTypeName: 'Thu tiền khách hàng',
+                // ✅ Original document
+                originalDocumentId: paymentLinkedOrderBusinessId,
+                category: 'sale',
+                affectsDebt: true,
+                linkedSalesReturnSystemId: salesReturn.systemId,
+                // ✅ Link to exchange order if exists
+                linkedOrderSystemId: paymentLinkedOrderId,
+                createdBy: createdBy || session.user?.id,
+                status: 'completed',
+              },
+            });
+          });
+          
+          createdReceiptIds.push(receipt.systemId);
+        } catch (err) {
+          console.error('[SalesReturn] Failed to create receipt voucher:', err);
+        }
+      }
+    }
+
+    // ✅ Update exchange order's paidAmount if payments were made
+    if (exchangeOrderId && createdReceiptIds.length > 0 && (inputFinalAmount ?? 0) > 0) {
+      const totalPaid = payments?.reduce((sum, p) => sum + (p.amount || 0), 0) || 0;
+      if (totalPaid > 0) {
+        try {
+          await prisma.order.update({
+            where: { systemId: exchangeOrderId },
+            data: {
+              paidAmount: { increment: totalPaid },
+              paymentStatus: totalPaid >= (grandTotalNew ?? 0) ? 'PAID' : 'PARTIAL',
+            },
+          });
+        } catch (err) {
+          console.error('[SalesReturn] Failed to update exchange order paidAmount:', err);
+        }
+      }
+    }
+
+    // Update sales return with voucher IDs
+    if (createdPaymentIds.length > 0 || createdReceiptIds.length > 0) {
+      await prisma.salesReturn.update({
+        where: { systemId: salesReturn.systemId },
+        data: {
+          refundAmount: refunds?.reduce((sum, r) => sum + (r.amount || 0), 0) || 0,
+          refunded: refunds?.reduce((sum, r) => sum + (r.amount || 0), 0) || 0,
+          paymentVoucherSystemIds: createdPaymentIds,
+          receiptVoucherSystemIds: createdReceiptIds,
+        },
+      });
+    }
+
+    // Update customer debt after creating sales return (trả hàng giảm công nợ)
+    if (salesReturn.customerSystemId || order.customerId) {
+      const customerSystemId = salesReturn.customerSystemId || order.customerId;
+      if (customerSystemId) {
+        await updateCustomerDebt(customerSystemId).catch(err => {
+          console.error('[Create SalesReturn] Failed to update customer debt:', err);
+        });
+      }
+    }
+
+    // ✅ Fetch updated salesReturn with all fields including exchangeOrderSystemId
+    const updatedSalesReturn = await prisma.salesReturn.findUnique({
+      where: { systemId: salesReturn.systemId },
+      include: { items: true },
+    });
+
+    // Return with debug info
+    const responseData = {
+      ...(updatedSalesReturn || salesReturn),
+      _debug: {
+        hasExchangeItems,
+        inputDeliveryMethod,
+        exchangeOrderId,
+        exchangeOrderBusinessId,
+        exchangeTrackingCode,
+      }
+    };
+
+    return apiSuccess(responseData, 201);
   } catch (error) {
     console.error('[Sales Returns API] POST error:', error);
     if (error instanceof Error) {

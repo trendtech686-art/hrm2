@@ -285,7 +285,7 @@ export function VirtualizedDataTable<TData extends { systemId: string }>({
                       className={cn('group', onRowClick && 'cursor-pointer')}
                     >
                       {displayColumns.map((column, colIndex) => {
-                        const isInteractiveColumn = ['select', 'control', 'actions', 'expander'].includes(column.id)
+                        const isInteractiveColumn = ['select', 'control', 'actions', 'expander', 'pkgx', 'pkgxActions'].includes(column.id)
                         const stickyMeta = column.meta?.sticky
                         const hasFixedSize = column.size !== undefined
                         const colSize = column.size || 150

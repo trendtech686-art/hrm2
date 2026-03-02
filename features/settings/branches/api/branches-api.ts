@@ -15,6 +15,7 @@ export interface BranchesParams {
   isDefault?: boolean;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
+  all?: boolean;
 }
 
 export interface BranchesResponse {
@@ -27,6 +28,7 @@ export interface BranchesResponse {
 export async function fetchBranches(params: BranchesParams = {}): Promise<BranchesResponse> {
   const searchParams = new URLSearchParams();
   
+  if (params.all) searchParams.set('all', 'true');
   if (params.page) searchParams.set('page', String(params.page));
   if (params.limit) searchParams.set('limit', String(params.limit));
   if (params.search) searchParams.set('search', params.search);

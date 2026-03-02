@@ -1,4 +1,4 @@
-import * as React from 'react';
+﻿import * as React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../../components/ui/card';
 import { Button } from '../../../../components/ui/button';
 import { Badge } from '../../../../components/ui/badge';
@@ -88,7 +88,7 @@ export function BrandMappingTab() {
       {/* Sync Card */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Danh sách thương hiệu Trendtech</CardTitle>
+          <CardTitle size="lg">Danh sách thương hiệu Trendtech</CardTitle>
           <CardDescription>
             Đồng bộ danh sách thương hiệu từ website Trendtech
           </CardDescription>
@@ -118,7 +118,7 @@ export function BrandMappingTab() {
       {/* Mapping Table */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Mapping thương hiệu</CardTitle>
+          <CardTitle size="lg">Mapping thương hiệu</CardTitle>
           <CardDescription>
             Liên kết thương hiệu HRM với thương hiệu Trendtech
           </CardDescription>
@@ -167,7 +167,7 @@ export function BrandMappingTab() {
       {/* Add Mapping Card */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Thêm mapping mới</CardTitle>
+          <CardTitle size="lg">Thêm mapping mới</CardTitle>
         </CardHeader>
         <CardContent>
           <AddMappingForm

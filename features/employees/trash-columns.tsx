@@ -70,7 +70,7 @@ export const getColumns = (
        />
     ),
     cell: ({ row }) => (
-      <div className="max-w-[200px] truncate" title={row.fullName}>
+      <div className="max-w-50 truncate" title={row.fullName}>
         {row.fullName}
       </div>
     ),

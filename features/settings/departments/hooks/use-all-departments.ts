@@ -1,13 +1,17 @@
 /**
  * useAllDepartments - Convenience hook for components needing all departments
+ * Uses fetchAllPages auto-pagination to load ALL records
  * 
  * Use case: Dropdowns, selects, comboboxes that need all departments
  */
 
 import * as React from 'react';
 import { useCallback } from 'react';
-import { useDepartments } from './use-departments';
+import { useQuery } from '@tanstack/react-query';
+import { fetchAllPages } from '@/lib/fetch-all-pages';
+import { fetchDepartments } from '../api/departments-api';
 import type { Department } from '../api/departments-api';
+import { departmentKeys } from './use-departments';
 
 // Stable empty array to prevent re-renders
 const EMPTY_DEPARTMENTS: Department[] = [];
@@ -17,12 +21,16 @@ const EMPTY_DEPARTMENTS: Department[] = [];
  * Compatible with legacy store pattern: { data: departments }
  */
 export function useAllDepartments() {
-  const query = useDepartments({ limit: 500 });
+  const query = useQuery({
+    queryKey: [...departmentKeys.all, 'all'],
+    queryFn: () => fetchAllPages((p) => fetchDepartments(p)),
+    staleTime: 10 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+  });
   
-  // Memoize data to prevent unnecessary re-renders
   const data = React.useMemo(() => 
-    query.data?.data || EMPTY_DEPARTMENTS,
-    [query.data?.data]
+    query.data || EMPTY_DEPARTMENTS,
+    [query.data]
   );
   
   return {

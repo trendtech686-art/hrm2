@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma'
 import { Prisma, CashTransactionType } from '@/generated/prisma/client'
 import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
 import { createCashTransactionSchema } from './validation'
+import { generateNextIds } from '@/lib/id-system'
 
 // GET /api/cash-transactions - List all cash transactions
 export async function GET(request: Request) {
@@ -81,9 +82,11 @@ export async function POST(request: Request) {
 
     // Create transaction and update account balance in a transaction
     const result = await prisma.$transaction(async (tx) => {
+      const { systemId } = await generateNextIds('cashbook')
+      
       const transaction = await tx.cashTransaction.create({
         data: {
-          systemId: `CTRANS${String(Date.now()).slice(-10).padStart(10, '0')}`,
+          systemId,
           id: businessId,
           accountId: body.accountId || body.cashAccountId || '',
           type: (body.type || body.transactionType) as CashTransactionType,

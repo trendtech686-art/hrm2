@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Sales Order Report Page
  * 
  * Báo cáo bán hàng theo đơn hàng
@@ -321,7 +321,7 @@ export function SalesOrderReportPage() {
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-base font-medium">Chi tiết đơn hàng</CardTitle>
+            <CardTitle>Chi tiết đơn hàng</CardTitle>
             <Button variant="outline" size="sm">
               <Filter className="h-4 w-4 mr-2" />
               Lọc ({data.length})

@@ -2,19 +2,31 @@
  * useInventoryReceipts - React Query hooks (Phiếu Nhập Kho)
  * 
  * ⚠️ Direct import: import { useInventoryReceipts } from '@/features/inventory-receipts/hooks/use-inventory-receipts'
+ * 
+ * Updated to use Server Actions for mutations (Phase 2 migration)
  */
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import {
   fetchInventoryReceipts,
   fetchInventoryReceipt,
-  createInventoryReceipt,
-  updateInventoryReceipt,
-  deleteInventoryReceipt,
   type InventoryReceiptsParams,
 } from '../api/inventory-receipts-api';
-import type { InventoryReceipt } from '@/lib/types/prisma-extended';
+import {
+  createInventoryReceiptAction,
+  updateInventoryReceiptAction,
+  deleteInventoryReceiptAction,
+  type CreateInventoryReceiptInput,
+  type UpdateInventoryReceiptInput,
+} from '@/app/actions/inventory-receipts';
+import type { InventoryReceipt as _InventoryReceipt } from '@/lib/types/prisma-extended';
 import { asSystemId } from '@/lib/id-types';
+
+// Type for Server Action responses
+type InventoryReceiptData = NonNullable<Awaited<ReturnType<typeof createInventoryReceiptAction>>['data']>;
+
+// Re-export types for backwards compatibility
+export type { CreateInventoryReceiptInput, UpdateInventoryReceiptInput };
 
 export const inventoryReceiptKeys = {
   all: ['inventory-receipts'] as const,
@@ -44,8 +56,8 @@ export function useInventoryReceipt(id: string | null | undefined) {
 }
 
 interface UseInventoryReceiptMutationsOptions {
-  onCreateSuccess?: (receipt: InventoryReceipt) => void;
-  onUpdateSuccess?: (receipt: InventoryReceipt) => void;
+  onCreateSuccess?: (receipt: InventoryReceiptData) => void;
+  onUpdateSuccess?: (receipt: InventoryReceiptData) => void;
   onDeleteSuccess?: () => void;
   onError?: (error: Error) => void;
 }
@@ -54,17 +66,32 @@ export function useInventoryReceiptMutations(options: UseInventoryReceiptMutatio
   const queryClient = useQueryClient();
   
   const create = useMutation({
-    mutationFn: createInventoryReceipt,
+    mutationFn: async (data: CreateInventoryReceiptInput) => {
+      const result = await createInventoryReceiptAction(data);
+      if (!result.success) throw new Error(result.error || 'Failed to create inventory receipt');
+      return result.data!;
+    },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: inventoryReceiptKeys.lists() });
+      // Invalidate AND refetch products because inventory receipt updates costPrice, lastPurchasePrice, lastPurchaseDate
+      // Using refetchQueries to ensure data is fresh immediately (not just marked as stale)
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.refetchQueries({ queryKey: ['products'] });
       options.onCreateSuccess?.(data);
     },
     onError: options.onError,
   });
   
   const update = useMutation({
-    mutationFn: ({ systemId, data }: { systemId: string; data: Partial<InventoryReceipt> }) => 
-      updateInventoryReceipt(asSystemId(systemId), data),
+    mutationFn: async ({ systemId, data }: { systemId: string; data: UpdateInventoryReceiptInput }) => {
+      const result = await updateInventoryReceiptAction({ 
+        systemId, 
+        receiptDate: data.receiptDate,
+        updatedBy: data.updatedBy,
+      });
+      if (!result.success) throw new Error(result.error || 'Failed to update inventory receipt');
+      return result.data!;
+    },
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: inventoryReceiptKeys.detail(variables.systemId) });
       queryClient.invalidateQueries({ queryKey: inventoryReceiptKeys.lists() });
@@ -74,7 +101,11 @@ export function useInventoryReceiptMutations(options: UseInventoryReceiptMutatio
   });
   
   const remove = useMutation({
-    mutationFn: (systemId: string) => deleteInventoryReceipt(asSystemId(systemId)),
+    mutationFn: async (systemId: string) => {
+      const result = await deleteInventoryReceiptAction(systemId);
+      if (!result.success) throw new Error(result.error || 'Failed to delete inventory receipt');
+      return result.data;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: inventoryReceiptKeys.all });
       options.onDeleteSuccess?.();
@@ -88,13 +119,11 @@ export function useInventoryReceiptMutations(options: UseInventoryReceiptMutatio
 export function useInventoryReceiptsBySupplier(supplierId: string | null | undefined) {
   return useInventoryReceipts({
     supplierId: supplierId || undefined,
-    limit: 50,
   });
 }
 
 export function useInventoryReceiptsByPO(purchaseOrderId: string | null | undefined) {
   return useInventoryReceipts({
     purchaseOrderId: purchaseOrderId || undefined,
-    limit: 20,
   });
 }

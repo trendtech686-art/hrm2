@@ -1,6 +1,8 @@
 /**
  * Shipments React Query Hooks
  * Provides data fetching and mutations for shipment management
+ * 
+ * Updated to use Server Actions for mutations (Phase 2 migration)
  */
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
@@ -8,9 +10,6 @@ import { useAllShipments } from './use-all-shipments';
 import {
   fetchShipments,
   fetchShipmentById,
-  createShipment,
-  updateShipment,
-  deleteShipment,
   updateDeliveryStatus,
   reconcileShipment,
   bulkReconcileShipments,
@@ -20,6 +19,42 @@ import {
   type ShipmentCreateInput,
   type ShipmentUpdateInput,
 } from '../api/shipments-api';
+import {
+  createShipmentAction,
+  updateShipmentAction,
+  deleteShipmentAction,
+  type CreateShipmentInput,
+  type UpdateShipmentInput,
+} from '@/app/actions/shipments';
+import type { Shipment } from '@/lib/types/prisma-extended';
+
+// Re-export types for backwards compatibility
+export type { CreateShipmentInput, UpdateShipmentInput };
+
+// Legacy format support
+type LegacyUpdateInput = { systemId: string; data: ShipmentUpdateInput };
+
+function toUpdateShipmentInput(input: UpdateShipmentInput | LegacyUpdateInput): UpdateShipmentInput {
+  const i = input as Record<string, unknown>;
+  if (i.data && typeof i.data === 'object') {
+    const legacy = input as LegacyUpdateInput;
+    const d = legacy.data as Record<string, unknown>;
+    return {
+      systemId: legacy.systemId,
+      trackingCode: d.trackingCode as string | undefined,
+      carrier: d.carrier as string | undefined,
+      service: d.service as string | undefined,
+      deliveryStatus: d.deliveryStatus as string | undefined,
+      printStatus: d.printStatus as string | undefined,
+      shippingFeeToPartner: d.shippingFeeToPartner as number | undefined,
+      codAmount: d.codAmount as number | undefined,
+      payer: d.payer as string | undefined,
+      reconciliationStatus: d.reconciliationStatus as string | undefined,
+      partnerStatus: d.partnerStatus as string | undefined,
+    };
+  }
+  return input as UpdateShipmentInput;
+}
 
 // Query keys factory
 export const shipmentKeys = {
@@ -29,7 +64,33 @@ export const shipmentKeys = {
   details: () => [...shipmentKeys.all, 'detail'] as const,
   detail: (id: string) => [...shipmentKeys.details(), id] as const,
   byOrder: (orderId: string) => [...shipmentKeys.all, 'order', orderId] as const,
+  stats: () => [...shipmentKeys.all, 'stats'] as const,
 };
+
+// Types for initial data from Server Components
+export interface ShipmentStats {
+  pending: number;
+  inTransit: number; // Maps to 'shipped' in some places
+  delivered: number;
+  returned: number;
+}
+
+/**
+ * Hook for shipment statistics with optional initial data from Server Component
+ */
+export function useShipmentStats(initialData?: ShipmentStats) {
+  return useQuery({
+    queryKey: shipmentKeys.stats(),
+    queryFn: async () => {
+      const res = await fetch('/api/shipments/stats');
+      if (!res.ok) throw new Error('Failed to fetch shipment stats');
+      return res.json() as Promise<ShipmentStats>;
+    },
+    initialData,
+    staleTime: initialData ? 60_000 : 0,
+    gcTime: 10 * 60 * 1000,
+  });
+}
 
 /**
  * Hook to fetch shipments with filters
@@ -61,7 +122,7 @@ export function useShipmentById(systemId: string | undefined) {
 export function useShipmentsByOrder(orderId: string | undefined) {
   return useQuery({
     queryKey: shipmentKeys.byOrder(orderId!),
-    queryFn: () => fetchShipments({ orderId: orderId!, limit: 50 }),
+    queryFn: () => fetchShipments({ orderId: orderId! }),
     enabled: !!orderId,
     staleTime: 1000 * 60,
   });
@@ -83,7 +144,14 @@ export function useShipmentMutations(options: MutationCallbacks = {}) {
   };
 
   const create = useMutation({
-    mutationFn: (data: ShipmentCreateInput) => createShipment(data),
+    mutationFn: async (data: CreateShipmentInput | ShipmentCreateInput) => {
+      const input = data as CreateShipmentInput;
+      const result = await createShipmentAction(input);
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to create shipment');
+      }
+      return result.data as Shipment;
+    },
     onSuccess: () => {
       invalidateShipments();
       options.onSuccess?.();
@@ -92,8 +160,14 @@ export function useShipmentMutations(options: MutationCallbacks = {}) {
   });
 
   const update = useMutation({
-    mutationFn: ({ systemId, data }: { systemId: string; data: ShipmentUpdateInput }) =>
-      updateShipment(systemId, data),
+    mutationFn: async (input: UpdateShipmentInput | LegacyUpdateInput) => {
+      const converted = toUpdateShipmentInput(input);
+      const result = await updateShipmentAction(converted);
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to update shipment');
+      }
+      return result.data as Shipment;
+    },
     onSuccess: () => {
       invalidateShipments();
       options.onSuccess?.();
@@ -102,7 +176,13 @@ export function useShipmentMutations(options: MutationCallbacks = {}) {
   });
 
   const remove = useMutation({
-    mutationFn: (systemId: string) => deleteShipment(systemId),
+    mutationFn: async (systemId: string) => {
+      const result = await deleteShipmentAction({ systemId });
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to delete shipment');
+      }
+      return result.data;
+    },
     onSuccess: () => {
       invalidateShipments();
       options.onSuccess?.();

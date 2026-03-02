@@ -4,6 +4,7 @@
  * NOTE: localStorage has been removed - all data comes from API/database
  */
 
+import { randomUUID } from 'crypto';
 import { ShippingConfig, GlobalShippingConfig, PartnerAccount } from '@/lib/types/shipping-config';
 
 // In-memory cache
@@ -142,7 +143,7 @@ export function addPartnerAccount(
 ): ShippingConfig {
   const newAccount: PartnerAccount = {
     ...account,
-    id: `acc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    id: `acc_${randomUUID().slice(0, 12)}`,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };

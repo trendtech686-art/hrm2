@@ -26,23 +26,15 @@ import type { ColumnDef } from '../../components/data-table/types';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
 import { Button } from "../../components/ui/button";
 import { MoreHorizontal, RotateCcw, AlertTriangle } from "lucide-react";
-import type { CustomerSlaIndex } from './sla/types';
-import { SLA_TYPE_BADGES } from './sla/constants';
-import { formatDaysRemaining, getAlertBadgeVariant } from '../reports/customer-sla-report/sla-utils';
 const formatCurrency = (value?: number) => {
     if (typeof value !== 'number') return '';
     return new Intl.NumberFormat('vi-VN').format(value);
-};
-
-type ColumnOptions = {
-  slaIndex?: CustomerSlaIndex | null;
 };
 
 export const getColumns = (
   onDelete: (systemId: string) => void,
   onRestore: (systemId: string) => void,
   router: AppRouterInstance,
-  options?: ColumnOptions,
 ): ColumnDef<Customer>[] => [
   {
     id: "select",
@@ -199,50 +191,21 @@ export const getColumns = (
     accessorKey: "status",
     header: "Trạng thái",
     cell: ({ row }) => {
-        const status = row.status;
-        const variant = status === "Đang giao dịch" ? "success" : "secondary";
-        return <Badge variant={variant as "success" | "secondary"}>{status}</Badge>
+        const status = row.status as string;
+        // Normalize status to Vietnamese
+        const statusLabel = 
+          status === 'active' || status === 'ACTIVE' ? 'Đang giao dịch' :
+          status === 'inactive' || status === 'INACTIVE' ? 'Ngừng giao dịch' :
+          status === 'Đang giao dịch' ? 'Đang giao dịch' :
+          status === 'Ngừng Giao Dịch' ? 'Ngừng giao dịch' :
+          status;
+        const variant = statusLabel === 'Đang giao dịch' ? 'success' : 'secondary';
+        return <Badge variant={variant as "success" | "secondary"}>{statusLabel}</Badge>
     },
     meta: {
       displayName: "Trạng thái",
     },
   },
-    {
-    id: "slaStatus",
-    header: "SLA",
-    cell: ({ row }) => {
-      const entry = options?.slaIndex?.entries[row.systemId];
-      if (!entry || !entry.alerts.length) {
-        return <Badge variant="outline" className="text-body-xs text-muted-foreground">Ổn định</Badge>;
-      }
-
-      const alerts = entry.alerts.slice(0, 2);
-      return (
-        <div className="space-y-1">
-          {alerts.map((alert) => {
-            const badgeMeta = SLA_TYPE_BADGES[alert.slaType];
-            return (
-              <div key={`${alert.slaType}-${alert.targetDate}`} className="flex items-center gap-2">
-                <Badge variant="outline" className="text-[11px]">
-                  {badgeMeta?.label || alert.slaName}
-                </Badge>
-                <Badge variant={getAlertBadgeVariant(alert.alertLevel)} className="text-[11px]">
-                  {formatDaysRemaining(alert.daysRemaining)}
-                </Badge>
-              </div>
-            );
-          })}
-          {entry.alerts.length > 2 && (
-            <span className="text-[11px] text-muted-foreground">+{entry.alerts.length - 2} cảnh báo khác</span>
-          )}
-        </div>
-      );
-    },
-    meta: {
-      displayName: "SLA",
-    },
-    size: 220,
-    },
   {
     id: "lifecycleStage",
     header: "Giai đoạn",
@@ -394,7 +357,7 @@ export const getColumns = (
       else variant = 'success';
       
       return (
-        <div className="flex items-center gap-2 min-w-[180px]">
+        <div className="flex items-center gap-2 min-w-45">
           <Progress value={ratio} className={`w-20 h-2 ${variant === 'destructive' ? 'bg-red-100' : variant === 'warning' ? 'bg-yellow-100' : 'bg-green-100'}`} />
           <span className="text-body-xs font-medium tabular-nums">{ratio.toFixed(0)}%</span>
           <span className="text-body-xs text-muted-foreground">

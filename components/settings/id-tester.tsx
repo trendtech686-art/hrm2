@@ -11,8 +11,8 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { CheckCircle2, AlertTriangle } from 'lucide-react';
-import { validateIdFormat, ID_CONFIG } from '../../lib/id-config';
-import type { EntityType } from '../../lib/id-config';
+import { validateIdFormat, ID_CONFIG } from '../../lib/id-config-constants'; // ✅ Client-safe
+import type { EntityType } from '../../lib/id-config-constants';
 
 interface IDTesterProps {
   defaultEntityType?: EntityType;

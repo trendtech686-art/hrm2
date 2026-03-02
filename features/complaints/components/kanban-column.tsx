@@ -14,7 +14,7 @@ import {
   complaintTypeColors,
 } from "../types";
 import { checkOverdue } from "../sla-utils";
-import { loadCardColorSettings } from "../../settings/complaints/complaints-settings-page";
+import { useComplaintsSettings } from "../../settings/complaints/hooks/use-complaints-settings";
 
 // UI Components
 import { Input } from "@/components/ui/input";
@@ -54,6 +54,7 @@ export function KanbanColumn({
   onRemind,
 }: KanbanColumnProps) {
   const [searchQuery, setSearchQuery] = React.useState('');
+  const { data: complaintsSettings } = useComplaintsSettings();
   
   // ⚡ VIRTUAL SCROLLING: Ref cho container
   const parentRef = React.useRef<HTMLDivElement>(null);
@@ -90,7 +91,7 @@ export function KanbanColumn({
   });
 
   return (
-    <div className="flex-1 min-w-[300px] flex flex-col max-h-[calc(100vh-320px)]">
+    <div className="flex-1 min-w-75 flex flex-col max-h-[calc(100vh-320px)]">
       {/* Header - Shadcn style with darker background */}
       <div className="text-body-sm font-semibold px-4 py-3 mb-2 rounded-lg border bg-muted flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -133,8 +134,8 @@ export function KanbanColumn({
             const overdueStatus = checkOverdue(complaint);
             const isOverdue = overdueStatus.isOverdueResponse || overdueStatus.isOverdueResolve;
             
-            // Load card color settings
-            const colorSettings = loadCardColorSettings();
+            // Card color settings from React Query
+            const colorSettings = complaintsSettings.cardColors;
             
             // Determine card color (priority order: overdue > priority > status)
             let cardColorClass = "";
@@ -198,7 +199,7 @@ export function KanbanColumn({
                         </div>
                         <div className="flex items-center justify-between gap-2 text-body-xs text-muted-foreground">
                           <span className="truncate">{complaint.customerName}</span>
-                          <span className="flex-shrink-0">{complaint.customerPhone}</span>
+                          <span className="shrink-0">{complaint.customerPhone}</span>
                         </div>
                       </div>
 
@@ -236,7 +237,7 @@ export function KanbanColumn({
                                 <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-primary text-[10px] font-semibold">
                                   {initials}
                                 </div>
-                                <span className="text-muted-foreground max-w-[80px] truncate">
+                                <span className="text-muted-foreground max-w-20 truncate">
                                   {assignedEmployee.fullName}
                                 </span>
                               </div>

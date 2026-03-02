@@ -17,7 +17,7 @@ import {
   TableRow 
 } from '../ui/table';
 import { Eye } from 'lucide-react';
-import type { EntityIDConfig } from '../../lib/id-config';
+import type { EntityIDConfig } from '../../lib/id-system';
 
 export interface CounterTableRow {
   entityType: string;

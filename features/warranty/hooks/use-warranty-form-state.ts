@@ -10,7 +10,7 @@ import type { SimpleImageFile } from './use-product-images-state';
 export interface ProductImagesState {
   productPermanentFiles: Record<string, SimpleImageFile[]>;
   productStagingFiles: Record<string, StagingFile[]>;
-  productSessionIds: Record<string, string | null>;
+  productSessionIds: Record<string, string>; // Changed from string | null to string for consistency
   productFilesToDelete: Record<string, string[]>;
 }
 
@@ -75,7 +75,8 @@ export function useWarrantyFormState(): WarrantyFormStateReturn {
   // ===== SUBMISSION STATE =====
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   
-  return {
+  // ✅ Memoize return object để tránh re-render không cần thiết
+  return React.useMemo(() => ({
     // Received images
     receivedPermanentFiles,
     setReceivedPermanentFiles,
@@ -103,5 +104,16 @@ export function useWarrantyFormState(): WarrantyFormStateReturn {
     // Submission
     isSubmitting,
     setIsSubmitting,
-  };
+  }), [
+    receivedPermanentFiles,
+    receivedStagingFiles,
+    receivedSessionId,
+    receivedFilesToDelete,
+    processedPermanentFiles,
+    processedStagingFiles,
+    processedSessionId,
+    processedFilesToDelete,
+    productImagesState,
+    isSubmitting,
+  ]);
 }

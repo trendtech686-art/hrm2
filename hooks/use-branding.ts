@@ -4,8 +4,6 @@
 
 import * as React from 'react';
 
-const serverUrl = (import.meta as { env?: { VITE_SERVER_URL?: string } }).env?.VITE_SERVER_URL || 'http://localhost:3001';
-
 interface BrandingInfo {
   logoUrl: string | null;
   faviconUrl: string | null;
@@ -17,7 +15,8 @@ let brandingPromise: Promise<BrandingInfo> | null = null;
 
 async function fetchBranding(): Promise<BrandingInfo> {
   try {
-    const response = await fetch(`${serverUrl}/api/branding`);
+    // Use relative URL - Next.js serves API routes from same origin
+    const response = await fetch('/api/branding');
     if (!response.ok) {
       throw new Error('Failed to fetch branding');
     }
@@ -68,6 +67,6 @@ export function getFullLogoUrl(logoUrl: string | null): string | null {
   if (logoUrl.startsWith('http://') || logoUrl.startsWith('https://')) {
     return logoUrl;
   }
-  // Otherwise, prepend serverUrl
-  return `${serverUrl}${logoUrl}`;
+  // Otherwise, prepend base URL (use relative URL for same-origin)
+  return logoUrl;
 }

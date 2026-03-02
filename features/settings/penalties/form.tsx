@@ -4,7 +4,6 @@ import { toISODate } from '../../../lib/date-utils';
 import type { Penalty, PenaltyType } from './types';
 import { penaltyCategoryLabels } from './types';
 import { useAllEmployees } from '../../employees/hooks/use-all-employees';
-import { usePenalties } from './hooks/use-penalties';
 import { useAllPenaltyTypes } from './hooks/use-all-penalties';
 // ✅ REMOVED: import { generateNextId } - use id: '' instead
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '../../../components/ui/form';
@@ -20,7 +19,7 @@ type PenaltyFormValues = Omit<Penalty, 'systemId' | 'employeeName' | 'issueDate'
 };
 
 interface PenaltyFormProps {
-  initialData: Penalty | null;
+  initialData: Penalty | null | undefined;
   onSubmit: (values: Record<string, unknown>) => void;
   onCancel: () => void;
   onDelete: (systemId: string) => void;
@@ -28,8 +27,6 @@ interface PenaltyFormProps {
 
 export function PenaltyForm({ initialData, onSubmit, onCancel: _onCancel, onDelete: _onDelete }: PenaltyFormProps) {
   const { data: employees } = useAllEmployees();
-  const { data: penaltiesData } = usePenalties({ limit: 1000 });
-  const _penalties = penaltiesData?.data ?? [];
   const { data: penaltyTypes } = useAllPenaltyTypes();
   
   // Filter active penalty types
@@ -62,6 +59,20 @@ export function PenaltyForm({ initialData, onSubmit, onCancel: _onCancel, onDele
     },
   });
 
+  // Reset form when initialData changes
+  React.useEffect(() => {
+    form.reset({
+      id: initialData?.id || '',
+      employeeSystemId: initialData?.employeeSystemId || '',
+      penaltyTypeSystemId: initialData?.penaltyTypeSystemId || '',
+      reason: initialData?.reason || '',
+      amount: initialData?.amount || 0,
+      issueDate: initialData?.issueDate ? new Date(initialData.issueDate) : new Date(),
+      status: initialData?.status || 'Chưa thanh toán',
+      issuerName: initialData?.issuerName || '',
+    });
+  }, [initialData, form]);
+
   const { control, handleSubmit, setValue, watch } = form;
   const selectedPenaltyTypeId = watch('penaltyTypeSystemId');
   
@@ -91,7 +102,7 @@ export function PenaltyForm({ initialData, onSubmit, onCancel: _onCancel, onDele
     <Form {...form}>
       <form id="penalty-form" onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
         <FormField control={control} name="id" render={({ field }) => (
-            <FormItem><FormLabel>Mã Phiếu phạt</FormLabel><FormControl><Input className="h-9" {...field} value={field.value ?? ''} placeholder="Để trống để tự động tạo" /></FormControl><FormMessage /></FormItem>
+            <FormItem><FormLabel>Mã Phiếu phạt</FormLabel><FormControl><Input className="h-9 uppercase" {...field} value={field.value ?? ''} placeholder="Để trống để tự động tạo" onChange={(e) => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>
         )} />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField control={control} name="employeeSystemId" render={({ field }) => (
@@ -140,7 +151,7 @@ export function PenaltyForm({ initialData, onSubmit, onCancel: _onCancel, onDele
         <FormField control={control} name="reason" render={({ field }) => (
           <FormItem>
               <FormLabel>Lý do chi tiết</FormLabel>
-              <FormControl><Textarea className="min-h-[80px]" placeholder="Nêu rõ lý do phạt..." {...field} value={field.value ?? ''} /></FormControl>
+              <FormControl><Textarea className="min-h-20" placeholder="Nêu rõ lý do phạt..." {...field} value={field.value ?? ''} /></FormControl>
           </FormItem>
         )} />
 

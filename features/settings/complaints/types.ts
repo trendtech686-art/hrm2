@@ -10,12 +10,12 @@ export interface CardColorSettings {
     resolved: string;
     rejected: string;
   };
-  // Màu theo độ ưu tiên (override statusColors nếu có)
+  // Màu theo độ ưu tiên (override statusColors nếu có) - ✅ Match Prisma ComplaintPriority enum
   priorityColors: {
-    low: string;
-    medium: string;
-    high: string;
-    urgent: string;
+    LOW: string;
+    MEDIUM: string;
+    HIGH: string;
+    CRITICAL: string;
   };
   // Màu quá hạn (override tất cả)
   overdueColor: string;
@@ -25,11 +25,12 @@ export interface CardColorSettings {
   enableOverdueColor: boolean;
 }
 
+// ✅ Match Prisma ComplaintPriority enum
 export interface SLASettings {
-  low: { responseTime: number; resolveTime: number };
-  medium: { responseTime: number; resolveTime: number };
-  high: { responseTime: number; resolveTime: number };
-  urgent: { responseTime: number; resolveTime: number };
+  LOW: { responseTime: number; resolveTime: number };
+  MEDIUM: { responseTime: number; resolveTime: number };
+  HIGH: { responseTime: number; resolveTime: number };
+  CRITICAL: { responseTime: number; resolveTime: number };
 }
 
 export interface ResponseTemplate {
@@ -55,6 +56,11 @@ export interface PublicTrackingSettings {
   allowCustomerComments: boolean;
   showEmployeeName: boolean;
   showTimeline: boolean;
+  // Section visibility controls
+  showOrderInfo: boolean;
+  showProducts: boolean;
+  showImages: boolean;
+  showResolution: boolean;
 }
 
 export interface ReminderSettings {
@@ -86,11 +92,12 @@ export type ComplaintsSettingsState = {
 // DEFAULT VALUES
 // ============================================
 
+// ✅ Match Prisma ComplaintPriority enum
 export const defaultSLA: SLASettings = {
-  low: { responseTime: 240, resolveTime: 48 }, // 4h response, 48h resolve
-  medium: { responseTime: 120, resolveTime: 24 }, // 2h response, 24h resolve
-  high: { responseTime: 60, resolveTime: 12 }, // 1h response, 12h resolve
-  urgent: { responseTime: 30, resolveTime: 4 }, // 30m response, 4h resolve
+  LOW: { responseTime: 240, resolveTime: 48 }, // 4h response, 48h resolve
+  MEDIUM: { responseTime: 120, resolveTime: 24 }, // 2h response, 24h resolve
+  HIGH: { responseTime: 60, resolveTime: 12 }, // 1h response, 12h resolve
+  CRITICAL: { responseTime: 30, resolveTime: 4 }, // 30m response, 4h resolve
 };
 
 export const defaultReminders: ReminderSettings = {
@@ -115,6 +122,10 @@ export const defaultPublicTracking: PublicTrackingSettings = {
   allowCustomerComments: false,
   showEmployeeName: true,
   showTimeline: true,
+  showOrderInfo: true,
+  showProducts: true,
+  showImages: true,
+  showResolution: true,
 };
 
 export const defaultCardColors: CardColorSettings = {
@@ -124,11 +135,12 @@ export const defaultCardColors: CardColorSettings = {
     resolved: 'bg-green-50 border-green-200',
     rejected: 'bg-gray-50 border-gray-200',
   },
+  // ✅ Match Prisma ComplaintPriority enum
   priorityColors: {
-    low: 'bg-slate-50 border-slate-200',
-    medium: 'bg-amber-50 border-amber-200',
-    high: 'bg-orange-50 border-orange-300',
-    urgent: 'bg-red-100 border-red-300',
+    LOW: 'bg-slate-50 border-slate-200',
+    MEDIUM: 'bg-amber-50 border-amber-200',
+    HIGH: 'bg-orange-50 border-orange-300',
+    CRITICAL: 'bg-red-100 border-red-300',
   },
   overdueColor: 'bg-red-50 border-red-400',
   enableStatusColors: false,
@@ -151,25 +163,25 @@ export const SLA_PRIORITY_CONFIGS: Array<{
   indicatorClass: string;
 }> = [
   {
-    key: 'low',
+    key: 'LOW',
     label: 'Ưu tiên thấp',
     description: 'Ví dụ: các lỗi nhỏ hoặc yêu cầu tham khảo thông tin',
     indicatorClass: 'bg-green-500',
   },
   {
-    key: 'medium',
+    key: 'MEDIUM',
     label: 'Ưu tiên trung bình',
     description: 'Ảnh hưởng vừa phải tới khách hàng, cần theo dõi trong ngày',
     indicatorClass: 'bg-yellow-500',
   },
   {
-    key: 'high',
+    key: 'HIGH',
     label: 'Ưu tiên cao',
     description: 'Các vấn đề ảnh hưởng trực tiếp đến trải nghiệm khách hàng',
     indicatorClass: 'bg-orange-500',
   },
   {
-    key: 'urgent',
+    key: 'CRITICAL',
     label: 'Ưu tiên khẩn cấp',
     description: 'Khiếu nại nghiêm trọng cần phản hồi ngay (ví dụ sự cố truyền thông)',
     indicatorClass: 'bg-red-500',

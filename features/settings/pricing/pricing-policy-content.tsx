@@ -17,8 +17,8 @@ interface PricingPolicyContentProps {
     onRegisterActions: (actions: React.ReactNode[]) => void;
 }
 
-export function PricingPolicyContent({ isActive: _isActive, onRegisterActions }: PricingPolicyContentProps) {
-    const { data: queryData, isLoading, error } = usePricingPolicies({ limit: 1000 });
+export function PricingPolicyContent({ isActive, onRegisterActions }: PricingPolicyContentProps) {
+    const { data: queryData, isLoading, error } = usePricingPolicies({ limit: 100 });
     const data = React.useMemo(() => queryData?.data ?? [], [queryData?.data]);
     
     console.log('PricingPolicyContent - Query State:', { 
@@ -40,15 +40,41 @@ export function PricingPolicyContent({ isActive: _isActive, onRegisterActions }:
     const [idToDelete, setIdToDelete] = React.useState<SystemId | null>(null);
     const [innerTab, setInnerTab] = React.useState('all');
 
-    // Register actions when tab is active or on mount
+    // Store handler in ref to always have fresh closure
+    const handleAddNewRef = React.useRef(() => {
+        setEditingPolicy(null);
+        setIsFormOpen(true);
+    });
+    
+    // Update ref on every render
     React.useEffect(() => {
-        onRegisterActions([
-            <SettingsActionButton key="add" onClick={() => setIsFormOpen(true)}>
+        handleAddNewRef.current = () => {
+            setEditingPolicy(null);
+            setIsFormOpen(true);
+        };
+    });
+
+    // Register actions - use ref wrapper
+    React.useEffect(() => {
+        const actions = [
+            <SettingsActionButton 
+                key="add" 
+                onClick={() => handleAddNewRef.current()}
+            >
                 <PlusCircle className="h-4 w-4" />
                 Tạo chính sách giá
             </SettingsActionButton>
-        ]);
+        ];
+        onRegisterActions(actions);
     }, [onRegisterActions]);
+    
+    // Close dialog when tab becomes inactive
+    React.useEffect(() => {
+        if (!isActive && isFormOpen) {
+            setIsFormOpen(false);
+            setEditingPolicy(null);
+        }
+    }, [isActive, isFormOpen]);
 
     const _handleAddNew = () => {
         setEditingPolicy(null);
@@ -82,7 +108,7 @@ export function PricingPolicyContent({ isActive: _isActive, onRegisterActions }:
         const normalized = {
             id: asBusinessId(values.id.trim().toUpperCase()),
             name: values.name.trim(),
-            description: values.description?.trim() || undefined,
+            description: values.description?.trim() ?? '',
             type: values.type,
             isActive: values.isActive,
             isDefault: values.isDefault,
@@ -184,7 +210,12 @@ export function PricingPolicyContent({ isActive: _isActive, onRegisterActions }:
                 </TabsContent>
             </Tabs>
 
-            <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+            <Dialog open={isFormOpen} onOpenChange={(open) => {
+                setIsFormOpen(open);
+                if (!open) {
+                    setEditingPolicy(null);
+                }
+            }}>
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>{editingPolicy ? 'Cập nhật chính sách giá' : 'Thêm chính sách giá'}</DialogTitle>

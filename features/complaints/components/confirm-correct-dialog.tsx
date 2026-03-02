@@ -31,14 +31,15 @@ export function ConfirmCorrectDialog({
 }: ConfirmCorrectDialogProps) {
   const [_confirmed, _setConfirmed] = React.useState(false);
   const [note, setNote] = React.useState("");
-  const [confirmedQuantities, setConfirmedQuantities] = React.useState<Record<SystemId, number>>({});
+  const [confirmedQuantities, setConfirmedQuantities] = React.useState<Record<string, number>>({});
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   // Initialize confirmed quantities khi mở dialog
+  // ⚠️ Use array index as key (not productSystemId) to handle duplicate products
   React.useEffect(() => {
     if (open && complaint?.affectedProducts && complaint.affectedProducts.length > 0) {
-      const initialQty: Record<SystemId, number> = {};
-      complaint.affectedProducts.forEach(p => {
+      const initialQty: Record<string, number> = {};
+      complaint.affectedProducts.forEach((p, idx) => {
         const qty = p.issueType === 'excess' 
           ? p.quantityExcess 
           : p.issueType === 'missing'
@@ -46,7 +47,7 @@ export function ConfirmCorrectDialog({
           : p.issueType === 'defective'
           ? p.quantityDefective
           : 0;
-        initialQty[p.productSystemId] = qty;
+        initialQty[String(idx)] = qty;
       });
       setConfirmedQuantities(initialQty);
     }
@@ -57,7 +58,14 @@ export function ConfirmCorrectDialog({
     
     setIsSubmitting(true);
     try {
-      await onConfirm(note, confirmedQuantities);
+      // Convert index-based quantities back to productSystemId-based for the callback
+      const qtyByProductSystemId: Record<SystemId, number> = {};
+      if (complaint?.affectedProducts) {
+        complaint.affectedProducts.forEach((p, idx) => {
+          qtyByProductSystemId[p.productSystemId] = confirmedQuantities[String(idx)] ?? 0;
+        });
+      }
+      await onConfirm(note, qtyByProductSystemId);
       handleClose();
     } catch (error) {
       console.error('[CONFIRM-CORRECT-DIALOG] Submit error:', error);
@@ -126,7 +134,7 @@ export function ConfirmCorrectDialog({
                         other: 'Khác'
                       }[item.issueType] || item.issueType;
                       
-                      const confirmedQty = confirmedQuantities[item.productSystemId] ?? customerReported;
+                      const confirmedQty = confirmedQuantities[String(idx)] ?? customerReported;
                       
                       return (
                         <tr key={idx} className="hover:bg-muted/30 transition-colors">
@@ -151,7 +159,7 @@ export function ConfirmCorrectDialog({
                                 const value = Number(e.target.value) || 0;
                                 setConfirmedQuantities(prev => ({
                                   ...prev,
-                                  [item.productSystemId]: value
+                                  [String(idx)]: value
                                 }));
                               }}
                               placeholder="0"

@@ -17,6 +17,8 @@ export interface TaskFilters {
   parentId?: string;
   dueFrom?: string;
   dueTo?: string;
+  createdFrom?: string;
+  createdTo?: string;
   includeDeleted?: boolean;
 }
 
@@ -82,6 +84,8 @@ export async function fetchTasks(
   if (filters.parentId) params.set('parentId', filters.parentId);
   if (filters.dueFrom) params.set('dueFrom', filters.dueFrom);
   if (filters.dueTo) params.set('dueTo', filters.dueTo);
+  if (filters.createdFrom) params.set('createdFrom', filters.createdFrom);
+  if (filters.createdTo) params.set('createdTo', filters.createdTo);
   if (filters.includeDeleted) params.set('includeDeleted', 'true');
 
   const url = params.toString() ? `${BASE_URL}?${params}` : BASE_URL;
@@ -260,6 +264,50 @@ export async function toggleTaskTimer(
 export async function fetchSubtasks(
   parentSystemId: string
 ): Promise<Task[]> {
-  const response = await fetchTasks({ parentId: parentSystemId, limit: 100 });
+  const response = await fetchTasks({ parentId: parentSystemId });
   return response.data;
+}
+
+/**
+ * Dashboard stats response — server-side aggregation
+ */
+export interface TaskDashboardStats {
+  total: number;
+  byStatus: {
+    notStarted: number;
+    inProgress: number;
+    review: number;
+    completed: number;
+    cancelled: number;
+  };
+  overdue: number;
+  highPriority: number;
+  onTimeRate: number;
+  avgCompletionDays: number;
+  completionRate: number;
+  byAssignee: Array<{
+    assigneeId: string;
+    name: string;
+    total: number;
+    inProgress: number;
+    completed: number;
+    overdue: number;
+  }>;
+}
+
+/**
+ * Fetch dashboard stats — server-side aggregated metrics
+ */
+export async function fetchTaskDashboardStats(
+  params: { createdFrom?: string } = {}
+): Promise<TaskDashboardStats> {
+  const searchParams = new URLSearchParams();
+  if (params.createdFrom) searchParams.set('createdFrom', params.createdFrom);
+
+  const url = searchParams.toString()
+    ? `/api/tasks/dashboard-stats?${searchParams}`
+    : '/api/tasks/dashboard-stats';
+  const response = await fetch(url);
+  if (!response.ok) throw new Error('Failed to fetch task dashboard stats');
+  return response.json();
 }

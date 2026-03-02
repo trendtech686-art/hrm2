@@ -1,18 +1,17 @@
 /**
  * Hook cho cancel workflow của PurchaseOrder
- * Tách từ page.tsx để giảm kích thước file
+ * Migrated to React Query - uses server-side API
+ * 
+ * ⚡ PERFORMANCE NOTE: This hook is used from list pages where multiple POs
+ * could be cancelled. We fetch payments for the specific PO when the dialog opens,
+ * rather than loading all payments upfront.
  */
 import React from 'react';
 import { toast } from 'sonner';
-import { toISODate, getCurrentDate } from '@/lib/date-utils';
-import { asBusinessId, asSystemId } from '@/lib/id-types';
 import type { PurchaseOrder } from '@/lib/types/prisma-extended';
-import { usePurchaseOrderStore } from '../store';
+import { usePurchaseOrderMutations } from './use-purchase-orders';
 import { sumPaymentsForPurchaseOrder } from '../payment-utils';
-import { useAllPayments } from '@/features/payments/hooks/use-all-payments';
-import { useInventoryReceipts } from '@/features/inventory-receipts/hooks/use-inventory-receipts';
-import { usePurchaseReturns, usePurchaseReturnMutations } from '@/features/purchase-returns/hooks/use-purchase-returns';
-import type { PurchaseReturnLineItem } from '@/features/purchase-returns/types';
+import { usePurchaseOrderPayments } from './use-po-related-data';
 import { useAuth } from '@/contexts/auth-context';
 
 export interface CancelPODialogState {
@@ -28,103 +27,76 @@ const initialCancelState: CancelPODialogState = {
 };
 
 export function usePurchaseOrderCancelWorkflow() {
-  const { cancelOrder, bulkCancel } = usePurchaseOrderStore();
-  const { data: allPayments } = useAllPayments();
-  const { data: irQueryData } = useInventoryReceipts({ limit: 1000 });
-  const allReceipts = React.useMemo(() => irQueryData?.data ?? [], [irQueryData?.data]);
-  const { data: prQueryData } = usePurchaseReturns({ limit: 1000 });
-  const allPurchaseReturns = React.useMemo(() => prQueryData?.data ?? [], [prQueryData?.data]);
-  const { create: createPurchaseReturn } = usePurchaseReturnMutations({
-    onCreateSuccess: () => {},
-    onError: (err) => toast.error(err.message)
-  });
   const { employee: loggedInUser } = useAuth();
   
   const currentUserSystemId = loggedInUser?.systemId ?? 'SYSTEM';
   const currentUserName = loggedInUser?.fullName ?? 'Hệ thống';
 
   const [cancelDialogState, setCancelDialogState] = React.useState<CancelPODialogState>(initialCancelState);
+  const [isCancelling, setIsCancelling] = React.useState(false);
+
+  // ⚡ PERFORMANCE: Only fetch payments for the selected PO (when dialog is open)
+  const selectedPoSystemId = cancelDialogState.po?.systemId || null;
+  const { data: poPayments } = usePurchaseOrderPayments(selectedPoSystemId);
+
+  const { cancel: cancelMutation } = usePurchaseOrderMutations({
+    onCancelSuccess: (result) => {
+      const poId = result.id;
+      setCancelDialogState(initialCancelState);
+      setIsCancelling(false);
+      
+      toast.success('Đã hủy đơn nhập hàng', { 
+        description: `Đơn ${poId} đã được hủy` 
+      });
+    },
+    onError: (error) => {
+      setIsCancelling(false);
+      toast.error('Lỗi hủy đơn hàng', { description: error.message });
+    },
+  });
 
   const handleCancelRequest = React.useCallback((po: PurchaseOrder) => {
-    const totalPaid = sumPaymentsForPurchaseOrder(allPayments, po);
     const hasBeenDelivered = po.deliveryStatus !== 'Chưa nhập';
 
+    // Set PO first - payments will be fetched via usePurchaseOrderPayments hook
     setCancelDialogState({ 
       isOpen: true, 
       po: po, 
-      totalPaid: totalPaid,
+      totalPaid: 0, // Will be calculated after payments are loaded
       willCreateReturn: hasBeenDelivered 
     });
-  }, [allPayments]);
+  }, []);
+
+  // ⚡ Update totalPaid when payments are loaded for the selected PO
+  React.useEffect(() => {
+    if (cancelDialogState.po && poPayments) {
+      const totalPaid = sumPaymentsForPurchaseOrder(poPayments, cancelDialogState.po);
+      if (totalPaid !== cancelDialogState.totalPaid) {
+        setCancelDialogState(prev => ({ ...prev, totalPaid }));
+      }
+    }
+  }, [cancelDialogState.po, cancelDialogState.totalPaid, poPayments]);
 
   const closeCancelDialog = React.useCallback(() => {
     setCancelDialogState(initialCancelState);
   }, []);
 
   const confirmCancel = React.useCallback(() => {
-    if (!cancelDialogState.po) return;
+    if (!cancelDialogState.po || isCancelling) return;
     const po = cancelDialogState.po;
 
-    if (cancelDialogState.willCreateReturn) {
-      const poSystemId = asSystemId(po.systemId);
-      const receiptsForPO = allReceipts.filter(r => r.purchaseOrderSystemId === poSystemId);
-      const returnsForPO = allPurchaseReturns.filter(pr => pr.purchaseOrderSystemId === poSystemId);
-
-      const returnItems = po.lineItems
-        .map<PurchaseReturnLineItem | null>(item => {
-          const totalReceived = receiptsForPO.reduce((sum, receipt) => {
-            const receiptItem = receipt.items.find(i => i.productSystemId === item.productSystemId);
-            return sum + (receiptItem ? Number(receiptItem.receivedQuantity) : 0);
-          }, 0);
-          const totalReturned = returnsForPO.reduce((sum, pr) => {
-            const returnItem = pr.items.find(i => i.productSystemId === item.productSystemId);
-            return sum + (returnItem ? returnItem.returnQuantity : 0);
-          }, 0);
-          const returnableQuantity = totalReceived - totalReturned;
-
-          if (returnableQuantity <= 0) {
-            return null;
-          }
-
-          return {
-            productSystemId: asSystemId(item.productSystemId),
-            productId: asBusinessId(item.productId),
-            productName: item.productName,
-            orderedQuantity: item.quantity,
-            returnQuantity: returnableQuantity,
-            unitPrice: item.unitPrice,
-          } satisfies PurchaseReturnLineItem;
-        })
-        .filter((item): item is PurchaseReturnLineItem => Boolean(item));
-
-      if (returnItems.length > 0) {
-        const totalReturnValue = returnItems.reduce((sum, item) => sum + (item.returnQuantity * item.unitPrice), 0);
-
-        createPurchaseReturn.mutate({
-          id: asBusinessId(''),
-          purchaseOrderSystemId: asSystemId(po.systemId),
-          purchaseOrderId: asBusinessId(po.id),
-          supplierSystemId: asSystemId(po.supplierSystemId),
-          supplierName: po.supplierName,
-          branchSystemId: asSystemId(po.branchSystemId),
-          branchName: po.branchName,
-          returnDate: toISODate(getCurrentDate()),
-          reason: `Tự động tạo khi hủy đơn nhập hàng ${po.id}`,
-          items: returnItems,
-          totalReturnValue,
-          refundAmount: 0,
-          refundMethod: '',
-          creatorName: currentUserName,
-        });
-      }
-    }
-
-    cancelOrder(po.systemId, currentUserSystemId, currentUserName);
-    setCancelDialogState(initialCancelState);
-    toast.success('Đã hủy đơn nhập hàng', {
-      description: `Đơn ${po.id} đã được hủy`,
+    setIsCancelling(true);
+    
+    // Call API - server handles purchase return and receipt creation
+    cancelMutation.mutate({
+      systemId: po.systemId,
+      userId: currentUserSystemId,
+      userName: currentUserName,
+      reason: cancelDialogState.willCreateReturn 
+        ? `Tự động tạo khi hủy đơn nhập hàng ${po.id}` 
+        : undefined,
     });
-  }, [cancelDialogState, allReceipts, allPurchaseReturns, createPurchaseReturn, cancelOrder, currentUserSystemId, currentUserName]);
+  }, [cancelDialogState, isCancelling, cancelMutation, currentUserSystemId, currentUserName]);
 
   const handleBulkCancel = React.useCallback((selectedIds: string[]) => {
     if (selectedIds.length === 0) {
@@ -133,11 +105,37 @@ export function usePurchaseOrderCancelWorkflow() {
       });
       return;
     }
-    bulkCancel(selectedIds, currentUserSystemId, currentUserName);
-    toast.success('Đã hủy', {
-      description: `Đã hủy ${selectedIds.length} đơn nhập hàng`,
-    });
-  }, [bulkCancel, currentUserSystemId, currentUserName]);
+    
+    // Cancel each order sequentially via API
+    let cancelled = 0;
+    let failed = 0;
+    
+    const cancelNext = async (index: number) => {
+      if (index >= selectedIds.length) {
+        if (cancelled > 0) {
+          toast.success('Đã hủy', {
+            description: `Đã hủy ${cancelled}/${selectedIds.length} đơn nhập hàng${failed > 0 ? `, ${failed} thất bại` : ''}`,
+          });
+        }
+        return;
+      }
+      
+      try {
+        await cancelMutation.mutateAsync({
+          systemId: selectedIds[index],
+          userId: currentUserSystemId,
+          userName: currentUserName,
+        });
+        cancelled++;
+      } catch {
+        failed++;
+      }
+      
+      await cancelNext(index + 1);
+    };
+    
+    cancelNext(0);
+  }, [cancelMutation, currentUserSystemId, currentUserName]);
 
   return {
     cancelDialogState,
@@ -145,5 +143,6 @@ export function usePurchaseOrderCancelWorkflow() {
     closeCancelDialog,
     confirmCancel,
     handleBulkCancel,
+    isCancelling,
   };
 }

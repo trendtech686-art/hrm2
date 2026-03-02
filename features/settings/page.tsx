@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
@@ -6,7 +6,6 @@ import {
   Store,
   MapPin,
   Users,
-  Receipt,
   Tags,
   Printer,
   Settings2,
@@ -116,13 +115,6 @@ const financialSettings: SettingsItem[] = [
     description: 'Quản lý phiếu thu chi và hình thức thanh toán', 
     href: '/settings/payments',
     iconColor: 'text-teal-600'
-  },
-  { 
-    icon: Receipt, 
-    title: 'Thuế', 
-    description: 'Cấu hình các mức thuế suất đầu vào và đầu ra', 
-    href: '/settings/taxes',
-    iconColor: 'text-cyan-600'
   },
 ];
 
@@ -372,7 +364,7 @@ export function SettingsPage() {
                     >
                       <CardHeader className="p-4 pb-2 space-y-2">
                         <div className="flex items-start justify-between gap-2">
-                          <CardTitle className="text-h6 font-semibold leading-tight group-hover:text-primary transition-colors">
+                          <CardTitle className="leading-tight group-hover:text-primary transition-colors">
                             {item.title}
                           </CardTitle>
                           {item.badge && (

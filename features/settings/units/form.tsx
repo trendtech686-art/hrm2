@@ -23,11 +23,28 @@ export function UnitForm({ initialData, onSubmit }: UnitFormProps) {
     },
   });
 
+  // Reset form when initialData changes
+  React.useEffect(() => {
+    if (initialData) {
+      form.reset({
+        id: initialData.id ?? '',
+        name: initialData.name ?? '',
+        description: initialData.description ?? '',
+      });
+    } else {
+      form.reset({
+        id: '',
+        name: '',
+        description: '',
+      });
+    }
+  }, [initialData, form]);
+
   return (
     <Form {...form}>
       <form id="unit-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 pt-4">
         <FormField control={form.control} name="id" render={({ field }) => (
-          <FormItem><FormLabel>Mã đơn vị tính</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+          <FormItem><FormLabel>Mã đơn vị tính</FormLabel><FormControl><Input {...field} value={field.value ?? ''} className="uppercase" onChange={(e) => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>
         )} />
         <FormField control={form.control} name="name" render={({ field }) => (
           <FormItem><FormLabel>Tên đơn vị tính</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>

@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { requireAuth, apiError } from '@/lib/api-utils';
 
 const SETTINGS_KEY = 'settings';
 const SETTINGS_GROUP = 'trendtech';
@@ -29,6 +30,9 @@ export async function GET() {
 }
 
 export async function PATCH(request: NextRequest) {
+  const session = await requireAuth()
+  if (!session) return apiError('Chưa đăng nhập', 401)
+
   try {
     const body = await request.json();
     const { section, data } = body;

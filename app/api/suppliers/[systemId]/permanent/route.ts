@@ -25,7 +25,17 @@ export async function DELETE(
     // Delete supplier and handle related records
     // Related records will have supplierId set to null - preserves historical data
     await prisma.$transaction(async (tx) => {
-      // Set supplierSystemId = null on related records (preserve historical data)
+      // Set supplierId = null on related records (preserve historical data)
+      await tx.purchaseOrder.updateMany({ 
+        where: { supplierId: systemId }, 
+        data: { supplierId: undefined } 
+      }).catch(() => {});
+      
+      await tx.purchaseReturn.updateMany({ 
+        where: { supplierId: systemId }, 
+        data: { supplierId: undefined } 
+      }).catch(() => {});
+      
       await tx.inventoryReceipt.updateMany({ 
         where: { supplierSystemId: systemId }, 
         data: { supplierSystemId: undefined } 
@@ -34,6 +44,12 @@ export async function DELETE(
       await tx.payment.updateMany({ 
         where: { supplierId: systemId }, 
         data: { supplierId: null } 
+      }).catch(() => {});
+      
+      // Update products that have this as primary supplier
+      await tx.product.updateMany({ 
+        where: { primarySupplierId: systemId }, 
+        data: { primarySupplierId: null } 
       }).catch(() => {});
       
       // Finally delete the supplier

@@ -42,6 +42,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const updatedReturn = await prisma.$transaction(async (tx) => {
       // Update each product's inventory
       for (const item of salesReturn.items) {
+        if (!item.productId) continue; // Skip items without product (deleted products)
+        
         const branchId = salesReturn.branchId || salesReturn.branchSystemId;
         
         if (!branchId) {
@@ -57,6 +59,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             },
           },
         });
+
+        const oldStock = inventory?.onHand || 0;
+        const newStock = oldStock + item.quantity;
 
         if (inventory) {
           // Update existing inventory - add returned quantity back to onHand
@@ -84,6 +89,23 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             },
           });
         }
+        
+        // ✅ Create stock history record
+        await tx.stockHistory.create({
+          data: {
+            productId: item.productId,
+            branchId: branchId,
+            action: 'Nhập kho trả hàng',
+            source: 'Phiếu trả hàng',
+            quantityChange: item.quantity,
+            newStockLevel: newStock,
+            documentId: salesReturn.id,
+            documentType: 'sales_return',
+            employeeId: session.user?.id,
+            employeeName: session.user?.name || undefined,
+            note: `Nhập kho hàng trả - ${item.productName || item.productId}`,
+          },
+        });
       }
 
       // Mark sales return as received

@@ -1,5 +1,7 @@
+﻿'use client'
+
 import * as React from 'react';
-import { useFuseFilter } from '../../hooks/use-fuse-search';
+import { simpleSearch } from '@/lib/simple-search';
 import { Plus, CheckCircle2, RotateCcw, Trash2, Search, X } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
@@ -85,20 +87,9 @@ export function PayrollTemplatePage() {
   // Mobile infinite scroll
   const [mobileLoadedCount, setMobileLoadedCount] = React.useState(20);
 
-  // Fuse.js for search (lazy-loaded)
-  const fuseOptions = React.useMemo(
-    () => ({
-      keys: ['id', 'name', 'description'],
-      threshold: 0.3,
-      includeScore: true,
-    }),
-    []
-  );
-  const searchedData = useFuseFilter(templates, searchQuery.trim(), fuseOptions);
-
-  // Filtered data
+  // Simple search for templates
   const filteredData = React.useMemo(() => {
-    let result = searchQuery.trim() ? searchedData : templates;
+    let result = simpleSearch(templates as unknown as Record<string, unknown>[], searchQuery.trim(), { keys: ['id', 'name', 'description'] }) as unknown as PayrollTemplate[];
 
     // Default filter
     if (isDefaultFilter.size > 0) {
@@ -110,7 +101,7 @@ export function PayrollTemplatePage() {
     }
 
     return result;
-  }, [templates, searchQuery, isDefaultFilter, searchedData]);
+  }, [templates, searchQuery, isDefaultFilter]);
 
   // Reset mobile count when filters change
   React.useEffect(() => {
@@ -137,7 +128,7 @@ export function PayrollTemplatePage() {
     setFormState({
       name: template.name,
       description: template.description ?? '',
-      componentSystemIds: template.componentSystemIds as any,
+      componentSystemIds: template.componentSystemIds as SystemId[],
       isDefault: template.isDefault,
     });
     setIsDialogOpen(true);
@@ -266,8 +257,13 @@ export function PayrollTemplatePage() {
     [handleEdit, handleDelete, handleToggleDefault]
   );
 
-  // Set default column visibility
+  // Set default column visibility - run once on mount
+  const columnsInitialized = React.useRef(false);
   React.useEffect(() => {
+    if (columnsInitialized.current) return;
+    if (columns.length === 0) return;
+    
+    columnsInitialized.current = true;
     const defaultVisibleColumns = ['select', 'id', 'name', 'componentCount', 'isDefault', 'createdAt', 'actions'];
     setColumnVisibility(
       Object.fromEntries(columns.map((col) => [col.id, defaultVisibleColumns.includes(col.id!)]))
@@ -427,7 +423,7 @@ export function PayrollTemplatePage() {
 
       <ResponsiveDataTable<PayrollTemplate>
         columns={columns}
-        data={displayData as any}
+        data={displayData}
         renderMobileCard={renderMobileCard}
         rowSelection={rowSelection}
         setRowSelection={setRowSelection}
@@ -617,7 +613,7 @@ export function PayrollTemplatePage() {
       {/* Implementation Notes */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-h4">Ghi chú triển khai</CardTitle>
+          <CardTitle>Ghi chú triển khai</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 text-body-sm text-muted-foreground">
           <div className="flex items-center gap-2">

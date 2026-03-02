@@ -1,11 +1,12 @@
-import * as React from 'react';
+﻿import * as React from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
 import { Users2, PlusCircle, X, Copy } from 'lucide-react';
 import Link from 'next/link';
 import type { Customer } from '../../customers/types';
-import { useAllCustomers } from '../../customers/hooks/use-all-customers';
-import { useCustomerStore } from '../../customers/store'; // Keep for add mutation
-import { useAllOrders } from '../hooks/use-all-orders';
+import { useCustomerMutations, useCustomer } from '../../customers/hooks/use-customers';
+import { useInfiniteMeiliCustomerSearch } from '@/hooks/use-meilisearch';
+// ⚡ PERFORMANCE: Use customer-specific hooks instead of loading ALL data
+import { useCustomerOrders, useCustomerWarranties, useCustomerComplaints } from '../../customers/hooks/use-customer-related-data';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../../components/ui/dialog';
@@ -18,15 +19,23 @@ import { useCustomerGroups } from '../../settings/customers/hooks/use-customer-s
 import { asSystemId } from '@/lib/id-types';
 import { formatDate } from '@/lib/date-utils';
 import { useEmployeeFinder } from '../../employees/hooks/use-all-employees';
-import { useAllWarranties } from '../../warranty/hooks/use-all-warranties';
-import { useComplaints } from '../../complaints/hooks/use-complaints';
-import { useAllReceipts } from '../../receipts/hooks/use-all-receipts';
-import { useAllPayments } from '../../payments/hooks/use-all-payments';
-import { useCustomerSlaEvaluation } from '../../customers/sla/hooks';
 
-const formatCurrency = (value?: number) => {
-    if (typeof value !== 'number' || isNaN(value)) return '0';
-    return new Intl.NumberFormat('vi-VN').format(value);
+const formatCurrency = (value?: number | unknown) => {
+    // Handle Prisma Decimal objects (they have toNumber() method or toString())
+    let num: number;
+    if (typeof value === 'number') {
+        num = value;
+    } else if (value && typeof value === 'object' && 'toNumber' in value && typeof (value as { toNumber: () => number }).toNumber === 'function') {
+        // Prisma Decimal object
+        num = (value as { toNumber: () => number }).toNumber();
+    } else if (value !== null && value !== undefined) {
+        // Try to convert string or other to number
+        num = Number(String(value));
+    } else {
+        num = 0;
+    }
+    if (isNaN(num)) return '0';
+    return new Intl.NumberFormat('vi-VN').format(num);
 };
 
 const formatNumber = (value?: number) => {
@@ -34,7 +43,7 @@ const formatNumber = (value?: number) => {
     return new Intl.NumberFormat('vi-VN').format(value);
 };
 
-const formatAddress = (street?: string, ward?: string, province?: string) => {
+const _formatAddress = (street?: string, ward?: string, province?: string) => {
     return [street, ward, province].filter(Boolean).join(', ');
 };
 
@@ -67,64 +76,87 @@ const getBadgeToneClass = (tone?: 'destructive' | 'warning') => {
 export function CustomerSelector({ disabled }: { disabled: boolean }) {
     const { control, setValue } = useFormContext();
     const [isFormOpen, setIsFormOpen] = React.useState(false);
-    const { data: allCustomers } = useAllCustomers();
-    const { add: addCustomer } = useCustomerStore(); // Keep for mutation
-    const { data: allOrders } = useAllOrders();
+    const [searchQuery, setSearchQuery] = React.useState('');
+    const [selectedCustomerId, setSelectedCustomerId] = React.useState<string | null>(null);
+    
+    // ✅ Use Meilisearch for fast search (< 50ms) - shows 30 default results when empty
+    // ✅ Infinite scroll support - load more on scroll
+    const {
+        data: searchData,
+        isLoading: isLoadingSearch,
+        fetchNextPage,
+        hasNextPage,
+        isFetchingNextPage,
+    } = useInfiniteMeiliCustomerSearch({ 
+        query: searchQuery,
+        debounceMs: 150,
+    });
+    
+    // ✅ Fetch full customer data when selected (for addresses, debt, etc.)
+    const { data: fullCustomerData } = useCustomer(selectedCustomerId);
+    
+    // ✅ Search results from Meilisearch - flatten all pages
+    const searchResults = React.useMemo(() => {
+        return searchData?.pages.flatMap(page => page.data) || [];
+    }, [searchData]);
+    
+    const { create: createCustomer } = useCustomerMutations({});
     const { data: customerGroupsData } = useCustomerGroups();
     const customerGroups = React.useMemo(() => customerGroupsData || [], [customerGroupsData]);
     const { findById: findEmployeeById } = useEmployeeFinder();
-    const { data: warranties = [] } = useAllWarranties();
-    const { data: allReceipts = [] } = useAllReceipts();
-    const { data: allPayments = [] } = useAllPayments();
-    const { data: queryData } = useComplaints({ limit: 1000 });
-    const complaints = React.useMemo(() => queryData?.data ?? [], [queryData?.data]);
-    const slaEngine = useCustomerSlaEvaluation();
 
     // ✅ PHASE 2: Convert watch to useWatch
     const selectedCustomer = useWatch({ control, name: 'customer' });
 
-    // ✅ Convert customers to options for VirtualizedCombobox
+    // ⚡ PERFORMANCE: Use customer-specific hooks instead of loading ALL data
+    const { data: customerOrders } = useCustomerOrders(selectedCustomer?.systemId);
+    const { data: warranties } = useCustomerWarranties(selectedCustomer?.systemId);
+    const { data: complaints } = useCustomerComplaints(selectedCustomer?.systemId);
+    
+    // ✅ Update form when full customer data is loaded
+    React.useEffect(() => {
+        if (fullCustomerData && selectedCustomerId) {
+            setValue('customer', fullCustomerData, { shouldValidate: true, shouldDirty: true });
+            
+            // ✅ Auto-load default addresses when selecting customer
+            if (fullCustomerData.addresses) {
+                const defaultShipping = fullCustomerData.addresses.find(a => a.isDefaultShipping);
+                const defaultBilling = fullCustomerData.addresses.find(a => a.isDefaultBilling);
+                
+                if (defaultShipping) {
+                    setValue('shippingAddress', defaultShipping, { shouldDirty: true });
+                }
+                if (defaultBilling) {
+                    setValue('billingAddress', defaultBilling, { shouldDirty: true });
+                }
+            }
+            // Clear after setting
+            setSelectedCustomerId(null);
+        }
+    }, [fullCustomerData, selectedCustomerId, setValue]);
+    
+    // ✅ Convert search results to options for VirtualizedCombobox
     const customerOptions: ComboboxOption[] = React.useMemo(() => {
-        return allCustomers.map(c => {
-            const defaultAddress = c.addresses?.[0];
+        return searchResults.map(c => {
             return {
                 value: c.systemId,
                 label: c.name,
+                subtitle: `${c.phone || ''} • ${c.address || c.id}`,
                 metadata: {
                     phone: c.phone,
-                    address: defaultAddress ? formatAddress(defaultAddress.street, defaultAddress.ward, defaultAddress.province) : '',
-                    debt: c.currentDebt,
+                    address: c.address,
                     totalSpent: c.totalSpent
                 }
             };
         });
-    }, [allCustomers]);
+    }, [searchResults]);
 
     const handleSelect = (option: ComboboxOption | null) => {
         if (option) {
-            const fullCustomer = allCustomers.find(c => c.systemId === option.value);
-            //  // Removed to prevent circular reference error
-            setValue('customer', fullCustomer || null, { shouldValidate: true, shouldDirty: true });
-            
-            // ✅ Auto-load default addresses when selecting customer
-            if (fullCustomer?.addresses) {
-                //  // Removed
-                const defaultShipping = fullCustomer.addresses.find(a => a.isDefaultShipping);
-                const defaultBilling = fullCustomer.addresses.find(a => a.isDefaultBilling);
-                
-                //  // Removed
-                //  // Removed
-                
-                if (defaultShipping) {
-                    //  // Removed
-                    setValue('shippingAddress', defaultShipping, { shouldDirty: true });
-                }
-                if (defaultBilling) {
-                    //  // Removed
-                    setValue('billingAddress', defaultBilling, { shouldDirty: true });
-                }
-            }
-            // else: no addresses, skip
+            // ✅ Trigger fetch of full customer data
+            setSelectedCustomerId(option.value);
+            // Clear search after selection
+            setSearchQuery('');
         } else {
             setValue('customer', null, { shouldValidate: true, shouldDirty: true });
             setValue('shippingAddress', null);
@@ -138,10 +170,7 @@ export function CustomerSelector({ disabled }: { disabled: boolean }) {
         toast.success(`Đã sao chép ${label}`);
     }, []);
 
-    const customerOrders = React.useMemo(() => {
-        if (!selectedCustomer) return [];
-        return allOrders.filter(order => order.customerSystemId === selectedCustomer.systemId);
-    }, [allOrders, selectedCustomer]);
+    // ⚡ OPTIMIZED: customerOrders now comes from useCustomerOrders hook - already filtered by API
 
     // Orders that create debt: status='Hoàn thành' OR deliveryStatus='Đã giao hàng' OR stockOutStatus='Xuất kho toàn bộ'
     const deliveredCustomerOrders = React.useMemo(() => {
@@ -162,18 +191,13 @@ export function CustomerSelector({ disabled }: { disabled: boolean }) {
             };
         }
 
-        if (!customerOrders.length) {
-            return {
-                totalOrders: selectedCustomer.totalOrders ?? 0,
-                totalSpent: selectedCustomer.totalSpent ?? 0,
-                lastOrderDate: selectedCustomer.lastPurchaseDate ?? null,
-            };
-        }
+        // ✅ ALWAYS use totalSpent from database - it's the source of truth
+        // Don't recalculate from orders as useAllOrders() may not have all orders
+        // Convert to Number since Prisma Decimal comes as string in JSON
+        const totalSpent = Number(selectedCustomer.totalSpent) || 0;
 
-        let totalSpent = 0;
-        deliveredCustomerOrders.forEach(order => {
-            totalSpent += order.grandTotal || 0;
-        });
+        // Use orders from current session for order count breakdown only
+        const totalOrders = customerOrders.length || (selectedCustomer.totalOrders ?? 0);
 
         const recencySource = deliveredCustomerOrders.length ? deliveredCustomerOrders : customerOrders;
         let latestDate: string | null = null;
@@ -184,58 +208,31 @@ export function CustomerSelector({ disabled }: { disabled: boolean }) {
         });
 
         return {
-            totalOrders: customerOrders.length,
+            totalOrders,
             totalSpent,
             lastOrderDate: latestDate ?? selectedCustomer.lastPurchaseDate ?? null,
         };
     }, [selectedCustomer, customerOrders, deliveredCustomerOrders]);
 
+    // ✅ Lấy công nợ trực tiếp từ customer - đã được tính sẵn trong DB
     const customerDebtBalance = React.useMemo(() => {
         if (!selectedCustomer) return 0;
-        const transactions: Array<{ date: string; change: number }> = [];
+        return Number(selectedCustomer.currentDebt) || 0;
+    }, [selectedCustomer]);
 
-        deliveredCustomerOrders.forEach(order => {
-            // ✅ Use grandTotal (không trừ paidAmount) vì phiếu thu đã được tính riêng
-            transactions.push({ date: order.orderDate, change: order.grandTotal || 0 });
-        });
-
-        allReceipts
-            .filter(receipt => receipt.payerTypeName === 'Khách hàng' && receipt.payerName === selectedCustomer.name)
-            .forEach(receipt => transactions.push({ date: receipt.date, change: -receipt.amount }));
-
-        allPayments
-            .filter(payment => payment.recipientTypeName === 'Khách hàng' && payment.recipientName === selectedCustomer.name)
-            .forEach(payment => transactions.push({ date: payment.date, change: payment.amount }));
-
-        if (!transactions.length) {
-            return selectedCustomer.currentDebt ?? 0;
-        }
-
-        transactions.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-        return transactions.reduce((balance, entry) => balance + entry.change, 0);
-    }, [selectedCustomer, deliveredCustomerOrders, allReceipts, allPayments]);
-
-    const customerWarranties = React.useMemo(() => {
-        if (!selectedCustomer?.phone) return [];
-        return warranties.filter(ticket => ticket.customerPhone === selectedCustomer.phone);
-    }, [selectedCustomer?.phone, warranties]);
-
-    const customerWarrantyCount = customerWarranties.length;
+    // ⚡ OPTIMIZED: warranties now comes from useCustomerWarranties hook - already filtered by API
+    const customerWarrantyCount = warranties.length;
 
     const activeWarrantyCount = React.useMemo(() => {
-        return customerWarranties.filter(ticket => !['returned', 'completed', 'cancelled'].includes(ticket.status)).length;
-    }, [customerWarranties]);
+        return warranties.filter(ticket => !['returned', 'completed', 'cancelled'].includes(ticket.status)).length;
+    }, [warranties]);
 
-    const customerComplaints = React.useMemo(() => {
-        if (!selectedCustomer) return [];
-        return complaints.filter(complaint => complaint.customerSystemId === selectedCustomer.systemId);
-    }, [selectedCustomer, complaints]);
-
-    const customerComplaintCount = customerComplaints.length;
+    // ⚡ OPTIMIZED: complaints now comes from useCustomerComplaints hook - already filtered by API
+    const customerComplaintCount = complaints.length;
 
     const activeComplaintCount = React.useMemo(() => {
-        return customerComplaints.filter(complaint => complaint.status === 'pending' || complaint.status === 'investigating').length;
-    }, [customerComplaints]);
+        return complaints.filter(complaint => complaint.status === 'pending' || complaint.status === 'investigating').length;
+    }, [complaints]);
 
     const orderBreakdown = React.useMemo(() => {
         const pending = customerOrders.filter(o => o.status === 'Đặt hàng').length;
@@ -246,48 +243,18 @@ export function CustomerSelector({ disabled }: { disabled: boolean }) {
     }, [customerOrders]);
 
     const slaDisplay = React.useMemo(() => {
-        if (!selectedCustomer) {
-            return {
-                title: 'Đúng hạn',
-                detail: 'Chưa có dữ liệu SLA',
-                tone: 'secondary' as const,
-            };
-        }
-
-        const entry = slaEngine?.index?.entries?.[selectedCustomer.systemId];
-        const alerts = entry?.alerts ?? [];
-        if (!alerts.length) {
-            return {
-                title: 'Đúng hạn',
-                detail: 'Không có cảnh báo',
-                tone: 'success' as const,
-            };
-        }
-
-        const sortedAlerts = [...alerts].sort((a, b) => new Date(a.targetDate).getTime() - new Date(b.targetDate).getTime());
-        const nextAlert = sortedAlerts[0];
-        const remaining = nextAlert.daysRemaining;
-        const timeText = remaining === 0
-            ? 'Hôm nay'
-            : remaining > 0
-                ? `Còn ${remaining} ngày`
-                : `Trễ ${Math.abs(remaining)} ngày`;
-        const tone = remaining < 0
-            ? 'destructive'
-            : nextAlert.alertLevel === 'warning'
-                ? 'warning'
-                : 'secondary';
-
+        // SLA removed - use comments instead
         return {
-            title: nextAlert.slaName,
-            detail: `${timeText}${nextAlert.targetDate ? ` • hạn ${formatDate(nextAlert.targetDate)}` : ''}`,
-            tone,
-        } as const;
-    }, [selectedCustomer, slaEngine]);
+            title: 'Bình thường',
+            detail: 'Xem bình luận để theo dõi',
+            tone: 'secondary' as const,
+        };
+    }, []);
 
     const getGroupName = React.useCallback((id?: string) => {
         if (!id) return undefined;
-        return customerGroups.find(g => g.systemId === id)?.name;
+        // ✅ FIX: Search by both systemId AND id (business ID) since customer form stores the business id
+        return (customerGroups.find(g => g.systemId === id) || customerGroups.find(g => g.id === id))?.name;
     }, [customerGroups]);
 
     const getEmployeeName = React.useCallback((id?: string) => {
@@ -301,6 +268,16 @@ export function CustomerSelector({ disabled }: { disabled: boolean }) {
 
     const customerBaseInfo = React.useMemo(() => {
         if (!selectedCustomer) return [];
+        
+        // Debug log to check actual values
+        console.log('[CustomerSelector] selectedCustomer debt info:', {
+            currentDebt: selectedCustomer.currentDebt,
+            maxDebt: selectedCustomer.maxDebt,
+            currentDebtType: typeof selectedCustomer.currentDebt,
+            maxDebtType: typeof selectedCustomer.maxDebt,
+            customerDebtBalance,
+        });
+        
         return [
             { label: 'Nhóm KH', value: getGroupName(selectedCustomer.customerGroup) || '---' },
             { label: 'NV phụ trách', value: getEmployeeName(selectedCustomer.accountManagerId) || '---' },
@@ -371,7 +348,7 @@ export function CustomerSelector({ disabled }: { disabled: boolean }) {
     }, [selectedCustomer, customerWarrantyCount, customerComplaintCount, activeWarrantyCount, activeComplaintCount, customerOrderStats.lastOrderDate, slaDisplay]);
 
     const handleFormSubmit = (values: CustomerFormSubmitPayload) => { 
-        addCustomer({
+        createCustomer.mutate({
             ...values,
             id: values.id,
         } as Omit<Customer, 'systemId'>); 
@@ -382,7 +359,7 @@ export function CustomerSelector({ disabled }: { disabled: boolean }) {
         // FIX: Wrapped component in a React.Fragment to resolve a TypeScript error related to JSX element types when using dialogs and other components together.
         <React.Fragment>
             <Card className="flex flex-col">
-                <CardHeader className="shrink-0 pb-3"><CardTitle className="text-base font-semibold">Thông tin khách hàng</CardTitle></CardHeader>
+                <CardHeader className="shrink-0 pb-3"><CardTitle>Thông tin khách hàng</CardTitle></CardHeader>
                 <CardContent className="flex-1 overflow-y-auto space-y-3">
                     {selectedCustomer ? (
                         <div className="space-y-3">
@@ -497,12 +474,17 @@ export function CustomerSelector({ disabled }: { disabled: boolean }) {
                               options={customerOptions}
                               value={null}
                               onChange={(option) => handleSelect(option)}
+                              onSearchChange={setSearchQuery}
+                              isLoading={isLoadingSearch}
                               placeholder="Tìm theo tên, SĐT, mã khách hàng... (F4)"
                               searchPlaceholder="Tìm kiếm..."
-                              emptyPlaceholder="Không tìm thấy."
+                              emptyPlaceholder="Không tìm thấy khách hàng."
                               disabled={disabled}
+                              onLoadMore={() => fetchNextPage()}
+                              hasMore={hasNextPage}
+                              isLoadingMore={isFetchingNextPage}
                               renderHeader={() => (
-                                <div className="p-1 border-b">
+                                <div className="p-1 border-b border-border">
                                   <Button
                                     type="button"
                                     variant="ghost"

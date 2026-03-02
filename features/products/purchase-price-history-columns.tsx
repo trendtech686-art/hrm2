@@ -2,6 +2,7 @@ import { ColumnDef } from "../../components/data-table/types";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { Badge } from "../../components/ui/badge";
+import Link from "next/link";
 
 export interface PriceHistoryEntry {
   systemId: string; // Required for RelatedDataTable
@@ -10,10 +11,13 @@ export interface PriceHistoryEntry {
   price: number;
   supplierName: string;
   reference: string; // e.g., PO number or Receipt number
+  referenceSystemId?: string; // For clickable link
+  purchaseOrderId?: string; // Link to purchase order
   type: 'manual' | 'receipt';
   note?: string;
   branchSystemId?: string;
   branchName?: string;
+  createdByName?: string; // Người tạo
 }
 
 export const purchasePriceHistoryColumns: ColumnDef<PriceHistoryEntry>[] = [
@@ -22,7 +26,11 @@ export const purchasePriceHistoryColumns: ColumnDef<PriceHistoryEntry>[] = [
     accessorKey: "date",
     header: "Ngày cập nhật",
     cell: ({ row }) => {
-      return format(new Date(row.date), "dd/MM/yyyy HH:mm", { locale: vi });
+      // Validate date before formatting to avoid "Invalid time value" error
+      if (!row.date) return '-';
+      const date = new Date(row.date);
+      if (isNaN(date.getTime())) return '-';
+      return format(date, "dd/MM/yyyy HH:mm", { locale: vi });
     },
     meta: { displayName: "Ngày cập nhật" }
   },
@@ -49,6 +57,15 @@ export const purchasePriceHistoryColumns: ColumnDef<PriceHistoryEntry>[] = [
     meta: { displayName: "Nhà cung cấp" }
   },
   {
+    id: "createdByName",
+    accessorKey: "createdByName",
+    header: "Người tạo",
+    cell: ({ row }) => {
+      return <div className="text-body-sm">{row.createdByName || '-'}</div>;
+    },
+    meta: { displayName: "Người tạo" }
+  },
+  {
     id: "branchName",
     accessorKey: "branchName",
     header: "Chi nhánh",
@@ -62,6 +79,28 @@ export const purchasePriceHistoryColumns: ColumnDef<PriceHistoryEntry>[] = [
     accessorKey: "reference",
     header: "Chứng từ",
     cell: ({ row }) => {
+      // Nếu có referenceSystemId (inventory receipt), link đến phiếu nhập
+      // Nếu có purchaseOrderId, link đến đơn nhập hàng
+      if (row.referenceSystemId) {
+        return (
+          <Link 
+            href={`/inventory-receipts/${row.referenceSystemId}`}
+            className="font-mono text-body-xs text-primary hover:underline"
+          >
+            {row.reference}
+          </Link>
+        );
+      }
+      if (row.purchaseOrderId) {
+        return (
+          <Link 
+            href={`/purchase-orders/${row.purchaseOrderId}`}
+            className="font-mono text-body-xs text-primary hover:underline"
+          >
+            {row.reference}
+          </Link>
+        );
+      }
       return <div className="font-mono text-body-xs">{row.reference}</div>;
     },
     meta: { displayName: "Chứng từ" }
@@ -85,7 +124,7 @@ export const purchasePriceHistoryColumns: ColumnDef<PriceHistoryEntry>[] = [
     accessorKey: "note",
     header: "Ghi chú",
     cell: ({ row }) => {
-      return <div className="text-body-sm text-muted-foreground truncate max-w-[200px]">{row.note}</div>;
+      return <div className="text-body-sm text-muted-foreground truncate max-w-50">{row.note}</div>;
     },
     meta: { displayName: "Ghi chú" }
   },

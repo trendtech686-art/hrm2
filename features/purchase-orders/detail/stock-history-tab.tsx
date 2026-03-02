@@ -1,6 +1,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { formatDateCustom, parseDate, getCurrentDate, getDaysDiff } from '@/lib/date-utils';
+import { formatCurrency } from '@/lib/format-utils';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table';
 import { Card, CardContent } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
@@ -60,7 +61,8 @@ export function StockHistoryTab({
               <TableHead>Ngày tạo</TableHead>
               <TableHead>Nhân viên tạo</TableHead>
               <TableHead className="text-center">Tổng SL</TableHead>
-              <TableHead className="w-[100px] text-right">Thao tác</TableHead>
+              <TableHead className="text-right">Tổng giá trị</TableHead>
+              <TableHead className="w-25 text-right">Thao tác</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -68,8 +70,13 @@ export function StockHistoryTab({
               const isReceipt = movement.type === 'receipt';
               const data = movement.data;
               const totalQty = isReceipt 
-                ? (data as InventoryReceipt).items.reduce((sum, i) => sum + Number(i.receivedQuantity), 0)
-                : (data as PurchaseReturn).items.reduce((sum, i) => sum + i.returnQuantity, 0);
+                ? (data as InventoryReceipt).items.reduce((sum, i) => sum + Number(i.receivedQuantity || 0), 0)
+                : (data as PurchaseReturn).items.reduce((sum, i) => sum + Number(i.returnQuantity || 0), 0);
+              
+              // Tính tổng giá trị
+              const totalValue = isReceipt
+                ? (data as InventoryReceipt).items.reduce((sum, i) => sum + Number(i.receivedQuantity || 0) * Number(i.unitPrice || 0), 0)
+                : (data as PurchaseReturn).items.reduce((sum, i) => sum + Number(i.returnQuantity || 0) * Number(i.unitPrice || 0), 0);
 
               return (
                 <React.Fragment key={data.systemId}>
@@ -97,6 +104,7 @@ export function StockHistoryTab({
                     <TableCell>{formatDateCustom(parseDate(isReceipt ? (data as InventoryReceipt).receivedDate : (data as PurchaseReturn).returnDate) || getCurrentDate(), 'dd/MM/yyyy HH:mm')}</TableCell>
                     <TableCell>{isReceipt ? (data as InventoryReceipt).receiverName : (data as PurchaseReturn).creatorName}</TableCell>
                     <TableCell className="text-center">{totalQty}</TableCell>
+                    <TableCell className="text-right">{formatCurrency(totalValue)}</TableCell>
                     <TableCell className="text-right">
                       {isReceipt ? (
                         <Button 
@@ -125,7 +133,7 @@ export function StockHistoryTab({
                   </TableRow>
                   {expandedRowId === data.systemId && (
                     <TableRow className="bg-slate-50 dark:bg-slate-900/20 hover:bg-slate-50 dark:hover:bg-slate-900/20">
-                      <TableCell colSpan={7} className="p-0">
+                      <TableCell colSpan={8} className="p-0">
                         {isReceipt 
                           ? <InventoryReceiptDetailView 
                               receipt={data as InventoryReceipt} 
@@ -144,7 +152,7 @@ export function StockHistoryTab({
             })}
             {stockMovements.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">Chưa có lịch sử xuất nhập kho.</TableCell>
+                <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">Chưa có lịch sử xuất nhập kho.</TableCell>
               </TableRow>
             )}
           </TableBody>

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
@@ -270,7 +270,7 @@ export function BrandDetailForm({
               <TabsContent value="general" className="space-y-4 mt-4">
                 <Card>
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-base">Thông tin cơ bản</CardTitle>
+                    <CardTitle>Thông tin cơ bản</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
@@ -324,7 +324,7 @@ export function BrandDetailForm({
                                   type="button"
                                   variant="outline"
                                   size="icon"
-                                  className="flex-shrink-0"
+                                  className="shrink-0"
                                   onClick={() => window.open(field.value, '_blank')}
                                 >
                                   <ExternalLink className="h-4 w-4" />
@@ -381,7 +381,7 @@ export function BrandDetailForm({
                 {/* Logo Upload Card */}
                 <Card>
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-base flex items-center gap-2">
+                    <CardTitle className="flex items-center gap-2">
                       <ImageIcon className="h-4 w-4" />
                       Logo thương hiệu
                     </CardTitle>
@@ -415,7 +415,7 @@ export function BrandDetailForm({
                       onChange={setLogoFiles}
                       sessionId={logoSessionId}
                       onSessionChange={setLogoSessionId}
-                      className="min-h-[120px]"
+                      className="min-h-30"
                     />
                   </CardContent>
                 </Card>
@@ -427,7 +427,7 @@ export function BrandDetailForm({
                   <CardHeader className="pb-3">
                     <div className="flex items-center gap-2">
                       <Globe className="h-4 w-4" />
-                      <CardTitle className="text-base">SEO Mặc định</CardTitle>
+                      <CardTitle>SEO Mặc định</CardTitle>
                     </div>
                     <CardDescription>
                       Thông tin SEO chung - sẽ được dùng cho tất cả website nếu không có SEO riêng
@@ -525,7 +525,7 @@ export function BrandDetailForm({
                   <CardHeader className="pb-3">
                     <div className="flex items-center gap-2">
                       <Globe className="h-4 w-4" style={{ color: '#ef4444' }} />
-                      <CardTitle className="text-base">SEO cho PKGX</CardTitle>
+                      <CardTitle>SEO cho PKGX</CardTitle>
                     </div>
                     <CardDescription>phukiengiaxuong.com.vn - Override SEO chung</CardDescription>
                   </CardHeader>
@@ -632,7 +632,7 @@ export function BrandDetailForm({
                 {/* SEO Analysis Panel - PKGX */}
                 <Card>
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-base">📊 Phân tích SEO</CardTitle>
+                    <CardTitle>📊 Phân tích SEO</CardTitle>
                     <CardDescription>Điểm số và xem trước kết quả tìm kiếm Google</CardDescription>
                   </CardHeader>
                   <CardContent>
@@ -653,7 +653,7 @@ export function BrandDetailForm({
                   <CardHeader className="pb-3">
                     <div className="flex items-center gap-2">
                       <Globe className="h-4 w-4" style={{ color: '#3b82f6' }} />
-                      <CardTitle className="text-base">SEO cho Trendtech</CardTitle>
+                      <CardTitle>SEO cho Trendtech</CardTitle>
                     </div>
                     <CardDescription>Coming soon</CardDescription>
                   </CardHeader>
@@ -760,7 +760,7 @@ export function BrandDetailForm({
                 {/* SEO Analysis Panel - Trendtech */}
                 <Card>
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-base">📊 Phân tích SEO</CardTitle>
+                    <CardTitle>📊 Phân tích SEO</CardTitle>
                     <CardDescription>Điểm số và xem trước kết quả tìm kiếm Google</CardDescription>
                   </CardHeader>
                   <CardContent>

@@ -35,6 +35,21 @@ export function TargetGroupForm({ initialData, onSubmit }: FormProps) {
     mode: "onBlur",
   });
 
+  // Reset form when initialData changes
+  React.useEffect(() => {
+    if (initialData) {
+      form.reset({
+        id: String(initialData.id ?? ""),
+        name: initialData.name ?? "",
+      });
+    } else {
+      form.reset({
+        id: "",
+        name: "",
+      });
+    }
+  }, [initialData, form]);
+
   return (
     <Form {...form}>
       <form

@@ -2,6 +2,8 @@ import { prisma } from '@/lib/prisma'
 import { Prisma, PayrollStatus } from '@/generated/prisma/client'
 import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
 import { createPayrollSchema } from './validation'
+import { generateNextIdsWithTx } from '@/lib/id-system'
+import { generateIdWithPrefix } from '@/lib/id-generator'
 
 // Interface for payroll item input
 interface PayrollItemInput {
@@ -23,6 +25,9 @@ export async function GET(request: Request) {
     const year = searchParams.get('year')
     const status = searchParams.get('status')
     const employeeId = searchParams.get('employeeId')
+    const search = searchParams.get('search')
+    const sortBy = searchParams.get('sortBy') || 'createdAt'
+    const sortOrder = (searchParams.get('sortOrder') || 'desc') as 'asc' | 'desc'
 
     const where: Prisma.PayrollWhereInput = {}
 
@@ -34,7 +39,7 @@ export async function GET(request: Request) {
       where.year = parseInt(year)
     }
 
-    if (status) {
+    if (status && status !== 'all') {
       where.status = status as PayrollStatus
     }
 
@@ -42,12 +47,26 @@ export async function GET(request: Request) {
       where.items = { some: { employeeId } }
     }
 
+    if (search) {
+      where.OR = [
+        { id: { contains: search, mode: 'insensitive' } },
+      ]
+    }
+
+    // Build orderBy - handle multiple sort fields
+    let orderBy: Prisma.PayrollOrderByWithRelationInput | Prisma.PayrollOrderByWithRelationInput[];
+    if (sortBy === 'createdAt') {
+      orderBy = { createdAt: sortOrder };
+    } else {
+      orderBy = [{ year: 'desc' }, { month: 'desc' }];
+    }
+
     const [payrolls, total] = await Promise.all([
       prisma.payroll.findMany({
         where,
         skip,
         take: limit,
-        orderBy: [{ year: 'desc' }, { month: 'desc' }],
+        orderBy,
         include: {
           items: {
             include: {
@@ -68,7 +87,43 @@ export async function GET(request: Request) {
       prisma.payroll.count({ where }),
     ])
 
-    return apiPaginated(payrolls, { page, limit, total })
+    // Map status from DB enum to frontend type
+    const statusMap: Record<string, string> = {
+      'DRAFT': 'draft',
+      'PROCESSING': 'reviewed',
+      'COMPLETED': 'locked',
+      'PAID': 'locked',
+    }
+
+    // Transform to frontend format
+    const transformedPayrolls = payrolls.map((payroll) => {
+      const monthKey = `${payroll.year}-${String(payroll.month).padStart(2, '0')}`
+      const lastDay = new Date(payroll.year, payroll.month, 0).getDate()
+      
+      return {
+        systemId: payroll.systemId,
+        id: payroll.id,
+        title: `Bảng lương tháng ${payroll.month}/${payroll.year}`,
+        status: statusMap[payroll.status] || 'draft',
+        templateSystemId: undefined,
+        payPeriod: {
+          startDate: `${payroll.year}-${String(payroll.month).padStart(2, '0')}-01`,
+          endDate: `${payroll.year}-${String(payroll.month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`,
+        },
+        payrollDate: payroll.processedAt?.toISOString() || payroll.createdAt.toISOString(),
+        referenceAttendanceMonthKeys: [monthKey],
+        payslipSystemIds: payroll.items.map(item => item.systemId),
+        totalGross: Number(payroll.totalGross),
+        totalDeductions: Number(payroll.totalDeductions),
+        totalNet: Number(payroll.totalNet),
+        totalEmployees: payroll.totalEmployees,
+        createdAt: payroll.createdAt.toISOString(),
+        updatedAt: payroll.updatedAt.toISOString(),
+        createdBy: payroll.createdBy,
+      }
+    })
+
+    return apiPaginated(transformedPayrolls, { page, limit, total })
   } catch (error) {
     console.error('Error fetching payroll:', error)
     return apiError('Failed to fetch payroll', 500)
@@ -87,53 +142,48 @@ export async function POST(request: Request) {
   const body = validation.data
 
   try {
-    // Generate business ID
-    let businessId = body.id
-    if (!businessId) {
-      const prefix = `BL${body.year}${String(body.month).padStart(2, '0')}`
-      const lastPayroll = await prisma.payroll.findFirst({
-        where: { id: { startsWith: prefix } },
-        orderBy: { createdAt: 'desc' },
-        select: { id: true },
-      })
-      const lastNum = lastPayroll?.id 
-        ? parseInt(lastPayroll.id.replace(prefix, '')) 
-        : 0
-      businessId = `${prefix}${String(lastNum + 1).padStart(3, '0')}`
-    }
+    const payroll = await prisma.$transaction(async (tx) => {
+      // Generate IDs using unified ID system
+      const customBusinessId = body.id?.trim() || undefined;
+      const { systemId, businessId } = await generateNextIdsWithTx(
+        tx,
+        'payroll',
+        customBusinessId
+      );
 
-    const payroll = await prisma.payroll.create({
-      data: {
-        systemId: `PAYROLL${String(Date.now()).slice(-6).padStart(6, '0')}`,
-        id: businessId,
-        month: body.month,
-        year: body.year,
-        status: (body.status || 'DRAFT') as PayrollStatus,
-        items: {
-          create: await Promise.all(body.items?.map(async (item: PayrollItemInput) => {
-            const employee = await prisma.employee.findUnique({
-              where: { systemId: item.employeeId },
-              select: { systemId: true, id: true, fullName: true }
-            })
-            if (!employee) throw new Error(`Employee ${item.employeeId} not found`)
-            return {
-              systemId: `PAYITEM${String(Date.now()).slice(-8)}${Math.random().toString(36).slice(2, 6)}`,
-              employeeId: employee.systemId,
-              employeeName: employee.fullName,
-              employeeCode: employee.id,
-              baseSalary: item.baseSalary || 0,
-              netSalary: item.netSalary || 0,
-              notes: item.notes,
-            }
-          }) || []),
+      return tx.payroll.create({
+        data: {
+          systemId,
+          id: businessId,
+          month: body.month,
+          year: body.year,
+          status: (body.status || 'DRAFT') as PayrollStatus,
+          items: {
+            create: await Promise.all(body.items?.map(async (item: PayrollItemInput) => {
+              const employee = await tx.employee.findUnique({
+                where: { systemId: item.employeeId },
+                select: { systemId: true, id: true, fullName: true }
+              });
+              if (!employee) throw new Error(`Employee ${item.employeeId} not found`);
+              return {
+                systemId: await generateIdWithPrefix('PAYITEM', tx as unknown as typeof prisma),
+                employeeId: employee.systemId,
+                employeeName: employee.fullName,
+                employeeCode: employee.id,
+                baseSalary: item.baseSalary || 0,
+                netSalary: item.netSalary || 0,
+                notes: item.notes,
+              };
+            }) || []),
+          },
         },
-      },
-      include: {
-        items: {
-          include: { employee: true },
+        include: {
+          items: {
+            include: { employee: true },
+          },
         },
-      },
-    })
+      });
+    });
 
     return apiSuccess(payroll, 201)
   } catch (error) {

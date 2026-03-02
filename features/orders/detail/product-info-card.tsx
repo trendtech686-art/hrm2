@@ -1,10 +1,11 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react';
 import Link from 'next/link';
 import type { Order, OrderPayment } from '@/lib/types/prisma-extended';
 import type { SalesReturn } from '@/features/sales-returns/types';
 import type { SystemId } from '@/lib/id-types';
+import type { Payment } from '@/features/payments/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { ReadOnlyProductsTable } from '@/components/shared/read-only-products-table';
@@ -17,12 +18,17 @@ interface ProductInfoCardProps {
   totalDiscount: number;
   salesReturns: SalesReturn[];
   getProductTypeLabel: (productSystemId: SystemId) => string;
+  canViewFinancials?: boolean; // Only ADMIN/MANAGER/accountant can see cost and profit
+  paymentsFromLinkedSalesReturn?: Payment[]; // Payments linked to the sales return (for exchange orders)
 }
 
-export function ProductInfoCard({ order, costOfGoods, profit, totalDiscount, salesReturns, getProductTypeLabel: _getProductTypeLabel }: ProductInfoCardProps) {
+export function ProductInfoCard({ order, costOfGoods, profit, totalDiscount, salesReturns, getProductTypeLabel: _getProductTypeLabel, canViewFinancials = false, paymentsFromLinkedSalesReturn = [] }: ProductInfoCardProps) {
     // Calculate warranty payments (negative amounts linked to warranty)
-    const warrantyPayments = (order?.payments || []).filter(p => p.amount < 0 && (p as OrderPayment).linkedWarrantySystemId);
-    const totalWarrantyDeduction = warrantyPayments.reduce((sum, p) => sum + Math.abs(p.amount), 0);
+    const warrantyPayments = (order?.payments || []).filter(p => Number(p.amount) < 0 && (p as OrderPayment).linkedWarrantySystemId);
+    const totalWarrantyDeduction = warrantyPayments.reduce((sum, p) => sum + Math.abs(Number(p.amount) || 0), 0);
+    
+    // Calculate total refund from linked sales return payments
+    const totalRefundFromSalesReturn = paymentsFromLinkedSalesReturn.reduce((sum, p) => sum + (p.amount || 0), 0);
     
     // Check if any line item has tax
     const hasTax = order.lineItems.some(item => item.tax && item.tax > 0);
@@ -56,7 +62,7 @@ export function ProductInfoCard({ order, costOfGoods, profit, totalDiscount, sal
     return (
         <Card>
             <CardHeader>
-                <CardTitle className="text-h4">Thông tin sản phẩm</CardTitle>
+                <CardTitle>Thông tin sản phẩm</CardTitle>
             </CardHeader>
             <CardContent>
                 <ReadOnlyProductsTable
@@ -69,9 +75,14 @@ export function ProductInfoCard({ order, costOfGoods, profit, totalDiscount, sal
                 <div className="flex justify-end mt-4">
                     <div className="w-full max-w-sm space-y-2 text-body-sm">
                         <div className="flex justify-between"><span className="text-muted-foreground">Tổng tiền ({order.lineItems.length} sản phẩm)</span> <span>{formatCurrency(order.subtotal)}</span></div>
-                        <div className="flex justify-between"><span className="text-muted-foreground">Giá vốn</span> <span>{formatCurrency(costOfGoods)}</span></div>
-                        <div className="flex justify-between font-semibold"><span>Lợi nhuận tạm tính</span> <span>{formatCurrency(profit)}</span></div>
-                        <Separator className="!my-2" />
+                        {/* Only show cost/profit for ADMIN, MANAGER, or accountant roles */}
+                        {canViewFinancials && (
+                            <>
+                                <div className="flex justify-between"><span className="text-muted-foreground">Giá vốn</span> <span>{formatCurrency(costOfGoods)}</span></div>
+                                <div className="flex justify-between font-semibold"><span>Lợi nhuận tạm tính</span> <span>{formatCurrency(profit)}</span></div>
+                            </>
+                        )}
+                        <Separator className="my-2!" />
                         <div className="flex justify-between"><span className="text-muted-foreground">Chiết khấu</span> <span>{formatCurrency(-totalDiscount)}</span></div>
                         {hasTax && order.tax > 0 && (
                             <div className="flex justify-between"><span className="text-muted-foreground">Thuế (VAT)</span> <span>{formatCurrency(order.tax)}</span></div>
@@ -111,8 +122,32 @@ export function ProductInfoCard({ order, costOfGoods, profit, totalDiscount, sal
                                 <span className="text-red-600">{formatCurrency(-totalWarrantyDeduction)}</span>
                             </div>
                         )}
-                        <Separator className="!my-2" />
-                        <div className="flex justify-between font-bold text-h4"><span>Khách phải trả</span> <span>{formatCurrency(order.grandTotal)}</span></div>
+                        {/* ✅ Show refund payments from linked sales return BEFORE 'Khách phải trả' */}
+                        {paymentsFromLinkedSalesReturn.length > 0 && (
+                            <div className="flex justify-between">
+                                <span className="text-muted-foreground">
+                                    Phiếu chi từ phiếu trả hàng{' '}
+                                    {paymentsFromLinkedSalesReturn.map((payment, idx) => (
+                                        <React.Fragment key={payment.systemId}>
+                                            {idx > 0 && ', '}
+                                            <Link href={`/payments/${payment.systemId}`} 
+                                                className="text-primary hover:underline font-medium"
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
+                                                ({payment.id})
+                                            </Link>
+                                        </React.Fragment>
+                                    ))}:
+                                </span>
+                                <span className="text-red-600">{formatCurrency(-totalRefundFromSalesReturn)}</span>
+                            </div>
+                        )}
+                        <Separator className="my-2" />
+                        {/* ✅ "Khách phải trả" = grandTotal - linkedSalesReturnValue - totalWarrantyDeduction + totalRefundFromSalesReturn */}
+                        <div className="flex justify-between font-bold text-h4">
+                            <span>Khách phải trả</span> 
+                            <span>{formatCurrency(Math.max(0, order.grandTotal - (order.linkedSalesReturnValue || 0) - totalWarrantyDeduction + totalRefundFromSalesReturn))}</span>
+                        </div>
                     </div>
                 </div>
             </CardContent>

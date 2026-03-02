@@ -240,10 +240,10 @@ async function seedWards3Level() {
 }
 
 // ========================================
-// MAIN
+// MAIN (exported for use in master seed)
 // ========================================
 
-async function main() {
+export async function seedAdminUnits() {
   const startTime = Date.now();
 
   try {
@@ -270,7 +270,7 @@ async function main() {
 
     // Summary
     console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('🎉 SEED COMPLETED');
+    console.log('🎉 ADMIN UNITS SEED COMPLETED');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log(`2-level: ${prov2} provinces, ${ward2} wards`);
     console.log(`3-level: ${prov3} provinces, ${dist3} districts, ${ward3} wards`);
@@ -279,9 +279,15 @@ async function main() {
   } catch (error) {
     console.error('❌ Seed failed:', error);
     throw error;
-  } finally {
-    await prisma.$disconnect();
   }
 }
 
-main().catch(console.error);
+// Run if executed directly (ESM compatible)
+const isMainModule = import.meta.url === `file://${process.argv[1].replace(/\\/g, '/')}`;
+if (isMainModule) {
+  seedAdminUnits()
+    .catch(console.error)
+    .finally(async () => {
+      await prisma.$disconnect();
+    });
+}

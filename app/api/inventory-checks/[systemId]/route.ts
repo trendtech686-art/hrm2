@@ -9,6 +9,31 @@ type RouteParams = {
   params: Promise<{ systemId: string }>;
 };
 
+// Helper to map DB item to app type
+function mapInventoryCheckItem(item: {
+  systemId: string;
+  checkId: string;
+  productId: string | null;
+  productName: string;
+  productSku: string;
+  systemQty: number;
+  actualQty: number;
+  difference: number;
+  notes: string | null;
+}) {
+  return {
+    productSystemId: item.productId || item.productSku, // Use productId if available, else SKU
+    productId: item.productSku,
+    productName: item.productName,
+    unit: '', // Will be filled from product lookup on client
+    systemQuantity: item.systemQty,
+    actualQuantity: item.actualQty,
+    difference: item.difference,
+    reason: undefined, // Not stored in DB yet
+    note: item.notes,
+  };
+}
+
 // GET - Get single inventory check
 export async function GET(request: Request, { params }: RouteParams) {
   const session = await requireAuth()
@@ -28,7 +53,13 @@ export async function GET(request: Request, { params }: RouteParams) {
       return apiNotFound('Inventory check');
     }
 
-    return apiSuccess(inventoryCheck);
+    // Map to app types
+    const mappedCheck = {
+      ...inventoryCheck,
+      items: inventoryCheck.items.map(mapInventoryCheckItem),
+    };
+
+    return apiSuccess(mappedCheck);
   } catch (error) {
     console.error('[Inventory Checks API] GET by ID error:', error);
     return apiError('Failed to fetch inventory check', 500);

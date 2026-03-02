@@ -5,6 +5,7 @@
  */
 
 import type { CashAccount } from '@/lib/types/prisma-extended';
+import { fetchAllPages } from '@/lib/fetch-all-pages';
 
 export interface CashAccountFilters {
   page?: number;
@@ -183,9 +184,5 @@ export async function fetchAccountBalance(
  * Get all active cash accounts (for dropdown/selection)
  */
 export async function fetchActiveCashAccounts(): Promise<CashAccount[]> {
-  const response = await fetchCashAccounts({ 
-    isActive: true, 
-    limit: 100 
-  });
-  return response.data;
+  return fetchAllPages((p) => fetchCashAccounts({ ...p, isActive: true }));
 }

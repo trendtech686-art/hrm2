@@ -1,4 +1,4 @@
-import * as React from 'react';
+﻿import * as React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/ui/card';
 import type { WarrantyTicket } from '../../types';
 
@@ -10,7 +10,7 @@ export function CustomerInfoCard({ ticket }: CustomerInfoCardProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base font-semibold">Thông tin khách hàng</CardTitle>
+        <CardTitle>Thông tin khách hàng</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-3 gap-4">

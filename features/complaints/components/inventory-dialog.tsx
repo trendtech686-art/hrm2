@@ -31,14 +31,16 @@ export function InventoryDialog({
   const [inventoryAdjustments, setInventoryAdjustments] = React.useState<Record<SystemId, number>>({});
   const [reason, setReason] = React.useState("");
 
-  // Initialize adjustments khi mở dialog
+  // Initialize adjustments khi mở dialog - use unique key (productSystemId_index) to avoid conflicts
   React.useEffect(() => {
     if (open && complaint?.affectedProducts && complaint.affectedProducts.length > 0) {
-      const initialAdj: Record<SystemId, number> = {};
-      complaint.affectedProducts.forEach(p => {
-        initialAdj[p.productSystemId] = 0; // Mặc định 0
+      const initialAdj: Record<string, number> = {};
+      complaint.affectedProducts.forEach((p, idx) => {
+        // Use composite key to handle duplicate productSystemId
+        const key = `${p.productSystemId || p.productId || 'unknown'}_${idx}`;
+        initialAdj[key] = 0; // Mặc định 0
       });
-      setInventoryAdjustments(initialAdj);
+      setInventoryAdjustments(initialAdj as Record<SystemId, number>);
     }
   }, [open, complaint]);
 
@@ -117,10 +119,12 @@ export function InventoryDialog({
                         other: 'Khác'
                       }[item.issueType] || item.issueType;
                       
-                      const adjustQty = inventoryAdjustments[item.productSystemId] ?? 0;
+                      // Use composite key to handle duplicate productSystemId
+                      const itemKey = `${item.productSystemId || item.productId || 'unknown'}_${idx}`;
+                      const adjustQty = inventoryAdjustments[itemKey as SystemId] ?? 0;
                       
                       return (
-                        <tr key={idx} className="hover:bg-muted/30 transition-colors">
+                        <tr key={itemKey} className="hover:bg-muted/30 transition-colors">
                           <td className="p-3">
                             <div className="font-medium">{item.productName}</div>
                             <div className="text-xs text-muted-foreground">{item.productId}</div>
@@ -142,7 +146,7 @@ export function InventoryDialog({
                                 const value = Number(e.target.value) || 0;
                                 setInventoryAdjustments(prev => ({
                                   ...prev,
-                                  [item.productSystemId]: value
+                                  [itemKey]: value
                                 }));
                               }}
                               placeholder="0"
@@ -177,13 +181,16 @@ export function InventoryDialog({
                   <div className="space-y-1">
                     {Object.entries(inventoryAdjustments)
                       .filter(([_, qty]) => qty !== 0)
-                      .map(([productId, qty]) => {
-                        const product = complaint?.affectedProducts?.find(p => p.productSystemId === productId);
+                      .map(([compositeKey, qty]) => {
+                        // compositeKey format: "productSystemId_index"
+                        const idx = parseInt(compositeKey.split('_').pop() || '0', 10);
+                        const product = complaint?.affectedProducts?.[idx];
                         const qtyDisplay = qty > 0 ? `+${qty}` : qty;
                         const color = qty > 0 ? 'text-green-600' : 'text-red-600';
+                        const productName = product?.productName || product?.productId || compositeKey;
                         return (
-                          <div key={productId} className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">{product?.productName || productId}:</span>
+                          <div key={compositeKey} className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">{productName}:</span>
                             <span className={`font-semibold ${color}`}>{qtyDisplay}</span>
                           </div>
                         );

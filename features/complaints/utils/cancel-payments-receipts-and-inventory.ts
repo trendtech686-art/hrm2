@@ -31,16 +31,17 @@ export async function cancelPaymentsReceiptsAndInventory(
   
   // STEP 1: Check xem co phieu/kho khong
   // ⚠️ CRITICAL: Phiếu chi/thu được lưu trong METADATA của action verified-correct CUỐI CÙNG
-  const lastVerifiedCorrect = [...complaint.timeline]
+  const lastVerifiedCorrect = [...(complaint.timeline || [])]
     .reverse()
     .find(a => a.actionType === 'verified-correct');
   
   const actionMetadata = lastVerifiedCorrect?.metadata;
   const hasPaymentsReceipts = actionMetadata?.paymentSystemId || actionMetadata?.receiptSystemId;
   const hasInventoryCheck = actionMetadata?.inventoryCheckSystemId;
+  const hasPenalties = (actionMetadata as { penaltySystemIds?: string[] })?.penaltySystemIds?.length;
   
   
-  if (!hasPaymentsReceipts && !hasInventoryCheck) {
+  if (!hasPaymentsReceipts && !hasInventoryCheck && !hasPenalties) {
     return { cancelledPaymentsReceiptsHistory: [], inventoryHistory: null };
   }
   

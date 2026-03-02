@@ -9,13 +9,21 @@ import { Switch } from "../../components/ui/switch";
 import { MoreHorizontal, Image as ImageIcon, Package, Pencil, CheckCircle, AlertTriangle, XCircle, RefreshCw, Search, AlignLeft, ExternalLink, Unlink, Globe, Link2, FolderEdit } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar";
-import { useProductStore } from '../products/store';
 import { InlineEditableCell, InlineEditableNumberCell } from '../../components/shared/inline-editable-cell';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../components/ui/alert-dialog";
+import type { WebsiteSeoData } from '@/lib/types/prisma-extended';
 
-const formatDate = (dateString?: string) => {
-  if (!dateString) return '';
-  const date = new Date(dateString);
+const formatDate = (dateValue?: string | Date | unknown) => {
+  if (!dateValue) return '';
+  let date: Date;
+  if (dateValue instanceof Date) {
+    date = dateValue;
+  } else if (typeof dateValue === 'string') {
+    date = new Date(dateValue);
+  } else {
+    return '';
+  }
+  if (isNaN(date.getTime())) return '';
   return new Intl.DateTimeFormat('vi-VN', {
     day: '2-digit',
     month: '2-digit',
@@ -25,7 +33,8 @@ const formatDate = (dateString?: string) => {
 
 // SEO Score calculation
 const calculateSeoScore = (category: ProductCategory, website: 'pkgx' | 'trendtech'): number => {
-  const seo = category.websiteSeo?.[website];
+  const websiteSeo = category.websiteSeo as Record<string, WebsiteSeoData> | undefined;
+  const seo = websiteSeo?.[website];
   if (!seo) return 0;
   
   let score = 0;
@@ -239,15 +248,6 @@ export const getColumns = (
   onPkgxLink?: (category: ProductCategory) => void,
   onPkgxUnlink?: (category: ProductCategory) => void,
 ): ColumnDef<ProductCategory>[] => {
-  // Get product counts per category - không dùng useMemo vì đây không phải React component
-  const productStore = useProductStore.getState();
-  const productCountByCategory: Record<string, number> = {};
-  productStore.data.forEach(p => {
-    if (p.categorySystemId && !p.isDeleted) {
-      productCountByCategory[String(p.categorySystemId)] = (productCountByCategory[String(p.categorySystemId)] || 0) + 1;
-    }
-  });
-
   return [
   {
     id: "select",
@@ -515,7 +515,7 @@ export const getColumns = (
     ),
     cell: ({ row }) => {
       const category = row as ProductCategory;
-      const count = productCountByCategory[String(category.systemId)] || 0;
+      const count = (category as ProductCategory & { _count?: { productCategories?: number } })._count?.productCategories ?? 0;
       return count > 0 ? (
         <Badge variant="outline" className="text-primary">
           {count}

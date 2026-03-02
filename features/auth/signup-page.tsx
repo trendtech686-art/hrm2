@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
@@ -58,7 +58,7 @@ export function SignupPage() {
     <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle className="text-2xl">Đăng ký tài khoản</CardTitle>
+          <CardTitle size="lg">Đăng ký tài khoản</CardTitle>
           <CardDescription>
             Điền thông tin để tạo tài khoản mới
           </CardDescription>

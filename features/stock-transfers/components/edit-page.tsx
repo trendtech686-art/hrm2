@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
@@ -158,6 +158,10 @@ export function StockTransferEditPage() {
   const fromBranchId = fullEditForm.watch('fromBranchSystemId');
   const toBranchId = fullEditForm.watch('toBranchSystemId');
   const items = fullEditForm.watch('items');
+
+  // Get branch names for display
+  const fromBranch = React.useMemo(() => branches.find(b => b.systemId === fromBranchId), [branches, fromBranchId]);
+  const toBranch = React.useMemo(() => branches.find(b => b.systemId === toBranchId), [branches, toBranchId]);
 
   // Header actions
   const headerActions = React.useMemo(() => (
@@ -389,7 +393,7 @@ export function StockTransferEditPage() {
         <form id="limited-edit-form" onSubmit={limitedEditForm.handleSubmit(onLimitedEditSubmit)} className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Thông tin có thể chỉnh sửa</CardTitle>
+              <CardTitle>Thông tin có thể chỉnh sửa</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -446,22 +450,32 @@ export function StockTransferEditPage() {
           {/* Product List (read-only) */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Danh sách sản phẩm (không thể chỉnh sửa)</CardTitle>
+              <CardTitle>Danh sách sản phẩm (không thể chỉnh sửa)</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[50px]">#</TableHead>
-                      <TableHead className="w-[60px]">Hình ảnh</TableHead>
+                      <TableHead className="w-12.5">#</TableHead>
+                      <TableHead className="w-15">Hình ảnh</TableHead>
                       <TableHead>Sản phẩm</TableHead>
-                      <TableHead className="w-[90px] text-center">SL chuyển</TableHead>
-                      <TableHead className="w-[130px] text-center">CN Chuyển (Trước → Sau)</TableHead>
-                      <TableHead className="w-[130px] text-center">CN Nhận (Trước → Sau)</TableHead>
-                      <TableHead className="w-[100px] text-right">Đơn giá</TableHead>
-                      <TableHead className="w-[110px] text-right">Thành tiền</TableHead>
-                      <TableHead className="w-[120px]">Ghi chú</TableHead>
+                      <TableHead className="w-22.5 text-center">SL chuyển</TableHead>
+                      <TableHead className="w-37.5 text-center">
+                        <div className="flex flex-col">
+                          <span>{transfer.fromBranchName}</span>
+                          <span className="text-xs font-normal text-muted-foreground">(Trước → Sau)</span>
+                        </div>
+                      </TableHead>
+                      <TableHead className="w-37.5 text-center">
+                        <div className="flex flex-col">
+                          <span>{transfer.toBranchName}</span>
+                          <span className="text-xs font-normal text-muted-foreground">(Trước → Sau)</span>
+                        </div>
+                      </TableHead>
+                      <TableHead className="w-25 text-right">Đơn giá</TableHead>
+                      <TableHead className="w-27.5 text-right">Thành tiền</TableHead>
+                      <TableHead className="w-30">Ghi chú</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -562,7 +576,7 @@ export function StockTransferEditPage() {
         {/* Branch Selection */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Thông tin chuyển kho</CardTitle>
+            <CardTitle>Thông tin chuyển kho</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -657,7 +671,7 @@ export function StockTransferEditPage() {
         {/* Product List */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-base">Danh sách sản phẩm</CardTitle>
+            <CardTitle>Danh sách sản phẩm</CardTitle>
             <Button
               type="button"
               variant="outline"
@@ -696,16 +710,26 @@ export function StockTransferEditPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[50px]">#</TableHead>
-                      <TableHead className="w-[60px]">Hình ảnh</TableHead>
+                      <TableHead className="w-12.5">#</TableHead>
+                      <TableHead className="w-15">Hình ảnh</TableHead>
                       <TableHead>Sản phẩm</TableHead>
-                      <TableHead className="w-[90px] text-center">SL chuyển</TableHead>
-                      <TableHead className="w-[130px] text-center">CN Chuyển (Trước → Sau)</TableHead>
-                      <TableHead className="w-[130px] text-center">CN Nhận (Trước → Sau)</TableHead>
-                      <TableHead className="w-[100px] text-right">Đơn giá</TableHead>
-                      <TableHead className="w-[110px] text-right">Thành tiền</TableHead>
-                      <TableHead className="w-[120px]">Ghi chú</TableHead>
-                      <TableHead className="w-[50px]"></TableHead>
+                      <TableHead className="w-22.5 text-center">SL chuyển</TableHead>
+                      <TableHead className="w-37.5 text-center">
+                        <div className="flex flex-col">
+                          <span>{fromBranch?.name || transfer.fromBranchName}</span>
+                          <span className="text-xs font-normal text-muted-foreground">(Trước → Sau)</span>
+                        </div>
+                      </TableHead>
+                      <TableHead className="w-37.5 text-center">
+                        <div className="flex flex-col">
+                          <span>{toBranch?.name || transfer.toBranchName}</span>
+                          <span className="text-xs font-normal text-muted-foreground">(Trước → Sau)</span>
+                        </div>
+                      </TableHead>
+                      <TableHead className="w-25 text-right">Đơn giá</TableHead>
+                      <TableHead className="w-27.5 text-right">Thành tiền</TableHead>
+                      <TableHead className="w-30">Ghi chú</TableHead>
+                      <TableHead className="w-12.5"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>

@@ -104,7 +104,7 @@ async function fetchWithAuth<T>(settings: PkgxSettings, url: string, options: Re
 /**
  * Lấy danh sách danh mục từ PKGX
  */
-export async function getCategories(settings: PkgxSettings = {} as any): Promise<ApiResponse<PkgxCategoriesResponse>> {
+export async function getCategories(settings: PkgxSettings = {} as PkgxSettings): Promise<ApiResponse<PkgxCategoriesResponse>> {
   const { apiUrl } = getApiConfig(settings);
   const url = `${apiUrl}?action=get_categories`;
   return fetchWithAuth<PkgxCategoriesResponse>(settings, url, { method: 'GET' });
@@ -113,7 +113,7 @@ export async function getCategories(settings: PkgxSettings = {} as any): Promise
 /**
  * Lấy danh sách thương hiệu từ PKGX
  */
-export async function getBrands(settings: PkgxSettings = {} as any): Promise<ApiResponse<PkgxBrandsResponse>> {
+export async function getBrands(settings: PkgxSettings = {} as PkgxSettings): Promise<ApiResponse<PkgxBrandsResponse>> {
   const { apiUrl } = getApiConfig(settings);
   const url = `${apiUrl}?action=get_brands`;
   return fetchWithAuth<PkgxBrandsResponse>(settings, url, { method: 'GET' });
@@ -122,7 +122,7 @@ export async function getBrands(settings: PkgxSettings = {} as any): Promise<Api
 /**
  * Lấy chi tiết 1 thương hiệu từ PKGX theo brand_id
  */
-export async function getBrandById(brandId: number, settings: PkgxSettings = {} as any): Promise<ApiResponse<PkgxBrandFromApi | null>> {
+export async function getBrandById(brandId: number, settings: PkgxSettings = {} as PkgxSettings): Promise<ApiResponse<PkgxBrandFromApi | null>> {
   const { apiUrl } = getApiConfig(settings);
   const url = `${apiUrl}?action=get_brands&brand_id=${brandId}`;
   
@@ -141,7 +141,7 @@ export async function getBrandById(brandId: number, settings: PkgxSettings = {} 
 export async function getProducts(
   page: number = 1,
   limit: number = 50,
-  settings: PkgxSettings = {} as any
+  settings: PkgxSettings = {} as PkgxSettings
 ): Promise<ApiResponse<PkgxProductsResponse>> {
   const { apiUrl } = getApiConfig(settings);
   const url = `${apiUrl}?action=get_products&page=${page}&limit=${limit}`;
@@ -151,7 +151,7 @@ export async function getProducts(
 /**
  * Lấy tất cả sản phẩm từ PKGX (tự động phân trang)
  */
-export async function getAllProducts(settings: PkgxSettings = {} as any): Promise<ApiResponse<PkgxProduct[]>> {
+export async function getAllProducts(settings: PkgxSettings = {} as PkgxSettings): Promise<ApiResponse<PkgxProduct[]>> {
   const allProducts: PkgxProduct[] = [];
   let currentPage = 1;
   let totalPages = 1;
@@ -174,7 +174,7 @@ export async function getAllProducts(settings: PkgxSettings = {} as any): Promis
 /**
  * Lấy sản phẩm theo goods_id (sử dụng API get_products với filter)
  */
-export async function getProductById(goodsId: number, settings: PkgxSettings = {} as any): Promise<ApiResponse<PkgxProduct | null>> {
+export async function getProductById(goodsId: number, settings: PkgxSettings = {} as PkgxSettings): Promise<ApiResponse<PkgxProduct | null>> {
   const { apiUrl } = getApiConfig(settings);
   // API không có action=get_product, dùng get_products với goods_id filter
   const url = `${apiUrl}?action=get_products&goods_id=${goodsId}`;
@@ -194,7 +194,7 @@ export async function getProductById(goodsId: number, settings: PkgxSettings = {
  * Lấy gallery ảnh sản phẩm theo goods_id
  * Note: Cần API endpoint `get_gallery` trên server PKGX
  */
-export async function getProductGallery(goodsId: number, settings: PkgxSettings = {} as any): Promise<ApiResponse<PkgxGalleryImage[]>> {
+export async function getProductGallery(goodsId: number, settings: PkgxSettings = {} as PkgxSettings): Promise<ApiResponse<PkgxGalleryImage[]>> {
   const { apiUrl } = getApiConfig(settings);
   const url = `${apiUrl}?action=get_gallery&goods_id=${goodsId}`;
   
@@ -222,7 +222,7 @@ export async function getProductGallery(goodsId: number, settings: PkgxSettings 
  */
 export async function createProduct(
   payload: PkgxProductPayload,
-  settings: PkgxSettings = {} as any
+  settings: PkgxSettings = {} as PkgxSettings
 ): Promise<ApiResponse<CreateProductResponse>> {
   const { apiUrl } = getApiConfig(settings);
   const url = `${apiUrl}?action=create_product`;
@@ -240,7 +240,7 @@ export async function createProduct(
 export async function updateProduct(
   goodsId: number,
   payload: Partial<PkgxProductPayload>,
-  settings: PkgxSettings = {} as any
+  settings: PkgxSettings = {} as PkgxSettings
 ): Promise<ApiResponse<UpdateProductResponse>> {
   const { apiUrl } = getApiConfig(settings);
   const url = `${apiUrl}?action=update_product&goods_id=${goodsId}`;
@@ -264,7 +264,7 @@ export async function updateProductPrice(
     ace_price?: number;
     deal_price?: number;
   },
-  settings: PkgxSettings = {} as any
+  settings: PkgxSettings = {} as PkgxSettings
 ): Promise<ApiResponse<UpdateProductResponse>> {
   return updateProduct(goodsId, prices, settings);
 }
@@ -279,7 +279,7 @@ export async function updateProductSeo(
     meta_desc?: string;
     keywords?: string;
   },
-  settings: PkgxSettings = {} as any
+  settings: PkgxSettings = {} as PkgxSettings
 ): Promise<ApiResponse<UpdateProductResponse>> {
   return updateProduct(goodsId, seo, settings);
 }
@@ -290,7 +290,7 @@ export async function updateProductSeo(
 export async function updateProductStock(
   goodsId: number,
   goodsNumber: number,
-  settings: PkgxSettings = {} as any
+  settings: PkgxSettings = {} as PkgxSettings
 ): Promise<ApiResponse<UpdateProductResponse>> {
   return updateProduct(goodsId, { goods_number: goodsNumber }, settings);
 }
@@ -304,7 +304,7 @@ export async function uploadProductImage(
     filenameSlug?: string;
     goodsId?: number;
   },
-  settings: PkgxSettings = {} as any
+  settings: PkgxSettings = {} as PkgxSettings
 ): Promise<ApiResponse<PkgxImageUploadResponse>> {
   const { apiUrl, apiKey, enabled } = getApiConfig(settings);
 
@@ -360,7 +360,7 @@ export async function uploadImageFromUrl(
     filenameSlug?: string;
     goodsId?: number;
   },
-  settings: PkgxSettings = {} as any
+  settings: PkgxSettings = {} as PkgxSettings
 ): Promise<ApiResponse<PkgxImageUploadResponse>> {
   const { apiUrl, apiKey, enabled } = getApiConfig(settings);
 
@@ -412,9 +412,137 @@ export async function uploadImageFromUrl(
 }
 
 /**
+ * Upload ảnh trực tiếp lên PKGX (dùng cho localhost hoặc khi PKGX không thể fetch URL)
+ * Fetch ảnh từ URL local, convert thành Blob rồi upload qua multipart/form-data
+ */
+export async function uploadImageDirect(
+  imageUrl: string,
+  options?: {
+    filenameSlug?: string;
+    goodsId?: number;
+  },
+  settings: PkgxSettings = {} as PkgxSettings
+): Promise<ApiResponse<PkgxImageUploadResponse>> {
+  console.log('🖼️ [uploadImageDirect] Starting with URL:', imageUrl);
+  
+  const { apiUrl, apiKey, enabled } = getApiConfig(settings);
+
+  if (!enabled) {
+    return { success: false, error: 'Tích hợp PKGX chưa được bật' };
+  }
+
+  if (!apiKey) {
+    return { success: false, error: 'Chưa cấu hình API Key' };
+  }
+
+  try {
+    // Fetch ảnh từ URL local
+    console.log('🖼️ [uploadImageDirect] Fetching image from:', imageUrl);
+    const imageResponse = await fetch(imageUrl);
+    console.log('🖼️ [uploadImageDirect] Fetch response:', { ok: imageResponse.ok, status: imageResponse.status });
+    
+    if (!imageResponse.ok) {
+      return { success: false, error: `Không thể tải ảnh từ ${imageUrl} (status: ${imageResponse.status})` };
+    }
+
+    const imageBlob = await imageResponse.blob();
+    console.log('🖼️ [uploadImageDirect] Image blob:', { type: imageBlob.type, size: imageBlob.size });
+    
+    // Xác định extension từ mime type
+    const mimeToExt: Record<string, string> = {
+      'image/jpeg': 'jpg',
+      'image/png': 'png',
+      'image/gif': 'gif',
+      'image/webp': 'webp',
+    };
+    const ext = mimeToExt[imageBlob.type] || 'jpg';
+    
+    // Tạo filename
+    const filename = options?.filenameSlug 
+      ? `${options.filenameSlug}.${ext}`
+      : `image-${Date.now()}.${ext}`;
+
+    console.log('🖼️ [uploadImageDirect] Uploading as:', filename);
+
+    // Build FormData
+    const formData = new FormData();
+    formData.append('image_file', imageBlob, filename);
+    
+    if (options?.filenameSlug) {
+      formData.append('filename_slug', options.filenameSlug);
+    }
+    if (options?.goodsId) {
+      formData.append('goods_id', String(options.goodsId));
+    }
+
+    const url = `${apiUrl}?action=upload_product_image`;
+    console.log('🖼️ [uploadImageDirect] Posting to:', url);
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'X-API-KEY': apiKey,
+        // Không set Content-Type, browser tự set với boundary cho multipart
+      },
+      body: formData,
+    });
+
+    const data = await response.json();
+    console.log('🖼️ [uploadImageDirect] Response:', data);
+
+    if (data.error) {
+      return { success: false, error: data.message };
+    }
+
+    return { success: true, data };
+  } catch (error) {
+    console.error('🖼️ [uploadImageDirect] Error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Không thể upload ảnh trực tiếp',
+    };
+  }
+}
+
+/**
+ * Smart upload - thử upload trực tiếp trước (cho localhost), nếu thất bại thì dùng URL
+ */
+export async function uploadImageSmart(
+  imageUrl: string,
+  options?: {
+    filenameSlug?: string;
+    goodsId?: number;
+  },
+  settings: PkgxSettings = {} as PkgxSettings
+): Promise<ApiResponse<PkgxImageUploadResponse>> {
+  console.log('🖼️ [uploadImageSmart] Input:', { imageUrl, options });
+  
+  // Nếu là URL localhost hoặc relative URL, dùng upload trực tiếp
+  const isLocalUrl = imageUrl.includes('localhost') || 
+                     imageUrl.includes('127.0.0.1') || 
+                     imageUrl.startsWith('/');
+  
+  console.log('🖼️ [uploadImageSmart] isLocalUrl:', isLocalUrl);
+  
+  if (isLocalUrl) {
+    // Nếu là relative URL, convert thành absolute
+    const absoluteUrl = imageUrl.startsWith('/') 
+      ? `${typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'}${imageUrl}`
+      : imageUrl;
+    
+    console.log('🖼️ [uploadImageSmart] Using uploadImageDirect with absoluteUrl:', absoluteUrl);
+    return uploadImageDirect(absoluteUrl, options, settings);
+  }
+  
+  console.log('🖼️ [uploadImageSmart] Using uploadImageFromUrl');
+  // Nếu là URL public, dùng upload_image_from_url (PKGX server sẽ fetch)
+  return uploadImageFromUrl(imageUrl, options, settings);
+}
+
+/**
  * Lấy chi tiết danh mục theo cat_id (bao gồm SEO fields)
  */
-export async function getCategoryById(catId: number, settings: PkgxSettings = {} as any): Promise<ApiResponse<PkgxCategoriesResponse>> {
+export async function getCategoryById(catId: number, settings: PkgxSettings = {} as PkgxSettings): Promise<ApiResponse<PkgxCategoriesResponse>> {
   const { apiUrl } = getApiConfig(settings);
   const url = `${apiUrl}?action=get_categories&cat_id=${catId}`;
   return fetchWithAuth<PkgxCategoriesResponse>(settings, url, { method: 'GET' });
@@ -445,7 +573,7 @@ export async function updateCategory(
     meta_desc?: string;
     short_desc?: string;
   },
-  settings: PkgxSettings = {} as any
+  settings: PkgxSettings = {} as PkgxSettings
 ): Promise<ApiResponse<{ error: boolean; message: string; cat_id: number }>> {
   const { apiUrl } = getApiConfig(settings);
   // Add timestamp to bust cache
@@ -476,7 +604,7 @@ export async function updateCategoryBasic(
     parent_id?: number;
     is_show?: number; // 1 = hiển thị, 0 = ẩn
   },
-  settings: PkgxSettings = {} as any
+  settings: PkgxSettings = {} as PkgxSettings
 ): Promise<ApiResponse<{ error: boolean; message: string; cat_id: number; changes?: Record<string, { old: unknown; new: unknown }> }>> {
   const { apiUrl } = getApiConfig(settings);
   const timestamp = Date.now();
@@ -516,7 +644,7 @@ export async function updateBrand(
     short_desc?: string;
     long_desc?: string;
   },
-  settings: PkgxSettings = {} as any
+  settings: PkgxSettings = {} as PkgxSettings
 ): Promise<ApiResponse<{ error: boolean; message: string; brand_id: number }>> {
   const { apiUrl } = getApiConfig(settings);
   const url = `${apiUrl}?action=update_brand&brand_id=${brandId}`;
@@ -531,7 +659,7 @@ export async function updateBrand(
 /**
  * Test kết nối API
  */
-export async function testConnection(settings: PkgxSettings = {} as any): Promise<ApiResponse<{ productCount: number }>> {
+export async function testConnection(settings: PkgxSettings = {} as PkgxSettings): Promise<ApiResponse<{ productCount: number }>> {
   const response = await getProducts(1, 1, settings);
 
   if (!response.success) {
@@ -590,7 +718,7 @@ type UpdateMemberPriceResponse = {
 /**
  * Lấy danh sách hạng thành viên từ PKGX
  */
-export async function getMemberRanks(settings: PkgxSettings = {} as any): Promise<ApiResponse<MemberRanksResponse>> {
+export async function getMemberRanks(settings: PkgxSettings = {} as PkgxSettings): Promise<ApiResponse<MemberRanksResponse>> {
   const { apiUrl } = getApiConfig(settings);
   const url = `${apiUrl}?action=get_member_ranks`;
   return fetchWithAuth<MemberRanksResponse>(settings, url, { method: 'GET' });
@@ -610,7 +738,7 @@ export async function getMemberRanks(settings: PkgxSettings = {} as any): Promis
 export async function updateMemberPrice(
   goodsId: number,
   memberPrices: Array<{ user_rank: number; user_price: number }>,
-  settings: PkgxSettings = {} as any
+  settings: PkgxSettings = {} as PkgxSettings
 ): Promise<ApiResponse<UpdateMemberPriceResponse>> {
   const { apiUrl } = getApiConfig(settings);
   const url = `${apiUrl}?action=update_member_price&goods_id=${goodsId}`;
@@ -629,7 +757,7 @@ export async function updateMemberPriceSingle(
   goodsId: number,
   userRank: number,
   userPrice: number,
-  settings: PkgxSettings = {} as any
+  settings: PkgxSettings = {} as PkgxSettings
 ): Promise<ApiResponse<UpdateMemberPriceResponse>> {
   return updateMemberPrice(goodsId, [{ user_rank: userRank, user_price: userPrice }], settings);
 }
@@ -692,7 +820,7 @@ function isPkgxCdnUrl(url: string): boolean {
 export async function processHtmlImagesForPkgx(
   html: string,
   filenamePrefix?: string,
-  settings: PkgxSettings = {} as any
+  settings: PkgxSettings = {} as PkgxSettings
 ): Promise<{ processedHtml: string; uploadedCount: number; skippedCount: number; errors: string[] }> {
   if (!html) {
     return { processedHtml: html, uploadedCount: 0, skippedCount: 0, errors: [] };
@@ -730,10 +858,40 @@ export async function processHtmlImagesForPkgx(
       continue;
     }
     
-    // Skip localhost/internal URLs
+    // Handle localhost/internal URLs - try to upload via uploadImageSmart or remove
     if (!isPublicUrl(src)) {
+      // Normalize backslash
+      const normalizedSrc = src.replace(/\\/g, '/');
+      
+      // If it's a local file URL, try to upload directly
+      if (normalizedSrc.startsWith('/api/files/') || normalizedSrc.startsWith('/uploads/')) {
+        try {
+          const absoluteUrl = typeof window !== 'undefined' 
+            ? `${window.location.origin}${normalizedSrc}`
+            : `http://localhost:3000${normalizedSrc}`;
+          
+          const slug = filenamePrefix 
+            ? `${filenamePrefix}-desc-img-${i + 1}` 
+            : `desc-img-${Date.now()}-${i + 1}`;
+          
+          const uploadResult = await uploadImageSmart(absoluteUrl, { filenameSlug: slug }, settings);
+          
+          if (uploadResult.success && uploadResult.data?.data?.full_urls?.original) {
+            const newSrc = uploadResult.data.data.full_urls.original;
+            const newImgTag = fullMatch.replace(src, newSrc);
+            processedHtml = processedHtml.replace(fullMatch, newImgTag);
+            uploadedCount++;
+            continue;
+          }
+        } catch (_e) {
+          // Fall through to remove the image
+        }
+      }
+      
+      // Cannot upload - remove the image tag to prevent PKGX errors
+      processedHtml = processedHtml.replace(fullMatch, '<!-- Local image removed -->');
       skippedCount++;
-      errors.push(`Bỏ qua URL nội bộ: ${src.substring(0, 50)}...`);
+      errors.push(`Đã xóa ảnh nội bộ (không thể upload): ${src.substring(0, 50)}...`);
       continue;
     }
     

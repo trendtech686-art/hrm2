@@ -1,4 +1,4 @@
-import * as React from 'react';
+﻿import * as React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/ui/card';
 import { LazyImage } from '../../../../components/ui/lazy-image';
 
@@ -16,7 +16,7 @@ export function WarrantyImageGalleryCard({ title, images, emptyMessage, footnote
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base font-semibold">{title}</CardTitle>
+        <CardTitle>{title}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         {validImages.length > 0 ? (

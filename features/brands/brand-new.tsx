@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
@@ -28,8 +28,10 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import { useBrands, useBrandMutations } from './hooks/use-brands';
+import { useBrandMutations } from './hooks/use-brands';
+import { useAllBrands } from './hooks/use-all-brands';
 import { asBusinessId } from '@/lib/id-types';
+import { generateTempId } from '@/lib/id-utils';
 import { toast } from 'sonner';
 import { NewDocumentsUpload } from '@/components/ui/new-documents-upload';
 import { FileUploadAPI, type StagingFile } from '@/lib/file-upload-api';
@@ -65,8 +67,7 @@ type BrandFormValues = z.infer<typeof brandFormSchema>;
 export function BrandNewPage() {
   const router = useRouter();
   
-  const { data: brandsData } = useBrands({ limit: 1000 });
-  const brands = React.useMemo(() => brandsData?.data ?? [], [brandsData?.data]);
+  const { data: brands = [] } = useAllBrands();
   const { create } = useBrandMutations({
     onCreateSuccess: () => {
       toast.success('Đã thêm thương hiệu mới');
@@ -79,7 +80,7 @@ export function BrandNewPage() {
   
   // Generate temporary SystemId for file uploads (will be replaced by server-generated ID)
   const tempSystemId = React.useMemo(() => {
-    return `BRAND_TEMP_${Date.now()}`;
+    return generateTempId('BRAND');
   }, []);
   
   const [activeTab, setActiveTab] = React.useState<'general' | 'seo-pkgx' | 'seo-trendtech'>('general');
@@ -156,7 +157,7 @@ export function BrandNewPage() {
       id: asBusinessId(data.id),
       logo: logoUrl || null,
       logoUrl: logoUrl || null,
-    } as any);
+    } as unknown as Parameters<typeof create.mutate>[0]);
   }, [existingIds, form, logoFiles, logoSessionId, tempSystemId, create]);
 
   // Header actions
@@ -197,7 +198,7 @@ export function BrandNewPage() {
             <TabsContent value="general" className="space-y-4 mt-4">
               <Card>
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Thông tin cơ bản</CardTitle>
+                  <CardTitle>Thông tin cơ bản</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
@@ -249,7 +250,7 @@ export function BrandNewPage() {
                                 type="button"
                                 variant="outline"
                                 size="icon"
-                                className="flex-shrink-0"
+                                className="shrink-0"
                                 onClick={() => window.open(field.value, '_blank')}
                               >
                                 <ExternalLink className="h-4 w-4" />
@@ -306,7 +307,7 @@ export function BrandNewPage() {
               {/* Logo Upload Card */}
               <Card>
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-base flex items-center gap-2">
+                  <CardTitle className="flex items-center gap-2">
                     <ImageIcon className="h-4 w-4" />
                     Logo thương hiệu
                   </CardTitle>
@@ -321,7 +322,7 @@ export function BrandNewPage() {
                     onChange={setLogoFiles}
                     sessionId={logoSessionId}
                     onSessionChange={setLogoSessionId}
-                    className="min-h-[120px]"
+                    className="min-h-30"
                   />
                 </CardContent>
               </Card>
@@ -333,7 +334,7 @@ export function BrandNewPage() {
                 <CardHeader className="pb-3">
                   <div className="flex items-center gap-2">
                     <Globe className="h-4 w-4 text-red-500" />
-                    <CardTitle className="text-base">SEO cho PKGX</CardTitle>
+                    <CardTitle>SEO cho PKGX</CardTitle>
                   </div>
                   <CardDescription>phukiengiaxuong.com.vn</CardDescription>
                 </CardHeader>
@@ -439,7 +440,7 @@ export function BrandNewPage() {
 
               <Card>
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-base flex items-center gap-2"><BarChart3 className="h-4 w-4" /> Phân tích SEO</CardTitle>
+                  <CardTitle className="flex items-center gap-2"><BarChart3 className="h-4 w-4" /> Phân tích SEO</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <SeoAnalysisPanel
@@ -459,7 +460,7 @@ export function BrandNewPage() {
                 <CardHeader className="pb-3">
                   <div className="flex items-center gap-2">
                     <Globe className="h-4 w-4 text-blue-500" />
-                    <CardTitle className="text-base">SEO cho Trendtech</CardTitle>
+                    <CardTitle>SEO cho Trendtech</CardTitle>
                   </div>
                   <CardDescription>Coming soon</CardDescription>
                 </CardHeader>
@@ -565,7 +566,7 @@ export function BrandNewPage() {
 
               <Card>
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-base flex items-center gap-2"><BarChart3 className="h-4 w-4" /> Phân tích SEO</CardTitle>
+                  <CardTitle className="flex items-center gap-2"><BarChart3 className="h-4 w-4" /> Phân tích SEO</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <SeoAnalysisPanel

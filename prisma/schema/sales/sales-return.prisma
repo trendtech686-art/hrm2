@@ -74,14 +74,13 @@ model SalesReturn {
   creatorSystemId String?
   creatorName     String?
 
-  // Activity History
-  activityHistory Json?
-
   // === RELATIONS ===
-  items  SalesReturnItem[]
-  orders Order             @relation(fields: [orderId], references: [systemId])
+  items         SalesReturnItem[]
+  orders        Order             @relation("SalesReturnToOrder", fields: [orderId], references: [systemId])
+  exchangeOrder Order?            @relation("SalesReturnToExchangeOrder", fields: [exchangeOrderSystemId], references: [systemId])
 
   @@index([orderId])
   @@index([status])
+  @@index([exchangeOrderSystemId])
   @@map("sales_returns")
 }

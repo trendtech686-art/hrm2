@@ -20,7 +20,7 @@ import { Separator } from '../../../components/ui/separator';
 import { TimePicker } from '../../../components/ui/time-picker';
 import { NumberInput } from '../../../components/ui/number-input';
 import { CurrencyInput } from '../../../components/ui/currency-input';
-import { PlusCircle, Trash2, Edit, Loader2 } from 'lucide-react';
+import { PlusCircle, Trash2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../../../components/ui/dialog';
@@ -28,6 +28,7 @@ import { LeaveTypeForm, type LeaveTypeFormValues } from './leave-type-form';
 import { SalaryComponentForm, type SalaryComponentFormValues } from './salary-component-form';
 import { InsuranceTaxSettings } from './insurance-tax-settings';
 import { asBusinessId, asSystemId } from '@/lib/id-types';
+import { generateSubEntityId } from '@/lib/id-utils';
 import { TabsContent } from '../../../components/ui/tabs';
 import { SettingsVerticalTabs } from '../../../components/settings/SettingsVerticalTabs';
 import { PenaltyTypesSettingsContent } from '../penalties/penalty-types-settings-content';
@@ -35,6 +36,8 @@ import { PayrollTemplatesSettingsContent } from './payroll-templates-settings-co
 import { JobTitlesPageContent } from '@/features/settings/job-titles/page-content';
 import { DepartmentsSettingsContent } from '@/features/settings/departments/departments-settings-content';
 import { EmployeeTypesSettingsContent } from '@/features/settings/employee-types/employee-types-settings-content';
+import { LeaveTypesSettingsContent } from './leave-types-settings-content';
+import { SalaryComponentsSettingsContent } from './salary-components-settings-content';
 import { Skeleton } from '../../../components/ui/skeleton';
 
 const weekDays = [
@@ -70,6 +73,7 @@ export function EmployeeSettingsPage() {
   
   // Check if redirected from template-page with specific tab
   const initialTab = React.useMemo(() => {
+    if (typeof window === 'undefined') return 'attendance';
     const savedTab = sessionStorage.getItem('employee-settings-active-tab');
     if (savedTab) {
       sessionStorage.removeItem('employee-settings-active-tab');
@@ -191,12 +195,12 @@ export function EmployeeSettingsPage() {
   const [isSalaryComponentFormOpen, setIsSalaryComponentFormOpen] = React.useState(false);
   const [editingSalaryComponentIndex, setEditingSalaryComponentIndex] = React.useState<number | null>(null);
 
-  const { fields: leaveTypeFields, append: appendLeaveType, remove: removeLeaveType, update: updateLeaveType } = useFieldArray({
+  const { fields: leaveTypeFields, append: appendLeaveType, remove: _removeLeaveType, update: updateLeaveType } = useFieldArray({
       control,
       name: "leaveTypes"
   });
 
-  const { fields: salaryComponentFields, append: appendSalaryComponent, remove: removeSalaryComponent, update: updateSalaryComponent } = useFieldArray({
+  const { fields: salaryComponentFields, append: appendSalaryComponent, remove: _removeSalaryComponent, update: updateSalaryComponent } = useFieldArray({
       control,
       name: "salaryComponents"
   });
@@ -204,12 +208,12 @@ export function EmployeeSettingsPage() {
   const allowRollover = watch('allowRollover');
   
   // --- Handlers for Leave Type Dialog ---
-  const handleAddLeaveType = () => {
+  const _handleAddLeaveType = () => {
     setEditingLeaveTypeIndex(null);
     setIsLeaveTypeFormOpen(true);
   };
 
-  const handleEditLeaveType = (index: number) => {
+  const _handleEditLeaveType = (index: number) => {
     setEditingLeaveTypeIndex(index);
     setIsLeaveTypeFormOpen(true);
   };
@@ -219,8 +223,8 @@ export function EmployeeSettingsPage() {
     const fullValue: LeaveType = {
       ...existing,
       ...values,
-      systemId: existing?.systemId ?? asSystemId(`temp-leave-${Date.now()}`),
-      id: existing?.id ?? asBusinessId(`TEMP${Date.now()}`),
+      systemId: existing?.systemId ?? asSystemId(generateSubEntityId('LEAVE')),
+      id: existing?.id ?? asBusinessId(generateSubEntityId('TEMP')),
       applicableGender: existing?.applicableGender ?? 'All',
       applicableDepartmentSystemIds: existing?.applicableDepartmentSystemIds ?? [],
     };
@@ -233,12 +237,12 @@ export function EmployeeSettingsPage() {
   };
   
   // --- Handlers for Salary Component Dialog ---
-  const handleAddSalaryComponent = () => {
+  const _handleAddSalaryComponent = () => {
     setEditingSalaryComponentIndex(null);
     setIsSalaryComponentFormOpen(true);
   };
   
-  const handleEditSalaryComponent = (index: number) => {
+  const _handleEditSalaryComponent = (index: number) => {
     setEditingSalaryComponentIndex(index);
     setIsSalaryComponentFormOpen(true);
   };
@@ -248,8 +252,8 @@ export function EmployeeSettingsPage() {
       const fullValue: SalaryComponent = {
         ...existing,
         ...values,
-        systemId: existing?.systemId ?? asSystemId(`temp-sal-${Date.now()}`),
-        id: existing?.id ?? asBusinessId(`TEMP${Date.now()}`),
+        systemId: existing?.systemId ?? asSystemId(generateSubEntityId('SAL')),
+        id: existing?.id ?? asBusinessId(generateSubEntityId('TEMP')),
       };
        if (editingSalaryComponentIndex !== null) {
           updateSalaryComponent(editingSalaryComponentIndex, fullValue);
@@ -295,7 +299,7 @@ export function EmployeeSettingsPage() {
   // Error state
   if (isError) {
     return (
-      <div className="p-4 border border-destructive rounded-md bg-destructive/10">
+      <div className="p-4 border  border-border rounded-md bg-destructive/10">
         <p className="text-destructive">Không thể tải cài đặt. Vui lòng thử lại sau.</p>
       </div>
     );
@@ -343,14 +347,14 @@ export function EmployeeSettingsPage() {
                         <PlusCircle className="mr-2 h-4 w-4" /> Thêm mức
                       </Button>
                     </div>
-                    <div className="border rounded-md">
+                    <div className="border border-border rounded-md">
                       <Table>
                         <TableHeader>
                           <TableRow>
-                            <TableHead className="w-[150px]">Từ (phút)</TableHead>
-                            <TableHead className="w-[150px]">Đến (phút)</TableHead>
+                            <TableHead className="w-37.5">Từ (phút)</TableHead>
+                            <TableHead className="w-37.5">Đến (phút)</TableHead>
                             <TableHead>Số tiền phạt (VNĐ)</TableHead>
-                            <TableHead className="w-[80px]"></TableHead>
+                            <TableHead className="w-20"></TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -418,14 +422,14 @@ export function EmployeeSettingsPage() {
                         <PlusCircle className="mr-2 h-4 w-4" /> Thêm mức
                       </Button>
                     </div>
-                    <div className="border rounded-md">
+                    <div className="border  border-borderrounded-md">
                       <Table>
                         <TableHeader>
                           <TableRow>
-                            <TableHead className="w-[150px]">Từ (phút)</TableHead>
-                            <TableHead className="w-[150px]">Đến (phút)</TableHead>
+                            <TableHead className="w-37.5">Từ (phút)</TableHead>
+                            <TableHead className="w-37.5">Đến (phút)</TableHead>
                             <TableHead>Số tiền phạt (VNĐ)</TableHead>
-                            <TableHead className="w-[80px]"></TableHead>
+                            <TableHead className="w-20"></TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -541,40 +545,7 @@ export function EmployeeSettingsPage() {
                     {allowRollover && ( <FormField control={control} name="rolloverExpirationDate" render={({ field }) => ( <FormItem className="flex items-center gap-2"> <FormLabel className="text-sm font-normal">Sử dụng đến hết ngày</FormLabel> <FormControl><Input className="w-28" placeholder="VD: 31/03" {...field} value={field.value as string} /></FormControl> </FormItem> )} /> )}
                   </div>
                   <Separator />
-                  <div>
-                    <div className="flex justify-between items-center mb-2">
-                      <h4 className="font-medium text-base">Danh sách các loại nghỉ phép</h4>
-                      <Button type="button" size="sm" onClick={handleAddLeaveType}><PlusCircle className="mr-2 h-4 w-4" /> Thêm loại phép</Button>
-                    </div>
-                    <div className="border rounded-md">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Tên loại phép</TableHead>
-                            <TableHead className="text-center">Số ngày</TableHead>
-                            <TableHead className="text-center">Hưởng lương</TableHead>
-                            <TableHead className="text-center">Y/C File</TableHead>
-                            <TableHead className="text-right">Hành động</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {leaveTypeFields.map((field, index) => (
-                            <TableRow key={field.id}>
-                              <TableCell className="font-medium">{field.name}</TableCell>
-                              <TableCell className="text-center">{field.numberOfDays}</TableCell>
-                              <TableCell className="text-center"><Switch checked={field.isPaid} onCheckedChange={(checked) => updateLeaveType(index, { ...field, isPaid: checked })} /></TableCell>
-                              <TableCell className="text-center"><Switch checked={field.requiresAttachment} onCheckedChange={(checked) => updateLeaveType(index, { ...field, requiresAttachment: checked })} /></TableCell>
-                              <TableCell className="text-right">
-                                <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditLeaveType(index)}><Edit className="h-4 w-4" /></Button>
-                                <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeLeaveType(index)}><Trash2 className="h-4 w-4" /></Button>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                          {leaveTypeFields.length === 0 && <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">Chưa có loại nghỉ phép nào.</TableCell></TableRow>}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </div>
+                  <LeaveTypesSettingsContent />
                 </CardContent>
               </Card>
             </TabsContent>
@@ -593,59 +564,7 @@ export function EmployeeSettingsPage() {
                     <FormField control={control} name="payrollLockDate" render={({ field }) => ( <FormItem><FormLabel>Ngày khóa sổ lương</FormLabel><FormControl><NumberInput placeholder="VD: 5" {...field} value={field.value as number} /></FormControl><FormMessage /></FormItem> )} />
                   </div>
                   <Separator />
-                  <div>
-                    <div className="flex justify-between items-center mb-2">
-                      <h4 className="font-medium text-base">Danh sách các thành phần lương & phụ cấp</h4>
-                      <Button type="button" size="sm" onClick={handleAddSalaryComponent}><PlusCircle className="mr-2 h-4 w-4" /> Thêm thành phần</Button>
-                    </div>
-                    <div className="border rounded-md">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead className="w-10">#</TableHead>
-                            <TableHead>Tên thành phần</TableHead>
-                            <TableHead>Phân loại</TableHead>
-                            <TableHead>Loại</TableHead>
-                            <TableHead className="text-center">Tính thuế</TableHead>
-                            <TableHead className="text-center">Tính BHXH</TableHead>
-                            <TableHead className="text-center">Kích hoạt</TableHead>
-                            <TableHead className="text-right">Hành động</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {salaryComponentFields
-                            .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
-                            .map((field, index) => (
-                            <TableRow key={field.id} className={!field.isActive ? 'opacity-50' : ''}>
-                              <TableCell className="text-muted-foreground">{field.sortOrder ?? index + 1}</TableCell>
-                              <TableCell className="font-medium">
-                                <div>{field.name}</div>
-                                {field.description && <div className="text-xs text-muted-foreground truncate max-w-[200px]">{field.description}</div>}
-                              </TableCell>
-                              <TableCell>
-                                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                                  field.category === 'earning' ? 'bg-green-100 text-green-700' :
-                                  field.category === 'deduction' ? 'bg-red-100 text-red-700' :
-                                  'bg-blue-100 text-blue-700'
-                                }`}>
-                                  {field.category === 'earning' ? 'Thu nhập' : field.category === 'deduction' ? 'Khấu trừ' : 'Đóng góp'}
-                                </span>
-                              </TableCell>
-                              <TableCell>{field.type === 'fixed' ? 'Cố định' : 'Công thức'}</TableCell>
-                              <TableCell className="text-center"><Switch checked={field.taxable} onCheckedChange={(checked) => updateSalaryComponent(index, { ...field, taxable: checked })} /></TableCell>
-                              <TableCell className="text-center"><Switch checked={field.partOfSocialInsurance} onCheckedChange={(checked) => updateSalaryComponent(index, { ...field, partOfSocialInsurance: checked })} /></TableCell>
-                              <TableCell className="text-center"><Switch checked={field.isActive ?? true} onCheckedChange={(checked) => updateSalaryComponent(index, { ...field, isActive: checked })} /></TableCell>
-                              <TableCell className="text-right">
-                                <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditSalaryComponent(index)}><Edit className="h-4 w-4" /></Button>
-                                <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeSalaryComponent(index)}><Trash2 className="h-4 w-4" /></Button>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                          {salaryComponentFields.length === 0 && <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">Chưa có thành phần lương nào.</TableCell></TableRow>}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </div>
+                  <SalaryComponentsSettingsContent />
                 </CardContent>
               </Card>
             </TabsContent>

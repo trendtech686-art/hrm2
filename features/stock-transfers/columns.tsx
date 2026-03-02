@@ -11,11 +11,12 @@ import { MoreHorizontal, Printer } from 'lucide-react';
 import { formatDate } from '@/lib/date-utils';
 import { asSystemId, type SystemId } from '../../lib/id-types';
 
-// Actions cell component to properly use hooks
-function StockTransferActionsCell({ transfer, onPrint }: { transfer: StockTransfer; onPrint?: (transfer: StockTransfer) => void }) {
+// Actions cell component - memoized to prevent re-renders
+const StockTransferActionsCell = React.memo(function StockTransferActionsCell({ transfer, onPrint }: { transfer: StockTransfer; onPrint?: (transfer: StockTransfer) => void }) {
   const router = useRouter();
-  const isPending = transfer.status === 'pending';
-  const isTransferring = transfer.status === 'transferring';
+  const status = transfer.status?.toLowerCase();
+  const isPending = status === 'pending';
+  const isTransferring = status === 'transferring' || status === 'in_transit';
   
   return (
     <DropdownMenu>
@@ -65,22 +66,26 @@ function StockTransferActionsCell({ transfer, onPrint }: { transfer: StockTransf
       </DropdownMenuContent>
     </DropdownMenu>
   );
-}
+});
 
-const getStatusVariant = (status: StockTransferStatus): 'default' | 'secondary' | 'success' | 'destructive' | 'outline' => {
-  switch (status) {
+const getStatusVariant = (status: StockTransferStatus | string): 'default' | 'secondary' | 'success' | 'destructive' | 'outline' => {
+  const normalizedStatus = status?.toLowerCase();
+  switch (normalizedStatus) {
     case 'pending': return 'secondary';
-    case 'transferring': return 'default';
+    case 'transferring':
+    case 'in_transit': return 'default';
     case 'completed': return 'success';
     case 'cancelled': return 'destructive';
     default: return 'outline';
   }
 };
 
-const getStatusLabel = (status: StockTransferStatus): string => {
-  switch (status) {
+const getStatusLabel = (status: StockTransferStatus | string): string => {
+  const normalizedStatus = status?.toLowerCase();
+  switch (normalizedStatus) {
     case 'pending': return 'Chờ chuyển';
-    case 'transferring': return 'Đang chuyển';
+    case 'transferring':
+    case 'in_transit': return 'Đang chuyển';
     case 'completed': return 'Hoàn thành';
     case 'cancelled': return 'Đã hủy';
     default: return status;
@@ -146,7 +151,10 @@ export const getColumns = (
     id: 'createdDate',
     accessorKey: 'createdDate',
     header: 'Ngày tạo',
-    cell: ({ row }) => formatDate(row.createdDate),
+    cell: ({ row }) => {
+      const dateValue = row.createdDate || row.createdAt;
+      return formatDate(dateValue) || '-';
+    },
     meta: { displayName: 'Ngày tạo' },
   },
   {
@@ -179,14 +187,16 @@ export const getColumns = (
   },
   {
     id: 'totalValue',
-    accessorKey: 'items',
+    accessorKey: 'totalValue',
     header: 'Tổng giá trị chuyển',
     cell: ({ row }) => {
-      const totalValue = row.items?.reduce((sum: number, item: { productSystemId: string; quantity: number }) => {
-        const product = products?.find(p => p.systemId === asSystemId(item.productSystemId));
+      // Use pre-calculated totalValue from API, fallback to manual calculation
+      const totalValue = (row as { totalValue?: number }).totalValue ?? row.items?.reduce((sum: number, item: { productId?: string; productSystemId?: string; quantity: number }) => {
+        const prodId = item.productId || item.productSystemId;
+        const product = products?.find(p => p.systemId === asSystemId(prodId || ''));
         const price = product?.costPrice || 0;
         return sum + (price * item.quantity);
-      }, 0) || 0;
+      }, 0) ?? 0;
       
       return <span className="font-medium">{totalValue.toLocaleString('vi-VN')} đ</span>;
     },
@@ -215,7 +225,7 @@ export const getColumns = (
     accessorKey: 'note',
     header: 'Ghi chú',
     cell: ({ row }) => (
-      <span className="text-muted-foreground truncate max-w-[200px] block">
+      <span className="text-muted-foreground truncate max-w-50 block">
         {row.note || '-'}
       </span>
     ),
@@ -233,6 +243,7 @@ export const getStatusOptions = () => [
   { value: 'all', label: 'Tất cả trạng thái' },
   { value: 'pending', label: 'Chờ chuyển' },
   { value: 'transferring', label: 'Đang chuyển' },
+  { value: 'in_transit', label: 'Đang chuyển' },
   { value: 'completed', label: 'Hoàn thành' },
   { value: 'cancelled', label: 'Đã hủy' },
 ];

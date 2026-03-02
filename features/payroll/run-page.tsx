@@ -16,10 +16,14 @@ import { DatePicker } from '../../components/ui/date-picker';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { ROUTES } from '../../lib/router';
 import { useAllEmployees, useActiveEmployees } from '../employees/hooks/use-all-employees';
-import { useAllLeaves } from '../leaves/hooks/use-all-leaves';
-import { useAttendanceLocalState } from '../attendance/hooks/use-attendance-local-state';
+import { useLeavesByDateRange } from '../leaves/hooks/use-leaves';
+import { useAttendanceLocks } from '../attendance/hooks/use-attendance-locks';
+import { useAttendanceByMonth } from '../attendance/hooks/use-attendance';
+import { recalculateSummary } from '../attendance/utils';
+import type { AnyAttendanceDataRow } from '../attendance/types';
+import type { EmployeeSettings } from '../settings/employees/types';
 import { useAllPayrollTemplates, usePayrollTemplateFinder, usePayrollTemplateExtended, usePayrollBatchMutations } from './hooks/use-payroll';
-import { useEmployeeSettings } from '../settings/employees/hooks/use-employee-settings';
+import { useEmployeeSettings, useAllSalaryComponents } from '../settings/employees/hooks/use-employee-settings';
 import { usePenalties } from '../settings/penalties/hooks/use-penalties';
 import { usePenaltyMutations } from '../settings/penalties/hooks/use-penalties';
 import { ResponsiveDataTable } from '../../components/data-table/responsive-data-table';
@@ -30,7 +34,7 @@ import { PayrollSummaryCards } from './components/summary-cards';
 import { payrollEngine, type PayrollCalculationResult } from '../../lib/payroll-engine';
 import { toast } from 'sonner';
 import { asSystemId, type SystemId } from '../../lib/id-types';
-import { attendanceSnapshotService } from '../../lib/attendance-snapshot-service';
+import { attendanceSnapshotService as _attendanceSnapshotService } from '../../lib/attendance-snapshot-service';
 import { cn } from '../../lib/utils';
 import { buildPayPeriodFromMonthKey as _buildPayPeriodFromMonthKey, getCurrentDateInTimezone } from '../../lib/date-utils';
 
@@ -359,7 +363,11 @@ function getEmployeeSelectionColumns(
       size: 120,
       meta: { displayName: 'Phòng ban' },
       header: () => <span>Phòng ban</span>,
-      cell: ({ row }) => <span>{row.department ?? '—'}</span>,
+      cell: ({ row }) => {
+        const dept = row.department;
+        const deptName = typeof dept === 'object' && dept !== null ? (dept as { name?: string }).name : dept;
+        return <span>{deptName ?? '—'}</span>;
+      },
     },
     {
       id: 'jobTitle',
@@ -367,7 +375,11 @@ function getEmployeeSelectionColumns(
       size: 130,
       meta: { displayName: 'Chức vụ' },
       header: () => <span>Chức vụ</span>,
-      cell: ({ row }) => <span>{row.jobTitle ?? '—'}</span>,
+      cell: ({ row }) => {
+        const jt = row.jobTitle;
+        const jtName = typeof jt === 'object' && jt !== null ? (jt as { name?: string }).name : jt;
+        return <span>{jtName ?? '—'}</span>;
+      },
     },
     {
       id: 'baseSalary',
@@ -402,10 +414,9 @@ function getEmployeeSelectionColumns(
 
 export function PayrollRunPage() {
   const router = useRouter();
-  const { data: employeeData } = useAllEmployees();
-  const { data: activeEmployees } = useActiveEmployees();
-  const { data: leaveRequests } = useAllLeaves();
-  const { lockedMonths } = useAttendanceLocalState();
+  const { data: employeeData = [] } = useAllEmployees();
+  const { data: activeEmployees = [] } = useActiveEmployees();
+  const { lockedMonths, getLatestLockedMonth } = useAttendanceLocks();
   const templates = useAllPayrollTemplates();
   const { getDefault } = usePayrollTemplateFinder();
   const { ensureDefault } = usePayrollTemplateExtended();
@@ -414,21 +425,21 @@ export function PayrollRunPage() {
     onError: (err) => toast.error('Đã xảy ra lỗi', { description: err.message }),
   });
   const { data: penaltiesData } = usePenalties({});
-  const penalties = penaltiesData?.data ?? [];
+  const penalties = React.useMemo(() => penaltiesData?.data ?? [], [penaltiesData?.data]);
   const { update: updatePenalty } = usePenaltyMutations({
     onSuccess: () => {},
   });
   const { data: employeeSettings } = useEmployeeSettings();
   const defaultPayday = employeeSettings?.payday ?? 5;
 
+  // ✅ Fix: Only run ensureDefault once on mount, not on every render
+  const ensureDefaultMutate = ensureDefault.mutate;
   React.useEffect(() => {
-    ensureDefault.mutate();
-  }, [ensureDefault]);
+    ensureDefaultMutate();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const latestLockedMonth = React.useMemo(() => {
-    const lockedKeys = Object.keys(lockedMonths).filter((key) => lockedMonths[key]);
-    return lockedKeys.sort().reverse()[0];
-  }, [lockedMonths]);
+  const latestLockedMonth = getLatestLockedMonth();
 
   const [currentStep, setCurrentStep] = React.useState(0);
   const [searchKeyword, setSearchKeyword] = React.useState('');
@@ -445,9 +456,15 @@ export function PayrollRunPage() {
   const [previewSearchKeyword, setPreviewSearchKeyword] = React.useState('');
 
   const defaultMonthKey = latestLockedMonth ?? getCurrentMonthKey();
+  
+  // ✅ Selected month (separate from formState for hook dependency)
+  const [selectedMonthKey, setSelectedMonthKey] = React.useState(defaultMonthKey);
+  
+  // ✅ Fetch attendance data from database for selected month
+  const { data: attendanceRows, isLoading: _isLoadingAttendance } = useAttendanceByMonth(selectedMonthKey);
   const defaultPayrollDate = React.useMemo(
-    () => buildPayrollDate(defaultMonthKey, defaultPayday),
-    [defaultMonthKey, defaultPayday]
+    () => buildPayrollDate(selectedMonthKey, defaultPayday),
+    [selectedMonthKey, defaultPayday]
   );
 
   const defaultTemplateSystemId = React.useMemo(
@@ -457,7 +474,7 @@ export function PayrollRunPage() {
 
   const [formState, setFormState] = React.useState({
     title: '',
-    monthKey: defaultMonthKey,
+    monthKey: selectedMonthKey,
     payrollDate: defaultPayrollDate,
     templateSystemId: defaultTemplateSystemId,
     selectedEmployeeSystemIds: [] as SystemId[],
@@ -516,50 +533,46 @@ export function PayrollRunPage() {
     };
   }, [formState.monthKey]);
 
+  // Server-side: fetch pending leave count in the selected month
+  const pendingLeavesFromDate = selectedMonthBounds ? selectedMonthBounds.start.toISOString().split('T')[0] : undefined;
+  const pendingLeavesToDate = selectedMonthBounds ? selectedMonthBounds.end.toISOString().split('T')[0] : undefined;
+  const { total: pendingLeavesCount } = useLeavesByDateRange({
+    status: 'Chờ duyệt',
+    fromDate: pendingLeavesFromDate,
+    toDate: pendingLeavesToDate,
+  });
+
   const isSelectedMonthLocked = React.useMemo(
     () => Boolean(formState.monthKey && lockedMonths[formState.monthKey]),
     [formState.monthKey, lockedMonths]
   );
 
-  const pendingLeavesInMonth = React.useMemo(() => {
-    if (!selectedMonthBounds) return [] as typeof leaveRequests;
-    return leaveRequests.filter((leave) => {
-      if (leave.status !== 'Chờ duyệt') return false;
-      const start = new Date(leave.startDate);
-      const end = new Date(leave.endDate);
-      if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
-        return false;
-      }
-      return start <= selectedMonthBounds.end && end >= selectedMonthBounds.start;
-    });
-  }, [leaveRequests, selectedMonthBounds]);
-
+  // Check which employees have attendance data (from already fetched attendanceRows)
   const snapshotBlockingEmployees = React.useMemo(() => {
     if (!isSelectedMonthLocked || !formState.monthKey || !formState.selectedEmployeeSystemIds.length) {
       return [] as string[];
     }
+    // Use attendanceRows which is already fetched from database
+    const attendedEmployeeIds = new Set(attendanceRows?.map(r => r.employeeSystemId) || []);
     const blocked = new Set<string>();
+    
     formState.selectedEmployeeSystemIds.forEach((employeeSystemId) => {
-      const snapshot = attendanceSnapshotService.getSnapshot({
-        monthKey: formState.monthKey,
-        employeeSystemId,
-      });
-      // Cast snapshot as any since it's not actually async
-      if (!(snapshot as any)?.locked) {
+      // If employee has attendance record for this month, they're OK
+      if (!attendedEmployeeIds.has(employeeSystemId)) {
         const employee = employeeLookup[employeeSystemId];
         blocked.add(employee?.fullName ?? employee?.id ?? employeeSystemId);
       }
     });
     return Array.from(blocked);
-  }, [employeeLookup, formState.monthKey, formState.selectedEmployeeSystemIds, isSelectedMonthLocked]);
+  }, [attendanceRows, employeeLookup, formState.monthKey, formState.selectedEmployeeSystemIds, isSelectedMonthLocked]);
 
   const payrollBlockingReasons = React.useMemo(() => {
     const reasons: string[] = [];
     if (!isSelectedMonthLocked) {
       reasons.push(`Tháng ${selectedMonthLabel} chưa được khóa trong Chấm công.`);
     }
-    if (pendingLeavesInMonth.length > 0) {
-      reasons.push(`${pendingLeavesInMonth.length} đơn nghỉ đang chờ duyệt trong tháng này.`);
+    if (pendingLeavesCount > 0) {
+      reasons.push(`${pendingLeavesCount} đơn nghỉ đang chờ duyệt trong tháng này.`);
     }
     if (snapshotBlockingEmployees.length > 0) {
       const names = snapshotBlockingEmployees.slice(0, 4).join(', ');
@@ -569,7 +582,7 @@ export function PayrollRunPage() {
       reasons.push(`Chưa có snapshot chấm công đã khóa cho: ${names}${remaining}.`);
     }
     return reasons;
-  }, [selectedMonthLabel, isSelectedMonthLocked, pendingLeavesInMonth.length, snapshotBlockingEmployees]);
+  }, [selectedMonthLabel, isSelectedMonthLocked, pendingLeavesCount, snapshotBlockingEmployees]);
 
   const canProceedStep1 = Boolean(formState.monthKey && formState.payrollDate && formState.templateSystemId);
   const canProceedStep2 = formState.selectedEmployeeSystemIds.length > 0;
@@ -581,11 +594,8 @@ export function PayrollRunPage() {
   };
   const goPrev = () => setCurrentStep((prev) => Math.max(prev - 1, 0));
 
-  // Get salary components from React Query
-  const salaryComponents = React.useMemo(
-    () => employeeSettings?.salaryComponents ?? [],
-    [employeeSettings?.salaryComponents]
-  );
+  // Get salary components from SettingsData table (single source of truth)
+  const salaryComponents = useAllSalaryComponents();
   
   // Convert SalaryComponent to PayrollComponent format
   const payrollComponents = React.useMemo(() => {
@@ -594,6 +604,9 @@ export function PayrollRunPage() {
       ? templates.find(t => t.systemId === formState.templateSystemId)
       : undefined;
     const templateComponentIds = template?.componentSystemIds ?? [];
+    
+    console.log('[Payroll] Template:', template?.name, 'componentSystemIds:', templateComponentIds);
+    console.log('[Payroll] salaryComponents from settings:', salaryComponents.length, salaryComponents.map(c => c.id));
     
     // Filter by template if exists, otherwise use all
     // Also filter by isActive
@@ -621,6 +634,51 @@ export function PayrollRunPage() {
     }));
   }, [salaryComponents, formState.templateSystemId, templates]);
 
+  // ✅ Transform attendance rows to snapshots for payroll engine
+  const attendanceSnapshots = React.useMemo(() => {
+    if (!attendanceRows?.length) return [];
+    const isLocked = !!lockedMonths[selectedMonthKey];
+    const [year, month] = selectedMonthKey.split('-').map(Number);
+    
+    // Dùng settings mặc định nếu chưa load
+    const settings = employeeSettings ?? {
+      workingDays: [1, 2, 3, 4, 5, 6], // Mon-Sat
+      shifts: [{ startTime: '08:30', endTime: '18:00', breakMinutes: 90 }],
+      lunchBreak: { startTime: '12:00', endTime: '13:30' },
+      otRates: { weekday: 1.5, weekend: 2.0, holiday: 3.0 },
+    };
+    
+    return attendanceRows.map((row) => {
+      const dept = row.department;
+      const deptName = typeof dept === 'object' && dept !== null ? (dept as { name?: string }).name : dept;
+      
+      // ✅ Tính lại workDays từ daily records dùng recalculateSummary
+      const summary = recalculateSummary(row as AnyAttendanceDataRow, year, month, settings as EmployeeSettings);
+      
+      return {
+        monthKey: selectedMonthKey,
+        employeeSystemId: row.employeeSystemId,
+        employeeId: row.employeeId,
+        fullName: row.fullName,
+        department: deptName as string | undefined, // Cast to match AttendanceSnapshot type
+        totals: {
+          workDays: summary.workDays ?? 0,
+          leaveDays: summary.leaveDays ?? 0,
+          absentDays: summary.absentDays ?? 0,
+          lateArrivals: summary.lateArrivals ?? 0,
+          earlyDepartures: summary.earlyDepartures ?? 0,
+          otHours: summary.otHours ?? 0,
+          otHoursWeekday: summary.otHoursWeekday ?? 0,
+          otHoursWeekend: summary.otHoursWeekend ?? 0,
+          otHoursHoliday: summary.otHoursHoliday ?? 0,
+        },
+        locked: isLocked,
+        status: isLocked ? 'locked' as const : 'pending' as const,
+        generatedAt: new Date().toISOString(),
+      };
+    });
+  }, [attendanceRows, selectedMonthKey, lockedMonths, employeeSettings]);
+
   React.useEffect(() => {
     if (currentStep !== 2) {
       setPreview(null);
@@ -628,21 +686,51 @@ export function PayrollRunPage() {
       return;
     }
     if (!formState.selectedEmployeeSystemIds.length) {
+      console.log('[Payroll Preview] No employees selected');
       setPreview(null);
       return;
     }
     
+    console.log('[Payroll Preview] Selected employees:', formState.selectedEmployeeSystemIds);
+    console.log('[Payroll Preview] Employee data count:', employeeData.length);
+    console.log('[Payroll Preview] Attendance snapshots count:', attendanceSnapshots.length);
+    console.log('[Payroll Preview] Attendance snapshots detail:', attendanceSnapshots.map(s => ({
+      employeeSystemId: s.employeeSystemId,
+      workDays: s.totals?.workDays,
+      locked: s.locked,
+    })));
+    
     // Build employee inputs for the new engine
     const employeeInputs = formState.selectedEmployeeSystemIds.map((systemId) => {
       const emp = employeeData.find(e => e.systemId === systemId);
+      console.log('[Payroll Preview] Employee lookup:', systemId, emp?.id, emp?.fullName);
       return {
         employeeSystemId: systemId,
         employeeId: emp?.id ?? ('' as typeof emp extends { id: infer T } ? T : never),
         employeeName: emp?.fullName ?? 'Unknown',
         departmentSystemId: emp?.departmentId,
         baseSalary: emp?.baseSalary ?? 0,
+        numberOfDependents: emp?.numberOfDependents ?? 0,
       };
     }).filter(e => e.employeeId);
+    
+    console.log('[Payroll Preview] Employee inputs after filter:', employeeInputs.length);
+    console.log('[Payroll Preview] Payroll components count:', payrollComponents.length);
+    console.log('[Payroll Preview] Payroll components:', payrollComponents.map(c => c.code));
+    
+    if (!employeeInputs.length) {
+      console.log('[Payroll Preview] All employee inputs filtered out!');
+      setPreview(null);
+      setIsPreviewLoading(false);
+      return;
+    }
+    
+    if (!payrollComponents.length) {
+      console.log('[Payroll Preview] No payroll components!');
+      setPreview(null);
+      setIsPreviewLoading(false);
+      return;
+    }
     
     setIsPreviewLoading(true);
     const result = payrollEngine.calculate({
@@ -650,10 +738,18 @@ export function PayrollRunPage() {
       employees: employeeInputs,
       components: payrollComponents,
       penaltyMode: 'all-unpaid', // Auto-deduct all unpaid penalties
+      penalties, // ✅ Pass penalties data
+      attendanceData: attendanceSnapshots as unknown as import('../../lib/attendance-snapshot-service').AttendanceSnapshot[], // ✅ Pass attendance data from database
+      skipAttendanceValidation: false,
+      requireLockedAttendance: false, // Allow preview even if not locked
     });
+    console.log('[Payroll Preview] Engine result:', result?.payslips?.length, 'payslips');
+    console.log('[Payroll Preview] Engine errors:', result?.errors);
+    console.log('[Payroll Preview] Engine warnings:', result?.warnings);
+    console.log('[Payroll Preview] First payslip attendance:', result?.payslips?.[0]?.attendanceSnapshot);
     setPreview(result);
     setIsPreviewLoading(false);
-  }, [currentStep, formState.selectedEmployeeSystemIds, formState.monthKey, payrollComponents, employeeData]);
+  }, [currentStep, formState.selectedEmployeeSystemIds, formState.monthKey, payrollComponents, employeeData, penalties, attendanceSnapshots]);
 
   const handleSelectEmployee = React.useCallback((systemId: SystemId, checked: boolean) => {
     setFormState((prev) => ({
@@ -724,7 +820,7 @@ export function PayrollRunPage() {
       });
       if (!isSelectedMonthLocked || snapshotBlockingEmployees.length) {
         router.push(ROUTES.HRM.ATTENDANCE);
-      } else if (pendingLeavesInMonth.length) {
+      } else if (pendingLeavesCount) {
         router.push(ROUTES.HRM.LEAVES);
       }
       return;
@@ -837,7 +933,7 @@ export function PayrollRunPage() {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle className="text-h4 font-semibold">Tiến trình</CardTitle>
+          <CardTitle>Tiến trình</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <PayrollStepper currentStep={currentStep} />
@@ -847,7 +943,7 @@ export function PayrollRunPage() {
       {currentStep === 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-h4">Cấu hình kỳ lương</CardTitle>
+            <CardTitle>Cấu hình kỳ lương</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
@@ -866,7 +962,9 @@ export function PayrollRunPage() {
                 <MonthPicker
                   id="payroll-month"
                   value={formState.monthKey}
-                  onChange={(monthKey) =>
+                  onChange={(monthKey) => {
+                    // ✅ Update both selectedMonthKey (for attendance fetch) and formState
+                    setSelectedMonthKey(monthKey);
                     setFormState((prev) => {
                       const currentDay = Number(prev.payrollDate.split('-')[2]) || defaultPayday;
                       return {
@@ -874,8 +972,8 @@ export function PayrollRunPage() {
                         monthKey: monthKey,
                         payrollDate: buildPayrollDate(monthKey, currentDay),
                       };
-                    })
-                  }
+                    });
+                  }}
                   minYear={2024}
                   maxYear={2030}
                 />
@@ -948,7 +1046,7 @@ export function PayrollRunPage() {
       {currentStep === 1 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-h4">Chọn nhân viên ({formState.selectedEmployeeSystemIds.length})</CardTitle>
+            <CardTitle>Chọn nhân viên ({formState.selectedEmployeeSystemIds.length})</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
@@ -982,7 +1080,7 @@ export function PayrollRunPage() {
       {currentStep === 2 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-h4">Xem trước kết quả</CardTitle>
+            <CardTitle>Xem trước kết quả</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {isPreviewLoading ? (
@@ -1032,14 +1130,19 @@ export function PayrollRunPage() {
                 )}
 
                 {(() => {
-                  const allPreviewData = preview.payslips.map((payslip) => ({
-                    systemId: payslip.employeeSystemId,
-                    employeeId: payslip.employeeId,
-                    employeeName: payslip.employeeName,
-                    departmentName: employeeLookup[payslip.employeeSystemId]?.department,
-                    positionName: employeeLookup[payslip.employeeSystemId]?.jobTitle,
-                    totals: payslip.totals,
-                  }));
+                  const allPreviewData = preview.payslips.map((payslip) => {
+                    const emp = employeeLookup[payslip.employeeSystemId];
+                    const dept = emp?.department;
+                    const jt = emp?.jobTitle;
+                    return {
+                      systemId: payslip.employeeSystemId,
+                      employeeId: payslip.employeeId,
+                      employeeName: payslip.employeeName,
+                      departmentName: typeof dept === 'object' && dept !== null ? (dept as { name?: string }).name : dept,
+                      positionName: typeof jt === 'object' && jt !== null ? (jt as { name?: string }).name : jt,
+                      totals: payslip.totals,
+                    };
+                  });
                   
                   // Filter by search keyword
                   const filteredPreviewData = previewSearchKeyword.trim()
@@ -1103,7 +1206,7 @@ export function PayrollRunPage() {
                             Khóa chấm công
                           </Button>
                         )}
-                        {pendingLeavesInMonth.length > 0 && (
+                        {pendingLeavesCount > 0 && (
                           <Button
                             variant="outline"
                             size="sm"

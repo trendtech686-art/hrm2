@@ -2,10 +2,13 @@ import * as React from 'react';
 import { toast } from 'sonner';
 import type { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import { calculateWarrantyProcessingState } from '../components/logic/processing';
-import type { WarrantyTicket } from '../types';
+import type { WarrantyTicket, WarrantyStatus } from '../types';
 import type { Order } from '../../orders/types';
-import { usePaymentStore } from '../../payments/store';
-import { useReceiptStore } from '../../receipts/store';
+import { fetchPayments } from '../../payments/api/payments-api';
+import { fetchReceipts } from '../../receipts/api/receipts-api';
+import { fetchAllPages } from '@/lib/fetch-all-pages';
+import { updateWarrantyStatusAction } from '../../../app/actions/warranty';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
 
 interface CurrentUser {
   name: string;
@@ -33,11 +36,29 @@ export function useWarrantyActions({
   totalSettlementAmount,
   remainingSettlementAmount,
   update,
-  updateStatus,
+  updateStatus: _updateStatus,
   addHistory,
   navigate,
 }: UseWarrantyActionsOptions) {
   const [isCompletingTicket, setIsCompletingTicket] = React.useState(false);
+  const [isUpdatingStatus, setIsUpdatingStatus] = React.useState(false);
+  const queryClient = useQueryClient();
+
+  // Fetch payments & receipts linked to this warranty via React Query
+  const { data: warrantyPayments = [] } = useQuery({
+    queryKey: ['payments', 'warranty-actions', ticket?.systemId],
+    queryFn: () => fetchAllPages((p) => fetchPayments({ ...p, linkedWarrantySystemId: ticket!.systemId })),
+    enabled: !!ticket?.systemId,
+    staleTime: 30_000,
+    gcTime: 5 * 60 * 1000,
+  });
+  const { data: warrantyReceipts = [] } = useQuery({
+    queryKey: ['receipts', 'warranty-actions', ticket?.systemId],
+    queryFn: () => fetchAllPages((p) => fetchReceipts({ ...p, linkedWarrantySystemId: ticket!.systemId })),
+    enabled: !!ticket?.systemId,
+    staleTime: 30_000,
+    gcTime: 5 * 60 * 1000,
+  });
 
   const requireTicket = React.useCallback((message?: string) => {
     if (ticket) return ticket;
@@ -52,7 +73,7 @@ export function useWarrantyActions({
   const validateProcessedStatusRequirements = React.useCallback((currentTicket: WarrantyTicket) => {
     if (!currentTicket.processedImages || currentTicket.processedImages.length === 0) {
       toast.error('Chưa đầy đủ thông tin', {
-        description: 'Vui lòng upload hình ảnh đã xử lý trước khi đánh dấu "Đã xử lý"',
+        description: 'Vui lòng upload hình ảnh đã xử lý trước khi đánh dấu "Hoàn tất"',
         duration: 5000,
       });
       return false;
@@ -81,25 +102,42 @@ export function useWarrantyActions({
     return true;
   }, []);
 
-  const handleStatusChange = React.useCallback(async (newStatus: WarrantyTicket['status']) => {
+  const handleStatusChange = React.useCallback(async (newStatus: WarrantyStatus) => {
     const currentTicket = requireTicket();
     if (!currentTicket) return;
 
-    if (newStatus === 'processed') {
+    if (newStatus === 'COMPLETED') {
       const isValid = validateProcessedStatusRequirements(currentTicket);
       if (!isValid) return;
     }
 
+    setIsUpdatingStatus(true);
     try {
-      updateStatus(currentTicket.systemId, newStatus, '');
+      // Use server action for atomic update
+      const result = await updateWarrantyStatusAction({
+        systemId: currentTicket.systemId,
+        newStatus,
+      });
+      
+      if (!result.success) {
+        toast.error(result.error || 'Không thể cập nhật trạng thái');
+        return;
+      }
+      
+      // Invalidate queries to refresh data
+      queryClient.invalidateQueries({ queryKey: ['warranties'] });
+      queryClient.invalidateQueries({ queryKey: ['warranty', currentTicket.systemId] });
+      
       toast.success('Đã cập nhật trạng thái');
     } catch (error) {
       console.error('Failed to update status:', error);
       toast.error('Không thể cập nhật trạng thái');
+    } finally {
+      setIsUpdatingStatus(false);
     }
-  }, [requireTicket, updateStatus, validateProcessedStatusRequirements]);
+  }, [requireTicket, validateProcessedStatusRequirements, queryClient]);
 
-  const handleCompleteTicket = React.useCallback(() => {
+  const handleCompleteTicket = React.useCallback(async () => {
     if (isCompletingTicket) {
       return;
     }
@@ -112,8 +150,8 @@ export function useWarrantyActions({
       return;
     }
 
-    if (currentTicket.status !== 'returned') {
-      toast.error('Chỉ có thể kết thúc phiếu đã trả hàng');
+    if (currentTicket.status !== 'COMPLETED') {
+      toast.error('Chỉ có thể trả hàng khi phiếu đã hoàn tất');
       return;
     }
 
@@ -127,9 +165,7 @@ export function useWarrantyActions({
     }
 
     if (totalPayment > 0) {
-      const { data: payments } = usePaymentStore.getState();
-      const { data: receipts } = useReceiptStore.getState();
-      const state = calculateWarrantyProcessingState(currentTicket, payments, receipts, totalPayment);
+      const state = calculateWarrantyProcessingState(currentTicket, warrantyPayments, warrantyReceipts, totalPayment);
 
       if (state.remainingAmount > 0) {
         toast.error(`Chưa thanh toán đủ cho khách. Còn thiếu: ${state.remainingAmount.toLocaleString('vi-VN')} đ`, {
@@ -141,8 +177,24 @@ export function useWarrantyActions({
 
     try {
       setIsCompletingTicket(true);
-      updateStatus(currentTicket.systemId, 'completed', 'Kết thúc phiếu bảo hành');
-      toast.success('Đã kết thúc phiếu bảo hành', {
+      
+      // Use server action for atomic update
+      const result = await updateWarrantyStatusAction({
+        systemId: currentTicket.systemId,
+        newStatus: 'RETURNED',
+        note: 'Trả hàng cho khách',
+      });
+      
+      if (!result.success) {
+        toast.error(result.error || 'Không thể trả hàng');
+        return;
+      }
+      
+      // Invalidate queries to refresh data
+      queryClient.invalidateQueries({ queryKey: ['warranties'] });
+      queryClient.invalidateQueries({ queryKey: ['warranty', currentTicket.systemId] });
+      
+      toast.success('Đã trả hàng cho khách', {
         description: 'Phiếu đã được hoàn tất và lưu trữ',
       });
     } catch (error) {
@@ -151,7 +203,8 @@ export function useWarrantyActions({
     } finally {
       setTimeout(() => setIsCompletingTicket(false), 1000);
     }
-  }, [isCompletingTicket, remainingSettlementAmount, requireTicket, totalSettlementAmount, updateStatus]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCompletingTicket, remainingSettlementAmount, requireTicket, totalSettlementAmount, queryClient]);
 
   const handleCopyTrackingLink = React.useCallback(() => {
     const currentTicket = requireTicket('Không tìm thấy phiếu để copy link');
@@ -211,5 +264,6 @@ export function useWarrantyActions({
     handleNavigateEmployee,
     handleNavigateOrder,
     isCompletingTicket,
+    isUpdatingStatus,
   };
 }

@@ -19,7 +19,7 @@ import {
 import { Label } from '../../components/ui/label';
 import { toast } from 'sonner';
 import { ROUTES } from '../../lib/router';
-import { usePayrollById, useAllPayrollTemplates, usePayslipsByBatch, usePayrollBatchMutations, usePayslipExtendedMutations } from './hooks/use-payroll';
+import { usePayrollById, useAllPayrollTemplates, usePayrollBatchMutations, usePayslipExtendedMutations } from './hooks/use-payroll';
 import { PayrollStatusBadge } from './components/status-badge';
 import { PayslipDataTable, type PayslipRow, type PayslipActions } from './components/payslip-data-table';
 import { PayslipEditDialog, type PayslipUpdatePayload } from './components/payslip-edit-dialog';
@@ -28,8 +28,8 @@ import { useAllEmployees } from '../employees/hooks/use-all-employees';
 import { useDepartments } from '../settings/departments/hooks/use-departments';
 import { usePayments } from '../payments/hooks/use-payments';
 import { usePenalties } from '../settings/penalties/hooks/use-penalties';
-import type { PayrollAuditAction, PayrollBatch, PayrollPeriod, Payslip as _Payslip } from '../../lib/payroll-types';
-import { ensureSystemId, type BusinessId, type SystemId } from '../../lib/id-types';
+import type { PayrollAuditAction, PayrollAuditLog, PayrollBatch, PayrollPeriod, Payslip } from '../../lib/payroll-types';
+import { asSystemId, type BusinessId, type SystemId } from '../../lib/id-types';
 import { usePrint } from '../../lib/use-print';
 import { useStoreInfoData } from '../settings/store-info/hooks/use-store-info';
 import {
@@ -248,16 +248,18 @@ const _downloadCsv = (content: string, filename: string) => {
 
 function usePayrollDetailData(systemId: SystemId | undefined) {
   // Get data from React Query hooks
-  const { data: batch } = usePayrollById(systemId);
-  const { data: payslipsData } = usePayslipsByBatch(systemId);
-  const payslips = React.useMemo(() => payslipsData?.data ?? [], [payslipsData?.data]);
+  const { data: batch, isLoading: isBatchLoading } = usePayrollById(systemId);
+  // ✅ Use items from batch response instead of separate API call
+  // const { data: payslipsData } = usePayslipsByBatch(systemId);
+  type BatchWithItems = PayrollBatch & { items?: Payslip[]; auditLogs?: PayrollAuditLog[] };
+  const payslips = React.useMemo(() => (batch as BatchWithItems | undefined)?.items ?? [], [batch]);
   const templates = useAllPayrollTemplates();
   const { data: employees } = useAllEmployees();
-  const { data: departmentsData } = useDepartments({ limit: 1000 });
+  const { data: departmentsData } = useDepartments();
   const departments = React.useMemo(() => departmentsData?.data ?? [], [departmentsData?.data]);
 
   // Get audit logs from batch data
-  const auditLogs = React.useMemo(() => (batch as any)?.auditLogs ?? [], [batch]);
+  const auditLogs = React.useMemo(() => (batch as BatchWithItems | undefined)?.auditLogs ?? [], [batch]);
 
   const template = React.useMemo(() => {
     if (!batch?.templateSystemId) return undefined;
@@ -266,8 +268,8 @@ function usePayrollDetailData(systemId: SystemId | undefined) {
 
   const batchAuditLogs = React.useMemo(() => {
     return auditLogs
-      .filter((entry: any) => entry.batchSystemId === batch?.systemId)
-      .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      .filter((entry) => entry.batchSystemId === batch?.systemId)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [auditLogs, batch]);
 
   // Lookup maps
@@ -284,10 +286,10 @@ function usePayrollDetailData(systemId: SystemId | undefined) {
   // Convert audit logs to HistoryEntry format for ActivityHistory component
   // Must be after employeeLookup to use it for name resolution
   const historyEntries: HistoryEntry[] = React.useMemo(() => {
-    return batchAuditLogs.map((entry: any): HistoryEntry => {
+    const batchEntries = batchAuditLogs.map((entry): HistoryEntry => {
       // Try to get employee name from lookup
       const employee = employeeLookup[entry.actorSystemId as SystemId];
-      const actorName = entry.actorDisplayName || employee?.fullName || entry.actorSystemId;
+      const actorName = entry.actorDisplayName || employee?.fullName || entry.actorSystemId || 'Hệ thống';
       
       return {
         id: entry.systemId,
@@ -297,12 +299,14 @@ function usePayrollDetailData(systemId: SystemId | undefined) {
           systemId: entry.actorSystemId,
           name: actorName,
         },
-        description: AUDIT_ACTION_LABEL[entry.action] ?? entry.action,
+        description: AUDIT_ACTION_LABEL[entry.action as keyof typeof AUDIT_ACTION_LABEL] ?? entry.action,
         metadata: (entry.payload as { note?: string })?.note
           ? { note: String((entry.payload as { note?: string }).note) }
           : undefined,
       };
     });
+
+    return batchEntries;
   }, [batchAuditLogs, employeeLookup]);
 
   const departmentLookup = React.useMemo(() => {
@@ -415,6 +419,7 @@ function usePayrollDetailData(systemId: SystemId | undefined) {
 
   return {
     batch,
+    isLoading: isBatchLoading,
     payslips,
     template,
     batchAuditLogs,
@@ -442,13 +447,14 @@ export function PayrollDetailPage() {
 
   // Parse systemId once
   const resolvedSystemId = React.useMemo(
-    () => (params.systemId ? ensureSystemId(params.systemId, 'PayrollDetailPage') : undefined),
+    () => (params.systemId ? asSystemId(params.systemId) : undefined),
     [params.systemId]
   );
 
   // Get all data from custom hook
   const {
     batch,
+    isLoading,
     payslips,
     template: _template,
     batchAuditLogs: _batchAuditLogs,
@@ -474,16 +480,16 @@ export function PayrollDetailPage() {
     onError: (err) => toast.error('Lỗi', { description: err.message }),
   });
   
-  // Payment store - to check linked payments
-  const { data: allPaymentsData } = usePayments({ limit: 10000 });
+  // Payment store - chỉ load payments liên quan đến payroll batch này
+  const { data: allPaymentsData } = usePayments();
   const allPayments = React.useMemo(() => allPaymentsData?.data ?? [], [allPaymentsData?.data]);
   const linkedPayments = React.useMemo(
     () => allPayments.filter((p) => batch && p.linkedPayrollBatchSystemId === batch.systemId),
     [allPayments, batch]
   );
 
-  // Penalty store - to get penalty details for printing
-  const { data: allPenaltiesData } = usePenalties({ limit: 10000 });
+  // Penalty store
+  const { data: allPenaltiesData } = usePenalties();
   const allPenalties = React.useMemo(() => allPenaltiesData?.data ?? [], [allPenaltiesData?.data]);
 
   // Print integration
@@ -504,6 +510,32 @@ export function PayrollDetailPage() {
 
   // Create payment dialog state
   const [isCreatePaymentOpen, setIsCreatePaymentOpen] = React.useState(false);
+
+  // Combine batch audit logs with payment creation entries
+  const allHistoryEntries: HistoryEntry[] = React.useMemo(() => {
+    // Start with batch audit entries
+    const entries: HistoryEntry[] = [...historyEntries];
+    
+    // Add payment creation entries
+    linkedPayments.forEach((payment) => {
+      entries.push({
+        id: `payment-${payment.systemId}`,
+        action: 'custom',
+        timestamp: new Date(payment.createdAt || new Date()),
+        user: {
+          systemId: payment.createdBy as SystemId || asSystemId('SYSTEM'),
+          name: 'Hệ thống',
+        },
+        description: `Tạo phiếu chi ${payment.id}`,
+        metadata: { 
+          note: `${payment.recipientName} - ${currencyFormatter.format(Number(payment.amount) || 0)}` 
+        },
+      });
+    });
+    
+    // Sort by timestamp descending
+    return entries.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+  }, [historyEntries, linkedPayments]);
 
   // Derived state
   const _canReview = batch?.status === 'draft';
@@ -998,7 +1030,7 @@ export function PayrollDetailPage() {
     
     rows.forEach((row) => {
       try {
-        (removeFromBatch as any)(row.systemId);
+        removeFromBatch.mutate(row.systemId);
         successCount++;
       } catch (_e) {
         errorCount++;
@@ -1022,6 +1054,16 @@ export function PayrollDetailPage() {
     onRemove: handleRemovePayslip,
   }), [handleEditPayslip, handlePrintPayslip, handlePrintPayment, handlePrintPenalties, handleRemovePayslip]);
 
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="flex h-72 flex-col items-center justify-center text-center">
+        <p className="text-lg font-semibold">Đang tải...</p>
+        <p className="text-body-sm text-muted-foreground">Vui lòng đợi trong giây lát.</p>
+      </div>
+    );
+  }
+
   // Not found state
   if (!batch) {
     return (
@@ -1041,7 +1083,7 @@ export function PayrollDetailPage() {
     <div className="space-y-6">
       {/* Info Card - 2 cột */}
       <Card>
-        <CardHeader>
+        <CardHeader className="pb-3">
           <CardTitle>Thông tin chung</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2">
@@ -1098,31 +1140,31 @@ export function PayrollDetailPage() {
       {/* Totals & Notes */}
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
-          <CardHeader>
+          <CardHeader className="pb-3">
             <CardTitle>Tổng quan chi trả</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">
             <div className="rounded-lg border p-3 text-body-sm">
-              <p className="text-muted-foreground">Tổng thu nhập</p>
-              <p className="text-xl font-semibold text-emerald-600">{formatCurrency(totals.earnings)}</p>
+              <p className="text-muted-foreground text-xs">Tổng thu nhập</p>
+              <p className="text-base font-semibold text-emerald-600">{formatCurrency(totals.earnings)}</p>
             </div>
             <div className="rounded-lg border p-3 text-body-sm">
-              <p className="text-muted-foreground">Tổng khấu trừ</p>
-              <p className="text-xl font-semibold text-red-500">{formatCurrency(totals.deductions)}</p>
+              <p className="text-muted-foreground text-xs">Tổng khấu trừ</p>
+              <p className="text-base font-semibold text-red-500">{formatCurrency(totals.deductions)}</p>
             </div>
             <div className="rounded-lg border p-3 text-body-sm">
-              <p className="text-muted-foreground">Đóng góp DN</p>
-              <p className="text-xl font-semibold text-blue-500">{formatCurrency(totals.contributions)}</p>
+              <p className="text-muted-foreground text-xs">Đóng góp DN</p>
+              <p className="text-base font-semibold text-blue-500">{formatCurrency(totals.contributions)}</p>
             </div>
             <div className="rounded-lg border p-3 text-body-sm">
-              <p className="text-muted-foreground">Tổng thực lĩnh</p>
-              <p className="text-xl font-semibold">{formatCurrency(totals.net)}</p>
+              <p className="text-muted-foreground text-xs">Tổng thực lĩnh</p>
+              <p className="text-base font-semibold">{formatCurrency(totals.net)}</p>
             </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader>
+          <CardHeader className="pb-3">
             <CardTitle>Ghi chú</CardTitle>
           </CardHeader>
           <CardContent>
@@ -1173,7 +1215,7 @@ export function PayrollDetailPage() {
 
       {/* Audit Logs - ActivityHistory */}
       <ActivityHistory
-        history={historyEntries}
+        history={allHistoryEntries}
         title="Nhật ký thao tác"
         emptyMessage="Chưa có nhật ký nào."
         showFilters={false}

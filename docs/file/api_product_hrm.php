@@ -79,29 +79,127 @@ function send_json_response($data, $http_code = 200) {
 /**
  * Hàm xử lý ảnh tùy chỉnh (tạo thumb và ảnh lớn dưới định dạng WebP).
  * LƯU Ý: Hàm này phải được định nghĩa BÊN NGOÀI create_product.
+ * 
+ * Cải tiến:
+ * - Validate kỹ hơn file ảnh đầu vào
+ * - Kiểm tra file có phải ảnh thực sự không (không phải HTML/redirect)
+ * - Fallback về copy nguyên file nếu không convert được WebP
  */
 function create_resized_image_webp($source_path, $dest_folder, $new_filename_without_ext, $max_width, $max_height) {
-    $source_info = getimagesize($source_path); if (!$source_info) return false;
-    $width = $source_info[0]; $height = $source_info[1]; $mime = $source_info['mime'];
-    switch ($mime) {
-        case 'image/jpeg': $source_image = imagecreatefromjpeg($source_path); break;
-        case 'image/gif':  $source_image = imagecreatefromgif($source_path); break;
-        case 'image/png':  $source_image = imagecreatefrompng($source_path); break;
-        case 'image/webp': $source_image = imagecreatefromwebp($source_path); break;
-        default: return false;
+    // Kiểm tra file tồn tại
+    if (!file_exists($source_path)) {
+        error_log("PKGX API: File không tồn tại: $source_path");
+        return false;
     }
-    if (!$source_image) return false;
+    
+    // Kiểm tra kích thước file (tối thiểu 1KB để loại bỏ file rỗng/lỗi)
+    $filesize = filesize($source_path);
+    if ($filesize < 1024) {
+        error_log("PKGX API: File quá nhỏ (có thể bị lỗi): $source_path - Size: $filesize bytes");
+        return false;
+    }
+    
+    // Kiểm tra xem có phải file HTML (redirect/error page) không
+    $first_bytes = file_get_contents($source_path, false, null, 0, 100);
+    if (stripos($first_bytes, '<!DOCTYPE') !== false || stripos($first_bytes, '<html') !== false) {
+        error_log("PKGX API: File là HTML, không phải ảnh: $source_path");
+        return false;
+    }
+    
+    // Lấy thông tin ảnh
+    $source_info = @getimagesize($source_path);
+    if (!$source_info) {
+        error_log("PKGX API: Không thể đọc thông tin ảnh: $source_path");
+        return false;
+    }
+    
+    $width = $source_info[0];
+    $height = $source_info[1];
+    $mime = $source_info['mime'];
+    
+    // Validate dimensions
+    if ($width < 1 || $height < 1) {
+        error_log("PKGX API: Kích thước ảnh không hợp lệ: {$width}x{$height}");
+        return false;
+    }
+    
+    // Tạo source image từ file
+    $source_image = null;
+    switch ($mime) {
+        case 'image/jpeg':
+            $source_image = @imagecreatefromjpeg($source_path);
+            break;
+        case 'image/gif':
+            $source_image = @imagecreatefromgif($source_path);
+            break;
+        case 'image/png':
+            $source_image = @imagecreatefrompng($source_path);
+            break;
+        case 'image/webp':
+            $source_image = @imagecreatefromwebp($source_path);
+            break;
+        default:
+            error_log("PKGX API: MIME type không hỗ trợ: $mime");
+            return false;
+    }
+    
+    if (!$source_image) {
+        error_log("PKGX API: Không thể tạo image resource từ file: $source_path");
+        return false;
+    }
+    
+    // Tính toán kích thước mới giữ tỉ lệ
     $ratio = $width / $height;
-    if ($max_width / $max_height > $ratio) { $new_width = $max_height * $ratio; $new_height = $max_height; } 
-    else { $new_height = $max_width / $ratio; $new_width = $max_width; }
+    if ($max_width / $max_height > $ratio) {
+        $new_width = (int)($max_height * $ratio);
+        $new_height = $max_height;
+    } else {
+        $new_height = (int)($max_width / $ratio);
+        $new_width = $max_width;
+    }
+    
+    // Đảm bảo kích thước tối thiểu
+    $new_width = max(1, $new_width);
+    $new_height = max(1, $new_height);
+    
+    // Tạo ảnh mới
     $dest_image = imagecreatetruecolor($new_width, $new_height);
-    imagealphablending($dest_image, false); imagesavealpha($dest_image, true);
+    if (!$dest_image) {
+        error_log("PKGX API: Không thể tạo destination image");
+        imagedestroy($source_image);
+        return false;
+    }
+    
+    // Xử lý transparency
+    imagealphablending($dest_image, false);
+    imagesavealpha($dest_image, true);
     $transparent = imagecolorallocatealpha($dest_image, 255, 255, 255, 127);
     imagefilledrectangle($dest_image, 0, 0, $new_width, $new_height, $transparent);
+    
+    // Resize ảnh
     imagecopyresampled($dest_image, $source_image, 0, 0, 0, 0, $new_width, $new_height, $width, $height);
+    
+    // Lưu file WebP
     $dest_path_with_ext = $dest_folder . $new_filename_without_ext . '.webp';
-    imagewebp($dest_image, $dest_path_with_ext, 80);
-    imagedestroy($source_image); imagedestroy($dest_image);
+    $result = @imagewebp($dest_image, $dest_path_with_ext, 80);
+    
+    // Giải phóng bộ nhớ
+    imagedestroy($source_image);
+    imagedestroy($dest_image);
+    
+    if (!$result || !file_exists($dest_path_with_ext)) {
+        error_log("PKGX API: Không thể lưu file WebP: $dest_path_with_ext");
+        return false;
+    }
+    
+    // Kiểm tra file output có hợp lệ không
+    $output_size = filesize($dest_path_with_ext);
+    if ($output_size < 100) {
+        error_log("PKGX API: File WebP output quá nhỏ: $output_size bytes");
+        @unlink($dest_path_with_ext);
+        return false;
+    }
+    
     return str_replace(ROOT_PATH, '', $dest_path_with_ext);
 }
 
@@ -244,9 +342,51 @@ if ($action === 'create_product') {
         send_json_response(['error' => true, 'message' => "Thiếu ID thương hiệu (brand_id) trong URL."], 400);
     }
     update_brand($brand_id, $data);
+} else if ($action === 'update_member_price') {
+    // ACTION: Cập nhật giá thành viên theo user_rank
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        send_json_response(['error' => true, 'message' => 'Phương thức yêu cầu không hợp lệ. Chỉ hỗ trợ POST.'], 405);
+    }
+    $goods_id = isset($_GET['goods_id']) ? intval($_GET['goods_id']) : 0;
+    if ($goods_id === 0) {
+        send_json_response(['error' => true, 'message' => "Thiếu ID sản phẩm (goods_id) trong URL."], 400);
+    }
+    update_member_price($goods_id, $data);
+} else if ($action === 'get_member_ranks') {
+    // ACTION: Lấy danh sách hạng thành viên
+    if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+        send_json_response(['error' => true, 'message' => 'Phương thức yêu cầu không hợp lệ. Chỉ hỗ trợ GET.'], 405);
+    }
+    get_member_ranks();
+} else if ($action === 'upload_image_from_url') {
+    // ACTION: Upload ảnh từ URL (server-to-server, tránh CORS)
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        send_json_response(['error' => true, 'message' => 'Phương thức yêu cầu không hợp lệ. Chỉ hỗ trợ POST.'], 405);
+    }
+    upload_image_from_url($data);
+} else if ($action === 'get_gallery') {
+    // ACTION: Lấy gallery ảnh sản phẩm
+    if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+        send_json_response(['error' => true, 'message' => 'Phương thức yêu cầu không hợp lệ. Chỉ hỗ trợ GET.'], 405);
+    }
+    $goods_id = isset($_GET['goods_id']) ? intval($_GET['goods_id']) : 0;
+    if ($goods_id === 0) {
+        send_json_response(['error' => true, 'message' => "Thiếu ID sản phẩm (goods_id) trong URL."], 400);
+    }
+    get_product_gallery($goods_id);
+} else if ($action === 'update_category_basic') {
+    // ACTION: Cập nhật thông tin cơ bản danh mục (tên, parent, hiển thị)
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        send_json_response(['error' => true, 'message' => 'Phương thức yêu cầu không hợp lệ. Chỉ hỗ trợ POST.'], 405);
+    }
+    $cat_id = isset($_GET['cat_id']) ? intval($_GET['cat_id']) : 0;
+    if ($cat_id === 0) {
+        send_json_response(['error' => true, 'message' => "Thiếu ID danh mục (cat_id) trong URL."], 400);
+    }
+    update_category_basic($cat_id, $data);
 } else {
     // Nếu hành động không hợp lệ
-    send_json_response(['error' => true, 'message' => "Hành động không hợp lệ. Các action hỗ trợ: create_product, update_product, get_products, upload_product_image, get_categories, update_category, get_brands, update_brand."], 400);
+    send_json_response(['error' => true, 'message' => "Hành động không hợp lệ. Các action hỗ trợ: create_product, update_product, get_products, upload_product_image, upload_image_from_url, get_categories, update_category, update_category_basic, get_brands, update_brand, update_member_price, get_member_ranks, get_gallery."], 400);
 }
 
 // ===================================================================
@@ -285,6 +425,10 @@ function get_products_paginated()
             $slug = $db->getOne("SELECT slug FROM " . $ecs->table('slug') . " WHERE id = '$goods_id' AND module = 'goods'");
             $product['slug'] = $slug;
             
+            // Lấy giá ACE từ member_price (user_rank = 8)
+            $ace_price = $db->getOne("SELECT user_price FROM " . $ecs->table('member_price') . " WHERE goods_id = '$goods_id' AND user_rank = 8");
+            $product['ace_price'] = $ace_price ? floatval($ace_price) : 0;
+            
             send_json_response([
                 'error' => false,
                 'message' => 'Lấy chi tiết sản phẩm thành công.',
@@ -317,10 +461,14 @@ function get_products_paginated()
         $sql = "SELECT * FROM " . $ecs->table('goods') . " ORDER BY goods_id DESC LIMIT $limit OFFSET $offset";
         $products = $db->getAll($sql);
         
-        // Lấy slug cho mỗi sản phẩm
+        // Lấy slug và giá ACE cho mỗi sản phẩm
         foreach ($products as &$product) {
             $slug = $db->getOne("SELECT slug FROM " . $ecs->table('slug') . " WHERE id = '" . $product['goods_id'] . "' AND module = 'goods'");
             $product['slug'] = $slug;
+            
+            // Lấy giá ACE từ member_price (user_rank = 8)
+            $ace_price = $db->getOne("SELECT user_price FROM " . $ecs->table('member_price') . " WHERE goods_id = '" . $product['goods_id'] . "' AND user_rank = 8");
+            $product['ace_price'] = $ace_price ? floatval($ace_price) : 0;
         }
 
         send_json_response([
@@ -346,6 +494,9 @@ function get_products_paginated()
 function create_product($data)
 {
     global $db, $ecs, $_CFG;
+
+    // DEBUG: Log dữ liệu nhận được để kiểm tra
+    error_log("PKGX CREATE_PRODUCT - Raw data received: " . json_encode($data, JSON_UNESCAPED_UNICODE));
 
     // --- Kiểm tra dữ liệu đầu vào ---
     if (empty($data['cat_id']) && empty($data['category'])) {
@@ -382,18 +533,17 @@ function create_product($data)
         $meta_desc = isset($data['meta_desc']) ? trim($data['meta_desc']) : '';
         $goods_sn = isset($data['goods_sn']) ? trim($data['goods_sn']) : '';
         $original_img_path = isset($data['original_img']) ? trim($data['original_img']) : '';
+        $is_on_sale = !empty($data['is_on_sale']) ? 1 : 0; // Hiển thị trên website
 
         // --- Chèn sản phẩm vào CSDL ---
         if (empty($goods_sn)) { $max_id = $db->getOne("SELECT MAX(goods_id) + 1 FROM " . $ecs->table('goods')); $goods_sn = generate_goods_sn($max_id); } 
         else { if (check_goods_sn_exist($goods_sn)) { throw new Exception("Mã sản phẩm '$goods_sn' đã tồn tại."); }}
         $add_time = gmtime(); $last_update = gmtime();
         
-        // ===================================================================
-        // SỬA ĐỔI DUY NHẤT TẠI ĐÂY: is_shipping được đổi từ '1' thành '0'
-        // ===================================================================
+        // Insert product với đầy đủ fields
         $sql_pre_insert = "INSERT INTO " . $ecs->table('goods') . 
             " (goods_name, cat_id, brand_id, shop_price, market_price, partner_price, ace_price, deal_price, goods_number, goods_desc, keywords, goods_brief, meta_title, meta_desc, goods_sn, is_on_sale, add_time, last_update, is_alone_sale, goods_type, is_shipping, seller_note, is_best, is_hot, is_new, is_home)" .
-            " VALUES ('" . addslashes($goods_name) . "', '" . $cat_id . "', '" . $brand_id . "', '" . $shop_price . "', '" . $market_price . "', '" . $partner_price . "', '" . $ace_price . "', '" . $deal_price . "', '" . $goods_number . "', '" . addslashes($goods_desc) . "', '" . addslashes($keywords) . "', '" . addslashes($goods_brief) . "', '" . addslashes($meta_title) . "', '" . addslashes($meta_desc) . "', '" . addslashes($goods_sn) . "', '0', '" . $add_time . "', '" . $last_update . "', '1', '0', '0', '" . addslashes($seller_note) . "', '" . $is_best . "', '" . $is_hot . "', '" . $is_new . "', '" . $is_home . "')";
+            " VALUES ('" . addslashes($goods_name) . "', '" . $cat_id . "', '" . $brand_id . "', '" . $shop_price . "', '" . $market_price . "', '" . $partner_price . "', '" . $ace_price . "', '" . $deal_price . "', '" . $goods_number . "', '" . addslashes($goods_desc) . "', '" . addslashes($keywords) . "', '" . addslashes($goods_brief) . "', '" . addslashes($meta_title) . "', '" . addslashes($meta_desc) . "', '" . addslashes($goods_sn) . "', '" . $is_on_sale . "', '" . $add_time . "', '" . $last_update . "', '1', '0', '0', '" . addslashes($seller_note) . "', '" . $is_best . "', '" . $is_hot . "', '" . $is_new . "', '" . $is_home . "')";
         
         $db->query($sql_pre_insert);
         $goods_id = $db->insert_id();
@@ -429,9 +579,87 @@ function create_product($data)
         $sql_update_img = "UPDATE " . $ecs->table('goods') . " SET goods_img = '" . addslashes($goods_img_final) . "', goods_thumb = '" . addslashes($goods_thumb_final) . "', original_img = '" . addslashes($original_img_final) . "' WHERE goods_id = '$goods_id'";
         $db->query($sql_update_img);
 
+        // --- Thêm giá ACE vào member_price nếu có ---
+        // ACE = user_rank 8 trong bảng ecs_member_price
+        if ($ace_price > 0) {
+            $db->query("DELETE FROM " . $ecs->table('member_price') . " WHERE goods_id = '$goods_id' AND user_rank = 8");
+            $db->autoExecute($ecs->table('member_price'), [
+                'goods_id' => $goods_id,
+                'user_rank' => 8,
+                'user_price' => $ace_price
+            ], 'INSERT');
+        }
+
+        // --- XỬ LÝ GALLERY IMAGES (album ảnh) ---
+        $gallery_synced = 0;
+        if (isset($data['gallery_images']) && is_array($data['gallery_images']) && count($data['gallery_images']) > 0) {
+            $gallery_images = $data['gallery_images'];
+            
+            $sort_order = 0;
+            foreach ($gallery_images as $img_url) {
+                $img_url = trim($img_url);
+                if (empty($img_url)) continue;
+                
+                // Bỏ qua URL external (http/https) - chỉ xử lý file local
+                if (preg_match('/^https?:\/\//i', $img_url)) {
+                    error_log("PKGX API Create: Bỏ qua URL external cho gallery image: " . $img_url);
+                    $sort_order++;
+                    continue;
+                }
+                
+                // Chuẩn hóa path (loại bỏ cdn/ prefix nếu có)
+                $gallery_cleaned_path = preg_replace('/^(cdn\/)+/', '', $img_url);
+                $gallery_cleaned_path = preg_replace('/(images\/)+/', 'images/', $gallery_cleaned_path);
+                $gallery_cleaned_path = preg_replace('/(source_img\/)+/', 'source_img/', $gallery_cleaned_path);
+                
+                $gallery_source_path = ROOT_PATH . 'cdn/' . $gallery_cleaned_path;
+                
+                if (file_exists($gallery_source_path)) {
+                    $gallery_base_dir = dirname($gallery_cleaned_path);
+                    $gallery_basename = pathinfo($gallery_source_path, PATHINFO_FILENAME);
+                    
+                    $gallery_goods_dir = ROOT_PATH . 'cdn/images/' . $gallery_base_dir . '/goods_img/';
+                    $gallery_thumb_dir = ROOT_PATH . 'cdn/images/' . $gallery_base_dir . '/thumb_img/';
+                    
+                    if (!is_dir($gallery_goods_dir)) mkdir($gallery_goods_dir, 0755, true);
+                    if (!is_dir($gallery_thumb_dir)) mkdir($gallery_thumb_dir, 0755, true);
+                    
+                    if (is_writable($gallery_goods_dir) && is_writable($gallery_thumb_dir)) {
+                        // Tạo ảnh resize với suffix để tránh trùng
+                        $gallery_img = create_resized_image_webp($gallery_source_path, $gallery_goods_dir, $gallery_basename . '_g' . $sort_order, $_CFG['image_width'], $_CFG['image_height']);
+                        $gallery_thumb = create_resized_image_webp($gallery_source_path, $gallery_thumb_dir, $gallery_basename . '_t' . $sort_order, $_CFG['thumb_width'], $_CFG['thumb_height']);
+                        
+                        // Loại bỏ cdn/ prefix
+                        if (substr($gallery_img, 0, 4) === 'cdn/') $gallery_img = substr($gallery_img, 4);
+                        if (substr($gallery_thumb, 0, 4) === 'cdn/') $gallery_thumb = substr($gallery_thumb, 4);
+                        
+                        // Insert vào goods_gallery
+                        $insert_gallery = [
+                            'goods_id' => $goods_id,
+                            'img_url' => $gallery_img,
+                            'img_desc' => '',
+                            'thumb_url' => $gallery_thumb,
+                            'img_original' => $gallery_cleaned_path,
+                            'img_sort' => $sort_order
+                        ];
+                        $db->autoExecute($ecs->table('goods_gallery'), $insert_gallery, 'INSERT');
+                        $gallery_synced++;
+                    }
+                }
+                $sort_order++;
+            }
+        }
+
         // --- Hoàn tất ---
         clear_cache_files();
-        send_json_response(['error' => false, 'message' => 'Sản phẩm đã được tạo thành công.', 'goods_id' => $goods_id, 'created_slug' => $slug], 201);
+        send_json_response([
+            'error' => false, 
+            'message' => 'Sản phẩm đã được tạo thành công.', 
+            'goods_id' => $goods_id, 
+            'created_slug' => $slug, 
+            'ace_price_synced' => ($ace_price > 0),
+            'gallery_synced' => $gallery_synced
+        ], 201);
 
     } catch (Exception $e) {
         if (isset($goods_id) && $goods_id > 0) {
@@ -476,11 +704,16 @@ function update_product($goods_id, $data)
         $boolean_keys = ['best', 'hot', 'new', 'ishome', 'is_on_sale', 'on_sale'];
         // Text keys - cho phép gửi giá trị rỗng để xóa nội dung
         $text_keys = ['meta_desc', 'goods_desc', 'goods_brief', 'keywords', 'meta_title', 'seller_note'];
+        // Array keys - chấp nhận mảng (gallery images)
+        $array_keys = ['gallery_images'];
         
         if (in_array($key, $boolean_keys)) {
             $filtered_data[$key] = $value;
         } else if (in_array($key, $text_keys)) {
             // Text fields: luôn chấp nhận, kể cả rỗng
+            $filtered_data[$key] = $value;
+        } else if (in_array($key, $array_keys) && is_array($value)) {
+            // Array fields: chấp nhận nếu là mảng
             $filtered_data[$key] = $value;
         } else if ($value !== '') {
             $filtered_data[$key] = $value;
@@ -575,50 +808,120 @@ function update_product($goods_id, $data)
         if (isset($filtered_data['original_img']) && !empty($filtered_data['original_img'])) {
             $original_img_path_raw = trim($filtered_data['original_img']);
             
-            // Bước 1: Chuẩn hóa đường dẫn bằng cách loại bỏ các tiền tố trùng lặp
-            $cleaned_path = preg_replace('/^(cdn\/)+/', '', $original_img_path_raw);
-            $cleaned_path = preg_replace('/(images\/)+/', 'images/', $cleaned_path);
-            $cleaned_path = preg_replace('/(source_img\/)+/', 'source_img/', $cleaned_path);
-
-            // Bước 2: Xây dựng đường dẫn file tuyệt đối
-            $source_full_path = ROOT_PATH . 'cdn/' . $cleaned_path;
-
-            if (file_exists($source_full_path)) {
-                $original_basename = pathinfo($source_full_path, PATHINFO_FILENAME);
-                $base_dir = dirname($cleaned_path);
-                
-                // Bước 3: Đảm bảo thư mục lưu ảnh tồn tại
-                $goods_dir = ROOT_PATH . 'cdn/images/' . $base_dir . '/goods_img/';
-                $thumb_dir = ROOT_PATH . 'cdn/images/' . $base_dir . '/thumb_img/';
-
-                if (!is_dir($goods_dir)) { 
-                    mkdir($goods_dir, 0755, true); 
-                }
-                if (!is_dir($thumb_dir)) { 
-                    mkdir($thumb_dir, 0755, true); 
-                }
-
-                if (is_writable($goods_dir) && is_writable($thumb_dir)) {
-                    // Tạo ảnh và lấy đường dẫn tương đối để lưu vào DB (không có 'cdn')
-                    $goods_img_final = create_resized_image_webp($source_full_path, $goods_dir, $original_basename, $_CFG['image_width'], $_CFG['image_height']);
-                    $goods_thumb_final = create_resized_image_webp($source_full_path, $thumb_dir, $original_basename, $_CFG['thumb_width'], $_CFG['thumb_height']);
-                    
-                    // SỬA LỖI TẠI ĐÂY: Loại bỏ tiền tố 'cdn/' nếu có
-                    if (substr($goods_img_final, 0, 4) === 'cdn/') { 
-                        $goods_img_final = substr($goods_img_final, 4); 
-                    }
-                    if (substr($goods_thumb_final, 0, 4) === 'cdn/') { 
-                        $goods_thumb_final = substr($goods_thumb_final, 4); 
-                    }
-
-                    $update_fields[] = "goods_img = '" . addslashes($goods_img_final) . "'";
-                    $update_fields[] = "goods_thumb = '" . addslashes($goods_thumb_final) . "'";
-                    $update_fields[] = "original_img = '" . addslashes($cleaned_path) . "'";
-                } else {
-                     throw new Exception("Không thể ghi vào thư mục ảnh. Vui lòng kiểm tra quyền truy cập (755).");
-                }
+            // Kiểm tra nếu là URL external (http/https) - bỏ qua vì không thể xử lý file từ xa
+            if (preg_match('/^https?:\/\//i', $original_img_path_raw)) {
+                // External URL - không xử lý, ghi log warning
+                error_log("PKGX API Warning: Bỏ qua URL external cho original_img: " . $original_img_path_raw);
+                // Không throw exception, tiếp tục xử lý các field khác
             } else {
-                 throw new Exception("Lỗi: Không tìm thấy tệp ảnh gốc tại đường dẫn: " . $source_full_path);
+                // Bước 1: Chuẩn hóa đường dẫn bằng cách loại bỏ các tiền tố trùng lặp
+                $cleaned_path = preg_replace('/^(cdn\/)+/', '', $original_img_path_raw);
+                $cleaned_path = preg_replace('/(images\/)+/', 'images/', $cleaned_path);
+                $cleaned_path = preg_replace('/(source_img\/)+/', 'source_img/', $cleaned_path);
+
+                // Bước 2: Xây dựng đường dẫn file tuyệt đối
+                $source_full_path = ROOT_PATH . 'cdn/' . $cleaned_path;
+
+                if (file_exists($source_full_path)) {
+                    $original_basename = pathinfo($source_full_path, PATHINFO_FILENAME);
+                    $base_dir = dirname($cleaned_path);
+                    
+                    // Bước 3: Đảm bảo thư mục lưu ảnh tồn tại
+                    $goods_dir = ROOT_PATH . 'cdn/images/' . $base_dir . '/goods_img/';
+                    $thumb_dir = ROOT_PATH . 'cdn/images/' . $base_dir . '/thumb_img/';
+
+                    if (!is_dir($goods_dir)) { 
+                        mkdir($goods_dir, 0755, true); 
+                    }
+                    if (!is_dir($thumb_dir)) { 
+                        mkdir($thumb_dir, 0755, true); 
+                    }
+
+                    if (is_writable($goods_dir) && is_writable($thumb_dir)) {
+                        // Tạo ảnh và lấy đường dẫn tương đối để lưu vào DB (không có 'cdn')
+                        $goods_img_final = create_resized_image_webp($source_full_path, $goods_dir, $original_basename, $_CFG['image_width'], $_CFG['image_height']);
+                        $goods_thumb_final = create_resized_image_webp($source_full_path, $thumb_dir, $original_basename, $_CFG['thumb_width'], $_CFG['thumb_height']);
+                        
+                        // SỬA LỖI TẠI ĐÂY: Loại bỏ tiền tố 'cdn/' nếu có
+                        if (substr($goods_img_final, 0, 4) === 'cdn/') { 
+                            $goods_img_final = substr($goods_img_final, 4); 
+                        }
+                        if (substr($goods_thumb_final, 0, 4) === 'cdn/') { 
+                            $goods_thumb_final = substr($goods_thumb_final, 4); 
+                        }
+
+                        $update_fields[] = "goods_img = '" . addslashes($goods_img_final) . "'";
+                        $update_fields[] = "goods_thumb = '" . addslashes($goods_thumb_final) . "'";
+                        $update_fields[] = "original_img = '" . addslashes($cleaned_path) . "'";
+                    } else {
+                         throw new Exception("Không thể ghi vào thư mục ảnh. Vui lòng kiểm tra quyền truy cập (755).");
+                    }
+                } else {
+                     throw new Exception("Lỗi: Không tìm thấy tệp ảnh gốc tại đường dẫn: " . $source_full_path);
+                }
+            }
+        }
+
+        // --- XỬ LÝ GALLERY IMAGES (album ảnh) ---
+        $gallery_synced = 0;
+        if (isset($filtered_data['gallery_images']) && is_array($filtered_data['gallery_images']) && count($filtered_data['gallery_images']) > 0) {
+            $gallery_images = $filtered_data['gallery_images'];
+            
+            // Xóa gallery cũ trước khi thêm mới
+            $db->query("DELETE FROM " . $ecs->table('goods_gallery') . " WHERE goods_id = '$goods_id'");
+            
+            $sort_order = 0;
+            foreach ($gallery_images as $img_url) {
+                $img_url = trim($img_url);
+                if (empty($img_url)) continue;
+                
+                // Bỏ qua URL external (http/https) - chỉ xử lý file local
+                if (preg_match('/^https?:\/\//i', $img_url)) {
+                    error_log("PKGX API Warning: Bỏ qua URL external cho gallery image: " . $img_url);
+                    $sort_order++;
+                    continue;
+                }
+                
+                // Chuẩn hóa path (loại bỏ cdn/ prefix nếu có)
+                $gallery_cleaned_path = preg_replace('/^(cdn\/)+/', '', $img_url);
+                $gallery_cleaned_path = preg_replace('/(images\/)+/', 'images/', $gallery_cleaned_path);
+                $gallery_cleaned_path = preg_replace('/(source_img\/)+/', 'source_img/', $gallery_cleaned_path);
+                
+                $gallery_source_path = ROOT_PATH . 'cdn/' . $gallery_cleaned_path;
+                
+                if (file_exists($gallery_source_path)) {
+                    $gallery_base_dir = dirname($gallery_cleaned_path);
+                    $gallery_basename = pathinfo($gallery_source_path, PATHINFO_FILENAME);
+                    
+                    $gallery_goods_dir = ROOT_PATH . 'cdn/images/' . $gallery_base_dir . '/goods_img/';
+                    $gallery_thumb_dir = ROOT_PATH . 'cdn/images/' . $gallery_base_dir . '/thumb_img/';
+                    
+                    if (!is_dir($gallery_goods_dir)) mkdir($gallery_goods_dir, 0755, true);
+                    if (!is_dir($gallery_thumb_dir)) mkdir($gallery_thumb_dir, 0755, true);
+                    
+                    if (is_writable($gallery_goods_dir) && is_writable($gallery_thumb_dir)) {
+                        // Tạo ảnh resize với suffix để tránh trùng
+                        $gallery_img = create_resized_image_webp($gallery_source_path, $gallery_goods_dir, $gallery_basename . '_g' . $sort_order, $_CFG['image_width'], $_CFG['image_height']);
+                        $gallery_thumb = create_resized_image_webp($gallery_source_path, $gallery_thumb_dir, $gallery_basename . '_t' . $sort_order, $_CFG['thumb_width'], $_CFG['thumb_height']);
+                        
+                        // Loại bỏ cdn/ prefix
+                        if (substr($gallery_img, 0, 4) === 'cdn/') $gallery_img = substr($gallery_img, 4);
+                        if (substr($gallery_thumb, 0, 4) === 'cdn/') $gallery_thumb = substr($gallery_thumb, 4);
+                        
+                        // Insert vào goods_gallery
+                        $insert_gallery = [
+                            'goods_id' => $goods_id,
+                            'img_url' => $gallery_img,
+                            'img_desc' => '',
+                            'thumb_url' => $gallery_thumb,
+                            'img_original' => $gallery_cleaned_path,
+                            'img_sort' => $sort_order
+                        ];
+                        $db->autoExecute($ecs->table('goods_gallery'), $insert_gallery, 'INSERT');
+                        $gallery_synced++;
+                    }
+                }
+                $sort_order++;
             }
         }
         
@@ -655,7 +958,8 @@ function update_product($goods_id, $data)
                     'original_img' => isset($cleaned_path) ? $cleaned_path : 'Không thay đổi',
                     'goods_img' => isset($goods_img_final) ? $goods_img_final : 'Không thay đổi',
                     'goods_thumb' => isset($goods_thumb_final) ? $goods_thumb_final : 'Không thay đổi'
-                ]
+                ],
+                'gallery_synced' => isset($gallery_synced) ? $gallery_synced : 0
             ]
         ];
         if ($updated_slug) {
@@ -846,6 +1150,247 @@ function upload_product_image()
 }
 
 /**
+ * Upload ảnh từ URL (server-to-server, tránh CORS)
+ * Server PKGX sẽ tự download ảnh từ URL rồi xử lý như upload thông thường
+ * 
+ * Parameters (JSON body):
+ *   - image_url: URL của ảnh cần upload (bắt buộc)
+ *   - filename_slug: Tên file (không có extension, optional)
+ *   - goods_id: ID sản phẩm để gán ảnh (optional)
+ */
+function upload_image_from_url($data)
+{
+    global $db, $ecs, $_CFG;
+    
+    // --- 1. Lấy và validate URL ---
+    $image_url = isset($data['image_url']) ? trim($data['image_url']) : '';
+    
+    if (empty($image_url)) {
+        send_json_response([
+            'error' => true, 
+            'message' => 'Thiếu image_url trong request body.'
+        ], 400);
+    }
+    
+    // Validate URL format
+    if (!filter_var($image_url, FILTER_VALIDATE_URL)) {
+        send_json_response([
+            'error' => true, 
+            'message' => 'URL không hợp lệ: ' . $image_url
+        ], 400);
+    }
+    
+    // --- 2. Download ảnh từ URL ---
+    $ch = curl_init($image_url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+    curl_setopt($ch, CURLOPT_MAXREDIRS, 5);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
+    curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+    
+    $image_data = curl_exec($ch);
+    $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $content_type = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+    $curl_error = curl_error($ch);
+    curl_close($ch);
+    
+    if ($http_code !== 200 || !$image_data) {
+        send_json_response([
+            'error' => true, 
+            'message' => 'Không thể tải ảnh từ URL. HTTP: ' . $http_code . ($curl_error ? ', Error: ' . $curl_error : '')
+        ], 400);
+    }
+    
+    // --- 3. Validate content type ---
+    $allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    $is_valid_type = false;
+    foreach ($allowed_types as $allowed) {
+        if (strpos($content_type, $allowed) !== false) {
+            $is_valid_type = true;
+            break;
+        }
+    }
+    
+    // Nếu content-type không rõ, kiểm tra bằng magic bytes
+    if (!$is_valid_type) {
+        $magic_bytes = substr($image_data, 0, 16);
+        if (substr($magic_bytes, 0, 3) === "\xff\xd8\xff") {
+            $content_type = 'image/jpeg';
+            $is_valid_type = true;
+        } elseif (substr($magic_bytes, 0, 8) === "\x89PNG\r\n\x1a\n") {
+            $content_type = 'image/png';
+            $is_valid_type = true;
+        } elseif (substr($magic_bytes, 0, 4) === "RIFF" && substr($magic_bytes, 8, 4) === "WEBP") {
+            $content_type = 'image/webp';
+            $is_valid_type = true;
+        } elseif (substr($magic_bytes, 0, 6) === "GIF87a" || substr($magic_bytes, 0, 6) === "GIF89a") {
+            $content_type = 'image/gif';
+            $is_valid_type = true;
+        }
+    }
+    
+    if (!$is_valid_type) {
+        // Kiểm tra xem có phải HTML không (redirect page)
+        if (stripos($image_data, '<!DOCTYPE') !== false || stripos($image_data, '<html') !== false) {
+            send_json_response([
+                'error' => true, 
+                'message' => 'URL trả về HTML thay vì ảnh. Có thể bị redirect hoặc cần authentication.'
+            ], 400);
+        }
+        
+        send_json_response([
+            'error' => true, 
+            'message' => 'Định dạng file không hợp lệ. Content-Type: ' . $content_type . '. Chỉ hỗ trợ: JPEG, PNG, GIF, WebP.'
+        ], 400);
+    }
+    
+    // --- 4. Kiểm tra kích thước ---
+    $file_size = strlen($image_data);
+    $max_size = 10 * 1024 * 1024; // 10MB
+    
+    if ($file_size > $max_size) {
+        send_json_response([
+            'error' => true, 
+            'message' => 'Ảnh quá lớn (' . round($file_size / 1024 / 1024, 2) . 'MB). Kích thước tối đa: 10MB.'
+        ], 400);
+    }
+    
+    if ($file_size < 1024) {
+        send_json_response([
+            'error' => true, 
+            'message' => 'Ảnh quá nhỏ hoặc bị lỗi (' . $file_size . ' bytes).'
+        ], 400);
+    }
+    
+    // --- 5. Tạo tên file và thư mục ---
+    $filename_slug = isset($data['filename_slug']) && !empty($data['filename_slug']) 
+        ? trim($data['filename_slug']) 
+        : 'img-' . date('YmdHis');
+    
+    $filename_slug = create_safe_filename($filename_slug);
+    
+    $month_folder = date('Ym');
+    
+    // Xác định extension từ content-type
+    $ext = 'jpg';
+    if (strpos($content_type, 'png') !== false) $ext = 'png';
+    elseif (strpos($content_type, 'webp') !== false) $ext = 'webp';
+    elseif (strpos($content_type, 'gif') !== false) $ext = 'gif';
+    
+    $base_path = ROOT_PATH . 'cdn/images/' . $month_folder;
+    $source_dir = $base_path . '/source_img/';
+    $goods_dir = $base_path . '/goods_img/';
+    $thumb_dir = $base_path . '/thumb_img/';
+    
+    if (!is_dir($source_dir)) { mkdir($source_dir, 0755, true); }
+    if (!is_dir($goods_dir)) { mkdir($goods_dir, 0755, true); }
+    if (!is_dir($thumb_dir)) { mkdir($thumb_dir, 0755, true); }
+    
+    if (!is_writable($source_dir) || !is_writable($goods_dir) || !is_writable($thumb_dir)) {
+        send_json_response([
+            'error' => true, 
+            'message' => 'Không có quyền ghi vào thư mục. Vui lòng kiểm tra permission (755).'
+        ], 500);
+    }
+    
+    // --- 6. Lưu file gốc ---
+    $source_filename = $filename_slug . '.' . $ext;
+    $source_full_path = $source_dir . $source_filename;
+    
+    $counter = 1;
+    while (file_exists($source_full_path)) {
+        $source_filename = $filename_slug . '-' . $counter . '.' . $ext;
+        $source_full_path = $source_dir . $source_filename;
+        $counter++;
+    }
+    
+    $final_filename = pathinfo($source_filename, PATHINFO_FILENAME);
+    
+    if (file_put_contents($source_full_path, $image_data) === false) {
+        send_json_response([
+            'error' => true, 
+            'message' => 'Không thể lưu file lên server.'
+        ], 500);
+    }
+    
+    // --- 7. Tạo ảnh resize ---
+    $image_width = isset($_CFG['image_width']) ? intval($_CFG['image_width']) : 800;
+    $image_height = isset($_CFG['image_height']) ? intval($_CFG['image_height']) : 800;
+    $thumb_width = isset($_CFG['thumb_width']) ? intval($_CFG['thumb_width']) : 400;
+    $thumb_height = isset($_CFG['thumb_height']) ? intval($_CFG['thumb_height']) : 400;
+    
+    $goods_img_path = create_resized_image_webp($source_full_path, $goods_dir, $final_filename, $image_width, $image_height);
+    $thumb_img_path = create_resized_image_webp($source_full_path, $thumb_dir, $final_filename, $thumb_width, $thumb_height);
+    
+    if (!$goods_img_path || !$thumb_img_path) {
+        @unlink($source_full_path);
+        send_json_response([
+            'error' => true, 
+            'message' => 'Không thể xử lý ảnh. File có thể bị hỏng.'
+        ], 500);
+    }
+    
+    // --- 8. Chuẩn hóa đường dẫn ---
+    $original_img_db = 'images/' . $month_folder . '/source_img/' . $source_filename;
+    $goods_img_db = str_replace(ROOT_PATH . 'cdn/', '', $goods_img_path);
+    $thumb_img_db = str_replace(ROOT_PATH . 'cdn/', '', $thumb_img_path);
+    
+    if (substr($goods_img_db, 0, 4) === 'cdn/') { $goods_img_db = substr($goods_img_db, 4); }
+    if (substr($thumb_img_db, 0, 4) === 'cdn/') { $thumb_img_db = substr($thumb_img_db, 4); }
+    
+    // --- 9. Cập nhật vào sản phẩm nếu có goods_id ---
+    $goods_id = isset($data['goods_id']) ? intval($data['goods_id']) : 0;
+    $product_updated = false;
+    
+    if ($goods_id > 0) {
+        $product_exists = $db->getOne("SELECT goods_id FROM " . $ecs->table('goods') . " WHERE goods_id = '$goods_id'");
+        
+        if ($product_exists) {
+            $sql = "UPDATE " . $ecs->table('goods') . " SET 
+                original_img = '" . addslashes($original_img_db) . "',
+                goods_img = '" . addslashes($goods_img_db) . "',
+                goods_thumb = '" . addslashes($thumb_img_db) . "',
+                last_update = '" . gmtime() . "'
+                WHERE goods_id = '$goods_id'";
+            
+            if ($db->query($sql)) {
+                $product_updated = true;
+                clear_cache_files();
+            }
+        }
+    }
+    
+    // --- 10. Trả về response ---
+    $cdn_base_url = 'https://phukiengiaxuong.com.vn/cdn/';
+    
+    $response = [
+        'error' => false,
+        'message' => $product_updated ? 'Upload ảnh từ URL và cập nhật sản phẩm thành công.' : 'Upload ảnh từ URL thành công.',
+        'data' => [
+            'original_img' => $original_img_db,
+            'goods_img' => $goods_img_db,
+            'goods_thumb' => $thumb_img_db,
+            'source_url' => $image_url,
+            'full_urls' => [
+                'original' => $cdn_base_url . $original_img_db,
+                'goods' => $cdn_base_url . $goods_img_db,
+                'thumb' => $cdn_base_url . $thumb_img_db
+            ]
+        ]
+    ];
+    
+    if ($goods_id > 0) {
+        $response['goods_id'] = $goods_id;
+        $response['product_updated'] = $product_updated;
+    }
+    
+    send_json_response($response, 201);
+}
+
+/**
  * Hàm tạo filename an toàn (không dấu, không ký tự đặc biệt)
  */
 function create_safe_filename($str) {
@@ -913,7 +1458,10 @@ function api_get_categories()
                         sort_order,
                         is_show,
                         cat_desc,
+                        long_desc,
                         keywords,
+                        meta_title,
+                        meta_desc,
                         cat_alias,
                         style,
                         grade,
@@ -939,7 +1487,10 @@ function api_get_categories()
                     'parent_id' => intval($category['parent_id']),
                     'sort_order' => intval($category['sort_order']),
                     'cat_desc' => $category['cat_desc'],
+                    'long_desc' => $category['long_desc'] ?? '',
                     'keywords' => $category['keywords'],
+                    'meta_title' => $category['meta_title'] ?? '',
+                    'meta_desc' => $category['meta_desc'] ?? '',
                     'cat_alias' => $category['cat_alias'],
                     'style' => $category['style'],
                     'grade' => intval($category['grade']),
@@ -950,23 +1501,27 @@ function api_get_categories()
         }
         
         // Lấy danh sách tất cả danh mục (có SEO fields)
-        $sql = "SELECT 
-                    cat_id,
-                    cat_name,
-                    parent_id,
-                    sort_order,
-                    is_show,
-                    cat_desc,
-                    keywords,
-                    cat_alias
-                FROM " . $ecs->table('category') . "
-                WHERE is_show = 1
+        // Bỏ filter is_show để lấy tất cả categories (kể cả đang ẩn)
+        $sql = "SELECT * FROM " . $ecs->table('category') . "
                 ORDER BY parent_id ASC, sort_order ASC, cat_id ASC";
         
         $result = $db->getAll($sql);
         
-        if ($result === false) {
+        if ($result === false || $result === null) {
+            // Log lỗi để debug
+            error_log("PKGX API get_categories error - SQL: $sql");
             throw new Exception("Lỗi truy vấn database");
+        }
+        
+        // Nếu không có kết quả, trả về mảng rỗng
+        if (empty($result)) {
+            send_json_response([
+                'error' => false,
+                'message' => 'Không có danh mục nào.',
+                'total' => 0,
+                'data' => []
+            ], 200);
+            return;
         }
         
         // Build response data
@@ -978,7 +1533,10 @@ function api_get_categories()
                 'parent_id' => intval($row['parent_id']),
                 'sort_order' => intval($row['sort_order']),
                 'cat_desc' => $row['cat_desc'],
+                'long_desc' => $row['long_desc'] ?? '',
                 'keywords' => $row['keywords'],
+                'meta_title' => $row['meta_title'] ?? '',
+                'meta_desc' => $row['meta_desc'] ?? '',
                 'cat_alias' => $row['cat_alias'],
             ];
         }
@@ -1019,14 +1577,13 @@ function api_get_brands()
                         brand_name,
                         brand_logo,
                         brand_desc,
-                        site_url,
-                        sort_order,
-                        is_show,
                         brand_cat_desc,
                         brand_long_desc,
                         brand_keyword,
                         brand_meta_title,
-                        brand_meta_desc
+                        site_url,
+                        sort_order,
+                        is_show
                     FROM " . $ecs->table('brand') . "
                     WHERE brand_id = '$brand_id'";
             
@@ -1047,34 +1604,32 @@ function api_get_brands()
                     'brand_name' => $brand['brand_name'],
                     'brand_logo' => $brand['brand_logo'],
                     'brand_desc' => $brand['brand_desc'],
+                    'short_desc' => $brand['brand_cat_desc'] ?? '',
+                    'long_desc' => $brand['brand_long_desc'] ?? '',
+                    'keywords' => $brand['brand_keyword'] ?? '',
+                    'meta_title' => $brand['brand_meta_title'] ?? '',
+                    'meta_desc' => $brand['brand_desc'] ?? '',
                     'site_url' => $brand['site_url'],
                     'sort_order' => intval($brand['sort_order']),
-                    'short_desc' => $brand['brand_cat_desc'],
-                    'long_desc' => $brand['brand_long_desc'],
-                    'keywords' => $brand['brand_keyword'],
-                    'meta_title' => $brand['brand_meta_title'],
-                    'meta_desc' => $brand['brand_meta_desc'],
                 ]
             ], 200);
             return;
         }
         
-        // Lấy danh sách tất cả thương hiệu
+        // Lấy danh sách tất cả thương hiệu (bao gồm cả đang ẩn)
         $sql = "SELECT 
                     brand_id,
                     brand_name,
                     brand_logo,
                     brand_desc,
-                    site_url,
-                    sort_order,
-                    is_show,
                     brand_cat_desc,
                     brand_long_desc,
                     brand_keyword,
                     brand_meta_title,
-                    brand_meta_desc
+                    site_url,
+                    sort_order,
+                    is_show
                 FROM " . $ecs->table('brand') . "
-                WHERE is_show = 1
                 ORDER BY sort_order ASC, brand_id ASC";
         
         $result = $db->getAll($sql);
@@ -1091,13 +1646,14 @@ function api_get_brands()
                 'brand_name' => $row['brand_name'],
                 'brand_logo' => $row['brand_logo'],
                 'brand_desc' => $row['brand_desc'],
+                'short_desc' => $row['brand_cat_desc'] ?? '',
+                'long_desc' => $row['brand_long_desc'] ?? '',
+                'keywords' => $row['brand_keyword'] ?? '',
+                'meta_title' => $row['brand_meta_title'] ?? '',
+                'meta_desc' => $row['brand_desc'] ?? '',
                 'site_url' => $row['site_url'],
                 'sort_order' => intval($row['sort_order']),
-                'short_desc' => $row['brand_cat_desc'],
-                'long_desc' => $row['brand_long_desc'],
-                'keywords' => $row['brand_keyword'],
-                'meta_title' => $row['brand_meta_title'],
-                'meta_desc' => $row['brand_meta_desc'],
+                'is_show' => intval($row['is_show']),
             ];
         }
         
@@ -1119,7 +1675,7 @@ function api_get_brands()
 /**
  * Cập nhật thông tin danh mục (SEO, mô tả)
  * URL: POST ?action=update_category&cat_id=123
- * Body JSON: { cat_desc, keywords, cat_alias }
+ * Body JSON: { cat_desc, keywords, cat_alias, meta_title, meta_desc, short_desc }
  */
 function update_category($cat_id, $data)
 {
@@ -1156,8 +1712,17 @@ function update_category($cat_id, $data)
         if (isset($data['keywords'])) {
             $update_fields[] = "keywords = '" . addslashes(trim($data['keywords'])) . "'";
         }
-        if (isset($data['cat_alias'])) {
-            $update_fields[] = "cat_alias = '" . addslashes(trim($data['cat_alias'])) . "'";
+        // NOTE: cat_alias column does NOT exist in category table - removed
+        // SEO fields
+        if (isset($data['meta_title'])) {
+            $update_fields[] = "meta_title = '" . addslashes(trim($data['meta_title'])) . "'";
+        }
+        if (isset($data['meta_desc'])) {
+            $update_fields[] = "meta_desc = '" . addslashes(trim($data['meta_desc'])) . "'";
+        }
+        // Mô tả dài -> long_desc
+        if (isset($data['long_desc'])) {
+            $update_fields[] = "long_desc = '" . addslashes(trim($data['long_desc'])) . "'";
         }
         if (isset($data['style'])) {
             $update_fields[] = "style = '" . addslashes(trim($data['style'])) . "'";
@@ -1166,9 +1731,23 @@ function update_category($cat_id, $data)
             $update_fields[] = "sort_order = '" . intval($data['sort_order']) . "'";
         }
         
+        // DEBUG: Log what we're doing
+        $debug_info = [
+            'data_received' => $data,
+            'data_type' => gettype($data),
+            'data_keys' => is_array($data) ? array_keys($data) : 'not_array',
+            'update_fields_count' => count($update_fields),
+            'update_fields' => $update_fields
+        ];
+        
+        $sql_executed = null;
+        $query_result = null;
+        $db_error = null;
         if (!empty($update_fields)) {
             $sql = "UPDATE " . $ecs->table('category') . " SET " . implode(', ', $update_fields) . " WHERE cat_id = '$cat_id'";
-            $db->query($sql);
+            $sql_executed = $sql;
+            $query_result = $db->query($sql);
+            $db_error = $db->error();
         }
         
         clear_cache_files();
@@ -1176,7 +1755,12 @@ function update_category($cat_id, $data)
         send_json_response([
             'error' => false,
             'message' => 'Cập nhật danh mục thành công.',
-            'cat_id' => $cat_id
+            'cat_id' => $cat_id,
+            'debug' => $debug_info,
+            'sql_executed' => $sql_executed,
+            'query_result' => $query_result,
+            'db_error' => $db_error,
+            'file_version' => 'v4_20251218_155600'
         ], 200);
         
     } catch (Exception $e) {
@@ -1185,9 +1769,161 @@ function update_category($cat_id, $data)
 }
 
 /**
+ * Cập nhật thông tin cơ bản danh mục (tên, parent, hiển thị trang chủ)
+ * URL: POST ?action=update_category_basic&cat_id=123
+ * Body JSON: { cat_name, parent_id, is_show }
+ * 
+ * Các trường:
+ * - cat_name: Tên danh mục
+ * - parent_id: ID danh mục cha (0 = gốc)
+ * - is_show: 1 = Hiển thị, 0 = Ẩn (Display in Category Home)
+ */
+function update_category_basic($cat_id, $data)
+{
+    global $db, $ecs;
+    
+    $cat_id = intval($cat_id);
+    if ($cat_id <= 0) {
+        send_json_response(['error' => true, 'message' => "ID danh mục không hợp lệ."], 400);
+        return;
+    }
+    
+    // Kiểm tra danh mục tồn tại
+    $category = $db->getRow("SELECT cat_id, cat_name, parent_id, is_show FROM " . $ecs->table('category') . " WHERE cat_id = '$cat_id'");
+    if (!$category) {
+        send_json_response(['error' => true, 'message' => "Danh mục với ID '$cat_id' không tồn tại."], 404);
+        return;
+    }
+    
+    if (empty($data)) {
+        send_json_response(['error' => false, 'message' => 'Không có dữ liệu nào được gửi để cập nhật.', 'cat_id' => $cat_id, 'current_data' => $category], 200);
+        return;
+    }
+    
+    try {
+        $update_fields = [];
+        $changes = [];
+        
+        // Cập nhật tên danh mục
+        if (isset($data['cat_name']) && !empty(trim($data['cat_name']))) {
+            $new_cat_name = addslashes(trim($data['cat_name']));
+            $update_fields[] = "cat_name = '" . $new_cat_name . "'";
+            $changes['cat_name'] = ['old' => $category['cat_name'], 'new' => trim($data['cat_name'])];
+        }
+        
+        // Cập nhật parent_id
+        if (isset($data['parent_id'])) {
+            $new_parent_id = intval($data['parent_id']);
+            
+            // Validate: không cho phép chọn chính nó làm parent
+            if ($new_parent_id === $cat_id) {
+                send_json_response(['error' => true, 'message' => 'Không thể chọn chính danh mục làm danh mục cha.'], 400);
+                return;
+            }
+            
+            // Validate: parent_id phải tồn tại (trừ khi = 0)
+            if ($new_parent_id > 0) {
+                $parent_exists = $db->getOne("SELECT cat_id FROM " . $ecs->table('category') . " WHERE cat_id = '$new_parent_id'");
+                if (!$parent_exists) {
+                    send_json_response(['error' => true, 'message' => "Danh mục cha với ID '$new_parent_id' không tồn tại."], 400);
+                    return;
+                }
+                
+                // Validate: không cho phép chọn con cháu làm parent (tránh circular)
+                $all_children = get_category_children_ids($cat_id);
+                if (in_array($new_parent_id, $all_children)) {
+                    send_json_response(['error' => true, 'message' => 'Không thể chọn danh mục con làm danh mục cha (tránh vòng lặp).'], 400);
+                    return;
+                }
+            }
+            
+            $update_fields[] = "parent_id = '" . $new_parent_id . "'";
+            $changes['parent_id'] = ['old' => intval($category['parent_id']), 'new' => $new_parent_id];
+        }
+        
+        // Cập nhật is_show (Display in Category Home)
+        if (isset($data['is_show'])) {
+            $new_is_show = intval($data['is_show']) > 0 ? 1 : 0;
+            $update_fields[] = "is_show = '" . $new_is_show . "'";
+            $changes['is_show'] = ['old' => intval($category['is_show']), 'new' => $new_is_show];
+        }
+        
+        if (empty($update_fields)) {
+            send_json_response([
+                'error' => false, 
+                'message' => 'Không có trường nào được cập nhật.', 
+                'cat_id' => $cat_id,
+                'current_data' => $category
+            ], 200);
+            return;
+        }
+        
+        $sql = "UPDATE " . $ecs->table('category') . " SET " . implode(', ', $update_fields) . " WHERE cat_id = '$cat_id'";
+        $query_result = $db->query($sql);
+        $db_error = $db->error();
+        
+        // Lấy lại data sau khi update
+        $updated_category = $db->getRow("SELECT cat_id, cat_name, parent_id, is_show, sort_order FROM " . $ecs->table('category') . " WHERE cat_id = '$cat_id'");
+        
+        // Lấy tên parent nếu có
+        $parent_name = null;
+        if ($updated_category['parent_id'] > 0) {
+            $parent_name = $db->getOne("SELECT cat_name FROM " . $ecs->table('category') . " WHERE cat_id = '" . $updated_category['parent_id'] . "'");
+        }
+        
+        clear_cache_files();
+        
+        send_json_response([
+            'error' => false,
+            'message' => 'Cập nhật thông tin cơ bản danh mục thành công.',
+            'cat_id' => $cat_id,
+            'changes' => $changes,
+            'data' => [
+                'cat_id' => intval($updated_category['cat_id']),
+                'cat_name' => $updated_category['cat_name'],
+                'parent_id' => intval($updated_category['parent_id']),
+                'parent_name' => $parent_name,
+                'is_show' => intval($updated_category['is_show']),
+                'sort_order' => intval($updated_category['sort_order'])
+            ]
+        ], 200);
+        
+    } catch (Exception $e) {
+        send_json_response(['error' => true, 'message' => $e->getMessage()], 500);
+    }
+}
+
+/**
+ * Hàm lấy tất cả ID con cháu của một danh mục (recursive)
+ * Dùng để validate tránh circular reference khi đổi parent
+ */
+function get_category_children_ids($cat_id)
+{
+    global $db, $ecs;
+    
+    $children = [];
+    $cat_id = intval($cat_id);
+    
+    // Lấy con trực tiếp
+    $direct_children = $db->getAll("SELECT cat_id FROM " . $ecs->table('category') . " WHERE parent_id = '$cat_id'");
+    
+    if ($direct_children) {
+        foreach ($direct_children as $child) {
+            $child_id = intval($child['cat_id']);
+            $children[] = $child_id;
+            // Recursive: lấy con của con
+            $grandchildren = get_category_children_ids($child_id);
+            $children = array_merge($children, $grandchildren);
+        }
+    }
+    
+    return $children;
+}
+
+/**
  * Cập nhật thông tin thương hiệu (SEO, mô tả)
  * URL: POST ?action=update_brand&brand_id=123
- * Body JSON: { brand_name, brand_desc, site_url }
+ * Body JSON: { brand_name, brand_desc, site_url, keywords, meta_title, meta_desc, short_desc, long_desc }
  */
 function update_brand($brand_id, $data)
 {
@@ -1227,13 +1963,7 @@ function update_brand($brand_id, $data)
         if (isset($data['sort_order'])) {
             $update_fields[] = "sort_order = '" . intval($data['sort_order']) . "'";
         }
-        // SEO fields
-        if (isset($data['short_desc'])) {
-            $update_fields[] = "brand_cat_desc = '" . addslashes(trim($data['short_desc'])) . "'";
-        }
-        if (isset($data['long_desc'])) {
-            $update_fields[] = "brand_long_desc = '" . addslashes(trim($data['long_desc'])) . "'";
-        }
+        // SEO fields - brand_keyword là cột keyword trong DB
         if (isset($data['keywords'])) {
             $update_fields[] = "brand_keyword = '" . addslashes(trim($data['keywords'])) . "'";
         }
@@ -1241,7 +1971,15 @@ function update_brand($brand_id, $data)
             $update_fields[] = "brand_meta_title = '" . addslashes(trim($data['meta_title'])) . "'";
         }
         if (isset($data['meta_desc'])) {
-            $update_fields[] = "brand_meta_desc = '" . addslashes(trim($data['meta_desc'])) . "'";
+            $update_fields[] = "brand_desc = '" . addslashes(trim($data['meta_desc'])) . "'";
+        }
+        // Mô tả ngắn -> brand_cat_desc
+        if (isset($data['short_desc'])) {
+            $update_fields[] = "brand_cat_desc = '" . addslashes(trim($data['short_desc'])) . "'";
+        }
+        // Mô tả dài -> brand_long_desc
+        if (isset($data['long_desc'])) {
+            $update_fields[] = "brand_long_desc = '" . addslashes(trim($data['long_desc'])) . "'";
         }
         
         if (!empty($update_fields)) {
@@ -1259,6 +1997,296 @@ function update_brand($brand_id, $data)
         
     } catch (Exception $e) {
         send_json_response(['error' => true, 'message' => $e->getMessage()], 500);
+    }
+}
+
+/**
+ * Lấy danh sách hạng thành viên (user_rank)
+ * URL: GET ?action=get_member_ranks
+ * Response: Danh sách các hạng thành viên với rank_id và rank_name
+ */
+function get_member_ranks()
+{
+    global $db, $ecs;
+    
+    try {
+        $sql = "SELECT rank_id, rank_name, min_points, max_points, discount, special_rank 
+                FROM " . $ecs->table('user_rank') . " 
+                ORDER BY min_points ASC";
+        
+        $result = $db->getAll($sql);
+        
+        if ($result === false) {
+            throw new Exception("Lỗi truy vấn database");
+        }
+        
+        $ranks = [];
+        foreach ($result as $row) {
+            $ranks[] = [
+                'rank_id' => intval($row['rank_id']),
+                'rank_name' => $row['rank_name'],
+                'min_points' => intval($row['min_points']),
+                'max_points' => intval($row['max_points']),
+                'discount' => floatval($row['discount']),
+                'special_rank' => intval($row['special_rank'])
+            ];
+        }
+        
+        send_json_response([
+            'error' => false,
+            'message' => 'Lấy danh sách hạng thành viên thành công.',
+            'total' => count($ranks),
+            'data' => $ranks
+        ], 200);
+        
+    } catch (Exception $e) {
+        send_json_response([
+            'error' => true,
+            'message' => 'Lỗi server: ' . $e->getMessage()
+        ], 500);
+    }
+}
+
+/**
+ * Cập nhật giá thành viên theo user_rank
+ * URL: POST ?action=update_member_price&goods_id=123
+ * 
+ * Body JSON có thể theo các format:
+ * 
+ * Format 1 - Cập nhật 1 giá:
+ * { "user_rank": 1, "user_price": 50000 }
+ * 
+ * Format 2 - Cập nhật nhiều giá:
+ * { "member_prices": [{"user_rank": 1, "user_price": 50000}, {"user_rank": 2, "user_price": 45000}] }
+ * 
+ * Format 3 - Dạng string như goods_batch.php:
+ * { "member_price": "1:50000" } hoặc { "member_price": "1:50000,2:45000" }
+ * 
+ * Lưu ý: user_price = -1 sẽ sử dụng giá mặc định (theo discount của rank)
+ *        user_price = 0 sẽ xóa giá riêng của rank đó
+ */
+function update_member_price($goods_id, $data)
+{
+    global $db, $ecs;
+    
+    $goods_id = intval($goods_id);
+    if ($goods_id <= 0) {
+        send_json_response(['error' => true, 'message' => "ID sản phẩm không hợp lệ."], 400);
+        return;
+    }
+    
+    // Kiểm tra sản phẩm tồn tại
+    $product = $db->getRow("SELECT goods_id, goods_name FROM " . $ecs->table('goods') . " WHERE goods_id = '$goods_id'");
+    if (!$product) {
+        send_json_response(['error' => true, 'message' => "Sản phẩm với ID '$goods_id' không tồn tại."], 404);
+        return;
+    }
+    
+    if (empty($data)) {
+        send_json_response(['error' => false, 'message' => 'Không có dữ liệu nào được gửi để cập nhật.', 'goods_id' => $goods_id], 200);
+        return;
+    }
+    
+    try {
+        $prices_to_update = [];
+        
+        // Format 1: Single price { "user_rank": 1, "user_price": 50000 }
+        if (isset($data['user_rank']) && isset($data['user_price'])) {
+            $prices_to_update[] = [
+                'user_rank' => intval($data['user_rank']),
+                'user_price' => floatval($data['user_price'])
+            ];
+        }
+        
+        // Format 2: Multiple prices { "member_prices": [{...}, {...}] }
+        if (isset($data['member_prices']) && is_array($data['member_prices'])) {
+            foreach ($data['member_prices'] as $mp) {
+                if (isset($mp['user_rank']) && isset($mp['user_price'])) {
+                    $prices_to_update[] = [
+                        'user_rank' => intval($mp['user_rank']),
+                        'user_price' => floatval($mp['user_price'])
+                    ];
+                }
+            }
+        }
+        
+        // Format 3: String format "1:50000" or "1:50000,2:45000"
+        if (isset($data['member_price']) && !empty($data['member_price'])) {
+            $member_price_str = trim($data['member_price']);
+            $price_pairs = explode(',', $member_price_str);
+            
+            foreach ($price_pairs as $pair) {
+                $pair = trim($pair);
+                if (strpos($pair, ':') !== false) {
+                    list($user_rank, $user_price) = explode(':', $pair);
+                    $prices_to_update[] = [
+                        'user_rank' => intval(trim($user_rank)),
+                        'user_price' => floatval(trim($user_price))
+                    ];
+                }
+            }
+        }
+        
+        if (empty($prices_to_update)) {
+            send_json_response([
+                'error' => true, 
+                'message' => 'Không tìm thấy dữ liệu giá hợp lệ. Vui lòng gửi theo format: {"user_rank": 1, "user_price": 50000} hoặc {"member_price": "1:50000"}'
+            ], 400);
+            return;
+        }
+        
+        $updated_count = 0;
+        $deleted_count = 0;
+        $results = [];
+        
+        foreach ($prices_to_update as $price_data) {
+            $user_rank = $price_data['user_rank'];
+            $user_price = $price_data['user_price'];
+            
+            // Validate user_rank exists
+            $rank_info = $db->getRow("SELECT rank_id, rank_name FROM " . $ecs->table('user_rank') . " WHERE rank_id = '$user_rank'");
+            if (!$rank_info) {
+                $results[] = [
+                    'user_rank' => $user_rank,
+                    'status' => 'skipped',
+                    'reason' => "Hạng thành viên (rank_id: $user_rank) không tồn tại"
+                ];
+                continue;
+            }
+            
+            // Check if member_price record exists
+            $existing = $db->getOne("SELECT user_price FROM " . $ecs->table('member_price') . " WHERE goods_id = '$goods_id' AND user_rank = '$user_rank'");
+            
+            if ($user_price == 0) {
+                // Delete the member price record
+                if ($existing !== false && $existing !== null) {
+                    $db->query("DELETE FROM " . $ecs->table('member_price') . " WHERE goods_id = '$goods_id' AND user_rank = '$user_rank'");
+                    $deleted_count++;
+                    $results[] = [
+                        'user_rank' => $user_rank,
+                        'rank_name' => $rank_info['rank_name'],
+                        'status' => 'deleted'
+                    ];
+                } else {
+                    $results[] = [
+                        'user_rank' => $user_rank,
+                        'rank_name' => $rank_info['rank_name'],
+                        'status' => 'skipped',
+                        'reason' => 'Không có giá để xóa'
+                    ];
+                }
+            } else {
+                // Insert or Update
+                if ($existing !== false && $existing !== null) {
+                    // Update existing
+                    $db->query("UPDATE " . $ecs->table('member_price') . " SET user_price = '$user_price' WHERE goods_id = '$goods_id' AND user_rank = '$user_rank'");
+                } else {
+                    // Insert new
+                    $db->query("INSERT INTO " . $ecs->table('member_price') . " (goods_id, user_rank, user_price) VALUES ('$goods_id', '$user_rank', '$user_price')");
+                }
+                $updated_count++;
+                $results[] = [
+                    'user_rank' => $user_rank,
+                    'rank_name' => $rank_info['rank_name'],
+                    'user_price' => $user_price,
+                    'status' => 'updated'
+                ];
+            }
+        }
+        
+        // Get current member prices for this product
+        $current_prices = $db->getAll("SELECT mp.user_rank, mp.user_price, ur.rank_name 
+                                        FROM " . $ecs->table('member_price') . " mp
+                                        LEFT JOIN " . $ecs->table('user_rank') . " ur ON mp.user_rank = ur.rank_id
+                                        WHERE mp.goods_id = '$goods_id'
+                                        ORDER BY ur.min_points ASC");
+        
+        clear_cache_files();
+        
+        send_json_response([
+            'error' => false,
+            'message' => "Cập nhật giá thành viên thành công. Updated: $updated_count, Deleted: $deleted_count",
+            'goods_id' => $goods_id,
+            'goods_name' => $product['goods_name'],
+            'results' => $results,
+            'current_member_prices' => $current_prices
+        ], 200);
+        
+    } catch (Exception $e) {
+        send_json_response(['error' => true, 'message' => $e->getMessage()], 500);
+    }
+}
+
+/**
+ * Lấy gallery ảnh của sản phẩm
+ * URL: GET ?action=get_gallery&goods_id=123
+ * 
+ * Response:
+ * {
+ *   "error": false,
+ *   "message": "Lấy gallery thành công",
+ *   "goods_id": 123,
+ *   "total": 5,
+ *   "data": [
+ *     {
+ *       "img_id": 1,
+ *       "goods_id": 123,
+ *       "img_url": "images/202509/goods_img/product-1.webp",
+ *       "thumb_url": "images/202509/thumb_img/product-1.webp",
+ *       "img_desc": "Ảnh sản phẩm 1",
+ *       "img_original": "images/202509/source_img/product-1.jpg"
+ *     }
+ *   ]
+ * }
+ */
+function get_product_gallery($goods_id)
+{
+    global $db, $ecs;
+    
+    $goods_id = intval($goods_id);
+    if ($goods_id <= 0) {
+        send_json_response(['error' => true, 'message' => 'ID sản phẩm không hợp lệ.'], 400);
+    }
+    
+    // Kiểm tra sản phẩm tồn tại
+    $product = $db->getRow("SELECT goods_id, goods_name FROM " . $ecs->table('goods') . " WHERE goods_id = '$goods_id'");
+    if (!$product) {
+        send_json_response(['error' => true, 'message' => "Sản phẩm với ID $goods_id không tồn tại."], 404);
+    }
+    
+    try {
+        // Lấy gallery từ bảng ecs_goods_gallery
+        $sql = "SELECT 
+                    img_id,
+                    goods_id,
+                    img_url,
+                    thumb_url,
+                    img_desc,
+                    img_original
+                FROM " . $ecs->table('goods_gallery') . " 
+                WHERE goods_id = '$goods_id'
+                ORDER BY img_id ASC";
+        
+        $gallery = $db->getAll($sql);
+        
+        if (!$gallery) {
+            $gallery = [];
+        }
+        
+        send_json_response([
+            'error' => false,
+            'message' => 'Lấy gallery thành công',
+            'goods_id' => $goods_id,
+            'goods_name' => $product['goods_name'],
+            'total' => count($gallery),
+            'data' => $gallery
+        ], 200);
+        
+    } catch (Exception $e) {
+        send_json_response([
+            'error' => true,
+            'message' => 'Lỗi khi lấy gallery: ' . $e->getMessage()
+        ], 500);
     }
 }
 ?>

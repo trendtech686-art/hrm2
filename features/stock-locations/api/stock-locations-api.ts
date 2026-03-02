@@ -1,8 +1,15 @@
 /**
  * Stock Locations API Layer
  * Handles all stock location-related API calls
+ * Read operations use API routes, mutations use Server Actions
  */
 
+import { fetchAllPages } from '@/lib/fetch-all-pages';
+import {
+  createStockLocationAction,
+  updateStockLocationAction,
+  deleteStockLocationAction,
+} from '@/app/actions/stock-locations';
 import type { StockLocation } from '@/lib/types/prisma-extended';
 
 export interface StockLocationFilters {
@@ -72,56 +79,46 @@ export async function fetchStockLocationById(
 }
 
 /**
- * Create new stock location
+ * Create new stock location (uses Server Action)
  */
 export async function createStockLocation(
   data: StockLocationCreateInput
 ): Promise<StockLocation> {
-  const response = await fetch(BASE_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
+  const result = await createStockLocationAction({
+    name: data.name,
+    branchId: data.branchSystemId,
+    branchSystemId: data.branchSystemId,
   });
-  
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.error || 'Failed to create stock location');
+  if (!result.success) {
+    throw new Error(result.error || 'Failed to create stock location');
   }
-  
-  return response.json();
+  return result.data! as unknown as StockLocation;
 }
 
 /**
- * Update stock location
+ * Update stock location (uses Server Action)
  */
 export async function updateStockLocation(
   systemId: string,
   data: StockLocationUpdateInput
 ): Promise<StockLocation> {
-  const response = await fetch(`${BASE_URL}/${systemId}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
+  const result = await updateStockLocationAction({
+    systemId,
+    name: data.name,
   });
-  
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.error || 'Failed to update stock location');
+  if (!result.success) {
+    throw new Error(result.error || 'Failed to update stock location');
   }
-  
-  return response.json();
+  return result.data! as unknown as StockLocation;
 }
 
 /**
- * Delete stock location
+ * Delete stock location (uses Server Action)
  */
 export async function deleteStockLocation(systemId: string): Promise<void> {
-  const response = await fetch(`${BASE_URL}/${systemId}`, {
-    method: 'DELETE',
-  });
-  
-  if (!response.ok) {
-    throw new Error('Failed to delete stock location');
+  const result = await deleteStockLocationAction(systemId);
+  if (!result.success) {
+    throw new Error(result.error || 'Failed to delete stock location');
   }
 }
 
@@ -131,9 +128,5 @@ export async function deleteStockLocation(systemId: string): Promise<void> {
 export async function fetchBranchStockLocations(
   branchSystemId: string
 ): Promise<StockLocation[]> {
-  const response = await fetchStockLocations({
-    branchSystemId,
-    limit: 100,
-  });
-  return response.data;
+  return fetchAllPages((p) => fetchStockLocations({ ...p, branchSystemId }));
 }

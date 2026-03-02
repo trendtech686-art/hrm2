@@ -10,12 +10,31 @@ import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tansta
 import {
   fetchSuppliers,
   fetchSupplier,
-  createSupplier,
-  updateSupplier,
-  deleteSupplier,
   searchSuppliers,
   type SuppliersParams,
+  type PaginatedResponse,
 } from '../api/suppliers-api';
+import {
+  createSupplierAction,
+  updateSupplierAction,
+  deleteSupplierAction,
+  restoreSupplierAction,
+  type CreateSupplierInput,
+  type UpdateSupplierInput,
+} from '@/app/actions/suppliers';
+import type { Supplier } from '@/lib/types/prisma-extended';
+
+// Helper to convert legacy update format to flat format
+function toUpdateSupplierInput(input: UpdateSupplierInput | { systemId: string; data: Record<string, unknown> }): UpdateSupplierInput {
+  const i = input as Record<string, unknown>;
+  if (i.data && typeof i.data === 'object') {
+    return {
+      systemId: i.systemId as string,
+      ...(i.data as Record<string, unknown>),
+    } as UpdateSupplierInput;
+  }
+  return input as UpdateSupplierInput;
+}
 
 // Query keys
 export const supplierKeys = {
@@ -25,15 +44,51 @@ export const supplierKeys = {
   details: () => [...supplierKeys.all, 'detail'] as const,
   detail: (id: string) => [...supplierKeys.details(), id] as const,
   search: (query: string) => [...supplierKeys.all, 'search', query] as const,
+  stats: () => [...supplierKeys.all, 'stats'] as const,
 };
 
-export function useSuppliers(params: SuppliersParams = {}) {
+// Types for initial data from Server Components
+export interface SupplierStats {
+  totalSuppliers: number;
+  activeSuppliers: number;
+  suppliersWithDebt: number;
+  totalDebtAmount: number;
+}
+
+/**
+ * Hook for supplier statistics with optional initial data from Server Component
+ */
+export function useSupplierStats(initialData?: SupplierStats) {
   return useQuery({
-    queryKey: supplierKeys.list(params),
-    queryFn: () => fetchSuppliers(params),
-    staleTime: 60_000,
+    queryKey: supplierKeys.stats(),
+    queryFn: async () => {
+      const res = await fetch('/api/suppliers/stats');
+      if (!res.ok) throw new Error('Failed to fetch stats');
+      return res.json() as Promise<SupplierStats>;
+    },
+    initialData,
+    staleTime: initialData ? 60_000 : 0,
+    gcTime: 5 * 60 * 1000,
+  });
+}
+
+/**
+ * Hook for fetching paginated suppliers list
+ * Supports initialData from Server Component for instant hydration
+ */
+export function useSuppliers(
+  params: SuppliersParams & { enabled?: boolean } = {},
+  initialData?: PaginatedResponse<Supplier>
+) {
+  const { enabled = true, ...queryParams } = params;
+  return useQuery({
+    queryKey: supplierKeys.list(queryParams),
+    queryFn: () => fetchSuppliers(queryParams),
+    initialData,
+    staleTime: initialData ? 60_000 : 30_000,
     gcTime: 10 * 60 * 1000,
     placeholderData: keepPreviousData,
+    enabled,
   });
 }
 
@@ -66,7 +121,13 @@ export function useSupplierMutations(options: UseSupplierMutationsOptions = {}) 
   const queryClient = useQueryClient();
   
   const create = useMutation({
-    mutationFn: createSupplier,
+    mutationFn: async (data: CreateSupplierInput) => {
+      const result = await createSupplierAction(data);
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to create supplier');
+      }
+      return result.data as Supplier;
+    },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: supplierKeys.lists() });
       options.onCreateSuccess?.(data);
@@ -75,9 +136,17 @@ export function useSupplierMutations(options: UseSupplierMutationsOptions = {}) 
   });
   
   const update = useMutation({
-    mutationFn: updateSupplier,
+    mutationFn: async (input: UpdateSupplierInput | { systemId: string; data: Record<string, unknown> }) => {
+      const data = toUpdateSupplierInput(input);
+      const result = await updateSupplierAction(data);
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to update supplier');
+      }
+      return result.data as Supplier;
+    },
     onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: supplierKeys.detail(variables.systemId) });
+      const systemId = 'systemId' in variables ? variables.systemId : (variables as UpdateSupplierInput).systemId;
+      queryClient.invalidateQueries({ queryKey: supplierKeys.detail(systemId) });
       queryClient.invalidateQueries({ queryKey: supplierKeys.lists() });
       options.onUpdateSuccess?.(data);
     },
@@ -85,7 +154,13 @@ export function useSupplierMutations(options: UseSupplierMutationsOptions = {}) 
   });
   
   const remove = useMutation({
-    mutationFn: deleteSupplier,
+    mutationFn: async (systemId: string) => {
+      const result = await deleteSupplierAction({ systemId });
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to delete supplier');
+      }
+      return result.data;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: supplierKeys.all });
       options.onDeleteSuccess?.();
@@ -111,7 +186,6 @@ export function useActiveSuppliers(params: Omit<SuppliersParams, 'status'> = {})
 
 import {
   fetchDeletedSuppliers,
-  restoreSupplier,
   permanentDeleteSupplier,
 } from '../api/suppliers-api';
 
@@ -133,7 +207,13 @@ export function useTrashMutations() {
   const queryClient = useQueryClient();
   
   const restore = useMutation({
-    mutationFn: restoreSupplier,
+    mutationFn: async (systemId: string) => {
+      const result = await restoreSupplierAction({ systemId });
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to restore supplier');
+      }
+      return result.data as Supplier;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: supplierKeys.all });
     },

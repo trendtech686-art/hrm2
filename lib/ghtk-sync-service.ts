@@ -152,7 +152,17 @@ class GHTKSyncService {
       const { data: orders } = await response.json();
       
       // Find orders with GHTK shipments that need syncing
-      const stalePackagings = orders.flatMap((order: any) => 
+      interface OrderWithPackagings {
+        systemId: string;
+        packagings: Array<{
+          systemId: string;
+          carrier?: string;
+          trackingCode?: string;
+          ghtkStatusId?: number;
+          lastSyncedAt?: string;
+        }>;
+      }
+      const stalePackagings = (orders as OrderWithPackagings[]).flatMap((order) => 
         order.packagings
           .filter(p => 
             p.carrier === 'GHTK' && 

@@ -48,6 +48,7 @@ export function CustomerImportDialog({
       existingData={existingData}
       onImport={onImport}
       currentUser={currentUser}
+      showAddressLevelOption={true}
     />
   );
 }

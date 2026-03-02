@@ -1,5 +1,6 @@
 /**
  * useAllBranches - Convenience hook for components needing all branches as flat array
+ * Uses fetchAllPages auto-pagination to load ALL records
  * 
  * Use case: Dropdowns, selects that need branch options
  * 
@@ -7,7 +8,10 @@
  */
 
 import * as React from 'react';
-import { useBranches } from './use-branches';
+import { useQuery } from '@tanstack/react-query';
+import { fetchAllPages } from '@/lib/fetch-all-pages';
+import { fetchBranches } from '../api/branches-api';
+import { branchKeys } from './use-branches';
 import type { Branch } from '@/lib/types/prisma-extended';
 import type { SystemId } from '@/lib/id-types';
 
@@ -17,8 +21,6 @@ const EMPTY_BRANCHES: Branch[] = [];
 /**
  * Returns all branches as a flat array
  * Compatible with legacy store pattern: { data: branches }
- * 
- * Note: API returns string systemIds, but we cast to Branch[] for internal use
  */
 export function useAllBranches(): {
   data: Branch[];
@@ -26,12 +28,16 @@ export function useAllBranches(): {
   isError: boolean;
   error: Error | null;
 } {
-  const query = useBranches({ limit: 100 });
+  const query = useQuery({
+    queryKey: [...branchKeys.all, 'all'],
+    queryFn: () => fetchAllPages((p) => fetchBranches(p)),
+    staleTime: 10 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+  });
   
-  // ✅ Memoize data to prevent unnecessary re-renders
   const data = React.useMemo(() => {
-    return (query.data?.data || EMPTY_BRANCHES) as unknown as Branch[];
-  }, [query.data?.data]);
+    return (query.data || EMPTY_BRANCHES) as unknown as Branch[];
+  }, [query.data]);
   
   return {
     data,

@@ -1,4 +1,4 @@
-import * as React from 'react';
+﻿import * as React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../../components/ui/card';
 import { Input } from '../../../../components/ui/input';
 import { Badge } from '../../../../components/ui/badge';
@@ -8,6 +8,7 @@ import { PageFilters } from '../../../../components/layout/page-filters';
 import type { ColumnDef } from '../../../../components/data-table/types';
 import { Search, CheckCircle2, XCircle, AlertCircle, RefreshCw, Globe, Link, Unlink, Save, Settings, DollarSign, Package, FileText, Info, User, Image } from 'lucide-react';
 import { usePkgxSettings } from '../hooks/use-pkgx-settings';
+import { useColumnLayout } from '../../../../hooks/use-column-visibility';
 import type { PkgxSyncLog } from '../types';
 
 // Extended type with systemId for ResponsiveDataTable
@@ -23,9 +24,7 @@ export function LogTab() {
   // Pagination state
   const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 20 });
   const [sorting, setSorting] = React.useState<{ id: string; desc: boolean }>({ id: 'timestamp', desc: true });
-  const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>({});
-  const [columnOrder, setColumnOrder] = React.useState<string[]>([]);
-  const [pinnedColumns, setPinnedColumns] = React.useState<string[]>([]);
+  const [{ visibility: columnVisibility, order: columnOrder, pinned: pinnedColumns }, { setVisibility: setColumnVisibility, setOrder: setColumnOrder, setPinned: setPinnedColumns }] = useColumnLayout('pkgx-logs');
   
   // Convert logs to include systemId
   const allLogs = React.useMemo((): PkgxSyncLogWithSystemId[] => {
@@ -185,6 +184,7 @@ export function LogTab() {
       unlink_product: 'Hủy liên kết',
       unlink_mapping: 'Hủy mapping',
       batch_unlink: 'Hủy hàng loạt',
+      bulk_publish: 'Bulk: Đăng mới',
       bulk_sync_all: 'Bulk: Tất cả',
       bulk_sync_basic: 'Bulk: Cơ bản',
       bulk_sync_price: 'Bulk: Giá',
@@ -256,7 +256,7 @@ export function LogTab() {
           <div className="text-red-600">Mã: {log.details.errorCode}</div>
         )}
         {log.details.error && (
-          <div className="text-red-600 truncate max-w-[150px]" title={log.details.error}>
+          <div className="text-red-600 truncate max-w-37.5" title={log.details.error}>
             {log.details.error}
           </div>
         )}
@@ -304,7 +304,7 @@ export function LogTab() {
       header: 'Thông báo',
       size: 280,
       cell: ({ row }) => (
-        <span className="text-sm truncate block max-w-[260px]" title={row.message}>
+        <span className="text-sm truncate block max-w-65" title={row.message}>
           {row.message}
         </span>
       ),
@@ -317,7 +317,7 @@ export function LogTab() {
       cell: ({ row }) => (
         <div className="flex items-center gap-1.5 text-xs">
           <User className="h-3 w-3 text-muted-foreground" />
-          <span className="truncate max-w-[100px]" title={row.userName || 'Hệ thống'}>
+          <span className="truncate max-w-25" title={row.userName || 'Hệ thống'}>
             {row.userName || 'Hệ thống'}
           </span>
         </div>
@@ -371,7 +371,7 @@ export function LogTab() {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Lịch sử đồng bộ</CardTitle>
+          <CardTitle size="lg">Lịch sử đồng bộ</CardTitle>
           <CardDescription>
             Theo dõi hoạt động đồng bộ với PKGX
           </CardDescription>
@@ -379,7 +379,7 @@ export function LogTab() {
         <CardContent className="space-y-4">
           {/* Filters */}
           <PageFilters>
-            <div className="relative flex-1 min-w-[200px]">
+            <div className="relative flex-1 min-w-50">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Tìm kiếm logs..."
@@ -389,7 +389,7 @@ export function LogTab() {
               />
             </div>
             <Select value={statusFilter} onValueChange={(v: 'all' | 'success' | 'error' | 'partial' | 'info') => setStatusFilter(v)}>
-              <SelectTrigger className="w-[160px]">
+              <SelectTrigger className="w-40">
                 <SelectValue placeholder="Trạng thái" />
               </SelectTrigger>
               <SelectContent>
@@ -401,7 +401,7 @@ export function LogTab() {
               </SelectContent>
             </Select>
             <Select value={actionFilter} onValueChange={setActionFilter}>
-              <SelectTrigger className="w-[170px]">
+              <SelectTrigger className="w-42.5">
                 <SelectValue placeholder="Hành động" />
               </SelectTrigger>
               <SelectContent>

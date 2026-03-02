@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 /**
  * Warranty Products Section - Refactored version
@@ -19,19 +19,18 @@ import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import type { StagingFile } from '@/lib/file-upload-api';
-import { VirtualizedCombobox, type ComboboxOption } from '@/components/ui/virtualized-combobox';
 import { ProductSelectionDialog } from '@/features/shared/product-selection-dialog';
-import { useProducts } from '@/features/products/hooks/use-products';
-import { useProductFinder } from '@/features/products/hooks/use-all-products';
-import { useAllOrders } from '@/features/orders/hooks/use-all-orders';
+// ✅ Use UnifiedProductSearch giống trang đơn hàng, có ảnh, giá, tồn kho
+import { UnifiedProductSearch } from '@/components/shared/unified-product-search';
+import type { Product } from '@/features/products/types';
+import { useAllProducts } from '@/features/products/hooks/use-all-products';
+import { useCustomerOrders } from '@/features/customers/hooks/use-customer-related-data';
 
 // Local imports
 import { useProductImagesState, type SimpleImageFile } from '../hooks/use-product-images-state';
 import { useProductSelection } from '../hooks/use-product-selection';
 import {
   initializePermanentFiles,
-  syncFilesToProductImages,
-  filterDeletedImagesFromProducts,
   type WarrantyProductField,
 } from '../utils/warranty-products-helpers';
 import { WarrantyProductsSettingsDialog, type ProductsSectionSettings } from './warranty-products-settings-dialog';
@@ -39,19 +38,25 @@ import { WarrantyProductRow } from './warranty-product-row';
 
 interface WarrantyProductsSectionProps {
   disabled?: boolean;
-  onProductImagesStateChange?: (data: {
+  // Callback để lấy state khi submit (gọi 1 lần, không sync liên tục)
+  getImagesStateRef?: React.MutableRefObject<(() => {
     productPermanentFiles: Record<string, SimpleImageFile[]>;
     productStagingFiles: Record<string, StagingFile[]>;
     productSessionIds: Record<string, string>;
     productFilesToDelete: Record<string, string[]>;
-  }) => void;
+  }) | null>;
 }
+
+// Empty arrays for default values - memoized to avoid unnecessary re-renders
+const EMPTY_FILES_ARRAY: StagingFile[] = [];
+const EMPTY_SIMPLE_FILES_ARRAY: SimpleImageFile[] = [];
+const EMPTY_STRINGS_ARRAY: string[] = [];
 
 export function WarrantyProductsSection({ 
   disabled = false, 
-  onProductImagesStateChange 
+  getImagesStateRef,
 }: WarrantyProductsSectionProps) {
-  const { control, setValue, watch } = useFormContext();
+  const { control, watch } = useFormContext();
   const { fields, append, remove } = useFieldArray({
     control,
     name: 'products',
@@ -59,7 +64,6 @@ export function WarrantyProductsSection({
 
   // Local UI state
   const [isProductSelectionOpen, setIsProductSelectionOpen] = React.useState(false);
-  const [selectedValue, setSelectedValue] = React.useState<ComboboxOption | null>(null);
   const [enableSplitLine, setEnableSplitLine] = React.useState(false);
   const [showSettingsDialog, setShowSettingsDialog] = React.useState(false);
   const [settings, setSettings] = React.useState<ProductsSectionSettings>({
@@ -78,95 +82,124 @@ export function WarrantyProductsSection({
     handleStagingFilesChange,
     handleSessionChange,
   } = useProductImagesState();
-
-  // Store data
-  const { findById: _findById } = useProductFinder();
-  const { data: allProductsData } = useProducts({ limit: 1000 });
-  const activeProducts = React.useMemo(() => (allProductsData as any)?.data ?? [], [allProductsData]);
-  const { data: allOrders } = useAllOrders();
+  
+  // ✅ Use refs to always get latest state values when getImagesState is called
+  const productPermanentFilesRef = React.useRef(productPermanentFiles);
+  const productStagingFilesRef = React.useRef(productStagingFiles);
+  const productSessionIdsRef = React.useRef(productSessionIds);
+  const productFilesToDeleteRef = React.useRef(productFilesToDelete);
+  
+  // Keep refs in sync with state
+  React.useEffect(() => { productPermanentFilesRef.current = productPermanentFiles; }, [productPermanentFiles]);
+  React.useEffect(() => { productStagingFilesRef.current = productStagingFiles; }, [productStagingFiles]);
+  React.useEffect(() => { productSessionIdsRef.current = productSessionIds; }, [productSessionIds]);
+  React.useEffect(() => { productFilesToDeleteRef.current = productFilesToDelete; }, [productFilesToDelete]);
   
   // Watch customer and products
   const customer = watch('customer');
   const customerName = customer?.name || '';
+  const customerSystemId = customer?.systemId || null;
+  
+  // ⚡ PERFORMANCE: Only fetch orders for the selected customer
+  const { data: customerOrders } = useCustomerOrders(customerSystemId);
+  
+  // ✅ Lấy danh sách tất cả sản phẩm để hiển thị thông tin trong row
+  const { data: allProducts = [] } = useAllProducts();
+  
+  // ✅ PERFORMANCE: Memoize mapped products để tránh re-render
+  const mappedProducts = React.useMemo(() => {
+    return allProducts.map(p => ({
+      systemId: p.systemId,
+      id: p.id,
+      name: p.name,
+      costPrice: p.costPrice,
+      warrantyPeriodMonths: (p as { warrantyPeriodMonths?: number }).warrantyPeriodMonths,
+    }));
+  }, [allProducts]);
+  
   const watchedProducts = watch('products');
   const products: WarrantyProductField[] = React.useMemo(() => watchedProducts || [], [watchedProducts]);
+
+  // Danh sách product systemId đã chọn để exclude khỏi search
+  const excludeProductIds = React.useMemo(() => {
+    return new Set(products.map(p => p.systemId).filter(Boolean));
+  }, [products]);
 
   // Use product selection hook
   const { handleSelectProduct, handleSelectProducts } = useProductSelection({
     customerName,
-    allOrders: allOrders || [],
+    allOrders: customerOrders || [],
     productInsertPosition: settings.productInsertPosition,
     append,
   });
+  
+  // ✅ Handler khi chọn sản phẩm từ UnifiedProductSearch
+  const onSelectProduct = React.useCallback((product: Product) => {
+    handleSelectProduct(product);
+  }, [handleSelectProduct]);
 
-  // Get active products for combobox
-  const availableProducts = React.useMemo(() => activeProducts, [activeProducts]);
+  // ✅ Track if we've initialized permanent files to avoid re-running
+  const hasInitializedRef = React.useRef(false);
+  const productsLengthRef = React.useRef(0);
+  // ✅ Track product systemIds to detect when editing a different warranty
+  const lastProductIdsRef = React.useRef<string>('');
 
-  const productOptions: ComboboxOption[] = React.useMemo(() => {
-    return availableProducts.map((p) => ({
-      value: p.systemId,
-      label: p.name,
-      subtitle: p.id,
-      metadata: {
-        costPrice: p.costPrice || 0,
-      },
-    }));
-  }, [availableProducts]);
-
-  // ===== LOAD EXISTING PRODUCT IMAGES INTO STATE =====
+  // ===== LOAD EXISTING PRODUCT IMAGES INTO STATE (run once on mount) =====
   React.useEffect(() => {
-    const initialFiles = initializePermanentFiles(products);
+    const currentProducts = watchedProducts || [];
+    if (currentProducts.length === 0) return;
+    
+    // ✅ Create a signature from product systemIds to detect changes
+    const productIds = currentProducts.map((p: WarrantyProductField) => p.systemId || '').join(',');
+    
+    // ✅ Reset initialization if this is a different set of products (different warranty)
+    if (lastProductIdsRef.current !== productIds) {
+      hasInitializedRef.current = false;
+      lastProductIdsRef.current = productIds;
+    }
+    
+    // Only run once per warranty
+    if (hasInitializedRef.current) return;
+    
+    // Mark as initialized
+    hasInitializedRef.current = true;
+    productsLengthRef.current = currentProducts.length;
+    
+    const initialFiles = initializePermanentFiles(currentProducts as WarrantyProductField[]);
+    console.log('[WARRANTY PRODUCTS] Initializing permanent files:', initialFiles);
     if (Object.keys(initialFiles).length > 0) {
-      setProductPermanentFiles(prev => {
-        // Only update if there are new products with images
-        const newProducts = Object.keys(initialFiles).filter(key => !prev[key]);
-        if (newProducts.length === 0) return prev;
-        return { ...prev, ...initialFiles };
-      });
+      setProductPermanentFiles(initialFiles);
     }
-  }, [products, setProductPermanentFiles]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [watchedProducts]); // ✅ Depend on full array to detect changes
 
-  // ===== SYNC STATE TO FORM =====
+  // ===== EXPOSE getImagesState VIA REF FOR PARENT TO CALL AT SUBMIT =====
+  // ✅ Use refs to always get LATEST values when called (avoids stale closure)
   React.useEffect(() => {
-    const updatedProducts = syncFilesToProductImages(products, productPermanentFiles, productStagingFiles);
-    if (JSON.stringify(updatedProducts) !== JSON.stringify(products)) {
-      setValue('products', updatedProducts, { shouldDirty: false });
+    if (getImagesStateRef) {
+      console.log('[PRODUCTS SECTION] Assigning getImagesState to ref');
+      getImagesStateRef.current = () => {
+        const state = {
+          productPermanentFiles: productPermanentFilesRef.current,
+          productStagingFiles: productStagingFilesRef.current,
+          productSessionIds: productSessionIdsRef.current,
+          productFilesToDelete: productFilesToDeleteRef.current,
+        };
+        console.log('[PRODUCTS SECTION] getImagesState called, returning:', state);
+        return state;
+      };
     }
-  }, [productPermanentFiles, productStagingFiles, products, setValue]);
-
-  // ===== NOTIFY PARENT OF STATE CHANGES =====
-  React.useEffect(() => {
-    onProductImagesStateChange?.({
-      productPermanentFiles,
-      productStagingFiles,
-      productSessionIds,
-      productFilesToDelete,
-    });
-  }, [productPermanentFiles, productStagingFiles, productSessionIds, productFilesToDelete, onProductImagesStateChange]);
-
-  // ===== AUTO-FILTER MARKED IMAGES =====
-  React.useEffect(() => {
-    const { updatedProducts, hasChanges } = filterDeletedImagesFromProducts(products, productFilesToDelete);
-    if (hasChanges) {
-      setValue('products', updatedProducts, { shouldDirty: true });
-    }
-  }, [productFilesToDelete, products, setValue]);
-
-  // Combobox handler
-  const handleComboboxChange = (option: ComboboxOption | null) => {
-    if (option) {
-      const product = availableProducts.find((p) => p.systemId === option.value);
-      if (product) {
-        handleSelectProduct(product);
+    return () => {
+      if (getImagesStateRef) {
+        getImagesStateRef.current = null;
       }
-    }
-    setSelectedValue(null);
-  };
+    };
+  }, [getImagesStateRef]); // Only depend on ref itself, function reads from refs
 
   return (
     <Card className="flex flex-col">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-        <CardTitle className="text-h4">Danh sách sản phẩm bảo hành</CardTitle>
+        <CardTitle>Danh sách sản phẩm bảo hành</CardTitle>
 
         {/* Toolbar */}
         <div className="flex items-center gap-2">
@@ -196,16 +229,17 @@ export function WarrantyProductsSection({
       </CardHeader>
 
       <CardContent className="space-y-6">
-        {/* Product search */}
+        {/* Product search - Giống trang đơn hàng */}
         <div className="flex items-center gap-2">
           <div className="flex-1">
-            <VirtualizedCombobox
-              options={productOptions}
-              value={selectedValue}
-              onChange={handleComboboxChange}
-              placeholder="Thêm sản phẩm (F3)"
-              searchPlaceholder="Tìm kiếm theo tên, mã SKU..."
+            <UnifiedProductSearch
+              onSelectProduct={onSelectProduct}
+              excludeProductIds={excludeProductIds}
               disabled={disabled}
+              placeholder="Thêm sản phẩm bảo hành (F3)"
+              searchPlaceholder="Tìm kiếm theo tên, mã SKU, barcode..."
+              showCostPrice={true}
+              allowCreateNew={false}
             />
           </div>
           <Button
@@ -229,19 +263,19 @@ export function WarrantyProductsSection({
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="border rounded-lg overflow-auto">
-              <Table className="table-fixed w-full">
+            <div className="border rounded-lg overflow-x-auto">
+              <Table className="w-full min-w-250">
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-10">STT</TableHead>
-                    <TableHead className="w-55">Tên sản phẩm</TableHead>
-                    <TableHead className="w-22.5">Số lượng</TableHead>
-                    <TableHead className="w-40">Đơn giá</TableHead>
-                    <TableHead className="w-70">Hình ảnh</TableHead>
-                    <TableHead className="w-27.5">Kết quả</TableHead>
-                    <TableHead className="w-70">Ghi chú</TableHead>
-                    <TableHead className="w-32.5 text-right">Thành tiền</TableHead>
-                    <TableHead className="w-10"></TableHead>
+                    <TableHead className="w-12 text-center">STT</TableHead>
+                    <TableHead className="w-30">Sản phẩm</TableHead>
+                    <TableHead className="w-24">Số lượng</TableHead>
+                    <TableHead className="w-65">Đơn giá</TableHead>
+                    <TableHead className="w-35">Hình ảnh BH</TableHead>
+                    <TableHead className="w-28">Kết quả</TableHead>
+                    <TableHead className="min-w-45">Ghi chú</TableHead>
+                    <TableHead className="w-32 text-right">Thành tiền</TableHead>
+                    <TableHead className="w-12"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -255,18 +289,12 @@ export function WarrantyProductsSection({
                         index={index}
                         field={typedField}
                         control={control}
-                        availableProducts={availableProducts.map(p => ({
-                          systemId: p.systemId,
-                          id: p.id,
-                          name: p.name,
-                          costPrice: p.costPrice,
-                          warrantyPeriodMonths: p.warrantyPeriodMonths,
-                        }))}
+                        availableProducts={mappedProducts}
                         disabled={disabled}
-                        permanentFiles={productPermanentFiles[productSystemId] || []}
-                        stagingFiles={productStagingFiles[productSystemId] || []}
+                        permanentFiles={productPermanentFiles[productSystemId] || EMPTY_SIMPLE_FILES_ARRAY}
+                        stagingFiles={productStagingFiles[productSystemId] || EMPTY_FILES_ARRAY}
                         sessionId={productSessionIds[productSystemId]}
-                        filesToDelete={productFilesToDelete[productSystemId] || []}
+                        filesToDelete={productFilesToDelete[productSystemId] || EMPTY_STRINGS_ARRAY}
                         onMarkForDeletion={(fileId) => handleMarkForDeletion(productSystemId, fileId)}
                         onStagingFilesChange={(files) => handleStagingFilesChange(productSystemId, files)}
                         onSessionChange={(sessionId) => handleSessionChange(productSystemId, sessionId)}

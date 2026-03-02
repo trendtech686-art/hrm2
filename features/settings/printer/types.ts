@@ -18,12 +18,13 @@ export type TemplateType =
   | 'penalty'
   | 'leave'
   | 'cost-adjustment'
+  | 'price-adjustment'
   | 'handover'
   | 'payroll'
   | 'payslip'
   | 'attendance';
 
-export type PaperSize = 'A4' | 'A5' | 'A6' | 'K80' | 'K57';
+export type PaperSize = 'A4' | 'A5' | 'A6' | 'K80' | 'K57' | '50x30';
 
 export interface PrintTemplate {
   id: string;
@@ -55,6 +56,7 @@ export const TEMPLATE_TYPES: { value: TemplateType; label: string }[] = [
   { value: 'stock-transfer', label: 'Phiếu chuyển kho' },
   { value: 'inventory-check', label: 'Phiếu kiểm kho' },
   { value: 'cost-adjustment', label: 'Phiếu điều chỉnh giá vốn' },
+  { value: 'price-adjustment', label: 'Phiếu điều chỉnh giá bán' },
   { value: 'receipt', label: 'Phiếu thu' },
   { value: 'payment', label: 'Phiếu chi' },
   { value: 'warranty', label: 'Phiếu bảo hành' },
@@ -72,4 +74,5 @@ export const PAPER_SIZES: { value: PaperSize; label: string }[] = [
   { value: 'A6', label: 'Khổ A6' },
   { value: 'K80', label: 'Khổ K80 (Máy in nhiệt)' },
   { value: 'K57', label: 'Khổ K57 (Máy in nhiệt nhỏ)' },
+  { value: '50x30', label: 'Khổ 50x30mm (Tem phụ)' },
 ];

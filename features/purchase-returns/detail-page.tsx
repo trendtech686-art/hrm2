@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
@@ -203,7 +203,7 @@ export function PurchaseReturnDetailPage() {
       {/* Column 1: Thông tin phiếu */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-body-base">Thông tin phiếu trả</CardTitle>
+          <CardTitle>Thông tin phiếu trả</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <DetailField label="Mã phiếu" value={purchaseReturn.id} />
@@ -233,7 +233,7 @@ export function PurchaseReturnDetailPage() {
       {/* Column 2: Thông tin thanh toán */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-body-base">Thông tin thanh toán</CardTitle>
+          <CardTitle>Thông tin thanh toán</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <DetailField label="Người tạo phiếu" value={purchaseReturn.creatorName} />
@@ -267,21 +267,21 @@ export function PurchaseReturnDetailPage() {
     {/* Danh sách sản phẩm */}
     <Card>
       <CardHeader>
-        <CardTitle className="text-body-base">Danh sách sản phẩm hoàn trả ({purchaseReturn.items.length})</CardTitle>
+        <CardTitle>Danh sách sản phẩm hoàn trả ({purchaseReturn.items.length})</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="border rounded-md">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[50px] text-body-xs">STT</TableHead>
-                <TableHead className="w-[60px] text-body-xs">Ảnh</TableHead>
-                <TableHead className="w-[120px] text-body-xs">Mã SKU</TableHead>
+                <TableHead className="w-12.5 text-body-xs">STT</TableHead>
+                <TableHead className="w-15 text-body-xs">Ảnh</TableHead>
+                <TableHead className="w-30 text-body-xs">Mã SKU</TableHead>
                 <TableHead className="text-body-xs">Tên sản phẩm</TableHead>
-                <TableHead className="w-[120px] text-center text-body-xs">SL đặt</TableHead>
-                <TableHead className="w-[120px] text-center text-body-xs">SL trả</TableHead>
-                <TableHead className="w-[150px] text-right text-body-xs">Đơn giá</TableHead>
-                <TableHead className="w-[180px] text-right text-body-xs">Thành tiền</TableHead>
+                <TableHead className="w-30 text-center text-body-xs">SL đặt</TableHead>
+                <TableHead className="w-30 text-center text-body-xs">SL trả</TableHead>
+                <TableHead className="w-37.5 text-right text-body-xs">Đơn giá</TableHead>
+                <TableHead className="w-37.5 text-right text-body-xs">Thành tiền</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -391,11 +391,11 @@ export function PurchaseReturnDetailPage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="w-[60px] text-body-xs">STT</TableHead>
+                        <TableHead className="w-15 text-body-xs">STT</TableHead>
                         <TableHead className="text-body-xs">Sản phẩm</TableHead>
-                        <TableHead className="w-[120px] text-center text-body-xs">SL trả</TableHead>
-                        <TableHead className="w-[150px] text-right text-body-xs">Đơn giá</TableHead>
-                        <TableHead className="w-[150px] text-right text-body-xs">Thành tiền</TableHead>
+                        <TableHead className="w-30 text-center text-body-xs">SL trả</TableHead>
+                        <TableHead className="w-37.5 text-right text-body-xs">Đơn giá</TableHead>
+                        <TableHead className="w-37.5 text-right text-body-xs">Thành tiền</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -448,7 +448,7 @@ export function PurchaseReturnDetailPage() {
 
     {/* Activity History */}
     <ActivityHistory
-      history={purchaseReturn.activityHistory || []}
+      history={[]} // TODO: Fetch from ActivityLog table
       title="Lịch sử hoạt động"
       emptyMessage="Chưa có lịch sử hoạt động"
       groupByDate

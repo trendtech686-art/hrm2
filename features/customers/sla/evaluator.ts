@@ -8,6 +8,17 @@ const MIN_DATE = '1970-01-01T00:00:00Z';
 
 type AlertLevel = CustomerSlaAlert['alertLevel'];
 
+/**
+ * Safely parse a date value that could be a Date object, string, or number
+ */
+function safeParseDate(value: string | Date | number | undefined | null): Date {
+  if (!value) return parseISO(MIN_DATE);
+  if (value instanceof Date) return value;
+  if (typeof value === 'number') return new Date(value);
+  if (typeof value === 'string') return parseISO(value);
+  return parseISO(MIN_DATE);
+}
+
 function calculateAlertLevel(daysRemaining: number, slaSetting: CustomerSlaSetting): AlertLevel {
   // daysRemaining < 0 means overdue
   // criticalDays = số ngày quá hạn để coi là nghiêm trọng
@@ -62,7 +73,7 @@ function evaluateSla(customers: Customer[], slaSettings: CustomerSlaSetting[], s
     if (customer.isDeleted || customer.status === 'Ngừng Giao Dịch') continue;
 
     const baselineISO = resolveBaselineDate(customer, slaType);
-    const baseline = parseISO(baselineISO);
+    const baseline = safeParseDate(baselineISO);
     const daysSinceBaseline = differenceInDays(today, baseline);
     const daysRemaining = setting.targetDays - daysSinceBaseline;
 
@@ -106,7 +117,7 @@ function evaluateDebts(customers: Customer[]): DebtAlert[] {
     if (customer.debtTransactions) {
       for (const txn of customer.debtTransactions) {
         if (txn.isPaid) continue;
-        const dueDate = parseISO(txn.dueDate);
+        const dueDate = safeParseDate(txn.dueDate);
         const daysOverdue = differenceInDays(today, dueDate);
         if (daysOverdue > 0) {
           overdueAmount += txn.remainingAmount || txn.amount;
@@ -129,7 +140,7 @@ function evaluateDebts(customers: Customer[]): DebtAlert[] {
     } else if (maxDaysOverdue > 0) {
       debtStatus = 'Quá hạn 1-7 ngày';
     } else if (oldestDueDate) {
-      const daysUntilDue = differenceInDays(parseISO(oldestDueDate), today);
+      const daysUntilDue = differenceInDays(safeParseDate(oldestDueDate), today);
       if (daysUntilDue <= 0) {
         debtStatus = 'Đến hạn hôm nay';
       } else if (daysUntilDue <= 3) {
@@ -176,7 +187,7 @@ function evaluateHealth(customers: Customer[]): CustomerHealthAlert[] {
     // Chỉ hiển thị nếu có rủi ro medium/high hoặc health score thấp
     if (churnRisk !== 'low' || healthScore < 50) {
       const daysSinceLastPurchase = customer.lastPurchaseDate
-        ? differenceInDays(today, parseISO(customer.lastPurchaseDate))
+        ? differenceInDays(today, safeParseDate(customer.lastPurchaseDate))
         : 999;
 
       const healthAlert: CustomerHealthAlert = {

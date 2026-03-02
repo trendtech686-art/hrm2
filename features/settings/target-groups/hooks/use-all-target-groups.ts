@@ -1,15 +1,25 @@
 /**
  * useAllTargetGroups - Convenience hook for flat array of target groups
- * Returns all target groups (equivalent to old store's data array)
+ * Auto-pagination: no hardcoded limit cap (MODULE-QUALITY-CRITERIA §1.3)
  */
 
-import { useTargetGroups } from './use-target-groups';
+import { useQuery } from '@tanstack/react-query';
+import { fetchAllPages } from '@/lib/fetch-all-pages';
+import { fetchTargetGroups } from '../api/target-groups-api';
+import { targetGroupKeys } from './use-target-groups';
 
 export function useAllTargetGroups() {
-  const { data, ...rest } = useTargetGroups({});
+  const query = useQuery({
+    queryKey: [...targetGroupKeys.all, 'all'],
+    queryFn: () => fetchAllPages((p) => fetchTargetGroups(p)),
+    staleTime: 10 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+  });
   return {
-    data: data?.data || [],
-    ...rest,
+    data: query.data || [],
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
   };
 }
 

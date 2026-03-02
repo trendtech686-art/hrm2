@@ -1,4 +1,4 @@
-import * as React from 'react';
+﻿import * as React from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { SubtaskList, type Subtask } from '../../../components/shared/subtask-list';
@@ -16,7 +16,7 @@ export function InventoryCheckWorkflowCard({
   onSubtasksChange,
   readonly = false,
 }: InventoryCheckWorkflowCardProps) {
-  // Initialize subtasks from template if empty
+  // Get workflow subtasks - either from props or template
   const workflowSubtasks = React.useMemo((): Subtask[] => {
     if (subtasks && subtasks.length > 0) {
       return subtasks;
@@ -24,14 +24,15 @@ export function InventoryCheckWorkflowCard({
     
     // Get default workflow template for inventory-checks
     const template = getWorkflowTemplate('inventory-checks');
-    if (template.length > 0) {
-      // Auto-save to form
-      onSubtasksChange(template);
-      return template;
+    return template.length > 0 ? template : [];
+  }, [subtasks]);
+
+  // Initialize subtasks from template if empty - use useEffect for side effects
+  React.useEffect(() => {
+    if ((!subtasks || subtasks.length === 0) && workflowSubtasks.length > 0) {
+      onSubtasksChange(workflowSubtasks);
     }
-    
-    return [];
-  }, [subtasks, onSubtasksChange]);
+  }, [subtasks, workflowSubtasks, onSubtasksChange]);
 
   const handleToggleComplete = React.useCallback(
     (id: string, completed: boolean) => {
@@ -61,7 +62,7 @@ export function InventoryCheckWorkflowCard({
     return (
       <Card className="h-full border-dashed">
         <CardHeader>
-          <CardTitle className="text-base">Quy trình xử lý</CardTitle>
+          <CardTitle>Quy trình xử lý</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="text-center py-4 text-muted-foreground">
@@ -78,7 +79,7 @@ export function InventoryCheckWorkflowCard({
   return (
     <Card className="h-full">
       <CardHeader>
-        <CardTitle className="text-base">Quy trình xử lý</CardTitle>
+        <CardTitle>Quy trình xử lý</CardTitle>
       </CardHeader>
       <CardContent>
         <SubtaskList

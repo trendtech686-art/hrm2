@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { Prisma } from '@/generated/prisma/client';
 import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils';
 import { createLifecycleStageSchema } from './validation';
+import { generateIdWithPrefix } from '@/lib/id-generator';
 
 const TYPE = 'lifecycle-stage';
 
@@ -56,7 +57,7 @@ export async function POST(request: NextRequest) {
 
     const setting = await prisma.customerSetting.create({
       data: {
-        id: crypto.randomUUID(),
+        id: await generateIdWithPrefix('LCSTG', prisma),
         name,
         type: TYPE,
         description,

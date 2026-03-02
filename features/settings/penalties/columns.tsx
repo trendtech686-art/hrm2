@@ -9,9 +9,11 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Button } from "../../../components/ui/button";
 import { MoreHorizontal } from "lucide-react";
 
-const formatCurrency = (value?: number) => {
-    if (typeof value !== 'number') return '';
-    return new Intl.NumberFormat('vi-VN').format(value);
+const formatCurrency = (value?: number | string) => {
+    if (value === undefined || value === null) return '';
+    const numValue = typeof value === 'string' ? parseFloat(value) : value;
+    if (isNaN(numValue)) return '';
+    return new Intl.NumberFormat('vi-VN').format(numValue);
 };
 
 const statusVariants: Record<PenaltyStatus, "warning" | "success" | "secondary"> = {
@@ -103,7 +105,7 @@ export const getColumns = (
     accessorKey: "reason",
     header: "Lý do",
     cell: ({ row }) => (
-      <div className="max-w-[300px] truncate" title={row.reason}>
+      <div className="max-w-75 truncate" title={row.reason}>
         {row.reason}
       </div>
     ),
@@ -190,7 +192,7 @@ export const getColumns = (
   },
   {
     id: "actions",
-    header: () => <div className="text-center">Hành động</div>,
+    header: "",
     cell: ({ row }) => (
       <div className="text-center">
         <DropdownMenu>
@@ -220,7 +222,7 @@ export const getColumns = (
           </DropdownMenu>
       </div>
     ),
-    meta: { displayName: "Hành động", sticky: "right" },
+    meta: { displayName: "", sticky: "right" },
     size: 90,
   },
 ];

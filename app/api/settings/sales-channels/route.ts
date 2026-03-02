@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
+import { parsePagination } from '@/lib/api-utils';
 import { z } from 'zod';
+import { generateNextIds } from '@/lib/id-system';
 
 // Validation schema
 const salesChannelSchema = z.object({
@@ -20,11 +22,10 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '1000');
+    const { page, limit, skip } = parsePagination(searchParams);
     const isAppliedParam = searchParams.get('isApplied');
 
-    const where: any = {};
+    const where: { isApplied?: boolean } = {};
     if (isAppliedParam !== null) {
       where.isApplied = isAppliedParam === 'true';
     }
@@ -32,7 +33,7 @@ export async function GET(request: NextRequest) {
     const [data, total] = await Promise.all([
       prisma.salesChannel.findMany({
         where,
-        skip: (page - 1) * limit,
+        skip,
         take: limit,
         orderBy: { name: 'asc' },
       }),
@@ -75,11 +76,13 @@ export async function POST(request: NextRequest) {
         data: { isDefault: false },
       });
     }
+    
+    const { systemId, businessId } = await generateNextIds('sales-channels');
 
     const salesChannel = await prisma.salesChannel.create({
       data: {
-        systemId: body.systemId || `SC_${Date.now()}`,
-        id: validatedData.id || `SC${Date.now()}`,
+        systemId: body.systemId || systemId,
+        id: validatedData.id || businessId,
         name: validatedData.name,
         isApplied: validatedData.isApplied,
         isDefault: validatedData.isDefault,

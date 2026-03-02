@@ -5,7 +5,7 @@
 
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils';
+import { requireAuth, apiSuccess, apiError, parsePagination } from '@/lib/api-utils';
 import type { ImportLogEntry, ExportLogEntry } from '@/lib/import-export/types';
 import { asSystemId } from '@/lib/id-types';
 
@@ -15,9 +15,9 @@ export async function GET(request: NextRequest) {
   if (!session) return apiError('Unauthorized', 401);
 
   try {
+    const { limit } = parsePagination(request.nextUrl.searchParams);
     const entityType = request.nextUrl.searchParams.get('entityType');
     const type = request.nextUrl.searchParams.get('type') as 'import' | 'export' | null;
-    const limit = parseInt(request.nextUrl.searchParams.get('limit') || '500', 10);
 
     const where: { entityType?: string; type?: string; userId: string } = {
       userId: session.user.id,

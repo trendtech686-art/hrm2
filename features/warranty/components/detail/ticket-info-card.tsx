@@ -1,4 +1,4 @@
-import * as React from 'react';
+﻿import * as React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/ui/card';
 import { Button } from '../../../../components/ui/button';
 import { Copy, Plus } from 'lucide-react';
@@ -43,7 +43,7 @@ export function TicketInfoCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base font-semibold">Thông Tin Phiếu Bảo hành</CardTitle>
+        <CardTitle>Thông Tin Phiếu Bảo hành</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-3 gap-3">
@@ -126,7 +126,7 @@ export function TicketInfoCard({
             </div>
           )}
 
-          {ticket.status === 'returned' && (
+          {ticket.status === 'RETURNED' && (
             <div>
               <p className="text-xs text-muted-foreground">Phương thức trả hàng</p>
               <p className="text-sm font-medium">

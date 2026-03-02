@@ -2,8 +2,9 @@
 import * as React from "react"
 import { useRouter } from 'next/navigation'
 import { formatDate } from '../../../lib/date-utils'
-import { useAllPenalties, useAllPenaltyTypes } from "./hooks/use-all-penalties";
-import { usePenaltyMutations } from "./hooks/use-penalties";
+import { useAllPenaltyTypes } from "./hooks/use-all-penalties";
+import { usePenalties, usePenaltyMutations } from "./hooks/use-penalties";
+import type { PenaltyFilters } from "./api/penalties-api";
 import { useAllEmployees } from "../../employees/hooks/use-all-employees"
 import { useAllBranches } from "../branches/hooks/use-all-branches"
 import { useStoreInfoData } from "../store-info/hooks/use-store-info"
@@ -19,7 +20,6 @@ import type { Penalty, PenaltyStatus } from "./types"
 import { penaltyCategoryLabels } from "./types"
 import { DataTableExportDialog } from "../../../components/data-table/data-table-export-dialog"
 import { DataTableImportDialog, type ImportConfig } from "../../../components/data-table/data-table-import-dialog"
-import { useFuseFilter } from "../../../hooks/use-fuse-search"
 import { usePageHeader } from "../../../contexts/page-header-context"
 import { DynamicDataTableColumnCustomizer as DataTableColumnCustomizer } from '../../../components/data-table/dynamic-column-customizer'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select"
@@ -34,10 +34,14 @@ import { convertPenaltyForPrint, mapPenaltyToPrintData, createStoreSettings } fr
 import { SimplePrintOptionsDialog, type SimplePrintOptionsResult } from "../../../components/shared/simple-print-options-dialog"
 import { useColumnLayout } from '../../../hooks/use-column-visibility'
 
-const formatCurrency = (v?: number) => typeof v === 'number' ? new Intl.NumberFormat('vi-VN').format(v) : ''
+const formatCurrency = (v?: number | string) => {
+  if (v === undefined || v === null) return '';
+  const numValue = typeof v === 'string' ? parseFloat(v) : v;
+  if (isNaN(numValue)) return '';
+  return new Intl.NumberFormat('vi-VN').format(numValue);
+}
 
 export function PenaltiesPage() {
-  const { data: penalties } = useAllPenalties();
   const { data: _penaltyTypes } = useAllPenaltyTypes();
   const { update } = usePenaltyMutations();
   const { data: employees } = useAllEmployees()
@@ -50,15 +54,35 @@ export function PenaltiesPage() {
 
   const [printDialogOpen, setPrintDialogOpen] = React.useState(false), [itemsToPrint, setItemsToPrint] = React.useState<Penalty[]>([])
   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({})
-  const [sorting, setSorting] = React.useState<{ id: string; desc: boolean }>({ id: 'createdAt', desc: true })
+  const [sorting, setSorting] = React.useState<{ id: string; desc: boolean }>({ id: 'issueDate', desc: true })
   const [globalFilter, setGlobalFilter] = React.useState(''), [debouncedGlobalFilter, setDebouncedGlobalFilter] = React.useState('')
   const [statusFilter, setStatusFilter] = React.useState<Set<string>>(new Set())
   const [employeeFilter, setEmployeeFilter] = React.useState('all'), [categoryFilter, setCategoryFilter] = React.useState<Set<string>>(new Set())
   const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: defaultPageSize })
   const [expanded, setExpanded] = React.useState<Record<string, boolean>>({})
 
+  // Server-side filters
+  const penaltyFilters: PenaltyFilters = React.useMemo(() => ({
+    search: debouncedGlobalFilter || undefined,
+    employeeSystemId: employeeFilter !== 'all' ? employeeFilter : undefined,
+    status: statusFilter.size > 0 ? Array.from(statusFilter).join(',') : undefined,
+    category: categoryFilter.size > 0 ? Array.from(categoryFilter).join(',') : undefined,
+    sortBy: sorting.id || 'issueDate',
+    sortOrder: sorting.desc ? 'desc' : 'asc',
+    page: pagination.pageIndex + 1,
+    limit: pagination.pageSize,
+  }), [debouncedGlobalFilter, employeeFilter, statusFilter, categoryFilter, sorting, pagination]);
+  const penaltiesQuery = usePenalties(penaltyFilters);
+  const penalties = penaltiesQuery.data?.data || [];
+  const isLoadingPenalties = penaltiesQuery.isLoading;
+  const paginationInfo = penaltiesQuery.data?.pagination;
+  const totalRows = paginationInfo?.total || 0;
+  const pageCount = paginationInfo?.totalPages || 0;
+
   usePageHeader({ actions: React.useMemo(() => [<Button key="add" size="sm" className="h-9" onClick={() => router.push('/penalties/new')}><PlusCircle className="mr-2 h-4 w-4" />Tạo phiếu phạt</Button>], [router]) })
   React.useEffect(() => { const t = setTimeout(() => setDebouncedGlobalFilter(globalFilter), 300); return () => clearTimeout(t) }, [globalFilter])
+  // Reset page when filters change
+  React.useEffect(() => { setPagination(p => ({ ...p, pageIndex: 0 })) }, [debouncedGlobalFilter, employeeFilter, statusFilter, categoryFilter])
 
   const [columnLayout, columnLayoutSetters] = useColumnLayout('penalties', React.useMemo(() => ({ visibility: {}, order: [] as string[], pinned: [] as string[] }), []))
   const { visibility: columnVisibility, order: columnOrder, pinned: pinnedColumns } = columnLayout
@@ -77,35 +101,15 @@ export function PenaltiesPage() {
   React.useEffect(() => { if (columns.length === 0 || defaultsInitialized.current) return; defaultsInitialized.current = true; setColumnVisibility(buildDefaultVisibility()); setColumnOrder(buildDefaultOrder()) }, [])
   const resetColumnLayout = React.useCallback(() => { setColumnVisibility(buildDefaultVisibility()); setColumnOrder(buildDefaultOrder()); setPinnedColumns([]); toast.success('Đã khôi phục bố cục cột mặc định') }, [buildDefaultVisibility, buildDefaultOrder, setColumnVisibility, setColumnOrder, setPinnedColumns])
 
-  const searchedPenalties = useFuseFilter(penalties, debouncedGlobalFilter, React.useMemo(() => ({ keys: ["id", "employeeName", "reason", "issuerName", "penaltyTypeName"], threshold: 0.3, ignoreLocation: true, useExtendedSearch: false }), []))
-  const filteredData = React.useMemo(() => {
-    let f = debouncedGlobalFilter ? searchedPenalties : penalties
-    if (employeeFilter !== 'all') f = f.filter(p => p.employeeSystemId === employeeFilter)
-    if (statusFilter.size > 0) f = f.filter(p => p.status && statusFilter.has(p.status))
-    if (categoryFilter.size > 0) f = f.filter(p => p.category && categoryFilter.has(p.category))
-    return f
-  }, [penalties, debouncedGlobalFilter, searchedPenalties, employeeFilter, statusFilter, categoryFilter])
-  React.useEffect(() => { setPagination(p => ({ ...p, pageIndex: 0 })) }, [debouncedGlobalFilter, employeeFilter, statusFilter, categoryFilter])
-
-  const sortedData = React.useMemo(() => [...filteredData].sort((a, b) => {
-    if (!sorting.id) return 0
-    const aV = (a as Record<string, unknown>)[sorting.id], bV = (b as Record<string, unknown>)[sorting.id]
-    if (aV == null) return 1; if (bV == null) return -1
-    if (sorting.id === 'issueDate' || sorting.id === 'createdAt') { const aT = aV ? new Date(aV as string).getTime() : 0, bT = bV ? new Date(bV as string).getTime() : 0; return sorting.desc ? bT - aT : aT - bT }
-    return aV < bV ? (sorting.desc ? 1 : -1) : aV > bV ? (sorting.desc ? -1 : 1) : 0
-  }), [filteredData, sorting])
-
-  const pageCount = Math.ceil(sortedData.length / pagination.pageSize)
-  const paginatedData = React.useMemo(() => sortedData.slice(pagination.pageIndex * pagination.pageSize, (pagination.pageIndex + 1) * pagination.pageSize), [sortedData, pagination])
-  const allSelectedRows = React.useMemo(() => penalties.filter(p => rowSelection[p.systemId]), [penalties, rowSelection])
+  const allSelectedRows = React.useMemo(() => (penaltiesQuery.data?.data || []).filter(p => rowSelection[p.systemId]), [penaltiesQuery.data?.data, rowSelection])
 
   const { create } = usePenaltyMutations();
   const statusOptions = React.useMemo(() => [{ label: 'Chưa thanh toán', value: 'Chưa thanh toán' }, { label: 'Đã thanh toán', value: 'Đã thanh toán' }, { label: 'Đã hủy', value: 'Đã hủy' }], [])
   const categoryOptions = React.useMemo(() => [{ label: 'Khiếu nại', value: 'complaint' }, { label: 'Chấm công', value: 'attendance' }, { label: 'Hiệu suất', value: 'performance' }, { label: 'Khác', value: 'other' }], [])
-  const employeeOptions = React.useMemo(() => { const ids = new Set(penalties.map(p => p.employeeSystemId)); return employees.filter(e => ids.has(e.systemId)).map(e => ({ value: e.systemId, label: e.fullName })) }, [penalties, employees])
+  const employeeOptions = React.useMemo(() => employees.map(e => ({ value: e.systemId, label: e.fullName })), [employees])
 
   const exportConfig = { fileName: 'Danh_sach_Phieu_phat', columns }
-  const importConfig: ImportConfig<Penalty> = { importer: items => { (create as any).mutate(items.map(({ systemId: _, ...rest }) => rest) as any); return Promise.resolve(); }, fileName: 'Mau_Nhap_Phieu_phat', existingData: penalties, getUniqueKey: (item: Penalty) => item.id }
+  const importConfig: ImportConfig<Penalty> = { importer: items => { create.mutate(items.map(({ systemId: _, ...rest }) => rest) as Parameters<typeof create.mutate>[0]); return Promise.resolve(); }, fileName: 'Mau_Nhap_Phieu_phat', existingData: penalties, getUniqueKey: (item: Penalty) => item.id }
 
   const handleBulkPrint = React.useCallback((rows: Penalty[]) => { setItemsToPrint(rows); setPrintDialogOpen(true) }, [])
   const handlePrintConfirm = React.useCallback((options: SimplePrintOptionsResult) => {
@@ -132,11 +136,11 @@ export function PenaltiesPage() {
       <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => handleRowClick(penalty)}>
         <CardContent className="p-4">
           <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2 flex-1 min-w-0"><AlertTriangle className="h-4 w-4 text-destructive flex-shrink-0" /><span className="font-semibold text-sm font-mono">{penalty.id}</span><Badge variant={statusVariant} className="text-xs ml-auto">{penalty.status}</Badge></div>
-            <DropdownMenu><DropdownMenuTrigger asChild><TouchButton variant="ghost" size="sm" className="h-9 w-10 p-0 flex-shrink-0 ml-2" onClick={e => e.stopPropagation()}><MoreHorizontal className="h-4 w-4" /></TouchButton></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={e => { e.stopPropagation(); router.push(`/penalties/${penalty.systemId}/edit`) }}>Chỉnh sửa</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
+            <div className="flex items-center gap-2 flex-1 min-w-0"><AlertTriangle className="h-4 w-4 text-destructive shrink-0" /><span className="font-semibold text-sm font-mono">{penalty.id}</span><Badge variant={statusVariant} className="text-xs ml-auto">{penalty.status}</Badge></div>
+            <DropdownMenu><DropdownMenuTrigger asChild><TouchButton variant="ghost" size="sm" className="h-9 w-10 p-0 shrink-0 ml-2" onClick={e => e.stopPropagation()}><MoreHorizontal className="h-4 w-4" /></TouchButton></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={e => { e.stopPropagation(); router.push(`/penalties/${penalty.systemId}/edit`) }}>Chỉnh sửa</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
           </div>
-          <div className="flex items-center text-sm mb-2"><User className="h-3.5 w-3.5 mr-1.5 text-muted-foreground flex-shrink-0" /><span className="font-medium truncate">{penalty.employeeName}</span></div>
-          <div className="text-xs text-muted-foreground mb-3 line-clamp-2"><FileText className="h-3 w-3 mr-1.5 inline-flex flex-shrink-0" />{penalty.reason}</div>
+          <div className="flex items-center text-sm mb-2"><User className="h-3.5 w-3.5 mr-1.5 text-muted-foreground shrink-0" /><span className="font-medium truncate">{penalty.employeeName}</span></div>
+          <div className="text-xs text-muted-foreground mb-3 line-clamp-2"><FileText className="h-3 w-3 mr-1.5 inline-flex shrink-0" />{penalty.reason}</div>
           <div className="border-t mb-3" />
           <div className="flex items-center justify-between text-xs">
             <div className="flex items-center gap-3"><span className="font-bold text-destructive text-sm">{formatCurrency(penalty.amount)} đ</span>{penalty.category && <Badge variant="outline" className="text-xs">{penaltyCategoryLabels[penalty.category]}</Badge>}</div>
@@ -150,14 +154,14 @@ export function PenaltiesPage() {
 
   return (
     <div className="flex flex-col w-full h-full">
-      {!isMobile && <PageToolbar leftActions={<><DataTableImportDialog config={importConfig} /><DataTableExportDialog allData={penalties} filteredData={sortedData} pageData={paginatedData} config={exportConfig} /></>} rightActions={<DataTableColumnCustomizer columns={columns} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} onResetToDefault={resetColumnLayout} />} />}
+      {!isMobile && <PageToolbar leftActions={<><DataTableImportDialog config={importConfig} /><DataTableExportDialog allData={penalties} filteredData={penalties} pageData={penalties} config={exportConfig} /></>} rightActions={<DataTableColumnCustomizer columns={columns} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} onResetToDefault={resetColumnLayout} />} />}
       <PageFilters searchValue={globalFilter} onSearchChange={setGlobalFilter} searchPlaceholder="Tìm kiếm phiếu phạt (mã, tên NV, lý do)...">
-        <Select value={employeeFilter} onValueChange={setEmployeeFilter}><SelectTrigger className="w-full sm:w-[180px] h-9"><SelectValue placeholder="Tất cả nhân viên" /></SelectTrigger><SelectContent><SelectItem value="all">Tất cả nhân viên</SelectItem>{employeeOptions.map(e => <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>)}</SelectContent></Select>
+        <Select value={employeeFilter} onValueChange={setEmployeeFilter}><SelectTrigger className="w-full sm:w-45 h-9"><SelectValue placeholder="Tất cả nhân viên" /></SelectTrigger><SelectContent><SelectItem value="all">Tất cả nhân viên</SelectItem>{employeeOptions.map(e => <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>)}</SelectContent></Select>
         <DataTableFacetedFilter title="Trạng thái" options={statusOptions} selectedValues={statusFilter} onSelectedValuesChange={setStatusFilter} />
         <DataTableFacetedFilter title="Phân loại" options={categoryOptions} selectedValues={categoryFilter} onSelectedValuesChange={setCategoryFilter} />
       </PageFilters>
       <div className="w-full py-4">
-        <ResponsiveDataTable columns={columns} data={paginatedData} renderMobileCard={p => <MobilePenaltyCard penalty={p} />} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowCount={filteredData.length} rowSelection={rowSelection} setRowSelection={setRowSelection} bulkActions={bulkActions} allSelectedRows={allSelectedRows} expanded={expanded} setExpanded={setExpanded} sorting={sorting} setSorting={setSorting as React.Dispatch<React.SetStateAction<{ id: string; desc: boolean }>>} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} onRowClick={handleRowClick} emptyTitle="Chưa có phiếu phạt" emptyDescription="Tạo phiếu phạt để ghi nhận vi phạm" />
+        <ResponsiveDataTable columns={columns} data={penalties} renderMobileCard={p => <MobilePenaltyCard penalty={p} />} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowCount={totalRows} rowSelection={rowSelection} setRowSelection={setRowSelection} bulkActions={bulkActions} allSelectedRows={allSelectedRows} expanded={expanded} setExpanded={setExpanded} sorting={sorting} setSorting={setSorting as React.Dispatch<React.SetStateAction<{ id: string; desc: boolean }>>} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} onRowClick={handleRowClick} isLoading={isLoadingPenalties} emptyTitle="Chưa có phiếu phạt" emptyDescription="Tạo phiếu phạt để ghi nhận vi phạm" />
       </div>
       <SimplePrintOptionsDialog open={printDialogOpen} onOpenChange={setPrintDialogOpen} onConfirm={handlePrintConfirm} selectedCount={itemsToPrint.length} title="In phiếu phạt" />
     </div>

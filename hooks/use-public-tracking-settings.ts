@@ -233,6 +233,13 @@ export function getComplaintsTrackingSettingsSync(): PublicTrackingSettings {
 }
 
 /**
+ * Invalidate complaints tracking cache (call after settings are saved externally)
+ */
+export function invalidateComplaintsTrackingCache(): void {
+  complaintsTrackingCache = null;
+}
+
+/**
  * Initialize warranty tracking cache (call early in app lifecycle)
  */
 export async function initWarrantyTrackingSettings(): Promise<PublicTrackingSettings> {

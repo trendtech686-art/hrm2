@@ -2,8 +2,7 @@
 
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { useSupplierMutations } from './hooks/use-suppliers';
-import { useSupplierFinder } from './hooks/use-all-suppliers';
+import { useSupplierMutations, useSupplier } from './hooks/use-suppliers';
 import { SupplierForm, type SupplierFormValues } from './supplier-form';
 import {
   Card,
@@ -16,19 +15,29 @@ import { toast } from 'sonner';
 import { asBusinessId, asSystemId } from '@/lib/id-types';
 import { ROUTES, generatePath } from '../../lib/router';
 import type { BreadcrumbItem } from '../../lib/breadcrumb-system';
+import { Skeleton } from '../../components/ui/skeleton';
 
 export function SupplierFormPage() {
   const { systemId: systemIdParam } = useParams<{ systemId: string }>();
   const router = useRouter();
   const { create, update: updateSupplier } = useSupplierMutations({
-    onCreateSuccess: () => {},
-    onUpdateSuccess: () => {},
-    onError: (err) => toast.error(err.message)
+    onCreateSuccess: (data) => {
+      toast.success(`Đã thêm nhà cung cấp "${(data as { name?: string })?.name || 'mới'}"`);
+      router.push(ROUTES.PROCUREMENT.SUPPLIERS);
+    },
+    onUpdateSuccess: (data) => {
+      toast.success(`Đã cập nhật nhà cung cấp "${(data as { name?: string })?.name || ''}"`);
+      router.push(ROUTES.PROCUREMENT.SUPPLIERS);
+    },
+    onError: (err) => {
+      console.error('Supplier mutation error:', err);
+      toast.error(err.message || 'Có lỗi xảy ra khi lưu nhà cung cấp');
+    }
   });
-  const { findById } = useSupplierFinder();
-
+  
+  // Fetch supplier data directly when editing
   const supplierSystemId = React.useMemo(() => (systemIdParam ? asSystemId(systemIdParam) : null), [systemIdParam]);
-  const supplier = React.useMemo(() => (supplierSystemId ? (findById(supplierSystemId) ?? null) : null), [supplierSystemId, findById]);
+  const { data: supplier, isLoading: isLoadingSupplier } = useSupplier(supplierSystemId);
   
   const handleSubmit = (values: SupplierFormValues) => {
     const normalizedId = values.id ? asBusinessId(values.id) : supplier?.id ?? asBusinessId('');
@@ -47,14 +56,13 @@ export function SupplierFormPage() {
       notes: values.notes ?? '',
     } satisfies Partial<Supplier>;
 
+    console.log('Submitting supplier:', payload);
+
     if (supplier) {
       updateSupplier.mutate({ systemId: supplier.systemId, ...payload });
-      toast.success(`Đã cập nhật nhà cung cấp "${values.name}"`);
     } else {
       create.mutate(payload as Omit<Supplier, 'systemId'>);
-      toast.success(`Đã thêm nhà cung cấp "${values.name}"`);
     }
-    router.push(ROUTES.PROCUREMENT.SUPPLIERS);
   };
 
   const handleCancel = React.useCallback(() => {
@@ -74,6 +82,18 @@ export function SupplierFormPage() {
     ];
   }, [isEditing, supplierSystemId]);
 
+  const handleSaveClick = React.useCallback(() => {
+    console.log('Save button clicked');
+    const form = document.getElementById('supplier-form') as HTMLFormElement | null;
+    if (form) {
+      console.log('Form found, requesting submit');
+      form.requestSubmit();
+    } else {
+      console.error('Form not found by ID');
+      toast.error('Không tìm thấy form');
+    }
+  }, []);
+
   usePageHeader({
     title: isEditing ? 'Chỉnh sửa nhà cung cấp' : 'Thêm nhà cung cấp',
     subtitle: isEditing ? `Cập nhật thông tin cho ${supplier?.name}` : 'Tạo mới nhà cung cấp và thiết lập công nợ đầu kỳ.',
@@ -83,17 +103,38 @@ export function SupplierFormPage() {
       <Button key="cancel" variant="outline" className="h-9 gap-2" onClick={handleCancel}>
         Hủy
       </Button>,
-      <Button key="save" type="submit" form="supplier-form" className="h-9 gap-2">
+      <Button key="save" type="button" className="h-9 gap-2" onClick={handleSaveClick} disabled={isLoadingSupplier}>
         Lưu
       </Button>
     ]
   });
 
+  // Show loading state when fetching supplier for edit
+  if (supplierSystemId && isLoadingSupplier) {
+    return (
+      <div className="space-y-4">
+        <Card>
+          <CardContent className="pt-6 space-y-4">
+            <Skeleton className="h-8 w-48" />
+            <div className="grid grid-cols-2 gap-4">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <Card>
         <CardContent className="pt-6">
-          <SupplierForm initialData={supplier} onSubmit={handleSubmit} onCancel={handleCancel} />
+          <SupplierForm initialData={supplier ?? null} onSubmit={handleSubmit} onCancel={handleCancel} />
         </CardContent>
       </Card>
     </div>

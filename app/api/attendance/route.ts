@@ -3,6 +3,7 @@ import type { Prisma } from '@/generated/prisma/client'
 import { AttendanceStatus } from '@/generated/prisma/client'
 import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
 import { createAttendanceSchema } from './validation'
+import { generateNextIds } from '@/lib/id-system'
 
 // GET /api/attendance - List attendance records
 export async function GET(request: Request) {
@@ -17,6 +18,7 @@ export async function GET(request: Request) {
     const fromDate = searchParams.get('fromDate')
     const toDate = searchParams.get('toDate')
     const status = searchParams.get('status')
+    const search = searchParams.get('search')
 
     const where: Prisma.AttendanceRecordWhereInput = {}
 
@@ -37,6 +39,17 @@ export async function GET(request: Request) {
     if (status) {
       where.status = status as AttendanceStatus
     }
+    
+    // Server-side search
+    if (search) {
+      where.employee = {
+        OR: [
+          { fullName: { contains: search, mode: 'insensitive' } },
+          { id: { contains: search, mode: 'insensitive' } },
+          { department: { is: { name: { contains: search, mode: 'insensitive' } } } },
+        ],
+      }
+    }
 
     const [records, total] = await Promise.all([
       prisma.attendanceRecord.findMany({
@@ -47,6 +60,7 @@ export async function GET(request: Request) {
         include: {
           employee: {
             select: {
+              systemId: true,
               id: true,
               fullName: true,
               avatar: true,
@@ -125,9 +139,10 @@ export async function POST(request: Request) {
     }
 
     // Create new check-in
+    const { systemId: attendSystemId } = await generateNextIds('attendance');
     const attendance = await prisma.attendanceRecord.create({
       data: {
-        systemId: `ATTEND${String(Date.now()).slice(-6).padStart(6, '0')}`,
+        systemId: attendSystemId,
         employee: { connect: { systemId: body.employeeId } },
         date: today,
         checkIn: new Date(),
@@ -249,6 +264,7 @@ async function upsertAttendanceRecord(employeeId: string, date: Date, record: At
     workHours = (checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60)
   }
 
+  const { systemId: newSystemId } = await generateNextIds('attendance');
   return prisma.attendanceRecord.upsert({
     where: {
       employeeId_date: {
@@ -264,7 +280,7 @@ async function upsertAttendanceRecord(employeeId: string, date: Date, record: At
       notes: record.notes,
     },
     create: {
-      systemId: `ATT-${employeeId.slice(-4)}-${dateStr.replace(/-/g, '')}`,
+      systemId: newSystemId,
       employeeId,
       date,
       checkIn,

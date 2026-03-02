@@ -20,7 +20,16 @@ export const createCategorySchema = z.object({
   thumbnail: z.string().optional(),
   imageUrl: z.string().optional(),
   parentId: z.string().optional().nullable(),
-  sortOrder: z.number().optional().default(0),
+  sortOrder: z.union([z.number(), z.string().transform(v => parseInt(v) || 0)]).optional().default(0),
+  // SEO fields
+  seoTitle: z.string().optional(),
+  metaDescription: z.string().optional(),
+  seoKeywords: z.string().optional(),
+  shortDescription: z.string().optional(),
+  longDescription: z.string().optional(),
+  slug: z.string().optional(),
+  // Multi-website SEO
+  websiteSeo: z.record(z.string(), z.any()).optional(),
 })
 
 // Update category schema

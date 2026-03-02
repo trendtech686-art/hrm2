@@ -1,7 +1,7 @@
 model PayrollItem {
   systemId        String   @id
   payrollId       String
-  employeeId      String
+  employeeId      String?
   employeeName    String
   employeeCode    String
   workDays        Float    @default(0)
@@ -20,7 +20,7 @@ model PayrollItem {
   totalDeductions Decimal  @default(0) @db.Decimal(15, 2)
   netSalary       Decimal  @default(0) @db.Decimal(15, 2)
   notes           String?
-  employee        Employee @relation(fields: [employeeId], references: [systemId])
+  employee        Employee? @relation(fields: [employeeId], references: [systemId], onDelete: SetNull)
   payroll         Payroll  @relation(fields: [payrollId], references: [systemId], onDelete: Cascade)
 
   @@index([employeeId])

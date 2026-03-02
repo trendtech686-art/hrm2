@@ -4,7 +4,6 @@
 
 import type { Product } from "@/lib/types/prisma-extended";
 import type { SystemId } from '@/lib/id-types';
-import type { StagingFile } from '@/lib/file-upload-api';
 
 // ============================================================================
 // Validation
@@ -57,7 +56,6 @@ export type ProductFormCompleteValues = Omit<Product, 'id' | 'systemId' | 'ktitl
   id: string;
   systemId?: SystemId;
   title?: string;
-  _imageFiles?: Record<string, StagingFile[]>;
 };
 
 export type ProductFormCompleteProps = {

@@ -6,6 +6,7 @@
 import * as React from 'react';
 import { toast } from 'sonner';
 import { asSystemId, type SystemId } from '@/lib/id-types';
+import { generateSubEntityId } from '@/lib/id-utils';
 import type { Complaint, ComplaintAction } from '../types';
 import type { ComplaintPermissions } from './use-complaint-permissions';
 import { complaintNotifications } from '../notification-utils';
@@ -51,7 +52,7 @@ export function useComplaintHandlers({
     
     // Tạo timeline action
     const newAction: ComplaintAction = {
-      id: asSystemId(`action_${Date.now()}`),
+      id: asSystemId(generateSubEntityId('ACTION')),
       actionType: "status-changed",
       performedBy: currentUser.systemId,
       performedAt: new Date(),
@@ -64,7 +65,7 @@ export function useComplaintHandlers({
     
     updateComplaint(complaint.systemId, { 
       status: newStatus,
-      timeline: [...complaint.timeline, newAction],
+      timeline: [...(complaint.timeline || []), newAction],
     } as Partial<Complaint>);
     
     toast.success("Đã cập nhật trạng thái");
@@ -81,7 +82,7 @@ export function useComplaintHandlers({
     }
     
     const newAction: ComplaintAction = {
-      id: asSystemId(`action_${Date.now()}`),
+      id: asSystemId(generateSubEntityId('ACTION')),
       actionType: "ended",
       performedBy: currentUser.systemId,
       performedAt: new Date(),
@@ -92,7 +93,7 @@ export function useComplaintHandlers({
       status: "resolved",
       endedBy: currentUser.systemId,
       endedAt: new Date(),
-      timeline: [...complaint.timeline, newAction],
+      timeline: [...(complaint.timeline || []), newAction],
     } as Partial<Complaint>);
     
     complaintNotifications.onResolved("Đã kết thúc khiếu nại");

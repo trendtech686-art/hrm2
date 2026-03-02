@@ -5,7 +5,10 @@
  */
 
 import * as React from 'react';
-import { usePurchaseReturns } from './use-purchase-returns';
+import { useQuery } from '@tanstack/react-query';
+import { fetchAllPages } from '@/lib/fetch-all-pages';
+import { fetchPurchaseReturns } from '../api/purchase-returns-api';
+import { purchaseReturnKeys } from './use-purchase-returns';
 import type { PurchaseReturn } from '@/lib/types/prisma-extended';
 import type { SystemId } from '@/lib/id-types';
 
@@ -13,11 +16,17 @@ import type { SystemId } from '@/lib/id-types';
  * Returns all purchase returns as a flat array
  * Compatible with legacy store pattern: { data: returns }
  */
-export function useAllPurchaseReturns() {
-  const query = usePurchaseReturns({ limit: 500 });
+export function useAllPurchaseReturns(options?: { enabled?: boolean }) {
+  const query = useQuery({
+    queryKey: [...purchaseReturnKeys.all, 'all'],
+    queryFn: () => fetchAllPages((p) => fetchPurchaseReturns(p)),
+    staleTime: 10 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+    enabled: options?.enabled ?? true,
+  });
   
   return {
-    data: query.data?.data || [],
+    data: query.data || [],
     isLoading: query.isLoading,
     isError: query.isError,
     error: query.error,

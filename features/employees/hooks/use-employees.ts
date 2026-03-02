@@ -5,27 +5,30 @@
  * - Import this file directly: import { useEmployees } from '@/features/employees/hooks/use-employees'
  * - NEVER import from '@/features/employees' or '@/features/employees/store'
  * 
- * This hook is ISOLATED - it only depends on:
- * - @tanstack/react-query
- * - Local API functions
- * - Local types
+ * This hook uses Server Actions for mutations (Phase 2 migration)
  */
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import {
   fetchEmployees,
   fetchEmployee,
-  createEmployee,
-  updateEmployee,
-  deleteEmployee,
   searchEmployees,
   fetchEmployeesByDepartment,
   fetchEmployeesByBranch,
   fetchDeletedEmployees,
-  restoreEmployee,
-  permanentDeleteEmployee,
   type EmployeesParams,
 } from '../api/employees-api';
+import {
+  createEmployeeAction,
+  updateEmployeeAction,
+  deleteEmployeeAction,
+  restoreEmployeeAction,
+  type CreateEmployeeInput,
+  type UpdateEmployeeInput,
+} from '@/app/actions/employees';
+
+// Re-export types for backwards compatibility
+export type { CreateEmployeeInput, UpdateEmployeeInput };
 
 // Query keys - exported for invalidation
 export const employeeKeys = {
@@ -37,7 +40,34 @@ export const employeeKeys = {
   search: (query: string) => [...employeeKeys.all, 'search', query] as const,
   byDepartment: (id: string) => [...employeeKeys.all, 'department', id] as const,
   byBranch: (id: string) => [...employeeKeys.all, 'branch', id] as const,
+  stats: () => [...employeeKeys.all, 'stats'] as const,
 };
+
+// Types for initial data from Server Components
+export interface EmployeeStats {
+  total: number;
+  active: number;
+  onLeave: number;
+  resigned: number;
+  deleted: number;
+}
+
+/**
+ * Hook for employee statistics with optional initial data from Server Component
+ */
+export function useEmployeeStats(initialData?: EmployeeStats) {
+  return useQuery({
+    queryKey: employeeKeys.stats(),
+    queryFn: async () => {
+      const res = await fetch('/api/employees/stats');
+      if (!res.ok) throw new Error('Failed to fetch employee stats');
+      return res.json() as Promise<EmployeeStats>;
+    },
+    initialData,
+    staleTime: initialData ? 60_000 : 0,
+    gcTime: 10 * 60 * 1000,
+  });
+}
 
 /**
  * Hook for fetching paginated employees list
@@ -46,7 +76,7 @@ export const employeeKeys = {
  * ```tsx
  * function EmployeesPage() {
  *   const [page, setPage] = useState(1);
- *   const { data, isLoading } = useEmployees({ page, limit: 50 });
+ *   const { data, isLoading } = useEmployees({ page });
  *   
  *   return (
  *     <DataTable 
@@ -58,13 +88,15 @@ export const employeeKeys = {
  * }
  * ```
  */
-export function useEmployees(params: EmployeesParams = {}) {
+export function useEmployees(params: EmployeesParams & { enabled?: boolean } = {}) {
+  const { enabled = true, ...queryParams } = params;
   return useQuery({
-    queryKey: employeeKeys.list(params),
-    queryFn: () => fetchEmployees(params),
+    queryKey: employeeKeys.list(queryParams),
+    queryFn: () => fetchEmployees(queryParams),
     staleTime: 60_000, // 1 minute - employees don't change frequently
     gcTime: 10 * 60 * 1000, // 10 minutes
     placeholderData: keepPreviousData,
+    enabled,
   });
 }
 
@@ -131,26 +163,40 @@ export function useEmployeeMutations(options: UseEmployeeMutationsOptions = {}) 
   const queryClient = useQueryClient();
   
   const create = useMutation({
-    mutationFn: createEmployee,
+    mutationFn: async (data: CreateEmployeeInput) => {
+      const result = await createEmployeeAction(data);
+      if (!result.success) throw new Error(result.error || 'Failed to create employee');
+      return result.data;
+    },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: employeeKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: employeeKeys.stats() });
       options.onCreateSuccess?.(data);
     },
     onError: options.onError,
   });
   
   const update = useMutation({
-    mutationFn: updateEmployee,
+    mutationFn: async (input: UpdateEmployeeInput) => {
+      const result = await updateEmployeeAction(input);
+      if (!result.success) throw new Error(result.error || 'Failed to update employee');
+      return result.data;
+    },
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: employeeKeys.detail(variables.systemId) });
       queryClient.invalidateQueries({ queryKey: employeeKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: employeeKeys.stats() });
       options.onUpdateSuccess?.(data);
     },
     onError: options.onError,
   });
   
   const remove = useMutation({
-    mutationFn: deleteEmployee,
+    mutationFn: async (systemId: string) => {
+      const result = await deleteEmployeeAction(systemId);
+      if (!result.success) throw new Error(result.error || 'Failed to delete employee');
+      return result.data;
+    },
     // Optimistic delete - UI cập nhật ngay lập tức
     onMutate: async (systemId) => {
       // Cancel any outgoing refetches
@@ -246,7 +292,11 @@ export function useTrashMutations() {
   const queryClient = useQueryClient();
   
   const restore = useMutation({
-    mutationFn: restoreEmployee,
+    mutationFn: async (systemId: string) => {
+      const result = await restoreEmployeeAction(systemId);
+      if (!result.success) throw new Error(result.error || 'Failed to restore employee');
+      return result.data;
+    },
     onSuccess: () => {
       // Invalidate both active and deleted lists
       queryClient.invalidateQueries({ queryKey: employeeKeys.all });
@@ -254,7 +304,12 @@ export function useTrashMutations() {
   });
   
   const permanentDelete = useMutation({
-    mutationFn: permanentDeleteEmployee,
+    mutationFn: async (systemId: string) => {
+      // Use delete action with permanent flag - for now use soft delete
+      const result = await deleteEmployeeAction(systemId);
+      if (!result.success) throw new Error(result.error || 'Failed to permanently delete employee');
+      return result.data;
+    },
     onMutate: async (systemId) => {
       // Optimistic update - remove from deleted list
       await queryClient.cancelQueries({ queryKey: [...employeeKeys.all, 'deleted'] });

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
@@ -78,7 +78,7 @@ export function InfoTab({
       {customer.images && customer.images.length > 0 && (
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-body-base font-medium">Hình ảnh</CardTitle>
+            <CardTitle>Hình ảnh</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
@@ -108,7 +108,7 @@ export function InfoTab({
       {/* Thông tin cơ bản - Grid layout clean với icon copy */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-body-base font-medium">Thông tin cơ bản</CardTitle>
+          <CardTitle>Thông tin cơ bản</CardTitle>
         </CardHeader>
         <CardContent>
           <dl className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-4">
@@ -124,7 +124,7 @@ export function InfoTab({
       {/* Phân loại */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-body-base font-medium">Phân loại</CardTitle>
+          <CardTitle>Phân loại</CardTitle>
         </CardHeader>
         <CardContent>
           <dl className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-4">
@@ -145,7 +145,7 @@ export function InfoTab({
       {/* Chỉ số khách hàng - Tính toán REALTIME */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-body-base font-medium">Chỉ số khách hàng</CardTitle>
+          <CardTitle>Chỉ số khách hàng</CardTitle>
           <p className="text-body-xs text-muted-foreground mt-1">Phân tích hành vi mua hàng để đánh giá mức độ trung thành và rủi ro (tính toán realtime)</p>
         </CardHeader>
         <CardContent>
@@ -318,7 +318,7 @@ export function InfoTab({
       {(customer.bankName || customer.bankAccount || customer.social?.website || customer.social?.facebook || customer.social?.linkedin) && (
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-body-base font-medium">Ngân hàng & Mạng xã hội</CardTitle>
+            <CardTitle>Ngân hàng & Mạng xã hội</CardTitle>
           </CardHeader>
           <CardContent>
             <dl className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-4">
@@ -367,13 +367,13 @@ export function InfoTab({
       {/* Thống kê mua hàng */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-body-base font-medium">Thống kê mua hàng</CardTitle>
+          <CardTitle>Thống kê mua hàng</CardTitle>
         </CardHeader>
         <CardContent>
           <dl className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-4">
             <DetailItem label="Tổng đơn hàng" value={customer.totalOrders?.toString()} />
             <DetailItem label="Tổng chi tiêu" value={formatCurrency(customer.totalSpent)} />
-            <DetailItem label="SL đã mua" value={customer.totalQuantityPurchased?.toString()} />
+            <DetailItem label="SL đã mua" value={(customer.totalProductsBought ?? customer.totalQuantityPurchased)?.toString()} />
             <DetailItem label="SL trả lại" value={customer.totalQuantityReturned?.toString()} />
             <DetailItem label="Lần mua gần nhất" value={formatDateUtil(customer.lastPurchaseDate)} />
             <DetailItem label="Giao hàng thất bại" value={customer.failedDeliveries?.toString()} />
@@ -384,7 +384,7 @@ export function InfoTab({
       {/* Quản lý */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-body-base font-medium">Quản lý</CardTitle>
+          <CardTitle>Quản lý</CardTitle>
         </CardHeader>
         <CardContent>
           <dl className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-4">
@@ -413,7 +413,7 @@ export function InfoTab({
       {customer.notes && (
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-body-base font-medium">Ghi chú</CardTitle>
+            <CardTitle>Ghi chú</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-body-sm text-muted-foreground whitespace-pre-wrap">{sanitizeToText(customer.notes)}</p>

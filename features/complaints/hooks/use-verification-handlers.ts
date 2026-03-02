@@ -6,6 +6,7 @@
 import * as React from 'react';
 import { toast } from 'sonner';
 import { asSystemId } from '@/lib/id-types';
+import { generateSubEntityId } from '@/lib/id-utils';
 import type { SystemId } from '@/lib/id-types';
 import type { Complaint, ComplaintAction } from '../types';
 import type { ComplaintPermissions } from './use-complaint-permissions';
@@ -16,7 +17,7 @@ interface UseVerificationHandlersProps {
   complaint: Complaint | null;
   currentUser: { systemId: SystemId; name: string };
   permissions?: ComplaintPermissions;
-  updateComplaint: (systemId: SystemId, updates: Partial<Complaint>) => void;
+  updateComplaint: (systemId: SystemId, updates: Partial<Complaint>) => Promise<void> | void;
 }
 
 export function useVerificationHandlers({
@@ -29,11 +30,11 @@ export function useVerificationHandlers({
   // ==========================================
   // VERIFY CORRECT - WITH DIALOG
   // ==========================================
-  const handleConfirmCorrect = React.useCallback((note: string, confirmedQuantities: Record<SystemId, number>) => {
+  const handleConfirmCorrect = React.useCallback(async (note: string, confirmedQuantities: Record<SystemId, number>) => {
     if (!complaint) return;
 
     const newAction: ComplaintAction = {
-      id: asSystemId(`action_${Date.now()}`),
+      id: asSystemId(generateSubEntityId('ACTION')),
       actionType: "verified-correct",
       performedBy: asSystemId(currentUser.systemId),
       performedAt: new Date(),
@@ -43,14 +44,19 @@ export function useVerificationHandlers({
       },
     };
     
-    updateComplaint(complaint.systemId, {
-      verification: "verified-correct",
-      isVerifiedCorrect: true,
-      timeline: [...complaint.timeline, newAction],
-    } as Partial<Complaint>);
-    
-    toast.success("Đã xác nhận khiếu nại đúng");
-    complaintNotifications.onVerified("Đã xác nhận khiếu nại đúng");
+    try {
+      await updateComplaint(complaint.systemId, {
+        verification: "verified-correct",
+        isVerifiedCorrect: true,
+        timeline: [...(complaint.timeline || []), newAction],
+      } as Partial<Complaint>);
+      
+      toast.success("Đã xác nhận khiếu nại đúng");
+      complaintNotifications.onVerified("Đã xác nhận khiếu nại đúng");
+    } catch (error) {
+      console.error('Error verifying complaint:', error);
+      toast.error('Lỗi khi xác nhận khiếu nại');
+    }
   }, [complaint, currentUser, updateComplaint]);
 
   // ==========================================
@@ -84,15 +90,15 @@ export function useVerificationHandlers({
       }
       
       // Convert confirmed images to employeeImages format
-      const newEmployeeImages = confirmedImages.map((url, idx) => ({
-        id: asSystemId(`complaint-employee-image-${Date.now()}-${idx}`),
+      const newEmployeeImages = confirmedImages.map((url, _idx) => ({
+        id: asSystemId(generateSubEntityId('IMG')),
         url,
         uploadedAt: new Date(),
         uploadedBy: currentUser.systemId,
       }));
       
       // ⚠️ CRITICAL: Tìm action verified-correct CUỐI CÙNG để check metadata
-      const lastVerifiedCorrect = [...complaint.timeline]
+      const lastVerifiedCorrect = [...(complaint.timeline || [])]
         .reverse()
         .find(a => a.actionType === 'verified-correct');
       
@@ -127,7 +133,7 @@ export function useVerificationHandlers({
       } else {
         // No payments/receipts/inventory, just update verification status
         const newAction: ComplaintAction = {
-          id: asSystemId(`action_${Date.now()}`),
+          id: asSystemId(generateSubEntityId('ACTION')),
           actionType: "verified-incorrect",
           performedBy: asSystemId(currentUser.systemId),
           performedAt: new Date(),
@@ -138,8 +144,9 @@ export function useVerificationHandlers({
           },
         };
 
-        updateComplaint(complaint.systemId, {
+        await updateComplaint(complaint.systemId, {
           verification: "verified-incorrect",
+          isVerifiedCorrect: false, // ✅ Reset boolean field to match verification enum
           verificationEvidence: {
             images: confirmedImages,
             videos: videoLinks,
@@ -151,7 +158,7 @@ export function useVerificationHandlers({
             ...(complaint.employeeImages || []),
             ...newEmployeeImages,
           ],
-          timeline: [...complaint.timeline, newAction],
+          timeline: [...(complaint.timeline || []), newAction],
         } as Partial<Complaint>);
         
         toast.success("Đã xác nhận khiếu nại sai");

@@ -1,20 +1,67 @@
 /**
- * useComplaints - React Query hooks
+ * useComplaints - React Query hooks (Khiếu nại)
  * 
  * ⚠️ Direct import: import { useComplaints } from '@/features/complaints/hooks/use-complaints'
+ * 
+ * Updated to use Server Actions for mutations (Phase 2 migration)
  */
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import {
   fetchComplaints,
   fetchComplaint,
-  createComplaint,
-  updateComplaint,
-  deleteComplaint,
   fetchComplaintStats,
   type ComplaintsParams,
 } from '../api/complaints-api';
+import {
+  createComplaintAction,
+  updateComplaintAction,
+  deleteComplaintAction,
+  resolveComplaintAction,
+  closeComplaintAction,
+  type CreateComplaintInput,
+  type UpdateComplaintInput,
+} from '@/app/actions/complaints';
 import type { Complaint } from '@/lib/types/prisma-extended';
+
+// Re-export types for backwards compatibility
+export type { CreateComplaintInput, UpdateComplaintInput };
+
+// Legacy format support
+type LegacyUpdateInput = { systemId: string; data: Partial<Complaint> };
+
+function toUpdateComplaintInput(input: UpdateComplaintInput | LegacyUpdateInput): UpdateComplaintInput {
+  const i = input as Record<string, unknown>;
+  if (i.data && typeof i.data === 'object') {
+    const legacy = input as LegacyUpdateInput;
+    const d = legacy.data as Record<string, unknown>;
+    return {
+      systemId: legacy.systemId,
+      description: d.description as string | undefined,
+      subject: d.subject as string | undefined,
+      title: d.title as string | undefined,
+      status: d.status as string | undefined,
+      priority: d.priority as string | undefined,
+      type: d.type as string | undefined,
+      assigneeId: d.assigneeId as string | undefined,
+      assigneeSystemId: d.assigneeSystemId as string | undefined,
+      assigneeName: d.assigneeName as string | undefined,
+      dueDate: d.dueDate as string | undefined,
+      resolution: d.resolution as string | undefined,
+      // ⭐ NEW: Include image and product fields
+      images: d.images as UpdateComplaintInput['images'],
+      employeeImages: d.employeeImages as UpdateComplaintInput['employeeImages'],
+      affectedProducts: d.affectedProducts as UpdateComplaintInput['affectedProducts'],
+      orderCode: d.orderCode as string | undefined,
+      orderValue: d.orderValue as number | undefined,
+      // ⭐ FIX: Include verification fields - THESE WERE MISSING!
+      verification: d.verification as string | undefined,
+      isVerifiedCorrect: d.isVerifiedCorrect as boolean | undefined,
+      timeline: d.timeline as unknown[] | undefined,
+    };
+  }
+  return input as UpdateComplaintInput;
+}
 
 export const complaintKeys = {
   all: ['complaints'] as const,
@@ -44,11 +91,23 @@ export function useComplaint(id: string | null | undefined) {
   });
 }
 
-export function useComplaintStats() {
+// Types for initial data from Server Components
+export interface ComplaintStats {
+  pending: number;
+  inProgress: number;
+  resolved: number;
+  total: number;
+}
+
+/**
+ * Hook for complaint statistics with optional initial data from Server Component
+ */
+export function useComplaintStats(initialData?: ComplaintStats) {
   return useQuery({
     queryKey: complaintKeys.stats(),
     queryFn: fetchComplaintStats,
-    staleTime: 60_000,
+    initialData,
+    staleTime: initialData ? 60_000 : 0,
     gcTime: 10 * 60 * 1000, // 10 minutes
   });
 }
@@ -65,7 +124,14 @@ export function useComplaintMutations(options: UseComplaintMutationsOptions = {}
   const queryClient = useQueryClient();
   
   const create = useMutation({
-    mutationFn: createComplaint,
+    mutationFn: async (data: CreateComplaintInput | Partial<Complaint>) => {
+      const input = data as CreateComplaintInput;
+      const result = await createComplaintAction(input);
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to create complaint');
+      }
+      return result.data as unknown as Complaint;
+    },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: complaintKeys.lists() });
       queryClient.invalidateQueries({ queryKey: complaintKeys.stats() });
@@ -75,11 +141,19 @@ export function useComplaintMutations(options: UseComplaintMutationsOptions = {}
   });
   
   const update = useMutation({
-    mutationFn: ({ systemId, data }: { systemId: string; data: Partial<Complaint> }) => 
-      updateComplaint(systemId, data),
-    onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: complaintKeys.detail(variables.systemId) });
-      queryClient.invalidateQueries({ queryKey: complaintKeys.lists() });
+    mutationFn: async (input: UpdateComplaintInput | LegacyUpdateInput) => {
+      const converted = toUpdateComplaintInput(input);
+      const result = await updateComplaintAction(converted);
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to update complaint');
+      }
+      return result.data as unknown as Complaint;
+    },
+    onSuccess: async (data, variables) => {
+      const systemId = 'data' in variables ? variables.systemId : variables.systemId;
+      // ✅ Use refetchQueries to wait for fresh data before updating UI
+      await queryClient.refetchQueries({ queryKey: complaintKeys.detail(systemId) });
+      await queryClient.refetchQueries({ queryKey: complaintKeys.lists() });
       queryClient.invalidateQueries({ queryKey: complaintKeys.stats() });
       options.onUpdateSuccess?.(data);
     },
@@ -87,7 +161,13 @@ export function useComplaintMutations(options: UseComplaintMutationsOptions = {}
   });
   
   const remove = useMutation({
-    mutationFn: deleteComplaint,
+    mutationFn: async (systemId: string) => {
+      const result = await deleteComplaintAction(systemId);
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to delete complaint');
+      }
+      return result.data;
+    },
     // Optimistic delete - UI cập nhật ngay lập tức
     onMutate: async (systemId) => {
       await queryClient.cancelQueries({ queryKey: complaintKeys.lists() });
@@ -122,8 +202,40 @@ export function useComplaintMutations(options: UseComplaintMutationsOptions = {}
       queryClient.invalidateQueries({ queryKey: complaintKeys.all });
     },
   });
+
+  const resolve = useMutation({
+    mutationFn: async (input: { systemId: string; resolution: string; resolvedBy?: string }) => {
+      const result = await resolveComplaintAction(input.systemId, input.resolution, input.resolvedBy);
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to resolve complaint');
+      }
+      return result.data as unknown as Complaint;
+    },
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: complaintKeys.detail(variables.systemId) });
+      queryClient.invalidateQueries({ queryKey: complaintKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: complaintKeys.stats() });
+    },
+    onError: options.onError,
+  });
+
+  const close = useMutation({
+    mutationFn: async (input: { systemId: string; closedBy?: string }) => {
+      const result = await closeComplaintAction(input.systemId, input.closedBy);
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to close complaint');
+      }
+      return result.data as unknown as Complaint;
+    },
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: complaintKeys.detail(variables.systemId) });
+      queryClient.invalidateQueries({ queryKey: complaintKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: complaintKeys.stats() });
+    },
+    onError: options.onError,
+  });
   
-  return { create, update, remove };
+  return { create, update, remove, resolve, close };
 }
 
 export function usePendingComplaints() {
@@ -131,9 +243,9 @@ export function usePendingComplaints() {
 }
 
 export function useComplaintsByCustomer(customerId: string | null | undefined) {
-  return useComplaints({ customerId: customerId || undefined, limit: 50 });
+  return useComplaints({ customerId: customerId || undefined });
 }
 
 export function useComplaintsByOrder(orderId: string | null | undefined) {
-  return useComplaints({ orderId: orderId || undefined, limit: 20 });
+  return useComplaints({ orderId: orderId || undefined });
 }

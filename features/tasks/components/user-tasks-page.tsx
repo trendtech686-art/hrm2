@@ -1,6 +1,8 @@
 'use client'
 
+import * as React from 'react';
 import { useState, useMemo } from 'react';
+import { generateSubEntityId } from '@/lib/id-utils';
 import { useRouter } from 'next/navigation';
 import { useTasks, useTaskMutations } from '../hooks/use-tasks';
 import { useAuth } from '@/contexts/auth-context';
@@ -19,7 +21,7 @@ import { toast } from 'sonner';
 export function UserTasksPage() {
   const router = useRouter();
   const { employee } = useAuth();
-  const { data: tasksData } = useTasks({ limit: 1000 });
+  const { data: tasksData } = useTasks();
   const allTasks = React.useMemo(() => tasksData?.data ?? [], [tasksData?.data]);
   const { update: updateMutation } = useTaskMutations();
   
@@ -147,7 +149,7 @@ export function UserTasksPage() {
         activities: [
           ...(task.activities || []),
           {
-            id: `activity_${Date.now()}`,
+            id: generateSubEntityId('ACTIVITY'),
             taskId: task.systemId,
             userId: employee.systemId,
             userName: employee.fullName,
@@ -189,7 +191,7 @@ export function UserTasksPage() {
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+            <CardTitle size="sm" className="text-muted-foreground flex items-center gap-2">
               <ListTodo className="h-4 w-4" />
               Chưa bắt đầu
             </CardTitle>
@@ -201,7 +203,7 @@ export function UserTasksPage() {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+            <CardTitle size="sm" className="text-muted-foreground flex items-center gap-2">
               <Clock className="h-4 w-4" />
               Đang làm
             </CardTitle>
@@ -215,7 +217,7 @@ export function UserTasksPage() {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+            <CardTitle size="sm" className="text-muted-foreground flex items-center gap-2">
               <AlertTriangle className="h-4 w-4" />
               Quá hạn
             </CardTitle>
@@ -229,7 +231,7 @@ export function UserTasksPage() {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+            <CardTitle size="sm" className="text-muted-foreground flex items-center gap-2">
               <Clock className="h-4 w-4 text-yellow-600" />
               Chờ duyệt
             </CardTitle>
@@ -243,7 +245,7 @@ export function UserTasksPage() {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+            <CardTitle size="sm" className="text-muted-foreground flex items-center gap-2">
               <CheckCircle className="h-4 w-4" />
               Hoàn thành
             </CardTitle>

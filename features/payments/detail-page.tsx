@@ -1,17 +1,16 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { usePaymentFinder } from './hooks/use-all-payments';
+import { usePayment } from './hooks/use-payments';
 import { ROUTES, generatePath } from '../../lib/router';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
-import { ArrowLeft, Edit, Printer } from 'lucide-react';
+import { ArrowLeft, Edit, Printer, Loader2 } from 'lucide-react';
 import { formatDateCustom } from '../../lib/date-utils';
-import { asSystemId } from '../../lib/id-types';
 import { ActivityHistory } from '../../components/ActivityHistory';
 import { Comments } from '../../components/Comments';
 import { useComments } from '@/hooks/use-comments';
@@ -23,6 +22,7 @@ import {
   mapPaymentToPrintData, 
   createStoreSettings 
 } from '../../lib/print/payment-print-helper';
+import type { Payment } from '@/lib/types/prisma-extended';
 
 const formatCurrency = (value?: number) => {
   if (typeof value !== 'number') return '0';
@@ -42,15 +42,19 @@ const getStatusBadge = (status?: string) => {
 export function PaymentDetailPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const router = useRouter();
-  const { findById } = usePaymentFinder();
+  const { data: paymentData, isLoading } = usePayment(systemId);
   const { findById: findEmployeeById } = useEmployeeFinder();
   const { print } = usePrint();
   const { info: storeInfo } = useStoreInfoData();
   
-  const payment = React.useMemo(() => 
-    systemId ? findById(asSystemId(systemId)) : null, 
-    [systemId, findById]
-  );
+  // Extract payment from API response (handles both wrapped and unwrapped)
+  const payment = React.useMemo(() => {
+    if (!paymentData) return null;
+    // Handle wrapped response { data: payment } or direct payment
+    type WrappedPayment = { data: Payment };
+    const raw = (paymentData as unknown as WrappedPayment).data || paymentData;
+    return raw as Payment & { auditLogs?: Array<{ id?: number; entityId?: string; action: string; timestamp: string; userId?: string; changes?: Record<string, unknown> }> };
+  }, [paymentData]);
 
   const handlePrint = React.useCallback(() => {
     if (!payment) return;
@@ -58,7 +62,11 @@ export function PaymentDetailPage() {
     const storeSettings = createStoreSettings(storeInfo);
     const forPrint = convertPaymentForPrint(payment);
     
-    print('payment', { data: mapPaymentToPrintData(forPrint, storeSettings) });
+    print('payment', { 
+      data: mapPaymentToPrintData(forPrint, storeSettings),
+      entityType: 'payment',
+      entityId: payment.systemId,
+    });
   }, [payment, storeInfo, print]);
 
   // Get current employee for comments
@@ -217,6 +225,18 @@ export function PaymentDetailPage() {
     backPath: ROUTES.FINANCE.PAYMENTS,
     actions: headerActions 
   });
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <Card>
+        <CardContent className="p-8 text-center text-muted-foreground space-y-3">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto" />
+          <p>Đang tải thông tin phiếu chi...</p>
+        </CardContent>
+      </Card>
+    );
+  }
   
   if (!payment) {
     return (
@@ -231,13 +251,31 @@ export function PaymentDetailPage() {
       </Card>
     );
   }
+
+  // Transform auditLogs for ActivityHistory
+  type PaymentAuditLog = { id?: number; entityId?: string; action: string; timestamp: string; userId?: string; changes?: Record<string, unknown> };
+  const activityHistory = (payment.auditLogs || []).map((log: PaymentAuditLog) => ({
+    id: log.id?.toString() || log.entityId || '',
+    action: log.action === 'CREATE' ? 'created' : 
+            log.action === 'UPDATE' ? 'updated' : 
+            log.action === 'DELETE' ? 'deleted' : 'custom',
+    description: log.action === 'CREATE' ? 'Tạo phiếu chi' : 
+                 log.action === 'UPDATE' ? 'Cập nhật phiếu chi' : 
+                 log.action === 'DELETE' ? 'Xóa phiếu chi' : log.action,
+    timestamp: new Date(log.timestamp),
+    user: {
+      systemId: log.userId || 'system',
+      name: log.userId || 'Hệ thống',
+    },
+    metadata: log.changes ? { ...log.changes } : undefined,
+  })) as unknown as import('../../components/ActivityHistory').HistoryEntry[];
   
   return (
     <div className="space-y-6">
       {/* Thông tin phiếu chi */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-h6 font-semibold">Thông tin phiếu chi</CardTitle>
+          <CardTitle>Thông tin phiếu chi</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
           {/* Số tiền */}
@@ -338,7 +376,7 @@ export function PaymentDetailPage() {
       
       {/* Activity History */}
       <ActivityHistory
-        history={payment.activityHistory || []}
+        history={activityHistory}
         title="Lịch sử thao tác"
         emptyMessage="Chưa có lịch sử thao tác"
         showFilters={false}

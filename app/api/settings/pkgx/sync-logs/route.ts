@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
+import { requireAuth, validateBody, apiSuccess, apiError, parsePagination } from '@/lib/api-utils'
 import { createSyncLogSchema } from './validation'
 
 // GET /api/settings/pkgx/sync-logs - List sync logs
@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const { searchParams } = new URL(request.url)
-    const limit = parseInt(searchParams.get('limit') || '50')
+    const { limit } = parsePagination(searchParams)
     const syncType = searchParams.get('syncType')
 
     const logs = await prisma.pkgxSyncLog.findMany({
@@ -62,6 +62,7 @@ export async function POST(request: NextRequest) {
         errorMessage,
         details,
         syncedBy: session.user?.id,
+        syncedByName: session.user?.name || session.user?.email || 'Unknown',
       },
     })
 

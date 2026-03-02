@@ -3,7 +3,7 @@ import type { Customer } from '../types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Badge } from '../../../components/ui/badge';
 import { Button } from '../../../components/ui/button';
-import { Check, Clock, MoreHorizontal, HelpCircle, AlertTriangle, AlertCircle, Info } from 'lucide-react';
+import { Check, Clock, MoreHorizontal, HelpCircle, AlertTriangle, AlertCircle, Info, Phone, MessageCircle, ShoppingCart, FileText, CreditCard } from 'lucide-react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { useCustomerSlaEngineStore } from '../sla/store';
@@ -21,12 +21,15 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../../components/ui/tooltip';
 import { Progress } from '../../../components/ui/progress';
 import { toast } from 'sonner';
+import { getActivityLogs } from '../sla/ack-storage';
+import { useRouter } from 'next/navigation';
 
 type Props = {
   customer: Customer;
 };
 
 export function CustomerSlaStatusCard({ customer }: Props) {
+  const router = useRouter();
   const entry = useCustomerSlaEngineStore((state) => state.index?.entries[customer.systemId]);
   const acknowledge = useCustomerSlaEngineStore((state) => state.acknowledge);
   const snooze = useCustomerSlaEngineStore((state) => state.snooze);
@@ -49,7 +52,7 @@ export function CustomerSlaStatusCard({ customer }: Props) {
       update.mutate({
         systemId: customer.systemId,
         lastContactDate: now,
-      } as any, {
+      } as Partial<Customer> & { systemId: string }, {
         onSuccess: () => {
           toast.success('Đã xác nhận xử lý SLA', {
             description: 'Ngày liên hệ cuối đã được cập nhật',
@@ -74,17 +77,111 @@ export function CustomerSlaStatusCard({ customer }: Props) {
     });
   }, [customer.systemId, snooze]);
 
+  // Get SLA activity history for this customer
+  const activityLogs = React.useMemo(() => {
+    return getActivityLogs(customer.systemId, 10); // Last 10 activities
+  }, [customer.systemId]);
+
+  const getSlaTypeLabel = (type: string) => {
+    switch (type) {
+      case 'follow-up': return 'Liên hệ định kỳ';
+      case 're-engagement': return 'Kích hoạt lại';
+      case 'debt-payment': return 'Nhắc công nợ';
+      default: return type;
+    }
+  };
+
+  const getActionLabel = (actionType: string) => {
+    switch (actionType) {
+      case 'acknowledged': return 'Đã xử lý';
+      case 'snoozed': return 'Tạm ẩn';
+      case 'resolved': return 'Đã hoàn thành';
+      case 'escalated': return 'Chuyển cấp';
+      default: return actionType;
+    }
+  };
+
   if (!entry) {
     return (
       <Card>
         <CardHeader>
           <CardTitle>Trạng thái SLA</CardTitle>
-          <CardDescription>Không có cảnh báo nào</CardDescription>
+          <CardDescription>Theo dõi chỉ tiêu dịch vụ khách hàng</CardDescription>
         </CardHeader>
-        <CardContent>
-          <p className="text-body-sm text-muted-foreground">
-            Khách hàng này hiện không có SLA nào cần theo dõi.
-          </p>
+        <CardContent className="space-y-4">
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <p className="text-body-sm text-green-700 font-medium">✓ Không có cảnh báo nào</p>
+            <p className="text-body-xs text-green-600 mt-1">
+              Khách hàng đang hoạt động tốt, không có SLA nào cần theo dõi.
+            </p>
+          </div>
+          
+          {/* Quick Actions - always available */}
+          <div className="border border-border rounded-lg p-4 space-y-3">
+            <p className="text-body-sm font-medium">🚀 Hành động nhanh</p>
+            <div className="flex flex-wrap gap-2">
+              {customer.phone && (
+                <Button variant="outline" size="sm" asChild>
+                  <a href={`tel:${customer.phone}`}>
+                    <Phone className="h-4 w-4 mr-2" />
+                    Gọi điện
+                  </a>
+                </Button>
+              )}
+              {(customer.zaloPhone || customer.phone) && (
+                <Button variant="outline" size="sm" asChild>
+                  <a href={`https://zalo.me/${customer.zaloPhone || customer.phone}`} target="_blank" rel="noopener noreferrer">
+                    <MessageCircle className="h-4 w-4 mr-2" />
+                    Nhắn Zalo
+                  </a>
+                </Button>
+              )}
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => router.push(`/orders/new?customer=${customer.systemId}`)}
+              >
+                <ShoppingCart className="h-4 w-4 mr-2" />
+                Tạo đơn hàng
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => router.push(`/customers/${customer.systemId}?tab=debt`)}
+              >
+                <CreditCard className="h-4 w-4 mr-2" />
+                Xem công nợ
+              </Button>
+            </div>
+          </div>
+          
+          {/* SLA explanation */}
+          <div className="text-body-xs text-muted-foreground space-y-2 pt-2 border-t">
+            <p className="font-medium text-foreground">SLA (Service Level Agreement) theo dõi:</p>
+            <ul className="list-disc list-inside space-y-1 pl-1">
+              <li><strong>Liên hệ định kỳ:</strong> Nhắc nhở liên hệ khách hàng theo chu kỳ (VD: 30 ngày/lần)</li>
+              <li><strong>Kích hoạt lại:</strong> Cảnh báo khi khách hàng không mua hàng quá lâu (VD: 60+ ngày)</li>
+              <li><strong>Nhắc công nợ:</strong> Cảnh báo khi có công nợ quá hạn cần thu hồi</li>
+            </ul>
+          </div>
+          
+          {/* Activity History */}
+          {activityLogs.length > 0 && (
+            <div className="border-t pt-4">
+              <p className="text-body-sm font-medium mb-3">📜 Lịch sử hoạt động gần đây</p>
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {activityLogs.map((log, idx) => (
+                  <div key={idx} className="flex items-center justify-between text-body-xs py-1.5 border-b border-border/50 last:border-0">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-xs">{getSlaTypeLabel(log.slaType)}</Badge>
+                      <span className="text-muted-foreground">{getActionLabel(log.actionType)}</span>
+                    </div>
+                    <span className="text-muted-foreground">{format(new Date(log.performedAt), 'dd/MM HH:mm', { locale: vi })}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     );
@@ -112,12 +209,102 @@ export function CustomerSlaStatusCard({ customer }: Props) {
       <Card>
         <CardHeader>
           <CardTitle>Trạng thái SLA</CardTitle>
-          <CardDescription>Không có cảnh báo nào</CardDescription>
+          <CardDescription>Theo dõi chỉ tiêu dịch vụ khách hàng</CardDescription>
         </CardHeader>
-        <CardContent>
-          <p className="text-body-sm text-muted-foreground">
-            Khách hàng này hiện không có SLA nào cần theo dõi.
-          </p>
+        <CardContent className="space-y-4">
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <p className="text-body-sm text-green-700 font-medium">✓ Không có cảnh báo nào</p>
+            <p className="text-body-xs text-green-600 mt-1">
+              Khách hàng đang hoạt động tốt, tất cả SLA đều trong ngưỡng cho phép.
+            </p>
+          </div>
+          
+          {/* Quick Actions - always available */}
+          <div className="border border-border rounded-lg p-4 space-y-3">
+            <p className="text-body-sm font-medium">🚀 Hành động nhanh</p>
+            <div className="flex flex-wrap gap-2">
+              {customer.phone && (
+                <Button variant="outline" size="sm" asChild>
+                  <a href={`tel:${customer.phone}`}>
+                    <Phone className="h-4 w-4 mr-2" />
+                    Gọi điện
+                  </a>
+                </Button>
+              )}
+              {(customer.zaloPhone || customer.phone) && (
+                <Button variant="outline" size="sm" asChild>
+                  <a href={`https://zalo.me/${customer.zaloPhone || customer.phone}`} target="_blank" rel="noopener noreferrer">
+                    <MessageCircle className="h-4 w-4 mr-2" />
+                    Nhắn Zalo
+                  </a>
+                </Button>
+              )}
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => router.push(`/orders/new?customer=${customer.systemId}`)}
+              >
+                <ShoppingCart className="h-4 w-4 mr-2" />
+                Tạo đơn hàng
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => router.push(`/customers/${customer.systemId}?tab=debt`)}
+              >
+                <CreditCard className="h-4 w-4 mr-2" />
+                Xem công nợ
+              </Button>
+            </div>
+          </div>
+          
+          {/* SLA explanation with workflow */}
+          <div className="space-y-4 pt-2 border-t">
+            <div>
+              <p className="text-body-sm font-medium text-foreground mb-2">📋 SLA (Service Level Agreement) là gì?</p>
+              <p className="text-body-xs text-muted-foreground">
+                Hệ thống tự động theo dõi các mốc thời gian quan trọng với khách hàng và cảnh báo khi cần hành động.
+              </p>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="p-3 rounded-lg bg-blue-50 border border-blue-100">
+                <p className="text-body-xs font-medium text-blue-700">📞 Liên hệ định kỳ</p>
+                <p className="text-body-xs text-blue-600 mt-1">Nhắc liên hệ khách hàng theo chu kỳ đã cài đặt (VD: mỗi 30 ngày)</p>
+              </div>
+              <div className="p-3 rounded-lg bg-orange-50 border border-orange-100">
+                <p className="text-body-xs font-medium text-orange-700">🔄 Kích hoạt lại</p>
+                <p className="text-body-xs text-orange-600 mt-1">Cảnh báo khi khách hàng không đặt hàng quá lâu (VD: 60+ ngày)</p>
+              </div>
+              <div className="p-3 rounded-lg bg-rose-50 border border-rose-100">
+                <p className="text-body-xs font-medium text-rose-700">💰 Nhắc công nợ</p>
+                <p className="text-body-xs text-rose-600 mt-1">Cảnh báo khi có công nợ quá hạn cần thu hồi</p>
+              </div>
+            </div>
+            
+            <div className="text-body-xs text-muted-foreground bg-muted/50 p-3 rounded-lg">
+              <p className="font-medium mb-1">💡 Cài đặt SLA:</p>
+              <p>Vào <strong>Cài đặt → Khách hàng → Tab SLA</strong> để tùy chỉnh thời gian và ngưỡng cảnh báo phù hợp với quy trình kinh doanh.</p>
+            </div>
+          </div>
+          
+          {/* Activity History */}
+          {activityLogs.length > 0 && (
+            <div className="border-t pt-4">
+              <p className="text-body-sm font-medium mb-3">📜 Lịch sử hoạt động gần đây</p>
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {activityLogs.map((log, idx) => (
+                  <div key={idx} className="flex items-center justify-between text-body-xs py-1.5 border-b border-border/50 last:border-0">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-xs">{getSlaTypeLabel(log.slaType)}</Badge>
+                      <span className="text-muted-foreground">{getActionLabel(log.actionType)}</span>
+                    </div>
+                    <span className="text-muted-foreground">{format(new Date(log.performedAt), 'dd/MM HH:mm', { locale: vi })}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     );
@@ -127,9 +314,17 @@ export function CustomerSlaStatusCard({ customer }: Props) {
     <Card>
       <CardHeader>
         <CardTitle>Trạng thái SLA</CardTitle>
-        <CardDescription>Danh sách cảnh báo cần xử lý</CardDescription>
+        <CardDescription>Quản lý cam kết dịch vụ - Xử lý cảnh báo theo thứ tự ưu tiên: Quá hạn → Nghiêm trọng → Cảnh báo</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Workflow guidance */}
+        <div className="bg-blue-50 border border-blue-100 rounded-lg p-3">
+          <p className="text-body-xs text-blue-700">
+            <strong>💡 Cách xử lý:</strong> Nhấn "<Check className="inline h-3 w-3" /> Đã xử lý" sau khi liên hệ/xử lý khách hàng. 
+            Nếu cần tạm hoãn, dùng menu "⋯" để tạm ẩn cảnh báo.
+          </p>
+        </div>
+
         {/* Summary Bar */}
         <div className="bg-muted/50 rounded-lg p-3 space-y-3">
           {/* Progress */}
@@ -211,6 +406,121 @@ export function CustomerSlaStatusCard({ customer }: Props) {
           const badgeMeta = SLA_TYPE_BADGES[alert.slaType];
           const colorClass = badgeMeta?.color || 'text-slate-600 bg-slate-100';
           
+          // Quick actions based on SLA type
+          const renderQuickActions = () => {
+            if (alert.slaType === 'follow-up') {
+              // Liên hệ định kỳ - Gọi điện, Zalo
+              return (
+                <div className="flex gap-1.5">
+                  {customer.phone && (
+                    <TooltipProvider delayDuration={0}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button variant="outline" size="sm" className="h-7 px-2" asChild>
+                            <a href={`tel:${customer.phone}`}>
+                              <Phone className="h-3.5 w-3.5" />
+                            </a>
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Gọi {customer.phone}</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
+                  {(customer.zaloPhone || customer.phone) && (
+                    <TooltipProvider delayDuration={0}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button variant="outline" size="sm" className="h-7 px-2" asChild>
+                            <a href={`https://zalo.me/${customer.zaloPhone || customer.phone}`} target="_blank" rel="noopener noreferrer">
+                              <MessageCircle className="h-3.5 w-3.5" />
+                            </a>
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Nhắn Zalo</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
+                </div>
+              );
+            }
+            
+            if (alert.slaType === 're-engagement') {
+              // Kích hoạt lại - Tạo đơn hàng, Gọi điện
+              return (
+                <div className="flex gap-1.5">
+                  <TooltipProvider delayDuration={0}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="h-7 px-2"
+                          onClick={() => router.push(`/orders/new?customer=${customer.systemId}`)}
+                        >
+                          <ShoppingCart className="h-3.5 w-3.5" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Tạo đơn hàng mới</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  {customer.phone && (
+                    <TooltipProvider delayDuration={0}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button variant="outline" size="sm" className="h-7 px-2" asChild>
+                            <a href={`tel:${customer.phone}`}>
+                              <Phone className="h-3.5 w-3.5" />
+                            </a>
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Gọi {customer.phone}</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
+                </div>
+              );
+            }
+            
+            if (alert.slaType === 'debt-payment') {
+              // Nhắc công nợ - Xem công nợ, Gọi điện
+              return (
+                <div className="flex gap-1.5">
+                  <TooltipProvider delayDuration={0}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="h-7 px-2"
+                          onClick={() => router.push(`/customers/${customer.systemId}?tab=debt`)}
+                        >
+                          <CreditCard className="h-3.5 w-3.5" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Xem chi tiết công nợ</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  {customer.phone && (
+                    <TooltipProvider delayDuration={0}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button variant="outline" size="sm" className="h-7 px-2" asChild>
+                            <a href={`tel:${customer.phone}`}>
+                              <Phone className="h-3.5 w-3.5" />
+                            </a>
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Gọi nhắc nợ</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
+                </div>
+              );
+            }
+            
+            return null;
+          };
+          
           return (
             <div key={`${alert.slaType}-${alert.targetDate}`} className="border border-border rounded-lg p-3 space-y-2">
               <div className="flex justify-between items-center">
@@ -227,10 +537,18 @@ export function CustomerSlaStatusCard({ customer }: Props) {
                   {alert.alertLevel === 'overdue' ? 'Quá hạn' : alert.alertLevel === 'critical' ? 'Nghiêm trọng' : alert.alertLevel === 'warning' ? 'Cảnh báo' : 'Bình thường'}
                 </Badge>
               </div>
-              <div className="flex items-center justify-between text-body-sm text-muted-foreground">
-                <span>Phụ trách: {alert.assignee || '—'}</span>
-                <span>Hoạt động cuối: {alert.lastActivityDate ? format(new Date(alert.lastActivityDate), 'dd/MM/yyyy', { locale: vi }) : '—'}</span>
+              
+              {/* Quick Actions Row */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-body-xs text-muted-foreground">Hành động nhanh:</span>
+                  {renderQuickActions()}
+                </div>
+                <span className="text-body-xs text-muted-foreground">
+                  Hoạt động cuối: {alert.lastActivityDate ? format(new Date(alert.lastActivityDate), 'dd/MM/yyyy', { locale: vi }) : '—'}
+                </span>
               </div>
+              
               <div className="flex justify-end gap-2">
                 {alertIsSnoozed ? (
                   <Badge variant="outline" className="text-amber-600">
@@ -374,6 +692,38 @@ export function CustomerSlaStatusCard({ customer }: Props) {
             <p className="text-body-sm text-purple-700">
               Health score: {healthAlert.healthScore}/100 • Không mua: {healthAlert.daysSinceLastPurchase} ngày
             </p>
+          </div>
+        )}
+
+        {/* Activity History */}
+        {activityLogs.length > 0 && (
+          <div className="border-t pt-4 mt-4">
+            <h4 className="text-body-sm font-medium mb-3 flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              Lịch sử xử lý SLA
+            </h4>
+            <div className="space-y-2 max-h-50 overflow-y-auto">
+              {activityLogs.map((log, idx) => (
+                <div key={idx} className="flex items-start gap-3 text-body-xs p-2 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
+                  <div className="shrink-0 w-2 h-2 rounded-full bg-primary mt-1.5" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-medium">{getSlaTypeLabel(log.slaType)}</span>
+                      <Badge variant="outline" className="text-[10px] h-5">
+                        {getActionLabel(log.actionType)}
+                      </Badge>
+                    </div>
+                    {log.notes && (
+                      <p className="text-muted-foreground truncate">{log.notes}</p>
+                    )}
+                    <div className="flex items-center gap-2 text-muted-foreground mt-0.5">
+                      <span>{format(new Date(log.performedAt), 'dd/MM/yyyy HH:mm', { locale: vi })}</span>
+                      {log.performedBy && <span>• {log.performedBy}</span>}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </CardContent>

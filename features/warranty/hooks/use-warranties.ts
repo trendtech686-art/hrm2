@@ -8,12 +8,15 @@ import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tansta
 import {
   fetchWarranties,
   fetchWarranty,
-  createWarranty,
-  updateWarranty,
-  deleteWarranty,
   fetchWarrantyStats,
   type WarrantiesParams,
 } from '../api/warranties-api';
+import {
+  createWarrantyAction,
+  updateWarrantyAction,
+  deleteWarrantyAction,
+  type CreateWarrantyInput,
+} from '@/app/actions/warranty';
 import type { WarrantyTicket } from '@/lib/types/prisma-extended';
 
 export const warrantyKeys = {
@@ -44,11 +47,23 @@ export function useWarranty(id: string | null | undefined) {
   });
 }
 
-export function useWarrantyStats() {
+// Types for initial data from Server Components - matches fetchWarrantyStats return type
+export interface WarrantyStats {
+  total: number;
+  pending: number;
+  processed: number;
+  completed: number;
+}
+
+/**
+ * Hook for warranty statistics with optional initial data from Server Component
+ */
+export function useWarrantyStats(initialData?: WarrantyStats) {
   return useQuery({
     queryKey: warrantyKeys.stats(),
     queryFn: fetchWarrantyStats,
-    staleTime: 60_000,
+    initialData,
+    staleTime: initialData ? 60_000 : 0, // Fresh for 1 min if we have initial data
     gcTime: 10 * 60 * 1000, // 10 minutes
   });
 }
@@ -64,7 +79,11 @@ export function useWarrantyMutations(options: UseWarrantyMutationsOptions = {}) 
   const queryClient = useQueryClient();
   
   const create = useMutation({
-    mutationFn: createWarranty,
+    mutationFn: async (data: CreateWarrantyInput) => {
+      const result = await createWarrantyAction(data);
+      if (!result.success) throw new Error(result.error || 'Failed to create warranty');
+      return result.data as WarrantyTicket;
+    },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: warrantyKeys.lists() });
       queryClient.invalidateQueries({ queryKey: warrantyKeys.stats() });
@@ -74,8 +93,11 @@ export function useWarrantyMutations(options: UseWarrantyMutationsOptions = {}) 
   });
   
   const update = useMutation({
-    mutationFn: ({ systemId, data }: { systemId: string; data: Partial<WarrantyTicket> }) => 
-      updateWarranty(systemId, data),
+    mutationFn: async ({ systemId, data }: { systemId: string; data: Partial<WarrantyTicket> }) => {
+      const result = await updateWarrantyAction({ systemId, ...data });
+      if (!result.success) throw new Error(result.error || 'Failed to update warranty');
+      return result.data as WarrantyTicket;
+    },
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: warrantyKeys.detail(variables.systemId) });
       queryClient.invalidateQueries({ queryKey: warrantyKeys.lists() });
@@ -86,7 +108,11 @@ export function useWarrantyMutations(options: UseWarrantyMutationsOptions = {}) 
   });
   
   const remove = useMutation({
-    mutationFn: deleteWarranty,
+    mutationFn: async (systemId: string) => {
+      const result = await deleteWarrantyAction(systemId);
+      if (!result.success) throw new Error(result.error || 'Failed to delete warranty');
+      return result.data;
+    },
     // Optimistic delete - UI cập nhật ngay lập tức
     onMutate: async (systemId) => {
       await queryClient.cancelQueries({ queryKey: warrantyKeys.lists() });
@@ -130,5 +156,5 @@ export function usePendingWarranties() {
 }
 
 export function useWarrantiesByCustomer(customerId: string | null | undefined) {
-  return useWarranties({ customerId: customerId || undefined, limit: 50 });
+  return useWarranties({ customerId: customerId || undefined });
 }

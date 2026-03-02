@@ -14,7 +14,7 @@ import { TimePicker } from '../../../components/ui/time-picker';
 import { CheckCircle2, XCircle, Clock, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
 import type { SystemId } from '../../../lib/id-types';
-import { useAllLeaves } from '../../leaves/hooks/use-all-leaves';
+import { useLeavesByDateRange } from '../../leaves/hooks/use-leaves';
 import { formatDate } from '../../../lib/date-utils';
 import { Badge } from '../../../components/ui/badge';
 import type { LeaveRequest } from '../../leaves/types';
@@ -65,7 +65,7 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
-const isDateWithinRange = (target: Date, start: Date, end: Date) => {
+const _isDateWithinRange = (target: Date, start: Date, end: Date) => {
     const normalizedStart = new Date(start.getFullYear(), start.getMonth(), start.getDate());
     const normalizedEnd = new Date(end.getFullYear(), end.getMonth(), end.getDate());
     const normalizedTarget = new Date(target.getFullYear(), target.getMonth(), target.getDate());
@@ -73,7 +73,6 @@ const isDateWithinRange = (target: Date, start: Date, end: Date) => {
 };
 
 export function AttendanceEditDialog({ isOpen, onOpenChange, recordData, onSave, monthDate }: AttendanceEditDialogProps) {
-    const { data: leaveRequests = [] } = useAllLeaves();
     const form = useForm<FormValues>({
         resolver: zodResolver(formSchema),
     });
@@ -86,26 +85,21 @@ export function AttendanceEditDialog({ isOpen, onOpenChange, recordData, onSave,
         return new Date(monthDate.getFullYear(), monthDate.getMonth(), recordData.day);
     }, [recordData, monthDate]);
 
-    const overlappingLeaves = React.useMemo(() => {
-        if (!recordData || !targetDate) return [] as LeaveRequest[];
-        return leaveRequests.filter((leave) => {
-            if (leave.employeeSystemId !== recordData.employeeSystemId) return false;
-            if (leave.status !== 'Đã duyệt') return false;
-            const start = new Date(leave.startDate);
-            const end = new Date(leave.endDate);
-            if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
-                return false;
-            }
-            return isDateWithinRange(targetDate, start, end);
-        });
-    }, [leaveRequests, recordData, targetDate]);
+    // Server-side: fetch approved leaves for this employee overlapping the target date
+    const targetDateStr = targetDate ? targetDate.toISOString().split('T')[0] : undefined;
+    const { data: overlappingLeaves = [] } = useLeavesByDateRange({
+        status: 'Đã duyệt',
+        employeeId: recordData?.employeeSystemId,
+        fromDate: targetDateStr,
+        toDate: targetDateStr,
+    }) as { data: LeaveRequest[] };
 
     const hasApprovedLeave = overlappingLeaves.length > 0;
     const formattedTargetDate = targetDate ? formatDate(targetDate) : '';
 
     React.useEffect(() => {
         if (isOpen && recordData) {
-            reset(recordData.record as any);
+            reset(recordData.record as FormValues);
         }
     }, [isOpen, recordData, reset]);
 
@@ -144,7 +138,7 @@ export function AttendanceEditDialog({ isOpen, onOpenChange, recordData, onSave,
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[500px]">
+            <DialogContent className="sm:max-w-125">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <Calendar className="h-5 w-5" />

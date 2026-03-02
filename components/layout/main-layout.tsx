@@ -34,6 +34,12 @@ interface MainLayoutProps {
 export function MainLayout({ children }: MainLayoutProps) {
   const { isSidebarOpen, setSidebarOpen, isSidebarCollapsed } = useUiStore();
   const isDesktop = useMediaQuery('(min-width: 1024px)');
+  const [isMounted, setIsMounted] = React.useState(false);
+  
+  // Track when component is mounted to avoid hydration mismatch
+  React.useEffect(() => {
+    setIsMounted(true);
+  }, []);
   
   // NOTE: Idle preload disabled - most pages are now direct imports for instant navigation
   // Only Wiki, Reports, and Settings remain lazy-loaded
@@ -59,8 +65,8 @@ export function MainLayout({ children }: MainLayoutProps) {
               </main>
             </div>
           </div>
-          {/* Overlay for mobile sidebar */}
-          {isSidebarOpen && !isDesktop && (
+          {/* Overlay for mobile sidebar - only render after mount to avoid hydration mismatch */}
+          {isMounted && isSidebarOpen && !isDesktop && (
             <div 
               className="fixed inset-0 z-20 bg-black/50 lg:hidden"
               onClick={() => setSidebarOpen(false)}

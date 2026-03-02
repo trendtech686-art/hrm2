@@ -1,6 +1,6 @@
 import * as React from "react";
-import { useActiveProducts } from "../../features/products/hooks/use-all-products";
-import { Package, ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { useInfiniteMeiliProductSearch } from "../../hooks/use-meilisearch";
+import { Package, Search } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -12,7 +12,6 @@ import {
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Checkbox } from "../ui/checkbox";
-import { ScrollArea } from "../ui/scroll-area";
 import { cn } from "../../lib/utils";
 import type { Product } from "../../features/products/types";
 
@@ -25,8 +24,6 @@ interface BulkProductSelectorDialogProps {
   description?: string;
   branchSystemId?: string; // Display inventory for specific branch
 }
-
-const ITEMS_PER_PAGE = 10;
 
 const _formatCurrency = (value: number) => {
   return new Intl.NumberFormat("vi-VN", {
@@ -44,84 +41,106 @@ export function BulkProductSelectorDialog({
   description,
   branchSystemId: _branchSystemId,
 }: BulkProductSelectorDialogProps) {
-  const { data: activeProducts } = useActiveProducts();
   const [search, setSearch] = React.useState("");
   const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());
-  const [currentPage, setCurrentPage] = React.useState(0);
+  const [selectedProducts, setSelectedProducts] = React.useState<Map<string, Product>>(new Map());
+  const scrollContainerRef = React.useRef<HTMLDivElement>(null);
+
+  // ✅ Use Meilisearch for fast product search with infinite scroll
+  const { data: searchResult, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteMeiliProductSearch({ 
+    query: search,
+    debounceMs: 200,
+  });
 
   // Reset state when dialog closes
   React.useEffect(() => {
     if (!open) {
       setSearch("");
       setSelectedIds(new Set());
-      setCurrentPage(0);
+      setSelectedProducts(new Map());
     }
   }, [open]);
 
-  // Get available products
-  const availableProducts = React.useMemo(() => {
-    return activeProducts.filter(p => !excludeProductIds.includes(p.systemId));
-  }, [activeProducts, excludeProductIds]);
-
-  // Filter products by search
+  // Get search results (exclude already excluded products) - flatten all pages
   const filteredProducts = React.useMemo(() => {
-    if (!search) return availableProducts;
+    const products = searchResult?.pages.flatMap(page => page.data) || [];
+    return products.filter(p => !excludeProductIds.includes(p.systemId));
+  }, [searchResult, excludeProductIds]);
+  
+  // Infinite scroll handler
+  const handleScroll = React.useCallback(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
     
-    const searchLower = search.toLowerCase();
-    return availableProducts.filter(
-      (product) =>
-        product.name.toLowerCase().includes(searchLower) ||
-        product.id.toLowerCase().includes(searchLower) ||
-        product.barcode?.toLowerCase().includes(searchLower)
-    );
-  }, [availableProducts, search]);
-
-  // Paginate
-  const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
-  const paginatedProducts = React.useMemo(() => {
-    const start = currentPage * ITEMS_PER_PAGE;
-    return filteredProducts.slice(start, start + ITEMS_PER_PAGE);
-  }, [filteredProducts, currentPage]);
-
-  // Calculate total inventory across ALL branches
-  const getTotalInventory = (product: Product): number => {
-    const inventoryByBranch = product.inventoryByBranch || {};
-    return Object.values(inventoryByBranch).reduce((sum, qty) => sum + qty, 0);
-  };
-
-  // Toggle select all on current page
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      const newSelected = new Set(selectedIds);
-      paginatedProducts.forEach((p) => newSelected.add(p.systemId));
-      setSelectedIds(newSelected);
-    } else {
-      const newSelected = new Set(selectedIds);
-      paginatedProducts.forEach((p) => newSelected.delete(p.systemId));
-      setSelectedIds(newSelected);
+    const { scrollTop, scrollHeight, clientHeight } = container;
+    const scrollBottom = scrollHeight - scrollTop - clientHeight;
+    
+    if (scrollBottom < 100 && hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
     }
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  // Toggle select all visible products
+  const handleSelectAll = (checked: boolean) => {
+    const newSelected = new Set(selectedIds);
+    const newProducts = new Map(selectedProducts);
+    
+    if (checked) {
+      filteredProducts.forEach((p) => {
+        newSelected.add(p.systemId);
+        // Store product data from Meilisearch
+        newProducts.set(p.systemId, {
+          systemId: p.systemId,
+          id: p.id,
+          name: p.name,
+          barcode: p.barcode || undefined,
+          costPrice: p.costPrice || 0,
+          thumbnailImage: p.thumbnailImage || undefined,
+        } as unknown as Product);
+      });
+    } else {
+      filteredProducts.forEach((p) => {
+        newSelected.delete(p.systemId);
+        newProducts.delete(p.systemId);
+      });
+    }
+    setSelectedIds(newSelected);
+    setSelectedProducts(newProducts);
   };
 
   // Toggle individual product
-  const handleToggleProduct = (productId: string) => {
+  const handleToggleProduct = (productId: string, productData?: typeof filteredProducts[0]) => {
     const newSelected = new Set(selectedIds);
+    const newProducts = new Map(selectedProducts);
+    
     if (newSelected.has(productId)) {
       newSelected.delete(productId);
+      newProducts.delete(productId);
     } else {
       newSelected.add(productId);
+      if (productData) {
+        newProducts.set(productId, {
+          systemId: productData.systemId,
+          id: productData.id,
+          name: productData.name,
+          barcode: productData.barcode || undefined,
+          costPrice: productData.costPrice || 0,
+          thumbnailImage: productData.thumbnailImage || undefined,
+        } as unknown as Product);
+      }
     }
     setSelectedIds(newSelected);
+    setSelectedProducts(newProducts);
   };
 
-  // Check if all on page are selected
+  // Check if all visible products are selected
   const allPageSelected =
-    paginatedProducts.length > 0 &&
-    paginatedProducts.every((p) => selectedIds.has(p.systemId));
+    filteredProducts.length > 0 &&
+    filteredProducts.every((p) => selectedIds.has(p.systemId));
 
   const handleConfirm = () => {
-    const selected = availableProducts.filter((p) =>
-      selectedIds.has(p.systemId)
-    );
+    // Return selected products (basic data from Meilisearch)
+    const selected = Array.from(selectedProducts.values());
     onConfirm(selected);
     onOpenChange(false);
   };
@@ -143,10 +162,7 @@ export function BulkProductSelectorDialog({
             <Input
               placeholder="Tìm kiếm tên, mã, barcode..."
               value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setCurrentPage(0);
-              }}
+              onChange={(e) => setSearch(e.target.value)}
               className="pl-9"
             />
           </div>
@@ -163,20 +179,27 @@ export function BulkProductSelectorDialog({
             <span className="text-sm font-medium flex-1">
               Sản phẩm ({filteredProducts.length})
             </span>
-            <span className="text-sm font-medium w-24 text-right">Tồn kho</span>
           </div>
 
-          {/* Product List */}
-          <ScrollArea className="h-[50vh] sm:h-[calc(90vh-280px)]">
-            {paginatedProducts.length === 0 ? (
+          {/* Product List with infinite scroll */}
+          <div 
+            ref={scrollContainerRef}
+            className="h-[50vh] sm:h-[calc(90vh-280px)] overflow-y-auto"
+            onScroll={handleScroll}
+          >
+            {isLoading ? (
+              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                <div className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full mb-3" />
+                <p>Đang tìm kiếm...</p>
+              </div>
+            ) : filteredProducts.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                 <Package className="h-12 w-12 mb-3" />
                 <p>Không tìm thấy sản phẩm</p>
               </div>
             ) : (
               <div className="divide-y">
-                {paginatedProducts.map((product) => {
-                  const totalStock = getTotalInventory(product);
+                {filteredProducts.map((product) => {
                   const isSelected = selectedIds.has(product.systemId);
 
                   return (
@@ -186,16 +209,16 @@ export function BulkProductSelectorDialog({
                         "flex items-center gap-3 sm:gap-4 px-4 sm:px-4 py-3 hover:bg-muted/50 cursor-pointer transition-colors",
                         isSelected && "bg-primary/5"
                       )}
-                      onClick={() => handleToggleProduct(product.systemId)}
+                      onClick={() => handleToggleProduct(product.systemId, product)}
                     >
                       <Checkbox
                         checked={isSelected}
-                        onCheckedChange={() => handleToggleProduct(product.systemId)}
+                        onCheckedChange={() => handleToggleProduct(product.systemId, product)}
                         onClick={(e) => e.stopPropagation()}
                       />
 
                       {/* Product Image */}
-                      <div className="w-10 h-9 sm:w-12 sm:h-12 flex-shrink-0 bg-muted rounded flex items-center justify-center">
+                      <div className="w-10 h-9 sm:w-12 sm:h-12 shrink-0 bg-muted rounded flex items-center justify-center">
                         <Package className="h-5 w-5 sm:h-6 sm:w-6 text-muted-foreground" />
                       </div>
 
@@ -204,52 +227,29 @@ export function BulkProductSelectorDialog({
                         <p className="font-medium truncate text-sm sm:text-base">{product.name}</p>
                         <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
                           <span>{product.id}</span>
-                          <span>•</span>
-                          <span>{product.unit || "Cái"}</span>
-                          <span className="sm:hidden">•</span>
-                          <span className="sm:hidden font-medium text-foreground">Tồn: {totalStock}</span>
                         </div>
-                      </div>
-
-                      {/* Stock - Desktop */}
-                      <div className="hidden sm:block text-sm font-medium w-24 text-right">
-                        {totalStock}
                       </div>
                     </div>
                   );
                 })}
+                
+                {/* Loading more indicator */}
+                {isFetchingNextPage && (
+                  <div className="flex items-center justify-center py-4 text-muted-foreground">
+                    <div className="animate-spin h-5 w-5 border-2 border-primary border-t-transparent rounded-full mr-2" />
+                    <span className="text-sm">Đang tải thêm...</span>
+                  </div>
+                )}
+                
+                {/* Info footer */}
+                {hasNextPage && (
+                  <div className="text-center py-3 text-sm text-muted-foreground">
+                    Cuộn xuống để tải thêm
+                  </div>
+                )}
               </div>
             )}
-          </ScrollArea>
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="border-t px-4 py-3 flex items-center justify-between bg-background">
-              <div className="text-xs sm:text-sm text-muted-foreground">
-                Trang {currentPage + 1} / {totalPages}
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
-                  disabled={currentPage === 0}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    setCurrentPage((p) => Math.min(totalPages - 1, p + 1))
-                  }
-                  disabled={currentPage >= totalPages - 1}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          )}
+          </div>
         </div>
 
         <DialogFooter className="px-4 py-4 sm:px-6 gap-2">

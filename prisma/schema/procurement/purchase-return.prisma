@@ -1,7 +1,7 @@
 model PurchaseReturn {
   systemId        String               @id
   id              String               @unique
-  supplierId      String
+  supplierId      String?
   purchaseOrderId String?
   branchId        String?
   employeeId      String?
@@ -39,12 +39,9 @@ model PurchaseReturn {
   // Creator info
   creatorName String?
 
-  // Activity History
-  activityHistory Json?
-
   // === RELATIONS ===
   items     PurchaseReturnItem[]
-  suppliers Supplier             @relation(fields: [supplierId], references: [systemId])
+  suppliers Supplier?            @relation(fields: [supplierId], references: [systemId], onDelete: SetNull)
 
   @@map("purchase_returns")
 }

@@ -19,6 +19,7 @@ import { useMemo } from 'react';
 import { useAllOrders } from '../../orders/hooks/use-all-orders';
 import { useAllReceipts } from '../../receipts/hooks/use-all-receipts';
 import { useAllPayments } from '../../payments/hooks/use-all-payments';
+import { useCustomerOrders, useCustomerReceiptsHook, useCustomerPaymentsHook } from './use-customer-related-data';
 import type { Customer, DebtTransaction } from '../types';
 import type { Order } from '../../orders/types';
 import type { Receipt } from '../../receipts/types';
@@ -169,21 +170,26 @@ function computeCustomerDebtTransactions(
 
 /**
  * Hook to get computed debt for a single customer
+ * ⚡ PERFORMANCE: Uses customer-specific hooks instead of loading ALL data
  */
 export function useComputedCustomerDebt(customer: Customer | null | undefined): ComputedDebtInfo | null {
-  const { data: allOrders } = useAllOrders();
-  const { data: allReceipts } = useAllReceipts();
-  const { data: allPayments } = useAllPayments();
+  // ⚡ Only fetch data for this specific customer
+  const { data: customerOrders } = useCustomerOrders(customer?.systemId);
+  const { data: customerReceipts } = useCustomerReceiptsHook(customer?.systemId);
+  const { data: customerPayments } = useCustomerPaymentsHook(customer?.systemId);
 
   return useMemo(() => {
     if (!customer) return null;
-    return computeCustomerDebtTransactions(customer, allOrders, allReceipts, allPayments);
-  }, [customer, allOrders, allReceipts, allPayments]);
+    return computeCustomerDebtTransactions(customer, customerOrders, customerReceipts, customerPayments);
+  }, [customer, customerOrders, customerReceipts, customerPayments]);
 }
 
 /**
  * Hook to get computed debt for all customers as a map
  * Returns a Map of customerSystemId -> ComputedDebtInfo
+ * 
+ * ⚠️ PERFORMANCE: Loads all orders, receipts, payments
+ * @deprecated Use useAllCustomersDebt from use-customer-debt-api.ts for better performance
  */
 export function useAllCustomersComputedDebt(customers: Customer[]): Map<SystemId, ComputedDebtInfo> {
   const { data: allOrders } = useAllOrders();
@@ -205,6 +211,9 @@ export function useAllCustomersComputedDebt(customers: Customer[]): Map<SystemId
 /**
  * Hook to get customers with computed debt appended
  * Returns customers array with currentDebt AND debtTransactions replaced by computed values
+ * 
+ * ⚠️ PERFORMANCE: Loads all orders, receipts, payments
+ * @deprecated Use useAllCustomersDebt from use-customer-debt-api.ts for better performance
  */
 export function useCustomersWithComputedDebt(customers: Customer[]): Customer[] {
   const { data: allOrders } = useAllOrders();
@@ -222,3 +231,4 @@ export function useCustomersWithComputedDebt(customers: Customer[]): Customer[] 
     });
   }, [customers, allOrders, allReceipts, allPayments]);
 }
+

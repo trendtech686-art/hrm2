@@ -1,7 +1,9 @@
 import * as React from 'react';
 
 export function useMediaQuery(query: string) {
-  const [value, setValue] = React.useState(false);
+  // Use undefined initially to indicate "not yet determined"
+  // This helps avoid hydration mismatches
+  const [value, setValue] = React.useState<boolean | undefined>(undefined);
 
   React.useEffect(() => {
     const mediaQueryList = window.matchMedia(query);
@@ -17,5 +19,6 @@ export function useMediaQuery(query: string) {
     return () => mediaQueryList.removeEventListener('change', listener);
   }, [query]);
 
-  return value;
+  // Return false during SSR and initial hydration to match server render
+  return value ?? false;
 }

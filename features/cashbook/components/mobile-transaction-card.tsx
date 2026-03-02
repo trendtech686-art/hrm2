@@ -17,8 +17,6 @@ import {
 } from '../../../components/ui/dropdown-menu';
 import { DollarSign, CreditCard, Calendar, User, Building2, FileText, MoreHorizontal, Trash, Edit, Eye } from 'lucide-react';
 import type { CashbookTransaction } from '../columns';
-import type { Receipt } from '../../receipts/types';
-import type { Payment } from '../../payments/types';
 
 const formatCurrency = (value: number) => new Intl.NumberFormat('vi-VN').format(value);
 
@@ -36,17 +34,16 @@ interface MobileTransactionCardProps {
 export function MobileTransactionCard({
   transaction,
   branches,
-  receiptTypes,
-  paymentTypes,
+  receiptTypes: _receiptTypes,
+  paymentTypes: _paymentTypes,
   onEdit,
   onCancel,
 }: MobileTransactionCardProps) {
   const router = useRouter();
   const branch = branches.find(b => b.systemId === transaction.branchSystemId);
   const isReceipt = transaction.type === 'receipt';
-  const voucherType = isReceipt
-    ? receiptTypes.find(rt => rt.systemId === (transaction as Receipt).paymentReceiptTypeSystemId)
-    : paymentTypes.find(pt => pt.systemId === (transaction as Payment).paymentReceiptTypeSystemId);
+  // CashbookTransaction has paymentReceiptTypeName directly, no need for lookup
+  const voucherTypeName = transaction.paymentReceiptTypeName;
 
   const viewRoute = isReceipt ? ROUTES.FINANCE.RECEIPT_VIEW : ROUTES.FINANCE.PAYMENT_VIEW;
 
@@ -59,7 +56,7 @@ export function MobileTransactionCard({
         {/* Header: Icon + ID + Type + Menu */}
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2 flex-1 min-w-0">
-            <Avatar className={`h-8 w-8 flex-shrink-0 ${isReceipt ? 'bg-emerald-500/10' : 'bg-destructive/10'}`}>
+            <Avatar className={`h-8 w-8 shrink-0 ${isReceipt ? 'bg-emerald-500/10' : 'bg-destructive/10'}`}>
               <AvatarFallback className={isReceipt ? 'bg-emerald-500/10 text-emerald-600' : 'bg-destructive/10 text-destructive'}>
                 {isReceipt ? <DollarSign className="h-4 w-4" /> : <CreditCard className="h-4 w-4" />}
               </AvatarFallback>
@@ -76,7 +73,7 @@ export function MobileTransactionCard({
               <TouchButton
                 variant="ghost"
                 size="sm"
-                className="h-8 w-8 p-0 flex-shrink-0"
+                className="h-8 w-8 p-0 shrink-0"
                 onClick={(e) => e.stopPropagation()}
               >
                 <MoreHorizontal className="h-4 w-4" />
@@ -116,19 +113,21 @@ export function MobileTransactionCard({
 
         {/* Details */}
         <div className="space-y-2">
-          <div className="flex items-center text-xs text-muted-foreground">
-            <User className="h-3 w-3 mr-1.5 flex-shrink-0" />
-            <span className="truncate">{isReceipt ? (transaction as Receipt).payerName : (transaction as Payment).recipientName}</span>
-          </div>
-          {voucherType && (
+          {transaction.targetName && (
             <div className="flex items-center text-xs text-muted-foreground">
-              <FileText className="h-3 w-3 mr-1.5 flex-shrink-0" />
-              <span className="truncate">{voucherType.name}</span>
+              <User className="h-3 w-3 mr-1.5 shrink-0" />
+              <span className="truncate">{transaction.targetName}</span>
+            </div>
+          )}
+          {voucherTypeName && (
+            <div className="flex items-center text-xs text-muted-foreground">
+              <FileText className="h-3 w-3 mr-1.5 shrink-0" />
+              <span className="truncate">{voucherTypeName}</span>
             </div>
           )}
           {branch && (
             <div className="flex items-center text-xs text-muted-foreground">
-              <Building2 className="h-3 w-3 mr-1.5 flex-shrink-0" />
+              <Building2 className="h-3 w-3 mr-1.5 shrink-0" />
               <span className="truncate">{branch.name}</span>
             </div>
           )}

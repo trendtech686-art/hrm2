@@ -50,7 +50,7 @@ export function DataTableFacetedFilter({
           size="sm" 
           className="border-dashed border-border flex items-center px-3 text-sm w-full sm:w-auto justify-start"
         >
-          <PlusCircle className="mr-1.5 h-3.5 w-3.5 flex-shrink-0" />
+          <PlusCircle className="mr-1.5 h-3.5 w-3.5 shrink-0" />
           <span className="truncate">{title}</span>
           {selectedValues.size > 0 && (
             <>
@@ -88,7 +88,7 @@ export function DataTableFacetedFilter({
         </Button>
       </PopoverTrigger>
       {/* FIX: Removed unsupported `align` prop. */}
-      <PopoverContent className="w-[200px] p-0">
+      <PopoverContent className="w-50 p-0">
         <Command>
           <CommandInput placeholder={title} />
           <CommandList>

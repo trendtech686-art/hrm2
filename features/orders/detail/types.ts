@@ -1,14 +1,27 @@
-import type { OrderMainStatus } from '@/lib/types/prisma-extended';
+// OrderMainStatus removed - not used in this file
 import type { SystemId } from '@/lib/id-types';
 import type { Comment as CommentType } from '@/components/Comments';
 
 export type OrderComment = CommentType<SystemId>;
 
-export const statusVariants: Record<OrderMainStatus, "success" | "default" | "secondary" | "warning" | "destructive"> = {
+export const statusVariants: Record<string, "success" | "default" | "secondary" | "warning" | "destructive"> = {
     "Đặt hàng": "secondary",
     "Đang giao dịch": "warning",
     "Hoàn thành": "success",
     "Đã hủy": "destructive",
+    // Prisma enum values
+    "PENDING": "secondary",
+    "CONFIRMED": "secondary",
+    "PROCESSING": "warning",
+    "PACKING": "warning",
+    "PACKED": "warning",
+    "READY_FOR_PICKUP": "warning",
+    "SHIPPING": "warning",
+    "DELIVERED": "success",
+    "COMPLETED": "success",
+    "FAILED_DELIVERY": "destructive",
+    "RETURNED": "destructive",
+    "CANCELLED": "destructive",
 };
 
 export const productTypeFallbackLabels: Record<string, string> = {
