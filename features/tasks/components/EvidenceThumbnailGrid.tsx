@@ -64,8 +64,8 @@ export function EvidenceThumbnailGrid({
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <Image className="h-4 w-4 text-muted-foreground" />
-              <span className="text-body-sm font-medium">Bằng chứng hoàn thành</span>
-              <Badge variant="outline" className="text-body-xs">
+              <span className="text-sm font-medium">Bằng chứng hoàn thành</span>
+              <Badge variant="outline" className="text-xs">
                 {evidence.images.length} ảnh
               </Badge>
             </div>
@@ -106,14 +106,14 @@ export function EvidenceThumbnailGrid({
               >
                 <div className="text-center">
                   <p className="text-h4 font-bold">+{remainingCount}</p>
-                  <p className="text-body-xs text-muted-foreground">ảnh</p>
+                  <p className="text-xs text-muted-foreground">ảnh</p>
                 </div>
               </div>
             )}
           </div>
 
           {/* Metadata */}
-          <div className="text-body-xs text-muted-foreground space-y-1">
+          <div className="text-xs text-muted-foreground space-y-1">
             <p>
               <span className="font-medium">Người gửi:</span> {evidence.submittedByName}
             </p>
@@ -122,7 +122,7 @@ export function EvidenceThumbnailGrid({
               {formatDateTimeForDisplay(evidence.submittedAt)}
             </p>
             {evidence.note && (
-              <p className="mt-2 p-2 bg-muted/50 rounded text-body-sm">
+              <p className="mt-2 p-2 bg-muted/50 rounded text-sm">
                 <span className="font-medium">Ghi chú:</span>{' '}
                 <span className="whitespace-pre-wrap">{evidence.note}</span>
               </p>

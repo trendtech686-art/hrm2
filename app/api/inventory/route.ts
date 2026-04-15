@@ -3,6 +3,7 @@ import type { Prisma } from '@/generated/prisma/client'
 import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
 import { createInventorySchema } from './validation'
 import { generateNextIds } from '@/lib/id-system'
+import { logError } from '@/lib/logger'
 
 // GET /api/inventory - List all inventory
 export async function GET(request: Request) {
@@ -67,7 +68,7 @@ export async function GET(request: Request) {
 
     return apiPaginated(inventory, { page, limit, total })
   } catch (error) {
-    console.error('Error fetching inventory:', error)
+    logError('Error fetching inventory', error)
     return apiError('Failed to fetch inventory', 500)
   }
 }
@@ -105,7 +106,7 @@ export async function POST(request: Request) {
 
     return apiSuccess(inventory, 201)
   } catch (error) {
-    console.error('Error updating inventory:', error)
+    logError('Error updating inventory', error)
     return apiError('Failed to update inventory', 500)
   }
 }

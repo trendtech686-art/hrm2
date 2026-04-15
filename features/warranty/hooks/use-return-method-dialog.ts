@@ -1,13 +1,13 @@
 import * as React from 'react';
 import { toast } from 'sonner';
-import { useDebounce } from '../../../hooks/use-debounce';
-import { searchOrders, type OrderSearchResult } from '../../orders/order-search-api';
+import { useQueryClient } from '@tanstack/react-query';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
+import { searchOrdersPaginated, type OrderSearchResult } from '../../orders/order-search-api';
 import type { ComboboxOption } from '../../../components/ui/virtualized-combobox';
 import type { WarrantyTicket } from '../types';
 import type { Order } from '../../orders/types';
-import { useWarrantyMutations } from './use-warranties';
-import { getCurrentDate, toISODateTime } from '../../../lib/date-utils';
-import { asSystemId } from '@/lib/id-types';
+import { updateReturnMethodAction, updateWarrantyStatusAction } from '../../../app/actions/warranty';
+import { logError } from '@/lib/logger'
 
 type ReturnMethod = 'direct' | 'order' | null;
 
@@ -26,6 +26,8 @@ export interface ReturnMethodDialogState {
   isSearchingOrders: boolean;
   totalOrderCount: number;
   currentMethodLabel: string | null;
+  hasMoreOrders: boolean;
+  isLoadingMoreOrders: boolean;
 }
 
 export interface ReturnMethodDialogApi extends ReturnMethodDialogState {
@@ -36,6 +38,7 @@ export interface ReturnMethodDialogApi extends ReturnMethodDialogState {
   handleOrderSearchChange: (query: string) => void;
   handleConfirmDirect: () => void;
   handleConfirmWithOrder: () => Promise<void>;
+  handleLoadMoreOrders: () => void;
   resetDialog: () => void;
 }
 
@@ -44,27 +47,13 @@ export function useReturnMethodDialog({
   linkedOrder,
   currentUserName,
 }: UseReturnMethodDialogOptions): ReturnMethodDialogApi {
-  const { update: updateMutation } = useWarrantyMutations();
-  
-  // Wrapper functions for legacy interface
-  const update = React.useCallback((systemId: string, data: Partial<WarrantyTicket>) => {
-    updateMutation.mutate({ systemId, data });
-  }, [updateMutation]);
-  
-  const updateStatus = React.useCallback((systemId: string, status: WarrantyTicket['status'], reason?: string) => {
-    updateMutation.mutate({ systemId, data: { status, ...(reason && { statusReason: reason }) } });
-  }, [updateMutation]);
-  
-  const addHistory = React.useCallback((systemId: string, action: string, performedBy: string) => {
-    if (!ticket?.history) return;
-    const newEntry = {
-      action,
-      performedBy,
-      performedAt: toISODateTime(getCurrentDate()),
-    };
-    const newHistory = [...ticket.history, newEntry];
-    updateMutation.mutate({ systemId, data: { history: newHistory as unknown as WarrantyTicket['history'] } });
-  }, [ticket?.history, updateMutation]);
+  const queryClient = useQueryClient();
+  const invalidateWarranty = React.useCallback(() => {
+    if (!ticket) return;
+    invalidateRelated(queryClient, 'warranties');
+    // Direct await (not useMutation) → MutationCache doesn't fire → manual invalidate
+    queryClient.invalidateQueries({ queryKey: ['activity-logs'] });
+  }, [queryClient, ticket]);
 
   const [isOpen, setIsOpen] = React.useState(false);
   const [returnMethod, setReturnMethod] = React.useState<ReturnMethod>(null);
@@ -72,11 +61,14 @@ export function useReturnMethodDialog({
   const [orderSearchQuery, setOrderSearchQuery] = React.useState('');
   const [orderSearchResults, setOrderSearchResults] = React.useState<OrderSearchResult[]>([]);
   const [isSearchingOrders, setIsSearchingOrders] = React.useState(false);
+  const [totalOrderCount, setTotalOrderCount] = React.useState(0);
+  const [hasMoreOrders, setHasMoreOrders] = React.useState(false);
+  const [isLoadingMoreOrders, setIsLoadingMoreOrders] = React.useState(false);
+  const [orderPage, setOrderPage] = React.useState(1);
 
-  const debouncedOrderQuery = useDebounce(orderSearchQuery, 400);
+  const ORDER_PAGE_SIZE = 30;
 
-  // ⚡ OPTIMIZED: Removed totalOrderCount dependency on all orders - not needed for functionality
-  const totalOrderCount = 0;
+  // VirtualizedCombobox already debounces at 300ms — no need for additional hook-level debounce
 
   const selectedOrderValue = React.useMemo<ComboboxOption | null>(() => {
     if (!selectedOrderId) return null;
@@ -107,6 +99,10 @@ export function useReturnMethodDialog({
     setSelectedOrderId('');
     setOrderSearchQuery('');
     setReturnMethod(null);
+    setOrderPage(1);
+    setOrderSearchResults([]);
+    setHasMoreOrders(false);
+    setTotalOrderCount(0);
   }, []);
 
   const openDialog = React.useCallback(() => {
@@ -138,35 +134,46 @@ export function useReturnMethodDialog({
 
   const handleOrderSearchChange = React.useCallback((query: string) => {
     setOrderSearchQuery(query);
+    setOrderPage(1);
   }, []);
 
-  // ✅ FIX: Only fetch orders when dialog is open to avoid unnecessary API calls
+  // Resolve customer systemId from warranty ticket (may be customerSystemId or customerId in runtime data)
+  const customerSystemId = ticket?.customerSystemId ?? (ticket as unknown as Record<string, string> | null)?.customerId;
+
+  // Fetch orders with pagination (page 1 on query change, append on load more)
   React.useEffect(() => {
-    // Don't fetch if dialog is not open
     if (!isOpen) return;
     
     let isCancelled = false;
 
     async function fetchOrders() {
-      setIsSearchingOrders(true);
+      if (orderPage === 1) {
+        setIsSearchingOrders(true);
+      } else {
+        setIsLoadingMoreOrders(true);
+      }
       try {
-        // ⚡ OPTIMIZED: Use API search instead of client-side filtering
-        const results = await searchOrders({
-          query: debouncedOrderQuery || '',
-          limit: 50,
+        const { results, total, hasMore } = await searchOrdersPaginated({
+          query: orderSearchQuery || '',
+          limit: ORDER_PAGE_SIZE,
+          page: orderPage,
           branchSystemId: ticket?.branchSystemId,
+          customerSystemId: customerSystemId || undefined,
         });
         if (!isCancelled) {
-          setOrderSearchResults(results);
+          setOrderSearchResults(prev => orderPage === 1 ? results : [...prev, ...results]);
+          setTotalOrderCount(total);
+          setHasMoreOrders(hasMore);
         }
       } catch (error) {
         if (!isCancelled) {
-          console.error('Failed to search orders', error);
+          logError('Failed to search orders', error);
           toast.error('Không thể tìm đơn hàng, vui lòng thử lại');
         }
       } finally {
         if (!isCancelled) {
           setIsSearchingOrders(false);
+          setIsLoadingMoreOrders(false);
         }
       }
     }
@@ -175,47 +182,59 @@ export function useReturnMethodDialog({
     return () => {
       isCancelled = true;
     };
-  }, [isOpen, debouncedOrderQuery, ticket?.branchSystemId]);
+  }, [isOpen, orderSearchQuery, orderPage, ticket?.branchSystemId, customerSystemId]);
 
-  const handleConfirmDirect = React.useCallback(() => {
+  const handleLoadMoreOrders = React.useCallback(() => {
+    if (!hasMoreOrders || isLoadingMoreOrders) return;
+    setOrderPage(prev => prev + 1);
+  }, [hasMoreOrders, isLoadingMoreOrders]);
+
+  const handleConfirmDirect = React.useCallback(async () => {
     if (!ticket) return;
 
     try {
       if (ticket.status === 'RETURNED') {
-        update(ticket.systemId, {
-          linkedOrderSystemId: undefined,
+        // Update return method on already-returned ticket
+        const result = await updateReturnMethodAction({
+          systemId: ticket.systemId,
+          method: 'direct',
         });
 
-        addHistory(
-          ticket.systemId,
-          'Đổi phương thức trả hàng: Giao qua đơn hàng → Khách lấy trực tiếp',
-          currentUserName,
-        );
+        if (!result.success) {
+          toast.error(result.error || 'Không thể cập nhật');
+          return;
+        }
 
+        invalidateWarranty();
         toast.success('Đã cập nhật phương thức trả hàng', {
           description: 'Đổi sang: Khách lấy trực tiếp tại cửa hàng.',
-          duration: 5000,
         });
       } else {
-        updateStatus(ticket.systemId, 'RETURNED', 'Khách lấy trực tiếp tại cửa hàng');
-
-        update(ticket.systemId, {
-          returnedAt: toISODateTime(getCurrentDate()),
+        // First-time return: change status to RETURNED
+        const result = await updateWarrantyStatusAction({
+          systemId: ticket.systemId,
+          newStatus: 'RETURNED',
+          note: 'Khách lấy trực tiếp tại cửa hàng',
         });
 
+        if (!result.success) {
+          toast.error(result.error || 'Không thể trả hàng');
+          return;
+        }
+
+        invalidateWarranty();
         toast.success('Đã trả hàng cho khách', {
           description: 'Khách đã lấy hàng trực tiếp tại cửa hàng.',
-          duration: 5000,
         });
       }
 
       resetDialog();
       setIsOpen(false);
     } catch (error) {
-      console.error('Failed to mark as returned:', error);
+      logError('Failed to mark as returned', error);
       toast.error('Không thể cập nhật');
     }
-  }, [ticket, update, updateStatus, addHistory, currentUserName, resetDialog]);
+  }, [ticket, invalidateWarranty, resetDialog]);
 
   const handleConfirmWithOrder = React.useCallback(async () => {
     if (!ticket || !selectedOrderId) {
@@ -223,67 +242,71 @@ export function useReturnMethodDialog({
       return;
     }
 
-    // ⚡ NOTE: orderSearchResults contains OrderSearchResult which has value (systemId), label, subtitle
-    // We only need systemId and id (from label) for the update
     const selectedOrderResult = orderSearchResults.find((o) => o.value === selectedOrderId);
-
     if (!selectedOrderResult) {
       toast.error('Không tìm thấy đơn hàng');
       return;
     }
 
-    // Extract order ID from label (format: "DH000001 - Customer Name")
     const orderIdFromLabel = selectedOrderResult.label.split(' - ')[0];
 
     try {
       if (ticket.status === 'RETURNED') {
-        update(ticket.systemId, {
-          linkedOrderSystemId: asSystemId(selectedOrderId),
+        // Update return method on already-returned ticket
+        const result = await updateReturnMethodAction({
+          systemId: ticket.systemId,
+          method: 'order',
+          linkedOrderSystemId: selectedOrderId,
+          linkedOrderId: orderIdFromLabel,
         });
 
-        const oldMethod = ticket.linkedOrderSystemId
-          ? `đơn hàng ${linkedOrder?.id || 'N/A'}`
-          : 'Khách lấy trực tiếp';
+        if (!result.success) {
+          toast.error(result.error || 'Không thể cập nhật');
+          return;
+        }
 
-        addHistory(
-          ticket.systemId,
-          `Đổi phương thức trả hàng: ${oldMethod} → Giao qua đơn hàng ${orderIdFromLabel}`,
-          currentUserName,
-        );
-
+        invalidateWarranty();
         toast.success('Đã cập nhật phương thức trả hàng', {
           description: `Đổi sang: Giao qua đơn hàng ${orderIdFromLabel}.`,
-          duration: 5000,
         });
       } else {
-        updateStatus(ticket.systemId, 'RETURNED', `Liên kết với đơn hàng ${orderIdFromLabel}`);
-
-        update(ticket.systemId, {
-          linkedOrderSystemId: asSystemId(selectedOrderId),
-          returnedAt: toISODateTime(getCurrentDate()),
+        // First-time return: change status to RETURNED + link order
+        const result = await updateWarrantyStatusAction({
+          systemId: ticket.systemId,
+          newStatus: 'RETURNED',
+          note: `Liên kết với đơn hàng ${orderIdFromLabel}`,
         });
 
+        if (!result.success) {
+          toast.error(result.error || 'Không thể trả hàng');
+          return;
+        }
+
+        // Also set the linked order
+        await updateReturnMethodAction({
+          systemId: ticket.systemId,
+          method: 'order',
+          linkedOrderSystemId: selectedOrderId,
+          linkedOrderId: orderIdFromLabel,
+        });
+
+        invalidateWarranty();
         toast.success('Đã trả hàng cho khách', {
           description: `Đã liên kết với đơn hàng ${orderIdFromLabel}.`,
-          duration: 5000,
         });
       }
 
       resetDialog();
       setIsOpen(false);
     } catch (error) {
-      console.error('Failed to link order:', error);
+      logError('Failed to link order', error);
       toast.error('Không thể cập nhật');
     }
   }, [
     ticket,
     selectedOrderId,
     orderSearchResults,
-    update,
-    updateStatus,
-    addHistory,
-    linkedOrder?.id,
-    currentUserName,
+    invalidateWarranty,
     resetDialog,
   ]);
 
@@ -296,6 +319,8 @@ export function useReturnMethodDialog({
     isSearchingOrders,
     totalOrderCount,
     currentMethodLabel,
+    hasMoreOrders,
+    isLoadingMoreOrders,
     openDialog,
     handleOpenChange,
     handleReturnMethodChange,
@@ -303,6 +328,7 @@ export function useReturnMethodDialog({
     handleOrderSearchChange,
     handleConfirmDirect,
     handleConfirmWithOrder,
+    handleLoadMoreOrders,
     resetDialog,
   };
 }

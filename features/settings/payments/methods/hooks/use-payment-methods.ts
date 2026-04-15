@@ -5,6 +5,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import {
   fetchPaymentMethods,
   fetchPaymentMethodById,
@@ -29,12 +30,13 @@ export const paymentMethodKeys = {
 };
 
 // List hook
-export function usePaymentMethods(filters: PaymentMethodFilters = {}) {
+export function usePaymentMethods(filters: PaymentMethodFilters = {}, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: paymentMethodKeys.list(filters),
     queryFn: () => fetchPaymentMethods(filters),
-    staleTime: 0, // ⚠️ QUAN TRỌNG: 0 để refetch ngay sau invalidate
+    staleTime: 5 * 60 * 1000, // 5 phút - tránh refetch liên tục, invalidate sẽ force refetch khi cần
     gcTime: 1000 * 60 * 60,
+    enabled: options?.enabled ?? true,
   });
 }
 
@@ -69,11 +71,7 @@ interface MutationCallbacks {
 export function usePaymentMethodMutations(options: MutationCallbacks = {}) {
   const queryClient = useQueryClient();
   
-  // ⚠️ QUAN TRỌNG: refetchType: 'all' để force refetch ngay lập tức
-  const invalidate = () => queryClient.invalidateQueries({ 
-    queryKey: paymentMethodKeys.all,
-    refetchType: 'all',
-  });
+  const invalidate = () => invalidateRelated(queryClient, 'payment-methods');
 
   const create = useMutation({
     mutationFn: (data: PaymentMethodCreateInput) => createPaymentMethod(data),

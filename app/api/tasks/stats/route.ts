@@ -5,20 +5,22 @@
 
 import { NextResponse } from 'next/server';
 import { getTaskStats } from '@/lib/data/tasks';
+import { requirePermission, apiSuccess, apiError } from '@/lib/api-utils'
+import { logError } from '@/lib/logger'
 
 export async function GET(request: Request) {
+  const result = await requirePermission('view_tasks')
+  if (result instanceof NextResponse) return result
+
   try {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId') || undefined;
     
     const stats = await getTaskStats(userId);
     
-    return NextResponse.json(stats);
+    return apiSuccess(stats);
   } catch (error) {
-    console.error('Error fetching task stats:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch task stats' },
-      { status: 500 }
-    );
+    logError('Error fetching task stats', error);
+    return apiError('Không thể tải thống kê công việc', 500);
   }
 }

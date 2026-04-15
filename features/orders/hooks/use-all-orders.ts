@@ -70,11 +70,11 @@ export function useActiveOrders() {
 export { useOrderActions } from './use-order-actions';
 
 /**
- * Hook for finding order by systemId or business id from cached data
- * Replaces legacy store.findById() method
+ * Hook for finding order by systemId or business id from cached data.
+ * Cache-only: subscribes to the query cache but NEVER triggers a fetch.
  */
 export function useOrderFinder() {
-  const { data } = useAllOrders();
+  const { data } = useAllOrders({ enabled: false });
   
   const findById = React.useCallback(
     (systemId: SystemId | string | undefined): Order | undefined => {

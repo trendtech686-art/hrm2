@@ -4,6 +4,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import { 
   type WarrantySettings, 
   defaultWarrantySettings, 
@@ -78,7 +79,7 @@ export function useWarrantySettingsMutations(options: MutationCallbacks = {}) {
 
   const invalidateSettings = () => {
     invalidateWarrantySettingsCache();
-    queryClient.invalidateQueries({ queryKey: warrantySettingsKeys.all });
+    invalidateRelated(queryClient, 'warranty-settings');
   };
 
   const update = useMutation({

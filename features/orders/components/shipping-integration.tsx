@@ -3,7 +3,6 @@ import { useFormContext, useWatch } from 'react-hook-form';
 import { DeliveryMethodCard } from './shipping/delivery-method-card';
 import { useDebounce } from '@/hooks/use-debounce';
 import { GHTKService, type GHTKCreateOrderParams } from '@/features/settings/shipping/integrations/ghtk-service';
-import { useAllShippingPartners } from '@/features/settings/shipping/hooks/use-all-shipping-partners';
 import { loadShippingConfig, loadShippingConfigAsync } from '@/lib/utils/shipping-config-migration';
 import { useGlobalShippingConfig } from '@/features/orders/hooks/use-global-shipping-config'; // ✅ Import global config hook
 import { getGHTKCredentials } from '@/lib/utils/get-shipping-credentials'; // ✅ Import helper
@@ -21,11 +20,11 @@ import { useShippingSettings, DEFAULT_SHIPPING_SETTINGS } from '@/features/setti
 import { useProductFinder } from '@/features/products/hooks/use-all-products';
 import { useProvinces, useWards2Level } from '@/features/settings/provinces/hooks/use-administrative-units';
 import { useBranchFinder } from '@/features/settings/branches/hooks/use-all-branches';
-import { useAllOrders } from '../hooks/use-all-orders'; // ✅ Import orders hook
 import { asSystemId } from '@/lib/id-types';
 import { generateSubEntityId } from '@/lib/id-utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { Product, Branch, Customer } from '@/lib/types/prisma-extended';
+import { logError } from '@/lib/logger'
 
 // Type for line items in shipping integration
 interface ShippingLineItem {
@@ -136,10 +135,11 @@ function calculateProductWeights(
         p.weight = Math.round((p.weight / totalProductWeight) * userEnteredWeight);
       });
     } else {
-      // No product weights, distribute evenly
-      const weightPerProduct = Math.round(userEnteredWeight / products.length);
+      // No product weights, distribute evenly across line items
+      // Each product entry represents the TOTAL weight for that line (not per-unit)
+      const totalItems = products.reduce((sum, p) => sum + p.quantity, 0) || products.length;
       products.forEach(p => {
-        p.weight = weightPerProduct * p.quantity;
+        p.weight = Math.round((p.quantity / totalItems) * userEnteredWeight);
       });
     }
   }
@@ -248,12 +248,10 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
   const { control, setValue, getValues } = useFormContext<OrderFormValues>();
   const { data: rawShippingSettings } = useShippingSettings();
   const shippingSettings = rawShippingSettings ?? DEFAULT_SHIPPING_SETTINGS;
-  const { globalConfig: _globalConfig, getDimensions, getWeight: _getWeight, getDefaultShippingOptions: _getDefaultShippingOptions } = useGlobalShippingConfig(); // ✅ Get global config
+  const { getDimensions, globalConfig } = useGlobalShippingConfig(); // ✅ Get global config
   const { findById: findProductByIdBase } = useProductFinder();
   const { data: provinces = [] } = useProvinces();
   const { findById: findBranchByIdBase } = useBranchFinder();
-  const { data: _partners } = useAllShippingPartners();
-  const { data: _allOrders } = useAllOrders(); // ✅ Get all orders for ID generation
 
   // Get customer from props or form for province lookup
   const customerFromFormEarly = useWatch({ control, name: 'customer' });
@@ -319,13 +317,22 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
   const [_lastApiParams, _setLastApiParams] = React.useState<Record<string, unknown> | null>(null); // ✅ Store last API params for preview
   
   // ✅ NEW: State for async-loaded shipping partner config
-  const [partnerConfig, setPartnerConfig] = React.useState<ReturnType<typeof loadShippingConfig> | null>(null);
+  // ⚡ OPTIMIZED: Use loadShippingConfig (sync from cache) - cache is populated by initial page load
+  const [partnerConfig, setPartnerConfig] = React.useState<ReturnType<typeof loadShippingConfig> | null>(() => {
+    // Try to get from cache synchronously
+    const cached = loadShippingConfig();
+    // Only use cache if it has real data (has configured GHTK accounts, not default empty config)
+    const hasRealData = cached.version === 2 && cached.lastUpdated && 
+      Object.values(cached.partners).some(p => p.accounts.length > 0);
+    return hasRealData ? cached : null;
+  });
   
-  // ✅ NEW: Load shipping config async on mount
+  // ✅ Always load shipping config from DB on mount to ensure fresh data
   React.useEffect(() => {
     loadShippingConfigAsync().then(config => {
       setPartnerConfig(config);
     });
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- load once on mount
   }, []);
   
   // State for editable package info
@@ -772,6 +779,8 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
     // User phải click "Áp dụng" trong ServiceConfigForm mới set fee
     setValue('shippingPartnerId', service.partnerId);
     setValue('shippingServiceId', service.serviceId);
+    // ✅ Store service name for submit flow (not available in form values)
+    (window as unknown as Record<string, unknown>).__shippingServiceName = service.serviceName;
     
   }, [setValue]);
 
@@ -923,8 +932,38 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
         formValues.configuration as Record<string, unknown>
       ),
       
-      // Products
-      products: products,
+      // Products for GHTK API
+      // Setting productSendMode controls how products are sent:
+      //   'single' → Always send 1 product "Phụ Kiện" with qty=1 (for BBS/heavy items)
+      //   'all'    → Send full product list (consolidate when dimensions exist to avoid volumetric weight inflation)
+      products: globalConfig.productSendMode === 'single'
+        ? [{
+            name: 'Phụ Kiện',
+            weight: userEnteredWeight || products.reduce((sum, p) => sum + p.weight, 0),
+            quantity: 1,
+            price: products.reduce((sum, p) => sum + p.price * p.quantity, 0),
+            productCode: 'PHU-KIEN',
+            ...(packageInfo.height ? { height: packageInfo.height } : {}),
+            ...(packageInfo.width ? { width: packageInfo.width } : {}),
+            ...(packageInfo.length ? { length: packageInfo.length } : {}),
+          }]
+        : (packageInfo.height || packageInfo.width || packageInfo.length)
+          ? [{
+              name: products.length === 1
+                ? products[0].name
+                : `${products[0].name} + ${products.length - 1} SP khác`,
+              weight: userEnteredWeight || products.reduce((sum, p) => sum + p.weight, 0),
+              quantity: 1,
+              price: products.reduce((sum, p) => sum + p.price * p.quantity, 0),
+              productCode: products[0]?.productCode || 'DEFAULT',
+              height: packageInfo.height || undefined,
+              width: packageInfo.width || undefined,
+              length: packageInfo.length || undefined,
+            }]
+          : products.map(p => ({
+              ...p,
+              weight: p.quantity > 0 ? Math.round(p.weight / p.quantity) : p.weight,
+            })),
       
       // Payment
       pickMoney: packageInfo.codAmount || 0,
@@ -932,10 +971,13 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
       isFreeship: formValues.configuration?.payer === 'SHOP' ? 1 : 0, // ✅ Convert to 0/1
       failedDeliveryFee: formValues.configuration?.failedDeliveryFee as number | undefined, // ✅ Thêm field này
       
-      // Package info
+      // Package info — use card values directly
       weightOption: shippingSettings.weightUnit,
-      totalWeight: products.reduce((sum, p) => sum + p.weight, 0), // ✅ Recalculate
+      totalWeight: packageInfo.weight || 0, // ✅ Use user-entered weight from card directly
       totalBox: lineItems.reduce((sum, item) => sum + item.quantity, 0), // ✅ Thêm totalBox
+      height: packageInfo.height || undefined, // cm - order-level (kiện hàng)
+      width: packageInfo.width || undefined, // cm - order-level (kiện hàng)
+      length: packageInfo.length || undefined, // cm - order-level (kiện hàng)
       
       // Dates & configuration
       pickDate: formValues.configuration?.pickDate as string | undefined,
@@ -964,7 +1006,8 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
     pickupAddress,
     findBranchById,
     findProductById,
-    getValues
+    getValues,
+    globalConfig,
   ]);
 
   // Handle create shipment order
@@ -1106,7 +1149,7 @@ export function ShippingIntegration({ disabled, onChangeDeliveryAddress, hideTab
         toast.error('Chưa hỗ trợ', { description: `Chưa hỗ trợ tạo đơn cho ${selectedService.partnerName}` });
       }
     } catch (error) {
-      console.error('[ShippingIntegration] Create shipment error:', error);
+      logError('[ShippingIntegration] Create shipment error', error);
       
       // Parse error message for better user feedback
       let errorMessage = 'Vui lòng thử lại';

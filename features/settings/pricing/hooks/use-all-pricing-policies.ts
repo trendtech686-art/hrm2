@@ -5,19 +5,27 @@
 
 import * as React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { fetchAllPages } from '@/lib/fetch-all-pages';
 import { fetchPricingPolicies } from '../api/pricing-api';
 import { pricingPolicyKeys } from './use-pricing';
 
 // Re-export for backward compatibility
 export { usePricingPolicies } from './use-pricing';
 
-export function useAllPricingPolicies() {
+/**
+ * Returns all pricing policies as a flat array.
+ * Uses server-side limit=200 (pricing policies are typically <50 items).
+ */
+export function useAllPricingPolicies(options: { enabled?: boolean } = {}) {
+  const { enabled = true } = options;
   const query = useQuery({
     queryKey: [...pricingPolicyKeys.all, 'all'],
-    queryFn: () => fetchAllPages((p) => fetchPricingPolicies(p)),
-    staleTime: 10 * 60 * 1000,
-    gcTime: 60 * 60 * 1000,
+    queryFn: async () => {
+      const result = await fetchPricingPolicies({ page: 1, limit: 200 });
+      return result.data;
+    },
+    staleTime: 30 * 60 * 1000, // 30 minutes - settings rarely change
+    gcTime: 2 * 60 * 60 * 1000, // 2 hours
+    enabled,
   });
   return {
     data: query.data || [],

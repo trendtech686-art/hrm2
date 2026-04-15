@@ -1,22 +1,28 @@
 ﻿'use client'
 
 import * as React from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useReceiptFinder } from './hooks/use-all-receipts';
+import { useReceipt } from './hooks/use-receipts';
 import { ROUTES, generatePath } from '@/lib/router';
 import { usePageHeader } from '@/contexts/page-header-context';
+import { useBreakpoint } from '@/contexts/breakpoint-context';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Edit, Printer } from 'lucide-react';
+import { ArrowLeft, Edit, Printer, MoreHorizontal } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { formatDateCustom } from '@/lib/date-utils';
-import { asSystemId } from '@/lib/id-types';
-import { ActivityHistory } from '../../components/ActivityHistory';
+import { EntityActivityTable } from '@/components/shared/entity-activity-table';
 import { Comments, type Comment } from '../../components/Comments';
-import { useEmployeeFinder } from '../employees/hooks/use-all-employees';
+import { useAuth } from '../../contexts/auth-context';
 import { usePrint } from '../../lib/use-print';
-import { useStoreInfoData } from '../settings/store-info/hooks/use-store-info';
+import { fetchPrintData } from '@/lib/lazy-print-data';
 import { 
   convertReceiptForPrint,
   mapReceiptToPrintData, 
@@ -40,23 +46,22 @@ const getStatusBadge = (status?: string) => {
   return <Badge variant={config.variant}>{config.label}</Badge>;
 };
 
-export function ReceiptDetailPage() {
-  const { systemId } = useParams<{ systemId: string }>();
-  const router = useRouter();
-  const { findById } = useReceiptFinder();
-  const { findById: findEmployeeById } = useEmployeeFinder();
-  const { print } = usePrint();
-  const { info: storeInfo } = useStoreInfoData();
-  
-  const receiptSystemId = React.useMemo(() => (systemId ? asSystemId(systemId) : undefined), [systemId]);
-  const receipt = React.useMemo(
-    () => (receiptSystemId ? findById(receiptSystemId) : null),
-    [receiptSystemId, findById]
-  );
+interface ReceiptDetailPageProps {
+  systemId: string;
+}
 
-  const handlePrint = React.useCallback(() => {
+export function ReceiptDetailPage({ systemId }: ReceiptDetailPageProps) {
+  const router = useRouter();
+  const { data: receipt, isLoading } = useReceipt(systemId);
+  const { employee: authEmployee, can, isAdmin } = useAuth();
+  const { isMobile } = useBreakpoint();
+  const { print } = usePrint();
+
+  // ⚡ OPTIMIZED: Lazy load print data only when print is clicked
+  const handlePrint = React.useCallback(async () => {
     if (!receipt) return;
     
+    const { storeInfo } = await fetchPrintData();
     const storeSettings = createStoreSettings(storeInfo);
     const forPrint = convertReceiptForPrint(receipt);
     
@@ -65,13 +70,17 @@ export function ReceiptDetailPage() {
       entityType: 'receipt',
       entityId: receipt.systemId,
     });
-  }, [receipt, storeInfo, print]);
+  }, [receipt, print]);
 
-  // Get current employee for comments
-  const currentEmployee = React.useMemo(() => {
-    if (!receipt?.createdBy) return null;
-    return findEmployeeById(receipt.createdBy);
-  }, [receipt?.createdBy, findEmployeeById]);
+  const commentCurrentUser = React.useMemo(() => ({
+    systemId: authEmployee?.systemId || 'system',
+    name: authEmployee?.fullName || 'Hệ thống',
+  }), [authEmployee]);
+
+  const createdByName = React.useMemo(() => {
+    if (!receipt) return 'Hệ thống';
+    return (receipt as Record<string, unknown>).createdByName as string || receipt.createdBy || 'Hệ thống';
+  }, [receipt]);
 
   // ✅ Sử dụng useComments hook thay vì localStorage trực tiếp
   const { 
@@ -106,18 +115,6 @@ export function ReceiptDetailPage() {
   const handleDeleteComment = (commentId: string) => {
     dbDeleteComment(commentId);
   };
-
-  const commentCurrentUser = React.useMemo(() => ({
-    systemId: currentEmployee?.systemId || 'system',
-    name: currentEmployee?.fullName || 'Hệ thống',
-    avatar: currentEmployee?.avatar,
-  }), [currentEmployee]);
-
-  const createdByName = React.useMemo(() => {
-    if (!receipt) return 'Hệ thống';
-    const employee = receipt.createdBy ? findEmployeeById(receipt.createdBy) : null;
-    return employee?.fullName || receipt.createdBy || 'Hệ thống';
-  }, [receipt, findEmployeeById]);
 
   const payerLink = React.useMemo(() => {
     if (!receipt) return null;
@@ -183,7 +180,7 @@ export function ReceiptDetailPage() {
       );
     }
 
-    if (receipt && receipt.status !== 'cancelled') {
+    if (receipt && receipt.status !== 'cancelled' && (isAdmin || can('edit_receipts'))) {
       actions.push(
         <Button
           key="edit"
@@ -199,6 +196,34 @@ export function ReceiptDetailPage() {
 
     return actions;
   }, [router, receipt, handlePrint]);
+
+  const mobileHeaderActions = React.useMemo(() => {
+    if (!isMobile || !receipt) return [];
+    const items: React.ReactNode[] = [
+      <DropdownMenuItem key="print" onClick={handlePrint}>
+        <Printer className="mr-2 h-4 w-4" />
+        In phiếu
+      </DropdownMenuItem>,
+    ];
+    if (receipt.status !== 'cancelled' && (isAdmin || can('edit_receipts'))) {
+      items.push(
+        <DropdownMenuItem key="edit" onClick={() => router.push(generatePath(ROUTES.FINANCE.RECEIPT_EDIT, { systemId: receipt.systemId }))}>
+          <Edit className="mr-2 h-4 w-4" />
+          Chỉnh sửa
+        </DropdownMenuItem>,
+      );
+    }
+    return [
+      <DropdownMenu key="mobile-actions">
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="sm" className="h-9">
+            <MoreHorizontal className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">{items}</DropdownMenuContent>
+      </DropdownMenu>,
+    ];
+  }, [isMobile, receipt, router, handlePrint, isAdmin, can]);
   
   usePageHeader({ 
     title: receipt ? `Phiếu thu ${receipt.id}` : 'Chi tiết phiếu thu',
@@ -211,10 +236,20 @@ export function ReceiptDetailPage() {
       { label: 'Trang chủ', href: '/', isCurrent: false },
       { label: 'Phiếu thu', href: ROUTES.FINANCE.RECEIPTS, isCurrent: true }
     ],
-    actions: headerActions,
+    actions: isMobile ? mobileHeaderActions : headerActions,
     showBackButton: true,
     backPath: ROUTES.FINANCE.RECEIPTS
   });
+  
+  if (isLoading) {
+    return (
+      <Card>
+        <CardContent className="p-8 text-center text-muted-foreground">
+          Đang tải thông tin phiếu thu...
+        </CardContent>
+      </Card>
+    );
+  }
   
   if (!receipt) {
     return (
@@ -331,14 +366,7 @@ export function ReceiptDetailPage() {
       />
       
       {/* Activity History */}
-      <ActivityHistory
-        history={[]} // TODO: Fetch from ActivityLog table
-        title="Lịch sử thao tác"
-        emptyMessage="Chưa có lịch sử thao tác"
-        showFilters={false}
-        groupByDate
-        maxHeight="400px"
-      />
+      <EntityActivityTable entityType="receipt" entityId={systemId} />
     </div>
   );
 }

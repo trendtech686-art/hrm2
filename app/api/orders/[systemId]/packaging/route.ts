@@ -1,5 +1,8 @@
 import { prisma } from '@/lib/prisma'
 import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
+import { logError } from '@/lib/logger'
+import { createNotification } from '@/lib/notifications'
+import { getUserNameFromDb } from '@/lib/get-user-name'
 
 interface RouteParams {
   params: Promise<{ systemId: string }>;
@@ -26,7 +29,7 @@ export async function GET(request: Request, { params }: RouteParams) {
 
     return apiSuccess(packagings);
   } catch (error) {
-    console.error('Error fetching packagings:', error);
+    logError('Error fetching packagings', error);
     return apiError('Failed to fetch packagings', 500);
   }
 }
@@ -100,6 +103,21 @@ export async function POST(request: Request, { params }: RouteParams) {
         ? `DG${orderNumStr}-${String(totalCount + 1).padStart(2, '0')}`
         : `DG${orderNumStr}`;
       
+      // Look up employee name if assignedEmployeeId is provided
+      let assignedEmployeeName: string | undefined;
+      if (assignedEmployeeId) {
+        const employee = await tx.employee.findUnique({
+          where: { systemId: assignedEmployeeId },
+          select: { fullName: true },
+        });
+        assignedEmployeeName = employee?.fullName || undefined;
+      }
+
+      // Get requesting employee info from session
+      const employeeInfo = session.user?.employee as { systemId?: string; fullName?: string; name?: string } | undefined;
+      const requestingEmployeeId = employeeInfo?.systemId;
+      const requestingEmployeeName = employeeInfo?.fullName || employeeInfo?.name || session.user?.name || undefined;
+
       await tx.packaging.create({
         data: {
           systemId: packagingSystemId,
@@ -107,6 +125,9 @@ export async function POST(request: Request, { params }: RouteParams) {
           orderId: systemId,
           branchId: order.branchId,
           assignedEmployeeId,
+          assignedEmployeeName,
+          requestingEmployeeId,
+          requestingEmployeeName,
           status: 'PENDING',
         },
       });
@@ -137,9 +158,37 @@ export async function POST(request: Request, { params }: RouteParams) {
       return updated;
     });
 
+    // Notify assigned employee about new packaging request
+    if (assignedEmployeeId && assignedEmployeeId !== session.user?.employeeId) {
+      createNotification({
+        type: 'order',
+        settingsKey: 'order:packaging',
+        title: 'Yêu cầu đóng gói mới',
+        message: `Bạn được giao đóng gói đơn hàng ${updatedOrder.id || systemId}`,
+        link: `/orders/${systemId}`,
+        recipientId: assignedEmployeeId,
+        senderId: session.user?.employeeId,
+        senderName: session.user?.name,
+      }).catch(e => logError('[Packaging] notification failed', e));
+    }
+
+    // Log activity
+    const userName = await getUserNameFromDb(session.user?.id);
+    await prisma.activityLog.create({
+      data: {
+        entityType: 'packaging',
+        entityId: updatedOrder.systemId || systemId,
+        action: 'created',
+        actionType: 'create',
+        note: `Tạo phiếu đóng gói`,
+        metadata: { userName },
+        createdBy: userName,
+      }
+    }).catch(e => logError('[ActivityLog] packaging created failed', e))
+
     return apiSuccess(updatedOrder);
   } catch (error) {
-    console.error('[Packaging API] Error creating packaging:', error);
+    logError('[Packaging API] Error creating packaging', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return apiError(`Failed to create packaging: ${errorMessage}`, 500);
   }

@@ -3,6 +3,7 @@ model Department {
   id          String       @unique
   name        String
   managerId   String?
+  isActive    Boolean      @default(true)
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
   createdBy   String?

@@ -63,9 +63,11 @@ type DatePickerProps = {
   placeholder?: string;
   className?: string;
   disabled?: boolean;
+  fromDate?: Date;
+  toDate?: Date;
 };
 
-export function DatePicker({ id, value, onChange, placeholder = "dd/mm/yyyy", className, disabled }: DatePickerProps) {
+export function DatePicker({ id, value, onChange, placeholder = "dd/mm/yyyy", className, disabled, fromDate, toDate }: DatePickerProps) {
   const [open, setOpen] = React.useState(false)
   const [date, setDate] = React.useState<Date | undefined>(value ? new Date(value) : undefined)
   const [month, setMonth] = React.useState<Date | undefined>(date)
@@ -145,6 +147,11 @@ export function DatePicker({ id, value, onChange, placeholder = "dd/mm/yyyy", cl
             month={month}
             onMonthChange={setMonth}
             onSelect={handleSelect}
+            disabled={fromDate || toDate ? (d) => {
+              if (fromDate && d < fromDate) return true;
+              if (toDate && d > toDate) return true;
+              return false;
+            } : undefined}
           />
         </PopoverContent>
       </Popover>

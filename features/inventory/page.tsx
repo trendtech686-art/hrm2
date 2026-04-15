@@ -2,27 +2,23 @@
 
 import * as React from "react"
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Package, MapPin, Download } from "lucide-react"
+import { Package, MapPin } from "lucide-react"
 
 import { useAllBranches, useBranchFinder } from "../settings/branches/hooks/use-all-branches"
-import { useCategoryFinder } from "../categories/hooks/use-all-categories"
-import { useBrandFinder } from "../brands/hooks/use-all-brands"
 import { usePageHeader } from "@/contexts/page-header-context"
 import { useAuth } from "@/contexts/auth-context"
 import { useMediaQuery } from "@/lib/use-media-query"
 import { useColumnVisibility } from "@/hooks/use-column-visibility"
 import { formatCurrency, formatNumber } from "@/lib/format-utils"
 
-import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { ResponsiveDataTable } from "@/components/data-table/responsive-data-table"
 import { TableSkeleton } from "@/components/shared/table-skeleton"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Label } from "@/components/ui/label"
 import { OptimizedImage } from "@/components/ui/optimized-image"
+import { PageFilters } from "@/components/layout/page-filters"
+import { AdvancedFilterPanel, FilterExtras, type FilterConfig } from '@/components/shared/advanced-filter-panel'
+import { useFilterPresets } from '@/hooks/use-filter-presets'
 import type { ColumnDef } from "@/components/data-table/types"
 import { useQuery } from "@tanstack/react-query"
 
@@ -207,15 +203,18 @@ async function fetchInventory(filters: InventoryFilters) {
 export function InventoryPage({ initialSummary: _initialSummary }: InventoryPageProps = {}) {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { user: _user } = useAuth()
+  const {  user: _user, can } = useAuth()
   const { setPageHeader } = usePageHeader()
+  const canEdit = can('edit_inventory');
+  const canView = can('view_inventory');
   const isMobile = useMediaQuery("(max-width: 768px)")
   
   // Get branches
   const { data: branches = [] } = useAllBranches()
   const getBranchName = useBranchFinder()
-  const _getCategoryName = useCategoryFinder()
-  const _getBrandName = useBrandFinder()
+
+  // Filter presets
+  const { presets, savePreset, deletePreset, updatePreset } = useFilterPresets('inventory')
   
   // Filters state
   const [filters, setFilters] = React.useState<InventoryFilters>({
@@ -227,6 +226,7 @@ export function InventoryPage({ initialSummary: _initialSummary }: InventoryPage
     lowStock: searchParams.get('lowStock') === 'true',
     categorySystemId: searchParams.get('categorySystemId') || '',
   })
+  const [advancedFilters, setAdvancedFilters] = React.useState<Record<string, unknown>>({});
   
   // Debounced search
   const [searchInput, setSearchInput] = React.useState(filters.search)
@@ -245,6 +245,17 @@ export function InventoryPage({ initialSummary: _initialSummary }: InventoryPage
       }
     }
   }, [searchInput])
+
+  // Sync advancedFilters to filters state
+  React.useEffect(() => {
+    setFilters(prev => ({
+      ...prev,
+      branchId: (advancedFilters.branchId as string) || '',
+      hasStock: !!(advancedFilters.hasStock),
+      lowStock: !!(advancedFilters.lowStock),
+      page: 1,
+    }))
+  }, [advancedFilters])
   
   // Fetch inventory data
   const { data, isLoading, error } = useQuery({
@@ -294,6 +305,23 @@ export function InventoryPage({ initialSummary: _initialSummary }: InventoryPage
     () => getColumns((id: string) => getBranchName.findById(id)?.name || id),
     [getBranchName]
   )
+
+  // Advanced filter configs
+  const filterConfigs: FilterConfig[] = React.useMemo(() => [
+    { id: 'branchId', label: 'Chi nhánh', type: 'select' as const, options: branches.map(b => ({ value: b.systemId, label: b.name })) },
+    { id: 'hasStock', label: 'Còn hàng', type: 'boolean' as const },
+    { id: 'lowStock', label: 'Tồn thấp', type: 'boolean' as const },
+  ], [branches])
+
+  const panelValues = React.useMemo(() => ({
+    branchId: advancedFilters.branchId ?? null,
+    hasStock: advancedFilters.hasStock ?? false,
+    lowStock: advancedFilters.lowStock ?? false,
+  }), [advancedFilters])
+
+  const handlePanelApply = React.useCallback((v: Record<string, unknown>) => {
+    setAdvancedFilters(v)
+  }, [])
   
   // Summary cards
   const summary = React.useMemo(() => {
@@ -354,70 +382,22 @@ export function InventoryPage({ initialSummary: _initialSummary }: InventoryPage
       )}
       
       {/* Filters */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex flex-wrap gap-4">
-            <div className="flex-1 min-w-50">
-              <Input
-                placeholder="Tìm theo mã, tên, barcode..."
-                value={searchInput}
-                onChange={e => setSearchInput(e.target.value)}
-              />
-            </div>
-            
-            <Select
-              value={filters.branchId || 'all'}
-              onValueChange={value => 
-                setFilters(prev => ({ 
-                  ...prev, 
-                  branchId: value === 'all' ? '' : value,
-                  page: 1 
-                }))
-              }
-            >
-              <SelectTrigger className="w-50">
-                <SelectValue placeholder="Tất cả chi nhánh" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tất cả chi nhánh</SelectItem>
-                {branches.map((branch) => (
-                  <SelectItem key={branch.systemId} value={branch.systemId}>
-                    {branch.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            
-            <div className="flex items-center gap-4">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="hasStock"
-                  checked={filters.hasStock}
-                  onCheckedChange={checked => 
-                    setFilters(prev => ({ ...prev, hasStock: !!checked, page: 1 }))
-                  }
-                />
-                <Label htmlFor="hasStock" className="text-sm">Còn hàng</Label>
-              </div>
-              
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="lowStock"
-                  checked={filters.lowStock}
-                  onCheckedChange={checked => 
-                    setFilters(prev => ({ ...prev, lowStock: !!checked, page: 1 }))
-                  }
-                />
-                <Label htmlFor="lowStock" className="text-sm">Tồn thấp</Label>
-              </div>
-            </div>
-            
-            <Button variant="outline" size="icon">
-              <Download className="h-4 w-4" />
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      <PageFilters
+        searchValue={searchInput}
+        onSearchChange={setSearchInput}
+        searchPlaceholder="Tìm theo mã, tên, barcode..."
+      >
+        <AdvancedFilterPanel
+          filters={filterConfigs}
+          values={panelValues}
+          onApply={handlePanelApply}
+          presets={presets.map(p => ({ ...p, filters: p.filters }))}
+          onSavePreset={(preset) => savePreset(preset.name, panelValues)}
+          onDeletePreset={deletePreset}
+          onUpdatePreset={updatePreset}
+        />
+      </PageFilters>
+      <FilterExtras presets={presets} filterConfigs={filterConfigs} values={panelValues} onApply={handlePanelApply} onDeletePreset={deletePreset} />
       
       {/* Data Table */}
       {isLoading ? (

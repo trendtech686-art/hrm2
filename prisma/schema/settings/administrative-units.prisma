@@ -22,7 +22,7 @@ model Province {
 
 model District {
   systemId   String @id @map("system_id")
-  id         Int    // district number e.g. 1, 100, 101
+  id         Int // district number e.g. 1, 100, 101
   name       String
   provinceId String @map("province_id") // stores province id (not systemId)
   level      String @default("3-level") // '2-level' | '3-level' (districts only in 3-level)

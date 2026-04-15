@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import type { PkgxProduct, PkgxGalleryImage } from '../../types';
 import type { PkgxProductRow } from './types';
+import { sanitizeHtml } from '@/lib/sanitize';
 
 // ========================================
 // Product Detail Dialog Component
@@ -104,7 +105,7 @@ export function ProductDetailDialog({
           
           {/* Tab: Thông tin cơ bản */}
           <TabsContent value="basic" className="flex-1 overflow-auto mt-4">
-            <ScrollArea className="h-[350px] pr-4">
+            <ScrollArea className="h-87 pr-4">
               <BasicInfoTab 
                 product={product} 
                 router={router}
@@ -115,21 +116,21 @@ export function ProductDetailDialog({
           
           {/* Tab: Giá & Tồn kho */}
           <TabsContent value="price" className="flex-1 overflow-auto mt-4">
-            <ScrollArea className="h-[350px] pr-4">
+            <ScrollArea className="h-87 pr-4">
               <PriceInventoryTab product={product} />
             </ScrollArea>
           </TabsContent>
           
           {/* Tab: Nội dung & SEO */}
           <TabsContent value="seo" className="flex-1 overflow-auto mt-4">
-            <ScrollArea className="h-[350px] pr-4">
+            <ScrollArea className="h-87 pr-4">
               <SeoContentTab product={product} />
             </ScrollArea>
           </TabsContent>
           
           {/* Tab: Hình ảnh */}
           <TabsContent value="images" className="flex-1 overflow-auto mt-4">
-            <ScrollArea className="h-[350px] pr-4">
+            <ScrollArea className="h-87 pr-4">
               <ImagesTab 
                 product={product} 
                 galleryImages={galleryImages}
@@ -222,9 +223,9 @@ function BasicInfoTab({ product, router, onCloseDialog }: BasicInfoTabProps) {
               className="w-full p-2 border rounded bg-green-50 border-green-200 hover:bg-green-100 transition-colors text-left"
             >
               <div className="flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
+                <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
                 <span className="font-medium text-green-700 truncate text-sm">{product.linkedHrmProduct.name}</span>
-                <ArrowRight className="h-3 w-3 text-green-600 flex-shrink-0 ml-auto" />
+                <ArrowRight className="h-3 w-3 text-green-600 shrink-0 ml-auto" />
               </div>
               <div className="flex gap-3 mt-1 text-xs text-muted-foreground">
                 <span>SKU: {product.linkedHrmProduct.sku || '-'}</span>
@@ -372,7 +373,7 @@ function SeoContentTab({ product }: SeoContentTabProps) {
         <Label className="text-sm font-medium">Mô tả chi tiết</Label>
         <div 
           className="p-3 border rounded text-sm max-h-60 overflow-y-auto bg-muted/30"
-          dangerouslySetInnerHTML={{ __html: product.goods_desc || '<span class="text-muted-foreground">Không có mô tả</span>' }}
+          dangerouslySetInnerHTML={{ __html: sanitizeHtml(product.goods_desc || '<span class="text-muted-foreground">Không có mô tả</span>') }}
         />
       </div>
     </div>
@@ -398,8 +399,7 @@ function ImagesTab({ product, galleryImages, isLoadingGallery, buildPkgxImageUrl
               <Label className="text-xs text-muted-foreground">Ảnh gốc</Label>
               <a 
                 href={buildPkgxImageUrl(product.original_img)}
-                target="_blank"
-                rel="noopener noreferrer"
+                target="_blank" rel="noopener noreferrer"
                 className="block border rounded p-2 hover:border-primary transition-colors bg-white"
               >
                 <div className="w-full h-28 flex items-center justify-center overflow-hidden">
@@ -421,8 +421,7 @@ function ImagesTab({ product, galleryImages, isLoadingGallery, buildPkgxImageUrl
               <Label className="text-xs text-muted-foreground">Ảnh SP</Label>
               <a 
                 href={buildPkgxImageUrl(product.goods_img)}
-                target="_blank"
-                rel="noopener noreferrer"
+                target="_blank" rel="noopener noreferrer"
                 className="block border rounded p-2 hover:border-primary transition-colors bg-white"
               >
                 <div className="w-full h-28 flex items-center justify-center overflow-hidden">
@@ -444,8 +443,7 @@ function ImagesTab({ product, galleryImages, isLoadingGallery, buildPkgxImageUrl
               <Label className="text-xs text-muted-foreground">Thumbnail</Label>
               <a 
                 href={buildPkgxImageUrl(product.goods_thumb)}
-                target="_blank"
-                rel="noopener noreferrer"
+                target="_blank" rel="noopener noreferrer"
                 className="block border rounded p-2 hover:border-primary transition-colors bg-white"
               >
                 <div className="w-full h-28 flex items-center justify-center overflow-hidden">
@@ -477,11 +475,10 @@ function ImagesTab({ product, galleryImages, isLoadingGallery, buildPkgxImageUrl
           {product.original_img && (
             <a 
               href={buildPkgxImageUrl(product.original_img)}
-              target="_blank"
-              rel="noopener noreferrer"
+              target="_blank" rel="noopener noreferrer"
               className="flex items-center gap-2 p-2 border rounded bg-muted/30 hover:bg-muted transition-colors break-all"
             >
-              <ExternalLink className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
+              <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
               <span className="text-muted-foreground font-medium">Original:</span>
               <span className="text-primary underline">{product.original_img}</span>
             </a>
@@ -489,11 +486,10 @@ function ImagesTab({ product, galleryImages, isLoadingGallery, buildPkgxImageUrl
           {product.goods_img && (
             <a 
               href={buildPkgxImageUrl(product.goods_img)}
-              target="_blank"
-              rel="noopener noreferrer"
+              target="_blank" rel="noopener noreferrer"
               className="flex items-center gap-2 p-2 border rounded bg-muted/30 hover:bg-muted transition-colors break-all"
             >
-              <ExternalLink className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
+              <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
               <span className="text-muted-foreground font-medium">Goods:</span>
               <span className="text-primary underline">{product.goods_img}</span>
             </a>
@@ -501,11 +497,10 @@ function ImagesTab({ product, galleryImages, isLoadingGallery, buildPkgxImageUrl
           {product.goods_thumb && (
             <a 
               href={buildPkgxImageUrl(product.goods_thumb)}
-              target="_blank"
-              rel="noopener noreferrer"
+              target="_blank" rel="noopener noreferrer"
               className="flex items-center gap-2 p-2 border rounded bg-muted/30 hover:bg-muted transition-colors break-all"
             >
-              <ExternalLink className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
+              <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
               <span className="text-muted-foreground font-medium">Thumb:</span>
               <span className="text-primary underline">{product.goods_thumb}</span>
             </a>
@@ -529,21 +524,17 @@ function ImagesTab({ product, galleryImages, isLoadingGallery, buildPkgxImageUrl
               <a
                 key={img.img_id || index}
                 href={buildPkgxImageUrl(img.img_url || img.img_original)}
-                target="_blank"
-                rel="noopener noreferrer"
+                target="_blank" rel="noopener noreferrer"
                 className="block border rounded p-1 hover:border-primary transition-colors bg-white"
               >
                 <div className="w-full h-20 flex items-center justify-center overflow-hidden">
-                  <img
+                  <OptimizedImage
                     src={buildPkgxImageUrl(img.thumb_url || img.img_url)}
                     alt={img.img_desc || `Gallery ${index + 1}`}
                     className="max-w-full max-h-full object-contain"
-                    loading="lazy"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      target.style.display = 'none';
-                      target.parentElement!.innerHTML = '<div class="text-xs text-muted-foreground text-center py-4">Lỗi</div>';
-                    }}
+                    width={200}
+                    height={80}
+                    fallback={<div className="text-xs text-muted-foreground text-center py-4">Lỗi</div>}
                   />
                 </div>
               </a>

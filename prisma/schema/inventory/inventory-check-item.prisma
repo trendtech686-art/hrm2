@@ -1,15 +1,19 @@
 model InventoryCheckItem {
-  systemId       String         @id @default(uuid())
-  checkId        String
-  productId      String?
-  productName    String
-  productSku     String
-  systemQty      Int
-  actualQty      Int
-  difference     Int
-  notes          String?
-  inventoryCheck InventoryCheck @relation(fields: [checkId], references: [systemId], onDelete: Cascade)
+  systemId        String         @id @default(uuid())
+  checkId         String
+  productId       String?
+  productSystemId String?        // UUID reference to Product.systemId
+  productName     String
+  productSku      String
+  unit            String?        // Product unit (Cái, Kg, etc.)
+  systemQty       Int
+  actualQty       Int
+  difference      Int
+  reason          String?        // Difference reason: other, damaged, wear, return, transfer, production
+  notes           String?
+  inventoryCheck  InventoryCheck @relation(fields: [checkId], references: [systemId], onDelete: Cascade)
 
   @@index([checkId])
+  @@index([productSystemId])
   @@map("inventory_check_items")
 }

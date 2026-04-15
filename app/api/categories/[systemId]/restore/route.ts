@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
+import { logError } from '@/lib/logger'
 
 interface RouteParams {
   params: Promise<{ systemId: string }>
@@ -25,6 +26,10 @@ export async function POST(_request: Request, { params }: RouteParams) {
       return apiError('Danh mục chưa bị xóa', 400)
     }
 
+    if (category.permanentlyDeletedAt) {
+      return apiError('Danh mục đã được lưu trữ vĩnh viễn, không thể khôi phục', 400)
+    }
+
     const restoredCategory = await prisma.category.update({
       where: { systemId },
       data: {
@@ -35,7 +40,7 @@ export async function POST(_request: Request, { params }: RouteParams) {
 
     return apiSuccess(restoredCategory)
   } catch (error) {
-    console.error('Error restoring category:', error)
-    return apiError('Failed to restore category', 500)
+    logError('Error restoring category', error)
+    return apiError('Không thể khôi phục danh mục', 500)
   }
 }

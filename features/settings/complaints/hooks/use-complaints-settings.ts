@@ -2,6 +2,9 @@
  * Complaints Settings Hooks
  * React Query hooks for managing complaints module settings
  * 
+ * ⚡ PERFORMANCE: Uses single GET /api/settings?group=complaints instead of
+ *    7 separate Server Actions (which each POST to the current page URL).
+ * 
  * @module features/settings/complaints/hooks/use-complaints-settings
  */
 
@@ -9,7 +12,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { getModuleSettingSection, updateModuleSettingSection } from '@/app/actions/settings/module-settings';
+import { updateModuleSettingSection } from '@/app/actions/settings/module-settings';
 import type { ComplaintsSettingsState, CardColorSettings, ComplaintType as _ComplaintType } from '../types';
 import { createDefaultComplaintsSettings, clone } from '../types';
 
@@ -33,76 +36,99 @@ const DEFAULTS: Record<ComplaintsSettingType, unknown> = {
   'complaintTypes': defaultSettings.complaintTypes,
 };
 
-// API functions
-async function fetchComplaintsSettingSection<T = unknown>(
-  type: ComplaintsSettingType
-): Promise<T> {
-  const result = await getModuleSettingSection<T>('complaints', type);
-  if (!result.success) {
-    throw new Error(result.error);
+// DB key → settings field mapping
+const KEY_TO_FIELD: Record<string, ComplaintsSettingType> = {
+  'complaints_sla_settings': 'sla',
+  'complaints_notification_settings': 'notifications',
+  'complaints_tracking_settings': 'tracking',
+  'complaints_reminder_settings': 'reminders',
+  'complaints_templates': 'templates',
+  'complaints_card_color_settings': 'cardColors',
+  'complaints_complaint_types': 'complaintTypes',
+};
+
+// Deep merge: recursively merge nested objects so inner fields aren't lost
+function deepMerge<T extends Record<string, unknown>>(defaults: T, overrides: Record<string, unknown>): T {
+  const result = { ...defaults } as Record<string, unknown>;
+  for (const key of Object.keys(overrides)) {
+    const defVal = defaults[key];
+    const ovrVal = overrides[key];
+    if (
+      defVal && typeof defVal === 'object' && !Array.isArray(defVal) &&
+      ovrVal && typeof ovrVal === 'object' && !Array.isArray(ovrVal)
+    ) {
+      result[key] = deepMerge(defVal as Record<string, unknown>, ovrVal as Record<string, unknown>);
+    } else {
+      result[key] = ovrVal;
+    }
   }
-  // Merge DB data with defaults so new fields added later get default values
-  // instead of being undefined (which causes them to be lost on JSON serialization)
-  // Only merge plain objects (e.g. publicTracking), NOT arrays (e.g. complaintTypes)
-  const defaults = clone(DEFAULTS[type] as T);
-  if (result.data && typeof result.data === 'object' && !Array.isArray(result.data) && typeof defaults === 'object' && !Array.isArray(defaults)) {
-    return { ...defaults, ...result.data } as T;
-  }
-  return result.data ?? defaults;
+  return result as T;
 }
 
-async function updateComplaintsSettingSection(
-  type: ComplaintsSettingType,
-  data: unknown
-): Promise<unknown> {
-  const result = await updateModuleSettingSection('complaints', type, data);
-  if (!result.success) {
-    throw new Error(result.error);
+// ⚡ PERFORMANCE: Single GET fetch for all complaints settings
+async function fetchAllComplaintsSettings(): Promise<Record<ComplaintsSettingType, unknown>> {
+  const res = await fetch('/api/settings?group=complaints', { credentials: 'include' });
+  if (!res.ok) throw new Error('Failed to fetch complaints settings');
+  const json = await res.json();
+
+  const grouped = json.grouped?.complaints as Record<string, unknown> | undefined;
+  const result: Record<string, unknown> = {};
+
+  // Map DB keys to field names, deep-merging with defaults
+  for (const [dbKey, fieldName] of Object.entries(KEY_TO_FIELD)) {
+    const dbValue = grouped?.[dbKey] ?? null;
+    const defaults = clone(DEFAULTS[fieldName]);
+    if (dbValue && typeof dbValue === 'object' && !Array.isArray(dbValue) && typeof defaults === 'object' && !Array.isArray(defaults)) {
+      result[fieldName] = deepMerge(defaults as Record<string, unknown>, dbValue as Record<string, unknown>);
+    } else {
+      result[fieldName] = dbValue ?? defaults;
+    }
   }
-  return result.data;
+
+  return result as Record<ComplaintsSettingType, unknown>;
 }
 
 /**
- * Hook to fetch a specific complaints settings section
+ * Hook to fetch a specific complaints settings section (uses batch-fetched cache)
  */
 export function useComplaintsSettingSection<T = unknown>(type: ComplaintsSettingType) {
-  return useQuery({
-    queryKey: complaintsSettingsKeys.section(type),
-    queryFn: () => fetchComplaintsSettingSection<T>(type),
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 30 * 60 * 1000, // 30 minutes
+  // Fetch all sections in one request, select the specific section
+  const query = useQuery({
+    queryKey: complaintsSettingsKeys.all,
+    queryFn: fetchAllComplaintsSettings,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    select: (data) => data[type] as T,
   });
+
+  return query;
 }
 
 /**
- * Hook to fetch all complaints settings sections
+ * Hook to fetch all complaints settings sections (single API call)
  */
 export function useComplaintsSettings() {
-  const sla = useComplaintsSettingSection('sla');
-  const templates = useComplaintsSettingSection('templates');
-  const notifications = useComplaintsSettingSection('notifications');
-  const publicTracking = useComplaintsSettingSection('tracking');
-  const reminders = useComplaintsSettingSection('reminders');
-  const cardColors = useComplaintsSettingSection<CardColorSettings>('cardColors');
-  const complaintTypes = useComplaintsSettingSection('complaintTypes');
+  const query = useQuery({
+    queryKey: complaintsSettingsKeys.all,
+    queryFn: fetchAllComplaintsSettings,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+  });
 
-  const isLoading = sla.isLoading || templates.isLoading || notifications.isLoading || 
-    publicTracking.isLoading || reminders.isLoading || cardColors.isLoading || complaintTypes.isLoading;
-  const error = sla.error || templates.error || notifications.error || 
-    publicTracking.error || reminders.error || cardColors.error || complaintTypes.error;
+  const allData = query.data;
 
   return {
     data: {
-      sla: sla.data ?? clone(defaultSettings.sla),
-      templates: templates.data ?? clone(defaultSettings.templates),
-      notifications: notifications.data ?? clone(defaultSettings.notifications),
-      publicTracking: publicTracking.data ?? clone(defaultSettings.publicTracking),
-      reminders: reminders.data ?? clone(defaultSettings.reminders),
-      cardColors: cardColors.data ?? clone(defaultSettings.cardColors),
-      complaintTypes: complaintTypes.data ?? clone(defaultSettings.complaintTypes),
+      sla: allData?.sla ?? clone(defaultSettings.sla),
+      templates: allData?.templates ?? clone(defaultSettings.templates),
+      notifications: allData?.notifications ?? clone(defaultSettings.notifications),
+      publicTracking: allData?.tracking ?? clone(defaultSettings.publicTracking),
+      reminders: allData?.reminders ?? clone(defaultSettings.reminders),
+      cardColors: (allData?.cardColors ?? clone(defaultSettings.cardColors)) as CardColorSettings,
+      complaintTypes: allData?.complaintTypes ?? clone(defaultSettings.complaintTypes),
     } as ComplaintsSettingsState,
-    isLoading,
-    error,
+    isLoading: query.isLoading,
+    error: query.error,
   };
 }
 
@@ -113,10 +139,14 @@ export function useComplaintsSettingsMutations() {
   const queryClient = useQueryClient();
 
   const updateSection = useMutation({
-    mutationFn: ({ type, data }: { type: ComplaintsSettingType; data: unknown }) =>
-      updateComplaintsSettingSection(type, data),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: complaintsSettingsKeys.section(variables.type) });
+    mutationFn: async ({ type, data }: { type: ComplaintsSettingType; data: unknown }) => {
+      const result = await updateModuleSettingSection('complaints', type, data);
+      if (!result.success) throw new Error(result.error);
+      return result.data;
+    },
+    onSuccess: () => {
+      // Invalidate the single batch query (refetches all sections)
+      queryClient.invalidateQueries({ queryKey: complaintsSettingsKeys.all });
     },
     onError: (error: Error) => {
       toast.error(`Lỗi: ${error.message}`);

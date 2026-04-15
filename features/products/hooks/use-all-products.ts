@@ -14,6 +14,7 @@
 import * as React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { fetchAllPages } from '@/lib/fetch-all-pages';
+import { STALE_TIME } from '@/lib/query-client';
 import { fetchProducts } from '../api/products-api';
 import { productKeys } from './use-products';
 import type { Product } from '../types';
@@ -46,8 +47,9 @@ export function useAllProducts(options: UseAllProductsOptions = {}) {
   const query = useQuery({
     queryKey: [...productKeys.all, 'all'],
     queryFn: () => fetchAllPages((p) => fetchProducts(p)),
-    staleTime: 5 * 60 * 1000,
+    staleTime: STALE_TIME.LIST,
     gcTime: 30 * 60 * 1000,
+    refetchOnWindowFocus: true,
     enabled,
   });
   
@@ -73,11 +75,13 @@ export function useActiveProducts() {
 }
 
 /**
- * Helper hook to find a product by ID from cached data
- * Replaces legacy findById() method
+ * Helper hook to find a product by ID from cached data.
+ * Cache-only: subscribes to the query cache but NEVER triggers a fetch.
+ * Data is available if any other component has loaded all products.
+ * If cache is cold, findById returns undefined.
  */
 export function useProductFinder() {
-  const { data } = useAllProducts();
+  const { data } = useAllProducts({ enabled: false });
   
   const findById = React.useCallback(
     (systemId: SystemId | string | undefined): Product | undefined => {

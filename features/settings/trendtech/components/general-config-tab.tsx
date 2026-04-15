@@ -29,7 +29,10 @@ export function GeneralConfigTab() {
   }, [settings]);
   
   const handleSaveConfig = () => {
-    setApiUrl.mutate(localApiUrl);
+    setApiUrl.mutate(localApiUrl, {
+      onSuccess: () => toast.success('Đã lưu cấu hình API'),
+      onError: () => toast.error('Lỗi khi lưu cấu hình'),
+    });
     setApiKey.mutate(localApiKey);
     addLog.mutate({
       action: 'save_config',
@@ -37,7 +40,6 @@ export function GeneralConfigTab() {
       message: 'Đã lưu cấu hình API',
       details: { url: localApiUrl },
     });
-    toast.success('Đã lưu cấu hình API');
   };
   
   const handleTestConnection = async () => {

@@ -1,15 +1,14 @@
-﻿/**
+'use client'
+
+/**
  * Sales Time Report Page
  * 
  * Báo cáo hoạt động kinh doanh - Bán hàng theo thời gian
  * UI theo mẫu: biểu đồ combo (cột + đường) + bảng dữ liệu
  */
 
-'use client'
-
 import * as React from 'react';
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
-import { useRouter } from 'next/navigation';
 import { usePageHeader } from '@/contexts/page-header-context';
 import { ROUTES } from '@/lib/router';
 import { DynamicReportChart as ReportChart } from '../components/dynamic-report-chart';
@@ -29,12 +28,7 @@ import type {
   SalesTimeReportRow,
   ChartType,
 } from '../types';
-import { 
-  ShoppingCart, 
-  DollarSign, 
-  TrendingUp, 
-  Filter,
-} from 'lucide-react';
+import { Filter } from 'lucide-react';
 
 // Default date range: current month
 const getDefaultDateRange = (): ReportDateRange => ({
@@ -132,26 +126,15 @@ const getColumns = (_showSummary: boolean): ColumnDef<SalesTimeReportRow & { sys
   },
 ];
 
-// Chart config
-const _CHART_CONFIG = {
-  bars: [
-    { dataKey: 'revenue', name: 'Doanh thu', color: 'hsl(var(--chart-1))' },
-  ],
-  lines: [
-    { dataKey: 'grossProfit', name: 'Lợi nhuận gộp', color: 'hsl(var(--chart-2))', strokeWidth: 2 },
-  ],
-};
 
 const DISPLAY_OPTIONS = [
-  { key: 'revenue', label: 'Doanh thu', color: 'hsl(var(--chart-1))', type: 'bar' as const },
-  { key: 'grossProfit', label: 'Lợi nhuận gộp', color: 'hsl(var(--chart-2))', type: 'line' as const },
-  { key: 'productAmount', label: 'Tiền hàng', color: 'hsl(var(--chart-3))', type: 'bar' as const },
-  { key: 'returnAmount', label: 'Tiền trả lại', color: 'hsl(var(--chart-4))', type: 'bar' as const },
+  { key: 'revenue', label: 'Doanh thu', color: 'var(--chart-1)', type: 'bar' as const },
+  { key: 'grossProfit', label: 'Lợi nhuận gộp', color: 'var(--chart-2)', type: 'line' as const },
+  { key: 'productAmount', label: 'Tiền hàng', color: 'var(--chart-3)', type: 'bar' as const },
+  { key: 'returnAmount', label: 'Tiền trả lại', color: 'var(--chart-4)', type: 'bar' as const },
 ];
 
 export function SalesTimeReportPage() {
-  const _router = useRouter();
-  
   // State
   const [dateRange, setDateRange] = React.useState<ReportDateRange>(getDefaultDateRange);
   const [timeGrouping, setTimeGrouping] = React.useState<TimeGrouping>('day');
@@ -261,31 +244,6 @@ export function SalesTimeReportPage() {
     { key: 'revenue', label: 'Doanh thu', selected: true },
     { key: 'grossProfit', label: 'Lợi nhuận gộp', selected: true },
   ], []);
-  
-  // Summary cards
-  const _summaryCards = React.useMemo(() => [
-    {
-      title: 'Tổng đơn hàng',
-      value: summary.orderCount,
-      icon: ShoppingCart,
-    },
-    {
-      title: 'Tiền hàng',
-      value: formatCurrency(summary.productAmount),
-      icon: DollarSign,
-    },
-    {
-      title: 'Doanh thu',
-      value: formatCurrency(summary.revenue),
-      icon: TrendingUp,
-    },
-    {
-      title: 'Lợi nhuận gộp',
-      value: formatCurrency(summary.grossProfit),
-      icon: TrendingUp,
-      className: summary.grossProfit >= 0 ? 'text-green-600' : 'text-red-500',
-    },
-  ], [summary]);
   
   // Header actions
   const headerActions = React.useMemo(() => (
@@ -418,3 +376,4 @@ export function SalesTimeReportPage() {
 }
 
 export default SalesTimeReportPage;
+

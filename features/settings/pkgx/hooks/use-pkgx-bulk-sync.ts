@@ -10,10 +10,11 @@
 
 import * as React from 'react';
 import { toast } from 'sonner';
-import { usePkgxSettings } from './use-pkgx-settings';
+import { usePkgxMappings } from './use-pkgx-settings';
 import type { PkgxSettings } from '../types';
 import type { Product } from '../../../products/types';
 import type { Brand } from '../../../settings/inventory/types';
+import { logError } from '@/lib/logger'
 
 // ========================================
 // Types
@@ -174,7 +175,7 @@ function _buildBrandPayload(brand: Brand, actionKey: BulkSyncActionKey): Record<
 
 export function usePkgxBulkSync(options: UsePkgxBulkSyncOptions) {
   const { entityType, productSyncHandlers, brandSyncHandlers, onLog } = options;
-  const { data: pkgxSettings } = usePkgxSettings();
+  const { data: pkgxSettings } = usePkgxMappings();
   
   // Confirmation dialog state
   const [confirmAction, setConfirmAction] = React.useState<BulkConfirmState>({
@@ -253,7 +254,7 @@ export function usePkgxBulkSync(options: UsePkgxBulkSyncOptions) {
     const handler = getProductHandler(actionKey);
     if (!handler) {
       toast.error('Chức năng chưa được cấu hình. Vui lòng thử lại.');
-      console.error('[usePkgxBulkSync] No handler for action:', actionKey);
+      logError('[usePkgxBulkSync] No handler for action', actionKey);
       return;
     }
     
@@ -278,7 +279,7 @@ export function usePkgxBulkSync(options: UsePkgxBulkSyncOptions) {
         await handler(product);
         successCount++;
       } catch (error) {
-        console.error(`[usePkgxBulkSync] Error ${actionKey} product ${product.id}:`, error);
+        logError(`[usePkgxBulkSync] Error ${actionKey} product ${product.id}`, error);
         errorCount++;
       }
       
@@ -335,7 +336,7 @@ export function usePkgxBulkSync(options: UsePkgxBulkSyncOptions) {
     const handler = getBrandHandler(actionKey);
     if (!handler) {
       toast.error('Chức năng chưa được cấu hình. Vui lòng thử lại.');
-      console.error('[usePkgxBulkSync] No brand handler for action:', actionKey);
+      logError('[usePkgxBulkSync] No brand handler for action', actionKey);
       return;
     }
     
@@ -360,7 +361,7 @@ export function usePkgxBulkSync(options: UsePkgxBulkSyncOptions) {
         await handler(brand);
         successCount++;
       } catch (error) {
-        console.error(`[usePkgxBulkSync] Error syncing brand ${brand.name}:`, error);
+        logError(`[usePkgxBulkSync] Error syncing brand ${brand.name}`, error);
         errorCount++;
       }
       

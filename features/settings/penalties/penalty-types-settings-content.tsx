@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../../../components/ui/select';
-import { Plus, Save } from 'lucide-react';
+import { Plus, Save, Loader2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -274,7 +274,8 @@ export function PenaltyTypesSettingsContent() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Hủy</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmBulkDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            <AlertDialogAction onClick={confirmBulkDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={remove.isPending}>
+              {remove.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Xóa
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -292,7 +293,8 @@ export function PenaltyTypesSettingsContent() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Hủy</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={remove.isPending}>
+              {remove.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Xóa
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -382,8 +384,8 @@ export function PenaltyTypesSettingsContent() {
             <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
               Hủy
             </Button>
-            <Button onClick={handleSave}>
-              <Save className="h-4 w-4 mr-2" />
+            <Button onClick={handleSave} disabled={create.isPending || update.isPending}>
+              {(create.isPending || update.isPending) ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
               {editingType ? 'Cập nhật' : 'Thêm mới'}
             </Button>
           </DialogFooter>

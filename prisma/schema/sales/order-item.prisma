@@ -1,1 +1,25 @@
+// ============================================
+// ORDER LINE ITEM - Chi tiết đơn hàng
+// ============================================
 
+model OrderLineItem {
+  systemId     String        @id
+  orderId      String
+  productId    String?
+  productSku   String
+  productName  String
+  quantity     Int
+  unitPrice    Decimal       @db.Decimal(15, 2)
+  discount     Decimal       @default(0) @db.Decimal(15, 2)
+  discountType DiscountType?
+  tax          Decimal       @default(0) @db.Decimal(5, 2)
+  taxId        String? // Reference to Tax.systemId
+  total        Decimal       @db.Decimal(15, 2)
+  note         String?
+  order        Order         @relation(fields: [orderId], references: [systemId], onDelete: Cascade)
+  product      Product?      @relation(fields: [productId], references: [systemId], onDelete: SetNull)
+
+  @@index([orderId])
+  @@index([productId])
+  @@map("order_line_items")
+}

@@ -2,8 +2,9 @@ import { cookies } from 'next/headers'
 import { prisma } from '@/lib/prisma'
 import jwt from 'jsonwebtoken'
 import { apiSuccess, apiError } from '@/lib/api-utils'
+import { logError } from '@/lib/logger'
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production'
+const JWT_SECRET = process.env.JWT_SECRET!
 const TOKEN_COOKIE_NAME = 'auth_token'
 
 // GET /api/auth/me - Get current user info
@@ -69,7 +70,7 @@ export async function GET(request: Request) {
       return response
     }
   } catch (error) {
-    console.error('Auth check error:', error)
+    logError('Auth check error', error)
     return apiError('Lỗi xác thực', 500)
   }
 }

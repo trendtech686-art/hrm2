@@ -108,7 +108,7 @@ export function getColumns(
       header: 'Ghi chú',
       cell: ({ row }) => (
         <span 
-          className="text-body-xs max-w-50 line-clamp-2 cursor-help" 
+          className="text-xs max-w-50 line-clamp-2 cursor-help" 
           title={row.notes || ''}
         >
           {row.notes || '-'}
@@ -133,7 +133,7 @@ export function getColumns(
         const firstProduct = row.items[0]?.productName || '';
         const remaining = row.items.length - 1;
         return (
-          <span className="text-body-xs">
+          <span className="text-xs">
             {firstProduct}
             {remaining > 0 && ` +${remaining}`}
           </span>

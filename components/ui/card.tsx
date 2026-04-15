@@ -24,7 +24,7 @@ const CardHeader = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <div
     ref={ref}
-    className={cn("flex flex-col space-y-1.5 p-6", className)}
+    className={cn("flex flex-col space-y-1.5 p-6 max-md:p-4", className)}
     {...props}
   />
 ))
@@ -32,18 +32,18 @@ CardHeader.displayName = "CardHeader"
 
 /**
  * CardTitle size variants:
- * - sm: 14px - For stat cards, compact info cards
- * - default: 16px - Standard card titles (most common)
- * - lg: 18px - Main page sections, important cards
+ * - sm: 13px - For stat cards, compact info cards
+ * - default: 14px - Standard card titles (most common)
+ * - lg: 16px - Main page sections, important cards
  */
 const cardTitleVariants = cva(
-  "font-semibold leading-none tracking-tight",
+  "font-medium leading-none tracking-tight",
   {
     variants: {
       size: {
-        sm: "text-sm",      // 14px - stat cards, compact
-        default: "text-base", // 16px - standard (default)
-        lg: "text-lg",       // 18px - main sections
+        sm: "text-xs md:text-[13px]",   // 12px mobile, 13px desktop - stat cards, compact
+        default: "text-xs md:text-sm",   // 12px mobile, 14px desktop - standard (default)
+        lg: "text-sm md:text-base",      // 14px mobile, 16px desktop - main sections
       },
     },
     defaultVariants: {
@@ -83,7 +83,7 @@ const CardContent = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
 >(({ className, ...props }, ref) => (
-  <div ref={ref} className={cn("p-6 pt-0", className)} {...props} />
+  <div ref={ref} className={cn("p-6 pt-0 max-md:p-4 max-md:pt-0", className)} {...props} />
 ))
 CardContent.displayName = "CardContent"
 
@@ -93,7 +93,7 @@ const CardFooter = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <div
     ref={ref}
-    className={cn("flex items-center p-6 pt-0", className)}
+    className={cn("flex items-center p-6 pt-0 max-md:p-4 max-md:pt-0", className)}
     {...props}
   />
 ))

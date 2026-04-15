@@ -10,6 +10,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import {
   fetchTaxSettings,
   updateTaxSettings,
@@ -47,9 +48,7 @@ interface UseTaxSettingsMutationsOptions {
 export function useTaxSettingsMutations(options: UseTaxSettingsMutationsOptions = {}) {
   const queryClient = useQueryClient();
 
-  const invalidateSettings = () => {
-    queryClient.invalidateQueries({ queryKey: taxSettingsKeys.all });
-  };
+  const invalidateSettings = () => invalidateRelated(queryClient, 'tax-settings');
 
   const update = useMutation({
     mutationFn: (data: Partial<TaxSettings>) => updateTaxSettings(data),

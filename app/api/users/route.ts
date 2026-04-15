@@ -4,6 +4,9 @@ import bcrypt from 'bcryptjs'
 import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
 import { createUserSchema } from './validation'
 import { generateNextIds } from '@/lib/id-system'
+import { logError } from '@/lib/logger'
+import { createActivityLog } from '@/lib/services/activity-log-service'
+import { getPasswordRules, validatePassword } from '@/lib/password-rules'
 
 // GET /api/users - List all users
 export async function GET(request: Request) {
@@ -57,7 +60,7 @@ export async function GET(request: Request) {
 
     return apiPaginated(users, { page, limit, total })
   } catch (error) {
-    console.error('Error fetching users:', error)
+    logError('Error fetching users', error)
     return apiError('Failed to fetch users', 500)
   }
 }
@@ -83,7 +86,11 @@ export async function POST(request: Request) {
       return apiError('Email đã được sử dụng', 400)
     }
 
-    // Hash password
+    // Validate password rules
+    const rules = await getPasswordRules()
+    const validationError = validatePassword(body.password, rules)
+    if (validationError) return apiError(validationError, 400)
+
     const hashedPassword = await bcrypt.hash(body.password, 10)
     
     // Generate user ID
@@ -108,9 +115,18 @@ export async function POST(request: Request) {
       },
     })
 
+    createActivityLog({
+      entityType: 'user',
+      entityId: user.systemId,
+      action: 'created',
+      actionType: 'create',
+      metadata: { email: user.email, role: user.role },
+      createdBy: session.user?.employee?.fullName || session.user?.email || 'System',
+    })
+
     return apiSuccess(user, 201)
   } catch (error) {
-    console.error('Error creating user:', error)
+    logError('Error creating user', error)
     return apiError('Failed to create user', 500)
   }
 }

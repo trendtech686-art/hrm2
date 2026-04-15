@@ -3,6 +3,8 @@ import { Prisma } from '@/generated/prisma/client'
 import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
 import { createStockLocationSchema } from './validation'
 import { generateNextIds } from '@/lib/id-system'
+import { logError } from '@/lib/logger'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 // GET /api/stock-locations - List all stock locations
 export async function GET(request: Request) {
@@ -38,7 +40,7 @@ export async function GET(request: Request) {
 
     return apiSuccess({ data: locations })
   } catch (error) {
-    console.error('Error fetching stock locations:', error)
+    logError('Error fetching stock locations', error)
     return apiError('Failed to fetch stock locations', 500)
   }
 }
@@ -68,12 +70,21 @@ export async function POST(request: Request) {
       },
     })
 
+    createActivityLog({
+      entityType: 'stock_location',
+      entityId: location.systemId,
+      action: 'created',
+      actionType: 'create',
+      metadata: { name: location.name, businessId: location.id },
+      createdBy: session.user?.employee?.fullName || session.user?.email || 'System',
+    })
+
     return apiSuccess(location, 201)
   } catch (error) {
     if (error instanceof Error && 'code' in error && error.code === 'P2002') {
       return apiError('Mã kho đã tồn tại', 400)
     }
-    console.error('Error creating stock location:', error)
+    logError('Error creating stock location', error)
     return apiError('Failed to create stock location', 500)
   }
 }

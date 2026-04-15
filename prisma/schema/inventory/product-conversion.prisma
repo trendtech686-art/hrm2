@@ -1,0 +1,31 @@
+/// Sản phẩm quy đổi - Unit Conversion Products
+/// VD: 1 thùng = 12 chai, 1 bao = 50 kg
+model ProductConversion {
+  systemId String @id @default(cuid())
+
+  // Sản phẩm đơn vị gốc (base product)
+  baseProductId String
+  baseProduct   Product @relation("baseConversions", fields: [baseProductId], references: [systemId])
+
+  // Thông tin quy đổi
+  conversionUnit     String // Đơn vị quy đổi: "Thùng", "Bao", "Hộp"
+  conversionRate     Int // Số lượng SP đơn vị = 1 SP quy đổi (VD: 12 chai = 1 thùng)
+  sku                String? @unique // Mã SKU riêng cho SP quy đổi
+  barcode            String? // Barcode riêng
+  name               String? // Tên hiển thị (nếu khác SP gốc)
+  sellingPrice       Decimal? @db.Decimal(15, 2) // Giá bán cho đơn vị quy đổi
+  costPrice          Decimal? @db.Decimal(15, 2) // Giá vốn
+  weight             Decimal? @db.Decimal(10, 2) // Khối lượng
+  weightUnit         String?  @default("g") // g hoặc kg
+  thumbnailImage     String? // Ảnh đại diện
+
+  isActive  Boolean  @default(true)
+  sortOrder Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([baseProductId])
+  @@index([sku])
+  @@index([barcode])
+  @@map("product_conversions")
+}

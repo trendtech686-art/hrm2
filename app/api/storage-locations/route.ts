@@ -1,5 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { requireAuth, apiError, apiSuccess } from '@/lib/api-utils'
+import { logError } from '@/lib/logger'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 const TYPE = 'storage-location'
 
@@ -45,7 +47,7 @@ export async function GET(request: Request) {
 
     return apiSuccess({ data, total, page, pageSize: limit })
   } catch (error) {
-    console.error('Error fetching storage locations:', error)
+    logError('Error fetching storage locations', error)
     return apiError('Failed to fetch storage locations', 500)
   }
 }
@@ -74,9 +76,17 @@ export async function POST(request: Request) {
       },
     })
 
+    createActivityLog({
+      entityType: 'storage_location',
+      entityId: created.systemId,
+      action: `Thêm điểm lưu kho: ${name}`,
+      actionType: 'create',
+      createdBy: session.user?.id,
+    }).catch(e => logError('Failed to create activity log', e))
+
     return apiSuccess({ ...created, ...(created.metadata as Record<string, unknown> | null | undefined || {}) }, 201)
   } catch (error) {
-    console.error('Error creating storage location:', error)
+    logError('Error creating storage location', error)
     return apiError('Failed to create storage location', 500)
   }
 }

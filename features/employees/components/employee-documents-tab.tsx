@@ -184,7 +184,7 @@ export function EmployeeDocumentsTab({
   return (
     <>
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-4">
-        <h3 className="text-h5 font-medium">Tài liệu & Hồ sơ nhân viên</h3>
+        <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider md:text-h5 md:font-medium md:text-foreground md:normal-case md:tracking-normal">Tài liệu & Hồ sơ nhân viên</h3>
         <div className="relative w-full sm:max-w-xs">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input

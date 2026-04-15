@@ -9,6 +9,7 @@
 
 import { useEffect, useCallback, useRef, useMemo } from 'react';
 import { toast } from 'sonner';
+import { logError } from '@/lib/logger'
 
 type TaskWithDueDate = {
   id?: string;
@@ -233,7 +234,7 @@ export function useDueDateNotifications(
       // Play sound (if enabled)
       if (mergedSettings.playSound) {
         const audio = new Audio('/notification-sound.mp3');
-        audio.play().catch(console.error);
+        audio.play().catch(err => logError('Failed to play notification sound', err));
       }
     });
   }, [tasks, mergedSettings]);

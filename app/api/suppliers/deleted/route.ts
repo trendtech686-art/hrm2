@@ -1,20 +1,33 @@
 import { prisma } from '@/lib/prisma'
-import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
+import { apiHandler } from '@/lib/api-handler'
+import { apiSuccess } from '@/lib/api-utils'
+import { serializeSupplier } from '../serialize'
 
-// GET /api/suppliers/deleted - Get all soft-deleted suppliers
-export async function GET() {
-  const session = await requireAuth()
-  if (!session) return apiError('Unauthorized', 401)
+// GET /api/suppliers/deleted - Get soft-deleted suppliers (excluding permanently archived)
+export const GET = apiHandler(async () => {
+  const deletedSuppliers = await prisma.supplier.findMany({
+    where: {
+      isDeleted: true,
+      permanentlyDeletedAt: null,
+    },
+    orderBy: { deletedAt: 'desc' },
+    select: {
+      systemId: true,
+      id: true,
+      name: true,
+      phone: true,
+      email: true,
+      address: true,
+      taxCode: true,
+      contactPerson: true,
+      status: true,
+      currentDebt: true,
+      totalDebt: true,
+      totalPurchased: true,
+      deletedAt: true,
+      isDeleted: true,
+    },
+  })
 
-  try {
-    const deletedSuppliers = await prisma.supplier.findMany({
-      where: { isDeleted: true },
-      orderBy: { deletedAt: 'desc' },
-    })
-
-    return apiSuccess(deletedSuppliers)
-  } catch (error) {
-    console.error('Error fetching deleted suppliers:', error)
-    return apiError('Failed to fetch deleted suppliers', 500)
-  }
-}
+  return apiSuccess(deletedSuppliers.map(serializeSupplier))
+})

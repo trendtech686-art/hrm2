@@ -2,7 +2,8 @@ model Shipment {
   systemId         String         @id
   id               String         @unique
   trackingCode     String?        @unique
-  orderId          String
+  orderId          String?
+  warrantyId       String?
   carrier          String
   status           ShipmentStatus @default(PENDING)
   recipientName    String?
@@ -62,11 +63,13 @@ model Shipment {
   actualFee            Decimal?  @db.Decimal(15, 2)
 
   // === RELATIONS ===
-  order     Order      @relation(fields: [orderId], references: [systemId])
+  order     Order?     @relation(fields: [orderId], references: [systemId])
+  warranty  SupplierWarranty? @relation(fields: [warrantyId], references: [systemId])
   packaging Packaging? @relation(fields: [packagingSystemId], references: [systemId])
 
   @@index([carrier])
   @@index([orderId])
+  @@index([warrantyId])
   @@index([status])
   @@map("shipments")
 }

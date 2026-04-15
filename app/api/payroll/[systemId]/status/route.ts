@@ -1,6 +1,9 @@
 import { prisma } from '@/lib/prisma'
 import { PayrollStatus } from '@/generated/prisma/client'
 import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
+import { logError } from '@/lib/logger'
+import { createNotification } from '@/lib/notifications'
+import { getUserNameFromDb } from '@/lib/get-user-name'
 
 interface RouteParams {
   params: Promise<{ systemId: string }>
@@ -113,7 +116,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     await prisma.auditLog.create({
       data: {
         systemId: `LOG${String(auditLogCounter).padStart(10, '0')}`,
-        entityType: 'Payroll',
+        entityType: 'payroll',
         entityId: systemId,
         action: actionMap[frontendStatus] || frontendStatus,
         userId: session.user?.email || 'system',
@@ -147,9 +150,44 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       updatedAt: updated.updatedAt.toISOString(),
     }
 
+    // ✅ Notify payroll creator when status changes (e.g., reviewed, locked)
+    if (updated.createdBy && updated.createdBy !== session.user?.email) {
+      const creatorEmployee = await prisma.employee.findFirst({
+        where: { fullName: updated.createdBy },
+        select: { systemId: true },
+      })
+      if (creatorEmployee) {
+        createNotification({
+          type: 'payroll',
+          settingsKey: 'payroll:updated',
+          title: 'Cập nhật bảng lương',
+          message: `Bảng lương tháng ${updated.month}/${updated.year} đã chuyển sang ${frontendStatus}`,
+          link: `/payroll/${systemId}`,
+          recipientId: creatorEmployee.systemId,
+          senderId: session.user?.employeeId,
+          senderName: session.user?.name,
+        }).catch(e => logError('[Payroll status] notification failed', e))
+      }
+    }
+
+    // Log activity
+    getUserNameFromDb(session.user?.id).then(userName =>
+      prisma.activityLog.create({
+        data: {
+          entityType: 'payroll',
+          entityId: systemId,
+          action: 'status_changed',
+          actionType: 'update',
+          note: `Thay đổi trạng thái bảng lương`,
+          metadata: { userName },
+          createdBy: userName,
+        }
+      })
+    ).catch(e => logError('[ActivityLog] payroll status_changed failed', e))
+
     return apiSuccess(result)
   } catch (error) {
-    console.error('Error updating payroll status:', error)
+    logError('Error updating payroll status', error)
     return apiError(
       error instanceof Error ? error.message : 'Failed to update payroll status',
       500

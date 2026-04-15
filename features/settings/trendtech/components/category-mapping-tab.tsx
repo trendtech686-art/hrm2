@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../../components/ui/table';
 import { Plus, Trash2, RefreshCw, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { useTrendtechSettings, useTrendtechCategoryMappingMutations, useTrendtechLogMutations, useTrendtechCategoryMutations } from '../hooks/use-trendtech-settings';
+import { useTrendtechSettings, useTrendtechCategoryMappingMutations, useTrendtechLogMutations } from '../hooks/use-trendtech-settings';
 import { useActiveCategories } from '@/features/categories/hooks/use-all-categories';
 import { nanoid } from 'nanoid';
 import { asSystemId } from '@/lib/id-types';
@@ -14,9 +14,6 @@ import { asSystemId } from '@/lib/id-types';
 export function CategoryMappingTab() {
   const { data: settings } = useTrendtechSettings();
   const { addCategoryMapping, deleteCategoryMapping } = useTrendtechCategoryMappingMutations({
-    onSuccess: () => {},
-  });
-  const { setCategories: _setCategories } = useTrendtechCategoryMutations({
     onSuccess: () => {},
   });
   const { addLog } = useTrendtechLogMutations();

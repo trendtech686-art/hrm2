@@ -4,6 +4,7 @@ import { Prisma } from '@/generated/prisma/client';
 import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils';
 import { createSettingsDataSchema } from './validation';
 import { generateIdWithPrefix } from '@/lib/id-generator';
+import { logError } from '@/lib/logger'
 
 // Valid settings data types
 const VALID_TYPES = [
@@ -62,7 +63,7 @@ export async function GET(request: NextRequest) {
 
     return apiSuccess(transformed);
   } catch (error) {
-    console.error('[Settings Data API] GET error:', error);
+    logError('[Settings Data API] GET error', error);
     return apiError('Failed to fetch settings data', 500);
   }
 }
@@ -119,7 +120,7 @@ export async function POST(request: NextRequest) {
       ...(created.metadata as Record<string, unknown> || {}),
     });
   } catch (error) {
-    console.error('[Settings Data API] POST error:', error);
+    logError('[Settings Data API] POST error', error);
     
     if (error instanceof Error && 'code' in error && error.code === 'P2002') {
       return apiError('A setting with this ID already exists for this type', 409);

@@ -7,7 +7,6 @@ import { usePageHeader } from "../../contexts/page-header-context";
 import { useDeletedCustomers, useTrashMutations } from "./hooks/use-customers"
 import { getColumns } from "./trash-columns"
 import { GenericTrashPage } from "../../components/shared/generic-trash-page"
-import { Card, CardContent } from "../../components/ui/card"
 import { Avatar, AvatarFallback } from "../../components/ui/avatar"
 import { Badge } from "../../components/ui/badge"
 import { Button } from "../../components/ui/button"
@@ -52,7 +51,7 @@ export function CustomersTrashPage() {
   const handleDeleteFromColumn = React.useCallback(async (systemId: SystemId) => {
     permanentDelete.mutate(systemId, {
       onSuccess: () => {
-        toast.success("Đã xóa vĩnh viễn khách hàng");
+        toast.success("Đã lưu trữ vĩnh viễn khách hàng");
       },
       onError: (error) => {
         toast.error(error.message || "Có lỗi khi xóa khách hàng");
@@ -71,41 +70,40 @@ export function CustomersTrashPage() {
 
   // Custom mobile card for customers - shadcn style
   const renderMobileCard = (customer: Customer) => (
-    <Card className="hover:shadow-md transition-shadow">
-      <CardContent className="p-4">
-        <div className="flex items-start gap-3">
-          <Avatar className="h-10 w-10 shrink-0">
-            <AvatarFallback className="bg-primary/10 text-primary text-sm">
-              {getInitials(customer.name)}
-            </AvatarFallback>
-          </Avatar>
+    <div className="rounded-xl border border-border/50 bg-card p-4">
+      <div className="flex items-start gap-3">
+        <Avatar className="h-10 w-10 shrink-0">
+          <AvatarFallback className="bg-primary/10 text-primary text-sm">
+            {getInitials(customer.name)}
+          </AvatarFallback>
+        </Avatar>
+        
+        <div className="flex-1 min-w-0 space-y-1">
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="font-semibold text-sm truncate">{customer.name}</h3>
+            <Badge variant="outline" className="shrink-0 text-xs">{customer.id}</Badge>
+          </div>
           
-          <div className="flex-1 min-w-0 space-y-1">
-            <div className="flex items-center justify-between gap-2">
-              <h3 className="font-semibold truncate">{customer.name}</h3>
-              <Badge variant="outline" className="shrink-0 text-xs">{customer.id}</Badge>
+          {customer.company && (
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <Building2 className="h-3 w-3" />
+              <span className="truncate">{customer.company}</span>
             </div>
-            
-            {customer.company && (
-              <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                <Building2 className="h-3 w-3" />
-                <span className="truncate">{customer.company}</span>
-              </div>
+          )}
+          
+          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            {customer.phone && (
+              <span className="flex items-center gap-1">
+                <Phone className="h-3 w-3" />
+                {customer.phone}
+              </span>
             )}
-            
-            <div className="flex items-center gap-3 text-xs text-muted-foreground">
-              {customer.phone && (
-                <span className="flex items-center gap-1">
-                  <Phone className="h-3 w-3" />
-                  {customer.phone}
-                </span>
-              )}
-              {customer.email && (
-                <span className="flex items-center gap-1 truncate">
-                  <Mail className="h-3 w-3" />
-                  {customer.email}
-                </span>
-              )}
+            {customer.email && (
+              <span className="flex items-center gap-1 truncate">
+                <Mail className="h-3 w-3" />
+                {customer.email}
+              </span>
+            )}
             </div>
             
             {customer.deletedAt && (
@@ -140,8 +138,7 @@ export function CustomersTrashPage() {
             </Button>
           </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
   );
 
   if (isLoading) {

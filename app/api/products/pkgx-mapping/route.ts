@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma'
-import { requireAuth, apiError } from '@/lib/api-utils'
+import { apiHandler } from '@/lib/api-handler'
 import { NextResponse } from 'next/server'
 
 /**
@@ -11,11 +11,7 @@ import { NextResponse } from 'next/server'
  * Returns: { [pkgxId: number]: { systemId, id, name, status } }
  */
 
-export async function GET() {
-  const session = await requireAuth()
-  if (!session) return apiError('Unauthorized', 401)
-
-  try {
+export const GET = apiHandler(async (_request, _ctx) => {
     // Fetch only linked products with minimal fields
     const linkedProducts = await prisma.product.findMany({
       where: {
@@ -54,8 +50,4 @@ export async function GET() {
       data: mappingData,
       count: linkedProducts.length,
     })
-  } catch (error) {
-    console.error('PKGX mapping error:', error)
-    return apiError('Failed to fetch PKGX mapping', 500)
-  }
-}
+})

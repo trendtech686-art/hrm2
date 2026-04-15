@@ -1,8 +1,13 @@
 import { prisma } from '@/lib/prisma'
 import { Prisma, Gender, EmployeeType, EmploymentStatus, ContractType, UserRole } from '@/generated/prisma/client'
-import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
+import { apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
+import { apiHandler } from '@/lib/api-handler'
+import { serializeEmployee } from '../serialize'
 import bcrypt from 'bcryptjs'
 import { generateNextIds } from '@/lib/id-system'
+import { logError } from '@/lib/logger'
+import { getUserNameFromDb } from '@/lib/get-user-name'
+import { getPasswordRules, validatePassword } from '@/lib/password-rules'
 
 // Helper functions to convert Vietnamese labels to enum values
 const parseGender = (value: string | null | undefined): Gender | undefined => {
@@ -65,15 +70,8 @@ const parseContractType = (value: string | null | undefined): ContractType | und
 }
 
 // GET /api/employees/[systemId] - Get single employee
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ systemId: string }> }
-) {
-  const session = await requireAuth()
-  if (!session) return apiError('Unauthorized', 401)
-
-  try {
-    const { systemId } = await params
+export const GET = apiHandler(async (request, { params }) => {
+    const { systemId } = params
 
     const employee = await prisma.employee.findUnique({
       where: { systemId },
@@ -112,51 +110,18 @@ export async function GET(
       return apiNotFound('Employee')
     }
 
-    // Convert Decimal fields to numbers for JSON serialization
-    const convertDecimalToNumber = (value: unknown): number | null => {
-      if (value === null || value === undefined) return null
-      if (typeof value === 'number') return value
-      if (typeof value === 'string') return parseFloat(value) || null
-      // Prisma Decimal objects have a toNumber method
-      if (typeof value === 'object' && value !== null && 'toNumber' in value) {
-        return (value as { toNumber: () => number }).toNumber()
-      }
-      return null
-    }
-
     // Add hasPassword flag for UI to know if user account has password set
     const responseData = {
-      ...employee,
-      // Convert Decimal fields to numbers
-      baseSalary: convertDecimalToNumber(employee.baseSalary),
-      socialInsuranceSalary: convertDecimalToNumber(employee.socialInsuranceSalary),
-      positionAllowance: convertDecimalToNumber(employee.positionAllowance),
-      mealAllowance: convertDecimalToNumber(employee.mealAllowance),
-      otherAllowances: convertDecimalToNumber(employee.otherAllowances),
-      // Also expose branchId as branchSystemId for frontend compatibility
-      branchSystemId: employee.branchId,
-      departmentSystemId: employee.departmentId,
-      jobTitleSystemId: employee.jobTitleId,
+      ...serializeEmployee(employee),
       hasPassword: !!employee.user, // If user relation exists, password is set
     }
 
     return apiSuccess(responseData)
-  } catch (error) {
-    console.error('Error fetching employee:', error)
-    return apiError('Failed to fetch employee', 500)
-  }
-}
+})
 
 // PUT /api/employees/[systemId] - Update employee
-export async function PUT(
-  request: Request,
-  { params }: { params: Promise<{ systemId: string }> }
-) {
-  const session = await requireAuth()
-  if (!session) return apiError('Unauthorized', 401)
-
-  try {
-    const { systemId } = await params
+export const PUT = apiHandler(async (request, { session, params }) => {
+    const { systemId } = params
     const rawBody = await request.json()
     
     // Support both { data: {...} } and direct {...} body formats
@@ -178,7 +143,9 @@ export async function PUT(
       return trimmed === '' ? undefined : trimmed
     }
 
-    const employee = await prisma.employee.update({
+    let employee
+    try {
+      employee = await prisma.employee.update({
       where: { systemId },
       data: {
         fullName: normalizeString(body.fullName),
@@ -229,7 +196,7 @@ export async function PUT(
         maritalStatus: normalizeString(body.maritalStatus),
         emergencyContactName: normalizeString(body.emergencyContactName),
         emergencyContactPhone: normalizeString(body.emergencyContactPhone),
-        updatedBy: body.updatedBy,
+        updatedBy: session!.user.id,
       },
       include: {
         department: true,
@@ -238,60 +205,147 @@ export async function PUT(
         user: true,
       },
     })
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        return apiError('Email already exists', 400)
+      }
+      throw error
+    }
+
+    // Handle user account sync (email + password)
+    let userAction: 'created' | 'updated' | null = null
+    const existingUser = await prisma.user.findFirst({
+      where: { employeeId: systemId },
+    })
+
+    // Sync employee → users khi thay đổi workEmail, employmentStatus
+    const userSyncData: Record<string, unknown> = {}
+    const newEmail = normalizeString(body.workEmail)
+    if (existingUser && newEmail && newEmail !== existingUser.email) {
+      userSyncData.email = newEmail
+    }
+    if (existingUser && body.employmentStatus && body.employmentStatus !== existing.employmentStatus) {
+      userSyncData.isActive = body.employmentStatus === 'ACTIVE' || body.employmentStatus === 'ON_LEAVE'
+    }
+    if (existingUser && Object.keys(userSyncData).length > 0) {
+      await prisma.user.update({
+        where: { systemId: existingUser.systemId },
+        data: userSyncData,
+      })
+      userAction = 'updated'
+    }
 
     // Handle password update/creation
-    if (body.password && existing.workEmail) {
+    if (body.password && (newEmail || existing.workEmail)) {
+      const rules = await getPasswordRules()
+      const pwError = validatePassword(body.password, rules)
+      if (pwError) return apiError(pwError, 400)
       const hashedPassword = await bcrypt.hash(body.password, 10)
       
-      // Check if user exists
-      const existingUser = await prisma.user.findFirst({
-        where: { employeeId: systemId },
-      })
-      
       if (existingUser) {
-        // Update existing user's password
         await prisma.user.update({
           where: { systemId: existingUser.systemId },
           data: { password: hashedPassword },
         })
+        userAction = 'updated'
       } else {
         // Create new user
         const { systemId: userSystemId } = await generateNextIds('users')
         await prisma.user.create({
           data: {
             systemId: userSystemId,
-            email: existing.workEmail,
+            email: (newEmail || existing.workEmail)!,
             password: hashedPassword,
             role: 'STAFF' as UserRole,
             isActive: true,
             employeeId: systemId,
           },
         })
+        userAction = 'created'
       }
     }
 
-    return apiSuccess(employee)
-  } catch (error) {
-    console.error('Error updating employee:', error)
-
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-      return apiError('Email already exists', 400)
+    // Build changes diff
+    const fieldLabels: Record<string, string> = {
+      fullName: 'Họ tên',
+      phone: 'Số điện thoại',
+      personalEmail: 'Email cá nhân',
+      workEmail: 'Email công việc',
+      gender: 'Giới tính',
+      employeeType: 'Loại nhân viên',
+      employmentStatus: 'Trạng thái',
+      role: 'Vai trò',
+      departmentId: 'Phòng ban',
+      jobTitleId: 'Chức vụ',
+      branchId: 'Chi nhánh',
+      managerId: 'Quản lý',
+      baseSalary: 'Lương cơ bản',
+      contractType: 'Loại hợp đồng',
+      bankAccountNumber: 'Số tài khoản',
+      bankName: 'Ngân hàng',
+      notes: 'Ghi chú',
+    }
+    const changes: Record<string, { from: unknown; to: unknown }> = {}
+    const changedFields: string[] = []
+    for (const [dbKey, label] of Object.entries(fieldLabels)) {
+      const oldVal = (existing as Record<string, unknown>)[dbKey]
+      const newVal = (employee as Record<string, unknown>)[dbKey]
+      if (oldVal !== newVal && newVal !== undefined) {
+        changes[label] = { from: oldVal ?? '', to: newVal ?? '' }
+        changedFields.push(label)
+      }
     }
 
-    return apiError('Failed to update employee', 500)
-  }
-}
+    // Log activity with diff
+    getUserNameFromDb(session!.user?.id).then(userName => {
+      const noteFields = changedFields.length > 0 ? `: ${changedFields.join(', ')}` : ''
+      prisma.activityLog.create({
+        data: {
+          entityType: 'employee',
+          entityId: systemId,
+          action: 'updated',
+          actionType: 'update',
+          note: `Cập nhật nhân viên: ${employee.fullName}${noteFields}`,
+          changes: Object.keys(changes).length > 0 ? JSON.parse(JSON.stringify(changes)) : undefined,
+          metadata: { userName },
+          createdBy: userName,
+        }
+      }).catch(e => logError('[ActivityLog] employee updated failed', e))
+
+      // Log User account side-effect
+      if (userAction === 'created') {
+        prisma.activityLog.create({
+          data: {
+            entityType: 'employee',
+            entityId: systemId,
+            action: 'created',
+            actionType: 'create',
+            note: `Tạo tài khoản đăng nhập cho nhân viên: ${employee.fullName}`,
+            metadata: { userName },
+            createdBy: userName,
+          }
+        }).catch(e => logError('[ActivityLog] user account created failed', e))
+      } else if (userAction === 'updated') {
+        prisma.activityLog.create({
+          data: {
+            entityType: 'employee',
+            entityId: systemId,
+            action: 'updated',
+            actionType: 'update',
+            note: `Đổi mật khẩu tài khoản nhân viên: ${employee.fullName}`,
+            metadata: { userName },
+            createdBy: userName,
+          }
+        }).catch(e => logError('[ActivityLog] user password updated failed', e))
+      }
+    }).catch(e => logError('[ActivityLog] getUserName failed', e))
+
+    return apiSuccess(employee)
+}, { permission: 'edit_employees' })
 
 // DELETE /api/employees/[systemId] - Soft delete employee
-export async function DELETE(
-  request: Request,
-  { params }: { params: Promise<{ systemId: string }> }
-) {
-  const session = await requireAuth()
-  if (!session) return apiError('Unauthorized', 401)
-
-  try {
-    const { systemId } = await params
+export const DELETE = apiHandler(async (request, { session, params }) => {
+    const { systemId } = params
 
     const employee = await prisma.employee.update({
       where: { systemId },
@@ -301,9 +355,20 @@ export async function DELETE(
       },
     })
 
+    // Log activity
+    getUserNameFromDb(session!.user?.id).then(userName =>
+      prisma.activityLog.create({
+        data: {
+          entityType: 'employee',
+          entityId: systemId,
+          action: 'deleted',
+          actionType: 'delete',
+          note: `Xóa nhân viên (soft delete)`,
+          metadata: { userName },
+          createdBy: userName,
+        }
+      })
+    ).catch(e => logError('[ActivityLog] employee deleted failed', e))
+
     return apiSuccess({ success: true, systemId: employee.systemId })
-  } catch (error) {
-    console.error('Error deleting employee:', error)
-    return apiError('Failed to delete employee', 500)
-  }
-}
+}, { permission: 'delete_employees' })

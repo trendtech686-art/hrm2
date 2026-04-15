@@ -4,8 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../../compo
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table';
 import { formatDateForDisplay } from '@/lib/date-utils';
 import { Badge } from '../../../components/ui/badge';
-import { useAllOrders } from '../../orders/hooks/use-all-orders';
-import { useProductFinder } from '../hooks/use-all-products';
+import { useProductOrders } from '../hooks/use-product-related-data';
 import { SystemId } from '../../../lib/id-types';
 
 interface InDeliveryStockDialogProps {
@@ -28,28 +27,13 @@ export function InDeliveryStockDialog({
   branchName,
   productName,
 }: InDeliveryStockDialogProps) {
-  const { data: allOrders } = useAllOrders();
-  const { findById: findProductById } = useProductFinder();
+  // ✅ OPTIMIZED: Server-side filtered by product instead of loading ALL
+  const { data: allOrders = [] } = useProductOrders(productSystemId);
   const router = useRouter();
-
-  // Get product to find SKU (business ID)
-  const product = React.useMemo(() => findProductById(productSystemId), [productSystemId, findProductById]);
-
-  // DEBUG: Log data for troubleshooting
-  React.useEffect(() => {
-    if (open) {
-      
-      // Find orders with FULLY_STOCKED_OUT
-      const _dispatchedOrders = allOrders.filter(o => 
-        o.stockOutStatus === 'Xuất kho toàn bộ' || o.stockOutStatus === 'FULLY_STOCKED_OUT'
-      );
-    }
-  }, [open, productSystemId, branchSystemId, product, allOrders]);
 
   // Find all orders in delivery for this product and branch
   // inDelivery = đã xuất kho (stockOutStatus = FULLY_STOCKED_OUT) nhưng chưa giao xong (deliveryStatus != DELIVERED)
   const inDeliveryOrders = React.useMemo(() => {
-    const _productSku = product?.id;
     return allOrders
       .filter(order => {
         // Check branch first
@@ -95,7 +79,7 @@ export function InDeliveryStockDialog({
         };
       })
       .filter((item): item is NonNullable<typeof item> => Boolean(item));
-  }, [allOrders, productSystemId, branchSystemId, product]);
+  }, [allOrders, productSystemId, branchSystemId]);
 
   const totalInDelivery = inDeliveryOrders.reduce((sum, item) => sum + item.quantity, 0);
 

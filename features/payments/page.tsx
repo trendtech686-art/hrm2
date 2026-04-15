@@ -12,20 +12,17 @@ import { useAllCashAccounts } from '@/features/cashbook/hooks/use-all-cash-accou
 import { useAllBranches } from '@/features/settings/branches/hooks/use-all-branches';
 import { useAllPaymentTypes } from '@/features/settings/payments/types/hooks/use-all-payment-types';
 import { useAllCustomers } from '@/features/customers/hooks/use-all-customers';
-import { useStoreInfoData } from '@/features/settings/store-info/hooks/use-store-info';
+import { fetchPrintData } from '@/lib/lazy-print-data';
 import { useAllEmployees } from '@/features/employees/hooks/use-all-employees';
 import type { Payment, PaymentStatus } from '@/lib/types/prisma-extended';
 import { usePageHeader } from '@/contexts/page-header-context';
 import { ResponsiveDataTable, type BulkAction } from '@/components/data-table/responsive-data-table';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Minus, ReceiptText, Printer, FileSpreadsheet, Download, CreditCard, DollarSign, CalendarDays, TrendingUp, Settings } from 'lucide-react';
+import { Minus, ReceiptText, Printer, FileSpreadsheet, Download, Settings, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { DynamicDataTableColumnCustomizer as DataTableColumnCustomizer } from '@/components/data-table/dynamic-column-customizer';
-import { DataTableDateFilter } from '@/components/data-table/data-table-date-filter';
-import { DataTableFacetedFilter } from '@/components/data-table/data-table-faceted-filter';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PageToolbar } from '@/components/layout/page-toolbar';
 import { PageFilters } from '@/components/layout/page-filters';
 import { useMediaQuery } from '@/lib/use-media-query';
@@ -38,9 +35,13 @@ import { MobilePaymentCard } from './card';
 import { usePrint } from '@/lib/use-print';
 import { convertPaymentForPrint, mapPaymentToPrintData, createStoreSettings } from '@/lib/print/payment-print-helper';
 import { SimplePrintOptionsDialog, type SimplePrintOptionsResult } from '@/components/shared/simple-print-options-dialog';
-import { useColumnVisibility } from '@/hooks/use-column-visibility';
-import { StatsCard, StatsCardGrid } from "@/components/shared/stats-card"
+import { useColumnVisibility, useColumnOrder, usePinnedColumns } from '@/hooks/use-column-visibility';
+import { StatsBar } from "@/components/shared/stats-bar"
+import { AdvancedFilterPanel, FilterExtras, type FilterConfig } from '@/components/shared/advanced-filter-panel';
+import { useFilterPresets } from '@/hooks/use-filter-presets';
 import { formatCurrency, formatNumber } from "@/lib/format-utils"
+import { cn } from '@/lib/utils'
+import { usePaginationWithGlobalDefault } from '@/features/settings/global/hooks/use-global-settings';
 
 const PaymentImportDialog = dynamic(() => import('./components/payment-import-export-dialogs').then(m => ({ default: m.PaymentImportDialog })), { ssr: false });
 const PaymentExportDialog = dynamic(() => import('./components/payment-import-export-dialogs').then(m => ({ default: m.PaymentExportDialog })), { ssr: false });
@@ -60,7 +61,7 @@ export function PaymentsPage({ initialStats }: PaymentsPageProps = {}) {
   // Search state - for server-side search
   const [globalFilter, setGlobalFilter] = React.useState('');
   const [debouncedFilter, setDebouncedFilter] = React.useState('');
-  const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 20 });
+  const [pagination, setPagination] = usePaginationWithGlobalDefault();
   
   // Debounce search
   React.useEffect(() => { const t = setTimeout(() => setDebouncedFilter(globalFilter), 300); return () => clearTimeout(t); }, [globalFilter]);
@@ -73,8 +74,8 @@ export function PaymentsPage({ initialStats }: PaymentsPageProps = {}) {
   const [sorting, setSorting] = React.useState({ id: 'createdAt', desc: true });
   const [mobileLoadedCount, setMobileLoadedCount] = React.useState(20);
   const [columnVisibility, setColumnVisibility] = useColumnVisibility('payments', {});
-  const [columnOrder, setColumnOrder] = React.useState<string[]>([]);
-  const [pinnedColumns, setPinnedColumns] = React.useState<string[]>(['select', 'id']);
+  const [columnOrder, setColumnOrder] = useColumnOrder('payments');
+  const [pinnedColumns, setPinnedColumns] = usePinnedColumns('payments', ['select', 'id']);
   const [branchFilter, setBranchFilter] = React.useState<'all' | SystemId>('all');
   const [statusFilter, setStatusFilter] = React.useState<Set<string>>(new Set());
   const [typeFilter, setTypeFilter] = React.useState<Set<string>>(new Set());
@@ -92,7 +93,7 @@ export function PaymentsPage({ initialStats }: PaymentsPageProps = {}) {
   const serverStatus = React.useMemo(() => statusFilter.size === 1 ? [...statusFilter][0] : undefined, [statusFilter]);
 
   // Server-side search + filters - API handles filtering & sorting
-  const { data: paymentsResponse, isLoading } = usePayments({ 
+  const { data: paymentsResponse, isLoading, isFetching } = usePayments({ 
     search: debouncedFilter || undefined,
     page: pagination.pageIndex + 1,
     limit: pagination.pageSize,
@@ -111,27 +112,36 @@ export function PaymentsPage({ initialStats }: PaymentsPageProps = {}) {
     onError: (error) => toast.error(`Lỗi: ${error.message}`),
   });
   // Lazy-load all data only for import/export
-  const { data: allPayments } = useAllPayments({ enabled: showImportDialog || showExportDialog });
+  const dialogsOpen = showImportDialog || showExportDialog;
+  const { data: allPayments } = useAllPayments({ enabled: dialogsOpen });
   const { accounts } = useAllCashAccounts();
   const { data: branches } = useAllBranches();
   const { data: paymentTypes } = useAllPaymentTypes();
-  const { data: customers } = useAllCustomers();
-  const { info: storeInfo } = useStoreInfoData();
-  const { data: employees } = useAllEmployees();
+  const { data: customers } = useAllCustomers({ enabled: dialogsOpen });
+  const { data: employees } = useAllEmployees({ enabled: dialogsOpen });
   const { print, printMultiple } = usePrint();
-  const { employee } = useAuth();
+  const {  employee, can } = useAuth();
+  const canCreate = can('create_payments');
+  const canDelete = can('delete_payments');
+  const canEdit = can('edit_payments');
+  const canEditSettings = can('edit_settings');
 
   // Header actions
   usePageHeader({ title: 'Danh sách phiếu chi', breadcrumb: [{ label: 'Trang chủ', href: '/', isCurrent: false }, { label: 'Phiếu chi', href: '/payments', isCurrent: true }], showBackButton: false, actions: [
     <Button key="cashbook" variant="outline" size="sm" className="h-9 gap-2" onClick={() => router.push(ROUTES.FINANCE.CASHBOOK)}><ReceiptText className="h-4 w-4" />Nhật ký quỹ</Button>,
-    <Button key="add" size="sm" className="h-9 gap-2" onClick={() => router.push(ROUTES.FINANCE.PAYMENT_NEW)}><Minus className="mr-2 h-4 w-4" />Tạo phiếu chi</Button>
+    canCreate && <Button key="add" size="sm" className="h-9 gap-2" onClick={() => router.push(ROUTES.FINANCE.PAYMENT_NEW)}><Minus className="mr-2 h-4 w-4" />Tạo phiếu chi</Button>
   ] });
 
   // Handlers
   const handleCancel = React.useCallback((id: SystemId) => { setIdToDelete(id); setIsAlertOpen(true); }, []);
   const handleRowClick = React.useCallback((p: Payment) => router.push(generatePath(ROUTES.FINANCE.PAYMENT_VIEW, { systemId: p.systemId })), [router]);
-  const handleSinglePrint = React.useCallback((p: Payment) => { const b = branches.find(x => x.systemId === p.branchSystemId); print('payment', { data: mapPaymentToPrintData(convertPaymentForPrint(p, {}), createStoreSettings(b || storeInfo)), lineItems: [] }); }, [branches, storeInfo, print]);
+  const handleSinglePrint = React.useCallback(async (p: Payment) => { 
+    const { storeInfo } = await fetchPrintData();
+    const b = branches.find(x => x.systemId === p.branchSystemId); 
+    print('payment', { data: mapPaymentToPrintData(convertPaymentForPrint(p, {}), createStoreSettings(b || storeInfo)), lineItems: [] }); 
+  }, [branches, print]);
   const confirmCancel = () => { if (idToDelete) { cancelMutation.mutate({ systemId: idToDelete }); } setIsAlertOpen(false); };
+  const isCancelling = cancelMutation.isPending;
   const confirmBulkCancel = () => { Object.keys(rowSelection).map(id => asSystemId(id)).forEach(id => cancelMutation.mutate({ systemId: id })); toast.success(`Đã hủy ${Object.keys(rowSelection).length} phiếu chi`); setRowSelection({}); setIsBulkDeleteAlertOpen(false); };
 
   // Columns
@@ -142,7 +152,41 @@ export function PaymentsPage({ initialStats }: PaymentsPageProps = {}) {
   // Filter options
   const statusOptions = [{ value: 'completed', label: 'Hoàn thành' }, { value: 'cancelled', label: 'Đã hủy' }];
   const typeOptions = React.useMemo(() => paymentTypes.map(pt => ({ value: pt.systemId, label: pt.name })), [paymentTypes]);
-  const customerOptions = React.useMemo(() => customers.map(c => ({ value: c.systemId, label: c.name })), [customers]);
+  // Derive customer filter options from current page data (avoid loading all 4500+ customers)
+  const customerOptions = React.useMemo(() => {
+    const seen = new Map<string, string>();
+    payments.forEach(p => {
+      if (p.customerSystemId && p.customerName && !seen.has(p.customerSystemId)) {
+        seen.set(p.customerSystemId, p.customerName);
+      }
+    });
+    return Array.from(seen, ([value, label]) => ({ value, label }));
+  }, [payments]);
+
+  // Advanced filter panel
+  const { presets, savePreset, deletePreset, updatePreset } = useFilterPresets('payments');
+  const filterConfigs: FilterConfig[] = React.useMemo(() => [
+    { id: 'branch', label: 'Chi nhánh', type: 'select' as const, options: [{ value: 'all', label: 'Tất cả' }, ...branches.map(b => ({ value: b.systemId, label: b.name }))] },
+    { id: 'status', label: 'Trạng thái', type: 'multi-select' as const, options: statusOptions },
+    { id: 'type', label: 'Loại phiếu', type: 'multi-select' as const, options: typeOptions },
+    { id: 'customer', label: 'Khách hàng', type: 'multi-select' as const, options: customerOptions },
+    { id: 'dateRange', label: 'Khoảng ngày', type: 'date-range' as const },
+  ], [branches, statusOptions, typeOptions, customerOptions]);
+  const panelValues = React.useMemo(() => ({
+    branch: branchFilter !== 'all' ? branchFilter : null,
+    status: Array.from(statusFilter),
+    type: Array.from(typeFilter),
+    customer: Array.from(customerFilter),
+    dateRange: dateRange ? { from: dateRange[0], to: dateRange[1] } : null,
+  }), [branchFilter, statusFilter, typeFilter, customerFilter, dateRange]);
+  const handlePanelApply = React.useCallback((v: Record<string, unknown>) => {
+    setBranchFilter(((v.branch as string) || 'all') === 'all' ? 'all' : asSystemId(v.branch as string));
+    setStatusFilter(new Set((v.status as string[]) ?? []));
+    setTypeFilter(new Set((v.type as string[]) ?? []));
+    setCustomerFilter(new Set((v.customer as string[]) ?? []));
+    const dr = v.dateRange as { from?: string; to?: string } | null;
+    setDateRange(dr ? [dr.from, dr.to] : undefined);
+  }, []);
 
   // ✅ Server-side pagination: only apply lightweight client-side facet filters (type, customer) on current page
   const filteredData = React.useMemo(() => {
@@ -155,9 +199,9 @@ export function PaymentsPage({ initialStats }: PaymentsPageProps = {}) {
   const allSelectedRows = React.useMemo(() => payments.filter(v => rowSelection[v.systemId]), [payments, rowSelection]);
   const selectedPayments = React.useMemo(() => payments.filter(p => rowSelection[p.systemId]), [payments, rowSelection]);
 
-  // Bulk print
+  // Bulk print - ⚡ OPTIMIZED: Lazy load print data only when printing
   const handleBulkPrint = React.useCallback((rows: Payment[]) => { setItemsToPrint(rows); setPrintDialogOpen(true); }, []);
-  const handlePrintConfirm = React.useCallback((opts: SimplePrintOptionsResult) => { if (!itemsToPrint.length) return; const items = itemsToPrint.map(p => { const b = opts.branchSystemId ? branches.find(x => x.systemId === opts.branchSystemId) : branches.find(x => x.systemId === p.branchSystemId); return { data: mapPaymentToPrintData(convertPaymentForPrint(p, {}), createStoreSettings(b || storeInfo)), lineItems: [], paperSize: opts.paperSize }; }); printMultiple('payment', items); toast.success(`Đang in ${itemsToPrint.length} phiếu chi`); setItemsToPrint([]); setPrintDialogOpen(false); }, [itemsToPrint, branches, storeInfo, printMultiple]);
+  const handlePrintConfirm = React.useCallback(async (opts: SimplePrintOptionsResult) => { if (!itemsToPrint.length) return; const { storeInfo } = await fetchPrintData(); const items = itemsToPrint.map(p => { const b = opts.branchSystemId ? branches.find(x => x.systemId === opts.branchSystemId) : branches.find(x => x.systemId === p.branchSystemId); return { data: mapPaymentToPrintData(convertPaymentForPrint(p, {}), createStoreSettings(b || storeInfo)), lineItems: [], paperSize: opts.paperSize }; }); printMultiple('payment', items); toast.success(`Đang in ${itemsToPrint.length} phiếu chi`); setItemsToPrint([]); setPrintDialogOpen(false); }, [itemsToPrint, branches, printMultiple]);
   const bulkActions: BulkAction<Payment>[] = React.useMemo(() => [{ label: 'In phiếu', icon: Printer, onSelect: handleBulkPrint }], [handleBulkPrint]);
 
   // Get mutations for import
@@ -195,42 +239,25 @@ export function PaymentsPage({ initialStats }: PaymentsPageProps = {}) {
 
   return (
     <div className="space-y-4 h-full flex flex-col">
-      {/* Stats Cards - instant display from Server Component */}
-      <StatsCardGrid columns={4} className="mb-2">
-        <StatsCard
-          title="Tổng phiếu chi"
-          value={stats?.total ?? 0}
-          icon={CreditCard}
-          formatValue={(v) => formatNumber(Number(v))}
-        />
-        <StatsCard
-          title="Tổng chi"
-          value={stats?.totalAmount ?? 0}
-          icon={TrendingUp}
-          formatValue={(v) => formatCurrency(Number(v))}
-          variant="danger"
-        />
-        <StatsCard
-          title="Đã hoàn thành"
-          value={stats?.completed ?? 0}
-          icon={CalendarDays}
-          formatValue={(v) => formatNumber(Number(v))}
-          variant="info"
-        />
-        <StatsCard
-          title="Đã hủy"
-          value={stats?.cancelled ?? 0}
-          icon={DollarSign}
-          formatValue={(v) => formatNumber(Number(v))}
-          variant="warning"
-        />
-      </StatsCardGrid>
+      {/* Stats Bar - instant display from Server Component */}
+      <StatsBar
+        className="mb-2"
+        items={[
+          { key: 'total', label: 'Tổng phiếu chi', value: formatNumber(stats?.total ?? 0) },
+          { key: 'totalAmount', label: 'Tổng chi', value: formatCurrency(stats?.totalAmount ?? 0) },
+          { key: 'completed', label: 'Đã hoàn thành', value: formatNumber(stats?.completed ?? 0) },
+          { key: 'cancelled', label: 'Đã hủy', value: formatNumber(stats?.cancelled ?? 0) },
+        ]}
+      />
 
-      {!isMobile && <PageToolbar leftActions={<><Button variant="outline" size="sm" onClick={() => router.push('/settings/payments')}><Settings className="h-4 w-4 mr-2" />Cài đặt</Button><Button variant="outline" size="sm" onClick={() => setShowImportDialog(true)}><FileSpreadsheet className="mr-2 h-4 w-4" />Nhập file</Button><Button variant="outline" size="sm" onClick={() => setShowExportDialog(true)}><Download className="mr-2 h-4 w-4" />Xuất Excel</Button></>} rightActions={[<DataTableColumnCustomizer key="c" columns={columns} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} />]} />}
-      <PageFilters searchValue={globalFilter} onSearchChange={setGlobalFilter} searchPlaceholder="Tìm theo mã phiếu, người nhận, chứng từ..." leftFilters={<DataTableDateFilter value={dateRange} onChange={setDateRange} />} rightFilters={<><Select value={branchFilter} onValueChange={v => setBranchFilter(v === 'all' ? 'all' : asSystemId(v))}><SelectTrigger className="h-9 w-37.5"><SelectValue placeholder="Chi nhánh" /></SelectTrigger><SelectContent><SelectItem value="all">Tất cả chi nhánh</SelectItem>{branches.map(b => <SelectItem key={b.systemId} value={b.systemId}>{b.name}</SelectItem>)}</SelectContent></Select><DataTableFacetedFilter title="Trạng thái" options={statusOptions} selectedValues={statusFilter} onSelectedValuesChange={setStatusFilter} /><DataTableFacetedFilter title="Loại phiếu" options={typeOptions} selectedValues={typeFilter} onSelectedValuesChange={setTypeFilter} /><DataTableFacetedFilter title="Khách hàng" options={customerOptions} selectedValues={customerFilter} onSelectedValuesChange={setCustomerFilter} /></>} />
-      {isMobile ? <div className="space-y-2 flex-1 overflow-y-auto">{filteredData.length === 0 && !isLoading ? <Card><CardContent className="p-8 text-center text-muted-foreground">Không tìm thấy phiếu chi nào</CardContent></Card> : <>{filteredData.slice(0, mobileLoadedCount).map(p => <MobilePaymentCard key={p.systemId} payment={p} onCancel={handleCancel} navigate={path => router.push(path)} handleRowClick={handleRowClick} />)}{mobileLoadedCount < filteredData.length && <Card><CardContent className="p-4 text-center text-muted-foreground"><div className="flex items-center justify-center gap-2"><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary" /><span>Đang tải thêm...</span></div></CardContent></Card>}</>}</div> : <div className="w-full py-4"><ResponsiveDataTable columns={columns} data={filteredData} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowCount={serverTotal} isLoading={isLoading} rowSelection={rowSelection} setRowSelection={setRowSelection} onBulkDelete={() => setIsBulkDeleteAlertOpen(true)} sorting={sorting} setSorting={setSorting as React.Dispatch<React.SetStateAction<{ id: string; desc: boolean }>>} allSelectedRows={allSelectedRows} bulkActions={bulkActions} expanded={{}} setExpanded={() => {}} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} onRowClick={handleRowClick} renderMobileCard={p => <MobilePaymentCard payment={p} onCancel={handleCancel} navigate={path => router.push(path)} handleRowClick={handleRowClick} />} /></div>}
-      <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Hủy phiếu chi?</AlertDialogTitle><AlertDialogDescription>Phiếu chi sẽ được chuyển sang trạng thái "Đã hủy".</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel className="h-9">Đóng</AlertDialogCancel><AlertDialogAction className="h-9" onClick={confirmCancel}>Hủy phiếu</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
-      <AlertDialog open={isBulkDeleteAlertOpen} onOpenChange={setIsBulkDeleteAlertOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Hủy {Object.keys(rowSelection).length} phiếu chi?</AlertDialogTitle><AlertDialogDescription>Các phiếu chi sẽ được chuyển sang trạng thái "Đã hủy".</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel className="h-9">Đóng</AlertDialogCancel><AlertDialogAction className="h-9" onClick={confirmBulkCancel}>Hủy tất cả</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+      {!isMobile && <PageToolbar leftActions={<>{canEditSettings && <Button variant="outline" size="sm" onClick={() => router.push('/settings/payments')}><Settings className="h-4 w-4 mr-2" />Cài đặt</Button>}<Button variant="outline" size="sm" onClick={() => setShowImportDialog(true)}><FileSpreadsheet className="mr-2 h-4 w-4" />Nhập file</Button><Button variant="outline" size="sm" onClick={() => setShowExportDialog(true)}><Download className="mr-2 h-4 w-4" />Xuất Excel</Button></>} rightActions={[<DataTableColumnCustomizer key="c" columns={columns} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} />]} />}
+      <PageFilters searchValue={globalFilter} onSearchChange={setGlobalFilter} searchPlaceholder="Tìm theo mã phiếu, người nhận, chứng từ...">
+        <AdvancedFilterPanel filters={filterConfigs} values={panelValues} onApply={handlePanelApply} presets={presets.map(p => ({ ...p, filters: p.filters }))} onSavePreset={(preset) => savePreset(preset.name, panelValues)} onDeletePreset={deletePreset} onUpdatePreset={updatePreset} />
+      </PageFilters>
+      <FilterExtras presets={presets} filterConfigs={filterConfigs} values={panelValues} onApply={handlePanelApply} onDeletePreset={deletePreset} />
+      {isMobile ? <div className={cn('space-y-2 flex-1 overflow-y-auto', isFetching && !isLoading && 'opacity-70 transition-opacity')}>{filteredData.length === 0 && !isLoading ? <Card><CardContent className="p-8 text-center text-muted-foreground">Không tìm thấy phiếu chi nào</CardContent></Card> : <>{filteredData.slice(0, mobileLoadedCount).map(p => <MobilePaymentCard key={p.systemId} payment={p} onCancel={handleCancel} navigate={path => router.push(path)} handleRowClick={handleRowClick} />)}{mobileLoadedCount < filteredData.length && <Card><CardContent className="p-4 text-center text-muted-foreground"><div className="flex items-center justify-center gap-2"><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary" /><span>Đang tải thêm...</span></div></CardContent></Card>}</>}</div> : <div className={cn('w-full py-4', isFetching && !isLoading && 'opacity-70 transition-opacity')}><ResponsiveDataTable columns={columns} data={filteredData} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowCount={serverTotal} isLoading={isLoading} rowSelection={rowSelection} setRowSelection={setRowSelection} onBulkDelete={() => setIsBulkDeleteAlertOpen(true)} sorting={sorting} setSorting={setSorting as React.Dispatch<React.SetStateAction<{ id: string; desc: boolean }>>} allSelectedRows={allSelectedRows} bulkActions={bulkActions} expanded={{}} setExpanded={() => {}} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} onRowClick={handleRowClick} renderMobileCard={p => <MobilePaymentCard payment={p} onCancel={handleCancel} navigate={path => router.push(path)} handleRowClick={handleRowClick} />} /></div>}
+      <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Hủy phiếu chi?</AlertDialogTitle><AlertDialogDescription>Phiếu chi sẽ được chuyển sang trạng thái "Đã hủy".</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel className="h-9">Đóng</AlertDialogCancel><AlertDialogAction className="h-9" disabled={isCancelling} onClick={confirmCancel}>{isCancelling ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Đang hủy...</> : 'Hủy phiếu'}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+      <AlertDialog open={isBulkDeleteAlertOpen} onOpenChange={setIsBulkDeleteAlertOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Hủy {Object.keys(rowSelection).length} phiếu chi?</AlertDialogTitle><AlertDialogDescription>Các phiếu chi sẽ được chuyển sang trạng thái "Đã hủy".</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel className="h-9">Đóng</AlertDialogCancel><AlertDialogAction className="h-9" disabled={isCancelling} onClick={confirmBulkCancel}>{isCancelling ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Đang hủy...</> : 'Hủy tất cả'}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
       <SimplePrintOptionsDialog open={printDialogOpen} onOpenChange={setPrintDialogOpen} onConfirm={handlePrintConfirm} selectedCount={itemsToPrint.length} title="In phiếu chi" />
       <PaymentImportDialog open={showImportDialog} onOpenChange={setShowImportDialog} branches={branches.map(b => ({ systemId: b.systemId, name: b.name }))} existingData={allPayments} onImport={handleImport} currentUser={{ name: employee?.fullName || 'Hệ thống', systemId: employee?.systemId || asSystemId('SYSTEM') }} />
       <PaymentExportDialog open={showExportDialog} onOpenChange={setShowExportDialog} allData={allPayments} filteredData={filteredData} currentPageData={filteredData} selectedData={selectedPayments} currentUser={{ name: employee?.fullName || 'Hệ thống', systemId: employee?.systemId || asSystemId('SYSTEM') }} />

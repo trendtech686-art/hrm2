@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { useRouter, useParams } from 'next/navigation';
-import Link from 'next/link';
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { asSystemId, asBusinessId, type BusinessId } from '@/lib/id-types';
@@ -18,10 +17,11 @@ import { complaintNotifications } from "../notification-utils";
 
 // Product image & type
 import { useProductImage } from '@/features/products/components/product-image';
-import { useProductFinder } from '@/features/products/hooks/use-all-products';
+import { useAllProducts, useProductFinder } from '@/features/products/hooks/use-all-products';
 import { useProductTypeFinder } from '@/features/settings/inventory/hooks/use-all-product-types';
+import { useCustomerStats } from '@/features/customers/hooks/use-customer-stats';
 import { OptimizedImage } from '@/components/ui/optimized-image';
-import { Package, Eye } from 'lucide-react';
+import { Package, Eye, Loader2 } from 'lucide-react';
 
 // Settings
 import { useComplaintsSettings } from "@/features/settings/complaints/hooks/use-complaints-settings";
@@ -48,7 +48,9 @@ import {
 
 // Hooks & Context
 import { usePageHeader } from "@/contexts/page-header-context";
-import { useAllOrders } from "@/features/orders/hooks/use-all-orders";
+import { searchOrders } from "@/features/orders/order-search-api";
+import { fetchOrder } from "@/features/orders/api/orders-api";
+import type { Order } from "@/lib/types/prisma-extended";
 import { useAllSalesReturns } from "@/features/sales-returns/hooks/use-all-sales-returns";
 import { useAllBranches } from "@/features/settings/branches/hooks/use-all-branches";
 import { useAllEmployees } from "@/features/employees/hooks/use-all-employees";
@@ -164,7 +166,14 @@ export function ComplaintFormPage() {
   });
   const { getComplaintById } = useComplaintFinder();
   const { data: complaintFromQuery } = useComplaint(isEditing ? systemId : undefined);
-  const { data: orders } = useAllOrders();
+  // Server-side order search state
+  const [orderSearchQuery, setOrderSearchQuery] = React.useState('');
+  const [orderSearchResults, setOrderSearchResults] = React.useState<ComboboxOption[]>([]);
+  const [isSearchingOrders, setIsSearchingOrders] = React.useState(false);
+  const [isLoadingMoreOrders, setIsLoadingMoreOrders] = React.useState(false);
+  const [orderSearchPage, setOrderSearchPage] = React.useState(1);
+  const [hasMoreOrders, setHasMoreOrders] = React.useState(false);
+  const [orderEntity, setOrderEntity] = React.useState<Order | null>(null);
   const { data: salesReturns } = useAllSalesReturns();
   const { data: _branches } = useAllBranches();
   const { data: employees } = useAllEmployees();
@@ -172,7 +181,8 @@ export function ComplaintFormPage() {
   const { addNotification } = useNotificationStore();
   const { employee } = useAuth();
   
-  // Product & ProductType for image/type display
+  // Product & ProductType for image/type display — fetch enabled to ensure images load
+  useAllProducts();
   const { findById: findProductById } = useProductFinder();
   const { findById: findProductTypeById } = useProductTypeFinder();
   
@@ -332,46 +342,90 @@ export function ComplaintFormPage() {
   const _complaintId = watch("id");
   const _orderValue = watch("orderValue");
   
-  // Order options for VirtualizedCombobox
-  const orderOptions = React.useMemo<ComboboxOption[]>(() => {
-    return orders.map((order) => ({
-      value: order.systemId, // ⭐ Dùng systemId làm value
-      label: `${order.id} - ${order.customerName}`, // Hiển thị business ID
-      subtitle: `${formatDateForDisplay(order.orderDate)} • ${order.grandTotal?.toLocaleString('vi-VN')} đ`,
-    }));
-  }, [orders]);
+  // Customer stats for info card
+  const customerSystemId = watch('customerSystemId');
+  const { data: customerStats, isLoading: isLoadingStats } = useCustomerStats(customerSystemId || undefined);
+  
+  // Server-side order search
+  const ORDER_PAGE_SIZE = 50;
+  React.useEffect(() => {
+    const performSearch = async () => {
+      setIsSearchingOrders(true);
+      setOrderSearchPage(1);
+      try {
+        const results = await searchOrders({ query: orderSearchQuery, limit: ORDER_PAGE_SIZE });
+        const mapped = results.map(r => ({ value: r.value, label: r.label, subtitle: r.subtitle }));
+        setOrderSearchResults(mapped);
+        setHasMoreOrders(mapped.length >= ORDER_PAGE_SIZE);
+      } catch {
+        setOrderSearchResults([]);
+        setHasMoreOrders(false);
+      } finally {
+        setIsSearchingOrders(false);
+      }
+    };
+    performSearch();
+  }, [orderSearchQuery]);
+
+  // Load more orders (infinite scroll)
+  const handleLoadMoreOrders = React.useCallback(async () => {
+    if (isLoadingMoreOrders || !hasMoreOrders) return;
+    setIsLoadingMoreOrders(true);
+    const nextPage = orderSearchPage + 1;
+    try {
+      const results = await searchOrders({ query: orderSearchQuery, limit: ORDER_PAGE_SIZE, page: nextPage });
+      const mapped = results.map(r => ({ value: r.value, label: r.label, subtitle: r.subtitle }));
+      setOrderSearchResults(prev => [...prev, ...mapped]);
+      setOrderSearchPage(nextPage);
+      setHasMoreOrders(mapped.length >= ORDER_PAGE_SIZE);
+    } catch {
+      setHasMoreOrders(false);
+    } finally {
+      setIsLoadingMoreOrders(false);
+    }
+  }, [isLoadingMoreOrders, hasMoreOrders, orderSearchPage, orderSearchQuery]);
+  
+  // Fetch full order detail when user selects an order
+  React.useEffect(() => {
+    if (!selectedOrder) {
+      setOrderEntity(null);
+      return;
+    }
+    let cancelled = false;
+    fetchOrder(selectedOrder.value).then(order => {
+      if (!cancelled) setOrderEntity(order);
+    }).catch(() => {
+      if (!cancelled) setOrderEntity(null);
+    });
+    return () => { cancelled = true; };
+  }, [selectedOrder?.value]);
   
   // Auto-fill khi chọn order (chỉ chạy khi user chọn thủ công, không chạy khi load complaint)
   React.useEffect(() => {
-    if (selectedOrder && !isLoadingComplaint) {
-      const order = orders.find(o => o.systemId === selectedOrder.value); // ⭐ Dùng systemId
-      if (order) {
-        setValue("orderSystemId", order.systemId); // ⭐ Lưu systemId
-        setValue("branchSystemId", order.branchSystemId); // ⭐ Lưu branchSystemId từ order
-        setValue("branchName", order.branchName); // ⭐ Lưu branchName từ order
-        setValue("customerSystemId", order.customerSystemId); // ⭐ Lưu customerSystemId
-        setValue("customerName", order.customerName);
+    if (orderEntity && !isLoadingComplaint) {
+      setValue("orderSystemId", orderEntity.systemId);
+      setValue("branchSystemId", orderEntity.branchSystemId);
+      setValue("branchName", orderEntity.branchName);
+      setValue("customerSystemId", orderEntity.customerSystemId);
+      setValue("customerName", orderEntity.customerName);
+      
+      const customer = customers.find(c => c.systemId === orderEntity.customerSystemId);
+      setValue("customerPhone", customer?.phone || "");
+      
+      setValue("orderValue", orderEntity.grandTotal || 0);
+      
+      if (orderEntity.packagings && orderEntity.packagings.length > 0) {
+        const packaging = orderEntity.packagings[0];
+        const empId = packaging.assignedEmployeeId || packaging.confirmingEmployeeId || packaging.requestingEmployeeId;
+        const empName = packaging.assignedEmployeeName || packaging.confirmingEmployeeName || packaging.requestingEmployeeName;
         
-        // Lấy số điện thoại từ Customer store
-        const customer = customers.find(c => c.systemId === order.customerSystemId);
-        setValue("customerPhone", customer?.phone || "");
-        
-        setValue("orderValue", order.grandTotal || 0);
-        
-        // Lấy nhân viên đóng gói từ packaging
-        if (order.packagings && order.packagings.length > 0) {
-          const packaging = order.packagings[0];
-          const empId = packaging.assignedEmployeeId || packaging.confirmingEmployeeId;
-          const empName = packaging.assignedEmployeeName || packaging.confirmingEmployeeName;
-          
-          if (empId && empName) {
-            setPackagingEmployee(empId);
-            setPackagingEmployeeName(empName);
-          }
+        if (empId && empName) {
+          setPackagingEmployee(empId);
+          setPackagingEmployeeName(empName);
         }
       }
     }
-  }, [selectedOrder, orders, customers, setValue, isLoadingComplaint]);
+  }, [orderEntity, customers, setValue, isLoadingComplaint]);
   
   // Track if complaint data has been initialized
   const hasInitializedRef = React.useRef(false);
@@ -462,54 +516,49 @@ export function ComplaintFormPage() {
     }
   }, [complaint, setValue, employees]);
   
-  // ⭐ Separate effect for setting order and affected products - waits for orders to load
+  // ⭐ Separate effect for setting order and affected products when editing
   React.useEffect(() => {
-    // Only proceed if we have complaint, orders loaded, and haven't set order yet
-    if (!complaint || orders.length === 0 || hasSetOrderRef.current) return;
+    if (!complaint || hasSetOrderRef.current) return;
     
-    // ✅ Support orderSystemId, orderId, AND orderCode (business ID fallback)
     const orderIdToFind = complaint.orderSystemId || (complaint as unknown as { orderId?: string }).orderId || complaint.orderCode;
     
     if (!orderIdToFind) {
-      // No order linked to this complaint - mark as processed
       hasSetOrderRef.current = true;
       return;
     }
     
-    const order = orders.find(o => o.systemId === orderIdToFind || o.id === orderIdToFind || o.id === complaint.orderCode);
-        
-    if (order) {
+    let cancelled = false;
+    fetchOrder(orderIdToFind).then(order => {
+      if (cancelled || hasSetOrderRef.current) return;
       hasSetOrderRef.current = true;
       
-      // Set selected order
+      setOrderEntity(order);
       setSelectedOrder({
         value: order.systemId,
         label: `${order.id} - ${order.customerName}`,
         subtitle: `${formatDateForDisplay(order.orderDate)} • ${order.grandTotal?.toLocaleString('vi-VN')} đ`,
       });
         
-        // ⭐ Load affected products with order data
-        // ✅ FIX: Thêm lineItemIndex để mapping đúng với order lineItems
-        if (complaint.affectedProducts && complaint.affectedProducts.length > 0) {
-          setAffectedProducts(complaint.affectedProducts.map(p => {
-            // Tìm index trong order.lineItems (handle trường hợp trùng productSystemId)
-            const orderItemIndex = order.lineItems?.findIndex(item => item.productSystemId === p.productSystemId) ?? -1;
-            const orderItem = orderItemIndex >= 0 ? order.lineItems?.[orderItemIndex] : undefined;
-            return {
-              ...p,
-              lineItemIndex: orderItemIndex, // ⭐ Lưu index để track unique
-              unitPrice: p.unitPrice || orderItem?.unitPrice || 0,
-              quantityMissing: p.quantityMissing || 0,
-              quantityDefective: p.quantityDefective || 0,
-              quantityExcess: p.quantityExcess || 0,
-              issueType: p.issueType || 'missing',
-              note: p.note || '',
-              resolutionType: p.resolutionType || 'ignore',
-            };
-          }));
-        }
+      if (complaint.affectedProducts && complaint.affectedProducts.length > 0) {
+        setAffectedProducts(complaint.affectedProducts.map(p => {
+          const orderItemIndex = order.lineItems?.findIndex(item => item.productSystemId === p.productSystemId) ?? -1;
+          const orderItem = orderItemIndex >= 0 ? order.lineItems?.[orderItemIndex] : undefined;
+          return {
+            ...p,
+            lineItemIndex: orderItemIndex,
+            unitPrice: p.unitPrice || orderItem?.unitPrice || 0,
+            quantityMissing: p.quantityMissing || 0,
+            quantityDefective: p.quantityDefective || 0,
+            quantityExcess: p.quantityExcess || 0,
+            issueType: p.issueType || 'missing',
+            note: p.note || '',
+            resolutionType: p.resolutionType || 'ignore',
+          };
+        }));
       }
-  }, [complaint, orders]);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [complaint]);
   
   // ⚠️ REMOVED: Không cleanup trong useEffect unmount
   // Lý do: Nếu cleanup chạy trước khi confirm → 404 error
@@ -539,10 +588,7 @@ export function ComplaintFormPage() {
   // Page header - use primitive value to avoid infinite loops
   const hasSelectedOrder = !!selectedOrder;
   
-  const selectedOrderEntity = React.useMemo(() => {
-    if (!selectedOrder) return null;
-    return orders.find(o => o.systemId === selectedOrder.value) ?? null;
-  }, [orders, selectedOrder]);
+  const selectedOrderEntity = orderEntity;
 
   const headerActions = React.useMemo(() => ([
     <Button
@@ -565,7 +611,7 @@ export function ComplaintFormPage() {
       }}
       disabled={isSubmitting || !hasSelectedOrder}
     >
-      {isSubmitting ? "Đang lưu..." : isEditing ? "Cập nhật" : "Tạo khiếu nại"}
+      {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Đang lưu...</> : isEditing ? "Cập nhật" : "Tạo khiếu nại"}
     </Button>,
   ]), [isEditing, isSubmitting, router, hasSelectedOrder]);
 
@@ -772,7 +818,7 @@ export function ComplaintFormPage() {
       const complaintData = {
         id: data.id ? asBusinessId(data.id) : undefined,
         orderSystemId: data.orderSystemId, // ⭐ Lưu systemId
-        orderCode: selectedOrder ? orders.find(o => o.systemId === data.orderSystemId)?.id : undefined, // ⭐ Optional display code
+        orderCode: selectedOrder ? orderEntity?.id : undefined, // ⭐ Optional display code
         orderValue: data.orderValue,
         branchSystemId: data.branchSystemId, // ⭐ Lưu branchSystemId từ order
         branchName: data.branchName, // ⭐ Lưu branchName từ order
@@ -780,7 +826,7 @@ export function ComplaintFormPage() {
         customerName: data.customerName,
         customerPhone: data.customerPhone,
         type: data.type,
-        description: data.description || "", // Default to empty string
+        description: data.description || undefined, // Optional — no min length required
         priority: data.priority,
         // CUSTOMER IMAGES - Lưu vào complaint.images với type 'initial'
         images: finalCustomerImageUrls
@@ -817,8 +863,7 @@ export function ComplaintFormPage() {
         createMutation.mutate(complaintData as unknown as Omit<Complaint, "systemId" | "createdAt" | "updatedAt" | "timeline" | "id"> & { id?: BusinessId }, {
           onSuccess: (newComplaint) => {
             // Lấy orderCode để hiển thị
-            const order = orders.find(o => o.systemId === data.orderSystemId);
-            const orderCode = order?.id || data.orderSystemId;
+            const orderCode = orderEntity?.id || data.orderSystemId;
             
             // Gửi thông báo cho nhân viên đóng gói
             addNotification({
@@ -826,9 +871,9 @@ export function ComplaintFormPage() {
               title: "Khiếu nại mới cần xử lý",
               message: `Bạn được giao xử lý khiếu nại cho đơn hàng ${orderCode}. Độ ưu tiên: ${data.priority}`,
               link: `/complaints/${newComplaint.systemId}`,
-              createdBy: currentUser.systemId,
+              recipientId: packagingEmployee,
+              senderId: currentUser.systemId,
               metadata: {
-                recipientId: packagingEmployee,
                 complaintId: newComplaint.systemId,
                 orderSystemId: data.orderSystemId,
                 priority: data.priority,
@@ -859,13 +904,13 @@ export function ComplaintFormPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             {canOnlyEditNote && (
-              <div className="bg-muted/50 border border-muted-foreground/20 rounded-md p-3 text-body-sm text-muted-foreground">
+              <div className="bg-muted/50 border border-muted-foreground/20 rounded-md p-3 text-sm text-muted-foreground">
                 ℹ️ Khiếu nại đã được xác minh. Chỉ có thể chỉnh sửa ghi chú.
               </div>
             )}
             {/* Mã phiếu khiếu nại (optional) */}
             <div>
-              <Label htmlFor="id" className="text-body-sm">Mã phiếu khiếu nại (tùy chọn)</Label>
+              <Label htmlFor="id" className="text-sm">Mã phiếu khiếu nại (tùy chọn)</Label>
               <Input
                 id="id"
                 placeholder="Để trống để tự động tạo mã"
@@ -873,38 +918,43 @@ export function ComplaintFormPage() {
                 disabled={canOnlyEditNote}
                 {...register("id")}
               />
-              <p className="text-body-xs text-muted-foreground mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 Nếu không điền, hệ thống sẽ tự động tạo mã
               </p>
             </div>
             
             {/* Chọn đơn hàng */}
             <div>
-              <Label className="text-body-sm">Chọn đơn hàng *</Label>
+              <Label className="text-sm">Chọn đơn hàng *</Label>
               <VirtualizedCombobox
                 value={selectedOrder}
                 onChange={setSelectedOrder}
-                options={orderOptions}
+                options={orderSearchResults}
+                onSearchChange={setOrderSearchQuery}
+                isLoading={isSearchingOrders}
+                onLoadMore={handleLoadMoreOrders}
+                hasMore={hasMoreOrders}
+                isLoadingMore={isLoadingMoreOrders}
                 placeholder="Tìm và chọn đơn hàng..."
                 searchPlaceholder="Tìm theo mã đơn, tên khách..."
                 disabled={canOnlyEditNote}
               />
               {!selectedOrder && (
-                <p className="text-body-xs text-destructive mt-1">Vui lòng chọn đơn hàng</p>
+                <p className="text-xs text-destructive mt-1">Vui lòng chọn đơn hàng</p>
               )}
             </div>
           </CardContent>
         </Card>
 
         {/* Card: Thông tin đơn hàng */}
-        {selectedOrder && orders.find(o => o.systemId === selectedOrder.value) && (() => {
-          const order = orders.find(o => o.systemId === selectedOrder.value)!;
+        {selectedOrder && orderEntity && (() => {
+          const order = orderEntity;
           return (
             <Card>
               <CardHeader>
                 <CardTitle>Thông tin đơn hàng</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3 text-body-sm">
+              <CardContent className="space-y-3 text-sm">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Mã đơn hàng:</span>
@@ -954,9 +1004,33 @@ export function ComplaintFormPage() {
                       {order.packagings?.[0]?.requestDate ? formatDateForDisplay(order.packagings[0].requestDate) : "Chưa xuất"}
                     </span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between items-center">
                     <span className="text-muted-foreground">Nhân viên xử lý:</span>
-                    <span className="font-medium">{packagingEmployeeName || "Chưa xác định"}</span>
+                    {packagingEmployeeName ? (
+                      <span className="font-medium">{packagingEmployeeName}</span>
+                    ) : (
+                      <Select
+                        value={packagingEmployee || undefined}
+                        onValueChange={(val) => {
+                          const emp = employees.find(e => e.systemId === val);
+                          if (emp) {
+                            setPackagingEmployee(emp.systemId);
+                            setPackagingEmployeeName(emp.fullName);
+                          }
+                        }}
+                      >
+                        <SelectTrigger className="h-7 w-48 text-xs">
+                          <SelectValue placeholder="Chọn nhân viên..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {employees.map(emp => (
+                            <SelectItem key={emp.systemId} value={emp.systemId}>
+                              {emp.fullName}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
                   </div>
                 </div>
               </CardContent>
@@ -964,9 +1038,105 @@ export function ComplaintFormPage() {
           );
         })()}
 
+        {/* Card: Thông tin khách hàng — style giống order detail page */}
+        {selectedOrder && customerSystemId && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Thông tin khách hàng</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isLoadingStats ? (
+                <p className="text-sm text-muted-foreground">Đang tải...</p>
+              ) : (() => {
+                const customer = customerStats.customer;
+                const formatMoney = (v?: number) => (v ?? 0).toLocaleString('vi-VN');
+                return (
+                  <div className="space-y-3">
+                    {/* Tên + SĐT */}
+                    <div>
+                      <p className="font-semibold text-lg">{customer?.name || watch('customerName')}</p>
+                      <p className="text-sm text-muted-foreground mt-0.5">
+                        {customer?.phone || watch('customerPhone') || 'Chưa có SĐT'}
+                      </p>
+                    </div>
+
+                    {/* Stats */}
+                    <div className="text-sm space-y-1.5 border-t pt-3">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Nhóm KH:</span>
+                        <span className="font-medium">{customerStats.customerGroupName || '---'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">NV phụ trách:</span>
+                        <span className="font-medium">{customer?.accountManagerName || '---'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Công nợ/Hạn mức:</span>
+                        <div className="text-right">
+                          <span className={`font-medium ${customerStats.financial.currentDebt > 0 ? 'text-red-500' : ''}`}>
+                            {formatMoney(customerStats.financial.currentDebt)}
+                          </span>
+                          <span className="text-muted-foreground mx-1">/</span>
+                          <span className="font-medium">{formatMoney(customer?.maxDebt)}</span>
+                        </div>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Tổng chi tiêu:</span>
+                        <span className="font-medium">{formatMoney(customerStats.financial.totalSpent)}</span>
+                      </div>
+
+                      <div className="border-t border-dashed my-2" />
+
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Tổng số đơn đặt:</span>
+                        <span className="font-medium">{customerStats.orders.total}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground text-right -mt-1">
+                        {customerStats.orders.pending} đặt hàng, {customerStats.orders.inProgress} đang giao dịch, {customerStats.orders.completed} hoàn thành, {customerStats.orders.cancelled} đã hủy
+                      </p>
+
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Bảo hành (đã trả/tổng):</span>
+                        <span className="font-medium">
+                          {customerStats.warranties.total > 0
+                            ? `${customerStats.warranties.total - customerStats.warranties.active}/${customerStats.warranties.total}`
+                            : '0'}
+                        </span>
+                      </div>
+
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Khiếu nại (đã xử lý/tổng):</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">
+                            {customerStats.complaints.total > 0
+                              ? `${customerStats.complaints.total - customerStats.complaints.active}/${customerStats.complaints.total}`
+                              : '0'}
+                          </span>
+                          {customerStats.complaints.active > 0 && (
+                            <span className="text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-medium">
+                              {customerStats.complaints.active} chưa xử lý
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Lần đặt đơn gần nhất:</span>
+                        <span className="font-medium">
+                          {customerStats.orders.lastOrderDate ? formatDateForDisplay(customerStats.orders.lastOrderDate) : '---'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+            </CardContent>
+          </Card>
+        )}
+
         {/* ⭐ NEW: Card Sản phẩm bị ảnh hưởng */}
-        {selectedOrder && orders.find(o => o.systemId === selectedOrder.value) && (() => {
-          const order = orders.find(o => o.systemId === selectedOrder.value)!;
+        {selectedOrder && orderEntity && (() => {
+          const order = orderEntity;
           const orderProducts = order.lineItems || [];
           
           // Tính số lượng đã trả cho từng sản phẩm từ các phiếu trả hàng
@@ -1052,9 +1222,9 @@ export function ComplaintFormPage() {
                         <TableHead className="w-24 text-right">Đơn giá</TableHead>
                         <TableHead className="w-16 text-center">SL</TableHead>
                         <TableHead className="w-24">Loại KN</TableHead>
-                        <TableHead className="w-16 text-center">Thừa</TableHead>
-                        <TableHead className="w-16 text-center">Thiếu</TableHead>
-                        <TableHead className="w-16 text-center">Hỏng</TableHead>
+                        <TableHead className="w-24 text-center">Thừa</TableHead>
+                        <TableHead className="w-24 text-center">Thiếu</TableHead>
+                        <TableHead className="w-24 text-center">Hỏng</TableHead>
                         <TableHead className="w-24 text-right">Tổng tiền</TableHead>
                         <TableHead className="min-w-30">Ghi chú</TableHead>
                       </TableRow>
@@ -1137,22 +1307,16 @@ export function ComplaintFormPage() {
                                 {/* Thông tin sản phẩm */}
                                 <div className="flex flex-col gap-0.5 min-w-0 flex-1">
                                   <div className="flex items-center gap-1.5">
-                                    <Link 
-                                      href={`/products/${item.productSystemId}`}
-                                      target="_blank"
-                                      className="text-xs font-medium text-foreground hover:text-primary hover:underline line-clamp-2"
-                                      onClick={(e) => e.stopPropagation()}
-                                    >
+                                    <span className="text-xs font-medium text-foreground line-clamp-2">
                                       {item.productName}
-                                    </Link>
+                                    </span>
                                     {isCombo && (
-                                      <span className="text-[9px] px-1 py-0.5 rounded bg-secondary text-secondary-foreground font-semibold shrink-0">
+                                      <span className="text-xs px-1 py-0.5 rounded bg-secondary text-secondary-foreground font-semibold shrink-0">
                                         COMBO
                                       </span>
                                     )}
                                   </div>
-                                  <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                                    <span>SKU: </span>
+                                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
                                     <span className="text-primary font-medium">{item.productId}</span>
                                     <span className="mx-0.5">•</span>
                                     <span>{productTypeLabel}</span>
@@ -1309,10 +1473,10 @@ export function ComplaintFormPage() {
                   if (totalExcessQty === 0) return null;
                   
                   return (
-                    <div className="space-y-2 p-4 rounded-lg border bg-card">
-                      <p className="text-body-xs font-medium text-muted-foreground uppercase">Thừa</p>
+                    <div className="space-y-2 p-4 rounded-xl border border-border/50 bg-card">
+                      <p className="text-xs font-medium text-muted-foreground uppercase">Thừa</p>
                       <p className="text-h3 font-bold tracking-tight">{totalExcessQty}</p>
-                      <p className="text-body-sm font-medium text-foreground">
+                      <p className="text-sm font-medium text-foreground">
                         {totalExcessAmount.toLocaleString('vi-VN')}đ
                       </p>
                     </div>
@@ -1332,10 +1496,10 @@ export function ComplaintFormPage() {
                   if (totalMissingQty === 0) return null;
                   
                   return (
-                    <div className="space-y-2 p-4 rounded-lg border bg-card">
-                      <p className="text-body-xs font-medium text-muted-foreground uppercase">Thiếu</p>
+                    <div className="space-y-2 p-4 rounded-xl border border-border/50 bg-card">
+                      <p className="text-xs font-medium text-muted-foreground uppercase">Thiếu</p>
                       <p className="text-h3 font-bold tracking-tight">{totalMissingQty}</p>
-                      <p className="text-body-sm font-medium text-foreground">
+                      <p className="text-sm font-medium text-foreground">
                         {totalMissingAmount.toLocaleString('vi-VN')}đ
                       </p>
                     </div>
@@ -1355,10 +1519,10 @@ export function ComplaintFormPage() {
                   if (totalDefectiveQty === 0) return null;
                   
                   return (
-                    <div className="space-y-2 p-4 rounded-lg border bg-card">
-                      <p className="text-body-xs font-medium text-muted-foreground uppercase">Hỏng</p>
+                    <div className="space-y-2 p-4 rounded-xl border border-border/50 bg-card">
+                      <p className="text-xs font-medium text-muted-foreground uppercase">Hỏng</p>
                       <p className="text-h3 font-bold tracking-tight">{totalDefectiveQty}</p>
-                      <p className="text-body-sm font-medium text-foreground">
+                      <p className="text-sm font-medium text-foreground">
                         {totalDefectiveAmount.toLocaleString('vi-VN')}đ
                       </p>
                     </div>
@@ -1372,10 +1536,10 @@ export function ComplaintFormPage() {
                   if (otherItems.length === 0) return null;
                   
                   return (
-                    <div className="space-y-2 p-4 rounded-lg border bg-card">
-                      <p className="text-body-xs font-medium text-muted-foreground uppercase">Khác</p>
+                    <div className="space-y-2 p-4 rounded-xl border border-border/50 bg-card">
+                      <p className="text-xs font-medium text-muted-foreground uppercase">Khác</p>
                       <p className="text-h3 font-bold tracking-tight">{otherItems.length}</p>
-                      <p className="text-body-sm font-medium text-foreground">
+                      <p className="text-sm font-medium text-foreground">
                         Xem ghi chú
                       </p>
                     </div>
@@ -1395,7 +1559,7 @@ export function ComplaintFormPage() {
             {/* Type + Priority */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="type" className="text-body-sm">Loại khiếu nại *</Label>
+                <Label htmlFor="type" className="text-sm">Loại khiếu nại *</Label>
                 <Select
                   value={watch("type")}
                   onValueChange={(value) => setValue("type", value as ComplaintType)}
@@ -1412,13 +1576,13 @@ export function ComplaintFormPage() {
                   </SelectContent>
                 </Select>
                 {complaintTypes.length === 0 && (
-                  <p className="text-body-xs text-muted-foreground mt-1">
+                  <p className="text-xs text-muted-foreground mt-1">
                     Chưa có loại khiếu nại nào. Vui lòng thêm trong Cài đặt.
                   </p>
                 )}
               </div>
               <div>
-                <Label htmlFor="priority" className="text-body-sm">Mức độ ưu tiên *</Label>
+                <Label htmlFor="priority" className="text-sm">Mức độ ưu tiên *</Label>
                 <Select
                   value={watch("priority")}
                   onValueChange={(value) => setValue("priority", value as "LOW" | "MEDIUM" | "HIGH" | "CRITICAL")}
@@ -1442,8 +1606,8 @@ export function ComplaintFormPage() {
               {/* Customer Images - Hình ảnh từ khách hàng */}
               <div className="space-y-4">
                 <div>
-                  <Label className="text-body-sm">Hình ảnh từ khách hàng</Label>
-                  <p className="text-body-xs text-muted-foreground mb-2">
+                  <Label className="text-sm">Hình ảnh từ khách hàng</Label>
+                  <p className="text-xs text-muted-foreground mb-2">
                     Tải lên ảnh bằng chứng từ khách hàng (tối đa 10 ảnh, mỗi ảnh max 10MB)
                   </p>
                 </div>
@@ -1472,8 +1636,8 @@ export function ComplaintFormPage() {
               {/* Employee Images - Hình ảnh từ nhân viên */}
               <div className="space-y-4">
                 <div>
-                  <Label className="text-body-sm">Hình ảnh kiểm tra từ nhân viên</Label>
-                  <p className="text-body-xs text-muted-foreground mb-2">
+                  <Label className="text-sm">Hình ảnh kiểm tra từ nhân viên</Label>
+                  <p className="text-xs text-muted-foreground mb-2">
                     Nhân viên chụp ảnh xác nhận tình trạng sau khi kiểm tra (tối đa 10 ảnh, mỗi ảnh max 10MB)
                   </p>
                 </div>

@@ -2,9 +2,12 @@
  * Sales Management Settings API Route
  */
 
-import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireAuth, apiError } from '@/lib/api-utils';
+import { requireAuth, apiError, apiSuccess } from '@/lib/api-utils';
+import { generateIdWithPrefix } from '@/lib/id-generator';
+import { logError } from '@/lib/logger'
+import { cache } from '@/lib/cache'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 type PrintCopiesOption = '1' | '2' | '3';
 
@@ -30,20 +33,23 @@ const defaultSettings: SalesManagementSettingsValues = {
 };
 
 export async function GET() {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const setting = await prisma.setting.findFirst({
       where: { key: SETTINGS_KEY },
     });
 
     if (!setting) {
-      return NextResponse.json({ data: defaultSettings });
+      return apiSuccess({ data: defaultSettings });
     }
 
     const data = setting.value as SalesManagementSettingsValues;
-    return NextResponse.json({ data });
+    return apiSuccess({ data });
   } catch (error) {
-    console.error('[API] Error fetching sales management settings:', error);
-    return NextResponse.json({ data: defaultSettings });
+    logError('[API] Error fetching sales management settings', error);
+    return apiSuccess({ data: defaultSettings });
   }
 }
 
@@ -59,6 +65,12 @@ export async function PUT(request: Request) {
       ...body,
     };
 
+    // Read old value for change tracking
+    const oldSetting = await prisma.setting.findFirst({
+      where: { key: SETTINGS_KEY, group: SETTINGS_GROUP },
+    });
+    const oldValue = (oldSetting?.value ?? defaultSettings) as Record<string, unknown>;
+
     const setting = await prisma.setting.upsert({
       where: {
         key_group: {
@@ -71,6 +83,7 @@ export async function PUT(request: Request) {
         updatedAt: new Date(),
       },
       create: {
+        systemId: await generateIdWithPrefix('SET_SALES', prisma),
         key: SETTINGS_KEY,
         group: SETTINGS_GROUP,
         type: 'json',
@@ -79,12 +92,47 @@ export async function PUT(request: Request) {
       },
     });
 
-    return NextResponse.json(setting.value as SalesManagementSettingsValues);
+    // Log changes - labels tiếng Việt, boolean hiển thị Bật/Tắt
+    const fieldLabels: Record<keyof SalesManagementSettingsValues, string> = {
+      allowCancelAfterExport: 'Cho phép hủy đơn sau xuất kho',
+      allowNegativeOrder: 'Cho phép tạo đơn đặt hàng âm',
+      allowNegativeApproval: 'Cho phép duyệt đơn âm',
+      allowNegativePacking: 'Cho phép đóng gói và tạo phiếu giao hàng âm',
+      allowNegativeStockOut: 'Cho phép xuất kho âm',
+      printCopies: 'In nhiều liên hoá đơn',
+    }
+
+    const formatValue = (key: keyof SalesManagementSettingsValues, val: unknown): string => {
+      if (key === 'printCopies') return `In ${val} liên`
+      return val ? 'Bật' : 'Tắt'
+    }
+
+    const changes: Record<string, { from: unknown; to: unknown }> = {};
+    for (const key of Object.keys(updatedSettings) as (keyof SalesManagementSettingsValues)[]) {
+      if (JSON.stringify(oldValue[key]) !== JSON.stringify(updatedSettings[key])) {
+        const label = fieldLabels[key] ?? key
+        changes[label] = {
+          from: formatValue(key, oldValue[key] ?? defaultSettings[key]),
+          to: formatValue(key, updatedSettings[key]),
+        }
+      }
+    }
+    if (Object.keys(changes).length > 0) {
+      const changeDetail = Object.keys(changes).join(', ')
+      createActivityLog({
+        entityType: 'sales_management',
+        entityId: 'sales-management-settings',
+        action: `Cập nhật cài đặt bán hàng: ${changeDetail}`,
+        actionType: 'update',
+        changes,
+        createdBy: session?.user?.id ?? '',
+      }).catch(e => logError('[sales-management] activity log failed', e));
+    }
+
+    cache.deletePattern('^settings:')
+    return apiSuccess({ data: setting.value as SalesManagementSettingsValues });
   } catch (error) {
-    console.error('[API] Error updating sales management settings:', error);
-    return NextResponse.json(
-      { error: 'Failed to update sales management settings' },
-      { status: 500 }
-    );
+    logError('[API] Error updating sales management settings', error);
+    return apiError('Failed to update sales management settings', 500);
   }
 }

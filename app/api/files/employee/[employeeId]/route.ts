@@ -11,6 +11,7 @@ import path from 'path';
 import { prisma } from '@/lib/prisma';
 import { getUploadDir } from '@/lib/upload-utils';
 import { requireAuth, apiError, apiSuccess } from '@/lib/api-utils';
+import { logError } from '@/lib/logger'
 
 const UPLOAD_DIR = getUploadDir();
 
@@ -31,7 +32,7 @@ export async function DELETE(
     // Delete from database
     const deletedFiles = await prisma.file.deleteMany({
       where: {
-        entityType: 'Employee',
+        entityType: 'employee',
         entityId: employeeId,
       },
     });
@@ -50,7 +51,7 @@ export async function DELETE(
       deletedCount: deletedFiles.count,
     });
   } catch (error) {
-    console.error('❌ Delete employee files error:', error);
+    logError('❌ Delete employee files error', error);
     return apiError('Lỗi khi xóa file nhân viên', 500);
   }
 }

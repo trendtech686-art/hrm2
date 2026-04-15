@@ -71,7 +71,7 @@ export function useComplaintTimeTracking(complaint: Complaint | null | undefined
     let responseStatus: 'on-time' | 'warning' | 'overdue' | 'pending' = 'pending';
 
     if (assignedAt) {
-      responseTime = assignedAt - createdAt;
+      responseTime = Math.max(0, assignedAt - createdAt);
       
       if (responseTime <= SLA_CONFIG.responseTime * SLA_CONFIG.warningThreshold) {
         responseStatus = 'on-time';
@@ -85,8 +85,9 @@ export function useComplaintTimeTracking(complaint: Complaint | null | undefined
       responseTime = 0;
       responseStatus = 'on-time';
     } else {
-      // Chưa assign
+      // Chưa assign - hiển thị thời gian đang chờ
       const elapsed = now - createdAt;
+      responseTime = null; // Chưa phản hồi
       if (elapsed > SLA_CONFIG.responseTime) {
         responseStatus = 'overdue';
       } else if (elapsed > SLA_CONFIG.responseTime * SLA_CONFIG.warningThreshold) {
@@ -207,7 +208,7 @@ export function useComplaintTimeTracking(complaint: Complaint | null | undefined
  */
 function formatDuration(ms: number | null): string {
   if (ms === null || ms === undefined) return '-';
-  if (ms === 0) return 'Ngay lập tức';
+  if (ms <= 0) return 'Ngay lập tức';
 
   const seconds = Math.floor(ms / 1000);
   const minutes = Math.floor(seconds / 60);

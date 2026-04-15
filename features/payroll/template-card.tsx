@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { Star, Pencil, Trash2 } from 'lucide-react';
-import { Card, CardContent } from '../../components/ui/card';
+
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import { Checkbox } from '../../components/ui/checkbox';
@@ -26,8 +26,7 @@ export function TemplateCard({
   onSetDefault,
 }: TemplateCardProps) {
   return (
-    <Card className={`transition-colors ${isSelected ? 'border-primary bg-primary/5' : ''}`}>
-      <CardContent className="p-4">
+    <div className={`rounded-xl border border-border/50 bg-card p-4 transition-colors ${isSelected ? 'border-primary bg-primary/5' : ''}`}>
         <div className="flex items-start gap-3">
           <Checkbox
             checked={isSelected}
@@ -36,7 +35,7 @@ export function TemplateCard({
           />
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <span className="font-mono text-body-xs text-muted-foreground">
+              <span className="font-mono text-xs text-muted-foreground">
                 {template.id}
               </span>
               {template.isDefault && (
@@ -45,13 +44,13 @@ export function TemplateCard({
                 </Badge>
               )}
             </div>
-            <h3 className="font-medium text-body-sm truncate">{template.name}</h3>
+            <h3 className="font-medium text-sm truncate">{template.name}</h3>
             {template.description && (
-              <p className="text-body-xs text-muted-foreground line-clamp-2 mt-1">
+              <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
                 {template.description}
               </p>
             )}
-            <div className="flex items-center gap-4 mt-3 text-body-xs text-muted-foreground">
+            <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground">
               <span>{template.componentSystemIds.length} thành phần</span>
               {template.createdAt && (
                 <span>Tạo: {formatDateForDisplay(template.createdAt)}</span>
@@ -59,12 +58,12 @@ export function TemplateCard({
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2 mt-4 pt-3 border-t">
+        <div className="flex items-center gap-2 mt-4 pt-3 border-t border-border/50">
           {!template.isDefault && (
             <Button
               variant="ghost"
               size="sm"
-              className="h-8 flex-1 text-body-xs"
+              className="h-8 flex-1 text-xs"
               onClick={() => onSetDefault(template.systemId)}
             >
               <Star className="mr-1 h-3.5 w-3.5" />
@@ -89,7 +88,6 @@ export function TemplateCard({
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
         </div>
-      </CardContent>
-    </Card>
+    </div>
   );
 }

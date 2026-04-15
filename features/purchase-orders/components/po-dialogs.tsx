@@ -118,7 +118,7 @@ interface ReceiveDialogProps {
   hasValidQuantity: boolean;
   _onOpenChange?: (open: boolean) => void;
   onClose: () => void;
-  onFieldChange: (field: keyof ReceiveDialogState, value: string) => void;
+  onFieldChange: (field: 'documentCode' | 'receivedDate' | 'warehouseName' | 'notes', value: string) => void;
   onBranchChange: (branchId: string) => void;
   onQuantityChange: (productSystemId: string, quantity: number) => void;
   onSubmit: () => void;
@@ -147,7 +147,7 @@ export function POReceiveDialog({
         </DialogHeader>
         <div className="space-y-4">
           {pendingQueueLength > 0 && (
-            <div className="rounded-md bg-blue-50 px-3 py-2 text-body-sm text-blue-700 dark:bg-blue-950/50 dark:text-blue-300">
+            <div className="rounded-md bg-blue-50 px-3 py-2 text-sm text-blue-700 dark:bg-blue-950/50 dark:text-blue-300">
               Còn {pendingQueueLength} đơn trong hàng đợi sẽ được mở tiếp sau khi lưu phiếu này.
             </div>
           )}
@@ -218,8 +218,8 @@ export function POReceiveDialog({
                   <TableRow key={item.productSystemId}>
                     <TableCell>
                       <div className="flex flex-col">
-                        <span className="text-body-sm font-medium">{item.productName}</span>
-                        <span className="text-body-xs text-muted-foreground">{item.productId}</span>
+                        <span className="text-sm font-medium">{item.productName}</span>
+                        <span className="text-xs text-muted-foreground">{item.productId}</span>
                       </div>
                     </TableCell>
                     <TableCell>{item.orderedQuantity}</TableCell>
@@ -239,7 +239,7 @@ export function POReceiveDialog({
               </TableBody>
             </Table>
             {state.items.length === 0 && (
-              <p className="p-4 text-body-sm text-muted-foreground">Tất cả sản phẩm trong đơn này đã được nhập đủ.</p>
+              <p className="p-4 text-sm text-muted-foreground">Tất cả sản phẩm trong đơn này đã được nhập đủ.</p>
             )}
           </div>
         </div>

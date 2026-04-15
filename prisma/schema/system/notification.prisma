@@ -1,1 +1,23 @@
+model Notification {
+  id          String   @id @default(uuid())
+  type        String   // task, order, warranty, leave, attendance, payroll, system, comment, mention
+  title       String
+  message     String
+  link        String?  // URL to navigate when clicked
+  recipientId String   // Employee systemId who receives the notification
+  senderId    String?  // Employee systemId who triggered (optional for system notifications)
+  senderName  String?  // Denormalized sender name for display
+  isRead      Boolean  @default(false)
+  readAt      DateTime?
+  metadata    Json?    // Flexible: { orderId, taskId, warrantyId, etc. }
+  createdAt   DateTime @default(now())
 
+  // Relations
+  recipient Employee @relation("NotificationRecipient", fields: [recipientId], references: [systemId], onDelete: Cascade)
+  sender    Employee? @relation("NotificationSender", fields: [senderId], references: [systemId], onDelete: SetNull)
+
+  @@index([recipientId, isRead])
+  @@index([recipientId, createdAt])
+  @@index([type])
+  @@map("notifications")
+}

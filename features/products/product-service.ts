@@ -12,6 +12,7 @@ export interface ProductQueryParams {
   statusFilter: ProductStatus | 'all';
   typeFilter: ProductType | 'all';
   categoryFilter: string;
+  brandFilter: string;
   comboFilter: 'all' | 'combo' | 'non-combo';
   stockLevelFilter: 'all' | 'out-of-stock' | 'low-stock' | 'below-safety' | 'high-stock';
   pkgxFilter: 'all' | 'linked' | 'not-linked';
@@ -51,6 +52,9 @@ export async function fetchProductsPage(params: ProductQueryParams): Promise<Pro
   }
   if (categoryFilter && categoryFilter !== 'all') {
     queryParams.set('categoryId', categoryFilter);
+  }
+  if (params.brandFilter && params.brandFilter !== 'all') {
+    queryParams.set('brandId', params.brandFilter);
   }
   if (pkgxFilter && pkgxFilter !== 'all') {
     queryParams.set('pkgxFilter', pkgxFilter);

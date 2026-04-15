@@ -59,7 +59,7 @@ export function CreatePaymentDialog({
 
   // Stores
   const { create: createPayment } = usePaymentMutations({});
-  const { accounts: cashAccounts } = useAllCashAccounts();
+  const { accounts: cashAccounts } = useAllCashAccounts({ enabled: open });
 
   // Computed
   const totalNet = React.useMemo(() => {

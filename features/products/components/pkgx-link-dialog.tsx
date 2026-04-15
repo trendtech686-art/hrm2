@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { Link2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -11,16 +12,45 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { VirtualizedCombobox, type ComboboxOption } from '@/components/ui/virtualized-combobox';
-import { useAllProducts } from '../hooks/use-all-products';
 import { useProductMutations } from '../hooks/use-products';
 import type { Product } from '../types';
-import { usePkgxProductsCache } from '@/features/settings/pkgx/hooks/use-pkgx-settings';
+import { logError } from '@/lib/logger'
+import { useDebouncedValue } from '@/hooks/use-server-filters'
+
+const PKGX_PAGE_SIZE = 30;
 
 interface PkgxLinkDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   product: Product | null;
   onSuccess?: (pkgxId: number) => void;
+}
+
+function useInfinitePkgxProducts({ search, enabled }: { search: string; enabled: boolean }) {
+  const debouncedSearch = useDebouncedValue(search, 300);
+  return useInfiniteQuery({
+    queryKey: ['meili-pkgx-products-infinite', debouncedSearch],
+    queryFn: async ({ pageParam = 0 }) => {
+      const params = new URLSearchParams({
+        q: debouncedSearch,
+        limit: String(PKGX_PAGE_SIZE),
+        offset: String(pageParam),
+        mapped: 'false',
+      });
+      const res = await fetch(`/api/search/pkgx-products?${params}`);
+      if (!res.ok) throw new Error('Failed to search PKGX products');
+      const json = await res.json();
+      return { data: json.data || [], total: json.meta?.total || 0 };
+    },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) => {
+      const totalLoaded = allPages.reduce((sum, page) => sum + page.data.length, 0);
+      if (totalLoaded >= lastPage.total) return undefined;
+      return totalLoaded;
+    },
+    enabled,
+    staleTime: 30 * 1000,
+  });
 }
 
 export function PkgxLinkDialog({
@@ -30,45 +60,33 @@ export function PkgxLinkDialog({
   onSuccess,
 }: PkgxLinkDialogProps) {
   const { update: updateMutation } = useProductMutations();
-  
-  // Use products cache - loads from /api/pkgx/products-cache on demand
-  const { data: pkgxProductsData, isLoading, refetch } = usePkgxProductsCache();
-  const pkgxProducts = React.useMemo(() => pkgxProductsData?.products ?? [], [pkgxProductsData?.products]);
-  
+  const [searchQuery, setSearchQuery] = React.useState('');
   const [selectedPkgxProduct, setSelectedPkgxProduct] = React.useState<ComboboxOption | null>(null);
   const [isSyncing, setIsSyncing] = React.useState(false);
 
-  // Load PKGX products khi mở dialog lần đầu
-  React.useEffect(() => {
-    if (open && pkgxProducts.length === 0 && !isLoading) {
-      refetch();
-    }
-  }, [open, pkgxProducts.length, isLoading, refetch]);
+  const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfinitePkgxProducts({
+    search: searchQuery,
+    enabled: open,
+  });
 
   // Reset state khi đóng dialog
   React.useEffect(() => {
     if (!open) {
       setSelectedPkgxProduct(null);
+      setSearchQuery('');
     }
   }, [open]);
 
-  // Filter out products that are already linked
-  const { data: hrmProducts } = useAllProducts();
-  const linkedPkgxIds = React.useMemo(() => {
-    return new Set(hrmProducts.filter(p => p.pkgxId).map(p => p.pkgxId));
-  }, [hrmProducts]);
-
   // Convert PKGX products to combobox options
   const pkgxOptions: ComboboxOption[] = React.useMemo(() => {
-    return pkgxProducts
-      .filter(p => !linkedPkgxIds.has(p.goods_id)) // Exclude already linked
-      .map(p => ({
-        value: String(p.goods_id),
-        label: p.goods_name,
-        subtitle: `ID: ${p.goods_id} | Mã: ${p.goods_sn || '-'}`,
-        metadata: p,
-      }));
-  }, [pkgxProducts, linkedPkgxIds]);
+    const products = data?.pages.flatMap(page => page.data) || [];
+    return products.map((p: Record<string, unknown>) => ({
+      value: String(p.id || p.goods_id),
+      label: (p.name || p.goods_name || '') as string,
+      subtitle: `ID: ${p.id || p.goods_id} | Mã: ${(p.goodsSn || p.goods_sn || '-') as string}`,
+      metadata: p,
+    }));
+  }, [data]);
 
   const handleConfirmLink = async () => {
     if (!product || !selectedPkgxProduct) {
@@ -89,7 +107,7 @@ export function PkgxLinkDialog({
       onSuccess?.(pkgxId);
       onOpenChange(false);
     } catch (error) {
-      console.error('[PKGX Link Error]', error);
+      logError('[PKGX Link Error]', error);
       toast.error('Lỗi khi liên kết sản phẩm');
     } finally {
       setIsSyncing(false);
@@ -130,6 +148,10 @@ export function PkgxLinkDialog({
               emptyPlaceholder={isLoading ? 'Đang tải...' : 'Không tìm thấy sản phẩm PKGX'}
               isLoading={isLoading}
               disabled={isLoading}
+              onSearchChange={setSearchQuery}
+              onLoadMore={() => fetchNextPage()}
+              hasMore={!!hasNextPage}
+              isLoadingMore={isFetchingNextPage}
             />
             {pkgxOptions.length === 0 && !isLoading && (
               <p className="text-xs text-muted-foreground">

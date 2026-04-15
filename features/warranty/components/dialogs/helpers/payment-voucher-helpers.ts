@@ -12,11 +12,12 @@ export function detectDirectSettlementType(paymentMethod?: PaymentMethod | null)
   const normalizedId = paymentMethod.id?.toUpperCase() || '';
   const normalizedName = paymentMethod.name.toLowerCase();
 
-  if (normalizedId === 'TIEN_MAT' || normalizedName.includes('tiền mặt')) {
+  // ✅ Support both Vietnamese and English payment method names
+  if (normalizedId === 'TIEN_MAT' || normalizedName.includes('tiền mặt') || normalizedName.includes('cash')) {
     return 'cash';
   }
 
-  if (normalizedId === 'VI_DIEN_TU' || normalizedName.includes('momo') || normalizedName.includes('ví')) {
+  if (normalizedId === 'VI_DIEN_TU' || normalizedName.includes('momo') || normalizedName.includes('ví') || normalizedName.includes('wallet')) {
     return 'transfer';
   }
 
@@ -28,7 +29,9 @@ export function detectDirectSettlementType(paymentMethod?: PaymentMethod | null)
  */
 export function isCashPaymentMethod(paymentMethod?: PaymentMethod | null): boolean {
   if (!paymentMethod) return false;
-  return paymentMethod.name.toLowerCase().includes('tiền mặt') || paymentMethod.id === 'TIEN_MAT';
+  // ✅ Support both Vietnamese and English payment method names
+  const name = paymentMethod.name.toLowerCase();
+  return name.includes('tiền mặt') || name.includes('cash') || paymentMethod.id === 'TIEN_MAT';
 }
 
 /**

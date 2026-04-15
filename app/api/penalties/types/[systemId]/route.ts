@@ -5,6 +5,8 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils';
+import { logError } from '@/lib/logger'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 // GET /api/penalties/types/[systemId]
 export async function GET(
@@ -12,7 +14,7 @@ export async function GET(
   { params }: { params: Promise<{ systemId: string }> }
 ) {
   const session = await requireAuth();
-  if (!session) return apiError('Unauthorized', 401);
+  if (!session) return apiError('Chưa được xác thực', 401);
 
   try {
     const { systemId } = await params;
@@ -22,13 +24,13 @@ export async function GET(
     });
 
     if (!penaltyType || penaltyType.isDeleted) {
-      return apiNotFound('Penalty Type');
+      return apiNotFound('Loại phạt');
     }
 
     return apiSuccess(penaltyType);
   } catch (error) {
-    console.error('[PenaltyTypes API] GET by ID error:', error);
-    return apiError('Failed to fetch penalty type', 500);
+    logError('[PenaltyTypes API] GET by ID error', error);
+    return apiError('Không thể tải loại phạt', 500);
   }
 }
 
@@ -38,29 +40,57 @@ export async function PATCH(
   { params }: { params: Promise<{ systemId: string }> }
 ) {
   const session = await requireAuth();
-  if (!session) return apiError('Unauthorized', 401);
+  if (!session) return apiError('Chưa được xác thực', 401);
 
   try {
     const { systemId } = await params;
     const body = await request.json();
 
+    // Read existing for diff
+    const existing = await prisma.penaltyTypeSetting.findUnique({
+      where: { systemId },
+    });
+    if (!existing || existing.isDeleted) {
+      return apiNotFound('Loại phạt');
+    }
+
     const penaltyType = await prisma.penaltyTypeSetting.update({
       where: { systemId },
       data: {
-        name: body.name,
-        description: body.description,
-        defaultAmount: body.defaultAmount,
-        category: body.category,
-        isActive: body.isActive,
-        sortOrder: body.sortOrder,
+        ...(body.name !== undefined && { name: body.name }),
+        ...(body.description !== undefined && { description: body.description }),
+        ...(body.defaultAmount !== undefined && { defaultAmount: body.defaultAmount }),
+        ...(body.category !== undefined && { category: body.category }),
+        ...(body.isActive !== undefined && { isActive: body.isActive }),
+        ...(body.sortOrder !== undefined && { sortOrder: body.sortOrder }),
         updatedBy: session.user.id,
       },
     });
 
+    // Activity log with diff
+    const changes: Record<string, { from: unknown; to: unknown }> = {}
+    if (body.name !== undefined && body.name !== existing.name) changes['Tên'] = { from: existing.name, to: body.name }
+    if (body.description !== undefined && body.description !== existing.description) changes['Mô tả'] = { from: existing.description ?? '', to: body.description ?? '' }
+    if (body.defaultAmount !== undefined && body.defaultAmount !== existing.defaultAmount) changes['Số tiền phạt'] = { from: existing.defaultAmount, to: body.defaultAmount }
+    if (body.category !== undefined && body.category !== existing.category) changes['Danh mục'] = { from: existing.category, to: body.category }
+    if (body.isActive !== undefined && body.isActive !== existing.isActive) changes['Trạng thái'] = { from: existing.isActive ? 'Hoạt động' : 'Ngừng', to: body.isActive ? 'Hoạt động' : 'Ngừng' }
+
+    if (Object.keys(changes).length > 0) {
+      const changeDetail = Object.keys(changes).join(', ')
+      createActivityLog({
+        entityType: 'penalty_type',
+        entityId: systemId,
+        action: `Cập nhật loại phạt: ${existing.name}: ${changeDetail}`,
+        actionType: 'update',
+        changes,
+        createdBy: session.user?.id,
+      }).catch(e => logError('[penalty-types] activity log failed', e))
+    }
+
     return apiSuccess(penaltyType);
   } catch (error) {
-    console.error('[PenaltyTypes API] PATCH error:', error);
-    return apiError('Failed to update penalty type', 500);
+    logError('[PenaltyTypes API] PATCH error', error);
+    return apiError('Không thể cập nhật loại phạt', 500);
   }
 }
 
@@ -70,7 +100,7 @@ export async function DELETE(
   { params }: { params: Promise<{ systemId: string }> }
 ) {
   const session = await requireAuth();
-  if (!session) return apiError('Unauthorized', 401);
+  if (!session) return apiError('Chưa được xác thực', 401);
 
   try {
     const { systemId } = await params;
@@ -87,7 +117,7 @@ export async function DELETE(
 
     return apiSuccess({ success: true });
   } catch (error) {
-    console.error('[PenaltyTypes API] DELETE error:', error);
-    return apiError('Failed to delete penalty type', 500);
+    logError('[PenaltyTypes API] DELETE error', error);
+    return apiError('Không thể xóa loại phạt', 500);
   }
 }

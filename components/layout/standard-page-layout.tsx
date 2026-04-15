@@ -18,7 +18,7 @@ interface StandardPageLayoutProps<TData> extends React.HTMLAttributes<HTMLDivEle
     importer: (data: Omit<TData, 'id'>[]) => void;
     fileName: string;
     existingData?: TData[];
-    getUniqueKey?: (item: TData) => string;
+    getUniqueKey?: (item: TData | Omit<TData, 'id'>) => string;
   };
   columnCustomizerProps: {
     columns: ColumnDef<TData>[];

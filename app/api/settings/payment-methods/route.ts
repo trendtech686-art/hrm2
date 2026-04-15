@@ -1,7 +1,9 @@
 import { prisma } from '@/lib/prisma'
-import { requireAuth, validateBody, apiSuccess, apiSuccessCached, apiError, parsePagination } from '@/lib/api-utils'
+import { requireAuth, validateBody, apiSuccess, apiError, parsePagination } from '@/lib/api-utils'
 import { createPaymentMethodSchema } from './validation'
 import { generateNextIds } from '@/lib/id-system'
+import { logError } from '@/lib/logger'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 // GET /api/settings/payment-methods - Get all payment methods
 export async function GET(request: Request) {
@@ -25,16 +27,13 @@ export async function GET(request: Request) {
       code: m.code,
       type: m.type,
       description: m.description,
-      accountNumber: m.accountNumber,
-      accountName: m.accountName,
-      bankName: m.bankName,
       isActive: m.isActive,
       isDefault: m.isDefault ?? false,
     }))
 
-    return apiSuccessCached({ data })
+    return apiSuccess({ data })
   } catch (error) {
-    console.error('Error fetching payment methods:', error)
+    logError('Error fetching payment methods', error)
     return apiError('Không thể tải danh sách phương thức thanh toán', 500)
   }
 }
@@ -61,17 +60,22 @@ export async function POST(request: Request) {
         code: body.code || 'UNKNOWN',
         type: body.type || 'other',
         description: body.description,
-        accountNumber: body.accountNumber,
-        accountName: body.accountName,
-        bankName: body.bankName,
         isActive: body.isActive ?? true,
         isDefault: body.isDefault ?? false,
       },
     })
 
+    createActivityLog({
+      entityType: 'payment_method',
+      entityId: method.systemId,
+      action: `Thêm phương thức thanh toán: ${body.name}`,
+      actionType: 'create',
+      createdBy: session.user?.id,
+    }).catch(e => logError('activity log failed', e))
+
     return apiSuccess({ data: method })
   } catch (error) {
-    console.error('Error creating payment method:', error)
+    logError('Error creating payment method', error)
     return apiError('Failed to create payment method', 500)
   }
 }

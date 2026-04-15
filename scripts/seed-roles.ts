@@ -177,7 +177,7 @@ async function seedRoles() {
         updatedAt: new Date(),
       },
       create: {
-        systemId: 'SET_ROLE_001',
+        systemId: crypto.randomUUID(),
         key: 'role-settings',
         group: 'hrm',
         type: 'json',

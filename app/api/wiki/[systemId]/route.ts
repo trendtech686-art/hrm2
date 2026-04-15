@@ -1,6 +1,8 @@
 import { prisma } from '@/lib/prisma'
 import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
 import { updateWikiSchema } from './validation'
+import { logError } from '@/lib/logger'
+import { getUserNameFromDb } from '@/lib/get-user-name'
 
 interface RouteParams {
   params: Promise<{ systemId: string }>
@@ -39,9 +41,23 @@ export async function GET(_request: Request, { params }: RouteParams) {
       return apiError('Bài viết không tồn tại', 404)
     }
 
+    // Log activity
+    getUserNameFromDb(session.user?.id).then(userName =>
+      prisma.activityLog.create({
+        data: {
+          entityType: 'wiki',
+          entityId: systemId,
+          action: 'updated',
+          actionType: 'update',
+          note: `Cập nhật bài viết wiki`,
+          metadata: { userName },
+          createdBy: userName,
+        }
+      })
+    ).catch(e => logError('[ActivityLog] wiki update failed', e))
     return apiSuccess(wiki)
   } catch (error) {
-    console.error('Error fetching wiki:', error)
+    logError('Error fetching wiki', error)
     return apiError('Failed to fetch wiki', 500)
   }
 }
@@ -80,7 +96,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
     if (error instanceof Error && 'code' in error && error.code === 'P2002') {
       return apiError('Slug đã tồn tại', 400)
     }
-    console.error('Error updating wiki:', error)
+    logError('Error updating wiki', error)
     return apiError('Failed to update wiki', 500)
   }
 }
@@ -98,12 +114,26 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
       data: { isDeleted: true },
     })
 
+    // Log activity
+    getUserNameFromDb(session.user?.id).then(userName =>
+      prisma.activityLog.create({
+        data: {
+          entityType: 'wiki',
+          entityId: systemId,
+          action: 'deleted',
+          actionType: 'delete',
+          note: `Xóa bài viết wiki`,
+          metadata: { userName },
+          createdBy: userName,
+        }
+      })
+    ).catch(e => logError('[ActivityLog] wiki delete failed', e))
     return apiSuccess({ success: true })
   } catch (error) {
     if (error instanceof Error && 'code' in error && error.code === 'P2025') {
       return apiError('Bài viết không tồn tại', 404)
     }
-    console.error('Error deleting wiki:', error)
+    logError('Error deleting wiki', error)
     return apiError('Failed to delete wiki', 500)
   }
 }

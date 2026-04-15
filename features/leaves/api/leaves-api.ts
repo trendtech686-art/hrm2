@@ -33,6 +33,8 @@ export interface LeaveCreateInput {
   systemId?: string;
   id?: string;
   employeeId: string;
+  employeeSystemId?: string;
+  employeeName?: string;
   leaveType: string;
   startDate: string;
   endDate: string;
@@ -41,6 +43,8 @@ export interface LeaveCreateInput {
   status?: string;
   leaveTypeName?: string;
   leaveTypeSystemId?: string;
+  leaveTypeIsPaid?: boolean;
+  leaveTypeRequiresAttachment?: boolean;
   numberOfDays?: number;
   totalDays?: number;
 }

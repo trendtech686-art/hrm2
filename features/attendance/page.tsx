@@ -25,7 +25,10 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { ChevronLeft, ChevronRight, Search, Upload, Download, Printer, Lock, LockOpen, Settings } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, Upload, Download, Printer, Lock, LockOpen, Settings, Clock, MoreHorizontal } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { useBreakpoint } from '@/contexts/breakpoint-context';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { simpleSearch } from '@/lib/simple-search';
 import { AttendanceEditDialog } from './components/attendance-edit-dialog';
 import { DynamicDataTableColumnCustomizer as DataTableColumnCustomizer } from '@/components/data-table/dynamic-column-customizer';
@@ -35,10 +38,14 @@ import { toast } from 'sonner';
 import { useAllLeavesByDateRange } from '@/features/leaves/hooks/use-leaves';
 import { leaveAttendanceSync } from '@/features/leaves/leave-sync-service';
 import { usePrint } from '@/lib/use-print';
-import { useStoreInfoData } from '@/features/settings/store-info/hooks/use-store-info';
+import { fetchPrintData } from '@/lib/lazy-print-data';
 import { convertAttendanceSheetForPrint, mapAttendanceSheetToPrintData, mapAttendanceSheetLineItems, createStoreSettings } from '@/lib/print/attendance-print-helper';
 import type { PenaltyPreviewItem } from './penalty-sync-service';
+import type { Penalty } from '../settings/penalties/types';
 import { useAttendanceLocks } from './hooks/use-attendance-locks';
+import { useAuth } from "@/contexts/auth-context";
+import { usePaginationWithGlobalDefault } from '@/features/settings/global/hooks/use-global-settings';
+import { useColumnVisibility, useColumnOrder, usePinnedColumns } from '@/hooks/use-column-visibility';
 
 // Lazy-load heavy dialogs (only rendered when opened)
 const AttendanceImportDialog = dynamic(() => import('./components/attendance-import-dialog').then(m => ({ default: m.AttendanceImportDialog })), { ssr: false });
@@ -53,7 +60,7 @@ function MonthYearPicker({ value, onChange }: { value: Date; onChange: (date: Da
       <Button variant="outline" size="icon" className="h-9 w-10" onClick={() => { const prev = subtractMonths(value, 1); if (prev) onChange(prev); }}>
         <ChevronLeft className="h-4 w-4" />
       </Button>
-      <div className="font-semibold text-body-sm w-24 text-center">{displayText}</div>
+      <div className="font-semibold text-sm w-24 text-center">{displayText}</div>
       <Button variant="outline" size="icon" className="h-9 w-10" onClick={() => { const next = addMonths(value, 1); if (next) onChange(next); }}>
         <ChevronRight className="h-4 w-4" />
       </Button>
@@ -62,13 +69,18 @@ function MonthYearPicker({ value, onChange }: { value: Date; onChange: (date: Da
 }
 
 export function AttendancePage() {
+  // Permission checks
+  const { can } = useAuth();
+  const canEdit = can('edit_attendance');
+  const canEditSettings = can('edit_settings');
+  const { isMobile } = useBreakpoint();
   const router = useRouter();
   const queryClient = useQueryClient();
   const { data: employees } = useAllEmployees();
   const { data: departments } = useAllDepartments();
   const { data: rawSettings } = useEmployeeSettings();
   const settings = rawSettings ?? DEFAULT_EMPLOYEE_SETTINGS;
-  const { info: storeInfo } = useStoreInfoData();
+  // ⚡ OPTIMIZED: storeInfo lazy loaded in print handler
   const { print } = usePrint();
 
   // Core state
@@ -83,13 +95,13 @@ export function AttendancePage() {
   });
   
   // Fetch attendance data from database
-  const { data: dbAttendanceData } = useAttendanceByMonth(currentMonthKey);
+  const { data: dbAttendanceData, isFetching } = useAttendanceByMonth(currentMonthKey);
   
   // Local state for UI
   const [attendanceData, setAttendanceData] = React.useState<AttendanceDataRow[]>([]);
   
   // ✅ Use React Query hook for locked months (syncs via database)
-  const { lockedMonths, toggleLock, isToggling: _isToggling } = useAttendanceLocks();
+  const { lockedMonths, toggleLock } = useAttendanceLocks();
   const isLocked = !!lockedMonths[currentMonthKey];
   
   // Mutations
@@ -108,10 +120,10 @@ export function AttendancePage() {
   const debouncedGlobalFilter = useDebounce(globalFilter, 300);
   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
   const [sorting, setSorting] = React.useState<{ id: string; desc: boolean }>({ id: 'createdAt', desc: true });
-  const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 20 });
-  const [columnVisibility, setColumnVisibility] = React.useState({});
-  const [columnOrder, setColumnOrder] = React.useState<string[]>([]);
-  const [pinnedColumns, setPinnedColumns] = React.useState<string[]>([]);
+  const [pagination, setPagination] = usePaginationWithGlobalDefault();
+  const [columnVisibility, setColumnVisibility] = useColumnVisibility('attendance', {});
+  const [columnOrder, setColumnOrder] = useColumnOrder('attendance');
+  const [pinnedColumns, setPinnedColumns] = usePinnedColumns('attendance');
 
   // Edit dialog state
   const [isEditModalOpen, setIsEditModalOpen] = React.useState(false);
@@ -365,9 +377,9 @@ export function AttendancePage() {
     toast.success('Nhập thành công', { description: `Đã cập nhật chấm công cho tháng ${formatDateCustom(date, 'MM/yyyy')}` });
   }, [employees, settings, bulkUpdateAttendance, queryClient]);
 
-  const handleConfirmPenalties = React.useCallback(async (selectedPenalties: PenaltyPreviewItem[]) => {
+  const handleConfirmPenalties = React.useCallback(async (selectedPenalties: Omit<Penalty, 'systemId'>[]) => {
     const { confirmCreatePenalties } = await import('./penalty-sync-service');
-    const created = await confirmCreatePenalties(selectedPenalties);
+    const created = await confirmCreatePenalties(selectedPenalties as PenaltyPreviewItem[]);
     toast.success('Tạo phiếu phạt thành công', { description: `Đã tạo ${created} phiếu phạt` });
     setPendingPenalties([]);
   }, []);
@@ -384,12 +396,13 @@ export function AttendancePage() {
   const sortedData = React.useMemo(() => { const s = [...filteredData]; if (sorting.id) s.sort((a, b) => { const aV = (a as Record<string, unknown>)[sorting.id] as string | number | null | undefined, bV = (b as Record<string, unknown>)[sorting.id] as string | number | null | undefined; if (aV == null && bV == null) return 0; if (aV == null) return 1; if (bV == null) return -1; if (aV < bV) return sorting.desc ? 1 : -1; if (aV > bV) return sorting.desc ? -1 : 1; return 0; }); return s; }, [filteredData, sorting]);
 
   // Print & Export handlers (must be after sortedData)
-  const handlePrint = React.useCallback(() => {
+  const handlePrint = React.useCallback(async () => {
     if (!sortedData?.length) return;
+    const { storeInfo } = await fetchPrintData();
     const storeSettings = createStoreSettings(storeInfo);
     const sheetForPrint = convertAttendanceSheetForPrint(currentMonthKey, sortedData as Parameters<typeof convertAttendanceSheetForPrint>[1], { isLocked, departmentName: departmentFilter !== 'all' ? departments.find(d => d.name === departmentFilter)?.name : undefined });
     print('attendance', { data: mapAttendanceSheetToPrintData(sheetForPrint, storeSettings), lineItems: mapAttendanceSheetLineItems(sheetForPrint.employees, currentMonthKey) });
-  }, [sortedData, currentMonthKey, departmentFilter, departments, isLocked, storeInfo, print]);
+  }, [sortedData, currentMonthKey, departmentFilter, departments, isLocked, print]);
 
   const handleExport = React.useCallback(async () => {
     const XLSX = await import('xlsx');
@@ -451,12 +464,186 @@ export function AttendancePage() {
   const paginatedData = sortedData.slice(pagination.pageIndex * pagination.pageSize, (pagination.pageIndex + 1) * pagination.pageSize);
   const allSelectedRows = React.useMemo(() => attendanceData.filter(a => rowSelection[a.systemId]), [attendanceData, rowSelection]);
 
+  // Mobile: progressive loading
+  const MOBILE_PAGE_SIZE = 20;
+  const [mobileLoadedCount, setMobileLoadedCount] = React.useState(MOBILE_PAGE_SIZE);
+  const mobileData = sortedData.slice(0, mobileLoadedCount);
+  // Infinite scroll for mobile
+  const mobileListRef = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    if (!isMobile) return;
+    const el = mobileListRef.current?.parentElement;
+    if (!el) return;
+    const handleScroll = () => {
+      if (el.scrollTop + el.clientHeight >= el.scrollHeight - 200) {
+        setMobileLoadedCount(prev => Math.min(prev + MOBILE_PAGE_SIZE, sortedData.length));
+      }
+    };
+    el.addEventListener('scroll', handleScroll, { passive: true });
+    return () => el.removeEventListener('scroll', handleScroll);
+  }, [isMobile, sortedData.length]);
+
+  // Mobile employee card renderer
+  const renderMobileEmployeeCard = React.useCallback((row: AttendanceDataRow) => {
+    const daysInMonth = new Date(year, month, 0).getDate();
+    return (
+      <div key={row.employeeSystemId} className="rounded-xl border border-border/50 bg-card p-4 active:scale-[0.98] transition-transform touch-manipulation">
+        <div className="flex items-center justify-between mb-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium truncate">{row.fullName}</p>
+            <p className="text-xs text-muted-foreground truncate">{row.department ?? 'Chưa xếp phòng'}</p>
+          </div>
+          <span className="text-xs text-muted-foreground font-mono shrink-0 ml-2">{row.employeeId}</span>
+        </div>
+        <div className="grid grid-cols-4 gap-2 mb-3">
+          <div className="text-center rounded-lg bg-green-50 dark:bg-green-950/30 p-2">
+            <p className="text-lg font-semibold text-green-600">{row.workDays}</p>
+            <p className="text-xs text-muted-foreground">Công</p>
+          </div>
+          <div className="text-center rounded-lg bg-blue-50 dark:bg-blue-950/30 p-2">
+            <p className="text-lg font-semibold text-blue-600">{row.leaveDays}</p>
+            <p className="text-xs text-muted-foreground">Phép</p>
+          </div>
+          <div className="text-center rounded-lg bg-red-50 dark:bg-red-950/30 p-2">
+            <p className="text-lg font-semibold text-red-600">{row.absentDays}</p>
+            <p className="text-xs text-muted-foreground">Vắng</p>
+          </div>
+          <div className="text-center rounded-lg bg-orange-50 dark:bg-orange-950/30 p-2">
+            <p className="text-lg font-semibold text-orange-600">{row.lateArrivals}</p>
+            <p className="text-xs text-muted-foreground">Trễ</p>
+          </div>
+        </div>
+        {/* Mini day grid - compact 7-col calendar view */}
+        <div className="grid grid-cols-7 gap-0.5">
+          {Array.from({ length: daysInMonth }, (_, i) => {
+            const day = i + 1;
+            const rec = row[`day_${day}` as keyof AttendanceDataRow] as DailyRecord | undefined;
+            const status = rec?.status;
+            const bg = status === 'present' ? 'bg-green-500' : status === 'leave' ? 'bg-blue-400' : status === 'half-day' ? 'bg-yellow-400' : status === 'absent' ? 'bg-red-400' : status === 'weekend' ? 'bg-muted' : status === 'holiday' ? 'bg-purple-300' : 'bg-muted/50';
+            return (
+              <button
+                key={day}
+                type="button"
+                className={`h-6 rounded text-xs font-medium ${bg} ${status === 'weekend' || status === 'holiday' ? 'text-muted-foreground' : 'text-white'} touch-manipulation`}
+                onClick={() => handleEditRecord(row.employeeSystemId, day)}
+              >
+                {day}
+              </button>
+            );
+          })}
+        </div>
+        {row.otHours > 0 && (
+          <div className="flex items-center gap-1 mt-2 text-xs text-purple-600">
+            <Clock className="h-3 w-3" />
+            <span>OT: {row.otHours}h</span>
+          </div>
+        )}
+      </div>
+    );
+  }, [year, month, handleEditRecord]);
+
   return (
     <div className="flex flex-col h-full space-y-4">
       <StatisticsDashboard data={filteredData} currentDate={currentDate} />
-      <Card className="shrink-0"><CardContent className="p-4"><div className="flex flex-wrap items-center justify-between gap-2"><div className="flex flex-wrap items-center gap-2"><MonthYearPicker value={currentDate} onChange={setCurrentDate} /><Select value={departmentFilter} onValueChange={setDepartmentFilter}><SelectTrigger className="h-9 w-full sm:w-45"><SelectValue placeholder="Tất cả phòng ban" /></SelectTrigger><SelectContent><SelectItem value="all">Tất cả phòng ban</SelectItem>{departments.map(d => <SelectItem key={d.id} value={d.name}>{d.name}</SelectItem>)}</SelectContent></Select><div className="relative"><Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input placeholder="Tìm nhân viên..." value={globalFilter} onChange={e => setGlobalFilter(e.target.value)} className="h-9 w-50 pl-8" /></div></div><div className="flex items-center justify-end gap-2"><Button variant="outline" size="sm" className="h-9" onClick={() => router.push('/settings/employees')}><Settings className="mr-2 h-4 w-4" />Cài đặt</Button><Button variant="outline" size="sm" className="h-9" onClick={handlePrint}><Printer className="mr-2 h-4 w-4" />In</Button><Button variant="outline" size="sm" className="h-9" disabled={isLocked} onClick={() => setIsImportDialogOpen(true)}><Upload className="mr-2 h-4 w-4" />Nhập file</Button><Button variant="outline" size="sm" className="h-9" onClick={handleExport}><Download className="mr-2 h-4 w-4" />Xuất file</Button><Button variant={isLocked ? 'default' : 'outline'} size="sm" className="h-9" onClick={handleToggleLock}>{isLocked ? <LockOpen className="mr-2 h-4 w-4" /> : <Lock className="mr-2 h-4 w-4" />}{isLocked ? 'Mở khóa' : 'Khóa'}</Button><DataTableColumnCustomizer columns={columns} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} /></div></div></CardContent></Card>
-      <ResponsiveDataTable columns={columns} data={paginatedData} rowCount={filteredData.length} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowSelection={rowSelection} setRowSelection={setRowSelection} sorting={sorting} setSorting={setSorting} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} className="grow" allSelectedRows={allSelectedRows} expanded={{}} setExpanded={() => {}} />
-      <AttendanceEditDialog isOpen={isEditModalOpen} onOpenChange={setIsEditModalOpen} recordData={editingRecordInfo} onSave={handleSaveRecord} monthDate={currentDate} />
+
+      {/* Toolbar */}
+      <Card className="shrink-0">
+        <CardContent className="p-4">
+          {isMobile ? (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <MonthYearPicker value={currentDate} onChange={setCurrentDate} />
+                <div className="flex items-center gap-1">
+                  <Button variant={isLocked ? 'default' : 'outline'} size="icon" className="h-9 w-9" onClick={handleToggleLock}>
+                    {isLocked ? <LockOpen className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="icon" className="h-9 w-9"><MoreHorizontal className="h-4 w-4" /></Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={handlePrint}><Printer className="mr-2 h-4 w-4" />In</DropdownMenuItem>
+                      <DropdownMenuItem disabled={isLocked} onClick={() => setIsImportDialogOpen(true)}><Upload className="mr-2 h-4 w-4" />Nhập file</DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleExport}><Download className="mr-2 h-4 w-4" />Xuất file</DropdownMenuItem>
+                      {canEditSettings && <DropdownMenuItem onClick={() => router.push('/settings/employees')}><Settings className="mr-2 h-4 w-4" />Cài đặt</DropdownMenuItem>}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder="Tất cả phòng ban" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tất cả phòng ban</SelectItem>
+                    {departments.map(d => <SelectItem key={d.id} value={d.name}>{d.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <div className="relative flex-1">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input placeholder="Tìm NV..." value={globalFilter} onChange={e => setGlobalFilter(e.target.value)} className="pl-8" />
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <MonthYearPicker value={currentDate} onChange={setCurrentDate} />
+                <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
+                  <SelectTrigger className="h-9 w-full sm:w-45">
+                    <SelectValue placeholder="Tất cả phòng ban" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tất cả phòng ban</SelectItem>
+                    {departments.map(d => <SelectItem key={d.id} value={d.name}>{d.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input placeholder="Tìm nhân viên..." value={globalFilter} onChange={e => setGlobalFilter(e.target.value)} className="h-9 w-50 pl-8" />
+                </div>
+              </div>
+              <div className="flex items-center justify-end gap-2">
+                {canEditSettings && <Button variant="outline" size="sm" className="h-9" onClick={() => router.push('/settings/employees')}><Settings className="mr-2 h-4 w-4" />Cài đặt</Button>}
+                <Button variant="outline" size="sm" className="h-9" onClick={handlePrint}><Printer className="mr-2 h-4 w-4" />In</Button>
+                <Button variant="outline" size="sm" className="h-9" disabled={isLocked} onClick={() => setIsImportDialogOpen(true)}><Upload className="mr-2 h-4 w-4" />Nhập file</Button>
+                <Button variant="outline" size="sm" className="h-9" onClick={handleExport}><Download className="mr-2 h-4 w-4" />Xuất file</Button>
+                <Button variant={isLocked ? 'default' : 'outline'} size="sm" className="h-9" onClick={handleToggleLock}>{isLocked ? <LockOpen className="mr-2 h-4 w-4" /> : <Lock className="mr-2 h-4 w-4" />}{isLocked ? 'Mở khóa' : 'Khóa'}</Button>
+                <DataTableColumnCustomizer columns={columns} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} />
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Data display */}
+      <div className={cn((isFetching) && 'opacity-60 pointer-events-none transition-opacity')}>
+      {isMobile ? (
+        <div ref={mobileListRef} className="space-y-3 pb-20">
+          {mobileData.length === 0 ? (
+            <div className="text-center py-12 text-sm text-muted-foreground">Không có dữ liệu chấm công</div>
+          ) : (
+            <>
+              {mobileData.map(row => renderMobileEmployeeCard(row))}
+              {mobileLoadedCount < sortedData.length ? (
+                <div className="flex items-center justify-center gap-2 py-4 text-muted-foreground">
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                  <span className="text-sm">Đang tải...</span>
+                </div>
+              ) : sortedData.length > MOBILE_PAGE_SIZE ? (
+                <p className="text-sm text-muted-foreground text-center py-4">Đã hiển thị {sortedData.length} nhân viên</p>
+              ) : null}
+            </>
+          )}
+        </div>
+      ) : (
+        <ResponsiveDataTable columns={columns} data={paginatedData} rowCount={filteredData.length} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowSelection={rowSelection} setRowSelection={setRowSelection} sorting={sorting} setSorting={setSorting} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} className="grow" allSelectedRows={allSelectedRows} expanded={{}} setExpanded={() => {}} />
+      )}
+
+      </div>
+
+      <AttendanceEditDialog isOpen={isEditModalOpen} onOpenChange={setIsEditModalOpen} recordData={editingRecordInfo} onSave={handleSaveRecord} monthDate={currentDate} isSaving={updateAttendance.isPending} />
       <AttendanceImportDialog isOpen={isImportDialogOpen} onOpenChange={setIsImportDialogOpen} onConfirmImport={handleConfirmImport} employees={employees} />
       <BulkEditDialog isOpen={isBulkEditDialogOpen} onOpenChange={setIsBulkEditDialogOpen} selectedCells={selectedCellsArray} onSave={handleBulkSave} />
       <PenaltyConfirmDialog isOpen={isPenaltyConfirmOpen} onOpenChange={setIsPenaltyConfirmOpen} penalties={pendingPenalties} onConfirm={handleConfirmPenalties} onSkip={handleSkipPenalties} />

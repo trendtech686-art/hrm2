@@ -5,22 +5,33 @@ import { Switch } from '../../../../components/ui/switch';
 import { Label } from '../../../../components/ui/label';
 import { Badge } from '../../../../components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../components/ui/select';
-import { Play, Pause, FileText, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { Play, Pause, FileText, CheckCircle2, AlertCircle, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner';
-import { usePkgxSettings, usePkgxSyncSettingsMutations, usePkgxSyncStatusMutations, usePkgxLogMutations } from '../hooks/use-pkgx-settings';
+import { usePkgxSettings, usePkgxSyncSettingsMutations } from '../hooks/use-pkgx-settings';
 import { SYNC_INTERVAL_OPTIONS } from '../types';
 
 export function SyncSettingsTab() {
-  const { data: settings } = usePkgxSettings();
+  const { data: settings, refetch: refetchSettings } = usePkgxSettings();
   const { updateSyncSetting } = usePkgxSyncSettingsMutations({ onSuccess: () => {} });
-  const { setLastSyncAt, setLastSyncResult } = usePkgxSyncStatusMutations();
-  const { addLog } = usePkgxLogMutations();
   const syncSettings = settings?.syncSettings ?? { autoSyncEnabled: false, intervalMinutes: 60, syncInventory: true, syncPrice: true, syncSeo: true, syncOnProductUpdate: false, notifyOnError: true };
   const lastSyncAt = settings?.lastSyncAt;
   const lastSyncResult = settings?.lastSyncResult;
   const apiKey = settings?.apiKey;
   const apiUrl = settings?.apiUrl;
   const [isSyncing, setIsSyncing] = React.useState(false);
+  const [showLogs, setShowLogs] = React.useState(false);
+
+  const { data: syncLogs } = useQuery<{ systemId: string; syncType: string; action: string; status: string; itemsTotal: number; itemsSuccess: number; itemsFailed: number; errorMessage: string | null; details: Record<string, unknown> | null; syncedAt: string; syncedByName: string | null }[]>({
+    queryKey: ['pkgx-sync-logs'],
+    queryFn: async () => {
+      const res = await fetch('/api/settings/pkgx/sync');
+      const json = await res.json();
+      return json.data ?? [];
+    },
+    enabled: showLogs,
+    staleTime: 30_000,
+  });
 
   const handleManualSync = async () => {
     if (!apiUrl || !apiKey) {
@@ -29,52 +40,29 @@ export function SyncSettingsTab() {
     }
 
     setIsSyncing(true);
-    const startTime = Date.now();
-    toast.info('Đang đồng bộ dữ liệu...');
+    toast.info('Đang đồng bộ dữ liệu lên PKGX...');
     
     try {
-      // TODO: Implement actual sync logic with real API
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      
-      const responseTime = Date.now() - startTime;
-      const result = { status: 'success' as const, total: 150, success: 150, failed: 0 };
-      
-      setLastSyncAt.mutate(new Date().toISOString());
-      setLastSyncResult.mutate(result);
-      
-      addLog.mutate({
-        action: 'sync_all',
-        status: 'success',
-        message: 'Đồng bộ tất cả dữ liệu thành công',
-        details: {
-          total: result.total,
-          success: result.success,
-          failed: result.failed,
-          responseTime,
-          url: apiUrl,
-          method: 'POST',
-        }
+      const res = await fetch('/api/settings/pkgx/sync', {
+        method: 'POST',
+        credentials: 'include',
       });
-      
-      toast.success('Đồng bộ thành công!');
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || 'Lỗi không xác định');
+      }
+
+      const data = json.data;
+      await refetchSettings();
+
+      if (data.failedCount > 0) {
+        toast.warning(`Sync hoàn tất: ${data.successCount}/${data.total} SP thành công, ${data.failedCount} lỗi`);
+      } else {
+        toast.success(data.message || `Đồng bộ thành công ${data.successCount} sản phẩm!`);
+      }
     } catch (error) {
-      const responseTime = Date.now() - startTime;
       const errorMessage = error instanceof Error ? error.message : 'Lỗi không xác định';
-      
-      setLastSyncResult.mutate({ status: 'error', total: 0, success: 0, failed: 0 });
-      
-      addLog.mutate({
-        action: 'sync_all',
-        status: 'error',
-        message: 'Lỗi đồng bộ dữ liệu',
-        details: {
-          error: errorMessage,
-          responseTime,
-          url: apiUrl,
-          method: 'POST',
-        }
-      });
-      
       toast.error('Lỗi đồng bộ: ' + errorMessage);
     } finally {
       setIsSyncing(false);
@@ -82,64 +70,30 @@ export function SyncSettingsTab() {
   };
 
   const handleToggleAutoSync = (checked: boolean) => {
-    updateSyncSetting.mutate({ key: 'autoSyncEnabled', value: checked });
-    addLog.mutate({
-      action: 'save_config',
-      status: 'info',
-      message: checked ? 'Đã bật Auto Sync' : 'Đã tắt Auto Sync',
-      details: {}
+    const msg = checked ? 'Đã bật Auto Sync' : 'Đã tắt Auto Sync';
+    updateSyncSetting.mutate({ key: 'autoSyncEnabled', value: checked }, {
+      onSuccess: () => toast.success(msg),
     });
-    toast.success(checked ? 'Đã bật Auto Sync' : 'Đã tắt Auto Sync');
   };
 
   const handleToggleSyncInventory = (checked: boolean) => {
     updateSyncSetting.mutate({ key: 'syncInventory', value: checked });
-    addLog.mutate({
-      action: 'save_config',
-      status: 'info',
-      message: checked ? 'Đã bật đồng bộ tồn kho' : 'Đã tắt đồng bộ tồn kho',
-      details: {}
-    });
   };
 
   const handleToggleSyncPrice = (checked: boolean) => {
     updateSyncSetting.mutate({ key: 'syncPrice', value: checked });
-    addLog.mutate({
-      action: 'save_config',
-      status: 'info',
-      message: checked ? 'Đã bật đồng bộ giá' : 'Đã tắt đồng bộ giá',
-      details: {}
-    });
   };
 
   const handleToggleSyncSeo = (checked: boolean) => {
     updateSyncSetting.mutate({ key: 'syncSeo', value: checked });
-    addLog.mutate({
-      action: 'save_config',
-      status: 'info',
-      message: checked ? 'Đã bật đồng bộ SEO' : 'Đã tắt đồng bộ SEO',
-      details: {}
-    });
   };
 
   const handleToggleSyncOnUpdate = (checked: boolean) => {
     updateSyncSetting.mutate({ key: 'syncOnProductUpdate', value: checked });
-    addLog.mutate({
-      action: 'save_config',
-      status: 'info',
-      message: checked ? 'Đã bật đồng bộ khi cập nhật SP' : 'Đã tắt đồng bộ khi cập nhật SP',
-      details: {}
-    });
   };
 
   const handleToggleNotify = (checked: boolean) => {
     updateSyncSetting.mutate({ key: 'notifyOnError', value: checked });
-    addLog.mutate({
-      action: 'save_config',
-      status: 'info',
-      message: checked ? 'Đã bật thông báo lỗi' : 'Đã tắt thông báo lỗi',
-      details: {}
-    });
   };
 
   const getNextSyncTime = () => {
@@ -310,9 +264,10 @@ export function SyncSettingsTab() {
               )}
               {isSyncing ? 'Đang sync...' : 'Sync ngay'}
             </Button>
-            <Button variant="outline">
+            <Button variant="outline" onClick={() => setShowLogs(!showLogs)}>
               <FileText className="h-4 w-4 mr-2" />
               Xem log
+              {showLogs ? <ChevronUp className="h-4 w-4 ml-1" /> : <ChevronDown className="h-4 w-4 ml-1" />}
             </Button>
             {syncSettings.autoSyncEnabled && (
               <Button variant="outline" onClick={() => handleToggleAutoSync(false)}>
@@ -323,6 +278,50 @@ export function SyncSettingsTab() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Sync Log History */}
+      {showLogs && (
+        <Card>
+          <CardHeader>
+            <CardTitle size="lg">Lịch sử đồng bộ</CardTitle>
+            <CardDescription>20 lần sync gần nhất</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {!syncLogs || syncLogs.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Chưa có lịch sử đồng bộ</p>
+            ) : (
+              <div className="space-y-2">
+                {syncLogs.map((log) => (
+                  <div key={log.systemId} className="flex items-center justify-between p-3 rounded-lg border border-border/50 bg-muted/30">
+                    <div className="flex items-center gap-3">
+                      {log.status === 'success' ? (
+                        <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
+                      ) : (
+                        <AlertCircle className="h-4 w-4 text-destructive shrink-0" />
+                      )}
+                      <div>
+                        <p className="text-sm font-medium">
+                          {log.itemsSuccess}/{log.itemsTotal} SP thành công
+                          {log.itemsFailed > 0 && <span className="text-destructive ml-1">({log.itemsFailed} lỗi)</span>}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {log.syncedByName || 'Hệ thống'} • {new Date(log.syncedAt).toLocaleString('vi-VN')}
+                          {log.details && typeof log.details === 'object' && 'duration' in log.details && (
+                            <span className="ml-1">• {((log.details.duration as number) / 1000).toFixed(1)}s</span>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                    <Badge variant={log.status === 'success' ? 'default' : 'destructive'} className={log.status === 'success' ? 'bg-green-500' : ''}>
+                      {log.status === 'success' ? 'OK' : log.status === 'partial' ? 'Một phần' : 'Lỗi'}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

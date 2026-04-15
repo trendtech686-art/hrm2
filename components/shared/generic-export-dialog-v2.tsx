@@ -36,6 +36,7 @@ import {
 import type { SystemId } from "../../lib/id-types"
 import { useActivePricingPolicies } from "../../features/settings/pricing/hooks/use-pricing"
 import { useImportExportLogsMutations } from "../../lib/import-export/hooks/use-import-export-logs"
+import { logError } from '@/lib/logger'
 
 // ============================================
 // TYPES
@@ -81,8 +82,8 @@ export function GenericExportDialogV2<T>({
   appliedFilters,
   currentUser,
 }: GenericExportDialogV2Props<T>) {
-  // React Query hooks
-  const { data: pricingPoliciesData } = useActivePricingPolicies()
+  // React Query hooks - defer until dialog is open
+  const { data: pricingPoliciesData } = useActivePricingPolicies({ enabled: open })
   const activePricingPolicies = React.useMemo(
     () => pricingPoliciesData?.filter(p => p.isActive) ?? [],
     [pricingPoliciesData]
@@ -336,7 +337,7 @@ export function GenericExportDialogV2<T>({
       
       onOpenChange(false)
     } catch (error) {
-      console.error('Export error:', error)
+      logError('Export error', error)
       toast.error('Có lỗi khi xuất file')
     } finally {
       setIsExporting(false)

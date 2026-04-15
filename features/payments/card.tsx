@@ -2,7 +2,6 @@ import * as React from "react";
 import { formatDateCustom } from '../../lib/date-utils';
 import type { Payment } from '@/lib/types/prisma-extended';
 import type { SystemId } from '../../lib/id-types';
-import { Card, CardContent, CardTitle } from "../../components/ui/card";
 import { Badge } from "../../components/ui/badge";
 import { TouchButton } from "../../components/mobile/touch-button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
@@ -42,16 +41,15 @@ export const MobilePaymentCard = ({ payment, onCancel, navigate, handleRowClick 
     };
 
     return (
-        <Card 
-            className="hover:shadow-md transition-shadow cursor-pointer"
+        <div 
+            className="rounded-xl border border-border/50 bg-card p-4 active:scale-[0.98] transition-transform touch-manipulation cursor-pointer"
             onClick={() => handleRowClick(payment)}
         >
-            <CardContent className="p-4">
                 {/* Header: ID + Amount + Menu */}
                 <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                         <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                            <CardTitle className="font-semibold text-sm truncate">{payment.id}</CardTitle>
+                            <span className="font-semibold text-sm truncate">{payment.id}</span>
                             <span className="text-xs text-muted-foreground">•</span>
                             <span className="text-sm font-medium text-destructive">{formatCurrency(payment.amount)} ₫</span>
                         </div>
@@ -62,7 +60,7 @@ export const MobilePaymentCard = ({ payment, onCancel, navigate, handleRowClick 
                                 <TouchButton
                                     variant="ghost"
                                     size="sm"
-                                    className="h-9 w-10 p-0 flex-shrink-0"
+                                    className="h-8 w-8 p-0 -mr-2 -mt-1 shrink-0"
                                     onClick={(e) => e.stopPropagation()}
                                 >
                                     <MoreHorizontal className="h-4 w-4" />
@@ -92,28 +90,28 @@ export const MobilePaymentCard = ({ payment, onCancel, navigate, handleRowClick 
 
                 {/* Recipient + Payment Method */}
                 <div className="text-xs text-muted-foreground mb-3 flex items-center">
-                    <User className="h-3 w-3 mr-1.5 flex-shrink-0" />
+                    <User className="h-3 w-3 mr-1.5 shrink-0" />
                     <span className="truncate">{payment.recipientName} • {payment.paymentMethodName}</span>
                 </div>
 
                 {/* Divider */}
-                <div className="border-t mb-3" />
+                <div className="border-t border-border/50 mb-3" />
 
                 {/* Details */}
                 <div className="space-y-2">
                     <div className="flex items-center text-xs text-muted-foreground">
-                        <Calendar className="h-3 w-3 mr-1.5 flex-shrink-0" />
+                        <Calendar className="h-3 w-3 mr-1.5 shrink-0" />
                         <span>{formatDateDisplay(payment.date)}</span>
                     </div>
                     {payment.branchName && (
                         <div className="flex items-center text-xs text-muted-foreground">
-                            <Building2 className="h-3 w-3 mr-1.5 flex-shrink-0" />
+                            <Building2 className="h-3 w-3 mr-1.5 shrink-0" />
                             <span className="truncate">{payment.branchName}</span>
                         </div>
                     )}
                     {payment.description && (
                         <div className="flex items-center text-xs text-muted-foreground">
-                            <FileText className="h-3 w-3 mr-1.5 flex-shrink-0" />
+                            <FileText className="h-3 w-3 mr-1.5 shrink-0" />
                             <span className="truncate">{payment.description}</span>
                         </div>
                     )}
@@ -126,7 +124,6 @@ export const MobilePaymentCard = ({ payment, onCancel, navigate, handleRowClick 
                         {getStatusBadge(payment.status)}
                     </div>
                 </div>
-            </CardContent>
-        </Card>
+        </div>
     );
 };

@@ -8,9 +8,11 @@ import { prisma } from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
 import { revalidatePath } from '@/lib/revalidation'
 import { generateIdWithPrefix } from '@/lib/id-generator'
-import { auth } from '@/auth'
+import { requireActionPermission } from '@/lib/api-utils'
 import type { ActionResult } from '@/types/action-result'
 import { createCategorySchema, updateCategorySchema } from '@/features/categories/validation'
+import { logError } from '@/lib/logger'
+import { getSessionUserName } from '@/lib/get-user-name'
 
 // Types
 type Category = NonNullable<Awaited<ReturnType<typeof prisma.category.findFirst>>>
@@ -67,10 +69,9 @@ export type UpdateCategoryInput = {
 export async function createCategoryAction(
   input: CreateCategoryInput
 ): Promise<ActionResult<Category>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('create_products')
+  if (!authResult.success) return authResult
+  const { session } = authResult
 
   const validated = createCategorySchema.safeParse(input)
   if (!validated.success) {
@@ -121,9 +122,22 @@ export async function createCategoryAction(
     })
 
     revalidatePath('/categories')
+
+    const logUserName = getSessionUserName(session)
+    prisma.activityLog.create({
+      data: {
+        entityType: 'category',
+        entityId: systemId,
+        action: `Tạo danh mục: ${input.name}`,
+        actionType: 'create',
+        metadata: { userName: logUserName },
+        createdBy: logUserName,
+      }
+    }).catch(e => logError('[ActivityLog] category create failed', e))
+
     return { success: true, data: category }
   } catch (error) {
-    console.error('Error creating category:', error)
+    logError('Error creating category', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Không thể tạo danh mục',
@@ -134,10 +148,9 @@ export async function createCategoryAction(
 export async function updateCategoryAction(
   input: UpdateCategoryInput
 ): Promise<ActionResult<Category>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('edit_products')
+  if (!authResult.success) return authResult
+  const { session } = authResult
 
   const validated = updateCategorySchema.safeParse(input)
   if (!validated.success) {
@@ -184,9 +197,22 @@ export async function updateCategoryAction(
 
     revalidatePath('/categories')
     revalidatePath(`/categories/${systemId}`)
+
+    const logUserName = getSessionUserName(session)
+    prisma.activityLog.create({
+      data: {
+        entityType: 'category',
+        entityId: systemId,
+        action: `Cập nhật danh mục: ${existing.name}`,
+        actionType: 'update',
+        metadata: { userName: logUserName },
+        createdBy: logUserName,
+      }
+    }).catch(e => logError('[ActivityLog] category update failed', e))
+
     return { success: true, data: category }
   } catch (error) {
-    console.error('Error updating category:', error)
+    logError('Error updating category', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Không thể cập nhật danh mục',
@@ -197,10 +223,9 @@ export async function updateCategoryAction(
 export async function deleteCategoryAction(
   systemId: string
 ): Promise<ActionResult<Category>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('delete_products')
+  if (!authResult.success) return authResult
+  const { session } = authResult
   try {
     const category = await prisma.category.update({
       where: { systemId },
@@ -211,9 +236,22 @@ export async function deleteCategoryAction(
     })
 
     revalidatePath('/categories')
+
+    const logUserName = getSessionUserName(session)
+    prisma.activityLog.create({
+      data: {
+        entityType: 'category',
+        entityId: systemId,
+        action: `Xóa danh mục: ${category.name}`,
+        actionType: 'delete',
+        metadata: { userName: logUserName },
+        createdBy: logUserName,
+      }
+    }).catch(e => logError('[ActivityLog] category delete failed', e))
+
     return { success: true, data: category }
   } catch (error) {
-    console.error('Error deleting category:', error)
+    logError('Error deleting category', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Không thể xóa danh mục',
@@ -224,10 +262,9 @@ export async function deleteCategoryAction(
 export async function restoreCategoryAction(
   systemId: string
 ): Promise<ActionResult<Category>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('edit_products')
+  if (!authResult.success) return authResult
+  const { session } = authResult
   try {
     const category = await prisma.category.update({
       where: { systemId },
@@ -238,9 +275,22 @@ export async function restoreCategoryAction(
     })
 
     revalidatePath('/categories')
+
+    const logUserName = getSessionUserName(session)
+    prisma.activityLog.create({
+      data: {
+        entityType: 'category',
+        entityId: systemId,
+        action: `Khôi phục danh mục: ${category.name}`,
+        actionType: 'update',
+        metadata: { userName: logUserName },
+        createdBy: logUserName,
+      }
+    }).catch(e => logError('[ActivityLog] category restore failed', e))
+
     return { success: true, data: category }
   } catch (error) {
-    console.error('Error restoring category:', error)
+    logError('Error restoring category', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Không thể khôi phục danh mục',
@@ -248,29 +298,3 @@ export async function restoreCategoryAction(
   }
 }
 
-export async function getCategoryAction(
-  systemId: string
-): Promise<ActionResult<Category & { children?: Category[] }>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
-  try {
-    const category = await prisma.category.findUnique({
-      where: { systemId },
-      include: { children: true },
-    })
-
-    if (!category) {
-      return { success: false, error: 'Không tìm thấy danh mục' }
-    }
-
-    return { success: true, data: category }
-  } catch (error) {
-    console.error('Error getting category:', error)
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Không thể lấy danh mục',
-    }
-  }
-}

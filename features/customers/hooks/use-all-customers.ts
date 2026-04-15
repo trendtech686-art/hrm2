@@ -85,11 +85,13 @@ export function useCustomerOptions() {
 }
 
 /**
- * Helper hook to find a customer by ID from cached data
- * Replaces legacy findById() method
+ * Helper hook to find a customer by ID from cached data.
+ * Cache-only: subscribes to the query cache but NEVER triggers a fetch.
+ * Data is available if any other component has loaded all customers.
+ * If cache is cold, findById returns undefined.
  */
 export function useCustomerFinder() {
-  const { data } = useAllCustomers();
+  const { data } = useAllCustomers({ enabled: false });
   
   const findById = React.useCallback(
     (systemId: SystemId | string | undefined) => {

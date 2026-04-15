@@ -3,18 +3,19 @@
 import * as React from "react";
 import { useRouter, useParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import { toast } from "sonner";
 import { asSystemId } from '@/lib/id-types';
 import type { BusinessId, SystemId } from '@/lib/id-types';
 import { generateSubEntityId } from '@/lib/id-utils';
-import { FileUploadAPI } from "@/lib/file-upload-api";
 import { complaintNotifications } from "../notification-utils";
 import { useAuth } from "@/contexts/auth-context";
 import { useComplaintPermissions } from "../hooks/use-complaint-permissions";
 import { useComplaintTimeTracking } from "../hooks/use-complaint-time-tracking";
 import { useComplaintReminders } from "../hooks/use-complaint-reminders";
-import { useComplaintsSettings } from '@/features/settings/complaints/hooks/use-complaints-settings';
-import { generateTrackingUrl, getTrackingCode } from '../tracking-utils';
+import { useComplaintsSettingSection } from '@/features/settings/complaints/hooks/use-complaints-settings';
+import type { PublicTrackingSettings } from '@/hooks/use-public-tracking-settings';
+// tracking-utils now used inside ComplaintDetailsCard
 import { COMPLAINT_TOAST_MESSAGES as MSG } from '../constants/toast-messages';
 import { handleCancelComplaint as cancelComplaintHandler } from '../handlers/cancel-handler';
 import { handleReopenComplaint as reopenComplaintHandler } from '../handlers/reopen-handler';
@@ -23,7 +24,6 @@ import { useComplaintTemplates } from '../hooks/use-complaint-templates';
 // Types & Store
 import type { Complaint, ComplaintAction } from "../types";
 import { useComplaintMutations, useComplaint } from "../hooks/use-complaints";
-import { useComplaintFinder } from "../hooks/use-all-complaints";
 
 // UI Components
 import { Button } from "@/components/ui/button";
@@ -39,31 +39,22 @@ import { ComplaintAffectedProducts } from "./complaint-affected-products";
 import { ComplaintOrderInfo } from "./complaint-order-info";
 import { ComplaintImagesSection } from "./complaint-images-section";
 import { ComplaintDetailsCard } from "./complaint-details-card";
+import { ComplaintCustomerInfoCard } from "./complaint-customer-info-card";
 import { ComplaintWorkflowSection } from "./complaint-workflow-section";
 import { ComplaintProcessingCard } from "./complaint-processing-card";
 import { TemplateDialog } from "./template-dialog";
-import { Comments } from '@/components/Comments';
-import type { WarrantyComment } from '@/features/warranty/types';
+import { ComplaintCommentsSection } from "./complaint-comments-section";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Printer, Copy, Plus } from 'lucide-react';
-import { usePrint } from '@/lib/use-print';
-import { 
-  convertComplaintForPrint,
-  mapComplaintToPrintData, 
-  mapComplaintLineItems,
-  createStoreSettings,
-} from '@/lib/print/complaint-print-helper';
-import { useBranchFinder } from '@/features/settings/branches/hooks/use-all-branches';
-import { useStoreInfoData } from '@/features/settings/store-info/hooks/use-store-info';
+import { Copy } from 'lucide-react';
 
 // Hooks & Context
-import { usePageHeader } from "@/contexts/page-header-context";
 import { useAllEmployees } from "@/features/employees/hooks/use-all-employees";
 import { useOrder } from "@/features/orders/hooks/use-orders";
 import { useComplaintHandlers } from "../hooks/use-complaint-handlers";
 import { useVerificationHandlers } from "../hooks/use-verification-handlers";
 import { useCompensationHandlers } from "../hooks/use-compensation-handlers";
 import { useInventoryHandlers } from "../hooks/use-inventory-handlers";
+import { logError } from '@/lib/logger'
 
 /**
  * MAIN PAGE COMPONENT - Complaint Detail (VIEW ONLY)
@@ -72,49 +63,30 @@ export function ComplaintDetailPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { setPageHeader: _setPageHeader } = usePageHeader();
 
   const { update: updateMutation } = useComplaintMutations({
     // Toast messages are already shown in verification handlers
     onError: (err) => toast.error(err.message)
   });
-  const { getComplaintById, isLoading: _isLoadingFromList } = useComplaintFinder();
   const { data: employees } = useAllEmployees();
   // REMOVED: Payments/receipts loaded separately in components that need them
 
   // ✅ Use dedicated query for single complaint - auto-refreshes after mutation
-  const { data: complaintFromQuery, isLoading: isLoadingComplaint } = useComplaint(systemId);
-  // Fallback to list data if query not ready yet
-  const complaint = complaintFromQuery ?? (systemId ? (getComplaintById(asSystemId(systemId)) ?? null) : null);
+  const { data: complaint, isLoading: isLoadingComplaint } = useComplaint(systemId);
 
-  // ⚡ OPTIMIZED: Fetch only the related order instead of all orders
-  // ✅ Support both orderSystemId and orderId (DB field name mismatch)
-  // ⚡ OPTIMIZED: Use inline order data from complaint API first, fallback to separate fetch
+  // ⚡ OPTIMIZED: Use inline order data from complaint API, only fetch separately if missing
   const inlineOrder = (complaint as unknown as { relatedOrder?: Record<string, unknown> } | null)?.relatedOrder;
   const orderIdToFind = complaint?.orderSystemId || (complaint as unknown as { orderId?: string } | null)?.orderId;
-  // ✅ Always fetch order as fallback - inlineOrder can go missing during mutation transitions
-  const { data: fetchedOrder } = useOrder(orderIdToFind);
-  const relatedOrder = (inlineOrder as typeof fetchedOrder) || fetchedOrder;
+  // Only fetch order when inline data is not available (e.g. after mutation transition)
+  const { data: fetchedOrder } = useOrder(!inlineOrder ? orderIdToFind : undefined);
+  const relatedOrder = React.useMemo(
+    () => (inlineOrder as typeof fetchedOrder) || fetchedOrder,
+    [inlineOrder, fetchedOrder]
+  );
 
-  // Get all employees for @mention in comments
-  const employeeMentions = React.useMemo(() => {
-    return employees
-      .filter(e => !e.isDeleted)
-      .map(e => ({
-        id: e.systemId,
-        label: e.fullName,
-        avatar: e.avatarUrl,
-      }));
-  }, [employees]);
-  
   // Memoize frequently accessed data to avoid repeated searches
   const assignedEmployee = React.useMemo(() => 
     complaint?.assignedTo ? employees.find(e => e.systemId === complaint.assignedTo) : null,
-    [complaint, employees]
-  );
-  
-  const _responsibleEmployee = React.useMemo(() => 
-    complaint?.responsibleUserId ? employees.find(e => e.systemId === complaint.responsibleUserId) : null,
     [complaint, employees]
   );
   
@@ -122,12 +94,12 @@ export function ComplaintDetailPage() {
   const { employee } = useAuth();
   const permissions = useComplaintPermissions(complaint);
   const timeTracking = useComplaintTimeTracking(complaint);
-  const _reminderStatus = useComplaintReminders(complaint);
-  const { data: complaintsSettings } = useComplaintsSettings();
-  const trackingEnabled = complaintsSettings.publicTracking?.enabled ?? false;
+  useComplaintReminders(complaint ?? null);
+  const { data: trackingSettings } = useComplaintsSettingSection<PublicTrackingSettings>('tracking');
+  const trackingEnabled = (trackingSettings as PublicTrackingSettings | undefined)?.enabled ?? false;
   
   // Create wrapper function for updateComplaint - returns Promise for async handlers
-  const updateComplaint = React.useCallback(async (systemId: SystemId, data: Partial<Complaint>) => {
+  const updateComplaint = React.useCallback(async (systemId: string, data: Partial<Complaint>) => {
     await updateMutation.mutateAsync({ systemId, data });
   }, [updateMutation]);
   
@@ -158,7 +130,8 @@ export function ComplaintDetailPage() {
   
   // Template dialog state
   const [templateDialogOpen, setTemplateDialogOpen] = React.useState(false);
-  const [templates] = useComplaintTemplates();
+  const [templatesLoaded, setTemplatesLoaded] = React.useState(false);
+  const [templates] = useComplaintTemplates({ enabled: templatesLoaded });
   
   // Confirm dialogs state
   const [confirmDialogOpen, setConfirmDialogOpen] = React.useState(false);
@@ -174,8 +147,7 @@ export function ComplaintDetailPage() {
     onConfirm: () => {},
   });
   
-  // Comments state (Temporary - will be moved to store later)
-  const [comments, setComments] = React.useState<WarrantyComment[]>([]);
+
 
   // ==========================================
   // State for Image Preview
@@ -189,6 +161,7 @@ export function ComplaintDetailPage() {
   const canEnd = permissions.canClose;
   const canEdit = permissions.canEdit;
   const canReopen = permissions.canReopen;
+  const canCancel = permissions.canReject; // creator/admin + not closed
 
   // ==========================================
   // USE NEW EXTRACTED HOOKS
@@ -245,20 +218,7 @@ export function ComplaintDetailPage() {
     }
   }, [complaint, openCompensationDialog]);
   
-  const handleVerifyCorrect = React.useCallback(() => {
-    if (!complaint) return;
-    
-    //  Permission check
-    if (!permissions.canVerify) {
-      toast.error(permissions.reason || "Bạn không có quyền xác minh khiếu nại");
-      return;
-    }
-    
-    // MỞ ConfirmCorrectDialog (form đơn giản đã có sẵn)
-    setConfirmCorrectDialogOpen(true);
-  }, [complaint, permissions, setConfirmCorrectDialogOpen]);
-
-  // NEW: Handler for "Xac nhan dung" button - Open simple confirm dialog
+  // Handler for "Xác nhận đúng" button - Open simple confirm dialog
   const handleVerifyCorrectClick = React.useCallback(() => {
     if (!complaint) return;
     
@@ -288,31 +248,7 @@ export function ComplaintDetailPage() {
   // REPLACED: handleInventoryAdjustment → inventoryHandlers.handleInventoryAdjustment
   const handleInventoryAdjustment = inventoryHandlers.handleInventoryAdjustment;
 
-  const { findById: findBranchById } = useBranchFinder();
-  const { info: storeInfo } = useStoreInfoData();
-  const { print } = usePrint(complaint?.branchSystemId);
 
-  const handlePrint = React.useCallback(() => {
-    if (!complaint) return;
-
-    const branch = complaint.branchSystemId ? findBranchById(complaint.branchSystemId) : undefined;
-
-    // Use helper to convert complaint to print format
-    const complaintForPrint = convertComplaintForPrint(complaint, {
-      branch,
-      assignee: assignedEmployee,
-    });
-
-    const storeSettings = createStoreSettings(storeInfo);
-
-    const printData = mapComplaintToPrintData(complaintForPrint, storeSettings);
-    const lineItems = mapComplaintLineItems(complaintForPrint.items);
-
-    print('complaint', {
-      data: printData,
-      lineItems: lineItems
-    });
-  }, [complaint, storeInfo, print, findBranchById, assignedEmployee]);
 
   const handleVerifyIncorrect = React.useCallback(() => {
     if (!complaint) return;
@@ -363,30 +299,39 @@ export function ComplaintDetailPage() {
     // TAO 2 PHIEU: CHI (bu tru khach - CHI KHI HOAN TIEN) + THU (phat nhan vien)
     try {
       // LAZY LOAD: Import Server Actions for all operations
-      const { getCashAccounts } = await import('@/app/actions/settings/cash-accounts');
-      const { getPaymentTypes } = await import('@/app/actions/settings/payment-types');
-      const { getReceiptTypes } = await import('@/app/actions/settings/receipt-types');
+      const { fetchCashAccounts } = await import('@/features/settings/cash-accounts/api/cash-accounts-api');
+      const { fetchPaymentTypes } = await import('@/features/settings/payments/types/api/payment-types-api');
+      const { fetchReceiptTypes } = await import('@/features/settings/receipt-types/api/receipt-types-api');
+      const { fetchPaymentMethods } = await import('@/features/settings/payments/methods/api/payment-methods-api');
       const { createPaymentAction } = await import('@/app/actions/payments');
       const { createReceiptAction } = await import('@/app/actions/receipts');
       const { updateProductInventoryAction } = await import('@/app/actions/products');
       
       // Fetch settings data from DB
-      const [cashAccountsResult, paymentTypesResult, receiptTypesResult] = await Promise.all([
-        getCashAccounts({ isActive: true }),
-        getPaymentTypes({ isActive: true }),
-        getReceiptTypes({ isActive: true }),
+      const [cashAccountsResult, paymentTypesResult, receiptTypesResult, paymentMethodsResult] = await Promise.all([
+        fetchCashAccounts({ isActive: true }),
+        fetchPaymentTypes({ isActive: true }),
+        fetchReceiptTypes({ isActive: true }),
+        fetchPaymentMethods({ isActive: true }),
       ]);
       
-      const accounts = cashAccountsResult.success ? cashAccountsResult.data?.data ?? [] : [];
-      const paymentTypes = paymentTypesResult.success ? paymentTypesResult.data.data : [];
-      const receiptTypes = receiptTypesResult.success ? receiptTypesResult.data.data : [];
+      const accounts = cashAccountsResult.data ?? [];
+      const paymentTypes = paymentTypesResult.data ?? [];
+      const receiptTypes = receiptTypesResult.data ?? [];
+      const paymentMethodsFromApi = paymentMethodsResult.data ?? [];
       
-      // Tìm default cash account
-      const defaultAccount = accounts.find(acc => acc.isDefault && acc.type === 'CASH');
-      if (!defaultAccount) {
+      // ✅ Find default accounts by type
+      const defaultCashAccount = accounts.find(acc => acc.isDefault && acc.type === 'CASH') || accounts.find(acc => acc.type === 'CASH');
+      const defaultBankAccount = accounts.find(acc => acc.isDefault && acc.type === 'BANK') || accounts.find(acc => acc.type === 'BANK');
+      
+      if (!defaultCashAccount && !defaultBankAccount) {
         toast.error("Không tìm thấy tài khoản quỹ mặc định");
         return;
       }
+      
+      // ✅ Find payment methods by name (support both Vietnamese and English)
+      const cashMethod = paymentMethodsFromApi.find(m => (m.name.toLowerCase().includes('tiền mặt') || m.name.toLowerCase().includes('cash')) && m.isActive);
+      const bankMethod = paymentMethodsFromApi.find(m => (m.name.toLowerCase().includes('chuyển khoản') || m.name.toLowerCase().includes('bank') || m.name.toLowerCase().includes('transfer')) && m.isActive);
       
       // 1. TAO PHIEU CHI - CHI KHI HOAN TIEN
       let paymentSystemId: SystemId | undefined;
@@ -410,9 +355,10 @@ export function ComplaintDetailPage() {
           branchId: (employee?.branchSystemId || 'default_branch') as string,
           branchSystemId: employee?.branchSystemId || asSystemId('default_branch'),
           branchName: 'Chi nhánh',
-          accountSystemId: defaultAccount.systemId,
-          paymentMethodSystemId: asSystemId('CHUYENKHOAN'),
-          paymentMethodName: 'Chuyển khoản',
+          // ✅ Use bank account for bank transfer, cash account for cash
+          accountSystemId: defaultBankAccount?.systemId || defaultCashAccount?.systemId || asSystemId(''),
+          paymentMethodSystemId: bankMethod?.systemId || cashMethod?.systemId || asSystemId(''),
+          paymentMethodName: bankMethod?.name || cashMethod?.name || 'Chuyển khoản',
           recipientTypeSystemId: asSystemId('KHACHHANG'),
           recipientTypeName: 'Khách hàng',
           recipientName: complaint.customerName,
@@ -457,9 +403,10 @@ export function ComplaintDetailPage() {
           branchId: (employee?.branchSystemId || 'default_branch') as string,
           branchSystemId: employee?.branchSystemId || asSystemId('default_branch'),
           branchName: 'Chi nhánh',
-          accountSystemId: defaultAccount.systemId,
-          paymentMethodSystemId: asSystemId('TIENMAT'),
-          paymentMethodName: 'Tiền mặt',
+          // ✅ Use cash account with cash method for penalty collection
+          accountSystemId: defaultCashAccount?.systemId || defaultBankAccount?.systemId || asSystemId(''),
+          paymentMethodSystemId: cashMethod?.systemId || bankMethod?.systemId || asSystemId(''),
+          paymentMethodName: cashMethod?.name || bankMethod?.name || 'Tiền mặt',
           payerTypeSystemId: asSystemId('NHANVIEN'),
           payerTypeName: 'Nhân viên',
           payerName: responsibleEmployee.fullName,
@@ -506,15 +453,15 @@ export function ComplaintDetailPage() {
           })
           .filter((item): item is NonNullable<typeof item> => Boolean(item));
         
-        // ✅ Use Server Action to update inventory in database
-        for (const item of adjustedItems) {
-          await updateProductInventoryAction(
+        // ✅ Use Server Action to update inventory in database (parallel)
+        await Promise.all(adjustedItems.map(item =>
+          updateProductInventoryAction(
             item.productSystemId,
             item.branchSystemId,
             Math.abs(item.quantityAdjusted),
             item.quantityAdjusted > 0 ? 'add' : 'subtract'
-          );
-        }
+          )
+        ));
         
         if (adjustedItems.length > 0) {
           inventoryAdjustment = {
@@ -575,7 +522,7 @@ export function ComplaintDetailPage() {
         : "Đã xác nhận khiếu nại đúng, ghi nhận bù trả hàng cho khách";
       complaintNotifications.onVerified(successMessage);
     } catch (error) {
-      console.error("Error creating payment/receipt:", error);
+      logError('Error creating payment/receipt', error);
       toast.error("Có lỗi khi tạo phiếu chi");
     }
   }, [complaint, updateComplaint, employee, currentUser, assignedEmployee, relatedOrder]);
@@ -598,10 +545,7 @@ export function ComplaintDetailPage() {
       onConfirm: async () => {
         await cancelComplaintHandler(complaint, currentUser, updateComplaint);
         // Invalidate all related entity caches so UI refreshes
-        queryClient.invalidateQueries({ queryKey: ['payments'] });
-        queryClient.invalidateQueries({ queryKey: ['penalties'] });
-        queryClient.invalidateQueries({ queryKey: ['inventory-checks'] });
-        queryClient.invalidateQueries({ queryKey: ['receipts'] });
+        invalidateRelated(queryClient, 'complaints');
         // Toast handled by handler itself
       }
     });
@@ -630,33 +574,12 @@ export function ComplaintDetailPage() {
       onConfirm: async () => {
         await reopenComplaintHandler(complaint, currentUser, updateComplaint);
         // Invalidate related entity caches
-        queryClient.invalidateQueries({ queryKey: ['payments'] });
-        queryClient.invalidateQueries({ queryKey: ['penalties'] });
-        queryClient.invalidateQueries({ queryKey: ['inventory-checks'] });
-        queryClient.invalidateQueries({ queryKey: ['receipts'] });
+        invalidateRelated(queryClient, 'complaints');
         // Toast handled by handler itself
       }
     });
     setConfirmDialogOpen(true);
   }, [complaint, updateComplaint, currentUser, queryClient]);
-
-  // Comments handlers
-  const _handleCommentImageUpload = React.useCallback(async (file: File): Promise<string> => {
-    if (!complaint) {
-      throw new Error('Không tìm thấy khiếu nại để upload ảnh');
-    }
-
-    try {
-      const asset = await FileUploadAPI.uploadComplaintCommentImage(complaint.systemId, file);
-      return asset.url;
-    } catch (error) {
-      console.error('Image upload error:', error);
-      toast.error('Không thể upload ảnh', {
-        description: error instanceof Error ? error.message : 'Vui lòng thử lại'
-      });
-      throw error;
-    }
-  }, [complaint]);
 
   // Image preview handler
   const handleImagePreview = React.useCallback((images: string[], index: number) => {
@@ -665,91 +588,40 @@ export function ComplaintDetailPage() {
     setShowImagePreview(true);
   }, []);
 
-  const handleAddComment = (content: string, contentText: string, attachments: string[], mentions: string[]) => {
-    const newComment: WarrantyComment = {
-      systemId: asSystemId(generateSubEntityId('COMMENT')),
-      createdBy: currentUser.systemId,
-      createdBySystemId: asSystemId(currentUser.systemId),
-      content,
-      contentText,
-      attachments,
-      mentions: mentions.map(m => asSystemId(m)),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    setComments(prev => [newComment, ...prev]);
-  };
+  // Left-side utility buttons (near title)
+  const leftHeaderActions = React.useMemo(() => {
+    if (!complaint) return [];
+    return [
+      <Button
+        key="templates"
+        variant="outline"
+        size="sm"
+        className="h-9"
+        onClick={() => { setTemplatesLoaded(true); setTemplateDialogOpen(true); }}
+      >
+        Mẫu phản hồi
+      </Button>,
+      <Button
+        key="copy"
+        variant="outline"
+        size="sm"
+        className="h-9"
+        onClick={() => router.push(`/complaints/new?copyFrom=${complaint.systemId}`)}
+      >
+        <Copy className="mr-2 h-4 w-4" />
+        Sao chép
+      </Button>,
+    ];
+  }, [complaint, router]);
 
-  const handleEditComment = (commentId: string, content: string, contentText: string) => {
-    setComments(prev => prev.map(c => 
-      c.systemId === commentId ? { ...c, content, contentText, updatedAt: new Date().toISOString(), isEdited: true } : c
-    ));
-  };
-
-  const handleDeleteComment = (commentId: string) => {
-    setComments(prev => prev.filter(c => c.systemId !== commentId));
-  };
-
-  const _handleReplyComment = (_parentId: string, content: string, contentText: string, attachments: string[], mentions: string[]) => {
-    // For simplicity, just add as normal comment
-    handleAddComment(content, contentText, attachments, mentions);
-  };
-
-  // Memoize header actions
+  // Right-side action buttons
   const headerActions = React.useMemo(() => {
     if (!complaint) return [];
     
     const actions: React.ReactNode[] = [];
 
-    // Normalize status for consistent comparisons
-    const statusLower = (complaint.status || '').toLowerCase();
-    const isClosedStatus = ['resolved', 'cancelled', 'closed', 'ended'].includes(statusLower);
-
-    actions.push(
-      <Button
-        key="print"
-        variant="outline"
-        size="sm"
-        className="h-9"
-        onClick={handlePrint}
-      >
-        <Printer className="mr-2 h-4 w-4" />
-        In phiếu
-      </Button>
-    );
-
-    // Add Change Verification buttons (for verified complaints that are not resolved/cancelled)
-    if (isVerified && !isClosedStatus) {
-      if (complaint.verification !== "verified-correct") {
-        actions.push(
-          <Button
-            key="change-to-correct"
-            variant="default"
-            size="sm"
-            onClick={handleVerifyCorrect}
-            className="h-9 bg-green-600 hover:bg-green-700"
-          >
-            Đổi sang: Đúng
-          </Button>
-        );
-      }
-      if (complaint.verification !== "verified-incorrect") {
-        actions.push(
-          <Button
-            key="change-to-incorrect"
-            variant="outline"
-            size="sm"
-            onClick={handleVerifyIncorrect}
-            className="h-9 border-orange-300 text-orange-700 hover:bg-orange-50"
-          >
-            Đổi sang: Sai
-          </Button>
-        );
-      }
-    }
-
-    // Add Cancel button (for active complaints only - not closed/cancelled/resolved/ended)
-    if (!isClosedStatus) {
+    // Add Cancel button (for active complaints only - requires creator/admin permission)
+    if (canCancel) {
       actions.push(
         <Button
           key="cancel"
@@ -777,32 +649,6 @@ export function ComplaintDetailPage() {
         </Button>
       );
     }
-
-    // Add Back button
-    actions.push(
-      <Button
-        key="back"
-        variant="outline"
-        size="sm"
-        className="h-9"
-        onClick={() => router.push("/complaints")}
-      >
-        Quay lại
-      </Button>
-    );
-
-    // Add Template button
-    actions.push(
-      <Button
-        key="templates"
-        variant="outline"
-        size="sm"
-        className="h-9"
-        onClick={() => setTemplateDialogOpen(true)}
-      >
-        Mẫu phản hồi
-      </Button>
-    );
 
     // Add End button if allowed
     if (canEnd) {
@@ -838,10 +684,10 @@ export function ComplaintDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     complaint,
-    isVerified,
     canEdit,
     canEnd,
     canReopen,
+    canCancel,
     systemId,
     router,
   ]);
@@ -879,7 +725,7 @@ export function ComplaintDetailPage() {
   return (
     <div className="w-full h-full">
       <div className="space-y-6">
-        <ComplaintHeaderSection complaint={complaint} timeTracking={timeTracking} headerActions={headerActions} />
+        <ComplaintHeaderSection complaint={complaint} timeTracking={timeTracking} headerActions={headerActions} leftActions={leftHeaderActions} />
         {/* Verification Card - Full Width at Top */}
         {!isVerified && complaint.status !== "cancelled" && (
         <Card className="border-2 border-primary/20">
@@ -909,101 +755,54 @@ export function ComplaintDetailPage() {
         </Card>
       )}
 
-      {/* Info Row - 2 columns: (Info + Order stacked 70%) | (Workflow 30%) */}
-      <div className="grid gap-6 lg:grid-cols-[70%_1fr]">
-        {/* Column 1: Info cards stacked */}
-        <div className="space-y-6">
-          {/* Complaint Details Card */}
-          <ComplaintDetailsCard 
-            complaint={complaint}
-            currentUser={currentUser}
-            employees={employees}
-          />
-
-        {/* Column 2: Order Information Card */}
-        <ComplaintOrderInfo 
-          complaint={complaint}
-          relatedOrder={relatedOrder ?? undefined}
-          employees={employees}
-        />
-
-        {/* Tracking Link Card */}
-        {trackingEnabled && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Liên kết theo dõi công khai</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="bg-muted/50 p-3 rounded-lg border">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex-1">
-                    <div className="text-xs text-muted-foreground mb-1">Link tracking cho khách hàng</div>
-                    <div className="font-mono text-sm break-all">
-                      {complaint.publicTrackingCode
-                        ? generateTrackingUrl(complaint)
-                        : <span className="text-orange-600">⚠️ Chưa có mã tracking</span>
-                      }
-                    </div>
-                  </div>
-                  {complaint.publicTrackingCode ? (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        navigator.clipboard.writeText(generateTrackingUrl(complaint));
-                        toast.success(
-                          <div className="flex flex-col gap-1">
-                            <div className="font-semibold">Đã copy link tracking</div>
-                            <div className="text-sm text-muted-foreground">Mã: {getTrackingCode(complaint.id)}</div>
-                          </div>,
-                          { duration: 3000 }
-                        );
-                      }}
-                    >
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                  ) : (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={async () => {
-                        const code = Math.random().toString(36).substring(2, 12);
-                        await updateComplaint(complaint.systemId, { publicTrackingCode: code } as Partial<Complaint>);
-                        toast.success('Đã tạo mã tracking công khai');
-                      }}
-                    >
-                      <Plus className="h-4 w-4 mr-1" />
-                      Tạo mã
-                    </Button>
-                  )}
-                </div>
-                <div className="text-xs text-muted-foreground mt-2">
-                  💡 Gửi link này cho khách hàng để họ theo dõi tiến độ xử lý khiếu nại
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-        </div>
-
-        {/* Column 2: Workflow Process */}
-        <ComplaintWorkflowSection 
-          complaint={complaint}
-          currentUser={currentUser}
-          updateComplaint={updateComplaint}
-        />
-      </div>
-
-      {/* Full-width cards section */}
-
-      {/* Processing Card - Only show if there's any processing info */}
+      {/* Processing Card - Full Width at Top */}
       <ComplaintProcessingCard 
         complaint={complaint}
         onProcessCompensation={handleProcessCompensation}
         onProcessInventory={handleProcessInventory}
       />
+
+      {/* Info Row - 2 columns: (Info + Customer + Order stacked 70%) | (Workflow 30%) */}
+      <div className="grid gap-6 lg:grid-cols-[70%_1fr]">
+        {/* Column 1: Info cards stacked */}
+        <div className="space-y-6">
+          {/* Complaint Details Card - includes badges + tracking link */}
+          <ComplaintDetailsCard 
+            complaint={complaint}
+            currentUser={currentUser}
+            employees={employees}
+            trackingEnabled={trackingEnabled}
+            timeTracking={timeTracking}
+            onGenerateTrackingCode={async () => {
+              const code = Math.random().toString(36).substring(2, 12);
+              await updateComplaint(complaint.systemId, { publicTrackingCode: code } as Partial<Complaint>);
+              toast.success('Đã tạo mã tracking công khai');
+            }}
+          />
+
+        {/* Customer Info Card - below complaint details */}
+        <ComplaintCustomerInfoCard
+          complaint={complaint}
+          orderCustomerSystemId={(relatedOrder as Record<string, unknown> | null)?.customerSystemId as string | undefined}
+        />
+
+        {/* Order Information Card */}
+        <ComplaintOrderInfo 
+          complaint={complaint}
+          relatedOrder={relatedOrder ?? undefined}
+          employees={employees}
+        />
+        </div>
+
+        {/* Column 2: Workflow */}
+        <div className="space-y-6">
+          <ComplaintWorkflowSection 
+            complaint={complaint}
+            currentUser={currentUser}
+            updateComplaint={updateComplaint}
+          />
+        </div>
+      </div>
 
           {/* Card: Sản phẩm bị ảnh hưởng */}
           <ComplaintAffectedProducts complaint={complaint} />
@@ -1014,43 +813,15 @@ export function ComplaintDetailPage() {
         onImagePreview={handleImagePreview}
       />
 
-      {/* Comments Section - Full Width */}
-      <Comments
-        entityType="complaint"
-        entityId={complaint.systemId}
-        comments={comments.map(c => ({
-          id: c.systemId,
-          content: c.contentText || c.content,
-          author: {
-            systemId: c.createdBySystemId,
-            name: employees.find(e => e.systemId === c.createdBySystemId)?.fullName || 'Unknown',
-          },
-          createdAt: new Date(c.createdAt),
-          updatedAt: c.updatedAt ? new Date(c.updatedAt) : undefined,
-          attachments: (c.attachments || []).map((url, idx) => ({
-            id: `${c.systemId}-${idx}`,
-            url,
-            type: 'image' as const,
-            name: `Attachment ${idx + 1}`,
-          })),
-          isEdited: c.isEdited,
-        }))}
-        onAddComment={(content) => {
-          handleAddComment(content, content, [], []);
-        }}
-        onUpdateComment={(commentId, content) => {
-          handleEditComment(commentId, content, content);
-        }}
-        onDeleteComment={(commentId) => {
-          handleDeleteComment(commentId);
-        }}
-        mentions={employeeMentions}
+      {/* Comments Section - Full Width (persisted via /api/comments) */}
+      <ComplaintCommentsSection
+        complaint={complaint}
+        employees={employees}
       />
 
       {/* Timeline - Full Width */}
       <ComplaintTimelineSection
-        complaint={complaint}
-        employees={employees}
+        complaintId={complaint.systemId}
       />
 
       {/* Template Dialog */}

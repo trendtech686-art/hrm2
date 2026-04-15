@@ -1,4 +1,4 @@
-import type {
+﻿import type {
   PkgxProduct,
   PkgxProductsResponse,
   PkgxProductPayload,
@@ -11,6 +11,7 @@ import type {
   PkgxSettings,
 } from '@/lib/types/prisma-extended';
 import { PKGX_API_CONFIG } from '../../features/settings/pkgx/constants';
+import { logError } from '@/lib/logger'
 
 // ========================================
 // Types
@@ -65,30 +66,55 @@ async function fetchWithAuth<T>(settings: PkgxSettings, url: string, options: Re
   }
 
   try {
-    const fetchOptions: RequestInit = {
-      ...options,
-      mode: 'cors',
-      credentials: 'omit',
-      headers: {
-        'X-API-KEY': apiKey,
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
-    };
-    
-    const response = await fetch(url, fetchOptions);
+    // Browser-side: route through proxy to avoid CORS
+    const isBrowser = typeof window !== 'undefined';
+    const isGet = !options.method || options.method === 'GET';
+
+    let fetchUrl: string;
+    let fetchOptions: RequestInit;
+
+    if (isBrowser && isGet) {
+      // Use server-side proxy for GET requests from browser
+      fetchUrl = `/api/pkgx/proxy?url=${encodeURIComponent(url)}`;
+      fetchOptions = {
+        method: 'GET',
+        headers: {
+          'X-API-KEY': apiKey,
+        },
+      };
+    } else {
+      // Server-side or non-GET: direct fetch
+      fetchUrl = url;
+      fetchOptions = {
+        ...options,
+        mode: 'cors',
+        credentials: 'omit',
+        headers: {
+          'X-API-KEY': apiKey,
+          'Content-Type': 'application/json',
+          ...options.headers,
+        },
+      };
+    }
+
+    const response = await fetch(fetchUrl, fetchOptions);
 
     const responseText = await response.text();
     
-    const data = JSON.parse(responseText);
+    let data: Record<string, unknown>;
+    try {
+      data = JSON.parse(responseText);
+    } catch {
+      return { success: false, error: 'Invalid JSON response from PKGX' };
+    }
     
     // DEBUG: Log response
 
     if (data.error) {
-      return { success: false, error: data.message || 'Lỗi từ server PKGX' };
+      return { success: false, error: (data.message as string) || 'Lỗi từ server PKGX' };
     }
 
-    return { success: true, data };
+    return { success: true, data: data as T };
   } catch (error) {
     return {
       success: false,
@@ -212,7 +238,7 @@ export async function getProductGallery(goodsId: number, settings: PkgxSettings 
     const galleryData = response.data as PkgxGalleryResponse;
     return { success: true, data: galleryData.data || [] };
   } catch (error) {
-    console.error('Gallery API exception:', error);
+    logError('Gallery API exception', error);
     return { success: true, data: [] }; // Fallback to empty array
   }
 }
@@ -489,7 +515,7 @@ export async function uploadImageDirect(
 
     return { success: true, data };
   } catch (error) {
-    console.error('🖼️ [uploadImageDirect] Error:', error);
+    logError('🖼️ [uploadImageDirect] Error', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Không thể upload ảnh trực tiếp',

@@ -4,14 +4,14 @@ import type { Comment as CommentType } from '@/components/Comments';
 
 export type OrderComment = CommentType<SystemId>;
 
-export const statusVariants: Record<string, "success" | "default" | "secondary" | "warning" | "destructive"> = {
-    "Đặt hàng": "secondary",
+export const statusVariants: Record<string, "success" | "default" | "secondary" | "warning" | "destructive" | "info"> = {
+    "Đặt hàng": "info",
     "Đang giao dịch": "warning",
     "Hoàn thành": "success",
     "Đã hủy": "destructive",
     // Prisma enum values
-    "PENDING": "secondary",
-    "CONFIRMED": "secondary",
+    "PENDING": "info",
+    "CONFIRMED": "info",
     "PROCESSING": "warning",
     "PACKING": "warning",
     "PACKED": "warning",

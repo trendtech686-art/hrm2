@@ -18,6 +18,7 @@ export interface UploadedFile {
   thumbnailUrl?: string
   entityType?: string
   entityId?: string
+  documentName?: string
   createdAt?: string
   width?: number
   height?: number

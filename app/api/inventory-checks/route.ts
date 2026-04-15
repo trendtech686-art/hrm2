@@ -12,6 +12,9 @@ import { InventoryCheckStatus } from '@/generated/prisma/client';
 import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils';
 import { createInventoryCheckSchema } from './validation';
 import { generateNextIdsWithTx } from '@/lib/id-system';
+import { logError } from '@/lib/logger'
+import { createNotification } from '@/lib/notifications'
+import { getUserNameFromDb } from '@/lib/get-user-name'
 
 // Interface for inventory check item input (matches frontend)
 interface InventoryCheckItemInput {
@@ -102,10 +105,27 @@ export async function GET(request: NextRequest) {
       items: check.items.map(mapInventoryCheckItem),
     }));
 
-    return apiPaginated(mappedData, { page, limit, total });
+    // Batch resolve employee names for createdBy/balancedBy
+    const employeeIds = [...new Set(
+      data.flatMap(c => [c.createdBy, c.balancedBy]).filter(Boolean) as string[]
+    )]
+    const employees = employeeIds.length > 0
+      ? await prisma.employee.findMany({
+          where: { systemId: { in: employeeIds } },
+          select: { systemId: true, fullName: true },
+        })
+      : []
+    const empMap = new Map(employees.map(e => [e.systemId, e.fullName]))
+    const withNames = mappedData.map(check => ({
+      ...check,
+      createdByName: empMap.get(check.createdBy || '') || null,
+      balancedByName: empMap.get(check.balancedBy || '') || null,
+    }))
+
+    return apiPaginated(withNames, { page, limit, total });
   } catch (error) {
-    console.error('[Inventory Checks API] GET error:', error);
-    return apiError('Failed to fetch inventory checks', 500);
+    logError('[Inventory Checks API] GET error', error);
+    return apiError('Lỗi khi lấy danh sách phiếu kiểm kê', 500);
   }
 }
 
@@ -158,9 +178,37 @@ export async function POST(request: NextRequest) {
       });
     });
 
+    // ✅ Notify assigned employee about new inventory check
+    if (data.employeeId && data.employeeId !== session.user?.employeeId) {
+      createNotification({
+        type: 'inventory_check',
+        settingsKey: 'inventory-check:updated',
+        title: 'Kiểm kho mới',
+        message: `Phiếu kiểm kho ${inventoryCheck.id || inventoryCheck.systemId} tại ${data.branchName || data.branchSystemId}`,
+        link: `/inventory-checks/${inventoryCheck.systemId}`,
+        recipientId: data.employeeId,
+        senderId: session.user?.employeeId,
+        senderName: session.user?.name,
+      }).catch(e => logError('[Inventory Checks POST] notification failed', e))
+    }
+
+    // Log activity
+    getUserNameFromDb(session.user?.id).then(userName =>
+      prisma.activityLog.create({
+        data: {
+          entityType: 'inventory_check',
+          entityId: inventoryCheck.systemId,
+          action: 'created',
+          actionType: 'create',
+          note: `Tạo phiếu kiểm kê`,
+          metadata: { userName },
+          createdBy: userName,
+        }
+      })
+    ).catch(e => logError('[ActivityLog] inventory_check create failed', e))
     return apiSuccess(inventoryCheck, 201);
   } catch (error) {
-    console.error('[Inventory Checks API] POST error:', error);
-    return apiError('Failed to create inventory check', 500);
+    logError('[Inventory Checks API] POST error', error);
+    return apiError('Lỗi khi tạo phiếu kiểm kê', 500);
   }
 }

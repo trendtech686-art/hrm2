@@ -6,7 +6,7 @@ import { formatDateTime } from '@/lib/date-utils'
 import { toast } from "sonner"
 import { usePageHeader } from "@/contexts/page-header-context";
 import { useDeletedBrands, useTrashMutations } from "./hooks/use-brands"
-import { getColumns } from "./trash-columns"
+import { getColumns, type TrashBrand } from "./trash-columns"
 import { GenericTrashPage } from "@/components/shared/generic-trash-page"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -14,10 +14,7 @@ import { Button } from "@/components/ui/button"
 import type { Brand } from './api/brands-api'
 import type { SystemId } from "@/lib/id-types";
 
-type TrashBrand = Omit<Brand, 'systemId' | 'deletedAt'> & { 
-  systemId: SystemId; 
-  deletedAt?: string | null;
-};
+// TrashBrand is re-exported from trash-columns
 
 export function BrandsTrashPage() {
   const { data: deletedBrands = [], isLoading } = useDeletedBrands();
@@ -74,9 +71,9 @@ export function BrandsTrashPage() {
   const handlePermanentDeleteFromColumn = React.useCallback(async (systemId: SystemId) => {
     try {
       await permanentDelete.mutateAsync(systemId as string);
-      toast.success('Đã xóa vĩnh viễn thương hiệu');
+      toast.success('Đã lưu trữ vĩnh viễn thương hiệu');
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Không thể xóa thương hiệu');
+      toast.error(error instanceof Error ? error.message : 'Không thể lưu trữ thương hiệu');
     }
   }, [permanentDelete]);
 
@@ -86,43 +83,41 @@ export function BrandsTrashPage() {
   );
 
   // Mobile card renderer
-  const renderMobileCard = React.useCallback((brand: Brand) => (
-    <Card className="mb-3">
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="font-medium">{brand.name}</span>
-              <Badge variant="destructive" className="text-xs">Đã xóa</Badge>
-            </div>
-            <p className="text-sm text-muted-foreground">Mã: {brand.id}</p>
-            {brand.deletedAt && (
-              <p className="text-xs text-muted-foreground">
-                Xóa lúc: {formatDateTime(brand.deletedAt)}
-              </p>
-            )}
+  const renderMobileCard = React.useCallback((brand: TrashBrand) => (
+    <div className="rounded-xl border border-border/50 bg-card p-4">
+      <div className="flex items-start justify-between">
+        <div className="space-y-1 flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="font-medium text-sm">{brand.name}</span>
+            <Badge variant="destructive" className="text-xs">Đã xóa</Badge>
           </div>
-          <div className="flex flex-col gap-1">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleRestoreFromColumn(brand.systemId as SystemId)}
-              className="text-green-600"
-            >
-              Khôi phục
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handlePermanentDeleteFromColumn(brand.systemId as SystemId)}
-              className="text-destructive"
-            >
-              Xóa vĩnh viễn
-            </Button>
-          </div>
+          <p className="text-xs text-muted-foreground">Mã: {brand.id}</p>
+          {brand.deletedAt && (
+            <p className="text-xs text-muted-foreground">
+              Xóa lúc: {formatDateTime(brand.deletedAt)}
+            </p>
+          )}
         </div>
-      </CardContent>
-    </Card>
+        <div className="flex flex-col gap-1 shrink-0">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleRestoreFromColumn(brand.systemId)}
+            className="text-green-600"
+          >
+            Khôi phục
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handlePermanentDeleteFromColumn(brand.systemId)}
+            className="text-destructive"
+          >
+            Lưu trữ vĩnh viễn
+          </Button>
+        </div>
+      </div>
+    </div>
   ), [handleRestoreFromColumn, handlePermanentDeleteFromColumn]);
 
   if (isLoading) {
@@ -141,10 +136,8 @@ export function BrandsTrashPage() {
       title="Thùng rác thương hiệu"
       entityName="thương hiệu"
       backUrl="/brands"
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      columns={columns as any}
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      renderMobileCard={renderMobileCard as any}
+      columns={columns}
+      renderMobileCard={renderMobileCard}
       getItemDisplayName={(brand) => brand.name}
     />
   );

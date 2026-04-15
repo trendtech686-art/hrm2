@@ -33,9 +33,9 @@ const DEFAULT_Z_INDEX = {
   dialog: 50,
   drawer: 50,
   sheet: 50,
-  dropdown: 40,
-  popover: 40,
-  select: 40,
+  dropdown: 50,
+  popover: 50,
+  select: 50,
   custom: 30,
 };
 
@@ -63,14 +63,19 @@ export function ModalProvider({ children }: { children: React.ReactNode }) {
       return [...prev, id];
     });
     
-    setModalMetadata((prev) => ({
-      ...prev,
-      [id]: {
-        type,
-        zIndex: metadata?.zIndex || DEFAULT_Z_INDEX[type],
-        className: metadata?.className,
+    setModalMetadata((prev) => {
+      const existing = prev[id];
+      const newZIndex = metadata?.zIndex || DEFAULT_Z_INDEX[type];
+      const newClassName = metadata?.className;
+      // Skip update if already registered with same data
+      if (existing && existing.type === type && existing.zIndex === newZIndex && existing.className === newClassName) {
+        return prev;
       }
-    }));
+      return {
+        ...prev,
+        [id]: { type, zIndex: newZIndex, className: newClassName },
+      };
+    });
   }, []);
 
   // Remove a modal from tracking
@@ -101,8 +106,9 @@ export function ModalProvider({ children }: { children: React.ReactNode }) {
     const position = openModals.indexOf(id);
     if (position === -1) return baseZ;
     
-    // Add position bonus (more recent modals get higher z-index)
-    return baseZ + position;
+    // Each subsequent layer jumps by 10 so nested popovers/dropdowns
+    // inside dialogs always render above the parent dialog
+    return baseZ + position * 10;
   }, [modalMetadata, openModals]);
   
   // Check if a modal is the active (top) one

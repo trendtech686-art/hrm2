@@ -100,9 +100,9 @@ export function StatsCard({
 
   return (
     <Card className={cn(variantStyles[variant], className)}>
-      <CardContent className="p-4">
-        <p className="text-body-sm text-muted-foreground">{title}</p>
-        <p className={cn("text-h2 font-semibold", valueVariantStyles[variant])}>{displayValue}</p>
+      <CardContent className="!p-4 !pt-4 text-center">
+        <p className="text-sm text-muted-foreground">{title}</p>
+        <p className={cn("text-xl font-semibold", valueVariantStyles[variant])}>{displayValue}</p>
         {(description || trend !== undefined) && (
           <div className="flex items-center gap-1 mt-1">
             {trend !== undefined && (
@@ -131,57 +131,10 @@ export function StatsCard({
 export function StatsCardSkeleton({ className }: { className?: string }) {
   return (
     <Card className={cn('animate-pulse', className)}>
-      <CardContent className="p-4">
+      <CardContent className="!p-4 !pt-4">
         <Skeleton className="h-4 w-24 mb-2" />
         <Skeleton className="h-7 w-20" />
       </CardContent>
     </Card>
-  );
-}
-
-/**
- * StatsCardGrid - Grid container for multiple StatsCards
- */
-export function StatsCardGrid({ 
-  children, 
-  columns = 4,
-  className,
-}: { 
-  children: React.ReactNode;
-  columns?: 2 | 3 | 4 | 5;
-  className?: string;
-}) {
-  const colsClass = {
-    2: 'md:grid-cols-2',
-    3: 'md:grid-cols-3',
-    4: 'md:grid-cols-4',
-    5: 'md:grid-cols-5',
-  };
-
-  return (
-    <div className={cn('grid gap-4 grid-cols-2', colsClass[columns], className)}>
-      {children}
-    </div>
-  );
-}
-
-/**
- * StatsCardGridSkeleton - Loading skeleton for StatsCardGrid
- */
-export function StatsCardGridSkeleton({ 
-  count = 4,
-  columns = 4,
-  className,
-}: { 
-  count?: number;
-  columns?: 2 | 3 | 4 | 5;
-  className?: string;
-}) {
-  return (
-    <StatsCardGrid columns={columns} className={className}>
-      {Array.from({ length: count }).map((_, i) => (
-        <StatsCardSkeleton key={i} />
-      ))}
-    </StatsCardGrid>
   );
 }

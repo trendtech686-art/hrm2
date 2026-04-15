@@ -14,18 +14,15 @@ import {
   DropdownMenuSeparator, 
   DropdownMenuTrigger,
 } from '../../../../components/ui/dropdown-menu';
-import { Search, Link, RefreshCw, Loader2, CheckCircle2, TriangleAlert, Package, ExternalLink, Unlink, Link2, MoreHorizontal, FileText, DollarSign, AlignLeft, Tag, Download, Plus } from 'lucide-react';
+import { Search, Link, RefreshCw, Loader2, CheckCircle2, TriangleAlert, Package, ExternalLink, Unlink, Link2, MoreHorizontal, FileText, DollarSign, AlignLeft, Tag, Download, Plus, ChevronDown } from 'lucide-react';
 import { Progress } from '../../../../components/ui/progress';
 import { toast } from 'sonner';
-import { useAllProducts } from '../../../products/hooks/use-all-products';
 import { useProductMutations } from '../../../products/hooks/use-products';
-import { usePkgxSettings, usePkgxLogMutations, usePkgxProductsMutations, usePkgxGetters, usePkgxProductsCache, usePkgxProductsPaginated } from '../hooks/use-pkgx-settings';
+import { usePkgxSettings, usePkgxLogMutations, usePkgxProductsMutations, usePkgxGetters, usePkgxProductsCache, usePkgxProductsPaginated, pkgxProductsCacheQueryKey, fetchAllPkgxProductsCache } from '../hooks/use-pkgx-settings';
 import { getProducts as fetchPkgxProducts, updateProduct as updatePkgxProduct, getProductById as fetchPkgxProductById, getProductGallery as fetchPkgxGallery } from '../../../../lib/pkgx/api-service';
 import type { PkgxProduct, PkgxGalleryImage } from '../types';
 import type { SystemId } from '../../../../lib/id-types';
 import { ResponsiveDataTable } from '../../../../components/data-table/responsive-data-table';
-import { useAuth } from '../../../../contexts/auth-context';
-import { productKeys } from '../../../products/hooks/use-products';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { useProductMappingValidation } from '../hooks/use-product-mapping-validation';
 import { usePkgxEntitySync } from '../hooks';
@@ -36,6 +33,7 @@ import { PkgxSyncConfirmDialog } from './pkgx-sync-confirm-dialog';
 import type { ColumnDef } from '../../../../components/data-table/types';
 
 // Import extracted components
+import { logError } from '@/lib/logger'
 import { 
   MobileProductDropdown, 
   ProductDetailDialog, 
@@ -49,15 +47,13 @@ import {
 
 export function ProductMappingTab() {
   // Auth
-  const { user: _user } = useAuth();
   const queryClient = useQueryClient();
   
   // Stores
   const { data: settings } = usePkgxSettings();
   const { addLog } = usePkgxLogMutations();
   const { setPkgxProducts } = usePkgxProductsMutations();
-  const { getPkgxCatIdByHrmCategory, getPkgxBrandIdByHrmBrand, getCategoryMappingByPkgxId: _getCategoryMappingByPkgxId, getBrandMappingByPkgxId: _getBrandMappingByPkgxId } = usePkgxGetters();
-  const { data: allProductsData } = useAllProducts();
+  const { getPkgxCatIdByHrmCategory, getPkgxBrandIdByHrmBrand } = usePkgxGetters();
   const { update: updateProductMutation } = useProductMutations({});
   
   const [searchTerm, setSearchTerm] = React.useState('');
@@ -91,8 +87,9 @@ export function ProductMappingTab() {
     search: debouncedSearchTerm,
   });
   
-  // Full cache is still needed for import/sync operations (needs all products)
-  const { data: pkgxProductsCache, isLoading: isLoadingCache, error: cacheError } = usePkgxProductsCache();
+  // Full cache is lazy-loaded — only fetched on-demand for import/sync/push operations
+  // Display uses paginated data; linked tab uses server-side PKGX JOIN
+  const { data: pkgxProductsCache, isLoading: isLoadingCache, error: cacheError } = usePkgxProductsCache({ enabled: false });
   
   // Debug logging
   React.useEffect(() => {
@@ -116,11 +113,26 @@ export function ProductMappingTab() {
     pkgxPaginatedData?.products || [], 
     [pkgxPaginatedData?.products]
   );
-  const pkgxTotalCount = pkgxPaginatedData?.total ?? pkgxProducts.length;
+  const pkgxTotalCount = pkgxPaginatedData?.total ?? 0;
   
   // Fetch linked products from API with server-side pagination
   const [_linkedSearchTerm, _setLinkedSearchTerm] = React.useState('');
   const [linkedApiPagination, setLinkedApiPagination] = React.useState({ page: 1, limit: 20 });
+  
+  // Fetch unlinked HRM products from API with server-side pagination
+  const [unlinkedSearchTerm, setUnlinkedSearchTerm] = React.useState('');
+  const [debouncedUnlinkedSearch, setDebouncedUnlinkedSearch] = React.useState('');
+  const [unlinkedApiPagination, setUnlinkedApiPagination] = React.useState({ page: 1, limit: 20 });
+  const [unlinkedPagination, setUnlinkedPagination] = React.useState({ pageIndex: 0, pageSize: 20 });
+  
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedUnlinkedSearch(unlinkedSearchTerm);
+      setUnlinkedApiPagination(prev => ({ ...prev, page: 1 }));
+      setUnlinkedPagination(prev => ({ ...prev, pageIndex: 0 }));
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [unlinkedSearchTerm]);
   
   const { data: linkedProductsData, isLoading: isLoadingLinked, refetch: refetchLinkedProducts } = useQuery({
     queryKey: ['products-linked', linkedApiPagination.page, linkedApiPagination.limit, _linkedSearchTerm],
@@ -148,6 +160,69 @@ export function ProductMappingTab() {
           seoKeywords?: string;
           ktitle?: string;
           sellerNote?: string;
+          pkgxProduct?: {
+            id: number;
+            name: string;
+            goodsSn?: string;
+            goodsNumber?: string;
+            catId?: number;
+            catName?: string;
+            brandId?: number;
+            brandName?: string;
+            shopPrice?: number;
+            marketPrice?: number;
+            partnerPrice?: number;
+            acePrice?: number;
+            dealPrice?: number;
+            goodsThumb?: string;
+            originalImg?: string;
+            goodsBrief?: string;
+            goodsDesc?: string;
+            isBest?: number;
+            isNew?: number;
+            isHot?: number;
+            isHome?: number;
+            isOnsale?: number;
+            isReal?: number;
+            keywords?: string;
+            ktitle?: string;
+            goodsAlias?: string;
+            goodsNumber2?: string;
+            goodsWeight?: number;
+            goodsQuantity?: number;
+            warnNumber?: number;
+            addTime?: number;
+            lastUpdate?: number;
+          } | null;
+        }>;
+        pagination: { page: number; limit: number; total: number; totalPages: number };
+      }>;
+    },
+    staleTime: 30 * 1000,
+  });
+  
+  // Fetch unlinked HRM products
+  const { data: unlinkedProductsData, isLoading: isLoadingUnlinked } = useQuery({
+    queryKey: ['products-unlinked', unlinkedApiPagination.page, unlinkedApiPagination.limit, debouncedUnlinkedSearch],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        page: String(unlinkedApiPagination.page),
+        limit: String(unlinkedApiPagination.limit),
+      });
+      if (debouncedUnlinkedSearch) params.set('search', debouncedUnlinkedSearch);
+      
+      const response = await fetch(`/api/products/unlinked?${params}`);
+      if (!response.ok) throw new Error('Failed to fetch');
+      return response.json() as Promise<{
+        data: Array<{
+          systemId: string;
+          id: string;
+          name: string;
+          thumbnailImage: string | null;
+          costPrice: number;
+          status: string;
+          inventoryByBranch: Record<string, number> | null;
+          createdAt: string;
         }>;
         pagination: { page: number; limit: number; total: number; totalPages: number };
       }>;
@@ -234,38 +309,46 @@ export function ProductMappingTab() {
     refetchOnWindowFocus: false,
   });
   
-  // HRM products - sử dụng allProductsData trực tiếp để đảm bảo reactive
-  const hrmProducts = React.useMemo(
-    () => (allProductsData ?? []).filter(p => !p.isDeleted).sort((a, b) => a.name.localeCompare(b.name)),
-    [allProductsData]
-  );
-  
-  // Validation hook
-  const validation = useProductMappingValidation({
-    hrmProducts: hrmProducts.map(p => ({
-      systemId: p.systemId,
+  // Fetch unlinked HRM products for link dialog (only when dialog is open, limit 500)
+  const { data: dialogProductsData } = useQuery({
+    queryKey: ['products-unlinked-for-dialog'],
+    queryFn: async () => {
+      const response = await fetch('/api/products/unlinked?page=1&limit=500');
+      if (!response.ok) throw new Error('Failed to fetch');
+      return response.json() as Promise<{
+        data: Array<{ systemId: string; id: string; name: string; status: string }>;
+        pagination: { total: number };
+      }>;
+    },
+    enabled: isLinkDialogOpen,
+    staleTime: 60 * 1000,
+  });
+
+  // HRM products for dialog — only available when link dialog is open
+  const dialogHrmProducts = React.useMemo(
+    () => (dialogProductsData?.data ?? []).map(p => ({
+      systemId: p.systemId as SystemId,
       name: p.name,
       id: p.id,
-      pkgxId: p.pkgxId,
+      pkgxId: undefined as number | undefined,
       status: p.status,
     })),
+    [dialogProductsData?.data]
+  );
+  
+  // Validation hook — uses dialog products for suggestion matching
+  const validation = useProductMappingValidation({
+    hrmProducts: dialogHrmProducts,
     pkgxProducts: pkgxProducts,
     editingProductId: undefined,
     debounceMs: 300,
   });
   
-  // Count of linked HRM products - use API stats for accurate count
-  // Fallback to local count if API not loaded yet
-  const linkedCount = productStats?.linked ?? hrmProducts.filter((p) => p.pkgxId).length;
+  // Count of linked HRM products - use API stats
+  const linkedCount = productStats?.linked ?? 0;
   
-  // Find HRM product linked to a PKGX product - returns full Product from local cache
-  // For displaying product info in the table (limited to 500 products in cache)
+  // Find HRM product linked to a PKGX product — uses pkgxMappingData (server-side)
   const findLinkedHrmProduct = React.useCallback((pkgxId: number) => {
-    // First try to find in local hrmProducts (has full Product data)
-    const localProduct = hrmProducts.find((p) => p.pkgxId == pkgxId);
-    if (localProduct) return localProduct;
-    
-    // If not in local cache but exists in mapping data, return minimal info
     if (pkgxMappingData && pkgxMappingData[pkgxId]) {
       const mapping = pkgxMappingData[pkgxId];
       return {
@@ -276,64 +359,24 @@ export function ProductMappingTab() {
         pkgxId,
       };
     }
-    
     return undefined;
-  }, [hrmProducts, pkgxMappingData]);
+  }, [pkgxMappingData]);
   
-  // Check if a PKGX product is linked - uses API mapping data for accurate check
-  // This is used for Import logic where we need to check ALL linked products, not just 500
+  // Check if a PKGX product is linked — uses pkgxMappingData (server-side)
   const _isProductLinked = React.useCallback((pkgxId: number): boolean => {
-    // Primary: Check in API mapping data (contains ALL linked products)
-    if (pkgxMappingData && pkgxMappingData[pkgxId]) return true;
-    // Fallback: Check in local hrmProducts
-    return hrmProducts.some((p) => p.pkgxId == pkgxId);
-  }, [pkgxMappingData, hrmProducts]);
+    return !!(pkgxMappingData && pkgxMappingData[pkgxId]);
+  }, [pkgxMappingData]);
   
   // Filter and transform PKGX products for display (server-side pagination)
-  // Note: search is already handled by server via debouncedSearchTerm
   const tableData = React.useMemo((): PkgxProductRow[] => {
-    // Use server-paginated data for display
-    const productsToDisplay = pkgxProductsForDisplay;
-    
-    return productsToDisplay.map((p) => {
+    return pkgxProductsForDisplay.map((p) => {
       const linked = findLinkedHrmProduct(p.goods_id);
-      // Check if linked is a full Product or minimal mapping info
-      const isFullProduct = linked && 'inventoryByBranch' in linked;
-      // Calculate total inventory from all branches (only if full product)
-      const totalInventory = isFullProduct 
-        ? Object.values((linked as { inventoryByBranch?: Record<string, number> }).inventoryByBranch || {}).reduce((sum: number, qty: number) => sum + qty, 0)
-        : 0;
-      
       return {
         ...p,
         linkedHrmProduct: linked ? {
           systemId: linked.systemId as SystemId,
           name: linked.name,
           id: linked.id,
-          // Giá cả - only available for full Product
-          costPrice: isFullProduct ? (linked as { costPrice?: number }).costPrice : undefined,
-          partnerPrice: isFullProduct ? (linked as { partnerPrice?: number }).partnerPrice : undefined,
-          acePrice: isFullProduct ? (linked as { acePrice?: number }).acePrice : undefined,
-          dealPrice: isFullProduct ? (linked as { dealPrice?: number }).dealPrice : undefined,
-          // Tồn kho
-          quantity: totalInventory,
-          // Nội dung - only available for full Product
-          description: isFullProduct ? (linked as { description?: string }).description : undefined,
-          shortDescription: isFullProduct ? (linked as { shortDescription?: string }).shortDescription : undefined,
-          // SEO - only available for full Product
-          seoDescription: isFullProduct ? (linked as { seoDescription?: string }).seoDescription : undefined,
-          seoKeywords: isFullProduct ? (linked as { seoKeywords?: string }).seoKeywords : undefined,
-          ktitle: isFullProduct ? (linked as { ktitle?: string }).ktitle : undefined,
-          // Phân loại - only available for full Product
-          categorySystemId: isFullProduct ? (linked as { categorySystemId?: SystemId }).categorySystemId : undefined,
-          brandSystemId: isFullProduct ? (linked as { brandSystemId?: SystemId }).brandSystemId : undefined,
-          // Trạng thái - only available for full Product
-          isBest: isFullProduct ? (linked as { isBest?: boolean }).isBest : undefined,
-          isHot: isFullProduct ? (linked as { isHot?: boolean }).isHot : undefined,
-          isNew: isFullProduct ? (linked as { isNew?: boolean }).isNew : undefined,
-          isHome: isFullProduct ? (linked as { isHome?: boolean }).isHome : undefined,
-          // Khác - only available for full Product
-          sellerNote: isFullProduct ? (linked as { sellerNote?: string }).sellerNote : undefined,
         } : undefined,
         // Required by ResponsiveDataTable
         systemId: p.goods_id.toString(),
@@ -345,8 +388,8 @@ export function ProductMappingTab() {
   const [linkedPagination, setLinkedPagination] = React.useState({ pageIndex: 0, pageSize: 20 });
   const [sorting, setSorting] = React.useState<{ id: string; desc: boolean }>({ id: 'goods_id', desc: true });
   
-  // Data for linked tab - using API data instead of filtering local data
-  // Map HRM products to PkgxProductRow format by finding corresponding PKGX product
+  // Data for linked tab - using API data with server-side PKGX JOIN
+  // No longer needs full pkgxProducts cache for display
   const linkedTableData = React.useMemo((): PkgxProductRow[] => {
     
     if (!linkedProductsData?.data || linkedProductsData.data.length === 0) {
@@ -354,44 +397,83 @@ export function ProductMappingTab() {
     }
     
     return linkedProductsData.data.map(hrmProd => {
-      // Find corresponding PKGX product
-      const pkgxProd = pkgxProducts.find(p => p.goods_id === hrmProd.pkgxId);
+      // Use PKGX product data from server-side JOIN (no client-side cache lookup needed)
+      const pkgxProd = hrmProd.pkgxProduct;
       
       // Calculate total inventory
       const totalInventory = hrmProd.inventoryByBranch 
         ? Object.values(hrmProd.inventoryByBranch).reduce((sum, qty) => sum + qty, 0)
         : 0;
       
-      // Build row - use PKGX product as base if found, otherwise create minimal
-      const baseProduct = pkgxProd || {
+      // Build row - transform server data to PkgxProduct format
+      const baseProduct: Partial<PkgxProduct> = pkgxProd ? {
+        goods_id: pkgxProd.id,
+        goods_name: pkgxProd.name,
+        goods_sn: (pkgxProd.goodsSn || pkgxProd.goodsNumber || '') as string,
+        goods_number: (pkgxProd.goodsNumber || '') as unknown as number,
+        goods_img: (pkgxProd.goodsThumb || '') as string,
+        goods_thumb: (pkgxProd.goodsThumb || '') as string,
+        original_img: (pkgxProd.originalImg || '') as string,
+        goods_brief: (pkgxProd.goodsBrief || '') as string,
+        goods_desc: (pkgxProd.goodsDesc || '') as string,
+        shop_price: (pkgxProd.shopPrice ?? 0) as number,
+        market_price: (pkgxProd.marketPrice ?? 0) as number,
+        partner_price: (pkgxProd.partnerPrice ?? 0) as number,
+        ace_price: (pkgxProd.acePrice ?? 0) as number,
+        deal_price: (pkgxProd.dealPrice ?? 0) as number,
+        cat_id: pkgxProd.catId ?? 0,
+        cat_name: pkgxProd.catName,
+        brand_id: pkgxProd.brandId ?? 0,
+        brand_name: pkgxProd.brandName,
+        is_best: pkgxProd.isBest ?? 0,
+        is_new: pkgxProd.isNew ?? 0,
+        is_hot: pkgxProd.isHot ?? 0,
+        is_home: pkgxProd.isHome ?? 0,
+        is_on_sale: pkgxProd.isOnsale ?? 0,
+        is_onsale: pkgxProd.isOnsale ?? 0,
+        is_real: pkgxProd.isReal ?? 1,
+        is_delete: 0,
+        sort_order: 0,
+        warn_number: pkgxProd.warnNumber ?? 0,
+        keywords: pkgxProd.keywords,
+        ktitle: pkgxProd.ktitle,
+        goods_alias: pkgxProd.goodsAlias,
+        goods_number2: pkgxProd.goodsNumber2,
+        goods_weight: pkgxProd.goodsWeight ?? undefined,
+        goods_quantity: pkgxProd.goodsQuantity ?? undefined,
+        add_time: pkgxProd.addTime ?? 0,
+        last_update: pkgxProd.lastUpdate ?? 0,
+      } : {
         goods_id: hrmProd.pkgxId,
         goods_name: hrmProd.name,
         goods_sn: hrmProd.id,
         goods_number: 0,
+        goods_img: '',
+        goods_thumb: '',
+        original_img: '',
+        goods_brief: '',
+        goods_desc: '',
         shop_price: 0,
         market_price: 0,
         partner_price: 0,
         ace_price: 0,
         deal_price: 0,
-        is_on_sale: true,
-        is_alone_sale: true,
-        is_delete: false,
-        is_best: false,
-        is_new: false,
-        is_hot: false,
-        is_home: false,
-        is_promote: false,
+        cat_id: 0,
+        brand_id: 0,
+        is_on_sale: 0,
+        is_delete: 0,
+        is_best: 0,
+        is_new: 0,
+        is_hot: 0,
+        is_home: 0,
         sort_order: 0,
+        warn_number: 0,
         add_time: 0,
         last_update: 0,
       };
       
       return {
         ...baseProduct,
-        // Override with PKGX data if available
-        goods_img: pkgxProd?.goods_img,
-        cat_id: pkgxProd?.cat_id,
-        brand_id: pkgxProd?.brand_id,
         // Linked HRM product
         linkedHrmProduct: {
           systemId: hrmProd.systemId,
@@ -410,7 +492,7 @@ export function ProductMappingTab() {
         systemId: hrmProd.pkgxId.toString(),
       } as PkgxProductRow;
     });
-  }, [linkedProductsData, pkgxProducts]);
+  }, [linkedProductsData]);
   
   // PKGX tab - server-side pagination, data already paginated from API
   // pageCount calculated from API total
@@ -561,43 +643,80 @@ export function ProductMappingTab() {
       meta: { displayName: 'Trạng thái' },
     },
     {
+      id: 'add_time',
+      accessorKey: 'add_time',
+      header: 'Khởi tạo',
+      size: 130,
+      cell: ({ row }) => (
+        <span className="text-xs text-muted-foreground whitespace-nowrap">
+          {row.add_time
+            ? new Date(row.add_time * 1000).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+            : '-'}
+        </span>
+      ),
+      meta: { displayName: 'Khởi tạo' },
+    },
+    {
+      id: 'last_update',
+      accessorKey: 'last_update',
+      header: 'Cập nhật',
+      size: 130,
+      cell: ({ row }) => {
+        // Hiện synced_at (thời gian HRM sync/re-import), fallback last_update
+        const syncedAt = (row as PkgxProductRow).synced_at;
+        const ts = syncedAt || row.last_update;
+        return (
+          <span className="text-xs text-muted-foreground whitespace-nowrap">
+            {ts
+              ? new Date(ts * 1000).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+              : '-'}
+          </span>
+        );
+      },
+      meta: { displayName: 'Cập nhật' },
+    },
+    {
       id: 'actions',
       header: '',
       size: 50,
       cell: ({ row }) => {
-        // Helper to build HRM product data for sync
-        const buildHrmData = (): HrmProductData | null => {
-          if (!row.linkedHrmProduct) return null;
-          return {
-            systemId: row.linkedHrmProduct.systemId,
-            name: row.linkedHrmProduct.name,
-            sku: row.linkedHrmProduct.sku,
-            sellingPrice: row.linkedHrmProduct.sellingPrice,
-            costPrice: row.linkedHrmProduct.costPrice,
-            dealPrice: row.linkedHrmProduct.dealPrice,
-            quantity: row.linkedHrmProduct.quantity,
-            seoKeywords: row.linkedHrmProduct.seoKeywords,
-            ktitle: row.linkedHrmProduct.ktitle,
-            seoDescription: row.linkedHrmProduct.seoDescription,
-            shortDescription: row.linkedHrmProduct.shortDescription,
-            description: row.linkedHrmProduct.description,
-            isBest: row.linkedHrmProduct.isBest,
-            isNew: row.linkedHrmProduct.isNew,
-            isHot: row.linkedHrmProduct.isHot,
-            isHome: row.linkedHrmProduct.isHome,
-            categorySystemId: row.linkedHrmProduct.categorySystemId,
-            brandSystemId: row.linkedHrmProduct.brandSystemId,
-          };
-        };
-        
-        // Helper to trigger sync with proper HRM data
-        const triggerSync = (actionKey: 'sync_all' | 'sync_basic' | 'sync_seo' | 'sync_description' | 'sync_price' | 'sync_inventory' | 'sync_flags') => {
-          const hrmData = buildHrmData();
-          if (!hrmData) {
+        // Helper to trigger sync — fetches full product data on-demand from API
+        const triggerSync = async (actionKey: 'sync_all' | 'sync_basic' | 'sync_seo' | 'sync_description' | 'sync_price' | 'sync_inventory' | 'sync_flags') => {
+          if (!row.linkedHrmProduct) {
             toast.error('Sản phẩm chưa được liên kết với HRM');
             return;
           }
-          entitySync.triggerSyncAction(actionKey, row.goods_id, hrmData, row.goods_name);
+          try {
+            const res = await fetch(`/api/products/${row.linkedHrmProduct.systemId}`);
+            if (!res.ok) { toast.error('Không thể tải thông tin sản phẩm HRM'); return; }
+            const { data: product } = await res.json();
+            const totalInventory = product.inventoryByBranch
+              ? Object.values(product.inventoryByBranch as Record<string, number>).reduce((sum: number, qty: number) => sum + qty, 0)
+              : 0;
+            const hrmData: HrmProductData = {
+              systemId: product.systemId,
+              name: product.name,
+              sku: product.id,
+              sellingPrice: product.sellingPrice,
+              costPrice: product.costPrice,
+              dealPrice: product.dealPrice,
+              quantity: totalInventory,
+              seoKeywords: product.seoKeywords,
+              ktitle: product.ktitle,
+              seoDescription: product.seoDescription,
+              shortDescription: product.shortDescription,
+              description: product.description,
+              isBest: product.isBest,
+              isNew: product.isNew,
+              isHot: product.isHot,
+              isHome: product.isHome,
+              categorySystemId: product.categorySystemId,
+              brandSystemId: product.brandSystemId,
+            };
+            entitySync.triggerSyncAction(actionKey, row.goods_id, hrmData, row.goods_name);
+          } catch {
+            toast.error('Không thể tải thông tin sản phẩm');
+          }
         };
         
         return (
@@ -701,7 +820,74 @@ export function ProductMappingTab() {
       meta: { displayName: '', excludeFromExport: true },
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps -- handler functions are stable, defined after this useMemo
-  ], [hrmProducts, getPkgxCatIdByHrmCategory, getPkgxBrandIdByHrmBrand, entitySync]);
+  ], [getPkgxCatIdByHrmCategory, getPkgxBrandIdByHrmBrand, entitySync]);
+  
+  // Column definitions for unlinked HRM products tab
+  type UnlinkedProduct = { systemId: string; id: string; name: string; thumbnailImage: string | null; costPrice: number; status: string; inventoryByBranch: Record<string, number> | null; createdAt: string };
+  const unlinkedColumns = React.useMemo((): ColumnDef<UnlinkedProduct>[] => [
+    {
+      id: 'thumbnailImage',
+      header: '',
+      size: 50,
+      cell: ({ row }) => row.thumbnailImage ? (
+        <img src={row.thumbnailImage} alt="" className="h-8 w-8 rounded object-cover" />
+      ) : (
+        <div className="h-8 w-8 rounded bg-muted flex items-center justify-center">
+          <Package className="h-4 w-4 text-muted-foreground" />
+        </div>
+      ),
+    },
+    {
+      id: 'id',
+      accessorKey: 'id',
+      header: 'Mã SP',
+      size: 120,
+      cell: ({ row }) => <span className="font-mono text-xs">{row.id}</span>,
+    },
+    {
+      id: 'name',
+      accessorKey: 'name',
+      header: 'Tên sản phẩm',
+      size: 300,
+      cell: ({ row }) => <span className="font-medium line-clamp-1">{row.name}</span>,
+    },
+    {
+      id: 'costPrice',
+      accessorKey: 'costPrice',
+      header: 'Giá vốn',
+      size: 100,
+      cell: ({ row }) => row.costPrice ? new Intl.NumberFormat('vi-VN').format(Number(row.costPrice)) : '-',
+    },
+    {
+      id: 'inventory',
+      header: 'Tồn kho',
+      size: 80,
+      cell: ({ row }) => {
+        const total = row.inventoryByBranch 
+          ? Object.values(row.inventoryByBranch).reduce((sum, qty) => sum + qty, 0)
+          : 0;
+        return total;
+      },
+    },
+    {
+      id: 'status',
+      accessorKey: 'status',
+      header: 'Trạng thái',
+      size: 100,
+      cell: ({ row }) => (
+        <Badge variant={row.status === 'ACTIVE' ? 'default' : 'secondary'} className="text-xs">
+          {row.status === 'ACTIVE' ? 'Hoạt động' : row.status}
+        </Badge>
+      ),
+    },
+    {
+      id: 'createdAt',
+      accessorKey: 'createdAt',
+      header: 'Ngày tạo',
+      size: 120,
+      cell: ({ row }) => row.createdAt ? new Date(row.createdAt).toLocaleDateString('vi-VN') : '-',
+    },
+  ], []);
   
   // Mobile card renderer
   const renderMobileCard = React.useCallback((row: PkgxProductRow, _index: number) => (
@@ -751,7 +937,7 @@ export function ProductMappingTab() {
       )}
     </div>
     // eslint-disable-next-line react-hooks/exhaustive-deps -- handler functions are stable, defined after this useCallback
-  ), [hrmProducts, getPkgxCatIdByHrmCategory, getPkgxBrandIdByHrmBrand]);
+  ), [getPkgxCatIdByHrmCategory, getPkgxBrandIdByHrmBrand]);
   
   // Handlers
   const handleOpenDetailDialog = React.useCallback(async (row: PkgxProductRow) => {
@@ -767,7 +953,7 @@ export function ProductMappingTab() {
         setGalleryImages(result.data);
       }
     } catch (error) {
-      console.error('Error fetching gallery:', error);
+      logError('Error fetching gallery', error);
     } finally {
       setIsLoadingGallery(false);
     }
@@ -778,15 +964,23 @@ export function ProductMappingTab() {
   }, []);
   
   const handleOpenLinkDialog = React.useCallback((pkgxProduct?: PkgxProduct) => {
+    // Load full PKGX products cache on-demand for dialog dropdown
+    queryClient.ensureQueryData({
+      queryKey: pkgxProductsCacheQueryKey,
+      queryFn: fetchAllPkgxProductsCache,
+      staleTime: 1000 * 60 * 5,
+    }).then(data => {
+      if (data.products.length > 0) {
+        setPkgxProductsLocal(data.products);
+      }
+    });
+    
     if (pkgxProduct) {
       setSelectedPkgxProduct(pkgxProduct);
-      // Auto-suggest matching products
+      // Auto-suggest matching products (populated after dialog data loads)
       validation.updateSuggestions(pkgxProduct);
-      // Try to find exact match by SKU first, then by name
-      const matchedProduct = hrmProducts.find(
-        (p) => p.id === pkgxProduct.goods_sn || p.name === pkgxProduct.goods_name
-      );
-      setSelectedHrmProductId(matchedProduct?.systemId || '');
+      // Auto-matching deferred until dialog products load
+      setSelectedHrmProductId('');
     } else {
       // Opening dialog without preselected product
       setSelectedPkgxProduct(null);
@@ -795,7 +989,7 @@ export function ProductMappingTab() {
     }
     setShowWarningConfirm(false);
     setIsLinkDialogOpen(true);
-  }, [hrmProducts, validation]);
+  }, [validation, queryClient]);
   
   const handleCloseLinkDialog = React.useCallback(() => {
     setIsLinkDialogOpen(false);
@@ -842,29 +1036,32 @@ export function ProductMappingTab() {
   ], [selectedLinkedProducts]);
   
   const handleConfirmBulkUnlink = React.useCallback(() => {
-    let successCount = 0;
-    selectedLinkedProducts.forEach(product => {
-      if (product.linkedHrmProduct) {
-        updateProductMutation.mutate({ systemId: product.linkedHrmProduct.systemId as SystemId, pkgxId: undefined });
-        successCount++;
-      }
+    const toUnlink = selectedLinkedProducts.filter(p => p.linkedHrmProduct);
+    const total = toUnlink.length;
+    let done = 0;
+    toUnlink.forEach(product => {
+      updateProductMutation.mutate({ systemId: product.linkedHrmProduct!.systemId as SystemId, pkgxId: undefined }, {
+        onSuccess: () => {
+          done++;
+          if (done === total) {
+            toast.success(`Đã hủy liên kết ${total} sản phẩm`);
+            refetchProductStats();
+            refetchLinkedProducts();
+            refetchPkgxMapping();
+            addLog.mutate({
+              action: 'batch_unlink',
+              status: 'success',
+              message: `Đã hủy liên kết ${total} sản phẩm`,
+              details: { total },
+            });
+          }
+        },
+        onError: (err) => toast.error(err.message),
+      });
     });
     
     setIsBulkUnlinkDialogOpen(false);
     setRowSelection({});
-    toast.success(`Đã hủy liên kết ${successCount} sản phẩm`);
-    
-    // Refresh stats, linked products and mapping cache after bulk unlink
-    refetchProductStats();
-    refetchLinkedProducts();
-    refetchPkgxMapping();
-    
-    addLog.mutate({
-      action: 'batch_unlink',
-      status: 'success',
-      message: `Đã hủy liên kết ${successCount} sản phẩm`,
-      details: { total: successCount },
-    });
   }, [selectedLinkedProducts, updateProductMutation, addLog, refetchProductStats, refetchLinkedProducts, refetchPkgxMapping]);
   
   const _handleOpenPushDialog = React.useCallback((row: PkgxProductRow) => {
@@ -1007,6 +1204,7 @@ export function ProductMappingTab() {
             keywords: p.keywords,
             ktitle: p.ktitle,
             goodsAlias: p.goods_alias,
+            addTime: p.add_time,
             lastUpdate: p.last_update,
           }));
           
@@ -1032,13 +1230,13 @@ export function ProductMappingTab() {
               phase: `Đang lưu (${batchIdx + 1}/${totalBatches})...`
             });
           } else {
-            console.error('[Sync] Batch save failed:', json.error || json.message || JSON.stringify(json));
+            logError('[Sync] Batch save failed', null, { error: json.error || json.message || JSON.stringify(json) });
             // Still count as processed to continue with other batches
             savedCount += batchProducts.length;
             savedProducts.push(...batchProducts);
           }
         } catch (batchError) {
-          console.error('[Sync] Batch save error:', batchError);
+          logError('[Sync] Batch save error', batchError);
         }
       }
       
@@ -1102,303 +1300,365 @@ export function ProductMappingTab() {
   // Counter to track invocations
   const importCallIdRef = React.useRef(0);
   
-  // Import products from PKGX to HRM and auto-mapping
-  const handleImportAndMap = async () => {
+  // Transform PKGX product → HRM bulk-import payload
+  const transformPkgxToHrm = React.useCallback((
+    pkgxProd: PkgxProduct,
+    categoryMappingsCache: Map<string, {hrmCategoryId: string}>,
+    brandMappingsCache: Map<string, {hrmBrandId: string}>,
+  ) => {
+    const categoryMapping = pkgxProd.cat_id ? categoryMappingsCache.get(String(pkgxProd.cat_id)) : null;
+    const brandMapping = pkgxProd.brand_id ? brandMappingsCache.get(String(pkgxProd.brand_id)) : null;
+    
+    return {
+      id: pkgxProd.goods_sn,
+      name: pkgxProd.goods_name,
+      pkgxId: Number(pkgxProd.goods_id),
+      description: pkgxProd.goods_desc || pkgxProd.goods_brief || undefined,
+      shortDescription: pkgxProd.goods_brief || undefined,
+      type: 'PHYSICAL' as const,
+      unit: 'Cái',
+      costPrice: 0,
+      sellingPrice: 0,
+      lastPurchasePrice: 0,
+      lastPurchaseDate: new Date().toISOString(),
+      reorderLevel: Number(pkgxProd.warn_number) || 10,
+      weight: 5,
+      weightUnit: 'GRAM' as const,
+      categoryIds: categoryMapping ? [categoryMapping.hrmCategoryId] : undefined,
+      brandId: brandMapping ? brandMapping.hrmBrandId : undefined,
+      seoTitle: pkgxProd.meta_title || pkgxProd.goods_name,
+      seoDescription: pkgxProd.meta_desc || pkgxProd.goods_brief || undefined,
+      seoKeywords: pkgxProd.keywords || undefined,
+      ktitle: pkgxProd.meta_title || pkgxProd.goods_name || undefined,
+      seoPkgx: {
+        seoTitle: pkgxProd.meta_title || pkgxProd.goods_name || undefined,
+        metaDescription: pkgxProd.meta_desc || pkgxProd.goods_brief || undefined,
+        seoKeywords: pkgxProd.keywords || undefined,
+        shortDescription: pkgxProd.goods_brief || undefined,
+        longDescription: pkgxProd.goods_desc || undefined,
+      },
+      thumbnailImage: buildPkgxImageUrl(pkgxProd.original_img || pkgxProd.goods_img),
+      imageUrl: buildPkgxImageUrl(pkgxProd.original_img || pkgxProd.goods_img),
+      galleryImages: pkgxProd.goods_img ? pkgxProd.goods_img.split(',').map((img: string) => buildPkgxImageUrl(img.trim())).filter(Boolean) : [],
+      isBestSeller: Number(pkgxProd.is_best) === 1,
+      isOnSale: Number(pkgxProd.is_on_sale) === 1,
+      isNewArrival: Number(pkgxProd.is_new) === 1,
+      isFeatured: Number(pkgxProd.is_home) === 1,
+      isPublished: Number(pkgxProd.is_on_sale) === 1 || Number(pkgxProd.is_home) === 1,
+      launchedDate: new Date().toISOString(),
+      publishedAt: new Date().toISOString(),
+      sellerNote: pkgxProd.seller_note || undefined,
+      createdAt: pkgxProd.add_time ? new Date(Number(pkgxProd.add_time) * 1000).toISOString() : undefined,
+      pkgxPrices: {
+        shop_price: Number(pkgxProd.shop_price) || 0,
+        market_price: Number(pkgxProd.market_price) || 0,
+        partner_price: Number(pkgxProd.partner_price) || 0,
+        ace_price: Number(pkgxProd.ace_price) || 0,
+        deal_price: Number(pkgxProd.deal_price) || 0,
+      },
+    };
+  }, [buildPkgxImageUrl]);
+  
+  // Import products from PKGX to HRM — Batch mode (50 SP/request, 3 concurrent)
+  const handleImportAndMap = async (includeLinked = false) => {
     const _callId = ++importCallIdRef.current;
     
-    // Prevent double execution (React StrictMode or double click)
-    if (importingRef.current || isImporting) {
-      return;
-    }
+    // Prevent double execution
+    if (importingRef.current || isImporting) return;
     importingRef.current = true;
     
-    // ✅ Force refetch HRM products từ DB để có data mới nhất
-    // Điều này đảm bảo sau khi F5 hoặc pause/resume, ta có danh sách sản phẩm đã link chính xác
+    // Show loading UI immediately
+    setIsImporting(true);
+    setIsPaused(false);
+    pauseRef.current = false;
+    setImportProgress({ current: 0, total: 0, currentName: 'Đang tải danh sách sản phẩm PKGX...' });
     
-    // Query key cho useAllProducts: ['products', 'all'] - lấy tất cả sản phẩm
-    const allProductsQueryKey = [...productKeys.all, 'all'];
-    await queryClient.invalidateQueries({ queryKey: allProductsQueryKey });
-    const _refetchResult = await queryClient.refetchQueries({ queryKey: allProductsQueryKey });
+    // Fetch full PKGX product cache on-demand (not auto-loaded)
+    let allPkgxProducts: PkgxProduct[];
+    try {
+      const cacheData = await queryClient.ensureQueryData({
+        queryKey: pkgxProductsCacheQueryKey,
+        queryFn: fetchAllPkgxProductsCache,
+        staleTime: 1000 * 60 * 5,
+      });
+      allPkgxProducts = cacheData.products;
+    } catch (err) {
+      toast.error('Không thể tải danh sách sản phẩm PKGX');
+      importingRef.current = false;
+      setIsImporting(false);
+      setImportProgress({ current: 0, total: 0, currentName: '' });
+      return;
+    }
     
-    // Đợi React Query update xong state - tăng lên 1s để đảm bảo
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    let checkLinkedProduct: (pkgxId: number) => boolean = () => false;
     
-    // ✅ Lấy lại danh sách HRM products mới nhất từ cache sau refetch
-    // Query data trả về PaginatedResponse<Product>, cần lấy .data
-    const freshQueryData = queryClient.getQueryData<typeof allProductsData>(allProductsQueryKey);
-    const freshHrmProducts = freshQueryData ?? [];
-    const freshHrmProductsList = freshHrmProducts.filter(p => !p.isDeleted);
+    if (!includeLinked) {
+      // Refetch mapping data mới nhất (chỉ khi cần filter)
+      await refetchPkgxMapping();
+      const freshMappingData = queryClient.getQueryData<{ data: PkgxMappingData }>(['pkgx-mapping']);
+      const mappingLookup = freshMappingData?.data ?? pkgxMappingData ?? {};
+      
+      checkLinkedProduct = (pkgxId: number) => {
+        return !!mappingLookup[pkgxId];
+      };
+    }
     
-    // Log số lượng sản phẩm có pkgxId để debug
-    const _alreadyMappedCount = freshHrmProductsList.filter(p => p.pkgxId).length;
-    
-    // ✅ Refetch pkgxMappingData để có mapping data chính xác cho ALL linked products
-    await refetchPkgxMapping();
-    // Lấy mapping data mới nhất từ cache
-    const freshMappingData = queryClient.getQueryData<{ data: PkgxMappingData }>(['pkgx-mapping']);
-    const mappingLookup = freshMappingData?.data ?? pkgxMappingData ?? {};
-    const _totalMappedCount = Object.keys(mappingLookup).length;
-    
-    // Hàm check linked product - dùng pkgxMappingData để có TẤT CẢ linked products (không chỉ 500)
-    const checkLinkedProduct = (pkgxId: number) => {
-      // Primary: Use API mapping data (contains ALL linked products)
-      if (mappingLookup[pkgxId]) return true;
-      // Fallback: Check in local list
-      return freshHrmProductsList.some((p) => p.pkgxId == pkgxId);
-    };
-    
-    // Get unlinked PKGX products (those without a linked HRM product)
-    // FIX: Dedupe by goods_id to prevent importing same product twice
+    // Dedupe + filter (nếu includeLinked thì bỏ qua check linked)
     const seenGoodsIds = new Set<number>();
-    const unlinkedProducts = pkgxProducts.filter(pkgxProd => {
-      // Skip if already linked - dùng checkLinkedProduct với data mới nhất
-      if (checkLinkedProduct(pkgxProd.goods_id)) return false;
-      // Skip if we've seen this goods_id before (duplicate in list)
-      if (seenGoodsIds.has(pkgxProd.goods_id)) {
-        console.warn(`[Import] Duplicate goods_id detected: ${pkgxProd.goods_id} - ${pkgxProd.goods_name}`);
-        return false;
-      }
+    const targetProducts = allPkgxProducts.filter(pkgxProd => {
+      if (!includeLinked && checkLinkedProduct(pkgxProd.goods_id)) return false;
+      if (seenGoodsIds.has(pkgxProd.goods_id)) return false;
       seenGoodsIds.add(pkgxProd.goods_id);
       return true;
     });
     
-    
-    if (unlinkedProducts.length === 0) {
-      toast.info('Tất cả sản phẩm PKGX đã được mapping');
+    if (targetProducts.length === 0) {
+      toast.info(includeLinked ? 'Không có sản phẩm PKGX nào' : 'Tất cả sản phẩm PKGX đã được mapping');
       importingRef.current = false;
+      setIsImporting(false);
+      setImportProgress({ current: 0, total: 0, currentName: '' });
       return;
     }
     
-    // ✅ Set importing state ngay sau khi có danh sách unlinked để hiển thị UI
-    setIsImporting(true);
-    setIsPaused(false);
-    pauseRef.current = false;
-    setImportProgress({ current: 0, total: unlinkedProducts.length, currentName: 'Đang chuẩn bị...' });
+    setImportProgress({ current: 0, total: targetProducts.length, currentName: 'Đang tải mappings...' });
     
-    // ✅ Load mappings trực tiếp từ DB
-    // Dùng key dạng string để tránh mismatch số/string khi lấy cat_id/brand_id
+    // Create import job in DB for tracking
+    let jobId: string | null = null;
+    try {
+      const jobRes = await fetch('/api/pkgx-import-jobs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          entityType: 'products',
+          totalRecords: targetProducts.length,
+          notes: includeLinked
+            ? `Re-import & cập nhật ${targetProducts.length} sản phẩm từ PKGX`
+            : `Import & Mapping ${targetProducts.length} sản phẩm mới từ PKGX`,
+        }),
+      });
+      if (jobRes.ok) {
+        const jobData = await jobRes.json();
+        jobId = jobData.jobId || null;
+      }
+    } catch (err) {
+      logError('[Import] Failed to create job', err);
+    }
+    
+    // Load category & brand mappings
     interface CategoryMappingData { pkgxCategoryId: string | number; hrmCategoryId: string; hrmCategoryName: string; }
     interface BrandMappingData { pkgxBrandId: string | number; hrmBrandId: string; hrmBrandName: string; }
-    const categoryMappingsCache: Map<string, {hrmCategoryId: string; hrmCategoryName: string}> = new Map();
-    const brandMappingsCache: Map<string, {hrmBrandId: string; hrmBrandName: string}> = new Map();
+    const categoryMappingsCache = new Map<string, {hrmCategoryId: string}>();
+    const brandMappingsCache = new Map<string, {hrmBrandId: string}>();
     
     try {
       const [catRes, brandRes] = await Promise.all([
         fetch('/api/settings/pkgx/category-mappings'),
         fetch('/api/settings/pkgx/brand-mappings'),
       ]);
-      
       if (catRes.ok) {
         const catData = await catRes.json();
         (catData.data || []).forEach((m: CategoryMappingData) => {
-          categoryMappingsCache.set(String(m.pkgxCategoryId), {
-            hrmCategoryId: m.hrmCategoryId,
-            hrmCategoryName: m.hrmCategoryName,
-          });
+          categoryMappingsCache.set(String(m.pkgxCategoryId), { hrmCategoryId: m.hrmCategoryId });
         });
       }
-      
       if (brandRes.ok) {
         const brandData = await brandRes.json();
         (brandData.data || []).forEach((m: BrandMappingData) => {
-          brandMappingsCache.set(String(m.pkgxBrandId), {
-            hrmBrandId: m.hrmBrandId,
-            hrmBrandName: m.hrmBrandName,
-          });
+          brandMappingsCache.set(String(m.pkgxBrandId), { hrmBrandId: m.hrmBrandId });
         });
       }
-      
     } catch (err) {
-      console.error('[Import] Failed to load mappings:', err);
+      logError('[Import] Failed to load mappings', err);
+    }
+    
+    // Transform all products upfront
+    const allPayloads = targetProducts.map(p => transformPkgxToHrm(p, categoryMappingsCache, brandMappingsCache));
+    
+    // Split into batches of 50
+    const BATCH_SIZE = 50;
+    const batches: typeof allPayloads[] = [];
+    for (let i = 0; i < allPayloads.length; i += BATCH_SIZE) {
+      batches.push(allPayloads.slice(i, i + BATCH_SIZE));
     }
     
     let successCount = 0;
     let errorCount = 0;
+    let processedCount = 0;
     const errorMessages: string[] = [];
-    const REFRESH_BATCH_SIZE = 10; // Refresh UI sau mỗi 10 sản phẩm để linkedCount cập nhật nhanh
+    const startTime = Date.now();
     
-    try {
-      for (let i = 0; i < unlinkedProducts.length; i++) {
-        const pkgxProd = unlinkedProducts[i];
+    // Send a single batch to the API
+    const sendBatch = async (batch: typeof allPayloads): Promise<void> => {
+      // Check for pause before sending
+      while (pauseRef.current) {
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+      
+      try {
+        const response = await fetch('/api/products/bulk-import', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ products: batch }),
+        });
         
-        // Check for pause
-        while (pauseRef.current) {
-          await new Promise(resolve => setTimeout(resolve, 100));
+        if (!response.ok) {
+          const responseText = await response.text();
+          let errorMessage = `HTTP ${response.status}`;
+          try {
+            const errorData = JSON.parse(responseText);
+            errorMessage = errorData?.message || errorData?.error || response.statusText;
+          } catch { errorMessage = responseText || response.statusText; }
+          throw new Error(errorMessage);
         }
         
-        setImportProgress({ current: i + 1, total: unlinkedProducts.length, currentName: pkgxProd.goods_name });
-        try {
-          // Map PKGX category to HRM category (dùng cache)
-          const categoryMapping = pkgxProd.cat_id ? categoryMappingsCache.get(String(pkgxProd.cat_id)) : null;
-          
-          // Map PKGX brand to HRM brand (dùng cache)
-          const brandMapping = pkgxProd.brand_id ? brandMappingsCache.get(String(pkgxProd.brand_id)) : null;
-          
-          // DEBUG: Log mappings
-          if (i === 0) { // Only log first product
+        const result = await response.json();
+        const data = result.data ?? result;
+        
+        successCount += data.success || 0;
+        errorCount += data.errors || 0;
+        processedCount += batch.length;
+        
+        // Collect errors
+        if (data.results) {
+          for (const r of data.results) {
+            if (!r.success && r.error) {
+              const prodName = batch.find(p => p.pkgxId === r.pkgxId)?.name || `PKGX#${r.pkgxId}`;
+              errorMessages.push(`${prodName}: ${r.error}`);
+            }
           }
-          
-          // Create HRM product via API with FULL data from PKGX
-          const response = await fetch('/api/products', {
-            method: 'POST',
+        }
+      } catch (error) {
+        // Entire batch failed
+        const msg = error instanceof Error ? error.message : 'Lỗi không xác định';
+        logError(`[Bulk Import] Batch failed (${batch.length} SP)`, error);
+        errorCount += batch.length;
+        processedCount += batch.length;
+        errorMessages.push(`Batch ${batch.length} SP: ${msg}`);
+      }
+      
+      // Update progress
+      const elapsed = (Date.now() - startTime) / 1000;
+      const speed = processedCount > 0 ? (processedCount / elapsed).toFixed(1) : '0';
+      setImportProgress({
+        current: processedCount,
+        total: targetProducts.length,
+        currentName: `${speed} SP/giây • ${successCount} OK, ${errorCount} lỗi`,
+      });
+    };
+    
+    try {
+      // Process batches sequentially to avoid systemId race condition
+      for (let i = 0; i < batches.length; i++) {
+        // Check for pause
+        while (pauseRef.current) {
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
+        
+        await sendBatch(batches[i]);
+        
+        // Update job progress in DB every 2 batches
+        if (jobId && i % 2 === 0) {
+          fetch(`/api/pkgx-import-jobs/${jobId}`, {
+            method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
             body: JSON.stringify({
-              // Basic info - id (SKU) = goods_sn from PKGX API (required field)
-              // goods_sn is the primary SKU from PKGX, never use fallback PKGX-{id}
-              id: pkgxProd.goods_sn,
-              name: pkgxProd.goods_name,
-              pkgxName: pkgxProd.goods_name,
-              pkgxId: Number(pkgxProd.goods_id),
-              status: 'ACTIVE',
-              type: 'PHYSICAL', // Mặc định là hàng hóa
-              unit: 'Cái', // Đơn vị tính mặc định
-              
-              // Description
-              description: pkgxProd.goods_desc || pkgxProd.goods_brief || undefined,
-              shortDescription: pkgxProd.goods_brief || undefined,
-              
-              // Prices - Defaults for PKGX import
-              // Giá bán hiển thị: để 0, giá sẽ lấy từ ProductPrice mapping
-              sellingPrice: 0,
-              // Giá vốn = 0 mặc định khi import từ PKGX
-              costPrice: 0,
-              minPrice: 0,
-              // Giá nhập gần nhất = 0 và ngày nhập = ngày hiện tại
-              lastPurchasePrice: 0,
-              lastPurchaseDate: new Date().toISOString(),
-              
-              // Inventory - Không import từ PKGX, HRM là nguồn chính cho tồn kho
-              reorderLevel: Number(pkgxProd.warn_number) || 10,
-              // NOTE: goods_number không được import vì tồn kho phải quản lý từ HRM
-              
-              // Weight (khối lượng) - Mặc định 5g (PKGX không có field goods_weight)
-              weight: 5,
-              weightUnit: 'GRAM',
-              
-              // Category & Brand (if mapped)
-              categoryIds: categoryMapping ? [categoryMapping.hrmCategoryId] : undefined,
-              brandId: brandMapping ? brandMapping.hrmBrandId : undefined,
-              
-              // SEO - Tab chung (SEO Chung)
-              seoTitle: pkgxProd.meta_title || pkgxProd.goods_name,
-              seoDescription: pkgxProd.meta_desc || pkgxProd.goods_brief || undefined,
-              seoKeywords: pkgxProd.keywords || undefined,
-              ktitle: pkgxProd.meta_title || pkgxProd.goods_name || undefined,
-              
-              // SEO - Tab PKGX (nested object) - Full mapping from PKGX data
-              seoPkgx: {
-                seoTitle: pkgxProd.meta_title || pkgxProd.goods_name || undefined,
-                metaDescription: pkgxProd.meta_desc || pkgxProd.goods_brief || undefined,
-                seoKeywords: pkgxProd.keywords || undefined,
-                shortDescription: pkgxProd.goods_brief || undefined,
-                longDescription: pkgxProd.goods_desc || undefined,
-              },
-              
-              // Images - Bao gồm gallery
-              imageUrl: buildPkgxImageUrl(pkgxProd.original_img || pkgxProd.goods_img),
-              thumbnailImage: buildPkgxImageUrl(pkgxProd.goods_thumb),
-              galleryImages: pkgxProd.goods_img ? pkgxProd.goods_img.split(',').map((img: string) => buildPkgxImageUrl(img.trim())).filter(Boolean) : [],
-              
-              // Display flags - Cài đặt hiển thị website (PKGX trả về 0/1, có thể là string hoặc number)
-              isBestSeller: Number(pkgxProd.is_best) === 1,
-              isOnSale: Number(pkgxProd.is_on_sale) === 1,
-              isNewArrival: Number(pkgxProd.is_new) === 1,
-              isFeatured: Number(pkgxProd.is_home) === 1,
-              isPublished: Number(pkgxProd.is_on_sale) === 1 || Number(pkgxProd.is_home) === 1, // Hiển thị web
-              
-              // Dates - Ngày ra mắt và ngày đăng web = ngày import
-              launchedDate: new Date().toISOString(),
-              publishedAt: new Date().toISOString(),
-              
-              // Notes
-              sellerNote: pkgxProd.seller_note || undefined,
-              
-              // All PKGX prices for ProductPrice records
-              pkgxPrices: {
-                shop_price: Number(pkgxProd.shop_price) || 0,
-                market_price: Number(pkgxProd.market_price) || 0,
-                partner_price: Number(pkgxProd.partner_price) || 0,
-                ace_price: Number(pkgxProd.ace_price) || 0,
-                deal_price: Number(pkgxProd.deal_price) || 0,
-              },
+              processedRecords: processedCount,
+              successCount,
+              errorCount,
+              insertedCount: successCount,
+              errors: errorMessages.length > 0 ? JSON.stringify(errorMessages.slice(0, 50)) : undefined,
             }),
-          });
-          
-          if (!response.ok) {
-            const responseText = await response.text();
-            let errorMessage = `HTTP ${response.status}`;
-            try {
-              const errorData = JSON.parse(responseText);
-              errorMessage = errorData?.message || errorData?.error || response.statusText;
-            } catch {
-              errorMessage = responseText || response.statusText;
-            }
-            console.error(`[Import Product] API Error for "${pkgxProd.goods_name}":`, response.status, errorMessage);
-            throw new Error(errorMessage);
-          }
-          
-          const _newProduct = await response.json();
-          
-          // Product đã được lưu vào database, React Query sẽ tự động refresh sau khi invalidate
-          
-          successCount++;
-          
-          // Refresh UI sau mỗi batch để user thấy data realtime
-          if (successCount % REFRESH_BATCH_SIZE === 0) {
-            // Dùng đúng query key cho useAllProducts
-            await queryClient.invalidateQueries({ queryKey: allProductsQueryKey });
-            await queryClient.refetchQueries({ queryKey: allProductsQueryKey });
-            // Đợi một chút để React Query update xong
-            await new Promise(resolve => setTimeout(resolve, 200));
-          }
-        } catch (error) {
-          const errorMsg = error instanceof Error ? error.message : 'Lỗi không xác định';
-          console.error(`Error importing product ${pkgxProd.goods_name}:`, errorMsg);
-          errorMessages.push(`${pkgxProd.goods_name}: ${errorMsg}`);
-          errorCount++;
+          }).catch(err => console.error('[Import Job] Progress update failed:', err));
+        }
+        
+        // Refresh UI every few batches
+        if (i % 2 === 0 && processedCount > 0) {
+          queryClient.invalidateQueries({ queryKey: ['product-stats'] });
+          queryClient.invalidateQueries({ queryKey: ['pkgx-mapping'] });
+          queryClient.invalidateQueries({ queryKey: ['linked-products'] });
+          queryClient.invalidateQueries({ queryKey: ['products-unlinked'] });
         }
       }
       
-      // Invalidate và refetch all queries để refresh UI ngay lập tức
-      await queryClient.invalidateQueries({ queryKey: allProductsQueryKey });
-      await queryClient.refetchQueries({ queryKey: allProductsQueryKey });
-      // Refresh product stats, linked products list and mapping cache - invalidate + refetch
-      await queryClient.invalidateQueries({ queryKey: ['product-stats'] });
-      await queryClient.invalidateQueries({ queryKey: ['linked-products'] });
-      await queryClient.invalidateQueries({ queryKey: ['pkgx-mapping'] });
+      // Final refresh
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['product-stats'] }),
+        queryClient.invalidateQueries({ queryKey: ['linked-products'] }),
+        queryClient.invalidateQueries({ queryKey: ['pkgx-mapping'] }),
+        queryClient.invalidateQueries({ queryKey: ['products-unlinked'] }),
+        queryClient.invalidateQueries({ queryKey: ['products-unlinked-for-dialog'] }),
+      ]);
       await Promise.all([
         refetchProductStats(),
         refetchLinkedProducts(),
         refetchPkgxMapping(),
       ]);
       
-      addLog.mutate({
-        action: 'get_products',
-        status: errorCount > 0 ? 'partial' : 'success',
-        message: `Import xong: ${successCount} thành công, ${errorCount} lỗi`,
-      });
+      const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+      
+      // Finalize job in DB
+      if (jobId) {
+        const finalStatus = errorCount === 0 ? 'completed' : successCount > 0 ? 'partial' : 'failed';
+        try {
+          await fetch(`/api/pkgx-import-jobs/${jobId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+              status: finalStatus,
+              processedRecords: processedCount,
+              successCount,
+              errorCount,
+              insertedCount: successCount,
+              errors: errorMessages.length > 0 ? JSON.stringify(errorMessages.slice(0, 100)) : undefined,
+              notes: `Import ${successCount} SP thành công, ${errorCount} lỗi trong ${elapsed}s`,
+            }),
+          });
+        } catch (err) {
+          console.error('[Import Job] Finalize failed:', err);
+        }
+      }
+      
+      // Invalidate import-export-logs cache so system-logs page reflects
+      queryClient.invalidateQueries({ queryKey: ['import-export-logs-db'] });
       
       if (successCount > 0) {
-        toast.success(`Đã import & mapping ${successCount} sản phẩm từ PKGX`);
+        toast.success(`Đã import ${successCount} sản phẩm từ PKGX (${elapsed}s)`);
       }
       if (errorCount > 0) {
         const errorSummary = errorMessages.slice(0, 3).join('\n');
         const moreCount = errorMessages.length > 3 ? `\n...và ${errorMessages.length - 3} lỗi khác` : '';
-        toast.error(`${errorCount} sản phẩm import thất bại:\n${errorSummary}${moreCount}`, { duration: 8000 });
+        toast.error(`${errorCount} sản phẩm lỗi:\n${errorSummary}${moreCount}`, { duration: 8000 });
       }
     } catch (error) {
       toast.error('Lỗi khi import sản phẩm');
-      addLog.mutate({
-        action: 'get_products',
-        status: 'error',
-        message: error instanceof Error ? error.message : 'Lỗi khi import sản phẩm',
-      });
+      // Mark job as failed
+      if (jobId) {
+        try {
+          await fetch(`/api/pkgx-import-jobs/${jobId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+              status: 'failed',
+              processedRecords: processedCount,
+              successCount,
+              errorCount,
+              errors: JSON.stringify([error instanceof Error ? error.message : 'Lỗi không xác định']),
+            }),
+          });
+        } catch (err) {
+          console.error('[Import Job] Failed to mark job as failed:', err);
+        }
+      }
     } finally {
       setIsImporting(false);
       setIsPaused(false);
       pauseRef.current = false;
-      importingRef.current = false; // Reset import guard
+      importingRef.current = false;
       setImportProgress({ current: 0, total: 0, currentName: '' });
     }
   };
@@ -1420,20 +1680,12 @@ export function ProductMappingTab() {
     try {
       const response = await fetchPkgxProductById(goodsId);
       if (response.success && response.data) {
-        // Update the product in the list
-        const updatedProducts = pkgxProducts.map(p => 
-          p.goods_id === goodsId ? response.data! : p
-        );
-        setPkgxProducts.mutate(updatedProducts);
-        setPkgxProductsLocal(updatedProducts);
+        // Save updated product to DB (single item)
+        setPkgxProducts.mutate([response.data]);
         
         // Also update the selected product for detail if it's open
         if (selectedProductForDetail?.goods_id === goodsId) {
           const linked = findLinkedHrmProduct(goodsId);
-          const isFullProduct = linked && 'inventoryByBranch' in linked;
-          const totalInventory = isFullProduct 
-            ? Object.values((linked as { inventoryByBranch?: Record<string, number> }).inventoryByBranch || {}).reduce((sum: number, qty: number) => sum + qty, 0)
-            : 0;
           
           setSelectedProductForDetail({
             ...response.data,
@@ -1441,23 +1693,6 @@ export function ProductMappingTab() {
               systemId: linked.systemId as SystemId,
               name: linked.name,
               id: linked.id,
-              costPrice: isFullProduct ? (linked as { costPrice?: number }).costPrice : undefined,
-              partnerPrice: isFullProduct ? (linked as { partnerPrice?: number }).partnerPrice : undefined,
-              acePrice: isFullProduct ? (linked as { acePrice?: number }).acePrice : undefined,
-              dealPrice: isFullProduct ? (linked as { dealPrice?: number }).dealPrice : undefined,
-              quantity: totalInventory,
-              description: isFullProduct ? (linked as { description?: string }).description : undefined,
-              shortDescription: isFullProduct ? (linked as { shortDescription?: string }).shortDescription : undefined,
-              seoDescription: isFullProduct ? (linked as { seoDescription?: string }).seoDescription : undefined,
-              seoKeywords: isFullProduct ? (linked as { seoKeywords?: string }).seoKeywords : undefined,
-              ktitle: isFullProduct ? (linked as { ktitle?: string }).ktitle : undefined,
-              categorySystemId: isFullProduct ? (linked as { categorySystemId?: SystemId }).categorySystemId : undefined,
-              brandSystemId: isFullProduct ? (linked as { brandSystemId?: SystemId }).brandSystemId : undefined,
-              isBest: isFullProduct ? (linked as { isBest?: boolean }).isBest : undefined,
-              isHot: isFullProduct ? (linked as { isHot?: boolean }).isHot : undefined,
-              isNew: isFullProduct ? (linked as { isNew?: boolean }).isNew : undefined,
-              isHome: isFullProduct ? (linked as { isHome?: boolean }).isHome : undefined,
-              sellerNote: isFullProduct ? (linked as { sellerNote?: string }).sellerNote : undefined,
             } : undefined,
             systemId: response.data.goods_id.toString(),
           });
@@ -1480,7 +1715,7 @@ export function ProductMappingTab() {
   // Validate when form values change
   React.useEffect(() => {
     if (isLinkDialogOpen && selectedPkgxProduct && selectedHrmProductId) {
-      const hrmProduct = hrmProducts.find(p => p.systemId === selectedHrmProductId);
+      const hrmProduct = dialogHrmProducts.find(p => p.systemId === selectedHrmProductId);
       const input: ProductMappingInput = {
         hrmProductSystemId: selectedHrmProductId || '',
         hrmProductName: hrmProduct?.name || '',
@@ -1491,7 +1726,7 @@ export function ProductMappingTab() {
       };
       validation.validateAsync(input);
     }
-  }, [selectedHrmProductId, selectedPkgxProduct, isLinkDialogOpen, hrmProducts, validation]);
+  }, [selectedHrmProductId, selectedPkgxProduct, isLinkDialogOpen, dialogHrmProducts, validation]);
   
   // Confirm link
   const handleConfirmLink = () => {
@@ -1501,7 +1736,7 @@ export function ProductMappingTab() {
     }
     
     // Build input for validation
-    const hrmProduct = hrmProducts.find(p => p.systemId === selectedHrmProductId);
+    const hrmProduct = dialogHrmProducts.find(p => p.systemId === selectedHrmProductId);
     const input: ProductMappingInput = {
       hrmProductSystemId: selectedHrmProductId || '',
       hrmProductName: hrmProduct?.name || '',
@@ -1531,23 +1766,23 @@ export function ProductMappingTab() {
       return;
     }
     
-    updateProductMutation.mutate({ systemId: selectedHrmProductId as SystemId, pkgxId: selectedPkgxProduct.goods_id });
-    toast.success(`Đã liên kết "${selectedPkgxProduct.goods_name}" với sản phẩm HRM`);
-    
-    // Refresh stats, linked products and mapping cache after linking
-    refetchProductStats();
-    refetchLinkedProducts();
-    refetchPkgxMapping();
-    
-    addLog.mutate({
-      action: 'link_product',
-      status: 'success',
-      message: `Đã liên kết: ${hrmProduct.name} ↔ ${selectedPkgxProduct.goods_name}`,
-      details: { 
-        pkgxId: selectedPkgxProduct.goods_id, 
-        productId: selectedHrmProductId, 
-        productName: hrmProduct.name,
+    const pkgxName = selectedPkgxProduct.goods_name;
+    const pkgxId = selectedPkgxProduct.goods_id;
+    const hrmName = hrmProduct.name;
+    updateProductMutation.mutate({ systemId: selectedHrmProductId as SystemId, pkgxId }, {
+      onSuccess: () => {
+        toast.success(`Đã liên kết "${pkgxName}" với sản phẩm HRM`);
+        refetchProductStats();
+        refetchLinkedProducts();
+        refetchPkgxMapping();
+        addLog.mutate({
+          action: 'link_product',
+          status: 'success',
+          message: `Đã liên kết: ${hrmName} ↔ ${pkgxName}`,
+          details: { pkgxId, productId: selectedHrmProductId, productName: hrmName },
+        });
       },
+      onError: (err) => toast.error(err.message),
     });
     
     handleCloseLinkDialog();
@@ -1556,23 +1791,23 @@ export function ProductMappingTab() {
   // Confirm unlink
   const handleConfirmUnlink = () => {
     if (productToUnlink?.hrmProduct) {
-      updateProductMutation.mutate({ systemId: productToUnlink.hrmProduct.systemId as SystemId, pkgxId: undefined });
-      toast.success(`Đã hủy liên kết sản phẩm`);
-      
-      // Refresh stats, linked products and mapping cache after unlinking
-      refetchProductStats();
-      refetchLinkedProducts();
-      refetchPkgxMapping();
-      
-      addLog.mutate({
-        action: 'unlink_product',
-        status: 'success',
-        message: `Đã hủy liên kết: ${productToUnlink.hrmProduct.name}`,
-        details: { 
-          pkgxId: productToUnlink.pkgxProduct.goods_id, 
-          productId: productToUnlink.hrmProduct.systemId,
-          productName: productToUnlink.hrmProduct.name,
+      const unlinkHrmName = productToUnlink.hrmProduct.name;
+      const unlinkPkgxId = productToUnlink.pkgxProduct.goods_id;
+      const unlinkHrmId = productToUnlink.hrmProduct.systemId;
+      updateProductMutation.mutate({ systemId: unlinkHrmId as SystemId, pkgxId: undefined }, {
+        onSuccess: () => {
+          toast.success(`Đã hủy liên kết sản phẩm`);
+          refetchProductStats();
+          refetchLinkedProducts();
+          refetchPkgxMapping();
+          addLog.mutate({
+            action: 'unlink_product',
+            status: 'success',
+            message: `Đã hủy liên kết: ${unlinkHrmName}`,
+            details: { pkgxId: unlinkPkgxId, productId: unlinkHrmId, productName: unlinkHrmName },
+          });
         },
+        onError: (err) => toast.error(err.message),
       });
     }
     setIsUnlinkDialogOpen(false);
@@ -1589,7 +1824,35 @@ export function ProductMappingTab() {
     setIsPushingProduct(true);
     
     try {
-      const hrm = productToPush.linkedHrmProduct;
+      // Fetch full product data on-demand for push sync
+      const productRes = await fetch(`/api/products/${productToPush.linkedHrmProduct.systemId}`);
+      if (!productRes.ok) { toast.error('Không thể tải thông tin sản phẩm HRM'); setIsPushingProduct(false); return; }
+      const { data: fullProduct } = await productRes.json();
+      const totalInventory = fullProduct.inventoryByBranch
+        ? Object.values(fullProduct.inventoryByBranch as Record<string, number>).reduce((sum: number, qty: number) => sum + qty, 0)
+        : 0;
+      const hrm = {
+        ...productToPush.linkedHrmProduct,
+        sku: fullProduct.id,
+        sellingPrice: fullProduct.sellingPrice,
+        costPrice: fullProduct.costPrice,
+        partnerPrice: fullProduct.partnerPrice,
+        acePrice: fullProduct.acePrice,
+        dealPrice: fullProduct.dealPrice,
+        quantity: totalInventory,
+        description: fullProduct.description,
+        shortDescription: fullProduct.shortDescription,
+        seoDescription: fullProduct.seoDescription,
+        seoKeywords: fullProduct.seoKeywords,
+        ktitle: fullProduct.ktitle,
+        categorySystemId: fullProduct.categorySystemId,
+        brandSystemId: fullProduct.brandSystemId,
+        isBest: fullProduct.isBest,
+        isHot: fullProduct.isHot,
+        isNew: fullProduct.isNew,
+        isHome: fullProduct.isHome,
+        sellerNote: fullProduct.sellerNote,
+      };
       const pushData: Record<string, unknown> = {};
       
       for (const field of selectedPushFields) {
@@ -1746,14 +2009,40 @@ export function ProductMappingTab() {
                 {isSyncing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
                 Đồng bộ từ PKGX
               </Button>
-              <Button onClick={() => entitySync.handleConfirm(
-                'Import & Mapping tự động',
-                `Bạn có chắc muốn import và tự động mapping ${pkgxProducts.length - linkedCount} sản phẩm chưa liên kết từ PKGX vào HRM?`,
-                handleImportAndMap
-              )} disabled={isImporting || isSyncing || !hasPriceMappings || (pkgxProducts.length - linkedCount) <= 0} variant="outline">
-                {isImporting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
-                Import & Mapping
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button disabled={isImporting || isSyncing || !hasPriceMappings} variant="outline">
+                    {isImporting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
+                    Import & Mapping
+                    <ChevronDown className="h-4 w-4 ml-1" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    disabled={(pkgxTotalCount - linkedCount) <= 0}
+                    onClick={() => entitySync.handleConfirm(
+                      'Import SP chưa liên kết',
+                      `Bạn có chắc muốn import ${pkgxTotalCount - linkedCount} sản phẩm chưa liên kết từ PKGX vào HRM?`,
+                      () => handleImportAndMap(false)
+                    )}
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Import chưa liên kết ({pkgxTotalCount - linkedCount})
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    disabled={pkgxTotalCount <= 0}
+                    onClick={() => entitySync.handleConfirm(
+                      'Re-import & cập nhật tất cả',
+                      `Bạn có chắc muốn re-import và cập nhật tất cả ${pkgxTotalCount} sản phẩm PKGX vào HRM? Sản phẩm đã tồn tại sẽ được cập nhật.`,
+                      () => handleImportAndMap(true)
+                    )}
+                  >
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Re-import tất cả ({pkgxTotalCount})
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               <Button onClick={() => handleOpenLinkDialog()}>
                 <Plus className="h-4 w-4 mr-2" />
                 Thêm mapping
@@ -1799,8 +2088,13 @@ export function ProductMappingTab() {
           {isImporting && importProgress.total > 0 && (
             <div className="mt-4 space-y-2">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">
-                  {isPaused ? 'Đã tạm dừng...' : 'Đang import sản phẩm...'}
+                <span className="text-muted-foreground flex items-center gap-2">
+                  {isPaused ? (
+                    <span className="text-yellow-500">⏸</span>
+                  ) : (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  )}
+                  {isPaused ? 'Đã tạm dừng...' : 'Đang import sản phẩm (batch)...'}
                 </span>
                 <div className="flex items-center gap-2">
                   <span className="font-medium">{importProgress.current}/{importProgress.total}</span>
@@ -1811,7 +2105,6 @@ export function ProductMappingTab() {
                     </Button>
                   ) : (
                     <Button size="sm" variant="outline" onClick={handlePauseImport}>
-                      <Loader2 className="h-3 w-3 mr-1" />
                       Tạm dừng
                     </Button>
                   )}
@@ -1819,7 +2112,7 @@ export function ProductMappingTab() {
               </div>
               <Progress value={(importProgress.current / importProgress.total) * 100} className="h-2" />
               {importProgress.currentName && (
-                <p className="text-xs text-muted-foreground truncate">Đang xử lý: {importProgress.currentName}</p>
+                <p className="text-xs text-muted-foreground truncate">{importProgress.currentName}</p>
               )}
             </div>
           )}
@@ -1857,6 +2150,10 @@ export function ProductMappingTab() {
                 <TabsTrigger value="linked">
                   <Link className="h-4 w-4 mr-2" />
                   Đã liên kết ({linkedCount})
+                </TabsTrigger>
+                <TabsTrigger value="unlinked">
+                  <Unlink className="h-4 w-4 mr-2" />
+                  Chưa liên kết ({productStats?.unlinked ?? 0})
                 </TabsTrigger>
               </TabsList>
               
@@ -1949,6 +2246,49 @@ export function ProductMappingTab() {
                   />
                 )}
               </TabsContent>
+              
+              <TabsContent value="unlinked" className="mt-4">
+                <div className="space-y-4">
+                  <div className="relative max-w-sm">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      placeholder="Tìm sản phẩm chưa liên kết..."
+                      value={unlinkedSearchTerm}
+                      onChange={(e) => setUnlinkedSearchTerm(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
+                  {(unlinkedProductsData?.pagination?.total ?? 0) === 0 && !isLoadingUnlinked ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <CheckCircle2 className="h-12 w-12 mx-auto mb-4 opacity-50 text-green-500" />
+                      <p>Tất cả sản phẩm HRM đã được liên kết với PKGX!</p>
+                    </div>
+                  ) : (
+                    <ResponsiveDataTable<{ systemId: string; id: string; name: string; thumbnailImage: string | null; costPrice: number; status: string; inventoryByBranch: Record<string, number> | null; createdAt: string }>
+                      columns={unlinkedColumns}
+                      data={unlinkedProductsData?.data || []}
+                      pageCount={unlinkedProductsData?.pagination?.totalPages || 1}
+                      pagination={unlinkedPagination}
+                      setPagination={(newPaginationOrFn) => {
+                        const newPagination = typeof newPaginationOrFn === 'function'
+                          ? newPaginationOrFn(unlinkedPagination)
+                          : newPaginationOrFn;
+                        setUnlinkedPagination(newPagination);
+                        setUnlinkedApiPagination(prev => ({
+                          ...prev,
+                          page: newPagination.pageIndex + 1,
+                          limit: newPagination.pageSize,
+                        }));
+                      }}
+                      rowCount={unlinkedProductsData?.pagination?.total || 0}
+                      sorting={sorting}
+                      setSorting={setSorting}
+                      isLoading={isLoadingUnlinked}
+                      emptyTitle="Không tìm thấy sản phẩm chưa liên kết"
+                    />
+                  )}
+                </div>
+              </TabsContent>
             </Tabs>
           </div>
         </CardContent>
@@ -1959,13 +2299,21 @@ export function ProductMappingTab() {
         open={isLinkDialogOpen}
         onOpenChange={handleCloseLinkDialog}
         type="product"
-        hrmItems={hrmProducts
-          .filter((p) => !p.pkgxId || (selectedPkgxProduct && p.pkgxId === selectedPkgxProduct.goods_id))
-          .map((p) => ({
+        hrmItems={(() => {
+          const items = dialogHrmProducts.map(p => ({
             id: p.systemId,
             name: p.name,
             subText: p.id,
-          }))}
+          }));
+          // Add currently linked product if re-linking
+          if (selectedPkgxProduct && pkgxMappingData?.[selectedPkgxProduct.goods_id]) {
+            const linked = pkgxMappingData[selectedPkgxProduct.goods_id];
+            if (!items.some(i => i.id === linked.systemId)) {
+              items.unshift({ id: linked.systemId as SystemId, name: linked.name, subText: linked.id });
+            }
+          }
+          return items;
+        })()}
         selectedHrmId={selectedHrmProductId}
         onSelectHrmId={setSelectedHrmProductId}
         pkgxItems={pkgxProducts.map((p) => ({

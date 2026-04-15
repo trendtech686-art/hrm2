@@ -20,7 +20,8 @@ interface KanbanColumnProps {
   onMarkProcessed: (systemId: string) => void;
   onMarkReturned: (systemId: string) => void;
   onCancel: (systemId: string) => void;
-  onRemind: (systemId: string) => void;
+  canEdit?: boolean;
+  canCancel?: boolean;
 }
 
 const statusIcons: Record<WarrantyStatus, React.ElementType> = {
@@ -46,7 +47,8 @@ export function KanbanColumn({
   onMarkProcessed,
   onMarkReturned,
   onCancel,
-  onRemind,
+  canEdit = true,
+  canCancel = true,
 }: KanbanColumnProps) {
   const [searchQuery, setSearchQuery] = React.useState('');
   const StatusIcon = statusIcons[status];
@@ -67,12 +69,12 @@ export function KanbanColumn({
   return (
     <div className="flex-1 min-w-75 flex flex-col max-h-[calc(100vh-320px)]">
       {/* Header - Neutral bg-muted with icon */}
-      <div className="text-body-sm font-semibold px-4 py-3 mb-2 rounded-lg border bg-muted flex items-center justify-between">
+      <div className="text-sm font-semibold px-4 py-3 mb-2 rounded-lg border bg-muted flex items-center justify-between">
         <div className="flex items-center gap-2">
           <StatusIcon className="h-4 w-4" />
           {WARRANTY_STATUS_LABELS[status]}
         </div>
-        <span className="text-body-sm font-normal bg-background h-6 w-6 flex items-center justify-center rounded-full">
+        <span className="text-sm font-normal bg-background h-6 w-6 flex items-center justify-center rounded-full">
           {filteredTickets.length}
         </span>
       </div>
@@ -90,7 +92,7 @@ export function KanbanColumn({
       {/* Scrollable Cards Area */}
       <div className="flex-1 space-y-3 overflow-y-auto pb-2">
         {filteredTickets.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground text-body-sm">
+          <div className="text-center py-8 text-muted-foreground text-sm">
             {searchQuery ? 'Không tìm thấy kết quả' : 'Không có bảo hành nào'}
           </div>
         ) : (
@@ -104,7 +106,8 @@ export function KanbanColumn({
               onMarkProcessed={onMarkProcessed}
               onMarkReturned={onMarkReturned}
               onCancel={onCancel}
-              onRemind={onRemind}
+              canEdit={canEdit}
+              canCancel={canCancel}
             >
               <div>
                 <WarrantyCard

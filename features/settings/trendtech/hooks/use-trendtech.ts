@@ -3,6 +3,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import * as api from '../api/trendtech-api';
 
 export const trendtechKeys = {
@@ -20,7 +21,7 @@ export function useTrendtechSettings() {
 
 export function useTrendtechSettingsMutation(opts?: { onSuccess?: () => void }) {
   const qc = useQueryClient();
-  return useMutation({ mutationFn: api.updateTrendtechSettings, onSuccess: () => { qc.invalidateQueries({ queryKey: trendtechKeys.settings() }); opts?.onSuccess?.(); } });
+  return useMutation({ mutationFn: api.updateTrendtechSettings, onSuccess: () => { invalidateRelated(qc, 'trendtech'); opts?.onSuccess?.(); } });
 }
 
 export function useTrendtechCategories() {
@@ -29,7 +30,7 @@ export function useTrendtechCategories() {
 
 export function useSyncTrendtechCategories(opts?: { onSuccess?: () => void }) {
   const qc = useQueryClient();
-  return useMutation({ mutationFn: api.syncTrendtechCategories, onSuccess: () => { qc.invalidateQueries({ queryKey: trendtechKeys.categories() }); opts?.onSuccess?.(); } });
+  return useMutation({ mutationFn: api.syncTrendtechCategories, onSuccess: () => { invalidateRelated(qc, 'trendtech'); opts?.onSuccess?.(); } });
 }
 
 export function useTrendtechBrands() {
@@ -38,7 +39,7 @@ export function useTrendtechBrands() {
 
 export function useSyncTrendtechBrands(opts?: { onSuccess?: () => void }) {
   const qc = useQueryClient();
-  return useMutation({ mutationFn: api.syncTrendtechBrands, onSuccess: () => { qc.invalidateQueries({ queryKey: trendtechKeys.brands() }); opts?.onSuccess?.(); } });
+  return useMutation({ mutationFn: api.syncTrendtechBrands, onSuccess: () => { invalidateRelated(qc, 'trendtech'); opts?.onSuccess?.(); } });
 }
 
 export function useTrendtechCategoryMappings() {
@@ -47,7 +48,7 @@ export function useTrendtechCategoryMappings() {
 
 export function useTrendtechCategoryMappingMutations(opts?: { onSuccess?: () => void }) {
   const qc = useQueryClient();
-  const invalidate = () => qc.invalidateQueries({ queryKey: trendtechKeys.categoryMappings() });
+  const invalidate = () => invalidateRelated(qc, 'trendtech');
   return {
     save: useMutation({ mutationFn: api.saveCategoryMapping, onSuccess: () => { invalidate(); opts?.onSuccess?.(); } }),
     remove: useMutation({ mutationFn: api.deleteCategoryMapping, onSuccess: () => { invalidate(); opts?.onSuccess?.(); } }),
@@ -60,7 +61,7 @@ export function useTrendtechBrandMappings() {
 
 export function useTrendtechBrandMappingMutations(opts?: { onSuccess?: () => void }) {
   const qc = useQueryClient();
-  const invalidate = () => qc.invalidateQueries({ queryKey: trendtechKeys.brandMappings() });
+  const invalidate = () => invalidateRelated(qc, 'trendtech');
   return {
     save: useMutation({ mutationFn: api.saveBrandMapping, onSuccess: () => { invalidate(); opts?.onSuccess?.(); } }),
     remove: useMutation({ mutationFn: api.deleteBrandMapping, onSuccess: () => { invalidate(); opts?.onSuccess?.(); } }),

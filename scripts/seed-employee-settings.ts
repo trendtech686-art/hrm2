@@ -21,7 +21,7 @@ const prisma = new PrismaClient({ adapter });
 // =============================================
 const leaveTypes = [
   {
-    systemId: 'LVTYPE000001',
+    systemId: crypto.randomUUID(),
     id: 'NP001',
     name: 'Nghỉ phép năm',
     numberOfDays: 12,
@@ -31,7 +31,7 @@ const leaveTypes = [
     applicableDepartmentSystemIds: [],
   },
   {
-    systemId: 'LVTYPE000002',
+    systemId: crypto.randomUUID(),
     id: 'NP002',
     name: 'Nghỉ ốm',
     numberOfDays: 30,
@@ -41,7 +41,7 @@ const leaveTypes = [
     applicableDepartmentSystemIds: [],
   },
   {
-    systemId: 'LVTYPE000003',
+    systemId: crypto.randomUUID(),
     id: 'NP003',
     name: 'Nghỉ không lương',
     numberOfDays: 365,
@@ -51,7 +51,7 @@ const leaveTypes = [
     applicableDepartmentSystemIds: [],
   },
   {
-    systemId: 'LVTYPE000004',
+    systemId: crypto.randomUUID(),
     id: 'NP004',
     name: 'Nghỉ thai sản',
     numberOfDays: 180,
@@ -61,7 +61,7 @@ const leaveTypes = [
     applicableDepartmentSystemIds: [],
   },
   {
-    systemId: 'LVTYPE000005',
+    systemId: crypto.randomUUID(),
     id: 'NP005',
     name: 'Nghỉ việc riêng có lương (kết hôn, tang...)',
     numberOfDays: 3,
@@ -71,7 +71,7 @@ const leaveTypes = [
     applicableDepartmentSystemIds: [],
   },
   {
-    systemId: 'LVTYPE000006',
+    systemId: crypto.randomUUID(),
     id: 'NP006',
     name: 'Nghỉ chăm con ốm',
     numberOfDays: 20,
@@ -81,7 +81,7 @@ const leaveTypes = [
     applicableDepartmentSystemIds: [],
   },
   {
-    systemId: 'LVTYPE000007',
+    systemId: crypto.randomUUID(),
     id: 'NP007',
     name: 'Nghỉ bù',
     numberOfDays: 30,
@@ -91,7 +91,7 @@ const leaveTypes = [
     applicableDepartmentSystemIds: [],
   },
   {
-    systemId: 'LVTYPE000008',
+    systemId: crypto.randomUUID(),
     id: 'NP008',
     name: 'Nghỉ phép cha khi vợ sinh',
     numberOfDays: 5,
@@ -108,7 +108,7 @@ const leaveTypes = [
 const salaryComponents = [
   // === THU NHẬP (earning) ===
   {
-    systemId: 'SALCOMP000001',
+    systemId: crypto.randomUUID(),
     id: 'TL001',
     name: 'Lương cơ bản',
     description: 'Lương cơ bản theo hợp đồng',
@@ -122,7 +122,7 @@ const salaryComponents = [
     applicableDepartmentSystemIds: [],
   },
   {
-    systemId: 'SALCOMP000002',
+    systemId: crypto.randomUUID(),
     id: 'TL002',
     name: 'Phụ cấp ăn trưa',
     description: 'Phụ cấp tiền ăn hàng tháng',
@@ -136,7 +136,7 @@ const salaryComponents = [
     applicableDepartmentSystemIds: [],
   },
   {
-    systemId: 'SALCOMP000003',
+    systemId: crypto.randomUUID(),
     id: 'TL003',
     name: 'Phụ cấp xăng xe',
     description: 'Phụ cấp đi lại hàng tháng',
@@ -150,7 +150,7 @@ const salaryComponents = [
     applicableDepartmentSystemIds: [],
   },
   {
-    systemId: 'SALCOMP000004',
+    systemId: crypto.randomUUID(),
     id: 'TL004',
     name: 'Phụ cấp điện thoại',
     description: 'Phụ cấp liên lạc công việc',
@@ -164,7 +164,7 @@ const salaryComponents = [
     applicableDepartmentSystemIds: [],
   },
   {
-    systemId: 'SALCOMP000005',
+    systemId: crypto.randomUUID(),
     id: 'TL005',
     name: 'Phụ cấp chức vụ',
     description: 'Phụ cấp trách nhiệm quản lý',
@@ -178,7 +178,7 @@ const salaryComponents = [
     applicableDepartmentSystemIds: [],
   },
   {
-    systemId: 'SALCOMP000006',
+    systemId: crypto.randomUUID(),
     id: 'TL006',
     name: 'Phụ cấp thâm niên',
     description: 'Thưởng theo số năm làm việc',
@@ -192,7 +192,7 @@ const salaryComponents = [
     applicableDepartmentSystemIds: [],
   },
   {
-    systemId: 'SALCOMP000007',
+    systemId: crypto.randomUUID(),
     id: 'TL007',
     name: 'Phụ cấp độc hại',
     description: 'Cho công việc đặc thù',
@@ -206,7 +206,7 @@ const salaryComponents = [
     applicableDepartmentSystemIds: [],
   },
   {
-    systemId: 'SALCOMP000008',
+    systemId: crypto.randomUUID(),
     id: 'TL008',
     name: 'Thưởng chuyên cần',
     description: 'Thưởng đi làm đầy đủ không nghỉ',
@@ -220,7 +220,7 @@ const salaryComponents = [
     applicableDepartmentSystemIds: [],
   },
   {
-    systemId: 'SALCOMP000009',
+    systemId: crypto.randomUUID(),
     id: 'TL009',
     name: 'Thưởng KPI',
     description: 'Thưởng theo kết quả công việc',
@@ -234,7 +234,7 @@ const salaryComponents = [
     applicableDepartmentSystemIds: [],
   },
   {
-    systemId: 'SALCOMP000010',
+    systemId: crypto.randomUUID(),
     id: 'TL010',
     name: 'Làm thêm ngày thường',
     description: 'Tiền làm thêm giờ ngày thường (150%)',
@@ -248,7 +248,7 @@ const salaryComponents = [
     applicableDepartmentSystemIds: [],
   },
   {
-    systemId: 'SALCOMP000020',
+    systemId: crypto.randomUUID(),
     id: 'TL020',
     name: 'Làm thêm cuối tuần',
     description: 'Tiền làm thêm giờ cuối tuần (200%)',
@@ -262,7 +262,7 @@ const salaryComponents = [
     applicableDepartmentSystemIds: [],
   },
   {
-    systemId: 'SALCOMP000021',
+    systemId: crypto.randomUUID(),
     id: 'TL021',
     name: 'Làm thêm ngày lễ',
     description: 'Tiền làm thêm giờ ngày lễ (300%)',
@@ -276,7 +276,7 @@ const salaryComponents = [
     applicableDepartmentSystemIds: [],
   },
   {
-    systemId: 'SALCOMP000011',
+    systemId: crypto.randomUUID(),
     id: 'TL011',
     name: 'Thưởng doanh số',
     description: 'Hoa hồng bán hàng',
@@ -292,7 +292,7 @@ const salaryComponents = [
 
   // === KHẤU TRỪ (deduction) ===
   {
-    systemId: 'SALCOMP000012',
+    systemId: crypto.randomUUID(),
     id: 'TL012',
     name: 'Khấu trừ đi trễ',
     description: 'Trừ tiền đi làm muộn',
@@ -306,7 +306,7 @@ const salaryComponents = [
     applicableDepartmentSystemIds: [],
   },
   {
-    systemId: 'SALCOMP000013',
+    systemId: crypto.randomUUID(),
     id: 'TL013',
     name: 'Khấu trừ về sớm',
     description: 'Trừ tiền về trước giờ',
@@ -320,7 +320,7 @@ const salaryComponents = [
     applicableDepartmentSystemIds: [],
   },
   {
-    systemId: 'SALCOMP000014',
+    systemId: crypto.randomUUID(),
     id: 'TL014',
     name: 'Tạm ứng lương',
     description: 'Khấu trừ tiền tạm ứng',
@@ -334,7 +334,7 @@ const salaryComponents = [
     applicableDepartmentSystemIds: [],
   },
   {
-    systemId: 'SALCOMP000015',
+    systemId: crypto.randomUUID(),
     id: 'TL015',
     name: 'Khấu trừ kỷ luật',
     description: 'Các khoản phạt vi phạm',
@@ -348,7 +348,7 @@ const salaryComponents = [
     applicableDepartmentSystemIds: [],
   },
   {
-    systemId: 'SALCOMP000019',
+    systemId: crypto.randomUUID(),
     id: 'TL019',
     name: 'Thuế TNCN',
     description: 'Thuế thu nhập cá nhân',
@@ -364,7 +364,7 @@ const salaryComponents = [
 
   // === ĐÓNG GÓP BẢO HIỂM (contribution) ===
   {
-    systemId: 'SALCOMP000016',
+    systemId: crypto.randomUUID(),
     id: 'TL016',
     name: 'BHXH (người lao động)',
     description: 'Bảo hiểm xã hội - phần người lao động đóng (8%)',
@@ -378,7 +378,7 @@ const salaryComponents = [
     applicableDepartmentSystemIds: [],
   },
   {
-    systemId: 'SALCOMP000017',
+    systemId: crypto.randomUUID(),
     id: 'TL017',
     name: 'BHYT (người lao động)',
     description: 'Bảo hiểm y tế - phần người lao động đóng (1.5%)',
@@ -392,7 +392,7 @@ const salaryComponents = [
     applicableDepartmentSystemIds: [],
   },
   {
-    systemId: 'SALCOMP000018',
+    systemId: crypto.randomUUID(),
     id: 'TL018',
     name: 'BHTN (người lao động)',
     description: 'Bảo hiểm thất nghiệp - phần người lao động đóng (1%)',
@@ -409,111 +409,107 @@ const salaryComponents = [
 
 // =============================================
 // 3. MẪU BẢNG LƯƠNG (Payroll Templates)
+// Uses component NAMES for lookup — actual systemIds resolved at seed time from DB
 // =============================================
 const payrollTemplates = [
   {
-    systemId: 'PAYTPL000001',
     id: 'PT001',
     name: 'Mẫu lương cơ bản',
     description: 'Dành cho nhân viên thử việc hoặc lương đơn giản',
-    componentSystemIds: ['SALCOMP000001'],
+    componentNames: ['Lương cơ bản'],
     isDefault: false,
   },
   {
-    systemId: 'PAYTPL000002',
     id: 'PT002',
     name: 'Mẫu lương nhân viên văn phòng',
     description: 'Dành cho nhân viên văn phòng với đầy đủ phụ cấp',
-    componentSystemIds: [
-      'SALCOMP000001', // Lương cơ bản
-      'SALCOMP000002', // Phụ cấp ăn trưa
-      'SALCOMP000003', // Phụ cấp xăng xe
-      'SALCOMP000004', // Phụ cấp điện thoại
-      'SALCOMP000006', // Phụ cấp thâm niên
-      'SALCOMP000008', // Thưởng chuyên cần
-      'SALCOMP000009', // Thưởng KPI
-      'SALCOMP000010', // Làm thêm ngày thường
-      'SALCOMP000020', // Làm thêm cuối tuần
-      'SALCOMP000021', // Làm thêm ngày lễ
-      'SALCOMP000012', // Khấu trừ đi trễ
-      'SALCOMP000014', // Tạm ứng lương
-      'SALCOMP000016', // BHXH
-      'SALCOMP000017', // BHYT
-      'SALCOMP000018', // BHTN
-      'SALCOMP000019', // Thuế TNCN
+    componentNames: [
+      'Lương cơ bản',
+      'Phụ cấp ăn trưa',
+      'Phụ cấp xăng xe',
+      'Phụ cấp điện thoại',
+      'Phụ cấp thâm niên',
+      'Thưởng chuyên cần',
+      'Thưởng KPI',
+      'Làm thêm ngày thường',
+      'Làm thêm cuối tuần',
+      'Làm thêm ngày lễ',
+      'Khấu trừ đi trễ',
+      'Tạm ứng lương',
+      'BHXH (người lao động)',
+      'BHYT (người lao động)',
+      'BHTN (người lao động)',
+      'Thuế TNCN',
     ],
     isDefault: true,
   },
   {
-    systemId: 'PAYTPL000003',
     id: 'PT003',
     name: 'Mẫu lương quản lý',
     description: 'Dành cho cấp quản lý với phụ cấp chức vụ',
-    componentSystemIds: [
-      'SALCOMP000001', // Lương cơ bản
-      'SALCOMP000002', // Phụ cấp ăn trưa
-      'SALCOMP000003', // Phụ cấp xăng xe
-      'SALCOMP000004', // Phụ cấp điện thoại
-      'SALCOMP000005', // Phụ cấp chức vụ
-      'SALCOMP000006', // Phụ cấp thâm niên
-      'SALCOMP000008', // Thưởng chuyên cần
-      'SALCOMP000009', // Thưởng KPI
-      'SALCOMP000010', // Làm thêm ngày thường
-      'SALCOMP000020', // Làm thêm cuối tuần
-      'SALCOMP000021', // Làm thêm ngày lễ
-      'SALCOMP000014', // Tạm ứng lương
-      'SALCOMP000016', // BHXH
-      'SALCOMP000017', // BHYT
-      'SALCOMP000018', // BHTN
-      'SALCOMP000019', // Thuế TNCN
+    componentNames: [
+      'Lương cơ bản',
+      'Phụ cấp ăn trưa',
+      'Phụ cấp xăng xe',
+      'Phụ cấp điện thoại',
+      'Phụ cấp chức vụ',
+      'Phụ cấp thâm niên',
+      'Thưởng chuyên cần',
+      'Thưởng KPI',
+      'Làm thêm ngày thường',
+      'Làm thêm cuối tuần',
+      'Làm thêm ngày lễ',
+      'Tạm ứng lương',
+      'BHXH (người lao động)',
+      'BHYT (người lao động)',
+      'BHTN (người lao động)',
+      'Thuế TNCN',
     ],
     isDefault: false,
   },
   {
-    systemId: 'PAYTPL000004',
     id: 'PT004',
     name: 'Mẫu lương kinh doanh',
     description: 'Dành cho nhân viên sales với thưởng doanh số',
-    componentSystemIds: [
-      'SALCOMP000001', // Lương cơ bản
-      'SALCOMP000002', // Phụ cấp ăn trưa
-      'SALCOMP000003', // Phụ cấp xăng xe
-      'SALCOMP000004', // Phụ cấp điện thoại
-      'SALCOMP000006', // Phụ cấp thâm niên
-      'SALCOMP000008', // Thưởng chuyên cần
-      'SALCOMP000009', // Thưởng KPI
-      'SALCOMP000011', // Thưởng doanh số
-      'SALCOMP000010', // Làm thêm ngày thường
-      'SALCOMP000012', // Khấu trừ đi trễ
-      'SALCOMP000014', // Tạm ứng lương
-      'SALCOMP000016', // BHXH
-      'SALCOMP000017', // BHYT
-      'SALCOMP000018', // BHTN
-      'SALCOMP000019', // Thuế TNCN
+    componentNames: [
+      'Lương cơ bản',
+      'Phụ cấp ăn trưa',
+      'Phụ cấp xăng xe',
+      'Phụ cấp điện thoại',
+      'Phụ cấp thâm niên',
+      'Thưởng chuyên cần',
+      'Thưởng KPI',
+      'Thưởng doanh số',
+      'Làm thêm ngày thường',
+      'Khấu trừ đi trễ',
+      'Tạm ứng lương',
+      'BHXH (người lao động)',
+      'BHYT (người lao động)',
+      'BHTN (người lao động)',
+      'Thuế TNCN',
     ],
     isDefault: false,
   },
   {
-    systemId: 'PAYTPL000005',
     id: 'PT005',
     name: 'Mẫu lương kho vận',
     description: 'Dành cho nhân viên kho với phụ cấp độc hại',
-    componentSystemIds: [
-      'SALCOMP000001', // Lương cơ bản
-      'SALCOMP000002', // Phụ cấp ăn trưa
-      'SALCOMP000003', // Phụ cấp xăng xe
-      'SALCOMP000007', // Phụ cấp độc hại
-      'SALCOMP000006', // Phụ cấp thâm niên
-      'SALCOMP000008', // Thưởng chuyên cần
-      'SALCOMP000010', // Làm thêm ngày thường
-      'SALCOMP000020', // Làm thêm cuối tuần
-      'SALCOMP000021', // Làm thêm ngày lễ
-      'SALCOMP000012', // Khấu trừ đi trễ
-      'SALCOMP000014', // Tạm ứng lương
-      'SALCOMP000016', // BHXH
-      'SALCOMP000017', // BHYT
-      'SALCOMP000018', // BHTN
-      'SALCOMP000019', // Thuế TNCN
+    componentNames: [
+      'Lương cơ bản',
+      'Phụ cấp ăn trưa',
+      'Phụ cấp xăng xe',
+      'Phụ cấp độc hại',
+      'Phụ cấp thâm niên',
+      'Thưởng chuyên cần',
+      'Làm thêm ngày thường',
+      'Làm thêm cuối tuần',
+      'Làm thêm ngày lễ',
+      'Khấu trừ đi trễ',
+      'Tạm ứng lương',
+      'BHXH (người lao động)',
+      'BHYT (người lao động)',
+      'BHTN (người lao động)',
+      'Thuế TNCN',
     ],
     isDefault: false,
   },
@@ -525,7 +521,7 @@ const payrollTemplates = [
 const penaltyTypes = [
   // === CHẤM CÔNG ===
   {
-    systemId: 'PENTYPE000001',
+    systemId: crypto.randomUUID(),
     id: 'PHAT001',
     name: 'Đi muộn dưới 10 phút',
     description: 'Đi làm muộn từ 5-10 phút',
@@ -535,7 +531,7 @@ const penaltyTypes = [
     sortOrder: 1,
   },
   {
-    systemId: 'PENTYPE000002',
+    systemId: crypto.randomUUID(),
     id: 'PHAT002',
     name: 'Đi muộn 10-30 phút',
     description: 'Đi làm muộn từ 10-30 phút',
@@ -545,7 +541,7 @@ const penaltyTypes = [
     sortOrder: 2,
   },
   {
-    systemId: 'PENTYPE000003',
+    systemId: crypto.randomUUID(),
     id: 'PHAT003',
     name: 'Đi muộn trên 30 phút',
     description: 'Đi làm muộn trên 30 phút',
@@ -555,7 +551,7 @@ const penaltyTypes = [
     sortOrder: 3,
   },
   {
-    systemId: 'PENTYPE000004',
+    systemId: crypto.randomUUID(),
     id: 'PHAT004',
     name: 'Về sớm không phép',
     description: 'Về trước giờ quy định không xin phép',
@@ -565,7 +561,7 @@ const penaltyTypes = [
     sortOrder: 4,
   },
   {
-    systemId: 'PENTYPE000005',
+    systemId: crypto.randomUUID(),
     id: 'PHAT005',
     name: 'Nghỉ không phép',
     description: 'Nghỉ làm không báo trước, không lý do',
@@ -575,7 +571,7 @@ const penaltyTypes = [
     sortOrder: 5,
   },
   {
-    systemId: 'PENTYPE000006',
+    systemId: crypto.randomUUID(),
     id: 'PHAT006',
     name: 'Quên chấm công',
     description: 'Không chấm công khi vào/ra',
@@ -587,7 +583,7 @@ const penaltyTypes = [
 
   // === KHIẾU NẠI ===
   {
-    systemId: 'PENTYPE000007',
+    systemId: crypto.randomUUID(),
     id: 'PHAT007',
     name: 'Đóng gói sai hàng',
     description: 'Gửi sai sản phẩm cho khách',
@@ -597,7 +593,7 @@ const penaltyTypes = [
     sortOrder: 10,
   },
   {
-    systemId: 'PENTYPE000008',
+    systemId: crypto.randomUUID(),
     id: 'PHAT008',
     name: 'Thiếu hàng trong đơn',
     description: 'Đóng thiếu sản phẩm trong đơn hàng',
@@ -607,7 +603,7 @@ const penaltyTypes = [
     sortOrder: 11,
   },
   {
-    systemId: 'PENTYPE000009',
+    systemId: crypto.randomUUID(),
     id: 'PHAT009',
     name: 'Đóng gói không đúng quy cách',
     description: 'Đóng gói không theo tiêu chuẩn',
@@ -617,7 +613,7 @@ const penaltyTypes = [
     sortOrder: 12,
   },
   {
-    systemId: 'PENTYPE000010',
+    systemId: crypto.randomUUID(),
     id: 'PHAT010',
     name: 'Hàng hư hỏng do kho',
     description: 'Sản phẩm hư do bảo quản sai',
@@ -627,7 +623,7 @@ const penaltyTypes = [
     sortOrder: 13,
   },
   {
-    systemId: 'PENTYPE000011',
+    systemId: crypto.randomUUID(),
     id: 'PHAT011',
     name: 'Phàn nàn dịch vụ khách hàng',
     description: 'Khách hàng không hài lòng về thái độ phục vụ',
@@ -639,7 +635,7 @@ const penaltyTypes = [
 
   // === HIỆU SUẤT ===
   {
-    systemId: 'PENTYPE000012',
+    systemId: crypto.randomUUID(),
     id: 'PHAT012',
     name: 'Không hoàn thành KPI',
     description: 'Không đạt chỉ tiêu công việc được giao',
@@ -649,7 +645,7 @@ const penaltyTypes = [
     sortOrder: 20,
   },
   {
-    systemId: 'PENTYPE000013',
+    systemId: crypto.randomUUID(),
     id: 'PHAT013',
     name: 'Làm việc cá nhân trong giờ',
     description: 'Sử dụng thời gian làm việc cho mục đích cá nhân',
@@ -659,7 +655,7 @@ const penaltyTypes = [
     sortOrder: 21,
   },
   {
-    systemId: 'PENTYPE000014',
+    systemId: crypto.randomUUID(),
     id: 'PHAT014',
     name: 'Báo cáo chậm trễ',
     description: 'Nộp báo cáo không đúng deadline',
@@ -671,7 +667,7 @@ const penaltyTypes = [
 
   // === KHÁC ===
   {
-    systemId: 'PENTYPE000015',
+    systemId: crypto.randomUUID(),
     id: 'PHAT015',
     name: 'Vi phạm quy định trang phục',
     description: 'Không mặc đồng phục hoặc trang phục không phù hợp',
@@ -681,7 +677,7 @@ const penaltyTypes = [
     sortOrder: 30,
   },
   {
-    systemId: 'PENTYPE000016',
+    systemId: crypto.randomUUID(),
     id: 'PHAT016',
     name: 'Hút thuốc sai nơi quy định',
     description: 'Hút thuốc trong khu vực cấm',
@@ -691,7 +687,7 @@ const penaltyTypes = [
     sortOrder: 31,
   },
   {
-    systemId: 'PENTYPE000017',
+    systemId: crypto.randomUUID(),
     id: 'PHAT017',
     name: 'Để lộ thông tin công ty',
     description: 'Tiết lộ thông tin nội bộ ra bên ngoài',
@@ -701,7 +697,7 @@ const penaltyTypes = [
     sortOrder: 32,
   },
   {
-    systemId: 'PENTYPE000018',
+    systemId: crypto.randomUUID(),
     id: 'PHAT018',
     name: 'Gây mất đoàn kết',
     description: 'Hành vi gây chia rẽ trong team',
@@ -799,7 +795,7 @@ async function main() {
       updatedAt: new Date(),
     },
     create: {
-      systemId: `SET_EMP_${crypto.randomUUID().slice(0, 8).toUpperCase()}`,
+      systemId: crypto.randomUUID(),
       key: 'employee-settings',
       group: 'hrm',
       type: 'json',
@@ -812,22 +808,24 @@ async function main() {
 
   // 1b. Xóa salary components cũ với format không đúng
   console.log('\n📝 Đang xóa salary components cũ (nếu có)...');
+  // Note: ref_minimum_wage, ref_base_salary, ref_allowance are reference data
+  // created by prisma/seeds/seed-employee-settings.ts. Don't delete them.
+  // Only clean old non-prefixed records if they exist.
   await prisma.settingsData.deleteMany({
     where: {
-      type: { in: ['minimum_wage', 'base_salary', 'allowance'] },
+      type: { in: ['minimum_wage', 'base_salary'] },
     },
   });
 
   // 1c. Seed Salary Components into SettingsData table (for UI)
   console.log('\n📝 Đang seed Salary Components vào SettingsData...');
   for (const comp of salaryComponents) {
+    const compType = comp.category === 'contribution' ? 'contribution' : comp.category === 'deduction' ? 'deduction' : 'earning';
     await prisma.settingsData.upsert({
-      where: { systemId: comp.systemId },
+      where: { id_type: { id: comp.id, type: compType } },
       update: {
-        id: comp.id,
         name: comp.name,
         description: comp.description,
-        type: comp.category === 'contribution' ? 'contribution' : comp.category === 'deduction' ? 'deduction' : 'earning',
         isActive: comp.isActive,
         metadata: {
           category: comp.category,
@@ -842,7 +840,7 @@ async function main() {
         updatedAt: new Date(),
       },
       create: {
-        systemId: comp.systemId,
+        systemId: crypto.randomUUID(),
         id: comp.id,
         name: comp.name,
         description: comp.description,
@@ -867,7 +865,7 @@ async function main() {
   console.log('\n📝 Đang seed Loại phạt nhân viên...');
   for (const penaltyType of penaltyTypes) {
     await prisma.penaltyTypeSetting.upsert({
-      where: { systemId: penaltyType.systemId },
+      where: { id: penaltyType.id },
       update: {
         id: penaltyType.id,
         name: penaltyType.name,
@@ -893,7 +891,35 @@ async function main() {
   console.log(`  ✅ Penalty Types: ${penaltyTypes.length} loại phạt`);
 
   // 3. Seed Payroll Templates - Lưu vào Setting table dạng JSON
+  // Lookup actual salary component systemIds from DB by name
   console.log('\n📝 Đang seed Mẫu bảng lương...');
+  
+  const dbComponents = await prisma.settingsData.findMany({
+    where: { type: { in: ['earning', 'deduction', 'contribution', 'salary_component'] }, isDeleted: false },
+    select: { systemId: true, name: true },
+  });
+  const nameToSystemId = new Map(dbComponents.map(c => [c.name, c.systemId]));
+  
+  const resolvedTemplates = payrollTemplates.map(t => {
+    const componentSystemIds = t.componentNames
+      .map(name => nameToSystemId.get(name))
+      .filter((id): id is string => !!id);
+    
+    if (componentSystemIds.length < t.componentNames.length) {
+      const missing = t.componentNames.filter(name => !nameToSystemId.has(name));
+      console.log(`   ⚠️  ${t.id}: ${missing.length} components not found: ${missing.join(', ')}`);
+    }
+    
+    return {
+      systemId: crypto.randomUUID(),
+      id: t.id,
+      name: t.name,
+      description: t.description,
+      componentSystemIds,
+      isDefault: t.isDefault,
+    };
+  });
+  
   await prisma.setting.upsert({
     where: {
       key_group: {
@@ -902,20 +928,20 @@ async function main() {
       },
     },
     update: {
-      value: payrollTemplates,
+      value: resolvedTemplates,
       updatedAt: new Date(),
     },
     create: {
-      systemId: `SET_PAYTPL_${crypto.randomUUID().slice(0, 8).toUpperCase()}`,
+      systemId: crypto.randomUUID(),
       key: 'payroll-templates',
       group: 'hrm',
       type: 'json',
       category: 'hrm',
-      value: payrollTemplates,
+      value: resolvedTemplates,
       description: 'Payroll templates configuration',
     },
   });
-  console.log(`  ✅ Payroll Templates: ${payrollTemplates.length} mẫu bảng lương`);
+  console.log(`  ✅ Payroll Templates: ${resolvedTemplates.length} mẫu bảng lương`);
 
   console.log('\n✨ Seed hoàn tất!');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');

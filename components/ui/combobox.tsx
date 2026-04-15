@@ -14,6 +14,7 @@ import {
 } from './command';
 import { Popover, PopoverContent, PopoverTrigger } from './popover';
 import { Spinner } from './spinner';
+import { logError } from '@/lib/logger'
 
 export type ComboboxOption = {
   value: string;
@@ -110,11 +111,20 @@ export function Combobox({
       try {
         const result = await onSearch(debouncedSearchQuery, page);
         if (!isCancelled) {
-          setAsyncItems((prev) => (page === 1 ? result.items : [...prev, ...result.items]));
+          setAsyncItems((prev) => {
+            const newItems = page === 1 ? result.items : [...prev, ...result.items];
+            // Deduplicate by value to prevent React key warnings
+            const seen = new Set<string>();
+            return newItems.filter(item => {
+              if (seen.has(item.value)) return false;
+              seen.add(item.value);
+              return true;
+            });
+          });
           setHasNextPage(result.hasNextPage);
         }
       } catch (error) {
-        console.error("Failed to fetch combobox options:", error);
+        logError('Failed to fetch combobox options', error);
       } finally {
         if (!isCancelled) {
           setIsLoading(false);
@@ -124,7 +134,9 @@ export function Combobox({
 
     fetchItems();
     return () => { isCancelled = true; };
-  }, [isAsync, open, onSearch, debouncedSearchQuery, page, hasNextPage]);
+    // Note: hasNextPage is intentionally excluded from deps to prevent race condition
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAsync, open, onSearch, debouncedSearchQuery, page]);
   
   const displayOptions = isAsync ? asyncItems : options || [];
 
@@ -146,8 +158,8 @@ export function Combobox({
         <Command shouldFilter={!isAsync}>
           <CommandInput
             placeholder={searchPlaceholder}
-            onValueChange={isAsync ? setSearchQuery : () => {}}
-            value={isAsync ? searchQuery : ""}
+            onValueChange={isAsync ? setSearchQuery : undefined}
+            {...(isAsync ? { value: searchQuery } : {})}
           />
           {renderHeader && renderHeader()}
           <div className="relative">

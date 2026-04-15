@@ -51,8 +51,8 @@ export function PayrollBatchFilters({ value, onChange, onClear }: PayrollBatchFi
   };
 
   return (
-    <div className="rounded-xl border bg-card p-4 shadow-sm">
-      <div className="flex items-center gap-2 text-body-sm font-medium text-muted-foreground">
+    <div className="rounded-xl border border-border/50 bg-card p-4">
+      <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
         <SlidersHorizontal className="h-4 w-4" />
         Bộ lọc
       </div>

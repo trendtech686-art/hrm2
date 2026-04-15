@@ -13,13 +13,13 @@ import { useAllReceipts } from '../hooks/use-all-receipts';
 import { useAllReceiptTypes } from "../../settings/receipt-types/hooks/use-all-receipt-types";
 import { useAllBranches } from "../../settings/branches/hooks/use-all-branches";
 import { useAllCustomers } from "../../customers/hooks/use-all-customers";
-import { useStoreInfoData } from "../../settings/store-info/hooks/use-store-info";
+import { fetchPrintData } from '@/lib/lazy-print-data';
 import { useAllCashAccounts } from "../../cashbook/hooks/use-all-cash-accounts";
 import type { Receipt } from '@/lib/types/prisma-extended';
 import { ResponsiveDataTable, type BulkAction } from "@/components/data-table/responsive-data-table";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Printer, FileSpreadsheet, Download, Receipt as ReceiptIcon, DollarSign, CalendarDays, TrendingUp, Settings } from "lucide-react";
+import { Printer, FileSpreadsheet, Download, Settings, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { DynamicDataTableColumnCustomizer as DataTableColumnCustomizer } from "@/components/data-table/dynamic-column-customizer";
@@ -48,8 +48,11 @@ import {
   useReceiptActions as _useReceiptActions,
   useReceiptImportExport,
 } from "../hooks/use-receipts-page-handlers";
-import { StatsCard, StatsCardGrid } from "@/components/shared/stats-card"
+import { StatsBar } from "@/components/shared/stats-bar"
+import { AdvancedFilterPanel, FilterExtras, type FilterConfig } from '@/components/shared/advanced-filter-panel';
+import { useFilterPresets } from '@/hooks/use-filter-presets';
 import { formatCurrency, formatNumber } from "@/lib/format-utils"
+import { cn } from '@/lib/utils'
 
 // Dynamic imports for import/export dialogs
 const ReceiptImportDialog = dynamic(
@@ -86,7 +89,7 @@ export function ReceiptsContent({ initialStats }: ReceiptsContentProps) {
   const serverStatus = React.useMemo(() => filters.statusFilter.size === 1 ? [...filters.statusFilter][0] : undefined, [filters.statusFilter]);
 
   // ✅ Server-side paginated data — API handles search, filter, sort, pagination
-  const { data: receiptsResponse, isLoading } = useReceipts({
+  const { data: receiptsResponse, isLoading, isFetching } = useReceipts({
     search: filters.debouncedGlobalFilter || undefined,
     page: filters.pagination.pageIndex + 1,
     limit: filters.pagination.pageSize,
@@ -102,7 +105,8 @@ export function ReceiptsContent({ initialStats }: ReceiptsContentProps) {
   const serverTotalPages = receiptsResponse?.pagination?.totalPages ?? 1;
 
   // Lazy-load all data only for import/export
-  const { data: allReceipts } = useAllReceipts({ enabled: importExport.showImportDialog || importExport.showExportDialog });
+  const dialogsOpen = importExport.showImportDialog || importExport.showExportDialog;
+  const { data: allReceipts } = useAllReceipts({ enabled: dialogsOpen });
 
   const { cancel: cancelMutation, create: createMutation, update: updateMutation } = useReceiptMutations({
     onCancelSuccess: () => toast.success("Đã hủy phiếu thu"),
@@ -111,8 +115,8 @@ export function ReceiptsContent({ initialStats }: ReceiptsContentProps) {
   const { accounts } = useAllCashAccounts();
   const { data: branches } = useAllBranches();
   const receiptTypesData = useAllReceiptTypes().data;
-  const { data: customers } = useAllCustomers();
-  const { info: storeInfo } = useStoreInfoData();
+  const { data: customers } = useAllCustomers({ enabled: dialogsOpen });
+  // ⚡ OPTIMIZED: storeInfo lazy loaded in print handlers
   const { print, printMultiple } = usePrint();
   const { employee } = useAuth();
   
@@ -144,7 +148,8 @@ export function ReceiptsContent({ initialStats }: ReceiptsContentProps) {
     router.push(generatePath(ROUTES.FINANCE.RECEIPT_VIEW, { systemId: receipt.systemId }));
   }, [router]);
 
-  const handleSinglePrint = React.useCallback((receipt: Receipt) => {
+  const handleSinglePrint = React.useCallback(async (receipt: Receipt) => {
+    const { storeInfo } = await fetchPrintData();
     const branch = branches.find(b => b.systemId === receipt.branchSystemId);
     const storeSettings = branch 
       ? createStoreSettings(branch)
@@ -155,7 +160,7 @@ export function ReceiptsContent({ initialStats }: ReceiptsContentProps) {
       data: mapReceiptToPrintData(receiptData, storeSettings),
       lineItems: [],
     });
-  }, [branches, storeInfo, print]);
+  }, [branches, print]);
 
   const columns = React.useMemo(
     () => getColumns(accounts, handleCancel, navigateTo, handleSinglePrint),
@@ -193,6 +198,7 @@ export function ReceiptsContent({ initialStats }: ReceiptsContentProps) {
     }
     setIsAlertOpen(false); 
   };
+  const isCancelling = cancelMutation.isPending;
 
   const confirmBulkCancel = () => {
     const idsToCancel = Object.keys(filters.rowSelection);
@@ -212,9 +218,41 @@ export function ReceiptsContent({ initialStats }: ReceiptsContentProps) {
     (receiptTypesData ?? []).map(rt => ({ value: rt.systemId, label: rt.name }))
   , [receiptTypesData]);
 
-  const customerOptions = React.useMemo(() => 
-    customers.map(c => ({ value: c.systemId, label: c.name }))
-  , [customers]);
+  // Derive customer filter options from current page data (avoid loading all 4500+ customers)
+  const customerOptions = React.useMemo(() => {
+    const seen = new Map<string, string>();
+    receipts.forEach(r => {
+      if (r.customerSystemId && r.customerName && !seen.has(r.customerSystemId)) {
+        seen.set(r.customerSystemId, r.customerName);
+      }
+    });
+    return Array.from(seen, ([value, label]) => ({ value, label }));
+  }, [receipts]);
+
+  // Advanced filter panel
+  const { presets, savePreset, deletePreset, updatePreset } = useFilterPresets('receipts');
+  const filterConfigs: FilterConfig[] = React.useMemo(() => [
+    { id: 'branch', label: 'Chi nhánh', type: 'select', options: branches.map(b => ({ value: b.systemId, label: b.name })) },
+    { id: 'status', label: 'Trạng thái', type: 'multi-select', options: statusOptions },
+    { id: 'type', label: 'Loại phiếu', type: 'multi-select', options: typeOptions },
+    { id: 'customer', label: 'Khách hàng', type: 'multi-select', options: customerOptions },
+    { id: 'dateRange', label: 'Khoảng ngày', type: 'date-range' },
+  ], [branches, statusOptions, typeOptions, customerOptions]);
+  const panelValues = React.useMemo(() => ({
+    branch: filters.branchFilter !== 'all' ? filters.branchFilter : null,
+    status: Array.from(filters.statusFilter),
+    type: Array.from(filters.typeFilter),
+    customer: Array.from(filters.customerFilter),
+    dateRange: filters.dateRange ? { from: filters.dateRange[0], to: filters.dateRange[1] } : null,
+  }), [filters.branchFilter, filters.statusFilter, filters.typeFilter, filters.customerFilter, filters.dateRange]);
+  const handlePanelApply = React.useCallback((v: Record<string, unknown>) => {
+    filters.setBranchFilter((v.branch as string) || 'all');
+    filters.setStatusFilter(new Set((v.status as string[]) ?? []));
+    filters.setTypeFilter(new Set((v.type as string[]) ?? []));
+    filters.setCustomerFilter(new Set((v.customer as string[]) ?? []));
+    const dr = v.dateRange as { from?: string; to?: string } | null;
+    filters.setDateRange(dr ? [dr.from, dr.to] : undefined);
+  }, [filters]);
 
   // ✅ Server-side pagination: only apply lightweight client-side facet filters (type, customer) on current page
   const filteredData = React.useMemo(() => {
@@ -298,9 +336,10 @@ export function ReceiptsContent({ initialStats }: ReceiptsContentProps) {
     setPrintDialogOpen(true);
   }, []);
 
-  const handlePrintConfirm = React.useCallback((options: SimplePrintOptionsResult) => {
+  const handlePrintConfirm = React.useCallback(async (options: SimplePrintOptionsResult) => {
     if (itemsToPrint.length === 0) return;
     
+    const { storeInfo } = await fetchPrintData();
     const printItems = itemsToPrint.map(receipt => {
       const selectedBranch = options.branchSystemId 
         ? branches.find(b => b.systemId === options.branchSystemId)
@@ -321,7 +360,7 @@ export function ReceiptsContent({ initialStats }: ReceiptsContentProps) {
     toast.success(`Đang in ${itemsToPrint.length} phiếu thu`);
     setItemsToPrint([]);
     setPrintDialogOpen(false);
-  }, [itemsToPrint, branches, storeInfo, printMultiple]);
+  }, [itemsToPrint, branches, printMultiple]);
 
   // Bulk actions
   const bulkActions: BulkAction<Receipt>[] = React.useMemo(() => [
@@ -347,7 +386,7 @@ export function ReceiptsContent({ initialStats }: ReceiptsContentProps) {
       }
     };
 
-    window.addEventListener('scroll', handleScroll);
+    window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, [isMobile, filters.mobileLoadedCount, filteredData.length, filters]);
 
@@ -360,36 +399,15 @@ export function ReceiptsContent({ initialStats }: ReceiptsContentProps) {
 
   return (
     <div className="space-y-4 h-full flex flex-col">
-      {/* Stats Cards - instant display from Server Component */}
-      <StatsCardGrid columns={4} className="mb-2">
-        <StatsCard
-          title="Tổng phiếu thu"
-          value={stats?.total ?? 0}
-          icon={ReceiptIcon}
-          formatValue={(v) => formatNumber(Number(v))}
-        />
-        <StatsCard
-          title="Tổng thu"
-          value={stats?.totalAmount ?? 0}
-          icon={TrendingUp}
-          formatValue={(v) => formatCurrency(Number(v))}
-          variant="success"
-        />
-        <StatsCard
-          title="Đã hoàn thành"
-          value={stats?.completed ?? 0}
-          icon={CalendarDays}
-          formatValue={(v) => formatNumber(Number(v))}
-          variant="info"
-        />
-        <StatsCard
-          title="Đã hủy"
-          value={stats?.cancelled ?? 0}
-          icon={DollarSign}
-          formatValue={(v) => formatNumber(Number(v))}
-          variant="info"
-        />
-      </StatsCardGrid>
+      {/* Stats Bar - instant display from Server Component */}
+      <StatsBar
+        items={[
+          { key: 'total', label: 'Tổng phiếu thu', value: formatNumber(stats?.total ?? 0) },
+          { key: 'totalAmount', label: 'Tổng thu', value: formatCurrency(stats?.totalAmount ?? 0) },
+          { key: 'completed', label: 'Đã hoàn thành', value: formatNumber(stats?.completed ?? 0) },
+          { key: 'cancelled', label: 'Đã hủy', value: formatNumber(stats?.cancelled ?? 0) },
+        ]}
+      />
 
       {/* Desktop-only Toolbar */}
       {!isMobile && (
@@ -472,13 +490,15 @@ export function ReceiptsContent({ initialStats }: ReceiptsContentProps) {
               selectedValues={filters.customerFilter}
               onSelectedValuesChange={filters.setCustomerFilter}
             />
+            <AdvancedFilterPanel filters={filterConfigs} values={panelValues} onApply={handlePanelApply} presets={presets.map(p => ({ ...p, filters: p.filters }))} onSavePreset={(preset) => savePreset(preset.name, panelValues)} onDeletePreset={deletePreset} onUpdatePreset={updatePreset} />
           </>
         }
       />
+      <FilterExtras presets={presets} filterConfigs={filterConfigs} values={panelValues} onApply={handlePanelApply} onDeletePreset={deletePreset} />
 
       {/* Mobile View - Cards */}
       {isMobile ? (
-        <div className="space-y-2 flex-1 overflow-y-auto">
+        <div className={cn('space-y-2 flex-1 overflow-y-auto', isFetching && !isLoading && 'opacity-70 transition-opacity')}>
           {filteredData.length === 0 && !isLoading ? (
             <Card>
               <CardContent className="p-8 text-center text-muted-foreground">
@@ -511,7 +531,7 @@ export function ReceiptsContent({ initialStats }: ReceiptsContentProps) {
         </div>
       ) : (
         /* Desktop View - Table */
-        <div className="w-full py-4">
+        <div className={cn('w-full py-4', isFetching && !isLoading && 'opacity-70 transition-opacity')}>
           <ResponsiveDataTable
             columns={columns}
             data={filteredData}
@@ -559,7 +579,7 @@ export function ReceiptsContent({ initialStats }: ReceiptsContentProps) {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Đóng</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmCancel}>Hủy phiếu</AlertDialogAction>
+            <AlertDialogAction disabled={isCancelling} onClick={confirmCancel}>{isCancelling ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Đang hủy...</> : 'Hủy phiếu'}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -574,7 +594,7 @@ export function ReceiptsContent({ initialStats }: ReceiptsContentProps) {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Đóng</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmBulkCancel}>Hủy tất cả</AlertDialogAction>
+            <AlertDialogAction disabled={isCancelling} onClick={confirmBulkCancel}>{isCancelling ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Đang hủy...</> : 'Hủy tất cả'}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

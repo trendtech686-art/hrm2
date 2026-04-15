@@ -1,6 +1,5 @@
 import * as React from "react";
 import type { Brand } from '../settings/inventory/types';
-import { Card, CardContent, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { TouchButton } from "@/components/mobile/touch-button";
@@ -31,13 +30,12 @@ export const MobileBrandCard = ({ brand, onDelete, onToggleActive, navigate, han
   };
 
   return (
-    <Card 
-      className="hover:shadow-md transition-shadow cursor-pointer"
+    <div 
+      className="rounded-xl border border-border/50 bg-card p-4 active:scale-[0.98] transition-transform touch-manipulation cursor-pointer"
       onClick={() => handleRowClick(brand)}
     >
-      <CardContent className="p-4">
         {/* Header: Logo + Name + Status + Menu */}
-        <div className="flex items-start justify-between gap-3 mb-3">
+        <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3 flex-1 min-w-0">
             <Avatar className="h-12 w-12 shrink-0">
               {brand.logo ? (
@@ -49,13 +47,13 @@ export const MobileBrandCard = ({ brand, onDelete, onToggleActive, navigate, han
             </Avatar>
             <div className="flex flex-col min-w-0">
               <div className="flex items-center gap-2">
-                <CardTitle className="font-semibold text-sm truncate">{brand.name}</CardTitle>
+                <span className="font-semibold text-sm truncate">{brand.name}</span>
                 {brand.isActive !== false ? (
-                  <Badge variant="default" className="bg-green-100 text-green-800 hover:bg-green-100 text-[10px] h-5">
+                  <Badge variant="default" className="bg-green-100 text-green-800 hover:bg-green-100 text-xs h-5">
                     Hoạt động
                   </Badge>
                 ) : (
-                  <Badge variant="secondary" className="bg-gray-100 text-gray-600 text-[10px] h-5">
+                  <Badge variant="secondary" className="bg-gray-100 text-gray-600 text-xs h-5">
                     Tạm tắt
                   </Badge>
                 )}
@@ -69,7 +67,7 @@ export const MobileBrandCard = ({ brand, onDelete, onToggleActive, navigate, han
               <TouchButton
                 variant="ghost"
                 size="sm"
-                className="h-9 w-10 p-0 shrink-0"
+                className="h-8 w-8 p-0 -mr-2 -mt-1 shrink-0"
                 onClick={(e) => e.stopPropagation()}
               >
                 <MoreHorizontal className="h-4 w-4" />
@@ -117,8 +115,7 @@ export const MobileBrandCard = ({ brand, onDelete, onToggleActive, navigate, han
             <Globe className="h-3 w-3 text-muted-foreground shrink-0" />
             <a 
               href={brand.website} 
-              target="_blank" 
-              rel="noopener noreferrer"
+              target="_blank" rel="noopener noreferrer" 
               className="text-primary hover:underline truncate"
               onClick={(e) => e.stopPropagation()}
             >
@@ -129,26 +126,25 @@ export const MobileBrandCard = ({ brand, onDelete, onToggleActive, navigate, han
         )}
 
         {/* Footer: SEO Status + Date */}
-        <div className="flex items-center justify-between pt-3 border-t">
+        <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/50">
           <div className="flex items-center gap-2">
             {/* SEO PKGX */}
             {(brand.websiteSeo?.pkgx?.seoTitle || brand.websiteSeo?.pkgx?.metaDescription || brand.websiteSeo?.pkgx?.slug) && (
-              <Badge variant="outline" className="text-[10px] bg-red-50 text-red-700 border-red-200">
+              <Badge variant="outline" className="text-xs bg-red-50 text-red-700 border-red-200">
                 PKGX
               </Badge>
             )}
             {/* SEO Trendtech */}
             {(brand.websiteSeo?.trendtech?.seoTitle || brand.websiteSeo?.trendtech?.metaDescription || brand.websiteSeo?.trendtech?.slug) && (
-              <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-700 border-blue-200">
+              <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
                 Trendtech
               </Badge>
             )}
           </div>
-          <span className="text-[10px] text-muted-foreground">
+          <span className="text-xs text-muted-foreground">
             Tạo: {formatDate(brand.createdAt)}
           </span>
         </div>
-      </CardContent>
-    </Card>
+    </div>
   );
 };

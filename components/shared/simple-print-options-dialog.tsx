@@ -3,28 +3,30 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Button } from "../ui/button";
 import { Label } from "../ui/label";
 import { Checkbox } from "../ui/checkbox";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "../ui/select";
+import { Input } from "../ui/input";
 import { cn } from "../../lib/utils";
 import { useAllBranches } from "../../features/settings/branches/hooks/use-all-branches";
 import { useSimplePrintOptions } from "../../hooks/use-print-options";
 
-// Paper size options matching the order print dialog
-const PAPER_SIZE_OPTIONS = [
+// Standard paper size options
+const STANDARD_SIZES = [
   { label: 'A4', value: 'A4' },
   { label: 'A5', value: 'A5' },
   { label: 'A6', value: 'A6' },
   { label: 'K80', value: 'K80' },
   { label: 'K57', value: 'K57' },
-  { label: '50x30', value: '50x30' },
 ] as const;
 
 // Use shared PaperSize from printer types
-import type { PaperSize } from '../../features/settings/printer/types';
+import type { PaperSize, PrintOrientation } from '../../features/settings/printer/types';
+import { LABEL_SIZES, isLabelSize } from '../../features/settings/printer/types';
 export type { PaperSize };
 
 export interface SimplePrintOptionsResult {
   branchSystemId: string;
   paperSize: PaperSize;
+  orientation?: PrintOrientation;
 }
 
 interface SimplePrintOptionsDialogProps {
@@ -33,6 +35,8 @@ interface SimplePrintOptionsDialogProps {
   onConfirm: (options: SimplePrintOptionsResult) => void;
   selectedCount: number;
   title?: string;
+  /** Show label size picker (default: true) */
+  showLabelSizes?: boolean;
 }
 
 export function SimplePrintOptionsDialog({
@@ -41,10 +45,12 @@ export function SimplePrintOptionsDialog({
   onConfirm,
   selectedCount,
   title = 'Tùy chọn in',
+  showLabelSizes = true,
 }: SimplePrintOptionsDialogProps) {
-  const { data: branches } = useAllBranches();
+  // ⚡ OPTIMIZED: Only fetch when dialog is open
+  const { data: branches } = useAllBranches({ enabled: open });
   const activeBranches = branches;
-  const [savedDefaults, setSavedDefaults] = useSimplePrintOptions();
+  const [savedDefaults, setSavedDefaults] = useSimplePrintOptions({ enabled: open });
 
   // Find default branch
   const defaultBranch = activeBranches.find(b => b.isDefault)?.systemId ?? activeBranches[0]?.systemId ?? '';
@@ -55,25 +61,45 @@ export function SimplePrintOptionsDialog({
   const [paperSize, setPaperSize] = React.useState<PaperSize>(
     savedDefaults.paperSize || 'A4'
   );
+  const [orientation, setOrientation] = React.useState<PrintOrientation>('portrait');
+  const [customWidth, setCustomWidth] = React.useState('');
+  const [customHeight, setCustomHeight] = React.useState('');
+  const [isCustom, setIsCustom] = React.useState(false);
   const [saveAsDefault, setSaveAsDefault] = React.useState(false);
+
+  const isStandardSize = !isLabelSize(paperSize) && !isCustom;
+  const supportsOrientation = ['A4', 'A5', 'A6'].includes(paperSize);
 
   // Reset form when dialog opens
   React.useEffect(() => {
     if (open) {
+      const savedSize = savedDefaults.paperSize || 'A4';
       setBranchSystemId(savedDefaults.branchSystemId || defaultBranch);
-      setPaperSize(savedDefaults.paperSize || 'A4');
+      setPaperSize(savedSize);
+      setIsCustom(false);
+      setOrientation('portrait');
       setSaveAsDefault(false);
     }
   }, [open, defaultBranch, savedDefaults]);
 
   const handleConfirm = () => {
+    let finalSize = paperSize;
+    if (isCustom && customWidth && customHeight) {
+      const w = parseInt(customWidth);
+      const h = parseInt(customHeight);
+      if (w > 0 && h > 0) {
+        finalSize = `${w}x${h}`;
+      }
+    }
+
     const options: SimplePrintOptionsResult = {
       branchSystemId,
-      paperSize,
+      paperSize: finalSize,
+      orientation: supportsOrientation ? orientation : undefined,
     };
 
     if (saveAsDefault) {
-      setSavedDefaults(options);
+      setSavedDefaults({ branchSystemId, paperSize: finalSize });
     }
 
     onConfirm(options);
@@ -123,27 +149,114 @@ export function SimplePrintOptionsDialog({
             </Select>
           </div>
 
-          {/* Khổ giấy - Button group */}
+          {/* Khổ giấy - Standard sizes */}
           <div className="space-y-3">
-            <Label className="text-muted-foreground">Chọn mẫu in phiếu</Label>
+            <Label className="text-muted-foreground">Khổ giấy</Label>
             <div className="flex flex-wrap gap-2">
-              {PAPER_SIZE_OPTIONS.map(option => (
+              {STANDARD_SIZES.map(option => (
                 <Button
                   key={option.value}
                   type="button"
-                  variant={paperSize === option.value ? "default" : "outline"}
+                  variant={paperSize === option.value && !isCustom ? "default" : "outline"}
                   size="sm"
                   className={cn(
                     "min-w-15",
-                    paperSize === option.value && "bg-primary text-primary-foreground"
+                    paperSize === option.value && !isCustom && "bg-primary text-primary-foreground"
                   )}
-                  onClick={() => setPaperSize(option.value)}
+                  onClick={() => { setPaperSize(option.value); setIsCustom(false); }}
                 >
                   {option.label}
                 </Button>
               ))}
             </div>
           </div>
+
+          {/* Hướng in - chỉ hiện cho A4/A5/A6 */}
+          {supportsOrientation && isStandardSize && (
+            <div className="space-y-3">
+              <Label className="text-muted-foreground">Hướng in</Label>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant={orientation === 'portrait' ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setOrientation('portrait')}
+                >
+                  Dọc
+                </Button>
+                <Button
+                  type="button"
+                  variant={orientation === 'landscape' ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setOrientation('landscape')}
+                >
+                  Ngang
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Khổ tem nhãn */}
+          {showLabelSizes && (
+            <div className="space-y-3">
+              <Label className="text-muted-foreground">Tem nhãn</Label>
+              <div className="flex items-center gap-2">
+                <Select
+                  value={isLabelSize(paperSize) && !isCustom ? paperSize : ''}
+                  onValueChange={(v) => { setPaperSize(v); setIsCustom(false); }}
+                >
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder="Chọn khổ tem nhãn" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {LABEL_SIZES.map(group => (
+                      <SelectGroup key={group.label}>
+                        <SelectLabel>{group.label}</SelectLabel>
+                        {group.sizes.map(s => (
+                          <SelectItem key={s.value} value={s.value}>
+                            {s.label}mm
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  variant={isCustom ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setIsCustom(true)}
+                >
+                  Tùy chỉnh
+                </Button>
+              </div>
+              {/* Custom size inputs */}
+              {isCustom && (
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    min={10}
+                    max={300}
+                    placeholder="Rộng"
+                    value={customWidth}
+                    onChange={(e) => setCustomWidth(e.target.value)}
+                    className="w-24"
+                  />
+                  <span className="text-muted-foreground">×</span>
+                  <Input
+                    type="number"
+                    min={10}
+                    max={300}
+                    placeholder="Cao"
+                    value={customHeight}
+                    onChange={(e) => setCustomHeight(e.target.value)}
+                    className="w-24"
+                  />
+                  <span className="text-sm text-muted-foreground">mm</span>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Save as default checkbox */}
           <div className="flex items-center space-x-2">

@@ -28,6 +28,7 @@ export const INDEXES = {
   CUSTOMERS: 'customers',
   ORDERS: 'orders',
   EMPLOYEES: 'employees',
+  PKGX_PRODUCTS: 'pkgx_products',
 } as const
 
 // ===========================================
@@ -43,6 +44,7 @@ export interface MeiliProduct {
   categoryId: string | null
   categoryName: string | null
   costPrice: number
+  lastPurchasePrice: number // Giá nhập cuối cùng
   price: number // Default selling price
   prices: Record<string, number> // All prices by pricingPolicyId
   unit: string // Unit of measure
@@ -93,6 +95,20 @@ export interface MeiliEmployee {
   position: string | null
   status: string
   createdAt: number
+}
+
+export interface MeiliPkgxProduct {
+  id: number // goods_id from PKGX
+  goodsSn: string | null
+  goodsNumber: string | null
+  name: string
+  catId: number | null
+  catName: string | null
+  brandId: number | null
+  brandName: string | null
+  shopPrice: number
+  hrmProductId: string | null // mapped HRM product systemId
+  syncedAt: number
 }
 
 // ===========================================
@@ -222,6 +238,37 @@ export async function configureIndexes() {
     ],
     typoTolerance: {
       enabled: true,
+    },
+  })
+
+  // PKGX Products index
+  const pkgxProductsIndex = client.index(INDEXES.PKGX_PRODUCTS)
+  await pkgxProductsIndex.updateSettings({
+    searchableAttributes: [
+      'name',
+      'goodsSn',
+      'goodsNumber',
+      'brandName',
+      'catName',
+    ],
+    filterableAttributes: [
+      'catId',
+      'brandId',
+      'hrmProductId',
+    ],
+    sortableAttributes: [
+      'name',
+      'syncedAt',
+    ],
+    typoTolerance: {
+      enabled: true,
+      minWordSizeForTypos: {
+        oneTypo: 3,
+        twoTypos: 6,
+      },
+    },
+    pagination: {
+      maxTotalHits: 10000,
     },
   })
 

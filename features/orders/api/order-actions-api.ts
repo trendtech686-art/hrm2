@@ -305,7 +305,7 @@ export async function confirmCodReconciliation(
     }>;
   }
 ): Promise<{ receiptsCreated: number; ordersUpdated: number }> {
-  const res = await fetch(`${API_BASE}/reconciliation/cod`, {
+  const res = await fetch(`${API_BASE}/cod-reconciliation`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),

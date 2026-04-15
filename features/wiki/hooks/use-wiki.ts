@@ -22,6 +22,7 @@ import {
   type UpdateWikiInput,
   type DeleteWikiInput,
 } from '@/app/actions/wiki';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import type { WikiArticle as Wiki } from '@/lib/types/prisma-extended';
 
 // Helper to convert legacy update format to flat format
@@ -118,7 +119,7 @@ export function useWikiMutations(options: MutationCallbacks = {}) {
   const queryClient = useQueryClient();
 
   const invalidateWiki = () => {
-    queryClient.invalidateQueries({ queryKey: wikiKeys.all });
+    invalidateRelated(queryClient, 'wiki');
   };
 
   const create = useMutation({

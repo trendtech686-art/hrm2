@@ -2,10 +2,13 @@
  * Inventory SLA Settings API Route
  */
 
-import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireAuth, apiError } from '@/lib/api-utils';
+import { requireAuth, apiError, apiSuccess } from '@/lib/api-utils';
 import type { ProductSlaSettings } from '@/features/settings/inventory/types';
+import { generateIdWithPrefix } from '@/lib/id-generator';
+import { logError } from '@/lib/logger'
+import { cache } from '@/lib/cache'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 const SETTINGS_KEY = 'inventory-sla-settings';
 const SETTINGS_GROUP = 'inventory';
@@ -24,20 +27,23 @@ const defaultSettings: ProductSlaSettings = {
 };
 
 export async function GET() {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const setting = await prisma.setting.findFirst({
       where: { key: SETTINGS_KEY },
     });
 
     if (!setting) {
-      return NextResponse.json({ data: defaultSettings });
+      return apiSuccess({ data: defaultSettings });
     }
 
     const data = setting.value as ProductSlaSettings;
-    return NextResponse.json({ data });
+    return apiSuccess({ data });
   } catch (error) {
-    console.error('[API] Error fetching inventory SLA settings:', error);
-    return NextResponse.json({ data: defaultSettings });
+    logError('[API] Error fetching inventory SLA settings', error);
+    return apiSuccess({ data: defaultSettings });
   }
 }
 
@@ -47,6 +53,10 @@ export async function PUT(request: Request) {
 
   try {
     const body = await request.json();
+
+    // Read existing for diff
+    const existingSetting = await prisma.setting.findFirst({ where: { key: SETTINGS_KEY } });
+    const oldSettings = existingSetting ? (existingSetting.value as ProductSlaSettings) : defaultSettings;
     
     const updatedSettings: ProductSlaSettings = {
       ...defaultSettings,
@@ -65,6 +75,7 @@ export async function PUT(request: Request) {
         updatedAt: new Date(),
       },
       create: {
+        systemId: await generateIdWithPrefix('SET_INVSLA', prisma),
         key: SETTINGS_KEY,
         group: SETTINGS_GROUP,
         type: 'json',
@@ -73,12 +84,47 @@ export async function PUT(request: Request) {
       },
     });
 
-    return NextResponse.json(setting.value as ProductSlaSettings);
+    cache.deletePattern('^settings:')
+
+    // Activity log with diff
+    const fieldLabels: Record<string, string> = {
+      defaultReorderLevel: 'Mức đặt lại mặc định',
+      defaultSafetyStock: 'Tồn kho an toàn',
+      defaultMaxStock: 'Tồn kho tối đa',
+      deadStockDays: 'Số ngày tồn đọng',
+      slowMovingDays: 'Số ngày chậm luân chuyển',
+      enableEmailAlerts: 'Gửi email cảnh báo',
+      alertFrequency: 'Tần suất cảnh báo',
+      showOnDashboard: 'Hiển thị trên Dashboard',
+    }
+    const changes: Record<string, { from: unknown; to: unknown }> = {}
+    for (const [key, label] of Object.entries(fieldLabels)) {
+      const oldVal = oldSettings[key as keyof ProductSlaSettings]
+      const newVal = updatedSettings[key as keyof ProductSlaSettings]
+      if (JSON.stringify(oldVal) !== JSON.stringify(newVal)) {
+        if (typeof oldVal === 'boolean') {
+          changes[label] = { from: oldVal ? 'Bật' : 'Tắt', to: (newVal as boolean) ? 'Bật' : 'Tắt' }
+        } else {
+          changes[label] = { from: oldVal, to: newVal }
+        }
+      }
+    }
+
+    if (Object.keys(changes).length > 0) {
+      const changeDetail = Object.keys(changes).join(', ')
+      createActivityLog({
+        entityType: 'inventory_sla_settings',
+        entityId: setting.systemId,
+        action: `Cập nhật cảnh báo tồn kho: ${changeDetail}`,
+        actionType: 'update',
+        changes,
+        createdBy: session.user?.id,
+      }).catch(e => logError('Failed to create activity log', e))
+    }
+
+    return apiSuccess({ data: setting.value as ProductSlaSettings });
   } catch (error) {
-    console.error('[API] Error updating inventory SLA settings:', error);
-    return NextResponse.json(
-      { error: 'Failed to update SLA settings' },
-      { status: 500 }
-    );
+    logError('[API] Error updating inventory SLA settings', error);
+    return apiError('Failed to update SLA settings', 500);
   }
 }

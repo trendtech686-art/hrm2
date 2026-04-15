@@ -9,6 +9,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { getUploadDir } from '@/lib/upload-utils';
 import { requireAuth, apiError } from '@/lib/api-utils';
+import { logError } from '@/lib/logger'
 
 const BRANDING_DIR = path.join(getUploadDir(), 'branding');
 
@@ -69,7 +70,7 @@ export async function GET(
       },
     });
   } catch (error) {
-    console.error('❌ Branding serve error:', error);
+    logError('❌ Branding serve error', error);
     return NextResponse.json(
       { success: false, message: 'Không thể tải file branding' },
       { status: 500 }
@@ -104,7 +105,7 @@ export async function DELETE(
       message: `Đã xóa ${type === 'logo' ? 'logo' : 'favicon'}`
     });
   } catch (error) {
-    console.error('❌ Branding delete error:', error);
+    logError('❌ Branding delete error', error);
     return NextResponse.json(
       { success: false, message: 'Lỗi khi xóa file', error: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }

@@ -12,6 +12,7 @@ import { createOrder, updateOrder, deleteOrder } from '../api/orders-api';
 import { updateOrderStatusAction } from '@/app/actions/orders';
 import { OrderStatus } from '@/generated/prisma/client';
 import { orderKeys } from './use-orders';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 
 interface UseOrderMutationsOptions {
   onCreateSuccess?: (order: unknown) => void;
@@ -48,14 +49,11 @@ interface UseOrderMutationsOptions {
  */
 export function useOrderMutations(options: UseOrderMutationsOptions = {}) {
   const queryClient = useQueryClient();
-  
+
   const create = useMutation({
     mutationFn: createOrder,
     onSuccess: (data) => {
-      // Invalidate orders list to refetch
-      queryClient.invalidateQueries({ queryKey: orderKeys.lists() });
-      // Also invalidate stats
-      queryClient.invalidateQueries({ queryKey: orderKeys.stats() });
+      invalidateRelated(queryClient, 'orders');
       options.onCreateSuccess?.(data);
     },
     onError: options.onError,
@@ -63,13 +61,8 @@ export function useOrderMutations(options: UseOrderMutationsOptions = {}) {
   
   const update = useMutation({
     mutationFn: updateOrder,
-    onSuccess: (data, variables) => {
-      // Invalidate the specific order detail
-      queryClient.invalidateQueries({ queryKey: orderKeys.detail(variables.id) });
-      // Invalidate orders list
-      queryClient.invalidateQueries({ queryKey: orderKeys.lists() });
-      // Invalidate stats in case status changed
-      queryClient.invalidateQueries({ queryKey: orderKeys.stats() });
+    onSuccess: (data) => {
+      invalidateRelated(queryClient, 'orders');
       options.onUpdateSuccess?.(data);
     },
     onError: options.onError,
@@ -108,7 +101,7 @@ export function useOrderMutations(options: UseOrderMutationsOptions = {}) {
       options.onDeleteSuccess?.();
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: orderKeys.all });
+      invalidateRelated(queryClient, 'orders');
     },
   });
   
@@ -156,8 +149,8 @@ export function useOptimisticOrderUpdate() {
       }
     },
     // Refetch after success or error
-    onSettled: (_data, _error, variables) => {
-      queryClient.invalidateQueries({ queryKey: orderKeys.detail(variables.id) });
+    onSettled: () => {
+      invalidateRelated(queryClient, 'orders');
     },
   });
 }
@@ -244,10 +237,8 @@ export function useOptimisticOrderStatusUpdate(options?: {
       options?.onSuccess?.();
     },
     // Refetch to sync with server
-    onSettled: (_data, _error, { systemId }) => {
-      queryClient.invalidateQueries({ queryKey: orderKeys.detail(systemId) });
-      queryClient.invalidateQueries({ queryKey: orderKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: orderKeys.stats() });
+    onSettled: () => {
+      invalidateRelated(queryClient, 'orders');
     },
   });
 }
@@ -303,9 +294,7 @@ export function useDuplicateOrder(options: UseDuplicateOrderOptions = {}) {
       return duplicateOrder(systemId, { notes, preserveNotes });
     },
     onSuccess: (data) => {
-      // Invalidate order lists to show new order
-      queryClient.invalidateQueries({ queryKey: orderKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: orderKeys.stats() });
+      invalidateRelated(queryClient, 'orders');
       options?.onSuccess?.(data);
     },
     onError: (error) => {

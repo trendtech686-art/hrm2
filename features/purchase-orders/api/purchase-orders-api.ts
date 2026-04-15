@@ -55,42 +55,31 @@ export async function fetchPurchaseOrder(id: string): Promise<PurchaseOrder> {
   return res.json();
 }
 
-export async function createPurchaseOrder(data: Partial<PurchaseOrder>): Promise<PurchaseOrder> {
-  const res = await fetch(API_BASE, {
+// Batch import result type
+interface BatchImportResult {
+  success: number;
+  failed: number;
+  inserted: number;
+  updated: number;
+  skipped: number;
+  errors: Array<{ index: number; id?: string; message: string }>;
+}
+
+export async function batchImportPurchaseOrders(
+  purchaseOrders: Record<string, unknown>[],
+  mode: 'insert-only' | 'update-only' | 'upsert',
+): Promise<BatchImportResult> {
+  const res = await fetch(`${API_BASE}/batch-import`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-    body: JSON.stringify(data),
+    body: JSON.stringify({ purchaseOrders, mode }),
   });
+
   if (!res.ok) {
     const error = await res.json().catch(() => ({}));
-    throw new Error(error.error || error.message || `Failed to create purchase order`);
+    throw new Error(error.message || `Batch import failed: ${res.statusText}`);
   }
-  return res.json();
-}
 
-export async function updatePurchaseOrder(systemId: string, data: Partial<PurchaseOrder>): Promise<PurchaseOrder> {
-  const res = await fetch(`${API_BASE}/${systemId}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-    body: JSON.stringify(data),
-  });
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({}));
-    throw new Error(error.message || `Failed to update purchase order`);
-  }
-  return res.json();
-}
-
-export async function deletePurchaseOrder(id: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/${id}`, { method: 'DELETE', credentials: 'include' });
-  if (!res.ok) throw new Error(`Failed to delete purchase order`);
-}
-
-export async function searchPurchaseOrders(query: string, limit = 20): Promise<PurchaseOrder[]> {
-  const res = await fetch(`${API_BASE}?search=${encodeURIComponent(query)}&limit=${limit}`, { credentials: 'include' });
-  if (!res.ok) throw new Error(`Failed to search purchase orders`);
   const json = await res.json();
-  return json.data || [];
+  return json.data ?? json;
 }

@@ -3,6 +3,8 @@ import { Prisma } from '@/generated/prisma/client'
 import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
 import { trendtechSettingsSchema } from './validation'
 import { generateIdWithPrefix } from '@/lib/id-generator'
+import { logError } from '@/lib/logger'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 const SETTING_KEY = 'trendtech-settings'
 const SETTING_GROUP = 'integrations'
@@ -26,7 +28,7 @@ export async function GET() {
 
     return apiSuccess({ data: setting.value })
   } catch (error) {
-    console.error('Error fetching trendtech settings:', error)
+    logError('Error fetching trendtech settings', error)
     return apiError('Failed to fetch trendtech settings', 500)
   }
 }
@@ -78,9 +80,29 @@ export async function PUT(request: Request) {
       },
     })
 
+    // Activity log
+    const oldValue = (existing?.value as Record<string, unknown>) || {}
+    const changes: Record<string, { from: unknown; to: unknown }> = {}
+    for (const key of Object.keys(settings)) {
+      if (JSON.stringify(oldValue[key]) !== JSON.stringify(mergedValue[key as keyof typeof mergedValue])) {
+        changes[key] = { from: oldValue[key] ?? null, to: mergedValue[key as keyof typeof mergedValue] }
+      }
+    }
+    if (Object.keys(changes).length > 0) {
+      const changeDetail = Object.keys(changes).join(', ')
+      createActivityLog({
+        entityType: 'trendtech_settings',
+        entityId: 'trendtech-settings',
+        action: `Cập nhật cài đặt Trendtech: ${changeDetail}`,
+        actionType: 'update',
+        changes,
+        createdBy: session.user?.id ?? '',
+      }).catch(e => logError('[settings/trendtech] activity log failed', e))
+    }
+
     return apiSuccess({ data: setting.value })
   } catch (error) {
-    console.error('Error saving trendtech settings:', error)
+    logError('Error saving trendtech settings', error)
     return apiError('Failed to save trendtech settings', 500)
   }
 }

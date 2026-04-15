@@ -8,6 +8,7 @@
 import * as React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { LucideIcon } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface StatsCardProps {
   title: string;
@@ -33,9 +34,9 @@ export function StatsCard({
   };
 
   return (
-    <Card className={variantClasses[variant]}>
+    <Card className={cn('text-center', variantClasses[variant])}>
       <CardHeader className="pb-3">
-        <CardTitle size="sm" className="flex items-center gap-2">
+        <CardTitle size="sm" className="flex items-center justify-center gap-2">
           <Icon className="h-4 w-4" />
           {title}
         </CardTitle>

@@ -4,7 +4,7 @@ import * as React from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { Plus, XCircle, CheckCircle, Printer, FileSpreadsheet, Download } from 'lucide-react';
+import { Plus, XCircle, CheckCircle, Printer, FileSpreadsheet, Download, Loader2 } from 'lucide-react';
 
 import { useCostAdjustments, useCostAdjustmentMutations } from './hooks/use-cost-adjustments';
 import { useAllCostAdjustments } from './hooks/use-all-cost-adjustments';
@@ -17,9 +17,10 @@ import { asSystemId } from '@/lib/id-types';
 import { usePrint } from '@/lib/use-print';
 import { useAllBranches, useBranchFinder } from '../settings/branches/hooks/use-all-branches';
 import { convertCostAdjustmentForPrint, mapCostAdjustmentToPrintData, mapCostAdjustmentLineItems } from '@/lib/print/cost-adjustment-print-helper';
-import { useStoreInfoData } from '../settings/store-info/hooks/use-store-info';
+import { fetchPrintData } from '@/lib/lazy-print-data';
 import { useColumnLayout } from '@/hooks/use-column-visibility';
 import { useMediaQuery } from '@/lib/use-media-query';
+import { cn } from '@/lib/utils';
 import type { CostAdjustment, CostAdjustmentStatus } from '@/lib/types/prisma-extended';
 
 import { ResponsiveDataTable } from '@/components/data-table/responsive-data-table';
@@ -31,6 +32,8 @@ import { PageFilters } from '@/components/layout/page-filters';
 import { CostAdjustmentCard } from './cost-adjustment-card';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { SimplePrintOptionsDialog, SimplePrintOptionsResult } from '@/components/shared/simple-print-options-dialog';
+import { AdvancedFilterPanel, FilterExtras, type FilterConfig } from '@/components/shared/advanced-filter-panel';
+import { useFilterPresets } from '@/hooks/use-filter-presets';
 
 const CostAdjustmentImportDialog = dynamic(() => import("./components/cost-adjustments-import-export-dialogs").then(mod => ({ default: mod.CostAdjustmentImportDialog })), { ssr: false });
 const CostAdjustmentExportDialog = dynamic(() => import("./components/cost-adjustments-import-export-dialogs").then(mod => ({ default: mod.CostAdjustmentExportDialog })), { ssr: false });
@@ -41,12 +44,15 @@ export function CostAdjustmentListPage() {
     onSuccess: () => toast.success('Cập nhật thành công'),
     onError: (error) => toast.error(error.message),
   });
-  const { employee } = useAuth();
+  const {  employee, can } = useAuth();
+  const canCreate = can('create_cost_adjustments');
+  const canApprove = can('approve_cost_adjustments');
+  const canEditSettings = can('edit_settings');
   const isMobile = !useMediaQuery("(min-width: 768px)");
   const { print, printMultiple } = usePrint();
   const { data: branches } = useAllBranches();
   const { findById: getBranchById } = useBranchFinder();
-  const { info: storeInfo } = useStoreInfoData();
+  // ⚡ OPTIMIZED: storeInfo lazy loaded in print handlers
 
   const [printDialogOpen, setPrintDialogOpen] = React.useState(false);
   const [itemsToPrint, setItemsToPrint] = React.useState<CostAdjustment[]>([]);
@@ -62,6 +68,20 @@ export function CostAdjustmentListPage() {
   const [showImportDialog, setShowImportDialog] = React.useState(false);
   const [showExportDialog, setShowExportDialog] = React.useState(false);
 
+  // Advanced filter panel
+  const { presets, savePreset, deletePreset, updatePreset } = useFilterPresets('cost-adjustments');
+  const filterConfigs: FilterConfig[] = React.useMemo(() => [
+    { id: 'createdDate', label: 'Ngày tạo', type: 'date-range' as const },
+  ], []);
+  const [advancedFilters, setAdvancedFilters] = React.useState<Record<string, unknown>>({});
+  const panelValues = React.useMemo(() => ({
+    createdDate: advancedFilters.createdDate ?? null,
+  }), [advancedFilters]);
+  const handlePanelApply = React.useCallback((v: Record<string, unknown>) => {
+    setAdvancedFilters(v);
+    setPagination(p => ({ ...p, pageIndex: 0 }));
+  }, []);
+
   // Server-side pagination
   const serverFilters = React.useMemo(() => ({
     page: pagination.pageIndex + 1,
@@ -71,7 +91,7 @@ export function CostAdjustmentListPage() {
     sortBy: sorting.id || 'createdAt',
     sortOrder: sorting.desc ? 'desc' as const : 'asc' as const,
   }), [pagination.pageIndex, pagination.pageSize, debouncedGlobalFilter, statusFilter, sorting]);
-  const { data: response, isLoading } = useCostAdjustments(serverFilters);
+  const { data: response, isLoading, isFetching } = useCostAdjustments(serverFilters);
   const tableData = React.useMemo(() => (response?.data ?? []) as CostAdjustment[], [response]);
   const serverTotal = response?.pagination?.total ?? 0;
   const serverPageCount = response?.pagination?.totalPages ?? 0;
@@ -84,15 +104,16 @@ export function CostAdjustmentListPage() {
 
   React.useEffect(() => { const t = setTimeout(() => setDebouncedGlobalFilter(globalFilter), 300); return () => clearTimeout(t); }, [globalFilter]);
 
-  const handleSinglePrint = React.useCallback((adj: CostAdjustment) => {
+  const handleSinglePrint = React.useCallback(async (adj: CostAdjustment) => {
+    const { storeInfo } = await fetchPrintData();
     const st = { name: storeInfo?.companyName || storeInfo?.brandName || '', address: storeInfo?.headquartersAddress || '', phone: storeInfo?.hotline || '', email: storeInfo?.email || '', website: storeInfo?.website, taxCode: storeInfo?.taxCode, province: storeInfo?.province, logo: storeInfo?.logo };
     const d = convertCostAdjustmentForPrint(adj, { creatorName: adj.createdByName ?? undefined });
     print('cost-adjustment', { data: mapCostAdjustmentToPrintData(d, st), lineItems: mapCostAdjustmentLineItems(d.items) });
-  }, [storeInfo, print]);
+  }, [print]);
 
   const columns = React.useMemo(() => getColumns(router.push, handleSinglePrint), [router, handleSinglePrint]);
 
-  const headerActions = React.useMemo(() => [<Button key="add" className="h-9" onClick={() => router.push('/cost-adjustments/new')}><Plus className="mr-2 h-4 w-4" />Tạo phiếu</Button>], [router]);
+  const headerActions = React.useMemo(() => [canCreate && <Button key="add" className="h-9" onClick={() => router.push('/cost-adjustments/new')}><Plus className="mr-2 h-4 w-4" />Tạo phiếu</Button>].filter(Boolean), [router, canCreate]);
   usePageHeader({ title: 'Danh sách điều chỉnh giá vốn', breadcrumb: [{ label: 'Trang chủ', href: ROUTES.ROOT }, { label: 'Điều chỉnh giá vốn', href: '/cost-adjustments', isCurrent: true }], actions: headerActions, showBackButton: false });
 
   const buildDefaultVisibility = React.useCallback(() => { const def = new Set(['id', 'referenceCode', 'createdDate', 'status', 'itemCount', 'totalOldValue', 'totalNewValue', 'difference', 'createdByName', 'reason']); const v: Record<string, boolean> = {}; columns.forEach(c => { if (!c.id) return; v[c.id] = c.id === 'select' || c.id === 'actions' || def.has(c.id); }); return v; }, [columns]);
@@ -140,13 +161,14 @@ export function CostAdjustmentListPage() {
   }, [confirmDialogState, employee, cancel, confirm]);
 
   const handleBulkPrint = React.useCallback(() => { if (allSelectedRows.length === 0) return; setItemsToPrint(allSelectedRows); setPrintDialogOpen(true); }, [allSelectedRows]);
-  const handlePrintConfirm = React.useCallback((r: SimplePrintOptionsResult) => {
+  const handlePrintConfirm = React.useCallback(async (r: SimplePrintOptionsResult) => {
     if (itemsToPrint.length === 0) return;
     const branch = r.branchSystemId ? getBranchById(r.branchSystemId) : null;
+    const { storeInfo } = await fetchPrintData();
     const st = { name: storeInfo?.companyName || storeInfo?.brandName || '', address: storeInfo?.headquartersAddress || '', phone: storeInfo?.hotline || '', email: storeInfo?.email || '', website: storeInfo?.website, taxCode: storeInfo?.taxCode, province: storeInfo?.province, logo: storeInfo?.logo };
     const list = itemsToPrint.map(adj => { const d = convertCostAdjustmentForPrint(adj, { branch, creatorName: adj.createdByName ?? undefined }); return { data: mapCostAdjustmentToPrintData(d, st), lineItems: mapCostAdjustmentLineItems(d.items), paperSize: r.paperSize }; });
     printMultiple('cost-adjustment', list); setPrintDialogOpen(false); setItemsToPrint([]); setRowSelection({}); toast.success(`Đang in ${itemsToPrint.length} phiếu`);
-  }, [itemsToPrint, getBranchById, storeInfo, printMultiple]);
+  }, [itemsToPrint, getBranchById, printMultiple]);
 
   const bulkActions = React.useMemo(() => [{ label: 'In phiếu', icon: Printer, onSelect: handleBulkPrint }, { label: 'Xác nhận', icon: CheckCircle, onSelect: handleBulkConfirm }, { label: 'Hủy phiếu', icon: XCircle, onSelect: handleBulkCancel, variant: 'destructive' as const }], [handleBulkPrint, handleBulkConfirm, handleBulkCancel]);
   const confirmDialogCopy = React.useMemo(() => confirmDialogState ? confirmDialogState.type === 'bulk-cancel' ? { title: 'Hủy nhiều phiếu', description: `Hủy ${confirmDialogState.items.length} phiếu?`, confirmLabel: 'Hủy' } : { title: 'Xác nhận nhiều phiếu', description: `Xác nhận ${confirmDialogState.items.length} phiếu?`, confirmLabel: 'Xác nhận' } : null, [confirmDialogState]);
@@ -158,9 +180,18 @@ export function CostAdjustmentListPage() {
   return (
     <div className="flex flex-col w-full h-full">
       {!isMobile && <PageToolbar leftActions={<><Button variant="outline" size="sm" onClick={() => setShowImportDialog(true)}><FileSpreadsheet className="mr-2 h-4 w-4" />Nhập file</Button><Button variant="outline" size="sm" onClick={() => setShowExportDialog(true)}><Download className="mr-2 h-4 w-4" />Xuất Excel</Button></>} rightActions={<DataTableColumnCustomizer columns={columns} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} onResetToDefault={resetColumnLayout} />} />}
-      <PageFilters searchValue={globalFilter} onSearchChange={setGlobalFilter} searchPlaceholder="Tìm kiếm phiếu điều chỉnh..."><DataTableFacetedFilter title="Trạng thái" options={statusOptions} selectedValues={statusFilter} onSelectedValuesChange={setStatusFilter} /></PageFilters>
-      <div className="w-full py-4"><ResponsiveDataTable columns={columns} data={tableData} isLoading={isLoading} renderMobileCard={adj => <CostAdjustmentCard adjustment={adj} onConfirm={handleConfirmCard} onCancel={handleCancelCard} />} pageCount={serverPageCount} pagination={pagination} setPagination={setPagination} rowCount={serverTotal} rowSelection={rowSelection} setRowSelection={setRowSelection} allSelectedRows={allSelectedRows} bulkActions={bulkActions} showBulkDeleteButton={false} expanded={expanded} setExpanded={setExpanded} sorting={sorting} setSorting={setSorting as React.Dispatch<React.SetStateAction<{ id: string; desc: boolean }>>} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} onRowClick={handleRowClick} /></div>
-      <AlertDialog open={!!confirmDialogState} onOpenChange={o => { if (!o && !isConfirmLoading) setConfirmDialogState(null); }}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>{confirmDialogCopy?.title}</AlertDialogTitle><AlertDialogDescription>{confirmDialogCopy?.description}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel className="h-9" disabled={isConfirmLoading}>Đóng</AlertDialogCancel><AlertDialogAction className="h-9" disabled={isConfirmLoading} onClick={handleConfirmDialogAction}>{isConfirmLoading ? 'Đang xử lý...' : confirmDialogCopy?.confirmLabel}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+      <PageFilters searchValue={globalFilter} onSearchChange={setGlobalFilter} searchPlaceholder="Tìm kiếm phiếu điều chỉnh..."><DataTableFacetedFilter title="Trạng thái" options={statusOptions} selectedValues={statusFilter} onSelectedValuesChange={setStatusFilter} /><AdvancedFilterPanel
+          filters={filterConfigs}
+          values={panelValues}
+          onApply={handlePanelApply}
+          presets={presets.map(p => ({ ...p, filters: p.filters }))}
+          onSavePreset={(preset) => savePreset(preset.name, panelValues)}
+          onDeletePreset={deletePreset}
+          onUpdatePreset={updatePreset}
+        /></PageFilters>
+      <FilterExtras presets={presets} filterConfigs={filterConfigs} values={panelValues} onApply={handlePanelApply} onDeletePreset={deletePreset} />
+      <div className={cn('w-full py-4', isFetching && !isLoading && 'opacity-70 transition-opacity')}><ResponsiveDataTable columns={columns} data={tableData} isLoading={isLoading} renderMobileCard={adj => <CostAdjustmentCard adjustment={adj} onConfirm={handleConfirmCard} onCancel={handleCancelCard} />} pageCount={serverPageCount} pagination={pagination} setPagination={setPagination} rowCount={serverTotal} rowSelection={rowSelection} setRowSelection={setRowSelection} allSelectedRows={allSelectedRows} bulkActions={bulkActions} showBulkDeleteButton={false} expanded={expanded} setExpanded={setExpanded} sorting={sorting} setSorting={setSorting as React.Dispatch<React.SetStateAction<{ id: string; desc: boolean }>>} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} onRowClick={handleRowClick} mobileInfiniteScroll /></div>
+      <AlertDialog open={!!confirmDialogState} onOpenChange={o => { if (!o && !isConfirmLoading) setConfirmDialogState(null); }}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>{confirmDialogCopy?.title}</AlertDialogTitle><AlertDialogDescription>{confirmDialogCopy?.description}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel className="h-9" disabled={isConfirmLoading}>Đóng</AlertDialogCancel><AlertDialogAction className="h-9" disabled={isConfirmLoading} onClick={handleConfirmDialogAction}>{isConfirmLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Đang xử lý...</> : confirmDialogCopy?.confirmLabel}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
       <SimplePrintOptionsDialog open={printDialogOpen} onOpenChange={setPrintDialogOpen} selectedCount={itemsToPrint.length} onConfirm={handlePrintConfirm} title="In phiếu điều chỉnh" />
       <CostAdjustmentImportDialog open={showImportDialog} onOpenChange={setShowImportDialog} branches={branches.map(b => ({ systemId: b.systemId, name: b.name }))} existingData={allAdjustments} onImport={handleImport} currentUser={{ name: employee?.fullName || 'Hệ thống', systemId: employee?.systemId || asSystemId('SYSTEM') }} />
       <CostAdjustmentExportDialog open={showExportDialog} onOpenChange={setShowExportDialog} allData={allAdjustments} filteredData={allAdjustments} currentPageData={tableData} selectedData={allSelectedRows} currentUser={{ name: employee?.fullName || 'Hệ thống', systemId: employee?.systemId || asSystemId('SYSTEM') }} />

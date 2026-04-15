@@ -7,6 +7,8 @@
  * For React components, use the hooks from './hooks/use-sales-management-settings' instead.
  */
 
+import { logError } from '@/lib/logger'
+
 export type PrintCopiesOption = '1' | '2' | '3';
 
 export type SalesManagementSettingsValues = {
@@ -44,7 +46,7 @@ export async function fetchSalesSettingsFromService(): Promise<SalesManagementSe
     const result = await response.json();
     return result.data ?? { ...defaultSalesSettings };
   } catch (error) {
-    console.error('[SalesSettingsService] Failed to fetch:', error);
+    logError('[SalesSettingsService] Failed to fetch', error);
     return { ...defaultSalesSettings };
   }
 }

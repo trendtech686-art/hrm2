@@ -13,7 +13,6 @@ import {
   Plus,
   Save,
   Search,
-  Shield,
   Trash2,
   XCircle,
 } from 'lucide-react';
@@ -39,6 +38,7 @@ import { SettingsActionButton } from '@/components/settings/SettingsActionButton
 import { toast } from 'sonner';
 import { generateSubEntityId } from '@/lib/id-utils';
 import type { TabContentProps } from './types';
+import { logError } from '@/lib/logger'
 
 interface Redirect301 {
   id: string;
@@ -54,11 +54,6 @@ interface WebsiteSettings {
   // Domain
   primaryDomain: string;
   additionalDomains: string[];
-  // SSL
-  sslEnabled: boolean;
-  forceHttps: boolean;
-  sslCertExpiry: string;
-  sslAutoRenew: boolean;
   // 404 Page
   custom404Enabled: boolean;
   custom404Title: string;
@@ -70,10 +65,6 @@ interface WebsiteSettings {
 const DEFAULT_WEBSITE_SETTINGS: WebsiteSettings = {
   primaryDomain: '',
   additionalDomains: [],
-  sslEnabled: true,
-  forceHttps: true,
-  sslCertExpiry: '',
-  sslAutoRenew: true,
   custom404Enabled: false,
   custom404Title: 'Trang không tồn tại',
   custom404Content: '<p>Xin lỗi, trang bạn đang tìm kiếm không tồn tại hoặc đã bị di chuyển.</p>',
@@ -115,7 +106,7 @@ export function WebsiteTabContent({ isActive, onRegisterActions }: TabContentPro
           }
         }
       } catch (error) {
-        console.error('[WebsiteTabContent] Failed to load:', error);
+        logError('[WebsiteTabContent] Failed to load', error);
       } finally {
         setIsLoading(false);
       }
@@ -348,86 +339,6 @@ export function WebsiteTabContent({ isActive, onRegisterActions }: TabContentPro
         </CardContent>
       </Card>
       
-      {/* SSL Settings */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Shield className="h-4 w-4" />
-            Cài đặt SSL/HTTPS
-          </CardTitle>
-          <CardDescription>
-            Bảo mật kết nối với chứng chỉ SSL
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label>Kích hoạt SSL</Label>
-              <p className="text-xs text-muted-foreground">Bật chứng chỉ SSL cho website</p>
-            </div>
-            <Switch 
-              checked={settings.sslEnabled}
-              onCheckedChange={(checked) => handleChange('sslEnabled', checked)}
-            />
-          </div>
-          
-          <Separator />
-          
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label>Bắt buộc HTTPS</Label>
-              <p className="text-xs text-muted-foreground">Tự động chuyển hướng HTTP sang HTTPS</p>
-            </div>
-            <Switch 
-              checked={settings.forceHttps}
-              onCheckedChange={(checked) => handleChange('forceHttps', checked)}
-              disabled={!settings.sslEnabled}
-            />
-          </div>
-          
-          <Separator />
-          
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label>Tự động gia hạn</Label>
-              <p className="text-xs text-muted-foreground">Tự động gia hạn chứng chỉ SSL khi sắp hết hạn</p>
-            </div>
-            <Switch 
-              checked={settings.sslAutoRenew}
-              onCheckedChange={(checked) => handleChange('sslAutoRenew', checked)}
-              disabled={!settings.sslEnabled}
-            />
-          </div>
-          
-          <Separator />
-          
-          <div className="space-y-2">
-            <Label htmlFor="sslCertExpiry">Ngày hết hạn chứng chỉ</Label>
-            <div className="flex items-center gap-3">
-              <Input 
-                id="sslCertExpiry"
-                type="date"
-                value={settings.sslCertExpiry}
-                onChange={(e) => handleChange('sslCertExpiry', e.target.value)}
-                disabled={!settings.sslEnabled}
-                className="max-w-50"
-              />
-              {settings.sslEnabled && settings.sslCertExpiry && (
-                <Badge variant={
-                  new Date(settings.sslCertExpiry) < new Date() ? 'destructive' :
-                  new Date(settings.sslCertExpiry) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) ? 'secondary' :
-                  'default'
-                }>
-                  {new Date(settings.sslCertExpiry) < new Date() ? 'Đã hết hạn' :
-                   new Date(settings.sslCertExpiry) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) ? 'Sắp hết hạn' :
-                   'Còn hiệu lực'}
-                </Badge>
-              )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-      
       {/* 301 Redirects */}
       <Card>
         <CardHeader>
@@ -477,7 +388,7 @@ export function WebsiteTabContent({ isActive, onRegisterActions }: TabContentPro
           </div>
           
           {/* Redirects Table */}
-          <div className="rounded-md border">
+          <div className="rounded-md border overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>

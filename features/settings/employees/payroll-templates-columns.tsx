@@ -83,7 +83,7 @@ export function getPayrollTemplateColumns(handlers: PayrollTemplateHandlers): Co
         <div className="flex justify-end">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button type="button" variant="ghost" size="icon" className="h-8 w-8 p-0">
+              <Button type="button" variant="ghost" size="icon" className="h-8 w-8 p-0" aria-label="Thao tác">
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>

@@ -4,6 +4,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import * as api from '../api/custom-fields-api';
 import type { CustomFieldDefinition } from '../custom-fields-types';
 
@@ -26,18 +27,6 @@ export function useCustomFields() {
   });
 }
 
-/**
- * Hook to fetch single custom field
- */
-export function useCustomFieldById(systemId: string | undefined) {
-  return useQuery({
-    queryKey: customFieldKeys.detail(systemId!),
-    queryFn: () => api.fetchCustomFieldById(systemId!),
-    enabled: !!systemId,
-    staleTime: 1000 * 60 * 5,
-  });
-}
-
 interface MutationCallbacks {
   onSuccess?: () => void;
   onError?: (error: Error) => void;
@@ -49,9 +38,7 @@ interface MutationCallbacks {
 export function useCustomFieldMutations(options: MutationCallbacks = {}) {
   const queryClient = useQueryClient();
 
-  const invalidateFields = () => {
-    queryClient.invalidateQueries({ queryKey: customFieldKeys.all });
-  };
+  const invalidateFields = () => invalidateRelated(queryClient, 'custom-fields');
 
   const create = useMutation({
     mutationFn: api.createCustomField,

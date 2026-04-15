@@ -63,10 +63,11 @@ export function useAllPayments(options: UseAllPaymentsOptions = {}) {
 }
 
 /**
- * Finder hook for looking up payments by systemId
+ * Finder hook for looking up payments by systemId.
+ * Cache-only: subscribes to the query cache but NEVER triggers a fetch.
  */
 export function usePaymentFinder() {
-  const { data: payments = [] } = useAllPayments();
+  const { data: payments = [] } = useAllPayments({ enabled: false });
   
   const findById = React.useCallback((systemId: string): Payment | undefined => {
     return payments.find(p => p.systemId === systemId);

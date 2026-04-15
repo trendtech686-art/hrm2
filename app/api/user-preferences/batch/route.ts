@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
 import { z } from 'zod'
+import { logError } from '@/lib/logger'
 
 const batchGetSchema = z.object({
   userId: z.string(),
@@ -57,7 +58,7 @@ export async function POST(request: Request) {
 
     return apiSuccess(map)
   } catch (error) {
-    console.error('Error fetching batch user preferences:', error)
+    logError('Error fetching batch user preferences', error)
     return apiError('Failed to fetch user preferences', 500)
   }
 }

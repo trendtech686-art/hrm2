@@ -109,7 +109,7 @@ function BrandListItem({
             {brand.name}
           </span>
           {!brand.isActive && (
-            <Badge variant="secondary" className="h-5 text-[10px]">
+            <Badge variant="secondary" className="h-5 text-xs">
               Ẩn
             </Badge>
           )}

@@ -5,6 +5,7 @@
 
 import type { Order } from '@/lib/types/prisma-extended';
 import { formatOrderAddress } from './address-utils';
+import { logError } from '@/lib/logger'
 
 export interface OrderSearchResult {
   value: string;      // systemId
@@ -15,8 +16,13 @@ export interface OrderSearchResult {
 export interface OrderSearchParams {
   query: string;
   limit?: number | undefined;
+  page?: number | undefined;             // Page number for pagination (1-indexed)
   branchSystemId?: string | undefined;  // Filter by branch
   status?: string | undefined;          // Filter by status
+  customerSystemId?: string | undefined; // Filter by customer
+  stockOutStatusNot?: string | undefined; // Exclude stock out status
+  stockOutStatus?: string | undefined;   // Exact match stock out status
+  paymentStatusNot?: string | undefined;  // Exclude payment status
 }
 
 /**
@@ -26,13 +32,18 @@ export interface OrderSearchParams {
 export async function searchOrders(
   params: OrderSearchParams
 ): Promise<OrderSearchResult[]> {
-  const { query, limit = 50, branchSystemId, status } = params;
+  const { query, limit = 50, page, branchSystemId, status, customerSystemId, stockOutStatusNot, stockOutStatus, paymentStatusNot } = params;
   
   const searchParams = new URLSearchParams();
   if (query) searchParams.set('search', query);
   if (limit) searchParams.set('limit', String(limit));
+  if (page && page > 1) searchParams.set('page', String(page));
   if (branchSystemId) searchParams.set('branchSystemId', branchSystemId);
   if (status) searchParams.set('status', status);
+  if (customerSystemId) searchParams.set('customerSystemId', customerSystemId);
+  if (stockOutStatusNot) searchParams.set('stockOutStatusNot', stockOutStatusNot);
+  if (stockOutStatus) searchParams.set('stockOutStatus', stockOutStatus);
+  if (paymentStatusNot) searchParams.set('paymentStatusNot', paymentStatusNot);
   
   try {
     const response = await fetch(`/api/orders?${searchParams}`);
@@ -45,7 +56,7 @@ export async function searchOrders(
     
     return orders.map(orderToSearchResult);
   } catch (error) {
-    console.error('Failed to search orders:', error);
+    logError('Failed to search orders', error);
     return [];
   }
 }
@@ -113,11 +124,69 @@ export async function searchOrdersLegacy(
 function orderToSearchResult(order: Order): OrderSearchResult {
   const amount = order.grandTotal || 0;
   
+  // Format date to dd/MM/yyyy HH:mm
+  let formattedDate = '';
+  try {
+    const d = new Date(order.orderDate);
+    if (!isNaN(d.getTime())) {
+      formattedDate = d.toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    } else {
+      formattedDate = String(order.orderDate);
+    }
+  } catch {
+    formattedDate = String(order.orderDate);
+  }
+  
   return {
     value: order.systemId,
     label: `${order.id} - ${order.customerName}`,
-    subtitle: `${amount.toLocaleString('vi-VN')} đ - ${order.orderDate}`
+    subtitle: `${amount.toLocaleString('vi-VN')} đ - ${formattedDate}`
   };
+}
+
+export interface PaginatedOrderSearchResult {
+  results: OrderSearchResult[];
+  total: number;
+  hasMore: boolean;
+}
+
+/**
+ * Search orders with pagination support (for infinite scroll)
+ */
+export async function searchOrdersPaginated(
+  params: OrderSearchParams & { page?: number }
+): Promise<PaginatedOrderSearchResult> {
+  const { query, limit = 30, branchSystemId, status, customerSystemId, stockOutStatusNot, stockOutStatus, page = 1 } = params;
+  
+  const searchParams = new URLSearchParams();
+  if (query) searchParams.set('search', query);
+  searchParams.set('limit', String(limit));
+  searchParams.set('page', String(page));
+  if (branchSystemId) searchParams.set('branchSystemId', branchSystemId);
+  if (status) searchParams.set('status', status);
+  if (customerSystemId) searchParams.set('customerSystemId', customerSystemId);
+  if (stockOutStatusNot) searchParams.set('stockOutStatusNot', stockOutStatusNot);
+  if (stockOutStatus) searchParams.set('stockOutStatus', stockOutStatus);
+  
+  try {
+    const response = await fetch(`/api/orders?${searchParams}`);
+    if (!response.ok) {
+      throw new Error(`Search failed: ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    const orders: Order[] = data.data || [];
+    const total: number = data.pagination?.total ?? orders.length;
+    
+    return {
+      results: orders.map(orderToSearchResult),
+      total,
+      hasMore: page * limit < total,
+    };
+  } catch (error) {
+    logError('Failed to search orders (paginated)', error);
+    return { results: [], total: 0, hasMore: false };
+  }
 }
 
 /**

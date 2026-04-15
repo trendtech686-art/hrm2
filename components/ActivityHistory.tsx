@@ -25,7 +25,10 @@ import {
   AlertCircle,
   ArrowRight,
   Filter,
+  Loader2,
+  ChevronDown,
 } from 'lucide-react';
+import { Button } from './ui/button';
 import { cn } from '../lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -122,6 +125,11 @@ interface ActivityHistoryProps {
   showMetadata?: boolean;
   groupByDate?: boolean;
   maxHeight?: string;
+  // Pagination options
+  total?: number;
+  hasMore?: boolean;
+  isLoadingMore?: boolean;
+  onLoadMore?: () => void;
 }
 
 /**
@@ -162,6 +170,11 @@ export function ActivityHistory({
   showMetadata = true,
   groupByDate = false,
   maxHeight = '600px',
+  // Pagination
+  total,
+  hasMore = false,
+  isLoadingMore = false,
+  onLoadMore,
 }: ActivityHistoryProps) {
   const [filterAction, setFilterAction] = React.useState<string>('all');
   const [filterUser, setFilterUser] = React.useState<string>('all');
@@ -274,7 +287,7 @@ export function ActivityHistory({
               <>
                 <Avatar className="h-5 w-5">
                   <AvatarImage src={entry.user.avatar} />
-                  <AvatarFallback className="text-[10px]">
+                  <AvatarFallback className="text-xs">
                     {entry.user.name.charAt(0)}
                   </AvatarFallback>
                 </Avatar>
@@ -299,7 +312,7 @@ export function ActivityHistory({
                   })()}
                 </span>
                 {showDate && (
-                  <span className="text-[10px]">
+                  <span className="text-xs">
                     ({formatDateTimeForDisplay(entry.timestamp)})
                   </span>
                 )}
@@ -319,7 +332,9 @@ export function ActivityHistory({
             <History className="h-4 w-4" />
             {title}
           </CardTitle>
-          <Badge variant="secondary">{filteredHistory.length}</Badge>
+          <Badge variant="secondary">
+            {total !== undefined ? `${filteredHistory.length}/${total}` : filteredHistory.length}
+          </Badge>
         </div>
 
         {/* Filters */}
@@ -408,6 +423,31 @@ export function ActivityHistory({
                     {renderHistoryEntry(entry, true)}
                   </div>
                 ))}
+              </div>
+            )}
+            
+            {/* Load More Button */}
+            {hasMore && onLoadMore && (
+              <div className="flex justify-center pt-4 border-t mt-4">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onLoadMore}
+                  disabled={isLoadingMore}
+                  className="gap-2"
+                >
+                  {isLoadingMore ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Đang tải...
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="h-4 w-4" />
+                      Xem thêm ({total !== undefined ? total - filteredHistory.length : '...'} còn lại)
+                    </>
+                  )}
+                </Button>
               </div>
             )}
           </div>

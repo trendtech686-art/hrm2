@@ -8,7 +8,7 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { Calendar, Users, Wallet, MoreHorizontal, Eye, Lock, Unlock, Trash2 } from 'lucide-react';
-import { Card, CardContent } from '../../../components/ui/card';
+
 import { Badge } from '../../../components/ui/badge';
 import { Button } from '../../../components/ui/button';
 import {
@@ -86,18 +86,17 @@ export function BatchCard({ batch, actions }: BatchCardProps) {
   };
 
   return (
-    <Card
-      className="hover:shadow-md transition-shadow cursor-pointer"
+    <div
+      className="rounded-xl border border-border/50 bg-card p-4 active:scale-[0.98] transition-transform touch-manipulation cursor-pointer"
       onClick={handleClick}
     >
-      <CardContent className="p-4">
         {/* Header: Title + Code + Menu */}
         <div className="flex items-start justify-between gap-2 mb-2">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <h3 className="font-semibold text-body-medium truncate">{batch.title}</h3>
+              <h3 className="font-semibold text-sm truncate">{batch.title}</h3>
             </div>
-            <span className="text-body-xs text-muted-foreground font-mono">{batch.id}</span>
+            <span className="text-xs text-muted-foreground font-mono">{batch.id}</span>
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -163,18 +162,18 @@ export function BatchCard({ batch, actions }: BatchCardProps) {
         </div>
 
         {/* Reference Month */}
-        <div className="text-body-xs text-muted-foreground mb-3 flex items-center">
+        <div className="text-xs text-muted-foreground mb-3 flex items-center">
           <Calendar className="h-3 w-3 mr-1.5 flex-shrink-0" />
           <span>{formatMonthKey(batch.referenceAttendanceMonthKeys[0])}</span>
         </div>
 
         {/* Divider */}
-        <div className="border-t mb-3" />
+        <div className="border-t border-border/50 mb-3" />
 
         {/* Info rows */}
         <div className="space-y-2">
           {/* Ngày trả & Số NV */}
-          <div className="flex items-center justify-between text-body-xs">
+          <div className="flex items-center justify-between text-xs">
             <div className="flex items-center text-muted-foreground">
               <Calendar className="h-3 w-3 mr-1.5" />
               <span>Ngày trả: {formatDate(batch.payrollDate)}</span>
@@ -186,17 +185,16 @@ export function BatchCard({ batch, actions }: BatchCardProps) {
           </div>
 
           {/* Tổng thực lĩnh & Status */}
-          <div className="flex items-center justify-between text-body-xs pt-1">
+          <div className="flex items-center justify-between text-xs pt-1">
             <div className="flex items-center font-semibold text-primary">
               <Wallet className="h-3 w-3 mr-1.5" />
               <span>{formatCurrency(batch.totalNet)}</span>
             </div>
-            <Badge variant={getStatusVariant(batch.status)} className="text-body-xs">
+            <Badge variant={getStatusVariant(batch.status)} className="text-xs">
               {getStatusLabel(batch.status)}
             </Badge>
           </div>
         </div>
-      </CardContent>
-    </Card>
+    </div>
   );
 }

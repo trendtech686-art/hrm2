@@ -14,7 +14,6 @@ import { toast } from 'sonner';
 import { formatDateCustom, getCurrentDate } from '@/lib/date-utils';
 import { asBusinessId, asSystemId } from '@/lib/id-types';
 import type { PurchaseOrder } from '@/lib/types/prisma-extended';
-import { useAllPurchaseOrders } from './use-all-purchase-orders';
 import { usePurchaseOrderMutations } from '../hooks/use-purchase-orders';
 import { useAllPayments } from '@/features/payments/hooks/use-all-payments';
 import { usePaymentMutations } from '@/features/payments/hooks/use-payments';
@@ -29,28 +28,36 @@ import type { Payment } from '@/features/payments/types';
 import { usePurchaseOrderReceiveWorkflow, type ReceiveDialogState, type ReceiveLineItemForm } from './use-po-receive-workflow';
 import { usePurchaseOrderCancelWorkflow, type CancelPODialogState } from './use-po-cancel-workflow';
 import { usePurchaseOrderPrintHandlers } from './use-po-print-handlers';
+import { logError } from '@/lib/logger'
+import { usePaginationWithGlobalDefault } from '@/features/settings/global/hooks/use-global-settings';
 
 export type { ReceiveDialogState, ReceiveLineItemForm, CancelPODialogState };
 
+interface PageHandlersOptions {
+  /** Paginated data from the page - used for row selection. Pass this to avoid loading ALL data */
+  paginatedData?: PurchaseOrder[];
+}
+
 /**
  * Main hook combining all PurchaseOrders page handlers
+ * 
+ * @param options.paginatedData - REQUIRED: Pass paginated data to avoid loading ALL purchase orders
  */
-export function usePurchaseOrdersPageHandlers() {
+export function usePurchaseOrdersPageHandlers(options?: PageHandlersOptions) {
   const router = useRouter();
-  const { data: purchaseOrders } = useAllPurchaseOrders();
+  // ⚡ OPTIMIZED: Use paginated data from page instead of loading all data
+  const paginatedData = options?.paginatedData || [];
   const { update: updatePO } = usePurchaseOrderMutations({});
   
   // Row selection state - defined early so we can conditionally load payments
   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
   const [isBulkPayAlertOpen, setIsBulkPayAlertOpen] = React.useState(false);
   
-  // ⚡ PERFORMANCE: Only load payments when bulk pay dialog is open
-  // This is a bulk operation that genuinely needs all payments for selected POs
+  // ⚡ PERFORMANCE: Only load bulk-pay data when dialog is open
   const { data: allPayments } = useAllPayments({ enabled: isBulkPayAlertOpen });
-  
-  const { accounts } = useAllCashAccounts();
-  const { data: paymentTypes } = useAllPaymentTypes();
-  const { data: allPurchaseReturns } = useAllPurchaseReturns();
+  const { accounts } = useAllCashAccounts({ enabled: isBulkPayAlertOpen });
+  const { data: paymentTypes } = useAllPaymentTypes({ enabled: isBulkPayAlertOpen });
+  const { data: allPurchaseReturns } = useAllPurchaseReturns({ enabled: isBulkPayAlertOpen });
   const { employee: loggedInUser } = useAuth();
   
   const { create: createPayment } = usePaymentMutations({});
@@ -73,15 +80,18 @@ export function usePurchaseOrdersPageHandlers() {
     // Note: This is handled by React Query invalidation
   }, []);
 
-  // Sub-workflows
-  const receiveWorkflow = usePurchaseOrderReceiveWorkflow();
-  const cancelWorkflow = usePurchaseOrderCancelWorkflow();
-  const printHandlers = usePurchaseOrderPrintHandlers();
+  // ⚡ Track if receive action is in progress to lazy-load inventory receipts data
+  const [isReceiveActive, setIsReceiveActive] = React.useState(false);
 
-  // Computed values
+  // Sub-workflows - print handlers always enabled (common action), receive lazy-loaded
+  const receiveWorkflow = usePurchaseOrderReceiveWorkflow({ enabled: isReceiveActive });
+  const cancelWorkflow = usePurchaseOrderCancelWorkflow();
+  const printHandlers = usePurchaseOrderPrintHandlers(); // Default enabled for quick print
+
+  // Computed values - use paginated data instead of all data
   const selectedOrders = React.useMemo(() => {
-    return purchaseOrders.filter(o => rowSelection[o.systemId]);
-  }, [purchaseOrders, rowSelection]);
+    return paginatedData.filter(o => rowSelection[o.systemId]);
+  }, [paginatedData, rowSelection]);
 
   const numSelected = Object.keys(rowSelection).filter(k => rowSelection[k]).length;
 
@@ -90,9 +100,11 @@ export function usePurchaseOrdersPageHandlers() {
     cancelWorkflow.handleCancelRequest(po);
   }, [cancelWorkflow]);
 
-  // Handler: Start receive goods
+  // Handler: Start receive goods - enable lazy loading first
   const handleReceiveGoods = React.useCallback((po: PurchaseOrder) => {
-    receiveWorkflow.beginReceiveFlow([po]);
+    setIsReceiveActive(true);
+    // Small delay to let data load before opening dialog
+    setTimeout(() => receiveWorkflow.beginReceiveFlow([po]), 50);
   }, [receiveWorkflow]);
 
   // Handler: View payment details
@@ -160,7 +172,7 @@ export function usePurchaseOrdersPageHandlers() {
         const account = accounts.find(acc => acc.type === 'bank' && acc.branchSystemId === po.branchSystemId) 
           || accounts.find(acc => acc.type === 'bank');
         if (!account) {
-          console.error(`Không tìm thấy tài khoản ngân hàng cho chi nhánh ${po.branchName}`);
+          logError(`Không tìm thấy tài khoản ngân hàng cho chi nhánh ${po.branchName}`, null);
           return;
         }
 
@@ -186,6 +198,7 @@ export function usePurchaseOrdersPageHandlers() {
           status: 'completed' as const,
           category: 'supplier_payment' as const,
           affectsDebt: true,
+          affectsBusinessReport: false,
           purchaseOrderSystemId: asSystemId(po.systemId),
           purchaseOrderId: asBusinessId(po.id),
           originalDocumentId: po.id,
@@ -270,7 +283,9 @@ export function usePurchaseOrdersFilters() {
   const [branchFilter, setBranchFilter] = React.useState('all');
   const [statusFilter, setStatusFilter] = React.useState('all');
   const [paymentStatusFilter, setPaymentStatusFilter] = React.useState('all');
-  const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 10 });
+  const [supplierFilter, setSupplierFilter] = React.useState('all');
+  const [dateRange, setDateRange] = React.useState<{ from?: string; to?: string } | null>(null);
+  const [pagination, setPagination] = usePaginationWithGlobalDefault();
 
   // Mobile infinite scroll state
   const [mobileLoadedCount, setMobileLoadedCount] = React.useState(20);
@@ -278,7 +293,7 @@ export function usePurchaseOrdersFilters() {
   // Reset mobile loaded count when filters change
   React.useEffect(() => {
     setMobileLoadedCount(20);
-  }, [globalFilter, branchFilter, statusFilter, paymentStatusFilter]);
+  }, [globalFilter, branchFilter, statusFilter, paymentStatusFilter, supplierFilter, dateRange]);
 
   return {
     sorting,
@@ -291,6 +306,10 @@ export function usePurchaseOrdersFilters() {
     setStatusFilter,
     paymentStatusFilter,
     setPaymentStatusFilter,
+    supplierFilter,
+    setSupplierFilter,
+    dateRange,
+    setDateRange,
     pagination,
     setPagination,
     mobileLoadedCount,

@@ -37,19 +37,10 @@ const DateTimePickerPopoverTrigger = PopoverPrimitive.Trigger;
 const DateTimePickerPopoverContent = React.forwardRef<
   React.ElementRef<typeof PopoverPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof PopoverPrimitive.Content> & { id?: string }
->(({ className, align = "center", sideOffset = 4, id = "date-time-picker", ...props }, ref) => {
-  const [open, setOpen] = React.useState(false);
-  const dataState = props["data-state"];
-  React.useEffect(() => {
-    if (dataState === "open") {
-      setOpen(true);
-    } else {
-      setOpen(false);
-    }
-  }, [dataState]);
-  
-  // Sử dụng modal context để quản lý z-index mà không có overlay
-  const { zIndex } = useModal(id, open, 'popover');
+>(({ className, align = "center", sideOffset = 4, id = "date-time-picker", style: propStyle, ...props }, ref) => {
+  // Radix only mounts Content when open (via Presence),
+  // so always register as open. Cleanup runs on unmount (close).
+  const { zIndex } = useModal(id, true, 'popover');
   
   return (
     <PopoverPrimitive.Portal>
@@ -62,8 +53,8 @@ const DateTimePickerPopoverContent = React.forwardRef<
           "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
           className
         )}
-        style={{ zIndex }}
         {...props}
+        style={{ ...propStyle, zIndex }}
       />
     </PopoverPrimitive.Portal>
   );

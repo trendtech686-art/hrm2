@@ -1,6 +1,7 @@
 /**
  * Order Print Button with Dropdown
- * Nút In với dropdown menu để chọn khổ giấy
+ * Nút In với dropdown menu để chọn khổ giấy + Xuất Excel hóa đơn
+ * ✅ Dùng chung hook useOrderPrintHandlers — không còn usePrint() riêng
  */
 
 import * as React from 'react';
@@ -9,64 +10,87 @@ import {
   DropdownMenu, 
   DropdownMenuContent, 
   DropdownMenuItem, 
-  DropdownMenuTrigger 
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from '../../../components/ui/dropdown-menu';
-import { Printer, ChevronDown, Check } from 'lucide-react';
-import { usePrint } from '../../../lib/use-print';
+import { Printer, ChevronDown, Tag, FileSpreadsheet, Warehouse, FileText, ClipboardCheck } from 'lucide-react';
+import { toast } from 'sonner';
 import type { PaperSize } from '../../settings/printer/types';
 import type { Order } from '../types';
-import type { Customer } from '../../customers/types';
-import type { Branch } from '../../settings/branches/types';
-import type { Employee } from '../../employees/types';
-import { 
-  convertOrderForPrint,
-  mapOrderToPrintData,
-  mapOrderLineItems,
-  createStoreSettings,
-} from '../../../lib/print/order-print-helper';
+import { useOrderPrintHandlers } from '../hooks/use-order-print-handlers';
+import { useAllTaxesData } from '../../settings/taxes/hooks/use-all-taxes';
+import { useStoreInfoData } from '../../settings/store-info/hooks/use-store-info';
+import { exportInvoiceExcel, type InvoiceExportMode } from '@/lib/invoice-export';
 
 const PAPER_SIZES: { value: PaperSize; label: string }[] = [
-  { value: 'K57', label: 'K57 (57mm)' },
-  { value: 'K80', label: 'K80 (80mm)' },
-  { value: 'A5', label: 'A5' },
-  { value: 'A4', label: 'A4' },
+  { value: 'A4', label: 'In hóa đơn bán hàng' },
 ];
 
 interface OrderPrintButtonProps {
   order: Order;
-  customer?: Customer | null;
-  branch?: Branch | null;
-  createdByEmployee?: Employee | null;
-  logoUrl?: string | null;
+  onPrintProductLabels?: () => void;
 }
 
 export function OrderPrintButton({
   order,
-  customer,
-  branch,
-  createdByEmployee,
-  logoUrl,
+  onPrintProductLabels,
 }: OrderPrintButtonProps) {
-  const { print, getDefaultSize } = usePrint(branch?.systemId);
+  const { handlePrintOrder } = useOrderPrintHandlers();
+  const { getDefaultExcelExport } = useAllTaxesData();
+  const { info: storeInfo } = useStoreInfoData();
+  const [isExporting, setIsExporting] = React.useState(false);
 
   const handlePrint = React.useCallback((paperSize?: PaperSize) => {
-    const storeSettings = createStoreSettings(branch, { logo: logoUrl });
-    const size = paperSize || getDefaultSize('order');
-    const orderData = convertOrderForPrint(order, { customer, createdByEmployee });
-    
-    print('order', {
-      data: mapOrderToPrintData(orderData, storeSettings),
-      lineItems: mapOrderLineItems(orderData.items),
-      paperSize: size,
-    });
-  }, [order, customer, branch, createdByEmployee, logoUrl, print, getDefaultSize]);
+    handlePrintOrder(order, paperSize);
+  }, [order, handlePrintOrder]);
 
-  // In đơn hàng mặc định
   const handleDefaultPrint = React.useCallback(() => {
     handlePrint();
   }, [handlePrint]);
 
-  const defaultSize = getDefaultSize('order');
+  const handleExportInvoice = React.useCallback(async (mode: InvoiceExportMode) => {
+    if (isExporting) return;
+
+    const excelTax = getDefaultExcelExport();
+    const vatRate = excelTax ? Number(excelTax.rate) : 0;
+
+    if (mode === 'full-vat' && vatRate === 0) {
+      toast.error('Chưa cài đặt thuế mặc định xuất Excel', {
+        description: 'Vui lòng vào Cài đặt > Giá & Thuế > bật cột MĐ xuất Excel cho thuế suất mong muốn.',
+      });
+      return;
+    }
+
+    setIsExporting(true);
+    try {
+      const result = await exportInvoiceExcel({ order, storeInfo, mode, vatRate });
+      toast.success('Xuất hóa đơn thành công', {
+        description: result.fileName,
+      });
+      // Log activity
+      try {
+        const label = mode === 'full-vat' ? 'Xuất Excel Full VAT' : 'Xuất Excel chưa VAT';
+        await fetch('/api/activity-logs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            entityType: 'order',
+            entityId: order.systemId,
+            action: label,
+            actionType: 'system',
+            note: `${label} - ${result.fileName}`,
+          }),
+        });
+        window.dispatchEvent(new CustomEvent('activity-log-updated', {
+          detail: { entityType: 'order', entityId: order.systemId },
+        }));
+      } catch { /* ignore log errors */ }
+    } catch (error) {
+      toast.error('Không thể xuất hóa đơn');
+    } finally {
+      setIsExporting(false);
+    }
+  }, [order, storeInfo, getDefaultExcelExport, isExporting]);
 
   return (
     <div className="flex">
@@ -98,11 +122,47 @@ export function OrderPrintButton({
               key={size.value}
               onClick={() => handlePrint(size.value)}
             >
-              {size.value === defaultSize && <Check className="mr-2 h-4 w-4" />}
-              {size.value !== defaultSize && <span className="mr-6" />}
+              <Printer className="mr-2 h-4 w-4" />
               {size.label}
             </DropdownMenuItem>
           ))}
+          {onPrintProductLabels && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={onPrintProductLabels}>
+                <Tag className="mr-2 h-4 w-4" />
+                In tem phụ
+              </DropdownMenuItem>
+            </>
+          )}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => handlePrintOrder(order, undefined, 'stock-out')}>
+            <Warehouse className="mr-2 h-4 w-4" />
+            In phiếu xuất kho
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => handlePrintOrder(order, undefined, 'sales-contract')}>
+            <FileText className="mr-2 h-4 w-4" />
+            In hợp đồng mua bán
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => handlePrintOrder(order, undefined, 'goods-handover-report')}>
+            <ClipboardCheck className="mr-2 h-4 w-4" />
+            In biên bản giao nhận
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onClick={() => handleExportInvoice('no-vat')}
+            disabled={isExporting}
+          >
+            <FileSpreadsheet className="mr-2 h-4 w-4" />
+            Xuất Excel chưa VAT
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() => handleExportInvoice('full-vat')}
+            disabled={isExporting}
+          >
+            <FileSpreadsheet className="mr-2 h-4 w-4" />
+            Xuất Excel Full VAT
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </div>

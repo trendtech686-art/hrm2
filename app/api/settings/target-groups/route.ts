@@ -1,5 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { apiError, apiSuccess, requireAuth, parsePagination } from '@/lib/api-utils'
+import { logError } from '@/lib/logger'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 const TYPE = 'target-group'
 
@@ -45,7 +47,7 @@ export async function GET(request: Request) {
     const data = rows.map(r => mapRecord(r as unknown as SettingsDataRecord))
     return apiSuccess({ data, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } })
   } catch (error) {
-    console.error('[target-groups] GET error:', error)
+    logError('[target-groups] GET error', error)
     return apiError('Failed to fetch target groups', 500)
   }
 }
@@ -73,9 +75,17 @@ export async function POST(request: Request) {
       },
     })
 
+    createActivityLog({
+      entityType: 'target_group',
+      entityId: created.systemId,
+      action: `Thêm nhóm đối tượng: ${name}`,
+      actionType: 'create',
+      createdBy: session.user?.id,
+    }).catch(e => logError('[target-groups] activity log failed', e))
+
     return apiSuccess({ data: mapRecord(created as unknown as SettingsDataRecord) }, 201)
   } catch (error: unknown) {
-    console.error('[target-groups] POST error:', error)
+    logError('[target-groups] POST error', error)
     const errorMessage = error instanceof Error ? error.message : undefined;
     return apiError('Failed to create target group', 500, errorMessage)
   }

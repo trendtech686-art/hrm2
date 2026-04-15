@@ -33,8 +33,11 @@ export interface GlobalShippingConfig {
   note: string;
   autoSyncCancelStatus: boolean;
   autoSyncCODCollection: boolean;
+  autoCreateReconciliationSheet: boolean;
   latePickupWarningDays: number;
   lateDeliveryWarningDays: number;
+  /** Chế độ gửi sản phẩm qua API vận chuyển: 'all' = toàn bộ SP, 'single' = gộp thành 1 SP "Phụ Kiện" */
+  productSendMode: 'all' | 'single';
 }
 
 /**
@@ -124,6 +127,60 @@ export interface GHTKDefaultSettings {
 }
 
 /**
+ * Default shipping settings for J&T Express
+ */
+export interface JNTDefaultSettings {
+  // Loại dịch vụ
+  serviceType?: 1 | 6 | undefined; // 1=Pickup (lấy hàng), 6=Drop-off (gửi tại bưu cục)
+
+  // Express type
+  expressType?: string | undefined; // '1' = EZ (Regular)
+
+  // Default origin code
+  originCode?: string | undefined; // City code e.g. 'SGN'
+
+  // Default sender info
+  defaultShipperName?: string | undefined;
+  defaultShipperContact?: string | undefined;
+  defaultShipperPhone?: string | undefined;
+  defaultShipperAddr?: string | undefined;
+}
+
+/**
+ * Default shipping settings for GHN
+ */
+export interface GHNDefaultSettings {
+  // Loại dịch vụ
+  serviceTypeId?: 2 | 5 | undefined; // 2=Express (hỏa tốc), 5=Standard (tiêu chuẩn)
+
+  // Người trả phí ship
+  paymentTypeId?: 1 | 2 | undefined; // 1=Shop trả, 2=Người nhận trả
+
+  // Yêu cầu giao hàng
+  requiredNote?: 'CHOTHUHANG' | 'CHOXEMHANGKHONGTHU' | 'KHONGCHOXEMHANG' | undefined;
+
+  // Môi trường
+  environment?: 'staging' | 'production' | undefined;
+}
+
+/**
+ * Default shipping settings for VTP (Viettel Post)
+ */
+export interface VTPDefaultSettings {
+  // Loại sản phẩm
+  productType?: 'VCN' | 'VTK' | undefined; // VCN=Nhanh, VTK=Tiết kiệm
+
+  // Hình thức thanh toán
+  orderPayment?: 1 | 2 | 3 | undefined; // 1=Người gửi, 2=Người nhận, 3=Cả 2
+
+  // Mã dịch vụ chính
+  orderService?: string | undefined; // VCN, VTK, VHT, VBS, LCOD, VBE
+
+  // Môi trường
+  environment?: 'staging' | 'production' | undefined;
+}
+
+/**
  * Partner account with credentials
  */
 export interface PartnerAccount {
@@ -160,9 +217,6 @@ export interface ShippingConfig {
     VTP: PartnerConfig;
     'J&T': PartnerConfig;
     SPX: PartnerConfig;
-    VNPOST: PartnerConfig;
-    NINJA_VAN: PartnerConfig;
-    AHAMOVE: PartnerConfig;
   };
   global: GlobalShippingConfig;
   lastUpdated: string;

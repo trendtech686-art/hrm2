@@ -4,7 +4,6 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { ROUTES, generatePath } from '../../../lib/router';
 import { formatDateCustom } from '../../../lib/date-utils';
-import { Card, CardContent, CardTitle } from '../../../components/ui/card';
 import { Avatar, AvatarFallback } from '../../../components/ui/avatar';
 import { Badge } from '../../../components/ui/badge';
 import { TouchButton } from '../../../components/mobile/touch-button';
@@ -29,6 +28,8 @@ interface MobileTransactionCardProps {
   paymentTypes: Array<{ systemId: string; name: string }>;
   onEdit: (transaction: CashbookTransaction) => void;
   onCancel: (systemId: string) => void;
+  canEdit?: boolean;
+  canCancel?: boolean;
 }
 
 export function MobileTransactionCard({
@@ -38,6 +39,8 @@ export function MobileTransactionCard({
   paymentTypes: _paymentTypes,
   onEdit,
   onCancel,
+  canEdit = true,
+  canCancel = true,
 }: MobileTransactionCardProps) {
   const router = useRouter();
   const branch = branches.find(b => b.systemId === transaction.branchSystemId);
@@ -48,26 +51,25 @@ export function MobileTransactionCard({
   const viewRoute = isReceipt ? ROUTES.FINANCE.RECEIPT_VIEW : ROUTES.FINANCE.PAYMENT_VIEW;
 
   return (
-    <Card
-      className="hover:shadow-md transition-shadow cursor-pointer"
+    <div
+      className="rounded-xl border border-border/50 bg-card p-4 active:scale-[0.98] transition-transform touch-manipulation cursor-pointer"
       onClick={() => router.push(generatePath(viewRoute, { systemId: transaction.systemId }))}
     >
-      <CardContent className="p-4">
-        {/* Header: Icon + ID + Type + Menu */}
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            <Avatar className={`h-8 w-8 shrink-0 ${isReceipt ? 'bg-emerald-500/10' : 'bg-destructive/10'}`}>
-              <AvatarFallback className={isReceipt ? 'bg-emerald-500/10 text-emerald-600' : 'bg-destructive/10 text-destructive'}>
-                {isReceipt ? <DollarSign className="h-4 w-4" /> : <CreditCard className="h-4 w-4" />}
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex items-center gap-1.5 min-w-0 flex-1">
-              <CardTitle className="font-semibold text-sm">{transaction?.id || 'N/A'}</CardTitle>
-              <Badge variant={isReceipt ? "default" : "destructive"} className="text-xs">
-                {isReceipt ? 'Thu' : 'Chi'}
-              </Badge>
-            </div>
+      {/* Header: Icon + ID + Type + Menu */}
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <Avatar className={`h-9 w-9 shrink-0 ${isReceipt ? 'bg-emerald-500/10' : 'bg-destructive/10'}`}>
+            <AvatarFallback className={isReceipt ? 'bg-emerald-500/10 text-emerald-600' : 'bg-destructive/10 text-destructive'}>
+              {isReceipt ? <DollarSign className="h-4 w-4" /> : <CreditCard className="h-4 w-4" />}
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex items-center gap-1.5 min-w-0 flex-1">
+            <h3 className="font-semibold text-sm">{transaction?.id || 'N/A'}</h3>
+            <Badge variant={isReceipt ? "default" : "destructive"} className="text-xs">
+              {isReceipt ? 'Thu' : 'Chi'}
+            </Badge>
           </div>
+        </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <TouchButton
@@ -84,60 +86,62 @@ export function MobileTransactionCard({
                 <Eye className="mr-2 h-4 w-4" />
                 Xem chi tiết
               </DropdownMenuItem>
+              {canEdit && (
               <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit(transaction); }}>
                 <Edit className="mr-2 h-4 w-4" />
                 Chỉnh sửa
               </DropdownMenuItem>
+              )}
+              {canCancel && (
+              <>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onCancel(transaction.systemId); }} className="text-red-600">
                 <Trash className="mr-2 h-4 w-4" />
                 Hủy giao dịch
               </DropdownMenuItem>
+              </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
 
-        {/* Amount + Date */}
-        <div className="mb-3">
-          <div className={`text-lg font-bold ${isReceipt ? 'text-emerald-600' : 'text-destructive'}`}>
-            {isReceipt ? '+' : '-'}{formatCurrency(transaction.amount)}
-          </div>
-          <div className="text-xs text-muted-foreground flex items-center mt-1">
-            <Calendar className="h-3 w-3 mr-1.5" />
-            {formatDateCustom(new Date(transaction.date), 'dd/MM/yyyy')}
-          </div>
+      {/* Amount + Date */}
+      <div className="mb-3">
+        <div className={`text-lg font-bold ${isReceipt ? 'text-emerald-600' : 'text-destructive'}`}>
+          {isReceipt ? '+' : '-'}{formatCurrency(transaction.amount)}
         </div>
-
-        {/* Divider */}
-        <div className="border-t mb-3" />
-
-        {/* Details */}
-        <div className="space-y-2">
-          {transaction.targetName && (
-            <div className="flex items-center text-xs text-muted-foreground">
-              <User className="h-3 w-3 mr-1.5 shrink-0" />
-              <span className="truncate">{transaction.targetName}</span>
-            </div>
-          )}
-          {voucherTypeName && (
-            <div className="flex items-center text-xs text-muted-foreground">
-              <FileText className="h-3 w-3 mr-1.5 shrink-0" />
-              <span className="truncate">{voucherTypeName}</span>
-            </div>
-          )}
-          {branch && (
-            <div className="flex items-center text-xs text-muted-foreground">
-              <Building2 className="h-3 w-3 mr-1.5 shrink-0" />
-              <span className="truncate">{branch.name}</span>
-            </div>
-          )}
-          {transaction.originalDocumentId && (
-            <div className="text-xs text-muted-foreground">
-              CT: <span className="font-mono font-medium">{transaction.originalDocumentId}</span>
-            </div>
-          )}
+        <div className="text-xs text-muted-foreground flex items-center mt-1">
+          <Calendar className="h-3 w-3 mr-1.5" />
+          {formatDateCustom(new Date(transaction.date), 'dd/MM/yyyy')}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+
+      {/* Details */}
+      <div className="space-y-1.5 mt-3 pt-3 border-t border-border/50">
+        {transaction.targetName && (
+          <div className="flex items-center text-xs text-muted-foreground">
+            <User className="h-3 w-3 mr-1.5 shrink-0" />
+            <span className="truncate">{transaction.targetName}</span>
+          </div>
+        )}
+        {voucherTypeName && (
+          <div className="flex items-center text-xs text-muted-foreground">
+            <FileText className="h-3 w-3 mr-1.5 shrink-0" />
+            <span className="truncate">{voucherTypeName}</span>
+          </div>
+        )}
+        {branch && (
+          <div className="flex items-center text-xs text-muted-foreground">
+            <Building2 className="h-3 w-3 mr-1.5 shrink-0" />
+            <span className="truncate">{branch.name}</span>
+          </div>
+        )}
+        {transaction.originalDocumentId && (
+          <div className="text-xs text-muted-foreground">
+            CT: <span className="font-mono font-medium">{transaction.originalDocumentId}</span>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

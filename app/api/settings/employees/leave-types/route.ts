@@ -1,6 +1,8 @@
 import { prisma } from '@/lib/prisma'
 import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
 import { NextRequest } from 'next/server'
+import { logError } from '@/lib/logger'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 // GET /api/settings/employees/leave-types - Get all leave types from SettingsData
 export async function GET() {
@@ -36,7 +38,7 @@ export async function GET() {
 
     return apiSuccess(transformed)
   } catch (error) {
-    console.error('Error fetching leave types:', error)
+    logError('Error fetching leave types', error)
     return apiError('Failed to fetch leave types', 500)
   }
 }
@@ -67,6 +69,20 @@ export async function POST(request: NextRequest) {
       },
     })
 
+    await createActivityLog({
+      entityType: 'leave_type',
+      entityId: leaveType.systemId,
+      action: `Thêm loại nghỉ phép: ${leaveType.name}`,
+      actionType: 'create',
+      changes: {
+        'Tên': { from: null, to: leaveType.name },
+        ...(body.numberOfDays ? { 'Số ngày': { from: null, to: body.numberOfDays } } : {}),
+        ...(body.isPaid !== undefined ? { 'Hưởng lương': { from: null, to: body.isPaid ? 'Có' : 'Không' } } : {}),
+        ...(body.requiresAttachment !== undefined ? { 'Y/C File': { from: null, to: body.requiresAttachment ? 'Có' : 'Không' } } : {}),
+      },
+      createdBy: session.user?.id,
+    }).catch(e => logError('[leave-types] activity log failed', e))
+
     return apiSuccess({
       systemId: leaveType.systemId,
       id: leaveType.id,
@@ -80,7 +96,7 @@ export async function POST(request: NextRequest) {
       updatedAt: leaveType.updatedAt,
     })
   } catch (error) {
-    console.error('Error creating leave type:', error)
+    logError('Error creating leave type', error)
     return apiError('Failed to create leave type', 500)
   }
 }

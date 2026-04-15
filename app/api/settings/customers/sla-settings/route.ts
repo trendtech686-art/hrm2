@@ -4,6 +4,7 @@ import { Prisma } from '@/generated/prisma/client';
 import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils';
 import { createSlaSettingSchema } from './validation';
 import { generateIdWithPrefix } from '@/lib/id-generator';
+import { logError } from '@/lib/logger'
 
 const TYPE = 'sla-setting';
 
@@ -37,7 +38,7 @@ export async function GET() {
 
     return apiSuccess(transformed);
   } catch (error) {
-    console.error('[SLA Settings API] GET error:', error);
+    logError('[SLA Settings API] GET error', error);
     return apiError('Failed to fetch SLA settings', 500);
   }
 }
@@ -84,7 +85,7 @@ export async function POST(request: NextRequest) {
       ...(setting.metadata as Record<string, unknown> || {}),
     }, 201);
   } catch (error) {
-    console.error('[SLA Settings API] POST error:', error);
+    logError('[SLA Settings API] POST error', error);
     return apiError('Failed to create SLA setting', 500);
   }
 }

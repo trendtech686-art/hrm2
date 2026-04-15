@@ -11,6 +11,7 @@ import { TargetGroupsPageContent } from './target-groups/page-content';
 import { CashAccountsPageContent } from './cash-accounts/page-content';
 import { useTabActionRegistry } from './use-tab-action-registry';
 import { SettingsVerticalTabs } from '../../components/settings/SettingsVerticalTabs';
+import { SettingsHistoryContent } from '../../components/settings/SettingsHistoryContent';
 
 export function PaymentSettingsPage() {
   const [activeTab, setActiveTab] = React.useState('receipt-types');
@@ -39,6 +40,7 @@ export function PaymentSettingsPage() {
   );
 
   return (
+    <>
     <SettingsVerticalTabs value={activeTab} onValueChange={setActiveTab} tabs={tabs}>
         <TabsContent value="receipt-types" className="mt-0">
           <Card>
@@ -125,5 +127,8 @@ export function PaymentSettingsPage() {
           </Card>
         </TabsContent>
     </SettingsVerticalTabs>
+
+    <SettingsHistoryContent entityTypes={['cash_account', 'cash_transaction', 'payment_type', 'receipt_type', 'payment_method']} />
+    </>
   );
 }

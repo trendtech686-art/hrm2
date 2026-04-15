@@ -8,6 +8,7 @@ import { prisma } from '@/lib/prisma';
 import { requireAuth, apiSuccess, apiError, parsePagination } from '@/lib/api-utils';
 import type { ImportLogEntry, ExportLogEntry } from '@/lib/import-export/types';
 import { asSystemId } from '@/lib/id-types';
+import { logError } from '@/lib/logger'
 
 // GET /api/import-export-logs?entityType=customers&type=import&limit=100
 export async function GET(request: NextRequest) {
@@ -45,7 +46,7 @@ export async function GET(request: NextRequest) {
         totalRecords: log.totalRecords,
         successCount: log.successCount,
         errorCount: log.errorCount,
-        errors: log.errors ? JSON.parse(log.errors as string) : undefined,
+        errors: (() => { try { return log.errors ? JSON.parse(log.errors as string) : undefined } catch { return undefined } })(),
         filePath: log.filePath || undefined,
         fileName: log.fileName || undefined,
         notes: log.notes || undefined,
@@ -80,7 +81,7 @@ export async function GET(request: NextRequest) {
 
     return apiSuccess({ importLogs, exportLogs });
   } catch (error) {
-    console.error('[API] Import/Export logs fetch error:', error);
+    logError('[API] Import/Export logs fetch error', error);
     return apiError('Failed to fetch logs', 500);
   }
 }
@@ -106,7 +107,7 @@ export async function POST(request: NextRequest) {
         performedBy: logData.performedBy || session.user.name,
         userId: session.user.id,
         status: logData.status,
-        totalRecords: logData.totalRecords,
+        totalRecords: logData.totalRecords ?? ((logData.successCount || 0) + (logData.errorCount || 0)),
         successCount: logData.successCount,
         errorCount: logData.errorCount,
         errors: logData.errors ? JSON.stringify(logData.errors) : null,
@@ -157,7 +158,7 @@ export async function POST(request: NextRequest) {
 
     return apiSuccess(response);
   } catch (error) {
-    console.error('[API] Import/Export log create error:', error);
+    logError('[API] Import/Export log create error', error);
     return apiError('Failed to create log', 500);
   }
 }

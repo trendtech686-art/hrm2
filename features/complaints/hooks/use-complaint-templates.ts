@@ -5,6 +5,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '@/contexts/auth-context'
+import { logError } from '@/lib/logger'
 
 const API_BASE = '/api/user-preferences'
 const STORAGE_KEY = 'complaints-templates'
@@ -49,11 +50,12 @@ const DEFAULT_TEMPLATES: ResponseTemplate[] = [
  * 
  * @returns [templates, setTemplates, isLoading]
  */
-export function useComplaintTemplates(): [
+export function useComplaintTemplates(options?: { enabled?: boolean }): [
   ResponseTemplate[],
   (templates: ResponseTemplate[]) => void,
   boolean
 ] {
+  const enabled = options?.enabled !== false
   const { user } = useAuth()
   const [templates, setTemplatesState] = useState<ResponseTemplate[]>(DEFAULT_TEMPLATES)
   const [isLoading, setIsLoading] = useState(true)
@@ -62,6 +64,8 @@ export function useComplaintTemplates(): [
 
   // Load from database
   useEffect(() => {
+    if (!enabled) return
+
     const loadTemplates = async () => {
       try {
         if (user?.systemId) {
@@ -78,14 +82,14 @@ export function useComplaintTemplates(): [
           }
         }
       } catch (error) {
-        console.error('Error loading complaint templates:', error)
+        logError('Error loading complaint templates', error)
       } finally {
         setIsLoading(false)
       }
     }
 
     loadTemplates()
-  }, [user?.systemId])
+  }, [user?.systemId, enabled])
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -128,7 +132,7 @@ export function useComplaintTemplates(): [
               category: 'templates',
             }),
           }).catch(error => {
-            console.error('Error saving complaint templates:', error)
+            logError('Error saving complaint templates', error)
           })
         }, SAVE_DEBOUNCE_DELAY)
       }

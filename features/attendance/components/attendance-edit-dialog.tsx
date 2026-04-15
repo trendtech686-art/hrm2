@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Textarea } from '../../../components/ui/textarea';
 import { Button } from '../../../components/ui/button';
 import { TimePicker } from '../../../components/ui/time-picker';
-import { CheckCircle2, XCircle, Clock, Calendar } from 'lucide-react';
+import { CheckCircle2, XCircle, Clock, Calendar, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { SystemId } from '../../../lib/id-types';
 import { useLeavesByDateRange } from '../../leaves/hooks/use-leaves';
@@ -25,6 +25,7 @@ interface AttendanceEditDialogProps {
     recordData: { employeeSystemId: SystemId; day: number; record: DailyRecord } | null;
     onSave: (updatedRecord: DailyRecord) => void;
     monthDate: Date;
+    isSaving?: boolean;
 }
 
 // Validation schema
@@ -72,7 +73,7 @@ const _isDateWithinRange = (target: Date, start: Date, end: Date) => {
     return normalizedTarget >= normalizedStart && normalizedTarget <= normalizedEnd;
 };
 
-export function AttendanceEditDialog({ isOpen, onOpenChange, recordData, onSave, monthDate }: AttendanceEditDialogProps) {
+export function AttendanceEditDialog({ isOpen, onOpenChange, recordData, onSave, monthDate, isSaving }: AttendanceEditDialogProps) {
     const form = useForm<FormValues>({
         resolver: zodResolver(formSchema),
     });
@@ -194,7 +195,7 @@ export function AttendanceEditDialog({ isOpen, onOpenChange, recordData, onSave,
                             )}
                         />
                         {targetDate && (
-                            <div className="rounded-md border border-border p-3 text-body-xs space-y-2">
+                            <div className="rounded-md border border-border p-3 text-xs space-y-2">
                                 <div className="flex items-center justify-between">
                                     <span className="font-medium">Ngày {formattedTargetDate}</span>
                                     {hasApprovedLeave ? (
@@ -207,8 +208,8 @@ export function AttendanceEditDialog({ isOpen, onOpenChange, recordData, onSave,
                                     <ul className="space-y-1">
                                         {overlappingLeaves.map((leave) => (
                                             <li key={leave.systemId} className="flex flex-col rounded bg-muted/60 px-2 py-1">
-                                                <span className="text-body-sm font-medium">{leave.leaveTypeName}</span>
-                                                <span className="text-muted-foreground text-body-xs">{formatDate(leave.startDate)} → {formatDate(leave.endDate)} · {leave.id}</span>
+                                                <span className="text-sm font-medium">{leave.leaveTypeName}</span>
+                                                <span className="text-muted-foreground text-xs">{formatDate(leave.startDate)} → {formatDate(leave.endDate)} · {leave.id}</span>
                                             </li>
                                         ))}
                                     </ul>
@@ -272,9 +273,9 @@ export function AttendanceEditDialog({ isOpen, onOpenChange, recordData, onSave,
                             <Button type="button" variant="outline" onClick={handleClose} className="h-9">
                                 Hủy
                             </Button>
-                            <Button type="submit" className="h-9">
-                                <CheckCircle2 className="mr-2 h-4 w-4" />
-                                Lưu thay đổi
+                            <Button type="submit" className="h-9" disabled={isSaving}>
+                                {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
+                                {isSaving ? 'Đang lưu...' : 'Lưu thay đổi'}
                             </Button>
                         </DialogFooter>
                     </form>

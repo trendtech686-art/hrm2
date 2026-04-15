@@ -25,5 +25,5 @@ export const validateUniqueId = (id: string, existingIds: string[], currentId?: 
   if (currentId && upperId === currentId.toUpperCase()) {
     return true;
   }
-  return !existingIds.some(existingId => existingId.toUpperCase() === upperId);
+  return !existingIds.some(existingId => existingId?.toUpperCase() === upperId);
 };

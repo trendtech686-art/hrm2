@@ -24,6 +24,7 @@ import { Button } from "../ui/button"
 import { Trash2, RotateCcw, AlertTriangle } from "lucide-react"
 import { usePageHeader } from "../../contexts/page-header-context"
 import type { ColumnDef } from '../data-table/types';
+import { logError } from '@/lib/logger'
 
 interface GenericTrashPageProps<T extends { systemId: SystemId; deletedAt?: string | null | undefined }> {
   // Data & Store
@@ -155,12 +156,12 @@ export function GenericTrashPage<T extends { systemId: SystemId; deletedAt?: str
         // Permanent delete from store
         await onPermanentDelete(targetId);
         
-        toast.success(`Đã xóa vĩnh viễn ${entityName} và tất cả dữ liệu liên quan`);
+        toast.success(`Đã lưu trữ vĩnh viễn ${entityName}. Dữ liệu liên quan vẫn được bảo toàn.`);
         setIsDeleteDialogOpen(false);
         setTargetId(null);
       } catch (error) {
-        toast.error(`Có lỗi khi xóa ${entityName}`);
-        console.error(error);
+        toast.error(`Có lỗi khi lưu trữ ${entityName}`);
+        logError(`Error permanently deleting ${entityName}`, error);
       }
     }
   }
@@ -201,12 +202,12 @@ export function GenericTrashPage<T extends { systemId: SystemId; deletedAt?: str
         await onPermanentDelete(id);
       }
       
-      toast.success(`Đã xóa vĩnh viễn ${selectedIds.length} ${entityName} và tất cả dữ liệu liên quan`);
+      toast.success(`Đã lưu trữ vĩnh viễn ${selectedIds.length} ${entityName}. Dữ liệu liên quan vẫn được bảo toàn.`);
       setRowSelection({});
       setIsBulkDeleteDialogOpen(false);
     } catch (error) {
-      toast.error(`Có lỗi khi xóa ${entityName}`);
-      console.error(error);
+      toast.error(`Có lỗi khi lưu trữ ${entityName}`);
+      logError(`Error bulk deleting ${entityName}`, error);
     }
   }
 
@@ -217,7 +218,7 @@ export function GenericTrashPage<T extends { systemId: SystemId; deletedAt?: str
       icon: RotateCcw
     },
     {
-      label: "Xóa vĩnh viễn đã chọn",
+      label: "Lưu trữ vĩnh viễn đã chọn",
       onSelect: () => handleBulkDelete(),
       icon: Trash2,
       variant: "destructive" as const
@@ -308,12 +309,13 @@ export function GenericTrashPage<T extends { systemId: SystemId; deletedAt?: str
             <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5" />
             <div className="flex-1">
               <h3 className="font-semibold text-amber-900 dark:text-amber-100">
-                Cảnh báo: Xóa vĩnh viễn
+                Lưu ý về lưu trữ vĩnh viễn
               </h3>
               <p className="text-sm text-amber-800 dark:text-amber-200 mt-1">
-                {entityName.charAt(0).toUpperCase() + entityName.slice(1)} trong thùng rác có thể được khôi phục. 
-                Tuy nhiên, khi <strong>xóa vĩnh viễn</strong>, tất cả dữ liệu liên quan 
-                (files, tài liệu, ảnh) sẽ bị xóa không thể khôi phục.
+                {entityName.charAt(0).toUpperCase() + entityName.slice(1)} trong thùng rác có thể được <strong>khôi phục</strong>.{' '}
+                Khi <strong>lưu trữ vĩnh viễn</strong>, thông tin cá nhân nhạy cảm (SĐT, email, CCCD, ngân hàng) sẽ bị xóa,
+                nhưng <strong>tên và mã {entityName}</strong> vẫn được giữ lại để đơn hàng, công việc
+                và các dữ liệu liên quan hiển thị đúng.
               </p>
             </div>
           </div>
@@ -361,30 +363,32 @@ export function GenericTrashPage<T extends { systemId: SystemId; deletedAt?: str
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Permanent Delete Dialog */}
+      {/* Permanent Archive Dialog */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="text-destructive">
               <AlertTriangle className="inline h-5 w-5 mr-2" />
-              Xóa vĩnh viễn {entityName}?
+              Lưu trữ vĩnh viễn {entityName}?
             </AlertDialogTitle>
             <AlertDialogDescription>
               <strong className="text-destructive">Hành động này không thể hoàn tác!</strong>
               <br /><br />
-              Toàn bộ dữ liệu sau sẽ bị xóa vĩnh viễn:
+              Thông tin cá nhân nhạy cảm sẽ bị xóa:
               <ul className="list-disc list-inside mt-2 space-y-1">
-                <li>Thông tin {entityName}</li>
-                <li>Tất cả files và tài liệu đã upload</li>
-                <li>Thư mục lưu trữ trên server</li>
-                <li>Ảnh đại diện và các file đính kèm</li>
+                <li>SĐT, email, CCCD, địa chỉ</li>
+                <li>Tài khoản ngân hàng, mã số thuế, BHXH</li>
+                <li>Files, ảnh đại diện và tài liệu</li>
               </ul>
+              <br />
+              <strong>Tên và mã {entityName} được giữ lại</strong> để đơn hàng, công việc và
+              dữ liệu liên quan vẫn hiển thị đúng.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Hủy</AlertDialogCancel>
             <AlertDialogAction onClick={confirmPermanentDelete} className="bg-destructive hover:bg-destructive/90">
-              Xóa vĩnh viễn
+              Lưu trữ vĩnh viễn
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -406,32 +410,27 @@ export function GenericTrashPage<T extends { systemId: SystemId; deletedAt?: str
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Bulk Delete Dialog */}
+      {/* Bulk Archive Dialog */}
       <AlertDialog open={isBulkDeleteDialogOpen} onOpenChange={setIsBulkDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="text-destructive">
               <AlertTriangle className="inline h-5 w-5 mr-2" />
-              Xóa vĩnh viễn {Object.keys(rowSelection).length} {entityName}?
+              Lưu trữ vĩnh viễn {Object.keys(rowSelection).length} {entityName}?
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="text-sm text-muted-foreground">
-                <strong className="text-destructive">CẢNH BÁO: Hành động này không thể hoàn tác!</strong>
+                <strong className="text-destructive">Hành động này không thể hoàn tác!</strong>
                 <br /><br />
-                Toàn bộ dữ liệu của {Object.keys(rowSelection).length} {entityName} sẽ bị xóa vĩnh viễn:
-                <ul className="list-disc list-inside mt-2 space-y-1">
-                  <li>Thông tin {entityName}</li>
-                  <li>Tất cả files và tài liệu</li>
-                  <li>Thư mục lưu trữ trên server</li>
-                  <li>Ảnh đại diện và file đính kèm</li>
-                </ul>
+                Thông tin cá nhân nhạy cảm của {Object.keys(rowSelection).length} {entityName} sẽ bị xóa.
+                Tên và mã được giữ lại để đơn hàng, công việc hiển thị đúng.
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Hủy</AlertDialogCancel>
             <AlertDialogAction onClick={confirmBulkDelete} className="bg-destructive hover:bg-destructive/90">
-              Xóa vĩnh viễn tất cả
+              Lưu trữ vĩnh viễn tất cả
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

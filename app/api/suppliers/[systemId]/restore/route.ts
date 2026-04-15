@@ -1,36 +1,50 @@
 import { prisma } from '@/lib/prisma'
-import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
+import { apiHandler } from '@/lib/api-handler'
+import { apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
+import { logError } from '@/lib/logger'
+import { getUserNameFromDb } from '@/lib/get-user-name'
 
 // POST /api/suppliers/[systemId]/restore - Restore soft-deleted supplier
-export async function POST(
-  _request: Request,
-  { params }: { params: Promise<{ systemId: string }> }
-) {
-  const session = await requireAuth()
-  if (!session) return apiError('Unauthorized', 401)
+export const POST = apiHandler(async (_request, { session, params }) => {
+  const { systemId } = params
 
-  try {
-    const { systemId } = await params
+  const existing = await prisma.supplier.findUnique({
+    where: { systemId },
+  })
 
-    const existing = await prisma.supplier.findUnique({
-      where: { systemId },
-    })
+  if (!existing) {
+    return apiNotFound('Supplier')
+  }
 
-    if (!existing) {
-      return apiNotFound('Supplier')
-    }
+  if (!existing.isDeleted) {
+    return apiError('Nhà cung cấp chưa bị xóa, không cần khôi phục', 400)
+  }
 
-    const restored = await prisma.supplier.update({
-      where: { systemId },
+  if (existing.permanentlyDeletedAt) {
+    return apiError('Nhà cung cấp đã được lưu trữ vĩnh viễn, không thể khôi phục', 400)
+  }
+
+  const restored = await prisma.supplier.update({
+    where: { systemId },
+    data: {
+      isDeleted: false,
+      deletedAt: null,
+    },
+  })
+
+  // Activity log (fire-and-forget)
+  getUserNameFromDb(session!.user?.id).then(userName =>
+    prisma.activityLog.create({
       data: {
-        isDeleted: false,
-        deletedAt: null,
+        entityType: 'supplier',
+        entityId: systemId,
+        action: 'restored',
+        actionType: 'update',
+        note: `Khôi phục nhà cung cấp: ${existing.name} (${existing.id})`,
+        createdBy: userName,
       },
     })
+  ).catch(e => logError('[ActivityLog] supplier restored failed', e))
 
-    return apiSuccess(restored)
-  } catch (error) {
-    console.error('Error restoring supplier:', error)
-    return apiError('Failed to restore supplier', 500)
-  }
-}
+  return apiSuccess(restored)
+})

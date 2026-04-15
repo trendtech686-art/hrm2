@@ -18,6 +18,7 @@ import {
 import { useStoreInfoData } from '../settings/store-info/hooks/use-store-info';
 import { useAuth } from '../../contexts/auth-context';
 import { usePageHeader } from '../../contexts/page-header-context';
+import { useBreakpoint } from '../../contexts/breakpoint-context';
 import { ROUTES } from '../../lib/router';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -25,7 +26,7 @@ import { Badge } from '../../components/ui/badge';
 import { Separator } from '../../components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { DetailField } from '../../components/ui/detail-field';
-import { ActivityHistory, type HistoryEntry } from '../../components/ActivityHistory';
+import { EntityActivityTable } from '@/components/shared/entity-activity-table';
 import { ImagePreviewDialog } from '../../components/ui/image-preview-dialog';
 import { OptimizedImage } from '../../components/ui/optimized-image';
 import { 
@@ -42,7 +43,14 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '../../components/ui/input';
 import { Textarea } from '../../components/ui/textarea';
 import { Label } from '../../components/ui/label';
-import { ArrowRight, Truck, Package, CheckCircle, XCircle, Printer, Edit, Eye } from 'lucide-react';
+import { ArrowRight, Truck, Package, CheckCircle, XCircle, Printer, Edit, Eye, MoreHorizontal } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '../../components/ui/dropdown-menu';
 import { toast } from 'sonner';
 import { asSystemId, type SystemId } from '../../lib/id-types';
 import { Comments, type Comment as CommentType } from '../../components/Comments';
@@ -73,82 +81,6 @@ const getStatusLabel = (status: StockTransferStatus): string => {
     default: return status;
   }
 };
-
-// Build history entries from transfer data
-function buildHistoryEntries(transfer: StockTransfer): HistoryEntry[] {
-  const entries: HistoryEntry[] = [];
-  
-  // Created entry
-  if (transfer.createdDate) {
-    entries.push({
-      id: `${transfer.systemId}-created`,
-      action: 'created',
-      timestamp: new Date(transfer.createdDate),
-      user: {
-        systemId: transfer.createdBy || '',
-        name: transfer.createdByName,
-      },
-      description: `Tạo phiếu chuyển kho với ${transfer.items.length} sản phẩm`,
-    });
-  }
-  
-  // Transferred entry
-  if (transfer.transferredDate) {
-    entries.push({
-      id: `${transfer.systemId}-transferred`,
-      action: 'status_changed',
-      timestamp: new Date(transfer.transferredDate),
-      user: {
-        systemId: transfer.transferredBySystemId || '',
-        name: transfer.transferredByName || '',
-      },
-      description: 'Xác nhận xuất kho, đang chuyển hàng',
-      metadata: {
-        oldValue: 'Chờ chuyển',
-        newValue: 'Đang chuyển',
-        field: 'Trạng thái',
-      },
-    });
-  }
-  
-  // Received entry
-  if (transfer.receivedDate) {
-    entries.push({
-      id: `${transfer.systemId}-received`,
-      action: 'status_changed',
-      timestamp: new Date(transfer.receivedDate),
-      user: {
-        systemId: transfer.receivedBySystemId || '',
-        name: transfer.receivedByName || '',
-      },
-      description: 'Xác nhận nhận hàng hoàn thành',
-      metadata: {
-        oldValue: 'Đang chuyển',
-        newValue: 'Hoàn thành',
-        field: 'Trạng thái',
-      },
-    });
-  }
-  
-  // Cancelled entry
-  if (transfer.cancelledDate) {
-    entries.push({
-      id: `${transfer.systemId}-cancelled`,
-      action: 'cancelled',
-      timestamp: new Date(transfer.cancelledDate),
-      user: {
-        systemId: transfer.cancelledBySystemId || '',
-        name: transfer.cancelledByName || '',
-      },
-      description: transfer.cancelReason 
-        ? `Hủy phiếu: ${transfer.cancelReason}`
-        : 'Hủy phiếu chuyển kho',
-    });
-  }
-  
-  // Sort by timestamp descending (newest first)
-  return entries.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
-}
 
 export function StockTransferDetailPage() {
   const { systemId } = useParams<{ systemId: string }>();
@@ -189,7 +121,8 @@ export function StockTransferDetailPage() {
   const { findById: findProductById } = useProductFinder();
   const { findById: findProductTypeById } = useProductTypeFinder();
   const { findById: findEmployeeById } = useEmployeeFinder();
-  const { user } = useAuth();
+  const { user, can, isAdmin } = useAuth();
+  const { isMobile } = useBreakpoint();
   const { setPageHeader, clearPageHeader } = usePageHeader();
 
   const [confirmTransferOpen, setConfirmTransferOpen] = React.useState(false);
@@ -280,7 +213,7 @@ export function StockTransferDetailPage() {
     if (!transfer) return null;
 
     // Determine if can edit: pending/transferring = limited, completed = very limited
-    const canEdit = transfer.status !== 'cancelled';
+    const canEdit = transfer.status !== 'cancelled' && (isAdmin || can('edit_stock_transfers'));
 
     return (
       <div className="flex items-center gap-2">
@@ -325,6 +258,60 @@ export function StockTransferDetailPage() {
     );
   }, [transfer, router, handlePrint]);
 
+  // Mobile: gom tất cả actions vào dropdown
+  const mobileHeaderActions = React.useMemo(() => {
+    if (!transfer || !isMobile) return headerActions;
+    const canEdit = transfer.status !== 'cancelled' && (isAdmin || can('edit_stock_transfers'));
+
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="sm" className="h-9">
+            <MoreHorizontal className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          {transfer.status === 'pending' && (
+            <>
+              <DropdownMenuItem onClick={() => setConfirmTransferOpen(true)}>
+                <Truck className="mr-2 h-4 w-4" />
+                Chuyển hàng khỏi kho
+              </DropdownMenuItem>
+              <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => setCancelDialogOpen(true)}>
+                <XCircle className="mr-2 h-4 w-4" />
+                Hủy
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+            </>
+          )}
+          {transfer.status === 'transferring' && (
+            <>
+              <DropdownMenuItem onClick={() => setConfirmReceiveOpen(true)}>
+                <CheckCircle className="mr-2 h-4 w-4" />
+                Nhận hàng vào kho
+              </DropdownMenuItem>
+              <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => setCancelDialogOpen(true)}>
+                <XCircle className="mr-2 h-4 w-4" />
+                Hủy
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+            </>
+          )}
+          <DropdownMenuItem onClick={handlePrint}>
+            <Printer className="mr-2 h-4 w-4" />
+            In phiếu
+          </DropdownMenuItem>
+          {canEdit && (
+            <DropdownMenuItem onClick={() => router.push(`/stock-transfers/${transfer.systemId}/edit`)}>
+              <Edit className="mr-2 h-4 w-4" />
+              Sửa
+            </DropdownMenuItem>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  }, [transfer, isMobile, headerActions, router, handlePrint, isAdmin, can]);
+
   // Breadcrumb
   const breadcrumb = React.useMemo(() => {
     if (!transfer) return [];
@@ -342,7 +329,7 @@ export function StockTransferDetailPage() {
         breadcrumb,
         showBackButton: true,
         backPath: ROUTES.INVENTORY.STOCK_TRANSFERS,
-        actions: headerActions,
+        actions: isMobile ? mobileHeaderActions : headerActions,
         badge: (
           <Badge variant={getStatusVariant(transfer.status)}>
             {getStatusLabel(transfer.status)}
@@ -357,7 +344,7 @@ export function StockTransferDetailPage() {
       })));
     }
     return () => clearPageHeader();
-  }, [transfer, setPageHeader, clearPageHeader, breadcrumb, headerActions]);
+  }, [transfer, setPageHeader, clearPageHeader, breadcrumb, headerActions, isMobile, mobileHeaderActions]);
 
   if (!transfer) {
     return (
@@ -430,14 +417,14 @@ export function StockTransferDetailPage() {
             <Separator />
             <div className="space-y-3">
               <div className="p-3 bg-muted/50 rounded-lg">
-                <p className="text-body-xs text-muted-foreground mb-1">Chi nhánh chuyển</p>
+                <p className="text-xs text-muted-foreground mb-1">Chi nhánh chuyển</p>
                 <p className="font-medium">{transfer.fromBranchName}</p>
               </div>
               <div className="flex justify-center">
                 <ArrowRight className="h-4 w-4 text-muted-foreground" />
               </div>
               <div className="p-3 bg-muted/50 rounded-lg">
-                <p className="text-body-xs text-muted-foreground mb-1">Chi nhánh nhận</p>
+                <p className="text-xs text-muted-foreground mb-1">Chi nhánh nhận</p>
                 <p className="font-medium">{transfer.toBranchName}</p>
               </div>
             </div>
@@ -593,9 +580,9 @@ export function StockTransferDetailPage() {
                             >
                               {item.productName}
                             </Link>
-                            <p className="text-body-sm text-muted-foreground">{item.productId}</p>
+                            <p className="text-sm text-muted-foreground">{item.productId}</p>
                           </TableCell>
-                          <TableCell className="text-body-sm text-muted-foreground">{productTypeName}</TableCell>
+                          <TableCell className="text-sm text-muted-foreground">{productTypeName}</TableCell>
                           <TableCell className="text-center font-medium">{item.quantity}</TableCell>
                           {transfer.status === 'completed' && (
                             <TableCell className="text-center font-medium">
@@ -632,9 +619,9 @@ export function StockTransferDetailPage() {
               
               <div className="flex justify-end">
                 <div className="text-right space-y-1">
-                  <p className="text-body-sm text-muted-foreground">Tổng số lượng chuyển: {totalQuantity}</p>
+                  <p className="text-sm text-muted-foreground">Tổng số lượng chuyển: {totalQuantity}</p>
                   {transfer.status === 'completed' && totalReceived !== totalQuantity && (
-                    <p className="text-body-sm text-muted-foreground">
+                    <p className="text-sm text-muted-foreground">
                       Đã nhận: {totalReceived}
                     </p>
                   )}
@@ -658,11 +645,7 @@ export function StockTransferDetailPage() {
       />
 
       {/* Activity History - Full Width */}
-      <ActivityHistory
-        history={buildHistoryEntries(transfer)}
-        title="Lịch sử hoạt động"
-        emptyMessage="Chưa có hoạt động"
-      />
+      <EntityActivityTable entityType="stock_transfer" entityId={systemId} />
 
       {/* Confirm Transfer Dialog */}
       <AlertDialog open={confirmTransferOpen} onOpenChange={setConfirmTransferOpen}>

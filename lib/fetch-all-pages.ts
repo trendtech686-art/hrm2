@@ -36,36 +36,41 @@ interface PaginatedResult<T> {
 }
 
 /**
- * Fetch ALL pages of a paginated API endpoint.
+ * Fetch ALL records from a paginated API endpoint in a single request.
+ *
+ * Uses limit=0 convention to tell the server to return all records.
+ * Falls back to multi-page fetching if the API doesn't support limit=0.
  *
  * @param fetchPage - Function that fetches a single page. Must accept `{ page, limit }`.
- * @param pageSize  - Batch size per request (default 200). This is NOT a data cap.
- * @returns Flat array of all records across all pages.
+ * @returns Flat array of all records.
  */
 export async function fetchAllPages<T>(
   fetchPage: (params: { page: number; limit: number }) => Promise<PaginatedResult<T>>,
-  pageSize = 200,
+  _pageSize?: number,
 ): Promise<T[]> {
-  const firstPage = await fetchPage({ page: 1, limit: pageSize });
-  const allRecords = [...firstPage.data];
+  // Use limit=100000 to request all records in a single API call
+  // Note: limit=0 is not used because many client-side API functions use
+  // `if (filters.limit)` which is falsy for 0, causing the param to be omitted.
+  // The server-side parsePagination also treats limit=0 as 100000 internally.
+  const result = await fetchPage({ page: 1, limit: 100000 });
+  const allRecords = [...result.data];
 
-  // Discover total pages from whichever format the API returns
+  // If the API returned paginated results despite limit=0, fetch remaining pages
   const totalPages =
-    firstPage.pagination?.totalPages ??
-    (firstPage.pagination?.total != null
-      ? Math.ceil(firstPage.pagination.total / pageSize)
-      : firstPage.total != null
-        ? Math.ceil(firstPage.total / pageSize)
-        : 1);
+    result.pagination?.totalPages ??
+    (result.pagination?.total != null && result.pagination?.limit
+      ? Math.ceil(result.pagination.total / result.pagination.limit)
+      : 1);
 
-  if (totalPages > 1) {
+  if (totalPages > 1 && result.pagination?.limit && result.pagination.limit < (result.pagination?.total ?? 0)) {
+    const batchSize = result.pagination.limit;
     const remaining = await Promise.all(
       Array.from({ length: totalPages - 1 }, (_, i) =>
-        fetchPage({ page: i + 2, limit: pageSize }),
+        fetchPage({ page: i + 2, limit: batchSize }),
       ),
     );
-    for (const result of remaining) {
-      allRecords.push(...result.data);
+    for (const r of remaining) {
+      allRecords.push(...r.data);
     }
   }
 

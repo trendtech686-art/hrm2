@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma';
 import { Prisma } from '@/generated/prisma/client';
 import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils';
 import { updateSettingsDataSchema, deleteSettingsDataSchema } from './validation';
+import { logError } from '@/lib/logger'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 type RouteContext = {
   params: Promise<{ systemId: string }>;
@@ -42,7 +44,7 @@ export async function GET(
       ...(setting.metadata as Record<string, unknown> || {}),
     });
   } catch (error) {
-    console.error('[Settings Data API] GET by ID error:', error);
+    logError('[Settings Data API] GET by ID error', error);
     return apiError('Failed to fetch settings data', 500);
   }
 }
@@ -97,6 +99,23 @@ export async function PATCH(
       },
     });
 
+    // Activity log
+    const changes: Record<string, { from: unknown; to: unknown }> = {}
+    if (name !== undefined && name !== existing.name) changes['Tên'] = { from: existing.name, to: name }
+    if (description !== undefined && description !== existing.description) changes['Mô tả'] = { from: existing.description, to: description }
+    if (isActive !== undefined && isActive !== existing.isActive) changes['Trạng thái'] = { from: existing.isActive, to: isActive }
+    if (isDefault !== undefined && isDefault !== existing.isDefault) changes['Mặc định'] = { from: existing.isDefault, to: isDefault }
+
+    if (Object.keys(changes).length > 0) {
+      await createActivityLog({
+        entityType: 'settings_data',
+        entityId: systemId,
+        action: `Cập nhật cài đặt: ${existing.name}`,
+        changes,
+        createdBy: session.user?.id,
+      }).catch(e => logError('Failed to create activity log', e))
+    }
+
     return apiSuccess({
       systemId: updated.systemId,
       id: updated.id,
@@ -112,7 +131,7 @@ export async function PATCH(
       ...(updated.metadata as Record<string, unknown> || {}),
     });
   } catch (error) {
-    console.error('[Settings Data API] PATCH error:', error);
+    logError('[Settings Data API] PATCH error', error);
     
     if (error instanceof Error && 'code' in error && error.code === 'P2002') {
       return apiError('A setting with this ID already exists for this type', 409);
@@ -158,9 +177,16 @@ export async function DELETE(
       });
     }
 
+    await createActivityLog({
+      entityType: 'settings_data',
+      entityId: systemId,
+      action: `Xóa cài đặt: ${existing.name}`,
+      createdBy: session.user?.id,
+    }).catch(e => logError('Failed to create activity log', e))
+
     return apiSuccess({ success: true });
   } catch (error) {
-    console.error('[Settings Data API] DELETE error:', error);
+    logError('[Settings Data API] DELETE error', error);
     return apiError('Failed to delete settings data', 500);
   }
 }

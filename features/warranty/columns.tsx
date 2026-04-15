@@ -1,9 +1,8 @@
 import * as React from "react";
 import { formatDateTime } from '../../lib/date-utils';
 import type { WarrantyTicket } from './types';
-import type { Order } from '../orders/types';
 import { WARRANTY_STATUS_COLORS, WARRANTY_SETTLEMENT_STATUS_LABELS, WARRANTY_SETTLEMENT_STATUS_COLORS, WARRANTY_STATUS_LABELS } from './types';
-import { checkWarrantyOverdue, formatTimeLeft } from './warranty-sla-utils';
+import { checkWarrantyOverdue, formatTimeLeft, type WarrantySLATargets } from './warranty-sla-utils';
 import { toast } from 'sonner';
 import { Checkbox } from "../../components/ui/checkbox";
 import { DataTableColumnHeader } from "../../components/data-table/data-table-column-header";
@@ -33,7 +32,7 @@ export const getColumns = (
   onDelete: (systemId: string) => void,
   onEdit: (ticket: WarrantyTicket) => void,
   navigate: (path: string) => void,
-  orders: Order[] = [], // ✅ Add orders parameter
+  slaTargets?: WarrantySLATargets,
 ): ColumnDef<WarrantyTicket>[] => [
   // Select column - sticky left
   {
@@ -176,9 +175,9 @@ export const getColumns = (
     header: "Mã vận đơn / Mã tra cứu",
     cell: ({ row }) => (
       <div className="space-y-0.5">
-        <div className="font-mono text-body-xs whitespace-nowrap">{row.trackingCode}</div>
+        <div className="font-mono text-xs whitespace-nowrap">{row.trackingCode}</div>
         {row.publicTrackingCode && (
-          <div className="font-mono text-body-xs text-muted-foreground">
+          <div className="font-mono text-xs text-muted-foreground">
             Tra cứu: {row.publicTrackingCode}
           </div>
         )}
@@ -211,8 +210,9 @@ export const getColumns = (
     accessorKey: "linkedOrderSystemId", // ✅ Use systemId
     header: "Đơn hàng liên kết",
     cell: ({ row }) => {
-      if (!row.linkedOrderSystemId) return <span className="text-muted-foreground text-body-xs">—</span>;
-      const orderBusinessId = orders.find(o => o.systemId === row.linkedOrderSystemId)?.id;
+      if (!row.linkedOrderSystemId) return <span className="text-muted-foreground text-xs">—</span>;
+      // Use order data from API include (no need to load ALL orders)
+      const orderBusinessId = (row as WarrantyTicket & { order?: { id: string } }).order?.id;
       return (
         <div 
           className="font-medium text-primary cursor-pointer hover:underline whitespace-nowrap" 
@@ -233,13 +233,12 @@ export const getColumns = (
     accessorKey: "referenceUrl",
     header: "Link tham chiếu",
     cell: ({ row }) => {
-      if (!row.referenceUrl) return <span className="text-muted-foreground text-body-xs">—</span>;
+      if (!row.referenceUrl) return <span className="text-muted-foreground text-xs">—</span>;
       return (
         <a 
           href={row.referenceUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-primary hover:underline text-body-xs flex items-center gap-1"
+          target="_blank" rel="noopener noreferrer"
+          className="text-primary hover:underline text-xs flex items-center gap-1"
           onClick={(e) => e.stopPropagation()}
         >
           <LinkIcon className="h-3 w-3" />
@@ -258,7 +257,7 @@ export const getColumns = (
     accessorKey: "externalReference",
     header: "Mã tham chiếu",
     cell: ({ row }) => (
-      <div className="font-mono text-body-xs whitespace-nowrap">
+      <div className="font-mono text-xs whitespace-nowrap">
         {row.externalReference || '—'}
       </div>
     ),
@@ -297,7 +296,7 @@ export const getColumns = (
     id: "slaStatus",
     header: "SLA",
     cell: ({ row }) => {
-      const overdueStatus = checkWarrantyOverdue(row);
+      const overdueStatus = checkWarrantyOverdue(row, slaTargets);
       
       // Nếu đã trả hàng
       if (row.status === 'RETURNED') {
@@ -350,7 +349,7 @@ export const getColumns = (
     cell: ({ row }) => {
       // Chỉ hiển thị cho phiếu đã trả và có totalSettlement > 0
       if (row.status !== 'RETURNED' || !row.summary?.totalSettlement || row.summary.totalSettlement <= 0) {
-        return <span className="text-muted-foreground text-body-xs">—</span>;
+        return <span className="text-muted-foreground text-xs">—</span>;
       }
 
       // Get vouchers and calculate
@@ -424,7 +423,7 @@ export const getColumns = (
           ?.filter((p: { resolution?: string }) => p.resolution === 'replace')
           .reduce((sum: number, p: { quantity?: number }) => sum + (p.quantity || 1), 0) || 0;
       }
-      if (replaced === 0) return <span className="text-muted-foreground text-body-xs">—</span>;
+      if (replaced === 0) return <span className="text-muted-foreground text-xs">—</span>;
       return <div className="text-center text-green-600 font-medium">{replaced}</div>;
     },
     meta: {
@@ -445,7 +444,7 @@ export const getColumns = (
           ?.filter((p: { resolution?: string }) => p.resolution === 'return')
           .reduce((sum: number, p: { quantity?: number }) => sum + (p.quantity || 1), 0) || 0;
       }
-      if (returned === 0) return <span className="text-muted-foreground text-body-xs">—</span>;
+      if (returned === 0) return <span className="text-muted-foreground text-xs">—</span>;
       return <div className="text-center text-blue-600 font-medium">{returned}</div>;
     },
     meta: {
@@ -476,13 +475,13 @@ export const getColumns = (
         }, 0);
       }
       
-      if (outOfStock === 0 && deduction === 0) return <span className="text-muted-foreground text-body-xs">—</span>;
+      if (outOfStock === 0 && deduction === 0) return <span className="text-muted-foreground text-xs">—</span>;
       
       return (
         <div className="text-center">
           <div className="text-orange-600 font-medium">{outOfStock} SP</div>
           {deduction > 0 && (
-            <div className="text-body-xs text-red-600 whitespace-nowrap">
+            <div className="text-xs text-red-600 whitespace-nowrap">
               {formatCurrency(deduction)} ₫
             </div>
           )}
@@ -501,7 +500,7 @@ export const getColumns = (
     header: "Bù trừ",
     cell: ({ row }) => {
       const settlement = row.summary?.totalSettlement || 0;
-      if (settlement === 0) return <span className="text-muted-foreground text-body-xs">—</span>;
+      if (settlement === 0) return <span className="text-muted-foreground text-xs">—</span>;
       return (
         <div className="text-right text-blue-600 whitespace-nowrap">
           {formatCurrency(Math.abs(settlement))} ₫
@@ -574,7 +573,7 @@ export const getColumns = (
     header: "Công việc",
     cell: ({ row }) => {
       const count = row.subtasks?.length || 0;
-      if (count === 0) return <span className="text-muted-foreground text-body-xs">—</span>;
+      if (count === 0) return <span className="text-muted-foreground text-xs">—</span>;
       return <div className="text-center">{count}</div>;
     },
     meta: {
@@ -589,9 +588,9 @@ export const getColumns = (
     accessorKey: "notes",
     header: "Ghi chú",
     cell: ({ row }) => {
-      if (!row.notes?.trim()) return <span className="text-muted-foreground text-body-xs">—</span>;
+      if (!row.notes?.trim()) return <span className="text-muted-foreground text-xs">—</span>;
       return (
-        <div className="max-w-50 truncate text-body-xs" title={row.notes}>
+        <div className="max-w-50 truncate text-xs" title={row.notes}>
           {row.notes}
         </div>
       );
@@ -608,8 +607,8 @@ export const getColumns = (
     accessorKey: "returnedAt",
     header: "Ngày trả hàng",
     cell: ({ row }) => {
-      if (!row.returnedAt) return <span className="text-muted-foreground text-body-xs">—</span>;
-      return <div className="whitespace-nowrap text-body-xs">{formatDateTime(row.returnedAt)}</div>;
+      if (!row.returnedAt) return <span className="text-muted-foreground text-xs">—</span>;
+      return <div className="whitespace-nowrap text-xs">{formatDateTime(row.returnedAt)}</div>;
     },
     meta: {
       displayName: "Ngày trả hàng",
@@ -622,8 +621,8 @@ export const getColumns = (
     accessorKey: "completedAt",
     header: "Ngày kết thúc",
     cell: ({ row }) => {
-      if (!row.completedAt) return <span className="text-muted-foreground text-body-xs">—</span>;
-      return <div className="whitespace-nowrap text-body-xs">{formatDateTime(row.completedAt)}</div>;
+      if (!row.completedAt) return <span className="text-muted-foreground text-xs">—</span>;
+      return <div className="whitespace-nowrap text-xs">{formatDateTime(row.completedAt)}</div>;
     },
     meta: {
       displayName: "Ngày kết thúc",
@@ -713,14 +712,14 @@ export const getColumns = (
                 toast.success(
                   <div className="flex flex-col gap-1">
                     <div className="font-semibold">Đã copy link tracking</div>
-                    <div className="text-body-sm text-muted-foreground">Mã: {row.publicTrackingCode}</div>
+                    <div className="text-sm text-muted-foreground">Mã: {row.publicTrackingCode}</div>
                   </div>,
                   { duration: 5000 }
                 );
             }}>
               <LinkIcon className="mr-2 h-4 w-4" />
               Get Link Tracking
-              {!row.publicTrackingCode && <span className="ml-2 text-body-xs text-orange-600">(Chưa có mã)</span>}
+              {!row.publicTrackingCode && <span className="ml-2 text-xs text-orange-600">(Chưa có mã)</span>}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem 

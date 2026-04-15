@@ -3,6 +3,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import {
   fetchTargetGroups,
   fetchTargetGroupById,
@@ -62,7 +63,7 @@ interface MutationCallbacks {
 
 export function useTargetGroupMutations(options: MutationCallbacks = {}) {
   const queryClient = useQueryClient();
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: targetGroupKeys.all });
+  const invalidate = () => invalidateRelated(queryClient, 'target-groups');
 
   const create = useMutation({
     mutationFn: (data: TargetGroupCreateInput) => createTargetGroup(data),

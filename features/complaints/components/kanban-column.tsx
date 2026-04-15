@@ -93,12 +93,12 @@ export function KanbanColumn({
   return (
     <div className="flex-1 min-w-75 flex flex-col max-h-[calc(100vh-320px)]">
       {/* Header - Shadcn style with darker background */}
-      <div className="text-body-sm font-semibold px-4 py-3 mb-2 rounded-lg border bg-muted flex items-center justify-between">
+      <div className="text-sm font-semibold px-4 py-3 mb-2 rounded-xl border border-border/50 bg-muted flex items-center justify-between">
         <div className="flex items-center gap-2">
           <StatusIcon className="h-4 w-4" />
           {complaintStatusLabels[status]}
         </div>
-        <span className="text-body-sm font-normal bg-background h-6 w-6 flex items-center justify-center rounded-full">
+        <span className="text-sm font-normal bg-background h-6 w-6 flex items-center justify-center rounded-full">
           {filteredComplaints.length}
         </span>
       </div>
@@ -179,13 +179,13 @@ export function KanbanColumn({
                     >
                       {/* Header */}
                       <div className="flex items-start justify-between mb-2">
-                        <div className="text-body-sm font-semibold">
+                        <div className="text-sm font-semibold">
                           {complaint.id}
                         </div>
                         <div className="flex items-center gap-1 flex-wrap justify-end">
                           <Badge
                             variant="outline"
-                            className={cn("text-body-xs", complaintTypeColors[complaint.type])}
+                            className={cn("text-xs", complaintTypeColors[complaint.type])}
                           >
                             {complaintTypeLabels[complaint.type]}
                           </Badge>
@@ -194,31 +194,35 @@ export function KanbanColumn({
 
                       {/* Order Info */}
                       <div className="mb-2">
-                        <div className="text-body-sm font-medium text-foreground mb-1">
+                        <div className="text-sm font-medium text-foreground mb-1">
                           Đơn hàng: #{complaint.orderCode || complaint.orderSystemId}
                         </div>
-                        <div className="flex items-center justify-between gap-2 text-body-xs text-muted-foreground">
+                        <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
                           <span className="truncate">{complaint.customerName}</span>
                           <span className="shrink-0">{complaint.customerPhone}</span>
                         </div>
                       </div>
 
                       {/* Description Preview */}
-                      <div className="text-body-xs text-muted-foreground mb-2 line-clamp-2">
+                      <div className="text-xs text-muted-foreground mb-2 line-clamp-2">
                         {complaint.description}
                       </div>
 
                       {/* SLA Timer - Live Countdown */}
                       <SlaTimer
                         startTime={complaint.createdAt}
-                        targetMinutes={120} // 2 hours default for complaints
+                        targetMinutes={
+                          complaint.status === 'pending'
+                            ? (complaintsSettings.sla[complaint.priority]?.responseTime ?? 120)
+                            : (complaintsSettings.sla[complaint.priority]?.resolveTime ?? 24) * 60
+                        }
                         isCompleted={complaint.status === 'resolved' || complaint.status === 'cancelled'}
                         completedLabel="Đã giải quyết"
                         className="mb-2"
                       />
 
                       {/* Footer */}
-                      <div className="flex items-center justify-between text-body-xs">
+                      <div className="flex items-center justify-between text-xs">
                         <div className="flex items-center gap-2">
                           {complaint.assignedTo && (() => {
                             const assignedEmployee = employees.find(e => e.systemId === complaint.assignedTo);
@@ -234,7 +238,7 @@ export function KanbanColumn({
                             
                             return (
                               <div className="flex items-center gap-1.5">
-                                <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-primary text-[10px] font-semibold">
+                                <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-semibold">
                                   {initials}
                                 </div>
                                 <span className="text-muted-foreground max-w-20 truncate">
@@ -257,7 +261,7 @@ export function KanbanColumn({
         </div>
 
         {filteredComplaints.length === 0 && (
-          <div className="flex items-center justify-center h-40 text-body-sm text-muted-foreground border-2 border-dashed rounded-lg">
+          <div className="flex items-center justify-center h-40 text-sm text-muted-foreground border-2 border-dashed rounded-lg">
             Không có khiếu nại nào
           </div>
         )}

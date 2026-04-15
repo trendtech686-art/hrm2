@@ -11,9 +11,28 @@ import type {
   CreditRating,
   LifecycleStage,
   CustomerSlaSetting,
+  PricingPolicy,
 } from '@/lib/types/prisma-extended';
 
 const BASE_URL = '/api/settings/customers';
+
+// ============== All Settings (consolidated) ==============
+export interface AllCustomerSettings {
+  types: CustomerType[];
+  groups: CustomerGroup[];
+  sources: CustomerSource[];
+  paymentTerms: PaymentTerm[];
+  creditRatings: CreditRating[];
+  lifecycleStages: LifecycleStage[];
+  pricingPolicies: PricingPolicy[];
+}
+
+export async function fetchAllCustomerSettings(): Promise<AllCustomerSettings> {
+  const res = await fetch(`${BASE_URL}/all`);
+  if (!res.ok) throw new Error('Failed to fetch customer settings');
+  const json = await res.json();
+  return json;
+}
 
 // ============== Customer Types ==============
 export async function fetchCustomerTypes(): Promise<CustomerType[]> {

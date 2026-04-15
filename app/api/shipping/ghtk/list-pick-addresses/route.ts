@@ -7,8 +7,9 @@
 
 import { NextRequest } from 'next/server';
 import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils';
-
-const GHTK_API_BASE = 'https://services.giaohangtietkiem.vn';
+import { logError } from '@/lib/logger'
+import { fetchWithTimeout } from '@/lib/fetch-utils'
+import { GHTK_API_BASE } from '@/lib/ghtk-sync'
 
 export async function GET(request: NextRequest) {
   const session = await requireAuth();
@@ -28,7 +29,7 @@ export async function GET(request: NextRequest) {
 
     const url = `${GHTK_API_BASE}/services/shipment/list_pick_add`;
 
-    const response = await fetch(url, {
+    const response = await fetchWithTimeout(url, {
       method: 'GET',
       headers: {
         'Token': apiToken,
@@ -43,7 +44,7 @@ export async function GET(request: NextRequest) {
 
     return apiSuccess(data);
   } catch (error) {
-    console.error(`[GHTK-PICK-${requestId}] ❌ Get pick addresses error:`, error);
+    logError(`[GHTK-PICK-${requestId}] ❌ Get pick addresses error`, error);
     return apiError(error instanceof Error ? error.message : 'Unknown error', 500);
   }
 }

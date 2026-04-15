@@ -1,0 +1,19 @@
+model TaskBoard {
+  systemId    String   @id
+  id          String   @unique
+  name        String
+  description String?
+  color       String?  // Hex color for visual identification
+  icon        String?  // Lucide icon name
+  isActive    Boolean  @default(true)
+  isDefault   Boolean  @default(false)
+  sortOrder   Int      @default(0)
+  createdBy   String?
+  updatedBy   String?
+  isDeleted   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isActive, isDeleted])
+  @@map("task_boards")
+}

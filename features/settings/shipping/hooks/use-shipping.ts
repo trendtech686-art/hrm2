@@ -3,6 +3,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import {
   fetchShippingPartners,
   fetchShippingPartnerById,
@@ -73,7 +74,7 @@ interface MutationCallbacks {
 
 export function useShippingPartnerMutations(options: MutationCallbacks = {}) {
   const queryClient = useQueryClient();
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: shippingPartnerKeys.all });
+  const invalidate = () => invalidateRelated(queryClient, 'shipping-partners');
 
   const create = useMutation({
     mutationFn: (data: ShippingPartnerCreateInput) => createShippingPartner(data),

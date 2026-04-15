@@ -1,6 +1,8 @@
 import { prisma } from '@/lib/prisma'
 import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
 import type { PayrollComponentEntry, PayrollTotals } from '@/lib/payroll-types'
+import { logError } from '@/lib/logger'
+import { createBulkNotifications } from '@/lib/notifications'
 
 interface GeneratedPayslip {
   employeeSystemId: string;
@@ -175,7 +177,7 @@ export async function POST(request: Request) {
       await tx.auditLog.create({
         data: {
           systemId: `LOG${String(auditLogCounter).padStart(10, '0')}`,
-          entityType: 'Payroll',
+          entityType: 'payroll',
           entityId: payroll.systemId,
           action: 'run',
           userId: session.user?.email || 'system',
@@ -193,13 +195,28 @@ export async function POST(request: Request) {
       return { payroll, payrollItems }
     })
 
+    // Notify employees in the payroll batch
+    const employeeIds = result.payrollItems?.map(item => item.employeeId).filter((id): id is string => !!id) || [];
+    if (employeeIds.length > 0) {
+      createBulkNotifications({
+        type: 'payroll',
+        settingsKey: 'payroll:updated',
+        title: 'Bảng lương mới',
+        message: `Bảng lương đã được tạo với ${employeeIds.length} nhân viên`,
+        link: `/payroll/${result.payroll.systemId}`,
+        recipientIds: employeeIds,
+        senderId: session.user?.employeeId,
+        senderName: session.user?.name,
+      }).catch(e => logError('[Payroll Batch] notification failed', e));
+    }
+
     return apiSuccess({
       batch: result.payroll,
       payslips: result.payrollItems,
       message: `Đã tạo bảng lương ${businessId} với ${result.payrollItems.length} nhân viên`,
     })
   } catch (error) {
-    console.error('Error creating payroll batch:', error)
+    logError('Error creating payroll batch', error)
     return apiError(
       error instanceof Error ? error.message : 'Failed to create payroll batch',
       500

@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
 import { syncBrandsSchema } from './validation'
+import { logError } from '@/lib/logger'
 
 // GET /api/settings/pkgx/brands - List all PKGX brands
 export async function GET(_request: NextRequest) {
@@ -24,7 +25,7 @@ export async function GET(_request: NextRequest) {
       total: brands.length,
     })
   } catch (error) {
-    console.error('Error fetching PKGX brands:', error)
+    logError('Error fetching PKGX brands', error)
     return apiError('Failed to fetch PKGX brands', 500)
   }
 }
@@ -84,7 +85,7 @@ export async function POST(request: NextRequest) {
       synced: results.length,
     })
   } catch (error) {
-    console.error('Error syncing PKGX brands:', error)
+    logError('Error syncing PKGX brands', error)
     return apiError('Failed to sync PKGX brands', 500)
   }
 }

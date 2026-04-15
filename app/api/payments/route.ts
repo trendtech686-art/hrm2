@@ -1,20 +1,23 @@
 import { prisma } from '@/lib/prisma'
 import type { Prisma } from '@/generated/prisma/client'
-import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
+import { apiSuccess, apiPaginated, apiError, parsePagination, validateBody } from '@/lib/api-utils'
+import { apiHandler } from '@/lib/api-handler'
 import { createPaymentSchema } from './validation'
 import { generateNextIdsWithTx } from '@/lib/id-system'
 import { updateCustomerDebt } from '@/lib/services/customer-debt-service'
+import { logError } from '@/lib/logger'
+import { createNotification } from '@/lib/notifications'
+import { getUserNameFromDb } from '@/lib/get-user-name'
 
 // GET /api/payments - List all payments (phiếu chi)
-export async function GET(request: Request) {
-  const session = await requireAuth()
-  if (!session) return apiError('Unauthorized', 401)
+export const GET = apiHandler(async (request, { session }) => {
 
   try {
     const { searchParams } = new URL(request.url)
     const { page, limit, skip } = parsePagination(searchParams)
     const search = searchParams.get('search') || ''
     const status = searchParams.get('status')
+    const category = searchParams.get('category') // Supports comma-separated values: purchase,supplier_payment
     const supplierId = searchParams.get('supplierId')
     const linkedOrderSystemId = searchParams.get('linkedOrderSystemId')
     const linkedSalesReturnSystemId = searchParams.get('linkedSalesReturnSystemId')
@@ -27,6 +30,12 @@ export async function GET(request: Request) {
     const endDate = searchParams.get('endDate')
     const sortBy = searchParams.get('sortBy') || 'createdAt'
     const sortOrder = (searchParams.get('sortOrder') || 'desc') as 'asc' | 'desc'
+    // Advanced filters
+    const recipientTypeSystemId = searchParams.get('recipientTypeSystemId')
+    const paymentMethodSystemId = searchParams.get('paymentMethodSystemId')
+    const paymentReceiptTypeSystemId = searchParams.get('paymentReceiptTypeSystemId')
+    const createdBy = searchParams.get('createdBy')
+    const type = searchParams.get('type')
 
     const where: Prisma.PaymentWhereInput = {}
 
@@ -39,6 +48,16 @@ export async function GET(request: Request) {
 
     if (status) {
       where.status = status
+    }
+
+    // ⚡ Support single category or comma-separated list: category=purchase,supplier_payment
+    if (category) {
+      const categories = category.split(',').map(c => c.trim()).filter(Boolean)
+      if (categories.length === 1) {
+        where.category = categories[0]
+      } else if (categories.length > 1) {
+        where.category = { in: categories }
+      }
     }
 
     if (supplierId) {
@@ -54,7 +73,21 @@ export async function GET(request: Request) {
     }
 
     if (customerSystemId) {
-      where.customerSystemId = customerSystemId
+      const customerName = searchParams.get('customerName')
+      const broadMatch = searchParams.get('customerMatchBroad') === 'true'
+      if (broadMatch) {
+        // Broad match: customerSystemId OR recipientSystemId OR (recipientTypeName=Khách hàng AND recipientName=customerName)
+        const orConditions: Prisma.PaymentWhereInput[] = [
+          { customerSystemId },
+          { recipientSystemId: customerSystemId },
+        ]
+        if (customerName) {
+          orConditions.push({ recipientTypeName: 'Khách hàng', recipientName: customerName })
+        }
+        where.OR = where.OR ? [...(Array.isArray(where.OR) ? where.OR : [where.OR]), ...orConditions] : orConditions
+      } else {
+        where.customerSystemId = customerSystemId
+      }
     }
 
     // ⚡ Filter for purchase order detail page
@@ -80,6 +113,27 @@ export async function GET(request: Request) {
       where.paymentDate = {}
       if (startDate) where.paymentDate.gte = new Date(startDate)
       if (endDate) where.paymentDate.lte = new Date(endDate)
+    }
+
+    // Advanced filters
+    if (recipientTypeSystemId) {
+      where.recipientTypeSystemId = recipientTypeSystemId
+    }
+
+    if (paymentMethodSystemId) {
+      where.paymentMethodSystemId = paymentMethodSystemId
+    }
+
+    if (paymentReceiptTypeSystemId) {
+      where.paymentReceiptTypeSystemId = paymentReceiptTypeSystemId
+    }
+
+    if (createdBy) {
+      where.createdBy = createdBy
+    }
+
+    if (type) {
+      where.type = type as Prisma.EnumPaymentTypeFilter
     }
 
     // Map sortBy to Prisma field
@@ -131,16 +185,13 @@ export async function GET(request: Request) {
 
     return apiPaginated(transformedPayments, { page, limit, total })
   } catch (error) {
-    console.error('Error fetching payments:', error)
-    return apiError('Failed to fetch payments', 500)
+    logError('Error fetching payments', error)
+    return apiError('Không thể tải danh sách phiếu chi', 500)
   }
-}
+})
 
 // POST /api/payments - Create new payment
-export async function POST(request: Request) {
-  const session = await requireAuth()
-  if (!session) return apiError('Unauthorized', 401)
-
+export const POST = apiHandler(async (request, { session }) => {
   const validation = await validateBody(request, createPaymentSchema)
   if (!validation.success) {
     return apiError(validation.error, 400)
@@ -151,7 +202,7 @@ export async function POST(request: Request) {
     // Determine branchId - use branchSystemId if provided, otherwise branchId
     const branchId = body.branchSystemId || body.branchId
     if (!branchId) {
-      return apiError('Branch ID is required', 400)
+      return apiError('Vui lòng chọn chi nhánh', 400)
     }
 
     // Determine payment type
@@ -197,6 +248,7 @@ export async function POST(request: Request) {
           status: body.status || 'completed',
           category: body.category,
           affectsDebt: body.affectsDebt ?? true,
+          affectsBusinessReport: body.affectsBusinessReport ?? false,
           linkedPayrollBatchSystemId: body.linkedPayrollBatchSystemId,
           linkedPayslipSystemId: body.linkedPayslipSystemId,
         },
@@ -221,14 +273,14 @@ export async function POST(request: Request) {
       data: {
         systemId: `LOG${String(auditLogCounter).padStart(10, '0')}`,
         action: 'CREATE',
-        entityType: 'Payment',
+        entityType: 'payment',
         entityId: payment.systemId,
-        userId: body.createdBy || session.user?.id || 'SYSTEM',
-        userName: session.user?.name || session.user?.email || 'Hệ thống',
+        userId: body.createdBy || session!.user.id || 'SYSTEM',
+        userName: session!.user.name || session!.user.email || 'Hệ thống',
         changes: {
-          type: paymentType,
-          amount: body.amount,
-          recipientName: body.recipientName,
+          'Loại': paymentType,
+          'Số tiền': body.amount,
+          'Người nhận': body.recipientName,
           description: body.description,
           linkedPayrollBatchSystemId: body.linkedPayrollBatchSystemId,
         },
@@ -240,7 +292,7 @@ export async function POST(request: Request) {
       const customerSystemId = payment.customerSystemId || payment.recipientSystemId;
       if (customerSystemId) {
         await updateCustomerDebt(customerSystemId).catch(err => {
-          console.error('[Create Payment] Failed to update customer debt:', err);
+          logError('[Create Payment] Failed to update customer debt', err);
         });
       }
     }
@@ -252,10 +304,38 @@ export async function POST(request: Request) {
       runningBalance: payment.runningBalance !== null ? Number(payment.runningBalance) : null,
     };
 
+    // ✅ Notify recipient for salary/advance payments
+    if (payment.recipientSystemId && payment.category && ['salary', 'advance', 'bonus'].includes(payment.category) && payment.recipientSystemId !== session!.user.employeeId) {
+      createNotification({
+        type: 'payment',
+        title: 'Phiếu chi mới',
+        message: `Phiếu chi ${payment.id || payment.systemId} - ${payment.recipientName || ''} - ${Number(payment.amount).toLocaleString('vi-VN')}đ`,
+        link: `/payments/${payment.systemId}`,
+        recipientId: payment.recipientSystemId,
+        senderId: session!.user.employeeId,
+        senderName: session!.user.name,
+        settingsKey: 'payment:received',
+      }).catch(e => logError('[Payments POST] notification failed', e))
+    }
+
+    // Log activity
+    getUserNameFromDb(session!.user.id).then(userName =>
+      prisma.activityLog.create({
+        data: {
+          entityType: 'payment',
+          entityId: serialized.systemId,
+          action: 'created',
+          actionType: 'create',
+          note: `Tạo phiếu chi`,
+          metadata: { userName },
+          createdBy: userName,
+        }
+      })
+    ).catch(e => logError('[ActivityLog] payment create failed', e))
     return apiSuccess(serialized, 201)
   } catch (error) {
-    console.error('Error creating payment:', error)
-    const message = error instanceof Error ? error.message : 'Failed to create payment'
+    logError('Error creating payment', error)
+    const message = error instanceof Error ? error.message : 'Không thể tạo phiếu chi'
     return apiError(message, 500)
   }
-}
+})

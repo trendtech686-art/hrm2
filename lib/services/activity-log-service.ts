@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Activity Log Service
  * 
  * Centralized service for logging activity across all entities.
@@ -7,6 +7,7 @@
 
 import { prisma } from '@/lib/prisma';
 import type { ActivityLogEntityType } from '@/lib/types/prisma-extended';
+import { logError } from '@/lib/logger'
 
 export interface ActivityLogEntry {
   entityType: ActivityLogEntityType;
@@ -38,7 +39,7 @@ export async function createActivityLog(entry: ActivityLogEntry): Promise<void> 
     });
   } catch (error) {
     // Log error but don't fail the main operation
-    console.error('[ActivityLog] Failed to create log entry:', error);
+    logError('[ActivityLog] Failed to create log entry', error);
   }
 }
 
@@ -62,7 +63,7 @@ export async function createActivityLogs(entries: ActivityLogEntry[]): Promise<v
       })),
     });
   } catch (error) {
-    console.error('[ActivityLog] Failed to create log entries:', error);
+    logError('[ActivityLog] Failed to create log entries', error);
   }
 }
 

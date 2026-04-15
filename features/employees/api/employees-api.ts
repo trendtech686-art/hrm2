@@ -9,6 +9,7 @@
  */
 
 import type { Employee } from '@/lib/types/prisma-extended';
+import { logError } from '@/lib/logger'
 
 const API_BASE = '/api/employees';
 
@@ -148,7 +149,7 @@ export async function deleteEmployee(id: string): Promise<void> {
   
   if (!res.ok) {
     const error = await res.json().catch(() => ({}));
-    console.error('[deleteEmployee] Error:', error);
+    logError('[deleteEmployee] Error', error);
     throw new Error(error.message || `Failed to delete employee: ${res.statusText}`);
   }
 }

@@ -1,15 +1,11 @@
 import { prisma } from '@/lib/prisma'
-import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
+import { apiHandler } from '@/lib/api-handler'
+import { apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
 
 // POST /api/products/[systemId]/restore - Restore soft-deleted product
-export async function POST(
-  _request: Request,
-  { params }: { params: Promise<{ systemId: string }> }
-) {
-  const session = await requireAuth()
-  if (!session) return apiError('Unauthorized', 401)
-
-  try {
+export const POST = apiHandler(async (
+  _request, { params }
+) => {
     const { systemId } = await params
 
     const existing = await prisma.product.findUnique({
@@ -17,7 +13,15 @@ export async function POST(
     })
 
     if (!existing) {
-      return apiNotFound('Product')
+      return apiNotFound('Sản phẩm')
+    }
+
+    if (!existing.isDeleted) {
+      return apiError('Sản phẩm chưa bị xóa, không cần khôi phục', 400)
+    }
+
+    if (existing.permanentlyDeletedAt) {
+      return apiError('Sản phẩm đã được lưu trữ vĩnh viễn, không thể khôi phục', 400)
     }
 
     const restored = await prisma.product.update({
@@ -29,8 +33,4 @@ export async function POST(
     })
 
     return apiSuccess(restored)
-  } catch (error) {
-    console.error('Error restoring product:', error)
-    return apiError('Failed to restore product', 500)
-  }
-}
+})

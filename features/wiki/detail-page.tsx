@@ -11,10 +11,12 @@ import { Badge } from '../../components/ui/badge';
 import { Skeleton } from '../../components/ui/skeleton';
 import { ArrowLeft, Edit, User, Calendar, Tag } from 'lucide-react';
 import { MarkdownRenderer } from './components/markdown-renderer';
+import { useAuth } from '@/contexts/auth-context';
 
 export function WikiDetailPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const router = useRouter();
+  const { can, isAdmin } = useAuth();
   
   const { data: article, isLoading } = useWikiById(systemId);
 
@@ -26,12 +28,12 @@ export function WikiDetailPage() {
       { label: 'Wiki', href: '/wiki', isCurrent: false },
       { label: article?.title ?? 'Chi tiết', href: `/wiki/${article?.systemId ?? ''}`, isCurrent: true },
     ],
-    actions: [
+    actions: (isAdmin || can('edit_wiki')) ? [
       <Button key="edit" className="h-9 gap-2" onClick={() => router.push(`/wiki/${article?.systemId}/edit`)}>
         <Edit className="mr-2 h-4 w-4" />
         Chỉnh sửa
       </Button>
-    ]
+    ] : []
   });
 
   // Loading state

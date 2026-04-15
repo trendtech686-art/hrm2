@@ -235,7 +235,7 @@ export const inventoryCheckImportExportConfig: ImportExportConfig<InventoryCheck
     let lastCreatedAt = '';
     let lastNote = '';
     
-    return rows.map((row: Record<string, unknown>) => {
+    return (rows as Record<string, unknown>[]).map((row) => {
       if (row.checkId) {
         lastCheckId = String(row.checkId);
         lastBranch = String(row.branchIdOrName || '');

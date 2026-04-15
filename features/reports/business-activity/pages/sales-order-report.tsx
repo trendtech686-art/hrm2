@@ -1,7 +1,9 @@
-﻿/**
+'use client'
+
+/**
  * Sales Order Report Page
  * 
- * Báo cáo bán hàng theo đơn hàng
+ * B�o c�o b�n h�ng theo don h�ng
  */
 
 import * as React from 'react';
@@ -12,9 +14,8 @@ import { ReportFilters } from '../components/report-filters';
 import { ReportSummaryCards } from '../components/report-summary-cards';
 import { ReportHeaderActions, SALES_REPORT_GLOSSARY } from '../components/report-header-actions';
 import { formatCurrency } from '@/lib/format-utils';
-import { useAllOrders } from '@/features/orders/hooks/use-all-orders';
 import { useCustomerFinder } from '@/features/customers/hooks/use-all-customers';
-import { useEmployeeFinder } from '@/features/employees/hooks/use-all-employees';
+import { useOrdersByDateRange } from '../hooks/use-report-data';
 import { ResponsiveDataTable } from '@/components/data-table/responsive-data-table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -34,19 +35,19 @@ const getColumns = (): ColumnDef<SalesOrderReportRow & { systemId: string; _isSu
   {
     id: 'orderId',
     accessorKey: 'orderId',
-    header: 'Mã đơn hàng',
+    header: 'M� don h�ng',
     size: 120,
     enableSorting: true,
     cell: ({ row }) => (
       <span className={row._isSummary ? 'font-semibold' : 'text-primary font-medium'}>
-        {row._isSummary ? 'Tổng' : row.orderId}
+        {row._isSummary ? 'T?ng' : row.orderId}
       </span>
     ),
   },
   {
     id: 'orderDate',
     accessorKey: 'orderDate',
-    header: 'Ngày đặt',
+    header: 'Ng�y d?t',
     size: 100,
     enableSorting: true,
     cell: ({ row }) => row._isSummary ? '' : (row.orderDate ? format(parseISO(row.orderDate), 'dd/MM/yyyy') : '-'),
@@ -54,7 +55,7 @@ const getColumns = (): ColumnDef<SalesOrderReportRow & { systemId: string; _isSu
   {
     id: 'customerName',
     accessorKey: 'customerName',
-    header: 'Khách hàng',
+    header: 'Kh�ch h�ng',
     size: 180,
     enableSorting: true,
     cell: ({ row }) => row._isSummary ? '' : row.customerName,
@@ -62,7 +63,7 @@ const getColumns = (): ColumnDef<SalesOrderReportRow & { systemId: string; _isSu
   {
     id: 'employeeName',
     accessorKey: 'employeeName',
-    header: 'Nhân viên',
+    header: 'Nh�n vi�n',
     size: 150,
     enableSorting: true,
     cell: ({ row }) => row._isSummary ? '' : (row.employeeName || '-'),
@@ -70,16 +71,16 @@ const getColumns = (): ColumnDef<SalesOrderReportRow & { systemId: string; _isSu
   {
     id: 'status',
     accessorKey: 'status',
-    header: 'Trạng thái',
+    header: 'Tr?ng th�i',
     size: 100,
     enableSorting: true,
     cell: ({ row }) => {
       if (row._isSummary) return '';
       const statusMap: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
-        'completed': { label: 'Hoàn thành', variant: 'default' },
-        'pending': { label: 'Chờ xử lý', variant: 'secondary' },
-        'cancelled': { label: 'Đã hủy', variant: 'destructive' },
-        'processing': { label: 'Đang xử lý', variant: 'outline' },
+        'completed': { label: 'Ho�n th�nh', variant: 'default' },
+        'pending': { label: 'Ch? x? l�', variant: 'secondary' },
+        'cancelled': { label: 'D� h?y', variant: 'destructive' },
+        'processing': { label: 'Dang x? l�', variant: 'outline' },
       };
       const statusKey = row.status ?? '';
       const s = statusMap[statusKey] || { label: row.status || 'N/A', variant: 'secondary' as const };
@@ -89,7 +90,7 @@ const getColumns = (): ColumnDef<SalesOrderReportRow & { systemId: string; _isSu
   {
     id: 'productAmount',
     accessorKey: 'productAmount',
-    header: 'Tiền hàng',
+    header: 'Ti?n h�ng',
     size: 120,
     enableSorting: true,
     cell: ({ row }) => <span className="text-right block">{formatCurrency(row.productAmount)}</span>,
@@ -97,7 +98,7 @@ const getColumns = (): ColumnDef<SalesOrderReportRow & { systemId: string; _isSu
   {
     id: 'discountAmount',
     accessorKey: 'discountAmount',
-    header: 'Giảm giá',
+    header: 'Gi?m gi�',
     size: 100,
     enableSorting: true,
     cell: ({ row }) => (
@@ -109,7 +110,7 @@ const getColumns = (): ColumnDef<SalesOrderReportRow & { systemId: string; _isSu
   {
     id: 'totalAmount',
     accessorKey: 'totalAmount',
-    header: 'Tổng tiền',
+    header: 'T?ng ti?n',
     size: 130,
     enableSorting: true,
     cell: ({ row }) => <span className="text-right block font-medium">{formatCurrency(row.totalAmount)}</span>,
@@ -124,9 +125,8 @@ export function SalesOrderReportPage() {
   const [columnOrder, setColumnOrder] = React.useState<string[]>([]);
   const [pinnedColumns, setPinnedColumns] = React.useState<string[]>([]);
   
-  const { data: orders } = useAllOrders();
+  const { data: orders = [] } = useOrdersByDateRange(dateRange);
   const { findById: findCustomerById } = useCustomerFinder();
-  const { findById: findEmployeeById } = useEmployeeFinder();
   
   // Process data
   const { data, summary } = React.useMemo(() => {
@@ -142,7 +142,6 @@ export function SalesOrderReportPage() {
     
     const reportData: SalesOrderReportRow[] = filteredOrders.map(order => {
       const customer = order.customerSystemId ? findCustomerById(order.customerSystemId) : null;
-      const employee = order.salespersonSystemId ? findEmployeeById(order.salespersonSystemId) : null;
       
       const productAmount = order.lineItems?.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0) || 0;
       const discountAmount = order.orderDiscount || 0;
@@ -154,9 +153,9 @@ export function SalesOrderReportPage() {
         orderId: order.id,
         orderDate: order.createdAt || '',
         customerSystemId: order.customerSystemId,
-        customerName: customer?.name || order.customerName || 'Khách lẻ',
+        customerName: customer?.name || order.customerName || 'Kh�ch l?',
         employeeSystemId: order.salespersonSystemId,
-        employeeName: employee?.fullName,
+        employeeName: order.salesperson || undefined,
         status: order.status || 'pending',
         itemCount: order.lineItems?.length || 0,
         productAmount,
@@ -182,12 +181,12 @@ export function SalesOrderReportPage() {
     };
     
     return { data: reportData, summary: summaryData };
-  }, [orders, dateRange, findCustomerById, findEmployeeById]);
+  }, [orders, dateRange, findCustomerById]);
   
   const tableData = React.useMemo(() => {
     const summaryRow: SalesOrderReportRow & { systemId: SystemId; _isSummary: boolean } = {
       orderSystemId: '__summary__' as SystemId,
-      orderId: 'Tổng',
+      orderId: 'T?ng',
       orderDate: '',
       customerName: '',
       employeeName: '',
@@ -241,26 +240,26 @@ export function SalesOrderReportPage() {
   const pageCount = Math.ceil(data.length / pagination.pageSize);
   
   const exportColumns = React.useMemo(() => [
-    { key: 'orderId', label: 'Mã đơn hàng', selected: true },
-    { key: 'orderDate', label: 'Ngày đặt', selected: true },
-    { key: 'customerName', label: 'Khách hàng', selected: true },
-    { key: 'employeeName', label: 'Nhân viên', selected: true },
-    { key: 'status', label: 'Trạng thái', selected: true },
-    { key: 'productAmount', label: 'Tiền hàng', selected: true },
-    { key: 'discountAmount', label: 'Giảm giá', selected: true },
-    { key: 'totalAmount', label: 'Tổng tiền', selected: true },
+    { key: 'orderId', label: 'M� don h�ng', selected: true },
+    { key: 'orderDate', label: 'Ng�y d?t', selected: true },
+    { key: 'customerName', label: 'Kh�ch h�ng', selected: true },
+    { key: 'employeeName', label: 'Nh�n vi�n', selected: true },
+    { key: 'status', label: 'Tr?ng th�i', selected: true },
+    { key: 'productAmount', label: 'Ti?n h�ng', selected: true },
+    { key: 'discountAmount', label: 'Gi?m gi�', selected: true },
+    { key: 'totalAmount', label: 'T?ng ti?n', selected: true },
   ], []);
   
   const summaryCards = React.useMemo(() => [
-    { title: 'Tổng đơn hàng', value: summary.orderCount, icon: FileText },
-    { title: 'Tiền hàng', value: formatCurrency(summary.productAmount), icon: ShoppingCart },
-    { title: 'Tổng doanh thu', value: formatCurrency(summary.revenue), icon: TrendingUp },
-    { title: 'Đã thu', value: formatCurrency(data.reduce((sum, r) => sum + r.paidAmount, 0)), icon: DollarSign },
+    { title: 'T?ng don h�ng', value: summary.orderCount, icon: FileText },
+    { title: 'Ti?n h�ng', value: formatCurrency(summary.productAmount), icon: ShoppingCart },
+    { title: 'T?ng doanh thu', value: formatCurrency(summary.revenue), icon: TrendingUp },
+    { title: 'D� thu', value: formatCurrency(data.reduce((sum, r) => sum + r.paidAmount, 0)), icon: DollarSign },
   ], [summary, data]);
   
   const headerActions = React.useMemo(() => (
     <ReportHeaderActions
-      title="Báo cáo bán hàng theo đơn hàng"
+      title="B�o c�o b�n h�ng theo don h�ng"
       data={data as unknown as Record<string, unknown>[]}
       columns={exportColumns}
       glossary={SALES_REPORT_GLOSSARY}
@@ -268,12 +267,12 @@ export function SalesOrderReportPage() {
   ), [data, exportColumns]);
   
   usePageHeader({
-    title: 'Báo cáo bán hàng theo đơn hàng',
-    subtitle: 'Chi tiết từng đơn hàng trong kỳ',
+    title: 'B�o c�o b�n h�ng theo don h�ng',
+    subtitle: 'Chi ti?t t?ng don h�ng trong k?',
     breadcrumb: [
-      { label: 'Trang chủ', href: ROUTES.ROOT },
-      { label: 'Báo cáo', href: ROUTES.REPORTS.INDEX },
-      { label: 'Bán hàng theo đơn hàng', href: ROUTES.REPORTS.SALES_BY_ORDER, isCurrent: true },
+      { label: 'Trang ch?', href: ROUTES.ROOT },
+      { label: 'B�o c�o', href: ROUTES.REPORTS.INDEX },
+      { label: 'B�n h�ng theo don h�ng', href: ROUTES.REPORTS.SALES_BY_ORDER, isCurrent: true },
     ],
     showBackButton: true,
     actions: [headerActions],
@@ -285,24 +284,24 @@ export function SalesOrderReportPage() {
     <div className={`p-4 space-y-3 ${row._isSummary ? 'bg-muted/50' : ''}`}>
       <div className="flex items-center justify-between">
         <span className={`font-medium ${row._isSummary ? 'text-base' : 'text-primary'}`}>
-          {row._isSummary ? 'Tổng cộng' : row.orderId}
+          {row._isSummary ? 'T?ng c?ng' : row.orderId}
         </span>
         {!row._isSummary && row.status && (
           <Badge variant={row.status === 'completed' ? 'default' : 'secondary'}>
-            {row.status === 'completed' ? 'Hoàn thành' : row.status}
+            {row.status === 'completed' ? 'Ho�n th�nh' : row.status}
           </Badge>
         )}
       </div>
       {!row._isSummary && (
         <div className="text-sm text-muted-foreground">
-          {row.customerName} • {row.orderDate ? format(parseISO(row.orderDate), 'dd/MM/yyyy') : '-'}
+          {row.customerName} . {row.orderDate ? format(parseISO(row.orderDate), 'dd/MM/yyyy') : '-'}
         </div>
       )}
       <div className="grid grid-cols-2 gap-2 text-sm">
-        <div><span className="text-muted-foreground">Tiền hàng:</span> {formatCurrency(row.productAmount)}</div>
-        <div><span className="text-muted-foreground">Giảm giá:</span> {formatCurrency(row.discountAmount)}</div>
-        <div className="font-medium"><span className="text-muted-foreground">Tổng:</span> {formatCurrency(row.totalAmount)}</div>
-        <div><span className="text-muted-foreground">Đã thu:</span> {formatCurrency(row.paidAmount)}</div>
+        <div><span className="text-muted-foreground">Ti?n h�ng:</span> {formatCurrency(row.productAmount)}</div>
+        <div><span className="text-muted-foreground">Gi?m gi�:</span> {formatCurrency(row.discountAmount)}</div>
+        <div className="font-medium"><span className="text-muted-foreground">T?ng:</span> {formatCurrency(row.totalAmount)}</div>
+        <div><span className="text-muted-foreground">D� thu:</span> {formatCurrency(row.paidAmount)}</div>
       </div>
     </div>
   );
@@ -321,10 +320,10 @@ export function SalesOrderReportPage() {
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
-            <CardTitle>Chi tiết đơn hàng</CardTitle>
+            <CardTitle>Chi ti?t don h�ng</CardTitle>
             <Button variant="outline" size="sm">
               <Filter className="h-4 w-4 mr-2" />
-              Lọc ({data.length})
+              L?c ({data.length})
             </Button>
           </div>
         </CardHeader>

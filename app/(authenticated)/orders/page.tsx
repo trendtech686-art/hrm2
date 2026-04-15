@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { Suspense } from 'react'
 import { OrdersPage } from '@/features/orders/page'
-import { getOrderStats, getOrdersCountByStatus } from '@/lib/data/orders'
+import { getOrderStats } from '@/lib/data/orders'
 import { TableSkeleton } from '@/components/shared/table-skeleton'
 
 export const metadata: Metadata = {
@@ -13,15 +13,11 @@ export const dynamic = 'force-dynamic'
 
 // Server Component - prefetch stats
 async function OrdersPageWithData() {
-  const [stats, countByStatus] = await Promise.all([
-    getOrderStats(),
-    getOrdersCountByStatus(),
-  ])
+  const stats = await getOrderStats()
   
   return (
     <OrdersPage 
       initialStats={stats}
-      initialCountByStatus={countByStatus}
     />
   )
 }

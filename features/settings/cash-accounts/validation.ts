@@ -4,7 +4,7 @@ import { z } from 'zod';
 export const createCashAccountSchema = z.object({
   code: z.string().min(1, 'Mã tài khoản không được để trống'),
   name: z.string().min(1, 'Tên tài khoản không được để trống'),
-  type: z.enum(['cash', 'bank', 'e-wallet']),
+  type: z.enum(['cash', 'bank']),
   bankName: z.string().optional(),
   accountNumber: z.string().optional(),
   accountHolder: z.string().optional(),
@@ -21,7 +21,7 @@ export const updateCashAccountSchema = createCashAccountSchema.partial();
 // Filter Schema
 export const cashAccountFilterSchema = z.object({
   search: z.string().optional(),
-  type: z.enum(['cash', 'bank', 'e-wallet']).optional(),
+  type: z.enum(['cash', 'bank']).optional(),
   branchSystemId: z.string().optional(),
   isActive: z.boolean().optional(),
 });

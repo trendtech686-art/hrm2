@@ -6,7 +6,7 @@ import { formatDateTime } from '@/lib/date-utils'
 import { toast } from "sonner"
 import { usePageHeader } from "@/contexts/page-header-context";
 import { useDeletedCategories, useCategoryTrashMutations } from "./hooks/use-categories"
-import { getColumns } from "./trash-columns"
+import { getColumns, type TrashCategory } from "./trash-columns"
 import { GenericTrashPage } from "@/components/shared/generic-trash-page"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -14,10 +14,7 @@ import { Button } from "@/components/ui/button"
 import type { Category } from './api/categories-api'
 import type { SystemId } from "@/lib/id-types";
 
-type TrashCategory = Omit<Category, 'systemId' | 'deletedAt'> & { 
-  systemId: SystemId; 
-  deletedAt?: string | null;
-};
+// TrashCategory is re-exported from trash-columns
 
 export function CategoriesTrashPage() {
   const { data: deletedCategories = [], isLoading } = useDeletedCategories();
@@ -74,9 +71,9 @@ export function CategoriesTrashPage() {
   const handlePermanentDeleteFromColumn = React.useCallback(async (systemId: SystemId) => {
     try {
       await permanentDelete.mutateAsync(systemId as string);
-      toast.success('Đã xóa vĩnh viễn danh mục');
+      toast.success('Đã lưu trữ vĩnh viễn danh mục');
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Không thể xóa danh mục');
+      toast.error(error instanceof Error ? error.message : 'Không thể lưu trữ danh mục');
     }
   }, [permanentDelete]);
 
@@ -86,48 +83,46 @@ export function CategoriesTrashPage() {
   );
 
   // Mobile card renderer
-  const renderMobileCard = React.useCallback((category: Category) => (
-    <Card className="mb-3">
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="font-medium">{category.name}</span>
-              <Badge variant="destructive" className="text-xs">Đã xóa</Badge>
-            </div>
-            <p className="text-sm text-muted-foreground">Mã: {category.id}</p>
-            {category.path && (
-              <p className="text-xs text-muted-foreground truncate max-w-50">
-                {category.path}
-              </p>
-            )}
-            {category.deletedAt && (
-              <p className="text-xs text-muted-foreground">
-                Xóa lúc: {formatDateTime(category.deletedAt)}
-              </p>
-            )}
+  const renderMobileCard = React.useCallback((category: TrashCategory) => (
+    <div className="rounded-xl border border-border/50 bg-card p-4">
+      <div className="flex items-start justify-between">
+        <div className="space-y-1 flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="font-medium text-sm">{category.name}</span>
+            <Badge variant="destructive" className="text-xs">Đã xóa</Badge>
           </div>
-          <div className="flex flex-col gap-1">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleRestoreFromColumn(category.systemId as SystemId)}
-              className="text-green-600"
-            >
-              Khôi phục
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handlePermanentDeleteFromColumn(category.systemId as SystemId)}
-              className="text-destructive"
-            >
-              Xóa vĩnh viễn
-            </Button>
-          </div>
+          <p className="text-xs text-muted-foreground">Mã: {category.id}</p>
+          {category.path && (
+            <p className="text-xs text-muted-foreground truncate max-w-50">
+              {category.path}
+            </p>
+          )}
+          {category.deletedAt && (
+            <p className="text-xs text-muted-foreground">
+              Xóa lúc: {formatDateTime(category.deletedAt)}
+            </p>
+          )}
         </div>
-      </CardContent>
-    </Card>
+        <div className="flex flex-col gap-1 shrink-0">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleRestoreFromColumn(category.systemId)}
+            className="text-green-600"
+          >
+            Khôi phục
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handlePermanentDeleteFromColumn(category.systemId)}
+            className="text-destructive"
+          >
+            Lưu trữ vĩnh viễn
+          </Button>
+        </div>
+      </div>
+    </div>
   ), [handleRestoreFromColumn, handlePermanentDeleteFromColumn]);
 
   if (isLoading) {
@@ -146,10 +141,8 @@ export function CategoriesTrashPage() {
       title="Thùng rác danh mục"
       entityName="danh mục"
       backUrl="/categories"
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      columns={columns as any}
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      renderMobileCard={renderMobileCard as any}
+      columns={columns}
+      renderMobileCard={renderMobileCard}
       getItemDisplayName={(category) => category.name}
     />
   );

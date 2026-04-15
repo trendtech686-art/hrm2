@@ -8,9 +8,11 @@ import { prisma } from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
 import { revalidatePath } from '@/lib/revalidation'
 import { generateIdWithPrefix } from '@/lib/id-generator'
-import { auth } from '@/auth'
+import { requireActionPermission } from '@/lib/api-utils'
 import type { ActionResult } from '@/types/action-result'
 import { createBrandSchema, updateBrandSchema } from '@/features/brands/validation'
+import { logError } from '@/lib/logger'
+import { getSessionUserName } from '@/lib/get-user-name'
 
 // Types
 type Brand = NonNullable<Awaited<ReturnType<typeof prisma.brand.findFirst>>>
@@ -57,10 +59,9 @@ export type UpdateBrandInput = {
 export async function createBrandAction(
   input: CreateBrandInput
 ): Promise<ActionResult<Brand>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('create_products')
+  if (!authResult.success) return authResult
+  const { session } = authResult
 
   const validated = createBrandSchema.safeParse(input)
   if (!validated.success) {
@@ -92,9 +93,22 @@ export async function createBrandAction(
     })
 
     revalidatePath('/brands')
+
+    const logUserName = getSessionUserName(session)
+    prisma.activityLog.create({
+      data: {
+        entityType: 'brand',
+        entityId: systemId,
+        action: `Tạo thương hiệu: ${input.name}`,
+        actionType: 'create',
+        metadata: { userName: logUserName },
+        createdBy: logUserName,
+      }
+    }).catch(e => logError('[ActivityLog] brand create failed', e))
+
     return { success: true, data: brand }
   } catch (error) {
-    console.error('Error creating brand:', error)
+    logError('Error creating brand', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Không thể tạo thương hiệu',
@@ -105,10 +119,9 @@ export async function createBrandAction(
 export async function updateBrandAction(
   input: UpdateBrandInput
 ): Promise<ActionResult<Brand>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('edit_products')
+  if (!authResult.success) return authResult
+  const { session } = authResult
 
   const validated = updateBrandSchema.safeParse(input)
   if (!validated.success) {
@@ -150,9 +163,22 @@ export async function updateBrandAction(
 
     revalidatePath('/brands')
     revalidatePath(`/brands/${systemId}`)
+
+    const logUserName = getSessionUserName(session)
+    prisma.activityLog.create({
+      data: {
+        entityType: 'brand',
+        entityId: systemId,
+        action: `Cập nhật thương hiệu: ${existing.name}`,
+        actionType: 'update',
+        metadata: { userName: logUserName },
+        createdBy: logUserName,
+      }
+    }).catch(e => logError('[ActivityLog] brand update failed', e))
+
     return { success: true, data: brand }
   } catch (error) {
-    console.error('Error updating brand:', error)
+    logError('Error updating brand', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Không thể cập nhật thương hiệu',
@@ -163,10 +189,9 @@ export async function updateBrandAction(
 export async function deleteBrandAction(
   systemId: string
 ): Promise<ActionResult<Brand>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('delete_products')
+  if (!authResult.success) return authResult
+  const { session } = authResult
 
   try {
     const brand = await prisma.brand.update({
@@ -178,9 +203,22 @@ export async function deleteBrandAction(
     })
 
     revalidatePath('/brands')
+
+    const logUserName = getSessionUserName(session)
+    prisma.activityLog.create({
+      data: {
+        entityType: 'brand',
+        entityId: systemId,
+        action: `Xóa thương hiệu: ${brand.name}`,
+        actionType: 'delete',
+        metadata: { userName: logUserName },
+        createdBy: logUserName,
+      }
+    }).catch(e => logError('[ActivityLog] brand delete failed', e))
+
     return { success: true, data: brand }
   } catch (error) {
-    console.error('Error deleting brand:', error)
+    logError('Error deleting brand', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Không thể xóa thương hiệu',
@@ -191,10 +229,9 @@ export async function deleteBrandAction(
 export async function restoreBrandAction(
   systemId: string
 ): Promise<ActionResult<Brand>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('edit_products')
+  if (!authResult.success) return authResult
+  const { session } = authResult
 
   try {
     const brand = await prisma.brand.update({
@@ -206,9 +243,22 @@ export async function restoreBrandAction(
     })
 
     revalidatePath('/brands')
+
+    const logUserName = getSessionUserName(session)
+    prisma.activityLog.create({
+      data: {
+        entityType: 'brand',
+        entityId: systemId,
+        action: `Khôi phục thương hiệu: ${brand.name}`,
+        actionType: 'update',
+        metadata: { userName: logUserName },
+        createdBy: logUserName,
+      }
+    }).catch(e => logError('[ActivityLog] brand restore failed', e))
+
     return { success: true, data: brand }
   } catch (error) {
-    console.error('Error restoring brand:', error)
+    logError('Error restoring brand', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Không thể khôi phục thương hiệu',
@@ -216,29 +266,3 @@ export async function restoreBrandAction(
   }
 }
 
-export async function getBrandAction(
-  systemId: string
-): Promise<ActionResult<Brand>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
-
-  try {
-    const brand = await prisma.brand.findUnique({
-      where: { systemId },
-    })
-
-    if (!brand) {
-      return { success: false, error: 'Không tìm thấy thương hiệu' }
-    }
-
-    return { success: true, data: brand }
-  } catch (error) {
-    console.error('Error getting brand:', error)
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Không thể lấy thương hiệu',
-    }
-  }
-}

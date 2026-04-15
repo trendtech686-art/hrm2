@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react'
 import { Search, X, Loader2 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
+import { sanitizeHtml } from '@/lib/sanitize'
 
 interface SearchInputProps {
   placeholder?: string
@@ -118,7 +119,7 @@ export function HighlightedText({
   
   return (
     <span 
-      dangerouslySetInnerHTML={{ __html: html }}
+      dangerouslySetInnerHTML={{ __html: sanitizeHtml(html) }}
       className="[&>mark]:bg-yellow-200 [&>mark]:text-yellow-900 [&>mark]:px-0.5 [&>mark]:rounded"
     />
   )

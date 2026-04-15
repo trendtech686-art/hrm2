@@ -23,6 +23,7 @@ import {
   type UpdateComplaintInput,
 } from '@/app/actions/complaints';
 import type { Complaint } from '@/lib/types/prisma-extended';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 
 // Re-export types for backwards compatibility
 export type { CreateComplaintInput, UpdateComplaintInput };
@@ -133,8 +134,7 @@ export function useComplaintMutations(options: UseComplaintMutationsOptions = {}
       return result.data as unknown as Complaint;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: complaintKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: complaintKeys.stats() });
+      invalidateRelated(queryClient, 'complaints');
       options.onCreateSuccess?.(data);
     },
     onError: options.onError,
@@ -154,7 +154,7 @@ export function useComplaintMutations(options: UseComplaintMutationsOptions = {}
       // ✅ Use refetchQueries to wait for fresh data before updating UI
       await queryClient.refetchQueries({ queryKey: complaintKeys.detail(systemId) });
       await queryClient.refetchQueries({ queryKey: complaintKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: complaintKeys.stats() });
+      invalidateRelated(queryClient, 'complaints');
       options.onUpdateSuccess?.(data);
     },
     onError: options.onError,
@@ -199,7 +199,7 @@ export function useComplaintMutations(options: UseComplaintMutationsOptions = {}
       options.onDeleteSuccess?.();
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: complaintKeys.all });
+      invalidateRelated(queryClient, 'complaints');
     },
   });
 
@@ -211,10 +211,8 @@ export function useComplaintMutations(options: UseComplaintMutationsOptions = {}
       }
       return result.data as unknown as Complaint;
     },
-    onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: complaintKeys.detail(variables.systemId) });
-      queryClient.invalidateQueries({ queryKey: complaintKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: complaintKeys.stats() });
+    onSuccess: () => {
+      invalidateRelated(queryClient, 'complaints');
     },
     onError: options.onError,
   });
@@ -227,10 +225,8 @@ export function useComplaintMutations(options: UseComplaintMutationsOptions = {}
       }
       return result.data as unknown as Complaint;
     },
-    onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: complaintKeys.detail(variables.systemId) });
-      queryClient.invalidateQueries({ queryKey: complaintKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: complaintKeys.stats() });
+    onSuccess: () => {
+      invalidateRelated(queryClient, 'complaints');
     },
     onError: options.onError,
   });

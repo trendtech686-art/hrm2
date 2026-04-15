@@ -5,6 +5,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import {
   fetchComplaintTypes,
   fetchComplaintType,
@@ -56,7 +57,7 @@ export function useComplaintTypeMutations(options: UseComplaintTypeMutationsOpti
   const create = useMutation({
     mutationFn: createComplaintType,
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: complaintTypeKeys.all });
+      invalidateRelated(queryClient, 'complaint-types');
       options.onCreateSuccess?.(data);
     },
     onError: options.onError,
@@ -65,9 +66,8 @@ export function useComplaintTypeMutations(options: UseComplaintTypeMutationsOpti
   const update = useMutation({
     mutationFn: ({ systemId, data }: { systemId: string; data: Partial<ComplaintTypeSetting> }) => 
       updateComplaintType(systemId, data),
-    onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: complaintTypeKeys.detail(variables.systemId) });
-      queryClient.invalidateQueries({ queryKey: complaintTypeKeys.lists() });
+    onSuccess: (data) => {
+      invalidateRelated(queryClient, 'complaint-types');
       options.onUpdateSuccess?.(data);
     },
     onError: options.onError,
@@ -76,7 +76,7 @@ export function useComplaintTypeMutations(options: UseComplaintTypeMutationsOpti
   const remove = useMutation({
     mutationFn: deleteComplaintType,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: complaintTypeKeys.all });
+      invalidateRelated(queryClient, 'complaint-types');
       options.onDeleteSuccess?.();
     },
     onError: options.onError,

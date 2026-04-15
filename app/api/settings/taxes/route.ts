@@ -2,6 +2,8 @@ import { prisma } from '@/lib/prisma'
 import { requireAuth, validateBody, apiSuccess, apiSuccessCached, apiError, parsePagination } from '@/lib/api-utils'
 import { z } from 'zod'
 import { generateNextIds } from '@/lib/id-system'
+import { logError } from '@/lib/logger'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 // Validation schema
 const createTaxSchema = z.object({
@@ -41,7 +43,7 @@ export async function GET(request: Request) {
       prisma.tax.count({ where }),
     ])
 
-    return apiSuccessCached({
+    return apiSuccess({
       data: taxes,
       pagination: {
         page,
@@ -51,7 +53,7 @@ export async function GET(request: Request) {
       },
     })
   } catch (error) {
-    console.error('Error fetching taxes:', error)
+    logError('Error fetching taxes', error)
     return apiError('Không thể tải danh sách thuế', 500)
   }
 }
@@ -99,9 +101,17 @@ export async function POST(request: Request) {
       },
     })
 
+    createActivityLog({
+      entityType: 'tax',
+      entityId: tax.systemId,
+      action: `Thêm thuế: ${body.name} (${body.rate}%)`,
+      actionType: 'create',
+      createdBy: session.user?.id,
+    }).catch(e => logError('[taxes] activity log failed', e))
+
     return apiSuccess({ data: tax }, 201)
   } catch (error) {
-    console.error('Error creating tax:', error)
+    logError('Error creating tax', error)
     return apiError('Không thể tạo thuế mới', 500)
   }
 }

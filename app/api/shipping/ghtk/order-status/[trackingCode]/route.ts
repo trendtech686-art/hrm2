@@ -7,8 +7,9 @@
 
 import { NextRequest } from 'next/server';
 import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils';
-
-const GHTK_API_BASE = 'https://services.giaohangtietkiem.vn';
+import { logError } from '@/lib/logger'
+import { fetchWithTimeout } from '@/lib/fetch-utils'
+import { GHTK_API_BASE } from '@/lib/ghtk-sync'
 
 type Props = {
   params: Promise<{ trackingCode: string }>;
@@ -34,7 +35,7 @@ export async function GET(
     }
 
 
-    const response = await fetch(`${GHTK_API_BASE}/services/shipment/v2/${trackingCode}`, {
+    const response = await fetchWithTimeout(`${GHTK_API_BASE}/services/shipment/v2/${trackingCode}`, {
       method: 'GET',
       headers: {
         'Token': apiToken,
@@ -47,7 +48,7 @@ export async function GET(
 
     return apiSuccess(data);
   } catch (error) {
-    console.error(`[GHTK-STATUS-${requestId}] Get order status error:`, error);
+    logError(`[GHTK-STATUS-${requestId}] Get order status error`, error);
     return apiError(error instanceof Error ? error.message : 'Unknown error', 500);
   }
 }

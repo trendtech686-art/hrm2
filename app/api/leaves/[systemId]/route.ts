@@ -3,8 +3,11 @@
  */
 
 import { prisma } from '@/lib/prisma'
-import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
+import { requireAuth, apiSuccess, apiError, apiNotFound, serializeDecimals } from '@/lib/api-utils'
 import { LeaveStatus } from '@/generated/prisma/client'
+import { logError } from '@/lib/logger'
+import { createNotification } from '@/lib/notifications'
+import { getUserNameFromDb } from '@/lib/get-user-name'
 
 type RouteParams = {
   params: Promise<{ systemId: string }>;
@@ -58,9 +61,9 @@ export async function GET(request: Request, { params }: RouteParams) {
       return apiNotFound('Leave request');
     }
 
-    return apiSuccess(transformLeave(leave as unknown as Record<string, unknown>));
+    return apiSuccess(serializeDecimals(transformLeave(leave as unknown as Record<string, unknown>)));
   } catch (error) {
-    console.error('[Leaves API] GET by ID error:', error);
+    logError('[Leaves API] GET by ID error', error);
     return apiError('Failed to fetch leave request', 500);
   }
 }
@@ -121,9 +124,24 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       },
     });
 
-    return apiSuccess(transformLeave(leave as unknown as Record<string, unknown>));
+    // Notify employee when leave is approved/rejected (non-blocking)
+    if ((isApproving || isRejecting) && leave.employee?.systemId) {
+      const statusMsg = isApproving ? 'đã được duyệt ✅' : 'đã bị từ chối ❌';
+      createNotification({
+        type: 'leave',
+        settingsKey: 'leave:updated',
+        title: `Đơn nghỉ phép ${isApproving ? 'được duyệt' : 'bị từ chối'}`,
+        message: `Đơn xin nghỉ phép của bạn ${statusMsg}`,
+        link: '/leaves',
+        recipientId: leave.employee.systemId,
+        senderId: session.user?.employeeId || undefined,
+        senderName: session.user?.name || undefined,
+      }).catch(e => logError('[Leaves] Approval notification failed', e));
+    }
+
+    return apiSuccess(serializeDecimals(transformLeave(leave as unknown as Record<string, unknown>)));
   } catch (error) {
-    console.error('[Leaves API] PATCH error:', error);
+    logError('[Leaves API] PATCH error', error);
     return apiError('Failed to update leave request', 500);
   }
 }
@@ -149,9 +167,23 @@ export async function DELETE(request: Request, { params }: RouteParams) {
       });
     }
 
+    // Log activity
+    getUserNameFromDb(session.user?.id).then(userName =>
+      prisma.activityLog.create({
+        data: {
+          entityType: 'leave',
+          entityId: systemId,
+          action: 'deleted',
+          actionType: 'delete',
+          note: `Xóa đơn nghỉ phép`,
+          metadata: { userName },
+          createdBy: userName,
+        }
+      })
+    ).catch(e => logError('[ActivityLog] leave delete failed', e))
     return apiSuccess({ success: true });
   } catch (error) {
-    console.error('[Leaves API] DELETE error:', error);
+    logError('[Leaves API] DELETE error', error);
     return apiError('Failed to delete leave request', 500);
   }
 }

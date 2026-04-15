@@ -1,0 +1,25 @@
+// ============================================
+// AUDIT LOG - Ghi chép lịch sử thay đổi dữ liệu
+// Dùng để track các thay đổi quan trọng
+// ============================================
+
+model AuditLog {
+  systemId   String   @id
+  entityType String
+  entityId   String
+  action     String
+  userId     String?
+  userName   String?
+  oldData    Json?
+  newData    Json?
+  changes    Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+  entityName String?
+
+  @@index([createdAt])
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@map("audit_logs")
+}

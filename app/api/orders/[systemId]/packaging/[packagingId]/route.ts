@@ -1,5 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
+import { logError } from '@/lib/logger'
+import { getUserNameFromDb } from '@/lib/get-user-name'
 
 interface RouteParams {
   params: Promise<{ systemId: string; packagingId: string }>;
@@ -26,9 +28,23 @@ export async function GET(request: Request, { params }: RouteParams) {
       return apiNotFound('Packaging');
     }
 
+    // Log activity
+    const userName = await getUserNameFromDb(session.user?.id);
+    await prisma.activityLog.create({
+      data: {
+        entityType: 'packaging',
+        entityId: packagingId,
+        action: 'updated',
+        actionType: 'update',
+        note: `Cập nhật phiếu đóng gói`,
+        metadata: { userName },
+        createdBy: userName,
+      }
+    }).catch(e => logError('[ActivityLog] packaging updated failed', e))
+
     return apiSuccess(packaging);
   } catch (error) {
-    console.error('Error fetching packaging:', error);
+    logError('Error fetching packaging', error);
     return apiError('Failed to fetch packaging', 500);
   }
 }
@@ -54,7 +70,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
 
     return apiSuccess(packaging);
   } catch (error) {
-    console.error('Error updating packaging:', error);
+    logError('Error updating packaging', error);
     return apiError('Failed to update packaging', 500);
   }
 }

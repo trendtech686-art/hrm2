@@ -1,10 +1,10 @@
-import { auth } from '@/auth'
+import { getSessionFromCookie } from '@/lib/api-utils'
 import { NextResponse } from 'next/server'
 
 // Debug endpoint to check session
 export async function GET() {
   try {
-    const session = await auth()
+    const session = await getSessionFromCookie()
     
     if (!session?.user) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })

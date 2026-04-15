@@ -50,7 +50,6 @@ export async function seedComplaintsSettings() {
           emailOnVerified: false,
           emailOnResolved: true,
           emailOnOverdue: true,
-          smsOnOverdue: false,
           inAppNotifications: true,
         },
       },

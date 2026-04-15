@@ -7,7 +7,6 @@
  */
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
-import { fetchAllPages } from '@/lib/fetch-all-pages';
 import {
   fetchPurchaseOrders,
   fetchPurchaseOrder,
@@ -22,6 +21,7 @@ import {
   type CreatePurchaseOrderInput,
   type UpdatePurchaseOrderInput,
 } from '@/app/actions/purchase-orders';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import type { PurchaseOrder } from '@/lib/types/prisma-extended';
 
 // Type for Server Action responses
@@ -38,31 +38,6 @@ export const purchaseOrderKeys = {
   detail: (id: string) => [...purchaseOrderKeys.details(), id] as const,
   stats: () => [...purchaseOrderKeys.all, 'stats'] as const,
 };
-
-// Types for initial data from Server Components
-export interface PurchaseOrderStats {
-  totalPOs: number;
-  pendingPOs: number;
-  completedPOs: number;
-  totalAmount: number;
-}
-
-/**
- * Hook for purchase order statistics with optional initial data from Server Component
- */
-export function usePurchaseOrderStats(initialData?: PurchaseOrderStats) {
-  return useQuery({
-    queryKey: purchaseOrderKeys.stats(),
-    queryFn: async () => {
-      const res = await fetch('/api/purchase-orders/stats');
-      if (!res.ok) throw new Error('Failed to fetch stats');
-      return res.json() as Promise<PurchaseOrderStats>;
-    },
-    initialData,
-    staleTime: initialData ? 60_000 : 0,
-    gcTime: 5 * 60 * 1000,
-  });
-}
 
 /**
  * Hook for fetching paginated purchase orders list
@@ -89,6 +64,8 @@ export function usePurchaseOrder(id: string | null | undefined, initialData?: Pu
     initialData,
     enabled: !!id,
     staleTime: initialData ? 60_000 : 30_000,
+    // ✅ Always refetch on mount to ensure fresh data after mutations from other pages
+    refetchOnMount: 'always',
   });
 }
 
@@ -115,7 +92,7 @@ async function _cancelPurchaseOrder(systemId: string, _userId: string, _userName
   });
   if (!res.ok) {
     const error = await res.json();
-    throw new Error(error.error || 'Failed to cancel purchase order');
+    throw new Error(error.error || 'Không thể hủy đơn mua hàng');
   }
   const json = await res.json();
   return json.data;
@@ -128,7 +105,7 @@ async function processInventoryReceipt(systemId: string): Promise<PurchaseOrder>
   });
   if (!res.ok) {
     const error = await res.json();
-    throw new Error(error.error || 'Failed to process inventory receipt');
+    throw new Error(error.error || 'Không thể xử lý phiếu nhập kho');
   }
   const json = await res.json();
   return json.data;
@@ -140,12 +117,11 @@ export function usePurchaseOrderMutations(options: UsePurchaseOrderMutationsOpti
   const create = useMutation({
     mutationFn: async (data: CreatePurchaseOrderInput) => {
       const result = await createPurchaseOrderAction(data);
-      if (!result.success) throw new Error(result.error || 'Failed to create purchase order');
+      if (!result.success) throw new Error(result.error || 'Không thể tạo đơn mua hàng');
       return result.data!;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: purchaseOrderKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: purchaseOrderKeys.stats() });
+      invalidateRelated(queryClient, 'purchase-orders');
       options.onCreateSuccess?.(data);
     },
     onError: options.onError,
@@ -153,21 +129,41 @@ export function usePurchaseOrderMutations(options: UsePurchaseOrderMutationsOpti
   
   const update = useMutation({
     mutationFn: async ({ systemId, data }: { systemId: string; data: Partial<UpdatePurchaseOrderInput> }) => {
+      // Map Vietnamese status to English enum values for validation
+      const statusMap: Record<string, string> = {
+        'Đặt hàng': 'ordered',
+        'Đang giao dịch': 'partial_received',
+        'Hoàn thành': 'completed',
+        'Kết thúc': 'completed',
+        'Đã hủy': 'cancelled',
+      };
+      const paymentStatusMap: Record<string, string> = {
+        'Chưa thanh toán': 'unpaid',
+        'Thanh toán một phần': 'partial_paid',
+        'Đã thanh toán': 'paid',
+      };
+      
+      const mappedStatus = data.status ? statusMap[data.status] || data.status : undefined;
+      const mappedPaymentStatus = data.paymentStatus ? paymentStatusMap[data.paymentStatus] || data.paymentStatus : undefined;
+      
       const result = await updatePurchaseOrderAction({ 
         systemId, 
         supplierSystemId: data.supplierSystemId,
         expectedDate: data.expectedDate,
         deliveryDate: data.deliveryDate,
+        receivedDate: data.receivedDate,
         notes: data.notes,
         updatedBy: data.updatedBy,
+        // Pass mapped status fields
+        status: mappedStatus,
+        deliveryStatus: data.deliveryStatus,
+        paymentStatus: mappedPaymentStatus,
       });
-      if (!result.success) throw new Error(result.error || 'Failed to update purchase order');
+      if (!result.success) throw new Error(result.error || 'Không thể cập nhật đơn mua hàng');
       return result.data!;
     },
-    onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: purchaseOrderKeys.detail(variables.systemId) });
-      queryClient.invalidateQueries({ queryKey: purchaseOrderKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: purchaseOrderKeys.stats() });
+    onSuccess: (data) => {
+      invalidateRelated(queryClient, 'purchase-orders');
       options.onUpdateSuccess?.(data as PurchaseOrderData);
     },
     onError: options.onError,
@@ -176,12 +172,11 @@ export function usePurchaseOrderMutations(options: UsePurchaseOrderMutationsOpti
   const remove = useMutation({
     mutationFn: async (systemId: string) => {
       const result = await deletePurchaseOrderAction(systemId);
-      if (!result.success) throw new Error(result.error || 'Failed to delete purchase order');
+      if (!result.success) throw new Error(result.error || 'Không thể xóa đơn mua hàng');
       return result.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: purchaseOrderKeys.all });
-      queryClient.invalidateQueries({ queryKey: purchaseOrderKeys.stats() });
+      invalidateRelated(queryClient, 'purchase-orders');
       options.onDeleteSuccess?.();
     },
     onError: options.onError,
@@ -195,17 +190,11 @@ export function usePurchaseOrderMutations(options: UsePurchaseOrderMutationsOpti
       reason?: string 
     }) => {
       const result = await cancelPurchaseOrderAction(systemId, reason);
-      if (!result.success) throw new Error(result.error || 'Failed to cancel purchase order');
+      if (!result.success) throw new Error(result.error || 'Không thể hủy đơn mua hàng');
       return result.data!;
     },
-    onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: purchaseOrderKeys.detail(variables.systemId) });
-      queryClient.invalidateQueries({ queryKey: purchaseOrderKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: purchaseOrderKeys.stats() });
-      // Also invalidate related queries
-      queryClient.invalidateQueries({ queryKey: ['purchase-returns'] });
-      queryClient.invalidateQueries({ queryKey: ['receipts'] });
-      queryClient.invalidateQueries({ queryKey: ['products'] });
+    onSuccess: (data) => {
+      invalidateRelated(queryClient, 'purchase-orders');
       options.onCancelSuccess?.(data as PurchaseOrderData);
     },
     onError: options.onError,
@@ -213,9 +202,8 @@ export function usePurchaseOrderMutations(options: UsePurchaseOrderMutationsOpti
   
   const processReceipt = useMutation({
     mutationFn: (systemId: string) => processInventoryReceipt(systemId),
-    onSuccess: (data, systemId) => {
-      queryClient.invalidateQueries({ queryKey: purchaseOrderKeys.detail(systemId) });
-      queryClient.invalidateQueries({ queryKey: purchaseOrderKeys.lists() });
+    onSuccess: (data) => {
+      invalidateRelated(queryClient, 'purchase-orders');
       options.onProcessReceiptSuccess?.(data);
     },
     onError: options.onError,
@@ -224,14 +212,4 @@ export function usePurchaseOrderMutations(options: UsePurchaseOrderMutationsOpti
   return { create, update, remove, cancel, processReceipt };
 }
 
-export function usePurchaseOrdersBySupplier(supplierId: string | null | undefined) {
-  const query = useQuery({
-    queryKey: [...purchaseOrderKeys.lists(), { supplierId }],
-    queryFn: () => fetchAllPages((p) => fetchPurchaseOrders({ ...p, supplierId: supplierId || undefined })),
-    enabled: !!supplierId,
-    staleTime: 10 * 60 * 1000,
-    gcTime: 60 * 60 * 1000,
-  });
-  // Compat wrapper for .data?.data access
-  return { ...query, data: query.data ? { data: query.data } : undefined };
-}
+

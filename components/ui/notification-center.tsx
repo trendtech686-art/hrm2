@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { Bell, X, CheckCheck } from 'lucide-react';
+import { Bell, X, CheckCheck, ShoppingCart, Truck, Warehouse, Settings } from 'lucide-react';
 import { Badge } from './badge';
 import { Button } from './button';
 import { ScrollArea } from './scroll-area';
@@ -12,45 +12,29 @@ import {
 } from './dropdown-menu';
 import { formatDateTime } from '../../lib/date-utils';
 import { cn } from '../../lib/utils';
-import { generateSubEntityId } from '@/lib/id-utils';
+import {
+  useNotifications,
+  useUnreadNotificationCount,
+  useMarkAsRead,
+  useMarkAllAsRead,
+  useDeleteNotification,
+  useUnreadGroupCounts,
+  type ServerNotification,
+} from '@/hooks/use-notifications';
+import type { NotificationGroup } from '@/lib/notification-groups';
 
 /**
- * Notification Center - Trung tâm thông báo toàn hệ thống
- * 
- * Chức năng:
- * - Hiển thị danh sách notifications
- * - Real-time updates
- * - Mark as read/unread
- * - Navigate đến trang liên quan
- * - Dùng chung cho tất cả modules (warranty, order, employee, product...)
- * 
- * Sử dụng:
- * import { NotificationCenter, useNotificationStore } from '@/components/ui/notification-center';
- * 
- * // Trong component
- * <NotificationCenter />
- * 
- * // Trigger notification
- * const { addNotification } = useNotificationStore();
- * addNotification({
- *   type: 'warranty',
- *   title: 'Phiếu bảo hành mới',
- *   message: 'Phiếu BH000001 đã được tạo',
- *   link: '/warranty/BH000001',
- * });
+ * Notification Center - Trung tâm thông báo toàn hệ thống (Server-backed)
+ *
+ * Data is stored in PostgreSQL `notifications` table.
+ * React Query polls every 30s for updates.
+ *
+ * Server-side: use `createNotification()` from `@/lib/notifications` to trigger.
+ * Client-side: use `useNotificationStore()` for reading (backward-compatible wrapper).
  */
 
-export interface Notification {
-  id: string;
-  type: 'warranty' | 'order' | 'employee' | 'product' | 'system' | 'comment' | 'mention';
-  title: string;
-  message: string;
-  link?: string; // URL để navigate khi click
-  isRead: boolean;
-  createdAt: string;
-  createdBy?: string;
-  metadata?: Record<string, unknown>; // Data liên quan
-}
+// Re-export type for backward compatibility
+export type Notification = ServerNotification;
 
 interface NotificationStore {
   notifications: Notification[];
@@ -62,102 +46,111 @@ interface NotificationStore {
   clearAll: () => void;
 }
 
-// Simple store (có thể thay bằng Zustand nếu cần persist)
-const notificationListeners = new Set<() => void>();
-let notificationsState: Notification[] = [];
-
-function getNotifications(): Notification[] {
-  return notificationsState;
-}
-
-function setNotifications(notifications: Notification[]) {
-  notificationsState = notifications;
-  notificationListeners.forEach(listener => listener());
-}
-
+/**
+ * Backward-compatible hook for reading notifications.
+ *
+ * Note: `addNotification` is now a no-op on the client.
+ * Create notifications server-side via `createNotification()` from `@/lib/notifications`.
+ */
 export function useNotificationStore(): NotificationStore {
-  const [, forceUpdate] = React.useReducer(x => x + 1, 0);
+  const { data } = useNotifications({ limit: 50 });
+  const unreadCount = useUnreadNotificationCount();
+  const markAsReadMutation = useMarkAsRead();
+  const markAllMutation = useMarkAllAsRead();
+  const deleteMutation = useDeleteNotification();
 
-  React.useEffect(() => {
-    notificationListeners.add(forceUpdate);
-    return () => {
-      notificationListeners.delete(forceUpdate);
-    };
-  }, []);
-
-  const notifications = getNotifications();
-  const unreadCount = React.useMemo(
-    () => notifications.filter(n => !n.isRead).length,
-    [notifications]
-  );
-
-  const addNotification = React.useCallback((notification: Omit<Notification, 'id' | 'isRead' | 'createdAt'>) => {
-    const newNotification: Notification = {
-      ...notification,
-      id: generateSubEntityId('notif'),
-      isRead: false,
-      createdAt: new Date().toISOString(),
-    };
-    setNotifications([newNotification, ...getNotifications()]);
-  }, []);
-
-  const markAsRead = React.useCallback((id: string) => {
-    setNotifications(
-      getNotifications().map(n => n.id === id ? { ...n, isRead: true } : n)
-    );
-  }, []);
-
-  const markAllAsRead = React.useCallback(() => {
-    setNotifications(
-      getNotifications().map(n => ({ ...n, isRead: true }))
-    );
-  }, []);
-
-  const removeNotification = React.useCallback((id: string) => {
-    setNotifications(getNotifications().filter(n => n.id !== id));
-  }, []);
-
-  const clearAll = React.useCallback(() => {
-    setNotifications([]);
-  }, []);
+  const notifications = data?.data ?? [];
 
   return {
     notifications,
     unreadCount,
-    addNotification,
-    markAsRead,
-    markAllAsRead,
-    removeNotification,
-    clearAll,
+    addNotification: () => {
+      // No-op — notifications are now created server-side via lib/notifications.ts
+      console.warn('[NotificationCenter] addNotification is deprecated. Use server-side createNotification() instead.');
+    },
+    markAsRead: (id: string) => markAsReadMutation.mutate(id),
+    markAllAsRead: () => markAllMutation.mutate(),
+    removeNotification: (id: string) => deleteMutation.mutate(id),
+    clearAll: () => {
+      // Clear = mark all as read (don't bulk-delete from DB)
+      markAllMutation.mutate();
+    },
   };
 }
 
 // Icon mapping
-const notificationIcons: Record<Notification['type'], React.ReactNode> = {
-  warranty: <span className="text-blue-600">🔧</span>,
+const notificationIcons: Record<string, React.ReactNode> = {
+  // Đơn hàng
   order: <span className="text-green-600">📦</span>,
-  employee: <span className="text-purple-600">👤</span>,
-  product: <span className="text-orange-600">📦</span>,
+  warranty: <span className="text-blue-600">🔧</span>,
+  complaint: <span className="text-red-600">📝</span>,
+  sales_return: <span className="text-orange-600">↩️</span>,
+  customer: <span className="text-cyan-600">👤</span>,
+  // Vận chuyển
+  shipment: <span className="text-indigo-600">🚚</span>,
+  reconciliation: <span className="text-violet-600">📊</span>,
+  // Kho hàng
+  stock_transfer: <span className="text-amber-600">🔄</span>,
+  inventory: <span className="text-yellow-600">📦</span>,
+  inventory_check: <span className="text-lime-600">📋</span>,
+  inventory_receipt: <span className="text-emerald-600">📥</span>,
+  cost_adjustment: <span className="text-rose-600">💲</span>,
+  price_adjustment: <span className="text-pink-600">🏷️</span>,
+  purchase_order: <span className="text-sky-600">🛒</span>,
+  purchase_return: <span className="text-fuchsia-600">↩️</span>,
+  // Hệ thống
   system: <span className="text-gray-600">⚙️</span>,
+  task: <span className="text-teal-600">✅</span>,
   comment: <span className="text-indigo-600">💬</span>,
   mention: <span className="text-pink-600">@</span>,
+  attendance: <span className="text-amber-600">📋</span>,
+  leave: <span className="text-green-600">🌴</span>,
+  payroll: <span className="text-emerald-600">💰</span>,
+  penalty: <span className="text-red-600">⚠️</span>,
+  employee: <span className="text-purple-600">👤</span>,
+  payment: <span className="text-emerald-600">💳</span>,
+  receipt: <span className="text-blue-600">🧾</span>,
 };
+
+// Group tab config
+const GROUP_TABS: { key: NotificationGroup | null; label: string; Icon: typeof Bell }[] = [
+  { key: null, label: 'Tất cả', Icon: Bell },
+  { key: 'orders', label: 'Đơn hàng', Icon: ShoppingCart },
+  { key: 'shipping', label: 'Vận chuyển', Icon: Truck },
+  { key: 'inventory', label: 'Kho hàng', Icon: Warehouse },
+  { key: 'system', label: 'Hệ thống', Icon: Settings },
+];
 
 export function NotificationCenter() {
   const router = useRouter();
-  const { notifications, unreadCount, markAsRead, markAllAsRead, removeNotification, clearAll } = useNotificationStore();
+  const [activeGroup, setActiveGroup] = React.useState<NotificationGroup | null>(null);
+  const { data, isLoading } = useNotifications({
+    limit: 50,
+    ...(activeGroup ? { group: activeGroup } : {}),
+  });
+  const unreadCount = useUnreadNotificationCount();
+  const { data: groupCounts } = useUnreadGroupCounts();
+  const markAsReadMutation = useMarkAsRead();
+  const markAllMutation = useMarkAllAsRead();
+  const deleteMutation = useDeleteNotification();
   const [open, setOpen] = React.useState(false);
 
-  const handleNotificationClick = React.useCallback((notification: Notification) => {
-    // Mark as read
-    markAsRead(notification.id);
-    
-    // Navigate if has link
+  const notifications = data?.data ?? [];
+
+  const handleNotificationClick = React.useCallback((notification: ServerNotification) => {
+    markAsReadMutation.mutate(notification.id);
     if (notification.link) {
       router.push(notification.link);
       setOpen(false);
     }
-  }, [markAsRead, router]);
+  }, [markAsReadMutation, router]);
+
+  // Get badge count for a group tab
+  const getBadgeCount = (group: NotificationGroup | null) => {
+    if (!groupCounts) return 0;
+    if (group === null) return groupCounts.total;
+    return groupCounts[group];
+  };
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
@@ -166,7 +159,7 @@ export function NotificationCenter() {
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
             <Badge 
-              className="absolute -top-1 -right-1 h-5 min-w-5 flex items-center justify-center p-0 text-[10px]"
+              className="absolute -top-1 -right-1 h-5 min-w-5 flex items-center justify-center p-0 text-xs"
               variant="destructive"
             >
               {unreadCount > 99 ? '99+' : unreadCount}
@@ -178,34 +171,58 @@ export function NotificationCenter() {
       <DropdownMenuContent align="end" className="w-95 p-0">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-          <div className="flex items-center gap-2">
-            <h3 className="font-semibold">Thông báo</h3>
-            {unreadCount > 0 && (
-              <Badge variant="secondary" className="text-xs">
-                {unreadCount} mới
-              </Badge>
-            )}
-          </div>
-          <div className="flex items-center gap-1">
-            {unreadCount > 0 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 text-xs"
+          <h3 className="font-semibold">Thông báo</h3>
+          {unreadCount > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs"
+              onClick={(e) => {
+                e.stopPropagation();
+                markAllMutation.mutate();
+              }}
+            >
+              <CheckCheck className="h-3 w-3 mr-1" />
+              Đọc tất cả ({unreadCount})
+            </Button>
+          )}
+        </div>
+
+        {/* Group Tabs */}
+        <div className="flex items-center border-b border-border px-2">
+          {GROUP_TABS.map(({ key, label, Icon }) => {
+            const count = getBadgeCount(key);
+            const isActive = activeGroup === key;
+            return (
+              <button
+                key={key ?? 'all'}
+                className={cn(
+                  "relative flex flex-col items-center gap-0.5 px-3 py-2.5 text-xs transition-colors",
+                  isActive
+                    ? "text-primary border-b-2 border-primary"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
                 onClick={(e) => {
                   e.stopPropagation();
-                  markAllAsRead();
+                  setActiveGroup(key);
                 }}
               >
-                <CheckCheck className="h-3 w-3 mr-1" />
-                Đánh dấu đọc hết
-              </Button>
-            )}
-          </div>
+                <div className="relative">
+                  <Icon className="h-4.5 w-4.5" />
+                  {count > 0 && (
+                    <span className="absolute -top-1.5 -right-2.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive text-xs font-medium text-destructive-foreground px-0.5">
+                      {count > 99 ? '99+' : count}
+                    </span>
+                  )}
+                </div>
+                <span className="mt-0.5">{label}</span>
+              </button>
+            );
+          })}
         </div>
 
         {/* Notifications List */}
-        {notifications.length === 0 ? (
+        {notifications.length === 0 && !isLoading ? (
           <div className="flex flex-col items-center justify-center py-8 text-center">
             <Bell className="h-12 w-12 text-muted-foreground/50 mb-2" />
             <p className="text-sm text-muted-foreground">Không có thông báo</p>
@@ -223,7 +240,15 @@ export function NotificationCenter() {
                           ? "hover:bg-accent/50" 
                           : "bg-blue-50 hover:bg-blue-100 border-l-2 border-blue-500"
                       )}
+                      role="button"
+                      tabIndex={0}
                       onClick={() => handleNotificationClick(notification)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          handleNotificationClick(notification);
+                        }
+                      }}
                     >
                       {/* Icon */}
                       <div className="shrink-0 mt-0.5">
@@ -247,7 +272,7 @@ export function NotificationCenter() {
                             className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
                             onClick={(e) => {
                               e.stopPropagation();
-                              removeNotification(notification.id);
+                              deleteMutation.mutate(notification.id);
                             }}
                           >
                             <X className="h-3 w-3" />
@@ -263,11 +288,11 @@ export function NotificationCenter() {
                             {formatDateTime(notification.createdAt)}
                           </span>
                           
-                          {notification.createdBy && (
+                          {notification.senderName && (
                             <>
                               <span className="text-xs text-muted-foreground">•</span>
                               <span className="text-xs text-muted-foreground">
-                                {notification.createdBy}
+                                {notification.senderName}
                               </span>
                             </>
                           )}
@@ -288,98 +313,27 @@ export function NotificationCenter() {
 
             {/* Footer */}
             <DropdownMenuSeparator />
-            <div className="p-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full text-xs"
-                onClick={() => {
-                  clearAll();
-                  setOpen(false);
-                }}
-              >
-                Xóa tất cả thông báo
-              </Button>
+            <div className="p-2 flex items-center justify-between">
+              <span className="text-xs text-muted-foreground pl-2">
+                {activeGroup ? `${GROUP_TABS.find(t => t.key === activeGroup)?.label}` : 'Tất cả thông báo'}
+              </span>
+              {notifications.length > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => {
+                    markAllMutation.mutate();
+                    setOpen(false);
+                  }}
+                >
+                  Đánh dấu tất cả đã đọc
+                </Button>
+              )}
             </div>
           </>
         )}
       </DropdownMenuContent>
     </DropdownMenu>
   );
-}
-
-/**
- * Helper functions để trigger notifications
- * These functions directly manipulate the store state without using hooks
- */
-
-function addNotificationDirect(notification: Omit<Notification, 'id' | 'isRead' | 'createdAt'>) {
-  const newNotification: Notification = {
-    ...notification,
-    id: generateSubEntityId('notif'),
-    isRead: false,
-    createdAt: new Date().toISOString(),
-  };
-  setNotifications([newNotification, ...getNotifications()]);
-}
-
-// Warranty notifications
-export function notifyWarrantyCreated(warrantyId: string, createdBy: string) {
-  addNotificationDirect({
-    type: 'warranty',
-    title: 'Phiếu bảo hành mới',
-    message: `Phiếu ${warrantyId} đã được tạo`,
-    link: `/warranty/${warrantyId}`,
-    createdBy,
-  });
-}
-
-export function notifyWarrantyStatusChanged(warrantyId: string, newStatus: string, changedBy: string) {
-  addNotificationDirect({
-    type: 'warranty',
-    title: 'Cập nhật trạng thái',
-    message: `Phiếu ${warrantyId} đã chuyển sang ${newStatus}`,
-    link: `/warranty/${warrantyId}`,
-    createdBy: changedBy,
-  });
-}
-
-export function notifyMention(mentionedBy: string, context: string, link: string) {
-  addNotificationDirect({
-    type: 'mention',
-    title: 'Bạn được nhắc đến',
-    message: `${mentionedBy} đã nhắc bạn trong ${context}`,
-    link,
-    createdBy: mentionedBy,
-  });
-}
-
-export function notifyComment(commentBy: string, context: string, link: string) {
-  addNotificationDirect({
-    type: 'comment',
-    title: 'Bình luận mới',
-    message: `${commentBy} đã bình luận trong ${context}`,
-    link,
-    createdBy: commentBy,
-  });
-}
-
-// Order notifications
-export function notifyOrderCreated(orderId: string, createdBy: string) {
-  addNotificationDirect({
-    type: 'order',
-    title: 'Đơn hàng mới',
-    message: `Đơn ${orderId} đã được tạo`,
-    link: `/orders/${orderId}`,
-    createdBy,
-  });
-}
-
-// System notifications
-export function notifySystem(title: string, message: string) {
-  addNotificationDirect({
-    type: 'system',
-    title,
-    message,
-  });
 }

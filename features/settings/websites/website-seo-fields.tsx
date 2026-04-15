@@ -50,8 +50,7 @@ export function WebsiteSeoFields({
           {website.baseUrl && (
             <a
               href={website.baseUrl}
-              target="_blank"
-              rel="noopener noreferrer"
+              target="_blank" rel="noopener noreferrer"
               className="text-muted-foreground hover:text-primary"
             >
               <ExternalLink className="h-3 w-3" />

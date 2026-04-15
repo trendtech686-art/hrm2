@@ -4,11 +4,10 @@
  */
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import {
   fetchTasks,
   fetchTaskById,
-  fetchTaskActivities,
-  fetchSubtasks,
   fetchTaskDashboardStats,
   type TaskFilters,
   type TaskCreateInput,
@@ -118,30 +117,6 @@ export function useTaskById(systemId: string | undefined) {
   });
 }
 
-/**
- * Hook to fetch task activities
- */
-export function useTaskActivities(taskSystemId: string | undefined) {
-  return useQuery({
-    queryKey: taskKeys.activities(taskSystemId!),
-    queryFn: () => fetchTaskActivities(taskSystemId!),
-    enabled: !!taskSystemId,
-    staleTime: 1000 * 30,
-  });
-}
-
-/**
- * Hook to fetch subtasks
- */
-export function useSubtasks(parentSystemId: string | undefined) {
-  return useQuery({
-    queryKey: taskKeys.subtasks(parentSystemId!),
-    queryFn: () => fetchSubtasks(parentSystemId!),
-    enabled: !!parentSystemId,
-    staleTime: 1000 * 60,
-  });
-}
-
 interface MutationCallbacks {
   onSuccess?: () => void;
   onError?: (error: Error) => void;
@@ -153,16 +128,14 @@ interface MutationCallbacks {
 export function useTaskMutations(options: MutationCallbacks = {}) {
   const queryClient = useQueryClient();
 
-  const invalidateTasks = () => {
-    queryClient.invalidateQueries({ queryKey: taskKeys.all });
-  };
+  const invalidateTasks = () => invalidateRelated(queryClient, 'tasks');
 
   const create = useMutation({
     mutationFn: async (data: CreateTaskInput | TaskCreateInput) => {
       const input = data as CreateTaskInput;
       const result = await createTaskAction(input);
       if (!result.success) {
-        throw new Error(result.error || 'Failed to create task');
+        throw new Error(result.error || 'Không thể tạo công việc');
       }
       return result.data as Task;
     },
@@ -178,7 +151,7 @@ export function useTaskMutations(options: MutationCallbacks = {}) {
       const data = toUpdateTaskInput(input);
       const result = await updateTaskAction(data);
       if (!result.success) {
-        throw new Error(result.error || 'Failed to update task');
+        throw new Error(result.error || 'Không thể cập nhật công việc');
       }
       return result.data as Task;
     },
@@ -193,7 +166,7 @@ export function useTaskMutations(options: MutationCallbacks = {}) {
     mutationFn: async (systemId: string) => {
       const result = await deleteTaskAction(systemId);
       if (!result.success) {
-        throw new Error(result.error || 'Failed to delete task');
+        throw new Error(result.error || 'Không thể xóa công việc');
       }
       return result.data as Task;
     },
@@ -236,7 +209,7 @@ export function useTaskMutations(options: MutationCallbacks = {}) {
     mutationFn: async (systemId: string) => {
       const result = await restoreTaskAction(systemId);
       if (!result.success) {
-        throw new Error(result.error || 'Failed to restore task');
+        throw new Error(result.error || 'Không thể khôi phục công việc');
       }
       return result.data as Task;
     },
@@ -251,7 +224,7 @@ export function useTaskMutations(options: MutationCallbacks = {}) {
     mutationFn: async ({ systemId, status }: { systemId: string; status: TaskStatus }) => {
       const result = await updateTaskStatusAction(systemId, status as unknown as import('@prisma/client').TaskStatus);
       if (!result.success) {
-        throw new Error(result.error || 'Failed to update task status');
+        throw new Error(result.error || 'Không thể cập nhật trạng thái');
       }
       return result.data as Task;
     },
@@ -266,7 +239,7 @@ export function useTaskMutations(options: MutationCallbacks = {}) {
     mutationFn: async (systemId: string) => {
       const result = await completeTaskAction(systemId);
       if (!result.success) {
-        throw new Error(result.error || 'Failed to complete task');
+        throw new Error(result.error || 'Không thể hoàn tất công việc');
       }
       return result.data as Task;
     },
@@ -281,11 +254,12 @@ export function useTaskMutations(options: MutationCallbacks = {}) {
     mutationFn: async ({ systemId, content }: { systemId: string; content: string }) => {
       const result = await addTaskCommentAction(systemId, content);
       if (!result.success) {
-        throw new Error(result.error || 'Failed to add comment');
+        throw new Error(result.error || 'Không thể thêm bình luận');
       }
       return result.data as Task;
     },
     onSuccess: (_, { systemId }) => {
+      queryClient.invalidateQueries({ queryKey: taskKeys.detail(systemId) });
       queryClient.invalidateQueries({ queryKey: taskKeys.activities(systemId) });
       options.onSuccess?.();
     },
@@ -296,7 +270,7 @@ export function useTaskMutations(options: MutationCallbacks = {}) {
     mutationFn: async ({ systemId, action }: { systemId: string; action: 'start' | 'stop' }) => {
       const result = await toggleTaskTimerAction(systemId, action);
       if (!result.success) {
-        throw new Error(result.error || 'Failed to toggle timer');
+        throw new Error(result.error || 'Không thể bật/tắt bộ đếm thời gian');
       }
       return result.data as Task;
     },
@@ -337,20 +311,3 @@ export function useMyTasks(assigneeId: string | undefined) {
   });
 }
 
-/**
- * Hook to fetch tasks by status
- */
-export function useTasksByStatus(status: TaskStatus) {
-  return useTasks({ status });
-}
-
-/**
- * Hook to fetch overdue tasks
- */
-export function useOverdueTasks() {
-  const today = new Date().toISOString().split('T')[0];
-  return useTasks({
-    dueTo: today,
-    status: 'Đang thực hiện',
-  });
-}

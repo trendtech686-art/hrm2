@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/contexts/auth-context'
+import { logError } from '@/lib/logger'
 
 interface ActiveTimer {
   systemId: string
@@ -34,7 +35,7 @@ export function useActiveTimer() {
           setTimer(data)
         }
       } catch (error) {
-        console.error('Error loading active timer:', error)
+        logError('Error loading active timer', error)
       } finally {
         setIsLoading(false)
       }
@@ -68,7 +69,7 @@ export function useActiveTimer() {
           return newTimer
         }
       } catch (error) {
-        console.error('Error starting timer:', error)
+        logError('Error starting timer', error)
       }
       return null
     },
@@ -89,7 +90,7 @@ export function useActiveTimer() {
         return true
       }
     } catch (error) {
-      console.error('Error stopping timer:', error)
+      logError('Error stopping timer', error)
     }
     return false
   }, [user?.systemId])

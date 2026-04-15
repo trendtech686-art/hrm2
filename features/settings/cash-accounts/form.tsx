@@ -6,10 +6,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import type { CashAccount } from "../../cashbook/types";
 import { useAllBranches } from "../branches/hooks/use-all-branches";
+import { useAllPaymentMethods } from "../payments/hooks/use-all-payment-methods";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "../../../components/ui/form";
 import { Input } from "../../../components/ui/input";
 import { CurrencyInput } from "../../../components/ui/currency-input";
-import { RadioGroup, RadioGroupItem } from "../../../components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select";
 import { Switch } from "../../../components/ui/switch";
 
@@ -17,7 +17,7 @@ const formSchema = z.object({
   id: z.string().min(1, "Mã tài khoản là bắt buộc"),
   name: z.string().min(1, "Tên tài khoản là bắt buộc").max(100, "Tên không được vượt quá 100 ký tự"),
   initialBalance: z.number().min(0, "Số dư không được âm"),
-  type: z.enum(['cash', 'bank'] as const),
+  paymentMethodSystemId: z.string().min(1, "Vui lòng chọn hình thức thanh toán"),
   bankAccountNumber: z.string().optional(),
   bankBranch: z.string().optional(),
   branchSystemId: z.string().optional(),
@@ -38,26 +38,32 @@ const CashAccountFormField = <TName extends FieldPath<CashAccountFormValues>>(pr
 );
 
 type FormProps = {
-  initialData?: CashAccount | null;
+  initialData?: (CashAccount & { accountType?: string | null }) | null;
   onSubmit: (values: CashAccountFormValues) => void;
 };
 
 export function CashAccountForm({ initialData, onSubmit }: FormProps) {
   const { data: branches } = useAllBranches();
+  const { data: paymentMethods } = useAllPaymentMethods();
+  const activePaymentMethods = React.useMemo(() => paymentMethods.filter(pm => pm.isActive), [paymentMethods]);
 
   const defaultBranchSystemId = React.useMemo(() => {
     const branch = branches.find(b => b.isDefault);
     return branch?.systemId ? String(branch.systemId) : undefined;
   }, [branches]);
 
+  const defaultPaymentMethodSystemId = React.useMemo(() => {
+    return activePaymentMethods[0]?.systemId ? String(activePaymentMethods[0].systemId) : '';
+  }, [activePaymentMethods]);
+
   const buildFormValues = React.useCallback(
-    (account?: CashAccount | null): CashAccountFormValues => {
+    (account?: (CashAccount & { accountType?: string | null }) | null): CashAccountFormValues => {
       if (account) {
         return {
           id: String(account.id),
           name: account.name,
           initialBalance: Number(account.initialBalance) || 0,
-          type: account.type,
+          paymentMethodSystemId: account.accountType || defaultPaymentMethodSystemId,
           bankAccountNumber: account.bankAccountNumber ?? undefined,
           bankBranch: account.bankBranch ?? undefined,
           branchSystemId: account.branchSystemId ? String(account.branchSystemId) : undefined,
@@ -76,7 +82,7 @@ export function CashAccountForm({ initialData, onSubmit }: FormProps) {
         id: "",
         name: "",
         initialBalance: 0,
-        type: 'cash',
+        paymentMethodSystemId: defaultPaymentMethodSystemId,
         bankAccountNumber: undefined,
         bankBranch: undefined,
         branchSystemId: defaultBranchSystemId,
@@ -90,7 +96,7 @@ export function CashAccountForm({ initialData, onSubmit }: FormProps) {
         managedBy: undefined,
       };
     },
-    [defaultBranchSystemId]
+    [defaultBranchSystemId, defaultPaymentMethodSystemId]
   );
 
   const form = useForm<CashAccountFormValues>({
@@ -102,37 +108,40 @@ export function CashAccountForm({ initialData, onSubmit }: FormProps) {
     form.reset(buildFormValues(initialData));
   }, [initialData, buildFormValues, form]);
 
-  const accountType = form.watch('type');
+  // Xác định có hiện bank fields không dựa trên hình thức thanh toán đã chọn
+  const selectedMethodId = form.watch('paymentMethodSystemId');
+  const selectedMethod = React.useMemo(
+    () => activePaymentMethods.find(pm => String(pm.systemId) === selectedMethodId),
+    [activePaymentMethods, selectedMethodId]
+  );
+  const showBankFields = React.useMemo(() => {
+    if (!selectedMethod) return false;
+    const name = selectedMethod.name.toLowerCase();
+    // Hình thức khác "tiền mặt" thì hiện bank fields
+    return !(name.includes('tiền mặt') || name === 'cash');
+  }, [selectedMethod]);
 
   return (
     <Form {...form}>
       <form id="cash-account-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4 max-h-[70vh] overflow-y-auto px-1">
          <CashAccountFormField
           control={form.control}
-          name="type"
+          name="paymentMethodSystemId"
           render={({ field }) => (
-            <FormItem className="space-y-3">
-              <FormLabel>Loại tài khoản</FormLabel>
-              <FormControl>
-                <RadioGroup
-                  onValueChange={field.onChange}
-                  value={field.value}
-                  className="flex space-x-4"
-                >
-                  <FormItem className="flex items-center space-x-2 space-y-0">
-                    <FormControl>
-                      <RadioGroupItem value="cash" />
-                    </FormControl>
-                    <FormLabel className="font-normal">Tiền mặt</FormLabel>
-                  </FormItem>
-                  <FormItem className="flex items-center space-x-2 space-y-0">
-                    <FormControl>
-                      <RadioGroupItem value="bank" />
-                    </FormControl>
-                    <FormLabel className="font-normal">Ngân hàng</FormLabel>
-                  </FormItem>
-                </RadioGroup>
-              </FormControl>
+            <FormItem>
+              <FormLabel>Hình thức thanh toán</FormLabel>
+              <Select onValueChange={field.onChange} value={field.value}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Chọn hình thức thanh toán" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {activePaymentMethods.map(pm => (
+                    <SelectItem key={pm.systemId} value={String(pm.systemId)}>{pm.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <FormMessage />
             </FormItem>
           )}
@@ -153,7 +162,7 @@ export function CashAccountForm({ initialData, onSubmit }: FormProps) {
                 <FormMessage />
             </FormItem>
         )} />
-        {accountType === 'bank' && (
+        {showBankFields && (
           <>
             <CashAccountFormField control={form.control} name="bankName" render={({ field }) => (
               <FormItem><FormLabel>Tên ngân hàng</FormLabel><FormControl><Input {...field} value={field.value ?? ''} placeholder="Vietcombank, ACB..." /></FormControl><FormMessage /></FormItem>

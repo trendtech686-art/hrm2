@@ -1,3 +1,4 @@
+import { OptimizedImage } from '@/components/ui/optimized-image';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Calendar, User } from 'lucide-react';
@@ -26,7 +27,7 @@ export function EvidenceViewer({ evidence, open, onClose }: EvidenceViewerProps)
 
           <div className="space-y-4 py-4">
             {/* Meta info */}
-            <div className="flex flex-wrap gap-4 text-body-sm text-muted-foreground">
+            <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
               <div className="flex items-center gap-2">
                 <User className="h-4 w-4" />
                 <span>{evidence.submittedByName}</span>
@@ -49,16 +50,18 @@ export function EvidenceViewer({ evidence, open, onClose }: EvidenceViewerProps)
                 {evidence.images.map((imageUrl, index) => (
                   <div
                     key={index}
-                    className="relative group cursor-pointer"
+                    className="relative group cursor-pointer h-40"
                     onClick={() => setSelectedImage(imageUrl)}
                   >
-                    <img
+                    <OptimizedImage
                       src={imageUrl}
                       alt={`Evidence ${index + 1}`}
-                      className="w-full h-40 object-cover rounded-lg border hover:opacity-90 transition-opacity"
+                      fill
+                      unoptimized
+                      className="object-cover rounded-lg border hover:opacity-90 transition-opacity"
                     />
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors rounded-lg flex items-center justify-center">
-                      <span className="text-white opacity-0 group-hover:opacity-100 text-body-sm font-medium">
+                      <span className="text-white opacity-0 group-hover:opacity-100 text-sm font-medium">
                         Xem lớn
                       </span>
                     </div>
@@ -81,12 +84,14 @@ export function EvidenceViewer({ evidence, open, onClose }: EvidenceViewerProps)
       {/* Full image viewer */}
       {selectedImage && (
         <Dialog open={!!selectedImage} onOpenChange={() => setSelectedImage(null)}>
-          <DialogContent className="max-w-[95vw] max-h-[95vh] p-0">
-            <div className="relative bg-black">
-              <img
+          <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 max-md:p-0">
+            <div className="relative bg-black min-h-[80vh]">
+              <OptimizedImage
                 src={selectedImage}
                 alt="Evidence full"
-                className="w-full h-full object-contain max-h-[95vh]"
+                fill
+                unoptimized
+                className="object-contain"
               />
               <button
                 onClick={() => setSelectedImage(null)}

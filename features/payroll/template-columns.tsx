@@ -62,7 +62,7 @@ export const getTemplateColumns = (
     },
     header: 'Mã mẫu',
     cell: ({ row }) => (
-      <span className="font-mono text-body-xs text-muted-foreground">
+      <span className="font-mono text-xs text-muted-foreground">
         {row.id}
       </span>
     ),
@@ -80,7 +80,7 @@ export const getTemplateColumns = (
       <div>
         <p className="font-medium">{row.name}</p>
         {row.description && (
-          <p className="text-body-xs text-muted-foreground line-clamp-1">
+          <p className="text-xs text-muted-foreground line-clamp-1">
             {row.description}
           </p>
         )}
@@ -97,7 +97,7 @@ export const getTemplateColumns = (
     },
     header: 'Số thành phần',
     cell: ({ row }) => (
-      <span className="text-body-sm">
+      <span className="text-sm">
         {formatComponentCount(row.componentSystemIds.length)}
       </span>
     ),
@@ -131,7 +131,7 @@ export const getTemplateColumns = (
     },
     header: 'Ngày tạo',
     cell: ({ row }) => (
-      <span className="text-body-xs text-muted-foreground">
+      <span className="text-xs text-muted-foreground">
         {formatDate(row.createdAt)}
       </span>
     ),

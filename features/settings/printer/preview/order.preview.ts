@@ -167,4 +167,19 @@ export const ORDER_PREVIEW_DATA: Record<string, string> = {
 
   // === TỰ ĐỘNG THÊM TỪ TEMPLATE ===
   '{account_name}': 'Trần Văn B',
+  '{branch_name}': 'Chi nhánh Hải Châu',
+
+  // === BIẾN BỔ SUNG CHO MẪU EXCEL ===
+  '{line_sku}': 'ATP-001',
+  '{line_discount_percent}': '5%',
+  '{subtotal}': '1,000,000',
+  '{shipping_fee}': '30,000',
+  '{paid_amount}': '500,000',
+  '{remaining_amount}': '490,000',
+  '{note}': 'Giao hàng trước 5h chiều',
+  '{customer_tax_code}': '0123456789',
+  '{pre_tax_amount}': '900,000',
+  '{vat_rate}': '10',
+  '{vat_amount}': '90,000',
+  '{total_amount_with_vat}': '990,000',
 };

@@ -19,6 +19,7 @@ import {
   type CreateInventoryReceiptInput,
   type UpdateInventoryReceiptInput,
 } from '@/app/actions/inventory-receipts';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import type { InventoryReceipt as _InventoryReceipt } from '@/lib/types/prisma-extended';
 import { asSystemId } from '@/lib/id-types';
 
@@ -52,6 +53,8 @@ export function useInventoryReceipt(id: string | null | undefined) {
     queryFn: () => fetchInventoryReceipt(asSystemId(id!)),
     enabled: !!id,
     staleTime: 60_000,
+    // ✅ Always refetch on mount to ensure fresh data
+    refetchOnMount: 'always',
   });
 }
 
@@ -68,14 +71,12 @@ export function useInventoryReceiptMutations(options: UseInventoryReceiptMutatio
   const create = useMutation({
     mutationFn: async (data: CreateInventoryReceiptInput) => {
       const result = await createInventoryReceiptAction(data);
-      if (!result.success) throw new Error(result.error || 'Failed to create inventory receipt');
+      if (!result.success) throw new Error(result.error || 'Không thể tạo phiếu nhập kho');
       return result.data!;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: inventoryReceiptKeys.lists() });
-      // Invalidate AND refetch products because inventory receipt updates costPrice, lastPurchasePrice, lastPurchaseDate
-      // Using refetchQueries to ensure data is fresh immediately (not just marked as stale)
-      queryClient.invalidateQueries({ queryKey: ['products'] });
+      invalidateRelated(queryClient, 'inventory-receipts');
+      // Force immediate refetch for products (critical: costPrice, lastPurchasePrice, lastPurchaseDate)
       queryClient.refetchQueries({ queryKey: ['products'] });
       options.onCreateSuccess?.(data);
     },
@@ -89,12 +90,11 @@ export function useInventoryReceiptMutations(options: UseInventoryReceiptMutatio
         receiptDate: data.receiptDate,
         updatedBy: data.updatedBy,
       });
-      if (!result.success) throw new Error(result.error || 'Failed to update inventory receipt');
+      if (!result.success) throw new Error(result.error || 'Không thể cập nhật phiếu nhập kho');
       return result.data!;
     },
-    onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: inventoryReceiptKeys.detail(variables.systemId) });
-      queryClient.invalidateQueries({ queryKey: inventoryReceiptKeys.lists() });
+    onSuccess: (data) => {
+      invalidateRelated(queryClient, 'inventory-receipts');
       options.onUpdateSuccess?.(data);
     },
     onError: options.onError,
@@ -103,11 +103,11 @@ export function useInventoryReceiptMutations(options: UseInventoryReceiptMutatio
   const remove = useMutation({
     mutationFn: async (systemId: string) => {
       const result = await deleteInventoryReceiptAction(systemId);
-      if (!result.success) throw new Error(result.error || 'Failed to delete inventory receipt');
+      if (!result.success) throw new Error(result.error || 'Không thể xóa phiếu nhập kho');
       return result.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: inventoryReceiptKeys.all });
+      invalidateRelated(queryClient, 'inventory-receipts');
       options.onDeleteSuccess?.();
     },
     onError: options.onError,

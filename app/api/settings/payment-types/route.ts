@@ -1,5 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { apiError, apiSuccess, requireAuth, parsePagination } from '@/lib/api-utils'
+import { logError } from '@/lib/logger'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 const TYPE = 'payment-type'
 
@@ -45,7 +47,7 @@ export async function GET(request: Request) {
     const data = rows.map(r => mapRecord(r as unknown as SettingsDataRecord))
     return apiSuccess({ data, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } })
   } catch (error) {
-    console.error('[payment-types] GET error:', error)
+    logError('[payment-types] GET error', error)
     return apiError('Failed to fetch payment types', 500)
   }
 }
@@ -73,9 +75,17 @@ export async function POST(request: Request) {
       },
     })
 
+    createActivityLog({
+      entityType: 'payment_type',
+      entityId: created.systemId,
+      action: `Thêm loại thanh toán: ${name}`,
+      actionType: 'create',
+      createdBy: session.user?.id,
+    }).catch(e => logError('[payment-types] activity log failed', e))
+
     return apiSuccess({ data: mapRecord(created as unknown as SettingsDataRecord) }, 201)
   } catch (error: unknown) {
-    console.error('[payment-types] POST error:', error)
+    logError('[payment-types] POST error', error)
     const errorMessage = error instanceof Error ? error.message : undefined;
     return apiError('Failed to create payment type', 500, errorMessage)
   }

@@ -5,6 +5,9 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils';
+import { logError } from '@/lib/logger'
+import { createNotification } from '@/lib/notifications'
+import { getUserNameFromDb } from '@/lib/get-user-name'
 
 // Helper: normalize English status to Vietnamese display status
 function mapPenaltyStatus(status: string): string {
@@ -44,7 +47,7 @@ export async function GET(
   { params }: { params: Promise<{ systemId: string }> }
 ) {
   const session = await requireAuth();
-  if (!session) return apiError('Unauthorized', 401);
+  if (!session) return apiError('Chưa được xác thực', 401);
 
   try {
     const { systemId } = await params;
@@ -54,13 +57,13 @@ export async function GET(
     });
 
     if (!penalty) {
-      return apiNotFound('Penalty');
+      return apiNotFound('Phiếu phạt');
     }
 
     return apiSuccess(serializePenalty(penalty as unknown as Record<string, unknown>));
   } catch (error) {
-    console.error('[Penalties API] GET by ID error:', error);
-    return apiError('Failed to fetch penalty', 500);
+    logError('[Penalties API] GET by ID error', error);
+    return apiError('Không thể tải phiếu phạt', 500);
   }
 }
 
@@ -70,7 +73,7 @@ export async function PATCH(
   { params }: { params: Promise<{ systemId: string }> }
 ) {
   const session = await requireAuth();
-  if (!session) return apiError('Unauthorized', 401);
+  if (!session) return apiError('Chưa được xác thực', 401);
 
   try {
     const { systemId } = await params;
@@ -97,10 +100,24 @@ export async function PATCH(
       },
     });
 
+    // Notify penalized employee about update
+    if (penalty.employeeId && penalty.employeeId !== session.user?.employeeId) {
+      createNotification({
+        type: 'penalty',
+        settingsKey: 'penalty:updated',
+        title: 'Kỷ luật được cập nhật',
+        message: `Phiếu kỷ luật ${penalty.id || systemId} đã được cập nhật`,
+        link: `/penalties/${systemId}`,
+        recipientId: penalty.employeeId as string,
+        senderId: session.user?.employeeId,
+        senderName: session.user?.name,
+      }).catch(e => logError('[Penalty Update] notification failed', e));
+    }
+
     return apiSuccess(serializePenalty(penalty as unknown as Record<string, unknown>));
   } catch (error) {
-    console.error('[Penalties API] PATCH error:', error);
-    return apiError('Failed to update penalty', 500);
+    logError('[Penalties API] PATCH error', error);
+    return apiError('Không thể cập nhật phiếu phạt', 500);
   }
 }
 
@@ -110,7 +127,7 @@ export async function DELETE(
   { params }: { params: Promise<{ systemId: string }> }
 ) {
   const session = await requireAuth();
-  if (!session) return apiError('Unauthorized', 401);
+  if (!session) return apiError('Chưa được xác thực', 401);
 
   try {
     const { systemId } = await params;
@@ -119,9 +136,23 @@ export async function DELETE(
       where: { systemId },
     });
 
+    // Log activity
+    getUserNameFromDb(session.user?.id).then(userName =>
+      prisma.activityLog.create({
+        data: {
+          entityType: 'penalty',
+          entityId: systemId,
+          action: 'deleted',
+          actionType: 'delete',
+          note: `Xóa phiếu phạt`,
+          metadata: { userName },
+          createdBy: userName,
+        }
+      })
+    ).catch(e => logError('[ActivityLog] penalty delete failed', e))
     return apiSuccess({ success: true });
   } catch (error) {
-    console.error('[Penalties API] DELETE error:', error);
-    return apiError('Failed to delete penalty', 500);
+    logError('[Penalties API] DELETE error', error);
+    return apiError('Không thể xóa phiếu phạt', 500);
   }
 }

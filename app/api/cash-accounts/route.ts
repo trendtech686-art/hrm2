@@ -1,14 +1,15 @@
 import { prisma } from '@/lib/prisma'
 import { Prisma, CashAccountType } from '@/generated/prisma/client'
-import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
+import { validateBody, apiSuccess, apiError } from '@/lib/api-utils'
+import { apiHandler } from '@/lib/api-handler'
 import { createCashAccountSchema } from './validation'
 import { generateNextIds } from '@/lib/id-system'
+import { logError } from '@/lib/logger'
+import { createActivityLog } from '@/lib/services/activity-log-service'
+import { getUserNameFromDb } from '@/lib/get-user-name'
 
 // GET /api/cash-accounts - List all cash accounts
-export async function GET(request: Request) {
-  const session = await requireAuth()
-  if (!session) return apiError('Unauthorized', 401)
-
+export const GET = apiHandler(async (request) => {
   try {
     const { searchParams } = new URL(request.url)
     const _all = searchParams.get('all') === 'true'
@@ -35,16 +36,13 @@ export async function GET(request: Request) {
 
     return apiSuccess({ data })
   } catch (error) {
-    console.error('Error fetching cash accounts:', error)
-    return apiError('Failed to fetch cash accounts', 500)
+    logError('Error fetching cash accounts', error)
+    return apiError('Không thể tải danh sách quỹ tiền', 500)
   }
-}
+})
 
 // POST /api/cash-accounts - Create new cash account
-export async function POST(request: Request) {
-  const session = await requireAuth()
-  if (!session) return apiError('Unauthorized', 401)
-
+export const POST = apiHandler(async (request, { session }) => {
   const validation = await validateBody(request, createCashAccountSchema)
   if (!validation.success) {
     return apiError(validation.error, 400)
@@ -52,7 +50,8 @@ export async function POST(request: Request) {
   const body = validation.data
 
   try {
-    const cashType = (body.type?.toUpperCase() === 'BANK' ? 'BANK' : 'CASH') as CashAccountType;
+    const typeUpper = body.type?.toUpperCase();
+    const cashType = (typeUpper === 'BANK' ? 'BANK' : typeUpper === 'WALLET' ? 'WALLET' : 'CASH') as CashAccountType;
     
     const { systemId, businessId } = await generateNextIds('cash-accounts')
     
@@ -72,17 +71,28 @@ export async function POST(request: Request) {
         branchId: body.branchSystemId,
         minBalance: body.minBalance,
         maxBalance: body.maxBalance,
+        accountType: body.accountType,
         isActive: body.isActive ?? true,
         isDefault: body.isDefault ?? false,
       },
     })
+
+    getUserNameFromDb(session!.user.id).then(userName =>
+      createActivityLog({
+        entityType: 'cash_account',
+        entityId: account.systemId,
+        action: `Thêm tài khoản quỹ: ${account.name}`,
+        actionType: 'create',
+        createdBy: userName,
+      })
+    ).catch(e => logError('activity log failed', e))
 
     return apiSuccess(account, 201)
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
       return apiError('Mã quỹ đã tồn tại', 400)
     }
-    console.error('Error creating cash account:', error)
-    return apiError('Failed to create cash account', 500)
+    logError('Error creating cash account', error)
+    return apiError('Không thể tạo quỹ tiền', 500)
   }
-}
+})

@@ -25,6 +25,7 @@ export interface ProductSearchResult {
   categoryId: string | null
   categoryName: string | null
   costPrice: number
+  lastPurchasePrice: number // Giá nhập cuối cùng
   price: number // Default selling price
   prices: Record<string, number> // All prices by pricingPolicyId
   unit: string // Unit of measure
@@ -231,13 +232,16 @@ const PAGE_SIZE = 30
 
 /**
  * Infinite scroll product search - loads more on scroll
+ * ⚡ OPTIMIZED: Added lazyLoad option to defer initial fetch until user interaction
  */
 export function useInfiniteMeiliProductSearch({
   query,
   debounceMs = 200,
   enabled = true,
+  lazyLoad = false,
   filters = {},
 }: Omit<UseSearchOptions, 'limit' | 'offset'> & {
+  lazyLoad?: boolean;
   filters?: {
     brandId?: string
     categoryId?: string
@@ -245,6 +249,8 @@ export function useInfiniteMeiliProductSearch({
   }
 }) {
   const debouncedQuery = useDebouncedValue(query, debounceMs)
+  // ⚡ If lazyLoad, only enable when user has typed something OR explicitly enabled
+  const isEnabled = enabled && (!lazyLoad || query.length > 0)
   
   return useInfiniteQuery({
     queryKey: ['meili-products-infinite', debouncedQuery, filters],
@@ -269,7 +275,7 @@ export function useInfiniteMeiliProductSearch({
       if (totalLoaded >= lastPage.meta.total) return undefined
       return totalLoaded // offset for next page
     },
-    enabled,
+    enabled: isEnabled,
     staleTime: 30 * 1000,
     gcTime: 5 * 60 * 1000,
   })
@@ -277,19 +283,24 @@ export function useInfiniteMeiliProductSearch({
 
 /**
  * Infinite scroll customer search - loads more on scroll
+ * ⚡ OPTIMIZED: Added lazyLoad option to defer initial fetch until user interaction
  */
 export function useInfiniteMeiliCustomerSearch({
   query,
   debounceMs = 200,
   enabled = true,
+  lazyLoad = false,
   filters = {},
 }: Omit<UseSearchOptions, 'limit' | 'offset'> & {
+  lazyLoad?: boolean;
   filters?: {
     city?: string
     district?: string
   }
 }) {
   const debouncedQuery = useDebouncedValue(query, debounceMs)
+  // ⚡ If lazyLoad, only enable when user has typed something OR explicitly enabled
+  const isEnabled = enabled && (!lazyLoad || query.length > 0)
   
   return useInfiniteQuery({
     queryKey: ['meili-customers-infinite', debouncedQuery, filters],
@@ -313,7 +324,7 @@ export function useInfiniteMeiliCustomerSearch({
       if (totalLoaded >= lastPage.meta.total) return undefined
       return totalLoaded // offset for next page
     },
-    enabled,
+    enabled: isEnabled,
     staleTime: 30 * 1000,
     gcTime: 5 * 60 * 1000,
   })
@@ -321,7 +332,7 @@ export function useInfiniteMeiliCustomerSearch({
 
 // ===========================================
 // Simple Autocomplete Hooks
-// ===========================================
+// =========================================== 
 
 /**
  * Simple product autocomplete for dropdowns/combobox

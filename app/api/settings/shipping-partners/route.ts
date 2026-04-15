@@ -1,6 +1,8 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils';
+import { logError } from '@/lib/logger'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 // GET /api/settings/shipping-partners - List all shipping partners
 export async function GET(_request: NextRequest) {
@@ -14,7 +16,7 @@ export async function GET(_request: NextRequest) {
 
     return apiSuccess(partners);
   } catch (error) {
-    console.error('Error fetching shipping partners:', error);
+    logError('Error fetching shipping partners', error);
     return apiError('Failed to fetch shipping partners', 500);
   }
 }
@@ -55,9 +57,21 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    createActivityLog({
+      entityType: 'shipping_partner',
+      entityId: partner.id,
+      action: `Tạo đối tác vận chuyển: ${name}`,
+      actionType: 'create',
+      changes: {
+        'Tên': { from: null, to: name },
+        'Mã': { from: null, to: code },
+      },
+      createdBy: session.user?.id ?? '',
+    }).catch(e => logError('[shipping-partners] activity log failed', e));
+
     return apiSuccess(partner, 201);
   } catch (error) {
-    console.error('Error creating shipping partner:', error);
+    logError('Error creating shipping partner', error);
     return apiError('Failed to create shipping partner', 500);
   }
 }

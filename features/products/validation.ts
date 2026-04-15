@@ -34,7 +34,7 @@ export const productFormSchema = z.object({
   id: z.string()
     .min(1, 'Mã sản phẩm là bắt buộc')
     .max(50, 'Mã sản phẩm không được quá 50 ký tự')
-    .regex(/^[A-Z0-9-]+$/, 'Mã sản phẩm chỉ được chứa chữ in hoa, số và dấu gạch ngang'),
+    .regex(/^[A-Za-z0-9\s-]+$/, 'Mã sản phẩm chỉ được chứa chữ cái, số, khoảng trắng và dấu gạch ngang'),
   
   name: z.string()
     .min(1, 'Tên sản phẩm là bắt buộc')
@@ -50,7 +50,7 @@ export const productFormSchema = z.object({
 
   prices: z.record(z.string(), nonNegativeNumber),
   
-  inventory: stockNumber,
+  inventory: stockNumber.optional(),
   
   // Optional fields
   title: z.string()
@@ -95,7 +95,8 @@ export const productFormSchema = z.object({
 
   tags: z.array(z.string().max(50, 'Tag không được quá 50 ký tự')).optional(),
   
-  status: z.enum(['active', 'inactive', 'discontinued'])
+  status: z.enum(['active', 'inactive', 'discontinued', 'ACTIVE', 'INACTIVE', 'DISCONTINUED'])
+    .transform(v => v.toLowerCase())
     .optional(),
   
   barcode: z.string()
@@ -152,15 +153,6 @@ export const productFormSchema = z.object({
       });
     }
     
-    // Combo must have pricing type
-    if (!data.comboPricingType) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Vui lòng chọn cách tính giá combo',
-        path: ['comboPricingType'],
-      });
-    }
-    
     // Check for duplicate products in combo
     if (data.comboItems && data.comboItems.length > 0) {
       const productIds = data.comboItems.map(item => item.productSystemId);
@@ -170,26 +162,6 @@ export const productFormSchema = z.object({
           code: z.ZodIssueCode.custom,
           message: 'Combo không được chứa sản phẩm trùng lặp',
           path: ['comboItems'],
-        });
-      }
-    }
-    
-    // For fixed pricing, comboDiscount is required (it's the price)
-    if (data.comboPricingType === 'fixed' && (data.comboDiscount === undefined || data.comboDiscount <= 0)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Vui lòng nhập giá combo',
-        path: ['comboDiscount'],
-      });
-    }
-    
-    // For percentage discount, validate range 0-100
-    if (data.comboPricingType === 'sum_discount_percent' && data.comboDiscount !== undefined) {
-      if (data.comboDiscount > 100) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: 'Phần trăm giảm giá không được vượt quá 100%',
-          path: ['comboDiscount'],
         });
       }
     }
@@ -225,6 +197,14 @@ export const productFormSchema = z.object({
 export type ProductFormValues = z.infer<typeof productFormSchema>;
 /** @deprecated Sử dụng ProductFormValues thay thế */
 export type ProductFormData = ProductFormValues;
+
+/**
+ * Update Product Schema - all fields optional except systemId
+ * Used for partial updates where not all fields need to be sent
+ */
+export const updateProductFormSchema = z.object({
+  systemId: z.string().min(1, 'systemId là bắt buộc'),
+}).passthrough(); // Allow any additional fields without strict validation
 
 /**
  * Validate product ID uniqueness

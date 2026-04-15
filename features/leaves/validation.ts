@@ -23,18 +23,30 @@ export const leaveTypeSchema = z.enum([
   'Khác'
 ]);
 
-// Create leave schema
+// Create leave schema (server action validation - accepts various input formats)
 export const createLeaveSchema = z.object({
-  employeeSystemId: systemIdSchema,
+  employeeSystemId: z.string().min(1, 'Mã nhân viên không được để trống'),
+  employeeId: z.string().optional(),
   employeeName: z.string().optional(),
   department: z.string().optional(),
-  leaveType: leaveTypeSchema,
-  startDate: z.string().min(1, 'Ngày bắt đầu không được để trống'),
-  endDate: z.string().min(1, 'Ngày kết thúc không được để trống'),
-  totalDays: z.number().min(0.5, 'Số ngày nghỉ tối thiểu 0.5'),
+  leaveType: z.string().min(1, 'Loại phép không được để trống'),
+  leaveTypeName: z.string().optional(),
+  leaveTypeSystemId: z.string().optional(),
+  leaveTypeId: z.string().optional(),
+  leaveTypeIsPaid: z.boolean().optional(),
+  leaveTypeRequiresAttachment: z.boolean().optional(),
+  startDate: z.union([z.string().min(1, 'Ngày bắt đầu không được để trống'), z.date()]),
+  endDate: z.union([z.string().min(1, 'Ngày kết thúc không được để trống'), z.date()]),
+  totalDays: z.number().min(0.5, 'Số ngày nghỉ tối thiểu 0.5').optional(),
+  numberOfDays: z.number().optional(),
   reason: z.string().min(1, 'Lý do nghỉ không được để trống'),
+  status: z.string().optional(),
   attachments: z.array(z.string()).optional(),
-}).refine(data => new Date(data.endDate) >= new Date(data.startDate), {
+}).refine(data => {
+  const start = typeof data.startDate === 'string' ? new Date(data.startDate) : data.startDate;
+  const end = typeof data.endDate === 'string' ? new Date(data.endDate) : data.endDate;
+  return end >= start;
+}, {
   message: 'Ngày kết thúc phải >= ngày bắt đầu',
   path: ['endDate'],
 });

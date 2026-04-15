@@ -7,6 +7,9 @@ import { prisma } from '@/lib/prisma';
 import { StockTransferStatus } from '@/generated/prisma/client';
 import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils';
 import { updateStockTransferSchema, deleteStockTransferSchema } from './validation';
+import { logError } from '@/lib/logger'
+import { createNotification } from '@/lib/notifications'
+import { getUserNameFromDb } from '@/lib/get-user-name'
 
 type RouteParams = {
   params: Promise<{ systemId: string }>;
@@ -28,7 +31,57 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     });
 
     if (!stockTransfer) {
-      return apiError('Stock transfer not found', 404);
+      return apiError('Không tìm thấy phiếu chuyển kho', 404);
+    }
+
+    // Fetch product images for all items
+    const productIds = stockTransfer.items
+      .map(item => item.productId)
+      .filter((id): id is string => !!id);
+    
+    // Fetch from Product table and File table in parallel
+    const [products, files] = await Promise.all([
+      productIds.length > 0 
+        ? prisma.product.findMany({
+            where: { systemId: { in: productIds } },
+            select: { systemId: true, thumbnailImage: true, galleryImages: true },
+          })
+        : [],
+      productIds.length > 0
+        ? prisma.file.findMany({
+            where: { 
+              entityType: 'products', 
+              entityId: { in: productIds },
+              status: 'permanent',
+              mimetype: { startsWith: 'image/' },
+            },
+            select: { entityId: true, filepath: true },
+            orderBy: { uploadedAt: 'desc' },
+          })
+        : [],
+    ]);
+    
+    // Build file image map (first image per product)
+    const fileImageMap = new Map<string, string>();
+    for (const file of files) {
+      if (!fileImageMap.has(file.entityId)) {
+        fileImageMap.set(file.entityId, file.filepath);
+      }
+    }
+    
+    // Build product image map: prioritize Product fields, then File table
+    const productImageMap = new Map<string, string | null>(
+      products.map(p => [
+        p.systemId, 
+        p.thumbnailImage || (p.galleryImages as string[])?.[0] || fileImageMap.get(p.systemId) || null
+      ] as const)
+    );
+    
+    // For products not in Product table but have files
+    for (const [entityId, filepath] of fileImageMap) {
+      if (!productImageMap.has(entityId)) {
+        productImageMap.set(entityId, filepath);
+      }
     }
 
     // Transform items to match frontend expectations
@@ -38,6 +91,8 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       productSystemId: item.productId, // DB productId is actually productSystemId
       productId: item.productSku, // DB productSku is actually the business ID
       receivedQuantity: item.receivedQty,
+      // Include product image from lookup
+      productImage: item.productId ? productImageMap.get(item.productId) || null : null,
     }));
 
     // Transform status to lowercase and convert dates for frontend compatibility
@@ -57,8 +112,8 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 
     return apiSuccess(transformedResult);
   } catch (error) {
-    console.error('[Stock Transfers API] GET by ID error:', error);
-    return apiError('Failed to fetch stock transfer', 500);
+    logError('[Stock Transfers API] GET by ID error', error);
+    return apiError('Lỗi khi lấy phiếu chuyển kho', 500);
   }
 }
 
@@ -95,10 +150,24 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       status: stockTransfer.status.toLowerCase(),
     };
 
+    // Notify creator about stock transfer update
+    if (stockTransfer.createdBy && stockTransfer.createdBy !== session.user?.employeeId) {
+      createNotification({
+        type: 'stock_transfer',
+        settingsKey: 'stock-transfer:updated',
+        title: 'Chuyển kho cập nhật',
+        message: `Phiếu chuyển kho ${stockTransfer.id || systemId} đã được cập nhật${status ? ` - ${status}` : ''}`,
+        link: `/stock-transfers/${systemId}`,
+        recipientId: stockTransfer.createdBy,
+        senderId: session.user?.employeeId,
+        senderName: session.user?.name,
+      }).catch(e => logError('[Stock Transfer PATCH] notification failed', e));
+    }
+
     return apiSuccess(transformedResult);
   } catch (error) {
-    console.error('[Stock Transfers API] PATCH error:', error);
-    return apiError('Failed to update stock transfer', 500);
+    logError('[Stock Transfers API] PATCH error', error);
+    return apiError('Lỗi khi cập nhật phiếu chuyển kho', 500);
   }
 }
 
@@ -132,9 +201,23 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       });
     }
 
+    // Log activity
+    getUserNameFromDb(session.user?.id).then(userName =>
+      prisma.activityLog.create({
+        data: {
+          entityType: 'stock_transfer',
+          entityId: systemId,
+          action: 'deleted',
+          actionType: 'delete',
+          note: `Xóa phiếu chuyển kho`,
+          metadata: { userName },
+          createdBy: userName,
+        }
+      })
+    ).catch(e => logError('[ActivityLog] stock_transfer delete failed', e))
     return apiSuccess({ success: true });
   } catch (error) {
-    console.error('[Stock Transfers API] DELETE error:', error);
-    return apiError('Failed to delete stock transfer', 500);
+    logError('[Stock Transfers API] DELETE error', error);
+    return apiError('Lỗi khi xóa phiếu chuyển kho', 500);
   }
 }

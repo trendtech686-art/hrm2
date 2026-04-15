@@ -32,7 +32,7 @@ export function SettingsTable<T extends BaseSetting>({
   renderExtraColumns,
 }: SettingsTableProps<T>) {
   return (
-    <div className="rounded-md border">
+    <div className="rounded-md border overflow-x-auto">
       <Table>
         <TableHeader>
           <TableRow>

@@ -143,6 +143,100 @@ export const useImageStore = create<ImageState>((set, get) => ({
   }
 }));
 
+// ============================================
+// BATCH FETCHING MECHANISM
+// ============================================
+
+// Pending IDs waiting to be fetched
+let pendingProductIds: Set<string> = new Set();
+let batchFetchTimeout: NodeJS.Timeout | null = null;
+let batchFetchPromise: Promise<void> | null = null;
+
+/**
+ * Queue a product for batch image fetch
+ * Collects requests and batches them after 50ms debounce
+ */
+export function queueProductImageFetch(productSystemId: string): void {
+  const state = useImageStore.getState();
+  
+  // Skip if already fetched
+  if (state.permanentMeta[productSystemId]?.lastFetched) {
+    return;
+  }
+  
+  pendingProductIds.add(productSystemId);
+  
+  // Debounce: Wait 50ms to collect more IDs
+  if (batchFetchTimeout) {
+    clearTimeout(batchFetchTimeout);
+  }
+  
+  batchFetchTimeout = setTimeout(() => {
+    executeBatchFetch();
+  }, 50);
+}
+
+/**
+ * Execute batch fetch for all pending product IDs
+ */
+async function executeBatchFetch(): Promise<void> {
+  if (pendingProductIds.size === 0) return;
+  
+  // Avoid duplicate concurrent fetches
+  if (batchFetchPromise) {
+    await batchFetchPromise;
+    return;
+  }
+  
+  const ids = Array.from(pendingProductIds);
+  pendingProductIds.clear();
+  
+  batchFetchPromise = (async () => {
+    try {
+      const { FileUploadAPI } = await import('@/lib/file-upload-api');
+      const filesMap = await FileUploadAPI.getBatchProductFiles(ids);
+      
+      const updatePermanentImages = useImageStore.getState().updatePermanentImages;
+      const timestamp = Date.now();
+      
+      for (const [productSystemId, files] of filesMap) {
+        if (!files || !Array.isArray(files)) {
+          // Mark as fetched even if no files
+          updatePermanentImages(productSystemId, 'thumbnail', [], timestamp);
+          continue;
+        }
+        
+        const mapToStagingFile = (f: { id: string; name: string; originalName: string; slug: string; filename: string; size: number; type: string; url: string; uploadedAt: string; metadata?: unknown }) => ({
+          id: f.id,
+          sessionId: '',
+          name: f.name,
+          originalName: f.originalName,
+          slug: f.slug,
+          filename: f.filename,
+          size: f.size,
+          type: f.type,
+          url: f.url,
+          status: 'permanent' as const,
+          uploadedAt: f.uploadedAt,
+          metadata: (typeof f.metadata === 'string' ? f.metadata : (f.metadata as Record<string, unknown> | undefined)) || ''
+        });
+
+        const thumbnailFiles = files.filter((f: { documentName?: string }) => f.documentName === 'thumbnail').map(mapToStagingFile);
+        const galleryFiles = files.filter((f: { documentName?: string }) => f.documentName === 'gallery').map(mapToStagingFile);
+        
+        updatePermanentImages(productSystemId, 'thumbnail', thumbnailFiles, timestamp);
+        updatePermanentImages(productSystemId, 'gallery', galleryFiles, timestamp);
+      }
+    } catch (err) {
+      console.error('Batch image fetch failed:', err);
+    } finally {
+      batchFetchPromise = null;
+    }
+  })();
+  
+  await batchFetchPromise;
+}
+
 /**
  * Helper: Lấy ảnh sản phẩm với thứ tự ưu tiên đúng
  * 1. Ảnh từ server (permanentImages) - upload thực

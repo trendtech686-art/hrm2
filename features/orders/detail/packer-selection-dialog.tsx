@@ -49,7 +49,7 @@ export function PackerSelectionDialog({
         <DialogHeader>
           <DialogTitle>Chọn nhân viên đóng gói</DialogTitle>
           <DialogDescription>
-            Chỉ định một nhân viên để thực hiện đóng gói cho đơn hàng này. Bạn có thể bỏ qua để yêu cầu chung.
+            Chỉ định một nhân viên để thực hiện đóng gói cho đơn hàng này.
           </DialogDescription>
         </DialogHeader>
         <div className="pt-4">
@@ -69,7 +69,7 @@ export function PackerSelectionDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Hủy
           </Button>
-          <Button onClick={handleSubmit}>Yêu cầu đóng gói</Button>
+          <Button onClick={handleSubmit} disabled={!selectedEmployee}>Yêu cầu đóng gói</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

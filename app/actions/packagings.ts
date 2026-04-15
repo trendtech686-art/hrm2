@@ -7,13 +7,14 @@
 import { prisma } from '@/lib/prisma'
 import { revalidatePath } from '@/lib/revalidation'
 import { generateIdWithPrefix } from '@/lib/id-generator'
-import { auth } from '@/auth'
+import { requireActionPermission } from '@/lib/api-utils'
 import type { ActionResult } from '@/types/action-result'
 import { createPackagingSchema, updatePackagingSchema } from '@/features/packaging/validation'
+import { logError } from '@/lib/logger'
+import { getSessionUserName } from '@/lib/get-user-name'
 
 // Types
 type Packaging = NonNullable<Awaited<ReturnType<typeof prisma.packaging.findFirst>>>
-type PackagingItem = NonNullable<Awaited<ReturnType<typeof prisma.packagingItem.findFirst>>>
 
 export type CreatePackagingInput = {
   orderId: string
@@ -66,10 +67,9 @@ export type UpdatePackagingInput = {
 export async function createPackagingAction(
   input: CreatePackagingInput
 ): Promise<ActionResult<Packaging>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('create_packaging')
+  if (!authResult.success) return authResult
+  const { session } = authResult
   const validated = createPackagingSchema.safeParse(input)
   if (!validated.success) {
     return { success: false, error: validated.error.issues[0]?.message || 'Dữ liệu không hợp lệ' }
@@ -115,9 +115,22 @@ export async function createPackagingAction(
 
     revalidatePath('/packagings')
     revalidatePath(`/orders/${input.orderId}`)
+
+    const logUserName = getSessionUserName(session)
+    prisma.activityLog.create({
+      data: {
+        entityType: 'packaging',
+        entityId: systemId,
+        action: `Tạo phiếu đóng gói: ${systemId}`,
+        actionType: 'create',
+        metadata: { userName: logUserName, orderId: input.orderId },
+        createdBy: logUserName,
+      }
+    }).catch(e => logError('[ActivityLog] packaging create failed', e))
+
     return { success: true, data: packaging }
   } catch (error) {
-    console.error('Error creating packaging:', error)
+    logError('Error creating packaging', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Không thể tạo quy cách đóng gói',
@@ -128,10 +141,9 @@ export async function createPackagingAction(
 export async function updatePackagingAction(
   input: UpdatePackagingInput
 ): Promise<ActionResult<Packaging>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('edit_packaging')
+  if (!authResult.success) return authResult
+  const { session } = authResult
   const validated = updatePackagingSchema.safeParse(input)
   if (!validated.success) {
     return { success: false, error: validated.error.issues[0]?.message || 'Dữ liệu không hợp lệ' }
@@ -174,197 +186,25 @@ export async function updatePackagingAction(
 
     revalidatePath('/packagings')
     revalidatePath(`/packagings/${systemId}`)
+
+    const logUserName = getSessionUserName(session)
+    prisma.activityLog.create({
+      data: {
+        entityType: 'packaging',
+        entityId: systemId,
+        action: `Cập nhật phiếu đóng gói: ${systemId}`,
+        actionType: 'update',
+        metadata: { userName: logUserName },
+        createdBy: logUserName,
+      }
+    }).catch(e => logError('[ActivityLog] packaging update failed', e))
+
     return { success: true, data: packaging }
   } catch (error) {
-    console.error('Error updating packaging:', error)
+    logError('Error updating packaging', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Không thể cập nhật quy cách đóng gói',
-    }
-  }
-}
-
-export async function deletePackagingAction(
-  systemId: string
-): Promise<ActionResult<Packaging>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
-  try {
-    const existing = await prisma.packaging.findUnique({
-      where: { systemId },
-    })
-
-    if (!existing) {
-      return { success: false, error: 'Không tìm thấy quy cách đóng gói' }
-    }
-
-    if (existing.status !== 'PENDING') {
-      return {
-        success: false,
-        error: 'Chỉ có thể xóa đóng gói ở trạng thái PENDING',
-      }
-    }
-
-    // Delete items first
-    await prisma.packagingItem.deleteMany({
-      where: { packagingId: systemId },
-    })
-
-    const packaging = await prisma.packaging.delete({
-      where: { systemId },
-    })
-
-    revalidatePath('/packagings')
-    return { success: true, data: packaging }
-  } catch (error) {
-    console.error('Error deleting packaging:', error)
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Không thể xóa quy cách đóng gói',
-    }
-  }
-}
-
-export async function getPackagingAction(
-  systemId: string
-): Promise<ActionResult<Packaging>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
-  try {
-    const packaging = await prisma.packaging.findUnique({
-      where: { systemId },
-      include: {
-        items: true,
-        order: true,
-        assignedEmployee: true,
-        shipment: true,
-      },
-    })
-
-    if (!packaging) {
-      return { success: false, error: 'Không tìm thấy quy cách đóng gói' }
-    }
-
-    return { success: true, data: packaging }
-  } catch (error) {
-    console.error('Error getting packaging:', error)
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Không thể lấy thông tin quy cách đóng gói',
-    }
-  }
-}
-
-export async function startPackagingAction(
-  systemId: string,
-  employeeId?: string
-): Promise<ActionResult<Packaging>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
-  try {
-    const existing = await prisma.packaging.findUnique({
-      where: { systemId },
-    })
-
-    if (!existing) {
-      return { success: false, error: 'Không tìm thấy quy cách đóng gói' }
-    }
-
-    if (existing.status !== 'PENDING') {
-      return {
-        success: false,
-        error: 'Chỉ có thể bắt đầu đóng gói ở trạng thái PENDING',
-      }
-    }
-
-    const packaging = await prisma.packaging.update({
-      where: { systemId },
-      data: {
-        status: 'IN_PROGRESS',
-        assignedEmployeeId: employeeId ?? existing.assignedEmployeeId,
-      },
-      include: { items: true },
-    })
-
-    revalidatePath('/packagings')
-    revalidatePath(`/packagings/${systemId}`)
-    return { success: true, data: packaging }
-  } catch (error) {
-    console.error('Error starting packaging:', error)
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Không thể bắt đầu đóng gói',
-    }
-  }
-}
-
-export async function packItemAction(
-  itemId: string,
-  quantity: number
-): Promise<ActionResult<PackagingItem>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
-  try {
-    const item = await prisma.packagingItem.findUnique({
-      where: { systemId: itemId },
-      include: { packaging: true },
-    })
-
-    if (!item) {
-      return { success: false, error: 'Không tìm thấy sản phẩm đóng gói' }
-    }
-
-    if (item.packaging.status !== 'IN_PROGRESS') {
-      return {
-        success: false,
-        error: 'Chỉ có thể đóng gói sản phẩm ở trạng thái IN_PROGRESS',
-      }
-    }
-
-    const maxQuantity = Number(item.requiredQty) - Number(item.packedQty)
-    if (quantity > maxQuantity) {
-      return {
-        success: false,
-        error: `Số lượng tối đa có thể đóng gói: ${maxQuantity}`,
-      }
-    }
-
-    const newPackedQuantity = Number(item.packedQty) + quantity
-
-    const updatedItem = await prisma.packagingItem.update({
-      where: { systemId: itemId },
-      data: {
-        packedQty: newPackedQuantity,
-      },
-    })
-
-    // Update packaging packedItems count
-    const allItems = await prisma.packagingItem.findMany({
-      where: { packagingId: item.packagingId },
-    })
-    const totalPacked = allItems.reduce((sum, i) => sum + Number(i.packedQty), 0)
-
-    await prisma.packaging.update({
-      where: { systemId: item.packagingId },
-      data: { packedItems: totalPacked },
-    })
-
-    revalidatePath('/packagings')
-    revalidatePath(`/packagings/${item.packagingId}`)
-    return { success: true, data: updatedItem }
-  } catch (error) {
-    console.error('Error packing item:', error)
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Không thể đóng gói sản phẩm',
     }
   }
 }
@@ -373,10 +213,9 @@ export async function completePackagingAction(
   systemId: string,
   confirmedBy: string
 ): Promise<ActionResult<Packaging>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('edit_packaging')
+  if (!authResult.success) return authResult
+  const { session } = authResult
   try {
     const existing = await prisma.packaging.findUnique({
       where: { systemId },
@@ -418,9 +257,22 @@ export async function completePackagingAction(
 
     revalidatePath('/packagings')
     revalidatePath(`/packagings/${systemId}`)
+
+    const logUserName = getSessionUserName(session)
+    prisma.activityLog.create({
+      data: {
+        entityType: 'packaging',
+        entityId: systemId,
+        action: `Hoàn thành đóng gói: ${systemId}`,
+        actionType: 'update',
+        metadata: { userName: logUserName },
+        createdBy: logUserName,
+      }
+    }).catch(e => logError('[ActivityLog] packaging complete failed', e))
+
     return { success: true, data: packaging }
   } catch (error) {
-    console.error('Error completing packaging:', error)
+    logError('Error completing packaging', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Không thể hoàn thành đóng gói',
@@ -433,10 +285,9 @@ export async function cancelPackagingAction(
   canceledBy: string,
   reason?: string
 ): Promise<ActionResult<Packaging>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('edit_packaging')
+  if (!authResult.success) return authResult
+  const { session } = authResult
   try {
     const existing = await prisma.packaging.findUnique({
       where: { systemId },
@@ -465,9 +316,23 @@ export async function cancelPackagingAction(
 
     revalidatePath('/packagings')
     revalidatePath(`/packagings/${systemId}`)
+
+    const logUserName = getSessionUserName(session)
+    prisma.activityLog.create({
+      data: {
+        entityType: 'packaging',
+        entityId: systemId,
+        action: `Hủy đóng gói: ${systemId}`,
+        actionType: 'update',
+        note: reason ? `Lý do: ${reason}` : undefined,
+        metadata: { userName: logUserName },
+        createdBy: logUserName,
+      }
+    }).catch(e => logError('[ActivityLog] packaging cancel failed', e))
+
     return { success: true, data: packaging }
   } catch (error) {
-    console.error('Error cancelling packaging:', error)
+    logError('Error cancelling packaging', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Không thể hủy đóng gói',
@@ -475,108 +340,12 @@ export async function cancelPackagingAction(
   }
 }
 
-export async function updateTrackingInfoAction(
-  systemId: string,
-  trackingData: {
-    carrier?: string
-    service?: string
-    trackingCode?: string
-    partnerStatus?: string
-    shippingFeeToPartner?: number
-    codAmount?: number
-    payer?: string
-  }
-): Promise<ActionResult<Packaging>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
-  try {
-    const existing = await prisma.packaging.findUnique({
-      where: { systemId },
-    })
-
-    if (!existing) {
-      return { success: false, error: 'Không tìm thấy quy cách đóng gói' }
-    }
-
-    const updateData: Record<string, unknown> = {}
-    
-    if (trackingData.carrier !== undefined) updateData.carrier = trackingData.carrier
-    if (trackingData.service !== undefined) updateData.service = trackingData.service
-    if (trackingData.trackingCode !== undefined) updateData.trackingCode = trackingData.trackingCode
-    if (trackingData.partnerStatus !== undefined) updateData.partnerStatus = trackingData.partnerStatus
-    if (trackingData.shippingFeeToPartner !== undefined) updateData.shippingFeeToPartner = trackingData.shippingFeeToPartner
-    if (trackingData.codAmount !== undefined) updateData.codAmount = trackingData.codAmount
-    if (trackingData.payer !== undefined) updateData.payer = trackingData.payer
-
-    const packaging = await prisma.packaging.update({
-      where: { systemId },
-      data: updateData,
-    })
-
-    revalidatePath('/packagings')
-    revalidatePath(`/packagings/${systemId}`)
-    return { success: true, data: packaging }
-  } catch (error) {
-    console.error('Error updating tracking info:', error)
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Không thể cập nhật thông tin vận chuyển',
-    }
-  }
-}
-
-export async function markAsDeliveredAction(
-  systemId: string
-): Promise<ActionResult<Packaging>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
-  try {
-    const existing = await prisma.packaging.findUnique({
-      where: { systemId },
-    })
-
-    if (!existing) {
-      return { success: false, error: 'Không tìm thấy quy cách đóng gói' }
-    }
-
-    if (existing.status !== 'COMPLETED') {
-      return {
-        success: false,
-        error: 'Chỉ có thể đánh dấu đã giao cho đóng gói ở trạng thái COMPLETED',
-      }
-    }
-
-    const packaging = await prisma.packaging.update({
-      where: { systemId },
-      data: {
-        deliveryStatus: 'DELIVERED',
-        deliveredDate: new Date(),
-      },
-    })
-
-    revalidatePath('/packagings')
-    revalidatePath(`/packagings/${systemId}`)
-    return { success: true, data: packaging }
-  } catch (error) {
-    console.error('Error marking as delivered:', error)
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Không thể đánh dấu đã giao hàng',
-    }
-  }
-}
-
 export async function markAsPrintedAction(
   systemId: string
 ): Promise<ActionResult<Packaging>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('edit_packaging')
+  if (!authResult.success) return authResult
+  const { session } = authResult
   try {
     const existing = await prisma.packaging.findUnique({
       where: { systemId },
@@ -593,9 +362,22 @@ export async function markAsPrintedAction(
 
     revalidatePath('/packagings')
     revalidatePath(`/packagings/${systemId}`)
+
+    const logUserName = getSessionUserName(session)
+    prisma.activityLog.create({
+      data: {
+        entityType: 'packaging',
+        entityId: systemId,
+        action: `Đánh dấu đã in đóng gói: ${systemId}`,
+        actionType: 'update',
+        metadata: { userName: logUserName },
+        createdBy: logUserName,
+      }
+    }).catch(e => logError('[ActivityLog] packaging markAsPrinted failed', e))
+
     return { success: true, data: packaging }
   } catch (error) {
-    console.error('Error marking as printed:', error)
+    logError('Error marking as printed', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Không thể đánh dấu đã in',

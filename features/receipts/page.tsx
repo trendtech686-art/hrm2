@@ -15,6 +15,7 @@ import { Plus } from "lucide-react";
 import { ROUTES } from "@/lib/router";
 import { ReceiptsContent } from "./components/receipts-content";
 import type { ReceiptStats } from "./hooks/use-receipts";
+import { useAuth } from "@/contexts/auth-context";
 
 // Props from Server Component
 export interface ReceiptsPageProps {
@@ -22,11 +23,14 @@ export interface ReceiptsPageProps {
 }
 
 export function ReceiptsPage({ initialStats }: ReceiptsPageProps = {}) {
+  // Permission checks
+  const { can } = useAuth();
+  const canCreate = can('create_receipts');
   const router = useRouter();
 
   // Header Actions
   const headerActions = React.useMemo(() => [
-    <Button
+    canCreate && <Button
       key="add"
       size="sm"
       className="h-9"
@@ -35,7 +39,7 @@ export function ReceiptsPage({ initialStats }: ReceiptsPageProps = {}) {
       <Plus className="mr-2 h-4 w-4" />
       Tạo phiếu thu
     </Button>
-  ], [router]);
+  ], [router, canCreate]);
 
   usePageHeader({
     title: 'Danh sách phiếu thu',

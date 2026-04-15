@@ -1,10 +1,9 @@
 import * as React from "react";
-import { ChevronDown, ChevronsRight } from "lucide-react";
+import { ChevronDown, ChevronsRight, ArrowUp, ArrowDown, ChevronsUpDown } from "lucide-react";
 import { useBreakpoint } from "../../contexts/breakpoint-context";
 import { Card, CardContent } from "../ui/card";
 import { MobileCardSkeleton } from "../mobile/skeleton";
 import { EmptyState } from "../mobile/empty-state";
-import { TouchButton } from "../mobile/touch-button";
 import { cn } from "../../lib/utils";
 import {
   Table,
@@ -33,6 +32,42 @@ interface ColumnMeta {
   excludeFromExport?: boolean;
   hideOnMobileCard?: boolean;
   minWidth?: number;
+}
+
+// Inline sortable header cell for columns with enableSorting + string header
+function SortableHeaderCell({
+  title,
+  columnId,
+  sorting,
+  setSorting,
+}: {
+  title: string;
+  columnId: string;
+  sorting: { id: string; desc: boolean };
+  setSorting: (updater: React.SetStateAction<{ id: string; desc: boolean }>) => void;
+}) {
+  const isSorted = sorting.id === columnId;
+  const handleClick = () => {
+    if (isSorted) {
+      setSorting(prev => ({ ...prev, desc: !prev.desc }));
+    } else {
+      setSorting({ id: columnId, desc: true });
+    }
+  };
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      className="inline-flex items-center gap-1 hover:text-foreground transition-colors cursor-pointer select-none"
+    >
+      <span>{title}</span>
+      {isSorted ? (
+        sorting.desc ? <ArrowDown className="h-3.5 w-3.5 text-primary" /> : <ArrowUp className="h-3.5 w-3.5 text-primary" />
+      ) : (
+        <ChevronsUpDown className="h-3.5 w-3.5 text-muted-foreground/30" />
+      )}
+    </button>
+  );
 }
 
 export interface BulkAction<TData> {
@@ -68,11 +103,11 @@ interface DesktopDataTableProps<TData extends { systemId: string }> {
   sorting: { id: string; desc: boolean };
   setSorting: (updater: React.SetStateAction<{ id: string; desc: boolean }>) => void;
   columnVisibility: Record<string, boolean>;
-  setColumnVisibility: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
+  setColumnVisibility: React.Dispatch<React.SetStateAction<Record<string, boolean>>> | ((value: Record<string, boolean>) => void);
   columnOrder: string[];
-  setColumnOrder: React.Dispatch<React.SetStateAction<string[]>>;
+  setColumnOrder: React.Dispatch<React.SetStateAction<string[]>> | ((value: string[]) => void);
   pinnedColumns: string[];
-  setPinnedColumns: React.Dispatch<React.SetStateAction<string[]>>;
+  setPinnedColumns: React.Dispatch<React.SetStateAction<string[]>> | ((value: string[]) => void);
   onRowClick?: ((row: TData) => void) | undefined;
   onRowHover?: ((row: TData) => void) | undefined;
   getRowStyle?: ((row: TData) => React.CSSProperties) | undefined;
@@ -91,6 +126,8 @@ interface ResponsiveDataTableProps<TData extends { systemId: string }> {
   mobileVirtualized?: boolean | undefined;
   mobileRowHeight?: number | undefined;
   mobileListHeight?: number | undefined;
+  /** Enable mobile infinite scroll — accumulates data across pages, auto-loads on scroll */
+  mobileInfiniteScroll?: boolean | undefined;
   
   // Desktop virtualization (for large datasets without server-side pagination)
   /** Enable virtual scrolling for desktop table when data > virtualThreshold */
@@ -127,11 +164,11 @@ interface ResponsiveDataTableProps<TData extends { systemId: string }> {
   sorting: { id: string; desc: boolean };
   setSorting: (updater: React.SetStateAction<{ id: string; desc: boolean }>) => void;
   columnVisibility?: Record<string, boolean> | undefined;
-  setColumnVisibility?: React.Dispatch<React.SetStateAction<Record<string, boolean>>> | undefined;
+  setColumnVisibility?: (React.Dispatch<React.SetStateAction<Record<string, boolean>>> | ((value: Record<string, boolean>) => void)) | undefined;
   columnOrder?: string[] | undefined;
-  setColumnOrder?: React.Dispatch<React.SetStateAction<string[]>> | undefined;
+  setColumnOrder?: (React.Dispatch<React.SetStateAction<string[]>> | ((value: string[]) => void)) | undefined;
   pinnedColumns?: string[] | undefined;
-  setPinnedColumns?: React.Dispatch<React.SetStateAction<string[]>> | undefined;
+  setPinnedColumns?: (React.Dispatch<React.SetStateAction<string[]>> | ((value: string[]) => void)) | undefined;
   onRowClick?: ((row: TData) => void) | undefined;
   onRowHover?: ((row: TData) => void) | undefined;
   getRowStyle?: ((row: TData) => React.CSSProperties) | undefined;
@@ -161,6 +198,15 @@ interface ResponsiveDataTableProps<TData extends { systemId: string }> {
  *   // ... other props
  * />
  */
+
+// Stable default values to prevent infinite re-render loops
+const EMPTY_SELECTION: Record<string, boolean> = {};
+const EMPTY_VISIBILITY: Record<string, boolean> = {};
+const EMPTY_EXPANDED: Record<string, boolean> = {};
+const EMPTY_COLUMN_ORDER: string[] = [];
+const EMPTY_PINNED: string[] = [];
+const NOOP = () => {};
+
 export function ResponsiveDataTable<TData extends { systemId: string }>({
   columns,
   data,
@@ -174,6 +220,7 @@ export function ResponsiveDataTable<TData extends { systemId: string }>({
   mobileVirtualized = false,
   mobileRowHeight = 180,
   mobileListHeight = 600,
+  mobileInfiniteScroll = false,
   // Desktop virtualization (future use for large client-side datasets)
   desktopVirtualized: _desktopVirtualized = false,
   virtualThreshold: _virtualThreshold = 100,
@@ -183,8 +230,8 @@ export function ResponsiveDataTable<TData extends { systemId: string }>({
   pagination,
   setPagination,
   rowCount,
-  rowSelection = {},
-  setRowSelection = () => {},
+  rowSelection = EMPTY_SELECTION,
+  setRowSelection = NOOP,
   onBulkDelete,
   showBulkDeleteButton = true,
   bulkActions,
@@ -192,16 +239,16 @@ export function ResponsiveDataTable<TData extends { systemId: string }>({
   bulkActionButtons,
   allSelectedRows = [],
   renderSubComponent,
-  expanded = {},
-  setExpanded = () => {},
+  expanded = EMPTY_EXPANDED,
+  setExpanded = NOOP,
   sorting,
   setSorting,
-  columnVisibility = {},
-  setColumnVisibility = () => {},
-  columnOrder = [],
-  setColumnOrder = () => {},
-  pinnedColumns = [],
-  setPinnedColumns = () => {},
+  columnVisibility = EMPTY_VISIBILITY,
+  setColumnVisibility = NOOP,
+  columnOrder = EMPTY_COLUMN_ORDER,
+  setColumnOrder = NOOP,
+  pinnedColumns = EMPTY_PINNED,
+  setPinnedColumns = NOOP,
   onRowClick,
   onRowHover,
   getRowStyle,
@@ -267,6 +314,58 @@ export function ResponsiveDataTable<TData extends { systemId: string }>({
   const hasAutoCardSupport = autoGenerateMobileCards !== false && autoCardColumns.length > 0;
   const cardRenderer = renderMobileCard ?? (hasAutoCardSupport ? autoRenderMobileCard : undefined);
   const shouldRenderMobileCards = Boolean(isMobile && cardRenderer);
+
+  // --- Infinite scroll for mobile (server-side pagination) ---
+  const [accumulatedData, setAccumulatedData] = React.useState<TData[]>(data);
+  const lastPageIndexRef = React.useRef(pagination?.pageIndex ?? 0);
+  const [isLoadingMore, setIsLoadingMore] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!mobileInfiniteScroll || !shouldRenderMobileCards) return;
+
+    const currentPageIndex = pagination?.pageIndex ?? 0;
+
+    if (currentPageIndex === 0) {
+      setAccumulatedData(data);
+    } else if (currentPageIndex > lastPageIndexRef.current) {
+      setAccumulatedData(prev => {
+        const existingIds = new Set(prev.map(d => d.systemId));
+        const newItems = data.filter(d => !existingIds.has(d.systemId));
+        return [...prev, ...newItems];
+      });
+    }
+
+    lastPageIndexRef.current = currentPageIndex;
+    setIsLoadingMore(false);
+  }, [data, pagination?.pageIndex, mobileInfiniteScroll, shouldRenderMobileCards]);
+
+  React.useEffect(() => {
+    if (!mobileInfiniteScroll || !shouldRenderMobileCards) return;
+
+    const currentPageIndex = pagination?.pageIndex ?? 0;
+    const totalPages = pageCount ?? 1;
+
+    const handleScroll = () => {
+      if (isLoadingMore) return;
+      if (currentPageIndex >= totalPages - 1) return;
+
+      const scrollTop = window.scrollY || document.documentElement.scrollTop;
+      const scrollHeight = document.documentElement.scrollHeight;
+      const clientHeight = window.innerHeight;
+
+      if (scrollTop + clientHeight >= scrollHeight * 0.8) {
+        setIsLoadingMore(true);
+        setPagination(p => ({ ...p, pageIndex: p.pageIndex + 1 }));
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [mobileInfiniteScroll, shouldRenderMobileCards, pagination?.pageIndex, pageCount, isLoadingMore, setPagination]);
+
+  const mobileData = mobileInfiniteScroll && shouldRenderMobileCards ? accumulatedData : data;
+  const _hasMorePages = (pagination?.pageIndex ?? 0) < (pageCount ?? 1) - 1;
+  // --- End infinite scroll ---
 
   const desktopProps: DesktopDataTableProps<TData> = {
     columns,
@@ -347,42 +446,26 @@ export function ResponsiveDataTable<TData extends { systemId: string }>({
     }
 
     return (
-      <div className={cn("space-y-3 pb-4", className)}>
-        {data.map((row, index) => (
+      <div className={cn("space-y-3 px-1 pb-4", className)}>
+        {mobileData.map((row, index) => (
           <div key={row.systemId} className={mobileCardClassName}>
             {cardRenderer(row, index)}
           </div>
         ))}
 
-        {/* Mobile Pagination */}
-        {pageCount > 1 && (
-          <div className="flex items-center justify-between pt-4 border-t border-border">
-            <TouchButton
-              variant="outline"
-              size="sm"
-              onClick={() => setPagination(p => ({ ...p, pageIndex: Math.max(0, p.pageIndex - 1) }))}
-              disabled={pagination.pageIndex === 0}
-            >
-              Trước
-            </TouchButton>
-            
-            <div className="flex flex-col items-center gap-1">
-              <span className="text-sm font-medium">
-                Trang {pagination.pageIndex + 1} / {pageCount}
-              </span>
-              <span className="text-xs text-muted-foreground">
-                {rowCount} kết quả
-              </span>
-            </div>
-            
-            <TouchButton
-              variant="outline"
-              size="sm"
-              onClick={() => setPagination(p => ({ ...p, pageIndex: Math.min(pageCount - 1, p.pageIndex + 1) }))}
-              disabled={pagination.pageIndex >= pageCount - 1}
-            >
-              Sau
-            </TouchButton>
+        {/* Infinite scroll: loading indicator */}
+        {mobileInfiniteScroll && isLoadingMore && (
+          <div className="py-4 text-center">
+            <div className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          </div>
+        )}
+
+        {/* Mobile: show count */}
+        {rowCount > 0 && (
+          <div className="py-3 text-center">
+            <span className="text-xs text-muted-foreground">
+              Hiển thị {mobileData.length} / {rowCount} kết quả
+            </span>
           </div>
         )}
       </div>
@@ -431,6 +514,14 @@ function DesktopDataTable<TData extends { systemId: string }>({
   const [columnWidths, setColumnWidths] = React.useState<Record<string, number>>({});
   const stickyCellBg = 'var(--sticky-column-bg, rgba(255, 255, 255, 1))';
   const stickyHeaderBg = 'var(--sticky-column-header-bg, var(--muted))';
+
+  const handleSetPageIndex = React.useCallback((index: number) => {
+    setPagination(p => p.pageIndex === index ? p : ({ ...p, pageIndex: index }));
+  }, [setPagination]);
+
+  const handleSetPageSize = React.useCallback((size: number) => {
+    setPagination(p => p.pageIndex === 0 && p.pageSize === size ? p : { pageIndex: 0, pageSize: size });
+  }, [setPagination]);
 
   const handleToggleAllPageRows = (value: boolean) => {
     const newSelection = { ...rowSelection };
@@ -584,6 +675,8 @@ function DesktopDataTable<TData extends { systemId: string }>({
     if (!hasData) return;
     if (!headerTableRef.current) return;
 
+    let rafId: number | null = null;
+
     const syncWidths = () => {
       const bodyTable = bodyTableRef.current;
       const headerTable = headerTableRef.current;
@@ -600,7 +693,8 @@ function DesktopDataTable<TData extends { systemId: string }>({
       displayColumns.forEach((column, index) => {
         const sourceCell = bodyCells[index];
         const fallbackCell = headerCells[index];
-        const width = sourceCell?.getBoundingClientRect().width || fallbackCell?.getBoundingClientRect().width;
+        const rawWidth = sourceCell?.getBoundingClientRect().width || fallbackCell?.getBoundingClientRect().width;
+        const width = rawWidth ? Math.round(rawWidth) : 0;
         if (width && headerCells[index]) {
           headerCells[index].style.width = `${width}px`;
           headerCells[index].style.minWidth = `${width}px`;
@@ -610,7 +704,7 @@ function DesktopDataTable<TData extends { systemId: string }>({
       });
 
       if (bodyTable) {
-        headerTable.style.width = `${bodyTable.getBoundingClientRect().width}px`;
+        headerTable.style.width = `${Math.round(bodyTable.getBoundingClientRect().width)}px`;
       }
 
       setColumnWidths(prev => {
@@ -626,16 +720,22 @@ function DesktopDataTable<TData extends { systemId: string }>({
       });
     };
 
-    syncWidths();
-    window.addEventListener('resize', syncWidths);
+    const debouncedSync = () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(syncWidths);
+    };
 
-    const resizeObserver = new ResizeObserver(syncWidths);
+    debouncedSync();
+    window.addEventListener('resize', debouncedSync);
+
+    const resizeObserver = new ResizeObserver(debouncedSync);
     if (bodyTableRef.current) {
       resizeObserver.observe(bodyTableRef.current);
     }
 
     return () => {
-      window.removeEventListener('resize', syncWidths);
+      if (rafId) cancelAnimationFrame(rafId);
+      window.removeEventListener('resize', debouncedSync);
       resizeObserver.disconnect();
     };
   }, [data, displayColumns, hasData]);
@@ -702,7 +802,14 @@ function DesktopDataTable<TData extends { systemId: string }>({
                   sorting,
                   setSorting,
                 })
-              : column.header}
+              : column.enableSorting && typeof column.header === 'string' && sorting && setSorting
+                ? <SortableHeaderCell
+                    title={column.header}
+                    columnId={column.id}
+                    sorting={sorting}
+                    setSorting={setSorting}
+                  />
+                : column.header}
           </TableHead>
         );
       })}
@@ -716,7 +823,7 @@ function DesktopDataTable<TData extends { systemId: string }>({
           <div
             ref={headerScrollRef}
             onScroll={() => syncScroll('header')}
-            className="sticky top-34 z-30 overflow-x-auto rounded-t-md border border-border border-b-0 bg-muted shadow-[0_2px_8px_rgba(0,0,0,0.08)] [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+            className="sticky top-28 z-15 overflow-x-auto rounded-t-md border border-border border-b-0 bg-muted shadow-[0_2px_8px_rgba(0,0,0,0.08)] [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
           >
             <Table ref={headerTableRef}>
               <TableHeader className="bg-muted">
@@ -836,7 +943,7 @@ function DesktopDataTable<TData extends { systemId: string }>({
                             const rowBgColor = getRowStyle?.(row)?.backgroundColor;
                             style.backgroundColor = rowBgColor || stickyCellBg;
                             tdClassName = cn(
-                              "z-20 shadow-[2px_0_6px_rgba(0,0,0,0.05)]",
+                              "z-10 shadow-[2px_0_6px_rgba(0,0,0,0.05)]",
                               "bg-muted text-foreground group-hover:bg-muted group-data-[state=selected]:bg-muted"
                             );
                           }
@@ -848,7 +955,7 @@ function DesktopDataTable<TData extends { systemId: string }>({
                             const rowBgColor = getRowStyle?.(row)?.backgroundColor;
                             style.backgroundColor = rowBgColor || stickyCellBg;
                             tdClassName = cn(
-                              "z-20",
+                              "z-10",
                               "bg-muted text-foreground group-hover:bg-muted group-data-[state=selected]:bg-muted shadow-[-2px_0_6px_rgba(0,0,0,0.08)]"
                             );
                           }
@@ -926,8 +1033,8 @@ function DesktopDataTable<TData extends { systemId: string }>({
           pageIndex={pagination.pageIndex}
           pageSize={pagination.pageSize}
           pageCount={pageCount}
-          setPageIndex={(index) => setPagination(p => ({ ...p, pageIndex: index }))}
-          setPageSize={(size) => setPagination({ pageIndex: 0, pageSize: size })}
+          setPageIndex={handleSetPageIndex}
+          setPageSize={handleSetPageSize}
           canPreviousPage={pagination.pageIndex > 0}
           canNextPage={pagination.pageIndex < pageCount - 1}
           rowCount={rowCount}

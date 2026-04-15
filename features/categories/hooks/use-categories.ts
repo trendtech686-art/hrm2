@@ -8,13 +8,13 @@ import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tansta
 import {
   fetchCategories,
   fetchCategory,
-  fetchCategoryTree,
   fetchDeletedCategories,
   permanentDeleteCategory,
   bulkDeleteCategories,
   bulkActivateCategories,
   bulkDeactivateCategories,
   type CategoriesParams,
+  type CategoriesResponse,
   type Category,
 } from '../api/categories-api';
 import {
@@ -23,6 +23,7 @@ import {
   deleteCategoryAction,
   restoreCategoryAction,
 } from '@/app/actions/categories';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 
 export const categoryKeys = {
   all: ['categories'] as const,
@@ -52,14 +53,6 @@ export function useCategory(id: string | null | undefined) {
   });
 }
 
-export function useCategoryTree() {
-  return useQuery({
-    queryKey: categoryKeys.tree(),
-    queryFn: fetchCategoryTree,
-    staleTime: 5 * 60 * 1000,
-  });
-}
-
 interface UseCategoryMutationsOptions {
   onCreateSuccess?: (category: Category) => void;
   onUpdateSuccess?: (category: Category) => void;
@@ -77,7 +70,7 @@ export function useCategoryMutations(options: UseCategoryMutationsOptions = {}) 
       return result.data as Category;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: categoryKeys.all });
+      invalidateRelated(queryClient, 'categories');
       options.onCreateSuccess?.(data);
     },
     onError: options.onError,
@@ -111,10 +104,8 @@ export function useCategoryMutations(options: UseCategoryMutationsOptions = {}) 
       if (!result.success) throw new Error(result.error || 'Failed to update category');
       return result.data as Category;
     },
-    onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: categoryKeys.detail(variables.systemId) });
-      queryClient.invalidateQueries({ queryKey: categoryKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: categoryKeys.tree() });
+    onSuccess: (data) => {
+      invalidateRelated(queryClient, 'categories');
       options.onUpdateSuccess?.(data);
     },
     onError: options.onError,
@@ -126,26 +117,39 @@ export function useCategoryMutations(options: UseCategoryMutationsOptions = {}) 
       if (!result.success) throw new Error(result.error || 'Failed to delete category');
       return result.data;
     },
+    onMutate: async (systemId) => {
+      await queryClient.cancelQueries({ queryKey: categoryKeys.lists() });
+      const previousLists = queryClient.getQueriesData<CategoriesResponse>({ queryKey: categoryKeys.lists() });
+      queryClient.setQueriesData<CategoriesResponse>(
+        { queryKey: categoryKeys.lists() },
+        (old) => old ? { ...old, data: old.data.filter(c => c.systemId !== systemId) } : old
+      );
+      return { previousLists };
+    },
+    onError: (_err, _systemId, context) => {
+      if (context?.previousLists) {
+        for (const [key, data] of context.previousLists) {
+          queryClient.setQueryData(key, data);
+        }
+      }
+      options.onError?.(_err as Error);
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: categoryKeys.all });
-      // Also invalidate PKGX settings since mapping is deleted with category
-      queryClient.invalidateQueries({ queryKey: ['pkgx', 'settings'] });
       options.onDeleteSuccess?.();
     },
-    onError: options.onError,
+    onSettled: () => {
+      invalidateRelated(queryClient, 'categories');
+    },
   });
   
-  return { create, update, remove };
-}
-
-export function useRootCategories() {
-  return useCategories({ parentId: null });
-}
-
-export function useSubCategories(parentId: string | null | undefined) {
-  return useCategories({
-    parentId: parentId || undefined,
-  });
+  return {
+    create,
+    update,
+    remove,
+    isCreating: create.isPending,
+    isUpdating: update.isPending,
+    isDeleting: remove.isPending,
+  };
 }
 
 /**
@@ -172,7 +176,7 @@ export function useCategoryTrashMutations() {
       return result.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: categoryKeys.all });
+      invalidateRelated(queryClient, 'categories');
     },
   });
   
@@ -194,7 +198,7 @@ export function useCategoryTrashMutations() {
       }
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: categoryKeys.all });
+      invalidateRelated(queryClient, 'categories');
     },
   });
   
@@ -220,7 +224,7 @@ export function useBulkCategoryMutations(options: UseBulkCategoryMutationsOption
   const bulkDelete = useMutation({
     mutationFn: bulkDeleteCategories,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: categoryKeys.all });
+      invalidateRelated(queryClient, 'categories');
       options.onSuccess?.();
     },
     onError: options.onError,
@@ -229,7 +233,7 @@ export function useBulkCategoryMutations(options: UseBulkCategoryMutationsOption
   const bulkActivate = useMutation({
     mutationFn: bulkActivateCategories,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: categoryKeys.all });
+      invalidateRelated(queryClient, 'categories');
       options.onSuccess?.();
     },
     onError: options.onError,
@@ -238,7 +242,7 @@ export function useBulkCategoryMutations(options: UseBulkCategoryMutationsOption
   const bulkDeactivate = useMutation({
     mutationFn: bulkDeactivateCategories,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: categoryKeys.all });
+      invalidateRelated(queryClient, 'categories');
       options.onSuccess?.();
     },
     onError: options.onError,

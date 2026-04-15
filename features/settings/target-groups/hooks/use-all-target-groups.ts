@@ -8,12 +8,13 @@ import { fetchAllPages } from '@/lib/fetch-all-pages';
 import { fetchTargetGroups } from '../api/target-groups-api';
 import { targetGroupKeys } from './use-target-groups';
 
-export function useAllTargetGroups() {
+export function useAllTargetGroups(options?: { enabled?: boolean }) {
   const query = useQuery({
     queryKey: [...targetGroupKeys.all, 'all'],
     queryFn: () => fetchAllPages((p) => fetchTargetGroups(p)),
     staleTime: 10 * 60 * 1000,
     gcTime: 60 * 60 * 1000,
+    enabled: options?.enabled ?? true,
   });
   return {
     data: query.data || [],

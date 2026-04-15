@@ -9,9 +9,13 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import { useAllPaymentMethods } from '@/features/settings/payments/hooks/use-all-payment-methods';
+import { useAllCashAccounts } from '@/features/cashbook/hooks/use-all-cash-accounts';
+import { useStoreInfoData } from '@/features/settings/store-info/hooks/use-store-info';
+import type { CashAccount } from '@/lib/types/prisma-extended';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { OptimizedImage } from '@/components/ui/optimized-image';
 import type { PaymentFormValues } from './types';
+import { logError } from '@/lib/logger'
 
 // VietQR bank BIN mapping (common banks)
 const BANK_BINS: Record<string, string> = {
@@ -83,6 +87,7 @@ interface PaymentDialogProps {
   onOpenChange: (open: boolean) => void;
   amountDue: number;
   onSubmit: (data: PaymentFormValues) => void;
+  isSubmitting?: boolean;
 }
 
 export function PaymentDialog({
@@ -90,8 +95,19 @@ export function PaymentDialog({
   onOpenChange,
   amountDue,
   onSubmit,
+  isSubmitting = false,
 }: PaymentDialogProps) {
-  const { data: paymentMethods } = useAllPaymentMethods();
+  const { data: paymentMethods } = useAllPaymentMethods({ enabled: isOpen });
+  const { accounts: cashAccounts } = useAllCashAccounts({ enabled: isOpen });
+  const { info: storeInfo } = useStoreInfoData();
+
+  const bankAccounts = React.useMemo(
+    () => cashAccounts.filter((a): a is CashAccount & { bankAccountNumber: string; bankName: string } =>
+      a.type === 'bank' && a.isActive && !!a.bankAccountNumber && !!a.bankName
+    ),
+    [cashAccounts]
+  );
+
   const defaultPaymentMethod = React.useMemo(
     () => paymentMethods.find(pm => pm.isDefault) || paymentMethods[0],
     [paymentMethods]
@@ -99,6 +115,27 @@ export function PaymentDialog({
   
   // Get default method name for form
   const defaultMethodName = defaultPaymentMethod?.name || 'Tiền mặt';
+
+  // Default bank info: cash account first, fallback to store info
+  const defaultBankInfo = React.useMemo(() => {
+    const defaultAccount = bankAccounts.find(a => a.isDefault) || bankAccounts[0];
+    if (defaultAccount) {
+      return {
+        accountNumber: defaultAccount.bankAccountNumber,
+        accountName: defaultAccount.accountHolder || '',
+        bankName: defaultAccount.bankName,
+      };
+    }
+    // Fallback to store info settings
+    if (storeInfo?.bankAccountNumber && storeInfo?.bankName) {
+      return {
+        accountNumber: storeInfo.bankAccountNumber,
+        accountName: storeInfo.bankAccountName || '',
+        bankName: storeInfo.bankName,
+      };
+    }
+    return null;
+  }, [bankAccounts, storeInfo]);
   
   const form = useForm<PaymentFormValues>({
     defaultValues: {
@@ -115,41 +152,21 @@ export function PaymentDialog({
 
   React.useEffect(() => {
     if (isOpen) {
-      // ✅ Get bank info from default payment method to show QR immediately
-      const bankInfo = defaultPaymentMethod?.accountNumber ? {
-        accountNumber: defaultPaymentMethod.accountNumber || '',
-        accountName: defaultPaymentMethod.accountName || '',
-        bankName: defaultPaymentMethod.bankName || '',
-      } : {
-        accountNumber: '',
-        accountName: '',
-        bankName: '',
-      };
-      
       form.reset({
         method: defaultMethodName,
         amount: amountDue > 0 ? amountDue : 0,
         reference: '',
-        ...bankInfo,
+        accountNumber: defaultBankInfo?.accountNumber || '',
+        accountName: defaultBankInfo?.accountName || '',
+        bankName: defaultBankInfo?.bankName || '',
       });
     }
-  }, [isOpen, amountDue, form, defaultMethodName, defaultPaymentMethod]);
-
-  // Auto-fill bank account info when selecting a bank transfer method
-  React.useEffect(() => {
-    // Find the selected payment method from DB
-    const selectedPm = paymentMethods.find(pm => pm.name === selectedMethod);
-    if (selectedPm && selectedPm.accountNumber) {
-      form.setValue('accountNumber', selectedPm.accountNumber || '');
-      form.setValue('accountName', selectedPm.accountName || '');
-      form.setValue('bankName', selectedPm.bankName || '');
-    }
-  }, [selectedMethod, paymentMethods, form]);
+  }, [isOpen, amountDue, form, defaultMethodName, defaultBankInfo]);
 
   // Check if selected method is a bank transfer type
   const isBankTransfer = React.useMemo(() => {
     const selectedPm = paymentMethods.find(pm => pm.name === selectedMethod);
-    return selectedPm?.accountNumber || selectedMethod.toLowerCase().includes('chuyển khoản');
+    return selectedPm?.type === 'bank' || selectedMethod.toLowerCase().includes('chuyển khoản');
   }, [selectedMethod, paymentMethods]);
 
   return (
@@ -206,7 +223,7 @@ export function PaymentDialog({
                         />
                     </FormControl>
                     {fieldState.error && (
-                        <p className="text-body-sm text-destructive">{fieldState.error.message}</p>
+                        <p className="text-sm text-destructive">{fieldState.error.message}</p>
                     )}
                 </FormItem>
             )} />
@@ -221,26 +238,26 @@ export function PaymentDialog({
             {isBankTransfer && (
               <BankTransferSection 
                 form={form} 
-                paymentMethods={paymentMethods}
-                selectedMethod={selectedMethod}
+                bankAccounts={bankAccounts}
                 amount={form.watch('amount')}
                 reference={form.watch('reference')}
               />
             )}
             
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>Hủy</Button>
               <Button 
                 type="button" 
+                disabled={isSubmitting}
                 onClick={() => {
                   form.handleSubmit((data) => {
                     onSubmit(data);
                   }, (errors) => {
-                    console.error('[PaymentDialog] Form validation errors:', errors);
+                    logError('[PaymentDialog] Form validation errors', errors);
                   })();
                 }}
               >
-                Xác nhận thanh toán
+                {isSubmitting ? 'Đang xử lý...' : 'Xác nhận thanh toán'}
               </Button>
             </DialogFooter>
           </form>
@@ -253,21 +270,38 @@ export function PaymentDialog({
 // Separate component for bank transfer section
 interface BankTransferSectionProps {
   form: ReturnType<typeof useForm<PaymentFormValues>>;
-  paymentMethods: Array<{ systemId: string; name: string; accountNumber?: string | null; accountName?: string | null; bankName?: string | null }>;
-  selectedMethod: string;
+  bankAccounts: Array<CashAccount & { bankAccountNumber: string; bankName: string }>;
   amount: number;
   reference?: string;
 }
 
-function BankTransferSection({ form, paymentMethods: _paymentMethods, selectedMethod: _selectedMethod, amount, reference }: BankTransferSectionProps) {
+function BankTransferSection({ form, bankAccounts, amount, reference }: BankTransferSectionProps) {
   const accountNumber = form.watch('accountNumber');
   const accountName = form.watch('accountName');
   const bankName = form.watch('bankName');
+
+  // Handle bank account selection
+  const handleAccountChange = React.useCallback((accountSystemId: string) => {
+    const account = bankAccounts.find(a => a.systemId === accountSystemId);
+    if (account) {
+      form.setValue('accountNumber', account.bankAccountNumber);
+      form.setValue('accountName', account.accountHolder || '');
+      form.setValue('bankName', account.bankName);
+    }
+  }, [bankAccounts, form]);
+
+  // Find currently selected account (match by accountNumber)
+  const selectedAccount = React.useMemo(
+    () => bankAccounts.find(a => a.bankAccountNumber === accountNumber),
+    [bankAccounts, accountNumber]
+  );
+  const selectedAccountId = selectedAccount?.systemId || '';
   
   // Generate VietQR URL if we have enough info
+  // Use bankCode from cash account first (exact match), fallback to bankName parsing
   const qrUrl = React.useMemo(() => {
     if (!accountNumber || !bankName) return null;
-    const bankBin = getBankBin(bankName);
+    const bankBin = getBankBin(selectedAccount?.bankCode || '') || getBankBin(bankName);
     if (!bankBin) return null;
     
     return generateVietQRUrl({
@@ -277,12 +311,31 @@ function BankTransferSection({ form, paymentMethods: _paymentMethods, selectedMe
       accountName: accountName || undefined,
       reference: reference || undefined,
     });
-  }, [accountNumber, bankName, amount, accountName, reference]);
+  }, [accountNumber, bankName, amount, accountName, reference, selectedAccount]);
 
   const hasQRSupport = !!qrUrl;
 
   return (
     <div className="space-y-4 p-4 border border-border rounded-lg bg-muted/30">
+      {/* Bank account selector */}
+      {bankAccounts.length > 0 && (
+        <div className="space-y-1.5">
+          <label className="text-sm font-medium">Tài khoản nhận</label>
+          <Select value={selectedAccountId} onValueChange={handleAccountChange}>
+            <SelectTrigger>
+              <SelectValue placeholder="-- Chọn tài khoản --" />
+            </SelectTrigger>
+            <SelectContent>
+              {bankAccounts.map((account) => (
+                <SelectItem key={account.systemId} value={account.systemId}>
+                  {account.name} — {account.bankAccountNumber}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
       {hasQRSupport ? (
         <Tabs defaultValue="qr" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
@@ -315,7 +368,7 @@ function BankTransferSection({ form, paymentMethods: _paymentMethods, selectedMe
         </Tabs>
       ) : (
         <>
-          <p className="text-body-sm font-medium">Thông tin tài khoản nhận</p>
+          <p className="text-sm font-medium">Thông tin tài khoản nhận</p>
           <BankAccountFields form={form} />
         </>
       )}

@@ -1,6 +1,7 @@
-import { fetchAttendanceByMonth } from '../features/attendance/api/attendance-api';
+﻿import { fetchAttendanceByMonth } from '../features/attendance/api/attendance-api';
 import type { AttendanceDataRow } from '@/lib/types/prisma-extended';
 import type { SystemId, BusinessId } from './id-types';
+import { logError } from '@/lib/logger'
 
 type SnapshotQuery = {
   monthKey: string;
@@ -63,13 +64,13 @@ const getLockedMonthsFromAPI = async (): Promise<Record<string, boolean>> => {
   try {
     const response = await fetch('/api/attendance/locks');
     if (!response.ok) {
-      console.error('Failed to fetch locked months:', response.statusText);
+      logError('Failed to fetch locked months', null, { statusText: response.statusText });
       return {};
     }
     const data = await response.json();
     return data.lockedMonths || {};
   } catch (error) {
-    console.error('Error fetching locked months:', error);
+    logError('Error fetching locked months', error);
     return {};
   }
 };
@@ -99,7 +100,7 @@ export const attendanceSnapshotService = {
       const locked = Boolean(lockedMonths[monthKey]);
       return buildSnapshot(targetRow, { monthKey, employeeSystemId }, locked);
     } catch (error) {
-      console.error('Failed to fetch attendance snapshot:', error);
+      logError('Failed to fetch attendance snapshot', error);
       return null;
     }
   },

@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils';
+import { logError } from '@/lib/logger'
 
 interface RouteParams {
   params: Promise<{ systemId: string }>;
@@ -75,6 +76,9 @@ export async function GET(request: Request, { params }: RouteParams) {
     const employeeMap = new Map(employees.map(e => [e.systemId, e.fullName]));
 
     const order = packaging.order;
+    if (!order) {
+      return apiError('Packaging không thuộc đơn hàng nào', 400);
+    }
     const customer = order.customer;
 
     // Status maps
@@ -187,7 +191,6 @@ export async function GET(request: Request, { params }: RouteParams) {
         id: customer.id,
         fullName: customer.name,
         phone: customer.phone,
-        email: customer.email,
         // Shipping address - use address + province/district/ward
         shippingAddress: [
           customer.address,
@@ -204,7 +207,7 @@ export async function GET(request: Request, { params }: RouteParams) {
 
     return apiSuccess(response);
   } catch (error) {
-    console.error('Failed to fetch packaging:', error);
+    logError('Failed to fetch packaging', error);
     return apiError('Internal server error', 500);
   }
 }

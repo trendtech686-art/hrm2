@@ -1,11 +1,13 @@
 'use client'
 
 import * as React from 'react';
-import { Plus } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Plus, Loader2 } from 'lucide-react';
 import { TabsContent } from '@/components/ui/tabs';
 import { useSettingsPageHeader } from '../use-settings-page-header';
 import { SettingsActionButton } from '@/components/settings/SettingsActionButton';
 import { SettingsVerticalTabs } from '@/components/settings/SettingsVerticalTabs';
+import { SettingsHistoryContent } from '@/components/settings/SettingsHistoryContent';
 import { useTabActionRegistry } from '../use-tab-action-registry';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
@@ -26,12 +28,23 @@ import { SourcesTab } from './tabs/sources-tab';
 import { PaymentTermsTab } from './tabs/payment-terms-tab';
 import { CreditRatingsTab } from './tabs/credit-ratings-tab';
 import { LifecycleStagesTab } from './tabs/lifecycle-stages-tab';
+import { useAuth } from '@/contexts/auth-context';
 
 const TAB_LABELS: Record<string, string> = { types: 'Loại KH', groups: 'Nhóm KH', sources: 'Nguồn KH', 'payment-terms': 'Hạn thanh toán', 'credit-ratings': 'Xếp hạng TD', 'lifecycle-stages': 'Giai đoạn' };
 const TAB_ADD_LABELS: Record<string, string> = { types: 'Thêm loại KH', groups: 'Thêm nhóm KH', sources: 'Thêm nguồn KH', 'payment-terms': 'Thêm hạn TT', 'credit-ratings': 'Thêm xếp hạng', 'lifecycle-stages': 'Thêm giai đoạn' };
 const TABS = [{ value: 'types', label: 'Loại khách hàng' }, { value: 'groups', label: 'Nhóm khách hàng' }, { value: 'sources', label: 'Nguồn khách hàng' }, { value: 'lifecycle-stages', label: 'Giai đoạn vòng đời' }, { value: 'payment-terms', label: 'Hạn thanh toán' }, { value: 'credit-ratings', label: 'Xếp hạng tín dụng' }];
 
 export default function CustomerSettingsPage() {
+  const router = useRouter();
+  const { can, isLoading: authLoading } = useAuth();
+  const canEditSettings = can('edit_settings');
+  React.useEffect(() => {
+    if (!authLoading && !canEditSettings) {
+      toast.error('Bạn không có quyền truy cập cài đặt khách hàng');
+      router.replace('/customers');
+    }
+  }, [authLoading, canEditSettings, router]);
+
   const [activeTab, setActiveTab] = React.useState('types');
   const { headerActions, registerActions } = useTabActionRegistry(activeTab);
   const [dialogOpen, setDialogOpen] = React.useState(false);
@@ -103,6 +116,8 @@ export default function CustomerSettingsPage() {
     else if (activeTab === 'lifecycle-stages') lifecycleStageMutations.update.mutate({ systemId: item.systemId, data: upd as LifecycleStage });
   }, [activeTab, activeDataMap, customerTypeMutations, customerGroupMutations, customerSourceMutations, paymentTermMutations, creditRatingMutations, lifecycleStageMutations]);
 
+  const isDeleting = customerTypeMutations.remove.isPending || customerGroupMutations.remove.isPending || customerSourceMutations.remove.isPending || paymentTermMutations.remove.isPending || creditRatingMutations.remove.isPending || lifecycleStageMutations.remove.isPending;
+
   const confirmDelete = () => {
     if (!deleteDialog.item) return;
     const { systemId } = deleteDialog.item;
@@ -126,37 +141,34 @@ export default function CustomerSettingsPage() {
       else if (activeTab === 'lifecycle-stages') lifecycleStageMutations.remove.mutate(asSystemId(item.systemId));
     }
     setBulkDeleteDialog({ isOpen: false, items: [] });
-    toast.success(`Đã xóa ${items.length} mục`);
   };
 
   const handleSubmit = (data: Record<string, unknown>) => {
-    try {
-      if (activeTab === 'types') { 
-        if (editingItem) customerTypeMutations.update.mutate({ systemId: editingItem.systemId, data: { ...editingItem, ...data } }); 
-        else customerTypeMutations.create.mutate(data as Omit<CustomerType, 'systemId'>); 
-      }
-      else if (activeTab === 'groups') { 
-        if (editingItem) customerGroupMutations.update.mutate({ systemId: editingItem.systemId, data: { ...editingItem, ...data } }); 
-        else customerGroupMutations.create.mutate(data as Omit<CustomerGroup, 'systemId'>); 
-      }
-      else if (activeTab === 'sources') { 
-        if (editingItem) customerSourceMutations.update.mutate({ systemId: editingItem.systemId, data: { ...editingItem, ...data } }); 
-        else customerSourceMutations.create.mutate(data as Omit<CustomerSource, 'systemId'>); 
-      }
-      else if (activeTab === 'payment-terms') { 
-        if (editingItem) paymentTermMutations.update.mutate({ systemId: editingItem.systemId, data: { ...editingItem, ...data } }); 
-        else paymentTermMutations.create.mutate(data as Omit<PaymentTerm, 'systemId'>); 
-      }
-      else if (activeTab === 'credit-ratings') { 
-        if (editingItem) creditRatingMutations.update.mutate({ systemId: editingItem.systemId, data: { ...editingItem, ...data } }); 
-        else creditRatingMutations.create.mutate(data as Omit<CreditRating, 'systemId'>); 
-      }
-      else if (activeTab === 'lifecycle-stages') { 
-        if (editingItem) lifecycleStageMutations.update.mutate({ systemId: editingItem.systemId, data: { ...editingItem, ...data } }); 
-        else lifecycleStageMutations.create.mutate(data as Omit<LifecycleStage, 'systemId'>); 
-      }
-      setDialogOpen(false);
-    } catch (error) { toast.error('Có lỗi xảy ra', { description: error instanceof Error ? error.message : 'Lỗi không xác định' }); }
+    if (activeTab === 'types') { 
+      if (editingItem) customerTypeMutations.update.mutate({ systemId: editingItem.systemId, data: { ...editingItem, ...data } }); 
+      else customerTypeMutations.create.mutate(data as Omit<CustomerType, 'systemId'>); 
+    }
+    else if (activeTab === 'groups') { 
+      if (editingItem) customerGroupMutations.update.mutate({ systemId: editingItem.systemId, data: { ...editingItem, ...data } }); 
+      else customerGroupMutations.create.mutate(data as Omit<CustomerGroup, 'systemId'>); 
+    }
+    else if (activeTab === 'sources') { 
+      if (editingItem) customerSourceMutations.update.mutate({ systemId: editingItem.systemId, data: { ...editingItem, ...data } }); 
+      else customerSourceMutations.create.mutate(data as Omit<CustomerSource, 'systemId'>); 
+    }
+    else if (activeTab === 'payment-terms') { 
+      if (editingItem) paymentTermMutations.update.mutate({ systemId: editingItem.systemId, data: { ...editingItem, ...data } }); 
+      else paymentTermMutations.create.mutate(data as Omit<PaymentTerm, 'systemId'>); 
+    }
+    else if (activeTab === 'credit-ratings') { 
+      if (editingItem) creditRatingMutations.update.mutate({ systemId: editingItem.systemId, data: { ...editingItem, ...data } }); 
+      else creditRatingMutations.create.mutate(data as Omit<CreditRating, 'systemId'>); 
+    }
+    else if (activeTab === 'lifecycle-stages') { 
+      if (editingItem) lifecycleStageMutations.update.mutate({ systemId: editingItem.systemId, data: { ...editingItem, ...data } }); 
+      else lifecycleStageMutations.create.mutate(data as Omit<LifecycleStage, 'systemId'>); 
+    }
+    setDialogOpen(false);
   };
 
   const getExistingIds = React.useCallback((): string[] => (activeDataMap[activeTab as keyof typeof activeDataMap] || []).map(i => i.id), [activeDataMap, activeTab]);
@@ -168,12 +180,12 @@ export default function CustomerSettingsPage() {
   const regPayment = React.useMemo(() => registerActions('payment-terms'), [registerActions]);
   const regCredit = React.useMemo(() => registerActions('credit-ratings'), [registerActions]);
   const regLifecycle = React.useMemo(() => registerActions('lifecycle-stages'), [registerActions]);
-  React.useEffect(() => { if (activeTab === 'types') regTypes([<SettingsActionButton key="add" onClick={handleAdd}><Plus className="h-4 w-4" />{TAB_ADD_LABELS.types}</SettingsActionButton>]); }, [activeTab, handleAdd, regTypes]);
-  React.useEffect(() => { if (activeTab === 'groups') regGroups([<SettingsActionButton key="add" onClick={handleAdd}><Plus className="h-4 w-4" />{TAB_ADD_LABELS.groups}</SettingsActionButton>]); }, [activeTab, handleAdd, regGroups]);
-  React.useEffect(() => { if (activeTab === 'sources') regSources([<SettingsActionButton key="add" onClick={handleAdd}><Plus className="h-4 w-4" />{TAB_ADD_LABELS.sources}</SettingsActionButton>]); }, [activeTab, handleAdd, regSources]);
-  React.useEffect(() => { if (activeTab === 'payment-terms') regPayment([<SettingsActionButton key="add" onClick={handleAdd}><Plus className="h-4 w-4" />{TAB_ADD_LABELS['payment-terms']}</SettingsActionButton>]); }, [activeTab, handleAdd, regPayment]);
-  React.useEffect(() => { if (activeTab === 'credit-ratings') regCredit([<SettingsActionButton key="add" onClick={handleAdd}><Plus className="h-4 w-4" />{TAB_ADD_LABELS['credit-ratings']}</SettingsActionButton>]); }, [activeTab, handleAdd, regCredit]);
-  React.useEffect(() => { if (activeTab === 'lifecycle-stages') regLifecycle([<SettingsActionButton key="add" onClick={handleAdd}><Plus className="h-4 w-4" />{TAB_ADD_LABELS['lifecycle-stages']}</SettingsActionButton>]); }, [activeTab, handleAdd, regLifecycle]);
+  React.useEffect(() => { if (activeTab === 'types') regTypes([<SettingsActionButton key="add-types" onClick={handleAdd}><Plus className="h-4 w-4" />{TAB_ADD_LABELS.types}</SettingsActionButton>]); }, [activeTab, handleAdd, regTypes]);
+  React.useEffect(() => { if (activeTab === 'groups') regGroups([<SettingsActionButton key="add-groups" onClick={handleAdd}><Plus className="h-4 w-4" />{TAB_ADD_LABELS.groups}</SettingsActionButton>]); }, [activeTab, handleAdd, regGroups]);
+  React.useEffect(() => { if (activeTab === 'sources') regSources([<SettingsActionButton key="add-sources" onClick={handleAdd}><Plus className="h-4 w-4" />{TAB_ADD_LABELS.sources}</SettingsActionButton>]); }, [activeTab, handleAdd, regSources]);
+  React.useEffect(() => { if (activeTab === 'payment-terms') regPayment([<SettingsActionButton key="add-payment" onClick={handleAdd}><Plus className="h-4 w-4" />{TAB_ADD_LABELS['payment-terms']}</SettingsActionButton>]); }, [activeTab, handleAdd, regPayment]);
+  React.useEffect(() => { if (activeTab === 'credit-ratings') regCredit([<SettingsActionButton key="add-credit" onClick={handleAdd}><Plus className="h-4 w-4" />{TAB_ADD_LABELS['credit-ratings']}</SettingsActionButton>]); }, [activeTab, handleAdd, regCredit]);
+  React.useEffect(() => { if (activeTab === 'lifecycle-stages') regLifecycle([<SettingsActionButton key="add-lifecycle" onClick={handleAdd}><Plus className="h-4 w-4" />{TAB_ADD_LABELS['lifecycle-stages']}</SettingsActionButton>]); }, [activeTab, handleAdd, regLifecycle]);
 
   useSettingsPageHeader({ title: 'Cài đặt khách hàng', actions: headerActions });
 
@@ -190,6 +202,8 @@ export default function CustomerSettingsPage() {
         <TabsContent value="credit-ratings" className="mt-0"><CreditRatingsTab data={activeDataMap['credit-ratings']} {...handlers} /></TabsContent>
       </SettingsVerticalTabs>
 
+      <SettingsHistoryContent entityTypes={['customer', 'target_group', 'customer_group', 'customer_source', 'customer_credit_rating', 'customer_lifecycle_stage', 'customer_payment_term', 'customer_sla', 'customer_settings']} />
+
       {activeTab === 'types' && <CustomerTypeFormDialog open={dialogOpen} onOpenChange={setDialogOpen} initialData={editingItem} onSubmit={handleSubmit} existingIds={getExistingIds()} />}
       {activeTab === 'groups' && <CustomerGroupFormDialog open={dialogOpen} onOpenChange={setDialogOpen} initialData={editingItem} onSubmit={handleSubmit} existingIds={getExistingIds()} />}
       {activeTab === 'sources' && <CustomerSourceFormDialog open={dialogOpen} onOpenChange={setDialogOpen} initialData={editingItem} onSubmit={handleSubmit} existingIds={getExistingIds()} />}
@@ -197,9 +211,9 @@ export default function CustomerSettingsPage() {
       {activeTab === 'credit-ratings' && <CreditRatingFormDialog open={dialogOpen} onOpenChange={setDialogOpen} initialData={editingItem as CreditRating | null} onSubmit={handleSubmit} existingIds={getExistingIds()} />}
       {activeTab === 'lifecycle-stages' && <LifecycleStageFormDialog open={dialogOpen} onOpenChange={setDialogOpen} initialData={editingItem} onSubmit={handleSubmit} existingIds={getExistingIds()} />}
 
-      <AlertDialog open={deleteDialog.isOpen} onOpenChange={o => setDeleteDialog(p => ({ isOpen: o, item: o ? p.item : null }))}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Xác nhận xóa {TAB_LABELS[activeTab]}</AlertDialogTitle><AlertDialogDescription>Bạn sắp xóa "{deleteDialog.item?.name}" ({deleteDialog.item?.id}). Hành động này không thể hoàn tác.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel className="h-9" onClick={() => setDeleteDialog({ isOpen: false, item: null })}>Hủy</AlertDialogCancel><AlertDialogAction className="h-9" onClick={confirmDelete}>Xóa</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+      <AlertDialog open={deleteDialog.isOpen} onOpenChange={o => setDeleteDialog(p => ({ isOpen: o, item: o ? p.item : null }))}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Xác nhận xóa {TAB_LABELS[activeTab]}</AlertDialogTitle><AlertDialogDescription>Bạn sắp xóa "{deleteDialog.item?.name}" ({deleteDialog.item?.id}). Hành động này không thể hoàn tác.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel className="h-9" onClick={() => setDeleteDialog({ isOpen: false, item: null })}>Hủy</AlertDialogCancel><AlertDialogAction className="h-9" onClick={confirmDelete} disabled={isDeleting}>{isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Xóa</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
 
-      <AlertDialog open={bulkDeleteDialog.isOpen} onOpenChange={o => setBulkDeleteDialog(p => ({ isOpen: o, items: o ? p.items : [] }))}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Xác nhận xóa nhiều {TAB_LABELS[activeTab]}</AlertDialogTitle><AlertDialogDescription>Bạn sắp xóa {bulkDeleteDialog.items.length} mục đã chọn. Hành động này không thể hoàn tác.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel className="h-9" onClick={() => setBulkDeleteDialog({ isOpen: false, items: [] })}>Hủy</AlertDialogCancel><AlertDialogAction className="h-9" onClick={confirmBulkDelete}>Xóa {bulkDeleteDialog.items.length} mục</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+      <AlertDialog open={bulkDeleteDialog.isOpen} onOpenChange={o => setBulkDeleteDialog(p => ({ isOpen: o, items: o ? p.items : [] }))}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Xác nhận xóa nhiều {TAB_LABELS[activeTab]}</AlertDialogTitle><AlertDialogDescription>Bạn sắp xóa {bulkDeleteDialog.items.length} mục đã chọn. Hành động này không thể hoàn tác.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel className="h-9" onClick={() => setBulkDeleteDialog({ isOpen: false, items: [] })}>Hủy</AlertDialogCancel><AlertDialogAction className="h-9" onClick={confirmBulkDelete} disabled={isDeleting}>{isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Xóa {bulkDeleteDialog.items.length} mục</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
     </div>
   );
 }

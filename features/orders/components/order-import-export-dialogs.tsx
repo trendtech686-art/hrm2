@@ -37,7 +37,7 @@ interface OrderImportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   existingData: Order[];
-  onImport: (data: Partial<Order>[], mode: ImportMode, branchId?: string) => Promise<ImportResultData>;
+  onImport: (data: Partial<Order>[], mode: ImportMode, branchId?: string, onProgress?: (percent: number) => void) => Promise<ImportResultData>;
   currentUser?: { systemId: SystemId; name: string };
   storeContext: StoreContext;
 }
@@ -104,7 +104,7 @@ interface SapoOrderImportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   existingData: Order[];
-  onImport: (data: Partial<Order>[], mode: ImportMode, branchId?: string) => Promise<ImportResultData>;
+  onImport: (data: Partial<Order>[], mode: ImportMode, branchId?: string, onProgress?: (percent: number) => void) => Promise<ImportResultData>;
   currentUser?: { systemId: SystemId; name: string };
   storeContext: StoreContext;
 }

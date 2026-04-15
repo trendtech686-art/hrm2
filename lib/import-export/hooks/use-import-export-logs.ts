@@ -8,6 +8,7 @@
 'use client';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import { toast } from 'sonner';
 import type { ImportLogEntry, ExportLogEntry } from '../types';
 
@@ -139,7 +140,7 @@ export function useImportExportLogsMutations() {
   const addImport = useMutation({
     mutationFn: addImportLog,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: importExportLogsKeys.all });
+      invalidateRelated(queryClient, 'import-export-logs');
     },
     onError: (error: Error) => {
       toast.error(`Failed to log import: ${error.message}`);
@@ -149,7 +150,7 @@ export function useImportExportLogsMutations() {
   const addExport = useMutation({
     mutationFn: addExportLog,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: importExportLogsKeys.all });
+      invalidateRelated(queryClient, 'import-export-logs');
     },
     onError: (error: Error) => {
       toast.error(`Failed to log export: ${error.message}`);
@@ -159,7 +160,7 @@ export function useImportExportLogsMutations() {
   const remove = useMutation({
     mutationFn: ({ id, type }: { id: string; type: 'import' | 'export' }) => deleteLog(id, type),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: importExportLogsKeys.all });
+      invalidateRelated(queryClient, 'import-export-logs');
       toast.success('Log đã xóa');
     },
     onError: (error: Error) => {
@@ -170,7 +171,7 @@ export function useImportExportLogsMutations() {
   const clear = useMutation({
     mutationFn: clearLogs,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: importExportLogsKeys.all });
+      invalidateRelated(queryClient, 'import-export-logs');
       toast.success('Đã xóa tất cả logs');
     },
     onError: (error: Error) => {

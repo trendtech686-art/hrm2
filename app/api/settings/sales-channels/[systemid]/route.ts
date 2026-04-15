@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/auth';
+import { getSessionFromCookie } from '@/lib/api-utils';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
+import { logError } from '@/lib/logger'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 const salesChannelUpdateSchema = z.object({
   id: z.string().optional(),
@@ -17,7 +19,7 @@ export async function GET(
 ) {
   try {
     const { systemid } = await params;
-    const session = await auth();
+    const session = await getSessionFromCookie();
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -35,7 +37,7 @@ export async function GET(
 
     return NextResponse.json(salesChannel);
   } catch (error) {
-    console.error('Error fetching sales channel:', error);
+    logError('Error fetching sales channel', error);
     return NextResponse.json(
       { error: 'Failed to fetch sales channel' },
       { status: 500 }
@@ -50,13 +52,18 @@ export async function PATCH(
 ) {
   try {
     const { systemid } = await params;
-    const session = await auth();
+    const session = await getSessionFromCookie();
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await request.json();
     const validatedData = salesChannelUpdateSchema.parse(body);
+
+    const existing = await prisma.salesChannel.findUnique({ where: { systemId: systemid } });
+    if (!existing) {
+      return NextResponse.json({ error: 'Sales channel not found' }, { status: 404 });
+    }
 
     // If setting as default, unset other defaults
     if (validatedData.isDefault === true) {
@@ -77,6 +84,27 @@ export async function PATCH(
       },
     });
 
+    // Activity log - labels tiếng Việt
+    const changes: Record<string, { from: unknown; to: unknown }> = {}
+    if (validatedData.name !== undefined && validatedData.name !== existing.name)
+      changes['Tên'] = { from: existing.name, to: validatedData.name }
+    if (validatedData.isApplied !== undefined && validatedData.isApplied !== existing.isApplied)
+      changes['Áp dụng'] = { from: existing.isApplied ? 'Có' : 'Không', to: validatedData.isApplied ? 'Có' : 'Không' }
+    if (validatedData.isDefault !== undefined && validatedData.isDefault !== existing.isDefault)
+      changes['Mặc định'] = { from: existing.isDefault ? 'Có' : 'Không', to: validatedData.isDefault ? 'Có' : 'Không' }
+
+    if (Object.keys(changes).length > 0) {
+      const changeDetail = Object.keys(changes).join(', ')
+      createActivityLog({
+        entityType: 'sales_channel',
+        entityId: systemid,
+        action: `Cập nhật kênh bán hàng: ${existing.name}: ${changeDetail}`,
+        actionType: 'update',
+        changes,
+        createdBy: session.user?.id,
+      }).catch(e => logError('Failed to create activity log', e))
+    }
+
     return NextResponse.json(salesChannel);
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -85,7 +113,7 @@ export async function PATCH(
         { status: 400 }
       );
     }
-    console.error('Error updating sales channel:', error);
+    logError('Error updating sales channel', error);
     return NextResponse.json(
       { error: 'Failed to update sales channel' },
       { status: 500 }
@@ -100,18 +128,29 @@ export async function DELETE(
 ) {
   try {
     const { systemid } = await params;
-    const session = await auth();
+    const session = await getSessionFromCookie();
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const existing = await prisma.salesChannel.findUnique({ where: { systemId: systemid } });
 
     await prisma.salesChannel.delete({
       where: { systemId: systemid },
     });
 
+    if (existing) {
+      await createActivityLog({
+        entityType: 'sales_channel',
+        entityId: systemid,
+        action: `Xóa kênh bán hàng: ${existing.name}`,
+        createdBy: session.user?.id,
+      }).catch(e => logError('Failed to create activity log', e))
+    }
+
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error deleting sales channel:', error);
+    logError('Error deleting sales channel', error);
     return NextResponse.json(
       { error: 'Failed to delete sales channel' },
       { status: 500 }

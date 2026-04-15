@@ -22,6 +22,7 @@ import {
 import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
 import { FileUploadAPI, type StagingFile } from '../../lib/file-upload-api';
+import { logError } from '@/lib/logger'
 
 // ============================================
 // TYPES
@@ -114,7 +115,7 @@ export function ExcelFileDropzone({
       
       return result.files[0] || null;
     } catch (error) {
-      console.error('Upload error:', error);
+      logError('Upload error', error);
       toast.error('Không thể upload file lên server');
       return null;
     } finally {

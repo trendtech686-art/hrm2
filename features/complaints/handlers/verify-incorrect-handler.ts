@@ -3,6 +3,7 @@ import type { SystemId } from '@/lib/id-types';
 import { generateSubEntityId } from '@/lib/id-utils';
 import type { Complaint, ComplaintAction } from '../types';
 import { cancelPaymentsReceiptsAndInventory } from '../utils/cancel-payments-receipts-and-inventory';
+import { logError } from '@/lib/logger'
 
 // User type - chỉ cần systemId và name
 interface User {
@@ -115,7 +116,7 @@ export async function handleVerifyIncorrect(
     };
     
   } catch (error) {
-    console.error('[VERIFY-INCORRECT] Error:', error);
+    logError('[VERIFY-INCORRECT] Error', error);
     return {
       success: false,
       message: error instanceof Error ? error.message : 'Có lỗi xảy ra'

@@ -5,31 +5,31 @@
  */
 
 import * as React from 'react';
-import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, subDays, subMonths, subQuarters, startOfYear, endOfYear, startOfQuarter, endOfQuarter } from 'date-fns';
-import { vi } from 'date-fns/locale';
+import { format, startOfMonth, endOfMonth, subDays, subMonths, startOfYear, endOfYear, subYears } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
+import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { PageFilters } from '@/components/layout/page-filters';
-import { CalendarIcon, ChevronDown } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { CalendarIcon } from 'lucide-react';
 import type { ReportDateRange, GroupByOption, TimeGrouping } from '../types';
 
-// Predefined date ranges
-const DATE_PRESETS = [
-  { label: 'Hôm nay', getValue: () => ({ from: new Date(), to: new Date() }) },
-  { label: 'Hôm qua', getValue: () => ({ from: subDays(new Date(), 1), to: subDays(new Date(), 1) }) },
-  { label: 'Tuần này', getValue: () => ({ from: startOfWeek(new Date(), { weekStartsOn: 1 }), to: endOfWeek(new Date(), { weekStartsOn: 1 }) }) },
-  { label: 'Tuần trước', getValue: () => ({ from: startOfWeek(subDays(new Date(), 7), { weekStartsOn: 1 }), to: endOfWeek(subDays(new Date(), 7), { weekStartsOn: 1 }) }) },
-  { label: 'Tháng này', getValue: () => ({ from: startOfMonth(new Date()), to: endOfMonth(new Date()) }) },
-  { label: 'Tháng trước', getValue: () => ({ from: startOfMonth(subMonths(new Date(), 1)), to: endOfMonth(subMonths(new Date(), 1)) }) },
-  { label: 'Quý này', getValue: () => ({ from: startOfQuarter(new Date()), to: endOfQuarter(new Date()) }) },
-  { label: 'Quý trước', getValue: () => ({ from: startOfQuarter(subQuarters(new Date(), 1)), to: endOfQuarter(subQuarters(new Date(), 1)) }) },
-  { label: 'Năm nay', getValue: () => ({ from: startOfYear(new Date()), to: endOfYear(new Date()) }) },
-  { label: '30 ngày qua', getValue: () => ({ from: subDays(new Date(), 30), to: new Date() }) },
-  { label: '90 ngày qua', getValue: () => ({ from: subDays(new Date(), 90), to: new Date() }) },
-];
+const fmtDate = (d: Date) => format(d, 'yyyy-MM-dd');
+const fmtDisplay = (d: Date) => format(d, 'dd/MM/yyyy');
+
+function getDatePresets() {
+  const today = new Date();
+  return [
+    { label: 'Hôm nay', from: fmtDate(today), to: fmtDate(today) },
+    { label: 'Hôm qua', from: fmtDate(subDays(today, 1)), to: fmtDate(subDays(today, 1)) },
+    { label: '7 ngày qua', from: fmtDate(subDays(today, 6)), to: fmtDate(today) },
+    { label: '30 ngày qua', from: fmtDate(subDays(today, 29)), to: fmtDate(today) },
+    { label: 'Tháng trước', from: fmtDate(startOfMonth(subMonths(today, 1))), to: fmtDate(endOfMonth(subMonths(today, 1))) },
+    { label: 'Tháng này', from: fmtDate(startOfMonth(today)), to: fmtDate(today) },
+    { label: 'Năm trước', from: fmtDate(startOfYear(subYears(today, 1))), to: fmtDate(endOfYear(subYears(today, 1))) },
+    { label: 'Năm nay', from: fmtDate(startOfYear(today)), to: fmtDate(today) },
+  ];
+}
 
 // Report type options
 const REPORT_TYPE_OPTIONS: { value: string; label: string }[] = [
@@ -124,85 +124,107 @@ export function ReportFilters({
   showTimeGrouping = true,
   additionalFilters,
 }: ReportFiltersProps) {
-  const [date, setDate] = React.useState<{ from: Date | undefined; to: Date | undefined }>({
-    from: dateRange.from ? new Date(dateRange.from) : undefined,
-    to: dateRange.to ? new Date(dateRange.to) : undefined,
-  });
+  const [open, setOpen] = React.useState(false);
+  const [showCustom, setShowCustom] = React.useState(false);
+  const [customFrom, setCustomFrom] = React.useState(dateRange.from);
+  const [customTo, setCustomTo] = React.useState(dateRange.to);
+  const presets = React.useMemo(() => getDatePresets(), []);
   
-  const handleDateChange = (newDate: { from: Date | undefined; to: Date | undefined }) => {
-    setDate(newDate);
-    if (newDate.from && newDate.to) {
-      onDateRangeChange({
-        from: format(newDate.from, 'yyyy-MM-dd'),
-        to: format(newDate.to, 'yyyy-MM-dd'),
-      });
+  // Determine active preset label
+  const activeLabel = React.useMemo(() => {
+    const match = presets.find(p => p.from === dateRange.from && p.to === dateRange.to);
+    return match?.label;
+  }, [presets, dateRange]);
+  
+  const handlePresetSelect = (preset: ReturnType<typeof getDatePresets>[number]) => {
+    onDateRangeChange({ from: preset.from, to: preset.to });
+    setShowCustom(false);
+    setOpen(false);
+  };
+  
+  const handleCustomApply = () => {
+    if (customFrom && customTo && customFrom <= customTo) {
+      onDateRangeChange({ from: customFrom, to: customTo });
+      setOpen(false);
     }
   };
   
-  const handlePresetSelect = (preset: typeof DATE_PRESETS[0]) => {
-    const { from, to } = preset.getValue();
-    handleDateChange({ from, to });
-  };
+  const displayLabel = activeLabel 
+    || `${fmtDisplay(new Date(dateRange.from))} - ${fmtDisplay(new Date(dateRange.to))}`;
   
   const groupByOptions = GROUP_BY_OPTIONS[reportCategory] || GROUP_BY_OPTIONS.sales;
   
   return (
     <PageFilters>
-      {/* Date Range Picker */}
-      <Popover>
+      {/* Date Range Picker — Preset grid style */}
+      <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
-          <Button
-            variant="outline"
-            className={cn(
-              "justify-start text-left font-normal min-w-[260px]",
-              !date.from && "text-muted-foreground"
-            )}
-          >
-            <CalendarIcon className="mr-2 h-4 w-4" />
-            {date.from ? (
-              date.to ? (
-                <>
-                  {format(date.from, "dd/MM/yyyy", { locale: vi })} -{" "}
-                  {format(date.to, "dd/MM/yyyy", { locale: vi })}
-                </>
-              ) : (
-                format(date.from, "dd/MM/yyyy", { locale: vi })
-              )
-            ) : (
-              <span>Chọn khoảng thời gian</span>
-            )}
-            <ChevronDown className="ml-auto h-4 w-4 opacity-50" />
+          <Button variant="outline" size="sm" className="h-9 gap-1.5 text-sm font-normal min-w-45">
+            <CalendarIcon className="h-4 w-4" />
+            {displayLabel}
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="start">
-          <div className="flex">
-            {/* Presets */}
-            <div className="border-r p-2 space-y-1">
-              {DATE_PRESETS.map((preset) => (
+        <PopoverContent className="w-70 p-3" align="start">
+          <div className="grid grid-cols-2 gap-2">
+            {presets.map((preset) => (
+              <Button
+                key={preset.label}
+                variant={activeLabel === preset.label ? 'default' : 'outline'}
+                size="sm"
+                className="h-8 text-xs"
+                onClick={() => handlePresetSelect(preset)}
+              >
+                {preset.label}
+              </Button>
+            ))}
+          </div>
+          <div className="mt-2 border-t pt-2">
+            <Button
+              variant={showCustom ? 'default' : 'outline'}
+              size="sm"
+              className="w-full h-8 text-xs"
+              onClick={() => {
+                setShowCustom(!showCustom);
+                setCustomFrom(dateRange.from);
+                setCustomTo(dateRange.to);
+              }}
+            >
+              Tùy chọn
+            </Button>
+            {showCustom && (
+              <div className="mt-2 space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label htmlFor="rf-from" className="text-xs text-muted-foreground">Từ ngày</label>
+                    <Input
+                      id="rf-from"
+                      type="date"
+                      value={customFrom}
+                      onChange={(e) => setCustomFrom(e.target.value)}
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="rf-to" className="text-xs text-muted-foreground">Đến ngày</label>
+                    <Input
+                      id="rf-to"
+                      type="date"
+                      value={customTo}
+                      onChange={(e) => setCustomTo(e.target.value)}
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                </div>
                 <Button
-                  key={preset.label}
-                  variant="ghost"
                   size="sm"
-                  className="w-full justify-start font-normal"
-                  onClick={() => handlePresetSelect(preset)}
+                  className="w-full h-8 text-xs"
+                  onClick={handleCustomApply}
+                  disabled={!customFrom || !customTo || customFrom > customTo}
                 >
-                  {preset.label}
+                  Lọc
                 </Button>
-              ))}
-            </div>
-            
-            {/* Calendar */}
-            <div className="p-2">
-              <Calendar
-                initialFocus
-                mode="range"
-                defaultMonth={date.from}
-                selected={{ from: date.from, to: date.to }}
-                onSelect={(range) => handleDateChange({ from: range?.from, to: range?.to })}
-                numberOfMonths={2}
-                locale={vi}
-              />
-            </div>
+              </div>
+            )}
           </div>
         </PopoverContent>
       </Popover>
@@ -210,7 +232,7 @@ export function ReportFilters({
       {/* Report Type */}
       {showReportType && onReportTypeChange && (
         <Select value={reportType} onValueChange={onReportTypeChange}>
-          <SelectTrigger className="w-[160px]">
+          <SelectTrigger className="w-40">
             <SelectValue placeholder="Loại báo cáo" />
           </SelectTrigger>
           <SelectContent>
@@ -228,7 +250,7 @@ export function ReportFilters({
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground whitespace-nowrap">Nhóm theo</span>
           <Select value={groupBy} onValueChange={(v) => onGroupByChange(v as GroupByOption)}>
-            <SelectTrigger className="w-[140px]">
+            <SelectTrigger className="w-35">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -242,10 +264,10 @@ export function ReportFilters({
         </div>
       )}
       
-      {/* Time Grouping (when groupBy === 'time') */}
-      {showTimeGrouping !== false && groupBy === 'time' && onTimeGroupingChange && (
+      {/* Time Grouping (show when explicitly enabled or when groupBy === 'time') */}
+      {showTimeGrouping !== false && (groupBy === 'time' || (showTimeGrouping === true && !groupBy)) && onTimeGroupingChange && (
         <Select value={timeGrouping} onValueChange={(v) => onTimeGroupingChange(v as TimeGrouping)}>
-          <SelectTrigger className="w-[100px]">
+          <SelectTrigger className="w-25">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

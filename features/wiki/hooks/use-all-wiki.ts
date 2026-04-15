@@ -4,14 +4,16 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { fetchAllPages } from '@/lib/fetch-all-pages';
 import { fetchWikiArticles } from '../api/wiki-api';
 import { wikiKeys } from './use-wiki';
 
 export function useAllWiki() {
   const query = useQuery({
     queryKey: [...wikiKeys.all, 'all'],
-    queryFn: () => fetchAllPages((p) => fetchWikiArticles(p)),
+    queryFn: async () => {
+      const res = await fetchWikiArticles();
+      return res.data;
+    },
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
   });

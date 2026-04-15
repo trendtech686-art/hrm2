@@ -365,9 +365,9 @@ export function StockTransferFormPage() {
                     className="h-9"
                   />
                   {customIdError ? (
-                    <p className="text-body-xs text-destructive">{customIdError}</p>
+                    <p className="text-xs text-destructive">{customIdError}</p>
                   ) : (
-                    <p className="text-body-xs text-muted-foreground">
+                    <p className="text-xs text-muted-foreground">
                       Để trống để tự động tạo mã: {nextTransferId}
                     </p>
                   )}
@@ -380,7 +380,7 @@ export function StockTransferFormPage() {
                     placeholder="Nhập mã tham chiếu (nếu có)..."
                     className="h-9"
                   />
-                  <p className="text-body-xs text-muted-foreground">Mã từ hệ thống khác hoặc mã nội bộ</p>
+                  <p className="text-xs text-muted-foreground">Mã từ hệ thống khác hoặc mã nội bộ</p>
                 </div>
               </div>
 
@@ -413,7 +413,7 @@ export function StockTransferFormPage() {
                     </SelectContent>
                   </Select>
                   {form.formState.errors.fromBranchSystemId && (
-                    <p className="text-body-sm text-destructive">{form.formState.errors.fromBranchSystemId.message}</p>
+                    <p className="text-sm text-destructive">{form.formState.errors.fromBranchSystemId.message}</p>
                   )}
                 </div>
 
@@ -445,7 +445,7 @@ export function StockTransferFormPage() {
                     </SelectContent>
                   </Select>
                   {form.formState.errors.toBranchSystemId && (
-                    <p className="text-body-sm text-destructive">{form.formState.errors.toBranchSystemId.message}</p>
+                    <p className="text-sm text-destructive">{form.formState.errors.toBranchSystemId.message}</p>
                   )}
                 </div>
               </div>
@@ -511,7 +511,7 @@ export function StockTransferFormPage() {
             {fromBranchId && fields.length === 0 && (
               <div className="text-center py-8 text-muted-foreground border border-dashed rounded-md">
                 <PackageOpen className="mx-auto h-12 w-12 text-gray-300" />
-                <p className="mt-4 text-body-sm">Chưa có sản phẩm nào</p>
+                <p className="mt-4 text-sm">Chưa có sản phẩm nào</p>
                 <Button
                   type="button"
                   variant="link"
@@ -614,12 +614,12 @@ export function StockTransferFormPage() {
                                     {field.productName}
                                   </Link>
                                   {isCombo && (
-                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground font-semibold">
+                                    <span className="text-xs px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground font-semibold">
                                       COMBO
                                     </span>
                                   )}
                                 </div>
-                                <span className="text-body-sm text-muted-foreground">{field.productId}</span>
+                                <span className="text-sm text-muted-foreground">{field.productId}</span>
                               </div>
                             </TableCell>
                             <TableCell>
@@ -632,7 +632,7 @@ export function StockTransferFormPage() {
                                   className={`h-9 w-full text-center ${fromAfter < 0 ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
                                 />
                                 {fromAfter < 0 && (
-                                  <p className="text-[10px] text-red-600 text-center">Vượt tồn kho!</p>
+                                  <p className="text-xs text-red-600 text-center">Vượt tồn kho!</p>
                                 )}
                               </div>
                             </TableCell>
@@ -713,7 +713,7 @@ export function StockTransferFormPage() {
                                       </span>
                                       {comboItem.product && (
                                         <Link href={`/products/${comboItem.product.systemId}`}
-                                          className="text-body-xs text-muted-foreground hover:text-primary hover:underline"
+                                          className="text-xs text-muted-foreground hover:text-primary hover:underline"
                                         >
                                           {comboItem.product.id}
                                         </Link>
@@ -740,8 +740,8 @@ export function StockTransferFormPage() {
                 
                 <div className="mt-4 flex justify-end">
                   <div className="text-right space-y-1">
-                    <p className="text-body-sm text-muted-foreground">Tổng số sản phẩm: {fields.length}</p>
-                    <p className="text-body-sm text-muted-foreground">Tổng số lượng: {totalQuantity}</p>
+                    <p className="text-sm text-muted-foreground">Tổng số sản phẩm: {fields.length}</p>
+                    <p className="text-sm text-muted-foreground">Tổng số lượng: {totalQuantity}</p>
                     <p className="font-semibold">Tổng giá trị: {formatCurrency(totalValue)}</p>
                   </div>
                 </div>
@@ -749,7 +749,7 @@ export function StockTransferFormPage() {
             )}
             
             {form.formState.errors.items && (
-              <p className="text-body-sm text-destructive mt-2">{form.formState.errors.items.message}</p>
+              <p className="text-sm text-destructive mt-2">{form.formState.errors.items.message}</p>
             )}
           </CardContent>
         </Card>

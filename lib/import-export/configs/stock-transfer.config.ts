@@ -242,7 +242,7 @@ export const stockTransferImportExportConfig: ImportExportConfig<StockTransfer> 
     let lastCreatedBy = '';
     let lastNote = '';
     
-    return rows.map((row: Record<string, unknown>) => {
+    return (rows as Record<string, unknown>[]).map((row) => {
       if (row.transferId) {
         lastTransferId = String(row.transferId);
         lastFromBranch = String(row.fromBranchIdOrName || '');

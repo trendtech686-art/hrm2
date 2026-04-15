@@ -18,8 +18,15 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { SettingsActionButton } from '../../components/settings/SettingsActionButton';
 import { useColumnVisibility } from '../../hooks/use-column-visibility';
+import { useAuth } from "@/contexts/auth-context";
+import { usePaginationWithGlobalDefault } from '@/features/settings/global/hooks/use-global-settings';
 
 export function StockLocationsPage() {
+  // Permission checks
+  const { can } = useAuth();
+  const canCreate = can('create_stock_locations');
+  const canDelete = can('delete_stock_locations');
+  const canEdit = can('edit_stock_locations');
   const { data: queryData } = useStockLocations({ limit: 100 });
   const data = React.useMemo(() => queryData?.data ?? [], [queryData?.data]);
   const { create, update, remove } = useStockLocationMutations({
@@ -33,7 +40,7 @@ export function StockLocationsPage() {
   const [isAlertOpen, setIsAlertOpen] = React.useState(false);
   const [idToDelete, setIdToDelete] = React.useState<SystemId | null>(null);
   
-  const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 20 });
+  const [pagination, setPagination] = usePaginationWithGlobalDefault();
   
   // ✅ Sử dụng useColumnVisibility hook thay vì localStorage trực tiếp
   const defaultColumnVisibility = React.useMemo(() => {
@@ -48,23 +55,12 @@ export function StockLocationsPage() {
   const handleEdit = React.useCallback((item: StockLocation) => { setEditingItem(item); setIsFormOpen(true); }, []);
   const handleDeleteRequest = React.useCallback((id: string) => { setIdToDelete(asSystemId(id)); setIsAlertOpen(true); }, []);
   
-  const _locationSummary = React.useMemo(() => {
-    if (!data.length) {
-      return 'Chưa có điểm lưu kho nào, hãy tạo điểm đầu tiên để gán cho chi nhánh.';
-    }
-    const uniqueBranches = new Set(data.map((item) => item.branchSystemId)).size;
-    const defaultBranchName = branches.find((b) => b.isDefault)?.name;
-    const branchLabel = uniqueBranches ? `${uniqueBranches} chi nhánh` : 'Chưa gán chi nhánh';
-    const defaultBranchLabel = defaultBranchName ? ` • Chi nhánh mặc định: ${defaultBranchName}` : '';
-    return `${data.length} điểm lưu kho • ${branchLabel}${defaultBranchLabel}`;
-  }, [data, branches]);
-
   const headerActions = React.useMemo(() => ([
-    <SettingsActionButton key="add" onClick={handleAddNew}>
+    canCreate && <SettingsActionButton key="add" onClick={handleAddNew}>
       <PlusCircle className="h-4 w-4" />
       Thêm điểm lưu kho
     </SettingsActionButton>
-  ]), [handleAddNew]);
+  ].filter(Boolean)), [handleAddNew, canCreate]);
 
   useSettingsPageHeader({
     title: 'Vị trí kho',

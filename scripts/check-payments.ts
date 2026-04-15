@@ -22,7 +22,7 @@ async function main() {
     for (const p of wrongPayments) {
       await prisma.auditLog.deleteMany({
         where: {
-          entityType: 'Payment',
+          entityType: 'payment',
           entityId: p.systemId
         }
       });

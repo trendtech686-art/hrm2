@@ -8,6 +8,7 @@
  * Updated to use Server Actions for mutations (Phase 2 migration)
  */
 
+import * as React from 'react';
 import { useQuery, useMutation, useQueryClient, keepPreviousData, useInfiniteQuery } from '@tanstack/react-query';
 import {
   fetchCustomers,
@@ -27,6 +28,7 @@ import {
   type UpdateCustomerInput,
 } from '@/app/actions/customers';
 import type { Customer } from '@/lib/types/prisma-extended';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 
 // Re-export types for backwards compatibility
 export type { CreateCustomerInput, UpdateCustomerInput };
@@ -50,6 +52,18 @@ export interface CustomerStats {
   totalCustomers: number;
   customersWithDebt: number;
   totalDebtAmount: number;
+  // Tách theo kế toán
+  customersOweUs?: number;
+  weOweCustomers?: number;
+  totalReceivable?: number;
+  totalPayable?: number;
+  // Workflow cards
+  hasDebt?: number;
+  noDebt?: number;
+  overdue?: number;
+  dueSoon?: number;
+  activeCount?: number;
+  inactiveCount?: number;
   newCustomersThisMonth: number;
   deletedCount?: number;
 }
@@ -133,12 +147,13 @@ export function useCustomers(
  * Hook for infinite scroll customers list
  * Loads 30 customers per page, automatically fetches more when scrolling
  */
-export function useInfiniteCustomers(params: Omit<CustomersParams, 'page'> = {}) {
-  const limit = params.limit || 30;
+export function useInfiniteCustomers(params: Omit<CustomersParams, 'page'> & { enabled?: boolean } = {}) {
+  const { enabled = true, ...queryParams } = params;
+  const limit = queryParams.limit || 30;
   
   return useInfiniteQuery({
-    queryKey: [...customerKeys.lists(), 'infinite', params],
-    queryFn: ({ pageParam = 1 }) => fetchCustomers({ ...params, page: pageParam, limit }),
+    queryKey: [...customerKeys.lists(), 'infinite', queryParams],
+    queryFn: ({ pageParam = 1 }) => fetchCustomers({ ...queryParams, page: pageParam, limit }),
     initialPageParam: 1,
     getNextPageParam: (lastPage) => {
       const { page, totalPages } = lastPage.pagination;
@@ -146,6 +161,7 @@ export function useInfiniteCustomers(params: Omit<CustomersParams, 'page'> = {})
     },
     staleTime: 60_000,
     gcTime: 10 * 60 * 1000,
+    enabled,
   });
 }
 
@@ -159,6 +175,7 @@ export function useCustomer(id: string | null | undefined) {
     enabled: !!id,
     staleTime: 60_000,
     gcTime: 10 * 60 * 1000,
+    refetchOnMount: 'always',
   });
 }
 
@@ -221,8 +238,7 @@ export function useCustomerMutations(options: UseCustomerMutationsOptions = {}) 
       return result.data;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: customerKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: customerKeys.stats() });
+      invalidateRelated(queryClient, 'customers');
       options.onCreateSuccess?.(data);
     },
     onError: options.onError,
@@ -234,13 +250,47 @@ export function useCustomerMutations(options: UseCustomerMutationsOptions = {}) 
       if (!result.success) throw new Error(result.error || 'Failed to update customer');
       return result.data;
     },
-    onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: customerKeys.detail(variables.systemId) });
-      queryClient.invalidateQueries({ queryKey: customerKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: customerKeys.stats() });
-      options.onUpdateSuccess?.(data);
+    onMutate: async (variables) => {
+      // Cancel pending queries for both detail and list
+      await queryClient.cancelQueries({ queryKey: customerKeys.detail(variables.systemId) });
+      await queryClient.cancelQueries({ queryKey: customerKeys.lists() });
+
+      // Snapshot previous values
+      const previousDetail = queryClient.getQueryData(customerKeys.detail(variables.systemId));
+      const previousLists = queryClient.getQueriesData<PaginatedResponse<Customer>>({ queryKey: customerKeys.lists() });
+
+      // Optimistic update detail
+      if (previousDetail) {
+        queryClient.setQueryData(customerKeys.detail(variables.systemId), (old: Customer | undefined) =>
+          old ? { ...old, ...variables } : old
+        );
+      }
+
+      // Optimistic update lists
+      queryClient.setQueriesData<PaginatedResponse<Customer>>(
+        { queryKey: customerKeys.lists() },
+        (old) => old ? {
+          ...old,
+          data: old.data.map(c => c.systemId === variables.systemId ? { ...c, ...variables } as Customer : c),
+        } : old
+      );
+
+      return { previousDetail, previousLists };
     },
-    onError: options.onError,
+    onSuccess: (_data) => {
+      options.onUpdateSuccess?.(_data);
+    },
+    onError: (error, variables, context) => {
+      // Rollback optimistic updates
+      if (context?.previousDetail) {
+        queryClient.setQueryData(customerKeys.detail(variables.systemId), context.previousDetail);
+      }
+      context?.previousLists?.forEach(([key, data]) => queryClient.setQueryData(key, data));
+      options.onError?.(error);
+    },
+    onSettled: () => {
+      invalidateRelated(queryClient, 'customers');
+    },
   });
   
   const remove = useMutation({
@@ -249,12 +299,31 @@ export function useCustomerMutations(options: UseCustomerMutationsOptions = {}) 
       if (!result.success) throw new Error(result.error || 'Failed to delete customer');
       return result.data;
     },
+    onMutate: async (systemId) => {
+      // Optimistic remove from list queries
+      await queryClient.cancelQueries({ queryKey: customerKeys.lists() });
+      const previousLists = queryClient.getQueriesData<PaginatedResponse<Customer>>({ queryKey: customerKeys.lists() });
+      queryClient.setQueriesData<PaginatedResponse<Customer>>(
+        { queryKey: customerKeys.lists() },
+        (old) => old ? {
+          ...old,
+          data: old.data.filter(c => c.systemId !== systemId),
+          pagination: { ...old.pagination, total: old.pagination.total - 1 },
+        } : old
+      );
+      return { previousLists };
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: customerKeys.all });
-      queryClient.invalidateQueries({ queryKey: customerKeys.stats() });
       options.onDeleteSuccess?.();
     },
-    onError: options.onError,
+    onError: (error, _systemId, context) => {
+      // Rollback optimistic remove
+      context?.previousLists?.forEach(([key, data]) => queryClient.setQueryData(key, data));
+      options.onError?.(error);
+    },
+    onSettled: () => {
+      invalidateRelated(queryClient, 'customers');
+    },
   });
   
   return {
@@ -323,7 +392,7 @@ export function useTrashMutations() {
       return result.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: customerKeys.all });
+      invalidateRelated(queryClient, 'customers');
     },
   });
   
@@ -345,7 +414,7 @@ export function useTrashMutations() {
       }
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: customerKeys.all });
+      invalidateRelated(queryClient, 'customers');
     },
   });
   
@@ -371,7 +440,7 @@ export function useBulkCustomerMutations(options: UseBulkMutationsOptions = {}) 
   const bulkDelete = useMutation({
     mutationFn: bulkDeleteCustomers,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: customerKeys.all });
+      invalidateRelated(queryClient, 'customers');
       options.onSuccess?.();
     },
     onError: options.onError,
@@ -380,7 +449,7 @@ export function useBulkCustomerMutations(options: UseBulkMutationsOptions = {}) 
   const bulkRestore = useMutation({
     mutationFn: bulkRestoreCustomers,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: customerKeys.all });
+      invalidateRelated(queryClient, 'customers');
       options.onSuccess?.();
     },
     onError: options.onError,
@@ -390,7 +459,7 @@ export function useBulkCustomerMutations(options: UseBulkMutationsOptions = {}) 
     mutationFn: ({ systemIds, status }: { systemIds: string[]; status: string }) => 
       bulkUpdateCustomerStatus(systemIds, status),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: customerKeys.all });
+      invalidateRelated(queryClient, 'customers');
       options.onSuccess?.();
     },
     onError: options.onError,
@@ -405,4 +474,22 @@ export function useBulkCustomerMutations(options: UseBulkMutationsOptions = {}) 
     isUpdatingStatus: bulkUpdateStatus.isPending,
     isMutating: bulkDelete.isPending || bulkRestore.isPending || bulkUpdateStatus.isPending,
   };
+}
+
+/**
+ * Prefetch customer detail on hover — enables instant navigation
+ */
+export function usePrefetchCustomer() {
+  const queryClient = useQueryClient();
+
+  return React.useCallback(
+    (systemId: string) => {
+      queryClient.prefetchQuery({
+        queryKey: customerKeys.detail(systemId),
+        queryFn: () => fetchCustomer(systemId),
+        staleTime: 60_000,
+      });
+    },
+    [queryClient]
+  );
 }

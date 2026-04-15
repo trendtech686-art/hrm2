@@ -16,7 +16,7 @@ import {
 import type { ShippingConfig, PartnerAccount } from '@/lib/types/shipping-config';
 import { useState, useEffect } from 'react';
 
-export type ShippingPartner = 'GHN' | 'GHTK' | 'VTP' | 'J&T' | 'SPX' | 'VNPOST' | 'NINJA_VAN' | 'AHAMOVE';
+export type ShippingPartner = 'GHN' | 'GHTK' | 'VTP' | 'J&T' | 'SPX';
 
 interface PartnerOption {
   code: ShippingPartner;
@@ -84,8 +84,8 @@ export function PartnerConfigDialog({
     setConfig(newConfig);
   };
 
-  const handleSave = (finalConfig: ShippingConfig) => {
-    saveShippingConfig(finalConfig);
+  const handleSave = async (finalConfig: ShippingConfig) => {
+    await saveShippingConfig(finalConfig);
     onSave();
     handleClose();
   };

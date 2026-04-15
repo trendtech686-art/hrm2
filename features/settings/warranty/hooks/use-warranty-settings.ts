@@ -2,6 +2,9 @@
  * Warranty Settings Hooks
  * React Query hooks for managing warranty module settings
  * 
+ * ⚡ PERFORMANCE: Uses single GET /api/settings?group=warranty instead of
+ *    5 separate Server Actions (which each POST to the current page URL).
+ * 
  * @module features/settings/warranty/hooks/use-warranty-settings
  */
 
@@ -9,7 +12,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { getModuleSettingSection, updateModuleSettingSection } from '@/app/actions/settings/module-settings';
+import { updateModuleSettingSection } from '@/app/actions/settings/module-settings';
 
 export const warrantySettingsKeys = {
   all: ['settings', 'warranty'] as const,
@@ -38,7 +41,6 @@ interface NotificationSettings {
   emailOnProcessed: boolean;
   emailOnReturned: boolean;
   emailOnOverdue: boolean;
-  smsOnOverdue: boolean;
   inAppNotifications: boolean;
   reminderNotifications: boolean;
 }
@@ -90,7 +92,6 @@ const DEFAULTS: Record<WarrantySettingType, WarrantySettingValue> = {
     emailOnProcessed: true,
     emailOnReturned: true,
     emailOnOverdue: true,
-    smsOnOverdue: false,
     inAppNotifications: true,
     reminderNotifications: true,
   },
@@ -108,80 +109,100 @@ const DEFAULTS: Record<WarrantySettingType, WarrantySettingValue> = {
   },
   'reminder-templates': [],
   'cardColors': {
-    statusColors: {},
+    statusColors: {
+      new: 'bg-blue-50 border-blue-200',
+      pending: 'bg-yellow-50 border-yellow-200',
+      processed: 'bg-green-50 border-green-200',
+      returned: 'bg-gray-50 border-gray-200',
+    },
+    overdueColor: 'bg-red-50 border-red-400',
     enableStatusColors: true,
+    enableOverdueColor: true,
   },
 };
 
-// API functions
-async function fetchWarrantySettingSection<T = WarrantySettingValue>(
-  type: WarrantySettingType
-): Promise<T> {
-  const result = await getModuleSettingSection<T>('warranty', type);
-  if (!result.success) {
-    throw new Error(result.error);
+// DB key → settings field mapping
+const KEY_TO_FIELD: Record<string, WarrantySettingType> = {
+  'warranty_sla_targets': 'sla-targets',
+  'warranty_notification_settings': 'notifications',
+  'warranty_tracking_settings': 'tracking',
+  'warranty_templates': 'reminder-templates',
+  'warranty_card_color_settings': 'cardColors',
+};
+
+// Deep merge: recursively merge nested objects so inner fields aren't lost
+function deepMerge<T extends Record<string, unknown>>(defaults: T, overrides: Record<string, unknown>): T {
+  const result = { ...defaults } as Record<string, unknown>;
+  for (const key of Object.keys(overrides)) {
+    const defVal = defaults[key];
+    const ovrVal = overrides[key];
+    if (
+      defVal && typeof defVal === 'object' && !Array.isArray(defVal) &&
+      ovrVal && typeof ovrVal === 'object' && !Array.isArray(ovrVal)
+    ) {
+      result[key] = deepMerge(defVal as Record<string, unknown>, ovrVal as Record<string, unknown>);
+    } else {
+      result[key] = ovrVal;
+    }
   }
-  const defaults = DEFAULTS[type] as T;
-  // For plain objects: merge DB data with defaults to ensure new fields have values
-  // For arrays: return DB data as-is (array spread produces objects, not arrays)
-  if (
-    result.data &&
-    typeof result.data === 'object' &&
-    !Array.isArray(result.data) &&
-    typeof defaults === 'object' &&
-    !Array.isArray(defaults)
-  ) {
-    return { ...defaults, ...result.data } as T;
-  }
-  return result.data ?? defaults;
+  return result as T;
 }
 
-async function updateWarrantySettingSection(
-  type: WarrantySettingType,
-  data: WarrantySettingValue
-): Promise<WarrantySettingValue> {
-  const result = await updateModuleSettingSection('warranty', type, data);
-  if (!result.success) {
-    throw new Error(result.error);
+// ⚡ PERFORMANCE: Single GET fetch for all warranty settings
+async function fetchAllWarrantySettings(): Promise<Record<string, unknown>> {
+  const res = await fetch('/api/settings?group=warranty', { credentials: 'include' });
+  if (!res.ok) throw new Error('Failed to fetch warranty settings');
+  const json = await res.json();
+  const grouped = json.grouped?.warranty as Record<string, unknown> | undefined;
+  const result: Record<string, unknown> = {};
+
+  for (const [dbKey, fieldName] of Object.entries(KEY_TO_FIELD)) {
+    const dbValue = grouped?.[dbKey] ?? null;
+    const defaults = DEFAULTS[fieldName as WarrantySettingType];
+    if (dbValue && typeof dbValue === 'object' && !Array.isArray(dbValue) && defaults && typeof defaults === 'object' && !Array.isArray(defaults)) {
+      result[fieldName] = deepMerge(defaults as unknown as Record<string, unknown>, dbValue as Record<string, unknown>);
+    } else {
+      result[fieldName] = dbValue ?? defaults ?? null;
+    }
   }
-  return result.data as WarrantySettingValue;
+  return result;
 }
 
 /**
- * Hook to fetch a specific warranty settings section
+ * Hook to fetch a specific warranty settings section (uses batch-fetched cache)
  */
 export function useWarrantySettingSection<T = WarrantySettingValue>(type: WarrantySettingType) {
   return useQuery({
-    queryKey: warrantySettingsKeys.section(type),
-    queryFn: () => fetchWarrantySettingSection<T>(type),
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 30 * 60 * 1000, // 30 minutes
+    queryKey: warrantySettingsKeys.all,
+    queryFn: fetchAllWarrantySettings,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    select: (data) => (data[type] as T) ?? (DEFAULTS[type] as T),
   });
 }
 
 /**
- * Hook to fetch all warranty settings sections
+ * Hook to fetch all warranty settings sections (single API call)
  */
 export function useWarrantySettings() {
-  const sla = useWarrantySettingSection<SlaTargets>('sla-targets');
-  const templates = useWarrantySettingSection<unknown[]>('reminder-templates');
-  const notifications = useWarrantySettingSection<NotificationSettings>('notifications');
-  const publicTracking = useWarrantySettingSection<TrackingSettings>('tracking');
-  const cardColors = useWarrantySettingSection<CardColorSettings>('cardColors');
+  const query = useQuery({
+    queryKey: warrantySettingsKeys.all,
+    queryFn: fetchAllWarrantySettings,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+  });
 
-  const isLoading = sla.isLoading || templates.isLoading || notifications.isLoading || publicTracking.isLoading || cardColors.isLoading;
-  const error = sla.error || templates.error || notifications.error || publicTracking.error || cardColors.error;
-
+  const d = query.data;
   return {
     data: {
-      sla: sla.data ?? (DEFAULTS['sla-targets'] as SlaTargets),
-      templates: templates.data ?? (DEFAULTS['reminder-templates'] as unknown[]),
-      notifications: notifications.data ?? (DEFAULTS['notifications'] as NotificationSettings),
-      publicTracking: publicTracking.data ?? (DEFAULTS['tracking'] as TrackingSettings),
-      cardColors: cardColors.data ?? (DEFAULTS['cardColors'] as CardColorSettings),
+      sla: (d?.['sla-targets'] ?? DEFAULTS['sla-targets']) as SlaTargets,
+      templates: (d?.['reminder-templates'] ?? DEFAULTS['reminder-templates']) as unknown[],
+      notifications: (d?.notifications ?? DEFAULTS['notifications']) as NotificationSettings,
+      publicTracking: (d?.tracking ?? DEFAULTS['tracking']) as TrackingSettings,
+      cardColors: (d?.cardColors ?? DEFAULTS['cardColors']) as CardColorSettings,
     },
-    isLoading,
-    error,
+    isLoading: query.isLoading,
+    error: query.error,
   };
 }
 
@@ -192,24 +213,27 @@ export function useWarrantySettingsMutations() {
   const queryClient = useQueryClient();
 
   const updateSection = useMutation({
-    mutationFn: ({ type, data }: { type: WarrantySettingType; data: WarrantySettingValue }) =>
-      updateWarrantySettingSection(type, data),
+    mutationFn: async ({ type, data }: { type: WarrantySettingType; data: WarrantySettingValue }) => {
+      const result = await updateModuleSettingSection('warranty', type, data);
+      if (!result.success) throw new Error(result.error);
+      return result.data as WarrantySettingValue;
+    },
     onMutate: async (variables) => {
-      // Cancel outgoing refetches to avoid overwriting optimistic update
-      await queryClient.cancelQueries({ queryKey: warrantySettingsKeys.section(variables.type) });
-      // Snapshot previous value
-      const previous = queryClient.getQueryData(warrantySettingsKeys.section(variables.type));
-      // Optimistically update cache
-      queryClient.setQueryData(warrantySettingsKeys.section(variables.type), variables.data);
+      await queryClient.cancelQueries({ queryKey: warrantySettingsKeys.all });
+      const previous = queryClient.getQueryData(warrantySettingsKeys.all);
+      // Optimistically update the batch cache
+      queryClient.setQueryData(warrantySettingsKeys.all, (old: Record<string, unknown> | undefined) => {
+        if (!old) return old;
+        return { ...old, [variables.type]: variables.data };
+      });
       return { previous };
     },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: warrantySettingsKeys.section(variables.type) });
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: warrantySettingsKeys.all });
     },
-    onError: (error: Error, variables, context) => {
-      // Rollback on error
+    onError: (error: Error, _variables, context) => {
       if (context?.previous !== undefined) {
-        queryClient.setQueryData(warrantySettingsKeys.section(variables.type), context.previous);
+        queryClient.setQueryData(warrantySettingsKeys.all, context.previous);
       }
       toast.error(`Lỗi: ${error.message}`);
     },

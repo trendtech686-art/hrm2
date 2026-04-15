@@ -1,5 +1,8 @@
 import { prisma } from '@/lib/prisma';
 import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils';
+import { logError } from '@/lib/logger'
+import { createNotification } from '@/lib/notifications'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 interface RouteParams {
   params: Promise<{ systemId: string; packagingId: string }>;
@@ -115,9 +118,32 @@ export async function POST(request: Request, { params }: RouteParams) {
       return updated;
     });
 
+    // Log activity
+    await createActivityLog({
+      entityType: 'order',
+      entityId: systemId,
+      action: `Xác nhận đóng gói hoàn tất - ${updatedOrder.id || systemId}`,
+      actionType: 'status',
+      createdBy: session.user?.employee?.fullName || session.user?.name || session.user?.id || undefined,
+    }).catch(e => logError('[Packaging Confirm] activity log failed', e));
+
+    // Notify salesperson about packaging confirmed
+    if (updatedOrder.salespersonId && updatedOrder.salespersonId !== session.user?.employeeId) {
+      createNotification({
+        type: 'order',
+        title: 'Đóng gói hoàn tất',
+        message: `Đơn hàng ${updatedOrder.id || systemId} đã đóng gói xong`,
+        link: `/orders/${systemId}`,
+        recipientId: updatedOrder.salespersonId,
+        senderId: session.user?.employeeId,
+        senderName: session.user?.name,
+        settingsKey: 'order:packaging',
+      }).catch(e => logError('[Packaging Confirm] notification failed', e));
+    }
+
     return apiSuccess(updatedOrder);
   } catch (error) {
-    console.error('Error confirming packaging:', error);
+    logError('Error confirming packaging', error);
     return apiError('Failed to confirm packaging', 500);
   }
 }

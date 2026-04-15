@@ -5,6 +5,8 @@
  * recharts library is ~200KB
  */
 
+'use client'
+
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -17,7 +19,7 @@ function ChartSkeleton() {
         <Skeleton className="h-5 w-32" />
       </CardHeader>
       <CardContent>
-        <Skeleton className="w-full h-[400px]" />
+        <Skeleton className="w-full h-100" />
       </CardContent>
     </Card>
   );

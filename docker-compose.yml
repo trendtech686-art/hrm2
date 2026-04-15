@@ -27,6 +27,11 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '2.0'
 
   # ===========================================
   # PostgreSQL (if you want to run in Docker)

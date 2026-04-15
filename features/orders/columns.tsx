@@ -144,6 +144,7 @@ export interface OrderColumnActions {
   onPrintPacking?: (order: Order) => void;
   onPrintShippingLabel?: (order: Order) => void;
   onPrintDelivery?: (order: Order) => void;
+  onPrintProductLabels?: (order: Order) => void;
 }
 
 export const getColumns = (
@@ -154,6 +155,7 @@ export const getColumns = (
     onPrintPacking?: (order: Order) => void;
     onPrintShippingLabel?: (order: Order) => void;
     onPrintDelivery?: (order: Order) => void;
+    onPrintProductLabels?: (order: Order) => void;
   }
 ): ColumnDef<Order>[] => [
   {
@@ -188,7 +190,7 @@ export const getColumns = (
     header: "Mã ĐH",
     cell: ({ row }) => (
       <Link href={`/orders/${row.systemId}`} 
-        className="text-body-sm font-medium text-primary hover:underline"
+        className="text-sm font-medium text-primary hover:underline"
         prefetch={true}
       >
         {row.id}
@@ -236,13 +238,11 @@ export const getColumns = (
     id: 'totalPaid',
     header: 'Đã thanh toán',
     cell: ({ row }) => {
-        // ✅ Convert Decimal string to Number
-        const totalPaid = (row.payments || []).reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-        // ✅ For exchange orders, add linkedSalesReturnValue as "paid" (since it's deducted from return)
+        // ✅ Use paidAmount from DB (source of truth, updated by addOrderPaymentAction)
+        const totalPaid = Number(row.paidAmount) || 0;
+        // ✅ For exchange orders, include linkedSalesReturnValue as effective payment
         const linkedReturnValue = Number(row.linkedSalesReturnValue) || 0;
-        // Total paid = actual payments + value from sales return deduction
-        const effectivePaid = totalPaid + linkedReturnValue;
-        return formatCurrency(effectivePaid);
+        return formatCurrency(totalPaid + linkedReturnValue);
     },
     meta: { displayName: 'Đã thanh toán', group: "Tài chính" }
   },
@@ -250,12 +250,12 @@ export const getColumns = (
     id: 'debt',
     header: 'Còn lại',
     cell: ({ row }) => {
-        // ✅ Convert Decimal string to Number
-        const totalPaid = (row.payments || []).reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+        // ✅ Use paidAmount from DB (source of truth)
+        const totalPaid = Number(row.paidAmount) || 0;
         // ✅ For exchange orders, subtract linkedSalesReturnValue
         const linkedReturnValue = Number(row.linkedSalesReturnValue) || 0;
         const remaining = (Number(row.grandTotal) || 0) - linkedReturnValue - totalPaid;
-        return <span className={remaining > 0 ? 'text-body-sm text-destructive font-semibold' : ''}>{formatCurrency(Math.max(0, remaining))}</span>;
+        return <span className={remaining > 0 ? 'text-sm text-destructive font-semibold' : ''}>{formatCurrency(Math.max(0, remaining))}</span>;
     },
     meta: { displayName: 'Còn lại', group: "Tài chính" }
   },
@@ -281,20 +281,20 @@ export const getColumns = (
     accessorKey: "paymentStatus",
     header: "TT Thanh toán",
     cell: ({ row }) => {
-      // ✅ For exchange orders, calculate actual payment status
-      const totalPaid = (row.payments || []).reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+      // ✅ Use paidAmount from DB (source of truth)
+      const totalPaid = Number(row.paidAmount) || 0;
       const linkedReturnValue = Number(row.linkedSalesReturnValue) || 0;
-      const effectivePaid = totalPaid + linkedReturnValue;
-      const grandTotal = Number(row.grandTotal) || 0;
+      // ✅ Net total = grandTotal - linkedReturnValue (for exchange orders)
+      const netTotal = Math.max(0, (Number(row.grandTotal) || 0) - linkedReturnValue);
       
-      // Determine actual payment status
+      // Determine actual payment status based on paidAmount vs netTotal
       let actualStatus: string;
       let label: string;
       
-      if (effectivePaid >= grandTotal && grandTotal > 0) {
+      if (totalPaid >= netTotal && netTotal > 0) {
         actualStatus = 'PAID';
         label = 'Đã thanh toán';
-      } else if (effectivePaid > 0) {
+      } else if (totalPaid > 0) {
         actualStatus = 'PARTIAL';
         label = 'Thanh toán 1 phần';
       } else {
@@ -642,6 +642,11 @@ export const getColumns = (
                 disabled={!hasConfirmedPackaging}
               >
                 In phiếu giao hàng
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onSelect={() => printActions?.onPrintProductLabels?.(row)}
+              >
+                In tem phụ
               </DropdownMenuItem>
               
               <DropdownMenuSeparator />

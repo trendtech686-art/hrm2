@@ -7,9 +7,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useStockTransfer, useStockTransferMutations } from '../hooks/use-stock-transfers';
 import { useAllBranches } from '@/features/settings/branches/hooks/use-all-branches';
-import { useAllProducts, useProductFinder } from '@/features/products/hooks/use-all-products';
+import { useProductFinder } from '@/features/products/hooks/use-all-products';
 import { ProductImage } from '@/features/products/components/product-image';
-import { useEmployeeFinder } from '@/features/employees/hooks/use-all-employees';
 import { useAuth } from '@/contexts/auth-context';
 import { usePageHeader } from '@/contexts/page-header-context';
 import { ROUTES } from '@/lib/router';
@@ -98,10 +97,8 @@ export function StockTransferEditPage() {
   });
   
   const { data: branches } = useAllBranches();
-  useAllProducts(); // Load products for type reference
   const { findById: findProductById } = useProductFinder();
-  const { findById: findEmployeeById } = useEmployeeFinder();
-  const { user } = useAuth();
+  const { user, employee: currentEmployee } = useAuth();
   const { setPageHeader, clearPageHeader } = usePageHeader();
   
   const [isProductDialogOpen, setIsProductDialogOpen] = React.useState(false);
@@ -110,12 +107,6 @@ export function StockTransferEditPage() {
   const canFullEdit = transfer?.status === 'pending';
   const canLimitedEdit = transfer?.status === 'transferring' || transfer?.status === 'completed';
   const canEdit = canFullEdit || canLimitedEdit;
-
-  // Get current employee
-  const currentEmployee = React.useMemo(() => {
-    if (!user?.employeeId) return null;
-    return findEmployeeById(asSystemId(user.employeeId));
-  }, [user, findEmployeeById]);
 
   // Full edit form
   const fullEditForm = useForm<FullEditFormData>({

@@ -157,17 +157,22 @@ export async function getProducts(
 }
 
 /**
- * Get product by systemId - Request memoized
+ * Get product by systemId - Persistent cache (30s) + Request dedup
  */
-export const getProductById = cache(async (systemId: string) => {
-  return prisma.product.findUnique({
-    where: { systemId },
-    include: {
-      brand: true,
-      prices: true,
-    },
-  });
-});
+const _getProductById = unstable_cache(
+  async (systemId: string) => {
+    return prisma.product.findUnique({
+      where: { systemId },
+      include: {
+        brand: true,
+        prices: true,
+      },
+    });
+  },
+  ['product-by-id'],
+  { revalidate: CACHE_TTL.SHORT / 1000, tags: [CACHE_TAGS.PRODUCTS] }
+);
+export const getProductById = cache((systemId: string) => _getProductById(systemId));
 
 /**
  * Get products for dropdown/select - CACHED (5 min)
@@ -228,24 +233,80 @@ export const getProductsCountByStatus = unstable_cache(
  */
 export const getProductStats = unstable_cache(
   async () => {
-    const [totalProducts, activeProducts, outOfStockCount, lowStockCount, totalValueResult, deletedCount] = await Promise.all([
+    const completedStatuses = ['DELIVERED', 'COMPLETED'] as const
+
+    const [
+      totalProducts,
+      stockStats,
+      deletedCount,
+      soldAgg,
+      returnedAgg,
+      orderCount,
+      customerCount,
+      revenueAgg,
+      returnValueAgg,
+    ] = await Promise.all([
       prisma.product.count({ where: { isDeleted: false } }),
-      prisma.product.count({ where: { isDeleted: false, status: 'ACTIVE' } }),
-      prisma.product.count({ where: { isDeleted: false, type: { not: 'COMBO' }, totalInventory: { lte: 0 } } }),
-      prisma.$queryRaw<[{ count: bigint }]>`
-        SELECT COUNT(*)::bigint as count FROM products
-        WHERE "isDeleted" = false AND type != 'COMBO'
-          AND "reorderLevel" IS NOT NULL AND "totalInventory" > 0
-          AND "totalInventory" <= "reorderLevel"
-      `.then(r => Number(r[0]?.count ?? 0)),
-      prisma.$queryRaw<[{ total: number | null }]>`
-        SELECT COALESCE(SUM("costPrice" * "totalInventory"), 0)::float as total
-        FROM products WHERE "isDeleted" = false AND type != 'COMBO'
-      `.then(r => r[0]?.total ?? 0),
+      // Stock stats — computed from productInventory (source of truth)
+      prisma.$queryRaw<[{ in_stock: bigint; out_of_stock: bigint; total_value: number }]>`
+        SELECT
+          COUNT(*) FILTER (WHERE COALESCE(pi_agg.total_on_hand, 0) > 0) as in_stock,
+          COUNT(*) FILTER (WHERE COALESCE(pi_agg.total_on_hand, 0) <= 0) as out_of_stock,
+          COALESCE(SUM(p."costPrice" * COALESCE(pi_agg.total_on_hand, 0)), 0)::float as total_value
+        FROM products p
+        LEFT JOIN (
+          SELECT "productId", SUM("onHand")::int as total_on_hand
+          FROM product_inventory
+          GROUP BY "productId"
+        ) pi_agg ON pi_agg."productId" = p."systemId"
+        WHERE p."isDeleted" = false AND p.type != 'COMBO'
+      `.then(r => ({
+        inStock: Number(r[0]?.in_stock ?? 0),
+        outOfStock: Number(r[0]?.out_of_stock ?? 0),
+        totalValue: r[0]?.total_value ?? 0,
+      })),
       prisma.product.count({ where: { isDeleted: true } }),
+      prisma.orderLineItem.aggregate({
+        _sum: { quantity: true },
+        where: { order: { status: { in: [...completedStatuses] } } },
+      }).then(r => r._sum.quantity ?? 0),
+      prisma.salesReturnItem.aggregate({
+        _sum: { quantity: true },
+        where: { salesReturn: { status: 'COMPLETED' } },
+      }).then(r => r._sum.quantity ?? 0),
+      prisma.order.count({
+        where: { status: { in: [...completedStatuses] } },
+      }),
+      prisma.$queryRaw<[{ count: bigint }]>`
+        SELECT COUNT(DISTINCT "customerId")::bigint as count
+        FROM orders
+        WHERE status IN ('DELIVERED', 'COMPLETED')
+          AND "customerId" IS NOT NULL
+      `.then(r => Number(r[0]?.count ?? 0)),
+      prisma.order.aggregate({
+        _sum: { grandTotal: true },
+        where: { status: { in: [...completedStatuses] } },
+      }).then(r => Number(r._sum.grandTotal ?? 0)),
+      prisma.salesReturn.aggregate({
+        _sum: { totalReturnValue: true },
+        where: { status: 'COMPLETED' },
+      }).then(r => Number(r._sum.totalReturnValue ?? 0)),
     ]);
 
-    return { totalProducts, activeProducts, outOfStock: outOfStockCount, lowStock: lowStockCount, totalValue: totalValueResult, deletedCount };
+    return {
+      totalProducts,
+      inStock: stockStats.inStock,
+      outOfStock: stockStats.outOfStock,
+      totalValue: stockStats.totalValue,
+      deletedCount,
+      quantitySold: soldAgg,
+      quantityReturned: returnedAgg,
+      netQuantitySold: Number(soldAgg) - Number(returnedAgg),
+      orderCount,
+      customerCount,
+      revenue: revenueAgg,
+      returnValue: returnValueAgg,
+    };
   },
   ['products-stats'],
   { revalidate: CACHE_TTL.SHORT, tags: [CACHE_TAGS.PRODUCTS, CACHE_TAGS.INVENTORY] }

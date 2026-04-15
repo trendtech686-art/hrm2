@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma'
 import { Prisma } from '@/generated/prisma/client'
 import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
 import { randomUUID } from 'crypto'
+import { logError } from '@/lib/logger'
 
 /**
  * Parse Prisma errors into user-friendly messages
@@ -164,7 +165,7 @@ export async function POST(request: Request) {
 
     // Start background processing (non-blocking)
     processImportJob(job.id).catch(err => {
-      console.error(`Import job ${job.id} failed:`, err)
+      logError(`Import job ${job.id} failed`, err)
     })
 
     return apiSuccess({
@@ -175,7 +176,7 @@ export async function POST(request: Request) {
       message: 'Import job created. Check /settings/import-export-logs for progress.',
     })
   } catch (error) {
-    console.error('Error creating import job:', error)
+    logError('Error creating import job', error)
     return apiError(
       error instanceof Error ? error.message : 'Failed to create import job',
       500
@@ -230,7 +231,7 @@ export async function GET(request: Request) {
 
     return apiSuccess(jobs)
   } catch (error) {
-    console.error('Error listing import jobs:', error)
+    logError('Error listing import jobs', error)
     return apiError('Failed to list import jobs', 500)
   }
 }
@@ -261,7 +262,12 @@ async function processImportJob(jobId: string) {
       },
     })
 
-    const data = JSON.parse(job.importData) as Record<string, unknown>[]
+    let data: Record<string, unknown>[]
+    try {
+      data = JSON.parse(job.importData) as Record<string, unknown>[]
+    } catch {
+      return apiError('Import data is corrupted', 400)
+    }
     const entityType = job.entityType
     const mode = job.importMode as 'insert-only' | 'update-only' | 'upsert'
     
@@ -341,7 +347,7 @@ async function processImportJob(jobId: string) {
     })
 
   } catch (error) {
-    console.error(`Import job ${jobId} error:`, error)
+    logError(`Import job ${jobId} error`, error)
     
     await prisma.importExportLog.update({
       where: { id: jobId },
@@ -539,7 +545,6 @@ function mapCustomerCreate(row: Record<string, unknown>, customerId: string, sys
     name: String(row.name).trim(),
     customerGroup: row.customerGroup ? String(row.customerGroup) : undefined,
     phone: row.phone ? String(row.phone) : undefined,
-    email: row.email ? String(row.email) : undefined,
     gender: row.gender ? String(row.gender) : undefined,
     dateOfBirth: row.dateOfBirth ? new Date(row.dateOfBirth as string) : undefined,
     taxCode: row.taxCode ? String(row.taxCode) : undefined,
@@ -565,16 +570,11 @@ function mapCustomerCreate(row: Record<string, unknown>, customerId: string, sys
     representative: row.representative ? String(row.representative) : undefined,
     position: row.position ? String(row.position) : undefined,
     zaloPhone: row.zaloPhone ? String(row.zaloPhone) : undefined,
-    bankName: row.bankName ? String(row.bankName) : undefined,
-    bankAccount: row.bankAccount ? String(row.bankAccount) : undefined,
     paymentTerms: row.paymentTerms ? String(row.paymentTerms) : undefined,
     creditRating: row.creditRating ? String(row.creditRating) : undefined,
     defaultDiscount: row.defaultDiscount ? Number(row.defaultDiscount) : undefined,
     campaign: row.campaign ? String(row.campaign) : undefined,
     referredBy: row.referredBy ? String(row.referredBy) : undefined,
-    segment: row.segment ? String(row.segment) : undefined,
-    healthScore: row.healthScore ? Number(row.healthScore) : undefined,
-    churnRisk: row.churnRisk ? String(row.churnRisk) : undefined,
     lastContactDate: row.lastContactDate ? new Date(row.lastContactDate as string) : undefined,
     nextFollowUpDate: row.nextFollowUpDate ? new Date(row.nextFollowUpDate as string) : undefined,
     followUpReason: row.followUpReason ? String(row.followUpReason) : undefined,
@@ -593,7 +593,6 @@ function mapCustomerUpdate(row: Record<string, unknown>) {
   if (row.name) update.name = String(row.name).trim()
   if (row.customerGroup !== undefined) update.customerGroup = row.customerGroup || null
   if (row.phone !== undefined) update.phone = row.phone || null
-  if (row.email !== undefined) update.email = row.email || null
   if (row.gender !== undefined) update.gender = row.gender || null
   if (row.dateOfBirth !== undefined) update.dateOfBirth = row.dateOfBirth ? new Date(row.dateOfBirth as string) : null
   if (row.taxCode !== undefined) update.taxCode = row.taxCode || null
@@ -617,16 +616,11 @@ function mapCustomerUpdate(row: Record<string, unknown>) {
   if (row.representative !== undefined) update.representative = row.representative || null
   if (row.position !== undefined) update.position = row.position || null
   if (row.zaloPhone !== undefined) update.zaloPhone = row.zaloPhone || null
-  if (row.bankName !== undefined) update.bankName = row.bankName || null
-  if (row.bankAccount !== undefined) update.bankAccount = row.bankAccount || null
   if (row.paymentTerms !== undefined) update.paymentTerms = row.paymentTerms || null
   if (row.creditRating !== undefined) update.creditRating = row.creditRating || null
   if (row.defaultDiscount !== undefined) update.defaultDiscount = row.defaultDiscount ? Number(row.defaultDiscount) : null
   if (row.campaign !== undefined) update.campaign = row.campaign || null
   if (row.referredBy !== undefined) update.referredBy = row.referredBy || null
-  if (row.segment !== undefined) update.segment = row.segment || null
-  if (row.healthScore !== undefined) update.healthScore = row.healthScore ? Number(row.healthScore) : null
-  if (row.churnRisk !== undefined) update.churnRisk = row.churnRisk || null
   if (row.lastContactDate !== undefined) update.lastContactDate = row.lastContactDate ? new Date(row.lastContactDate as string) : null
   if (row.nextFollowUpDate !== undefined) update.nextFollowUpDate = row.nextFollowUpDate ? new Date(row.nextFollowUpDate as string) : null
   if (row.followUpReason !== undefined) update.followUpReason = row.followUpReason || null

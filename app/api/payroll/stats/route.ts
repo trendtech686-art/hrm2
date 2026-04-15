@@ -14,6 +14,7 @@
 
 import { prisma } from '@/lib/prisma';
 import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils';
+import { logError } from '@/lib/logger'
 
 export async function GET() {
   const session = await requireAuth();
@@ -60,7 +61,7 @@ export async function GET() {
       previousMonthKey,
     });
   } catch (error) {
-    console.error('[Payroll Stats API] GET error:', error);
+    logError('[Payroll Stats API] GET error', error);
     return apiError('Failed to fetch payroll stats', 500);
   }
 }

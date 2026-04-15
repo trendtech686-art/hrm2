@@ -4,8 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../../compo
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table';
 import { formatDateForDisplay } from '@/lib/date-utils';
 import { Badge } from '../../../components/ui/badge';
-import { useAllStockTransfers } from '../../stock-transfers/hooks/use-all-stock-transfers';
-import { useProductFinder } from '../hooks/use-all-products';
+import { useProductStockTransfers } from '../hooks/use-product-related-data';
 import type { SystemId } from '../../../lib/id-types';
 
 interface InTransitStockDialogProps {
@@ -25,12 +24,9 @@ export function InTransitStockDialog({
   branchName,
   productName,
 }: InTransitStockDialogProps) {
-  const { data: allStockTransfers } = useAllStockTransfers();
-  const { findById: findProductById } = useProductFinder();
+  // ✅ OPTIMIZED: Server-side filtered by product instead of loading ALL
+  const { data: allStockTransfers = [] } = useProductStockTransfers(productSystemId);
   const router = useRouter();
-
-  const product = React.useMemo(() => findProductById(productSystemId), [findProductById, productSystemId]);
-  const _productSku = product?.id;
 
   // ✅ Find stock transfers where this branch is receiving (inTransit means goods coming TO this branch)
   const inTransitTransfers = React.useMemo(() => {
@@ -42,12 +38,12 @@ export function InTransitStockDialog({
 
         // Check if transfer contains this product
         return transfer.items?.some(item => 
-          item.productSystemId === productSystemId
+          (item.productId as string) === (productSystemId as string)
         );
       })
       .map(transfer => {
         const matchingItems = transfer.items?.filter(item =>
-          item.productSystemId === productSystemId
+          (item.productId as string) === (productSystemId as string)
         ) || [];
 
         const quantity = matchingItems.reduce((sum, item) => sum + (item.quantity || 0), 0);
@@ -81,8 +77,8 @@ export function InTransitStockDialog({
           <DialogTitle>
             Hàng đang về: {productName}
           </DialogTitle>
-          <div className="text-body-sm text-muted-foreground">
-            Chi nhánh: {branchName} • Tổng đang về: <span className="text-body-sm font-medium text-orange-600">{totalInTransit}</span> sản phẩm
+          <div className="text-sm text-muted-foreground">
+            Chi nhánh: {branchName} • Tổng đang về: <span className="text-sm font-medium text-orange-600">{totalInTransit}</span> sản phẩm
           </div>
         </DialogHeader>
 
@@ -107,12 +103,12 @@ export function InTransitStockDialog({
               <TableBody>
                 {inTransitTransfers.map(transfer => (
                   <TableRow key={transfer.systemId} className="cursor-pointer hover:bg-muted/60" onClick={() => handleRowClick(transfer)}>
-                    <TableCell className="text-body-sm font-medium text-primary">{transfer.id}</TableCell>
+                    <TableCell className="text-sm font-medium text-primary">{transfer.id}</TableCell>
                     <TableCell>{transfer.date ? formatDateForDisplay(transfer.date) : '-'}</TableCell>
                     <TableCell>{transfer.fromBranchName || '—'}</TableCell>
                     <TableCell>{transfer.toBranchName || '—'}</TableCell>
                     <TableCell>{transfer.transferredByName || '—'}</TableCell>
-                    <TableCell className="text-right text-body-sm font-medium text-orange-600">{transfer.quantity}</TableCell>
+                    <TableCell className="text-right text-sm font-medium text-orange-600">{transfer.quantity}</TableCell>
                     <TableCell>
                       <Badge variant="secondary">Đang vận chuyển</Badge>
                     </TableCell>

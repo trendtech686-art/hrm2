@@ -206,19 +206,19 @@ export function OrderSummaryCard({
         {/* Summary rows */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-body-sm text-muted-foreground">Số lượng</span>
-            <span className="text-body-sm font-medium">{totalQuantity}</span>
+            <span className="text-sm text-muted-foreground">Số lượng</span>
+            <span className="text-sm font-medium">{totalQuantity}</span>
           </div>
 
           <div className="flex items-center justify-between">
-            <span className="text-body-sm text-muted-foreground">Tổng tiền hàng</span>
-            <span className="text-body-sm font-medium">{formatCurrency(subtotal)}</span>
+            <span className="text-sm text-muted-foreground">Tổng tiền hàng</span>
+            <span className="text-sm font-medium">{formatCurrency(subtotal)}</span>
           </div>
 
           {tax > 0 && (
             <div className="flex items-center justify-between">
-              <span className="text-body-sm text-muted-foreground">Thuế VAT</span>
-              <span className="text-body-sm font-medium">{formatCurrency(tax)}</span>
+              <span className="text-sm text-muted-foreground">Thuế VAT</span>
+              <span className="text-sm font-medium">{formatCurrency(tax)}</span>
             </div>
           )}
 
@@ -227,7 +227,7 @@ export function OrderSummaryCard({
           {/* Discount with type toggle */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label htmlFor="discount" className="text-body-sm text-muted-foreground">
+              <Label htmlFor="discount" className="text-sm text-muted-foreground">
                 Chiết khấu
               </Label>
               <Select
@@ -282,12 +282,12 @@ export function OrderSummaryCard({
               />
             )}
             {discountType === "percentage" && discount > 0 && (
-              <p className="text-body-xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 = {formatCurrency(discountAmount)}
               </p>
             )}
             {discountType === "percentage" && discount > 100 && (
-              <p className="text-body-xs text-red-500">
+              <p className="text-xs text-red-500">
                 Chiết khấu không thể vượt quá 100%
               </p>
             )}
@@ -296,7 +296,7 @@ export function OrderSummaryCard({
           {/* Shipping Fees */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label className="text-body-sm text-muted-foreground">
+              <Label className="text-sm text-muted-foreground">
                 Chi phí vận chuyển (Trả bên thứ 3)
               </Label>
               <Button
@@ -316,7 +316,7 @@ export function OrderSummaryCard({
                   onChange={(e) =>
                     handleUpdateShippingFee(fee.id, "name", e.target.value)
                   }
-                  className="w-full text-body-sm"
+                  className="w-full text-sm"
                 />
                 <CurrencyInput
                   value={fee.amount}
@@ -325,7 +325,7 @@ export function OrderSummaryCard({
                     handleUpdateShippingFee(fee.id, "amount", value);
                   }}
                   placeholder="0"
-                  className="flex-1 text-body-sm"
+                  className="flex-1 text-sm"
                 />
                 <Button
                   variant="ghost"
@@ -338,7 +338,7 @@ export function OrderSummaryCard({
               </div>
             ))}
             {shippingFees.length === 0 && (
-              <p className="text-body-xs text-muted-foreground italic">
+              <p className="text-xs text-muted-foreground italic">
                 Chưa có phí vận chuyển
               </p>
             )}
@@ -347,7 +347,7 @@ export function OrderSummaryCard({
           {/* Other Fees */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label className="text-body-sm text-muted-foreground">Chi phí khác (Trả bên thứ 3)</Label>
+              <Label className="text-sm text-muted-foreground">Chi phí khác (Trả bên thứ 3)</Label>
               <Button
                 variant="ghost"
                 size="sm"
@@ -365,7 +365,7 @@ export function OrderSummaryCard({
                   onChange={(e) =>
                     handleUpdateOtherFee(fee.id, "name", e.target.value)
                   }
-                  className="w-full text-body-sm"
+                  className="w-full text-sm"
                 />
                 <CurrencyInput
                   value={fee.amount}
@@ -374,7 +374,7 @@ export function OrderSummaryCard({
                     handleUpdateOtherFee(fee.id, "amount", value);
                   }}
                   placeholder="0"
-                  className="flex-1 text-body-sm"
+                  className="flex-1 text-sm"
                 />
                 <Button
                   variant="ghost"
@@ -387,7 +387,7 @@ export function OrderSummaryCard({
               </div>
             ))}
             {otherFees.length === 0 && (
-              <p className="text-body-xs text-muted-foreground italic">
+              <p className="text-xs text-muted-foreground italic">
                 Chưa có chi phí khác
               </p>
             )}
@@ -398,8 +398,8 @@ export function OrderSummaryCard({
           {/* Tổng chi phí (tham khảo) */}
           {(totalShippingFees > 0 || totalOtherFees > 0) && (
             <div className="flex items-center justify-between text-muted-foreground">
-              <span className="text-body-sm">Tổng chi phí nhập hàng</span>
-              <span className="text-body-sm font-medium">
+              <span className="text-sm">Tổng chi phí nhập hàng</span>
+              <span className="text-sm font-medium">
                 {formatCurrency(totalCost)}
               </span>
             </div>
@@ -407,7 +407,7 @@ export function OrderSummaryCard({
 
           {/* Tiền cần trả NCC */}
           <div className="flex items-center justify-between">
-            <span className="text-body-sm text-muted-foreground">Tiền cần trả NCC</span>
+            <span className="text-sm text-muted-foreground">Tiền cần trả NCC</span>
             <span className="text-h3 font-bold">
               {formatCurrency(grandTotal)}
             </span>
@@ -431,7 +431,7 @@ export function OrderSummaryCard({
             </div>
 
             {payments.length === 0 ? (
-              <p className="text-body-xs text-muted-foreground italic text-center py-4">
+              <p className="text-xs text-muted-foreground italic text-center py-4">
                 Chưa có thanh toán nào
               </p>
             ) : (
@@ -439,16 +439,16 @@ export function OrderSummaryCard({
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-10 text-body-xs">STT</TableHead>
-                      <TableHead className="text-body-xs">Hình thức</TableHead>
-                      <TableHead className="text-body-xs">Số tiền</TableHead>
+                      <TableHead className="w-10 text-xs">STT</TableHead>
+                      <TableHead className="text-xs">Hình thức</TableHead>
+                      <TableHead className="text-xs">Số tiền</TableHead>
                       <TableHead className="w-10"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {payments.map((payment, index) => (
                       <TableRow key={payment.id}>
-                        <TableCell className="text-body-xs">{index + 1}</TableCell>
+                        <TableCell className="text-xs">{index + 1}</TableCell>
                         <TableCell>
                           <Select
                             value={payment.paymentMethodSystemId}
@@ -456,7 +456,7 @@ export function OrderSummaryCard({
                               handlePaymentMethodChange(payment.id, value)
                             }
                           >
-                            <SelectTrigger className="h-9 text-body-xs">
+                            <SelectTrigger className="h-9 text-xs">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -479,7 +479,7 @@ export function OrderSummaryCard({
                             onChange={(value) =>
                               handlePaymentAmountChange(payment.id, value)
                             }
-                            className="h-9 text-body-sm"
+                            className="h-9 text-sm"
                           />
                         </TableCell>
                         <TableCell>
@@ -502,11 +502,11 @@ export function OrderSummaryCard({
             {/* Payment Summary */}
             {payments.length > 0 && (
               <div className="space-y-2 pt-2">
-                <div className="flex justify-between text-body-sm">
+                <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Tổng đơn hàng:</span>
                   <span className="font-medium">{formatCurrency(grandTotal)}</span>
                 </div>
-                <div className="flex justify-between text-body-sm">
+                <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Đã thanh toán:</span>
                   <span className="font-medium text-green-600">
                     {formatCurrency(getTotalPaid())}
@@ -527,7 +527,7 @@ export function OrderSummaryCard({
                   </span>
                 </div>
                 {getRemainingAmount() < 0 && (
-                  <p className="text-body-xs text-amber-600 italic">
+                  <p className="text-xs text-amber-600 italic">
                     * Số tiền thanh toán vượt quá tổng đơn hàng
                   </p>
                 )}

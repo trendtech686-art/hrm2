@@ -3,8 +3,6 @@
  * Handles all tax-related API calls
  */
 
-import { fetchAllPages } from '@/lib/fetch-all-pages';
-
 import type { Tax } from '@/lib/types/prisma-extended';
 
 export interface TaxFilters {
@@ -166,8 +164,26 @@ export async function setDefaultPurchaseTax(
 }
 
 /**
+ * Set default tax for Excel export
+ */
+export async function setDefaultExcelExportTax(
+  systemId: string
+): Promise<Tax> {
+  const response = await fetch(`${BASE_URL}/${systemId}/set-default-excel-export`, {
+    method: 'POST',
+  });
+  
+  if (!response.ok) {
+    throw new Error('Failed to set default Excel export tax');
+  }
+  
+  return response.json();
+}
+
+/**
  * Get all taxes
  */
 export async function fetchAllTaxes(): Promise<Tax[]> {
-  return fetchAllPages((p) => fetchTaxes(p));
+  const res = await fetchTaxes();
+  return res.data;
 }

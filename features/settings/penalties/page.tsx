@@ -2,18 +2,17 @@
 import * as React from "react"
 import { useRouter } from 'next/navigation'
 import { formatDate } from '../../../lib/date-utils'
-import { useAllPenaltyTypes } from "./hooks/use-all-penalties";
 import { usePenalties, usePenaltyMutations } from "./hooks/use-penalties";
 import type { PenaltyFilters } from "./api/penalties-api";
 import { useAllEmployees } from "../../employees/hooks/use-all-employees"
 import { useAllBranches } from "../branches/hooks/use-all-branches"
-import { useStoreInfoData } from "../store-info/hooks/use-store-info"
+import { fetchPrintData } from '@/lib/lazy-print-data';
 import { useDefaultPageSize } from "../global/hooks/use-global-settings"
 import { getColumns } from "./columns"
 import { ResponsiveDataTable, type BulkAction } from "../../../components/data-table/responsive-data-table"
 import { DataTableFacetedFilter } from "../../../components/data-table/data-table-faceted-filter"
 import { toast } from "sonner"
-import { Card, CardContent } from "../../../components/ui/card"
+
 import { Button } from "../../../components/ui/button"
 import { PlusCircle, User, Calendar, MoreHorizontal, FileText, AlertTriangle, Printer } from "lucide-react"
 import type { Penalty, PenaltyStatus } from "./types"
@@ -33,6 +32,7 @@ import { usePrint } from "../../../lib/use-print"
 import { convertPenaltyForPrint, mapPenaltyToPrintData, createStoreSettings } from "../../../lib/print/penalty-print-helper"
 import { SimplePrintOptionsDialog, type SimplePrintOptionsResult } from "../../../components/shared/simple-print-options-dialog"
 import { useColumnLayout } from '../../../hooks/use-column-visibility'
+import { useAuth } from '@/contexts/auth-context'
 
 const formatCurrency = (v?: number | string) => {
   if (v === undefined || v === null) return '';
@@ -42,11 +42,13 @@ const formatCurrency = (v?: number | string) => {
 }
 
 export function PenaltiesPage() {
-  const { data: _penaltyTypes } = useAllPenaltyTypes();
+  const { can } = useAuth();
+  const canCreate = can('edit_employees');
+  const canEdit = can('edit_employees');
   const { update } = usePenaltyMutations();
   const { data: employees } = useAllEmployees()
   const { data: branches } = useAllBranches()
-  const { info: storeInfo } = useStoreInfoData()
+  // ⚡ OPTIMIZED: storeInfo lazy loaded in handlePrintConfirm
   const router = useRouter()
   const { printMultiple } = usePrint()
   const defaultPageSize = useDefaultPageSize()
@@ -79,7 +81,7 @@ export function PenaltiesPage() {
   const totalRows = paginationInfo?.total || 0;
   const pageCount = paginationInfo?.totalPages || 0;
 
-  usePageHeader({ actions: React.useMemo(() => [<Button key="add" size="sm" className="h-9" onClick={() => router.push('/penalties/new')}><PlusCircle className="mr-2 h-4 w-4" />Tạo phiếu phạt</Button>], [router]) })
+  usePageHeader({ actions: React.useMemo(() => [canCreate && <Button key="add" size="sm" className="h-9" onClick={() => router.push('/penalties/new')}><PlusCircle className="mr-2 h-4 w-4" />Tạo phiếu phạt</Button>].filter(Boolean), [router, canCreate]) })
   React.useEffect(() => { const t = setTimeout(() => setDebouncedGlobalFilter(globalFilter), 300); return () => clearTimeout(t) }, [globalFilter])
   // Reset page when filters change
   React.useEffect(() => { setPagination(p => ({ ...p, pageIndex: 0 })) }, [debouncedGlobalFilter, employeeFilter, statusFilter, categoryFilter])
@@ -88,8 +90,8 @@ export function PenaltiesPage() {
   const { visibility: columnVisibility, order: columnOrder, pinned: pinnedColumns } = columnLayout
   const { setVisibility: setColumnVisibility, setOrder: setColumnOrder, setPinned: setPinnedColumns } = columnLayoutSetters
 
-  const handleMarkPaid = React.useCallback((p: Penalty) => { update.mutate({ systemId: p.systemId, data: { status: "Đã thanh toán" as PenaltyStatus, updatedAt: new Date().toISOString() } }); toast.success("Đã cập nhật trạng thái", { description: `Phiếu phạt ${p.id} đã chuyển sang "Đã thanh toán"` }) }, [update])
-  const handleCancel = React.useCallback((p: Penalty) => { update.mutate({ systemId: p.systemId, data: { status: "Đã hủy" as PenaltyStatus, updatedAt: new Date().toISOString() } }); toast.success("Đã hủy phiếu phạt", { description: `Phiếu phạt ${p.id} đã bị hủy` }) }, [update])
+  const handleMarkPaid = React.useCallback((p: Penalty) => { update.mutate({ systemId: p.systemId, data: { status: "Đã thanh toán" as PenaltyStatus, updatedAt: new Date().toISOString() } }, { onSuccess: () => toast.success("Đã cập nhật trạng thái", { description: `Phiếu phạt ${p.id} đã chuyển sang "Đã thanh toán"` }), onError: (err) => toast.error(err.message) }) }, [update])
+  const handleCancel = React.useCallback((p: Penalty) => { update.mutate({ systemId: p.systemId, data: { status: "Đã hủy" as PenaltyStatus, updatedAt: new Date().toISOString() } }, { onSuccess: () => toast.success("Đã hủy phiếu phạt", { description: `Phiếu phạt ${p.id} đã bị hủy` }), onError: (err) => toast.error(err.message) }) }, [update])
   const columns = React.useMemo(() => getColumns(handleMarkPaid, handleCancel, router), [handleMarkPaid, handleCancel, router])
 
   const defaultVisibleCols = React.useMemo(() => new Set(['select', 'id', 'employeeName', 'penaltyTypeName', 'reason', 'amount', 'issueDate', 'issuerName', 'status', 'category', 'linkedComplaintSystemId', 'linkedOrderSystemId', 'deductedInPayrollId', 'createdAt', 'actions']), [])
@@ -109,11 +111,12 @@ export function PenaltiesPage() {
   const employeeOptions = React.useMemo(() => employees.map(e => ({ value: e.systemId, label: e.fullName })), [employees])
 
   const exportConfig = { fileName: 'Danh_sach_Phieu_phat', columns }
-  const importConfig: ImportConfig<Penalty> = { importer: items => { create.mutate(items.map(({ systemId: _, ...rest }) => rest) as Parameters<typeof create.mutate>[0]); return Promise.resolve(); }, fileName: 'Mau_Nhap_Phieu_phat', existingData: penalties, getUniqueKey: (item: Penalty) => item.id }
+  const importConfig: ImportConfig<Penalty> = { importer: items => { create.mutate(items.map(({ systemId: _, ...rest }) => rest) as Parameters<typeof create.mutate>[0]); return Promise.resolve(); }, fileName: 'Mau_Nhap_Phieu_phat', existingData: penalties, getUniqueKey: (item) => ('id' in item ? String(item.id) : item.systemId) }
 
   const handleBulkPrint = React.useCallback((rows: Penalty[]) => { setItemsToPrint(rows); setPrintDialogOpen(true) }, [])
-  const handlePrintConfirm = React.useCallback((options: SimplePrintOptionsResult) => {
+  const handlePrintConfirm = React.useCallback(async (options: SimplePrintOptionsResult) => {
     if (itemsToPrint.length === 0) return
+    const { storeInfo } = await fetchPrintData()
     printMultiple('penalty', itemsToPrint.map(penalty => {
       const employee = employees.find(e => e.systemId === penalty.employeeSystemId)
       const selectedBranch = options.branchSystemId ? branches.find(b => b.systemId === options.branchSystemId) : null
@@ -121,34 +124,32 @@ export function PenaltiesPage() {
       return { data: mapPenaltyToPrintData(convertPenaltyForPrint(penalty, { employee }), storeSettings), lineItems: [], paperSize: options.paperSize }
     }))
     toast.success(`Đang in ${itemsToPrint.length} phiếu phạt`); setItemsToPrint([]); setPrintDialogOpen(false)
-  }, [itemsToPrint, employees, branches, storeInfo, printMultiple])
+  }, [itemsToPrint, employees, branches, printMultiple])
 
   const bulkActions: BulkAction<Penalty>[] = [
     { label: "In phiếu", icon: Printer, onSelect: handleBulkPrint },
-    { label: "Đánh dấu đã thanh toán", onSelect: rows => { rows.forEach(p => update.mutate({ systemId: p.systemId, data: { status: "Đã thanh toán" as PenaltyStatus } })); toast.success("Đã cập nhật trạng thái", { description: `${rows.length} phiếu phạt đã chuyển sang "Đã thanh toán"` }); setRowSelection({}) } },
-    { label: "Hủy phiếu phạt", onSelect: rows => { rows.forEach(p => update.mutate({ systemId: p.systemId, data: { status: "Đã hủy" as PenaltyStatus } })); toast.success("Đã cập nhật trạng thái", { description: `${rows.length} phiếu phạt đã hủy` }); setRowSelection({}) } }
+    ...(canEdit ? [{ label: "Đánh dấu đã thanh toán", onSelect: (rows: Penalty[]) => { const total = rows.length; let done = 0; rows.forEach(p => update.mutate({ systemId: p.systemId, data: { status: "Đã thanh toán" as PenaltyStatus } }, { onSuccess: () => { done++; if (done === total) { toast.success("Đã cập nhật trạng thái", { description: `${total} phiếu phạt đã chuyển sang "Đã thanh toán"` }); setRowSelection({}) } }, onError: (err) => toast.error(err.message) })) } }] : []),
+    ...(canEdit ? [{ label: "Hủy phiếu phạt", onSelect: (rows: Penalty[]) => { const total = rows.length; let done = 0; rows.forEach(p => update.mutate({ systemId: p.systemId, data: { status: "Đã hủy" as PenaltyStatus } }, { onSuccess: () => { done++; if (done === total) { toast.success("Đã cập nhật trạng thái", { description: `${total} phiếu phạt đã hủy` }); setRowSelection({}) } }, onError: (err) => toast.error(err.message) })) } }] : [])
   ]
   const handleRowClick = (row: Penalty) => router.push(`/penalties/${row.systemId}`)
 
   const MobilePenaltyCard = ({ penalty }: { penalty: Penalty }) => {
     const statusVariant = { 'Chưa thanh toán': 'warning', 'Đã thanh toán': 'success', 'Đã hủy': 'secondary' }[penalty.status] as "warning" | "success" | "secondary" || 'secondary'
     return (
-      <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => handleRowClick(penalty)}>
-        <CardContent className="p-4">
+      <div className="rounded-xl border border-border/50 bg-card p-4 active:scale-[0.98] transition-transform touch-manipulation cursor-pointer" onClick={() => handleRowClick(penalty)}>
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2 flex-1 min-w-0"><AlertTriangle className="h-4 w-4 text-destructive shrink-0" /><span className="font-semibold text-sm font-mono">{penalty.id}</span><Badge variant={statusVariant} className="text-xs ml-auto">{penalty.status}</Badge></div>
-            <DropdownMenu><DropdownMenuTrigger asChild><TouchButton variant="ghost" size="sm" className="h-9 w-10 p-0 shrink-0 ml-2" onClick={e => e.stopPropagation()}><MoreHorizontal className="h-4 w-4" /></TouchButton></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={e => { e.stopPropagation(); router.push(`/penalties/${penalty.systemId}/edit`) }}>Chỉnh sửa</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
+            <DropdownMenu><DropdownMenuTrigger asChild><TouchButton variant="ghost" size="sm" className="h-8 w-8 p-0 shrink-0 -mr-2 -mt-1 ml-2" onClick={e => e.stopPropagation()}><MoreHorizontal className="h-4 w-4" /></TouchButton></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={e => { e.stopPropagation(); router.push(`/penalties/${penalty.systemId}/edit`) }}>Chỉnh sửa</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
           </div>
           <div className="flex items-center text-sm mb-2"><User className="h-3.5 w-3.5 mr-1.5 text-muted-foreground shrink-0" /><span className="font-medium truncate">{penalty.employeeName}</span></div>
           <div className="text-xs text-muted-foreground mb-3 line-clamp-2"><FileText className="h-3 w-3 mr-1.5 inline-flex shrink-0" />{penalty.reason}</div>
-          <div className="border-t mb-3" />
+          <div className="border-t border-border/50 mt-3 pt-3" />
           <div className="flex items-center justify-between text-xs">
             <div className="flex items-center gap-3"><span className="font-bold text-destructive text-sm">{formatCurrency(penalty.amount)} đ</span>{penalty.category && <Badge variant="outline" className="text-xs">{penaltyCategoryLabels[penalty.category]}</Badge>}</div>
             <div className="flex items-center text-muted-foreground"><Calendar className="h-3 w-3 mr-1" />{formatDate(penalty.issueDate)}</div>
           </div>
           <div className="text-xs text-muted-foreground mt-2 pt-2 border-t">Người lập: {penalty.issuerName}</div>
-        </CardContent>
-      </Card>
+      </div>
     )
   }
 

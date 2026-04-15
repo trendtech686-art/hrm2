@@ -21,5 +21,5 @@ export function calculateWarrantySettlementTotal(ticket?: WarrantyTicket | null)
     return sum;
   }, 0);
 
-  return productCompensation + (ticket.shippingFee ?? 0);
+  return productCompensation - (ticket.shippingFee ?? 0);
 }

@@ -1,6 +1,9 @@
 import { prisma } from '@/lib/prisma'
-import { Prisma, OrderStatus, PaymentStatus, DeliveryMethod, DiscountType, PackagingStatus, DeliveryStatus as PrismaDeliveryStatus, PrintStatus } from '@/generated/prisma/client'
+import { Prisma, OrderStatus, PaymentStatus, DeliveryMethod, DiscountType, PackagingStatus, DeliveryStatus as PrismaDeliveryStatus, PrintStatus, StockOutStatus, ReturnStatus } from '@/generated/prisma/client'
 import { requireAuth, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
+import { createNotification } from '@/lib/notifications'
+import { getUserNameFromDb } from '@/lib/get-user-name'
+import { resolveStockItems } from '@/lib/inventory/combo-stock-helper'
 
 // Route segment config - force dynamic since we use auth and query params
 export const dynamic = 'force-dynamic'
@@ -9,6 +12,10 @@ import {
   parseOrderStatus, 
   parsePaymentStatus, 
   parseDeliveryMethod,
+  parseDeliveryStatus,
+  parsePrintStatus,
+  parseStockOutStatus,
+  parseReturnStatus,
   parseDiscountType,
   ORDER_STATUS_LABELS,
   PAYMENT_STATUS_LABELS,
@@ -42,6 +49,7 @@ interface CreateOrderInput {
   customerId?: string;
   customerSystemId?: string;
   customerName?: string;
+  customerPhone?: string;
   branchId?: string;
   branchSystemId?: string;
   branchName?: string;
@@ -57,6 +65,7 @@ interface CreateOrderInput {
   expectedPaymentMethod?: string;
   shippingAddress?: string | Record<string, unknown> | null;
   billingAddress?: string | Record<string, unknown> | null;
+  invoiceInfo?: Record<string, unknown> | null;
   status?: string;
   paymentStatus?: string;
   deliveryStatus?: string;
@@ -67,6 +76,7 @@ interface CreateOrderInput {
   shippingFee?: number;
   tax?: number;
   discount?: number;
+  orderDiscount?: number;
   subtotal?: number;
   grandTotal?: number;
   paidAmount?: number;
@@ -77,6 +87,8 @@ interface CreateOrderInput {
   packagings?: unknown[];
   payments?: unknown[];
   completedDate?: string | null;
+  cancelledDate?: string | null;
+  approvedDate?: string | null;
   createdAt?: string;
   createdBy?: string;
 }
@@ -94,8 +106,36 @@ export async function GET(request: Request) {
     const customerId = searchParams.get('customerId')
     const customerSystemId = searchParams.get('customerSystemId')
     const branchId = searchParams.get('branchId')
+    const productSystemId = searchParams.get('productSystemId')
     const startDate = searchParams.get('startDate')
     const endDate = searchParams.get('endDate')
+    const stockOutStatusNot = searchParams.get('stockOutStatusNot')
+    const stockOutStatus = searchParams.get('stockOutStatus')
+    const paymentStatusNot = searchParams.get('paymentStatusNot')
+    const deliveryStatus = searchParams.get('deliveryStatus')
+    const paymentStatus = searchParams.get('paymentStatus')
+    const salespersonSystemId = searchParams.get('salespersonSystemId')
+    const returnStatus = searchParams.get('returnStatus')
+    const codPending = searchParams.get('codPending') // special filter for COD collection
+    const statusNotIn = searchParams.get('statusNotIn') // comma-separated statuses to exclude
+    const createdBy = searchParams.get('createdBy')
+    const deliveryMethod = searchParams.get('deliveryMethod')
+    const source = searchParams.get('source')
+    const expectedDeliveryStartDate = searchParams.get('expectedDeliveryStartDate')
+    const expectedDeliveryEndDate = searchParams.get('expectedDeliveryEndDate')
+    const approvedStartDate = searchParams.get('approvedStartDate')
+    const approvedEndDate = searchParams.get('approvedEndDate')
+    const completedStartDate = searchParams.get('completedStartDate')
+    const completedEndDate = searchParams.get('completedEndDate')
+    const cancelledStartDate = searchParams.get('cancelledStartDate')
+    const cancelledEndDate = searchParams.get('cancelledEndDate')
+    const printStatus = searchParams.get('printStatus')
+    const packagingStatus = searchParams.get('packagingStatus')
+    const minGrandTotal = searchParams.get('minGrandTotal')
+    const maxGrandTotal = searchParams.get('maxGrandTotal')
+    const minDiscount = searchParams.get('minDiscount')
+    const maxDiscount = searchParams.get('maxDiscount')
+    const hasNotes = searchParams.get('hasNotes')
 
     const where: Prisma.OrderWhereInput = {}
 
@@ -111,6 +151,24 @@ export async function GET(request: Request) {
       where.status = status as OrderStatus
     }
 
+    // Support comma-separated statusIn for filtering by multiple enum values
+    const statusIn = searchParams.get('statusIn')
+    if (statusIn) {
+      const statuses = statusIn.split(',').filter(Boolean) as OrderStatus[]
+      if (statuses.length === 1) {
+        where.status = statuses[0]
+      } else if (statuses.length > 1) {
+        where.status = { in: statuses }
+      }
+    }
+
+    if (statusNotIn) {
+      const excluded = statusNotIn.split(',').filter(Boolean) as OrderStatus[]
+      if (excluded.length > 0) {
+        where.status = { ...((where.status && typeof where.status === 'object') ? where.status : {}), notIn: excluded }
+      }
+    }
+
     if (customerId) {
       where.customerId = customerId
     }
@@ -124,6 +182,11 @@ export async function GET(request: Request) {
       where.branchId = branchId
     }
 
+    // ⚡ Filter by product - orders containing lineItems for this product
+    if (productSystemId) {
+      where.lineItems = { some: { productId: productSystemId } }
+    }
+
     if (startDate || endDate) {
       where.orderDate = {}
       if (startDate) {
@@ -132,6 +195,109 @@ export async function GET(request: Request) {
       if (endDate) {
         where.orderDate.lte = new Date(endDate)
       }
+    }
+
+    if (stockOutStatusNot) {
+      where.stockOutStatus = { not: stockOutStatusNot as StockOutStatus }
+    }
+
+    if (stockOutStatus) {
+      where.stockOutStatus = stockOutStatus as StockOutStatus
+    }
+
+    if (paymentStatusNot) {
+      where.paymentStatus = { not: paymentStatusNot as PaymentStatus }
+    }
+
+    if (deliveryStatus) {
+      where.deliveryStatus = deliveryStatus as PrismaDeliveryStatus
+    }
+
+    if (paymentStatus) {
+      where.paymentStatus = paymentStatus as PaymentStatus
+    }
+
+    if (salespersonSystemId) {
+      where.salespersonId = salespersonSystemId
+    }
+
+    if (returnStatus) {
+      const parts = returnStatus.split(',').filter(Boolean) as ReturnStatus[]
+      where.returnStatus = parts.length > 1 ? { in: parts } : parts[0]
+    }
+
+    if (createdBy) {
+      where.createdBy = createdBy
+    }
+
+    if (deliveryMethod) {
+      where.deliveryMethod = deliveryMethod as DeliveryMethod
+    }
+
+    if (source) {
+      where.source = { contains: source, mode: 'insensitive' }
+    }
+
+    if (expectedDeliveryStartDate || expectedDeliveryEndDate) {
+      where.expectedDeliveryDate = {}
+      if (expectedDeliveryStartDate) where.expectedDeliveryDate.gte = new Date(expectedDeliveryStartDate)
+      if (expectedDeliveryEndDate) where.expectedDeliveryDate.lte = new Date(expectedDeliveryEndDate)
+    }
+
+    if (approvedStartDate || approvedEndDate) {
+      where.approvedDate = {}
+      if (approvedStartDate) where.approvedDate.gte = new Date(approvedStartDate)
+      if (approvedEndDate) where.approvedDate.lte = new Date(approvedEndDate)
+    }
+
+    if (completedStartDate || completedEndDate) {
+      where.completedDate = {}
+      if (completedStartDate) where.completedDate.gte = new Date(completedStartDate)
+      if (completedEndDate) where.completedDate.lte = new Date(completedEndDate)
+    }
+
+    if (cancelledStartDate || cancelledEndDate) {
+      where.cancelledDate = {}
+      if (cancelledStartDate) where.cancelledDate.gte = new Date(cancelledStartDate)
+      if (cancelledEndDate) where.cancelledDate.lte = new Date(cancelledEndDate)
+    }
+
+    // Print status filter
+    if (printStatus) {
+      where.printStatus = printStatus as PrintStatus
+    }
+
+    // Packaging status filter (via packagings relation)
+    if (packagingStatus) {
+      where.packagings = { some: { status: packagingStatus as PackagingStatus } }
+    }
+
+    // Grand total range filter
+    if (minGrandTotal || maxGrandTotal) {
+      where.grandTotal = {}
+      if (minGrandTotal) where.grandTotal.gte = parseFloat(minGrandTotal)
+      if (maxGrandTotal) where.grandTotal.lte = parseFloat(maxGrandTotal)
+    }
+
+    // Discount range filter
+    if (minDiscount || maxDiscount) {
+      where.discount = {}
+      if (minDiscount) where.discount.gte = parseFloat(minDiscount)
+      if (maxDiscount) where.discount.lte = parseFloat(maxDiscount)
+    }
+
+    // Has notes filter
+    if (hasNotes === 'true') {
+      where.notes = { not: null }
+    } else if (hasNotes === 'false') {
+      where.notes = null
+    }
+
+    // Special filter: Chờ thu hộ COD (delivered + codAmount > 0 + not paid)
+    if (codPending === 'true') {
+      where.deliveryStatus = 'DELIVERED' as PrismaDeliveryStatus
+      where.codAmount = { gt: 0 }
+      where.paymentStatus = { not: PaymentStatus.PAID }
     }
 
     const [orders, total] = await Promise.all([
@@ -147,7 +313,6 @@ export async function GET(request: Request) {
               id: true,
               name: true,
               phone: true,
-              email: true,
             },
           },
           branch: {
@@ -166,6 +331,7 @@ export async function GET(request: Request) {
                   name: true,
                   imageUrl: true,
                   thumbnailImage: true,
+                  warrantyPeriodMonths: true,
                 },
               },
             },
@@ -192,7 +358,6 @@ export async function GET(request: Request) {
       // ✅ Add extra fields for display
       salesperson: order.salespersonName || undefined,
       customerPhone: order.customer?.phone || undefined,
-      customerEmail: order.customer?.email || undefined,
       customerId: order.customer?.id || undefined,
       customerSystemId: order.customer?.systemId || undefined, // ✅ Add customerSystemId from relation
       branchSystemId: order.branchId, // ✅ Add branchSystemId for frontend (order.branchId IS the branch systemId)
@@ -221,6 +386,8 @@ export async function GET(request: Request) {
       // ✅ Transform lineItems Decimal fields
       lineItems: order.lineItems.map(item => ({
         ...item,
+        productSystemId: item.productId, // DB productId = Product.systemId
+        productId: item.productSku || item.product?.id || item.productId, // Business SKU for display
         unitPrice: Number(item.unitPrice),
         discount: Number(item.discount),
         tax: Number(item.tax),
@@ -249,8 +416,8 @@ export async function GET(request: Request) {
 
     return apiPaginated(transformedOrders, { page, limit, total })
   } catch (error) {
-    console.error('Error fetching orders:', error)
-    return apiError('Failed to fetch orders', 500)
+    logError('Error fetching orders', error)
+    return apiError('Không thể tải danh sách đơn hàng', 500)
   }
 }
 
@@ -259,6 +426,7 @@ export async function GET(request: Request) {
 // ========================================
 import { generateNextIdsWithTx } from '@/lib/id-system'
 import type { EntityType } from '@/lib/id-config-constants'
+import { logError } from '@/lib/logger'
 
 type TransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
 
@@ -322,13 +490,16 @@ export async function POST(request: Request) {
   }
 
   // Get customer and branch info first (outside transaction for validation)
-  const [customer, branch] = await Promise.all([
+  const [initialCustomer, branch] = await Promise.all([
     prisma.customer.findUnique({ where: { systemId: customerId } }),
     prisma.branch.findUnique({ where: { systemId: branchId } }),
   ])
 
+  // Auto-create customer if not found (for import compatibility)
+  let customer = initialCustomer
   if (!customer) {
-    return apiError('Customer not found', 400)
+    // Try lookup by business id
+    customer = await prisma.customer.findUnique({ where: { id: customerId } })
   }
 
   if (!branch) {
@@ -341,7 +512,7 @@ export async function POST(request: Request) {
   });
   // Note: setting.value is already a JSON object (Prisma Json type), no need to parse
   const salesSettings = (salesSetting?.value as { allowNegativeOrder?: boolean } | null) 
-    ?? { allowNegativeOrder: true };
+    ?? { allowNegativeOrder: false };
   
   if (!salesSettings.allowNegativeOrder) {
     // Check if any product has insufficient stock
@@ -375,6 +546,19 @@ export async function POST(request: Request) {
     }
   }
 
+  // G4: Enforce maxDebt - prevent order if customer would exceed credit limit
+  if (customer && customer.maxDebt != null && Number(customer.maxDebt) > 0) {
+    const currentDebt = Number(customer.currentDebt ?? 0)
+    const orderTotal = Number(body.grandTotal || 0)
+    const projectedDebt = currentDebt + orderTotal
+    if (projectedDebt > Number(customer.maxDebt)) {
+      return apiError(
+        `Khách hàng "${customer.name}" vượt hạn mức công nợ. Công nợ hiện tại: ${currentDebt.toLocaleString('vi-VN')} đ, đơn hàng: ${orderTotal.toLocaleString('vi-VN')} đ, hạn mức: ${Number(customer.maxDebt).toLocaleString('vi-VN')} đ`,
+        400
+      )
+    }
+  }
+
   // ✅ Retry logic for race condition on ID generation
   const MAX_RETRIES = 3
   let lastError: Error | null = null
@@ -383,6 +567,24 @@ export async function POST(request: Request) {
     try {
       // ✅ Use transaction to ensure atomic ID generation and insert
       const order = await prisma.$transaction(async (tx) => {
+        // Auto-create customer if not found
+        let resolvedCustomer = customer
+        let resolvedCustomerId = customerId
+        if (!resolvedCustomer) {
+          const { systemId: custSysId, businessId: custBizId } = await generateNextIdsWithTx(
+            tx, 'customers' as EntityType, undefined
+          )
+          resolvedCustomer = await tx.customer.create({
+            data: {
+              systemId: custSysId,
+              id: custBizId,
+              name: body.customerName || customerId || 'Khách hàng mới',
+              phone: body.customerPhone || undefined,
+            }
+          })
+          resolvedCustomerId = resolvedCustomer.systemId
+        }
+
         // Generate order IDs using id-config system
         const orderIds = await generateNextEntityId(tx, 'orders')
         const { businessId, systemId, counter: orderNum } = orderIds
@@ -419,13 +621,24 @@ export async function POST(request: Request) {
           .map(item => item.productSystemId || item.productId)
           .filter((id): id is string => !!id);
         
+        // Search by both systemId and business id for import compatibility
         const products = await tx.product.findMany({
-          where: { systemId: { in: productIds } },
+          where: {
+            OR: [
+              { systemId: { in: productIds } },
+              { id: { in: productIds } },
+            ]
+          },
           select: { systemId: true, id: true, name: true }
         });
-        const productMap = new Map(products.map(p => [p.systemId, p]));
+        // Map by both systemId and business id for flexible lookup
+        const productMap = new Map<string, { systemId: string; id: string; name: string }>();
+        for (const p of products) {
+          productMap.set(p.systemId, p);
+          productMap.set(p.id, p);
+        }
         
-        // Validate all products exist
+        // Validate all products exist — auto-create missing ones for import
         for (let i = 0; i < body.lineItems.length; i++) {
           const item = body.lineItems[i];
           const productKey = item.productSystemId || item.productId;
@@ -433,7 +646,47 @@ export async function POST(request: Request) {
             throw new Error(`Line item #${i + 1} is missing productSystemId or productId`);
           }
           if (!productMap.has(productKey)) {
-            throw new Error(`Product ${productKey} not found`);
+            // Check if product exists in DB by a different key
+            const existingProd = await tx.product.findFirst({
+              where: { OR: [{ systemId: productKey }, { id: productKey }] },
+              select: { systemId: true, id: true, name: true },
+            });
+            if (existingProd) {
+              productMap.set(existingProd.systemId, existingProd);
+              productMap.set(existingProd.id, existingProd);
+              productMap.set(productKey, existingProd);
+            } else {
+              // Auto-create minimal product within transaction
+              const { systemId: prodSysId, businessId: prodBizId } = await generateNextIdsWithTx(
+                tx, 'products' as EntityType, item.productId || undefined
+              );
+              // Check if generated ID already exists
+              const existingById = await tx.product.findFirst({
+                where: { OR: [{ systemId: prodSysId as string }, { id: prodBizId as string }] },
+                select: { systemId: true, id: true, name: true },
+              });
+              if (existingById) {
+                productMap.set(existingById.systemId, existingById);
+                productMap.set(existingById.id, existingById);
+                productMap.set(productKey, existingById);
+              } else {
+                const newProduct = await tx.product.create({
+                  data: {
+                    systemId: prodSysId,
+                    id: prodBizId,
+                    name: item.productName || productKey,
+                    unit: 'Cái',
+                    status: 'ACTIVE',
+                  }
+                });
+                const entry = { systemId: newProduct.systemId, id: newProduct.id, name: newProduct.name };
+                productMap.set(newProduct.systemId, entry);
+                productMap.set(newProduct.id, entry);
+                if (productKey !== newProduct.systemId && productKey !== newProduct.id) {
+                  productMap.set(productKey, entry);
+                }
+              }
+            }
           }
         }
         
@@ -463,8 +716,8 @@ export async function POST(request: Request) {
 
         const tax = body.tax || 0
         const shippingFee = body.shippingFee || 0
-        const discount = body.discount || 0
-        const grandTotal = subtotal + tax + shippingFee - discount
+        const discount = body.discount || body.orderDiscount || 0
+        const grandTotal = body.grandTotal || (subtotal + tax + shippingFee - discount)
     
         // ✅ Normalize shippingAddress - convert object to JSON string if needed
         let shippingAddressValue: Prisma.InputJsonValue | undefined = undefined
@@ -482,8 +735,8 @@ export async function POST(request: Request) {
           data: {
             systemId: systemId,
             id: finalBusinessId,
-            customerId: customerId,
-            customerName: body.customerName || customer.name,
+            customerId: resolvedCustomerId,
+            customerName: body.customerName || resolvedCustomer.name,
             branchId: branchId,
             salespersonId: salespersonId,
             branchName: body.branchName || branch.name,
@@ -493,18 +746,31 @@ export async function POST(request: Request) {
             shippingAddress: shippingAddressValue,
             status: (parseOrderStatus(body.status) || 'PENDING') as OrderStatus,
             paymentStatus: (parsePaymentStatus(body.paymentStatus) || 'UNPAID') as PaymentStatus,
+            deliveryStatus: (parseDeliveryStatus(body.deliveryStatus) || 'PENDING_PACK') as PrismaDeliveryStatus,
             deliveryMethod: (parseDeliveryMethod(body.deliveryMethod) || 'SHIPPING') as DeliveryMethod,
-            // ✅ Set approvedDate if status is not PENDING/DRAFT (i.e., order is approved)
-            approvedDate: ['PENDING', 'DRAFT'].includes(parseOrderStatus(body.status) || 'PENDING') 
-              ? null 
-              : new Date(),
+            printStatus: (parsePrintStatus(body.printStatus) || 'NOT_PRINTED') as PrintStatus,
+            stockOutStatus: (parseStockOutStatus(body.stockOutStatus) || 'NOT_STOCKED_OUT') as StockOutStatus,
+            returnStatus: (parseReturnStatus(body.returnStatus) || 'NO_RETURN') as ReturnStatus,
+            // ✅ Use provided approvedDate, or auto-set for non-pending orders
+            approvedDate: body.approvedDate ? new Date(body.approvedDate)
+              : ['PENDING', 'DRAFT'].includes(parseOrderStatus(body.status) || 'PENDING') 
+                ? null 
+                : new Date(),
+            completedDate: body.completedDate ? new Date(body.completedDate) : null,
+            cancelledDate: body.cancelledDate ? new Date(body.cancelledDate) : null,
+            paidAmount: body.paidAmount || 0,
+            codAmount: body.codAmount || 0,
             subtotal,
             shippingFee,
             tax,
             discount,
             grandTotal,
+            billingAddress: body.billingAddress ? (typeof body.billingAddress === 'string' ? body.billingAddress : body.billingAddress as Prisma.InputJsonValue) : undefined,
+            invoiceInfo: body.invoiceInfo ? body.invoiceInfo as Prisma.InputJsonValue : undefined,
             notes: body.notes,
             source: body.source,
+            tags: body.tags || [],
+            createdAt: body.createdAt ? new Date(body.createdAt) : new Date(),
             createdBy: body.createdBy || session.user?.employee?.fullName || session.user?.name || 'System',
             lineItems: {
               create: lineItemsData,
@@ -565,11 +831,9 @@ export async function POST(request: Request) {
               // Use pre-generated packaging IDs from id-config system
               const pkgIds = packagingIds[index];
               
-              // ✅ Auto-generate tracking code for in-store pickup
-              let trackingCode = pkg.trackingCode;
-              if (deliveryMethod === 'IN_STORE_PICKUP' && !trackingCode) {
-                trackingCode = `INSTORE-${pkgIds.businessId}`;
-              }
+              // ✅ Tracking code: use provided value or leave empty
+              // For in-store pickup, tracking code is generated later when in-store-pickup endpoint is called
+              const trackingCode = pkg.trackingCode || undefined;
               
               return {
                 systemId: pkgIds.systemId,
@@ -616,44 +880,61 @@ export async function POST(request: Request) {
 
         // ✅ Update ProductInventory - increase committed for each line item
         // This reserves stock for the order without reducing onHand yet
-        for (const item of lineItemsData) {
-          const _inventory = await tx.productInventory.findUnique({
-            where: {
-              productId_branchId: {
-                productId: item.productId,
-                branchId: branchId,
-              },
-            },
-          });
-
+        // For combo products, commit stock of child components instead
+        const stockItems = await resolveStockItems(tx, lineItemsData)
+        for (const stockItem of stockItems) {
           await tx.productInventory.upsert({
             where: {
               productId_branchId: {
-                productId: item.productId,
+                productId: stockItem.productId,
                 branchId: branchId,
               },
             },
             update: {
-              committed: { increment: item.quantity },
+              committed: { increment: stockItem.quantity },
               updatedAt: new Date(),
             },
             create: {
-              productId: item.productId,
+              productId: stockItem.productId,
               branchId: branchId,
               onHand: 0,
-              committed: item.quantity,
+              committed: stockItem.quantity,
               inTransit: 0,
             },
           });
-
-          // ❌ REMOVED: Don't create StockHistory for "Đặt hàng" 
-          // "Giữ" (committed) only affects "Có thể bán", not actual stock level
-          // StockHistory should only record actual stock changes (xuất/nhập kho)
         }
         
 
         return createdOrder
       }) // End of transaction
+
+      // ✅ Notify salesperson about new order
+      if (order.salespersonId && session.user?.employeeId !== order.salespersonId) {
+        createNotification({
+          type: 'order',
+          title: 'Đơn hàng mới',
+          message: `Bạn được giao đơn hàng ${order.id || order.systemId}`,
+          link: `/orders/${order.systemId}`,
+          recipientId: order.salespersonId,
+          senderId: session.user?.employeeId,
+          senderName: session.user?.name,
+          settingsKey: 'order:created',
+        }).catch(e => logError('[Orders POST] notification failed', e))
+      }
+
+      // ✅ Log activity
+      const userName = await getUserNameFromDb(session.user?.id);
+      await prisma.activityLog.create({
+        data: {
+          entityType: 'order',
+          entityId: order.systemId,
+          action: 'created',
+          actionType: 'create',
+          note: `Tạo đơn hàng ${order.id || order.systemId}`,
+          metadata: { userName, orderId: order.id, customerName: order.customerName },
+          createdBy: userName,
+        }
+      }).catch(e => logError('[Orders POST] activity log failed', e))
 
       // ✅ Success - return the order
       return apiSuccess(order, 201)
@@ -673,16 +954,16 @@ export async function POST(request: Request) {
         }
       } else {
         // Non-retryable error
-        console.error('Error creating order:', error)
-        const message = error instanceof Error ? error.message : 'Failed to create order'
+        logError('Error creating order', error)
+        const message = error instanceof Error ? error.message : 'Không thể tạo đơn hàng'
         return apiError(message, 500)
       }
     }
   }
 
   // All retries failed
-  console.error('[Orders API] All retries failed for order creation')
+  logError('[Orders API] All retries failed for order creation', lastError)
   if (lastError instanceof Prisma.PrismaClientKnownRequestError && lastError.code === 'P2002') {
-    return apiError('Failed to generate unique order ID after multiple attempts. Please try again.', 400)
+    return apiError('Không thể tạo mã đơn hàng duy nhất. Vui lòng thử lại.', 400)
   }
-  return apiError('Failed to create order after multiple attempts', 500)}
+  return apiError('Không thể tạo đơn hàng sau nhiều lần thử', 500)}

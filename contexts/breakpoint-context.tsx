@@ -39,11 +39,15 @@ export function BreakpointProvider({
   children, 
   debounceMs = 150 
 }: BreakpointProviderProps) {
-  const [width, setWidth] = React.useState(() => 
-    typeof window !== 'undefined' ? window.innerWidth : 1024
-  );
+  // Always initialize with fixed value to avoid SSR/client hydration mismatch.
+  // window.innerWidth differs between server (undefined→1024) and client (actual width),
+  // which shifts the React component tree and causes Radix useId() mismatches.
+  const [width, setWidth] = React.useState(1024);
 
   React.useEffect(() => {
+    // Set actual width immediately after hydration
+    setWidth(window.innerWidth);
+
     let timeout: NodeJS.Timeout | null = null;
     
     const handleResize = () => {

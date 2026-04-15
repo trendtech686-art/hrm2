@@ -11,15 +11,21 @@ import { Button } from '../../../components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '../../../components/ui/sheet';
 import { ScrollArea } from '../../../components/ui/scroll-area';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs';
 import { ResponsiveDataTable } from '../../../components/data-table/responsive-data-table';
 import { PageFilters } from '../../../components/layout/page-filters';
+import { usePaginationWithGlobalDefault } from '@/features/settings/global/hooks/use-global-settings';
 import type { ColumnDef } from '../../../components/data-table/types';
 import { 
   Search, Plus, Pencil, Trash2, RefreshCw, History, User, 
   Package, Users, ShoppingCart, Truck, Receipt, CreditCard, 
   Warehouse, ClipboardList, RotateCcw, FileText, Settings, 
-  ArrowRight, Calendar, Eye
+  ArrowRight, Calendar, Eye, Upload
 } from 'lucide-react';
+
+const ImportExportLogsContent = React.lazy(() => 
+  import('./import-export-logs-page').then(mod => ({ default: mod.ImportExportLogsContent }))
+);
 
 // Activity Log type based on Prisma model
 interface ActivityLog {
@@ -68,7 +74,7 @@ export function SystemLogsPage() {
   const [actionTypeFilter, setActionTypeFilter] = React.useState<string>('all');
   
   // Pagination state
-  const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 20 });
+  const [pagination, setPagination] = usePaginationWithGlobalDefault();
   const [sorting, setSorting] = React.useState<{ id: string; desc: boolean }>({ id: 'createdAt', desc: true });
   const [{ visibility: columnVisibility, order: columnOrder, pinned: pinnedColumns }, { setVisibility: setColumnVisibility, setOrder: setColumnOrder, setPinned: setPinnedColumns }] = useColumnLayout('system-logs');
   
@@ -76,36 +82,35 @@ export function SystemLogsPage() {
   const [selectedLog, setSelectedLog] = React.useState<ActivityLog | null>(null);
   const [isSheetOpen, setIsSheetOpen] = React.useState(false);
   
-  // Fetch logs with React Query
+  // Fetch logs with React Query - server-side pagination
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ['activity-logs', entityFilter, actionTypeFilter, pagination.pageSize],
+    queryKey: ['activity-logs', entityFilter, actionTypeFilter, pagination.pageSize, pagination.pageIndex],
     queryFn: () => fetchActivityLogs({
       entityType: entityFilter !== 'all' ? entityFilter : undefined,
       actionType: actionTypeFilter !== 'all' ? actionTypeFilter : undefined,
+      limit: pagination.pageSize,
+      offset: pagination.pageIndex * pagination.pageSize,
     }),
     staleTime: 30 * 1000,
   });
   
   const allLogs = React.useMemo(() => data?.data ?? [], [data?.data]);
+  const serverTotal = data?.total ?? 0;
   
-  // Filter logs client-side for search
+  // Filter logs client-side for search (within current page)
   const filteredLogs = React.useMemo(() => {
-    let logs = allLogs;
+    if (!searchTerm) return allLogs;
     
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      logs = logs.filter(
-        (log) =>
-          log.entityId.toLowerCase().includes(term) ||
-          log.action.toLowerCase().includes(term) ||
-          (log.note && log.note.toLowerCase().includes(term))
-      );
-    }
-    
-    return logs;
+    const term = searchTerm.toLowerCase();
+    return allLogs.filter(
+      (log) =>
+        log.entityId.toLowerCase().includes(term) ||
+        log.action.toLowerCase().includes(term) ||
+        (log.note && log.note.toLowerCase().includes(term))
+    );
   }, [allLogs, searchTerm]);
   
-  // Sorted data
+  // Sorted data (within current page)
   const sortedData = React.useMemo(() => {
     const sorted = [...filteredLogs];
     if (sorting.id) {
@@ -124,13 +129,7 @@ export function SystemLogsPage() {
     return sorted;
   }, [filteredLogs, sorting]);
   
-  // Paginated data
-  const paginatedData = React.useMemo(() => {
-    const start = pagination.pageIndex * pagination.pageSize;
-    return sortedData.slice(start, start + pagination.pageSize);
-  }, [sortedData, pagination]);
-  
-  const pageCount = Math.ceil(sortedData.length / pagination.pageSize);
+  const pageCount = Math.ceil(serverTotal / pagination.pageSize);
   
   // Helper functions
   const getEntityIcon = (entityType: string) => {
@@ -144,19 +143,45 @@ export function SystemLogsPage() {
       case 'supplier':
         return <Truck className="h-4 w-4 text-orange-500" />;
       case 'order':
+      case 'packaging':
         return <ShoppingCart className="h-4 w-4 text-indigo-500" />;
-      case 'purchase':
-      case 'purchase-order':
+      case 'purchase_order':
         return <ClipboardList className="h-4 w-4 text-cyan-500" />;
-      case 'stock-transfer':
+      case 'purchase_return':
+      case 'sales_return':
         return <RotateCcw className="h-4 w-4 text-teal-500" />;
-      case 'inventory':
-      case 'inventory-check':
+      case 'stock_transfer':
+        return <RotateCcw className="h-4 w-4 text-teal-500" />;
+      case 'inventory_check':
+        return <Warehouse className="h-4 w-4 text-amber-500" />;
+      case 'inventory_receipt':
         return <Warehouse className="h-4 w-4 text-amber-500" />;
       case 'receipt':
         return <Receipt className="h-4 w-4 text-emerald-500" />;
       case 'payment':
         return <CreditCard className="h-4 w-4 text-red-500" />;
+      case 'payroll':
+        return <CreditCard className="h-4 w-4 text-pink-500" />;
+      case 'attendance':
+        return <Calendar className="h-4 w-4 text-sky-500" />;
+      case 'leave':
+      case 'penalty':
+        return <User className="h-4 w-4 text-rose-500" />;
+      case 'task':
+        return <ClipboardList className="h-4 w-4 text-violet-500" />;
+      case 'shipment':
+        return <Truck className="h-4 w-4 text-lime-500" />;
+      case 'complaint':
+      case 'warranty':
+      case 'return_method':
+        return <FileText className="h-4 w-4 text-yellow-500" />;
+      case 'wiki':
+        return <FileText className="h-4 w-4 text-blue-400" />;
+      case 'price_adjustment':
+      case 'cost_adjustment':
+        return <Settings className="h-4 w-4 text-orange-400" />;
+      case 'status':
+        return <RefreshCw className="h-4 w-4 text-purple-400" />;
       case 'settings':
         return <Settings className="h-4 w-4 text-gray-500" />;
       default:
@@ -199,13 +224,28 @@ export function SystemLogsPage() {
       'customer': 'Khách hàng',
       'supplier': 'Nhà cung cấp',
       'order': 'Đơn hàng',
-      'purchase': 'Đơn nhập',
-      'purchase-order': 'Đơn nhập',
-      'stock-transfer': 'Chuyển kho',
-      'inventory': 'Tồn kho',
-      'inventory-check': 'Kiểm kê',
+      'purchase_order': 'Đơn nhập',
+      'purchase_return': 'Trả hàng nhập',
+      'sales_return': 'Trả hàng bán',
+      'stock_transfer': 'Chuyển kho',
+      'inventory_check': 'Kiểm kê',
+      'inventory_receipt': 'Phiếu nhập kho',
       'receipt': 'Phiếu thu',
       'payment': 'Phiếu chi',
+      'payroll': 'Bảng lương',
+      'attendance': 'Chấm công',
+      'leave': 'Nghỉ phép',
+      'penalty': 'Kỷ luật',
+      'task': 'Công việc',
+      'shipment': 'Vận chuyển',
+      'packaging': 'Đóng gói',
+      'complaint': 'Khiếu nại',
+      'warranty': 'Bảo hành',
+      'return_method': 'Phương thức trả',
+      'wiki': 'Wiki',
+      'price_adjustment': 'Điều chỉnh giá',
+      'cost_adjustment': 'Điều chỉnh giá vốn',
+      'status': 'Trạng thái',
       'settings': 'Cài đặt',
     };
     return labels[entityType] || entityType;
@@ -216,6 +256,7 @@ export function SystemLogsPage() {
       'created': 'Tạo mới',
       'updated': 'Cập nhật',
       'deleted': 'Xóa',
+      'restored': 'Khôi phục',
       'status_changed': 'Đổi trạng thái',
       'price_changed': 'Đổi giá',
       'stock_changed': 'Đổi tồn kho',
@@ -223,6 +264,8 @@ export function SystemLogsPage() {
       'delivered': 'Giao hàng',
       'cancelled': 'Hủy',
       'completed': 'Hoàn thành',
+      'document_uploaded': 'Tải lên tài liệu',
+      'document_deleted': 'Xóa tài liệu',
     };
     return labels[action] || action.replace(/_/g, ' ');
   };
@@ -244,7 +287,99 @@ export function SystemLogsPage() {
     setIsSheetOpen(true);
   };
   
-  // Render changes in detail view
+  // Render changes in detail view with Vietnamese labels
+  const getFieldLabel = (field: string): string => {
+    const fieldLabels: Record<string, string> = {
+      // Employee fields
+      fullName: 'Họ tên', firstName: 'Tên', lastName: 'Họ',
+      gender: 'Giới tính', dob: 'Ngày sinh', dateOfBirth: 'Ngày sinh',
+      phone: 'Điện thoại', placeOfBirth: 'Nơi sinh',
+      personalEmail: 'Email cá nhân', workEmail: 'Email công việc',
+      nationalId: 'Số CCCD/CMND', nationalIdIssueDate: 'Ngày cấp CCCD',
+      nationalIdIssuePlace: 'Nơi cấp CCCD', avatarUrl: 'Ảnh đại diện',
+      permanentAddress: 'Địa chỉ thường trú', temporaryAddress: 'Địa chỉ tạm trú',
+      departmentId: 'Phòng ban', jobTitleId: 'Chức danh', branchId: 'Chi nhánh',
+      managerId: 'Quản lý trực tiếp', hireDate: 'Ngày vào làm', startDate: 'Ngày bắt đầu',
+      employeeType: 'Loại nhân viên', role: 'Vai trò hệ thống',
+      baseSalary: 'Lương cơ bản', socialInsuranceSalary: 'Lương đóng BHXH',
+      positionAllowance: 'Phụ cấp chức vụ', mealAllowance: 'Phụ cấp ăn trưa',
+      otherAllowances: 'Phụ cấp khác', numberOfDependents: 'Số người phụ thuộc',
+      contractNumber: 'Số hợp đồng', contractStartDate: 'Ngày bắt đầu HĐ',
+      contractEndDate: 'Ngày hết hạn HĐ', contractType: 'Loại hợp đồng',
+      probationEndDate: 'Ngày kết thúc thử việc', terminationDate: 'Ngày nghỉ việc',
+      bankAccountNumber: 'Số tài khoản', bankName: 'Ngân hàng', bankBranch: 'Chi nhánh NH',
+      personalTaxId: 'Mã số thuế', socialInsuranceNumber: 'Số sổ BHXH',
+      employmentStatus: 'Trạng thái làm việc', annualLeaveBalance: 'Số ngày phép',
+      maritalStatus: 'Tình trạng hôn nhân', notes: 'Ghi chú',
+      emergencyContactName: 'Liên hệ khẩn cấp', emergencyContactPhone: 'SĐT khẩn cấp',
+      workingHoursPerDay: 'Giờ làm/ngày', workingDaysPerWeek: 'Ngày làm/tuần',
+      shiftType: 'Ca làm việc', skills: 'Kỹ năng', certifications: 'Chứng chỉ',
+      // Product fields
+      name: 'Tên', sku: 'Mã SKU', barcode: 'Mã vạch', description: 'Mô tả',
+      price: 'Giá bán', costPrice: 'Giá vốn', categoryId: 'Danh mục',
+      brandId: 'Thương hiệu', stock: 'Tồn kho', unit: 'Đơn vị',
+      // Order fields
+      status: 'Trạng thái', totalAmount: 'Tổng tiền', paidAmount: 'Đã thanh toán',
+      customerId: 'Khách hàng', shippingAddress: 'Địa chỉ giao hàng',
+      // Customer fields
+      email: 'Email', zaloPhone: 'Zalo', company: 'Công ty', companyName: 'Tên công ty',
+      taxCode: 'Mã số thuế', representative: 'Người đại diện', position: 'Chức vụ',
+      addresses: 'Danh sách địa chỉ', contacts: 'Người liên hệ',
+      currentDebt: 'Công nợ hiện tại', maxDebt: 'Hạn mức công nợ',
+      type: 'Loại khách hàng', customerGroup: 'Nhóm khách hàng',
+      pricingLevel: 'Mức giá', pricingPolicyId: 'Chính sách giá',
+      defaultDiscount: 'Giảm giá mặc định', source: 'Nguồn khách hàng',
+      campaign: 'Chiến dịch', referredBy: 'Người giới thiệu',
+      bankAccount: 'Số tài khoản', paymentTerms: 'Hạn thanh toán',
+      creditRating: 'Xếp hạng tín dụng', allowCredit: 'Cho phép công nợ',
+      lifecycleStage: 'Giai đoạn vòng đời', contract: 'Hợp đồng',
+      businessProfiles: 'Thông tin doanh nghiệp', images: 'Hình ảnh',
+      social: 'Mạng xã hội', lastContactDate: 'Ngày liên hệ cuối',
+      nextFollowUpDate: 'Ngày theo dõi tiếp', followUpReason: 'Lý do theo dõi',
+      followUpAssigneeId: 'Người phụ trách', tags: 'Thẻ', accountManagerId: 'NV phụ trách',
+    };
+    return fieldLabels[field] || field;
+  };
+
+  // Format value for display (dates, etc.)
+  const formatValue = (value: unknown, field: string): string => {
+    if (value === null || value === undefined) return '(trống)';
+    
+    // Check if it's a date field
+    const dateFields = ['dob', 'dateOfBirth', 'hireDate', 'startDate', 'terminationDate', 
+      'contractStartDate', 'contractEndDate', 'probationEndDate', 'nationalIdIssueDate',
+      'lastReviewDate', 'nextReviewDate', 'createdAt', 'updatedAt',
+      // Customer date fields
+      'lastContactDate', 'nextFollowUpDate'];
+    
+    if (dateFields.includes(field) || (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(value))) {
+      try {
+        const date = new Date(value as string);
+        if (!isNaN(date.getTime())) {
+          return date.toLocaleDateString('vi-VN', {
+            day: '2-digit',
+            month: '2-digit', 
+            year: 'numeric'
+          });
+        }
+      } catch {
+        // fallback to string
+      }
+    }
+    
+    // Format boolean
+    if (typeof value === 'boolean') {
+      return value ? 'Có' : 'Không';
+    }
+    
+    // Format array
+    if (Array.isArray(value)) {
+      return `${value.length} mục`;
+    }
+    
+    return String(value);
+  };
+
   const renderChanges = (changes: Record<string, { from: unknown; to: unknown }> | null) => {
     if (!changes || Object.keys(changes).length === 0) {
       return <p className="text-sm text-muted-foreground">Không có thay đổi chi tiết</p>;
@@ -254,10 +389,10 @@ export function SystemLogsPage() {
       <div className="space-y-2">
         {Object.entries(changes).map(([field, { from, to }]) => (
           <div key={field} className="flex items-start gap-2 text-sm p-2 rounded-md bg-muted/50">
-            <span className="font-medium min-w-24">{field}:</span>
-            <span className="text-red-600 line-through">{String(from ?? '(trống)')}</span>
+            <span className="font-medium min-w-32">{getFieldLabel(field)}:</span>
+            <span className="text-red-600 line-through">{formatValue(from, field)}</span>
             <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
-            <span className="text-green-600">{String(to ?? '(trống)')}</span>
+            <span className="text-green-600">{formatValue(to, field)}</span>
           </div>
         ))}
       </div>
@@ -330,14 +465,17 @@ export function SystemLogsPage() {
       accessorKey: 'createdBy',
       header: 'Người thực hiện',
       size: 130,
-      cell: ({ row }) => (
-        <div className="flex items-center gap-1.5 text-xs">
-          <User className="h-3 w-3 text-muted-foreground" />
-          <span className="truncate max-w-25">
-            {row.createdBy || 'Hệ thống'}
-          </span>
-        </div>
-      ),
+      cell: ({ row }) => {
+        const userName = (row.metadata as Record<string, unknown> | null)?.userName as string | undefined;
+        return (
+          <div className="flex items-center gap-1.5 text-xs">
+            <User className="h-3 w-3 text-muted-foreground" />
+            <span className="truncate max-w-25">
+              {userName || row.createdBy || 'Hệ thống'}
+            </span>
+          </div>
+        );
+      },
     },
     {
       id: 'actions',
@@ -383,7 +521,7 @@ export function SystemLogsPage() {
       <div className="flex items-center justify-between pt-2 border-t">
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <User className="h-3 w-3" />
-          <span>{log.createdBy || 'Hệ thống'}</span>
+          <span>{(log.metadata as Record<string, unknown> | null)?.userName as string || log.createdBy || 'Hệ thống'}</span>
         </div>
         <Button variant="ghost" size="sm">
           <Eye className="h-4 w-4" />
@@ -394,6 +532,19 @@ export function SystemLogsPage() {
 
   return (
     <div className="space-y-6">
+      <Tabs defaultValue="activity" className="w-full">
+        <TabsList className="mb-4">
+          <TabsTrigger value="activity" className="gap-2">
+            <History className="h-4 w-4" />
+            Hoạt động
+          </TabsTrigger>
+          <TabsTrigger value="import-export" className="gap-2">
+            <Upload className="h-4 w-4" />
+            Import / Export
+          </TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="activity">
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -432,10 +583,27 @@ export function SystemLogsPage() {
                 <SelectItem value="customer">Khách hàng</SelectItem>
                 <SelectItem value="supplier">Nhà cung cấp</SelectItem>
                 <SelectItem value="order">Đơn hàng</SelectItem>
-                <SelectItem value="purchase">Đơn nhập</SelectItem>
-                <SelectItem value="inventory">Tồn kho</SelectItem>
+                <SelectItem value="packaging">Đóng gói</SelectItem>
+                <SelectItem value="purchase_order">Đơn nhập</SelectItem>
+                <SelectItem value="purchase_return">Trả hàng nhập</SelectItem>
+                <SelectItem value="sales_return">Trả hàng bán</SelectItem>
+                <SelectItem value="stock_transfer">Chuyển kho</SelectItem>
+                <SelectItem value="inventory_check">Kiểm kê</SelectItem>
+                <SelectItem value="inventory_receipt">Phiếu nhập kho</SelectItem>
                 <SelectItem value="receipt">Phiếu thu</SelectItem>
                 <SelectItem value="payment">Phiếu chi</SelectItem>
+                <SelectItem value="payroll">Bảng lương</SelectItem>
+                <SelectItem value="attendance">Chấm công</SelectItem>
+                <SelectItem value="leave">Nghỉ phép</SelectItem>
+                <SelectItem value="penalty">Kỷ luật</SelectItem>
+                <SelectItem value="task">Công việc</SelectItem>
+                <SelectItem value="shipment">Vận chuyển</SelectItem>
+                <SelectItem value="complaint">Khiếu nại</SelectItem>
+                <SelectItem value="warranty">Bảo hành</SelectItem>
+                <SelectItem value="wiki">Wiki</SelectItem>
+                <SelectItem value="price_adjustment">Điều chỉnh giá</SelectItem>
+                <SelectItem value="cost_adjustment">Điều chỉnh giá vốn</SelectItem>
+                <SelectItem value="settings">Cài đặt</SelectItem>
               </SelectContent>
             </Select>
             <Select value={actionTypeFilter} onValueChange={setActionTypeFilter}>
@@ -454,21 +622,21 @@ export function SystemLogsPage() {
           
           {/* Stats */}
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
-            <span>{filteredLogs.length} logs</span>
-            {filteredLogs.length !== allLogs.length && (
-              <span className="text-xs">(tổng: {allLogs.length})</span>
+            <span>{serverTotal} logs</span>
+            {searchTerm && filteredLogs.length !== allLogs.length && (
+              <span className="text-xs">(hiển thị: {filteredLogs.length})</span>
             )}
           </div>
           
           {/* ResponsiveDataTable */}
           <ResponsiveDataTable<ActivityLog>
             columns={columns}
-            data={paginatedData}
+            data={sortedData}
             isLoading={isLoading}
             pageCount={pageCount}
             pagination={pagination}
             setPagination={setPagination}
-            rowCount={sortedData.length}
+            rowCount={serverTotal}
             sorting={sorting}
             setSorting={setSorting}
             columnVisibility={columnVisibility}
@@ -548,7 +716,7 @@ export function SystemLogsPage() {
                       <span className="text-sm text-muted-foreground">Người thực hiện</span>
                       <div className="flex items-center gap-2">
                         <User className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm">{selectedLog.createdBy || 'Hệ thống'}</span>
+                        <span className="text-sm">{(selectedLog.metadata as Record<string, unknown> | null)?.userName as string || selectedLog.createdBy || 'Hệ thống'}</span>
                       </div>
                     </div>
                   </div>
@@ -588,6 +756,14 @@ export function SystemLogsPage() {
           )}
         </SheetContent>
       </Sheet>
+        </TabsContent>
+        
+        <TabsContent value="import-export">
+          <React.Suspense fallback={<div className="flex items-center justify-center py-12 text-muted-foreground">Đang tải...</div>}>
+            <ImportExportLogsContent />
+          </React.Suspense>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

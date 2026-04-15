@@ -4,17 +4,16 @@ import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useInventoryCheck, useInventoryCheckMutations } from './hooks/use-inventory-checks';
-import { useProductFinder } from '../products/hooks/use-all-products';
-import { useProductTypeFinder } from '../settings/inventory/hooks/use-all-product-types';
-import { useEmployeeFinder } from '../employees/hooks/use-all-employees';
+// ⚡ OPTIMIZED: Removed useProductFinder, useProductTypeFinder - data comes from API
+// ⚡ OPTIMIZED: Removed useBranchFinder - branches fetched lazily in print handler
+import { useAuth } from '@/contexts/auth-context';
 import { usePageHeader } from '../../contexts/page-header-context';
-import { useBreakpoint } from '../../contexts/breakpoint-context';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
-import { Check, Pencil, XCircle, Printer, Copy } from 'lucide-react';
+import { Check, Pencil, XCircle, Printer, Copy, Package, Eye, MoreHorizontal } from 'lucide-react';
 import { usePrint } from '../../lib/use-print';
 import { 
   convertInventoryCheckForPrint,
@@ -22,18 +21,24 @@ import {
   mapInventoryCheckLineItems,
   createStoreSettings,
 } from '../../lib/print/inventory-check-print-helper';
-import { useBranchFinder } from '../settings/branches/hooks/use-all-branches';
-import { useStoreInfoData } from '../settings/store-info/hooks/use-store-info';
+import { fetchPrintData } from '@/lib/lazy-print-data';
+import { OptimizedImage } from '../../components/ui/optimized-image';
 import { formatDateCustom } from '../../lib/date-utils';
 import { toast } from 'sonner';
 import { type SystemId, asSystemId } from '../../lib/id-types';
-import { ActivityHistory } from '../../components/ActivityHistory';
+import { EntityActivityTable } from '@/components/shared/entity-activity-table';
 import { Comments } from '../../components/Comments';
 import { useComments } from '@/hooks/use-comments';
 import { InventoryCheckWorkflowCard } from './components/inventory-check-workflow-card';
 import type { Subtask } from '../../components/shared/subtask-list';
-import { ProductThumbnailCell } from '../../components/shared/read-only-products-table';
 import { ImagePreviewDialog } from '../../components/ui/image-preview-dialog';
+import { useBreakpoint } from '@/contexts/breakpoint-context';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../../components/ui/dropdown-menu';
 import {
   Table,
   TableBody,
@@ -56,7 +61,6 @@ import {
 export function InventoryCheckDetailPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const router = useRouter();
-  const { isMobile: _isMobile } = useBreakpoint();
   const { data: check, isLoading } = useInventoryCheck(systemId);
   const { balance: balanceMutation, cancel: cancelMutation } = useInventoryCheckMutations({
     onBalanceSuccess: () => {
@@ -71,16 +75,12 @@ export function InventoryCheckDetailPage() {
     },
     onError: (err) => toast.error(err.message)
   });
-  const { findById: findProductById } = useProductFinder();
-  const { findById: findProductTypeById } = useProductTypeFinder();
-  const { findById: findEmployeeById } = useEmployeeFinder();
+  // ⚡ OPTIMIZED: Removed useProductFinder, useProductTypeFinder - all data comes from API
+  const { employee: authEmployee, can, isAdmin } = useAuth();
+  const { isMobile } = useBreakpoint();
   const [showBalanceDialog, setShowBalanceDialog] = React.useState(false);
   const [showCancelDialog, setShowCancelDialog] = React.useState(false);
 
-  const getProductTypeName = React.useCallback((productTypeSystemId: string) => {
-    const productType = findProductTypeById(productTypeSystemId as SystemId);
-    return productType?.name || 'Hàng hóa';
-  }, [findProductTypeById]);
   const [activeTab, setActiveTab] = React.useState('all');
   const [subtasks, setSubtasks] = React.useState<Subtask[]>([]);
   const [previewImage, setPreviewImage] = React.useState<{ url: string; title: string } | null>(null);
@@ -90,18 +90,9 @@ export function InventoryCheckDetailPage() {
   const [itemsPerPage, setItemsPerPage] = React.useState(20);
   const itemsPerPageOptions = [10, 20, 50, 100];
 
-  // Get employee names using hook (reactive)
-  const creatorName = React.useMemo(() => {
-    if (!check?.createdBy) return '';
-    const creator = findEmployeeById(check.createdBy as SystemId);
-    return creator?.fullName || check.createdBy;
-  }, [check?.createdBy, findEmployeeById]);
-
-  const balancerName = React.useMemo(() => {
-    if (!check?.balancedBy) return '';
-    const balancer = findEmployeeById(check.balancedBy as SystemId);
-    return balancer?.fullName || check.balancedBy;
-  }, [check?.balancedBy, findEmployeeById]);
+  // Get employee names from API data
+  const creatorName = (check as unknown as Record<string, unknown>)?.createdByName as string || check?.createdBy || '';
+  const balancerName = (check as unknown as Record<string, unknown>)?.balancedByName as string || check?.balancedBy || '';
 
   // Comments from database
   const { 
@@ -126,13 +117,10 @@ export function InventoryCheckDetailPage() {
     [dbComments]
   );
 
-  // Get current employee for comments
-  const currentEmployee = React.useMemo(() => {
-    if (!check?.createdBy) return null;
-    const creator = findEmployeeById(check.createdBy as SystemId);
-    if (!creator) return null;
-    return { systemId: creator.systemId, fullName: creator.fullName, avatar: creator.avatar };
-  }, [check?.createdBy, findEmployeeById]);
+  // Current employee for comments (from auth)
+  const currentEmployee = authEmployee
+    ? { systemId: authEmployee.systemId, fullName: authEmployee.fullName, avatar: undefined }
+    : null;
 
   const handleAddComment = (content: string, attachments?: string[], _parentId?: string) => {
     dbAddComment(content, attachments || []);
@@ -153,7 +141,8 @@ export function InventoryCheckDetailPage() {
 
   const handleBalance = async () => {
     if (!check) return;
-    const balancedBy = currentEmployee?.fullName || 'Hệ thống';
+    // ✅ Pass employee systemId, not name - action needs ID for StockHistory
+    const balancedBy = currentEmployee?.systemId || 'SYSTEM';
     balanceMutation.mutate({ systemId: check.systemId, balancedBy });
     setShowBalanceDialog(false);
   };
@@ -177,33 +166,51 @@ export function InventoryCheckDetailPage() {
     if (!check) return;
     // Store check data in sessionStorage for the new form to pick up
     const duplicateData = {
+      // ✅ Include source check info for display
+      sourceCheckId: check.systemId,
+      sourceCheckCode: check.id,
       branchSystemId: check.branchSystemId,
       note: check.note,
-      items: check.items.map(item => ({
-        productSystemId: item.productSystemId,
-        productId: item.productId,
-        productName: item.productName,
-        unit: item.unit,
-        systemQuantity: item.systemQuantity,
-        actualQuantity: 0, // Reset actual quantity
-        difference: -item.systemQuantity,
-        reason: item.reason,
-        note: item.note,
-      })),
+      items: check.items.map(item => {
+        // Get productImage from API response
+        const itemAny = item as typeof item & { productImage?: string };
+        return {
+          productSystemId: item.productSystemId,
+          productId: item.productId,
+          productName: item.productName,
+          unit: item.unit,
+          // ✅ Don't copy old systemQuantity - will be recalculated
+          systemQuantity: 0, 
+          actualQuantity: 0,
+          difference: 0,
+          reason: item.reason || 'other', // ✅ Default to 'other'
+          note: item.note,
+          // ✅ Copy product image
+          thumbnailImage: itemAny.productImage || undefined,
+        };
+      }),
     };
     sessionStorage.setItem('inventoryCheckDuplicate', JSON.stringify(duplicateData));
     toast.success('Đã sao chép phiếu kiểm kê');
     router.push('/inventory-checks/new?duplicate=true');
   }, [check, router]);
 
-  const { findById: findBranchById } = useBranchFinder();
-  const { info: storeInfo } = useStoreInfoData();
-  const { print } = usePrint(check?.branchSystemId);
+  // ⚡ OPTIMIZED: Defer print template loading until print is clicked
+  const { print } = usePrint({ enabled: false });
 
-  const handlePrint = React.useCallback(() => {
+  // ⚡ OPTIMIZED: Lazy load print data and branches only when print is clicked
+  const handlePrint = React.useCallback(async () => {
     if (!check) return;
 
-    const branch = check.branchSystemId ? findBranchById(check.branchSystemId) : undefined;
+    // Fetch print data and branches in parallel
+    const [{ storeInfo }, branchesRes] = await Promise.all([
+      fetchPrintData(),
+      check.branchSystemId 
+        ? fetch(`/api/branches/${check.branchSystemId}`).then(r => r.json()).catch(() => null)
+        : Promise.resolve(null)
+    ]);
+    
+    const branch = branchesRes?.data || branchesRes;
 
     // Use helper to prepare print data
     const storeSettings = createStoreSettings(storeInfo);
@@ -219,7 +226,7 @@ export function InventoryCheckDetailPage() {
       data: printData,
       lineItems: lineItems
     });
-  }, [check, creatorName, storeInfo, print, findBranchById]);
+  }, [check, creatorName, print]);
 
   const headerActions = React.useMemo(() => {
     if (!check) return [];
@@ -246,17 +253,22 @@ export function InventoryCheckDetailPage() {
         <Printer className="mr-2 h-4 w-4" />
         In phiếu
       </Button>,
-      <Button
-        key="edit"
-        variant="outline"
-        size="sm"
-        className="h-9"
-        onClick={() => router.push(`/inventory-checks/${check.systemId}/edit`)}
-      >
-        <Pencil className="mr-2 h-4 w-4" />
-        Sửa
-      </Button>
     ];
+
+    if (isAdmin || can('edit_inventory_checks')) {
+      btns.push(
+        <Button
+          key="edit"
+          variant="outline"
+          size="sm"
+          className="h-9"
+          onClick={() => router.push(`/inventory-checks/${check.systemId}/edit`)}
+        >
+          <Pencil className="mr-2 h-4 w-4" />
+          Sửa
+        </Button>
+      );
+    }
 
     if (check.status?.toLowerCase() === 'draft') {
       btns.push(
@@ -317,12 +329,53 @@ export function InventoryCheckDetailPage() {
     return <Badge variant="outline">{check.status}</Badge>;
   }, [check]);
 
+  const mobileHeaderActions = React.useMemo(() => {
+    if (!isMobile || !check) return [];
+    return [
+      <DropdownMenu key="mobile-actions">
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="sm" className="h-9">
+            <MoreHorizontal className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={handleDuplicate}>
+            <Copy className="mr-2 h-4 w-4" />
+            Sao chép
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={handlePrint}>
+            <Printer className="mr-2 h-4 w-4" />
+            In phiếu
+          </DropdownMenuItem>
+          {(isAdmin || can('edit_inventory_checks')) && (
+            <DropdownMenuItem onClick={() => router.push(`/inventory-checks/${check.systemId}/edit`)}>
+              <Pencil className="mr-2 h-4 w-4" />
+              Sửa
+            </DropdownMenuItem>
+          )}
+          {check.status?.toLowerCase() === 'draft' && (
+            <>
+              <DropdownMenuItem onClick={() => setShowBalanceDialog(true)}>
+                <Check className="mr-2 h-4 w-4" />
+                Cân bằng
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleCancel} className="text-destructive">
+                <XCircle className="mr-2 h-4 w-4" />
+                Hủy phiếu
+              </DropdownMenuItem>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>,
+    ];
+  }, [isMobile, check, handleDuplicate, handlePrint, handleCancel, isAdmin, can, router]);
+
   // MUST call usePageHeader before any early returns
   usePageHeader({ 
     title: check ? `Phiếu kiểm hàng ${check.id}` : 'Chi tiết phiếu kiểm hàng',
     breadcrumb,
     badge: statusBadge,
-    actions: headerActions,
+    actions: isMobile ? mobileHeaderActions : headerActions,
     context: pageContext
   });
 
@@ -388,21 +441,21 @@ export function InventoryCheckDetailPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="text-h2 font-bold">{check.items.length}</div>
-            <p className="text-body-xs text-muted-foreground">Tổng sản phẩm</p>
+            <p className="text-xs text-muted-foreground">Tổng sản phẩm</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
             <div className="text-h2 font-bold text-green-600">{stats.matched}</div>
-            <p className="text-body-xs text-muted-foreground">Khớp</p>
+            <p className="text-xs text-muted-foreground">Khớp</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
             <div className="text-h2 font-bold text-red-600">{stats.different}</div>
-            <p className="text-body-xs text-muted-foreground">Lệch</p>
+            <p className="text-xs text-muted-foreground">Lệch</p>
             {stats.different > 0 && (
-              <p className="text-body-xs text-muted-foreground mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 (+{positiveCount} / -{negativeCount})
               </p>
             )}
@@ -417,7 +470,7 @@ export function InventoryCheckDetailPage() {
             }`}>
               {totalDifference > 0 ? '+' : ''}{totalDifference}
             </div>
-            <p className="text-body-xs text-muted-foreground">Tổng chênh lệch</p>
+            <p className="text-xs text-muted-foreground">Tổng chênh lệch</p>
           </CardContent>
         </Card>
       </div>
@@ -435,36 +488,36 @@ export function InventoryCheckDetailPage() {
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <div className="text-body-sm text-muted-foreground">Mã phiếu</div>
+              <div className="text-sm text-muted-foreground">Mã phiếu</div>
               <div className="font-medium">{check.id}</div>
             </div>
             <div>
-              <div className="text-body-sm text-muted-foreground">Chi nhánh</div>
+              <div className="text-sm text-muted-foreground">Chi nhánh</div>
               <div>{check.branchName}</div>
             </div>
             <div>
-              <div className="text-body-sm text-muted-foreground">Ngày tạo</div>
+              <div className="text-sm text-muted-foreground">Ngày tạo</div>
               <div>{check.createdAt ? formatDateCustom(new Date(check.createdAt), 'dd/MM/yyyy HH:mm') : ''}</div>
             </div>
             <div>
-              <div className="text-body-sm text-muted-foreground">Người tạo</div>
+              <div className="text-sm text-muted-foreground">Người tạo</div>
               <div>{creatorName || check.createdBy}</div>
             </div>
             {check.balancedAt && (
               <>
                 <div>
-                  <div className="text-body-sm text-muted-foreground">Ngày cân bằng</div>
+                  <div className="text-sm text-muted-foreground">Ngày cân bằng</div>
                   <div>{formatDateCustom(new Date(check.balancedAt), 'dd/MM/yyyy HH:mm')}</div>
                 </div>
                 <div>
-                  <div className="text-body-sm text-muted-foreground">Người cân bằng</div>
+                  <div className="text-sm text-muted-foreground">Người cân bằng</div>
                   <div>{balancerName || check.balancedBy}</div>
                 </div>
               </>
             )}
             {check.note && (
               <div className="md:col-span-2">
-                <div className="text-body-sm text-muted-foreground">Ghi chú</div>
+                <div className="text-sm text-muted-foreground">Ghi chú</div>
                 <div>{check.note}</div>
               </div>
             )}
@@ -501,11 +554,9 @@ export function InventoryCheckDetailPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-15">Ảnh</TableHead>
+                  <TableHead className="w-16">Ảnh</TableHead>
                   <TableHead className="min-w-50">Sản phẩm</TableHead>
-                  <TableHead>SKU</TableHead>
                   <TableHead>Vị trí kho</TableHead>
-                  <TableHead>ĐVT</TableHead>
                   <TableHead className="text-right">Hệ thống</TableHead>
                   <TableHead className="text-right">Thực tế</TableHead>
                   <TableHead className="text-right">Chênh lệch</TableHead>
@@ -515,46 +566,52 @@ export function InventoryCheckDetailPage() {
               </TableHeader>
               <TableBody>
                 {paginatedItems.map((item, idx) => {
-                  const product = findProductById(item.productSystemId);
-                  const productTypeName = product?.productTypeSystemId 
-                    ? getProductTypeName(product.productTypeSystemId)
-                    : 'Hàng hóa';
                   const globalIndex = (currentPage - 1) * itemsPerPage + idx;
+                  // Get image from API response (productImage field)
+                  const itemAny = item as typeof item & { productImage?: string };
+                  const imageUrl = itemAny.productImage;
+                  
                   return (
                   <TableRow key={globalIndex}>
                     <TableCell>
-                      <ProductThumbnailCell
-                        productSystemId={item.productSystemId}
-                        product={product}
-                        productName={item.productName}
-                        onPreview={(url, title) => setPreviewImage({ url, title })}
-                      />
+                      {imageUrl ? (
+                        <div
+                          className="group/thumbnail relative w-12 h-10 rounded border overflow-hidden bg-muted cursor-pointer"
+                          onClick={() => setPreviewImage({ url: imageUrl, title: item.productName })}
+                        >
+                          <OptimizedImage 
+                            src={imageUrl} 
+                            alt={item.productName} 
+                            className="w-full h-full object-cover transition-all group-hover/thumbnail:brightness-75" 
+                            width={48} 
+                            height={40} 
+                          />
+                          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/thumbnail:opacity-100 transition-opacity">
+                            <Eye className="w-4 h-4 text-white drop-shadow-md" />
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="w-12 h-10 bg-muted rounded flex items-center justify-center">
+                          <Package className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell>
                       <div className="space-y-0.5">
-                        <Link href={`/products/${item.productSystemId}`}
-                          className="font-medium text-primary hover:underline block"
-                        >
-                          {item.productName}
-                        </Link>
-                        <div className="flex items-center gap-1 text-body-xs text-muted-foreground">
-                          <span>{productTypeName}</span>
+                        <div className="font-medium">{item.productName}</div>
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <span>Hàng hóa</span>
                           <span>-</span>
-                          <Link href={`/products/${item.productSystemId}`}
-                            className="text-primary hover:underline"
+                          <Link 
+                            href={`/products/${item.productSystemId}`}
+                            className="text-primary hover:underline font-medium"
                           >
                             {item.productId}
                           </Link>
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="text-muted-foreground text-body-sm">
-                      {product?.id ?? item.productId ?? '-'}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground text-body-sm">
-                      {product?.warehouseLocation || '-'}
-                    </TableCell>
-                    <TableCell>{item.unit || product?.unit || '-'}</TableCell>
+                    <TableCell className="text-muted-foreground text-sm">-</TableCell>
                     <TableCell className="text-right">{item.systemQuantity ?? '-'}</TableCell>
                     <TableCell className="text-right">{item.actualQuantity ?? '-'}</TableCell>
                     <TableCell className="text-right">
@@ -581,52 +638,55 @@ export function InventoryCheckDetailPage() {
           {/* Mobile Cards */}
           <div className="md:hidden space-y-3">
             {paginatedItems.map((item, idx) => {
-              const product = findProductById(item.productSystemId);
               const globalIndex = (currentPage - 1) * itemsPerPage + idx;
+              const itemAny = item as typeof item & { productImage?: string };
+              const imageUrl = itemAny.productImage;
+              
               return (
               <Card key={globalIndex}>
                 <CardContent className="pt-4 space-y-2">
                   <div className="flex gap-3">
-                    <ProductThumbnailCell
-                      productSystemId={item.productSystemId}
-                      product={product}
-                      productName={item.productName}
-                      onPreview={(url, title) => setPreviewImage({ url, title })}
-                    />
-                    <div className="flex-1">
-                      <div className="font-medium">{item.productName}</div>
-                      <div className="text-body-sm text-muted-foreground">
+                    {imageUrl ? (
+                      <div
+                        className="group/thumbnail relative w-12 h-10 rounded border overflow-hidden bg-muted cursor-pointer shrink-0"
+                        onClick={() => setPreviewImage({ url: imageUrl, title: item.productName })}
+                      >
+                        <OptimizedImage 
+                          src={imageUrl} 
+                          alt={item.productName} 
+                          className="w-full h-full object-cover" 
+                          width={48} 
+                          height={40} 
+                        />
+                      </div>
+                    ) : (
+                      <div className="w-12 h-10 bg-muted rounded flex items-center justify-center shrink-0">
+                        <Package className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium truncate">{item.productName}</div>
+                      <div className="text-sm text-muted-foreground">
                         <Link href={`/products/${item.productSystemId}`}
                           className="text-primary hover:underline font-medium"
                         >
                           {item.productId}
                         </Link>
-                        {' '} • {item.unit}
-                      </div>
-                      <div className="flex gap-2 mt-1">
-                        <Badge variant="outline" className="text-body-xs">
-                          {product?.productType === 'single' ? 'Đơn' : 
-                           product?.productType === 'combo' ? 'Combo' : 
-                           product?.productType === 'service' ? 'Dịch vụ' : '-'}
-                        </Badge>
-                        {product?.warehouseLocation && (
-                          <span className="text-body-xs text-muted-foreground">{product.warehouseLocation}</span>
-                        )}
                       </div>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-3 gap-2 text-center py-2">
                     <div>
-                      <div className="text-body-xs text-muted-foreground">Hệ thống</div>
+                      <div className="text-xs text-muted-foreground">Hệ thống</div>
                       <div className="font-medium">{item.systemQuantity}</div>
                     </div>
                     <div>
-                      <div className="text-body-xs text-muted-foreground">Thực tế</div>
+                      <div className="text-xs text-muted-foreground">Thực tế</div>
                       <div className="font-medium">{item.actualQuantity}</div>
                     </div>
                     <div>
-                      <div className="text-body-xs text-muted-foreground">Lệch</div>
+                      <div className="text-xs text-muted-foreground">Lệch</div>
                       <div className={`font-medium ${item.difference < 0 ? 'text-red-600' : item.difference > 0 ? 'text-green-600' : ''}`}>
                         {item.difference > 0 ? '+' : ''}{item.difference}
                       </div>
@@ -634,7 +694,7 @@ export function InventoryCheckDetailPage() {
                   </div>
 
                   {item.reason && (
-                    <div className="text-body-sm">
+                    <div className="text-sm">
                       <span className="text-muted-foreground">Lý do: </span>
                       <span className="font-medium">
                         {item.reason === 'damaged' ? 'Hư Hỏng' : 
@@ -648,7 +708,7 @@ export function InventoryCheckDetailPage() {
                   )}
 
                   {item.note && (
-                    <div className="text-body-sm">
+                    <div className="text-sm">
                       <span className="text-muted-foreground">Ghi chú: </span>
                       {item.note}
                     </div>
@@ -663,11 +723,11 @@ export function InventoryCheckDetailPage() {
           {filteredItems.length > 0 && (
             <div className="flex items-center justify-between pt-4 border-t mt-4">
               <div className="flex items-center gap-4">
-                <div className="text-body-sm text-muted-foreground">
+                <div className="text-sm text-muted-foreground">
                   Hiển thị {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, filteredItems.length)} / {filteredItems.length} sản phẩm
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-body-sm text-muted-foreground">Số dòng:</span>
+                  <span className="text-sm text-muted-foreground">Số dòng:</span>
                   <Select
                     value={String(itemsPerPage)}
                     onValueChange={(value) => {
@@ -758,14 +818,7 @@ export function InventoryCheckDetailPage() {
       />
 
       {/* Activity History */}
-      <ActivityHistory
-        history={[]} // TODO: Build history from check data
-        title="Lịch sử thao tác"
-        emptyMessage="Chưa có lịch sử thao tác"
-        showFilters={false}
-        groupByDate={true}
-        maxHeight="400px"
-      />
+      <EntityActivityTable entityType="inventory_check" entityId={systemId} />
 
       {/* Dialog xác nhận cân bằng */}
       <AlertDialog open={showBalanceDialog} onOpenChange={setShowBalanceDialog}>

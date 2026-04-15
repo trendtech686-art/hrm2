@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
 import { syncCategoriesSchema } from './validation'
+import { logError } from '@/lib/logger'
 
 // GET /api/settings/pkgx/categories - List all PKGX categories
 export async function GET(_request: NextRequest) {
@@ -24,7 +25,7 @@ export async function GET(_request: NextRequest) {
       total: categories.length,
     })
   } catch (error) {
-    console.error('Error fetching PKGX categories:', error)
+    logError('Error fetching PKGX categories', error)
     return apiError('Failed to fetch PKGX categories', 500)
   }
 }
@@ -88,7 +89,7 @@ export async function POST(request: NextRequest) {
       synced: results.length,
     })
   } catch (error) {
-    console.error('Error syncing PKGX categories:', error)
+    logError('Error syncing PKGX categories', error)
     return apiError('Failed to sync PKGX categories', 500)
   }
 }

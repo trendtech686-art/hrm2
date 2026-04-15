@@ -1,7 +1,9 @@
-﻿/**
+'use client'
+
+/**
  * Sales Customer Report Page
  * 
- * Báo cáo bán hàng theo khách hàng
+ * B�o c�o b�n h�ng theo kh�ch h�ng
  */
 
 import * as React from 'react';
@@ -32,12 +34,12 @@ const getColumns = (): ColumnDef<SalesCustomerReportRow & { systemId: string; _i
   {
     id: 'customerName',
     accessorKey: 'customerName',
-    header: 'Khách hàng',
+    header: 'Kh�ch h�ng',
     size: 200,
     enableSorting: true,
     cell: ({ row }) => (
       <div className={row._isSummary ? 'font-semibold' : ''}>
-        {row._isSummary ? 'Tổng' : (
+        {row._isSummary ? 'T?ng' : (
           <div>
             <div className="font-medium">{row.customerName}</div>
             {row.customerCode && <div className="text-xs text-muted-foreground">{row.customerCode}</div>}
@@ -49,7 +51,7 @@ const getColumns = (): ColumnDef<SalesCustomerReportRow & { systemId: string; _i
   {
     id: 'customerGroup',
     accessorKey: 'customerGroup',
-    header: 'Nhóm KH',
+    header: 'Nh�m KH',
     size: 120,
     enableSorting: true,
     cell: ({ row }) => row._isSummary ? '' : (row.customerGroup || '-'),
@@ -57,7 +59,7 @@ const getColumns = (): ColumnDef<SalesCustomerReportRow & { systemId: string; _i
   {
     id: 'orderCount',
     accessorKey: 'orderCount',
-    header: 'SL đơn hàng',
+    header: 'SL don h�ng',
     size: 100,
     enableSorting: true,
     cell: ({ row }) => <span className="text-right block">{row.orderCount}</span>,
@@ -65,7 +67,7 @@ const getColumns = (): ColumnDef<SalesCustomerReportRow & { systemId: string; _i
   {
     id: 'productAmount',
     accessorKey: 'productAmount',
-    header: 'Tiền hàng',
+    header: 'Ti?n h�ng',
     size: 130,
     enableSorting: true,
     cell: ({ row }) => <span className="text-right block">{formatCurrency(row.productAmount)}</span>,
@@ -73,7 +75,7 @@ const getColumns = (): ColumnDef<SalesCustomerReportRow & { systemId: string; _i
   {
     id: 'returnAmount',
     accessorKey: 'returnAmount',
-    header: 'Tiền trả lại',
+    header: 'Ti?n tr? l?i',
     size: 120,
     enableSorting: true,
     cell: ({ row }) => (
@@ -93,7 +95,7 @@ const getColumns = (): ColumnDef<SalesCustomerReportRow & { systemId: string; _i
   {
     id: 'grossProfit',
     accessorKey: 'grossProfit',
-    header: 'Lợi nhuận gộp',
+    header: 'L?i nhu?n g?p',
     size: 130,
     enableSorting: true,
     cell: ({ row }) => (
@@ -105,10 +107,10 @@ const getColumns = (): ColumnDef<SalesCustomerReportRow & { systemId: string; _i
 ];
 
 const DISPLAY_OPTIONS = [
-  { key: 'revenue', label: 'Doanh thu', color: 'hsl(var(--chart-1))', type: 'bar' as const },
-  { key: 'grossProfit', label: 'Lợi nhuận gộp', color: 'hsl(var(--chart-2))', type: 'line' as const },
-  { key: 'productAmount', label: 'Tiền hàng', color: 'hsl(var(--chart-3))', type: 'bar' as const },
-  { key: 'orderCount', label: 'Số đơn hàng', color: 'hsl(var(--chart-5))', type: 'line' as const },
+  { key: 'revenue', label: 'Doanh thu', color: 'var(--chart-1)', type: 'bar' as const },
+  { key: 'grossProfit', label: 'L?i nhu?n g?p', color: 'var(--chart-2)', type: 'line' as const },
+  { key: 'productAmount', label: 'Ti?n h�ng', color: 'var(--chart-3)', type: 'bar' as const },
+  { key: 'orderCount', label: 'S? don h�ng', color: 'var(--chart-5)', type: 'line' as const },
 ];
 
 export function SalesCustomerReportPage() {
@@ -126,7 +128,7 @@ export function SalesCustomerReportPage() {
   const tableData = React.useMemo(() => {
     const summaryRow: SalesCustomerReportRow & { systemId: SystemId; _isSummary: boolean } = {
       customerSystemId: '__summary__' as SystemId,
-      customerName: 'Tổng',
+      customerName: 'T?ng',
       customerCode: '',
       customerGroup: '',
       orderCount: summary.orderCount,
@@ -194,27 +196,27 @@ export function SalesCustomerReportPage() {
   }), [selectedChartOptions]);
   
   const exportColumns = React.useMemo(() => [
-    { key: 'customerName', label: 'Khách hàng', selected: true },
-    { key: 'customerCode', label: 'Mã KH', selected: true },
-    { key: 'customerGroup', label: 'Nhóm KH', selected: true },
-    { key: 'orderCount', label: 'SL đơn hàng', selected: true },
-    { key: 'productAmount', label: 'Tiền hàng', selected: true },
-    { key: 'returnAmount', label: 'Tiền trả lại', selected: true },
+    { key: 'customerName', label: 'Kh�ch h�ng', selected: true },
+    { key: 'customerCode', label: 'M� KH', selected: true },
+    { key: 'customerGroup', label: 'Nh�m KH', selected: true },
+    { key: 'orderCount', label: 'SL don h�ng', selected: true },
+    { key: 'productAmount', label: 'Ti?n h�ng', selected: true },
+    { key: 'returnAmount', label: 'Ti?n tr? l?i', selected: true },
     { key: 'revenue', label: 'Doanh thu', selected: true },
-    { key: 'grossProfit', label: 'Lợi nhuận gộp', selected: true },
+    { key: 'grossProfit', label: 'L?i nhu?n g?p', selected: true },
   ], []);
   
   const summaryCards = React.useMemo(() => [
-    { title: 'Số khách hàng', value: data.length, icon: Users },
-    { title: 'Tổng đơn hàng', value: summary.orderCount, icon: ShoppingCart },
+    { title: 'S? kh�ch h�ng', value: data.length, icon: Users },
+    { title: 'T?ng don h�ng', value: summary.orderCount, icon: ShoppingCart },
     { title: 'Doanh thu', value: formatCurrency(summary.revenue), icon: TrendingUp },
-    { title: 'Lợi nhuận gộp', value: formatCurrency(summary.grossProfit), icon: DollarSign,
+    { title: 'L?i nhu?n g?p', value: formatCurrency(summary.grossProfit), icon: DollarSign,
       className: summary.grossProfit >= 0 ? 'text-green-600' : 'text-red-500' },
   ], [data.length, summary]);
   
   const headerActions = React.useMemo(() => (
     <ReportHeaderActions
-      title="Báo cáo bán hàng theo khách hàng"
+      title="B�o c�o b�n h�ng theo kh�ch h�ng"
       data={data as unknown as Record<string, unknown>[]}
       columns={exportColumns}
       glossary={SALES_REPORT_GLOSSARY}
@@ -222,12 +224,12 @@ export function SalesCustomerReportPage() {
   ), [data, exportColumns]);
   
   usePageHeader({
-    title: 'Báo cáo bán hàng theo khách hàng',
-    subtitle: 'Phân tích doanh thu từ từng khách hàng',
+    title: 'B�o c�o b�n h�ng theo kh�ch h�ng',
+    subtitle: 'Ph�n t�ch doanh thu t? t?ng kh�ch h�ng',
     breadcrumb: [
-      { label: 'Trang chủ', href: ROUTES.ROOT },
-      { label: 'Báo cáo', href: ROUTES.REPORTS.INDEX },
-      { label: 'Bán hàng theo khách hàng', href: ROUTES.REPORTS.SALES_BY_CUSTOMER, isCurrent: true },
+      { label: 'Trang ch?', href: ROUTES.ROOT },
+      { label: 'B�o c�o', href: ROUTES.REPORTS.INDEX },
+      { label: 'B�n h�ng theo kh�ch h�ng', href: ROUTES.REPORTS.SALES_BY_CUSTOMER, isCurrent: true },
     ],
     showBackButton: true,
     actions: [headerActions],
@@ -239,21 +241,21 @@ export function SalesCustomerReportPage() {
     <div className={`p-4 space-y-3 ${row._isSummary ? 'bg-muted/50' : ''}`}>
       <div className="flex items-center justify-between">
         <div className={row._isSummary ? 'font-semibold' : ''}>
-          {row._isSummary ? 'Tổng cộng' : (
+          {row._isSummary ? 'T?ng c?ng' : (
             <div>
               <div className="font-medium">{row.customerName}</div>
               {row.customerGroup && <div className="text-xs text-muted-foreground">{row.customerGroup}</div>}
             </div>
           )}
         </div>
-        <Badge variant="secondary">{row.orderCount} đơn</Badge>
+        <Badge variant="secondary">{row.orderCount} don</Badge>
       </div>
       <div className="grid grid-cols-2 gap-2 text-sm">
-        <div><span className="text-muted-foreground">Tiền hàng:</span> {formatCurrency(row.productAmount)}</div>
+        <div><span className="text-muted-foreground">Ti?n h�ng:</span> {formatCurrency(row.productAmount)}</div>
         <div><span className="text-muted-foreground">Doanh thu:</span> {formatCurrency(row.revenue)}</div>
-        <div><span className="text-muted-foreground">Trả lại:</span> {formatCurrency(row.returnAmount)}</div>
+        <div><span className="text-muted-foreground">Tr? l?i:</span> {formatCurrency(row.returnAmount)}</div>
         <div className={row.grossProfit >= 0 ? 'text-green-600' : 'text-red-500'}>
-          <span className="text-muted-foreground">LN gộp:</span> {formatCurrency(row.grossProfit)}
+          <span className="text-muted-foreground">LN g?p:</span> {formatCurrency(row.grossProfit)}
         </div>
       </div>
     </div>
@@ -285,10 +287,10 @@ export function SalesCustomerReportPage() {
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
-            <CardTitle>Chi tiết theo khách hàng</CardTitle>
+            <CardTitle>Chi ti?t theo kh�ch h�ng</CardTitle>
             <Button variant="outline" size="sm">
               <Filter className="h-4 w-4 mr-2" />
-              Lọc ({data.length})
+              L?c ({data.length})
             </Button>
           </div>
         </CardHeader>

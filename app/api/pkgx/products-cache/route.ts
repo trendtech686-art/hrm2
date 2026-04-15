@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, apiError } from '@/lib/api-utils';
+import { logError } from '@/lib/logger'
 
 const SETTINGS_KEY = 'settings';
 const SETTINGS_GROUP = 'pkgx';
@@ -34,7 +35,7 @@ export async function GET() {
       } 
     });
   } catch (error) {
-    console.error('[API] Error fetching PKGX products cache:', error);
+    logError('[API] Error fetching PKGX products cache', error);
     return NextResponse.json(
       { success: false, error: 'Failed to fetch products cache' },
       { status: 500 }
@@ -77,7 +78,7 @@ export async function PUT(request: NextRequest) {
       data: { count: products.length } 
     });
   } catch (error) {
-    console.error('[API] Error updating PKGX products cache:', error);
+    logError('[API] Error updating PKGX products cache', error);
     return NextResponse.json(
       { success: false, error: 'Failed to update products cache' },
       { status: 500 }

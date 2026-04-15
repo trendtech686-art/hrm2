@@ -9,6 +9,7 @@ import {
   CardContent,
 } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
+import { Loader2 } from 'lucide-react';
 import type { Supplier } from '@/lib/types/prisma-extended';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { toast } from 'sonner';
@@ -16,11 +17,12 @@ import { asBusinessId, asSystemId } from '@/lib/id-types';
 import { ROUTES, generatePath } from '../../lib/router';
 import type { BreadcrumbItem } from '../../lib/breadcrumb-system';
 import { Skeleton } from '../../components/ui/skeleton';
+import { logError } from '@/lib/logger'
 
 export function SupplierFormPage() {
   const { systemId: systemIdParam } = useParams<{ systemId: string }>();
   const router = useRouter();
-  const { create, update: updateSupplier } = useSupplierMutations({
+  const { create, update: updateSupplier, isCreating, isUpdating } = useSupplierMutations({
     onCreateSuccess: (data) => {
       toast.success(`Đã thêm nhà cung cấp "${(data as { name?: string })?.name || 'mới'}"`);
       router.push(ROUTES.PROCUREMENT.SUPPLIERS);
@@ -30,7 +32,7 @@ export function SupplierFormPage() {
       router.push(ROUTES.PROCUREMENT.SUPPLIERS);
     },
     onError: (err) => {
-      console.error('Supplier mutation error:', err);
+      logError('Supplier mutation error', err);
       toast.error(err.message || 'Có lỗi xảy ra khi lưu nhà cung cấp');
     }
   });
@@ -47,6 +49,7 @@ export function SupplierFormPage() {
       taxCode: values.taxCode ?? '',
       email: values.email ?? '',
       address: values.address ?? '',
+      addressData: values.addressData ?? null,
       website: values.website ?? '',
       accountManager: values.accountManager ?? '',
       phone: values.phone ?? '',
@@ -86,10 +89,12 @@ export function SupplierFormPage() {
     if (form) {
       form.requestSubmit();
     } else {
-      console.error('Form not found by ID');
+      logError('Form not found by ID', null);
       toast.error('Không tìm thấy form');
     }
   }, []);
+
+  const isBusy = isCreating || isUpdating;
 
   usePageHeader({
     title: isEditing ? 'Chỉnh sửa nhà cung cấp' : 'Thêm nhà cung cấp',
@@ -100,8 +105,9 @@ export function SupplierFormPage() {
       <Button key="cancel" variant="outline" className="h-9 gap-2" onClick={handleCancel}>
         Hủy
       </Button>,
-      <Button key="save" type="button" className="h-9 gap-2" onClick={handleSaveClick} disabled={isLoadingSupplier}>
-        Lưu
+      <Button key="save" type="button" className="h-9 gap-2" onClick={handleSaveClick} disabled={isLoadingSupplier || isBusy}>
+        {isBusy && <Loader2 className="h-4 w-4 animate-spin" />}
+        {isBusy ? 'Đang lưu...' : 'Lưu'}
       </Button>
     ]
   });

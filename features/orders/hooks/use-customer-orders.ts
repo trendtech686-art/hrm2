@@ -32,9 +32,9 @@ export function useCustomerOrders(options: UseCustomerOrdersOptions = {}) {
           limit: String(p.limit),
         });
         const response = await fetch(`/api/orders?${params}`);
-        if (!response.ok) throw new Error('Failed to fetch customer orders');
+        if (!response.ok) throw new Error('Không thể tải đơn hàng khách hàng');
         return response.json();
-      });
+      }, 50);
     },
     enabled: enabled && !!customerSystemId,
     staleTime: 30 * 1000,

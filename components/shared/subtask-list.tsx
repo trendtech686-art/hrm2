@@ -133,7 +133,7 @@ function SortableSubtask<T>({
     <div
       ref={setNodeRef}
       style={style}
-      className={`group flex items-start gap-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors ${
+      className={`group flex items-start gap-3 rounded-xl border border-border/50 bg-card hover:bg-accent/50 transition-colors ${
         isNested ? 'ml-8 border-l-2 border-l-primary/30' : ''
       } ${compact ? 'p-2' : 'p-3'} ${onToggleComplete && !isEditing ? 'cursor-pointer' : ''}`}
       onClick={(e) => {
@@ -247,7 +247,7 @@ function SortableSubtask<T>({
       {showAssignee && subtask.assigneeName && (
         <div className="flex items-center gap-1.5 pt-0.5" onClick={(e) => e.stopPropagation()}>
           <Avatar className={compact ? 'h-5 w-5' : 'h-6 w-6'}>
-            <AvatarFallback className={`text-[10px] font-medium bg-primary/10 text-primary`}>
+            <AvatarFallback className={`text-xs font-medium bg-primary/10 text-primary`}>
               {getInitials(subtask.assigneeName)}
             </AvatarFallback>
           </Avatar>
@@ -352,11 +352,19 @@ export function SubtaskList<T = unknown>({
     return Math.round((completed / subtasks.length) * 100);
   }, [subtasks]);
 
-  // Check if all completed and trigger callback
+  // Track previous progress to only fire onAllCompleted on transition to 100
+  const prevProgressRef = React.useRef<number | null>(null);
   React.useEffect(() => {
-    if (subtasks.length > 0 && progress === 100 && onAllCompleted) {
+    if (
+      subtasks.length > 0 &&
+      progress === 100 &&
+      prevProgressRef.current !== null &&
+      prevProgressRef.current < 100 &&
+      onAllCompleted
+    ) {
       onAllCompleted();
     }
+    prevProgressRef.current = progress;
   }, [progress, subtasks.length, onAllCompleted]);
 
   const handleAdd = () => {
@@ -467,7 +475,7 @@ export function SubtaskList<T = unknown>({
           <div className="space-y-2">
             {parentSubtasks.map((subtask) => (
               <div key={subtask.id} className="space-y-2">
-                <div className="group flex items-start gap-2 p-2 rounded-lg border bg-card hover:bg-muted/50 transition-colors">
+                <div className="group flex items-start gap-2 p-2 rounded-xl border border-border/50 bg-card hover:bg-muted/50 transition-colors">
                   <div className="shrink-0 pt-0.5">
                     <Checkbox checked={subtask.completed} disabled />
                   </div>

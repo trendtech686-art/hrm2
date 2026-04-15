@@ -1,10 +1,12 @@
 'use client'
 
 import * as React from "react";
+import { useRouter } from 'next/navigation';
 import { PlusCircle } from "lucide-react";
 import { useSettingsPageHeader } from "../use-settings-page-header";
 import { useTabActionRegistry } from "../use-tab-action-registry";
 import { SettingsVerticalTabs } from "../../../components/settings/SettingsVerticalTabs";
+import { SettingsHistoryContent } from "../../../components/settings/SettingsHistoryContent";
 import { SettingsActionButton } from "../../../components/settings/SettingsActionButton";
 import { TabsContent } from "../../../components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
@@ -29,6 +31,7 @@ import { Switch } from "../../../components/ui/switch";
 import { Textarea } from "../../../components/ui/textarea";
 import { NumberInput } from "../../../components/ui/number-input";
 import { Percent } from "lucide-react";
+import { useAuth } from '@/contexts/auth-context';
 
 type TaxFormValues = {
     id: string;
@@ -45,6 +48,16 @@ const TABS = [
 ];
 
 export function PricingSettingsPage() {
+    const router = useRouter();
+    const { can, isLoading: authLoading } = useAuth();
+    const canEditSettings = can('edit_settings');
+    React.useEffect(() => {
+      if (!authLoading && !canEditSettings) {
+        toast.error('Bạn không có quyền truy cập cài đặt giá');
+        router.replace('/products');
+      }
+    }, [authLoading, canEditSettings, router]);
+
     const [activeTab, setActiveTab] = React.useState('pricing-policy');
     const { headerActions, registerActions } = useTabActionRegistry(activeTab);
     
@@ -120,7 +133,7 @@ export function PricingSettingsPage() {
     React.useEffect(() => {
         if (activeTab === 'pricing-policy') {
             regPricing([
-                <SettingsActionButton key="add" onClick={handleAdd}>
+                <SettingsActionButton key="add-pricing" onClick={handleAdd}>
                     <PlusCircle className="h-4 w-4" />
                     Tạo chính sách giá
                 </SettingsActionButton>
@@ -131,7 +144,7 @@ export function PricingSettingsPage() {
     React.useEffect(() => {
         if (activeTab === 'tax') {
             regTax([
-                <SettingsActionButton key="add" onClick={handleAdd}>
+                <SettingsActionButton key="add-tax" onClick={handleAdd}>
                     <PlusCircle className="h-4 w-4" />
                     Thêm thuế
                 </SettingsActionButton>
@@ -232,6 +245,14 @@ export function PricingSettingsPage() {
         const tax = taxData.find(t => t.systemId === systemId);
         taxMutations.setDefaultPurchase.mutate(systemId, {
             onSuccess: () => tax && toast.success(`Đã đặt "${tax.name}" làm thuế mặc định nhập hàng`),
+            onError: (err) => toast.error(err.message)
+        });
+    }, [taxData, taxMutations]);
+
+    const handleSetDefaultExcelExport = React.useCallback((systemId: SystemId) => {
+        const tax = taxData.find(t => t.systemId === systemId);
+        taxMutations.setDefaultExcelExport.mutate(systemId, {
+            onSuccess: () => tax && toast.success(`Đã đặt "${tax.name}" làm thuế mặc định xuất Excel`),
             onError: (err) => toast.error(err.message)
         });
     }, [taxData, taxMutations]);
@@ -339,11 +360,14 @@ export function PricingSettingsPage() {
                                 onDelete={(systemId) => handleDeleteRequest(taxData.find(t => t.systemId === systemId)!)}
                                 onSetDefaultSale={handleSetDefaultSale}
                                 onSetDefaultPurchase={handleSetDefaultPurchase}
+                                onSetDefaultExcelExport={handleSetDefaultExcelExport}
                             />
                         </CardContent>
                     </Card>
                 </TabsContent>
             </SettingsVerticalTabs>
+
+            <SettingsHistoryContent entityTypes={['promotion', 'tax', 'pricing_policy']} />
 
             {/* Pricing Policy Dialog */}
             {activeTab === 'pricing-policy' && (

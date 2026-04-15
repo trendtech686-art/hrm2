@@ -20,6 +20,7 @@ import {
   type CreateCostAdjustmentInput,
   type UpdateCostAdjustmentInput,
 } from '@/app/actions/cost-adjustments';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import type { CostAdjustmentStatus } from '../types';
 
 // Query keys factory
@@ -77,7 +78,7 @@ export function useCostAdjustmentMutations(options: MutationCallbacks = {}) {
   const queryClient = useQueryClient();
 
   const invalidateAdjustments = () => {
-    queryClient.invalidateQueries({ queryKey: costAdjustmentKeys.all });
+    invalidateRelated(queryClient, 'cost-adjustments');
   };
 
   const create = useMutation({

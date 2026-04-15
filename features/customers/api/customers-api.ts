@@ -91,6 +91,22 @@ export async function fetchCustomers(params: CustomersParams = {}): Promise<Pagi
 }
 
 /**
+ * Fetch only customer business IDs (lightweight, for uniqueness validation)
+ */
+export async function fetchCustomerIds(): Promise<string[]> {
+  const res = await fetch(`${API_BASE}/ids`, {
+    credentials: 'include',
+  });
+
+  if (!res.ok) {
+    throw new Error(`Failed to fetch customer IDs: ${res.statusText}`);
+  }
+
+  const json = await res.json();
+  return json.data ?? json;
+}
+
+/**
  * Fetch single customer by ID
  */
 export async function fetchCustomer(id: string): Promise<Customer> {

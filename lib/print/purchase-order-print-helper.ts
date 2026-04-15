@@ -59,9 +59,9 @@ interface PurchaseOrderLike {
   remainingAmount?: number;
   dueDate?: string;
   deliveryDate?: string;
-  receivedDate?: string;
-  completedDate?: string;
-  cancelledDate?: string;
+  receivedDate?: string | null;
+  completedDate?: string | null;
+  cancelledDate?: string | null;
   createdAt?: string;
   orderDate?: string;
   createdBy?: string;
@@ -138,9 +138,9 @@ export function convertPurchaseOrderForPrint(
     code: order.id,
     createdAt: (order.createdAt ?? order.orderDate) ?? new Date(),
     modifiedAt: order.createdAt || order.orderDate,
-    receivedOn: order.receivedDate,
-    completedOn: order.completedDate,
-    cancelledOn: order.cancelledDate,
+    receivedOn: order.receivedDate ?? undefined,
+    completedOn: order.completedDate ?? undefined,
+    cancelledOn: order.cancelledDate ?? undefined,
     dueOn: order.dueDate || order.deliveryDate,
     createdBy: creator?.fullName || order.createdByName || order.buyer || order.creatorName,
     assigneeName: assignee?.fullName || order.assigneeName,
@@ -223,6 +223,9 @@ export function createStoreSettings(storeInfo?: {
   headquartersAddress?: string;
   province?: string;
   logo?: string;
+  bankAccountName?: string;
+  bankAccountNumber?: string;
+  bankName?: string;
   // Branch fields (alternative)
   name?: string;
   address?: string;
@@ -239,6 +242,9 @@ export function createStoreSettings(storeInfo?: {
     taxCode: storeInfo?.taxCode,
     province: storeInfo?.province,
     logo: getStoreLogo(storeInfo?.logo),
+    bankAccountName: storeInfo?.bankAccountName,
+    bankAccountNumber: storeInfo?.bankAccountNumber,
+    bankName: storeInfo?.bankName,
   };
 }
 

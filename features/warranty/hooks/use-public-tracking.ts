@@ -5,6 +5,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import type { PublicWarrantyResponse } from '../public-warranty-api';
+import { logError } from '@/lib/logger'
 
 type TrackingError = 'MISSING_TRACKING_CODE' | 'NOT_FOUND' | 'UNKNOWN' | null;
 
@@ -53,7 +54,7 @@ export function usePublicTracking(trackingCode: string | undefined) {
         setState({ data: response, loading: false, error: null });
       })
       .catch(error => {
-        console.error('[usePublicTracking] Failed to fetch data', error);
+        logError('[usePublicTracking] Failed to fetch data', error);
         if (!cancelled) {
           setState({ data: null, loading: false, error: 'UNKNOWN' });
         }
@@ -70,7 +71,7 @@ export function usePublicTracking(trackingCode: string | undefined) {
     payments: state.data?.payments ?? [],
     receipts: state.data?.receipts ?? [],
     orders: state.data?.orders ?? [],
-    hotline: state.data?.hotline ?? '1900-xxxx',
+    hotline: state.data?.hotline ?? '',
     settings: state.data?.settings ?? null,
     loading: state.loading,
     error: state.error,

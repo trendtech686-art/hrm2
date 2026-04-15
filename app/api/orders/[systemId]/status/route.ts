@@ -3,6 +3,9 @@ import { prisma } from '@/lib/prisma';
 import { OrderStatus } from '@/generated/prisma/client';
 import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils';
 import { updateCustomerDebt } from '@/lib/services/customer-debt-service';
+import { createNotification } from '@/lib/notifications'
+import { logError } from '@/lib/logger'
+import { getUserNameFromDb } from '@/lib/get-user-name'
 
 interface RouteParams {
   params: Promise<{ systemId: string }>;
@@ -35,7 +38,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const { status } = body;
 
     if (!status) {
-      return apiError('Status is required', 400);
+      return apiError('Trạng thái là bắt buộc', 400);
     }
 
     // Get the order
@@ -44,13 +47,13 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     });
 
     if (!order) {
-      return apiNotFound('Order');
+      return apiNotFound('Đơn hàng');
     }
 
     // Validate status transition
     const allowedStatuses = validTransitions[order.status] || [];
     if (!allowedStatuses.includes(status as OrderStatus)) {
-      return apiError(`Cannot transition from ${order.status} to ${status}`, 400);
+      return apiError(`Không thể chuyển trạng thái từ ${order.status} sang ${status}`, 400);
     }
 
     // Update timestamps based on status
@@ -80,13 +83,51 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const debtAffectingStatuses: OrderStatus[] = ['DELIVERED', 'COMPLETED'];
     if (debtAffectingStatuses.includes(status as OrderStatus) && updatedOrder.customer?.systemId) {
       await updateCustomerDebt(updatedOrder.customer.systemId).catch(err => {
-        console.error('[Order Status] Failed to update customer debt:', err);
+        logError('[Order Status] Failed to update customer debt', err);
       });
     }
 
+    // Notify salesperson about order status change (non-blocking)
+    const statusLabels: Record<string, string> = {
+      PENDING: 'Chờ xác nhận', CONFIRMED: 'Đã xác nhận', PROCESSING: 'Đang xử lý',
+      PACKING: 'Đang đóng gói', PACKED: 'Đã đóng gói', SHIPPING: 'Đang giao hàng',
+      DELIVERED: 'Đã giao hàng', COMPLETED: 'Hoàn thành', CANCELLED: 'Đã hủy',
+      FAILED_DELIVERY: 'Giao thất bại', RETURNED: 'Đã trả hàng',
+      READY_FOR_PICKUP: 'Sẵn sàng lấy hàng',
+    };
+    const statusLabel = statusLabels[status as string] || status;
+    const orderLink = `/orders/${updatedOrder.systemId}`;
+    if (updatedOrder.salespersonId && updatedOrder.salespersonId !== session.user?.employeeId) {
+      createNotification({
+        type: 'order',
+        title: 'Cập nhật đơn hàng',
+        message: `Đơn hàng ${updatedOrder.id} → ${statusLabel}`,
+        link: orderLink,
+        recipientId: updatedOrder.salespersonId,
+        senderId: session.user?.employeeId || undefined,
+        senderName: session.user?.name || undefined,
+        settingsKey: 'order:status',
+      }).catch(e => logError('[Orders] Status notification failed', e));
+    }
+
+    // ✅ Log activity
+    const userName = await getUserNameFromDb(session.user?.id);
+    await prisma.activityLog.create({
+      data: {
+        entityType: 'order',
+        entityId: systemId,
+        action: 'status_changed',
+        actionType: 'status',
+        changes: { status: { from: order.status, to: status } },
+        note: `Đổi trạng thái đơn hàng ${updatedOrder.id}: ${order.status} → ${statusLabel}`,
+        metadata: { userName, orderId: updatedOrder.id },
+        createdBy: userName,
+      }
+    }).catch(e => logError('[Orders Status] activity log failed', e))
+
     return apiSuccess(updatedOrder);
   } catch (error) {
-    console.error('Error updating order status:', error);
-    return apiError('Failed to update order status', 500);
+    logError('Error updating order status', error);
+    return apiError('Không thể cập nhật trạng thái đơn hàng', 500);
   }
 }

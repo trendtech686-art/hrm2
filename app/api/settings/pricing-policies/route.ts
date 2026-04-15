@@ -4,6 +4,8 @@ import { Prisma } from '@/generated/prisma/client';
 import { requireAuth, validateBody, apiSuccess, apiError, apiPaginated, parsePagination } from '@/lib/api-utils';
 import { z } from 'zod';
 import { nanoid } from 'nanoid';
+import { logError } from '@/lib/logger'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 const createPricingPolicySchema = z.object({
   id: z.string().min(1, 'Mã bảng giá là bắt buộc'),
@@ -63,8 +65,7 @@ export async function GET(request: NextRequest) {
 
     return apiPaginated(transformed, { page, limit, total });
   } catch (error) {
-    console.error('[Pricing Policies API] GET error:', error);
-    console.error('[Pricing Policies API] GET error stack:', error instanceof Error ? error.stack : 'No stack');
+    logError('[Pricing Policies API] GET error', error);
     return apiError('Failed to fetch pricing policies', 500);
   }
 }
@@ -76,7 +77,7 @@ export async function POST(request: NextRequest) {
 
   const validation = await validateBody(request, createPricingPolicySchema);
   if (!validation.success) {
-    console.error('[Pricing Policies POST] Validation failed:', validation.error);
+    logError('[Pricing Policies POST] Validation failed', validation.error);
     return apiError(validation.error, 400);
   }
 
@@ -113,6 +114,14 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    createActivityLog({
+      entityType: 'pricing_policy',
+      entityId: policy.systemId,
+      action: `Thêm bảng giá: ${name}`,
+      actionType: 'create',
+      createdBy: session.user?.id,
+    }).catch(e => logError('activity log failed', e))
+
     return apiSuccess({
       systemId: policy.systemId,
       id: policy.id,
@@ -125,7 +134,7 @@ export async function POST(request: NextRequest) {
       updatedAt: policy.updatedAt.toISOString(),
     }, 201);
   } catch (error) {
-    console.error('[Pricing Policies API] POST error:', error);
+    logError('[Pricing Policies API] POST error', error);
     return apiError('Failed to create pricing policy', 500);
   }
 }

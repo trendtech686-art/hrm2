@@ -89,6 +89,9 @@ export function DeliveryMethodCard({
   // ✅ NEW: State for preview dialog
   const [showPreview, setShowPreview] = React.useState(false);
   
+  // ✅ Track available services for selected partner
+  const [availableServices, setAvailableServices] = React.useState<ShippingService[]>([]);
+  
   // ✅ Track if user manually edited COD amount
   const [isUserEditedCod, setIsUserEditedCod] = React.useState(false);
 
@@ -213,7 +216,7 @@ export function DeliveryMethodCard({
       <TabsContent value="shipping-partner" className="mt-0">
         <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-4 mt-4">
           {/* LEFT: Shipping Info Summary - Always visible */}
-          <div className="rounded-lg border bg-card p-4 space-y-4">
+          <div className="rounded-xl border border-border/50 bg-card p-4 space-y-4">
             {/* Địa chỉ giao hàng */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -435,6 +438,7 @@ export function DeliveryMethodCard({
                 onServiceSelect={onServiceSelect}
                 disabled={disabled}
                 collapsed={!!selectedService}
+                onAvailableServicesChange={setAvailableServices}
                 onServiceUpdate={(updatedService) => {
                   // ✅ Update selected service when recalculation happens
                   if (selectedService && 
@@ -449,10 +453,14 @@ export function DeliveryMethodCard({
             
             {/* Config Form - Show when service selected */}
             {selectedService && (
-              <div className="rounded-lg border bg-card p-4">
+              <div className="rounded-xl border border-border/50 bg-card p-4">
                 <h4 className="font-semibold mb-4">Gói dịch vụ</h4>
                 <ServiceConfigForm
                   service={selectedService}
+                  availableServices={availableServices}
+                  onServiceChange={(newService) => {
+                    if (onServiceSelect) onServiceSelect(newService);
+                  }}
                   grandTotal={grandTotal}
                   customerAddress={customerAddress}
                   onConfigChange={(config) => {

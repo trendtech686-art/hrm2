@@ -42,7 +42,7 @@ export async function fetchCategories(params: CategoriesParams = {}): Promise<Ca
   const response = await fetch(url);
   
   if (!response.ok) {
-    throw new Error(`Failed to fetch categories: ${response.statusText}`);
+    throw new Error(`Không thể tải danh sách danh mục: ${response.statusText}`);
   }
   
   const result = await response.json();
@@ -64,7 +64,7 @@ export async function fetchCategory(systemId: string): Promise<Category> {
   const response = await fetch(`${BASE_URL}/${systemId}`);
   
   if (!response.ok) {
-    throw new Error(`Failed to fetch category: ${response.statusText}`);
+    throw new Error(`Không thể tải danh mục: ${response.statusText}`);
   }
   
   return response.json();
@@ -79,7 +79,7 @@ export async function createCategory(data: Omit<Category, 'systemId' | 'createdA
   
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
-    throw new Error(error.message || 'Failed to create category');
+    throw new Error(error.message || 'Không thể tạo danh mục');
   }
   
   return response.json();
@@ -94,7 +94,7 @@ export async function updateCategory(systemId: string, data: Partial<Category>):
   
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
-    throw new Error(error.message || 'Failed to update category');
+    throw new Error(error.message || 'Không thể cập nhật danh mục');
   }
   
   return response.json();
@@ -106,7 +106,7 @@ export async function deleteCategory(systemId: string): Promise<void> {
   });
   
   if (!response.ok) {
-    throw new Error(`Failed to delete category: ${response.statusText}`);
+    throw new Error(`Không thể xóa danh mục: ${response.statusText}`);
   }
 }
 
@@ -119,7 +119,7 @@ export async function fetchDeletedCategories(): Promise<Category[]> {
   });
   
   if (!res.ok) {
-    throw new Error(`Failed to fetch deleted categories: ${res.statusText}`);
+    throw new Error(`Không thể tải danh mục đã xóa: ${res.statusText}`);
   }
   
   const json = await res.json();
@@ -138,7 +138,7 @@ export async function restoreCategory(systemId: string): Promise<Category> {
   const json = await res.json();
   
   if (!res.ok) {
-    throw new Error(json.error || json.message || `Failed to restore category: ${res.statusText}`);
+    throw new Error(json.error || json.message || `Không thể khôi phục danh mục: ${res.statusText}`);
   }
   
   return json.data || json;
@@ -155,7 +155,7 @@ export async function permanentDeleteCategory(systemId: string): Promise<void> {
   
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.error || errorData.message || `Failed to permanently delete category: ${res.statusText}`);
+    throw new Error(errorData.error || errorData.message || `Không thể xóa vĩnh viễn danh mục: ${res.statusText}`);
   }
 }
 
@@ -163,7 +163,7 @@ export async function fetchCategoryTree(): Promise<Category[]> {
   const response = await fetch(`${BASE_URL}/tree`);
   
   if (!response.ok) {
-    throw new Error(`Failed to fetch category tree: ${response.statusText}`);
+    throw new Error(`Không thể tải cây danh mục: ${response.statusText}`);
   }
   
   return response.json();
@@ -183,7 +183,7 @@ async function bulkAction(action: string, systemIds: string[]): Promise<{ update
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || err.message || 'Bulk action failed');
+    throw new Error(err.error || err.message || 'Thao tác hàng loạt thất bại');
   }
   return res.json();
 }

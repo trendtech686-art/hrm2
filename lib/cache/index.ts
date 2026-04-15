@@ -41,16 +41,14 @@ export const CACHE_KEYS = {
   DASHBOARD: 'dashboard',
 } as const;
 
-// Cache durations in seconds
+// Cache durations in seconds (matches lib/cache.ts)
 export const CACHE_TTL = {
-  /** 10 minutes - for rarely changing data like settings */
-  LONG: 600,
+  /** 30 minutes - for rarely changing data like settings */
+  LONG: 30 * 60,
   /** 5 minutes - for moderate data like categories */
-  MEDIUM: 300,
-  /** 1 minute - for frequently changing data */
-  SHORT: 60,
-  /** 30 seconds - for near real-time data */
-  VERY_SHORT: 30,
+  MEDIUM: 5 * 60,
+  /** 30 seconds - for frequently changing data */
+  SHORT: 30,
   /** No cache - for real-time data */
   NONE: 0,
 } as const;

@@ -162,8 +162,8 @@ export function CustomThemeForm({ config, onConfigChange, fontSize, onFontSizeCh
                         <ToggleGroup 
                             type="single" 
                             value={fontSize} 
-                            onValueChange={(value: FontSize) => {
-                                if (value) onFontSizeChange(value);
+                            onValueChange={(value) => {
+                                if (value) onFontSizeChange(value as FontSize);
                             }}
                             className="w-full"
                         >

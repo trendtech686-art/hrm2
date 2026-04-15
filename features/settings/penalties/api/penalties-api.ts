@@ -10,6 +10,7 @@ export interface PenaltyFilters {
   page?: number;
   limit?: number;
   employeeSystemId?: string;
+  linkedComplaintSystemId?: string;
   status?: string;
   category?: string;
   startDate?: string;

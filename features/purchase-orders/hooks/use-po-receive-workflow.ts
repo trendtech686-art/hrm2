@@ -10,8 +10,6 @@ import type { PurchaseOrder } from '@/lib/types/prisma-extended';
 import { usePurchaseOrderMutations } from './use-purchase-orders';
 import { useAllInventoryReceipts } from '@/features/inventory-receipts/hooks/use-all-inventory-receipts';
 import { useInventoryReceiptMutations } from '@/features/inventory-receipts/hooks/use-inventory-receipts';
-import { useProductFinder } from '@/features/products/hooks/use-all-products';
-import { useProductMutations } from '@/features/products/hooks/use-products';
 import { useAllBranches } from '@/features/settings/branches/hooks/use-all-branches';
 import { useAuth } from '@/contexts/auth-context';
 
@@ -49,16 +47,20 @@ const initialReceiveState: ReceiveDialogState = {
   items: [],
 };
 
-export function usePurchaseOrderReceiveWorkflow() {
+export interface PurchaseOrderReceiveWorkflowOptions {
+  enabled?: boolean;
+}
+
+export function usePurchaseOrderReceiveWorkflow(options?: PurchaseOrderReceiveWorkflowOptions) {
+  const enabled = options?.enabled ?? true;
   const { processReceipt: processReceiptMutation } = usePurchaseOrderMutations({});
-  const { data: allReceipts } = useAllInventoryReceipts();
+  // ⚡ OPTIMIZED: Only load receipts when enabled (receive dialog is open)
+  const { data: allReceipts } = useAllInventoryReceipts({ enabled });
   const { create: createInventoryReceipt } = useInventoryReceiptMutations({
     onCreateSuccess: () => {},
     onError: (err) => toast.error(err.message)
   });
-  const { findById: _findProductById } = useProductFinder();
-  const { updateInventory: _updateInventoryMutation } = useProductMutations({});
-  const { data: branches } = useAllBranches();
+  const { data: branches } = useAllBranches({ enabled });
   const { employee: loggedInUser } = useAuth();
   
   const currentUserSystemId = loggedInUser?.systemId ?? 'SYSTEM';
@@ -151,7 +153,7 @@ export function usePurchaseOrderReceiveWorkflow() {
     openReceiveDialogForOrder(firstEntry.po, firstEntry.items);
   }, [computeReceivableItems, openReceiveDialogForOrder, requireLoggedInEmployee]);
 
-  const handleReceiveQuantityChange = React.useCallback((productSystemId: SystemId, value: number) => {
+  const handleReceiveQuantityChange = React.useCallback((productSystemId: string, value: number) => {
     setReceiveDialogState(prev => ({
       ...prev,
       items: prev.items.map(item =>
@@ -215,6 +217,12 @@ export function usePurchaseOrderReceiveWorkflow() {
         ? receiveDialogState.receivedDate.replace('T', ' ')
         : formatDateCustom(new Date(), 'yyyy-MM-dd HH:mm');
 
+      // Calculate allocated fees per unit for cost price
+      const totalQuantity = itemsToReceive.reduce((sum, item) => sum + item.receivedQuantity, 0);
+      const shippingFee = Number(receiveDialogState.purchaseOrder.shippingFee || 0);
+      const otherFees = Number(receiveDialogState.purchaseOrder.tax || 0); // tax field stores other fees
+      const allocatedFeePerUnit = totalQuantity > 0 ? (shippingFee + otherFees) / totalQuantity : 0;
+
       const branchSystemId = receiveDialogState.targetBranchSystemId;
       const receiptPayload: Parameters<typeof createInventoryReceipt.mutateAsync>[0] = {
         type: 'PURCHASE',
@@ -227,13 +235,17 @@ export function usePurchaseOrderReceiveWorkflow() {
         supplierName: receiveDialogState.purchaseOrder.supplierName,
         receiptDate: normalizedDate,
         createdBy: currentUserSystemId,
-        items: itemsToReceive.map(item => ({
-          productId: item.productId || item.productSystemId,
-          productSystemId: item.productSystemId,
-          productName: item.productName,
-          quantity: item.receivedQuantity,
-          unitPrice: item.unitPrice,
-        })),
+        items: itemsToReceive.map(item => {
+          // Cost price = unit price + allocated fees per unit
+          const costPrice = item.unitPrice + allocatedFeePerUnit;
+          return {
+            productId: item.productId || item.productSystemId,
+            productSystemId: item.productSystemId,
+            productName: item.productName,
+            quantity: item.receivedQuantity,
+            unitCost: costPrice, // Include allocated fees in cost price
+          };
+        }),
       };
 
       // Create the inventory receipt - API also creates stock history AND updates ProductInventory

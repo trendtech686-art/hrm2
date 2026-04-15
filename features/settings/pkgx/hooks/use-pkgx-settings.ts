@@ -15,11 +15,11 @@ import type {
   PkgxPriceMapping,
   PkgxSyncSettings,
   PkgxSyncResult,
-  PkgxSyncLog,
   PkgxProduct,
 } from '../types';
 import { DEFAULT_PKGX_SETTINGS } from '../types';
 import type { SystemId } from '@/lib/id-types';
+import { logError } from '@/lib/logger'
 
 // ========================================
 // Query Keys
@@ -28,6 +28,7 @@ import type { SystemId } from '@/lib/id-types';
 export const pkgxKeys = {
   all: ['pkgx'] as const,
   settings: () => [...pkgxKeys.all, 'settings'] as const,
+  mappingsOnly: () => [...pkgxKeys.settings(), 'mappings-only'] as const,
   section: (section: string) => [...pkgxKeys.settings(), section] as const,
 };
 
@@ -40,44 +41,17 @@ export const pkgxKeys = {
  * Use this for Products list page for better performance
  */
 async function fetchPkgxMappingsOnly(): Promise<PkgxSettings> {
-  // Fetch core data in parallel for better performance
-  const [
-    settingsRes,
-    categoriesRes,
-    brandsRes,
-    categoryMappingsRes,
-    brandMappingsRes,
-    priceMappingsRes,
-  ] = await Promise.all([
-    fetch('/api/pkgx/settings'),
-    fetch('/api/settings/pkgx/categories'),
-    fetch('/api/settings/pkgx/brands'),
-    fetch('/api/settings/pkgx/category-mappings'),
-    fetch('/api/settings/pkgx/brand-mappings'),
-    fetch('/api/pkgx/price-mappings'),
-  ]);
+  // Single consolidated API call instead of 6 separate requests
+  const res = await fetch('/api/settings/pkgx/consolidated-mappings');
+  if (!res.ok) {
+    throw new Error('Failed to fetch PKGX mappings');
+  }
+  const json = await res.json();
 
-  const [
-    settingsJson,
-    categoriesJson,
-    brandsJson,
-    categoryMappingsJson,
-    brandMappingsJson,
-    priceMappingsJson,
-  ] = await Promise.all([
-    settingsRes.json(),
-    categoriesRes.json(),
-    brandsRes.json(),
-    categoryMappingsRes.json(),
-    brandMappingsRes.json(),
-    priceMappingsRes.json(),
-  ]);
-
-  const baseSettings = settingsJson.success ? settingsJson.data : {};
-  const categories = categoriesJson.data || [];
-  const brands = brandsJson.data || [];
+  // apiSuccess() returns flat data (no { success, data } wrapper)
+  const { settings: baseSettings, categories, brands, categoryMappings: rawCatMappings, brandMappings: rawBrandMappings, priceMappings: rawPriceMappings } = json;
   
-  const categoryMappings = (categoryMappingsJson.data || []).map((m: Record<string, unknown>) => ({
+  const categoryMappings = (rawCatMappings || []).map((m: Record<string, unknown>) => ({
     systemId: m.systemId as string,
     id: m.systemId as string,
     hrmCategoryId: m.hrmCategoryId as string,
@@ -89,7 +63,7 @@ async function fetchPkgxMappingsOnly(): Promise<PkgxSettings> {
     pkgxCatName: m.pkgxCategoryName as string,
   }));
   
-  const brandMappings = (brandMappingsJson.data || []).map((m: Record<string, unknown>) => ({
+  const brandMappings = (rawBrandMappings || []).map((m: Record<string, unknown>) => ({
     systemId: m.systemId as string,
     id: m.systemId as string,
     hrmBrandId: m.hrmBrandId as string,
@@ -99,8 +73,6 @@ async function fetchPkgxMappingsOnly(): Promise<PkgxSettings> {
     pkgxBrandName: m.pkgxBrandName as string,
   }));
   
-  const priceMappingsArray = priceMappingsJson.success ? priceMappingsJson.data : [];
-  
   const priceTypeToField: Record<string, string> = {
     'shop_price': 'shopPrice',
     'market_price': 'marketPrice',
@@ -109,7 +81,7 @@ async function fetchPkgxMappingsOnly(): Promise<PkgxSettings> {
     'deal_price': 'dealPrice',
   };
   const priceMapping: Record<string, string | null> = {};
-  for (const m of priceMappingsArray) {
+  for (const m of (rawPriceMappings || [])) {
     const fieldName = priceTypeToField[m.priceType];
     if (fieldName) {
       priceMapping[fieldName] = m.pricingPolicyId || null;
@@ -118,9 +90,9 @@ async function fetchPkgxMappingsOnly(): Promise<PkgxSettings> {
 
   return { 
     ...DEFAULT_PKGX_SETTINGS, 
-    ...baseSettings,
-    categories,
-    brands,
+    ...(baseSettings || {}),
+    categories: categories || [],
+    brands: brands || [],
     categoryMappings,
     brandMappings,
     priceMapping,
@@ -133,7 +105,7 @@ async function fetchPkgxMappingsOnly(): Promise<PkgxSettings> {
  * Fetch full PKGX settings including products and logs
  * Use this for PKGX settings page
  */
-async function fetchPkgxSettings(productsLimit = 100, logsLimit = 100): Promise<PkgxSettings> {
+async function fetchPkgxSettings(productsLimit = 100): Promise<PkgxSettings> {
   // Fetch all data in parallel for better performance
   const [
     settingsRes,
@@ -143,7 +115,6 @@ async function fetchPkgxSettings(productsLimit = 100, logsLimit = 100): Promise<
     brandMappingsRes,
     priceMappingsRes,
     productsRes,
-    logsRes,
   ] = await Promise.all([
     fetch('/api/pkgx/settings'),
     fetch('/api/settings/pkgx/categories'),
@@ -152,7 +123,6 @@ async function fetchPkgxSettings(productsLimit = 100, logsLimit = 100): Promise<
     fetch('/api/settings/pkgx/brand-mappings'),
     fetch('/api/pkgx/price-mappings'),
     fetch(`/api/settings/pkgx/products?limit=${productsLimit}`),
-    fetch(`/api/settings/pkgx/logs?limit=${logsLimit}`),
   ]);
 
   const [
@@ -163,7 +133,6 @@ async function fetchPkgxSettings(productsLimit = 100, logsLimit = 100): Promise<
     brandMappingsJson,
     priceMappingsJson,
     productsJson,
-    logsJson,
   ] = await Promise.all([
     settingsRes.json(),
     categoriesRes.json(),
@@ -172,7 +141,6 @@ async function fetchPkgxSettings(productsLimit = 100, logsLimit = 100): Promise<
     brandMappingsRes.json(),
     priceMappingsRes.json(),
     productsRes.json(),
-    logsRes.json(),
   ]);
 
   const baseSettings = settingsJson.success ? settingsJson.data : {};
@@ -252,9 +220,6 @@ async function fetchPkgxSettings(productsLimit = 100, logsLimit = 100): Promise<
     last_update: p.lastUpdate as number,
   }));
   
-  // Parse logs from already-fetched data
-  const logs: PkgxSyncLog[] = logsJson?.data || [];
-  
   return { 
     ...DEFAULT_PKGX_SETTINGS, 
     ...baseSettings,
@@ -264,7 +229,7 @@ async function fetchPkgxSettings(productsLimit = 100, logsLimit = 100): Promise<
     brandMappings,
     priceMapping,
     pkgxProducts,
-    logs,
+    logs: [],
   };
 }
 
@@ -298,11 +263,12 @@ export function usePkgxSettings() {
  */
 export function usePkgxMappings() {
   return useQuery({
-    queryKey: [...pkgxKeys.settings(), 'mappings-only'],
+    queryKey: pkgxKeys.mappingsOnly(),
     queryFn: fetchPkgxMappingsOnly,
     staleTime: 1000 * 60 * 5, // 5 minutes - mappings don't change frequently
     gcTime: 1000 * 60 * 10, // 10 minutes garbage collection
     refetchOnWindowFocus: false,
+    refetchOnMount: false, // Avoid duplicate fetches when multiple components use this hook
   });
 }
 
@@ -352,12 +318,12 @@ export function usePkgxPriceMapping() {
 }
 
 export function usePkgxCategoryMappings() {
-  const { data: settings } = usePkgxSettings();
+  const { data: settings } = usePkgxMappings();
   return useMemo(() => settings?.categoryMappings ?? [], [settings?.categoryMappings]);
 }
 
 export function usePkgxBrandMappings() {
-  const { data: settings } = usePkgxSettings();
+  const { data: settings } = usePkgxMappings();
   return useMemo(() => settings?.brandMappings ?? [], [settings?.brandMappings]);
 }
 
@@ -401,6 +367,15 @@ export function usePkgxLogs() {
 // ========================================
 // Mutation Hooks
 // ========================================
+
+/**
+ * Read PkgxSettings from whichever cache is populated (full or mappings-only).
+ * Mutations need this to read current state before applying changes.
+ */
+function getPkgxSettingsFromCache(queryClient: ReturnType<typeof useQueryClient>): PkgxSettings | undefined {
+  return (queryClient.getQueryData(pkgxKeys.settings()) as PkgxSettings | undefined)
+    ?? (queryClient.getQueryData(pkgxKeys.mappingsOnly()) as PkgxSettings | undefined);
+}
 
 /**
  * Generic mutation hook for updating any section of PKGX settings
@@ -575,7 +550,7 @@ export function usePkgxBrandMutations(options?: { onSuccess?: () => void }) {
 
   const addBrand = useMutation({
     mutationFn: async (brand: PkgxBrand) => {
-      const settings = queryClient.getQueryData(pkgxKeys.settings()) as PkgxSettings;
+      const settings = getPkgxSettingsFromCache(queryClient);
       const brands = [...(settings?.brands ?? []), brand];
       await updatePkgxSection('brands', brands);
     },
@@ -588,7 +563,7 @@ export function usePkgxBrandMutations(options?: { onSuccess?: () => void }) {
 
   const updateBrand = useMutation({
     mutationFn: async ({ id, updates }: { id: number; updates: Partial<PkgxBrand> }) => {
-      const settings = queryClient.getQueryData(pkgxKeys.settings()) as PkgxSettings;
+      const settings = getPkgxSettingsFromCache(queryClient);
       const brands = settings?.brands?.map((brand) =>
         brand.id === id ? { ...brand, ...updates } : brand
       ) ?? [];
@@ -603,7 +578,7 @@ export function usePkgxBrandMutations(options?: { onSuccess?: () => void }) {
 
   const deleteBrand = useMutation({
     mutationFn: async (id: number) => {
-      const settings = queryClient.getQueryData(pkgxKeys.settings()) as PkgxSettings;
+      const settings = getPkgxSettingsFromCache(queryClient);
       const brands = settings?.brands?.filter((brand) => brand.id !== id) ?? [];
       await updatePkgxSection('brands', brands);
     },
@@ -641,7 +616,7 @@ export function usePkgxCategoryMappingMutations(options?: { onSuccess?: () => vo
 
   const addCategoryMapping = useMutation({
     mutationFn: async (mapping: PkgxCategoryMapping) => {
-      const settings = queryClient.getQueryData(pkgxKeys.settings()) as PkgxSettings;
+      const settings = getPkgxSettingsFromCache(queryClient);
       const mappings = [...(settings?.categoryMappings ?? []), mapping];
       await updatePkgxSection('categoryMappings', mappings);
     },
@@ -654,7 +629,7 @@ export function usePkgxCategoryMappingMutations(options?: { onSuccess?: () => vo
 
   const updateCategoryMapping = useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<PkgxCategoryMapping> }) => {
-      const settings = queryClient.getQueryData(pkgxKeys.settings()) as PkgxSettings;
+      const settings = getPkgxSettingsFromCache(queryClient);
       const mappings = settings?.categoryMappings?.map((m) =>
         m.id === id ? { ...m, ...updates } : m
       ) ?? [];
@@ -669,7 +644,7 @@ export function usePkgxCategoryMappingMutations(options?: { onSuccess?: () => vo
 
   const deleteCategoryMapping = useMutation({
     mutationFn: async (id: string) => {
-      const settings = queryClient.getQueryData(pkgxKeys.settings()) as PkgxSettings;
+      const settings = getPkgxSettingsFromCache(queryClient);
       const mappings = settings?.categoryMappings?.filter((m) => m.id !== id) ?? [];
       await updatePkgxSection('categoryMappings', mappings);
     },
@@ -688,7 +663,7 @@ export function usePkgxBrandMappingMutations(options?: { onSuccess?: () => void 
 
   const addBrandMapping = useMutation({
     mutationFn: async (mapping: PkgxBrandMapping) => {
-      const settings = queryClient.getQueryData(pkgxKeys.settings()) as PkgxSettings;
+      const settings = getPkgxSettingsFromCache(queryClient);
       const mappings = [...(settings?.brandMappings ?? []), mapping];
       await updatePkgxSection('brandMappings', mappings);
     },
@@ -701,7 +676,7 @@ export function usePkgxBrandMappingMutations(options?: { onSuccess?: () => void 
 
   const updateBrandMapping = useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<PkgxBrandMapping> }) => {
-      const settings = queryClient.getQueryData(pkgxKeys.settings()) as PkgxSettings;
+      const settings = getPkgxSettingsFromCache(queryClient);
       const mappings = settings?.brandMappings?.map((m) =>
         m.id === id ? { ...m, ...updates } : m
       ) ?? [];
@@ -716,7 +691,7 @@ export function usePkgxBrandMappingMutations(options?: { onSuccess?: () => void 
 
   const deleteBrandMapping = useMutation({
     mutationFn: async (id: string) => {
-      const settings = queryClient.getQueryData(pkgxKeys.settings()) as PkgxSettings;
+      const settings = getPkgxSettingsFromCache(queryClient);
       const mappings = settings?.brandMappings?.filter((m) => m.id !== id) ?? [];
       await updatePkgxSection('brandMappings', mappings);
     },
@@ -773,44 +748,12 @@ export function usePkgxSyncStatusMutations() {
 }
 
 export function usePkgxLogMutations() {
-  const queryClient = useQueryClient();
-
-  const addLog = useMutation({
-    mutationFn: async (log: Omit<PkgxSyncLog, 'id' | 'timestamp'>) => {
-      const res = await fetch('/api/settings/pkgx/logs', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: log.action,
-          status: log.status,
-          message: log.message,
-          syncType: log.details?.productName || 'general',
-          itemsTotal: log.details?.total || 0,
-          itemsSuccess: log.details?.success || 0,
-          itemsFailed: log.details?.failed || 0,
-          details: log.details,
-        }),
-      });
-      if (!res.ok) throw new Error('Failed to create log');
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: pkgxKeys.settings() });
-    },
+  // No-op: logs riêng đã xóa, dùng activity log hệ thống thay thế
+  const noop = useMutation<void, Error, unknown>({
+    mutationFn: async () => {},
   });
 
-  const clearLogs = useMutation({
-    mutationFn: async () => {
-      const res = await fetch('/api/settings/pkgx/logs', { method: 'DELETE' });
-      if (!res.ok) throw new Error('Failed to clear logs');
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: pkgxKeys.settings() });
-      toast.success('Logs cleared');
-    },
-  });
-
-  return { addLog, clearLogs };
+  return { addLog: noop, clearLogs: noop };
 }
 
 export function usePkgxProductsMutations() {
@@ -867,7 +810,7 @@ export function usePkgxProductsMutations() {
       queryClient.invalidateQueries({ queryKey: ['pkgx', 'products'] });
     },
     onError: (error) => {
-      console.error('[setPkgxProducts] Error:', error);
+      logError('[setPkgxProducts] Error', error);
     },
   });
 
@@ -948,7 +891,9 @@ export function usePkgxProductsPaginated(options: {
         keywords: p.keywords as string,
         ktitle: p.ktitle as string,
         goods_alias: p.goodsAlias as string,
-        last_update: p.lastUpdate as number,
+        add_time: ((p.addTime as number) || (p.syncedAt ? Math.floor(new Date(p.syncedAt as string).getTime() / 1000) : 0)) as number,
+        last_update: ((p.lastUpdate as number) || (p.syncedAt ? Math.floor(new Date(p.syncedAt as string).getTime() / 1000) : 0)) as number,
+        synced_at: p.syncedAt ? Math.floor(new Date(p.syncedAt as string).getTime() / 1000) : 0,
       }));
       
       return { 
@@ -965,54 +910,62 @@ export function usePkgxProductsPaginated(options: {
 
 // Hook to fetch ALL products from database (for mapping lookup and import)
 // Only use when you need full list - prefer paginated version for display
-export function usePkgxProductsCache() {
+// Pass enabled: false to lazy-load (use queryClient.ensureQueryData for on-demand)
+export const pkgxProductsCacheQueryKey = ['pkgx', 'products', 'all'] as const;
+
+export async function fetchAllPkgxProductsCache() {
+  const res = await fetch('/api/settings/pkgx/products?limit=0');
+  const json = await res.json();
+  if (!json.success) throw new Error(json.error || 'Failed to fetch products');
+  // Transform DB format back to PKGX API format for UI compatibility
+  const products: PkgxProduct[] = (json.data || []).map((p: Record<string, unknown>) => ({
+    goods_id: p.id as number,
+    goods_sn: (p.goodsSn || p.goodsNumber || '') as string,
+    goods_number: p.goodsNumber as string,
+    goods_name: p.name as string,
+    cat_id: p.catId as number,
+    cat_name: p.catName as string,
+    brand_id: p.brandId as number,
+    brand_name: p.brandName as string,
+    shop_price: p.shopPrice as string,
+    market_price: p.marketPrice as string,
+    partner_price: p.partnerPrice as string,
+    ace_price: p.acePrice as string,
+    deal_price: p.dealPrice as string,
+    goods_number2: p.goodsNumber2 as string,
+    goods_weight: p.goodsWeight as string,
+    goods_quantity: p.goodsQuantity as number,
+    warn_number: p.warnNumber as number,
+    goods_thumb: p.goodsThumb as string,
+    original_img: p.originalImg as string,
+    goods_brief: p.goodsBrief as string,
+    goods_desc: p.goodsDesc as string,
+    is_best: p.isBest as number,
+    is_new: p.isNew as number,
+    is_hot: p.isHot as number,
+    is_home: p.isHome as number,
+    is_onsale: p.isOnsale as number,
+    is_real: p.isReal as number,
+    keywords: p.keywords as string,
+    ktitle: p.ktitle as string,
+    goods_alias: p.goodsAlias as string,
+    add_time: ((p.addTime as number) || (p.syncedAt ? Math.floor(new Date(p.syncedAt as string).getTime() / 1000) : 0)) as number,
+    last_update: ((p.lastUpdate as number) || (p.syncedAt ? Math.floor(new Date(p.syncedAt as string).getTime() / 1000) : 0)) as number,
+    synced_at: p.syncedAt ? Math.floor(new Date(p.syncedAt as string).getTime() / 1000) : 0,
+  }));
+  return { 
+    products, 
+    lastFetch: null, 
+    count: json.total || products.length,
+  };
+}
+
+export function usePkgxProductsCache(options?: { enabled?: boolean }) {
   return useQuery({
-    queryKey: ['pkgx', 'products', 'all'],
-    queryFn: async () => {
-      const res = await fetch('/api/settings/pkgx/products');
-      const json = await res.json();
-      if (!json.success) throw new Error(json.error || 'Failed to fetch products');
-      // Transform DB format back to PKGX API format for UI compatibility
-      const products: PkgxProduct[] = (json.data || []).map((p: Record<string, unknown>) => ({
-        goods_id: p.id as number,
-        goods_sn: (p.goodsSn || p.goodsNumber || '') as string,
-        goods_number: p.goodsNumber as string,
-        goods_name: p.name as string,
-        cat_id: p.catId as number,
-        cat_name: p.catName as string,
-        brand_id: p.brandId as number,
-        brand_name: p.brandName as string,
-        shop_price: p.shopPrice as string,
-        market_price: p.marketPrice as string,
-        partner_price: p.partnerPrice as string,
-        ace_price: p.acePrice as string,
-        deal_price: p.dealPrice as string,
-        goods_number2: p.goodsNumber2 as string,
-        goods_weight: p.goodsWeight as string,
-        goods_quantity: p.goodsQuantity as number,
-        warn_number: p.warnNumber as number,
-        goods_thumb: p.goodsThumb as string,
-        original_img: p.originalImg as string,
-        goods_brief: p.goodsBrief as string,
-        goods_desc: p.goodsDesc as string,
-        is_best: p.isBest as number,
-        is_new: p.isNew as number,
-        is_hot: p.isHot as number,
-        is_home: p.isHome as number,
-        is_onsale: p.isOnsale as number,
-        is_real: p.isReal as number,
-        keywords: p.keywords as string,
-        ktitle: p.ktitle as string,
-        goods_alias: p.goodsAlias as string,
-        last_update: p.lastUpdate as number,
-      }));
-      return { 
-        products, 
-        lastFetch: null, 
-        count: json.total || products.length,
-      };
-    },
+    queryKey: pkgxProductsCacheQueryKey,
+    queryFn: fetchAllPkgxProductsCache,
     staleTime: 1000 * 60 * 5, // 5 minutes
+    enabled: options?.enabled ?? true,
   });
 }
 
@@ -1046,16 +999,16 @@ export function usePkgxGetters() {
   );
 
   const getPkgxCatIdByHrmCategory = useCallback(
-    (hrmCategoryId: SystemId) => {
-      const mapping = getCategoryMappingByHrmId(hrmCategoryId);
+    (hrmCategoryId: string) => {
+      const mapping = getCategoryMappingByHrmId(hrmCategoryId as SystemId);
       return mapping?.pkgxCatId ?? null;
     },
     [getCategoryMappingByHrmId]
   );
 
   const getPkgxBrandIdByHrmBrand = useCallback(
-    (hrmBrandId: SystemId) => {
-      const mapping = getBrandMappingByHrmId(hrmBrandId);
+    (hrmBrandId: string) => {
+      const mapping = getBrandMappingByHrmId(hrmBrandId as SystemId);
       return mapping?.pkgxBrandId ?? null;
     },
     [getBrandMappingByHrmId]

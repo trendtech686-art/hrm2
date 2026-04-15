@@ -2,6 +2,9 @@
  * Tasks Settings Hooks
  * React Query hooks for managing tasks module settings
  * 
+ * ⚡ PERFORMANCE: Uses single GET /api/settings?group=tasks instead of
+ *    7 separate Server Actions (which each POST to the current page URL).
+ * 
  * @module features/settings/tasks/hooks/use-tasks-settings
  */
 
@@ -9,7 +12,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { getModuleSettingSection, updateModuleSettingSection } from '@/app/actions/settings/module-settings';
+import { updateModuleSettingSection } from '@/app/actions/settings/module-settings';
 import type { TasksSettingsState, CardColorSettings, SLASettings, EvidenceSettings, TaskType, TaskTemplate } from '../types';
 import { defaultSLA, defaultTemplates, defaultNotifications, defaultReminders, defaultCardColors, defaultTaskTypes, defaultEvidence, clone } from '../types';
 
@@ -31,69 +34,93 @@ const DEFAULTS: Record<TasksSettingType, unknown> = {
   'evidence': defaultEvidence,
 };
 
-// API functions
-async function fetchTasksSettingSection<T = unknown>(
-  type: TasksSettingType
-): Promise<T> {
-  const result = await getModuleSettingSection<T>('tasks', type);
-  if (!result.success) {
-    throw new Error(result.error);
+// DB key → settings field mapping
+const KEY_TO_FIELD: Record<string, TasksSettingType> = {
+  'tasks_sla_settings': 'sla',
+  'tasks_notification_settings': 'notifications',
+  'tasks_reminder_settings': 'reminders',
+  'tasks_card_color_settings': 'cardColors',
+  'tasks_task_types': 'taskTypes',
+  'tasks_templates': 'templates',
+  'tasks_evidence_settings': 'evidence',
+};
+
+// Deep merge nested objects (SLA priorities, cardColors sub-objects, etc.)
+function deepMerge<T extends Record<string, unknown>>(defaults: T, overrides: Record<string, unknown>): T {
+  const result = { ...defaults } as Record<string, unknown>;
+  for (const key of Object.keys(overrides)) {
+    const defVal = defaults[key];
+    const ovrVal = overrides[key];
+    if (
+      defVal && typeof defVal === 'object' && !Array.isArray(defVal) &&
+      ovrVal && typeof ovrVal === 'object' && !Array.isArray(ovrVal)
+    ) {
+      result[key] = deepMerge(defVal as Record<string, unknown>, ovrVal as Record<string, unknown>);
+    } else {
+      result[key] = ovrVal;
+    }
   }
-  return result.data ?? clone(DEFAULTS[type] as T);
+  return result as T;
 }
 
-async function updateTasksSettingSection(
-  type: TasksSettingType,
-  data: unknown
-): Promise<unknown> {
-  const result = await updateModuleSettingSection('tasks', type, data);
-  if (!result.success) {
-    throw new Error(result.error);
+// ⚡ PERFORMANCE: Single GET fetch for all tasks settings
+async function fetchAllTasksSettings(): Promise<Record<TasksSettingType, unknown>> {
+  const res = await fetch('/api/settings?group=tasks', { credentials: 'include' });
+  if (!res.ok) throw new Error('Failed to fetch tasks settings');
+  const json = await res.json();
+  const grouped = json.grouped?.tasks as Record<string, unknown> | undefined;
+  const result: Record<string, unknown> = {};
+
+  for (const [dbKey, fieldName] of Object.entries(KEY_TO_FIELD)) {
+    const dbValue = grouped?.[dbKey] ?? null;
+    const defaults = clone(DEFAULTS[fieldName]);
+    if (dbValue && typeof dbValue === 'object' && !Array.isArray(dbValue) && typeof defaults === 'object' && !Array.isArray(defaults)) {
+      result[fieldName] = deepMerge(defaults as Record<string, unknown>, dbValue as Record<string, unknown>);
+    } else {
+      result[fieldName] = dbValue ?? defaults;
+    }
   }
-  return result.data;
+  return result as Record<TasksSettingType, unknown>;
 }
 
 /**
- * Hook to fetch a specific tasks settings section
+ * Hook to fetch a specific tasks settings section (uses batch-fetched cache)
  */
 export function useTasksSettingSection<T = unknown>(type: TasksSettingType) {
   return useQuery({
-    queryKey: tasksSettingsKeys.section(type),
-    queryFn: () => fetchTasksSettingSection<T>(type),
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 30 * 60 * 1000, // 30 minutes
+    queryKey: tasksSettingsKeys.all,
+    queryFn: fetchAllTasksSettings,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    select: (data) => (data[type] as T) ?? clone(DEFAULTS[type] as T),
   });
 }
 
 /**
- * Hook to fetch all tasks settings sections
+ * Hook to fetch all tasks settings sections (single API call)
  */
 export function useTasksSettings() {
-  const sla = useTasksSettingSection<SLASettings>('sla');
-  const templates = useTasksSettingSection<TaskTemplate[]>('templates');
-  const notifications = useTasksSettingSection('notifications');
-  const reminders = useTasksSettingSection('reminders');
-  const cardColors = useTasksSettingSection<CardColorSettings>('cardColors');
-  const taskTypes = useTasksSettingSection<TaskType[]>('taskTypes');
-  const evidence = useTasksSettingSection<EvidenceSettings>('evidence');
+  const query = useQuery({
+    queryKey: tasksSettingsKeys.all,
+    queryFn: fetchAllTasksSettings,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+  });
 
-  const isLoading = sla.isLoading || templates.isLoading || notifications.isLoading || 
-    reminders.isLoading || cardColors.isLoading || taskTypes.isLoading || evidence.isLoading;
-  const error = sla.error || templates.error || notifications.error || 
-    reminders.error || cardColors.error || taskTypes.error || evidence.error;
-
+  const d = query.data;
+  
   return {
     data: {
-      sla: sla.data ?? clone(defaultSLA),
-      templates: templates.data ?? clone(defaultTemplates),
-      notifications: notifications.data ?? clone(defaultNotifications),
-      reminders: reminders.data ?? clone(defaultReminders),
-      cardColors: cardColors.data ?? clone(defaultCardColors),
-      taskTypes: taskTypes.data ?? clone(defaultTaskTypes),
-      evidence: evidence.data ?? clone(defaultEvidence),
+      sla: (d?.sla ?? clone(defaultSLA)) as SLASettings,
+      templates: (d?.templates ?? clone(defaultTemplates)) as TaskTemplate[],
+      notifications: d?.notifications ?? clone(defaultNotifications),
+      reminders: d?.reminders ?? clone(defaultReminders),
+      cardColors: (d?.cardColors ?? clone(defaultCardColors)) as CardColorSettings,
+      taskTypes: (d?.taskTypes ?? clone(defaultTaskTypes)) as TaskType[],
+      evidence: (d?.evidence ?? clone(defaultEvidence)) as EvidenceSettings,
     } as TasksSettingsState,
-    isLoading,
-    error,
+    isLoading: query.isLoading,
+    error: query.error,
   };
 }
 
@@ -104,10 +131,13 @@ export function useTasksSettingsMutations() {
   const queryClient = useQueryClient();
 
   const updateSection = useMutation({
-    mutationFn: ({ type, data }: { type: TasksSettingType; data: unknown }) =>
-      updateTasksSettingSection(type, data),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: tasksSettingsKeys.section(variables.type) });
+    mutationFn: async ({ type, data }: { type: TasksSettingType; data: unknown }) => {
+      const result = await updateModuleSettingSection('tasks', type, data);
+      if (!result.success) throw new Error(result.error);
+      return result.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: tasksSettingsKeys.all });
       toast.success('Đã lưu cài đặt');
     },
     onError: (error: Error) => {

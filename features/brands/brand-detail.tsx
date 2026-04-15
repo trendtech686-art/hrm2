@@ -17,6 +17,8 @@ import {
   Info,
   FileText,
   Unlink,
+  Loader2,
+  MoreHorizontal,
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -66,9 +68,13 @@ import { FileUploadAPI, type StagingFile } from '@/lib/file-upload-api';
 import { SeoAnalysisPanel } from '@/components/shared/seo-preview';
 import { TipTapEditor } from '@/components/ui/tiptap-editor';
 import { usePageHeader } from '@/contexts/page-header-context';
+import { useBreakpoint } from '@/contexts/breakpoint-context';
+import { useAuth } from '@/contexts/auth-context';
 import { usePkgxBrandSync } from './hooks/use-pkgx-brand-sync';
-import { usePkgxBrandMappingMutations, usePkgxBrandMappings } from '@/features/settings/pkgx/hooks/use-pkgx-settings';
+import { usePkgxBrandMappingMutations, usePkgxMappings } from '@/features/settings/pkgx/hooks/use-pkgx-settings';
 import { PkgxSyncConfirmDialog } from '@/features/settings/pkgx/components/pkgx-sync-confirm-dialog';
+import { logError } from '@/lib/logger'
+import { sanitizeHtml } from '@/lib/sanitize'
 
 // Schema
 const websiteSeoSchema = z.object({
@@ -105,11 +111,13 @@ type BrandFormValues = z.infer<typeof brandFormSchema>;
 export function BrandDetailPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const router = useRouter();
+  const { can, isAdmin } = useAuth();
+  const { isMobile } = useBreakpoint();
   const pathname = usePathname();
   
   const isEditMode = pathname?.endsWith('/edit') ?? false;
   
-  const { data: brands = [] } = useAllBrands();
+  const { data: brands = [], isLoading: isBrandsLoading } = useAllBrands();
   const { update, remove } = useBrandMutations({
     onUpdateSuccess: () => {
       toast.success('Đã cập nhật thương hiệu');
@@ -154,7 +162,8 @@ export function BrandDetailPage() {
   );
   
   // PKGX mapping hooks - use React Query hook instead of localStorage
-  const pkgxBrandMappings = usePkgxBrandMappings();
+  const { data: pkgxMappingsData } = usePkgxMappings();
+  const pkgxBrandMappings = React.useMemo(() => pkgxMappingsData?.brandMappings ?? [], [pkgxMappingsData?.brandMappings]);
   
   const brandMapping = React.useMemo(() => 
     brand ? pkgxBrandMappings.find((m: { hrmBrandId: string }) => m.hrmBrandId === brand.systemId) : null,
@@ -286,7 +295,7 @@ export function BrandDetailPage() {
         );
         logoUrl = logoFiles[0]?.url || logoUrl;
       } catch (error) {
-        console.error('Error confirming logo:', error);
+        logError('Error confirming logo', error);
       }
     }
     
@@ -355,9 +364,9 @@ export function BrandDetailPage() {
           <X className="mr-2 h-4 w-4" />
           Hủy
         </Button>,
-        <Button key="save" size="sm" className="h-9" onClick={form.handleSubmit(handleSubmit)}>
-          <Save className="mr-2 h-4 w-4" />
-          Lưu
+        <Button key="save" size="sm" className="h-9" onClick={form.handleSubmit(handleSubmit)} disabled={update.isPending}>
+          {update.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+          {update.isPending ? 'Đang lưu...' : 'Lưu'}
         </Button>
       ];
     }
@@ -441,21 +450,90 @@ export function BrandDetailPage() {
       }
     }
     
-    actions.push(
-      <Button key="edit" size="sm" className="h-9" onClick={handleSwitchToEdit}>
-        <Pencil className="mr-2 h-4 w-4" />
-        Chỉnh sửa
-      </Button>
-    );
+    if (isAdmin || can('edit_products')) {
+      actions.push(
+        <Button key="edit" size="sm" className="h-9" onClick={handleSwitchToEdit}>
+          <Pencil className="mr-2 h-4 w-4" />
+          Chỉnh sửa
+        </Button>
+      );
+    }
     
     return actions;
-  }, [isEditMode, systemId, router, form, handleSubmit, handleSwitchToEdit, brand, hasPkgxMapping, handleSyncAll, handleSyncSeo, handleSyncDescription, handleSyncBasicInfo, handleUnlinkPkgx, pkgxBrandMappings]);
+  }, [isEditMode, systemId, router, form, handleSubmit, handleSwitchToEdit, brand, hasPkgxMapping, handleSyncAll, handleSyncSeo, handleSyncDescription, handleSyncBasicInfo, handleUnlinkPkgx, pkgxBrandMappings, isAdmin, can, update.isPending]);
+
+  // Mobile: gom tất cả view-mode actions vào 1 dropdown (edit mode 2 nút OK)
+  const mobileHeaderActions = React.useMemo((): React.ReactNode[] => {
+    if (!isMobile || isEditMode) return headerActions;
+    const brandWithBrandedIds = brand as unknown as _Brand;
+    const hasPkgx = brand && hasPkgxMapping(brandWithBrandedIds);
+
+    return [
+      <DropdownMenu key="mobile-actions">
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="sm" className="h-9">
+            <MoreHorizontal className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-48">
+          {(isAdmin || can('edit_products')) && (
+            <DropdownMenuItem onClick={handleSwitchToEdit}>
+              <Pencil className="mr-2 h-4 w-4" />
+              Chỉnh sửa
+            </DropdownMenuItem>
+          )}
+          {hasPkgx && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => handleConfirm('Đồng bộ tất cả', `Đồng bộ TẤT CẢ "${brand?.name}" lên PKGX?`, () => handleSyncAll(brandWithBrandedIds))}>
+                <Layers className="mr-2 h-4 w-4" />
+                Đồng bộ tất cả PKGX
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleConfirm('Sync thông tin cơ bản', `Đồng bộ thông tin cơ bản "${brand?.name}" lên PKGX?`, () => handleSyncBasicInfo(brandWithBrandedIds))}>
+                <Info className="mr-2 h-4 w-4" />
+                Thông tin cơ bản
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleConfirm('Sync SEO', `Đồng bộ SEO "${brand?.name}" lên PKGX?`, () => handleSyncSeo(brandWithBrandedIds))}>
+                <Globe className="mr-2 h-4 w-4" />
+                SEO
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleConfirm('Sync mô tả', `Đồng bộ mô tả "${brand?.name}" lên PKGX?`, () => handleSyncDescription(brandWithBrandedIds))}>
+                <FileText className="mr-2 h-4 w-4" />
+                Mô tả
+              </DropdownMenuItem>
+              <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={handleUnlinkPkgx}>
+                <Unlink className="mr-2 h-4 w-4" />
+                Hủy liên kết PKGX
+              </DropdownMenuItem>
+            </>
+          )}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => setIsDeleteAlertOpen(true)}>
+            <Trash2 className="mr-2 h-4 w-4" />
+            Xóa
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>,
+    ];
+  }, [isMobile, isEditMode, headerActions, brand, hasPkgxMapping, handleSwitchToEdit, handleSyncAll, handleSyncBasicInfo, handleSyncSeo, handleSyncDescription, handleUnlinkPkgx, handleConfirm, isAdmin, can]);
 
   usePageHeader({
     title: brand?.name,
-    actions: headerActions,
+    actions: isMobile ? mobileHeaderActions : headerActions,
     showBackButton: true,
   });
+
+  // Show loading while fetching brands
+  if (isBrandsLoading) {
+    return (
+      <div className="flex items-center justify-center h-[50vh]">
+        <div className="text-center">
+          <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4" />
+          <p className="text-muted-foreground">Đang tải...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!brand) {
     return (
@@ -595,13 +673,13 @@ export function BrandDetailPage() {
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Mô tả ngắn</p>
                   {brand.shortDescription ? (
-                    <div className="prose prose-sm max-w-none text-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: brand.shortDescription }} />
+                    <div className="prose prose-sm max-w-none text-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: sanitizeHtml(brand.shortDescription) }} />
                   ) : <p className="text-sm text-muted-foreground">-</p>}
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Mô tả chi tiết</p>
                   {brand.longDescription ? (
-                    <div className="prose prose-sm max-w-none text-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: brand.longDescription }} />
+                    <div className="prose prose-sm max-w-none text-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: sanitizeHtml(brand.longDescription) }} />
                   ) : <p className="text-sm text-muted-foreground">-</p>}
                 </div>
               </CardContent>
@@ -645,13 +723,13 @@ export function BrandDetailPage() {
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Mô tả ngắn</p>
                   {(brand.websiteSeo as MultiWebsiteSeo | undefined)?.pkgx?.shortDescription ? (
-                    <div className="prose prose-sm max-w-none text-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: ((brand.websiteSeo as MultiWebsiteSeo).pkgx?.shortDescription || '') }} />
+                    <div className="prose prose-sm max-w-none text-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: sanitizeHtml((brand.websiteSeo as MultiWebsiteSeo).pkgx?.shortDescription || '') }} />
                   ) : <p className="text-sm text-muted-foreground">-</p>}
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Mô tả chi tiết</p>
                   {(brand.websiteSeo as MultiWebsiteSeo | undefined)?.pkgx?.longDescription ? (
-                    <div className="prose prose-sm max-w-none text-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: ((brand.websiteSeo as MultiWebsiteSeo).pkgx?.longDescription || '') }} />
+                    <div className="prose prose-sm max-w-none text-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: sanitizeHtml((brand.websiteSeo as MultiWebsiteSeo).pkgx?.longDescription || '') }} />
                   ) : <p className="text-sm text-muted-foreground">-</p>}
                 </div>
               </CardContent>
@@ -688,13 +766,13 @@ export function BrandDetailPage() {
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Mô tả ngắn</p>
                   {(brand.websiteSeo as MultiWebsiteSeo | undefined)?.trendtech?.shortDescription ? (
-                    <div className="prose prose-sm max-w-none text-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: ((brand.websiteSeo as MultiWebsiteSeo).trendtech?.shortDescription || '') }} />
+                    <div className="prose prose-sm max-w-none text-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: sanitizeHtml((brand.websiteSeo as MultiWebsiteSeo).trendtech?.shortDescription || '') }} />
                   ) : <p className="text-sm text-muted-foreground">-</p>}
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Mô tả chi tiết</p>
                   {(brand.websiteSeo as MultiWebsiteSeo | undefined)?.trendtech?.longDescription ? (
-                    <div className="prose prose-sm max-w-none text-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: ((brand.websiteSeo as MultiWebsiteSeo).trendtech?.longDescription || '') }} />
+                    <div className="prose prose-sm max-w-none text-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: sanitizeHtml((brand.websiteSeo as MultiWebsiteSeo).trendtech?.longDescription || '') }} />
                   ) : <p className="text-sm text-muted-foreground">-</p>}
                 </div>
               </CardContent>

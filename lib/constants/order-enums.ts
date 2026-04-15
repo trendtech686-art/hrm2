@@ -93,18 +93,30 @@ export type ReturnStatusType = typeof ReturnStatusEnum[keyof typeof ReturnStatus
 // ============================================
 // ORDER STATUS LABELS
 // ============================================
+
+/**
+ * Sapo Order Status Model:
+ * - Main Order Status (trạng thái đơn hàng): Đặt hàng, Đang giao dịch, Đã hoàn thành, Đã lưu trữ, Đã hủy
+ * - Payment Status (trạng thái thanh toán): Chưa thanh toán, Chờ xác nhận, Thanh toán một phần, Đã thanh toán, Hoàn tiền một phần, Đã hoàn tiền, Đã hủy
+ * - Processing Status (trạng thái xử lý): Chưa xử lý, Xử lý một phần, Đã xử lý
+ * - Return Status (trạng thái trả hàng): Đang trả hàng, Đã trả hàng
+ * - Delivery Status (trạng thái giao hàng): Chờ lấy hàng, Đã lấy hàng, Đang giao hàng, Chờ giao lại, Đã giao hàng, Đang hoàn hàng, Chờ xác nhận hàng hoàn, Đã hoàn hàng, Đã hủy
+ */
+
+// Internal workflow statuses (stored in DB)
 export const ORDER_STATUS_LABELS: Record<string, string> = {
   PENDING: 'Đặt hàng',
-  CONFIRMED: 'Đã xác nhận',
+  CONFIRMED: 'Đang giao dịch',
   PROCESSING: 'Đang giao dịch',
-  PACKING: 'Đang đóng gói',
-  PACKED: 'Đã đóng gói',
-  READY_FOR_PICKUP: 'Chờ lấy hàng',
-  SHIPPING: 'Đang giao hàng',
-  DELIVERED: 'Đã giao hàng',
+  PACKING: 'Đang giao dịch',
+  PACKED: 'Đang giao dịch',
+  READY_FOR_PICKUP: 'Đang giao dịch',
+  SHIPPING: 'Đang giao dịch',
+  DELIVERED: 'Đang giao dịch',
   COMPLETED: 'Hoàn thành',
-  FAILED_DELIVERY: 'Giao thất bại',
-  RETURNED: 'Đã trả hàng',
+  ARCHIVED: 'Đã lưu trữ',
+  FAILED_DELIVERY: 'Đang giao dịch',
+  RETURNED: 'Đang giao dịch',
   CANCELLED: 'Đã hủy',
 };
 
@@ -121,26 +133,61 @@ export const ORDER_STATUS_FROM_LABEL: Record<string, string> = {
   'Đang giao hàng': 'SHIPPING',
   'Đã giao hàng': 'DELIVERED',
   'Hoàn thành': 'COMPLETED',
+  'Đã hoàn thành': 'COMPLETED',
+  'Đã lưu trữ': 'ARCHIVED',
   'Giao thất bại': 'FAILED_DELIVERY',
   'Đã trả hàng': 'RETURNED',
   'Đã hủy': 'CANCELLED',
 };
 
 // ============================================
-// PAYMENT STATUS LABELS
+// MAIN DISPLAY STATUS (Sapo Standard - Only 5 values)
+// ============================================
+export type MainOrderStatus = 'Đặt hàng' | 'Đang giao dịch' | 'Hoàn thành' | 'Đã lưu trữ' | 'Đã hủy';
+
+/**
+ * Convert internal workflow status to Sapo main display status
+ * Main statuses: Đặt hàng, Đang giao dịch, Hoàn thành, Đã lưu trữ, Đã hủy
+ */
+export function getMainOrderStatus(status: string): MainOrderStatus {
+  switch (status) {
+    case 'PENDING':
+      return 'Đặt hàng';
+    case 'CANCELLED':
+      return 'Đã hủy';
+    case 'COMPLETED':
+      return 'Hoàn thành';
+    case 'ARCHIVED':
+      return 'Đã lưu trữ';
+    // All other statuses are "in progress"
+    default:
+      return 'Đang giao dịch';
+  }
+}
+
+// ============================================
+// PAYMENT STATUS LABELS (Sapo Standard)
 // ============================================
 export const PAYMENT_STATUS_LABELS: Record<string, string> = {
   UNPAID: 'Chưa thanh toán',
+  PENDING_CONFIRMATION: 'Chờ xác nhận',
   PARTIAL: 'Thanh toán một phần',
   PAID: 'Đã thanh toán',
+  PARTIAL_REFUND: 'Hoàn tiền một phần',
+  REFUNDED: 'Đã hoàn tiền',
+  CANCELLED: 'Đã hủy',
 };
 
 export const PAYMENT_STATUS_FROM_LABEL: Record<string, string> = {
   'Chưa thanh toán': 'UNPAID',
+  'Chờ xác nhận': 'PENDING_CONFIRMATION',
   'Thanh toán 1 phần': 'PARTIAL',
   'Thanh toán một phần': 'PARTIAL',
   'Đã thanh toán': 'PAID',
   'Thanh toán toàn bộ': 'PAID',
+  'Hoàn tiền một phần': 'PARTIAL_REFUND',
+  'Đã hoàn tiền': 'REFUNDED',
+  'Đã hủy thanh toán': 'CANCELLED',
 };
 
 // ============================================
@@ -161,15 +208,19 @@ export const DELIVERY_METHOD_FROM_LABEL: Record<string, string> = {
 };
 
 // ============================================
-// DELIVERY STATUS LABELS
+// DELIVERY STATUS LABELS (Sapo Standard)
 // ============================================
 export const DELIVERY_STATUS_LABELS: Record<string, string> = {
   PENDING_PACK: 'Chờ đóng gói',
   PACKED: 'Đã đóng gói',
   PENDING_SHIP: 'Chờ lấy hàng',
+  PICKED_UP: 'Đã lấy hàng',
   SHIPPING: 'Đang giao hàng',
-  DELIVERED: 'Đã giao hàng',
   RESCHEDULED: 'Chờ giao lại',
+  DELIVERED: 'Đã giao hàng',
+  RETURNING: 'Đang hoàn hàng',
+  WAITING_RETURN_CONFIRM: 'Chờ xác nhận hàng hoàn',
+  RETURNED: 'Đã hoàn hàng',
   CANCELLED: 'Đã hủy',
 };
 
@@ -177,9 +228,13 @@ export const DELIVERY_STATUS_FROM_LABEL: Record<string, string> = {
   'Chờ đóng gói': 'PENDING_PACK',
   'Đã đóng gói': 'PACKED',
   'Chờ lấy hàng': 'PENDING_SHIP',
+  'Đã lấy hàng': 'PICKED_UP',
   'Đang giao hàng': 'SHIPPING',
-  'Đã giao hàng': 'DELIVERED',
   'Chờ giao lại': 'RESCHEDULED',
+  'Đã giao hàng': 'DELIVERED',
+  'Đang hoàn hàng': 'RETURNING',
+  'Chờ xác nhận hàng hoàn': 'WAITING_RETURN_CONFIRM',
+  'Đã hoàn hàng': 'RETURNED',
   'Đã hủy': 'CANCELLED',
 };
 
@@ -230,20 +285,45 @@ export const STOCK_OUT_STATUS_FROM_LABEL: Record<string, string> = {
 };
 
 // ============================================
-// RETURN STATUS LABELS
+// RETURN STATUS LABELS (Sapo Standard)
 // ============================================
 export const RETURN_STATUS_LABELS: Record<string, string> = {
-  NO_RETURN: 'Chưa trả hàng',
+  NO_RETURN: '',
+  RETURNING: 'Đang trả hàng',
   PARTIAL_RETURN: 'Trả một phần',
-  FULL_RETURN: 'Trả toàn bộ',
+  FULL_RETURN: 'Đã trả hàng',
 };
 
 export const RETURN_STATUS_FROM_LABEL: Record<string, string> = {
   'Chưa trả hàng': 'NO_RETURN',
+  'Đang trả hàng': 'RETURNING',
   'Trả một phần': 'PARTIAL_RETURN',
   'Trả hàng một phần': 'PARTIAL_RETURN',
   'Trả toàn bộ': 'FULL_RETURN',
   'Trả hàng toàn bộ': 'FULL_RETURN',
+  'Đã trả hàng': 'FULL_RETURN',
+};
+
+// ============================================
+// PROCESSING STATUS LABELS (Sapo Standard - Trạng thái xử lý)
+// ============================================
+export const ProcessingStatusEnum = {
+  NOT_PROCESSED: 'NOT_PROCESSED',
+  PARTIAL_PROCESSED: 'PARTIAL_PROCESSED',
+  PROCESSED: 'PROCESSED',
+} as const;
+export type ProcessingStatusType = typeof ProcessingStatusEnum[keyof typeof ProcessingStatusEnum];
+
+export const PROCESSING_STATUS_LABELS: Record<string, string> = {
+  NOT_PROCESSED: 'Chưa xử lý',
+  PARTIAL_PROCESSED: 'Xử lý một phần',
+  PROCESSED: 'Đã xử lý',
+};
+
+export const PROCESSING_STATUS_FROM_LABEL: Record<string, string> = {
+  'Chưa xử lý': 'NOT_PROCESSED',
+  'Xử lý một phần': 'PARTIAL_PROCESSED',
+  'Đã xử lý': 'PROCESSED',
 };
 
 // ============================================

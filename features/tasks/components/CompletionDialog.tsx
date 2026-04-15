@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
+import { OptimizedImage } from '@/components/ui/optimized-image';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -9,19 +10,37 @@ import type { Task } from '../types';
 import { cn } from '@/lib/utils';
 import { FileUploadAPI, type UploadedAsset } from '@/lib/file-upload-api';
 import { useTasksSettings } from '@/features/settings/tasks/hooks/use-tasks-settings';
+import { logError } from '@/lib/logger'
+
+const QUICK_NOTE_OPTIONS = [
+  'Đã hoàn thành đúng yêu cầu',
+  'Đã sắp xếp/dọn dẹp xong khu vực được giao',
+  'Đã kiểm tra và xác nhận hàng hóa đầy đủ',
+  'Đã xử lý đơn hàng và giao cho vận chuyển',
+  'Đã cập nhật thông tin sản phẩm trên hệ thống',
+  'Đã liên hệ khách hàng và giải quyết vấn đề',
+] as const;
 
 interface CompletionDialogProps {
   task: Task;
   open: boolean;
   onClose: () => void;
   onSubmit: (taskId: string, evidence: { images: string[]; note: string }) => Promise<void>;
+  initialImages?: UploadedAsset[];
 }
 
 type EvidenceFile = UploadedAsset;
 
-export function CompletionDialog({ task, open, onClose, onSubmit }: CompletionDialogProps) {
+export function CompletionDialog({ task, open, onClose, onSubmit, initialImages }: CompletionDialogProps) {
   const [note, setNote] = useState('');
-  const [images, setImages] = useState<EvidenceFile[]>([]);
+  const [images, setImages] = useState<EvidenceFile[]>(initialImages ?? []);
+
+  // Sync initialImages when dialog opens with pre-captured photos
+  React.useEffect(() => {
+    if (open && initialImages && initialImages.length > 0) {
+      setImages(initialImages);
+    }
+  }, [open, initialImages]);
   const [isUploading, setIsUploading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -56,7 +75,7 @@ export function CompletionDialog({ task, open, onClose, onSubmit }: CompletionDi
       setImages(prev => [...prev, ...uploaded]);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Có lỗi khi upload ảnh. Vui lòng thử lại.');
-      console.error(err);
+      logError('Error uploading task evidence', err);
     } finally {
       setIsUploading(false);
     }
@@ -71,7 +90,7 @@ export function CompletionDialog({ task, open, onClose, onSubmit }: CompletionDi
       setImages(prev => prev.filter(img => img.id !== imageId));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Không thể xóa file. Vui lòng thử lại.');
-      console.error(err);
+      logError('Error deleting task file', err);
     } finally {
       setIsUploading(false);
     }
@@ -104,7 +123,7 @@ export function CompletionDialog({ task, open, onClose, onSubmit }: CompletionDi
       onClose();
     } catch (err) {
       setError('Có lỗi khi gửi bằng chứng. Vui lòng thử lại.');
-      console.error(err);
+      logError('Error submitting completion evidence', err);
     } finally {
       setIsSubmitting(false);
     }
@@ -134,7 +153,7 @@ export function CompletionDialog({ task, open, onClose, onSubmit }: CompletionDi
           <div className="p-3 bg-muted rounded-lg">
             <h4 className="font-medium mb-1">{task.title}</h4>
             {task.description && (
-              <p className="text-body-sm text-muted-foreground">{task.description}</p>
+              <p className="text-sm text-muted-foreground">{task.description}</p>
             )}
           </div>
 
@@ -142,7 +161,7 @@ export function CompletionDialog({ task, open, onClose, onSubmit }: CompletionDi
           <div className="space-y-2">
             <Label>
               Ảnh bằng chứng <span className="text-red-500">*</span>
-              <span className="text-body-xs text-muted-foreground ml-2">
+              <span className="text-xs text-muted-foreground ml-2">
                 (Tối thiểu 1 ảnh, tối đa {maxImages} ảnh, mỗi ảnh tối đa {maxSizeMB}MB)
               </span>
             </Label>
@@ -152,11 +171,15 @@ export function CompletionDialog({ task, open, onClose, onSubmit }: CompletionDi
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-3">
                 {images.map((image) => (
                   <div key={image.id} className="relative group">
-                    <img
-                      src={image.url}
-                      alt="Evidence"
-                      className="w-full h-32 object-cover rounded-lg border"
-                    />
+                    <div className="relative w-full h-32 rounded-lg overflow-hidden border">
+                      <OptimizedImage
+                        src={image.url}
+                        alt="Evidence"
+                        fill
+                        unoptimized
+                        className="object-cover"
+                      />
+                    </div>
                     <Button
                       type="button"
                       variant="destructive"
@@ -166,7 +189,7 @@ export function CompletionDialog({ task, open, onClose, onSubmit }: CompletionDi
                     >
                       <X className="h-4 w-4" />
                     </Button>
-                    <div className="absolute bottom-1 right-1 bg-black/50 text-white text-body-xs px-1.5 py-0.5 rounded">
+                    <div className="absolute bottom-1 right-1 bg-black/50 text-white text-xs px-1.5 py-0.5 rounded">
                       {(image.size / 1024).toFixed(0)} KB
                     </div>
                   </div>
@@ -213,28 +236,69 @@ export function CompletionDialog({ task, open, onClose, onSubmit }: CompletionDi
             )}
           </div>
 
-          {/* Note */}
+          {/* Quick Note Options */}
           <div className="space-y-2">
-            <Label htmlFor="completion-note">
+            <Label>
               Mô tả công việc đã hoàn thành {requireNote && <span className="text-red-500">*</span>}
               {minNoteLength > 0 && (
-                <span className="text-body-xs text-muted-foreground ml-2">
+                <span className="text-xs text-muted-foreground ml-2">
                   (Tối thiểu {minNoteLength} ký tự)
                 </span>
               )}
             </Label>
+            <div className="grid grid-cols-1 gap-1.5">
+              {QUICK_NOTE_OPTIONS.map((option) => (
+                <label
+                  key={option}
+                  className={cn(
+                    'flex items-center gap-2.5 px-3 py-2 rounded-lg border cursor-pointer transition-colors text-sm',
+                    note === option
+                      ? 'border-primary bg-primary/5 text-primary font-medium'
+                      : 'border-border hover:bg-muted/50'
+                  )}
+                >
+                  <input
+                    type="radio"
+                    name="quick-note"
+                    checked={note === option}
+                    onChange={() => setNote(option)}
+                    disabled={isSubmitting}
+                    className="accent-primary h-3.5 w-3.5 shrink-0"
+                  />
+                  <span>{option}</span>
+                </label>
+              ))}
+              <label
+                className={cn(
+                  'flex items-center gap-2.5 px-3 py-2 rounded-lg border cursor-pointer transition-colors text-sm',
+                  !QUICK_NOTE_OPTIONS.includes(note as typeof QUICK_NOTE_OPTIONS[number]) && note.length > 0
+                    ? 'border-primary bg-primary/5 text-primary font-medium'
+                    : 'border-border hover:bg-muted/50'
+                )}
+              >
+                <input
+                  type="radio"
+                  name="quick-note"
+                  checked={!QUICK_NOTE_OPTIONS.includes(note as typeof QUICK_NOTE_OPTIONS[number]) && note.length > 0}
+                  onChange={() => setNote('')}
+                  disabled={isSubmitting}
+                  className="accent-primary h-3.5 w-3.5 shrink-0"
+                />
+                <span>Khác (tự nhập)</span>
+              </label>
+            </div>
             <Textarea
               id="completion-note"
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              placeholder="Mô tả chi tiết những gì bạn đã làm để hoàn thành công việc này..."
-              rows={5}
+              placeholder="Hoặc tự nhập mô tả chi tiết..."
+              rows={3}
               disabled={isSubmitting}
               className={cn(
                 requireNote && note.length > 0 && note.length < minNoteLength && "border-red-500"
               )}
             />
-            <div className="flex justify-between text-body-xs text-muted-foreground">
+            <div className="flex justify-between text-xs text-muted-foreground">
               <span>
                 {requireNote && minNoteLength > 0 && (
                   note.length < minNoteLength 

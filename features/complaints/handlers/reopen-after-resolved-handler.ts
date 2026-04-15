@@ -3,6 +3,7 @@ import { asSystemId } from '@/lib/id-types';
 import { generateSubEntityId } from '@/lib/id-utils';
 import type { Complaint, ComplaintAction } from '../types';
 import type { SystemId } from '@/lib/id-types';
+import { logError } from '@/lib/logger'
 
 // User type - chi can systemId va name
 interface User {
@@ -26,7 +27,7 @@ interface User {
 export async function handleReopenAfterResolved(
   complaint: Complaint,
   currentUser: User,
-  updateComplaint: (systemId: SystemId, updates: Partial<Complaint>) => Promise<void> | void
+  updateComplaint: (systemId: string, updates: Partial<Complaint>) => Promise<void> | void
 ): Promise<{ success: boolean; message: string }> {
   try {
     
@@ -67,7 +68,7 @@ export async function handleReopenAfterResolved(
     };
     
   } catch (error) {
-    console.error('[REOPEN-AFTER-RESOLVE] Error:', error);
+    logError('[REOPEN-AFTER-RESOLVE] Error', error);
     const errorMsg = error instanceof Error ? error.message : 'Có lỗi xảy ra';
     toast.error(errorMsg);
     return {

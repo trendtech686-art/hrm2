@@ -9,6 +9,7 @@
 
 import type { StoreGeneralInfo } from './types';
 import { defaultStoreInfo } from './types';
+import { logError } from '@/lib/logger'
 
 const API_ENDPOINT = '/api/settings/store-info';
 
@@ -26,7 +27,7 @@ export async function fetchStoreInfoFromService(): Promise<StoreGeneralInfo> {
     const result = await response.json();
     return result.data ?? defaultStoreInfo;
   } catch (error) {
-    console.error('[StoreInfoService] Failed to fetch:', error);
+    logError('[StoreInfoService] Failed to fetch', error);
     return defaultStoreInfo;
   }
 }

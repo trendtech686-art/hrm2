@@ -12,6 +12,7 @@ import {
   getStoreData,
   StoreSettings
 } from '@/lib/print-service';
+import { generateBarcodeImage } from './barcode-utils';
 
 export interface ReceiptForPrint {
   // Thông tin cơ bản
@@ -68,8 +69,7 @@ export function mapReceiptToPrintData(receipt: ReceiptForPrint, storeSettings: S
     
     // === THÔNG TIN PHIẾU THU ===
     '{receipt_voucher_code}': receipt.code,
-    '{receipt_barcode}': `<img src="https://barcodeapi.org/api/128/${encodeURIComponent(receipt.code)}" style="height:40px"/>`,
-    '{created_on}': formatDate(receipt.createdAt),
+    '{receipt_barcode}': generateBarcodeImage(receipt.code, 40),    '{created_on}': formatDate(receipt.createdAt),
     '{issued_on}': formatDate(receipt.issuedAt || receipt.createdAt),
     '{issued_on_time}': formatTime(receipt.issuedAt || receipt.createdAt),
     '{account_name}': receipt.createdBy || '',

@@ -8,19 +8,19 @@ import { systemIdSchema } from '@/lib/id-types';
 export const cashAccountTypeSchema = z.enum([
   'cash',
   'bank',
-  'momo',
-  'vnpay',
   'other'
 ]);
 
 // Create account schema
 export const createCashAccountSchema = z.object({
+  id: z.string().optional(),
   name: z.string().min(1, 'Tên tài khoản không được để trống'),
   type: cashAccountTypeSchema,
-  branchSystemId: systemIdSchema.refine(v => v.length >= 1, 'Vui lòng chọn chi nhánh'),
+  branchSystemId: z.string().optional(),
   branchName: z.string().optional(),
   accountNumber: z.string().optional(),
   bankName: z.string().optional(),
+  accountType: z.string().optional(),
   initialBalance: z.number().min(0).default(0),
   isActive: z.boolean().default(true),
   isDefault: z.boolean().default(false),

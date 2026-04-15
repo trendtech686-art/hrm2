@@ -6,17 +6,18 @@ import Link from 'next/link';
 import { formatDate, formatDateCustom } from '@/lib/date-utils';
 import { usePenaltyById } from './hooks/use-penalties';
 import { useAllPenaltyTypes } from './hooks/use-all-penalties';
-import { useEmployeeFinder } from '../../employees/hooks/use-all-employees';
+
 import { usePageHeader } from '../../../contexts/page-header-context';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { ArrowLeft, Edit } from 'lucide-react';
 import { Badge } from '../../../components/ui/badge';
+import { Skeleton } from '../../../components/ui/skeleton';
 import type { PenaltyStatus as _PenaltyStatus } from './types';
 import { penaltyCategoryLabels, penaltyCategoryColors } from './types';
 import { Comments, type Comment as _CommentType } from '../../../components/Comments';
 import { useComments } from '@/hooks/use-comments';
-import { ActivityHistory } from '../../../components/ActivityHistory';
+import { EntityActivityTable } from '@/components/shared/entity-activity-table';
 import { asSystemId, type SystemId } from '@/lib/id-types';
 import { useAuth } from '../../../contexts/auth-context';
 import { usePrint } from '../../../lib/use-print';
@@ -25,7 +26,7 @@ import {
   mapPenaltyToPrintData, 
   createStoreSettings 
 } from '../../../lib/print/penalty-print-helper';
-import { useStoreInfoData } from '../store-info/hooks/use-store-info';
+import { fetchPrintData } from '@/lib/lazy-print-data';
 import { Printer } from 'lucide-react';
 
 import { ROUTES, generatePath } from '@/lib/router';
@@ -52,35 +53,22 @@ const defaultStatusConfig = { label: "Không xác định", variant: "secondary"
 export function PenaltyDetailPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const router = useRouter();
-  const { data: penalty } = usePenaltyById(systemId);
+  const { data: penalty, isLoading } = usePenaltyById(systemId);
   const { data: penaltyTypes } = useAllPenaltyTypes();
-  const { findById: findEmployeeById } = useEmployeeFinder();
-  const { employee: authEmployee } = useAuth();
+  const { employee: authEmployee, can, isAdmin } = useAuth();
   const { print } = usePrint();
-  const { info: storeInfo } = useStoreInfoData();
+  // ⚡ OPTIMIZED: storeInfo lazy loaded in handlePrint
   
-  // Get employee details
-  const penalizedEmployee = React.useMemo(() => {
-    if (!penalty?.employeeSystemId) return null;
-    return findEmployeeById(penalty.employeeSystemId);
-  }, [penalty?.employeeSystemId, findEmployeeById]);
-  
-  const issuerEmployee = React.useMemo(() => {
-    if (!penalty?.issuerSystemId) return null;
-    return findEmployeeById(penalty.issuerSystemId);
-  }, [penalty?.issuerSystemId, findEmployeeById]);
 
-  const handlePrint = React.useCallback(() => {
+  const handlePrint = React.useCallback(async () => {
     if (!penalty) return;
     
+    const { storeInfo } = await fetchPrintData();
     const storeSettings = createStoreSettings(storeInfo);
-    const forPrint = convertPenaltyForPrint(penalty, {
-      employee: penalizedEmployee,
-      issuer: issuerEmployee,
-    });
+    const forPrint = convertPenaltyForPrint(penalty, {});
     
     print('penalty', { data: mapPenaltyToPrintData(forPrint, storeSettings) });
-  }, [penalty, storeInfo, penalizedEmployee, issuerEmployee, print]);
+  }, [penalty, print]);
 
   // Comments from database
   const { 
@@ -152,7 +140,7 @@ export function PenaltyDetailPage() {
       );
     }
     
-    if (penalty && penalty.status !== 'Đã hủy') {
+    if (penalty && penalty.status !== 'Đã hủy' && (isAdmin || can('edit_settings'))) {
       actions.push(
         <Button 
           key="edit" 
@@ -186,6 +174,28 @@ export function PenaltyDetailPage() {
     backPath: '/penalties'
   });
 
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardHeader className="pb-4">
+            <Skeleton className="h-7 w-48" />
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+            <div className="md:col-span-2 p-4 rounded-lg bg-muted/30">
+              <Skeleton className="h-4 w-24 mb-2" />
+              <Skeleton className="h-8 w-40" />
+            </div>
+            <div><Skeleton className="h-4 w-32 mb-2" /><Skeleton className="h-5 w-48" /></div>
+            <div><Skeleton className="h-4 w-32 mb-2" /><Skeleton className="h-5 w-36" /></div>
+            <div><Skeleton className="h-4 w-32 mb-2" /><Skeleton className="h-5 w-44" /></div>
+            <div><Skeleton className="h-4 w-32 mb-2" /><Skeleton className="h-5 w-28" /></div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   if (!penalty) {
     return (
       <Card>
@@ -217,7 +227,7 @@ export function PenaltyDetailPage() {
           {/* Nhân viên bị phạt */}
           <div>
             <p className="text-sm text-muted-foreground mb-1">Nhân viên bị phạt</p>
-            {penalizedEmployee ? (
+            {penalty.employeeSystemId ? (
               <Link href={generatePath(ROUTES.HRM.EMPLOYEE_VIEW, { systemId: penalty.employeeSystemId })} 
                 className="font-medium text-primary hover:underline"
               >
@@ -263,7 +273,7 @@ export function PenaltyDetailPage() {
           {/* Người lập phiếu */}
           <div>
             <p className="text-sm text-muted-foreground mb-1">Người lập phiếu</p>
-            {issuerEmployee ? (
+            {penalty.issuerSystemId ? (
               <Link href={generatePath(ROUTES.HRM.EMPLOYEE_VIEW, { systemId: penalty.issuerSystemId! })} 
                 className="font-medium text-primary hover:underline"
               >
@@ -369,14 +379,7 @@ export function PenaltyDetailPage() {
       />
 
       {/* Activity History */}
-      <ActivityHistory
-        history={[]} // TODO: Fetch from ActivityLog table
-        title="Lịch sử hoạt động"
-        emptyMessage="Chưa có lịch sử hoạt động"
-        showFilters={false}
-        groupByDate
-        maxHeight="400px"
-      />
+      <EntityActivityTable entityType="penalty" entityId={systemId} />
     </div>
   );
 }

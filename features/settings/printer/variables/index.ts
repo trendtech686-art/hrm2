@@ -25,6 +25,7 @@ import { PHIEU_YEU_CAU_BAO_HANH_VARIABLES } from './phieu-yeu-cau-bao-hanh';
 import { PHIEU_YEU_CAU_DONG_GOI_VARIABLES } from './phieu-yeu-cau-dong-goi';
 import { PHIEU_KHIEU_NAI_VARIABLES } from './phieu-khieu-nai';
 import { PHIEU_PHAT_VARIABLES } from './phieu-phat';
+import { DON_NGHI_PHEP_VARIABLES } from './don-nghi-phep';
 import { PHIEU_DIEU_CHINH_GIA_VON_VARIABLES } from './phieu-dieu-chinh-gia-von';
 import { PHIEU_DIEU_CHINH_GIA_BAN_VARIABLES } from './phieu-dieu-chinh-gia-ban';
 import { TEM_PHU_SAN_PHAM_VARIABLES } from './tem-phu-san-pham';
@@ -39,6 +40,7 @@ export const TEMPLATE_VARIABLES: Record<TemplateType, TemplateVariable[]> = {
   'order': DON_BAN_HANG_VARIABLES,
   'quote': PHIEU_DON_TAM_TINH_VARIABLES,
   'sales-return': DON_DOI_TRA_HANG_VARIABLES,
+  'sales-exchange': DON_DOI_TRA_HANG_VARIABLES,
   'packing': PHIEU_DONG_GOI_VARIABLES,
   'delivery': PHIEU_GIAO_HANG_VARIABLES,
   'shipping-label': NHAN_GIAO_HANG_VARIABLES,
@@ -53,13 +55,26 @@ export const TEMPLATE_VARIABLES: Record<TemplateType, TemplateVariable[]> = {
   'supplier-return': PHIEU_TRA_HANG_NCC_VARIABLES,
   'complaint': PHIEU_KHIEU_NAI_VARIABLES,
   'penalty': PHIEU_PHAT_VARIABLES,
-  'leave': PHIEU_PHAT_VARIABLES, // TODO: Create dedicated PHIEU_NGHI_PHEP_VARIABLES
+  'leave': DON_NGHI_PHEP_VARIABLES,
   'cost-adjustment': PHIEU_DIEU_CHINH_GIA_VON_VARIABLES,
   'price-adjustment': PHIEU_DIEU_CHINH_GIA_BAN_VARIABLES,
   'handover': PHIEU_BAN_GIAO_VARIABLES,
   'payroll': BANG_LUONG_VARIABLES,
   'payslip': PHIEU_LUONG_VARIABLES,
   'attendance': BANG_CHAM_CONG_VARIABLES,
+  // Extended types
+  'supplier-order': DON_NHAP_HANG_VARIABLES,
+  'return-order': DON_TRA_HANG_VARIABLES,
+  'refund-confirmation': PHIEU_XAC_NHAN_HOAN_VARIABLES,
+  'packing-guide': PHIEU_HUONG_DAN_DONG_GOI_VARIABLES,
+  'sales-summary': PHIEU_TONG_KET_BAN_HANG_VARIABLES,
+  'warranty-request': PHIEU_YEU_CAU_BAO_HANH_VARIABLES,
+  'packing-request': PHIEU_YEU_CAU_DONG_GOI_VARIABLES,
+  // Other types sharing order variables
+  'stock-out': DON_BAN_HANG_VARIABLES,
+  'sales-contract': DON_BAN_HANG_VARIABLES,
+  'goods-handover-report': DON_BAN_HANG_VARIABLES,
+  'customer-mark-label': DON_BAN_HANG_VARIABLES,
 };
 
 // Additional variable exports for extended template types (not in main TEMPLATE_TYPES)
@@ -122,6 +137,7 @@ export {
   PHIEU_YEU_CAU_DONG_GOI_VARIABLES,
   PHIEU_KHIEU_NAI_VARIABLES,
   PHIEU_PHAT_VARIABLES,
+  DON_NGHI_PHEP_VARIABLES,
   TEM_PHU_SAN_PHAM_VARIABLES,
   // Bảng lương
   BANG_LUONG_VARIABLES,

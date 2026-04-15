@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { PrintTemplatesPage } from '@/features/settings/printer/print-templates-page'
+import PrintTemplatesClient from './client'
 
 export const metadata: Metadata = {
   title: 'Mẫu in',
@@ -7,5 +7,5 @@ export const metadata: Metadata = {
 }
 
 export default function Page() {
-  return <PrintTemplatesPage />
+  return <PrintTemplatesClient />
 }

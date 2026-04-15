@@ -11,6 +11,7 @@ export { WARRANTY_TEMPLATE } from './warranty';
 export { INVENTORY_CHECK_TEMPLATE } from './inventory-check';
 export { STOCK_TRANSFER_TEMPLATE } from './stock-transfer';
 export { SALES_RETURN_TEMPLATE } from './sales-return';
+export { SALES_EXCHANGE_TEMPLATE } from './sales-exchange';
 export { PURCHASE_ORDER_TEMPLATE } from './purchase-order';
 export { PACKING_TEMPLATE } from './packing';
 export { DELIVERY_TEMPLATE } from './delivery';
@@ -24,6 +25,8 @@ export { COST_ADJUSTMENT_TEMPLATE } from './cost-adjustment';
 export { PRICE_ADJUSTMENT_TEMPLATE } from './price-adjustment';
 export { PAYROLL_TEMPLATE } from './payroll';
 export { PAYSLIP_TEMPLATE } from './payslip';
+export { ATTENDANCE_TEMPLATE } from './attendance';
+export { LEAVE_TEMPLATE } from './leave';
 
 // EXTENDED TEMPLATES (8 loại mở rộng - MỚI)
 export { SUPPLIER_ORDER_TEMPLATE } from './supplier-order';
@@ -34,6 +37,12 @@ export { PACKING_GUIDE_TEMPLATE } from './packing-guide';
 export { SALES_SUMMARY_TEMPLATE } from './sales-summary';
 export { WARRANTY_REQUEST_TEMPLATE } from './warranty-request';
 export { PACKING_REQUEST_TEMPLATE } from './packing-request';
+
+// NEW TEMPLATES (5 loại mới)
+export { STOCK_OUT_TEMPLATE } from './stock-out';
+export { SALES_CONTRACT_TEMPLATE } from './sales-contract';
+export { GOODS_HANDOVER_REPORT_TEMPLATE } from './goods-handover-report';
+export { CUSTOMER_MARK_LABEL_TEMPLATE } from './customer-mark-label';
 
 import { TemplateType } from '../types';
 
@@ -50,6 +59,7 @@ import { WARRANTY_TEMPLATE } from './warranty';
 import { INVENTORY_CHECK_TEMPLATE } from './inventory-check';
 import { STOCK_TRANSFER_TEMPLATE } from './stock-transfer';
 import { SALES_RETURN_TEMPLATE } from './sales-return';
+import { SALES_EXCHANGE_TEMPLATE } from './sales-exchange';
 import { PURCHASE_ORDER_TEMPLATE } from './purchase-order';
 import { PACKING_TEMPLATE } from './packing';
 import { DELIVERY_TEMPLATE } from './delivery';
@@ -64,6 +74,7 @@ import { PRICE_ADJUSTMENT_TEMPLATE } from './price-adjustment';
 import { PAYROLL_TEMPLATE } from './payroll';
 import { PAYSLIP_TEMPLATE } from './payslip';
 import { ATTENDANCE_TEMPLATE } from './attendance';
+import { LEAVE_TEMPLATE } from './leave';
 
 // Extended Templates
 import { SUPPLIER_ORDER_TEMPLATE } from './supplier-order';
@@ -74,6 +85,12 @@ import { PACKING_GUIDE_TEMPLATE } from './packing-guide';
 import { SALES_SUMMARY_TEMPLATE } from './sales-summary';
 import { WARRANTY_REQUEST_TEMPLATE } from './warranty-request';
 import { PACKING_REQUEST_TEMPLATE } from './packing-request';
+
+// New Templates
+import { STOCK_OUT_TEMPLATE } from './stock-out';
+import { SALES_CONTRACT_TEMPLATE } from './sales-contract';
+import { GOODS_HANDOVER_REPORT_TEMPLATE } from './goods-handover-report';
+import { CUSTOMER_MARK_LABEL_TEMPLATE } from './customer-mark-label';
 
 // =============================================
 // MAP TEMPLATE TYPE TO DEFAULT TEMPLATE CONTENT
@@ -89,6 +106,7 @@ export const DEFAULT_TEMPLATES: Record<TemplateType, string> = {
   'inventory-check': INVENTORY_CHECK_TEMPLATE,
   'stock-transfer': STOCK_TRANSFER_TEMPLATE,
   'sales-return': SALES_RETURN_TEMPLATE,
+  'sales-exchange': SALES_EXCHANGE_TEMPLATE,
   'purchase-order': PURCHASE_ORDER_TEMPLATE,
   'packing': PACKING_TEMPLATE,
   'delivery': DELIVERY_TEMPLATE,
@@ -98,16 +116,30 @@ export const DEFAULT_TEMPLATES: Record<TemplateType, string> = {
   'supplier-return': SUPPLIER_RETURN_TEMPLATE,
   'complaint': COMPLAINT_TEMPLATE,
   'penalty': PENALTY_TEMPLATE,
-  'leave': PENALTY_TEMPLATE, // TODO: Create dedicated LEAVE_TEMPLATE
+  'leave': LEAVE_TEMPLATE,
   'cost-adjustment': COST_ADJUSTMENT_TEMPLATE,
   'price-adjustment': PRICE_ADJUSTMENT_TEMPLATE,
   'handover': HANDOVER_TEMPLATE,
   'payroll': PAYROLL_TEMPLATE,
   'payslip': PAYSLIP_TEMPLATE,
   'attendance': ATTENDANCE_TEMPLATE,
+  // Extended types
+  'supplier-order': SUPPLIER_ORDER_TEMPLATE,
+  'return-order': RETURN_ORDER_TEMPLATE,
+  'refund-confirmation': REFUND_CONFIRMATION_TEMPLATE,
+  'packing-guide': PACKING_GUIDE_TEMPLATE,
+  'sales-summary': SALES_SUMMARY_TEMPLATE,
+  'warranty-request': WARRANTY_REQUEST_TEMPLATE,
+  'packing-request': PACKING_REQUEST_TEMPLATE,
+  // New
+  'stock-out': STOCK_OUT_TEMPLATE,
+  'sales-contract': SALES_CONTRACT_TEMPLATE,
+  'goods-handover-report': GOODS_HANDOVER_REPORT_TEMPLATE,
+  'customer-mark-label': CUSTOMER_MARK_LABEL_TEMPLATE,
 };
 
-// Extended Templates (8 loại mở rộng)
+// Extended Templates (now part of DEFAULT_TEMPLATES via TemplateType)
+// Kept for backward compatibility
 export const EXTENDED_TEMPLATES: Record<string, string> = {
   'supplier-order': SUPPLIER_ORDER_TEMPLATE,
   'return-order': RETURN_ORDER_TEMPLATE,

@@ -8,11 +8,12 @@
  */
 
 import { prisma } from '@/lib/prisma'
-import { auth } from '@/auth'
+import { requireActionPermission } from '@/lib/api-utils'
 import { revalidatePath } from '@/lib/revalidation'
 import { generateIdWithPrefix } from '@/lib/id-generator'
 import type { ActionResult } from '@/types/action-result'
 import { createWikiSchema, updateWikiSchema } from '@/features/wiki/validation'
+import { logError } from '@/lib/logger'
 
 // ====================================
 // TYPES
@@ -46,10 +47,8 @@ export type DeleteWikiInput = {
 export async function createWikiAction(
   input: CreateWikiInput
 ): Promise<ActionResult> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Không có quyền truy cập' }
-  }
+  const authResult = await requireActionPermission('create_wiki')
+  if (!authResult.success) return authResult
 
   const validated = createWikiSchema.safeParse(input)
   if (!validated.success) {
@@ -96,7 +95,7 @@ export async function createWikiAction(
 
     return { success: true, data: result }
   } catch (error) {
-    console.error('createWikiAction error:', error)
+    logError('createWikiAction error', error)
     return { success: false, error: 'Không thể tạo bài viết' }
   }
 }
@@ -108,10 +107,8 @@ export async function createWikiAction(
 export async function updateWikiAction(
   input: UpdateWikiInput
 ): Promise<ActionResult> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Không có quyền truy cập' }
-  }
+  const authResult = await requireActionPermission('edit_wiki')
+  if (!authResult.success) return authResult
 
   const validated = updateWikiSchema.safeParse(input)
   if (!validated.success) {
@@ -157,7 +154,7 @@ export async function updateWikiAction(
 
     return { success: true, data: result }
   } catch (error) {
-    console.error('updateWikiAction error:', error)
+    logError('updateWikiAction error', error)
     const message = error instanceof Error ? error.message : 'Không thể cập nhật bài viết'
     return { success: false, error: message }
   }
@@ -170,10 +167,8 @@ export async function updateWikiAction(
 export async function deleteWikiAction(
   input: DeleteWikiInput
 ): Promise<ActionResult> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Không có quyền truy cập' }
-  }
+  const authResult = await requireActionPermission('delete_wiki')
+  if (!authResult.success) return authResult
 
   const { systemId } = input
 
@@ -190,7 +185,7 @@ export async function deleteWikiAction(
 
     return { success: true }
   } catch (error) {
-    console.error('deleteWikiAction error:', error)
+    logError('deleteWikiAction error', error)
     const message = error instanceof Error ? error.message : 'Không thể xóa bài viết'
     return { success: false, error: message }
   }

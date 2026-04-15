@@ -7,7 +7,7 @@
 
 import * as React from 'react';
 import { WarrantyTicket } from '../types';
-import { WARRANTY_SLA_TARGETS, formatTimeLeft } from '../warranty-sla-utils';
+import { DEFAULT_WARRANTY_SLA_TARGETS, formatTimeLeft, type WarrantySLATargets } from '../warranty-sla-utils';
 
 export interface WarrantyTimeTrackingMetrics {
   // Response time (new -> pending)
@@ -39,8 +39,11 @@ export interface WarrantyTimeTrackingMetrics {
 
 /**
  * Hook to track warranty time metrics with live updates
+ * @param ticket - Warranty ticket to track
+ * @param slaTargets - Optional SLA targets from DB, defaults to DEFAULT_WARRANTY_SLA_TARGETS
  */
-export function useWarrantyTimeTracking(ticket: WarrantyTicket | null): WarrantyTimeTrackingMetrics | null {
+export function useWarrantyTimeTracking(ticket: WarrantyTicket | null, slaTargets?: WarrantySLATargets): WarrantyTimeTrackingMetrics | null {
+  const targets = slaTargets ?? DEFAULT_WARRANTY_SLA_TARGETS;
   const [, forceUpdate] = React.useReducer(x => x + 1, 0);
   
   // Force re-render every minute for live countdown
@@ -76,10 +79,10 @@ export function useWarrantyTimeTracking(ticket: WarrantyTicket | null): Warranty
       responseTime = currentDuration;
     }
     
-    responseStatus = getSLAStatus(responseTime, WARRANTY_SLA_TARGETS.response);
+    responseStatus = getSLAStatus(responseTime, targets.response);
   }
   
-  const responseTimeLeft = WARRANTY_SLA_TARGETS.response - (responseTime || currentDuration);
+  const responseTimeLeft = targets.response - (responseTime || currentDuration);
   
   // Calculate processing time (created -> COMPLETED)
   let processingTime: number | null = null;
@@ -97,10 +100,10 @@ export function useWarrantyTimeTracking(ticket: WarrantyTicket | null): Warranty
       processingTime = currentDuration;
     }
     
-    processingStatus = getSLAStatus(processingTime, WARRANTY_SLA_TARGETS.processing);
+    processingStatus = getSLAStatus(processingTime, targets.processing);
   }
   
-  const processingTimeLeft = WARRANTY_SLA_TARGETS.processing - (processingTime || currentDuration);
+  const processingTimeLeft = targets.processing - (processingTime || currentDuration);
   
   // Calculate return time (created -> RETURNED)
   let returnTime: number | null = null;
@@ -109,10 +112,10 @@ export function useWarrantyTimeTracking(ticket: WarrantyTicket | null): Warranty
   if (ticket.status === 'RETURNED' && ticket.returnedAt) {
     const returnedAt = new Date(ticket.returnedAt);
     returnTime = Math.floor((returnedAt.getTime() - createdAt.getTime()) / (1000 * 60));
-    returnStatus = getSLAStatus(returnTime, WARRANTY_SLA_TARGETS.return);
+    returnStatus = getSLAStatus(returnTime, targets.return);
   }
   
-  const returnTimeLeft = WARRANTY_SLA_TARGETS.return - (returnTime || currentDuration);
+  const returnTimeLeft = targets.return - (returnTime || currentDuration);
   
   // Total duration
   const totalDuration = ticket.status === 'RETURNED' && returnTime ? returnTime : null;

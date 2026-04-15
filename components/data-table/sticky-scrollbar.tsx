@@ -36,17 +36,18 @@ export function StickyScrollbar({ targetRef, dataLength = 0, className }: Sticky
       const scrollW = targetElement.scrollWidth;
       const clientW = targetElement.clientWidth;
       const hasScroll = scrollW > clientW + 1;
-      
-      
+
       setIsVisible(hasScroll);
-      
+
       if (hasScroll) {
         const rect = targetElement.getBoundingClientRect();
-        setScrollbarStyle({
-          left: rect.left,
-          width: rect.width,
+        const nextLeft = Math.round(rect.left);
+        const nextWidth = Math.round(rect.width);
+        setScrollbarStyle(prev => {
+          if ((prev as Record<string, number>).left === nextLeft && (prev as Record<string, number>).width === nextWidth) return prev;
+          return { left: nextLeft, width: nextWidth };
         });
-        setContentWidth(scrollW);
+        setContentWidth(prev => prev === scrollW ? prev : scrollW);
       }
     };
 
@@ -85,6 +86,10 @@ export function StickyScrollbar({ targetRef, dataLength = 0, className }: Sticky
     const resizeObserver = new ResizeObserver(updateScrollbar);
     resizeObserver.observe(targetElement);
 
+    // Observe DOM mutations (column toggling, content changes)
+    const mutationObserver = new MutationObserver(updateScrollbar);
+    mutationObserver.observe(targetElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] });
+
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
@@ -93,6 +98,7 @@ export function StickyScrollbar({ targetRef, dataLength = 0, className }: Sticky
       targetElement.removeEventListener('scroll', handleTableScroll);
       window.removeEventListener('resize', updateScrollbar);
       resizeObserver.disconnect();
+      mutationObserver.disconnect();
     };
   }, [targetRef, dataLength]);
 
@@ -101,7 +107,7 @@ export function StickyScrollbar({ targetRef, dataLength = 0, className }: Sticky
     <div
       ref={scrollbarRef}
       className={cn(
-        "fixed bottom-0 z-[100] overflow-x-scroll overflow-y-hidden",
+        "fixed bottom-0 z-100 overflow-x-scroll overflow-y-hidden",
         "h-4 bg-muted/80 border-t border-border",
         className
       )}

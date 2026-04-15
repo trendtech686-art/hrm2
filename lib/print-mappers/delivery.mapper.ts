@@ -16,18 +16,7 @@ import {
   StoreSettings,
   hidePhoneMiddle
 } from '@/lib/print-service';
-
-// Helper function để tạo barcode image
-function generateBarcodeImage(code: string | undefined, height = 50): string {
-  if (!code) return '';
-  return `<img src="https://barcodeapi.org/api/128/${encodeURIComponent(code)}" style="height:${height}px" alt="barcode"/>`;
-}
-
-// Helper function để tạo QR code image  
-function generateQRCodeImage(code: string | undefined, size = 100): string {
-  if (!code) return '';
-  return `<img src="https://quickchart.io/qr?text=${encodeURIComponent(code)}&size=${size}" style="width:${size}px;height:${size}px" alt="qrcode"/>`;
-}
+import { generateBarcodeImage, generateQRCodeImage } from './barcode-utils';
 
 export interface DeliveryForPrint {
   // Thông tin cơ bản

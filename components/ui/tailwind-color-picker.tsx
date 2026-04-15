@@ -56,6 +56,7 @@ interface TailwindColorPickerProps {
 
 /** Convert Tailwind class value to inline styles */
 function tailwindValueToStyle(value: string): React.CSSProperties {
+  if (!value) return {};
   const parts = value.split(' ').filter(Boolean);
   const style: React.CSSProperties = {};
   for (const part of parts) {
@@ -74,6 +75,7 @@ export function TailwindColorPicker({ value, onChange, label, placeholder }: Tai
 
   // Parse current value
   React.useEffect(() => {
+    if (!value) return;
     const parts = value.split(' ');
     const bg = parts.find(p => p.startsWith('bg-'));
     const border = parts.find(p => p.startsWith('border-'));

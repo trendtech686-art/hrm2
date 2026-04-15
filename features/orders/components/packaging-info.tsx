@@ -11,7 +11,6 @@ import { Separator } from '../../../components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../../components/ui/tooltip';
 import { Badge } from '../../../components/ui/badge';
 import { getGHTKStatusVariant, getGHTKStatusText } from '../../../lib/ghtk-constants';
-import { useEmployeeFinder } from '../../employees/hooks/use-all-employees';
 import { useShipmentFinder } from '../../shipments/hooks/use-shipments';
 import { useBranchFinder } from '../../settings/branches/hooks/use-all-branches';
 import { useCustomerFinder } from '../../customers/hooks/use-all-customers';
@@ -21,6 +20,8 @@ import { mapShippingLabelToPrintData } from '@/lib/print-mappers/shipping-label.
 import { mapDeliveryToPrintData, mapDeliveryLineItems } from '@/lib/print-mappers/delivery.mapper';
 import { toast } from 'sonner';
 import type { SystemId } from '@/lib/id-types';
+import { logError } from '@/lib/logger'
+import { useBreakpoint } from '@/contexts/breakpoint-context';
 const formatCurrency = (value?: number) => {
     if (typeof value !== 'number' || isNaN(value)) return '0';
     return new Intl.NumberFormat('vi-VN').format(value);
@@ -75,11 +76,14 @@ export function PackagingInfo({
     onCancelDelivery,
     onCancelGHTKShipment,
 }: PackagingInfoProps) {
-    // ✅ If cancelled, default to collapsed
-    const isCancelled = packaging.deliveryStatus === 'Đã hủy' || packaging.status === 'Hủy đóng gói';
+    const { isMobile } = useBreakpoint();
+    // ✅ If cancelled, default to collapsed - Support both Vietnamese and English
+    const isCancelled = packaging.deliveryStatus === 'Đã hủy' || 
+                        packaging.deliveryStatus === 'CANCELLED' ||
+                        packaging.status === 'Hủy đóng gói' || 
+                        packaging.status === 'CANCELLED';
     const [isExpanded, setIsExpanded] = React.useState(!isCancelled);
     const [isCopied, setIsCopied] = React.useState(false);
-    const { findById: findEmployeeById } = useEmployeeFinder();
     const { findByPackagingSystemId, findByTrackingCode } = useShipmentFinder();
     const { findById: findBranchById } = useBranchFinder();
     const { findById: findCustomerById } = useCustomerFinder();
@@ -99,7 +103,7 @@ export function PackagingInfo({
     }, [packaging.systemId, packaging.trackingCode, findByPackagingSystemId, findByTrackingCode]);
 
     const renderEmployeeLink = React.useCallback((employeeId?: SystemId, employeeName?: string) => {
-        const resolvedName = employeeName || (employeeId ? findEmployeeById(employeeId)?.fullName : undefined);
+        const resolvedName = employeeName;
         if (!employeeId && !resolvedName) {
             return '---';
         }
@@ -113,7 +117,7 @@ export function PackagingInfo({
                 {resolvedName || employeeId}
             </Link>
         );
-    }, [findEmployeeById]);
+    }, []);
 
     const displayStatusText = React.useMemo(() => {
         // ✅ If delivery is cancelled, always show "Đã hủy"
@@ -124,33 +128,47 @@ export function PackagingInfo({
         if (packaging.partnerStatus) {
             return packaging.partnerStatus;
         }
-        const deliverySpecificStatuses: OrderDeliveryStatus[] = ['Chờ lấy hàng', 'Đang giao hàng', 'Đã giao hàng', 'Chờ giao lại'];
+        const deliverySpecificStatuses: OrderDeliveryStatus[] = ['Chờ lấy hàng', 'PENDING_SHIP', 'Đang giao hàng', 'SHIPPING', 'Đã giao hàng', 'DELIVERED', 'Chờ giao lại', 'RESCHEDULED'];
         if (packaging.deliveryStatus && deliverySpecificStatuses.includes(packaging.deliveryStatus)) {
             return packaging.deliveryStatus;
         }
         return packaging.status;
     }, [packaging.partnerStatus, packaging.deliveryStatus, packaging.status]);
 
-    // ✅ Use appropriate icon and color for cancelled status
-    const Icon = (packaging.deliveryStatus === 'Đã hủy' || packaging.status === 'Hủy đóng gói') 
-        ? Ban 
-        : (packaging.deliveryStatus && !['Chờ đóng gói', 'Đã đóng gói'].includes(packaging.deliveryStatus) ? Truck : packagingStatusIcons[packaging.status]);
+    // ✅ Use appropriate icon and color for cancelled status - Support both Vietnamese and English
+    const isCancelledForDisplay = packaging.deliveryStatus === 'Đã hủy' || 
+                                   packaging.deliveryStatus === 'CANCELLED' ||
+                                   packaging.status === 'Hủy đóng gói' || 
+                                   packaging.status === 'CANCELLED';
+    const isPackStatusForTruck = packaging.deliveryStatus && 
+                                  !['Chờ đóng gói', 'Đã đóng gói', 'PENDING', 'PACKED', 'COMPLETED'].includes(packaging.deliveryStatus);
     
-    const color = (packaging.deliveryStatus === 'Đã hủy' || packaging.status === 'Hủy đóng gói')
+    const Icon = isCancelledForDisplay 
+        ? Ban 
+        : (isPackStatusForTruck ? Truck : packagingStatusIcons[packaging.status] || PackageSearch);
+    
+    const color = isCancelledForDisplay
         ? 'text-red-500'
-        : (packaging.deliveryStatus && !['Chờ đóng gói', 'Đã đóng gói'].includes(packaging.deliveryStatus) ? 'text-primary' : packagingStatusColors[packaging.status]);
+        : (isPackStatusForTruck ? 'text-primary' : packagingStatusColors[packaging.status] || 'text-amber-500');
     
     const getDisplayDateForPackage = (pkg: Packaging, order: Order) => {
-        if (pkg.status === 'Hủy đóng gói') {
+        // ✅ Support both Vietnamese and English enum values - cast to string for comparison
+        const statusStr = String(pkg.status || '');
+        const isCancelled = statusStr === 'Hủy đóng gói' || statusStr === 'CANCELLED';
+        const isPacked = statusStr === 'Đã đóng gói' || statusStr === 'PACKED' || statusStr === 'COMPLETED';
+        
+        if (isCancelled) {
             return pkg.cancelDate || pkg.requestDate;
         }
         switch (pkg.deliveryStatus) {
             case 'Đã giao hàng':
+            case 'DELIVERED':
                 return pkg.deliveredDate || order.completedDate || pkg.confirmDate || pkg.requestDate;
             case 'Đang giao hàng':
+            case 'SHIPPING':
                 return order.dispatchedDate || pkg.confirmDate || pkg.requestDate;
-            default: // Chờ lấy hàng, Đã đóng gói, Chờ đóng gói
-                if (pkg.status === 'Đã đóng gói') {
+            default: // Chờ lấy hàng, Đã đóng gói, Chờ đóng gói, etc.
+                if (isPacked) {
                     return pkg.confirmDate || pkg.requestDate;
                 }
                 return pkg.requestDate;
@@ -360,7 +378,7 @@ export function PackagingInfo({
             
             toast.success('Đang mở hộp thoại in...');
         } catch (error) {
-            console.error('Error printing GHTK label:', error);
+            logError('Error printing GHTK label', error);
             toast.error(error instanceof Error ? error.message : 'Lỗi in nhãn GHTK');
         }
     }, [packaging.trackingCode, packaging.carrier]);
@@ -368,12 +386,19 @@ export function PackagingInfo({
     const renderActionButtons = () => {
         if (!isActionable) return null;
         
+        // ✅ Cast to string for comparison - supports both Vietnamese and English enum values
+        const statusStr = String(packaging.status || '');
+        const deliveryStatusStr = String(packaging.deliveryStatus || '');
+        
         // ✅ Không hiển thị action nếu đã hủy
-        if (packaging.deliveryStatus === 'Đã hủy' || packaging.status === 'Hủy đóng gói') {
+        if (deliveryStatusStr === 'Đã hủy' || statusStr === 'Hủy đóng gói' || statusStr === 'CANCELLED') {
             return null;
         }
     
-        if (packaging.status === 'Chờ đóng gói') {
+        const isPending = statusStr === 'Chờ đóng gói' || statusStr === 'PENDING';
+        const isPacked = statusStr === 'Đã đóng gói' || statusStr === 'PACKED' || statusStr === 'COMPLETED';
+        
+        if (isPending) {
             return (
                 <div className="flex items-center gap-2">
                     <Button size="sm" variant="outline" onClick={onCancelPackaging}>Hủy yêu cầu</Button>
@@ -382,7 +407,7 @@ export function PackagingInfo({
             );
         }
 
-        if (packaging.status === 'Đã đóng gói' && !packaging.deliveryMethod) {
+        if (isPacked && !packaging.deliveryMethod) {
             return (
                 <div className="flex items-center gap-2">
                     <Button 
@@ -425,7 +450,7 @@ export function PackagingInfo({
             );
         }
 
-        if (packaging.deliveryStatus === 'Chờ lấy hàng') {
+        if (packaging.deliveryStatus === 'Chờ lấy hàng' || packaging.deliveryStatus === 'PENDING_SHIP') {
             // Check if has tracking code (đã có mã vận đơn từ đối tác vận chuyển)
             const hasTrackingCode = !!packaging.trackingCode;
             
@@ -461,7 +486,7 @@ export function PackagingInfo({
             );
         }
         
-         if (packaging.deliveryStatus === 'Đang giao hàng') {
+         if (packaging.deliveryStatus === 'Đang giao hàng' || packaging.deliveryStatus === 'SHIPPING') {
             return (
                 <div className="flex items-center gap-2">
                      <DropdownMenu>
@@ -476,7 +501,7 @@ export function PackagingInfo({
             );
         }
         
-         if (packaging.deliveryStatus === 'Chờ giao lại') {
+         if (packaging.deliveryStatus === 'Chờ giao lại' || packaging.deliveryStatus === 'RESCHEDULED') {
             return (
                  <Button size="sm" onClick={onOpenShipmentDialog}>Tạo lại đơn giao hàng</Button>
             )
@@ -489,81 +514,87 @@ export function PackagingInfo({
     return (
         <div className="border rounded-md bg-background">
             {/* Header */}
-            <div className="flex items-center justify-between p-3 border-b border-border">
-                 <div className="flex items-center gap-2 grow cursor-pointer" onClick={() => setIsExpanded(!isExpanded)}>
-                    <Icon className={cn("h-5 w-5", color)} />
-                    <div className="flex items-center gap-2">
-                        <p className="text-sm font-semibold">{displayStatusText}</p>
-                        <p className="text-sm text-muted-foreground">{formatDate(displayDate)}</p>
-                        
-                        {/* GHTK Status Badge - Only show when ghtkStatusId is a valid number */}
-                        {packaging.carrier === 'GHTK' && packaging.ghtkStatusId != null && (
-                            <Badge variant={getGHTKStatusVariant(packaging.ghtkStatusId)} className="text-xs">
-                                {getGHTKStatusText(packaging.ghtkStatusId)}
-                            </Badge>
-                        )}
-                    </div>
-                    {packaging.trackingCode && (
-                        <>
-                            <Separator orientation="vertical" className="h-4 mx-2" />
-                            <div className="flex items-center gap-1">
-                                <span className="text-sm text-primary">{packaging.trackingCode}</span>
-                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); handleCopy(); }}>
+            <div className="flex flex-col p-3 border-b border-border gap-2">
+                <div className="flex items-start sm:items-center justify-between gap-2">
+                     <div role="button" tabIndex={0} className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 grow cursor-pointer min-w-0" onClick={() => setIsExpanded(!isExpanded)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setIsExpanded(!isExpanded); } }}>
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                            <Icon className={cn("h-5 w-5 shrink-0", color)} />
+                            <p className="text-sm font-semibold whitespace-nowrap">{displayStatusText}</p>
+                            <p className="text-sm text-muted-foreground whitespace-nowrap">{formatDate(displayDate)}</p>
+                            
+                            {/* GHTK Status Badge - Only show when ghtkStatusId is a valid number */}
+                            {packaging.carrier === 'GHTK' && packaging.ghtkStatusId != null && (
+                                <Badge variant={getGHTKStatusVariant(packaging.ghtkStatusId)} className="text-xs">
+                                    {getGHTKStatusText(packaging.ghtkStatusId)}
+                                </Badge>
+                            )}
+                        </div>
+                        {packaging.trackingCode && (
+                            <div className="flex items-center gap-1 min-w-0">
+                                <Separator orientation="vertical" className="h-4 mx-1 hidden sm:block" />
+                                <span className="text-sm text-primary truncate">{packaging.trackingCode}</span>
+                                <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={(e) => { e.stopPropagation(); handleCopy(); }}>
                                     {isCopied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4 text-muted-foreground" />}
                                 </Button>
                             </div>
-                        </>
-                    )}
-                    
-                    {/* GHTK Reason Tooltip */}
-                    {packaging.carrier === 'GHTK' && packaging.ghtkReasonText && (
+                        )}
+                        
+                        {/* GHTK Reason Tooltip */}
+                        {packaging.carrier === 'GHTK' && packaging.ghtkReasonText && (
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button 
+                                            variant="ghost" 
+                                            size="icon" 
+                                            className="h-7 w-7"
+                                            onClick={(e) => e.stopPropagation()}
+                                        >
+                                            <AlertCircle className="h-4 w-4 text-amber-500" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent className="max-w-xs">
+                                        <p className="font-semibold mb-1">Lý do:</p>
+                                        <p>{packaging.ghtkReasonText}</p>
+                                        {packaging.ghtkReasonCode && (
+                                            <p className="text-xs text-muted-foreground mt-1">
+                                                Mã: {packaging.ghtkReasonCode}
+                                            </p>
+                                        )}
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                        )}
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                        {!isMobile && renderActionButtons()}
+                        {/* ✅ Print button - In phiếu giao hàng */}
                         <TooltipProvider>
                             <Tooltip>
                                 <TooltipTrigger asChild>
                                     <Button 
                                         variant="ghost" 
                                         size="icon" 
-                                        className="h-7 w-7"
-                                        onClick={(e) => e.stopPropagation()}
+                                        className="h-8 w-8"
+                                        onClick={handlePrintDelivery}
                                     >
-                                        <AlertCircle className="h-4 w-4 text-amber-500" />
+                                        <Printer className="h-4 w-4" />
                                     </Button>
                                 </TooltipTrigger>
-                                <TooltipContent className="max-w-xs">
-                                    <p className="font-semibold mb-1">Lý do:</p>
-                                    <p>{packaging.ghtkReasonText}</p>
-                                    {packaging.ghtkReasonCode && (
-                                        <p className="text-xs text-muted-foreground mt-1">
-                                            Mã: {packaging.ghtkReasonCode}
-                                        </p>
-                                    )}
-                                </TooltipContent>
+                                <TooltipContent>In phiếu giao hàng</TooltipContent>
                             </Tooltip>
                         </TooltipProvider>
-                    )}
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setIsExpanded(!isExpanded)}>
+                            {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                        </Button>
+                    </div>
                 </div>
-                <div className="flex items-center gap-1">
-                    {renderActionButtons()}
-                    {/* ✅ Print button - In phiếu giao hàng */}
-                    <TooltipProvider>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Button 
-                                    variant="ghost" 
-                                    size="icon" 
-                                    className="h-8 w-8"
-                                    onClick={handlePrintDelivery}
-                                >
-                                    <Printer className="h-4 w-4" />
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>In phiếu giao hàng</TooltipContent>
-                        </Tooltip>
-                    </TooltipProvider>
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setIsExpanded(!isExpanded)}>
-                        {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                    </Button>
-                </div>
+                {/* Mobile: action buttons on separate row */}
+                {isMobile && renderActionButtons() && (
+                    <div className="flex flex-wrap items-center gap-2">
+                        {renderActionButtons()}
+                    </div>
+                )}
             </div>
             
             {/* Content */}

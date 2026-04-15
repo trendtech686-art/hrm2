@@ -1,6 +1,10 @@
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@/generated/prisma/client'
 import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
+import { logError } from '@/lib/logger'
+import { cache, CACHE_TAGS } from '@/lib/cache'
+import { revalidatePath } from '@/lib/revalidation'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 interface RouteParams {
   params: Promise<{ systemId: string }>
@@ -39,7 +43,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
 
     return apiSuccess(branch)
   } catch (error) {
-    console.error('Error fetching branch:', error)
+    logError('Error fetching branch', error)
     return apiError('Failed to fetch branch', 500)
   }
 }
@@ -71,12 +75,25 @@ export async function PUT(request: Request, { params }: RouteParams) {
       },
     })
 
+    // Invalidate branches cache (memory + Next.js)
+    cache.deletePattern('^branches:')
+    revalidatePath('/api/branches')
+
+    createActivityLog({
+      entityType: 'branch',
+      entityId: systemId,
+      action: 'updated',
+      actionType: 'update',
+      metadata: { name: branch.name },
+      createdBy: session.user?.employee?.fullName || session.user?.email || 'System',
+    })
+
     return apiSuccess(branch)
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
       return apiNotFound('Chi nhánh')
     }
-    console.error('Error updating branch:', error)
+    logError('Error updating branch', error)
     return apiError('Failed to update branch', 500)
   }
 }
@@ -95,12 +112,24 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
       data: { isDeleted: true },
     })
 
+    // Invalidate branches cache (memory + Next.js)
+    cache.deletePattern('^branches:')
+    revalidatePath('/api/branches')
+
+    createActivityLog({
+      entityType: 'branch',
+      entityId: systemId,
+      action: 'deleted',
+      actionType: 'delete',
+      createdBy: session.user?.employee?.fullName || session.user?.email || 'System',
+    })
+
     return apiSuccess({ success: true })
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
       return apiNotFound('Chi nhánh')
     }
-    console.error('Error deleting branch:', error)
+    logError('Error deleting branch', error)
     return apiError('Failed to delete branch', 500)
   }
 }

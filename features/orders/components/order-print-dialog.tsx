@@ -8,10 +8,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from '../../../components/ui/button';
 import { Label } from '../../../components/ui/label';
 import { RadioGroup, RadioGroupItem } from '../../../components/ui/radio-group';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '../../../components/ui/select';
+import { Input } from '../../../components/ui/input';
 import { Printer, FileText, Package, Truck, Tag } from 'lucide-react';
 import { usePrint } from '../../../lib/use-print';
-import type { TemplateType, PaperSize } from '../../settings/printer/types';
+import type { TemplateType, PaperSize, PrintOrientation } from '../../settings/printer/types';
+import { LABEL_SIZES, isLabelSize } from '../../settings/printer/types';
 import type { Order, Packaging } from '../types';
 import type { Customer } from '../../customers/types';
 import type { Branch } from '../../settings/branches/types';
@@ -73,6 +75,7 @@ const PAPER_SIZES: { value: PaperSize; label: string }[] = [
   { value: 'K80', label: 'K80 (80mm)' },
   { value: 'A5', label: 'A5' },
   { value: 'A4', label: 'A4' },
+  { value: 'A6', label: 'A6' },
 ];
 
 interface OrderPrintDialogProps {
@@ -93,16 +96,24 @@ export function OrderPrintDialog({
   branch,
   activePackaging,
 }: OrderPrintDialogProps) {
-  const { print, getDefaultSize, hasTemplate: _hasTemplate } = usePrint(branch?.systemId);
+  const { print, getDefaultSize } = usePrint(branch?.systemId);
   
   const [selectedType, setSelectedType] = React.useState<TemplateType>('order');
   const [selectedSize, setSelectedSize] = React.useState<PaperSize>('K80');
+  const [orientation, setOrientation] = React.useState<PrintOrientation>('portrait');
+  const [customWidth, setCustomWidth] = React.useState('');
+  const [customHeight, setCustomHeight] = React.useState('');
+  const [isCustom, setIsCustom] = React.useState(false);
+
+  const supportsOrientation = ['A4', 'A5', 'A6'].includes(selectedSize) && !isCustom;
+  const isShippingOrLabel = selectedType === 'shipping-label' || selectedType === 'product-label';
 
   // Reset size khi đổi loại template
   React.useEffect(() => {
     if (open) {
       const defaultSize = getDefaultSize(selectedType);
       setSelectedSize(defaultSize);
+      setIsCustom(false);
     }
   }, [selectedType, getDefaultSize, open]);
 
@@ -110,11 +121,19 @@ export function OrderPrintDialog({
   React.useEffect(() => {
     if (open) {
       setSelectedType('order');
+      setOrientation('portrait');
+      setIsCustom(false);
     }
   }, [open]);
 
   const handlePrint = React.useCallback(() => {
     const storeSettings = createStoreSettings(branch);
+    let finalSize = selectedSize;
+    if (isCustom && customWidth && customHeight) {
+      const w = parseInt(customWidth);
+      const h = parseInt(customHeight);
+      if (w > 0 && h > 0) finalSize = `${w}x${h}`;
+    }
 
     switch (selectedType) {
       case 'order': {
@@ -122,7 +141,7 @@ export function OrderPrintDialog({
         print('order', {
           data: mapOrderToPrintData(orderData, storeSettings),
           lineItems: mapOrderLineItems(orderData.items),
-          paperSize: selectedSize,
+          paperSize: finalSize,
         });
         break;
       }
@@ -133,7 +152,7 @@ export function OrderPrintDialog({
         print('packing', {
           data: mapPackingToPrintData(packingData, storeSettings),
           lineItems: mapPackingLineItems(packingData.items),
-          paperSize: selectedSize,
+          paperSize: finalSize,
         });
         break;
       }
@@ -144,7 +163,7 @@ export function OrderPrintDialog({
         print('delivery', {
           data: mapDeliveryToPrintData(deliveryData, storeSettings),
           lineItems: mapDeliveryLineItems(deliveryData.items),
-          paperSize: selectedSize,
+          paperSize: finalSize,
         });
         break;
       }
@@ -154,14 +173,14 @@ export function OrderPrintDialog({
         const labelData = convertToShippingLabelForPrint(order, activePackaging, { customer });
         print('shipping-label', {
           data: mapShippingLabelToPrintData(labelData, storeSettings),
-          paperSize: selectedSize,
+          paperSize: finalSize,
         });
         break;
       }
     }
 
     onOpenChange(false);
-  }, [selectedType, selectedSize, order, customer, branch, activePackaging, print, onOpenChange]);
+  }, [selectedType, selectedSize, isCustom, customWidth, customHeight, order, customer, branch, activePackaging, print, onOpenChange]);
 
   const filteredOptions = React.useMemo(() => {
     return PRINT_OPTIONS.filter(opt => {
@@ -221,7 +240,7 @@ export function OrderPrintDialog({
           {/* Khổ giấy */}
           <div className="space-y-2">
             <Label htmlFor="paper-size">Khổ giấy</Label>
-            <Select value={selectedSize} onValueChange={(v) => setSelectedSize(v as PaperSize)}>
+            <Select value={!isCustom ? selectedSize : ''} onValueChange={(v) => { setSelectedSize(v as PaperSize); setIsCustom(false); }}>
               <SelectTrigger id="paper-size">
                 <SelectValue placeholder="Chọn khổ giấy" />
               </SelectTrigger>
@@ -231,8 +250,80 @@ export function OrderPrintDialog({
                     {size.label}
                   </SelectItem>
                 ))}
+                {/* Label sizes */}
+                {LABEL_SIZES.map(group => (
+                  <SelectGroup key={group.label}>
+                    <SelectLabel>Tem {group.label}</SelectLabel>
+                    {group.sizes.map(s => (
+                      <SelectItem key={s.value} value={s.value}>
+                        {s.label}mm
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                ))}
               </SelectContent>
             </Select>
+          </div>
+
+          {/* Hướng in - chỉ cho A4/A5/A6 */}
+          {supportsOrientation && (
+            <div className="flex items-center gap-3">
+              <Label className="text-sm">Hướng in</Label>
+              <Button
+                type="button"
+                variant={orientation === 'portrait' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setOrientation('portrait')}
+              >
+                Dọc
+              </Button>
+              <Button
+                type="button"
+                variant={orientation === 'landscape' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setOrientation('landscape')}
+              >
+                Ngang
+              </Button>
+            </div>
+          )}
+
+          {/* Custom size */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant={isCustom ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setIsCustom(!isCustom)}
+              >
+                Kích thước tùy chỉnh
+              </Button>
+            </div>
+            {isCustom && (
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  min={10}
+                  max={300}
+                  placeholder="Rộng"
+                  value={customWidth}
+                  onChange={(e) => setCustomWidth(e.target.value)}
+                  className="w-24"
+                />
+                <span className="text-muted-foreground">×</span>
+                <Input
+                  type="number"
+                  min={10}
+                  max={300}
+                  placeholder="Cao"
+                  value={customHeight}
+                  onChange={(e) => setCustomHeight(e.target.value)}
+                  className="w-24"
+                />
+                <span className="text-sm text-muted-foreground">mm</span>
+              </div>
+            )}
           </div>
         </div>
 

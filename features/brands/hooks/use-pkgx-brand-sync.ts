@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 import type { Brand } from '@/features/settings/inventory/types';
 import type { PkgxBrandMapping, PkgxSettings } from '@/features/settings/pkgx/types';
 import { updateBrand, getBrandById } from '@/lib/pkgx/api-service';
-import { usePkgxSettings, usePkgxBrandMutations, usePkgxBrandMappings } from '@/features/settings/pkgx/hooks/use-pkgx-settings';
+import { usePkgxMappings, usePkgxBrandMutations } from '@/features/settings/pkgx/hooks/use-pkgx-settings';
 
 // Types for imported brand data from PKGX
 type PkgxImportedBrandData = {
@@ -59,8 +59,8 @@ function getPkgxBrandId(brand: Brand, brandMappings?: PkgxBrandMapping[]) {
  * Hook cung cấp các handlers để đồng bộ Brand với PKGX
  */
 export function usePkgxBrandSync({ addPkgxLog }: UsePkgxBrandSyncOptions = {}) {
-  const { data: pkgxSettings, refetch: refetchSettings } = usePkgxSettings();
-  const brandMappings = usePkgxBrandMappings();
+  const { data: pkgxSettings, refetch: refetchSettings } = usePkgxMappings();
+  const brandMappings = React.useMemo(() => pkgxSettings?.brandMappings ?? [], [pkgxSettings?.brandMappings]);
   const { updateBrand: updateBrandMutation } = usePkgxBrandMutations();
 
   // Default log function if not provided
@@ -135,7 +135,7 @@ export function usePkgxBrandSync({ addPkgxLog }: UsePkgxBrandSyncOptions = {}) {
         throw new Error(response.error);
       }
     } catch (error) {
-      toast.error(`Lỗi đồng bộ thông tin cơ bản: ${error instanceof Error ? error.message : 'Unknown error'}`, { id: 'pkgx-brand-sync-basic' });
+      toast.error(`Lỗi đồng bộ thông tin cơ bản: ${error instanceof Error ? error.message : 'Lỗi không xác định'}`, { id: 'pkgx-brand-sync-basic' });
       logAction({
         action: 'sync_brand_basic_info',
         status: 'error',
@@ -190,7 +190,7 @@ export function usePkgxBrandSync({ addPkgxLog }: UsePkgxBrandSyncOptions = {}) {
         throw new Error(response.error);
       }
     } catch (error) {
-      toast.error(`Lỗi đồng bộ SEO thương hiệu: ${error instanceof Error ? error.message : 'Unknown error'}`, { id: 'pkgx-brand-sync-seo' });
+      toast.error(`Lỗi đồng bộ SEO thương hiệu: ${error instanceof Error ? error.message : 'Lỗi không xác định'}`, { id: 'pkgx-brand-sync-seo' });
       logAction({
         action: 'sync_brand_seo',
         status: 'error',
@@ -242,7 +242,7 @@ export function usePkgxBrandSync({ addPkgxLog }: UsePkgxBrandSyncOptions = {}) {
         throw new Error(response.error);
       }
     } catch (error) {
-      toast.error(`Lỗi đồng bộ mô tả thương hiệu: ${error instanceof Error ? error.message : 'Unknown error'}`, { id: 'pkgx-brand-sync-desc' });
+      toast.error(`Lỗi đồng bộ mô tả thương hiệu: ${error instanceof Error ? error.message : 'Lỗi không xác định'}`, { id: 'pkgx-brand-sync-desc' });
       logAction({
         action: 'sync_brand_description',
         status: 'error',
@@ -304,7 +304,7 @@ export function usePkgxBrandSync({ addPkgxLog }: UsePkgxBrandSyncOptions = {}) {
         throw new Error(response.error);
       }
     } catch (error) {
-      toast.error(`Lỗi đồng bộ thương hiệu: ${error instanceof Error ? error.message : 'Unknown error'}`, { id: 'pkgx-brand-sync-all' });
+      toast.error(`Lỗi đồng bộ thương hiệu: ${error instanceof Error ? error.message : 'Lỗi không xác định'}`, { id: 'pkgx-brand-sync-all' });
       logAction({
         action: 'sync_brand_all',
         status: 'error',
@@ -388,7 +388,7 @@ export function usePkgxBrandSync({ addPkgxLog }: UsePkgxBrandSyncOptions = {}) {
         throw new Error(response.error || 'Không tìm thấy dữ liệu');
       }
     } catch (error) {
-      toast.error(`Lỗi import từ PKGX: ${error instanceof Error ? error.message : 'Unknown error'}`, { id: 'pkgx-brand-import' });
+      toast.error(`Lỗi import từ PKGX: ${error instanceof Error ? error.message : 'Lỗi không xác định'}`, { id: 'pkgx-brand-import' });
       logAction({
         action: 'sync_brand_all',
         status: 'error',

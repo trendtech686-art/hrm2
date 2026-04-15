@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma';
 import { Prisma } from '@/generated/prisma/client';
 import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils';
 import { updateCustomerSettingSchema, deleteCustomerSettingSchema } from './validation';
+import { logError } from '@/lib/logger'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 type RouteContext = {
   params: Promise<{ systemId: string }>;
@@ -44,7 +46,7 @@ export async function GET(
       ...(setting.metadata as Record<string, unknown> || {}),
     });
   } catch (error) {
-    console.error('[Customer Settings API] GET by ID error:', error);
+    logError('[Customer Settings API] GET by ID error', error);
     return apiError('Failed to fetch customer setting', 500);
   }
 }
@@ -104,6 +106,26 @@ export async function PATCH(
       },
     });
 
+    // Activity log
+    const changes: Record<string, { from: unknown; to: unknown }> = {}
+    if (name !== undefined && name !== existing.name) changes['Tên'] = { from: existing.name, to: name }
+    if (description !== undefined && description !== existing.description) changes['Mô tả'] = { from: existing.description, to: description }
+    if (color !== undefined && color !== existing.color) changes['Màu'] = { from: existing.color, to: color }
+    if (isDefault !== undefined && isDefault !== existing.isDefault) changes['Mặc định'] = { from: existing.isDefault ? 'Có' : 'Không', to: isDefault ? 'Có' : 'Không' }
+    if (isActive !== undefined && isActive !== existing.isActive) changes['Trạng thái'] = { from: existing.isActive ? 'Hoạt động' : 'Ngừng', to: isActive ? 'Hoạt động' : 'Ngừng' }
+
+    if (Object.keys(changes).length > 0) {
+      const changeDetail = Object.keys(changes).join(', ')
+      createActivityLog({
+        entityType: 'customer_settings',
+        entityId: systemId,
+        action: `Cập nhật cài đặt khách hàng: ${existing.name}: ${changeDetail}`,
+        actionType: 'update',
+        changes,
+        createdBy: session.user?.id,
+      }).catch(e => logError('Failed to create activity log', e))
+    }
+
     return apiSuccess({
       systemId: updated.systemId,
       id: updated.id,
@@ -121,7 +143,7 @@ export async function PATCH(
       ...(updated.metadata as Record<string, unknown> || {}),
     });
   } catch (error) {
-    console.error('[Customer Settings API] PATCH error:', error);
+    logError('[Customer Settings API] PATCH error', error);
     
     if (error instanceof Error && 'code' in error && error.code === 'P2002') {
       return apiError('A setting with this ID already exists for this type', 409);
@@ -169,9 +191,17 @@ export async function DELETE(
       });
     }
 
+    createActivityLog({
+      entityType: 'customer_settings',
+      entityId: systemId,
+      action: `Xóa cài đặt khách hàng: ${existing.name}`,
+      actionType: 'delete',
+      createdBy: session.user?.id,
+    }).catch(e => logError('Failed to create activity log', e))
+
     return apiSuccess({ success: true });
   } catch (error) {
-    console.error('[Customer Settings API] DELETE error:', error);
+    logError('[Customer Settings API] DELETE error', error);
     return apiError('Failed to delete customer setting', 500);
   }
 }

@@ -7,6 +7,10 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, apiError, apiSuccess } from '@/lib/api-utils';
+import { generateIdWithPrefix } from '@/lib/id-generator';
+import { logError } from '@/lib/logger'
+import { cache } from '@/lib/cache'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 const STORE_INFO_KEY = 'store-info';
 const STORE_INFO_GROUP = 'store';
@@ -66,7 +70,7 @@ export async function GET() {
       updatedByName: (value as { updatedByName?: string }).updatedByName || null,
     });
   } catch (error) {
-    console.error('Error fetching store info:', error);
+    logError('Error fetching store info', error);
     return apiError('Failed to fetch store info', 500);
   }
 }
@@ -81,6 +85,12 @@ export async function PUT(request: NextRequest) {
     // Extract metadata
     const { updatedBySystemId, updatedByName, ...storeInfoData } = body;
 
+    // Read old value for change tracking
+    const oldSetting = await prisma.setting.findUnique({
+      where: { key_group: { key: STORE_INFO_KEY, group: STORE_INFO_GROUP } },
+    });
+    const oldValue = (oldSetting?.value ?? {}) as Record<string, unknown>;
+
     // Upsert the setting
     const setting = await prisma.setting.upsert({
       where: {
@@ -94,6 +104,7 @@ export async function PUT(request: NextRequest) {
         updatedBy: updatedBySystemId || session.user?.id,
       },
       create: {
+        systemId: await generateIdWithPrefix('SET_STORE', prisma),
         key: STORE_INFO_KEY,
         group: STORE_INFO_GROUP,
         type: 'json',
@@ -104,6 +115,29 @@ export async function PUT(request: NextRequest) {
       },
     });
 
+    // Log changes
+    const newValue = storeInfoData as Record<string, unknown>;
+    const changes: Record<string, { from: unknown; to: unknown }> = {};
+    const allKeys = new Set([...Object.keys(oldValue), ...Object.keys(newValue)]);
+    for (const key of allKeys) {
+      if (key === 'updatedByName') continue;
+      if (JSON.stringify(oldValue[key]) !== JSON.stringify(newValue[key])) {
+        changes[key] = { from: oldValue[key] ?? null, to: newValue[key] ?? null };
+      }
+    }
+    if (Object.keys(changes).length > 0) {
+      await createActivityLog({
+        entityType: 'store_info',
+        entityId: 'store-info',
+        action: 'Cập nhật thông tin cửa hàng',
+        actionType: 'update',
+        changes,
+        metadata: { userName: session.user?.name || session.user?.email },
+        createdBy: session.user?.id,
+      }).catch(e => logError('[store-info] activity log failed', e));
+    }
+
+    cache.deletePattern('^settings:')
     const value = setting.value as Record<string, unknown>;
     return apiSuccess({
       ...defaultStoreInfo,
@@ -113,7 +147,7 @@ export async function PUT(request: NextRequest) {
       updatedByName: (value as { updatedByName?: string }).updatedByName || null,
     });
   } catch (error) {
-    console.error('Error updating store info:', error);
+    logError('Error updating store info', error);
     return apiError('Failed to update store info', 500);
   }
 }

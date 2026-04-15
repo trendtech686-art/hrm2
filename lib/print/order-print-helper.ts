@@ -81,6 +81,8 @@ export function convertOrderForPrint(
       address: customerAddressString,
     } : {
       name: order.customerName,
+      phone: order.customerPhone || '',
+      email: order.customerEmail || '',
     },
     billingAddress: billingAddr,
     shippingAddress: shippingAddr,

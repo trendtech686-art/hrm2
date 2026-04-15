@@ -3,17 +3,16 @@ import { flushSync } from 'react-dom';
 import { useForm, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { Employee, EmployeeAddress } from '@/lib/types/prisma-extended';
+import { Eye, EyeOff } from 'lucide-react';
 import { formatDate, parseDate } from '@/lib/date-utils';
 import { asBusinessId, asSystemId } from '@/lib/id-types';
-import { validateUniqueId } from '@/features/products/validation';
 import { employeeFormValidationSchema } from '@/features/employees/validation';
 import type { SystemId, BusinessId } from '@/lib/id-types';
-import { Eye, EyeOff } from "lucide-react";
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/auth-context';
 import { useAllJobTitles } from '@/features/settings/job-titles/hooks/use-all-job-titles';
 import { useAllDepartments } from '@/features/settings/departments/hooks/use-all-departments';
-import { useAllEmployeeTypes } from '@/features/settings/employee-types/hooks/use-all-employee-types';
-import { useAllEmployees } from '../hooks/use-all-employees';
+import { useCheckEmployeeId } from '../hooks/use-check-employee-id';
 import { useAllBranches } from '@/hooks/use-branches';
 import { useProvinces } from "@/features/settings/provinces/hooks/use-administrative-units";
 import { useEmployeeDocuments } from '../hooks/use-employee-documents';
@@ -88,10 +87,17 @@ export type EmployeeFormSubmitPayload = Partial<Employee> & {
 };
 
 type EmployeeFormProps = {
-  initialData: Employee | null;
+  initialData: EmployeeInitialData | null;
   onSubmit: (values: EmployeeFormSubmitPayload) => Promise<void> | void;
   onCancel: () => void;
   isEditMode?: boolean; // Thêm prop để biết có phải edit mode không
+};
+
+// Extended Employee type to handle expanded API relations (jobTitle/department/branch as objects)
+type EmployeeInitialData = Employee & {
+  jobTitleId?: string;
+  branchId?: string;
+  branch?: { systemId: string } | string;
 };
 
 
@@ -169,6 +175,7 @@ const removeUndefined = <T extends Record<string, unknown>>(obj: T): Partial<T> 
 };
 
 export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEditMode = false }: EmployeeFormProps) {
+  const { employee: authEmployee } = useAuth();
   const [showPassword, setShowPassword] = React.useState(false);
   const [password, setPassword] = React.useState('');
   const [confirmPassword, setConfirmPassword] = React.useState('');
@@ -180,8 +187,6 @@ export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEdi
   
   const { data: jobTitles } = useAllJobTitles();
   const { data: departments } = useAllDepartments();
-  const { data: _employeeTypes } = useAllEmployeeTypes();
-  const { data: employees } = useAllEmployees();
   const { data: branches } = useAllBranches();
   const { data: provinces = [] } = useProvinces();
   
@@ -254,12 +259,9 @@ export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEdi
       contractStartDate: parseDate(initialData?.contractStartDate ?? '') ?? undefined,
       contractEndDate: parseDate(initialData?.contractEndDate ?? '') ?? undefined,
       // Map relation objects to systemId for Select components
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      jobTitle: (initialData as any)?.jobTitleId ?? (typeof (initialData as any)?.jobTitle === 'object' ? (initialData as any)?.jobTitle?.systemId : initialData?.jobTitle) ?? undefined,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      department: (initialData as any)?.departmentId ?? (typeof (initialData as any)?.department === 'object' ? (initialData as any)?.department?.systemId : initialData?.department) ?? undefined,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      branchSystemId: (initialData as any)?.branchId ?? (initialData as any)?.branchSystemId ?? (typeof (initialData as any)?.branch === 'object' ? (initialData as any)?.branch?.systemId : undefined) ?? undefined,
+      jobTitle: initialData?.jobTitleId ?? (typeof initialData?.jobTitle === 'object' ? (initialData?.jobTitle as unknown as { systemId: string })?.systemId : initialData?.jobTitle) ?? undefined,
+      department: initialData?.departmentId ?? (typeof initialData?.department === 'object' ? (initialData?.department as unknown as { systemId: string })?.systemId : initialData?.department) ?? undefined,
+      branchSystemId: initialData?.branchId ?? initialData?.branchSystemId ?? (typeof initialData?.branch === 'object' ? initialData?.branch?.systemId : undefined) ?? undefined,
       // Gender is stored as enum (MALE, FEMALE, OTHER) in DB
       gender: initialData?.gender ?? undefined,
       ...payrollDefaultValues,
@@ -459,6 +461,17 @@ export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEdi
 
   const watchedId = form.watch('id');
 
+  // ✅ Phase A6: Server-side ID uniqueness check (replaces loading ALL employees)
+  const sanitizedWatchedId = React.useMemo(() => {
+    const rawId = (watchedId as unknown as string) ?? '';
+    return rawId.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  }, [watchedId]);
+  
+  const { exists: idExists, isChecking: _isCheckingId } = useCheckEmployeeId(
+    sanitizedWatchedId || undefined,
+    initialData?.id as unknown as string
+  );
+
   React.useEffect(() => {
     const rawId = (watchedId as unknown as string) ?? '';
     if (!rawId) {
@@ -472,10 +485,7 @@ export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEdi
       form.setValue('id', asBusinessId(sanitizedId), { shouldValidate: false });
     }
 
-    const existingIds = employees.map(e => e.id);
-    const isUnique = validateUniqueId(sanitizedId, existingIds, initialData?.id);
-
-    if (!isUnique) {
+    if (idExists) {
       form.setError('id', {
         type: 'manual',
         message: `Mã nhân viên "${sanitizedId}" đã tồn tại`
@@ -483,7 +493,7 @@ export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEdi
     } else {
       form.clearErrors('id');
     }
-  }, [watchedId, employees, form, initialData?.id]);
+  }, [watchedId, idExists, form, initialData?.id]);
 
   // Unified document state - staging và permanent
   const [documentFiles, setDocumentFiles] = React.useState<Record<string, StagingFile[]>>({});
@@ -510,7 +520,7 @@ export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEdi
     if (!initialData?.systemId || existingDocuments.length === 0) return;
     const loadedFiles: Record<string, StagingFile[]> = {};
     existingDocuments.forEach(doc => {
-      const key = `${doc.documentType}-${doc.documentName}`;
+      const key = `${doc.documentType}::${doc.documentName}`;
       loadedFiles[key] = doc.files.map(file => ({
         id: file.id,
         sessionId: '',
@@ -537,7 +547,7 @@ export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEdi
 
   // Document upload handler - LUÔN staging trước, kể cả nhân viên cũ
   const handleDocumentUpload = React.useCallback((documentType: string, documentName: string, newStagingFiles: StagingFile[], sessionId?: string) => {
-    const key = `${documentType}-${documentName}`;
+    const key = `${documentType}::${documentName}`;
     
     // Cập nhật local state - REPLACE TOÀN BỘ với files mới từ NewDocumentsUpload
     // Use flushSync to force immediate state update and prevent race conditions
@@ -562,7 +572,7 @@ export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEdi
 
   // Handle session change for staging documents
   const handleSessionChange = React.useCallback((documentType: string, documentName: string, sessionId: string) => {
-    const key = `${documentType}-${documentName}`;
+    const key = `${documentType}::${documentName}`;
     setDocumentSessions(prev => ({
       ...prev,
       [key]: sessionId
@@ -571,7 +581,7 @@ export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEdi
 
   // Memoized getter cho document files
   const getDocumentFiles = React.useCallback((documentType: string, documentName: string): StagingFile[] => {
-    const key = `${documentType}-${documentName}`;
+    const key = `${documentType}::${documentName}`;
     return documentFiles[key] || [];
   }, [documentFiles]);
 
@@ -583,7 +593,7 @@ export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEdi
     }>();
 
     return (documentType: string, documentName: string) => {
-      const key = `${documentType}-${documentName}`;
+      const key = `${documentType}::${documentName}`;
       
       if (!callbacksMap.has(key)) {
         callbacksMap.set(key, {
@@ -621,7 +631,7 @@ export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEdi
 
   // Get session ID for document
   const getDocumentSessionId = React.useCallback((documentType: string, documentName: string): string | undefined => {
-    const key = `${documentType}-${documentName}`;
+    const key = `${documentType}::${documentName}`;
     return documentSessions[key];
   }, [documentSessions]);
 
@@ -661,8 +671,7 @@ export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEdi
         }
       }
       
-      // ✅ Step 0: Validate unique ID (with sanitization)
-      const existingIds = employees.map(emp => emp.id);
+      // ✅ Step 0: Validate unique ID (with sanitization) — uses server-side check
       const existingBusinessId = values.id as BusinessId | undefined;
       const existingIdString = (existingBusinessId as unknown as string) ?? '';
       const sanitizedId = existingIdString
@@ -675,9 +684,8 @@ export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEdi
           ? existingBusinessId
           : undefined;
 
-      const isUnique = validateUniqueId(sanitizedId, existingIds, initialData?.id);
-      
-      if (sanitizedId && !isUnique) {
+      // Use cached result from useCheckEmployeeId (already queried via real-time watcher)
+      if (sanitizedId && idExists) {
         form.setError('id', {
           type: 'manual',
           message: `Mã nhân viên "${sanitizedId}" đã tồn tại. Vui lòng sử dụng mã khác.`
@@ -691,6 +699,21 @@ export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEdi
       // Step 1: Delete marked files before saving
       if (filesToDelete.length > 0 && isEditMode) {
         const deleteToastId = toast.loading(`Đang xóa ${filesToDelete.length} file đã đánh dấu...`);
+        const deletedCount = filesToDelete.length;
+        
+        // Get document names before deleting for logging
+        // Key format: "documentType::documentName" where documentName is the Vietnamese label
+        const deletedDocNames: string[] = [];
+        Object.entries(documentFiles).forEach(([key, files]) => {
+          files.forEach(file => {
+            if (filesToDelete.includes(file.id)) {
+              // Parse key to get document label: "legal::Hợp đồng lao động" -> "Hợp đồng lao động"
+              const parts = key.split('::');
+              const docLabel = parts.length > 1 ? parts[1] : key;
+              deletedDocNames.push(`${docLabel}: ${file.name}`);
+            }
+          });
+        });
         
         try {
           await Promise.all(
@@ -698,9 +721,33 @@ export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEdi
           );
           
           toast.success('✓ Đã xóa các file cũ', {
-            description: `${filesToDelete.length} file`,
+            description: `${deletedCount} file`,
             id: deleteToastId
           });
+          
+          // Log file deletion activity with document names
+          if (initialData?.systemId) {
+            try {
+              await fetch('/api/activity-logs', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  entityType: 'employee',
+                  entityId: initialData.systemId,
+                  action: 'document_deleted',
+                  actionType: 'delete',
+                  note: `Xóa ${deletedCount} tài liệu: ${deletedDocNames.join(', ')}`,
+                  metadata: { 
+                    deletedCount,
+                    deletedDocuments: deletedDocNames,
+                    userName: authEmployee?.fullName || undefined,
+                  },
+                }),
+              });
+            } catch {
+              // Don't fail if logging fails
+            }
+          }
           
           // Clear deletion marks
           setFilesToDelete([]);
@@ -832,10 +879,13 @@ export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEdi
       const payload: EmployeeFormSubmitPayload = removeUndefined({
         ...valuesWithoutId,
         ...(normalizedBusinessId ? { id: normalizedBusinessId } : {}),
-        branchSystemId: normalizeSystemId(formattedValues.branchSystemId),
+        // Map form field names → server action field names (keep originals for server-side validation)
+        departmentId: normalizeSystemId(formattedValues.department as string),
+        jobTitleId: normalizeSystemId(formattedValues.jobTitle as string),
+        branchId: normalizeSystemId(formattedValues.branchSystemId),
         managerId: normalizeSystemId(formattedValues.managerId),
-        createdBy: normalizeSystemId(formattedValues.createdBy),
-        updatedBy: normalizeSystemId(formattedValues.updatedBy),
+        createdBy: !isEditMode && authEmployee?.systemId ? asSystemId(authEmployee.systemId) : undefined,
+        updatedBy: isEditMode && authEmployee?.systemId ? asSystemId(authEmployee.systemId) : undefined,
         ...(formattedValues.dob ? { dob: formattedValues.dob } : {}),
         ...(formattedValues.nationalIdIssueDate ? { nationalIdIssueDate: formattedValues.nationalIdIssueDate } : {}),
         ...(formattedValues.hireDate ? { hireDate: formattedValues.hireDate } : {}),
@@ -863,7 +913,20 @@ export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEdi
 
   return (
     <Form {...form}>
-      <form id="employee-form" onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6 min-w-0 overflow-x-hidden">
+      <form id="employee-form" onSubmit={form.handleSubmit(handleSubmit, (errors) => {
+        const fieldLabels: Record<string, string> = {
+          fullName: 'Họ tên', gender: 'Giới tính', phone: 'Số điện thoại',
+          workEmail: 'Email công việc', branchSystemId: 'Chi nhánh',
+          jobTitle: 'Chức danh', employmentStatus: 'Trạng thái làm việc',
+        };
+        const messages = Object.entries(errors).slice(0, 5).map(
+          ([key, err]) => `${fieldLabels[key] || key}: ${err?.message || 'Không hợp lệ'}`
+        );
+        toast.error('Vui lòng kiểm tra lại thông tin', {
+          description: messages.join('\n'),
+          duration: 6000,
+        });
+      })} className="space-y-6 min-w-0 overflow-x-hidden">
         <Tabs defaultValue="personal" className="w-full">
           <div className="w-full overflow-x-auto overflow-y-hidden mb-4 pb-1" style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'thin' }}>
             <TabsList className="inline-flex w-auto gap-1 p-1 h-auto justify-start">
@@ -886,7 +949,7 @@ export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEdi
           </div>
 
           <TabsContent value="personal" className="mt-6">
-            <h3 className="text-h5 font-medium mb-4">Thông tin cá nhân</h3>
+            <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider md:text-h5 md:font-medium md:text-foreground md:normal-case md:tracking-normal mb-4">Thông tin cá nhân</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               <FormField 
                 name="fullName" 
@@ -1043,7 +1106,7 @@ export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEdi
 
           <TabsContent value="addresses" className="mt-6">
             <div className="mb-6">
-              <h3 className="text-h5 font-medium mb-2">Địa chỉ nhân viên</h3>
+              <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider md:text-h5 md:font-medium md:text-foreground md:normal-case md:tracking-normal mb-2">Địa chỉ nhân viên</h3>
               <p className="text-sm text-muted-foreground">
                 Tách riêng phần địa chỉ để dễ so sánh giữa nơi thường trú và tạm trú, tương tự trải nghiệm quản lý khách hàng.
               </p>
@@ -1162,7 +1225,7 @@ export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEdi
           </TabsContent>
 
           <TabsContent value="employment" className="mt-6">
-             <h3 className="text-h5 font-medium mb-4">Thông tin công việc, Lương & Nghỉ phép</h3>
+             <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider md:text-h5 md:font-medium md:text-foreground md:normal-case md:tracking-normal mb-4">Thông tin công việc, Lương & Nghỉ phép</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {/* ID field - User can input custom ID or leave blank for auto-generation */}
                 <FormField name="id" control={form.control} render={({ field }) => ( 
@@ -1321,7 +1384,7 @@ export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEdi
           </TabsContent>
           
           <TabsContent value="account" className="mt-6">
-            <h3 className="text-h5 font-medium mb-4">Thông tin đăng nhập</h3>
+            <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider md:text-h5 md:font-medium md:text-foreground md:normal-case md:tracking-normal mb-4">Thông tin đăng nhập</h3>
             
             <Card className="mb-6">
               <CardContent className="pt-6 space-y-4">
@@ -1457,6 +1520,8 @@ export function EmployeeForm({ initialData, onSubmit, onCancel: _onCancel, isEdi
         onSave={handleAddressDialogSave}
         editingAddress={addressDialogEditingAddress}
         hideDefaultSwitches
+        hideContactFields
+        forcedAddressLevel="2-level"
         title={dialogTitle}
         description={dialogDescription}
       />

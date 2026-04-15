@@ -10,23 +10,8 @@
 import * as React from 'react';
 import { Package } from 'lucide-react';
 import { useImageStore } from '../image-store';
-import { FileUploadAPI } from '@/lib/file-upload-api';
 import { LazyImage } from '@/components/ui/lazy-image';
 import { cn } from '@/lib/utils';
-
-interface ServerFile {
-  id: string;
-  name: string;
-  originalName: string;
-  slug: string;
-  filename: string;
-  size: number;
-  type: string;
-  url: string;
-  uploadedAt: string;
-  metadata: string;
-  documentName?: string;
-}
 
 interface ProductImageProps {
   productSystemId: string;
@@ -65,7 +50,6 @@ export function ProductImage({
   // Get image from store (server images)
   const permanentImages = useImageStore(state => state.permanentImages[productSystemId]);
   const lastFetched = useImageStore(state => state.permanentMeta[productSystemId]?.lastFetched);
-  const updatePermanentImages = useImageStore(state => state.updatePermanentImages);
 
   const storeThumbnail = permanentImages?.thumbnail?.[0]?.url;
   const storeGallery = permanentImages?.gallery?.[0]?.url;
@@ -80,37 +64,14 @@ export function ProductImage({
     return productData.thumbnailImage || productData.galleryImages?.[0] || productData.images?.[0];
   }, [storeThumbnail, storeGallery, productData]);
 
-  // Fetch image from server if not yet fetched
+  // Fetch image from server if not yet fetched (uses batch queue)
   React.useEffect(() => {
     if (!lastFetched && productSystemId) {
-      FileUploadAPI.getProductFiles(productSystemId)
-        .then(files => {
-          if (!files || !Array.isArray(files)) return;
-          
-          const mapToServerFile = (f: ServerFile) => ({
-            id: f.id,
-            sessionId: '',
-            name: f.name,
-            originalName: f.originalName,
-            slug: f.slug,
-            filename: f.filename,
-            size: f.size,
-            type: f.type,
-            url: f.url,
-            status: 'permanent' as const,
-            uploadedAt: f.uploadedAt,
-            metadata: f.metadata
-          });
-
-          const thumbnailFiles = (files.filter(f => f.documentName === 'thumbnail') as ServerFile[]).map(mapToServerFile);
-          const galleryFiles = (files.filter(f => f.documentName === 'gallery') as ServerFile[]).map(mapToServerFile);
-          
-          updatePermanentImages(productSystemId, 'thumbnail', thumbnailFiles);
-          updatePermanentImages(productSystemId, 'gallery', galleryFiles);
-        })
-        .catch(err => console.error("Failed to load product image", err));
+      import('@/features/products/image-store').then(({ queueProductImageFetch }) => {
+        queueProductImageFetch(productSystemId);
+      });
     }
-  }, [productSystemId, lastFetched, updatePermanentImages]);
+  }, [productSystemId, lastFetched]);
 
   const sizeClass = sizeClasses[size];
   const iconSize = iconSizes[size];
@@ -137,6 +98,7 @@ export function ProductImage({
 
 /**
  * Hook để lấy URL ảnh sản phẩm với logic ưu tiên server
+ * Uses batch fetching for better performance
  */
 export function useProductImage(
   productSystemId: string,
@@ -148,42 +110,18 @@ export function useProductImage(
 ) {
   const permanentImages = useImageStore(state => state.permanentImages[productSystemId]);
   const lastFetched = useImageStore(state => state.permanentMeta[productSystemId]?.lastFetched);
-  const updatePermanentImages = useImageStore(state => state.updatePermanentImages);
 
   const storeThumbnail = permanentImages?.thumbnail?.[0]?.url;
   const storeGallery = permanentImages?.gallery?.[0]?.url;
 
-  // Fetch if needed
+  // Queue for batch fetch if not yet fetched
   React.useEffect(() => {
     if (!lastFetched && productSystemId) {
-      FileUploadAPI.getProductFiles(productSystemId)
-        .then(files => {
-          if (!files || !Array.isArray(files)) return;
-          
-          const mapToServerFile = (f: ServerFile) => ({
-            id: f.id,
-            sessionId: '',
-            name: f.name,
-            originalName: f.originalName,
-            slug: f.slug,
-            filename: f.filename,
-            size: f.size,
-            type: f.type,
-            url: f.url,
-            status: 'permanent' as const,
-            uploadedAt: f.uploadedAt,
-            metadata: f.metadata
-          });
-
-          const thumbnailFiles = (files.filter(f => f.documentName === 'thumbnail') as ServerFile[]).map(mapToServerFile);
-          const galleryFiles = (files.filter(f => f.documentName === 'gallery') as ServerFile[]).map(mapToServerFile);
-          
-          updatePermanentImages(productSystemId, 'thumbnail', thumbnailFiles);
-          updatePermanentImages(productSystemId, 'gallery', galleryFiles);
-        })
-        .catch(() => {});
+      import('@/features/products/image-store').then(({ queueProductImageFetch }) => {
+        queueProductImageFetch(productSystemId);
+      });
     }
-  }, [productSystemId, lastFetched, updatePermanentImages]);
+  }, [productSystemId, lastFetched]);
 
   return React.useMemo(() => {
     // 1. Ảnh từ server (ưu tiên cao nhất)

@@ -4,10 +4,11 @@ import type { Order } from "@/lib/types/prisma-extended";
 import type { SystemId } from "@/lib/id-types";
 import { asSystemId } from "@/lib/id-types";
 import { useQueryClient } from '@tanstack/react-query';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import * as React from "react";
-import { createOrder, updateOrder, fetchOrders } from "../api/orders-api";
-import { fetchAllPages } from '@/lib/fetch-all-pages';
+import { batchImportOrders } from "../api/orders-api";
 import { orderKeys } from "./use-orders";
+import { logError } from '@/lib/logger'
 
 // ═══════════════════════════════════════════════════════════════
 // Types
@@ -23,13 +24,14 @@ export interface ImportResults {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// Import Handler - Uses API directly
+// Import Handler - Uses batch API for speed
 // ═══════════════════════════════════════════════════════════════
 
 async function executeImport(
   data: Partial<Order>[],
   mode: 'insert-only' | 'update-only' | 'upsert',
-  currentEmployeeSystemId: SystemId,
+  _currentEmployeeSystemId: SystemId,
+  onProgress?: (percent: number) => void,
 ): Promise<ImportResults> {
   const results: ImportResults = {
     success: 0,
@@ -41,72 +43,44 @@ async function executeImport(
   };
 
   try {
-    // Fetch ALL existing orders to check for duplicates
-    const existingOrders = await fetchAllPages((p) => fetchOrders(p));
+    // Send orders in chunks to the batch API (server processes them sequentially — no ID race conditions)
+    const CHUNK_SIZE = 500;
+    const total = data.length;
+    const chunks: Partial<Order>[][] = [];
+    for (let i = 0; i < total; i += CHUNK_SIZE) {
+      chunks.push(data.slice(i, i + CHUNK_SIZE));
+    }
 
-    for (let i = 0; i < data.length; i++) {
-      const item = data[i];
-      try {
-        // Check if order exists (by id)
-        const existingOrder = existingOrders.find(o =>
-          (item.id && o.id === item.id)
-        );
+    for (let ci = 0; ci < chunks.length; ci++) {
+      const chunk = chunks[ci];
+      const batchResult = await batchImportOrders(
+        chunk as unknown as Record<string, unknown>[],
+        mode,
+      );
 
-        if (existingOrder) {
-          // Order exists
-          if (mode === 'insert-only') {
-            // Skip in insert-only mode
-            results.skipped++;
-            continue;
-          }
+      results.success += batchResult.success;
+      results.failed += batchResult.failed;
+      results.inserted += batchResult.inserted;
+      results.updated += batchResult.updated;
+      results.skipped += batchResult.skipped;
 
-          // Update existing order
-          const updatedFields: Partial<Order> = {
-            ...item,
-            updatedAt: new Date().toISOString(),
-            updatedBy: currentEmployeeSystemId,
-          };
-          // Remove fields that shouldn't be overwritten
-          delete (updatedFields as { systemId?: string }).systemId;
-          delete (updatedFields as { createdAt?: string }).createdAt;
-          delete (updatedFields as { createdBy?: string }).createdBy;
-
-          await updateOrder({ id: existingOrder.systemId, data: updatedFields });
-          results.updated++;
-          results.success++;
-        } else {
-          // Order does not exist
-          if (mode === 'update-only') {
-            // Skip in update-only mode
-            results.skipped++;
-            continue;
-          }
-
-          // Insert new order
-          const newOrder = {
-            ...item,
-            createdAt: new Date().toISOString(),
-            createdBy: currentEmployeeSystemId,
-            updatedAt: new Date().toISOString(),
-            updatedBy: currentEmployeeSystemId,
-          };
-
-          await createOrder(newOrder as Parameters<typeof createOrder>[0]);
-          results.inserted++;
-          results.success++;
-        }
-      } catch (rowError) {
-        results.failed++;
+      // Map batch errors to row numbers
+      for (const err of batchResult.errors) {
         results.errors.push({
-          row: i + 2, // Excel row (1-indexed + header)
-          message: rowError instanceof Error ? rowError.message : 'Lỗi không xác định',
+          row: ci * CHUNK_SIZE + err.index + 2, // Excel row offset
+          message: err.message,
         });
+      }
+
+      if (onProgress) {
+        const percent = Math.min(100, Math.round(((ci + 1) / chunks.length) * 100));
+        onProgress(percent);
       }
     }
 
     return results;
   } catch (error) {
-    console.error('[Orders Importer] Lỗi nhập đơn hàng', error);
+    logError('[Orders Importer] Lỗi nhập đơn hàng', error);
     throw error;
   }
 }
@@ -127,13 +101,14 @@ export function useOrderImportHandler({
   const currentEmployeeSystemId = authEmployeeSystemId ?? asSystemId('SYSTEM');
 
   const handleImport = React.useCallback(
-    async (data: Partial<Order>[], mode: 'insert-only' | 'update-only' | 'upsert', _branchId?: string) => {
-      const results = await executeImport(data, mode, currentEmployeeSystemId);
+    async (data: Partial<Order>[], mode: 'insert-only' | 'update-only' | 'upsert', _branchId?: string, onProgress?: (percent: number) => void) => {
+      const results = await executeImport(data, mode, currentEmployeeSystemId, onProgress);
       
       // Invalidate query cache to refresh order list
       if (results.success > 0) {
-        queryClient.invalidateQueries({ queryKey: orderKeys.lists() });
-        queryClient.invalidateQueries({ queryKey: orderKeys.stats() });
+        invalidateRelated(queryClient, 'orders');
+        // Not a useMutation — MutationCache won't fire, so invalidate activity-logs manually
+        queryClient.invalidateQueries({ queryKey: ['activity-logs'] });
       }
       
       return results;

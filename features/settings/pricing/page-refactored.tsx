@@ -5,6 +5,7 @@ import { PlusCircle } from "lucide-react";
 import { useSettingsPageHeader } from "../use-settings-page-header";
 import { useTabActionRegistry } from "../use-tab-action-registry";
 import { SettingsVerticalTabs } from "../../../components/settings/SettingsVerticalTabs";
+import { SettingsHistoryContent } from '../../../components/settings/SettingsHistoryContent';
 import { SettingsActionButton } from "../../../components/settings/SettingsActionButton";
 import { TabsContent } from "../../../components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
@@ -42,6 +43,7 @@ type TaxFormValues = {
 const TABS = [
     { value: 'pricing-policy', label: 'Chính sách giá' },
     { value: 'tax', label: 'Thuế' },
+    { value: 'history', label: 'Lịch sử' },
 ];
 
 export function PricingSettingsPage() {
@@ -235,6 +237,14 @@ export function PricingSettingsPage() {
             onError: (err) => toast.error(err.message)
         });
     }, [taxData, taxMutations]);
+
+    const handleSetDefaultExcelExport = React.useCallback((systemId: SystemId) => {
+        const tax = taxData.find(t => t.systemId === systemId);
+        taxMutations.setDefaultExcelExport.mutate(systemId, {
+            onSuccess: () => tax && toast.success(`Đã đặt "${tax.name}" làm thuế mặc định xuất Excel`),
+            onError: (err) => toast.error(err.message)
+        });
+    }, [taxData, taxMutations]);
     
     // ========== DELETE CONFIRM ==========
     const confirmDelete = () => {
@@ -339,9 +349,13 @@ export function PricingSettingsPage() {
                                 onDelete={(systemId) => handleDeleteRequest(taxData.find(t => t.systemId === systemId)!)}
                                 onSetDefaultSale={handleSetDefaultSale}
                                 onSetDefaultPurchase={handleSetDefaultPurchase}
+                                onSetDefaultExcelExport={handleSetDefaultExcelExport}
                             />
                         </CardContent>
                     </Card>
+                </TabsContent>
+                <TabsContent value="history" className="mt-0">
+                    <SettingsHistoryContent entityTypes={['promotion', 'tax', 'pricing_policy']} />
                 </TabsContent>
             </SettingsVerticalTabs>
 

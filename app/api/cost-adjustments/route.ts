@@ -9,6 +9,9 @@ import { CostAdjustmentStatus } from '@/generated/prisma/client';
 import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
 import { createCostAdjustmentSchema } from './validation'
 import { generateNextIds } from '@/lib/id-system'
+import { logError } from '@/lib/logger'
+import { createNotification } from '@/lib/notifications'
+import { getUserNameFromDb } from '@/lib/get-user-name'
 
 // Interface for cost adjustment item input
 interface CostAdjustmentItemInput {
@@ -86,23 +89,30 @@ export async function GET(request: NextRequest) {
       createdByName: adj.createdByName || employeeMap.get(adj.createdBySystemId || adj.createdBy || '') || null,
       confirmedByName: adj.confirmedByName || employeeMap.get(adj.confirmedBySystemId || '') || null,
       cancelledByName: adj.cancelledByName || employeeMap.get(adj.cancelledBySystemId || '') || null,
-      // Transform items
-      items: adj.items?.map(item => ({
-        ...item,
-        productSystemId: item.productId,
-        oldCostPrice: Number(item.oldCost) || 0,
-        newCostPrice: Number(item.newCost) || 0,
-        adjustmentAmount: Number(item.newCost || 0) - Number(item.oldCost || 0),
-        adjustmentPercent: Number(item.oldCost) > 0 
-          ? ((Number(item.newCost || 0) - Number(item.oldCost || 0)) / Number(item.oldCost) * 100)
-          : 0,
-      })) || [],
+      // Transform items - exclude Decimal fields from spread
+      items: adj.items?.map(item => {
+        const { oldCost, newCost, adjustmentAmount, adjustmentPercent, ...rest } = item;
+        const oldCostNum = Number(oldCost) || 0;
+        const newCostNum = Number(newCost) || 0;
+        return {
+          ...rest,
+          productSystemId: item.productId,
+          oldCost: oldCostNum,
+          newCost: newCostNum,
+          oldCostPrice: oldCostNum,
+          newCostPrice: newCostNum,
+          adjustmentAmount: newCostNum - oldCostNum,
+          adjustmentPercent: oldCostNum > 0 
+            ? ((newCostNum - oldCostNum) / oldCostNum * 100)
+            : 0,
+        };
+      }) || [],
     }));
 
     return apiPaginated(transformedData, { page, limit, total })
   } catch (error) {
-    console.error('[Cost Adjustments API] GET error:', error);
-    return apiError('Failed to fetch cost adjustments', 500)
+    logError('[Cost Adjustments API] GET error', error);
+    return apiError('Lỗi khi lấy danh sách điều chỉnh giá vốn', 500)
   }
 }
 
@@ -143,7 +153,7 @@ export async function POST(request: NextRequest) {
     branchId = defaultBranch?.systemId;
   }
   if (!branchId) {
-    return apiError('Branch ID is required', 400);
+      return apiError('Mã chi nhánh là bắt buộc', 400);
   }
 
   // Lookup creator name if not provided
@@ -192,9 +202,56 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return apiSuccess(costAdjustment, 201)
+    // Transform Decimal fields before returning
+    const transformed = {
+      ...costAdjustment,
+      items: costAdjustment.items?.map(item => {
+        // Destructure to exclude Decimal fields from spread
+        const { oldCost, newCost, adjustmentAmount, adjustmentPercent, ...rest } = item;
+        const oldCostNum = Number(oldCost) || 0;
+        const newCostNum = Number(newCost) || 0;
+        return {
+          ...rest,
+          oldCost: oldCostNum,
+          newCost: newCostNum,
+          oldCostPrice: oldCostNum,
+          newCostPrice: newCostNum,
+          adjustmentAmount: Number(adjustmentAmount) || (newCostNum - oldCostNum),
+          adjustmentPercent: Number(adjustmentPercent) || (oldCostNum > 0 ? ((newCostNum - oldCostNum) / oldCostNum * 100) : 0),
+        };
+      }) || [],
+    };
+    // ✅ Notify assigned employee about new cost adjustment
+    if (employeeId && employeeId !== session.user?.employeeId) {
+      createNotification({
+        type: 'cost_adjustment',
+        settingsKey: 'cost-adjustment:updated',
+        title: 'Điều chỉnh giá vốn mới',
+        message: `Phiếu điều chỉnh giá vốn ${id || systemId}${reason ? ` - ${reason}` : ''}`,
+        link: `/cost-adjustments/${systemId}`,
+        recipientId: employeeId,
+        senderId: session.user?.employeeId,
+        senderName: session.user?.name,
+      }).catch(e => logError('[Cost Adjustments POST] notification failed', e))
+    }
+
+    // Log activity
+    getUserNameFromDb(session.user?.id).then(userName =>
+      prisma.activityLog.create({
+        data: {
+          entityType: 'cost_adjustment',
+          entityId: transformed.systemId,
+          action: 'created',
+          actionType: 'create',
+          note: `Tạo phiếu điều chỉnh giá vốn`,
+          metadata: { userName },
+          createdBy: userName,
+        }
+      })
+    ).catch(e => logError('[ActivityLog] cost_adjustment create failed', e))
+    return apiSuccess(transformed, 201)
   } catch (error) {
-    console.error('[Cost Adjustments API] POST error:', error);
-    return apiError('Failed to create cost adjustment', 500)
+    logError('[Cost Adjustments API] POST error', error);
+    return apiError('Lỗi khi tạo phiếu điều chỉnh giá vốn', 500)
   }
 }

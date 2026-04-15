@@ -39,6 +39,7 @@ import { useAuth } from "@/contexts/auth-context";
 // ✅ All data now fetched from Server Actions (DB)
 import type { Penalty, PenaltyType } from "@/features/settings/penalties/types";
 import type { PenaltyTypeSetting } from "@/features/settings/penalty-types/api/penalty-types-api";
+import { logError } from '@/lib/logger'
 
 export interface CompensationResult {
   payment?: Payment;  // Optional - only for refund
@@ -82,7 +83,7 @@ export function CompensationPaymentReceiptWizard({
   const [resolutionReason, setResolutionReason] = React.useState("");
   const [responsibleEmployeeId, setResponsibleEmployeeId] = React.useState<string>("");
   const [accounts, setAccounts] = React.useState<CashAccount[]>(accountsProp);
-  const [paymentMethods, setPaymentMethods] = React.useState<Array<{systemId: string; name: string; isDefault: boolean}>>([]);
+  const [paymentMethods, setPaymentMethods] = React.useState<Array<{systemId: string; name: string; type?: string | null; isDefault: boolean}>>([]);
   
   // NEW: Cost bearer & penalty type fields
   const [costBearer, setCostBearer] = React.useState<CostBearer>('company');
@@ -139,7 +140,7 @@ export function CompensationPaymentReceiptWizard({
           setComplaintPenaltyTypes(complaintTypes as unknown as PenaltyType[]);
         }
       } catch (error) {
-        console.error('Error loading dialog data:', error);
+        logError('Error loading dialog data', error);
       }
     };
     
@@ -158,20 +159,15 @@ export function CompensationPaymentReceiptWizard({
   }, [accounts, selectedAccountId]);
   
   // Filter accounts based on selected payment method
+  // Filter accounts - so sánh trực tiếp type từ DB
   const filteredAccounts = React.useMemo(() => {
     if (!paymentMethodId || paymentMethods.length === 0) return accounts;
     
     const selectedMethod = paymentMethods.find(m => m.systemId === paymentMethodId);
-    if (!selectedMethod) return accounts;
+    if (!selectedMethod?.type) return accounts;
     
-    // Nếu là "Tiền mặt" -> chỉ hiển thị type='cash'
-    if (selectedMethod.name.toLowerCase().includes('tiền mặt') || 
-        selectedMethod.name.toLowerCase() === 'cash') {
-      return accounts.filter(acc => acc.type === 'cash');
-    }
-    
-    // Các phương thức khác (Chuyển khoản, Quẹt thẻ, COD, etc.) -> hiển thị type='bank'
-    return accounts.filter(acc => acc.type === 'bank');
+    const matched = accounts.filter(acc => acc.type === selectedMethod.type);
+    return matched.length > 0 ? matched : accounts;
   }, [accounts, paymentMethodId, paymentMethods]);
   
   // Auto-update selected account when filter changes
@@ -278,7 +274,7 @@ export function CompensationPaymentReceiptWizard({
     try {
       await createVouchers();
     } catch (error) {
-      console.error('Error creating payments/receipts:', error);
+      logError('Error creating payments/receipts', error);
       toast.error('Có lỗi khi tạo phiếu');
     }
   };
@@ -293,8 +289,8 @@ export function CompensationPaymentReceiptWizard({
     try {
       // ✅ Use Server Actions and APIs for all persistence and data fetching
       const { createPaymentAction } = await import('@/app/actions/payments');
-      const { createPenalty } = await import('@/app/actions/settings/penalties');
-      const { getPaymentTypes } = await import('@/app/actions/settings/payment-types');
+      const { createPenalty } = await import('@/features/settings/penalties/api/penalties-api');
+      const { fetchPaymentTypes } = await import('@/features/settings/payments/types/api/payment-types-api');
       const { fetchBranches } = await import('@/features/settings/branches/api/branches-api');
       const { fetchOrder } = await import('@/features/orders/api/orders-api');
       
@@ -304,12 +300,12 @@ export function CompensationPaymentReceiptWizard({
       // Fetch settings data from DB - OPTIMIZED: fetch single order instead of all
       // Order is optional - complaint might not have linked order
       const [paymentTypesResult, branchesResult, relatedOrder] = await Promise.all([
-        getPaymentTypes({ isActive: true }),
+        fetchPaymentTypes({ isActive: true }),
         fetchBranches(),
         orderIdToFind ? fetchOrder(orderIdToFind).catch(() => null) : Promise.resolve(null),
       ]);
       
-      const dbPaymentTypes = paymentTypesResult.success ? paymentTypesResult.data.data : [];
+      const dbPaymentTypes = paymentTypesResult.data ?? [];
       const dbBranches = branchesResult.data || [];
       
       // Get branch info: prefer from order, fallback to complaint
@@ -364,6 +360,7 @@ export function CompensationPaymentReceiptWizard({
         }
         
         const paymentData = {
+          date: new Date().toISOString().split('T')[0],
           amount: compensationCost,
           description: `Bù trừ từ khiếu nại ${complaint.id}: ${resolutionReason}`,
           category: 'complaint_refund' as const,
@@ -375,7 +372,7 @@ export function CompensationPaymentReceiptWizard({
           paymentMethodName: selectedPaymentMethod.name,
           recipientTypeSystemId: 'KHACHHANG',
           recipientTypeName: 'Khách hàng',
-          recipientName: complaint.customerName,
+          recipientName: complaint.customerName || 'Khách hàng',
           recipientSystemId: complaint.customerSystemId,
           paymentReceiptTypeSystemId: complaintPaymentType.systemId,
           paymentReceiptTypeName: complaintPaymentType.name,
@@ -412,6 +409,7 @@ export function CompensationPaymentReceiptWizard({
           const selectedPaymentMethod = paymentMethods.find(pm => pm.systemId === paymentMethodId);
           
           const paymentData = {
+            date: new Date().toISOString().split('T')[0],
             amount: incurredCost,
             description: `Chi phí phát sinh - ${resolutionReason}`,
             category: 'operational_expense' as const,
@@ -466,14 +464,10 @@ export function CompensationPaymentReceiptWizard({
             category: 'complaint',
           };
 
-          // ✅ Use Server Action to persist to database
-          const penaltyResult = await createPenalty(penaltyData);
-          if (!penaltyResult.success || !penaltyResult.data) {
-            toast.error((penaltyResult as { error?: string }).error || 'Lỗi tạo phiếu phạt');
-            return;
-          }
-          createdPenalties.push(penaltyResult.data as unknown as Penalty);
-          toast.success(`Đã tạo phiếu phạt thu hồi chi phí ${penaltyResult.data.id}`);
+          // ✅ Use API to persist to database
+          const penalty = await createPenalty(penaltyData as Partial<Penalty>);
+          createdPenalties.push(penalty);
+          toast.success(`Đã tạo phiếu phạt thu hồi chi phí ${penalty.id}`);
         }
         // costBearer === 'customer' -> Không tạo gì (ĐVVC thu từ khách)
       }
@@ -499,14 +493,10 @@ export function CompensationPaymentReceiptWizard({
             category: 'complaint',
           };
 
-          // ✅ Use Server Action to persist to database
-          const penaltyResult = await createPenalty(penaltyData);
-          if (!penaltyResult.success || !penaltyResult.data) {
-            toast.error((penaltyResult as { error?: string }).error || 'Lỗi tạo phiếu phạt');
-            return;
-          }
-          createdPenalties.push(penaltyResult.data as unknown as Penalty);
-          toast.success(`Đã tạo phiếu phạt ${penaltyResult.data.id}`);
+          // ✅ Use API to persist to database
+          const penalty = await createPenalty(penaltyData as Partial<Penalty>);
+          createdPenalties.push(penalty);
+          toast.success(`Đã tạo phiếu phạt ${penalty.id}`);
         }
       }
 
@@ -535,7 +525,7 @@ export function CompensationPaymentReceiptWizard({
       onOpenChange(false);
 
     } catch (error) {
-      console.error('Error creating payments/receipts:', error);
+      logError('Error creating payments/receipts', error);
       toast.error('Có lỗi khi tạo phiếu');
       throw error;
     }

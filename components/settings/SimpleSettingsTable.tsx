@@ -134,8 +134,7 @@ export function SimpleSettingsTable<TData extends { systemId: string }>(
     if (!onBulkDelete) return;
     const selectedItems = data.filter(row => rowSelection[row.systemId]);
     onBulkDelete(selectedItems);
-    setRowSelection({});
-  }, [data, rowSelection, onBulkDelete, setRowSelection]);
+  }, [data, rowSelection, onBulkDelete]);
 
   // Columns with selection checkbox
   const colSpan = enableSelection ? renderedColumns.length + 1 : renderedColumns.length;
@@ -171,9 +170,7 @@ export function SimpleSettingsTable<TData extends { systemId: string }>(
               {enableSelection && (
                 <TableHead className="w-12">
                   <Checkbox
-                    checked={isAllSelected}
-                    // @ts-expect-error - indeterminate is valid
-                    indeterminate={isSomeSelected ? true : undefined}
+                    checked={isSomeSelected ? 'indeterminate' : isAllSelected}
                     onCheckedChange={handleToggleAll}
                     aria-label="Chọn tất cả"
                   />
@@ -181,21 +178,23 @@ export function SimpleSettingsTable<TData extends { systemId: string }>(
               )}
               {/* Bulk action replaces headers when items are selected */}
               {enableSelection && selectedCount > 0 ? (
-                <TableHead colSpan={renderedColumns.length} className="py-2">
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm text-muted-foreground">
-                      Đã chọn <strong>{selectedCount}</strong> mục
-                    </span>
+                <TableHead colSpan={renderedColumns.length} className="p-0">
+                  <div className="h-9 px-4 flex items-center gap-2">
                     {onBulkDelete && (
                       <Button 
-                        variant="destructive" 
+                        variant="ghost" 
                         size="sm"
                         onClick={handleBulkDelete}
+                        className="h-8 text-destructive hover:text-destructive hover:bg-destructive/10"
                       >
-                        <Trash2 className="h-4 w-4 mr-1" />
+                        <Trash2 className="h-4 w-4 mr-2" />
                         Xóa
                       </Button>
                     )}
+                    <div className="flex-1" />
+                    <span className="text-sm font-medium">
+                      {selectedCount} mục đã chọn
+                    </span>
                   </div>
                 </TableHead>
               ) : (
@@ -274,13 +273,17 @@ export function SimpleSettingsTable<TData extends { systemId: string }>(
               <div className="flex items-center gap-2">
                 <span className="text-sm text-muted-foreground">Số dòng:</span>
                 <Select
-                  value={String(pageSize)}
+                  key={pageSize}
+                  defaultValue={String(pageSize)}
                   onValueChange={(value) => {
-                    setPageSize(Number(value));
-                    setCurrentPage(1);
+                    const numValue = Number(value);
+                    if (numValue !== pageSize) {
+                      setPageSize(numValue);
+                      setCurrentPage(1);
+                    }
                   }}
                 >
-                  <SelectTrigger className="h-8 w-[70px]">
+                  <SelectTrigger className="h-8 w-18">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>

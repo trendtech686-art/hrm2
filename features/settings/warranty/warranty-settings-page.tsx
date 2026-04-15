@@ -15,6 +15,7 @@ import { cn } from '../../../lib/utils';
 import { generateSubEntityId } from '@/lib/id-utils';
 import { SettingsActionButton } from '../../../components/settings/SettingsActionButton';
 import { SettingsVerticalTabs } from '../../../components/settings/SettingsVerticalTabs';
+import { SettingsHistoryContent } from '../../../components/settings/SettingsHistoryContent';
 import { toast } from 'sonner';
 import {
   Dialog,
@@ -40,11 +41,10 @@ import {
   TableRow,
 } from '../../../components/ui/table';
 import { 
-  AlertCircle,
-  Bell,
   MoreHorizontal,
   Plus,
   Save,
+  Loader2,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -91,17 +91,6 @@ interface ResponseTemplate {
   order: number;
 }
 
-interface NotificationSettings {
-  emailOnCreate: boolean;
-  emailOnAssign: boolean;
-  emailOnInspected: boolean;
-  emailOnApproved: boolean;
-  emailOnRejected: boolean;
-  emailOnOverdue: boolean;
-  smsOnOverdue: boolean;
-  inAppNotifications: boolean;
-}
-
 interface PublicTrackingSettings {
   enabled: boolean;
   allowCustomerComments: boolean;
@@ -124,17 +113,6 @@ const defaultSLA: SLASettings = {
   medium: { responseTime: 240, resolveTime: 48 }, // 4h response, 48h resolve
   high: { responseTime: 120, resolveTime: 24 }, // 2h response, 24h resolve
   urgent: { responseTime: 60, resolveTime: 12 }, // 1h response, 12h resolve
-};
-
-const _defaultNotifications: NotificationSettings = {
-  emailOnCreate: true,
-  emailOnAssign: true,
-  emailOnInspected: false,
-  emailOnApproved: true,
-  emailOnRejected: true,
-  emailOnOverdue: true,
-  smsOnOverdue: false,
-  inAppNotifications: true,
 };
 
 const _defaultPublicTracking: PublicTrackingSettings = {
@@ -239,7 +217,6 @@ const WARRANTY_SLA_PRIORITY_CONFIGS: Array<{
 type _WarrantySettingsState = {
   sla: SLASettings;
   templates: ResponseTemplate[];
-  notifications: NotificationSettings;
   publicTracking: PublicTrackingSettings;
   cardColors: CardColorSettings;
 };
@@ -262,7 +239,7 @@ export function WarrantySettingsPage() {
   const { headerActions, setHeaderActions } = useTabActionRegistry(activeTab);
 
   // Fetch settings from React Query
-  const { data: settings, isLoading: _isLoadingSettings } = useWarrantySettings();
+  const { data: settings } = useWarrantySettings();
   const { updateSection } = useWarrantySettingsMutations();
 
   // (unused register* removed — using direct setHeaderActions now)
@@ -270,7 +247,6 @@ export function WarrantySettingsPage() {
   // Get stored values from React Query
   const storedSla = settings.sla;
   const storedTemplates = settings.templates as ResponseTemplate[];
-  const storedNotifications = settings.notifications;
   const storedPublicTracking = settings.publicTracking;
   const storedCardColors = settings.cardColors;
 
@@ -285,9 +261,6 @@ export function WarrantySettingsPage() {
   const [templateToDelete, setTemplateToDelete] = React.useState<string | null>(null);
   const [showEditDialog, setShowEditDialog] = React.useState(false);
 
-  // Notifications State
-  const [notifications, setNotifications] = React.useState<NotificationSettings>(storedNotifications as unknown as NotificationSettings);
-
   // Public Tracking State
   const [publicTracking, setPublicTracking] = React.useState<PublicTrackingSettings>(storedPublicTracking);
 
@@ -301,10 +274,6 @@ export function WarrantySettingsPage() {
   React.useEffect(() => {
     setTemplates(storedTemplates);
   }, [storedTemplates]);
-
-  React.useEffect(() => {
-    setNotifications(storedNotifications as unknown as NotificationSettings);
-  }, [storedNotifications]);
 
   React.useEffect(() => {
     setPublicTracking(storedPublicTracking);
@@ -473,30 +442,6 @@ export function WarrantySettingsPage() {
   };
 
   // ============================================
-  // NOTIFICATION HANDLERS
-  // ============================================
-
-  const handleNotificationChange = (key: keyof NotificationSettings) => {
-    setNotifications(prev => ({
-      ...prev,
-      [key]: !prev[key],
-    }));
-  };
-
-  const handleSaveNotifications = () => {
-    updateSection.mutate(
-      { type: 'notifications', data: notifications as unknown as Parameters<typeof updateSection.mutate>[0]['data'] },
-      {
-        onSuccess: () => {
-          toast.success('Đã lưu cài đặt thông báo', {
-            description: 'Các tùy chọn thông báo đã được cập nhật.',
-          });
-        },
-      }
-    );
-  };
-
-  // ============================================
   // PUBLIC TRACKING HANDLERS
   // ============================================
 
@@ -577,14 +522,12 @@ export function WarrantySettingsPage() {
   const handlersRef = React.useRef({
     saveSLA: handleSaveSLA,
     addTemplate: handleAddTemplate,
-    saveNotifications: handleSaveNotifications,
     savePublicTracking: handleSavePublicTracking,
     saveCardColors: handleSaveCardColors,
   });
   handlersRef.current = {
     saveSLA: handleSaveSLA,
     addTemplate: handleAddTemplate,
-    saveNotifications: handleSaveNotifications,
     savePublicTracking: handleSavePublicTracking,
     saveCardColors: handleSaveCardColors,
   };
@@ -593,47 +536,39 @@ export function WarrantySettingsPage() {
     switch (activeTab) {
       case 'sla':
         setHeaderActions([
-          <SettingsActionButton key="save" onClick={() => handlersRef.current.saveSLA()}>
-            <Save className="h-4 w-4" /> Lưu cài đặt
+          <SettingsActionButton key="save-sla" onClick={() => handlersRef.current.saveSLA()} disabled={updateSection.isPending}>
+            {updateSection.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Lưu cài đặt
           </SettingsActionButton>,
         ]);
         break;
       case 'templates':
         setHeaderActions([
-          <SettingsActionButton key="add" onClick={() => handlersRef.current.addTemplate()}>
+          <SettingsActionButton key="add-template" onClick={() => handlersRef.current.addTemplate()}>
             <Plus className="h-4 w-4" /> Thêm mẫu
-          </SettingsActionButton>,
-        ]);
-        break;
-      case 'notifications':
-        setHeaderActions([
-          <SettingsActionButton key="save" onClick={() => handlersRef.current.saveNotifications()}>
-            <Save className="h-4 w-4" /> Lưu cài đặt
           </SettingsActionButton>,
         ]);
         break;
       case 'public-tracking':
         setHeaderActions([
-          <SettingsActionButton key="save" onClick={() => handlersRef.current.savePublicTracking()}>
-            <Save className="h-4 w-4" /> Lưu cài đặt
+          <SettingsActionButton key="save-tracking" onClick={() => handlersRef.current.savePublicTracking()} disabled={updateSection.isPending}>
+            {updateSection.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Lưu cài đặt
           </SettingsActionButton>,
         ]);
         break;
       case 'card-colors':
         setHeaderActions([
-          <SettingsActionButton key="save" onClick={() => handlersRef.current.saveCardColors()}>
-            <Save className="h-4 w-4" /> Lưu cài đặt
+          <SettingsActionButton key="save-card-colors" onClick={() => handlersRef.current.saveCardColors()} disabled={updateSection.isPending}>
+            {updateSection.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Lưu cài đặt
           </SettingsActionButton>,
         ]);
         break;
     }
-  }, [activeTab, setHeaderActions]);
+  }, [activeTab, setHeaderActions, updateSection.isPending]);
 
   const tabs = React.useMemo(
     () => [
       { value: 'sla', label: 'SLA' },
       { value: 'templates', label: 'Mẫu biểu' },
-      { value: 'notifications', label: 'Thông báo' },
       { value: 'public-tracking', label: 'Tracking' },
       { value: 'card-colors', label: 'Màu card' },
     ],
@@ -695,65 +630,6 @@ export function WarrantySettingsPage() {
             </CardContent>
           </Card>
 
-          {/* Simple Warranty SLA Targets Card */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Mục tiêu SLA đơn giản</CardTitle>
-              <CardDescription>
-                Cấu hình thời gian xử lý chuẩn cho toàn bộ phiếu bảo hành
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-3">
-                <div className="space-y-2">
-                  <Label htmlFor="sla-response">
-                    Phản hồi (phút)
-                    <span className="text-xs text-muted-foreground block">
-                      Nhận → Bắt đầu xử lý
-                    </span>
-                  </Label>
-                  <Input
-                    id="sla-response"
-                    type="number"
-                    defaultValue="120"
-                    placeholder="120"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="sla-processing">
-                    Xử lý (phút)
-                    <span className="text-xs text-muted-foreground block">
-                      Hoàn tất xử lý SP
-                    </span>
-                  </Label>
-                  <Input
-                    id="sla-processing"
-                    type="number"
-                    defaultValue="1440"
-                    placeholder="1440"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="sla-return">
-                    Trả hàng (phút)
-                    <span className="text-xs text-muted-foreground block">
-                      Hoàn thành → Trả khách
-                    </span>
-                  </Label>
-                  <Input
-                    id="sla-return"
-                    type="number"
-                    defaultValue="2880"
-                    placeholder="2880"
-                  />
-                </div>
-              </div>
-              <Button variant="outline" className="w-full">
-                <Save className="h-4 w-4 mr-2" />
-                Lưu SLA đơn giản
-              </Button>
-            </CardContent>
-          </Card>
         </TabsContent>
 
         {/* ============================================ */}
@@ -798,7 +674,7 @@ export function WarrantySettingsPage() {
                         <TableCell className="text-right">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Thao tác">
                                 <MoreHorizontal className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
@@ -825,130 +701,6 @@ export function WarrantySettingsPage() {
                   </TableBody>
                 </Table>
               )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* ============================================ */}
-        {/* TAB 3: NOTIFICATIONS */}
-        {/* ============================================ */}
-        <TabsContent value="notifications" className="mt-0 space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Cài đặt thông báo</CardTitle>
-              <CardDescription>
-                Quản lý thông báo qua email, SMS và in-app cho các sự kiện bảo hành
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <SettingsFormSection
-                title="Thông báo Email"
-                description="Gửi cập nhật đến khách hàng và đội bảo hành cho từng giai đoạn."
-                badge={<Bell className="h-4 w-4 text-muted-foreground" />}
-                contentClassName="space-y-3"
-              >
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="email-create" className="cursor-pointer">
-                      Khi bảo hành mới được tạo
-                    </Label>
-                    <Switch
-                      id="email-create"
-                      checked={notifications.emailOnCreate}
-                      onCheckedChange={() => handleNotificationChange('emailOnCreate')}
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="email-assign" className="cursor-pointer">
-                      Khi được phân công xử lý
-                    </Label>
-                    <Switch
-                      id="email-assign"
-                      checked={notifications.emailOnAssign}
-                      onCheckedChange={() => handleNotificationChange('emailOnAssign')}
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="email-inspected" className="cursor-pointer">
-                      Khi hoàn thành kiểm tra
-                    </Label>
-                    <Switch
-                      id="email-inspected"
-                      checked={notifications.emailOnInspected}
-                      onCheckedChange={() => handleNotificationChange('emailOnInspected')}
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="email-approved" className="cursor-pointer">
-                      Khi chấp nhận bảo hành
-                    </Label>
-                    <Switch
-                      id="email-approved"
-                      checked={notifications.emailOnApproved}
-                      onCheckedChange={() => handleNotificationChange('emailOnApproved')}
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="email-rejected" className="cursor-pointer">
-                      Khi từ chối bảo hành
-                    </Label>
-                    <Switch
-                      id="email-rejected"
-                      checked={notifications.emailOnRejected}
-                      onCheckedChange={() => handleNotificationChange('emailOnRejected')}
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="email-overdue" className="cursor-pointer">
-                      Khi bảo hành quá hạn SLA
-                    </Label>
-                    <Switch
-                      id="email-overdue"
-                      checked={notifications.emailOnOverdue}
-                      onCheckedChange={() => handleNotificationChange('emailOnOverdue')}
-                    />
-                  </div>
-                </div>
-              </SettingsFormSection>
-
-              <SettingsFormSection
-                title="Thông báo SMS"
-                description="Chỉ bật cho các sự kiện cần phản hồi tức thì để tránh spam."
-                badge={<AlertCircle className="h-4 w-4 text-muted-foreground" />}
-              >
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="sms-overdue" className="cursor-pointer">
-                    Cảnh báo quá hạn SLA
-                  </Label>
-                  <Switch
-                    id="sms-overdue"
-                    checked={notifications.smsOnOverdue}
-                    onCheckedChange={() => handleNotificationChange('smsOnOverdue')}
-                  />
-                </div>
-              </SettingsFormSection>
-
-              <SettingsFormSection
-                title="Thông báo trong ứng dụng"
-                description="Hiển thị trong bell icon của hệ thống HRM."
-                badge={<Bell className="h-4 w-4 text-muted-foreground" />}
-              >
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="inapp" className="cursor-pointer">
-                    Bật thông báo in-app (bell icon)
-                  </Label>
-                  <Switch
-                    id="inapp"
-                    checked={notifications.inAppNotifications}
-                    onCheckedChange={() => handleNotificationChange('inAppNotifications')}
-                  />
-                </div>
-              </SettingsFormSection>
             </CardContent>
           </Card>
         </TabsContent>
@@ -1277,6 +1029,10 @@ export function WarrantySettingsPage() {
         </TabsContent>
         </SettingsVerticalTabs>
 
+        <div className="mt-6">
+          <SettingsHistoryContent entityTypes={['warranty_settings']} />
+        </div>
+
       {/* Edit/Add Template Dialog */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
@@ -1345,8 +1101,8 @@ export function WarrantySettingsPage() {
             <Button variant="outline" onClick={handleCancelEdit}>
               Hủy
             </Button>
-            <Button onClick={handleSaveTemplate}>
-              <Save className="h-4 w-4 mr-2" />
+            <Button onClick={handleSaveTemplate} disabled={updateSection.isPending}>
+              {updateSection.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
               Lưu mẫu
             </Button>
           </DialogFooter>

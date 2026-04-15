@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { parsePagination } from '@/lib/api-utils';
+import { parsePagination, requireAuth } from '@/lib/api-utils';
+import { logError } from '@/lib/logger'
+import { createActivityLog } from '@/lib/services/activity-log-service'
+import { nanoid } from 'nanoid'
 
-export const dynamic = 'force-dynamic';
+// Reference data — rarely changes, cache aggressively
 
 /**
  * GET /api/administrative-units/wards
@@ -52,7 +55,7 @@ export async function GET(request: NextRequest) {
       prisma.ward.count({ where }),
     ]);
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       data: wards,
       pagination: {
         page,
@@ -61,11 +64,61 @@ export async function GET(request: NextRequest) {
         totalPages: Math.ceil(total / limit),
       },
     });
+    response.headers.set('Cache-Control', 'private, no-cache');
+    return response;
   } catch (error) {
-    console.error('Failed to fetch wards:', error);
+    logError('Failed to fetch wards', error);
     return NextResponse.json(
       { success: false, error: 'Không thể tải danh sách phường/xã' },
       { status: 500 }
     );
+  }
+}
+
+/**
+ * POST /api/administrative-units/wards
+ * Create a new ward
+ */
+export async function POST(request: NextRequest) {
+  const session = await requireAuth()
+  if (!session) {
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+  }
+
+  try {
+    const body = await request.json()
+    const { id, name, provinceId, provinceName, districtId, districtName, level = '2-level' } = body
+
+    if (!id || !name || !provinceId) {
+      return NextResponse.json({ success: false, error: 'Mã, tên và tỉnh thành là bắt buộc' }, { status: 400 })
+    }
+
+    const ward = await prisma.ward.create({
+      data: {
+        systemId: nanoid(),
+        id,
+        name,
+        provinceId,
+        provinceName: provinceName || null,
+        districtId: districtId ? (typeof districtId === 'string' ? parseInt(districtId, 10) : districtId) : null,
+        districtName: districtName || null,
+        level,
+        createdBy: session.user?.id,
+      },
+    })
+
+    await createActivityLog({
+      entityType: 'ward',
+      entityId: ward.systemId,
+      action: `Tạo phường/xã "${name}"`,
+      actionType: 'create',
+      metadata: { userName: session.user?.name, provinceId },
+      createdBy: session.user?.id,
+    })
+
+    return NextResponse.json({ success: true, data: ward })
+  } catch (error) {
+    logError('Failed to create ward', error)
+    return NextResponse.json({ success: false, error: 'Không thể tạo phường/xã' }, { status: 500 })
   }
 }

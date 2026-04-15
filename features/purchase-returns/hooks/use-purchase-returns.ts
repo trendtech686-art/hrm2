@@ -11,6 +11,7 @@ import {
   fetchPurchaseReturn,
   fetchPurchaseReturnStats,
   type PurchaseReturnsParams,
+  type PurchaseReturnStats,
 } from '../api/purchase-returns-api';
 import {
   createPurchaseReturnAction,
@@ -19,6 +20,7 @@ import {
   approvePurchaseReturnAction,
   type CreatePurchaseReturnInput,
 } from '@/app/actions/purchase-returns';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 // Use the app-layer PurchaseReturn type for display purposes
 // The Server Actions return Prisma types which may differ slightly
 import type { PurchaseReturn } from '@/lib/types/prisma-extended';
@@ -51,14 +53,23 @@ export function usePurchaseReturn(id: string | null | undefined) {
     queryFn: () => fetchPurchaseReturn(asSystemId(id!)),
     enabled: !!id,
     staleTime: 60_000,
+    // ✅ Always refetch on mount to ensure fresh data
+    refetchOnMount: 'always',
   });
 }
 
-export function usePurchaseReturnStats(params?: { startDate?: string; endDate?: string; supplierId?: string }) {
+export function usePurchaseReturnStats(params?: { 
+  startDate?: string; 
+  endDate?: string; 
+  supplierId?: string;
+  initialData?: PurchaseReturnStats;
+}) {
+  const { initialData, ...queryParams } = params || {};
   return useQuery({
-    queryKey: [...purchaseReturnKeys.stats(), params],
-    queryFn: () => fetchPurchaseReturnStats(params),
+    queryKey: [...purchaseReturnKeys.stats(), queryParams],
+    queryFn: () => fetchPurchaseReturnStats(queryParams),
     staleTime: 60_000,
+    initialData,
   });
 }
 
@@ -76,19 +87,11 @@ export function usePurchaseReturnMutations(options: UsePurchaseReturnMutationsOp
   const create = useMutation({
     mutationFn: async (data: CreatePurchaseReturnInput) => {
       const result = await createPurchaseReturnAction(data);
-      if (!result.success) throw new Error(result.error || 'Failed to create purchase return');
+      if (!result.success) throw new Error(result.error || 'Không thể tạo phiếu trả hàng nhập');
       return result.data!;
     },
     onSuccess: (data) => {
-      // Invalidate purchase returns list and stats
-      queryClient.invalidateQueries({ queryKey: purchaseReturnKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: purchaseReturnKeys.stats() });
-      
-      // Invalidate related queries
-      queryClient.invalidateQueries({ queryKey: ['purchase-orders'] });
-      queryClient.invalidateQueries({ queryKey: ['inventory'] });
-      queryClient.invalidateQueries({ queryKey: ['suppliers'] });
-      
+      invalidateRelated(queryClient, 'purchase-returns');
       options.onCreateSuccess?.(data);
     },
     onError: options.onError,
@@ -103,19 +106,11 @@ export function usePurchaseReturnMutations(options: UsePurchaseReturnMutationsOp
           reason: data.reason,
         }
       );
-      if (!result.success) throw new Error(result.error || 'Failed to update purchase return');
+      if (!result.success) throw new Error(result.error || 'Không thể cập nhật phiếu trả hàng nhập');
       return result.data!;
     },
-    onSuccess: (data, variables) => {
-      // Invalidate specific return and lists
-      queryClient.invalidateQueries({ queryKey: purchaseReturnKeys.detail(variables.systemId) });
-      queryClient.invalidateQueries({ queryKey: purchaseReturnKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: purchaseReturnKeys.stats() });
-      
-      // Invalidate inventory and suppliers if status changed
-      queryClient.invalidateQueries({ queryKey: ['inventory'] });
-      queryClient.invalidateQueries({ queryKey: ['suppliers'] });
-      
+    onSuccess: (data) => {
+      invalidateRelated(queryClient, 'purchase-returns');
       options.onUpdateSuccess?.(data);
     },
     onError: options.onError,
@@ -124,15 +119,11 @@ export function usePurchaseReturnMutations(options: UsePurchaseReturnMutationsOp
   const process = useMutation({
     mutationFn: async ({ systemId, confirmedBy }: { systemId: string; confirmedBy: string }) => {
       const result = await approvePurchaseReturnAction(asSystemId(systemId), confirmedBy);
-      if (!result.success) throw new Error(result.error || 'Failed to process purchase return');
+      if (!result.success) throw new Error(result.error || 'Không thể duyệt phiếu trả hàng nhập');
       return result.data!;
     },
-    onSuccess: (data, { systemId }) => {
-      // Invalidate queries after processing
-      queryClient.invalidateQueries({ queryKey: purchaseReturnKeys.detail(systemId) });
-      queryClient.invalidateQueries({ queryKey: purchaseReturnKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: purchaseReturnKeys.stats() });
-      
+    onSuccess: (data) => {
+      invalidateRelated(queryClient, 'purchase-returns');
       options.onProcessSuccess?.(data);
     },
     onError: options.onError,
@@ -141,17 +132,11 @@ export function usePurchaseReturnMutations(options: UsePurchaseReturnMutationsOp
   const remove = useMutation({
     mutationFn: async (systemId: string) => {
       const result = await deletePurchaseReturnAction(asSystemId(systemId));
-      if (!result.success) throw new Error(result.error || 'Failed to delete purchase return');
+      if (!result.success) throw new Error(result.error || 'Không thể xóa phiếu trả hàng nhập');
       return result.data;
     },
     onSuccess: () => {
-      // Invalidate all purchase return queries
-      queryClient.invalidateQueries({ queryKey: purchaseReturnKeys.all });
-      
-      // Invalidate related queries
-      queryClient.invalidateQueries({ queryKey: ['inventory'] });
-      queryClient.invalidateQueries({ queryKey: ['suppliers'] });
-      
+      invalidateRelated(queryClient, 'purchase-returns');
       options.onDeleteSuccess?.();
     },
     onError: options.onError,

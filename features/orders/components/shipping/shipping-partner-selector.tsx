@@ -23,6 +23,7 @@ interface ShippingPartnerSelectorProps {
   selectedService?: ShippingService | null | undefined;
   onServiceSelect: (service: ShippingService | null) => void;
   onServiceUpdate?: ((service: ShippingService) => void) | undefined; // ✅ NEW: Callback when service fee updates
+  onAvailableServicesChange?: ((services: ShippingService[]) => void) | undefined; // ✅ Callback with partner services
   onTogglePreview?: (() => void) | undefined; // ✅ NEW: Callback to toggle API data preview
   disabled?: boolean | undefined;
   collapsed?: boolean | undefined;
@@ -33,6 +34,7 @@ export function ShippingPartnerSelector({
   selectedService,
   onServiceSelect,
   onServiceUpdate,
+  onAvailableServicesChange,
   onTogglePreview,
   disabled,
   collapsed,
@@ -144,38 +146,18 @@ export function ShippingPartnerSelector({
     return groups;
   }, [allServices]);
 
+  // ✅ Notify parent of available services when selected partner changes
+  React.useEffect(() => {
+    if (onAvailableServicesChange && selectedService) {
+      const partnerServices = groupedByPartner[selectedService.partnerCode] || [];
+      onAvailableServicesChange(partnerServices);
+    }
+  }, [onAvailableServicesChange, selectedService?.partnerCode, groupedByPartner, selectedService]);
+
   // Get not-configured partners
   const notConfiguredPartners = React.useMemo(() => {
     return results.filter(r => r.status === 'error' && r.error === 'NOT_CONFIGURED');
   }, [results]);
-
-  // Find fastest and cheapest
-  const { fastestService: _fastestService, cheapestService: _cheapestService } = React.useMemo(() => {
-    if (allServices.length === 0) {
-      return { fastestService: null, cheapestService: null };
-    }
-
-    // Find cheapest
-    const cheapest = allServices.reduce((prev, curr) => 
-      curr.fee < prev.fee ? curr : prev
-    );
-
-    // Find fastest by parsing estimated days
-    const fastest = allServices.reduce((prev, curr) => {
-      // Extract number from estimatedDays (e.g., "1-2 ngày" -> 1, "3-5 ngày" -> 3)
-      const prevDays = parseInt(prev.estimatedDays.match(/\d+/)?.[0] || '999');
-      const currDays = parseInt(curr.estimatedDays.match(/\d+/)?.[0] || '999');
-      return currDays < prevDays ? curr : prev;
-    });
-
-    return { 
-      fastestService: fastest, 
-      cheapestService: cheapest 
-    };
-  }, [allServices]);
-
-  // Check if any partners are loading
-  const _isLoading = isCalculating || results.some(r => r.status === 'loading');
 
   // Check if all partners failed
   const allFailed = results.length > 0 && results.every(r => r.status === 'error');

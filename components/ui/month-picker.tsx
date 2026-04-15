@@ -43,18 +43,10 @@ const MonthPickerPopoverTrigger = PopoverPrimitive.Trigger;
 const MonthPickerPopoverContent = React.forwardRef<
   React.ElementRef<typeof PopoverPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof PopoverPrimitive.Content> & { id?: string }
->(({ className, align = "start", sideOffset = 4, id = "month-picker", ...props }, ref) => {
-  const [open, setOpen] = React.useState(false);
-  const dataState = props["data-state"];
-  React.useEffect(() => {
-    if (dataState === "open") {
-      setOpen(true);
-    } else {
-      setOpen(false);
-    }
-  }, [dataState]);
-  
-  const { zIndex } = useModal(id, open, 'popover');
+>(({ className, align = "start", sideOffset = 4, id = "month-picker", style: propStyle, ...props }, ref) => {
+  // Radix only mounts Content when open (via Presence),
+  // so always register as open. Cleanup runs on unmount (close).
+  const { zIndex } = useModal(id, true, 'popover');
   
   return (
     <PopoverPrimitive.Portal>
@@ -67,8 +59,8 @@ const MonthPickerPopoverContent = React.forwardRef<
           "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
           className
         )}
-        style={{ zIndex }}
         {...props}
+        style={{ ...propStyle, zIndex }}
       />
     </PopoverPrimitive.Portal>
   );
@@ -158,7 +150,7 @@ export function MonthPicker({
       </MonthPickerPopoverTrigger>
       <MonthPickerPopoverContent 
         id={`month-picker-${id}`}
-        className="w-[280px] p-3"
+        className="w-70 p-3"
       >
         {/* Year navigation */}
         <div className="flex items-center justify-between mb-3">

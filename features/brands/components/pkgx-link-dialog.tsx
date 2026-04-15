@@ -14,11 +14,11 @@ import { VirtualizedCombobox, type ComboboxOption } from '@/components/ui/virtua
 import type { Brand } from '@/features/settings/inventory/types';
 import type { PkgxBrand } from '@/features/settings/pkgx/types';
 import { getBrands as fetchPkgxBrands } from '@/lib/pkgx/api-service';
+import { logError } from '@/lib/logger'
 import { 
-  usePkgxSettings, 
+  usePkgxMappings, 
   usePkgxBrandMutations, 
   usePkgxBrandMappingMutations,
-  usePkgxBrandMappings 
 } from '@/features/settings/pkgx/hooks/use-pkgx-settings';
 
 interface PkgxBrandLinkDialogProps {
@@ -34,9 +34,9 @@ export function PkgxBrandLinkDialog({
   brand,
   onSuccess,
 }: PkgxBrandLinkDialogProps) {
-  const { data: pkgxSettings } = usePkgxSettings();
+  const { data: pkgxSettings } = usePkgxMappings();
   const cachedPkgxBrands = React.useMemo(() => pkgxSettings?.brands ?? [], [pkgxSettings?.brands]);
-  const brandMappings = usePkgxBrandMappings();
+  const brandMappings = React.useMemo(() => pkgxSettings?.brandMappings ?? [], [pkgxSettings?.brandMappings]);
   const { addBrandMapping } = usePkgxBrandMappingMutations();
   const { setBrands } = usePkgxBrandMutations();
   
@@ -66,7 +66,7 @@ export function PkgxBrandLinkDialog({
         setHasFetched(true);
       }
     } catch (error) {
-      console.error('Failed to load PKGX brands:', error);
+      logError('Failed to load PKGX brands', error);
       toast.error('Không thể tải danh sách thương hiệu PKGX');
     } finally {
       setIsLoading(false);
@@ -134,7 +134,7 @@ export function PkgxBrandLinkDialog({
       onSuccess?.(pkgxBrandId);
       onOpenChange(false);
     } catch (error) {
-      console.error('[PKGX Brand Link Error]', error);
+      logError('[PKGX Brand Link Error]', error);
       toast.error('Lỗi khi liên kết thương hiệu');
     } finally {
       setIsSyncing(false);

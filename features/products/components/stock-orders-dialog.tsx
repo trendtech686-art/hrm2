@@ -43,6 +43,13 @@ export interface StockOrderItem {
   statusVariant?: 'default' | 'secondary' | 'destructive' | 'outline' | 'success' | 'warning';
 }
 
+interface PaginationInfo {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
 interface StockOrdersDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -51,6 +58,12 @@ interface StockOrdersDialogProps {
   branchName: string;
   items: StockOrderItem[];
   isLoading?: boolean;
+  // ⚡ Server-side pagination props
+  totalQuantity?: number;
+  orderQuantity?: number;
+  warrantyQuantity?: number;
+  pagination?: PaginationInfo;
+  onPageChange?: (page: number) => void;
 }
 
 const TYPE_CONFIG: Record<StockOrderType, {
@@ -105,8 +118,6 @@ function getStatusBadgeVariant(variant?: string): 'default' | 'secondary' | 'des
   }
 }
 
-const PAGE_SIZE = 10;
-
 export function StockOrdersDialog({
   open,
   onOpenChange,
@@ -115,25 +126,23 @@ export function StockOrdersDialog({
   branchName,
   items,
   isLoading = false,
+  totalQuantity: propsTotalQuantity,
+  orderQuantity = 0,
+  warrantyQuantity = 0,
+  pagination,
+  onPageChange,
 }: StockOrdersDialogProps) {
   const router = useRouter();
   const config = TYPE_CONFIG[type];
-  const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
-
-  // Pagination state
-  const [currentPage, setCurrentPage] = React.useState(1);
-  const totalPages = Math.ceil(items.length / PAGE_SIZE);
   
-  // Reset page when dialog opens or items change
-  React.useEffect(() => {
-    setCurrentPage(1);
-  }, [open, items.length]);
-
-  // Get current page items
-  const paginatedItems = React.useMemo(() => {
-    const start = (currentPage - 1) * PAGE_SIZE;
-    return items.slice(start, start + PAGE_SIZE);
-  }, [items, currentPage]);
+  // Use server-side totalQuantity if provided, otherwise calculate from items
+  const totalQuantity = propsTotalQuantity ?? items.reduce((sum, item) => sum + item.quantity, 0);
+  
+  // ⚡ Server-side pagination from props (if available)
+  const currentPage = pagination?.page ?? 1;
+  const totalPages = pagination?.totalPages ?? 1;
+  const totalItems = pagination?.total ?? items.length;
+  const pageSize = pagination?.limit ?? 10;
 
   const handleRowClick = (item: StockOrderItem) => {
     const path = item.type === 'order' ? `/orders/${item.systemId}` 
@@ -143,6 +152,11 @@ export function StockOrdersDialog({
     onOpenChange(false);
   };
 
+  // Build quantity display: show breakdown when there are warranty items
+  const quantityDisplay = warrantyQuantity > 0
+    ? `${orderQuantity} đơn hàng + ${warrantyQuantity} bảo hành = ${totalQuantity}`
+    : String(totalQuantity);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl">
@@ -150,7 +164,7 @@ export function StockOrdersDialog({
           <DialogTitle>{config.title}: {productName}</DialogTitle>
           <DialogDescription>
             Chi nhánh: {branchName} • {config.totalLabel}:{' '}
-            <span className="text-primary font-semibold">{totalQuantity}</span> sản phẩm
+            <span className="text-primary font-semibold">{quantityDisplay}</span> sản phẩm
           </DialogDescription>
         </DialogHeader>
 
@@ -180,7 +194,7 @@ export function StockOrdersDialog({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[100px]">Loại</TableHead>
+                  <TableHead className="w-25">Loại</TableHead>
                   <TableHead>Mã phiếu</TableHead>
                   <TableHead>{config.dateLabel}</TableHead>
                   {config.showFromTo ? (
@@ -197,7 +211,7 @@ export function StockOrdersDialog({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {paginatedItems.map((item) => (
+                {items.map((item) => (
                   <TableRow
                     key={item.systemId}
                     className="cursor-pointer hover:bg-muted/50 transition-colors"
@@ -250,17 +264,17 @@ export function StockOrdersDialog({
           )}
         </ScrollArea>
 
-        {/* Pagination */}
-        {!isLoading && items.length > PAGE_SIZE && (
+        {/* Pagination - show if server-side pagination available and total > page size */}
+        {!isLoading && pagination && totalItems > pageSize && (
           <div className="flex items-center justify-between pt-4 border-t">
             <div className="text-sm text-muted-foreground">
-              Hiển thị {(currentPage - 1) * PAGE_SIZE + 1}-{Math.min(currentPage * PAGE_SIZE, items.length)} / {items.length} phiếu
+              Hiển thị {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, totalItems)} / {totalItems} phiếu
             </div>
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                onClick={() => onPageChange?.(currentPage - 1)}
                 disabled={currentPage <= 1}
               >
                 <ChevronLeft className="h-4 w-4" />
@@ -272,7 +286,7 @@ export function StockOrdersDialog({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                onClick={() => onPageChange?.(currentPage + 1)}
                 disabled={currentPage >= totalPages}
               >
                 Sau

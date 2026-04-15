@@ -6,7 +6,7 @@
  * - NEVER import from '@/features/suppliers/store'
  */
 
-import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData, useInfiniteQuery } from '@tanstack/react-query';
 import {
   fetchSuppliers,
   fetchSupplier,
@@ -23,6 +23,7 @@ import {
   type UpdateSupplierInput,
 } from '@/app/actions/suppliers';
 import type { Supplier } from '@/lib/types/prisma-extended';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 
 // Helper to convert legacy update format to flat format
 function toUpdateSupplierInput(input: UpdateSupplierInput | { systemId: string; data: Record<string, unknown> }): UpdateSupplierInput {
@@ -51,8 +52,11 @@ export const supplierKeys = {
 export interface SupplierStats {
   totalSuppliers: number;
   activeSuppliers: number;
-  suppliersWithDebt: number;
-  totalDebtAmount: number;
+  totalDebit: number;
+  totalCredit: number;
+  totalPurchased: number;
+  totalPaid: number;
+  deletedCount?: number;
 }
 
 /**
@@ -63,8 +67,9 @@ export function useSupplierStats(initialData?: SupplierStats) {
     queryKey: supplierKeys.stats(),
     queryFn: async () => {
       const res = await fetch('/api/suppliers/stats');
-      if (!res.ok) throw new Error('Failed to fetch stats');
-      return res.json() as Promise<SupplierStats>;
+      if (!res.ok) throw new Error('Lỗi khi lấy thống kê');
+      const json = await res.json();
+      return json.data as SupplierStats;
     },
     initialData,
     staleTime: initialData ? 60_000 : 0,
@@ -98,6 +103,8 @@ export function useSupplier(id: string | null | undefined) {
     queryFn: () => fetchSupplier(id!),
     enabled: !!id,
     staleTime: 60_000,
+    // ✅ Always refetch on mount to ensure fresh data after mutations from other pages
+    refetchOnMount: 'always',
   });
 }
 
@@ -107,6 +114,28 @@ export function useSupplierSearch(query: string, limit = 20) {
     queryFn: () => searchSuppliers(query, limit),
     enabled: query.length >= 2,
     staleTime: 30_000,
+  });
+}
+
+/**
+ * Hook for infinite scroll suppliers list
+ * Loads 30 suppliers per page, automatically fetches more when scrolling
+ */
+export function useInfiniteSuppliers(params: Omit<SuppliersParams, 'page'> & { enabled?: boolean } = {}) {
+  const { enabled = true, ...queryParams } = params;
+  const limit = queryParams.limit || 30;
+  
+  return useInfiniteQuery({
+    queryKey: [...supplierKeys.lists(), 'infinite', queryParams],
+    queryFn: ({ pageParam = 1 }) => fetchSuppliers({ ...queryParams, page: pageParam, limit }),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => {
+      const { page, totalPages } = lastPage.pagination;
+      return page < totalPages ? page + 1 : undefined;
+    },
+    staleTime: 60_000,
+    gcTime: 10 * 60 * 1000,
+    enabled,
   });
 }
 
@@ -124,12 +153,12 @@ export function useSupplierMutations(options: UseSupplierMutationsOptions = {}) 
     mutationFn: async (data: CreateSupplierInput) => {
       const result = await createSupplierAction(data);
       if (!result.success) {
-        throw new Error(result.error || 'Failed to create supplier');
+        throw new Error(result.error || 'Lỗi khi tạo nhà cung cấp');
       }
       return result.data as Supplier;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: supplierKeys.lists() });
+      invalidateRelated(queryClient, 'suppliers');
       options.onCreateSuccess?.(data);
     },
     onError: options.onError,
@@ -140,14 +169,12 @@ export function useSupplierMutations(options: UseSupplierMutationsOptions = {}) 
       const data = toUpdateSupplierInput(input);
       const result = await updateSupplierAction(data);
       if (!result.success) {
-        throw new Error(result.error || 'Failed to update supplier');
+        throw new Error(result.error || 'Lỗi khi cập nhật nhà cung cấp');
       }
       return result.data as Supplier;
     },
-    onSuccess: (data, variables) => {
-      const systemId = 'systemId' in variables ? variables.systemId : (variables as UpdateSupplierInput).systemId;
-      queryClient.invalidateQueries({ queryKey: supplierKeys.detail(systemId) });
-      queryClient.invalidateQueries({ queryKey: supplierKeys.lists() });
+    onSuccess: (data) => {
+      invalidateRelated(queryClient, 'suppliers');
       options.onUpdateSuccess?.(data);
     },
     onError: options.onError,
@@ -157,15 +184,33 @@ export function useSupplierMutations(options: UseSupplierMutationsOptions = {}) 
     mutationFn: async (systemId: string) => {
       const result = await deleteSupplierAction({ systemId });
       if (!result.success) {
-        throw new Error(result.error || 'Failed to delete supplier');
+        throw new Error(result.error || 'Lỗi khi xóa nhà cung cấp');
       }
       return result.data;
     },
+    onMutate: async (systemId) => {
+      await queryClient.cancelQueries({ queryKey: supplierKeys.lists() });
+      const previousLists = queryClient.getQueriesData<PaginatedResponse<Supplier>>({ queryKey: supplierKeys.lists() });
+      queryClient.setQueriesData<PaginatedResponse<Supplier>>(
+        { queryKey: supplierKeys.lists() },
+        (old) => old ? { ...old, data: old.data.filter(s => s.systemId !== systemId) } : old
+      );
+      return { previousLists };
+    },
+    onError: (_err, _systemId, context) => {
+      if (context?.previousLists) {
+        for (const [key, data] of context.previousLists) {
+          queryClient.setQueryData(key, data);
+        }
+      }
+      options.onError?.(_err as Error);
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: supplierKeys.all });
       options.onDeleteSuccess?.();
     },
-    onError: options.onError,
+    onSettled: () => {
+      invalidateRelated(queryClient, 'suppliers');
+    },
   });
   
   return {
@@ -210,12 +255,12 @@ export function useTrashMutations() {
     mutationFn: async (systemId: string) => {
       const result = await restoreSupplierAction({ systemId });
       if (!result.success) {
-        throw new Error(result.error || 'Failed to restore supplier');
+        throw new Error(result.error || 'Lỗi khi khôi phục nhà cung cấp');
       }
       return result.data as Supplier;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: supplierKeys.all });
+      invalidateRelated(queryClient, 'suppliers');
     },
   });
   
@@ -237,7 +282,7 @@ export function useTrashMutations() {
       }
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: supplierKeys.all });
+      invalidateRelated(queryClient, 'suppliers');
     },
   });
   

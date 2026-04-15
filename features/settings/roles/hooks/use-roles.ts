@@ -5,6 +5,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import {
   fetchRoles,
   fetchRole,
@@ -56,7 +57,7 @@ export function useRoleMutations(options: UseRoleMutationsOptions = {}) {
   const create = useMutation({
     mutationFn: createRole,
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: roleKeys.all });
+      invalidateRelated(queryClient, 'roles');
       options.onCreateSuccess?.(data);
     },
     onError: options.onError,
@@ -65,9 +66,8 @@ export function useRoleMutations(options: UseRoleMutationsOptions = {}) {
   const update = useMutation({
     mutationFn: ({ systemId, data }: { systemId: string; data: Partial<RoleSetting> }) => 
       updateRole(systemId, data),
-    onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: roleKeys.detail(variables.systemId) });
-      queryClient.invalidateQueries({ queryKey: roleKeys.lists() });
+    onSuccess: (data) => {
+      invalidateRelated(queryClient, 'roles');
       options.onUpdateSuccess?.(data);
     },
     onError: options.onError,
@@ -76,7 +76,7 @@ export function useRoleMutations(options: UseRoleMutationsOptions = {}) {
   const remove = useMutation({
     mutationFn: deleteRole,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: roleKeys.all });
+      invalidateRelated(queryClient, 'roles');
       options.onDeleteSuccess?.();
     },
     onError: options.onError,

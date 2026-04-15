@@ -23,7 +23,7 @@ import {
 import { JobTitleForm, type JobTitleFormValues } from "./job-title-form"
 import type { JobTitle } from '@/lib/types/prisma-extended'
 import { Button } from "../../../components/ui/button"
-import { PlusCircle } from "lucide-react"
+import { PlusCircle, Loader2 } from "lucide-react"
 import { simpleSearch } from "@/lib/simple-search"
 import { asBusinessId, type SystemId } from "@/lib/id-types"
 import { Input } from "../../../components/ui/input"
@@ -50,8 +50,8 @@ export function JobTitlesPageContent() {
   
   const [globalFilter, setGlobalFilter] = React.useState('');
 
-  const handleDelete = React.useCallback((systemId: SystemId) => {
-    setIdToDelete(systemId)
+  const handleDelete = React.useCallback((systemId: string) => {
+    setIdToDelete(systemId as SystemId)
     setIsAlertOpen(true)
   }, [])
 
@@ -60,7 +60,14 @@ export function JobTitlesPageContent() {
     setIsFormOpen(true)
   }, [])
 
-  const columns = React.useMemo(() => getColumns(handleDelete, handleEdit), [handleDelete, handleEdit]);
+  const handleToggleActive = React.useCallback((jobTitle: JobTitle) => {
+    update.mutate({
+      systemId: jobTitle.systemId,
+      data: { isActive: !jobTitle.isActive }
+    })
+  }, [update])
+
+  const columns = React.useMemo(() => getColumns(handleDelete, handleEdit, handleToggleActive), [handleDelete, handleEdit, handleToggleActive]);
   
   const searchedData = React.useMemo(() => 
     simpleSearch(jobTitles, globalFilter, { keys: ['id', 'name', 'description'] }), 
@@ -189,7 +196,7 @@ export function JobTitlesPageContent() {
           <AlertDialogFooter>
             <AlertDialogCancel>Hủy</AlertDialogCancel>
             <AlertDialogAction onClick={confirmDelete} disabled={remove.isPending}>
-              {remove.isPending ? 'Đang xóa...' : 'Tiếp tục'}
+              {remove.isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Đang xóa...</> : 'Tiếp tục'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -203,7 +210,10 @@ export function JobTitlesPageContent() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Hủy</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmBulkDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Xóa tất cả</AlertDialogAction>
+            <AlertDialogAction onClick={confirmBulkDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={remove.isPending}>
+              {remove.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Xóa tất cả
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -218,6 +228,7 @@ export function JobTitlesPageContent() {
               initialData={editingJobTitle} 
               onSubmit={handleSubmit} 
               onCancel={handleCancel}
+              isPending={create.isPending || update.isPending}
             />
           </DialogContent>
       </Dialog>

@@ -14,9 +14,10 @@ export interface PaymentsParams {
   limit?: number;
   search?: string;
   status?: PaymentStatus;
-  category?: PaymentCategory;
+  category?: PaymentCategory | string; // Allow comma-separated categories for API filtering
   recipientTypeSystemId?: string;
   recipientSystemId?: string;
+  supplierId?: string; // ✅ Filter for supplier detail page
   branchId?: string;
   accountId?: string;
   startDate?: string;
@@ -27,6 +28,8 @@ export interface PaymentsParams {
   linkedOrderSystemId?: string;
   linkedSalesReturnSystemId?: string;
   customerSystemId?: string;
+  customerMatchBroad?: boolean;
+  customerName?: string;
   // ✅ Filter for purchase order detail page
   purchaseOrderSystemId?: string;
   // ✅ Filter for warranty detail page
@@ -47,13 +50,14 @@ export interface PaymentsResponse {
 export async function fetchPayments(params: PaymentsParams = {}): Promise<PaymentsResponse> {
   const searchParams = new URLSearchParams();
   
-  if (params.page) searchParams.set('page', String(params.page));
-  if (params.limit) searchParams.set('limit', String(params.limit));
+  if (params.page != null) searchParams.set('page', String(params.page));
+  if (params.limit != null) searchParams.set('limit', String(params.limit));
   if (params.search) searchParams.set('search', params.search);
   if (params.status) searchParams.set('status', params.status);
   if (params.category) searchParams.set('category', params.category);
   if (params.recipientTypeSystemId) searchParams.set('recipientTypeSystemId', params.recipientTypeSystemId);
   if (params.recipientSystemId) searchParams.set('recipientSystemId', params.recipientSystemId);
+  if (params.supplierId) searchParams.set('supplierId', params.supplierId);
   if (params.branchId) searchParams.set('branchId', params.branchId);
   if (params.accountId) searchParams.set('accountId', params.accountId);
   if (params.startDate) searchParams.set('startDate', params.startDate);
@@ -64,6 +68,8 @@ export async function fetchPayments(params: PaymentsParams = {}): Promise<Paymen
   if (params.linkedOrderSystemId) searchParams.set('linkedOrderSystemId', params.linkedOrderSystemId);
   if (params.linkedSalesReturnSystemId) searchParams.set('linkedSalesReturnSystemId', params.linkedSalesReturnSystemId);
   if (params.customerSystemId) searchParams.set('customerSystemId', params.customerSystemId);
+  if (params.customerMatchBroad) searchParams.set('customerMatchBroad', 'true');
+  if (params.customerName) searchParams.set('customerName', params.customerName);
   // ✅ Filter for purchase order detail page
   if (params.purchaseOrderSystemId) searchParams.set('purchaseOrderSystemId', params.purchaseOrderSystemId);
   // ✅ Filter for warranty detail page
@@ -84,61 +90,6 @@ export async function fetchPayment(systemId: SystemId): Promise<Payment> {
   
   if (!response.ok) {
     throw new Error(`Failed to fetch payment: ${response.statusText}`);
-  }
-  
-  return response.json();
-}
-
-export async function createPayment(data: Omit<Payment, 'systemId' | 'id' | 'createdAt' | 'updatedAt'>): Promise<Payment> {
-  const response = await fetch(BASE_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-  
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.message || 'Failed to create payment');
-  }
-  
-  return response.json();
-}
-
-export async function updatePayment(systemId: SystemId, data: Partial<Payment>): Promise<Payment> {
-  const response = await fetch(`${BASE_URL}/${systemId}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-  
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.message || 'Failed to update payment');
-  }
-  
-  return response.json();
-}
-
-export async function deletePayment(systemId: SystemId): Promise<void> {
-  const response = await fetch(`${BASE_URL}/${systemId}`, {
-    method: 'DELETE',
-  });
-  
-  if (!response.ok) {
-    throw new Error(`Failed to delete payment: ${response.statusText}`);
-  }
-}
-
-export async function cancelPayment(systemId: SystemId, reason?: string): Promise<Payment> {
-  const response = await fetch(`${BASE_URL}/${systemId}/cancel`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ reason }),
-  });
-  
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.message || 'Failed to cancel payment');
   }
   
   return response.json();

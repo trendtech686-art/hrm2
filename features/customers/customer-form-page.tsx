@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useCustomer, useCustomerMutations } from './hooks/use-customers';
+import { useCustomerStats } from './hooks/use-customer-stats';
 import { CustomerForm, type CustomerFormSubmitPayload } from './customer-form';
 import { usePageHeader } from '../../contexts/page-header-context';
 import {
@@ -14,7 +15,9 @@ import {
 } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Skeleton } from '../../components/ui/skeleton';
+import { Loader2 } from 'lucide-react';
 import type { Customer } from '@/lib/types/prisma-extended';
+import { logError } from '@/lib/logger'
 
 export function CustomerFormPage() {
   const { systemId } = useParams<{ systemId: string }>();
@@ -22,20 +25,20 @@ export function CustomerFormPage() {
   
   // React Query hooks
   const { data: customer, isLoading } = useCustomer(systemId);
-  const { create, update } = useCustomerMutations({
-    onCreateSuccess: () => router.push('/customers'),
-    onUpdateSuccess: () => router.push(`/customers/${systemId}`),
-  });
+  const { data: customerStats } = useCustomerStats(systemId);
+  const { create, update, isCreating, isUpdating } = useCustomerMutations();
 
   const isEditMode = !!customer;
+  const [isSaving, setIsSaving] = React.useState(false);
+  const isBusy = isSaving || isCreating || isUpdating;
 
   const handleSubmit = async (values: CustomerFormSubmitPayload) => {
+    setIsSaving(true);
     try {
       if (customer) {
         await update.mutateAsync({
           systemId: customer.systemId,
           ...values,
-          email: values.email ?? customer.email,
           phone: values.phone ?? customer.phone ?? "",
         });
       } else {
@@ -43,7 +46,7 @@ export function CustomerFormPage() {
         await create.mutateAsync({
           ...values,
           id: values.id,
-          status: 'Đang giao dịch',
+          status: 'ACTIVE' as Customer['status'],
           createdAt,
           totalOrders: 0,
           totalSpent: 0,
@@ -52,8 +55,10 @@ export function CustomerFormPage() {
         } as Omit<Customer, 'systemId'>);
       }
     } catch (error) {
-      console.error('[CustomerFormPage] Error in handleSubmit:', error);
+      logError('[CustomerFormPage] Error in handleSubmit', error);
       throw error; // Re-throw to let customer-form.tsx handle it
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -69,10 +74,24 @@ export function CustomerFormPage() {
     router.push('/customers');
   }, [router]);
 
+  const handleSaveClick = React.useCallback(() => {
+    const form = document.getElementById('customer-form') as HTMLFormElement | null;
+    if (form) {
+      form.requestSubmit();
+    }
+  }, []);
+
   const headerActions = React.useMemo(() => [
-    <Button key="cancel" type="button" variant="outline" className="h-9" onClick={handleCancel}>Hủy</Button>,
-    <Button key="save" type="submit" form="customer-form" className="h-9">Lưu</Button>
-  ], [handleCancel]);
+    <Button key="cancel" type="button" variant="outline" className="h-9" onClick={handleCancel} disabled={isBusy}>Hủy</Button>,
+    <Button key="save" type="button" className="h-9" onClick={handleSaveClick} disabled={isBusy}>
+      {isBusy ? (
+        <>
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          Đang lưu...
+        </>
+      ) : 'Lưu'}
+    </Button>
+  ], [handleCancel, handleSaveClick, isBusy]);
 
   usePageHeader({
     title: isEditMode ? `Chỉnh sửa ${customer?.name}` : 'Thêm khách hàng mới',
@@ -109,7 +128,11 @@ export function CustomerFormPage() {
     <Card>
       <CardContent className="pt-6">
         <CustomerForm 
-            initialData={customer ?? null} 
+            initialData={customer ? {
+              ...customer,
+              // Use calculated debt from stats API instead of stored value
+              currentDebt: customerStats?.financial?.currentDebt ?? customer.currentDebt,
+            } : null} 
             onSubmit={handleSubmit}
             onCancel={handleCancel}
             onSuccess={handleSuccess}

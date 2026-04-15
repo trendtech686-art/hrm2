@@ -14,6 +14,7 @@ import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '../../../c
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../../components/ui/dropdown-menu';
 import { ScrollArea } from '../../../components/ui/scroll-area'
 import { ToggleGroup, ToggleGroupItem } from '../../../components/ui/toggle-group';
+import { SettingsHistoryContent } from '../../../components/settings/SettingsHistoryContent';
 
 import { PreviewCards } from '../previews/cards'
 import { PreviewDashboard } from '../previews/dashboard'
@@ -91,10 +92,6 @@ export function AppearancePage() {
     }, [savedTheme, savedFontSize, savedCustomThemeConfig, savedColorMode]);
     
     // Store actions - only called on Save
-    const _setTheme = useAppearanceStore(s => s.setTheme);
-    const _setFontSize = useAppearanceStore(s => s.setFontSize);
-    const _setColorMode = useAppearanceStore(s => s.setColorMode);
-    const _setCustomThemeConfig = useAppearanceStore(s => s.setCustomThemeConfig);
     const updateAppearance = useAppearanceStore(s => s.updateAppearance);
     
     // Preview panel state (UI only)
@@ -165,6 +162,8 @@ export function AppearancePage() {
     }, [localCustomThemeConfig]);
     
     return (
+        <div className="h-full flex flex-col">
+        <div className="flex-1 min-h-0">
         <div className="h-full flex flex-col">
             <div className="shrink-0 p-4 border-b bg-card space-y-4">
                 <div className="flex items-center justify-between gap-4">
@@ -260,6 +259,12 @@ export function AppearancePage() {
                     </div>
                 </ResizablePanel>
             </ResizablePanelGroup>
+        </div>
+        </div>
+
+            <div className="mt-6">
+                <SettingsHistoryContent entityTypes={['appearance']} />
+            </div>
         </div>
     )
 }

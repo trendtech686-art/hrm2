@@ -15,8 +15,9 @@ import { Combobox } from '@/components/ui/combobox';
 import { DatePicker } from '@/components/ui/date-picker';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import { ComboSection } from '../components/combo-section';
+import { PriceCalculatorDialog } from './PriceCalculatorDialog';
 import type { ProductFormCompleteValues, ComboboxOption } from './types';
-import type { PricingPolicy } from '@/lib/types/prisma-extended';
+import type { PricingPolicy, Tax } from '@/lib/types/prisma-extended';
 
 interface BasicInfoTabProps {
   unitOptions: ComboboxOption[];
@@ -25,6 +26,7 @@ interface BasicInfoTabProps {
   categoryOptions: ComboboxOption[];
   supplierOptions: ComboboxOption[];
   salesPolicies: PricingPolicy[];
+  taxes: Tax[];
   isComboProduct: boolean;
   tags: string[];
   setTags: React.Dispatch<React.SetStateAction<string[]>>;
@@ -39,6 +41,7 @@ export function BasicInfoTab({
   categoryOptions,
   supplierOptions,
   salesPolicies,
+  taxes,
   isComboProduct,
   tags,
   setTags,
@@ -51,6 +54,20 @@ export function BasicInfoTab({
     control: form.control,
     name: 'comboItems',
   });
+
+  const costPrice = useWatch({
+    control: form.control,
+    name: 'costPrice',
+  }) ?? 0;
+
+  const handlePriceCalculatorApply = React.useCallback(
+    (prices: Record<string, number>) => {
+      for (const [policyId, price] of Object.entries(prices)) {
+        form.setValue(`prices.${policyId}`, price, { shouldDirty: true });
+      }
+    },
+    [form]
+  );
 
   const handleAddTag = () => {
     const trimmedTag = tagInput.trim();
@@ -299,7 +316,7 @@ export function BasicInfoTab({
           </div>
 
           <div className="space-y-2">
-            <label className="text-body-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+            <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
               Tags
             </label>
             <div className="flex gap-2">
@@ -524,7 +541,7 @@ export function BasicInfoTab({
           <div className="flex items-center justify-between">
             <CardTitle size="lg">Giá mua &amp; Giá vốn</CardTitle>
             {isComboProduct && comboItems && comboItems.length > 0 && (
-              <Badge variant="secondary" className="text-body-xs">
+              <Badge variant="secondary" className="text-xs">
                 <Info className="h-3 w-3 mr-1" />
                 Tự động tính từ combo
               </Badge>
@@ -614,17 +631,27 @@ export function BasicInfoTab({
         <CardHeader className="pb-4">
           <div className="flex items-center justify-between">
             <CardTitle size="lg">Bảng giá bán theo chính sách</CardTitle>
-            {isComboProduct && comboItems && comboItems.length > 0 && (
-              <Badge variant="secondary" className="text-body-xs">
-                <Info className="h-3 w-3 mr-1" />
-                Tự động từ giá combo
-              </Badge>
-            )}
+            <div className="flex items-center gap-2">
+              {taxes.length > 0 && salesPolicies.length > 0 && (
+                <PriceCalculatorDialog
+                  costPrice={costPrice}
+                  salesPolicies={salesPolicies}
+                  taxes={taxes}
+                  onApply={handlePriceCalculatorApply}
+                />
+              )}
+              {isComboProduct && comboItems && comboItems.length > 0 && (
+                <Badge variant="secondary" className="text-xs">
+                  <Info className="h-3 w-3 mr-1" />
+                  Tự động từ giá combo
+                </Badge>
+              )}
+            </div>
           </div>
         </CardHeader>
         <CardContent>
           {isComboProduct && comboItems && comboItems.length > 0 && (
-            <p className="text-body-sm text-muted-foreground mb-4">
+            <p className="text-sm text-muted-foreground mb-4">
               Giá bán được tự động tính từ giá combo. Bạn có thể điều chỉnh thủ công nếu cần.
             </p>
           )}
@@ -639,7 +666,7 @@ export function BasicInfoTab({
                     <FormLabel>
                       {policy.name}
                       {policy.isDefault && (
-                        <span className="text-body-xs text-muted-foreground ml-2">
+                        <span className="text-xs text-muted-foreground ml-2">
                           (Mặc định)
                         </span>
                       )}
@@ -658,7 +685,7 @@ export function BasicInfoTab({
             ))}
           </div>
           {salesPolicies.length === 0 && (
-            <p className="text-body-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               Chưa có chính sách giá bán. Vui lòng thêm trong Cài đặt.
             </p>
           )}

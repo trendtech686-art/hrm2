@@ -4,16 +4,19 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { fetchAllPages } from '@/lib/fetch-all-pages';
 import { fetchUnits } from '../api/units-api';
 import { unitKeys } from './use-units';
 
-export function useAllUnits() {
+export function useAllUnits(options?: { enabled?: boolean }) {
   const query = useQuery({
     queryKey: [...unitKeys.all, 'all'],
-    queryFn: () => fetchAllPages((p) => fetchUnits(p)),
+    queryFn: async () => {
+      const res = await fetchUnits();
+      return res.data;
+    },
     staleTime: 10 * 60 * 1000,
     gcTime: 60 * 60 * 1000,
+    enabled: options?.enabled ?? true,
   });
   
   return {

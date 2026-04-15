@@ -1,6 +1,9 @@
 import { prisma } from '@/lib/prisma';
 import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils';
 import { OrderStatus, DeliveryStatus, StockOutStatus } from '@/generated/prisma/client';
+import { logError } from '@/lib/logger'
+import { createNotification } from '@/lib/notifications'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 interface RouteParams {
   params: Promise<{ systemId: string; packagingId: string }>;
@@ -36,6 +39,11 @@ export async function POST(request: Request, { params }: RouteParams) {
       return apiError('Packaging does not belong to this order', 400);
     }
 
+    if (!packaging.order) {
+      return apiError('Packaging không thuộc đơn hàng nào', 400);
+    }
+    const order = packaging.order;
+
     // Transaction: cancel delivery
     const updatedOrder = await prisma.$transaction(async (tx) => {
       // Update packaging
@@ -45,19 +53,30 @@ export async function POST(request: Request, { params }: RouteParams) {
           cancelDate: new Date(),
           cancelReason: reason,
           status: 'CANCELLED',
+          deliveryStatus: DeliveryStatus.CANCELLED,
+        },
+      });
+
+      // Also update linked shipment status
+      await tx.shipment.updateMany({
+        where: { packagingSystemId: packagingId },
+        data: {
+          status: 'CANCELLED',
+          deliveryStatus: 'CANCELLED',
+          cancelledAt: new Date(),
         },
       });
 
       // Restock items if requested - update ProductInventory
-      if (restockItems && packaging.order.lineItems.length > 0) {
-        for (const item of packaging.order.lineItems) {
+      if (restockItems && order.lineItems.length > 0) {
+        for (const item of order.lineItems) {
           if (!item.productId) continue;
           
           const inventory = await tx.productInventory.findUnique({
             where: {
               productId_branchId: {
                 productId: item.productId,
-                branchId: packaging.order.branchId,
+                branchId: order.branchId,
               },
             },
           });
@@ -68,7 +87,7 @@ export async function POST(request: Request, { params }: RouteParams) {
             where: {
               productId_branchId: {
                 productId: item.productId,
-                branchId: packaging.order.branchId,
+                branchId: order.branchId,
               },
             },
             update: {
@@ -79,7 +98,7 @@ export async function POST(request: Request, { params }: RouteParams) {
             },
             create: {
               productId: item.productId,
-              branchId: packaging.order.branchId,
+              branchId: order.branchId,
               onHand: item.quantity,
               committed: 0,
               inTransit: 0,
@@ -91,12 +110,12 @@ export async function POST(request: Request, { params }: RouteParams) {
           await tx.stockHistory.create({
             data: {
               productId: item.productId,
-              branchId: packaging.order.branchId,
+              branchId: order.branchId,
               action: 'Nhập kho hủy giao hàng',
               source: 'Đơn hàng',
               quantityChange: item.quantity,
               newStockLevel: newOnHand,
-              documentId: packaging.order.id,
+              documentId: order.id,
               documentType: 'order',
               employeeId: session.user?.id,
               employeeName: session.user?.name || undefined,
@@ -191,9 +210,32 @@ export async function POST(request: Request, { params }: RouteParams) {
       return updated;
     });
 
+    // Log activity
+    await createActivityLog({
+      entityType: 'order',
+      entityId: systemId,
+      action: `Hủy giao hàng - ${updatedOrder.id || systemId}${reason ? ` - Lý do: ${reason}` : ''}`,
+      actionType: 'status',
+      createdBy: session.user?.employee?.fullName || session.user?.name || session.user?.id || undefined,
+    }).catch(e => logError('[Cancel Delivery] activity log failed', e));
+
+    // Notify salesperson about delivery cancellation
+    if (updatedOrder.salespersonId && updatedOrder.salespersonId !== session.user?.employeeId) {
+      createNotification({
+        type: 'order',
+        title: 'Hủy giao hàng',
+        message: `Giao hàng đơn ${updatedOrder.id || systemId} đã bị hủy${reason ? `: ${reason}` : ''}`,
+        link: `/orders/${systemId}`,
+        recipientId: updatedOrder.salespersonId,
+        senderId: session.user?.employeeId,
+        senderName: session.user?.name,
+        settingsKey: 'order:delivery',
+      }).catch(e => logError('[Cancel Delivery] notification failed', e));
+    }
+
     return apiSuccess(updatedOrder);
   } catch (error) {
-    console.error('Error cancelling delivery:', error);
+    logError('Error cancelling delivery', error);
     return apiError('Failed to cancel delivery', 500);
   }
 }

@@ -205,7 +205,6 @@ export const getOrderById = cache(async (systemId: string) => {
           systemId: true,
           name: true,
           phone: true,
-          email: true,
           address: true,
         },
       },
@@ -226,19 +225,9 @@ export const getOrderById = cache(async (systemId: string) => {
  * Get orders count by status - CACHED (30s)
  */
 export const getOrdersCountByStatus = unstable_cache(
-  async (branchId?: string) => {
-    const where = branchId ? { branchId } : {};
-    
-    const counts = await prisma.order.groupBy({
-      by: ['status'],
-      where,
-      _count: { status: true },
-    });
-
-    return counts.reduce((acc, item) => {
-      acc[item.status] = item._count.status;
-      return acc;
-    }, {} as Record<string, number>);
+  async (_branchId?: string) => {
+    // No longer used - stats API handles this now
+    return {} as Record<string, number>;
   },
   ['orders-count-by-status'],
   { revalidate: CACHE_TTL.SHORT, tags: [CACHE_TAGS.ORDERS] }
@@ -268,42 +257,61 @@ export const getRecentOrders = unstable_cache(
 );
 
 /**
- * Get order statistics - CACHED (1 min)
+ * Get order statistics - CACHED (30s)
+ * Returns workflow card data matching the stats API response
  */
 export const getOrderStats = unstable_cache(
-  async (branchId?: string, startDate?: Date, endDate?: Date) => {
-    const where: Record<string, unknown> = {};
-    
-    if (branchId) {
-      where.branchId = branchId;
-    }
-    
-    if (startDate || endDate) {
-      where.orderDate = {};
-      if (startDate) (where.orderDate as Record<string, unknown>).gte = startDate;
-      if (endDate) (where.orderDate as Record<string, unknown>).lte = endDate;
-    }
+  async () => {
+    const { OrderStatus, DeliveryStatus, PaymentStatus } = await import('@/generated/prisma/client');
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    const activeWhere = {
+      status: { notIn: [OrderStatus.CANCELLED, OrderStatus.COMPLETED] },
+    };
 
-    const [totalOrders, pendingOrders, todayOrders, totalRevenue] = await Promise.all([
-      prisma.order.count({ where }),
-      prisma.order.count({ where: { ...where, status: 'PENDING' } }),
-      prisma.order.count({ where: { ...where, status: 'COMPLETED', completedDate: { gte: today, lt: tomorrow } } }),
-      prisma.order.aggregate({
-        where: { ...where, status: { not: 'CANCELLED' } },
-        _sum: { grandTotal: true },
-      }),
+    const [
+      statusCounts,
+      pendingApproval,
+      pendingPayment,
+      pendingPack,
+      pendingPickup,
+      shipping,
+      packed,
+      rescheduled,
+      pendingReturn,
+      pendingCod,
+    ] = await Promise.all([
+      prisma.order.groupBy({ by: ['status'], _count: { _all: true } }),
+      prisma.order.aggregate({ where: { status: OrderStatus.PENDING }, _count: { _all: true }, _sum: { grandTotal: true } }),
+      prisma.order.aggregate({ where: { ...activeWhere, paymentStatus: PaymentStatus.UNPAID }, _count: { _all: true }, _sum: { grandTotal: true } }),
+      prisma.order.aggregate({ where: { ...activeWhere, status: { notIn: [OrderStatus.CANCELLED, OrderStatus.COMPLETED, OrderStatus.PENDING] }, deliveryStatus: DeliveryStatus.PENDING_PACK }, _count: { _all: true }, _sum: { grandTotal: true } }),
+      prisma.order.aggregate({ where: { ...activeWhere, deliveryStatus: DeliveryStatus.PENDING_SHIP }, _count: { _all: true }, _sum: { grandTotal: true } }),
+      prisma.order.aggregate({ where: { ...activeWhere, deliveryStatus: DeliveryStatus.SHIPPING }, _count: { _all: true }, _sum: { grandTotal: true } }),
+      prisma.order.aggregate({ where: { ...activeWhere, deliveryStatus: DeliveryStatus.PACKED }, _count: { _all: true }, _sum: { grandTotal: true } }),
+      prisma.order.aggregate({ where: { ...activeWhere, deliveryStatus: DeliveryStatus.RESCHEDULED }, _count: { _all: true }, _sum: { grandTotal: true } }),
+      prisma.order.aggregate({ where: { ...activeWhere, returnStatus: { in: ['PARTIAL_RETURN', 'FULL_RETURN'] } }, _count: { _all: true }, _sum: { grandTotal: true } }),
+      prisma.order.aggregate({ where: { deliveryStatus: DeliveryStatus.DELIVERED, codAmount: { gt: 0 }, paymentStatus: { not: PaymentStatus.PAID } }, _count: { _all: true }, _sum: { codAmount: true } }),
     ]);
 
+    const { ORDER_STATUS_LABELS } = await import('@/lib/constants/order-enums');
+    const countByStatus: Record<string, number> = {};
+    for (const item of statusCounts) {
+      const label = ORDER_STATUS_LABELS[item.status] || item.status;
+      countByStatus[label] = (countByStatus[label] || 0) + item._count._all;
+    }
+
     return {
-      totalOrders,
-      pendingOrders,
-      todayOrders,
-      totalRevenue: Number(totalRevenue._sum?.grandTotal || 0),
+      countByStatus,
+      workflowCards: {
+        pendingApproval:  { count: pendingApproval._count._all,  amount: Number(pendingApproval._sum.grandTotal ?? 0) },
+        pendingPayment:   { count: pendingPayment._count._all,   amount: Number(pendingPayment._sum.grandTotal ?? 0) },
+        pendingPack:      { count: pendingPack._count._all,      amount: Number(pendingPack._sum.grandTotal ?? 0) },
+        pendingPickup:    { count: pendingPickup._count._all,    amount: Number(pendingPickup._sum.grandTotal ?? 0) },
+        shipping:         { count: shipping._count._all,         amount: Number(shipping._sum.grandTotal ?? 0) },
+        packed:           { count: packed._count._all,           amount: Number(packed._sum.grandTotal ?? 0) },
+        rescheduled:      { count: rescheduled._count._all,      amount: Number(rescheduled._sum.grandTotal ?? 0) },
+        pendingReturn:    { count: pendingReturn._count._all,    amount: Number(pendingReturn._sum.grandTotal ?? 0) },
+        pendingCod:       { count: pendingCod._count._all,       amount: Number(pendingCod._sum.codAmount ?? 0) },
+      },
     };
   },
   ['order-stats'],

@@ -1,4 +1,5 @@
 import * as React from 'react';
+import Image from 'next/image';
 import { Card } from './card';
 import { Button } from './button';
 import { toast } from 'sonner';
@@ -7,6 +8,8 @@ import { FileUploadAPI } from '../../lib/file-upload-api';
 import type { StagingFile } from '../../lib/file-upload-api';
 import { useLazyImage } from '../../hooks/use-lazy-image';
 import { ImagePreviewDialog } from './image-preview-dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from './dialog';
+import { logError } from '@/lib/logger'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -125,7 +128,7 @@ export function ExistingDocumentsViewer({
         id: deleteToastId
       });
     } catch (error) {
-      console.error('Failed to delete file:', error);
+      logError('Failed to delete file', error);
       toast.error('❌ Không thể xóa file', {
         description: error instanceof Error ? error.message : 'Vui lòng thử lại',
         id: deleteToastId
@@ -142,17 +145,22 @@ export function ExistingDocumentsViewer({
     [files]
   );
   
-  const handlePreview = React.useCallback((file: StagingFile) => {
-    if (file.type === 'application/pdf') {
-      window.open(file.url, '_blank');
-      return;
-    }
+  // Non-image file preview state
+  const [nonImagePreviewFile, setNonImagePreviewFile] = React.useState<StagingFile | null>(null);
 
-    // Find the index of this file in imageFiles
-    const index = imageFiles.findIndex(f => f.id === file.id);
-    if (index >= 0) {
-      setPreviewIndex(index);
-      setPreviewOpen(true);
+  const handlePreview = React.useCallback((file: StagingFile) => {
+    const isImage = file.type && typeof file.type === 'string' && file.type.startsWith('image/');
+    
+    if (isImage) {
+      // Find the index of this file in imageFiles
+      const index = imageFiles.findIndex(f => f.id === file.id);
+      if (index >= 0) {
+        setPreviewIndex(index);
+        setPreviewOpen(true);
+      }
+    } else {
+      // Use FilePreviewDialog for PDFs, office docs, etc.
+      setNonImagePreviewFile(file);
     }
   }, [imageFiles]);
 
@@ -175,7 +183,7 @@ export function ExistingDocumentsViewer({
 
       toast.success('✓ Đã tải xuống file');
     } catch (error) {
-      console.error('Download failed:', error);
+      logError('Download failed', error);
       toast.error('❌ Không thể tải file');
     }
   }, []);
@@ -263,6 +271,81 @@ export function ExistingDocumentsViewer({
         onOpenChange={setPreviewOpen}
         title="Xem ảnh"
       />
+
+      {/* Non-image File Preview Dialog */}
+      <Dialog open={!!nonImagePreviewFile} onOpenChange={(open) => { if (!open) setNonImagePreviewFile(null); }}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <div className="flex items-center justify-between">
+              <DialogTitle className="text-lg">
+                {nonImagePreviewFile?.originalName || nonImagePreviewFile?.name || 'Xem trước tài liệu'}
+              </DialogTitle>
+              {nonImagePreviewFile && (
+                <Button variant="outline" size="sm" onClick={() => handleDownload(nonImagePreviewFile)}>
+                  <Download className="mr-2 h-4 w-4" />
+                  Tải xuống
+                </Button>
+              )}
+            </div>
+          </DialogHeader>
+          {nonImagePreviewFile && (() => {
+            const ext = (nonImagePreviewFile.originalName || nonImagePreviewFile.name || '').split('.').pop()?.toLowerCase();
+            const isPdf = nonImagePreviewFile.type === 'application/pdf' || ext === 'pdf';
+            const isOffice = ['xlsx', 'xls', 'csv', 'doc', 'docx', 'ppt', 'pptx'].includes(ext || '');
+            
+            if (isPdf) {
+              return (
+                <div className="w-full h-[75vh] border border-border rounded-lg overflow-hidden bg-gray-50 mt-2">
+                  <iframe src={nonImagePreviewFile.url} className="w-full h-full" title={nonImagePreviewFile.name} />
+                </div>
+              );
+            }
+            if (isOffice) {
+              // Office Online can't access localhost URLs
+              const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+              if (isLocalhost) {
+                const fileTypeName = ext === 'xlsx' || ext === 'xls' ? 'Excel' : 
+                                    ext === 'doc' || ext === 'docx' ? 'Word' : 
+                                    ext === 'ppt' || ext === 'pptx' ? 'PowerPoint' : 'Office';
+                return (
+                  <div className="w-full h-64 flex flex-col items-center justify-center gap-4 bg-muted/30 rounded-lg border-2 border-dashed border-border mt-2">
+                    <File className="h-12 w-12 text-muted-foreground" />
+                    <div className="text-center">
+                      <p className="text-sm font-medium">{nonImagePreviewFile.originalName || nonImagePreviewFile.name}</p>
+                      <p className="text-xs text-muted-foreground mt-2">File {fileTypeName} không thể xem trước trên môi trường localhost.</p>
+                      <p className="text-xs text-muted-foreground">Vui lòng tải xuống để xem nội dung.</p>
+                    </div>
+                    <Button size="sm" onClick={() => handleDownload(nonImagePreviewFile)}>
+                      <Download className="mr-2 h-4 w-4" />
+                      Tải xuống để xem
+                    </Button>
+                  </div>
+                );
+              }
+              return (
+                <div className="w-full h-[75vh] border border-border rounded-lg overflow-hidden mt-2">
+                  <iframe
+                    src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(window.location.origin + nonImagePreviewFile.url)}`}
+                    className="w-full h-full"
+                    title={nonImagePreviewFile.name}
+                  />
+                </div>
+              );
+            }
+            return (
+              <div className="w-full h-64 flex flex-col items-center justify-center gap-4 bg-muted/30 rounded-lg border-2 border-dashed border-border mt-2">
+                <File className="h-12 w-12 text-muted-foreground" />
+                <p className="text-sm font-medium">{nonImagePreviewFile.originalName || nonImagePreviewFile.name}</p>
+                <p className="text-xs text-muted-foreground">Không thể xem trước loại file này</p>
+                <Button size="sm" onClick={() => handleDownload(nonImagePreviewFile)}>
+                  <Download className="mr-2 h-4 w-4" />
+                  Tải xuống để xem
+                </Button>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -302,20 +385,24 @@ function LazyFileCard({
   const isImage = file.type && typeof file.type === 'string' && file.type.startsWith('image/');
   const previewUrl = file.url;
 
-  const handleImageRetry = (event: React.SyntheticEvent<HTMLImageElement>) => {
-    const img = event.currentTarget;
-    const attempts = Number(img.dataset.retryCount || '0');
-    if (attempts >= 4) {
-      return;
-    }
-    const nextAttempts = attempts + 1;
-    img.dataset.retryCount = String(nextAttempts);
-    const delay = nextAttempts * 400;
+  // React-state based retry (replaces DOM mutation pattern)
+  const [retryCount, setRetryCount] = React.useState(0);
+  const computedSrc = React.useMemo(() => {
+    if (retryCount === 0) return previewUrl;
+    const separator = previewUrl.includes('?') ? '&' : '?';
+    return `${previewUrl}${separator}retry=${Date.now()}-${retryCount}`;
+  }, [previewUrl, retryCount]);
+
+  const handleImageRetry = React.useCallback(() => {
+    if (retryCount >= 4) return;
+    const delay = (retryCount + 1) * 400;
     setTimeout(() => {
-      const separator = previewUrl.includes('?') ? '&' : '?';
-      img.src = `${previewUrl}${separator}retry=${Date.now()}-${nextAttempts}`;
+      setRetryCount(prev => prev + 1);
     }, delay);
-  };
+  }, [retryCount]);
+
+  // Check if URL is optimizable by next/image
+  const isOptimizable = previewUrl.startsWith('/uploads/') || previewUrl.startsWith('/api/');
 
   return (
     <Card 
@@ -328,7 +415,7 @@ function LazyFileCard({
     >
       <div className="flex flex-col gap-1.5">
         {/* Thumbnail/Icon with Lazy Loading */}
-        <div className="w-full aspect-square rounded bg-muted flex items-center justify-center overflow-hidden">
+        <div className="relative w-full aspect-square rounded bg-muted flex items-center justify-center overflow-hidden">
           {isImage ? (
             isInView ? (
               <>
@@ -336,20 +423,41 @@ function LazyFileCard({
                 {!effectiveIsLoaded && (
                   <div className="absolute inset-0 animate-pulse bg-linear-to-r from-muted via-muted/50 to-muted" />
                 )}
-                <img
-                  src={previewUrl}
-                  alt={file.name}
-                  loading={skipLazyLoad ? "eager" : "lazy"}
-                  className={`w-full h-full object-cover cursor-pointer ${
-                    skipLazyLoad ? '' : `transition-opacity duration-300 ${effectiveIsLoaded ? 'opacity-100' : 'opacity-0'}`
-                  }`}
-                  onClick={() => onPreview(file)}
-                  onLoad={(e) => {
-                    e.currentTarget.dataset.retryCount = '0';
-                    setIsLoaded(true);
-                  }}
-                  onError={handleImageRetry}
-                />
+                {isOptimizable ? (
+                  <Image
+                    key={retryCount}
+                    src={previewUrl}
+                    alt={file.name}
+                    fill
+                    sizes="(max-width: 640px) 33vw, 150px"
+                    quality={75}
+                    className={`object-cover cursor-pointer ${
+                      skipLazyLoad ? '' : `transition-opacity duration-300 ${effectiveIsLoaded ? 'opacity-100' : 'opacity-0'}`
+                    }`}
+                    onClick={() => onPreview(file)}
+                    onLoad={() => {
+                      setRetryCount(0);
+                      setIsLoaded(true);
+                    }}
+                    onError={handleImageRetry}
+                    unoptimized
+                  />
+                ) : (
+                  <img
+                    src={computedSrc}
+                    alt={file.name}
+                    loading={skipLazyLoad ? "eager" : "lazy"}
+                    className={`w-full h-full object-cover cursor-pointer ${
+                      skipLazyLoad ? '' : `transition-opacity duration-300 ${effectiveIsLoaded ? 'opacity-100' : 'opacity-0'}`
+                    }`}
+                    onClick={() => onPreview(file)}
+                    onLoad={() => {
+                      setRetryCount(0);
+                      setIsLoaded(true);
+                    }}
+                    onError={handleImageRetry}
+                  />
+                )}
               </>
             ) : (
               // Placeholder before entering viewport
@@ -393,18 +501,16 @@ function LazyFileCard({
           >
             <Download className="h-3.5 w-3.5" />
           </Button>
-          {isImage && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="flex-1 h-7 px-1"
-              onClick={() => onPreview(file)}
-              title="Xem trước"
-            >
-              <Eye className="h-3.5 w-3.5" />
-            </Button>
-          )}
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="flex-1 h-7 px-1"
+            onClick={() => onPreview(file)}
+            title="Xem trước"
+          >
+            <Eye className="h-3.5 w-3.5" />
+          </Button>
           <Button
             type="button"
             variant="ghost"

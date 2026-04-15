@@ -3,6 +3,8 @@ import { Prisma } from '@/generated/prisma/client'
 import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
 import { createJobTitleSchema } from './validation'
 import { generateNextIdsWithTx } from '@/lib/id-system'
+import { logError } from '@/lib/logger'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 // GET /api/job-titles - List all job titles
 export async function GET(request: Request) {
@@ -52,7 +54,7 @@ export async function GET(request: Request) {
 
     return apiPaginated(jobTitles, { page, limit, total })
   } catch (error) {
-    console.error('Error fetching job titles:', error)
+    logError('Error fetching job titles', error)
     return apiError('Failed to fetch job titles', 500)
   }
 }
@@ -87,12 +89,21 @@ export async function POST(request: Request) {
       });
     });
 
+    createActivityLog({
+      entityType: 'job_title',
+      entityId: jobTitle.systemId,
+      action: 'created',
+      actionType: 'create',
+      metadata: { name: jobTitle.name, businessId: jobTitle.id },
+      createdBy: session.user?.employee?.fullName || session.user?.email || 'System',
+    })
+
     return apiSuccess(jobTitle, 201)
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
       return apiError('Mã chức danh đã tồn tại', 400)
     }
-    console.error('Error creating job title:', error)
+    logError('Error creating job title', error)
     return apiError('Failed to create job title', 500)
   }
 }

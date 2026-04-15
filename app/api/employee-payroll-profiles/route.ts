@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma'
 import type { Prisma } from '@/generated/prisma/client'
 import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
 import { generateIdWithPrefix } from '@/lib/id-generator'
+import { logError } from '@/lib/logger'
 
 const SETTING_KEY = 'employee-payroll-profiles'
 const SETTING_GROUP = 'hrm'
@@ -39,7 +40,7 @@ export async function GET(request: Request) {
 
     return apiSuccess({ data: profiles })
   } catch (error) {
-    console.error('Error fetching payroll profiles:', error)
+    logError('Error fetching payroll profiles', error)
     return apiError('Failed to fetch payroll profiles', 500)
   }
 }
@@ -94,7 +95,7 @@ export async function POST(request: Request) {
 
     return apiSuccess({ data: body })
   } catch (error) {
-    console.error('Error creating payroll profile:', error)
+    logError('Error creating payroll profile', error)
     return apiError('Failed to create payroll profile', 500)
   }
 }

@@ -4,6 +4,7 @@
  */
 
 import { getBaseUrl } from '@/lib/api-config';
+import { logError } from '@/lib/logger'
 
 // ✅ Use local proxy server to avoid CORS
 const GHTK_BASE_URL = `${getBaseUrl()}/api/shipping/ghtk`;
@@ -127,6 +128,11 @@ export type GHTKCreateOrderParams = {
   totalWeight?: number | undefined; // Tổng khối lượng (theo weightOption)
   totalBox?: number | undefined; // ✅ Tổng số kiện hàng
   
+  // Kích thước kiện hàng (order-level, required for BBS)
+  height?: number | undefined; // cm
+  width?: number | undefined; // cm
+  length?: number | undefined; // cm
+  
   // Ngày giờ
   pickDate?: string | undefined; // YYYY/MM/DD (format: YYYY-MM-DD)
   deliverDate?: string | undefined; // YYYY/MM/DD
@@ -211,13 +217,6 @@ export class GHTKService {
     params: GHTKCreateOrderParams
   ): Promise<GHTKCreateOrderResponse> {
     
-    // ⚠️ GHTK limitation: Cannot create orders >= 20,000 gram (20kg)
-    const totalWeightGram = params.totalWeight || params.products.reduce((sum, p) => sum + (p.weight * p.quantity), 0);
-    
-    if (totalWeightGram >= 20000) {
-      throw new Error(`GHTK không hỗ trợ đơn hàng ≥20kg (${totalWeightGram}g). Vui lòng liên hệ GHTK để được hỗ trợ dịch vụ BBS cho hàng nặng.`);
-    }
-    
     // ✅ Call through proxy server
     
     const payload: Record<string, unknown> = {
@@ -264,11 +263,19 @@ export class GHTKService {
         weight: p.weight, // ✅ Already in GRAM from order-form-page
         quantity: p.quantity,
         product_code: p.productCode || 'DEFAULT',
-        price: p.price || 0, // ✅ Add price
+        price: p.price || 0,
+        // ✅ GHTK requires dimensions at product-level for BBS (>20kg)
+        // Values come from card "Kích thước" (package dimensions after packing)
+        ...(params.height ? { height: params.height } : {}),
+        ...(params.width ? { width: params.width } : {}),
+        ...(params.length ? { length: params.length } : {}),
       })),
-      total_weight: params.totalWeight, // ✅ Already in GRAM
+      total_weight: params.totalWeight, // ✅ Already in GRAM - from card "Khối lượng"
       weight_option: 'gram', // ✅ GHTK requires this
       total_box: params.totalBox, // ✅ Total number of boxes
+      ...(params.height ? { height: params.height } : {}), // cm - also at order-level
+      ...(params.width ? { width: params.width } : {}),
+      ...(params.length ? { length: params.length } : {}),
       value: params.value,
       transport: params.transport || 'road',
       pick_option: 'cod', // ✅ GHTK requires this
@@ -305,21 +312,31 @@ export class GHTKService {
     });
 
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      console.error('📡 [GHTKService] Error data:', errorData);
-      throw new Error(errorData.error || errorData.message || `GHTK API Error: ${response.status} ${response.statusText}`);
+    // Parse response body once
+    const responseText = await response.text();
+    let data: Record<string, unknown>;
+    try {
+      data = JSON.parse(responseText);
+    } catch {
+      logError('📡 [GHTKService] Invalid JSON response', null, { status: response.status, body: responseText.substring(0, 500) });
+      throw new Error('GHTK trả về dữ liệu không hợp lệ. Vui lòng thử lại.');
     }
 
-    const data = await response.json();
-    
-    // ✅ Handle GHTK error response (success: false)
-    if (!data.success) {
-      console.error('📡 [GHTKService.createOrder] API returned error:', data.message);
-      throw new Error(data.message || 'GHTK API returned error');
+    // Handle HTTP errors (proxy returns apiError format: { error, message })
+    if (!response.ok) {
+      const message = (data.error || data.message || `Lỗi GHTK: ${response.status}`) as string;
+      logError('📡 [GHTKService] API error', null, { status: response.status, message });
+      throw new Error(message);
     }
     
-    return data;
+    // Handle GHTK logical errors (success: false)
+    if (data.success === false) {
+      const message = (data.message || 'GHTK trả về lỗi không xác định') as string;
+      logError('[GHTKService.createOrder] GHTK returned error', null, { message });
+      throw new Error(message);
+    }
+    
+    return data as GHTKCreateOrderResponse;
   }
 
   /**

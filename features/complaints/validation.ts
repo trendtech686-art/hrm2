@@ -50,7 +50,7 @@ export const complaintPrioritySchema = z.enum([
  */
 export const complaintImageSchema = z.object({
   id: z.string(),
-  url: z.string().url('URL ảnh không hợp lệ'),
+  url: z.string().min(1, 'URL ảnh không được để trống'),
   uploadedBy: z.string(),
   uploadedAt: z.date(),
   description: z.string().optional(),
@@ -66,8 +66,9 @@ export const createComplaintSchema = z.object({
   orderSystemId: z.string().min(1, 'Vui lòng chọn đơn hàng'),
   type: complaintTypeSchema,
   description: z.string()
-    .min(10, 'Mô tả khiếu nại phải có ít nhất 10 ký tự')
-    .max(2000, 'Mô tả không được quá 2000 ký tự'),
+    .max(2000, 'Mô tả không được quá 2000 ký tự')
+    .optional()
+    .default(''),
   
   // Optional fields
   priority: complaintPrioritySchema.optional().default('MEDIUM'),

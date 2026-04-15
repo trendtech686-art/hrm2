@@ -1,4 +1,4 @@
-// ═══════════════════════════════════════════════════════════════
+﻿// ═══════════════════════════════════════════════════════════════
 // FILE UPLOAD UTILITIES
 // ═══════════════════════════════════════════════════════════════
 
@@ -7,6 +7,7 @@ import { existsSync } from 'fs'
 import path from 'path'
 import { v4 as uuidv4 } from 'uuid'
 import crypto from 'crypto'
+import { logError } from '@/lib/logger'
 
 // Base upload directory - use absolute path to avoid Turbopack pattern matching issues
 const UPLOAD_BASE = process.env.UPLOAD_DIR 
@@ -38,9 +39,9 @@ export type EntityType = keyof typeof UPLOAD_DIRS
 
 // Allowed file extensions
 export const ALLOWED_EXTENSIONS = {
-  IMAGE: ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'],
+  IMAGE: ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.heic', '.heif'],
   DOCUMENT: ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.txt', '.csv'],
-  ALL: ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.txt', '.csv'],
+  ALL: ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.heic', '.heif', '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.txt', '.csv'],
 }
 
 // Allowed MIME types
@@ -50,6 +51,8 @@ export const ALLOWED_IMAGE_TYPES = [
   'image/gif',
   'image/webp',
   'image/svg+xml',
+  'image/heic',
+  'image/heif',
 ]
 
 export const ALLOWED_DOCUMENT_TYPES = [
@@ -91,9 +94,24 @@ export function getDateBasedPath(date: Date = new Date()): string {
   return `${year}/${month}/${day}`
 }
 
+// Sanitize filename to prevent path traversal and dangerous characters
+export function sanitizeFileName(name: string): string {
+  // Extract only the base filename (remove any directory components)
+  const baseName = path.basename(name)
+  // Remove any remaining path separators and null bytes
+  return baseName.replace(/[\0/\\:*?"<>|]/g, '_')
+}
+
+// Validate file extension against allowed extensions
+export function validateExtension(filename: string, allowedExts: string[] = ALLOWED_EXTENSIONS.ALL): boolean {
+  const ext = path.extname(filename).toLowerCase()
+  return allowedExts.includes(ext)
+}
+
 // Generate unique filename
 export function generateFileName(originalName: string): string {
-  const ext = path.extname(originalName).toLowerCase()
+  const sanitized = sanitizeFileName(originalName)
+  const ext = path.extname(sanitized).toLowerCase()
   const timestamp = Date.now()
   const random = crypto.randomBytes(4).toString('hex')
   return `${timestamp}-${random}${ext}`
@@ -309,7 +327,7 @@ export async function saveUploadedFile(
     
     return { filename, relativePath, fullPath }
   } catch (error) {
-    console.error('Error saving uploaded file:', error)
+    logError('Error saving uploaded file', error)
     return null
   }
 }

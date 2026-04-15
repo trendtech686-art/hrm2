@@ -33,7 +33,7 @@ export function NotificationSettings() {
     setSettings(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const handleIntervalChange = (value: number[]) => {
+  const handleIntervalChange = (value: readonly number[]) => {
     setSettings(prev => ({ ...prev, checkInterval: value[0] }));
   };
 

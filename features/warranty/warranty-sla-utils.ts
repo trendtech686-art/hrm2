@@ -6,36 +6,20 @@
 
 import { WarrantyTicket } from './types';
 
-const _SLA_STORAGE_KEY = 'warranty-sla-targets';
+export type WarrantySLATargets = {
+  response: number;   // minutes
+  processing: number; // minutes
+  return: number;     // minutes
+};
 
 /**
  * Default SLA Targets (in minutes)
  */
-export const DEFAULT_WARRANTY_SLA_TARGETS = {
+export const DEFAULT_WARRANTY_SLA_TARGETS: WarrantySLATargets = {
   response: 2 * 60,      // 2 hours - Thời gian phản hồi
   processing: 24 * 60,   // 24 hours - Thời gian xử lý
   return: 48 * 60,       // 48 hours - Thời gian trả hàng
 };
-
-/**
- * Load SLA targets - deprecated, use useWarrantySLASettings hook instead
- * @deprecated Use useWarrantySLASettings hook from hooks/use-sla-notification-settings.ts
- */
-export function loadWarrantySLATargets() {
-  return DEFAULT_WARRANTY_SLA_TARGETS;
-}
-
-/**
- * Save SLA targets - deprecated, use useWarrantySLASettings hook instead
- * @deprecated Use useWarrantySLASettings hook from hooks/use-sla-notification-settings.ts
- */
-export function saveWarrantySLATargets(_targets: typeof DEFAULT_WARRANTY_SLA_TARGETS) {
-}
-
-/**
- * Current SLA Targets (loaded from localStorage or defaults)
- */
-export const WARRANTY_SLA_TARGETS = loadWarrantySLATargets();
 
 export interface WarrantyOverdueStatus {
   isOverdueResponse: boolean;
@@ -49,25 +33,28 @@ export interface WarrantyOverdueStatus {
 
 /**
  * Check if warranty ticket is overdue
+ * @param ticket - Warranty ticket to check
+ * @param slaTargets - Optional SLA targets from DB settings, defaults to DEFAULT_WARRANTY_SLA_TARGETS
  */
-export function checkWarrantyOverdue(ticket: WarrantyTicket): WarrantyOverdueStatus {
+export function checkWarrantyOverdue(ticket: WarrantyTicket, slaTargets?: WarrantySLATargets): WarrantyOverdueStatus {
+  const targets = slaTargets ?? DEFAULT_WARRANTY_SLA_TARGETS;
   const now = new Date();
   const createdAt = new Date(ticket.createdAt);
   const elapsedMinutes = Math.floor((now.getTime() - createdAt.getTime()) / (1000 * 60));
 
   // Response time: from created to first action (status changed to PROCESSING)
   const hasResponse = ticket.status !== 'RECEIVED';
-  const responseTimeLeft = WARRANTY_SLA_TARGETS.response - elapsedMinutes;
+  const responseTimeLeft = targets.response - elapsedMinutes;
   const isOverdueResponse = !hasResponse && responseTimeLeft < 0;
 
   // Processing time: from created to COMPLETED
   const hasProcessed = ticket.status === 'COMPLETED' || ticket.status === 'RETURNED';
-  const processingTimeLeft = WARRANTY_SLA_TARGETS.processing - elapsedMinutes;
+  const processingTimeLeft = targets.processing - elapsedMinutes;
   const isOverdueProcessing = !hasProcessed && processingTimeLeft < 0;
 
   // Return time: from created to RETURNED
   const hasReturned = ticket.status === 'RETURNED';
-  const returnTimeLeft = WARRANTY_SLA_TARGETS.return - elapsedMinutes;
+  const returnTimeLeft = targets.return - elapsedMinutes;
   const isOverdueReturn = !hasReturned && returnTimeLeft < 0;
 
   // Format most critical overdue duration

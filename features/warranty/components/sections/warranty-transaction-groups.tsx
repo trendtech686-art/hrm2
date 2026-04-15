@@ -1,5 +1,4 @@
 import * as React from 'react';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../../../../components/ui/accordion';
 import { Badge } from '../../../../components/ui/badge';
 import { CheckCircle } from 'lucide-react';
 import type { WarrantyTransactionGroup } from '../../types/transactions';
@@ -13,7 +12,6 @@ interface WarrantyTransactionGroupsProps {
 }
 
 export function WarrantyTransactionGroups({ groups, totalPayment, settlementMethods = [] }: WarrantyTransactionGroupsProps) {
-  // All hooks must be called before any early returns (React hooks rules)
   const methodByVoucherId = React.useMemo(() => {
     const map = new Map<string, SettlementMethod>();
     settlementMethods.forEach(method => {
@@ -48,53 +46,47 @@ export function WarrantyTransactionGroups({ groups, totalPayment, settlementMeth
         const transactionsLabel = `${group.summary.totalTransactions} giao dịch (${group.summary.paymentCount} phiếu chi • ${group.summary.receiptCount} phiếu thu)`;
 
         return (
-          <Accordion key={group.id} type="single" collapsible className="w-full">
-            <AccordionItem value={group.id} className="border rounded-lg px-4">
-              <AccordionTrigger className="hover:no-underline">
-                <div className="flex items-center gap-3 flex-1">
-                  <CheckCircle className="h-4 w-4 text-green-600" />
-                  <div className="text-left flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className={`font-medium ${group.allCancelled ? 'line-through text-muted-foreground' : ''}`}>
-                        Xử lý bảo hành - {group.performedBy} - {groupTime}
-                      </span>
-                      {group.allCancelled && (
-                        <Badge variant="secondary" className="text-xs">
-                          Đã hủy
-                        </Badge>
-                      )}
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-1">
-                      {transactionsLabel}
+          <div key={group.id} className="border rounded-lg px-4 py-3 space-y-3">
+            <div className="flex items-center gap-3">
+              <CheckCircle className="h-4 w-4 text-green-600 shrink-0" />
+              <div className="text-left flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className={`font-medium text-sm ${group.allCancelled ? 'line-through text-muted-foreground' : ''}`}>
+                    Xử lý bảo hành - {group.performedBy} - {groupTime}
+                  </span>
+                  {group.allCancelled && (
+                    <Badge variant="secondary" className="text-xs">
+                      Đã hủy
+                    </Badge>
+                  )}
+                </div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  {transactionsLabel}
+                  {' • '}
+                  {directionLabel}: {directionAmount.toLocaleString('vi-VN')} đ / {Math.abs(totalPayment).toLocaleString('vi-VN')} đ
+                  {group.allCancelled && group.cancelReason && (
+                    <>
                       {' • '}
-                      {directionLabel}: {directionAmount.toLocaleString('vi-VN')} đ / {Math.abs(totalPayment).toLocaleString('vi-VN')} đ
-                      {group.allCancelled && group.cancelReason && (
-                        <>
-                          {' • '}
-                          <span className="font-medium text-foreground">Lý do: {group.cancelReason}</span>
-                        </>
-                      )}
-                    </div>
-                  </div>
+                      <span className="font-medium text-foreground">Lý do: {group.cancelReason}</span>
+                    </>
+                  )}
                 </div>
-              </AccordionTrigger>
+              </div>
+            </div>
 
-              <AccordionContent>
-                <div className="space-y-3 pt-4">
-                  {sortedTransactions.map(transaction => {
-                    const relatedMethod = methodByVoucherId.get(transaction.systemId);
-                    return (
-                      <WarrantyTransactionItem
-                        key={transaction.systemId}
-                        transaction={transaction}
-                        settlementMethod={relatedMethod}
-                      />
-                    );
-                  })}
-                </div>
-              </AccordionContent>
-            </AccordionItem>
-          </Accordion>
+            <div className="space-y-3">
+              {sortedTransactions.map(transaction => {
+                const relatedMethod = methodByVoucherId.get(transaction.systemId);
+                return (
+                  <WarrantyTransactionItem
+                    key={transaction.systemId}
+                    transaction={transaction}
+                    settlementMethod={relatedMethod}
+                  />
+                );
+              })}
+            </div>
+          </div>
         );
       })}
     </div>

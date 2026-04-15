@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { Card } from './ui/card';
-import { Clock } from 'lucide-react';
+import { Clock, Zap, Timer, CalendarClock } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 interface TimeTrackerProps {
@@ -8,76 +8,151 @@ interface TimeTrackerProps {
   isRunning: boolean;
   totalSeconds: number;
   estimatedHours?: number | undefined;
+  startedAt?: string;
+  createdAt?: string;
 }
 
-/**
- * TimeTracker - Read-only display component
- * Timer tự động bắt đầu khi status = "Đang thực hiện"
- * Timer tự động dừng khi hoàn thành hết subtasks
- */
+const formatTime = (seconds: number): string => {
+  if (seconds < 0) seconds = 0;
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+};
+
+const formatDuration = (seconds: number): string => {
+  if (seconds < 0) seconds = 0;
+  if (seconds < 60) return `${seconds} giây`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)} phút`;
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  return m > 0 ? `${h}h ${m}p` : `${h}h`;
+};
+
 export function TimeTracker({
   _taskId,
   isRunning,
   totalSeconds,
   estimatedHours,
+  startedAt,
+  createdAt,
 }: TimeTrackerProps) {
-  const [currentSeconds, setCurrentSeconds] = React.useState(totalSeconds);
+  const [tick, setTick] = React.useState(0);
 
-  // Update when totalSeconds changes
-  React.useEffect(() => {
-    setCurrentSeconds(totalSeconds);
-  }, [totalSeconds]);
-
-  // Timer tick effect
+  // Tick every second when running
   React.useEffect(() => {
     if (!isRunning) return;
-
-    const interval = setInterval(() => {
-      setCurrentSeconds(prev => prev + 1);
-    }, 1000);
-
+    const interval = setInterval(() => setTick(t => t + 1), 1000);
     return () => clearInterval(interval);
   }, [isRunning]);
 
-  const formatTime = (seconds: number): string => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
+  // Response time: createdAt → startedAt (fixed once started)
+  const responseSeconds = React.useMemo(() => {
+    if (!createdAt || !startedAt) return null;
+    return Math.max(0, Math.floor((new Date(startedAt).getTime() - new Date(createdAt).getTime()) / 1000));
+  }, [createdAt, startedAt]);
 
-  const actualHours = (currentSeconds / 3600).toFixed(2);
-  const isOverEstimate = estimatedHours && parseFloat(actualHours) > estimatedHours;
+  // Working time: startedAt → now (live) or totalSeconds (stopped)
+  const workingSeconds = React.useMemo(() => {
+    if (isRunning && startedAt) {
+      const elapsed = Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000);
+      return totalSeconds + Math.max(0, elapsed);
+    }
+    return totalSeconds;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isRunning, startedAt, totalSeconds, tick]);
+
+  // Total time: createdAt → now (live while not completed)
+  const totalElapsedSeconds = React.useMemo(() => {
+    if (!createdAt) return null;
+    if (!isRunning && totalSeconds > 0 && responseSeconds !== null) {
+      // Task completed: response + working
+      return responseSeconds + totalSeconds;
+    }
+    // Still ongoing
+    return Math.max(0, Math.floor((Date.now() - new Date(createdAt).getTime()) / 1000));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [createdAt, isRunning, totalSeconds, responseSeconds, tick]);
+
+  const workingHours = (workingSeconds / 3600).toFixed(2);
+  const isOverEstimate = estimatedHours && parseFloat(workingHours) > estimatedHours;
 
   return (
-    <Card className="p-4">
-      <div className="flex items-center gap-3">
-        <Clock className={cn(
-          "h-5 w-5",
-          isRunning ? "text-green-600 animate-pulse" : "text-muted-foreground"
-        )} />
-        <div className="flex-1">
-          <div className="text-sm font-medium">Thời gian làm việc</div>
-          <div className={cn(
-            "text-h3 font-bold tabular-nums",
-            isOverEstimate && "text-destructive"
-          )}>
-            {formatTime(currentSeconds)}
+    <Card className="p-4 space-y-3">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Clock className={cn(
+            "h-4 w-4",
+            isRunning ? "text-green-600 animate-pulse" : "text-muted-foreground"
+          )} />
+          <span className="text-sm font-semibold">Thời gian</span>
+        </div>
+        {isRunning && (
+          <div className="flex items-center gap-1.5 text-xs bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 px-2 py-1 rounded-full">
+            <div className="w-1.5 h-1.5 bg-green-600 rounded-full animate-pulse" />
+            Đang đếm
           </div>
-          <div className="text-sm text-muted-foreground">
-            {actualHours}h thực tế
+        )}
+      </div>
+
+      {/* 3 metric rows */}
+      <div className="grid gap-2">
+        {/* Response time: assigned → started */}
+        {responseSeconds !== null && (
+          <div className="flex items-center justify-between py-1.5 px-3 rounded-md bg-blue-50 dark:bg-blue-950/30">
+            <div className="flex items-center gap-2 text-xs text-blue-700 dark:text-blue-300">
+              <Zap className="h-3.5 w-3.5" />
+              <span>Phản hồi</span>
+            </div>
+            <span className="text-xs font-medium tabular-nums text-blue-800 dark:text-blue-200">
+              {formatDuration(responseSeconds)}
+            </span>
+          </div>
+        )}
+
+        {/* Working time: started → now/completed */}
+        <div className={cn(
+          "flex items-center justify-between py-1.5 px-3 rounded-md",
+          isRunning ? "bg-green-50 dark:bg-green-950/30" : "bg-muted/50"
+        )}>
+          <div className={cn(
+            "flex items-center gap-2 text-xs",
+            isRunning ? "text-green-700 dark:text-green-300" : "text-muted-foreground"
+          )}>
+            <Timer className="h-3.5 w-3.5" />
+            <span>Thực hiện</span>
+          </div>
+          <div className="text-right">
+            <span className={cn(
+              "text-sm font-bold tabular-nums",
+              isRunning && "text-green-700 dark:text-green-200",
+              isOverEstimate && "text-destructive"
+            )}>
+              {formatTime(workingSeconds)}
+            </span>
             {estimatedHours && (
-              <span className={isOverEstimate ? "text-destructive font-semibold" : ""}>
-                {' '}/ {estimatedHours}h ước tính
+              <div className={cn(
+                "text-xs text-muted-foreground",
+                isOverEstimate && "text-destructive font-medium"
+              )}>
+                {workingHours}h / {estimatedHours}h
                 {isOverEstimate && ' ⚠️'}
-              </span>
+              </div>
             )}
           </div>
         </div>
-        {isRunning && (
-          <div className="text-xs bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 px-3 py-2 rounded flex items-center gap-2">
-            <div className="w-2 h-2 bg-green-600 rounded-full animate-pulse" />
-            <span className="font-medium">Đang đếm giờ</span>
+
+        {/* Total time: assigned → now/completed */}
+        {totalElapsedSeconds !== null && (
+          <div className="flex items-center justify-between py-1.5 px-3 rounded-md bg-muted/30">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <CalendarClock className="h-3.5 w-3.5" />
+              <span>Tổng</span>
+            </div>
+            <span className="text-xs font-medium tabular-nums text-muted-foreground">
+              {formatDuration(totalElapsedSeconds)}
+            </span>
           </div>
         )}
       </div>

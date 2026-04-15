@@ -25,7 +25,7 @@ import {
 import { DepartmentForm, type DepartmentFormValues } from "./department-form"
 import type { Department } from '@/lib/types/prisma-extended'
 import { Button } from "../../../components/ui/button"
-import { PlusCircle, MoreHorizontal } from "lucide-react"
+import { PlusCircle, MoreHorizontal, Loader2 } from "lucide-react"
 import { simpleSearch } from "@/lib/simple-search"
 import { asBusinessId, type SystemId } from "@/lib/id-types"
 import { Input } from "../../../components/ui/input"
@@ -33,6 +33,7 @@ import { SimpleSettingsTable } from "../../../components/settings/SimpleSettings
 import type { ColumnDef } from "../../../components/data-table/types"
 import { Skeleton } from "../../../components/ui/skeleton"
 import { toast } from "sonner"
+import { Switch } from "../../../components/ui/switch"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../../components/ui/dropdown-menu"
 
 export function DepartmentsSettingsContent() {
@@ -64,6 +65,13 @@ export function DepartmentsSettingsContent() {
     setIsFormOpen(true)
   }, [])
 
+  const handleToggleActive = React.useCallback((department: Department) => {
+    update.mutate({
+      systemId: department.systemId,
+      data: { isActive: !department.isActive }
+    })
+  }, [update])
+
   const columns: ColumnDef<Department>[] = React.useMemo(() => ([
     {
       id: "id",
@@ -85,6 +93,18 @@ export function DepartmentsSettingsContent() {
       header: "Mô tả",
       cell: ({ row }) => <span className="text-muted-foreground">{(row as Department & { description?: string }).description || '-'}</span>,
       meta: { displayName: "Mô tả" },
+    },
+    {
+      id: "isActive",
+      header: "Trạng thái",
+      cell: ({ row }) => (
+        <Switch 
+          checked={row.isActive !== false}
+          onCheckedChange={() => handleToggleActive(row)}
+        />
+      ),
+      meta: { displayName: "Trạng thái" },
+      size: 100,
     },
     {
       id: "actions",
@@ -118,7 +138,7 @@ export function DepartmentsSettingsContent() {
       },
       size: 90,
     },
-  ] as ColumnDef<Department>[]), [handleDelete, handleEdit]);
+  ] as ColumnDef<Department>[]), [handleDelete, handleEdit, handleToggleActive]);
   
   const searchedData = React.useMemo(() => 
     simpleSearch(departments, globalFilter, { keys: ['id', 'name'] }), 
@@ -247,7 +267,7 @@ const sortedData = React.useMemo(() => {
           <AlertDialogFooter>
             <AlertDialogCancel>Hủy</AlertDialogCancel>
             <AlertDialogAction onClick={confirmDelete} disabled={remove.isPending}>
-              {remove.isPending ? 'Đang xóa...' : 'Tiếp tục'}
+              {remove.isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Đang xóa...</> : 'Tiếp tục'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -261,7 +281,10 @@ const sortedData = React.useMemo(() => {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Hủy</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmBulkDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Xóa tất cả</AlertDialogAction>
+            <AlertDialogAction onClick={confirmBulkDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={remove.isPending}>
+              {remove.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Xóa tất cả
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -278,7 +301,8 @@ const sortedData = React.useMemo(() => {
             />
             <DialogFooter>
               <Button variant="outline" onClick={handleCancel}>Hủy</Button>
-              <Button type="submit" form="department-form">
+              <Button type="submit" form="department-form" disabled={create.isPending || update.isPending}>
+                {(create.isPending || update.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {editingDepartment ? 'Cập nhật' : 'Thêm mới'}
               </Button>
             </DialogFooter>

@@ -103,6 +103,7 @@ export const orderService = {
               systemId: await generateIdWithPrefix('OLI', tx as unknown as typeof prisma),
               productSystemId: item.productSystemId,
               productId: item.productId,
+              productSku: item.productSku,
               productName: item.productName,
               quantity: item.quantity,
               unitPrice: item.price,
@@ -136,7 +137,7 @@ export const orderService = {
       await tx.auditLog.create({
         data: {
           systemId: await generateIdWithPrefix('AL', tx as unknown as typeof prisma),
-          entityType: 'Order',
+          entityType: 'order',
           entityId: newOrder.systemId,
           action: 'CREATE',
           changes: { status: 'PENDING' },
@@ -217,7 +218,7 @@ export const orderService = {
       await tx.auditLog.create({
         data: {
           systemId: await generateIdWithPrefix('AL', tx as unknown as typeof prisma),
-          entityType: 'Order',
+          entityType: 'order',
           entityId: systemId,
           action: 'UPDATE_STATUS',
           changes: {
@@ -349,6 +350,7 @@ export const orderService = {
       return {
         productSystemId: product.systemId,
         productId: product.id,
+        productSku: product.id,
         productName: product.name,
         quantity: item.quantity,
         price,

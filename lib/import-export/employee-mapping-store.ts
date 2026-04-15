@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Employee Mapping Store
  * 
  * Lưu mapping giữa tên NV máy chấm công → Mã NV hệ thống
@@ -7,6 +7,7 @@
 
 import { create } from 'zustand';
 import type { EmployeeMappingEntry } from './types';
+import { logError } from '@/lib/logger'
 
 // Generate simple ID
 const generateMappingId = (): string => {
@@ -215,7 +216,7 @@ export const useEmployeeMappingStore = create<EmployeeMappingState>()(
             }
           }
         } catch (error) {
-          console.error('[Employee Mapping Store] loadFromAPI error:', error);
+          logError('[Employee Mapping Store] loadFromAPI error', error);
         }
       },
     })

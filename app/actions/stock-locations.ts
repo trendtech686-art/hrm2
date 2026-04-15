@@ -11,9 +11,10 @@
 import { prisma } from '@/lib/prisma'
 import { revalidatePath } from '@/lib/revalidation'
 import { generateIdWithPrefix } from '@/lib/id-generator'
-import { auth } from '@/auth'
+import { requireActionPermission } from '@/lib/api-utils'
 import type { ActionResult } from '@/types/action-result'
 import { createStockLocationSchema, updateStockLocationSchema } from '@/features/stock-locations/validation'
+import { logError } from '@/lib/logger'
 
 // Types
 type StockLocation = NonNullable<Awaited<ReturnType<typeof prisma.stockLocation.findFirst>>>
@@ -48,10 +49,8 @@ export type UpdateStockLocationInput = {
 export async function createStockLocationAction(
   input: CreateStockLocationInput
 ): Promise<ActionResult<StockLocation>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('create_stock_locations')
+  if (!authResult.success) return authResult
 
   const validated = createStockLocationSchema.safeParse(input)
   if (!validated.success) {
@@ -91,7 +90,7 @@ export async function createStockLocationAction(
     revalidatePath('/stock-locations')
     return { success: true, data: stockLocation }
   } catch (error) {
-    console.error('Error creating stock location:', error)
+    logError('Error creating stock location', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Không thể tạo vị trí kho',
@@ -102,10 +101,8 @@ export async function createStockLocationAction(
 export async function updateStockLocationAction(
   input: UpdateStockLocationInput
 ): Promise<ActionResult<StockLocation>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('edit_stock_locations')
+  if (!authResult.success) return authResult
 
   const validated = updateStockLocationSchema.safeParse(input)
   if (!validated.success) {
@@ -154,7 +151,7 @@ export async function updateStockLocationAction(
     revalidatePath(`/stock-locations/${systemId}`)
     return { success: true, data: stockLocation }
   } catch (error) {
-    console.error('Error updating stock location:', error)
+    logError('Error updating stock location', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Không thể cập nhật vị trí kho',
@@ -165,10 +162,8 @@ export async function updateStockLocationAction(
 export async function deleteStockLocationAction(
   systemId: string
 ): Promise<ActionResult<StockLocation>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('delete_stock_locations')
+  if (!authResult.success) return authResult
 
   try {
     const existing = await prisma.stockLocation.findUnique({
@@ -197,7 +192,7 @@ export async function deleteStockLocationAction(
     revalidatePath('/stock-locations')
     return { success: true, data: stockLocation }
   } catch (error) {
-    console.error('Error deleting stock location:', error)
+    logError('Error deleting stock location', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Không thể xóa vị trí kho',
@@ -208,10 +203,8 @@ export async function deleteStockLocationAction(
 export async function restoreStockLocationAction(
   systemId: string
 ): Promise<ActionResult<StockLocation>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('edit_stock_locations')
+  if (!authResult.success) return authResult
 
   try {
     const existing = await prisma.stockLocation.findUnique({
@@ -231,7 +224,7 @@ export async function restoreStockLocationAction(
     revalidatePath(`/stock-locations/${systemId}`)
     return { success: true, data: stockLocation }
   } catch (error) {
-    console.error('Error restoring stock location:', error)
+    logError('Error restoring stock location', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Không thể khôi phục vị trí kho',
@@ -242,10 +235,8 @@ export async function restoreStockLocationAction(
 export async function getStockLocationAction(
   systemId: string
 ): Promise<ActionResult<StockLocation & { inventoryRecords: unknown[] }>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('view_stock_locations')
+  if (!authResult.success) return authResult
 
   try {
     const stockLocation = await prisma.stockLocation.findUnique({
@@ -261,7 +252,7 @@ export async function getStockLocationAction(
 
     return { success: true, data: stockLocation }
   } catch (error) {
-    console.error('Error getting stock location:', error)
+    logError('Error getting stock location', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Không thể lấy thông tin vị trí kho',
@@ -272,10 +263,8 @@ export async function getStockLocationAction(
 export async function setDefaultStockLocationAction(
   systemId: string
 ): Promise<ActionResult<StockLocation>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('edit_stock_locations')
+  if (!authResult.success) return authResult
 
   try {
     const existing = await prisma.stockLocation.findUnique({
@@ -309,7 +298,7 @@ export async function setDefaultStockLocationAction(
     revalidatePath(`/stock-locations/${systemId}`)
     return { success: true, data: stockLocation }
   } catch (error) {
-    console.error('Error setting default stock location:', error)
+    logError('Error setting default stock location', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Không thể đặt vị trí kho mặc định',
@@ -320,10 +309,8 @@ export async function setDefaultStockLocationAction(
 export async function getStockLocationsByBranchAction(
   branchId: string
 ): Promise<ActionResult<StockLocation[]>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('view_stock_locations')
+  if (!authResult.success) return authResult
 
   try {
     const stockLocations = await prisma.stockLocation.findMany({
@@ -336,7 +323,7 @@ export async function getStockLocationsByBranchAction(
 
     return { success: true, data: stockLocations }
   } catch (error) {
-    console.error('Error getting stock locations by branch:', error)
+    logError('Error getting stock locations by branch', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Không thể lấy danh sách vị trí kho',
@@ -345,10 +332,8 @@ export async function getStockLocationsByBranchAction(
 }
 
 export async function getAllStockLocationsAction(): Promise<ActionResult<StockLocation[]>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('view_stock_locations')
+  if (!authResult.success) return authResult
 
   try {
     const stockLocations = await prisma.stockLocation.findMany({
@@ -361,7 +346,7 @@ export async function getAllStockLocationsAction(): Promise<ActionResult<StockLo
 
     return { success: true, data: stockLocations }
   } catch (error) {
-    console.error('Error getting all stock locations:', error)
+    logError('Error getting all stock locations', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Không thể lấy danh sách vị trí kho',

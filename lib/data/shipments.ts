@@ -24,12 +24,12 @@ export interface ShipmentFilters {
 export interface ShipmentListItem {
   systemId: string;
   id: string;
-  orderId: string;
+  orderId: string | null;
   recipientName: string | null;
   recipientPhone: string | null;
   recipientAddress: string | null;
   status: string;
-  carrier: string;
+  carrier: string | null;
   trackingCode: string | null;
   createdAt: Date;
   pickedAt: Date | null;
@@ -156,11 +156,13 @@ export const getShipmentStats = cache(async (branchId?: string) => {
       const where: Prisma.ShipmentWhereInput = {};
       if (branchId) where.order = { branchId };
 
+      // Count based on packaging.deliveryStatus (DeliveryStatus enum) 
+      // which matches what the list UI actually displays
       const [pending, inTransit, delivered, returned] = await Promise.all([
-        prisma.shipment.count({ where: { ...where, status: 'PENDING' } }),
-        prisma.shipment.count({ where: { ...where, status: 'IN_TRANSIT' } }),
-        prisma.shipment.count({ where: { ...where, status: 'DELIVERED' } }),
-        prisma.shipment.count({ where: { ...where, status: 'RETURNED' } }),
+        prisma.shipment.count({ where: { ...where, packaging: { deliveryStatus: 'PENDING_SHIP' } } }),
+        prisma.shipment.count({ where: { ...where, packaging: { deliveryStatus: 'SHIPPING' } } }),
+        prisma.shipment.count({ where: { ...where, packaging: { deliveryStatus: 'DELIVERED' } } }),
+        prisma.shipment.count({ where: { ...where, packaging: { deliveryStatus: 'RESCHEDULED' } } }),
       ]);
 
       return { pending, inTransit, shipped: inTransit, delivered, returned };

@@ -5,7 +5,7 @@
 import * as React from 'react';
 import { toast } from 'sonner';
 import { usePayrollBatchMutations } from '../hooks/use-payroll';
-import { useStoreInfoData } from '@/features/settings/store-info/hooks/use-store-info';
+import { fetchPrintData } from '@/lib/lazy-print-data';
 import { usePrint } from '@/lib/use-print';
 import { type SystemId } from '@/lib/id-types';
 import type { PayrollBatch } from '@/lib/payroll-types';
@@ -16,6 +16,7 @@ import {
   mapPayrollBatchLineItems,
 } from '@/lib/print/payroll-print-helper';
 import type { SimplePrintOptionsResult, PaperSize } from '@/components/shared/simple-print-options-dialog';
+import { usePaginationWithGlobalDefault } from '@/features/settings/global/hooks/use-global-settings';
 
 type FilterValues = {
   status: 'all' | 'draft' | 'reviewed' | 'locked' | 'cancelled';
@@ -40,7 +41,7 @@ export function usePayrollFilters() {
   // Table state
   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
   const [sorting, setSorting] = React.useState<{ id: string; desc: boolean }>({ id: 'createdAt', desc: true });
-  const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 20 });
+  const [pagination, setPagination] = usePaginationWithGlobalDefault();
   const [expanded, setExpanded] = React.useState<Record<string, boolean>>({});
   const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>({});
   const [columnOrder, setColumnOrder] = React.useState<string[]>([]);
@@ -157,7 +158,7 @@ export function usePayrollBatchActions() {
  * Data is fetched on-demand when print is confirmed (not eagerly)
  */
 export function usePayrollPrint() {
-  const { info: storeInfo } = useStoreInfoData();
+  // ⚡ OPTIMIZED: storeInfo lazy loaded in handlePrintConfirm
   const { printMultiple } = usePrint();
   
   const [isPrintDialogOpen, setIsPrintDialogOpen] = React.useState(false);
@@ -221,6 +222,7 @@ export function usePayrollPrint() {
         {} as Record<SystemId, (typeof departments)[number]>
       );
 
+      const { storeInfo } = await fetchPrintData();
       const storeSettings = createStoreSettings(storeInfo);
 
       const printOptionsList: Array<{
@@ -261,7 +263,7 @@ export function usePayrollPrint() {
       setIsPrintLoading(false);
       setPendingPrintBatches([]);
     }
-  }, [pendingPrintBatches, storeInfo, printMultiple]);
+  }, [pendingPrintBatches, printMultiple]);
 
   return {
     isPrintDialogOpen,

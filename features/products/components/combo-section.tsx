@@ -14,7 +14,6 @@ import { useFieldArray, useFormContext, useWatch } from 'react-hook-form';
 import { Plus, Minus, Trash2, Package, AlertCircle, Info, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { CurrencyInput } from '@/components/ui/currency-input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ProductImage } from './product-image';
 
@@ -22,8 +21,6 @@ import {
   FormControl,
   FormField,
   FormItem,
-  FormLabel,
-  FormMessage,
 } from '@/components/ui/form';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -118,7 +115,7 @@ function QuantityInput({
 }
 
 export function ComboSection() {
-  const { data: allProducts } = useAllProducts();
+  const { data: allProducts, isLoading: isLoadingProducts } = useAllProducts();
   const { data: pricingPolicies } = useAllPricingPolicies();
   const { data: branches } = useAllBranches();
   const { findById: findProductTypeById } = useProductTypeFinder();
@@ -182,7 +179,7 @@ export function ComboSection() {
     if (typeof firstDefinedPrice === 'number') {
       return firstDefinedPrice;
     }
-    return 0;
+    return product.costPrice || 0;
   }, [defaultPricingPolicy]);
 
   // Calculate totals
@@ -225,7 +222,7 @@ export function ComboSection() {
   }, [comboItems, comboPricingType, comboDiscount, allProducts, resolveUnitPrice, defaultPricingPolicy]);
   
   // Calculate stock for all branches (Sapo: tổng tồn tại tất cả chi nhánh)
-  const comboStockInfo = React.useMemo(() => {
+  const _comboStockInfo = React.useMemo(() => {
     if (!comboItems || comboItems.length === 0 || branches.length === 0) {
       return { totalStock: 0, stockByBranch: {} as Record<string, number> };
     }
@@ -335,12 +332,13 @@ export function ComboSection() {
   };
 
   // Get total available stock for a product
+  // Cho phép giá trị âm (oversold) — theo chuẩn Sapo
   const getProductTotalStock = (product: Product | undefined): number => {
     if (!product) return 0;
     return Object.keys(product.inventoryByBranch || {}).reduce((sum, branchId) => {
       const onHand = product.inventoryByBranch?.[branchId as SystemId] || 0;
       const committed = product.committedByBranch?.[branchId as SystemId] || 0;
-      return sum + Math.max(0, onHand - committed);
+      return sum + (onHand - committed);
     }, 0);
   };
   
@@ -419,7 +417,7 @@ export function ComboSection() {
         {/* Info Alert */}
         <Alert>
           <Info className="h-4 w-4" />
-          <AlertDescription className="text-body-sm">
+          <AlertDescription className="text-sm">
             Combo cần tối thiểu {MIN_COMBO_ITEMS} sản phẩm, tối đa {MAX_COMBO_ITEMS} sản phẩm. 
             Không thể thêm combo khác hoặc phiên bản quy đổi vào combo.
           </AlertDescription>
@@ -432,7 +430,7 @@ export function ComboSection() {
         }) && (
           <Alert variant="destructive">
             <AlertTriangle className="h-4 w-4" />
-            <AlertDescription className="text-body-sm">
+            <AlertDescription className="text-sm">
               Một số sản phẩm trong combo đang hết hàng hoặc tồn kho thấp. 
               Điều này sẽ ảnh hưởng đến số lượng combo có thể bán.
             </AlertDescription>
@@ -457,8 +455,14 @@ export function ComboSection() {
                       <div className="flex items-center gap-2 min-w-0 flex-1">
                         <ProductThumbnail product={selectedProduct} size="sm" />
                         <div className="min-w-0">
-                          <p className="text-body-sm font-medium truncate">{selectedProduct?.name || 'Chưa chọn'}</p>
-                          <p className="text-body-xs text-muted-foreground">{selectedProduct?.id} | {getProductTypeName(selectedProduct)}</p>
+                          <p className="text-sm font-medium truncate">
+                            {selectedProduct?.name || (isLoadingProducts ? 'Đang tải...' : 'Chưa chọn')}
+                          </p>
+                          {selectedProduct ? (
+                            <p className="text-xs text-muted-foreground">{selectedProduct.id} | {getProductTypeName(selectedProduct)}</p>
+                          ) : isLoadingProducts ? (
+                            <div className="h-3 w-24 bg-muted animate-pulse rounded mt-0.5" />
+                          ) : null}
                         </div>
                       </div>
                       <Button
@@ -472,9 +476,9 @@ export function ComboSection() {
                       </Button>
                     </div>
                     
-                    <div className="grid grid-cols-3 gap-3 text-body-sm">
+                    <div className="grid grid-cols-3 gap-3 text-sm">
                       <div>
-                        <p className="text-muted-foreground text-body-xs mb-1">Số lượng</p>
+                        <p className="text-muted-foreground text-xs mb-1">Số lượng</p>
                         <FormField
                           control={form.control}
                           name={`comboItems.${index}.quantity`}
@@ -491,22 +495,22 @@ export function ComboSection() {
                         />
                       </div>
                       <div>
-                        <p className="text-muted-foreground text-body-xs mb-1">Giá vốn</p>
+                        <p className="text-muted-foreground text-xs mb-1">Giá vốn</p>
                         <p className="text-muted-foreground h-9 flex items-center">{formatCurrency(selectedProduct?.costPrice || 0)}</p>
                       </div>
                       <div>
-                        <p className="text-muted-foreground text-body-xs mb-1">Đơn giá</p>
+                        <p className="text-muted-foreground text-xs mb-1">Đơn giá</p>
                         <p className="h-9 flex items-center">{formatCurrency(unitPrice)}</p>
                       </div>
                       <div>
-                        <p className="text-muted-foreground text-body-xs mb-1">Thành tiền</p>
+                        <p className="text-muted-foreground text-xs mb-1">Thành tiền</p>
                         <p className="font-medium h-9 flex items-center">{formatCurrency(lineTotal)}</p>
                       </div>
                     </div>
                     
                     {selectedProduct && (
-                      <div className="flex items-center justify-between pt-2 border-t text-body-sm">
-                        <span className="text-muted-foreground text-body-xs">Có thể bán:</span>
+                      <div className="flex items-center justify-between pt-2 border-t text-sm">
+                        <span className="text-muted-foreground text-xs">Có thể bán:</span>
                         {getProductStockWarning(selectedProduct) ? (
                           <span className="text-destructive font-medium flex items-center gap-1">
                             <AlertTriangle className="h-3.5 w-3.5" />
@@ -524,7 +528,7 @@ export function ComboSection() {
               {/* Mobile Total Row */}
               <div className="p-3 bg-muted/50 rounded-lg">
                 <div className="flex justify-between items-center">
-                  <span className="text-body-sm font-medium">Tổng giá gốc:</span>
+                  <span className="text-sm font-medium">Tổng giá gốc:</span>
                   <span className="font-bold">{formatCurrency(calculations.totalOriginalPrice)}</span>
                 </div>
               </div>
@@ -539,13 +543,14 @@ export function ComboSection() {
                 control={form.control as any}
                 fieldName="comboItems"
                 disabled={false}
+                isLoadingProducts={isLoadingProducts}
               />
             </div>
           </>
         ) : (
           <div className="flex flex-col items-center justify-center py-8 text-muted-foreground border rounded-md border-dashed">
             <Package className="h-12 w-12 mb-2 opacity-50" />
-            <p className="text-body-sm">Chưa có sản phẩm nào trong combo</p>
+            <p className="text-sm">Chưa có sản phẩm nào trong combo</p>
             <Button
               type="button"
               variant="link"
@@ -562,7 +567,7 @@ export function ComboSection() {
         {validationErrors.length > 0 && (
           <Alert variant="destructive" className="border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/30">
             <AlertTriangle className="h-4 w-4 text-amber-600" />
-            <AlertDescription className="text-body-sm text-amber-800 dark:text-amber-200">
+            <AlertDescription className="text-sm text-amber-800 dark:text-amber-200">
               <ul className="list-disc list-inside space-y-1">
                 {validationErrors.map((error, index) => (
                   <li key={index}>{error}</li>
@@ -576,7 +581,7 @@ export function ComboSection() {
         {form.formState.errors.comboItems && (
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
-            <AlertDescription className="text-body-sm">
+            <AlertDescription className="text-sm">
               {form.formState.errors.comboItems.message || 'Vui lòng kiểm tra lại danh sách sản phẩm'}
             </AlertDescription>
           </Alert>
@@ -584,203 +589,22 @@ export function ComboSection() {
         
         {/* Pricing Section - Only show when has items */}
         {fields.length >= MIN_COMBO_ITEMS && (
-          <div className="space-y-4 pt-4 border-t">
-            <h4 className="text-body-sm font-medium">Cách tính giá Combo</h4>
-            
-            {/* Pricing Type Radio Cards */}
-            <FormField
-              control={form.control}
-              name="comboPricingType"
-              render={({ field }) => (
-                <FormItem>
-                  <FormControl>
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                      {/* Fixed Price */}
-                      <label
-                        className={`relative flex flex-col p-4 border rounded-lg cursor-pointer transition-all ${
-                          field.value === 'fixed' 
-                            ? 'border-primary bg-primary/5 ring-1 ring-primary' 
-                            : 'hover:border-muted-foreground hover:bg-muted/30'
-                        }`}
-                      >
-                        <input
-                          type="radio"
-                          checked={field.value === 'fixed'}
-                          onChange={() => field.onChange('fixed')}
-                          className="sr-only"
-                        />
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                            field.value === 'fixed' ? 'border-primary' : 'border-muted-foreground'
-                          }`}>
-                            {field.value === 'fixed' && (
-                              <div className="w-2 h-2 rounded-full bg-primary" />
-                            )}
-                          </div>
-                          <span className="text-body-sm font-medium">Giá cố định</span>
-                        </div>
-                        <p className="text-body-xs text-muted-foreground pl-6">
-                          Nhập giá bán cố định
-                        </p>
-                      </label>
-                      
-                      {/* Discount Percent */}
-                      <label
-                        className={`relative flex flex-col p-4 border rounded-lg cursor-pointer transition-all ${
-                          field.value === 'sum_discount_percent' 
-                            ? 'border-primary bg-primary/5 ring-1 ring-primary' 
-                            : 'hover:border-muted-foreground hover:bg-muted/30'
-                        }`}
-                      >
-                        <input
-                          type="radio"
-                          checked={field.value === 'sum_discount_percent'}
-                          onChange={() => field.onChange('sum_discount_percent')}
-                          className="sr-only"
-                        />
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                            field.value === 'sum_discount_percent' ? 'border-primary' : 'border-muted-foreground'
-                          }`}>
-                            {field.value === 'sum_discount_percent' && (
-                              <div className="w-2 h-2 rounded-full bg-primary" />
-                            )}
-                          </div>
-                          <span className="text-body-sm font-medium">Giảm theo %</span>
-                        </div>
-                        <p className="text-body-xs text-muted-foreground pl-6">
-                          Tổng giá gốc - giảm %
-                        </p>
-                      </label>
-                      
-                      {/* Discount Amount */}
-                      <label
-                        className={`relative flex flex-col p-4 border rounded-lg cursor-pointer transition-all ${
-                          field.value === 'sum_discount_amount' 
-                            ? 'border-primary bg-primary/5 ring-1 ring-primary' 
-                            : 'hover:border-muted-foreground hover:bg-muted/30'
-                        }`}
-                      >
-                        <input
-                          type="radio"
-                          checked={field.value === 'sum_discount_amount'}
-                          onChange={() => field.onChange('sum_discount_amount')}
-                          className="sr-only"
-                        />
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                            field.value === 'sum_discount_amount' ? 'border-primary' : 'border-muted-foreground'
-                          }`}>
-                            {field.value === 'sum_discount_amount' && (
-                              <div className="w-2 h-2 rounded-full bg-primary" />
-                            )}
-                          </div>
-                          <span className="text-body-sm font-medium">Giảm tiền</span>
-                        </div>
-                        <p className="text-body-xs text-muted-foreground pl-6">
-                          Tổng giá gốc - số tiền
-                        </p>
-                      </label>
-                    </div>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            {/* Discount/Price Input - Inline with label */}
-            {comboPricingType && (
-              <div className="flex flex-col sm:flex-row sm:items-end gap-3">
-                <FormField
-                  control={form.control}
-                  name="comboDiscount"
-                  render={({ field }) => (
-                    <FormItem className="flex-1 sm:max-w-xs">
-                      <FormLabel>
-                        {comboPricingType === 'fixed' && 'Giá combo (VND)'}
-                        {comboPricingType === 'sum_discount_percent' && 'Phần trăm giảm'}
-                        {comboPricingType === 'sum_discount_amount' && 'Số tiền giảm (VND)'}
-                      </FormLabel>
-                      <FormControl>
-                        {comboPricingType === 'sum_discount_percent' ? (
-                          <div className="relative">
-                            <Input
-                              type="number"
-                              min={0}
-                              max={100}
-                              className="h-9 pr-8"
-                              {...field}
-                              value={field.value ?? 0}
-                              onChange={(e) => field.onChange(Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)))}
-                            />
-                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-body-sm">%</span>
-                          </div>
-                        ) : (
-                          <CurrencyInput
-                            value={field.value ?? 0}
-                            onChange={field.onChange}
-                            placeholder="Nhập giá"
-                          />
-                        )}
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                {/* Quick Preview */}
-                <div className="flex items-center gap-4 p-3 bg-muted/50 rounded-lg sm:flex-1">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-body-xs text-muted-foreground">Giá gốc</p>
-                    <p className="font-mono text-body-sm line-through text-muted-foreground truncate">
-                      {formatCurrency(calculations.totalOriginalPrice)}
-                    </p>
-                  </div>
-                  <div className="text-muted-foreground">→</div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-body-xs text-muted-foreground">Giá combo</p>
-                    <p className="font-mono text-body-sm font-bold text-primary truncate">
-                      {formatCurrency(calculations.comboPrice)}
-                    </p>
-                  </div>
-                </div>
+          <div className="space-y-3 pt-4 border-t">
+            {/* Summary: Tổng giá gốc + Tổng giá vốn */}
+            <div className="grid grid-cols-2 gap-3 p-4 bg-linear-to-r from-muted/30 to-muted/50 rounded-lg border">
+              <div>
+                <p className="text-xs text-muted-foreground mb-1">Tổng giá gốc (bán)</p>
+                <p className="font-mono text-base font-bold text-primary">
+                  {formatCurrency(calculations.totalOriginalPrice)}
+                </p>
               </div>
-            )}
-            
-            {/* Summary Stats */}
-            {comboPricingType && (
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 p-4 bg-linear-to-r from-muted/30 to-muted/50 rounded-lg border">
-                <div className="text-center sm:text-left">
-                  <p className="text-body-xs text-muted-foreground mb-1">Giá vốn combo</p>
-                  <p className="font-mono text-body-sm sm:text-base font-semibold">
-                    {formatCurrency(calculations.costPrice)}
-                  </p>
-                </div>
-                <div className="text-center sm:text-left">
-                  <p className="text-body-xs text-muted-foreground mb-1">Giá bán combo</p>
-                  <p className="font-mono text-body-sm sm:text-base font-bold text-primary">
-                    {formatCurrency(calculations.comboPrice)}
-                  </p>
-                </div>
-                <div className="text-center sm:text-left">
-                  <p className="text-body-xs text-muted-foreground mb-1">Tiết kiệm</p>
-                  <p className="font-mono text-body-sm sm:text-base font-semibold text-green-600">
-                    {formatCurrency(calculations.savings)}
-                    {calculations.totalOriginalPrice > 0 && (
-                      <span className="text-body-xs ml-1">
-                        ({Math.round((calculations.savings / calculations.totalOriginalPrice) * 100)}%)
-                      </span>
-                    )}
-                  </p>
-                </div>
-                <div className="text-center sm:text-left">
-                  <p className="text-body-xs text-muted-foreground mb-1">Có thể bán</p>
-                  <p className="font-mono text-body-sm sm:text-base font-semibold">
-                    {comboStockInfo.totalStock} combo
-                  </p>
-                </div>
+              <div>
+                <p className="text-xs text-muted-foreground mb-1">Tổng giá vốn</p>
+                <p className="font-mono text-base font-semibold">
+                  {formatCurrency(calculations.costPrice)}
+                </p>
               </div>
-            )}
+            </div>
           </div>
         )}
       </CardContent>

@@ -1,7 +1,7 @@
 ﻿'use client'
 
 import React from 'react';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { ImagePreviewDialog } from "../../../components/ui/image-preview-dialog";
 import { OptimizedImage } from "../../../components/ui/optimized-image";
@@ -16,7 +16,6 @@ interface Props {
 }
 
 export const ComplaintAffectedProducts: React.FC<Props> = React.memo(({ complaint }) => {
-  const router = useRouter();
   const { findById: findProductById } = useProductFinder();
   const { findById: findProductTypeById } = useProductTypeFinder();
   const [previewImage, setPreviewImage] = React.useState<{ url: string; title: string } | null>(null);
@@ -131,20 +130,22 @@ export const ComplaintAffectedProducts: React.FC<Props> = React.memo(({ complain
                         )}
                       </td>
                       <td className="p-2">
-                        <button
-                          onClick={() => router.push(`/products/${productSystemId}`)}
-                          className="font-medium text-sm text-primary hover:underline text-left"
-                        >
+                        <span className="font-medium text-sm">
                           {item.productName}
-                        </button>
+                        </span>
                         <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <span>{productTypeName}</span>
                           {displayId && (
                             <>
+                              <Link
+                                href={`/products/${productSystemId}`}
+                                className="font-mono text-primary hover:underline"
+                              >
+                                {displayId}
+                              </Link>
                               <span>-</span>
-                              <span className="font-mono">{displayId}</span>
                             </>
                           )}
+                          <span>{productTypeName}</span>
                         </div>
                       </td>
                       <td className="p-2 text-right text-sm">
@@ -214,7 +215,7 @@ export const ComplaintAffectedProducts: React.FC<Props> = React.memo(({ complain
               if (totalExcessQty === 0) return null;
               
               return (
-                <div className="space-y-2 p-4 rounded-lg border bg-card">
+                <div className="space-y-2 p-4 rounded-xl border border-border/50 bg-card">
                   <p className="text-xs font-medium text-muted-foreground uppercase">Thừa</p>
                   <p className="text-2xl font-bold tracking-tight">{totalExcessQty}</p>
                   <p className="text-sm font-medium text-foreground">
@@ -237,7 +238,7 @@ export const ComplaintAffectedProducts: React.FC<Props> = React.memo(({ complain
               if (totalMissingQty === 0) return null;
               
               return (
-                <div className="space-y-2 p-4 rounded-lg border bg-card">
+                <div className="space-y-2 p-4 rounded-xl border border-border/50 bg-card">
                   <p className="text-xs font-medium text-muted-foreground uppercase">Thiếu</p>
                   <p className="text-2xl font-bold tracking-tight">{totalMissingQty}</p>
                   <p className="text-sm font-medium text-foreground">
@@ -260,7 +261,7 @@ export const ComplaintAffectedProducts: React.FC<Props> = React.memo(({ complain
               if (totalDefectiveQty === 0) return null;
               
               return (
-                <div className="space-y-2 p-4 rounded-lg border bg-card">
+                <div className="space-y-2 p-4 rounded-xl border border-border/50 bg-card">
                   <p className="text-xs font-medium text-muted-foreground uppercase">Hỏng</p>
                   <p className="text-2xl font-bold tracking-tight">{totalDefectiveQty}</p>
                   <p className="text-sm font-medium text-foreground">
@@ -277,7 +278,7 @@ export const ComplaintAffectedProducts: React.FC<Props> = React.memo(({ complain
               if (otherItems.length === 0) return null;
               
               return (
-                <div className="space-y-2 p-4 rounded-lg border bg-card">
+                <div className="space-y-2 p-4 rounded-xl border border-border/50 bg-card">
                   <p className="text-xs font-medium text-muted-foreground uppercase">Khác</p>
                   <p className="text-2xl font-bold tracking-tight">{otherItems.length}</p>
                   <p className="text-sm font-medium text-foreground">

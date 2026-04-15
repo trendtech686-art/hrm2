@@ -5,16 +5,20 @@
  * @module app/api/settings/global/route
  */
 
-import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireAuth, apiError } from '@/lib/api-utils';
+import { requireAuth, apiError, apiSuccess } from '@/lib/api-utils';
 import { defaultGlobalSettings, type GlobalSettings } from '@/features/settings/global/global-settings-service';
 import { generateIdWithPrefix } from '@/lib/id-generator';
+import { logError } from '@/lib/logger'
+import { cache } from '@/lib/cache'
 
 const SETTING_KEY = 'global';
 const SETTING_GROUP = 'global';
 
 export async function GET() {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const setting = await prisma.setting.findUnique({
       where: {
@@ -26,13 +30,13 @@ export async function GET() {
     });
 
     if (setting?.value) {
-      return NextResponse.json(setting.value as unknown as GlobalSettings);
+      return apiSuccess(setting.value as unknown as GlobalSettings);
     }
 
-    return NextResponse.json(defaultGlobalSettings);
+    return apiSuccess(defaultGlobalSettings);
   } catch (error) {
-    console.error('GET /api/settings/global error:', error);
-    return NextResponse.json(defaultGlobalSettings);
+    logError('GET /api/settings/global error', error);
+    return apiSuccess(defaultGlobalSettings);
   }
 }
 
@@ -63,12 +67,10 @@ export async function PUT(request: Request) {
       },
     });
 
-    return NextResponse.json(result.value as unknown as GlobalSettings);
+    cache.deletePattern('^settings:')
+    return apiSuccess(result.value as unknown as GlobalSettings);
   } catch (error) {
-    console.error('PUT /api/settings/global error:', error);
-    return NextResponse.json(
-      { error: 'Failed to update global settings' },
-      { status: 500 }
-    );
+    logError('PUT /api/settings/global error', error);
+    return apiError('Failed to update global settings', 500);
   }
 }

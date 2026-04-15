@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { Printer, Lock, Unlock, CheckCircle2, Banknote } from 'lucide-react';
+import { Printer, Lock, Unlock, CheckCircle2, Banknote, Loader2 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Textarea } from '../../components/ui/textarea';
@@ -28,7 +28,7 @@ import { useAllEmployees } from '../employees/hooks/use-all-employees';
 import { useDepartments } from '../settings/departments/hooks/use-departments';
 import { usePayments } from '../payments/hooks/use-payments';
 import { usePenalties } from '../settings/penalties/hooks/use-penalties';
-import type { PayrollAuditAction, PayrollAuditLog, PayrollBatch, PayrollPeriod, Payslip } from '../../lib/payroll-types';
+import type { PayrollAuditLog, PayrollBatch, PayrollPeriod, Payslip } from '../../lib/payroll-types';
 import { asSystemId, type BusinessId, type SystemId } from '../../lib/id-types';
 import { usePrint } from '../../lib/use-print';
 import { useStoreInfoData } from '../settings/store-info/hooks/use-store-info';
@@ -45,7 +45,7 @@ import { mapPaymentToPrintData, type PaymentForPrint } from '../../lib/print-map
 import { convertPenaltyForPrint } from '../../lib/print/penalty-print-helper';
 import { mapPenaltyToPrintData } from '../../lib/print-mappers/penalty.mapper';
 import { usePageHeader } from '../../contexts/page-header-context';
-import { ActivityHistory, type HistoryEntry } from '../../components/ActivityHistory';
+import { EntityActivityTable } from '@/components/shared/entity-activity-table';
 import { SimplePrintOptionsDialog, SimplePrintOptionsResult, PaperSize } from '../../components/shared/simple-print-options-dialog';
 import { formatDateForDisplay, formatDateTimeForDisplay } from '@/lib/date-utils';
 
@@ -81,15 +81,6 @@ const STATUS_HINTS: Record<PayrollBatch['status'], { title: string; description:
     description: 'Bảng lương này đã bị hủy và không còn hiệu lực. Các phiếu thanh toán và phiếu phạt liên quan đã được rollback.',
     tone: 'destructive',
   },
-};
-
-const AUDIT_ACTION_LABEL: Record<PayrollAuditAction, string> = {
-  run: 'Khởi tạo',
-  recalculate: 'Tái tính toán',
-  review: 'Đánh dấu duyệt',
-  lock: 'Khóa bảng lương',
-  unlock: 'Mở khóa',
-  export: 'Xuất dữ liệu',
 };
 
 const _ALERT_CLASS_BY_TONE: Record<'info' | 'warning' | 'success', string> = {
@@ -283,32 +274,6 @@ function usePayrollDetailData(systemId: SystemId | undefined) {
     );
   }, [employees]);
 
-  // Convert audit logs to HistoryEntry format for ActivityHistory component
-  // Must be after employeeLookup to use it for name resolution
-  const historyEntries: HistoryEntry[] = React.useMemo(() => {
-    const batchEntries = batchAuditLogs.map((entry): HistoryEntry => {
-      // Try to get employee name from lookup
-      const employee = employeeLookup[entry.actorSystemId as SystemId];
-      const actorName = entry.actorDisplayName || employee?.fullName || entry.actorSystemId || 'Hệ thống';
-      
-      return {
-        id: entry.systemId,
-        action: 'custom',
-        timestamp: new Date(entry.createdAt),
-        user: {
-          systemId: entry.actorSystemId,
-          name: actorName,
-        },
-        description: AUDIT_ACTION_LABEL[entry.action as keyof typeof AUDIT_ACTION_LABEL] ?? entry.action,
-        metadata: (entry.payload as { note?: string })?.note
-          ? { note: String((entry.payload as { note?: string }).note) }
-          : undefined,
-      };
-    });
-
-    return batchEntries;
-  }, [batchAuditLogs, employeeLookup]);
-
   const departmentLookup = React.useMemo(() => {
     return departments.reduce<Record<SystemId, (typeof departments)[number]>>(
       (acc, department) => {
@@ -423,7 +388,7 @@ function usePayrollDetailData(systemId: SystemId | undefined) {
     payslips,
     template,
     batchAuditLogs,
-    historyEntries,
+    historyEntries: [],
     batchPayslips,
     departmentSummaries,
     payslipExports,
@@ -458,7 +423,7 @@ export function PayrollDetailPage() {
     payslips,
     template: _template,
     batchAuditLogs: _batchAuditLogs,
-    historyEntries,
+    historyEntries: _historyEntries,
     batchPayslips,
     departmentSummaries: _departmentSummaries,
     payslipExports: _payslipExports,
@@ -511,32 +476,6 @@ export function PayrollDetailPage() {
   // Create payment dialog state
   const [isCreatePaymentOpen, setIsCreatePaymentOpen] = React.useState(false);
 
-  // Combine batch audit logs with payment creation entries
-  const allHistoryEntries: HistoryEntry[] = React.useMemo(() => {
-    // Start with batch audit entries
-    const entries: HistoryEntry[] = [...historyEntries];
-    
-    // Add payment creation entries
-    linkedPayments.forEach((payment) => {
-      entries.push({
-        id: `payment-${payment.systemId}`,
-        action: 'custom',
-        timestamp: new Date(payment.createdAt || new Date()),
-        user: {
-          systemId: payment.createdBy as SystemId || asSystemId('SYSTEM'),
-          name: 'Hệ thống',
-        },
-        description: `Tạo phiếu chi ${payment.id}`,
-        metadata: { 
-          note: `${payment.recipientName} - ${currencyFormatter.format(Number(payment.amount) || 0)}` 
-        },
-      });
-    });
-    
-    // Sort by timestamp descending
-    return entries.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
-  }, [historyEntries, linkedPayments]);
-
   // Derived state
   const _canReview = batch?.status === 'draft';
   const _canLock = batch?.status === 'reviewed';
@@ -585,9 +524,9 @@ export function PayrollDetailPage() {
     // === TRẠNG THÁI NHÁP (draft) ===
     if (batch.status === 'draft') {
       actions.push(
-        <Button key="review" size="sm" className="h-9" onClick={() => openApprovalDialog('review')}>
-          <CheckCircle2 className="h-4 w-4 mr-2" />
-          Đánh dấu đã duyệt
+        <Button key="review" size="sm" className="h-9" onClick={() => openApprovalDialog('review')} disabled={updateStatus.isPending}>
+          {updateStatus.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
+          {updateStatus.isPending ? 'Đang xử lý...' : 'Đánh dấu đã duyệt'}
         </Button>
       );
     }
@@ -595,9 +534,9 @@ export function PayrollDetailPage() {
     // === TRẠNG THÁI ĐÃ DUYỆT (reviewed) ===
     if (batch.status === 'reviewed') {
       actions.push(
-        <Button key="lock" size="sm" className="h-9" onClick={() => openApprovalDialog('lock')}>
-          <Lock className="h-4 w-4 mr-2" />
-          Khóa bảng lương
+        <Button key="lock" size="sm" className="h-9" onClick={() => openApprovalDialog('lock')} disabled={updateStatus.isPending}>
+          {updateStatus.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Lock className="h-4 w-4 mr-2" />}
+          {updateStatus.isPending ? 'Đang xử lý...' : 'Khóa bảng lương'}
         </Button>
       );
     }
@@ -616,7 +555,7 @@ export function PayrollDetailPage() {
     // Unlock button
     if (isLocked) {
       actions.push(
-        <Button key="unlock" size="sm" className="h-9" variant="outline" onClick={() => {
+        <Button key="unlock" size="sm" className="h-9" variant="outline" disabled={updateStatus.isPending} onClick={() => {
           if (!batch) return;
           updateStatus.mutate(
             { systemId: batch.systemId, data: { status: 'reviewed', note: 'Mở khóa bảng lương' } },
@@ -629,8 +568,8 @@ export function PayrollDetailPage() {
             }
           );
         }}>
-          <Unlock className="h-4 w-4 mr-2" />
-          Mở khóa
+          {updateStatus.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Unlock className="h-4 w-4 mr-2" />}
+          {updateStatus.isPending ? 'Đang xử lý...' : 'Mở khóa'}
         </Button>
       );
     }
@@ -1059,7 +998,7 @@ export function PayrollDetailPage() {
     return (
       <div className="flex h-72 flex-col items-center justify-center text-center">
         <p className="text-lg font-semibold">Đang tải...</p>
-        <p className="text-body-sm text-muted-foreground">Vui lòng đợi trong giây lát.</p>
+        <p className="text-sm text-muted-foreground">Vui lòng đợi trong giây lát.</p>
       </div>
     );
   }
@@ -1069,7 +1008,7 @@ export function PayrollDetailPage() {
     return (
       <div className="flex h-72 flex-col items-center justify-center text-center">
         <p className="text-lg font-semibold">Không tìm thấy bảng lương.</p>
-        <p className="text-body-sm text-muted-foreground">Vui lòng kiểm tra lại đường dẫn hoặc quay về danh sách.</p>
+        <p className="text-sm text-muted-foreground">Vui lòng kiểm tra lại đường dẫn hoặc quay về danh sách.</p>
         <Button className="mt-4 h-9" onClick={handleBack}>
           Về danh sách
         </Button>
@@ -1088,7 +1027,7 @@ export function PayrollDetailPage() {
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2">
           {/* Cột trái */}
-          <div className="space-y-3 text-body-sm">
+          <div className="space-y-3 text-sm">
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Mã</span>
               <span>{batch.id}</span>
@@ -1108,7 +1047,7 @@ export function PayrollDetailPage() {
           </div>
           
           {/* Cột phải */}
-          <div className="space-y-3 text-body-sm">
+          <div className="space-y-3 text-sm">
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Ngày chi trả</span>
               <span>{formatDate(batch.payrollDate)}</span>
@@ -1129,7 +1068,7 @@ export function PayrollDetailPage() {
           
           {/* Phiếu chi lương - full width */}
           <div className="md:col-span-2 pt-3 border-t">
-            <div className="flex items-center justify-between text-body-sm">
+            <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">Phiếu chi lương</span>
               <span>{linkedPayments.length > 0 ? `${linkedPayments.length} phiếu chi` : 'Chưa tạo'}</span>
             </div>
@@ -1144,19 +1083,19 @@ export function PayrollDetailPage() {
             <CardTitle>Tổng quan chi trả</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">
-            <div className="rounded-lg border p-3 text-body-sm">
+            <div className="rounded-lg border p-3 text-sm">
               <p className="text-muted-foreground text-xs">Tổng thu nhập</p>
               <p className="text-base font-semibold text-emerald-600">{formatCurrency(totals.earnings)}</p>
             </div>
-            <div className="rounded-lg border p-3 text-body-sm">
+            <div className="rounded-lg border p-3 text-sm">
               <p className="text-muted-foreground text-xs">Tổng khấu trừ</p>
               <p className="text-base font-semibold text-red-500">{formatCurrency(totals.deductions)}</p>
             </div>
-            <div className="rounded-lg border p-3 text-body-sm">
+            <div className="rounded-lg border p-3 text-sm">
               <p className="text-muted-foreground text-xs">Đóng góp DN</p>
               <p className="text-base font-semibold text-blue-500">{formatCurrency(totals.contributions)}</p>
             </div>
-            <div className="rounded-lg border p-3 text-body-sm">
+            <div className="rounded-lg border p-3 text-sm">
               <p className="text-muted-foreground text-xs">Tổng thực lĩnh</p>
               <p className="text-base font-semibold">{formatCurrency(totals.net)}</p>
             </div>
@@ -1175,7 +1114,7 @@ export function PayrollDetailPage() {
               value={batch.notes ?? ''}
             />
             {!batch.notes && (
-              <p className="mt-2 text-body-xs text-muted-foreground">
+              <p className="mt-2 text-xs text-muted-foreground">
                 Bạn có thể cập nhật ghi chú sau khi hoàn thiện tính năng chỉnh sửa batch.
               </p>
             )}
@@ -1202,6 +1141,7 @@ export function PayrollDetailPage() {
         employeeName={editingPayslip ? (employeeLookup[editingPayslip.employeeSystemId]?.fullName ?? `Nhân viên ${editingPayslip.employeeId}`) : ''}
         isLocked={isLocked}
         onSave={handleSavePayslip}
+        isSaving={updateWithAudit.isPending}
       />
 
       {/* Create Payment Dialog */}
@@ -1213,15 +1153,8 @@ export function PayrollDetailPage() {
         employeeLookup={employeeLookup as Record<SystemId, import('../employees/types').Employee | undefined>}
       />
 
-      {/* Audit Logs - ActivityHistory */}
-      <ActivityHistory
-        history={allHistoryEntries}
-        title="Nhật ký thao tác"
-        emptyMessage="Chưa có nhật ký nào."
-        showFilters={false}
-        groupByDate={false}
-        maxHeight="400px"
-      />
+      {/* Audit Logs */}
+      <EntityActivityTable entityType="payroll" entityId={params.systemId} />
 
       {/* Approval Dialog */}
       <AlertDialog
@@ -1242,7 +1175,7 @@ export function PayrollDetailPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="space-y-2">
-            <Label htmlFor="approval-note" className="text-body-sm font-medium">
+            <Label htmlFor="approval-note" className="text-sm font-medium">
               Ghi chú nội bộ (không bắt buộc)
             </Label>
             <Textarea

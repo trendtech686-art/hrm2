@@ -8,9 +8,12 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { Prisma, LeaveStatus, LeaveType } from '@/generated/prisma/client';
-import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
+import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination, serializeDecimals } from '@/lib/api-utils'
 import { createLeaveSchema } from './validation'
 import { generateNextIds } from '@/lib/id-system'
+import { logError } from '@/lib/logger'
+import { createBulkNotifications } from '@/lib/notifications'
+import { getUserNameFromDb } from '@/lib/get-user-name'
 
 // Status mapping from enum to Vietnamese for response
 const statusToVietnamese: Record<string, string> = {
@@ -71,8 +74,12 @@ export async function GET(request: NextRequest) {
         'Đã duyệt': 'APPROVED',
         'Đã từ chối': 'REJECTED',
         'Đã hủy': 'CANCELLED',
+        'pending': 'PENDING',
+        'approved': 'APPROVED',
+        'rejected': 'REJECTED',
+        'cancelled': 'CANCELLED',
       };
-      const mappedStatus = statusMap[status] || status;
+      const mappedStatus = statusMap[status] || status.toUpperCase();
       where.status = mappedStatus as LeaveStatus;
     }
 
@@ -141,11 +148,29 @@ export async function GET(request: NextRequest) {
       leaveTypeRequiresAttachment: leave.leaveTypeRequiresAttachment,
     }));
 
-    return apiPaginated(transformedData, { page, limit, total })
+    return apiPaginated(serializeDecimals(transformedData), { page, limit, total })
   } catch (error) {
-    console.error('[Leaves API] GET error:', error);
+    logError('[Leaves API] GET error', error);
     return apiError('Failed to fetch leaves', 500)
   }
+}
+
+// Vietnamese name → Prisma LeaveType enum mapping
+const LEAVE_TYPE_NAME_MAP: Record<string, string> = {
+  'Nghỉ phép năm': 'ANNUAL',
+  'Phép năm': 'ANNUAL',
+  'Nghỉ ốm': 'SICK',
+  'Nghỉ thai sản': 'MATERNITY',
+  'Nghỉ việc riêng': 'PATERNITY',
+  'Nghỉ không lương': 'UNPAID',
+  'Nghỉ lễ': 'OTHER',
+  'Khác': 'OTHER',
+}
+
+function resolveLeaveTypeEnum(value: string): string {
+  const validEnums = ['ANNUAL', 'SICK', 'MATERNITY', 'PATERNITY', 'UNPAID', 'OTHER']
+  if (validEnums.includes(value)) return value
+  return LEAVE_TYPE_NAME_MAP[value] || 'OTHER'
 }
 
 // POST - Create new leave request
@@ -193,7 +218,7 @@ export async function POST(request: NextRequest) {
   // Get employee info for denormalization
   const employee = await prisma.employee.findUnique({
     where: { systemId: employeeId },
-    select: { systemId: true, id: true, fullName: true },
+    select: { systemId: true, id: true, fullName: true, managerId: true },
   });
 
   try {
@@ -202,7 +227,7 @@ export async function POST(request: NextRequest) {
         systemId,
         id,
         employeeId,
-        leaveType: (leaveType || 'ANNUAL') as LeaveType,
+        leaveType: resolveLeaveTypeEnum(leaveType || 'ANNUAL') as LeaveType,
         startDate: startDate ? new Date(startDate) : new Date(),
         endDate: endDate ? new Date(endDate) : new Date(),
         totalDays: totalDays || numberOfDays || 1,
@@ -236,9 +261,40 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return apiSuccess(transformLeave(leave as unknown as Record<string, unknown>), 201)
+    // Notify manager about new leave request (non-blocking)
+    if (employee?.managerId) {
+      const typeName = leaveTypeName || leaveTypeToVietnamese[leaveType || 'ANNUAL'] || leaveType;
+      const days = totalDays || numberOfDays || 1;
+      createBulkNotifications({
+        type: 'leave',
+        settingsKey: 'leave:updated',
+        title: 'Đơn xin nghỉ phép mới',
+        message: `${employee.fullName} xin nghỉ ${typeName} (${days} ngày)`,
+        link: '/leaves',
+        recipientIds: [employee.managerId],
+        senderId: employee.systemId,
+        senderName: employee.fullName || undefined,
+      }).catch(e => logError('[Leaves] New leave notification failed', e));
+    }
+
+    // Log activity
+    getUserNameFromDb(session.user?.id).then(userName =>
+      prisma.activityLog.create({
+        data: {
+          entityType: 'leave',
+          entityId: leave.systemId,
+          action: 'created',
+          actionType: 'create',
+          note: `Tạo đơn nghỉ phép`,
+          metadata: { userName },
+          createdBy: userName,
+        }
+      })
+    ).catch(e => logError('[ActivityLog] leave create failed', e))
+
+    return apiSuccess(serializeDecimals(transformLeave(leave as unknown as Record<string, unknown>)), 201)
   } catch (error) {
-    console.error('[Leaves API] POST error:', error);
+    logError('[Leaves API] POST error', error);
     return apiError('Failed to create leave request', 500)
   }
 }

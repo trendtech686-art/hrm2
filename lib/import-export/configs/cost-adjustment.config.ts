@@ -222,7 +222,7 @@ export const costAdjustmentImportExportConfig: ImportExportConfig<CostAdjustment
     let lastReason = '';
     let lastNote = '';
     
-    return rows.map((row: Record<string, unknown>) => {
+    return (rows as Record<string, unknown>[]).map((row) => {
       if (row.adjustmentId) {
         lastAdjustmentId = String(row.adjustmentId);
         lastType = String(row.type || '');

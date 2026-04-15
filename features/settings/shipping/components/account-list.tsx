@@ -43,9 +43,10 @@ import {
   saveShippingConfig
 } from '@/lib/utils/shipping-config-migration';
 import { toast } from 'sonner';
+import { logError } from '@/lib/logger'
 
 interface AccountListProps {
-  partnerCode: 'GHN' | 'GHTK' | 'VTP' | 'J&T' | 'SPX' | 'VNPOST' | 'NINJA_VAN' | 'AHAMOVE';
+  partnerCode: 'GHN' | 'GHTK' | 'VTP' | 'J&T' | 'SPX';
   accounts: PartnerAccount[];
   onAddAccount: () => void;
   onEditAccount: (accountId: string) => void;
@@ -64,13 +65,13 @@ export function AccountList({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [accountToDelete, setAccountToDelete] = useState<string | null>(null);
 
-  const handleSetDefault = (accountId: string, value: boolean) => {
+  const handleSetDefault = async (accountId: string, value: boolean) => {
     try {
       const config = loadShippingConfig();
       if (value) {
         // Đặt làm mặc định
         const newConfig = setDefaultAccount(config, partnerCode, accountId);
-        saveShippingConfig(newConfig);
+        await saveShippingConfig(newConfig);
         onAccountsChange();
         const account = accounts.find(a => a.id === accountId);
         toast.success('Đã đặt mặc định', { description: `"${account?.name}" là tài khoản mặc định.` });
@@ -80,29 +81,29 @@ export function AccountList({
         if (otherAccounts.length > 0) {
           const newDefaultAccount = otherAccounts[0];
           const newConfig = setDefaultAccount(config, partnerCode, newDefaultAccount.id);
-          saveShippingConfig(newConfig);
+          await saveShippingConfig(newConfig);
           onAccountsChange();
           toast.success('Đã bỏ mặc định', { description: `"${newDefaultAccount.name}" đã được đặt làm mặc định.` });
         }
       }
     } catch (error) {
-      console.error('Failed to set default account:', error);
+      logError('Failed to set default account', error);
       toast.error('Lỗi', { description: 'Không thể đặt làm mặc định' });
     }
   };
 
-  const handleToggleActive = (account: PartnerAccount, value: boolean) => {
+  const handleToggleActive = async (account: PartnerAccount, value: boolean) => {
     try {
       const config = loadShippingConfig();
       const newConfig = updatePartnerAccount(config, partnerCode, account.id, {
         ...account,
         active: value,
       });
-      saveShippingConfig(newConfig);
+      await saveShippingConfig(newConfig);
       onAccountsChange();
       toast.success(value ? 'Đã bật tài khoản' : 'Đã tắt tài khoản');
     } catch (error) {
-      console.error('Failed to toggle account:', error);
+      logError('Failed to toggle account', error);
       toast.error('Lỗi', { description: 'Không thể thay đổi trạng thái' });
     }
   };
@@ -112,17 +113,17 @@ export function AccountList({
     setDeleteDialogOpen(true);
   };
 
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
     if (!accountToDelete) return;
 
     try {
       const config = loadShippingConfig();
       const newConfig = deletePartnerAccount(config, partnerCode, accountToDelete);
-      saveShippingConfig(newConfig);
+      await saveShippingConfig(newConfig);
       onAccountsChange();
       toast.success('Xóa tài khoản thành công');
     } catch (error) {
-      console.error('Failed to delete account:', error);
+      logError('Failed to delete account', error);
       toast.error('Lỗi', { description: 'Không thể xóa tài khoản' });
     } finally {
       setDeleteDialogOpen(false);
@@ -137,16 +138,16 @@ export function AccountList({
 
   return (
     <>
-      <div className="border rounded-lg">
+      <div className="border rounded-lg overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Tên tài khoản</TableHead>
               <TableHead>Địa chỉ lấy hàng</TableHead>
               <TableHead>Cập nhật</TableHead>
-              <TableHead className="w-[100px]">Mặc định</TableHead>
-              <TableHead className="w-[100px]">Trạng thái</TableHead>
-              <TableHead className="w-[80px] text-right">Thao tác</TableHead>
+              <TableHead className="w-25">Mặc định</TableHead>
+              <TableHead className="w-25">Trạng thái</TableHead>
+              <TableHead className="w-20 text-right">Thao tác</TableHead>
             </TableRow>
           </TableHeader>
             <TableBody>

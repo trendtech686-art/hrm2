@@ -35,7 +35,7 @@ export function Header() {
   };
   
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center border-b border-border bg-card shadow-sm shrink-0 w-full">
+    <header className="sticky top-0 z-30 hidden md:flex h-16 items-center border-b border-border bg-card shadow-sm shrink-0 w-full">
       <div className="w-full px-4 sm:px-6 lg:px-6 flex items-center gap-4 py-2">
         <div className="flex-1 flex items-center gap-2 min-w-0">
           <Button
@@ -109,8 +109,17 @@ export function Header() {
                     )}
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onSelect={() => router.push('/settings')}>Cài đặt</DropdownMenuItem>
-                  <DropdownMenuItem>Hỗ trợ</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => router.push('/profile')}>
+                    <User className="mr-2 h-4 w-4" />
+                    Hồ sơ cá nhân
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => {
+                    if (employee?.systemId) {
+                      router.push(`/employees/${employee.systemId}`);
+                    } else {
+                      router.push('/settings');
+                    }
+                  }}>Cài đặt</DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onSelect={handleLogout} className="text-destructive focus:text-destructive">
                     <LogOut className="mr-2 h-4 w-4" />

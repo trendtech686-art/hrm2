@@ -60,6 +60,15 @@ export const customerFields: FieldConfig<Customer>[] = [
     type: 'phone',
     exportGroup: 'Thông tin cơ bản',
     example: '0901234567',
+    importTransform: (value: unknown) => {
+      if (!value) return undefined;
+      let phone = String(value).replace(/\s/g, '');
+      // Excel lưu số điện thoại dạng number, mất số 0 đầu
+      if (/^\d{9,10}$/.test(phone) && !phone.startsWith('0')) {
+        phone = '0' + phone;
+      }
+      return phone;
+    },
     validator: (value: unknown) => {
       if (!value) return null;
       const phone = String(value).replace(/\s/g, '');
@@ -219,19 +228,15 @@ export const customerFields: FieldConfig<Customer>[] = [
     defaultValue: 'Đang giao dịch',
   },
 
-  // ===== 15-18: THỐNG KÊ =====
+  // ===== 15-18: THỐNG KÊ (chỉ export, không import — dữ liệu tổng hợp tự tính) =====
   {
     key: 'currentDebt',
     label: 'Nợ hiện tại',
     required: false,
     type: 'number',
     exportGroup: 'Thống kê',
+    exportOnly: true,
     example: '0',
-    importTransform: (value: unknown) => {
-      if (!value) return 0;
-      const num = Number(String(value).replace(/[,.\s]/g, ''));
-      return isNaN(num) ? 0 : num;
-    },
     exportTransform: (value: unknown) => {
       if (!value) return '0';
       return Number(value).toLocaleString('vi-VN');
@@ -243,12 +248,8 @@ export const customerFields: FieldConfig<Customer>[] = [
     required: false,
     type: 'number',
     exportGroup: 'Thống kê',
+    exportOnly: true,
     example: '15000000',
-    importTransform: (value: unknown) => {
-      if (!value) return 0;
-      const num = Number(String(value).replace(/[,.\s]/g, ''));
-      return isNaN(num) ? 0 : num;
-    },
     exportTransform: (value: unknown) => {
       if (!value) return '0';
       return Number(value).toLocaleString('vi-VN');
@@ -260,11 +261,8 @@ export const customerFields: FieldConfig<Customer>[] = [
     required: false,
     type: 'number',
     exportGroup: 'Thống kê',
+    exportOnly: true,
     example: '10',
-    importTransform: (value: unknown) => {
-      if (!value) return 0;
-      return parseInt(String(value).replace(/[,.\s]/g, ''), 10) || 0;
-    },
   },
   {
     key: 'totalProductsBought',
@@ -272,11 +270,8 @@ export const customerFields: FieldConfig<Customer>[] = [
     required: false,
     type: 'number',
     exportGroup: 'Thống kê',
+    exportOnly: true,
     example: '50',
-    importTransform: (value: unknown) => {
-      if (!value) return 0;
-      return parseInt(String(value).replace(/[,.\s]/g, ''), 10) || 0;
-    },
   },
 
   // ===== CÁC TRƯỜNG BỔ SUNG (ẩn trong file mẫu, hiển thị khi export) =====
@@ -642,8 +637,8 @@ export const customerImportExportConfig: ImportExportConfig<Customer> = {
     const labelToKey: Record<string, string> = {};
     customerFields.forEach(field => {
       labelToKey[field.label.toLowerCase()] = field.key as string;
-      // Also map without (*) marker
-      const labelWithoutStar = field.label.replace(/\s*\(\*\)\s*$/, '').toLowerCase();
+      // Also map without (*) or standalone * marker
+      const labelWithoutStar = field.label.replace(/\s*\(\*\)\s*$/, '').replace(/\s*\*\s*$/, '').toLowerCase();
       labelToKey[labelWithoutStar] = field.key as string;
     });
     

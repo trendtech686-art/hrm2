@@ -96,14 +96,22 @@ export const formatLocalDateString = (date: Date): string => {
 };
 
 /**
- * Format date for display as DD/MM/YYYY (uses timezone from settings)
+ * Format date for display (uses dateFormat from settings)
  * Replacement for toLocaleDateString('vi-VN')
  */
 export const formatDateForDisplay = (date: Date | string | null | undefined): string => {
   if (!date) return '';
   const d = typeof date === 'string' ? new Date(date) : date;
   if (!isValid(d)) return '';
-  return dateFnsFormat(d, 'dd/MM/yyyy');
+  const settings = getDateSettings();
+  const formatMap: Record<string, string> = {
+    'DD/MM/YYYY': 'dd/MM/yyyy',
+    'MM/DD/YYYY': 'MM/dd/yyyy',
+    'YYYY-MM-DD': 'yyyy-MM-dd',
+    'DD-MM-YYYY': 'dd-MM-yyyy',
+  };
+  const fmt = formatMap[settings.dateFormat] || 'dd/MM/yyyy';
+  return dateFnsFormat(d, fmt);
 };
 
 /**

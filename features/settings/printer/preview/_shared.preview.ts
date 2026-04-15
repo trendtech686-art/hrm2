@@ -10,7 +10,15 @@ export const SHARED_PREVIEW_DATA = {
   '{store_phone_number}': '0905 123 456',
   '{store_email}': 'contact@trendtech.vn',
   '{store_fax}': '0236 3333 555',
+  '{store_tax_code}': '0123456789-001',
   '{store_province}': 'Đà Nẵng',
+  // === THÔNG TIN PHÁP LÝ CÔNG TY (cho hợp đồng) ===
+  '{store_company_name}': 'CÔNG TY TNHH THỜI TRANG TRENDTECH',
+  '{store_representative}': 'Bà NGUYỄN THỊ A',
+  '{store_representative_title}': 'Giám Đốc',
+  '{store_bank_account}': '123456789',
+  '{store_bank_name}': 'Vietcombank - CN Đà Nẵng',
+  '{store_bank_account_name}': 'CONG TY TNHH THOI TRANG TRENDTECH',
 
   // === THÔNG TIN CHI NHÁNH ===
   '{location_name}': 'Chi nhánh Hải Châu',

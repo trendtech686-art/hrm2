@@ -10,6 +10,7 @@ export interface CashbookParams {
   branchId?: string;
   accountId?: string;
   search?: string;
+  type?: 'receipt' | 'payment';
   page?: number;
   limit?: number;
 }
@@ -62,6 +63,7 @@ export async function fetchCashbook(params: CashbookParams = {}): Promise<Cashbo
   if (params.branchId) searchParams.set('branchId', params.branchId);
   if (params.accountId) searchParams.set('accountId', params.accountId);
   if (params.search) searchParams.set('search', params.search);
+  if (params.type) searchParams.set('type', params.type);
   if (params.page) searchParams.set('page', String(params.page));
   if (params.limit) searchParams.set('limit', String(params.limit));
 

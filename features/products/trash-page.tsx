@@ -69,10 +69,10 @@ export function ProductsTrashPage() {
   const handleDeleteFromColumn = React.useCallback(async (systemId: SystemId) => {
     permanentDelete.mutate(systemId, {
       onSuccess: () => {
-        toast.success("Đã xóa vĩnh viễn sản phẩm");
+        toast.success("Đã lưu trữ vĩnh viễn sản phẩm");
       },
       onError: (error) => {
-        toast.error(error.message || "Có lỗi khi xóa sản phẩm");
+        toast.error(error.message || "Có lỗi khi lưu trữ sản phẩm");
       }
     });
   }, [permanentDelete]);
@@ -84,59 +84,55 @@ export function ProductsTrashPage() {
 
   // Custom mobile card for products
   const renderMobileCard = (product: Product) => (
-    <Card className="hover:shadow-md transition-shadow">
-      <CardContent className="pt-6">
-        <div className="space-y-3">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex-1 min-w-0">
-              <h3 className="text-body-sm font-medium truncate">{product.name}</h3>
-              <p className="text-body-xs text-muted-foreground">{product.id}</p>
-              {product.shortDescription && (
-                <p className="text-body-xs text-muted-foreground mt-1 line-clamp-2">
-                  {product.shortDescription}
-                </p>
-              )}
-            </div>
-            {product.status && (
-              <Badge variant={(() => {
-                const status = product.status.toString().toLowerCase();
-                if (status === 'active') return 'success';
-                if (status === 'discontinued') return 'destructive';
-                return 'secondary';
-              })()}>
-                {(() => {
-                  const status = product.status.toString().toLowerCase();
-                  if (status === 'active') return 'Hoạt động';
-                  if (status === 'discontinued') return 'Ngừng kinh doanh';
-                  return 'Tạm ngừng';
-                })()}
-              </Badge>
-            )}
-          </div>
-          
-          <div className="grid grid-cols-2 gap-2 text-body-xs">
-            {product.categorySystemId && (
-              <div>
-                <span className="text-muted-foreground">Danh mục:</span>
-                <span className="ml-1 font-medium">{product.categorySystemId}</span>
-              </div>
-            )}
-            {product.type && (
-              <div>
-                <span className="text-muted-foreground">Loại:</span>
-                <span className="ml-1 font-medium capitalize">{product.type}</span>
-              </div>
-            )}
-          </div>
-
-          {product.deletedAt && (
-            <div className="text-body-xs text-muted-foreground">
-              Xóa: {formatDateTime(product.deletedAt)}
-            </div>
+    <div className="rounded-xl border border-border/50 bg-card p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <h3 className="text-sm font-medium truncate">{product.name}</h3>
+          <p className="text-xs text-muted-foreground">{product.id}</p>
+          {product.shortDescription && (
+            <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+              {product.shortDescription}
+            </p>
           )}
         </div>
-      </CardContent>
-    </Card>
+        {product.status && (
+          <Badge variant={(() => {
+            const status = product.status.toString().toLowerCase();
+            if (status === 'active') return 'success';
+            if (status === 'discontinued') return 'destructive';
+            return 'secondary';
+          })()}>
+            {(() => {
+              const status = product.status.toString().toLowerCase();
+              if (status === 'active') return 'Hoạt động';
+              if (status === 'discontinued') return 'Ngừng kinh doanh';
+              return 'Tạm ngừng';
+            })()}
+          </Badge>
+        )}
+      </div>
+      
+      <div className="grid grid-cols-2 gap-2 text-xs mt-2">
+        {product.categorySystemId && (
+          <div>
+            <span className="text-muted-foreground">Danh mục:</span>
+            <span className="ml-1 font-medium">{product.categorySystemId}</span>
+          </div>
+        )}
+        {product.type && (
+          <div>
+            <span className="text-muted-foreground">Loại:</span>
+            <span className="ml-1 font-medium capitalize">{product.type}</span>
+          </div>
+        )}
+      </div>
+
+      {product.deletedAt && (
+        <div className="text-xs text-muted-foreground mt-2 pt-2 border-t border-border/50">
+          Xóa: {formatDateTime(product.deletedAt)}
+        </div>
+      )}
+    </div>
   );
 
   if (isLoading) {

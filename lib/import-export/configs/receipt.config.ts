@@ -255,17 +255,18 @@ export const receiptImportExportConfig: ImportExportConfig<Receipt> = {
   },
   
   // Transform row to Receipt object
-  postTransformRow: (row, _index, context?: { storeContext?: { branchStore?: { data: Branch[] }; receiptTypeStore?: { data: ReceiptType[] }; paymentMethodStore?: { data: PaymentMethod[] }; targetGroupStore?: { data: TargetGroup[] }; customerStore?: { data: Customer[] }; supplierStore?: { data: Supplier[] }; employeeStore?: { data: Employee[] } } }) => {
+  postTransformRow: (row, _index, context) => {
+    const ctx = context as { storeContext?: { branchStore?: { data: Branch[] }; receiptTypeStore?: { data: ReceiptType[] }; paymentMethodStore?: { data: PaymentMethod[] }; targetGroupStore?: { data: TargetGroup[] }; customerStore?: { data: Customer[] }; supplierStore?: { data: Supplier[] }; employeeStore?: { data: Employee[] } } } | undefined;
     const now = new Date().toISOString();
     
     // Get data from context
-    const branches = context?.storeContext?.branchStore?.data || [];
-    const receiptTypes = context?.storeContext?.receiptTypeStore?.data || [];
-    const paymentMethods = context?.storeContext?.paymentMethodStore?.data || [];
-    const targetGroups = context?.storeContext?.targetGroupStore?.data || [];
-    const customers = context?.storeContext?.customerStore?.data || [];
-    const suppliers = context?.storeContext?.supplierStore?.data || [];
-    const employees = context?.storeContext?.employeeStore?.data || [];
+    const branches = ctx?.storeContext?.branchStore?.data || [];
+    const receiptTypes = ctx?.storeContext?.receiptTypeStore?.data || [];
+    const paymentMethods = ctx?.storeContext?.paymentMethodStore?.data || [];
+    const targetGroups = ctx?.storeContext?.targetGroupStore?.data || [];
+    const customers = ctx?.storeContext?.customerStore?.data || [];
+    const suppliers = ctx?.storeContext?.supplierStore?.data || [];
+    const employees = ctx?.storeContext?.employeeStore?.data || [];
     
     const defaultBranch = getDefaultBranch(branches);
     const defaultPaymentMethod = getDefaultPaymentMethod(paymentMethods);

@@ -5,7 +5,7 @@
  * @see docs/LOCALSTORAGE-TO-DATABASE-MIGRATION.md
  */
 
-import { useCallback } from 'react'
+import { useCallback, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/contexts/auth-context'
 
@@ -124,7 +124,10 @@ export function useWarrantyReminderTemplates(): [
   })
 
   // Combined templates (default + custom)
-  const allTemplates = [...DEFAULT_WARRANTY_REMINDER_TEMPLATES, ...customTemplates]
+  const allTemplates = useMemo(
+    () => [...DEFAULT_WARRANTY_REMINDER_TEMPLATES, ...customTemplates],
+    [customTemplates]
+  )
 
   // Save templates
   const setTemplates = useCallback(

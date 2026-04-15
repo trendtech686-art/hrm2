@@ -43,8 +43,7 @@ export const getBrandColumns = ({
       return website ? (
         <a 
           href={website.startsWith('http') ? website : `https://${website}`} 
-          target="_blank" 
-          rel="noopener noreferrer"
+          target="_blank" rel="noopener noreferrer" 
           className="text-blue-600 hover:underline"
         >
           {website}

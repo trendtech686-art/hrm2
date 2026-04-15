@@ -124,6 +124,7 @@ export interface SalesProductReportRow {
   sku?: string;
   categoryName?: string;
   brandName?: string;
+  thumbnailImage?: string;
   
   quantitySold: number;
   quantityReturned: number;
@@ -218,6 +219,30 @@ export interface SalesCustomerGroupReportRow {
   revenue: number;
   grossProfit: number;
   averageOrderValue: number;
+}
+
+// Dữ liệu báo cáo bán hàng theo thuế
+export interface SalesTaxReportRow {
+  taxRate: number; // Thuế suất (0, 5, 8, 10...)
+  taxRateLabel: string; // "0%", "5%", "8%", "10%"
+  
+  orderCount: number;
+  productAmount: number;
+  taxAmount: number;
+  revenue: number;
+  grossProfit: number;
+}
+
+// Dữ liệu báo cáo giao hàng theo nguồn bán hàng
+export interface DeliverySourceReportRow {
+  sourceId: string;
+  sourceName: string;
+  
+  totalShipments: number;
+  deliveredCount: number;
+  failedCount: number;
+  deliveryRate: number;
+  totalAmount: number;
 }
 
 // =====================================
@@ -458,6 +483,55 @@ export interface PaymentReportSummary {
   transactionCount: number;
   totalAmount: number;
   averageAmount: number;
+}
+
+// =====================================
+// DATA TYPES - TỒN KHO
+// =====================================
+
+export interface InventoryProductReportRow {
+  productSystemId: SystemId;
+  productName: string;
+  productCode?: string;
+  sku?: string;
+  categoryName?: string;
+  brandName?: string;
+  unit: string;
+
+  onHand: number;
+  committed: number;
+  inTransit: number;
+  inDelivery: number;
+  available: number;
+  costPrice: number;
+  inventoryValue: number;
+  reorderLevel?: number;
+  stockStatus: 'out_of_stock' | 'low_stock' | 'normal' | 'over_stock';
+}
+
+export interface InventoryBranchReportRow {
+  branchSystemId: SystemId;
+  branchName: string;
+
+  totalProducts: number;
+  totalOnHand: number;
+  totalCommitted: number;
+  totalAvailable: number;
+  totalInventoryValue: number;
+  outOfStockCount: number;
+  lowStockCount: number;
+}
+
+export interface InventoryCategoryReportRow {
+  categorySystemId: SystemId;
+  categoryName: string;
+
+  productCount: number;
+  totalOnHand: number;
+  totalCommitted: number;
+  totalAvailable: number;
+  totalInventoryValue: number;
+  outOfStockCount: number;
 }
 
 // =====================================

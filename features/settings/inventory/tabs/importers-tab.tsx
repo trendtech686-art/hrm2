@@ -36,17 +36,23 @@ export function ImportersTabContent({ isActive, onRegisterActions }: TabContentP
   const handleAdd = React.useCallback(() => { setEditingItem(null); setDialogOpen(true); }, []);
   const handleEdit = React.useCallback((item: Importer) => { setEditingItem(item); setDialogOpen(true); }, []);
   const handleDeleteRequest = React.useCallback((systemId: SystemId) => { setIdToDelete(systemId); setIsAlertOpen(true); }, []);
-  const handleToggleActive = React.useCallback((item: Importer) => { const na = !item.isActive; update.mutate({ systemId: item.systemId, data: { isActive: na } }, { onSuccess: () => toast.success(na ? 'Đã kích hoạt' : 'Đã tắt'), onError: (err) => toast.error(err.message) }); }, [update]);
-  const handleToggleDefault = React.useCallback((item: Importer) => { if (!item.isDefault) { update.mutate({ systemId: item.systemId, data: { isDefault: true } }, { onSuccess: () => toast.success('Đã đặt làm mặc định'), onError: (err) => toast.error(err.message) }); } }, [update]);
-  const confirmDelete = () => { if (idToDelete) { remove.mutate(idToDelete, { onSuccess: () => toast.success('Đã xóa đơn vị nhập khẩu'), onError: (err) => toast.error(err.message) }); } setIsAlertOpen(false); setIdToDelete(null); };
+  const handleToggleActive = React.useCallback((item: Importer) => { const na = !item.isActive; update.mutate({ systemId: item.systemId, data: { isActive: na } }, { onSuccess: () => toast.success(na ? 'Đã kích hoạt' : 'Đã vô hiệu hóa'), onError: (err) => toast.error(err.message) }); }, [update]);
+  const handleToggleDefault = React.useCallback((item: Importer) => {
+    activeImporters.forEach(i => { if (i.isDefault && i.systemId !== item.systemId) update.mutate({ systemId: i.systemId, data: { isDefault: false } }); });
+    update.mutate({ systemId: item.systemId, data: { isDefault: !item.isDefault } }, {
+      onSuccess: () => toast.success(item.isDefault ? 'Đã bỏ mặc định' : 'Đã đặt làm mặc định'),
+      onError: (err) => toast.error(err.message),
+    });
+  }, [activeImporters, update]);
+  const confirmDelete = () => { if (idToDelete) { remove.mutate(idToDelete, { onSuccess: () => toast.success('Đã xóa công ty XNK'), onError: (err) => toast.error(err.message) }); } setIsAlertOpen(false); setIdToDelete(null); };
 
   const handleBulkDelete = React.useCallback((selectedItems: { systemId: string }[]) => { if (selectedItems.length === 0) return; setIsBulkDeleteOpen(true); }, []);
-  const confirmBulkDelete = () => { const selectedIds = Object.keys(rowSelection); selectedIds.forEach(id => { remove.mutate(id as SystemId); }); toast.success(`Đã xóa ${selectedIds.length} đơn vị nhập khẩu`); setRowSelection({}); setIsBulkDeleteOpen(false); };
+  const confirmBulkDelete = () => { const selectedIds = Object.keys(rowSelection); const count = selectedIds.length; selectedIds.forEach((id, i) => { remove.mutate(id as SystemId, i === count - 1 ? { onSuccess: () => toast.success(`Đã xóa ${count} công ty XNK`) } : undefined); }); setRowSelection({}); setIsBulkDeleteOpen(false); };
 
   const handleSubmit = (values: ImporterFormValues) => {
     const payload = { ...values, id: asBusinessId(values.id) };
-    if (editingItem) { update.mutate({ systemId: editingItem.systemId, data: payload }, { onSuccess: () => toast.success('Đã cập nhật đơn vị nhập khẩu'), onError: (err) => toast.error(err.message) }); }
-    else { create.mutate(payload, { onSuccess: () => toast.success('Đã thêm đơn vị nhập khẩu mới'), onError: (err) => toast.error(err.message) }); }
+    if (editingItem) { update.mutate({ systemId: editingItem.systemId, data: payload }, { onSuccess: () => toast.success('Đã cập nhật công ty XNK'), onError: (err) => toast.error(err.message) }); }
+    else { create.mutate(payload, { onSuccess: () => toast.success('Đã thêm công ty XNK mới'), onError: (err) => toast.error(err.message) }); }
     setDialogOpen(false);
   };
 
@@ -55,14 +61,14 @@ export function ImportersTabContent({ isActive, onRegisterActions }: TabContentP
   const onRegisterActionsRef = React.useRef(onRegisterActions);
   React.useEffect(() => { onRegisterActionsRef.current = onRegisterActions; }, [onRegisterActions]);
 
-  React.useEffect(() => { if (!isActive) return; onRegisterActionsRef.current([<SettingsActionButton key="add-importer" onClick={handleAdd}><Plus className="mr-2 h-4 w-4" /> Thêm đơn vị nhập khẩu</SettingsActionButton>]); }, [handleAdd, isActive]);
+  React.useEffect(() => { if (!isActive) return; onRegisterActionsRef.current([<SettingsActionButton key="add-importer" onClick={handleAdd}><Plus className="mr-2 h-4 w-4" /> Thêm công ty XNK</SettingsActionButton>]); }, [handleAdd, isActive]);
 
   return (
     <>
-      <Card><CardHeader><div className="flex items-center justify-between"><div><CardTitle>Đơn vị nhập khẩu</CardTitle><CardDescription>Quản lý các đơn vị nhập khẩu để in tem phụ sản phẩm</CardDescription></div></div></CardHeader><CardContent><SimpleSettingsTable data={activeImporters} columns={columns} emptyTitle="Chưa có đơn vị nhập khẩu" emptyDescription="Thêm đơn vị nhập khẩu đầu tiên để in tem phụ sản phẩm" emptyAction={<Button size="sm" onClick={handleAdd}>Thêm đơn vị nhập khẩu</Button>} enableSelection rowSelection={rowSelection} setRowSelection={setRowSelection} onBulkDelete={handleBulkDelete} enablePagination pagination={{ pageSize: 10, showInfo: true }} /></CardContent></Card>
+      <Card><CardHeader><div className="flex items-center justify-between"><div><CardTitle>Công ty xuất nhập khẩu</CardTitle><CardDescription>Quản lý các công ty xuất nhập khẩu để in tem phụ sản phẩm</CardDescription></div></div></CardHeader><CardContent><SimpleSettingsTable data={activeImporters} columns={columns} emptyTitle="Chưa có công ty xuất nhập khẩu" emptyDescription="Thêm công ty xuất nhập khẩu đầu tiên để in tem phụ sản phẩm" emptyAction={<Button size="sm" onClick={handleAdd}>Thêm công ty xuất nhập khẩu</Button>} enableSelection rowSelection={rowSelection} setRowSelection={setRowSelection} onBulkDelete={handleBulkDelete} enablePagination pagination={{ pageSize: 10, showInfo: true }} /></CardContent></Card>
       <ImporterFormDialog open={dialogOpen} onOpenChange={setDialogOpen} initialData={editingItem} onSubmit={handleSubmit} existingIds={existingIds} />
       <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Bạn có chắc chắn muốn xóa?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể được hoàn tác.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={confirmDelete}>Xóa</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
-      <AlertDialog open={isBulkDeleteOpen} onOpenChange={setIsBulkDeleteOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Xóa {Object.keys(rowSelection).length} đơn vị nhập khẩu?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể được hoàn tác.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={confirmBulkDelete}>Xóa</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+      <AlertDialog open={isBulkDeleteOpen} onOpenChange={setIsBulkDeleteOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Xóa {Object.keys(rowSelection).length} công ty XNK?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể được hoàn tác.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={confirmBulkDelete}>Xóa</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
     </>
   );
 }

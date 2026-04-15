@@ -10,6 +10,7 @@ import { prisma } from '@/lib/prisma'
 import { deleteFileFromDisk } from '@/lib/upload-utils'
 import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
 import { updateFileSchema } from './validation'
+import { logError } from '@/lib/logger'
 
 // GET /api/upload/[id] - Get single file
 export async function GET(
@@ -43,7 +44,7 @@ export async function GET(
     })
     
   } catch (error) {
-    console.error('Get file error:', error)
+    logError('Get file error', error)
     return apiError('Lỗi khi lấy thông tin file', 500)
   }
 }
@@ -93,7 +94,7 @@ export async function DELETE(
     }
     
   } catch (error) {
-    console.error('Delete file error:', error)
+    logError('Delete file error', error)
     return apiError('Lỗi khi xóa file', 500)
   }
 }
@@ -148,7 +149,7 @@ export async function PATCH(
     })
     
   } catch (error) {
-    console.error('Update file error:', error)
+    logError('Update file error', error)
     return apiError('Lỗi khi cập nhật file', 500)
   }
 }

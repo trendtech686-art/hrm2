@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
+import { logError } from '@/lib/logger'
 
 /**
  * GET /api/payroll/employee-history?employeeId=X
@@ -100,7 +101,7 @@ export async function GET(request: Request) {
 
     return apiSuccess(history)
   } catch (error) {
-    console.error('[API] Error fetching employee payroll history:', error)
+    logError('[API] Error fetching employee payroll history', error)
     return apiError('Failed to fetch payroll history', 500)
   }
 }

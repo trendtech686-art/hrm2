@@ -8,8 +8,9 @@
 import { NextRequest } from 'next/server';
 import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils';
 import { createOrderSchema } from './validation';
-
-const GHTK_API_BASE = 'https://services.giaohangtietkiem.vn';
+import { logError } from '@/lib/logger'
+import { fetchWithTimeout } from '@/lib/fetch-utils'
+import { GHTK_API_BASE } from '@/lib/ghtk-sync'
 
 export async function POST(request: NextRequest) {
   const session = await requireAuth();
@@ -31,7 +32,7 @@ export async function POST(request: NextRequest) {
     }
 
 
-    const response = await fetch(`${GHTK_API_BASE}/services/shipment/order/?ver=1.5`, {
+    const response = await fetchWithTimeout(`${GHTK_API_BASE}/services/shipment/order/?ver=1.5`, {
       method: 'POST',
       headers: {
         'Token': apiToken,
@@ -47,7 +48,7 @@ export async function POST(request: NextRequest) {
 
     return apiSuccess(data);
   } catch (error) {
-    console.error(`[GHTK-ORDER-${requestId}] ❌ Create order error:`, error);
+    logError(`[GHTK-ORDER-${requestId}] ❌ Create order error`, error);
     return apiError(error instanceof Error ? error.message : 'Unknown error', 500);
   }
 }

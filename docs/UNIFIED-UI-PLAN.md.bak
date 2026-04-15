@@ -1,0 +1,322 @@
+# HRM2 — Kế hoạch thống nhất UI: Stats Bar + Bộ lọc nâng cao
+
+> Ngày tạo: 2026-04-06  
+> Mục tiêu: Thống nhất 100% giao diện danh sách trên toàn hệ thống
+
+---
+
+## 1. Hiện trạng sau audit
+
+### 1.1. Stats Component — 3 pattern khác nhau
+
+| Pattern | Pages | Click filter? | Vị trí |
+|---------|-------|---------------|--------|
+| **ToggleGroup** (workflow cards) | orders, customers, products | ✅ Có | Trên toolbar |
+| **StatsBar** (mới convert) | suppliers, employees, payments, shipments, complaints, tasks, stock-transfers, inventory-checks, reconciliation, warranty | ❌ Không | Có cái trên, có cái dưới — **CHƯA ĐỒNG NHẤT** |
+| **StatsCardGrid** (chưa convert) | receipts, purchase-returns, purchase-orders (po-statistics) | ❌ Không | Trên toolbar |
+| **Không có stats** | leaves, attendance, cashbook, inventory-receipts, sales-returns, cost-adjustments, price-adjustments, packaging, brands, categories, stock-locations, ordered-products, supplier-warranty, wiki | — | — |
+
+### 1.2. Bộ lọc — Hiện trạng
+
+| Thành phần | Tình trạng |
+|-----------|-----------|
+| PageFilters (search + inline) | Có ở hầu hết pages |
+| DataTableFacetedFilter | Có ở ~15 pages |
+| DataTableDateFilter | Có ở ~18 pages |
+| Branch Select | Có ở ~23 pages |
+| Advanced filter panel | ❌ KHÔNG CÓ |
+| Saved filter presets | ❌ KHÔNG CÓ |
+
+---
+
+## 2. Thiết kế mới
+
+### 2.1. Stats Bar — Thống nhất toàn bộ
+
+**Layout chuẩn cho MỌI trang danh sách:**
+```
+┌─────────────────────────────────────────────────┐
+│  Stats Bar (horizontal scroll)                  │  ← LUÔN Ở TRÊN CÙNG
+│  [Item 1] [Item 2] [Item 3] [Item 4] ...       │  ← Click = filter (nếu có)
+├─────────────────────────────────────────────────┤
+│  Toolbar: Cài đặt | Nhập file | Xuất | Cột     │
+├─────────────────────────────────────────────────┤
+│  Search | Filter1 | Filter2 | [+ Bộ lọc] | ... │  ← Saved presets inline
+│                              [Preset A] [Preset B]│
+├─────────────────────────────────────────────────┤
+│  Table / Cards                                  │
+└─────────────────────────────────────────────────┘
+```
+
+**Quy tắc:**
+- StatsBar LUÔN nằm trên cùng (trước toolbar)
+- Dùng `StatsBar` component duy nhất (đã tạo ở `components/shared/stats-bar.tsx`)
+- Support 2 modes: **display-only** và **click-to-filter** 
+- Các trang dùng ToggleGroup (orders, customers, products) → giữ nguyên vì đã đồng nhất style
+- Các trang dùng StatsCardGrid → convert sang StatsBar
+
+### 2.2. Bộ lọc nâng cao (Advanced Filter Panel)
+
+**Component mới: `FilterPresetBar`**
+```
+┌────────────────────────────────────────────────────────────────┐
+│ 🔍 Tìm kiếm... | Trạng thái ▾ | Ngày đặt 📅 | [+ Bộ lọc]   │
+│                                                  [Preset A ×] [Preset B ×] │
+└────────────────────────────────────────────────────────────────┘
+                                                         │
+                                           Click [+ Bộ lọc]
+                                                         ▼
+┌──────────────────────────────────── Sheet (right side) ─┐
+│  Tùy chọn bộ lọc                              [×]     │
+│                                                         │
+│  Chi nhánh         [Select ▾]                          │
+│  Trạng thái        [Multi-select ▾]                    │
+│  Loại              [Multi-select ▾]                    │
+│  Ngày tạo          [Date range]                        │
+│  Nhân viên         [Select ▾]                          │
+│  ... (dynamic per module)                              │
+│                                                         │
+│  ─────────────────────────────────────────────         │
+│  [Áp dụng]  [Xóa tất cả]  [Lưu bộ lọc]              │
+│                                                         │
+│  📁 Bộ lọc đã lưu:                                    │
+│  • "Đơn chưa thanh toán"               [Áp dụng] [×] │
+│  • "Đơn HN tháng 4"                    [Áp dụng] [×] │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Lưu filter presets:**
+- Lưu vào `UserPreference` (đã có sẵn trong hệ thống)
+- Key: `filter-presets:{module-name}`
+- Mỗi preset = `{ name: string, filters: Record<string, any> }`
+- Hiển thị inline như Badge trên thanh filter
+- Click Badge → áp dụng preset
+- Click × trên Badge → xóa preset
+
+---
+
+## 3. Triển khai theo Phase
+
+### Phase 0: Shared Components (1 batch)
+
+| Task | File | Mô tả |
+|------|------|--------|
+| 0.1 | `components/shared/stats-bar.tsx` | ✅ ĐÃ CÓ — chỉ cần bổ sung badge count + variant colors |
+| 0.2 | `components/shared/advanced-filter-panel.tsx` | **MỚI** — Sheet panel bên phải, nhận config filter fields |
+| 0.3 | `components/shared/filter-preset-bar.tsx` | **MỚI** — Hiển thị saved presets inline + nút [+ Bộ lọc] |
+| 0.4 | `hooks/use-filter-presets.ts` | **MỚI** — Hook lưu/đọc/xóa presets qua UserPreference |
+
+### Phase 1: Convert StatsCardGrid → StatsBar (3 files còn lại)
+
+| Task | File | Hiện tại | Sau convert |
+|------|------|----------|-------------|
+| 1.1 | `features/receipts/components/receipts-content.tsx` | StatsCardGrid 4 items | StatsBar |
+| 1.2 | `features/purchase-returns/page.tsx` | StatsCardGrid 4 items | StatsBar |
+| 1.3 | `features/purchase-orders/components/po-statistics.tsx` | StatsCardGrid 4 items | StatsBar |
+
+### Phase 2: Đồng nhất vị trí Stats Bar (di chuyển lên trên cùng)
+
+Các trang hiện đặt StatsBar SAU filters cần di chuyển:
+
+| Task | File | Hiện tại | Sửa |
+|------|------|----------|-----|
+| 2.1 | `features/employees/page.tsx` | Stats sau PageFilters | Move lên trước PageToolbar |
+| 2.2 | `features/shipments/page.tsx` | Stats sau PageFilters | Move lên trước PageToolbar |
+| 2.3 | `features/complaints/page.tsx` | Stats sau PageFilters | Move lên trước PageToolbar |
+| 2.4 | `features/tasks/page.tsx` | Stats sau PageFilters | Move lên trước PageFilters |
+| 2.5 | `features/stock-transfers/page.tsx` | Stats sau PageFilters | Move lên trước PageToolbar |
+| 2.6 | `features/reconciliation/page.tsx` | Stats sau PageToolbar | Move lên trước Tabs |
+
+### Phase 3: Bộ lọc nâng cao — Shared Components
+
+| Task | File | Mô tả |
+|------|------|--------|
+| 3.1 | `components/shared/advanced-filter-panel.tsx` | Sheet bên phải + filter fields config |
+| 3.2 | `components/shared/filter-preset-bar.tsx` | Saved preset badges + nút mở panel |
+| 3.3 | `hooks/use-filter-presets.ts` | CRUD presets via UserPreference API |
+
+### Phase 4-N: Apply bộ lọc nâng cao cho từng module
+
+Mỗi phase = 5-8 files, ưu tiên theo usage frequency:
+
+**Phase 4: Core Sales (orders, customers, products)**
+| Module | Quick Filters (hiển thị ngoài) | Advanced Filters (trong panel) |
+|--------|-------------------------------|-------------------------------|
+| orders | Search, Trạng thái | Chi nhánh, NV phụ trách, Ngày đặt, PT thanh toán, Vận chuyển |
+| customers | Search, Công nợ | Trạng thái, Loại KH, Ngày tạo, Chi nhánh |
+| products | Search, Danh mục | Khoảng giá, Tồn kho, Thương hiệu, Nhà cung cấp |
+
+**Phase 5: Procurement (suppliers, purchase-orders, purchase-returns)**
+| Module | Quick Filters | Advanced Filters |
+|--------|--------------|-----------------|
+| suppliers | Search, Trạng thái | Công nợ, Ngày tạo |
+| purchase-orders | Search, Trạng thái | NCC, Chi nhánh, Ngày đặt, Delivery status |
+| purchase-returns | Search | NCC, Chi nhánh, Trạng thái, Ngày |
+
+**Phase 6: Operations (shipments, stock-transfers, inventory-checks, reconciliation)**
+| Module | Quick Filters | Advanced Filters |
+|--------|--------------|-----------------|
+| shipments | Search, Trạng thái | ĐTVC, Chi nhánh, Ngày |
+| stock-transfers | Search, Trạng thái | Từ kho, Đến kho, Ngày |
+| inventory-checks | Search, Trạng thái | Chi nhánh, Ngày |
+| reconciliation | Search, Tab status | ĐTVC, Ngày |
+
+**Phase 7: HR & Finance (employees, payments, receipts, complaints, warranty, tasks)**
+| Module | Quick Filters | Advanced Filters |
+|--------|--------------|-----------------|
+| employees | Search, Trạng thái | Chi nhánh, Phòng ban, Chức danh |
+| payments | Search, Trạng thái | Loại, Chi nhánh, Ngày, Khách hàng |
+| receipts | Search, Trạng thái | Loại, Chi nhánh, Ngày |
+| complaints | Search, Trạng thái | Loại, NV xử lý, Mức ưu tiên |
+| warranty | Search, Trạng thái | Ngày, NCC |
+| tasks | Search, Trạng thái | Ưu tiên, Người giao, Ngày hạn |
+
+**Phase 8: Minor modules (leaves, attendance, cashbook, etc.)**
+- Áp dụng cho các module nhỏ còn lại
+
+---
+
+## 4. Chi tiết từng Module
+
+### 4.1. Orders (`features/orders/page.tsx`)
+- **Stats**: ToggleGroup 9 cards — ĐÃ CHUẨN ✅
+- **Click filter**: ✅ Có
+- **Quick filters hiện tại**: Search, Trạng thái (Faceted), Ngày đặt, NV phụ trách
+- **Cần thêm**: Nút [+ Bộ lọc] → Advanced panel (Chi nhánh, PT thanh toán, Nguồn đơn, Kênh bán)
+- **Saved presets**: Hỗ trợ
+
+### 4.2. Customers (`features/customers/page.tsx`)
+- **Stats**: ToggleGroup 6 cards — ĐÃ CHUẨN ✅
+- **Click filter**: ✅ Có
+- **Quick filters hiện tại**: Search, Ngày tạo, Công nợ, Trạng thái, Loại KH
+- **Cần thêm**: Nút [+ Bộ lọc] → Advanced panel (Chi nhánh, NV phụ trách, Khoảng công nợ)
+- **Saved presets**: Hỗ trợ
+
+### 4.3. Products (`features/products/page.tsx`)
+- **Stats**: ToggleGroup 8 cards — ĐÃ CHUẨN ✅
+- **Click filter**: ✅ Có
+- **Quick filters hiện tại**: Search, Danh mục, Thương hiệu
+- **Cần thêm**: Nút [+ Bộ lọc] → Advanced panel (Khoảng giá, Tồn kho, NCC)
+- **Saved presets**: Hỗ trợ
+
+### 4.4. Suppliers (`features/suppliers/page.tsx`)
+- **Stats**: StatsBar 6 items — ĐÃ CONVERT ✅
+- **Click filter**: ❌ Chưa
+- **Quick filters hiện tại**: Search only
+- **Cần thêm**: Trạng thái quick filter + Nút [+ Bộ lọc] → Công nợ, Ngày tạo
+- **Vị trí Stats**: ✅ Trên cùng
+
+### 4.5. Employees (`features/employees/page.tsx`)
+- **Stats**: StatsBar 3 items — ĐÃ CONVERT ✅
+- **Click filter**: ❌ Chưa
+- **Quick filters hiện tại**: Search, Chi nhánh, Phòng ban, Chức danh, Trạng thái
+- **Cần sửa**: Di chuyển StatsBar lên trước PageToolbar
+- **Cần thêm**: Nút [+ Bộ lọc]
+- **Saved presets**: Hỗ trợ
+
+### 4.6. Payments (`features/payments/page.tsx`)
+- **Stats**: StatsBar 4 items — ĐÃ CONVERT ✅
+- **Click filter**: ❌ Chưa
+- **Quick filters hiện tại**: Search, Ngày, Chi nhánh, Trạng thái, Loại, Khách hàng
+- **Vị trí Stats**: ✅ Trên cùng
+- **Cần thêm**: Nút [+ Bộ lọc]
+
+### 4.7. Shipments (`features/shipments/page.tsx`)
+- **Stats**: StatsBar 4 items — ĐÃ CONVERT ✅
+- **Click filter**: ❌ Chưa
+- **Quick filters hiện tại**: Search, Chi nhánh, Trạng thái
+- **Cần sửa**: Di chuyển StatsBar lên trước PageToolbar
+- **Cần thêm**: Nút [+ Bộ lọc] → ĐTVC, Ngày
+
+### 4.8. Complaints (`features/complaints/page.tsx`)
+- **Stats**: StatsBar 4 items — ĐÃ CONVERT ✅
+- **Click filter**: ❌ Chưa
+- **Quick filters hiện tại**: Search, Trạng thái, Loại, NV xử lý
+- **Cần sửa**: Di chuyển StatsBar lên trước PageFilters
+- **Cần thêm**: Nút [+ Bộ lọc]
+
+### 4.9. Warranty (`features/warranty/warranty-list-page.tsx`)
+- **Stats**: StatsBar 4 items — ĐÃ CONVERT ✅
+- **Click filter**: ❌ Chưa
+- **Quick filters hiện tại**: Search, Trạng thái (Faceted)
+- **Vị trí Stats**: Sau PageFilters → cần di chuyển lên
+- **Cần thêm**: Nút [+ Bộ lọc] → NCC, Ngày
+
+### 4.10. Tasks (`features/tasks/page.tsx`)
+- **Stats**: StatsBar 4 items — ĐÃ CONVERT ✅
+- **Click filter**: ❌ Chưa
+- **Quick filters hiện tại**: Search, Status tabs
+- **Cần sửa**: Di chuyển StatsBar lên trước PageFilters
+- **Cần thêm**: Nút [+ Bộ lọc] → Ưu tiên, Người giao, Ngày hạn
+
+### 4.11. Stock Transfers (`features/stock-transfers/page.tsx`)
+- **Stats**: StatsBar 4 items — ĐÃ CONVERT ✅
+- **Click filter**: ❌ Chưa
+- **Quick filters hiện tại**: Search, Trạng thái, Kho nguồn, Kho đích
+- **Cần sửa**: Di chuyển StatsBar lên trước PageToolbar
+- **Cần thêm**: Nút [+ Bộ lọc] → Ngày
+
+### 4.12. Inventory Checks (`features/inventory-checks/page.tsx`)
+- **Stats**: StatsBar 4 items — ĐÃ CONVERT ✅
+- **Click filter**: ❌ Chưa
+- **Quick filters hiện tại**: Search, Trạng thái
+- **Vị trí Stats**: ✅ Trên cùng
+- **Cần thêm**: Nút [+ Bộ lọc] → Chi nhánh, Ngày
+
+### 4.13. Reconciliation (`features/reconciliation/page.tsx`)
+- **Stats**: StatsBar 4 items — ĐÃ CONVERT ✅
+- **Click filter**: ❌ Chưa
+- **Quick filters hiện tại**: Search, Tabs (pending/reconciled/all)
+- **Vị trí Stats**: Trong div cùng level — OK
+- **Cần thêm**: Nút [+ Bộ lọc] → ĐTVC, Ngày
+
+### 4.14. Purchase Orders (`features/purchase-orders/`)
+- **Stats**: StatsCardGrid (po-statistics.tsx) — CHƯA CONVERT
+- **Click filter**: ❌
+- **Quick filters**: Search, Trạng thái, Chi nhánh, NCC
+- **Cần**: Convert StatsCardGrid → StatsBar + [+ Bộ lọc]
+
+### 4.15. Purchase Returns (`features/purchase-returns/page.tsx`)
+- **Stats**: StatsCardGrid 4 items — CHƯA CONVERT
+- **Click filter**: ❌
+- **Quick filters**: Search, NCC, Chi nhánh, Ngày
+- **Cần**: Convert StatsCardGrid → StatsBar + [+ Bộ lọc]
+
+### 4.16. Receipts (`features/receipts/components/receipts-content.tsx`)
+- **Stats**: StatsCardGrid 4 items — CHƯA CONVERT
+- **Click filter**: ❌
+- **Quick filters**: Search, Chi nhánh, Ngày
+- **Cần**: Convert StatsCardGrid → StatsBar + [+ Bộ lọc]
+
+### 4.17-4.28. Pages không có stats
+- leaves, attendance, cashbook, inventory-receipts, sales-returns, cost-adjustments, price-adjustments, packaging, brands, categories, stock-locations, ordered-products, supplier-warranty, wiki
+- **Xem xét**: Có cần thêm StatsBar? → Chỉ thêm nếu có data đáng hiển thị
+
+---
+
+## 5. Ước lượng & Ưu tiên
+
+| Phase | Scope | Files |
+|-------|-------|-------|
+| **Phase 0** | Shared components (StatsBar upgrade, AdvancedFilterPanel, FilterPresetBar, useFilterPresets) | 4 files |
+| **Phase 1** | Convert 3 StatsCardGrid còn lại | 3 files |
+| **Phase 2** | Đồng nhất vị trí StatsBar (6 pages) | 6 files |
+| **Phase 3** | Build advanced filter shared components | 3 files |
+| **Phase 4** | Apply cho orders, customers, products | 3 files |
+| **Phase 5** | Apply cho suppliers, purchase-orders, purchase-returns | 3 files |
+| **Phase 6** | Apply cho shipments, stock-transfers, inventory-checks, reconciliation | 4 files |
+| **Phase 7** | Apply cho employees, payments, receipts, complaints, warranty, tasks | 6 files |
+| **Phase 8** | Minor modules + cleanup | ~5 files |
+
+**Tổng: ~37 files qua 9 phases**
+
+---
+
+## 6. Quy tắc chung
+
+1. **Mỗi phase ≤ 8 files** — refactor theo batch
+2. **Chạy tsc + eslint** sau mỗi phase
+3. **Dọn dead code** trước khi refactor (unused imports, old components)
+4. **Giữ backward compatibility** — filter presets là optional, không break existing flows
+5. **Mobile responsive** — Advanced panel dùng Sheet full-width trên mobile
+6. **Performance** — Saved presets cache trong React Query, không gọi API mỗi lần render

@@ -4,10 +4,11 @@ import type { PurchaseOrder } from "@/lib/types/prisma-extended";
 import type { SystemId } from "@/lib/id-types";
 import { asSystemId } from "@/lib/id-types";
 import { useQueryClient } from '@tanstack/react-query';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import * as React from "react";
-import { fetchPurchaseOrders } from '../api/purchase-orders-api';
-import { fetchAllPages } from '@/lib/fetch-all-pages';
+import { batchImportPurchaseOrders } from '../api/purchase-orders-api';
 import { purchaseOrderKeys } from "./use-purchase-orders";
+import { logError } from '@/lib/logger'
 
 // ═══════════════════════════════════════════════════════════════
 // Types
@@ -23,43 +24,14 @@ export interface ImportResults {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// API Functions
-// ═══════════════════════════════════════════════════════════════
-
-async function createPurchaseOrder(data: Partial<PurchaseOrder>) {
-  const res = await fetch('/api/purchase-orders', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-  if (!res.ok) {
-    const error = await res.json();
-    throw new Error(error.error || 'Failed to create purchase order');
-  }
-  return res.json();
-}
-
-async function updatePurchaseOrder(systemId: string, data: Partial<PurchaseOrder>) {
-  const res = await fetch(`/api/purchase-orders/${systemId}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-  if (!res.ok) {
-    const error = await res.json();
-    throw new Error(error.error || 'Failed to update purchase order');
-  }
-  return res.json();
-}
-
-// ═══════════════════════════════════════════════════════════════
-// Import Handler - Uses API directly
+// Import Handler - Uses batch API for speed
 // ═══════════════════════════════════════════════════════════════
 
 async function executeImport(
   data: Partial<PurchaseOrder>[],
   mode: 'insert-only' | 'update-only' | 'upsert',
-  currentEmployeeSystemId: SystemId,
+  _currentEmployeeSystemId: SystemId,
+  onProgress?: (percent: number) => void,
 ): Promise<ImportResults> {
   const results: ImportResults = {
     success: 0,
@@ -71,74 +43,44 @@ async function executeImport(
   };
 
   try {
-    // Fetch ALL existing purchase orders to check for duplicates
-    const existingPOs = await fetchAllPages((p) => fetchPurchaseOrders(p));
+    // Send POs in chunks to the batch API
+    const CHUNK_SIZE = 500;
+    const total = data.length;
+    const chunks: Partial<PurchaseOrder>[][] = [];
+    for (let i = 0; i < total; i += CHUNK_SIZE) {
+      chunks.push(data.slice(i, i + CHUNK_SIZE));
+    }
 
-    for (let i = 0; i < data.length; i++) {
-      const item = data[i];
-      try {
-        // Check if purchase order exists (by id)
-        const existingPO = existingPOs.find((po: PurchaseOrder) =>
-          (item.id && po.id.toLowerCase() === item.id.toLowerCase())
-        );
+    for (let ci = 0; ci < chunks.length; ci++) {
+      const chunk = chunks[ci];
+      const batchResult = await batchImportPurchaseOrders(
+        chunk as unknown as Record<string, unknown>[],
+        mode,
+      );
 
-        if (existingPO) {
-          // PO exists
-          if (mode === 'insert-only') {
-            // Skip in insert-only mode
-            results.skipped++;
-            continue;
-          }
+      results.success += batchResult.success;
+      results.failed += batchResult.failed;
+      results.inserted += batchResult.inserted;
+      results.updated += batchResult.updated;
+      results.skipped += batchResult.skipped;
 
-          // Update existing purchase order
-          const updatedFields: Partial<PurchaseOrder> = {
-            ...item,
-            updatedAt: new Date().toISOString(),
-            updatedBy: currentEmployeeSystemId,
-          };
-          // Remove fields that shouldn't be overwritten
-          delete (updatedFields as { systemId?: string }).systemId;
-          delete (updatedFields as { createdAt?: string }).createdAt;
-          delete (updatedFields as { createdBy?: string }).createdBy;
-
-          await updatePurchaseOrder(existingPO.systemId, updatedFields);
-          results.updated++;
-          results.success++;
-        } else {
-          // PO does not exist
-          if (mode === 'update-only') {
-            // Skip in update-only mode
-            results.skipped++;
-            continue;
-          }
-
-          // Insert new purchase order
-          const newPO = {
-            ...item,
-            status: item.status || 'Đặt hàng',
-            paymentStatus: item.paymentStatus || 'Chưa thanh toán',
-            createdAt: new Date().toISOString(),
-            createdBy: currentEmployeeSystemId,
-            updatedAt: new Date().toISOString(),
-            updatedBy: currentEmployeeSystemId,
-          };
-
-          await createPurchaseOrder(newPO);
-          results.inserted++;
-          results.success++;
-        }
-      } catch (rowError) {
-        results.failed++;
+      // Map batch errors to row numbers
+      for (const err of batchResult.errors) {
         results.errors.push({
-          row: i + 2, // Excel row (1-indexed + header)
-          message: rowError instanceof Error ? rowError.message : 'Lỗi không xác định',
+          row: ci * CHUNK_SIZE + err.index + 2, // Excel row offset
+          message: err.message,
         });
+      }
+
+      if (onProgress) {
+        const percent = Math.min(100, Math.round(((ci + 1) / chunks.length) * 100));
+        onProgress(percent);
       }
     }
 
     return results;
   } catch (error) {
-    console.error('[PurchaseOrders Importer] Lỗi nhập đơn nhập hàng', error);
+    logError('[PurchaseOrders Importer] Lỗi nhập đơn nhập hàng', error);
     throw error;
   }
 }
@@ -159,12 +101,12 @@ export function usePurchaseOrderImportHandler({
   const currentEmployeeSystemId = authEmployeeSystemId ?? asSystemId('SYSTEM');
 
   const handleImport = React.useCallback(
-    async (data: Partial<PurchaseOrder>[], mode: 'insert-only' | 'update-only' | 'upsert', _branchId?: string) => {
-      const results = await executeImport(data, mode, currentEmployeeSystemId);
+    async (data: Partial<PurchaseOrder>[], mode: 'insert-only' | 'update-only' | 'upsert', _branchId?: string, onProgress?: (percent: number) => void) => {
+      const results = await executeImport(data, mode, currentEmployeeSystemId, onProgress);
       
       // Invalidate query cache to refresh list
       if (results.success > 0) {
-        queryClient.invalidateQueries({ queryKey: purchaseOrderKeys.lists() });
+        invalidateRelated(queryClient, 'purchase-orders');
       }
       
       return results;

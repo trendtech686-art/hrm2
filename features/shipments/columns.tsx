@@ -7,6 +7,7 @@ import type { ColumnDef } from '../../components/data-table/types';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import { Checkbox } from '../../components/ui/checkbox';
+import { getDeliveryStatusLabel } from '../../lib/constants/order-status-labels';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
 import { MoreHorizontal, Printer, FileText } from 'lucide-react';
 const formatCurrency = (value?: number) => {
@@ -78,7 +79,7 @@ export const getColumns = (
     { id: 'customerName', accessorKey: 'customerName', header: 'Người nhận', cell: ({ row }) => row.customerName, meta: { displayName: 'Người nhận' } },
     { id: 'customerPhone', accessorKey: 'customerPhone', header: 'SĐT người nhận', cell: ({ row }) => row.customerPhone, meta: { displayName: 'SĐT người nhận' } },
     { id: 'carrier', accessorKey: 'carrier', header: 'Đối tác vận chuyển', cell: ({ row }) => row.carrier || '-', meta: { displayName: 'Đối tác vận chuyển' } },
-    { id: 'deliveryStatus', accessorKey: 'deliveryStatus', header: 'Trạng thái giao hàng', cell: ({ row }) => row.deliveryStatus ? <Badge variant={deliveryStatusVariants[row.deliveryStatus]}>{row.deliveryStatus}</Badge> : '-', meta: { displayName: 'Trạng thái giao hàng' } },
+    { id: 'deliveryStatus', accessorKey: 'deliveryStatus', header: 'Trạng thái giao hàng', cell: ({ row }) => row.deliveryStatus ? <Badge variant={deliveryStatusVariants[row.deliveryStatus]}>{getDeliveryStatusLabel(row.deliveryStatus)}</Badge> : '-', meta: { displayName: 'Trạng thái giao hàng' } },
     { id: 'shippingFeeToPartner', accessorKey: 'shippingFeeToPartner', header: 'Phí trả ĐTVC', cell: ({ row }) => formatCurrency(row.shippingFeeToPartner), meta: { displayName: 'Phí trả ĐTVC' } },
     { id: 'codAmount', accessorKey: 'codAmount', header: 'Cần thu hộ COD', cell: ({ row }) => formatCurrency(row.codAmount), meta: { displayName: 'Cần thu hộ COD' } },
     { id: 'reconciliationStatus', accessorKey: 'reconciliationStatus', header: 'Trạng thái đối soát', cell: ({ row }) => row.reconciliationStatus || '-', meta: { displayName: 'Trạng thái đối soát' } },

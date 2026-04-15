@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { logError } from '@/lib/logger'
+import { requireAuth } from '@/lib/api-utils'
+import { createActivityLog } from '@/lib/services/activity-log-service'
+import { nanoid } from 'nanoid'
 
-export const dynamic = 'force-dynamic';
+// Reference data — rarely changes, cache aggressively
 
 /**
  * GET /api/administrative-units/districts
@@ -37,16 +41,63 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       data: districts,
       count: districts.length,
     });
+    response.headers.set('Cache-Control', 'private, no-cache');
+    return response;
   } catch (error) {
-    console.error('Failed to fetch districts:', error);
+    logError('Failed to fetch districts', error);
     return NextResponse.json(
       { success: false, error: 'Không thể tải danh sách quận/huyện' },
       { status: 500 }
     );
+  }
+}
+
+/**
+ * POST /api/administrative-units/districts
+ * Create a new district
+ */
+export async function POST(request: NextRequest) {
+  const session = await requireAuth()
+  if (!session) {
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+  }
+
+  try {
+    const body = await request.json()
+    const { id, name, provinceId, level = '3-level' } = body
+
+    if (!id || !name || !provinceId) {
+      return NextResponse.json({ success: false, error: 'Mã, tên và tỉnh thành là bắt buộc' }, { status: 400 })
+    }
+
+    const district = await prisma.district.create({
+      data: {
+        systemId: nanoid(),
+        id: typeof id === 'string' ? parseInt(id, 10) : id,
+        name,
+        provinceId,
+        level,
+        createdBy: session.user?.id,
+      },
+    })
+
+    await createActivityLog({
+      entityType: 'district',
+      entityId: district.systemId,
+      action: `Tạo quận/huyện "${name}"`,
+      actionType: 'create',
+      metadata: { userName: session.user?.name, provinceId },
+      createdBy: session.user?.id,
+    })
+
+    return NextResponse.json({ success: true, data: district })
+  } catch (error) {
+    logError('Failed to create district', error)
+    return NextResponse.json({ success: false, error: 'Không thể tạo quận/huyện' }, { status: 500 })
   }
 }

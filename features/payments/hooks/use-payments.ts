@@ -24,6 +24,7 @@ import {
   type CancelPaymentInput,
   type PaymentCategory,
 } from '@/app/actions/payments';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import type { Payment } from '@/lib/types/prisma-extended';
 
 // Re-export for backwards compatibility
@@ -31,14 +32,21 @@ export type { CreatePaymentInput, UpdatePaymentInput, CancelPaymentInput, Paymen
 
 // Helper to convert legacy Payment format to CreatePaymentInput
 function toCreatePaymentInput(data: CreatePaymentInput | Partial<Payment>): CreatePaymentInput {
-  // Check if branchId exists - indicates new format
   const d = data as Record<string, unknown>;
-  if (d.branchId && typeof d.branchId === 'string') {
-    return data as CreatePaymentInput;
+  
+  // Check if date field exists - indicates new format from detail-page
+  // Also check branchId as secondary indicator
+  if (d.date && typeof d.date === 'string') {
+    // Pass through all fields, ensuring branchId is set
+    return {
+      ...(data as CreatePaymentInput),
+      branchId: (d.branchId || d.branchSystemId || '') as string,
+    };
   }
   
-  // Convert legacy format
+  // Convert legacy format (from payment form-page)
   return {
+    date: (d.date || d.paymentDate || new Date().toISOString()) as string,
     amount: Number(d.amount) || 0,
     description: (d.description as string) || '',
     category: (d.category as PaymentCategory) || 'other',
@@ -52,7 +60,7 @@ function toCreatePaymentInput(data: CreatePaymentInput | Partial<Payment>): Crea
     recipientType: (d.recipientTypeName || d.recipientType) as string | undefined,
     recipientTypeSystemId: d.recipientTypeSystemId as string | undefined,
     recipientTypeName: d.recipientTypeName as string | undefined,
-    recipientName: d.recipientName as string | undefined,
+    recipientName: (d.recipientName as string) || '',
     recipientSystemId: d.recipientSystemId as string | undefined,
     linkedOrderSystemId: d.linkedOrderSystemId as string | undefined,
     linkedSalesReturnSystemId: d.linkedSalesReturnSystemId as string | undefined,
@@ -63,6 +71,8 @@ function toCreatePaymentInput(data: CreatePaymentInput | Partial<Payment>): Crea
     linkedPayslipSystemId: d.linkedPayslipSystemId as string | undefined,
     paymentReceiptTypeSystemId: d.paymentReceiptTypeSystemId as string | undefined,
     paymentReceiptTypeName: d.paymentReceiptTypeName as string | undefined,
+    supplierId: d.supplierId as string | undefined,
+    orderAllocations: d.orderAllocations as CreatePaymentInput['orderAllocations'],
   };
 }
 
@@ -155,6 +165,8 @@ export function usePayment(id: string | null | undefined, initialData?: Payment)
     initialData,
     enabled: !!id,
     staleTime: initialData ? 60_000 : 30_000,
+    // ✅ Always refetch on mount to ensure fresh data
+    refetchOnMount: 'always',
   });
 }
 
@@ -168,7 +180,7 @@ interface UsePaymentMutationsOptions {
 
 export function usePaymentMutations(options: UsePaymentMutationsOptions = {}) {
   const queryClient = useQueryClient();
-  
+
   const create = useMutation({
     // Accept either new CreatePaymentInput or legacy Partial<Payment> format
     mutationFn: async (data: CreatePaymentInput | Partial<Payment>) => {
@@ -180,9 +192,7 @@ export function usePaymentMutations(options: UsePaymentMutationsOptions = {}) {
       return result.data as Payment;
     },
     onSuccess: (data) => {
-      // ✅ Invalidate ALL payment queries (list, detail, purchase-order, etc.)
-      queryClient.invalidateQueries({ queryKey: paymentKeys.all });
-      queryClient.invalidateQueries({ queryKey: paymentKeys.stats() });
+      invalidateRelated(queryClient, 'payments');
       options.onCreateSuccess?.(data);
     },
     onError: options.onError,
@@ -198,11 +208,8 @@ export function usePaymentMutations(options: UsePaymentMutationsOptions = {}) {
       }
       return result.data as Payment;
     },
-    onSuccess: (data, variables) => {
-      const systemId = 'data' in variables ? variables.systemId : variables.systemId;
-      queryClient.invalidateQueries({ queryKey: paymentKeys.detail(systemId) });
-      queryClient.invalidateQueries({ queryKey: paymentKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: paymentKeys.stats() });
+    onSuccess: (data) => {
+      invalidateRelated(queryClient, 'payments');
       options.onUpdateSuccess?.(data);
     },
     onError: options.onError,
@@ -217,7 +224,7 @@ export function usePaymentMutations(options: UsePaymentMutationsOptions = {}) {
       return result.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: paymentKeys.all });
+      invalidateRelated(queryClient, 'payments');
       options.onDeleteSuccess?.();
     },
     onError: options.onError,
@@ -231,10 +238,8 @@ export function usePaymentMutations(options: UsePaymentMutationsOptions = {}) {
       }
       return result.data as Payment;
     },
-    onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: paymentKeys.detail(variables.systemId) });
-      queryClient.invalidateQueries({ queryKey: paymentKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: paymentKeys.stats() });
+    onSuccess: (data) => {
+      invalidateRelated(queryClient, 'payments');
       options.onCancelSuccess?.(data);
     },
     onError: options.onError,
@@ -243,22 +248,4 @@ export function usePaymentMutations(options: UsePaymentMutationsOptions = {}) {
   return { create, update, remove, cancel };
 }
 
-export function usePaymentsByRecipient(recipientSystemId: string | null | undefined) {
-  return usePayments({
-    recipientSystemId: recipientSystemId || undefined,
-  });
-}
 
-export function usePaymentsByBranch(branchId: string | null | undefined) {
-  return usePayments({
-    branchId: branchId || undefined,
-  });
-}
-
-export function usePaymentsByDateRange(startDate: string, endDate: string) {
-  return usePayments({ startDate, endDate });
-}
-
-export function usePaymentsByCategory(category: Payment['category']) {
-  return usePayments({ category });
-}

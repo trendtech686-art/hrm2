@@ -1,6 +1,7 @@
 import { healthCheck, getStats } from '@/lib/meilisearch'
 import { requireAuth, apiError } from '@/lib/api-utils'
 import { NextResponse } from 'next/server'
+import { logError } from '@/lib/logger'
 
 /**
  * Meilisearch Health & Stats API
@@ -30,7 +31,7 @@ export async function GET() {
       lastUpdate: stats.lastUpdate,
     })
   } catch (error) {
-    console.error('Meilisearch health check error:', error)
+    logError('Meilisearch health check error', error)
     return NextResponse.json({
       status: 'error',
       message: error instanceof Error ? error.message : 'Unknown error',

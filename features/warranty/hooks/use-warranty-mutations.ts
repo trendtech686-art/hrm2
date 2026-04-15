@@ -11,7 +11,7 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { warrantyKeys } from './use-warranties';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import {
   cancelWarrantyAction,
   updateWarrantyStatusAction,
@@ -67,14 +67,8 @@ export function useWarrantyStockMutations(options: UseWarrantyStockMutationsOpti
       }
       return result.data;
     },
-    onSuccess: (_data, variables) => {
-      // Invalidate all related queries
-      queryClient.invalidateQueries({ queryKey: warrantyKeys.detail(variables.systemId) });
-      queryClient.invalidateQueries({ queryKey: warrantyKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: warrantyKeys.stats() });
-      queryClient.invalidateQueries({ queryKey: ['inventory'] });
-      queryClient.invalidateQueries({ queryKey: ['products'] });
-      queryClient.invalidateQueries({ queryKey: ['stock-history'] });
+    onSuccess: () => {
+      invalidateRelated(queryClient, 'warranties');
       
       toast.success('Bảo hành đã hoàn tất', {
         description: 'Hàng đã được xuất kho thành công',
@@ -102,15 +96,8 @@ export function useWarrantyStockMutations(options: UseWarrantyStockMutationsOpti
       }
       return result.data;
     },
-    onSuccess: (_data, variables) => {
-      // Invalidate all related queries
-      queryClient.invalidateQueries({ queryKey: warrantyKeys.detail(variables.systemId) });
-      queryClient.invalidateQueries({ queryKey: warrantyKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: warrantyKeys.stats() });
-      queryClient.invalidateQueries({ queryKey: ['inventory'] });
-      queryClient.invalidateQueries({ queryKey: ['products'] });
-      queryClient.invalidateQueries({ queryKey: ['payments'] });
-      queryClient.invalidateQueries({ queryKey: ['receipts'] });
+    onSuccess: () => {
+      invalidateRelated(queryClient, 'warranties');
       
       toast.success('Bảo hành đã hủy', {
         description: 'Hàng giữ chỗ đã được giải phóng',
@@ -134,10 +121,8 @@ export function useWarrantyStockMutations(options: UseWarrantyStockMutationsOpti
       }
       return result.data;
     },
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: warrantyKeys.detail(variables.systemId) });
-      queryClient.invalidateQueries({ queryKey: warrantyKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: warrantyKeys.stats() });
+    onSuccess: () => {
+      invalidateRelated(queryClient, 'warranties');
       
       toast.success('Cập nhật trạng thái thành công');
       options.onSuccess?.();
@@ -158,10 +143,8 @@ export function useWarrantyStockMutations(options: UseWarrantyStockMutationsOpti
       }
       return result.data;
     },
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: warrantyKeys.detail(variables.systemId) });
-      queryClient.invalidateQueries({ queryKey: warrantyKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: warrantyKeys.stats() });
+    onSuccess: () => {
+      invalidateRelated(queryClient, 'warranties');
       
       toast.success('Đã mở lại phiếu bảo hành');
       options.onSuccess?.();
@@ -204,9 +187,7 @@ export function useWarrantyMutations(options: UseWarrantyStockMutationsOptions =
       return result.data || result;
     },
     onSuccess: (warranty) => {
-      queryClient.invalidateQueries({ queryKey: warrantyKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: warrantyKeys.stats() });
-      queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      invalidateRelated(queryClient, 'warranties');
       
       if (options.onCreateSuccess) {
         options.onCreateSuccess(warranty);
@@ -242,9 +223,8 @@ export function useWarrantyMutations(options: UseWarrantyStockMutationsOptions =
       const result = await response.json();
       return result.data || result;
     },
-    onSuccess: (warranty, variables) => {
-      queryClient.invalidateQueries({ queryKey: warrantyKeys.detail(variables.systemId) });
-      queryClient.invalidateQueries({ queryKey: warrantyKeys.lists() });
+    onSuccess: (warranty) => {
+      invalidateRelated(queryClient, 'warranties');
       
       if (options.onUpdateSuccess) {
         options.onUpdateSuccess(warranty);

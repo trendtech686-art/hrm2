@@ -6,19 +6,21 @@
 
 import * as React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { fetchAllPages } from '@/lib/fetch-all-pages';
 import { fetchCategories } from '../api/categories-api';
 import { categoryKeys } from './use-categories';
 import type { SystemId } from '@/lib/id-types';
 
 /**
- * Returns all categories as a flat array
- * Auto-pagination: no hardcoded limit cap (MODULE-QUALITY-CRITERIA §1.3)
+ * Returns all categories as a flat array.
+ * Uses server-side limit=500 (categories are typically <200 items).
  */
 export function useAllCategories() {
   const query = useQuery({
     queryKey: [...categoryKeys.all, 'all'],
-    queryFn: () => fetchAllPages((p) => fetchCategories(p)),
+    queryFn: async () => {
+      const result = await fetchCategories({ page: 1, limit: 500 });
+      return result.data;
+    },
     staleTime: 10 * 60 * 1000,
     gcTime: 60 * 60 * 1000,
   });
@@ -44,23 +46,6 @@ export function useActiveCategories() {
   );
   
   return { data: activeCategories, isLoading, isError, error };
-}
-
-/**
- * Returns categories formatted as options for Select/Combobox
- */
-export function useCategoryOptions() {
-  const { data, isLoading } = useActiveCategories();
-  
-  const options = React.useMemo(
-    () => data.map(c => ({
-      value: c.systemId,
-      label: c.path || c.name,
-    })),
-    [data]
-  );
-  
-  return { options, isLoading };
 }
 
 /**

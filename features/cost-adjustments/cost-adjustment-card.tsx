@@ -3,7 +3,6 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import type { CostAdjustment } from '@/lib/types/prisma-extended';
-import { Card, CardContent, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import { TrendingUp, TrendingDown, Package, Calendar, User, MoreHorizontal, Eye, CheckCircle, XCircle, Printer } from 'lucide-react';
@@ -48,12 +47,11 @@ export function CostAdjustmentCard({ adjustment, onConfirm, onCancel }: CostAdju
   const isNegative = totalDifference < 0;
 
   return (
-    <Card className="mb-3">
-      <CardContent className="p-4">
+    <div className="rounded-xl border border-border/50 bg-card p-4 active:scale-[0.98] transition-transform touch-manipulation cursor-pointer" onClick={() => router.push(`/cost-adjustments/${adjustment.systemId}`)}>
         <div className="flex items-start justify-between mb-3">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-1">
-              <CardTitle className="font-semibold text-sm text-primary">{adjustment.id}</CardTitle>
+              <span className="font-semibold text-sm text-primary">{adjustment.id}</span>
               <Badge variant={getStatusVariant(adjustment.status)}>
                 {getStatusLabel(adjustment.status)}
               </Badge>
@@ -67,7 +65,7 @@ export function CostAdjustmentCard({ adjustment, onConfirm, onCancel }: CostAdju
           
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 -mr-2 -mt-1 shrink-0" onClick={(e) => e.stopPropagation()}>
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -154,7 +152,6 @@ export function CostAdjustmentCard({ adjustment, onConfirm, onCancel }: CostAdju
             Lý do: {adjustment.reason}
           </p>
         )}
-      </CardContent>
-    </Card>
+    </div>
   );
 }

@@ -1,4 +1,5 @@
 import * as React from "react";
+import Image from 'next/image';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./dialog";
 import { Button } from "./button";
 import { Eye, Download, FileText, FileSpreadsheet, File } from "lucide-react";
@@ -56,7 +57,7 @@ export function FilePreviewDialog({ file, trigger }: FilePreviewDialogProps) {
     switch (fileType) {
       case 'pdf':
         return (
-          <div className="w-full h-[600px] border border-border rounded-lg overflow-hidden bg-gray-50">
+          <div className="w-full h-150 border border-border rounded-lg overflow-hidden bg-gray-50">
             <iframe
               src={file.url}
               className="w-full h-full"
@@ -67,18 +68,43 @@ export function FilePreviewDialog({ file, trigger }: FilePreviewDialogProps) {
 
       case 'image':
         return (
-          <div className="w-full flex items-center justify-center bg-gray-50 rounded-lg p-4">
-            <img
+          <div className="relative w-full h-150 bg-gray-50 rounded-lg p-4 flex items-center justify-center">
+            <Image
               src={file.url}
               alt={file.name}
-              className="max-w-full max-h-[600px] object-contain rounded-lg"
+              fill
+              sizes="(max-width: 768px) 100vw, 80vw"
+              className="object-contain rounded-lg"
             />
           </div>
         );
 
-      case 'office':
+      case 'office': {
+        // Office Online can't access localhost URLs
+        const isLocalhost = typeof window !== 'undefined' && 
+          (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+        const ext = file.name.split('.').pop()?.toLowerCase();
+        if (isLocalhost) {
+          const fileTypeName = ext === 'xlsx' || ext === 'xls' ? 'Excel' : 
+                              ext === 'doc' || ext === 'docx' ? 'Word' : 
+                              ext === 'ppt' || ext === 'pptx' ? 'PowerPoint' : 'Office';
+          return (
+            <div className="w-full h-64 flex flex-col items-center justify-center gap-4 bg-muted/30 rounded-lg border-2 border-dashed border-border">
+              {getFileIcon(file.name)}
+              <div className="text-center">
+                <p className="text-sm font-medium">{file.name}</p>
+                <p className="text-xs text-muted-foreground mt-2">File {fileTypeName} không thể xem trước trên môi trường localhost.</p>
+                <p className="text-xs text-muted-foreground">Vui lòng tải xuống để xem nội dung.</p>
+              </div>
+              <Button onClick={handleDownload} size="sm">
+                <Download className="mr-2 h-4 w-4" />
+                Tải xuống để xem
+              </Button>
+            </div>
+          );
+        }
         return (
-          <div className="w-full h-[600px] border border-border rounded-lg overflow-hidden">
+          <div className="w-full h-150 border border-border rounded-lg overflow-hidden">
             <iframe
               src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(file.url)}`}
               className="w-full h-full"
@@ -86,10 +112,11 @@ export function FilePreviewDialog({ file, trigger }: FilePreviewDialogProps) {
             />
           </div>
         );
+      }
 
       default:
         return (
-          <div className="w-full h-[400px] flex flex-col items-center justify-center gap-4 bg-muted/30 rounded-lg border-2 border-dashed border-border">
+          <div className="w-full h-100flex flex-col items-center justify-center gap-4 bg-muted/30 rounded-lg border-2 border-dashed border-border">
             {getFileIcon(file.name)}
             <div className="text-center">
               <p className="text-sm font-medium">{file.name}</p>

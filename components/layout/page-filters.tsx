@@ -13,6 +13,8 @@ export interface PageFiltersProps {
   searchValue?: string;
   onSearchChange?: (value: string) => void;
   searchPlaceholder?: string;
+  /** Icon/button to render inside the search input (right side) */
+  searchSuffix?: React.ReactNode;
   /** Deprecated: Use children for backward compatibility, or use leftFilters + rightFilters for new layout */
   children?: React.ReactNode;
   /** Filters to show next to search (left side) */
@@ -27,6 +29,7 @@ export function PageFilters({
   searchValue = '',
   onSearchChange,
   searchPlaceholder = 'Tìm kiếm...',
+  searchSuffix,
   children,
   leftFilters,
   rightFilters,
@@ -45,13 +48,20 @@ export function PageFilters({
       >
         {/* Search bar - Full width on mobile, auto on desktop */}
         {onSearchChange && (
-          <Input
-            type="search"
-            placeholder={searchPlaceholder}
-            value={searchValue}
-            onChange={(e) => onSearchChange(e.target.value)}
-            className="h-9 w-full sm:w-[280px] md:w-[360px] lg:w-[420px]"
-          />
+          <div className="relative w-full sm:w-[280px] md:w-[360px] lg:w-[420px]">
+            <Input
+              type="search"
+              placeholder={searchPlaceholder}
+              value={searchValue}
+              onChange={(e) => onSearchChange(e.target.value)}
+              className={cn("h-9 w-full", searchSuffix && "pr-10")}
+            />
+            {searchSuffix && (
+              <div className="absolute right-0 top-0 h-full flex items-center pr-1">
+                {searchSuffix}
+              </div>
+            )}
+          </div>
         )}
         
         {/* Custom filters - Wrap on mobile */}
@@ -73,13 +83,20 @@ export function PageFilters({
       {/* Left side: Search + leftFilters */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 flex-1">
         {onSearchChange && (
-          <Input
-            type="search"
-            placeholder={searchPlaceholder}
-            value={searchValue}
-            onChange={(e) => onSearchChange(e.target.value)}
-            className="h-9 w-full sm:w-[280px] md:w-[360px] lg:w-[420px]"
-          />
+          <div className="relative w-full sm:w-[280px] md:w-[360px] lg:w-[420px]">
+            <Input
+              type="search"
+              placeholder={searchPlaceholder}
+              value={searchValue}
+              onChange={(e) => onSearchChange(e.target.value)}
+              className={cn("h-9 w-full", searchSuffix && "pr-10")}
+            />
+            {searchSuffix && (
+              <div className="absolute right-0 top-0 h-full flex items-center pr-1">
+                {searchSuffix}
+              </div>
+            )}
+          </div>
         )}
         {leftFilters && (
           <div className="flex flex-wrap items-center gap-2">

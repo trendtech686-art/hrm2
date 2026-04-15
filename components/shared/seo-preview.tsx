@@ -50,7 +50,7 @@ export function SeoPreview({
       <div className="p-4 rounded-lg border bg-white dark:bg-background">
         {/* Site URL with favicon */}
         <div className="flex items-center gap-2 text-sm">
-          <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+          <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center shrink-0">
             <Globe className="h-4 w-4 text-muted-foreground" />
           </div>
           <div className="flex flex-col min-w-0">

@@ -2,6 +2,7 @@ import * as React from "react"
 import type { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import type { ColumnDef } from "../../components/data-table/types"
 import type { Supplier } from '@/lib/types/prisma-extended'
+import type { SystemId } from '@/lib/id-types';
 import { Badge } from "../../components/ui/badge"
 import { Button } from "../../components/ui/button"
 import { RotateCcw, Trash2 } from "lucide-react"
@@ -9,8 +10,8 @@ import { formatDateTimeForDisplay } from '@/lib/date-utils';
 
 export function getColumns(
   router: AppRouterInstance,
-  onRestore: (systemId: string) => void,
-  onPermanentDelete: (systemId: string) => void
+  onRestore: (systemId: SystemId) => void,
+  onPermanentDelete: (systemId: SystemId) => void
 ): ColumnDef<Supplier>[] {
   return [
     {
@@ -83,7 +84,7 @@ export function getColumns(
             }}
           >
             <Trash2 className="h-4 w-4 mr-1 text-destructive" />
-            Xóa vĩnh viễn
+            Lưu trữ vĩnh viễn
           </Button>
         </div>
       ),

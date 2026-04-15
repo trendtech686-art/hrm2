@@ -6,6 +6,7 @@
 import * as React from 'react';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import { asSystemId } from '@/lib/id-types';
 import { generateSubEntityId } from '@/lib/id-utils';
 import type { SystemId } from '@/lib/id-types';
@@ -106,15 +107,7 @@ export function useCompensationHandlers({
     } as Partial<Complaint>);
 
     // ✅ Invalidate related queries so compensation section shows new data
-    if (result.payment) {
-      queryClient.invalidateQueries({ queryKey: ['payments'] });
-    }
-    if (result.penalties && result.penalties.length > 0) {
-      queryClient.invalidateQueries({ queryKey: ['penalties'] });
-    }
-    if (result.inventoryCheckSystemId) {
-      queryClient.invalidateQueries({ queryKey: ['inventory-checks'] });
-    }
+    invalidateRelated(queryClient, 'complaints');
 
     complaintNotifications.onVerified("Đã xác nhận khiếu nại đúng, ghi nhận giải pháp và tạo phiếu chi");
     toast.success("Đã tạo phiếu bù trừ thành công!");

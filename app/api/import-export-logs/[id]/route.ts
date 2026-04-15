@@ -5,6 +5,7 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils';
+import { logError } from '@/lib/logger'
 
 // DELETE /api/import-export-logs/[id]?type=import
 export async function DELETE(
@@ -44,7 +45,7 @@ export async function DELETE(
 
     return apiSuccess({ message: 'Log deleted' });
   } catch (error) {
-    console.error('[API] Import/Export log delete error:', error);
+    logError('[API] Import/Export log delete error', error);
     return apiError('Failed to delete log', 500);
   }
 }

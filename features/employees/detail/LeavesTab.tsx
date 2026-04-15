@@ -7,7 +7,7 @@ import { Eye, MoreHorizontal } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLeavesByEmployee } from '@/features/leaves/hooks/use-all-leaves';
 import { usePrint } from '@/lib/use-print';
-import { useStoreInfoData } from '@/features/settings/store-info/hooks/use-store-info';
+import { fetchPrintData } from '@/lib/lazy-print-data';
 import {
   convertLeaveForPrint,
   mapLeaveToPrintData,
@@ -48,8 +48,9 @@ interface LeavesTabProps {
 
 export function LeavesTab({ employee }: LeavesTabProps) {
   const router = useRouter();
-  const { data: employeeLeaves } = useLeavesByEmployee(employee.systemId);
-  const { info: storeInfo } = useStoreInfoData();
+  const [page, setPage] = React.useState(1);
+  const { data: employeeLeaves, pagination } = useLeavesByEmployee(employee.systemId, page);
+  // ⚡ OPTIMIZED: storeInfo lazy loaded in print handlers
   const { print, printMultiple } = usePrint();
 
   const sortedLeaves = React.useMemo(() => 
@@ -57,14 +58,15 @@ export function LeavesTab({ employee }: LeavesTabProps) {
     [employeeLeaves]
   );
 
-  const handlePrintSingleLeave = React.useCallback((row: LeaveRequest) => {
+  const handlePrintSingleLeave = React.useCallback(async (row: LeaveRequest) => {
+    const { storeInfo } = await fetchPrintData();
     const leaveStoreSettings = createLeaveStoreSettings(storeInfo);
     const leaveForPrint = convertLeaveForPrint(row, { employee });
     print('leave', {
       data: mapLeaveToPrintData(leaveForPrint, leaveStoreSettings),
       lineItems: [],
     });
-  }, [employee, storeInfo, print]);
+  }, [employee, print]);
 
   const handleExportSingleLeave = React.useCallback(async (row: LeaveRequest) => {
     const headers = ['Mã đơn', 'Loại phép', 'Từ ngày', 'Đến ngày', 'Số ngày', 'Lý do', 'Trạng thái'];
@@ -117,8 +119,9 @@ export function LeavesTab({ employee }: LeavesTabProps) {
   ], [handlePrintSingleLeave, handleExportSingleLeave, router]);
 
   const leaveBulkActions = React.useMemo(() => {
-    const handlePrintLeaves = (rows: LeaveRequest[]) => {
+    const handlePrintLeaves = async (rows: LeaveRequest[]) => {
       if (rows.length === 0) { toast.error('Chưa chọn đơn nghỉ phép nào'); return; }
+      const { storeInfo } = await fetchPrintData();
       const leaveStoreSettings = createLeaveStoreSettings(storeInfo);
       const printOptionsList = rows.map(row => {
         const leaveForPrint = convertLeaveForPrint(row, { employee });
@@ -144,7 +147,7 @@ export function LeavesTab({ employee }: LeavesTabProps) {
       { label: 'In đơn nghỉ phép', icon: Printer, onSelect: handlePrintLeaves },
       { label: 'Xuất Excel', icon: FileSpreadsheet, onSelect: handleExportExcel },
     ];
-  }, [employee, storeInfo, printMultiple]);
+  }, [employee, printMultiple]);
 
   return (
     <Card>
@@ -160,6 +163,12 @@ export function LeavesTab({ employee }: LeavesTabProps) {
           onRowClick={(row) => router.push(`/leaves/${row.systemId}`)} 
           showCheckbox
           customBulkActions={leaveBulkActions}
+          serverPagination={{
+            page,
+            pageSize: pagination.limit,
+            totalItems: pagination.total,
+            onPageChange: setPage,
+          }}
         />
       </CardContent>
     </Card>

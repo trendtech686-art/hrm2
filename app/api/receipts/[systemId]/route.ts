@@ -1,29 +1,68 @@
 import { prisma } from '@/lib/prisma'
-import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
+import { validateBody, apiSuccess, apiError } from '@/lib/api-utils'
+import { apiHandler } from '@/lib/api-handler'
 import { updateReceiptSchema } from './validation'
 import { updateCustomerDebt } from '@/lib/services/customer-debt-service'
-import type { Prisma } from '@prisma/client'
+import { serializeReceipt } from '../serialize'
+import { logError } from '@/lib/logger'
+import { createNotification } from '@/lib/notifications'
+import { getUserNameFromDb } from '@/lib/get-user-name'
 
-interface RouteParams {
-  params: Promise<{ systemId: string }>
-}
+// Helper to recalculate and update PurchaseOrder refundStatus
+async function updatePurchaseOrderRefundStatus(purchaseOrderSystemId: string) {
+  try {
+    // Get PO details and all receipts for this PO
+    const [purchaseOrder, allReceipts] = await Promise.all([
+      prisma.purchaseOrder.findUnique({
+        where: { systemId: purchaseOrderSystemId },
+        select: { total: true },
+      }),
+      prisma.receipt.findMany({
+        where: {
+          purchaseOrderSystemId,
+          status: { not: 'cancelled' },
+        },
+        select: { amount: true },
+      }),
+    ]);
 
-// Serialize Decimal fields for client components
-function serializeReceipt<T extends { amount?: Prisma.Decimal | number | null; runningBalance?: Prisma.Decimal | number | null }>(receipt: T) {
-  return {
-    ...receipt,
-    amount: receipt.amount !== null && receipt.amount !== undefined ? Number(receipt.amount) : 0,
-    runningBalance: receipt.runningBalance !== null && receipt.runningBalance !== undefined ? Number(receipt.runningBalance) : null,
-  };
+    if (!purchaseOrder) return;
+
+    // Order total (grandTotal)
+    const orderTotal = Number(purchaseOrder.total || 0);
+
+    // Calculate total received from supplier (all receipts linked to this PO)
+    const totalReceived = allReceipts.reduce(
+      (sum, r) => sum + Number(r.amount || 0),
+      0
+    );
+
+    // Determine refund status based on order total
+    // - "Chưa hoàn tiền": No refund received
+    // - "Hoàn tiền một phần": Received some refund but less than order total
+    // - "Hoàn tiền toàn bộ": Received refund >= order total
+    let refundStatus = 'Chưa hoàn tiền';
+    if (totalReceived > 0) {
+      if (orderTotal > 0 && totalReceived >= orderTotal) {
+        refundStatus = 'Hoàn tiền toàn bộ';
+      } else {
+        refundStatus = 'Hoàn tiền một phần';
+      }
+    }
+
+    await prisma.purchaseOrder.update({
+      where: { systemId: purchaseOrderSystemId },
+      data: { refundStatus },
+    });
+  } catch (err) {
+    logError('[Receipt] Failed to update PO refundStatus', err);
+  }
 }
 
 // GET /api/receipts/[systemId]
-export async function GET(_request: Request, { params }: RouteParams) {
-  const session = await requireAuth()
-  if (!session) return apiError('Unauthorized', 401)
-
+export const GET = apiHandler(async (_request, { session, params }) => {
   try {
-    const { systemId } = await params
+    const { systemId } = params
 
     const receipt = await prisma.receipt.findUnique({
       where: { systemId },
@@ -37,17 +76,30 @@ export async function GET(_request: Request, { params }: RouteParams) {
       return apiError('Phiếu thu không tồn tại', 404)
     }
 
-    return apiSuccess(serializeReceipt(receipt))
+    // Resolve creator name
+    let createdByName: string | null = null
+    if (receipt.createdBy) {
+      const creator = await prisma.employee.findFirst({
+        where: { OR: [{ systemId: receipt.createdBy }, { id: receipt.createdBy }] },
+        select: { fullName: true },
+      })
+      createdByName = creator?.fullName || null
+    }
+
+    const serialized = serializeReceipt(receipt)
+    return apiSuccess({
+      ...serialized,
+      date: receipt.receiptDate?.toISOString() || receipt.createdAt?.toISOString(),
+      createdByName,
+    })
   } catch (error) {
-    console.error('Error fetching receipt:', error)
-    return apiError('Failed to fetch receipt', 500)
+    logError('Error fetching receipt', error)
+    return apiError('Không thể tải phiếu thu', 500)
   }
-}
+})
 
 // PUT /api/receipts/[systemId]
-export async function PUT(request: Request, { params }: RouteParams) {
-  const session = await requireAuth()
-  if (!session) return apiError('Unauthorized', 401)
+export const PUT = apiHandler(async (request, { session, params }) => {
 
   const validation = await validateBody(request, updateReceiptSchema)
   if (!validation.success) {
@@ -56,7 +108,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
   const body = validation.data
 
   try {
-    const { systemId } = await params
+    const { systemId } = params
 
     const receipt = await prisma.receipt.update({
       where: { systemId },
@@ -76,41 +128,87 @@ export async function PUT(request: Request, { params }: RouteParams) {
       const customerSystemId = receipt.customerSystemId || receipt.payerSystemId;
       if (customerSystemId) {
         await updateCustomerDebt(customerSystemId).catch(err => {
-          console.error('[Update Receipt] Failed to update customer debt:', err);
+          logError('[Update Receipt] Failed to update customer debt', err);
         });
       }
     }
 
+    // Update PurchaseOrder refundStatus if receipt is linked to a PO
+    if (receipt.purchaseOrderSystemId) {
+      await updatePurchaseOrderRefundStatus(receipt.purchaseOrderSystemId);
+    }
+
+    // Notify about receipt update
+    if (receipt.createdBy && receipt.createdBy !== session!.user.employeeId) {
+      createNotification({
+        type: 'receipt',
+        settingsKey: 'receipt:updated',
+        title: 'Phiếu thu cập nhật',
+        message: `Phiếu thu ${receipt.id || systemId} đã được cập nhật`,
+        link: `/receipts/${systemId}`,
+        recipientId: receipt.createdBy,
+        senderId: session!.user.employeeId,
+        senderName: session!.user.name,
+      }).catch(e => logError('[Receipt Update] notification failed', e));
+    }
+
+    // Log activity
+    getUserNameFromDb(session!.user.id).then(userName =>
+      prisma.activityLog.create({
+        data: {
+          entityType: 'receipt',
+          entityId: systemId,
+          action: 'updated',
+          actionType: 'update',
+          note: `Cập nhật phiếu thu`,
+          metadata: { userName },
+          createdBy: userName,
+        }
+      })
+    ).catch(e => logError('[ActivityLog] receipt update failed', e))
     return apiSuccess(serializeReceipt(receipt))
   } catch (error) {
     if (error instanceof Error && 'code' in error && error.code === 'P2025') {
       return apiError('Phiếu thu không tồn tại', 404)
     }
-    console.error('Error updating receipt:', error)
-    return apiError('Failed to update receipt', 500)
+    logError('Error updating receipt', error)
+    return apiError('Không thể cập nhật phiếu thu', 500)
   }
-}
+})
 
 // DELETE /api/receipts/[systemId]
-export async function DELETE(_request: Request, { params }: RouteParams) {
-  const session = await requireAuth()
-  if (!session) return apiError('Unauthorized', 401)
-
+export const DELETE = apiHandler(async (_request, { session, params }) => {
   try {
-    const { systemId } = await params
+    const { systemId } = params
 
-    // Get receipt info before deleting to update customer debt
+    // Get receipt info before deleting to update customer debt and PO refundStatus
     const receipt = await prisma.receipt.findUnique({
       where: { systemId },
       select: {
         affectsDebt: true,
         customerSystemId: true,
         payerSystemId: true,
+        purchaseOrderSystemId: true,
+        category: true,
+        amount: true,
+        originalDocumentId: true,
+        linkedOrderSystemId: true,
+        linkedSalesReturnSystemId: true,
+        linkedWarrantySystemId: true,
+        linkedComplaintSystemId: true,
       },
     });
 
     if (!receipt) {
       return apiError('Phiếu thu không tồn tại', 404)
+    }
+
+    // Chặn xóa phiếu thu tự động sinh từ giao dịch
+    const isAutoGenerated = receipt.originalDocumentId || receipt.linkedOrderSystemId 
+      || receipt.linkedSalesReturnSystemId || receipt.linkedWarrantySystemId 
+      || receipt.linkedComplaintSystemId || receipt.purchaseOrderSystemId;
+    if (isAutoGenerated) {
+      return apiError('Không thể xóa phiếu thu tự động sinh từ giao dịch. Vui lòng hủy phiếu thay vì xóa.', 400)
     }
 
     await prisma.receipt.delete({
@@ -122,17 +220,52 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
       const customerSystemId = receipt.customerSystemId || receipt.payerSystemId;
       if (customerSystemId) {
         await updateCustomerDebt(customerSystemId).catch(err => {
-          console.error('[Delete Receipt] Failed to update customer debt:', err);
+          logError('[Delete Receipt] Failed to update customer debt', err);
         });
       }
     }
 
+    // ✅ Revert supplier debt if receipt was a supplier refund
+    // Xóa phiếu hoàn tiền từ NCC → tăng lại công nợ
+    if (receipt.affectsDebt && receipt.category === 'supplier_refund') {
+      const supplierSystemId = receipt.payerSystemId;
+      if (supplierSystemId) {
+        await prisma.supplier.update({
+          where: { systemId: supplierSystemId },
+          data: {
+            currentDebt: { increment: Number(receipt.amount) || 0 },
+          },
+        }).catch(err => {
+          logError('[Delete Receipt] Failed to revert supplier debt', err);
+        });
+      }
+    }
+
+    // Update PurchaseOrder refundStatus if receipt was linked to a PO
+    if (receipt.purchaseOrderSystemId) {
+      await updatePurchaseOrderRefundStatus(receipt.purchaseOrderSystemId);
+    }
+
+    // Log activity
+    getUserNameFromDb(session!.user.id).then(userName =>
+      prisma.activityLog.create({
+        data: {
+          entityType: 'receipt',
+          entityId: systemId,
+          action: 'deleted',
+          actionType: 'delete',
+          note: `Xóa phiếu thu`,
+          metadata: { userName },
+          createdBy: userName,
+        }
+      })
+    ).catch(e => logError('[ActivityLog] receipt delete failed', e))
     return apiSuccess({ success: true })
   } catch (error) {
     if (error instanceof Error && 'code' in error && error.code === 'P2025') {
       return apiError('Phiếu thu không tồn tại', 404)
     }
-    console.error('Error deleting receipt:', error)
-    return apiError('Failed to delete receipt', 500)
+    logError('Error deleting receipt', error)
+    return apiError('Không thể xóa phiếu thu', 500)
   }
-}
+})

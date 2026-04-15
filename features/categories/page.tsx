@@ -3,42 +3,55 @@
 
 import * as React from "react";
 import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { Plus, Power, PowerOff, RefreshCw, Search, AlignLeft, ExternalLink, FolderEdit, FileUp, Download, Archive } from "lucide-react";
 import { asSystemId } from "@/lib/id-types";
-import { useColumnVisibility } from "../../hooks/use-column-visibility";
+import { useColumnVisibility, useColumnOrder, usePinnedColumns } from "../../hooks/use-column-visibility";
 import { usePageHeader } from "../../contexts/page-header-context";
-import { useCategories, useCategoryMutations, useBulkCategoryMutations } from "./hooks/use-categories";
+import { useCategories, useCategoryMutations, useBulkCategoryMutations, categoryKeys } from "./hooks/use-categories";
+import { fetchCategory } from "./api/categories-api";
 import type { Category } from "./api/categories-api";
 import { Button } from "../../components/ui/button";
 import { ResponsiveDataTable } from "@/components/data-table/responsive-data-table";
 import { Card, CardContent } from "@/components/ui/card";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { DynamicDataTableColumnCustomizer as DataTableColumnCustomizer } from "@/components/data-table/dynamic-column-customizer";
-import { DataTableFacetedFilter } from "@/components/data-table/data-table-faceted-filter";
 import { PageToolbar } from "@/components/layout/page-toolbar";
 import { PageFilters } from "@/components/layout/page-filters";
+import { AdvancedFilterPanel, FilterExtras, type FilterConfig } from '@/components/shared/advanced-filter-panel';
+import { useFilterPresets } from '@/hooks/use-filter-presets';
 import { useMediaQuery } from "@/lib/use-media-query";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import { simpleSearch } from "@/lib/simple-search";
 import { getColumns } from "./columns";
 import { MobileCategoryCard } from "./card";
 import dynamic from 'next/dynamic';
 import { usePkgxCategorySync } from "./hooks/use-pkgx-category-sync";
-import { usePkgxSettings, usePkgxCategoryMappingMutations } from "../settings/pkgx/hooks/use-pkgx-settings";
+import { usePkgxMappings, usePkgxCategoryMappingMutations } from "../settings/pkgx/hooks/use-pkgx-settings";
 import { updateCategory as updatePkgxCategory, updateCategoryBasic } from "@/lib/pkgx/api-service";
 import { PkgxCategoryLinkDialog } from "./components/pkgx-link-dialog";
 import { useAuth } from "@/contexts/auth-context";
+import { usePaginationWithGlobalDefault } from '@/features/settings/global/hooks/use-global-settings';
 
 const CategoryImportDialog = dynamic(() => import("./components/categories-import-export-dialogs").then(mod => ({ default: mod.CategoryImportDialog })), { ssr: false });
 const CategoryExportDialog = dynamic(() => import("./components/categories-import-export-dialogs").then(mod => ({ default: mod.CategoryExportDialog })), { ssr: false });
 
 export function ProductCategoriesPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
+  const [isFilterPending, startFilterTransition] = React.useTransition();
   const isMobile = useMediaQuery("(max-width: 768px)");
-  const { employee: authEmployee } = useAuth();
+  const {  employee: authEmployee, can } = useAuth();
+  const canCreate = can('create_products');
+  const canDelete = can('delete_products');
+  const canEdit = can('edit_products');
+
+  // Filter presets
+  const { presets, savePreset, deletePreset, updatePreset } = useFilterPresets('categories');
   
   // Use React Query instead of Zustand store - use all=true to get all categories
-  const { data: queryData, isLoading: _isLoading } = useCategories({ all: true });
+  const { data: queryData, isFetching } = useCategories({ all: true });
   const data = React.useMemo(() => queryData?.data ?? [], [queryData?.data]);
   const { create, update, remove } = useCategoryMutations({
     onCreateSuccess: () => toast.success("Đã thêm danh mục"),
@@ -59,13 +72,12 @@ export function ProductCategoriesPage() {
   const [sorting, setSorting] = React.useState({ id: 'path', desc: false });
   const [globalFilter, setGlobalFilter] = React.useState('');
   const [debouncedGlobalFilter, setDebouncedGlobalFilter] = React.useState('');
-  const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 20 });
+  const [pagination, setPagination] = usePaginationWithGlobalDefault();
   const [mobileLoadedCount, setMobileLoadedCount] = React.useState(20);
   const [columnVisibility, setColumnVisibility] = useColumnVisibility('categories', {});
-  const [columnOrder, setColumnOrder] = React.useState<string[]>([]);
-  const [pinnedColumns, setPinnedColumns] = React.useState<string[]>(['select', 'thumbnailImage', 'name']);
-  const [statusFilter, setStatusFilter] = React.useState<Set<string>>(new Set());
-  const [levelFilter, setLevelFilter] = React.useState<Set<string>>(new Set());
+  const [columnOrder, setColumnOrder] = useColumnOrder('categories');
+  const [pinnedColumns, setPinnedColumns] = usePinnedColumns('categories', ['select', 'thumbnailImage', 'name']);
+  const [advancedFilters, setAdvancedFilters] = React.useState<Record<string, unknown>>({});
   const [isImportOpen, setIsImportOpen] = React.useState(false);
   const [isExportOpen, setIsExportOpen] = React.useState(false);
   const [pkgxLinkDialogOpen, setPkgxLinkDialogOpen] = React.useState(false);
@@ -75,7 +87,7 @@ export function ProductCategoriesPage() {
 
   const { handleSyncSeo, handleSyncDescription, handleSyncAll, handleSyncBasic, hasPkgxMapping, getPkgxCatId } = usePkgxCategorySync();
   
-  const { data: pkgxSettings } = usePkgxSettings();
+  const { data: pkgxSettings } = usePkgxMappings();
   const { deleteCategoryMapping } = usePkgxCategoryMappingMutations({ onSuccess: () => {} });
   
   // Helper to find mapping by HRM category ID
@@ -87,9 +99,16 @@ export function ProductCategoriesPage() {
   const handleToggleActive = React.useCallback((systemId: string, isActive: boolean) => { update.mutate({ systemId, data: { isActive } }); }, [update]);
   const handleUpdateName = React.useCallback((systemId: string, name: string) => { update.mutate({ systemId, data: { name } }); }, [update]);
   const handleUpdateSortOrder = React.useCallback((systemId: string, sortOrder: number) => { update.mutate({ systemId, data: { sortOrder } }); }, [update]);
-  const handleBulkActivate = React.useCallback(() => { const ids = Object.keys(rowSelection); bulkActivate.mutate(ids); setRowSelection({}); }, [rowSelection, bulkActivate]);
-  const handleBulkDeactivate = React.useCallback(() => { const ids = Object.keys(rowSelection); bulkDeactivate.mutate(ids); setRowSelection({}); }, [rowSelection, bulkDeactivate]);
+  const handleBulkActivate = React.useCallback(() => { const ids = Object.keys(rowSelection); startFilterTransition(() => { bulkActivate.mutate(ids); }); setRowSelection({}); }, [rowSelection, bulkActivate]);
+  const handleBulkDeactivate = React.useCallback(() => { const ids = Object.keys(rowSelection); startFilterTransition(() => { bulkDeactivate.mutate(ids); }); setRowSelection({}); }, [rowSelection, bulkDeactivate]);
   const handleRowClick = React.useCallback((c: Category) => router.push(`/categories/${c.systemId}`), [router]);
+  const handleRowHover = React.useCallback((c: Category) => {
+    queryClient.prefetchQuery({
+      queryKey: categoryKeys.detail(c.systemId),
+      queryFn: () => fetchCategory(c.systemId),
+      staleTime: 60_000,
+    });
+  }, [queryClient]);
   const handlePkgxLink = React.useCallback((c: Category) => { setCategoryToLink(c); setPkgxLinkDialogOpen(true); }, []);
   const handlePkgxUnlink = React.useCallback((c: Category) => { const m = getCategoryMappingByHrmId(c.systemId); if (m) { deleteCategoryMapping.mutate(m.systemId || m.id || ''); toast.success(`Đã hủy liên kết "${c.name}"`); } }, [getCategoryMappingByHrmId, deleteCategoryMapping]);
 
@@ -125,20 +144,46 @@ export function ProductCategoriesPage() {
   const statusOpts = React.useMemo(() => [{ value: 'active', label: 'Hoạt động' }, { value: 'inactive', label: 'Tạm tắt' }], []);
   const levelOpts = React.useMemo(() => Array.from({ length: Math.max(...activeCategories.map(c => c.level ?? 0), 0) + 1 }, (_, i) => ({ value: String(i), label: `Cấp ${i}` })), [activeCategories]);
 
-  const filteredData = React.useMemo(() => { let r = activeCategories; if (statusFilter.size > 0) r = r.filter(c => statusFilter.has(c.isActive !== false ? 'active' : 'inactive')); if (levelFilter.size > 0) r = r.filter(c => levelFilter.has(String(c.level ?? 0))); if (debouncedGlobalFilter) { const ids = new Set(searchedCategories.map(x => x.systemId)); r = r.filter(c => ids.has(c.systemId)); } return r; }, [activeCategories, statusFilter, levelFilter, debouncedGlobalFilter, searchedCategories]);
+  // Advanced filter configs
+  const filterConfigs: FilterConfig[] = React.useMemo(() => [
+    { id: 'status', label: 'Trạng thái', type: 'multi-select' as const, options: statusOpts },
+    { id: 'level', label: 'Cấp độ', type: 'multi-select' as const, options: levelOpts },
+    { id: 'dateRange', label: 'Ngày tạo', type: 'date-range' as const },
+  ], [statusOpts, levelOpts]);
+
+  const panelValues = React.useMemo(() => ({
+    status: (advancedFilters.status as string[]) ?? [],
+    level: (advancedFilters.level as string[]) ?? [],
+    dateRange: advancedFilters.dateRange ?? null,
+  }), [advancedFilters]);
+
+  const handlePanelApply = React.useCallback((v: Record<string, unknown>) => {
+    setAdvancedFilters(v);
+    setPagination(prev => ({ ...prev, pageIndex: 0 }));
+  }, [setPagination]);
+
+  const filteredData = React.useMemo(() => {
+    let r = activeCategories;
+    const statusValues = Array.isArray(advancedFilters.status) ? advancedFilters.status as string[] : [];
+    const levelValues = Array.isArray(advancedFilters.level) ? advancedFilters.level as string[] : [];
+    if (statusValues.length > 0) r = r.filter(c => statusValues.includes(c.isActive !== false ? 'active' : 'inactive'));
+    if (levelValues.length > 0) r = r.filter(c => levelValues.includes(String(c.level ?? 0)));
+    if (debouncedGlobalFilter) { const ids = new Set(searchedCategories.map(x => x.systemId)); r = r.filter(c => ids.has(c.systemId)); }
+    return r;
+  }, [activeCategories, advancedFilters, debouncedGlobalFilter, searchedCategories]);
 
   const sortedData = React.useMemo(() => { const s = [...filteredData]; if (sorting.id) s.sort((a, b) => { const av = (a as Record<string, unknown>)[sorting.id], bv = (b as Record<string, unknown>)[sorting.id]; if (sorting.id === 'createdAt') return sorting.desc ? new Date(bv as string).getTime() - new Date(av as string).getTime() : new Date(av as string).getTime() - new Date(bv as string).getTime(); if (sorting.id === 'level') return sorting.desc ? (bv as number || 0) - (av as number || 0) : (av as number || 0) - (bv as number || 0); const as = String(av ?? ''), bs = String(bv ?? ''); return sorting.desc ? bs.localeCompare(as) : as.localeCompare(bs); }); return s; }, [filteredData, sorting]);
 
   const allSelectedRows = React.useMemo(() => activeCategories.filter(c => rowSelection[String(c.systemId)]), [activeCategories, rowSelection]);
   React.useEffect(() => { if (!isMobile) return; const h = () => { if ((window.pageYOffset + window.innerHeight) / document.documentElement.scrollHeight > 0.8 && mobileLoadedCount < sortedData.length) setMobileLoadedCount(p => Math.min(p + 20, sortedData.length)); }; window.addEventListener('scroll', h); return () => window.removeEventListener('scroll', h); }, [isMobile, mobileLoadedCount, sortedData.length]);
-  React.useEffect(() => { setMobileLoadedCount(20); }, [debouncedGlobalFilter, statusFilter, levelFilter]);
+  React.useEffect(() => { setMobileLoadedCount(20); }, [debouncedGlobalFilter, advancedFilters]);
   const pageCount = Math.ceil(sortedData.length / pagination.pageSize);
   const paginatedData = React.useMemo(() => sortedData.slice(pagination.pageIndex * pagination.pageSize, (pagination.pageIndex + 1) * pagination.pageSize), [sortedData, pagination]);
 
   usePageHeader({ actions: [
-    <Button key="trash" variant="outline" size="sm" className="h-9" onClick={() => router.push('/categories/trash')}><Archive className="mr-2 h-4 w-4" />Thùng rác</Button>,
-    <Button key="add" size="sm" className="h-9" onClick={() => router.push('/categories/new')}><Plus className="mr-2 h-4 w-4" />Thêm danh mục</Button>
-  ], showBackButton: false });
+    canDelete && <Button key="trash" variant="outline" size="sm" className="h-9" onClick={() => router.push('/categories/trash')}><Archive className="mr-2 h-4 w-4" />Thùng rác</Button>,
+    canCreate && <Button key="add" size="sm" className="h-9" onClick={() => router.push('/categories/new')}><Plus className="mr-2 h-4 w-4" />Thêm danh mục</Button>
+  ].filter(Boolean), showBackButton: false });
 
   const pkgxBulkActions = React.useMemo(() => [
     { label: "Đồng bộ tất cả", icon: RefreshCw, onSelect: async (rows: Category[]) => { if (!pkgxSettings?.enabled) { toast.error('PKGX chưa được bật'); return; } const linked = rows.filter(c => hasPkgxMapping(c)); if (!linked.length) { toast.error('Không có danh mục liên kết PKGX'); return; } if (!confirm(`Đồng bộ tất cả cho ${linked.length} danh mục?`)) return; toast.info(`Đang đồng bộ ${linked.length} danh mục...`); let ok = 0, err = 0; for (const c of linked) { try { const id = getPkgxCatId(c); if (!id) continue; const seo = (c as unknown as { websiteSeo?: { pkgx?: { slug?: string; seoKeywords?: string; seoTitle?: string; metaDescription?: string; shortDescription?: string; longDescription?: string } } }).websiteSeo?.pkgx; const r = await updatePkgxCategory(id, { cat_name: c.name, cat_alias: seo?.slug || (c as unknown as { slug?: string }).slug || '', keywords: seo?.seoKeywords || (c as unknown as { seoKeywords?: string }).seoKeywords || c.name, meta_title: seo?.seoTitle || (c as unknown as { seoTitle?: string }).seoTitle || c.name, meta_desc: seo?.metaDescription || (c as unknown as { metaDescription?: string }).metaDescription || '', short_desc: seo?.shortDescription || (c as unknown as { shortDescription?: string }).shortDescription || '', cat_desc: seo?.longDescription || (c as unknown as { longDescription?: string }).longDescription || '' }, pkgxSettings); r.success ? ok++ : err++; } catch { err++; } } setRowSelection({}); if (ok > 0) toast.success(`Đã đồng bộ ${ok}`); if (err > 0) toast.error(`Lỗi ${err}`); } },
@@ -151,8 +196,19 @@ export function ProductCategoriesPage() {
   return (
     <div className="space-y-4 h-full flex flex-col">
       {!isMobile && <PageToolbar leftActions={<><Button variant="outline" size="sm" onClick={() => setIsImportOpen(true)}><FileUp className="mr-2 h-4 w-4" />Nhập file</Button><Button variant="outline" size="sm" onClick={() => setIsExportOpen(true)}><Download className="mr-2 h-4 w-4" />Xuất Excel</Button></>} rightActions={[<DataTableColumnCustomizer key="c" columns={columns} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} />]} />}
-      <PageFilters searchValue={globalFilter} onSearchChange={setGlobalFilter} searchPlaceholder="Tìm theo mã, tên danh mục..." rightFilters={<><DataTableFacetedFilter title="Cấp độ" options={levelOpts} selectedValues={levelFilter} onSelectedValuesChange={setLevelFilter} /><DataTableFacetedFilter title="Trạng thái" options={statusOpts} selectedValues={statusFilter} onSelectedValuesChange={setStatusFilter} /></>} />
-      {isMobile ? (<div className="space-y-2 flex-1 overflow-y-auto">{sortedData.length === 0 ? <Card><CardContent className="p-8 text-center text-muted-foreground">Không tìm thấy danh mục</CardContent></Card> : <>{sortedData.slice(0, mobileLoadedCount).map(c => <MobileCategoryCard key={String(c.systemId)} category={c} onDelete={handleDelete} onToggleActive={handleToggleActive} navigate={router.push} handleRowClick={handleRowClick} childCount={data.filter(x => x.parentId === c.systemId && !x.isDeleted).length} />)}{mobileLoadedCount < sortedData.length && <Card><CardContent className="p-4 text-center text-muted-foreground"><div className="flex items-center justify-center gap-2"><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary" /><span>Đang tải...</span></div></CardContent></Card>}{mobileLoadedCount >= sortedData.length && sortedData.length > 20 && <Card><CardContent className="p-4 text-center text-muted-foreground text-sm">Đã hiển thị {sortedData.length} danh mục</CardContent></Card>}</>}</div>) : (<div className="w-full py-4"><ResponsiveDataTable columns={columns} data={paginatedData} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowCount={sortedData.length} rowSelection={rowSelection} setRowSelection={setRowSelection} onBulkDelete={() => setIsBulkDeleteAlertOpen(true)} sorting={sorting} setSorting={setSorting as React.Dispatch<React.SetStateAction<{ id: string; desc: boolean }>>} allSelectedRows={allSelectedRows} bulkActions={[{ label: 'Kích hoạt', icon: Power, onSelect: handleBulkActivate }, { label: 'Tắt', icon: PowerOff, onSelect: handleBulkDeactivate }, { label: 'Chuyển vào thùng rác', icon: Archive, onSelect: () => setIsBulkDeleteAlertOpen(true) }]} pkgxBulkActions={pkgxBulkActions} expanded={{}} setExpanded={() => {}} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} onRowClick={handleRowClick} renderMobileCard={c => <MobileCategoryCard category={c} onDelete={handleDelete} onToggleActive={handleToggleActive} navigate={router.push} handleRowClick={handleRowClick} childCount={data.filter(x => x.parentId === c.systemId && !x.isDeleted).length} />} /></div>)}
+      <PageFilters searchValue={globalFilter} onSearchChange={setGlobalFilter} searchPlaceholder="Tìm theo mã, tên danh mục...">
+        <AdvancedFilterPanel
+          filters={filterConfigs}
+          values={panelValues}
+          onApply={handlePanelApply}
+          presets={presets.map(p => ({ ...p, filters: p.filters }))}
+          onSavePreset={(preset) => savePreset(preset.name, panelValues)}
+          onDeletePreset={deletePreset}
+          onUpdatePreset={updatePreset}
+        />
+      </PageFilters>
+      <FilterExtras presets={presets} filterConfigs={filterConfigs} values={panelValues} onApply={handlePanelApply} onDeletePreset={deletePreset} />
+      {isMobile ? (<div className="space-y-2 flex-1 overflow-y-auto">{sortedData.length === 0 ? <Card><CardContent className="p-8 text-center text-muted-foreground">Không tìm thấy danh mục</CardContent></Card> : <>{sortedData.slice(0, mobileLoadedCount).map(c => <MobileCategoryCard key={String(c.systemId)} category={c} onDelete={handleDelete} onToggleActive={handleToggleActive} navigate={router.push} handleRowClick={handleRowClick} childCount={data.filter(x => x.parentId === c.systemId && !x.isDeleted).length} />)}{mobileLoadedCount < sortedData.length && <Card><CardContent className="p-4 text-center text-muted-foreground"><div className="flex items-center justify-center gap-2"><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary" /><span>Đang tải...</span></div></CardContent></Card>}{mobileLoadedCount >= sortedData.length && sortedData.length > 20 && <Card><CardContent className="p-4 text-center text-muted-foreground text-sm">Đã hiển thị {sortedData.length} danh mục</CardContent></Card>}</>}</div>) : (<div className={cn('w-full py-4', (isFilterPending || (isFetching && data.length > 0)) && 'opacity-60 transition-opacity')}><ResponsiveDataTable columns={columns} data={paginatedData} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowCount={sortedData.length} rowSelection={rowSelection} setRowSelection={setRowSelection} onBulkDelete={() => setIsBulkDeleteAlertOpen(true)} sorting={sorting} setSorting={setSorting as React.Dispatch<React.SetStateAction<{ id: string; desc: boolean }>>} allSelectedRows={allSelectedRows} bulkActions={[{ label: 'Kích hoạt', icon: Power, onSelect: handleBulkActivate }, { label: 'Tắt', icon: PowerOff, onSelect: handleBulkDeactivate }, { label: 'Chuyển vào thùng rác', icon: Archive, onSelect: () => setIsBulkDeleteAlertOpen(true) }]} pkgxBulkActions={pkgxBulkActions} expanded={{}} setExpanded={() => {}} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} onRowClick={handleRowClick} onRowHover={handleRowHover} renderMobileCard={c => <MobileCategoryCard category={c} onDelete={handleDelete} onToggleActive={handleToggleActive} navigate={router.push} handleRowClick={handleRowClick} childCount={data.filter(x => x.parentId === c.systemId && !x.isDeleted).length} />} /></div>)}
       <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Xóa danh mục?</AlertDialogTitle><AlertDialogDescription>Danh mục sẽ bị xóa khỏi hệ thống.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Đóng</AlertDialogCancel><AlertDialogAction onClick={confirmDelete}>Xóa</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
       <AlertDialog open={isBulkDeleteAlertOpen} onOpenChange={setIsBulkDeleteAlertOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Chuyển {Object.keys(rowSelection).length} danh mục vào thùng rác?</AlertDialogTitle><AlertDialogDescription>Bạn có thể khôi phục lại từ thùng rác.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Đóng</AlertDialogCancel><AlertDialogAction onClick={confirmBulkDelete}>Chuyển vào thùng rác</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
       <PkgxCategoryLinkDialog open={pkgxLinkDialogOpen} onOpenChange={setPkgxLinkDialogOpen} category={categoryToLink} onSuccess={() => {}} />

@@ -5,10 +5,10 @@ import { formatDate } from '@/lib/date-utils';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { useShipments, useShipmentStats, type ShipmentStats } from './hooks/use-shipments';
 import { useAllShipments, useShipmentCarriers } from './hooks/use-all-shipments';
-import { useAllOrders } from '../orders/hooks/use-all-orders';
+import { fetchOrder } from '../orders/api/orders-api';
 import { useAllCustomers } from '../customers/hooks/use-all-customers';
 import { useAllBranches } from '../settings/branches/hooks/use-all-branches';
-import { useStoreInfoData } from '../settings/store-info/hooks/use-store-info';
+import { fetchPrintData } from '@/lib/lazy-print-data';
 import { usePrint } from '../../lib/use-print';
 import { convertShipmentToDeliveryForPrint, convertShipmentsToHandoverForPrint, mapDeliveryToPrintData, mapDeliveryLineItems, mapHandoverToPrintData, mapHandoverLineItems, createStoreSettings } from '../../lib/print/shipment-print-helper';
 import dynamic from 'next/dynamic';
@@ -20,20 +20,23 @@ import { DynamicDataTableColumnCustomizer as DataTableColumnCustomizer } from '.
 const ShipmentExportDialog = dynamic(() => import("./components/shipments-import-export-dialogs").then(mod => ({ default: mod.ShipmentExportDialog })), { ssr: false });
 import { PageToolbar } from '../../components/layout/page-toolbar';
 import { PageFilters } from '../../components/layout/page-filters';
-import { StatsCard, StatsCardGrid } from '../../components/shared/stats-card';
+import { StatsBar } from '../../components/shared/stats-bar';
 import { Card, CardContent, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { Avatar, AvatarFallback } from '../../components/ui/avatar';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
-import { Truck, MoreHorizontal, Calendar, User, MapPin, Package, Printer, FileText, Download, Clock, CheckCircle2, RotateCcw, Settings } from 'lucide-react';
+import { Truck, MoreHorizontal, Calendar, User, MapPin, Package, Printer, FileText, Download, Settings } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { getDeliveryStatusLabel } from '../../lib/constants/order-status-labels';
 import { TouchButton } from '../../components/mobile/touch-button';
 import { useMediaQuery } from '../../lib/use-media-query';
 import { SimplePrintOptionsDialog, type SimplePrintOptionsResult } from '../../components/shared/simple-print-options-dialog';
 import { toast } from 'sonner';
 import { useAuth } from '../../contexts/auth-context';
-import { useColumnVisibility } from '../../hooks/use-column-visibility';
+import { useColumnVisibility, useColumnOrder, usePinnedColumns } from '../../hooks/use-column-visibility';
+import { AdvancedFilterPanel, FilterExtras, type FilterConfig } from '../../components/shared/advanced-filter-panel';
+import { useFilterPresets } from '../../hooks/use-filter-presets';
 
 export interface ShipmentsPageProps {
   initialStats?: ShipmentStats;
@@ -43,7 +46,10 @@ export function ShipmentsPage({ initialStats }: ShipmentsPageProps = {}) {
   const router = useRouter();
   const { print, printMultiple } = usePrint();
   const isMobile = !useMediaQuery('(min-width: 768px)');
-  const { employee: currentUser } = useAuth();
+  const {  employee: currentUser, can } = useAuth();
+  const canCreate = can('create_shipments');
+  const canEdit = can('edit_shipments');
+  const canEditSettings = can('edit_settings');
   
   // Stats from Server Component (instant, no loading)
   const { data: stats } = useShipmentStats(initialStats);
@@ -56,10 +62,9 @@ export function ShipmentsPage({ initialStats }: ShipmentsPageProps = {}) {
 
   // Data sources for print (lazy-loaded: only fetch when print is needed)
   const isPrintMode = printTriggered || printDialogOpen || itemsToPrint.length > 0;
-  const { data: allOrders } = useAllOrders({ enabled: isPrintMode });
   const { data: allCustomers } = useAllCustomers({ enabled: isPrintMode });
   const { data: branches } = useAllBranches();
-  const { info: storeInfo } = useStoreInfoData();
+  // ⚡ OPTIMIZED: storeInfo lazy loaded in print handlers
 
   // Server-side pagination state
   const [searchQuery, setSearchQuery] = React.useState('');
@@ -67,6 +72,8 @@ export function ShipmentsPage({ initialStats }: ShipmentsPageProps = {}) {
   const [branchFilter, setBranchFilter] = React.useState('all');
   const [statusFilter, setStatusFilter] = React.useState('all');
   const [partnerFilter, setPartnerFilter] = React.useState('all');
+  const [reconciliationFilter, setReconciliationFilter] = React.useState('all');
+  const [dateRange, setDateRange] = React.useState<{ from?: string; to?: string } | null>(null);
   const [sorting, setSorting] = React.useState<{ id: string; desc: boolean }>({ id: 'createdAt', desc: true });
   const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 40 });
 
@@ -82,8 +89,8 @@ export function ShipmentsPage({ initialStats }: ShipmentsPageProps = {}) {
     return v;
   }, []);
   const [columnVisibility, setColumnVisibility] = useColumnVisibility('shipments', defaultColumnVisibility);
-  const [columnOrder, setColumnOrder] = React.useState<string[]>([]);
-  const [pinnedColumns, setPinnedColumns] = React.useState<string[]>([]);
+  const [columnOrder, setColumnOrder] = useColumnOrder('shipments');
+  const [pinnedColumns, setPinnedColumns] = usePinnedColumns('shipments');
   const [mobileLoadedCount, setMobileLoadedCount] = React.useState(20);
   const [exportDialogOpen, setExportDialogOpen] = React.useState(false);
 
@@ -99,16 +106,19 @@ export function ShipmentsPage({ initialStats }: ShipmentsPageProps = {}) {
   // Reset pagination on filter change
   React.useEffect(() => {
     setPagination(prev => ({ ...prev, pageIndex: 0 }));
-  }, [branchFilter, statusFilter, partnerFilter]);
+  }, [branchFilter, statusFilter, partnerFilter, reconciliationFilter, dateRange]);
 
   // Server-side query
-  const { data: shipmentsData, isLoading: isLoadingShipments } = useShipments({
+  const { data: shipmentsData, isLoading: isLoadingShipments, isFetching } = useShipments({
     page: pagination.pageIndex + 1,
     limit: pagination.pageSize,
     search: debouncedSearch || undefined,
     branchId: branchFilter !== 'all' ? branchFilter : undefined,
     deliveryStatus: statusFilter !== 'all' ? statusFilter : undefined,
     carrier: partnerFilter !== 'all' ? partnerFilter : undefined,
+    reconciliationStatus: reconciliationFilter !== 'all' ? reconciliationFilter : undefined,
+    fromDate: dateRange?.from || undefined,
+    toDate: dateRange?.to || undefined,
     sortBy: sorting.id,
     sortOrder: sorting.desc ? 'desc' : 'asc',
   });
@@ -123,72 +133,104 @@ export function ShipmentsPage({ initialStats }: ShipmentsPageProps = {}) {
   // ✅ Lightweight carriers query for filter dropdown
   const { data: shippingPartners = [] } = useShipmentCarriers();
 
-  const pageHeaderConfig = React.useMemo(() => ({}), []);
+  // Advanced filter panel
+  const { presets, savePreset, deletePreset, updatePreset } = useFilterPresets('shipments');
+  const filterConfigs: FilterConfig[] = React.useMemo(() => [
+    { id: 'branch', label: 'Chi nhánh', type: 'select' as const, options: [{ value: 'all', label: 'Tất cả' }, ...branches.map(b => ({ value: b.systemId, label: b.name }))] },
+    { id: 'partner', label: 'Đối tác vận chuyển', type: 'select' as const, options: [{ value: 'all', label: 'Tất cả' }, ...shippingPartners.map(p => ({ value: p, label: p }))] },
+    { id: 'status', label: 'Trạng thái giao hàng', type: 'select' as const, options: [
+      { value: 'all', label: 'Tất cả' }, { value: 'Chờ lấy hàng', label: 'Chờ lấy hàng' }, { value: 'Đang giao hàng', label: 'Đang giao hàng' },
+      { value: 'Đang vận chuyển', label: 'Đang vận chuyển' }, { value: 'Đã giao hàng', label: 'Đã giao hàng' },
+      { value: 'Chờ giao lại', label: 'Chờ giao lại' }, { value: 'Trả hàng', label: 'Trả hàng' },
+      { value: 'Hủy vận chuyển', label: 'Hủy vận chuyển' },
+    ] },
+    { id: 'reconciliation', label: 'Đối soát', type: 'select' as const, options: [
+      { value: 'all', label: 'Tất cả' }, { value: 'Chưa đối soát', label: 'Chưa đối soát' },
+      { value: 'Đã đối soát', label: 'Đã đối soát' }, { value: 'Đang đối soát', label: 'Đang đối soát' },
+    ] },
+    { id: 'dateRange', label: 'Ngày tạo', type: 'date-range' as const },
+  ], [branches, shippingPartners]);
+  const panelValues = React.useMemo(() => ({
+    branch: branchFilter !== 'all' ? branchFilter : null,
+    partner: partnerFilter !== 'all' ? partnerFilter : null,
+    status: statusFilter !== 'all' ? statusFilter : null,
+    reconciliation: reconciliationFilter !== 'all' ? reconciliationFilter : null,
+    dateRange: dateRange,
+  }), [branchFilter, partnerFilter, statusFilter, reconciliationFilter, dateRange]);
+  const handlePanelApply = React.useCallback((v: Record<string, unknown>) => {
+    setBranchFilter((v.branch as string) || 'all');
+    setPartnerFilter((v.partner as string) || 'all');
+    setStatusFilter((v.status as string) || 'all');
+    setReconciliationFilter((v.reconciliation as string) || 'all');
+    setDateRange((v.dateRange as { from?: string; to?: string } | null) ?? null);
+  }, []);
+
+  const pageHeaderConfig = React.useMemo(() => ({
+    title: 'Quản lý vận đơn',
+    breadcrumb: [
+      { label: 'Trang chủ', href: '/' },
+      { label: 'Vận chuyển', href: '/shipments', isCurrent: true },
+    ],
+    showBackButton: false,
+  }), []);
   usePageHeader(pageHeaderConfig);
 
-  // Print handlers — trigger lazy-load on first use
-  const handlePrintDelivery = React.useCallback((ids: string[]) => {
-    setPrintTriggered(true);
-    if (!allOrders.length) {
-      toast.info('Đang tải dữ liệu in, vui lòng thử lại...');
-      return;
-    }
-    ids.forEach(id => {
-    const s = shipments.find(x => x.systemId === id);
-    if (!s) return;
-    // Try orderSystemId first, then fallback to orderId
-    // Note: orderId in legacy data may contain systemId (ORDER000004) or business ID (DH000004)
-    let o = allOrders.find(x => x.systemId === s.orderSystemId);
-    if (!o && s.orderId) {
-      // Try matching as systemId first (legacy data stores systemId in orderId)
-      o = allOrders.find(x => (x.systemId as string) === (s.orderId as string));
-      // Then try as business ID
-      if (!o) {
-        o = allOrders.find(x => x.id === s.orderId);
+  // Helper: fetch order for a shipment (try orderSystemId, fallback orderId)
+  const fetchOrderForShipment = React.useCallback(async (s: ShipmentView) => {
+    try {
+      return await fetchOrder(s.orderSystemId);
+    } catch {
+      if (s.orderId) {
+        try { return await fetchOrder(s.orderId); } catch { /* not found */ }
       }
+      return null;
     }
-    if (!o) return;
-    const c = allCustomers.find(x => x.systemId === o.customerSystemId);
-    const st = createStoreSettings(storeInfo);
-    const d = convertShipmentToDeliveryForPrint(s, o, { customer: c });
-    print('delivery', { data: mapDeliveryToPrintData(d, st), lineItems: mapDeliveryLineItems(d.items) });
-    });
-  }, [shipments, allOrders, allCustomers, storeInfo, print]);
+  }, []);
 
-  const handlePrintHandover = React.useCallback((ids: string[]) => {
+  // Print handlers — trigger lazy-load on first use
+  const handlePrintDelivery = React.useCallback(async (ids: string[]) => {
+    setPrintTriggered(true);
+    const { storeInfo } = await fetchPrintData();
+    const st = createStoreSettings(storeInfo);
+    const selected = shipments.filter(x => ids.includes(x.systemId));
+    const results = await Promise.all(selected.map(async s => {
+      const o = await fetchOrderForShipment(s);
+      if (!o) return null;
+      const c = allCustomers.find(x => x.systemId === o.customerSystemId);
+      const d = convertShipmentToDeliveryForPrint(s, o, { customer: c });
+      return { data: mapDeliveryToPrintData(d, st), lineItems: mapDeliveryLineItems(d.items) };
+    }));
+    results.forEach(item => { if (item) print('delivery', item); });
+  }, [shipments, allCustomers, print, fetchOrderForShipment]);
+
+  const handlePrintHandover = React.useCallback(async (ids: string[]) => {
     const sel = shipments.filter(s => ids.includes(s.systemId));
     if (!sel.length) return;
+    const { storeInfo } = await fetchPrintData();
     const st = createStoreSettings(storeInfo);
     const h = convertShipmentsToHandoverForPrint(sel);
     print('handover', { data: mapHandoverToPrintData(h, st), lineItems: mapHandoverLineItems(h.orders) });
-  }, [shipments, storeInfo, print]);
+  }, [shipments, print]);
 
   const handlePrintSingleDelivery = React.useCallback((id: string) => handlePrintDelivery([id]), [handlePrintDelivery]);
   const handlePrintSingleHandover = React.useCallback((id: string) => handlePrintHandover([id]), [handlePrintHandover]);
   const handleBulkPrintDelivery = React.useCallback((rows: ShipmentView[]) => { setItemsToPrint(rows); setPrintType('delivery'); setPrintDialogOpen(true); }, []);
   const handleBulkPrintHandover = React.useCallback((rows: ShipmentView[]) => { setItemsToPrint(rows); setPrintType('handover'); setPrintDialogOpen(true); }, []);
 
-  const handlePrintConfirm = React.useCallback((options: SimplePrintOptionsResult) => {
+  const handlePrintConfirm = React.useCallback(async (options: SimplePrintOptionsResult) => {
     if (!itemsToPrint.length) return;
+    const { storeInfo } = await fetchPrintData();
     if (printType === 'delivery') {
-      const items = itemsToPrint.map(s => {
-        // Try orderSystemId first, then fallback to orderId
-        // Note: orderId in legacy data may contain systemId (ORDER000004) or business ID (DH000004)
-        let o = allOrders.find(x => x.systemId === s.orderSystemId);
-        if (!o && s.orderId) {
-          // Try matching as systemId first (legacy data stores systemId in orderId)
-          o = allOrders.find(x => (x.systemId as string) === (s.orderId as string));
-          // Then try as business ID
-          if (!o) {
-            o = allOrders.find(x => x.id === s.orderId);
-          }
-        }
-        const c = o ? allCustomers.find(x => x.systemId === o.customerSystemId) : null;
+      const results = await Promise.all(itemsToPrint.map(async s => {
+        const o = await fetchOrderForShipment(s);
+        if (!o) return null;
+        const c = allCustomers.find(x => x.systemId === o.customerSystemId);
         const br = options.branchSystemId ? branches.find(b => b.systemId === options.branchSystemId) : null;
         const st = br ? createStoreSettings(br) : createStoreSettings(storeInfo);
-        const d = convertShipmentToDeliveryForPrint(s, o!, { customer: c });
+        const d = convertShipmentToDeliveryForPrint(s, o, { customer: c });
         return { data: mapDeliveryToPrintData(d, st), lineItems: mapDeliveryLineItems(d.items), paperSize: options.paperSize };
-      }).filter(i => i.data);
+      }));
+      const items = results.filter(Boolean) as Array<{ data: ReturnType<typeof mapDeliveryToPrintData>; lineItems: ReturnType<typeof mapDeliveryLineItems>; paperSize: string | undefined }>;
       printMultiple('delivery', items);
       toast.success(`Đang in ${items.length} phiếu giao hàng`);
     } else {
@@ -200,7 +242,7 @@ export function ShipmentsPage({ initialStats }: ShipmentsPageProps = {}) {
     }
     setItemsToPrint([]);
     setPrintDialogOpen(false);
-  }, [itemsToPrint, printType, allOrders, allCustomers, branches, storeInfo, print, printMultiple]);
+  }, [itemsToPrint, printType, allCustomers, branches, print, printMultiple, fetchOrderForShipment]);
 
   const bulkActions: BulkAction<ShipmentView>[] = React.useMemo(() => [
     { label: 'In phiếu giao hàng', icon: Printer, onSelect: handleBulkPrintDelivery },
@@ -239,7 +281,11 @@ export function ShipmentsPage({ initialStats }: ShipmentsPageProps = {}) {
   const handleRowClick = (row: ShipmentView) => router.push('/shipments/' + row.systemId);
 
   const MobileShipmentCard = ({ shipment }: { shipment: ShipmentView }) => {
-    const getStatusVariant = (s?: string): 'default' | 'secondary' | 'destructive' => !s ? 'secondary' : ({ 'Đã giao hàng': 'default', 'Đang giao hàng': 'secondary', 'Đang vận chuyển': 'secondary', 'Chờ lấy hàng': 'secondary', 'Chờ giao lại': 'secondary', 'Chưa gửi': 'secondary', 'Hủy vận chuyển': 'destructive', 'Trả hàng': 'destructive' } as Record<string, 'default' | 'secondary' | 'destructive'>)[s] || 'secondary';
+    const getStatusVariant = (s?: string): 'default' | 'secondary' | 'destructive' => {
+      if (!s) return 'secondary';
+      const label = getDeliveryStatusLabel(s);
+      return ({ 'Đã giao hàng': 'default', 'Đang giao hàng': 'secondary', 'Đang vận chuyển': 'secondary', 'Chờ lấy hàng': 'secondary', 'Chờ giao lại': 'secondary', 'Chưa gửi': 'secondary', 'Hủy vận chuyển': 'destructive', 'Trả hàng': 'destructive', 'Đã hoàn hàng': 'destructive', 'Đã hủy': 'destructive' } as Record<string, 'default' | 'secondary' | 'destructive'>)[label] || 'secondary';
+    };
     return (
       <Card className='hover:shadow-md transition-shadow cursor-pointer' onClick={() => handleRowClick(shipment)}>
         <CardContent className='p-4'>
@@ -289,7 +335,7 @@ export function ShipmentsPage({ initialStats }: ShipmentsPageProps = {}) {
             )}
             <div className='flex items-center justify-between text-xs pt-1'>
               <span className='text-muted-foreground'>{shipment.branchName}</span>
-              <Badge variant={getStatusVariant(shipment.deliveryStatus)} className='text-xs'>{shipment.deliveryStatus || 'Chưa xác định'}</Badge>
+              <Badge variant={getStatusVariant(shipment.deliveryStatus)} className='text-xs'>{shipment.deliveryStatus ? getDeliveryStatusLabel(shipment.deliveryStatus) : 'Chưa xác định'}</Badge>
             </div>
           </div>
         </CardContent>
@@ -299,10 +345,21 @@ export function ShipmentsPage({ initialStats }: ShipmentsPageProps = {}) {
 
   return (
     <div className='flex flex-col w-full h-full'>
+      {/* Stats Bar - instant display from Server Component */}
+      <StatsBar
+        className="mb-4"
+        items={[
+          { key: 'pending', label: 'Chờ lấy hàng', value: stats?.pending ?? 0 },
+          { key: 'inTransit', label: 'Đang vận chuyển', value: stats?.inTransit ?? 0 },
+          { key: 'delivered', label: 'Đã giao', value: stats?.delivered ?? 0 },
+          { key: 'returned', label: 'Hoàn trả', value: stats?.returned ?? 0 },
+        ]}
+      />
+
       {!isMobile && (
         <PageToolbar
           leftActions={
-            <><Button variant="outline" size="sm" onClick={() => router.push('/settings/shipping')}><Settings className="h-4 w-4 mr-2" />Cài đặt</Button><Button variant="outline" size="sm" onClick={() => setExportDialogOpen(true)}>
+            <>{canEditSettings && <Button variant="outline" size="sm" onClick={() => router.push('/settings/shipping')}><Settings className="h-4 w-4 mr-2" />Cài đặt</Button>}<Button variant="outline" size="sm" onClick={() => setExportDialogOpen(true)}>
               <Download className="h-4 w-4 mr-2" />Xuất Excel
             </Button></>
           }
@@ -320,51 +377,12 @@ export function ShipmentsPage({ initialStats }: ShipmentsPageProps = {}) {
         />
       )}
       <PageFilters searchValue={searchQuery} onSearchChange={setSearchQuery} searchPlaceholder='Tìm kiếm vận đơn (MVĐ, tên người nhận, SĐT, đối tác, mã phiếu, mã đơn)...'>
-        <Select value={branchFilter} onValueChange={setBranchFilter}>
-          <SelectTrigger className='w-full sm:w-45'>
-            <SelectValue placeholder='Tất cả chi nhánh' />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value='all'>Tất cả chi nhánh</SelectItem>
-            {branches.map(b => <SelectItem key={b.systemId} value={b.systemId}>{b.name}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Select value={partnerFilter} onValueChange={setPartnerFilter}>
-          <SelectTrigger className='w-full sm:w-45'>
-            <SelectValue placeholder='Tất cả đối tác' />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value='all'>Tất cả đối tác</SelectItem>
-            {shippingPartners.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className='w-full sm:w-45'>
-            <SelectValue placeholder='Tất cả trạng thái' />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value='all'>Tất cả trạng thái</SelectItem>
-            <SelectItem value='Chờ lấy hàng'>Chờ lấy hàng</SelectItem>
-            <SelectItem value='Đang giao hàng'>Đang giao hàng</SelectItem>
-            <SelectItem value='Đang vận chuyển'>Đang vận chuyển</SelectItem>
-            <SelectItem value='Đã giao hàng'>Đã giao hàng</SelectItem>
-            <SelectItem value='Chờ giao lại'>Chờ giao lại</SelectItem>
-            <SelectItem value='Trả hàng'>Trả hàng</SelectItem>
-            <SelectItem value='Hủy vận chuyển'>Hủy vận chuyển</SelectItem>
-          </SelectContent>
-        </Select>
+        <AdvancedFilterPanel filters={filterConfigs} values={panelValues} onApply={handlePanelApply} presets={presets.map(p => ({ ...p, filters: p.filters }))} onSavePreset={(preset) => savePreset(preset.name, panelValues)} onDeletePreset={deletePreset} onUpdatePreset={updatePreset} />
       </PageFilters>
-
-      {/* Stats Cards - instant display from Server Component */}
-      <StatsCardGrid columns={4} className="my-4">
-        <StatsCard title="Chờ lấy hàng" value={stats?.pending ?? 0} icon={Clock} variant="warning" />
-        <StatsCard title="Đang vận chuyển" value={stats?.inTransit ?? 0} icon={Truck} variant="info" />
-        <StatsCard title="Đã giao" value={stats?.delivered ?? 0} icon={CheckCircle2} variant="success" />
-        <StatsCard title="Hoàn trả" value={stats?.returned ?? 0} icon={RotateCcw} variant="danger" />
-      </StatsCardGrid>
+      <FilterExtras presets={presets} filterConfigs={filterConfigs} values={panelValues} onApply={handlePanelApply} onDeletePreset={deletePreset} />
 
       {isMobile ? (
-        <div className='space-y-3 pb-4'>
+        <div className={cn('space-y-3 px-1 pb-4', isFetching && !isLoadingShipments && 'opacity-70 transition-opacity')}>
           {shipments.length === 0 ? (
             <Card>
               <CardContent className='py-12 text-center'>
@@ -395,7 +413,7 @@ export function ShipmentsPage({ initialStats }: ShipmentsPageProps = {}) {
           )}
         </div>
       ) : (
-        <div className='w-full py-4'>
+        <div className={cn('w-full py-4', isFetching && !isLoadingShipments && 'opacity-70 transition-opacity')}>
           <ResponsiveDataTable
             columns={columns}
             data={shipments}
@@ -424,22 +442,26 @@ export function ShipmentsPage({ initialStats }: ShipmentsPageProps = {}) {
         </div>
       )}
 
-      <SimplePrintOptionsDialog
-        open={printDialogOpen}
-        onOpenChange={setPrintDialogOpen}
-        onConfirm={handlePrintConfirm}
-        selectedCount={itemsToPrint.length}
-        title={printType === 'delivery' ? 'In phiếu giao hàng' : 'In phiếu bàn giao'}
-      />
-      <ShipmentExportDialog
-        open={exportDialogOpen}
-        onOpenChange={setExportDialogOpen}
-        allData={allShipments}
-        filteredData={shipments}
-        currentPageData={shipments}
-        selectedData={allSelectedRows}
-        currentUser={{ name: currentUser?.fullName || 'Hệ thống', systemId: currentUser?.systemId || asSystemId('SYSTEM') }}
-      />
+      {printDialogOpen && (
+        <SimplePrintOptionsDialog
+          open={printDialogOpen}
+          onOpenChange={setPrintDialogOpen}
+          onConfirm={handlePrintConfirm}
+          selectedCount={itemsToPrint.length}
+          title={printType === 'delivery' ? 'In phiếu giao hàng' : 'In phiếu bàn giao'}
+        />
+      )}
+      {exportDialogOpen && (
+        <ShipmentExportDialog
+          open={exportDialogOpen}
+          onOpenChange={setExportDialogOpen}
+          allData={allShipments}
+          filteredData={shipments}
+          currentPageData={shipments}
+          selectedData={allSelectedRows}
+          currentUser={{ name: currentUser?.fullName || 'Hệ thống', systemId: currentUser?.systemId || asSystemId('SYSTEM') }}
+        />
+      )}
     </div>
   );
 }

@@ -1,24 +1,28 @@
 ﻿'use client'
 
 import * as React from 'react';
-import { useRouter, useParams } from 'next/navigation';
-import { usePaymentMutations } from './hooks/use-payments';
-import { useAllPayments, usePaymentFinder } from './hooks/use-all-payments';
+import { useRouter } from 'next/navigation';
+import { usePaymentMutations, usePayment } from './hooks/use-payments';
 import type { Payment } from './types';
 import { PaymentForm, type PaymentFormValues } from './payment-form';
-import { useAllCashAccounts } from '../cashbook/hooks/use-all-cash-accounts';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { ROUTES } from '../../lib/router';
 import { toast } from 'sonner';
 import { useAuth } from '../../contexts/auth-context';
-import { asBusinessId, asSystemId } from '../../lib/id-types';
+import { asSystemId } from '../../lib/id-types';
 
 import { Card, CardContent } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Loader2 } from 'lucide-react';
+import { logError } from '@/lib/logger'
+import type { PaymentFormOptions } from '@/lib/data/payment-form-options';
 
-export function PaymentFormPage() {
-  const { systemId, id } = useParams<{ systemId?: string; id?: string }>();
+interface PaymentFormPageProps {
+  systemId?: string;
+  initialOptions?: PaymentFormOptions;
+}
+
+export function PaymentFormPage({ systemId, initialOptions }: PaymentFormPageProps = {}) {
   const router = useRouter();
   const { create, update } = usePaymentMutations({
     onCreateSuccess: (newPayment) => {
@@ -33,24 +37,26 @@ export function PaymentFormPage() {
       toast.error(`Lỗi: ${error.message}`);
     },
   });
-  const { data: paymentsData } = useAllPayments();
-  const { findById } = usePaymentFinder();
-  const payments = React.useMemo(() => paymentsData ?? [], [paymentsData]);
-  const { accounts: _accounts } = useAllCashAccounts();
+  // ✅ Phase 13: Use single-item hook instead of loading ALL payments
+  const { data: payment } = usePayment(systemId);
   const { employee: currentEmployee } = useAuth();
 
-  const paymentSystemId = systemId ? asSystemId(systemId) : undefined;
-  const paymentBusinessId = id ? asBusinessId(id) : undefined;
-  const payment = React.useMemo(() => {
-    if (paymentSystemId) {
-      return findById(paymentSystemId);
+  const isEditing = Boolean(systemId);
+  
+  // ✅ Form ref for programmatic submission
+  const formRef = React.useRef<HTMLFormElement>(null);
+  
+  const handleSaveClick = React.useCallback(() => {
+    console.log('🔵 Save button clicked');
+    if (formRef.current) {
+      console.log('📝 Triggering form submit via requestSubmit');
+      formRef.current.requestSubmit();
+    } else {
+      console.error('❌ Form ref not found!');
     }
-    if (paymentBusinessId) {
-      return payments.find(p => p.id === paymentBusinessId) ?? null;
-    }
-    return null;
-  }, [findById, paymentBusinessId, paymentSystemId, payments]);
-  const isEditing = Boolean(paymentSystemId || paymentBusinessId);
+  }, []);
+  
+  const isSaving = create.isPending || update.isPending;
   
   // ✅ Header Actions
   const headerActions = React.useMemo(() => [
@@ -58,10 +64,17 @@ export function PaymentFormPage() {
       <ArrowLeft className="mr-2 h-4 w-4" />
       Hủy
     </Button>,
-    <Button key="save" type="submit" form="payment-form" size="sm" className="h-9">
-      Lưu
+    <Button 
+      key="save" 
+      type="button"
+      size="sm" 
+      className="h-9"
+      disabled={isSaving}
+      onClick={handleSaveClick}
+    >
+      {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Đang lưu...</> : 'Lưu'}
     </Button>
-  ], [router]);
+  ], [router, handleSaveClick, isSaving]);
   
   const fallbackBreadcrumb = React.useMemo(() => ([
     { label: 'Trang chủ', href: '/', isCurrent: false },
@@ -78,27 +91,51 @@ export function PaymentFormPage() {
     backPath: ROUTES.FINANCE.PAYMENTS
   });
 
+  // Map targetGroup ID to category enum for Zod validation
+  const getCategoryFromTargetGroup = (recipientTypeName?: string) => {
+    const name = recipientTypeName?.toLowerCase() || '';
+    if (name.includes('khách hàng') || name.includes('customer') || name.includes('hoàn tiền')) return 'customer_payment' as const;
+    if (name.includes('nhà cung cấp') || name.includes('supplier')) return 'supplier_payment' as const;
+    if (name.includes('nhân viên') || name.includes('employee') || name.includes('lương')) return 'salary' as const;
+    if (name.includes('vận chuyển') || name.includes('shipping') || name.includes('chi phí')) return 'expense' as const;
+    return 'other' as const;
+  };
+
   const handleFormSubmit = (values: PaymentFormValues) => {
+    console.log('✅ PaymentFormPage handleFormSubmit called with values:', values);
     try {
+      // Determine category from target group name
+      const category = getCategoryFromTargetGroup(values.recipientTypeName);
+      
       if (payment) {
-        update.mutate({ systemId: payment.systemId, data: { ...payment, ...values } });
+        console.log('Updating payment...');
+        update.mutate({ systemId: payment.systemId, data: { ...payment, ...values, category } });
       } else {
+        console.log('Creating payment with category:', category);
         create.mutate({
           ...values,
+          category,
+          branchId: values.branchSystemId, // Alternative field name
           createdBy: currentEmployee?.systemId ?? asSystemId('SYSTEM'),
           createdAt: new Date().toISOString(),
         } as Omit<Payment, 'systemId' | 'id' | 'createdAt' | 'updatedAt'>);
       }
     } catch (error) {
       toast.error(isEditing ? "Cập nhật phiếu chi thất bại" : "Tạo phiếu chi thất bại");
-      console.error("Error saving payment:", error);
+      logError('Error saving payment', error);
     }
   };
 
   return (
     <Card>
       <CardContent className="pt-6">
-        <PaymentForm initialData={payment ?? null} onSubmit={handleFormSubmit} isEditing={isEditing} />
+        <PaymentForm 
+          ref={formRef}
+          initialData={payment ?? null} 
+          onSubmit={handleFormSubmit} 
+          isEditing={isEditing} 
+          initialOptions={initialOptions} 
+        />
       </CardContent>
     </Card>
   );

@@ -8,17 +8,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../../components/ui/select";
+import { VirtualizedCombobox, type ComboboxOption } from "../../../components/ui/virtualized-combobox";
 import { DataTableDateFilter } from "../../../components/data-table/data-table-date-filter";
 import type { ProductQueryParams } from "../product-service";
 
 // ═══════════════════════════════════════════════════════════════
 // Types
 // ═══════════════════════════════════════════════════════════════
-
-interface CategoryOption {
-  label: string;
-  value: string;
-}
 
 interface StockLevelCounts {
   outOfStock: number;
@@ -29,7 +25,7 @@ interface StockLevelCounts {
 
 interface ProductFilterControlsProps {
   tableState: ProductQueryParams;
-  categoryOptions: CategoryOption[];
+  categoryOptions: ComboboxOption[];
   stockLevelCounts: StockLevelCounts;
   onStatusFilterChange: (value: string) => void;
   onTypeFilterChange: (value: string) => void;
@@ -88,17 +84,19 @@ export function ProductFilterControls({
         </SelectContent>
       </Select>
 
-      <Select value={tableState.categoryFilter} onValueChange={onCategoryFilterChange}>
-        <SelectTrigger className="w-full sm:w-45 h-9">
-          <SelectValue placeholder="Danh mục" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Tất cả danh mục</SelectItem>
-          {categoryOptions.map(cat => (
-            <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <div className="w-full sm:w-55">
+        <VirtualizedCombobox
+          value={tableState.categoryFilter !== 'all' 
+            ? categoryOptions.find(c => c.value === tableState.categoryFilter) ?? null
+            : null}
+          onChange={(option) => onCategoryFilterChange(option ? option.value : 'all')}
+          options={categoryOptions}
+          placeholder="Tất cả danh mục"
+          searchPlaceholder="Tìm danh mục..."
+          emptyPlaceholder="Không tìm thấy danh mục."
+          maxHeight={360}
+        />
+      </div>
 
       <Select value={tableState.comboFilter} onValueChange={onComboFilterChange}>
         <SelectTrigger className="w-full sm:w-45 h-9">

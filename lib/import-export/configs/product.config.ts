@@ -1028,15 +1028,16 @@ export const productImportExportConfig: ImportExportConfig<Product> = {
   
   // Post-transform row (set defaults, enrich data)
   // NOTE: branchSystemId được truyền từ import dialog để xử lý tồn kho ban đầu
-  postTransformRow: (row: Partial<Product & { initialStock?: number }>, _index?: number, branchSystemId?: string) => {
+  postTransformRow: (row, _index, branchSystemId) => {
+    const typedRow = row as Partial<Product & { initialStock?: number }>;
     // Xử lý tồn kho ban đầu - chỉ áp dụng khi có initialStock và branchSystemId
-    let inventoryByBranch = row.inventoryByBranch || {};
-    const initialStock = (row as { initialStock?: number }).initialStock;
+    let inventoryByBranch = typedRow.inventoryByBranch || {};
+    const initialStock = typedRow.initialStock;
     
     if (initialStock !== undefined && initialStock > 0 && branchSystemId) {
       inventoryByBranch = {
         ...inventoryByBranch,
-        [branchSystemId]: initialStock,
+        [String(branchSystemId)]: initialStock,
       };
     }
     
@@ -1071,7 +1072,7 @@ export const productImportExportConfig: ImportExportConfig<Product> = {
       inventoryByBranch,
       committedByBranch: cleanRow.committedByBranch || {},
       inTransitByBranch: cleanRow.inTransitByBranch || {},
-    };
+    } as Partial<Product>;
   },
   
   // Validate row level (check duplicate SKU/barcode + warnings)

@@ -8,6 +8,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { readFile, stat } from 'fs/promises'
 import { existsSync } from 'fs'
 import path from 'path'
+import { logError } from '@/lib/logger'
+import { requireAuth, apiError } from '@/lib/api-utils'
 
 const UPLOAD_BASE = process.env.UPLOAD_DIR || './uploads'
 
@@ -35,6 +37,9 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ path: string[] }> }
 ) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { path: pathSegments } = await params
     
@@ -90,7 +95,7 @@ export async function GET(
     })
     
   } catch (error) {
-    console.error('File serve error:', error)
+    logError('File serve error', error)
     return NextResponse.json(
       { success: false, message: 'Lỗi khi tải file' },
       { status: 500 }

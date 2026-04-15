@@ -4,7 +4,7 @@ import { Package, Eye, ChevronDown, ChevronRight, StickyNote } from 'lucide-reac
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '../ui/table';
 import { Button } from '../ui/button';
 import { OptimizedImage } from '../ui/optimized-image';
-import { useProductFinder, useAllProducts } from '../../features/products/hooks/use-all-products';
+import { useProductsByIds } from '../../features/products/hooks/use-products';
 import { useProductTypeFinder } from '../../features/settings/inventory/hooks/use-all-product-types';
 import { useTaxFinder } from '../../features/settings/taxes/hooks/use-all-taxes';
 import { ImagePreviewDialog } from '../ui/image-preview-dialog';
@@ -50,17 +50,30 @@ const ProductThumbnailCell = ({
     const iconSize = size === 'sm' ? 'h-4 w-4' : 'h-4 w-4';
     
     if (imageUrl) {
-        return (
-            <div
-                className={`group/thumbnail relative ${sizeClasses} rounded border overflow-hidden bg-muted ${onPreview ? 'cursor-pointer' : ''}`}
-                onClick={() => onPreview?.(imageUrl, productName)}
-            >
+        const imgContent = (
+            <>
                 <OptimizedImage src={imageUrl} alt={productName} className="w-full h-full object-cover transition-all group-hover/thumbnail:brightness-75" width={48} height={40} />
                 {onPreview && (
                     <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/thumbnail:opacity-100 transition-opacity">
                         <Eye className="w-4 h-4 text-white drop-shadow-md" />
                     </div>
                 )}
+            </>
+        );
+        if (onPreview) {
+            return (
+                <button
+                    type="button"
+                    className={`group/thumbnail relative ${sizeClasses} rounded border overflow-hidden bg-muted cursor-pointer`}
+                    onClick={() => onPreview(imageUrl, productName)}
+                >
+                    {imgContent}
+                </button>
+            );
+        }
+        return (
+            <div className={`group/thumbnail relative ${sizeClasses} rounded border overflow-hidden bg-muted`}>
+                {imgContent}
             </div>
         );
     }
@@ -122,6 +135,8 @@ export type ReadOnlyProductsTableProps = {
     unitPriceHeader?: string;
     /** Custom header for discount column */
     discountHeader?: string;
+    /** Pre-fetched products map — when provided, skips internal useProductsByIds call */
+    externalProductsMap?: Map<string, Product>;
 };
 
 export function ReadOnlyProductsTable({
@@ -137,11 +152,21 @@ export function ReadOnlyProductsTable({
     quantityHeader = 'Số lượng',
     unitPriceHeader = 'Đơn giá',
     discountHeader = 'Chiết khấu',
+    externalProductsMap,
 }: ReadOnlyProductsTableProps) {
-    const { findById: findProductById } = useProductFinder();
-    const { data: allProducts } = useAllProducts();
+    // Skip internal fetch when parent provides productsMap (avoids duplicate API calls)
+    const productIds = React.useMemo(
+        () => externalProductsMap ? [] : lineItems.map(li => li.productSystemId),
+        [lineItems, externalProductsMap]
+    );
+    const { productsMap: internalProductsMap } = useProductsByIds(productIds);
+    const productsMap = externalProductsMap ?? internalProductsMap;
+    const findProductById = React.useCallback(
+        (id: string | undefined) => id ? productsMap.get(id) : undefined,
+        [productsMap]
+    );
     const { findById: findProductTypeById } = useProductTypeFinder();
-    const { findById: findTaxById } = useTaxFinder();
+    const { findById: findTaxById } = useTaxFinder({ enabled: showTax });
     
     const [expandedCombos, setExpandedCombos] = React.useState<Record<string, boolean>>({});
     const [previewState, setPreviewState] = React.useState<{ open: boolean; image: string; title: string }>({
@@ -192,9 +217,110 @@ export function ReadOnlyProductsTable({
     else colCount++; // Chỉ Đơn giá
     if (showTax) colCount++; // Tax column
 
+    // Shared line item calculation helper
+    const getLineItemCalc = React.useCallback((item: LineItem) => {
+        const itemQuantity = item.quantity ?? item.returnQuantity ?? 0;
+        const isPercentDiscount = item.discountType === 'percentage' || item.discountType === 'percent';
+        let discountValue = 0;
+        if (item.discount && item.discount > 0) {
+            discountValue = isPercentDiscount
+                ? item.unitPrice * itemQuantity * (item.discount / 100)
+                : item.discount;
+        }
+        const taxAmount = item.taxAmount ?? (item.tax ? (item.unitPrice * itemQuantity - discountValue) * (item.tax / 100) : 0);
+        const lineTotal = item.total ?? item.totalValue ?? ((item.unitPrice * itemQuantity - discountValue) + taxAmount);
+        return { itemQuantity, discountValue, isPercentDiscount, taxAmount, lineTotal };
+    }, []);
+
     return (
         <>
-            <div className="border rounded-md">
+            {/* ─── Mobile Card View ─── */}
+            <div className="md:hidden space-y-0 border rounded-md divide-y">
+                {lineItems.map((item, index) => {
+                    const product = findProductById(item.productSystemId);
+                    const { itemQuantity, lineTotal } = getLineItemCalc(item);
+                    const isCombo = !!(product?.type === 'combo' && product.comboItems?.length);
+                    const comboKey = `${item.productSystemId}-${index}`;
+                    const isComboExpanded = !!expandedCombos[comboKey];
+                    const comboItems = isCombo
+                        ? (product?.comboItems ?? []).map((ci) => ({
+                              ...ci, product: findProductById(ci.productSystemId),
+                          }))
+                        : [];
+
+                    return (
+                        <div key={`mobile-${item.productSystemId}-${index}`} className="p-3 space-y-2">
+                            <div className="flex items-start gap-3">
+                                <ProductThumbnailCell
+                                    productSystemId={item.productSystemId}
+                                    product={product}
+                                    productName={item.productName}
+                                    onPreview={handlePreview}
+                                    itemThumbnailImage={item.thumbnailImage}
+                                />
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-start justify-between gap-2">
+                                        <div className="min-w-0 flex-1">
+                                            <p className="text-sm font-medium line-clamp-2">{item.productName}</p>
+                                            <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5 flex-wrap">
+                                                <Link href={`/products/${item.productSystemId}`} className="text-primary hover:underline">
+                                                    {product?.id || item.productId}
+                                                </Link>
+                                                <span>-</span>
+                                                <span>{getProductTypeLabel(item.productSystemId)}</span>
+                                            </div>
+                                        </div>
+                                        <span className="text-sm font-semibold tabular-nums shrink-0">
+                                            {formatCurrency(lineTotal)}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                                        <span>{formatCurrency(item.unitPrice)}</span>
+                                        <span>×</span>
+                                        <span>{itemQuantity}</span>
+                                    </div>
+                                    {item.note && (
+                                        <p className="text-xs text-amber-600 mt-1">
+                                            <StickyNote className="h-3 w-3 inline mr-0.5" />
+                                            <span className="italic">{item.note}</span>
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                            {/* Combo toggle */}
+                            {isCombo && (
+                                <Button type="button" variant="ghost" size="sm" className="h-6 text-xs px-2 -ml-1" onClick={() => toggleComboRow(comboKey)}>
+                                    {isComboExpanded ? <ChevronDown className="h-3 w-3 mr-1" /> : <ChevronRight className="h-3 w-3 mr-1" />}
+                                    {comboItems.length} sản phẩm
+                                </Button>
+                            )}
+                            {isCombo && isComboExpanded && comboItems.map((ci, childIdx) => (
+                                <div key={`mobile-combo-${ci.productSystemId}-${childIdx}`} className="flex items-center gap-2 pl-6 py-1 bg-muted/30 rounded">
+                                    {ci.product ? (
+                                        <ProductThumbnailCell productSystemId={ci.product.systemId} product={ci.product} productName={ci.product.name || ''} size="sm" onPreview={handlePreview} />
+                                    ) : (
+                                        <div className="w-10 h-9 bg-muted rounded flex items-center justify-center"><Package className="h-4 w-4 text-muted-foreground" /></div>
+                                    )}
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm truncate">{ci.product?.name || 'Sản phẩm không tồn tại'}</p>
+                                        <p className="text-xs text-muted-foreground">SL: {ci.quantity * itemQuantity}</p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    );
+                })}
+                {/* Mobile footer: total */}
+                <div className="p-3 bg-muted/30">
+                    <div className="flex items-center justify-between text-sm font-bold">
+                        <span>{footerTotalLabel}</span>
+                        <span>{formatCurrency(summary?.subtotal ?? lineItems.reduce((sum, item) => sum + (getLineItemCalc(item).lineTotal), 0))}</span>
+                    </div>
+                </div>
+            </div>
+
+            {/* ─── Desktop Table View ─── */}
+            <div className="hidden md:block border rounded-md">
                 <Table>
                     <TableHeader>
                         <TableRow>
@@ -214,21 +340,7 @@ export function ReadOnlyProductsTable({
                         {lineItems.map((item, index) => {
                             const product = findProductById(item.productSystemId);
                             const storageLocationName = getStorageLocationName?.(product) || '---';
-                            const itemQuantity = item.quantity ?? item.returnQuantity ?? 0;
-                            
-                            // Calculate line total
-                            let discountValue = 0;
-                            const isPercentDiscount = item.discountType === 'percentage' || item.discountType === 'percent';
-                            if (item.discount && item.discount > 0) {
-                                if (isPercentDiscount) {
-                                    discountValue = item.unitPrice * itemQuantity * (item.discount / 100);
-                                } else {
-                                    discountValue = item.discount;
-                                }
-                            }
-                            // Calculate tax amount if applicable
-                            const taxAmount = item.taxAmount ?? (item.tax ? (item.unitPrice * itemQuantity - discountValue) * (item.tax / 100) : 0);
-                            const lineTotal = item.total ?? item.totalValue ?? ((item.unitPrice * itemQuantity - discountValue) + taxAmount);
+                            const { itemQuantity, discountValue, isPercentDiscount, taxAmount, lineTotal } = getLineItemCalc(item);
                             
                             // Check if combo
                             const isCombo = !!(product?.type === 'combo' && product.comboItems?.length);
@@ -236,7 +348,7 @@ export function ReadOnlyProductsTable({
                             const isComboExpanded = !!expandedCombos[comboKey];
                             const comboItems = isCombo
                                 ? (product?.comboItems ?? []).map((comboItem) => {
-                                    const childProduct = allProducts.find(p => p.systemId === comboItem.productSystemId);
+                                    const childProduct = findProductById(comboItem.productSystemId);
                                     return { ...comboItem, product: childProduct };
                                 })
                                 : [];
@@ -276,25 +388,23 @@ export function ReadOnlyProductsTable({
                                         <TableCell>
                                             <div className="flex flex-col gap-0.5">
                                                 <div className="flex items-center gap-2">
-                                                    <Link href={`/products/${item.productSystemId}`}
-                                                        className="font-medium text-primary hover:underline"
-                                                    >
+                                                    <span className="font-medium">
                                                         {item.productName}
-                                                    </Link>
+                                                    </span>
                                                     {isCombo && (
-                                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground font-semibold">
+                                                        <span className="text-xs px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground font-semibold">
                                                             COMBO
                                                         </span>
                                                     )}
                                                 </div>
                                                 <div className="flex items-center gap-1 text-xs text-muted-foreground flex-wrap">
-                                                    <span>{getProductTypeLabel(item.productSystemId)}</span>
-                                                    <span>-</span>
                                                     <Link href={`/products/${item.productSystemId}`} 
-                                                        className="hover:text-primary hover:underline"
+                                                        className="text-primary hover:underline"
                                                     >
                                                         {product?.id || item.productId}
                                                     </Link>
+                                                    <span>-</span>
+                                                    <span>{getProductTypeLabel(item.productSystemId)}</span>
                                                     {item.note && (
                                                         <span className="text-amber-600">
                                                             <StickyNote className="h-3 w-3 inline mr-0.5" />

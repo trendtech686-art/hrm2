@@ -51,7 +51,6 @@ export async function seedWarrantySettings() {
           emailOnApproved: true,
           emailOnRejected: true,
           emailOnOverdue: true,
-          smsOnOverdue: false,
           inAppNotifications: true,
         },
       },

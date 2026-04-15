@@ -5,6 +5,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import { generateSubEntityId } from '@/lib/id-utils';
 import {
   fetchJobTitles,
@@ -138,6 +139,9 @@ export function useJobTitleMutations(options: UseJobTitleMutationsOptions = {}) 
       });
       queryClient.setQueryData(jobTitleKeys.detail(variables.systemId), data);
       options.onUpdateSuccess?.(data);
+    },
+    onSettled: () => {
+      invalidateRelated(queryClient, 'job-titles');
     },
     onError: (error, _, context) => {
       // Rollback on error

@@ -33,7 +33,7 @@ export const getImporterColumns = ({
   {
     id: "name",
     accessorKey: "name",
-    header: "Tên đơn vị",
+    header: "Tên công ty",
     cell: ({ row }) => (
       <div>
         <div className="font-medium">{row.name}</div>

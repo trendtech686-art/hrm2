@@ -43,7 +43,7 @@ export const CopyableDetailField = ({ label, value }: { label: string; value?: s
       <dd className="col-span-2 text-sm font-medium flex items-center justify-between">
         <span className="truncate">{value || '-'}</span>
         {value && (
-          <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover/item:opacity-100 transition-opacity" onClick={handleCopy}>
+          <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover/item:opacity-100 transition-opacity" aria-label="Sao chép" onClick={handleCopy}>
             {isCopied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4 text-muted-foreground" />}
           </Button>
         )}
@@ -151,7 +151,7 @@ export const DropZone = React.memo(function DropZone({
           <Icon className="h-3.5 w-3.5" />
         </div>
         <span className="flex-1 text-sm text-foreground">{title}</span>
-        <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-foreground">
+        <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold text-foreground">
           {count}
         </span>
       </div>

@@ -1,20 +1,18 @@
 'use client'
 
 import * as React from 'react';
-import { useParams, usePathname } from 'next/navigation';
+import { useParams, usePathname, useSearchParams } from 'next/navigation';
 import { useRouter } from 'next/navigation';
 import { useForm, FormProvider } from 'react-hook-form';
 import { toast } from 'sonner';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Loader2 } from 'lucide-react';
 
 // Contexts
 import { usePageHeader } from '../../contexts/page-header-context';
-import { asSystemId } from '../../lib/id-types';
 
 // Types & Store
-import type { WarrantyFormValues } from './types';
+import type { WarrantyFormValues, WarrantyProduct } from './types';
 import { useWarranty } from './hooks/use-warranties';
-import { useWarrantyFinder, useAllWarranties } from './hooks/use-all-warranties';
 
 // Customer hook for loading full customer data
 import { useCustomer } from '@/hooks/api/use-customers';
@@ -45,7 +43,6 @@ import { urlToStagingFile, getWarrantyFormDefaultValues, getWarrantyFormBreadcru
 
 // Stores for lookup
 import { useAllBranches } from '../settings/branches/hooks/use-all-branches';
-import { useAllEmployees } from '../employees/hooks/use-all-employees';
 
 /**
  * Trang tạo/sửa phiếu bảo hành
@@ -59,6 +56,8 @@ export function WarrantyFormPage() {
   const router = useRouter();
   const { setPageHeader } = usePageHeader();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const copyFromId = searchParams.get('copy');
   
   // Check if this is "update mode" (limited editing for incomplete status)
   const isUpdateMode = pathname.includes('/update');
@@ -66,41 +65,64 @@ export function WarrantyFormPage() {
   // ===== STATE MANAGEMENT - Tách ra hook riêng =====
   const formState = useWarrantyFormState();
   
-  const { findById } = useWarrantyFinder();
-  const { data: allTickets } = useAllWarranties();
   const { data: branches } = useAllBranches();
-  const { data: employees } = useAllEmployees();
+  // ⚡ OPTIMIZED: Track selected employee via ref instead of loading all employees
+  const selectedEmployeeRef = React.useRef<{ systemId: string; fullName: string } | null>(null);
 
   // ✅ React Query for single ticket
   const { data: ticketFromQuery, isLoading } = useWarranty(systemId);
 
-  const isEditing = !!systemId;
-  const ticketSystemId = React.useMemo(() => (systemId ? asSystemId(systemId) : null), [systemId]);
-  // ✅ Ưu tiên React Query, fallback to store
-  const ticket = React.useMemo(() => {
-    if (ticketSystemId) {
-      return ticketFromQuery || findById(ticketSystemId) || null;
-    }
-    return null;
-  }, [ticketSystemId, ticketFromQuery, findById]);
+  // ✅ Copy mode: fetch source ticket to copy from
+  const { data: copySourceTicket } = useWarranty(copyFromId || undefined);
 
-  // ✅ Load full customer data when editing (for CustomerSelector to show stats)
+  const isEditing = !!systemId;
+  // ✅ Phase 14: Đã xóa useWarrantyFinder fallback, useWarranty(systemId) là nguồn duy nhất
+  const ticket = ticketFromQuery ?? null;
+
+  // Initialize employee ref from ticket data when editing
+  React.useEffect(() => {
+    if (ticket?.employeeSystemId && ticket?.employeeName) {
+      selectedEmployeeRef.current = { systemId: ticket.employeeSystemId, fullName: ticket.employeeName };
+    }
+  }, [ticket]);
+
+  // ✅ Load full customer data when editing OR copying (for CustomerSelector to show stats)
   // Try multiple sources: customers relation (from API), customerId, or customerSystemId
   const customerIdFromTicket = React.useMemo(() => {
-    if (!ticket) return undefined;
+    const src = ticket || copySourceTicket;
+    if (!src) return undefined;
     // From Prisma relation
-    type TicketWithCustomers = typeof ticket & { customers?: { systemId: string } };
-    if ((ticket as TicketWithCustomers)?.customers?.systemId) return (ticket as TicketWithCustomers).customers?.systemId;
+    type TicketWithCustomers = typeof src & { customers?: { systemId: string } };
+    if ((src as TicketWithCustomers)?.customers?.systemId) return (src as TicketWithCustomers).customers?.systemId;
     // From direct fields
-    type TicketWithDirectFields = typeof ticket & { customerId?: string; customerSystemId?: string };
-    return (ticket as TicketWithDirectFields)?.customerId || (ticket as TicketWithDirectFields)?.customerSystemId;
-  }, [ticket]);
-  const { data: fullCustomerData } = useCustomer(customerIdFromTicket);
+    type TicketWithDirectFields = typeof src & { customerId?: string; customerSystemId?: string };
+    return (src as TicketWithDirectFields)?.customerId || (src as TicketWithDirectFields)?.customerSystemId;
+  }, [ticket, copySourceTicket]);
+  
+  // Fallback: search customer by phone when customerId is missing
+  const customerPhone = (ticket || copySourceTicket)?.customerPhone;
+  const [resolvedCustomerId, setResolvedCustomerId] = React.useState<string | undefined>(undefined);
+  React.useEffect(() => {
+    if (customerIdFromTicket || !customerPhone) return;
+    // Search by phone to find matching customer
+    fetch(`/api/customers?search=${encodeURIComponent(customerPhone)}&limit=1`)
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        const items = data?.data || data?.items || [];
+        if (items.length > 0 && items[0]?.systemId) {
+          setResolvedCustomerId(items[0].systemId);
+        }
+      })
+      .catch(() => {/* ignore */});
+  }, [customerIdFromTicket, customerPhone]);
+  
+  const effectiveCustomerId = customerIdFromTicket || resolvedCustomerId;
+  const { data: fullCustomerData } = useCustomer(effectiveCustomerId);
 
-  // Prevent editing if ticket is returned (đã trả hàng cho khách)
+  // Prevent editing if ticket is completed (hoàn tất)
   const isReadOnly = React.useMemo(() => {
     if (!ticket) return false;
-    return ticket.status === 'RETURNED';
+    return !!ticket.completedAt;
   }, [ticket]);
 
   // Form
@@ -131,11 +153,11 @@ export function WarrantyFormPage() {
   // Track if we've already shown the redirect toast
   const hasShownRedirectToastRef = React.useRef(false);
 
-  // Redirect if trying to edit a returned ticket
+  // Redirect if trying to edit a completed ticket
   React.useEffect(() => {
     if (isReadOnly && isEditing && !hasShownRedirectToastRef.current) {
       hasShownRedirectToastRef.current = true;
-      toast.error('Không thể chỉnh sửa phiếu đã trả hàng cho khách');
+      toast.error('Không thể chỉnh sửa phiếu đã hoàn tất');
       router.push(`/warranty/${systemId}`);
     }
   }, [isReadOnly, isEditing, systemId, router]);
@@ -266,14 +288,75 @@ export function WarrantyFormPage() {
       settlementVoucherCode: '',
     });
   }, [isEditing, ticket, form]);
+
+  // ✅ Copy mode: populate form from source ticket (create NEW, not edit)
+  // Track trigger for re-applying fullCustomerData after copy resets form
+  const [customerUpdateTrigger, setCustomerUpdateTrigger] = React.useState(0);
+
+  const hasCopiedRef = React.useRef(false);
+  React.useEffect(() => {
+    if (!copyFromId || !copySourceTicket || isEditing || hasCopiedRef.current) return;
+    hasCopiedRef.current = true;
+
+    type TicketWithRelations = typeof copySourceTicket & { 
+      customers?: { systemId: string };
+      customerId?: string;
+      customerSystemId?: string;
+    };
+    const src = copySourceTicket as TicketWithRelations;
+    const customerSystemId = src?.customers?.systemId || src?.customerSystemId || src?.customerId;
+
+    const basicCustomerData = src.customerName ? {
+      systemId: customerSystemId,
+      name: src.customerName,
+      phone: src.customerPhone,
+    } : null;
+
+    form.reset({
+      id: '', // New ticket — no ID
+      customer: basicCustomerData,
+      branchSystemId: src.branchSystemId || '',
+      employeeSystemId: src.employeeSystemId || '',
+      trackingCode: src.trackingCode || '',
+      shippingFee: src.shippingFee,
+      referenceUrl: src.referenceUrl || '',
+      externalReference: src.externalReference || '',
+      receivedImages: src.receivedImages || [],
+      products: (src.products || []).map((p: WarrantyProduct) => ({
+        ...p,
+        systemId: `dup-${Math.random().toString(36).substr(2, 8)}`,
+      })),
+      processedImages: src.processedImages || [],
+      status: 'RECEIVED' as const,
+      notes: src.notes || '',
+      settlementMethod: '',
+      settlementAmount: 0,
+      settlementBankAccount: '',
+      settlementTransactionCode: '',
+      settlementDueDate: '',
+      settlementVoucherCode: '',
+    });
+
+    // Set employee ref
+    if (src.employeeSystemId && src.employeeName) {
+      selectedEmployeeRef.current = { systemId: src.employeeSystemId, fullName: src.employeeName };
+    }
+
+    // Reset so fullCustomerData effect can re-apply after form.reset overwrites customer
+    hasSetCustomerRef.current = false;
+    setCustomerUpdateTrigger(c => c + 1);
+
+    toast.info(`Đã sao chép từ phiếu ${src.id}`);
+  }, [copyFromId, copySourceTicket, isEditing, form]);
   
-  // Update customer with full data when available (only once)
+  // Update customer with full data when available
+  // Uses a trigger counter to re-run when copy effect resets the flag
   React.useEffect(() => {
     if (!fullCustomerData || hasSetCustomerRef.current) return;
     
     hasSetCustomerRef.current = true;
     form.setValue('customer', fullCustomerData, { shouldDirty: false });
-  }, [fullCustomerData, form]);
+  }, [fullCustomerData, form, customerUpdateTrigger]);
 
   // ✅ Destructure setters for stable references in useEffect
   const { 
@@ -285,39 +368,44 @@ export function WarrantyFormPage() {
     setProcessedSessionId,
   } = formState;
 
-  // Load received images
+  // Load received images (edit mode or copy mode)
+  const receivedImagesSource = ticket || copySourceTicket;
   React.useEffect(() => {
-    if (!isEditing || !ticket) return;
+    if (!receivedImagesSource) return;
+    // For edit mode, only load when editing; for copy mode, load from source
+    if (!isEditing && !copyFromId) return;
     
-    const receivedPermanent = (ticket.receivedImages || [])
+    const receivedPermanent = (receivedImagesSource.receivedImages || [])
       .filter((url): url is string => !!url && typeof url === 'string')
       .map((url, idx) => urlToStagingFile(url, idx, 'existing-received'));
     
     setReceivedPermanentFiles(receivedPermanent);
     setReceivedStagingFiles([]);
     setReceivedSessionId(null);
-  }, [isEditing, ticket, setReceivedPermanentFiles, setReceivedStagingFiles, setReceivedSessionId]);
+  }, [isEditing, copyFromId, receivedImagesSource, setReceivedPermanentFiles, setReceivedStagingFiles, setReceivedSessionId]);
 
-  // Load processed images
+  // Load processed images (edit mode or copy mode)
+  const processedImagesSource = ticket || copySourceTicket;
   React.useEffect(() => {
-    if (!isEditing || !ticket) return;
+    if (!processedImagesSource) return;
+    if (!isEditing && !copyFromId) return;
     
-    const processedPermanent = (ticket.processedImages || [])
+    const processedPermanent = (processedImagesSource.processedImages || [])
       .filter((url): url is string => !!url && typeof url === 'string')
       .map((url, idx) => urlToStagingFile(url, idx, 'existing-processed'));
     
     setProcessedPermanentFiles(processedPermanent);
     setProcessedStagingFiles([]);
     setProcessedSessionId(null);
-  }, [isEditing, ticket, setProcessedPermanentFiles, setProcessedStagingFiles, setProcessedSessionId]);
+  }, [isEditing, copyFromId, processedImagesSource, setProcessedPermanentFiles, setProcessedStagingFiles, setProcessedSessionId]);
 
   // ===== SUBMIT HANDLER - Tách ra hook riêng =====
   const { onSubmit } = useWarrantyFormSubmit({
     isEditing,
     ticket: ticket ?? null,
-    allTickets,
     branches,
-    employees,
+    employees: selectedEmployeeRef.current ? [selectedEmployeeRef.current] : [],
+    selectedEmployeeRef,
     ...formState,
     getProductImagesStateRef,
     getReceivedImagesStateRef,
@@ -354,7 +442,7 @@ export function WarrantyFormPage() {
       size="sm"
       className="h-9"
     >
-      {formState.isSubmitting ? 'Đang lưu...' : (isEditing ? 'Lưu thay đổi' : 'Tạo phiếu')}
+      {formState.isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Đang lưu...</> : (isEditing ? 'Lưu thay đổi' : 'Tạo phiếu')}
     </Button>,
   ], [router, isReadOnly, formState.isSubmitting, isEditing, handleSubmitClick]);
 
@@ -391,7 +479,7 @@ export function WarrantyFormPage() {
             {isReadOnly && (
               <Card className="border-amber-200 bg-amber-50">
                 <CardContent className="pt-6">
-                  <p className="text-body-sm text-amber-800">
+                  <p className="text-sm text-amber-800">
                     <strong>Lưu ý:</strong> Phiếu đã xử lý/trả hàng. Không thể chỉnh sửa.
                   </p>
                 </CardContent>
@@ -402,7 +490,7 @@ export function WarrantyFormPage() {
             {isUpdateMode && (
               <Card className="border-blue-200 bg-blue-50">
                 <CardContent className="pt-6">
-                  <p className="text-body-sm text-blue-800">
+                  <p className="text-sm text-blue-800">
                     <strong>Chế độ cập nhật thông tin:</strong> Chỉ có thể thêm/sửa sản phẩm bảo hành và ghi chú. Các thông tin khác đã bị khóa.
                   </p>
                 </CardContent>
@@ -415,14 +503,21 @@ export function WarrantyFormPage() {
                 <CustomerSelector disabled={isReadOnly || isUpdateMode} />
               </div>
               <div className="w-full md:w-[30%]">
-                <WarrantyFormInfoCard disabled={isReadOnly || isUpdateMode} />
+                <WarrantyFormInfoCard
+                  disabled={isReadOnly || isUpdateMode}
+                  employeeName={ticket?.employeeName || copySourceTicket?.employeeName}
+                  onEmployeeChange={(name) => {
+                    const systemId = form.getValues('employeeSystemId');
+                    selectedEmployeeRef.current = systemId ? { systemId, fullName: name } : null;
+                  }}
+                />
               </div>
             </div>
 
             {/* Hàng 2: Hình ảnh đơn hàng - 2 cards 50-50 */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <WarrantyReceivedImagesCard
-                isEditing={isEditing}
+                isEditing={isEditing || !!copyFromId}
                 disabled={isReadOnly || isUpdateMode}
                 permanentFiles={formState.receivedPermanentFiles}
                 setPermanentFiles={formState.setReceivedPermanentFiles}
@@ -435,7 +530,7 @@ export function WarrantyFormPage() {
               />
               
               <WarrantyProcessedImagesCard
-                isEditing={isEditing}
+                isEditing={isEditing || !!copyFromId}
                 disabled={isReadOnly}
                 permanentFiles={formState.processedPermanentFiles}
                 setPermanentFiles={formState.setProcessedPermanentFiles}
@@ -480,7 +575,7 @@ export function WarrantyFormPage() {
                 disabled={isReadOnly || formState.isSubmitting}
                 size="sm"
               >
-                {formState.isSubmitting ? 'Đang lưu...' : (isEditing ? 'Lưu thay đổi' : 'Tạo phiếu')}
+                {formState.isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Đang lưu...</> : (isEditing ? 'Lưu thay đổi' : 'Tạo phiếu')}
               </Button>
             </div>
           </div>

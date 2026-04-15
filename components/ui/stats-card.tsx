@@ -24,11 +24,11 @@ export function StatsCard({
   className,
 }: StatsCardProps) {
   return (
-    <Card className={className}>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+    <Card className={cn('text-center', className)}>
+      <CardHeader className="flex flex-row items-center justify-center space-y-0 pb-2">
         <CardTitle>{title}</CardTitle>
         {Icon && (
-          <Icon className="h-4 w-4 text-muted-foreground" />
+          <Icon className="h-4 w-4 text-muted-foreground ml-2" />
         )}
       </CardHeader>
       <CardContent>

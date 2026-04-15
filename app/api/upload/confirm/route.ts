@@ -9,6 +9,7 @@ import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
 import { confirmFilesSchema } from './validation'
+import { logError } from '@/lib/logger'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -110,7 +111,7 @@ export async function POST(request: NextRequest) {
     })
     
   } catch (error) {
-    console.error('Confirm staging files error:', error)
+    logError('Confirm staging files error', error)
     return apiError('Lỗi khi xác nhận file', 500)
   }
 }
@@ -161,7 +162,7 @@ export async function DELETE(request: NextRequest) {
     })
     
   } catch (error) {
-    console.error('Cancel staging files error:', error)
+    logError('Cancel staging files error', error)
     return apiError('Lỗi khi xóa file staging', 500)
   }
 }

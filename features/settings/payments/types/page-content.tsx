@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Plus } from "lucide-react";
+import { Plus, Loader2 } from "lucide-react";
 import { asBusinessId, type SystemId } from "@/lib/id-types";
 import { usePaymentTypes, usePaymentTypeMutations } from "./hooks/use-payment-types";
 import type { PaymentType } from '@/lib/types/prisma-extended';
@@ -52,7 +52,6 @@ export function PaymentTypesPageContent({ isActive, onRegisterActions }: Payment
     if (isDefault) {
       // Backend sẽ tự động tắt mặc định của các loại khác
       update.mutate({ systemId: item.systemId, data: { isDefault: true } });
-      toast.success(`Đã đặt "${item.name}" làm mặc định`);
     } else {
       // Không cho phép tắt mặc định nếu chỉ còn 1 item
       const activeItems = data.filter(d => d.isActive);
@@ -64,26 +63,22 @@ export function PaymentTypesPageContent({ isActive, onRegisterActions }: Payment
       const other = activeItems.find(d => d.systemId !== item.systemId);
       if (other) {
         update.mutate({ systemId: other.systemId, data: { isDefault: true } });
-        toast.success(`Đã chuyển mặc định sang "${other.name}"`);
       }
     }
   }, [data, update]);
 
   const handleToggleStatus = React.useCallback((item: PaymentType, isActive: boolean) => {
     update.mutate({ systemId: item.systemId, data: { ...item, isActive } });
-    toast.success(isActive ? `Đã kích hoạt "${item.name}"` : `Đã tắt "${item.name}"`);
   }, [update]);
 
   const handleToggleBusinessResult = React.useCallback((item: PaymentType, isBusinessResult: boolean) => {
     update.mutate({ systemId: item.systemId, data: { ...item, isBusinessResult } });
-    toast.success(isBusinessResult ? `Đã bật hạch toán cho "${item.name}"` : `Đã tắt hạch toán cho "${item.name}"`);
   }, [update]);
   
   const confirmDelete = () => {
     if (idToDelete) {
       const item = data.find(d => d.systemId === idToDelete);
       remove.mutate(idToDelete);
-      toast.success(`Đã xóa "${item?.name}"`);
     }
     setIsAlertOpen(false);
     setIdToDelete(null);
@@ -99,7 +94,6 @@ export function PaymentTypesPageContent({ isActive, onRegisterActions }: Payment
     selectedIds.forEach(id => {
       remove.mutate(id as SystemId);
     });
-    toast.success(`Đã xóa ${selectedIds.length} loại phiếu chi`);
     setRowSelection({});
     setIsBulkDeleteOpen(false);
   };
@@ -189,7 +183,10 @@ export function PaymentTypesPageContent({ isActive, onRegisterActions }: Payment
           <PaymentTypeForm initialData={editingItem} onSubmit={handleFormSubmit} />
           <DialogFooter>
             <Button type="button" variant="outline" className="h-9" onClick={() => setIsFormOpen(false)}>Đóng</Button>
-            <Button type="submit" form="payment-type-form" className="h-9">Lưu</Button>
+            <Button type="submit" form="payment-type-form" className="h-9" disabled={create.isPending || update.isPending}>
+              {(create.isPending || update.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Lưu
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -204,7 +201,10 @@ export function PaymentTypesPageContent({ isActive, onRegisterActions }: Payment
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Hủy</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete}>Xóa</AlertDialogAction>
+            <AlertDialogAction onClick={confirmDelete} disabled={remove.isPending}>
+              {remove.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Xóa
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -219,7 +219,10 @@ export function PaymentTypesPageContent({ isActive, onRegisterActions }: Payment
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Hủy</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmBulkDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Xóa tất cả</AlertDialogAction>
+            <AlertDialogAction onClick={confirmBulkDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={remove.isPending}>
+              {remove.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Xóa tất cả
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

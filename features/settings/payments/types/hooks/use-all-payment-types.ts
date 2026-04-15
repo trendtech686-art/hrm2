@@ -8,12 +8,13 @@ import { fetchAllPages } from '@/lib/fetch-all-pages';
 import { fetchPaymentTypes } from '../api/payment-types-api';
 import { paymentTypeKeys } from './use-payment-types';
 
-export function useAllPaymentTypes() {
+export function useAllPaymentTypes(options?: { enabled?: boolean }) {
   const query = useQuery({
     queryKey: [...paymentTypeKeys.all, 'all'],
     queryFn: () => fetchAllPages((p) => fetchPaymentTypes(p)),
-    staleTime: 10 * 60 * 1000,
-    gcTime: 60 * 60 * 1000,
+    staleTime: 30 * 60 * 1000, // 30 minutes - settings rarely change
+    gcTime: 2 * 60 * 60 * 1000, // 2 hours
+    enabled: options?.enabled,
   });
   return {
     data: query.data || [],

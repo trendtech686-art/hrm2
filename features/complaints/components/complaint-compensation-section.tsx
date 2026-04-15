@@ -7,15 +7,23 @@ import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { CheckCircle, Info } from "lucide-react";
 import type { Complaint } from "../types";
-import { useAllPayments } from "../../payments/hooks/use-all-payments";
-import { useAllReceipts } from "../../receipts/hooks/use-all-receipts";
-import { useAllInventoryChecks } from "../../inventory-checks/hooks/use-all-inventory-checks";
+import { usePayment } from "../../payments/hooks/use-payments";
+import { useReceipt } from "../../receipts/hooks/use-receipts";
+import { useInventoryCheck } from "../../inventory-checks/hooks/use-inventory-checks";
 import { usePenaltiesByIds } from "../../settings/penalties/hooks/use-penalties";
 import { formatDateTimeForDisplay } from "@/lib/date-utils";
 
+// ⭐ Types for embedded compensation entities from complaint API
+interface CompensationEntities {
+  payments: Record<string, { systemId: string; id: string; amount: number; status: string; cancelledAt?: string | null }>;
+  receipts: Record<string, { systemId: string; id: string; amount: number; status: string; cancelledAt?: string | null }>;
+  inventoryChecks: Record<string, { systemId: string; id: string; status: string; cancelledAt?: string | null; items: Array<{ productName: string; difference: number }> }>;
+  penalties: Record<string, { systemId: string; id: string; amount: number; penaltyTypeName?: string | null; employeeName?: string | null; status?: string }>;
+}
+
 interface Props {
   complaint: Complaint;
-  actionTimestamp?: Date | string; // Neu co truyen timestamp cu the, dung cai do thay vi tim tu timeline
+  actionTimestamp?: Date | string;
 }
 
 // Helper: check if penalty is cancelled (handles both Vietnamese and English status)
@@ -86,31 +94,30 @@ export const ComplaintCompensationSection: React.FC<Props> = ({ complaint, actio
   const _compensationMetadata = (complaint as unknown as { compensationMetadata?: unknown }).compensationMetadata;
   
   // ============================================================
-  // STATE - Use React Query hooks for data fetching from DB
+  // STATE - Use embedded data from complaint API first, fallback to individual hooks
   // ============================================================
-  const { data: payments = [] } = useAllPayments();
-  const { data: receipts } = useAllReceipts();
-  const { data: inventoryChecks = [] } = useAllInventoryChecks();
-  const { data: allPenalties = [] } = usePenaltiesByIds(actionMetadata?.penaltySystemIds || []);
-  
-  // ============================================================
-  // PAYMENT/RECEIPT/PENALTY DATA - Find from store directly
-  // ============================================================
-  // ⚠️ CRITICAL: Lấy phiếu TỪ ACTION METADATA (paymentSystemId, receiptSystemId)
-  // Đảm bảo mỗi card hiển thị đúng phiếu tại thời điểm action đó, kể cả đã bị hủy
-  // Nếu không có metadata → Card chưa xử lý bù trừ
-  const payment = actionMetadata?.paymentSystemId 
-    ? payments.find(p => p.systemId === actionMetadata.paymentSystemId)
-    : null;
-  const receipt = actionMetadata?.receiptSystemId
-    ? receipts.find(r => r.systemId === actionMetadata.receiptSystemId)
-    : null;
-  const inventoryCheck = inventoryCheckSystemId && Array.isArray(inventoryChecks)
-    ? inventoryChecks.find(ic => ic.systemId === inventoryCheckSystemId)
-    : null;
+  const entities = (complaint as unknown as { compensationEntities?: CompensationEntities }).compensationEntities;
+
+  // ⭐ Use embedded data if available (eliminates N+1 API calls)
+  const embeddedPayment = actionMetadata?.paymentSystemId ? entities?.payments?.[actionMetadata.paymentSystemId] : undefined;
+  const embeddedReceipt = actionMetadata?.receiptSystemId ? entities?.receipts?.[actionMetadata.receiptSystemId] : undefined;
+  const embeddedInventoryCheck = inventoryCheckSystemId ? entities?.inventoryChecks?.[inventoryCheckSystemId] : undefined;
+  const embeddedPenalties = (actionMetadata?.penaltySystemIds || [])
+    .map(id => entities?.penalties?.[id]).filter(Boolean) as CompensationEntities['penalties'][string][];
+
+  // Fallback to individual hooks only when embedded data is not available
+  const hasEmbedded = !!entities;
+  const { data: fetchedPayment } = usePayment(hasEmbedded ? undefined : actionMetadata?.paymentSystemId);
+  const { data: fetchedReceipt } = useReceipt(hasEmbedded ? undefined : actionMetadata?.receiptSystemId);
+  const { data: fetchedInventoryCheck } = useInventoryCheck(hasEmbedded ? undefined : inventoryCheckSystemId);
+  const { data: fetchedPenalties = [] } = usePenaltiesByIds(hasEmbedded ? [] : (actionMetadata?.penaltySystemIds || []));
+
+  const payment = embeddedPayment || fetchedPayment;
+  const receipt = embeddedReceipt || fetchedReceipt;
+  const inventoryCheck = embeddedInventoryCheck || fetchedInventoryCheck;
 
   // ⭐ Penalties fetched by IDs from action metadata (server-side)
-  const penalties = allPenalties as Array<{ systemId: string; id: string; amount: number; penaltyTypeName?: string | null; employeeName?: string | null; status?: string }>;
+  const penalties = (hasEmbedded ? embeddedPenalties : fetchedPenalties) as Array<{ systemId: string; id: string; amount: number; penaltyTypeName?: string | null; employeeName?: string | null; status?: string }>;
   
   // Debug
   

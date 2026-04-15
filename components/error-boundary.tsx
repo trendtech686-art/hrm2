@@ -3,6 +3,7 @@
 import * as Sentry from "@sentry/nextjs";
 import type { ErrorInfo, ReactNode } from "react";
 import { Component } from "react";
+import { logError } from '@/lib/logger'
 
 interface Props {
   children: ReactNode;

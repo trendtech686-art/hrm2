@@ -4,7 +4,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Tag } from 'lucide-react';
+import { Tag, Loader2 } from 'lucide-react';
+import { useActivePromotions } from '@/features/promotions/hooks/use-promotions';
 
 type ApplyPromotionDialogProps = {
   open: boolean;
@@ -13,14 +14,10 @@ type ApplyPromotionDialogProps = {
   disabled?: boolean;
 };
 
-const availablePromotions = [
-  { code: 'GIAM50K', description: 'Giảm 50.000đ cho đơn từ 500.000đ' },
-  { code: 'FREESHIP', description: 'Miễn phí vận chuyển' },
-  { code: 'VIP20', description: 'Giảm 100.000đ cho khách VIP' },
-];
-
 export function ApplyPromotionDialog({ open, onOpenChange, onApply, disabled = false }: ApplyPromotionDialogProps) {
   const [promoCode, setPromoCode] = useState('');
+  const { data: promotionsData, isLoading } = useActivePromotions();
+  const availablePromotions = (promotionsData?.data || []) as Array<{ code: string; description: string | null; discountType: string; discountValue: number }>;
 
   const handleApply = () => {
     if (!promoCode.trim()) {
@@ -28,13 +25,18 @@ export function ApplyPromotionDialog({ open, onOpenChange, onApply, disabled = f
       return;
     }
     
-    onApply(promoCode.trim());
+    onApply(promoCode.trim().toUpperCase());
     setPromoCode('');
     onOpenChange(false);
   };
 
   const handleQuickApply = (code: string) => {
     setPromoCode(code);
+  };
+
+  const formatDiscount = (promo: { discountType: string; discountValue: number }) => {
+    if (promo.discountType === 'PERCENTAGE') return `Giảm ${promo.discountValue}%`;
+    return `Giảm ${new Intl.NumberFormat('vi-VN').format(promo.discountValue)}đ`;
   };
 
   return (
@@ -72,36 +74,50 @@ export function ApplyPromotionDialog({ open, onOpenChange, onApply, disabled = f
             </div>
           </div>
 
-          {/* Available promotions */}
+          {/* Available promotions from DB */}
           <div className="space-y-2">
             <Label>Mã có sẵn:</Label>
-            <div className="space-y-2">
-              {availablePromotions.map((promo) => (
-                <div
-                  key={promo.code}
-                  className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
-                  onClick={() => handleQuickApply(promo.code)}
-                >
-                  <div className="flex-1">
-                    <div className="font-semibold text-primary">{promo.code}</div>
-                    <div className="text-sm text-muted-foreground">{promo.description}</div>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setPromoCode(promo.code);
-                      handleApply();
-                    }}
-                    disabled={disabled}
+            {isLoading ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                <span className="text-sm text-muted-foreground">Đang tải...</span>
+              </div>
+            ) : availablePromotions.length === 0 ? (
+              <div className="text-sm text-muted-foreground text-center py-4">
+                Chưa có mã giảm giá nào
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {availablePromotions.map((promo) => (
+                  <div
+                    key={promo.code}
+                    className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                    onClick={() => handleQuickApply(promo.code)}
                   >
-                    Áp dụng
-                  </Button>
-                </div>
-              ))}
-            </div>
+                    <div className="flex-1">
+                      <div className="font-semibold text-primary">{promo.code}</div>
+                      <div className="text-sm text-muted-foreground">
+                        {promo.description || formatDiscount(promo)}
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onApply(promo.code);
+                        setPromoCode('');
+                        onOpenChange(false);
+                      }}
+                      disabled={disabled}
+                    >
+                      Áp dụng
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 

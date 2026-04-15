@@ -30,6 +30,7 @@ model Category {
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
   deletedAt         DateTime?
+  permanentlyDeletedAt DateTime?
   // Relations
   parent            Category?         @relation("CategoryHierarchy", fields: [parentId], references: [systemId])
   children          Category[]        @relation("CategoryHierarchy")

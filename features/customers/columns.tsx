@@ -2,17 +2,7 @@ import * as React from "react";
 import type { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import { formatDate, formatDateTime as _formatDateTime, formatDateTimeSeconds as _formatDateTimeSeconds, formatDateCustom as _formatDateCustom, getCurrentDate, isValidDate as _isValidDate, getDaysDiff } from '@/lib/date-utils';
 import type { Customer } from '@/lib/types/prisma-extended'
-import { calculateLifecycleStage, getLifecycleStageVariant } from './lifecycle-utils';
 import { getCreditAlertLevel, getCreditAlertBadgeVariant, getCreditAlertText } from './credit-utils';
-import { 
-  calculateHealthScore, 
-  getHealthScoreLevel,
-  calculateRFMScores as _calculateRFMScores,
-  getCustomerSegment,
-  getSegmentLabel,
-  getSegmentBadgeVariant,
-  calculateChurnRisk
-} from './intelligence-utils';
 import { 
   calculateDebtTrackingInfo, 
   getDebtStatusVariant,
@@ -29,6 +19,14 @@ import { MoreHorizontal, RotateCcw, AlertTriangle } from "lucide-react";
 const formatCurrency = (value?: number) => {
     if (typeof value !== 'number') return '';
     return new Intl.NumberFormat('vi-VN').format(value);
+};
+
+// Map raw setting IDs to Vietnamese display names
+const CUSTOMER_TYPE_LABELS: Record<string, string> = {
+  INDIVIDUAL: 'Cá nhân',
+  BUSINESS: 'Doanh nghiệp',
+  WHOLESALE: 'Đại lý/Bán sỉ',
+  PARTNER: 'Đối tác',
 };
 
 export const getColumns = (
@@ -125,8 +123,9 @@ export const getColumns = (
     header: "Loại KH",
     cell: ({ row }) => {
       if (!row.type) return '—';
-      const variant = row.type === 'Cá nhân' ? 'secondary' : 'default';
-      return <Badge variant={variant}>{row.type}</Badge>;
+      const label = CUSTOMER_TYPE_LABELS[row.type] || row.type;
+      const variant = label === 'Cá nhân' ? 'secondary' : 'default';
+      return <Badge variant={variant}>{label}</Badge>;
     },
     meta: { displayName: "Loại khách hàng" },
   },
@@ -177,7 +176,7 @@ export const getColumns = (
             {info.maxDaysOverdue > 0 && ` (${info.maxDaysOverdue} ngày)`}
           </Badge>
           {info.oldestDebtDueDate && (
-            <span className="text-body-xs text-muted-foreground">
+            <span className="text-xs text-muted-foreground">
               Hạn: {formatDebtDate(info.oldestDebtDueDate)}
             </span>
           )}
@@ -205,80 +204,6 @@ export const getColumns = (
     meta: {
       displayName: "Trạng thái",
     },
-  },
-  {
-    id: "lifecycleStage",
-    header: "Giai đoạn",
-    cell: ({ row }) => {
-        const stage = row.lifecycleStage || calculateLifecycleStage(row);
-        const variant = getLifecycleStageVariant(stage);
-        return <Badge variant={variant}>{stage}</Badge>
-    },
-    meta: {
-      displayName: "Giai đoạn KH",
-    },
-  },
-  {
-    id: "healthScore",
-    header: "Health Score",
-    cell: ({ row }) => {
-        const score = row.healthScore || calculateHealthScore(row);
-        const { label, variant } = getHealthScoreLevel(score);
-        return (
-          <div className="flex items-center gap-2">
-            <div className="w-16">
-              <Progress value={score} className="h-2" />
-            </div>
-            <span className="text-body-sm font-medium">{score}</span>
-            <Badge variant={variant} className="text-body-xs">{label}</Badge>
-          </div>
-        );
-    },
-    meta: {
-      displayName: "Điểm sức khỏe KH",
-    },
-    size: 200,
-  },
-  {
-    id: "churnRisk",
-    header: "Rủi ro rời bỏ",
-    cell: ({ row }) => {
-        const churn = calculateChurnRisk(row);
-        return <Badge variant={churn.variant}>{churn.label}</Badge>;
-    },
-    meta: {
-      displayName: "Rủi ro rời bỏ",
-    },
-    size: 120,
-  },
-  {
-    id: "segment",
-    header: "Phân khúc",
-    cell: ({ row }) => {
-        // Sử dụng rfmScores đã lưu sẵn hoặc tính đơn giản nếu chưa có
-        if (row.segment) {
-          const segment = row.segment as import('./intelligence-utils').CustomerSegment;
-          return (
-            <Badge variant={getSegmentBadgeVariant(segment)} className="text-body-xs">
-              {getSegmentLabel(segment)}
-            </Badge>
-          );
-        }
-        // Fallback: hiển thị dựa trên rfmScores nếu có
-        if (row.rfmScores) {
-          const segment = getCustomerSegment(row.rfmScores);
-          return (
-            <Badge variant={getSegmentBadgeVariant(segment)} className="text-body-xs">
-              {getSegmentLabel(segment)}
-            </Badge>
-          );
-        }
-        return <span className="text-body-xs text-muted-foreground">—</span>;
-    },
-    meta: {
-      displayName: "Phân khúc RFM",
-    },
-    size: 120,
   },
   {
     id: "taxCode",
@@ -333,7 +258,7 @@ export const getColumns = (
       return (
         <div className="flex flex-col">
           <span className={colorClass}>{formatDate(row.lastPurchaseDate)}</span>
-          <span className="text-body-xs text-muted-foreground">{days} ngày trước</span>
+          <span className="text-xs text-muted-foreground">{days} ngày trước</span>
         </div>
       );
     },
@@ -344,7 +269,7 @@ export const getColumns = (
     header: "Công nợ/Hạn mức",
     cell: ({ row }) => {
       if (!row.maxDebt || row.maxDebt === 0) {
-        return <span className="text-muted-foreground text-body-xs">Chưa cấp hạn mức</span>;
+        return <span className="text-muted-foreground text-xs">Chưa cấp hạn mức</span>;
       }
       
       const currentDebt = row.currentDebt || 0;
@@ -359,8 +284,8 @@ export const getColumns = (
       return (
         <div className="flex items-center gap-2 min-w-45">
           <Progress value={ratio} className={`w-20 h-2 ${variant === 'destructive' ? 'bg-red-100' : variant === 'warning' ? 'bg-yellow-100' : 'bg-green-100'}`} />
-          <span className="text-body-xs font-medium tabular-nums">{ratio.toFixed(0)}%</span>
-          <span className="text-body-xs text-muted-foreground">
+          <span className="text-xs font-medium tabular-nums">{ratio.toFixed(0)}%</span>
+          <span className="text-xs text-muted-foreground">
             {formatCurrency(currentDebt)}/{formatCurrency(row.maxDebt)}
           </span>
         </div>

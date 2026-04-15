@@ -3,6 +3,7 @@ import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
 import { generateNextIdsWithTx } from '@/lib/id-system';
 import { orderErrors, orderSuccess } from '@/lib/constants/order-error-messages';
 import type { EntityType } from '@/lib/id-config-constants';
+import { logError } from '@/lib/logger'
 
 interface RouteParams {
   params: Promise<{ systemId: string }>;
@@ -176,7 +177,7 @@ export async function POST(request: Request, { params }: RouteParams) {
     }, 201);
 
   } catch (error) {
-    console.error('Error duplicating order:', error);
+    logError('Error duplicating order', error);
     const message = error instanceof Error ? error.message : orderErrors.INTERNAL_ERROR;
     return apiError(message, 500);
   }

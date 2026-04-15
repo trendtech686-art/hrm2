@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../../components/ui/table';
 import { Plus, Trash2, RefreshCw, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { useTrendtechSettings, useTrendtechBrandMappingMutations, useTrendtechLogMutations, useTrendtechBrandMutations } from '../hooks/use-trendtech-settings';
+import { useTrendtechSettings, useTrendtechBrandMappingMutations, useTrendtechLogMutations } from '../hooks/use-trendtech-settings';
 import { useActiveBrands } from '@/features/brands/hooks/use-all-brands';
 import { nanoid } from 'nanoid';
 import { asSystemId } from '@/lib/id-types';
@@ -14,9 +14,6 @@ import { asSystemId } from '@/lib/id-types';
 export function BrandMappingTab() {
   const { data: settings } = useTrendtechSettings();
   const { addBrandMapping, deleteBrandMapping } = useTrendtechBrandMappingMutations({
-    onSuccess: () => {},
-  });
-  const { setBrands: _setBrands } = useTrendtechBrandMutations({
     onSuccess: () => {},
   });
   const { addLog } = useTrendtechLogMutations();

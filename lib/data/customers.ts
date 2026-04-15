@@ -41,7 +41,6 @@ export interface CustomerListItem {
   systemId: string;
   name: string;
   phone: string | null;
-  email: string | null;
   address: string | null;
   customerGroup: string | null;
   totalOrders: number;
@@ -76,7 +75,6 @@ export async function getCustomers(
     where.OR = [
       { name: { contains: search, mode: 'insensitive' } },
       { phone: { contains: search, mode: 'insensitive' } },
-      { email: { contains: search, mode: 'insensitive' } },
     ];
   }
 
@@ -107,7 +105,6 @@ export async function getCustomers(
         systemId: true,
         name: true,
         phone: true,
-        email: true,
         address: true,
         customerGroup: true,
         totalOrders: true,
@@ -126,7 +123,6 @@ export async function getCustomers(
       systemId: customer.systemId,
       name: customer.name,
       phone: customer.phone,
-      email: customer.email,
       address: customer.address,
       customerGroup: customer.customerGroup,
       totalOrders: customer.totalOrders ?? 0,
@@ -146,13 +142,38 @@ export async function getCustomers(
 }
 
 /**
- * Get customer by systemId - Request memoized
+ * Get customer by systemId - Persistent cache (30s) + Request dedup
  */
-export const getCustomerById = cache(async (systemId: string) => {
-  return prisma.customer.findUnique({
-    where: { systemId },
-  });
-});
+const _getCustomerById = unstable_cache(
+  async (systemId: string) => {
+    return prisma.customer.findUnique({
+      where: { systemId },
+      select: {
+        systemId: true,
+        id: true,
+        name: true,
+        phone: true,
+        address: true,
+        ward: true,
+        district: true,
+        province: true,
+        customerGroup: true,
+        currentDebt: true,
+        totalSpent: true,
+        totalOrders: true,
+        notes: true,
+        tags: true,
+        isDeleted: true,
+        createdAt: true,
+        updatedAt: true,
+        createdBy: true,
+      },
+    });
+  },
+  ['customer-by-id'],
+  { revalidate: CACHE_TTL.SHORT, tags: [CACHE_TAGS.CUSTOMERS] }
+);
+export const getCustomerById = cache((systemId: string) => _getCustomerById(systemId));
 
 /**
  * Get customer groups from settings - CACHED (10 min)
@@ -223,7 +244,7 @@ export const getCustomerStats = unstable_cache(
     const [total, withDebt, totalDebt, newThisMonth] = await Promise.all([
       prisma.customer.count({ where: { isDeleted: false } }),
       prisma.customer.count({ 
-        where: { isDeleted: false, currentDebt: { gt: 0 } } 
+        where: { isDeleted: false, currentDebt: { not: 0 } } 
       }),
       prisma.customer.aggregate({
         where: { isDeleted: false },
@@ -269,7 +290,6 @@ export async function searchCustomers(query: string, limit = 10) {
       systemId: true,
       name: true,
       phone: true,
-      email: true,
       address: true,
     },
   });

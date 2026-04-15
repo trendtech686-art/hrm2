@@ -18,7 +18,7 @@ import { Badge } from '../../components/ui/badge';
 import { Separator } from '../../components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { DetailField } from '../../components/ui/detail-field';
-import { ActivityHistory, type HistoryEntry } from '../../components/ActivityHistory';
+import { EntityActivityTable } from '@/components/shared/entity-activity-table';
 import { ImagePreviewDialog } from '../../components/ui/image-preview-dialog';
 import { 
   AlertDialog, 
@@ -33,7 +33,7 @@ import {
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 import { Textarea } from '../../components/ui/textarea';
 import { Label } from '../../components/ui/label';
-import { CheckCircle, XCircle, Printer, TrendingUp, TrendingDown, ArrowRight } from 'lucide-react';
+import { CheckCircle, XCircle, Printer, TrendingUp, TrendingDown, ArrowRight, MoreHorizontal } from 'lucide-react';
 import { ProductThumbnailCell } from '../../components/shared/read-only-products-table';
 import { toast } from 'sonner';
 import { formatDateTime } from '@/lib/date-utils';
@@ -42,6 +42,13 @@ import { useComments } from '@/hooks/use-comments';
 import type { CostAdjustmentStatus, CostAdjustment } from '@/lib/types/prisma-extended';
 import { usePrint } from '../../lib/use-print';
 import { convertCostAdjustmentForPrint, mapCostAdjustmentToPrintData, mapCostAdjustmentLineItems } from '../../lib/print/cost-adjustment-print-helper';
+import { useBreakpoint } from '@/contexts/breakpoint-context';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../../components/ui/dropdown-menu';
 
 const formatCurrency = (value: number | undefined | null) => {
   if (value == null || isNaN(value)) return '0 đ';
@@ -68,68 +75,12 @@ const getStatusLabel = (status: CostAdjustmentStatus): string => {
   return labels[s] || status;
 };
 
-// Build history entries from adjustment data
-function buildHistoryEntries(adjustment: CostAdjustment): HistoryEntry[] {
-  const entries: HistoryEntry[] = [];
-  
-  // Created entry
-  if (adjustment.createdAt) {
-    entries.push({
-      id: `${adjustment.systemId}-created`,
-      action: 'created',
-      timestamp: new Date(adjustment.createdAt),
-      user: {
-        systemId: adjustment.createdBy || '',
-        name: adjustment.createdByName ?? '',
-      },
-      description: `Tạo phiếu điều chỉnh giá vốn với ${adjustment.items.length} sản phẩm`,
-    });
-  }
-  
-  // Confirmed entry
-  if (adjustment.confirmedDate) {
-    entries.push({
-      id: `${adjustment.systemId}-confirmed`,
-      action: 'status_changed',
-      timestamp: new Date(adjustment.confirmedDate),
-      user: {
-        systemId: adjustment.confirmedBySystemId || '',
-        name: adjustment.confirmedByName || '',
-      },
-      description: `Xác nhận phiếu điều chỉnh giá vốn`,
-      metadata: {
-        oldValue: 'Nháp',
-        newValue: 'Đã xác nhận',
-        field: 'Trạng thái',
-      },
-    });
-  }
-  
-  // Cancelled entry
-  if (adjustment.cancelledDate) {
-    entries.push({
-      id: `${adjustment.systemId}-cancelled`,
-      action: 'cancelled',
-      timestamp: new Date(adjustment.cancelledDate),
-      user: {
-        systemId: adjustment.cancelledBySystemId || '',
-        name: adjustment.cancelledByName || '',
-      },
-      description: adjustment.cancelReason 
-        ? `Hủy phiếu: ${adjustment.cancelReason}`
-        : 'Hủy phiếu điều chỉnh giá vốn',
-    });
-  }
-  
-  // Sort by timestamp descending (newest first)
-  return entries.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
-}
-
 export function CostAdjustmentDetailPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const router = useRouter();
   const { setPageHeader, clearPageHeader } = usePageHeader();
   const { user } = useAuth();
+  const { isMobile } = useBreakpoint();
   const { findById: findEmployeeById } = useEmployeeFinder();
   const { findById: findProductById } = useProductFinder();
   const { data: adjustment, isLoading } = useCostAdjustmentById(systemId);
@@ -292,6 +243,37 @@ export function CostAdjustmentDetailPage() {
       </div>
     );
   }, [adjustment, handlePrint]);
+
+  const mobileHeaderActions = React.useMemo(() => {
+    if (!isMobile || !adjustment) return null;
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="sm" className="h-9">
+            <MoreHorizontal className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={handlePrint}>
+            <Printer className="mr-2 h-4 w-4" />
+            In phiếu
+          </DropdownMenuItem>
+          {adjustment.status?.toLowerCase() === 'draft' && (
+            <>
+              <DropdownMenuItem onClick={() => setConfirmDialogOpen(true)}>
+                <CheckCircle className="mr-2 h-4 w-4" />
+                Xác nhận
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setCancelDialogOpen(true)} className="text-destructive">
+                <XCircle className="mr-2 h-4 w-4" />
+                Hủy phiếu
+              </DropdownMenuItem>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  }, [isMobile, adjustment, handlePrint]);
   
   const breadcrumb = React.useMemo(() => {
     if (!adjustment) return [];
@@ -309,7 +291,7 @@ export function CostAdjustmentDetailPage() {
         breadcrumb,
         showBackButton: true,
         backPath: '/cost-adjustments',
-        actions: headerActions,
+        actions: isMobile ? mobileHeaderActions : headerActions,
         badge: (
           <Badge variant={getStatusVariant(adjustment.status)}>
             {getStatusLabel(adjustment.status)}
@@ -318,7 +300,7 @@ export function CostAdjustmentDetailPage() {
       });
     }
     return () => clearPageHeader();
-  }, [adjustment, setPageHeader, clearPageHeader, breadcrumb, headerActions]);
+  }, [adjustment, setPageHeader, clearPageHeader, breadcrumb, headerActions, isMobile, mobileHeaderActions]);
   
   // Loading state
   if (isLoading) {
@@ -453,7 +435,7 @@ export function CostAdjustmentDetailPage() {
                           >
                             {displayName}
                           </Link>
-                          <div className="text-body-xs text-muted-foreground">
+                          <div className="text-xs text-muted-foreground">
                             {displayId}
                           </div>
                         </div>
@@ -537,11 +519,7 @@ export function CostAdjustmentDetailPage() {
       />
 
       {/* Activity History - Full Width */}
-      <ActivityHistory
-        history={buildHistoryEntries(adjustment)}
-        title="Lịch sử hoạt động"
-        emptyMessage="Chưa có hoạt động"
-      />
+      <EntityActivityTable entityType="cost_adjustment" entityId={systemId} />
 
       {/* Confirm Dialog */}
       <AlertDialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>

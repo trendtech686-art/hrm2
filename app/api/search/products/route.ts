@@ -2,6 +2,7 @@ import { getMeiliClient, INDEXES, healthCheck } from '@/lib/meilisearch'
 import type { MeiliProduct } from '@/lib/meilisearch'
 import { requireAuth, apiError } from '@/lib/api-utils'
 import { NextResponse } from 'next/server'
+import { logError } from '@/lib/logger'
 
 /**
  * MEILISEARCH PRODUCT SEARCH API
@@ -71,6 +72,7 @@ export async function GET(request: Request) {
         'categoryId',
         'categoryName',
         'costPrice',
+        'lastPurchasePrice', // ✅ Giá nhập cuối cùng
         'price',      // ✅ Default selling price
         'prices',     // ✅ All prices by pricingPolicyId
         'unit',       // ✅ Unit of measure
@@ -98,6 +100,7 @@ export async function GET(request: Request) {
       categoryId: hit.categoryId,
       categoryName: hit.categoryName,
       costPrice: hit.costPrice,
+      lastPurchasePrice: hit.lastPurchasePrice || 0, // ✅ Giá nhập cuối cùng
       price: hit.price || 0,          // ✅ Default selling price
       prices: hit.prices || {},       // ✅ All prices by pricingPolicyId
       unit: hit.unit || 'Cái',        // ✅ Unit of measure
@@ -125,7 +128,7 @@ export async function GET(request: Request) {
       },
     })
   } catch (error) {
-    console.error('Meilisearch product search error:', error)
+    logError('Meilisearch product search error', error)
     return apiError('Search failed', 500)
   }
 }

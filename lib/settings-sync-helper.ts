@@ -1,8 +1,10 @@
-/**
+﻿/**
  * Settings API Sync Helper
  * 
  * Helper functions to sync settings stores with PostgreSQL API
  */
+
+import { logError } from '@/lib/logger'
 
 const API_BASE = '/api/settings';
 
@@ -37,7 +39,7 @@ export async function fetchSettingsFromAPI<T>(config: SettingSyncConfig): Promis
     // Return grouped data for the specified group
     return data.grouped?.[config.group] as T || null;
   } catch (error) {
-    console.error(`[Settings Sync] Error fetching ${config.group}:`, error);
+    logError(`[Settings Sync] Error fetching ${config.group}`, error);
     return null;
   }
 }
@@ -71,7 +73,7 @@ export async function saveSettingsToAPI(
     
     return true;
   } catch (error) {
-    console.error(`[Settings Sync] Error saving ${group}.${key}:`, error);
+    logError(`[Settings Sync] Error saving ${group}.${key}`, error);
     return false;
   }
 }
@@ -104,7 +106,7 @@ export async function bulkSaveSettingsToAPI(
     
     return true;
   } catch (error) {
-    console.error(`[Settings Sync] Error bulk saving ${group}:`, error);
+    logError(`[Settings Sync] Error bulk saving ${group}`, error);
     return false;
   }
 }
@@ -121,7 +123,7 @@ export function createSettingsSyncMiddleware(group: string) {
       
       // Sync to API in background
       if (typeof partialState === 'object' && partialState !== null) {
-        bulkSaveSettingsToAPI(group, partialState as Record<string, unknown>).catch(console.error);
+        bulkSaveSettingsToAPI(group, partialState as Record<string, unknown>).catch(err => logError('Settings sync failed', err));
       }
     };
   };

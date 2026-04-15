@@ -86,7 +86,7 @@ export function StatusTimeline({ ticket }: StatusTimelineProps) {
                 )}
               </div>
               {timestamp && (
-                <div className="text-body-sm text-muted-foreground">
+                <div className="text-sm text-muted-foreground">
                   {formatDateTime(timestamp)}
                 </div>
               )}

@@ -1,6 +1,10 @@
 import { prisma } from '@/lib/prisma'
 import { requireAuth, apiSuccess, apiError, validateBody } from '@/lib/api-utils'
 import { z } from 'zod'
+import { logError } from '@/lib/logger'
+import { createNotification } from '@/lib/notifications'
+import { notifyWarrantyStatusChanged } from '@/lib/warranty-notifications'
+import { getUserNameFromDb } from '@/lib/get-user-name'
 
 interface RouteParams {
   params: Promise<{ systemId: string }>
@@ -28,7 +32,7 @@ const completeWarrantySchema = z.object({
  */
 export async function POST(request: Request, { params }: RouteParams) {
   const session = await requireAuth()
-  if (!session) return apiError('Unauthorized', 401)
+  if (!session) return apiError('Chưa được xác thực', 401)
 
   const validation = await validateBody(request, completeWarrantySchema)
   if (!validation.success) {
@@ -38,6 +42,8 @@ export async function POST(request: Request, { params }: RouteParams) {
 
   try {
     const { systemId } = await params
+
+    let prevStatus = ''
 
     // Start transaction for atomic operations
     const result = await prisma.$transaction(async (tx) => {
@@ -52,6 +58,8 @@ export async function POST(request: Request, { params }: RouteParams) {
       if (!warranty) {
         throw new Error('WARRANTY_NOT_FOUND')
       }
+
+      prevStatus = warranty.status
 
       // Verify status is valid for completion
       if (warranty.status === 'COMPLETED') {
@@ -119,9 +127,48 @@ export async function POST(request: Request, { params }: RouteParams) {
       return updatedWarranty
     })
 
+    // Notify warranty employee
+    if (result.employeeSystemId && result.employeeSystemId !== session.user?.employeeId) {
+      createNotification({
+        type: 'warranty',
+        title: 'Bảo hành hoàn tất',
+        message: `Phiếu bảo hành ${result.id || systemId} đã hoàn tất`,
+        link: `/warranty/${systemId}`,
+        recipientId: result.employeeSystemId,
+        senderId: session.user?.employeeId,
+        senderName: session.user?.name,
+        settingsKey: 'warranty:status',
+      }).catch(e => logError('[Warranty Complete] notification failed', e));
+
+      // Send email notification (non-blocking)
+      notifyWarrantyStatusChanged({
+        systemId,
+        title: result.title,
+        id: result.id,
+        assigneeId: result.employeeSystemId,
+        creatorId: result.createdBySystemId,
+        status: 'COMPLETED',
+        oldStatus: prevStatus,
+      }).catch(e => logError('[Warranty Complete] email failed', e));
+    }
+
+    // Log activity
+    getUserNameFromDb(session.user?.id).then(userName =>
+      prisma.activityLog.create({
+        data: {
+          entityType: 'warranty',
+          entityId: systemId,
+          action: 'completed',
+          actionType: 'update',
+          note: `Hoàn thành bảo hành`,
+          metadata: { userName },
+          createdBy: userName,
+        }
+      })
+    ).catch(e => logError('[ActivityLog] warranty completed failed', e))
     return apiSuccess(result, 200)
   } catch (error) {
-    console.error('Error completing warranty:', error)
+    logError('Error completing warranty', error)
     
     if (error instanceof Error) {
       if (error.message === 'WARRANTY_NOT_FOUND') {
@@ -138,6 +185,6 @@ export async function POST(request: Request, { params }: RouteParams) {
       }
     }
 
-    return apiError('Failed to complete warranty', 500)
+    return apiError('Không thể hoàn tất phiếu bảo hành', 500)
   }
 }

@@ -28,6 +28,7 @@ export const createPriceAdjustmentSchema = z.object({
   reason: z.string().optional(),
   description: z.string().optional(),
   createdBy: z.string().optional(),
+  createdByName: z.string().optional(),
   items: z.array(priceAdjustmentItemSchema).optional(),
 });
 

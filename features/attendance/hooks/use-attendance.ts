@@ -5,9 +5,7 @@
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import {
-  fetchAttendance,
   fetchAttendanceByMonth,
-  fetchAttendanceById,
   lockAttendanceMonth,
   type AttendanceFilters,
   type AttendanceCreateInput,
@@ -18,6 +16,7 @@ import {
   updateAttendanceAction,
   deleteAttendanceAction,
 } from '@/app/actions/attendance';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 
 // Query keys factory
 export const attendanceKeys = {
@@ -28,19 +27,6 @@ export const attendanceKeys = {
   details: () => [...attendanceKeys.all, 'detail'] as const,
   detail: (id: string) => [...attendanceKeys.details(), id] as const,
 };
-
-/**
- * Hook to fetch attendance records with filters
- */
-export function useAttendance(filters: AttendanceFilters = {}) {
-  return useQuery({
-    queryKey: attendanceKeys.list(filters),
-    queryFn: () => fetchAttendance(filters),
-    staleTime: 1000 * 60, // 1 minute for frequently changing data
-    gcTime: 10 * 60 * 1000, // 10 minutes
-    placeholderData: keepPreviousData,
-  });
-}
 
 /**
  * Hook to fetch attendance for a specific month
@@ -56,18 +42,6 @@ export function useAttendanceByMonth(monthKey: string, options?: { enabled?: boo
   });
 }
 
-/**
- * Hook to fetch single attendance record
- */
-export function useAttendanceById(systemId: string | undefined) {
-  return useQuery({
-    queryKey: attendanceKeys.detail(systemId!),
-    queryFn: () => fetchAttendanceById(systemId!),
-    enabled: !!systemId,
-    staleTime: 1000 * 60,
-  });
-}
-
 interface MutationCallbacks {
   onSuccess?: () => void;
   onError?: (error: Error) => void;
@@ -80,7 +54,7 @@ export function useAttendanceMutations(options: MutationCallbacks = {}) {
   const queryClient = useQueryClient();
 
   const invalidateAttendance = () => {
-    queryClient.invalidateQueries({ queryKey: attendanceKeys.all });
+    invalidateRelated(queryClient, 'attendance');
   };
 
   const create = useMutation({
@@ -163,13 +137,4 @@ export function useAttendanceMutations(options: MutationCallbacks = {}) {
       lockMonth.isPending ||
       bulkUpdate.isPending,
   };
-}
-
-/**
- * Helper hook to get current month's attendance
- */
-export function useCurrentMonthAttendance() {
-  const now = new Date();
-  const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  return useAttendanceByMonth(monthKey);
 }

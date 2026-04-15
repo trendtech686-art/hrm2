@@ -11,6 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Download, Copy, HelpCircle, Printer, FileSpreadsheet } from 'lucide-react';
 import { toast } from 'sonner';
+import { logError } from '@/lib/logger'
 // XLSX is lazy loaded in handleExportExcel to reduce bundle size (~500KB)
 
 interface ExportColumn {
@@ -74,7 +75,7 @@ export function ReportHeaderActions({
       setExportDialogOpen(false);
     } catch (error) {
       toast.error('Lỗi khi xuất báo cáo');
-      console.error(error);
+      logError('Error exporting report', error);
     }
   };
   
@@ -137,7 +138,7 @@ export function ReportHeaderActions({
               </div>
             </div>
             
-            <div className="max-h-[300px] overflow-y-auto space-y-2">
+            <div className="max-h-75 overflow-y-auto space-y-2">
               {columns.map(col => (
                 <div key={col.key} className="flex items-center space-x-2">
                   <Checkbox
@@ -188,7 +189,7 @@ export function ReportHeaderActions({
               </DialogDescription>
             </DialogHeader>
             
-            <div className="space-y-4 max-h-[400px] overflow-y-auto">
+            <div className="space-y-4 max-h-100 overflow-y-auto">
               {glossary.map((item, index) => (
                 <div key={index} className="space-y-1">
                   <h4 className="font-medium text-sm">{item.term}</h4>

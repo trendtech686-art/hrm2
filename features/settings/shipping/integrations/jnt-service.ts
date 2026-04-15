@@ -2,452 +2,259 @@
  * J&T Express API Integration Service
  * Documentation: https://developer.jet.co.id/documentation/index
  * 
- * IMPORTANT NOTES:
- * 1. Requires formal partnership with J&T Express
- * 2. Integration process: Contact agent → Agreement → API Integration & Mapping → Testing → Production
- * 3. Test environment available before production
- * 4. Need to inform operations team before deployment
- * 
- * Contact: Contact local J&T Express office for partnership
+ * Auth: data_param (JSON) + data_sign = base64(md5(data_param + key))
+ * Content-Type: application/x-www-form-urlencoded
+ * Tracking: Basic Auth (separate password)
  */
 
-const JNT_BASE_URL = 'https://api.jtexpress.vn/api'; // Vietnam API endpoint
-const JNT_TEST_URL = 'https://test-api.jtexpress.vn/api'; // Test environment
+import { getBaseUrl } from '@/lib/api-config';
+import { logError } from '@/lib/logger'
 
-// J&T Express API Response types
-export type JNTShippingFeeResponse = {
-  code: string; // "1" = success, other = error
-  msg: string;
-  data?: {
-    fee: number; // Phí vận chuyển (VNĐ)
-    vat: number; // VAT (VNĐ)
-    totalFee: number; // Tổng phí (VNĐ)
-    currency: string; // VND
-  } | undefined;
-};
+// Use local proxy to avoid CORS
+const JNT_BASE_URL = `${getBaseUrl()}/api/shipping/jnt`;
+
+// === Response Types ===
 
 export type JNTCreateOrderResponse = {
-  code: string; // "1" = success
-  msg: string;
-  data?: {
-    orderId: string; // Mã đơn hàng J&T
-    billCode: string; // Mã vận đơn
-    sortingCode: string; // Mã phân loại
-    createTime: string; // Thời gian tạo
-    deliveryTime?: string | undefined; // Thời gian giao dự kiến
-  } | undefined;
+  success: boolean;
+  desc: string;
+  detail: Array<{
+    awb_no?: string;
+    orderid: string;
+    desCode?: string;
+    etd?: string; // Estimated time of delivery e.g. "2-4"
+    status: string; // 'Sukses' | 'Error'
+    reason?: string;
+  }>;
 };
 
-export type JNTOrderStatusResponse = {
-  code: string; // "1" = success
-  msg: string;
-  data?: {
-    billCode: string;
-    orderId: string;
-    status: string; // ACCEPTED, PICKED_UP, IN_TRANSIT, DELIVERING, DELIVERED, RETURNING, RETURNED, CANCELLED
-    statusName: string;
-    createTime: string;
-    updateTime: string;
-    senderName: string;
-    senderPhone: string;
-    senderAddress: string;
-    receiverName: string;
-    receiverPhone: string;
-    receiverAddress: string;
-    goodsName: string;
+export type JNTTrackingResponse = {
+  awb?: string;
+  orderid?: string;
+  error_id?: string;
+  error_message?: string;
+  detail?: {
+    shipped_date: string;
+    services_code: string;
+    actual_amount: number;
     weight: number;
-    quantity: number;
-    codAmount: number;
+    qty: number;
+    itemname: string;
+    detail_cost: {
+      shipping_cost: number;
+      add_cost: number;
+      insurance_cost: number;
+      cod: number;
+      return_cost: number;
+    };
+    sender: { name: string; addr: string; city: string };
+    receiver: { name: string; addr: string; zipcode: string; city: string };
+    driver: { name: string; phone?: string };
+    delivDriver: { name: string; phone: string };
+  };
+  history?: Array<{
+    date_time: string;
+    city_name: string;
+    status: string;
+    status_code: number;
+    storeName: string;
+    nextSiteName: string;
     note: string;
-    traces?: Array<{
-      status: string;
-      statusName: string;
-      scanTime: string;
-      location: string;
-      remark: string;
-    }> | undefined;
-  } | undefined;
+    receiver: string;
+    driverName: string;
+    driverPhone: string;
+  }>;
+};
+
+export type JNTCancelOrderResponse = {
+  success: boolean;
+  desc: string;
+  detail: Array<{
+    orderid: string;
+    status: string; // 'Sukses' | 'Error'
+    reason?: string;
+  }>;
+};
+
+export type JNTTariffCheckResponse = {
+  is_success: string; // 'true' | 'false'
+  message: string;
+  content: string; // JSON string: [{"name":"EZ","cost":"9000"}]
+};
+
+// === Params Types ===
+
+export type JNTCreateOrderParams = {
+  // Order identification
+  orderId: string; // Max 20 chars, use "-" as separator
+
+  // Sender info
+  shipperName: string; // Max 30
+  shipperContact: string; // Max 30
+  shipperPhone: string; // Max 15, format +84xxx
+  shipperAddr: string; // Max 200
+  originCode: string; // City code e.g. 'SGN' (UPPERCASE)
+
+  // Receiver info
+  receiverName: string; // Max 30
+  receiverPhone: string; // Max 15, format +84xxx
+  receiverAddr: string; // Max 200
+  receiverZip: string; // 5 chars, '00000' if unknown
+  destinationCode: string; // City code (UPPERCASE)
+  receiverArea: string; // District code e.g. 'SGN001' (UPPERCASE)
+
+  // Package info
+  qty: number;
+  weight: number; // KG, up to 2 decimal places
+  goodsdesc: string; // Max 40, no special chars
+  itemName: string; // Max 50, no special chars
+  goodsvalue: number; // Goods value
+
+  // Service
+  serviceType: 1 | 6; // 1=Pickup, 6=Drop-off
+  expressType: string; // '1' = EZ (Regular)
+
+  // Optional
+  insurance?: number;
+  cod?: number; // COD amount, up to 8 digit
+
+  // Dates (YYYY-MM-DD hh:mm:ss, UTC+7)
+  orderDate: string;
+  sendStartTime: string;
+  sendEndTime: string;
 };
 
 export type JNTCalculateFeeParams = {
-  // Test mode flag
-  testMode?: boolean | undefined;
-  
-  // Sender info
-  senderCity: string; // Tỉnh/TP gửi
-  senderDistrict: string; // Quận/Huyện gửi
-  senderWard?: string | undefined; // Phường/Xã gửi
-  
-  // Receiver info
-  receiverCity: string; // Tỉnh/TP nhận
-  receiverDistrict: string; // Quận/Huyện nhận
-  receiverWard?: string | undefined; // Phường/Xã nhận
-  
-  // Package info
-  weight: number; // Khối lượng (kg)
-  length?: number | undefined; // Dài (cm)
-  width?: number | undefined; // Rộng (cm)
-  height?: number | undefined; // Cao (cm)
-  
-  // Service type
-  serviceType?: string | undefined; // EZ: Economy, ES: Express
-  
-  // Value
-  goodsValue?: number | undefined; // Giá trị hàng hóa (VNĐ)
-  codAmount?: number | undefined; // Tiền CoD (VNĐ)
-};
-
-export type JNTCreateOrderParams = {
-  // Test mode flag
-  testMode?: boolean | undefined;
-  
-  // Order info
-  orderId: string; // Mã đơn hàng của shop (unique)
-  serviceType?: string | undefined; // EZ: Economy, ES: Express (default: EZ)
-  paymentType?: 'PP_PM' | 'CC_CASH' | undefined; // PP_PM: Người gửi trả, CC_CASH: CoD
-  
-  // Sender info (Người gửi)
-  senderName: string;
-  senderPhone: string;
-  senderAddress: string;
-  senderCity: string; // Tỉnh/TP
-  senderDistrict: string; // Quận/Huyện
-  senderWard?: string | undefined; // Phường/Xã
-  senderPostcode?: string | undefined; // Mã bưu điện
-  
-  // Receiver info (Người nhận)
-  receiverName: string;
-  receiverPhone: string;
-  receiverAddress: string;
-  receiverCity: string; // Tỉnh/TP (required)
-  receiverDistrict: string; // Quận/Huyện (required)
-  receiverWard?: string | undefined; // Phường/Xã
-  receiverPostcode?: string | undefined; // Mã bưu điện
-  receiverEmail?: string | undefined;
-  
-  // Package info
-  goodsName: string; // Tên hàng hóa
-  goodsDesc?: string | undefined; // Mô tả
-  weight: number; // Khối lượng (kg)
-  quantity: number; // Số lượng kiện
-  length?: number | undefined; // Dài (cm)
-  width?: number | undefined; // Rộng (cm)
-  height?: number | undefined; // Cao (cm)
-  
-  // Value
-  goodsValue?: number | undefined; // Giá trị hàng hóa (VNĐ)
-  codAmount: number; // Tiền CoD (VNĐ)
-  
-  // Additional
-  note?: string | undefined; // Ghi chú
-  deliveryType?: 'HOME' | 'OFFICE' | undefined; // Loại địa chỉ giao hàng
-  
-  // Items list (optional for better tracking)
-  items?: Array<{
-    itemName: string;
-    itemQuantity: number;
-    itemPrice?: number | undefined;
-    itemWeight?: number | undefined;
-  }> | undefined;
+  weight: number; // KG
+  sendSiteCode: string; // Origin city code (UPPERCASE)
+  destAreaCode: string; // Destination district code (UPPERCASE)
+  cusName: string; // Customer name from J&T dashboard
+  productType: string; // 'EZ'
 };
 
 /**
  * J&T Express Service Class
+ * All API calls go through our proxy server (/api/shipping/jnt/*) to:
+ * 1. Avoid CORS issues
+ * 2. Handle signature generation server-side (key never exposed to client)
+ * 3. Consistent error handling
  */
 export class JNTService {
+  private username: string;
   private apiKey: string;
-  private apiSecret?: string | undefined;
-  private customerCode?: string | undefined; // Mã khách hàng
-  private testMode: boolean;
 
-  constructor(apiKey: string, apiSecret?: string | undefined, customerCode?: string | undefined, testMode: boolean = false) {
+  constructor(username: string, apiKey: string) {
+    this.username = username;
     this.apiKey = apiKey;
-    this.apiSecret = apiSecret;
-    this.customerCode = customerCode;
-    this.testMode = testMode;
   }
 
   /**
-   * Get base URL based on test mode
+   * Tạo đơn hàng J&T
    */
-  private getBaseUrl(): string {
-    return this.testMode ? JNT_TEST_URL : JNT_BASE_URL;
-  }
-
-  /**
-   * Generate signature for authentication (if required)
-   * Implementation depends on J&T's authentication method
-   */
-  private generateSignature(_params: Record<string, unknown>): string {
-    // TODO: Implement based on J&T's signature algorithm
-    // Usually MD5 or SHA256 hash of params + secret
-    return this.apiSecret || '';
-  }
-
-  /**
-   * Tính phí vận chuyển (Tariff Checking)
-   * API: POST /tariff/check
-   */
-  async calculateShippingFee(
-    params: JNTCalculateFeeParams
-  ): Promise<JNTShippingFeeResponse> {
-    const url = `${this.getBaseUrl()}/tariff/check`;
-    
-    const payload = {
-      senderCity: params.senderCity,
-      senderDistrict: params.senderDistrict,
-      senderWard: params.senderWard,
-      receiverCity: params.receiverCity,
-      receiverDistrict: params.receiverDistrict,
-      receiverWard: params.receiverWard,
-      weight: params.weight,
-      length: params.length,
-      width: params.width,
-      height: params.height,
-      serviceType: params.serviceType || 'EZ',
-      goodsValue: params.goodsValue,
-      codAmount: params.codAmount,
-    };
-
-    const response = await fetch(url, {
+  async createOrder(params: JNTCreateOrderParams): Promise<JNTCreateOrderResponse> {
+    const response = await fetch(`${JNT_BASE_URL}/create-order`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Api-Key': this.apiKey,
-        ...(this.customerCode && { 'Customer-Code': this.customerCode }),
-      },
-      body: JSON.stringify(payload),
-    });
-
-    if (!response.ok) {
-      throw new Error(`J&T API Error: ${response.status} ${response.statusText}`);
-    }
-
-    return await response.json();
-  }
-
-  /**
-   * Tạo đơn hàng mới (Order)
-   * API: POST /order/create
-   */
-  async createOrder(
-    params: JNTCreateOrderParams
-  ): Promise<JNTCreateOrderResponse> {
-    const url = `${this.getBaseUrl()}/order/create`;
-    
-    const payload = {
-      orderId: params.orderId,
-      serviceType: params.serviceType || 'EZ',
-      paymentType: params.paymentType || 'PP_PM',
-      
-      // Sender
-      senderName: params.senderName,
-      senderPhone: params.senderPhone,
-      senderAddress: params.senderAddress,
-      senderCity: params.senderCity,
-      senderDistrict: params.senderDistrict,
-      senderWard: params.senderWard,
-      senderPostcode: params.senderPostcode,
-      
-      // Receiver
-      receiverName: params.receiverName,
-      receiverPhone: params.receiverPhone,
-      receiverAddress: params.receiverAddress,
-      receiverCity: params.receiverCity,
-      receiverDistrict: params.receiverDistrict,
-      receiverWard: params.receiverWard,
-      receiverPostcode: params.receiverPostcode,
-      receiverEmail: params.receiverEmail,
-      
-      // Package
-      goodsName: params.goodsName,
-      goodsDesc: params.goodsDesc,
-      weight: params.weight,
-      quantity: params.quantity,
-      length: params.length,
-      width: params.width,
-      height: params.height,
-      
-      // Value
-      goodsValue: params.goodsValue,
-      codAmount: params.codAmount,
-      
-      // Additional
-      note: params.note,
-      deliveryType: params.deliveryType || 'HOME',
-      items: params.items,
-    };
-
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Api-Key': this.apiKey,
-        ...(this.customerCode && { 'Customer-Code': this.customerCode }),
-      },
-      body: JSON.stringify(payload),
-    });
-
-    if (!response.ok) {
-      throw new Error(`J&T API Error: ${response.status} ${response.statusText}`);
-    }
-
-    return await response.json();
-  }
-
-  /**
-   * Kiểm tra trạng thái đơn hàng (Tracking)
-   * API: POST /order/track
-   */
-  async getOrderStatus(
-    billCode: string
-  ): Promise<JNTOrderStatusResponse> {
-    const url = `${this.getBaseUrl()}/order/track`;
-
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Api-Key': this.apiKey,
-      },
-      body: JSON.stringify({ billCode }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`J&T API Error: ${response.status} ${response.statusText}`);
-    }
-
-    return await response.json();
-  }
-
-  /**
-   * Hủy đơn hàng (Cancel Order)
-   * API: POST /order/cancel
-   */
-  async cancelOrder(
-    billCode: string,
-    reason?: string
-  ): Promise<{ code: string; msg: string; data?: unknown }> {
-    const url = `${this.getBaseUrl()}/order/cancel`;
-
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Api-Key': this.apiKey,
-        ...(this.customerCode && { 'Customer-Code': this.customerCode }),
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        billCode,
-        reason: reason || 'Khách hàng yêu cầu hủy',
+        username: this.username,
+        api_key: this.apiKey,
+        ...params,
+      }),
+    });
+
+    const responseText = await response.text();
+    let data: JNTCreateOrderResponse;
+    try {
+      data = JSON.parse(responseText);
+    } catch {
+      logError('[JNTService] Invalid JSON response', null, {
+        status: response.status,
+        body: responseText.substring(0, 500),
+      });
+      throw new Error('J&T trả về dữ liệu không hợp lệ. Vui lòng thử lại.');
+    }
+
+    if (!response.ok) {
+      throw new Error(`Lỗi J&T: ${response.status} ${response.statusText}`);
+    }
+
+    const detail = data.detail?.[0];
+    if (detail?.status === 'Error') {
+      throw new Error(detail.reason || 'J&T trả về lỗi không xác định');
+    }
+
+    return data;
+  }
+
+  /**
+   * Tracking đơn hàng (Basic Auth via proxy)
+   */
+  async getOrderStatus(awbNumber: string): Promise<JNTTrackingResponse> {
+    const response = await fetch(`${JNT_BASE_URL}/tracking`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        awb: awbNumber,
+        username: this.username,
+        api_key: this.apiKey,
       }),
     });
 
     if (!response.ok) {
-      throw new Error(`J&T API Error: ${response.status} ${response.statusText}`);
+      throw new Error(`J&T Tracking Error: ${response.status} ${response.statusText}`);
     }
 
-    return await response.json();
+    const data = await response.json();
+    if (data.error_id) {
+      throw new Error(data.error_message || 'Không tìm thấy đơn hàng');
+    }
+
+    return data;
   }
 
   /**
-   * Cập nhật đơn hàng
-   * API: POST /order/update
+   * Hủy đơn hàng
    */
-  async updateOrder(
-    billCode: string,
-    updates: Partial<JNTCreateOrderParams>
-  ): Promise<{ code: string; msg: string; data?: unknown }> {
-    const url = `${this.getBaseUrl()}/order/update`;
-
-    const payload = {
-      billCode,
-      ...updates,
-    };
-
-    const response = await fetch(url, {
+  async cancelOrder(orderId: string, remark: string = 'Hủy bởi người gửi'): Promise<JNTCancelOrderResponse> {
+    const response = await fetch(`${JNT_BASE_URL}/cancel-order`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Api-Key': this.apiKey,
-        ...(this.customerCode && { 'Customer-Code': this.customerCode }),
-      },
-      body: JSON.stringify(payload),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: this.username,
+        api_key: this.apiKey,
+        orderid: orderId,
+        remark,
+      }),
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(`Lỗi J&T: ${response.status}`);
+    }
+
+    const detail = data.detail?.[0];
+    if (detail?.status === 'Error') {
+      throw new Error(detail.reason || 'Không thể hủy đơn hàng');
+    }
+
+    return data;
+  }
+
+  /**
+   * Kiểm tra phí vận chuyển (Tariff)
+   */
+  async calculateFee(params: JNTCalculateFeeParams): Promise<JNTTariffCheckResponse> {
+    const response = await fetch(`${JNT_BASE_URL}/calculate-fee`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
     });
 
     if (!response.ok) {
-      throw new Error(`J&T API Error: ${response.status} ${response.statusText}`);
+      throw new Error(`Lỗi J&T: ${response.status}`);
     }
 
     return await response.json();
   }
 }
 
-/**
- * J&T Status Code Mapping
- */
-export const JNT_STATUS_MAP: Record<string, { text: string; color: string }> = {
-  'ACCEPTED': { text: 'Đã tiếp nhận', color: 'secondary' },
-  'PICKED_UP': { text: 'Đã lấy hàng', color: 'success' },
-  'IN_TRANSIT': { text: 'Đang vận chuyển', color: 'warning' },
-  'AT_SORTING_CENTER': { text: 'Đang phân loại', color: 'info' },
-  'OUT_FOR_DELIVERY': { text: 'Đang giao hàng', color: 'warning' },
-  'DELIVERING': { text: 'Đang giao hàng', color: 'warning' },
-  'DELIVERED': { text: 'Đã giao hàng', color: 'success' },
-  'DELIVERY_FAILED': { text: 'Giao hàng thất bại', color: 'destructive' },
-  'RETURNING': { text: 'Đang hoàn hàng', color: 'warning' },
-  'RETURNED': { text: 'Đã hoàn hàng', color: 'secondary' },
-  'CANCELLED': { text: 'Đã hủy', color: 'destructive' },
-  'EXCEPTION': { text: 'Đơn hàng ngoại lệ', color: 'destructive' },
-  'LOST': { text: 'Thất lạc', color: 'destructive' },
-  'DAMAGED': { text: 'Hư hỏng', color: 'destructive' },
-};
-
-/**
- * J&T Service Types
- */
-export const JNT_SERVICE_TYPES = {
-  ECONOMY: 'EZ', // Tiết kiệm
-  EXPRESS: 'ES', // Nhanh
-} as const;
-
-/**
- * J&T Payment Types
- */
-export const JNT_PAYMENT_TYPES = {
-  SENDER_PAY: 'PP_PM', // Người gửi trả phí (PrePaid)
-  COD: 'CC_CASH', // Thu hộ CoD
-} as const;
-
-/**
- * J&T Integration Process Guide
- * 
- * Step 1: Contact J&T Agent
- * - Contact local J&T Express office for partnership inquiry
- * - Provide business information and integration requirements
- * 
- * Step 2: Agreement Documentation
- * - Sign partnership agreement with J&T Express
- * - Receive API credentials (API Key, API Secret, Customer Code)
- * 
- * Step 3: API Integration & Mapping
- * - Implement API integration using this service class
- * - Map shop's address data with J&T's master data
- * - Configure webhook URLs for status updates (if needed)
- * 
- * Step 4: Testing
- * - Use test environment (testMode = true)
- * - Test all workflows: calculateFee → createOrder → trackOrder → cancelOrder
- * - Verify data mapping and status updates
- * - Get approval from J&T for production migration
- * 
- * Step 5: Production Deployment
- * - Switch to production environment (testMode = false)
- * - Update API credentials to production keys
- * - Inform J&T operations team before going live
- * - Monitor first orders and handle any issues
- * 
- * Support:
- * - Check developer.jet.co.id/documentation for latest API docs
- * - Contact J&T technical support for integration assistance
- */

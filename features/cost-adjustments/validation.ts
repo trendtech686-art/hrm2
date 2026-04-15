@@ -28,19 +28,31 @@ export const costAdjustmentItemSchema = z.object({
   productSystemId: systemIdSchema,
   productId: businessIdSchema.optional(),
   productName: z.string().min(1, 'Tên sản phẩm không được để trống'),
-  oldCost: z.number().min(0, 'Giá cũ phải >= 0'),
-  newCost: z.number().min(0, 'Giá mới phải >= 0'),
+  productImage: z.string().optional(),
+  oldCost: z.number().min(0, 'Giá cũ phải >= 0').optional(),
+  oldCostPrice: z.number().min(0, 'Giá cũ phải >= 0').optional(),
+  newCost: z.number().min(0, 'Giá mới phải >= 0').optional(),
+  newCostPrice: z.number().min(0, 'Giá mới phải >= 0').optional(),
+  adjustmentAmount: z.number().optional(),
+  adjustmentPercent: z.number().optional(),
   quantity: z.number().int().min(0).optional(),
   notes: z.string().optional(),
 });
 
-// Create schema
+// Create schema - flexible to support both action format and form format
 export const createCostAdjustmentSchema = z.object({
-  branchSystemId: systemIdSchema.refine(v => v.length >= 1, 'Vui lòng chọn chi nhánh'),
+  branchSystemId: systemIdSchema.optional(),
+  branchId: z.string().optional(),
   branchName: z.string().optional(),
-  adjustmentDate: z.string().min(1, 'Ngày điều chỉnh không được để trống'),
-  reason: costAdjustmentReasonSchema,
+  adjustmentDate: z.string().optional(),
+  type: z.string().optional(),
+  reason: z.union([costAdjustmentReasonSchema, z.string()]).optional(),
+  note: z.string().optional(),
   notes: z.string().optional(),
+  referenceCode: z.string().optional(),
+  businessId: z.string().optional(),
+  createdBy: z.string().optional(),
+  createdByName: z.string().optional(),
   items: z.array(costAdjustmentItemSchema).min(1, 'Phải có ít nhất 1 sản phẩm'),
 });
 

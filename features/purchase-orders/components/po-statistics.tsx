@@ -1,8 +1,6 @@
 'use client';
 
-import * as React from 'react';
-import { ShoppingCart, PackageCheck, RotateCcw, Package } from 'lucide-react';
-import { StatsCard, StatsCardGrid } from '@/components/shared/stats-card';
+import { StatsBar } from '@/components/shared/stats-bar';
 import { formatNumber } from '@/lib/format-utils';
 import type { POItemStats } from '@/lib/data/purchase-orders';
 
@@ -21,36 +19,13 @@ export function POStatisticsCards({ initialStats }: POStatisticsCardsProps) {
   };
 
   return (
-    <StatsCardGrid columns={4}>
-      <StatsCard
-        title="Tổng đặt hàng"
-        value={stats.totalOrdered}
-        icon={ShoppingCart}
-        formatValue={(v) => `${formatNumber(Number(v))} SP`}
-      />
-      <StatsCard
-        title="Đã nhận"
-        value={stats.totalReceived}
-        icon={PackageCheck}
-        formatValue={(v) => `${formatNumber(Number(v))} SP`}
-        description={`${stats.receivedRate}%`}
-        variant="success"
-      />
-      <StatsCard
-        title="Đã trả lại"
-        value={stats.totalReturned}
-        icon={RotateCcw}
-        formatValue={(v) => `${formatNumber(Number(v))} SP`}
-        description={`${stats.returnedRate}%`}
-        variant={stats.totalReturned > 0 ? 'warning' : 'default'}
-      />
-      <StatsCard
-        title="Tồn kho thực"
-        value={stats.netInStock}
-        icon={Package}
-        formatValue={(v) => `${Number(v) > 0 ? '+' : ''}${formatNumber(Number(v))} SP`}
-        variant={stats.netInStock >= 0 ? 'info' : 'danger'}
-      />
-    </StatsCardGrid>
+    <StatsBar
+      items={[
+        { key: 'totalOrdered', label: 'Tổng đặt hàng', value: `${formatNumber(stats.totalOrdered)} SP` },
+        { key: 'totalReceived', label: 'Đã nhận', value: `${formatNumber(stats.totalReceived)} SP`, description: `${stats.receivedRate}%` },
+        { key: 'totalReturned', label: 'Đã trả lại', value: `${formatNumber(stats.totalReturned)} SP`, description: `${stats.returnedRate}%` },
+        { key: 'netInStock', label: 'Tồn kho thực', value: `${stats.netInStock > 0 ? '+' : ''}${formatNumber(stats.netInStock)} SP` },
+      ]}
+    />
   );
 }

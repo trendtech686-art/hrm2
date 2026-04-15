@@ -6,10 +6,12 @@
 
 import { prisma } from '@/lib/prisma'
 import { revalidatePath } from '@/lib/revalidation'
-import { generateIdWithPrefix } from '@/lib/id-generator'
-import { auth } from '@/auth'
+import { generateIdWithPrefix, syncCounterWithTable } from '@/lib/id-generator'
+import { requireActionPermission } from '@/lib/api-utils'
 import type { ActionResult } from '@/types/action-result'
 import { createPriceAdjustmentSchema, updatePriceAdjustmentSchema, priceAdjustmentItemSchema } from '@/features/price-adjustments/validation'
+import { logError } from '@/lib/logger'
+import { getSessionUserName } from '@/lib/get-user-name'
 
 // Types
 type PriceAdjustment = NonNullable<Awaited<ReturnType<typeof prisma.priceAdjustment.findFirst>>>
@@ -26,6 +28,7 @@ export type CreatePriceAdjustmentInput = {
   reason?: string
   description?: string
   createdBy?: string
+  createdByName?: string
   items?: CreatePriceAdjustmentItemInput[]
 }
 
@@ -59,10 +62,8 @@ export type UpdatePriceAdjustmentInput = {
 export async function createPriceAdjustmentAction(
   input: CreatePriceAdjustmentInput
 ): Promise<ActionResult<PriceAdjustment>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('edit_products')
+  if (!authResult.success) return authResult
 
   const validated = createPriceAdjustmentSchema.safeParse(input)
   if (!validated.success) {
@@ -70,6 +71,8 @@ export async function createPriceAdjustmentAction(
   }
 
   try {
+    // Sync counter with existing IDs to prevent duplicates
+    await syncCounterWithTable('DCGB', 'price_adjustments', 'id')
     const systemId = await generateIdWithPrefix('DCGB', prisma)
 
     const priceAdjustment = await prisma.priceAdjustment.create({
@@ -85,6 +88,8 @@ export async function createPriceAdjustmentAction(
         note: input.description,
         status: 'DRAFT',
         createdBy: input.createdBy,
+        createdBySystemId: input.createdBy,
+        createdByName: input.createdByName,
         items: input.items?.length ? {
           create: input.items.map((item) => {
             const itemSystemId = `${systemId}-${item.productId}`
@@ -106,10 +111,37 @@ export async function createPriceAdjustmentAction(
       include: { items: true },
     })
 
+    // Transform Decimal to Number for serialization
+    const serialized = {
+      ...priceAdjustment,
+      items: priceAdjustment.items.map(item => ({
+        ...item,
+        oldPrice: Number(item.oldPrice),
+        newPrice: Number(item.newPrice),
+        adjustmentAmount: Number(item.adjustmentAmount),
+        adjustmentPercent: Number(item.adjustmentPercent),
+      })),
+    }
+
     revalidatePath('/price-adjustments')
-    return { success: true, data: priceAdjustment }
+
+    // Activity log
+    const userName = getSessionUserName(authResult.session)
+    prisma.activityLog.create({
+      data: {
+        entityType: 'price_adjustment',
+        entityId: priceAdjustment.systemId,
+        action: `Thêm điều chỉnh giá bán: ${priceAdjustment.systemId}`,
+        actionType: 'create',
+        note: `${input.reason || input.type || ''} - ${priceAdjustment.items?.length || 0} SP`,
+        metadata: { userName },
+        createdBy: userName,
+      }
+    }).catch(e => logError('[ActivityLog] price adjustment create failed', e))
+
+    return { success: true, data: serialized as unknown as PriceAdjustment }
   } catch (error) {
-    console.error('Error creating price adjustment:', error)
+    logError('Error creating price adjustment', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Không thể tạo điều chỉnh giá',
@@ -120,10 +152,8 @@ export async function createPriceAdjustmentAction(
 export async function updatePriceAdjustmentAction(
   input: UpdatePriceAdjustmentInput
 ): Promise<ActionResult<PriceAdjustment>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('edit_products')
+  if (!authResult.success) return authResult
 
   const validated = updatePriceAdjustmentSchema.safeParse(input)
   if (!validated.success) {
@@ -164,11 +194,46 @@ export async function updatePriceAdjustmentAction(
       include: { items: true },
     })
 
+    // Transform Decimal to Number for serialization
+    const serialized = {
+      ...priceAdjustment,
+      items: priceAdjustment.items.map(item => ({
+        ...item,
+        oldPrice: Number(item.oldPrice),
+        newPrice: Number(item.newPrice),
+        adjustmentAmount: Number(item.adjustmentAmount),
+        adjustmentPercent: Number(item.adjustmentPercent),
+      })),
+    }
+
     revalidatePath('/price-adjustments')
     revalidatePath(`/price-adjustments/${systemId}`)
-    return { success: true, data: priceAdjustment }
+
+    // Activity log with changes diff
+    const userName = getSessionUserName(authResult.session)
+    const changes: Record<string, { from: unknown; to: unknown }> = {}
+    if (data.adjustmentDate !== undefined) changes['Ngày điều chỉnh'] = { from: existing.adjustmentDate?.toISOString().split('T')[0], to: String(data.adjustmentDate).split('T')[0] }
+    if (data.type !== undefined && data.type !== existing.type) changes['Loại'] = { from: existing.type, to: data.type }
+    if (data.reason !== undefined && data.reason !== existing.reason) changes['Lý do'] = { from: existing.reason, to: data.reason }
+    if (data.description !== undefined && data.description !== existing.note) changes['Mô tả'] = { from: existing.note, to: data.description }
+    if (Object.keys(changes).length > 0) {
+      const changeFields = Object.keys(changes).join(', ')
+      prisma.activityLog.create({
+        data: {
+          entityType: 'price_adjustment',
+          entityId: systemId,
+          action: `Cập nhật điều chỉnh giá bán: ${systemId}: ${changeFields}`,
+          actionType: 'update',
+          changes: JSON.parse(JSON.stringify(changes)),
+          metadata: { userName },
+          createdBy: userName,
+        }
+      }).catch(e => logError('[ActivityLog] price adjustment update failed', e))
+    }
+
+    return { success: true, data: serialized as unknown as PriceAdjustment }
   } catch (error) {
-    console.error('Error updating price adjustment:', error)
+    logError('Error updating price adjustment', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Không thể cập nhật điều chỉnh giá',
@@ -179,10 +244,8 @@ export async function updatePriceAdjustmentAction(
 export async function deletePriceAdjustmentAction(
   systemId: string
 ): Promise<ActionResult<PriceAdjustment>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('edit_products')
+  if (!authResult.success) return authResult
   try {
     const existing = await prisma.priceAdjustment.findUnique({
       where: { systemId },
@@ -208,42 +271,27 @@ export async function deletePriceAdjustmentAction(
       where: { systemId },
     })
 
+    // Activity log
+    const userName = getSessionUserName(authResult.session)
+    prisma.activityLog.create({
+      data: {
+        entityType: 'price_adjustment',
+        entityId: systemId,
+        action: `Xóa điều chỉnh giá bán: ${systemId}`,
+        actionType: 'delete',
+        note: `${existing.reason || existing.type || ''}`,
+        metadata: { userName },
+        createdBy: userName,
+      }
+    }).catch(e => logError('[ActivityLog] price adjustment delete failed', e))
+
     revalidatePath('/price-adjustments')
     return { success: true, data: priceAdjustment }
   } catch (error) {
-    console.error('Error deleting price adjustment:', error)
+    logError('Error deleting price adjustment', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Không thể xóa điều chỉnh giá',
-    }
-  }
-}
-
-export async function getPriceAdjustmentAction(
-  systemId: string
-): Promise<ActionResult<PriceAdjustment>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
-  try {
-    const priceAdjustment = await prisma.priceAdjustment.findUnique({
-      where: { systemId },
-      include: {
-        items: true,
-      },
-    })
-
-    if (!priceAdjustment) {
-      return { success: false, error: 'Không tìm thấy điều chỉnh giá' }
-    }
-
-    return { success: true, data: priceAdjustment }
-  } catch (error) {
-    console.error('Error getting price adjustment:', error)
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Không thể lấy điều chỉnh giá',
     }
   }
 }
@@ -252,10 +300,8 @@ export async function addPriceAdjustmentItemAction(
   priceAdjustmentId: string,
   item: CreatePriceAdjustmentItemInput
 ): Promise<ActionResult<PriceAdjustmentItem>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('edit_products')
+  if (!authResult.success) return authResult
 
   const validated = priceAdjustmentItemSchema.safeParse(item)
   if (!validated.success) {
@@ -303,9 +349,19 @@ export async function addPriceAdjustmentItemAction(
 
     revalidatePath('/price-adjustments')
     revalidatePath(`/price-adjustments/${priceAdjustmentId}`)
-    return { success: true, data: newItem }
+    
+    // Transform Decimal to Number for serialization
+    const serializedItem = {
+      ...newItem,
+      oldPrice: Number(newItem.oldPrice),
+      newPrice: Number(newItem.newPrice),
+      adjustmentAmount: Number(newItem.adjustmentAmount),
+      adjustmentPercent: Number(newItem.adjustmentPercent),
+    }
+    
+    return { success: true, data: serializedItem as unknown as PriceAdjustmentItem }
   } catch (error) {
-    console.error('Error adding price adjustment item:', error)
+    logError('Error adding price adjustment item', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Không thể thêm mục điều chỉnh giá',
@@ -317,10 +373,8 @@ export async function updatePriceAdjustmentItemAction(
   itemId: string,
   data: Partial<CreatePriceAdjustmentItemInput>
 ): Promise<ActionResult<PriceAdjustmentItem>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('edit_products')
+  if (!authResult.success) return authResult
 
   const validated = priceAdjustmentItemSchema.partial().safeParse(data)
   if (!validated.success) {
@@ -364,9 +418,19 @@ export async function updatePriceAdjustmentItemAction(
 
     revalidatePath('/price-adjustments')
     revalidatePath(`/price-adjustments/${item.adjustmentId}`)
-    return { success: true, data: updatedItem }
+    
+    // Transform Decimal to Number for serialization
+    const serializedItem = {
+      ...updatedItem,
+      oldPrice: Number(updatedItem.oldPrice),
+      newPrice: Number(updatedItem.newPrice),
+      adjustmentAmount: Number(updatedItem.adjustmentAmount),
+      adjustmentPercent: Number(updatedItem.adjustmentPercent),
+    }
+    
+    return { success: true, data: serializedItem as unknown as PriceAdjustmentItem }
   } catch (error) {
-    console.error('Error updating price adjustment item:', error)
+    logError('Error updating price adjustment item', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Không thể cập nhật mục điều chỉnh giá',
@@ -377,10 +441,8 @@ export async function updatePriceAdjustmentItemAction(
 export async function removePriceAdjustmentItemAction(
   itemId: string
 ): Promise<ActionResult<PriceAdjustmentItem>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('edit_products')
+  if (!authResult.success) return authResult
   try {
     const item = await prisma.priceAdjustmentItem.findUnique({
       where: { systemId: itemId },
@@ -404,9 +466,19 @@ export async function removePriceAdjustmentItemAction(
 
     revalidatePath('/price-adjustments')
     revalidatePath(`/price-adjustments/${item.adjustmentId}`)
-    return { success: true, data: deletedItem }
+    
+    // Transform Decimal to Number for serialization
+    const serializedItem = {
+      ...deletedItem,
+      oldPrice: Number(deletedItem.oldPrice),
+      newPrice: Number(deletedItem.newPrice),
+      adjustmentAmount: Number(deletedItem.adjustmentAmount),
+      adjustmentPercent: Number(deletedItem.adjustmentPercent),
+    }
+    
+    return { success: true, data: serializedItem as unknown as PriceAdjustmentItem }
   } catch (error) {
-    console.error('Error removing price adjustment item:', error)
+    logError('Error removing price adjustment item', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Không thể xóa mục điều chỉnh giá',
@@ -416,12 +488,11 @@ export async function removePriceAdjustmentItemAction(
 
 export async function confirmPriceAdjustmentAction(
   systemId: string,
-  confirmedBy: string
+  confirmedBy: string,
+  confirmedByName?: string
 ): Promise<ActionResult<PriceAdjustment>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('edit_products')
+  if (!authResult.success) return authResult
   try {
     const existing = await prisma.priceAdjustment.findUnique({
       where: { systemId },
@@ -471,18 +542,47 @@ export async function confirmPriceAdjustmentAction(
       data: {
         status: 'CONFIRMED',
         confirmedBySystemId: confirmedBy,
+        confirmedByName: confirmedByName,
         confirmedDate: new Date(),
         updatedBy: confirmedBy,
       },
       include: { items: true },
     })
 
+    // Transform Decimal to Number for serialization
+    const serialized = {
+      ...priceAdjustment,
+      items: priceAdjustment.items.map(item => ({
+        ...item,
+        oldPrice: Number(item.oldPrice),
+        newPrice: Number(item.newPrice),
+        adjustmentAmount: Number(item.adjustmentAmount),
+        adjustmentPercent: Number(item.adjustmentPercent),
+      })),
+    }
+
     revalidatePath('/price-adjustments')
     revalidatePath(`/price-adjustments/${systemId}`)
     revalidatePath('/products')
-    return { success: true, data: priceAdjustment }
+
+    // Activity log
+    const userName = getSessionUserName(authResult.session)
+    prisma.activityLog.create({
+      data: {
+        entityType: 'price_adjustment',
+        entityId: systemId,
+        action: `Xác nhận điều chỉnh giá bán: ${systemId}`,
+        actionType: 'status',
+        changes: JSON.parse(JSON.stringify({ 'Trạng thái': { from: 'Nháp', to: 'Xác nhận' } })),
+        note: `${existing.items.length} SP được cập nhật giá bán`,
+        metadata: { userName, itemCount: existing.items.length },
+        createdBy: userName,
+      }
+    }).catch(e => logError('[ActivityLog] price adjustment confirm failed', e))
+
+    return { success: true, data: serialized as unknown as PriceAdjustment }
   } catch (error) {
-    console.error('Error confirming price adjustment:', error)
+    logError('Error confirming price adjustment', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Không thể xác nhận điều chỉnh giá',
@@ -493,10 +593,8 @@ export async function confirmPriceAdjustmentAction(
 export async function cancelPriceAdjustmentAction(
   systemId: string
 ): Promise<ActionResult<PriceAdjustment>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('edit_products')
+  if (!authResult.success) return authResult
   try {
     const existing = await prisma.priceAdjustment.findUnique({
       where: { systemId },
@@ -518,11 +616,25 @@ export async function cancelPriceAdjustmentAction(
       data: { status: 'CANCELLED' },
     })
 
+    // Activity log
+    const userName = getSessionUserName(authResult.session)
+    prisma.activityLog.create({
+      data: {
+        entityType: 'price_adjustment',
+        entityId: systemId,
+        action: `Hủy điều chỉnh giá bán: ${systemId}`,
+        actionType: 'status',
+        changes: JSON.parse(JSON.stringify({ 'Trạng thái': { from: existing.status, to: 'CANCELLED' } })),
+        metadata: { userName },
+        createdBy: userName,
+      }
+    }).catch(e => logError('[ActivityLog] price adjustment cancel failed', e))
+
     revalidatePath('/price-adjustments')
     revalidatePath(`/price-adjustments/${systemId}`)
     return { success: true, data: priceAdjustment }
   } catch (error) {
-    console.error('Error cancelling price adjustment:', error)
+    logError('Error cancelling price adjustment', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Không thể hủy điều chỉnh giá',

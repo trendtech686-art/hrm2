@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma'
 import type { Prisma } from '@/generated/prisma/client'
 import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
 import { generateIdWithPrefix } from '@/lib/id-generator'
+import { logError } from '@/lib/logger'
 
 const SETTING_KEY = 'employee-payroll-profiles'
 const SETTING_GROUP = 'hrm'
@@ -63,7 +64,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
 
     return apiSuccess({ data: profiles.find((p) => p.employeeSystemId === employeeSystemId) })
   } catch (error) {
-    console.error('Error updating payroll profile:', error)
+    logError('Error updating payroll profile', error)
     return apiError('Failed to update payroll profile', 500)
   }
 }
@@ -102,7 +103,7 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
 
     return apiSuccess({ success: true })
   } catch (error) {
-    console.error('Error deleting payroll profile:', error)
+    logError('Error deleting payroll profile', error)
     return apiError('Failed to delete payroll profile', 500)
   }
 }

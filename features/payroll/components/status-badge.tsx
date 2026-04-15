@@ -24,7 +24,7 @@ const STATUS_VARIANT: Record<PayrollBatchStatus, React.ComponentProps<typeof Bad
 
 export function PayrollStatusBadge({ status, className }: PayrollStatusBadgeProps) {
   return (
-    <Badge variant={STATUS_VARIANT[status]} className={cn('text-body-xs font-medium', className)}>
+    <Badge variant={STATUS_VARIANT[status]} className={cn('text-xs font-medium', className)}>
       {STATUS_LABEL[status]}
     </Badge>
   );

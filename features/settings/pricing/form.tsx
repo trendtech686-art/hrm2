@@ -51,7 +51,7 @@ export function PricingPolicyForm({ initialData, onSubmit }: Props) {
 
   const onFormSubmit = (values: PricingPolicyFormValues) => {
     // Validate unique ID
-    const existingIds = data.map(p => p.id);
+    const existingIds = data.map(p => p.id).filter(Boolean);
     const currentId = initialData?.id;
     
     if (!validateUniqueId(values.id, existingIds, currentId)) {

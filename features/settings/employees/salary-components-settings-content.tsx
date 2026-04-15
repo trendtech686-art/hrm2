@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { PlusCircle, Edit, Trash2 } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -58,7 +58,7 @@ function getSalaryComponentColumns(handlers: SalaryComponentColumnHandlers): Col
         <div>
           <div className="font-medium">{row.name}</div>
           {row.description && (
-            <p className="text-xs text-muted-foreground mt-0.5 truncate max-w-[200px]">{row.description}</p>
+            <p className="text-xs text-muted-foreground mt-0.5 truncate max-w-50">{row.description}</p>
           )}
           {row.type === 'fixed' && row.amount && (
             <p className="text-xs text-primary mt-0.5">{formatCurrency(row.amount)}</p>
@@ -398,6 +398,7 @@ export function SalaryComponentsSettingsContent() {
             } : undefined}
             onSubmit={handleFormSubmit}
             onCancel={() => setIsFormOpen(false)}
+            isPending={createMutation.isPending || updateMutation.isPending}
           />
         </DialogContent>
       </Dialog>
@@ -416,7 +417,9 @@ export function SalaryComponentsSettingsContent() {
             <AlertDialogAction
               onClick={handleConfirmDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteMutation.isPending}
             >
+              {deleteMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {deleteMutation.isPending ? 'Đang xóa...' : 'Xóa'}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -437,7 +440,9 @@ export function SalaryComponentsSettingsContent() {
             <AlertDialogAction 
               onClick={confirmBulkDelete} 
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteMutation.isPending}
             >
+              {deleteMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Xóa tất cả
             </AlertDialogAction>
           </AlertDialogFooter>

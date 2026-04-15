@@ -4,6 +4,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import {
   fetchStoreInfo,
   updateStoreInfo,
@@ -42,9 +43,7 @@ interface MutationCallbacks {
 export function useStoreInfoMutations(options: MutationCallbacks = {}) {
   const queryClient = useQueryClient();
 
-  const invalidateInfo = () => {
-    queryClient.invalidateQueries({ queryKey: storeInfoKeys.all });
-  };
+  const invalidateInfo = () => invalidateRelated(queryClient, 'store-info');
 
   const update = useMutation({
     mutationFn: ({ 

@@ -5,6 +5,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import { generateSubEntityId } from '@/lib/id-utils';
 import {
   fetchEmployeeTypes,
@@ -142,6 +143,9 @@ export function useEmployeeTypeMutations(options: UseEmployeeTypeMutationsOption
       });
       queryClient.setQueryData(employeeTypeKeys.detail(variables.systemId), data);
       options.onUpdateSuccess?.(data);
+    },
+    onSettled: () => {
+      invalidateRelated(queryClient, 'employee-types');
     },
     onError: (error, _, context) => {
       // Rollback on error

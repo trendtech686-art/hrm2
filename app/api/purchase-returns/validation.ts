@@ -36,6 +36,8 @@ export const createPurchaseReturnSchema = z.object({
   refundMethod: z.string().optional(),
   accountSystemId: z.string().optional(),
   branchSystemId: z.string().optional(),
+  creatorName: z.string().optional(), // Creator name from frontend
+  createdBy: z.string().optional(), // Creator systemId from frontend
 });
 
 // Update purchase return schema (for PATCH operations)

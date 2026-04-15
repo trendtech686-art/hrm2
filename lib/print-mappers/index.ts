@@ -61,6 +61,21 @@ export * from './complaint.mapper';
 // Penalty - Phiếu phạt
 export * from './penalty.mapper';
 
+// Cost Adjustment - Phiếu điều chỉnh giá vốn
+export * from './cost-adjustment.mapper';
+
+// Leave - Đơn nghỉ phép
+export * from './leave.mapper';
+
+// Payroll - Bảng lương
+export * from './payroll.mapper';
+
+// Attendance - Bảng chấm công
+export * from './attendance.mapper';
+
+// Shipper Handover - Phiếu bàn giao đơn cho shipper
+export * from './shipper-handover.mapper';
+
 // =============================================
 // EXTENDED TEMPLATE TYPES (8 loại mở rộng)
 // =============================================

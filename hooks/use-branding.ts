@@ -3,6 +3,7 @@
  */
 
 import * as React from 'react';
+import { logError } from '@/lib/logger'
 
 interface BrandingInfo {
   logoUrl: string | null;
@@ -10,10 +11,11 @@ interface BrandingInfo {
 }
 
 // Cache branding globally so it doesn't refetch on every component mount
-let brandingCache: BrandingInfo | null = null;
+// ✅ Exported for lazy access in print handlers (avoids eager hook call)
+export let brandingCache: BrandingInfo | null = null;
 let brandingPromise: Promise<BrandingInfo> | null = null;
 
-async function fetchBranding(): Promise<BrandingInfo> {
+export async function fetchBranding(): Promise<BrandingInfo> {
   try {
     // Use relative URL - Next.js serves API routes from same origin
     const response = await fetch('/api/branding');
@@ -26,7 +28,7 @@ async function fetchBranding(): Promise<BrandingInfo> {
       faviconUrl: data.faviconUrl || null,
     };
   } catch (error) {
-    console.error('[useBranding] Error fetching branding:', error);
+    logError('[useBranding] Error fetching branding', error);
     return { logoUrl: null, faviconUrl: null };
   }
 }
@@ -44,15 +46,25 @@ export function useBranding(): BrandingInfo & { isLoading: boolean } {
       return;
     }
 
+    let cancelled = false;
+
     if (!brandingPromise) {
       brandingPromise = fetchBranding();
     }
 
-    brandingPromise.then((data) => {
-      brandingCache = data;
-      setBranding(data);
-      setIsLoading(false);
-    });
+    brandingPromise
+      .then((data) => {
+        brandingCache = data;
+        if (!cancelled) {
+          setBranding(data);
+          setIsLoading(false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+
+    return () => { cancelled = true; };
   }, []);
 
   return { ...branding, isLoading };

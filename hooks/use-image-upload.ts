@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { toast } from 'sonner';
 import { FileUploadAPI, type StagingFile, type ServerFile } from '../lib/file-upload-api';
+import { logError } from '@/lib/logger'
 
 type EntityType = 'customer' | 'product' | 'supplier' | 'employee' | 'customer-contract';
 
@@ -167,7 +168,7 @@ export function useImageUpload(options: UseImageUploadOptions): UseImageUploadRe
         
         return response;
       } catch (error) {
-        console.error('[useImageUpload] Failed to confirm images:', error);
+        logError('[useImageUpload] Failed to confirm images', error);
         
         toast.warning('Cảnh báo', {
           description: `Đã lưu ${entityType} nhưng có lỗi khi xác nhận hình ảnh`

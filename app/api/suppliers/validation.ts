@@ -20,6 +20,7 @@ export const createSupplierSchema = z.object({
   phone: z.string().optional(),
   email: z.string().email().optional().or(z.literal('')),
   address: z.string().optional(),
+  addressData: z.record(z.string(), z.unknown()).optional().nullable(),
   taxCode: z.string().optional(),
   bankAccount: z.string().optional(),
   bankName: z.string().optional(),

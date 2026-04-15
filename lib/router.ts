@@ -128,6 +128,7 @@ export const ROUTES = {
     SHIPMENTS: '/shipments', 
     SHIPMENT_VIEW: '/shipments/:systemId',
     RECONCILIATION: '/reconciliation',
+    RECONCILIATION_CREATE: '/reconciliation/create',
     WARRANTY: '/warranty',
     WARRANTY_NEW: '/warranty/new',
     WARRANTY_EDIT: '/warranty/:systemId/edit',
@@ -177,6 +178,7 @@ export const ROUTES = {
     SALES_BY_SOURCE: '/reports/sales/source',
     SALES_BY_CUSTOMER: '/reports/sales/customer',
     SALES_BY_CUSTOMER_GROUP: '/reports/sales/customer-group',
+    SALES_BY_TAX: '/reports/sales/tax',
     
     // Delivery Reports
     DELIVERY_BY_TIME: '/reports/delivery/time',
@@ -186,6 +188,7 @@ export const ROUTES = {
     DELIVERY_BY_BRANCH: '/reports/delivery/branch',
     DELIVERY_BY_CUSTOMER: '/reports/delivery/customer',
     DELIVERY_BY_CHANNEL: '/reports/delivery/channel',
+    DELIVERY_BY_SOURCE: '/reports/delivery/source',
     
     // Return Reports
     RETURNS_BY_ORDER: '/reports/returns/order',

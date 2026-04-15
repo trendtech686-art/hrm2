@@ -35,12 +35,14 @@ import {
   DropdownMenuSeparator
 } from '../../../../components/ui/dropdown-menu';
 import { toast } from 'sonner';
+import { logError } from '@/lib/logger'
 import { 
   exportAsPNG, 
   exportAsSVG, 
   exportAsPDF,
   exportAsJSON 
 } from './utils/export-helpers';
+import { useAuth } from '@/contexts/auth-context';
 
 const nodeTypes = {
   employeeNode: CustomEmployeeNode,
@@ -301,11 +303,11 @@ function OrgChartFlow() {
               <GripVertical className="h-4 w-4" /> Kéo để di chuyển vị trí node
             </div>
             <div className="flex items-center gap-2">
-              <span className="flex items-center justify-center h-4 w-4 border rounded-full text-[10px]">+/−</span>
+              <span className="flex items-center justify-center h-4 w-4 border rounded-full text-xs">+/−</span>
               Thu gọn/Mở rộng nhân viên cấp dưới
             </div>
             <div className="flex items-center gap-2 pt-1 border-t">
-              <span className="text-[10px] font-medium">💡 Mẹo:</span>
+              <span className="text-xs font-medium">💡 Mẹo:</span>
               <span>Nhấn vào node để xem menu</span>
             </div>
           </Panel>
@@ -401,7 +403,7 @@ export function OrganizationChartPage() {
         toast.error(`Lỗi khi xuất ${type.toUpperCase()}`, { id: loadingToast });
       }
     } catch (error) {
-      console.error('Export error:', error);
+      logError('Export error', error);
       toast.error('Có lỗi xảy ra khi xuất file', { id: loadingToast });
     } finally {
       setIsExporting(false);
@@ -433,6 +435,16 @@ export function OrganizationChartPage() {
       </DropdownMenuContent>
     </DropdownMenu>
   ), [handleExportFromHeader, isExporting]);
+
+  const { can, isLoading: authLoading } = useAuth();
+  const canEditSettings = can('edit_settings');
+  const router = useRouter();
+  React.useEffect(() => {
+    if (!authLoading && !canEditSettings) {
+      toast.error('Bạn không có quyền truy cập sơ đồ tổ chức');
+      router.replace('/employees');
+    }
+  }, [authLoading, canEditSettings, router]);
 
   useSettingsPageHeader({
     title: 'Sơ đồ tổ chức',

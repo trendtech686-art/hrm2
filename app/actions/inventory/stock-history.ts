@@ -1,6 +1,8 @@
 'use server';
 
 import prisma from '@/lib/prisma';
+import { logError } from '@/lib/logger'
+import { requireActionPermission } from '@/lib/api-utils';
 
 type StockHistory = NonNullable<Awaited<ReturnType<typeof prisma.stockHistory.findFirst>>>;
 
@@ -32,6 +34,8 @@ export interface PaginatedStockHistory {
 export async function getStockHistory(
   filters: StockHistoryFilters = {}
 ): Promise<ActionResult<PaginatedStockHistory>> {
+  const authResult = await requireActionPermission('view_inventory')
+  if (!authResult.success) return authResult
   try {
     const { 
       page = 1, 
@@ -86,7 +90,7 @@ export async function getStockHistory(
       },
     };
   } catch (error) {
-    console.error('Failed to fetch stock history:', error);
+    logError('Failed to fetch stock history', error);
     return { success: false, error: 'Không thể tải lịch sử xuất nhập kho' };
   }
 }
@@ -95,6 +99,8 @@ export async function getStockHistoryByProduct(
   productId: string,
   options: { branchId?: string; limit?: number } = {}
 ): Promise<ActionResult<StockHistory[]>> {
+  const authResult = await requireActionPermission('view_inventory')
+  if (!authResult.success) return authResult
   try {
     const where: Record<string, unknown> = { productId };
     if (options.branchId) where.branchId = options.branchId;
@@ -112,7 +118,7 @@ export async function getStockHistoryByProduct(
 
     return { success: true, data: history };
   } catch (error) {
-    console.error('Failed to fetch stock history by product:', error);
+    logError('Failed to fetch stock history by product', error);
     return { success: false, error: 'Không thể tải lịch sử xuất nhập kho' };
   }
 }
@@ -121,6 +127,8 @@ export async function getStockHistoryByDocument(
   documentId: string,
   documentType?: string
 ): Promise<ActionResult<StockHistory[]>> {
+  const authResult = await requireActionPermission('view_inventory')
+  if (!authResult.success) return authResult
   try {
     const where: Record<string, unknown> = { documentId };
     if (documentType) where.documentType = documentType;
@@ -140,12 +148,14 @@ export async function getStockHistoryByDocument(
 
     return { success: true, data: history };
   } catch (error) {
-    console.error('Failed to fetch stock history by document:', error);
+    logError('Failed to fetch stock history by document', error);
     return { success: false, error: 'Không thể tải lịch sử xuất nhập kho' };
   }
 }
 
 export async function getStockHistoryActions(): Promise<ActionResult<string[]>> {
+  const authResult = await requireActionPermission('view_inventory')
+  if (!authResult.success) return authResult
   try {
     const actions = await prisma.stockHistory.findMany({
       select: { action: true },
@@ -155,7 +165,7 @@ export async function getStockHistoryActions(): Promise<ActionResult<string[]>> 
 
     return { success: true, data: actions.map((a) => a.action) };
   } catch (error) {
-    console.error('Failed to fetch stock history actions:', error);
+    logError('Failed to fetch stock history actions', error);
     return { success: false, error: 'Không thể tải danh sách loại thao tác' };
   }
 }
@@ -169,6 +179,8 @@ export async function getStockHistorySummary(
   netChange: number;
   currentStock: number;
 }>> {
+  const authResult = await requireActionPermission('view_inventory')
+  if (!authResult.success) return authResult
   try {
     const where: Record<string, unknown> = { productId };
     if (branchId) where.branchId = branchId;
@@ -208,7 +220,7 @@ export async function getStockHistorySummary(
       },
     };
   } catch (error) {
-    console.error('Failed to get stock history summary:', error);
+    logError('Failed to get stock history summary', error);
     return { success: false, error: 'Không thể tính tổng hợp xuất nhập kho' };
   }
 }
@@ -217,6 +229,8 @@ export async function getRecentStockMovements(
   branchId?: string,
   limit: number = 20
 ): Promise<ActionResult<StockHistory[]>> {
+  const authResult = await requireActionPermission('view_inventory')
+  if (!authResult.success) return authResult
   try {
     const where: Record<string, unknown> = {};
     if (branchId) where.branchId = branchId;
@@ -237,7 +251,7 @@ export async function getRecentStockMovements(
 
     return { success: true, data: history };
   } catch (error) {
-    console.error('Failed to fetch recent stock movements:', error);
+    logError('Failed to fetch recent stock movements', error);
     return { success: false, error: 'Không thể tải lịch sử xuất nhập kho gần đây' };
   }
 }
@@ -250,6 +264,8 @@ export async function getStockHistoryStats(
   transactionCount: number;
   uniqueProducts: number;
 }>> {
+  const authResult = await requireActionPermission('view_inventory')
+  if (!authResult.success) return authResult
   try {
     const where: Record<string, unknown> = {};
     if (options.branchId) where.branchId = options.branchId;
@@ -293,7 +309,7 @@ export async function getStockHistoryStats(
       },
     };
   } catch (error) {
-    console.error('Failed to get stock history stats:', error);
+    logError('Failed to get stock history stats', error);
     return { success: false, error: 'Không thể tải thống kê xuất nhập kho' };
   }
 }

@@ -1,5 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils';
+import { logError } from '@/lib/logger'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 const TYPE = 'lifecycle-stage';
 
@@ -36,7 +38,7 @@ export async function GET(
       ...(setting.metadata as Record<string, unknown> || {}),
     });
   } catch (error) {
-    console.error('[Lifecycle Stages API] GET by ID error:', error);
+    logError('[Lifecycle Stages API] GET by ID error', error);
     return apiError('Failed to fetch lifecycle stage', 500);
   }
 }
@@ -54,6 +56,9 @@ export async function PATCH(
     const body = await request.json();
     const { id, name, description, color, isDefault, isActive, orderIndex, ...rest } = body;
 
+    const existing = await prisma.customerSetting.findUnique({ where: { systemId } });
+    if (!existing || existing.isDeleted) return apiNotFound('LifecycleStage');
+
     const setting = await prisma.customerSetting.update({
       where: { systemId },
       data: {
@@ -67,6 +72,25 @@ export async function PATCH(
         ...(Object.keys(rest).length > 0 && { metadata: rest }),
       },
     });
+
+    const changes: Record<string, { from: unknown; to: unknown }> = {}
+    if (name !== undefined && name !== existing.name) changes['Tên'] = { from: existing.name, to: name }
+    if (description !== undefined && description !== existing.description) changes['Mô tả'] = { from: existing.description, to: description }
+    if (color !== undefined && color !== existing.color) changes['Màu'] = { from: existing.color, to: color }
+    if (isDefault !== undefined && isDefault !== existing.isDefault) changes['Mặc định'] = { from: existing.isDefault ? 'Có' : 'Không', to: isDefault ? 'Có' : 'Không' }
+    if (isActive !== undefined && isActive !== existing.isActive) changes['Trạng thái'] = { from: existing.isActive ? 'Hoạt động' : 'Ngừng', to: isActive ? 'Hoạt động' : 'Ngừng' }
+
+    if (Object.keys(changes).length > 0) {
+      const changeDetail = Object.keys(changes).join(', ')
+      createActivityLog({
+        entityType: 'customer_lifecycle_stage',
+        entityId: systemId,
+        action: `Cập nhật giai đoạn vòng đời: ${existing.name}: ${changeDetail}`,
+        actionType: 'update',
+        changes,
+        createdBy: session.user?.id,
+      }).catch(e => logError('Failed to create activity log', e))
+    }
 
     return apiSuccess({
       systemId: setting.systemId,
@@ -83,7 +107,7 @@ export async function PATCH(
       ...(setting.metadata as Record<string, unknown> || {}),
     });
   } catch (error) {
-    console.error('[Lifecycle Stages API] PATCH error:', error);
+    logError('[Lifecycle Stages API] PATCH error', error);
     return apiError('Failed to update lifecycle stage', 500);
   }
 }
@@ -98,14 +122,26 @@ export async function DELETE(
 
   const { systemId } = await params;
   try {
+    const existing = await prisma.customerSetting.findUnique({ where: { systemId } });
+
     await prisma.customerSetting.update({
       where: { systemId },
       data: { isDeleted: true },
     });
 
+    if (existing) {
+      createActivityLog({
+        entityType: 'customer_lifecycle_stage',
+        entityId: systemId,
+        action: `Xóa giai đoạn vòng đời: ${existing.name}`,
+        actionType: 'delete',
+        createdBy: session.user?.id,
+      }).catch(e => logError('Failed to create activity log', e))
+    }
+
     return apiSuccess(null, 204);
   } catch (error) {
-    console.error('[Lifecycle Stages API] DELETE error:', error);
+    logError('[Lifecycle Stages API] DELETE error', error);
     return apiError('Failed to delete lifecycle stage', 500);
   }
 }

@@ -29,6 +29,7 @@ interface TaxTableProps {
   onDelete: (systemId: SystemId) => void;
   onSetDefaultSale: (systemId: SystemId) => void;
   onSetDefaultPurchase: (systemId: SystemId) => void;
+  onSetDefaultExcelExport: (systemId: SystemId) => void;
 }
 
 export function TaxTable({
@@ -38,6 +39,7 @@ export function TaxTable({
   onDelete,
   onSetDefaultSale,
   onSetDefaultPurchase,
+  onSetDefaultExcelExport,
 }: TaxTableProps) {
   
   const handleToggleDefaultSale = React.useCallback((tax: Tax, checked: boolean) => {
@@ -74,6 +76,21 @@ export function TaxTable({
     }
   }, [allData, onSetDefaultPurchase]);
 
+  const handleToggleDefaultExcelExport = React.useCallback((tax: Tax, checked: boolean) => {
+    if (checked) {
+      onSetDefaultExcelExport(tax.systemId);
+    } else {
+      // Allow turning off - no requirement to always have one
+      // Find another tax or just unset
+      const otherTaxes = allData.filter(t => t.systemId !== tax.systemId);
+      if (otherTaxes.length > 0) {
+        onSetDefaultExcelExport(otherTaxes[0].systemId);
+      } else {
+        toast.error('Không có thuế nào khác để đặt mặc định');
+      }
+    }
+  }, [allData, onSetDefaultExcelExport]);
+
   return (
     <div className="rounded-md border">
       <Table>
@@ -84,13 +101,14 @@ export function TaxTable({
             <TableHead className="text-right">Thuế suất</TableHead>
             <TableHead>MĐ Bán hàng</TableHead>
             <TableHead>MĐ Nhập hàng</TableHead>
+            <TableHead>MĐ xuất Excel</TableHead>
             <TableHead className="text-right">Thao tác</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {data.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={6} className="h-24 text-center">
+              <TableCell colSpan={7} className="h-24 text-center">
                 Chưa có dữ liệu
               </TableCell>
             </TableRow>
@@ -117,6 +135,12 @@ export function TaxTable({
                   <Switch 
                     checked={tax.isDefaultPurchase} 
                     onCheckedChange={(checked) => handleToggleDefaultPurchase(tax, checked)}
+                  />
+                </TableCell>
+                <TableCell>
+                  <Switch 
+                    checked={tax.isDefaultExcelExport} 
+                    onCheckedChange={(checked) => handleToggleDefaultExcelExport(tax, checked)}
                   />
                 </TableCell>
                 <TableCell className="text-right">

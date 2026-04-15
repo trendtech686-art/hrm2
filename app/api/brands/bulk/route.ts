@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma'
-import { requireAuth, apiError } from '@/lib/api-utils'
-import { NextResponse } from 'next/server'
+import { requireAuth, apiError, apiSuccess } from '@/lib/api-utils'
 import { cache } from '@/lib/cache'
+import { logError } from '@/lib/logger'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,7 +23,7 @@ export async function POST(request: Request) {
     }
 
     if (!action || !Array.isArray(systemIds) || systemIds.length === 0) {
-      return apiError('Missing action or systemIds', 400)
+      return apiError('Thiếu action hoặc systemIds', 400)
     }
 
     let updatedCount = 0
@@ -57,15 +57,15 @@ export async function POST(request: Request) {
       }
 
       default:
-        return apiError(`Unknown action: ${action}`, 400)
+        return apiError(`Thao tác không hợp lệ: ${action}`, 400)
     }
 
     // Invalidate brands cache
     cache.deletePattern('^brands:')
 
-    return NextResponse.json({ success: true, updatedCount })
+    return apiSuccess({ success: true, updatedCount })
   } catch (error) {
-    console.error('Bulk brands error:', error)
-    return apiError('Failed to perform bulk action', 500)
+    logError('Bulk brands error', error)
+    return apiError('Không thể thực hiện thao tác hàng loạt', 500)
   }
 }

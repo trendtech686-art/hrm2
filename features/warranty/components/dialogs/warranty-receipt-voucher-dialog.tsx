@@ -26,8 +26,7 @@ import { AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useWarrantyPayments, useWarrantyReceipts } from '../../hooks/use-warranty-financial-data';
 import { useReceiptMutations } from '../../../receipts/hooks/use-receipts';
-import { useWarrantyMutations } from '../../hooks/use-warranties';
-import { useWarrantyFinder } from '../../hooks/use-all-warranties';
+import { useWarranty } from '../../hooks/use-warranties';
 import type { WarrantyVoucherDialogBaseProps } from '../../types';
 import { useAuth } from '../../../../contexts/auth-context';
 import { toISODateTime } from '../../../../lib/date-utils';
@@ -37,6 +36,10 @@ import { calculateWarrantyProcessingState } from '../logic/processing';
 import { calculateWarrantySettlementTotal } from '../../utils/payment-calculations';
 import { useWarrantySettlement } from '../../hooks/use-warranty-settlement';
 import { CurrencyInput } from '../../../../components/ui/currency-input';
+import { useAllPaymentMethods } from '../../../settings/payments/hooks/use-all-payment-methods';
+import { useAllCashAccounts } from '../../../cashbook/hooks/use-all-cash-accounts';
+import { useAllReceiptTypes } from '../../../settings/receipt-types/hooks/use-all-receipt-types';
+import { logError } from '@/lib/logger'
 // addHistory was a Zustand store mutator (now deleted) - history is tracked in DB via mutations
 const addHistory = (..._args: unknown[]) => { /* no-op: store removed, history tracked in DB */ };
 
@@ -46,8 +49,9 @@ interface WarrantyReceiptVoucherDialogProps extends WarrantyVoucherDialogBasePro
 
 interface FormValues {
   amount: number;
-  reason: string;
-  paymentMethod: 'Tiền mặt' | 'Chuyển khoản';
+  receiptTypeSystemId: string;
+  paymentMethod: string;
+  accountSystemId: string;
   notes: string;
 }
 
@@ -66,11 +70,43 @@ export function WarrantyReceiptVoucherDialog({
   const { data: payments } = useWarrantyPayments(warrantySystemId);
   const { data: receipts } = useWarrantyReceipts(warrantySystemId);
   const { create: createReceipt } = useReceiptMutations();
-  const { update: _updateWarranty } = useWarrantyMutations();
-  const { findById } = useWarrantyFinder();
+  // ✅ Phase 14: useWarranty(id) single-item thay vì useWarrantyFinder (ALL warranties)
+  const { data: warrantyTicket } = useWarranty(warrantySystemId);
   const { employee: authEmployee } = useAuth();
   const currentUserSystemId = authEmployee?.systemId ?? asSystemId('SYSTEM');
   const currentUserName = authEmployee?.fullName || authEmployee?.id || 'Hệ thống';
+
+  // Fetch payment settings
+  const { data: paymentMethods } = useAllPaymentMethods({ enabled: open });
+  const { accounts } = useAllCashAccounts({ enabled: open });
+  const { data: receiptTypes } = useAllReceiptTypes({ enabled: open });
+  const activeReceiptTypes = React.useMemo(() => receiptTypes.filter(t => t.isActive), [receiptTypes]);
+
+  // Get default payment method (match form "Tiền mặt" / "Chuyển khoản")
+  const defaultPaymentMethod = React.useMemo(() =>
+    paymentMethods.find(m => m.isDefault && m.isActive) || paymentMethods.find(m => m.isActive),
+    [paymentMethods]
+  );
+
+  // ✅ Get default account based on payment method type from settings
+  const getDefaultAccountForMethod = React.useCallback((methodName: string) => {
+    // Look up the method in settings to get its type
+    const method = paymentMethods.find(m => m.name === methodName && m.isActive);
+    const methodType = method?.type;
+    if (methodType) {
+      return accounts.find(a => a.type === methodType && a.isDefault && a.isActive) ||
+             accounts.find(a => a.type === methodType && a.isActive);
+    }
+    // Fallback: use default active account
+    return accounts.find(a => a.isDefault && a.isActive) ||
+           accounts.find(a => a.isActive);
+  }, [accounts, paymentMethods]);
+
+  // Get default receipt type for warranty additional charges
+  const defaultReceiptType = React.useMemo(() =>
+    activeReceiptTypes.find(t => t.isDefault) || activeReceiptTypes[0],
+    [activeReceiptTypes]
+  );
 
   const { remainingAmount: remainingAmountForReceipt } = useWarrantySettlement(warrantySystemId);
 
@@ -90,33 +126,59 @@ export function WarrantyReceiptVoucherDialog({
     return baseRules;
   }, [remainingAmountForReceipt]);
 
-  const { control, handleSubmit, watch, reset } = useForm<FormValues>({
+  const { control, handleSubmit, watch, reset, setValue } = useForm<FormValues>({
     defaultValues: {
       amount: defaultAmount,
-      reason: 'Chi phí sửa chữa thêm',
-      paymentMethod: 'Tiền mặt',
+      receiptTypeSystemId: '',
+      paymentMethod: '',
+      accountSystemId: '',
       notes: `Thu thêm từ bảo hành ${warrantyId}`,
     },
   });
 
   const amount = watch('amount');
+  const watchedPaymentMethod = watch('paymentMethod');
+
+  // Get selected payment method object to determine account type
+  const selectedPaymentMethod = React.useMemo(() =>
+    paymentMethods.find(m => m.name === watchedPaymentMethod && m.isActive),
+    [paymentMethods, watchedPaymentMethod]
+  );
+
+  // Filter accounts by selected payment method type
+  const filteredAccounts = React.useMemo(() => {
+    const active = accounts.filter(a => a.isActive);
+    if (!selectedPaymentMethod?.type) return active;
+    const matched = active.filter(a => a.type === selectedPaymentMethod.type);
+    return matched.length > 0 ? matched : active;
+  }, [accounts, selectedPaymentMethod]);
 
   // Reset form when dialog opens
   React.useEffect(() => {
     if (open) {
+      const methodName = defaultPaymentMethod?.name ?? '';
+      const defaultAccount = methodName ? getDefaultAccountForMethod(methodName) : undefined;
       reset({
         amount: remainingAmountForReceipt || defaultAmount,
-        reason: 'Chi phí sửa chữa thêm',
-        paymentMethod: 'Tiền mặt',
+        receiptTypeSystemId: defaultReceiptType?.systemId ?? '',
+        paymentMethod: methodName,
+        accountSystemId: defaultAccount?.systemId ?? '',
         notes: `Thu thêm từ bảo hành ${warrantyId}`,
       });
     }
-  }, [open, warrantyId, defaultAmount, remainingAmountForReceipt, reset]);
+  }, [open, warrantyId, defaultAmount, remainingAmountForReceipt, reset, defaultReceiptType, defaultPaymentMethod, getDefaultAccountForMethod]);
+
+  // Set default receipt type when data loads
+  React.useEffect(() => {
+    if (defaultReceiptType && !watch('receiptTypeSystemId')) {
+      setValue('receiptTypeSystemId', defaultReceiptType.systemId);
+    }
+  }, [defaultReceiptType, setValue, watch]);
 
   const onSubmit = async (values: FormValues) => {
     try {
       const now = new Date();
-      const latestTicket = findById(asSystemId(warrantySystemId));
+      const latestTicket = warrantyTicket;
       if (!latestTicket) {
         toast.error('Không tìm thấy phiếu bảo hành');
         return;
@@ -154,16 +216,26 @@ export function WarrantyReceiptVoucherDialog({
         payerName: customer.name,
         payerSystemId: undefined, // TODO: Get customer systemId if needed
         
-        description: values.reason,
+        description: `Thu phí bảo hành ${warrantyId} - ${customer.name}`,
         
-        // Payment Method - TODO: Get from settings
-        paymentMethodSystemId: asSystemId(''), // TODO: Get payment method systemId
+        // Payment Method - resolved from settings
+        paymentMethodSystemId: (() => {
+          const methodName = values.paymentMethod;
+          const matched = paymentMethods.find(m => m.name === methodName && m.isActive);
+          return matched?.systemId ?? defaultPaymentMethod?.systemId ?? asSystemId('');
+        })(),
         paymentMethodName: values.paymentMethod,
         
-        // Account & Type - TODO: Get from settings
-        accountSystemId: asSystemId(''), // TODO: Get default cash account
-        paymentReceiptTypeSystemId: asSystemId(''), // TODO: Get "Thu thêm bảo hành" type
-        paymentReceiptTypeName: 'Thu thêm bảo hành',
+        // ✅ Account - use selected account from form
+        accountSystemId: values.accountSystemId ? asSystemId(values.accountSystemId) : (getDefaultAccountForMethod(values.paymentMethod)?.systemId ?? asSystemId('')),
+        paymentReceiptTypeSystemId: (() => {
+          const selectedType = activeReceiptTypes.find(t => t.systemId === values.receiptTypeSystemId);
+          return selectedType?.systemId ?? defaultReceiptType?.systemId ?? asSystemId('');
+        })(),
+        paymentReceiptTypeName: (() => {
+          const selectedType = activeReceiptTypes.find(t => t.systemId === values.receiptTypeSystemId);
+          return selectedType?.name ?? defaultReceiptType?.name ?? 'Thu thêm bảo hành';
+        })(),
         
         // Branch info
         branchSystemId: asSystemId(branchSystemId || ''),
@@ -181,6 +253,7 @@ export function WarrantyReceiptVoucherDialog({
         
         // Financial
         affectsDebt: false, // Không ảnh hưởng công nợ
+        affectsBusinessReport: false,
         
         createdBy: asSystemId(currentUserSystemId),
         createdAt: toISODateTime(now) || now.toISOString(),
@@ -207,7 +280,7 @@ export function WarrantyReceiptVoucherDialog({
 
       setOpen(false);
     } catch (error) {
-      console.error('Error creating receipt voucher:', error);
+      logError('Error creating receipt voucher', error);
       toast.error('Không thể tạo phiếu thu');
     }
   };
@@ -276,46 +349,94 @@ export function WarrantyReceiptVoucherDialog({
             )}
           </div>
 
-          {/* Reason */}
+          {/* Receipt Type */}
           <div className="space-y-2">
-            <Label htmlFor="reason">Lý do thu thêm *</Label>
+            <Label htmlFor="receiptTypeSystemId">Loại phiếu thu *</Label>
             <Controller
-              name="reason"
+              name="receiptTypeSystemId"
               control={control}
-              rules={{ required: true }}
-              render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger id="reason">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Chi phí sửa chữa thêm">Chi phí sửa chữa thêm</SelectItem>
-                    <SelectItem value="Chi phí linh kiện">Chi phí linh kiện</SelectItem>
-                    <SelectItem value="Phí dịch vụ">Phí dịch vụ</SelectItem>
-                    <SelectItem value="Bù trừ thiếu hụt">Bù trừ thiếu hụt</SelectItem>
-                    <SelectItem value="Khác">Khác</SelectItem>
-                  </SelectContent>
-                </Select>
+              rules={{ required: 'Vui lòng chọn loại phiếu thu' }}
+              render={({ field, fieldState }) => (
+                <div className="space-y-1">
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger id="receiptTypeSystemId">
+                      <SelectValue placeholder="Chọn loại phiếu thu" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {activeReceiptTypes.map(type => (
+                        <SelectItem key={type.systemId} value={type.systemId}>
+                          {type.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {fieldState.error && (
+                    <p className="text-xs text-destructive">{fieldState.error.message}</p>
+                  )}
+                </div>
               )}
             />
           </div>
 
           {/* Payment Method */}
           <div className="space-y-2">
-            <Label htmlFor="paymentMethod">Phương thức thu *</Label>
+            <Label htmlFor="paymentMethod">Hình thức *</Label>
             <Controller
               name="paymentMethod"
               control={control}
-              render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger id="paymentMethod">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Tiền mặt">Tiền mặt</SelectItem>
-                    <SelectItem value="Chuyển khoản">Chuyển khoản</SelectItem>
-                  </SelectContent>
-                </Select>
+              rules={{ required: 'Vui lòng chọn hình thức' }}
+              render={({ field, fieldState }) => (
+                <div>
+                  <Select value={field.value} onValueChange={(val) => {
+                    field.onChange(val);
+                    // Auto-select default account for this method
+                    const defaultAcc = getDefaultAccountForMethod(val);
+                    if (defaultAcc) setValue('accountSystemId', defaultAcc.systemId);
+                  }}>
+                    <SelectTrigger id="paymentMethod">
+                      <SelectValue placeholder="Chọn hình thức" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {paymentMethods.filter(m => m.isActive).map((m) => (
+                        <SelectItem key={m.systemId} value={m.name}>
+                          {m.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {fieldState.error && (
+                    <p className="text-xs text-destructive">{fieldState.error.message}</p>
+                  )}
+                </div>
+              )}
+            />
+          </div>
+
+          {/* Bank Account */}
+          <div className="space-y-2">
+            <Label htmlFor="accountSystemId">Tài khoản *</Label>
+            <Controller
+              name="accountSystemId"
+              control={control}
+              rules={{ required: 'Vui lòng chọn tài khoản' }}
+              render={({ field, fieldState }) => (
+                <div>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger id="accountSystemId">
+                      <SelectValue placeholder="Chọn tài khoản" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {filteredAccounts.map((a) => (
+                        <SelectItem key={a.systemId} value={a.systemId}>
+                          {a.name}{a.bankAccountNumber ? ` - ${a.bankAccountNumber}` : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {fieldState.error && (
+                    <p className="text-xs text-destructive">{fieldState.error.message}</p>
+                  )}
+                </div>
               )}
             />
           </div>

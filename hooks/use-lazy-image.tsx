@@ -76,7 +76,7 @@ export function useLazyImage(options?: IntersectionObserverInit) {
  */
 export const ImageSkeleton = ({ className = '' }: { className?: string }) => (
   <div 
-    className={`animate-pulse bg-gradient-to-r from-muted via-muted/70 to-muted bg-[length:200%_100%] ${className}`}
+    className={`animate-pulse bg-linear-to-r from-muted via-muted/70 to-muted bg-size-[200%_100%] ${className}`}
     style={{
       animation: 'shimmer 1.5s ease-in-out infinite',
     }}

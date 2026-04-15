@@ -9,6 +9,7 @@ import {
   Image as ImageIcon,
   ExternalLink,
   BarChart3,
+  Loader2,
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -38,6 +39,7 @@ import { FileUploadAPI, type StagingFile } from '@/lib/file-upload-api';
 import { SeoAnalysisPanel } from '@/components/shared/seo-preview';
 import { TipTapEditor } from '@/components/ui/tiptap-editor';
 import { usePageHeader } from '@/contexts/page-header-context';
+import { logError } from '@/lib/logger'
 
 // Schema
 const websiteSeoSchema = z.object({
@@ -148,7 +150,7 @@ export function BrandNewPage() {
         );
         logoUrl = logoFiles[0]?.url || logoUrl || undefined;
       } catch (error) {
-        console.error('Error confirming logo:', error);
+        logError('Error confirming logo', error);
       }
     }
     
@@ -166,11 +168,11 @@ export function BrandNewPage() {
       <X className="mr-2 h-4 w-4" />
       Hủy
     </Button>,
-    <Button key="save" size="sm" className="h-9" onClick={form.handleSubmit(handleSubmit)}>
-      <Save className="mr-2 h-4 w-4" />
-      Tạo mới
+    <Button key="save" size="sm" className="h-9" onClick={form.handleSubmit(handleSubmit)} disabled={create.isPending}>
+      {create.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+      {create.isPending ? 'Đang tạo...' : 'Tạo mới'}
     </Button>
-  ], [router, form, handleSubmit]);
+  ], [router, form, handleSubmit, create.isPending]);
 
   usePageHeader({
     actions: headerActions,

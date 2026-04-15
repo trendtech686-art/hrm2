@@ -43,11 +43,11 @@ interface DataTableColumnCustomizerProps<TData> {
   children?: React.ReactNode;
   columns: ColumnDef<TData>[];
   columnVisibility: Record<string, boolean>;
-  setColumnVisibility: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
+  setColumnVisibility: React.Dispatch<React.SetStateAction<Record<string, boolean>>> | ((value: Record<string, boolean>) => void);
   columnOrder: string[];
-  setColumnOrder: React.Dispatch<React.SetStateAction<string[]>>;
+  setColumnOrder: React.Dispatch<React.SetStateAction<string[]>> | ((value: string[]) => void);
   pinnedColumns: string[];
-  setPinnedColumns: React.Dispatch<React.SetStateAction<string[]>>;
+  setPinnedColumns: React.Dispatch<React.SetStateAction<string[]>> | ((value: string[]) => void);
   onResetToDefault?: () => void;
 }
 
@@ -94,9 +94,9 @@ export function DataTableColumnCustomizer<TData>({
       // ✅ FIX: Đảm bảo TẤT CẢ columns có trong localVisibility (không bị undefined)
       const fullVisibility: Record<string, boolean> = {};
       allConfigurableColumns.forEach(col => {
-        // Nếu columnVisibility có giá trị → dùng giá trị đó
-        // Nếu không → mặc định false (ẩn)
-        fullVisibility[col.id] = columnVisibility[col.id] ?? false;
+        // TanStack Table: column visible by default unless explicitly set to false
+        // Match this behavior: only hide if columnVisibility[col.id] === false
+        fullVisibility[col.id] = columnVisibility[col.id] !== false;
       });
       
       setLocalVisibility(fullVisibility);

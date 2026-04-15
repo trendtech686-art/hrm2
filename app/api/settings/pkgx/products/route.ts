@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { requireAuth, validateBody, apiSuccess, apiError, parsePagination } from '@/lib/api-utils'
 import { z } from 'zod'
 import { cache, CACHE_TTL } from '@/lib/cache'
+import { logError } from '@/lib/logger'
 
 // Schema for syncing products from PKGX
 // Use z.coerce to automatically convert string → number from PKGX API
@@ -38,6 +39,7 @@ const syncProductsSchema = z.object({
     keywords: z.string().optional().nullable(),
     ktitle: z.string().optional().nullable(),
     goodsAlias: z.string().optional().nullable(),
+    addTime: z.coerce.number().optional().nullable(),
     lastUpdate: z.coerce.number().optional().nullable(),
     hrmProductId: z.string().optional().nullable(),
   })),
@@ -122,12 +124,12 @@ export async function GET(request: NextRequest) {
 
     // Cache result
     if (cacheKey) {
-      cache.set(cacheKey, result, CACHE_TTL.MEDIUM)
+      cache.set(cacheKey, result, CACHE_TTL.MEDIUM * 1000)
     }
 
     return apiSuccess(result)
   } catch (error) {
-    console.error('[PKGX Products GET] Error:', error)
+    logError('[PKGX Products GET] Error', error)
     const errMsg = error instanceof Error ? error.message : String(error)
     return apiError(`Failed to fetch PKGX products: ${errMsg}`, 500)
   }
@@ -140,7 +142,7 @@ export async function POST(request: NextRequest) {
 
   const validation = await validateBody(request, syncProductsSchema)
   if (!validation.success) {
-    console.error('[PKGX Products POST] Validation error:', validation.error)
+    logError('[PKGX Products POST] Validation error', validation.error)
     return apiError(validation.error, 400)
   }
 
@@ -199,6 +201,7 @@ export async function POST(request: NextRequest) {
               keywords: prod.keywords,
               ktitle: prod.ktitle,
               goodsAlias: prod.goodsAlias,
+              addTime: prod.addTime,
               lastUpdate: prod.lastUpdate,
               hrmProductId,
               syncedAt: new Date(),
@@ -234,6 +237,7 @@ export async function POST(request: NextRequest) {
               keywords: prod.keywords,
               ktitle: prod.ktitle,
               goodsAlias: prod.goodsAlias,
+              addTime: prod.addTime,
               lastUpdate: prod.lastUpdate,
               hrmProductId,
             },
@@ -243,13 +247,16 @@ export async function POST(request: NextRequest) {
       synced += batch.length
     }
 
+    // Clear server-side cache so GET returns fresh data
+    cache.deletePattern('pkgx-products:')
+
     return apiSuccess({ 
       synced,
       total: products.length,
       message: `Synced ${synced} products to database`,
     })
   } catch (error) {
-    console.error('[PKGX Products POST] Error syncing:', error)
+    logError('[PKGX Products POST] Error syncing', error)
     const errMsg = error instanceof Error ? error.message : String(error)
     return apiError(`Failed to sync PKGX products: ${errMsg}`, 500)
   }
@@ -263,12 +270,15 @@ export async function DELETE(_request: NextRequest) {
   try {
     const result = await prisma.pkgxProduct.deleteMany({})
     
+    // Clear server-side cache
+    cache.deletePattern('pkgx-products:')
+
     return apiSuccess({ 
       deleted: result.count,
       message: `Deleted ${result.count} products from cache`,
     })
   } catch (error) {
-    console.error('Error clearing PKGX products:', error)
+    logError('Error clearing PKGX products', error)
     return apiError('Failed to clear PKGX products', 500)
   }
 }

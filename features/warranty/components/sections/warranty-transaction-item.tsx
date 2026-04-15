@@ -70,12 +70,12 @@ export function WarrantyTransactionItem({ transaction, settlementMethod }: Warra
           {settlementMethod && (
             <div className="flex flex-wrap items-center gap-2 text-xs">
               {methodTypeLabel && (
-                <Badge variant="outline" className="text-[10px]">
+                <Badge variant="outline" className="text-xs">
                   {methodTypeLabel}
                 </Badge>
               )}
               {methodStatusLabel && (
-                <Badge variant={methodStatusVariant} className="text-[10px]">
+                <Badge variant={methodStatusVariant} className="text-xs">
                   {methodStatusLabel}
                 </Badge>
               )}

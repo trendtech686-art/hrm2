@@ -184,6 +184,9 @@ export function createStoreSettings(storeInfo?: {
   headquartersAddress?: string;
   province?: string;
   logo?: string;
+  bankAccountName?: string;
+  bankAccountNumber?: string;
+  bankName?: string;
   // Branch fields (alternative)
   name?: string;
   address?: string;
@@ -200,6 +203,9 @@ export function createStoreSettings(storeInfo?: {
     taxCode: storeInfo?.taxCode,
     province: storeInfo?.province,
     logo: getStoreLogo(storeInfo?.logo),
+    bankAccountName: storeInfo?.bankAccountName,
+    bankAccountNumber: storeInfo?.bankAccountNumber,
+    bankName: storeInfo?.bankName,
   };
 }
 

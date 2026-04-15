@@ -8,8 +8,8 @@ import { formatCurrency } from './types';
 // Simple detail item component
 const DetailItem = ({ label, value }: { label: string; value?: React.ReactNode }) => (
   <div className="space-y-1">
-    <dt className="text-body-sm text-muted-foreground">{label}</dt>
-    <dd className="text-body-sm font-medium">
+    <dt className="text-sm text-muted-foreground">{label}</dt>
+    <dd className="text-sm font-medium">
       {value !== null && value !== undefined && value !== '' ? value : '—'}
     </dd>
   </div>

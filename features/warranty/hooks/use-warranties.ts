@@ -5,6 +5,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import {
   fetchWarranties,
   fetchWarranty,
@@ -38,12 +39,13 @@ export function useWarranties(params: WarrantiesParams = {}) {
   });
 }
 
-export function useWarranty(id: string | null | undefined) {
+export function useWarranty(id: string | null | undefined, options?: { initialData?: unknown }) {
   return useQuery({
     queryKey: warrantyKeys.detail(id!),
     queryFn: () => fetchWarranty(id!),
     enabled: !!id,
-    staleTime: 60_000,
+    staleTime: options?.initialData ? 60_000 : 60_000,
+    initialData: options?.initialData as WarrantyTicket | undefined,
   });
 }
 
@@ -81,12 +83,11 @@ export function useWarrantyMutations(options: UseWarrantyMutationsOptions = {}) 
   const create = useMutation({
     mutationFn: async (data: CreateWarrantyInput) => {
       const result = await createWarrantyAction(data);
-      if (!result.success) throw new Error(result.error || 'Failed to create warranty');
+      if (!result.success) throw new Error(result.error || 'Không thể tạo phiếu bảo hành');
       return result.data as WarrantyTicket;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: warrantyKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: warrantyKeys.stats() });
+      invalidateRelated(queryClient, 'warranties');
       options.onCreateSuccess?.(data);
     },
     onError: options.onError,
@@ -95,13 +96,11 @@ export function useWarrantyMutations(options: UseWarrantyMutationsOptions = {}) 
   const update = useMutation({
     mutationFn: async ({ systemId, data }: { systemId: string; data: Partial<WarrantyTicket> }) => {
       const result = await updateWarrantyAction({ systemId, ...data });
-      if (!result.success) throw new Error(result.error || 'Failed to update warranty');
+      if (!result.success) throw new Error(result.error || 'Không thể cập nhật phiếu bảo hành');
       return result.data as WarrantyTicket;
     },
-    onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: warrantyKeys.detail(variables.systemId) });
-      queryClient.invalidateQueries({ queryKey: warrantyKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: warrantyKeys.stats() });
+    onSuccess: (data) => {
+      invalidateRelated(queryClient, 'warranties');
       options.onUpdateSuccess?.(data);
     },
     onError: options.onError,
@@ -110,7 +109,7 @@ export function useWarrantyMutations(options: UseWarrantyMutationsOptions = {}) 
   const remove = useMutation({
     mutationFn: async (systemId: string) => {
       const result = await deleteWarrantyAction(systemId);
-      if (!result.success) throw new Error(result.error || 'Failed to delete warranty');
+      if (!result.success) throw new Error(result.error || 'Không thể xóa phiếu bảo hành');
       return result.data;
     },
     // Optimistic delete - UI cập nhật ngay lập tức
@@ -144,7 +143,7 @@ export function useWarrantyMutations(options: UseWarrantyMutationsOptions = {}) 
       options.onDeleteSuccess?.();
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: warrantyKeys.all });
+      invalidateRelated(queryClient, 'warranties');
     },
   });
   

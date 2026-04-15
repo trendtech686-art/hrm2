@@ -83,3 +83,54 @@ export async function previewNextIdWithPrefix(prefix: string): Promise<string> {
   const paddedCounter = String(nextCounter).padStart(6, '0');
   return `${prefix}${paddedCounter}`;
 }
+
+/**
+ * Sync counter with actual max ID in a table
+ * Call this if the counter gets out of sync
+ * 
+ * @param prefix - The prefix to sync
+ * @param tableName - The table to check for max ID
+ * @param idColumn - The column containing the ID (default: 'id')
+ */
+export async function syncCounterWithTable(
+  prefix: string,
+  tableName: string,
+  idColumn: string = 'id'
+): Promise<void> {
+  const entityType = `custom_${prefix.toLowerCase()}`;
+  
+  // Find max ID matching the prefix pattern
+  const result = await prisma.$queryRawUnsafe<Array<{ maxId: string | null }>>(
+    `SELECT MAX("${idColumn}") as "maxId" FROM "${tableName}" WHERE "${idColumn}" LIKE '${prefix}%'`
+  );
+  
+  const maxId = result[0]?.maxId;
+  if (!maxId) return;
+  
+  // Extract the number part
+  const numericPart = maxId.replace(prefix, '');
+  const maxNumber = parseInt(numericPart, 10);
+  
+  if (isNaN(maxNumber)) return;
+  
+  // Get current counter value
+  const currentCounter = await prisma.idCounter.findUnique({
+    where: { entityType },
+  });
+  
+  // Only update if max in table is higher than counter
+  if (!currentCounter || currentCounter.currentValue < maxNumber) {
+    await prisma.idCounter.upsert({
+      where: { entityType },
+      update: { currentValue: maxNumber },
+      create: {
+        entityType,
+        prefix,
+        systemPrefix: prefix,
+        businessPrefix: prefix,
+        currentValue: maxNumber,
+        padding: 6,
+      },
+    });
+  }
+}

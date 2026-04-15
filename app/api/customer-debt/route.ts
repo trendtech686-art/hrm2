@@ -13,6 +13,7 @@
 import { prisma } from '@/lib/prisma'
 import type { Prisma } from '@/generated/prisma/client'
 import { requireAuth, apiSuccess, apiError, parsePagination } from '@/lib/api-utils'
+import { logError } from '@/lib/logger'
 
 type Decimal = Prisma.Decimal
 
@@ -42,7 +43,7 @@ export async function GET(request: Request) {
     const [customers, total] = await Promise.all([
       prisma.customer.findMany({
         where: { isDeleted: false },
-        select: { systemId: true, name: true, phone: true, email: true, paymentTerms: true },
+        select: { systemId: true, name: true, phone: true, paymentTerms: true },
         skip,
         take: limit,
         orderBy: { name: 'asc' },
@@ -70,7 +71,7 @@ export async function GET(request: Request) {
       },
     })
   } catch (error) {
-    console.error('Error calculating customer debt:', error)
+    logError('Error calculating customer debt', error)
     return apiError('Failed to calculate customer debt', 500)
   }
 }

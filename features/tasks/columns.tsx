@@ -24,16 +24,14 @@ const priorityVariants: Record<TaskPriority, "default" | "secondary" | "warning"
 const statusVariants: Record<TaskStatus, "default" | "secondary" | "warning" | "success" | "outline"> = {
   "Chưa bắt đầu": "outline",
   "Đang thực hiện": "warning",
-  "Đang chờ": "secondary",
   "Chờ duyệt": "secondary",
-  "Chờ xử lý": "outline",
   "Hoàn thành": "success",
   "Đã hủy": "default",
 };export const getColumns = (
   onDelete: (id: SystemId) => void,
   onEdit: (task: Task) => void,
   navigate: (path: string) => void,
-  isAdmin: boolean = true, // Add role parameter
+  showActions: boolean = true,
 ): ColumnDef<Task>[] => {
   const columns: ColumnDef<Task>[] = [
   {
@@ -61,7 +59,7 @@ const statusVariants: Record<TaskStatus, "default" | "secondary" | "warning" | "
     id: "title",
     accessorKey: "title",
     header: "Tiêu đề",
-    cell: ({ row }) => <div className="max-w-[300px] truncate font-medium">{row.title}</div>,
+    cell: ({ row }) => <div className="max-w-75 truncate font-medium">{row.title}</div>,
     meta: { displayName: "Tiêu đề công việc" },
   },
   {
@@ -97,9 +95,9 @@ const statusVariants: Record<TaskStatus, "default" | "secondary" | "warning" | "
     accessorKey: "progress",
     header: "Tiến độ",
     cell: ({ row }) => (
-      <div className="flex items-center gap-2 min-w-[120px]">
+      <div className="flex items-center gap-2 min-w-30">
         <Progress value={row.progress} className="h-2 flex-1" />
-        <span className="text-body-sm text-muted-foreground min-w-[40px] text-right">{row.progress}%</span>
+        <span className="text-sm text-muted-foreground min-w-10 text-right">{row.progress}%</span>
       </div>
     ),
     meta: { displayName: "Tiến độ hoàn thành" },
@@ -159,8 +157,8 @@ const statusVariants: Record<TaskStatus, "default" | "secondary" | "warning" | "
   },
 ];
 
-  // Only add actions column for admin users
-  if (isAdmin) {
+  // Only add actions column when user has edit/delete permissions
+  if (showActions) {
     columns.push({
       id: "actions",
       header: () => <div className="text-center">Hành động</div>,

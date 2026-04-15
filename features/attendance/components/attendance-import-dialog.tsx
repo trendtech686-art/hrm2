@@ -18,6 +18,7 @@ import { AttendanceEditDialog } from './attendance-edit-dialog';
 import { Input } from '../../../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
 import type { SystemId } from '../../../lib/id-types';
+import { logError } from '@/lib/logger'
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100] as const;
 const MonthYearPicker = ({ value, onChange }: { value: Date, onChange: (date: Date) => void }) => {
@@ -27,7 +28,7 @@ const MonthYearPicker = ({ value, onChange }: { value: Date, onChange: (date: Da
                 const newDate = subtractMonths(value, 1);
                 if (newDate) onChange(newDate);
             }}><ChevronLeft className="h-4 w-4" /></Button>
-            <div className="font-semibold text-body-sm w-24 text-center">{formatDateCustom(value, 'MM/yyyy')}</div>
+            <div className="font-semibold text-sm w-24 text-center">{formatDateCustom(value, 'MM/yyyy')}</div>
             <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => {
                 const newDate = addMonths(value, 1);
                 if (newDate) onChange(newDate);
@@ -471,7 +472,7 @@ export function AttendanceImportDialog({ isOpen, onOpenChange, employees, onConf
                 }),
             });
         } catch (logError) {
-            console.error('[Attendance Import] Failed to log import:', logError);
+            logError('[Attendance Import] Failed to log import', logError);
         }
         
         onOpenChange(false);
@@ -611,7 +612,7 @@ export function AttendanceImportDialog({ isOpen, onOpenChange, employees, onConf
     return (
         <>
             <Dialog open={isOpen} onOpenChange={onOpenChange}>
-                <DialogContent className="sm:max-w-3xl max-h-[80vh] flex flex-col p-0">
+                <DialogContent className="sm:max-w-3xl max-h-[80vh] flex flex-col p-0 max-md:p-0">
                     <DialogHeader className="px-4 pt-4 pb-2">
                         <DialogTitle className="text-base">Nhập file chấm công</DialogTitle>
                         {step === 'upload' && (

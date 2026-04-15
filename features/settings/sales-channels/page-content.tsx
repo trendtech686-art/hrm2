@@ -5,7 +5,7 @@ import type { SalesChannel } from '@/lib/types/prisma-extended';
 import { SalesChannelForm, type SalesChannelFormValues } from "./form";
 import { Button } from "../../../components/ui/button";
 import { SettingsActionButton } from "../../../components/settings/SettingsActionButton";
-import { PlusCircle } from "lucide-react";
+import { PlusCircle, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "../../../components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../../components/ui/alert-dialog";
 import { asBusinessId, type SystemId } from "@/lib/id-types";
@@ -22,7 +22,7 @@ type SalesChannelsPageContentProps = {
 export function SalesChannelsPageContent({ isActive, onRegisterActions }: SalesChannelsPageContentProps) {
   const { data } = useAllSalesChannels();
   const { create, update, remove } = useSalesChannelMutations({
-    onSuccess: () => {},
+    onSuccess: () => toast.success("Thao tác thành công"),
     onError: (err) => toast.error(err.message)
   });
   
@@ -38,44 +38,33 @@ export function SalesChannelsPageContent({ isActive, onRegisterActions }: SalesC
   const handleDeleteRequest = React.useCallback((id: SystemId) => { setIdToDelete(id); setIsAlertOpen(true); }, []);
   
   const handleToggleStatus = React.useCallback((channel: SalesChannel, isApplied: boolean) => {
-    update.mutate({ systemId: channel.systemId, data: { isApplied } }, {
-      onSuccess: () => toast.success(isApplied ? `Đã bật "${channel.name}"` : `Đã tắt "${channel.name}"`),
-      onError: (err) => toast.error(err.message)
-    });
+    update.mutate({ systemId: channel.systemId, data: { isApplied } });
   }, [update]);
 
   const handleToggleDefault = React.useCallback((channel: SalesChannel, isDefault: boolean) => {
-    update.mutate({ systemId: channel.systemId, data: { isDefault } }, {
-      onSuccess: () => toast.success(isDefault ? `Đã đặt "${channel.name}" làm mặc định` : `Đã bỏ mặc định "${channel.name}"`),
-      onError: (err) => toast.error(err.message)
-    });
+    update.mutate({ systemId: channel.systemId, data: { isDefault } });
   }, [update]);
   
-  const confirmDelete = React.useCallback(() => {
+  const confirmDelete = () => {
     if (idToDelete) {
-      const channel = data.find(c => c.systemId === idToDelete);
-      remove.mutate(idToDelete, {
-        onSuccess: () => toast.success(`Đã xóa nguồn bán hàng "${channel?.name ?? ""}"`),
-        onError: (err) => toast.error(err.message)
-      });
+      remove.mutate(idToDelete);
     }
     setIsAlertOpen(false);
     setIdToDelete(null);
-  }, [idToDelete, remove, data]);
+  };
   const handleBulkDelete = React.useCallback((selectedItems: { systemId: string }[]) => {
     if (selectedItems.length === 0) return;
     setIsBulkDeleteOpen(true);
   }, []);
 
-  const confirmBulkDelete = React.useCallback(() => {
+  const confirmBulkDelete = () => {
     const selectedIds = Object.keys(rowSelection);
     selectedIds.forEach(id => {
       remove.mutate(id as SystemId);
     });
-    toast.success(`Đã xóa ${selectedIds.length} nguồn bán hàng`);
     setRowSelection({});
     setIsBulkDeleteOpen(false);
-  }, [rowSelection, remove]);  
+  };  
   const handleFormSubmit = (values: SalesChannelFormValues) => {
     const normalizedId = values.id?.trim().toUpperCase();
     const businessId = normalizedId
@@ -92,22 +81,12 @@ export function SalesChannelsPageContent({ isActive, onRegisterActions }: SalesC
     };
 
     if (editingItem) {
-      update.mutate({ systemId: editingItem.systemId, data: payload }, {
-        onSuccess: () => toast.success(`Đã cập nhật nguồn bán hàng "${payload.name}"`),
-        onError: (err) => toast.error(err.message)
-      });
+      update.mutate({ systemId: editingItem.systemId, data: payload });
     } else {
-      create.mutate(payload, {
-        onSuccess: () => toast.success(`Đã thêm nguồn bán hàng "${payload.name}"`),
-        onError: (err) => toast.error(err.message)
-      });
+      create.mutate(payload);
     }
     setIsFormOpen(false);
   };
-
-  const sortedChannels = React.useMemo(() => {
-    return [...data].sort((a, b) => a.name.localeCompare(b.name));
-  }, [data]);
 
   const columns = React.useMemo(
     () => getSalesChannelColumns({
@@ -119,23 +98,24 @@ export function SalesChannelsPageContent({ isActive, onRegisterActions }: SalesC
     [handleEdit, handleDeleteRequest, handleToggleStatus, handleToggleDefault]
   );
 
-  const headerActions = React.useMemo(() => [
-    <SettingsActionButton key="add" onClick={handleAddNew}>
-      <PlusCircle className="mr-2 h-4 w-4" />
-      Thêm nguồn bán hàng
-    </SettingsActionButton>,
-  ], [handleAddNew]);
+  const handleAddNewRef = React.useRef(handleAddNew);
+  handleAddNewRef.current = handleAddNew;
 
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
     if (!isActive || !onRegisterActions) return;
-    onRegisterActions(headerActions);
-  }, [headerActions, isActive, onRegisterActions]);
+    onRegisterActions([
+      <SettingsActionButton key="add" onClick={() => handleAddNewRef.current()}>
+        <PlusCircle className="mr-2 h-4 w-4" />
+        Thêm nguồn bán hàng
+      </SettingsActionButton>,
+    ]);
+  }, [isActive, onRegisterActions]);
 
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">Bên cạnh một số nguồn phổ biến nhất mà Sapo đã có sẵn, bạn có thể cập nhật hoặc thêm mới các nguồn tạo ra đơn hàng của cửa hàng bạn.</p>
       <SimpleSettingsTable
-        data={sortedChannels}
+        data={data}
         columns={columns}
         emptyTitle="Chưa có nguồn bán hàng"
         emptyDescription="Thêm nguồn bán hàng đầu tiên để theo dõi nguồn gốc đơn hàng"
@@ -160,7 +140,10 @@ export function SalesChannelsPageContent({ isActive, onRegisterActions }: SalesC
           <SalesChannelForm initialData={editingItem} onSubmit={handleFormSubmit} />
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setIsFormOpen(false)} className="h-9">Thoát</Button>
-            <Button type="submit" form="sales-channel-form" className="h-9">{editingItem ? 'Lưu' : 'Thêm'}</Button>
+            <Button type="submit" form="sales-channel-form" className="h-9" disabled={create.isPending || update.isPending}>
+              {(create.isPending || update.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {editingItem ? 'Lưu' : 'Thêm'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -173,7 +156,10 @@ export function SalesChannelsPageContent({ isActive, onRegisterActions }: SalesC
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="h-9">Hủy</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete} className="h-9">Xóa</AlertDialogAction>
+            <AlertDialogAction onClick={confirmDelete} className="h-9" disabled={remove.isPending}>
+              {remove.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Xóa
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -186,7 +172,10 @@ export function SalesChannelsPageContent({ isActive, onRegisterActions }: SalesC
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="h-9">Hủy</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmBulkDelete} className="h-9 bg-destructive text-destructive-foreground hover:bg-destructive/90">Xóa tất cả</AlertDialogAction>
+            <AlertDialogAction onClick={confirmBulkDelete} className="h-9 bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={remove.isPending}>
+              {remove.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Xóa tất cả
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

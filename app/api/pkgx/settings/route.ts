@@ -7,6 +7,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, apiError } from '@/lib/api-utils';
+import { logError } from '@/lib/logger'
+import { cache } from '@/lib/cache'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 const SETTINGS_KEY = 'settings';
 const SETTINGS_GROUP = 'pkgx';
@@ -27,7 +30,7 @@ export async function GET() {
     
     return NextResponse.json({ success: true, data: lightData });
   } catch (error) {
-    console.error('[API] Error fetching PKGX settings:', error);
+    logError('[API] Error fetching PKGX settings', error);
     return NextResponse.json(
       { success: false, error: 'Failed to fetch settings' },
       { status: 500 }
@@ -56,6 +59,7 @@ export async function PATCH(request: NextRequest) {
     });
 
     const currentValue = (existingSetting?.value as Record<string, unknown>) || {};
+    const oldSectionValue = currentValue[section];
     const updatedValue = { ...currentValue, [section]: data };
 
     // Update specific section
@@ -78,9 +82,24 @@ export async function PATCH(request: NextRequest) {
       },
     });
 
+    // Log changes
+    if (JSON.stringify(oldSectionValue) !== JSON.stringify(data)) {
+      createActivityLog({
+        entityType: 'pkgx_settings',
+        entityId: 'pkgx-settings',
+        action: `Cập nhật cài đặt PKGX: ${section}`,
+        actionType: 'update',
+        changes: { [section]: { from: oldSectionValue ?? null, to: data } },
+        createdBy: session?.user?.id ?? '',
+      }).catch(e => logError('[pkgx/settings] activity log failed', e));
+    }
+
+    // Invalidate server-side settings cache
+    cache.deletePattern('^settings:');
+
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('[API] Error updating PKGX settings:', error);
+    logError('[API] Error updating PKGX settings', error);
     return NextResponse.json(
       { success: false, error: 'Failed to update settings' },
       { status: 500 }

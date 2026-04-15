@@ -1,20 +1,23 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { toast } from 'sonner';
 import { formatDate } from '../../lib/date-utils';
+import { cn } from '@/lib/utils';
 import { usePageHeader } from '../../contexts/page-header-context';
+import { useSalesReturns, salesReturnKeys } from './hooks/use-sales-returns';
+import { fetchSalesReturn } from './api/sales-returns-api';
 import { useAllSalesReturns } from './hooks/use-all-sales-returns';
 import { useAllBranches } from '../settings/branches/hooks/use-all-branches';
-import { useStoreInfoData } from '../settings/store-info/hooks/use-store-info';
+import { fetchPrintData } from '@/lib/lazy-print-data';
 import { usePrint } from '../../lib/use-print';
 import { convertSalesReturnForPrint, mapSalesReturnToPrintData, mapSalesReturnLineItems, createStoreSettingsFromBranch } from '../../lib/print/sales-return-print-helper';
 import { getColumns } from './columns';
 import { ResponsiveDataTable } from '../../components/data-table/responsive-data-table';
 import { asSystemId } from '../../lib/id-types';
-import { DataTableFacetedFilter } from '../../components/data-table/data-table-faceted-filter';
+import { useQueryClient } from '@tanstack/react-query';
 import { DynamicDataTableColumnCustomizer as DataTableColumnCustomizer } from '../../components/data-table/dynamic-column-customizer';
 import { PageToolbar } from '../../components/layout/page-toolbar';
 import { PageFilters } from '../../components/layout/page-filters';
@@ -23,7 +26,7 @@ import { Card, CardContent } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { Avatar, AvatarFallback } from '../../components/ui/avatar';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
+
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
 import { PlusCircle, Undo2, MoreHorizontal, Package, Calendar, User, Printer, Download, Settings } from 'lucide-react';
 import { TouchButton } from '../../components/mobile/touch-button';
@@ -31,7 +34,9 @@ import { useMediaQuery } from '../../lib/use-media-query';
 import { useAuth } from '../../contexts/auth-context';
 import type { SalesReturn } from '@/lib/types/prisma-extended';
 import { ROUTES } from '../../lib/router';
-import { useColumnVisibility } from '../../hooks/use-column-visibility';
+import { useColumnVisibility, useColumnOrder, usePinnedColumns } from '../../hooks/use-column-visibility';
+import { AdvancedFilterPanel, FilterExtras, type FilterConfig } from '@/components/shared/advanced-filter-panel';
+import { useFilterPresets } from '@/hooks/use-filter-presets';
 
 const SalesReturnExportDialog = dynamic(() => import("./components/sales-returns-import-export-dialogs").then(mod => ({ default: mod.SalesReturnExportDialog })), { ssr: false });
 
@@ -39,37 +44,88 @@ const formatCurrency = (value?: number) => typeof value === 'number' ? new Intl.
 
 export function SalesReturnsPage() {
     const router = useRouter();
+    const queryClient = useQueryClient();
     const [search, setSearch] = React.useState('');
     const [debouncedSearch, setDebouncedSearch] = React.useState('');
     
     React.useEffect(() => { const t = setTimeout(() => setDebouncedSearch(search), 300); return () => clearTimeout(t); }, [search]);
     
-    // ✅ Auto-pagination: load tất cả (MODULE-QUALITY-CRITERIA §1.3)
-    const { data: allReturns } = useAllSalesReturns();
-    const returns = React.useMemo(() => {
-        if (!debouncedSearch) return allReturns;
-        const q = debouncedSearch.toLowerCase();
-        return allReturns.filter(r => r.id?.toLowerCase().includes(q) || (r as unknown as Record<string, unknown>).customerName?.toString().toLowerCase().includes(q));
-    }, [allReturns, debouncedSearch]);
-    const _total = allReturns.length;
     const { data: branches } = useAllBranches();
-    const { info: storeInfo } = useStoreInfoData();
-    const { employee: currentUser } = useAuth();
+    // ✅ OPTIMIZED: storeInfo lazy loaded in print handlers
+    const {  employee: currentUser, can } = useAuth();
+  const canCreate = can('create_sales_returns');
+  const canEditSettings = can('edit_settings');
     const { print, printMultiple } = usePrint();
     const isMobile = !useMediaQuery('(min-width: 768px)');
     const mobileScrollRef = React.useRef<HTMLDivElement>(null);
-
-     
-    const activeReturns = React.useMemo(() => returns.filter(r => (r as unknown as Record<string, unknown>).status !== 'Đã hủy'), [returns]);
 
     const [exportDialogOpen, setExportDialogOpen] = React.useState(false), [printDialogOpen, setPrintDialogOpen] = React.useState(false);
     const [itemsToPrint, setItemsToPrint] = React.useState<SalesReturn[]>([]);
     const [sorting, setSorting] = React.useState({ id: 'createdAt', desc: true });
     const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 40 });
-    const [rowSelection, setRowSelection] = React.useState({}), [expanded, setExpanded] = React.useState<Record<string, boolean>>();
-    const [branchFilter, setBranchFilter] = React.useState('all'), [statusFilter, setStatusFilter] = React.useState<Set<string>>(new Set());
-    const [columnOrder, setColumnOrder] = React.useState<string[]>([]), [pinnedColumns, setPinnedColumns] = React.useState<string[]>(['id']);
+    const [rowSelection, setRowSelection] = React.useState({}), [expanded, setExpanded] = React.useState<Record<string, boolean>>({});
+
+    const [columnOrder, setColumnOrder] = useColumnOrder('sales-returns'), [pinnedColumns, setPinnedColumns] = usePinnedColumns('sales-returns', ['id']);
     const [mobileLoadedCount, setMobileLoadedCount] = React.useState(20);
+
+    // Advanced filter panel
+    const { presets, savePreset, deletePreset, updatePreset } = useFilterPresets('sales-returns');
+    const filterConfigs: FilterConfig[] = React.useMemo(() => [
+      { id: 'branch', label: 'Chi nhánh', type: 'select' as const, options: [{ label: 'Tất cả', value: 'all' }, ...branches.map(b => ({ label: b.name, value: b.systemId }))] },
+      { id: 'status', label: 'Trạng thái', type: 'select' as const, options: [
+        { label: 'Tất cả', value: 'all' },
+        { label: 'Chờ duyệt', value: 'PENDING' },
+        { label: 'Đã duyệt', value: 'APPROVED' },
+        { label: 'Hoàn thành', value: 'COMPLETED' },
+        { label: 'Từ chối', value: 'REJECTED' },
+      ] },
+      { id: 'isReceived', label: 'Nhận hàng', type: 'select' as const, options: [
+        { label: 'Tất cả', value: 'all' },
+        { label: 'Đã nhận', value: 'true' },
+        { label: 'Chưa nhận', value: 'false' },
+      ] },
+      { id: 'returnDate', label: 'Ngày trả hàng', type: 'date-range' as const },
+    ], [branches]);
+    const [advancedFilters, setAdvancedFilters] = React.useState<Record<string, unknown>>({});
+    const panelValues = React.useMemo(() => ({
+      branch: advancedFilters.branch ?? null,
+      status: advancedFilters.status ?? null,
+      isReceived: advancedFilters.isReceived ?? null,
+      returnDate: advancedFilters.returnDate ?? null,
+    }), [advancedFilters]);
+    const handlePanelApply = React.useCallback((v: Record<string, unknown>) => {
+      setAdvancedFilters(v);
+      setPagination(p => ({ ...p, pageIndex: 0 }));
+    }, []);
+
+    // ✅ Server-side pagination: API handles search, filter, sort, pagination
+    const queryParams = React.useMemo(() => {
+        const dateRange = advancedFilters.returnDate as { from?: string; to?: string } | null;
+        const branch = advancedFilters.branch as string | undefined;
+        const status = advancedFilters.status as string | undefined;
+        const isReceivedVal = advancedFilters.isReceived as string | undefined;
+        return {
+            page: pagination.pageIndex + 1,
+            limit: pagination.pageSize,
+            search: debouncedSearch || undefined,
+            branchId: branch && branch !== 'all' ? branch : undefined,
+            status: status && status !== 'all' ? status : undefined,
+            isReceived: isReceivedVal === 'true' ? true : isReceivedVal === 'false' ? false : undefined,
+            startDate: dateRange?.from || undefined,
+            endDate: dateRange?.to || undefined,
+            sortBy: sorting.id || 'createdAt',
+            sortOrder: (sorting.desc ? 'desc' : 'asc') as 'asc' | 'desc',
+        };
+    }, [pagination.pageIndex, pagination.pageSize, debouncedSearch, advancedFilters, sorting]);
+
+    const { data: response, isFetching } = useSalesReturns(queryParams);
+    const returns = response?.data ?? [];
+    const totalCount = response?.pagination?.total ?? 0;
+    const pageCount = response?.pagination?.totalPages ?? 0;
+
+    // ✅ Lazy-load: only fetch ALL data when export dialog opens
+    const { data: allReturnsForExport } = useAllSalesReturns({ enabled: exportDialogOpen });
+    const activeExportReturns = React.useMemo(() => allReturnsForExport.filter(r => (r as unknown as Record<string, unknown>).status !== 'Đã hủy'), [allReturnsForExport]);
 
     const defaultColumnVisibility = React.useMemo(() => {
         const initial: Record<string, boolean> = {};
@@ -80,8 +136,8 @@ export function SalesReturnsPage() {
 
     const handleCreateReturn = React.useCallback(() => router.push(ROUTES.SALES.ORDERS), [router]);
     const headerActions = React.useMemo(() => [
-        <Button key="create" size="sm" className="h-9 px-4" onClick={handleCreateReturn}><PlusCircle className="mr-2 h-4 w-4" />Tạo phiếu trả</Button>
-    ], [handleCreateReturn]);
+        canCreate && <Button key="create" size="sm" className="h-9 px-4" onClick={handleCreateReturn}><PlusCircle className="mr-2 h-4 w-4" />Tạo phiếu trả</Button>
+    ].filter(Boolean), [handleCreateReturn, canCreate]);
 
     usePageHeader(React.useMemo(() => ({
         title: 'Phiếu trả hàng',
@@ -94,10 +150,11 @@ export function SalesReturnsPage() {
 
     const handleBulkPrint = React.useCallback((rows: SalesReturn[]) => { setItemsToPrint(rows); setPrintDialogOpen(true); }, []);
 
-    const handlePrintConfirm = React.useCallback((options: SimplePrintOptionsResult) => {
+    const handlePrintConfirm = React.useCallback(async (options: SimplePrintOptionsResult) => {
         if (itemsToPrint.length === 0) return;
         const { branchSystemId, paperSize } = options;
         const selectedBranch = branches.find(b => b.systemId === branchSystemId);
+        const { storeInfo } = await fetchPrintData();
         const storeSettings = createStoreSettingsFromBranch(selectedBranch, storeInfo);
         const printOptionsList = itemsToPrint.map(ret => {
             const returnData = convertSalesReturnForPrint(ret, { branch: selectedBranch });
@@ -106,138 +163,123 @@ export function SalesReturnsPage() {
         printMultiple('sales-return', printOptionsList);
         setPrintDialogOpen(false); setItemsToPrint([]); setRowSelection({});
         toast.success(`Đang in ${itemsToPrint.length} phiếu trả hàng`);
-    }, [itemsToPrint, branches, storeInfo, printMultiple]);
+    }, [itemsToPrint, branches, printMultiple]);
 
-    const handlePrintReturn = React.useCallback((returnIds: string[]) => {
+    const handlePrintReturn = React.useCallback(async (returnIds: string[]) => {
+        const { storeInfo } = await fetchPrintData();
         returnIds.forEach(id => {
-            const ret = activeReturns.find(r => r.systemId === id);
+            const ret = returns.find(r => r.systemId === id);
             if (!ret) return;
             const branch = branches.find(b => b.name === ret.branchName);
             const storeSettings = createStoreSettingsFromBranch(branch, storeInfo);
             const returnData = convertSalesReturnForPrint(ret, { branch });
             print('sales-return', { data: mapSalesReturnToPrintData(returnData, storeSettings), lineItems: mapSalesReturnLineItems(returnData.returnItems || []) });
         });
-    }, [activeReturns, branches, storeInfo, print]);
+    }, [returns, branches, print]);
 
     const handlePrintSingleReturn = React.useCallback((returnId: string) => handlePrintReturn([returnId]), [handlePrintReturn]);
     const columns = React.useMemo(() => getColumns(handlePrintSingleReturn), [handlePrintSingleReturn]);
 
-    React.useEffect(() => { setColumnOrder(columns.map(c => c.id).filter(Boolean) as string[]); }, [columns]);
+    const columnOrderInitRef = React.useRef(false);
+    React.useEffect(() => {
+      if (columnOrderInitRef.current || !columns.length) return;
+      columnOrderInitRef.current = true;
+      setColumnOrder(columns.map(c => c.id).filter(Boolean) as string[]);
+    }, [columns, setColumnOrder]);
 
-    // Server-side search - filter only by non-search facets (branch, status)
-    const filteredData = React.useMemo(() => {
-        let filtered = activeReturns;
-        if (branchFilter !== 'all') {
-            const selectedBranch = branches.find(b => b.systemId === branchFilter);
-            if (selectedBranch) filtered = filtered.filter(r => r.branchName === selectedBranch.name);
-        }
-        if (statusFilter.size > 0) filtered = filtered.filter(r => statusFilter.has(r.isReceived ? 'Đã nhận' : 'Chưa nhận'));
-        return filtered;
-    }, [activeReturns, branchFilter, statusFilter, branches]);
 
-    React.useEffect(() => { setPagination(p => ({ ...p, pageIndex: 0 })); }, [branchFilter, statusFilter]);
-
-    const sortedData = React.useMemo(() => {
-        const sorted = [...filteredData];
-        if (sorting.id) {
-            sorted.sort((a, b) => {
-                const aValue = (a as unknown as Record<string, unknown>)[sorting.id];
-                const bValue = (b as unknown as Record<string, unknown>)[sorting.id];
-                if (aValue == null) return 1;
-                if (bValue == null) return -1;
-                if (sorting.id === 'createdAt' || sorting.id === 'returnDate') {
-                    const aTime = aValue ? new Date(aValue as string | number | Date).getTime() : 0, bTime = bValue ? new Date(bValue as string | number | Date).getTime() : 0;
-                    return sorting.desc ? bTime - aTime : aTime - bTime;
-                }
-                return aValue < bValue ? (sorting.desc ? 1 : -1) : aValue > bValue ? (sorting.desc ? -1 : 1) : 0;
-            });
-        }
-        return sorted;
-    }, [filteredData, sorting]);
-
-    const pageCount = Math.ceil(sortedData.length / pagination.pageSize);
-    const paginatedData = React.useMemo(() => sortedData.slice(pagination.pageIndex * pagination.pageSize, (pagination.pageIndex + 1) * pagination.pageSize), [sortedData, pagination]);
 
     React.useEffect(() => {
         if (!isMobile) return;
         const handleScroll = () => {
             const { scrollTop, scrollHeight } = document.documentElement;
-            if ((window.pageYOffset || scrollTop) + window.innerHeight >= scrollHeight * 0.8 && mobileLoadedCount < sortedData.length)
-                setMobileLoadedCount(prev => Math.min(prev + 20, sortedData.length));
+            if ((window.pageYOffset || scrollTop) + window.innerHeight >= scrollHeight * 0.8 && mobileLoadedCount < returns.length)
+                setMobileLoadedCount(prev => Math.min(prev + 20, returns.length));
         };
         window.addEventListener('scroll', handleScroll, { passive: true });
         return () => window.removeEventListener('scroll', handleScroll);
-    }, [isMobile, mobileLoadedCount, sortedData.length]);
+    }, [isMobile, mobileLoadedCount, returns.length]);
 
-    React.useEffect(() => { setMobileLoadedCount(20); }, [debouncedSearch, branchFilter, statusFilter]);
+    React.useEffect(() => { setMobileLoadedCount(20); }, [debouncedSearch, advancedFilters]);
 
-    const statusOptions = React.useMemo(() => [{ label: 'Đã nhận', value: 'Đã nhận' }, { label: 'Chưa nhận', value: 'Chưa nhận' }], []);
+
     const handleRowClick = (row: SalesReturn) => router.push('/sales-returns/' + row.systemId);
-    const allSelectedRows = React.useMemo(() => activeReturns.filter(r => rowSelection[r.systemId]), [activeReturns, rowSelection]);
+
+    const handleRowHover = React.useCallback((row: { systemId: string }) => {
+        queryClient.prefetchQuery({
+            queryKey: salesReturnKeys.detail(row.systemId),
+            queryFn: () => fetchSalesReturn(asSystemId(row.systemId)),
+            staleTime: 60_000,
+        });
+    }, [queryClient]);
+    const allSelectedRows = React.useMemo(() => returns.filter(r => rowSelection[r.systemId]), [returns, rowSelection]);
     const bulkActions = React.useMemo(() => [{ label: 'In phiếu trả hàng', icon: Printer, onSelect: handleBulkPrint }], [handleBulkPrint]);
 
     const MobileSalesReturnCard = ({ salesReturn }: { salesReturn: SalesReturn }) => (
-        <Card className='hover:shadow-md transition-shadow cursor-pointer' onClick={() => handleRowClick(salesReturn)}>
-            <CardContent className='p-4'>
-                <div className='flex items-center justify-between mb-2'>
-                    <div className='flex items-center gap-2 flex-1 min-w-0'>
-                        <Avatar className='h-8 w-8 shrink-0 bg-orange-100'><AvatarFallback className='text-body-xs text-orange-700'><Undo2 className='h-4 w-4' /></AvatarFallback></Avatar>
-                        <div className='flex items-center gap-1.5 min-w-0 flex-1'>
-                            <h3 className='font-medium text-body-sm truncate'>{salesReturn.id}</h3>
-                            <span className='text-body-xs text-muted-foreground font-mono'>{salesReturn.orderId}</span>
-                        </div>
-                    </div>
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild><TouchButton variant='ghost' size='sm' className='h-8 w-8 p-0 shrink-0' onClick={(e) => e.stopPropagation()}><MoreHorizontal className='h-4 w-4' /></TouchButton></DropdownMenuTrigger>
-                        <DropdownMenuContent align='end'><DropdownMenuItem onClick={(e) => { e.stopPropagation(); handlePrintSingleReturn(salesReturn.systemId); }}>In Phiếu Trả Hàng</DropdownMenuItem></DropdownMenuContent>
-                    </DropdownMenu>
-                </div>
-                <div className='text-body-xs text-muted-foreground mb-3 flex items-center'><User className='h-3 w-3 mr-1.5 shrink-0' /><span className='truncate'>{salesReturn.customerName}</span></div>
-                <div className='border-t mb-3' />
-                <div className='space-y-2'>
-                    <div className='flex items-center text-body-xs text-muted-foreground'><Package className='h-3 w-3 mr-1.5 shrink-0' /><span>{salesReturn.items.reduce((sum, item) => sum + item.returnQuantity, 0)} sản phẩm</span></div>
-                    <div className='flex items-center text-body-xs text-muted-foreground'><Calendar className='h-3 w-3 mr-1.5 shrink-0' /><span>{formatDate(salesReturn.returnDate)}</span></div>
-                    <div className='flex items-center justify-between text-body-xs pt-1'>
-                        <span className='text-h4'>{formatCurrency(salesReturn.totalReturnValue)}</span>
-                        <Badge variant={salesReturn.isReceived ? 'default' : 'secondary'} className='text-body-xs'>{salesReturn.isReceived ? 'Đã nhận' : 'Chưa nhận'}</Badge>
+        <div className='rounded-xl border border-border/50 bg-card p-4 active:scale-[0.98] transition-transform touch-manipulation cursor-pointer' onClick={() => handleRowClick(salesReturn)}>
+            <div className='flex items-center justify-between mb-2'>
+                <div className='flex items-center gap-2 flex-1 min-w-0'>
+                    <Avatar className='h-9 w-9 shrink-0 bg-orange-100'><AvatarFallback className='text-xs text-orange-700'><Undo2 className='h-4 w-4' /></AvatarFallback></Avatar>
+                    <div className='min-w-0 flex-1'>
+                        <h3 className='font-medium text-sm truncate'>{salesReturn.id}</h3>
+                        <span className='text-xs text-muted-foreground font-mono'>{salesReturn.orderId}</span>
                     </div>
                 </div>
-            </CardContent>
-        </Card>
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild><TouchButton variant='ghost' size='sm' className='h-8 w-8 p-0 shrink-0' onClick={(e) => e.stopPropagation()}><MoreHorizontal className='h-4 w-4' /></TouchButton></DropdownMenuTrigger>
+                    <DropdownMenuContent align='end'><DropdownMenuItem onClick={(e) => { e.stopPropagation(); handlePrintSingleReturn(salesReturn.systemId); }}>In Phiếu Trả Hàng</DropdownMenuItem></DropdownMenuContent>
+                </DropdownMenu>
+            </div>
+            <div className='text-xs text-muted-foreground mb-2 flex items-center'><User className='h-3 w-3 mr-1.5 shrink-0' /><span className='truncate'>{salesReturn.customerName}</span></div>
+            <div className='space-y-1.5 pt-2.5 border-t border-border/50'>
+                <div className='flex items-center text-xs text-muted-foreground'><Package className='h-3 w-3 mr-1.5 shrink-0' /><span>{salesReturn.items.reduce((sum, item) => sum + item.returnQuantity, 0)} sản phẩm</span></div>
+                <div className='flex items-center text-xs text-muted-foreground'><Calendar className='h-3 w-3 mr-1.5 shrink-0' /><span>{formatDate(salesReturn.returnDate)}</span></div>
+                <div className='flex items-center justify-between text-xs pt-1'>
+                    <span className='font-semibold'>{formatCurrency(salesReturn.totalReturnValue)}</span>
+                    <Badge variant={salesReturn.isReceived ? 'default' : 'secondary'} className='text-xs'>{salesReturn.isReceived ? 'Đã nhận' : 'Chưa nhận'}</Badge>
+                </div>
+            </div>
+        </div>
     );
 
     return (
         <div className='flex flex-col w-full h-full'>
             {!isMobile && (
                 <PageToolbar
-                    leftActions={<><Button variant="outline" size="sm" onClick={() => router.push('/settings/sales-config')}><Settings className="h-4 w-4 mr-2" />Cài đặt</Button><Button variant="outline" size="sm" onClick={() => setExportDialogOpen(true)}><Download className="h-4 w-4 mr-2" />Xuất Excel</Button></>}
+                    leftActions={<>{canEditSettings && <Button variant="outline" size="sm" onClick={() => router.push('/settings/sales-config')}><Settings className="h-4 w-4 mr-2" />Cài đặt</Button>}<Button variant="outline" size="sm" onClick={() => setExportDialogOpen(true)}><Download className="h-4 w-4 mr-2" />Xuất Excel</Button></>}
                     rightActions={<DataTableColumnCustomizer columns={columns} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} />}
                 />
             )}
             <PageFilters searchValue={search} onSearchChange={setSearch} searchPlaceholder='Tìm kiếm phiếu trả hàng (mã phiếu, mã đơn, khách hàng)...'>
-                <Select value={branchFilter} onValueChange={setBranchFilter}>
-                    <SelectTrigger className='w-full sm:w-45'><SelectValue placeholder='Tất cả chi nhánh' /></SelectTrigger>
-                    <SelectContent><SelectItem value='all'>Tất cả chi nhánh</SelectItem>{branches.map(b => <SelectItem key={b.systemId} value={b.systemId}>{b.name}</SelectItem>)}</SelectContent>
-                </Select>
-                <DataTableFacetedFilter title='Trạng thái' options={statusOptions} selectedValues={statusFilter} onSelectedValuesChange={setStatusFilter} />
+                <AdvancedFilterPanel
+                    filters={filterConfigs}
+                    values={panelValues}
+                    onApply={handlePanelApply}
+                    presets={presets.map(p => ({ ...p, filters: p.filters }))}
+                    onSavePreset={(preset) => savePreset(preset.name, panelValues)}
+                    onDeletePreset={deletePreset}
+                    onUpdatePreset={updatePreset}
+                />
             </PageFilters>
+            <FilterExtras presets={presets} filterConfigs={filterConfigs} values={panelValues} onApply={handlePanelApply} onDeletePreset={deletePreset} />
             {isMobile ? (
                 <div ref={mobileScrollRef} className='space-y-3 pb-4'>
-                    {sortedData.length === 0 ? (
+                    {returns.length === 0 ? (
                         <Card><CardContent className='py-12 text-center'><p className='text-muted-foreground'>Không tìm thấy phiếu trả hàng</p></CardContent></Card>
                     ) : (<>
-                        {sortedData.slice(0, mobileLoadedCount).map(salesReturn => <MobileSalesReturnCard key={salesReturn.systemId} salesReturn={salesReturn} />)}
-                        {mobileLoadedCount < sortedData.length && <Card className='border-dashed'><CardContent className='py-6 text-center'><div className='flex items-center justify-center gap-2'><div className='h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent' /><span className='text-body-sm text-muted-foreground'>Đang tải thêm...</span></div></CardContent></Card>}
-                        {mobileLoadedCount >= sortedData.length && sortedData.length > 20 && <Card className='border-dashed'><CardContent className='py-4 text-center'><span className='text-body-sm text-muted-foreground'>Đã hiển thị tất cả {sortedData.length} phiếu trả hàng</span></CardContent></Card>}
+                        {returns.slice(0, mobileLoadedCount).map(salesReturn => <MobileSalesReturnCard key={salesReturn.systemId} salesReturn={salesReturn} />)}
+                        {mobileLoadedCount < returns.length && <Card className='border-dashed'><CardContent className='py-6 text-center'><div className='flex items-center justify-center gap-2'><div className='h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent' /><span className='text-sm text-muted-foreground'>Đang tải thêm...</span></div></CardContent></Card>}
+                        {mobileLoadedCount >= returns.length && returns.length > 20 && <Card className='border-dashed'><CardContent className='py-4 text-center'><span className='text-sm text-muted-foreground'>Đã hiển thị tất cả {returns.length} phiếu trả hàng</span></CardContent></Card>}
                     </>)}
                 </div>
             ) : (
-                <div className='w-full py-4'>
-                    <ResponsiveDataTable columns={columns} data={paginatedData} renderMobileCard={(salesReturn) => <MobileSalesReturnCard salesReturn={salesReturn} />} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowCount={filteredData.length} rowSelection={rowSelection} setRowSelection={setRowSelection} allSelectedRows={allSelectedRows} bulkActions={bulkActions} expanded={expanded} setExpanded={setExpanded} sorting={sorting} setSorting={setSorting as React.Dispatch<React.SetStateAction<{ id: string; desc: boolean; }>>} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} onRowClick={handleRowClick} />
+                <div className={cn('w-full py-4', isFetching && 'opacity-60 pointer-events-none transition-opacity')}>
+                    <ResponsiveDataTable columns={columns} data={returns} renderMobileCard={(salesReturn) => <MobileSalesReturnCard salesReturn={salesReturn} />} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowCount={totalCount} rowSelection={rowSelection} setRowSelection={setRowSelection} allSelectedRows={allSelectedRows} bulkActions={bulkActions} expanded={expanded} setExpanded={setExpanded} sorting={sorting} setSorting={setSorting as React.Dispatch<React.SetStateAction<{ id: string; desc: boolean; }>>} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} onRowClick={handleRowClick} onRowHover={handleRowHover} />
                 </div>
             )}
             <SimplePrintOptionsDialog open={printDialogOpen} onOpenChange={setPrintDialogOpen} selectedCount={itemsToPrint.length} onConfirm={handlePrintConfirm} title="In phiếu trả hàng" />
-            <SalesReturnExportDialog open={exportDialogOpen} onOpenChange={setExportDialogOpen} allData={activeReturns} filteredData={sortedData} currentPageData={paginatedData} selectedData={allSelectedRows} currentUser={{ name: currentUser?.fullName || 'Hệ thống', systemId: currentUser?.systemId || asSystemId('SYSTEM') }} />
+            {/* ✅ Only render export dialog when opened to avoid loading pricing-policies API */}
+            {exportDialogOpen && <SalesReturnExportDialog open={exportDialogOpen} onOpenChange={setExportDialogOpen} allData={activeExportReturns} filteredData={activeExportReturns} currentPageData={returns} selectedData={allSelectedRows} currentUser={{ name: currentUser?.fullName || 'Hệ thống', systemId: currentUser?.systemId || asSystemId('SYSTEM') }} />}
         </div>
     );
 }

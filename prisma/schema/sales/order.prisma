@@ -14,6 +14,7 @@ model Order {
   cancelledDate        DateTime?
   shippingAddress      Json?
   billingAddress       Json?
+  invoiceInfo          Json?          // Snapshot of selected business profile for invoice export
   status               OrderStatus    @default(PENDING)
   paymentStatus        PaymentStatus  @default(UNPAID)
   deliveryStatus       DeliveryStatus @default(PENDING_PACK)
@@ -85,8 +86,8 @@ model Order {
   subtasks Json? // Array of workflow subtasks
 
   // === RELATIONS ===
-  lineItems     OrderLineItem[]
-  payments      OrderPayment[]
+  lineItems               OrderLineItem[]
+  payments                OrderPayment[]
   packagings              Packaging[]
   branch                  Branch          @relation(fields: [branchId], references: [systemId])
   customer                Customer?       @relation(fields: [customerId], references: [systemId], onDelete: SetNull)
@@ -96,16 +97,17 @@ model Order {
   exchangeForSalesReturns SalesReturn[]   @relation("SalesReturnToExchangeOrder")
   shipments               Shipment[]
   warranties              Warranty[]
+  reconciliationItems     ReconciliationSheetItem[]
 
   // === INDEXES FOR PERFORMANCE ===
   @@index([branchId])
   @@index([customerId])
   @@index([orderDate])
   @@index([status])
-  @@index([status, orderDate])        // Composite: filter by status + sort by date
-  @@index([paymentStatus])            // Filter by payment status
-  @@index([deliveryStatus])           // Filter by delivery status
-  @@index([salespersonId])            // Filter by salesperson
-  @@index([createdAt])                // Sort by creation date
+  @@index([status, orderDate]) // Composite: filter by status + sort by date
+  @@index([paymentStatus]) // Filter by payment status
+  @@index([deliveryStatus]) // Filter by delivery status
+  @@index([salespersonId]) // Filter by salesperson
+  @@index([createdAt]) // Sort by creation date
   @@map("orders")
 }

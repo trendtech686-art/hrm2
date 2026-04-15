@@ -1,5 +1,6 @@
-import { usePrintTemplateStore } from '@/features/settings/printer/store';
+import { getPrintTemplateConfigSync } from '@/features/settings/printer/hooks/use-print-template-config';
 import { TemplateType, PaperSize } from '@/lib/types/prisma-extended';
+import { parseLabelSize, type PrintMargins, DEFAULT_MARGINS } from '@/features/settings/printer/types';
 import { formatDateForDisplay, formatTimeForDisplay, formatDateTimeForDisplay } from '@/lib/date-utils';
 import { getGeneralSettingsSync } from '@/lib/settings-cache';
 
@@ -212,6 +213,53 @@ const PRINT_STYLES = `
 `;
 
 /**
+ * Generate paper-size-aware print CSS
+ */
+function getPrintStylesForSize(size: PaperSize, margins?: PrintMargins): string {
+  const labelDims = parseLabelSize(size);
+  if (labelDims) {
+    const m = margins || DEFAULT_MARGINS.label;
+    const contentWidth = labelDims.width - m.left - m.right;
+    const contentHeight = labelDims.height - m.top - m.bottom;
+    return `
+      @page { size: ${labelDims.width}mm ${labelDims.height}mm; margin: ${m.top}mm ${m.right}mm ${m.bottom}mm ${m.left}mm; }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { font-family: Calibri, 'Segoe UI', Arial, sans-serif; font-size: ${labelDims.width <= 50 ? '5.5pt' : '7pt'}; line-height: 1.3; margin: 0; padding: 0; }
+      img { max-width: 100%; height: auto; }
+      .print-page {
+        width: ${contentWidth}mm; height: ${contentHeight}mm;
+        overflow: hidden;
+        page-break-after: always !important;
+        break-after: page !important;
+      }
+      .print-page-last {
+        width: ${contentWidth}mm; height: ${contentHeight}mm;
+        overflow: hidden;
+        page-break-after: auto;
+      }
+      @media print {
+        .print-page {
+          page-break-after: always !important;
+          break-after: page !important;
+        }
+      }
+    `;
+  }
+  if (size === 'K57') {
+    const m = margins || { top: 2, right: 2, bottom: 2, left: 2 };
+    return PRINT_STYLES.replace('@page { margin: 15mm; }', `@page { size: 57mm auto; margin: ${m.top}mm ${m.right}mm ${m.bottom}mm ${m.left}mm; }`);
+  }
+  if (size === 'K80') {
+    const m = margins || { top: 2, right: 2, bottom: 2, left: 2 };
+    return PRINT_STYLES.replace('@page { margin: 15mm; }', `@page { size: 80mm auto; margin: ${m.top}mm ${m.right}mm ${m.bottom}mm ${m.left}mm; }`);
+  }
+  if (margins) {
+    return PRINT_STYLES.replace('@page { margin: 15mm; }', `@page { margin: ${margins.top}mm ${margins.right}mm ${margins.bottom}mm ${margins.left}mm; }`);
+  }
+  return PRINT_STYLES;
+}
+
+/**
  * Interface cho dữ liệu in
  */
 export interface PrintData {
@@ -275,7 +323,7 @@ export function generatePrintHtml(
   data: PrintData,
   branchId?: string
 ): string {
-  const store = usePrintTemplateStore.getState();
+  const store = getPrintTemplateConfigSync();
   const defaultSize = store.getDefaultSize(templateType);
   const template = store.getTemplate(templateType, defaultSize, branchId);
   
@@ -299,7 +347,7 @@ export function printDocument(
     title?: string;
   }
 ): void {
-  const store = usePrintTemplateStore.getState();
+  const store = getPrintTemplateConfigSync();
   const paperSize = options?.paperSize || store.getDefaultSize(templateType);
   const template = store.getTemplate(templateType, paperSize, options?.branchId);
   
@@ -316,13 +364,14 @@ export function printDocument(
   const printDoc = printFrame.contentDocument || printFrame.contentWindow?.document;
   if (printDoc) {
     const title = options?.title || `In ${templateType}`;
+    const styles = getPrintStylesForSize(paperSize);
     
     printDoc.write(`
       <!DOCTYPE html>
       <html>
       <head>
         <title>${title}</title>
-        <style>${PRINT_STYLES}</style>
+        <style>${styles}</style>
       </head>
       <body>${html}</body>
       </html>
@@ -353,7 +402,7 @@ export function getPreviewHtml(
     paperSize?: PaperSize;
   }
 ): string {
-  const store = usePrintTemplateStore.getState();
+  const store = getPrintTemplateConfigSync();
   const paperSize = options?.paperSize || store.getDefaultSize(templateType);
   const template = store.getTemplate(templateType, paperSize, options?.branchId);
   
@@ -378,6 +427,10 @@ export interface StoreSettings {
   province?: string;
   website?: string;
   taxCode?: string;
+  registrationNumber?: string;
+  bankAccountName?: string;
+  bankAccountNumber?: string;
+  bankName?: string;
 }
 
 /**
@@ -399,6 +452,10 @@ export function getStoreData(settings: StoreSettings): PrintData {
     '{store_fax}': settings.fax || '',
     '{store_website}': settings.website || '',
     '{store_tax_code}': settings.taxCode || '',
+    '{store_registration_number}': settings.registrationNumber || '',
+    '{store_bank_account_name}': settings.bankAccountName || '',
+    '{store_bank_account_number}': settings.bankAccountNumber || '',
+    '{store_bank_name}': settings.bankName || '',
     // Print timestamp - always inject current time
     '{print_date}': formatDate(now),
     '{print_time}': formatTime(now),

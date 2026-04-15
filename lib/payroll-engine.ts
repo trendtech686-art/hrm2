@@ -141,9 +141,26 @@ type FormulaContext = {
   mealAllowancePerDay: number;
 };
 
-const evaluateFormula = (formula: string, context: FormulaContext): number => {
+/**
+ * Safe arithmetic expression evaluator.
+ * Only allows: numbers, +, -, *, /, %, parentheses, ternary (?:),
+ * comparison operators (<, >, <=, >=, ==, !=, ===, !==, &&, ||),
+ * and whitelisted variable/function names from FormulaContext.
+ *
+ * Rejects any other tokens (property access, assignment, function calls,
+ * string literals, keywords like import/require/fetch/eval, etc.)
+ */
+const SAFE_TOKEN = /^(\d+(\.\d+)?|[a-zA-Z_]\w*|[+\-*/%(),.?:!<>=&|]+|\s+)$/;
+const FORBIDDEN_KEYWORDS = /\b(import|require|fetch|eval|Function|constructor|prototype|__proto__|globalThis|window|document|process|this|new|delete|typeof|void|in|of|class|yield|await|async|throw|try|catch|return)\b/;
+
+function safeEvaluateFormula(formula: string, context: FormulaContext): number {
   try {
-    const safeContext = {
+    // Reject dangerous patterns before evaluation
+    if (FORBIDDEN_KEYWORDS.test(formula)) return 0;
+    if (/[[\]{}\\;`$'"#@]/.test(formula)) return 0; // no brackets, template strings, comments
+    if (/\./.test(formula.replace(/\d+\.\d+/g, ''))) return 0; // no property access (but allow decimal numbers)
+
+    const safeContext: Record<string, unknown> = {
       baseSalary: context.baseSalary,
       workDays: context.workDays,
       leaveDays: context.leaveDays,
@@ -151,7 +168,6 @@ const evaluateFormula = (formula: string, context: FormulaContext): number => {
       lateArrivals: context.lateArrivals,
       earlyDepartures: context.earlyDepartures,
       otHours: context.otHours,
-      // Chi tiết OT
       otHoursWeekday: context.otHoursWeekday,
       otHoursWeekend: context.otHoursWeekend,
       otHoursHoliday: context.otHoursHoliday,
@@ -171,17 +187,29 @@ const evaluateFormula = (formula: string, context: FormulaContext): number => {
       max: Math.max,
     };
 
+    // Tokenize and validate every token
+    const tokens = formula.match(/\d+(\.\d+)?|[a-zA-Z_]\w*|[+\-*/%(),.?:!<>=&|]+|\s+/g);
+    if (!tokens) return 0;
+    
+    const allowedNames = new Set(Object.keys(safeContext));
+    for (const token of tokens) {
+      if (!SAFE_TOKEN.test(token)) return 0;
+      // If it's an identifier, it must be in the allowed context
+      if (/^[a-zA-Z_]/.test(token) && !allowedNames.has(token)) return 0;
+    }
+
     const contextKeys = Object.keys(safeContext);
     const contextValues = Object.values(safeContext);
 
-    const fn = new Function(...contextKeys, `return ${formula};`);
+    // eslint-disable-next-line no-new-func
+    const fn = new Function(...contextKeys, `"use strict"; return (${formula});`);
     const result = fn(...contextValues);
 
     return typeof result === 'number' && !isNaN(result) ? result : 0;
   } catch {
     return 0;
   }
-};
+}
 
 // =============================================
 // OT PAY CALCULATOR
@@ -294,7 +322,7 @@ const calculateComponent = (
       mealAllowancePerDay: getEmployeeSettingsSync().mealAllowancePerDay || 30000,
     };
 
-    const amount = evaluateFormula(component.formula, context);
+    const amount = safeEvaluateFormula(component.formula, context);
 
     return {
       componentSystemId: component.systemId,

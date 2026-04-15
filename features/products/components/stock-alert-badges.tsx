@@ -60,7 +60,7 @@ export function StockAlertBadges({ product, showDescription = false, className }
       </TooltipProvider>
       
       {showDescription && alerts.length > 0 && (
-        <div className="w-full mt-1 text-body-sm text-muted-foreground">
+        <div className="w-full mt-1 text-sm text-muted-foreground">
           {alerts.map((alert, i) => (
             <p key={i}>• {alert.description}</p>
           ))}

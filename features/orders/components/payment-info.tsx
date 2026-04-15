@@ -7,9 +7,8 @@ import { DetailField } from '../../../components/ui/detail-field';
 import { cn } from '../../../lib/utils';
 import { ChevronRight, ChevronDown, Printer, Banknote, Minus } from 'lucide-react';
 import { Badge } from '../../../components/ui/badge';
-import { useEmployeeFinder } from '../../employees/hooks/use-all-employees';
 import { useBranchFinder } from '../../settings/branches/hooks/use-all-branches';
-import { useStoreInfoData } from '../../settings/store-info/hooks/use-store-info';
+import { fetchPrintData } from '@/lib/lazy-print-data';
 import { usePrint } from '../../../lib/use-print';
 import { numberToWords, formatTime, StoreSettings } from '../../../lib/print-service';
 import { mapReceiptToPrintData, ReceiptForPrint } from '../../../lib/print-mappers/receipt.mapper';
@@ -29,16 +28,13 @@ interface PaymentInfoProps {
 
 export function PaymentInfo({ payment, order }: PaymentInfoProps) {
     const [isExpanded, setIsExpanded] = React.useState(false);
-    // ✅ Use useEmployeeFinder only - it now searches both systemId and business ID
-    const { findById: findEmployeeById } = useEmployeeFinder();
     const { findById: findBranchById } = useBranchFinder();
-    const { info: storeInfo } = useStoreInfoData();
+    // ⚡ OPTIMIZED: storeInfo lazy loaded in print handler
     const { print } = usePrint(order.branchSystemId);
 
-    const creator = React.useMemo(() => {
-        // ✅ useEmployeeFinder now searches by both systemId and business ID
-        return findEmployeeById(payment.createdBy);
-    }, [findEmployeeById, payment.createdBy]);
+    // Use createdByName from API data
+    const creatorName = (payment as unknown as Record<string, unknown>).createdByName as string || payment.createdBy;
+    const creatorSystemId = payment.createdBy;
     
     // Determine if this is a payment (negative amount) or receipt (positive amount)
     const isPayment = payment.amount < 0;
@@ -51,7 +47,7 @@ export function PaymentInfo({ payment, order }: PaymentInfoProps) {
         ? (linkedPaymentSystemId ? `/payments/${linkedPaymentSystemId}` : null)
         : (linkedReceiptSystemId ? `/receipts/${linkedReceiptSystemId}` : null);
 
-    const handlePrint = (e: React.MouseEvent) => {
+    const handlePrint = async (e: React.MouseEvent) => {
         e.stopPropagation();
         
         const amount = Math.abs(payment.amount);
@@ -73,7 +69,8 @@ export function PaymentInfo({ payment, order }: PaymentInfoProps) {
         // Get branch info
         const branch = findBranchById(order.branchSystemId);
 
-        // Prepare store settings
+        // Prepare store settings - lazy fetch
+        const { storeInfo } = await fetchPrintData();
         const storeSettings: StoreSettings = {
             name: storeInfo?.brandName || storeInfo?.companyName || '',
             address: storeInfo?.headquartersAddress,
@@ -90,7 +87,7 @@ export function PaymentInfo({ payment, order }: PaymentInfoProps) {
                 code: payment.id,
                 createdAt: payment.date,
                 issuedAt: payment.date,
-                createdBy: creator?.fullName || payment.createdBy,
+                createdBy: creatorName,
                 recipientName: order.customerName,
                 recipientPhone: phoneStr,
                 recipientAddress: addressStr,
@@ -112,7 +109,7 @@ export function PaymentInfo({ payment, order }: PaymentInfoProps) {
                 code: payment.id,
                 createdAt: payment.date,
                 issuedAt: payment.date,
-                createdBy: creator?.fullName || payment.createdBy,
+                createdBy: creatorName,
                 payerName: order.customerName,
                 payerPhone: phoneStr,
                 payerAddress: addressStr,
@@ -145,43 +142,47 @@ export function PaymentInfo({ payment, order }: PaymentInfoProps) {
     return (
         <div className="border rounded-md bg-background text-sm">
             {/* Header */}
-            <div className="flex items-center p-3 cursor-pointer" onClick={() => setIsExpanded(!isExpanded)}>
-                {isPayment ? (
-                    <Minus className="h-4 w-4 text-red-500 mr-3 shrink-0" />
-                ) : (
-                    <Banknote className="h-4 w-4 text-green-500 mr-3 shrink-0" />
-                )}
-                {/* Link to receipt/payment detail page if linked, otherwise show as text */}
-                {detailLink ? (
-                    <Link href={detailLink} 
-                        className="font-semibold text-primary hover:underline"
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        {payment.id}
-                    </Link>
-                ) : (
-                    <span className="font-semibold text-foreground">
-                        {payment.id}
-                    </span>
-                )}
-                {isWarrantyPayment && (
-                    <Badge variant="secondary" className="ml-2 text-xs">Bảo hành</Badge>
-                )}
-                <div className="grow text-right text-muted-foreground px-4">
-                    {formatDate(payment.date)}
+            <div className="flex flex-col md:flex-row md:items-center p-3 cursor-pointer gap-1 md:gap-0" onClick={() => setIsExpanded(!isExpanded)}>
+                <div className="flex items-center min-w-0">
+                    {isPayment ? (
+                        <Minus className="h-4 w-4 text-red-500 mr-3 shrink-0" />
+                    ) : (
+                        <Banknote className="h-4 w-4 text-green-500 mr-3 shrink-0" />
+                    )}
+                    {/* Link to receipt/payment detail page if linked, otherwise show as text */}
+                    {detailLink ? (
+                        <Link href={detailLink} 
+                            className="font-semibold text-primary hover:underline"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            {payment.id}
+                        </Link>
+                    ) : (
+                        <span className="font-semibold text-foreground">
+                            {payment.id}
+                        </span>
+                    )}
+                    {isWarrantyPayment && (
+                        <Badge variant="secondary" className="ml-2 text-xs">Bảo hành</Badge>
+                    )}
                 </div>
-                <div className={cn(
-                    "w-28 text-right font-semibold",
-                    isPayment ? "text-red-600" : "text-green-600"
-                )}>
-                    {isPayment ? '-' : '+'}{formatCurrency(Math.abs(payment.amount))}
+                <div className="flex items-center ml-7 md:ml-0 md:grow">
+                    <div className="text-muted-foreground md:grow md:text-right md:px-4">
+                        {formatDate(payment.date)}
+                    </div>
+                    <div className={cn(
+                        "ml-auto md:ml-0 md:w-28 text-right font-semibold",
+                        isPayment ? "text-red-600" : "text-green-600"
+                    )}>
+                        {isPayment ? '-' : '+'}{formatCurrency(Math.abs(payment.amount))}
+                    </div>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 ml-2 shrink-0" onClick={handlePrint} title="In phiếu">
+                        <Printer className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 ml-2 shrink-0">
+                        {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                    </Button>
                 </div>
-                <Button variant="ghost" size="icon" className="h-8 w-8 ml-2 shrink-0" onClick={handlePrint} title="In phiếu">
-                    <Printer className="h-4 w-4" />
-                </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8 ml-2 shrink-0">
-                    {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                </Button>
             </div>
             
             {/* Content */}
@@ -192,9 +193,9 @@ export function PaymentInfo({ payment, order }: PaymentInfoProps) {
                         <DetailField 
                             label="Người tạo" 
                             className="py-1 border-0"
-                            value={creator ? (
-                                <Link href={`/employees/${creator.systemId}`} className="text-primary hover:underline">
-                                    {creator.fullName}
+                            value={creatorSystemId ? (
+                                <Link href={`/employees/${creatorSystemId}`} className="text-primary hover:underline">
+                                    {creatorName}
                                 </Link>
                             ) : payment.createdBy}
                         />

@@ -4,6 +4,7 @@
  */
 
 import type { PricingPolicy } from '@/lib/types/prisma-extended';
+import { logError } from '@/lib/logger'
 
 export interface PricingPolicyFilters {
   page?: number;
@@ -62,7 +63,7 @@ export async function fetchPricingPolicies(
   }
   
   if (!response.ok) {
-    console.error('[fetchPricingPolicies] Response not OK:', response.status, response.statusText);
+    logError('[fetchPricingPolicies] Response not OK', null, { status: response.status, statusText: response.statusText });
     throw new Error('Failed to fetch pricing policies');
   }
   

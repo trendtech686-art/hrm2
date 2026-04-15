@@ -12,6 +12,7 @@ import {
   SalesReturnForPrint, 
   mapSalesReturnToPrintData, 
   mapSalesReturnLineItems,
+  mapSalesReturnReturnLineItems,
 } from '../print-mappers/sales-return.mapper';
 import type { StoreSettings } from '../print-service';
 import { getGeneralSettingsSync } from '../settings-cache';
@@ -139,6 +140,9 @@ export function createStoreSettingsFromBranch(
     headquartersAddress?: string;
     province?: string;
     logo?: string;
+    bankAccountName?: string;
+    bankAccountNumber?: string;
+    bankName?: string;
   } | null
 ): StoreSettings {
   return {
@@ -150,6 +154,9 @@ export function createStoreSettingsFromBranch(
     taxCode: storeInfo?.taxCode,
     province: storeInfo?.province || branch?.province,
     logo: getStoreLogo(storeInfo?.logo),
+    bankAccountName: storeInfo?.bankAccountName,
+    bankAccountNumber: storeInfo?.bankAccountNumber,
+    bankName: storeInfo?.bankName,
   };
 }
 
@@ -157,4 +164,5 @@ export function createStoreSettingsFromBranch(
 export {
   mapSalesReturnToPrintData,
   mapSalesReturnLineItems,
+  mapSalesReturnReturnLineItems,
 };

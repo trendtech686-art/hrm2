@@ -23,6 +23,7 @@ interface ColumnOptions {
   onToggleDefault: (item: CashAccount, isDefault: boolean) => void;
   onSetDefault: (item: CashAccount) => void;
   getBranchName: (branchSystemId?: string) => string;
+  getPaymentMethodName: (accountType?: string | null, type?: string) => string;
 }
 
 export const getCashAccountColumns = ({
@@ -32,6 +33,7 @@ export const getCashAccountColumns = ({
   onToggleDefault,
   onSetDefault,
   getBranchName,
+  getPaymentMethodName,
 }: ColumnOptions): ColumnDef<CashAccountWithBalance>[] => [
   {
     id: 'id',
@@ -47,14 +49,17 @@ export const getCashAccountColumns = ({
   },
   {
     id: 'type',
-    header: 'Loại',
-    size: 100,
-    cell: ({ row }) => (
-      <Badge variant={row.type === 'cash' ? 'default' : 'secondary'}>
-        {row.type === 'cash' ? 'Tiền mặt' : 'Ngân hàng'}
-      </Badge>
-    ),
-    meta: { displayName: 'Loại' }
+    header: 'Hình thức TT',
+    size: 120,
+    cell: ({ row }) => {
+      const label = getPaymentMethodName(row.accountType, row.type);
+      return (
+        <Badge variant="secondary">
+          {label}
+        </Badge>
+      );
+    },
+    meta: { displayName: 'Hình thức TT' }
   },
   {
     id: 'bankInfo',

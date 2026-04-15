@@ -3,10 +3,27 @@
  * ═══════════════════════════════════════════════════════════════
  * Sử dụng DOMPurify để sanitize HTML content từ user input
  * Đảm bảo an toàn khi render với dangerouslySetInnerHTML
+ * Isomorphic: hoạt động cả client và server side
  * ═══════════════════════════════════════════════════════════════
  */
 
-import DOMPurify from 'dompurify';
+// DOMPurify chỉ hoạt động ở client (cần window/document)
+// Server side dùng regex fallback để strip dangerous tags
+const isServer = typeof window === 'undefined';
+
+interface DOMPurifyLike {
+  sanitize(dirty: string, config?: Record<string, unknown>): string;
+}
+let _DOMPurify: DOMPurifyLike | null = null;
+function getDOMPurify(): DOMPurifyLike | null {
+  if (isServer) return null;
+  if (!_DOMPurify) {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const mod = require('dompurify');
+    _DOMPurify = (mod.default ?? mod) as DOMPurifyLike;
+  }
+  return _DOMPurify;
+}
 
 /**
  * Default configuration for DOMPurify
@@ -37,6 +54,25 @@ const ALLOWED_ATTR = [
 const ALLOWED_URI_REGEXP = /^(?:(?:https?|mailto|tel):|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i;
 
 /**
+ * Server-side fallback: strip all script/iframe/form tags and event handlers
+ * Not as robust as DOMPurify but safe enough for SSR
+ */
+function serverSanitize(dirty: string, allowedTags: string[]): string {
+  // Remove script, iframe, form, object, embed, applet tags entirely
+  let clean = dirty.replace(/<(script|iframe|form|object|embed|applet|link|meta)\b[^>]*>[\s\S]*?<\/\1>/gi, '');
+  clean = clean.replace(/<(script|iframe|form|object|embed|applet|link|meta)\b[^>]*\/?>/gi, '');
+  // Remove event handlers (on*)
+  clean = clean.replace(/\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*)/gi, '');
+  // Remove javascript: URLs
+  clean = clean.replace(/\bhref\s*=\s*["']?\s*javascript:/gi, 'href="');
+  // If no tags allowed, strip all
+  if (allowedTags.length === 0) {
+    clean = clean.replace(/<[^>]+>/g, '');
+  }
+  return clean;
+}
+
+/**
  * Sanitize HTML content - use this before rendering with dangerouslySetInnerHTML
  * 
  * @param dirty - Raw HTML string from user input
@@ -50,6 +86,9 @@ const ALLOWED_URI_REGEXP = /^(?:(?:https?|mailto|tel):|[^a-z]|[a-z+.-]+(?:[^a-z+
 export function sanitizeHtml(dirty: string | undefined | null): string {
   if (!dirty) return '';
   
+  const DOMPurify = getDOMPurify();
+  if (!DOMPurify) return serverSanitize(dirty, ALLOWED_TAGS);
+
   return DOMPurify.sanitize(dirty, {
     ALLOWED_TAGS,
     ALLOWED_ATTR,
@@ -73,6 +112,9 @@ export function sanitizeHtml(dirty: string | undefined | null): string {
 export function sanitizeToText(dirty: string | undefined | null): string {
   if (!dirty) return '';
   
+  const DOMPurify = getDOMPurify();
+  if (!DOMPurify) return serverSanitize(dirty, []);
+
   return DOMPurify.sanitize(dirty, {
     ALLOWED_TAGS: [],
     KEEP_CONTENT: true,
@@ -89,6 +131,9 @@ export function sanitizeToText(dirty: string | undefined | null): string {
 export function sanitizeTipTapContent(dirty: string | undefined | null): string {
   if (!dirty) return '';
   
+  const DOMPurify = getDOMPurify();
+  if (!DOMPurify) return serverSanitize(dirty, [...ALLOWED_TAGS, 'mark', 'figure', 'figcaption']);
+
   return DOMPurify.sanitize(dirty, {
     ALLOWED_TAGS: [
       ...ALLOWED_TAGS,

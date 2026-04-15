@@ -25,12 +25,15 @@ import { toast } from 'sonner';
 import tippy from 'tippy.js';
 import 'tippy.js/dist/tippy.css';
 import { MentionCombobox } from './mention-combobox';
+import { logError } from '@/lib/logger'
 
 export interface CommentEditorProps {
   content?: string;
   onChange?: (content: string, contentText: string) => void;
   placeholder?: string;
   mentions?: Array<{ id: string; label: string; avatar?: string }>;
+  /** Async fetcher for @mentions — when provided, mentions are lazy-loaded on @ trigger */
+  fetchMentions?: (query: string) => Promise<Array<{ id: string; label: string; avatar?: string }>>;
   onImageUpload?: (file: File) => Promise<string>; // Custom uploader
   disabled?: boolean;
   className?: string;
@@ -44,6 +47,7 @@ export function CommentEditor({
   onChange,
   placeholder = 'Viết bình luận...',
   mentions = [],
+  fetchMentions,
   onImageUpload,
   disabled = false,
   className,
@@ -85,7 +89,7 @@ export function CommentEditor({
         editor?.chain().focus().setImage({ src: url }).run();
         toast.success(source === 'paste' ? 'Đã dán ảnh' : source === 'drop' ? 'Đã thả ảnh' : 'Đã thêm ảnh');
       } catch (error) {
-        console.error('Upload failed:', error);
+        logError('Upload failed', error);
         toast.error('Không thể tải ảnh lên');
       } finally {
         setIsUploading(false);
@@ -111,7 +115,15 @@ export function CommentEditor({
           class: 'mention',
         },
         suggestion: {
-          items: ({ query }) => {
+          items: async ({ query }) => {
+            // Lazy-load from API if fetchMentions provided, else filter static list
+            if (fetchMentions) {
+              try {
+                return await fetchMentions(query);
+              } catch {
+                return [];
+              }
+            }
             return mentions.filter(item => 
               item.label.toLowerCase().includes(query.toLowerCase())
             );
@@ -216,9 +228,9 @@ export function CommentEditor({
     };
 
     const editorElement = editor.view.dom;
-    editorElement.addEventListener('paste', handlePaste as EventListener);
+    editorElement.addEventListener('paste', handlePaste as unknown as EventListener);
     return () => {
-      editorElement.removeEventListener('paste', handlePaste as EventListener);
+      editorElement.removeEventListener('paste', handlePaste as unknown as EventListener);
     };
   }, [editor, handleImageFile]);
 

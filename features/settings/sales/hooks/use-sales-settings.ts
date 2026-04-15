@@ -4,6 +4,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import {
   fetchSalesSettings,
   updateSalesSettings,
@@ -41,9 +42,7 @@ interface MutationCallbacks {
 export function useSalesSettingsMutations(options: MutationCallbacks = {}) {
   const queryClient = useQueryClient();
 
-  const invalidateSettings = () => {
-    queryClient.invalidateQueries({ queryKey: salesSettingsKeys.all });
-  };
+  const invalidateSettings = () => invalidateRelated(queryClient, 'sales-settings');
 
   const update = useMutation({
     mutationFn: (data: Partial<SalesManagementSettingsValues>) => updateSalesSettings(data),

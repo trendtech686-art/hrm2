@@ -14,9 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { usePageHeader } from "@/contexts/page-header-context";
 
-import { useAllComplaints } from "../hooks/use-all-complaints";
-import { useAllEmployees } from "@/features/employees/hooks/use-all-employees";
-import { useComplaintStatistics } from "../hooks/use-complaint-statistics";
+import { useComplaintStatisticsServer } from "../hooks/use-complaint-statistics-server";
 import { cn } from "@/lib/utils";
 import { ROUTES } from "@/lib/router";
 import type { BreadcrumbItem } from "@/lib/breadcrumb-system";
@@ -106,10 +104,8 @@ function ProgressBar({ label, value, total, percentage, color = "bg-blue-500" }:
  */
 export function ComplaintStatisticsPage() {
   const router = useRouter();
-  const { data: complaints } = useAllComplaints();
-  const { data: employees } = useAllEmployees();
-
-  const stats = useComplaintStatistics(complaints, employees);
+  // ⚡ PERFORMANCE: Server-side statistics instead of loading ALL complaints to client
+  const { data: stats, isLoading } = useComplaintStatisticsServer();
 
   const headerSubtitle = React.useMemo(() => {
     if (!stats) {
@@ -165,6 +161,14 @@ export function ComplaintStatisticsPage() {
     },
     actions,
   });
+
+  if (isLoading || !stats) {
+    return (
+      <div className="w-full h-full flex items-center justify-center py-20">
+        <div className="text-muted-foreground">Đang tải thống kê...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full h-full">
@@ -222,19 +226,19 @@ export function ComplaintStatisticsPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid md:grid-cols-3 gap-4">
-              <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="p-4 bg-blue-50 rounded-xl border border-blue-200">
                 <div className="text-sm text-blue-600 mb-1">Phản hồi trung bình</div>
                 <div className="text-2xl font-bold text-blue-900">{stats.timeBased.avgResponseTimeFormatted}</div>
                 <div className="text-xs text-blue-600 mt-1">Mục tiêu: 4 giờ</div>
               </div>
 
-              <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+              <div className="p-4 bg-green-50 rounded-xl border border-green-200">
                 <div className="text-sm text-green-600 mb-1">Giải quyết trung bình</div>
                 <div className="text-2xl font-bold text-green-900">{stats.timeBased.avgResolutionTimeFormatted}</div>
                 <div className="text-xs text-green-600 mt-1">Mục tiêu: 48 giờ</div>
               </div>
 
-              <div className="p-4 bg-orange-50 rounded-lg border border-orange-200">
+              <div className="p-4 bg-orange-50 rounded-xl border border-orange-200">
                 <div className="text-sm text-orange-600 mb-1">Quá hạn SLA</div>
                 <div className="text-2xl font-bold text-orange-900">{stats.timeBased.overdueCount}</div>
                 <div className="text-xs text-orange-600 mt-1">
@@ -384,7 +388,7 @@ export function ComplaintStatisticsPage() {
               <div className="space-y-3">
                 {stats.byAssignee.slice(0, 5).map((assignee, index) => (
                   <div key={assignee.assigneeId} className="flex items-center gap-3 p-3 rounded-lg bg-muted/30">
-                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center font-bold text-blue-600">
+                    <div className="shrink-0 w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center font-bold text-blue-600">
                       {index + 1}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -393,7 +397,7 @@ export function ComplaintStatisticsPage() {
                         {assignee.totalAssigned} khiếu nại • {assignee.resolved} đã giải quyết
                       </div>
                     </div>
-                    <div className="flex-shrink-0 text-right">
+                    <div className="shrink-0 text-right">
                       <div className="text-sm font-medium text-green-600">
                         {assignee.resolutionRate.toFixed(0)}%
                       </div>

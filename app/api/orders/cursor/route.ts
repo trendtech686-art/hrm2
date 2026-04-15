@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma'
 import { Prisma } from '@/generated/prisma/client'
 import { requireAuth, apiError } from '@/lib/api-utils'
 import { NextResponse } from 'next/server'
+import { logError } from '@/lib/logger'
 
 /**
  * Cursor-based Pagination API for Orders
@@ -149,7 +150,7 @@ export async function GET(request: Request) {
       },
     })
   } catch (error) {
-    console.error('Error fetching orders (cursor):', error)
+    logError('Error fetching orders (cursor)', error)
     return apiError('Failed to fetch orders', 500)
   }
 }

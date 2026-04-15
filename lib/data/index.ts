@@ -166,21 +166,10 @@ export {
   type TaskListItem,
 } from './tasks';
 
-// Dashboard
-export {
-  getDashboardStats,
-  getRecentActivity,
-  getSalesChart,
-  getTopProducts as getDashboardTopProducts,
-  type DashboardStats,
-} from './dashboard';
-
 // Cashbook
 export {
-  getCashbook,
-  getCashbookSummary,
-  type CashbookFilters,
-  type CashbookListItem,
+  getCashbookStats,
+  type CashbookStatsData,
 } from './cashbook';
 
 // Payments
@@ -289,11 +278,6 @@ export {
   getPenalties,
   getAllPenalties,
 } from './penalties';
-
-// Reconciliation
-export {
-  getReconciliationStats,
-} from './reconciliation';
 
 // Wiki
 export {

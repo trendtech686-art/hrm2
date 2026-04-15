@@ -1,6 +1,10 @@
 import { prisma } from '@/lib/prisma';
 import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils';
 import { generateNextIdsWithTx } from '@/lib/id-system';
+import { updateCustomerDebt } from '@/lib/services/customer-debt-service';
+import { logError } from '@/lib/logger'
+import { createNotification } from '@/lib/notifications'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 interface RouteParams {
   params: Promise<{ systemId: string; packagingId: string }>;
@@ -51,6 +55,10 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     if (packaging.orderId !== systemId) {
       return apiError('Packaging does not belong to this order', 400);
+    }
+
+    if (!packaging.order) {
+      return apiError('Packaging không thuộc đơn hàng nào', 400);
     }
 
     if (!packaging.confirmDate) {
@@ -191,6 +199,7 @@ export async function POST(request: Request, { params }: RouteParams) {
           deliveryMethod: 'PICKUP',
           deliveryStatus: 'DELIVERED',
           deliveredDate: new Date(),
+          trackingCode: `INSTORE-${packaging.id}`,
           requestorName: requestorName || null,
           requestorId: requestorId || null,
         },
@@ -329,9 +338,40 @@ export async function POST(request: Request, { params }: RouteParams) {
       return updated;
     });
 
+    // ✅ Update customer debt after in-store pickup completion
+    const customerSysId = updatedOrder.customer?.systemId || updatedOrder.customerId;
+    if (customerSysId) {
+      await updateCustomerDebt(customerSysId).catch(err => {
+        logError('[In-Store Pickup Confirm] Failed to update customer debt', err);
+      });
+    }
+
+    // Log activity
+    await createActivityLog({
+      entityType: 'order',
+      entityId: systemId,
+      action: `Xác nhận khách nhận hàng tại cửa hàng - ${updatedOrder.id || systemId}`,
+      actionType: 'status',
+      createdBy: session.user?.employee?.fullName || session.user?.name || session.user?.id || undefined,
+    }).catch(e => logError('[In-Store Pickup Confirm] activity log failed', e));
+
+    // Notify salesperson about in-store pickup
+    if (updatedOrder.salespersonId && updatedOrder.salespersonId !== session.user?.employeeId) {
+      createNotification({
+        type: 'order',
+        settingsKey: 'order:delivery',
+        title: 'Khách nhận hàng tại cửa hàng',
+        message: `Đơn hàng ${updatedOrder.id || systemId} - khách đã nhận hàng tại cửa hàng`,
+        link: `/orders/${systemId}`,
+        recipientId: updatedOrder.salespersonId,
+        senderId: session.user?.employeeId,
+        senderName: session.user?.name,
+      }).catch(e => logError('[In-Store Pickup] notification failed', e));
+    }
+
     return apiSuccess(updatedOrder);
   } catch (error) {
-    console.error('Error confirming in-store pickup:', error);
+    logError('Error confirming in-store pickup', error);
     return apiError('Failed to confirm in-store pickup', 500);
   }
 }

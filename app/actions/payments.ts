@@ -10,12 +10,15 @@
  */
 
 import { prisma } from '@/lib/prisma'
-import { auth } from '@/auth'
+import { requireActionPermission } from '@/lib/api-utils'
 import { revalidatePath } from '@/lib/revalidation'
 import { generateNextIdsWithTx } from '@/lib/id-system'
 import type { Prisma } from '@/generated/prisma/client'
 import type { ActionResult } from '@/types/action-result'
 import { createPaymentSchema, updatePaymentSchema } from '@/features/payments/validation'
+import { logError } from '@/lib/logger'
+import { getSessionUserName } from '@/lib/get-user-name'
+import { updateCustomerDebt } from '@/lib/services/customer-debt-service'
 
 // Helper to serialize payment for client (convert Decimal to number)
 function serializePayment<T extends { amount?: Prisma.Decimal | number | null; runningBalance?: Prisma.Decimal | number | null }>(payment: T): T & { amount: number; runningBalance: number | null } {
@@ -32,15 +35,20 @@ function serializePayment<T extends { amount?: Prisma.Decimal | number | null; r
 
 export type PaymentCategory = 
   | 'purchase'
+  | 'customer_payment'
   | 'complaint_refund'
   | 'warranty_refund'
   | 'sales_return_refund'
   | 'employee_advance'
   | 'employee_salary'
+  | 'supplier_payment'
   | 'operational_expense'
+  | 'expense'
+  | 'salary'
   | 'other'
 
 export type CreatePaymentInput = {
+  date?: string // For payment date
   amount: number
   description?: string
   category: PaymentCategory
@@ -66,6 +74,9 @@ export type CreatePaymentInput = {
   paymentReceiptTypeSystemId?: string
   paymentReceiptTypeName?: string
   voucherDate?: Date
+  supplierId?: string // For supplier payments
+  // Purchase order allocations (for "Thanh toán theo đơn nhập")
+  orderAllocations?: { purchaseOrderSystemId: string; purchaseOrderId: string; amount: number }[]
 }
 
 export type UpdatePaymentInput = {
@@ -104,10 +115,9 @@ export type DeletePaymentInput = {
 export async function createPaymentAction(
   input: CreatePaymentInput
 ): Promise<ActionResult> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Không có quyền truy cập' }
-  }
+  const authResult = await requireActionPermission('create_payments')
+  if (!authResult.success) return authResult
+  const { session } = authResult
 
   const validated = createPaymentSchema.safeParse(input)
   if (!validated.success) {
@@ -129,9 +139,10 @@ export async function createPaymentAction(
   }
 
   try {
+    const userName = getSessionUserName(session)
+
     const result = await prisma.$transaction(async (tx) => {
       const now = new Date()
-      const userName = session.user?.name || session.user?.email || 'Unknown'
 
       // Generate IDs using id-system (query MAX from DB)
       const { systemId, businessId } = await generateNextIdsWithTx(tx, 'payments')
@@ -166,12 +177,63 @@ export async function createPaymentAction(
           linkedPayslipSystemId: input.linkedPayslipSystemId || null,
           paymentReceiptTypeSystemId: input.paymentReceiptTypeSystemId || null,
           paymentReceiptTypeName: input.paymentReceiptTypeName || null,
+          supplierId: input.supplierId || null,
+          // Order allocations JSON
+          orderAllocations: input.orderAllocations && input.orderAllocations.length > 0
+            ? input.orderAllocations
+            : undefined,
           paymentDate: input.voucherDate || now,
           createdAt: now,
           updatedAt: now,
           createdBy: userName,
         },
       })
+
+      // ✅ Update supplier's currentDebt when paying a supplier
+      // Payment to supplier DECREASES our debt to them
+      if (input.supplierId) {
+        await tx.supplier.update({
+          where: { systemId: input.supplierId },
+          data: {
+            currentDebt: {
+              decrement: amount,
+            },
+            updatedAt: now,
+          },
+        })
+      }
+
+      // Process purchase order allocations — update each PO's paid, debt & paymentStatus
+      if (input.orderAllocations && input.orderAllocations.length > 0) {
+        for (const alloc of input.orderAllocations) {
+          const updatedPO = await tx.purchaseOrder.update({
+            where: { systemId: alloc.purchaseOrderSystemId },
+            data: {
+              paid: { increment: alloc.amount },
+              debt: { decrement: alloc.amount },
+              updatedAt: now,
+            },
+          })
+
+          // Update paymentStatus based on new paid vs grandTotal
+          const newPaid = Number(updatedPO.paid)
+          const grandTotal = Number(updatedPO.grandTotal)
+          let newPaymentStatus: string
+          if (newPaid >= grandTotal && grandTotal > 0) {
+            newPaymentStatus = 'Đã thanh toán'
+          } else if (newPaid > 0) {
+            newPaymentStatus = 'Thanh toán một phần'
+          } else {
+            newPaymentStatus = 'Chưa thanh toán'
+          }
+          if (updatedPO.paymentStatus !== newPaymentStatus) {
+            await tx.purchaseOrder.update({
+              where: { systemId: alloc.purchaseOrderSystemId },
+              data: { paymentStatus: newPaymentStatus },
+            })
+          }
+        }
+      }
 
       return payment
     })
@@ -190,13 +252,42 @@ export async function createPaymentAction(
     if (input.purchaseOrderSystemId) {
       revalidatePath(`/purchase-orders/${input.purchaseOrderSystemId}`)
     }
+    if (input.supplierId) {
+      revalidatePath(`/suppliers/${input.supplierId}`)
+    }
+    // Revalidate allocated purchase orders
+    if (input.orderAllocations) {
+      for (const alloc of input.orderAllocations) {
+        revalidatePath(`/purchase-orders/${alloc.purchaseOrderSystemId}`)
+      }
+    }
+
+    // Sync: update customer debt if payment affects customer
+    const customerSystemId = input.recipientSystemId
+    if (customerSystemId) {
+      updateCustomerDebt(customerSystemId).catch(err => {
+        logError('[Create Payment] Failed to update customer debt', err)
+      })
+    }
+
+    // Activity log (fire-and-forget)
+    prisma.activityLog.create({
+      data: {
+        entityType: 'payment',
+        entityId: result.systemId,
+        action: 'created',
+        actionType: 'create',
+        note: `Thêm phiếu chi: ${result.id} - ${input.recipientName || ''} - ${Number(result.amount).toLocaleString('vi-VN')}đ`,
+        createdBy: userName,
+      },
+    }).catch(e => logError('[ActivityLog] payment created failed', e))
 
     return {
       success: true,
       data: serializePayment(result),
     }
   } catch (error) {
-    console.error('createPaymentAction error:', error)
+    logError('createPaymentAction error', error)
     const errorMessage = error instanceof Error ? error.message : 'Không thể tạo phiếu chi'
     return { success: false, error: errorMessage }
   }
@@ -212,10 +303,8 @@ export async function createPaymentAction(
 export async function updatePaymentAction(
   input: UpdatePaymentInput
 ): Promise<ActionResult> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Không có quyền truy cập' }
-  }
+  const authResult = await requireActionPermission('edit_payments')
+  if (!authResult.success) return authResult
 
   const validated = updatePaymentSchema.safeParse(input)
   if (!validated.success) {
@@ -225,6 +314,8 @@ export async function updatePaymentAction(
   const { systemId, ...updateData } = input
 
   try {
+    const userName = getSessionUserName(authResult.session)
+
     const result = await prisma.$transaction(async (tx) => {
       // Find existing payment
       const existingPayment = await tx.payment.findUnique({
@@ -246,6 +337,14 @@ export async function updatePaymentAction(
         updatedAt: now,
       }
       
+      // Field labels for activity log
+      const fieldLabels: Record<string, string> = {
+        amount: 'Số tiền', description: 'Mô tả', category: 'Danh mục',
+        paymentMethodName: 'Phương thức TT', branchName: 'Chi nhánh',
+        recipientName: 'Người nhận', voucherDate: 'Ngày chứng từ',
+      }
+      const changes: Record<string, { from: unknown; to: unknown }> = {}
+
       if (updateData.amount !== undefined) dataToUpdate.amount = updateData.amount
       if (updateData.description !== undefined) dataToUpdate.description = updateData.description
       if (updateData.category !== undefined) dataToUpdate.category = updateData.category
@@ -260,25 +359,58 @@ export async function updatePaymentAction(
       if (updateData.recipientSystemId !== undefined) dataToUpdate.recipientSystemId = updateData.recipientSystemId
       if (updateData.voucherDate !== undefined) dataToUpdate.paymentDate = updateData.voucherDate
 
+      // Track changes diff
+      const trackFields: Record<string, string> = {
+        amount: 'amount', description: 'description', category: 'category',
+        paymentMethodName: 'paymentMethodName', branchName: 'branchName',
+        recipientName: 'recipientName',
+      }
+      for (const [inputKey, dbKey] of Object.entries(trackFields)) {
+        if (updateData[inputKey as keyof typeof updateData] !== undefined) {
+          const oldVal = (existingPayment as Record<string, unknown>)[dbKey]
+          const newVal = updateData[inputKey as keyof typeof updateData]
+          if (String(oldVal ?? '') !== String(newVal ?? '')) {
+            const label = fieldLabels[inputKey] || inputKey
+            changes[label] = { from: oldVal ?? '', to: newVal ?? '' }
+          }
+        }
+      }
+
       // Update payment
       const payment = await tx.payment.update({
         where: { systemId },
         data: dataToUpdate,
       })
 
-      return payment
+      return { payment, changes }
     })
 
     // Revalidate cache
     revalidatePath(`/payments/${systemId}`)
     revalidatePath('/payments')
 
+    // Activity log (fire-and-forget)
+    if (Object.keys(result.changes).length > 0) {
+      const changedFields = Object.keys(result.changes).join(', ')
+      prisma.activityLog.create({
+        data: {
+          entityType: 'payment',
+          entityId: systemId,
+          action: 'updated',
+          actionType: 'update',
+          note: `Cập nhật phiếu chi: ${result.payment.id}: ${changedFields}`,
+          changes: result.changes as import('@prisma/client').Prisma.InputJsonValue,
+          createdBy: userName,
+        },
+      }).catch(e => logError('[ActivityLog] payment updated failed', e))
+    }
+
     return {
       success: true,
-      data: serializePayment(result),
+      data: serializePayment(result.payment),
     }
   } catch (error) {
-    console.error('updatePaymentAction error:', error)
+    logError('updatePaymentAction error', error)
 
     if (error instanceof Error) {
       if (error.message === 'PAYMENT_NOT_FOUND') {
@@ -303,14 +435,14 @@ export async function updatePaymentAction(
 export async function cancelPaymentAction(
   input: CancelPaymentInput
 ): Promise<ActionResult> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Không có quyền truy cập' }
-  }
+  const authResult = await requireActionPermission('edit_payments')
+  if (!authResult.success) return authResult
 
   const { systemId, reason } = input
 
   try {
+    const userName = getSessionUserName(authResult.session)
+
     const result = await prisma.$transaction(async (tx) => {
       // Find existing payment
       const existingPayment = await tx.payment.findUnique({
@@ -340,19 +472,55 @@ export async function cancelPaymentAction(
         },
       })
 
+      // ✅ Restore supplier's currentDebt when cancelling a payment
+      // Cancelling payment to supplier INCREASES our debt to them (restore the original debt)
+      if (existingPayment.supplierId) {
+        await tx.supplier.update({
+          where: { systemId: existingPayment.supplierId },
+          data: {
+            currentDebt: {
+              increment: Number(existingPayment.amount) || 0,
+            },
+            updatedAt: now,
+          },
+        })
+      }
+
       return payment
     })
+
+    // Sync: update customer debt if payment affects customer
+    const customerSystemId = result.customerSystemId || result.recipientSystemId
+    if (customerSystemId) {
+      updateCustomerDebt(customerSystemId as string).catch(err => {
+        logError('[Cancel Payment] Failed to update customer debt', err)
+      })
+    }
 
     // Revalidate cache
     revalidatePath(`/payments/${systemId}`)
     revalidatePath('/payments')
+
+    // Activity log (fire-and-forget)
+    prisma.activityLog.create({
+      data: {
+        entityType: 'payment',
+        entityId: systemId,
+        action: 'cancelled',
+        actionType: 'status',
+        note: `Hủy phiếu chi: ${result.id}${reason ? `: ${reason}` : ''}`,
+        changes: { 'Trạng thái': { from: 'Hoàn thành', to: 'Đã hủy' } },
+        metadata: reason ? { reason } : undefined,
+        createdBy: userName,
+      },
+    }).catch(e => logError('[ActivityLog] payment cancelled failed', e))
 
     return {
       success: true,
       data: serializePayment(result),
     }
   } catch (error) {
-    console.error('cancelPaymentAction error:', error)
+    logError('cancelPaymentAction error', error)
 
     if (error instanceof Error) {
       if (error.message === 'PAYMENT_NOT_FOUND') {
@@ -377,14 +545,20 @@ export async function cancelPaymentAction(
 export async function deletePaymentAction(
   input: DeletePaymentInput
 ): Promise<ActionResult> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Không có quyền truy cập' }
-  }
+  const authResult = await requireActionPermission('delete_payments')
+  if (!authResult.success) return authResult
 
   const { systemId } = input
 
   try {
+    const userName = getSessionUserName(authResult.session)
+
+    // Fetch payment info before deletion for activity log + debt sync
+    const paymentInfo = await prisma.payment.findUnique({
+      where: { systemId },
+      select: { id: true, recipientName: true, amount: true, customerSystemId: true, recipientSystemId: true },
+    })
+
     const result = await prisma.$transaction(async (tx) => {
       // Find existing payment
       const existingPayment = await tx.payment.findUnique({
@@ -395,6 +569,20 @@ export async function deletePaymentAction(
         throw new Error('PAYMENT_NOT_FOUND')
       }
 
+      // Restore supplier's currentDebt before deleting payment
+      // Only restore if payment was not already cancelled
+      if (existingPayment.supplierId && existingPayment.status !== 'cancelled') {
+        await tx.supplier.update({
+          where: { systemId: existingPayment.supplierId },
+          data: {
+            currentDebt: {
+              increment: Number(existingPayment.amount) || 0,
+            },
+            updatedAt: new Date(),
+          },
+        })
+      }
+
       // Hard delete payment
       await tx.payment.delete({
         where: { systemId },
@@ -403,15 +591,35 @@ export async function deletePaymentAction(
       return { deleted: true }
     })
 
+    // Sync: update customer debt if payment affected customer
+    const affectedCustomerId = paymentInfo?.customerSystemId || paymentInfo?.recipientSystemId
+    if (affectedCustomerId) {
+      updateCustomerDebt(affectedCustomerId).catch(err => {
+        logError('[Delete Payment] Failed to update customer debt', err)
+      })
+    }
+
     // Revalidate cache
     revalidatePath('/payments')
+
+    // Activity log (fire-and-forget)
+    prisma.activityLog.create({
+      data: {
+        entityType: 'payment',
+        entityId: systemId,
+        action: 'deleted',
+        actionType: 'delete',
+        note: `Xóa phiếu chi: ${paymentInfo?.id || systemId}${paymentInfo?.recipientName ? ` - ${paymentInfo.recipientName}` : ''}`,
+        createdBy: userName,
+      },
+    }).catch(e => logError('[ActivityLog] payment deleted failed', e))
 
     return {
       success: true,
       data: result,
     }
   } catch (error) {
-    console.error('deletePaymentAction error:', error)
+    logError('deletePaymentAction error', error)
 
     if (error instanceof Error) {
       if (error.message === 'PAYMENT_NOT_FOUND') {
@@ -434,10 +642,8 @@ export async function batchCancelPaymentsAction(input: {
   systemIds: string[]
   reason: string
 }): Promise<ActionResult> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Không có quyền truy cập' }
-  }
+  const authResult = await requireActionPermission('edit_payments')
+  if (!authResult.success) return authResult
 
   const { systemIds, reason } = input
 
@@ -446,10 +652,14 @@ export async function batchCancelPaymentsAction(input: {
   }
 
   try {
+    const userName = getSessionUserName(authResult.session)
+
     const result = await prisma.$transaction(async (tx) => {
       const now = new Date()
 
       let cancelled = 0
+      const cancelledIds: string[] = []
+      const affectedCustomerIds: string[] = []
 
       for (const systemId of systemIds) {
         const payment = await tx.payment.findUnique({
@@ -466,22 +676,60 @@ export async function batchCancelPaymentsAction(input: {
               updatedAt: now,
             },
           })
+
+          // Restore supplier debt
+          if (payment.supplierId) {
+            await tx.supplier.update({
+              where: { systemId: payment.supplierId },
+              data: {
+                currentDebt: { increment: Number(payment.amount) || 0 },
+                updatedAt: now,
+              },
+            })
+          }
+
+          // Track affected customers for debt sync
+          const custId = (payment.customerSystemId || payment.recipientSystemId) as string | null
+          if (custId) affectedCustomerIds.push(custId)
+
           cancelled++
+          cancelledIds.push(payment.id)
         }
       }
 
-      return { cancelled }
+      return { cancelled, cancelledIds, affectedCustomerIds }
     })
+
+    // Sync customer debt for affected customers
+    const uniqueCustomerIds = [...new Set(result.affectedCustomerIds)]
+    for (const customerId of uniqueCustomerIds) {
+      await updateCustomerDebt(customerId)
+    }
 
     // Revalidate cache
     revalidatePath('/payments')
+
+    // Activity log (fire-and-forget)
+    if (result.cancelled > 0) {
+      prisma.activityLog.create({
+        data: {
+          entityType: 'payment',
+          entityId: systemIds[0],
+          action: 'batch_cancelled',
+          actionType: 'status',
+          note: `Hủy hàng loạt ${result.cancelled} phiếu chi: ${result.cancelledIds.join(', ')}`,
+          metadata: { reason, count: result.cancelled, ids: result.cancelledIds },
+          createdBy: userName,
+        },
+      }).catch(e => logError('[ActivityLog] payment batch cancelled failed', e))
+    }
 
     return {
       success: true,
       data: result,
     }
   } catch (error) {
-    console.error('batchCancelPaymentsAction error:', error)
+    logError('batchCancelPaymentsAction error', error)
     return { success: false, error: 'Không thể hủy các phiếu chi' }
   }
 }

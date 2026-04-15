@@ -15,14 +15,17 @@
  * - Handles approval workflow (DRAFT → PENDING → APPROVED → COMPLETED)
  */
 
-import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import type { Prisma } from '@/generated/prisma/client';
 import { PurchaseReturnStatus } from '@/generated/prisma/client';
-import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils';
+import { validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils';
+import { apiHandler } from '@/lib/api-handler';
 import { createPurchaseReturnSchema } from './validation';
 import { generateIdWithPrefix } from '@/lib/id-generator';
 import { v4 as uuidv4 } from 'uuid';
+import { logError } from '@/lib/logger'
+import { createNotification } from '@/lib/notifications'
+import { syncProductsInventory } from '@/lib/meilisearch-sync'
 
 // Interface for purchase return item input
 interface _PurchaseReturnItemInput {
@@ -36,10 +39,7 @@ interface _PurchaseReturnItemInput {
 }
 
 // GET - List purchase returns with advanced filtering
-export async function GET(request: NextRequest) {
-  const session = await requireAuth();
-  if (!session) return apiError('Unauthorized', 401);
-
+export const GET = apiHandler(async (request) => {
   try {
     const searchParams = request.nextUrl.searchParams;
     const { page, limit, skip } = parsePagination(searchParams);
@@ -56,12 +56,17 @@ export async function GET(request: NextRequest) {
 
     const where: Prisma.PurchaseReturnWhereInput = {};
     
+    // Build AND conditions array for complex queries
+    const andConditions: Prisma.PurchaseReturnWhereInput[] = [];
+    
     if (search) {
-      where.OR = [
-        { id: { contains: search, mode: 'insensitive' } },
-        { reason: { contains: search, mode: 'insensitive' } },
-        { supplierName: { contains: search, mode: 'insensitive' } },
-      ];
+      andConditions.push({
+        OR: [
+          { id: { contains: search, mode: 'insensitive' } },
+          { reason: { contains: search, mode: 'insensitive' } },
+          { supplierName: { contains: search, mode: 'insensitive' } },
+        ],
+      });
     }
 
     if (status) {
@@ -69,7 +74,18 @@ export async function GET(request: NextRequest) {
     }
 
     if (supplierId) {
-      where.supplierId = supplierId;
+      // ✅ FIX: Check both supplierId and supplierSystemId
+      andConditions.push({
+        OR: [
+          { supplierId: supplierId },
+          { supplierSystemId: supplierId },
+        ],
+      });
+    }
+    
+    // Apply AND conditions if any
+    if (andConditions.length > 0) {
+      where.AND = andConditions;
     }
 
     if (purchaseOrderId) {
@@ -125,14 +141,21 @@ export async function GET(request: NextRequest) {
       if (returnItemsData) {
         // If it's already an array, use it directly
         if (Array.isArray(returnItemsData)) {
-          items = returnItemsData as unknown as PurchaseReturnItemData[];
+          // Convert any Decimal values in the JSON items
+          items = (returnItemsData as unknown as PurchaseReturnItemData[]).map(item => ({
+            ...item,
+            unitPrice: Number(item.unitPrice),
+          }));
         } 
         // If it's a string (shouldn't happen but just in case), try parsing
         else if (typeof returnItemsData === 'string') {
           try {
             const parsed = JSON.parse(returnItemsData);
             if (Array.isArray(parsed)) {
-              items = parsed;
+              items = parsed.map((item: PurchaseReturnItemData) => ({
+                ...item,
+                unitPrice: Number(item.unitPrice),
+              }));
             }
           } catch {
             // Ignore parse errors
@@ -153,8 +176,10 @@ export async function GET(request: NextRequest) {
         }));
       }
 
+      // Destructure to exclude relational items from spread
+      const { items: _relationalItems, ...prBase } = pr;
       return {
-        ...pr,
+        ...prBase,
         items,
         // Convert Decimal fields to numbers
         subtotal: Number(pr.subtotal),
@@ -166,16 +191,13 @@ export async function GET(request: NextRequest) {
 
     return apiPaginated(data, { page, limit, total });
   } catch (error) {
-    console.error('[Purchase Returns API] GET error:', error);
-    return apiError('Failed to fetch purchase returns', 500);
+    logError('[Purchase Returns API] GET error', error);
+    return apiError('Không thể tải danh sách phiếu trả hàng nhập', 500);
   }
-}
+})
 
 // POST - Create new purchase return with inventory and supplier balance updates
-export async function POST(request: NextRequest) {
-  const session = await requireAuth();
-  if (!session) return apiError('Unauthorized', 401);
-
+export const POST = apiHandler(async (request, { session }) => {
   const result = await validateBody(request, createPurchaseReturnSchema);
   if (!result.success) return apiError(result.error, 400);
 
@@ -203,6 +225,7 @@ export async function POST(request: NextRequest) {
                 id: true,
                 name: true,
                 unit: true,
+                imageUrl: true, // ✅ Include imageUrl for return items display
               },
             },
           },
@@ -219,13 +242,67 @@ export async function POST(request: NextRequest) {
       return apiError('At least one return item is required', 400);
     }
 
+    // ✅ FIX: Get inventory receipts and previous returns to calculate returnable qty
+    const [inventoryReceipts, previousReturns] = await Promise.all([
+      prisma.inventoryReceipt.findMany({
+        where: {
+          purchaseOrderSystemId: purchaseOrder.systemId,
+          status: { not: 'CANCELLED' },
+        },
+        include: { items: true },
+      }),
+      prisma.purchaseReturn.findMany({
+        where: {
+          purchaseOrderSystemId: purchaseOrder.systemId,
+          status: { not: 'CANCELLED' },
+        },
+        select: {
+          systemId: true,
+          returnItems: true,
+          items: true,
+        },
+      }),
+    ]);
+
+    // Calculate received quantities per product
+    const receivedQuantities: Record<string, number> = {};
+    for (const receipt of inventoryReceipts) {
+      for (const item of receipt.items) {
+        if (item.productId) {
+          receivedQuantities[item.productId] = (receivedQuantities[item.productId] || 0) + item.quantity;
+        }
+      }
+    }
+
+    // Calculate already returned quantities per product
+    const returnedQuantities: Record<string, number> = {};
+    for (const pr of previousReturns) {
+      // Prefer returnItems JSON
+      interface ReturnItemJson { productSystemId: string; returnQuantity: number }
+      const returnItems = pr.returnItems as ReturnItemJson[] | null;
+      if (returnItems && Array.isArray(returnItems)) {
+        for (const item of returnItems) {
+          if (item.productSystemId) {
+            returnedQuantities[item.productSystemId] = (returnedQuantities[item.productSystemId] || 0) + (item.returnQuantity || 0);
+          }
+        }
+      } else if (pr.items && pr.items.length > 0) {
+        for (const item of pr.items) {
+          if (item.productId) {
+            returnedQuantities[item.productId] = (returnedQuantities[item.productId] || 0) + item.quantity;
+          }
+        }
+      }
+    }
+
     for (const item of items) {
       if (item.returnQuantity <= 0) {
         return apiError('Return quantity must be greater than 0', 400);
       }
 
+      // ✅ FIX: Also match by product.id (SKU) to handle legacy data or frontend sending SKU
       const poItem = purchaseOrder.items.find(
-        (poi) => poi.productId === item.productSystemId
+        (poi) => poi.productId === item.productSystemId || poi.product?.id === item.productSystemId
       );
 
       if (!poItem) {
@@ -235,10 +312,18 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Check if return quantity exceeds ordered quantity
-      if (item.returnQuantity > poItem.quantity) {
+      // ✅ FIX: Use resolved productId (systemId from FK) for quantity lookups
+      const resolvedProductId = poItem.productId || item.productSystemId;
+      
+      // ✅ FIX: Calculate actual returnable quantity = received - already_returned
+      const totalReceived = receivedQuantities[resolvedProductId] || 0;
+      const totalReturned = returnedQuantities[resolvedProductId] || 0;
+      const returnableQty = totalReceived - totalReturned;
+
+      // Check if return quantity exceeds returnable quantity
+      if (item.returnQuantity > returnableQty) {
         return apiError(
-          `Return quantity (${item.returnQuantity}) exceeds ordered quantity (${poItem.quantity}) for product ${poItem.product?.name || poItem.productName}`,
+          `Số lượng trả (${item.returnQuantity}) vượt quá số lượng có thể trả (${returnableQty}) cho sản phẩm ${poItem.product?.name || poItem.productName}. Đã nhập: ${totalReceived}, Đã trả: ${totalReturned}`,
           400
         );
       }
@@ -281,7 +366,8 @@ export async function POST(request: NextRequest) {
           systemId,
           id: businessId,
           supplierId: purchaseOrder.supplierId ?? undefined,
-          supplierSystemId: purchaseOrder.supplierId ?? undefined,
+          // ✅ FIX: Use supplierSystemId from PO, not supplierId
+          supplierSystemId: purchaseOrder.supplierSystemId ?? purchaseOrder.supplier?.systemId ?? undefined,
           supplierName: purchaseOrder.supplier?.name ?? purchaseOrder.supplierName ?? undefined,
           purchaseOrderId: purchaseOrder.id,
           purchaseOrderSystemId: purchaseOrder.systemId,
@@ -298,27 +384,40 @@ export async function POST(request: NextRequest) {
           refundAmount: finalRefundAmount,
           refundMethod: refundMethod || null,
           accountSystemId: accountSystemId || null,
-          createdBy: session.user?.id || null,
-          creatorName: session.user?.name || null,
+          createdBy: result.data.createdBy || session!.user?.id || null,
+          creatorName: result.data.creatorName || session!.user?.name || null,
           // Store items as JSON for flexible structure
-          returnItems: items.map((item) => ({
-            productSystemId: item.productSystemId,
-            productId: item.productId || item.productSystemId,
-            productName: item.productName || 'Unknown Product',
-            orderedQuantity: item.orderedQuantity || 0,
-            returnQuantity: item.returnQuantity,
-            unitPrice: item.unitPrice,
-            note: item.note || null,
-          })),
+          returnItems: items.map((item) => {
+            // Find the PO item to get product name if not provided
+            const poItem = purchaseOrder.items.find(
+              (poi) => poi.productId === item.productSystemId || poi.product?.id === item.productSystemId
+            );
+            const productName = item.productName || poItem?.product?.name || poItem?.productName || 'Unknown Product';
+            const imageUrl = poItem?.product?.imageUrl || null;
+            // ✅ FIX: Use poItem.productId (actual systemId from FK) for productSystemId
+            const resolvedProductSystemId = poItem?.productId || item.productSystemId;
+            return {
+              productSystemId: resolvedProductSystemId,
+              productId: poItem?.product?.id || item.productId || item.productSystemId,
+              productName,
+              orderedQuantity: item.orderedQuantity || poItem?.quantity || 0,
+              returnQuantity: item.returnQuantity,
+              unitPrice: item.unitPrice,
+              note: item.note || null,
+              imageUrl, // ✅ Include product image URL
+            };
+          }),
           // Create individual item records for relational queries
           items: {
             create: items.map((item) => {
-              const _poItem = purchaseOrder.items.find(
-                (poi) => poi.productId === item.productSystemId
+              const poItem = purchaseOrder.items.find(
+                (poi) => poi.productId === item.productSystemId || poi.product?.id === item.productSystemId
               );
+              // ✅ FIX: Use poItem.productId (actual systemId from FK)
+              const resolvedProductSystemId = poItem?.productId || item.productSystemId;
               return {
                 systemId: uuidv4(),
-                productId: item.productSystemId,
+                productId: resolvedProductSystemId,
                 quantity: item.returnQuantity,
                 unitPrice: item.unitPrice,
                 total: item.unitPrice * item.returnQuantity,
@@ -333,53 +432,61 @@ export async function POST(request: NextRequest) {
         },
       });
 
+      // ✅ FIX: Build a map of resolved product systemIds from PO items
+      // PO items have correct productId (Product.systemId) from FK relation
+      // This handles cases where input productSystemId might be SKU instead of systemId
+      const productSystemIdMap = new Map<string, string>();
+      for (const item of items) {
+        const poItem = purchaseOrder.items.find(
+          (poi) => poi.productId === item.productSystemId || poi.product?.id === item.productSystemId
+        );
+        if (poItem?.productId) {
+          // poItem.productId is the actual Product.systemId from FK
+          productSystemIdMap.set(item.productSystemId, poItem.productId);
+        }
+      }
+
       // Update inventory - deduct returned quantities
       for (const item of items) {
-        // Get current inventory for stock history
-        let currentStock = 0;
-        if (branchSystemId) {
-          const productInventory = await tx.productInventory.findUnique({
-            where: {
-              productId_branchId: {
-                productId: item.productSystemId,
-                branchId: branchSystemId,
-              },
-            },
-          });
-          currentStock = productInventory?.onHand || 0;
-        }
-        // ✅ FIX: Allow negative stock values - inventory can go negative
-        // Previously used Math.max(0, ...) which caused StockHistory.newStockLevel
-        // to show 0 while ProductInventory.onHand showed negative values
-        const newStock = currentStock - item.returnQuantity;
+        // ✅ FIX: Resolve correct product systemId from PO items
+        const resolvedProductSystemId = productSystemIdMap.get(item.productSystemId) || item.productSystemId;
 
         // Update product inventory for the branch
         if (branchSystemId) {
-          // ✅ FIX: Use decrement to accurately track inventory changes
-          // Allowing negative values to properly track oversold/over-returned inventory
-          await tx.productInventory.updateMany({
+          // ✅ Use upsert to get actual DB value after update
+          const updatedInventory = await tx.productInventory.upsert({
             where: {
-              productId: item.productSystemId,
-              branchId: branchSystemId,
+              productId_branchId: {
+                productId: resolvedProductSystemId,
+                branchId: branchSystemId,
+              },
             },
-            data: {
+            update: {
               onHand: { decrement: item.returnQuantity },
+            },
+            create: {
+              productId: resolvedProductSystemId,
+              branchId: branchSystemId,
+              onHand: -item.returnQuantity,
+              committed: 0,
+              inTransit: 0,
+              inDelivery: 0,
             },
           });
           
-          // ✅ Create stock history record
+          // ✅ Create stock history record with actual DB value
           await tx.stockHistory.create({
             data: {
-              productId: item.productSystemId,
+              productId: resolvedProductSystemId,
               branchId: branchSystemId,
               action: 'Xuất kho trả NCC',
               source: 'Phiếu trả hàng nhập',
               quantityChange: -item.returnQuantity,
-              newStockLevel: newStock,
+              newStockLevel: updatedInventory.onHand, // ✅ Use actual DB value
               documentId: newReturn.id,
               documentType: 'purchase_return',
-              employeeId: session.user?.id,
-              employeeName: session.user?.name || undefined,
+              employeeId: session!.user?.id,
+              employeeName: session!.user?.name || undefined,
               note: `Xuất kho trả hàng cho NCC - ${item.productName || item.productSystemId}`,
             },
           });
@@ -387,7 +494,7 @@ export async function POST(request: NextRequest) {
 
         // Update general inventory if exists
         const inventory = await tx.inventory.findFirst({
-          where: { productId: item.productSystemId },
+          where: { productId: resolvedProductSystemId },
         });
 
         if (inventory) {
@@ -400,13 +507,14 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Update supplier balance - debit for return (they owe us)
-      if (finalRefundAmount > 0 && purchaseOrder.supplierId) {
+      // Update supplier balance - debit for return (they owe us the full return value)
+      // Note: Receipt for refund is created separately and will be a positive change to balance
+      if (purchaseOrder.supplierId) {
         await tx.supplier.update({
           where: { systemId: purchaseOrder.supplierId },
           data: {
-            currentDebt: { decrement: finalRefundAmount }, // Reduce debt or increase credit
-            totalDebt: { decrement: finalRefundAmount },
+            currentDebt: { decrement: totalReturnValue }, // Reduce debt by full return value
+            totalDebt: { decrement: totalReturnValue },
           },
         });
       }
@@ -442,21 +550,54 @@ export async function POST(request: NextRequest) {
           action: 'created',
           actionType: 'create',
           changes: { status: { from: null, to: 'PENDING' } },
-          note: `Purchase return created for order ${purchaseOrder.id}`,
-          createdBy: session.user?.id || null,
-          metadata: { userName: session.user?.name || 'System' },
+          note: `Tạo phiếu trả hàng cho đơn ${purchaseOrder.id}`,
+          createdBy: session!.user?.employee?.fullName || session!.user?.name || session!.user?.id || null,
+          metadata: { userName: session!.user?.name || 'System' },
         },
       });
 
       return newReturn;
     });
 
-    return apiSuccess(purchaseReturn, 201);
-  } catch (error) {
-    console.error('[Purchase Returns API] POST error:', error);
-    if (error instanceof Error) {
-      return apiError(error.message, 500);
+    // Convert Decimal fields to numbers for serialization
+    const serializable = {
+      ...purchaseReturn,
+      subtotal: Number(purchaseReturn.subtotal),
+      total: Number(purchaseReturn.total),
+      totalReturnValue: Number(purchaseReturn.totalReturnValue),
+      refundAmount: Number(purchaseReturn.refundAmount),
+      items: purchaseReturn.items?.map((item: { unitPrice?: unknown; total?: unknown }) => ({
+        ...item,
+        unitPrice: Number(item.unitPrice ?? 0),
+        total: Number(item.total ?? 0),
+      })),
+    };
+
+    // Sync inventory changes to Meilisearch
+    if (items.length > 0) {
+      const productSystemIds = items.map((item: { productSystemId: string }) => item.productSystemId);
+      syncProductsInventory(productSystemIds).catch(err =>
+        logError('[Purchase Returns API] Meilisearch sync failed', err)
+      );
     }
-    return apiError('Failed to create purchase return', 500);
+
+    // ✅ Notify PO buyer about purchase return
+    if (purchaseOrder.buyerSystemId && purchaseOrder.buyerSystemId !== session!.user?.employeeId) {
+      createNotification({
+        type: 'purchase_return',
+        settingsKey: 'purchase-return:updated',
+        title: 'Trả hàng nhà cung cấp',
+        message: `Phiếu trả hàng NCC cho đơn ${purchaseOrder.id || purchaseOrderSystemId}${reason ? ` - Lý do: ${reason}` : ''}`,
+        link: `/purchase-returns/${purchaseReturn.systemId}`,
+        recipientId: purchaseOrder.buyerSystemId,
+        senderId: session!.user?.employeeId,
+        senderName: session!.user?.name,
+      }).catch(e => logError('[Purchase Returns POST] notification failed', e))
+    }
+
+    return apiSuccess(serializable, 201);
+  } catch (error) {
+    logError('[Purchase Returns API] POST error', error);
+    return apiError('Không thể tạo phiếu trả hàng nhập', 500);
   }
-}
+})

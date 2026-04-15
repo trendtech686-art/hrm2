@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
+import { logError } from '@/lib/logger'
 
 /**
  * GET /api/attendance/employee-summary?employeeId=X
@@ -60,7 +61,7 @@ export async function GET(request: Request) {
 
     return apiSuccess(summaries)
   } catch (error) {
-    console.error('[API] Error fetching employee attendance summary:', error)
+    logError('[API] Error fetching employee attendance summary', error)
     return apiError('Failed to fetch attendance summary', 500)
   }
 }

@@ -15,7 +15,7 @@ import { Badge } from "../../../components/ui/badge";
 import { Checkbox } from "../../../components/ui/checkbox";
 import { ScrollArea } from "../../../components/ui/scroll-area";
 import { useAllDepartments } from "../departments/hooks/use-all-departments";
-import { Info, Calculator, Building2, Banknote, Receipt, Coins } from "lucide-react";
+import { Info, Calculator, Building2, Banknote, Receipt, Coins, Loader2 } from "lucide-react";
 import type { SystemId } from "@/lib/id-types";
 import { useEmployeeSettings, useEmployeeSettingsMutation } from "./hooks/use-employee-settings";
 
@@ -25,6 +25,7 @@ type SalaryComponentFormProps = {
   initialData?: SalaryComponentFormValues | undefined;
   onSubmit: (values: SalaryComponentFormValues) => void;
   onCancel: () => void;
+  isPending?: boolean;
 };
 
 const categoryOptions: { value: SalaryComponentCategory; label: string; icon: React.ReactNode; color: string }[] = [
@@ -33,7 +34,7 @@ const categoryOptions: { value: SalaryComponentCategory; label: string; icon: Re
   { value: 'contribution', label: 'Đóng góp', icon: <Coins className="h-4 w-4" />, color: 'bg-blue-500/10 text-blue-700 border-blue-200' },
 ];
 
-export function SalaryComponentForm({ initialData, onSubmit, onCancel }: SalaryComponentFormProps) {
+export function SalaryComponentForm({ initialData, onSubmit, onCancel, isPending }: SalaryComponentFormProps) {
   const { data: departments } = useAllDepartments();
   const { data: settings } = useEmployeeSettings();
   const saveMutation = useEmployeeSettingsMutation();
@@ -57,7 +58,8 @@ export function SalaryComponentForm({ initialData, onSubmit, onCancel }: SalaryC
     },
   });
 
-  // Reset form when initialData changes
+  // Reset form when initialData changes (compare by name to avoid object reference loops)
+  const initialName = initialData?.name;
   React.useEffect(() => {
     if (initialData) {
       form.reset(initialData);
@@ -76,7 +78,8 @@ export function SalaryComponentForm({ initialData, onSubmit, onCancel }: SalaryC
         applicableDepartmentSystemIds: [],
       });
     }
-  }, [initialData, form]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialName]);
 
   const componentType = form.watch('type');
   const selectedCategory = form.watch('category');
@@ -382,7 +385,10 @@ export function SalaryComponentForm({ initialData, onSubmit, onCancel }: SalaryC
             </Badge>
           </div>
           <Button type="button" variant="outline" onClick={onCancel}>Hủy</Button>
-          <Button type="submit">Lưu</Button>
+          <Button type="submit" disabled={isPending}>
+            {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isPending ? 'Đang lưu...' : 'Lưu'}
+          </Button>
         </DialogFooter>
       </form>
     </Form>

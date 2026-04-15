@@ -6,18 +6,14 @@
  */
 
 import { prisma } from '@/lib/prisma'
-import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
+import { apiSuccess, apiError } from '@/lib/api-utils'
+import { apiHandler } from '@/lib/api-handler'
+import { logError } from '@/lib/logger'
+import { createNotification } from '@/lib/notifications'
 
-interface RouteParams {
-  params: Promise<{ systemId: string }>
-}
-
-export async function POST(_request: Request, { params }: RouteParams) {
-  const session = await requireAuth()
-  if (!session) return apiError('Unauthorized', 401)
-
+export const POST = apiHandler(async (_request, { session, params }) => {
   try {
-    const { systemId } = await params
+    const { systemId } = params
 
     // Fetch purchase order with items
     const po = await prisma.purchaseOrder.findUnique({
@@ -53,10 +49,11 @@ export async function POST(_request: Request, { params }: RouteParams) {
 
     const newDeliveryStatus = anyItemReceived ? 'Đã nhập' : 'Chưa nhập'
 
-    // Get payment info to determine overall status
+    // Get payment info to determine overall status (exclude cancelled)
     const payments = await prisma.payment.findMany({
       where: { 
         purchaseOrderSystemId: systemId,
+        status: { not: 'cancelled' },
       },
     })
     const totalPaid = payments.reduce((sum, p) => sum + Number(p.amount), 0)
@@ -78,7 +75,7 @@ export async function POST(_request: Request, { params }: RouteParams) {
       newPaymentStatus = 'Chưa thanh toán'
     }
 
-    // Determine overall status - use enum values
+    // Determine overall status - use Prisma enum values for database
     let newStatus = po.status
     if (po.status !== 'CANCELLED') {
       if (newDeliveryStatus === 'Đã nhập' && newPaymentStatus === 'Đã thanh toán') {
@@ -92,12 +89,16 @@ export async function POST(_request: Request, { params }: RouteParams) {
 
     // Update if changed
     if (po.deliveryStatus !== newDeliveryStatus || po.status !== newStatus || po.paymentStatus !== newPaymentStatus) {
-      // Get latest receipt for history entry
+      // Get latest receipt for history entry - use receiptDate (always populated) or receivedDate
       const latestReceipt = receipts
-        .filter(r => r.receivedDate != null)
-        .sort((a, b) => 
-          new Date(b.receivedDate!).getTime() - new Date(a.receivedDate!).getTime()
-        )[0]
+        .filter(r => r.receiptDate != null || r.receivedDate != null)
+        .sort((a, b) => {
+          const dateA = new Date(a.receivedDate || a.receiptDate || 0).getTime()
+          const dateB = new Date(b.receivedDate || b.receiptDate || 0).getTime()
+          return dateB - dateA
+        })[0]
+      
+      const latestReceiptDate = latestReceipt?.receivedDate || latestReceipt?.receiptDate
 
       const historyEntry = {
         action: 'status_changed',
@@ -115,7 +116,7 @@ export async function POST(_request: Request, { params }: RouteParams) {
       }
 
       // Log activity to centralized ActivityLog table
-      await prisma.activityLog.create({
+      prisma.activityLog.create({
         data: {
           entityType: 'purchase_order',
           entityId: systemId,
@@ -126,7 +127,7 @@ export async function POST(_request: Request, { params }: RouteParams) {
           createdBy: latestReceipt?.receiverSystemId || null,
           metadata: { userName: latestReceipt?.receiverName || 'Hệ thống' },
         },
-      });
+      }).catch(e => logError('Activity log failed', e));
 
       const updatedPO = await prisma.purchaseOrder.update({
         where: { systemId },
@@ -134,9 +135,10 @@ export async function POST(_request: Request, { params }: RouteParams) {
           deliveryStatus: newDeliveryStatus,
           paymentStatus: newPaymentStatus,
           status: newStatus,
-          // Set delivery date if first time receiving
-          ...(po.deliveryStatus === 'Chưa nhập' && newDeliveryStatus !== 'Chưa nhập' && latestReceipt?.receivedDate ? {
-            deliveryDate: latestReceipt.receivedDate,
+          // Set delivery/received date if first time receiving
+          ...(po.deliveryStatus === 'Chưa nhập' && newDeliveryStatus !== 'Chưa nhập' && latestReceiptDate ? {
+            deliveryDate: latestReceiptDate,
+            receivedDate: latestReceiptDate, // Also set receivedDate for display
           } : {}),
         },
         include: {
@@ -145,13 +147,27 @@ export async function POST(_request: Request, { params }: RouteParams) {
         },
       })
 
+      // Notify buyer about delivery status change
+      if (updatedPO.buyerSystemId && updatedPO.buyerSystemId !== session!.user?.employeeId) {
+        createNotification({
+          type: 'purchase_order',
+          settingsKey: 'purchase-order:updated',
+          title: 'Cập nhật nhập hàng',
+          message: `Đơn mua hàng ${updatedPO.id || systemId} - trạng thái giao hàng: ${newDeliveryStatus}`,
+          link: `/purchase-orders/${systemId}`,
+          recipientId: updatedPO.buyerSystemId,
+          senderId: session!.user?.employeeId,
+          senderName: session!.user?.name,
+        }).catch(e => logError('[PO Process Receipt] notification failed', e));
+      }
+
       return apiSuccess(updatedPO)
     }
 
     // No changes needed
     return apiSuccess(po)
   } catch (error) {
-    console.error('Error processing inventory receipt:', error)
-    return apiError('Failed to process inventory receipt', 500)
+    logError('Error processing inventory receipt', error)
+    return apiError('Không thể xử lý phiếu nhập kho', 500)
   }
-}
+})

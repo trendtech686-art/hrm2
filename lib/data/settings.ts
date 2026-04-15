@@ -172,7 +172,6 @@ export const getCustomersForSelect = unstable_cache(
         id: true,
         name: true,
         phone: true,
-        email: true,
         address: true,
       },
     });

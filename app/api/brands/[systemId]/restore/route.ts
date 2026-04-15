@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
+import { logError } from '@/lib/logger'
 
 interface RouteParams {
   params: Promise<{ systemId: string }>
@@ -25,6 +26,10 @@ export async function POST(_request: Request, { params }: RouteParams) {
       return apiError('Thương hiệu chưa bị xóa', 400)
     }
 
+    if (brand.permanentlyDeletedAt) {
+      return apiError('Thương hiệu đã được lưu trữ vĩnh viễn, không thể khôi phục', 400)
+    }
+
     const restoredBrand = await prisma.brand.update({
       where: { systemId },
       data: {
@@ -35,7 +40,7 @@ export async function POST(_request: Request, { params }: RouteParams) {
 
     return apiSuccess(restoredBrand)
   } catch (error) {
-    console.error('Error restoring brand:', error)
-    return apiError('Failed to restore brand', 500)
+    logError('Error restoring brand', error)
+    return apiError('Không thể khôi phục thương hiệu', 500)
   }
 }

@@ -251,8 +251,7 @@ export const getColumns = (
       return (
         <a 
           href={brand.website} 
-          target="_blank" 
-          rel="noopener noreferrer"
+          target="_blank" rel="noopener noreferrer" 
           className="flex items-center gap-1 text-primary hover:underline text-sm"
           onClick={(e) => e.stopPropagation()}
         >

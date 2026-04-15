@@ -10,7 +10,9 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { SettingsActionButton } from '@/components/settings/SettingsActionButton';
 import { toast } from 'sonner';
+import { useMutation } from '@tanstack/react-query';
 import type { TabContentProps } from './types';
+import { logError } from '@/lib/logger'
 
 interface LocalIntegrationSettings {
   smtpHost: string;
@@ -32,37 +34,41 @@ const LOCAL_DEFAULT_INTEGRATION_SETTINGS: LocalIntegrationSettings = {
   enableTLS: true,
 };
 
-const INTEGRATION_PREFERENCE_KEY = 'local-integration-settings';
+const SMTP_SETTINGS_KEY = 'smtp_settings';
+const SMTP_SETTINGS_GROUP = 'smtp';
 
 export function IntegrationTabContent({ isActive, onRegisterActions }: TabContentProps) {
   const [settings, setSettings] = React.useState<LocalIntegrationSettings>(LOCAL_DEFAULT_INTEGRATION_SETTINGS);
-  const [isSaving, setIsSaving] = React.useState(false);
   const [hasChanges, setHasChanges] = React.useState(false);
   const [showToken, setShowToken] = React.useState(false);
-  const [_isLoading, setIsLoading] = React.useState(true);
-  const originalSettings = React.useRef(JSON.stringify(settings));
+  const [testEmail, setTestEmail] = React.useState('');
+  const [isSendingTest, setIsSendingTest] = React.useState(false);
+  const originalSettings = React.useRef(JSON.stringify(LOCAL_DEFAULT_INTEGRATION_SETTINGS));
   
-  // Load from API on mount
-  React.useEffect(() => {
-    const loadFromAPI = async () => {
-      try {
-        const response = await fetch(`/api/user-preferences?category=system-settings&key=${INTEGRATION_PREFERENCE_KEY}`);
-        if (response.ok) {
-          const data = await response.json();
-          if (data.value) {
-            const loaded = { ...LOCAL_DEFAULT_INTEGRATION_SETTINGS, ...data.value };
-            setSettings(loaded);
-            originalSettings.current = JSON.stringify(loaded);
-          }
-        }
-      } catch (error) {
-        console.error('[IntegrationTabContent] Failed to load:', error);
-      } finally {
-        setIsLoading(false);
+  const loadFromAPI = React.useCallback(async () => {
+    try {
+      const response = await fetch(
+        `/api/settings?group=${SMTP_SETTINGS_GROUP}&key=${SMTP_SETTINGS_KEY}`,
+        { cache: 'no-store' }
+      );
+      if (!response.ok) return;
+      const result = await response.json();
+      // API trả về Setting object trực tiếp: { systemId, key, value: {...}, ... }
+      const value = result?.value;
+      if (value && typeof value === 'object') {
+        const loaded = { ...LOCAL_DEFAULT_INTEGRATION_SETTINGS, ...value };
+        setSettings(loaded);
+        originalSettings.current = JSON.stringify(loaded);
       }
-    };
-    loadFromAPI();
+    } catch (error) {
+      logError('[IntegrationTabContent] Failed to load', error);
+    }
   }, []);
+
+  // Load on mount
+  React.useEffect(() => {
+    loadFromAPI();
+  }, [loadFromAPI]);
   
   React.useEffect(() => {
     setHasChanges(JSON.stringify(settings) !== originalSettings.current);
@@ -72,27 +78,48 @@ export function IntegrationTabContent({ isActive, onRegisterActions }: TabConten
     setSettings(prev => ({ ...prev, [key]: value }));
   };
   
-  const handleSave = React.useCallback(async () => {
-    setIsSaving(true);
-    try {
-      await fetch('/api/user-preferences', {
+  const saveMutation = useMutation({
+    mutationFn: async (data: LocalIntegrationSettings) => {
+      const res = await fetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          category: 'system-settings',
-          key: INTEGRATION_PREFERENCE_KEY,
-          value: settings,
+          key: SMTP_SETTINGS_KEY,
+          group: SMTP_SETTINGS_GROUP,
+          value: data,
+          type: 'json',
+          category: 'system',
+          description: 'SMTP email configuration',
         }),
       });
-      originalSettings.current = JSON.stringify(settings);
-      toast.success('Đã lưu cài đặt tích hợp');
+      if (!res.ok) throw new Error('Save failed');
+      return res.json();
+    },
+    onSuccess: (saved) => {
+      if (saved?.value && typeof saved.value === 'object') {
+        const verified = { ...LOCAL_DEFAULT_INTEGRATION_SETTINGS, ...saved.value };
+        setSettings(verified);
+        originalSettings.current = JSON.stringify(verified);
+      } else {
+        originalSettings.current = JSON.stringify(settings);
+      }
+      toast.success('Đã lưu cài đặt SMTP');
       setHasChanges(false);
-    } catch (_error) {
+    },
+    onError: () => {
       toast.error('Có lỗi xảy ra khi lưu cài đặt');
-    } finally {
-      setIsSaving(false);
-    }
-  }, [settings]);
+    },
+  });
+
+  // Use ref to avoid re-creating handleSave on every settings change
+  const settingsRef = React.useRef(settings);
+  settingsRef.current = settings;
+
+  const { mutate, isPending: isSaving } = saveMutation;
+
+  const handleSave = React.useCallback(() => {
+    mutate(settingsRef.current);
+  }, [mutate]);
   
   React.useEffect(() => {
     if (!isActive) return;
@@ -101,7 +128,8 @@ export function IntegrationTabContent({ isActive, onRegisterActions }: TabConten
         <Save className="mr-2 h-4 w-4" /> {isSaving ? 'Đang lưu...' : 'Lưu cài đặt'}
       </SettingsActionButton>,
     ]);
-  }, [isActive, hasChanges, isSaving, handleSave, onRegisterActions]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isActive, hasChanges, isSaving, handleSave]);
 
   return (
     <div className="space-y-6">
@@ -178,14 +206,33 @@ export function IntegrationTabContent({ isActive, onRegisterActions }: TabConten
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex gap-2">
-            <Input placeholder="Email nhận test..." className="flex-1" />
-            <Button variant="outline">
+            <Input placeholder="Email nhận test..." className="flex-1" value={testEmail} onChange={(e) => setTestEmail(e.target.value)} />
+            <Button variant="outline" disabled={!testEmail || isSendingTest || hasChanges} onClick={async () => {
+              setIsSendingTest(true);
+              try {
+                const res = await fetch('/api/settings/test-email', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ to: testEmail }),
+                });
+                const result = await res.json();
+                if (res.ok) {
+                  toast.success('Email test đã gửi thành công!');
+                } else {
+                  toast.error(result.error || result.message || 'Gửi email test thất bại');
+                }
+              } catch {
+                toast.error('Không thể gửi email test');
+              } finally {
+                setIsSendingTest(false);
+              }
+            }}>
               <Send className="mr-2 h-4 w-4" />
-              Gửi email test
+              {isSendingTest ? 'Đang gửi...' : 'Gửi email test'}
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            Đảm bảo đã lưu cấu hình trước khi gửi email test
+            {hasChanges ? 'Vui lòng lưu cấu hình trước khi gửi email test' : 'Đảm bảo đã lưu cấu hình trước khi gửi email test'}
           </p>
         </CardContent>
       </Card>

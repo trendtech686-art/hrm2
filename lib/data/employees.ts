@@ -197,7 +197,7 @@ export const getEmployeeStats = cache(async () => {
         prisma.employee.count({ where: { isDeleted: false, employmentStatus: 'ACTIVE' } }),
         prisma.employee.count({ where: { isDeleted: false, employmentStatus: 'ON_LEAVE' } }),
         prisma.employee.count({ where: { isDeleted: false, employmentStatus: 'TERMINATED' } }),
-        prisma.employee.count({ where: { isDeleted: true } }),
+        prisma.employee.count({ where: { isDeleted: true, permanentlyDeletedAt: null } }),
       ]);
 
       return { total, active, onLeave, resigned, deleted };

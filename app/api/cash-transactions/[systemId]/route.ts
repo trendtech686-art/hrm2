@@ -4,6 +4,8 @@
 
 import { prisma } from '@/lib/prisma'
 import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
+import { logError } from '@/lib/logger'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 type RouteParams = {
   params: Promise<{ systemId: string }>;
@@ -30,7 +32,7 @@ export async function GET(request: Request, { params }: RouteParams) {
 
     return apiSuccess(cashTransaction);
   } catch (error) {
-    console.error('[Cash Transactions API] GET by ID error:', error);
+    logError('[Cash Transactions API] GET by ID error', error);
     return apiError('Failed to fetch cash transaction', 500);
   }
 }
@@ -73,9 +75,18 @@ export async function DELETE(request: Request, { params }: RouteParams) {
       });
     });
 
+    createActivityLog({
+      entityType: 'cash_transaction',
+      entityId: systemId,
+      action: 'deleted',
+      actionType: 'delete',
+      metadata: { type: transaction.type, amount: Number(transaction.amount), businessId: transaction.id },
+      createdBy: session.user?.employee?.fullName || session.user?.email || 'System',
+    })
+
     return apiSuccess({ success: true });
   } catch (error) {
-    console.error('[Cash Transactions API] DELETE error:', error);
+    logError('[Cash Transactions API] DELETE error', error);
     return apiError('Failed to delete cash transaction', 500);
   }
 }

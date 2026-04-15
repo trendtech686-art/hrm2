@@ -4,7 +4,7 @@ import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { useTasks, useTaskMutations, useTaskStats, type TaskStats } from "./hooks/use-tasks"
 import { getColumns } from "./columns"
-import type { Task, TaskStatus, TaskPriority } from "./types"
+import type { Task } from "./types"
 import { usePageHeader } from "../../contexts/page-header-context";
 import { useBreakpoint } from "../../contexts/breakpoint-context";
 import { useAuth } from "../../contexts/auth-context";
@@ -12,21 +12,26 @@ import { useAllEmployees } from "../employees/hooks/use-all-employees";
 import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table"
 import { PageFilters } from "../../components/layout/page-filters"
 import { PageToolbar } from "../../components/layout/page-toolbar"
-import { StatsCard, StatsCardGrid } from "../../components/shared/stats-card"
+import { StatsBar } from "../../components/shared/stats-bar"
 import { Button } from "../../components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "../../components/ui/tabs"
-import { PlusCircle, LayoutGrid, Table, BarChart3, FileText, Repeat, Settings, Clock, CheckCircle2, AlertTriangle, ListTodo } from "lucide-react"
+import { PlusCircle, LayoutGrid, Table, BarChart3, FileText, Settings, Loader2 } from "lucide-react"
+import { cn } from '@/lib/utils';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../components/ui/alert-dialog"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
+
 import { TaskCard } from "./components/task-card";
 import { DynamicDataTableColumnCustomizer as DataTableColumnCustomizer } from '../../components/data-table/dynamic-column-customizer';
 import { toast } from "sonner";
 import { QuickFilters, QuickFiltersCompact } from "./components/QuickFilters";
 import { createQuickFilters } from "./types-filter";
 import type { SystemId } from '../../lib/id-types';
-import { useColumnVisibility } from "../../hooks/use-column-visibility";
+import { useColumnVisibility, useColumnOrder, usePinnedColumns } from "../../hooks/use-column-visibility";
+import { AdvancedFilterPanel, FilterExtras, type FilterConfig } from '../../components/shared/advanced-filter-panel';
+import { useFilterPresets } from '../../hooks/use-filter-presets';
 
 const TaskKanbanView = dynamic(() => import("./components/kanban-view").then(mod => ({ default: mod.TaskKanbanView })), { ssr: false, loading: () => <div className="flex items-center justify-center py-20"><div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" /></div> });
+import { usePaginationWithGlobalDefault } from '@/features/settings/global/hooks/use-global-settings';
+import { FAB } from '@/components/mobile/fab';
 
 export interface TasksPageProps {
   initialStats?: TaskStats;
@@ -41,7 +46,7 @@ export function TasksPage({ initialStats }: TasksPageProps = {}) {
   const [debouncedSearch, setDebouncedSearch] = React.useState('');
   React.useEffect(() => { const t = setTimeout(() => setDebouncedSearch(search), 300); return () => clearTimeout(t); }, [search]);
 
-  const { data: tasksData } = useTasks({ search: debouncedSearch || undefined });
+  const { data: tasksData, isFetching: isTasksFetching } = useTasks({ search: debouncedSearch || undefined });
   const allTasks = React.useMemo(() => tasksData?.data ?? [], [tasksData?.data]);
   const { remove: removeMutation, update: updateMutation } = useTaskMutations({
     onSuccess: () => {
@@ -67,8 +72,16 @@ export function TasksPage({ initialStats }: TasksPageProps = {}) {
   
   const { data: employees } = useAllEmployees();
   const { isMobile } = useBreakpoint();
-  const { isAdmin, employee } = useAuth();
+  const { isAdmin, employee, can } = useAuth();
   const router = useRouter();
+
+  // Only admins / managers can access the full task management page
+  // Employees are redirected to /my-tasks
+  React.useEffect(() => {
+    if (!isAdmin && !can('manage_tasks')) {
+      router.replace('/my-tasks');
+    }
+  }, [isAdmin, can, router]);
   const quickFilters = React.useMemo(() => createQuickFilters({ employeeId: employee?.systemId, username: employee?.fullName }), [employee?.systemId, employee?.fullName]);
   const [activeQuickFilters, setActiveQuickFilters] = React.useState<string[]>([]);
   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
@@ -77,20 +90,49 @@ export function TasksPage({ initialStats }: TasksPageProps = {}) {
   const [mobileLoadedCount, setMobileLoadedCount] = React.useState(20);
   const [viewMode, setViewMode] = React.useState<'list' | 'kanban'>('list');
   const [sorting, setSorting] = React.useState<{ id: string, desc: boolean }>({ id: 'createdAt', desc: true });
-  const [statusFilter, setStatusFilter] = React.useState<"all" | TaskStatus>('all');
-  const [priorityFilter, setPriorityFilter] = React.useState<"all" | TaskPriority>('all');
-  const [assigneeFilter, setAssigneeFilter] = React.useState('all');
-  const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 20 });
+  const [pagination, setPagination] = usePaginationWithGlobalDefault();
+
+  // Advanced filter panel
+  const { presets, savePreset, deletePreset, updatePreset } = useFilterPresets('tasks');
+  const filterConfigs: FilterConfig[] = React.useMemo(() => [
+    { id: 'status', label: 'Trạng thái', type: 'select' as const, options: [
+      { value: 'all', label: 'Tất cả' }, { value: 'Chưa bắt đầu', label: 'Chưa bắt đầu' }, { value: 'Đang thực hiện', label: 'Đang thực hiện' },
+      { value: 'Chờ duyệt', label: 'Chờ duyệt' }, { value: 'Hoàn thành', label: 'Hoàn thành' }, { value: 'Đã hủy', label: 'Đã hủy' },
+    ] },
+    { id: 'priority', label: 'Độ ưu tiên', type: 'select' as const, options: [
+      { value: 'all', label: 'Tất cả' }, { value: 'Thấp', label: 'Thấp' }, { value: 'Trung bình', label: 'Trung bình' },
+      { value: 'Cao', label: 'Cao' }, { value: 'Khẩn cấp', label: 'Khẩn cấp' },
+    ] },
+    { id: 'assignee', label: 'Người thực hiện', type: 'select' as const, options: [
+      { value: 'all', label: 'Tất cả' }, ...employees.map(e => ({ value: e.systemId, label: e.fullName })),
+    ] },
+    { id: 'dateRange', label: 'Ngày tạo', type: 'date-range' as const },
+  ], [employees]);
+  const [advancedFilters, setAdvancedFilters] = React.useState<Record<string, unknown>>({});
+  const panelValues = React.useMemo(() => ({
+    status: advancedFilters.status ?? null,
+    priority: advancedFilters.priority ?? null,
+    assignee: advancedFilters.assignee ?? null,
+    dateRange: advancedFilters.dateRange ?? null,
+  }), [advancedFilters]);
+  const handlePanelApply = React.useCallback((v: Record<string, unknown>) => {
+    setAdvancedFilters(v);
+    setPagination(p => ({ ...p, pageIndex: 0 }));
+  }, [setPagination]);
+
   const defaultColVis = React.useMemo(() => { const cols = getColumns(() => {}, () => {}, () => {}); const v: Record<string, boolean> = {}; cols.forEach(c => { if (c.id) v[c.id] = true; }); return v; }, []);
   const [columnVisibility, setColumnVisibility] = useColumnVisibility('tasks', defaultColVis);
-  const [columnOrder, setColumnOrder] = React.useState<string[]>([]);
-  const [pinnedColumns, setPinnedColumns] = React.useState<string[]>(['select', 'id']);
+  const [columnOrder, setColumnOrder] = useColumnOrder('tasks');
+  const [pinnedColumns, setPinnedColumns] = usePinnedColumns('tasks', ['select', 'id']);
   const handleDelete = React.useCallback((id: SystemId) => { setIdToDelete(id); setIsAlertOpen(true); }, []);
-  const columns = React.useMemo(() => getColumns(handleDelete, () => {}, router.push, isAdmin), [handleDelete, router, isAdmin]);
+  const canEditTasks = can('edit_tasks');
+  const canDeleteTasks = can('delete_tasks');
+  const showActions = canEditTasks || canDeleteTasks;
+  const columns = React.useMemo(() => getColumns(handleDelete, () => {}, router.push, showActions), [handleDelete, router, showActions]);
   const colInitRef = React.useRef(false);
 
   React.useEffect(() => { restoreTimer(); }, [restoreTimer]);
-  React.useEffect(() => { setMobileLoadedCount(20); }, [debouncedSearch, statusFilter, priorityFilter, assigneeFilter]);
+  React.useEffect(() => { setMobileLoadedCount(20); }, [debouncedSearch, advancedFilters]);
   React.useEffect(() => {
     if (colInitRef.current || !columns.length) return;
     const defVisible = ['id', 'title', 'assigneeName', 'assignerName', 'priority', 'status', 'progress', 'startDate', 'dueDate', 'estimatedHours', 'actualHours'];
@@ -100,16 +142,23 @@ export function TasksPage({ initialStats }: TasksPageProps = {}) {
   }, [columns, setColumnVisibility]);
 
   const empSysId = employee?.systemId;
-  const tasks = React.useMemo(() => isAdmin ? allTasks : !empSysId ? allTasks : allTasks.filter(t => t.assignees?.some(a => a.employeeSystemId === empSysId) || t.assigneeId === empSysId), [isAdmin, allTasks, empSysId]);
+  const canViewAllTasks = can('view_tasks') && (isAdmin || can('approve_tasks'));
+  const tasks = React.useMemo(() => canViewAllTasks ? allTasks : !empSysId ? allTasks : allTasks.filter(t => t.assignees?.some(a => a.employeeSystemId === empSysId) || t.assigneeId === empSysId), [canViewAllTasks, allTasks, empSysId]);
   // Server-side search - filter only by facets
   const filteredData = React.useMemo(() => {
     let d = tasks;
-    if (statusFilter !== 'all') d = d.filter(r => r.status === statusFilter);
-    if (priorityFilter !== 'all') d = d.filter(r => r.priority === priorityFilter);
-    if (assigneeFilter !== 'all') d = d.filter(r => r.assigneeId === assigneeFilter);
+    const status = advancedFilters.status as string | undefined;
+    const priority = advancedFilters.priority as string | undefined;
+    const assignee = advancedFilters.assignee as string | undefined;
+    const dateRange = advancedFilters.dateRange as { from?: string; to?: string } | null;
+    if (status && status !== 'all') d = d.filter(r => r.status === status);
+    if (priority && priority !== 'all') d = d.filter(r => r.priority === priority);
+    if (assignee && assignee !== 'all') d = d.filter(r => r.assigneeId === assignee);
+    if (dateRange?.from) { const from = new Date(dateRange.from).getTime(); d = d.filter(r => r.createdAt && new Date(r.createdAt).getTime() >= from); }
+    if (dateRange?.to) { const to = new Date(dateRange.to).getTime() + 86400000; d = d.filter(r => r.createdAt && new Date(r.createdAt).getTime() < to); }
     if (activeQuickFilters.length) { const fns = quickFilters.filter(q => activeQuickFilters.includes(q.id)).map(q => q.filter); d = d.filter(t => fns.every(fn => fn(t))); }
     return d;
-  }, [tasks, statusFilter, priorityFilter, assigneeFilter, activeQuickFilters, quickFilters]);
+  }, [tasks, advancedFilters, activeQuickFilters, quickFilters]);
 
   React.useEffect(() => {
     if (!isMobile) return;
@@ -136,43 +185,49 @@ export function TasksPage({ initialStats }: TasksPageProps = {}) {
   const bulkActions = [
     { label: "Đánh dấu Đang thực hiện", onSelect: (rows: Task[]) => { rows.forEach(t => update(t.systemId, { ...t, status: "Đang thực hiện" })); toast.success("Đã cập nhật trạng thái", { description: `${rows.length} công việc đã chuyển sang "Đang thực hiện"` }); setRowSelection({}); } },
     { label: "Đánh dấu Hoàn thành", onSelect: (rows: Task[]) => { const now = new Date().toISOString().split('T')[0]; rows.forEach(t => update(t.systemId, { ...t, status: "Hoàn thành", progress: 100, completedDate: now })); toast.success("Đã cập nhật trạng thái", { description: `${rows.length} công việc đã chuyển sang "Hoàn thành"` }); setRowSelection({}); } },
-    { label: "Đánh dấu Đang chờ", onSelect: (rows: Task[]) => { rows.forEach(t => update(t.systemId, { ...t, status: "Đang chờ" })); toast.success("Đã cập nhật trạng thái", { description: `${rows.length} công việc đã chuyển sang "Đang chờ"` }); setRowSelection({}); } },
+    { label: "Đánh dấu Chờ duyệt", onSelect: (rows: Task[]) => { rows.forEach(t => update(t.systemId, { ...t, status: "Chờ duyệt" })); toast.success("Đã cập nhật trạng thái", { description: `${rows.length} công việc đã chuyển sang "Chờ duyệt"` }); setRowSelection({}); } },
     { label: "Xóa các công việc đã chọn", onSelect: () => { setIdToDelete(null); setIsAlertOpen(true); } }
   ];
 
   const actions = React.useMemo(() => {
-    const btns = [<Tabs key="vt" value={viewMode} onValueChange={v => setViewMode(v as 'list' | 'kanban')} className="h-9"><TabsList className="h-9"><TabsTrigger value="list" className="h-8 px-3"><Table className="mr-2 h-4 w-4" />Danh sách</TabsTrigger><TabsTrigger value="kanban" className="h-8 px-3"><LayoutGrid className="mr-2 h-4 w-4" />Kanban</TabsTrigger></TabsList></Tabs>];
-    if (isAdmin) { btns.push(<Button key="r" variant="outline" size="sm" className="h-9" onClick={() => router.push('/tasks/recurring')}><Repeat className="mr-2 h-4 w-4" />Lặp lại</Button>, <Button key="t" variant="outline" size="sm" className="h-9" onClick={() => router.push('/tasks/templates')}><FileText className="mr-2 h-4 w-4" />Mẫu</Button>, <Button key="f" variant="outline" size="sm" className="h-9" onClick={() => router.push('/tasks/fields')}><Settings className="mr-2 h-4 w-4" />Trường</Button>, <Button key="d" variant="outline" size="sm" className="h-9" onClick={() => router.push('/tasks/dashboard')}><BarChart3 className="mr-2 h-4 w-4" />Dashboard</Button>, <Button key="n" onClick={() => router.push('/tasks/new')} size="sm" className="h-9"><PlusCircle className="mr-2 h-4 w-4" />Tạo công việc mới</Button>); }
+    const btns = [<Tabs key={`vt-${viewMode}`} value={viewMode} onValueChange={v => setViewMode(v as 'list' | 'kanban')} className="h-9"><TabsList className="h-9"><TabsTrigger value="list" className="h-8 px-3"><Table className="mr-2 h-4 w-4" />Danh sách</TabsTrigger><TabsTrigger value="kanban" className="h-8 px-3"><LayoutGrid className="mr-2 h-4 w-4" />Kanban</TabsTrigger></TabsList></Tabs>];
+    if (can('approve_tasks')) { btns.push(<Button key="t" variant="outline" size="sm" className="h-9" onClick={() => router.push('/tasks/templates')}><FileText className="mr-2 h-4 w-4" />Mẫu</Button>, <Button key="d" variant="outline" size="sm" className="h-9" onClick={() => router.push('/tasks/dashboard')}><BarChart3 className="mr-2 h-4 w-4" />Dashboard</Button>); }
+    if (can('create_tasks')) { btns.push(<Button key="n" onClick={() => router.push('/tasks/new')} size="sm" className="h-9"><PlusCircle className="mr-2 h-4 w-4" />Tạo công việc mới</Button>); }
     return btns;
-  }, [viewMode, router, isAdmin]);
+  }, [viewMode, router, can]);
 
   usePageHeader({ title: 'Quản lý công việc', actions, breadcrumb: [{ label: 'Trang chủ', href: '/', isCurrent: false }, { label: 'Quản lý công việc', href: '/tasks', isCurrent: true }] });
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2">
       <div className="px-1">{isMobile ? <QuickFiltersCompact activeFilters={activeQuickFilters} onToggleFilter={handleToggleQuickFilter} taskCounts={quickFilterCounts} filters={quickFilters} /> : <QuickFilters activeFilters={activeQuickFilters} onToggleFilter={handleToggleQuickFilter} taskCounts={quickFilterCounts} filters={quickFilters} />}</div>
       {viewMode === 'list' && (<>
-        {!isMobile && <PageToolbar leftActions={<Button variant="outline" size="sm" onClick={() => router.push('/settings/tasks')}><Settings className="h-4 w-4 mr-2" />Cài đặt</Button>} rightActions={<DataTableColumnCustomizer columns={columns} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} />} />}
+        {/* Stats Bar - instant display from Server Component */}
+        <StatsBar
+          className="mb-2"
+          items={[
+            { key: 'todo', label: 'Chờ thực hiện', value: stats?.todo ?? 0 },
+            { key: 'inProgress', label: 'Đang thực hiện', value: stats?.inProgress ?? 0 },
+            { key: 'completed', label: 'Hoàn thành', value: stats?.completed ?? 0 },
+            { key: 'overdue', label: 'Quá hạn', value: stats?.overdue ?? 0 },
+          ]}
+        />
+
+        {!isMobile && <PageToolbar leftActions={<>{can('edit_settings') && <Button variant="outline" size="sm" onClick={() => router.push('/settings/tasks')}><Settings className="h-4 w-4 mr-2" />Cài đặt</Button>}</>} rightActions={<DataTableColumnCustomizer columns={columns} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} />} />}
         <PageFilters searchValue={search} onSearchChange={setSearch} searchPlaceholder="Tìm kiếm công việc...">
-          <Select value={statusFilter} onValueChange={v => setStatusFilter(v as typeof statusFilter)}><SelectTrigger className="h-9 w-full sm:w-45"><SelectValue placeholder="Lọc trạng thái" /></SelectTrigger><SelectContent><SelectItem value="all">Tất cả trạng thái</SelectItem><SelectItem value="Chưa bắt đầu">Chưa bắt đầu</SelectItem><SelectItem value="Đang thực hiện">Đang thực hiện</SelectItem><SelectItem value="Đang chờ">Đang chờ</SelectItem><SelectItem value="Hoàn thành">Hoàn thành</SelectItem><SelectItem value="Đã hủy">Đã hủy</SelectItem></SelectContent></Select>
-          <Select value={priorityFilter} onValueChange={v => setPriorityFilter(v as typeof priorityFilter)}><SelectTrigger className="h-9 w-full sm:w-45"><SelectValue placeholder="Độ ưu tiên" /></SelectTrigger><SelectContent><SelectItem value="all">Tất cả độ ưu tiên</SelectItem><SelectItem value="Thấp">Thấp</SelectItem><SelectItem value="Trung bình">Trung bình</SelectItem><SelectItem value="Cao">Cao</SelectItem><SelectItem value="Khẩn cấp">Khẩn cấp</SelectItem></SelectContent></Select>
-          <Select value={assigneeFilter} onValueChange={setAssigneeFilter}><SelectTrigger className="h-9 w-full sm:w-45"><SelectValue placeholder="Người thực hiện" /></SelectTrigger><SelectContent><SelectItem value="all">Tất cả</SelectItem>{employees.map(e => <SelectItem key={e.systemId} value={e.systemId}>{e.fullName}</SelectItem>)}</SelectContent></Select>
+          <AdvancedFilterPanel filters={filterConfigs} values={panelValues} onApply={handlePanelApply} presets={presets.map(p => ({ ...p, filters: p.filters }))} onSavePreset={(preset) => savePreset(preset.name, panelValues)} onDeletePreset={deletePreset} onUpdatePreset={updatePreset} />
         </PageFilters>
-        
-        {/* Stats Cards - instant display from Server Component */}
-        <StatsCardGrid columns={4} className="my-4">
-          <StatsCard title="Chờ thực hiện" value={stats?.todo ?? 0} icon={ListTodo} variant="default" />
-          <StatsCard title="Đang thực hiện" value={stats?.inProgress ?? 0} icon={Clock} variant="info" />
-          <StatsCard title="Hoàn thành" value={stats?.completed ?? 0} icon={CheckCircle2} variant="success" />
-          <StatsCard title="Quá hạn" value={stats?.overdue ?? 0} icon={AlertTriangle} variant="danger" />
-        </StatsCardGrid>
+        <FilterExtras presets={presets} filterConfigs={filterConfigs} values={panelValues} onApply={handlePanelApply} onDeletePreset={deletePreset} />
       </>)}
       {viewMode === 'kanban' && <TaskKanbanView tasks={filteredData} onTaskClick={handleRowClick} employees={employees} onTaskUpdate={update} />}
       {viewMode === 'list' && (<>
+        <div className={cn(isTasksFetching && 'opacity-70 transition-opacity')}>
         <ResponsiveDataTable columns={columns} data={displayData} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowCount={filteredData.length} rowSelection={rowSelection} setRowSelection={setRowSelection} sorting={sorting} setSorting={setSorting} onRowClick={handleRowClick} allSelectedRows={allSelectedRows} expanded={{}} setExpanded={() => {}} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} bulkActions={bulkActions} renderMobileCard={task => <TaskCard task={task} onDelete={id => { setIdToDelete(id); setIsAlertOpen(true); }} />} />
-        {isMobile && mobileLoadedCount < filteredData.length && <div className="flex justify-center py-4"><span className="text-body-sm text-muted-foreground">Hiển thị {mobileLoadedCount} / {filteredData.length} • Cuộn xuống để xem thêm</span></div>}
+        </div>
+        {isMobile && mobileLoadedCount < filteredData.length && <div className="flex justify-center py-4"><span className="text-sm text-muted-foreground">Hiển thị {mobileLoadedCount} / {filteredData.length} • Cuộn xuống để xem thêm</span></div>}
       </>)}
-      <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>{idToDelete ? "Xóa công việc?" : `Xóa ${allSelectedRows.length} công việc?`}</AlertDialogTitle><AlertDialogDescription>Hành động này không thể hoàn tác.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={confirmDelete}>Xóa</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+      <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>{idToDelete ? "Xóa công việc?" : `Xóa ${allSelectedRows.length} công việc?`}</AlertDialogTitle><AlertDialogDescription>Hành động này không thể hoàn tác.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={confirmDelete} disabled={removeMutation.isPending}>{removeMutation.isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Đang xóa...</> : 'Xóa'}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+      {isMobile && can('create_tasks') && <FAB onClick={() => router.push('/tasks/new')} />}
     </div>
   );
 }

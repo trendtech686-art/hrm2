@@ -5,6 +5,9 @@
 
 import { prisma } from '@/lib/prisma'
 import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
+import { logError } from '@/lib/logger'
+import { cache } from '@/lib/cache'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 type WebsiteSettingType = 'settings' | 'redirects'
 
@@ -69,7 +72,7 @@ export async function GET(request: Request) {
 
     return apiSuccess(setting!.value)
   } catch (error) {
-    console.error('[WEBSITE-SETTINGS] GET error:', error)
+    logError('[WEBSITE-SETTINGS] GET error', error)
     return apiError('Internal server error', 500)
   }
 }
@@ -89,6 +92,12 @@ export async function POST(request: Request) {
     if (!data) {
       return apiError('Data is required', 400)
     }
+
+    // Read old value for change tracking
+    const oldSetting = await prisma.setting.findUnique({
+      where: { key_group: { key: SETTING_KEYS[type], group: GROUP } },
+    })
+    const oldValue = oldSetting?.value
 
     await prisma.setting.upsert({
       where: {
@@ -111,9 +120,25 @@ export async function POST(request: Request) {
       }
     })
 
+    // Log changes
+    if (JSON.stringify(oldValue) !== JSON.stringify(data)) {
+      await createActivityLog({
+        entityType: 'website_settings',
+        entityId: `website-${type}`,
+        action: `Cập nhật cài đặt website: ${type}`,
+        actionType: oldSetting ? 'update' : 'create',
+        changes: { [type]: { from: oldValue ?? null, to: data } },
+        metadata: { userName: session?.user.name || session?.user.email },
+        createdBy: session?.user.id ?? '',
+      }).catch(e => logError('[website-settings] activity log failed', e))
+    }
+
+    // Invalidate server-side settings cache
+    cache.deletePattern('^settings:')
+
     return apiSuccess({ success: true })
   } catch (error) {
-    console.error('[WEBSITE-SETTINGS] POST error:', error)
+    logError('[WEBSITE-SETTINGS] POST error', error)
     return apiError('Internal server error', 500)
   }
 }

@@ -1,14 +1,15 @@
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@/generated/prisma/client'
 import type { SupplierStatus } from '@/lib/types/prisma-extended'
-import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
+import { apiHandler } from '@/lib/api-handler'
+import { validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
 import { createSupplierSchema } from './validation'
 import { generateNextIdsWithTx } from '@/lib/id-system'
+import { logError } from '@/lib/logger'
+import { getUserNameFromDb } from '@/lib/get-user-name'
 
 // GET /api/suppliers - List all suppliers
-export async function GET(request: Request) {
-  const session = await requireAuth()
-  if (!session) return apiError('Unauthorized', 401)
+export const GET = apiHandler(async (request) => {
 
   try {
     const { searchParams } = new URL(request.url)
@@ -84,15 +85,13 @@ export async function GET(request: Request) {
 
     return apiPaginated(transformedSuppliers, { page, limit, total })
   } catch (error) {
-    console.error('Error fetching suppliers:', error)
-    return apiError('Failed to fetch suppliers', 500)
+    logError('Error fetching suppliers', error)
+    return apiError('Lỗi khi lấy danh sách nhà cung cấp', 500)
   }
-}
+})
 
 // POST /api/suppliers - Create new supplier
-export async function POST(request: Request) {
-  const session = await requireAuth()
-  if (!session) return apiError('Unauthorized', 401)
+export const POST = apiHandler(async (request, { session }) => {
 
   const result = await validateBody(request, createSupplierSchema)
   if (!result.success) return apiError(result.error, 400)
@@ -117,6 +116,7 @@ export async function POST(request: Request) {
           phone: body.phone || '',
           email: body.email || '',
           address: body.address || '',
+          addressData: (body.addressData ?? Prisma.JsonNull) as Prisma.InputJsonValue,
           taxCode: body.taxCode || '',
           bankAccount: body.bankAccount || '',
           bankName: body.bankName || '',
@@ -129,12 +129,27 @@ export async function POST(request: Request) {
       });
     });
 
+    // Log activity
+    getUserNameFromDb(session!.user?.id).then(userName =>
+      prisma.activityLog.create({
+        data: {
+          entityType: 'supplier',
+          entityId: supplier.systemId,
+          action: 'created',
+          actionType: 'create',
+          note: `Tạo nhà cung cấp: ${supplier.name} (${supplier.id})`,
+          metadata: { userName },
+          createdBy: userName,
+        }
+      })
+    ).catch(e => logError('[ActivityLog] supplier created failed', e))
+
     return apiSuccess(supplier, 201)
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
       return apiError('Mã nhà cung cấp đã tồn tại', 400)
     }
-    console.error('Error creating supplier:', error)
-    return apiError('Failed to create supplier', 500)
+    logError('Error creating supplier', error)
+    return apiError('Lỗi khi tạo nhà cung cấp', 500)
   }
-}
+})

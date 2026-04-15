@@ -27,16 +27,16 @@ async function main() {
   // ========================================
   // EMPLOYEES
   // ========================================
-  console.log('👤 Creating employees...');
+  console.log('👤 Creating/updating employees...');
 
   const adminEmployee = await prisma.employee.upsert({
-    where: { systemId: 'EMP-ADMIN' },
+    where: { workEmail: 'nhlpkgx@gmail.com' },
     update: {},
     create: {
-      systemId: 'EMP-ADMIN',
+      systemId: crypto.randomUUID(),
       id: 'NV001',
       fullName: 'Quản trị viên',
-      workEmail: 'admin@erp.local',
+      workEmail: 'nhlpkgx@gmail.com',
       phone: '0901234567',
       gender: 'MALE',
       employeeType: 'FULLTIME',
@@ -49,10 +49,10 @@ async function main() {
   console.log(`   ✅ Admin employee: ${adminEmployee.fullName} (${adminEmployee.id})`);
 
   const salesEmployee = await prisma.employee.upsert({
-    where: { systemId: 'EMP-SALES' },
+    where: { id: 'NV002' },
     update: {},
     create: {
-      systemId: 'EMP-SALES',
+      systemId: crypto.randomUUID(),
       id: 'NV002',
       fullName: 'Nhân viên bán hàng',
       workEmail: 'sales@erp.local',
@@ -73,14 +73,14 @@ async function main() {
   console.log('\n🔐 Creating users...');
 
   const adminUser = await prisma.user.upsert({
-    where: { email: 'admin@erp.local' },
+    where: { email: 'nhlpkgx@gmail.com' },
     update: {
       password: hashedPassword,
       employeeId: adminEmployee.systemId,
     },
     create: {
-      systemId: 'USER-ADMIN',
-      email: 'admin@erp.local',
+      systemId: crypto.randomUUID(),
+      email: 'nhlpkgx@gmail.com',
       password: hashedPassword,
       role: 'ADMIN',
       isActive: true,
@@ -96,7 +96,7 @@ async function main() {
       employeeId: salesEmployee.systemId,
     },
     create: {
-      systemId: 'USER-SALES',
+      systemId: crypto.randomUUID(),
       email: 'sales@erp.local',
       password: hashedPassword,
       role: 'STAFF',
@@ -113,7 +113,7 @@ async function main() {
   console.log('🎉 SEED COMPLETED');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log('Users:');
-  console.log(`   • admin@erp.local / ${DEFAULT_PASSWORD} (ADMIN)`);
+  console.log(`   • nhlpkgx@gmail.com / ${DEFAULT_PASSWORD} (ADMIN)`);
   console.log(`   • sales@erp.local / ${DEFAULT_PASSWORD} (STAFF)`);
   console.log('Employees:');
   console.log(`   • NV001 - Quản trị viên`);

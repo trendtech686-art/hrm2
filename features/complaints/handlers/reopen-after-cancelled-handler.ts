@@ -2,6 +2,7 @@ import { toast } from 'sonner';
 import { asSystemId } from '@/lib/id-types';
 import { generateSubEntityId } from '@/lib/id-utils';
 import type { Complaint, ComplaintAction } from '../types';
+import { logError } from '@/lib/logger'
 
 // User type - chi can systemId va name
 interface User {
@@ -66,7 +67,7 @@ export async function handleReopenAfterCancelled(
     };
     
   } catch (error) {
-    console.error('[REOPEN-AFTER-CANCEL] Error:', error);
+    logError('[REOPEN-AFTER-CANCEL] Error', error);
     const errorMsg = error instanceof Error ? error.message : 'Có lỗi xảy ra';
     toast.error(errorMsg);
     return {

@@ -1,6 +1,8 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils';
+import { logError } from '@/lib/logger'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 // POST - Set as default pricing policy
 export async function POST(
@@ -40,6 +42,15 @@ export async function POST(
       },
     });
 
+    createActivityLog({
+      entityType: 'pricing_policy',
+      entityId: systemid,
+      action: `Cập nhật bảng giá: ${policy.name}: Mặc định`,
+      actionType: 'update',
+      changes: { 'Mặc định': { from: 'Không', to: 'Có' } },
+      createdBy: session.user?.id,
+    }).catch(e => logError('Failed to create activity log', e))
+
     return apiSuccess({
       systemId: updated.systemId,
       id: updated.id,
@@ -47,7 +58,7 @@ export async function POST(
       isDefault: updated.isDefault,
     });
   } catch (error) {
-    console.error('[Pricing Policy API] Set default error:', error);
+    logError('[Pricing Policy API] Set default error', error);
     return apiError('Failed to set default pricing policy', 500);
   }
 }

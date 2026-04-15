@@ -4,6 +4,8 @@ import { Prisma } from '@/generated/prisma/client';
 import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils';
 import { createPaymentTermSchema } from './validation';
 import { generateIdWithPrefix } from '@/lib/id-generator';
+import { logError } from '@/lib/logger'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 const TYPE = 'payment-term';
 
@@ -37,7 +39,7 @@ export async function GET() {
 
     return apiSuccess(transformed);
   } catch (error) {
-    console.error('[Payment Terms API] GET error:', error);
+    logError('[Payment Terms API] GET error', error);
     return apiError('Failed to fetch payment terms', 500);
   }
 }
@@ -69,6 +71,14 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    createActivityLog({
+      entityType: 'customer_payment_term',
+      entityId: setting.systemId,
+      action: `Thêm điều khoản thanh toán: ${name}`,
+      actionType: 'create',
+      createdBy: session.user?.id,
+    }).catch(e => logError('Failed to create activity log', e))
+
     return apiSuccess({
       systemId: setting.systemId,
       id: setting.id,
@@ -84,7 +94,7 @@ export async function POST(request: NextRequest) {
       ...(setting.metadata as Record<string, unknown> || {}),
     }, 201);
   } catch (error) {
-    console.error('[Payment Terms API] POST error:', error);
+    logError('[Payment Terms API] POST error', error);
     return apiError('Failed to create payment term', 500);
   }
 }

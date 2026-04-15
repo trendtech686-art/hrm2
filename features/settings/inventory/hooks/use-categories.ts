@@ -13,6 +13,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import {
   fetchCategories,
   fetchCategory,
@@ -100,9 +101,7 @@ interface UseCategoryMutationsOptions {
 export function useCategoryMutations(options: UseCategoryMutationsOptions = {}) {
   const queryClient = useQueryClient();
 
-  const invalidateCategories = () => {
-    queryClient.invalidateQueries({ queryKey: categoryKeys.all });
-  };
+  const invalidateCategories = () => invalidateRelated(queryClient, 'categories');
 
   const create = useMutation({
     mutationFn: (data: CategoryCreateInput) => createCategory(data),

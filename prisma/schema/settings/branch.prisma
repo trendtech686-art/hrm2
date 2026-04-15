@@ -11,7 +11,7 @@ model Branch {
   districtId       Int?
   ward             String?
   wardCode         String?
-  addressLevel     String?            // '2-level' or '3-level'
+  addressLevel     String? // '2-level' or '3-level'
   managerId        String?
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
@@ -24,7 +24,8 @@ model Branch {
   employees        Employee[]
   orders           Order[]
   productInventory ProductInventory[]
-  stockHistory     StockHistory[]
+  stockHistory           StockHistory[]
+  reconciliationSheets   ReconciliationSheet[]
 
   @@map("branches")
 }

@@ -4,7 +4,6 @@ export * from './status-stepper';
 export * from './payment-dialog';
 export * from './create-shipment-dialog';
 export * from './packer-selection-dialog';
-export * from './order-history-tab';
 export * from './product-info-card';
 export * from './product-thumbnail-cell';
 export * from './return-history-tab';

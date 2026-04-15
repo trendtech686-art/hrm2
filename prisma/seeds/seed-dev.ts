@@ -38,10 +38,10 @@ async function seedUsersAndEmployees() {
 
   // Admin Employee
   const adminEmployee = await prisma.employee.upsert({
-    where: { systemId: 'EMP-ADMIN' },
+    where: { id: 'NV001' },
     update: {},
     create: {
-      systemId: 'EMP-ADMIN',
+      systemId: crypto.randomUUID(),
       id: 'NV001',
       fullName: 'Quản trị viên',
       workEmail: 'admin@erp.local',
@@ -58,10 +58,10 @@ async function seedUsersAndEmployees() {
 
   // Sales Employee
   const salesEmployee = await prisma.employee.upsert({
-    where: { systemId: 'EMP-SALES' },
+    where: { id: 'NV002' },
     update: {},
     create: {
-      systemId: 'EMP-SALES',
+      systemId: crypto.randomUUID(),
       id: 'NV002',
       fullName: 'Nhân viên bán hàng',
       workEmail: 'sales@erp.local',
@@ -81,7 +81,7 @@ async function seedUsersAndEmployees() {
     where: { email: 'admin@erp.local' },
     update: { password: hashedPassword, employeeId: adminEmployee.systemId },
     create: {
-      systemId: 'USER-ADMIN',
+      systemId: crypto.randomUUID(),
       email: 'admin@erp.local',
       password: hashedPassword,
       role: 'ADMIN',
@@ -96,7 +96,7 @@ async function seedUsersAndEmployees() {
     where: { email: 'sales@erp.local' },
     update: { password: hashedPassword, employeeId: salesEmployee.systemId },
     create: {
-      systemId: 'USER-SALES',
+      systemId: crypto.randomUUID(),
       email: 'sales@erp.local',
       password: hashedPassword,
       role: 'STAFF',
@@ -113,14 +113,14 @@ async function seedBranches() {
   console.log('🏢 Seeding Branches...');
   
   const branches = [
-    { systemId: 'BRANCH-HQ', id: 'CN001', name: 'Chi nhánh Hà Nội (HQ)', address: '123 Trần Hưng Đạo, Hoàn Kiếm, Hà Nội', phone: '024-1234567', isDefault: true },
-    { systemId: 'BRANCH-HCM', id: 'CN002', name: 'Chi nhánh TP.HCM', address: '456 Nguyễn Huệ, Quận 1, TP.HCM', phone: '028-7654321', isDefault: false },
-    { systemId: 'BRANCH-DN', id: 'CN003', name: 'Chi nhánh Đà Nẵng', address: '789 Bạch Đằng, Hải Châu, Đà Nẵng', phone: '0236-9876543', isDefault: false },
+    { systemId: crypto.randomUUID(), id: 'CN001', name: 'Chi nhánh Hà Nội (HQ)', address: '123 Trần Hưng Đạo, Hoàn Kiếm, Hà Nội', phone: '024-1234567', isDefault: true },
+    { systemId: crypto.randomUUID(), id: 'CN002', name: 'Chi nhánh TP.HCM', address: '456 Nguyễn Huệ, Quận 1, TP.HCM', phone: '028-7654321', isDefault: false },
+    { systemId: crypto.randomUUID(), id: 'CN003', name: 'Chi nhánh Đà Nẵng', address: '789 Bạch Đằng, Hải Châu, Đà Nẵng', phone: '0236-9876543', isDefault: false },
   ];
 
   for (const branch of branches) {
     await prisma.branch.upsert({
-      where: { systemId: branch.systemId },
+      where: { id: branch.id },
       update: {},
       create: branch,
     });
@@ -133,10 +133,10 @@ async function seedTaxes() {
   console.log('🧾 Seeding Taxes...');
   
   const taxes = [
-    { systemId: 'TAX-VAT0', id: 'VAT0', name: 'VAT 0%', rate: 0, description: 'Thuế GTGT 0%', isDefaultSale: false, isDefaultPurchase: false },
-    { systemId: 'TAX-VAT5', id: 'VAT5', name: 'VAT 5%', rate: 5, description: 'Thuế GTGT 5%', isDefaultSale: false, isDefaultPurchase: false },
-    { systemId: 'TAX-VAT8', id: 'VAT8', name: 'VAT 8%', rate: 8, description: 'Thuế GTGT 8%', isDefaultSale: false, isDefaultPurchase: false },
-    { systemId: 'TAX-VAT10', id: 'VAT10', name: 'VAT 10%', rate: 10, description: 'Thuế GTGT 10%', isDefaultSale: true, isDefaultPurchase: true },
+    { systemId: crypto.randomUUID(), id: 'VAT0', name: 'VAT 0%', rate: 0, description: 'Thuế GTGT 0%', isDefaultSale: false, isDefaultPurchase: false },
+    { systemId: crypto.randomUUID(), id: 'VAT5', name: 'VAT 5%', rate: 5, description: 'Thuế GTGT 5%', isDefaultSale: false, isDefaultPurchase: false },
+    { systemId: crypto.randomUUID(), id: 'VAT8', name: 'VAT 8%', rate: 8, description: 'Thuế GTGT 8%', isDefaultSale: false, isDefaultPurchase: false },
+    { systemId: crypto.randomUUID(), id: 'VAT10', name: 'VAT 10%', rate: 10, description: 'Thuế GTGT 10%', isDefaultSale: true, isDefaultPurchase: true },
   ];
 
   for (const tax of taxes) {

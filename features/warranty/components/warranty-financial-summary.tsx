@@ -48,8 +48,8 @@ export function WarrantyFinancialSummary({ products, shippingFee }: WarrantyFina
       <CardContent className="space-y-2 sm:space-y-2.5 md:space-y-3 px-3 pb-3 sm:px-4 sm:pb-4 md:px-6 md:pb-6">
         {/* Tổng giá trị bảo hành */}
         <div className="flex items-center justify-between gap-3">
-          <span className="text-body-xs sm:text-body-sm text-muted-foreground">Tổng giá trị bảo hành</span>
-          <span className="font-semibold text-body-xs sm:text-body-sm">
+          <span className="text-xs sm:text-sm text-muted-foreground">Tổng giá trị bảo hành</span>
+          <span className="font-semibold text-xs sm:text-sm">
             {formatCurrency(totalValue)} đ
           </span>
         </div>
@@ -60,8 +60,8 @@ export function WarrantyFinancialSummary({ products, shippingFee }: WarrantyFina
         {returnedQty > 0 && (
           <>
             <div className="flex items-center justify-between gap-3">
-              <span className="text-body-xs sm:text-body-sm text-muted-foreground">Tổng giá trị trả lại</span>
-              <span className="font-medium text-body-xs sm:text-body-sm">
+              <span className="text-xs sm:text-sm text-muted-foreground">Tổng giá trị trả lại</span>
+              <span className="font-medium text-xs sm:text-sm">
                 {formatCurrency(returnedValue)} đ
               </span>
             </div>
@@ -73,8 +73,8 @@ export function WarrantyFinancialSummary({ products, shippingFee }: WarrantyFina
         {replacedQty > 0 && (
           <>
             <div className="flex items-center justify-between gap-3">
-              <span className="text-body-xs sm:text-body-sm text-muted-foreground">Tổng giá trị đổi mới</span>
-              <span className="font-medium text-body-xs sm:text-body-sm">
+              <span className="text-xs sm:text-sm text-muted-foreground">Tổng giá trị đổi mới</span>
+              <span className="font-medium text-xs sm:text-sm">
                 {formatCurrency(replacedValue)} đ
               </span>
             </div>
@@ -84,8 +84,8 @@ export function WarrantyFinancialSummary({ products, shippingFee }: WarrantyFina
 
         {/* Tổng hàng trừ */}
         <div className="flex items-center justify-between gap-3">
-          <span className="text-body-xs sm:text-body-sm text-muted-foreground">Tổng hàng trừ</span>
-          <span className="font-medium text-body-xs sm:text-body-sm">
+          <span className="text-xs sm:text-sm text-muted-foreground">Tổng hàng trừ</span>
+          <span className="font-medium text-xs sm:text-sm">
             {formatCurrency(outOfStockValue)} đ
           </span>
         </div>
@@ -96,10 +96,10 @@ export function WarrantyFinancialSummary({ products, shippingFee }: WarrantyFina
         {shippingFee !== undefined && shippingFee > 0 && (
           <>
             <div className="flex items-center justify-between gap-3">
-              <span className="text-body-xs sm:text-body-sm text-muted-foreground">
+              <span className="text-xs sm:text-sm text-muted-foreground">
                 Phí ship gửi về (shop ko chịu phí cước này sẽ thu thêm)
               </span>
-              <span className="font-medium text-body-xs sm:text-body-sm">
+              <span className="font-medium text-xs sm:text-sm">
                 {formatCurrency(shippingFee)} đ
               </span>
             </div>
@@ -109,7 +109,7 @@ export function WarrantyFinancialSummary({ products, shippingFee }: WarrantyFina
 
         {/* Tổng cộng */}
         <div className="flex items-center justify-between gap-3">
-          <span className="font-semibold text-body-sm sm:text-body-md">Tổng cộng</span>
+          <span className="font-semibold text-sm sm:text-base">Tổng cộng</span>
           <span className="text-base sm:text-lg font-bold text-destructive">
             {formatCurrency(grandTotal)} đ
           </span>
@@ -119,30 +119,30 @@ export function WarrantyFinancialSummary({ products, shippingFee }: WarrantyFina
 
         {/* Tổng số lượng */}
         <div className="flex items-center justify-between gap-3">
-          <span className="text-body-xs sm:text-body-sm text-muted-foreground">Tổng số lượng</span>
-          <span className="font-medium text-body-xs sm:text-body-sm">{totalQuantity}</span>
+          <span className="text-xs sm:text-sm text-muted-foreground">Tổng số lượng</span>
+          <span className="font-medium text-xs sm:text-sm">{totalQuantity}</span>
         </div>
 
         {/* Số lượng đổi mới */}
         <div className="flex items-center justify-between gap-3 pl-3 sm:pl-4">
-          <span className="text-body-xs text-muted-foreground">↳ Đổi mới</span>
-          <span className="text-body-xs font-medium">
+          <span className="text-xs text-muted-foreground">↳ Đổi mới</span>
+          <span className="text-xs font-medium">
             {calculateQuantityByResolution(products, 'replace')}
           </span>
         </div>
 
         {/* Số lượng trả lại */}
         <div className="flex items-center justify-between gap-3 pl-3 sm:pl-4">
-          <span className="text-body-xs text-muted-foreground">↳ Trả lại</span>
-          <span className="text-body-xs font-medium">
+          <span className="text-xs text-muted-foreground">↳ Trả lại</span>
+          <span className="text-xs font-medium">
             {calculateQuantityByResolution(products, 'return')}
           </span>
         </div>
 
         {/* Số lượng hết hàng */}
         <div className="flex items-center justify-between gap-3 pl-3 sm:pl-4">
-          <span className="text-body-xs text-muted-foreground">↳ Hết hàng</span>
-          <span className="text-body-xs font-medium">
+          <span className="text-xs text-muted-foreground">↳ Hết hàng</span>
+          <span className="text-xs font-medium">
             {calculateQuantityByResolution(products, 'out_of_stock')}
           </span>
         </div>

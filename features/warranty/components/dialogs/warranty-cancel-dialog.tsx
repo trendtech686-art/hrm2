@@ -24,6 +24,8 @@ import { Loader2 } from 'lucide-react';
 import type { WarrantyTicket } from '../../types';
 import { cancelWarrantyAction } from '../../../../app/actions/warranty';
 import { useQueryClient } from '@tanstack/react-query';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
+import { logError } from '@/lib/logger'
 
 interface WarrantyCancelDialogProps {
   open: boolean;
@@ -64,10 +66,7 @@ export function WarrantyCancelDialog({ open, onOpenChange, ticket, onCancelled }
       }
 
       // Invalidate queries to refresh data
-      queryClient.invalidateQueries({ queryKey: ['warranties'] });
-      queryClient.invalidateQueries({ queryKey: ['warranty', ticket.systemId] });
-      queryClient.invalidateQueries({ queryKey: ['payments'] });
-      queryClient.invalidateQueries({ queryKey: ['receipts'] });
+      invalidateRelated(queryClient, 'warranties');
 
       // Show success message with details
       const data = result.data as { cancelledPayments?: number; cancelledReceipts?: number };
@@ -88,7 +87,7 @@ export function WarrantyCancelDialog({ open, onOpenChange, ticket, onCancelled }
       onOpenChange(false);
       setCancelReason('');
     } catch (error) {
-      console.error('Failed to cancel warranty:', error);
+      logError('Failed to cancel warranty', error);
       toast.error('Không thể hủy phiếu bảo hành');
     } finally {
       setIsLoading(false);

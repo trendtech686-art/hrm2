@@ -97,11 +97,11 @@ export const getColumns = (
     ),
     cell: ({ row }) => (
       <div className="max-w-[250px]">
-        <div className="truncate text-body-sm font-medium" title={row.name}>
+        <div className="truncate text-sm font-medium" title={row.name}>
           {row.name}
         </div>
         {row.shortDescription && (
-          <div className="text-body-xs text-muted-foreground truncate" title={row.shortDescription}>
+          <div className="text-xs text-muted-foreground truncate" title={row.shortDescription}>
             {row.shortDescription}
           </div>
         )}
@@ -162,9 +162,9 @@ export const getColumns = (
       const daysAgo = getDaysDiff(now, deleted);
       
       return (
-        <div className="text-body-sm">
+        <div className="text-sm">
           <div>{formatDate(deletedAt)}</div>
-          <div className="text-body-xs text-muted-foreground">
+          <div className="text-xs text-muted-foreground">
             {daysAgo === 0 ? 'Hôm nay' : `${daysAgo} ngày trước`}
           </div>
         </div>
@@ -217,7 +217,7 @@ export const getColumns = (
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Xóa vĩnh viễn</TooltipContent>
+              <TooltipContent>Lưu trữ vĩnh viễn</TooltipContent>
             </Tooltip>
           </TooltipProvider>
         </div>

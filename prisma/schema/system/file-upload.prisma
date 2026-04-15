@@ -1,1 +1,30 @@
+// ============================================
+// FILE - Quản lý files upload
+// ============================================
 
+model File {
+  systemId     String     @id
+  entityType   String
+  entityId     String
+  documentType String?
+  originalName String
+  filename     String
+  filepath     String
+  filesize     Int
+  mimetype     String
+  uploadedAt   DateTime   @default(now())
+  uploadedBy   String?
+  status       FileStatus @default(staging)
+  sessionId    String? // For grouping staging files
+
+  @@index([entityType, entityId])
+  @@index([status, uploadedAt])
+  @@index([sessionId])
+  @@map("files")
+}
+
+enum FileStatus {
+  staging
+  permanent
+  deleted
+}

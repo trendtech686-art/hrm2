@@ -4,6 +4,9 @@
 
 import { ShippingConfig, PartnerAccount } from '@/lib/types/shipping-config';
 import { GHTKConfigForm } from '../forms/ghtk-config-form';
+import { JNTConfigForm } from '../forms/jnt-config-form';
+import { GHNConfigForm } from '../forms/ghn-config-form';
+import { VTPConfigForm } from '../forms/vtp-config-form';
 
 interface PartnerInfoTabProps {
   partnerCode: string;
@@ -31,8 +34,17 @@ export function PartnerInfoTab({
   };
 
   switch (partnerCode) {
+    case 'GHN':
+      return <GHNConfigForm {...commonProps} />;
+    
     case 'GHTK':
       return <GHTKConfigForm {...commonProps} />;
+    
+    case 'J&T':
+      return <JNTConfigForm {...commonProps} />;
+    
+    case 'VTP':
+      return <VTPConfigForm {...commonProps} />;
     
     default:
       return (

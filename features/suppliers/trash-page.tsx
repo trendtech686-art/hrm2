@@ -7,7 +7,6 @@ import { usePageHeader } from "../../contexts/page-header-context";
 import { useDeletedSuppliers, useTrashMutations } from "./hooks/use-suppliers"
 import { getColumns } from "./trash-columns"
 import { GenericTrashPage } from "../../components/shared/generic-trash-page"
-import { Card, CardContent } from "../../components/ui/card"
 import { formatDateTimeForDisplay } from '@/lib/date-utils';
 import type { Supplier } from '@/lib/types/prisma-extended'
 import type { SystemId } from "@/lib/id-types";
@@ -45,10 +44,10 @@ export function SuppliersTrashPage() {
   const handleDeleteFromColumn = React.useCallback(async (systemId: SystemId) => {
     permanentDelete.mutate(systemId, {
       onSuccess: () => {
-        toast.success("Đã xóa vĩnh viễn nhà cung cấp");
+        toast.success("Đã lưu trữ vĩnh viễn nhà cung cấp");
       },
       onError: (error) => {
-        toast.error(error.message || "Có lỗi khi xóa nhà cung cấp");
+        toast.error(error.message || "Có lỗi khi lưu trữ nhà cung cấp");
       }
     });
   }, [permanentDelete]);
@@ -59,28 +58,22 @@ export function SuppliersTrashPage() {
   );
 
   const renderMobileCard = (supplier: Supplier) => (
-    <Card className="hover:shadow-md transition-shadow">
-      <CardContent className="pt-6">
-        <div className="space-y-3">
-          <div className="flex items-start gap-3">
-            <div className="flex-1 min-w-0">
-              <h3 className="font-semibold truncate">{supplier.name}</h3>
-              <p className="text-sm text-muted-foreground">{supplier.id}</p>
-              {supplier.phone && (
-                <div className="text-sm text-muted-foreground mt-1">
-                  {supplier.phone}
-                </div>
-              )}
-            </div>
+    <div className="rounded-xl border border-border/50 bg-card p-4">
+      <div className="flex-1 min-w-0">
+        <h3 className="font-semibold text-sm truncate">{supplier.name}</h3>
+        <p className="text-xs text-muted-foreground">{supplier.id}</p>
+        {supplier.phone && (
+          <div className="text-xs text-muted-foreground mt-1">
+            {supplier.phone}
           </div>
-          {supplier.deletedAt && (
-            <div className="text-xs text-muted-foreground">
-              Xóa: {formatDateTimeForDisplay(supplier.deletedAt)}
-            </div>
-          )}
+        )}
+      </div>
+      {supplier.deletedAt && (
+        <div className="text-xs text-muted-foreground mt-2 pt-2 border-t border-border/50">
+          Xóa: {formatDateTimeForDisplay(supplier.deletedAt)}
         </div>
-      </CardContent>
-    </Card>
+      )}
+    </div>
   );
 
   if (isLoading) {

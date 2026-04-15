@@ -5,6 +5,7 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils';
+import { logError } from '@/lib/logger'
 
 // DELETE /api/import-export-logs/clear?entityType=customers
 export async function DELETE(request: NextRequest) {
@@ -29,7 +30,7 @@ export async function DELETE(request: NextRequest) {
       count: result.count 
     });
   } catch (error) {
-    console.error('[API] Import/Export logs clear error:', error);
+    logError('[API] Import/Export logs clear error', error);
     return apiError('Failed to clear logs', 500);
   }
 }

@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 // types
 import type { Product } from '@/features/products/types';
 import type { ProductFormValues } from '@/features/products/validation';
-import type { Order, LineItem, OrderMainStatus, OrderDeliveryStatus, Packaging, OrderPaymentStatus, OrderAddress, Customer, CustomerAddress as _CustomerAddress, OrderPrintStatus, OrderStockOutStatus, OrderReturnStatus, OrderDeliveryMethod } from '@/lib/types/prisma-extended';
+import type { Order, LineItem, OrderMainStatus, OrderDeliveryStatus, Packaging, OrderPaymentStatus, OrderAddress, Customer, CustomerAddress as _CustomerAddress, OrderPrintStatus, OrderStockOutStatus, OrderReturnStatus, OrderDeliveryMethod, OrderInvoiceInfo } from '@/lib/types/prisma-extended';
 
 // stores
 import { useProductFinder } from '@/features/products/hooks/use-all-products';
@@ -167,6 +167,7 @@ export type OrderFormValues = {
   configuration?: Record<string, unknown> | undefined;
   shippingAddress?: OrderAddress | null; // ✅ Selected shipping address from customer
   billingAddress?: OrderAddress | null; // ✅ Selected billing address from customer
+  invoiceInfo?: OrderInvoiceInfo | null; // ✅ Invoice info from business profile
 };
 
 const normalizeOrderAddress = (address?: string | OrderAddress | null): OrderAddress | undefined => {
@@ -331,36 +332,32 @@ export function OrderFormPage() {
         return copySourceOrderFromQuery || null;
     }, [isEditing, copyOrderSystemId, copySourceOrderFromQuery]);
     
-    // ✅ NEW LOGIC: Kiểm tra xem đơn đã đóng gói/xuất kho chưa
+    // ✅ NEW LOGIC: Kiểm tra xem đơn đã có phiếu đóng gói/xuất kho chưa
     const isPackagedOrDispatched = React.useMemo(() => {
         if (!order) return false;
         
-        // ✅ Check if there are any ACTIVE (non-cancelled) packagings that are completed/shipped
+        // ✅ Check if there are any ACTIVE (non-cancelled) packagings
+        // Chỉ cần CÓ phiếu đóng gói chưa bị hủy = lock sửa sản phẩm/KH
         const hasActivePackaging = order.packagings?.some(p => 
             p.status !== 'Hủy đóng gói' && 
-            p.status !== 'CANCELLED' &&
-            (p.status === 'Đã đóng gói' || p.status === 'PACKED' ||
-             p.deliveryStatus === 'Đã đóng gói' || p.deliveryStatus === 'PACKED' ||
-             p.deliveryStatus === 'Chờ lấy hàng' || p.deliveryStatus === 'PENDING_SHIP' ||
-             p.deliveryStatus === 'Đang giao hàng' || p.deliveryStatus === 'SHIPPING' ||
-             p.deliveryStatus === 'Đã giao hàng' || p.deliveryStatus === 'DELIVERED')
+            p.status !== 'CANCELLED'
         );
         
-        // If all packagings are cancelled, allow full edit
-        if (!hasActivePackaging) return false;
+        if (hasActivePackaging) return true;
         
-        // Đã đóng gói hoặc đã xuất kho hoặc hoàn thành
+        // Đã xuất kho hoặc hoàn thành
         return order.stockOutStatus !== 'Chưa xuất kho' || 
-               order.deliveryStatus === 'Đã đóng gói' ||
-               order.deliveryStatus === 'Chờ lấy hàng' ||
-               order.deliveryStatus === 'Đang giao hàng' ||
-               order.deliveryStatus === 'Đã giao hàng' ||
-               order.deliveryStatus === 'Chờ giao lại' ||
                order.status === 'Hoàn thành';
     }, [order]);
 
     // ✅ Chỉ cho sửa metadata (tags, notes, dates, references) khi đã đóng gói/xuất kho
     const isMetadataOnlyMode = isPackagedOrDispatched;
+
+    // ✅ Xuất kho / Hoàn thành: KHÔNG cho sửa tags, ghi chú (chỉ đóng gói mới được)
+    const isShippedOrCompleted = React.useMemo(() => {
+        if (!order) return false;
+        return order.stockOutStatus !== 'Chưa xuất kho' || order.status === 'Hoàn thành';
+    }, [order]);
 
     const isFullyReadOnly = React.useMemo(() => {
         if (!order) return false;
@@ -587,6 +584,7 @@ export function OrderFormPage() {
             // ✅ Load saved addresses from order (if editing)
             shippingAddress: savedShippingAddress || customer?.addresses?.find(a => a.isDefaultShipping) || null,
             billingAddress: savedBillingAddress || customer?.addresses?.find(a => a.isDefaultBilling) || null,
+            invoiceInfo: (order.invoiceInfo as OrderInvoiceInfo | null) || null,
             expectedPaymentMethod: order.expectedPaymentMethod || '',
             referenceUrl: (order as { referenceUrl?: string }).referenceUrl || '',
             externalReference: (order as { externalReference?: string }).externalReference || '',
@@ -786,18 +784,29 @@ export function OrderFormPage() {
         }
     }, [getValues, selectedPolicyId, enableSplitLine, updateField, getDefaultSale, tableSettings, prepend, append]);
 
-    const handleApplyPromotion = React.useCallback((code: string) => {
-        // TODO: Implement promotion logic
-        // For now, just show success message
-        toast.success(`Đã áp dụng mã giảm giá: ${code}`);
-    }, []);
+    const handleApplyPromotion = React.useCallback(async (code: string) => {
+        try {
+            const subtotal = getValues('subtotal') || 0;
+            const shippingFee = getValues('shippingFee') || 0;
+            const orderTotal = subtotal + Number(shippingFee);
+
+            const { validatePromotionCode } = await import('@/features/promotions/api/fetch-promotions');
+            const result = await validatePromotionCode(code, orderTotal);
+
+            setValue('voucherCode', result.code, { shouldDirty: true });
+            setValue('voucherAmount', result.discountAmount, { shouldDirty: true });
+            toast.success(`Áp dụng mã ${result.code}: giảm ${new Intl.NumberFormat('vi-VN').format(result.discountAmount)}đ`);
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : 'Mã giảm giá không hợp lệ');
+        }
+    }, [getValues, setValue]);
     
     /**
      * Tạo đơn hàng trên GHTK và lấy mã vận đơn
      * ✅ SINGLE SOURCE OF TRUTH: Nhận params đã build sẵn từ shipping-integration (previewParams)
      * Returns: { label: string, shipMoney: number } | null
      */
-    const createGHTKOrder = async (ghtkParams: GHTKCreateOrderParams): Promise<{ label: string; shipMoney: number } | null> => {
+    const createGHTKOrder = async (ghtkParams: GHTKCreateOrderParams): Promise<{ label: string; shipMoney: number; trackingId?: number; estimatedPickTime?: string; estimatedDeliverTime?: string } | null> => {
         
         try {
             // Load shipping config
@@ -845,10 +854,12 @@ export function OrderFormPage() {
                 toast.success('Đã tạo đơn GHTK thành công', { 
                     description: `Mã vận đơn: ${result.order.label}` 
                 });
-                // ✅ Return both label and ship_money for packaging creation
                 return {
                     label: result.order.label,
-                    shipMoney: shipFee
+                    shipMoney: shipFee,
+                    trackingId: result.order.tracking_id,
+                    estimatedPickTime: result.order.estimated_pick_time,
+                    estimatedDeliverTime: result.order.estimated_deliver_time,
                 };
             } else {
                 console.error('❌ [createGHTKOrder] API returned failure:', result.message);
@@ -875,7 +886,8 @@ export function OrderFormPage() {
     const createGHTKOrderAndUpdatePackaging = async (
         orderSystemId: string,
         packagingSystemId: string,
-        ghtkParams: GHTKCreateOrderParams
+        ghtkParams: GHTKCreateOrderParams,
+        extra?: { serviceName?: string; codAmount?: number; payer?: string }
     ): Promise<void> => {
         try {
             const result = await createGHTKOrder(ghtkParams);
@@ -886,7 +898,13 @@ export function OrderFormPage() {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         trackingCode: result.label,
+                        trackingId: result.trackingId,
+                        estimatedPickTime: result.estimatedPickTime,
+                        estimatedDeliverTime: result.estimatedDeliverTime,
                         shippingFee: result.shipMoney,
+                        codAmount: extra?.codAmount ?? ghtkParams.pickMoney,
+                        payer: extra?.payer ?? (ghtkParams.isFreeship === 1 ? 'Người gửi' : 'Người nhận'),
+                        service: extra?.serviceName,
                     }),
                 });
                 
@@ -915,6 +933,9 @@ export function OrderFormPage() {
         params: GHTKCreateOrderParams;
         partnerId: string;
         partnerName: string;
+        serviceName?: string;
+        codAmount?: number;
+        payer?: string;
     } | null>(null);
     
     // ✅ Helper to generate packaging systemId using proper counter format (PACKAGE000001)
@@ -952,6 +973,8 @@ export function OrderFormPage() {
                 notes: data.notes || '',
                 referenceUrl: data.referenceUrl || '',
                 externalReference: data.externalReference || '',
+                orderDate: data.orderDate,
+                expectedDeliveryDate: data.expectedDeliveryDate || null,
             };
             
             update.mutate({ id: order.systemId, data: metadataUpdate }, {
@@ -1222,7 +1245,9 @@ export function OrderFormPage() {
                 const partner = partners.find(p => p.id === partnerId || p.systemId === partnerId || p.name === partnerId);
                 const partnerName = partner?.name || partnerId; // Fallback to partnerId if not in database
                 const service = partner?.services.find(s => s.id === data.shippingServiceId || s.name === data.shippingServiceId);
-                const serviceName = service?.name || data.shippingServiceId;
+                const serviceName = service?.name 
+                    || (window as unknown as Record<string, unknown>).__shippingServiceName as string | undefined
+                    || data.shippingServiceId;
                 
                 
                 // ========================================
@@ -1255,6 +1280,9 @@ export function OrderFormPage() {
                             params: partnerParams as GHTKCreateOrderParams,
                             partnerId,
                             partnerName: partnerName || 'GHTK',
+                            serviceName,
+                            codAmount: data.codAmount as number | undefined,
+                            payer: data.payer as string | undefined,
                         };
                     } else {
                         // Other partners - show info message
@@ -1369,6 +1397,7 @@ export function OrderFormPage() {
             returnStatus: 'Chưa trả hàng' as OrderReturnStatus,
             deliveryMethod: (data.deliveryMethod === 'pickup' ? 'Nhận tại cửa hàng' : 'Dịch vụ giao hàng') as OrderDeliveryMethod,
             codAmount: data.codAmount || 0,
+            invoiceInfo: data.invoiceInfo || undefined,
             packagings: packagings,
             completedDate: finalCompletedDate,
             createdAt: toISODateTime(new Date()), // Thời điểm tạo đơn
@@ -1398,7 +1427,7 @@ export function OrderFormPage() {
                     // ✅ GỌI GHTK API SAU KHI ORDER ĐƯỢC TẠO THÀNH CÔNG
                     // Điều này đảm bảo order đã có trong DB trước khi tạo đơn GHTK
                     if (pendingGHTKParamsRef.current) {
-                        const { params, partnerName } = pendingGHTKParamsRef.current;
+                        const { params, partnerName, serviceName: svcName, codAmount: cod, payer: payerVal } = pendingGHTKParamsRef.current;
                         const packagingSystemId = newItem.packagings?.[0]?.systemId;
                         
                         if (packagingSystemId) {
@@ -1408,7 +1437,8 @@ export function OrderFormPage() {
                             await createGHTKOrderAndUpdatePackaging(
                                 newItem.systemId,
                                 packagingSystemId,
-                                params
+                                params,
+                                { serviceName: svcName, codAmount: cod, payer: payerVal }
                             );
                         } else {
                             console.warn('[OrderFormPage] No packaging found to link GHTK order');
@@ -1466,6 +1496,7 @@ export function OrderFormPage() {
             size="sm" 
             className="h-9"
         >
+            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {isSubmitting ? 'Đang xử lý...' : (isEditing ? 'Lưu thay đổi' : 'Tạo đơn và duyệt')}
         </Button>
     ], [handleExitClick, handleDraftClick, handleApproveClick, isFullyReadOnly, isSubmitting, isEditing]);
@@ -1523,8 +1554,8 @@ export function OrderFormPage() {
                         {isMetadataOnlyMode && (
                             <Card className="border-amber-200 bg-amber-50">
                                 <CardContent className="pt-6">
-                                    <p className="text-body-sm text-amber-800">
-                                        <strong>Lưu ý:</strong> Đơn hàng đã đóng gói/xuất kho. Chỉ có thể chỉnh sửa: Tags, Ghi chú, Đường dẫn đơn hàng, Tham chiếu.
+                                    <p className="text-sm text-amber-800">
+                                        <strong>Lưu ý:</strong> Đơn hàng đã đóng gói/xuất kho. Chỉ có thể chỉnh sửa: Ngày bán, Hẹn giao, Đường dẫn, Tham chiếu{!isShippedOrCompleted ? ', Tags, Ghi chú' : ''}.
                                     </p>
                                 </CardContent>
                             </Card>
@@ -1568,7 +1599,7 @@ export function OrderFormPage() {
                                     <>
                                         <div className="text-center text-muted-foreground p-12 border border-dashed rounded-md">
                                             <PackageOpen className="mx-auto h-12 w-12 text-gray-300" />
-                                            <p className="mt-4 text-body-sm">Chưa có sản phẩm nào trong đơn hàng</p>
+                                            <p className="mt-4 text-sm">Chưa có sản phẩm nào trong đơn hàng</p>
                                             <Button type="button" variant="link" className="mt-2" onClick={openProductSelection} disabled={isMetadataOnlyMode}>Thêm sản phẩm</Button>
                                         </div>
                                         <ProductTableBottomToolbar 
@@ -1592,8 +1623,8 @@ export function OrderFormPage() {
                         </Card>
                         <div className="flex flex-col md:flex-row gap-4 items-start">
                             <div className="grow-6 w-full md:w-0 space-y-4">
-                                <OrderNotes disabled={isFullyReadOnly} />
-                                <OrderTags disabled={isFullyReadOnly} />
+                                <OrderNotes disabled={isFullyReadOnly || isShippedOrCompleted} />
+                                <OrderTags disabled={isFullyReadOnly || isShippedOrCompleted} />
                             </div>
                             <div className="grow-4 w-full md:w-0"><OrderSummary disabled={isFormDisabled || isMetadataOnlyMode} /></div>
                         </div>

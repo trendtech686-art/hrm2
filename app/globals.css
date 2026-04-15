@@ -120,6 +120,11 @@
   --font-size-text-h4: var(--font-size-h4);
   --font-size-text-h5: var(--font-size-h5);
   --font-size-text-h6: var(--font-size-h6);
+  
+  --font-size-body-xs: 0.75rem;
+  --font-size-body-xs--line-height: 1rem;
+  --font-size-body-sm: 0.875rem;
+  --font-size-body-sm--line-height: 1.25rem;
 }
 
 /* ============================================
@@ -134,6 +139,14 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans);
   overflow-x: hidden;
+  overscroll-behavior: none;
+}
+
+/* Prevent pinch-to-zoom on mobile while allowing scroll */
+@media (max-width: 767px) {
+  html {
+    touch-action: manipulation;
+  }
 }
 
 /* ============================================
@@ -147,12 +160,14 @@ body {
   border-color: var(--border);
 }
 
-h1 { font-size: var(--font-size-h1); }
-h2 { font-size: var(--font-size-h2); }
-h3 { font-size: var(--font-size-h3); }
-h4 { font-size: var(--font-size-h4); }
-h5 { font-size: var(--font-size-h5); }
-h6 { font-size: var(--font-size-h6); }
+@layer base {
+  h1 { font-size: var(--font-size-h1); }
+  h2 { font-size: var(--font-size-h2); }
+  h3 { font-size: var(--font-size-h3); }
+  h4 { font-size: var(--font-size-h4); }
+  h5 { font-size: var(--font-size-h5); }
+  h6 { font-size: var(--font-size-h6); }
+}
 
 html.font-size-sm { font-size: 14px; }
 html.font-size-base { font-size: 16px; }

@@ -219,7 +219,7 @@ function ActivityItem<T>({
                 <AvatarImage src={activity.userAvatar} alt={activity.userName} />
               ) : (
                 <AvatarFallback
-                  className={`text-[10px] font-medium ${
+                  className={`text-xs font-medium ${
                     isCurrentUser ? 'bg-primary text-primary-foreground' : 'bg-muted'
                   }`}
                 >
@@ -274,7 +274,7 @@ function ActivityItem<T>({
           {showTime && (
             <span
               className={`text-xs text-muted-foreground whitespace-nowrap ${
-                compact ? 'text-[10px]' : ''
+                compact ? 'text-xs' : ''
               }`}
               title={format(
                 typeof activity.createdAt === 'string'

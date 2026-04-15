@@ -19,11 +19,39 @@ export interface OrdersParams {
   search?: string;
   status?: string;
   customerId?: string;
+  customerSystemId?: string;
+  productSystemId?: string;
+  branchId?: string;
   startDate?: string;
   endDate?: string;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
   stockOutStatus?: string;
+  deliveryStatus?: string;
+  paymentStatus?: string;
+  salespersonSystemId?: string;
+  returnStatus?: string;
+  codPending?: string;
+  statusNotIn?: string;
+  statusIn?: string;
+  createdBy?: string;
+  deliveryMethod?: string;
+  source?: string;
+  expectedDeliveryStartDate?: string;
+  expectedDeliveryEndDate?: string;
+  approvedStartDate?: string;
+  approvedEndDate?: string;
+  completedStartDate?: string;
+  completedEndDate?: string;
+  cancelledStartDate?: string;
+  cancelledEndDate?: string;
+  printStatus?: string;
+  packagingStatus?: string;
+  minGrandTotal?: string;
+  maxGrandTotal?: string;
+  minDiscount?: string;
+  maxDiscount?: string;
+  hasNotes?: string;
   enabled?: boolean;
 }
 
@@ -107,7 +135,7 @@ export async function fetchOrders(params: OrdersParams = {}): Promise<PaginatedR
   
   const res = await fetch(`${API_BASE}?${searchParams}`);
   if (!res.ok) {
-    throw new Error(`Failed to fetch orders: ${res.statusText}`);
+    throw new Error(`Không thể tải danh sách đơn hàng: ${res.statusText}`);
   }
   
   return res.json();
@@ -119,7 +147,7 @@ export async function fetchOrders(params: OrdersParams = {}): Promise<PaginatedR
 export async function fetchOrder(id: string): Promise<Order> {
   const res = await fetch(`${API_BASE}/${id}`);
   if (!res.ok) {
-    throw new Error(`Failed to fetch order ${id}: ${res.statusText}`);
+    throw new Error(`Không thể tải đơn hàng ${id}: ${res.statusText}`);
   }
   return res.json();
 }
@@ -139,18 +167,53 @@ export async function createOrder(data: CreateOrderInput): Promise<Order> {
   
   if (!res.ok) {
     const error = await res.json().catch(() => ({}));
-    throw new Error(error.message || `Failed to create order: ${res.statusText}`);
+    throw new Error(error.message || `Không thể tạo đơn hàng: ${res.statusText}`);
   }
   
   return res.json();
 }
 
 /**
+ * Batch import orders — sends multiple orders to server in one request
+ */
+export interface BatchImportResult {
+  success: number
+  failed: number
+  inserted: number
+  updated: number
+  skipped: number
+  errors: Array<{ index: number; id?: string; message: string }>
+}
+
+export async function batchImportOrders(
+  orders: Record<string, unknown>[],
+  mode: 'insert-only' | 'update-only' | 'upsert',
+): Promise<BatchImportResult> {
+  const res = await fetch(`${API_BASE}/batch-import`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ orders, mode }),
+  });
+
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({}));
+    throw new Error(error.message || `Nhập hàng loạt thất bại: ${res.statusText}`);
+  }
+
+  const json = await res.json();
+  return json.data ?? json;
+}
+
+/**
  * Update existing order
  */
-export async function updateOrder({ id, ...data }: UpdateOrderInput): Promise<Order> {
+export async function updateOrder({ id, ...rest }: UpdateOrderInput): Promise<Order> {
+  // Handle { id, data: {...} } pattern - unwrap nested data if present
+  const payload = (rest.data && typeof rest.data === 'object' && !Array.isArray(rest.data))
+    ? rest.data as Record<string, unknown>
+    : rest;
   // Convert Vietnamese status strings to Prisma enum values
-  const convertedData = convertOrderForApi(data as Record<string, unknown>);
+  const convertedData = convertOrderForApi(payload as Record<string, unknown>);
   
   const res = await fetch(`${API_BASE}/${id}`, {
     method: 'PUT',
@@ -160,7 +223,7 @@ export async function updateOrder({ id, ...data }: UpdateOrderInput): Promise<Or
   
   if (!res.ok) {
     const error = await res.json().catch(() => ({}));
-    throw new Error(error.message || `Failed to update order: ${res.statusText}`);
+    throw new Error(error.message || `Không thể cập nhật đơn hàng: ${res.statusText}`);
   }
   
   return res.json();
@@ -176,22 +239,37 @@ export async function deleteOrder(id: string): Promise<void> {
   
   if (!res.ok) {
     const error = await res.json().catch(() => ({}));
-    throw new Error(error.message || `Failed to delete order: ${res.statusText}`);
+    throw new Error(error.message || `Không thể xóa đơn hàng: ${res.statusText}`);
   }
+}
+
+export interface WorkflowCardData {
+  count: number;
+  amount: number;
+}
+
+export interface OrderStatsResponse {
+  countByStatus: Record<string, number>;
+  workflowCards: {
+    pendingApproval: WorkflowCardData;
+    pendingPayment: WorkflowCardData;
+    pendingPack: WorkflowCardData;
+    pendingPickup: WorkflowCardData;
+    shipping: WorkflowCardData;
+    packed: WorkflowCardData;
+    rescheduled: WorkflowCardData;
+    pendingReturn: WorkflowCardData;
+    pendingCod: WorkflowCardData;
+  };
 }
 
 /**
  * Fetch order stats (for dashboard)
  */
-export async function fetchOrderStats(): Promise<{
-  totalOrders: number;
-  totalRevenue: number;
-  pendingOrders: number;
-  todayOrders: number;
-}> {
+export async function fetchOrderStats(): Promise<OrderStatsResponse> {
   const res = await fetch(`${API_BASE}/stats`);
   if (!res.ok) {
-    throw new Error(`Failed to fetch order stats: ${res.statusText}`);
+    throw new Error(`Không thể tải thống kê đơn hàng: ${res.statusText}`);
   }
   return res.json();
 }
@@ -264,7 +342,7 @@ export async function fetchOrdersCursor(
   
   const res = await fetch(`${API_BASE}/cursor?${searchParams}`);
   if (!res.ok) {
-    throw new Error(`Failed to fetch orders: ${res.statusText}`);
+    throw new Error(`Không thể tải danh sách đơn hàng: ${res.statusText}`);
   }
   
   return res.json();

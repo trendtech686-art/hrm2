@@ -4,10 +4,12 @@ import type { InventoryCheck } from "@/lib/types/prisma-extended";
 import type { SystemId } from "@/lib/id-types";
 import { asSystemId } from "@/lib/id-types";
 import { useQueryClient } from '@tanstack/react-query';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import * as React from "react";
 import { fetchInventoryChecks } from '../api/inventory-checks-api';
 import { fetchAllPages } from '@/lib/fetch-all-pages';
 import { inventoryCheckKeys } from "./use-inventory-checks";
+import { logError } from '@/lib/logger'
 
 // ═══════════════════════════════════════════════════════════════
 // Types
@@ -130,7 +132,7 @@ async function executeImport(
 
     return results;
   } catch (error) {
-    console.error('[InventoryChecks Importer] Lỗi nhập phiếu kiểm hàng', error);
+    logError('[InventoryChecks Importer] Lỗi nhập phiếu kiểm hàng', error);
     throw error;
   }
 }
@@ -156,7 +158,7 @@ export function useInventoryCheckImportHandler({
       
       // Invalidate query cache to refresh list
       if (results.success > 0) {
-        queryClient.invalidateQueries({ queryKey: inventoryCheckKeys.lists() });
+        invalidateRelated(queryClient, 'inventory-checks');
       }
       
       return results;

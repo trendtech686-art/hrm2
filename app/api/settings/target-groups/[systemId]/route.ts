@@ -1,6 +1,8 @@
 import { prisma } from '@/lib/prisma'
-import { Prisma } from '@prisma/client'
+import { Prisma } from '@/generated/prisma/client'
 import { apiError, apiSuccess, requireAuth } from '@/lib/api-utils'
+import { logError } from '@/lib/logger'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 const TYPE = 'target-group'
 
@@ -31,7 +33,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ systemI
     if (!item) return apiError('Target group not found', 404)
     return apiSuccess(mapRecord(item as unknown as SettingsDataRecord))
   } catch (error) {
-    console.error('[target-groups] GET detail error:', error)
+    logError('[target-groups] GET detail error', error)
     return apiError('Failed to fetch target group', 500)
   }
 }
@@ -67,9 +69,28 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ sy
       },
     })
 
+    // Activity log
+    const changes: Record<string, { from: unknown; to: unknown }> = {}
+    if (body.name !== undefined && body.name !== existing.name) changes['Tên'] = { from: existing.name, to: body.name }
+    if (body.description !== undefined && body.description !== existing.description) changes['Mô tả'] = { from: existing.description, to: body.description }
+    if (body.isActive !== undefined && body.isActive !== existing.isActive) changes['Trạng thái'] = { from: existing.isActive ? 'Hoạt động' : 'Ngừng', to: body.isActive ? 'Hoạt động' : 'Ngừng' }
+    if (body.isDefault !== undefined && body.isDefault !== existing.isDefault) changes['Mặc định'] = { from: existing.isDefault ? 'Có' : 'Không', to: body.isDefault ? 'Có' : 'Không' }
+
+    if (Object.keys(changes).length > 0) {
+      const changeDetail = Object.keys(changes).join(', ')
+      createActivityLog({
+        entityType: 'target_group',
+        entityId: systemId,
+        action: `Cập nhật nhóm đối tượng: ${existing.name}: ${changeDetail}`,
+        actionType: 'update',
+        changes,
+        createdBy: session.user?.id,
+      }).catch(e => logError('Failed to create activity log', e))
+    }
+
     return apiSuccess(mapRecord(updated as unknown as SettingsDataRecord))
   } catch (error) {
-    console.error('[target-groups] PATCH error:', error)
+    logError('[target-groups] PATCH error', error)
     return apiError('Failed to update target group', 500)
   }
 }
@@ -80,12 +101,25 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ syst
 
   const { systemId } = await params
   try {
+    const existing = await prisma.settingsData.findFirst({ where: { systemId, type: TYPE, isDeleted: false } })
+
     await prisma.settingsData.delete({ where: { systemId } })
+
+    if (existing) {
+      createActivityLog({
+        entityType: 'target_group',
+        entityId: systemId,
+        action: `Xóa nhóm đối tượng: ${existing.name}`,
+        actionType: 'delete',
+        createdBy: session.user?.id,
+      }).catch(e => logError('Failed to create activity log', e))
+    }
+
     return apiSuccess({ success: true })
   } catch (error: unknown) {
     const prismaError = error as { code?: string };
     if (prismaError?.code === 'P2025') return apiError('Target group not found', 404)
-    console.error('[target-groups] DELETE error:', error)
+    logError('[target-groups] DELETE error', error)
     return apiError('Failed to delete target group', 500)
   }
 }

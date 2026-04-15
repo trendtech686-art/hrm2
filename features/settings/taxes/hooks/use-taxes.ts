@@ -4,6 +4,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import {
   fetchTaxes,
   fetchTaxById,
@@ -12,6 +13,7 @@ import {
   deleteTax,
   setDefaultSaleTax,
   setDefaultPurchaseTax,
+  setDefaultExcelExportTax,
   fetchAllTaxes,
   type TaxFilters,
   type TaxCreateInput,
@@ -34,8 +36,8 @@ export function useTaxes(filters: TaxFilters = {}) {
   return useQuery({
     queryKey: taxKeys.list(filters),
     queryFn: () => fetchTaxes(filters),
-    staleTime: 1000 * 60 * 10, // 10 minutes - rarely changes
-    gcTime: 1000 * 60 * 60, // 1 hour
+    staleTime: 30 * 60 * 1000, // 30 minutes - settings rarely change
+    gcTime: 2 * 60 * 60 * 1000, // 2 hours
     placeholderData: keepPreviousData,
   });
 }
@@ -43,12 +45,13 @@ export function useTaxes(filters: TaxFilters = {}) {
 /**
  * Hook to fetch all taxes
  */
-export function useAllTaxes() {
+export function useAllTaxes(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: taxKeys.lists(),
     queryFn: fetchAllTaxes,
-    staleTime: 1000 * 60 * 10,
-    gcTime: 1000 * 60 * 60,
+    enabled: options?.enabled !== false,
+    staleTime: 30 * 60 * 1000, // 30 minutes - settings rarely change
+    gcTime: 2 * 60 * 60 * 1000, // 2 hours
     placeholderData: keepPreviousData,
   });
 }
@@ -61,7 +64,8 @@ export function useTaxById(systemId: string | undefined) {
     queryKey: taxKeys.detail(systemId!),
     queryFn: () => fetchTaxById(systemId!),
     enabled: !!systemId,
-    staleTime: 1000 * 60 * 10,
+    staleTime: 30 * 60 * 1000, // 30 minutes
+    gcTime: 2 * 60 * 60 * 1000, // 2 hours
   });
 }
 
@@ -76,9 +80,7 @@ interface MutationCallbacks {
 export function useTaxMutations(options: MutationCallbacks = {}) {
   const queryClient = useQueryClient();
 
-  const invalidateTaxes = () => {
-    queryClient.invalidateQueries({ queryKey: taxKeys.all });
-  };
+  const invalidateTaxes = () => invalidateRelated(queryClient, 'taxes');
 
   const create = useMutation({
     mutationFn: (data: TaxCreateInput) => createTax(data),
@@ -126,17 +128,28 @@ export function useTaxMutations(options: MutationCallbacks = {}) {
     onError: options.onError,
   });
 
+  const setDefaultExcelExport = useMutation({
+    mutationFn: (systemId: string) => setDefaultExcelExportTax(systemId),
+    onSuccess: () => {
+      invalidateTaxes();
+      options.onSuccess?.();
+    },
+    onError: options.onError,
+  });
+
   return {
     create,
     update,
     remove,
     setDefaultSale,
     setDefaultPurchase,
+    setDefaultExcelExport,
     isLoading:
       create.isPending ||
       update.isPending ||
       remove.isPending ||
       setDefaultSale.isPending ||
-      setDefaultPurchase.isPending,
+      setDefaultPurchase.isPending ||
+      setDefaultExcelExport.isPending,
   };
 }

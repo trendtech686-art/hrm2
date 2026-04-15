@@ -105,7 +105,7 @@ export function usePublicComplaintTracking(complaintId: string | undefined) {
       showImages: true,
       showResolution: true,
     },
-    hotline: data?.hotline ?? '1900-xxxx',
+    hotline: data?.hotline ?? '',
     companyName: data?.companyName ?? 'Công ty',
     isLoading,
     isError,

@@ -1,10 +1,12 @@
-/**
+﻿/**
  * Website Settings Sync Utility
  * Synchronizes website settings with database as source of truth
  * Uses in-memory cache for fast synchronous access
  * 
  * NOTE: localStorage has been removed - all data comes from API/database
  */
+
+import { logError } from '@/lib/logger'
 
 // Types
 export interface WebsiteSettings {
@@ -75,7 +77,7 @@ export async function loadWebsiteSettingsAsync(): Promise<WebsiteSettings> {
       return newSettings;
     }
   } catch (error) {
-    console.error('[WebsiteSettings] Error loading from database:', error);
+    logError('[WebsiteSettings] Error loading from database', error);
   }
 
   // Return cache or defaults if API fails
@@ -104,7 +106,7 @@ export async function saveWebsiteSettingsAsync(settings: WebsiteSettings): Promi
       body: JSON.stringify({ type: 'settings', data: settings }),
     });
   } catch (error) {
-    console.error('[WebsiteSettings] Error saving to database:', error);
+    logError('[WebsiteSettings] Error saving to database', error);
   }
 }
 
@@ -122,7 +124,7 @@ export async function loadRedirectsAsync(): Promise<Redirect301[]> {
       return data;
     }
   } catch (error) {
-    console.error('[WebsiteSettings] Error loading redirects from database:', error);
+    logError('[WebsiteSettings] Error loading redirects from database', error);
   }
 
   // Return cache or defaults if API fails
@@ -151,7 +153,7 @@ export async function saveRedirectsAsync(redirects: Redirect301[]): Promise<void
       body: JSON.stringify({ type: 'redirects', data: redirects }),
     });
   } catch (error) {
-    console.error('[WebsiteSettings] Error saving redirects to database:', error);
+    logError('[WebsiteSettings] Error saving redirects to database', error);
   }
 }
 

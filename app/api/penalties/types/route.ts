@@ -6,11 +6,12 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils';
 import { generateNextIds } from '@/lib/id-system';
+import { logError } from '@/lib/logger'
 
 // GET /api/penalties/types
 export async function GET(_request: NextRequest) {
   const session = await requireAuth();
-  if (!session) return apiError('Unauthorized', 401);
+  if (!session) return apiError('Chưa được xác thực', 401);
 
   try {
     const types = await prisma.penaltyTypeSetting.findMany({
@@ -20,15 +21,15 @@ export async function GET(_request: NextRequest) {
 
     return apiSuccess(types);
   } catch (error) {
-    console.error('[PenaltyTypes API] GET error:', error);
-    return apiError('Failed to fetch penalty types', 500);
+    logError('[PenaltyTypes API] GET error', error);
+    return apiError('Không thể tải danh sách loại phạt', 500);
   }
 }
 
 // POST /api/penalties/types
 export async function POST(request: NextRequest) {
   const session = await requireAuth();
-  if (!session) return apiError('Unauthorized', 401);
+  if (!session) return apiError('Chưa được xác thực', 401);
 
   try {
     const body = await request.json();
@@ -51,7 +52,7 @@ export async function POST(request: NextRequest) {
 
     return apiSuccess(penaltyType, 201);
   } catch (error) {
-    console.error('[PenaltyTypes API] POST error:', error);
-    return apiError('Failed to create penalty type', 500);
+    logError('[PenaltyTypes API] POST error', error);
+    return apiError('Không thể tạo loại phạt', 500);
   }
 }

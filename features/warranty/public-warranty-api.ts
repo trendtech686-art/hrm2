@@ -37,6 +37,10 @@ export interface PublicWarrantyTicket extends Pick<
   | 'cancelledAt'
   | 'cancelReason'
   | 'employeeName'
+  | 'branchName'
+  | 'createdBy'
+  | 'updatedAt'
+  | 'updatedBy'
 > {
   products: PublicWarrantyProduct[];
   history: PublicWarrantyHistory[];
@@ -135,6 +139,10 @@ function _sanitizeTicket(ticket: WarrantyTicket): PublicWarrantyTicket {
     cancelledAt: ticket.cancelledAt,
     cancelReason: ticket.cancelReason,
     employeeName: ticket.employeeName,
+    branchName: ticket.branchName || '',
+    createdBy: ticket.createdBy,
+    updatedAt: ticket.updatedAt,
+    updatedBy: ticket.updatedBy,
     history: (ticket.history || []).map(entry => ({
       systemId: entry.systemId,
       action: entry.action,

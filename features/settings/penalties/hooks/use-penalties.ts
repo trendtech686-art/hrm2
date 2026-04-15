@@ -3,6 +3,7 @@
  */
 
 import { useQuery, useQueries, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import * as api from '../api/penalties-api';
 import type { Penalty, PenaltyType } from '@/lib/types/prisma-extended';
 import type { PenaltyFilters } from '../api/penalties-api';
@@ -48,7 +49,7 @@ export function usePenaltiesByIds(systemIds: string[]) {
 
 export function usePenaltyMutations(opts?: { onSuccess?: () => void }) {
   const qc = useQueryClient();
-  const invalidate = () => qc.invalidateQueries({ queryKey: penaltyKeys.all });
+  const invalidate = () => invalidateRelated(qc, 'penalties');
   return {
     create: useMutation({ mutationFn: api.createPenalty, onSuccess: () => { invalidate(); opts?.onSuccess?.(); } }),
     update: useMutation({ mutationFn: ({ systemId, data }: { systemId: string; data: Partial<Penalty> }) => api.updatePenalty(systemId, data), onSuccess: () => { invalidate(); opts?.onSuccess?.(); } }),
@@ -63,7 +64,7 @@ export function usePenaltyTypes() {
 
 export function usePenaltyTypeMutations(opts?: { onSuccess?: () => void }) {
   const qc = useQueryClient();
-  const invalidate = () => qc.invalidateQueries({ queryKey: penaltyKeys.types() });
+  const invalidate = () => invalidateRelated(qc, 'penalties');
   return {
     create: useMutation({ mutationFn: api.createPenaltyType, onSuccess: () => { invalidate(); opts?.onSuccess?.(); } }),
     update: useMutation({ mutationFn: ({ systemId, data }: { systemId: string; data: Partial<PenaltyType> }) => api.updatePenaltyType(systemId, data), onSuccess: () => { invalidate(); opts?.onSuccess?.(); } }),

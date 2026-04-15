@@ -14,7 +14,8 @@ import {
   type CustomRole 
 } from '../role-settings-service';
 import { toast } from 'sonner';
-import { DEFAULT_ROLE_PERMISSIONS } from '../../../employees/permissions';
+import { DEFAULT_ROLE_PERMISSIONS, type Permission } from '../../../employees/permissions';
+import { logError } from '@/lib/logger'
 
 // Generate unique ID for optimistic updates
 const generateTempId = () => `role_${crypto.randomUUID().slice(0, 8)}`;
@@ -38,6 +39,7 @@ export function useRoleSettings() {
     staleTime: 1000 * 60 * 5,
     gcTime: 1000 * 60 * 30,
     initialData: DEFAULT_ROLES,
+    initialDataUpdatedAt: 0, // Treat defaults as stale → fetch real data from DB immediately
   });
 }
 
@@ -55,12 +57,12 @@ export function useRoleMutations() {
       queryClient.setQueryData(roleSettingsKeys.main(), data);
     },
     onError: (error) => {
-      console.error('[useRoleMutations] Save failed:', error);
+      logError('[useRoleMutations] Save failed', error);
       toast.error('Không thể lưu thay đổi');
     },
   });
 
-  const addRole = (name: string, description: string) => {
+  const addRole = (name: string, description: string, permissions: Permission[] = []) => {
     const currentRoles = queryClient.getQueryData<CustomRole[]>(roleSettingsKeys.main()) ?? DEFAULT_ROLES;
     const roleId = generateTempId();
     const newRole: CustomRole = {
@@ -68,7 +70,7 @@ export function useRoleMutations() {
       systemId: roleId,
       name,
       description,
-      permissions: [],
+      permissions,
       isDefault: false,
     };
     const updatedRoles = [...currentRoles, newRole];

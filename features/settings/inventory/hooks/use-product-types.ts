@@ -3,6 +3,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import * as api from '../api/product-types-api';
 import type { ProductTypeSettings } from '@/lib/types/prisma-extended';
 
@@ -38,9 +39,7 @@ export function useProductType(systemId: string) {
 export function useProductTypeMutations() {
   const queryClient = useQueryClient();
   
-  const invalidateProductTypes = () => {
-    queryClient.invalidateQueries({ queryKey: productTypeKeys.all });
-  };
+  const invalidateProductTypes = () => invalidateRelated(queryClient, 'product-types');
   
   const create = useMutation({
     mutationFn: api.createProductType,

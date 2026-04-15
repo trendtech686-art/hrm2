@@ -13,6 +13,7 @@ import {
   getStoreData,
   StoreSettings
 } from './types';
+import { generateBarcodeImage } from './barcode-utils';
 
 export interface PackingRequestForPrint {
   // Thông tin cơ bản
@@ -92,13 +93,6 @@ export interface PackingRequestForPrint {
 }
 
 export function mapPackingRequestToPrintData(request: PackingRequestForPrint, storeSettings: StoreSettings): PrintData {
-  const barcode = request.code 
-    ? `https://barcodeapi.org/api/128/${encodeURIComponent(request.code)}`
-    : '';
-  const orderBarcode = request.orderCode 
-    ? `https://barcodeapi.org/api/128/${encodeURIComponent(request.orderCode)}`
-    : '';
-    
   return {
     ...getStoreData(storeSettings),
     
@@ -111,9 +105,9 @@ export function mapPackingRequestToPrintData(request: PackingRequestForPrint, st
     // === THÔNG TIN PHIẾU YÊU CẦU ĐÓNG GÓI ===
     '{code}': request.code,
     '{packing_request_code}': request.packingRequestCode || request.code,
-    '{bar_code(code)}': barcode,
+    '{bar_code(code)}': generateBarcodeImage(request.code, 40),
     '{order_code}': request.orderCode || '',
-    '{bar_code(order_code)}': orderBarcode,
+    '{bar_code(order_code)}': generateBarcodeImage(request.orderCode, 40),
     '{created_on}': formatDate(request.createdAt),
     '{created_on_time}': formatTime(request.createdAt),
     '{packed_on}': formatDate(request.packedOn),

@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma'
 import type { Prisma } from '@/generated/prisma/client'
 import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
 import { generateIdWithPrefix } from '@/lib/id-generator'
+import { logError } from '@/lib/logger'
 
 const SETTING_KEY = 'employee-documents'
 const SETTING_GROUP = 'hrm'
@@ -43,7 +44,7 @@ export async function GET(request: Request) {
 
     return apiSuccess({ data: documents })
   } catch (error) {
-    console.error('Error fetching employee documents:', error)
+    logError('Error fetching employee documents', error)
     return apiError('Failed to fetch employee documents', 500)
   }
 }
@@ -91,7 +92,7 @@ export async function POST(request: Request) {
 
     return apiSuccess({ data: body })
   } catch (error) {
-    console.error('Error creating employee document:', error)
+    logError('Error creating employee document', error)
     return apiError('Failed to create employee document', 500)
   }
 }
@@ -128,7 +129,7 @@ export async function PUT(request: Request) {
 
     return apiSuccess({ data: documents })
   } catch (error) {
-    console.error('Error updating employee documents:', error)
+    logError('Error updating employee documents', error)
     return apiError('Failed to update employee documents', 500)
   }
 }

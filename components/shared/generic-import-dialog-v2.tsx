@@ -52,6 +52,7 @@ import { ScrollArea } from "../ui/scroll-area"
 import { Alert, AlertDescription, AlertTitle } from "../ui/alert"
 import { Badge } from "../ui/badge"
 import { Checkbox } from "../ui/checkbox"
+import { Switch } from "../ui/switch"
 import { RadioGroup, RadioGroupItem } from "../ui/radio-group"
 import {
   Table,
@@ -93,6 +94,7 @@ import { ExcelFileDropzone, type ExcelFile } from './excel-file-dropzone'
 import { useAllBranches } from "../../features/settings/branches/hooks/use-all-branches"
 import { useImportExportLogsMutations } from "../../lib/import-export/hooks/use-import-export-logs"
 import { useActivePricingPolicies } from "../../features/settings/pricing/hooks/use-pricing"
+import { logError } from '@/lib/logger'
 
 // ============================================
 // EDITABLE CELL COMPONENT (Memoized for performance)
@@ -157,11 +159,11 @@ const EditableCell = React.memo(function EditableCell({
           <span className="block truncate flex-1">
             {cellValue || <span className="text-muted-foreground italic">—</span>}
           </span>
-          <Pencil className="h-3 w-3 flex-shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+          <Pencil className="h-3 w-3 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
         </button>
       </PopoverTrigger>
       <PopoverContent 
-        className="w-[300px] p-3" 
+        className="w-75 p-3" 
         align="start"
         sideOffset={4}
       >
@@ -187,7 +189,7 @@ const EditableCell = React.memo(function EditableCell({
                   }
                 }}
                 placeholder={`Nhập ${fieldLabel.toLowerCase()}...`}
-                className={cn("min-h-[80px] resize-y", error && "border-destructive")}
+                className={cn("min-h-20 resize-y", error && "border-destructive")}
                 rows={3}
               />
             ) : (
@@ -289,7 +291,7 @@ function PreviewTableRowComponent<T>({
         return (
           <TableCell 
             key={fieldKey} 
-            className="whitespace-nowrap p-0 max-w-[200px]"
+            className="whitespace-nowrap p-0 max-w-50"
           >
             <EditableCell
               cellValue={cellValue}
@@ -355,7 +357,8 @@ interface GenericImportDialogV2Props<T> {
   onImport: (
     data: Partial<T>[], 
     mode: ImportMode,
-    branchId?: string
+    branchId?: string,
+    onProgress?: (percent: number) => void,
   ) => Promise<ImportResultData>
   
   // Current user for logging (optional)
@@ -381,16 +384,16 @@ export function GenericImportDialogV2<T>({
   onImport,
   currentUser,
 }: GenericImportDialogV2Props<T>) {
-  // React Query hooks
+  // React Query hooks - defer until dialog is open
   const { addImport } = useImportExportLogsMutations()
-  const { data: pricingPoliciesData } = useActivePricingPolicies()
+  const { data: pricingPoliciesData } = useActivePricingPolicies({ enabled: open })
   const activePricingPolicies = React.useMemo(
     () => pricingPoliciesData?.filter(p => p.isActive) ?? [],
     [pricingPoliciesData]
   )
   
-  // Auto-fetch branches if not provided
-  const { data: storeBranches } = useAllBranches()
+  // Auto-fetch branches if not provided - defer until dialog is open
+  const { data: storeBranches } = useAllBranches({ enabled: open })
   const branches = branchesProp || storeBranches.map(b => ({ systemId: b.systemId, name: b.name, isDefault: b.isDefault }))
   
   // Get default branch from settings (isDefault = true) or fallback to prop
@@ -407,6 +410,14 @@ export function GenericImportDialogV2<T>({
   const [excelFile, setExcelFile] = React.useState<ExcelFile | null>(null)
   const [importMode, setImportMode] = React.useState<ImportMode>('upsert')
   const [addressLevel, setAddressLevel] = React.useState<AddressLevel>('3-level')
+  const [isParsing, setIsParsing] = React.useState(false)
+  
+  // Custom import options state
+  const [importOptionsState, setImportOptionsState] = React.useState<Record<string, boolean>>(() => {
+    const defaults: Record<string, boolean> = {}
+    config.importOptions?.forEach(opt => { defaults[opt.key] = opt.defaultValue })
+    return defaults
+  })
   
   // Preview state
   const [previewResult, setPreviewResult] = React.useState<ImportPreviewResult<T> | null>(null)
@@ -487,7 +498,7 @@ export function GenericImportDialogV2<T>({
   // Get visible fields for preview table - show ALL non-hidden fields
   // Filter out ward field if using 2-level address
   const visibleFields = React.useMemo(() => {
-    let fields = config.fields.filter(f => !f.hidden)
+    let fields = config.fields.filter(f => !f.hidden && !f.exportOnly)
     
     // If using 2-level address, hide ward field
     if (showAddressLevelOption && addressLevel === '2-level') {
@@ -634,7 +645,7 @@ export function GenericImportDialogV2<T>({
       // Create template with headers only
       // Use the same visibleFields logic (filters by hidden and addressLevel)
       const headers: Record<string, string> = {}
-      let templateFields = config.fields.filter(field => !field.hidden)
+      let templateFields = config.fields.filter(field => !field.hidden && !field.exportOnly)
       
       // If using 2-level address, exclude ward field from template
       if (showAddressLevelOption && addressLevel === '2-level') {
@@ -716,7 +727,7 @@ export function GenericImportDialogV2<T>({
       XLSX.writeFile(wb, fileName)
       toast.success('Đã tải file mẫu')
     } catch (error) {
-      console.error('Error generating template:', error)
+      logError('Error generating template', error)
       toast.error('Có lỗi khi tạo file mẫu')
     }
   }
@@ -730,15 +741,23 @@ export function GenericImportDialogV2<T>({
       return
     }
     setBranchError('')
+    setIsParsing(true)
 
     try {
-      // Lazy load XLSX to reduce bundle size (~500KB)
-      const XLSX = await import('xlsx')
-      
-      const data = await excelFile.file.arrayBuffer()
-      const workbook = XLSX.read(data)
-      const worksheet = workbook.Sheets[workbook.SheetNames[0]]
-      const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: '' })
+      let jsonData: Record<string, unknown>[];
+
+      if (config.parseFile) {
+        // Use custom parser (e.g. ExcelJS streaming for large files)
+        jsonData = await config.parseFile(excelFile.file)
+      } else {
+        // Default: Lazy load XLSX to reduce bundle size (~500KB)
+        const XLSX = await import('xlsx')
+        
+        const data = await excelFile.file.arrayBuffer()
+        const workbook = XLSX.read(data)
+        const worksheet = workbook.Sheets[workbook.SheetNames[0]]
+        jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: '' }) as Record<string, unknown>[]
+      }
 
       if (jsonData.length === 0) {
         toast.error('File không có dữ liệu')
@@ -749,19 +768,19 @@ export function GenericImportDialogV2<T>({
       // Support both with and without (*) marker
       const headerMap: Record<string, string> = {}
       config.fields.forEach(field => {
-        if (!field.hidden) {
+        if (!field.hidden && !field.exportOnly) {
           const label = field.label.toLowerCase()
-          const labelWithoutStar = label.replace(/\s*\(\*\)\s*$/, '')
+          const labelWithoutStar = label.replace(/\s*\(\*\)\s*$/, '').replace(/\s*\*\s*$/, '')
           headerMap[label] = field.key as string
           headerMap[labelWithoutStar] = field.key as string
         }
       })
 
-      // Map data - normalize Excel headers by stripping (*) and lowercasing
-      const mappedData = jsonData.map((row: Record<string, unknown>) => {
+      // Map data - normalize Excel headers by stripping (*) or * and lowercasing
+      const mappedData = (jsonData as Record<string, unknown>[]).map((row) => {
         const mappedRow: Record<string, unknown> = {}
         Object.entries(row).forEach(([vnKey, value]) => {
-          const normalizedKey = vnKey.toLowerCase().replace(/\s*\(\*\)\s*$/, '')
+          const normalizedKey = vnKey.toLowerCase().replace(/\s*\(\*\)\s*$/, '').replace(/\s*\*\s*$/, '')
           const fieldKey = headerMap[normalizedKey] || headerMap[vnKey.toLowerCase()] || vnKey
           mappedRow[fieldKey] = value
         })
@@ -782,8 +801,10 @@ export function GenericImportDialogV2<T>({
       setStep('preview')
       
     } catch (error) {
-      console.error('Error parsing file:', error)
+      logError('Error parsing file', error)
       toast.error('Không thể đọc file. Vui lòng kiểm tra định dạng file.')
+    } finally {
+      setIsParsing(false)
     }
   }
 
@@ -815,10 +836,28 @@ export function GenericImportDialogV2<T>({
 
       // Show progress while waiting
       setImportProgress(10)
-      setImportProgressMessage('Đang gửi dữ liệu...')
+      setImportProgressMessage('Đang xử lý dữ liệu...')
+
+      // Call beforeImport hook if exists (e.g., grouping rows by orderId for Sapo)
+      let processedRows = validRows
+      if (config.beforeImport) {
+        const configWithContext = config as typeof config & { storeContext?: Record<string, unknown> }
+        processedRows = await config.beforeImport(
+          validRows as T[], 
+          { storeContext: configWithContext.storeContext, importOptions: importOptionsState, currentUser }
+        ) as Partial<T>[]
+      }
+
+      setImportProgress(20)
+      setImportProgressMessage('Đang nhập dữ liệu...')
 
       // Import - for background jobs, this returns immediately
-      const result = await onImport(validRows, importMode, selectedBranchId || undefined)
+      // Pass progress callback to map 20-95% range
+      const result = await onImport(processedRows, importMode, selectedBranchId || undefined, (percent) => {
+        const mapped = 20 + Math.round(percent * 0.75) // Map 0-100% to 20-95%
+        setImportProgress(mapped)
+        setImportProgressMessage(`Đang nhập dữ liệu... (${percent}%)`)
+      })
       
       setImportProgress(100)
       setImportProgressMessage('Hoàn thành!')
@@ -871,7 +910,7 @@ export function GenericImportDialogV2<T>({
         }
       }
     } catch (error) {
-      console.error('Import error:', error)
+      logError('Import error', error)
       const errorMessage = error instanceof Error ? error.message : 'Có lỗi khi nhập dữ liệu'
       toast.error(errorMessage)
       setStep('preview')
@@ -891,7 +930,7 @@ export function GenericImportDialogV2<T>({
   const previewPageCount = Math.ceil(filteredPreviewRows.length / previewPageSize)
 
   // Memoized getStatusBadge to prevent re-renders
-  const getStatusBadge = React.useCallback((status: ImportPreviewRow<T>['status'], errors?: Array<{ field?: string; message: string }>, warnings?: Array<{ field?: string; message: string }>) => {
+  const getStatusBadge = React.useCallback((status: string, errors?: Array<{ field?: string; message: string }>, warnings?: Array<{ field?: string; message: string }>) => {
     const badge = (() => {
       switch (status) {
         case 'valid':
@@ -1010,6 +1049,7 @@ export function GenericImportDialogV2<T>({
                 value={excelFile}
                 onChange={setExcelFile}
                 uploadToServer={false}
+                maxSize={config.maxFileSize}
               />
 
               {/* Import Options */}
@@ -1084,6 +1124,32 @@ export function GenericImportDialogV2<T>({
                   </div>
                 )}
                 
+                {/* Custom Import Options (switches) */}
+                {config.importOptions && config.importOptions.length > 0 && (
+                  <div className="space-y-3 border-t pt-3">
+                    <Label>Tùy chọn nâng cao</Label>
+                    {config.importOptions.map(opt => (
+                      <div key={opt.key} className="flex items-center justify-between gap-3">
+                        <div className="grid gap-0.5 leading-none">
+                          <Label htmlFor={`import-opt-${opt.key}`} className="font-normal cursor-pointer">
+                            {opt.label}
+                          </Label>
+                          {opt.description && (
+                            <p className="text-xs text-muted-foreground">{opt.description}</p>
+                          )}
+                        </div>
+                        <Switch
+                          id={`import-opt-${opt.key}`}
+                          checked={importOptionsState[opt.key] ?? opt.defaultValue}
+                          onCheckedChange={(checked) => {
+                            setImportOptionsState(prev => ({ ...prev, [opt.key]: !!checked }))
+                          }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 {/* Info about error handling */}
                 <p className="text-xs text-muted-foreground border-t pt-3">
                   💡 Các dòng lỗi sẽ bị bỏ qua, chỉ import dòng hợp lệ. Chi tiết lỗi được lưu trong lịch sử import.
@@ -1114,6 +1180,39 @@ export function GenericImportDialogV2<T>({
                   <div className="text-xs text-muted-foreground">Cảnh báo</div>
                 </div>
               </div>
+
+              {/* Custom Preview Stats */}
+              {config.computePreviewStats && previewResult && (() => {
+                const rawRows = previewResult.rows.map(r => r.rawData as Record<string, unknown>)
+                const configWithContext = config as typeof config & { storeContext?: Record<string, unknown> }
+                const statsResult = config.computePreviewStats!(rawRows, importOptionsState, configWithContext.storeContext)
+                return (
+                  <>
+                    {statsResult.stats.length > 0 && (
+                      <div className="rounded-lg border bg-muted/30 p-3">
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          {statsResult.stats.map((s, i) => (
+                            <div key={i} className="flex justify-between">
+                              <span className="text-muted-foreground">{s.label}</span>
+                              <span className={cn("font-semibold", {
+                                'text-blue-600': s.variant === 'info',
+                                'text-amber-600': s.variant === 'warning',
+                                'text-green-600': s.variant === 'success',
+                              })}>{typeof s.value === 'number' ? s.value.toLocaleString() : s.value}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {statsResult.warnings?.map((w, i) => (
+                      <Alert key={i} variant="destructive" className="py-2">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription className="text-xs">{w}</AlertDescription>
+                      </Alert>
+                    ))}
+                  </>
+                )
+              })()}
 
               {/* Alerts */}
               {previewResult.errorCount > 0 && (
@@ -1172,7 +1271,7 @@ export function GenericImportDialogV2<T>({
                 
                 <TabsContent value={previewTab} className="mt-4">
                   <div className="rounded-md border overflow-hidden">
-                    <div className="overflow-auto max-h-[300px]">
+                    <div className="overflow-auto max-h-75">
                       <div className="min-w-max">
                         <Table>
                           <TableHeader>
@@ -1187,7 +1286,7 @@ export function GenericImportDialogV2<T>({
                               <TableHead className="w-14 sticky left-10 bg-card z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Dòng</TableHead>
                               <TableHead className="w-20 sticky left-24 bg-card z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Trạng thái</TableHead>
                               {visibleFields.map(field => (
-                                <TableHead key={field.key as string} className="min-w-[120px] max-w-[200px] whitespace-nowrap">
+                                <TableHead key={field.key as string} className="min-w-30 max-w-50 whitespace-nowrap">
                                   {field.label}
                                 </TableHead>
                               ))}
@@ -1231,7 +1330,7 @@ export function GenericImportDialogV2<T>({
                       </div>
                       <div className="flex items-center gap-2">
                         <Select value={String(previewPageSize)} onValueChange={(v) => { setPreviewPageSize(Number(v)); setPreviewPage(0); }}>
-                          <SelectTrigger className="w-[100px] h-8">
+                          <SelectTrigger className="w-25 h-8">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -1316,7 +1415,7 @@ export function GenericImportDialogV2<T>({
                     <a 
                       href="/settings/import-export-logs" 
                       className="text-sm text-primary hover:underline inline-flex items-center gap-1"
-                      target="_blank"
+                      target="_blank" rel="noopener noreferrer"
                     >
                       Cài đặt → Lịch sử nhập xuất
                       <ExternalLink className="h-3 w-3" />
@@ -1372,7 +1471,7 @@ export function GenericImportDialogV2<T>({
                       <XCircle className="h-4 w-4" />
                       <AlertTitle>Chi tiết lỗi ({importResult.errors.length} dòng)</AlertTitle>
                       <AlertDescription>
-                        <ScrollArea className="h-[150px] mt-2">
+                        <ScrollArea className="h-37 mt-2">
                           <div className="space-y-1">
                             {importResult.errors.map((error, idx) => (
                               <div key={idx} className="text-sm">
@@ -1398,10 +1497,10 @@ export function GenericImportDialogV2<T>({
               </Button>
               <Button 
                 onClick={handleParseAndPreview}
-                disabled={!excelFile || (requireBranch && !selectedBranchId)}
+                disabled={!excelFile || isParsing || (requireBranch && !selectedBranchId)}
               >
-                <Eye className="mr-2 h-4 w-4" />
-                Rà soát
+                {isParsing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Eye className="mr-2 h-4 w-4" />}
+                {isParsing ? 'Đang đọc file...' : 'Rà soát'}
               </Button>
             </>
           )}

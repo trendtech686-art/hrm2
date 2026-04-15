@@ -4,6 +4,7 @@
 // FILE UPLOAD COMPONENT
 // ═══════════════════════════════════════════════════════════════
 
+import NextImage from 'next/image'
 import { useCallback, useState } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { Upload, X, File, Image, Loader2 } from 'lucide-react'
@@ -224,11 +225,15 @@ export function FileUpload({
                 className="relative group border rounded-lg overflow-hidden"
               >
                 {file.mimeType.startsWith('image/') ? (
-                  <img
-                    src={file.thumbnailUrl || file.url}
-                    alt={file.originalName}
-                    className="w-full h-24 object-cover"
-                  />
+                  <div className="relative w-full h-24">
+                    <NextImage
+                      src={file.thumbnailUrl || file.url}
+                      alt={file.originalName}
+                      fill
+                      sizes="(max-width: 768px) 50vw, 25vw"
+                      className="object-cover"
+                    />
+                  </div>
                 ) : (
                   <div className="w-full h-24 flex items-center justify-center bg-muted">
                     <File className="h-8 w-8 text-muted-foreground" />

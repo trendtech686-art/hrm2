@@ -3,7 +3,6 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import type { StockTransfer } from '@/lib/types/prisma-extended';
-import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Truck, ArrowRight, Package, Calendar, User, MoreHorizontal, Eye, Edit, XCircle } from 'lucide-react';
@@ -41,18 +40,17 @@ export function StockTransferCard({ transfer, onDelete }: StockTransferCardProps
   const totalQuantity = transfer.items?.reduce((sum, item) => sum + item.quantity, 0) || 0;
 
   return (
-    <Card className="mb-3">
-      <CardContent className="p-4">
+    <div className="rounded-xl border border-border/50 bg-card p-4 active:scale-[0.98] transition-transform touch-manipulation cursor-pointer" onClick={() => router.push(`/stock-transfers/${transfer.systemId}`)}>
         <div className="flex items-start justify-between mb-3">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-1">
-              <span className="font-semibold text-primary">{transfer.id}</span>
+              <span className="font-semibold text-sm text-primary">{transfer.id}</span>
               <Badge variant={getStatusVariant(transfer.status)}>
                 {getStatusLabel(transfer.status)}
               </Badge>
             </div>
             {transfer.referenceCode && (
-              <p className="text-body-xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 Mã tham chiếu: {transfer.referenceCode}
               </p>
             )}
@@ -60,7 +58,7 @@ export function StockTransferCard({ transfer, onDelete }: StockTransferCardProps
           
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 -mr-2 -mt-1 shrink-0" onClick={(e) => e.stopPropagation()}>
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -92,18 +90,18 @@ export function StockTransferCard({ transfer, onDelete }: StockTransferCardProps
         {/* Branch Transfer Info */}
         <div className="flex items-center gap-2 mb-3 p-2 bg-muted/50 rounded-md">
           <div className="flex-1 text-center">
-            <p className="text-body-xs text-muted-foreground">Từ</p>
-            <p className="font-medium text-body-sm">{transfer.fromBranchName}</p>
+            <p className="text-xs text-muted-foreground">Từ</p>
+            <p className="font-medium text-sm">{transfer.fromBranchName}</p>
           </div>
           <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
           <div className="flex-1 text-center">
-            <p className="text-body-xs text-muted-foreground">Đến</p>
-            <p className="font-medium text-body-sm">{transfer.toBranchName}</p>
+            <p className="text-xs text-muted-foreground">Đến</p>
+            <p className="font-medium text-sm">{transfer.toBranchName}</p>
           </div>
         </div>
 
         {/* Info Row */}
-        <div className="grid grid-cols-3 gap-2 text-body-sm">
+        <div className="grid grid-cols-3 gap-2 text-sm">
           <div className="flex items-center gap-1 text-muted-foreground">
             <Package className="h-3.5 w-3.5" />
             <span>{transfer.items?.length || 0} SP</span>
@@ -119,18 +117,17 @@ export function StockTransferCard({ transfer, onDelete }: StockTransferCardProps
         </div>
 
         {/* Creator */}
-        <div className="flex items-center gap-1 mt-2 text-body-xs text-muted-foreground">
+        <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
           <User className="h-3 w-3" />
           <span>{transfer.createdByName}</span>
         </div>
 
         {/* Note */}
         {transfer.note && (
-          <p className="mt-2 text-body-xs text-muted-foreground line-clamp-2">
+          <p className="mt-2 text-xs text-muted-foreground line-clamp-2">
             {transfer.note}
           </p>
         )}
-      </CardContent>
-    </Card>
+    </div>
   );
 }

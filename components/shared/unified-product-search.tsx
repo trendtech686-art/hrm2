@@ -23,7 +23,6 @@ import { useAllBranches } from '../../features/settings/branches/hooks/use-all-b
 import { useProductTypeFinder, useActiveProductTypes } from '../../features/settings/inventory/hooks/use-all-product-types';
 import { useAllUnits } from '../../features/settings/units/hooks/use-all-units';
 import { useImageStore } from '../../features/products/image-store';
-import { FileUploadAPI, type StagingFile, type ServerFile } from '../../lib/file-upload-api';
 import { LazyImage } from '../ui/lazy-image';
 import { VirtualizedCombobox, type ComboboxOption } from '../ui/virtualized-combobox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '../ui/dialog';
@@ -64,6 +63,8 @@ export interface UnifiedProductSearchProps {
     allowCreateNew?: boolean;
     /** Hiển thị giá vốn */
     showCostPrice?: boolean;
+    /** Hiển thị giá nhập */
+    showPurchasePrice?: boolean;
     /** Hiển thị giá bán */
     showSellingPrice?: boolean;
     /** Chi nhánh để hiển thị tồn kho (nếu muốn filter theo chi nhánh) */
@@ -72,6 +73,11 @@ export interface UnifiedProductSearchProps {
     customFilter?: (product: Product) => boolean;
     /** Pricing policy ID để hiển thị giá theo bảng giá đã chọn */
     pricingPolicyId?: string;
+    // ⚡ OPTIMIZED: Optional prefetched data to avoid duplicate API calls
+    prefetchedUnits?: Array<{ systemId: string; name: string }>;
+    prefetchedProductTypes?: Array<{ systemId: string; name: string }>;
+    prefetchedPricingPolicies?: Array<{ systemId: string; name: string; type: string; isDefault: boolean }>;
+    prefetchedBranches?: Array<{ systemId: string; name: string }>;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -103,7 +109,6 @@ const ProductOptionThumbnail = React.memo(({
     const lastFetched = useImageStore(state => 
         meiliImage ? true : state.permanentMeta[productSystemId]?.lastFetched
     );
-    const updatePermanentImages = useImageStore(state => state.updatePermanentImages);
 
     const storeThumbnail = permanentImages?.thumbnail?.[0]?.url;
     const storeGallery = permanentImages?.gallery?.[0]?.url;
@@ -111,22 +116,14 @@ const ProductOptionThumbnail = React.memo(({
     // Prioritize Meilisearch image (already synced)
     const displayImage = meiliImage || storeThumbnail || storeGallery;
 
-    // Only fetch if: no image from Meilisearch AND never fetched before
+    // Only fetch if: no image from Meilisearch AND never fetched before (uses batch queue)
     React.useEffect(() => {
         if (!meiliImage && !lastFetched && productSystemId) {
-            FileUploadAPI.getProductFiles(productSystemId)
-                .then(files => {
-                    const mapFile = (f: ServerFile) => ({
-                        id: f.id, sessionId: '', name: f.name, originalName: f.originalName,
-                        slug: f.slug, filename: f.filename, size: f.size, type: f.type, url: f.url,
-                        status: 'permanent' as const, uploadedAt: f.uploadedAt, metadata: f.metadata || ''
-                    });
-                    updatePermanentImages(productSystemId, 'thumbnail', files.filter(f => f.documentName === 'thumbnail').map(mapFile) as unknown as StagingFile[]);
-                    updatePermanentImages(productSystemId, 'gallery', files.filter(f => f.documentName === 'gallery').map(mapFile) as unknown as StagingFile[]);
-                })
-                .catch(() => {});
+            import('@/features/products/image-store').then(({ queueProductImageFetch }) => {
+                queueProductImageFetch(productSystemId);
+            });
         }
-    }, [productSystemId, meiliImage, lastFetched, updatePermanentImages]);
+    }, [productSystemId, meiliImage, lastFetched]);
 
     if (displayImage) {
         return (
@@ -155,7 +152,7 @@ interface QuickAddProductDialogProps {
 }
 
 function QuickAddProductDialog({ open, onOpenChange, onProductCreated }: QuickAddProductDialogProps) {
-    const { data: products } = useAllProducts();
+    const { data: products } = useAllProducts({ enabled: open });
     const productMutations = useProductMutations({
         onCreateSuccess: (product) => {
             if (product && typeof product === 'object' && 'name' in product) {
@@ -166,10 +163,10 @@ function QuickAddProductDialog({ open, onOpenChange, onProductCreated }: QuickAd
         },
         onError: () => toast.error('Không thể tạo sản phẩm'),
     });
-    const { data: _productTypes } = useActiveProductTypes();
+    const { data: _productTypes } = useActiveProductTypes({ enabled: open });
     const getActiveProductTypes = React.useCallback(() => _productTypes, [_productTypes]);
-    const { data: units } = useAllUnits();
-    const { data: pricingPolicies = [] } = useAllPricingPolicies();
+    const { data: units } = useAllUnits({ enabled: open });
+    const { data: pricingPolicies = [] } = useAllPricingPolicies({ enabled: open });
     
     const [formData, setFormData] = React.useState({
         name: '',
@@ -367,39 +364,33 @@ export function UnifiedProductSearch({
     excludeTypes: _excludeTypes = [],
     allowCreateNew = true,
     showCostPrice = false,
+    showPurchasePrice = false,
     showSellingPrice: _showSellingPrice = false,
     branchSystemId: _branchSystemId,
     customFilter: _customFilter,
     pricingPolicyId,
+    prefetchedUnits,
+    prefetchedProductTypes,
+    prefetchedPricingPolicies,
+    prefetchedBranches,
 }: UnifiedProductSearchProps) {
-    const { data: pricingPolicies = [] } = useAllPricingPolicies();
-    const { data: branches = [] } = useAllBranches();
+    // ⚡ OPTIMIZED: Use prefetched data if available, otherwise fetch
+    const { data: fetchedPricingPolicies = [] } = useAllPricingPolicies({ enabled: !prefetchedPricingPolicies });
+    const pricingPolicies = prefetchedPricingPolicies ?? fetchedPricingPolicies;
+    const { data: fetchedBranches = [] } = useAllBranches({ enabled: !prefetchedBranches });
+    const branches = prefetchedBranches ?? fetchedBranches;
     const { findById: findProductTypeById } = useProductTypeFinder();
-    const { data: allProducts = [] } = useAllProducts();
-    
-    // ✅ Create map for quick lookup of real-time data from allProducts
-    const allProductsMap = React.useMemo(() => {
-        const map = new Map<string, Product>();
-        for (const p of allProducts) {
-            map.set(p.systemId, p);
-        }
-        return map;
-    }, [allProducts]);
-    
-    // Build branch name map for inventory display (used in branchStocks fallback)
-    const _branchNameMap = React.useMemo(() => {
-        const map: Record<string, string> = {};
-        branches.forEach(b => { map[b.systemId] = b.name; });
-        return map;
-    }, [branches]);
     
     const [selectedValue, setSelectedValue] = React.useState<ComboboxOption | null>(null);
     const [showQuickAdd, setShowQuickAdd] = React.useState(false);
     const [searchQuery, setSearchQuery] = React.useState('');
     const [pendingProductId, setPendingProductId] = React.useState<string | null>(null);
+    // ⚡ Track if user has interacted with combobox
+    const [hasInteracted, setHasInteracted] = React.useState(false);
 
     // ✅ Use Meilisearch for fast product search
     // ✅ Infinite scroll support - load more on scroll
+    // ⚡ OPTIMIZED: Only fetch when user interacts or types (lazy load)
     const {
         data: searchResult,
         isLoading: isLoadingSearch,
@@ -409,6 +400,7 @@ export function UnifiedProductSearch({
     } = useInfiniteMeiliProductSearch({ 
         query: searchQuery,
         debounceMs: 150,
+        enabled: hasInteracted,
     });
     
     // ✅ Fetch full product data when selected from Meilisearch
@@ -417,6 +409,8 @@ export function UnifiedProductSearch({
     // When full product is loaded, call onSelectProduct
     React.useEffect(() => {
         if (selectedProduct && pendingProductId) {
+            // Guard against stale/cached data from a previous query
+            if (selectedProduct.systemId !== pendingProductId) return;
             onSelectProduct(selectedProduct);
             setPendingProductId(null);
         }
@@ -451,11 +445,10 @@ export function UnifiedProductSearch({
     };
 
     // Convert Meilisearch results to ComboboxOption format
+    // ✅ Uses Meilisearch data directly (synced on every product mutation via Prisma hooks)
+    // Full product data is fetched via useProduct() when user actually selects a product
     const options: ComboboxOption[] = React.useMemo(() => {
         return searchProducts.map((p) => {
-            // ✅ Get real-time data from allProducts (React Query)
-            const realProduct = allProductsMap.get(p.systemId);
-            
             // Get display price based on pricingPolicyId
             let displayPrice = p.price || 0;
             if (pricingPolicyId && p.prices && p.prices[pricingPolicyId] !== undefined) {
@@ -464,34 +457,16 @@ export function UnifiedProductSearch({
                 displayPrice = p.prices[defaultPricingPolicy.systemId];
             }
             
-            // ✅ Get real-time costPrice from allProducts
-            const realCostPrice = realProduct?.costPrice ?? p.costPrice ?? 0;
-            
-            // ✅ Get real-time inventory from allProducts
-            let totalStock = 0;
-            let branchStocks: { branchId: string; branchName: string; onHand: number }[] = [];
-            
-            if (realProduct) {
-                // Use real-time data from React Query
-                totalStock = (realProduct as unknown as { totalInventory?: number }).totalInventory 
-                    || Object.values(realProduct.inventoryByBranch || {}).reduce((sum, v) => sum + (v || 0), 0);
+            // Use Meilisearch inventory data (synced in real-time)
+            let branchStocks = p.branchStocks || [];
+            if (branchStocks.length === 0) {
                 branchStocks = branches.map(b => ({
                     branchId: b.systemId,
                     branchName: b.name,
-                    onHand: realProduct.inventoryByBranch?.[b.systemId] || 0
+                    onHand: 0,
                 }));
-            } else {
-                // Fallback to Meilisearch data
-                branchStocks = p.branchStocks || [];
-                if (branchStocks.length === 0) {
-                    branchStocks = branches.map(b => ({
-                        branchId: b.systemId,
-                        branchName: b.name,
-                        onHand: 0,
-                    }));
-                }
-                totalStock = p.totalStock || branchStocks.reduce((sum, bs) => sum + bs.onHand, 0);
             }
+            const totalStock = p.totalStock || branchStocks.reduce((sum, bs) => sum + bs.onHand, 0);
             
             return {
                 value: p.systemId,
@@ -500,14 +475,15 @@ export function UnifiedProductSearch({
                 metadata: {
                     thumbnailImage: p.thumbnailImage,
                     displayPrice,
-                    costPrice: realCostPrice,
+                    costPrice: p.costPrice ?? 0,
+                    lastPurchasePrice: p.lastPurchasePrice ?? 0,
                     unit: p.unit || 'Cái',
                     totalStock,
                     branchStocks,
                 }
             } as ComboboxOption;
         });
-    }, [searchProducts, pricingPolicyId, defaultPricingPolicy, branches, allProductsMap]);
+    }, [searchProducts, pricingPolicyId, defaultPricingPolicy, branches]);
 
     const handleChange = React.useCallback((option: ComboboxOption | null) => {
         if (option) {
@@ -528,6 +504,7 @@ export function UnifiedProductSearch({
             thumbnailImage?: string | null;
             displayPrice?: number;
             costPrice?: number;
+            lastPurchasePrice?: number;
             unit?: string;
             totalStock?: number;
             branchStocks?: { branchId: string; branchName: string; onHand: number }[];
@@ -536,10 +513,14 @@ export function UnifiedProductSearch({
             thumbnailImage,
             displayPrice,
             costPrice,
+            lastPurchasePrice,
             unit,
             totalStock,
             branchStocks,
         } = meta || {};
+        
+        // Determine which price to show
+        const shownPrice = showPurchasePrice ? (lastPurchasePrice || 0) : showCostPrice ? (costPrice || 0) : (displayPrice || 0);
         
         return (
             <div className="flex items-center gap-3 w-full py-1">
@@ -555,7 +536,7 @@ export function UnifiedProductSearch({
                     </p>
                 </div>
                 <div className="text-right shrink-0 min-w-25 flex flex-col items-end gap-0.5">
-                    <p className="font-semibold text-primary">{formatCurrency(showCostPrice ? (costPrice || 0) : (displayPrice || 0))}đ</p>
+                    <p className="font-semibold text-primary">{formatCurrency(shownPrice)}đ</p>
                     <div className="flex items-center gap-1 text-xs text-muted-foreground">
                         <span>Tồn: {formatCurrency(totalStock || 0)}</span>
                         <TooltipProvider delayDuration={100}>
@@ -586,7 +567,7 @@ export function UnifiedProductSearch({
                 </div>
             </div>
         );
-    }, [showCostPrice]);
+    }, [showCostPrice, showPurchasePrice]);
 
     // Custom header with "Add new product" action
     // Custom header with "Add new product" action
@@ -616,10 +597,11 @@ export function UnifiedProductSearch({
                 value={selectedValue}
                 onChange={handleChange}
                 onSearchChange={setSearchQuery}
+                onOpenChange={(open) => { if (open) setHasInteracted(true); }}
                 isLoading={isLoadingSearch || !!pendingProductId}
                 placeholder={placeholder}
                 searchPlaceholder={searchPlaceholder}
-                emptyPlaceholder="Không tìm thấy sản phẩm phù hợp"
+                emptyPlaceholder={hasInteracted ? "Không tìm thấy sản phẩm phù hợp" : "Nhập để tìm kiếm..."}
                 disabled={disabled}
                 onLoadMore={handleLoadMore}
                 hasMore={hasNextPage}

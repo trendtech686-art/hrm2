@@ -5,6 +5,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import { fetchAllPages } from '@/lib/fetch-all-pages';
 import {
   fetchStorageLocations,
@@ -57,7 +58,7 @@ export function useStorageLocationMutations(options: UseStorageLocationMutations
   const create = useMutation({
     mutationFn: createStorageLocation,
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: storageLocationKeys.all });
+      invalidateRelated(queryClient, 'storage-locations');
       options.onCreateSuccess?.(data);
     },
     onError: options.onError,
@@ -66,9 +67,8 @@ export function useStorageLocationMutations(options: UseStorageLocationMutations
   const update = useMutation({
     mutationFn: ({ systemId, data }: { systemId: string; data: Partial<StorageLocation> }) => 
       updateStorageLocation(systemId, data),
-    onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: storageLocationKeys.detail(variables.systemId) });
-      queryClient.invalidateQueries({ queryKey: storageLocationKeys.lists() });
+    onSuccess: (data) => {
+      invalidateRelated(queryClient, 'storage-locations');
       options.onUpdateSuccess?.(data);
     },
     onError: options.onError,
@@ -77,7 +77,7 @@ export function useStorageLocationMutations(options: UseStorageLocationMutations
   const remove = useMutation({
     mutationFn: deleteStorageLocation,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: storageLocationKeys.all });
+      invalidateRelated(queryClient, 'storage-locations');
       options.onDeleteSuccess?.();
     },
     onError: options.onError,

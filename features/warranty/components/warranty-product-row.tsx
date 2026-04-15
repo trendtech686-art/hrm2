@@ -135,13 +135,13 @@ export const WarrantyProductRow = React.memo(function WarrantyProductRow({
             <div className="flex flex-col gap-0.5 min-w-0">
               <Link
                 href={`/products/${field.systemId || ''}`}
-                target="_blank"
+                target="_blank" rel="noopener noreferrer"
                 className="font-medium text-foreground hover:text-primary hover:underline truncate"
                 onClick={(e) => e.stopPropagation()}
               >
                 {field.productName}
               </Link>
-              <span className="text-body-xs text-muted-foreground">
+              <span className="text-xs text-muted-foreground">
                 SKU: {field.sku || product?.id || 'N/A'}
               </span>
             </div>
@@ -241,7 +241,7 @@ export const WarrantyProductRow = React.memo(function WarrantyProductRow({
               {...formField}
               placeholder="Mô tả tình trạng..."
               disabled={disabled}
-              className="w-full text-body-sm"
+              className="w-full text-sm"
             />
           )}
         />

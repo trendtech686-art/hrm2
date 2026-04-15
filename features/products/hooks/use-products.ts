@@ -8,11 +8,12 @@
  * Updated to use Server Actions for mutations (Phase 2 migration)
  */
 
+import * as React from 'react';
 import { useQuery, useMutation, useQueryClient, keepPreviousData, useInfiniteQuery } from '@tanstack/react-query';
-import { fetchAllPages } from '@/lib/fetch-all-pages';
 import {
   fetchProducts,
   fetchProduct,
+  fetchProductsByIds,
   searchProducts,
   fetchProductInventory,
   type ProductsParams,
@@ -27,6 +28,7 @@ import {
   type UpdateProductInput,
 } from '@/app/actions/products';
 import type { Product } from '@/lib/types/prisma-extended';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 
 // Re-export types for backwards compatibility
 export type { CreateProductInput, UpdateProductInput };
@@ -38,6 +40,7 @@ export const productKeys = {
   list: (params: ProductsParams) => [...productKeys.lists(), params] as const,
   details: () => [...productKeys.all, 'detail'] as const,
   detail: (id: string) => [...productKeys.details(), id] as const,
+  byIds: (ids: string[]) => [...productKeys.all, 'byIds', ...ids.sort()] as const,
   search: (query: string) => [...productKeys.all, 'search', query] as const,
   inventory: (id: string) => [...productKeys.all, 'inventory', id] as const,
   stats: () => [...productKeys.all, 'stats'] as const,
@@ -46,11 +49,17 @@ export const productKeys = {
 // Types for initial data from Server Components
 export interface ProductStats {
   totalProducts: number;
-  activeProducts: number;
+  inStock: number;
   outOfStock: number;
-  lowStock: number;
   totalValue: number;
   deletedCount?: number;
+  quantitySold: number;
+  quantityReturned: number;
+  netQuantitySold: number;
+  orderCount: number;
+  customerCount: number;
+  revenue: number;
+  returnValue: number;
 }
 
 /**
@@ -68,6 +77,50 @@ export function useProductStats(initialData?: ProductStats) {
     staleTime: initialData ? 60_000 : 0,
     gcTime: 5 * 60 * 1000,
   });
+}
+
+/**
+ * Batch-fetch products by their systemIds.
+ * Fetches only the specified products in one request — NOT all products.
+ * Returns a stable Map<systemId, Product> for O(1) lookup.
+ *
+ * @example
+ * const ids = lineItems.map(li => li.productSystemId);
+ * const { productsMap } = useProductsByIds(ids);
+ * const product = productsMap.get(item.productSystemId);
+ */
+export function useProductsByIds(systemIds: string[]) {
+  // Deduplicate and sort for stable query key
+  const stableIds = React.useMemo(() => [...new Set(systemIds)].sort(), [systemIds.join(',')]);
+
+  const query = useQuery({
+    queryKey: productKeys.byIds(stableIds),
+    queryFn: () => fetchProductsByIds(stableIds),
+    enabled: stableIds.length > 0,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+  });
+
+  // ✅ FIX: Map by both systemId AND id (SKU) to handle legacy data
+  // where productSystemId may contain SKU instead of actual systemId
+  const productsMap = React.useMemo(() => {
+    const map = new Map<string, Product>();
+    for (const p of query.data ?? []) {
+      map.set(p.systemId, p);
+      // Also add by id (SKU) for legacy data lookup - compare as strings
+      if (p.id && String(p.id) !== String(p.systemId)) {
+        map.set(p.id, p);
+      }
+    }
+    return map;
+  }, [query.data]);
+
+  return {
+    productsMap,
+    products: query.data ?? [],
+    isLoading: query.isLoading,
+    isError: query.isError,
+  };
 }
 
 /**
@@ -116,6 +169,8 @@ export function useProduct(id: string | null | undefined) {
     enabled: !!id,
     staleTime: 60_000,
     gcTime: 10 * 60 * 1000,
+    // ✅ Always refetch on mount to ensure fresh data (inventory changes)
+    refetchOnMount: 'always',
   });
 }
 
@@ -179,6 +234,8 @@ interface UseProductMutationsOptions {
   onDeleteSuccess?: () => void;
   onInventoryUpdateSuccess?: (result: InventoryUpdateResult) => void;
   onError?: (error: Error) => void;
+  /** Skip cache invalidation on update — use for inline edits with optimistic updates */
+  skipInvalidateOnUpdate?: boolean;
 }
 
 // Type for inventory update result from Server Action
@@ -201,14 +258,7 @@ export function useProductMutations(options: UseProductMutationsOptions = {}) {
       return result.data;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: productKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: productKeys.stats() });
-      // Also invalidate PKGX-related queries when creating linked products
-      if (data && 'pkgxId' in data && data.pkgxId) {
-        queryClient.invalidateQueries({ queryKey: ['product-stats'] });
-        queryClient.invalidateQueries({ queryKey: ['pkgx-mapping'] });
-        queryClient.invalidateQueries({ queryKey: ['linked-products'] });
-      }
+      invalidateRelated(queryClient, 'products');
       options.onCreateSuccess?.(data);
     },
     onError: options.onError,
@@ -220,15 +270,9 @@ export function useProductMutations(options: UseProductMutationsOptions = {}) {
       if (!result.success) throw new Error(result.error || 'Failed to update product');
       return result.data;
     },
-    onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: productKeys.detail(variables.systemId) });
-      queryClient.invalidateQueries({ queryKey: productKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: productKeys.stats() });
-      // Also invalidate PKGX-related queries when pkgxId changes
-      if ('pkgxId' in variables) {
-        queryClient.invalidateQueries({ queryKey: ['product-stats'] });
-        queryClient.invalidateQueries({ queryKey: ['pkgx-mapping'] });
-        queryClient.invalidateQueries({ queryKey: ['linked-products'] });
+    onSuccess: (data) => {
+      if (!options.skipInvalidateOnUpdate) {
+        invalidateRelated(queryClient, 'products');
       }
       options.onUpdateSuccess?.(data);
     },
@@ -241,12 +285,31 @@ export function useProductMutations(options: UseProductMutationsOptions = {}) {
       if (!result.success) throw new Error(result.error || 'Failed to delete product');
       return result.data;
     },
+    onMutate: async (systemId) => {
+      // Optimistic remove from list queries
+      await queryClient.cancelQueries({ queryKey: productKeys.lists() });
+      const previousLists = queryClient.getQueriesData<PaginatedResponse<Product>>({ queryKey: productKeys.lists() });
+      queryClient.setQueriesData<PaginatedResponse<Product>>(
+        { queryKey: productKeys.lists() },
+        (old) => old ? {
+          ...old,
+          data: old.data.filter(p => p.systemId !== systemId),
+          pagination: { ...old.pagination, total: old.pagination.total - 1 },
+        } : old
+      );
+      return { previousLists };
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: productKeys.all });
-      queryClient.invalidateQueries({ queryKey: productKeys.stats() });
       options.onDeleteSuccess?.();
     },
-    onError: options.onError,
+    onError: (error, _systemId, context) => {
+      // Rollback optimistic delete
+      context?.previousLists?.forEach(([key, data]) => queryClient.setQueryData(key, data));
+      options.onError?.(error);
+    },
+    onSettled: () => {
+      invalidateRelated(queryClient, 'products');
+    },
   });
   
   const updateInventory = useMutation({
@@ -260,11 +323,8 @@ export function useProductMutations(options: UseProductMutationsOptions = {}) {
       if (!result.success) throw new Error(result.error || 'Failed to update inventory');
       return result.data!;
     },
-    onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: productKeys.detail(variables.productSystemId) });
-      queryClient.invalidateQueries({ queryKey: productKeys.inventory(variables.productSystemId) });
-      queryClient.invalidateQueries({ queryKey: productKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: ['stock-history'] });
+    onSuccess: (data) => {
+      invalidateRelated(queryClient, 'products');
       options.onInventoryUpdateSuccess?.(data);
     },
     onError: options.onError,
@@ -285,12 +345,15 @@ export function useProductMutations(options: UseProductMutationsOptions = {}) {
 
 /**
  * Hook for getting products by category (for filtering)
- * Uses fetchAllPages to load ALL products in the category
+ * Server-side filtered — returns products matching the category
  */
 export function useProductsByCategory(categoryId: string | null | undefined) {
   const query = useQuery({
     queryKey: [...productKeys.lists(), { categoryId }],
-    queryFn: () => fetchAllPages((p) => fetchProducts({ ...p, categoryId: categoryId || undefined })),
+    queryFn: async () => {
+      const res = await fetchProducts({ categoryId: categoryId || undefined });
+      return res.data;
+    },
     enabled: !!categoryId,
     staleTime: 10 * 60 * 1000,
     gcTime: 60 * 60 * 1000,
@@ -301,12 +364,15 @@ export function useProductsByCategory(categoryId: string | null | undefined) {
 
 /**
  * Hook for getting products by brand
- * Uses fetchAllPages to load ALL products for the brand
+ * Server-side filtered — returns products matching the brand
  */
 export function useProductsByBrand(brandId: string | null | undefined) {
   const query = useQuery({
     queryKey: [...productKeys.lists(), { brandId }],
-    queryFn: () => fetchAllPages((p) => fetchProducts({ ...p, brandId: brandId || undefined })),
+    queryFn: async () => {
+      const res = await fetchProducts({ brandId: brandId || undefined });
+      return res.data;
+    },
     enabled: !!brandId,
     staleTime: 10 * 60 * 1000,
     gcTime: 60 * 60 * 1000,
@@ -350,7 +416,7 @@ export function useTrashMutations() {
   const restore = useMutation({
     mutationFn: restoreProduct,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: productKeys.all });
+      invalidateRelated(queryClient, 'products');
     },
   });
   
@@ -372,7 +438,7 @@ export function useTrashMutations() {
       }
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: productKeys.all });
+      invalidateRelated(queryClient, 'products');
     },
   });
   
@@ -403,7 +469,7 @@ export function useBulkProductMutations(options: UseBulkProductMutationsOptions 
   const bulkDelete = useMutation({
     mutationFn: bulkDeleteProducts,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: productKeys.all });
+      invalidateRelated(queryClient, 'products');
       options.onSuccess?.();
     },
     onError: options.onError,
@@ -412,7 +478,7 @@ export function useBulkProductMutations(options: UseBulkProductMutationsOptions 
   const bulkRestore = useMutation({
     mutationFn: bulkRestoreProducts,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: productKeys.all });
+      invalidateRelated(queryClient, 'products');
       options.onSuccess?.();
     },
     onError: options.onError,
@@ -422,7 +488,7 @@ export function useBulkProductMutations(options: UseBulkProductMutationsOptions 
     mutationFn: ({ systemIds, status }: { systemIds: string[]; status: string }) =>
       bulkUpdateProductStatus(systemIds, status),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: productKeys.all });
+      invalidateRelated(queryClient, 'products');
       options.onSuccess?.();
     },
     onError: options.onError,

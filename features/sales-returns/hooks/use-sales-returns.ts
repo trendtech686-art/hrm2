@@ -12,7 +12,6 @@ import { asSystemId } from '@/lib/id-types';
 import {
   fetchSalesReturns,
   fetchSalesReturn,
-  fetchSalesReturnStats,
   createSalesReturn,
   markAsReceived,
   exchangeProduct,
@@ -24,6 +23,7 @@ import {
   deleteSalesReturnAction,
   type UpdateSalesReturnInput,
 } from '@/app/actions/sales-returns';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import type { SalesReturn } from '@/lib/types/prisma-extended';
 
 // Re-export types for backwards compatibility
@@ -77,14 +77,6 @@ export function useSalesReturn(id: string | null | undefined) {
   });
 }
 
-export function useSalesReturnStats() {
-  return useQuery({
-    queryKey: salesReturnKeys.stats(),
-    queryFn: fetchSalesReturnStats,
-    staleTime: 60_000,
-  });
-}
-
 interface UseSalesReturnMutationsOptions {
   onCreateSuccess?: (salesReturn: SalesReturn) => void;
   onUpdateSuccess?: (salesReturn: SalesReturn) => void;
@@ -102,11 +94,7 @@ export function useSalesReturnMutations(options: UseSalesReturnMutationsOptions 
       return await createSalesReturn(data as SalesReturnCreateInput);
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: salesReturnKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: salesReturnKeys.stats() });
-      queryClient.invalidateQueries({ queryKey: ['receipts'] });
-      queryClient.invalidateQueries({ queryKey: ['payments'] });
-      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      invalidateRelated(queryClient, 'sales-returns');
       options.onCreateSuccess?.(data);
     },
     onError: options.onError,
@@ -117,15 +105,12 @@ export function useSalesReturnMutations(options: UseSalesReturnMutationsOptions 
       const converted = toUpdateSalesReturnInput(input);
       const result = await updateSalesReturnAction(converted);
       if (!result.success) {
-        throw new Error(result.error || 'Failed to update sales return');
+        throw new Error(result.error || 'Không thể cập nhật phiếu trả hàng');
       }
       return result.data as unknown as SalesReturn;
     },
-    onSuccess: (data, variables) => {
-      const systemId = 'data' in variables ? variables.systemId : variables.systemId;
-      queryClient.invalidateQueries({ queryKey: salesReturnKeys.detail(systemId) });
-      queryClient.invalidateQueries({ queryKey: salesReturnKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: salesReturnKeys.stats() });
+    onSuccess: (data) => {
+      invalidateRelated(queryClient, 'sales-returns');
       options.onUpdateSuccess?.(data);
     },
     onError: options.onError,
@@ -135,12 +120,12 @@ export function useSalesReturnMutations(options: UseSalesReturnMutationsOptions 
     mutationFn: async (systemId: string) => {
       const result = await deleteSalesReturnAction(systemId);
       if (!result.success) {
-        throw new Error(result.error || 'Failed to delete sales return');
+        throw new Error(result.error || 'Không thể xóa phiếu trả hàng');
       }
       return result.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: salesReturnKeys.all });
+      invalidateRelated(queryClient, 'sales-returns');
       options.onDeleteSuccess?.();
     },
     onError: options.onError,
@@ -150,12 +135,8 @@ export function useSalesReturnMutations(options: UseSalesReturnMutationsOptions 
     mutationFn: async (systemId: string) => {
       return await markAsReceived(asSystemId(systemId));
     },
-    onSuccess: (data, systemId) => {
-      queryClient.invalidateQueries({ queryKey: salesReturnKeys.detail(systemId) });
-      queryClient.invalidateQueries({ queryKey: salesReturnKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: salesReturnKeys.stats() });
-      queryClient.invalidateQueries({ queryKey: ['product-inventory'] });
-      queryClient.invalidateQueries({ queryKey: ['products'] });
+    onSuccess: (data) => {
+      invalidateRelated(queryClient, 'sales-returns');
       options.onReceiveSuccess?.(data);
     },
     onError: options.onError,
@@ -166,34 +147,12 @@ export function useSalesReturnMutations(options: UseSalesReturnMutationsOptions 
       const { systemId, ...data } = input;
       return await exchangeProduct(asSystemId(systemId), data);
     },
-    onSuccess: (data, variables) => {
-      const systemId = variables.systemId;
-      queryClient.invalidateQueries({ queryKey: salesReturnKeys.detail(systemId) });
-      queryClient.invalidateQueries({ queryKey: salesReturnKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: salesReturnKeys.stats() });
-      queryClient.invalidateQueries({ queryKey: ['product-inventory'] });
-      queryClient.invalidateQueries({ queryKey: ['products'] });
-      queryClient.invalidateQueries({ queryKey: ['orders'] });
+    onSuccess: (data) => {
+      invalidateRelated(queryClient, 'sales-returns');
       options.onExchangeSuccess?.(data);
     },
     onError: options.onError,
   });
   
   return { create, update, remove, receive, exchange };
-}
-
-export function useSalesReturnsByCustomer(customerId: string | null | undefined) {
-  return useSalesReturns({
-    customerId: customerId || undefined,
-  });
-}
-
-export function useSalesReturnsByOrder(orderId: string | null | undefined) {
-  return useSalesReturns({
-    orderId: orderId || undefined,
-  });
-}
-
-export function usePendingSalesReturns() {
-  return useSalesReturns({ isReceived: false });
 }

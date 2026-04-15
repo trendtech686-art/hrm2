@@ -89,7 +89,7 @@ function formatId(prefix: string, counter: number, digitCount: number = 6): stri
  */
 function sanitizeBusinessId(id: string): string | null {
   if (!id || typeof id !== 'string') return null;
-  const cleaned = id.trim().replace(/[^a-zA-Z0-9]/g, '');
+  const cleaned = id.trim().replace(/[^a-zA-Z0-9\s\-_.]/g, '').replace(/\s+/g, ' ').trim();
   return cleaned ? cleaned.toUpperCase() : null;
 }
 
@@ -176,6 +176,8 @@ const ENTITY_TABLE_MAP: Partial<Record<EntityType, { table: string; systemIdFiel
   // ========================================
   'purchase-orders': { table: 'purchase_orders', systemIdField: 'systemId', businessIdField: 'id' },
   'purchase-returns': { table: 'purchase_returns', systemIdField: 'systemId', businessIdField: 'id' },
+  'supplier-warranty': { table: 'supplier_warranties', systemIdField: 'systemId', businessIdField: 'id' },
+  'reconciliation': { table: 'reconciliation_sheets', systemIdField: 'systemId', businessIdField: 'id' },
   
   // ========================================
   // SERVICE & WORKFLOW
@@ -183,6 +185,9 @@ const ENTITY_TABLE_MAP: Partial<Record<EntityType, { table: string; systemIdFiel
   warranty: { table: 'warranties', systemIdField: 'systemId', businessIdField: 'id' },
   complaints: { table: 'complaints', systemIdField: 'systemId', businessIdField: 'id' },
   'internal-tasks': { table: 'tasks', systemIdField: 'systemId', businessIdField: 'id' },
+  'recurring-tasks': { table: 'recurring_tasks', systemIdField: 'systemId', businessIdField: 'id' },
+  'task-templates': { table: 'task_templates', systemIdField: 'systemId', businessIdField: 'id' },
+  'task-boards': { table: 'task_boards', systemIdField: 'systemId', businessIdField: 'id' },
   wiki: { table: 'wiki_pages', systemIdField: 'systemId', businessIdField: 'id' },
   
   // ========================================
@@ -224,7 +229,8 @@ async function queryMaxCounter(
     const result = await client.$queryRawUnsafe<{ max_num: number | null }[]>(
       `SELECT COALESCE(MAX(CAST(SUBSTRING("${field}" FROM ${prefixLen}) AS INTEGER)), 0) as max_num 
        FROM "${table}"
-       WHERE "${field}" LIKE $1`,
+       WHERE "${field}" LIKE $1
+         AND SUBSTRING("${field}" FROM ${prefixLen}) ~ '^[0-9]+$'`,
       prefix + '%'
     );
     return result[0]?.max_num ?? 0;

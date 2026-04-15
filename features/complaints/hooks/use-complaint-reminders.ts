@@ -12,6 +12,7 @@ import * as React from 'react';
 import { toast } from 'sonner';
 import type { Complaint } from '../types';
 import { useNotificationStore } from '../../../components/ui/notification-center';
+import type { Notification } from '../../../components/ui/notification-center';
 import { useComplaintReminderSettings as _useComplaintReminderSettingsHook } from '../../../hooks/use-reminder-settings';
 
 export interface ReminderSettings {
@@ -219,7 +220,7 @@ function sendReminder(
   complaint: Complaint,
   status: ReminderStatus,
   settings: ReminderSettings,
-  addNotification: (notification: Record<string, unknown>) => void
+  addNotification: (notification: Omit<Notification, 'id' | 'createdAt' | 'isRead'>) => void
 ) {
   const recipients: string[] = [];
   
@@ -241,13 +242,13 @@ function sendReminder(
   // Send to each recipient
   recipients.forEach(recipientId => {
     addNotification({
-      type: status.reminderLevel === 'escalated' ? 'alert' : 'warning',
+      type: 'system' as const,
       title: `Nhắc nhở: ${complaint.id}`,
       message: status.message,
       link: `/complaints/${complaint.systemId}`,
-      createdBy: 'SYSTEM',
+      recipientId,
+      senderId: 'SYSTEM',
       metadata: {
-        recipientId,
         complaintId: complaint.systemId,
         reminderLevel: status.reminderLevel,
         hoursIdle: status.hoursIdle,

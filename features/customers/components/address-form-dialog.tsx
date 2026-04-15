@@ -32,8 +32,10 @@ interface AddressFormDialogProps {
   onSave: (address: Omit<CustomerAddress, 'id'>) => void;
   editingAddress?: CustomerAddress | null;
   hideDefaultSwitches?: boolean; // ✅ Option to hide default shipping/billing switches
+  hideContactFields?: boolean; // Hide contact name, phone, notes fields (for employee addresses)
   title?: string; // ✅ Custom title
   description?: string; // ✅ Custom description
+  forcedAddressLevel?: '2-level' | '3-level'; // Force a specific address level, hides selector
 }
 
 export function AddressFormDialog({
@@ -42,19 +44,21 @@ export function AddressFormDialog({
   onSave,
   editingAddress,
   hideDefaultSwitches = false, // ✅ Default to false (show switches)
+  hideContactFields = false,
   title,
   description,
+  forcedAddressLevel,
 }: AddressFormDialogProps) {
-  // Load province data via React Query
-  const { data: allProvinces = [], isLoading: isLoadingProvinces } = useProvinces();
-  const { data: allDistricts = [] } = useDistricts();
+  // Load province data via React Query - only when dialog is open
+  const { data: allProvinces = [], isLoading: isLoadingProvinces } = useProvinces({ enabled: isOpen, level: 'all' });
+  const { data: allDistricts = [] } = useDistricts(undefined, { enabled: isOpen });
   const isProvincesReady = allProvinces.length > 0 && allDistricts.length > 0;
 
   // Province subsets by level
   const provinces2Level = React.useMemo(() => allProvinces.filter(p => p.level === '2-level'), [allProvinces]);
   const provinces3Level = React.useMemo(() => allProvinces.filter(p => p.level === '3-level'), [allProvinces]);
 
-  const [addressLevel, setAddressLevel] = React.useState<'2-level' | '3-level'>('2-level');
+  const [addressLevel, setAddressLevel] = React.useState<'2-level' | '3-level'>(forcedAddressLevel || '2-level');
   const [formData, setFormData] = React.useState({
     label: '',
     street: '',
@@ -100,7 +104,7 @@ export function AddressFormDialog({
     setHasInitialized(true);
     
     if (editingAddress) {
-      const level = editingAddress.inputLevel || '3-level'; // Default to 3-level for imported data
+      const level = forcedAddressLevel || editingAddress.inputLevel || '3-level';
       setAddressLevel(level);
       
       // Helper: normalize text for matching
@@ -423,13 +427,7 @@ export function AddressFormDialog({
   };
 
   const handleSave = () => {
-    const label = formData.label.trim();
     const street = formData.street.trim();
-
-    if (!label) {
-      showValidationError('Vui lòng nhập tên địa chỉ.');
-      return;
-    }
 
     if (!street) {
       showValidationError('Vui lòng nhập địa chỉ chi tiết.');
@@ -483,7 +481,7 @@ export function AddressFormDialog({
     }
 
     const addressData: Omit<CustomerAddress, 'id'> = {
-      label,
+      label: street,
       street,
       province: formData.province,
       provinceId: formData.provinceId,
@@ -506,7 +504,7 @@ export function AddressFormDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-base sm:text-lg">
             {title || (editingAddress ? 'Chỉnh sửa địa chỉ' : 'Thêm địa chỉ mới')}
@@ -518,15 +516,16 @@ export function AddressFormDialog({
 
         <div className="grid gap-3 py-3">
           {/* Address Level Selection - Compact */}
+          {!forcedAddressLevel && (
           <div className="grid gap-2">
             <Label className="text-sm font-medium">Loại địa chỉ *</Label>
             <RadioGroup
               value={addressLevel}
-              onValueChange={(value: '2-level' | '3-level') => {
-                setAddressLevel(value);
+              onValueChange={(value) => {
+                setAddressLevel(value as '2-level' | '3-level');
                 setFormData((prev) => ({
                   ...prev,
-                  inputLevel: value,
+                  inputLevel: value as '2-level' | '3-level',
                   ward: '',
                   wardId: '',
                   district: value === '2-level' ? '' : prev.district,
@@ -551,34 +550,20 @@ export function AddressFormDialog({
               </div>
             </RadioGroup>
           </div>
+          )}
 
-          {/* Tên địa chỉ và Địa chỉ cùng 1 hàng */}
-          <div className="grid grid-cols-2 gap-2">
-            <div className="grid gap-2">
-              <Label htmlFor="label" className="text-sm">
-                Tên địa chỉ *
-              </Label>
-              <Input
-                className="h-9"
-                id="label"
-                placeholder="VD: Văn phòng chính, Nhà máy..."
-                value={formData.label}
-                onChange={(e) => setFormData({ ...formData, label: e.target.value })}
-              />
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="street" className="text-sm">
-                Địa chỉ *
-              </Label>
-              <Input
-                className="h-9"
-                id="street"
-                placeholder="Số nhà, tên đường..."
-                value={formData.street}
-                onChange={(e) => setFormData({ ...formData, street: e.target.value })}
-              />
-            </div>
+          {/* Địa chỉ */}
+          <div className="grid gap-2">
+            <Label htmlFor="street" className="text-sm">
+              Địa chỉ *
+            </Label>
+            <Input
+              className="h-9"
+              id="street"
+              placeholder="Số nhà, tên đường..."
+              value={formData.street}
+              onChange={(e) => setFormData({ ...formData, street: e.target.value })}
+            />
           </div>
 
           {/* Compact address fields - 1 row for 3 fields */}
@@ -592,7 +577,7 @@ export function AddressFormDialog({
                   options={provinceOptions}
                   value={provinceOptions.find((opt) => opt.value === formData.province) || null}
                   onChange={(option) => {
-                    const selectedProv = allProvinces.find((p) => p.name === option?.value);
+                    const selectedProv = activeProvinces.find((p) => p.name === option?.value);
                     setFormData((prev) => ({
                       ...prev,
                       province: option ? option.value : '',
@@ -673,6 +658,8 @@ export function AddressFormDialog({
             </div>
           </div>
 
+          {!hideContactFields && (
+          <>
           <div className="grid grid-cols-2 gap-2">
             <div className="grid gap-1.5">
               <Label htmlFor="contactName" className="text-xs">
@@ -712,6 +699,8 @@ export function AddressFormDialog({
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
             />
           </div>
+          </>
+          )}
 
           {/* ✅ Hide default switches when hideDefaultSwitches=true */}
           {!hideDefaultSwitches && (
@@ -724,17 +713,6 @@ export function AddressFormDialog({
                   id="isDefaultShipping"
                   checked={formData.isDefaultShipping}
                   onCheckedChange={(checked) => setFormData({ ...formData, isDefaultShipping: checked })}
-                />
-              </div>
-
-              <div className="flex items-center justify-between space-x-2 p-3 border rounded-lg">
-                <Label htmlFor="isDefaultBilling" className="font-normal text-sm flex-1 cursor-pointer">
-                  Đặt làm mặc định hóa đơn
-                </Label>
-                <Switch
-                  id="isDefaultBilling"
-                  checked={formData.isDefaultBilling}
-                  onCheckedChange={(checked) => setFormData({ ...formData, isDefaultBilling: checked })}
                 />
               </div>
             </div>

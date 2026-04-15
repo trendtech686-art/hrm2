@@ -1,14 +1,16 @@
-/**
+﻿/**
  * Shipping Configuration Migration - V2 Multi-Account Structure
  * 
  * NOTE: localStorage has been removed - all data comes from API/database
  */
 
-import { randomUUID } from 'crypto';
 import { ShippingConfig, GlobalShippingConfig, PartnerAccount } from '@/lib/types/shipping-config';
+import { logError } from '@/lib/logger'
 
 // In-memory cache
 let configCache: ShippingConfig | null = null;
+let cacheTimestamp: number = 0;
+const CACHE_TTL = 5 * 60 * 1000; // 5 phút cache TTL
 
 /**
  * Get default global config
@@ -28,8 +30,10 @@ function getDefaultGlobalConfig(): GlobalShippingConfig {
     note: '',
     autoSyncCancelStatus: false,
     autoSyncCODCollection: false,
+    autoCreateReconciliationSheet: false,
     latePickupWarningDays: 2,
     lateDeliveryWarningDays: 7,
+    productSendMode: 'all',
   };
 }
 
@@ -45,9 +49,6 @@ export function getDefaultShippingConfig(): ShippingConfig {
       VTP: { accounts: [] },
       'J&T': { accounts: [] },
       SPX: { accounts: [] },
-      VNPOST: { accounts: [] },
-      NINJA_VAN: { accounts: [] },
-      AHAMOVE: { accounts: [] },
     },
     global: getDefaultGlobalConfig(),
     lastUpdated: new Date().toISOString(),
@@ -56,16 +57,24 @@ export function getDefaultShippingConfig(): ShippingConfig {
 
 /**
  * Load shipping config from database (async)
+ * ⚡ OPTIMIZED: Returns from cache if available and not stale
  */
-export async function loadShippingConfigAsync(): Promise<ShippingConfig> {
+export async function loadShippingConfigAsync(forceRefresh = false): Promise<ShippingConfig> {
+  // ⚡ Return cached config if available and not stale
+  const now = Date.now();
+  if (!forceRefresh && configCache && (now - cacheTimestamp) < CACHE_TTL) {
+    return configCache;
+  }
+  
   try {
     const response = await fetch('/api/shipping-config');
     if (!response.ok) throw new Error('Failed to fetch');
     const config = await response.json();
     configCache = config;
+    cacheTimestamp = now;
     return config;
   } catch (error) {
-    console.error('[ShippingConfig] Failed to load from database:', error);
+    logError('[ShippingConfig] Failed to load from database', error);
     // Return cached or default
     return configCache ?? getDefaultShippingConfig();
   }
@@ -85,26 +94,26 @@ export function loadShippingConfig(): ShippingConfig {
 /**
  * Save shipping config to database
  */
-export function saveShippingConfig(config: ShippingConfig): void {
+export async function saveShippingConfig(config: ShippingConfig): Promise<void> {
   config.lastUpdated = new Date().toISOString();
   
   // Update cache
   configCache = config;
+  cacheTimestamp = Date.now();
   
   // Save to database
-  fetch('/api/shipping-config', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(config),
-  }).then(response => {
-    if (response.ok) {
-      // Config saved successfully
-    } else {
-      // Save failed, config in cache only
+  try {
+    const response = await fetch('/api/shipping-config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config),
+    });
+    if (!response.ok) {
+      logError('Failed to save shipping config', response.statusText);
     }
-  }).catch(error => {
-    console.error('❌ Error saving shipping config to database:', error);
-  });
+  } catch (error) {
+    logError('❌ Error saving shipping config to database', error);
+  }
 }
 
 /**
@@ -143,13 +152,12 @@ export function addPartnerAccount(
 ): ShippingConfig {
   const newAccount: PartnerAccount = {
     ...account,
-    id: `acc_${randomUUID().slice(0, 12)}`,
+    id: `acc_${crypto.randomUUID().slice(0, 12)}`,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
   
   config.partners[partnerCode].accounts.push(newAccount);
-  saveShippingConfig(config);
   
   return config;
 }
@@ -172,8 +180,6 @@ export function updatePartnerAccount(
       ...updates,
       updatedAt: new Date().toISOString(),
     };
-    
-    saveShippingConfig(config);
   }
   
   return config;
@@ -198,7 +204,6 @@ export function deletePartnerAccount(
     config.partners[partnerCode].accounts[0].isDefault = true;
   }
   
-  saveShippingConfig(config);
   return config;
 }
 
@@ -224,7 +229,6 @@ export function setDefaultAccount(
     account.updatedAt = new Date().toISOString();
   }
   
-  saveShippingConfig(config);
   return config;
 }
 
@@ -266,7 +270,7 @@ export function importShippingConfig(jsonString: string): ShippingConfig {
     saveShippingConfig(config);
     return config;
   } catch (error) {
-    console.error('Import failed:', error);
+    logError('Import failed', error);
     throw error;
   }
 }

@@ -3,6 +3,8 @@ import { Prisma } from '@/generated/prisma/client'
 import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
 import { createPenaltyTypeSchema } from './validation'
 import { generateNextIds } from '@/lib/id-system'
+import { logError } from '@/lib/logger'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 // GET /api/penalty-types - List all penalty types
 export async function GET(request: Request) {
@@ -46,7 +48,7 @@ export async function GET(request: Request) {
 
     return apiPaginated(penaltyTypes, { page, limit, total })
   } catch (error) {
-    console.error('Error fetching penalty types:', error)
+    logError('Error fetching penalty types', error)
     return apiError('Failed to fetch penalty types', 500)
   }
 }
@@ -78,12 +80,21 @@ export async function POST(request: Request) {
       },
     })
 
+    createActivityLog({
+      entityType: 'penalty_type',
+      entityId: penaltyType.systemId,
+      action: 'created',
+      actionType: 'create',
+      metadata: { name: penaltyType.name, businessId: penaltyType.id },
+      createdBy: session.user?.employee?.fullName || session.user?.email || 'System',
+    })
+
     return apiSuccess(penaltyType, 201)
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
       return apiError('Mã loại phạt đã tồn tại', 400)
     }
-    console.error('Error creating penalty type:', error)
+    logError('Error creating penalty type', error)
     return apiError('Failed to create penalty type', 500)
   }
 }

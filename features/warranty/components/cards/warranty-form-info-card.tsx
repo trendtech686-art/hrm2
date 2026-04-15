@@ -6,7 +6,7 @@ import { Input } from '../../../../components/ui/input';
 import { CurrencyInput } from '../../../../components/ui/currency-input';
 import { Combobox } from '../../../../components/ui/combobox';
 import { useAllBranches } from '../../../settings/branches/hooks/use-all-branches';
-import { useAllEmployees } from '../../../employees/hooks/use-all-employees';
+import { useEmployeeComboboxSearch } from '../../../employees/hooks/use-employee-search';
 
 /**
  * Thông tin bổ sung - Adapted from OrderInfoCard
@@ -19,19 +19,25 @@ import { useAllEmployees } from '../../../employees/hooks/use-all-employees';
  * - Đường dẫn (URL)
  * - Mã tham chiếu
  */
-export function WarrantyFormInfoCard({ disabled }: { disabled?: boolean }) {
+export function WarrantyFormInfoCard({ disabled, employeeName, onEmployeeChange }: { disabled?: boolean; employeeName?: string; onEmployeeChange?: (name: string) => void }) {
   const { control, setValue } = useFormContext();
   const { data: branches } = useAllBranches();
-  const { data: employees } = useAllEmployees();
+  // ⚡ OPTIMIZED: Lazy-load employees on search/scroll (30 per page) instead of loading all
+  const { onSearch: searchEmployees, resolveValue: resolveEmployee } = useEmployeeComboboxSearch();
+
+  // Track selected employee name locally (for create new, where employeeName prop is undefined)
+  const [localEmployeeName, setLocalEmployeeName] = React.useState(employeeName || '');
+
+  // Sync localEmployeeName when prop changes (e.g. copy mode loads async)
+  React.useEffect(() => {
+    if (employeeName && !localEmployeeName) {
+      setLocalEmployeeName(employeeName);
+    }
+  }, [employeeName, localEmployeeName]);
 
   const branchOptions = React.useMemo(() => 
     branches.map(b => ({ value: b.systemId, label: b.name })), 
     [branches]
-  );
-
-  const employeeOptions = React.useMemo(() => 
-    employees.map(e => ({ value: e.systemId, label: e.fullName })), 
-    [employees]
   );
 
   // Tự động chọn chi nhánh mặc định khi tạo mới (chỉ chạy 1 lần)
@@ -48,7 +54,7 @@ export function WarrantyFormInfoCard({ disabled }: { disabled?: boolean }) {
 
   return (
     <Card className="flex flex-col h-full">
-      <CardHeader className="flex-shrink-0">
+      <CardHeader className="shrink-0">
         <CardTitle>Thông tin bổ sung</CardTitle>
       </CardHeader>
       <CardContent className="flex-1 overflow-y-auto space-y-4">
@@ -64,7 +70,7 @@ export function WarrantyFormInfoCard({ disabled }: { disabled?: boolean }) {
                   {...field} 
                   placeholder="Để trống để tự động tạo (BH000001, BH000002...)" 
                   disabled={disabled}
-                  className="font-mono"
+                  className={field.value ? 'font-mono' : ''}
                 />
               </FormControl>
             </FormItem>
@@ -102,9 +108,13 @@ export function WarrantyFormInfoCard({ disabled }: { disabled?: boolean }) {
               <FormLabel>Làm bởi <span className="text-red-500">*</span></FormLabel>
               <FormControl>
                 <Combobox
-                  options={employeeOptions}
-                  value={employeeOptions.find(opt => opt.value === field.value) || null}
-                  onChange={option => field.onChange(option?.value)}
+                  onSearch={searchEmployees}
+                  value={resolveEmployee(field.value, localEmployeeName || employeeName)}
+                  onChange={option => {
+                    field.onChange(option?.value);
+                    setLocalEmployeeName(option?.label || '');
+                    onEmployeeChange?.(option?.label || '');
+                  }}
                   placeholder="Chọn nhân viên"
                   searchPlaceholder="Tìm nhân viên..."
                   emptyPlaceholder="Không tìm thấy."

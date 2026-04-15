@@ -5,6 +5,7 @@ model Supplier {
   phone          String?
   email          String?
   address        String?
+  addressData    Json?
   taxCode        String?
   contactPerson  String?
   totalOrders    Int       @default(0)
@@ -19,19 +20,21 @@ model Supplier {
   bankAccount    String?
   deletedAt      DateTime?
   isDeleted      Boolean   @default(false)
+  permanentlyDeletedAt DateTime?
   website        String?
 
   // === MISSING FIELDS FROM types.ts (Phase 7) ===
-  accountManager  String? // Employee's full name
-  status          String   @default("Đang Giao Dịch") // 'Đang Giao Dịch' | 'Ngừng Giao Dịch'
-  currentDebt     Decimal? @db.Decimal(15, 2) // Current debt (separate from totalDebt)
-  bankName        String? // Tên ngân hàng
-  notes           String? // Ghi chú
+  accountManager String? // Employee's full name
+  status         String   @default("Đang Giao Dịch") // 'Đang Giao Dịch' | 'Ngừng Giao Dịch'
+  currentDebt    Decimal? @db.Decimal(15, 2) // Current debt (separate from totalDebt)
+  bankName       String? // Tên ngân hàng
+  notes          String? // Ghi chú
 
   // === RELATIONS ===
-  payments         Payment[]
-  purchaseOrders   PurchaseOrder[]
-  purchase_returns PurchaseReturn[]
+  payments             Payment[]
+  purchaseOrders       PurchaseOrder[]
+  purchase_returns     PurchaseReturn[]
+  supplier_warranties  SupplierWarranty[]
 
   @@map("suppliers")
 }

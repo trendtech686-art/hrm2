@@ -9,8 +9,9 @@
 import { NextRequest } from 'next/server';
 import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils';
 import { cancelOrderSchema } from './validation';
-
-const GHTK_API_BASE = 'https://services.giaohangtietkiem.vn';
+import { logError } from '@/lib/logger'
+import { fetchWithTimeout } from '@/lib/fetch-utils'
+import { GHTK_API_BASE } from '@/lib/ghtk-sync'
 
 export async function POST(request: NextRequest) {
   const session = await requireAuth();
@@ -36,7 +37,7 @@ export async function POST(request: NextRequest) {
     }
 
 
-    const response = await fetch(`${GHTK_API_BASE}/services/shipment/cancel/${trackingCode}`, {
+    const response = await fetchWithTimeout(`${GHTK_API_BASE}/services/shipment/cancel/${trackingCode}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -51,7 +52,7 @@ export async function POST(request: NextRequest) {
     // ✅ Trả về response từ GHTK (bao gồm cả success: false)
     return apiSuccess(data);
   } catch (error) {
-    console.error(`[GHTK-CANCEL-${requestId}] Cancel order error:`, error);
+    logError(`[GHTK-CANCEL-${requestId}] Cancel order error`, error);
     return apiError(error instanceof Error ? error.message : 'Unknown error', 500);
   }
 }

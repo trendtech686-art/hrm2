@@ -106,7 +106,7 @@ export function CardGridSkeleton({
       }}
     >
       {Array.from({ length: cards }).map((_, i) => (
-        <div key={i} className="rounded-lg border p-4 space-y-3">
+        <div key={i} className="rounded-xl border border-border/50 p-4 space-y-3">
           <Skeleton className="h-4 w-3/4" />
           <Skeleton className="h-8 w-full" />
           <div className="flex justify-between">
@@ -140,7 +140,7 @@ export function DetailSkeleton() {
 
       {/* Content */}
       <div className="grid gap-6 md:grid-cols-2">
-        <div className="space-y-4 rounded-lg border p-6">
+        <div className="space-y-4 rounded-xl border border-border/50 p-6">
           <Skeleton className="h-6 w-[150px]" />
           <div className="space-y-3">
             {Array.from({ length: 4 }).map((_, i) => (
@@ -152,7 +152,7 @@ export function DetailSkeleton() {
           </div>
         </div>
 
-        <div className="space-y-4 rounded-lg border p-6">
+        <div className="space-y-4 rounded-xl border border-border/50 p-6">
           <Skeleton className="h-6 w-[150px]" />
           <div className="space-y-3">
             {Array.from({ length: 4 }).map((_, i) => (
@@ -166,7 +166,7 @@ export function DetailSkeleton() {
       </div>
 
       {/* Table section */}
-      <div className="rounded-lg border p-6 space-y-4">
+      <div className="rounded-xl border border-border/50 p-6 space-y-4">
         <Skeleton className="h-6 w-[200px]" />
         <TableSkeleton rows={5} columns={4} showHeader showPagination={false} />
       </div>

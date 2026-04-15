@@ -1,6 +1,8 @@
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@/generated/prisma/client'
 import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
+import { logError } from '@/lib/logger'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 // Helper: compute path + level
 async function computePathAndLevel(name: string, parentId?: string | null) {
@@ -68,8 +70,8 @@ export async function GET(_request: Request, { params }: RouteParams) {
 
     return apiSuccess(category)
   } catch (error) {
-    console.error('Error fetching category:', error)
-    return apiError('Failed to fetch category', 500)
+    logError('Error fetching category', error)
+    return apiError('Không thể tải danh mục', 500)
   }
 }
 
@@ -133,13 +135,32 @@ export async function PUT(request: Request, { params }: RouteParams) {
       },
     })
 
+    // Activity log with diff
+    const changes: Record<string, { from: unknown; to: unknown }> = {}
+    if (body.name !== undefined && body.name !== existing.name) changes['Tên'] = { from: existing.name, to: body.name }
+    if (body.description !== undefined && body.description !== (existing as { description?: string }).description) changes['Mô tả'] = { from: (existing as { description?: string }).description, to: body.description }
+    if (body.parentId !== undefined && body.parentId !== existing.parentId) changes['Danh mục cha'] = { from: existing.parentId, to: body.parentId }
+    if (body.isActive !== undefined && body.isActive !== existing.isActive) changes['Trạng thái'] = { from: existing.isActive ? 'Hoạt động' : 'Ngừng', to: body.isActive ? 'Hoạt động' : 'Ngừng' }
+
+    if (Object.keys(changes).length > 0) {
+      const changeDetail = Object.keys(changes).join(', ')
+      createActivityLog({
+        entityType: 'category',
+        entityId: systemId,
+        action: `Cập nhật danh mục: ${existing.name}: ${changeDetail}`,
+        actionType: 'update',
+        changes,
+        createdBy: session.user?.id,
+      }).catch(e => logError('Failed to create activity log', e))
+    }
+
     return apiSuccess(category)
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
       return apiNotFound('Danh mục')
     }
-    console.error('Error updating category:', error)
-    return apiError('Failed to update category', 500)
+    logError('Error updating category', error)
+    return apiError('Không thể cập nhật danh mục', 500)
   }
 }
 
@@ -187,13 +208,32 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       },
     })
 
+    // Activity log with diff
+    const changes: Record<string, { from: unknown; to: unknown }> = {}
+    if (body.name !== undefined && body.name !== existing.name) changes['Tên'] = { from: existing.name, to: body.name }
+    if (body.description !== undefined && body.description !== existing.description) changes['Mô tả'] = { from: existing.description, to: body.description }
+    if (body.parentId !== undefined && body.parentId !== existing.parentId) changes['Danh mục cha'] = { from: existing.parentId, to: body.parentId }
+    if (body.isActive !== undefined && body.isActive !== existing.isActive) changes['Trạng thái'] = { from: existing.isActive ? 'Hoạt động' : 'Ngừng', to: body.isActive ? 'Hoạt động' : 'Ngừng' }
+
+    if (Object.keys(changes).length > 0) {
+      const changeDetail = Object.keys(changes).join(', ')
+      createActivityLog({
+        entityType: 'category',
+        entityId: systemId,
+        action: `Cập nhật danh mục: ${existing.name}: ${changeDetail}`,
+        actionType: 'update',
+        changes,
+        createdBy: session.user?.id,
+      }).catch(e => logError('Failed to create activity log', e))
+    }
+
     return apiSuccess(category)
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
       return apiNotFound('Danh mục')
     }
-    console.error('Error updating category:', error)
-    return apiError('Failed to update category', 500)
+    logError('Error updating category', error)
+    return apiError('Không thể cập nhật danh mục', 500)
   }
 }
 
@@ -204,6 +244,8 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
 
   try {
     const { systemId } = await params
+
+    const existing = await prisma.category.findUnique({ where: { systemId }, select: { name: true } })
 
     // Use transaction to ensure consistency
     await prisma.$transaction(async (tx) => {
@@ -225,12 +267,22 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
       })
     })
 
+    if (existing) {
+      createActivityLog({
+        entityType: 'category',
+        entityId: systemId,
+        action: `Xóa danh mục: ${existing.name}`,
+        actionType: 'delete',
+        createdBy: session.user?.id,
+      }).catch(e => logError('Failed to create activity log', e))
+    }
+
     return apiSuccess({ success: true })
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
       return apiNotFound('Danh mục')
     }
-    console.error('Error deleting category:', error)
-    return apiError('Failed to delete category', 500)
+    logError('Error deleting category', error)
+    return apiError('Không thể xóa danh mục', 500)
   }
 }

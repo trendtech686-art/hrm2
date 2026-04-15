@@ -1,5 +1,9 @@
 import { prisma } from '@/lib/prisma';
 import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils';
+import { logError } from '@/lib/logger'
+import { createNotification } from '@/lib/notifications'
+import { createActivityLog } from '@/lib/services/activity-log-service'
+import { resolveStockItems } from '@/lib/inventory/combo-stock-helper'
 
 interface RouteParams {
   params: Promise<{ systemId: string; packagingId: string }>;
@@ -45,27 +49,27 @@ export async function POST(_request: Request, { params }: RouteParams) {
       return apiError('Packaging must be completed before dispatch', 400);
     }
 
-    // ✅ Check allowNegativeStockOut setting
+    // ✅ Check allowNegativeStockOut setting (resolves combo → children)
     const settings = await getSalesSettings();
     if (!settings.allowNegativeStockOut && packaging.order) {
       const order = packaging.order;
       const branchId = order.branchId;
       
-      // Get inventories for all products
-      const productIds = order.lineItems.map(item => item.productId).filter(Boolean) as string[];
+      // Resolve combo items to actual stock items
+      const stockItems = await resolveStockItems(prisma as never, order.lineItems)
+      const productIds = stockItems.map(si => si.productId)
       const inventories = await prisma.productInventory.findMany({
         where: { productId: { in: productIds }, branchId },
       });
       const inventoryMap = new Map(inventories.map(inv => [inv.productId, inv]));
       
-      for (const item of order.lineItems) {
-        if (!item.productId) continue;
-        const inventory = inventoryMap.get(item.productId);
+      for (const stockItem of stockItems) {
+        const inventory = inventoryMap.get(stockItem.productId);
         const onHand = inventory?.onHand ?? 0;
         
-        if (onHand < item.quantity) {
+        if (onHand < stockItem.quantity) {
           return apiError(
-            `Không thể xuất kho: Sản phẩm "${item.productName || item.productId}" không đủ tồn kho. Có: ${onHand}, cần: ${item.quantity}`,
+            `Không thể xuất kho: Sản phẩm "${stockItem.productName}" không đủ tồn kho. Có: ${onHand}, cần: ${stockItem.quantity}`,
             400
           );
         }
@@ -74,7 +78,7 @@ export async function POST(_request: Request, { params }: RouteParams) {
 
     // Transaction: update packaging and order status
     const updatedOrder = await prisma.$transaction(async (tx) => {
-      // Update packaging status - mark as completed/shipped
+      // Update packaging status - dispatch = stock out + start shipping
       await tx.packaging.update({
         where: { systemId: packagingId },
         data: {
@@ -82,12 +86,12 @@ export async function POST(_request: Request, { params }: RouteParams) {
         },
       });
 
-      // Update order status
+      // Update order status - stock out and start shipping
       const updated = await tx.order.update({
         where: { systemId },
         data: { 
           status: 'SHIPPING', 
-          deliveryStatus: 'SHIPPING', // ✅ Also update order-level deliveryStatus
+          deliveryStatus: 'SHIPPING',
           stockOutStatus: 'FULLY_STOCKED_OUT',
           dispatchedDate: new Date(),
         },
@@ -108,48 +112,45 @@ export async function POST(_request: Request, { params }: RouteParams) {
 
       // ✅ Update ProductInventory - dispatch from warehouse
       // -committed (release reservation), -onHand (physical stock out), +inDelivery (in transit to customer)
+      // For combo products, deduct stock of child components
       const branchId = updated.branchId;
       if (branchId && updated.lineItems.length > 0) {
-        for (const item of updated.lineItems) {
-          const productId = item.productId;
-          if (!productId) continue;
-          
+        const stockItems = await resolveStockItems(tx, updated.lineItems)
+        for (const stockItem of stockItems) {
           const inventory = await tx.productInventory.findUnique({
             where: {
-              productId_branchId: { productId, branchId },
+              productId_branchId: { productId: stockItem.productId, branchId },
             },
           });
           
           if (inventory) {
-            // Calculate new onHand - allow negative for tracking purposes
-            const newOnHand = inventory.onHand - item.quantity;
+            const newOnHand = inventory.onHand - stockItem.quantity;
             
             await tx.productInventory.update({
               where: {
-                productId_branchId: { productId, branchId },
+                productId_branchId: { productId: stockItem.productId, branchId },
               },
               data: {
-                committed: { decrement: Math.min(inventory.committed, item.quantity) },
-                onHand: { decrement: item.quantity }, // Allow negative stock
-                inDelivery: { increment: item.quantity },
+                committed: { decrement: Math.min(inventory.committed, stockItem.quantity) },
+                onHand: { decrement: stockItem.quantity },
+                inDelivery: { increment: stockItem.quantity },
                 updatedAt: new Date(),
               },
             });
             
-            // ✅ Create stock history record
             await tx.stockHistory.create({
               data: {
-                productId,
+                productId: stockItem.productId,
                 branchId,
                 action: 'Xuất kho bán hàng',
                 source: 'Đơn hàng',
-                quantityChange: -item.quantity,
-                newStockLevel: newOnHand, // Record actual new level (can be negative)
+                quantityChange: -stockItem.quantity,
+                newStockLevel: newOnHand,
                 documentId: updated.id,
                 documentType: 'order',
                 employeeId: session.user?.id,
                 employeeName: session.user?.name || undefined,
-                note: `Xuất kho bán hàng - ${item.productName || productId}`,
+                note: `Xuất kho bán hàng - ${stockItem.productName}`,
               },
             });
           }
@@ -160,9 +161,32 @@ export async function POST(_request: Request, { params }: RouteParams) {
       return updated;
     });
 
+    // Log activity
+    await createActivityLog({
+      entityType: 'order',
+      entityId: systemId,
+      action: `Xuất kho đơn hàng ${updatedOrder.id || systemId}`,
+      actionType: 'status',
+      createdBy: session.user?.employee?.fullName || session.user?.name || session.user?.id || undefined,
+    }).catch(e => logError('[Dispatch] activity log failed', e));
+
+    // Notify salesperson about dispatch
+    if (updatedOrder.salespersonId && updatedOrder.salespersonId !== session.user?.employeeId) {
+      createNotification({
+        type: 'order',
+        settingsKey: 'order:packaging',
+        title: 'Đơn hàng đã xuất kho',
+        message: `Đơn hàng ${updatedOrder.id || systemId} đã được xuất kho`,
+        link: `/orders/${systemId}`,
+        recipientId: updatedOrder.salespersonId,
+        senderId: session.user?.employeeId,
+        senderName: session.user?.name,
+      }).catch(e => logError('[Dispatch] notification failed', e));
+    }
+
     return apiSuccess(updatedOrder);
   } catch (error) {
-    console.error('Error dispatching order:', error);
+    logError('Error dispatching order', error);
     return apiError('Failed to dispatch order', 500);
   }
 }

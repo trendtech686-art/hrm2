@@ -2,38 +2,21 @@
  * GHTK Webhook API
  * POST /api/shipping/ghtk/webhook
  * 
- * Receive status updates from GHTK
- * Must return HTTP 200 for GHTK to mark as successful delivery
+ * Receive status updates from GHTK → update packaging + order in DB.
+ * Must return HTTP 200 for GHTK to mark as successful delivery.
  * 
- * Security features:
- * - Webhook signature verification (HMAC-SHA256)
- * - IP whitelist validation (optional)
- * - Rate limiting (10 requests/min per tracking code)
+ * Security: HMAC-SHA256 signature, IP whitelist (optional), rate limiting.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
+import { logError } from '@/lib/logger'
 import { 
   findPackagingByTrackingCode, 
   updatePackagingFromGHTK,
 } from '@/lib/ghtk-sync';
-
-// In-memory queue for webhooks (kept for debug/monitoring purposes)
-const webhookQueue: WebhookPayload[] = [];
-
-interface WebhookPayload {
-  label_id: string;
-  partner_id: string;
-  status_id: number;
-  action_time: string;
-  reason_code?: string;
-  reason?: string;
-  weight?: number;
-  fee?: number;
-  pick_money?: number;
-  return_part_package?: number;
-  receivedAt: string;
-}
+import { getGHTKStatusInfo } from '@/lib/ghtk-constants';
+import { createActivityLog } from '@/lib/services/activity-log-service';
 
 // Rate limiting for webhook endpoint
 const rateLimiter = (() => {
@@ -81,7 +64,7 @@ function verifyWebhookSignature(body: unknown, signature: string | null): boolea
   }
   
   if (!signature) {
-    console.error('[GHTK Webhook Security] ❌ No signature header found');
+    logError('[GHTK Webhook Security] No signature header found', null);
     return false;
   }
   
@@ -99,7 +82,7 @@ function verifyWebhookSignature(body: unknown, signature: string | null): boolea
     );
     
     if (!isValid) {
-      console.error('[GHTK Webhook Security] ❌ Invalid signature');
+      logError('[GHTK Webhook Security] Invalid signature', null);
     }
     // Valid signature - no logging needed
     
@@ -131,7 +114,16 @@ function isGHTKIP(clientIP: string): boolean {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    // GHTK may send JSON or application/x-www-form-urlencoded (per their docs)
+    let body: Record<string, unknown>;
+    const rawText = await request.text();
+    try {
+      body = JSON.parse(rawText);
+    } catch {
+      // Fallback: parse as form-encoded (GHTK docs show this format)
+      const params = new URLSearchParams(rawText);
+      body = Object.fromEntries(params.entries());
+    }
     
     const {
       label_id,          // GHTK tracking code
@@ -144,13 +136,13 @@ export async function POST(request: NextRequest) {
       fee,               // Actual shipping fee
       pick_money,        // COD amount
       return_part_package // 0 or 1
-    } = body;
+    } = body as Record<string, string | undefined>;
     
     // ============================================
     // SECURITY LAYER 1: Validate Required Fields
     // ============================================
     if (!label_id || status_id === undefined) {
-      console.error('[GHTK Webhook] ❌ Missing required fields:', { label_id, status_id });
+      logError('[GHTK Webhook] Missing required fields', null, { label_id, status_id });
       // Still return 200 to prevent GHTK from retrying
       return NextResponse.json({ 
         success: false, 
@@ -175,7 +167,7 @@ export async function POST(request: NextRequest) {
                      request.headers.get('x-real-ip') || 
                      'unknown';
     if (!isGHTKIP(clientIP)) {
-      console.error('[GHTK Webhook] ❌ Request from non-whitelisted IP');
+      logError('[GHTK Webhook] Request from non-whitelisted IP', null);
       return NextResponse.json({ 
         success: false, 
         message: 'Forbidden' 
@@ -192,7 +184,7 @@ export async function POST(request: NextRequest) {
                         request.headers.get('x-hub-signature-256') ||
                         request.headers.get('x-webhook-signature');
       if (!verifyWebhookSignature(body, signature)) {
-        console.error('[GHTK Webhook] ❌ Invalid signature');
+        logError('[GHTK Webhook] Invalid signature', null);
         return NextResponse.json({ 
           success: false, 
           message: 'Invalid signature' 
@@ -219,83 +211,40 @@ export async function POST(request: NextRequest) {
           reasonText: reason,
           fee: fee ? parseInt(fee) : undefined,
           pickMoney: pick_money ? parseInt(pick_money) : undefined,
+          actionTime: action_time || undefined,
         }
       );
+
+      // Log activity with "GHTK" as actor
+      const statusInfo = getGHTKStatusInfo(parsedStatusId);
+      const statusText = statusInfo?.statusText || `Trạng thái ${parsedStatusId}`;
+      if (packaging.orderId) {
+        await createActivityLog({
+          entityType: 'order',
+          entityId: packaging.orderId,
+          action: `Webhook GHTK - ${statusText}`,
+          actionType: 'status',
+          metadata: { userName: 'GHTK' },
+        }).catch(e => logError('[GHTK Webhook] activity log failed', e));
+      }
       
     } else {
-      console.warn(`⚠️ [GHTK Webhook] Packaging not found for tracking code: ${label_id}`);
+      logError(`[GHTK Webhook] Packaging not found for tracking code: ${label_id}`, null);
     }
     
-    // Store webhook payload in memory for debug/monitoring
-    webhookQueue.push({
-      label_id,
-      partner_id,
-      status_id: parsedStatusId,
-      action_time,
-      reason_code,
-      reason,
-      weight: weight ? parseFloat(weight) : undefined,
-      fee: fee ? parseInt(fee) : undefined,
-      pick_money: pick_money ? parseInt(pick_money) : undefined,
-      return_part_package: return_part_package ? parseInt(return_part_package) : 0,
-      receivedAt: new Date().toISOString()
-    });
-    
-    // Keep only last 100 webhooks in memory
-    while (webhookQueue.length > 100) {
-      webhookQueue.shift();
-    }
-    
-    // CRITICAL: Must return HTTP 200 for GHTK to mark as successful
+    // Must return HTTP 200 for GHTK to mark as delivered
     return NextResponse.json({ 
       success: true, 
       message: 'Webhook processed successfully' 
     }, { status: 200 });
     
   } catch (error) {
-    console.error('[GHTK Webhook] Error processing webhook:', error);
+    logError('[GHTK Webhook] Error processing webhook', error);
     
-    // Still return 200 to prevent infinite retries
+    // Still return 200 to prevent infinite retries from GHTK
     return NextResponse.json({ 
       success: false, 
       message: 'Error processing webhook',
-      error: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 200 });
-  }
-}
-
-/**
- * GET /api/shipping/ghtk/webhook
- * Frontend polls this endpoint to get webhook updates
- * Returns and removes webhooks from queue
- */
-export async function GET() {
-  try {
-    // Cleanup old rate limit entries
-    rateLimiter.cleanup();
-    
-    if (webhookQueue.length === 0) {
-      return NextResponse.json({ 
-        success: true, 
-        updates: [] 
-      });
-    }
-    
-    // Return all pending webhooks and clear queue
-    const updates = [...webhookQueue];
-    webhookQueue.length = 0;
-    
-    
-    return NextResponse.json({ 
-      success: true, 
-      updates 
-    });
-    
-  } catch (error) {
-    console.error('[GHTK Webhook] Error polling webhooks:', error);
-    return NextResponse.json({ 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
   }
 }

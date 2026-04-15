@@ -82,7 +82,7 @@ export async function fetchShipments(
   const response = await fetch(url);
   
   if (!response.ok) {
-    throw new Error('Failed to fetch shipments');
+    throw new Error('Không thể tải danh sách vận đơn');
   }
   
   return response.json();
@@ -97,27 +97,7 @@ export async function fetchShipmentById(
   const response = await fetch(`${BASE_URL}/${systemId}`);
   
   if (!response.ok) {
-    throw new Error('Failed to fetch shipment');
-  }
-  
-  return response.json();
-}
-
-/**
- * Create new shipment
- */
-export async function createShipment(
-  data: ShipmentCreateInput
-): Promise<Shipment> {
-  const response = await fetch(BASE_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-  
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.error || 'Failed to create shipment');
+    throw new Error('Không thể tải vận đơn');
   }
   
   return response.json();
@@ -138,23 +118,10 @@ export async function updateShipment(
   
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
-    throw new Error(error.error || 'Failed to update shipment');
+    throw new Error(error.error || 'Không thể cập nhật vận đơn');
   }
   
   return response.json();
-}
-
-/**
- * Delete shipment
- */
-export async function deleteShipment(systemId: string): Promise<void> {
-  const response = await fetch(`${BASE_URL}/${systemId}`, {
-    method: 'DELETE',
-  });
-  
-  if (!response.ok) {
-    throw new Error('Failed to delete shipment');
-  }
 }
 
 /**
@@ -196,7 +163,7 @@ export async function bulkReconcileShipments(
   });
   
   if (!response.ok) {
-    throw new Error('Failed to bulk reconcile shipments');
+    throw new Error('Không thể đối soát hàng loạt');
   }
   
   return response.json();
@@ -213,7 +180,7 @@ export async function syncTrackingInfo(
   });
   
   if (!response.ok) {
-    throw new Error('Failed to sync tracking info');
+    throw new Error('Không thể đồng bộ thông tin vận chuyển');
   }
   
   return response.json();
@@ -232,7 +199,7 @@ export async function printShippingLabel(
   });
   
   if (!response.ok) {
-    throw new Error('Failed to generate shipping labels');
+    throw new Error('Không thể tạo nhãn vận chuyển');
   }
   
   return response.json();

@@ -6,6 +6,9 @@ import { useSession, signOut } from 'next-auth/react';
 // import { useEmployeeStore } from '../features/employees/store';
 import type { Employee } from '@/lib/types/prisma-extended';
 import { loadGeneralSettings, clearGeneralSettingsCache } from '../lib/settings-cache';
+import { logError } from '@/lib/logger'
+import { hasPermission as checkPermission, type Permission, normalizeRole } from '@/features/employees/permissions';
+import { useRoleSettings } from '@/features/settings/employees/hooks/use-role-settings';
 
 interface User {
   systemId: string;
@@ -31,6 +34,12 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isAdmin: boolean;
   isLoading: boolean;
+  /** Check if current user has a specific permission */
+  can: (permission: Permission) => boolean;
+  /** Check if current user has ALL specified permissions */
+  canAll: (permissions: Permission[]) => boolean;
+  /** Check if current user has ANY of the specified permissions */
+  canAny: (permissions: Permission[]) => boolean;
   logout: () => Promise<void>;
   updateUser: (updates: Partial<User>) => void;
   refreshUser: () => Promise<void>;
@@ -46,13 +55,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // REMOVED: Heavy store import - use employee from session instead
   // const { data: employees } = useEmployeeStore();
   const [user, setUser] = React.useState<User | null>(cachedUser);
-  const isLoading = status === 'loading';
+  // Also loading when session is authenticated but user state hasn't synced yet
+  const isLoading = status === 'loading' || (status === 'authenticated' && !user);
 
   // Load general settings when authenticated
   React.useEffect(() => {
     if (status === 'authenticated') {
       // Load settings from database into cache
-      loadGeneralSettings().catch(console.error);
+      loadGeneralSettings().catch(err => logError('Failed to load general settings', err));
     } else if (status === 'unauthenticated') {
       // Clear settings cache on logout
       clearGeneralSettingsCache();
@@ -107,7 +117,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       cachedUser = null;
       setUser(null);
     } catch (error) {
-      console.error('Logout error:', error);
+      logError('Logout error', error);
     }
   }, []);
 
@@ -126,6 +136,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  // Load custom role permissions from settings
+  const { data: customRoles } = useRoleSettings();
+
+  // Employee.role stores the actual role ID ('Warehouse', 'Sales', etc.)
+  // User.role is the UserRole enum (ADMIN/MANAGER/STAFF) — less granular
+  // Prefer employee role for permission resolution
+  const effectiveRole = user?.employee?.role as string || user?.role;
+
+  // Resolve the current user's actual permissions (custom role > default)
+  const userPermissions = React.useMemo<Permission[] | undefined>(() => {
+    if (!effectiveRole) return undefined;
+    const role = normalizeRole(effectiveRole);
+    const matchedRole = customRoles?.find(r => r.id === role);
+    return matchedRole?.permissions;
+  }, [effectiveRole, customRoles]);
+
+  // Permission check callbacks — use custom role permissions when available
+  const can = React.useCallback((permission: Permission) => {
+    if (!effectiveRole) return false;
+    return checkPermission(effectiveRole, permission, userPermissions);
+  }, [effectiveRole, userPermissions]);
+
+  const canAll = React.useCallback((permissions: Permission[]) => {
+    if (!effectiveRole) return false;
+    return permissions.every(p => checkPermission(effectiveRole, p, userPermissions));
+  }, [effectiveRole, userPermissions]);
+
+  const canAny = React.useCallback((permissions: Permission[]) => {
+    if (!effectiveRole) return false;
+    return permissions.some(p => checkPermission(effectiveRole, p, userPermissions));
+  }, [effectiveRole, userPermissions]);
+
   const value = React.useMemo(
     () => ({
       user,
@@ -133,11 +175,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isAuthenticated: !!user,
       isAdmin: user?.role === 'ADMIN' || user?.role === 'admin',
       isLoading,
+      can,
+      canAll,
+      canAny,
       logout,
       updateUser,
       refreshUser,
     }),
-    [user, employee, isLoading, logout, updateUser, refreshUser]
+    [user, employee, isLoading, can, canAll, canAny, logout, updateUser, refreshUser]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -157,6 +202,9 @@ export function useAuth() {
       isAuthenticated: false,
       isAdmin: false,
       isLoading: true,
+      can: () => false,
+      canAll: () => false,
+      canAny: () => false,
       logout: async () => {},
       updateUser: () => {},
       refreshUser: async () => {},

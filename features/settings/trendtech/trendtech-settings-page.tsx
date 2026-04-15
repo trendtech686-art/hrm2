@@ -4,6 +4,7 @@ import * as React from 'react';
 import { TabsContent } from '../../../components/ui/tabs';
 import { TrendingUp } from 'lucide-react';
 import { SettingsVerticalTabs } from '../../../components/settings/SettingsVerticalTabs';
+import { SettingsHistoryContent } from '../../../components/settings/SettingsHistoryContent';
 import { useSettingsPageHeader } from '../use-settings-page-header';
 import { GeneralConfigTab } from './components/general-config-tab';
 import { CategoryMappingTab } from './components/category-mapping-tab';
@@ -11,7 +12,6 @@ import { BrandMappingTab } from './components/brand-mapping-tab';
 import { PriceMappingTab } from './components/price-mapping-tab';
 import { ProductMappingTab } from './components/product-mapping-tab';
 import { SyncSettingsTab } from './components/sync-settings-tab';
-import { LogTab } from './components/log-tab';
 
 const TRENDTECH_TABS = [
   { value: 'general', label: 'Cấu hình chung' },
@@ -20,7 +20,6 @@ const TRENDTECH_TABS = [
   { value: 'price-mapping', label: 'Mapping giá' },
   { value: 'product-mapping', label: 'Sản phẩm đã liên kết' },
   { value: 'sync', label: 'Auto Sync' },
-  { value: 'logs', label: 'Logs' },
 ];
 
 export function TrendtechSettingsPage() {
@@ -35,38 +34,40 @@ export function TrendtechSettingsPage() {
   });
 
   return (
-    <SettingsVerticalTabs
-      value={activeTab}
-      onValueChange={setActiveTab}
-      tabs={TRENDTECH_TABS}
-    >
-      <TabsContent value="general" className="mt-0">
-        <GeneralConfigTab />
-      </TabsContent>
+    <>
+      <SettingsVerticalTabs
+        value={activeTab}
+        onValueChange={setActiveTab}
+        tabs={TRENDTECH_TABS}
+      >
+        <TabsContent value="general" className="mt-0">
+          <GeneralConfigTab />
+        </TabsContent>
 
-      <TabsContent value="category-mapping" className="mt-0">
-        <CategoryMappingTab />
-      </TabsContent>
+        <TabsContent value="category-mapping" className="mt-0">
+          {activeTab === 'category-mapping' && <CategoryMappingTab />}
+        </TabsContent>
 
-      <TabsContent value="brand-mapping" className="mt-0">
-        <BrandMappingTab />
-      </TabsContent>
+        <TabsContent value="brand-mapping" className="mt-0">
+          {activeTab === 'brand-mapping' && <BrandMappingTab />}
+        </TabsContent>
 
-      <TabsContent value="price-mapping" className="mt-0">
-        <PriceMappingTab />
-      </TabsContent>
+        <TabsContent value="price-mapping" className="mt-0">
+          {activeTab === 'price-mapping' && <PriceMappingTab />}
+        </TabsContent>
 
-      <TabsContent value="product-mapping" className="mt-0">
-        <ProductMappingTab />
-      </TabsContent>
+        <TabsContent value="product-mapping" className="mt-0">
+          {activeTab === 'product-mapping' && <ProductMappingTab />}
+        </TabsContent>
 
-      <TabsContent value="sync" className="mt-0">
-        <SyncSettingsTab />
-      </TabsContent>
+        <TabsContent value="sync" className="mt-0">
+          {activeTab === 'sync' && <SyncSettingsTab />}
+        </TabsContent>
+      </SettingsVerticalTabs>
 
-      <TabsContent value="logs" className="mt-0">
-        <LogTab />
-      </TabsContent>
-    </SettingsVerticalTabs>
+      <div className="mt-6">
+        <SettingsHistoryContent entityTypes={['trendtech_settings']} />
+      </div>
+    </>
   );
 }

@@ -1,7 +1,7 @@
 import * as React from "react";
 import { formatDateCustom } from '@/lib/date-utils';
 import type { Receipt } from '@/lib/types/prisma-extended';
-import { Card, CardContent, CardTitle } from "@/components/ui/card";
+
 import { Badge } from "@/components/ui/badge";
 import { TouchButton } from "@/components/mobile/touch-button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -42,16 +42,15 @@ export const MobileReceiptCard = ({ receipt, onCancel, navigate, handleRowClick 
     };
 
     return (
-        <Card 
-            className="hover:shadow-md transition-shadow cursor-pointer"
+        <div 
+            className="rounded-xl border border-border/50 bg-card p-4 active:scale-[0.98] transition-transform touch-manipulation cursor-pointer"
             onClick={() => handleRowClick(receipt)}
         >
-            <CardContent className="p-4">
                 {/* Header: ID + Amount + Menu */}
                 <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                         <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                            <CardTitle className="font-semibold text-sm truncate">{receipt.id}</CardTitle>
+                            <h3 className="font-semibold text-sm truncate font-mono">{receipt.id}</h3>
                             <span className="text-xs text-muted-foreground">•</span>
                             <span className="text-sm font-medium text-emerald-600">{formatCurrency(receipt.amount)} ₫</span>
                         </div>
@@ -62,7 +61,7 @@ export const MobileReceiptCard = ({ receipt, onCancel, navigate, handleRowClick 
                                 <TouchButton
                                     variant="ghost"
                                     size="sm"
-                                    className="h-9 w-10 p-0 flex-shrink-0"
+                                    className="h-8 w-8 p-0 shrink-0 -mr-2 -mt-1"
                                     onClick={(e) => e.stopPropagation()}
                                 >
                                     <MoreHorizontal className="h-4 w-4" />
@@ -91,29 +90,26 @@ export const MobileReceiptCard = ({ receipt, onCancel, navigate, handleRowClick 
                 </div>
 
                 {/* Payer + Payment Method */}
-                <div className="text-xs text-muted-foreground mb-3 flex items-center">
-                    <User className="h-3 w-3 mr-1.5 flex-shrink-0" />
+                <div className="text-xs text-muted-foreground mt-2 flex items-center">
+                    <User className="h-3 w-3 mr-1.5 shrink-0" />
                     <span className="truncate">{receipt.payerName} • {receipt.paymentMethodName}</span>
                 </div>
 
-                {/* Divider */}
-                <div className="border-t mb-3" />
-
-                {/* Details */}
-                <div className="space-y-2">
+                {/* Divider + Details */}
+                <div className="mt-3 pt-3 border-t border-border/50 space-y-2">
                     <div className="flex items-center text-xs text-muted-foreground">
-                        <Calendar className="h-3 w-3 mr-1.5 flex-shrink-0" />
+                        <Calendar className="h-3 w-3 mr-1.5 shrink-0" />
                         <span>{formatDateDisplay(receipt.date)}</span>
                     </div>
                     {receipt.branchName && (
                         <div className="flex items-center text-xs text-muted-foreground">
-                            <Building2 className="h-3 w-3 mr-1.5 flex-shrink-0" />
+                            <Building2 className="h-3 w-3 mr-1.5 shrink-0" />
                             <span className="truncate">{receipt.branchName}</span>
                         </div>
                     )}
                     {receipt.description && (
                         <div className="flex items-center text-xs text-muted-foreground">
-                            <FileText className="h-3 w-3 mr-1.5 flex-shrink-0" />
+                            <FileText className="h-3 w-3 mr-1.5 shrink-0" />
                             <span className="truncate">{receipt.description}</span>
                         </div>
                     )}
@@ -126,7 +122,6 @@ export const MobileReceiptCard = ({ receipt, onCancel, navigate, handleRowClick 
                         {getStatusBadge(receipt.status)}
                     </div>
                 </div>
-            </CardContent>
-        </Card>
+        </div>
     );
 };

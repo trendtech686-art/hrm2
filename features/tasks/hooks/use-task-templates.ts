@@ -4,6 +4,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import * as api from '../api/templates-api';
 import type { TaskTemplate } from '../template-types';
 
@@ -49,9 +50,7 @@ interface MutationCallbacks {
 export function useTaskTemplateMutations(options: MutationCallbacks = {}) {
   const queryClient = useQueryClient();
 
-  const invalidateTemplates = () => {
-    queryClient.invalidateQueries({ queryKey: templateKeys.all });
-  };
+  const invalidateTemplates = () => invalidateRelated(queryClient, 'task-templates');
 
   const create = useMutation({
     mutationFn: api.createTaskTemplate,

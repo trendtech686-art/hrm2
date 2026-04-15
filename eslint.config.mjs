@@ -3,6 +3,7 @@ import tseslint from "typescript-eslint";
 import reactPlugin from "eslint-plugin-react";
 import hooksPlugin from "eslint-plugin-react-hooks";
 import nextPlugin from "@next/eslint-plugin-next";
+import jsxA11y from "eslint-plugin-jsx-a11y";
 
 export default [
   js.configs.recommended,
@@ -13,6 +14,7 @@ export default [
       react: reactPlugin,
       "react-hooks": hooksPlugin,
       "@next/next": nextPlugin,
+      "jsx-a11y": jsxA11y,
     },
     languageOptions: {
       parserOptions: {
@@ -44,6 +46,13 @@ export default [
       "no-console": ["warn", { allow: ["warn", "error"] }],
       "no-unused-vars": "off", // Use TypeScript's instead
       "no-undef": "off", // TypeScript handles this
+      
+      // Accessibility rules (warn to avoid blocking, fix incrementally)
+      "jsx-a11y/alt-text": "warn",
+      "jsx-a11y/anchor-is-valid": "warn",
+      "jsx-a11y/click-events-have-key-events": "warn",
+      "jsx-a11y/no-static-element-interactions": "warn",
+      "jsx-a11y/label-has-associated-control": "warn",
     },
     settings: {
       react: {

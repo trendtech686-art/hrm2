@@ -31,13 +31,13 @@ export function OrderCard({ order, onCancel: _onCancel }: OrderCardProps) {
 
   return (
     <div 
-      className="bg-card rounded-lg border border-border p-4 space-y-3 hover:shadow-md transition-shadow"
+      className="bg-card rounded-xl border border-border/50 p-4 space-y-3 active:scale-[0.98] transition-transform touch-manipulation"
       onClick={() => router.push(`/orders/${order.systemId}`)}
     >
       {/* Header: Code + Status */}
       <div className="flex items-start justify-between">
         <div className="space-y-1">
-          <div className="font-mono font-semibold text-body-sm">{order.id}</div>
+          <div className="font-mono font-semibold text-sm">{order.id}</div>
           <StatusBadge status={order.status} statusMap={ORDER_MAIN_STATUS_MAP} />
         </div>
         <TouchButton
@@ -54,42 +54,42 @@ export function OrderCard({ order, onCancel: _onCancel }: OrderCardProps) {
 
       {/* Customer Info */}
       <div className="space-y-2">
-        <div className="flex items-center gap-2 text-body-sm">
-          <User className="h-4 w-4 text-muted-foreground" />
-          <span className="font-medium">{order.customerName}</span>
+        <div className="flex items-center gap-2 text-sm">
+          <User className="h-3.5 w-3.5 text-muted-foreground" />
+          <span className="font-medium truncate">{order.customerName}</span>
         </div>
         
-        <div className="flex items-center gap-2 text-body-sm text-muted-foreground">
-          <Calendar className="h-4 w-4" />
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Calendar className="h-3 w-3" />
           <span>{formatDate(order.orderDate)}</span>
         </div>
 
         {order.branchName && (
-          <div className="flex items-center gap-2 text-body-sm text-muted-foreground">
-            <Building2 className="h-4 w-4" />
-            <span>{order.branchName}</span>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Building2 className="h-3 w-3" />
+            <span className="truncate">{order.branchName}</span>
           </div>
         )}
       </div>
 
       {/* Status Badges */}
       <div className="flex flex-wrap gap-2">
-        <StatusBadge status={order.paymentStatus} statusMap={PAYMENT_STATUS_MAP} className="text-body-xs" />
-        <StatusBadge status={order.deliveryStatus} statusMap={DELIVERY_STATUS_MAP} className="text-body-xs" />
+        <StatusBadge status={order.paymentStatus} statusMap={PAYMENT_STATUS_MAP} className="text-xs" />
+        <StatusBadge status={order.deliveryStatus} statusMap={DELIVERY_STATUS_MAP} className="text-xs" />
       </div>
 
       {/* Financial Info */}
-      <div className="pt-2 border-t space-y-1">
-        <div className="flex justify-between text-body-sm">
+      <div className="mt-3 pt-3 border-t border-border/50 space-y-1">
+        <div className="flex justify-between text-xs">
           <span className="text-muted-foreground">Tổng tiền:</span>
           <span className="font-semibold">{formatCurrency(order.grandTotal)}</span>
         </div>
-        <div className="flex justify-between text-body-sm">
+        <div className="flex justify-between text-xs">
           <span className="text-muted-foreground">Đã thanh toán:</span>
           <span className="text-green-600">{formatCurrency(totalPaid)}</span>
         </div>
         {remaining > 0 && (
-          <div className="flex justify-between text-body-sm">
+          <div className="flex justify-between text-xs">
             <span className="text-muted-foreground">Còn lại:</span>
             <span className="font-semibold text-destructive">{formatCurrency(remaining)}</span>
           </div>
@@ -98,7 +98,7 @@ export function OrderCard({ order, onCancel: _onCancel }: OrderCardProps) {
 
       {/* Salesperson */}
       {order.salesperson && (
-        <div className="text-body-xs text-muted-foreground">
+        <div className="text-xs text-muted-foreground">
           NV: {order.salesperson}
         </div>
       )}

@@ -28,11 +28,12 @@ import {
   Columns,
   Trash2,
   Link2,
-  Upload
+  Upload,
+  EyeOff
 } from 'lucide-react';
 import { useSettingsPageHeader } from '../use-settings-page-header';
-import { usePrintTemplateStore } from './store';
-import { TemplateType, PaperSize, TEMPLATE_TYPES as ALL_TEMPLATE_TYPES } from './types';
+import { usePrintTemplateConfig } from './hooks/use-print-template-config';
+import { TemplateType, PaperSize, TEMPLATE_TYPES as ALL_TEMPLATE_TYPES, parseLabelSize, type PrintMargins, DEFAULT_MARGINS } from './types';
 import { PREVIEW_DATA } from './preview-data';
 import { TEMPLATE_VARIABLES } from './variables';
 import { useAllBranches } from '../branches/hooks/use-all-branches';
@@ -44,17 +45,19 @@ import {
   SelectTrigger, 
   SelectValue 
 } from '@/components/ui/select';
+import { VirtualizedCombobox, type ComboboxOption } from '@/components/ui/virtualized-combobox';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { 
+import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import { SettingsHistoryContent } from '@/components/settings/SettingsHistoryContent';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -84,21 +87,113 @@ import { TextStyle } from '@tiptap/extension-text-style';
 import { Color } from '@tiptap/extension-color';
 import Highlight from '@tiptap/extension-highlight';
 import Image from '@tiptap/extension-image';
+import { Extension } from '@tiptap/core';
+import { logError } from '@/lib/logger'
+import { sanitizeHtml } from '@/lib/sanitize'
 
-// Use template types from types.ts
-const TEMPLATE_TYPES = ALL_TEMPLATE_TYPES;
+// Custom TableCell/TableHeader with border-color support for toggle
+const CustomTableCell = TableCell.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      borderColor: {
+        default: null,
+        parseHTML: element => element.style.borderColor || null,
+        renderHTML: attributes => {
+          if (!attributes.borderColor) return {};
+          return { style: `border-color: ${attributes.borderColor}` };
+        },
+      },
+    };
+  },
+});
 
-const PAPER_SIZES: { value: PaperSize; label: string }[] = [
-  { value: 'A4', label: 'Khổ in A4' },
-  { value: 'A5', label: 'Khổ in A5' },
-  { value: 'A6', label: 'Khổ in A6' },
-  { value: 'K80', label: 'Khổ in K80' },
-  { value: 'K57', label: 'Khổ in K57' },
-];
+const CustomTableHeader = TableHeader.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      borderColor: {
+        default: null,
+        parseHTML: element => element.style.borderColor || null,
+        renderHTML: attributes => {
+          if (!attributes.borderColor) return {};
+          return { style: `border-color: ${attributes.borderColor}` };
+        },
+      },
+    };
+  },
+});
 
-const _FONT_SIZES = [
+// TipTap FontSize extension (extends TextStyle to support font-size)
+const FontSize = Extension.create({
+  name: 'fontSize',
+  addGlobalAttributes() {
+    return [{
+      types: ['textStyle'],
+      attributes: {
+        fontSize: {
+          default: null,
+          parseHTML: element => element.style.fontSize || null,
+          renderHTML: attributes => {
+            if (!attributes.fontSize) return {};
+            return { style: `font-size: ${attributes.fontSize}` };
+          },
+        },
+      },
+    }];
+  },
+});
+
+// TipTap FontFamily extension (extends TextStyle to support font-family)
+const FontFamily = Extension.create({
+  name: 'fontFamily',
+  addGlobalAttributes() {
+    return [{
+      types: ['textStyle'],
+      attributes: {
+        fontFamily: {
+          default: null,
+          parseHTML: element => element.style.fontFamily || null,
+          renderHTML: attributes => {
+            if (!attributes.fontFamily) return {};
+            return { style: `font-family: ${attributes.fontFamily}` };
+          },
+        },
+      },
+    }];
+  },
+});
+
+// TipTap LineHeight extension (paragraph-level attribute)
+const LineHeight = Extension.create({
+  name: 'lineHeight',
+  addGlobalAttributes() {
+    return [{
+      types: ['paragraph', 'heading'],
+      attributes: {
+        lineHeight: {
+          default: null,
+          parseHTML: element => element.style.lineHeight || null,
+          renderHTML: attributes => {
+            if (!attributes.lineHeight) return {};
+            return { style: `line-height: ${attributes.lineHeight}` };
+          },
+        },
+      },
+    }];
+  },
+});
+
+const FONT_SIZES = [
+  { value: '5pt', label: '5pt' },
+  { value: '6pt', label: '6pt' },
+  { value: '7pt', label: '7pt' },
+  { value: '8px', label: '8' },
+  { value: '9px', label: '9' },
   { value: '10px', label: '10' },
+  { value: '11px', label: '11' },
   { value: '12px', label: '12' },
+  { value: '13px', label: '13' },
   { value: '14px', label: '14' },
   { value: '16px', label: '16' },
   { value: '18px', label: '18' },
@@ -106,6 +201,44 @@ const _FONT_SIZES = [
   { value: '24px', label: '24' },
   { value: '28px', label: '28' },
   { value: '32px', label: '32' },
+  { value: '36px', label: '36' },
+];
+
+const FONT_FAMILIES = [
+  { value: 'Calibri, sans-serif', label: 'Calibri' },
+  { value: 'Arial, sans-serif', label: 'Arial' },
+  { value: 'Times New Roman, serif', label: 'Times New Roman' },
+  { value: 'Courier New, monospace', label: 'Courier New' },
+  { value: 'Verdana, sans-serif', label: 'Verdana' },
+  { value: 'Tahoma, sans-serif', label: 'Tahoma' },
+  { value: 'Georgia, serif', label: 'Georgia' },
+];
+
+const LINE_HEIGHTS = [
+  { value: '1', label: '1.0' },
+  { value: '1.15', label: '1.15' },
+  { value: '1.3', label: '1.3' },
+  { value: '1.5', label: '1.5' },
+  { value: '1.8', label: '1.8' },
+  { value: '2', label: '2.0' },
+  { value: '2.5', label: '2.5' },
+  { value: '3', label: '3.0' },
+];
+
+// Use template types from types.ts
+const TEMPLATE_TYPES = ALL_TEMPLATE_TYPES;
+
+// Convert to ComboboxOption format for VirtualizedCombobox
+const TEMPLATE_TYPE_OPTIONS: ComboboxOption[] = ALL_TEMPLATE_TYPES.map(item => ({
+  value: item.value,
+  label: item.label,
+}));
+
+const PAPER_SIZES: { value: PaperSize; label: string }[] = [
+  { value: 'A4', label: 'Khổ in A4' },
+  { value: 'A5', label: 'Khổ in A5' },
+  { value: 'A6', label: 'Khổ in A6' },
+  { value: '50x30', label: 'Tem 50×30mm' },
 ];
 
 const TEXT_COLORS = [
@@ -133,13 +266,14 @@ export function PrintTemplatesPage() {
     icon: <Printer className="h-5 w-5" />,
   });
 
-  const { updateTemplate, updateTemplateAllBranches, resetTemplate, getTemplate, setDefaultSize, getDefaultSize } = usePrintTemplateStore();
+  const { updateTemplate, updateTemplateAllBranches, resetTemplate, getTemplate, setDefaultSize, getDefaultSize } = usePrintTemplateConfig();
   const branchStore = useAllBranches();
   const branches = branchStore.data;
   const defaultBranch = branches.find(b => b.isDefault) || branches[0];
-  const [selectedBranch, setSelectedBranch] = useState<string>(defaultBranch?.systemId || '');
+  const [selectedBranch, setSelectedBranch] = useState<string>('');
   const [selectedType, setSelectedType] = useState<TemplateType>('order');
   const [selectedSize, setSelectedSize] = useState<PaperSize>(() => getDefaultSize('order'));
+  const [margins, setMargins] = useState<PrintMargins>(DEFAULT_MARGINS.document);
   const [content, setContent] = useState('');
   const [previewHtml, setPreviewHtml] = useState('');
   const [isDefaultSize, setIsDefaultSize] = useState(false);
@@ -204,9 +338,12 @@ export function PrintTemplatesPage() {
         resizable: true,
       }),
       TableRow,
-      TableHeader,
-      TableCell,
+      CustomTableHeader,
+      CustomTableCell,
       TextStyle,
+      FontSize,
+      FontFamily,
+      LineHeight,
       Color,
       Highlight.configure({
         multicolor: true,
@@ -224,11 +361,66 @@ export function PrintTemplatesPage() {
     },
   });
 
-  // Load default size when type changes
+  // Toggle table borders (transparent ↔ visible)
+  const toggleTableBorders = useCallback(() => {
+    if (!editor) return;
+    const { state } = editor;
+    const { selection } = state;
+    const $pos = selection.$anchor;
+
+    // Find the table node from current cursor position
+    let tableDepth = -1;
+    for (let depth = $pos.depth; depth > 0; depth--) {
+      if ($pos.node(depth).type.name === 'table') {
+        tableDepth = depth;
+        break;
+      }
+    }
+    if (tableDepth === -1) return;
+
+    const tableNode = $pos.node(tableDepth);
+    const tableStart = $pos.before(tableDepth);
+
+    // Check if any cell already has transparent borders
+    let isBorderless = false;
+    tableNode.descendants((node) => {
+      if ((node.type.name === 'tableCell' || node.type.name === 'tableHeader') && node.attrs.borderColor === 'transparent') {
+        isBorderless = true;
+      }
+    });
+
+    // Update all cells in this table
+    const tr = state.tr;
+    const tableEnd = tableStart + tableNode.nodeSize;
+    state.doc.nodesBetween(tableStart, tableEnd, (node, pos) => {
+      if (node.type.name === 'tableCell' || node.type.name === 'tableHeader') {
+        tr.setNodeMarkup(pos, undefined, {
+          ...node.attrs,
+          borderColor: isBorderless ? null : 'transparent',
+        });
+      }
+    });
+
+    editor.view.dispatch(tr);
+  }, [editor]);
+
+  // Sync selectedBranch when branches data loads
   useEffect(() => {
-    const defaultSize = getDefaultSize(selectedType);
-    setSelectedSize(defaultSize);
-    setIsDefaultSize(true); // Vì đang load khổ mặc định
+    if (defaultBranch?.systemId && !selectedBranch) {
+      setSelectedBranch(defaultBranch.systemId);
+    }
+  }, [defaultBranch?.systemId, selectedBranch]);
+
+  // Load default size when type changes (auto 50x30 for product-label)
+  useEffect(() => {
+    if (selectedType === 'product-label') {
+      setSelectedSize('50x30');
+      setIsDefaultSize(true);
+    } else {
+      const defaultSize = getDefaultSize(selectedType);
+      setSelectedSize(defaultSize);
+      setIsDefaultSize(true);
+    }
   }, [selectedType, getDefaultSize]);
 
   // Load template content when type or size changes
@@ -237,6 +429,9 @@ export function PrintTemplatesPage() {
     setContent(template.content);
     setOriginalContent(template.content);
     setHasUnsavedChanges(false);
+    // Load saved margins or use default
+    const isLabel = !!parseLabelSize(selectedSize);
+    setMargins(template.margins || (isLabel ? DEFAULT_MARGINS.label : DEFAULT_MARGINS.document));
     if (editor && !isHtmlMode) {
       editor.commands.setContent(template.content);
     }
@@ -263,25 +458,33 @@ export function PrintTemplatesPage() {
   }, [content, selectedType]);
 
   // Handle save for current branch
-  const handleSave = () => {
-    updateTemplate(selectedType, selectedSize, content, selectedBranch);
-    if (isDefaultSize) {
-      setDefaultSize(selectedType, selectedSize);
+  const handleSave = async () => {
+    try {
+      await updateTemplate(selectedType, selectedSize, content, selectedBranch, margins);
+      if (isDefaultSize) {
+        await setDefaultSize(selectedType, selectedSize);
+      }
+      setOriginalContent(content);
+      setHasUnsavedChanges(false);
+      toast.success('Đã lưu mẫu in thành công');
+    } catch {
+      toast.error('Lưu mẫu in thất bại. Vui lòng thử lại.');
     }
-    setOriginalContent(content);
-    setHasUnsavedChanges(false);
-    toast.success('Đã lưu mẫu in thành công');
   };
 
   // Handle save for all branches
-  const handleSaveAllBranches = () => {
-    updateTemplateAllBranches(selectedType, selectedSize, content);
-    if (isDefaultSize) {
-      setDefaultSize(selectedType, selectedSize);
+  const handleSaveAllBranches = async () => {
+    try {
+      await updateTemplateAllBranches(selectedType, selectedSize, content, margins);
+      if (isDefaultSize) {
+        await setDefaultSize(selectedType, selectedSize);
+      }
+      setOriginalContent(content);
+      setHasUnsavedChanges(false);
+      toast.success('Đã lưu và áp dụng mẫu in cho tất cả chi nhánh');
+    } catch {
+      toast.error('Lưu mẫu in thất bại. Vui lòng thử lại.');
     }
-    setOriginalContent(content);
-    setHasUnsavedChanges(false);
-    toast.success('Đã lưu và áp dụng mẫu in cho tất cả chi nhánh');
   };
 
   // Handle exit with unsaved changes check
@@ -300,11 +503,15 @@ export function PrintTemplatesPage() {
   };
 
   // Handle default size checkbox change
-  const handleDefaultSizeChange = (checked: boolean) => {
+  const handleDefaultSizeChange = async (checked: boolean) => {
     setIsDefaultSize(checked);
     if (checked) {
-      setDefaultSize(selectedType, selectedSize);
-      toast.success(`Đã đặt ${selectedSize} làm khổ in mặc định cho ${TEMPLATE_TYPES.find(t => t.value === selectedType)?.label}`);
+      try {
+        await setDefaultSize(selectedType, selectedSize);
+        toast.success(`Đã đặt ${selectedSize} làm khổ in mặc định cho ${TEMPLATE_TYPES.find(t => t.value === selectedType)?.label}`);
+      } catch {
+        toast.error('Lưu khổ in mặc định thất bại.');
+      }
     }
   };
 
@@ -313,14 +520,18 @@ export function PrintTemplatesPage() {
   };
 
   // Confirm reset template
-  const confirmReset = () => {
-    resetTemplate(selectedType, selectedSize);
-    const template = getTemplate(selectedType, selectedSize);
-    setContent(template.content);
-    if (editor) {
-      editor.commands.setContent(template.content);
+  const confirmReset = async () => {
+    try {
+      await resetTemplate(selectedType, selectedSize);
+      const template = getTemplate(selectedType, selectedSize);
+      setContent(template.content);
+      if (editor) {
+        editor.commands.setContent(template.content);
+      }
+      toast.success('Đã khôi phục mẫu mặc định');
+    } catch {
+      toast.error('Khôi phục mẫu mặc định thất bại.');
     }
-    toast.success('Đã khôi phục mẫu mặc định');
     setShowResetDialog(false);
   };
 
@@ -350,52 +561,73 @@ export function PrintTemplatesPage() {
     document.body.appendChild(printFrame);
     
     const printDoc = printFrame.contentDocument || printFrame.contentWindow?.document;
+    const labelDims = parseLabelSize(selectedSize);
+    
+    // CSS riêng cho tem nhỏ vs giấy thường
+    const m = margins;
+    const marginCSS = `${m.top}mm ${m.right}mm ${m.bottom}mm ${m.left}mm`;
+    const printCSS = labelDims ? `
+      @page { size: ${labelDims.width}mm ${labelDims.height}mm; margin: ${marginCSS}; }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { 
+        font-family: Calibri, 'Segoe UI', Arial, sans-serif;
+        font-size: ${labelDims.width <= 50 ? '5.5pt' : '7pt'};
+        line-height: 1.1;
+        margin: 0; padding: 0;
+        color: #000;
+        width: ${labelDims.width - m.left - m.right}mm;
+      }
+      p { margin: 0; padding: 0; }
+      strong { font-weight: bold; }
+      img { max-width: 100%; height: auto; }
+    ` : `
+      * { box-sizing: border-box; }
+      body { 
+        font-family: 'Times New Roman', Times, serif;
+        font-size: 13px;
+        line-height: 1.5;
+        margin: 0;
+        padding: 20px;
+        color: #000;
+      }
+      h1, h2, h3, h4 { margin: 0.5em 0; }
+      h2 { font-size: 18px; font-weight: bold; }
+      p { margin: 0.3em 0; }
+      table { 
+        width: 100%; 
+        border-collapse: collapse; 
+        margin: 10px 0;
+      }
+      th, td { 
+        border: 1px solid #333; 
+        padding: 6px 8px; 
+        text-align: left;
+        vertical-align: top;
+      }
+      th { 
+        background: #f0f0f0; 
+        font-weight: bold;
+      }
+      strong { font-weight: bold; }
+      em { font-style: italic; }
+      hr { border: none; border-top: 1px solid #333; margin: 10px 0; }
+      ul { margin: 0.5em 0; padding-left: 25px; list-style-type: disc; }
+      ol { margin: 0.5em 0; padding-left: 25px; list-style-type: decimal; }
+      li { margin: 0.2em 0; display: list-item; }
+      img { max-width: 100%; height: auto; }
+      @media print { 
+        body { padding: 0; } 
+        @page { margin: ${marginCSS}; }
+      }
+    `;
+    
     if (printDoc) {
       printDoc.write(`
         <!DOCTYPE html>
         <html>
         <head>
           <title>In thử - ${TEMPLATE_TYPES.find(t => t.value === selectedType)?.label}</title>
-          <style>
-            * { box-sizing: border-box; }
-            body { 
-              font-family: 'Times New Roman', Times, serif;
-              font-size: 13px;
-              line-height: 1.5;
-              margin: 0;
-              padding: 20px;
-              color: #000;
-            }
-            h1, h2, h3, h4 { margin: 0.5em 0; }
-            h2 { font-size: 18px; font-weight: bold; }
-            p { margin: 0.3em 0; }
-            table { 
-              width: 100%; 
-              border-collapse: collapse; 
-              margin: 10px 0;
-            }
-            th, td { 
-              border: 1px solid #333; 
-              padding: 6px 8px; 
-              text-align: left;
-              vertical-align: top;
-            }
-            th { 
-              background: #f0f0f0; 
-              font-weight: bold;
-            }
-            strong { font-weight: bold; }
-            em { font-style: italic; }
-            hr { border: none; border-top: 1px solid #333; margin: 10px 0; }
-            ul { margin: 0.5em 0; padding-left: 25px; list-style-type: disc; }
-            ol { margin: 0.5em 0; padding-left: 25px; list-style-type: decimal; }
-            li { margin: 0.2em 0; display: list-item; }
-            img { max-width: 100%; height: auto; }
-            @media print { 
-              body { padding: 0; } 
-              @page { margin: 15mm; }
-            }
-          </style>
+          <style>${printCSS}</style>
         </head>
         <body>${previewHtml}</body>
         </html>
@@ -478,7 +710,7 @@ export function PrintTemplatesPage() {
       editor.chain().focus().setImage({ src: result.url }).run();
       toast.success('Đã tải hình ảnh lên thành công');
     } catch (error) {
-      console.error('Upload error:', error);
+      logError('Upload error', error);
       toast.error('Không thể tải hình ảnh lên');
     } finally {
       setIsUploading(false);
@@ -547,6 +779,7 @@ export function PrintTemplatesPage() {
   }, {} as Record<string, typeof filteredVariables>);
 
   return (
+    <div className="space-y-6">
     <div className="flex flex-col gap-4">
       {/* Hidden file input for image upload */}
       <input
@@ -562,18 +795,14 @@ export function PrintTemplatesPage() {
         <div className="flex items-end gap-6 flex-wrap">
           <div className="space-y-1.5">
             <Label className="text-sm font-medium">Chọn mẫu in</Label>
-            <Select value={selectedType} onValueChange={(v) => setSelectedType(v as TemplateType)}>
-              <SelectTrigger className="w-50">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {TEMPLATE_TYPES.map((item) => (
-                  <SelectItem key={item.value} value={item.value}>
-                    {item.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <VirtualizedCombobox
+              options={TEMPLATE_TYPE_OPTIONS}
+              value={TEMPLATE_TYPE_OPTIONS.find(o => o.value === selectedType) || null}
+              onChange={(option) => { if (option) setSelectedType(option.value as TemplateType); }}
+              placeholder="Chọn mẫu in"
+              searchPlaceholder="Tìm mẫu in..."
+              emptyPlaceholder="Không tìm thấy mẫu in."
+            />
           </div>
 
           <div className="space-y-1.5">
@@ -617,6 +846,57 @@ export function PrintTemplatesPage() {
             <Label htmlFor="default-size" className="text-sm cursor-pointer">
               Đặt làm khổ in mặc định
             </Label>
+          </div>
+
+          {/* Margin Controls */}
+          <div className="flex items-center gap-1.5 pb-0.5">
+            <Label className="text-sm font-medium whitespace-nowrap">Lề (mm):</Label>
+            <div className="flex items-center gap-1">
+              <Input
+                type="number"
+                min={0}
+                max={50}
+                step={0.5}
+                value={margins.top}
+                onChange={(e) => { setMargins(prev => ({ ...prev, top: parseFloat(e.target.value) || 0 })); setHasUnsavedChanges(true); }}
+                className="w-14 h-7 text-xs text-center px-1"
+                title="Trên"
+                placeholder="T"
+              />
+              <Input
+                type="number"
+                min={0}
+                max={50}
+                step={0.5}
+                value={margins.right}
+                onChange={(e) => { setMargins(prev => ({ ...prev, right: parseFloat(e.target.value) || 0 })); setHasUnsavedChanges(true); }}
+                className="w-14 h-7 text-xs text-center px-1"
+                title="Phải"
+                placeholder="P"
+              />
+              <Input
+                type="number"
+                min={0}
+                max={50}
+                step={0.5}
+                value={margins.bottom}
+                onChange={(e) => { setMargins(prev => ({ ...prev, bottom: parseFloat(e.target.value) || 0 })); setHasUnsavedChanges(true); }}
+                className="w-14 h-7 text-xs text-center px-1"
+                title="Dưới"
+                placeholder="D"
+              />
+              <Input
+                type="number"
+                min={0}
+                max={50}
+                step={0.5}
+                value={margins.left}
+                onChange={(e) => { setMargins(prev => ({ ...prev, left: parseFloat(e.target.value) || 0 })); setHasUnsavedChanges(true); }}
+                className="w-14 h-7 text-xs text-center px-1"
+                title="Trái"
+                placeholder="Tr"
+              />
+            </div>
           </div>
         </div>
 
@@ -703,6 +983,102 @@ export function PrintTemplatesPage() {
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => editor?.chain().focus().toggleHeading({ level: 4 }).run()}>
                   Tiêu đề 4
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            
+            {/* Font Size */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-8 text-xs text-muted-foreground min-w-12.5"
+                  disabled={isHtmlMode}
+                >
+                  {(() => {
+                    const fs = editor?.getAttributes('textStyle')?.fontSize;
+                    return fs ? fs.replace('px', '') : '13';
+                  })()}
+                  <ChevronDown className="h-3 w-3 ml-1" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                {FONT_SIZES.map((fs) => (
+                  <DropdownMenuItem 
+                    key={fs.value}
+                    onClick={() => editor?.chain().focus().setMark('textStyle', { fontSize: fs.value }).run()}
+                  >
+                    <span style={{ fontSize: fs.value }}>{fs.label}</span>
+                  </DropdownMenuItem>
+                ))}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => editor?.chain().focus().unsetMark('textStyle').run()}>
+                  Mặc định
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            
+            {/* Font Family */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-8 text-xs text-muted-foreground max-w-24 truncate"
+                  disabled={isHtmlMode}
+                >
+                  {(() => {
+                    const ff = editor?.getAttributes('textStyle')?.fontFamily;
+                    if (!ff) return 'Font';
+                    const matched = FONT_FAMILIES.find(f => f.value === ff);
+                    return matched?.label || 'Font';
+                  })()}
+                  <ChevronDown className="h-3 w-3 ml-1 shrink-0" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                {FONT_FAMILIES.map((ff) => (
+                  <DropdownMenuItem 
+                    key={ff.value}
+                    onClick={() => editor?.chain().focus().setMark('textStyle', { fontFamily: ff.value }).run()}
+                  >
+                    <span style={{ fontFamily: ff.value }}>{ff.label}</span>
+                  </DropdownMenuItem>
+                ))}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => editor?.chain().focus().unsetMark('textStyle').run()}>
+                  Mặc định
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            
+            {/* Line Height */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-8 text-xs text-muted-foreground"
+                  disabled={isHtmlMode}
+                  title="Khoảng cách dòng"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="21" y1="10" x2="7" y2="10"/><line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="14" x2="3" y2="14"/><line x1="21" y1="18" x2="7" y2="18"/></svg>
+                  <ChevronDown className="h-3 w-3 ml-0.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                {LINE_HEIGHTS.map((lh) => (
+                  <DropdownMenuItem 
+                    key={lh.value}
+                    onClick={() => editor?.chain().focus().updateAttributes('paragraph', { lineHeight: lh.value }).run()}
+                  >
+                    {lh.label}
+                  </DropdownMenuItem>
+                ))}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => editor?.chain().focus().updateAttributes('paragraph', { lineHeight: null }).run()}>
+                  Mặc định
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -856,6 +1232,11 @@ export function PrintTemplatesPage() {
                       <Minus className="h-4 w-4 mr-2" />
                       Xóa hàng
                     </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => { toggleTableBorders(); }}>
+                      <EyeOff className="h-4 w-4 mr-2" />
+                      Bỏ/hiện đường viền
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={() => editor?.chain().focus().deleteTable().run()}>
                       <Trash2 className="h-4 w-4 mr-2" />
                       Xóa bảng
@@ -1075,6 +1456,7 @@ export function PrintTemplatesPage() {
           ) : (
             <div 
               className="flex-1 overflow-auto p-4 relative"
+              role="presentation"
               onContextMenu={handleContextMenu}
               onPaste={handlePaste}
               onDrop={handleDrop}
@@ -1146,6 +1528,13 @@ export function PrintTemplatesPage() {
                   </button>
                   <div className="border-t my-1" />
                   <button
+                    className="w-full px-3 py-1.5 text-sm flex items-center gap-2 hover:bg-accent"
+                    onClick={() => { toggleTableBorders(); closeContextMenu(); }}
+                  >
+                    <EyeOff className="h-4 w-4" /> Bỏ/hiện đường viền
+                  </button>
+                  <div className="border-t my-1" />
+                  <button
                     className="w-full px-3 py-1.5 text-sm flex items-center gap-2 hover:bg-accent text-destructive"
                     onClick={() => { editor?.chain().focus().deleteTable().run(); closeContextMenu(); }}
                   >
@@ -1170,20 +1559,48 @@ export function PrintTemplatesPage() {
           {/* Preview Content */}
           <ScrollArea className="flex-1 bg-white">
             <div className="p-6">
-              <div 
-                className={cn(
-                  "mx-auto",
-                  selectedSize === 'A4' ? "max-w-[210mm]" : 
-                  selectedSize === 'A5' ? "max-w-[148mm]" : 
-                  selectedSize === 'K80' ? "max-w-[80mm]" : 
-                  "max-w-[57mm]"
-                )}
-              >
-                <div 
-                  dangerouslySetInnerHTML={{ __html: previewHtml }} 
-                  className="print-preview-content"
-                />
-              </div>
+              {(() => {
+                const lbl = parseLabelSize(selectedSize);
+                if (lbl) {
+                  // Tem nhỏ: hiển thị đúng tỷ lệ khổ giấy với viền
+                  const scale = Math.min(300 / lbl.width, 200 / lbl.height);
+                  const displayW = lbl.width * scale;
+                  const displayH = lbl.height * scale;
+                  return (
+                    <div className="flex justify-center">
+                      <div
+                        className="border border-dashed border-gray-400 bg-white overflow-hidden relative"
+                        style={{
+                          width: `${displayW}px`,
+                          height: `${displayH}px`,
+                          padding: `${scale}px`,
+                        }}
+                      >
+                        <div 
+                          dangerouslySetInnerHTML={{ __html: sanitizeHtml(previewHtml) }} 
+                          className="print-preview-content print-preview-label"
+                        />
+                      </div>
+                    </div>
+                  );
+                }
+                // Giấy thường (A4, A5, A6)
+                return (
+                  <div 
+                    className="mx-auto"
+                    style={{
+                      maxWidth: selectedSize === 'A4' ? '210mm' : 
+                        selectedSize === 'A5' ? '148mm' : 
+                        selectedSize === 'A6' ? '105mm' : '210mm'
+                    }}
+                  >
+                    <div 
+                      dangerouslySetInnerHTML={{ __html: sanitizeHtml(previewHtml) }} 
+                      className="print-preview-content"
+                    />
+                  </div>
+                );
+              })()}
             </div>
           </ScrollArea>
         </div>
@@ -1226,6 +1643,16 @@ export function PrintTemplatesPage() {
         .print-preview-content ul { list-style-type: disc; padding-left: 25px; margin: 0.5em 0; }
         .print-preview-content ol { list-style-type: decimal; padding-left: 25px; margin: 0.5em 0; }
         .print-preview-content li { display: list-item; margin: 0.2em 0; }
+        /* Label preview - compact style */
+        .print-preview-label {
+          font-family: Calibri, 'Segoe UI', Arial, sans-serif;
+          font-size: 5.5pt;
+          line-height: 1.1;
+        }
+        .print-preview-label p {
+          margin: 0;
+          padding: 0;
+        }
         
         /* TipTap Editor Styles */
         .ProseMirror {
@@ -1395,6 +1822,10 @@ export function PrintTemplatesPage() {
           </div>
         </DialogContent>
       </Dialog>
+    </div>
+      <div className="mt-6">
+        <SettingsHistoryContent entityTypes={['print_template']} />
+      </div>
     </div>
   );
 }

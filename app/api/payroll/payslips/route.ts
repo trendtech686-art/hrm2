@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@/generated/prisma/client'
 import { requireAuth, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
+import { logError } from '@/lib/logger'
 
 // GET /api/payroll/payslips - List payslips (PayrollItems)
 export async function GET(request: Request) {
@@ -96,7 +97,7 @@ export async function GET(request: Request) {
       total,
     })
   } catch (error) {
-    console.error('[API] Error fetching payslips:', error)
+    logError('[API] Error fetching payslips', error)
     return apiError('Failed to fetch payslips', 500)
   }
 }

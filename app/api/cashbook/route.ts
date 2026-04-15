@@ -7,7 +7,9 @@
 
 import { prisma } from '@/lib/prisma'
 import type { Prisma } from '@/generated/prisma/client'
-import { requireAuth, apiSuccess, apiError, parsePagination } from '@/lib/api-utils'
+import { apiSuccess, apiError, parsePagination } from '@/lib/api-utils'
+import { apiHandler } from '@/lib/api-handler'
+import { logError } from '@/lib/logger'
 
 type Decimal = Prisma.Decimal
 
@@ -18,10 +20,7 @@ const toNumber = (val: Decimal | number | null | undefined): number => {
   return Number(val)
 }
 
-export async function GET(request: Request) {
-  const session = await requireAuth()
-  if (!session) return apiError('Unauthorized', 401)
-
+export const GET = apiHandler(async (request) => {
   try {
     const { searchParams } = new URL(request.url)
     const { page, limit, skip } = parsePagination(searchParams)
@@ -30,6 +29,10 @@ export async function GET(request: Request) {
     const branchId = searchParams.get('branchId')
     const accountId = searchParams.get('accountId')
     const search = searchParams.get('search')
+    const type = searchParams.get('type') // 'receipt' | 'payment' | null (both)
+    
+    const fetchReceipts = type !== 'payment'
+    const fetchPayments = type !== 'receipt'
 
     // Build where clauses for receipts and payments
     const baseReceiptWhere: Prisma.ReceiptWhereInput = {
@@ -99,12 +102,12 @@ export async function GET(request: Request) {
         where: accountWhere,
         select: { systemId: true, initialBalance: true },
       }),
-      // Period transactions for display
-      prisma.receipt.findMany({
+      // Fetch enough receipts to cover the requested page when merged with payments
+      // We need (skip + limit) items from each side to guarantee correct merged pagination
+      fetchReceipts ? prisma.receipt.findMany({
         where: periodReceiptWhere,
         orderBy: { receiptDate: 'desc' },
-        skip,
-        take: limit,
+        take: skip + limit,
         select: {
           systemId: true,
           id: true,
@@ -122,12 +125,11 @@ export async function GET(request: Request) {
           createdBy: true,
           createdAt: true,
         },
-      }),
-      prisma.payment.findMany({
+      }) : Promise.resolve([]),
+      fetchPayments ? prisma.payment.findMany({
         where: periodPaymentWhere,
         orderBy: { paymentDate: 'desc' },
-        skip,
-        take: limit,
+        take: skip + limit,
         select: {
           systemId: true,
           id: true,
@@ -145,9 +147,9 @@ export async function GET(request: Request) {
           createdBy: true,
           createdAt: true,
         },
-      }),
-      prisma.receipt.count({ where: periodReceiptWhere }),
-      prisma.payment.count({ where: periodPaymentWhere }),
+      }) : Promise.resolve([]),
+      fetchReceipts ? prisma.receipt.count({ where: periodReceiptWhere }) : Promise.resolve(0),
+      fetchPayments ? prisma.payment.count({ where: periodPaymentWhere }) : Promise.resolve(0),
     ])
 
     // Calculate opening balance (transactions before startDate)
@@ -181,7 +183,7 @@ export async function GET(request: Request) {
       openingBalance += toNumber(preReceipts._sum.amount) - toNumber(prePayments._sum.amount)
     }
 
-    // Calculate period totals
+    // Calculate period totals (always calculate both for summary accuracy)
     const [periodReceiptSum, periodPaymentSum] = await Promise.all([
       prisma.receipt.aggregate({
         where: periodReceiptWhere,
@@ -197,8 +199,8 @@ export async function GET(request: Request) {
     const totalPaymentsAmount = toNumber(periodPaymentSum._sum.amount)
     const closingBalance = openingBalance + totalReceiptsAmount - totalPaymentsAmount
 
-    // Combine and format transactions
-    const transactions = [
+    // Combine and format transactions, then apply merged pagination
+    const allTransactions = [
       ...periodReceipts.map(r => ({
         systemId: r.systemId,
         id: r.id,
@@ -237,6 +239,10 @@ export async function GET(request: Request) {
       })),
     ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
+    // Apply correct pagination on the merged & sorted result
+    const transactions = allTransactions.slice(skip, skip + limit)
+    const total = totalReceipts + totalPayments
+
     return apiSuccess({
       transactions,
       summary: {
@@ -254,7 +260,7 @@ export async function GET(request: Request) {
       },
     })
   } catch (error) {
-    console.error('Error fetching cashbook:', error)
-    return apiError('Failed to fetch cashbook data', 500)
+    logError('Error fetching cashbook', error)
+    return apiError('Không thể tải dữ liệu sổ quỹ', 500)
   }
-}
+})

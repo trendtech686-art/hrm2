@@ -2,6 +2,8 @@
 
 import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
+import { logError } from '@/lib/logger'
+import { requireActionPermission } from '@/lib/api-utils'
 
 type ActivityLog = NonNullable<Awaited<ReturnType<typeof prisma.activityLog.findFirst>>>;
 
@@ -37,6 +39,9 @@ export interface PaginatedActivityLogs {
 export async function getActivityLogs(
   filters: ActivityLogFilters = {}
 ): Promise<ActionResult<PaginatedActivityLogs>> {
+  const authResult = await requireActionPermission('view_audit_log')
+  if (!authResult.success) return authResult as any
+
   try {
     const {
       page = 1,
@@ -85,7 +90,7 @@ export async function getActivityLogs(
       },
     };
   } catch (error) {
-    console.error('Failed to fetch activity logs:', error);
+    logError('Failed to fetch activity logs', error);
     return { success: false, error: 'Không thể tải lịch sử hoạt động' };
   }
 }
@@ -98,6 +103,9 @@ export async function getEntityActivityLogs(
   entityId: string,
   limit: number = 50
 ): Promise<ActionResult<ActivityLog[]>> {
+  const authResult = await requireActionPermission('view_audit_log')
+  if (!authResult.success) return authResult as any
+
   try {
     const logs = await prisma.activityLog.findMany({
       where: { entityType, entityId },
@@ -107,7 +115,7 @@ export async function getEntityActivityLogs(
 
     return { success: true, data: logs };
   } catch (error) {
-    console.error('Failed to fetch entity activity logs:', error);
+    logError('Failed to fetch entity activity logs', error);
     return { success: false, error: 'Không thể tải lịch sử hoạt động' };
   }
 }
@@ -119,6 +127,9 @@ export async function getUserActivityLogs(
   userId: string,
   options: { limit?: number; entityType?: string } = {}
 ): Promise<ActionResult<ActivityLog[]>> {
+  const authResult = await requireActionPermission('view_audit_log')
+  if (!authResult.success) return authResult as any
+
   try {
     const where: Record<string, unknown> = { createdBy: userId };
     if (options.entityType) where.entityType = options.entityType;
@@ -131,7 +142,7 @@ export async function getUserActivityLogs(
 
     return { success: true, data: logs };
   } catch (error) {
-    console.error('Failed to fetch user activity logs:', error);
+    logError('Failed to fetch user activity logs', error);
     return { success: false, error: 'Không thể tải lịch sử hoạt động' };
   }
 }
@@ -149,6 +160,9 @@ export async function createActivityLog(data: {
   note?: string;
   createdBy?: string;
 }): Promise<ActionResult<ActivityLog>> {
+  const authResult = await requireActionPermission('view_audit_log')
+  if (!authResult.success) return authResult as any
+
   try {
     const log = await prisma.activityLog.create({
       data: {
@@ -159,13 +173,13 @@ export async function createActivityLog(data: {
         changes: data.changes as Prisma.InputJsonValue,
         metadata: data.metadata as Prisma.InputJsonValue,
         note: data.note,
-        createdBy: data.createdBy,
+        createdBy: authResult.session.user?.id || null,
       },
     });
 
     return { success: true, data: log };
   } catch (error) {
-    console.error('Failed to create activity log:', error);
+    logError('Failed to create activity log', error);
     return { success: false, error: 'Không thể ghi log hoạt động' };
   }
 }
@@ -174,6 +188,9 @@ export async function createActivityLog(data: {
  * Get available entity types
  */
 export async function getActivityLogEntityTypes(): Promise<ActionResult<string[]>> {
+  const authResult = await requireActionPermission('view_audit_log')
+  if (!authResult.success) return authResult as any
+
   try {
     const types = await prisma.activityLog.findMany({
       select: { entityType: true },
@@ -183,7 +200,7 @@ export async function getActivityLogEntityTypes(): Promise<ActionResult<string[]
 
     return { success: true, data: types.map((t) => t.entityType) };
   } catch (error) {
-    console.error('Failed to fetch entity types:', error);
+    logError('Failed to fetch entity types', error);
     return { success: false, error: 'Không thể tải danh sách loại entity' };
   }
 }
@@ -194,6 +211,9 @@ export async function getActivityLogEntityTypes(): Promise<ActionResult<string[]
 export async function getActivityLogActions(
   entityType?: string
 ): Promise<ActionResult<string[]>> {
+  const authResult = await requireActionPermission('view_audit_log')
+  if (!authResult.success) return authResult as any
+
   try {
     const where: Record<string, unknown> = {};
     if (entityType) where.entityType = entityType;
@@ -207,7 +227,7 @@ export async function getActivityLogActions(
 
     return { success: true, data: actions.map((a) => a.action) };
   } catch (error) {
-    console.error('Failed to fetch actions:', error);
+    logError('Failed to fetch actions', error);
     return { success: false, error: 'Không thể tải danh sách hành động' };
   }
 }
@@ -223,6 +243,9 @@ export async function getActivitySummary(
   byEntityType: Record<string, number>;
   recentUsers: { userId: string; count: number }[];
 }>> {
+  const authResult = await requireActionPermission('view_audit_log')
+  if (!authResult.success) return authResult as any
+
   try {
     const where: Record<string, unknown> = {};
     if (options.entityType) where.entityType = options.entityType;
@@ -277,7 +300,7 @@ export async function getActivitySummary(
       },
     };
   } catch (error) {
-    console.error('Failed to get activity summary:', error);
+    logError('Failed to get activity summary', error);
     return { success: false, error: 'Không thể tải tổng hợp hoạt động' };
   }
 }
@@ -288,6 +311,9 @@ export async function getActivitySummary(
 export async function deleteOldActivityLogs(
   olderThan: Date
 ): Promise<ActionResult<{ count: number }>> {
+  const authResult = await requireActionPermission('edit_settings')
+  if (!authResult.success) return authResult as any
+
   try {
     const result = await prisma.activityLog.deleteMany({
       where: { createdAt: { lt: olderThan } },
@@ -295,7 +321,7 @@ export async function deleteOldActivityLogs(
 
     return { success: true, data: { count: result.count } };
   } catch (error) {
-    console.error('Failed to delete old activity logs:', error);
+    logError('Failed to delete old activity logs', error);
     return { success: false, error: 'Không thể xóa log cũ' };
   }
 }
@@ -307,6 +333,9 @@ export async function getRecentActivities(
   limit: number = 20,
   entityTypes?: string[]
 ): Promise<ActionResult<ActivityLog[]>> {
+  const authResult = await requireActionPermission('view_audit_log')
+  if (!authResult.success) return authResult as any
+
   try {
     const where: Record<string, unknown> = {};
     if (entityTypes && entityTypes.length > 0) {
@@ -321,7 +350,7 @@ export async function getRecentActivities(
 
     return { success: true, data: logs };
   } catch (error) {
-    console.error('Failed to fetch recent activities:', error);
+    logError('Failed to fetch recent activities', error);
     return { success: false, error: 'Không thể tải hoạt động gần đây' };
   }
 }

@@ -4,7 +4,9 @@
  */
 
 import { toPng, toSvg } from 'html-to-image';
-import { jsPDF } from 'jspdf';
+import { logError } from '@/lib/logger'
+
+// jsPDF is lazy-loaded (~80KB) — only imported when user actually exports to PDF
 
 /**
  * Download a data URL as a file
@@ -38,7 +40,7 @@ export async function exportAsPNG(elementSelector = '.react-flow') {
     
     return { success: true };
   } catch (error) {
-    console.error('Export PNG failed:', error);
+    logError('Export PNG failed', error);
     return { success: false, error };
   }
 }
@@ -63,7 +65,7 @@ export async function exportAsSVG(elementSelector = '.react-flow') {
     
     return { success: true };
   } catch (error) {
-    console.error('Export SVG failed:', error);
+    logError('Export SVG failed', error);
     return { success: false, error };
   }
 }
@@ -90,7 +92,8 @@ export async function exportAsPDF(elementSelector = '.react-flow') {
     img.src = dataUrl;
     await new Promise((resolve) => { img.onload = resolve; });
 
-    // Create PDF with appropriate size
+    // Create PDF with appropriate size (lazy load jsPDF)
+    const { jsPDF } = await import('jspdf');
     const pdf = new jsPDF({
       orientation: img.width > img.height ? 'landscape' : 'portrait',
       unit: 'px',
@@ -104,7 +107,7 @@ export async function exportAsPDF(elementSelector = '.react-flow') {
     
     return { success: true };
   } catch (error) {
-    console.error('Export PDF failed:', error);
+    logError('Export PDF failed', error);
     return { success: false, error };
   }
 }
@@ -124,7 +127,7 @@ export function exportAsJSON(data: unknown) {
     URL.revokeObjectURL(url);
     return { success: true };
   } catch (error) {
-    console.error('Export JSON failed:', error);
+    logError('Export JSON failed', error);
     return { success: false, error };
   }
 }
@@ -153,7 +156,7 @@ export async function copyToClipboard(elementSelector = '.react-flow') {
 
     return { success: true };
   } catch (error) {
-    console.error('Copy to clipboard failed:', error);
+    logError('Copy to clipboard failed', error);
     return { success: false, error };
   }
 }

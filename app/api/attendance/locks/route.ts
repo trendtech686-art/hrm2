@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
+import { logError } from '@/lib/logger'
 
 // GET /api/attendance/locks - Get all locked months
 export async function GET() {
@@ -20,7 +21,7 @@ export async function GET() {
 
     return apiSuccess({ locks, lockedMonths })
   } catch (error) {
-    console.error('Error fetching attendance locks:', error)
+    logError('Error fetching attendance locks', error)
     return apiError('Failed to fetch attendance locks', 500)
   }
 }
@@ -57,7 +58,7 @@ export async function POST(request: Request) {
 
     return apiSuccess(lock, 201)
   } catch (error) {
-    console.error('Error locking month:', error)
+    logError('Error locking month', error)
     return apiError('Failed to lock month', 500)
   }
 }
@@ -88,7 +89,7 @@ export async function DELETE(request: Request) {
     return apiSuccess(lock)
   } catch (error) {
     // If not found, that's fine - it wasn't locked
-    console.error('Error unlocking month:', error)
+    logError('Error unlocking month', error)
     return apiSuccess({ isLocked: false })
   }
 }

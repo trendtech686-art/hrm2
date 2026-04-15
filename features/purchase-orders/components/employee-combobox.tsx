@@ -16,7 +16,17 @@ export function EmployeeCombobox({
   placeholder = "Chọn nhân viên...",
   className: _className,
 }: EmployeeComboboxProps) {
-  const { data: activeEmployees } = useActiveEmployees();
+  // Lazy load: only fetch when combobox opens OR when we have a value to display
+  const [hasOpened, setHasOpened] = React.useState(false);
+  const shouldLoad = hasOpened || !!value;
+  
+  const { data: activeEmployees, isLoading } = useActiveEmployees({ enabled: shouldLoad });
+
+  const handleOpenChange = React.useCallback((open: boolean) => {
+    if (open && !hasOpened) {
+      setHasOpened(true);
+    }
+  }, [hasOpened]);
 
   // Find selected employee
   const selectedEmployee = React.useMemo(
@@ -64,23 +74,25 @@ export function EmployeeCombobox({
       searchPlaceholder="Tìm nhân viên..."
       emptyPlaceholder="Không tìm thấy nhân viên"
       estimatedItemHeight={56}
+      isLoading={isLoading}
+      onOpenChange={handleOpenChange}
       renderOption={(option, isSelected) => (
         <div className="flex items-center gap-2 flex-1 min-w-0">
-          <Avatar className="h-8 w-8 flex-shrink-0">
-            <AvatarFallback className="text-body-xs">
+          <Avatar className="h-8 w-8 shrink-0">
+            <AvatarFallback className="text-xs">
               {getInitials(option.label)}
             </AvatarFallback>
           </Avatar>
           <div className="flex flex-col flex-1 min-w-0">
-            <span className="font-medium text-body-sm truncate">{option.label}</span>
+            <span className="font-medium text-sm truncate">{option.label}</span>
             {option.subtitle && (
-              <span className="text-body-xs text-muted-foreground truncate">
+              <span className="text-xs text-muted-foreground truncate">
                 {option.subtitle}
               </span>
             )}
           </div>
           {isSelected && (
-            <svg className="h-4 w-4 ml-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+            <svg className="h-4 w-4 ml-2 shrink-0" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
             </svg>
           )}

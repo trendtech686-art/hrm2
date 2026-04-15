@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { generateSubEntityId } from '@/lib/id-utils';
-import { useFormContext } from 'react-hook-form';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -32,7 +31,6 @@ type AddServiceDialogProps = {
 };
 
 export function AddServiceDialog({ open, onOpenChange, disabled = false, onAppend }: AddServiceDialogProps) {
-  const { control: _control } = useFormContext();
 
   const [serviceName, setServiceName] = useState('');
   const [servicePrice, setServicePrice] = useState<number>(0);

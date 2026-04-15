@@ -1,12 +1,13 @@
 import { MainLayout } from '@/components/layout/main-layout'
-import { auth } from '@/auth'
+import { getSessionFromCookie } from '@/lib/api-utils'
 import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
+import { preloadSettings } from '@/lib/data/settings'
 
 export const metadata: Metadata = {
   title: {
-    template: '%s | ERP System',
-    default: 'ERP System',
+    template: '%s | ERP',
+    default: 'ERP',
   },
   description: 'Hệ thống quản lý doanh nghiệp',
 }
@@ -17,11 +18,14 @@ export default async function AuthenticatedLayout({
   children: React.ReactNode
 }) {
   // Server-side auth check - middleware handles redirect but this is a safety net
-  const session = await auth()
+  const session = await getSessionFromCookie()
   
   if (!session?.user) {
     redirect('/login')
   }
+
+  // Preload common settings (branches, categories, brands, etc.) into cache
+  await preloadSettings()
 
   return <MainLayout>{children}</MainLayout>
 }

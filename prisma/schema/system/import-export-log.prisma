@@ -3,19 +3,19 @@
 // Supports background job processing for large imports (up to 20k records)
 
 model ImportExportLog {
-  id        String   @id @default(cuid())
-  type      String   // 'import' or 'export'
-  
+  id   String @id @default(cuid())
+  type String // 'import' or 'export'
+
   // Entity information
-  entityType String   // 'customers', 'products', 'orders', etc.
-  
+  entityType String // 'customers', 'products', 'orders', etc.
+
   // Audit information
   performedAt DateTime @default(now())
-  performedBy String   // User name
-  userId      String   // User systemId
-  
+  performedBy String // User name
+  userId      String // User systemId
+
   // Operation details
-  status        String  // 'pending', 'processing', 'completed', 'failed', 'cancelled'
+  status        String // 'pending', 'processing', 'completed', 'failed', 'cancelled'
   totalRecords  Int
   successCount  Int     @default(0)
   errorCount    Int     @default(0)
@@ -23,31 +23,31 @@ model ImportExportLog {
   insertedCount Int     @default(0)
   updatedCount  Int     @default(0)
   errors        String? @db.Text // JSON array of error messages
-  
+
   // Progress tracking for background jobs
-  progress         Int      @default(0)  // 0-100 percentage
-  processedRecords Int      @default(0)  // Records processed so far
-  currentChunk     Int      @default(0)  // Current chunk being processed
-  totalChunks      Int      @default(1)  // Total number of chunks
-  startedAt        DateTime?             // When processing started
-  completedAt      DateTime?             // When processing finished
-  
+  progress         Int       @default(0) // 0-100 percentage
+  processedRecords Int       @default(0) // Records processed so far
+  currentChunk     Int       @default(0) // Current chunk being processed
+  totalChunks      Int       @default(1) // Total number of chunks
+  startedAt        DateTime? // When processing started
+  completedAt      DateTime? // When processing finished
+
   // Import data storage (for background processing)
-  importData       String?  @db.Text // JSON array of records to import
-  importMode       String?               // 'insert-only', 'update-only', 'upsert'
-  branchId         String?               // Target branch for import
-  
+  importData String? @db.Text // JSON array of records to import
+  importMode String? // 'insert-only', 'update-only', 'upsert'
+  branchId   String? // Target branch for import
+
   // File information
   filePath String?
   fileName String?
-  fileSize Int?     @default(0)
-  
+  fileSize Int?    @default(0)
+
   // Additional metadata
   notes             String? @db.Text
   duplicateHandling String? // For imports: 'skip', 'update', 'error'
   format            String? // For exports: 'excel', 'csv', 'pdf'
   filters           String? @db.Text // JSON object of export filters
-  
+
   @@index([userId, type])
   @@index([entityType])
   @@index([performedAt(sort: Desc)])

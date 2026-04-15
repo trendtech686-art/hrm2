@@ -1,100 +1,14 @@
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@/generated/prisma/client'
-import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
-
-// Transform Prisma Product to frontend-compatible format
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function transformProduct(product: any): any {
-  if (!product) return product;
-  
-  const result = { ...product };
-  
-  // Convert Decimal fields to numbers
-  if (product.costPrice != null) {
-    result.costPrice = Number(product.costPrice);
-  }
-  if (product.lastPurchasePrice != null) {
-    result.lastPurchasePrice = Number(product.lastPurchasePrice);
-  }
-  if (product.weight != null) {
-    result.weight = Number(product.weight);
-  }
-  if (product.sellingPrice != null) {
-    result.sellingPrice = Number(product.sellingPrice);
-  }
-  if (product.comboDiscount != null) {
-    result.comboDiscount = Number(product.comboDiscount);
-  }
-  
-  // Convert Date fields to ISO string for consistent frontend handling
-  if (product.lastPurchaseDate != null) {
-    result.lastPurchaseDate = product.lastPurchaseDate instanceof Date 
-      ? product.lastPurchaseDate.toISOString() 
-      : product.lastPurchaseDate;
-  }
-  
-  // Transform productInventory array to inventoryByBranch Record
-  // ProductInventory has: productId, branchId, onHand, committed, inTransit, inDelivery
-  if (Array.isArray(product.productInventory)) {
-    const inventoryByBranch: Record<string, number> = {};
-    const committedByBranch: Record<string, number> = {};
-    const inTransitByBranch: Record<string, number> = {};
-    const inDeliveryByBranch: Record<string, number> = {};
-    let totalInventory = 0;
-    for (const inv of product.productInventory) {
-      const branchId = inv.branchId || inv.branchSystemId;
-      const onHand = Number(inv.onHand || inv.quantity || 0);
-      if (branchId) {
-        inventoryByBranch[branchId] = onHand;
-        committedByBranch[branchId] = Number(inv.committed || 0);
-        inTransitByBranch[branchId] = Number(inv.inTransit || 0);
-        inDeliveryByBranch[branchId] = Number(inv.inDelivery || 0);
-      }
-      totalInventory += onHand;
-    }
-    result.inventoryByBranch = inventoryByBranch;
-    result.committedByBranch = committedByBranch;
-    result.inTransitByBranch = inTransitByBranch;
-    result.inDeliveryByBranch = inDeliveryByBranch;
-    result.totalInventory = totalInventory;
-  }
-  
-  // Transform prices from array to Record<policySystemId, number>
-  const pricesArray = product.prices;
-  if (Array.isArray(pricesArray)) {
-    const pricesRecord: Record<string, number> = {};
-    for (const pp of pricesArray) {
-      if (pp.pricingPolicyId && pp.price != null) {
-        pricesRecord[pp.pricingPolicyId] = Number(pp.price);
-      }
-    }
-    result.prices = pricesRecord;
-  }
-  
-  // Map brandId to brandSystemId (frontend expects brandSystemId)
-  if (product.brandId) {
-    result.brandSystemId = product.brandId;
-  }
-  
-  // Map productCategories to categorySystemId (first one) and categorySystemIds
-  if (Array.isArray(product.productCategories) && product.productCategories.length > 0) {
-    result.categorySystemId = product.productCategories[0].categoryId;
-    result.categorySystemIds = product.productCategories.map((pc: { categoryId: string }) => pc.categoryId);
-  }
-  
-  return result;
-}
-
-interface RouteParams {
-  params: Promise<{ systemId: string }>
-}
+import { apiHandler } from '@/lib/api-handler'
+import { apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
+import { updateProductSchema } from '../validation'
+import { transformProduct } from '../transform'
+import { logError } from '@/lib/logger'
+import { getSessionUserName } from '@/lib/get-user-name'
 
 // GET /api/products/[systemId]
-export async function GET(_request: Request, { params }: RouteParams) {
-  const session = await requireAuth()
-  if (!session) return apiError('Unauthorized', 401)
-
-  try {
+export const GET = apiHandler(async (_request, { params }) => {
     const { systemId } = await params
 
     const product = await prisma.product.findUnique({
@@ -120,21 +34,54 @@ export async function GET(_request: Request, { params }: RouteParams) {
     }
 
     // Transform to frontend-compatible format
-    return apiSuccess(transformProduct(product))
-  } catch (error) {
-    console.error('Error fetching product:', error)
-    return apiError('Failed to fetch product', 500)
-  }
-}
+    const transformed = transformProduct(product)
+
+    // Resolve employee names
+    const empIds = [product.createdBy, product.updatedBy].filter(Boolean) as string[]
+    const emps = empIds.length > 0
+      ? await prisma.employee.findMany({
+          where: { systemId: { in: empIds } },
+          select: { systemId: true, fullName: true },
+        })
+      : []
+    const empMap = new Map(emps.map(e => [e.systemId, e.fullName]))
+
+    return apiSuccess({
+      ...transformed,
+      createdByName: empMap.get(product.createdBy || '') || null,
+      updatedByName: empMap.get(product.updatedBy || '') || null,
+    })
+})
 
 // PATCH /api/products/[systemId]
-export async function PATCH(request: Request, { params }: RouteParams) {
-  const session = await requireAuth()
-  if (!session) return apiError('Unauthorized', 401)
-
+export const PATCH = apiHandler(async (request, { session, params }) => {
   try {
     const { systemId } = await params
     const body = await request.json()
+
+    // Validate body with Zod (reject obviously bad input)
+    const parsed = updateProductSchema.safeParse(body)
+    if (!parsed.success) {
+      return apiError(parsed.error.issues.map(e => e.message).join(', '), 400)
+    }
+
+    // ⚡ Get existing product for activity log comparison
+    const existingProduct = await prisma.product.findUnique({
+      where: { systemId },
+      select: {
+        name: true,
+        id: true,
+        status: true,
+        type: true,
+        costPrice: true,
+        description: true,
+        unit: true,
+        brandId: true,
+      },
+    })
+    if (!existingProduct) {
+      return apiNotFound('Product')
+    }
 
     // Extract special fields that need separate handling
     const { categoryIds, brandId, pkgxId, prices, ...updateData } = body
@@ -299,22 +246,57 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       }
     }
 
+    // ⚡ Create activity log for product update
+    const isEmptyVal = (v: unknown) => v == null || (typeof v === 'string' && v.trim() === '') || (Array.isArray(v) && v.length === 0)
+    const changes: Record<string, { from?: unknown; to?: unknown }> = {}
+    const fieldsToTrack = ['name', 'id', 'status', 'type', 'costPrice', 'description', 'unit']
+    for (const field of fieldsToTrack) {
+      const oldVal = existingProduct[field as keyof typeof existingProduct]
+      const newVal = body[field]
+      if (newVal === undefined) continue
+      if (isEmptyVal(oldVal) && isEmptyVal(newVal)) continue
+      if (oldVal !== newVal) {
+        changes[field] = { from: oldVal, to: newVal }
+      }
+    }
+    // Track brand changes
+    if (brandId !== undefined && !(isEmptyVal(existingProduct.brandId) && isEmptyVal(brandId)) && existingProduct.brandId !== brandId) {
+      changes['brandId'] = { from: existingProduct.brandId, to: brandId }
+    }
+
+    // Only create log if there are actual changes
+    if (Object.keys(changes).length > 0) {
+      const fieldLabels: Record<string, string> = {
+        name: 'Tên sản phẩm', id: 'Mã SKU', status: 'Trạng thái', type: 'Loại',
+        costPrice: 'Giá vốn', description: 'Mô tả', unit: 'Đơn vị', brandId: 'Thương hiệu',
+      }
+      const displayChanges: Record<string, { from?: unknown; to?: unknown }> = {}
+      for (const [key, val] of Object.entries(changes)) {
+        displayChanges[fieldLabels[key] || key] = val
+      }
+      prisma.activityLog.create({
+        data: {
+          entityType: 'product',
+          entityId: systemId,
+          action: 'updated',
+          actionType: 'update',
+          changes: displayChanges as Prisma.InputJsonValue,
+          createdBy: getSessionUserName(session),
+        },
+      }).catch(e => logError('Activity log failed', e))
+    }
+
     return apiSuccess(transformProduct(product))
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
-      return apiNotFound('Product')
+      return apiNotFound('Sản phẩm')
     }
-    console.error('[PATCH Product] Error:', error)
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-    return apiError(`Failed to update product: ${errorMessage}`, 500)
+    throw error
   }
-}
+}, { permission: 'edit_products' })
 
 // DELETE /api/products/[systemId]
-export async function DELETE(_request: Request, { params }: RouteParams) {
-  const session = await requireAuth()
-  if (!session) return apiError('Unauthorized', 401)
-
+export const DELETE = apiHandler(async (_request, { params }) => {
   try {
     const { systemId } = await params
 
@@ -330,9 +312,8 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
     return apiSuccess({ success: true })
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
-      return apiNotFound('Product')
+      return apiNotFound('Sản phẩm')
     }
-    console.error('Error deleting product:', error)
-    return apiError('Failed to delete product', 500)
+    throw error
   }
-}
+}, { permission: 'delete_products' })

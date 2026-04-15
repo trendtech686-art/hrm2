@@ -43,3 +43,17 @@ export function useInventoryReceiptFinder() {
   
   return { findById, isLoading };
 }
+
+/**
+ * Returns inventory receipts filtered by product (receipts containing items for this product)
+ * ✅ Server-side filter via API - avoids loading ALL receipts
+ */
+export function useProductInventoryReceipts(productSystemId?: string, options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: [...inventoryReceiptKeys.all, 'byProduct', productSystemId],
+    queryFn: () => fetchAllPages((p) => fetchInventoryReceipts({ ...p, productSystemId })),
+    staleTime: 2 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    enabled: !!productSystemId && (options?.enabled ?? true),
+  });
+}

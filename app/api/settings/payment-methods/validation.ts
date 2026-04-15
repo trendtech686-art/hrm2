@@ -7,9 +7,6 @@ export const createPaymentMethodSchema = z.object({
   code: z.string().optional(),
   type: z.string().optional(),
   description: z.string().optional(),
-  accountNumber: z.string().optional(),
-  accountName: z.string().optional(),
-  bankName: z.string().optional(),
   isActive: z.boolean().optional(),
   isDefault: z.boolean().optional(),
 })

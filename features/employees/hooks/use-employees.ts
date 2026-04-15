@@ -8,7 +8,7 @@
  * This hook uses Server Actions for mutations (Phase 2 migration)
  */
 
-import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData, useInfiniteQuery } from '@tanstack/react-query';
 import {
   fetchEmployees,
   fetchEmployee,
@@ -26,6 +26,7 @@ import {
   type CreateEmployeeInput,
   type UpdateEmployeeInput,
 } from '@/app/actions/employees';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 
 // Re-export types for backwards compatibility
 export type { CreateEmployeeInput, UpdateEmployeeInput };
@@ -126,6 +127,28 @@ export function useEmployeeSearch(query: string, limit = 20) {
 }
 
 /**
+ * Hook for infinite scroll employees list
+ * Loads 30 employees per page, automatically fetches more when scrolling
+ */
+export function useInfiniteEmployees(params: Omit<EmployeesParams, 'page'> & { enabled?: boolean } = {}) {
+  const { enabled = true, ...queryParams } = params;
+  const limit = queryParams.limit || 30;
+  
+  return useInfiniteQuery({
+    queryKey: [...employeeKeys.lists(), 'infinite', queryParams],
+    queryFn: ({ pageParam = 1 }) => fetchEmployees({ ...queryParams, page: pageParam, limit }),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => {
+      const { page, totalPages } = lastPage.pagination;
+      return page < totalPages ? page + 1 : undefined;
+    },
+    staleTime: 60_000,
+    gcTime: 10 * 60 * 1000,
+    enabled,
+  });
+}
+
+/**
  * Hook for fetching employees by department
  */
 export function useEmployeesByDepartment(departmentId: string | null | undefined) {
@@ -169,8 +192,7 @@ export function useEmployeeMutations(options: UseEmployeeMutationsOptions = {}) 
       return result.data;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: employeeKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: employeeKeys.stats() });
+      invalidateRelated(queryClient, 'employees');
       options.onCreateSuccess?.(data);
     },
     onError: options.onError,
@@ -182,13 +204,61 @@ export function useEmployeeMutations(options: UseEmployeeMutationsOptions = {}) 
       if (!result.success) throw new Error(result.error || 'Failed to update employee');
       return result.data;
     },
-    onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: employeeKeys.detail(variables.systemId) });
-      queryClient.invalidateQueries({ queryKey: employeeKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: employeeKeys.stats() });
+    // Optimistic update — UI cập nhật ngay, rollback nếu lỗi
+    onMutate: async (input) => {
+      const { systemId, ...changes } = input;
+      
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: employeeKeys.lists() });
+      await queryClient.cancelQueries({ queryKey: employeeKeys.detail(systemId) });
+      
+      // Snapshot previous values
+      const previousLists = queryClient.getQueriesData({ queryKey: employeeKeys.lists() });
+      const previousDetail = queryClient.getQueryData(employeeKeys.detail(systemId));
+      
+      // Optimistically update list queries
+      queryClient.setQueriesData(
+        { queryKey: employeeKeys.lists() },
+        (old: { data?: Array<Record<string, unknown>>, pagination?: unknown } | undefined) => {
+          if (!old?.data) return old;
+          return {
+            ...old,
+            data: old.data.map(item =>
+              (item as { systemId?: string }).systemId === systemId
+                ? { ...item, ...changes }
+                : item
+            ),
+          };
+        }
+      );
+      
+      // Optimistically update detail query
+      if (previousDetail) {
+        queryClient.setQueryData(employeeKeys.detail(systemId), (old: Record<string, unknown> | undefined) => 
+          old ? { ...old, ...changes } : old
+        );
+      }
+      
+      return { previousLists, previousDetail, systemId };
+    },
+    onError: (_err, _input, context) => {
+      // Rollback on error
+      if (context?.previousLists) {
+        context.previousLists.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+      if (context?.previousDetail) {
+        queryClient.setQueryData(employeeKeys.detail(context.systemId), context.previousDetail);
+      }
+      options.onError?.(_err as Error);
+    },
+    onSuccess: (data) => {
       options.onUpdateSuccess?.(data);
     },
-    onError: options.onError,
+    onSettled: () => {
+      invalidateRelated(queryClient, 'employees');
+    },
   });
   
   const remove = useMutation({
@@ -237,7 +307,7 @@ export function useEmployeeMutations(options: UseEmployeeMutationsOptions = {}) 
     },
     onSettled: () => {
       // Always refetch after mutation
-      queryClient.invalidateQueries({ queryKey: employeeKeys.all });
+      invalidateRelated(queryClient, 'employees');
     },
   });
   
@@ -299,16 +369,22 @@ export function useTrashMutations() {
     },
     onSuccess: () => {
       // Invalidate both active and deleted lists
-      queryClient.invalidateQueries({ queryKey: employeeKeys.all });
+      invalidateRelated(queryClient, 'employees');
     },
   });
   
   const permanentDelete = useMutation({
     mutationFn: async (systemId: string) => {
-      // Use delete action with permanent flag - for now use soft delete
-      const result = await deleteEmployeeAction(systemId);
-      if (!result.success) throw new Error(result.error || 'Failed to permanently delete employee');
-      return result.data;
+      // Gọi API permanent archive — giữ record, xóa PII
+      const res = await fetch(`/api/employees/${systemId}/permanent`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || 'Không thể lưu trữ vĩnh viễn nhân viên');
+      }
+      return res.json();
     },
     onMutate: async (systemId) => {
       // Optimistic update - remove from deleted list
@@ -330,7 +406,7 @@ export function useTrashMutations() {
       }
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: employeeKeys.all });
+      invalidateRelated(queryClient, 'employees');
     },
   });
   
@@ -340,6 +416,53 @@ export function useTrashMutations() {
     isRestoring: restore.isPending,
     isDeleting: permanentDelete.isPending,
   };
+}
+
+/**
+ * Hook for bulk employee operations (delete/restore) via single API call
+ */
+export function useBulkEmployeeMutations() {
+  const queryClient = useQueryClient();
+
+  const bulkDelete = useMutation({
+    mutationFn: async (systemIds: string[]) => {
+      const res = await fetch('/api/employees/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ action: 'delete', systemIds }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || 'Bulk delete failed');
+      }
+      return res.json() as Promise<{ data: { affected: number } }>;
+    },
+    onSettled: () => {
+      invalidateRelated(queryClient, 'employees');
+    },
+  });
+
+  const bulkRestore = useMutation({
+    mutationFn: async (systemIds: string[]) => {
+      const res = await fetch('/api/employees/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ action: 'restore', systemIds }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || 'Bulk restore failed');
+      }
+      return res.json() as Promise<{ data: { affected: number } }>;
+    },
+    onSettled: () => {
+      invalidateRelated(queryClient, 'employees');
+    },
+  });
+
+  return { bulkDelete, bulkRestore };
 }
 
 // Re-export from use-all-employees for backward compatibility

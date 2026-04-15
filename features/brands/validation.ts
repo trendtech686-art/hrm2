@@ -7,8 +7,8 @@ import { z } from 'zod';
 export const brandBaseSchema = z.object({
   name: z.string().min(1, 'Tên thương hiệu không được để trống').max(100, 'Tên tối đa 100 ký tự'),
   description: z.string().max(500, 'Mô tả tối đa 500 ký tự').optional().nullable(),
-  logo: z.string().url('URL logo không hợp lệ').optional().nullable(),
-  website: z.string().url('URL website không hợp lệ').optional().nullable(),
+  logo: z.string().optional().nullable(),
+  website: z.string().optional().nullable(),
   isActive: z.boolean().default(true),
 });
 

@@ -5,8 +5,9 @@ import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useForm, useFieldArray, Controller, useWatch, FormProvider } from 'react-hook-form';
 import { useQueryClient } from '@tanstack/react-query';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import { toISODateTime } from '../../lib/date-utils';
-import { CheckCircle2, AlertTriangle, PackageOpen } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, PackageOpen, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { GHTKService, type GHTKCreateOrderParams } from '../settings/shipping/integrations/ghtk-service';
 import { loadShippingConfig } from '../../lib/utils/shipping-config-migration';
@@ -29,7 +30,7 @@ import { asSystemId } from '@/lib/id-types';
 import { generateSubEntityId } from '@/lib/id-utils';
 
 // Stores - Optimized: only load what's needed
-import { useOrderFinder } from '../orders/hooks/use-all-orders';
+import { useOrder } from '../orders/hooks/use-orders';
 import { useCustomerFinder } from '../customers/hooks/use-all-customers';
 import { useAllBranches } from '../settings/branches/hooks/use-all-branches';
 import { useSalesReturnMutations } from './hooks/use-sales-returns';
@@ -79,9 +80,8 @@ export function SalesReturnFormPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  // Stores - Optimized: use finders instead of loading all data
-  const { findById: findOrder } = useOrderFinder();
-  const order = findOrder(systemId!);
+  // Fetch order directly from API (not cache-only)
+  const { data: order, isLoading: isOrderLoading } = useOrder(systemId);
   const { findById: findCustomer } = useCustomerFinder();
   const customer = order ? findCustomer(order.customerSystemId) : null;
   const { data: branches } = useAllBranches();
@@ -411,7 +411,7 @@ export function SalesReturnFormPage() {
                 }
             }}
         >
-            {isSubmitting ? 'Đang xử lý...' : 'Hoàn trả'}
+            {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Đang xử lý...</> : 'Hoàn trả'}
         </Button>
     ], [router, backDestination, isSubmitting]);
 
@@ -444,7 +444,7 @@ export function SalesReturnFormPage() {
     usePageHeader(pageHeaderConfig);
 
   // Loading state
-  if (!branches.length) {
+  if (!branches.length || isOrderLoading) {
     return (
       <div className="flex items-center justify-center min-h-100">
         <div className="text-center space-y-4">
@@ -911,11 +911,8 @@ export function SalesReturnFormPage() {
         
         const newReturn = await response.json();
         
-        // ✅ Invalidate sales returns and orders queries to refresh data on order detail page
-        await Promise.all([
-            queryClient.invalidateQueries({ queryKey: ['sales-returns'] }),
-            queryClient.invalidateQueries({ queryKey: ['orders'] }),
-        ]);
+        // ✅ Invalidate sales returns and cross-module dependencies
+        invalidateRelated(queryClient, 'sales-returns');
         
         const hasExchangeItems = values.exchangeItems && values.exchangeItems.length > 0;
         const returnId = newReturn.data?.id || newReturn.id;
@@ -952,7 +949,7 @@ export function SalesReturnFormPage() {
                 <Card>
                     <CardHeader><CardTitle>Thông tin phiếu</CardTitle></CardHeader>
                     <CardContent>
-                        <div className="grid grid-cols-2 gap-4 text-body-sm">
+                        <div className="grid grid-cols-2 gap-4 text-sm">
                             <p>Khách hàng: <span className="font-semibold text-primary">{customer?.name || order.customerName || 'Khách lẻ'}</span></p>
                             <p>Mã đơn hàng gốc: <Link href={`/orders/${order.systemId}`} className="font-semibold text-primary hover:underline">{order.id}</Link></p>
                             <FormField 
@@ -1057,7 +1054,7 @@ export function SalesReturnFormPage() {
                     </div>
                 </CardHeader>
                 <CardContent>
-                    <div className="border rounded-md">
+                    <div className="border rounded-md overflow-x-auto">
                         <Table>
                             <TableHeader><TableRow><TableHead className="w-12 text-center">STT</TableHead><TableHead>Sản phẩm</TableHead><TableHead className="w-40">Số lượng trả</TableHead><TableHead className="w-45 text-right">Đơn giá gốc</TableHead><TableHead className="w-45 text-right">Đơn giá trả</TableHead><TableHead className="w-45 text-right">Thành tiền</TableHead></TableRow></TableHeader>
                             <TableBody>
@@ -1087,7 +1084,7 @@ export function SalesReturnFormPage() {
             <Card>
                 <CardHeader><CardTitle>Nhận hàng trả lại</CardTitle></CardHeader>
                 <CardContent className="space-y-4">
-                    <p className="text-body-sm text-muted-foreground">Hàng trả lại được nhập vào kho chi nhánh {branches.find(b => b.systemId === getValues('branchSystemId'))?.name || 'mặc định'}</p>
+                    <p className="text-sm text-muted-foreground">Hàng trả lại được nhập vào kho chi nhánh {branches.find(b => b.systemId === getValues('branchSystemId'))?.name || 'mặc định'}</p>
                     
                     <FormField control={control} name="isReceived" render={({ field }) => (
                         <RadioGroup onValueChange={(v) => field.onChange(v === 'true')} value={String(field.value)} className="flex gap-4">
@@ -1100,14 +1097,14 @@ export function SalesReturnFormPage() {
                     {watchIsReceived ? (
                         <Alert className="border-green-200 bg-green-50">
                             <CheckCircle2 className="h-4 w-4 text-green-600" />
-                            <AlertDescription className="text-body-sm text-green-800">
+                            <AlertDescription className="text-sm text-green-800">
                                 <strong>Đã nhận và nhập kho:</strong> Tồn kho sẽ được cập nhật ngay lập tức khi tạo đơn trả hàng. Số lượng hàng trả sẽ được thêm vào kho chi nhánh đã chọn.
                             </AlertDescription>
                         </Alert>
                     ) : (
                         <Alert className="border-amber-200 bg-amber-50">
                             <AlertTriangle className="h-4 w-4 text-amber-600" />
-                            <AlertDescription className="text-body-sm text-amber-800">
+                            <AlertDescription className="text-sm text-amber-800">
                                 <strong>Chưa nhận hàng:</strong> Tồn kho sẽ KHÔNG thay đổi. Bạn cần xác nhận nhận hàng sau để cập nhật tồn kho.
                             </AlertDescription>
                         </Alert>
@@ -1166,7 +1163,7 @@ export function SalesReturnFormPage() {
                     {exchangeFields.length === 0 ? (
                         <div className="text-center text-muted-foreground p-12 border border-dashed rounded-md">
                             <PackageOpen className="mx-auto h-12 w-12 text-gray-300" />
-                            <p className="mt-4 text-body-sm">Chưa có sản phẩm nào trong đơn hàng</p>
+                            <p className="mt-4 text-sm">Chưa có sản phẩm nào trong đơn hàng</p>
                             <Button 
                                 type="button" 
                                 variant="link" 

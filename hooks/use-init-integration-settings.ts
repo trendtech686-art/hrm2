@@ -4,11 +4,10 @@
  * 
  * @deprecated This hook is deprecated. Integration settings are now loaded
  * via React Query hooks when components mount. No need for manual initialization.
- * 
+ *
  * React Query hooks:
  * - usePkgxSettings() from @/features/settings/pkgx/hooks/use-pkgx-settings
  * - useTrendtechSettings() from @/features/settings/trendtech/hooks/use-trendtech-settings
- * - useAppearanceSettings() from @/features/settings/appearance/hooks/use-appearance
  */
 
 'use client';

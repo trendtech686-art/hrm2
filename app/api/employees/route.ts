@@ -1,20 +1,74 @@
 import { prisma } from '@/lib/prisma'
 import { Prisma, EmploymentStatus, Gender, EmployeeType, ContractType, UserRole } from '@/generated/prisma/client'
-import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
+import { validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
+import { apiHandler } from '@/lib/api-handler'
 import { createEmployeeSchema } from './validation'
 import { generateNextIdsWithTx, generateNextIds } from '@/lib/id-system'
+import { serializeEmployee } from './serialize'
 import bcrypt from 'bcryptjs'
+import { logError } from '@/lib/logger'
+import { getUserNameFromDb } from '@/lib/get-user-name'
+import { createNotification } from '@/lib/notifications'
+import { getPasswordRules, validatePassword } from '@/lib/password-rules'
 
 // Route segment config - force dynamic since we use auth and query params
 export const dynamic = 'force-dynamic'
 
 // GET /api/employees - List all employees
-export async function GET(request: Request) {
-  const session = await requireAuth()
-  if (!session) return apiError('Unauthorized', 401)
-
-  try {
+export const GET = apiHandler(async (request) => {
     const { searchParams } = new URL(request.url)
+
+    // ✅ PERFORMANCE: Lightweight mentions endpoint for @mention in comments
+    // Usage: GET /api/employees?select=mentions&search=abc (returns max 10 results)
+    if (searchParams.get('select') === 'mentions') {
+      const search = searchParams.get('search') || ''
+      const where: Prisma.EmployeeWhereInput = { isDeleted: false }
+      if (search) {
+        where.fullName = { contains: search, mode: 'insensitive' }
+      }
+      const mentions = await prisma.employee.findMany({
+        where,
+        select: { systemId: true, fullName: true, avatarUrl: true },
+        orderBy: { fullName: 'asc' },
+        take: 10,
+      })
+      return apiSuccess(mentions.map(e => ({
+        id: e.systemId,
+        label: e.fullName,
+        avatar: e.avatarUrl ?? undefined,
+      })))
+    }
+
+    // ✅ PERFORMANCE: Lightweight combobox endpoint for employee selectors
+    // Usage: GET /api/employees?select=combobox&search=abc&page=1&limit=30
+    if (searchParams.get('select') === 'combobox') {
+      const search = searchParams.get('search') || ''
+      const cbPage = parseInt(searchParams.get('page') || '1', 10)
+      const cbLimit = parseInt(searchParams.get('limit') || '30', 10)
+      const cbSkip = (cbPage - 1) * cbLimit
+      const where: Prisma.EmployeeWhereInput = { isDeleted: false }
+      if (search) {
+        where.OR = [
+          { fullName: { contains: search, mode: 'insensitive' } },
+          { phone: { contains: search, mode: 'insensitive' } },
+        ]
+      }
+      const [items, total] = await Promise.all([
+        prisma.employee.findMany({
+          where,
+          select: { systemId: true, fullName: true },
+          orderBy: { fullName: 'asc' },
+          skip: cbSkip,
+          take: cbLimit,
+        }),
+        prisma.employee.count({ where }),
+      ])
+      return apiSuccess({
+        items: items.map(e => ({ value: e.systemId, label: e.fullName })),
+        hasNextPage: cbSkip + items.length < total,
+      })
+    }
+
     const { page, limit, skip } = parsePagination(searchParams)
     const search = searchParams.get('search') || ''
     const status = searchParams.get('status')
@@ -89,41 +143,13 @@ export async function GET(request: Request) {
       prisma.employee.count({ where }),
     ])
 
-    // Convert Decimal fields to numbers for JSON serialization
-    const convertDecimalToNumber = (value: unknown): number | null => {
-      if (value === null || value === undefined) return null
-      if (typeof value === 'number') return value
-      if (typeof value === 'string') return parseFloat(value) || null
-      if (typeof value === 'object' && value !== null && 'toNumber' in value) {
-        return (value as { toNumber: () => number }).toNumber()
-      }
-      return null
-    }
-
-    const serializedEmployees = employees.map(emp => ({
-      ...emp,
-      baseSalary: convertDecimalToNumber(emp.baseSalary),
-      socialInsuranceSalary: convertDecimalToNumber(emp.socialInsuranceSalary),
-      positionAllowance: convertDecimalToNumber(emp.positionAllowance),
-      mealAllowance: convertDecimalToNumber(emp.mealAllowance),
-      otherAllowances: convertDecimalToNumber(emp.otherAllowances),
-      branchSystemId: emp.branchId,
-      departmentSystemId: emp.departmentId,
-      jobTitleSystemId: emp.jobTitleId,
-    }))
+    const serializedEmployees = employees.map(emp => serializeEmployee(emp))
 
     return apiPaginated(serializedEmployees, { page, limit, total })
-  } catch (error) {
-    console.error('Error fetching employees:', error)
-    return apiError('Failed to fetch employees', 500)
-  }
-}
+})
 
 // POST /api/employees - Create new employee
-export async function POST(request: Request) {
-  const session = await requireAuth()
-  if (!session) return apiError('Unauthorized', 401)
-
+export const POST = apiHandler(async (request, { session }) => {
   const result = await validateBody(request, createEmployeeSchema)
   if (!result.success) return apiError(result.error, 400)
 
@@ -209,6 +235,11 @@ export async function POST(request: Request) {
 
     // If password is provided, create User account for login
     if (body.password && body.workEmail) {
+      const rules = await getPasswordRules()
+      const validationError = validatePassword(body.password, rules)
+      if (validationError) {
+        return apiError(validationError, 400)
+      }
       const hashedPassword = await bcrypt.hash(body.password, 10)
       const { systemId: userSystemId } = await generateNextIds('users')
       await prisma.user.create({
@@ -223,14 +254,40 @@ export async function POST(request: Request) {
       })
     }
 
+    // Log activity
+    getUserNameFromDb(session!.user.id).then(userName =>
+      prisma.activityLog.create({
+        data: {
+          entityType: 'employee',
+          entityId: employee.systemId,
+          action: 'created',
+          actionType: 'create',
+          note: `Tạo nhân viên mới`,
+          metadata: { userName },
+          createdBy: userName,
+        }
+      })
+    ).catch(e => logError('[ActivityLog] employee created failed', e))
+
+    // Notify manager if assigned
+    if (employee.managerId && employee.managerId !== session!.user?.employeeId) {
+      createNotification({
+        type: 'employee',
+        settingsKey: 'employee:created',
+        title: 'Nhân viên mới được giao quản lý',
+        message: `Nhân viên mới: ${employee.fullName} (${employee.id})`,
+        link: `/employees/${employee.systemId}`,
+        recipientId: employee.managerId,
+        senderId: session!.user?.employeeId,
+        senderName: session!.user?.name,
+      }).catch(e => logError('[Employee POST] notification failed', e))
+    }
+
     return apiSuccess(employee, 201)
   } catch (error) {
-    console.error('Error creating employee:', error)
-    
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
       return apiError('Employee ID or email already exists', 400)
     }
-
-    return apiError('Failed to create employee', 500)
+    throw error
   }
-}
+}, { permission: 'edit_employees' })

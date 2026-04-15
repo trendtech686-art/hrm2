@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma';
 import { Prisma } from '@/generated/prisma/client';
 import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils';
 import { z } from 'zod';
+import { logError } from '@/lib/logger'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 const updatePricingPolicySchema = z.object({
   id: z.string().optional(),
@@ -43,7 +45,7 @@ export async function GET(
       updatedAt: policy.updatedAt.toISOString(),
     });
   } catch (error) {
-    console.error('[Pricing Policy API] GET error:', error);
+    logError('[Pricing Policy API] GET error', error);
     return apiError('Failed to fetch pricing policy', 500);
   }
 }
@@ -102,6 +104,26 @@ export async function PATCH(
       data: updateData,
     });
 
+    // Activity log
+    const changes: Record<string, { from: unknown; to: unknown }> = {}
+    if (name !== undefined && name !== existing.name) changes['Tên'] = { from: existing.name, to: name }
+    if (description !== undefined && description !== existing.description) changes['Mô tả'] = { from: existing.description, to: description }
+    if (type !== undefined && type !== existing.type) changes['Loại'] = { from: existing.type, to: type }
+    if (isDefault !== undefined && isDefault !== existing.isDefault) changes['Mặc định'] = { from: existing.isDefault ? 'Có' : 'Không', to: isDefault ? 'Có' : 'Không' }
+    if (isActive !== undefined && isActive !== existing.isActive) changes['Trạng thái'] = { from: existing.isActive ? 'Hoạt động' : 'Ngừng', to: isActive ? 'Hoạt động' : 'Ngừng' }
+
+    if (Object.keys(changes).length > 0) {
+      const changeDetail = Object.keys(changes).join(', ')
+      createActivityLog({
+        entityType: 'pricing_policy',
+        entityId: systemid,
+        action: `Cập nhật bảng giá: ${existing.name}: ${changeDetail}`,
+        actionType: 'update',
+        changes,
+        createdBy: session.user?.id,
+      }).catch(e => logError('Failed to create activity log', e))
+    }
+
     return apiSuccess({
       systemId: updated.systemId,
       id: updated.id,
@@ -114,7 +136,7 @@ export async function PATCH(
       updatedAt: updated.updatedAt.toISOString(),
     });
   } catch (error) {
-    console.error('[Pricing Policy API] PATCH error:', error);
+    logError('[Pricing Policy API] PATCH error', error);
     return apiError('Failed to update pricing policy', 500);
   }
 }
@@ -142,9 +164,17 @@ export async function DELETE(
       where: { systemId: systemid },
     });
 
+    createActivityLog({
+      entityType: 'pricing_policy',
+      entityId: systemid,
+      action: `Xóa bảng giá: ${existing.name}`,
+      actionType: 'delete',
+      createdBy: session.user?.id,
+    }).catch(e => logError('Failed to create activity log', e))
+
     return apiSuccess({ message: 'Pricing policy deleted successfully' });
   } catch (error) {
-    console.error('[Pricing Policy API] DELETE error:', error);
+    logError('[Pricing Policy API] DELETE error', error);
     return apiError('Failed to delete pricing policy', 500);
   }
 }

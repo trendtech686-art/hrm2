@@ -12,8 +12,8 @@ import { formatCurrency } from './types';
 // Simple detail item component
 const DetailItem = ({ label, value }: { label: string; value?: React.ReactNode }) => (
   <div className="space-y-1">
-    <dt className="text-body-sm text-muted-foreground">{label}</dt>
-    <dd className="text-body-sm font-medium">
+    <dt className="text-sm text-muted-foreground">{label}</dt>
+    <dd className="text-sm font-medium">
       {value !== null && value !== undefined && value !== '' ? value : '—'}
     </dd>
   </div>
@@ -64,13 +64,13 @@ export function BusinessTab({ customer }: BusinessTabProps) {
               <DetailItem label="Giá trị" value={formatCurrency(customer.contract.value)} />
               {customer.contract.fileUrl && (
                 <div className="space-y-1">
-                  <dt className="text-body-sm text-muted-foreground">File hợp đồng</dt>
+                  <dt className="text-sm text-muted-foreground">File hợp đồng</dt>
                   <dd>
                     <a 
                       href={customer.contract.fileUrl} 
                       target="_blank" 
                       rel="noopener noreferrer"
-                      className="text-body-sm text-primary hover:underline inline-flex items-center gap-1"
+                      className="text-sm text-primary hover:underline inline-flex items-center gap-1"
                     >
                       Xem tài liệu <ExternalLink className="h-3 w-3" />
                     </a>
@@ -79,7 +79,7 @@ export function BusinessTab({ customer }: BusinessTabProps) {
               )}
               {customer.contract.status && (
                 <div className="space-y-1">
-                  <dt className="text-body-sm text-muted-foreground">Trạng thái</dt>
+                  <dt className="text-sm text-muted-foreground">Trạng thái</dt>
                   <dd>
                     <Badge variant={
                       customer.contract.status === 'Active' ? 'success' :
@@ -98,8 +98,8 @@ export function BusinessTab({ customer }: BusinessTabProps) {
             </dl>
             {customer.contract.details && (
               <div className="mt-4 pt-4 border-t">
-                <div className="text-body-sm text-muted-foreground mb-1">Chi tiết điều khoản</div>
-                <p className="text-body-sm whitespace-pre-wrap">{customer.contract.details}</p>
+                <div className="text-sm text-muted-foreground mb-1">Chi tiết điều khoản</div>
+                <p className="text-sm whitespace-pre-wrap">{customer.contract.details}</p>
               </div>
             )}
           </CardContent>

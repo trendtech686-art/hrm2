@@ -40,11 +40,11 @@ interface VirtualizedDataTableProps<TData extends { systemId: string }> {
   sorting: { id: string, desc: boolean }
   setSorting: (updater: React.SetStateAction<{ id: string, desc: boolean }>) => void
   columnVisibility: Record<string, boolean>
-  setColumnVisibility: React.Dispatch<React.SetStateAction<Record<string, boolean>>>
+  setColumnVisibility: React.Dispatch<React.SetStateAction<Record<string, boolean>>> | ((value: Record<string, boolean>) => void)
   columnOrder: string[]
-  setColumnOrder: React.Dispatch<React.SetStateAction<string[]>>
+  setColumnOrder: React.Dispatch<React.SetStateAction<string[]>> | ((value: string[]) => void)
   pinnedColumns: string[]
-  setPinnedColumns: React.Dispatch<React.SetStateAction<string[]>>
+  setPinnedColumns: React.Dispatch<React.SetStateAction<string[]>> | ((value: string[]) => void)
   onRowClick?: (row: TData) => void
   className?: string
   // Virtual scrolling specific props

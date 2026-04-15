@@ -9,11 +9,12 @@ import { useAllProducts } from './hooks/use-all-products';
 import { asSystemId, type SystemId } from '@/lib/id-types';
 import { formatDateForDisplay, formatDateTimeForDisplay } from '@/lib/date-utils';
 import { usePageHeader } from '../../contexts/page-header-context';
+import { useBreakpoint } from '../../contexts/breakpoint-context';
 import { useAuth } from '../../contexts/auth-context';
 import { Skeleton } from '../../components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
-import { Edit, Printer, RefreshCw, AlertTriangle, Eye, Trash2, Package, ArrowLeft, Globe, Video, ChevronDown, DollarSign, Package2, FileText, Flag, ExternalLink, Unlink, Layers, Info, Image, Upload } from 'lucide-react';
+import { Edit, Printer, RefreshCw, AlertTriangle, Eye, Trash2, Package, ArrowLeft, Globe, Video, ChevronDown, DollarSign, Package2, FileText, Flag, ExternalLink, Unlink, Layers, Info, Image, Upload, MoreHorizontal } from 'lucide-react';
 import { usePrint } from '@/lib/use-print';
 import {
   DropdownMenu,
@@ -29,17 +30,13 @@ import { Badge } from '../../components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { LazyImage } from '../../components/ui/lazy-image';
 import { useComments } from '@/hooks/use-comments';
-import type { HistoryEntry } from '../../components/ActivityHistory';
-import { useActivityHistory } from '@/hooks/use-activity-logs';
+import { EntityActivityTable } from '@/components/shared/entity-activity-table';
 // ✅ Heavy components - lazy loaded
 const Comments = dynamic(
   () => import('../../components/Comments').then(m => ({ default: m.Comments })),
   { ssr: false }
 );
-const ActivityHistory = dynamic(
-  () => import('../../components/ActivityHistory').then(m => ({ default: m.ActivityHistory })),
-  { ssr: false }
-);
+
 import { useAllPricingPolicies } from '../settings/pricing/hooks/use-all-pricing-policies';
 import { useSupplierFinder } from '../suppliers/hooks/use-all-suppliers';
 import { useProductStockHistory } from '../stock-history/hooks/use-stock-history';
@@ -52,7 +49,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { useAllPurchaseOrders } from '../purchase-orders/hooks/use-all-purchase-orders';
 import { useAllInventoryReceipts } from '../inventory-receipts/hooks/use-all-inventory-receipts';
-import { useAllOrders } from '../orders/hooks/use-all-orders';
 import { useEmployeeFinder } from '../employees/hooks/use-all-employees';
 import { useAllWarranties } from '../warranty/hooks/use-all-warranties';
 import { useAllInventoryChecks } from '../inventory-checks/hooks/use-all-inventory-checks';
@@ -158,7 +154,6 @@ export function ProductDetailPage() {
   const { data: branches } = useAllBranches();
   const { data: allPurchaseOrders } = useAllPurchaseOrders();
   const { data: allInventoryReceipts } = useAllInventoryReceipts();
-  const { data: allOrders } = useAllOrders();
   const { findById: findEmployeeById } = useEmployeeFinder();
   const { data: allWarranties } = useAllWarranties();
   const { data: allInventoryChecks } = useAllInventoryChecks();
@@ -167,7 +162,8 @@ export function ProductDetailPage() {
   const { findById: findCategoryById } = useCategoryFinder();
   const { findBySystemId: findStorageLocationBySystemId } = useStorageLocationFinder();
   const { findById: findBrandById } = useBrandFinder();
-  const { employee: authEmployee } = useAuth();
+  const { employee: authEmployee, can } = useAuth();
+  const { isMobile } = useBreakpoint();
   
   // Hook to calculate sold quantity per branch from completed orders
   const { soldByBranch } = useSoldByBranch(productFromQuery?.systemId);
@@ -239,7 +235,7 @@ export function ProductDetailPage() {
   const productType = React.useMemo(() => (product?.productTypeSystemId ? findProductTypeById(product.productTypeSystemId) : null), [product, findProductTypeById]);
   const category = React.useMemo(() => (product?.categorySystemId ? findCategoryById(product.categorySystemId) : null), [product, findCategoryById]);
   const brand = React.useMemo(() => (product?.brandSystemId ? findBrandById(product.brandSystemId) : null), [product, findBrandById]);
-  const _storageLocation = React.useMemo(() => (product?.storageLocationSystemId ? findStorageLocationBySystemId(product.storageLocationSystemId) : null), [product, findStorageLocationBySystemId]);
+  const storageLocation = React.useMemo(() => (product?.storageLocationSystemId ? findStorageLocationBySystemId(product.storageLocationSystemId) : null), [product, findStorageLocationBySystemId]);
 
   // Comments from database
   const { 
@@ -279,50 +275,9 @@ export function ProductDetailPage() {
     name: authEmployee?.fullName || 'Hệ thống',
   }), [authEmployee]);
 
-  // Build activity history from product data + ActivityLog table
-  const { history: apiHistory } = useActivityHistory('product', product?.systemId || '', !!product);
-  
-  const activityHistory = React.useMemo((): HistoryEntry[] => {
-    if (!product) return [];
-    const entries: HistoryEntry[] = [...apiHistory];
-    
-    // Created entry (if not already in API history)
-    if (product.createdAt && !entries.some(e => e.action === 'created')) {
-      entries.push({
-        id: `${product.systemId}-created`,
-        action: 'created',
-        timestamp: new Date(product.createdAt),
-        user: {
-          systemId: product.createdBy || '',
-          name: createdByEmployee?.fullName || 'Hệ thống',
-        },
-        description: `Tạo sản phẩm ${product.name}`,
-      });
-    }
-    
-    // Updated entry (if not already in API history)
-    if (product.updatedAt && product.updatedAt !== product.createdAt && !entries.some(e => e.action === 'updated')) {
-      entries.push({
-        id: `${product.systemId}-updated`,
-        action: 'updated',
-        timestamp: new Date(product.updatedAt),
-        user: {
-          systemId: product.updatedBy || '',
-          name: updatedByEmployee?.fullName || 'Hệ thống',
-        },
-        description: 'Cập nhật thông tin sản phẩm',
-      });
-    }
-    
-    return entries.sort((a, b) => {
-      const timeA = a.timestamp instanceof Date ? a.timestamp.getTime() : new Date(a.timestamp).getTime();
-      const timeB = b.timestamp instanceof Date ? b.timestamp.getTime() : new Date(b.timestamp).getTime();
-      return timeB - timeA;
-    });
-  }, [product, createdByEmployee, updatedByEmployee, apiHistory]);
-
   // ✅ Fetch stock history from API (database)
-  const { data: stockHistoryData = [] } = useProductStockHistory(product?.systemId);
+  const { data: stockHistoryResponse } = useProductStockHistory(product?.systemId);
+  const stockHistoryData = stockHistoryResponse?.data ?? [];
   
   // Transform and filter API data by branch
   const productHistory = React.useMemo(() => {
@@ -455,8 +410,8 @@ export function ProductDetailPage() {
   }, [allInventoryReceipts, productSystemId, product?.unit, priceHistoryBranchFilter, product?.pkgxId, product?.createdAt, branches, product?.id, product?.name, product?.costPrice, createdByEmployee]);
 
   const stockHistoryColumns = React.useMemo(() => 
-    getStockHistoryColumns(allPurchaseOrders, allInventoryReceipts, allOrders, allWarranties, allInventoryChecks, allStockTransfers),
-    [allPurchaseOrders, allInventoryReceipts, allOrders, allWarranties, allInventoryChecks, allStockTransfers]
+    getStockHistoryColumns(),
+    []
   );
 
   // ═══════════════════════════════════════════════════════════════
@@ -543,6 +498,7 @@ export function ProductDetailPage() {
 
   const headerActions = React.useMemo(() => {
     if (!product) return [];
+    if (!can('edit_products')) return [];
     
     const pkgxActions = product.pkgxId ? [
       <DropdownMenu key="pkgx-actions">
@@ -714,7 +670,63 @@ export function ProductDetailPage() {
       </AlertDialog>,
       ...pkgxActions,
     ];
-  }, [product, router, handlePrintLabel, handleMoveToTrash, handleConfirm, handlePkgxSyncAll, handlePkgxSyncBasicInfo, handlePkgxUpdatePrice, handlePkgxSyncInventory, handlePkgxUpdateSeo, handlePkgxSyncDescription, handlePkgxSyncFlags, handlePkgxSyncImages, handlePkgxPublish, handlePkgxUnlink]);
+  }, [product, router, handlePrintLabel, handleMoveToTrash, handleConfirm, handlePkgxSyncAll, handlePkgxSyncBasicInfo, handlePkgxUpdatePrice, handlePkgxSyncInventory, handlePkgxUpdateSeo, handlePkgxSyncDescription, handlePkgxSyncFlags, handlePkgxSyncImages, handlePkgxPublish, handlePkgxUnlink, can]);
+
+  // Mobile: gom tất cả actions vào 1 dropdown menu
+  const mobileHeaderActions = React.useMemo(() => {
+    if (!product || !isMobile || !can('edit_products')) return [];
+
+    type MobileAction = { label: string; icon: React.ReactNode; onClick: () => void; destructive?: boolean; };
+    const menuItems: MobileAction[] = [
+      { label: 'Chỉnh sửa', icon: <Edit className="mr-2 h-4 w-4" />, onClick: () => router.push(`/products/${product.systemId}/edit`) },
+      { label: 'In tem phụ', icon: <Printer className="mr-2 h-4 w-4" />, onClick: handlePrintLabel },
+      { label: 'Chuyển vào thùng rác', icon: <Trash2 className="mr-2 h-4 w-4" />, onClick: handleMoveToTrash, destructive: true },
+    ];
+
+    // PKGX actions
+    if (product.pkgxId) {
+      menuItems.push(
+        { label: 'Đồng bộ tất cả PKGX', icon: <Layers className="mr-2 h-4 w-4" />, onClick: () => handleConfirm('Đồng bộ tất cả', `Đồng bộ TẤT CẢ thông tin "${product.name}" lên PKGX?`, () => handlePkgxSyncAll(product)) },
+        { label: 'Sync thông tin cơ bản', icon: <Info className="mr-2 h-4 w-4" />, onClick: () => handleConfirm('Sync thông tin cơ bản', `Đồng bộ thông tin cơ bản "${product.name}" lên PKGX?`, () => handlePkgxSyncBasicInfo(product)) },
+        { label: 'Sync giá', icon: <DollarSign className="mr-2 h-4 w-4" />, onClick: () => handleConfirm('Sync giá', `Đồng bộ giá bán "${product.name}" lên PKGX?`, () => handlePkgxUpdatePrice(product)) },
+        { label: 'Sync tồn kho', icon: <Package2 className="mr-2 h-4 w-4" />, onClick: () => handleConfirm('Sync tồn kho', `Đồng bộ tồn kho "${product.name}" lên PKGX?`, () => handlePkgxSyncInventory(product)) },
+        { label: 'Sync SEO', icon: <Globe className="mr-2 h-4 w-4" />, onClick: () => handleConfirm('Sync SEO', `Đồng bộ SEO "${product.name}" lên PKGX?`, () => handlePkgxUpdateSeo(product)) },
+        { label: 'Sync mô tả', icon: <FileText className="mr-2 h-4 w-4" />, onClick: () => handleConfirm('Sync mô tả', `Đồng bộ mô tả "${product.name}" lên PKGX?`, () => handlePkgxSyncDescription(product)) },
+        { label: 'Sync flags', icon: <Flag className="mr-2 h-4 w-4" />, onClick: () => handleConfirm('Sync flags', `Đồng bộ flags "${product.name}" lên PKGX?`, () => handlePkgxSyncFlags(product)) },
+        { label: 'Sync hình ảnh', icon: <Image className="mr-2 h-4 w-4" />, onClick: () => handleConfirm('Sync hình ảnh', `Đồng bộ hình ảnh "${product.name}" lên PKGX?`, () => handlePkgxSyncImages(product)) },
+        { label: 'Xem trên web', icon: <ExternalLink className="mr-2 h-4 w-4" />, onClick: () => window.open(`https://phukiengiaxuong.com.vn/product/${product.pkgxId}`, '_blank') },
+        { label: 'Hủy liên kết PKGX', icon: <Unlink className="mr-2 h-4 w-4" />, onClick: () => handleConfirm('Hủy liên kết PKGX', `Hủy liên kết sản phẩm "${product.name}" với PKGX?`, () => handlePkgxUnlink(product)), destructive: true },
+      );
+    } else {
+      menuItems.push(
+        { label: 'Đăng lên PKGX', icon: <Upload className="mr-2 h-4 w-4" />, onClick: () => handleConfirm('Đăng lên PKGX', `Đăng sản phẩm "${product.name}" lên PKGX?`, () => handlePkgxPublish(product)) },
+      );
+    }
+
+    return [
+      <DropdownMenu key="mobile-actions">
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="sm" className="h-9">
+            <MoreHorizontal className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-52">
+          {menuItems.map((item, i) => (
+            <React.Fragment key={item.label}>
+              {i === 3 && <DropdownMenuSeparator />}
+              <DropdownMenuItem
+                onClick={item.onClick}
+                className={item.destructive ? 'text-destructive focus:text-destructive' : ''}
+              >
+                {item.icon}
+                {item.label}
+              </DropdownMenuItem>
+            </React.Fragment>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>,
+    ];
+  }, [product, isMobile, can, router, handlePrintLabel, handleMoveToTrash, handleConfirm, handlePkgxSyncAll, handlePkgxSyncBasicInfo, handlePkgxUpdatePrice, handlePkgxSyncInventory, handlePkgxUpdateSeo, handlePkgxSyncDescription, handlePkgxSyncFlags, handlePkgxSyncImages, handlePkgxPublish, handlePkgxUnlink]);
 
   // Calculate combo stock for low stock warning in header
   const comboTotalStock = React.useMemo(() => {
@@ -786,7 +798,7 @@ export function ProductDetailPage() {
     badge: headerBadges,
     showBackButton: true,
     backPath: '/products',
-    actions: headerActions,
+    actions: isMobile ? mobileHeaderActions : headerActions,
   });
 
   // Loading state
@@ -867,7 +879,7 @@ export function ProductDetailPage() {
               {/* Quick Info */}
               <div className="flex-1 min-w-0 space-y-3">
                 <div>
-                  <p className="text-body-sm text-muted-foreground">Mã SKU: <span className="font-medium text-foreground">{product.id}</span></p>
+                  <p className="text-sm text-muted-foreground">Mã SKU: <span className="font-medium text-foreground">{product.id}</span></p>
                   <h2 className="text-h2 font-semibold">{product.name}</h2>
                 </div>
                 
@@ -882,7 +894,7 @@ export function ProductDetailPage() {
 
                 {/* E-commerce Status Badges */}
                 <div className="flex flex-wrap gap-2">
-                  {product.isPublished ? (
+                  {(product.isPublished || product.pkgxId) ? (
                     <Badge variant="success" className="gap-1">
                       <Globe className="h-3 w-3" />
                       Đã đăng web
@@ -909,13 +921,13 @@ export function ProductDetailPage() {
 
                 {/* Stock Alerts */}
                 {stockAlerts.isCritical && (
-                  <div className="flex items-center gap-2 text-body-sm text-destructive">
+                  <div className="flex items-center gap-2 text-sm text-destructive">
                     <AlertTriangle className="h-4 w-4" />
                     <span>{stockAlerts.message}</span>
                   </div>
                 )}
                 {!stockAlerts.isCritical && stockAlerts.isLow && (
-                  <div className="flex items-center gap-2 text-body-sm text-amber-600">
+                  <div className="flex items-center gap-2 text-sm text-amber-600">
                     <AlertTriangle className="h-4 w-4" />
                     <span>{stockAlerts.message}</span>
                   </div>
@@ -923,12 +935,12 @@ export function ProductDetailPage() {
 
                 {/* Key Metrics */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-3 border-t">
-                  <div>
-                    <p className="text-body-xs text-muted-foreground">Giá vốn</p>
+                  {can('edit_products') && <div>
+                    <p className="text-xs text-muted-foreground">Giá vốn</p>
                     <p className="font-semibold">{formatCurrency(product.costPrice ?? 0)}</p>
-                  </div>
+                  </div>}
                   <div>
-                    <p className="text-body-xs text-muted-foreground">Giá bán (Mặc định)</p>
+                    <p className="text-xs text-muted-foreground">Giá bán (Mặc định)</p>
                     <p className="font-semibold text-primary">
                       {defaultSellingPolicy && product.prices?.[defaultSellingPolicy.systemId] 
                         ? formatCurrency(product.prices[defaultSellingPolicy.systemId]) 
@@ -936,13 +948,13 @@ export function ProductDetailPage() {
                     </p>
                   </div>
                   <div>
-                    <p className="text-body-xs text-muted-foreground">Tồn kho</p>
+                    <p className="text-xs text-muted-foreground">Tồn kho</p>
                     <p className="font-semibold">
                       {product.type === 'combo' ? comboTotalStock : totalInventory} {product.unit}
                     </p>
                   </div>
                   <div>
-                    <p className="text-body-xs text-muted-foreground">Đã bán</p>
+                    <p className="text-xs text-muted-foreground">Đã bán</p>
                     <p className="font-semibold">{product.totalSold ?? 0}</p>
                   </div>
                 </div>
@@ -991,7 +1003,7 @@ export function ProductDetailPage() {
                   )}
                   {supplier && <DetailField label="Nhà cung cấp chính" value={<Link href={`/suppliers/${supplier.systemId}`} className="text-primary hover:underline">{supplier.name}</Link>} />}
                   <DetailField label="Tags" value={product.tags?.length ? (
-                    <div className="flex flex-wrap gap-1">{product.tags.map(tag => <Badge key={tag} variant="outline" className="text-body-xs">{tag}</Badge>)}</div>
+                    <div className="flex flex-wrap gap-1">{product.tags.map(tag => <Badge key={tag} variant="outline" className="text-xs">{tag}</Badge>)}</div>
                   ) : '-'} />
                   {product.sellerNote && (
                     <div className="md:col-span-2">
@@ -1007,16 +1019,16 @@ export function ProductDetailPage() {
                   <CardContent className="space-y-3">
                     {product.shortDescription && (
                       <div>
-                        <p className="text-body-sm font-medium text-muted-foreground mb-1">Mô tả ngắn</p>
+                        <p className="text-sm font-medium text-muted-foreground mb-1">Mô tả ngắn</p>
                         <div 
-                          className="prose prose-sm max-w-none text-body-sm" 
+                          className="prose prose-sm max-w-none text-sm" 
                           dangerouslySetInnerHTML={{ __html: sanitizeHtml(product.shortDescription) }} 
                         />
                       </div>
                     )}
                     {product.description && (
                       <div>
-                        <p className="text-body-sm font-medium text-muted-foreground mb-1">Mô tả chi tiết</p>
+                        <p className="text-sm font-medium text-muted-foreground mb-1">Mô tả chi tiết</p>
                         <div 
                           className="prose prose-sm max-w-none" 
                           dangerouslySetInnerHTML={{ __html: sanitizeHtml(product.description) }} 
@@ -1048,15 +1060,15 @@ export function ProductDetailPage() {
                   {hasImages ? (
                     <div className="grid gap-4 lg:grid-cols-10">
                       <div className="space-y-3 lg:col-span-3">
-                        <p className="text-body-sm font-medium text-muted-foreground">Ảnh thumbnail</p>
+                        <p className="text-sm font-medium text-muted-foreground">Ảnh thumbnail</p>
                         {thumbnailImage ? (
                           <div className="relative aspect-square rounded-lg overflow-hidden border bg-muted cursor-pointer" onClick={() => handleOpenPreview(thumbnailImage)}>
                             <LazyImage src={thumbnailImage} alt={`${product.name} - Thumbnail`} className="w-full h-full object-cover" rootMargin="400px" />
                           </div>
-                        ) : <div className="rounded-lg border border-dashed bg-muted/40 text-center text-body-xs text-muted-foreground py-10">Chưa có ảnh</div>}
+                        ) : <div className="rounded-lg border border-dashed bg-muted/40 text-center text-xs text-muted-foreground py-10">Chưa có ảnh</div>}
                       </div>
                       <div className="space-y-3 lg:col-span-7">
-                        <p className="text-body-sm font-medium text-muted-foreground">Thư viện ({galleryImages.length})</p>
+                        <p className="text-sm font-medium text-muted-foreground">Thư viện ({galleryImages.length})</p>
                         {galleryImages.length > 0 ? (
                           <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
                             {galleryImages.map((url, i) => (
@@ -1065,14 +1077,14 @@ export function ProductDetailPage() {
                               </div>
                             ))}
                           </div>
-                        ) : <div className="rounded-lg border border-dashed bg-muted/40 text-center text-body-xs text-muted-foreground py-10">Chưa có ảnh</div>}
+                        ) : <div className="rounded-lg border border-dashed bg-muted/40 text-center text-xs text-muted-foreground py-10">Chưa có ảnh</div>}
                       </div>
                     </div>
-                  ) : <div className="text-center text-body-sm text-muted-foreground border border-dashed rounded-md py-8">Chưa có hình ảnh</div>}
+                  ) : <div className="text-center text-sm text-muted-foreground border border-dashed rounded-md py-8">Chưa có hình ảnh</div>}
                   {product.videoLinks && product.videoLinks.length > 0 && (
                     <div className="space-y-3 pt-4 border-t">
-                      <p className="text-body-sm font-medium text-muted-foreground flex items-center gap-2"><Video className="h-4 w-4" />Video ({product.videoLinks.length})</p>
-                      <div className="space-y-2">{product.videoLinks.map((link, i) => <a key={`${link}-${i}`} href={link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-body-sm text-primary hover:underline truncate">{link}</a>)}</div>
+                      <p className="text-sm font-medium text-muted-foreground flex items-center gap-2"><Video className="h-4 w-4" />Video ({product.videoLinks.length})</p>
+                      <div className="space-y-2">{product.videoLinks.map((link, i) => <a key={`${link}-${i}`} href={link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-primary hover:underline truncate">{link}</a>)}</div>
                     </div>
                   )}
                 </CardContent>
@@ -1087,7 +1099,7 @@ export function ProductDetailPage() {
                     <Globe className="h-5 w-5" />
                     SEO Mặc định
                   </CardTitle>
-                  <p className="text-body-sm text-muted-foreground">
+                  <p className="text-sm text-muted-foreground">
                     Thông tin SEO chung - sẽ được dùng nếu không có SEO riêng cho từng website
                   </p>
                 </CardHeader>
@@ -1096,16 +1108,16 @@ export function ProductDetailPage() {
                   <DetailField label="Meta Description" value={product.seoDescription ? sanitizeToText(product.seoDescription) : '-'} />
                   <DetailField label="Keywords" value={product.seoKeywords || '-'} />
                   <div>
-                    <p className="text-body-sm font-medium text-muted-foreground mb-2">Mô tả ngắn</p>
+                    <p className="text-sm font-medium text-muted-foreground mb-2">Mô tả ngắn</p>
                     {product.shortDescription ? (
-                      <div className="prose prose-sm max-w-none text-body-sm border border-border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: sanitizeHtml(product.shortDescription) }} />
-                    ) : <p className="text-body-sm text-muted-foreground">-</p>}
+                      <div className="prose prose-sm max-w-none text-sm border border-border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: sanitizeHtml(product.shortDescription) }} />
+                    ) : <p className="text-sm text-muted-foreground">-</p>}
                   </div>
                   <div>
-                    <p className="text-body-sm font-medium text-muted-foreground mb-2">Mô tả chi tiết</p>
+                    <p className="text-sm font-medium text-muted-foreground mb-2">Mô tả chi tiết</p>
                     {product.description ? (
-                      <div className="prose prose-sm max-w-none text-body-sm border border-border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: sanitizeHtml(product.description) }} />
-                    ) : <p className="text-body-sm text-muted-foreground">-</p>}
+                      <div className="prose prose-sm max-w-none text-sm border border-border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: sanitizeHtml(product.description) }} />
+                    ) : <p className="text-sm text-muted-foreground">-</p>}
                   </div>
                 </CardContent>
               </Card>
@@ -1125,16 +1137,16 @@ export function ProductDetailPage() {
                   <DetailField label="Meta Description" value={product.seoPkgx?.metaDescription ? sanitizeToText(product.seoPkgx.metaDescription) : '-'} />
                   <DetailField label="Keywords" value={product.seoPkgx?.seoKeywords || '-'} />
                   <div>
-                    <p className="text-body-sm font-medium text-muted-foreground mb-2">Mô tả ngắn</p>
+                    <p className="text-sm font-medium text-muted-foreground mb-2">Mô tả ngắn</p>
                     {product.seoPkgx?.shortDescription ? (
-                      <div className="prose prose-sm max-w-none text-body-sm border border-border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: sanitizeHtml(product.seoPkgx.shortDescription) }} />
-                    ) : <p className="text-body-sm text-muted-foreground">-</p>}
+                      <div className="prose prose-sm max-w-none text-sm border border-border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: sanitizeHtml(product.seoPkgx.shortDescription) }} />
+                    ) : <p className="text-sm text-muted-foreground">-</p>}
                   </div>
                   <div>
-                    <p className="text-body-sm font-medium text-muted-foreground mb-2">Mô tả dài</p>
+                    <p className="text-sm font-medium text-muted-foreground mb-2">Mô tả dài</p>
                     {product.seoPkgx?.longDescription ? (
-                      <div className="prose prose-sm max-w-none text-body-sm border border-borderrounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: sanitizeHtml(product.seoPkgx.longDescription) }} />
-                    ) : <p className="text-body-sm text-muted-foreground">-</p>}
+                      <div className="prose prose-sm max-w-none text-sm border border-borderrounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: sanitizeHtml(product.seoPkgx.longDescription) }} />
+                    ) : <p className="text-sm text-muted-foreground">-</p>}
                   </div>
                 </CardContent>
               </Card>
@@ -1155,16 +1167,16 @@ export function ProductDetailPage() {
                   <DetailField label="Meta Description" value={product.seoTrendtech?.metaDescription || '-'} />
                   <DetailField label="Keywords" value={product.seoTrendtech?.seoKeywords || '-'} />
                   <div>
-                    <p className="text-body-sm font-medium text-muted-foreground mb-2">Mô tả ngắn</p>
+                    <p className="text-sm font-medium text-muted-foreground mb-2">Mô tả ngắn</p>
                     {product.seoTrendtech?.shortDescription ? (
-                      <div className="prose prose-sm max-w-none text-body-sm border border-border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: sanitizeHtml(product.seoTrendtech.shortDescription) }} />
-                    ) : <p className="text-body-sm text-muted-foreground">-</p>}
+                      <div className="prose prose-sm max-w-none text-sm border border-border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: sanitizeHtml(product.seoTrendtech.shortDescription) }} />
+                    ) : <p className="text-sm text-muted-foreground">-</p>}
                   </div>
                   <div>
-                    <p className="text-body-sm font-medium text-muted-foreground mb-2">Mô tả dài</p>
+                    <p className="text-sm font-medium text-muted-foreground mb-2">Mô tả dài</p>
                     {product.seoTrendtech?.longDescription ? (
-                      <div className="prose prose-sm max-w-none text-body-sm border border-border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: sanitizeHtml(product.seoTrendtech.longDescription) }} />
-                    ) : <p className="text-body-sm text-muted-foreground">-</p>}
+                      <div className="prose prose-sm max-w-none text-sm border border-border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: sanitizeHtml(product.seoTrendtech.longDescription) }} />
+                    ) : <p className="text-sm text-muted-foreground">-</p>}
                   </div>
                 </CardContent>
               </Card>
@@ -1178,7 +1190,7 @@ export function ProductDetailPage() {
                   <CardHeader className="pb-2"><CardTitle size="lg" className="flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-amber-600" />Cảnh báo tồn kho</CardTitle></CardHeader>
                   <CardContent>
                     <StockAlertBadges product={product} showDescription />
-                    {getSuggestedOrderQuantity(product) > 0 && <p className="text-body-sm mt-2">Đề xuất đặt thêm: <span className="font-semibold text-amber-700">{getSuggestedOrderQuantity(product)} {product.unit}</span></p>}
+                    {getSuggestedOrderQuantity(product) > 0 && <p className="text-sm mt-2">Đề xuất đặt thêm: <span className="font-semibold text-amber-700">{getSuggestedOrderQuantity(product)} {product.unit}</span></p>}
                   </CardContent>
                 </Card>
               )}
@@ -1186,10 +1198,10 @@ export function ProductDetailPage() {
                 <Card>
                   <CardHeader><CardTitle size="lg">Giá</CardTitle></CardHeader>
                   <CardContent className="space-y-3">
-                    <DetailField label="Giá vốn" value={formatCurrency(product.costPrice ?? 0)} />
-                    {product.type !== 'combo' && <DetailField label="Giá nhập gần nhất" value={formatCurrency(product.lastPurchasePrice ?? 0)} />}
-                    {product.type !== 'combo' && supplier && <DetailField label="NCC chính" value={<Link href={`/suppliers/${supplier.systemId}`} className="text-primary hover:underline">{supplier.name}</Link>} />}
-                    {product.type !== 'combo' && <DetailField label="Ngày nhập gần nhất" value={product.lastPurchaseDate ? formatDateForDisplay(product.lastPurchaseDate) : '-'} />}
+                    {can('edit_products') && <DetailField label="Giá vốn" value={formatCurrency(product.costPrice ?? 0)} />}
+                    {product.type !== 'combo' && can('edit_products') && <DetailField label="Giá nhập gần nhất" value={formatCurrency(product.lastPurchasePrice ?? 0)} />}
+                    {product.type !== 'combo' && can('edit_products') && supplier && <DetailField label="NCC chính" value={<Link href={`/suppliers/${supplier.systemId}`} className="text-primary hover:underline">{supplier.name}</Link>} />}
+                    {product.type !== 'combo' && can('edit_products') && <DetailField label="Ngày nhập gần nhất" value={product.lastPurchaseDate ? formatDateForDisplay(product.lastPurchaseDate) : '-'} />}
                   </CardContent>
                 </Card>
                 <Card>
@@ -1245,7 +1257,7 @@ export function ProductDetailPage() {
               <TabsList>
                 <TabsTrigger value="inventory">Tồn kho</TabsTrigger>
                 <TabsTrigger value="stock-history">Lịch sử kho</TabsTrigger>
-                {product.type !== 'combo' && <TabsTrigger value="price-history">Lịch sử giá nhập</TabsTrigger>}
+                {product.type !== 'combo' && can('edit_products') && <TabsTrigger value="price-history">Lịch sử giá nhập</TabsTrigger>}
               </TabsList>
               
               {/* Sub-tab: Tồn kho theo chi nhánh */}
@@ -1256,13 +1268,14 @@ export function ProductDetailPage() {
                     onInTransitClick={(b) => { setInTransitBranch({ systemId: b.systemId, name: b.name }); setInTransitDialogOpen(true); }}
                   />
                 ) : (
+                  <div className="overflow-x-auto -mx-4 px-4">
                   <Table>
                     <TableHeader>
                       <TableRow>
                         <TableHead>Chi nhánh</TableHead>
                         <TableHead>Tồn kho</TableHead>
-                        <TableHead>Giá vốn (đ/SP)</TableHead>
-                        <TableHead>Giá trị tồn</TableHead>
+                        {can('edit_products') && <TableHead>Giá vốn (đ/SP)</TableHead>}
+                        {can('edit_products') && <TableHead>Giá trị tồn</TableHead>}
                         <TableHead>Có thể bán</TableHead>
                         <TableHead>Chờ xuất kho</TableHead>
                         <TableHead>Đang về</TableHead>
@@ -1301,8 +1314,8 @@ export function ProductDetailPage() {
                             <TableCell className={getStockStatusClass()}>
                               {onHand}
                             </TableCell>
-                            <TableCell>{formatCurrency(product.costPrice || 0)}</TableCell>
-                            <TableCell>{formatCurrency(inventoryValue)}</TableCell>
+                            {can('edit_products') && <TableCell>{formatCurrency(product.costPrice || 0)}</TableCell>}
+                            {can('edit_products') && <TableCell>{formatCurrency(inventoryValue)}</TableCell>}
                             <TableCell className={availableToSell < 0 ? 'text-red-600 font-semibold' : ''}>{availableToSell}</TableCell>
                             <TableCell className={committed > 0 ? 'text-primary cursor-pointer hover:underline' : ''} onClick={() => committed > 0 && (setSelectedBranch({ systemId: branch.systemId, name: branch.name }), setCommittedDialogOpen(true))}>{committed}</TableCell>
                             <TableCell className={inTransit > 0 ? 'text-primary cursor-pointer hover:underline' : ''} onClick={() => inTransit > 0 && (setInTransitBranch({ systemId: branch.systemId, name: branch.name }), setInTransitDialogOpen(true))}>{inTransit}</TableCell>
@@ -1310,12 +1323,13 @@ export function ProductDetailPage() {
                             <TableCell className={branchSold > 0 ? 'text-primary cursor-pointer hover:underline' : ''} onClick={() => branchSold > 0 && (setSoldBranch({ systemId: branch.systemId, name: branch.name }), setSoldDialogOpen(true))}>{branchSold}</TableCell>
                             <TableCell>{reorderLevel}</TableCell>
                             <TableCell>{maxStock}</TableCell>
-                            <TableCell>{product.warehouseLocation || product.storageLocationSystemId || '-'}</TableCell>
+                            <TableCell>{product.warehouseLocation || storageLocation?.name || '-'}</TableCell>
                           </TableRow>
                         );
                       })}
                     </TableBody>
                   </Table>
+                  </div>
                 )}
               </TabsContent>
               
@@ -1333,7 +1347,7 @@ export function ProductDetailPage() {
               </TabsContent>
               
               {/* Sub-tab: Lịch sử giá nhập */}
-              {product.type !== 'combo' && (
+              {product.type !== 'combo' && can('edit_products') && (
                 <TabsContent value="price-history" className="mt-4">
                   <RelatedDataTable data={purchasePriceHistory} columns={purchasePriceHistoryColumns} searchKeys={['supplierName', 'reference', 'note']} searchPlaceholder="Tìm kiếm..." dateFilterColumn="date" dateFilterTitle="Ngày" exportFileName={`Lich_su_gia_${product.id}`}>
                     <Select value={priceHistoryBranchFilter} onValueChange={(v) => setPriceHistoryBranchFilter(v === 'all' ? 'all' : asSystemId(v))}>
@@ -1364,13 +1378,7 @@ export function ProductDetailPage() {
         />
 
         {/* Activity History */}
-        <ActivityHistory
-            history={activityHistory}
-            title="Lịch sử hoạt động"
-            emptyMessage="Chưa có lịch sử hoạt động"
-            groupByDate
-            maxHeight="600px"
-        />
+        <EntityActivityTable entityType="product" entityId={product.systemId} />
 
         {/* Committed Stock Dialog */}
         {selectedBranch && (

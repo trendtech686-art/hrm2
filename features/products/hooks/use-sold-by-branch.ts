@@ -1,53 +1,25 @@
-import * as React from 'react';
-import { useAllOrders } from '../../orders/hooks/use-all-orders';
-import { useProductFinder } from './use-all-products';
+import { useQuery } from '@tanstack/react-query';
 import type { SystemId } from '@/lib/id-types';
 
+async function fetchSoldCount(productSystemId: string): Promise<Record<string, number>> {
+  const res = await fetch(`/api/products/${encodeURIComponent(productSystemId)}/sold-count`);
+  if (!res.ok) throw new Error('Failed to fetch sold count');
+  const json = await res.json();
+  return json.data ?? {};
+}
+
 /**
- * Hook to calculate sold quantity per branch for a product
+ * Hook to get sold quantity per branch for a product
+ * ✅ OPTIMIZED: Uses server-side aggregation instead of fetching ALL orders
  */
 export function useSoldByBranch(productSystemId: SystemId | undefined) {
-  const { data: allOrders, isLoading } = useAllOrders();
-  const { findById: findProductById } = useProductFinder();
-
-  const product = React.useMemo(
-    () => productSystemId ? findProductById(productSystemId) : undefined,
-    [productSystemId, findProductById]
-  );
-
-  const soldByBranch = React.useMemo((): Record<string, number> => {
-    if (!product || !productSystemId) return {};
-    
-    const productSku = product.id;
-    const result: Record<string, number> = {};
-    const completedStatuses = ['COMPLETED', 'DELIVERED', 'Hoàn thành', 'Đã giao hàng'];
-
-    for (const order of allOrders) {
-      // Only count completed orders
-      if (!completedStatuses.includes(order.status)) continue;
-
-      // Get branch
-      const branchId = (order as { branchSystemId?: string; branchId?: string }).branchSystemId || 
-                       (order as { branchId?: string }).branchId;
-      if (!branchId) continue;
-
-      // Check if order has this product
-      const lineItem = order.lineItems?.find(
-        (item: { productSystemId?: string; productId?: string; productSku?: string }) =>
-          item.productSystemId === productSystemId ||
-          item.productId === productSystemId ||
-          (productSku && item.productId === productSku) ||
-          (productSku && item.productSku === productSku)
-      );
-
-      if (lineItem) {
-        const qty = (lineItem as { quantity: number }).quantity;
-        result[branchId] = (result[branchId] || 0) + qty;
-      }
-    }
-
-    return result;
-  }, [allOrders, product, productSystemId]);
+  const { data: soldByBranch = {}, isLoading } = useQuery({
+    queryKey: ['products', 'sold-count', productSystemId],
+    queryFn: () => fetchSoldCount(productSystemId!),
+    enabled: !!productSystemId,
+    staleTime: 2 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+  });
 
   return { soldByBranch, isLoading };
 }

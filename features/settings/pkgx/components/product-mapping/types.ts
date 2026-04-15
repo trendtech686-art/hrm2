@@ -59,6 +59,7 @@ export type PushSyncFieldKey = typeof PUSH_SYNC_FIELDS[number]['key'];
  */
 export interface PkgxProductRow extends PkgxProduct {
   systemId: string;
+  synced_at?: number; // Unix timestamp - thời gian sync/cập nhật trên HRM
   linkedHrmProduct?: {
     systemId: SystemId;
     name: string;

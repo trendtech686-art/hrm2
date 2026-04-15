@@ -3,22 +3,23 @@
  * Returns stock transfer statistics
  */
 
-import { NextResponse } from 'next/server';
 import { getStockTransferStats } from '@/lib/data/stock-transfers';
+import { requireAuth, apiError, apiSuccess } from '@/lib/api-utils'
+import { logError } from '@/lib/logger'
 
 export async function GET(request: Request) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { searchParams } = new URL(request.url);
     const branchId = searchParams.get('branchId') || undefined;
     
     const stats = await getStockTransferStats(branchId);
     
-    return NextResponse.json(stats);
+    return apiSuccess(stats);
   } catch (error) {
-    console.error('Error fetching stock transfer stats:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch stock transfer stats' },
-      { status: 500 }
-    );
+    logError('Error fetching stock transfer stats', error);
+    return apiError('Lỗi khi lấy thống kê chuyển kho', 500);
   }
 }

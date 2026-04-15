@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@/generated/prisma/client'
-import { requireAuth, apiError } from '@/lib/api-utils'
+import { apiHandler } from '@/lib/api-handler'
 import { NextResponse } from 'next/server'
 
 /**
@@ -50,6 +50,25 @@ const PRODUCT_LIST_SELECT = {
   maxStock: true,
   sellerNote: true,
   warrantyPeriodMonths: true,
+  // SEO fields
+  ktitle: true,
+  seoDescription: true,
+  seoKeywords: true,
+  seoPkgx: true,
+  seoTrendtech: true,
+  shortDescription: true,
+  description: true,
+  // Tem phụ fields
+  nameVat: true,
+  origin: true,
+  usageGuide: true,
+  importerSystemId: true,
+  importerName: true,
+  importerAddress: true,
+  // Logistics
+  weight: true,
+  weightUnit: true,
+  dimensions: true,
   // Include brand name to avoid separate lookup
   brand: {
     select: {
@@ -60,11 +79,7 @@ const PRODUCT_LIST_SELECT = {
 } as const
 
 // GET /api/products/list - Optimized list endpoint
-export async function GET(request: Request) {
-  const session = await requireAuth()
-  if (!session) return apiError('Unauthorized', 401)
-
-  try {
+export const GET = apiHandler(async (request, _ctx) => {
     const { searchParams } = new URL(request.url)
     const page = parseInt(searchParams.get('page') || '1', 10)
     const limit = Math.min(parseInt(searchParams.get('limit') || '20', 10), 100) // Max 100 per page
@@ -142,36 +157,9 @@ export async function GET(request: Request) {
       where.pkgxId = null
     }
 
-    // Stock filter - now uses computed columns for database-level filtering
-    if (stockFilter && stockFilter !== 'all') {
-      switch (stockFilter) {
-        case 'out-of-stock':
-          where.totalInventory = { lte: 0 }
-          break
-        case 'low-stock':
-          // totalInventory > 0 AND totalInventory <= reorderLevel
-          where.AND = [
-            { totalInventory: { gt: 0 } },
-            { reorderLevel: { not: null } },
-            // Using raw query for comparison between columns
-          ]
-          // For now, we'll still need post-filter for comparing with reorderLevel
-          break
-        case 'below-safety':
-          where.AND = [
-            { safetyStock: { not: null } },
-          ]
-          break
-        case 'in-stock':
-          where.totalInventory = { gt: 0 }
-          break
-        case 'high-stock':
-          where.AND = [
-            { maxStock: { not: null } },
-          ]
-          break
-      }
-    }
+    // Stock filter - applied via post-filter using productInventory relation (source of truth)
+    // Database-level pre-filter is intentionally skipped because product.totalInventory
+    // may be stale. The real filtering happens in the post-filter section below.
 
     // Build ORDER BY
     const orderBy: Prisma.ProductOrderByWithRelationInput = {}
@@ -210,22 +198,23 @@ export async function GET(request: Request) {
     let adjustedTotal = total
     
     if (stockFilter && stockFilter !== 'all') {
-      // Now using computed totalInventory column - only need post-filter for comparing columns
+      // Compute real inventory from productInventory relation (source of truth)
       filteredProducts = products.filter(product => {
-        const totalInventory = product.totalInventory ?? 0
+        const realInventory = Array.isArray(product.productInventory)
+          ? product.productInventory.reduce((sum, inv) => sum + Number(inv.onHand || 0), 0)
+          : (product.totalInventory ?? 0)
         
         switch (stockFilter) {
           case 'out-of-stock':
-            // Already filtered at database level, but double-check
-            return totalInventory <= 0
+            return realInventory <= 0
           case 'low-stock':
-            return totalInventory > 0 && product.reorderLevel != null && totalInventory <= product.reorderLevel
+            return realInventory > 0 && product.reorderLevel != null && realInventory <= product.reorderLevel
           case 'below-safety':
-            return product.safetyStock != null && totalInventory < product.safetyStock
+            return product.safetyStock != null && realInventory < product.safetyStock
           case 'in-stock':
-            return totalInventory > 0
+            return realInventory > 0
           case 'high-stock':
-            return product.maxStock != null && totalInventory > product.maxStock
+            return product.maxStock != null && realInventory > product.maxStock
           default:
             return true
         }
@@ -264,6 +253,8 @@ export async function GET(request: Request) {
         costPrice: product.costPrice ? Number(product.costPrice) : 0,
         // Denormalize brand name for fast display
         brandName: product.brand?.name ?? null,
+        // Derive singular categorySystemId for column display
+        categorySystemId: (product.categorySystemIds as string[])?.[0] || null,
         // Transform productInventory to inventoryByBranch
         inventoryByBranch,
         committedByBranch,
@@ -274,17 +265,14 @@ export async function GET(request: Request) {
       };
     })
 
+    const finalTotal = stockFilter && stockFilter !== 'all' ? adjustedTotal : total
     return NextResponse.json({
       data: transformedProducts,
       pagination: {
         page,
         limit,
-        total: stockFilter && stockFilter !== 'all' ? adjustedTotal : total,
-        totalPages: Math.ceil((stockFilter && stockFilter !== 'all' ? adjustedTotal : total) / limit),
+        total: finalTotal,
+        totalPages: Math.ceil(finalTotal / limit),
       },
     })
-  } catch (error) {
-    console.error('Error fetching products list:', error)
-    return apiError('Failed to fetch products', 500)
-  }
-}
+})

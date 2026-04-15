@@ -4,6 +4,8 @@ import { AttendanceStatus } from '@/generated/prisma/client'
 import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
 import { createAttendanceSchema } from './validation'
 import { generateNextIds } from '@/lib/id-system'
+import { logError } from '@/lib/logger'
+import { getUserNameFromDb } from '@/lib/get-user-name'
 
 // GET /api/attendance - List attendance records
 export async function GET(request: Request) {
@@ -74,7 +76,7 @@ export async function GET(request: Request) {
 
     return apiPaginated(records, { page, limit, total })
   } catch (error) {
-    console.error('Error fetching attendance:', error)
+    logError('Error fetching attendance', error)
     return apiError('Failed to fetch attendance', 500)
   }
 }
@@ -135,6 +137,20 @@ export async function POST(request: Request) {
         },
         include: { employee: true },
       })
+      // Log activity - check out
+      getUserNameFromDb(session.user?.id).then(userName =>
+        prisma.activityLog.create({
+          data: {
+            entityType: 'attendance',
+            entityId: existing.systemId,
+            action: 'check_out',
+            actionType: 'update',
+            note: `Check-out chấm công`,
+            metadata: { userName },
+            createdBy: userName,
+          }
+        })
+      ).catch(e => logError('[ActivityLog] attendance check_out failed', e))
       return apiSuccess(attendance)
     }
 
@@ -152,9 +168,24 @@ export async function POST(request: Request) {
       include: { employee: true },
     })
 
+    // Log activity - check in
+    getUserNameFromDb(session.user?.id).then(userName =>
+      prisma.activityLog.create({
+        data: {
+          entityType: 'attendance',
+          entityId: attendSystemId,
+          action: 'check_in',
+          actionType: 'create',
+          note: `Check-in chấm công`,
+          metadata: { userName },
+          createdBy: userName,
+        }
+      })
+    ).catch(e => logError('[ActivityLog] attendance check_in failed', e))
+
     return apiSuccess(attendance, 201)
   } catch (error) {
-    console.error('Error creating attendance:', error)
+    logError('Error creating attendance', error)
     return apiError('Failed to create attendance', 500)
   }
 }
@@ -219,7 +250,7 @@ async function handleBulkSave(body: { monthKey: string; data?: EmployeeAttendanc
 
     return apiError('Invalid data format', 400)
   } catch (error) {
-    console.error('Error in bulk save:', error)
+    logError('Error in bulk save', error)
     return apiError('Failed to bulk save attendance', 500)
   }
 }
@@ -235,7 +266,7 @@ async function handleSingleRecordUpdate(body: { monthKey: string; employeeSystem
     await upsertAttendanceRecord(employeeSystemId, date, record)
     return apiSuccess({ success: true })
   } catch (error) {
-    console.error('Error updating single record:', error)
+    logError('Error updating single record', error)
     return apiError('Failed to update attendance record', 500)
   }
 }
@@ -322,7 +353,7 @@ export async function PATCH(request: Request) {
 
     return apiError('Invalid action. Use "lock" or "unlock"', 400)
   } catch (error) {
-    console.error('Error in attendance PATCH:', error)
+    logError('Error in attendance PATCH', error)
     return apiError('Failed to process request', 500)
   }
 }

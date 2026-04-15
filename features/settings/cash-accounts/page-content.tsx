@@ -4,6 +4,7 @@ import { useCashAccountMutations } from "../../cashbook/hooks/use-cashbook";
 import { useAllCashAccounts } from "./hooks/use-cash-accounts";
 import { useAccountBalances } from "../../cashbook/hooks/use-account-balances";
 import { useAllBranches } from "../branches/hooks/use-all-branches";
+import { useAllPaymentMethods } from "../payments/hooks/use-all-payment-methods";
 import type { CashAccount } from "../../cashbook/types";
 import { CashAccountForm, type CashAccountFormValues } from "./form";
 import { getCashAccountColumns } from "./columns";
@@ -31,6 +32,7 @@ export function CashAccountsPageContent({ isActive, onRegisterActions }: CashAcc
   // ✅ Use server-side API for balance calculation (optimized)
   const { data: accountBalances } = useAccountBalances();
   const { data: branches } = useAllBranches();
+  const { data: paymentMethods } = useAllPaymentMethods();
   
   // Merge account data with server-calculated balances
   const accountsWithBalance = React.useMemo(() => {
@@ -84,7 +86,7 @@ export function CashAccountsPageContent({ isActive, onRegisterActions }: CashAcc
   
   const handleToggleStatus = React.useCallback((item: CashAccount, isActive: boolean) => {
     update.mutate(
-      { systemId: item.systemId, data: { ...item, isActive } },
+      { systemId: item.systemId, data: { isActive } },
       { onSuccess: () => toast.success(isActive ? `Đã kích hoạt "${item.name}"` : `Đã tắt "${item.name}"`) }
     );
   }, [update]);
@@ -117,7 +119,7 @@ export function CashAccountsPageContent({ isActive, onRegisterActions }: CashAcc
     setIdToDelete(null);
   };
   
-  const normalizeFormValues = (values: CashAccountFormValues): Omit<CashAccount, 'systemId'> => {
+  const normalizeFormValues = (values: CashAccountFormValues): Omit<CashAccount, 'systemId'> & { accountType?: string } => {
     const sanitizedId = values.id.trim().toUpperCase();
     const sanitizedName = values.name.trim();
     const branchId = values.branchSystemId ? asSystemId(values.branchSystemId) : undefined;
@@ -135,11 +137,15 @@ export function CashAccountsPageContent({ isActive, onRegisterActions }: CashAcc
     const bankCode = trimmed(values.bankCode);
     const accountHolder = trimmed(values.accountHolder);
 
+    // Suy ra type (cash/bank) từ thông tin ngân hàng
+    const type = bankAccountNumber ? 'bank' as const : 'cash' as const;
+
     return {
       id: asBusinessId(sanitizedId),
       name: sanitizedName,
       initialBalance: values.initialBalance,
-      type: values.type,
+      type,
+      accountType: values.paymentMethodSystemId,
       isActive: values.isActive,
       ...(values.isDefault !== undefined ? { isDefault: values.isDefault } : {}),
       ...(bankAccountNumber ? { bankAccountNumber } : {}),
@@ -159,7 +165,7 @@ export function CashAccountsPageContent({ isActive, onRegisterActions }: CashAcc
       const payload = normalizeFormValues(values);
       if (editingItem) {
         update.mutate(
-          { systemId: editingItem.systemId, data: { ...editingItem, ...payload } },
+          { systemId: editingItem.systemId, data: payload },
           { onSuccess: () => toast.success("Cập nhật thành công") }
         );
       } else {
@@ -212,6 +218,26 @@ export function CashAccountsPageContent({ isActive, onRegisterActions }: CashAcc
     return branch?.name || '';
   }, [branches]);
 
+  const getPaymentMethodName = React.useCallback((accountType?: string | null, type?: string) => {
+    // Ưu tiên: tìm theo accountType (systemId của hình thức thanh toán)
+    if (accountType) {
+      const method = paymentMethods.find(pm => String(pm.systemId) === accountType);
+      if (method) return method.name;
+    }
+    // Fallback cho dữ liệu cũ: suy luận từ type (cash/bank)
+    if (type) {
+      const isCash = type === 'cash';
+      const method = paymentMethods.find(pm => {
+        const name = pm.name.toLowerCase();
+        return isCash
+          ? (name.includes('tiền mặt') || name === 'cash')
+          : (name.includes('chuyển khoản') || name.includes('bank'));
+      });
+      if (method) return method.name;
+    }
+    return '—';
+  }, [paymentMethods]);
+
   const columns = React.useMemo(
     () => getCashAccountColumns({
       onEdit: handleEdit,
@@ -220,8 +246,9 @@ export function CashAccountsPageContent({ isActive, onRegisterActions }: CashAcc
       onToggleDefault: handleToggleDefault,
       onSetDefault: handleSetDefault,
       getBranchName,
+      getPaymentMethodName,
     }),
-    [handleEdit, handleToggleStatus, handleToggleDefault, handleSetDefault, getBranchName]
+    [handleEdit, handleToggleStatus, handleToggleDefault, handleSetDefault, getBranchName, getPaymentMethodName]
   );
 
   return (

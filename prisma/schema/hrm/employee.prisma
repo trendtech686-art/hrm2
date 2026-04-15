@@ -66,6 +66,7 @@ model Employee {
 
   isDeleted                         Boolean            @default(false)
   deletedAt                         DateTime?
+  permanentlyDeletedAt              DateTime?          // Lưu trữ vĩnh viễn: xóa PII nhưng giữ record cho referential integrity
   createdAt                         DateTime           @default(now())
   updatedAt                         DateTime           @updatedAt
   createdBy                         String?
@@ -86,6 +87,8 @@ model Employee {
   user                              User?
   wikiArticles                      Wiki[]
   assignedPackagings                Packaging[]
+  notificationsReceived             Notification[]     @relation("NotificationRecipient")
+  notificationsSent                 Notification[]     @relation("NotificationSender")
 
   @@index([branchId])
   @@index([departmentId])

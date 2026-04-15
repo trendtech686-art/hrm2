@@ -9,13 +9,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Button } from '../../../components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../../components/ui/dialog';
 import { Textarea } from '../../../components/ui/textarea';
-import { useAllProducts, useProductFinder } from '../../products/hooks/use-all-products';
+import { useProductsByIds } from '../../products/hooks/use-products';
 import { useAllPricingPolicies } from '../../settings/pricing/hooks/use-all-pricing-policies';
 import { Separator } from '../../../components/ui/separator';
 import { ProductTableBottomToolbar } from './product-table-bottom-toolbar';
 import { useImageStore } from '../../products/image-store';
 import { useProductImage } from '../../products/components/product-image';
-import { FileUploadAPI, type StagingFile, type ServerFile } from '@/lib/file-upload-api';
 import { ImagePreviewDialog } from '../../../components/ui/image-preview-dialog';
 import { LazyImage } from '../../../components/ui/lazy-image';
 import { isComboProduct, calculateComboStock } from '../../products/combo-utils';
@@ -23,6 +22,7 @@ import { TaxSelector } from './tax-selector';
 import type { Product } from '../../products/types';
 import type { SystemId } from '@/lib/id-types';
 import type { Control, FieldValues } from 'react-hook-form';
+
 
 // Type for line item in the form
 type FormLineItem = {
@@ -39,6 +39,7 @@ type FormLineItem = {
     taxId?: string;
     total: number;
     note?: string;
+    thumbnailImage?: string;
 };
 
 const formatCurrency = (value?: number) => {
@@ -116,6 +117,8 @@ const LineItemRow = React.memo(({
     allowNoteEdit,
     fieldName = 'lineItems',
     onTaxChange,
+    productsMap,
+    prefetchedPricingPolicies,
 }: {
     item: FormLineItem;
     index: number;
@@ -129,10 +132,13 @@ const LineItemRow = React.memo(({
     allowNoteEdit?: boolean;
     fieldName?: string;
     onTaxChange: (index: number, taxId: string, rate: number) => void;
+    productsMap: Map<string, Product>;
+    // ⚡ OPTIMIZED: Optional prefetched data
+    prefetchedPricingPolicies?: Array<{ systemId: string; name: string; type: string; isDefault: boolean }>;
 }) => {
-    const { findById: findProductById } = useProductFinder();
-    const { data: allProducts } = useAllProducts();
-    const { data: pricingPolicies } = useAllPricingPolicies();
+    // ⚡ OPTIMIZED: Use prefetched data if available, otherwise fetch
+    const { data: fetchedPolicies } = useAllPricingPolicies({ enabled: !prefetchedPricingPolicies });
+    const pricingPolicies = prefetchedPricingPolicies ?? fetchedPolicies ?? [];
     const effectivePolicyId = React.useMemo(() => {
         if (pricingPolicyId) {
             return pricingPolicyId;
@@ -158,14 +164,15 @@ const LineItemRow = React.memo(({
     
     // Note: total is set by OrderCalculations component in order-form-page.tsx, not here
     
-    const product = React.useMemo(() => findProductById(item.productSystemId), [item.productSystemId, findProductById]);
+    // ✅ Use productsMap (fetched by useProductsByIds) instead of cache-only useProductFinder
+    const product = React.useMemo(() => productsMap.get(item.productSystemId), [item.productSystemId, productsMap]);
     
     // Check if product is a combo and get combo items
     const isCombo = product?.type === 'combo';
     const comboItems = React.useMemo(() => {
         if (!isCombo || !product?.comboItems) return [];
         return product.comboItems.map(ci => {
-            const childProduct = allProducts.find(p => p.systemId === ci.productSystemId);
+            const childProduct = productsMap.get(ci.productSystemId);
             let price = 0;
             if (childProduct) {
                 if (effectivePolicyId && childProduct.prices?.[effectivePolicyId]) {
@@ -183,12 +190,11 @@ const LineItemRow = React.memo(({
                 price,
             };
         });
-    }, [isCombo, product?.comboItems, allProducts, effectivePolicyId]);
+    }, [isCombo, product?.comboItems, productsMap, effectivePolicyId]);
 
     // ✅ Get image from store
     const permanentImages = useImageStore(state => state.permanentImages[item.productSystemId]);
     const lastFetched = useImageStore(state => state.permanentMeta[item.productSystemId]?.lastFetched);
-    const updatePermanentImages = useImageStore(state => state.updatePermanentImages);
 
     const storeThumbnail = permanentImages?.thumbnail?.[0]?.url;
     const storeGallery = permanentImages?.gallery?.[0]?.url;
@@ -204,39 +210,17 @@ const LineItemRow = React.memo(({
             if (productImage) return productImage;
         }
         // 3. ✅ Fallback to item.thumbnailImage (từ copy hoặc API)
-        return (item as FormLineItem & { thumbnailImage?: string }).thumbnailImage;
+        return item.thumbnailImage;
     }, [storeThumbnail, storeGallery, product, item]);
 
-    // ✅ Fetch image if missing
+    // ✅ Fetch image if missing (uses batch queue)
     React.useEffect(() => {
         if (!displayImage && !lastFetched && item.productSystemId) {
-            FileUploadAPI.getProductFiles(item.productSystemId)
-                .then(files => {
-                    const mapToServerFile = (f: ServerFile) => ({
-                        id: f.id,
-                        sessionId: '',
-                        name: f.name,
-                        originalName: f.originalName,
-                        slug: f.slug,
-                        filename: f.filename,
-                        size: f.size,
-                        type: f.type,
-                        url: f.url,
-                        status: 'permanent' as const,
-                        uploadedAt: f.uploadedAt,
-                        metadata: f.metadata
-                    });
-
-                    const thumbnailFiles = files.filter(f => f.documentName === 'thumbnail').map(mapToServerFile);
-                    const galleryFiles = files.filter(f => f.documentName === 'gallery').map(mapToServerFile);
-                    
-                    // Update store (this will also set lastFetched)
-                    updatePermanentImages(item.productSystemId, 'thumbnail', thumbnailFiles as unknown as StagingFile[]);
-                    updatePermanentImages(item.productSystemId, 'gallery', galleryFiles as unknown as StagingFile[]);
-                })
-                .catch(err => console.error("Failed to load product image", err));
+            import('@/features/products/image-store').then(({ queueProductImageFetch }) => {
+                queueProductImageFetch(item.productSystemId);
+            });
         }
-    }, [item.productSystemId, displayImage, lastFetched, updatePermanentImages]);
+    }, [item.productSystemId, displayImage, lastFetched]);
 
     // ✅ Memoize stock calculation
     const stockInfo = React.useMemo(() => {
@@ -245,7 +229,10 @@ const LineItemRow = React.memo(({
         }
 
         if (isComboProduct(product) && product.comboItems?.length) {
-            const available = calculateComboStock(product.comboItems, allProducts, branchSystemId as SystemId);
+            const comboChildProducts = product.comboItems
+                .map(ci => productsMap.get(ci.productSystemId))
+                .filter((p): p is Product => !!p);
+            const available = calculateComboStock(product.comboItems, comboChildProducts, branchSystemId as SystemId);
             return { stock: available, isValid: true };
         }
         
@@ -255,7 +242,7 @@ const LineItemRow = React.memo(({
         
         const stock = product.inventoryByBranch[branchSystemId] || 0;
         return { stock, isValid: true };
-    }, [branchSystemId, product, allProducts]);
+    }, [branchSystemId, product, productsMap]);
 
     const productTypeLabel = React.useMemo(() => {
         if (!product) return '';
@@ -323,13 +310,11 @@ const LineItemRow = React.memo(({
                 <TableCell>
                     <div className="flex flex-col gap-1">
                         <div className="flex items-center gap-2">
-                            <Link href={`/products/${item.productSystemId}`}
-                                className="font-medium text-primary hover:underline"
-                            >
+                            <span className="font-medium">
                                 {item.productName}
-                            </Link>
+                            </span>
                             {isCombo && (
-                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground font-medium">
+                                <span className="text-xs px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground font-medium">
                                     COMBO
                                 </span>
                             )}
@@ -543,7 +528,7 @@ const LineItemRow = React.memo(({
 
 LineItemRow.displayName = 'LineItemRow';
 
-export const LineItemsTable = ({ disabled, onAddService, onApplyPromotion, fields: parentFields, remove: parentRemove, pricingPolicyId, allowNoteEdit, fieldName = 'lineItems' }: { 
+export const LineItemsTable = ({ disabled, onAddService, onApplyPromotion, fields: parentFields, remove: parentRemove, pricingPolicyId, allowNoteEdit, fieldName = 'lineItems', prefetchedPricingPolicies }: { 
     disabled: boolean; 
     onAddService?: () => void;
     onApplyPromotion?: () => void;
@@ -552,6 +537,8 @@ export const LineItemsTable = ({ disabled, onAddService, onApplyPromotion, field
     pricingPolicyId?: string;
     allowNoteEdit?: boolean;
     fieldName?: string;
+    // ⚡ OPTIMIZED: Optional prefetched data to avoid duplicate API calls
+    prefetchedPricingPolicies?: Array<{ systemId: string; name: string; type: string; isDefault: boolean }>;
 }) => {
     const { control, setValue, getValues } = useFormContext();
     
@@ -562,6 +549,36 @@ export const LineItemsTable = ({ disabled, onAddService, onApplyPromotion, field
         control,
         name: "serviceFees",
     });
+    
+    // ✅ Batch-fetch only the products in the current form (NOT all products)
+    const lineItemProductIds = React.useMemo(
+        () => fields.map(f => f.productSystemId),
+        [fields]
+    );
+    const { productsMap: baseProductsMap } = useProductsByIds(lineItemProductIds);
+    
+    // Collect combo children IDs for a second-pass fetch
+    const comboChildIds = React.useMemo(() => {
+        const ids: string[] = [];
+        for (const [, product] of baseProductsMap) {
+            if (product.type === 'combo' && product.comboItems?.length) {
+                for (const ci of product.comboItems) {
+                    ids.push(ci.productSystemId);
+                }
+            }
+        }
+        return ids;
+    }, [baseProductsMap]);
+    const { productsMap: comboChildMap } = useProductsByIds(comboChildIds);
+    
+    // Merge maps for a single lookup
+    const productsMap = React.useMemo(() => {
+        const merged = new Map(baseProductsMap);
+        for (const [k, v] of comboChildMap) {
+            if (!merged.has(k)) merged.set(k, v);
+        }
+        return merged;
+    }, [baseProductsMap, comboChildMap]);
     
     // ✅ Đổi watch ở useWatch để tối ưu performance
     const branchSystemId = useWatch({ control, name: 'branchSystemId' });
@@ -601,7 +618,7 @@ export const LineItemsTable = ({ disabled, onAddService, onApplyPromotion, field
     }, [setValue, fieldName]);
 
     return (
-        <div className="border border-border rounded-md">
+        <div className="border border-border rounded-md overflow-x-auto">
             <Table>
                 <TableHeader>
                     <TableRow>
@@ -633,6 +650,8 @@ export const LineItemsTable = ({ disabled, onAddService, onApplyPromotion, field
                             {...(typeof pricingPolicyId === 'string' ? { pricingPolicyId } : {})}
                             allowNoteEdit={allowNoteEdit}
                             fieldName={fieldName}
+                            productsMap={productsMap}
+                            prefetchedPricingPolicies={prefetchedPricingPolicies}
                         />
                     ))}
                     

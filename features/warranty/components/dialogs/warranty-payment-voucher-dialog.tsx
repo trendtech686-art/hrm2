@@ -30,10 +30,10 @@ import { usePaymentMutations } from '../../../payments/hooks/use-payments';
 import { useWarrantyPayments, useWarrantyReceipts } from '../../hooks/use-warranty-financial-data';
 // addHistory was a Zustand store mutator (now deleted) - history is tracked in DB via mutations
 const addHistory = (..._args: unknown[]) => { /* no-op: store removed, history tracked in DB */ };
-import { useAllOrders } from '../../../orders/hooks/use-all-orders';
 import { useOrderMutations } from '../../../orders/hooks/use-order-mutations';
-import { useWarrantyMutations } from '../../hooks/use-warranties';
-import { useWarrantyFinder } from '../../hooks/use-all-warranties';
+import type { Order } from '@/lib/types/prisma-extended';
+import { useQuery } from '@tanstack/react-query';
+import { useWarranty } from '../../hooks/use-warranties';
 import type { SettlementType, WarrantyVoucherDialogBaseProps } from '../../types';
 import { useAllPaymentTypes } from '../../../settings/payments/types/hooks/use-all-payment-types';
 import { useAllPaymentMethods } from '../../../settings/payments/hooks/use-all-payment-methods';
@@ -45,9 +45,9 @@ import type { Payment } from '../../../payments/types';
 import { useAuth } from '../../../../contexts/auth-context';
 import { asSystemId, asBusinessId } from '@/lib/id-types';
 import { calculateWarrantyProcessingState } from '../logic/processing';
-import { InsufficientBalanceDialog } from './insufficient-balance-dialog';
 import { calculateWarrantySettlementTotal } from '../../utils/payment-calculations';
 import { recordWarrantySettlementMethods, type SettlementMethodInput } from '../../utils/settlement-store';
+import { logError } from '@/lib/logger'
 
 interface WarrantyPaymentVoucherDialogProps extends WarrantyVoucherDialogBaseProps {
   existingPayments?: Payment[] | undefined;
@@ -72,16 +72,32 @@ const detectDirectSettlementType = (paymentMethod?: { id?: string; name: string 
   const normalizedId = paymentMethod.id?.toUpperCase() || '';
   const normalizedName = paymentMethod.name.toLowerCase();
 
-  if (normalizedId === 'TIEN_MAT' || normalizedName.includes('tiền mặt')) {
+  // ✅ Support both Vietnamese and English payment method names
+  if (normalizedId === 'TIEN_MAT' || normalizedName.includes('tiền mặt') || normalizedName.includes('cash')) {
     return 'cash';
   }
 
-  if (normalizedId === 'VI_DIEN_TU' || normalizedName.includes('momo') || normalizedName.includes('ví')) {
+  if (normalizedId === 'VI_DIEN_TU' || normalizedName.includes('momo') || normalizedName.includes('ví') || normalizedName.includes('wallet')) {
     return 'transfer';
   }
 
   return 'transfer';
 };
+
+/**
+ * Calculate the actual deductible amount for an order.
+ * Accounts for: paidAmount, active COD, and linked sales return value.
+ */
+function getOrderDeductibleAmount(order: Order): number {
+  const paidAmount = order.paidAmount || 0;
+  const linkedReturnValue = order.linkedSalesReturnValue || 0;
+  // Sum COD from active (non-cancelled) packagings
+  const activeCodAmount = (order.packagings || []).reduce((sum, pkg) => {
+    if (pkg.status === 'Hủy đóng gói') return sum;
+    return sum + (pkg.codAmount || 0);
+  }, 0);
+  return Math.max(0, order.grandTotal - paidAmount - activeCodAmount - linkedReturnValue);
+}
 
 export function WarrantyPaymentVoucherDialog({
   warrantyId,
@@ -98,15 +114,29 @@ export function WarrantyPaymentVoucherDialog({
   // ⚡ PERFORMANCE: Only fetch data for this specific warranty
   const { data: payments } = useWarrantyPayments(warrantySystemId);
   const { data: receipts } = useWarrantyReceipts(warrantySystemId);
-  // Fetch all orders (auto-paginated) — filter client-side for unshipped
-  const { data: allOrdersRaw } = useAllOrders({ enabled: open });
-  const orders = React.useMemo(() => allOrdersRaw.filter(o => o.stockOutStatus === 'Chưa xuất kho'), [allOrdersRaw]);
+  // Fetch only this customer's unpaid orders (NOT all orders)
+  const { data: orders = [] } = useQuery<Order[]>({
+    queryKey: ['orders', 'customer', customer.systemId, 'unpaid'],
+    queryFn: async () => {
+      if (!customer.systemId) return [];
+      const params = new URLSearchParams();
+      params.set('customerSystemId', customer.systemId);
+      params.set('paymentStatusNot', 'PAID');
+      params.set('limit', '200');
+      const res = await fetch(`/api/orders?${params}`);
+      if (!res.ok) return [];
+      const json = await res.json();
+      return json.data || [];
+    },
+    enabled: open && !!customer.systemId,
+    staleTime: 5 * 60 * 1000,
+  });
   const { update: updateOrder } = useOrderMutations();
-  const { update: _updateWarranty } = useWarrantyMutations();
-  const { findById: findWarrantyById } = useWarrantyFinder();
-  const { data: paymentTypes } = useAllPaymentTypes();
-  const { data: paymentMethods } = useAllPaymentMethods();
-  const { accounts } = useAllCashAccounts();
+  // ✅ Phase 14: useWarranty(id) single-item thay vì useWarrantyFinder (ALL warranties)
+  const { data: ticket } = useWarranty(warrantySystemId);
+  const { data: paymentTypes } = useAllPaymentTypes({ enabled: open });
+  const { data: paymentMethods } = useAllPaymentMethods({ enabled: open });
+  const { accounts } = useAllCashAccounts({ enabled: open });
   const { employee: authEmployee } = useAuth();
 
   const currentUserSystemId = authEmployee?.systemId ?? 'SYSTEM';
@@ -141,23 +171,25 @@ export function WarrantyPaymentVoucherDialog({
     [accounts]
   );
 
+  // Get default account matching the default payment method type
+  const defaultAccountForMethod = React.useMemo(() => {
+    const methodType = defaultPaymentMethod?.type;
+    if (methodType) {
+      return accounts.find(a => a.type === methodType && a.isDefault && a.isActive) ||
+             accounts.find(a => a.type === methodType && a.isActive) ||
+             accounts.find(a => a.isDefault && a.isActive) ||
+             accounts.find(a => a.isActive);
+    }
+    return defaultCashAccount;
+  }, [accounts, defaultPaymentMethod, defaultCashAccount]);
+
   // ✅ Tính số tiền còn lại THỰC TẾ dùng warranty-processing-logic
-  const ticket = React.useMemo(() => 
-    findWarrantyById(asSystemId(warrantySystemId)),
-    [findWarrantyById, warrantySystemId]
-  );
-  
   const actualRemainingAmount = React.useMemo(() => {
     // ✅ Tính lại từ ticket thực tế, KHÔNG dùng defaultAmount (vì nó đã bị trừ)
     if (!ticket) return 0;
     
-    // Tính totalPayment từ ticket (giống WarrantyProcessingCard)
-    const totalPaymentFromTicket = (ticket.products || []).reduce((sum, p) => {
-      if (p.resolution === 'out_of_stock') {
-        return sum + ((p.quantity || 0) * (p.unitPrice || 0));
-      }
-      return sum;
-    }, 0) + (ticket.shippingFee || 0);
+    // Tính totalPayment từ ticket - dùng calculateWarrantySettlementTotal (outOfStock - shippingFee)
+    const totalPaymentFromTicket = calculateWarrantySettlementTotal(ticket);
     
     const state = calculateWarrantyProcessingState(ticket, payments, receipts, totalPaymentFromTicket);
     
@@ -170,8 +202,8 @@ export function WarrantyPaymentVoucherDialog({
       amount: 0, // Sẽ được set trong useEffect
       settlementType: 'direct_payment',
       paymentMethodSystemId: defaultPaymentMethod?.systemId,
-      accountSystemId: defaultCashAccount?.systemId,
-      selectedOrderId: linkedOrderId,
+      accountSystemId: defaultAccountForMethod?.systemId,
+      selectedOrderId: '',
       notes: `Hoàn tiền bảo hành ${warrantyId}`,
       mixedOrderAmount: undefined,
       mixedCashAmount: undefined,
@@ -192,29 +224,29 @@ export function WarrantyPaymentVoucherDialog({
     [paymentMethods, paymentMethodSystemId]
   );
 
-  // Filter accounts based on payment method
-  // Tiền mặt → cash accounts, Chuyển khoản → bank accounts
+  // Filter accounts - so sánh trực tiếp type từ DB
   const filteredAccounts = React.useMemo(() => {
-    if (!selectedPaymentMethod) return accounts.filter(a => a.isActive);
+    const active = accounts.filter(a => a.isActive);
+    if (!selectedPaymentMethod?.type) return active;
     
-    const isCashMethod = selectedPaymentMethod.name.toLowerCase().includes('tiền mặt') || 
-                         selectedPaymentMethod.id === 'TIEN_MAT';
-    const accountType = isCashMethod ? 'cash' : 'bank';
-    
-    return accounts.filter(a => a.isActive && a.type === accountType);
+    const matched = active.filter(a => a.type === selectedPaymentMethod.type);
+    return matched.length > 0 ? matched : active;
   }, [accounts, selectedPaymentMethod]);
 
   // Auto-select appropriate account when payment method changes
   React.useEffect(() => {
-    if (!selectedPaymentMethod || settlementType !== 'direct_payment') return;
+    if (!selectedPaymentMethod) return;
+    if (settlementType !== 'direct_payment' && !needsCashSupplement) return;
     
-    const isCashMethod = selectedPaymentMethod.name.toLowerCase().includes('tiền mặt') || 
-                         selectedPaymentMethod.id === 'TIEN_MAT';
-    const accountType = isCashMethod ? 'cash' : 'bank';
+    // So sánh trực tiếp type từ DB
+    const methodType = selectedPaymentMethod.type;
     
-    // Find default account of the correct type
-    const defaultAccount = accounts.find(a => a.type === accountType && a.isDefault && a.isActive) ||
-                          accounts.find(a => a.type === accountType && a.isActive);
+    // Tìm account mặc định có type khớp, nếu không khớp thì lấy account mặc định bất kỳ
+    const defaultAccount = methodType
+      ? (accounts.find(a => a.type === methodType && a.isDefault && a.isActive) ||
+         accounts.find(a => a.type === methodType && a.isActive) ||
+         accounts.find(a => a.isDefault && a.isActive) || accounts.find(a => a.isActive))
+      : (accounts.find(a => a.isDefault && a.isActive) || accounts.find(a => a.isActive));
     
     if (defaultAccount) {
       setValue('accountSystemId', defaultAccount.systemId);
@@ -228,63 +260,51 @@ export function WarrantyPaymentVoucherDialog({
         amount: actualRemainingAmount, // ✅ Auto-fill số tiền tối đa
         settlementType: 'direct_payment',
         paymentMethodSystemId: defaultPaymentMethod?.systemId,
-        accountSystemId: defaultCashAccount?.systemId,
-        selectedOrderId: linkedOrderId,
+        accountSystemId: defaultAccountForMethod?.systemId,
+        selectedOrderId: '',
         notes: `Hoàn tiền bảo hành ${warrantyId}`,
         mixedOrderAmount: undefined,
         mixedCashAmount: undefined,
       });
     }
-  }, [open, linkedOrderId, warrantyId, reset, defaultPaymentMethod, defaultCashAccount, actualRemainingAmount]);
+  }, [open, warrantyId, reset, defaultPaymentMethod, defaultAccountForMethod, actualRemainingAmount]);
 
-  // Server-side search for orders with debounce - ONLY SHOW ORDERS NOT SHIPPED YET
-  // ✅ FIX: Only search when dialog is open to avoid infinite API calls
+  // Server-side search for orders with debounce
   React.useEffect(() => {
-    // Don't search if dialog is not open
-    if (!open) return;
+    if (!open || !customer.systemId) return;
     
     const performSearch = async () => {
       setIsSearchingOrders(true);
       try {
-        // ⚡ OPTIMIZED: Use API-based search first
-        const results = await searchOrders({ query: orderSearchQuery, limit: 50 });
+        const results = await searchOrders({ query: orderSearchQuery, limit: 50, paymentStatusNot: 'PAID', customerSystemId: customer.systemId });
         
-        // Filter: Only show orders that:
-        // 1. NOT been shipped yet (stockOutStatus === 'Chưa xuất kho')
-        // 2. Still have remaining amount to deduct (grandTotal - paidAmount > 0)
-        // NOTE: We need the orders array for this filtering since API doesn't support these filters yet
-        const unshippedResults = results.filter(result => {
-          const order = orders.find(o => o.systemId === result.value);
-          if (!order) return false;
-          
-          // Check if order is not shipped yet
-          if (order.stockOutStatus !== 'Chưa xuất kho') return false;
-          
-          // Calculate remaining amount (grandTotal - already paid from warranty)
-          const paidAmount = order.paidAmount || 0;
-          const remainingAmount = order.grandTotal - paidAmount;
-          
-          // Only show orders with remaining amount > 0
-          return remainingAmount > 0;
-        });
+        // Enrich results with deductible amount from local orders data
+        const enrichedResults = results
+          .map(result => {
+            const order = orders.find(o => o.systemId === result.value);
+            if (!order) return null;
+            
+            const deductible = getOrderDeductibleAmount(order);
+            if (deductible <= 0) return null;
+            
+            let formattedDate = '';
+            try {
+              const d = new Date(order.orderDate);
+              formattedDate = !isNaN(d.getTime())
+                ? d.toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                : String(order.orderDate);
+            } catch { formattedDate = String(order.orderDate); }
+
+            return {
+              ...result,
+              subtitle: `${order.grandTotal.toLocaleString('vi-VN')} đ • Còn lại: ${deductible.toLocaleString('vi-VN')} đ • ${formattedDate}`,
+            };
+          })
+          .filter(Boolean) as OrderSearchResult[];
         
-        // Update subtitle to show remaining amount
-        const resultsWithRemaining = unshippedResults.map(result => {
-          const order = orders.find(o => o.systemId === result.value);
-          if (!order) return result;
-          
-          const paidAmount = order.paidAmount || 0;
-          const remainingAmount = order.grandTotal - paidAmount;
-          
-          return {
-            ...result,
-            subtitle: `${order.grandTotal.toLocaleString('vi-VN')} đ • Còn lại: ${remainingAmount.toLocaleString('vi-VN')} đ • ${order.orderDate}`,
-          };
-        });
-        
-        setOrderSearchResults(resultsWithRemaining);
+        setOrderSearchResults(enrichedResults);
       } catch (error) {
-        console.error('Order search error:', error);
+        logError('Order search error', error);
         setOrderSearchResults([]);
       } finally {
         setIsSearchingOrders(false);
@@ -292,7 +312,7 @@ export function WarrantyPaymentVoucherDialog({
     };
 
     performSearch();
-  }, [open, orderSearchQuery, orders]);
+  }, [open, orderSearchQuery, orders, customer.systemId]);
 
   // Memoize selected order value for VirtualizedCombobox
   const selectedOrderValue = React.useMemo(() => {
@@ -300,13 +320,21 @@ export function WarrantyPaymentVoucherDialog({
     const order = orders.find(o => o.systemId === selectedOrderId);
     if (!order) return null;
     
-    const paidAmount = order.paidAmount || 0;
-    const remainingAmount = order.grandTotal - paidAmount;
+    const deductible = getOrderDeductibleAmount(order);
     
+    // Format date properly
+    let formattedDate = '';
+    try {
+      const d = new Date(order.orderDate);
+      formattedDate = !isNaN(d.getTime())
+        ? d.toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+        : String(order.orderDate);
+    } catch { formattedDate = String(order.orderDate); }
+
     return {
       value: order.systemId,
       label: `${order.id} - ${order.customerName}`,
-      subtitle: `${order.grandTotal.toLocaleString('vi-VN')} đ • Còn lại: ${remainingAmount.toLocaleString('vi-VN')} đ • ${order.orderDate}`
+      subtitle: `${order.grandTotal.toLocaleString('vi-VN')} đ • Còn lại: ${deductible.toLocaleString('vi-VN')} đ • ${formattedDate}`
     };
   }, [selectedOrderId, orders]);
 
@@ -316,75 +344,52 @@ export function WarrantyPaymentVoucherDialog({
     [orders, selectedOrderId]
   );
 
-  const [insufficientDialogOpen, setInsufficientDialogOpen] = React.useState(false);
-
   const orderRemainingAmount = React.useMemo(() => {
     if (!selectedOrder) return 0;
-    const orderPaidAmount = selectedOrder.paidAmount || 0;
-    return Math.max(selectedOrder.grandTotal - orderPaidAmount, 0);
+    return getOrderDeductibleAmount(selectedOrder);
   }, [selectedOrder]);
 
-  const shortageAmount = React.useMemo(() => {
-    if (!selectedOrder) return 0;
-    return Math.max(actualRemainingAmount - orderRemainingAmount, 0);
-  }, [selectedOrder, actualRemainingAmount, orderRemainingAmount]);
+  // Detect if the selected order doesn't have enough balance for full deduction
+  const needsCashSupplement = React.useMemo(() => {
+    if (settlementType !== 'order_deduction' || !selectedOrder) return false;
+    return orderRemainingAmount < actualRemainingAmount;
+  }, [settlementType, selectedOrder, orderRemainingAmount, actualRemainingAmount]);
 
-  const shouldShowInsufficientWarning = React.useMemo(() => {
-    if (!selectedOrder) return false;
-    return settlementType === 'order_deduction' && shortageAmount > 0;
-  }, [settlementType, selectedOrder, shortageAmount]);
+  // Auto-calculate mixed amounts when order is insufficient
+  const autoOrderAmount = React.useMemo(() => {
+    if (!needsCashSupplement || !selectedOrder) return 0;
+    return Math.min(orderRemainingAmount, actualRemainingAmount);
+  }, [needsCashSupplement, selectedOrder, orderRemainingAmount, actualRemainingAmount]);
 
-  const applyMixedSuggestion = React.useCallback(() => {
-    if (!selectedOrder) return;
-    const orderAllocation = Math.min(orderRemainingAmount, actualRemainingAmount);
-    const cashAllocation = Math.max(actualRemainingAmount - orderAllocation, 0);
-    setValue('settlementType', 'mixed', { shouldValidate: true, shouldDirty: true });
-    setValue('mixedOrderAmount', orderAllocation, { shouldValidate: true, shouldDirty: true });
-    setValue('mixedCashAmount', cashAllocation, { shouldValidate: true, shouldDirty: true });
-    setValue('amount', cashAllocation, { shouldValidate: true, shouldDirty: true });
-    setInsufficientDialogOpen(false);
-  }, [selectedOrder, orderRemainingAmount, actualRemainingAmount, setValue]);
+  const autoCashAmount = React.useMemo(() => {
+    if (!needsCashSupplement) return 0;
+    return Math.max(actualRemainingAmount - autoOrderAmount, 0);
+  }, [needsCashSupplement, actualRemainingAmount, autoOrderAmount]);
 
-  const applyCashOnlySuggestion = React.useCallback(() => {
-    setValue('settlementType', 'direct_payment', { shouldValidate: true, shouldDirty: true });
-    setValue('selectedOrderId', '', { shouldValidate: true, shouldDirty: true });
-    setValue('mixedOrderAmount', undefined);
-    setValue('mixedCashAmount', undefined);
-    setValue('amount', actualRemainingAmount, { shouldValidate: true, shouldDirty: true });
-    setInsufficientDialogOpen(false);
-  }, [actualRemainingAmount, setValue]);
-
+  // Auto-set mixed values when insufficient order detected
   React.useEffect(() => {
-    if (settlementType !== 'mixed') return;
-    const maxOrderAllocation = Math.min(orderRemainingAmount, actualRemainingAmount);
-    const rawOrderAmount = mixedOrderAmount ?? maxOrderAllocation;
-    const clampedOrderAmount = Math.max(0, Math.min(rawOrderAmount, maxOrderAllocation));
-
-    if (clampedOrderAmount !== (mixedOrderAmount ?? 0)) {
-      setValue('mixedOrderAmount', clampedOrderAmount, { shouldValidate: true, shouldDirty: true });
+    if (needsCashSupplement) {
+      setValue('mixedOrderAmount', autoOrderAmount, { shouldValidate: true });
+      setValue('mixedCashAmount', autoCashAmount, { shouldValidate: true });
+      setValue('amount', autoCashAmount, { shouldValidate: true });
     }
-
-    const recalculatedCashAmount = Math.max(actualRemainingAmount - clampedOrderAmount, 0);
-    if (recalculatedCashAmount !== (mixedCashAmount ?? 0)) {
-      setValue('mixedCashAmount', recalculatedCashAmount, { shouldValidate: true, shouldDirty: true });
-    }
-
-    if (settlementType === 'mixed' && amount !== recalculatedCashAmount) {
-      setValue('amount', recalculatedCashAmount, { shouldValidate: true, shouldDirty: true });
-    }
-  }, [settlementType, mixedOrderAmount, mixedCashAmount, orderRemainingAmount, actualRemainingAmount, amount, setValue]);
+  }, [needsCashSupplement, autoOrderAmount, autoCashAmount, setValue]);
 
   // Calculate max amount based on settlement type
   const maxAmount = React.useMemo(() => {
-    if (settlementType === 'order_deduction' && selectedOrder) {
-      // Nếu trừ vào đơn hàng: max = min(actualRemainingAmount, order remaining amount)
-      const orderPaidAmount = selectedOrder.paidAmount || 0;
-      const orderRemainingAmount = selectedOrder.grandTotal - orderPaidAmount;
-      return Math.min(actualRemainingAmount, orderRemainingAmount);
+    if (settlementType === 'order_deduction') {
+      if (needsCashSupplement) {
+        // Mixed: amount field = cash portion
+        return autoCashAmount;
+      }
+      if (selectedOrder) {
+        // Pure deduction: max = min(remaining, order deductible)
+        return Math.min(actualRemainingAmount, getOrderDeductibleAmount(selectedOrder));
+      }
     }
-    // Nếu trả trực tiếp: max = actualRemainingAmount
+    // Direct payment: max = actualRemainingAmount
     return actualRemainingAmount;
-  }, [settlementType, selectedOrder, actualRemainingAmount]);
+  }, [settlementType, selectedOrder, actualRemainingAmount, needsCashSupplement, autoCashAmount]);
 
   const handleMixedSettlement = async (values: FormValues) => {
     if (!ticket) {
@@ -417,8 +422,7 @@ export function WarrantyPaymentVoucherDialog({
       return;
     }
 
-    const orderPaidAmount = order.paidAmount || 0;
-    const orderRemainingAmountForOrder = order.grandTotal - orderPaidAmount;
+    const orderRemainingAmountForOrder = getOrderDeductibleAmount(order);
     if (orderAmount > orderRemainingAmountForOrder) {
       toast.error('Số tiền trừ vào đơn vượt quá số dư của đơn hàng', {
         description: `Còn lại: ${orderRemainingAmountForOrder.toLocaleString('vi-VN')} đ`,
@@ -474,7 +478,7 @@ export function WarrantyPaymentVoucherDialog({
       description: `${baseNotes} - Trừ vào đơn ${order.id}`,
       paymentMethodSystemId: asSystemId('ORDER_DEDUCTION'),
       paymentMethodName: 'Bù trừ đơn hàng',
-      accountSystemId: asSystemId(''),
+      accountSystemId: defaultCashAccount?.systemId ?? asSystemId(''), // Virtual deduction — no real cash account
       paymentReceiptTypeSystemId: warrantyOrderDeductionType.systemId,
       paymentReceiptTypeName: warrantyOrderDeductionType.name,
       branchSystemId: asSystemId(branchSystemId || ''),
@@ -487,27 +491,26 @@ export function WarrantyPaymentVoucherDialog({
       customerSystemId: undefined,
       customerName: customer.name,
       affectsDebt: false,
+      affectsBusinessReport: false,
       createdBy: asSystemId(currentUserSystemId),
       createdAt: isoNow,
     };
 
     const orderPayment = await createPayment.mutateAsync(orderDeductionPayment);
 
-    const existingOrderPayments = order.payments || [];
     const orderPaymentEntry = {
-      systemId: orderPayment.systemId,
       id: orderPayment.id,
       date: orderPayment.date,
       method: 'Bù trừ bảo hành',
-      amount: -orderAmount,
+      amount: orderAmount,
       createdBy: orderPayment.createdBy,
       description: `Trừ tiền bảo hành ${warrantyId}`,
-      linkedWarrantySystemId: asSystemId(warrantySystemId),
+      linkedWarrantySystemId: warrantySystemId,
     };
 
     await updateOrder.mutateAsync({
       id: order.systemId,
-      payments: [...existingOrderPayments, orderPaymentEntry],
+      payments: [orderPaymentEntry],
       paidAmount: (order.paidAmount || 0) + orderAmount,
     });
 
@@ -542,6 +545,7 @@ export function WarrantyPaymentVoucherDialog({
       customerSystemId: undefined,
       customerName: customer.name,
       affectsDebt: false,
+      affectsBusinessReport: false,
       createdBy: asSystemId(currentUserSystemId),
       createdAt: isoNow,
     };
@@ -585,7 +589,6 @@ export function WarrantyPaymentVoucherDialog({
       methods: settlementMethods,
     });
 
-    setInsufficientDialogOpen(false);
     toast.success('Đã xử lý bù trừ + chi tiền', {
       description: `Trừ ${orderAmount.toLocaleString('vi-VN')} đ vào ${order.id} + Chi ${cashAmount.toLocaleString('vi-VN')} đ`,
       action: {
@@ -597,6 +600,19 @@ export function WarrantyPaymentVoucherDialog({
 
   const onSubmit = async (values: FormValues) => {
     try {
+      // If order_deduction with insufficient order balance → use mixed settlement
+      if (values.settlementType === 'order_deduction' && needsCashSupplement) {
+        await handleMixedSettlement({
+          ...values,
+          settlementType: 'mixed',
+          mixedOrderAmount: autoOrderAmount,
+          mixedCashAmount: autoCashAmount,
+          amount: autoCashAmount,
+        });
+        setOpen(false);
+        return;
+      }
+
       if (values.settlementType === 'mixed') {
         await handleMixedSettlement(values);
         setOpen(false);
@@ -642,11 +658,10 @@ export function WarrantyPaymentVoucherDialog({
         
         // ✅ ADDITIONAL VALIDATION: Kiểm tra số tiền không vượt quá số dư đơn hàng
         if (selectedOrder) {
-          const orderPaidAmount = selectedOrder.paidAmount || 0;
-          const orderRemainingAmount = selectedOrder.grandTotal - orderPaidAmount;
-          if (values.amount > orderRemainingAmount) {
+          const orderDeductible = getOrderDeductibleAmount(selectedOrder);
+          if (values.amount > orderDeductible) {
             toast.error('Số tiền không được vượt quá số dư đơn hàng', {
-              description: `Còn lại: ${orderRemainingAmount.toLocaleString('vi-VN')} đ`,
+              description: `Còn lại: ${orderDeductible.toLocaleString('vi-VN')} đ`,
               duration: 5000,
             });
             return;
@@ -718,6 +733,7 @@ export function WarrantyPaymentVoucherDialog({
         
         // Financial
         affectsDebt: false,
+        affectsBusinessReport: false,
         
         createdBy: asSystemId(currentUserSystemId),
         createdAt: toISODateTime(now) || now.toISOString(),
@@ -731,25 +747,23 @@ export function WarrantyPaymentVoucherDialog({
       if (linkedOrderSystemId) {
         const order = orders.find(o => o.systemId === linkedOrderSystemId);
         if (order) {
-          // Create OrderPayment object
+          // Create OrderPayment entry for the order's payment history
           const orderPayment = {
-            systemId: newPayment.systemId,
             id: newPayment.id,
             date: newPayment.date,
             method: selectedPaymentMethod?.name || 'N/A',
-            amount: -values.amount, // ÂM vì đây là trả tiền khách (giảm công nợ)
+            amount: values.amount,
             createdBy: newPayment.createdBy,
             description: `Trừ tiền bảo hành ${warrantyId}`,
-            linkedWarrantySystemId: asSystemId(warrantySystemId),
+            linkedWarrantySystemId: warrantySystemId,
           };
 
-          // Update order: add payment and increase paidAmount
-          const updatedPayments = [...order.payments, orderPayment];
+          // Send only the new payment (PATCH handler creates OrderPayment records)
           const newPaidAmount = (order.paidAmount || 0) + values.amount;
 
           await updateOrder.mutateAsync({
             id: asSystemId(linkedOrderSystemId),
-            payments: updatedPayments,
+            payments: [orderPayment],
             paidAmount: newPaidAmount,
           });
         }
@@ -794,7 +808,7 @@ export function WarrantyPaymentVoucherDialog({
 
       setOpen(false);
     } catch (error) {
-      console.error('Error creating payment voucher:', error);
+      logError('Error creating payment voucher', error);
       toast.error('Không thể tạo phiếu chi');
     }
   };
@@ -852,36 +866,35 @@ export function WarrantyPaymentVoucherDialog({
           </Alert>
 
 
-          {/* Settlement Type */}
+          {/* Settlement Type - 2 options only */}
           <div className="space-y-2">
             <Label htmlFor="settlementType">Phương thức *</Label>
             <Controller
               name="settlementType"
               control={control}
               render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
+                <Select value={field.value === 'mixed' ? 'order_deduction' : field.value} onValueChange={field.onChange}>
                   <SelectTrigger id="settlementType">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="direct_payment">Trả tiền trực tiếp</SelectItem>
                     <SelectItem value="order_deduction">Trừ vào đơn hàng</SelectItem>
-                    <SelectItem value="mixed">Bù trừ đơn + Chi tiền</SelectItem>
                   </SelectContent>
                 </Select>
               )}
             />
           </div>
 
-          {/* Payment Method - Show for direct payment and mixed (cash portion) */}
-          {(settlementType === 'direct_payment' || settlementType === 'mixed') && (
+          {/* Payment Method & Account - Show for: direct_payment OR order_deduction when order doesn't have enough */}
+          {(settlementType === 'direct_payment' || needsCashSupplement) && (
             <>
               <div className="space-y-2">
                 <Label htmlFor="paymentMethodSystemId">Hình thức thanh toán *</Label>
                 <Controller
                   name="paymentMethodSystemId"
                   control={control}
-                  rules={{ required: settlementType === 'direct_payment' || settlementType === 'mixed' }}
+                  rules={{ required: settlementType === 'direct_payment' || needsCashSupplement }}
                   render={({ field }) => (
                     <Select value={field.value} onValueChange={field.onChange}>
                       <SelectTrigger id="paymentMethodSystemId">
@@ -890,27 +903,26 @@ export function WarrantyPaymentVoucherDialog({
                       <SelectContent>
                         {paymentMethods.filter(m => m.isActive).map((method) => (
                           <SelectItem key={method.systemId} value={method.systemId}>
-                            <div className="flex items-center gap-2">
-                              <span>{method.name}</span>
-                            </div>
+                            {method.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   )}
                 />
-                <p className="text-xs text-muted-foreground">
-                  Chọn hình thức thanh toán phù hợp từ cài đặt hệ thống
-                </p>
+                {needsCashSupplement && (
+                  <p className="text-xs text-muted-foreground">
+                    Chọn hình thức thanh toán cho phần chi trực tiếp
+                  </p>
+                )}
               </div>
 
-              {/* Account Selection - Show for direct payment */}
               <div className="space-y-2">
                 <Label htmlFor="accountSystemId">Tài khoản chi *</Label>
                 <Controller
                   name="accountSystemId"
                   control={control}
-                  rules={{ required: settlementType === 'direct_payment' || settlementType === 'mixed' }}
+                  rules={{ required: settlementType === 'direct_payment' || needsCashSupplement }}
                   render={({ field }) => (
                     <Select value={field.value} onValueChange={field.onChange}>
                       <SelectTrigger id="accountSystemId">
@@ -924,9 +936,7 @@ export function WarrantyPaymentVoucherDialog({
                         ) : (
                           filteredAccounts.map((account) => (
                             <SelectItem key={account.systemId} value={account.systemId}>
-                              <div className="flex items-center gap-2">
-                                <span>{account.name}</span>
-                              </div>
+                              {account.name}
                             </SelectItem>
                           ))
                         )}
@@ -943,13 +953,12 @@ export function WarrantyPaymentVoucherDialog({
             </>
           )}
 
-          {/* Order Selection - Show for order deduction and mixed */}
-          {(settlementType === 'order_deduction' || settlementType === 'mixed') && (
+          {/* Order Selection - Show for order_deduction */}
+          {settlementType === 'order_deduction' && (
             <div className="space-y-2">
               <Label htmlFor="selectedOrderId">Chọn đơn hàng *</Label>
               <div className="text-xs text-muted-foreground mb-2">
-                Nhập mã đơn hàng hoặc tên khách để tìm nhanh. 
-                Hệ thống tự động lọc kết quả từ đơn hàng.
+                Nhập mã đơn hàng hoặc tên khách để tìm nhanh.
               </div>
               <VirtualizedCombobox
                 options={orderSearchResults}
@@ -966,39 +975,39 @@ export function WarrantyPaymentVoucherDialog({
                 isLoading={isSearchingOrders}
                 minSearchLength={0}
                 estimatedItemHeight={56}
-                maxHeight={400}
+                maxHeight={280}
               />
               <p className="text-xs text-muted-foreground">
-                Chỉ hiển thị đơn hàng <strong>chưa xuất kho</strong> và <strong>còn số dư có thể trừ</strong>.
+                Chỉ hiển thị đơn hàng <strong>chưa thanh toán</strong> và <strong>còn số dư có thể trừ</strong>.
               </p>
             </div>
           )}
 
-          {shouldShowInsufficientWarning && (
-            <Alert className="border-yellow-400 bg-yellow-50 text-yellow-900">
-              <div className="flex items-start gap-3">
-                <AlertTriangle className="h-4 w-4 mt-0.5" />
-                <div className="space-y-1 text-sm">
-                  <p className="font-medium">Đơn {selectedOrder?.id} không đủ để trừ toàn bộ.</p>
-                  <p className="text-xs">
-                    Thiếu <strong>{shortageAmount.toLocaleString('vi-VN')} đ</strong> so với số tiền cần hoàn. Chọn cách xử lý bên dưới.
-                  </p>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="secondary"
-                    className="mt-1"
-                    onClick={() => setInsufficientDialogOpen(true)}
-                  >
-                    Mở gợi ý xử lý
-                  </Button>
+          {/* Insufficient order balance — auto mixed breakdown */}
+          {needsCashSupplement && selectedOrder && (
+            <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
+              <div className="flex items-center gap-2 text-sm font-medium text-amber-900">
+                <AlertTriangle className="h-4 w-4" />
+                Đơn {selectedOrder.id} không đủ số dư — hệ thống tự phân bổ
+              </div>
+              <div className="grid gap-2 md:grid-cols-2 text-sm">
+                <div className="rounded-md border bg-white px-3 py-2">
+                  <div className="text-xs text-muted-foreground">Trừ vào đơn {selectedOrder.id}</div>
+                  <div className="font-semibold">{autoOrderAmount.toLocaleString('vi-VN')} đ</div>
+                </div>
+                <div className="rounded-md border bg-white px-3 py-2">
+                  <div className="text-xs text-muted-foreground">Chi trực tiếp cho khách</div>
+                  <div className="font-semibold text-red-600">{autoCashAmount.toLocaleString('vi-VN')} đ</div>
                 </div>
               </div>
-            </Alert>
+            </div>
           )}
+
           {/* Amount Input */}
           <div className="space-y-2">
-            <Label htmlFor="amount">Số tiền *</Label>
+            <Label htmlFor="amount">
+              {needsCashSupplement ? 'Số tiền chi trực tiếp *' : 'Số tiền *'}
+            </Label>
             <Controller
               name="amount"
               control={control}
@@ -1007,13 +1016,7 @@ export function WarrantyPaymentVoucherDialog({
                 min: { value: 1, message: 'Số tiền phải lớn hơn 0' },
                 max: { 
                   value: maxAmount, 
-                  message: settlementType === 'order_deduction' && selectedOrder
-                    ? (() => {
-                        const orderPaidAmount = selectedOrder.paidAmount || 0;
-                        const orderRemainingAmount = selectedOrder.grandTotal - orderPaidAmount;
-                        return `Số tiền không được vượt quá số tiền còn lại của đơn hàng (${orderRemainingAmount.toLocaleString('vi-VN')} đ)`;
-                      })()
-                    : `Số tiền không được vượt quá ${actualRemainingAmount.toLocaleString('vi-VN')} đ`
+                  message: `Số tiền không được vượt quá ${maxAmount.toLocaleString('vi-VN')} đ`
                 }
               }}
               render={({ field, fieldState }) => (
@@ -1021,72 +1024,19 @@ export function WarrantyPaymentVoucherDialog({
                   <CurrencyInput
                     value={field.value}
                     onChange={field.onChange}
-                    disabled={settlementType === 'mixed'}
+                    disabled={needsCashSupplement}
                     placeholder="0"
                   />
                   {fieldState.error && (
                     <p className="text-xs text-destructive">{fieldState.error.message}</p>
                   )}
                   <p className="text-xs text-muted-foreground">
-                    {settlementType === 'order_deduction' && selectedOrder ? (
-                      <>
-                        {(() => {
-                          const orderPaidAmount = selectedOrder.paidAmount || 0;
-                          const orderRemainingAmount = selectedOrder.grandTotal - orderPaidAmount;
-                          const maxAllowed = Math.min(actualRemainingAmount, orderRemainingAmount);
-                          
-                          return (
-                            <>
-                              Số tiền tối đa: {maxAllowed.toLocaleString('vi-VN')} đ
-                              {orderPaidAmount > 0 && (
-                                <span className="text-blue-600 font-medium">
-                                  {' '}(Đã trừ: {orderPaidAmount.toLocaleString('vi-VN')} đ / {selectedOrder.grandTotal.toLocaleString('vi-VN')} đ)
-                                </span>
-                              )}
-                            </>
-                          );
-                        })()}
-                      </>
-                    ) : settlementType === 'mixed' ? (
-                      `Tiền mặt cần chi: ${(mixedCashAmount || 0).toLocaleString('vi-VN')} đ (tự động từ phần bù trừ)`
-                    ) : (
-                      `Số tiền tối đa: ${actualRemainingAmount.toLocaleString('vi-VN')} đ`
-                    )}
+                    Số tiền tối đa: {maxAmount.toLocaleString('vi-VN')} đ
                   </p>
                 </div>
               )}
             />
           </div>
-
-          {settlementType === 'mixed' && (
-            <div className="space-y-3 rounded-lg border p-3 bg-muted/40">
-              <div className="text-sm font-medium">Phân bổ bù trừ</div>
-              <div className="text-xs text-muted-foreground">
-                Tổng cần hoàn: <strong>{actualRemainingAmount.toLocaleString('vi-VN')} đ</strong>. Điều chỉnh số tiền trừ vào đơn, phần còn lại sẽ chi trực tiếp.
-              </div>
-              <div className="grid gap-3 md:grid-cols-2">
-                <div className="space-y-1">
-                  <Label>Trừ vào đơn</Label>
-                  <CurrencyInput
-                    value={mixedOrderAmount || 0}
-                    onChange={(value) => setValue('mixedOrderAmount', value || 0, { shouldValidate: true, shouldDirty: true })}
-                    max={orderRemainingAmount}
-                    min={0}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Tối đa: {orderRemainingAmount.toLocaleString('vi-VN')} đ
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <Label>Chi trực tiếp</Label>
-                  <div className="rounded-md border bg-background px-3 py-2 text-right font-semibold">
-                    {(mixedCashAmount || 0).toLocaleString('vi-VN')} đ
-                  </div>
-                  <p className="text-xs text-muted-foreground">Tự động tính = Tổng cần hoàn - Trừ vào đơn</p>
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* Notes */}
           <div className="space-y-2">
@@ -1116,16 +1066,6 @@ export function WarrantyPaymentVoucherDialog({
         </form>
       </DialogContent>
 
-      <InsufficientBalanceDialog
-        open={insufficientDialogOpen}
-        onOpenChange={setInsufficientDialogOpen}
-        totalAmount={actualRemainingAmount}
-        orderAmount={orderRemainingAmount}
-        shortageAmount={shortageAmount}
-        orderLabel={selectedOrder?.id}
-        onSelectMixed={applyMixedSuggestion}
-        onSelectCashOnly={applyCashOnlySuggestion}
-      />
     </Dialog>
   );
 }

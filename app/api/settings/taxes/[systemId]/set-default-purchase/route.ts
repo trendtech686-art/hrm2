@@ -1,5 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { apiError, apiSuccess, requireAuth } from '@/lib/api-utils'
+import { logError } from '@/lib/logger'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 export async function POST(
   _req: Request,
@@ -38,9 +40,18 @@ export async function POST(
       })
     })
 
+    createActivityLog({
+      entityType: 'tax',
+      entityId: systemId,
+      action: `Đặt thuế mặc định nhập hàng: ${tax.name}`,
+      actionType: 'update',
+      changes: { 'MĐ nhập hàng': { from: 'Không', to: 'Có' } },
+      createdBy: session.user?.id,
+    }).catch(e => logError('Failed to create activity log', e))
+
     return apiSuccess({ data: updated })
   } catch (error) {
-    console.error('[taxes] set-default-purchase error:', error)
+    logError('[taxes] set-default-purchase error', error)
     return apiError('Không thể đặt thuế mặc định cho nhập hàng', 500)
   }
 }

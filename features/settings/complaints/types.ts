@@ -2,6 +2,11 @@
 // TYPES & INTERFACES
 // ============================================
 
+import type { ComplaintNotificationSettings } from '../notifications/types';
+
+// Re-export for backward compatibility
+export type NotificationSettings = ComplaintNotificationSettings;
+
 export interface CardColorSettings {
   // Màu theo trạng thái
   statusColors: {
@@ -41,14 +46,11 @@ export interface ResponseTemplate {
   order: number;
 }
 
-export interface NotificationSettings {
-  emailOnCreate: boolean;
-  emailOnAssign: boolean;
-  emailOnVerified: boolean;
-  emailOnResolved: boolean;
-  emailOnOverdue: boolean;
-  smsOnOverdue: boolean;
-  inAppNotifications: boolean;
+export interface ReminderSettings {
+  enabled: boolean;
+  firstReminderHours: number;
+  secondReminderHours: number;
+  escalationHours: number;
 }
 
 export interface PublicTrackingSettings {
@@ -56,18 +58,10 @@ export interface PublicTrackingSettings {
   allowCustomerComments: boolean;
   showEmployeeName: boolean;
   showTimeline: boolean;
-  // Section visibility controls
   showOrderInfo: boolean;
   showProducts: boolean;
   showImages: boolean;
   showResolution: boolean;
-}
-
-export interface ReminderSettings {
-  enabled: boolean;
-  firstReminderHours: number;
-  secondReminderHours: number;
-  escalationHours: number;
 }
 
 export interface ComplaintType {
@@ -113,7 +107,6 @@ export const defaultNotifications: NotificationSettings = {
   emailOnVerified: false,
   emailOnResolved: true,
   emailOnOverdue: true,
-  smsOnOverdue: false,
   inAppNotifications: true,
 };
 

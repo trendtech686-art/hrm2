@@ -120,7 +120,7 @@ export async function fetchPackagingSlips(filters: PackagingFilters = {}): Promi
   Object.entries(filters).forEach(([k, v]) => v && params.set(k, String(v)));
   const url = params.toString() ? `${BASE_URL}?${params}` : BASE_URL;
   const res = await fetch(url);
-  if (!res.ok) throw new Error('Failed to fetch');
+  if (!res.ok) throw new Error('Không thể tải danh sách đóng gói');
   return res.json();
 }
 
@@ -133,17 +133,17 @@ export async function fetchPackagingById(systemId: string): Promise<PackagingDet
   try {
     json = await res.json();
   } catch {
-    throw new Error(`Failed to parse packaging response: ${res.status}`);
+    throw new Error(`Không thể phân tích dữ liệu đóng gói: ${res.status}`);
   }
   
   if (!res.ok) {
-    throw new Error(json?.error || `Failed to fetch packaging: ${res.status}`);
+    throw new Error(json?.error || `Không thể tải đóng gói: ${res.status}`);
   }
   
   // API returns the response object directly (not wrapped in { data: ... })
   // Check if response has required fields
   if (!json?.packaging || !json?.order) {
-    throw new Error('Invalid packaging response format');
+    throw new Error('Dữ liệu đóng gói không hợp lệ');
   }
   
   return json as PackagingDetailResponse;
@@ -151,24 +151,24 @@ export async function fetchPackagingById(systemId: string): Promise<PackagingDet
 
 export async function confirmPackaging(systemId: string): Promise<PackagingSlip> {
   const res = await fetch(`${BASE_URL}/${systemId}/confirm`, { method: 'POST' });
-  if (!res.ok) throw new Error('Failed to confirm');
+  if (!res.ok) throw new Error('Không thể xác nhận đóng gói');
   return res.json();
 }
 
 export async function cancelPackaging(systemId: string, reason: string): Promise<PackagingSlip> {
   const res = await fetch(`${BASE_URL}/${systemId}/cancel`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reason }) });
-  if (!res.ok) throw new Error('Failed to cancel');
+  if (!res.ok) throw new Error('Không thể hủy đóng gói');
   return res.json();
 }
 
 export async function assignPackaging(systemId: string, employeeSystemId: string): Promise<PackagingSlip> {
   const res = await fetch(`${BASE_URL}/${systemId}/assign`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ employeeSystemId }) });
-  if (!res.ok) throw new Error('Failed to assign');
+  if (!res.ok) throw new Error('Không thể phân công đóng gói');
   return res.json();
 }
 
 export async function printPackaging(systemId: string): Promise<{ printUrl: string }> {
   const res = await fetch(`${BASE_URL}/${systemId}/print`, { method: 'POST' });
-  if (!res.ok) throw new Error('Failed to print');
+  if (!res.ok) throw new Error('Không thể in phiếu đóng gói');
   return res.json();
 }

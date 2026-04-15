@@ -1,12 +1,16 @@
-/**
+﻿/**
  * Customer Debt Service
  * 
  * Tính toán và cập nhật công nợ khách hàng (currentDebt) trong database.
  * 
  * Công thức:
  *   currentDebt = Tổng tiền đơn hàng đã giao 
+ *                 - Tổng giá trị hàng trả lại (đã nhận hàng)
  *                 - Tổng phiếu thu (affectsDebt=true)
  *                 + Tổng phiếu chi hoàn tiền khách (affectsDebt=true, không phải hoàn từ trả hàng)
+ * 
+ * Lưu ý: Phiếu chi hoàn tiền từ trả hàng KHÔNG ảnh hưởng công nợ vì giá trị hàng trả đã được trừ ở trên.
+ * Nếu tính cả hai sẽ bị trừ hai lần!
  * 
  * Được gọi khi:
  * - Tạo/cập nhật/hủy đơn hàng (khi status hoàn thành hoặc đã giao)
@@ -18,6 +22,7 @@
 import { prisma } from '@/lib/prisma';
 import { OrderStatus, DeliveryStatus, StockOutStatus } from '@/generated/prisma/client';
 import { Prisma } from '@/generated/prisma/client';
+import { logError } from '@/lib/logger'
 
 export interface CustomerDebtResult {
   customerSystemId: string;
@@ -25,6 +30,7 @@ export interface CustomerDebtResult {
   newDebt: number;
   breakdown: {
     orderTotal: number;
+    returnedTotal: number;
     receiptTotal: number;
     paymentTotal: number;
   };
@@ -37,10 +43,18 @@ export async function calculateCustomerDebt(customerSystemId: string): Promise<{
   debt: number;
   breakdown: {
     orderTotal: number;
+    returnedTotal: number;
     receiptTotal: number;
     paymentTotal: number;
   };
 }> {
+  // Fetch customer name for name-based matching (same as debt transactions API)
+  const customer = await prisma.customer.findUnique({
+    where: { systemId: customerSystemId },
+    select: { name: true },
+  });
+  const customerName = customer?.name;
+
   // 1. Tổng tiền đơn hàng đã giao (status = COMPLETED hoặc DELIVERED, hoặc stockOutStatus = FULLY_STOCKED_OUT)
   // Order model uses customerId field (not customerSystemId)
   const orders = await prisma.order.findMany({
@@ -58,7 +72,20 @@ export async function calculateCustomerDebt(customerSystemId: string): Promise<{
   });
   const orderTotal = orders.reduce((sum, o) => sum + (Number(o.grandTotal) || 0), 0);
 
-  // 2. Tổng phiếu thu có ảnh hưởng công nợ (giảm công nợ)
+  // 2. ✅ Tổng giá trị hàng trả lại (đã nhận hàng) - GIẢM công nợ
+  // Chỉ tính những phiếu trả đã nhận hàng (isReceived=true) và không bị từ chối
+  const salesReturns = await prisma.salesReturn.findMany({
+    where: {
+      customerSystemId,
+      isReceived: true,
+      status: { not: 'REJECTED' },
+    },
+    select: { totalReturnValue: true },
+  });
+  const returnedTotal = salesReturns.reduce((sum, sr) => sum + (Number(sr.totalReturnValue) || 0), 0);
+
+  // 3. Tổng phiếu thu có ảnh hưởng công nợ (giảm công nợ)
+  // Match by systemId fields OR by name (same as debt transactions API)
   const receipts = await prisma.receipt.findMany({
     where: {
       status: { not: 'cancelled' },
@@ -66,22 +93,25 @@ export async function calculateCustomerDebt(customerSystemId: string): Promise<{
       OR: [
         { customerSystemId },
         { payerSystemId: customerSystemId },
+        ...(customerName ? [{ payerTypeName: 'Khách hàng', payerName: customerName }] : []),
       ],
     },
     select: { amount: true },
   });
   const receiptTotal = receipts.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
 
-  // 3. Tổng phiếu chi có ảnh hưởng công nợ (hoàn tiền khách = giảm công nợ)
-  // Không tính phiếu chi hoàn tiền từ trả hàng (linkedSalesReturnSystemId)
+  // 4. Tổng phiếu chi có ảnh hưởng công nợ (không phải hoàn trả hàng, không phải khiếu nại)
+  // Match by systemId fields OR by name (same as debt transactions API)
   const payments = await prisma.payment.findMany({
     where: {
       status: { not: 'cancelled' },
       affectsDebt: true,
-      linkedSalesReturnSystemId: null, // Không phải hoàn từ trả hàng
+      linkedSalesReturnSystemId: null,
+      linkedComplaintSystemId: null,
       OR: [
         { customerSystemId },
         { recipientSystemId: customerSystemId },
+        ...(customerName ? [{ recipientTypeName: 'Khách hàng', recipientName: customerName }] : []),
       ],
     },
     select: { 
@@ -91,26 +121,37 @@ export async function calculateCustomerDebt(customerSystemId: string): Promise<{
     },
   });
   
-  // Phiếu chi hoàn tiền khách = giảm công nợ (change âm)
-  // Phiếu chi khác (hiếm) = tăng công nợ (change dương)
+  // Tất cả phiếu chi đều tăng công nợ (trả tiền cho khách → từ âm về 0)
   let paymentTotal = 0;
   for (const p of payments) {
-    const isRefundToCustomer = p.paymentReceiptTypeName === 'Hoàn tiền khách hàng' || 
-                                p.category === 'complaint_refund';
-    if (isRefundToCustomer) {
-      paymentTotal -= Number(p.amount) || 0; // Giảm công nợ
-    } else {
-      paymentTotal += Number(p.amount) || 0; // Tăng công nợ (rare case)
-    }
+    paymentTotal += Number(p.amount) || 0;
   }
 
-  // Công nợ = Đơn hàng - Phiếu thu + Phiếu chi (đã tính dấu)
-  const debt = orderTotal - receiptTotal + paymentTotal;
+  // 5. ✅ Tổng phiếu chi hoàn tiền từ trả hàng - TĂNG công nợ (từ âm về 0)
+  // Hàng trả làm công nợ âm (công ty nợ khách), PC hoàn làm công nợ về 0
+  // Match by systemId fields OR by name (same as debt transactions API)
+  const salesReturnRefunds = await prisma.payment.aggregate({
+    where: {
+      status: { not: 'cancelled' },
+      linkedSalesReturnSystemId: { not: null },
+      OR: [
+        { customerSystemId },
+        { recipientSystemId: customerSystemId },
+        ...(customerName ? [{ recipientTypeName: 'Khách hàng', recipientName: customerName }] : []),
+      ],
+    },
+    _sum: { amount: true },
+  });
+  const salesReturnRefundTotal = Number(salesReturnRefunds._sum.amount ?? 0);
+
+  // ✅ Công nợ = Đơn hàng - Hàng trả - Phiếu thu + PC hoàn từ SR + Phiếu chi khác
+  const debt = orderTotal - returnedTotal - receiptTotal + salesReturnRefundTotal + paymentTotal;
 
   return {
     debt,
     breakdown: {
       orderTotal,
+      returnedTotal,
       receiptTotal,
       paymentTotal,
     },
@@ -157,7 +198,7 @@ export async function updateCustomerDebt(customerSystemId: string): Promise<Cust
       breakdown,
     };
   } catch (error) {
-    console.error(`[CustomerDebtService] Error updating debt for ${customerSystemId}:`, error);
+    logError(`[CustomerDebtService] Error updating debt for ${customerSystemId}`, error);
     throw error;
   }
 }

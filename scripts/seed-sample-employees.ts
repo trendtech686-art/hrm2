@@ -9,7 +9,6 @@ import { PrismaClient } from '@/generated/prisma/client'
 
 const SAMPLE_EMPLOYEES = [
   {
-    systemId: 'EMP000001',
     id: 'NV002',
     fullName: 'Nguyễn Văn Admin',
     workEmail: 'admin@company.com',
@@ -17,7 +16,6 @@ const SAMPLE_EMPLOYEES = [
     departmentId: null,
   },
   {
-    systemId: 'EMP000002', 
     id: 'NV003',
     fullName: 'Trần Thị Quản Lý',
     workEmail: 'manager@company.com',
@@ -25,7 +23,6 @@ const SAMPLE_EMPLOYEES = [
     departmentId: null,
   },
   {
-    systemId: 'EMP000003',
     id: 'NV004', 
     fullName: 'Lê Văn Kinh Doanh',
     workEmail: 'sales1@company.com',
@@ -33,7 +30,6 @@ const SAMPLE_EMPLOYEES = [
     departmentId: null,
   },
   {
-    systemId: 'EMP000004',
     id: 'NV005',
     fullName: 'Phạm Thị Kinh Doanh',
     workEmail: 'sales2@company.com',
@@ -41,7 +37,6 @@ const SAMPLE_EMPLOYEES = [
     departmentId: null,
   },
   {
-    systemId: 'EMP000005',
     id: 'NV006',
     fullName: 'Hoàng Văn Kho',
     workEmail: 'warehouse1@company.com',
@@ -49,7 +44,6 @@ const SAMPLE_EMPLOYEES = [
     departmentId: null,
   },
   {
-    systemId: 'EMP000006',
     id: 'NV007',
     fullName: 'Đặng Thị Kho',
     workEmail: 'warehouse2@company.com',
@@ -76,18 +70,15 @@ async function seedEmployees() {
     // Seed new employees
     for (const emp of SAMPLE_EMPLOYEES) {
       await prisma.employee.upsert({
-        where: { systemId: emp.systemId },
+        where: { id: emp.id },
         update: {
           fullName: emp.fullName,
           workEmail: emp.workEmail,
           role: emp.role,
         },
         create: {
-          systemId: emp.systemId,
-          id: emp.id,
-          fullName: emp.fullName,
-          workEmail: emp.workEmail,
-          role: emp.role,
+          systemId: crypto.randomUUID(),
+          ...emp,
         },
       })
     }

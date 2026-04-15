@@ -3,8 +3,6 @@
  * UI configuration only - theme, fonts, colors
  * 
  * ✅ KEEP IN ZUSTAND - This is pure UI state
- * Used by: `@/features/settings/appearance/hooks/use-appearance`
- * 
  * DO NOT MIGRATE TO REACT QUERY
  * 
  * Architecture:
@@ -240,7 +238,8 @@ useAppearanceStore.subscribe(
     theme: state.theme, 
     colorMode: state.colorMode, 
     font: state.font, 
-    fontSize: state.fontSize 
+    fontSize: state.fontSize,
+    customThemeConfig: state.customThemeConfig,
   }),
   () => {
     if (isInitialized) {

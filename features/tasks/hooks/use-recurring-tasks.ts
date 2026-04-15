@@ -4,6 +4,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import * as api from '../api/recurring-tasks-api';
 import type { RecurringTask } from '../recurring-types';
 
@@ -26,18 +27,6 @@ export function useRecurringTasks() {
   });
 }
 
-/**
- * Hook to fetch single recurring task
- */
-export function useRecurringTaskById(systemId: string | undefined) {
-  return useQuery({
-    queryKey: recurringTaskKeys.detail(systemId!),
-    queryFn: () => api.fetchRecurringTaskById(systemId!),
-    enabled: !!systemId,
-    staleTime: 1000 * 60 * 2,
-  });
-}
-
 interface MutationCallbacks {
   onSuccess?: () => void;
   onError?: (error: Error) => void;
@@ -49,9 +38,7 @@ interface MutationCallbacks {
 export function useRecurringTaskMutations(options: MutationCallbacks = {}) {
   const queryClient = useQueryClient();
 
-  const invalidateRecurringTasks = () => {
-    queryClient.invalidateQueries({ queryKey: recurringTaskKeys.all });
-  };
+  const invalidateRecurringTasks = () => invalidateRelated(queryClient, 'recurring-tasks');
 
   const create = useMutation({
     mutationFn: api.createRecurringTask,
@@ -94,8 +81,6 @@ export function useRecurringTaskMutations(options: MutationCallbacks = {}) {
     mutationFn: api.processRecurringTasks,
     onSuccess: () => {
       invalidateRecurringTasks();
-      // Also invalidate tasks since new ones were created
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
       options.onSuccess?.();
     },
     onError: options.onError,

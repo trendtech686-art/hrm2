@@ -5,6 +5,7 @@
 
 import { prisma } from '@/lib/prisma';
 import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils';
+import { logError } from '@/lib/logger'
 
 export async function GET() {
   const session = await requireAuth();
@@ -21,7 +22,7 @@ export async function GET() {
     const carriers = results.map(r => r.carrier).filter(Boolean);
     return apiSuccess(carriers);
   } catch (error) {
-    console.error('Error fetching carriers:', error);
-    return apiError('Failed to fetch carriers', 500);
+    logError('Error fetching carriers', error);
+    return apiError('Không thể tải danh sách hãng vận chuyển', 500);
   }
 }

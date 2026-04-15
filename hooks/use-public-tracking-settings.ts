@@ -10,6 +10,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import debounce from 'lodash/debounce';
+import { logError } from '@/lib/logger'
 
 // ============================================================================
 // Types
@@ -58,7 +59,7 @@ async function loadFromAPI(key: string): Promise<PublicTrackingSettings> {
       }
     }
   } catch (error) {
-    console.error(`[usePublicTrackingSettings] Failed to load ${key}:`, error);
+    logError(`[usePublicTrackingSettings] Failed to load ${key}`, error);
   }
   return DEFAULT_TRACKING_SETTINGS;
 }
@@ -75,7 +76,7 @@ async function saveToAPI(key: string, settings: PublicTrackingSettings): Promise
       }),
     });
   } catch (error) {
-    console.error(`[usePublicTrackingSettings] Failed to save ${key}:`, error);
+    logError(`[usePublicTrackingSettings] Failed to save ${key}`, error);
   }
 }
 

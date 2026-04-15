@@ -3,6 +3,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import * as api from '../api/websites-api';
 import type { WebsiteDefinition } from '@/lib/types/prisma-extended';
 
@@ -28,7 +29,7 @@ export function useActiveWebsites() {
 
 export function useWebsiteMutations(opts?: { onSuccess?: () => void }) {
   const qc = useQueryClient();
-  const invalidate = () => qc.invalidateQueries({ queryKey: websiteKeys.all });
+  const invalidate = () => invalidateRelated(qc, 'websites');
   return {
     create: useMutation({ mutationFn: api.createWebsite, onSuccess: () => { invalidate(); opts?.onSuccess?.(); } }),
     update: useMutation({ mutationFn: ({ code, data }: { code: string; data: Partial<WebsiteDefinition> }) => api.updateWebsite(code, data), onSuccess: () => { invalidate(); opts?.onSuccess?.(); } }),

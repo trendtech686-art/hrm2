@@ -5,7 +5,10 @@ const productSchema = z.object({
   weight: z.number(),
   quantity: z.number(),
   product_code: z.string().optional(),
-})
+  height: z.number().optional(),
+  width: z.number().optional(),
+  length: z.number().optional(),
+}).passthrough()
 
 export const submitOrderSchema = z.object({
   apiToken: z.string().min(1),
@@ -35,6 +38,9 @@ export const submitOrderSchema = z.object({
   note: z.string().optional(),
   total_weight: z.number().optional(),
   total_box: z.number().optional(),
+  height: z.number().optional(),
+  width: z.number().optional(),
+  length: z.number().optional(),
   transport: z.string().optional(),
   pick_option: z.string().optional(),
   pick_session: z.number().optional(),

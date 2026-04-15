@@ -2,8 +2,8 @@
 const { Pool } = require('pg');
 
 async function checkExtensions() {
-  // Use actual DATABASE_URL from .env
-  const connectionString = 'postgresql://erp_user:erp_password@localhost:5433/erp_db?schema=public';
+  // Use DATABASE_URL from environment
+  const connectionString = process.env.DATABASE_URL || 'postgresql://localhost:5432/erp_db';
   
   const pool = new Pool({ connectionString });
   

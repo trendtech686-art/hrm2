@@ -1,6 +1,9 @@
 import { prisma } from '@/lib/prisma';
 import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils';
 import { updateCustomerDebt } from '@/lib/services/customer-debt-service';
+import { logError } from '@/lib/logger'
+import { createNotification } from '@/lib/notifications'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 interface RouteParams {
   params: Promise<{ systemId: string; packagingId: string }>;
@@ -27,6 +30,11 @@ export async function POST(_request: Request, { params }: RouteParams) {
     if (packaging.orderId !== systemId) {
       return apiError('Packaging does not belong to this order', 400);
     }
+
+    if (!packaging.order) {
+      return apiError('Packaging không thuộc đơn hàng nào', 400);
+    }
+    const order = packaging.order;
 
     // Transaction: complete delivery
     const updatedOrder = await prisma.$transaction(async (tx) => {
@@ -61,9 +69,9 @@ export async function POST(_request: Request, { params }: RouteParams) {
         .reduce((sum, r) => sum + Number(r.amount || 0), 0);
       
       const totalPaid = totalPaidFromPayments + totalPaidFromReceipts;
-      const grandTotal = Number(packaging.order.grandTotal || 0);
+      const grandTotal = Number(order.grandTotal || 0);
       // ✅ For exchange orders, subtract linkedSalesReturnValue from grandTotal
-      const linkedReturnValue = Number(packaging.order.linkedSalesReturnValue || 0);
+      const linkedReturnValue = Number(order.linkedSalesReturnValue || 0);
       const netGrandTotal = Math.max(0, grandTotal - linkedReturnValue);
       const isFullyPaid = totalPaid >= netGrandTotal;
       
@@ -160,13 +168,36 @@ export async function POST(_request: Request, { params }: RouteParams) {
     const customerSysId = updatedOrder.customer?.systemId || updatedOrder.customerId;
     if (customerSysId) {
       await updateCustomerDebt(customerSysId).catch(err => {
-        console.error('[Complete Delivery] Failed to update customer debt:', err);
+        logError('[Complete Delivery] Failed to update customer debt', err);
       });
+    }
+
+    // Log activity
+    await createActivityLog({
+      entityType: 'order',
+      entityId: systemId,
+      action: `Giao hàng thành công - ${updatedOrder.id || systemId}`,
+      actionType: 'status',
+      createdBy: session.user?.employee?.fullName || session.user?.name || session.user?.id || undefined,
+    }).catch(e => logError('[Complete Delivery] activity log failed', e));
+
+    // Notify salesperson about delivery completed
+    if (updatedOrder.salespersonId && updatedOrder.salespersonId !== session.user?.employeeId) {
+      createNotification({
+        type: 'order',
+        settingsKey: 'order:delivery',
+        title: 'Giao hàng thành công',
+        message: `Đơn hàng ${updatedOrder.id || systemId} đã giao thành công`,
+        link: `/orders/${systemId}`,
+        recipientId: updatedOrder.salespersonId,
+        senderId: session.user?.employeeId,
+        senderName: session.user?.name,
+      }).catch(e => logError('[Complete Delivery] notification failed', e));
     }
 
     return apiSuccess(updatedOrder);
   } catch (error) {
-    console.error('Error completing delivery:', error);
+    logError('Error completing delivery', error);
     return apiError('Failed to complete delivery', 500);
   }
 }

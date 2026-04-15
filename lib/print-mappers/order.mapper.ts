@@ -13,6 +13,7 @@ import {
   getStoreData,
   StoreSettings
 } from '@/lib/print-service';
+import { generateBarcodeImage } from './barcode-utils';
 
 // Helper function for hiding phone middle digits
 function hidePhoneMiddle(phone: string | undefined | null): string {
@@ -194,6 +195,7 @@ export function mapOrderToPrintData(order: OrderForPrint, storeSettings: StoreSe
     
     // === THÔNG TIN CHI NHÁNH ===
     '{location_name}': order.location?.name || storeSettings.name || '',
+    '{branch_name}': order.location?.name || storeSettings.name || '',
     '{location_address}': order.location?.address || storeSettings.address || '',
     '{location_phone_number}': order.location?.phone || storeSettings.phone || '',
     '{location_province}': order.location?.province || '',
@@ -202,7 +204,7 @@ export function mapOrderToPrintData(order: OrderForPrint, storeSettings: StoreSe
     // === THÔNG TIN ĐƠN HÀNG ===
     '{order_code}': order.code,
     '{order_qr_code}': '', // Will be generated if needed
-    '{bar_code(code)}': `<img src="https://barcodeapi.org/api/128/${encodeURIComponent(order.code)}" style="height:40px"/>`,
+    '{bar_code(code)}': generateBarcodeImage(order.code, 40),
     '{created_on}': formatDate(order.createdAt),
     '{created_on_time}': formatTime(order.createdAt),
     '{created_on_text}': formatDateText(order.createdAt),
@@ -226,7 +228,7 @@ export function mapOrderToPrintData(order: OrderForPrint, storeSettings: StoreSe
     '{channel}': order.channel || '',
     '{reference}': order.reference || '',
     '{tag}': order.tags?.join(', ') || '',
-    '{bar_code(reference_number)}': order.reference ? `<img src="https://barcodeapi.org/api/128/${encodeURIComponent(order.reference)}" style="height:40px"/>` : '',
+    '{bar_code(reference_number)}': order.reference ? generateBarcodeImage(order.reference, 40) : '',
     
     // === GIAO HÀNG ===
     '{expected_delivery_type}': order.expectedDeliveryType || '',
@@ -286,6 +288,7 @@ export function mapOrderToPrintData(order: OrderForPrint, storeSettings: StoreSe
     // === TỔNG GIÁ TRỊ ===
     '{total_quantity}': order.totalQuantity.toString(),
     '{total}': formatCurrency(order.subtotal),
+    '{subtotal}': formatCurrency(order.subtotal),
     '{total_none_discount}': formatCurrency(order.subtotalBeforeDiscount || order.subtotal),
     '{total_line_item_discount}': formatCurrency(order.totalLineItemDiscount),
     '{product_discount}': formatCurrency(order.totalLineItemDiscount),
@@ -317,6 +320,7 @@ export function mapOrderToPrintData(order: OrderForPrint, storeSettings: StoreSe
     '{promotion_code}': order.promotionCode || '',
     
     '{order_note}': order.note || '',
+    '{note}': order.note || '',
   };
 }
 
@@ -326,8 +330,9 @@ export function mapOrderLineItems(items: OrderForPrint['items']): PrintLineItem[
     '{line_product_name}': item.productName,
     '{line_variant}': item.variantName || '',
     '{line_variant_code}': item.variantCode || '',
+    '{line_sku}': item.variantCode || '',
     '{line_variant_barcode}': item.barcode || '',
-    '{line_variant_barcode_image}': item.barcode ? `<img src="https://barcodeapi.org/api/128/${item.barcode}" style="height:30px"/>` : '',
+    '{line_variant_barcode_image}': item.barcode ? generateBarcodeImage(item.barcode, 30) : '',
     '{line_variant_options}': item.variantOptions || '',
     '{line_image}': item.imageUrl ? `<img src="${item.imageUrl}" style="max-width:50px;max-height:50px"/>` : '',
     '{line_unit}': item.unit || 'Cái',

@@ -3,6 +3,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import { fetchShippingSettings, saveShippingSettings } from '../api/shipping-settings-api';
 import { updateShippingSettingsCache, DEFAULT_SETTINGS } from '../shipping-settings-service';
 import type { ShippingSettings } from '../types';
@@ -46,7 +47,7 @@ export function useShippingSettingsMutation() {
       // Update cache
       updateShippingSettingsCache(data);
       // Invalidate query to refetch
-      queryClient.invalidateQueries({ queryKey: shippingSettingsKeys.all });
+      invalidateRelated(queryClient, 'shipping-settings');
     },
   });
 }

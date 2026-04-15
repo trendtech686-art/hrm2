@@ -39,15 +39,16 @@ export function ProductTypesTabContent({ isActive, onRegisterActions }: TabConte
 
   const handleToggleDefault = React.useCallback((item: ProductType) => {
     data.forEach(t => { if (t.isDefault && t.systemId !== item.systemId && !t.isDeleted) update.mutate({ systemId: t.systemId, data: { isDefault: false } }); });
-    update.mutate({ systemId: item.systemId, data: { isDefault: !item.isDefault } });
-    toast.success(item.isDefault ? 'Đã bỏ mặc định' : 'Đã đặt làm mặc định');
+    update.mutate({ systemId: item.systemId, data: { isDefault: !item.isDefault } }, {
+      onSuccess: () => toast.success(item.isDefault ? 'Đã bỏ mặc định' : 'Đã đặt làm mặc định'),
+    });
   }, [data, update]);
 
   const handleToggleActive = React.useCallback((item: ProductType) => { const na = item.isActive === false ? true : false; update.mutate({ systemId: item.systemId, data: { isActive: na } }, { onSuccess: () => toast.success(na ? 'Đã kích hoạt' : 'Đã tắt'), onError: (err) => toast.error(err.message) }); }, [update]);
   const confirmDelete = () => { if (idToDelete) { remove.mutate(idToDelete, { onSuccess: () => toast.success('Đã xóa loại sản phẩm'), onError: (err) => toast.error(err.message) }); } setIsAlertOpen(false); setIdToDelete(null); };
 
   const handleBulkDelete = React.useCallback((selectedItems: { systemId: string }[]) => { if (selectedItems.length === 0) return; setIsBulkDeleteOpen(true); }, []);
-  const confirmBulkDelete = () => { const selectedIds = Object.keys(rowSelection); selectedIds.forEach(id => { remove.mutate(id as SystemId); }); toast.success(`Đã xóa ${selectedIds.length} loại sản phẩm`); setRowSelection({}); setIsBulkDeleteOpen(false); };
+  const confirmBulkDelete = () => { const selectedIds = Object.keys(rowSelection); const count = selectedIds.length; selectedIds.forEach((id, i) => { remove.mutate(id as SystemId, i === count - 1 ? { onSuccess: () => toast.success(`Đã xóa ${count} loại sản phẩm`) } : undefined); }); setRowSelection({}); setIsBulkDeleteOpen(false); };
 
   const handleSubmit = (values: ProductTypeFormValues) => {
     const payload = { ...values, id: asBusinessId(values.id) };

@@ -23,26 +23,14 @@ const PopoverContent = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof PopoverPrimitive.Content> & {
     id?: string;
   }
->(({ className, align = "center", sideOffset = 4, id: propId, ...props }, ref) => {
-  // Always call useId unconditionally (React hooks rule)
+>(({ className, align = "center", sideOffset = 4, id: propId, style: propStyle, ...props }, ref) => {
   const generatedId = React.useId();
-  // Use either the prop id or the id from context
   const contextId = React.useContext(PopoverContext);
   const id = propId || contextId || `popover-${generatedId}`;
   
-  // Get open state from props
-  const [open, setOpen] = React.useState(false);
-  const dataState = props["data-state"];
-  React.useEffect(() => {
-    if (dataState === "open") {
-      setOpen(true);
-    } else {
-      setOpen(false);
-    }
-  }, [dataState]);
-  
-  // Register with our modal context
-  const { zIndex } = useModal(id, open, 'popover');
+  // Radix only mounts PopoverContent when open (via Presence),
+  // so always register as open. Cleanup runs on unmount (close).
+  const { zIndex } = useModal(id, true, 'popover');
   
   return (
     <PopoverPrimitive.Portal>
@@ -51,11 +39,11 @@ const PopoverContent = React.forwardRef<
         align={align}
         sideOffset={sideOffset}
         className={cn(
-          "w-72 rounded-md border border-border bg-popover p-4 text-popover-foreground shadow-md outline-none transition-opacity duration-200 opacity-0 data-[state=open]:opacity-100 data-[state=closed]:opacity-0",
+          "w-72 max-md:w-[calc(100vw-2rem)] rounded-md border border-border bg-popover p-4 text-popover-foreground shadow-md outline-none transition-opacity duration-200 opacity-0 data-[state=open]:opacity-100 data-[state=closed]:opacity-0",
           className
         )}
-        style={{ zIndex }}
         {...props}
+        style={{ ...propStyle, zIndex }}
       >
         <PopoverProvider id={id}>
           {props.children}

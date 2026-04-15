@@ -38,9 +38,9 @@ export interface OptimizedImageProps {
  * Check if URL is valid for next/image optimization
  */
 function isOptimizableUrl(src: string): boolean {
-  // Local uploads are optimizable
+  // Local uploads and API files — use unoptimized <Image> to avoid localPatterns issues
   if (src.startsWith('/uploads/') || src.startsWith('/api/')) {
-    return true
+    return false
   }
   
   // Data URLs should not be optimized

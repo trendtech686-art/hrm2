@@ -51,23 +51,26 @@ export function CategoryListTab() {
     }
 
     if (editingCategory) {
-      updateCategory.mutate({ id: editingCategory.id, updates: { id, name: formData.name.trim() } });
-      toast.success('Đã cập nhật danh mục');
+      updateCategory.mutate({ id: editingCategory.id, updates: { id, name: formData.name.trim() } }, {
+        onSuccess: () => toast.success('Đã cập nhật danh mục'),
+      });
     } else {
       if ((settings?.categories ?? []).some((c) => c.id === id)) {
         toast.error('ID danh mục đã tồn tại');
         return;
       }
-      addCategory.mutate({ id, name: formData.name.trim() });
-      toast.success('Đã thêm danh mục mới');
+      addCategory.mutate({ id, name: formData.name.trim() }, {
+        onSuccess: () => toast.success('Đã thêm danh mục mới'),
+      });
     }
     setIsDialogOpen(false);
   };
 
   const handleDelete = (category: PkgxCategory) => {
     if (confirm(`Xóa danh mục "${category.name}" (ID: ${category.id})?`)) {
-      deleteCategory.mutate(category.id);
-      toast.success('Đã xóa danh mục');
+      deleteCategory.mutate(category.id, {
+        onSuccess: () => toast.success('Đã xóa danh mục'),
+      });
     }
   };
 
@@ -105,10 +108,10 @@ export function CategoryListTab() {
                   <TableCell className="font-mono">{category.id}</TableCell>
                   <TableCell>{category.name}</TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="icon" onClick={() => handleOpenEdit(category)}>
+                    <Button variant="ghost" size="icon" aria-label="Chỉnh sửa" onClick={() => handleOpenEdit(category)}>
                       <Pencil className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={() => handleDelete(category)}>
+                    <Button variant="ghost" size="icon" aria-label="Xóa" onClick={() => handleDelete(category)}>
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                   </TableCell>

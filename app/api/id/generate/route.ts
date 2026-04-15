@@ -9,6 +9,7 @@
 
 import { generateNextIds, type EntityType, ID_CONFIG } from '@/lib/id-system'
 import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
+import { logError } from '@/lib/logger'
 
 export async function POST(request: Request) {
   const session = await requireAuth()
@@ -30,7 +31,7 @@ export async function POST(request: Request) {
     
     return apiSuccess(ids);
   } catch (error) {
-    console.error('[API /api/id/generate] Error:', error);
+    logError('[API /api/id/generate] Error', error);
     return apiError('Failed to generate IDs', 500);
   }
 }

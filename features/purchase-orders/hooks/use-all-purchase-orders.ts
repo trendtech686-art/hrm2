@@ -60,18 +60,4 @@ export function usePurchaseOrderFinder() {
   return { findById };
 }
 
-/**
- * Returns purchase orders filtered by supplier
- */
-export function usePurchaseOrdersBySupplier(supplierSystemId: SystemId | string | undefined) {
-  const { data, isLoading } = useAllPurchaseOrders();
-  
-  const filtered = React.useMemo(
-    () => supplierSystemId 
-      ? data.filter(po => po.supplierSystemId === supplierSystemId)
-      : [],
-    [data, supplierSystemId]
-  );
-  
-  return { data: filtered, isLoading };
-}
+

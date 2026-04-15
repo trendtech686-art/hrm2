@@ -12,6 +12,10 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils';
+import { logError } from '@/lib/logger'
+import { syncProductsInventory } from '@/lib/meilisearch-sync'
+import { createNotification } from '@/lib/notifications'
+import { getUserNameFromDb } from '@/lib/get-user-name'
 
 type RouteParams = {
   params: Promise<{ systemId: string }>;
@@ -37,11 +41,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     });
 
     if (!transfer) {
-      return apiError('Stock transfer not found', 404);
+      return apiError('Không tìm thấy phiếu chuyển kho', 404);
     }
 
     if (transfer.status === 'COMPLETED' || transfer.status === 'CANCELLED') {
-      return apiError(`Cannot cancel transfer with status: ${transfer.status}`, 400);
+      return apiError(`Không thể hủy phiếu chuyển kho với trạng thái: ${transfer.status}`, 400);
     }
 
     // Get employee info
@@ -76,23 +80,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           });
 
           if (!product) {
-            throw new Error(`Product not found: ${item.productId}`);
+            throw new Error(`Không tìm thấy sản phẩm: ${item.productId}`);
           }
 
-          // ✅ Get current inventory at source
-          const inventory = await tx.productInventory.findUnique({
-            where: {
-              productId_branchId: {
-                productId: item.productId,
-                branchId: transfer.fromBranchId,
-              },
-            },
-          });
-
-          const newStockLevel = (inventory?.onHand || 0) + item.quantity;
-
           // ✅ Update source branch: +onHand (stock returns to source)
-          await tx.productInventory.upsert({
+          // Use returned value to ensure stock history matches actual DB state
+          const updatedSourceInventory = await tx.productInventory.upsert({
             where: {
               productId_branchId: {
                 productId: item.productId,
@@ -126,7 +119,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             // Ignore if destination inventory doesn't exist
           });
 
-          // ✅ Create stock history entry
+          // ✅ Create stock history entry with actual DB value
           await tx.stockHistory.create({
             data: {
               productId: item.productId,
@@ -134,7 +127,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
               action: 'Hủy chuyển kho',
               source: 'Chuyển kho',
               quantityChange: item.quantity,
-              newStockLevel: newStockLevel,
+              newStockLevel: updatedSourceInventory.onHand, // ✅ Use actual DB value
               documentId: transfer.id,
               documentType: 'stock_transfer',
               employeeId: session.user.id,
@@ -148,16 +141,51 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return updatedTransfer;
     });
 
+    // ✅ Sync affected products to Meilisearch for real-time inventory data
+    if (transfer.status === 'IN_TRANSIT' && transfer.items.length > 0) {
+      const productSystemIds = transfer.items.map(item => item.productId).filter(Boolean) as string[];
+      syncProductsInventory(productSystemIds).catch(err => 
+        logError('[Stock Transfer Cancel] Meilisearch sync failed', err)
+      );
+    }
+
     // Transform status to lowercase for frontend compatibility
     const transformedResult = {
       ...result,
       status: result.status.toLowerCase(),
     };
 
+    // ✅ Notify: transfer cancelled (to assigned employee if different)
+    if (transfer.employeeId && transfer.employeeId !== session.user?.employeeId) {
+      createNotification({
+        type: 'stock_transfer',
+        settingsKey: 'stock-transfer:updated',
+        title: 'Hủy chuyển kho',
+        message: `Phiếu chuyển kho ${transfer.id || systemId} đã bị hủy`,
+        link: `/stock-transfers/${systemId}`,
+        recipientId: transfer.employeeId,
+        senderId: session.user?.employeeId,
+        senderName: session.user?.name,
+      }).catch(e => logError('[Stock Transfer Cancel] notification failed', e))
+    }
+
+    // Log activity
+    getUserNameFromDb(session.user?.id).then(userName =>
+      prisma.activityLog.create({
+        data: {
+          entityType: 'stock_transfer',
+          entityId: systemId,
+          action: 'cancelled',
+          actionType: 'update',
+          note: `Hủy phiếu chuyển kho`,
+          metadata: { userName },
+          createdBy: userName,
+        }
+      })
+    ).catch(e => logError('[ActivityLog] stock_transfer cancelled failed', e))
     return apiSuccess(transformedResult);
   } catch (error) {
-    console.error('[Stock Transfer Cancel] Error:', error);
-    const message = error instanceof Error ? error.message : 'Failed to cancel transfer';
+    const message = error instanceof Error ? error.message : 'Lỗi khi hủy chuyển kho';
     return apiError(message, 500);
   }
 }

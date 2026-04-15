@@ -3,6 +3,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import {
   fetchReceiptTypes,
   fetchReceiptTypeById,
@@ -62,7 +63,7 @@ interface MutationCallbacks {
 
 export function useReceiptTypeMutations(options: MutationCallbacks = {}) {
   const queryClient = useQueryClient();
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: receiptTypeKeys.all });
+  const invalidate = () => invalidateRelated(queryClient, 'receipt-types');
 
   const create = useMutation({
     mutationFn: (data: ReceiptTypeCreateInput) => createReceiptType(data),

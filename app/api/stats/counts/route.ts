@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
 import { cache, CACHE_TTL } from '@/lib/cache'
+import { logError } from '@/lib/logger'
 
 /**
  * GET /api/stats/counts - Get counts and last IDs for all entities
@@ -119,11 +120,11 @@ export async function GET() {
     }
 
     // Cache for 5 minutes
-    cache.set(cacheKey, counts, CACHE_TTL.MEDIUM)
+    cache.set(cacheKey, counts, CACHE_TTL.MEDIUM * 1000)
 
     return apiSuccess(counts)
   } catch (error) {
-    console.error('Error fetching counts:', error)
+    logError('Error fetching counts', error)
     return apiError('Failed to fetch counts', 500)
   }
 }

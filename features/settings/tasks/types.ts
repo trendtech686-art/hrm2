@@ -1,4 +1,8 @@
 import type { TaskPriority } from '../../tasks/types';
+import type { TaskNotificationSettings } from '../notifications/types';
+
+// Re-export for backward compatibility
+export type NotificationSettings = TaskNotificationSettings;
 
 // ============================================
 // INTERFACES
@@ -8,7 +12,7 @@ export interface CardColorSettings {
   statusColors: {
     'Chưa bắt đầu': string;
     'Đang thực hiện': string;
-    'Đang chờ': string;
+    'Chờ duyệt': string;
     'Hoàn thành': string;
     'Đã hủy': string;
   };
@@ -42,16 +46,6 @@ export interface TaskTemplate {
   category: 'development' | 'design' | 'marketing' | 'admin' | 'general';
   estimatedHours: number;
   order: number;
-}
-
-export interface NotificationSettings {
-  emailOnCreate: boolean;
-  emailOnAssign: boolean;
-  emailOnComplete: boolean;
-  emailOnOverdue: boolean;
-  emailOnApprovalPending: boolean;
-  smsOnOverdue: boolean;
-  inAppNotifications: boolean;
 }
 
 export interface ReminderSettings {
@@ -95,10 +89,10 @@ export type TasksSettingsState = {
 // ============================================
 
 export const defaultSLA: SLASettings = {
-  'Thấp': { responseTime: 480, completeTime: 168 }, // 8h response, 7 days complete
-  'Trung bình': { responseTime: 240, completeTime: 72 }, // 4h response, 3 days complete
-  'Cao': { responseTime: 120, completeTime: 24 }, // 2h response, 1 day complete
-  'Khẩn cấp': { responseTime: 60, completeTime: 8 }, // 1h response, 8h complete
+  'Thấp': { responseTime: 480, completeTime: 168 },
+  'Trung bình': { responseTime: 240, completeTime: 72 },
+  'Cao': { responseTime: 120, completeTime: 24 },
+  'Khẩn cấp': { responseTime: 60, completeTime: 8 },
 };
 
 export const defaultReminders: ReminderSettings = {
@@ -114,7 +108,6 @@ export const defaultNotifications: NotificationSettings = {
   emailOnComplete: true,
   emailOnOverdue: true,
   emailOnApprovalPending: true,
-  smsOnOverdue: false,
   inAppNotifications: true,
 };
 
@@ -122,7 +115,7 @@ export const defaultCardColors: CardColorSettings = {
   statusColors: {
     'Chưa bắt đầu': 'bg-slate-50 border-slate-200',
     'Đang thực hiện': 'bg-blue-50 border-blue-200',
-    'Đang chờ': 'bg-yellow-50 border-yellow-200',
+    'Chờ duyệt': 'bg-yellow-50 border-yellow-200',
     'Hoàn thành': 'bg-green-50 border-green-200',
     'Đã hủy': 'bg-gray-50 border-gray-200',
   },
@@ -268,8 +261,8 @@ export const STATUS_COLOR_CONFIGS: Array<{
     helper: 'Task đang được xử lý tích cực.',
   },
   {
-    key: 'Đang chờ',
-    label: 'Đang chờ',
+    key: 'Chờ duyệt',
+    label: 'Chờ duyệt',
     helper: 'Chờ duyệt, chờ đối tác hoặc phụ thuộc khác.',
   },
   {

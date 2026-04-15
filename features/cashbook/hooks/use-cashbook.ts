@@ -8,8 +8,6 @@
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import {
   fetchCashAccounts,
-  fetchCashAccountById,
-  fetchAccountBalance,
   fetchActiveCashAccounts,
   type CashAccountFilters,
 } from '../api/cashbook-api';
@@ -21,6 +19,7 @@ import {
   type CreateCashAccountInput,
   type UpdateCashAccountInput,
 } from '@/app/actions/cashbook';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 
 // Query keys factory
 export const cashbookKeys = {
@@ -57,30 +56,6 @@ export function useActiveCashAccounts() {
   });
 }
 
-/**
- * Hook to fetch single cash account
- */
-export function useCashAccountById(systemId: string | undefined) {
-  return useQuery({
-    queryKey: cashbookKeys.detail(systemId!),
-    queryFn: () => fetchCashAccountById(systemId!),
-    enabled: !!systemId,
-    staleTime: 1000 * 60 * 5,
-  });
-}
-
-/**
- * Hook to fetch account balance
- */
-export function useCashAccountBalance(systemId: string | undefined) {
-  return useQuery({
-    queryKey: cashbookKeys.balance(systemId!),
-    queryFn: () => fetchAccountBalance(systemId!),
-    enabled: !!systemId,
-    staleTime: 1000 * 30, // 30 seconds - balance changes frequently
-  });
-}
-
 interface MutationCallbacks {
   onSuccess?: () => void;
   onError?: (error: Error) => void;
@@ -92,12 +67,8 @@ interface MutationCallbacks {
 export function useCashAccountMutations(options: MutationCallbacks = {}) {
   const queryClient = useQueryClient();
 
-  // ⚠️ QUAN TRỌNG: refetchType: 'all' để force refetch ngay lập tức
   const invalidateCashbook = () => {
-    queryClient.invalidateQueries({ 
-      queryKey: cashbookKeys.all,
-      refetchType: 'all',
-    });
+    invalidateRelated(queryClient, 'cashbook');
   };
 
   const create = useMutation({

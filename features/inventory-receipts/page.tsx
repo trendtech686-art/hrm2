@@ -13,11 +13,11 @@ import { useAllInventoryReceipts } from "./hooks/use-all-inventory-receipts";
 import { useAllSuppliers, useSupplierFinder } from "../suppliers/hooks/use-all-suppliers";
 import { usePageHeader } from "@/contexts/page-header-context";
 import { useAllBranches, useBranchFinder } from "../settings/branches/hooks/use-all-branches";
-import { useStoreInfoData } from "../settings/store-info/hooks/use-store-info";
+import { fetchPrintData } from '@/lib/lazy-print-data';
 import { usePrint } from "@/lib/use-print";
 import { convertStockInForPrint, mapStockInToPrintData, mapStockInLineItems, createStoreSettings } from "@/lib/print/stock-in-print-helper";
 import { useAuth } from "@/contexts/auth-context";
-import { useColumnVisibility } from "@/hooks/use-column-visibility";
+import { useColumnLayout } from "@/hooks/use-column-visibility";
 import { asSystemId } from "@/lib/id-types";
 import { useMediaQuery } from "@/lib/use-media-query";
 import type { ColumnDef } from "@/components/data-table/types";
@@ -27,11 +27,11 @@ import { ResponsiveDataTable } from "@/components/data-table/responsive-data-tab
 import { DataTableDateFilter } from "@/components/data-table/data-table-date-filter";
 import { PageFilters } from "@/components/layout/page-filters";
 import { PageToolbar } from "@/components/layout/page-toolbar";
-import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { SimplePrintOptionsDialog, SimplePrintOptionsResult } from "@/components/shared/simple-print-options-dialog";
+import { usePaginationWithGlobalDefault } from '@/features/settings/global/hooks/use-global-settings';
 
 const InventoryReceiptExportDialog = dynamic(() => import("./components/inventory-receipts-import-export-dialogs").then(mod => ({ default: mod.InventoryReceiptExportDialog })), { ssr: false });
 
@@ -43,7 +43,7 @@ const getColumns = (handlers: { onPrint: (r: InventoryReceipt) => void }): Colum
   { id: 'purchaseOrderId', accessorKey: 'purchaseOrderId', header: 'Đơn mua hàng', cell: ({ row }) => row.purchaseOrderId, meta: { displayName: 'Đơn mua hàng' }, size: 140 },
   { id: 'totalQuantity', header: 'Tổng SL', cell: ({ row }) => <span className="font-medium">{row.items.reduce((s, i) => s + Number(i.receivedQuantity), 0)}</span>, meta: { displayName: 'Tổng SL' }, size: 100 },
   { id: 'receiverName', accessorKey: 'receiverName', header: 'Người nhận', cell: ({ row }) => row.receiverName, meta: { displayName: 'Người nhận' }, size: 150 },
-  { id: 'notes', accessorKey: 'notes', header: 'Ghi chú', cell: ({ row }) => <span className="text-body-xs max-w-xs line-clamp-2">{row.notes || '-'}</span>, meta: { displayName: 'Ghi chú' }, size: 200 },
+  { id: 'notes', accessorKey: 'notes', header: 'Ghi chú', cell: ({ row }) => <span className="text-xs max-w-xs line-clamp-2">{row.notes || '-'}</span>, meta: { displayName: 'Ghi chú' }, size: 200 },
   { id: 'itemsCount', header: 'Số mặt hàng', cell: ({ row }) => <span className="font-medium">{row.items.length}</span>, meta: { displayName: 'Số mặt hàng' }, size: 100 },
   { id: 'totalValue', header: 'Tổng giá trị', cell: ({ row }) => <span className="font-semibold">{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(row.items.reduce((s, i) => s + i.receivedQuantity * i.unitPrice, 0))}</span>, meta: { displayName: 'Tổng giá trị' }, size: 150 },
   { id: 'actions', header: 'Hành động', cell: ({ row }) => <Button variant="ghost" size="sm" className="h-8" onClick={(e) => { e.stopPropagation(); handlers.onPrint(row); }}><Printer className="h-4 w-4 mr-1" />In</Button>, size: 100, meta: { displayName: 'Hành động', sticky: 'right' } },
@@ -54,7 +54,7 @@ export function InventoryReceiptsPage() {
   const [search, setSearch] = React.useState('');
   const [debouncedSearch, setDebouncedSearch] = React.useState('');
   const [sorting, setSorting] = React.useState<{ id: string; desc: boolean }>({ id: 'createdAt', desc: true });
-  const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 20 });
+  const [pagination, setPagination] = usePaginationWithGlobalDefault();
   const [supplierFilter, setSupplierFilter] = React.useState('all');
   const [branchFilter, setBranchFilter] = React.useState('all');
   const [dateRange, setDateRange] = React.useState<[string | undefined, string | undefined] | undefined>();
@@ -99,15 +99,16 @@ export function InventoryReceiptsPage() {
   const { findById: findSupplierById } = useSupplierFinder();
   const { data: branches } = useAllBranches();
   const { findById: findBranchById } = useBranchFinder();
-  const { info: storeInfo } = useStoreInfoData();
-  const { print, printMultiple } = usePrint();
-  const { employee: currentUser } = useAuth();
+  // ⚡ OPTIMIZED: Defer print template loading until print is clicked
+  const { print, printMultiple } = usePrint({ enabled: false });
+  const {  employee: currentUser, can } = useAuth();
+  const canEdit = can('edit_inventory');
+  const canView = can('view_inventory');
+  const canEditSettings = can('edit_settings');
   const router = useRouter();
   const isMobile = useMediaQuery("(max-width: 768px)");
 
   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
-  const [columnOrder, setColumnOrder] = React.useState<string[]>([]);
-  const [pinnedColumns, setPinnedColumns] = React.useState<string[]>([]);
   const [expanded, setExpanded] = React.useState<Record<string, boolean>>({});
   const [mobileLoadedCount, setMobileLoadedCount] = React.useState(20);
   const [isPrintDialogOpen, setIsPrintDialogOpen] = React.useState(false);
@@ -119,40 +120,36 @@ export function InventoryReceiptsPage() {
     getColumns({ onPrint: () => undefined }).forEach(c => { if (c.id) initial[c.id] = true; });
     return initial;
   }, []);
-  const [columnVisibility, setColumnVisibility] = useColumnVisibility('inventory-receipts', defaultColumnVisibility);
+  const [{ visibility: columnVisibility, order: columnOrder, pinned: pinnedColumns }, { setVisibility: setColumnVisibility, setOrder: setColumnOrder, setPinned: setPinnedColumns }] = useColumnLayout('inventory-receipts', { visibility: defaultColumnVisibility, pinned: ['select', 'actions'] });
 
   const headerActions = React.useMemo(() => [
     <Button key="po" variant="outline" size="sm" className="h-9" onClick={() => router.push(ROUTES.PROCUREMENT.PURCHASE_ORDERS)}>Đơn mua hàng</Button>,
-    <Button key="new" size="sm" className="h-9" onClick={() => router.push(ROUTES.PROCUREMENT.PURCHASE_ORDER_NEW)}>Tạo phiếu nhập</Button>,
-  ], [router]);
+    canEdit && <Button key="new" size="sm" className="h-9" onClick={() => router.push(ROUTES.PROCUREMENT.PURCHASE_ORDER_NEW)}>Tạo phiếu nhập</Button>,
+  ].filter(Boolean), [router, canEdit]);
 
   usePageHeader({ title: 'Danh sách phiếu nhập kho', breadcrumb: [{ label: 'Trang chủ', href: ROUTES.DASHBOARD }, { label: 'Phiếu nhập kho', href: ROUTES.PROCUREMENT.INVENTORY_RECEIPTS, isCurrent: true }], showBackButton: false, actions: headerActions });
 
-  const handlePrintReceipt = React.useCallback((receipt: InventoryReceipt) => {
+  const handlePrintReceipt = React.useCallback(async (receipt: InventoryReceipt) => {
     const branch = receipt.branchSystemId ? findBranchById(receipt.branchSystemId) : undefined;
     const supplier = receipt.supplierSystemId ? findSupplierById(receipt.supplierSystemId) : undefined;
+    const { storeInfo } = await fetchPrintData();
     const storeSettings = branch ? createStoreSettings(branch) : createStoreSettings(storeInfo);
     const data = convertStockInForPrint(receipt, { branch, supplier });
     print('stock-in', { data: mapStockInToPrintData(data, storeSettings), lineItems: mapStockInLineItems(data.items) });
     toast.info(`Đang in phiếu ${receipt.id}`);
-  }, [findBranchById, findSupplierById, storeInfo, print]);
+  }, [findBranchById, findSupplierById, print]);
 
   const columns = React.useMemo(() => getColumns({ onPrint: handlePrintReceipt }), [handlePrintReceipt]);
-
-  // Initialize column order once
-  React.useEffect(() => {
-    setColumnOrder(columns.map(c => c.id).filter(Boolean) as string[]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const handleRowClick = React.useCallback((r: InventoryReceipt) => router.push(ROUTES.PROCUREMENT.INVENTORY_RECEIPT_VIEW.replace(':systemId', r.systemId)), [router]);
   const selectedRows = React.useMemo(() => receipts.filter(r => rowSelection[r.systemId]), [receipts, rowSelection]);
 
   const handleBulkPrint = React.useCallback(() => { if (selectedRows.length === 0) return; setPendingPrintReceipts(selectedRows); setIsPrintDialogOpen(true); }, [selectedRows]);
-  const handlePrintConfirm = React.useCallback((opts: SimplePrintOptionsResult) => {
+  const handlePrintConfirm = React.useCallback(async (opts: SimplePrintOptionsResult) => {
+    const { storeInfo } = await fetchPrintData();
     const list = pendingPrintReceipts.map(r => { const b = opts.branchSystemId ? findBranchById(opts.branchSystemId) : (r.branchSystemId ? findBranchById(r.branchSystemId) : undefined), s = r.supplierSystemId ? findSupplierById(r.supplierSystemId) : undefined, st = b ? createStoreSettings(b) : createStoreSettings(storeInfo), d = convertStockInForPrint(r, { branch: b, supplier: s }); return { data: mapStockInToPrintData(d, st), lineItems: mapStockInLineItems(d.items), paperSize: opts.paperSize }; });
     printMultiple('stock-in', list); toast.success(`Đã gửi in ${pendingPrintReceipts.length} phiếu`); setRowSelection({}); setPendingPrintReceipts([]);
-  }, [pendingPrintReceipts, findBranchById, findSupplierById, storeInfo, printMultiple]);
+  }, [pendingPrintReceipts, findBranchById, findSupplierById, printMultiple]);
 
   const bulkActions = [{ label: "In phiếu nhập", icon: Printer, onSelect: handleBulkPrint }];
 
@@ -178,21 +175,19 @@ export function InventoryReceiptsPage() {
   const currentUserInfo = React.useMemo(() => ({ name: currentUser?.fullName || 'Hệ thống', systemId: currentUser?.systemId || asSystemId('SYSTEM') }), [currentUser]);
 
   const MobileReceiptCard = ({ receipt }: { receipt: InventoryReceipt }) => (
-    <Card className="mb-4 cursor-pointer hover:border-primary" onClick={() => handleRowClick(receipt)}>
-      <CardContent className="p-4">
+    <div className="rounded-xl border border-border/50 bg-card p-4 active:scale-[0.98] transition-transform touch-manipulation cursor-pointer" onClick={() => handleRowClick(receipt)}>
         <div className="flex items-start justify-between">
           <div className="flex items-start gap-3"><div className="p-2 rounded-full bg-green-100 text-green-600"><Package className="h-6 w-6" /></div>
-            <div className="flex-1"><div className="font-semibold text-body-sm mb-1">{receipt.id}</div><div className="text-body-sm text-muted-foreground space-y-1"><div className="flex items-center gap-1"><CalendarIcon className="h-3 w-3" /><span>{formatDate(receipt.receivedDate)}</span></div><div className="flex items-center gap-1"><Users className="h-3 w-3" /><span>{receipt.supplierName || '-'}</span></div>{receipt.purchaseOrderId && <div className="flex items-center gap-1"><FileText className="h-3 w-3" /><span>Đơn: {receipt.purchaseOrderId}</span></div>}</div></div>
+            <div className="flex-1"><div className="font-semibold text-sm mb-1">{receipt.id}</div><div className="text-sm text-muted-foreground space-y-1"><div className="flex items-center gap-1"><CalendarIcon className="h-3 w-3" /><span>{formatDate(receipt.receivedDate)}</span></div><div className="flex items-center gap-1"><Users className="h-3 w-3" /><span>{receipt.supplierName || '-'}</span></div>{receipt.purchaseOrderId && <div className="flex items-center gap-1"><FileText className="h-3 w-3" /><span>Đơn: {receipt.purchaseOrderId}</span></div>}</div></div>
           </div>
-          <div className="text-right"><div className="font-semibold text-body-sm">{(receipt.items || []).reduce((s, i) => s + (Number(i.receivedQuantity) || 0), 0)} SP</div></div>
+          <div className="text-right"><div className="font-semibold text-sm">{(receipt.items || []).reduce((s, i) => s + (Number(i.receivedQuantity) || 0), 0)} SP</div></div>
         </div>
-      </CardContent>
-    </Card>
+    </div>
   );
 
   return (
     <div className="space-y-4 flex flex-col h-full">
-      {!isMobile && <PageToolbar leftActions={<><Button variant="outline" size="sm" onClick={() => router.push('/settings/inventory')}><Settings className="h-4 w-4 mr-2" />Cài đặt</Button><Button variant="outline" size="sm" onClick={() => setExportDialogOpen(true)}><Download className="h-4 w-4 mr-2" />Xuất Excel</Button></>} />}
+      {!isMobile && <PageToolbar leftActions={<>{canEditSettings && <Button variant="outline" size="sm" onClick={() => router.push('/settings/inventory')}><Settings className="h-4 w-4 mr-2" />Cài đặt</Button>}<Button variant="outline" size="sm" onClick={() => setExportDialogOpen(true)}><Download className="h-4 w-4 mr-2" />Xuất Excel</Button></>} />}
 
       <PageFilters searchValue={search} onSearchChange={setSearch} searchPlaceholder="Tìm theo mã phiếu, NCC...">
         <Select value={supplierFilter} onValueChange={setSupplierFilter}><SelectTrigger className="h-9 w-full sm:w-50"><SelectValue placeholder="Nhà cung cấp" /></SelectTrigger><SelectContent><SelectItem value="all">Tất cả NCC</SelectItem>{supplierOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent></Select>
@@ -208,8 +203,8 @@ export function InventoryReceiptsPage() {
           </div>
           {receipts.length > 0 && (
             <div className="py-6 text-center">
-              {mobileLoadedCount < receipts.length ? <div className="flex items-center justify-center gap-2 text-muted-foreground"><div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" /><span className="text-body-sm">Đang tải...</span></div>
-                : receipts.length > 20 ? <p className="text-body-sm text-muted-foreground">Đã hiển thị {receipts.length} phiếu</p> : null}
+              {mobileLoadedCount < receipts.length ? <div className="flex items-center justify-center gap-2 text-muted-foreground"><div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" /><span className="text-sm">Đang tải...</span></div>
+                : receipts.length > 20 ? <p className="text-sm text-muted-foreground">Đã hiển thị {receipts.length} phiếu</p> : null}
             </div>
           )}
         </div>
@@ -222,8 +217,9 @@ export function InventoryReceiptsPage() {
       )}
 
       <SimplePrintOptionsDialog open={isPrintDialogOpen} onOpenChange={setIsPrintDialogOpen} onConfirm={handlePrintConfirm} selectedCount={pendingPrintReceipts.length} title="In phiếu nhập kho" />
-      <InventoryReceiptExportDialog open={exportDialogOpen} onOpenChange={setExportDialogOpen} allData={allReceipts} filteredData={allReceipts} currentPageData={receipts} selectedData={selectedRows}
-        currentUser={currentUserInfo} />
+      {/* ✅ Only render export dialog when opened to avoid loading pricing-policies API */}
+      {exportDialogOpen && <InventoryReceiptExportDialog open={exportDialogOpen} onOpenChange={setExportDialogOpen} allData={allReceipts} filteredData={allReceipts} currentPageData={receipts} selectedData={selectedRows}
+        currentUser={currentUserInfo} />}
     </div>
   );
 }

@@ -19,12 +19,14 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { Save } from 'lucide-react';
+import { Save, Loader2 } from 'lucide-react';
 import type { GlobalShippingConfig, WeightMode, DeliveryRequirement } from '@/lib/types/shipping-config';
-import { loadShippingConfig, updateGlobalConfig } from '@/lib/utils/shipping-config-migration';
+import { loadShippingConfigAsync } from '@/lib/utils/shipping-config-migration';
 import { toast } from 'sonner';
+import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { SettingsActionButton } from '@/components/settings/SettingsActionButton';
 import type { RegisterTabActions } from '../../use-tab-action-registry';
+import { logError } from '@/lib/logger'
 
 type GlobalShippingConfigTabProps = {
   isActive: boolean;
@@ -32,10 +34,32 @@ type GlobalShippingConfigTabProps = {
 };
 
 export function GlobalShippingConfigTab({ isActive, onRegisterActions }: GlobalShippingConfigTabProps) {
-  const [config, setConfig] = useState<GlobalShippingConfig>(() => {
-    const fullConfig = loadShippingConfig();
-    return fullConfig.global;
+  const queryClient = useQueryClient();
+  const [config, setConfig] = useState<GlobalShippingConfig>({
+    weight: { mode: 'FROM_PRODUCTS', customValue: 500 },
+    dimensions: { length: 30, width: 20, height: 10 },
+    requirement: 'ALLOW_CHECK_NOT_TRY',
+    note: '',
+    autoSyncCancelStatus: false,
+    autoSyncCODCollection: false,
+    autoCreateReconciliationSheet: false,
+    latePickupWarningDays: 2,
+    lateDeliveryWarningDays: 7,
+    productSendMode: 'all',
   });
+
+  // ✅ Use ref so handleSave always reads the latest config without being recreated
+  // This avoids stale closure because page-header fingerprint uses onClick.toString()
+  // which doesn't detect closure variable changes
+  const configRef = useRef(config);
+  configRef.current = config;
+
+  // ✅ Load from DB on mount to ensure fresh data (no sync fallback)
+  useEffect(() => {
+    loadShippingConfigAsync(true).then(fullConfig => {
+      setConfig(fullConfig.global);
+    });
+  }, []);
 
   const [_hasChanges, setHasChanges] = useState(false);
 
@@ -54,19 +78,37 @@ export function GlobalShippingConfigTab({ isActive, onRegisterActions }: GlobalS
     setHasChanges(true);
   };
 
-  const handleSave = useCallback(() => {
-    try {
-      const fullConfig = loadShippingConfig();
-      const _newConfig = updateGlobalConfig(fullConfig, config);
-      // Note: updateGlobalConfig already saves to localStorage
-      
+  const saveMutation = useMutation({
+    mutationFn: async (currentConfig: GlobalShippingConfig) => {
+      // Always fetch fresh config from DB to avoid overwriting partner data with defaults
+      const fullConfig = await loadShippingConfigAsync(true);
+      fullConfig.global = { ...fullConfig.global, ...currentConfig };
+      fullConfig.lastUpdated = new Date().toISOString();
+
+      const response = await fetch('/api/shipping-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(fullConfig),
+      });
+      if (!response.ok) throw new Error('Lưu cấu hình thất bại');
+      return fullConfig;
+    },
+    onSuccess: async () => {
+      await loadShippingConfigAsync(true);
+      queryClient.invalidateQueries({ queryKey: ['activity-logs'] });
       setHasChanges(false);
       toast.success('Lưu cấu hình thành công');
-    } catch (error) {
-      console.error('Failed to save config:', error);
-      toast.error('Lỗi', { description: 'Không thể lưu cấu hình' });
-    }
-  }, [config]);
+    },
+    onError: (error) => {
+      logError('Failed to save config', error);
+      toast.error('Lỗi', { description: 'Không thể lưu cấu hình. Vui lòng thử lại.' });
+    },
+  });
+
+  const handleSave = useCallback(() => {
+    saveMutation.mutate(configRef.current);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // ✅ Empty deps — handleSave is stable, reads config from ref
 
   const onRegisterActionsRef = useRef(onRegisterActions);
   useEffect(() => { onRegisterActionsRef.current = onRegisterActions; }, [onRegisterActions]);
@@ -77,11 +119,11 @@ export function GlobalShippingConfigTab({ isActive, onRegisterActions }: GlobalS
     }
 
     onRegisterActionsRef.current([
-      <SettingsActionButton key="save" onClick={handleSave}>
-        <Save className="h-4 w-4 mr-2" /> Lưu cấu hình
+      <SettingsActionButton key="save" onClick={handleSave} disabled={saveMutation.isPending}>
+        {saveMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />} {saveMutation.isPending ? 'Đang lưu...' : 'Lưu cấu hình'}
       </SettingsActionButton>,
     ]);
-  }, [handleSave, isActive]);
+  }, [handleSave, isActive, saveMutation.isPending]);
 
   return (
     <Card>
@@ -243,6 +285,45 @@ export function GlobalShippingConfigTab({ isActive, onRegisterActions }: GlobalS
             <Switch
               checked={config.autoSyncCODCollection}
               onCheckedChange={(checked) => setConfig(prev => ({ ...prev, autoSyncCODCollection: checked }))}
+            />
+          </div>
+
+          <Separator />
+
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label>Tự động tạo phiếu đối soát</Label>
+              <p className="text-xs text-muted-foreground">
+                Khi đối tác xác nhận đã đối soát COD (status 6), tự động tạo phiếu đối soát trong hệ thống
+              </p>
+            </div>
+            <Switch
+              checked={config.autoCreateReconciliationSheet}
+              onCheckedChange={(checked) => setConfig(prev => ({ ...prev, autoCreateReconciliationSheet: checked }))}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Product Send Mode */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Gửi sản phẩm qua API</CardTitle>
+          <CardDescription>Cấu hình cách gửi danh sách sản phẩm khi tạo đơn vận chuyển</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label>Gộp thành 1 sản phẩm &quot;Phụ Kiện&quot;</Label>
+              <p className="text-xs text-muted-foreground">
+                Bật: Gửi 1 sản phẩm duy nhất tên &quot;Phụ Kiện&quot; (số lượng 1) — phù hợp đơn BBS/hàng cồng kềnh.
+                <br />
+                Tắt: Gửi toàn bộ danh sách sản phẩm chi tiết trong đơn hàng.
+              </p>
+            </div>
+            <Switch
+              checked={config.productSendMode === 'single'}
+              onCheckedChange={(checked) => setConfig(prev => ({ ...prev, productSendMode: checked ? 'single' : 'all' }))}
             />
           </div>
         </CardContent>

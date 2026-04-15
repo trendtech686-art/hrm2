@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../components/ui
 import { toast } from 'sonner';
 import { SettingsActionButton } from "../../../components/settings/SettingsActionButton";
 import { PlusCircle } from "lucide-react";
+import { logError } from '@/lib/logger'
 
 interface PricingPolicyContentProps {
     isActive: boolean;
@@ -18,7 +19,7 @@ interface PricingPolicyContentProps {
 }
 
 export function PricingPolicyContent({ isActive, onRegisterActions }: PricingPolicyContentProps) {
-    const { data: queryData, isLoading: _isLoading, error: _error } = usePricingPolicies({ limit: 100 });
+    const { data: queryData } = usePricingPolicies({ limit: 100 });
     const data = React.useMemo(() => queryData?.data ?? [], [queryData?.data]);
     
     
@@ -115,7 +116,7 @@ export function PricingPolicyContent({ isActive, onRegisterActions }: PricingPol
                     setIsFormOpen(false);
                 },
                 onError: (err) => {
-                    console.error('Update error:', err);
+                    logError('Update error', err);
                     toast.error(err.message);
                 }
             });
@@ -126,7 +127,7 @@ export function PricingPolicyContent({ isActive, onRegisterActions }: PricingPol
                     setIsFormOpen(false);
                 },
                 onError: (err) => {
-                    console.error('Create error:', err);
+                    logError('Create error', err);
                     toast.error(err.message);
                 }
             });

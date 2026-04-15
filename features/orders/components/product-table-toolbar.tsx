@@ -121,8 +121,8 @@ export function ProductTableToolbar({
                                 <Label className="text-sm font-medium">Thứ tự hiển thị hàng hóa:</Label>
                                 <RadioGroup 
                                     value={localSettings.productInsertPosition}
-                                    onValueChange={(value: 'top' | 'bottom') => 
-                                        setLocalSettings({ ...localSettings, productInsertPosition: value })
+                                    onValueChange={(value) => 
+                                        setLocalSettings({ ...localSettings, productInsertPosition: value as 'top' | 'bottom' })
                                     }
                                 >
                                     <div className="flex items-center space-x-2">

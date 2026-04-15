@@ -4,25 +4,25 @@
 // ============================================
 
 model ActivityLog {
-  systemId   String   @id @default(cuid())
-  
+  systemId String @id @default(cuid())
+
   // Polymorphic fields - xác định entity nào
-  entityType String   // 'product', 'order', 'customer', 'purchase', 'inventory', 'employee', etc.
-  entityId   String   // systemId của entity
-  
+  entityType String // 'product', 'order', 'customer', 'purchase', 'inventory', 'employee', etc.
+  entityId   String // systemId của entity
+
   // Action info
-  action     String   // 'created', 'updated', 'deleted', 'status_changed', 'price_changed', etc.
-  actionType String?  // Group: 'create', 'update', 'delete', 'status', 'system'
-  
+  action     String // 'created', 'updated', 'deleted', 'status_changed', 'price_changed', etc.
+  actionType String? // Group: 'create', 'update', 'delete', 'status', 'system'
+
   // Change details
-  changes    Json?    // { fieldName: { from: oldValue, to: newValue } }
-  metadata   Json?    // Extra context: IP, user agent, related entities, etc.
-  note       String?  // Ghi chú thêm
-  
+  changes  Json? // { fieldName: { from: oldValue, to: newValue } }
+  metadata Json? // Extra context: IP, user agent, related entities, etc.
+  note     String? // Ghi chú thêm
+
   // Audit fields
-  createdAt  DateTime @default(now())
-  createdBy  String?  // User systemId who performed the action
-  
+  createdAt DateTime @default(now())
+  createdBy String? // User systemId who performed the action
+
   // Indexes for fast querying
   @@index([entityType, entityId])
   @@index([entityType, createdAt])
@@ -30,4 +30,3 @@ model ActivityLog {
   @@index([action])
   @@map("activity_logs")
 }
-

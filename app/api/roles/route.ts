@@ -3,6 +3,8 @@ import { Prisma } from '@/generated/prisma/client'
 import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
 import { createRoleSchema } from './validation'
 import { generateNextIds } from '@/lib/id-system'
+import { logError } from '@/lib/logger'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 // GET /api/roles - List all roles
 export async function GET(request: Request) {
@@ -46,7 +48,7 @@ export async function GET(request: Request) {
 
     return apiPaginated(roles, { page, limit, total })
   } catch (error) {
-    console.error('Error fetching roles:', error)
+    logError('Error fetching roles', error)
     return apiError('Failed to fetch roles', 500)
   }
 }
@@ -78,12 +80,25 @@ export async function POST(request: Request) {
       },
     })
 
+    await createActivityLog({
+      entityType: 'role',
+      entityId: role.systemId,
+      action: `Tạo vai trò: ${body.name}`,
+      actionType: 'create',
+      changes: {
+        name: { from: null, to: body.name },
+        ...(body.description ? { description: { from: null, to: body.description } } : {}),
+      },
+      metadata: { userName: session?.user.name || session?.user.email },
+      createdBy: session?.user.id ?? '',
+    }).catch(e => logError('[roles] activity log failed', e))
+
     return apiSuccess(role, 201)
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
       return apiError('Mã vai trò đã tồn tại', 400)
     }
-    console.error('Error creating role:', error)
+    logError('Error creating role', error)
     return apiError('Failed to create role', 500)
   }
 }

@@ -7,7 +7,6 @@
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import {
   fetchBrands,
-  fetchBrand,
   fetchDeletedBrands,
   permanentDeleteBrand,
   bulkDeleteBrands,
@@ -22,6 +21,7 @@ import {
   deleteBrandAction,
   restoreBrandAction,
 } from '@/app/actions/brands';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 
 export const brandKeys = {
   all: ['brands'] as const,
@@ -38,15 +38,6 @@ export function useBrands(params: BrandsParams = {}) {
     staleTime: 5 * 60 * 1000, // Brands don't change often
     gcTime: 30 * 60 * 1000,
     placeholderData: keepPreviousData,
-  });
-}
-
-export function useBrand(id: string | null | undefined) {
-  return useQuery({
-    queryKey: brandKeys.detail(id!),
-    queryFn: () => fetchBrand(id!),
-    enabled: !!id,
-    staleTime: 5 * 60 * 1000,
   });
 }
 
@@ -68,7 +59,7 @@ export function useBrandMutations(options: UseBrandMutationsOptions = {}) {
       return result.data as Brand;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: brandKeys.all });
+      invalidateRelated(queryClient, 'brands');
       options.onCreateSuccess?.(data);
     },
     onError: options.onError,
@@ -97,9 +88,8 @@ export function useBrandMutations(options: UseBrandMutationsOptions = {}) {
       if (!result.success) throw new Error(result.error || 'Failed to update brand');
       return result.data as Brand;
     },
-    onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: brandKeys.detail(variables.systemId) });
-      queryClient.invalidateQueries({ queryKey: brandKeys.lists() });
+    onSuccess: (data) => {
+      invalidateRelated(queryClient, 'brands');
       options.onUpdateSuccess?.(data);
     },
     onError: options.onError,
@@ -112,22 +102,13 @@ export function useBrandMutations(options: UseBrandMutationsOptions = {}) {
       return result.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: brandKeys.all });
-      // Also invalidate PKGX settings since mapping is deleted with brand
-      queryClient.invalidateQueries({ queryKey: ['pkgx', 'settings'] });
+      invalidateRelated(queryClient, 'brands');
       options.onDeleteSuccess?.();
     },
     onError: options.onError,
   });
   
   return { create, update, remove };
-}
-
-export function useBrandSearch(search: string) {
-  return useBrands({
-    search: search || undefined,
-    limit: 20,
-  });
 }
 
 /**
@@ -154,7 +135,7 @@ export function useTrashMutations() {
       return result.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: brandKeys.all });
+      invalidateRelated(queryClient, 'brands');
     },
   });
   
@@ -176,7 +157,7 @@ export function useTrashMutations() {
       }
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: brandKeys.all });
+      invalidateRelated(queryClient, 'brands');
     },
   });
   
@@ -202,7 +183,7 @@ export function useBulkBrandMutations(options: UseBulkBrandMutationsOptions = {}
   const bulkDelete = useMutation({
     mutationFn: bulkDeleteBrands,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: brandKeys.all });
+      invalidateRelated(queryClient, 'brands');
       options.onSuccess?.();
     },
     onError: options.onError,
@@ -211,7 +192,7 @@ export function useBulkBrandMutations(options: UseBulkBrandMutationsOptions = {}
   const bulkActivate = useMutation({
     mutationFn: bulkActivateBrands,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: brandKeys.all });
+      invalidateRelated(queryClient, 'brands');
       options.onSuccess?.();
     },
     onError: options.onError,
@@ -220,7 +201,7 @@ export function useBulkBrandMutations(options: UseBulkBrandMutationsOptions = {}
   const bulkDeactivate = useMutation({
     mutationFn: bulkDeactivateBrands,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: brandKeys.all });
+      invalidateRelated(queryClient, 'brands');
       options.onSuccess?.();
     },
     onError: options.onError,

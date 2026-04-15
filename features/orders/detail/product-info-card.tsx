@@ -73,7 +73,7 @@ export function ProductInfoCard({ order, costOfGoods, profit, totalDiscount, sal
                     showTax={hasTax}
                 />
                 <div className="flex justify-end mt-4">
-                    <div className="w-full max-w-sm space-y-2 text-body-sm">
+                    <div className="w-full max-w-sm space-y-2 text-sm">
                         <div className="flex justify-between"><span className="text-muted-foreground">Tổng tiền ({order.lineItems.length} sản phẩm)</span> <span>{formatCurrency(order.subtotal)}</span></div>
                         {/* Only show cost/profit for ADMIN, MANAGER, or accountant roles */}
                         {canViewFinancials && (

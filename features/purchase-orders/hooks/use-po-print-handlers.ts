@@ -1,6 +1,8 @@
 /**
  * Hook cho print handlers của PurchaseOrder
  * Tách từ page.tsx để giảm kích thước file
+ * 
+ * @param options.enabled - Whether to load finder data (default: true). Set to false for lazy loading
  */
 import React from 'react';
 import { toast } from 'sonner';
@@ -8,7 +10,7 @@ import type { PurchaseOrder } from '@/lib/types/prisma-extended';
 import { usePrint } from '@/lib/use-print';
 import { useBranchFinder } from '@/features/settings/branches/hooks/use-all-branches';
 import { useSupplierFinder } from '@/features/suppliers/hooks/use-all-suppliers';
-import { useStoreInfoData } from '@/features/settings/store-info/hooks/use-store-info';
+import { fetchPrintData } from '@/lib/lazy-print-data';
 import { 
   convertPurchaseOrderForPrint,
   mapPurchaseOrderToPrintData,
@@ -17,16 +19,22 @@ import {
 } from '@/lib/print/purchase-order-print-helper';
 import type { SimplePrintOptionsResult } from '@/components/shared/simple-print-options-dialog';
 
-export function usePurchaseOrderPrintHandlers() {
+export interface PurchaseOrderPrintHandlersOptions {
+  enabled?: boolean;
+}
+
+export function usePurchaseOrderPrintHandlers(options?: PurchaseOrderPrintHandlersOptions) {
+  const enabled = options?.enabled ?? true;
   const { print, printMultiple } = usePrint();
-  const { findById: findBranchById } = useBranchFinder();
-  const { findById: findSupplierById } = useSupplierFinder();
-  const { info: storeInfo } = useStoreInfoData();
+  const { findById: findBranchById } = useBranchFinder({ enabled });
+  const { findById: findSupplierById } = useSupplierFinder({ enabled });
+  // ⚡ OPTIMIZED: storeInfo lazy loaded in print handlers
 
   const [isPrintDialogOpen, setIsPrintDialogOpen] = React.useState(false);
   const [pendingPrintPOs, setPendingPrintPOs] = React.useState<PurchaseOrder[]>([]);
 
-  const handlePrint = React.useCallback((po: PurchaseOrder) => {
+  const handlePrint = React.useCallback(async (po: PurchaseOrder) => {
+    const { storeInfo } = await fetchPrintData();
     const branch = findBranchById(po.branchSystemId);
     const supplier = findSupplierById(po.supplierSystemId);
     const storeSettings = branch 
@@ -39,7 +47,7 @@ export function usePurchaseOrderPrintHandlers() {
       lineItems: mapPurchaseOrderLineItems(poData.items),
     });
     toast(`Đang in đơn nhập hàng ${po.id}`);
-  }, [findBranchById, findSupplierById, storeInfo, print]);
+  }, [findBranchById, findSupplierById, print]);
 
   const openBulkPrintDialog = React.useCallback((selectedPOs: PurchaseOrder[]) => {
     if (selectedPOs.length === 0) {
@@ -57,8 +65,9 @@ export function usePurchaseOrderPrintHandlers() {
     setPendingPrintPOs([]);
   }, []);
 
-  const handlePrintConfirm = React.useCallback((options: SimplePrintOptionsResult) => {
+  const handlePrintConfirm = React.useCallback(async (options: SimplePrintOptionsResult) => {
     const { branchSystemId, paperSize } = options;
+    const { storeInfo } = await fetchPrintData();
     
     const printOptionsList = pendingPrintPOs.map(po => {
       const branch = branchSystemId 
@@ -84,7 +93,7 @@ export function usePurchaseOrderPrintHandlers() {
     });
     
     closePrintDialog();
-  }, [pendingPrintPOs, findBranchById, findSupplierById, storeInfo, printMultiple, closePrintDialog]);
+  }, [pendingPrintPOs, findBranchById, findSupplierById, printMultiple, closePrintDialog]);
 
   return {
     handlePrint,

@@ -3,6 +3,8 @@ import { Prisma, CashTransactionType } from '@/generated/prisma/client'
 import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
 import { createCashTransactionSchema } from './validation'
 import { generateNextIds } from '@/lib/id-system'
+import { logError } from '@/lib/logger'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 // GET /api/cash-transactions - List all cash transactions
 export async function GET(request: Request) {
@@ -48,7 +50,7 @@ export async function GET(request: Request) {
 
     return apiPaginated(transactions, { page, limit, total })
   } catch (error) {
-    console.error('Error fetching cash transactions:', error)
+    logError('Error fetching cash transactions', error)
     return apiError('Failed to fetch cash transactions', 500)
   }
 }
@@ -111,9 +113,18 @@ export async function POST(request: Request) {
       return transaction
     })
 
+    createActivityLog({
+      entityType: 'cash_transaction',
+      entityId: result.systemId,
+      action: 'created',
+      actionType: 'create',
+      metadata: { type: body.type || body.transactionType, amount: body.amount, businessId: businessId },
+      createdBy: session.user?.employee?.fullName || session.user?.email || 'System',
+    })
+
     return apiSuccess(result, 201)
   } catch (error) {
-    console.error('Error creating cash transaction:', error)
+    logError('Error creating cash transaction', error)
     return apiError('Failed to create cash transaction', 500)
   }
 }

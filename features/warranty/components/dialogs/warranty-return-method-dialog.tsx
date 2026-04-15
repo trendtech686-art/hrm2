@@ -4,9 +4,14 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '../../../../components/ui/dialog';
+import { RadioGroup, RadioGroupItem } from '../../../../components/ui/radio-group';
+import { Label } from '../../../../components/ui/label';
+import { Badge } from '../../../../components/ui/badge';
+import { Store, Truck } from 'lucide-react';
 import { VirtualizedCombobox, type ComboboxOption } from '../../../../components/ui/virtualized-combobox';
 import type { WarrantyTicket } from '../../types';
 import type { OrderSearchResult } from '../../../orders/order-search-api';
@@ -30,6 +35,9 @@ interface WarrantyReturnMethodDialogProps {
   onConfirmWithOrder: () => void;
   onOpenChange: (open: boolean) => void;
   onReset: () => void;
+  hasMoreOrders?: boolean;
+  isLoadingMoreOrders?: boolean;
+  onLoadMoreOrders?: () => void;
 }
 
 export function WarrantyReturnMethodDialog({
@@ -49,6 +57,9 @@ export function WarrantyReturnMethodDialog({
   onConfirmWithOrder,
   onOpenChange,
   onReset,
+  hasMoreOrders = false,
+  isLoadingMoreOrders = false,
+  onLoadMoreOrders,
 }: WarrantyReturnMethodDialogProps) {
   const handleOpenChange = React.useCallback((nextOpen: boolean) => {
     if (!nextOpen) {
@@ -71,66 +82,71 @@ export function WarrantyReturnMethodDialog({
   }, [onOpenChange, onReset]);
 
   const showCurrentMethod = ticket?.status === 'RETURNED' && (currentMethodLabel || ticket);
-  const orderCountLabel = totalOrderCount.toLocaleString('vi-VN');
   const isOrderDisabled = returnMethod === 'order' && !selectedOrderValue;
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>
-            {ticket?.status === 'RETURNED' ? 'Cập nhật phương thức trả hàng' : 'Đã trả hàng cho khách'}
+            {ticket?.status === 'RETURNED' ? 'Cập nhật phương thức trả hàng' : 'Trả hàng cho khách'}
           </DialogTitle>
           <DialogDescription>
             {ticket?.status === 'RETURNED'
-              ? 'Thay đổi phương thức trả hàng cho khách. Phương thức hiện tại sẽ được cập nhật.'
+              ? 'Thay đổi phương thức trả hàng cho khách.'
               : 'Chọn phương thức trả hàng cho khách.'}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="py-4 space-y-4">
+        <div className="space-y-4 py-2">
           {showCurrentMethod && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-              <div className="text-sm font-medium text-blue-900 mb-1">
-                Phương thức hiện tại:
-              </div>
-              <div className="text-sm text-blue-700">
+            <div className="flex items-center gap-2 rounded-md border bg-muted/50 px-3 py-2 text-sm">
+              <span className="text-muted-foreground">Hiện tại:</span>
+              <Badge variant="secondary">
                 {currentMethodLabel || 'Khách lấy trực tiếp tại cửa hàng'}
-              </div>
+              </Badge>
             </div>
           )}
 
           <div className="space-y-3">
-            <label className="text-sm font-medium">Phương thức trả hàng *</label>
-            <div className="grid grid-cols-2 gap-3">
-              <Button
-                type="button"
-                variant={returnMethod === 'direct' ? 'default' : 'outline'}
-                className="h-auto py-4 flex flex-col items-center gap-2"
-                onClick={() => onReturnMethodChange('direct')}
+            <Label className="text-sm font-medium">Phương thức trả hàng</Label>
+            <RadioGroup
+              value={returnMethod ?? ''}
+              onValueChange={(v) => onReturnMethodChange(v as ReturnMethod)}
+              className="grid grid-cols-2 gap-3"
+            >
+              <Label
+                htmlFor="method-direct"
+                className={`flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 p-4 transition-colors hover:bg-accent ${
+                  returnMethod === 'direct' ? 'border-primary bg-primary/5' : 'border-muted'
+                }`}
               >
-                <div className="text-base font-semibold">Khách lấy trực tiếp</div>
-                <div className="text-xs text-muted-foreground">Tại cửa hàng</div>
-              </Button>
-              <Button
-                type="button"
-                variant={returnMethod === 'order' ? 'default' : 'outline'}
-                className="h-auto py-4 flex flex-col items-center gap-2"
-                onClick={() => onReturnMethodChange('order')}
+                <RadioGroupItem value="direct" id="method-direct" className="sr-only" />
+                <Store className={`h-6 w-6 ${returnMethod === 'direct' ? 'text-primary' : 'text-muted-foreground'}`} />
+                <div className="text-center">
+                  <div className="text-sm font-medium">Lấy trực tiếp</div>
+                  <div className="text-xs text-muted-foreground">Tại cửa hàng</div>
+                </div>
+              </Label>
+              <Label
+                htmlFor="method-order"
+                className={`flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 p-4 transition-colors hover:bg-accent ${
+                  returnMethod === 'order' ? 'border-primary bg-primary/5' : 'border-muted'
+                }`}
               >
-                <div className="text-base font-semibold">Giao qua đơn hàng</div>
-                <div className="text-xs text-muted-foreground">Link với đơn hàng</div>
-              </Button>
-            </div>
+                <RadioGroupItem value="order" id="method-order" className="sr-only" />
+                <Truck className={`h-6 w-6 ${returnMethod === 'order' ? 'text-primary' : 'text-muted-foreground'}`} />
+                <div className="text-center">
+                  <div className="text-sm font-medium">Giao qua đơn hàng</div>
+                  <div className="text-xs text-muted-foreground">Link với đơn hàng</div>
+                </div>
+              </Label>
+            </RadioGroup>
           </div>
 
           {returnMethod === 'order' && (
             <div className="space-y-2">
-              <label className="text-sm font-medium">Chọn đơn hàng</label>
-              <div className="text-xs text-muted-foreground mb-2">
-                💡 <strong>Tìm kiếm thông minh:</strong> Nhập mã đơn hàng hoặc tên khách để tìm nhanh.
-                Hệ thống tự động lọc kết quả từ {orderCountLabel} đơn hàng.
-              </div>
+              <Label className="text-sm font-medium">Chọn đơn hàng</Label>
               <VirtualizedCombobox
                 options={orderSearchResults}
                 value={selectedOrderValue}
@@ -139,36 +155,39 @@ export function WarrantyReturnMethodDialog({
                 placeholder="Tìm kiếm đơn hàng..."
                 searchPlaceholder="Nhập mã đơn hoặc tên khách hàng..."
                 emptyPlaceholder={
-                  orderSearchQuery
-                    ? 'Không tìm thấy đơn hàng phù hợp'
-                    : 'Nhập từ khóa để tìm kiếm đơn hàng'
+                  isSearchingOrders
+                    ? 'Đang tải đơn hàng...'
+                    : 'Không tìm thấy đơn hàng phù hợp'
                 }
                 isLoading={isSearchingOrders}
                 minSearchLength={0}
                 estimatedItemHeight={56}
-                maxHeight={400}
+                maxHeight={300}
+                onLoadMore={onLoadMoreOrders}
+                hasMore={hasMoreOrders}
+                isLoadingMore={isLoadingMoreOrders}
               />
               <p className="text-xs text-muted-foreground">
                 {isSearchingOrders ? (
-                  <span className="text-blue-600">⏳ Đang tìm kiếm...</span>
+                  'Đang tìm kiếm...'
                 ) : orderSearchQuery ? (
-                  <span>✓ Tìm thấy <strong>{orderSearchResults.length}</strong> đơn hàng</span>
-                ) : (
-                  <span>Hiển thị <strong>{orderSearchResults.length}</strong> đơn hàng gần nhất</span>
-                )}
+                  `Tìm thấy ${totalOrderCount} đơn hàng${totalOrderCount > orderSearchResults.length ? ` (đang hiển thị ${orderSearchResults.length})` : ''}`
+                ) : totalOrderCount > 0 ? (
+                  `${orderSearchResults.length}/${totalOrderCount} đơn hàng gần nhất`
+                ) : null}
               </p>
             </div>
           )}
         </div>
 
-        <div className="flex justify-end gap-2 pt-4 border-t">
+        <DialogFooter>
           <Button variant="outline" onClick={handleCancel}>
             Hủy
           </Button>
           <Button onClick={handleConfirm} disabled={!returnMethod || isOrderDisabled}>
             Xác nhận
           </Button>
-        </div>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

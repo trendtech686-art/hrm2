@@ -12,6 +12,10 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils';
+import { logError } from '@/lib/logger'
+import { syncProductsInventory } from '@/lib/meilisearch-sync'
+import { createNotification } from '@/lib/notifications'
+import { getUserNameFromDb } from '@/lib/get-user-name'
 
 type RouteParams = {
   params: Promise<{ systemId: string }>;
@@ -32,11 +36,11 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
     });
 
     if (!transfer) {
-      return apiError('Stock transfer not found', 404);
+      return apiError('Không tìm thấy phiếu chuyển kho', 404);
     }
 
     if (transfer.status !== 'PENDING') {
-      return apiError(`Cannot start transfer with status: ${transfer.status}`, 400);
+      return apiError(`Không thể bắt đầu phiếu chuyển kho với trạng thái: ${transfer.status}`, 400);
     }
 
     // Get employee info
@@ -70,7 +74,7 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
         });
 
         if (!product) {
-          throw new Error(`Product not found: ${item.productId}`);
+          throw new Error(`Không tìm thấy sản phẩm: ${item.productId}`);
         }
 
         // ✅ Use ProductInventory table instead of Product.inventoryByBranch
@@ -86,13 +90,12 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
         const currentStock = inventory?.onHand || 0;
         
         if (currentStock < item.quantity) {
-          throw new Error(`Insufficient stock for ${product.name}. Available: ${currentStock}, Required: ${item.quantity}`);
+          throw new Error(`Không đủ tồn kho cho ${product.name}. Hiện có: ${currentStock}, Cần: ${item.quantity}`);
         }
 
-        const newStockLevel = currentStock - item.quantity;
-
         // ✅ Update source branch: -onHand (stock leaves source)
-        await tx.productInventory.upsert({
+        // Use returned value to ensure stock history matches actual DB state
+        const updatedSourceInventory = await tx.productInventory.upsert({
           where: {
             productId_branchId: {
               productId: item.productId,
@@ -130,7 +133,7 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
           },
         });
 
-        // ✅ Create stock history entry
+        // ✅ Create stock history entry with actual DB value
         await tx.stockHistory.create({
           data: {
             productId: item.productId,
@@ -138,7 +141,7 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
             action: 'Xuất chuyển kho',
             source: 'Chuyển kho',
             quantityChange: -item.quantity,
-            newStockLevel: newStockLevel,
+            newStockLevel: updatedSourceInventory.onHand, // ✅ Use actual DB value
             documentId: transfer.id,
             documentType: 'stock_transfer',
             employeeId: session.user.id,
@@ -151,16 +154,51 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
       return updatedTransfer;
     });
 
+    // ✅ Sync affected products to Meilisearch for real-time inventory data
+    if (transfer.items.length > 0) {
+      const productSystemIds = transfer.items.map(item => item.productId).filter(Boolean) as string[];
+      syncProductsInventory(productSystemIds).catch(err => 
+        logError('[Stock Transfer Start] Meilisearch sync failed', err)
+      );
+    }
+
     // Transform status to lowercase for frontend compatibility
     const transformedResult = {
       ...result,
       status: result.status.toLowerCase(),
     };
 
+    // ✅ Notify: transfer started (to assigned employee if different)
+    if (transfer.employeeId && transfer.employeeId !== session.user?.employeeId) {
+      createNotification({
+        type: 'stock_transfer',
+        settingsKey: 'stock-transfer:updated',
+        title: 'Bắt đầu chuyển kho',
+        message: `Phiếu chuyển kho ${transfer.id || systemId} đã bắt đầu vận chuyển`,
+        link: `/stock-transfers/${systemId}`,
+        recipientId: transfer.employeeId,
+        senderId: session.user?.employeeId,
+        senderName: session.user?.name,
+      }).catch(e => logError('[Stock Transfer Start] notification failed', e))
+    }
+
+    // Log activity
+    getUserNameFromDb(session.user?.id).then(userName =>
+      prisma.activityLog.create({
+        data: {
+          entityType: 'stock_transfer',
+          entityId: systemId,
+          action: 'started',
+          actionType: 'update',
+          note: `Bắt đầu chuyển kho`,
+          metadata: { userName },
+          createdBy: userName,
+        }
+      })
+    ).catch(e => logError('[ActivityLog] stock_transfer started failed', e))
     return apiSuccess(transformedResult);
   } catch (error) {
-    console.error('[Stock Transfer Start] Error:', error);
-    const message = error instanceof Error ? error.message : 'Failed to start transfer';
+    const message = error instanceof Error ? error.message : 'Lỗi khi bắt đầu chuyển kho';
     return apiError(message, 500);
   }
 }

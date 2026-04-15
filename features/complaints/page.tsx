@@ -3,7 +3,8 @@
 import * as React from "react";
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import { Plus, X, AlertCircle, Printer, Settings, FileText, Clock, CheckCircle2 } from "lucide-react";
+import { cn } from '@/lib/utils';
+import { Plus, X, AlertCircle, Settings } from "lucide-react";
 import { toast } from "sonner";
 import { asSystemId } from '@/lib/id-types';
 import { generateSubEntityId } from '@/lib/id-utils';
@@ -12,12 +13,7 @@ import { ROUTES } from "@/lib/router";
 import type { Complaint } from "./types";
 import { useComplaints, useComplaintMutations, useComplaintStats, type ComplaintStats } from "./hooks/use-complaints";
 import { useAllEmployees } from "../employees/hooks/use-all-employees";
-import { useAllBranches } from "../settings/branches/hooks/use-all-branches";
-import { useStoreInfoData } from "../settings/store-info/hooks/use-store-info";
 import { checkOverdue } from "./sla-utils";
-import { usePrint } from "@/lib/use-print";
-import { convertComplaintForPrint, mapComplaintToPrintData, mapComplaintLineItems, createStoreSettings } from "@/lib/print/complaint-print-helper";
-import { SimplePrintOptionsDialog, type SimplePrintOptionsResult } from "@/components/shared/simple-print-options-dialog";
 import { usePageHeader } from "@/contexts/page-header-context";
 import { useBreakpoint } from "@/contexts/breakpoint-context";
 import { useComplaintsSettings } from "../settings/complaints/hooks/use-complaints-settings";
@@ -28,16 +24,20 @@ import type { BreadcrumbItem } from "@/lib/breadcrumb-system";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { PageFilters } from "@/components/layout/page-filters";
-import { DataTableFacetedFilter } from "@/components/data-table/data-table-faceted-filter";
 import { DynamicDataTableColumnCustomizer as DataTableColumnCustomizer } from "@/components/data-table/dynamic-column-customizer";
 import { ResponsiveDataTable, type BulkAction } from "@/components/data-table/responsive-data-table";
-import { StatsCard, StatsCardGrid } from "@/components/shared/stats-card";
+import { StatsBar } from "@/components/shared/stats-bar";
 import { getColumns } from "./columns";
 
 // Dynamic imports for heavy components
 const ComplaintCard = dynamic(() => import('./components/complaint-card').then(mod => ({ default: mod.ComplaintCard })), { ssr: false });
 
 import { parseTailwindClass } from "@/components/ui/tailwind-color-picker";
+import { useAuth } from "@/contexts/auth-context";
+import { usePaginationWithGlobalDefault } from '@/features/settings/global/hooks/use-global-settings';
+import { FAB } from '@/components/mobile/fab';
+import { AdvancedFilterPanel, FilterExtras, type FilterConfig } from '@/components/shared/advanced-filter-panel';
+import { useFilterPresets } from '@/hooks/use-filter-presets';
 
 function parseColorClass(colorClass: string): React.CSSProperties {
   if (!colorClass || typeof colorClass !== 'string') return {};
@@ -53,6 +53,12 @@ export interface ComplaintsPageProps {
 }
 
 export function ComplaintsPage({ initialStats }: ComplaintsPageProps = {}) {
+  // Permission checks
+  const { can } = useAuth();
+  const canCreate = can('create_complaints');
+  const _canEdit = can('edit_complaints');
+  const _canResolve = can('resolve_complaints');
+  const canEditSettings = can('edit_settings');
   const router = useRouter();
   const { isMobile } = useBreakpoint();
   
@@ -71,50 +77,23 @@ export function ComplaintsPage({ initialStats }: ComplaintsPageProps = {}) {
     onError: (err) => toast.error(err.message)
   });
   const { data: employees } = useAllEmployees();
-  const { data: branches } = useAllBranches();
-  const { info: storeInfo } = useStoreInfoData();
-  const { printMultiple } = usePrint();
+
 
   // ✅ Settings from React Query (DB via server actions)
   const { data: complaintsSettings } = useComplaintsSettings();
   const storeCardColors = complaintsSettings.cardColors;
   const storeComplaintTypes = complaintsSettings.complaintTypes;
 
-  const [statusFilter, setStatusFilter] = React.useState<Set<string>>(new Set());
-  const [typeFilter, setTypeFilter] = React.useState<Set<string>>(new Set());
-  const [assignedToFilter, setAssignedToFilter] = React.useState<Set<string>>(new Set());
   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
   const [sorting, setSorting] = React.useState<{ id: string; desc: boolean }>({ id: 'createdAt', desc: true });
-  const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 20 });
+  const [pagination, setPagination] = usePaginationWithGlobalDefault();
   const [mobileLoadedCount, setMobileLoadedCount] = React.useState(20);
-  const [printDialogOpen, setPrintDialogOpen] = React.useState(false);
-  const [itemsToPrint, setItemsToPrint] = React.useState<Complaint[]>([]);
   const [confirmDialog, setConfirmDialog] = React.useState<{ open: boolean; title: string; description: string; onConfirm: () => void }>({ open: false, title: '', description: '', onConfirm: () => {} });
 
   // ✅ DB-persisted column layout
   const [columnLayout, columnLayoutSetters] = useColumnLayout('complaints', React.useMemo(() => ({ visibility: {}, order: [] as string[], pinned: ['select', 'complaintId'] as string[] }), []));
   const { visibility: columnVisibility, order: columnOrder, pinned: pinnedColumns } = columnLayout;
   const { setVisibility: setColumnVisibility, setOrder: setColumnOrder, setPinned: setPinnedColumns } = columnLayoutSetters;
-
-  // ✅ Server-side filters — push ALL filters to API
-  const serverFilters = React.useMemo(() => ({
-    search: debouncedSearch || undefined,
-    status: statusFilter.size === 1 ? Array.from(statusFilter)[0] : undefined,
-    type: typeFilter.size === 1 ? Array.from(typeFilter)[0] : undefined,
-    assignedTo: assignedToFilter.size === 1 ? Array.from(assignedToFilter)[0] : undefined,
-    sortBy: sorting.id,
-    sortOrder: sorting.desc ? 'desc' as const : 'asc' as const,
-    page: pagination.pageIndex + 1,
-    limit: pagination.pageSize,
-  }), [debouncedSearch, statusFilter, typeFilter, assignedToFilter, sorting, pagination]);
-
-  const { data: complaintsData, isLoading: isLoadingComplaints } = useComplaints(serverFilters);
-  const complaints = React.useMemo(() => complaintsData?.data ?? [], [complaintsData?.data]);
-  const totalRows = complaintsData?.pagination?.total ?? 0;
-  const pageCount = complaintsData?.pagination?.totalPages ?? 0;
-
-  // Reset pagination on filter change
-  React.useEffect(() => { setPagination(p => ({ ...p, pageIndex: 0 })); }, [debouncedSearch, statusFilter, typeFilter, assignedToFilter]);
 
   const cardColors = storeCardColors;
 
@@ -148,7 +127,74 @@ export function ComplaintsPage({ initialStats }: ComplaintsPageProps = {}) {
       { label: "Tình trạng hàng", value: "product-condition" },
     ];
   }, [storeComplaintTypes]);
+  const priorityOptions = React.useMemo(() => [
+    { label: 'Tất cả', value: 'all' },
+    { label: 'Thấp', value: 'LOW' },
+    { label: 'Trung bình', value: 'MEDIUM' },
+    { label: 'Cao', value: 'HIGH' },
+    { label: 'Khẩn cấp', value: 'URGENT' },
+  ], []);
   const employeeOptions = React.useMemo(() => employees.map(e => ({ label: e.fullName, value: e.systemId })), [employees]);
+
+  // Advanced filter panel
+  const { presets, savePreset, deletePreset, updatePreset } = useFilterPresets('complaints');
+  const filterConfigs: FilterConfig[] = React.useMemo(() => [
+    { id: 'status', label: 'Trạng thái', type: 'multi-select' as const, options: statusOptions },
+    { id: 'type', label: 'Loại khiếu nại', type: 'multi-select' as const, options: typeOptions },
+    { id: 'priority', label: 'Độ ưu tiên', type: 'select' as const, options: priorityOptions },
+    { id: 'assignedTo', label: 'Nhân viên xử lý', type: 'multi-select' as const, options: employeeOptions },
+    { id: 'dateRange', label: 'Ngày tạo', type: 'date-range' as const },
+  ], [statusOptions, typeOptions, priorityOptions, employeeOptions]);
+  const [advancedFilters, setAdvancedFilters] = React.useState<Record<string, unknown>>({});
+  const panelValues = React.useMemo(() => ({
+    status: advancedFilters.status ?? [],
+    type: advancedFilters.type ?? [],
+    priority: advancedFilters.priority ?? null,
+    assignedTo: advancedFilters.assignedTo ?? [],
+    dateRange: advancedFilters.dateRange ?? null,
+  }), [advancedFilters]);
+  const handlePanelApply = React.useCallback((v: Record<string, unknown>) => {
+    setAdvancedFilters(v);
+    setPagination(p => ({ ...p, pageIndex: 0 }));
+  }, [setPagination]);
+
+  // ✅ Server-side filters — push ALL filters to API
+  const serverFilters = React.useMemo(() => {
+    const statuses = advancedFilters.status as string[] | undefined;
+    const types = advancedFilters.type as string[] | undefined;
+    const assignees = advancedFilters.assignedTo as string[] | undefined;
+    const priority = advancedFilters.priority as string | undefined;
+    const dateRange = advancedFilters.dateRange as { from?: string; to?: string } | null;
+    return {
+      search: debouncedSearch || undefined,
+      status: statuses?.length === 1 ? statuses[0] : undefined,
+      priority: priority && priority !== 'all' ? priority : undefined,
+      type: types?.length === 1 ? types[0] : undefined,
+      assignedTo: assignees?.length === 1 ? assignees[0] : undefined,
+      startDate: dateRange?.from || undefined,
+      endDate: dateRange?.to || undefined,
+      sortBy: sorting.id,
+      sortOrder: sorting.desc ? 'desc' as const : 'asc' as const,
+      page: pagination.pageIndex + 1,
+      limit: pagination.pageSize,
+    };
+  }, [debouncedSearch, advancedFilters, sorting, pagination]);
+
+  const { data: complaintsData, isLoading: isLoadingComplaints, isFetching: isComplaintsFetching, isError: isComplaintsError, error: complaintsError } = useComplaints(serverFilters);
+
+  // Show toast when data fetch fails
+  React.useEffect(() => {
+    if (isComplaintsError && complaintsError) {
+      toast.error(`Lỗi tải danh sách khiếu nại: ${complaintsError.message}`);
+    }
+  }, [isComplaintsError, complaintsError]);
+
+  const complaints = React.useMemo(() => complaintsData?.data ?? [], [complaintsData?.data]);
+  const totalRows = complaintsData?.pagination?.total ?? 0;
+  const pageCount = complaintsData?.pagination?.totalPages ?? 0;
+
+  // Reset pagination on filter change
+  React.useEffect(() => { setPagination(p => ({ ...p, pageIndex: 0 })); }, [debouncedSearch, advancedFilters]);
 
   const handleComplaintClick = (c: Complaint) => router.push(`/complaints/${c.systemId}`);
   const handleView = React.useCallback((id: string) => router.push(`/complaints/${id}`), [router]);
@@ -175,51 +221,53 @@ export function ComplaintsPage({ initialStats }: ComplaintsPageProps = {}) {
   React.useEffect(() => { if (columns.length === 0 || defaultsInitialized.current) return; defaultsInitialized.current = true; if (Object.keys(columnVisibility).length === 0) setColumnVisibility(buildDefaultVisibility()); if (columnOrder.length === 0) setColumnOrder(buildDefaultOrder()); }, []);
 
   const breadcrumb = React.useMemo<BreadcrumbItem[]>(() => [{ label: "Trang chủ", href: ROUTES.ROOT }, { label: "Quản lý Khiếu nại", href: ROUTES.INTERNAL.COMPLAINTS, isCurrent: true }], []);
-  const actions = React.useMemo(() => [<Button key="create" onClick={() => router.push("/complaints/new")} className="h-9"><Plus className="h-4 w-4 mr-2" />Tạo khiếu nại</Button>], [router]);
+  const actions = React.useMemo(() => [canCreate && <Button key="create" onClick={() => router.push("/complaints/new")} className="h-9"><Plus className="h-4 w-4 mr-2" />Tạo khiếu nại</Button>].filter(Boolean), [router, canCreate]);
   usePageHeader({ title: "Quản lý Khiếu nại", breadcrumb, showBackButton: false, actions });
 
-  React.useEffect(() => { setMobileLoadedCount(20); }, [searchQuery, statusFilter, typeFilter, assignedToFilter]);
+  React.useEffect(() => { setMobileLoadedCount(20); }, [searchQuery, advancedFilters]);
   React.useEffect(() => { if (!isMobile) return; const h = () => { const sp = window.scrollY + window.innerHeight; const dh = document.documentElement.scrollHeight; if (sp >= dh * 0.8) setMobileLoadedCount(p => Math.min(p + 20, complaints.length)); }; window.addEventListener('scroll', h); return () => window.removeEventListener('scroll', h); }, [isMobile, mobileLoadedCount, complaints.length]);
 
   const displayData = isMobile ? complaints.slice(0, mobileLoadedCount) : complaints;
   const allSelectedRows = React.useMemo(() => Object.keys(rowSelection).filter(k => rowSelection[k]).map(id => complaints.find(c => c.systemId === id)).filter(Boolean) as Complaint[], [rowSelection, complaints]);
 
-  const handleBulkPrint = React.useCallback((rows: Complaint[]) => { setItemsToPrint(rows); setPrintDialogOpen(true); }, []);
-  const handlePrintConfirm = React.useCallback((opt: SimplePrintOptionsResult) => { if (itemsToPrint.length === 0) return; const items = itemsToPrint.map(c => { const br = opt.branchSystemId ? branches.find(b => b.systemId === opt.branchSystemId) : branches.find(b => b.systemId === c.branchSystemId); const ss = br ? createStoreSettings(br) : createStoreSettings(storeInfo); const cd = convertComplaintForPrint(c, {}); return { data: mapComplaintToPrintData(cd, ss), lineItems: mapComplaintLineItems(cd.items || []), paperSize: opt.paperSize }; }); printMultiple('complaint', items); toast.success(`Đang in ${itemsToPrint.length} phiếu`); setItemsToPrint([]); setPrintDialogOpen(false); }, [itemsToPrint, branches, storeInfo, printMultiple]);
+
   const handleBulkFinish = React.useCallback(() => { if (allSelectedRows.length === 0) { toast.error('Vui lòng chọn ít nhất 1 khiếu nại'); return; } setConfirmDialog({ open: true, title: 'Kết thúc khiếu nại', description: `Kết thúc ${allSelectedRows.length} khiếu nại?`, onConfirm: () => { toast.success(`Đã kết thúc ${allSelectedRows.length} khiếu nại`); setRowSelection({}); setConfirmDialog(p => ({ ...p, open: false })); } }); }, [allSelectedRows]);
   const handleBulkOpen = React.useCallback(() => { if (allSelectedRows.length === 0) { toast.error('Vui lòng chọn'); return; } setConfirmDialog({ open: true, title: 'Mở lại khiếu nại', description: `Mở lại ${allSelectedRows.length} khiếu nại?`, onConfirm: () => { toast.success(`Đã mở lại ${allSelectedRows.length} khiếu nại`); setRowSelection({}); setConfirmDialog(p => ({ ...p, open: false })); } }); }, [allSelectedRows]);
   const handleBulkCancel = React.useCallback(() => { if (allSelectedRows.length === 0) { toast.error('Vui lòng chọn'); return; } setConfirmDialog({ open: true, title: 'Hủy khiếu nại', description: `Hủy ${allSelectedRows.length} khiếu nại?`, onConfirm: () => { toast.success(`Đã hủy ${allSelectedRows.length} khiếu nại`); setRowSelection({}); setConfirmDialog(p => ({ ...p, open: false })); } }); }, [allSelectedRows]);
   const handleBulkGetLink = React.useCallback(() => { if (allSelectedRows.length === 0) { toast.error('Vui lòng chọn'); return; } if (!trackingEnabled) { toast.error('Chức năng tracking chưa được bật. Vui lòng bật trong Cài đặt.'); return; } try { const links = allSelectedRows.map(c => `${getTrackingCode(c.id)}: ${generateTrackingUrl(c)}`); navigator.clipboard.writeText(links.join('\n')); toast.success(`Đã copy ${allSelectedRows.length} link`); } catch (_e) { toast.error('Không thể copy'); } }, [allSelectedRows, trackingEnabled]);
 
-  const bulkActions: BulkAction<Complaint>[] = React.useMemo(() => [{ label: 'In phiếu', icon: Printer, onSelect: handleBulkPrint }, { label: 'Kết thúc', onSelect: handleBulkFinish }, { label: 'Mở', onSelect: handleBulkOpen }, { label: 'Get Link', onSelect: handleBulkGetLink }, { label: 'Hủy', onSelect: handleBulkCancel }], [handleBulkPrint, handleBulkFinish, handleBulkOpen, handleBulkGetLink, handleBulkCancel]);
+  const bulkActions: BulkAction<Complaint>[] = React.useMemo(() => [{ label: 'Kết thúc', onSelect: handleBulkFinish }, { label: 'Mở', onSelect: handleBulkOpen }, { label: 'Get Link', onSelect: handleBulkGetLink }, { label: 'Hủy', onSelect: handleBulkCancel }], [handleBulkFinish, handleBulkOpen, handleBulkGetLink, handleBulkCancel]);
 
-  const handleClearFilters = () => { setStatusFilter(new Set()); setTypeFilter(new Set()); setAssignedToFilter(new Set()); setSearchQuery(""); };
-  const hasActiveFilters = statusFilter.size > 0 || typeFilter.size > 0 || assignedToFilter.size > 0 || searchQuery !== "";
+  const handleClearFilters = () => { setAdvancedFilters({}); setSearchQuery(""); };
+  const hasActiveFilters = Object.values(advancedFilters).some(v => v != null && v !== '' && !(Array.isArray(v) && v.length === 0)) || searchQuery !== "";
 
   return (
     <div className="flex flex-col w-full h-full">
+      {/* Stats Bar - instant display from Server Component */}
+      <StatsBar
+        className="mb-4"
+        items={[
+          { key: 'total', label: 'Tổng khiếu nại', value: stats?.total ?? 0 },
+          { key: 'pending', label: 'Chờ xử lý', value: stats?.pending ?? 0 },
+          { key: 'inProgress', label: 'Đang xử lý', value: stats?.inProgress ?? 0 },
+          { key: 'resolved', label: 'Đã giải quyết', value: stats?.resolved ?? 0 },
+        ]}
+      />
+
       <div className="flex items-center justify-end gap-2 mb-3">
-        <Button variant="outline" size="sm" className="h-9" onClick={() => router.push("/settings/complaints")}>
+        {canEditSettings && <Button variant="outline" size="sm" className="h-9" onClick={() => router.push("/settings/complaints")}>
           <Settings className="h-4 w-4 mr-2" />Cài đặt
-        </Button>
+        </Button>}
         <DataTableColumnCustomizer<Complaint> columns={columns} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} />
       </div>
       
       <PageFilters searchValue={searchQuery} onSearchChange={setSearchQuery} searchPlaceholder="Tìm theo đơn hàng, khách hàng, SĐT...">
-        <DataTableFacetedFilter title="Trạng thái" options={statusOptions} selectedValues={statusFilter} onSelectedValuesChange={setStatusFilter} />
-        <DataTableFacetedFilter title="Loại khiếu nại" options={typeOptions} selectedValues={typeFilter} onSelectedValuesChange={setTypeFilter} />
-        {employeeOptions.length > 0 && <DataTableFacetedFilter title="Nhân viên xử lý" options={employeeOptions} selectedValues={assignedToFilter} onSelectedValuesChange={setAssignedToFilter} />}
         {hasActiveFilters && <Button variant="ghost" size="sm" onClick={handleClearFilters} className="h-9"><X className="h-4 w-4 mr-1" />Xóa lọc</Button>}
+        <AdvancedFilterPanel filters={filterConfigs} values={panelValues} onApply={handlePanelApply} presets={presets.map(p => ({ ...p, filters: p.filters }))} onSavePreset={(preset) => savePreset(preset.name, panelValues)} onDeletePreset={deletePreset} onUpdatePreset={updatePreset} />
       </PageFilters>
-      
-      {/* Stats Cards - instant display from Server Component */}
-      <StatsCardGrid columns={4} className="my-4">
-        <StatsCard title="Tổng khiếu nại" value={stats?.total ?? 0} icon={FileText} />
-        <StatsCard title="Chờ xử lý" value={stats?.pending ?? 0} icon={Clock} variant="warning" />
-        <StatsCard title="Đang xử lý" value={stats?.inProgress ?? 0} icon={AlertCircle} variant="info" />
-        <StatsCard title="Đã giải quyết" value={stats?.resolved ?? 0} icon={CheckCircle2} variant="success" />
-      </StatsCardGrid>
+      <FilterExtras presets={presets} filterConfigs={filterConfigs} values={panelValues} onApply={handlePanelApply} onDeletePreset={deletePreset} />
 
+      <div className={cn(isComplaintsFetching && !isLoadingComplaints && 'opacity-70 transition-opacity')}>
       <ResponsiveDataTable 
         data={displayData} 
         columns={columns} 
@@ -244,12 +292,13 @@ export function ComplaintsPage({ initialStats }: ComplaintsPageProps = {}) {
         bulkActions={bulkActions} 
         renderMobileCard={c => <ComplaintCard key={c.systemId} complaint={c} onClick={() => handleComplaintClick(c)} employees={employees} />} 
       />
+      </div>
 
-      {isMobile && <div className="py-6 text-center">{mobileLoadedCount < complaints.length ? <div className="flex items-center justify-center gap-2 text-muted-foreground"><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div><span className="text-body-sm">Đang tải thêm...</span></div> : complaints.length > 0 ? <p className="text-body-sm text-muted-foreground">Đã hiển thị tất cả {complaints.length} khiếu nại</p> : null}</div>}
+      {isMobile && <div className="py-6 text-center">{mobileLoadedCount < complaints.length ? <div className="flex items-center justify-center gap-2 text-muted-foreground"><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div><span className="text-sm">Đang tải thêm...</span></div> : complaints.length > 0 ? <p className="text-sm text-muted-foreground">Đã hiển thị tất cả {complaints.length} khiếu nại</p> : null}</div>}
       {complaints.length === 0 && !isLoadingComplaints && <div className="flex flex-col items-center justify-center py-12 text-center"><AlertCircle className="h-12 w-12 text-muted-foreground mb-4" /><h3 className="text-h4 font-semibold mb-2">Chưa có khiếu nại nào</h3><p className="text-muted-foreground mb-4">{hasActiveFilters ? "Không tìm thấy khiếu nại phù hợp" : "Bắt đầu bằng cách tạo khiếu nại mới"}</p>{!hasActiveFilters && <Button onClick={() => router.push("/complaints/new")} className="h-9"><Plus className="h-4 w-4 mr-2" />Tạo khiếu nại đầu tiên</Button>}</div>}
 
       <Dialog open={confirmDialog.open} onOpenChange={o => setConfirmDialog(p => ({ ...p, open: o }))}><DialogContent><DialogHeader><DialogTitle>{confirmDialog.title}</DialogTitle><DialogDescription>{confirmDialog.description}</DialogDescription></DialogHeader><DialogFooter><Button variant="outline" className="h-9" onClick={() => setConfirmDialog(p => ({ ...p, open: false }))}>Hủy</Button><Button className="h-9" onClick={confirmDialog.onConfirm}>Xác nhận</Button></DialogFooter></DialogContent></Dialog>
-      <SimplePrintOptionsDialog open={printDialogOpen} onOpenChange={setPrintDialogOpen} onConfirm={handlePrintConfirm} selectedCount={itemsToPrint.length} title="In phiếu khiếu nại" />
+      {isMobile && canCreate && <FAB onClick={() => router.push('/complaints/new')} />}
     </div>
   );
 }

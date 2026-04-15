@@ -1,9 +1,8 @@
 import { prisma } from '@/lib/prisma';
 import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils';
-import { loadGHTKConfig } from '@/lib/ghtk-sync';
-
-// GHTK API base URL (production)
-const GHTK_API_BASE = 'https://services.giaohangtietkiem.vn';
+import { loadGHTKConfig, GHTK_API_BASE } from '@/lib/ghtk-sync';
+import { logError } from '@/lib/logger'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 interface RouteParams {
   params: Promise<{ systemId: string; packagingId: string }>;
@@ -15,7 +14,7 @@ interface RouteParams {
  */
 export async function POST(request: Request, { params }: RouteParams) {
   try {
-    await requireAuth();
+    const session = await requireAuth();
     const { systemId, packagingId } = await params;
 
     // Get tracking code from request body
@@ -66,7 +65,7 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     if (!response.ok || !data.success) {
       const errorMsg = data.message || `GHTK API Error: ${response.status}`;
-      console.error(`❌ [GHTK Cancel] Failed:`, errorMsg);
+      logError(`❌ [GHTK Cancel] Failed`, errorMsg);
       return apiError(errorMsg, response.status >= 400 && response.status < 500 ? response.status : 500);
     }
 
@@ -99,13 +98,22 @@ export async function POST(request: Request, { params }: RouteParams) {
     });
 
 
+    // Log activity
+    await createActivityLog({
+      entityType: 'order',
+      entityId: systemId,
+      action: `Hủy vận đơn GHTK (API) - Mã: ${trackingCode}`,
+      actionType: 'status',
+      createdBy: session?.user?.employee?.fullName || session?.user?.name || session?.user?.id || undefined,
+    }).catch(e => logError('[GHTK Cancel] activity log failed', e));
+
     return apiSuccess({ 
       success: true, 
       message: data.message || 'Đã hủy vận đơn GHTK thành công' 
     });
 
   } catch (error) {
-    console.error('[GHTK Cancel] Error:', error);
+    logError('[GHTK Cancel] Error', error);
     return apiError(
       error instanceof Error ? error.message : 'Failed to cancel GHTK shipment',
       500

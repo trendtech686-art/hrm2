@@ -67,7 +67,7 @@ const defaultSettings: TrackingSettings = {
 // Horizontal Status Timeline
 // ============================================
 function StatusTimeline({ ticket }: { ticket: PublicWarrantyTicket }) {
-  const baseStatuses: WarrantyStatus[] = ['RECEIVED', 'PROCESSING', 'COMPLETED', 'RETURNED'];
+  const baseStatuses: WarrantyStatus[] = ['RECEIVED', 'PROCESSING', 'RETURNED', 'COMPLETED'];
   const statuses: WarrantyStatus[] =
     ticket.status === 'CANCELLED' ? [...baseStatuses, 'CANCELLED'] : baseStatuses;
   const currentIndex = statuses.indexOf(ticket.status);
@@ -118,12 +118,12 @@ function StatusTimeline({ ticket }: { ticket: PublicWarrantyTicket }) {
                   {WARRANTY_STATUS_LABELS[status]}
                 </p>
                 {isCurrent && (
-                  <Badge variant="default" className="mt-1 h-4 text-[10px] px-1.5">
+                  <Badge variant="default" className="mt-1 h-4 text-xs px-1.5">
                     Hiện tại
                   </Badge>
                 )}
                 {timestamp && (
-                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                  <p className="text-xs text-muted-foreground mt-0.5">
                     {formatDateTime(timestamp)}
                   </p>
                 )}
@@ -144,37 +144,37 @@ function getStatusTimestamp(ticket: PublicWarrantyTicket, status: WarrantyStatus
     RECEIVED: ticket.createdAt,
     PROCESSING: ticket.processingStartedAt,
     WAITING_PARTS: undefined,
-    COMPLETED: ticket.processedAt,
     RETURNED: ticket.returnedAt,
+    COMPLETED: ticket.completedAt,
     CANCELLED: ticket.cancelledAt,
   };
 
   const directTimestamp = directTimestampByStatus[status];
   if (directTimestamp) return directTimestamp;
 
+  // Fallback: search history for status change entries
   const statusLabel = (WARRANTY_STATUS_LABELS[status] || '').toLowerCase();
-  const completionKeywords = ['hoàn tất phiếu', 'kết thúc phiếu', 'complete'];
 
   const historyEntry = ticket.history.find((entry) => {
     const action = (entry.action || '').toLowerCase();
     const actionLabel = (entry.actionLabel || '').toLowerCase();
 
-    if (status === 'RETURNED') {
-      return completionKeywords.some((keyword) => action.includes(keyword) || actionLabel.includes(keyword))
-        || action.includes('-> RETURNED')
-        || action.includes(': RETURNED');
-    }
+    if (action.includes(`status_change_${status.toLowerCase()}`)) return true;
+    if (action.includes(`-> ${status.toLowerCase()}`) || action.includes(`: ${status.toLowerCase()}`)) return true;
+    if (statusLabel && actionLabel.includes(statusLabel)) return true;
 
-    return (
-      action.includes(`-> ${status}`) ||
-      action.includes(`: ${status}`) ||
-      actionLabel.includes(`-> ${status}`) ||
-      actionLabel.includes(`: ${status}`) ||
-      (!!statusLabel && (action.includes(statusLabel) || actionLabel.includes(statusLabel)))
-    );
+    return false;
   });
 
-  return historyEntry?.performedAt || null;
+  if (historyEntry?.performedAt) return historyEntry.performedAt;
+
+  // Final fallback: for PROCESSING, try completedAt if we passed through it
+  if (status === 'PROCESSING' && (ticket.processedAt || ticket.returnedAt || ticket.completedAt)) {
+    // We must have been in PROCESSING at some point — use the earliest available downstream timestamp
+    return ticket.processedAt || ticket.returnedAt || ticket.completedAt || null;
+  }
+
+  return null;
 }
 
 // ============================================
@@ -226,7 +226,7 @@ function PublicProductsTable({ products, onImageClick }: {
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-sm leading-snug">{product.productName}</p>
                       {product.sku && (
-                        <p className="text-xs text-muted-foreground font-mono mt-0.5">{product.sku}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{product.sku}</p>
                       )}
                     </div>
                     <Badge className={cn(getResolutionBadge(product.resolution), "text-xs px-2 py-0.5 h-fit")}>
@@ -244,7 +244,7 @@ function PublicProductsTable({ products, onImageClick }: {
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground mb-0.5">Đơn giá</p>
-                      <p className="font-semibold text-sm font-mono">
+                      <p className="font-semibold text-sm">
                         {new Intl.NumberFormat('vi-VN').format(product.unitPrice || 0)} đ
                       </p>
                     </div>
@@ -324,12 +324,12 @@ function PublicProductsTable({ products, onImageClick }: {
           <thead>
             <tr className="border-b">
               <th className="text-center py-3 px-2 w-12 font-medium text-muted-foreground">STT</th>
-              <th className="text-left py-3 px-2 min-w-50 font-medium text-muted-foreground">Tên sản phẩm</th>
-              <th className="text-center py-3 px-2 w-16 font-medium text-muted-foreground">SL</th>
+              <th className="text-left py-3 px-2 min-w-64 font-medium text-muted-foreground">Tên sản phẩm</th>
+              <th className="text-center py-3 px-2 w-12 font-medium text-muted-foreground">SL</th>
               <th className="text-right py-3 px-2 w-28 font-medium text-muted-foreground">Đơn giá</th>
-              <th className="text-left py-3 px-2 w-28 font-medium text-muted-foreground">Hình ảnh</th>
-              <th className="text-left py-3 px-2 w-28 font-medium text-muted-foreground">Kết quả</th>
-              <th className="text-left py-3 px-2 min-w-35 font-medium text-muted-foreground">Ghi chú</th>
+              <th className="text-left py-3 px-2 w-24 font-medium text-muted-foreground">Hình ảnh</th>
+              <th className="text-left py-3 px-2 w-24 font-medium text-muted-foreground">Kết quả</th>
+              <th className="text-left py-3 px-2 min-w-24 font-medium text-muted-foreground">Ghi chú</th>
               <th className="text-right py-3 px-2 w-28 font-medium text-muted-foreground">Thành tiền</th>
               <th className="text-right py-3 px-2 w-28 font-medium text-muted-foreground">Bù trừ</th>
             </tr>
@@ -354,13 +354,13 @@ function PublicProductsTable({ products, onImageClick }: {
                       <div className="min-w-0">
                         <p className="font-medium text-sm leading-snug">{product.productName}</p>
                         {product.sku && (
-                          <p className="text-xs text-muted-foreground font-mono mt-0.5">{product.sku}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{product.sku}</p>
                         )}
                       </div>
                     </div>
                   </td>
                   <td className="text-center py-3 px-2 font-medium">{product.quantity || 1}</td>
-                  <td className="text-right py-3 px-2 font-mono">
+                  <td className="text-right py-3 px-2">
                     {new Intl.NumberFormat('vi-VN').format(product.unitPrice || 0)} đ
                   </td>
                   <td className="py-3 px-2">
@@ -376,7 +376,7 @@ function PublicProductsTable({ products, onImageClick }: {
                           </button>
                         ))}
                         {warrantyImages.length > 2 && (
-                          <div className="w-9 h-9 rounded border bg-muted flex items-center justify-center text-[10px] font-medium text-muted-foreground">
+                          <div className="w-9 h-9 rounded border bg-muted flex items-center justify-center text-xs font-medium text-muted-foreground">
                             +{warrantyImages.length - 2}
                           </div>
                         )}
@@ -403,10 +403,10 @@ function PublicProductsTable({ products, onImageClick }: {
                       )}
                     </div>
                   </td>
-                  <td className="text-right py-3 px-2 font-mono font-medium">
+                  <td className="text-right py-3 px-2 font-medium">
                     {new Intl.NumberFormat('vi-VN').format((product.quantity || 1) * (product.unitPrice || 0))} đ
                   </td>
-                  <td className="text-right py-3 px-2 font-mono font-medium">
+                  <td className="text-right py-3 px-2 font-medium">
                     {product.resolution === 'out_of_stock' ? (
                       <span className="text-red-600">
                         {new Intl.NumberFormat('vi-VN').format((product.quantity || 1) * (product.unitPrice || 0))} đ
@@ -475,11 +475,19 @@ function PaymentDetailsCard({ ticket, payments, receipts, orders }: {
   receipts: PublicWarrantyReceipt[];
   orders: PublicWarrantyOrder[];
 }) {
-  const outOfStockValue = (ticket.products || [])
+  const products = ticket.products || [];
+  const totalValue = products.reduce((sum, p) => sum + ((p.quantity || 1) * (p.unitPrice || 0)), 0);
+  const outOfStockValue = products
     .filter(p => p.resolution === 'out_of_stock')
     .reduce((sum, p) => sum + ((p.quantity || 1) * (p.unitPrice || 0)), 0);
+  const replacedValue = products
+    .filter(p => p.resolution === 'replace')
+    .reduce((sum, p) => sum + ((p.quantity || 1) * (p.unitPrice || 0)), 0);
   const shippingFee = ticket.shippingFee || 0;
-  const netAmount = outOfStockValue + shippingFee;
+  const netAmount = Math.max(0, outOfStockValue - shippingFee);
+  const totalQty = products.reduce((sum, p) => sum + (p.quantity || 1), 0);
+  const replaceQty = products.filter(p => p.resolution === 'replace').reduce((sum, p) => sum + (p.quantity || 1), 0);
+  const outOfStockQty = products.filter(p => p.resolution === 'out_of_stock').reduce((sum, p) => sum + (p.quantity || 1), 0);
 
   const relatedPayments = payments.filter(p => p.status !== 'cancelled');
   const relatedReceipts = receipts.filter(r => r.status !== 'cancelled');
@@ -487,7 +495,7 @@ function PaymentDetailsCard({ ticket, payments, receipts, orders }: {
   const totalPaid = relatedPayments.reduce((sum, p) => sum + p.amount, 0)
     + relatedReceipts.reduce((sum, r) => sum - r.amount, 0);
 
-  if (netAmount === 0 && relatedPayments.length === 0 && relatedReceipts.length === 0) {
+  if (products.length === 0 && relatedPayments.length === 0 && relatedReceipts.length === 0) {
     return null;
   }
 
@@ -499,31 +507,60 @@ function PaymentDetailsCard({ ticket, payments, receipts, orders }: {
   return (
     <Card>
       <CardHeader className="pb-3 px-4 pt-4 md:px-6 md:pt-6">
-        <CardTitle className="text-base sm:text-lg">Thông tin thanh toán</CardTitle>
+        <CardTitle className="text-base sm:text-lg">Tổng kết bảo hành & Thanh toán</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4 px-4 pb-4 md:px-6 md:pb-6">
-        {/* Amount breakdown */}
+        {/* Summary section */}
         <div className="space-y-2.5">
+          <div className="flex justify-between items-center gap-3">
+            <span className="text-sm text-muted-foreground">Tổng giá trị bảo hành</span>
+            <span className="font-semibold text-sm">{fmt(totalValue)} đ</span>
+          </div>
+
+          {replacedValue > 0 && (
+            <div className="flex justify-between items-center gap-3">
+              <span className="text-sm text-muted-foreground">Tổng giá trị đổi mới</span>
+              <span className="font-medium text-sm">{fmt(replacedValue)} đ</span>
+            </div>
+          )}
+
           {outOfStockValue > 0 && (
             <div className="flex justify-between items-center gap-3">
-              <span className="text-sm text-muted-foreground">Tiền hàng bù trừ (hết hàng)</span>
+              <span className="text-sm text-muted-foreground">Tổng hàng bù trừ (hết hàng)</span>
               <span className="font-medium text-sm">{fmt(outOfStockValue)} đ</span>
             </div>
           )}
+
           {shippingFee > 0 && (
             <div className="flex justify-between items-center gap-3">
-              <span className="text-sm text-muted-foreground">Phí gửi hàng từ khách hàng tới công ty</span>
-              <span className="font-medium text-sm">{fmt(shippingFee)} đ</span>
+              <span className="text-sm text-muted-foreground">Phí ship gửi về</span>
+              <span className="font-medium text-sm text-orange-600">-{fmt(shippingFee)} đ</span>
             </div>
           )}
-          {(outOfStockValue > 0 || shippingFee > 0) && (
-            <>
-              <Separator />
-              <div className="flex justify-between items-center gap-3">
-                <span className="font-semibold text-sm">Tổng cần thanh toán</span>
-                <span className="font-bold text-base text-destructive">{fmt(netAmount)} đ</span>
-              </div>
-            </>
+
+          <Separator />
+          <div className="flex justify-between items-center gap-3">
+            <span className="font-semibold text-sm">Cần chi cho khách</span>
+            <span className="font-bold text-base text-destructive">{fmt(netAmount)} đ</span>
+          </div>
+
+          {/* Quantity summary */}
+          <Separator />
+          <div className="flex justify-between items-center gap-3">
+            <span className="text-sm text-muted-foreground">Tổng số lượng</span>
+            <span className="font-medium text-sm">{totalQty}</span>
+          </div>
+          {replaceQty > 0 && (
+            <div className="flex justify-between items-center gap-3 pl-4">
+              <span className="text-xs text-muted-foreground">↳ Đổi mới</span>
+              <span className="text-xs font-medium">{replaceQty}</span>
+            </div>
+          )}
+          {outOfStockQty > 0 && (
+            <div className="flex justify-between items-center gap-3 pl-4">
+              <span className="text-xs text-muted-foreground">↳ Hết hàng</span>
+              <span className="text-xs font-medium">{outOfStockQty}</span>
+            </div>
           )}
         </div>
 
@@ -603,114 +640,6 @@ function PaymentDetailsCard({ ticket, payments, receipts, orders }: {
               <span className="font-semibold text-sm">Đã thanh toán đủ</span>
             </div>
           </>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-// ============================================
-// Warranty Summary Card
-// ============================================
-function WarrantySummaryCard({ ticket }: { ticket: PublicWarrantyTicket }) {
-  const products = ticket.products || [];
-  if (products.length === 0) return null;
-
-  const totalValue = products.reduce((sum, p) => sum + ((p.quantity || 1) * (p.unitPrice || 0)), 0);
-  const outOfStockValue = products
-    .filter(p => p.resolution === 'out_of_stock')
-    .reduce((sum, p) => sum + ((p.quantity || 1) * (p.unitPrice || 0)), 0);
-  const returnedValue = products
-    .filter(p => p.resolution === 'return')
-    .reduce((sum, p) => sum + ((p.quantity || 1) * (p.unitPrice || 0)), 0);
-  const replacedValue = products
-    .filter(p => p.resolution === 'replace')
-    .reduce((sum, p) => sum + ((p.quantity || 1) * (p.unitPrice || 0)), 0);
-  const totalQty = products.reduce((sum, p) => sum + (p.quantity || 1), 0);
-  const replaceQty = products.filter(p => p.resolution === 'replace').reduce((sum, p) => sum + (p.quantity || 1), 0);
-  const returnQty = products.filter(p => p.resolution === 'return').reduce((sum, p) => sum + (p.quantity || 1), 0);
-  const outOfStockQty = products.filter(p => p.resolution === 'out_of_stock').reduce((sum, p) => sum + (p.quantity || 1), 0);
-  const shippingFee = ticket.shippingFee || 0;
-
-  const fmt = (n: number) => new Intl.NumberFormat('vi-VN').format(n);
-
-  return (
-    <Card>
-      <CardHeader className="pb-3 px-4 pt-4 md:px-6 md:pt-6">
-        <CardTitle className="text-base sm:text-lg">Tổng kết bảo hành</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-2.5 px-4 pb-4 md:px-6 md:pb-6">
-        <div className="flex justify-between items-center gap-3">
-          <span className="text-sm text-muted-foreground">Tổng giá trị bảo hành</span>
-          <span className="font-semibold text-sm">{fmt(totalValue)} đ</span>
-        </div>
-
-        {returnedValue > 0 && (
-          <>
-            <Separator />
-            <div className="flex justify-between items-center gap-3">
-              <span className="text-sm text-muted-foreground">Tổng giá trị trả lại</span>
-              <span className="font-medium text-sm">{fmt(returnedValue)} đ</span>
-            </div>
-          </>
-        )}
-
-        {replacedValue > 0 && (
-          <>
-            <Separator />
-            <div className="flex justify-between items-center gap-3">
-              <span className="text-sm text-muted-foreground">Tổng giá trị đổi mới</span>
-              <span className="font-medium text-sm">{fmt(replacedValue)} đ</span>
-            </div>
-          </>
-        )}
-
-        <Separator />
-        <div className="flex justify-between items-center gap-3">
-          <span className="text-sm text-muted-foreground">Tổng hàng bù trừ (hết hàng)</span>
-          <span className="font-medium text-sm">{fmt(outOfStockValue)} đ</span>
-        </div>
-
-        {shippingFee > 0 && (
-          <>
-            <Separator />
-            <div className="flex justify-between items-center gap-3">
-              <span className="text-sm text-muted-foreground">Phí gửi hàng từ khách hàng tới công ty</span>
-              <span className="font-medium text-sm">{fmt(shippingFee)} đ</span>
-            </div>
-          </>
-        )}
-
-        <Separator />
-        <div className="flex justify-between items-center gap-3">
-          <span className="font-semibold">Tổng cộng</span>
-          <span className="text-lg font-bold text-destructive">
-            {fmt(outOfStockValue + shippingFee)} đ
-          </span>
-        </div>
-
-        <Separator />
-        <div className="flex justify-between items-center gap-3">
-          <span className="text-sm text-muted-foreground">Tổng số lượng</span>
-          <span className="font-medium text-sm">{totalQty}</span>
-        </div>
-        {replaceQty > 0 && (
-          <div className="flex justify-between items-center gap-3 pl-4">
-            <span className="text-xs text-muted-foreground">↳ Đổi mới</span>
-            <span className="text-xs font-medium">{replaceQty}</span>
-          </div>
-        )}
-        {returnQty > 0 && (
-          <div className="flex justify-between items-center gap-3 pl-4">
-            <span className="text-xs text-muted-foreground">↳ Trả lại</span>
-            <span className="text-xs font-medium">{returnQty}</span>
-          </div>
-        )}
-        {outOfStockQty > 0 && (
-          <div className="flex justify-between items-center gap-3 pl-4">
-            <span className="text-xs text-muted-foreground">↳ Hết hàng</span>
-            <span className="text-xs font-medium">{outOfStockQty}</span>
-          </div>
         )}
       </CardContent>
     </Card>
@@ -808,7 +737,7 @@ function PublicCommentsSection({
                       <span className="font-medium text-xs sm:text-sm">
                         {comment.createdByName}
                       </span>
-                      <span className="text-[10px] sm:text-xs text-muted-foreground">
+                      <span className="text-xs text-muted-foreground">
                         {formatDateTime(comment.createdAt)}
                       </span>
                     </div>
@@ -896,7 +825,25 @@ export function WarrantyTrackingPage() {
   // ============================================
   // Error / Loading states
   // ============================================
-  if (!settings.enabled) {
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <Card className="max-w-md w-full">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5 text-primary animate-spin" />
+              Đang tải dữ liệu bảo hành...
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">Vui lòng chờ trong giây lát.</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!settings.enabled && !loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="max-w-md w-full">
@@ -910,24 +857,6 @@ export function WarrantyTrackingPage() {
             <p className="text-muted-foreground text-sm">
               Tính năng theo dõi công khai hiện đang tắt. Vui lòng liên hệ bộ phận hỗ trợ.
             </p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="max-w-md w-full">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Clock className="h-5 w-5 text-primary animate-spin" />
-              Đang tải dữ liệu bảo hành...
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">Vui lòng chờ trong giây lát.</p>
           </CardContent>
         </Card>
       </div>
@@ -973,7 +902,7 @@ export function WarrantyTrackingPage() {
             </p>
             {!isMissingCode && trackingCode && (
               <p className="text-xs text-muted-foreground mt-4">
-                Mã phiếu: <span className="font-mono font-semibold">{trackingCode}</span>
+                Mã phiếu: <span className="font-semibold">{trackingCode}</span>
               </p>
             )}
           </CardContent>
@@ -989,7 +918,7 @@ export function WarrantyTrackingPage() {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="border-b bg-white">
-        <div className="container max-w-5xl mx-auto px-4 py-4 md:py-6">
+        <div className="container max-w-7xl mx-auto px-4 py-4 md:py-6">
           <div className="flex flex-col gap-3">
             <div className="flex items-start justify-between gap-3">
               <div className="space-y-1 min-w-0 flex-1">
@@ -1000,7 +929,7 @@ export function WarrantyTrackingPage() {
                   Nhân viên phụ trách: {settings.showEmployeeName ? ticket.employeeName : 'Đang xử lý'}
                 </p>
               </div>
-              <Badge className={cn("shrink-0 text-[10px] sm:text-xs px-2 py-0.5 sm:px-2.5 sm:py-1", WARRANTY_STATUS_COLORS[ticket.status])}>
+              <Badge className={cn("shrink-0 text-xs px-2 py-0.5 sm:px-2.5 sm:py-1", WARRANTY_STATUS_COLORS[ticket.status])}>
                 {WARRANTY_STATUS_LABELS[ticket.status]}
               </Badge>
             </div>
@@ -1011,14 +940,14 @@ export function WarrantyTrackingPage() {
       {/* Horizontal Timeline - at top before all cards */}
       {settings.showTimeline && (
         <div className="border-b bg-white">
-          <div className="container max-w-5xl mx-auto px-4 py-4 md:py-6">
+          <div className="container max-w-7xl mx-auto px-4 py-4 md:py-6">
             <StatusTimeline ticket={ticket} />
           </div>
         </div>
       )}
 
       {/* Main Content */}
-      <div className="container max-w-5xl mx-auto px-4 py-4 md:py-6">
+      <div className="container max-w-7xl mx-auto px-4 py-4 md:py-6">
         <div className="grid gap-4 md:gap-6">
 
           {/* Card: Thông tin phiếu bảo hành */}
@@ -1028,69 +957,113 @@ export function WarrantyTrackingPage() {
                 Thông tin phiếu bảo hành
               </CardTitle>
             </CardHeader>
-            <CardContent className="grid gap-4 md:gap-6 px-4 pb-4 md:px-6 md:pb-6">
-              <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
+            <CardContent className="space-y-4 px-4 pb-4 md:px-6 md:pb-6">
+              <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                {/* Row 1: Mã phiếu | Chi nhánh | Nhân viên */}
                 <div>
-                  <p className="text-xs sm:text-sm text-muted-foreground mb-1">Ngày tạo</p>
-                  <p className="font-medium text-sm">{formatDateTime(ticket.createdAt)}</p>
+                  <p className="text-xs text-muted-foreground">Mã phiếu</p>
+                  <p className="font-bold text-primary">{ticket.id}</p>
                 </div>
-                {ticket.returnedAt && (
+                <div>
+                  <p className="text-xs text-muted-foreground">Chi nhánh</p>
+                  <p className="font-medium text-sm">{ticket.branchName || '—'}</p>
+                </div>
+                {settings.showEmployeeName && (
                   <div>
-                    <p className="text-xs sm:text-sm text-muted-foreground mb-1">Ngày trả hàng</p>
-                    <p className="font-medium text-sm">{formatDateTime(ticket.returnedAt)}</p>
+                    <p className="text-xs text-muted-foreground">Nhân viên</p>
+                    <p className="font-medium text-sm text-blue-600">{ticket.employeeName || '—'}</p>
                   </div>
                 )}
-                {ticket.linkedOrderSystemId && (
-                  <div>
-                    <p className="text-xs sm:text-sm text-muted-foreground mb-1">Đơn bảo hành được trả vào</p>
-                    <p className="font-mono font-medium text-blue-600 text-sm">
-                      {linkedOrder?.id || ticket.linkedOrderSystemId}
-                    </p>
-                  </div>
-                )}
+
+                {/* Row 2: Mã vận đơn | Phí ship gửi về | Trả bảo hành vào đơn hàng */}
                 {ticket.trackingCode && (
                   <div>
-                    <p className="text-xs sm:text-sm text-muted-foreground mb-1">Mã vận đơn</p>
-                    <p className="font-mono font-medium text-sm">{ticket.trackingCode}</p>
-                  </div>
-                )}
-                {ticket.status === 'RETURNED' && (
-                  <div>
-                    <p className="text-xs sm:text-sm text-muted-foreground mb-1">Phương thức trả hàng</p>
-                    <p className="font-medium text-sm">
-                      {ticket.linkedOrderSystemId
-                        ? `Giao qua đơn hàng (${linkedOrder?.id || ticket.linkedOrderSystemId})`
-                        : 'Khách lấy trực tiếp tại cửa hàng'}
-                    </p>
+                    <p className="text-xs text-muted-foreground">Mã vận đơn</p>
+                    <p className="font-medium text-sm">{ticket.trackingCode}</p>
                   </div>
                 )}
                 {ticket.shippingFee !== undefined && ticket.shippingFee > 0 && (
                   <div>
-                    <p className="text-xs sm:text-sm text-muted-foreground mb-1">
-                      Phí gửi hàng từ khách hàng tới công ty
+                    <p className="text-xs text-muted-foreground">Phí ship gửi về</p>
+                    <p className="font-medium text-sm">{ticket.shippingFee.toLocaleString('vi-VN')} đ</p>
+                  </div>
+                )}
+                {ticket.linkedOrderSystemId && (
+                  <div>
+                    <p className="text-xs text-muted-foreground">Trả bảo hành vào đơn hàng</p>
+                    <p className="font-medium text-sm text-blue-600">
+                      {linkedOrder?.id || ticket.linkedOrderSystemId}
                     </p>
-                    <p className="font-medium text-orange-600 text-base sm:text-lg">
-                      {ticket.shippingFee.toLocaleString('vi-VN')} đ
-                    </p>
+                  </div>
+                )}
+
+                {/* Row 3: Ngày tạo | Đã trả hàng | Kết thúc phiếu */}
+                <div>
+                  <p className="text-xs text-muted-foreground">Ngày tạo</p>
+                  <p className="text-sm">{formatDateTime(ticket.createdAt)}</p>
+                </div>
+                {ticket.returnedAt && (
+                  <div>
+                    <p className="text-xs text-muted-foreground">Đã trả hàng</p>
+                    <p className="text-sm">{formatDateTime(ticket.returnedAt)}</p>
+                    {(() => {
+                      const performer = ticket.history.find(h => 
+                        h.action?.toLowerCase().includes('status_change_returned')
+                      )?.performedBy;
+                      return performer ? <p className="text-xs text-muted-foreground mt-0.5">bởi {performer}</p> : null;
+                    })()}
+                  </div>
+                )}
+                {ticket.completedAt && (
+                  <div>
+                    <p className="text-xs text-muted-foreground">Kết thúc phiếu</p>
+                    <p className="text-sm text-blue-600">{formatDateTime(ticket.completedAt)}</p>
+                  </div>
+                )}
+                {ticket.cancelledAt && (
+                  <div>
+                    <p className="text-xs text-muted-foreground">Đã hủy</p>
+                    <p className="text-sm text-red-600">{formatDateTime(ticket.cancelledAt)}</p>
+                    {ticket.cancelReason && (
+                      <p className="text-xs text-muted-foreground mt-0.5">Lý do: {ticket.cancelReason}</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Row 4: Cập nhật | Người tạo */}
+                {ticket.updatedAt && (
+                  <div>
+                    <p className="text-xs text-muted-foreground">Cập nhật</p>
+                    <p className="text-sm">{formatDateTime(ticket.updatedAt)}</p>
+                    {ticket.updatedBy && (
+                      <p className="text-xs text-muted-foreground mt-0.5">bởi {ticket.updatedBy}</p>
+                    )}
+                  </div>
+                )}
+                {ticket.createdBy && (
+                  <div>
+                    <p className="text-xs text-muted-foreground">Người tạo</p>
+                    <p className="font-medium text-sm">{ticket.createdBy}</p>
                   </div>
                 )}
               </div>
 
               {/* Customer Info */}
-              <div className="grid gap-3">
+              <Separator />
+              <div className="space-y-3">
                 <p className="text-sm font-semibold">Thông tin khách hàng</p>
-                <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
+                <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                   <div>
-                    <p className="text-xs sm:text-sm text-muted-foreground mb-0.5">Tên khách hàng</p>
+                    <p className="text-xs text-muted-foreground">Tên khách hàng</p>
                     <p className="font-medium text-sm">{ticket.customerName}</p>
                   </div>
                   <div>
-                    <p className="text-xs sm:text-sm text-muted-foreground mb-0.5">Số điện thoại</p>
+                    <p className="text-xs text-muted-foreground">Số điện thoại</p>
                     <p className="font-medium text-sm">{ticket.customerPhone}</p>
                   </div>
                   {ticket.customerAddress && (
-                    <div className="col-span-1 sm:col-span-2">
-                      <p className="text-xs sm:text-sm text-muted-foreground mb-0.5">Địa chỉ</p>
+                    <div className="col-span-1 sm:col-span-2 lg:col-span-3">
+                      <p className="text-xs text-muted-foreground">Địa chỉ</p>
                       <p className="text-sm">{ticket.customerAddress}</p>
                     </div>
                   )}
@@ -1098,10 +1071,13 @@ export function WarrantyTrackingPage() {
               </div>
 
               {ticket.notes && (
-                <div className="grid gap-1.5">
-                  <p className="text-sm font-semibold">Ghi chú</p>
-                  <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">{ticket.notes}</p>
-                </div>
+                <>
+                  <Separator />
+                  <div className="space-y-1.5">
+                    <p className="text-sm font-semibold">Ghi chú</p>
+                    <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">{ticket.notes}</p>
+                  </div>
+                </>
               )}
             </CardContent>
           </Card>
@@ -1123,13 +1099,8 @@ export function WarrantyTrackingPage() {
             </Card>
           )}
 
-          {/* Card: Tổng kết bảo hành */}
-          {settings.showSummary && (
-            <WarrantySummaryCard ticket={ticket} />
-          )}
-
-          {/* Card: Thông tin thanh toán */}
-          {settings.showPayment && (
+          {/* Card: Tổng kết bảo hành & Thanh toán (merged) */}
+          {(settings.showSummary || settings.showPayment) && (
             <PaymentDetailsCard
               ticket={ticket}
               payments={payments}

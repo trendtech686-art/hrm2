@@ -2,12 +2,16 @@
  * Inventory Receipts API Route
  */
 
-import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { Prisma, InventoryReceiptType, InventoryReceiptStatus } from '@/generated/prisma/client';
-import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils';
+import { validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils';
+import { apiHandler } from '@/lib/api-handler';
 import { createInventoryReceiptSchema } from './validation';
 import { generateNextIdsWithTx } from '@/lib/id-system';
+import { logError } from '@/lib/logger'
+import { syncProductsInventory } from '@/lib/meilisearch-sync'
+import { createNotification } from '@/lib/notifications'
+import { getUserNameFromDb } from '@/lib/get-user-name'
 
 // Interface for inventory receipt item input
 interface _InventoryReceiptItemInput {
@@ -20,10 +24,7 @@ interface _InventoryReceiptItemInput {
 }
 
 // GET - List inventory receipts
-export async function GET(request: NextRequest) {
-  const session = await requireAuth();
-  if (!session) return apiError('Unauthorized', 401);
-
+export const GET = apiHandler(async (request) => {
   try {
     const searchParams = request.nextUrl.searchParams;
     const { page, limit, skip } = parsePagination(searchParams);
@@ -33,6 +34,7 @@ export async function GET(request: NextRequest) {
 
     const supplierId = searchParams.get('supplierId') || '';
     const branchId = searchParams.get('branchId') || '';
+    const productSystemId = searchParams.get('productSystemId') || '';
     const sortBy = searchParams.get('sortBy') || 'createdAt';
     const sortOrder = (searchParams.get('sortOrder') || 'desc') as 'asc' | 'desc';
 
@@ -63,6 +65,11 @@ export async function GET(request: NextRequest) {
       where.branchSystemId = branchId;
     }
 
+    // ⚡ Filter by product - receipts containing items for this product
+    if (productSystemId) {
+      where.items = { some: { productId: productSystemId } };
+    }
+
     const [data, total] = await Promise.all([
       prisma.inventoryReceipt.findMany({
         where,
@@ -70,11 +77,29 @@ export async function GET(request: NextRequest) {
         take: limit,
         orderBy: { [sortBy]: sortOrder },
         include: {
-          items: true,
+          items: {
+            include: {
+              // ⚡ Include product for image URL
+              inventoryReceipt: false, // Don't include back-reference
+            },
+          },
         },
       }),
       prisma.inventoryReceipt.count({ where }),
     ]);
+
+    // Lookup products to get imageUrl for items
+    const productIds = data.flatMap(r => r.items.map(i => i.productId)).filter((id): id is string => !!id);
+    const uniqueProductIds = [...new Set(productIds)];
+    
+    const products = uniqueProductIds.length > 0
+      ? await prisma.product.findMany({
+          where: { systemId: { in: uniqueProductIds } },
+          select: { systemId: true, imageUrl: true },
+        })
+      : [];
+    
+    const productMap = new Map(products.map(p => [p.systemId, p]));
 
     // Lookup purchase orders to get supplier info
     const poSystemIds = data
@@ -131,32 +156,34 @@ export async function GET(request: NextRequest) {
         supplierName: receipt.supplierName || po?.supplier?.name || null,
         receiverName: receipt.receiverName || employee?.fullName || null,
         createdByName: creator?.fullName || null,
-        items: receipt.items.map(item => ({
-          ...item,
-          // Map DB fields to frontend expected names
-          productSystemId: item.productId,
-          productId: item.productSku,
-          receivedQuantity: item.quantity,
-          orderedQuantity: item.quantity,
-          unitPrice: Number(item.unitCost) || 0,
-          unitCost: Number(item.unitCost) || 0,
-          totalCost: Number(item.totalCost) || 0,
-        })),
+        items: receipt.items.map(item => {
+          const product = item.productId ? productMap.get(item.productId) : null;
+          return {
+            ...item,
+            // Map DB fields to frontend expected names
+            productSystemId: item.productId,
+            productId: item.productSku,
+            receivedQuantity: item.quantity,
+            orderedQuantity: item.quantity,
+            unitPrice: Number(item.unitCost) || 0,
+            unitCost: Number(item.unitCost) || 0,
+            totalCost: Number(item.totalCost) || 0,
+            // ⚡ Include product image
+            imageUrl: product?.imageUrl || null,
+          };
+        }),
       };
     });
 
     return apiPaginated(transformedData, { page, limit, total });
   } catch (error) {
-    console.error('[Inventory Receipts API] GET error:', error);
-    return apiError('Failed to fetch inventory receipts', 500);
+    logError('[Inventory Receipts API] GET error', error);
+    return apiError('Không thể tải danh sách phiếu nhập kho', 500);
   }
-}
+})
 
 // POST - Create new inventory receipt
-export async function POST(request: NextRequest) {
-  const session = await requireAuth();
-  if (!session) return apiError('Unauthorized', 401);
-
+export const POST = apiHandler(async (request, { session }) => {
   const result = await validateBody(request, createInventoryReceiptSchema);
   if (!result.success) return apiError(result.error, 400);
 
@@ -214,9 +241,9 @@ export async function POST(request: NextRequest) {
           receivedDate: data.receivedDate ? new Date(data.receivedDate) : new Date(),
           receiverSystemId: data.receiverSystemId || null,
           receiverName: data.receiverName || null,
-          status: (data.status || 'COMPLETED') as InventoryReceiptStatus,
+          status: (data.status === 'DRAFT' ? 'DRAFT' : data.status === 'CANCELLED' ? 'CANCELLED' : 'CONFIRMED') as InventoryReceiptStatus,
           notes: data.notes || null,
-          createdBy: data.createdBy || session.user?.id || null,
+          createdBy: data.createdBy || session!.user?.name || session!.user?.id || null,
           items: normalizedItems.length ? {
             create: normalizedItems.map((item) => ({
               productId: item.productSystemId, // Use systemId for FK reference
@@ -235,6 +262,16 @@ export async function POST(request: NextRequest) {
 
       // ✅ Auto-update ProductInventory and create StockHistory for each item
       if (normalizedItems.length && branchId) {
+        // G1: Check if linked PO is active (for inTransit tracking)
+        let linkedPOActive = false;
+        if (data.purchaseOrderSystemId) {
+          const linkedPO = await tx.purchaseOrder.findUnique({
+            where: { systemId: data.purchaseOrderSystemId },
+            select: { status: true },
+          });
+          linkedPOActive = !!linkedPO && ['PENDING', 'CONFIRMED', 'RECEIVING'].includes(linkedPO.status);
+        }
+
         // Tính tổng số lượng để phân bổ chi phí
         const totalQuantity = normalizedItems.reduce((sum, item) => sum + item.quantity, 0);
         const shippingFee = data.shippingFee || 0;
@@ -262,11 +299,9 @@ export async function POST(request: NextRequest) {
             },
           });
 
-          const oldStock = inventory?.onHand || 0;
-          const newStock = oldStock + quantity;
-
           // Update ProductInventory - use productSystemId for FK reference
-          const _updatedInventory = await tx.productInventory.upsert({
+          // ✅ Use actual returned value from DB to ensure accuracy
+          const updatedInventory = await tx.productInventory.upsert({
             where: {
               productId_branchId: {
                 productId: item.productSystemId,
@@ -286,9 +321,19 @@ export async function POST(request: NextRequest) {
               inDelivery: 0,
             },
           });
-          
 
-          // Create StockHistory - use productSystemId for FK reference
+          // G1: Decrease inTransit when receiving from an active PO
+          if (linkedPOActive) {
+            const decrementBy = Math.min(quantity, updatedInventory.inTransit);
+            if (decrementBy > 0) {
+              await tx.productInventory.update({
+                where: { productId_branchId: { productId: item.productSystemId, branchId: branchId } },
+                data: { inTransit: { decrement: decrementBy } },
+              });
+            }
+          }
+
+          // Create StockHistory - use actual DB value for accurate stock level
           await tx.stockHistory.create({
             data: {
               productId: item.productSystemId,
@@ -296,11 +341,11 @@ export async function POST(request: NextRequest) {
               action: 'Nhập kho',
               source: 'Phiếu nhập kho',
               quantityChange: quantity,
-              newStockLevel: newStock,
+              newStockLevel: updatedInventory.onHand, // ✅ Use actual DB value
               documentId: businessId,
               documentType: 'inventory_receipt',
-              employeeId: session.user?.id,
-              employeeName: session.user?.name || undefined,
+              employeeId: session!.user?.id,
+              employeeName: session!.user?.name || undefined,
               note: `Nhập kho - ${item.notes || 'Phiếu nhập hàng'}`,
             },
           });
@@ -361,12 +406,69 @@ export async function POST(request: NextRequest) {
         
       }
 
+      // ✅ Update supplier debt when receiving goods from a supplier
+      // Nhập hàng = tăng công nợ phải trả nhà cung cấp
+      if (data.supplierSystemId && receipt.status === 'CONFIRMED') {
+        const totalAmount = normalizedItems.reduce(
+          (sum, item) => sum + (item.totalCost || item.quantity * item.unitCost),
+          0
+        );
+        
+        if (totalAmount > 0) {
+          await tx.supplier.update({
+            where: { systemId: data.supplierSystemId },
+            data: {
+              currentDebt: { increment: totalAmount },
+            },
+          });
+        }
+      }
+
       return receipt;
     });
 
+    // ✅ Sync affected products to Meilisearch for real-time inventory data
+    if (inventoryReceipt.items && inventoryReceipt.items.length > 0) {
+      const productSystemIds = inventoryReceipt.items
+        .map(item => item.productId) // productId in DB is actually productSystemId
+        .filter(Boolean) as string[];
+      syncProductsInventory(productSystemIds).catch(err => 
+        logError('[Inventory Receipts API] Meilisearch sync failed', err)
+      );
+    }
+
+    // ✅ Notify assigned employee about new inventory receipt
+    const receiptEmployeeId = inventoryReceipt.employeeId || inventoryReceipt.receiverSystemId
+    if (receiptEmployeeId && receiptEmployeeId !== session!.user?.employeeId) {
+      createNotification({
+        type: 'inventory_receipt',
+        settingsKey: 'inventory-receipt:updated',
+        title: 'Nhập kho mới',
+        message: `Phiếu nhập kho ${inventoryReceipt.id || inventoryReceipt.systemId}${inventoryReceipt.supplierName ? ` - NCC: ${inventoryReceipt.supplierName}` : ''}`,
+        link: `/inventory-receipts/${inventoryReceipt.systemId}`,
+        recipientId: receiptEmployeeId,
+        senderId: session!.user?.employeeId,
+        senderName: session!.user?.name,
+      }).catch(e => logError('[Inventory Receipts POST] notification failed', e))
+    }
+
+    // Log activity
+    getUserNameFromDb(session!.user?.id).then(userName =>
+      prisma.activityLog.create({
+        data: {
+          entityType: 'inventory_receipt',
+          entityId: inventoryReceipt.systemId,
+          action: 'created',
+          actionType: 'create',
+          note: `Tạo phiếu nhập kho`,
+          metadata: { userName },
+          createdBy: userName,
+        }
+      })
+    ).catch(e => logError('[ActivityLog] inventory_receipt create failed', e))
     return apiSuccess(inventoryReceipt, 201);
   } catch (error) {
-    console.error('[Inventory Receipts API] POST error:', error);
-    return apiError('Failed to create inventory receipt', 500);
+    logError('[Inventory Receipts API] POST error', error);
+    return apiError('Không thể tạo phiếu nhập kho', 500);
   }
-}
+})

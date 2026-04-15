@@ -4,6 +4,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import type { ProductLogisticsSettings } from '../types';
 import { 
   defaultLogisticsSettings, 
@@ -26,7 +27,7 @@ async function fetchLogisticsSettings(): Promise<ProductLogisticsSettings> {
     throw new Error('Failed to fetch logistics settings');
   }
   const result = await response.json();
-  return result.data ?? defaultLogisticsSettings;
+  return result.data?.data ?? result.data ?? defaultLogisticsSettings;
 }
 
 async function saveLogisticsSettingsApi(data: ProductLogisticsSettings): Promise<ProductLogisticsSettings> {
@@ -39,7 +40,8 @@ async function saveLogisticsSettingsApi(data: ProductLogisticsSettings): Promise
     const error = await response.json().catch(() => ({}));
     throw new Error(error.error || 'Failed to save logistics settings');
   }
-  return response.json();
+  const result = await response.json();
+  return result.data?.data ?? result.data ?? defaultLogisticsSettings;
 }
 
 async function resetLogisticsSettingsApi(): Promise<ProductLogisticsSettings> {
@@ -49,7 +51,8 @@ async function resetLogisticsSettingsApi(): Promise<ProductLogisticsSettings> {
   if (!response.ok) {
     throw new Error('Failed to reset logistics settings');
   }
-  return response.json();
+  const result = await response.json();
+  return result.data?.data ?? result.data ?? defaultLogisticsSettings;
 }
 
 /**
@@ -78,7 +81,7 @@ export function useLogisticsSettingsMutations(options: MutationCallbacks = {}) {
 
   const invalidateSettings = () => {
     invalidateLogisticsSettingsCache();
-    queryClient.invalidateQueries({ queryKey: logisticsSettingsKeys.all });
+    invalidateRelated(queryClient, 'logistics-settings');
   };
 
   const save = useMutation({

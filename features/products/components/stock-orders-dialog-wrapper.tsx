@@ -15,8 +15,11 @@ interface StockOrdersDialogWrapperProps {
   branchName: string;
 }
 
+const PAGE_SIZE = 20;
+
 /**
  * Wrapper component that handles data fetching for StockOrdersDialog
+ * ⚡ Uses server-side pagination for better performance with large datasets
  */
 export function StockOrdersDialogWrapper({
   open,
@@ -27,11 +30,22 @@ export function StockOrdersDialogWrapper({
   branchSystemId,
   branchName,
 }: StockOrdersDialogWrapperProps) {
-  const { items, isLoading } = useStockOrders({
+  const [page, setPage] = React.useState(1);
+  
+  // Reset page when dialog opens
+  React.useEffect(() => {
+    if (open) {
+      setPage(1);
+    }
+  }, [open]);
+
+  const { items, isLoading, totalQuantity, orderQuantity, warrantyQuantity, pagination } = useStockOrders({
     productSystemId,
     branchSystemId,
     type,
     enabled: open, // Only fetch when dialog is open
+    page,
+    limit: PAGE_SIZE,
   });
 
   return (
@@ -43,6 +57,11 @@ export function StockOrdersDialogWrapper({
       branchName={branchName}
       items={items}
       isLoading={isLoading}
+      totalQuantity={totalQuantity}
+      orderQuantity={orderQuantity}
+      warrantyQuantity={warrantyQuantity}
+      pagination={pagination}
+      onPageChange={setPage}
     />
   );
 }

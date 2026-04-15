@@ -12,6 +12,9 @@ import { StockTransferStatus } from '@/generated/prisma/client';
 import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils';
 import { createStockTransferSchema } from './validation';
 import { generateNextIdsWithTx } from '@/lib/id-system';
+import { logError } from '@/lib/logger'
+import { createNotification } from '@/lib/notifications'
+import { getUserNameFromDb } from '@/lib/get-user-name'
 
 // Interface for stock transfer item input
 interface StockTransferItemInput {
@@ -36,6 +39,7 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status');
     const fromBranchId = searchParams.get('fromBranchId');
     const toBranchId = searchParams.get('toBranchId');
+    const productSystemId = searchParams.get('productSystemId');
     const sortBy = searchParams.get('sortBy') || 'createdAt';
     const sortOrder = (searchParams.get('sortOrder') || 'desc') as 'asc' | 'desc';
     const _includeDeleted = searchParams.get('includeDeleted') === 'true';
@@ -62,6 +66,11 @@ export async function GET(request: NextRequest) {
 
     if (toBranchId && toBranchId !== 'all') {
       where.toBranchSystemId = toBranchId;
+    }
+
+    // ⚡ Filter by product - stock transfers containing items for this product
+    if (productSystemId) {
+      where.items = { some: { productId: productSystemId } };
     }
 
     // Build orderBy
@@ -110,8 +119,8 @@ export async function GET(request: NextRequest) {
 
     return apiPaginated(transformedData, { page, limit, total });
   } catch (error) {
-    console.error('[Stock Transfers API] GET error:', error);
-    return apiError('Failed to fetch stock transfers', 500);
+    logError('[Stock Transfers API] GET error', error);
+    return apiError('Lỗi khi lấy danh sách phiếu chuyển kho', 500);
   }
 }
 
@@ -122,7 +131,7 @@ export async function POST(request: NextRequest) {
 
   const result = await validateBody(request, createStockTransferSchema);
   if (!result.success) {
-    console.error('[Stock Transfers API] Validation error:', result.error);
+    logError('[Stock Transfers API] Validation error', result.error);
     return apiError(result.error, 400);
   }
 
@@ -191,9 +200,37 @@ export async function POST(request: NextRequest) {
       status: stockTransfer.status.toLowerCase(),
     };
 
+    // ✅ Notify employee assigned to the transfer
+    if (stockTransfer.employeeId && stockTransfer.employeeId !== session.user?.employeeId) {
+      createNotification({
+        type: 'stock_transfer',
+        settingsKey: 'stock-transfer:updated',
+        title: 'Chuyển kho mới',
+        message: `Phiếu chuyển kho ${stockTransfer.id || stockTransfer.systemId} từ ${data.fromBranchName || fromBranchId} đến ${data.toBranchName || toBranchId}`,
+        link: `/stock-transfers/${stockTransfer.systemId}`,
+        recipientId: stockTransfer.employeeId,
+        senderId: session.user?.employeeId,
+        senderName: session.user?.name,
+      }).catch(e => logError('[Stock Transfers POST] notification failed', e))
+    }
+
+    // Log activity
+    getUserNameFromDb(session.user?.id).then(userName =>
+      prisma.activityLog.create({
+        data: {
+          entityType: 'stock_transfer',
+          entityId: transformedResult.systemId,
+          action: 'created',
+          actionType: 'create',
+          note: `Tạo phiếu chuyển kho`,
+          metadata: { userName },
+          createdBy: userName,
+        }
+      })
+    ).catch(e => logError('[ActivityLog] stock_transfer create failed', e))
     return apiSuccess(transformedResult, 201);
   } catch (error) {
-    console.error('[Stock Transfers API] POST error:', error);
-    return apiError('Failed to create stock transfer', 500);
+    logError('[Stock Transfers API] POST error', error);
+    return apiError('Lỗi khi tạo phiếu chuyển kho', 500);
   }
 }

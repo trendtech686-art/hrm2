@@ -23,9 +23,9 @@ import {
   ListChecks,
   MessageSquareWarning,
   ShieldCheck,
-  Hash,
   ListTodo,
   Globe,
+  BellRing,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
@@ -34,6 +34,7 @@ import { MobileSearchBar } from '../../components/mobile/mobile-search-bar';
 import { useMediaQuery } from '../../lib/use-media-query';
 import { useSettingsPageHeader } from './use-settings-page-header';
 import { Button } from '../../components/ui/button';
+import { useAuth } from "@/contexts/auth-context";
 
 type SettingsItem = {
   icon: React.ElementType;
@@ -120,6 +121,14 @@ const financialSettings: SettingsItem[] = [
 
 const operationalSettings: SettingsItem[] = [
   { 
+    icon: BellRing, 
+    title: 'Thông báo', 
+    description: 'Cấu hình thông báo email, SMS, in-app cho toàn hệ thống', 
+    href: '/settings/notifications',
+    badge: 'new' as const,
+    iconColor: 'text-yellow-600'
+  },
+  { 
     icon: Globe, 
     title: 'Website phukiengiaxuong.com.vn', 
     description: 'Đồng bộ sản phẩm, danh mục, thương hiệu với website PKGX', 
@@ -191,14 +200,6 @@ const operationalSettings: SettingsItem[] = [
 ];
 
 const systemSettings: SettingsItem[] = [
-  { 
-    icon: Hash, 
-    title: 'Quản lý ID & Prefix', 
-    description: 'Cấu hình prefix, counter và kiểm tra số thứ tự cho tất cả entities', 
-    href: '/settings/id-counters',
-    badge: 'new' as const,
-    iconColor: 'text-blue-600'
-  },
   { 
     icon: History, 
     title: 'Nhật ký hệ thống', 
@@ -286,6 +287,9 @@ const settingsTableData: SettingsTableItem[] = settingsSections.flatMap((section
 );
 
 export function SettingsPage() {
+  // Permission checks
+  const { can } = useAuth();
+  const canEdit = can('edit_settings');
   const [searchQuery, setSearchQuery] = React.useState('');
   const isMobile = !useMediaQuery("(min-width: 768px)");
   const router = useRouter();

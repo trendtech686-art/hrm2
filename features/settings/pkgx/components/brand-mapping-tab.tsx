@@ -29,6 +29,8 @@ import { PkgxMappingDialog } from '../../../../components/shared/pkgx-mapping-di
 import { PkgxSyncConfirmDialog } from './pkgx-sync-confirm-dialog';
 import { asSystemId } from '@/lib/id-types';
 import { generateSubEntityId } from '@/lib/id-utils';
+import { logError } from '@/lib/logger'
+import { sanitizeHtml } from '@/lib/sanitize'
 
 // Extended type for PKGX brands table
 interface PkgxBrandRow extends PkgxBrand {
@@ -151,11 +153,6 @@ export function BrandMappingTab() {
   const allSelectedPkgxRows = React.useMemo(() => 
     paginatedPkgxData.filter(p => rowSelection[p.systemId]),
   [paginatedPkgxData, rowSelection]);
-  
-  // Get selected PKGX brands that are NOT mapped (for bulk mapping)
-  const _selectedUnmappedBrands = React.useMemo(() => 
-    allSelectedPkgxRows.filter(b => !b.mappedToHrm),
-  [allSelectedPkgxRows]);
   
   // Get selected PKGX brands that ARE mapped (for bulk unlink)
   const selectedMappedBrands = React.useMemo(() => 
@@ -545,14 +542,13 @@ export function BrandMappingTab() {
     }
   };
   
-  // Import brands from PKGX to HRM and auto-mapping
+  // Import brands from PKGX to HRM and auto-mapping — Batch mode
   const handleImportAndMap = async () => {
     if (!settings) {
       toast.error('Không thể tải cấu hình PKGX');
       return;
     }
     
-    // Check if PKGX integration is enabled
     if (!settings.enabled) {
       toast.error('Tích hợp PKGX chưa được bật. Vui lòng bật trong Cấu hình chung.');
       return;
@@ -569,145 +565,207 @@ export function BrandMappingTab() {
     setIsImporting(true);
     setIsPaused(false);
     pauseRef.current = false;
-    setImportProgress({ current: 0, total: unmappedBrands.length, currentName: '' });
+    setImportProgress({ current: 0, total: unmappedBrands.length, currentName: 'Đang chuẩn bị...' });
+    
+    // Create import job in DB
+    let jobId: string | null = null;
+    try {
+      const jobRes = await fetch('/api/pkgx-import-jobs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ entityType: 'brands', totalRecords: unmappedBrands.length }),
+      });
+      if (jobRes.ok) {
+        const jobData = await jobRes.json();
+        jobId = jobData.jobId || null;
+      }
+    } catch {
+      /* non-blocking */
+    }
+    
     let successCount = 0;
     let errorCount = 0;
+    let processedCount = 0;
     const errorMessages: string[] = [];
-    const REFRESH_BATCH_SIZE = 3; // Refresh UI sau mỗi 3 brand
+    const startTime = Date.now();
+    
+    // Transform all brands to payloads (use cached data, NO per-brand external API call)
+    const allPayloads = unmappedBrands.map(pkgxBrand => {
+      const logo = pkgxBrand.logo || pkgxBrand.brand_logo;
+      const description = pkgxBrand.description || pkgxBrand.brand_desc;
+      const websiteUrl = pkgxBrand.siteUrl || pkgxBrand.site_url;
+      
+      return {
+        pkgxId: Number(pkgxBrand.id),
+        id: `PKGX-${pkgxBrand.id}`,
+        name: pkgxBrand.name,
+        description: description || undefined,
+        logo: logo || undefined,
+        website: websiteUrl || undefined,
+        // SEO from cached data (PKGX brand cache has these fields)
+        seoTitle: (pkgxBrand as Record<string, unknown>).meta_title as string || undefined,
+        metaDescription: (pkgxBrand as Record<string, unknown>).meta_desc as string || undefined,
+        seoKeywords: (pkgxBrand as Record<string, unknown>).keywords as string || undefined,
+        shortDescription: (pkgxBrand as Record<string, unknown>).short_desc as string || undefined,
+        longDescription: (pkgxBrand as Record<string, unknown>).long_desc as string || undefined,
+        websiteSeo: {
+          pkgx: {
+            seoTitle: (pkgxBrand as Record<string, unknown>).meta_title as string || '',
+            metaDescription: (pkgxBrand as Record<string, unknown>).meta_desc as string || '',
+            seoKeywords: (pkgxBrand as Record<string, unknown>).keywords as string || '',
+            shortDescription: (pkgxBrand as Record<string, unknown>).short_desc as string || '',
+            longDescription: (pkgxBrand as Record<string, unknown>).long_desc as string || '',
+          }
+        },
+      };
+    });
+    
+    // Split into batches
+    const BATCH_SIZE = 30;
+    const batches: typeof allPayloads[] = [];
+    for (let i = 0; i < allPayloads.length; i += BATCH_SIZE) {
+      batches.push(allPayloads.slice(i, i + BATCH_SIZE));
+    }
+    
+    const sendBatch = async (batch: typeof allPayloads): Promise<void> => {
+      while (pauseRef.current) {
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+      
+      try {
+        const response = await fetch('/api/brands/bulk-import', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ brands: batch }),
+        });
+        
+        if (!response.ok) {
+          const text = await response.text();
+          let msg = `HTTP ${response.status}`;
+          try { const d = JSON.parse(text); msg = d?.message || d?.error || msg; } catch { /* parse error, use default msg */ }
+          throw new Error(msg);
+        }
+        
+        const result = await response.json();
+        const data = result.data ?? result;
+        
+        successCount += data.success || 0;
+        errorCount += data.errors || 0;
+        processedCount += batch.length;
+        
+        if (data.results) {
+          for (const r of data.results) {
+            if (!r.success && r.error) {
+              const name = batch.find(b => b.pkgxId === r.pkgxId)?.name || `PKGX#${r.pkgxId}`;
+              errorMessages.push(`${name}: ${r.error}`);
+            }
+          }
+        }
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : 'Lỗi không xác định';
+        logError(`[Bulk Brand] Batch failed (${batch.length})`, error);
+        errorCount += batch.length;
+        processedCount += batch.length;
+        errorMessages.push(`Batch ${batch.length} thương hiệu: ${msg}`);
+      }
+      
+      const elapsed = (Date.now() - startTime) / 1000;
+      const speed = processedCount > 0 ? (processedCount / elapsed).toFixed(1) : '0';
+      setImportProgress({
+        current: processedCount,
+        total: unmappedBrands.length,
+        currentName: `${speed} TH/giây • ${successCount} OK, ${errorCount} lỗi`,
+      });
+    };
     
     try {
-      for (let i = 0; i < unmappedBrands.length; i++) {
-        // Check for pause
+      // Process batches sequentially for pause support
+      let batchIndex = 0;
+      for (const batch of batches) {
         while (pauseRef.current) {
           await new Promise(resolve => setTimeout(resolve, 200));
         }
+        await sendBatch(batch);
+        batchIndex++;
         
-        const pkgxBrand = unmappedBrands[i];
-        setImportProgress({ current: i + 1, total: unmappedBrands.length, currentName: pkgxBrand.name });
-        try {
-          // Build brand data - only include defined values
-          // Get full brand data from PKGX API (including SEO fields)
-          const pkgxDetailResponse = await getBrandById(Number(pkgxBrand.id), settings);
-          const pkgxFullData = pkgxDetailResponse.success && pkgxDetailResponse.data 
-            ? pkgxDetailResponse.data 
-            : null;
-          
-          
-          const brandData: Record<string, unknown> = {
-            id: `PKGX-${pkgxBrand.id}`,
-            name: pkgxBrand.name,
-          };
-          
-          // Add basic fields
-          const logo = pkgxBrand.logo || pkgxBrand.brand_logo;
-          const description = pkgxBrand.description || pkgxBrand.brand_desc;
-          const websiteUrl = pkgxBrand.siteUrl || pkgxBrand.site_url;
-          
-          if (logo) brandData.logo = logo;
-          if (description) brandData.description = description;
-          if (websiteUrl) brandData.website = websiteUrl;
-          
-          // Add SEO fields from full PKGX data (API returns: meta_title, meta_desc, keywords, short_desc, long_desc)
-          if (pkgxFullData) {
-            if (pkgxFullData.meta_title) brandData.seoTitle = pkgxFullData.meta_title;
-            if (pkgxFullData.meta_desc) brandData.metaDescription = pkgxFullData.meta_desc;
-            if (pkgxFullData.keywords) brandData.seoKeywords = pkgxFullData.keywords;
-            if (pkgxFullData.short_desc) brandData.shortDescription = pkgxFullData.short_desc;
-            if (pkgxFullData.long_desc) brandData.longDescription = pkgxFullData.long_desc;
-            
-            // Also save to websiteSeo.pkgx nested object
-            brandData.websiteSeo = {
-              pkgx: {
-                seoTitle: pkgxFullData.meta_title || '',
-                metaDescription: pkgxFullData.meta_desc || '',
-                seoKeywords: pkgxFullData.keywords || '',
-                shortDescription: pkgxFullData.short_desc || '',
-                longDescription: pkgxFullData.long_desc || '',
-              }
-            };
-          }
-          
-          // Create HRM brand via API
-          const response = await fetch('/api/brands', {
-            method: 'POST',
+        // Update job progress every 2 batches
+        if (jobId && batchIndex % 2 === 0) {
+          fetch(`/api/pkgx-import-jobs/${jobId}`, {
+            method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(brandData),
-          });
-          
-          if (!response.ok) {
-            const responseText = await response.text();
-            let errorMessage = `HTTP ${response.status}`;
-            try {
-              const errorData = JSON.parse(responseText);
-              errorMessage = errorData?.message || errorData?.error || response.statusText;
-            } catch {
-              errorMessage = responseText || response.statusText;
-            }
-            console.error(`[Import Brand] API Error for "${pkgxBrand.name}":`, response.status, errorMessage);
-            throw new Error(errorMessage);
-          }
-          
-          const newBrand = await response.json();
-          
-          // Create mapping directly via fast API endpoint (instead of slow mutation)
-          const mappingResponse = await fetch('/api/settings/pkgx/brand-mappings', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
             body: JSON.stringify({
-              hrmBrandId: newBrand.systemId,
-              hrmBrandName: newBrand.name,
-              pkgxBrandId: Number(pkgxBrand.id),
-              pkgxBrandName: pkgxBrand.name,
+              processedRecords: processedCount,
+              successCount,
+              errorCount,
+              insertedCount: successCount,
             }),
-          });
-          
-          if (!mappingResponse.ok) {
-            const mappingError = await mappingResponse.text();
-            console.error(`[Import Brand] Mapping error for "${pkgxBrand.name}":`, mappingError);
-            // Brand created but mapping failed - still count as partial success
-          }
-          
-          successCount++;
-          
-          // Refresh UI sau mỗi batch để user thấy data realtime
-          if (successCount % REFRESH_BATCH_SIZE === 0) {
-            await queryClient.invalidateQueries({ queryKey: brandKeys.all });
-            await queryClient.invalidateQueries({ queryKey: ['pkgx', 'settings'] });
-          }
-        } catch (error) {
-          const errorMsg = error instanceof Error ? error.message : 'Lỗi không xác định';
-          console.error(`[Import Brand] Error importing brand "${pkgxBrand.name}":`, errorMsg);
-          errorMessages.push(`${pkgxBrand.name}: ${errorMsg}`);
-          errorCount++;
+          }).catch(err => console.error('[Import Job] Progress update failed:', err));
         }
       }
       
-      // Invalidate all queries to refresh UI
-      await queryClient.invalidateQueries({ queryKey: brandKeys.all });
-      await queryClient.invalidateQueries({ queryKey: ['pkgx', 'settings'] });
+      // Final refresh
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: brandKeys.all }),
+        queryClient.invalidateQueries({ queryKey: ['pkgx', 'settings'] }),
+      ]);
       
-      addLog.mutate({
-        action: 'sync_brands',
-        status: errorCount > 0 ? 'partial' : 'success',
-        message: `Import xong: ${successCount} thành công, ${errorCount} lỗi`,
-      });
+      const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+      
+      // Finalize job in DB
+      if (jobId) {
+        const finalStatus = errorCount === 0 ? 'completed' : successCount > 0 ? 'partial' : 'failed';
+        try {
+          await fetch(`/api/pkgx-import-jobs/${jobId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+              status: finalStatus,
+              processedRecords: processedCount,
+              successCount,
+              errorCount,
+              insertedCount: successCount,
+              errors: errorMessages.length > 0 ? JSON.stringify(errorMessages.slice(0, 100)) : undefined,
+              notes: `Import ${successCount} TH thành công, ${errorCount} lỗi trong ${elapsed}s`,
+            }),
+          });
+        } catch (err) {
+          console.error('[Import Job] Finalize failed:', err);
+        }
+      }
+      queryClient.invalidateQueries({ queryKey: ['import-export-logs-db'] });
       
       if (successCount > 0) {
-        toast.success(`Đã import & mapping ${successCount} thương hiệu từ PKGX`);
+        toast.success(`Đã import ${successCount} thương hiệu từ PKGX (${elapsed}s)`);
       }
       if (errorCount > 0) {
-        // Show first 3 error messages
         const errorSummary = errorMessages.slice(0, 3).join('\n');
         const moreCount = errorMessages.length > 3 ? `\n...và ${errorMessages.length - 3} lỗi khác` : '';
-        toast.error(`${errorCount} thương hiệu import thất bại:\n${errorSummary}${moreCount}`, { duration: 8000 });
+        toast.error(`${errorCount} thương hiệu lỗi:\n${errorSummary}${moreCount}`, { duration: 8000 });
       }
     } catch (error) {
       toast.error('Lỗi khi import thương hiệu');
-      addLog.mutate({
-        action: 'sync_brands',
-        status: 'error',
-        message: error instanceof Error ? error.message : 'Lỗi khi import thương hiệu',
-      });
+      if (jobId) {
+        try {
+          await fetch(`/api/pkgx-import-jobs/${jobId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+              status: 'failed',
+              processedRecords: processedCount,
+              successCount,
+              errorCount,
+              errors: JSON.stringify([error instanceof Error ? error.message : 'Lỗi không xác định']),
+            }),
+          });
+        } catch (err) {
+          console.error('[Import Job] Failed to mark job as failed:', err);
+        }
+      }
     } finally {
       setIsImporting(false);
       setIsPaused(false);
@@ -1083,8 +1141,7 @@ export function BrandMappingTab() {
                       {selectedBrandForDetail.site_url ? (
                         <a 
                           href={selectedBrandForDetail.site_url} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
+                          target="_blank" rel="noopener noreferrer" 
                           className="text-primary hover:underline"
                         >
                           {selectedBrandForDetail.site_url}
@@ -1098,7 +1155,7 @@ export function BrandMappingTab() {
                       {selectedBrandForDetail.brand_desc ? (
                         <div 
                           className="prose prose-sm dark:prose-invert max-w-none bg-muted/30 rounded-md p-3"
-                          dangerouslySetInnerHTML={{ __html: selectedBrandForDetail.brand_desc }}
+                          dangerouslySetInnerHTML={{ __html: sanitizeHtml(selectedBrandForDetail.brand_desc) }}
                         />
                       ) : (
                         <span className="text-muted-foreground italic">Chưa có mô tả</span>

@@ -37,12 +37,7 @@ export function validateProductForm(
     if (values.comboItems && values.comboItems.length > MAX_COMBO_ITEMS) {
       errors.push({ field: 'comboItems', message: `Combo chỉ được tối đa ${MAX_COMBO_ITEMS} sản phẩm` });
     }
-    if (values.comboPricingType === 'fixed' && (!values.comboDiscount || values.comboDiscount <= 0)) {
-      errors.push({ field: 'comboDiscount', message: 'Vui lòng nhập giá combo' });
-    }
-    if (values.comboPricingType === 'sum_discount_percent' && values.comboDiscount !== undefined && values.comboDiscount > 100) {
-      errors.push({ field: 'comboDiscount', message: 'Phần trăm giảm giá không được vượt quá 100%' });
-    }
+    // Note: comboPricingType UI removed — chỉ dùng giá bán trực tiếp từ bảng giá
   }
   
   return errors;

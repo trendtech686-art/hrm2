@@ -69,8 +69,8 @@ export function mapActivityLogsToHistory(logs: ActivityLog[]): HistoryEntry[] {
     timestamp: new Date(log.createdAt),
     user: log.createdBy ? {
       systemId: log.createdBy,
-      name: log.createdBy, // TODO: Resolve user name
-    } : { systemId: '', name: 'System' },
+      name: (log.metadata?.userName as string) || log.createdBy,
+    } : { systemId: '', name: 'Hệ thống' },
     metadata: log.changes ? {
       ...log.changes,
       ...log.metadata,

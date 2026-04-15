@@ -7,7 +7,6 @@
  * - GET/POST /api/settings/pkgx/brands - PKGX brands from database
  * - GET/POST/DELETE /api/settings/pkgx/category-mappings - Category mappings
  * - GET/POST/DELETE /api/settings/pkgx/brand-mappings - Brand mappings
- * - GET/POST /api/settings/pkgx/sync-logs - Sync logs
  */
 
 import type { PkgxCategory, PkgxBrand, PkgxCategoryMapping, PkgxBrandMapping, PkgxSettings } from '@/lib/types/prisma-extended';
@@ -76,20 +75,6 @@ export async function syncPkgxCategories(): Promise<{ count: number }> {
   }
   const json = await res.json();
   
-  // 4. Log sync
-  await fetch(`${BASE_URL}/sync-logs`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      syncType: 'categories',
-      action: 'sync',
-      status: 'success',
-      itemsTotal: transformedCategories.length,
-      itemsSuccess: json.synced || transformedCategories.length,
-      itemsFailed: 0,
-    }),
-  });
-  
   return { count: json.synced || transformedCategories.length };
 }
 
@@ -144,20 +129,6 @@ export async function syncPkgxBrands(): Promise<{ count: number }> {
     throw new Error(errorJson.error || 'Failed to sync brands to database');
   }
   const json = await res.json();
-  
-  // 4. Log sync
-  await fetch(`${BASE_URL}/sync-logs`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      syncType: 'brands',
-      action: 'sync',
-      status: 'success',
-      itemsTotal: transformedBrands.length,
-      itemsSuccess: json.synced || transformedBrands.length,
-      itemsFailed: 0,
-    }),
-  });
   
   return { count: json.synced || transformedBrands.length };
 }
@@ -290,15 +261,4 @@ export async function bulkSyncProductsToPkgx(productSystemIds: string[]): Promis
   });
   if (!res.ok) throw new Error('Failed to bulk sync products');
   return res.json();
-}
-
-// ========================================
-// Sync Logs
-// ========================================
-
-export async function fetchSyncLogs(limit = 50): Promise<Array<{ syncType: string; action: string; status: string; syncedAt: string }>> {
-  const res = await fetch(`${BASE_URL}/sync-logs?limit=${limit}`);
-  if (!res.ok) throw new Error('Failed to fetch sync logs');
-  const json = await res.json();
-  return json.data || [];
 }

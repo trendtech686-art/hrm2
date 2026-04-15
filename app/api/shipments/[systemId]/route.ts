@@ -2,6 +2,9 @@ import { prisma } from '@/lib/prisma'
 import { ShipmentStatus } from '@/generated/prisma/client'
 import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
 import { updateShipmentSchema } from './validation'
+import { logError } from '@/lib/logger'
+import { createNotification } from '@/lib/notifications'
+import { getUserNameFromDb } from '@/lib/get-user-name'
 
 interface RouteParams {
   params: Promise<{ systemId: string }>
@@ -30,10 +33,24 @@ export async function GET(_request: Request, { params }: RouteParams) {
       return apiError('Vận đơn không tồn tại', 404)
     }
 
+    // Log activity
+    getUserNameFromDb(session.user?.id).then(userName =>
+      prisma.activityLog.create({
+        data: {
+          entityType: 'shipment',
+          entityId: systemId,
+          action: 'updated',
+          actionType: 'update',
+          note: `Cập nhật lô vận chuyển`,
+          metadata: { userName },
+          createdBy: userName,
+        }
+      })
+    ).catch(e => logError('[ActivityLog] shipment update failed', e))
     return apiSuccess(shipment)
   } catch (error) {
-    console.error('Error fetching shipment:', error)
-    return apiError('Failed to fetch shipment', 500)
+    logError('Error fetching shipment', error)
+    return apiError('Không thể tải vận đơn', 500)
   }
 }
 
@@ -69,13 +86,28 @@ export async function PUT(request: Request, { params }: RouteParams) {
       },
     })
 
+    // ✅ Notify order salesperson about shipment update
+    const orderSalespersonId = (shipment.order as { salespersonId?: string })?.salespersonId
+    if (body.status && orderSalespersonId && orderSalespersonId !== session.user?.employeeId) {
+      createNotification({
+        type: 'shipment',
+        title: 'Cập nhật vận đơn',
+        message: `Vận đơn ${shipment.id || systemId} đã chuyển trạng thái ${body.status}`,
+        link: `/shipments/${systemId}`,
+        recipientId: orderSalespersonId,
+        senderId: session.user?.employeeId,
+        senderName: session.user?.name,
+        settingsKey: 'order:status',
+      }).catch(e => logError('[Shipments PUT] notification failed', e))
+    }
+
     return apiSuccess(shipment)
   } catch (error) {
     if (error instanceof Error && 'code' in error && error.code === 'P2025') {
       return apiError('Vận đơn không tồn tại', 404)
     }
-    console.error('Error updating shipment:', error)
-    return apiError('Failed to update shipment', 500)
+    logError('Error updating shipment', error)
+    return apiError('Không thể cập nhật vận đơn', 500)
   }
 }
 
@@ -91,12 +123,26 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
       where: { systemId },
     })
 
+    // Log activity
+    getUserNameFromDb(session.user?.id).then(userName =>
+      prisma.activityLog.create({
+        data: {
+          entityType: 'shipment',
+          entityId: systemId,
+          action: 'deleted',
+          actionType: 'delete',
+          note: `Xóa lô vận chuyển`,
+          metadata: { userName },
+          createdBy: userName,
+        }
+      })
+    ).catch(e => logError('[ActivityLog] shipment delete failed', e))
     return apiSuccess({ success: true })
   } catch (error) {
     if (error instanceof Error && 'code' in error && error.code === 'P2025') {
       return apiError('Vận đơn không tồn tại', 404)
     }
-    console.error('Error deleting shipment:', error)
-    return apiError('Failed to delete shipment', 500)
+    logError('Error deleting shipment', error)
+    return apiError('Không thể xóa vận đơn', 500)
   }
 }

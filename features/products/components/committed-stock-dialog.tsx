@@ -4,9 +4,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../../compo
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table';
 import { formatDateForDisplay } from '@/lib/date-utils';
 import { Badge } from '../../../components/ui/badge';
-import { useAllOrders } from '../../orders/hooks/use-all-orders';
-import { useAllWarranties } from '../../warranty/hooks/use-all-warranties';
-import { useProductFinder } from '../hooks/use-all-products';
+import { useProductOrders, useProductWarranties } from '../hooks/use-product-related-data';
+import { useProduct } from '../hooks/use-products';
 import { SystemId } from '../../../lib/id-types';
 
 interface CommittedStockDialogProps {
@@ -26,13 +25,11 @@ export function CommittedStockDialog({
   branchName,
   productName,
 }: CommittedStockDialogProps) {
-  const { data: allOrders } = useAllOrders();
-  const { data: allWarranties } = useAllWarranties();
-  const { findById: findProductById } = useProductFinder();
+  // ✅ OPTIMIZED: Server-side filtered by product instead of loading ALL
+  const { data: allOrders = [] } = useProductOrders(productSystemId);
+  const { data: allWarranties = [] } = useProductWarranties(productSystemId);
+  const { data: product } = useProduct(productSystemId);
   const router = useRouter();
-
-  // Get product to find SKU (business ID)
-  const product = React.useMemo(() => findProductById(productSystemId), [productSystemId, findProductById]);
 
   // Find all orders with committed stock for this product and branch
   const committedOrders = React.useMemo(() => {
@@ -44,7 +41,7 @@ export function CommittedStockDialog({
 
         // Check if order contains this product (by systemId only)
         const hasProduct = order.lineItems?.some(item => 
-          item.productSystemId === productSystemId
+          item.product?.systemId === productSystemId || (item.productId as string) === (productSystemId as string)
         );
         if (!hasProduct) return false;
 
@@ -62,7 +59,7 @@ export function CommittedStockDialog({
       })
       .map(order => {
         const lineItem = order.lineItems.find(item => 
-          item.productSystemId === productSystemId
+          item.product?.systemId === productSystemId || (item.productId as string) === (productSystemId as string)
         );
         if (!lineItem) {
           return null;
@@ -167,8 +164,8 @@ export function CommittedStockDialog({
           <DialogTitle>
             Chờ xuất kho: {productName}
           </DialogTitle>
-          <div className="text-body-sm text-muted-foreground">
-            Chi nhánh: {branchName} • Tổng đang giữ: <span className="text-body-sm font-medium text-orange-600">{totalCommitted}</span> sản phẩm
+          <div className="text-sm text-muted-foreground">
+            Chi nhánh: {branchName} • Tổng đang giữ: <span className="text-sm font-medium text-orange-600">{totalCommitted}</span> sản phẩm
           </div>
         </DialogHeader>
 
@@ -201,10 +198,10 @@ export function CommittedStockDialog({
                         {item.type}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-body-sm font-medium">{item.id}</TableCell>
+                    <TableCell className="text-sm font-medium">{item.id}</TableCell>
                     <TableCell>{formatDateForDisplay(item.date)}</TableCell>
                     <TableCell className="truncate max-w-62" title={item.customerName}>{item.customerName}</TableCell>
-                    <TableCell className="text-right text-body-sm font-medium text-orange-600">{item.quantity}</TableCell>
+                    <TableCell className="text-right text-sm font-medium text-orange-600">{item.quantity}</TableCell>
                     <TableCell>
                       <Badge variant={getStatusBadgeVariant(item.type, item.status) as 'default' | 'secondary' | 'destructive' | 'outline' | 'warning' | 'success'}>
                         {getStatusLabel(item.type, item.status)}

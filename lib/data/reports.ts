@@ -7,6 +7,7 @@
 
 import { unstable_cache } from 'next/cache';
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 import { CACHE_TTL, CACHE_TAGS } from '@/lib/cache';
 
 // ==================== TYPES ====================
@@ -150,41 +151,51 @@ export const getSalesByPeriod = unstable_cache(
   async (filters: SalesReportFilters): Promise<SalesByPeriod[]> => {
     const { startDate, endDate, branchId, groupBy = 'day' } = filters;
     
-    // Use raw SQL for proper date grouping
-    const dateFormat = groupBy === 'day' 
-      ? '%Y-%m-%d' 
-      : groupBy === 'week' 
-        ? '%Y-%W' 
-        : '%Y-%m';
+    // Whitelist date format to prevent SQL injection
+    const FORMAT_MAP = { day: 'YYYY-MM-DD', week: 'IYYY-IW', month: 'YYYY-MM' } as const;
+    const dateFormat = FORMAT_MAP[groupBy] ?? FORMAT_MAP.day;
 
-    let query = `
-      SELECT 
-        DATE_FORMAT(o.order_date, '${dateFormat}') as period,
-        SUM(o.grand_total) as revenue,
-        COUNT(DISTINCT o.system_id) as orders,
-        SUM(oli.quantity) as items
-      FROM \`order\` o
-      LEFT JOIN order_line_item oli ON o.system_id = oli.order_id
-      WHERE o.order_date >= ?
-        AND o.order_date <= ?
-        AND o.status != 'CANCELLED'
-    `;
-    
-    const params: unknown[] = [new Date(startDate), new Date(endDate)];
-    
-    if (branchId) {
-      query += ` AND o.branch_id = ?`;
-      params.push(branchId);
-    }
-    
-    query += ` GROUP BY period ORDER BY period ASC`;
+    const startDateParam = new Date(startDate);
+    const endDateParam = new Date(endDate);
 
-    const results = await prisma.$queryRawUnsafe<Array<{
-      period: string;
-      revenue: number | null;
-      orders: bigint;
-      items: bigint | null;
-    }>>(query, ...params);
+    const results = branchId
+      ? await prisma.$queryRaw<Array<{
+          period: string;
+          revenue: number | null;
+          orders: bigint;
+          items: bigint | null;
+        }>>(Prisma.sql`
+          SELECT 
+            TO_CHAR(o.order_date, ${dateFormat}) as period,
+            SUM(o.grand_total) as revenue,
+            COUNT(DISTINCT o.system_id) as orders,
+            SUM(oli.quantity) as items
+          FROM "order" o
+          LEFT JOIN order_line_item oli ON o.system_id = oli.order_id
+          WHERE o.order_date >= ${startDateParam}
+            AND o.order_date <= ${endDateParam}
+            AND o.status != 'CANCELLED'
+            AND o.branch_id = ${branchId}
+          GROUP BY period ORDER BY period ASC
+        `)
+      : await prisma.$queryRaw<Array<{
+          period: string;
+          revenue: number | null;
+          orders: bigint;
+          items: bigint | null;
+        }>>(Prisma.sql`
+          SELECT 
+            TO_CHAR(o.order_date, ${dateFormat}) as period,
+            SUM(o.grand_total) as revenue,
+            COUNT(DISTINCT o.system_id) as orders,
+            SUM(oli.quantity) as items
+          FROM "order" o
+          LEFT JOIN order_line_item oli ON o.system_id = oli.order_id
+          WHERE o.order_date >= ${startDateParam}
+            AND o.order_date <= ${endDateParam}
+            AND o.status != 'CANCELLED'
+          GROUP BY period ORDER BY period ASC
+        `);
 
     return results.map(r => ({
       period: r.period,

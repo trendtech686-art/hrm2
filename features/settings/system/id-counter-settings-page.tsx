@@ -416,7 +416,7 @@ export function IDCounterSettingsPage() {
                               Digits: {config.digitCount}
                             </div>
                             {config.allowCustomId && (
-                              <Badge variant="secondary" className="text-[10px]">Custom ID OK</Badge>
+                              <Badge variant="secondary" className="text-xs">Custom ID OK</Badge>
                             )}
                           </div>
                         );

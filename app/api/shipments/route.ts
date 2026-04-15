@@ -2,6 +2,9 @@ import { prisma } from '@/lib/prisma'
 import { Prisma, ShipmentStatus } from '@/generated/prisma/client'
 import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
 import { createShipmentSchema } from './validation'
+import { logError } from '@/lib/logger'
+import { createNotification } from '@/lib/notifications'
+import { getUserNameFromDb } from '@/lib/get-user-name'
 
 // GET /api/shipments - List all shipments
 export async function GET(request: Request) {
@@ -45,7 +48,10 @@ export async function GET(request: Request) {
     }
 
     if (branchId && branchId !== 'all') {
-      where.order = { branchId }
+      where.OR = [
+        { order: { branchId } },
+        { warranty: { branchSystemId: branchId } },
+      ]
     }
 
     if (carrier && carrier !== 'all') {
@@ -107,10 +113,17 @@ export async function GET(request: Request) {
                   id: true,
                   name: true,
                   phone: true,
-                  email: true,
                   addresses: true,
                 },
               },
+            },
+          },
+          warranty: {
+            select: {
+              systemId: true,
+              id: true,
+              supplierName: true,
+              branchName: true,
             },
           },
         },
@@ -121,6 +134,7 @@ export async function GET(request: Request) {
     // Transform to ShipmentView format
     const transformedShipments = shipments.map(shipment => {
       const order = shipment.order
+      const warranty = shipment.warranty
       const customer = order?.customer
       const packaging = order?.packagings?.find(p => p.systemId === shipment.packagingSystemId)
       const totalPaid = order?.payments?.reduce((sum, p) => sum + (typeof p.amount === 'number' ? p.amount : Number(p.amount) || 0), 0) || 0
@@ -139,40 +153,47 @@ export async function GET(request: Request) {
         }
       }
 
+      // Reference ID: order ID or warranty ID
+      const referenceId = order?.id || warranty?.id || '-'
+      const referenceType = warranty ? 'WARRANTY' : 'ORDER'
+
       return {
         ...shipment,
-        customerName: order?.customerName || '-',
+        customerName: order?.customerName || (warranty ? warranty.supplierName : '-'),
         customerPhone: customer?.phone || '-',
         customerAddress: shippingAddress,
-        customerEmail: customer?.email || '-',
-        branchName: order?.branchName || '-',
+        branchName: order?.branchName || warranty?.branchName || '-',
         packagingDate: packaging?.confirmDate?.toISOString() || undefined,
         totalProductQuantity: order?.lineItems?.reduce((sum, item) => sum + item.quantity, 0) || 0,
         customerDue: (typeof order?.grandTotal === 'number' ? order.grandTotal : Number(order?.grandTotal) || 0) - totalPaid,
         creatorEmployeeName: packaging?.requestingEmployeeName || '-',
         dispatchEmployeeName: order?.dispatchedByEmployeeName,
         cancelingEmployeeName: packaging?.cancelingEmployeeName,
-        // ✅ Include packaging fields for shipment view
+        // Packaging fields
         deliveryStatus: packaging?.deliveryStatus,
         shippingFeeToPartner: packaging?.shippingFeeToPartner ? Number(packaging.shippingFeeToPartner) : undefined,
         codAmount: packaging?.codAmount ? Number(packaging.codAmount) : undefined,
         reconciliationStatus: packaging?.reconciliationStatus,
         payer: packaging?.payer,
         partnerStatus: packaging?.partnerStatus,
+        // Reference info
+        referenceId,
+        referenceType,
         // Transform dates
         createdAt: shipment.createdAt?.toISOString(),
         dispatchedAt: shipment.dispatchedAt?.toISOString(),
         deliveredAt: shipment.deliveredAt?.toISOString(),
         cancelledAt: shipment.cancelledAt?.toISOString(),
-        // Remove nested order to reduce payload
+        // Remove nested relations to reduce payload
         order: undefined,
+        warranty: undefined,
       }
     })
 
     return apiPaginated(transformedShipments, { page, limit, total })
   } catch (error) {
-    console.error('Error fetching shipments:', error)
-    return apiError('Failed to fetch shipments', 500)
+    logError('Error fetching shipments', error)
+    return apiError('Không thể tải danh sách vận đơn', 500)
   }
 }
 
@@ -230,9 +251,38 @@ export async function POST(request: Request) {
       },
     })
 
+    // ✅ Notify order salesperson about new shipment
+    const salespersonId = (shipment.order as { salespersonId?: string })?.salespersonId
+    if (salespersonId && salespersonId !== session.user?.employeeId) {
+      createNotification({
+        type: 'shipment',
+        title: 'Vận đơn mới',
+        message: `Vận đơn ${shipment.id || shipment.systemId} đã được tạo cho đơn hàng ${body.orderId}`,
+        link: `/shipments/${shipment.systemId}`,
+        recipientId: salespersonId,
+        senderId: session.user?.employeeId,
+        senderName: session.user?.name,
+        settingsKey: 'order:created',
+      }).catch(e => logError('[Shipments POST] notification failed', e))
+    }
+
+    // Log activity
+    getUserNameFromDb(session.user?.id).then(userName =>
+      prisma.activityLog.create({
+        data: {
+          entityType: 'shipment',
+          entityId: shipment.systemId,
+          action: 'created',
+          actionType: 'create',
+          note: `Tạo lô vận chuyển`,
+          metadata: { userName },
+          createdBy: userName,
+        }
+      })
+    ).catch(e => logError('[ActivityLog] shipment create failed', e))
     return apiSuccess(shipment, 201)
   } catch (error) {
-    console.error('Error creating shipment:', error)
-    return apiError('Failed to create shipment', 500)
+    logError('Error creating shipment', error)
+    return apiError('Không thể tạo vận đơn', 500)
   }
 }

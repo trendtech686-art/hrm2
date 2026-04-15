@@ -6,6 +6,7 @@
 import * as React from 'react';
 import { loadShippingConfig } from '@/lib/utils/shipping-config-migration';
 import { getBaseUrl } from '@/lib/api-config';
+import { logError } from '@/lib/logger'
 import type {
   ShippingCalculationRequest,
   ShippingCalculationResult,
@@ -297,7 +298,7 @@ export function useShippingCalculator() {
                 }];
               } else {
                 const errorMsg = fees.message || 'GHTK API Error';
-                console.error('[ShippingCalculator] GHTK API Error:', errorMsg, fees);
+                logError('[ShippingCalculator] GHTK API Error', null, { errorMsg, fees });
                 throw new Error(errorMsg);
               }
             } catch (error) {
@@ -308,19 +309,10 @@ export function useShippingCalculator() {
                 break;
               }
               
-              console.error('[ShippingCalculator] GHTK Error caught:', error);
+              logError('[ShippingCalculator] GHTK Error caught', error);
               
-              // Fallback to mock data
-              services = [{
-                partnerId: partnerCode,
-                partnerCode,
-                partnerName: partnerNames[partnerCode],
-                accountSystemId: defaultAccount.id,
-                serviceId: 'standard',
-                serviceName: 'Giao hàng tiêu chuẩn',
-                fee: 25000,
-                estimatedDays: '1-2 ngày',
-              }];
+              // Propagate error instead of fallback mock data
+              throw error;
             }
             
             break;

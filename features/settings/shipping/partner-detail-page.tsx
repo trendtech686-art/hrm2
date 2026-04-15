@@ -43,9 +43,7 @@ const PARTNER_INFO: Record<string, { name: string; description: string; website?
     description: 'Giải pháp vận chuyển thông minh, nhanh chóng (Shopee).',
     website: 'https://spx.vn'
   },
-  'VNPOST': { name: 'VNPost', description: 'Dịch vụ bưu chính quốc gia.' },
-  'NINJA_VAN': { name: 'Ninja Van', description: 'Giải pháp giao hàng Đông Nam Á.' },
-  'AHAMOVE': { name: 'Ahamove', description: 'Giao hàng nội thành nhanh chóng.' },
+
 };
 
 export function ShippingPartnerDetailPage() {

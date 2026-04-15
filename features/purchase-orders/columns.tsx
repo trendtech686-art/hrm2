@@ -62,7 +62,7 @@ export const getColumns = (
     id: "id",
     accessorKey: "id",
     header: "Mã đơn nhập hàng",
-    cell: ({ row }) => <div className="text-body-sm font-medium text-primary hover:underline"><Link href={`/purchase-orders/${row.systemId}`}>{row.id}</Link></div>,
+    cell: ({ row }) => <div className="text-sm font-medium text-primary hover:underline"><Link href={`/purchase-orders/${row.systemId}`}>{row.id}</Link></div>,
     meta: { displayName: "Mã đơn nhập hàng" },
     size: 150,
   },
@@ -153,7 +153,7 @@ export const getColumns = (
         }, 0);
         total = itemsTotal + (row.shippingFee || 0) + (row.tax || 0);
       }
-      return <span className="text-body-sm font-semibold">{formatCurrency(total)}</span>;
+      return <span className="text-sm font-semibold">{formatCurrency(total)}</span>;
     },
     meta: { displayName: "Tổng tiền" },
   },

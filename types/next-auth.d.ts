@@ -10,6 +10,7 @@ declare module "next-auth" {
       employee?: {
         id: string
         fullName: string
+        role?: string
         avatar?: string
         department?: {
           id: string

@@ -12,7 +12,7 @@ const taxCodeRegex = /^\d{10,13}$/;
 // Address Schema
 export const addressSchema = z.object({
   id: z.string(),
-  label: z.string().min(1, "Nhãn địa chỉ là bắt buộc"),
+  label: z.string().optional(),
   street: z.string().min(1, "Địa chỉ chi tiết là bắt buộc"),
   contactName: z.string().optional(),
   contactPhone: z.string().regex(phoneRegex, "Số điện thoại không hợp lệ").optional().or(z.literal('')),
@@ -25,13 +25,29 @@ export const addressSchema = z.object({
   ward: z.string().min(1, "Vui lòng chọn Phường/Xã"),
   wardId: z.string().optional().or(z.literal('')),
   
-  district: z.string().min(1, "Vui lòng chọn Quận/Huyện"),
+  // District có thể trống cho địa chỉ 2-level (tự động fill từ ward)
+  district: z.string().optional().or(z.literal('')),
   // Keep as number - conversion happens in form defaultValues
   districtId: z.number().optional(),
   
   isDefaultShipping: z.boolean().optional(),
   isDefaultBilling: z.boolean().optional(),
   notes: z.string().optional(),
+});
+
+// Business Profile Schema
+export const businessProfileSchema = z.object({
+  id: z.string(),
+  company: z.string().min(1, "Tên công ty là bắt buộc").max(200, "Tên công ty không được quá 200 ký tự"),
+  taxCode: z.string().regex(taxCodeRegex, "Mã số thuế không hợp lệ (10-13 chữ số)").optional().or(z.literal('')),
+  representative: z.string().max(100, "Tên người đại diện không được quá 100 ký tự").optional(),
+  position: z.string().max(100, "Chức vụ không được quá 100 ký tự").optional(),
+  phone: z.string().max(20, "Số điện thoại không được quá 20 ký tự").optional().or(z.literal('')),
+  email: z.string().regex(emailRegex, "Email không hợp lệ").optional().or(z.literal('')),
+  bankName: z.string().max(100, "Tên ngân hàng không được quá 100 ký tự").optional(),
+  bankAccount: z.string().regex(/^\d{9,20}$/, "Số tài khoản phải từ 9-20 chữ số").optional().or(z.literal('')),
+  addressId: z.string().optional(),
+  isDefault: z.boolean().optional(),
 });
 
 export const customerFormSchema = z.object({
@@ -47,11 +63,6 @@ export const customerFormSchema = z.object({
   
   phone: z.string()
     .regex(phoneRegex, "Số điện thoại không hợp lệ (VD: 0912345678)")
-    .optional()
-    .or(z.literal('')),
-
-  email: z.string()
-    .regex(emailRegex, "Email không hợp lệ")
     .optional()
     .or(z.literal('')),
 
@@ -93,21 +104,11 @@ export const customerFormSchema = z.object({
   billingAddress_ward: z.string().optional(),
   billingAddress_province: z.string().optional(),
 
-  // Contact & Banking
+  // Contact
   zaloPhone: z.string().optional(),
-  bankName: z.string()
-    .max(100, "Tên ngân hàng không được quá 100 ký tự")
-    .optional(),
-  
-  bankAccount: z.string()
-    .regex(/^\d{9,20}$/, "Số tài khoản phải từ 9-20 chữ số")
-    .optional()
-    .or(z.literal('')),
   
   // Financials
-  currentDebt: z.number()
-    .min(0, "Công nợ không được âm")
-    .optional(),
+  currentDebt: z.number().optional(),
   
   maxDebt: z.number()
     .min(0, "Hạn mức công nợ không được âm")
@@ -149,16 +150,8 @@ export const customerFormSchema = z.object({
     isPrimary: z.boolean().optional(),
   })).optional(),
 
-  // Contract
-  contract: z.object({
-    number: z.string().optional(),
-    startDate: z.string().optional(),
-    endDate: z.string().optional(),
-    value: z.number().optional(),
-    status: z.enum(['Active', 'Expired', 'Pending', 'Cancelled']).optional(),
-    fileUrl: z.string().optional(),
-    details: z.string().optional(),
-  }).optional(),
+  // Business Profiles (multiple business entities)
+  businessProfiles: z.array(businessProfileSchema).optional(),
   
   notes: z.string()
     .max(500, "Ghi chú không được quá 500 ký tự")

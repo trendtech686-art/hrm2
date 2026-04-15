@@ -13,6 +13,7 @@ export interface SalesReturnsParams {
   page?: number;
   limit?: number;
   search?: string;
+  status?: string;
   customerId?: string;
   orderId?: string;
   branchId?: string;
@@ -25,17 +26,21 @@ export interface SalesReturnsParams {
 
 export interface SalesReturnsResponse {
   data: SalesReturn[];
-  total: number;
-  page: number;
-  pageSize: number;
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
 }
 
 export async function fetchSalesReturns(params: SalesReturnsParams = {}): Promise<SalesReturnsResponse> {
   const searchParams = new URLSearchParams();
   
-  if (params.page) searchParams.set('page', String(params.page));
-  if (params.limit) searchParams.set('limit', String(params.limit));
+  if (params.page != null) searchParams.set('page', String(params.page));
+  if (params.limit != null) searchParams.set('limit', String(params.limit));
   if (params.search) searchParams.set('search', params.search);
+  if (params.status) searchParams.set('status', params.status);
   if (params.customerId) searchParams.set('customerId', params.customerId);
   if (params.orderId) searchParams.set('orderId', params.orderId);
   if (params.branchId) searchParams.set('branchId', params.branchId);
@@ -49,7 +54,7 @@ export async function fetchSalesReturns(params: SalesReturnsParams = {}): Promis
   const response = await fetch(url);
   
   if (!response.ok) {
-    throw new Error(`Failed to fetch sales returns: ${response.statusText}`);
+    throw new Error(`Không thể tải danh sách phiếu trả hàng: ${response.statusText}`);
   }
   
   return response.json();
@@ -59,7 +64,7 @@ export async function fetchSalesReturn(systemId: SystemId): Promise<SalesReturn>
   const response = await fetch(`${BASE_URL}/${systemId}`);
   
   if (!response.ok) {
-    throw new Error(`Failed to fetch sales return: ${response.statusText}`);
+    throw new Error(`Không thể tải phiếu trả hàng: ${response.statusText}`);
   }
   
   return response.json();
@@ -74,35 +79,10 @@ export async function createSalesReturn(data: Omit<SalesReturn, 'systemId' | 'id
   
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
-    throw new Error(error.message || 'Failed to create sales return');
+    throw new Error(error.message || 'Không thể tạo phiếu trả hàng');
   }
   
   return response.json();
-}
-
-export async function updateSalesReturn(systemId: SystemId, data: Partial<SalesReturn>): Promise<SalesReturn> {
-  const response = await fetch(`${BASE_URL}/${systemId}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-  
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.message || 'Failed to update sales return');
-  }
-  
-  return response.json();
-}
-
-export async function deleteSalesReturn(systemId: SystemId): Promise<void> {
-  const response = await fetch(`${BASE_URL}/${systemId}`, {
-    method: 'DELETE',
-  });
-  
-  if (!response.ok) {
-    throw new Error(`Failed to delete sales return: ${response.statusText}`);
-  }
 }
 
 export async function markAsReceived(systemId: SystemId): Promise<SalesReturn> {
@@ -113,7 +93,7 @@ export async function markAsReceived(systemId: SystemId): Promise<SalesReturn> {
   
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
-    throw new Error(error.message || 'Failed to mark sales return as received');
+    throw new Error(error.message || 'Không thể đánh dấu đã nhận hàng');
   }
   
   return response.json();
@@ -135,23 +115,9 @@ export async function exchangeProduct(systemId: SystemId, data: ExchangeProductD
   
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
-    throw new Error(error.message || 'Failed to exchange product');
+    throw new Error(error.message || 'Không thể đổi sản phẩm');
   }
   
   return response.json();
 }
 
-export async function fetchSalesReturnStats(): Promise<{
-  total: number;
-  pending: number;
-  received: number;
-  totalValue: number;
-}> {
-  const response = await fetch(`${BASE_URL}/stats`);
-  
-  if (!response.ok) {
-    throw new Error(`Failed to fetch sales return stats: ${response.statusText}`);
-  }
-  
-  return response.json();
-}

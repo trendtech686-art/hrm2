@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useInventoryCheck, useInventoryCheckMutations, type CreateInventoryCheckInput, type UpdateInventoryCheckInput } from './hooks/use-inventory-checks';
 import { useAllBranches } from '../settings/branches/hooks/use-all-branches';
-import { useAllProducts, useProductFinder } from '../products/hooks/use-all-products';
+import { useProductFinder } from '../products/hooks/use-all-products';
 import { useProductTypeFinder } from '../settings/inventory/hooks/use-all-product-types';
 import { useAllEmployees } from '../employees/hooks/use-all-employees';
 import { useAuth } from '../../contexts/auth-context';
@@ -27,8 +27,15 @@ import { toast } from 'sonner';
 import { asSystemId, type SystemId } from '../../lib/id-types';
 import { InventoryCheckWorkflowCard } from './components/inventory-check-workflow-card';
 import type { Subtask } from '../../components/shared/subtask-list';
-import type { InventoryCheckItem, DifferenceReason } from '@/lib/types/prisma-extended';
+import type { InventoryCheckItem as BaseInventoryCheckItem, DifferenceReason } from '@/lib/types/prisma-extended';
 import type { Product } from '@/lib/types/prisma-extended';
+import { logError } from '@/lib/logger'
+import { fetchProductsByIds } from '@/features/products/api/products-api'
+
+// Extended type to include thumbnailImage for display
+type InventoryCheckItem = BaseInventoryCheckItem & {
+  thumbnailImage?: string;
+};
 
 const DIFFERENCE_REASONS: { value: DifferenceReason; label: string }[] = [
   { value: 'other', label: 'Khác' },
@@ -111,7 +118,7 @@ export function InventoryCheckFormPage() {
   const isCreateAndBalanceRef = React.useRef(false);
   
   const { data: currentCheck } = useInventoryCheck(systemId);
-  const { create: createMutation, update: updateMutation, balance: balanceMutation } = useInventoryCheckMutations({
+  const { create: createMutation, update: updateMutation, balance: balanceMutation, syncItems: syncItemsMutation } = useInventoryCheckMutations({
     onCreateSuccess: (check) => {
       // Skip redirect if we're doing create+balance flow
       if (isCreateAndBalanceRef.current) {
@@ -134,10 +141,9 @@ export function InventoryCheckFormPage() {
     }
   });
   const { data: branches } = useAllBranches();
-  const { data: allProducts } = useAllProducts();
   const { findById: findProductById } = useProductFinder();
   const { findById: findProductTypeById } = useProductTypeFinder();
-  const { data: allEmployees } = useAllEmployees();
+  const { data: allEmployees } = useAllEmployees({ enabled: isEditMode });
   const { employee: authEmployee } = useAuth();
   const currentUserSystemId = authEmployee?.systemId ?? 'SYSTEM';
   
@@ -185,7 +191,11 @@ export function InventoryCheckFormPage() {
       setBranchSystemId(currentCheck.branchSystemId || '');
       setCustomId(currentCheck.id);
       setNote(currentCheck.note || '');
-      setItems(currentCheck.items || []);
+      // Ensure items have default reason
+      setItems((currentCheck.items || []).map(item => ({
+        ...item,
+        reason: item.reason || 'other',
+      })));
       
       // Load employee name for edit mode (người tạo ban đầu)
       if (currentCheck.createdBy && allEmployees?.length) {
@@ -198,20 +208,58 @@ export function InventoryCheckFormPage() {
       // Check for duplicate data in sessionStorage
       const duplicateData = sessionStorage.getItem('inventoryCheckDuplicate');
       if (duplicateData) {
-        try {
-          const data = JSON.parse(duplicateData);
-          if (data.branchSystemId) setBranchSystemId(data.branchSystemId);
-          if (data.note) setNote(data.note);
-          if (data.items && Array.isArray(data.items)) {
-            setItems(data.items);
+        // Async function to load duplicate data with fresh product inventory
+        (async () => {
+          try {
+            const data = JSON.parse(duplicateData);
+            if (data.branchSystemId) setBranchSystemId(data.branchSystemId);
+            if (data.note) setNote(data.note);
+            // ✅ Store source check info for display
+            if (data.sourceCheckCode) {
+              setNote((prev) => {
+                const sourceNote = `Sao chép từ phiếu ${data.sourceCheckCode}`;
+                return prev ? `${sourceNote}. ${prev}` : sourceNote;
+              });
+            }
+            if (data.items && Array.isArray(data.items)) {
+              // ✅ Fetch product data from API to get current inventory
+              const branchId = data.branchSystemId;
+              const productIds = data.items.map((item: InventoryCheckItem) => item.productSystemId).filter(Boolean);
+              
+              let productMap: Record<string, Product> = {};
+              if (productIds.length > 0) {
+                try {
+                  const products = await fetchProductsByIds(productIds);
+                  productMap = Object.fromEntries(products.map(p => [p.systemId, p]));
+                } catch (err) {
+                  logError('Failed to fetch products for duplicate', err);
+                }
+              }
+              
+              const updatedItems = data.items.map((item: InventoryCheckItem) => {
+                // Get current inventory from fetched product data
+                const product = productMap[item.productSystemId];
+                let systemQty = 0;
+                if (product && branchId) {
+                  systemQty = product.inventoryByBranch?.[branchId as import('@/lib/id-types').SystemId] || 0;
+                }
+                return {
+                  ...item,
+                  systemQuantity: systemQty,
+                  difference: (item.actualQuantity || 0) - systemQty,
+                  reason: item.reason || 'other', // ✅ Default to 'other' if no reason
+                };
+              });
+              setItems(updatedItems);
+            }
+            // Clear after loading
+            sessionStorage.removeItem('inventoryCheckDuplicate');
+            toast.success('Đã tải dữ liệu từ phiếu sao chép');
+          } catch (e) {
+            logError('Failed to parse duplicate data', e);
+            sessionStorage.removeItem('inventoryCheckDuplicate');
           }
-          // Clear after loading
-          sessionStorage.removeItem('inventoryCheckDuplicate');
-          toast.success('Đã tải dữ liệu từ phiếu sao chép');
-        } catch (e) {
-          console.error('Failed to parse duplicate data:', e);
-          sessionStorage.removeItem('inventoryCheckDuplicate');
-        }
+        })();
       } else {
         // Auto-select default branch for new form
         const defaultBranch = branches.find(b => b.isDefault);
@@ -231,7 +279,7 @@ export function InventoryCheckFormPage() {
 
   // Get system quantity from product inventory
   const getSystemQuantity = React.useCallback((productSystemId: string): number => {
-    const product = allProducts.find(p => p.systemId === productSystemId);
+    const product = findProductById(productSystemId as import('@/lib/id-types').SystemId);
     if (!product) return 0;
     
     if (branchSystemId) {
@@ -242,7 +290,7 @@ export function InventoryCheckFormPage() {
     // If no branch selected, get TOTAL inventory across all branches
     const inventoryByBranch = product.inventoryByBranch || {};
     return Object.values(inventoryByBranch).reduce((sum, qty) => sum + qty, 0);
-  }, [allProducts, branchSystemId]);
+  }, [findProductById, branchSystemId]);
 
   // ✅ Update systemQuantity when branch changes
   const itemsLengthRef = React.useRef(items.length);
@@ -268,16 +316,29 @@ export function InventoryCheckFormPage() {
 
   // Add products from selector
   const handleAddProducts = (products: Product[]) => {
-    const newItems: InventoryCheckItem[] = products.map(p => ({
-      productSystemId: p.systemId,
-      productId: p.id,
-      productName: p.name,
-      unit: p.unit || 'Cái',
-      systemQuantity: getSystemQuantity(p.systemId),
-      actualQuantity: 0,
-      difference: 0 - getSystemQuantity(p.systemId),
-      reason: 'other', // ✅ Default reason
-    }));
+    const newItems: InventoryCheckItem[] = products.map(p => {
+      // ✅ Use product data directly instead of looking up from cache
+      let systemQty = 0;
+      if (branchSystemId) {
+        systemQty = p.inventoryByBranch?.[branchSystemId as import('@/lib/id-types').SystemId] || 0;
+      } else {
+        // Total across all branches
+        const inventoryByBranch = p.inventoryByBranch || {};
+        systemQty = Object.values(inventoryByBranch).reduce((sum, qty) => sum + qty, 0);
+      }
+      
+      return {
+        productSystemId: p.systemId,
+        productId: p.id,
+        productName: p.name,
+        unit: p.unit || 'Cái',
+        systemQuantity: systemQty,
+        actualQuantity: 0,
+        difference: 0 - systemQty,
+        reason: 'other' as const, // ✅ Default reason
+        thumbnailImage: p.thumbnailImage ?? undefined,
+      };
+    });
 
     setItems(prev => [...prev, ...newItems]);
     toast.success(`Đã thêm ${products.length} sản phẩm`);
@@ -291,15 +352,25 @@ export function InventoryCheckFormPage() {
       return;
     }
 
+    // ✅ Use product data directly instead of looking up from cache
+    let systemQty = 0;
+    if (branchSystemId) {
+      systemQty = product.inventoryByBranch?.[branchSystemId as import('@/lib/id-types').SystemId] || 0;
+    } else {
+      const inventoryByBranch = product.inventoryByBranch || {};
+      systemQty = Object.values(inventoryByBranch).reduce((sum, qty) => sum + qty, 0);
+    }
+
     const newItem: InventoryCheckItem = {
       productSystemId: product.systemId,
       productId: product.id,
       productName: product.name,
       unit: product.unit || 'Cái',
-      systemQuantity: getSystemQuantity(product.systemId),
+      systemQuantity: systemQty,
       actualQuantity: 0,
-      difference: 0 - getSystemQuantity(product.systemId),
+      difference: 0 - systemQty,
       reason: 'other', // ✅ Default reason
+      thumbnailImage: product.thumbnailImage ?? undefined,
     };
 
     setItems(prev => [...prev, newItem]);
@@ -445,9 +516,11 @@ export function InventoryCheckFormPage() {
           productSystemId: item.productSystemId,
           productName: item.productName,
           productSku: item.productId,
+          unit: item.unit,
           systemQuantity: item.systemQuantity,
           actualQuantity: item.actualQuantity,
           difference: item.difference,
+          reason: item.reason || 'other',
           notes: item.note,
         })),
       };
@@ -468,17 +541,44 @@ export function InventoryCheckFormPage() {
   const confirmBalance = async () => {
     setIsBalancing(true);
     
+    // Helper to prepare items for API
+    const prepareItemsForApi = () => items.map(item => ({
+      productId: item.productId,
+      productSystemId: item.productSystemId,
+      productName: item.productName,
+      productSku: item.productId,
+      unit: item.unit,
+      systemQuantity: item.systemQuantity,
+      actualQuantity: item.actualQuantity,
+      difference: item.difference,
+      reason: item.reason || 'other',
+      notes: item.note,
+    }));
+    
     let checkSystemId: string;
     
     if (isEditMode && systemId) {
       if (currentCheck) {
-        const updated: UpdateInventoryCheckInput = {
-          systemId,
-          description: note || undefined,
-          updatedBy: currentUserSystemId || 'SYSTEM',
-        };
-        updateMutation.mutate({ systemId, data: updated });
         checkSystemId = systemId;
+        
+        // ✅ First sync items to DB, then balance
+        // This ensures the balance operation uses the CURRENT form values
+        syncItemsMutation.mutate({ systemId, items: prepareItemsForApi() }, {
+          onSuccess: () => {
+            // Now balance with the synced items
+            balanceMutation.mutate({ systemId: checkSystemId, balancedBy: currentUserSystemId || 'SYSTEM' }, {
+              onSettled: () => {
+                setIsBalancing(false);
+                setShowBalanceConfirm(false);
+              }
+            });
+          },
+          onError: () => {
+            setIsBalancing(false);
+            setShowBalanceConfirm(false);
+          }
+        });
+        return;
       } else {
         setIsBalancing(false);
         setShowBalanceConfirm(false);
@@ -496,16 +596,7 @@ export function InventoryCheckFormPage() {
         checkDate: new Date().toISOString(),
         description: note || undefined,
         createdBy: currentUserSystemId || 'SYSTEM',
-        items: items.map(item => ({
-          productId: item.productId,
-          productSystemId: item.productSystemId,
-          productName: item.productName,
-          productSku: item.productId,
-          systemQuantity: item.systemQuantity,
-          actualQuantity: item.actualQuantity,
-          difference: item.difference,
-          notes: item.note,
-        })),
+        items: prepareItemsForApi(),
       };
       createMutation.mutate(data, {
         onSuccess: (newCheck) => {
@@ -526,13 +617,6 @@ export function InventoryCheckFormPage() {
       });
       return;
     }
-
-    balanceMutation.mutate({ systemId: checkSystemId, balancedBy: currentUserSystemId || 'SYSTEM' }, {
-      onSettled: () => {
-        setIsBalancing(false);
-        setShowBalanceConfirm(false);
-      }
-    });
   };
 
   // Store latest callbacks in refs to avoid stale closure
@@ -610,7 +694,7 @@ export function InventoryCheckFormPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="space-y-2">
-              <div className="flex justify-between text-body-sm">
+              <div className="flex justify-between text-sm">
                 <span className="font-medium">Tiến độ kiểm hàng</span>
                 <span className="font-bold text-primary">{stats.progress}%</span>
               </div>
@@ -620,7 +704,7 @@ export function InventoryCheckFormPage() {
                   style={{ width: `${stats.progress}%` }}
                 />
               </div>
-              <div className="flex justify-between text-body-xs text-muted-foreground">
+              <div className="flex justify-between text-xs text-muted-foreground">
                 <span>Đã kiểm: {stats.checked}/{items.length} sản phẩm</span>
                 <span>Khớp: {stats.matched} • Lệch: {stats.different}</span>
               </div>
@@ -766,7 +850,7 @@ export function InventoryCheckFormPage() {
 
           {/* Edit mode message */}
           {isEditMode && (
-            <div className="bg-muted/50 border rounded-lg p-4 text-body-sm text-muted-foreground">
+            <div className="bg-muted/50 border rounded-lg p-4 text-sm text-muted-foreground">
               Ở chế độ sửa, bạn chỉ có thể chỉnh sửa <strong>Ghi chú</strong> và <strong>Tags</strong>. Không thể thay đổi sản phẩm hoặc số lượng.
             </div>
           )}
@@ -775,7 +859,7 @@ export function InventoryCheckFormPage() {
             <div className="text-center py-12 text-muted-foreground border rounded-lg">
               <Package className="h-12 w-12 mx-auto mb-3 opacity-50" />
               <p>Chưa có sản phẩm nào</p>
-              <p className="text-body-sm mt-1">Tìm kiếm hoặc chọn sản phẩm để thêm</p>
+              <p className="text-sm mt-1">Tìm kiếm hoặc chọn sản phẩm để thêm</p>
             </div>
           ) : (
             <>
@@ -784,7 +868,7 @@ export function InventoryCheckFormPage() {
                 <div className="flex gap-2 mb-4 border-b">
                   <button
                     onClick={() => setActiveTab('all')}
-                    className={`px-4 py-2 text-body-sm font-medium border-b-2 transition-colors ${
+                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
                       activeTab === 'all' 
                         ? 'border-primary text-primary' 
                         : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -794,7 +878,7 @@ export function InventoryCheckFormPage() {
                   </button>
                   <button
                     onClick={() => setActiveTab('unchecked')}
-                    className={`px-4 py-2 text-body-sm font-medium border-b-2 transition-colors ${
+                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
                       activeTab === 'unchecked' 
                         ? 'border-primary text-primary' 
                         : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -804,7 +888,7 @@ export function InventoryCheckFormPage() {
                   </button>
                   <button
                     onClick={() => setActiveTab('matched')}
-                    className={`px-4 py-2 text-body-sm font-medium border-b-2 transition-colors ${
+                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
                       activeTab === 'matched' 
                         ? 'border-primary text-primary' 
                         : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -814,7 +898,7 @@ export function InventoryCheckFormPage() {
                   </button>
                   <button
                     onClick={() => setActiveTab('different')}
-                    className={`px-4 py-2 text-body-sm font-medium border-b-2 transition-colors ${
+                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
                       activeTab === 'different' 
                         ? 'border-primary text-primary' 
                         : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -866,18 +950,22 @@ export function InventoryCheckFormPage() {
                                 product={product}
                                 productName={item.productName}
                                 size="sm"
+                                itemThumbnailImage={item.thumbnailImage}
                                 onPreview={(url: string, title: string) => setPreviewImage({ url, title })}
                               />
                             </TableCell>
                             <TableCell>
                               <div className="flex flex-col gap-0.5">
-                                <button
-                                  onClick={() => router.push(`/products/${item.productSystemId}`)}
-                                  className="text-primary hover:underline font-medium text-left"
-                                >
-                                  {item.productName}
-                                </button>
-                                <span className="text-body-sm text-muted-foreground">{productTypeName} - {item.productId}</span>
+                                <span className="font-medium">{item.productName}</span>
+                                <span className="text-sm text-muted-foreground">
+                                  {productTypeName} - {' '}
+                                  <button
+                                    onClick={() => router.push(`/products/${item.productSystemId}`)}
+                                    className="text-primary hover:underline font-medium cursor-pointer"
+                                  >
+                                    {item.productId}
+                                  </button>
+                                </span>
                               </div>
                             </TableCell>
                             <TableCell>{item.unit}</TableCell>

@@ -3,6 +3,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import * as api from '../api/inventory-settings-api';
 import type { ProductType, ProductCategory, Brand, Importer } from '@/lib/types/prisma-extended';
 
@@ -21,7 +22,7 @@ export function useProductTypes() {
 
 export function useProductTypeMutations(opts?: { onSuccess?: () => void }) {
   const qc = useQueryClient();
-  const invalidate = () => qc.invalidateQueries({ queryKey: inventorySettingsKeys.productTypes() });
+  const invalidate = () => invalidateRelated(qc, 'inventory-settings');
   return {
     create: useMutation({ mutationFn: api.createProductType, onSuccess: () => { invalidate(); opts?.onSuccess?.(); } }),
     update: useMutation({ mutationFn: ({ systemId, data }: { systemId: string; data: Partial<ProductType> }) => api.updateProductType(systemId, data), onSuccess: () => { invalidate(); opts?.onSuccess?.(); } }),
@@ -36,7 +37,7 @@ export function useProductCategories() {
 
 export function useProductCategoryMutations(opts?: { onSuccess?: () => void }) {
   const qc = useQueryClient();
-  const invalidate = () => qc.invalidateQueries({ queryKey: inventorySettingsKeys.categories() });
+  const invalidate = () => invalidateRelated(qc, 'inventory-settings');
   return {
     create: useMutation({ mutationFn: api.createProductCategory, onSuccess: () => { invalidate(); opts?.onSuccess?.(); } }),
     update: useMutation({ mutationFn: ({ systemId, data }: { systemId: string; data: Partial<ProductCategory> }) => api.updateProductCategory(systemId, data), onSuccess: () => { invalidate(); opts?.onSuccess?.(); } }),
@@ -51,7 +52,7 @@ export function useInventoryBrands() {
 
 export function useBrandMutations(opts?: { onSuccess?: () => void }) {
   const qc = useQueryClient();
-  const invalidate = () => qc.invalidateQueries({ queryKey: inventorySettingsKeys.brands() });
+  const invalidate = () => invalidateRelated(qc, 'inventory-settings');
   return {
     create: useMutation({ mutationFn: api.createBrand, onSuccess: () => { invalidate(); opts?.onSuccess?.(); } }),
     update: useMutation({ mutationFn: ({ systemId, data }: { systemId: string; data: Partial<Brand> }) => api.updateBrand(systemId, data), onSuccess: () => { invalidate(); opts?.onSuccess?.(); } }),
@@ -66,7 +67,7 @@ export function useImporters() {
 
 export function useImporterMutations(opts?: { onSuccess?: () => void }) {
   const qc = useQueryClient();
-  const invalidate = () => qc.invalidateQueries({ queryKey: inventorySettingsKeys.importers() });
+  const invalidate = () => invalidateRelated(qc, 'inventory-settings');
   return {
     create: useMutation({ mutationFn: api.createImporter, onSuccess: () => { invalidate(); opts?.onSuccess?.(); } }),
     update: useMutation({ mutationFn: ({ systemId, data }: { systemId: string; data: Partial<Importer> }) => api.updateImporter(systemId, data), onSuccess: () => { invalidate(); opts?.onSuccess?.(); } }),

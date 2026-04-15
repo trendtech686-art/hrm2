@@ -7,6 +7,8 @@
 
 import { NextRequest } from 'next/server';
 import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils';
+import { logError } from '@/lib/logger'
+import { fetchWithTimeout } from '@/lib/fetch-utils'
 
 const GHTK_URLS = [
   'https://services.giaohangtietkiem.vn/open/api/v1/shop/solution/list',
@@ -35,7 +37,7 @@ export async function GET(request: NextRequest) {
     for (const url of GHTK_URLS) {
       try {
         
-        const response = await fetch(url, {
+        const response = await fetchWithTimeout(url, {
           method: 'GET',
           headers: {
             'Token': apiToken,
@@ -57,7 +59,7 @@ export async function GET(request: NextRequest) {
         try {
           data = JSON.parse(responseText);
         } catch {
-          console.error(`[GHTK-SOL-${requestId}] JSON parse error`);
+          logError(`[GHTK-SOL-${requestId}] JSON parse error`, null);
           _lastError = {
             error: 'Invalid response from GHTK API',
             details: responseText.substring(0, 500),
@@ -71,7 +73,7 @@ export async function GET(request: NextRequest) {
         return apiSuccess(data);
         
       } catch (error) {
-        console.error(`[GHTK-SOL-${requestId}] Error with ${url}:`, error);
+        logError(`[GHTK-SOL-${requestId}] Error with ${url}`, error);
         _lastError = { error: error instanceof Error ? error.message : 'Unknown error', url };
       }
     }
@@ -79,7 +81,7 @@ export async function GET(request: NextRequest) {
     // If we get here, all URLs failed
     return apiError('All GHTK API endpoints failed', 500);
   } catch (error) {
-    console.error(`[GHTK-SOL-${requestId}] Get solutions error:`, error);
+    logError(`[GHTK-SOL-${requestId}] Get solutions error`, error);
     return apiError(error instanceof Error ? error.message : 'Unknown error', 500);
   }
 }

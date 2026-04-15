@@ -59,18 +59,23 @@ model Payment {
   linkedPayslipSystemId      String? // Link to Payslip
 
   // Customer info (denormalized)
-  customerSystemId String?
+  customerId       String? // For relation to Customer
+  customerSystemId String? // @deprecated - use customerId instead
   customerName     String?
 
   // Financial
-  affectsDebt    Boolean  @default(true)
-  runningBalance Decimal? @db.Decimal(15, 2)
+  affectsDebt            Boolean  @default(true)
+  affectsBusinessReport  Boolean  @default(false)
+  runningBalance         Decimal? @db.Decimal(15, 2)
+  orderAllocations Json? // Array of { purchaseOrderSystemId, purchaseOrderId, amount }
 
   // === RELATIONS ===
   purchaseOrder PurchaseOrder? @relation(fields: [purchaseOrderId], references: [systemId])
   suppliers     Supplier?      @relation(fields: [supplierId], references: [systemId])
+  customer      Customer?      @relation(fields: [customerId], references: [systemId])
 
   @@index([supplierId])
+  @@index([customerId])
   @@index([type])
   @@map("payments")
 }

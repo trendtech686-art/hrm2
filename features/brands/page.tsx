@@ -8,14 +8,16 @@ import { toast } from "sonner";
 
 import { asSystemId, asBusinessId } from "@/lib/id-types";
 import { generateTempId } from '@/lib/id-utils';
-import { useColumnVisibility } from '@/hooks/use-column-visibility';
+import { cn } from '@/lib/utils';
+import { useColumnVisibility, useColumnOrder, usePinnedColumns } from '@/hooks/use-column-visibility';
 import { usePageHeader } from "@/contexts/page-header-context";
-import { useBrands, useBrandMutations, useBulkBrandMutations } from "./hooks/use-brands";
+import { useBrands, useBrandMutations, useBulkBrandMutations, brandKeys } from "./hooks/use-brands";
+import { fetchBrand } from "./api/brands-api";
 import type { Brand } from "../settings/inventory/types";
 import { getColumns } from "./columns";
 import { MobileBrandCard } from "./card";
 import { usePkgxBrandSync } from "./hooks/use-pkgx-brand-sync";
-import { usePkgxSettings, usePkgxBrandMappingMutations } from "../settings/pkgx/hooks/use-pkgx-settings";
+import { usePkgxMappings, usePkgxBrandMappingMutations } from "../settings/pkgx/hooks/use-pkgx-settings";
 import { usePkgxBulkSync } from "../settings/pkgx/hooks/use-pkgx-bulk-sync";
 import { PkgxBulkSyncConfirmDialog } from "../settings/pkgx/components/pkgx-bulk-sync-confirm-dialog";
 import { PkgxBrandLinkDialog } from "./components/pkgx-link-dialog";
@@ -25,35 +27,45 @@ import { useMediaQuery } from "@/lib/use-media-query";
 
 import { Button } from "@/components/ui/button";
 import { ResponsiveDataTable } from "@/components/data-table/responsive-data-table";
+import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent } from "@/components/ui/card";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { DynamicDataTableColumnCustomizer as DataTableColumnCustomizer } from "@/components/data-table/dynamic-column-customizer";
-import { DataTableFacetedFilter } from "@/components/data-table/data-table-faceted-filter";
 import { PageToolbar } from "@/components/layout/page-toolbar";
 import { PageFilters } from "@/components/layout/page-filters";
+import { usePaginationWithGlobalDefault } from '@/features/settings/global/hooks/use-global-settings';
+import { AdvancedFilterPanel, FilterExtras, type FilterConfig } from '@/components/shared/advanced-filter-panel';
+import { useFilterPresets } from '@/hooks/use-filter-presets';
 
 const BrandImportDialog = dynamic(() => import("./components/brands-import-export-dialogs").then(mod => ({ default: mod.BrandImportDialog })), { ssr: false });
 const BrandExportDialog = dynamic(() => import("./components/brands-import-export-dialogs").then(mod => ({ default: mod.BrandExportDialog })), { ssr: false });
 
 export function BrandsPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const isMobile = useMediaQuery("(max-width: 768px)");
-  const { employee: authEmployee } = useAuth();
+  const [isFilterPending] = React.useTransition();
+  const {  employee: authEmployee, can } = useAuth();
+  const canCreate = can('edit_products');
+  const canDelete = can('delete_products');
+
+  // Filter presets
+  const { presets, savePreset, deletePreset, updatePreset } = useFilterPresets('brands');
   
   // State for server-side filtering
   const [sorting, setSorting] = React.useState({ id: 'name', desc: false });
   const [globalFilter, setGlobalFilter] = React.useState('');
   const [debouncedGlobalFilter, setDebouncedGlobalFilter] = React.useState('');
-  const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 20 });
-  const [statusFilter, setStatusFilter] = React.useState<Set<string>>(new Set());
+  const [pagination, setPagination] = usePaginationWithGlobalDefault();
+  const [advancedFilters, setAdvancedFilters] = React.useState<Record<string, unknown>>({});
   
   // Debounce search
   React.useEffect(() => { const t = setTimeout(() => setDebouncedGlobalFilter(globalFilter), 300); return () => clearTimeout(t); }, [globalFilter]);
   // Reset pagination khi search thay đổi
-  React.useEffect(() => { setPagination(prev => ({ ...prev, pageIndex: 0 })); }, [debouncedGlobalFilter, statusFilter]);
+  React.useEffect(() => { setPagination(prev => ({ ...prev, pageIndex: 0 })); }, [debouncedGlobalFilter, advancedFilters]);
 
   // Server-side filtering: API sẽ xử lý search, pagination
-  const { data: queryData, isLoading: _isLoading } = useBrands({ 
+  const { data: queryData, isFetching } = useBrands({ 
     search: debouncedGlobalFilter || undefined,
     page: pagination.pageIndex + 1,
     limit: pagination.pageSize,
@@ -72,12 +84,13 @@ export function BrandsPage() {
     onError: (err) => toast.error(err.message)
   });
   
-  // Filter client-side chỉ cho status (vì API chưa hỗ trợ)
+  // Filter client-side cho status (vì API chưa hỗ trợ)
   const filteredData = React.useMemo(() => {
     let result = data.filter(b => !b.isDeleted);
-    if (statusFilter.size > 0) result = result.filter(b => statusFilter.has(b.isActive !== false ? 'active' : 'inactive'));
+    const statusValues = Array.isArray(advancedFilters.status) ? advancedFilters.status as string[] : [];
+    if (statusValues.length > 0) result = result.filter(b => statusValues.includes(b.isActive !== false ? 'active' : 'inactive'));
     return result;
-  }, [data, statusFilter]);
+  }, [data, advancedFilters]);
   const activeBrands = filteredData; // alias for compatibility
 
   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
@@ -95,19 +108,27 @@ export function BrandsPage() {
 
   const defaultColumnVisibility = React.useMemo(() => { const cols = getColumns(() => {}, () => {}, () => {}); const init: Record<string, boolean> = {}; cols.forEach(c => { if (c.id) init[c.id] = true; }); return init; }, []);
   const [columnVisibility, setColumnVisibility] = useColumnVisibility('brands', defaultColumnVisibility);
-  const [columnOrder, setColumnOrder] = React.useState<string[]>([]);
-  const [pinnedColumns, setPinnedColumns] = React.useState<string[]>(['select', 'logo', 'name']);
+  const [columnOrder, setColumnOrder] = useColumnOrder('brands');
+  const [pinnedColumns, setPinnedColumns] = usePinnedColumns('brands', ['select', 'logo', 'name']);
 
   const handleDelete = React.useCallback((systemId: string) => { setIdToDelete(systemId); setIsAlertOpen(true); }, []);
   const handleToggleActive = React.useCallback((systemId: string, isActive: boolean) => { update.mutate({ systemId: asSystemId(systemId), data: { isActive } }); toast.success(isActive ? 'Đã kích hoạt' : 'Đã tắt'); }, [update]);
   const handleUpdateName = React.useCallback((systemId: string, name: string) => { update.mutate({ systemId: asSystemId(systemId), data: { name } }); toast.success('Đã cập nhật tên'); }, [update]);
   const handleRowClick = React.useCallback((brand: Brand) => router.push(`/brands/${brand.systemId}`), [router]);
 
+  const handleRowHover = React.useCallback((brand: { systemId: string }) => {
+    queryClient.prefetchQuery({
+      queryKey: brandKeys.detail(brand.systemId),
+      queryFn: () => fetchBrand(brand.systemId),
+      staleTime: 5 * 60 * 1000,
+    });
+  }, [queryClient]);
+
   const handleBulkActivate = React.useCallback(() => { const ids = Object.keys(rowSelection); bulkActivate.mutate(ids); setRowSelection({}); }, [rowSelection, bulkActivate]);
   const handleBulkDeactivate = React.useCallback(() => { const ids = Object.keys(rowSelection); bulkDeactivate.mutate(ids); setRowSelection({}); }, [rowSelection, bulkDeactivate]);
 
   const { hasPkgxMapping, getPkgxBrandId } = usePkgxBrandSync();
-  const { data: pkgxSettings } = usePkgxSettings();
+  const { data: pkgxSettings } = usePkgxMappings();
   const { deleteBrandMapping } = usePkgxBrandMappingMutations({ onSuccess: () => {} });
   
   // Helper to find mapping by HRM brand ID
@@ -173,17 +194,8 @@ export function BrandsPage() {
   const confirmDelete = () => { if (idToDelete) { remove.mutate(asSystemId(idToDelete)); } setIsAlertOpen(false); setIdToDelete(null); };
   const confirmBulkDelete = () => { const ids = Object.keys(rowSelection); bulkDelete.mutate(ids); setRowSelection({}); setIsBulkDeleteAlertOpen(false); };
 
-  const statusOptions = React.useMemo(() => [{ value: 'active', label: 'Hoạt động' }, { value: 'inactive', label: 'Tạm tắt' }], []);
-
-  // Status filter is client-side (server search already applied)
-  const statusFilteredData = React.useMemo(() => {
-    let result = activeBrands;
-    if (statusFilter.size > 0) result = result.filter(b => statusFilter.has(b.isActive !== false ? 'active' : 'inactive'));
-    return result;
-  }, [activeBrands, statusFilter]);
-
   const sortedData = React.useMemo(() => {
-    const sorted = [...statusFilteredData];
+    const sorted = [...filteredData];
     if (sorting.id) sorted.sort((a, b) => {
       const aV = (a as Record<string, unknown>)[sorting.id], bV = (b as Record<string, unknown>)[sorting.id];
       if (sorting.id === 'createdAt') { const aT = aV ? new Date(aV as string).getTime() : 0, bT = bV ? new Date(bV as string).getTime() : 0; return sorting.desc ? bT - aT : aT - bT; }
@@ -191,26 +203,53 @@ export function BrandsPage() {
       return aS < bS ? (sorting.desc ? 1 : -1) : aS > bS ? (sorting.desc ? -1 : 1) : 0;
     });
     return sorted;
-  }, [statusFilteredData, sorting]);
+  }, [filteredData, sorting]);
 
   const allSelectedRows = React.useMemo(() => activeBrands.filter(b => rowSelection[b.systemId]), [activeBrands, rowSelection]);
 
   React.useEffect(() => { if (!isMobile) return; const h = () => { if ((window.pageYOffset + window.innerHeight) / document.documentElement.scrollHeight > 0.8 && mobileLoadedCount < sortedData.length) setMobileLoadedCount(p => Math.min(p + 20, sortedData.length)); }; window.addEventListener('scroll', h); return () => window.removeEventListener('scroll', h); }, [isMobile, mobileLoadedCount, sortedData.length]);
-  React.useEffect(() => { setMobileLoadedCount(20); }, [debouncedGlobalFilter, statusFilter]);
+  React.useEffect(() => { setMobileLoadedCount(20); }, [debouncedGlobalFilter, advancedFilters]);
+
+  // Advanced filter configs
+  const filterConfigs: FilterConfig[] = React.useMemo(() => [
+    { id: 'status', label: 'Trạng thái', type: 'multi-select' as const, options: [{ value: 'active', label: 'Hoạt động' }, { value: 'inactive', label: 'Tạm tắt' }] },
+    { id: 'dateRange', label: 'Ngày tạo', type: 'date-range' as const },
+  ], []);
+
+  const panelValues = React.useMemo(() => ({
+    status: (advancedFilters.status as string[]) ?? [],
+    dateRange: advancedFilters.dateRange ?? null,
+  }), [advancedFilters]);
+
+  const handlePanelApply = React.useCallback((v: Record<string, unknown>) => {
+    setAdvancedFilters(v);
+    setPagination(prev => ({ ...prev, pageIndex: 0 }));
+  }, [setPagination]);
 
   const pageCount = Math.ceil(sortedData.length / pagination.pageSize);
   const paginatedData = React.useMemo(() => sortedData.slice(pagination.pageIndex * pagination.pageSize, (pagination.pageIndex + 1) * pagination.pageSize), [sortedData, pagination]);
 
   const headerActions = React.useMemo(() => [
-    <Button key="trash" variant="outline" size="sm" className="h-9" onClick={() => router.push('/brands/trash')}><Archive className="mr-2 h-4 w-4" />Thùng rác</Button>,
-    <Button key="add" size="sm" className="h-9" onClick={() => router.push('/brands/new')}><Plus className="mr-2 h-4 w-4" />Thêm thương hiệu</Button>
-  ], [router]);
+    canDelete && <Button key="trash" variant="outline" size="sm" className="h-9" onClick={() => router.push('/brands/trash')}><Archive className="mr-2 h-4 w-4" />Thùng rác</Button>,
+    canCreate && <Button key="add" size="sm" className="h-9" onClick={() => router.push('/brands/new')}><Plus className="mr-2 h-4 w-4" />Thêm thương hiệu</Button>
+  ].filter(Boolean), [router, canCreate, canDelete]);
   usePageHeader({ actions: headerActions, showBackButton: false });
 
   return (
     <div className="space-y-4 h-full flex flex-col">
       {!isMobile && <PageToolbar leftActions={<><Button variant="outline" size="sm" onClick={() => setIsImportOpen(true)}><FileUp className="mr-2 h-4 w-4" />Nhập file</Button><Button variant="outline" size="sm" onClick={() => setIsExportOpen(true)}><Download className="mr-2 h-4 w-4" />Xuất Excel</Button></>} rightActions={[<DataTableColumnCustomizer key="c" columns={columns} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} />]} />}
-      <PageFilters searchValue={globalFilter} onSearchChange={setGlobalFilter} searchPlaceholder="Tìm theo mã, tên..." rightFilters={<DataTableFacetedFilter title="Trạng thái" options={statusOptions} selectedValues={statusFilter} onSelectedValuesChange={setStatusFilter} />} />
+      <PageFilters searchValue={globalFilter} onSearchChange={setGlobalFilter} searchPlaceholder="Tìm theo mã, tên...">
+        <AdvancedFilterPanel
+          filters={filterConfigs}
+          values={panelValues}
+          onApply={handlePanelApply}
+          presets={presets.map(p => ({ ...p, filters: p.filters }))}
+          onSavePreset={(preset) => savePreset(preset.name, panelValues)}
+          onDeletePreset={deletePreset}
+          onUpdatePreset={updatePreset}
+        />
+      </PageFilters>
+      <FilterExtras presets={presets} filterConfigs={filterConfigs} values={panelValues} onApply={handlePanelApply} onDeletePreset={deletePreset} />
       {isMobile ? (
         <div className="space-y-2 flex-1 overflow-y-auto">
           {sortedData.length === 0 ? <Card><CardContent className="p-8 text-center text-muted-foreground">Không tìm thấy thương hiệu</CardContent></Card> : <>
@@ -220,7 +259,7 @@ export function BrandsPage() {
           </>}
         </div>
       ) : (
-        <div className="w-full py-4"><ResponsiveDataTable columns={columns} data={paginatedData as unknown as ({ systemId: string } & Brand)[]} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowCount={sortedData.length} rowSelection={rowSelection} setRowSelection={setRowSelection} onBulkDelete={() => setIsBulkDeleteAlertOpen(true)} sorting={sorting} setSorting={setSorting as React.Dispatch<React.SetStateAction<{ id: string; desc: boolean }>>} allSelectedRows={allSelectedRows as unknown as ({ systemId: string } & Brand)[]} bulkActions={bulkActions} pkgxBulkActions={pkgxBulkActions} expanded={{}} setExpanded={() => {}} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} onRowClick={handleRowClick as (row: { systemId: string } & Brand) => void} renderMobileCard={(b: { systemId: string } & Brand) => <MobileBrandCard brand={b as unknown as Brand} onDelete={handleDelete} onToggleActive={handleToggleActive} navigate={router.push} handleRowClick={handleRowClick as (brand: Brand) => void} />} /></div>
+        <div className={cn('w-full py-4', (isFetching || isFilterPending) && 'opacity-60 pointer-events-none transition-opacity')}><ResponsiveDataTable columns={columns} data={paginatedData as unknown as ({ systemId: string } & Brand)[]} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowCount={sortedData.length} rowSelection={rowSelection} setRowSelection={setRowSelection} onBulkDelete={() => setIsBulkDeleteAlertOpen(true)} sorting={sorting} setSorting={setSorting as React.Dispatch<React.SetStateAction<{ id: string; desc: boolean }>>} allSelectedRows={allSelectedRows as unknown as ({ systemId: string } & Brand)[]} bulkActions={bulkActions} pkgxBulkActions={pkgxBulkActions} expanded={{}} setExpanded={() => {}} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} onRowClick={handleRowClick as (row: { systemId: string } & Brand) => void} onRowHover={handleRowHover} renderMobileCard={(b: { systemId: string } & Brand) => <MobileBrandCard brand={b as unknown as Brand} onDelete={handleDelete} onToggleActive={handleToggleActive} navigate={router.push} handleRowClick={handleRowClick as (brand: Brand) => void} />} /></div>
       )}
       <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Xóa thương hiệu?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể hoàn tác.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Đóng</AlertDialogCancel><AlertDialogAction onClick={confirmDelete}>Xóa</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
       <AlertDialog open={isBulkDeleteAlertOpen} onOpenChange={setIsBulkDeleteAlertOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Chuyển {Object.keys(rowSelection).length} thương hiệu vào thùng rác?</AlertDialogTitle><AlertDialogDescription>Bạn có thể khôi phục lại từ thùng rác.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Đóng</AlertDialogCancel><AlertDialogAction onClick={confirmBulkDelete}>Chuyển vào thùng rác</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>

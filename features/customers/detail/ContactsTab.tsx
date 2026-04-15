@@ -26,7 +26,7 @@ export function ContactsTab({ customer }: ContactsTabProps) {
             {customer.contacts.map((contact, index) => (
               <Card key={index} className="relative overflow-hidden">
                 {contact.isPrimary && (
-                  <Badge className="absolute top-2 right-2 text-body-xs" variant="success">
+                  <Badge className="absolute top-2 right-2 text-xs" variant="success">
                     Chính
                   </Badge>
                 )}
@@ -37,10 +37,10 @@ export function ContactsTab({ customer }: ContactsTabProps) {
                     </div>
                     <div className="min-w-0">
                       <div className="font-medium truncate">{contact.name}</div>
-                      <div className="text-body-sm text-muted-foreground truncate">{contact.role}</div>
+                      <div className="text-sm text-muted-foreground truncate">{contact.role}</div>
                     </div>
                   </div>
-                  <div className="space-y-1.5 text-body-sm">
+                  <div className="space-y-1.5 text-sm">
                     {contact.phone && (
                       <div className="flex items-center gap-2">
                         <Phone className="h-3.5 w-3.5 text-muted-foreground shrink-0" />

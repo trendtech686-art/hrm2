@@ -3,10 +3,10 @@
 import * as React from 'react';
 import { useForm, type ControllerProps, type FieldPath } from 'react-hook-form';
 import type { Branch } from '@/lib/types/prisma-extended';
-import { useAllBranches } from './hooks/use-all-branches';
 import { useAllEmployees, useEmployeeSearcher } from '../../employees/hooks/use-all-employees';
 import { useProvinces, useWards2Level } from '../provinces/hooks/use-administrative-units';
 import { Button } from '../../../components/ui/button';
+import { Loader2 } from 'lucide-react';
 import {
   Form,
   FormControl,
@@ -30,10 +30,10 @@ interface BranchFormProps {
   initialData: Branch | null;
   onSubmit: (values: BranchFormValues) => void;
   onCancel: () => void;
+  isPending?: boolean;
 }
 
-export function BranchForm({ initialData, onSubmit, onCancel }: BranchFormProps) {
-  const { data: _branches } = useAllBranches();
+export function BranchForm({ initialData, onSubmit, onCancel, isPending }: BranchFormProps) {
   const { searchEmployees } = useEmployeeSearcher();
   const { data: allEmployees } = useAllEmployees();
   const { data: provinces = [] } = useProvinces();
@@ -85,7 +85,7 @@ export function BranchForm({ initialData, onSubmit, onCancel }: BranchFormProps)
       <form id="branch-form" onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-6">
         {/* Section 1: Thông tin cơ bản */}
         <div className="space-y-4">
-          <h3 className="text-sm font-semibold border-b pb-2">Thông tin cơ bản</h3>
+          <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider md:text-sm md:font-semibold md:text-foreground md:normal-case md:tracking-normal border-b pb-2">Thông tin cơ bản</h3>
           <div className="grid grid-cols-2 gap-4">
             <BranchFormField
               control={form.control}
@@ -114,7 +114,7 @@ export function BranchForm({ initialData, onSubmit, onCancel }: BranchFormProps)
 
         {/* Section 2: Địa chỉ chi tiết */}
         <div className="space-y-4">
-          <h3 className="text-sm font-semibold border-b pb-2">Địa chỉ chi tiết</h3>
+          <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider md:text-sm md:font-semibold md:text-foreground md:normal-case md:tracking-normal border-b pb-2">Địa chỉ chi tiết</h3>
 
           {/* Province / District in one row */}
           <div className="grid grid-cols-2 gap-4">
@@ -122,12 +122,14 @@ export function BranchForm({ initialData, onSubmit, onCancel }: BranchFormProps)
             <BranchFormField
               control={form.control}
               name="provinceId"
-              render={({ field }) => (
+              render={({ field }) => {
+                const selectedProvince = provinces.find(p => p.id === field.value);
+                return (
                 <FormItem>
                   <FormLabel>Tỉnh/TP *</FormLabel>
                   <FormControl>
                     <Combobox
-                      value={field.value ? { value: field.value, label: form.getValues('province') || '' } : null}
+                      value={selectedProvince ? { value: selectedProvince.id, label: selectedProvince.name } : null}
                       onChange={(option) => {
                         const province = provinces.find(p => p.id === option?.value);
                         field.onChange(option?.value);
@@ -159,19 +161,22 @@ export function BranchForm({ initialData, onSubmit, onCancel }: BranchFormProps)
                   </FormControl>
                   <FormMessage />
                 </FormItem>
-              )}
+                );
+              }}
             />
 
             {/* Phường/Xã */}
             <BranchFormField
               control={form.control}
               name="wardCode"
-              render={({ field }) => (
+              render={({ field }) => {
+                const selectedWard = wards.find(w => w.id === field.value);
+                return (
                 <FormItem>
                   <FormLabel>Phường/Xã *</FormLabel>
                   <FormControl>
                     <Combobox
-                      value={field.value ? { value: field.value, label: form.getValues('ward') || '' } : null}
+                      value={selectedWard ? { value: selectedWard.id, label: selectedWard.name } : null}
                       onChange={(option) => {
                         const ward = wards.find(w => w.id === option?.value);
                         field.onChange(option?.value);
@@ -200,7 +205,8 @@ export function BranchForm({ initialData, onSubmit, onCancel }: BranchFormProps)
                   </FormControl>
                   <FormMessage />
                 </FormItem>
-              )}
+                );
+              }}
             />
           </div>
 
@@ -220,7 +226,7 @@ export function BranchForm({ initialData, onSubmit, onCancel }: BranchFormProps)
 
         {/* Section 3: Liên hệ */}
         <div className="space-y-4">
-          <h3 className="text-sm font-semibold border-b pb-2">Thông tin liên hệ</h3>
+          <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider md:text-sm md:font-semibold md:text-foreground md:normal-case md:tracking-normal border-b pb-2">Thông tin liên hệ</h3>
           <div className="grid grid-cols-2 gap-4">
             <BranchFormField
               control={form.control}
@@ -258,7 +264,7 @@ export function BranchForm({ initialData, onSubmit, onCancel }: BranchFormProps)
 
         {/* Section 4: Tùy chọn */}
         <div className="space-y-4">
-          <h3 className="text-sm font-semibold border-b pb-2">Tùy chọn</h3>
+          <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider md:text-sm md:font-semibold md:text-foreground md:normal-case md:tracking-normal border-b pb-2">Tùy chọn</h3>
           <BranchFormField
             control={form.control}
             name="isDefault"
@@ -285,7 +291,10 @@ export function BranchForm({ initialData, onSubmit, onCancel }: BranchFormProps)
 
         <DialogFooter>
           <Button type="button" variant="outline" onClick={onCancel}>Hủy</Button>
-          <Button type="submit">Lưu</Button>
+          <Button type="submit" disabled={isPending}>
+            {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isPending ? 'Đang lưu...' : 'Lưu'}
+          </Button>
         </DialogFooter>
       </form>
     </Form>

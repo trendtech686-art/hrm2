@@ -4,6 +4,7 @@ import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { ArrowLeft, Edit, Loader2 } from 'lucide-react';
 import { usePageHeader } from '@/contexts/page-header-context';
+import { useAuth } from '@/contexts/auth-context';
 import { useEmployee, useEmployeeMutations } from '../hooks/use-employees';
 import { useDocumentMutations } from '../hooks/use-employee-documents';
 import { EmployeeForm, type EmployeeFormSubmitPayload } from './employee-form';
@@ -17,17 +18,22 @@ import { Button } from '@/components/ui/button';
 import type { Employee } from '@/lib/types/prisma-extended';
 import { toast } from 'sonner';
 import { usePayrollProfileMutations } from '../hooks/use-payroll-profiles';
+import { signOut } from 'next-auth/react';
+import { logError } from '@/lib/logger'
 
 export function EmployeeFormPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const router = useRouter();
+  const { employee: authEmployee, user } = useAuth();
   
   // Use React Query for fetching employee data
   const { data: employee, isLoading: isLoadingEmployee } = useEmployee(systemId);
-  const { create: createMutation, update: updateMutation } = useEmployeeMutations();
+  const { create: createMutation, update: updateMutation, isCreating, isUpdating } = useEmployeeMutations();
   
   const { updateDocumentFiles } = useDocumentMutations(systemId);
   const { upsert: upsertPayrollProfile, remove: removePayrollProfile } = usePayrollProfileMutations();
+  const [isSaving, setIsSaving] = React.useState(false);
+  const isBusy = isSaving || isCreating || isUpdating;
 
   // Handle cancel navigation
   const handleCancel = React.useCallback(() => {
@@ -39,11 +45,17 @@ export function EmployeeFormPage() {
       <ArrowLeft className="mr-2 h-4 w-4" />
       Hủy
     </Button>,
-    <Button key="save" type="submit" form="employee-form" size="sm" className="h-9">
-      <Edit className="mr-2 h-4 w-4" />
-      Lưu
+    <Button key="save" type="button" size="sm" className="h-9" disabled={isBusy} onClick={() => {
+      const form = document.getElementById('employee-form') as HTMLFormElement | null;
+      form?.requestSubmit();
+    }}>
+      {isBusy ? (
+        <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Đang lưu...</>
+      ) : (
+        <><Edit className="mr-2 h-4 w-4" />Lưu</>
+      )}
     </Button>
-  ], [handleCancel]);
+  ], [handleCancel, isBusy]);
 
   usePageHeader({ 
     title: employee ? `Chỉnh sửa ${employee.fullName}` : 'Thêm nhân viên mới',
@@ -63,6 +75,7 @@ export function EmployeeFormPage() {
   // Handle form submission with staging document confirmation
   const handleSubmit = async (values: EmployeeFormSubmitPayload) => {
     const { _documentFiles, _payrollProfile, ...employeeData } = values;
+    setIsSaving(true);
     
     try {
       let targetEmployeeSystemId: string;
@@ -72,6 +85,18 @@ export function EmployeeFormPage() {
         await updateMutation.mutateAsync({ systemId: employee.systemId, ...(employeeData as Partial<Employee>) });
         targetEmployeeSystemId = employee.systemId;
         
+        // Nếu user đang sửa chính mình và đổi email → force re-login
+        const isEditingSelf = user?.employeeId === employee.systemId || user?.systemId === employee.systemId;
+        const emailChanged = employeeData.workEmail && employeeData.workEmail !== user?.email;
+        if (isEditingSelf && emailChanged) {
+          toast.success('Đã cập nhật email đăng nhập', {
+            description: `Vui lòng đăng nhập lại với email mới: ${employeeData.workEmail}`,
+            duration: 5000,
+          });
+          await signOut({ redirectTo: '/login' });
+          return;
+        }
+
         toast.success("Cập nhật thành công", {
           description: `Đã cập nhật thông tin nhân viên ${employeeData.fullName || employee.fullName}.`,
         });
@@ -106,11 +131,14 @@ export function EmployeeFormPage() {
             position: employeeData.jobTitle || employee?.jobTitle || ''
           };
           
+          const confirmedDocNames: string[] = [];
+          
           // Confirm each document type directly từ _documentFiles
           for (const [key, files] of Object.entries(_documentFiles)) {
             if (files.length > 0) {
-              const [documentType, ...documentNameParts] = key.split('-');
-              const documentName = documentNameParts.join('-');
+              const delimiterIndex = key.indexOf('::');
+              const documentType = key.substring(0, delimiterIndex);
+              const documentName = key.substring(delimiterIndex + 2);
               
               
               // Lấy sessionId từ file đầu tiên (tất cả file trong cùng upload session có cùng sessionId)
@@ -134,6 +162,8 @@ export function EmployeeFormPage() {
                   confirmedFiles
                 );
                 
+                confirmedDocNames.push(`${documentName} (${files.length} file)`);
+                
                 // Cleanup staging files after successful confirmation
                 try {
                   await FileUploadAPI.deleteStagingFiles(sessionId);
@@ -146,13 +176,34 @@ export function EmployeeFormPage() {
             }
           }
           
-          // Staging is managed in component state — no global cleanup needed
-          
-          toast.success("Đã lưu tài liệu thành công!", {
-            description: `Tài liệu đã được lưu với tên thông minh.`
-          });
+          // Log document upload activity
+          if (confirmedDocNames.length > 0) {
+            try {
+              await fetch('/api/activity-logs', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  entityType: 'employee',
+                  entityId: targetEmployeeSystemId,
+                  action: 'document_uploaded',
+                  actionType: 'update',
+                  note: `Tải lên tài liệu: ${confirmedDocNames.join(', ')}`,
+                  metadata: { 
+                    userName: authEmployee?.fullName || undefined,
+                    documents: confirmedDocNames,
+                  },
+                }),
+              });
+            } catch {
+              // Don't fail if logging fails
+            }
+            
+            toast.success("Đã lưu tài liệu thành công!", {
+              description: `Tài liệu đã được lưu với tên thông minh.`
+            });
+          }
         } catch (error) {
-          console.error('Failed to confirm staging documents:', error);
+          logError('Failed to confirm staging documents', error);
           toast.warning("Lưu tài liệu thất bại", {
             description: "Vui lòng thử upload lại tài liệu sau."
           });
@@ -162,7 +213,7 @@ export function EmployeeFormPage() {
       // Navigate to employee detail page after save
       router.push(`/employees/${targetEmployeeSystemId}`);
     } catch (error) {
-      console.error('Employee form submission failed:', error);
+      logError('Employee form submission failed', error);
       
       // Parse validation errors for better user feedback
       const errorMessage = error instanceof Error ? error.message : "Lỗi không xác định";
@@ -217,6 +268,8 @@ export function EmployeeFormPage() {
         description,
         duration: 8000, // Show longer for user to read
       });
+    } finally {
+      setIsSaving(false);
     }
   };
 

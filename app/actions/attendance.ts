@@ -7,9 +7,10 @@
 import { prisma } from '@/lib/prisma'
 import { revalidatePath } from '@/lib/revalidation'
 import { generateIdWithPrefix } from '@/lib/id-generator'
-import { auth } from '@/auth'
+import { requireActionPermission } from '@/lib/api-utils'
 import type { ActionResult } from '@/types/action-result'
 import { createAttendanceSchema, updateAttendanceSchema } from '@/features/attendance/validation'
+import { logError } from '@/lib/logger'
 
 // Types
 type AttendanceRecord = NonNullable<Awaited<ReturnType<typeof prisma.attendanceRecord.findFirst>>>
@@ -65,10 +66,8 @@ export type BulkCreateAttendanceInput = {
 export async function createAttendanceAction(
   input: CreateAttendanceInput
 ): Promise<ActionResult<AttendanceRecord>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('edit_attendance')
+  if (!authResult.success) return authResult
   const validated = createAttendanceSchema.safeParse(input)
   if (!validated.success) {
     return { success: false, error: validated.error.issues[0]?.message || 'Dữ liệu không hợp lệ' }
@@ -100,7 +99,7 @@ export async function createAttendanceAction(
     revalidatePath('/attendance')
     return { success: true, data: attendance }
   } catch (error) {
-    console.error('Error creating attendance:', error)
+    logError('Error creating attendance', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Không thể tạo chấm công',
@@ -111,10 +110,8 @@ export async function createAttendanceAction(
 export async function updateAttendanceAction(
   input: UpdateAttendanceInput
 ): Promise<ActionResult<AttendanceRecord>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('edit_attendance')
+  if (!authResult.success) return authResult
   const validated = updateAttendanceSchema.safeParse(input)
   if (!validated.success) {
     return { success: false, error: validated.error.issues[0]?.message || 'Dữ liệu không hợp lệ' }
@@ -171,7 +168,7 @@ export async function updateAttendanceAction(
     revalidatePath('/attendance')
     return { success: true, data: attendance }
   } catch (error) {
-    console.error('Error updating attendance:', error)
+    logError('Error updating attendance', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Không thể cập nhật chấm công',
@@ -182,10 +179,8 @@ export async function updateAttendanceAction(
 export async function deleteAttendanceAction(
   systemId: string
 ): Promise<ActionResult<AttendanceRecord>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('edit_attendance')
+  if (!authResult.success) return authResult
   try {
     const attendance = await prisma.attendanceRecord.delete({
       where: { systemId },
@@ -194,7 +189,7 @@ export async function deleteAttendanceAction(
     revalidatePath('/attendance')
     return { success: true, data: attendance }
   } catch (error) {
-    console.error('Error deleting attendance:', error)
+    logError('Error deleting attendance', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Không thể xóa chấm công',
@@ -205,10 +200,8 @@ export async function deleteAttendanceAction(
 export async function getAttendanceAction(
   systemId: string
 ): Promise<ActionResult<AttendanceRecord>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('view_attendance')
+  if (!authResult.success) return authResult
   try {
     const attendance = await prisma.attendanceRecord.findUnique({
       where: { systemId },
@@ -221,7 +214,7 @@ export async function getAttendanceAction(
 
     return { success: true, data: attendance }
   } catch (error) {
-    console.error('Error getting attendance:', error)
+    logError('Error getting attendance', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Không thể lấy chấm công',
@@ -232,10 +225,8 @@ export async function getAttendanceAction(
 export async function bulkCreateAttendanceAction(
   input: BulkCreateAttendanceInput
 ): Promise<ActionResult<{ created: number }>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('edit_attendance')
+  if (!authResult.success) return authResult
   try {
     const result = await prisma.$transaction(async (tx) => {
       let created = 0
@@ -268,7 +259,7 @@ export async function bulkCreateAttendanceAction(
     revalidatePath('/attendance')
     return { success: true, data: result }
   } catch (error) {
-    console.error('Error bulk creating attendance:', error)
+    logError('Error bulk creating attendance', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Không thể tạo hàng loạt chấm công',
@@ -280,10 +271,8 @@ export async function checkInAction(
   employeeId: string,
   employeeName?: string
 ): Promise<ActionResult<AttendanceRecord>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('edit_attendance')
+  if (!authResult.success) return authResult
   try {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
@@ -322,7 +311,7 @@ export async function checkInAction(
     revalidatePath('/attendance')
     return { success: true, data: attendance }
   } catch (error) {
-    console.error('Error checking in:', error)
+    logError('Error checking in', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Không thể chấm công vào',
@@ -333,10 +322,8 @@ export async function checkInAction(
 export async function checkOutAction(
   employeeId: string
 ): Promise<ActionResult<AttendanceRecord>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('edit_attendance')
+  if (!authResult.success) return authResult
   try {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
@@ -372,7 +359,7 @@ export async function checkOutAction(
     revalidatePath('/attendance')
     return { success: true, data: attendance }
   } catch (error) {
-    console.error('Error checking out:', error)
+    logError('Error checking out', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Không thể chấm công ra',

@@ -1,6 +1,8 @@
 import { prisma } from '@/lib/prisma'
 import { requireAuth, validateBody, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
 import { z } from 'zod'
+import { logError } from '@/lib/logger'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 // Validation schema
 const updateTaxSchema = z.object({
@@ -32,7 +34,7 @@ export async function GET(
 
     return apiSuccess({ data: tax })
   } catch (error) {
-    console.error('Error fetching tax:', error)
+    logError('Error fetching tax', error)
     return apiError('Không thể tải thông tin thuế', 500)
   }
 }
@@ -54,6 +56,9 @@ export async function PUT(
   const body = validation.data
 
   try {
+    const existing = await prisma.tax.findUnique({ where: { systemId } })
+    if (!existing) return apiNotFound('Không tìm thấy thuế')
+
     // If setting as default sale, unset others
     if (body.isDefaultSale) {
       await prisma.tax.updateMany({
@@ -75,9 +80,29 @@ export async function PUT(
       data: body,
     })
 
+    // Activity log
+    const changes: Record<string, { from: unknown; to: unknown }> = {}
+    if (body.name !== undefined && body.name !== existing.name) changes['Tên'] = { from: existing.name, to: body.name }
+    if (body.rate !== undefined && Number(body.rate) !== Number(existing.rate)) changes['Thuế suất'] = { from: `${Number(existing.rate)}%`, to: `${body.rate}%` }
+    if (body.description !== undefined && body.description !== existing.description) changes['Mô tả'] = { from: existing.description, to: body.description }
+    if (body.isDefaultSale !== undefined && body.isDefaultSale !== existing.isDefaultSale) changes['MĐ bán hàng'] = { from: existing.isDefaultSale ? 'Có' : 'Không', to: body.isDefaultSale ? 'Có' : 'Không' }
+    if (body.isDefaultPurchase !== undefined && body.isDefaultPurchase !== existing.isDefaultPurchase) changes['MĐ nhập hàng'] = { from: existing.isDefaultPurchase ? 'Có' : 'Không', to: body.isDefaultPurchase ? 'Có' : 'Không' }
+
+    if (Object.keys(changes).length > 0) {
+      const changeDetail = Object.keys(changes).join(', ')
+      createActivityLog({
+        entityType: 'tax',
+        entityId: systemId,
+        action: `Cập nhật thuế: ${existing.name}: ${changeDetail}`,
+        actionType: 'update',
+        changes,
+        createdBy: session.user?.id,
+      }).catch(e => logError('Failed to create activity log', e))
+    }
+
     return apiSuccess({ data: tax })
   } catch (error) {
-    console.error('Error updating tax:', error)
+    logError('Error updating tax', error)
     return apiError('Không thể cập nhật thuế', 500)
   }
 }
@@ -93,13 +118,24 @@ export async function DELETE(
   const { systemId } = await params
 
   try {
+    const existing = await prisma.tax.findUnique({ where: { systemId } })
+    if (!existing) return apiNotFound('Không tìm thấy thuế')
+
     await prisma.tax.delete({
       where: { systemId },
     })
 
+    createActivityLog({
+      entityType: 'tax',
+      entityId: systemId,
+      action: `Xóa thuế: ${existing.name}`,
+      actionType: 'delete',
+      createdBy: session.user?.id,
+    }).catch(e => logError('Failed to create activity log', e))
+
     return apiSuccess({ message: 'Đã xóa thuế thành công' })
   } catch (error) {
-    console.error('Error deleting tax:', error)
+    logError('Error deleting tax', error)
     return apiError('Không thể xóa thuế', 500)
   }
 }

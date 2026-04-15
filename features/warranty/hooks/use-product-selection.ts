@@ -11,6 +11,7 @@ import {
   checkProductWarranty,
   checkMultipleProductsWarranty,
   createWarrantyProductFromSelection,
+  type WarrantyProductField,
 } from '../utils/warranty-products-helpers';
 import { type WarrantyCheckResult } from '../utils/warranty-checker';
 
@@ -18,8 +19,8 @@ interface UseProductSelectionOptions {
   customerName: string;
   allOrders: Order[];
   productInsertPosition: 'top' | 'bottom';
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  append: (product: any) => void;
+  append: (product: WarrantyProductField) => void;
+  pricingPolicyId?: string;
 }
 
 interface UseProductSelectionResult {
@@ -34,6 +35,7 @@ export function useProductSelection({
   allOrders,
   productInsertPosition,
   append,
+  pricingPolicyId,
 }: UseProductSelectionOptions): UseProductSelectionResult {
   const [warrantyCheckResults, setWarrantyCheckResults] = React.useState<Record<string, WarrantyCheckResult>>({});
   
@@ -43,20 +45,24 @@ export function useProductSelection({
     return pricingPolicies.find(p => p.isDefault && p.type === 'Bán hàng');
   }, [pricingPolicies]);
 
-  // ✅ Helper function để lấy giá mặc định từ product
+  // ✅ Helper function để lấy giá từ product theo policy đang chọn
   const getDefaultPrice = React.useCallback((product: Product): number => {
-    // 1. Ưu tiên giá từ bảng giá mặc định
+    // 1. Ưu tiên giá từ bảng giá đang chọn
+    if (pricingPolicyId && product.prices?.[pricingPolicyId] !== undefined) {
+      return product.prices[pricingPolicyId];
+    }
+    // 2. Fallback: giá từ bảng giá mặc định
     if (defaultPricingPolicy && product.prices?.[defaultPricingPolicy.systemId] !== undefined) {
       return product.prices[defaultPricingPolicy.systemId];
     }
-    // 2. Fallback: lấy giá đầu tiên trong bảng prices
+    // 3. Fallback: lấy giá đầu tiên trong bảng prices
     if (product.prices && Object.keys(product.prices).length > 0) {
       const firstPolicyId = Object.keys(product.prices)[0];
       return product.prices[firstPolicyId] || 0;
     }
-    // 3. Fallback cuối: costPrice
+    // 4. Fallback cuối: costPrice
     return product.costPrice || 0;
-  }, [defaultPricingPolicy]);
+  }, [pricingPolicyId, defaultPricingPolicy]);
 
   const handleSelectProduct = React.useCallback((product: Product) => {
     const defaultPrice = getDefaultPrice(product);

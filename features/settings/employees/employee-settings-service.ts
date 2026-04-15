@@ -9,6 +9,7 @@
 
 import type { EmployeeSettings, WorkShift, LeaveType, SalaryComponent } from '@/lib/types/prisma-extended';
 import { fetchEmployeeSettings } from './api/employee-settings-api';
+import { logError } from '@/lib/logger'
 
 // Default settings (fallback when API fails or no data in DB)
 export const DEFAULT_EMPLOYEE_SETTINGS: EmployeeSettings = {
@@ -103,7 +104,7 @@ export async function getEmployeeSettings(): Promise<EmployeeSettings> {
     }
     return DEFAULT_EMPLOYEE_SETTINGS;
   } catch (error) {
-    console.error('[EmployeeSettingsService] Failed to fetch settings:', error);
+    logError('[EmployeeSettingsService] Failed to fetch settings', error);
     // Return cached data even if expired, or default settings
     return settingsCache ?? DEFAULT_EMPLOYEE_SETTINGS;
   }

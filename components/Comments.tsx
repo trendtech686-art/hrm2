@@ -10,6 +10,7 @@ import { cn } from '../lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { useCommentDraft } from '@/hooks/use-comment-draft';
+import { sanitizeHtml } from '@/lib/sanitize';
 
 export interface Comment<AuthorId extends string = string, CommentId extends string = string> {
   id: CommentId;
@@ -54,8 +55,12 @@ interface CommentsProps<
   className?: string;
   // Local storage for draft comments
   enableDraftSaving?: boolean;
+  // ✅ Initial draft from API (merged into comments response)
+  initialDraft?: string;
   // Mentionable users for @tag functionality
   mentions?: Array<{ id: string; label: string; avatar?: string }>;
+  /** Async fetcher for @mentions — when provided, mentions are lazy-loaded on @ trigger */
+  fetchMentions?: (query: string) => Promise<Array<{ id: string; label: string; avatar?: string }>>;
 }
 
 /**
@@ -101,7 +106,9 @@ export function Comments<
   placeholder = 'Nhập bình luận...',
   className,
   enableDraftSaving = true,
+  initialDraft,
   mentions = [],
+  fetchMentions,
 }: CommentsProps<EntityId, AuthorId, CommentId>) {
   const [newComment, setNewComment] = React.useState('');
   const [newCommentText, setNewCommentText] = React.useState(''); // Plain text version
@@ -110,22 +117,59 @@ export function Comments<
   const [replyingTo, setReplyingTo] = React.useState<CommentId | null>(null);
   const [replyContent, setReplyContent] = React.useState('');
 
-  // Comment draft hook (saves to database via API)
-  const { draft, updateDraft, clearDraft } = useCommentDraft(entityType, entityId, enableDraftSaving);
+  // ✅ PERFORMANCE: When initialDraft is provided (from API), skip useCommentDraft calls entirely
+  // Other pages that don't pass initialDraft still use the old hook as fallback
+  const useOldDraftHook = initialDraft === undefined;
+  const { draft: hookDraft, updateDraft, clearDraft } = useCommentDraft(
+    entityType, entityId, enableDraftSaving && useOldDraftHook
+  );
+  const draftKey = `comment-draft-${entityType}-${entityId}`;
+  const saveTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const hasInitializedDraftRef = React.useRef(false);
 
-  // Load draft on mount
+  // Load initial draft — from prop (merged API) or from hook (fallback)
+  const effectiveDraft = useOldDraftHook ? hookDraft : initialDraft;
   React.useEffect(() => {
-    if (enableDraftSaving && draft && !newComment) {
-      setNewComment(draft);
+    if (hasInitializedDraftRef.current) return;
+    if (enableDraftSaving && effectiveDraft && !newComment) {
+      hasInitializedDraftRef.current = true;
+      setNewComment(effectiveDraft);
     }
-  }, [draft, enableDraftSaving]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [effectiveDraft, enableDraftSaving]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Save draft when comment changes
+  // Track whether user has actually typed (vs initial empty state / strict mode remount)
+  const hasUserTypedRef = React.useRef(false);
   React.useEffect(() => {
-    if (enableDraftSaving) {
+    if (!enableDraftSaving) return;
+
+    // Don't save empty content until user has actually typed something first
+    // This prevents DELETE on mount and strict mode double-fire
+    if (!newComment && !hasUserTypedRef.current) return;
+    if (newComment) hasUserTypedRef.current = true;
+
+    if (useOldDraftHook) {
+      // Old behavior: use useCommentDraft hook
       updateDraft(newComment);
+      return;
     }
-  }, [newComment, enableDraftSaving, updateDraft]);
+
+    // New behavior: inline debounced save (skip empty to avoid wasteful DELETE on mount)
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    if (!newComment) return;
+
+    saveTimeoutRef.current = setTimeout(async () => {
+      try {
+        await fetch('/api/user-preferences', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ category: 'drafts', key: draftKey, value: newComment }),
+        });
+      } catch { /* silent */ }
+    }, 500);
+
+    return () => { if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current); };
+  }, [newComment, enableDraftSaving, useOldDraftHook, updateDraft, draftKey]);
 
   // Organize comments into tree structure
   const commentTree = React.useMemo(() => {
@@ -150,8 +194,19 @@ export function Comments<
     onAddComment(newComment.trim(), [], undefined); // Send HTML content
     setNewComment('');
     setNewCommentText('');
+    
+    // Clear draft on submit
     if (enableDraftSaving) {
-      clearDraft();
+      if (useOldDraftHook) {
+        clearDraft();
+      } else {
+        if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+        fetch('/api/user-preferences', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ category: 'drafts', key: draftKey }),
+        }).catch(() => { /* silent */ });
+      }
     }
   };
 
@@ -263,7 +318,7 @@ export function Comments<
               <>
                 <div 
                   className="text-sm bg-muted/30 p-3 rounded-md prose prose-sm max-w-none [&_.mention]:text-primary [&_.mention]:font-medium"
-                  dangerouslySetInnerHTML={{ __html: comment.content }}
+                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(comment.content) }}
                 />
 
                 {/* Attachments */}
@@ -273,8 +328,7 @@ export function Comments<
                       <a
                         key={file.id}
                         href={file.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                        target="_blank" rel="noopener noreferrer"
                         className="flex items-center gap-2 px-3 py-1.5 bg-muted rounded-md hover:bg-muted/80 transition-colors text-sm"
                       >
                         <FileText className="h-4 w-4" />
@@ -371,6 +425,7 @@ export function Comments<
               }}
               placeholder={placeholder}
               mentions={mentions}
+              fetchMentions={fetchMentions}
               onSubmit={handleAddComment}
               minHeight="80px"
             />

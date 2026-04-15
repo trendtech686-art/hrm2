@@ -1,126 +1,137 @@
 import * as React from 'react';
-import { formatDate } from '@/lib/date-utils';
 import type { Task } from '../types';
 import type { SystemId } from '@/lib/id-types';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import { MoreVertical, Calendar, Clock, User, Flag } from 'lucide-react';
+import { MoreVertical, Calendar, User } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { cn } from '@/lib/utils';
+import { format, formatDistanceToNow } from 'date-fns';
+import { vi } from 'date-fns/locale';
 
 interface TaskCardProps {
   task: Task;
   onDelete: (id: SystemId) => void;
 }
 
+const PRIORITY_BORDER: Record<string, string> = {
+  'Khẩn cấp': 'border-l-red-500',
+  'Cao': 'border-l-orange-500',
+  'Trung bình': 'border-l-yellow-500',
+  'Thấp': 'border-l-blue-400',
+};
+
+const PRIORITY_DOT: Record<string, string> = {
+  'Khẩn cấp': 'bg-red-500',
+  'Cao': 'bg-orange-500',
+  'Trung bình': 'bg-yellow-400',
+  'Thấp': 'bg-blue-400',
+};
+
+const STATUS_STYLE: Record<string, { bg: string; text: string }> = {
+  'Chưa bắt đầu': { bg: 'bg-slate-100', text: 'text-slate-700' },
+  'Đang thực hiện': { bg: 'bg-blue-100', text: 'text-blue-700' },
+  'Đang chờ': { bg: 'bg-yellow-100', text: 'text-yellow-700' },
+  'Chờ duyệt': { bg: 'bg-amber-100', text: 'text-amber-700' },
+  'Chờ xử lý': { bg: 'bg-orange-100', text: 'text-orange-700' },
+  'Hoàn thành': { bg: 'bg-green-100', text: 'text-green-700' },
+  'Đã hủy': { bg: 'bg-gray-100', text: 'text-gray-500' },
+};
+
 export function TaskCard({ task, onDelete }: TaskCardProps) {
   const router = useRouter();
-
-  const getPriorityColor = (priority: Task['priority']) => {
-    const colors = {
-      'Thấp': 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100',
-      'Trung bình': 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100',
-      'Cao': 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-100',
-      'Khẩn cấp': 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100',
-    };
-    return colors[priority];
-  };
-
-  const getStatusVariant = (status: Task['status']): "default" | "secondary" | "warning" | "success" | "outline" => {
-    const map = {
-      'Chưa bắt đầu': 'outline' as const,
-      'Đang thực hiện': 'warning' as const,
-      'Đang chờ': 'secondary' as const,
-      'Hoàn thành': 'success' as const,
-      'Đã hủy': 'default' as const,
-    };
-    return map[status];
-  };
-
   const isOverdue = new Date(task.dueDate) < new Date() && task.status !== 'Hoàn thành';
+  const dueDate = new Date(task.dueDate);
+  const dueDateStr = format(dueDate, 'dd/MM', { locale: vi });
+  const dueTimeRelative = isOverdue
+    ? `Trễ ${formatDistanceToNow(dueDate, { locale: vi })}`
+    : formatDistanceToNow(dueDate, { locale: vi, addSuffix: true });
+  const statusStyle = STATUS_STYLE[task.status] || STATUS_STYLE['Chưa bắt đầu'];
 
   return (
-    <Card 
-      className="cursor-pointer hover:shadow-md transition-shadow"
+    <div
+      className={cn(
+        "border-l-[3px] rounded-xl bg-card border border-border/50 p-4 active:scale-[0.98] transition-transform touch-manipulation cursor-pointer",
+        PRIORITY_BORDER[task.priority] || 'border-l-slate-300',
+        isOverdue && "bg-red-50/50",
+      )}
       onClick={() => router.push(`/tasks/${task.systemId}`)}
     >
-      <CardContent className="p-4">
-        {/* Header: ID + Priority + Menu */}
-        <div className="flex items-start justify-between gap-2 mb-3">
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            <span className="text-body-sm font-semibold text-muted-foreground">{task.id}</span>
-            <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-body-xs font-medium ${getPriorityColor(task.priority)}`}>
-              <Flag className="h-3 w-3" />
-              {task.priority}
+        {/* Row 1: ID + Title + Menu */}
+        <div className="flex items-start gap-2">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-0.5">
+              <span className="text-xs font-medium text-muted-foreground font-mono">{task.id}</span>
+              <div className={cn("h-2 w-2 rounded-full shrink-0", PRIORITY_DOT[task.priority] || 'bg-slate-400')} title={task.priority} />
             </div>
+            <h3 className={cn(
+              "text-sm font-medium leading-snug line-clamp-2",
+              task.status === 'Hoàn thành' && "line-through text-muted-foreground",
+              task.status === 'Đã hủy' && "line-through text-muted-foreground",
+            )}>
+              {task.title}
+            </h3>
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 -mr-2 -mt-1 shrink-0">
                 <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={(e) => {
-                e.stopPropagation();
-                router.push(`/tasks/${task.systemId}`);
-              }}>
+              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); router.push(`/tasks/${task.systemId}`); }}>
                 Xem chi tiết
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={(e) => {
-                e.stopPropagation();
-                router.push(`/tasks/${task.systemId}/edit`);
-              }}>
+              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); router.push(`/tasks/${task.systemId}/edit`); }}>
                 Chỉnh sửa
               </DropdownMenuItem>
-              <DropdownMenuItem 
-                className="text-destructive"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDelete(task.systemId);
-                }}
-              >
+              <DropdownMenuItem className="text-destructive" onClick={(e) => { e.stopPropagation(); onDelete(task.systemId); }}>
                 Xóa
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
 
-        {/* Title */}
-        <h3 className="font-semibold text-h4 mb-2 line-clamp-2">{task.title}</h3>
-
-        {/* Status + Progress */}
-        <div className="flex items-center gap-3 mb-3">
-          <Badge variant={getStatusVariant(task.status)} className="shrink-0">
+        {/* Row 2: Status + Meta chips */}
+        <div className="flex flex-wrap items-center gap-1.5 mt-2">
+          <span className={cn("inline-flex items-center text-xs px-2 py-0.5 rounded-full font-medium", statusStyle.bg, statusStyle.text)}>
             {task.status}
-          </Badge>
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            <Progress value={task.progress} className="h-2 flex-1" />
-            <span className="text-body-xs text-muted-foreground shrink-0">{task.progress}%</span>
-          </div>
+          </span>
+
+          {/* Due date */}
+          <span className={cn(
+            "inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full",
+            isOverdue ? "bg-red-100 text-red-700 font-medium" : "bg-muted text-muted-foreground"
+          )}>
+            <Calendar className="h-3 w-3" />
+            {dueDateStr}
+          </span>
+
+          <span className={cn("text-xs", isOverdue ? "text-red-600 font-medium" : "text-muted-foreground")}>
+            {dueTimeRelative}
+          </span>
         </div>
 
-        {/* Info Grid */}
-        <div className="space-y-2 text-body-sm">
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <User className="h-4 w-4 shrink-0" />
-            <span className="truncate">{task.assigneeName}</span>
-          </div>
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Calendar className="h-4 w-4 shrink-0" />
-            <span>Bắt đầu: {formatDate(task.startDate)}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Clock className={`h-4 w-4 shrink-0 ${isOverdue ? 'text-destructive' : 'text-muted-foreground'}`} />
-            <span className={isOverdue ? 'text-destructive font-semibold' : 'text-muted-foreground'}>
-              Deadline: {formatDate(task.dueDate)}
-              {isOverdue && <span className="ml-1">(Quá hạn)</span>}
+        {/* Row 3: Assignee + Progress */}
+        <div className="flex items-center gap-3 mt-2">
+          {task.assigneeName && (
+            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+              <User className="h-3 w-3" />
+              {task.assigneeName}
             </span>
-          </div>
+          )}
+          {task.progress > 0 && (
+            <div className="flex items-center gap-1.5 flex-1 min-w-0">
+              <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                <div
+                  className={cn("h-full rounded-full transition-all", task.progress >= 100 ? "bg-green-500" : "bg-blue-500")}
+                  style={{ width: `${Math.min(task.progress, 100)}%` }}
+                />
+              </div>
+              <span className="text-xs text-muted-foreground shrink-0">{task.progress}%</span>
+            </div>
+          )}
         </div>
-      </CardContent>
-    </Card>
+    </div>
   );
 }

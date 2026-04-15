@@ -1,13 +1,14 @@
 'use client'
 
 import * as React from "react";
-import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import { useLeaves, useLeaveMutations, useBatchLeaveMutation } from './hooks/use-leaves';
+import { useLeaves, useLeaveMutations, useBatchLeaveMutation, leaveKeys } from './hooks/use-leaves';
 import { getColumns } from './columns';
 import type { LeaveRequest, LeaveStatus } from "@/lib/types/prisma-extended";
 import type { SystemId } from '@/lib/id-types';
-import type { LeaveCreateInput, BatchCreateItem } from './api/leaves-api';
+import type { BatchCreateItem } from './api/leaves-api';
+import { fetchLeaveById } from './api/leaves-api';
+import { useQueryClient } from '@tanstack/react-query';
 import { usePageHeader } from "../../contexts/page-header-context";
 import { useAuth } from "../../contexts/auth-context";
 import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table";
@@ -15,30 +16,34 @@ import { PageToolbar } from "../../components/layout/page-toolbar"
 import { PageFilters } from "../../components/layout/page-filters";
 import { Button } from "../../components/ui/button";
 import { PlusCircle, CheckCircle2, XCircle, Download, Settings } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "../../components/ui/dialog";
+import { cn } from '@/lib/utils';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../components/ui/alert-dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
+
+import { useColumnLayout } from "@/hooks/use-column-visibility";
 import { DynamicDataTableColumnCustomizer as DataTableColumnCustomizer } from "../../components/data-table/dynamic-column-customizer";
 import { toast } from "sonner";
 import { useBreakpoint } from "../../contexts/breakpoint-context";
 import { Badge } from "../../components/ui/badge";
-import { Card, CardContent, CardHeader } from "../../components/ui/card";
 import { formatDate } from "../../lib/date-utils";
 import { DataTableExportDialog } from "../../components/data-table/data-table-export-dialog";
 import { DataTableImportDialog, type ImportConfig } from "../../components/data-table/data-table-import-dialog";
-
-const LeaveForm = dynamic(() => import("./components/leave-form").then(mod => ({ default: mod.LeaveForm })), { ssr: false });
+import { usePaginationWithGlobalDefault } from '@/features/settings/global/hooks/use-global-settings';
+import { AdvancedFilterPanel, FilterExtras, type FilterConfig } from '@/components/shared/advanced-filter-panel';
+import { useFilterPresets } from '@/hooks/use-filter-presets';
 
 export function LeavesPage() {
   const router = useRouter(), { isMobile } = useBreakpoint();
-  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const {  user, can } = useAuth();
+  const canCreate = can('create_leaves');
+  const canApprove = can('approve_leaves');
+  const canEditSettings = can('edit_settings');
 
   // Server-side pagination state
   const [searchQuery, setSearchQuery] = React.useState('');
   const [debouncedSearch, setDebouncedSearch] = React.useState('');
-  const [statusFilter, setStatusFilter] = React.useState<"all" | LeaveStatus>('all');
   const [sorting, setSorting] = React.useState<{ id: string, desc: boolean }>({ id: 'createdAt', desc: true });
-  const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 20 });
+  const [pagination, setPagination] = usePaginationWithGlobalDefault();
 
   // Debounce search
   React.useEffect(() => {
@@ -49,29 +54,69 @@ export function LeavesPage() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // Reset pagination on filter change
-  React.useEffect(() => {
-    setPagination(prev => ({ ...prev, pageIndex: 0 }));
-  }, [statusFilter]);
+  const mutations = useLeaveMutations();
+  const batchMutation = useBatchLeaveMutation();
+  
+  const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({}), [isAlertOpen, setIsAlertOpen] = React.useState(false), [idToDelete, setIdToDelete] = React.useState<SystemId | null>(null);
+  const [mobileLoadedCount, setMobileLoadedCount] = React.useState(20);
 
-  // React Query: fetch from database with server-side pagination
-  const { data: leavesResponse, isLoading: isLoadingLeaves } = useLeaves({
-    page: pagination.pageIndex + 1,
-    limit: pagination.pageSize,
-    search: debouncedSearch || undefined,
-    status: statusFilter !== 'all' ? statusFilter : undefined,
-    sortBy: sorting.id,
-    sortOrder: sorting.desc ? 'desc' : 'asc',
-  });
+  // Advanced filter panel
+  const { presets, savePreset, deletePreset, updatePreset } = useFilterPresets('leaves');
+  const filterConfigs: FilterConfig[] = React.useMemo(() => [
+    { id: 'status', label: 'Trạng thái', type: 'select' as const, options: [
+      { value: 'all', label: 'Tất cả' },
+      { value: 'Chờ duyệt', label: 'Chờ duyệt' },
+      { value: 'Đã duyệt', label: 'Đã duyệt' },
+      { value: 'Đã từ chối', label: 'Đã từ chối' },
+    ] },
+    { id: 'leaveType', label: 'Loại phép', type: 'select' as const, options: [
+      { value: 'all', label: 'Tất cả' },
+      { value: 'ANNUAL', label: 'Phép năm' },
+      { value: 'SICK', label: 'Nghỉ ốm' },
+      { value: 'UNPAID', label: 'Nghỉ không lương' },
+      { value: 'MATERNITY', label: 'Thai sản' },
+      { value: 'PATERNITY', label: 'Nghỉ chăm con' },
+      { value: 'BEREAVEMENT', label: 'Nghỉ tang' },
+      { value: 'WEDDING', label: 'Nghỉ cưới' },
+      { value: 'OTHER', label: 'Khác' },
+    ] },
+    { id: 'dateRange', label: 'Ngày bắt đầu', type: 'date-range' as const },
+  ], []);
+  const [advancedFilters, setAdvancedFilters] = React.useState<Record<string, unknown>>({});
+  const panelValues = React.useMemo(() => ({
+    status: advancedFilters.status ?? null,
+    leaveType: advancedFilters.leaveType ?? null,
+    dateRange: advancedFilters.dateRange ?? null,
+  }), [advancedFilters]);
+  const handlePanelApply = React.useCallback((v: Record<string, unknown>) => {
+    setAdvancedFilters(v);
+    setPagination(prev => ({ ...prev, pageIndex: 0 }));
+  }, [setPagination]);
+
+  // React Query: fetch with server-side filters
+  const { data: leavesResponse, isLoading: isLoadingLeaves, isFetching } = useLeaves(React.useMemo(() => {
+    const status = advancedFilters.status as string | undefined;
+    const leaveType = advancedFilters.leaveType as string | undefined;
+    const dateRange = advancedFilters.dateRange as { from?: string; to?: string } | null;
+    return {
+      page: pagination.pageIndex + 1,
+      limit: pagination.pageSize,
+      search: debouncedSearch || undefined,
+      status: status && status !== 'all' ? status : undefined,
+      leaveType: leaveType && leaveType !== 'all' ? leaveType : undefined,
+      fromDate: dateRange?.from || undefined,
+      toDate: dateRange?.to || undefined,
+      sortBy: sorting.id,
+      sortOrder: sorting.desc ? 'desc' : 'asc',
+    };
+  }, [pagination.pageIndex, pagination.pageSize, debouncedSearch, advancedFilters, sorting]));
   const leaveRequests = React.useMemo(() => leavesResponse?.data ?? [], [leavesResponse?.data]);
   const totalRows = leavesResponse?.pagination?.total ?? 0;
   const pageCount = Math.ceil(totalRows / pagination.pageSize);
 
-  const mutations = useLeaveMutations();
-  const batchMutation = useBatchLeaveMutation();
-  
-  const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({}), [isAlertOpen, setIsAlertOpen] = React.useState(false), [idToDelete, setIdToDelete] = React.useState<SystemId | null>(null), [isFormOpen, setIsFormOpen] = React.useState(false), [editingRequest, setEditingRequest] = React.useState<LeaveRequest | null>(null);
-  const [mobileLoadedCount, setMobileLoadedCount] = React.useState(20), [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>({}), [columnOrder, setColumnOrder] = React.useState<string[]>([]), [pinnedColumns, setPinnedColumns] = React.useState<string[]>(['select', 'employeeName']);
+  const [{ visibility: columnVisibility, order: columnOrder, pinned: pinnedColumns }, { setVisibility: setColumnVisibility, setOrder: setColumnOrder, setPinned: setPinnedColumns }] = useColumnLayout('leaves', {
+    pinned: ['select', 'employeeName'],
+  });
 
   const handleStatusChange = React.useCallback((systemId: SystemId, status: LeaveStatus) => {
     const request = leaveRequests.find(r => r.systemId === systemId);
@@ -98,19 +143,21 @@ export function LeavesPage() {
   }, [leaveRequests, mutations, user]);
 
   const handleDelete = React.useCallback((systemId: SystemId) => { setIdToDelete(systemId); setIsAlertOpen(true); }, []);
-  const handleEdit = React.useCallback((request: LeaveRequest) => { setEditingRequest(request); setIsFormOpen(true); }, []);
-  const columns = React.useMemo(() => getColumns(handleDelete, handleEdit, handleStatusChange, router.push), [handleDelete, handleEdit, handleStatusChange, router]);
+  const columns = React.useMemo(() => getColumns(handleDelete, handleStatusChange, router.push), [handleDelete, handleStatusChange, router]);
   
+  const columnDefaultsInitialized = React.useRef(false);
   React.useEffect(() => {
+    if (columnDefaultsInitialized.current || !columns.length) return;
+    if (Object.keys(columnVisibility).length > 0) { columnDefaultsInitialized.current = true; return; }
+    columnDefaultsInitialized.current = true;
     const defaultVisibleColumns = ['employeeName', 'employeeId', 'leaveTypeName', 'leaveTypeId', 'dateRange', 'startDate', 'endDate', 'numberOfDays', 'reason', 'status', 'requestDate', 'leaveTypeIsPaid', 'leaveTypeRequiresAttachment', 'createdAt', 'updatedAt'];
     const initialVisibility: Record<string, boolean> = {};
     columns.forEach(c => { initialVisibility[c.id!] = c.id === 'select' || c.id === 'actions' ? true : defaultVisibleColumns.includes(c.id!); });
     setColumnVisibility(initialVisibility);
     setColumnOrder(columns.map(c => c.id).filter(Boolean) as string[]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [columns, columnVisibility, setColumnVisibility, setColumnOrder]);
 
-  React.useEffect(() => { setMobileLoadedCount(20); }, [searchQuery, statusFilter]);
+  React.useEffect(() => { setMobileLoadedCount(20); }, [searchQuery, advancedFilters]);
 
   React.useEffect(() => {
     if (!isMobile) return;
@@ -118,16 +165,23 @@ export function LeavesPage() {
       const scrollPercentage = ((window.scrollY + window.innerHeight) / document.documentElement.scrollHeight) * 100;
       if (scrollPercentage > 80 && mobileLoadedCount < leaveRequests.length) setMobileLoadedCount(prev => Math.min(prev + 20, leaveRequests.length));
     };
-    window.addEventListener('scroll', handleScroll);
+    window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, [isMobile, mobileLoadedCount, leaveRequests.length]);
 
   const displayData = isMobile ? leaveRequests.slice(0, mobileLoadedCount) : leaveRequests;
   const allSelectedRows = React.useMemo(() => leaveRequests.filter(lr => rowSelection[lr.systemId]), [leaveRequests, rowSelection]);
   const handleRowClick = React.useCallback((row: LeaveRequest) => {
-    setEditingRequest(row);
-    setIsFormOpen(true);
-  }, []);
+    router.push(`/leaves/${row.systemId}`);
+  }, [router]);
+
+  const handleRowHover = React.useCallback((row: LeaveRequest) => {
+    queryClient.prefetchQuery({
+      queryKey: leaveKeys.detail(row.systemId),
+      queryFn: () => fetchLeaveById(row.systemId),
+      staleTime: 60_000,
+    });
+  }, [queryClient]);
 
   const confirmDelete = () => {
     if (idToDelete) {
@@ -138,32 +192,6 @@ export function LeavesPage() {
       });
     }
     setIsAlertOpen(false);
-  };
-
-  const handleSubmit = (values: Omit<LeaveRequest, 'systemId'>) => {
-    if (editingRequest) {
-      mutations.update.mutate({ systemId: editingRequest.systemId, data: values }, {
-        onSuccess: () => { toast.success("Đã cập nhật đơn nghỉ phép", { description: `Đơn ${values.id} đã được cập nhật thành công` }); setIsFormOpen(false); setEditingRequest(null); },
-        onError: () => toast.error("Lỗi", { description: "Không thể cập nhật đơn nghỉ phép" }),
-      });
-    } else {
-      const createData: LeaveCreateInput = {
-        employeeId: values.employeeSystemId,
-        leaveType: values.leaveTypeId || 'ANNUAL',
-        leaveTypeName: values.leaveTypeName,
-        leaveTypeSystemId: values.leaveTypeSystemId,
-        startDate: values.startDate,
-        endDate: values.endDate,
-        reason: values.reason,
-        status: 'Chờ duyệt',
-        numberOfDays: values.numberOfDays,
-        totalDays: values.numberOfDays,
-      };
-      mutations.create.mutate(createData, {
-        onSuccess: () => { toast.success("Đã tạo đơn nghỉ phép mới", { description: `Đơn đã được tạo, đang chờ duyệt` }); setIsFormOpen(false); setEditingRequest(null); },
-        onError: () => toast.error("Lỗi", { description: "Không thể tạo đơn nghỉ phép" }),
-      });
-    }
   };
 
   const handleBulkApprove = React.useCallback(() => {
@@ -239,28 +267,24 @@ export function LeavesPage() {
     { label: 'Xuất Excel đã chọn', icon: Download, onSelect: (selectedRows: LeaveRequest[]) => toast.success(`Xuất ${selectedRows.length} đơn nghỉ phép`) }
   ], [handleBulkApprove, handleBulkReject]);
 
-  const headerActions = React.useMemo(() => [<Button key="add" onClick={() => setIsFormOpen(true)} size="sm" className="h-9"><PlusCircle className="mr-2 h-4 w-4" />Tạo đơn nghỉ phép</Button>], []);
+  const headerActions = React.useMemo(() => [canCreate && <Button key="add" onClick={() => router.push('/leaves/create')} size="sm" className="h-9"><PlusCircle className="mr-2 h-4 w-4" />Tạo đơn nghỉ phép</Button>].filter(Boolean), [canCreate, router]);
   usePageHeader({ actions: headerActions });
 
   const renderMobileCard = React.useCallback((leave: LeaveRequest) => {
     const statusVariants: Record<LeaveStatus, "success" | "warning" | "destructive"> = { "Chờ duyệt": "warning", "Đã duyệt": "success", "Đã từ chối": "destructive" };
     return (
-      <Card key={leave.systemId} className="mb-3">
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between">
-            <div><div className="font-medium">{leave.employeeName}</div><div className="text-xs text-muted-foreground">{leave.employeeId}</div></div>
-            <Badge variant={statusVariants[leave.status]}>{leave.status}</Badge>
-          </div>
-        </CardHeader>
-        <CardContent className="pt-0">
-          <div className="grid grid-cols-2 gap-2 text-sm">
-            <div><span className="text-muted-foreground">Loại phép:</span><div>{leave.leaveTypeName}</div></div>
-            <div><span className="text-muted-foreground">Số ngày:</span><div>{leave.numberOfDays}</div></div>
-            <div className="col-span-2"><span className="text-muted-foreground">Thời gian:</span><div>{formatDate(leave.startDate)} - {formatDate(leave.endDate)}</div></div>
-            {leave.reason && <div className="col-span-2"><span className="text-muted-foreground">Lý do:</span><div className="truncate">{leave.reason}</div></div>}
-          </div>
-        </CardContent>
-      </Card>
+      <div key={leave.systemId} className="rounded-xl border border-border/50 bg-card p-4 active:scale-[0.98] transition-transform touch-manipulation">
+        <div className="flex items-center justify-between mb-2">
+          <div><div className="text-sm font-medium">{leave.employeeName}</div><div className="text-xs text-muted-foreground">{leave.employeeId}</div></div>
+          <Badge variant={statusVariants[leave.status]}>{leave.status}</Badge>
+        </div>
+        <div className="grid grid-cols-2 gap-2 text-xs">
+          <div><span className="text-muted-foreground">Loại phép:</span><div>{leave.leaveTypeName}</div></div>
+          <div><span className="text-muted-foreground">Số ngày:</span><div>{leave.numberOfDays}</div></div>
+          <div className="col-span-2"><span className="text-muted-foreground">Thời gian:</span><div>{formatDate(leave.startDate)} - {formatDate(leave.endDate)}</div></div>
+          {leave.reason && <div className="col-span-2"><span className="text-muted-foreground">Lý do:</span><div className="truncate">{leave.reason}</div></div>}
+        </div>
+      </div>
     );
   }, []);
 
@@ -268,22 +292,25 @@ export function LeavesPage() {
     <div className="space-y-4">
       {!isMobile && (
         <PageToolbar
-          leftActions={<><Button variant="outline" size="sm" onClick={() => router.push('/settings/employees')}><Settings className="h-4 w-4 mr-2" />Cài đặt</Button><DataTableImportDialog config={importConfig} /><DataTableExportDialog allData={leaveRequests} filteredData={leaveRequests} pageData={leaveRequests} config={exportConfig} /></>}
+          leftActions={<>{canEditSettings && <Button variant="outline" size="sm" onClick={() => router.push('/settings/employees')}><Settings className="h-4 w-4 mr-2" />Cài đặt</Button>}<DataTableImportDialog config={importConfig} /><DataTableExportDialog allData={leaveRequests} filteredData={leaveRequests} pageData={leaveRequests} config={exportConfig} /></>}
           rightActions={<DataTableColumnCustomizer columns={columns} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} />}
         />
       )}
       <PageFilters searchValue={searchQuery} onSearchChange={setSearchQuery} searchPlaceholder="Tìm kiếm đơn...">
-        <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as LeaveStatus | 'all')}>
-          <SelectTrigger className="h-9 w-45"><SelectValue placeholder="Lọc trạng thái" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Tất cả trạng thái</SelectItem>
-            <SelectItem value="Chờ duyệt">Chờ duyệt</SelectItem>
-            <SelectItem value="Đã duyệt">Đã duyệt</SelectItem>
-            <SelectItem value="Đã từ chối">Đã từ chối</SelectItem>
-          </SelectContent>
-        </Select>
+        <AdvancedFilterPanel
+          filters={filterConfigs}
+          values={panelValues}
+          onApply={handlePanelApply}
+          presets={presets.map(p => ({ ...p, filters: p.filters }))}
+          onSavePreset={(preset) => savePreset(preset.name, panelValues)}
+          onDeletePreset={deletePreset}
+          onUpdatePreset={updatePreset}
+        />
       </PageFilters>
-      <ResponsiveDataTable columns={columns} data={displayData} renderMobileCard={renderMobileCard} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowCount={totalRows} rowSelection={rowSelection} setRowSelection={setRowSelection} sorting={sorting} setSorting={setSorting} onRowClick={handleRowClick} allSelectedRows={allSelectedRows} onBulkDelete={handleBulkDelete} bulkActions={bulkActions} expanded={{}} setExpanded={() => {}} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} emptyTitle="Không có đơn nghỉ phép" emptyDescription="Tạo đơn nghỉ phép đầu tiên để bắt đầu" isLoading={isLoadingLeaves} />
+      <FilterExtras presets={presets} filterConfigs={filterConfigs} values={panelValues} onApply={handlePanelApply} onDeletePreset={deletePreset} />
+      <div className={cn(isFetching && 'opacity-60 pointer-events-none transition-opacity')}>
+      <ResponsiveDataTable columns={columns} data={displayData} renderMobileCard={renderMobileCard} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowCount={totalRows} rowSelection={rowSelection} setRowSelection={setRowSelection} sorting={sorting} setSorting={setSorting} onRowClick={handleRowClick} onRowHover={handleRowHover} allSelectedRows={allSelectedRows} onBulkDelete={handleBulkDelete} bulkActions={bulkActions} expanded={{}} setExpanded={() => {}} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} emptyTitle="Không có đơn nghỉ phép" emptyDescription="Tạo đơn nghỉ phép đầu tiên để bắt đầu" isLoading={isLoadingLeaves} />
+      </div>
       {isMobile && (
         <div className="py-6 text-center">
           {mobileLoadedCount < leaveRequests.length ? (
@@ -297,12 +324,6 @@ export function LeavesPage() {
           <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={confirmDelete}>Xóa</AlertDialogAction></AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>{editingRequest ? 'Chỉnh sửa đơn nghỉ phép' : 'Tạo đơn nghỉ phép mới'}</DialogTitle><DialogDescription>Điền thông tin chi tiết cho đơn xin nghỉ phép.</DialogDescription></DialogHeader>
-          <LeaveForm initialData={editingRequest} onSubmit={handleSubmit} onCancel={() => setIsFormOpen(false)} />
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

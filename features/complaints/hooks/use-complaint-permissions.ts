@@ -102,46 +102,41 @@ export function useComplaintPermissions(complaint?: Complaint | null): Complaint
   // VIEW: Mọi người đều xem được (trừ khi có logic phân quyền department)
   const canView = true;
 
-  // EDIT: Chỉ creator hoặc admin mới edit được thông tin cơ bản
+  // EDIT: Chỉ admin mới edit được thông tin cơ bản
   // Không edit được khi đã resolved/rejected
-  const canEdit = (isCreator || isAdmin) && !isClosed;
+  const canEdit = isAdmin && !isClosed;
 
   // DELETE: Chỉ admin và chỉ khi còn pending
   const canDelete = isAdmin && isPending;
 
-  // ASSIGN: Chỉ creator hoặc admin
-  // Không assign được khi đã resolved/rejected
-  const canAssign = (isCreator || isAdmin) && !isClosed;
+  // ASSIGN: Chỉ admin
+  const canAssign = isAdmin && !isClosed;
 
-  // INVESTIGATE: Người được assign hoặc admin
-  // Chỉ khi status = investigating
-  const canInvestigate = (isAssignee || isAdmin) && isInvestigating;
+  // INVESTIGATE: Chỉ admin
+  const canInvestigate = isAdmin && isInvestigating;
 
-  // VERIFY: Assignee (người xử lý), creator, hoặc admin có thể verify
+  // VERIFY: Assignee (người xử lý) hoặc admin có thể verify
   // Nếu chưa assign thì creator có quyền verify
   // Có thể verify ngay khi status = investigating hoặc pending (OPEN)
   const hasNoAssignee = !complaint.assignedTo && !(complaint as unknown as { assigneeId?: string }).assigneeId;
   const canVerify = (isAssignee || isAdmin || (isCreator && hasNoAssignee)) && 
     (isInvestigating || isPending); // Cho phép verify luôn khi pending hoặc investigating
 
-  // RESOLVE: Chỉ creator (manager) hoặc admin
-  // Chỉ khi đã verify
-  const canResolve = (isCreator || isAdmin) && 
+  // RESOLVE: Chỉ admin
+  const canResolve = isAdmin && 
     isInvestigating &&
     (complaint.verification === 'verified-correct' || complaint.verification === 'verified-incorrect');
 
-  // REJECT: Chỉ creator (manager) hoặc admin
-  // Chỉ khi chưa resolved
-  const canReject = (isCreator || isAdmin) && !isClosed;
+  // REJECT (Hủy): Chỉ admin
+  const canReject = isAdmin && !isClosed;
 
-  // CLOSE (Kết thúc): Cho phép đóng khiếu nại khi đã verified
-  // Logic: Sau khi verify xong, creator/admin có thể "Kết thúc" để chuyển sang resolved
-  const canClose = (isCreator || isAdmin) && 
+  // CLOSE (Kết thúc): Chỉ admin, khi đã verified
+  const canClose = isAdmin && 
     !isClosed &&
     complaint.verification !== 'pending-verification';
 
-  // REOPEN: Chỉ admin hoặc creator khi đã đóng
-  const canReopen = (isCreator || isAdmin) && isClosed;
+  // REOPEN: Chỉ admin khi đã đóng
+  const canReopen = isAdmin && isClosed;
 
   // COMMENT: Mọi người liên quan (creator, assignee, responsible, admin)
   const canComment = isCreator || isAssignee || isResponsible || isAdmin;
@@ -157,8 +152,8 @@ export function useComplaintPermissions(complaint?: Complaint | null): Complaint
   } else if (!canEdit && !isAdmin) {
     if (isClosed) {
       reason = 'Không thể chỉnh sửa khiếu nại đã đóng';
-    } else if (!isCreator) {
-      reason = 'Chỉ người tạo khiếu nại mới có thể chỉnh sửa';
+    } else {
+      reason = 'Chỉ quản trị viên mới có thể thao tác';
     }
   }
 

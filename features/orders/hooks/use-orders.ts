@@ -12,7 +12,7 @@
  */
 
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
-import { fetchOrders, fetchOrder, fetchOrderStats, type OrdersParams, type PaginatedResponse } from '../api/orders-api';
+import { fetchOrders, fetchOrder, fetchOrderStats, type OrdersParams, type PaginatedResponse, type OrderStatsResponse } from '../api/orders-api';
 import type { Order } from '@/lib/types/prisma-extended';
 
 // Query keys - exported for invalidation
@@ -25,18 +25,10 @@ export const orderKeys = {
   stats: () => [...orderKeys.all, 'stats'] as const,
 };
 
-// Types for initial data from Server Components - matches fetchOrderStats return type
-export interface OrderStats {
-  totalOrders: number;
-  pendingOrders: number;
-  totalRevenue: number;
-  todayOrders: number;
-}
-
 /**
  * Hook for fetching order statistics with optional initial data from Server Component
  */
-export function useOrderStats(initialData?: OrderStats) {
+export function useOrderStats(initialData?: OrderStatsResponse) {
   return useQuery({
     queryKey: orderKeys.stats(),
     queryFn: fetchOrderStats,
@@ -104,6 +96,8 @@ export function useOrder(id: string | null | undefined, initialData?: Order) {
     enabled: !!id, // Only fetch if id is provided
     staleTime: initialData ? 60_000 : 30_000,
     gcTime: 10 * 60 * 1000, // 10 minutes
+    // ✅ Always refetch on mount to ensure fresh data
+    refetchOnMount: 'always',
   });
 }
 

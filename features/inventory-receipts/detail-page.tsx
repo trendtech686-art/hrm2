@@ -6,10 +6,7 @@ import Link from 'next/link';
 import { Printer, ArrowLeft } from 'lucide-react';
 
 import { useInventoryReceipt } from './hooks/use-inventory-receipts';
-import { usePurchaseOrderFinder } from '../purchase-orders/hooks/use-all-purchase-orders';
-import { useSupplierFinder } from '../suppliers/hooks/use-all-suppliers';
-import { useEmployeeFinder } from '../employees/hooks/use-all-employees';
-import { useProductFinder } from '../products/hooks/use-all-products';
+import { usePurchaseOrder } from '../purchase-orders/hooks/use-purchase-orders';
 import { usePrint } from '../../lib/use-print';
 import { 
   convertStockInForPrint,
@@ -17,8 +14,7 @@ import {
   mapStockInLineItems,
   createStoreSettings,
 } from '../../lib/print/stock-in-print-helper';
-import { useBranchFinder } from '../settings/branches/hooks/use-all-branches';
-import { useStoreInfoData } from '../settings/store-info/hooks/use-store-info';
+import { fetchPrintData } from '@/lib/lazy-print-data';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { ROUTES } from '../../lib/router';
 import { formatDateCustom, parseDate } from '../../lib/date-utils';
@@ -26,7 +22,7 @@ import { numberToWords } from '../../lib/print-service';
 import { asSystemId, type SystemId } from '@/lib/id-types';
 import { Comments } from '../../components/Comments';
 import { useComments } from '@/hooks/use-comments';
-import { ActivityHistory } from '../../components/ActivityHistory';
+import { EntityActivityTable } from '@/components/shared/entity-activity-table';
 import { useAuth } from '../../contexts/auth-context';
 import { Card, CardContent } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -46,11 +42,8 @@ const formatCurrency = (value?: number) => new Intl.NumberFormat('vi-VN', {
 export function InventoryReceiptDetailPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const router = useRouter();
-  const { data: receipt } = useInventoryReceipt(systemId);
-  const { findById: findPurchaseOrderById } = usePurchaseOrderFinder();
-  const { findById: findSupplierById } = useSupplierFinder();
-  const { findById: findEmployeeById } = useEmployeeFinder();
-  const { findById: findProductById } = useProductFinder();
+  const { data: receipt, isLoading } = useInventoryReceipt(systemId);
+  const { data: purchaseOrder } = usePurchaseOrder(receipt?.purchaseOrderSystemId);
   const [previewImage, setPreviewImage] = React.useState<{ url: string; title: string } | null>(null);
   const { employee: authEmployee } = useAuth();
 
@@ -92,15 +85,8 @@ export function InventoryReceiptDetailPage() {
     name: authEmployee?.fullName || 'Hệ thống',
   }), [authEmployee]);
 
-  const purchaseOrder = React.useMemo(() => (
-    receipt?.purchaseOrderSystemId ? findPurchaseOrderById(receipt.purchaseOrderSystemId) : undefined
-  ), [receipt?.purchaseOrderSystemId, findPurchaseOrderById]);
-  const supplier = React.useMemo(() => (
-    receipt?.supplierSystemId ? findSupplierById(asSystemId(receipt.supplierSystemId)) : undefined
-  ), [receipt?.supplierSystemId, findSupplierById]);
-  const receiver = React.useMemo(() => (
-    receipt?.receiverSystemId ? findEmployeeById(asSystemId(receipt.receiverSystemId)) : undefined
-  ), [receipt?.receiverSystemId, findEmployeeById]);
+  // ✅ Phase A4: Use supplier data from API response instead of loading ALL suppliers
+  const supplier = (receipt as Record<string, unknown> | undefined)?.supplier as { id?: string; name?: string; phone?: string; email?: string } | undefined;
 
   const totalQuantity = React.useMemo(() => (
     receipt?.items.reduce((sum, item) => sum + (Number(item.receivedQuantity) || 0), 0) ?? 0
@@ -114,21 +100,27 @@ export function InventoryReceiptDetailPage() {
     }, 0) ?? 0
   ), [receipt]);
 
-  const { findById: findBranchById } = useBranchFinder();
-  const { info: storeInfo } = useStoreInfoData();
-  const { print } = usePrint(receipt?.branchSystemId);
+  // ⚡ OPTIMIZED: Print uses lazy loading - no hooks needed at mount time
+  const { print } = usePrint({ enabled: false });
 
-  const handlePrint = React.useCallback(() => {
+  // ⚡ OPTIMIZED: Lazy load ALL print data only when print is clicked
+  const handlePrint = React.useCallback(async () => {
     if (!receipt) return;
 
-    const branch = receipt.branchSystemId ? findBranchById(receipt.branchSystemId) : undefined;
-
-    // Use helper to prepare print data
+    // Fetch print data and branches in parallel (lazy loading)
+    const [{ storeInfo }, branchesRes] = await Promise.all([
+      fetchPrintData(),
+      fetch('/api/branches?limit=100').then(r => r.ok ? r.json() : { data: [] })
+    ]);
+    
+    // Find branch from fetched data
+    const branch = receipt.branchSystemId 
+      ? branchesRes.data?.find((b: { systemId: string }) => b.systemId === receipt.branchSystemId)
+      : null;
     const storeSettings = createStoreSettings(storeInfo);
     const stockInForPrint = convertStockInForPrint(receipt, { 
       branch, 
       supplier,
-      purchaseOrder: purchaseOrder || undefined,
     });
 
     const printData = mapStockInToPrintData(stockInForPrint, storeSettings);
@@ -141,7 +133,7 @@ export function InventoryReceiptDetailPage() {
       data: printData,
       lineItems: lineItems
     });
-  }, [receipt, purchaseOrder, supplier, storeInfo, print, findBranchById, totalValue]);
+  }, [receipt, supplier, print, totalValue]);
 
   const headerActions = React.useMemo(() => {
     if (!receipt) return [];
@@ -181,6 +173,19 @@ export function InventoryReceiptDetailPage() {
     actions: headerActions,
   });
 
+  if (isLoading) {
+    return (
+      <Card>
+        <CardContent className="py-10 text-center space-y-4">
+          <div className="flex justify-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+          </div>
+          <p className="text-sm text-muted-foreground">Đang tải thông tin phiếu nhập kho...</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   if (!receipt) {
     return (
       <Card>
@@ -211,8 +216,8 @@ export function InventoryReceiptDetailPage() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <DetailField label="Nhà cung cấp">
-              {supplier ? (
-                <Link href={ROUTES.PROCUREMENT.SUPPLIER_VIEW.replace(':systemId', supplier.systemId)}
+              {receipt.supplierSystemId ? (
+                <Link href={ROUTES.PROCUREMENT.SUPPLIER_VIEW.replace(':systemId', receipt.supplierSystemId)}
                   className="text-primary hover:underline font-medium"
                 >
                   {receipt.supplierName}
@@ -222,8 +227,8 @@ export function InventoryReceiptDetailPage() {
               )}
             </DetailField>
             <DetailField label="Đơn mua hàng">
-              {purchaseOrder ? (
-                <Link href={ROUTES.PROCUREMENT.PURCHASE_ORDER_VIEW.replace(':systemId', purchaseOrder.systemId)}
+              {receipt.purchaseOrderSystemId ? (
+                <Link href={ROUTES.PROCUREMENT.PURCHASE_ORDER_VIEW.replace(':systemId', receipt.purchaseOrderSystemId)}
                   className="text-primary hover:underline font-medium"
                 >
                   {receipt.purchaseOrderId}
@@ -233,8 +238,8 @@ export function InventoryReceiptDetailPage() {
               )}
             </DetailField>
             <DetailField label="Người nhận hàng">
-              {receiver ? (
-                <Link href={ROUTES.HRM.EMPLOYEE_VIEW.replace(':systemId', receiver.systemId)}
+              {receipt.receiverSystemId ? (
+                <Link href={ROUTES.HRM.EMPLOYEE_VIEW.replace(':systemId', receipt.receiverSystemId)}
                   className="text-primary hover:underline font-medium"
                 >
                   {receipt.receiverName}
@@ -246,7 +251,7 @@ export function InventoryReceiptDetailPage() {
           </div>
           {receipt.notes && (
             <DetailField label="Ghi chú">
-              <span className="text-body-sm text-muted-foreground">{receipt.notes}</span>
+              <span className="text-sm text-muted-foreground">{receipt.notes}</span>
             </DetailField>
           )}
         </CardContent>
@@ -255,12 +260,12 @@ export function InventoryReceiptDetailPage() {
       <Card>
         <CardContent className="p-0">
           <div className="p-6">
-            <h3 className="text-h3 font-semibold">Danh sách sản phẩm</h3>
-            <p className="text-body-sm text-muted-foreground">
+            <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider md:text-h3 md:font-semibold md:text-foreground md:normal-case md:tracking-normal">Danh sách sản phẩm</h3>
+            <p className="text-sm text-muted-foreground">
               Tổng {receipt.items.length} mặt hàng • {totalQuantity} đơn vị • {formatCurrency(totalValue)}
             </p>
           </div>
-          <div className="border-t">
+          <div className="border-t overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -277,15 +282,15 @@ export function InventoryReceiptDetailPage() {
               </TableHeader>
               <TableBody>
                 {receipt.items.map((item, index) => {
-                  const product = findProductById(item.productSystemId);
+                  const itemWithProduct = item as typeof item & { thumbnailImage?: string; costPrice?: number; productImages?: string[] };
                   return (
                   <TableRow key={`${item.productSystemId}-${index}`}>
                     <TableCell className="text-center text-muted-foreground">{index + 1}</TableCell>
                     <TableCell>
                       <ProductThumbnailCell
                         productSystemId={item.productSystemId}
-                        product={product}
                         productName={item.productName}
+                        itemThumbnailImage={itemWithProduct.thumbnailImage || itemWithProduct.productImages?.[0]}
                         onPreview={(url, title) => setPreviewImage({ url, title })}
                       />
                     </TableCell>
@@ -293,20 +298,18 @@ export function InventoryReceiptDetailPage() {
                       <Link href={ROUTES.SALES.PRODUCT_VIEW.replace(':systemId', item.productSystemId)}
                         className="text-primary hover:underline font-medium"
                       >
-                        {item.productId || product?.id || '-'}
+                        {item.productId || '-'}
                       </Link>
                     </TableCell>
                     <TableCell>
-                      <Link href={ROUTES.SALES.PRODUCT_VIEW.replace(':systemId', item.productSystemId)}
-                        className="text-primary hover:underline"
-                      >
-                        {item.productName || product?.name || '-'}
-                      </Link>
+                      <span className="font-medium">
+                        {item.productName || '-'}
+                      </span>
                     </TableCell>
                     <TableCell className="text-center">{Number(item.orderedQuantity) || 0}</TableCell>
                     <TableCell className="text-center font-medium">{Number(item.receivedQuantity) || 0}</TableCell>
                     <TableCell className="text-right">{formatCurrency(Number(item.unitPrice) || 0)}</TableCell>
-                    <TableCell className="text-right text-muted-foreground">{formatCurrency(product?.costPrice || 0)}</TableCell>
+                    <TableCell className="text-right text-muted-foreground">{formatCurrency(itemWithProduct.costPrice || 0)}</TableCell>
                     <TableCell className="text-right font-semibold">
                       {formatCurrency((Number(item.receivedQuantity) || 0) * (Number(item.unitPrice) || 0))}
                     </TableCell>
@@ -372,13 +375,7 @@ export function InventoryReceiptDetailPage() {
       />
 
       {/* Activity History */}
-      <ActivityHistory
-        history={[]}
-        title="Lịch sử hoạt động"
-        emptyMessage="Chưa có lịch sử hoạt động"
-        groupByDate
-        maxHeight="400px"
-      />
+      <EntityActivityTable entityType="inventory_receipt" entityId={systemId} />
     </div>
   );
 }

@@ -31,85 +31,52 @@ const prisma = new PrismaClient({ adapter });
 // Pricing policies - stored in PricingPolicy table (ProductPrice.pricingPolicyId FK to this)
 const pricingPolicies = [
   {
-    systemId: 'PRICE_POLICY_001',
     id: 'GIA_BAN',
     name: 'Giá bán lẻ',
     description: 'Giá bán lẻ cho khách hàng (shop_price)',
     type: 'Bán hàng',
     isDefault: true,
+    pkgxPriceType: 'shop_price', // maps to PkgxPriceMapping
   },
   {
-    systemId: 'PRICE_POLICY_002',
     id: 'GIA_THI_TRUONG',
     name: 'Giá thị trường',
     description: 'Giá niêm yết / giá gốc (market_price)',
     type: 'Bán hàng',
     isDefault: false,
+    pkgxPriceType: 'market_price',
   },
   {
-    systemId: 'PRICE_POLICY_003',
     id: 'GIA_DOI_TAC',
     name: 'Giá đối tác',
     description: 'Giá dành cho đối tác (partner_price)',
     type: 'Bán hàng',
     isDefault: false,
+    pkgxPriceType: 'partner_price',
   },
   {
-    systemId: 'PRICE_POLICY_004',
     id: 'GIA_ACE',
     name: 'Giá ACE',
     description: 'Giá đặc biệt ACE (ace_price)',
     type: 'Bán hàng',
     isDefault: false,
+    pkgxPriceType: 'ace_price',
   },
   {
-    systemId: 'PRICE_POLICY_005',
     id: 'GIA_DEAL',
     name: 'Giá deal',
     description: 'Giá khuyến mãi (deal_price)',
     type: 'Bán hàng',
     isDefault: false,
+    pkgxPriceType: 'deal_price',
   },
   {
-    systemId: 'PRICE_POLICY_006',
     id: 'GIA_NHAP',
     name: 'Giá nhập',
     description: 'Giá nhập hàng từ nhà cung cấp',
     type: 'Nhập hàng',
     isDefault: true,
-  },
-];
-
-const pkgxPriceMappings = [
-  {
-    systemId: 'PKGX_PRICE_MAP_001',
-    priceType: 'shop_price',
-    pricingPolicyId: 'PRICE_POLICY_001',
-    description: 'Giá bán chính',
-  },
-  {
-    systemId: 'PKGX_PRICE_MAP_002',
-    priceType: 'market_price',
-    pricingPolicyId: 'PRICE_POLICY_002',
-    description: 'Giá thị trường',
-  },
-  {
-    systemId: 'PKGX_PRICE_MAP_003',
-    priceType: 'partner_price',
-    pricingPolicyId: 'PRICE_POLICY_003',
-    description: 'Giá đối tác',
-  },
-  {
-    systemId: 'PKGX_PRICE_MAP_004',
-    priceType: 'ace_price',
-    pricingPolicyId: 'PRICE_POLICY_004',
-    description: 'Giá ACE',
-  },
-  {
-    systemId: 'PKGX_PRICE_MAP_005',
-    priceType: 'deal_price',
-    pricingPolicyId: 'PRICE_POLICY_005',
-    description: 'Giá deal',
+    pkgxPriceType: null, // no PKGX mapping
   },
 ];
 
@@ -127,14 +94,11 @@ export async function seedPricingPolicies() {
 
     // Create pricing policies in PricingPolicy table (ProductPrice FK references this)
     for (const policy of pricingPolicies) {
+      const { pkgxPriceType, ...policyData } = policy;
       await prisma.pricingPolicy.create({
         data: {
-          systemId: policy.systemId,
-          id: policy.id,
-          name: policy.name,
-          type: policy.type, // 'Bán hàng' or 'Nhập hàng'
-          description: policy.description,
-          isDefault: policy.isDefault,
+          systemId: crypto.randomUUID(),
+          ...policyData,
           isActive: true,
           createdBy: 'SYSTEM',
         },
@@ -142,18 +106,33 @@ export async function seedPricingPolicies() {
       console.log(`   ✓ Created pricing policy: ${policy.name}`);
     }
 
-    // Create PKGX price mappings
-    for (const mapping of pkgxPriceMappings) {
+    // Create PKGX price mappings — lookup created policy systemIds by businessId
+    const createdPolicies = await prisma.pricingPolicy.findMany({
+      select: { systemId: true, id: true },
+    });
+    const policyIdMap = new Map(createdPolicies.map(p => [p.id, p.systemId]));
+
+    for (const policy of pricingPolicies) {
+      if (!policy.pkgxPriceType) continue;
+      const policySystemId = policyIdMap.get(policy.id);
+      if (!policySystemId) {
+        console.warn(`   ⚠️ PricingPolicy ${policy.id} not found, skipping PKGX mapping`);
+        continue;
+      }
       await prisma.pkgxPriceMapping.create({
-        data: mapping,
+        data: {
+          priceType: policy.pkgxPriceType,
+          pricingPolicyId: policySystemId,
+          description: policy.name,
+        },
       });
-      console.log(`   ✓ Created PKGX price mapping: ${mapping.description}`);
+      console.log(`   ✓ Created PKGX price mapping: ${policy.name}`);
     }
 
     console.log('');
     console.log('✅ Pricing Policies seeded successfully!');
     console.log(`   - ${pricingPolicies.length} pricing policies (in PricingPolicy table)`);
-    console.log(`   - ${pkgxPriceMappings.length} PKGX price mappings`);
+    console.log(`   - ${pricingPolicies.filter(p => p.pkgxPriceType).length} PKGX price mappings`);
 
   } catch (error) {
     console.error('❌ Error seeding pricing policies:', error);

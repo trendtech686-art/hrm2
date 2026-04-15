@@ -1,5 +1,8 @@
 import { prisma } from '@/lib/prisma';
 import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils';
+import { logError } from '@/lib/logger'
+import { createNotification } from '@/lib/notifications'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 interface RouteParams {
   params: Promise<{ systemId: string; packagingId: string }>;
@@ -49,6 +52,10 @@ export async function POST(request: Request, { params }: RouteParams) {
     if (packaging.orderId !== systemId) {
       return apiError('Packaging does not belong to this order', 400);
     }
+
+    if (!packaging.order) {
+      return apiError('Packaging không thuộc đơn hàng nào', 400);
+    }
     
     // Check if packaging already has a shipment
     const existingShipment = await prisma.shipment.findUnique({
@@ -77,7 +84,7 @@ export async function POST(request: Request, { params }: RouteParams) {
         data: {
           systemId: shipmentId,
           id: shipmentId,
-          orderId: packaging.orderId,
+          orderId: packaging.orderId!,
           packagingSystemId: packaging.systemId,
           carrier: 'GHTK',
           trackingCode: trackingCode,
@@ -136,6 +143,29 @@ export async function POST(request: Request, { params }: RouteParams) {
     });
     
 
+    // Log activity
+    await createActivityLog({
+      entityType: 'order',
+      entityId: systemId,
+      action: `Tạo vận đơn GHTK - ${updatedOrder.id || systemId} - Mã vận đơn: ${trackingCode}`,
+      actionType: 'status',
+      createdBy: session.user?.employee?.fullName || session.user?.name || session.user?.id || undefined,
+    }).catch(e => logError('[GHTK Create] activity log failed', e));
+
+    // Notify salesperson about GHTK shipment created
+    if (updatedOrder.salespersonId && updatedOrder.salespersonId !== session.user?.employeeId) {
+      createNotification({
+        type: 'order',
+        settingsKey: 'order:packaging',
+        title: 'Tạo vận đơn GHTK',
+        message: `Đơn hàng ${updatedOrder.id || systemId} đã tạo vận đơn GHTK: ${trackingCode}`,
+        link: `/orders/${systemId}`,
+        recipientId: updatedOrder.salespersonId,
+        senderId: session.user?.employeeId,
+        senderName: session.user?.name,
+      }).catch(e => logError('[GHTK Create] notification failed', e));
+    }
+
     return apiSuccess({ 
       success: true, 
       message: 'Đã tạo đơn vận chuyển GHTK thành công',
@@ -143,7 +173,7 @@ export async function POST(request: Request, { params }: RouteParams) {
       order: updatedOrder,
     });
   } catch (error) {
-    console.error('Error creating GHTK shipment:', error);
+    logError('Error creating GHTK shipment', error);
     return apiError('Failed to create GHTK shipment', 500);
   }
 }
@@ -216,9 +246,32 @@ export async function DELETE(request: Request, { params }: RouteParams) {
       return updated;
     });
 
+    // Log activity
+    await createActivityLog({
+      entityType: 'order',
+      entityId: systemId,
+      action: `Hủy vận đơn GHTK - ${updatedOrder.id || systemId}`,
+      actionType: 'status',
+      createdBy: session.user?.employee?.fullName || session.user?.name || session.user?.id || undefined,
+    }).catch(e => logError('[GHTK Cancel] activity log failed', e));
+
+    // Notify salesperson about GHTK shipment cancelled
+    if (updatedOrder.salespersonId && updatedOrder.salespersonId !== session.user?.employeeId) {
+      createNotification({
+        type: 'order',
+        settingsKey: 'order:packaging',
+        title: 'Hủy vận đơn GHTK',
+        message: `Vận đơn GHTK của đơn hàng ${updatedOrder.id || systemId} đã bị hủy`,
+        link: `/orders/${systemId}`,
+        recipientId: updatedOrder.salespersonId,
+        senderId: session.user?.employeeId,
+        senderName: session.user?.name,
+      }).catch(e => logError('[GHTK Cancel] notification failed', e));
+    }
+
     return apiSuccess(updatedOrder);
   } catch (error) {
-    console.error('Error cancelling GHTK shipment:', error);
+    logError('Error cancelling GHTK shipment', error);
     return apiError('Failed to cancel GHTK shipment', 500);
   }
 }

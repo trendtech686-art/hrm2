@@ -224,7 +224,7 @@ export function CustomerContacts({ contacts = [], onUpdate }: CustomerContactsPr
         </Card>
       ) : (
         <div className="space-y-2">
-          <div className="rounded-md border border-border ">
+          <div className="rounded-md border border-border overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>

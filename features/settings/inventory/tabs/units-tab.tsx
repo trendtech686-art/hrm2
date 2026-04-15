@@ -40,16 +40,17 @@ export function UnitsTabContent({ isActive, onRegisterActions }: TabContentProps
   const handleToggleDefault = React.useCallback((unit: Unit, checked: boolean) => {
     if (checked) {
       data.forEach(u => { if (u.isDefault && u.systemId !== unit.systemId) update.mutate({ systemId: u.systemId, data: { ...u, isDefault: false } }); });
-      update.mutate({ systemId: unit.systemId, data: { ...unit, isDefault: true } });
-      toast.success(`Đã đặt "${unit.name}" làm mặc định`);
+      update.mutate({ systemId: unit.systemId, data: { ...unit, isDefault: true } }, {
+        onSuccess: () => toast.success(`Đã đặt "${unit.name}" làm mặc định`),
+      });
     } else {
       const otherUnits = data.filter(u => u.systemId !== unit.systemId && u.isActive !== false);
-      if (otherUnits.length > 0) { const nd = otherUnits[0]; update.mutate({ systemId: unit.systemId, data: { ...unit, isDefault: false } }); update.mutate({ systemId: nd.systemId, data: { ...nd, isDefault: true } }); toast.success(`Đã chuyển mặc định sang "${nd.name}"`); }
+      if (otherUnits.length > 0) { const nd = otherUnits[0]; update.mutate({ systemId: unit.systemId, data: { ...unit, isDefault: false } }); update.mutate({ systemId: nd.systemId, data: { ...nd, isDefault: true } }, { onSuccess: () => toast.success(`Đã chuyển mặc định sang "${nd.name}"`), }); }
       else toast.error('Phải có ít nhất một đơn vị tính mặc định');
     }
   }, [data, update]);
 
-  const handleToggleActive = React.useCallback((unit: Unit) => { const na = unit.isActive === false ? true : false; update.mutate({ systemId: unit.systemId, data: { ...unit, isActive: na } }); toast.success(na ? 'Đã kích hoạt' : 'Đã tắt'); }, [update]);
+  const handleToggleActive = React.useCallback((unit: Unit) => { const na = unit.isActive === false ? true : false; update.mutate({ systemId: unit.systemId, data: { ...unit, isActive: na } }, { onSuccess: () => toast.success(na ? 'Đã kích hoạt' : 'Đã tắt'), }); }, [update]);
 
   // Stabilize onRegisterActions with ref to prevent infinite loop
   const onRegisterActionsRef = React.useRef(onRegisterActions);
@@ -57,15 +58,19 @@ export function UnitsTabContent({ isActive, onRegisterActions }: TabContentProps
   const confirmDelete = () => { if (idToDelete) { remove.mutate(idToDelete); } setIsAlertOpen(false); setIdToDelete(null); };
 
   const handleBulkDelete = React.useCallback((selectedItems: { systemId: string }[]) => { if (selectedItems.length === 0) return; setIsBulkDeleteOpen(true); }, []);
-  const confirmBulkDelete = () => { const selectedIds = Object.keys(rowSelection); selectedIds.forEach(id => { remove.mutate(id as SystemId); }); toast.success(`Đã xóa ${selectedIds.length} đơn vị tính`); setRowSelection({}); setIsBulkDeleteOpen(false); };
+  const confirmBulkDelete = () => { const selectedIds = Object.keys(rowSelection); const count = selectedIds.length; selectedIds.forEach((id, i) => { remove.mutate(id as SystemId, i === count - 1 ? { onSuccess: () => toast.success(`Đã xóa ${count} đơn vị tính`), } : undefined); }); setRowSelection({}); setIsBulkDeleteOpen(false); };
   
   const handleFormSubmit = (values: UnitFormValues) => {
     const payload = { ...values, id: asBusinessId(values.id) };
     if (editingUnit) {
-      update.mutate({ systemId: editingUnit.systemId, data: { ...editingUnit, ...payload } });
+      update.mutate({ systemId: editingUnit.systemId, data: { ...editingUnit, ...payload } }, {
+        onSuccess: () => toast.success('Đã cập nhật đơn vị tính'),
+      });
     }
     else {
-      create.mutate(payload);
+      create.mutate(payload, {
+        onSuccess: () => toast.success('Đã thêm đơn vị tính mới'),
+      });
     }
     setIsFormOpen(false);
   };

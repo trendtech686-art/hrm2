@@ -7,9 +7,20 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { logError } from '@/lib/logger'
+import { checkRateLimit } from '@/lib/security-utils'
 
 export async function GET(request: NextRequest) {
   try {
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+    const rateLimit = checkRateLimit(`public-warranty:${ip}`, 30, 60_000)
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many requests. Please try again later.' },
+        { status: 429, headers: { 'Retry-After': String(Math.ceil((rateLimit.resetTime - Date.now()) / 1000)) } }
+      )
+    }
+
     const { searchParams } = new URL(request.url);
     const code = searchParams.get('code');
 
@@ -351,11 +362,11 @@ export async function GET(request: NextRequest) {
         showProcessedImages: trackingVal?.showProcessedImages ?? publicVal?.showProcessedImages ?? true,
         showHistory: trackingVal?.showHistory ?? publicVal?.showHistory ?? true,
       },
-      hotline: defaultBranch?.phone || '1900-xxxx',
+      hotline: defaultBranch?.phone || '',
       companyName: defaultBranch?.name || 'Công ty',
     });
   } catch (error) {
-    console.error('[PUBLIC-WARRANTY-TRACKING] Error:', error);
+    logError('[PUBLIC-WARRANTY-TRACKING] Error', error);
     return NextResponse.json(
       { error: 'Đã xảy ra lỗi khi tải thông tin' },
       { status: 500 }

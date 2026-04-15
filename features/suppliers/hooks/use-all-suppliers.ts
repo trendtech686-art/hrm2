@@ -6,7 +6,6 @@
 
 import * as React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { fetchAllPages } from '@/lib/fetch-all-pages';
 import { fetchSuppliers } from '../api/suppliers-api';
 import { supplierKeys } from './use-suppliers';
 import type { Supplier } from '@/lib/types/prisma-extended';
@@ -35,7 +34,10 @@ export function useAllSuppliers(options: UseAllSuppliersOptions = {}) {
   const { enabled = true } = options;
   const query = useQuery({
     queryKey: [...supplierKeys.all, 'all'],
-    queryFn: () => fetchAllPages((p) => fetchSuppliers(p)),
+    queryFn: async () => {
+      const res = await fetchSuppliers();
+      return res.data;
+    },
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
     enabled,
@@ -89,9 +91,11 @@ export function useSupplierOptions() {
 /**
  * Helper hook to find a supplier by ID from cached data
  * Replaces legacy findById() method
+ * 
+ * @param options.enabled - Whether to fetch data (default: true). Set to false for lazy loading
  */
-export function useSupplierFinder() {
-  const { data } = useAllSuppliers();
+export function useSupplierFinder(options: UseAllSuppliersOptions = {}) {
+  const { data, isLoading } = useAllSuppliers(options);
   
   const findById = React.useCallback(
     (systemId: SystemId | string | undefined): Supplier | undefined => {
@@ -101,5 +105,5 @@ export function useSupplierFinder() {
     [data]
   );
   
-  return { findById };
+  return { findById, isLoading };
 }

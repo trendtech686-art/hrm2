@@ -1,11 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import FullCalendar from '@fullcalendar/react';
-import dayGridPlugin from '@fullcalendar/daygrid';
-import timeGridPlugin from '@fullcalendar/timegrid';
-import interactionPlugin from '@fullcalendar/interaction';
-import listPlugin from '@fullcalendar/list';
+import dynamic from 'next/dynamic';
 import type { EventClickArg, EventDropArg } from '@fullcalendar/core';
 import type { EventResizeDoneArg } from '@fullcalendar/interaction';
 import type { EventContentArg } from '@fullcalendar/core';
@@ -17,6 +13,27 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
+import { Skeleton } from '@/components/ui/skeleton';
+
+// Lazy load FullCalendar (~200KB) — only loaded when calendar page is visited
+const FullCalendar = dynamic(() => import('@fullcalendar/react'), {
+  ssr: false,
+  loading: () => (
+    <div className="space-y-4 p-4">
+      <div className="flex justify-between items-center">
+        <Skeleton className="h-8 w-40" />
+        <Skeleton className="h-8 w-64" />
+      </div>
+      <Skeleton className="h-125 w-full rounded-lg" />
+    </div>
+  ),
+});
+
+// Lazy load plugins
+const dayGridPluginPromise = () => import('@fullcalendar/daygrid').then(m => m.default);
+const timeGridPluginPromise = () => import('@fullcalendar/timegrid').then(m => m.default);
+const interactionPluginPromise = () => import('@fullcalendar/interaction').then(m => m.default);
+const listPluginPromise = () => import('@fullcalendar/list').then(m => m.default);
 
 export function TaskCalendarView() {
   usePageHeader();
@@ -29,7 +46,18 @@ export function TaskCalendarView() {
   }, [updateMutation]);
   
   const router = useRouter();
-  const calendarRef = React.useRef<FullCalendar>(null);
+  const calendarRef = React.useRef<InstanceType<typeof import('@fullcalendar/react').default> | null>(null);
+
+  // Load plugins lazily
+  const [plugins, setPlugins] = React.useState<unknown[] | null>(null);
+  React.useEffect(() => {
+    Promise.all([
+      dayGridPluginPromise(),
+      timeGridPluginPromise(),
+      interactionPluginPromise(),
+      listPluginPromise(),
+    ]).then(setPlugins);
+  }, []);
 
   const getPriorityColor = (priority: TaskPriority): string => {
     const colors = {
@@ -184,9 +212,10 @@ export function TaskCalendarView() {
             }
           `}</style>
           
+          {plugins ? (
           <FullCalendar
-            ref={calendarRef}
-            plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, listPlugin]}
+            {...{ ref: calendarRef } as Record<string, unknown>}
+            plugins={plugins as import('@fullcalendar/core').PluginDef[]}
             initialView="dayGridMonth"
             headerToolbar={{
               left: 'prev,next today',
@@ -226,6 +255,15 @@ export function TaskCalendarView() {
             moreLinkText={(num) => `+${num} công việc`}
             nowIndicator={true}
           />
+          ) : (
+            <div className="space-y-4 p-4">
+              <div className="flex justify-between items-center">
+                <Skeleton className="h-8 w-40" />
+                <Skeleton className="h-8 w-64" />
+              </div>
+              <Skeleton className="h-125 w-full rounded-lg" />
+            </div>
+          )}
         </CardContent>
       </Card>
 

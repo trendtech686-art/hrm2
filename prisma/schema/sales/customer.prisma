@@ -1,52 +1,44 @@
 model Customer {
-  systemId         String            @id
-  id               String            @unique
-  name             String
-  email            String?
-  phone            String?
-  company          String?
-  companyName      String?
-  status           CustomerStatus    @default(ACTIVE)
-  taxCode          String?
-  representative   String?
-  position         String?
-  addresses        Json?
+  systemId       String         @id
+  id             String         @unique
+  name           String
+  phone          String?
+  company        String?
+  companyName    String?
+  status         CustomerStatus @default(ACTIVE)
+  taxCode        String?
+  representative String?
+  position       String?
+  addresses      Json?
 
   // Personal Info (for individual customers)
-  gender           String?           // Nam, Nữ, Khác
-  dateOfBirth      DateTime?         // Ngày sinh
-  
-  // Address fields (for flat import/export)
-  address          String?           // Địa chỉ chi tiết
-  province         String?           // Tỉnh/Thành phố
-  district         String?           // Quận/Huyện
-  ward             String?           // Phường/Xã
-  currentDebt      Decimal?          @default(0) @db.Decimal(15, 2)
-  maxDebt          Decimal?          @db.Decimal(15, 2)
-  lifecycleStage   CustomerLifecycle @default(LEAD)
-  pricingLevel     PricingLevel?
-  pricingPolicyId  String?           // FK to PricingPolicy systemId - Bảng giá áp dụng
-  defaultDiscount  Decimal?          @db.Decimal(5, 2)
-  totalOrders      Int?              @default(0)
-  totalSpent       Decimal?          @default(0) @db.Decimal(15, 2)
-  totalProductsBought Int?           @default(0)  // Tổng số lượng sản phẩm đã mua
-  lastPurchaseDate DateTime?
-  accountManagerId String?
-  tags             String[]
-  notes            String?
+  gender      String? // Nam, Nữ, Khác
+  dateOfBirth DateTime? // Ngày sinh
 
-  // Contact & Banking (added from types.ts comparison)
-  zaloPhone   String?
-  bankName    String?
-  bankAccount String?
+  // Address fields (for flat import/export)
+  address             String? // Địa chỉ chi tiết
+  province            String? // Tỉnh/Thành phố
+  district            String? // Quận/Huyện
+  ward                String? // Phường/Xã
+  currentDebt         Decimal?      @default(0) @db.Decimal(15, 2)
+  maxDebt             Decimal?      @db.Decimal(15, 2)
+  pricingLevel        PricingLevel?
+  pricingPolicyId     String? // FK to PricingPolicy systemId - Bảng giá áp dụng
+  defaultDiscount     Decimal?      @db.Decimal(5, 2)
+  totalOrders         Int?          @default(0)
+  totalSpent          Decimal?      @default(0) @db.Decimal(15, 2)
+  totalProductsBought Int?          @default(0) // Tổng số lượng sản phẩm đã mua
+  lastPurchaseDate    DateTime?
+  accountManagerId    String?
+  tags                String[]
+  notes               String?
+
+  // Contact (added from types.ts comparison) - Banking moved to businessProfiles
+  zaloPhone String?
 
   // Customer Classification (added from types.ts comparison)
   type          String? // Customer type ID from settings
   customerGroup String? // Customer group ID from settings
-  rfmScores     Json? // {recency, frequency, monetary}
-  segment       String? // RFM segment: Champions, Loyal, At Risk, etc.
-  healthScore   Int? // 0-100
-  churnRisk     String? // low, medium, high
 
   // Source & Campaign Tracking (added from types.ts comparison)
   source     String? // Lead source ID
@@ -61,8 +53,9 @@ model Customer {
   creditRating String? // Credit rating ID (AAA, AA, A...)
   allowCredit  Boolean? @default(true)
 
-  // Contract Information (added from types.ts comparison)
-  contract Json? // Contract info object
+  // Business Profiles (multiple business entities per customer)
+  // Each profile has: id, company, taxCode, representative, position, email, bankName, bankAccount, addressId
+  businessProfiles Json?
 
   // Images & Social (added from types.ts comparison)
   images String[] // Image URLs
@@ -74,18 +67,18 @@ model Customer {
   followUpReason     String?
   followUpAssigneeId String?
 
-  isDeleted  Boolean     @default(false)
-  deletedAt  DateTime?
-  createdAt  DateTime    @default(now())
+  isDeleted            Boolean   @default(false)
+  deletedAt            DateTime?
+  permanentlyDeletedAt DateTime?
+  createdAt            DateTime  @default(now())
   updatedAt  DateTime    @updatedAt
   createdBy  String?
-  updatedBy  String?
   complaints Complaint[]
   orders     Order[]
+  payments   Payment[]
   receipts   Receipt[]
   warranties Warranty[]
 
-  @@index([email])
   @@index([phone])
   @@index([status])
   @@map("customers")

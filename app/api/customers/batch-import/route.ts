@@ -1,12 +1,13 @@
 import { prisma } from '@/lib/prisma'
-import { Prisma, CustomerStatus, CustomerLifecycle } from '@/generated/prisma/client'
-import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
+import { Prisma, CustomerStatus } from '@/generated/prisma/client'
+import { apiSuccess, apiError } from '@/lib/api-utils'
+import { apiHandler } from '@/lib/api-handler'
 import { randomUUID } from 'crypto'
 
 /**
  * Parse Prisma errors into user-friendly messages
  */
-function parsePrismaError(error: unknown): string {
+function _parsePrismaError(error: unknown): string {
   if (!(error instanceof Error)) {
     return 'Lỗi không xác định'
   }
@@ -148,22 +149,17 @@ interface BatchImportResult {
   errors: Array<{ row: number; message: string }>
 }
 
-export async function POST(request: Request) {
-  try {
-    // Auth check
-    const session = await requireAuth()
-    if (!session) return apiError('Unauthorized', 401)
-
+export const POST = apiHandler(async (request, { session }) => {
     const body: BatchImportRequest = await request.json()
     const { data, mode = 'upsert' } = body
 
     if (!data || !Array.isArray(data) || data.length === 0) {
-      return apiError('No data provided', 400)
+      return apiError('Không có dữ liệu', 400)
     }
 
     // Limit batch size to prevent memory issues
     if (data.length > 10000) {
-      return apiError('Maximum 10,000 records per batch', 400)
+      return apiError('Tối đa 10.000 bản ghi mỗi lần nhập', 400)
     }
 
     const result: BatchImportResult = {
@@ -247,7 +243,7 @@ export async function POST(request: Request) {
           const customerId = row.id || `KH${String(nextIdNum++).padStart(5, '0')}`
           const systemId = `CUSTOMER${String(nextSystemIdNum++).padStart(6, '0')}`
           
-          toInsert.push(mapToCustomerCreate(row, customerId, systemId, session.user.id))
+          toInsert.push(mapToCustomerCreate(row, customerId, systemId, session!.user.id))
         }
       } catch (err) {
         result.errors.push({ 
@@ -293,15 +289,7 @@ export async function POST(request: Request) {
     result.success = result.inserted + result.updated
 
     return apiSuccess(result)
-  } catch (error) {
-    console.error('Error batch importing customers:', error)
-    
-    // Use friendly error message
-    const friendlyMessage = parsePrismaError(error)
-
-    return apiError(friendlyMessage, 500)
-  }
-}
+}, { permission: 'edit_customers' })
 
 /**
  * Remove undefined values from object - Prisma createMany doesn't accept undefined
@@ -353,7 +341,6 @@ function mapToCustomerCreate(
     name: row.name.trim(),
     customerGroup: row.customerGroup || undefined,
     phone: row.phone || undefined,
-    email: row.email || undefined,
     gender: row.gender || undefined,
     dateOfBirth: row.dateOfBirth ? new Date(row.dateOfBirth as string) : undefined,
     taxCode: row.taxCode || undefined,
@@ -363,10 +350,10 @@ function mapToCustomerCreate(
     ward: row.ward || undefined,
     addresses: addresses.length > 0 ? addresses : undefined,
     status: mapStatus(row.status),
-    currentDebt: row.currentDebt ? Number(row.currentDebt) : 0,
-    totalSpent: row.totalSpent ? Number(row.totalSpent) : 0,
-    totalOrders: row.totalOrders ? Number(row.totalOrders) : 0,
-    totalProductsBought: row.totalProductsBought ? Number(row.totalProductsBought) : 0,
+    currentDebt: 0,
+    totalSpent: 0,
+    totalOrders: 0,
+    totalProductsBought: 0,
     maxDebt: row.maxDebt ? Number(row.maxDebt) : undefined,
     allowCredit: row.allowCredit !== undefined ? Boolean(row.allowCredit) : true,
     pricingLevel: mapPricingLevel(row.pricingLevel as string),
@@ -374,7 +361,6 @@ function mapToCustomerCreate(
     companyName: row.company || undefined,
     notes: row.notes || undefined,
     type: row.type || undefined,
-    lifecycleStage: mapLifecycle(row.lifecycleStage),
     source: row.source || undefined,
     createdBy,
     createdAt: row.createdAt ? new Date(row.createdAt as string) : new Date(),
@@ -392,7 +378,6 @@ function mapToCustomerUpdate(row: ImportCustomerData): Prisma.CustomerUpdateInpu
   if (row.name) update.name = row.name.trim()
   if (row.customerGroup !== undefined) update.customerGroup = row.customerGroup || null
   if (row.phone !== undefined) update.phone = row.phone || null
-  if (row.email !== undefined) update.email = row.email || null
   if (row.gender !== undefined) update.gender = row.gender || null
   if (row.dateOfBirth !== undefined) update.dateOfBirth = row.dateOfBirth ? new Date(row.dateOfBirth as string) : null
   if (row.taxCode !== undefined) update.taxCode = row.taxCode || null
@@ -401,10 +386,8 @@ function mapToCustomerUpdate(row: ImportCustomerData): Prisma.CustomerUpdateInpu
   if (row.district !== undefined) update.district = row.district || null
   if (row.ward !== undefined) update.ward = row.ward || null
   if (row.status) update.status = mapStatus(row.status)
-  if (row.currentDebt !== undefined) update.currentDebt = Number(row.currentDebt)
-  if (row.totalSpent !== undefined) update.totalSpent = Number(row.totalSpent)
-  if (row.totalOrders !== undefined) update.totalOrders = Number(row.totalOrders)
-  if (row.totalProductsBought !== undefined) update.totalProductsBought = Number(row.totalProductsBought)
+  // Không update các trường thống kê tổng hợp (currentDebt, totalSpent, totalOrders, totalProductsBought)
+  // — chúng được tính tự động từ đơn hàng
   if (row.maxDebt !== undefined) update.maxDebt = row.maxDebt ? Number(row.maxDebt) : null
   if (row.allowCredit !== undefined) update.allowCredit = Boolean(row.allowCredit)
   if (row.pricingLevel !== undefined) update.pricingLevel = mapPricingLevel(row.pricingLevel as string) || null
@@ -414,7 +397,6 @@ function mapToCustomerUpdate(row: ImportCustomerData): Prisma.CustomerUpdateInpu
   }
   if (row.notes !== undefined) update.notes = row.notes || null
   if (row.type !== undefined) update.type = row.type || null
-  if (row.lifecycleStage !== undefined) update.lifecycleStage = mapLifecycle(row.lifecycleStage)
   if (row.source !== undefined) update.source = row.source || null
   
   update.updatedAt = new Date()
@@ -433,25 +415,6 @@ function mapStatus(status?: string): CustomerStatus {
     return 'INACTIVE'
   }
   return 'ACTIVE'
-}
-
-/**
- * Map lifecycle string to enum
- * Valid values: LEAD, NEW, REPEAT, LOYAL, VIP, DORMANT, CHURNED
- */
-function mapLifecycle(stage?: string): CustomerLifecycle | undefined {
-  if (!stage) return undefined
-  
-  const normalized = stage.toLowerCase().trim()
-  if (normalized.includes('lead') || normalized.includes('tiềm năng')) return 'LEAD'
-  if (normalized.includes('new') || normalized.includes('mới')) return 'NEW'
-  if (normalized.includes('repeat') || normalized.includes('quay lại')) return 'REPEAT'
-  if (normalized.includes('loyal') || normalized.includes('trung thành')) return 'LOYAL'
-  if (normalized.includes('vip')) return 'VIP'
-  if (normalized.includes('dormant') || normalized.includes('không hoạt động')) return 'DORMANT'
-  if (normalized.includes('churned') || normalized.includes('mất')) return 'CHURNED'
-  
-  return undefined
 }
 
 /**

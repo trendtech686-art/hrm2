@@ -1,15 +1,13 @@
 import { prisma } from '@/lib/prisma';
 import { requireAuth, apiSuccess, apiError, parsePagination } from '@/lib/api-utils';
 import { generateNextIds } from '@/lib/id-system';
+import { logError } from '@/lib/logger'
 
 // GET /api/stock-history - List stock history entries
 // Query params: productId, branchId, page, limit
 // 
-// ✅ IMPORTANT: newStockLevel is CALCULATED from running sum of quantityChange
-// NOT read from database. This ensures single source of truth:
-// - ProductInventory.onHand = current stock (source of truth)
-// - StockHistory.quantityChange = historical changes
-// - newStockLevel = derived value (calculated on-the-fly)
+// ✅ IMPORTANT: newStockLevel is read directly from database
+// Each StockHistory entry stores the actual stock level at that point in time
 export async function GET(request: Request) {
   const session = await requireAuth();
   if (!session) return apiError('Unauthorized', 401);
@@ -33,49 +31,93 @@ export async function GET(request: Request) {
       where.branchId = branchId;
     }
 
-    // ✅ Get ALL entries for this product-branch to calculate running totals
-    // Then paginate the result
-    const [allEntries, total] = await Promise.all([
+    // ✅ Get entries with pagination
+    const [entries, total] = await Promise.all([
       prisma.stockHistory.findMany({
         where,
         include: {
           branch: { select: { name: true } },
           product: { select: { name: true, id: true } },
         },
-        orderBy: { createdAt: 'asc' }, // Oldest first for running total calculation
+        orderBy: { createdAt: 'desc' }, // Newest first
+        skip,
+        take: limit,
       }),
       prisma.stockHistory.count({ where }),
     ]);
 
-    // ✅ Calculate running total for each entry (grouped by product-branch)
-    const runningTotals = new Map<string, number>();
-    const entriesWithCalculatedStock = allEntries.map(entry => {
-      const key = `${entry.productId}:${entry.branchId}`;
-      const currentRunning = runningTotals.get(key) || 0;
-      const newRunning = currentRunning + entry.quantityChange;
-      runningTotals.set(key, newRunning);
-      
-      return {
-        ...entry,
-        calculatedStockLevel: newRunning, // ✅ Calculated, not from DB
-      };
-    });
+    // ✅ Batch resolve documentId → documentSystemId for clickable links
+    // Groups document IDs by prefix, queries each table for {id, systemId}
+    const documentIds = entries
+      .map(e => e.documentId)
+      .filter((id): id is string => !!id && id !== '-');
 
-    // ✅ Reverse to show newest first, then paginate
-    const reversedEntries = entriesWithCalculatedStock.reverse();
-    const paginatedEntries = reversedEntries.slice(skip, skip + limit);
+    const poIds: string[] = [];
+    const receiptIds: string[] = [];
+    const orderIds: string[] = [];
+    const warrantyIds: string[] = [];
+    const checkIds: string[] = [];
+    const transferIds: string[] = [];
+    const salesReturnIds: string[] = [];
+
+    for (const id of documentIds) {
+      if (id.startsWith('PO')) poIds.push(id);
+      else if (id.startsWith('PNK') || id.startsWith('NK')) receiptIds.push(id);
+      else if (id.startsWith('DH') || id.startsWith('SON')) orderIds.push(id);
+      else if (id.startsWith('BH')) warrantyIds.push(id);
+      else if (id.startsWith('PKK') || id.startsWith('INVCHECK')) checkIds.push(id);
+      else if (id.startsWith('PCK')) transferIds.push(id);
+      else if (id.startsWith('TH')) salesReturnIds.push(id);
+    }
+
+    const [pos, recs, ords, warrs, chks, trns, srets] = await Promise.all([
+      poIds.length > 0 ? prisma.purchaseOrder.findMany({ where: { id: { in: poIds } }, select: { id: true, systemId: true } }) : [],
+      receiptIds.length > 0 ? prisma.inventoryReceipt.findMany({ where: { id: { in: receiptIds } }, select: { id: true, systemId: true } }) : [],
+      orderIds.length > 0 ? prisma.order.findMany({ where: { id: { in: orderIds } }, select: { id: true, systemId: true } }) : [],
+      warrantyIds.length > 0 ? prisma.warranty.findMany({ where: { id: { in: warrantyIds } }, select: { id: true, systemId: true } }) : [],
+      // ✅ Query by both id (PKK000001) and systemId (INVCHECK000001) since documentId might be either
+      checkIds.length > 0 ? prisma.inventoryCheck.findMany({ where: { OR: [{ id: { in: checkIds } }, { systemId: { in: checkIds } }] }, select: { id: true, systemId: true } }) : [],
+      transferIds.length > 0 ? prisma.stockTransfer.findMany({ where: { id: { in: transferIds } }, select: { id: true, systemId: true } }) : [],
+      salesReturnIds.length > 0 ? prisma.salesReturn.findMany({ where: { id: { in: salesReturnIds } }, select: { id: true, systemId: true } }) : [],
+    ]);
+
+    const docSystemIdMap = new Map<string, string>();
+    for (const p of [...pos, ...recs, ...ords, ...warrs, ...chks, ...trns, ...srets]) {
+      docSystemIdMap.set(p.id, p.systemId);
+      // ✅ Also map systemId -> systemId for cases where documentId is already a systemId
+      if (p.systemId !== p.id) {
+        docSystemIdMap.set(p.systemId, p.systemId);
+      }
+    }
+
+    // Resolve employee systemIds (EMP-*) to actual names
+    const empIds = [...new Set(entries
+      .map(e => e.employeeName)
+      .filter((n): n is string => !!n && n.startsWith('EMP'))
+    )];
+    const empNameMap = new Map<string, string>();
+    if (empIds.length > 0) {
+      const employees = await prisma.employee.findMany({
+        where: { systemId: { in: empIds } },
+        select: { systemId: true, fullName: true },
+      });
+      for (const emp of employees) {
+        empNameMap.set(emp.systemId, emp.fullName);
+      }
+    }
 
     // Transform to match frontend expected format
-    const data = paginatedEntries.map(entry => ({
+    const data = entries.map(entry => ({
       systemId: entry.systemId,
       productId: entry.productId,
       date: entry.createdAt.toISOString(),
-      employeeName: entry.employeeName || '-',
+      employeeName: (entry.employeeName && empNameMap.get(entry.employeeName)) || entry.employeeName || '-',
       action: entry.action,
       source: entry.source,
       quantityChange: entry.quantityChange,
-      newStockLevel: entry.calculatedStockLevel, // ✅ Use calculated value
+      newStockLevel: entry.newStockLevel, // ✅ Use actual DB value
       documentId: entry.documentId || '-',
+      documentSystemId: entry.documentId ? (docSystemIdMap.get(entry.documentId) || null) : null,
       documentType: entry.documentType,
       branchSystemId: entry.branchId,
       branch: entry.branch?.name || '-',
@@ -93,7 +135,7 @@ export async function GET(request: Request) {
       },
     });
   } catch (error) {
-    console.error('Error fetching stock history:', error);
+    logError('Error fetching stock history', error);
     return apiError('Failed to fetch stock history', 500);
   }
 }
@@ -177,7 +219,7 @@ export async function POST(request: Request) {
       createdAt: entry.createdAt.toISOString(),
     }, 201);
   } catch (error) {
-    console.error('Error creating stock history:', error);
+    logError('Error creating stock history', error);
     return apiError('Failed to create stock history entry', 500);
   }
 }

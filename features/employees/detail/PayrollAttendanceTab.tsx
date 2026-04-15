@@ -15,7 +15,7 @@ import type { EmployeePayrollHistoryItem } from '@/features/payroll/hooks/use-pa
 import { PayrollStatusBadge } from '@/features/payroll/components/status-badge';
 import { ROUTES } from '@/lib/router';
 import { usePrint } from '@/lib/use-print';
-import { useStoreInfoData } from '@/features/settings/store-info/hooks/use-store-info';
+import { fetchPrintData } from '@/lib/lazy-print-data';
 import {
   convertPayslipForPrint,
   mapPayslipToPrintData,
@@ -50,6 +50,7 @@ import {
   type AttendanceHistoryRow,
 } from './index';
 import { formatCurrency, formatMonthLabel } from './types';
+import { logError } from '@/lib/logger'
 
 // Helper function for lazy loading XLSX
 async function exportToExcel<T extends Record<string, unknown>>(
@@ -71,7 +72,7 @@ interface PayrollAttendanceTabProps {
 
 export function PayrollAttendanceTab({ employee }: PayrollAttendanceTabProps) {
   const router = useRouter();
-  const { info: storeInfo } = useStoreInfoData();
+  // ⚡ OPTIMIZED: storeInfo lazy loaded in print handlers
   const { print, printMultiple } = usePrint();
 
   // ✅ Server-side data
@@ -107,6 +108,7 @@ export function PayrollAttendanceTab({ employee }: PayrollAttendanceTabProps) {
         toast.error('Không thể in', { description: 'Không tìm thấy dữ liệu chấm công.' });
         return;
       }
+      const { storeInfo } = await fetchPrintData();
       const storeSettings = createAttendanceStoreSettings(storeInfo);
       const attendanceForPrint = convertAttendanceDetailForPrint(row.monthKey, employeeRow as unknown as Parameters<typeof convertAttendanceDetailForPrint>[1]);
       print('attendance', {
@@ -115,10 +117,10 @@ export function PayrollAttendanceTab({ employee }: PayrollAttendanceTabProps) {
       });
       toast.success('Đang in phiếu chấm công...', { description: `${employee.fullName} - ${row.monthLabel}` });
     } catch (error) {
-      console.error('Error printing attendance:', error);
+      logError('Error printing attendance', error);
       toast.error('Không thể in', { description: 'Lỗi khi tải dữ liệu chấm công.' });
     }
-  }, [employee, storeInfo, print]);
+  }, [employee, print]);
 
   // State for attendance detail dialog
   const [selectedAttendance, setSelectedAttendance] = React.useState<AttendanceHistoryRow | null>(null);
@@ -174,6 +176,7 @@ export function PayrollAttendanceTab({ employee }: PayrollAttendanceTabProps) {
   const attendanceBulkActions = React.useMemo(() => {
     const handlePrintAttendances = async (rows: AttendanceHistoryRow[]) => {
       if (rows.length === 0) { toast.error('Chưa chọn kỳ chấm công nào'); return; }
+      const { storeInfo } = await fetchPrintData();
       const storeSettings = createAttendanceStoreSettings(storeInfo);
       const results = await Promise.allSettled(
         rows.map(row => fetchAttendanceByEmployeeMonth(employee.systemId, row.monthKey))
@@ -209,7 +212,7 @@ export function PayrollAttendanceTab({ employee }: PayrollAttendanceTabProps) {
       { label: 'In phiếu chấm công', icon: Printer, onSelect: handlePrintAttendances },
       { label: 'Xuất Excel', icon: FileSpreadsheet, onSelect: handleExportExcel },
     ];
-  }, [employee, storeInfo, printMultiple]);
+  }, [employee, printMultiple]);
 
   // ========== PAYROLL ==========
   const payrollHistoryAdapted = React.useMemo(() => {
@@ -290,11 +293,12 @@ export function PayrollAttendanceTab({ employee }: PayrollAttendanceTabProps) {
     [displayedPayrollHistory]
   );
 
-  const handlePrintSinglePayslip = React.useCallback((row: PayrollHistoryRow) => {
+  const handlePrintSinglePayslip = React.useCallback(async (row: PayrollHistoryRow) => {
     if (!row.slip) {
       toast.error('Không thể in', { description: 'Không tìm thấy dữ liệu phiếu lương.' });
       return;
     }
+    const { storeInfo } = await fetchPrintData();
     const storeSettings = createStoreSettings(storeInfo);
     const payslipForPrint = convertPayslipForPrint(
       row.slip,
@@ -312,7 +316,7 @@ export function PayrollAttendanceTab({ employee }: PayrollAttendanceTabProps) {
       lineItems: mapPayslipComponentLineItems(payslipForPrint.components || []),
     });
     toast.success('Đang in phiếu lương...', { description: `${employee.fullName} - ${row.monthLabel}` });
-  }, [employee, storeInfo, print]);
+  }, [employee, print]);
 
   const payrollColumns: ColumnDef<PayrollHistoryRow>[] = React.useMemo(() => [
     { id: 'batchId', accessorKey: 'batchId', header: 'Mã BL', size: 95, cell: ({ row }) => (
@@ -373,8 +377,9 @@ export function PayrollAttendanceTab({ employee }: PayrollAttendanceTabProps) {
   }, [router]);
 
   const payrollBulkActions = React.useMemo(() => {
-    const handlePrintPayslips = (rows: PayrollHistoryRow[]) => {
+    const handlePrintPayslips = async (rows: PayrollHistoryRow[]) => {
       if (rows.length === 0) { toast.error('Chưa chọn phiếu lương nào'); return; }
+      const { storeInfo } = await fetchPrintData();
       const sSettings = createStoreSettings(storeInfo);
       const printOptionsList = rows.map(row => {
         const payslipForPrint = convertPayslipForPrint(
@@ -404,7 +409,7 @@ export function PayrollAttendanceTab({ employee }: PayrollAttendanceTabProps) {
       { label: 'In phiếu lương', icon: Printer, onSelect: handlePrintPayslips },
       { label: 'Xuất Excel', icon: FileSpreadsheet, onSelect: handleExportExcel },
     ];
-  }, [employee, storeInfo, printMultiple]);
+  }, [employee, printMultiple]);
 
   return (
     <>

@@ -15,20 +15,22 @@
  */
 
 // ========================================
-// ORDER STATUS
+// ORDER STATUS (Sapo Standard - 5 main statuses)
+// Internal workflow statuses map to main display statuses
 // ========================================
 export const orderStatusLabels: Record<string, string> = {
-  'PENDING': 'Chờ xác nhận',
-  'CONFIRMED': 'Đã xác nhận',
-  'PROCESSING': 'Đang xử lý',
-  'PACKING': 'Đang đóng gói',
-  'PACKED': 'Đã đóng gói',
-  'READY_FOR_PICKUP': 'Chờ lấy hàng',
-  'SHIPPING': 'Đang giao hàng',
-  'DELIVERED': 'Đã giao hàng',
+  'PENDING': 'Đặt hàng',
+  'CONFIRMED': 'Đang giao dịch',
+  'PROCESSING': 'Đang giao dịch',
+  'PACKING': 'Đang giao dịch',
+  'PACKED': 'Đang giao dịch',
+  'READY_FOR_PICKUP': 'Đang giao dịch',
+  'SHIPPING': 'Đang giao dịch',
+  'DELIVERED': 'Đang giao dịch',
   'COMPLETED': 'Hoàn thành',
-  'FAILED_DELIVERY': 'Giao hàng thất bại',
-  'RETURNED': 'Đã trả hàng',
+  'ARCHIVED': 'Đã lưu trữ',
+  'FAILED_DELIVERY': 'Đang giao dịch',
+  'RETURNED': 'Đang giao dịch',
   'CANCELLED': 'Đã hủy',
 };
 
@@ -37,12 +39,16 @@ export function getOrderStatusLabel(status: string): string {
 }
 
 // ========================================
-// PAYMENT STATUS
+// PAYMENT STATUS (Sapo Standard)
 // ========================================
 export const paymentStatusLabels: Record<string, string> = {
   'UNPAID': 'Chưa thanh toán',
-  'PARTIAL': 'Thanh toán 1 phần',
-  'PAID': 'Thanh toán toàn bộ',
+  'PENDING_CONFIRMATION': 'Chờ xác nhận',
+  'PARTIAL': 'Thanh toán một phần',
+  'PAID': 'Đã thanh toán',
+  'PARTIAL_REFUND': 'Hoàn tiền một phần',
+  'REFUNDED': 'Đã hoàn tiền',
+  'CANCELLED': 'Đã hủy',
 };
 
 export function getPaymentStatusLabel(status: string): string {
@@ -50,15 +56,19 @@ export function getPaymentStatusLabel(status: string): string {
 }
 
 // ========================================
-// DELIVERY STATUS
+// DELIVERY STATUS (Sapo Standard)
 // ========================================
 export const deliveryStatusLabels: Record<string, string> = {
   'PENDING_PACK': 'Chờ đóng gói',
   'PACKED': 'Đã đóng gói',
   'PENDING_SHIP': 'Chờ lấy hàng',
+  'PICKED_UP': 'Đã lấy hàng',
   'SHIPPING': 'Đang giao hàng',
-  'DELIVERED': 'Đã giao hàng',
   'RESCHEDULED': 'Chờ giao lại',
+  'DELIVERED': 'Đã giao hàng',
+  'RETURNING': 'Đang hoàn hàng',
+  'WAITING_RETURN_CONFIRM': 'Chờ xác nhận hàng hoàn',
+  'RETURNED': 'Đã hoàn hàng',
   'CANCELLED': 'Đã hủy',
 };
 

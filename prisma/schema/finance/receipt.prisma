@@ -61,8 +61,9 @@ model Receipt {
   customerName     String?
 
   // Financial
-  affectsDebt      Boolean  @default(true)
-  runningBalance   Decimal? @db.Decimal(15, 2)
+  affectsDebt            Boolean  @default(true)
+  affectsBusinessReport  Boolean  @default(false)
+  runningBalance         Decimal? @db.Decimal(15, 2)
   orderAllocations Json? // Array of { orderSystemId, orderId, amount }
 
   // === RELATIONS ===

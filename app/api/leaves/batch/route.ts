@@ -11,10 +11,30 @@
 
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { LeaveStatus } from '@/generated/prisma/client';
+import { LeaveStatus, LeaveType } from '@/generated/prisma/client';
 import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils';
 import { generateIdWithPrefix } from '@/lib/id-generator';
 import { z } from 'zod';
+import { logError } from '@/lib/logger'
+import { createBulkNotifications } from '@/lib/notifications'
+
+// Vietnamese name → Prisma LeaveType enum mapping
+const LEAVE_TYPE_NAME_MAP: Record<string, string> = {
+  'Nghỉ phép năm': 'ANNUAL',
+  'Phép năm': 'ANNUAL',
+  'Nghỉ ốm': 'SICK',
+  'Nghỉ thai sản': 'MATERNITY',
+  'Nghỉ việc riêng': 'PATERNITY',
+  'Nghỉ không lương': 'UNPAID',
+  'Nghỉ lễ': 'OTHER',
+  'Khác': 'OTHER',
+}
+
+function resolveLeaveTypeEnum(value: string): string {
+  const validEnums = ['ANNUAL', 'SICK', 'MATERNITY', 'PATERNITY', 'UNPAID', 'OTHER']
+  if (validEnums.includes(value)) return value
+  return LEAVE_TYPE_NAME_MAP[value] || 'OTHER'
+}
 
 // --- Schemas ---
 
@@ -134,6 +154,25 @@ export async function POST(request: NextRequest) {
       });
 
       const skipped = data.systemIds.length - approved - errors.length;
+
+      // Notify approved employees
+      const approvedEmployeeIds = leaves
+        .filter(l => !errors.some(e => e.startsWith(l.systemId)))
+        .map(l => l.employeeId)
+        .filter((id): id is string => !!id);
+      if (approvedEmployeeIds.length > 0) {
+        createBulkNotifications({
+          type: 'leave',
+          settingsKey: 'leave:updated',
+          title: 'Đơn nghỉ phép đã duyệt',
+          message: `${approved} đơn nghỉ phép của bạn đã được phê duyệt`,
+          link: '/leaves',
+          recipientIds: approvedEmployeeIds,
+          senderId: session.user?.employeeId,
+          senderName: session.user?.name,
+        }).catch(e => logError('[Leaves Batch Approve] notification failed', e));
+      }
+
       return apiSuccess({ approved, skipped, errors });
     }
 
@@ -151,6 +190,27 @@ export async function POST(request: NextRequest) {
           rejectionReason: data.reason || undefined,
         },
       });
+
+      // Notify rejected employees
+      if (result.count > 0) {
+        const rejectedLeaves = await prisma.leave.findMany({
+          where: { systemId: { in: data.systemIds }, status: 'REJECTED' as LeaveStatus },
+          select: { employeeId: true },
+        });
+        const rejectedEmployeeIds = rejectedLeaves.map(l => l.employeeId).filter((id): id is string => !!id);
+        if (rejectedEmployeeIds.length > 0) {
+          createBulkNotifications({
+            type: 'leave',
+            settingsKey: 'leave:updated',
+            title: 'Đơn nghỉ phép bị từ chối',
+            message: `Đơn nghỉ phép của bạn đã bị từ chối${data.reason ? `: ${data.reason}` : ''}`,
+            link: '/leaves',
+            recipientIds: rejectedEmployeeIds,
+            senderId: session.user?.employeeId,
+            senderName: session.user?.name,
+          }).catch(e => logError('[Leaves Batch Reject] notification failed', e));
+        }
+      }
 
       return apiSuccess({
         rejected: result.count,
@@ -179,7 +239,7 @@ export async function POST(request: NextRequest) {
                 systemId,
                 id: systemId,
                 employeeId: item.employeeId,
-                leaveType: item.leaveType as 'ANNUAL' | 'SICK' | 'UNPAID' | 'MATERNITY' | 'PATERNITY' | 'OTHER',
+                leaveType: resolveLeaveTypeEnum(item.leaveType) as LeaveType,
                 leaveTypeName: item.leaveTypeName,
                 leaveTypeSystemId: item.leaveTypeSystemId,
                 leaveTypeId: item.leaveTypeId,
@@ -206,7 +266,7 @@ export async function POST(request: NextRequest) {
 
     return apiError('Unknown action', 400);
   } catch (error) {
-    console.error('[Leaves Batch API] POST error:', error);
+    logError('[Leaves Batch API] POST error', error);
     return apiError('Failed to process batch operation', 500);
   }
 }

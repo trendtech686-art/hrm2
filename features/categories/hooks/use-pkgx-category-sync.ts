@@ -8,7 +8,7 @@ import type { ProductCategory, WebsiteSeoData } from '@/features/settings/invent
 import type { PkgxCategoryMapping } from '@/features/settings/pkgx/types';
 import type { PkgxSettings } from '@/lib/types/prisma-extended';
 import { updateCategory, updateCategoryBasic, getCategoryById } from '@/lib/pkgx/api-service';
-import { usePkgxSettings, usePkgxCategoryMutations, usePkgxCategoryMappings } from '@/features/settings/pkgx/hooks/use-pkgx-settings';
+import { usePkgxMappings, usePkgxCategoryMutations, usePkgxCategoryMappings } from '@/features/settings/pkgx/hooks/use-pkgx-settings';
 
 // Helper to get website SEO data safely
 function getWebsiteSeo(category: ProductCategory): Record<string, WebsiteSeoData> | undefined {
@@ -48,7 +48,7 @@ function getPkgxCatId(category: ProductCategory, categoryMappings?: PkgxCategory
  * Hook cung cấp các handlers để đồng bộ Category với PKGX
  */
 export function usePkgxCategorySync({ addPkgxLog }: UsePkgxCategorySyncOptions = {}) {
-  const { data: pkgxSettings, refetch: refetchSettings } = usePkgxSettings();
+  const { data: pkgxSettings, refetch: refetchSettings } = usePkgxMappings();
   const categoryMappings = usePkgxCategoryMappings();
   const { updateCategory: updateCategoryMutation } = usePkgxCategoryMutations();
 
@@ -132,7 +132,7 @@ export function usePkgxCategorySync({ addPkgxLog }: UsePkgxCategorySyncOptions =
         throw new Error(response.error);
       }
     } catch (error) {
-      toast.error(`Lỗi đồng bộ SEO danh mục: ${error instanceof Error ? error.message : 'Unknown error'}`, { id: 'pkgx-category-sync-seo' });
+      toast.error(`Lỗi đồng bộ SEO danh mục: ${error instanceof Error ? error.message : 'Lỗi không xác định'}`, { id: 'pkgx-category-sync-seo' });
       logAction({
         action: 'sync_category_seo',
         status: 'error',
@@ -184,7 +184,7 @@ export function usePkgxCategorySync({ addPkgxLog }: UsePkgxCategorySyncOptions =
         throw new Error(response.error);
       }
     } catch (error) {
-      toast.error(`Lỗi đồng bộ mô tả danh mục: ${error instanceof Error ? error.message : 'Unknown error'}`, { id: 'pkgx-category-sync-desc' });
+      toast.error(`Lỗi đồng bộ mô tả danh mục: ${error instanceof Error ? error.message : 'Lỗi không xác định'}`, { id: 'pkgx-category-sync-desc' });
       logAction({
         action: 'sync_category_description',
         status: 'error',
@@ -246,7 +246,7 @@ export function usePkgxCategorySync({ addPkgxLog }: UsePkgxCategorySyncOptions =
         throw new Error(response.error);
       }
     } catch (error) {
-      toast.error(`Lỗi đồng bộ danh mục: ${error instanceof Error ? error.message : 'Unknown error'}`, { id: 'pkgx-category-sync-all' });
+      toast.error(`Lỗi đồng bộ danh mục: ${error instanceof Error ? error.message : 'Lỗi không xác định'}`, { id: 'pkgx-category-sync-all' });
       logAction({
         action: 'sync_category_all',
         status: 'error',
@@ -297,7 +297,7 @@ export function usePkgxCategorySync({ addPkgxLog }: UsePkgxCategorySyncOptions =
         throw new Error(response.error);
       }
     } catch (error) {
-      toast.error(`Lỗi đồng bộ thông tin cơ bản: ${error instanceof Error ? error.message : 'Unknown error'}`, { id: 'pkgx-category-sync-basic' });
+      toast.error(`Lỗi đồng bộ thông tin cơ bản: ${error instanceof Error ? error.message : 'Lỗi không xác định'}`, { id: 'pkgx-category-sync-basic' });
       logAction({
         action: 'sync_category_basic',
         status: 'error',
@@ -374,7 +374,7 @@ export function usePkgxCategorySync({ addPkgxLog }: UsePkgxCategorySyncOptions =
         throw new Error(response.error || 'Không tìm thấy dữ liệu');
       }
     } catch (error) {
-      toast.error(`Lỗi import từ PKGX: ${error instanceof Error ? error.message : 'Unknown error'}`, { id: 'pkgx-category-import' });
+      toast.error(`Lỗi import từ PKGX: ${error instanceof Error ? error.message : 'Lỗi không xác định'}`, { id: 'pkgx-category-import' });
       logAction({
         action: 'sync_category_all',
         status: 'error',

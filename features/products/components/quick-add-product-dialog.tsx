@@ -126,7 +126,7 @@ export function QuickAddProductDialog({
     setIsSubmitting(true);
 
     try {
-      const rawId = formData.sku.trim().toUpperCase();
+      const rawId = formData.sku.trim();
       const newProduct = {
         id: asBusinessId(rawId),
         name: formData.name.trim(),
@@ -177,7 +177,7 @@ export function QuickAddProductDialog({
               className={errors.name ? "border-destructive" : ""}
             />
             {errors.name && (
-              <p className="text-body-sm text-destructive">{errors.name}</p>
+              <p className="text-sm text-destructive">{errors.name}</p>
             )}
           </div>
 
@@ -208,7 +208,7 @@ export function QuickAddProductDialog({
                 className={errors.costPrice ? "border-destructive" : ""}
               />
               {errors.costPrice && (
-                <p className="text-body-sm text-destructive">{errors.costPrice}</p>
+                <p className="text-sm text-destructive">{errors.costPrice}</p>
               )}
             </div>
 
@@ -224,7 +224,7 @@ export function QuickAddProductDialog({
                 className={errors.basePrice ? "border-destructive" : ""}
               />
               {errors.basePrice && (
-                <p className="text-body-sm text-destructive">{errors.basePrice}</p>
+                <p className="text-sm text-destructive">{errors.basePrice}</p>
               )}
             </div>
           </div>
@@ -249,7 +249,7 @@ export function QuickAddProductDialog({
                 className={errors.importQuantity ? "border-destructive" : ""}
               />
               {errors.importQuantity && (
-                <p className="text-body-sm text-destructive">{errors.importQuantity}</p>
+                <p className="text-sm text-destructive">{errors.importQuantity}</p>
               )}
             </div>
 

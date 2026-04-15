@@ -167,7 +167,7 @@ export function useUpdateOrder() {
         orderKeys.detail(updatedOrder.systemId),
         updatedOrder
       )
-      queryClient.invalidateQueries({ queryKey: orderKeys.lists() })
+      queryClient.invalidateQueries({ queryKey: orderKeys.all })
     },
   })
 }

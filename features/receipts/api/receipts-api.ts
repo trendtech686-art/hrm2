@@ -27,10 +27,14 @@ export interface ReceiptsParams {
   linkedOrderSystemId?: string;
   linkedSalesReturnSystemId?: string;
   customerSystemId?: string;
+  customerMatchBroad?: boolean;
+  customerName?: string;
   // ✅ Filter for supplier detail page
   supplierId?: string;
   // ✅ Filter for warranty detail page
   linkedWarrantySystemId?: string;
+  // ✅ Filter for purchase order detail page
+  purchaseOrderSystemId?: string;
   enabled?: boolean;
 }
 
@@ -47,8 +51,8 @@ export interface ReceiptsResponse {
 export async function fetchReceipts(params: ReceiptsParams = {}): Promise<ReceiptsResponse> {
   const searchParams = new URLSearchParams();
   
-  if (params.page) searchParams.set('page', String(params.page));
-  if (params.limit) searchParams.set('limit', String(params.limit));
+  if (params.page != null) searchParams.set('page', String(params.page));
+  if (params.limit != null) searchParams.set('limit', String(params.limit));
   if (params.search) searchParams.set('search', params.search);
   if (params.status) searchParams.set('status', params.status);
   if (params.category) searchParams.set('category', params.category);
@@ -64,10 +68,14 @@ export async function fetchReceipts(params: ReceiptsParams = {}): Promise<Receip
   if (params.linkedOrderSystemId) searchParams.set('linkedOrderSystemId', params.linkedOrderSystemId);
   if (params.linkedSalesReturnSystemId) searchParams.set('linkedSalesReturnSystemId', params.linkedSalesReturnSystemId);
   if (params.customerSystemId) searchParams.set('customerSystemId', params.customerSystemId);
+  if (params.customerMatchBroad) searchParams.set('customerMatchBroad', 'true');
+  if (params.customerName) searchParams.set('customerName', params.customerName);
   // ✅ Filter for supplier detail page
   if (params.supplierId) searchParams.set('supplierId', params.supplierId);
   // ✅ Filter for warranty detail page
   if (params.linkedWarrantySystemId) searchParams.set('linkedWarrantySystemId', params.linkedWarrantySystemId);
+  // ✅ Filter for purchase order detail page
+  if (params.purchaseOrderSystemId) searchParams.set('purchaseOrderSystemId', params.purchaseOrderSystemId);
   
   const url = searchParams.toString() ? `${BASE_URL}?${searchParams}` : BASE_URL;
   const response = await fetch(url);

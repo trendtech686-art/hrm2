@@ -6,10 +6,10 @@ import { Printer, ChevronDown, ChevronRight, StickyNote } from 'lucide-react';
 import { formatDate } from '@/lib/date-utils';
 import type { Order } from '@/lib/types/prisma-extended';
 import type { SalesReturn } from '@/features/sales-returns/types';
-import { useAllOrders } from '@/features/orders/hooks/use-all-orders';
-import { useAllProducts } from '@/features/products/hooks/use-all-products';
+import { useOrderFinder } from '@/features/orders/hooks/use-all-orders';
+import { useProductFinder } from '@/features/products/hooks/use-all-products';
 import { useBranchFinder } from '@/features/settings/branches/hooks/use-all-branches';
-import { useStoreInfoData } from '@/features/settings/store-info/hooks/use-store-info';
+import { fetchPrintData } from '@/lib/lazy-print-data';
 import { useCustomerFinder } from '@/features/customers/hooks/use-all-customers';
 import { usePaymentFinder } from '@/features/payments/hooks/use-all-payments';
 import { useReceiptFinder } from '@/features/receipts/hooks/use-all-receipts';
@@ -32,10 +32,10 @@ interface ReturnHistoryTabProps {
 export function ReturnHistoryTab({ order, salesReturnsForOrder, getProductTypeLabel, onPreview }: ReturnHistoryTabProps) {
     const [expandedReturnId, setExpandedReturnId] = React.useState<string | null>(null);
     const [expandedCombos, setExpandedCombos] = React.useState<Record<string, boolean>>({});
-    const { data: orders } = useAllOrders();
-    const { data: allProducts } = useAllProducts();
+    const { findById: findOrderById } = useOrderFinder();
+    const { findById: findProductById } = useProductFinder();
     const { findById: findBranchById } = useBranchFinder();
-    const { info: storeInfo } = useStoreInfoData();
+    // ⚡ OPTIMIZED: storeInfo lazy loaded in print handler
     const { print } = usePrint(order.branchSystemId);
     const { findById: findCustomerById } = useCustomerFinder();
     const { findById: findPaymentById } = usePaymentFinder();
@@ -45,12 +45,13 @@ export function ReturnHistoryTab({ order, salesReturnsForOrder, getProductTypeLa
         setExpandedCombos(prev => ({ ...prev, [key]: !prev[key] }));
     }, []);
 
-    const handlePrintReturn = React.useCallback((e: React.MouseEvent, salesReturn: SalesReturn) => {
+    const handlePrintReturn = React.useCallback(async (e: React.MouseEvent, salesReturn: SalesReturn) => {
         e.stopPropagation();
         if (!salesReturn) return;
 
         const branch = findBranchById(salesReturn.branchSystemId);
         const customer = findCustomerById(salesReturn.customerSystemId);
+        const { storeInfo } = await fetchPrintData();
         const storeSettings: StoreSettings = {
             name: storeInfo?.brandName || storeInfo?.companyName || '',
             address: storeInfo?.headquartersAddress,
@@ -135,11 +136,11 @@ export function ReturnHistoryTab({ order, salesReturnsForOrder, getProductTypeLa
         }));
 
         print('sales-return', { data: mappedData, lineItems });
-    }, [findBranchById, storeInfo, print, findCustomerById]);
+    }, [findBranchById, print, findCustomerById]);
 
     return (
         <Card>
-            <CardContent className="p-0">
+            <CardContent className="p-0 overflow-x-auto">
                 <Table>
                     <TableHeader>
                         <TableRow>
@@ -162,14 +163,10 @@ export function ReturnHistoryTab({ order, salesReturnsForOrder, getProductTypeLa
                             const isExpanded = expandedReturnId === returnSlip.systemId;
                             const totalReturnQty = (returnSlip.items || []).reduce((sum, item) => sum + (Number(item.returnQuantity) || 0), 0);
                             const totalExchangeQty = (returnSlip.exchangeItems || []).reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
-                            const exchangeOrder = returnSlip.exchangeOrderSystemId ? orders.find(o => o.systemId === returnSlip.exchangeOrderSystemId) : null;
-                            
-                            // ✅ Tìm packaging cho đổi hàng: ưu tiên packaging có notes chứa phiếu trả, hoặc packaging mới nhất có INSTORE/SHIP
-                            const exchangePackaging = exchangeOrder?.packagings?.find(
-                              pkg => pkg.notes?.includes(returnSlip.id) || 
-                                     (pkg.trackingCode?.startsWith('INSTORE-') || pkg.trackingCode?.startsWith('SHIP-'))
-                            ) || (exchangeOrder?.packagings?.length ? exchangeOrder.packagings[exchangeOrder.packagings.length - 1] : null);
-                            const exchangeTrackingCode = exchangePackaging?.trackingCode;
+                            // ✅ FIX: Use data from API response directly instead of cache-only findOrderById
+                            const exchangeTrackingCode = (returnSlip as Record<string, unknown>).exchangeTrackingCode as string | null;
+                            const exchangeOrderBusinessId = (returnSlip as Record<string, unknown>).exchangeOrderId as string | null;
+                            const exchangeOrder = returnSlip.exchangeOrderSystemId ? findOrderById(returnSlip.exchangeOrderSystemId) : null;
 
                             return (
                                 <React.Fragment key={returnSlip.systemId}>
@@ -188,7 +185,7 @@ export function ReturnHistoryTab({ order, salesReturnsForOrder, getProductTypeLa
                                             </Link>
                                         </TableCell>
                                         <TableCell>
-                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-body-xs font-medium ${
+                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                                                 returnSlip.isReceived 
                                                     ? 'bg-green-100 text-green-800' 
                                                     : 'bg-amber-100 text-amber-800'
@@ -209,24 +206,21 @@ export function ReturnHistoryTab({ order, salesReturnsForOrder, getProductTypeLa
                                         <TableCell className="text-right font-medium">{formatCurrency(returnSlip.totalReturnValue)}</TableCell>
                                         <TableCell>
                                             {exchangeTrackingCode ? (
-                                                <Link href={`/orders/${exchangeOrder?.systemId || order.systemId}`} 
+                                                <Link href={`/orders/${returnSlip.exchangeOrderSystemId || order.systemId}`} 
                                                     onClick={e => e.stopPropagation()} 
                                                     className="text-primary hover:underline font-mono text-xs"
                                                 >
                                                     {exchangeTrackingCode}
                                                 </Link>
-                                            ) : exchangeOrder ? (
-                                                <Link href={`/orders/${exchangeOrder.systemId}`} 
+                                            ) : (exchangeOrderBusinessId || exchangeOrder) ? (
+                                                <Link href={`/orders/${returnSlip.exchangeOrderSystemId}`} 
                                                     onClick={e => e.stopPropagation()} 
                                                     className="text-primary hover:underline"
                                                 >
-                                                    {exchangeOrder.id}
+                                                    {exchangeOrderBusinessId || exchangeOrder?.id}
                                                 </Link>
                                             ) : totalExchangeQty > 0 ? (
-                                                // ✅ Show delivery method or fallback to "Nhận tại CH"
-                                                <span className="text-blue-600 text-xs">
-                                                    {returnSlip.deliveryMethod === 'pickup' ? 'Nhận tại CH' : (returnSlip.deliveryMethod || 'Chờ xử lý')}
-                                                </span>
+                                                <span className="text-muted-foreground text-xs">Chờ xử lý</span>
                                             ) : (
                                                 <span className="text-muted-foreground text-xs">-</span>
                                             )}
@@ -303,23 +297,17 @@ export function ReturnHistoryTab({ order, salesReturnsForOrder, getProductTypeLa
                                                     );
                                                 }
                                                 
-                                                // Fallback: nếu có refundAmount hoặc finalAmount nhưng không có link voucher
-                                                if (refundAmount > 0 || finalAmount < 0) {
+                                                // ✅ Chỉ hiển thị khi có ACTUAL refund/payment
+                                                // Nếu khách chưa thanh toán đơn gốc → không phát sinh tiền → hiện "-"
+                                                if (refundAmount > 0) {
                                                     return (
                                                         <span className="text-green-600 text-xs">
-                                                            Đã chi: {formatCurrency(Math.abs(refundAmount || finalAmount))}
+                                                            Đã chi: {formatCurrency(refundAmount)}
                                                         </span>
                                                     );
                                                 }
                                                 
-                                                if (finalAmount > 0) {
-                                                    return (
-                                                        <span className="text-blue-600 text-xs">
-                                                            Đã thu: {formatCurrency(finalAmount)}
-                                                        </span>
-                                                    );
-                                                }
-                                                
+                                                // Không hiện "Cần hoàn/thu" vì nếu khách chưa trả tiền thì không phát sinh
                                                 return <span className="text-muted-foreground">-</span>;
                                             })()}
                                         </TableCell>
@@ -341,7 +329,7 @@ export function ReturnHistoryTab({ order, salesReturnsForOrder, getProductTypeLa
                                                 <div className="space-y-4">
                                                     <div>
                                                         <h4 className="font-semibold mb-2">Chi tiết hàng trả</h4>
-                                                        <div className="border border-border rounded-md bg-background">
+                                                        <div className="border border-border rounded-md bg-background overflow-x-auto">
                                                             <Table>
                                                                 <TableHeader>
                                                                     <TableRow>
@@ -354,9 +342,9 @@ export function ReturnHistoryTab({ order, salesReturnsForOrder, getProductTypeLa
                                                                     </TableRow>
                                                                 </TableHeader>
                                                                 <TableBody>
-                                                                    {returnSlip.items.map((item: { productSystemId: string; returnQuantity: number; unitPrice: number; totalValue: number; productName?: string; productId?: string; note?: string }, index: number) => {
-                                                                        const product = allProducts.find((p) => p.systemId === item.productSystemId);
-                                                                        const productType = getProductTypeLabel?.(item.productSystemId) || '---';
+                                                                    {returnSlip.items.map((item: { productSystemId: string; returnQuantity: number; unitPrice: number; totalValue: number; productName?: string; productId?: string; note?: string; thumbnailImage?: string; productType?: string }, index: number) => {
+                                                                        const product = findProductById(item.productSystemId);
+                                                                        const productType = item.productType || getProductTypeLabel?.(item.productSystemId) || '---';
                                                                         const isCombo = product?.type === 'combo';
                                                                         const comboKey = `return-${returnSlip.systemId}-${item.productSystemId}`;
                                                                         const isComboExpanded = expandedCombos[comboKey] ?? false;
@@ -407,12 +395,12 @@ export function ReturnHistoryTab({ order, salesReturnsForOrder, getProductTypeLa
                                                                                                     {item.productName || product?.name}
                                                                                                 </Link>
                                                                                                 {isCombo && (
-                                                                                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground font-semibold">
+                                                                                                    <span className="text-xs px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground font-semibold">
                                                                                                         COMBO
                                                                                                     </span>
                                                                                                 )}
                                                                                             </div>
-                                                                                            <div className="flex items-center gap-1 text-body-xs text-muted-foreground flex-wrap">
+                                                                                            <div className="flex items-center gap-1 text-xs text-muted-foreground flex-wrap">
                                                                                                 <span>{productType}</span>
                                                                                                 <span>-</span>
                                                                                                 <Link href={`/products/${item.productSystemId}`}
@@ -434,7 +422,7 @@ export function ReturnHistoryTab({ order, salesReturnsForOrder, getProductTypeLa
                                                                                     <TableCell className="text-right font-medium">{formatCurrency(item.totalValue)}</TableCell>
                                                                                 </TableRow>
                                                                                 {isCombo && isComboExpanded && comboChildren.map((comboItem: { productSystemId: string; productName?: string; quantity?: number }, childIndex: number) => {
-                                                                                    const childProduct = allProducts.find((p) => p.systemId === comboItem.productSystemId);
+                                                                                    const childProduct = findProductById(comboItem.productSystemId);
                                                                                     return (
                                                                                         <TableRow key={`${comboKey}-child-${childIndex}`} className="bg-muted/40">
                                                                                             <TableCell className="text-center text-muted-foreground pl-8">
@@ -456,7 +444,7 @@ export function ReturnHistoryTab({ order, salesReturnsForOrder, getProductTypeLa
                                                                                                     </span>
                                                                                                     {childProduct && (
                                                                                                         <Link href={`/products/${childProduct.systemId}`}
-                                                                                                            className="text-body-xs text-primary hover:underline"
+                                                                                                            className="text-xs text-primary hover:underline"
                                                                                                         >
                                                                                                             {childProduct.id}
                                                                                                         </Link>
@@ -488,7 +476,7 @@ export function ReturnHistoryTab({ order, salesReturnsForOrder, getProductTypeLa
                                                     {returnSlip.exchangeItems && returnSlip.exchangeItems.length > 0 && (
                                                         <div>
                                                             <h4 className="font-semibold mb-2">Chi tiết hàng đổi</h4>
-                                                            <div className="border border-border rounded-md bg-background">
+                                                            <div className="border border-border rounded-md bg-background overflow-x-auto">
                                                                 <Table>
                                                                     <TableHeader>
                                                                         <TableRow>
@@ -501,10 +489,10 @@ export function ReturnHistoryTab({ order, salesReturnsForOrder, getProductTypeLa
                                                                         </TableRow>
                                                                     </TableHeader>
                                                                     <TableBody>
-                                                                        {returnSlip.exchangeItems.map((item: { productSystemId: string; quantity: number; unitPrice: number; discount: number; discountType?: 'percentage' | 'fixed'; productName?: string; productId?: string; note?: string }, index: number) => {
+                                                                        {returnSlip.exchangeItems.map((item: { productSystemId: string; quantity: number; unitPrice: number; discount: number; discountType?: 'percentage' | 'fixed'; productName?: string; productId?: string; note?: string; thumbnailImage?: string; productType?: string }, index: number) => {
                                                                             const lineTotal = item.quantity * item.unitPrice - (item.discountType === 'percentage' ? (item.quantity * item.unitPrice * item.discount / 100) : item.discount);
-                                                                            const product = allProducts.find((p) => p.systemId === item.productSystemId);
-                                                                            const productType = getProductTypeLabel?.(item.productSystemId) || '---';
+                                                                            const product = findProductById(item.productSystemId);
+                                                                            const productType = item.productType || getProductTypeLabel?.(item.productSystemId) || '---';
                                                                             const isCombo = product?.type === 'combo';
                                                                             const comboKey = `exchange-${returnSlip.systemId}-${item.productSystemId}`;
                                                                             const isComboExpanded = expandedCombos[comboKey] ?? false;
@@ -543,6 +531,7 @@ export function ReturnHistoryTab({ order, salesReturnsForOrder, getProductTypeLa
                                                                                                 productName={item.productName || ''} 
                                                                                                 size="sm"
                                                                                                 onPreview={onPreview}
+                                                                                                itemThumbnailImage={item.thumbnailImage}
                                                                                             />
                                                                                         </TableCell>
                                                                                         <TableCell>
@@ -554,12 +543,12 @@ export function ReturnHistoryTab({ order, salesReturnsForOrder, getProductTypeLa
                                                                                                         {item.productName}
                                                                                                     </Link>
                                                                                                     {isCombo && (
-                                                                                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground font-semibold">
+                                                                                                        <span className="text-xs px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground font-semibold">
                                                                                                             COMBO
                                                                                                         </span>
                                                                                                     )}
                                                                                                 </div>
-                                                                                                <div className="flex items-center gap-1 text-body-xs text-muted-foreground flex-wrap">
+                                                                                                <div className="flex items-center gap-1 text-xs text-muted-foreground flex-wrap">
                                                                                                     <span>{productType}</span>
                                                                                                     <span>-</span>
                                                                                                     <Link href={`/products/${item.productSystemId}`}
@@ -581,7 +570,7 @@ export function ReturnHistoryTab({ order, salesReturnsForOrder, getProductTypeLa
                                                                                         <TableCell className="text-right font-medium">{formatCurrency(lineTotal)}</TableCell>
                                                                                     </TableRow>
                                                                                     {isCombo && isComboExpanded && comboChildren.map((comboItem: { productSystemId: string; productName?: string; quantity?: number }, childIndex: number) => {
-                                                                                        const childProduct = allProducts.find((p) => p.systemId === comboItem.productSystemId);
+                                                                                        const childProduct = findProductById(comboItem.productSystemId);
                                                                                         return (
                                                                                             <TableRow key={`${comboKey}-child-${childIndex}`} className="bg-muted/40">
                                                                                                 <TableCell className="text-center text-muted-foreground pl-8">
@@ -603,7 +592,7 @@ export function ReturnHistoryTab({ order, salesReturnsForOrder, getProductTypeLa
                                                                                                         </span>
                                                                                                         {childProduct && (
                                                                                                             <Link href={`/products/${childProduct.systemId}`}
-                                                                                                                className="text-body-xs text-primary hover:underline"
+                                                                                                                className="text-xs text-primary hover:underline"
                                                                                                             >
                                                                                                                 {childProduct.id}
                                                                                                             </Link>

@@ -8,6 +8,7 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils';
 import { SalesReturnStatus } from '@/generated/prisma/client';
+import { logError } from '@/lib/logger'
 
 export async function GET(_request: NextRequest) {
   const session = await requireAuth();
@@ -54,7 +55,7 @@ export async function GET(_request: NextRequest) {
       pendingValue,
     });
   } catch (error) {
-    console.error('[Sales Returns Stats API] GET error:', error);
-    return apiError('Failed to fetch sales return stats', 500);
+    logError('[Sales Returns Stats API] GET error', error);
+    return apiError('Không thể tải thống kê trả hàng', 500);
   }
 }

@@ -18,9 +18,11 @@ import {
   deleteInventoryCheckAction,
   balanceInventoryCheckAction,
   cancelInventoryCheckAction,
+  syncInventoryCheckItemsAction,
   type CreateInventoryCheckInput,
   type UpdateInventoryCheckInput,
 } from '@/app/actions/inventory-checks';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import type { InventoryCheck as _InventoryCheck } from '../types';
 import { asSystemId } from '@/lib/id-types';
 
@@ -76,8 +78,7 @@ export function useInventoryCheckMutations(options: UseInventoryCheckMutationsOp
       return result.data!;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: inventoryCheckKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: [...inventoryCheckKeys.all, 'stats'] });
+      invalidateRelated(queryClient, 'inventory-checks');
       options.onCreateSuccess?.(data);
     },
     onError: options.onError,
@@ -94,10 +95,8 @@ export function useInventoryCheckMutations(options: UseInventoryCheckMutationsOp
       if (!result.success) throw new Error(result.error || 'Failed to update inventory check');
       return result.data!;
     },
-    onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: inventoryCheckKeys.detail(variables.systemId) });
-      queryClient.invalidateQueries({ queryKey: inventoryCheckKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: [...inventoryCheckKeys.all, 'stats'] });
+    onSuccess: (data) => {
+      invalidateRelated(queryClient, 'inventory-checks');
       options.onUpdateSuccess?.(data);
     },
     onError: options.onError,
@@ -110,7 +109,7 @@ export function useInventoryCheckMutations(options: UseInventoryCheckMutationsOp
       return result.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: inventoryCheckKeys.all });
+      invalidateRelated(queryClient, 'inventory-checks');
       options.onDeleteSuccess?.();
     },
     onError: options.onError,
@@ -122,11 +121,22 @@ export function useInventoryCheckMutations(options: UseInventoryCheckMutationsOp
       if (!result.success) throw new Error(result.error || 'Failed to balance inventory check');
       return result.data!;
     },
+    onSuccess: (data) => {
+      invalidateRelated(queryClient, 'inventory-checks');
+      options.onBalanceSuccess?.(data);
+    },
+    onError: options.onError,
+  });
+
+  // ✅ Sync items mutation - saves all form items to DB before balance
+  const syncItems = useMutation({
+    mutationFn: async ({ systemId, items }: { systemId: string; items: CreateInventoryCheckInput['items'] }) => {
+      const result = await syncInventoryCheckItemsAction(systemId, items || []);
+      if (!result.success) throw new Error(result.error || 'Failed to sync items');
+      return result.data!;
+    },
     onSuccess: (data, { systemId }) => {
       queryClient.invalidateQueries({ queryKey: inventoryCheckKeys.detail(systemId) });
-      queryClient.invalidateQueries({ queryKey: inventoryCheckKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: [...inventoryCheckKeys.all, 'stats'] });
-      options.onBalanceSuccess?.(data);
     },
     onError: options.onError,
   });
@@ -137,16 +147,14 @@ export function useInventoryCheckMutations(options: UseInventoryCheckMutationsOp
       if (!result.success) throw new Error(result.error || 'Failed to cancel inventory check');
       return result.data!;
     },
-    onSuccess: (data, systemId) => {
-      queryClient.invalidateQueries({ queryKey: inventoryCheckKeys.detail(systemId) });
-      queryClient.invalidateQueries({ queryKey: inventoryCheckKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: [...inventoryCheckKeys.all, 'stats'] });
+    onSuccess: (data) => {
+      invalidateRelated(queryClient, 'inventory-checks');
       options.onCancelSuccess?.(data);
     },
     onError: options.onError,
   });
   
-  return { create, update, remove, balance, cancel };
+  return { create, update, remove, balance, syncItems, cancel };
 }
 
 export function useDraftInventoryChecks() {
@@ -160,7 +168,7 @@ export function useInventoryChecksByBranch(branchId: string | null | undefined) 
 }
 
 // ============================================================================
-// Stats Hook - for StatsCardGrid
+// Stats Hook
 // ============================================================================
 
 export interface InventoryCheckStats {

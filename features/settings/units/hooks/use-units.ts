@@ -5,7 +5,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
-import { fetchAllPages } from '@/lib/fetch-all-pages';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import {
   fetchUnits,
   fetchUnit,
@@ -57,7 +57,7 @@ export function useUnitMutations(options: UseUnitMutationsOptions = {}) {
   const create = useMutation({
     mutationFn: createUnit,
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: unitKeys.all });
+      invalidateRelated(queryClient, 'units');
       options.onCreateSuccess?.(data);
     },
     onError: options.onError,
@@ -66,9 +66,8 @@ export function useUnitMutations(options: UseUnitMutationsOptions = {}) {
   const update = useMutation({
     mutationFn: ({ systemId, data }: { systemId: string; data: Partial<Unit> }) => 
       updateUnit(systemId, data),
-    onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: unitKeys.detail(variables.systemId) });
-      queryClient.invalidateQueries({ queryKey: unitKeys.lists() });
+    onSuccess: (data) => {
+      invalidateRelated(queryClient, 'units');
       options.onUpdateSuccess?.(data);
     },
     onError: options.onError,
@@ -77,7 +76,7 @@ export function useUnitMutations(options: UseUnitMutationsOptions = {}) {
   const remove = useMutation({
     mutationFn: deleteUnit,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: unitKeys.all });
+      invalidateRelated(queryClient, 'units');
       options.onDeleteSuccess?.();
     },
     onError: options.onError,
@@ -89,7 +88,10 @@ export function useUnitMutations(options: UseUnitMutationsOptions = {}) {
 export function useActiveUnits() {
   const query = useQuery({
     queryKey: [...unitKeys.all, 'active'],
-    queryFn: () => fetchAllPages((p) => fetchUnits({ ...p, isActive: true })),
+    queryFn: async () => {
+      const res = await fetchUnits({ isActive: true });
+      return res.data;
+    },
     staleTime: 10 * 60 * 1000,
     gcTime: 60 * 60 * 1000,
   });

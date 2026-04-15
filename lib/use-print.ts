@@ -1,15 +1,22 @@
-/**
+﻿/**
  * Hook để sử dụng Print Service trong các component
  */
 
 import * as React from 'react';
 import type { TemplateType, PaperSize } from '@/lib/types/prisma-extended';
+import { parseLabelSize, type PrintMargins, DEFAULT_MARGINS, TEMPLATE_TYPES } from '@/features/settings/printer/types';
 import { 
   PrintData, 
   PrintLineItem,
   replaceVariables,
 } from './print-service';
-import { usePrintTemplateStore } from '../features/settings/printer/store';
+import { usePrintTemplateConfig } from '../features/settings/printer/hooks/use-print-template-config';
+import { logError } from '@/lib/logger'
+
+/** Map template type to Vietnamese label */
+const templateTypeLabels: Record<string, string> = Object.fromEntries(
+  TEMPLATE_TYPES.map(t => [t.value, t.label])
+);
 
 /**
  * Log print activity to activity logs API
@@ -22,26 +29,45 @@ async function logPrintActivity(params: {
   createdBy?: string;
 }): Promise<void> {
   try {
+    const label = templateTypeLabels[params.templateType] || params.templateType;
+    const sizeLabel = params.paperSize ? ` (${params.paperSize})` : '';
+    
     await fetch('/api/activity-logs', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         entityType: params.entityType,
         entityId: params.entityId,
-        action: `In ${params.templateType}`,
+        action: `In ${label}${sizeLabel}`,
         actionType: 'system',
         metadata: {
           templateType: params.templateType,
           paperSize: params.paperSize,
           printedAt: new Date().toISOString(),
         },
-        note: `Đã in ${params.templateType}${params.paperSize ? ` (${params.paperSize})` : ''}`,
+        note: `Đã in ${label}${sizeLabel}`,
         createdBy: params.createdBy,
       }),
     });
+
+    // Notify listeners (e.g., activity timeline) that a new log was created
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('activity-log-updated', {
+        detail: { entityType: params.entityType, entityId: params.entityId },
+      }));
+    }
+
+    // Update printStatus on the entity (e.g., order, packaging)
+    if (params.entityType === 'order' && params.entityId) {
+      fetch(`/api/orders/${params.entityId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ printStatus: 'PRINTED' }),
+      }).catch(() => { /* silently fail */ });
+    }
   } catch (error) {
     // Silently fail - don't block printing
-    console.error('[logPrintActivity] Failed to log print activity:', error);
+    logError('[logPrintActivity] Failed to log print activity', error);
   }
 }
 
@@ -50,8 +76,12 @@ interface PrintOptions {
   data: PrintData;
   /** Line items (sản phẩm, hàng hóa) */
   lineItems?: PrintLineItem[];
+  /** Secondary line items (e.g., return items in exchange templates using {return_line_xxx}) */
+  secondaryLineItems?: PrintLineItem[];
   /** Khổ giấy cụ thể (nếu muốn override default) */
   paperSize?: PaperSize;
+  /** Lề in (mm) - override default margins */
+  margins?: PrintMargins;
   /** Branch ID cụ thể (nếu muốn override current branch) */
   branchId?: string;
   /** Entity type for activity logging (e.g., 'order', 'packaging', 'receipt') */
@@ -181,6 +211,111 @@ function processConditionals(html: string, data: PrintData, _lineItems?: PrintLi
  * Xử lý điều kiện cho line items
  * Ví dụ: {{#line_if_not_empty {line_tax_amount}}}...{{/line_if_not_empty}}
  */
+/**
+ * Generate @page CSS based on paper size
+ */
+function getPageSizeCSS(size: PaperSize, margins?: PrintMargins): string {
+  // Dynamic label size (WxH format, e.g. '50x30', '100x75')
+  const labelDims = parseLabelSize(size);
+  if (labelDims) {
+    const m = margins || DEFAULT_MARGINS.label;
+    return `@page { size: ${labelDims.width}mm ${labelDims.height}mm; margin: ${m.top}mm ${m.right}mm ${m.bottom}mm ${m.left}mm; }`;
+  }
+
+  switch (size) {
+    case 'K57': {
+      const m = margins || { top: 2, right: 2, bottom: 2, left: 2 };
+      return `@page { size: 57mm auto; margin: ${m.top}mm ${m.right}mm ${m.bottom}mm ${m.left}mm; }`;
+    }
+    case 'K80': {
+      const m = margins || { top: 2, right: 2, bottom: 2, left: 2 };
+      return `@page { size: 80mm auto; margin: ${m.top}mm ${m.right}mm ${m.bottom}mm ${m.left}mm; }`;
+    }
+    case 'A5': {
+      const m = margins || { top: 10, right: 10, bottom: 10, left: 10 };
+      return `@page { size: A5; margin: ${m.top}mm ${m.right}mm ${m.bottom}mm ${m.left}mm; }`;
+    }
+    case 'A6': {
+      const m = margins || { top: 5, right: 5, bottom: 5, left: 5 };
+      return `@page { size: A6; margin: ${m.top}mm ${m.right}mm ${m.bottom}mm ${m.left}mm; }`;
+    }
+    case 'A4':
+    default: {
+      const m = margins || DEFAULT_MARGINS.document;
+      return `@page { size: A4; margin: ${m.top}mm ${m.right}mm ${m.bottom}mm ${m.left}mm; }`;
+    }
+  }
+}
+
+/**
+ * Generate base print CSS, adjusted for paper size
+ */
+function getBasePrintCSS(size: PaperSize, margins?: PrintMargins): string {
+  const pageSizeCSS = getPageSizeCSS(size, margins);
+  const labelDims = parseLabelSize(size);
+
+  if (labelDims) {
+    const m = margins || DEFAULT_MARGINS.label;
+    const contentWidth = labelDims.width - m.left - m.right;
+    const contentHeight = labelDims.height - m.top - m.bottom;
+    return `
+      ${pageSizeCSS}
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { font-family: Calibri, 'Segoe UI', Arial, sans-serif; font-size: ${labelDims.width <= 50 ? '5.5pt' : '7pt'}; line-height: 1.3; margin: 0; padding: 0; }
+      img { max-width: 100%; height: auto; }
+      .print-page {
+        width: ${contentWidth}mm; height: ${contentHeight}mm;
+        overflow: hidden;
+        page-break-after: always !important;
+        break-after: page !important;
+      }
+      .print-page-last {
+        width: ${contentWidth}mm; height: ${contentHeight}mm;
+        overflow: hidden;
+        page-break-after: auto;
+      }
+      @media print {
+        .print-page {
+          page-break-after: always !important;
+          break-after: page !important;
+        }
+      }
+    `;
+  }
+
+  // Standard document CSS
+  return `
+    ${pageSizeCSS}
+    * { box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; font-size: 12px; line-height: 1.5; margin: 0; padding: 0; }
+    table { width: 100%; border-collapse: collapse; margin: 8px 0; }
+    th, td { border: 1px solid #333; padding: 6px 8px; }
+    th { background-color: #f5f5f5; font-weight: bold; }
+    .text-center, [style*="text-align: center"] { text-align: center; }
+    .text-right, [style*="text-align: right"] { text-align: right; }
+    img { max-width: 100%; height: auto; }
+    h1, h2, h3 { margin: 8px 0; }
+    p { margin: 4px 0; }
+    .print-page { 
+      page-break-after: always !important; 
+      break-after: page !important;
+      page-break-inside: avoid;
+    }
+    .print-page-last { 
+      page-break-after: auto; 
+    }
+    @media print {
+      .print-page { 
+        page-break-after: always !important; 
+        break-after: page !important;
+      }
+      .print-page-last { 
+        page-break-after: auto; 
+      }
+    }
+  `;
+}
+
 function processLineItemConditionals(rowHtml: string, item: PrintLineItem): string {
   let result = rowHtml;
 
@@ -221,8 +356,20 @@ function processLineItemConditionals(rowHtml: string, item: PrintLineItem): stri
  *   lineItems: mapOrderLineItems(order.items),
  * });
  */
-export function usePrint(currentBranchId?: string): UsePrintResult {
-  const templateStore = usePrintTemplateStore();
+interface UsePrintOptions {
+  currentBranchId?: string;
+  /** Set to false to skip fetching print templates until needed */
+  enabled?: boolean;
+}
+
+export function usePrint(options?: UsePrintOptions | string): UsePrintResult {
+  // Support legacy signature: usePrint(branchId?: string)
+  const normalizedOptions: UsePrintOptions = typeof options === 'string' 
+    ? { currentBranchId: options } 
+    : options || {};
+  const { currentBranchId, enabled = true } = normalizedOptions;
+  
+  const { getTemplate: storeGetTemplate, getDefaultSize: storeGetDefaultSize } = usePrintTemplateConfig({ enabled });
   const [isLoading] = React.useState(false);
 
   const getTemplateContent = React.useCallback((
@@ -231,24 +378,25 @@ export function usePrint(currentBranchId?: string): UsePrintResult {
     branchId?: string
   ): string | null => {
     // Xác định paperSize sử dụng
-    const size = paperSize || templateStore.getDefaultSize(type);
+    const size = paperSize || storeGetDefaultSize(type);
     const branch = branchId || currentBranchId;
 
     // Lấy template
-    const template = templateStore.getTemplate(type, size, branch);
+    const template = storeGetTemplate(type, size, branch);
     if (template?.content) {
       return template.content;
     }
 
     // Fallback: thử lấy template không có branch
-    const defaultTemplate = templateStore.getTemplate(type, size);
+    const defaultTemplate = storeGetTemplate(type, size);
     return defaultTemplate?.content || null;
-  }, [templateStore, currentBranchId]);
+  }, [storeGetTemplate, storeGetDefaultSize, currentBranchId]);
 
   const processTemplate = React.useCallback((
     templateContent: string,
     data: PrintData,
-    lineItems?: PrintLineItem[]
+    lineItems?: PrintLineItem[],
+    secondaryLineItems?: PrintLineItem[]
   ): string => {
     // Bước 1: Xử lý line items nếu có
     let html = templateContent;
@@ -383,6 +531,37 @@ export function usePrint(currentBranchId?: string): UsePrintResult {
       } // End of else (TABLE MODE)
     }
 
+    // Bước 1.5: Xử lý secondary line items (e.g., return items with {return_line_stt})
+    if (secondaryLineItems && secondaryLineItems.length > 0) {
+      const tablePattern = /<table[^>]*>[\s\S]*?<\/table>/gi;
+      const tables = html.match(tablePattern);
+      if (tables) {
+        const secondaryTable = tables.find(table => table.includes('{return_line_stt}'));
+        if (secondaryTable) {
+          const tbodyMatch = secondaryTable.match(/<tbody[^>]*>([\s\S]*?)<\/tbody>/i);
+          if (tbodyMatch) {
+            const allRows = tbodyMatch[1].match(/<tr[^>]*>[\s\S]*?<\/tr>/gi);
+            if (allRows && allRows.length > 0) {
+              const templateRow = allRows.find(row => row.includes('{return_line_stt}')) || allRows[0];
+              const rowsHtml = secondaryLineItems.map((item) => {
+                let row = templateRow;
+                row = processLineItemConditionals(row, item);
+                Object.entries(item).forEach(([key, value]) => {
+                  const placeholder = key.startsWith('{') ? key : `{${key}}`;
+                  const regex = new RegExp(placeholder.replace(/[{}]/g, '\\$&'), 'g');
+                  row = row.replace(regex, value?.toString() || '');
+                });
+                return row;
+              }).join('\n    ');
+              const newTbody = `<tbody>\n    ${rowsHtml}\n  </tbody>`;
+              const newTable = secondaryTable.replace(tbodyMatch[0], newTbody);
+              html = html.replace(secondaryTable, newTable);
+            }
+          }
+        }
+      }
+    }
+
     // Bước 2: Xử lý các điều kiện (conditionals)
     html = processConditionals(html, data, lineItems);
 
@@ -393,25 +572,29 @@ export function usePrint(currentBranchId?: string): UsePrintResult {
   }, []);
 
   const print = React.useCallback((type: TemplateType, options: PrintOptions) => {
-    const { data, lineItems, paperSize, branchId, entityType, entityId, createdBy } = options;
+    const { data, lineItems, secondaryLineItems, paperSize, margins, branchId, entityType, entityId, createdBy } = options;
 
 
     // Lấy template content
-    const size = paperSize || templateStore.getDefaultSize(type);
-    const templateContent = getTemplateContent(type, size, branchId);
+    const size = paperSize || storeGetDefaultSize(type);
+    const template = storeGetTemplate(type, size, branchId);
+    const templateContent = template?.content;
     
     if (!templateContent) {
-      console.error(`[usePrint] No template found for type: ${type}`);
+      logError(`[usePrint] No template found for type: ${type}`, null);
       return;
     }
+
+    // Margins: options > template config > default
+    const printMargins = margins || template?.margins;
 
 
     // Xử lý template
     let html: string;
     try {
-      html = processTemplate(templateContent, data, lineItems);
+      html = processTemplate(templateContent, data, lineItems, secondaryLineItems);
     } catch (err) {
-      console.error('[usePrint] Error processing template:', err);
+      logError('[usePrint] Error processing template', err);
       return;
     }
 
@@ -435,18 +618,7 @@ export function usePrint(currentBranchId?: string): UsePrintResult {
     
     const printDoc = printFrame.contentDocument || printFrame.contentWindow?.document;
     if (printDoc) {
-      // CSS cơ bản cho print - giống với Settings preview
-      const printCSS = `
-        body { font-family: Arial, sans-serif; font-size: 12px; line-height: 1.5; }
-        table { width: 100%; border-collapse: collapse; margin: 8px 0; }
-        th, td { border: 1px solid #333; padding: 6px 8px; }
-        th { background-color: #f5f5f5; font-weight: bold; }
-        .text-center, [style*="text-align: center"] { text-align: center; }
-        .text-right, [style*="text-align: right"] { text-align: right; }
-        img { max-width: 100%; height: auto; }
-        h1, h2, h3 { margin: 8px 0; }
-        p { margin: 4px 0; }
-      `;
+      const printCSS = getBasePrintCSS(size, printMargins);
       
       printDoc.write(`
         <!DOCTYPE html>
@@ -471,7 +643,7 @@ export function usePrint(currentBranchId?: string): UsePrintResult {
         }, 1000);
       }, 100);
     }
-  }, [templateStore, getTemplateContent, processTemplate]);
+  }, [storeGetDefaultSize, storeGetTemplate, getTemplateContent, processTemplate]);
 
   /**
    * In nhiều tài liệu cùng lúc - gộp thành 1 document với page break giữa các tài liệu
@@ -479,13 +651,26 @@ export function usePrint(currentBranchId?: string): UsePrintResult {
   const printMultiple = React.useCallback((type: TemplateType, optionsList: PrintOptions[]) => {
     if (optionsList.length === 0) return;
 
+    // Log activity for the first option that has entityType/entityId
+    const logTarget = optionsList.find(o => o.entityType && o.entityId);
+    if (logTarget) {
+      const logSize = logTarget.paperSize || storeGetDefaultSize(type);
+      logPrintActivity({
+        entityType: logTarget.entityType!,
+        entityId: logTarget.entityId!,
+        templateType: type,
+        paperSize: logSize,
+        createdBy: logTarget.createdBy,
+      });
+    }
+
     // Lấy template content (dùng paperSize của item đầu tiên hoặc default)
     const firstOptions = optionsList[0];
-    const size = firstOptions.paperSize || templateStore.getDefaultSize(type);
+    const size = firstOptions.paperSize || storeGetDefaultSize(type);
     const templateContent = getTemplateContent(type, size, firstOptions.branchId);
     
     if (!templateContent) {
-      console.error(`[usePrint] No template found for type: ${type}`);
+      logError(`[usePrint] No template found for type: ${type}`, null);
       return;
     }
 
@@ -510,36 +695,8 @@ export function usePrint(currentBranchId?: string): UsePrintResult {
     
     const printDoc = printFrame.contentDocument || printFrame.contentWindow?.document;
     if (printDoc) {
-      // CSS cơ bản cho print với page break
-      const printCSS = `
-        * { box-sizing: border-box; }
-        body { font-family: Arial, sans-serif; font-size: 12px; line-height: 1.5; margin: 0; padding: 0; }
-        table { width: 100%; border-collapse: collapse; margin: 8px 0; }
-        th, td { border: 1px solid #333; padding: 6px 8px; }
-        th { background-color: #f5f5f5; font-weight: bold; }
-        .text-center, [style*="text-align: center"] { text-align: center; }
-        .text-right, [style*="text-align: right"] { text-align: right; }
-        img { max-width: 100%; height: auto; }
-        h1, h2, h3 { margin: 8px 0; }
-        p { margin: 4px 0; }
-        .print-page { 
-          page-break-after: always !important; 
-          break-after: page !important;
-          page-break-inside: avoid;
-        }
-        .print-page-last { 
-          page-break-after: auto; 
-        }
-        @media print {
-          .print-page { 
-            page-break-after: always !important; 
-            break-after: page !important;
-          }
-          .print-page-last { 
-            page-break-after: auto; 
-          }
-        }
-      `;
+      const printMargins = firstOptions.margins || storeGetTemplate(type, size, firstOptions.branchId)?.margins;
+      const printCSS = getBasePrintCSS(size, printMargins);
       
       printDoc.write(`
         <!DOCTYPE html>
@@ -564,7 +721,7 @@ export function usePrint(currentBranchId?: string): UsePrintResult {
         }, 1000);
       }, 100);
     }
-  }, [templateStore, getTemplateContent, processTemplate]);
+  }, [storeGetDefaultSize, storeGetTemplate, getTemplateContent, processTemplate]);
 
   /**
    * In nhiều loại tài liệu khác nhau cùng lúc - gộp thành 1 popup duy nhất
@@ -572,6 +729,19 @@ export function usePrint(currentBranchId?: string): UsePrintResult {
    */
   const printMixedDocuments = React.useCallback((documents: Array<{ type: TemplateType; options: PrintOptions }>) => {
     if (documents.length === 0) return;
+
+    // Log activity for the first document that has entityType/entityId
+    const logTarget = documents.find(d => d.options.entityType && d.options.entityId);
+    if (logTarget) {
+      const logSize = logTarget.options.paperSize || storeGetDefaultSize(logTarget.type);
+      logPrintActivity({
+        entityType: logTarget.options.entityType!,
+        entityId: logTarget.options.entityId!,
+        templateType: logTarget.type,
+        paperSize: logSize,
+        createdBy: logTarget.options.createdBy,
+      });
+    }
 
     // Xử lý từng document và gộp lại với page break
     const allHtmlParts: string[] = [];
@@ -581,7 +751,7 @@ export function usePrint(currentBranchId?: string): UsePrintResult {
       const { data, lineItems, paperSize, branchId } = options;
       
       // Lấy template content cho loại này
-      const size = paperSize || templateStore.getDefaultSize(type);
+      const size = paperSize || storeGetDefaultSize(type);
       const templateContent = getTemplateContent(type, size, branchId);
       
       if (!templateContent) {
@@ -599,7 +769,7 @@ export function usePrint(currentBranchId?: string): UsePrintResult {
     });
 
     if (allHtmlParts.length === 0) {
-      console.error('[printMixedDocuments] No documents to print');
+      logError('[printMixedDocuments] No documents to print', null);
       return;
     }
 
@@ -614,36 +784,11 @@ export function usePrint(currentBranchId?: string): UsePrintResult {
     
     const printDoc = printFrame.contentDocument || printFrame.contentWindow?.document;
     if (printDoc) {
-      // CSS cơ bản cho print với page break
-      const printCSS = `
-        * { box-sizing: border-box; }
-        body { font-family: Arial, sans-serif; font-size: 12px; line-height: 1.5; margin: 0; padding: 0; }
-        table { width: 100%; border-collapse: collapse; margin: 8px 0; }
-        th, td { border: 1px solid #333; padding: 6px 8px; }
-        th { background-color: #f5f5f5; font-weight: bold; }
-        .text-center, [style*="text-align: center"] { text-align: center; }
-        .text-right, [style*="text-align: right"] { text-align: right; }
-        img { max-width: 100%; height: auto; }
-        h1, h2, h3 { margin: 8px 0; }
-        p { margin: 4px 0; }
-        .print-page { 
-          page-break-after: always !important; 
-          break-after: page !important;
-          page-break-inside: avoid;
-        }
-        .print-page-last { 
-          page-break-after: auto; 
-        }
-        @media print {
-          .print-page { 
-            page-break-after: always !important; 
-            break-after: page !important;
-          }
-          .print-page-last { 
-            page-break-after: auto; 
-          }
-        }
-      `;
+      // Determine predominant paper size for mixed documents
+      const firstDoc = documents[0];
+      const mixedSize = firstDoc.options.paperSize || storeGetDefaultSize(firstDoc.type);
+      const mixedMargins = firstDoc.options.margins || storeGetTemplate(firstDoc.type, mixedSize, firstDoc.options.branchId)?.margins;
+      const printCSS = getBasePrintCSS(mixedSize, mixedMargins);
       
       printDoc.write(`
         <!DOCTYPE html>
@@ -668,7 +813,7 @@ export function usePrint(currentBranchId?: string): UsePrintResult {
         }, 1000);
       }, 100);
     }
-  }, [templateStore, getTemplateContent, processTemplate]);
+  }, [storeGetDefaultSize, getTemplateContent, processTemplate]);
 
   const getPreview = React.useCallback((type: TemplateType, options: PrintOptions): string => {
     const { data, lineItems, paperSize, branchId } = options;
@@ -684,22 +829,22 @@ export function usePrint(currentBranchId?: string): UsePrintResult {
   }, [getTemplateContent, processTemplate]);
 
   const hasTemplate = React.useCallback((type: TemplateType, paperSize?: PaperSize): boolean => {
-    const size = paperSize || templateStore.getDefaultSize(type);
-    const template = templateStore.getTemplate(type, size, currentBranchId);
+    const size = paperSize || storeGetDefaultSize(type);
+    const template = storeGetTemplate(type, size, currentBranchId);
     return !!template?.content;
-  }, [templateStore, currentBranchId]);
+  }, [storeGetDefaultSize, storeGetTemplate, currentBranchId]);
 
   const getAvailableSizes = React.useCallback((type: TemplateType): PaperSize[] => {
     const sizes: PaperSize[] = ['50x30', 'K57', 'K80', 'A4', 'A5'];
     return sizes.filter(size => {
-      const template = templateStore.getTemplate(type, size, currentBranchId);
+      const template = storeGetTemplate(type, size, currentBranchId);
       return !!template?.content;
     });
-  }, [templateStore, currentBranchId]);
+  }, [storeGetTemplate, currentBranchId]);
 
   const getDefaultSize = React.useCallback((type: TemplateType): PaperSize => {
-    return templateStore.getDefaultSize(type);
-  }, [templateStore]);
+    return storeGetDefaultSize(type);
+  }, [storeGetDefaultSize]);
 
   return {
     print,

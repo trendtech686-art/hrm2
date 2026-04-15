@@ -39,6 +39,16 @@ interface RelatedDataTableProps<TData extends { systemId: string }> {
   defaultSorting?: { id: string; desc: boolean };
   // ✅ Custom bulk actions to override default print/export behavior
   customBulkActions?: BulkAction<TData>[];
+  // ✅ Server-side pagination (optional) — when provided, disables client-side slicing
+  serverPagination?: {
+    page: number;
+    pageSize: number;
+    totalItems: number;
+    onPageChange: (page: number) => void;
+    onPageSizeChange?: (pageSize: number) => void;
+    search?: string;
+    onSearchChange?: (search: string) => void;
+  };
 }
 
 export function RelatedDataTable<TData extends { systemId: string }>({
@@ -59,6 +69,7 @@ export function RelatedDataTable<TData extends { systemId: string }>({
   showBulkDeleteButton = false,
   defaultSorting,
   customBulkActions,
+  serverPagination,
 }: RelatedDataTableProps<TData>) {
   // Get default page size from global settings
   const defaultPageSize = useDefaultPageSize();
@@ -66,10 +77,28 @@ export function RelatedDataTable<TData extends { systemId: string }>({
   // State
   const [rowSelection, setRowSelection] = React.useState({});
   const [sorting, setSorting] = React.useState<{ id: string; desc: boolean }>(defaultSorting || { id: '', desc: false });
-  const [globalFilter, setGlobalFilter] = React.useState('');
+  const [globalFilter, setGlobalFilter] = React.useState(serverPagination?.search ?? '');
   const [dateFilter, setDateFilter] = React.useState<[string | undefined, string | undefined] | undefined>();
-  const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: defaultPageSize });
+  const [pagination, setPaginationInternal] = React.useState({ pageIndex: 0, pageSize: defaultPageSize });
   const lastAppliedSearchTokenRef = React.useRef<string | null>(null);
+
+  // When serverPagination is used, sync internal state and route changes externally
+  const effectivePagination = serverPagination
+    ? { pageIndex: serverPagination.page - 1, pageSize: serverPagination.pageSize }
+    : pagination;
+  const setPagination = React.useCallback((updater: React.SetStateAction<{ pageIndex: number; pageSize: number }>) => {
+    if (serverPagination) {
+      const next = typeof updater === 'function' ? updater({ pageIndex: serverPagination.page - 1, pageSize: serverPagination.pageSize }) : updater;
+      if (next.pageIndex !== serverPagination.page - 1) {
+        serverPagination.onPageChange(next.pageIndex + 1);
+      }
+      if (next.pageSize !== serverPagination.pageSize) {
+        serverPagination.onPageSizeChange?.(next.pageSize);
+      }
+    } else {
+      setPaginationInternal(updater);
+    }
+  }, [serverPagination]);
   
   // State for column customization
   const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>({});
@@ -108,9 +137,18 @@ export function RelatedDataTable<TData extends { systemId: string }>({
     }
   }, [columns, isInitialized]);
 
+  // When server search is enabled, delegate search to server
+  const hasServerSearch = !!serverPagination?.onSearchChange;
+  const handleSearchChange = React.useCallback((value: string) => {
+    setGlobalFilter(value);
+    if (serverPagination?.onSearchChange) {
+      serverPagination.onSearchChange(value);
+    }
+  }, [serverPagination]);
+
   const searchedData = React.useMemo(() => 
-    simpleSearch(data, globalFilter, { keys: searchKeys as (keyof TData)[] }), 
-    [data, globalFilter, searchKeys]
+    hasServerSearch ? data : simpleSearch(data, globalFilter, { keys: searchKeys as (keyof TData)[] }), 
+    [data, globalFilter, searchKeys, hasServerSearch]
   );
 
   const filteredData = React.useMemo(() => {
@@ -158,12 +196,15 @@ export function RelatedDataTable<TData extends { systemId: string }>({
     return sorted;
   }, [filteredData, sorting]);
 
-  const pageCount = Math.ceil(sortedData.length / pagination.pageSize);
+  const pageCount = serverPagination
+    ? Math.ceil(serverPagination.totalItems / serverPagination.pageSize)
+    : Math.ceil(sortedData.length / pagination.pageSize);
   const paginatedData = React.useMemo(() => {
+    if (serverPagination) return sortedData; // data is already one page from server
     const start = pagination.pageIndex * pagination.pageSize;
     const end = start + pagination.pageSize;
     return sortedData.slice(start, end);
-  }, [sortedData, pagination]);
+  }, [sortedData, pagination, serverPagination]);
 
   // ✅ Calculate all selected rows from filteredData (not just current page)
   const allSelectedRows = React.useMemo(() => {
@@ -316,12 +357,12 @@ export function RelatedDataTable<TData extends { systemId: string }>({
     <div className="space-y-4">
       <DataTableToolbar
         search={globalFilter}
-        onSearchChange={setGlobalFilter}
+        onSearchChange={handleSearchChange}
         searchPlaceholder={searchPlaceholder}
         dateFilter={dateFilterColumn ? dateFilter : undefined}
         onDateFilterChange={dateFilterColumn ? setDateFilter : undefined}
         dateFilterTitle={dateFilterTitle}
-        numResults={filteredData.length}
+        numResults={serverPagination ? serverPagination.totalItems : filteredData.length}
       >
         <div className="flex items-center gap-2">
             {children}
@@ -342,9 +383,9 @@ export function RelatedDataTable<TData extends { systemId: string }>({
         columns={displayColumns}
         data={paginatedData}
         pageCount={pageCount}
-        pagination={pagination}
+        pagination={effectivePagination}
         setPagination={setPagination}
-        rowCount={filteredData.length}
+        rowCount={serverPagination ? serverPagination.totalItems : filteredData.length}
         rowSelection={rowSelection}
         setRowSelection={setRowSelection}
         sorting={sorting}

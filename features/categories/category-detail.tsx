@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useParams, usePathname, useRouter } from 'next/navigation';
-import { Save, X, Trash2, Globe, Image as ImageIcon, Pencil, RefreshCw } from 'lucide-react';
+import { Save, X, Trash2, Globe, Image as ImageIcon, Pencil, RefreshCw, ChevronDown, Info, FileText, Layers, ExternalLink, Unlink, Loader2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -49,13 +49,22 @@ import { type StagingFile } from '@/lib/file-upload-api';
 import { SeoAnalysisPanel } from '@/components/shared/seo-preview';
 import { TipTapEditor } from '@/components/ui/tiptap-editor';
 import { usePageHeader } from '@/contexts/page-header-context';
+import { useAuth } from '@/contexts/auth-context';
 import { slugify } from '@/lib/utils';
 import { CharacterCounter } from '@/components/shared/character-counter';
 import { SeoScoreDisplay } from '@/components/shared/seo-score-display';
 import { usePkgxCategorySync } from './hooks/use-pkgx-category-sync';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { usePkgxCategoryMappings, usePkgxCategoryMappingMutations } from '@/features/settings/pkgx/hooks/use-pkgx-settings';
 import { PkgxSyncConfirmDialog } from '@/features/settings/pkgx/components/pkgx-sync-confirm-dialog';
 import type { ProductCategory } from '@/features/settings/inventory/types';
+import { sanitizeHtml } from '@/lib/sanitize';
 
 // Helper type for websiteSeo
 type WebsiteSeoType = {
@@ -114,6 +123,7 @@ type CategoryFormValues = z.infer<typeof categoryFormSchema>;
 export function CategoryDetailPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const router = useRouter();
+  const { can, isAdmin } = useAuth();
   const pathname = usePathname();
   
   const isEditMode = pathname?.endsWith('/edit') ?? false;
@@ -131,7 +141,7 @@ export function CategoryDetailPage() {
   );
   
   // Category mutations
-  const { update, remove } = useCategoryMutations({
+  const { update, remove, isUpdating } = useCategoryMutations({
     onUpdateSuccess: () => toast.success('Đã cập nhật danh mục'),
     onDeleteSuccess: () => {
       toast.success('Đã xóa danh mục');
@@ -380,9 +390,9 @@ export function CategoryDetailPage() {
           <X className="mr-2 h-4 w-4" />
           Hủy
         </Button>,
-        <Button key="save" size="sm" className="h-9" onClick={form.handleSubmit(handleSubmit)}>
-          <Save className="mr-2 h-4 w-4" />
-          Lưu
+        <Button key="save" size="sm" className="h-9" onClick={form.handleSubmit(handleSubmit)} disabled={isUpdating}>
+          {isUpdating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+          {isUpdating ? 'Đang lưu...' : 'Lưu'}
         </Button>
       ];
     }
@@ -404,55 +414,83 @@ export function CategoryDetailPage() {
       
       if (hasPkgxMapping(categoryWithBrandedIds)) {
         actions.unshift(
-          <Button key="unlink-pkgx" variant="destructive" size="sm" className="h-9" onClick={handleUnlinkPkgx}>
-            <X className="mr-2 h-4 w-4" />
-            Hủy liên kết
-          </Button>,
-          <Button key="sync-basic" variant="outline" size="sm" className="h-9" onClick={() => handleConfirm(
-            'Đồng bộ thông tin cơ bản',
-            `Bạn có chắc muốn đồng bộ thông tin cơ bản (Tên) của "${category?.name}" lên PKGX?`,
-            () => handleSyncBasic(categoryWithBrandedIds)
-          )}>
-            <RefreshCw className="mr-2 h-4 w-4" />
-            Thông tin cơ bản
-          </Button>,
-          <Button key="sync-desc" variant="outline" size="sm" className="h-9" onClick={() => handleConfirm(
-            'Đồng bộ mô tả',
-            `Bạn có chắc muốn đồng bộ mô tả (Short Desc, Long Desc) của "${category?.name}" lên PKGX?`,
-            () => handleSyncDescription(categoryWithBrandedIds)
-          )}>
-            <RefreshCw className="mr-2 h-4 w-4" />
-            Mô tả
-          </Button>,
-          <Button key="sync-seo" variant="outline" size="sm" className="h-9" onClick={() => handleConfirm(
-            'Đồng bộ SEO',
-            `Bạn có chắc muốn đồng bộ SEO (Keywords, Meta Title, Meta Description) của "${category?.name}" lên PKGX?`,
-            () => handleSyncSeo(categoryWithBrandedIds)
-          )}>
-            <RefreshCw className="mr-2 h-4 w-4" />
-            SEO
-          </Button>,
-          <Button key="sync-all" variant="outline" size="sm" className="h-9" onClick={() => handleConfirm(
-            'Đồng bộ tất cả',
-            `Bạn có chắc muốn đồng bộ TẤT CẢ thông tin danh mục "${category?.name}" lên PKGX?`,
-            () => handleSyncAll(categoryWithBrandedIds)
-          )}>
-            <RefreshCw className="mr-2 h-4 w-4" />
-            Đồng bộ tất cả
-          </Button>
+          <DropdownMenu key="pkgx-sync">
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-9">
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Cập nhật PKGX
+                <ChevronDown className="ml-2 h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={() => handleConfirm(
+                'Đồng bộ tất cả',
+                `Bạn có chắc muốn đồng bộ TẤT CẢ thông tin danh mục "${category?.name}" lên PKGX?`,
+                () => handleSyncAll(categoryWithBrandedIds)
+              )}>
+                <Layers className="mr-2 h-4 w-4" />
+                Đồng bộ tất cả
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => handleConfirm(
+                'Đồng bộ thông tin cơ bản',
+                `Bạn có chắc muốn đồng bộ thông tin cơ bản (Tên) của "${category?.name}" lên PKGX?`,
+                () => handleSyncBasic(categoryWithBrandedIds)
+              )}>
+                <Info className="mr-2 h-4 w-4" />
+                Thông tin cơ bản
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleConfirm(
+                'Đồng bộ SEO',
+                `Bạn có chắc muốn đồng bộ SEO (Keywords, Meta Title, Meta Description) của "${category?.name}" lên PKGX?`,
+                () => handleSyncSeo(categoryWithBrandedIds)
+              )}>
+                <Globe className="mr-2 h-4 w-4" />
+                SEO
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleConfirm(
+                'Đồng bộ mô tả',
+                `Bạn có chắc muốn đồng bộ mô tả (Short Desc, Long Desc) của "${category?.name}" lên PKGX?`,
+                () => handleSyncDescription(categoryWithBrandedIds)
+              )}>
+                <FileText className="mr-2 h-4 w-4" />
+                Mô tả
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => {
+                const pkgxId = getPkgxCatId(categoryWithBrandedIds);
+                if (pkgxId) {
+                  window.open(`https://phukiengiaxuong.com.vn/admin/cat.php?act=edit&id=${pkgxId}`, '_blank');
+                }
+              }}>
+                <ExternalLink className="mr-2 h-4 w-4" />
+                Xem trên web
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="text-destructive focus:text-destructive"
+                onClick={handleUnlinkPkgx}
+              >
+                <Unlink className="mr-2 h-4 w-4" />
+                Hủy liên kết
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         );
       }
     }
     
-    actions.push(
-      <Button key="edit" size="sm" className="h-9" onClick={handleSwitchToEdit}>
-        <Pencil className="mr-2 h-4 w-4" />
-        Chỉnh sửa
-      </Button>
-    );
+    if (isAdmin || can('edit_products')) {
+      actions.push(
+        <Button key="edit" size="sm" className="h-9" onClick={handleSwitchToEdit}>
+          <Pencil className="mr-2 h-4 w-4" />
+          Chỉnh sửa
+        </Button>
+      );
+    }
     
     return actions;
-  }, [isEditMode, systemId, router, form, handleSubmit, handleSwitchToEdit, category, hasPkgxMapping, handleSyncAll, handleSyncSeo, handleSyncDescription, handleSyncBasic, handleUnlinkPkgx]);
+  }, [isEditMode, systemId, router, form, handleSubmit, isUpdating, handleSwitchToEdit, category, hasPkgxMapping, handleSyncAll, handleSyncSeo, handleSyncDescription, handleSyncBasic, handleUnlinkPkgx, getPkgxCatId, isAdmin, can]);
 
   usePageHeader({
     title: category?.name || 'Danh mục',
@@ -654,13 +692,13 @@ export function CategoryDetailPage() {
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Mô tả ngắn</p>
                   {category.shortDescription ? (
-                    <div className="prose prose-sm max-w-none text-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: category.shortDescription }} />
+                    <div className="prose prose-sm max-w-none text-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: sanitizeHtml(category.shortDescription) }} />
                   ) : <p className="text-sm text-muted-foreground">-</p>}
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Mô tả chi tiết</p>
                   {category.longDescription ? (
-                    <div className="prose prose-sm max-w-none text-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: category.longDescription }} />
+                    <div className="prose prose-sm max-w-none text-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: sanitizeHtml(category.longDescription) }} />
                   ) : <p className="text-sm text-muted-foreground">-</p>}
                 </div>
               </CardContent>
@@ -704,13 +742,13 @@ export function CategoryDetailPage() {
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Mô tả ngắn</p>
                   {(category.websiteSeo as WebsiteSeoType)?.pkgx?.shortDescription ? (
-                    <div className="prose prose-sm max-w-none text-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: (category.websiteSeo as WebsiteSeoType)?.pkgx?.shortDescription || '' }} />
+                    <div className="prose prose-sm max-w-none text-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: sanitizeHtml((category.websiteSeo as WebsiteSeoType)?.pkgx?.shortDescription || '') }} />
                   ) : <p className="text-sm text-muted-foreground">-</p>}
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Mô tả chi tiết</p>
                   {(category.websiteSeo as WebsiteSeoType)?.pkgx?.longDescription ? (
-                    <div className="prose prose-sm max-w-none text-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: (category.websiteSeo as WebsiteSeoType)?.pkgx?.longDescription || '' }} />
+                    <div className="prose prose-sm max-w-none text-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: sanitizeHtml((category.websiteSeo as WebsiteSeoType)?.pkgx?.longDescription || '') }} />
                   ) : <p className="text-sm text-muted-foreground">-</p>}
                 </div>
               </CardContent>
@@ -747,13 +785,13 @@ export function CategoryDetailPage() {
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Mô tả ngắn</p>
                   {(category.websiteSeo as WebsiteSeoType)?.trendtech?.shortDescription ? (
-                    <div className="prose prose-sm max-w-none text-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: (category.websiteSeo as WebsiteSeoType)?.trendtech?.shortDescription || '' }} />
+                    <div className="prose prose-sm max-w-none text-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: sanitizeHtml((category.websiteSeo as WebsiteSeoType)?.trendtech?.shortDescription || '') }} />
                   ) : <p className="text-sm text-muted-foreground">-</p>}
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Mô tả chi tiết</p>
                   {(category.websiteSeo as WebsiteSeoType)?.trendtech?.longDescription ? (
-                    <div className="prose prose-sm max-w-none text-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: (category.websiteSeo as WebsiteSeoType)?.trendtech?.longDescription || '' }} />
+                    <div className="prose prose-sm max-w-none text-sm border rounded-md p-3 bg-muted/30" dangerouslySetInnerHTML={{ __html: sanitizeHtml((category.websiteSeo as WebsiteSeoType)?.trendtech?.longDescription || '') }} />
                   ) : <p className="text-sm text-muted-foreground">-</p>}
                 </div>
               </CardContent>

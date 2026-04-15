@@ -8,35 +8,28 @@
  */
 
 import { prisma } from '@/lib/prisma'
-import { requireAuth, apiError, apiSuccessCached } from '@/lib/api-utils'
+import { apiSuccessCached } from '@/lib/api-utils'
+import { apiHandler } from '@/lib/api-handler'
 
 export const dynamic = 'force-dynamic'
 
-export async function GET() {
-  const session = await requireAuth()
-  if (!session) return apiError('Unauthorized', 401)
+export const GET = apiHandler(async () => {
+  // Run both queries in parallel — each uses SELECT DISTINCT via groupBy
+  const [departmentResults, jobTitleResults] = await Promise.all([
+    prisma.department.findMany({
+      where: { isDeleted: false },
+      select: { name: true },
+      orderBy: { name: 'asc' },
+    }),
+    prisma.jobTitle.findMany({
+      where: { isDeleted: false },
+      select: { name: true },
+      orderBy: { name: 'asc' },
+    }),
+  ])
 
-  try {
-    // Run both queries in parallel — each uses SELECT DISTINCT via groupBy
-    const [departmentResults, jobTitleResults] = await Promise.all([
-      prisma.department.findMany({
-        where: { isDeleted: false },
-        select: { name: true },
-        orderBy: { name: 'asc' },
-      }),
-      prisma.jobTitle.findMany({
-        where: { isDeleted: false },
-        select: { name: true },
-        orderBy: { name: 'asc' },
-      }),
-    ])
-
-    return apiSuccessCached({
-      departments: departmentResults.map(d => d.name),
-      jobTitles: jobTitleResults.map(j => j.name),
-    })
-  } catch (error) {
-    console.error('Error fetching employee filter options:', error)
-    return apiError('Failed to fetch filter options', 500)
-  }
-}
+  return apiSuccessCached({
+    departments: departmentResults.map(d => d.name),
+    jobTitles: jobTitleResults.map(j => j.name),
+  })
+})

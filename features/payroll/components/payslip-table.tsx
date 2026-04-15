@@ -59,7 +59,7 @@ export function PayslipTable({ rows, isLoading, emptyMessage, onRowClick, action
   const colSpan = hasActions ? 12 : 11;
 
   return (
-    <div className={cn('rounded-xl border bg-card overflow-x-auto', className)}>
+    <div className={cn('rounded-xl border border-border/50 bg-card overflow-x-auto', className)}>
       <Table>
         <TableHeader>
           <TableRow>
@@ -88,7 +88,7 @@ export function PayslipTable({ rows, isLoading, emptyMessage, onRowClick, action
 
           {!isLoading && rows.length === 0 && (
             <TableRow>
-              <TableCell colSpan={colSpan} className="py-6 text-center text-body-sm text-muted-foreground">
+              <TableCell colSpan={colSpan} className="py-6 text-center text-sm text-muted-foreground">
                 {emptyMessage ?? 'Chưa có phiếu lương nào trong batch này.'}
               </TableCell>
             </TableRow>

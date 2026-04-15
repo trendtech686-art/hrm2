@@ -6,6 +6,9 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { generateNextIds } from '@/lib/id-system';
 import { requireAuth, apiSuccess, apiError, apiPaginated, parsePagination } from '@/lib/api-utils';
+import { logError } from '@/lib/logger'
+import { createNotification } from '@/lib/notifications'
+import { getUserNameFromDb } from '@/lib/get-user-name'
 
 // Helper: normalize English status to Vietnamese display status
 function mapPenaltyStatus(status: string): string {
@@ -42,7 +45,7 @@ function serializePenalty(p: Record<string, unknown>) {
 // GET /api/penalties
 export async function GET(request: NextRequest) {
   const session = await requireAuth();
-  if (!session) return apiError('Unauthorized', 401);
+  if (!session) return apiError('Chưa được xác thực', 401);
 
   try {
     const { searchParams } = new URL(request.url);
@@ -59,6 +62,8 @@ export async function GET(request: NextRequest) {
     const where: Record<string, unknown> = {};
     
     if (employeeSystemId) where.employeeId = employeeSystemId;
+    const linkedComplaintSystemId = searchParams.get('linkedComplaintSystemId');
+    if (linkedComplaintSystemId) where.linkedComplaintSystemId = linkedComplaintSystemId;
     // Support comma-separated statuses for multi-select
     if (status) {
       const statuses = status.split(',').map(s => s.trim()).filter(Boolean);
@@ -109,15 +114,15 @@ export async function GET(request: NextRequest) {
 
     return apiPaginated(data.map(d => serializePenalty(d as unknown as Record<string, unknown>)), { page, limit, total });
   } catch (error) {
-    console.error('[Penalties API] GET error:', error);
-    return apiError('Failed to fetch penalties', 500);
+    logError('[Penalties API] GET error', error);
+    return apiError('Không thể tải danh sách phiếu phạt', 500);
   }
 }
 
 // POST /api/penalties
 export async function POST(request: NextRequest) {
   const session = await requireAuth();
-  if (!session) return apiError('Unauthorized', 401);
+  if (!session) return apiError('Chưa được xác thực', 401);
 
   try {
     const body = await request.json();
@@ -145,9 +150,39 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // ✅ Notify employee about new penalty
+    const penaltyEmployeeId = body.employeeId || body.employeeSystemId
+    if (penaltyEmployeeId && penaltyEmployeeId !== session.user?.employeeId) {
+      createNotification({
+        type: 'penalty',
+        settingsKey: 'penalty:updated',
+        title: 'Phạt mới',
+        message: `Bạn có một khoản phạt mới: ${body.reason || penalty.id}`,
+        link: `/penalties`,
+        recipientId: penaltyEmployeeId,
+        senderId: session.user?.employeeId,
+        senderName: session.user?.name,
+      }).catch(e => logError('[Penalties POST] notification failed', e))
+    }
+
+    // Log activity
+    getUserNameFromDb(session.user?.id).then(userName =>
+      prisma.activityLog.create({
+        data: {
+          entityType: 'penalty',
+          entityId: penalty.systemId,
+          action: 'created',
+          actionType: 'create',
+          note: `Tạo phiếu phạt`,
+          metadata: { userName },
+          createdBy: userName,
+        }
+      })
+    ).catch(e => logError('[ActivityLog] penalty create failed', e))
+
     return apiSuccess(serializePenalty(penalty as unknown as Record<string, unknown>), 201);
   } catch (error) {
-    console.error('[Penalties API] POST error:', error);
-    return apiError('Failed to create penalty', 500);
+    logError('[Penalties API] POST error', error);
+    return apiError('Không thể tạo phiếu phạt', 500);
   }
 }

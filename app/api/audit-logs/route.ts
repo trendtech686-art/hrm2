@@ -3,6 +3,7 @@ import type { Prisma } from '@/generated/prisma/client'
 import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
 import { createAuditLogSchema } from './validation'
 import { generateNextIds } from '@/lib/id-system'
+import { logError } from '@/lib/logger'
 
 // GET /api/audit-logs - List audit logs
 export async function GET(request: Request) {
@@ -55,7 +56,7 @@ export async function GET(request: Request) {
 
     return apiPaginated(logs, { page, limit, total })
   } catch (error) {
-    console.error('Error fetching audit logs:', error)
+    logError('Error fetching audit logs', error)
     return apiError('Failed to fetch audit logs', 500)
   }
 }
@@ -92,7 +93,7 @@ export async function POST(request: Request) {
 
     return apiSuccess(log, 201)
   } catch (error) {
-    console.error('Error creating audit log:', error)
+    logError('Error creating audit log', error)
     return apiError('Failed to create audit log', 500)
   }
 }

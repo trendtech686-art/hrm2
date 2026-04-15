@@ -44,7 +44,7 @@ export const ReturnTableFooter = () => {
         <TableCell></TableCell>
         <TableCell></TableCell>
         <TableCell className="text-right font-semibold">
-          Cần hoàn tiền trả hàng
+          Giá trị hàng trả lại
         </TableCell>
         <TableCell className="text-right font-bold">
           {formatCurrency(totalReturnValue)}

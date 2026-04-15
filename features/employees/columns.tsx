@@ -435,7 +435,7 @@ export const getColumns = (
           return (
             <div className="flex items-center gap-2">
               <div className="h-2 w-2 rounded-full bg-green-500"></div>
-              <span className="text-body-sm">Đang làm việc</span>
+              <span className="text-sm">Đang làm việc</span>
             </div>
           );
         }
@@ -444,7 +444,7 @@ export const getColumns = (
           return (
             <div className="flex items-center gap-2">
               <div className="h-2 w-2 rounded-full bg-yellow-500"></div>
-              <span className="text-body-sm">Tạm nghỉ</span>
+              <span className="text-sm">Tạm nghỉ</span>
             </div>
           );
         }
@@ -452,7 +452,7 @@ export const getColumns = (
         return (
           <div className="flex items-center gap-2">
             <div className="h-2 w-2 rounded-full bg-gray-400"></div>
-            <span className="text-body-sm">{displayStatus}</span>
+            <span className="text-sm">{displayStatus}</span>
           </div>
         );
     },
@@ -497,8 +497,8 @@ export const getColumns = (
       if (!row.createdAt) return '';
       return (
         <div className="flex flex-col">
-          <span className="text-body-sm">{formatDateDisplay(row.createdAt)}</span>
-          <span className="text-body-xs text-muted-foreground">
+          <span className="text-sm">{formatDateDisplay(row.createdAt)}</span>
+          <span className="text-xs text-muted-foreground">
             {formatDateCustom(new Date(row.createdAt), 'HH:mm')}
           </span>
         </div>

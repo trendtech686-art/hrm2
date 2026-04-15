@@ -6,21 +6,25 @@
 
 import * as React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { fetchAllPages } from '@/lib/fetch-all-pages';
 import { fetchBrands } from '../api/brands-api';
 import { brandKeys } from './use-brands';
 import type { SystemId } from '@/lib/id-types';
 
 /**
- * Returns all brands as a flat array
- * Auto-pagination: no hardcoded limit cap (MODULE-QUALITY-CRITERIA §1.3)
+ * Returns all brands as a flat array.
+ * Uses server-side limit=500 (brands are typically <200 items).
  */
-export function useAllBrands() {
+export function useAllBrands(options: { enabled?: boolean } = {}) {
+  const { enabled = true } = options;
   const query = useQuery({
     queryKey: [...brandKeys.all, 'all'],
-    queryFn: () => fetchAllPages((p) => fetchBrands(p)),
+    queryFn: async () => {
+      const result = await fetchBrands({ page: 1, limit: 500 });
+      return result.data;
+    },
     staleTime: 10 * 60 * 1000,
     gcTime: 60 * 60 * 1000,
+    enabled,
   });
   
   return {
@@ -47,28 +51,11 @@ export function useActiveBrands() {
 }
 
 /**
- * Returns brands formatted as options for Select/Combobox
- */
-export function useBrandOptions() {
-  const { data, isLoading } = useActiveBrands();
-  
-  const options = React.useMemo(
-    () => data.map(b => ({
-      value: b.systemId,
-      label: b.name,
-    })),
-    [data]
-  );
-  
-  return { options, isLoading };
-}
-
-/**
  * Helper hook to find a brand by ID from cached data
  * Replaces legacy findById() method
  */
-export function useBrandFinder() {
-  const { data } = useAllBrands();
+export function useBrandFinder(options: { enabled?: boolean } = {}) {
+  const { data } = useAllBrands(options);
   
   const findById = React.useCallback(
     (systemId: SystemId | string | undefined) => {

@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table';
 import { TabsContent } from '../../../components/ui/tabs';
 import { SettingsVerticalTabs } from '../../../components/settings/SettingsVerticalTabs';
+import { SettingsHistoryContent } from '../../../components/settings/SettingsHistoryContent';
 import { SettingsActionButton } from '../../../components/settings/SettingsActionButton';
 import { SimpleSettingsTable } from '../../../components/settings/SimpleSettingsTable';
 import { toast } from 'sonner';
@@ -108,7 +109,8 @@ export function EmployeeRolesPage() {
         emp.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
         emp.workEmail?.toLowerCase().includes(searchTerm.toLowerCase());
       
-      const matchRole = roleFilter === 'all' || emp.role === roleFilter;
+      const empRole = emp.role || 'Sales';
+      const matchRole = roleFilter === 'all' || empRole === roleFilter;
       
       return matchSearch && matchRole;
     });
@@ -118,10 +120,20 @@ export function EmployeeRolesPage() {
   const employeeCountByRole = React.useMemo(() => {
     const counts: Record<string, number> = {};
     employees.forEach(emp => {
-      counts[emp.role] = (counts[emp.role] || 0) + 1;
+      const role = emp.role || 'Sales';
+      counts[role] = (counts[role] || 0) + 1;
     });
     return counts;
   }, [employees]);
+
+  // All unique roles (configured + any legacy roles from employees)
+  const allRoleIds = React.useMemo(() => {
+    const ids = new Set(roles.map(r => r.id));
+    employees.forEach(emp => {
+      if (emp.role) ids.add(emp.role);
+    });
+    return Array.from(ids);
+  }, [roles, employees]);
 
   const handleEditRole = React.useCallback((role: CustomRole) => {
     setSelectedRole(role);
@@ -136,7 +148,7 @@ export function EmployeeRolesPage() {
   }, []);
 
   const handleDuplicateRole = React.useCallback((role: CustomRole) => {
-    addRole(`${role.name} (Copy)`, role.description);
+    addRole(`${role.name} (Copy)`, role.description, [...role.permissions]);
     toast.success(`Đã sao chép vai trò "${role.name}"`);
   }, [addRole]);
 
@@ -239,17 +251,29 @@ export function EmployeeRolesPage() {
     const special = '!@#$%^&*';
     const all = uppercase + lowercase + numbers + special;
     
+    const randomIndex = (max: number): number => {
+      const array = new Uint32Array(1);
+      crypto.getRandomValues(array);
+      return array[0] % max;
+    };
+    
     let password = '';
-    password += uppercase[Math.floor(Math.random() * uppercase.length)];
-    password += lowercase[Math.floor(Math.random() * lowercase.length)];
-    password += numbers[Math.floor(Math.random() * numbers.length)];
-    password += special[Math.floor(Math.random() * special.length)];
+    password += uppercase[randomIndex(uppercase.length)];
+    password += lowercase[randomIndex(lowercase.length)];
+    password += numbers[randomIndex(numbers.length)];
+    password += special[randomIndex(special.length)];
     
     for (let i = 4; i < length; i++) {
-      password += all[Math.floor(Math.random() * all.length)];
+      password += all[randomIndex(all.length)];
     }
     
-    return password.split('').sort(() => Math.random() - 0.5).join('');
+    // Fisher-Yates shuffle using crypto
+    const arr = password.split('');
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = randomIndex(i + 1);
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr.join('');
   };
 
   const handleOpenPasswordDialog = (employee: Employee) => {
@@ -397,17 +421,20 @@ export function EmployeeRolesPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Tất cả vai trò</SelectItem>
-                    {roles.map((role) => (
-                      <SelectItem key={role.id} value={role.id}>
-                        {role.name} ({employeeCountByRole[role.id] || 0})
-                      </SelectItem>
-                    ))}
+                    {allRoleIds.map((roleId) => {
+                      const roleDef = roles.find(r => r.id === roleId);
+                      return (
+                        <SelectItem key={roleId} value={roleId}>
+                          {roleDef?.name || roleId} ({employeeCountByRole[roleId] || 0})
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
               </div>
 
               {/* Employee Table */}
-              <div className="border border-border rounded-md">
+              <div className="border border-border rounded-md overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -470,13 +497,26 @@ export function EmployeeRolesPage() {
                                   </div>
                                 </SelectItem>
                               ))}
+                              {/* Show current role as option if not in configured roles */}
+                              {employee.role && !roles.some(r => r.id === employee.role) && (
+                                <SelectItem key={employee.role} value={employee.role} disabled>
+                                  <div className="flex items-center gap-2">
+                                    <Badge variant="outline" className="text-xs">
+                                      {employee.role}
+                                    </Badge>
+                                    <span className="text-xs text-muted-foreground">
+                                      (vai trò cũ)
+                                    </span>
+                                  </div>
+                                </SelectItem>
+                              )}
                             </SelectContent>
                           </Select>
                         </TableCell>
                         <TableCell className="text-right">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Thao tác">
                                 <MoreHorizontal className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
@@ -509,16 +549,23 @@ export function EmployeeRolesPage() {
 
               {/* Summary */}
               <div className="flex flex-wrap gap-2 pt-2">
-                {roles.map((role) => (
-                  <Badge key={role.id} variant="outline" className="text-xs">
-                    {role.name}: {employeeCountByRole[role.id] || 0} nhân viên
-                  </Badge>
-                ))}
+                {allRoleIds.map((roleId) => {
+                  const roleDef = roles.find(r => r.id === roleId);
+                  const count = employeeCountByRole[roleId] || 0;
+                  if (count === 0 && !roleDef) return null;
+                  return (
+                    <Badge key={roleId} variant="outline" className="text-xs">
+                      {roleDef?.name || roleId}: {count} nhân viên
+                    </Badge>
+                  );
+                })}
               </div>
             </CardContent>
           </Card>
         </TabsContent>
       </SettingsVerticalTabs>
+
+      <SettingsHistoryContent entityTypes={['user', 'role']} />
 
       {/* Add Role Dialog */}
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>

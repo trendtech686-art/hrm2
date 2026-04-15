@@ -3,7 +3,7 @@ import { Printer } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
 import { toast } from 'sonner';
 import { usePrint } from '../../../lib/use-print';
-import { useStoreInfoData } from '../../settings/store-info/hooks/use-store-info';
+import { fetchPrintData } from '../../../lib/lazy-print-data';
 import { usePayslipsByBatch, usePayrollById } from '../hooks/use-payroll';
 import { useAllEmployees } from '../../employees/hooks/use-all-employees';
 import { useAllDepartments } from '../../settings/departments/hooks/use-all-departments';
@@ -71,7 +71,7 @@ export function PayslipPrintButton({
   
   const { data: employees } = useAllEmployees();
   const { data: departments } = useAllDepartments();
-  const { info: storeInfo } = useStoreInfoData();
+  // ⚡ OPTIMIZED: storeInfo lazy loaded in handlePrint
   
   // Print hook
   const { print } = usePrint();
@@ -98,11 +98,13 @@ export function PayslipPrintButton({
   }, [departments]);
 
   // Handler
-  const handlePrint = React.useCallback(() => {
+  const handlePrint = React.useCallback(async () => {
     if (!payslip || !batch) {
       toast.error('Không thể in', { description: 'Không tìm thấy dữ liệu phiếu lương.' });
       return;
     }
+
+    const { storeInfo } = await fetchPrintData();
 
     // Get employee info
     const employee = employeeLookup[payslip.employeeSystemId];
@@ -132,7 +134,7 @@ export function PayslipPrintButton({
     });
 
     toast.success('Đang chuẩn bị in...', { description: 'Phiếu lương sẽ được in ra.' });
-  }, [payslip, batch, storeInfo, employeeLookup, departmentLookup, print]);
+  }, [payslip, batch, employeeLookup, departmentLookup, print]);
 
   if (!payslip) {
     return null;
@@ -178,7 +180,7 @@ export function BatchPrintButton({
   const payslips = React.useMemo<Payslip[]>(() => [], []);
   const { data: employees } = useAllEmployees();
   const { data: departments } = useAllDepartments();
-  const { info: storeInfo } = useStoreInfoData();
+  // ⚡ OPTIMIZED: storeInfo lazy loaded in handlePrint
   
   const { print } = usePrint();
 
@@ -204,12 +206,13 @@ export function BatchPrintButton({
   }, [departments]);
 
   // Handler
-  const handlePrint = React.useCallback(() => {
+  const handlePrint = React.useCallback(async () => {
     if (!batch || payslips.length === 0) {
       toast.error('Không thể in', { description: 'Không tìm thấy dữ liệu bảng lương.' });
       return;
     }
 
+    const { storeInfo } = await fetchPrintData();
     const storeSettings = createStoreSettings(storeInfo);
     const batchForPrint = convertPayrollBatchForPrint(
       batch,
@@ -226,7 +229,7 @@ export function BatchPrintButton({
     });
 
     toast.success('Đang chuẩn bị in...', { description: `In ${payslips.length} phiếu lương.` });
-  }, [batch, payslips, storeInfo, employeeLookup, departmentLookup, print]);
+  }, [batch, payslips, employeeLookup, departmentLookup, print]);
 
   if (!batch) {
     return null;

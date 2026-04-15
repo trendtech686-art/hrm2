@@ -48,7 +48,7 @@ export function useAllEmployees(options: UseAllEmployeesOptions = {}) {
   const firstPage = useQuery({
     queryKey: employeeKeys.list(baseParams),
     queryFn: () => fetchEmployees(baseParams),
-    staleTime: 60_000,
+    staleTime: 5 * 60 * 1000, // 5 min — employee data rarely changes
     gcTime: 10 * 60 * 1000,
     enabled,
   });
@@ -62,7 +62,7 @@ export function useAllEmployees(options: UseAllEmployeesOptions = {}) {
       return {
         queryKey: employeeKeys.list(params),
         queryFn: () => fetchEmployees(params),
-        staleTime: 60_000,
+        staleTime: 5 * 60 * 1000, // 5 min — employee data rarely changes
         gcTime: 10 * 60 * 1000,
         enabled: enabled && totalPages > 1 && !!firstPage.data,
       };
@@ -129,11 +129,11 @@ export function useEmployeeOptions() {
 }
 
 /**
- * Helper hook to find an employee by ID from cached data
- * Replaces legacy findById() method
+ * Helper hook to find an employee by ID from cached data.
+ * Cache-only: subscribes to the query cache but NEVER triggers a fetch.
  */
 export function useEmployeeFinder() {
-  const { data } = useAllEmployees();
+  const { data } = useAllEmployees({ enabled: false });
   
   const findById = React.useCallback(
     (idOrSystemId: SystemId | string | undefined) => {

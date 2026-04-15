@@ -52,7 +52,7 @@ export const purchasePriceHistoryColumns: ColumnDef<PriceHistoryEntry>[] = [
     accessorKey: "supplierName",
     header: "Nhà cung cấp / Nguồn",
     cell: ({ row }) => {
-      return <div className="text-body-sm font-medium">{row.supplierName}</div>;
+      return <div className="text-sm font-medium">{row.supplierName}</div>;
     },
     meta: { displayName: "Nhà cung cấp" }
   },
@@ -61,7 +61,7 @@ export const purchasePriceHistoryColumns: ColumnDef<PriceHistoryEntry>[] = [
     accessorKey: "createdByName",
     header: "Người tạo",
     cell: ({ row }) => {
-      return <div className="text-body-sm">{row.createdByName || '-'}</div>;
+      return <div className="text-sm">{row.createdByName || '-'}</div>;
     },
     meta: { displayName: "Người tạo" }
   },
@@ -70,7 +70,7 @@ export const purchasePriceHistoryColumns: ColumnDef<PriceHistoryEntry>[] = [
     accessorKey: "branchName",
     header: "Chi nhánh",
     cell: ({ row }) => {
-      return <div className="text-body-sm">{row.branchName || '-'}</div>;
+      return <div className="text-sm">{row.branchName || '-'}</div>;
     },
     meta: { displayName: "Chi nhánh" }
   },
@@ -85,7 +85,7 @@ export const purchasePriceHistoryColumns: ColumnDef<PriceHistoryEntry>[] = [
         return (
           <Link 
             href={`/inventory-receipts/${row.referenceSystemId}`}
-            className="font-mono text-body-xs text-primary hover:underline"
+            className="font-mono text-xs text-primary hover:underline"
           >
             {row.reference}
           </Link>
@@ -95,13 +95,13 @@ export const purchasePriceHistoryColumns: ColumnDef<PriceHistoryEntry>[] = [
         return (
           <Link 
             href={`/purchase-orders/${row.purchaseOrderId}`}
-            className="font-mono text-body-xs text-primary hover:underline"
+            className="font-mono text-xs text-primary hover:underline"
           >
             {row.reference}
           </Link>
         );
       }
-      return <div className="font-mono text-body-xs">{row.reference}</div>;
+      return <div className="font-mono text-xs">{row.reference}</div>;
     },
     meta: { displayName: "Chứng từ" }
   },
@@ -124,7 +124,7 @@ export const purchasePriceHistoryColumns: ColumnDef<PriceHistoryEntry>[] = [
     accessorKey: "note",
     header: "Ghi chú",
     cell: ({ row }) => {
-      return <div className="text-body-sm text-muted-foreground truncate max-w-50">{row.note}</div>;
+      return <div className="text-sm text-muted-foreground truncate max-w-50">{row.note}</div>;
     },
     meta: { displayName: "Ghi chú" }
   },

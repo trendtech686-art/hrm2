@@ -93,61 +93,6 @@ export async function fetchPurchaseReturn(systemId: SystemId): Promise<PurchaseR
   return response.json();
 }
 
-export async function createPurchaseReturn(data: Partial<PurchaseReturn>): Promise<PurchaseReturn> {
-  const response = await fetch(BASE_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-  
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.message || 'Failed to create purchase return');
-  }
-  
-  return response.json();
-}
-
-export async function updatePurchaseReturn(systemId: SystemId, data: Partial<PurchaseReturn>): Promise<PurchaseReturn> {
-  const response = await fetch(`${BASE_URL}/${systemId}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-  
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.message || 'Failed to update purchase return');
-  }
-  
-  return response.json();
-}
-
-export async function processPurchaseReturn(systemId: SystemId): Promise<PurchaseReturn> {
-  const response = await fetch(`${BASE_URL}/${systemId}/process`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-  });
-  
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.message || 'Failed to process purchase return');
-  }
-  
-  return response.json();
-}
-
-export async function deletePurchaseReturn(systemId: SystemId): Promise<void> {
-  const response = await fetch(`${BASE_URL}/${systemId}`, {
-    method: 'DELETE',
-  });
-  
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.message || `Failed to delete purchase return: ${response.statusText}`);
-  }
-}
-
 export async function fetchPurchaseReturnStats(params?: PurchaseReturnStatsParams): Promise<PurchaseReturnStats> {
   const searchParams = new URLSearchParams();
   

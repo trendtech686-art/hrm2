@@ -18,6 +18,7 @@ import { PRODUCT_LABEL_PREVIEW_DATA } from './product-label.preview';
 import { SUPPLIER_RETURN_PREVIEW_DATA } from './supplier-return.preview';
 import { COMPLAINT_PREVIEW_DATA } from './complaint.preview';
 import { PENALTY_PREVIEW_DATA } from './penalty.preview';
+import { LEAVE_PREVIEW_DATA } from './leave.preview';
 import { COST_ADJUSTMENT_PREVIEW_DATA } from './cost-adjustment.preview';
 import { PRICE_ADJUSTMENT_PREVIEW_DATA } from './price-adjustment.preview';
 import { PAYROLL_PREVIEW_DATA } from './payroll.preview';
@@ -51,6 +52,7 @@ export const PREVIEW_DATA: Record<TemplateType, Record<string, string>> = {
   'stock-transfer': STOCK_TRANSFER_PREVIEW_DATA,
   'stock-in': STOCK_IN_PREVIEW_DATA,
   'sales-return': SALES_RETURN_PREVIEW_DATA,
+  'sales-exchange': SALES_RETURN_PREVIEW_DATA,
   'purchase-order': PURCHASE_ORDER_PREVIEW_DATA,
   'packing': PACKING_PREVIEW_DATA,
   'quote': QUOTE_PREVIEW_DATA,
@@ -60,13 +62,26 @@ export const PREVIEW_DATA: Record<TemplateType, Record<string, string>> = {
   'supplier-return': SUPPLIER_RETURN_PREVIEW_DATA,
   'complaint': COMPLAINT_PREVIEW_DATA,
   'penalty': PENALTY_PREVIEW_DATA,
-  'leave': PENALTY_PREVIEW_DATA, // TODO: Create dedicated LEAVE_PREVIEW_DATA
+  'leave': LEAVE_PREVIEW_DATA,
   'cost-adjustment': COST_ADJUSTMENT_PREVIEW_DATA,
   'price-adjustment': PRICE_ADJUSTMENT_PREVIEW_DATA,
   'handover': PHIEU_BAN_GIAO_PREVIEW,
   'payroll': PAYROLL_PREVIEW_DATA,
   'payslip': PAYROLL_PREVIEW_DATA,
   'attendance': ATTENDANCE_PREVIEW_DATA,
+  // Extended types
+  'supplier-order': DON_NHAP_HANG_PREVIEW,
+  'return-order': DON_TRA_HANG_PREVIEW,
+  'refund-confirmation': PHIEU_XAC_NHAN_HOAN_PREVIEW,
+  'packing-guide': PHIEU_HUONG_DAN_DONG_GOI_PREVIEW,
+  'sales-summary': PHIEU_TONG_KET_BAN_HANG_PREVIEW,
+  'warranty-request': PHIEU_YEU_CAU_BAO_HANH_PREVIEW,
+  'packing-request': PHIEU_YEU_CAU_DONG_GOI_PREVIEW,
+  // Other types sharing order data
+  'stock-out': ORDER_PREVIEW_DATA,
+  'sales-contract': ORDER_PREVIEW_DATA,
+  'goods-handover-report': ORDER_PREVIEW_DATA,
+  'customer-mark-label': ORDER_PREVIEW_DATA,
 };
 
 // Re-export shared data for external use
@@ -91,6 +106,7 @@ export {
   SUPPLIER_RETURN_PREVIEW_DATA,
   COMPLAINT_PREVIEW_DATA,
   PENALTY_PREVIEW_DATA,
+  LEAVE_PREVIEW_DATA,
   PAYROLL_PREVIEW_DATA,
   ATTENDANCE_PREVIEW_DATA,
 };

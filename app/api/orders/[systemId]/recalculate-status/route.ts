@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils';
 import { OrderStatus, DeliveryStatus, StockOutStatus, PaymentStatus } from '@/generated/prisma/client';
+import { logError } from '@/lib/logger'
 
 interface RouteParams {
   params: Promise<{ systemId: string }>;
@@ -100,7 +101,7 @@ export async function POST(_request: Request, { params }: RouteParams) {
       },
     });
   } catch (error) {
-    console.error('Error recalculating order status:', error);
+    logError('Error recalculating order status', error);
     return apiError('Failed to recalculate order status', 500);
   }
 }

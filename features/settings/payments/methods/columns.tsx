@@ -50,26 +50,6 @@ export const getPaymentMethodColumns = ({
     meta: { displayName: "Tên" },
   },
   {
-    id: "accountInfo",
-    header: "Thông tin tài khoản",
-    size: 220,
-    cell: ({ row }) => {
-      if (row.accountName || row.accountNumber || row.bankName) {
-        return (
-          <div className="text-sm leading-relaxed">
-            {row.accountName && <p className="font-medium">{row.accountName}</p>}
-            {row.accountNumber && (
-              <p className="text-xs text-muted-foreground">{row.accountNumber}</p>
-            )}
-            {row.bankName && <p className="text-muted-foreground">{row.bankName}</p>}
-          </div>
-        );
-      }
-      return <span className="text-sm text-muted-foreground">—</span>;
-    },
-    meta: { displayName: "Thông tin tài khoản" },
-  },
-  {
     id: "isDefault",
     header: "Mặc định",
     size: 100,

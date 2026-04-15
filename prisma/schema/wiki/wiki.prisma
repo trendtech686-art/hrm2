@@ -1,0 +1,23 @@
+// ============================================
+// WIKI - Bài viết wiki nội bộ
+// ============================================
+
+model Wiki {
+  systemId    String    @id
+  id          String    @unique
+  title       String
+  content     String
+  category    String?
+  tags        String[]
+  isPublished Boolean   @default(false)
+  viewCount   Int       @default(0)
+  authorId    String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime
+  deletedAt   DateTime?
+  isDeleted   Boolean   @default(false)
+  slug        String?   @unique
+  author      Employee? @relation(fields: [authorId], references: [systemId])
+
+  @@map("wikis")
+}

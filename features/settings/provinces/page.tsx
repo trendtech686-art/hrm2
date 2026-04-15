@@ -1,6 +1,7 @@
 ﻿'use client'
 
 import * as React from "react";
+import { useRouter } from 'next/navigation';
 import dynamic from "next/dynamic";
 import { simpleSearch } from "@/lib/simple-search";
 import { useAllProvinces, useDistricts, useWards, useProvinceMutations, useDistrictMutations, useWardMutations } from "./hooks/use-provinces";
@@ -19,10 +20,13 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SettingsHistoryContent } from '@/components/settings/SettingsHistoryContent';
 import { PlusCircle, Search, Upload, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from 'sonner';
 import { ProvinceItem, DistrictItem, WardList } from "./components";
+import { logError } from '@/lib/logger'
+import { useAuth } from '@/contexts/auth-context';
 
 // Dynamic imports for dialogs
 const ImportPreviewDialog = dynamic(() => import("./components/import-preview-dialog").then(m => m.ImportPreviewDialog), { ssr: false });
@@ -32,6 +36,16 @@ function useDebounce<T>(value: T, delay: number): T { const [d, setD] = React.us
 type ImportPreviewState = { provinces: Array<Omit<Province, "systemId">>; wards: Array<Omit<Ward, "systemId">>; summary: { provinceCount: number; wardCount: number } };
 
 export function ProvincesPage() {
+  const router = useRouter();
+  const { can, isLoading: authLoading } = useAuth();
+  const canEditSettings = can('edit_settings');
+  React.useEffect(() => {
+    if (!authLoading && !canEditSettings) {
+      toast.error('Bạn không có quyền truy cập cài đặt tỉnh thành');
+      router.replace('/customers');
+    }
+  }, [authLoading, canEditSettings, router]);
+
   const { data: allProvincesData } = useAllProvinces();
   const allProvinces = React.useMemo(() => allProvincesData ?? [], [allProvincesData]);
   const { add: addProvince, update: updateProvince, remove: removeProvince } = useProvinceMutations({
@@ -230,7 +244,7 @@ export function ProvincesPage() {
           }),
         });
       } catch (logErr) {
-        console.error('[Provinces Import] Failed to log import:', logErr);
+        logError('[Provinces Import] Failed to log import', logErr);
       }
       
       setIsImportDialogOpen(false); 
@@ -258,6 +272,7 @@ export function ProvincesPage() {
   const renderWardPanel = (showAdd: boolean) => (<>{filteredWards.length > 0 ? <div className="flex-1 h-full overflow-hidden"><WardList wards={filteredWards} onEdit={handleEditWard} onDelete={handleDeleteWard} /></div> : <div className="flex h-full flex-col items-center justify-center gap-2 p-4 text-center"><p className="font-medium text-muted-foreground">Chưa có phường/xã</p><p className="text-sm text-muted-foreground">Thêm phường/xã mới.</p>{showAdd && <Button size="sm" onClick={handleAddWard}><PlusCircle className="mr-2 h-4 w-4" />Thêm phường/xã</Button>}</div>}</>);
 
   return (
+    <>
     <div className="flex h-full flex-col">
       <input ref={importInputRef} type="file" className="hidden" accept=".xlsx, .xls" onChange={handleImport} />
       <div className="mb-4 flex shrink-0 items-center"><Tabs value={mode} onValueChange={v => { setMode(v as "2-level" | "3-level"); setSelectedDistrictId(null); }}><TabsList><TabsTrigger value="2-level">2 cấp (Tỉnh → Phường)</TabsTrigger><TabsTrigger value="3-level">3 cấp (Tỉnh → Quận → Phường)</TabsTrigger></TabsList></Tabs></div>
@@ -270,6 +285,8 @@ export function ProvincesPage() {
       <AlertDialog open={!!dialogState} onOpenChange={() => setDialogState(null)}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Bạn có chắc chắn muốn xóa?</AlertDialogTitle><AlertDialogDescription>{dialogState?.type === "province" ? "Xóa Tỉnh/TP và tất cả Phường/Xã liên quan." : dialogState?.type === "district" ? "Xóa Quận/Huyện và tất cả Phường/Xã liên quan." : "Xóa Phường/Xã này."}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={confirmDelete}>Tiếp tục</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
       <ImportPreviewDialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen} preview={importPreview} isImporting={isImporting} onConfirm={handleConfirmImport} onCancel={() => { setIsImportDialogOpen(false); setImportPreview(null); }} />
     </div>
+    <SettingsHistoryContent entityTypes={['province', 'district', 'ward']} />
+    </>
   );
 }
 

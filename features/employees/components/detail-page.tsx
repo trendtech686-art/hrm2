@@ -12,7 +12,8 @@ import { asSystemId, type SystemId } from '@/lib/id-types';
 import { useAuth } from '@/contexts/auth-context';
 import { Comments } from '@/components/Comments';
 import { useComments } from '@/hooks/use-comments';
-import { ActivityHistory } from '@/components/ActivityHistory';
+import { useEmployeeFetchMentions } from '../hooks/use-employee-search';
+
 import type { Employee, EmployeeAddress } from '@/lib/types/prisma-extended';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -47,6 +48,9 @@ const TasksTab = dynamic(() => import('../detail/TasksTab').then(m => ({ default
   loading: () => <TabLoadingSkeleton />,
 });
 const PayrollAttendanceTab = dynamic(() => import('../detail/PayrollAttendanceTab').then(m => ({ default: m.PayrollAttendanceTab })), {
+  loading: () => <TabLoadingSkeleton />,
+});
+const HistoryTab = dynamic(() => import('../detail/HistoryTab').then(m => ({ default: m.HistoryTab })), {
   loading: () => <TabLoadingSkeleton />,
 });
 
@@ -139,7 +143,7 @@ export function EmployeeDetailPage() {
   const router = useRouter();
   const { data: employeeFromQuery, isLoading } = useEmployee(systemId);
   const { data: branches } = useAllBranches();
-  const { employee: authEmployee } = useAuth();
+  const { employee: authEmployee, can, isAdmin } = useAuth();
 
   const employee = React.useMemo(() => {
     if (systemId) return employeeFromQuery || null;
@@ -148,6 +152,9 @@ export function EmployeeDetailPage() {
 
   // Task stats for the stats card (lightweight hook)
   const taskStats = useTaskStats(employee?.systemId);
+
+  // Async @mention search for comments
+  const fetchMentions = useEmployeeFetchMentions();
 
   // Comments from database
   const { 
@@ -207,16 +214,23 @@ export function EmployeeDetailPage() {
   }, [employee, branches]);
 
     // Actions for detail page
-    const headerActions = React.useMemo(() => [
-        <Button key="back" variant="outline" size="sm" className="h-9" onClick={() => router.push('/employees')}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Quay lại
-        </Button>,
-        <Button key="edit" size="sm" className="h-9" onClick={() => router.push(`/employees/${systemId}/edit`)}>
-            <Edit className="mr-2 h-4 w-4" />
-            Chỉnh sửa
-        </Button>
-    ], [router, systemId]);
+    const headerActions = React.useMemo(() => {
+        const actions: React.ReactNode[] = [
+            <Button key="back" variant="outline" size="sm" className="h-9" onClick={() => router.push('/employees')}>
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Quay lại
+            </Button>
+        ];
+        if (isAdmin || can('edit_employees')) {
+            actions.push(
+                <Button key="edit" size="sm" className="h-9" onClick={() => router.push(`/employees/${systemId}/edit`)}>
+                    <Edit className="mr-2 h-4 w-4" />
+                    Chỉnh sửa
+                </Button>
+            );
+        }
+        return actions;
+    }, [router, systemId, isAdmin, can]);
 
   // ✅ Auto-generate breadcrumb
   const breadcrumb = React.useMemo(() => {
@@ -575,6 +589,9 @@ export function EmployeeDetailPage() {
 
         </Tabs>
 
+        {/* Lịch sử hoạt động */}
+        <HistoryTab employee={employee} />
+
         {/* Comments */}
         <Comments
           entityType="employee"
@@ -584,18 +601,12 @@ export function EmployeeDetailPage() {
           onUpdateComment={handleUpdateComment}
           onDeleteComment={handleDeleteComment}
           currentUser={commentCurrentUser}
+          fetchMentions={fetchMentions}
           title="Bình luận"
           placeholder="Thêm bình luận về nhân viên..."
         />
 
-        {/* Activity History */}
-        <ActivityHistory
-          history={[]} // TODO: Fetch from ActivityLog table
-          title="Lịch sử hoạt động"
-          emptyMessage="Chưa có lịch sử hoạt động"
-          groupByDate
-          maxHeight="400px"
-        />
+
       </div>
     </div>
   );

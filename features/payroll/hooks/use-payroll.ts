@@ -4,36 +4,20 @@
  */
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
-import { fetchAllPages } from '@/lib/fetch-all-pages';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import {
   fetchPayrolls,
   fetchPayrollById,
-  lockPayroll,
-  cancelPayroll,
   fetchPayslips,
-  fetchPayslipById,
-  createPayslip,
-  updatePayslip,
-  deletePayslip,
   fetchPayrollTemplates,
-  fetchPayrollTemplateById,
   createPayrollTemplate,
   updatePayrollTemplate,
   deletePayrollTemplate,
   type PayrollFilters,
-  type PayrollCreateInput,
-  type PayrollUpdateInput,
   type PayslipFilters,
-  type PayslipCreateInput,
-  type PayslipUpdateInput,
   type PayrollTemplateFilters,
   type PayrollTemplate,
 } from '../api/payroll-api';
-import {
-  createPayrollAction,
-  updatePayrollAction,
-  deletePayrollAction,
-} from '@/app/actions/payroll';
 import {
   createBatchWithPayslips,
   updateBatchStatus as updateBatchStatusAPI,
@@ -108,88 +92,6 @@ interface MutationCallbacks {
   onError?: (error: Error) => void;
 }
 
-/**
- * Hook providing payroll batch mutations
- */
-export function usePayrollMutations(options: MutationCallbacks = {}) {
-  const queryClient = useQueryClient();
-
-  const invalidatePayroll = () => {
-    queryClient.invalidateQueries({ queryKey: payrollKeys.all });
-  };
-
-  const create = useMutation({
-    mutationFn: async (data: PayrollCreateInput) => {
-      const result = await createPayrollAction(data as Parameters<typeof createPayrollAction>[0]);
-      if (!result.success) throw new Error(result.error || 'Failed to create payroll');
-      return result.data;
-    },
-    onSuccess: () => {
-      invalidatePayroll();
-      options.onSuccess?.();
-    },
-    onError: options.onError,
-  });
-
-  const update = useMutation({
-    mutationFn: async ({ systemId, data }: { systemId: string; data: PayrollUpdateInput }) => {
-      const result = await updatePayrollAction({ systemId, ...data } as Parameters<typeof updatePayrollAction>[0]);
-      if (!result.success) throw new Error(result.error || 'Failed to update payroll');
-      return result.data;
-    },
-    onSuccess: () => {
-      invalidatePayroll();
-      options.onSuccess?.();
-    },
-    onError: options.onError,
-  });
-
-  const remove = useMutation({
-    mutationFn: async (systemId: string) => {
-      const result = await deletePayrollAction(systemId);
-      if (!result.success) throw new Error(result.error || 'Failed to delete payroll');
-      return result.data;
-    },
-    onSuccess: () => {
-      invalidatePayroll();
-      options.onSuccess?.();
-    },
-    onError: options.onError,
-  });
-
-  const lock = useMutation({
-    mutationFn: (systemId: string) => lockPayroll(systemId),
-    onSuccess: () => {
-      invalidatePayroll();
-      options.onSuccess?.();
-    },
-    onError: options.onError,
-  });
-
-  const cancel = useMutation({
-    mutationFn: (systemId: string) => cancelPayroll(systemId),
-    onSuccess: () => {
-      invalidatePayroll();
-      options.onSuccess?.();
-    },
-    onError: options.onError,
-  });
-
-  return {
-    create,
-    update,
-    remove,
-    lock,
-    cancel,
-    isLoading:
-      create.isPending ||
-      update.isPending ||
-      remove.isPending ||
-      lock.isPending ||
-      cancel.isPending,
-  };
-}
-
 // ============== Payslip Hooks ==============
 
 /**
@@ -217,64 +119,6 @@ export function usePayslipsByBatch(batchId: string | undefined) {
   });
 }
 
-/**
- * Hook to fetch single payslip
- */
-export function usePayslipById(systemId: string | undefined) {
-  return useQuery({
-    queryKey: payslipKeys.detail(systemId!),
-    queryFn: () => fetchPayslipById(systemId!),
-    enabled: !!systemId,
-    staleTime: 1000 * 60,
-  });
-}
-
-/**
- * Hook providing payslip mutations
- */
-export function usePayslipMutations(options: MutationCallbacks = {}) {
-  const queryClient = useQueryClient();
-
-  const invalidatePayslips = () => {
-    queryClient.invalidateQueries({ queryKey: payslipKeys.all });
-  };
-
-  const create = useMutation({
-    mutationFn: (data: PayslipCreateInput) => createPayslip(data),
-    onSuccess: () => {
-      invalidatePayslips();
-      options.onSuccess?.();
-    },
-    onError: options.onError,
-  });
-
-  const update = useMutation({
-    mutationFn: ({ systemId, data }: { systemId: string; data: PayslipUpdateInput }) =>
-      updatePayslip(systemId, data),
-    onSuccess: () => {
-      invalidatePayslips();
-      options.onSuccess?.();
-    },
-    onError: options.onError,
-  });
-
-  const remove = useMutation({
-    mutationFn: (systemId: string) => deletePayslip(systemId),
-    onSuccess: () => {
-      invalidatePayslips();
-      options.onSuccess?.();
-    },
-    onError: options.onError,
-  });
-
-  return {
-    create,
-    update,
-    remove,
-    isLoading: create.isPending || update.isPending || remove.isPending,
-  };
-}
-
 // ============== Template Hooks ==============
 
 /**
@@ -298,13 +142,6 @@ export function useAllPayrollTemplates() {
 }
 
 /**
- * Hook to fetch active templates only
- */
-export function useActivePayrollTemplates() {
-  return usePayrollTemplates({ isActive: true });
-}
-
-/**
  * Finder hook for payroll templates
  */
 export function usePayrollTemplateFinder() {
@@ -316,26 +153,12 @@ export function usePayrollTemplateFinder() {
 }
 
 /**
- * Hook to fetch single template
- */
-export function usePayrollTemplateById(systemId: string | undefined) {
-  return useQuery({
-    queryKey: payrollTemplateKeys.detail(systemId!),
-    queryFn: () => fetchPayrollTemplateById(systemId!),
-    enabled: !!systemId,
-    staleTime: 1000 * 60 * 5,
-  });
-}
-
-/**
  * Hook providing template mutations
  */
 export function usePayrollTemplateMutations(options: MutationCallbacks = {}) {
   const queryClient = useQueryClient();
 
-  const invalidateTemplates = () => {
-    queryClient.invalidateQueries({ queryKey: payrollTemplateKeys.all });
-  };
+  const invalidateTemplates = () => invalidateRelated(queryClient, 'payroll-templates');
 
   const create = useMutation({
     mutationFn: (data: Omit<PayrollTemplate, 'systemId' | 'createdAt' | 'updatedAt'>) =>
@@ -374,28 +197,6 @@ export function usePayrollTemplateMutations(options: MutationCallbacks = {}) {
   };
 }
 
-// ============== Utility Hooks ==============
-
-/**
- * Hook to get current month/year payroll
- */
-export function useCurrentMonthPayroll() {
-  const now = new Date();
-  return usePayrolls({
-    month: now.getMonth() + 1,
-    year: now.getFullYear(),
-  });
-}
-
-/**
- * Hook to get employee's payslips
- */
-export function useEmployeePayslips(employeeId: string | undefined) {
-  return usePayslips({
-    employeeId: employeeId || '',
-  });
-}
-
 // ============== Extended Mutations ==============
 
 /**
@@ -404,10 +205,7 @@ export function useEmployeePayslips(employeeId: string | undefined) {
 export function usePayrollBatchMutations(options: MutationCallbacks = {}) {
   const queryClient = useQueryClient();
 
-  const invalidateAll = () => {
-    queryClient.invalidateQueries({ queryKey: payrollKeys.all });
-    queryClient.invalidateQueries({ queryKey: payslipKeys.all });
-  };
+  const invalidateAll = () => invalidateRelated(queryClient, 'payroll');
 
   const createWithPayslips = useMutation({
     mutationFn: (data: CreateBatchWithPayslipsInput) => createBatchWithPayslips(data),
@@ -452,10 +250,7 @@ export function usePayrollBatchMutations(options: MutationCallbacks = {}) {
 export function usePayslipExtendedMutations(options: MutationCallbacks = {}) {
   const queryClient = useQueryClient();
 
-  const invalidateAll = () => {
-    queryClient.invalidateQueries({ queryKey: payslipKeys.all });
-    queryClient.invalidateQueries({ queryKey: payrollKeys.all });
-  };
+  const invalidateAll = () => invalidateRelated(queryClient, 'payslips');
 
   const updateWithAudit = useMutation({
     mutationFn: ({ systemId, data }: { systemId: string; data: UpdatePayslipInputAPI }) =>
@@ -489,9 +284,7 @@ export function usePayslipExtendedMutations(options: MutationCallbacks = {}) {
 export function usePayrollTemplateExtended(options: MutationCallbacks = {}) {
   const queryClient = useQueryClient();
 
-  const invalidateTemplates = () => {
-    queryClient.invalidateQueries({ queryKey: payrollTemplateKeys.all });
-  };
+  const invalidateTemplates = () => invalidateRelated(queryClient, 'payroll-templates');
 
   const ensureDefault = useMutation({
     mutationFn: () => ensureDefaultTemplateAPI(),
@@ -537,37 +330,9 @@ export function usePayrollStats(initialData?: Record<string, unknown>) {
 }
 
 /**
- * Hook to fetch all batches as flat array
- * Uses auto-pagination to fetch ALL pages (§1.3 compliant)
- */
-export function useAllPayrollBatches() {
-  const query = useQuery({
-    queryKey: [...payrollKeys.all, 'all-batches'],
-    queryFn: () => fetchAllPages((p) => fetchPayrolls(p)),
-    staleTime: 2 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
-  });
-  return { ...query, data: query.data ?? [] };
-}
-
-/**
  * Hook to fetch payroll batches with server-side pagination
  * Alias for usePayrolls with proper return structure
  */
 export function usePayrollBatches(filters: PayrollFilters = {}) {
   return usePayrolls(filters);
-}
-
-/**
- * Hook to fetch all payslips as flat array
- * Uses auto-pagination to fetch ALL pages (§1.3 compliant)
- */
-export function useAllPayslips() {
-  const query = useQuery({
-    queryKey: [...payrollKeys.all, 'all-payslips'],
-    queryFn: () => fetchAllPages((p) => fetchPayslips(p)),
-    staleTime: 2 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
-  });
-  return { ...query, data: query.data ?? [] };
 }

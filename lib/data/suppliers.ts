@@ -159,18 +159,24 @@ export const getSuppliersForSelect = cache(async () => {
  */
 export const getSupplierStats = unstable_cache(
   async () => {
-    const [total, active, suppliersWithDebt, totalDebtResult] = await Promise.all([
-      prisma.supplier.count(),
-      prisma.supplier.count({ where: { isActive: true } }),
-      prisma.supplier.count({ where: { currentDebt: { gt: 0 } } }),
-      prisma.supplier.aggregate({ _sum: { currentDebt: true } }),
+    const [total, activeCount, debitResult, creditResult, totalPurchasedResult, totalPaidResult, deletedCount] = await Promise.all([
+      prisma.supplier.count({ where: { isDeleted: false } }),
+      prisma.supplier.count({ where: { status: 'Đang Giao Dịch', isDeleted: false } }),
+      prisma.supplier.aggregate({ _sum: { currentDebt: true }, where: { currentDebt: { gt: 0 }, isDeleted: false } }),
+      prisma.supplier.aggregate({ _sum: { currentDebt: true }, where: { currentDebt: { lt: 0 }, isDeleted: false } }),
+      prisma.supplier.aggregate({ _sum: { totalPurchased: true }, where: { isDeleted: false } }),
+      prisma.payment.aggregate({ _sum: { amount: true }, where: { supplierId: { not: null }, status: { not: 'cancelled' } } }),
+      prisma.supplier.count({ where: { isDeleted: true } }),
     ]);
 
     return {
       totalSuppliers: total,
-      activeSuppliers: active,
-      suppliersWithDebt,
-      totalDebtAmount: Number(totalDebtResult._sum?.currentDebt || 0),
+      activeSuppliers: activeCount,
+      totalDebit: Number(debitResult._sum?.currentDebt || 0),
+      totalCredit: Math.abs(Number(creditResult._sum?.currentDebt || 0)),
+      totalPurchased: Number(totalPurchasedResult._sum?.totalPurchased || 0),
+      totalPaid: Number(totalPaidResult._sum?.amount || 0),
+      deletedCount,
     };
   },
   ['supplier-stats'],

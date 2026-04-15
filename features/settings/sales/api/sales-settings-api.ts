@@ -5,7 +5,7 @@
 
 import type { SalesManagementSettingsValues } from '../sales-management-service';
 
-const BASE_URL = '/api/settings/sales';
+const BASE_URL = '/api/settings/sales-management';
 
 /**
  * Fetch sales management settings
@@ -17,7 +17,8 @@ export async function fetchSalesSettings(): Promise<SalesManagementSettingsValue
     throw new Error('Failed to fetch sales settings');
   }
   
-  return response.json();
+  const result = await response.json();
+  return result.data ?? result;
 }
 
 /**
@@ -37,7 +38,8 @@ export async function updateSalesSettings(
     throw new Error(error.error || 'Failed to update sales settings');
   }
   
-  return response.json();
+  const result = await response.json();
+  return result.data ?? result;
 }
 
 /**
@@ -52,5 +54,6 @@ export async function resetSalesSettings(): Promise<SalesManagementSettingsValue
     throw new Error('Failed to reset sales settings');
   }
   
-  return response.json();
+  const result = await response.json();
+  return result.data ?? result;
 }

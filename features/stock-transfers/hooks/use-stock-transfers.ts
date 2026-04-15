@@ -24,6 +24,7 @@ import {
   type CreateStockTransferInput,
   type UpdateStockTransferInput,
 } from '@/app/actions/stock-transfers';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import type { StockTransfer } from '@/lib/types/prisma-extended';
 import { asSystemId } from '@/lib/id-types';
 
@@ -132,8 +133,7 @@ export function useStockTransferMutations(options: UseStockTransferMutationsOpti
       return result.data as unknown as StockTransfer;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: stockTransferKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: stockTransferKeys.stats() });
+      invalidateRelated(queryClient, 'stock-transfers');
       options.onCreateSuccess?.(data);
     },
     onError: options.onError,
@@ -148,10 +148,8 @@ export function useStockTransferMutations(options: UseStockTransferMutationsOpti
       }
       return result.data as unknown as StockTransfer;
     },
-    onSuccess: (data, variables) => {
-      const systemId = 'data' in variables ? variables.systemId : variables.systemId;
-      queryClient.invalidateQueries({ queryKey: stockTransferKeys.detail(systemId) });
-      queryClient.invalidateQueries({ queryKey: stockTransferKeys.lists() });
+    onSuccess: (data) => {
+      invalidateRelated(queryClient, 'stock-transfers');
       options.onUpdateSuccess?.(data);
     },
     onError: options.onError,
@@ -166,7 +164,7 @@ export function useStockTransferMutations(options: UseStockTransferMutationsOpti
       return result.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: stockTransferKeys.all });
+      invalidateRelated(queryClient, 'stock-transfers');
       options.onDeleteSuccess?.();
     },
     onError: options.onError,
@@ -176,11 +174,8 @@ export function useStockTransferMutations(options: UseStockTransferMutationsOpti
     mutationFn: async (systemId: string) => {
       return await startTransfer(asSystemId(systemId));
     },
-    onSuccess: (data, systemId) => {
-      queryClient.invalidateQueries({ queryKey: stockTransferKeys.detail(systemId) });
-      queryClient.invalidateQueries({ queryKey: stockTransferKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: stockTransferKeys.stats() });
-      queryClient.invalidateQueries({ queryKey: ['products'] });
+    onSuccess: (data) => {
+      invalidateRelated(queryClient, 'stock-transfers');
       options.onStartSuccess?.(data);
     },
     onError: options.onError,
@@ -190,11 +185,8 @@ export function useStockTransferMutations(options: UseStockTransferMutationsOpti
     mutationFn: async (input: { systemId: string; receivedItems?: { productSystemId: string; receivedQuantity: number }[] }) => {
       return await completeTransfer(asSystemId(input.systemId), input.receivedItems);
     },
-    onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: stockTransferKeys.detail(variables.systemId) });
-      queryClient.invalidateQueries({ queryKey: stockTransferKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: stockTransferKeys.stats() });
-      queryClient.invalidateQueries({ queryKey: ['products'] });
+    onSuccess: (data) => {
+      invalidateRelated(queryClient, 'stock-transfers');
       options.onCompleteSuccess?.(data);
     },
     onError: options.onError,
@@ -204,11 +196,8 @@ export function useStockTransferMutations(options: UseStockTransferMutationsOpti
     mutationFn: async (input: { systemId: string; reason: string }) => {
       return await cancelStockTransfer(asSystemId(input.systemId), input.reason);
     },
-    onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: stockTransferKeys.detail(variables.systemId) });
-      queryClient.invalidateQueries({ queryKey: stockTransferKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: stockTransferKeys.stats() });
-      queryClient.invalidateQueries({ queryKey: ['products'] });
+    onSuccess: (data) => {
+      invalidateRelated(queryClient, 'stock-transfers');
       options.onCancelSuccess?.(data);
     },
     onError: options.onError,

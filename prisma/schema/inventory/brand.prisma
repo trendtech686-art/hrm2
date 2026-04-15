@@ -23,6 +23,7 @@ model Brand {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
   deletedAt        DateTime?
+  permanentlyDeletedAt DateTime?
   products         Product[]
 
   @@map("brands")

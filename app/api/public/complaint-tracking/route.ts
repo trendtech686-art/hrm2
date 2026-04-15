@@ -9,6 +9,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { generateSubEntityId } from '@/lib/id-utils';
+import { logError } from '@/lib/logger'
+import { checkRateLimit } from '@/lib/security-utils'
 
 // Map Prisma ComplaintStatus enum (UPPERCASE) to frontend ComplaintStatus type (lowercase)
 const PRISMA_TO_FRONTEND_STATUS: Record<string, string> = {
@@ -24,6 +26,15 @@ function normalizeStatus(prismaStatus: string): string {
 
 export async function GET(request: NextRequest) {
   try {
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+    const rateLimit = checkRateLimit(`public-complaint:${ip}`, 30, 60_000)
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many requests. Please try again later.' },
+        { status: 429, headers: { 'Retry-After': String(Math.ceil((rateLimit.resetTime - Date.now()) / 1000)) } }
+      )
+    }
+
     const { searchParams } = new URL(request.url);
     const code = searchParams.get('code');
 
@@ -295,11 +306,11 @@ export async function GET(request: NextRequest) {
         showImages: settings.showImages ?? true,
         showResolution: settings.showResolution ?? true,
       },
-      hotline: defaultBranch?.phone || '1900-xxxx',
+      hotline: defaultBranch?.phone || '',
       companyName: defaultBranch?.name || 'Công ty',
     });
   } catch (error) {
-    console.error('[PUBLIC-COMPLAINT-TRACKING] Error:', error);
+    logError('[PUBLIC-COMPLAINT-TRACKING] Error', error);
     return NextResponse.json(
       { error: 'Đã xảy ra lỗi khi tải thông tin' },
       { status: 500 }
@@ -312,6 +323,15 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+    const rateLimit = checkRateLimit(`public-complaint-comment:${ip}`, 10, 60_000)
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many requests. Please try again later.' },
+        { status: 429, headers: { 'Retry-After': String(Math.ceil((rateLimit.resetTime - Date.now()) / 1000)) } }
+      )
+    }
+
     const body = await request.json();
     const { trackingCode, comment } = body as { trackingCode?: string; comment?: string };
 
@@ -381,7 +401,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, action: newAction });
   } catch (error) {
-    console.error('[PUBLIC-COMPLAINT-TRACKING] POST Error:', error);
+    logError('[PUBLIC-COMPLAINT-TRACKING] POST Error', error);
     return NextResponse.json(
       { error: 'Đã xảy ra lỗi' },
       { status: 500 }

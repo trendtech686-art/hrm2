@@ -1,22 +1,29 @@
 ﻿'use client'
 
 import * as React from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { usePayment } from './hooks/use-payments';
 import { ROUTES, generatePath } from '../../lib/router';
 import { usePageHeader } from '../../contexts/page-header-context';
+import { useBreakpoint } from '../../contexts/breakpoint-context';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
-import { ArrowLeft, Edit, Printer, Loader2 } from 'lucide-react';
+import { ArrowLeft, Edit, Printer, Loader2, MoreHorizontal } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../../components/ui/dropdown-menu';
 import { formatDateCustom } from '../../lib/date-utils';
-import { ActivityHistory } from '../../components/ActivityHistory';
+import { EntityActivityTable } from '@/components/shared/entity-activity-table';
 import { Comments } from '../../components/Comments';
 import { useComments } from '@/hooks/use-comments';
-import { useEmployeeFinder } from '../employees/hooks/use-all-employees';
+import { useAuth } from '../../contexts/auth-context';
 import { usePrint } from '../../lib/use-print';
-import { useStoreInfoData } from '../settings/store-info/hooks/use-store-info';
+import { fetchPrintData } from '@/lib/lazy-print-data';
 import { 
   convertPaymentForPrint,
   mapPaymentToPrintData, 
@@ -39,13 +46,16 @@ const getStatusBadge = (status?: string) => {
   return <Badge variant={config.variant}>{config.label}</Badge>;
 };
 
-export function PaymentDetailPage() {
-  const { systemId } = useParams<{ systemId: string }>();
+interface PaymentDetailPageProps {
+  systemId: string;
+}
+
+export function PaymentDetailPage({ systemId }: PaymentDetailPageProps) {
   const router = useRouter();
   const { data: paymentData, isLoading } = usePayment(systemId);
-  const { findById: findEmployeeById } = useEmployeeFinder();
+  const { employee: authEmployee, can, isAdmin } = useAuth();
+  const { isMobile } = useBreakpoint();
   const { print } = usePrint();
-  const { info: storeInfo } = useStoreInfoData();
   
   // Extract payment from API response (handles both wrapped and unwrapped)
   const payment = React.useMemo(() => {
@@ -56,9 +66,11 @@ export function PaymentDetailPage() {
     return raw as Payment & { auditLogs?: Array<{ id?: number; entityId?: string; action: string; timestamp: string; userId?: string; changes?: Record<string, unknown> }> };
   }, [paymentData]);
 
-  const handlePrint = React.useCallback(() => {
+  // ⚡ OPTIMIZED: Lazy load print data only when print is clicked
+  const handlePrint = React.useCallback(async () => {
     if (!payment) return;
     
+    const { storeInfo } = await fetchPrintData();
     const storeSettings = createStoreSettings(storeInfo);
     const forPrint = convertPaymentForPrint(payment);
     
@@ -67,13 +79,17 @@ export function PaymentDetailPage() {
       entityType: 'payment',
       entityId: payment.systemId,
     });
-  }, [payment, storeInfo, print]);
+  }, [payment, print]);
 
-  // Get current employee for comments
-  const currentEmployee = React.useMemo(() => {
-    if (!payment?.createdBy) return null;
-    return findEmployeeById(payment.createdBy);
-  }, [payment?.createdBy, findEmployeeById]);
+  const commentCurrentUser = React.useMemo(() => ({
+    systemId: authEmployee?.systemId || 'system',
+    name: authEmployee?.fullName || 'Hệ thống',
+  }), [authEmployee]);
+
+  const createdByName = React.useMemo(() => {
+    if (!payment) return 'Hệ thống';
+    return (payment as Record<string, unknown>).createdByName as string || payment.createdBy || 'Hệ thống';
+  }, [payment]);
 
   // Comments from database
   const { 
@@ -108,18 +124,6 @@ export function PaymentDetailPage() {
   const handleDeleteComment = (commentId: string) => {
     dbDeleteComment(commentId);
   };
-
-  const commentCurrentUser = React.useMemo(() => ({
-    systemId: currentEmployee?.systemId || 'system',
-    name: currentEmployee?.fullName || 'Hệ thống',
-    avatar: currentEmployee?.avatar,
-  }), [currentEmployee]);
-
-  const createdByName = React.useMemo(() => {
-    if (!payment) return 'Hệ thống';
-    const employee = payment.createdBy ? findEmployeeById(payment.createdBy) : null;
-    return employee?.fullName || payment.createdBy || 'Hệ thống';
-  }, [payment, findEmployeeById]);
 
   const recipientLink = React.useMemo(() => {
     if (!payment) return null;
@@ -173,7 +177,7 @@ export function PaymentDetailPage() {
       </Button>
     );
 
-    if (payment.status !== 'cancelled') {
+    if (payment.status !== 'cancelled' && (isAdmin || can('edit_payments'))) {
       actions.push(
         <Button
           key="edit"
@@ -203,6 +207,37 @@ export function PaymentDetailPage() {
     return actions;
   }, [router, payment, handlePrint]);
 
+  const mobileHeaderActions = React.useMemo(() => {
+    if (!payment || !isMobile) return [];
+    const items: React.ReactNode[] = [
+      <DropdownMenuItem key="print" onClick={handlePrint}>
+        <Printer className="mr-2 h-4 w-4" />
+        In phiếu
+      </DropdownMenuItem>,
+    ];
+    if (payment.status !== 'cancelled' && (isAdmin || can('edit_payments'))) {
+      items.push(
+        <DropdownMenuItem key="edit" onClick={() => router.push(generatePath(ROUTES.FINANCE.PAYMENT_EDIT, { systemId: payment.systemId }))}>
+          <Edit className="mr-2 h-4 w-4" />
+          Chỉnh sửa
+        </DropdownMenuItem>,
+        <DropdownMenuItem key="cancel" className="text-destructive focus:text-destructive">
+          Hủy phiếu chi
+        </DropdownMenuItem>,
+      );
+    }
+    return [
+      <DropdownMenu key="mobile-actions">
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="sm" className="h-9">
+            <MoreHorizontal className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">{items}</DropdownMenuContent>
+      </DropdownMenu>,
+    ];
+  }, [payment, isMobile, router, handlePrint, isAdmin, can]);
+
   const detailSubtitle = React.useMemo(() => {
     if (!payment) return 'Đang tải thông tin phiếu chi';
     const parts = [payment.recipientName, payment.branchName].filter(Boolean);
@@ -223,7 +258,7 @@ export function PaymentDetailPage() {
     ],
     showBackButton: true,
     backPath: ROUTES.FINANCE.PAYMENTS,
-    actions: headerActions 
+    actions: isMobile ? mobileHeaderActions : headerActions 
   });
 
   // Loading state
@@ -252,24 +287,6 @@ export function PaymentDetailPage() {
     );
   }
 
-  // Transform auditLogs for ActivityHistory
-  type PaymentAuditLog = { id?: number; entityId?: string; action: string; timestamp: string; userId?: string; changes?: Record<string, unknown> };
-  const activityHistory = (payment.auditLogs || []).map((log: PaymentAuditLog) => ({
-    id: log.id?.toString() || log.entityId || '',
-    action: log.action === 'CREATE' ? 'created' : 
-            log.action === 'UPDATE' ? 'updated' : 
-            log.action === 'DELETE' ? 'deleted' : 'custom',
-    description: log.action === 'CREATE' ? 'Tạo phiếu chi' : 
-                 log.action === 'UPDATE' ? 'Cập nhật phiếu chi' : 
-                 log.action === 'DELETE' ? 'Xóa phiếu chi' : log.action,
-    timestamp: new Date(log.timestamp),
-    user: {
-      systemId: log.userId || 'system',
-      name: log.userId || 'Hệ thống',
-    },
-    metadata: log.changes ? { ...log.changes } : undefined,
-  })) as unknown as import('../../components/ActivityHistory').HistoryEntry[];
-  
   return (
     <div className="space-y-6">
       {/* Thông tin phiếu chi */}
@@ -375,14 +392,7 @@ export function PaymentDetailPage() {
       />
       
       {/* Activity History */}
-      <ActivityHistory
-        history={activityHistory}
-        title="Lịch sử thao tác"
-        emptyMessage="Chưa có lịch sử thao tác"
-        showFilters={false}
-        groupByDate
-        maxHeight="400px"
-      />
+      <EntityActivityTable entityType="payment" entityId={systemId} />
     </div>
   );
 }

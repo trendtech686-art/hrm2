@@ -4,13 +4,14 @@
  */
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import {
   fetchStockHistory,
-  fetchProductStockHistory,
   createStockHistory,
   fetchStockMovementSummary,
   type StockHistoryFilters,
   type StockHistoryCreateInput,
+  type StockHistoryResponse,
 } from '../api/stock-history-api';
 
 // Query keys factory
@@ -18,7 +19,8 @@ export const stockHistoryKeys = {
   all: ['stock-history'] as const,
   lists: () => [...stockHistoryKeys.all, 'list'] as const,
   list: (filters: StockHistoryFilters) => [...stockHistoryKeys.lists(), filters] as const,
-  product: (productId: string) => [...stockHistoryKeys.all, 'product', productId] as const,
+  product: (productId: string, filters?: Omit<StockHistoryFilters, 'productId'>) => 
+    [...stockHistoryKeys.all, 'product', productId, filters] as const,
   summary: (productId: string) => [...stockHistoryKeys.all, 'summary', productId] as const,
 };
 
@@ -36,18 +38,40 @@ export function useStockHistory(filters: StockHistoryFilters = {}) {
 }
 
 /**
- * Hook to fetch stock history for a specific product
+ * Hook to fetch stock history for a specific product with server-side pagination
  */
 export function useProductStockHistory(
   productId: string | undefined,
-  options?: { limit?: number; fromDate?: string; toDate?: string }
-) {
+  options?: { 
+    page?: number;
+    limit?: number; 
+    branchId?: string;
+    fromDate?: string; 
+    toDate?: string; 
+    enabled?: boolean;
+  }
+): { 
+  data: StockHistoryResponse | undefined;
+  isLoading: boolean;
+  isFetching: boolean;
+  error: Error | null;
+} {
+  const filters: StockHistoryFilters = {
+    productId: productId!,
+    page: options?.page || 1,
+    limit: options?.limit || 20,
+    branchSystemId: options?.branchId && options.branchId !== 'all' ? options.branchId : undefined,
+    fromDate: options?.fromDate,
+    toDate: options?.toDate,
+  };
+
   return useQuery({
-    queryKey: stockHistoryKeys.product(productId!),
-    queryFn: () => fetchProductStockHistory(productId!, options),
-    enabled: !!productId,
+    queryKey: stockHistoryKeys.product(productId!, filters),
+    queryFn: () => fetchStockHistory(filters),
+    enabled: !!productId && (options?.enabled ?? true),
     staleTime: 1000 * 60 * 2,
     gcTime: 10 * 60 * 1000,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -78,9 +102,7 @@ interface MutationCallbacks {
 export function useStockHistoryMutations(options: MutationCallbacks = {}) {
   const queryClient = useQueryClient();
 
-  const invalidateHistory = () => {
-    queryClient.invalidateQueries({ queryKey: stockHistoryKeys.all });
-  };
+  const invalidateHistory = () => invalidateRelated(queryClient, 'stock-history');
 
   const create = useMutation({
     mutationFn: (data: StockHistoryCreateInput) => createStockHistory(data),

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Active Timer Sync Utilities
  * 
  * Sync active timer with database as source of truth
@@ -6,6 +6,8 @@
  * 
  * NOTE: localStorage has been removed - all data comes from API/database
  */
+
+import { logError } from '@/lib/logger'
 
 interface ActiveTimerData {
   taskId: string
@@ -42,7 +44,7 @@ export async function saveActiveTimer(
     })
     return res.ok
   } catch (error) {
-    console.error('Failed to save active timer to database:', error)
+    logError('Failed to save active timer to database', error)
     return false
   }
 }
@@ -61,7 +63,7 @@ export async function removeActiveTimer(userId: string): Promise<boolean> {
     })
     return res.ok
   } catch (error) {
-    console.error('Failed to remove active timer from database:', error)
+    logError('Failed to remove active timer from database', error)
     return false
   }
 }
@@ -94,7 +96,7 @@ export async function loadActiveTimer(userId: string): Promise<ActiveTimerData |
       }
     }
   } catch (error) {
-    console.error('Failed to load active timer from database:', error)
+    logError('Failed to load active timer from database', error)
   }
 
   return null

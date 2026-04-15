@@ -1,4 +1,5 @@
 ﻿import * as React from "react";
+import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { Button } from "../../../components/ui/button";
 import { NumberInput } from "../../../components/ui/number-input";
@@ -14,7 +15,7 @@ import { PurchaseProductSearch } from "../../../components/shared/unified-produc
 import { ProductSelectionDialog } from "../../shared/product-selection-dialog";
 import { TaxSelector } from "./tax-selector";
 import { useAllTaxesData } from '../../settings/taxes/hooks/use-all-taxes';
-import { useAllProducts } from "../../products/hooks/use-all-products";
+import { useProductsByIds } from "../../products/hooks/use-products";
 import { useProductTypeFinder } from "../../settings/inventory/hooks/use-all-product-types";
 import type { Product } from "../../products/types";
 import { useProductImage } from "../../products/components/product-image";
@@ -73,10 +74,12 @@ const ProductThumbnail = ({
                 className="group relative w-10 h-9 rounded overflow-hidden border border-muted cursor-pointer"
                 onClick={() => onPreview(imageUrl, product.name)}
             >
-                <img
+                <Image
                     src={imageUrl}
                     alt={product.name}
-                    className="w-full h-full object-cover transition-all group-hover:brightness-75"
+                    fill
+                    sizes="40px"
+                    className="object-cover transition-all group-hover:brightness-75"
                 />
                 <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                     <Eye className="w-4 h-4 text-white drop-shadow-md" />
@@ -108,10 +111,12 @@ const ComboChildImage = ({
                 className="group relative w-8 h-7 rounded overflow-hidden border border-muted cursor-pointer"
                 onClick={() => onPreview(imageUrl, product?.name || '')}
             >
-                <img
+                <Image
                     src={imageUrl}
                     alt={product?.name || ''}
-                    className="w-full h-full object-cover transition-all group-hover:brightness-75"
+                    fill
+                    sizes="32px"
+                    className="object-cover transition-all group-hover:brightness-75"
                 />
                 <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                     <Eye className="w-4 h-4 text-white drop-shadow-md" />
@@ -184,11 +189,22 @@ export function ProductSelectionCard({
   const [expandedCombos, setExpandedCombos] = React.useState<Record<number, boolean>>({});
   
   // Get default tax from taxes store
-  const { data: _taxes, getDefaultPurchase } = useAllTaxesData();
+  const { getDefaultPurchase } = useAllTaxesData();
   const defaultPurchaseTax = React.useMemo(() => getDefaultPurchase(), [getDefaultPurchase]);
   
-  // Get products store
-  const { data: allProducts } = useAllProducts();
+  // ⚡ OPTIMIZED: Only fetch combo child products (if any) instead of ALL products
+  const comboChildIds = React.useMemo(() => {
+    const ids: string[] = [];
+    for (const item of items) {
+      if (item.product.type === 'combo' && item.product.comboItems?.length) {
+        for (const ci of item.product.comboItems) {
+          if ((ci as ComboItem).productSystemId) ids.push((ci as ComboItem).productSystemId);
+        }
+      }
+    }
+    return ids;
+  }, [items]);
+  const { productsMap: comboChildProductsMap } = useProductsByIds(comboChildIds);
   
   // Get product type store
   const { findById: findProductTypeById } = useProductTypeFinder();
@@ -465,19 +481,19 @@ export function ProductSelectionCard({
               <SelectItem value="cost">
                 <div className="flex flex-col">
                   <span>Giá vốn</span>
-                  <span className="text-[10px] text-muted-foreground">Đã bao gồm phí</span>
+                  <span className="text-xs text-muted-foreground">Đã bao gồm phí</span>
                 </div>
               </SelectItem>
               <SelectItem value="purchase">
                 <div className="flex flex-col">
                   <span>Giá nhập (NCC)</span>
-                  <span className="text-[10px] text-muted-foreground">Giá mua từ NCC</span>
+                  <span className="text-xs text-muted-foreground">Giá mua từ NCC</span>
                 </div>
               </SelectItem>
               <SelectItem value="recent">
                 <div className="flex flex-col">
                   <span>Giá nhập gần nhất</span>
-                  <span className="text-[10px] text-muted-foreground">Lần nhập trước</span>
+                  <span className="text-xs text-muted-foreground">Lần nhập trước</span>
                 </div>
               </SelectItem>
             </SelectContent>
@@ -497,19 +513,19 @@ export function ProductSelectionCard({
                 <SelectItem value="last_purchase">
                   <div className="flex flex-col">
                     <span>Giá vốn = Giá nhập</span>
-                    <span className="text-[10px] text-muted-foreground">Giá vốn mới = giá nhập lần này</span>
+                    <span className="text-xs text-muted-foreground">Giá vốn mới = giá nhập lần này</span>
                   </div>
                 </SelectItem>
                 <SelectItem value="weighted_average">
                   <div className="flex flex-col">
                     <span>Bình quân gia quyền</span>
-                    <span className="text-[10px] text-muted-foreground">(Tồn cũ × Giá cũ + SL nhập × Giá nhập) / Tồn mới</span>
+                    <span className="text-xs text-muted-foreground">(Tồn cũ × Giá cũ + SL nhập × Giá nhập) / Tồn mới</span>
                   </div>
                 </SelectItem>
                 <SelectItem value="with_fees">
                   <div className="flex flex-col">
                     <span>Giá nhập + Phí</span>
-                    <span className="text-[10px] text-muted-foreground">Giá nhập + Tổng chi phí / Số lượng</span>
+                    <span className="text-xs text-muted-foreground">Giá nhập + Tổng chi phí / Số lượng</span>
                   </div>
                 </SelectItem>
               </SelectContent>
@@ -553,6 +569,7 @@ export function ProductSelectionCard({
               </Button>
             </div>
           ) : (
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -561,10 +578,46 @@ export function ProductSelectionCard({
                   <TableHead className="w-15">Tên sản phẩm</TableHead>
                   <TableHead className="w-30">Số lượng</TableHead>
                   <TableHead className="w-45">Đơn giá</TableHead>
-                  <TableHead className="w-32 text-right">Giá vốn</TableHead>
+                  <TableHead className="w-32 text-right">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="cursor-help border-b border-dashed border-muted-foreground">
+                            Giá vốn
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="max-w-xs">
+                          <p className="text-xs">
+                            Giá vốn dự kiến sau khi nhập kho. 
+                            {costCalculationMethod === 'with_fees' 
+                              ? ' Đã bao gồm phí vận chuyển và chi phí khác phân bổ theo số lượng.' 
+                              : costCalculationMethod === 'weighted_average'
+                                ? ' Tính bình quân gia quyền với tồn kho hiện tại.'
+                                : ' Bằng giá nhập từ NCC.'}
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </TableHead>
                   <TableHead className="w-32">Thuế</TableHead>
                   <TableHead className="w-36">Chiết khấu</TableHead>
-                  <TableHead className="w-32 text-right">Thành tiền</TableHead>
+                  <TableHead className="w-32 text-right">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="cursor-help border-b border-dashed border-muted-foreground">
+                            Thành tiền
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="max-w-xs">
+                          <p className="text-xs">
+                            Thành tiền = Số lượng × Đơn giá - Chiết khấu.
+                            Đây là số tiền cần trả cho NCC (chưa bao gồm phí vận chuyển).
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </TableHead>
                   <TableHead className="w-10"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -581,7 +634,7 @@ export function ProductSelectionCard({
                   const isComboExpanded = !!expandedCombos[index];
                   const comboItems = isCombo
                     ? (item.product.comboItems ?? []).map((comboItem: ComboItem) => {
-                        const childProduct = allProducts.find(p => p.systemId === comboItem.productSystemId);
+                        const childProduct = comboChildProductsMap.get(comboItem.productSystemId);
                         return { ...comboItem, product: childProduct };
                       })
                     : [];
@@ -596,7 +649,7 @@ export function ProductSelectionCard({
                                 type="button"
                                 variant="ghost"
                                 size="icon"
-                                className="h-6 w-6 p-0"
+                                className="h-8 w-8 p-0"
                                 onClick={() => toggleComboExpanded(index)}
                               >
                                 {isComboExpanded ? (
@@ -624,7 +677,7 @@ export function ProductSelectionCard({
                                 {item.product.name}
                               </Link>
                               {isCombo && (
-                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground font-medium">
+                                <span className="text-xs px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground font-medium">
                                   COMBO
                                 </span>
                               )}
@@ -743,12 +796,26 @@ export function ProductSelectionCard({
                             }
                             
                             return (
-                              <div className="flex flex-col">
+                              <div className="flex flex-col items-end">
                                 <span className="font-medium text-primary">{formatCurrency(estimatedCost)}</span>
                                 {costCalculationMethod === 'with_fees' && feePerUnit > 0 && (
-                                  <span className="text-[10px] text-muted-foreground">
-                                    {formatCurrency(item.unitPrice)} + {formatCurrency(Math.round(feePerUnit))} phí
-                                  </span>
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <span className="text-xs text-muted-foreground cursor-help">
+                                          ({formatCurrency(item.unitPrice)} + {formatCurrency(Math.round(feePerUnit))} phí)
+                                        </span>
+                                      </TooltipTrigger>
+                                      <TooltipContent side="left" className="max-w-xs">
+                                        <div className="text-xs space-y-1">
+                                          <p><strong>Tính giá vốn:</strong></p>
+                                          <p>Đơn giá nhập: {formatCurrency(item.unitPrice)}</p>
+                                          <p>+ Phí phân bổ: {formatCurrency(Math.round(feePerUnit))}/SP</p>
+                                          <p className="border-t pt-1"><strong>= Giá vốn: {formatCurrency(estimatedCost)}</strong></p>
+                                        </div>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
                                 )}
                               </div>
                             );
@@ -799,7 +866,28 @@ export function ProductSelectionCard({
                           </div>
                         </TableCell>
                         <TableCell className="text-right font-semibold">
-                          {formatCurrency(item.total)} ₫
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="cursor-help">
+                                  {formatCurrency(item.total)} ₫
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent side="left" className="max-w-xs">
+                                <div className="text-xs space-y-1">
+                                  <p><strong>Tính thành tiền:</strong></p>
+                                  <p>{formatCurrency(item.quantity)} SP × {formatCurrency(item.unitPrice)} ₫ = {formatCurrency(item.quantity * item.unitPrice)} ₫</p>
+                                  {item.discount > 0 && (
+                                    <p>- Chiết khấu: {item.discountType === 'percent' 
+                                      ? `${item.discount}% = ${formatCurrency(item.quantity * item.unitPrice * item.discount / 100)} ₫`
+                                      : `${formatCurrency(item.discount)} ₫`
+                                    }</p>
+                                  )}
+                                  <p className="border-t pt-1"><strong>= {formatCurrency(item.total)} ₫</strong></p>
+                                </div>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
                         </TableCell>
                         <TableCell>
                           <Button
@@ -862,6 +950,7 @@ export function ProductSelectionCard({
                 })}
               </TableBody>
             </Table>
+            </div>
           )}
         </div>
       </CardContent>

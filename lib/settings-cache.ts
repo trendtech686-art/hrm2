@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Global Settings Cache
  * 
  * Cung cấp cache in-memory cho các settings đọc từ database.
@@ -11,6 +11,8 @@
  * 
  * NOTE: localStorage has been removed - all data comes from API/database
  */
+
+import { logError } from '@/lib/logger'
 
 interface GeneralSettings {
   timezone: string
@@ -103,7 +105,7 @@ export async function loadGeneralSettings(): Promise<GeneralSettings> {
         }
       }
     } catch (error) {
-      console.error('Failed to load general settings from API:', error)
+      logError('Failed to load general settings from API', error)
     }
 
     // Return defaults if API fails

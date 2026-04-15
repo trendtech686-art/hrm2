@@ -37,6 +37,7 @@ import { FileUploadAPI, type StagingFile } from '../../../lib/file-upload-api';
 import { SeoAnalysisPanel } from '../../../components/shared/seo-preview';
 import { TipTapEditor } from '../../../components/ui/tiptap-editor';
 import { nanoid } from 'nanoid';
+import { logError } from '@/lib/logger'
 
 // =============================================================================
 // FORM SCHEMA
@@ -175,7 +176,7 @@ export function BrandDetailForm({
         );
         logoUrl = logoFiles[0]?.url || logoUrl;
       } catch (error) {
-        console.error('Error confirming logo:', error);
+        logError('Error confirming logo', error);
       }
     }
     

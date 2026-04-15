@@ -13,12 +13,12 @@ export interface TaskFilters {
   priority?: TaskPriority;
   assigneeId?: string;
   assignerId?: string;
-  projectId?: string;
   parentId?: string;
   dueFrom?: string;
   dueTo?: string;
   createdFrom?: string;
   createdTo?: string;
+  boardId?: string;
   includeDeleted?: boolean;
 }
 
@@ -42,6 +42,7 @@ export interface TaskCreateInput {
   dueDate?: string;
   startDate?: string;
   assignerId?: string;
+  assignerName?: string;
   assigneeId?: string;
   assigneeName?: string;
   parentId?: string;
@@ -61,6 +62,8 @@ export interface TaskUpdateInput extends Partial<TaskCreateInput> {
   approvalStatus?: 'pending' | 'approved' | 'rejected';
   rejectionReason?: string;
   completionEvidence?: unknown; // Allow completion evidence updates
+  requiresEvidence?: boolean;
+  assignees?: Array<{ employeeSystemId: string; role: string }>;
 }
 
 const BASE_URL = '/api/tasks';
@@ -80,7 +83,6 @@ export async function fetchTasks(
   if (filters.priority) params.set('priority', filters.priority);
   if (filters.assigneeId) params.set('assigneeId', filters.assigneeId);
   if (filters.assignerId) params.set('assignerId', filters.assignerId);
-  if (filters.projectId) params.set('projectId', filters.projectId);
   if (filters.parentId) params.set('parentId', filters.parentId);
   if (filters.dueFrom) params.set('dueFrom', filters.dueFrom);
   if (filters.dueTo) params.set('dueTo', filters.dueTo);
@@ -114,96 +116,6 @@ export async function fetchTaskById(
 }
 
 /**
- * Create new task
- */
-export async function createTask(
-  data: TaskCreateInput
-): Promise<Task> {
-  const response = await fetch(BASE_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-  
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.error || 'Failed to create task');
-  }
-  
-  return response.json();
-}
-
-/**
- * Update task
- */
-export async function updateTask(
-  systemId: string,
-  data: TaskUpdateInput
-): Promise<Task> {
-  const response = await fetch(`${BASE_URL}/${systemId}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-  
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.error || 'Failed to update task');
-  }
-  
-  return response.json();
-}
-
-/**
- * Delete task (soft delete)
- */
-export async function deleteTask(systemId: string): Promise<void> {
-  const response = await fetch(`${BASE_URL}/${systemId}`, {
-    method: 'DELETE',
-  });
-  
-  if (!response.ok) {
-    throw new Error('Failed to delete task');
-  }
-}
-
-/**
- * Restore deleted task
- */
-export async function restoreTask(systemId: string): Promise<Task> {
-  const response = await fetch(`${BASE_URL}/${systemId}/restore`, {
-    method: 'POST',
-  });
-  
-  if (!response.ok) {
-    throw new Error('Failed to restore task');
-  }
-  
-  return response.json();
-}
-
-/**
- * Update task status
- */
-export async function updateTaskStatus(
-  systemId: string,
-  status: TaskStatus
-): Promise<Task> {
-  return updateTask(systemId, { status });
-}
-
-/**
- * Complete task
- */
-export async function completeTask(systemId: string): Promise<Task> {
-  return updateTask(systemId, {
-    status: 'Hoàn thành',
-    completedAt: new Date().toISOString(),
-    progress: 100,
-  });
-}
-
-/**
  * Fetch task activities
  */
 export async function fetchTaskActivities(
@@ -213,46 +125,6 @@ export async function fetchTaskActivities(
   
   if (!response.ok) {
     throw new Error('Failed to fetch task activities');
-  }
-  
-  return response.json();
-}
-
-/**
- * Add task comment
- */
-export async function addTaskComment(
-  taskSystemId: string,
-  content: string
-): Promise<{ id: string; content: string; createdAt: string }> {
-  const response = await fetch(`${BASE_URL}/${taskSystemId}/comments`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ content }),
-  });
-  
-  if (!response.ok) {
-    throw new Error('Failed to add comment');
-  }
-  
-  return response.json();
-}
-
-/**
- * Start/Stop task timer
- */
-export async function toggleTaskTimer(
-  systemId: string,
-  action: 'start' | 'stop'
-): Promise<Task> {
-  const response = await fetch(`${BASE_URL}/${systemId}/timer`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action }),
-  });
-  
-  if (!response.ok) {
-    throw new Error(`Failed to ${action} timer`);
   }
   
   return response.json();

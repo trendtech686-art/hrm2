@@ -9,6 +9,7 @@ import * as React from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { Download, FileSpreadsheet, Plus, Settings } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { usePageHeader } from '@/contexts/page-header-context';
 import { useAuth } from '@/contexts/auth-context';
 import { useBreakpoint } from '@/contexts/breakpoint-context';
@@ -16,7 +17,6 @@ import { asSystemId } from '@/lib/id-types';
 
 // UI components
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ResponsiveDataTable } from '@/components/data-table/responsive-data-table';
 import { DynamicDataTableColumnCustomizer as DataTableColumnCustomizer } from '@/components/data-table/dynamic-column-customizer';
 import { PageToolbar } from '@/components/layout/page-toolbar';
@@ -26,6 +26,7 @@ import { SimplePrintOptionsDialog } from '@/components/shared/simple-print-optio
 // Feature-specific
 import { usePurchaseOrders } from './hooks/use-purchase-orders';
 import { useAllBranches } from '@/features/settings/branches/hooks/use-all-branches';
+import { useAllSuppliers } from '@/features/suppliers/hooks/use-all-suppliers';
 import { getColumns } from './columns';
 import { PurchaseOrderCard } from './purchase-order-card';
 import { POStatisticsCards } from './components/po-statistics';
@@ -39,7 +40,10 @@ import {
   usePurchaseOrdersImportExport,
 } from './hooks/use-po-page-handlers';
 import { usePurchaseOrderImportHandler } from './hooks/use-po-import-handler';
-import { useColumnVisibility } from '@/hooks/use-column-visibility';
+import { useColumnLayout } from '@/hooks/use-column-visibility';
+import { AdvancedFilterPanel, FilterExtras, type FilterConfig } from '@/components/shared/advanced-filter-panel';
+import { useFilterPresets } from '@/hooks/use-filter-presets';
+import { FAB } from '@/components/mobile/fab';
 
 // Dynamic imports for heavy dialogs
 const PurchaseOrderImportDialog = dynamic(
@@ -48,6 +52,10 @@ const PurchaseOrderImportDialog = dynamic(
 );
 const PurchaseOrderExportDialog = dynamic(
   () => import('./components/purchase-order-import-export-dialogs').then(mod => ({ default: mod.PurchaseOrderExportDialog })),
+  { ssr: false }
+);
+const SapoPurchaseOrderImportDialog = dynamic(
+  () => import('./components/purchase-order-import-export-dialogs').then(mod => ({ default: mod.SapoPurchaseOrderImportDialog })),
   { ssr: false }
 );
 
@@ -65,27 +73,61 @@ export interface PurchaseOrdersPageProps {
 export default function PurchaseOrdersPage({ initialStats: _initialStats, initialItemStats }: PurchaseOrdersPageProps = {}) {
   const router = useRouter();
   const { isMobile } = useBreakpoint();
-  const { employee: loggedInUser } = useAuth();
+  const {  employee: loggedInUser, can } = useAuth();
+  const canCreate = can('create_purchase_orders');
+  const canDelete = can('delete_purchase_orders');
+  const canEdit = can('edit_purchase_orders');
+  const canEditSettings = can('edit_settings');
   const { data: branches } = useAllBranches();
+  const { data: suppliers = [] } = useAllSuppliers();
 
   // Page header with add button
   usePageHeader({ 
     title: 'Đơn nhập hàng',
     actions: [
-      <Button key="add" size="sm" onClick={() => router.push('/purchase-orders/new')}>
+      canCreate && <Button key="add" size="sm" onClick={() => router.push('/purchase-orders/new')}>
         <Plus className="mr-2 h-4 w-4" />Thêm đơn nhập hàng
       </Button>
     ]
   });
 
-  // All handlers from extracted hook
-  const handlers = usePurchaseOrdersPageHandlers();
+  // Filter state management - must be called first
   const filters = usePurchaseOrdersFilters();
   const importExport = usePurchaseOrdersImportExport();
   
   // Destructure for stable references in useEffect dependencies
   const { globalFilter, setPagination, branchFilter, statusFilter, paymentStatusFilter } = filters;
-  
+
+  // Advanced filter panel
+  const { presets, savePreset, deletePreset, updatePreset } = useFilterPresets('purchase-orders');
+  const filterConfigs: FilterConfig[] = React.useMemo(() => [
+    { id: 'branch', label: 'Chi nhánh', type: 'select' as const, options: [{ value: 'all', label: 'Tất cả' }, ...branches.map(b => ({ value: b.systemId, label: b.name }))] },
+    { id: 'status', label: 'Trạng thái', type: 'select' as const, options: [
+      { value: 'all', label: 'Tất cả' }, { value: 'Đặt hàng', label: 'Đặt hàng' }, { value: 'Đang giao dịch', label: 'Đang giao dịch' },
+      { value: 'Hoàn thành', label: 'Hoàn thành' }, { value: 'Đã hủy', label: 'Đã hủy' }, { value: 'Kết thúc', label: 'Kết thúc' },
+    ] },
+    { id: 'paymentStatus', label: 'Thanh toán', type: 'select' as const, options: [
+      { value: 'all', label: 'Tất cả' }, { value: 'Chưa thanh toán', label: 'Chưa thanh toán' },
+      { value: 'Thanh toán một phần', label: 'Thanh toán một phần' }, { value: 'Đã thanh toán', label: 'Đã thanh toán' },
+    ] },
+    { id: 'supplier', label: 'Nhà cung cấp', type: 'select' as const, options: [{ value: 'all', label: 'Tất cả' }, ...suppliers.map(s => ({ value: s.systemId, label: s.name }))] },
+    { id: 'dateRange', label: 'Ngày đặt hàng', type: 'date-range' as const },
+  ], [branches, suppliers]);
+  const panelValues = React.useMemo(() => ({
+    branch: branchFilter !== 'all' ? branchFilter : null,
+    status: statusFilter !== 'all' ? statusFilter : null,
+    paymentStatus: paymentStatusFilter !== 'all' ? paymentStatusFilter : null,
+    supplier: filters.supplierFilter && filters.supplierFilter !== 'all' ? filters.supplierFilter : null,
+    dateRange: filters.dateRange ?? null,
+  }), [branchFilter, statusFilter, paymentStatusFilter, filters.supplierFilter, filters.dateRange]);
+  const handlePanelApply = React.useCallback((v: Record<string, unknown>) => {
+    filters.setBranchFilter((v.branch as string) || 'all');
+    filters.setStatusFilter((v.status as string) || 'all');
+    filters.setPaymentStatusFilter((v.paymentStatus as string) || 'all');
+    filters.setSupplierFilter((v.supplier as string) || 'all');
+    filters.setDateRange((v.dateRange as { from?: string; to?: string } | null) ?? null);
+  }, [filters]);
+
   // Debounced search
   const [debouncedSearch, setDebouncedSearch] = React.useState('');
   React.useEffect(() => {
@@ -99,16 +141,19 @@ export default function PurchaseOrdersPage({ initialStats: _initialStats, initia
   // Reset page when filters change
   React.useEffect(() => {
     setPagination(prev => ({ ...prev, pageIndex: 0 }));
-  }, [branchFilter, statusFilter, paymentStatusFilter, setPagination]);
-  
+  }, [branchFilter, statusFilter, paymentStatusFilter, filters.supplierFilter, filters.dateRange, setPagination]);
+
   // Server-side paginated query
-  const { data: queryData, isLoading: isLoadingPOs } = usePurchaseOrders({
+  const { data: queryData, isLoading: isLoadingPOs, isFetching } = usePurchaseOrders({
     page: filters.pagination.pageIndex + 1,
     limit: filters.pagination.pageSize,
     search: debouncedSearch || undefined,
     branchId: filters.branchFilter !== 'all' ? filters.branchFilter : undefined,
     status: filters.statusFilter !== 'all' ? filters.statusFilter : undefined,
     paymentStatus: filters.paymentStatusFilter !== 'all' ? filters.paymentStatusFilter : undefined,
+    supplierId: filters.supplierFilter && filters.supplierFilter !== 'all' ? filters.supplierFilter : undefined,
+    startDate: (filters.dateRange as { from?: string; to?: string } | null)?.from || undefined,
+    endDate: (filters.dateRange as { from?: string; to?: string } | null)?.to || undefined,
     sortBy: filters.sorting.id,
     sortOrder: filters.sorting.desc ? 'desc' : 'asc',
   });
@@ -117,32 +162,25 @@ export default function PurchaseOrdersPage({ initialStats: _initialStats, initia
   const purchaseOrders = React.useMemo(() => queryDataItems ?? [], [queryDataItems]);
   const totalRows = queryData?.pagination?.total ?? 0;
   const pageCount = queryData?.pagination?.totalPages ?? 1;
+
+  // ⚡ OPTIMIZED: All handlers use paginated data instead of loading all data
+  const handlers = usePurchaseOrdersPageHandlers({ paginatedData: purchaseOrders });
   
   // Column visibility (persisted to DB)
   const defaultColumnVisibility = React.useMemo(() => {
-    const defaultVisible = ['id', 'supplierName', 'branchName', 'buyer', 'orderDate', 'deliveryDate', 'shippingFee', 'tax', 'discount', 'notes', 'creatorName', 'grandTotal', 'status', 'deliveryStatus', 'paymentStatus', 'returnStatus', 'refundStatus'];
+    const defaultVisible = ['id', 'supplierName', 'branchName', 'buyer', 'orderDate', 'deliveryDate', 'shippingFee', 'tax', 'discount', 'notes', 'grandTotal', 'status', 'deliveryStatus', 'paymentStatus', 'returnStatus', 'refundStatus'];
     const cols = getColumns(() => {}, () => {}, () => {}, () => {}, []);
     const initial: Record<string, boolean> = {};
     cols.forEach(c => { if (c.id) initial[c.id] = c.id === 'select' || c.id === 'actions' ? true : defaultVisible.includes(c.id); });
     return initial;
   }, []);
-  const [columnVisibility, setColumnVisibility] = useColumnVisibility('purchase-orders', defaultColumnVisibility);
-  const [columnOrder, setColumnOrder] = React.useState<string[]>([]);
-  const [pinnedColumns, setPinnedColumns] = React.useState<string[]>([]);
+  const [{ visibility: columnVisibility, order: columnOrder, pinned: pinnedColumns }, { setVisibility: setColumnVisibility, setOrder: setColumnOrder, setPinned: setPinnedColumns }] = useColumnLayout('purchase-orders', { visibility: defaultColumnVisibility, pinned: ['select', 'actions'] });
 
   // Columns definition
   const columns = React.useMemo(
     () => getColumns(handlers.handleCancelRequest, handlers.handlePrint, handlers.handlePayment, handlers.handleReceiveGoods, branches),
     [handlers.handleCancelRequest, handlers.handlePrint, handlers.handlePayment, handlers.handleReceiveGoods, branches]
   );
-
-  // Initialize column order once
-  React.useEffect(() => {
-    if (columns.length > 0) {
-      setColumnOrder(columns.map(c => c.id).filter(Boolean) as string[]);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   // Server-side: data already filtered/sorted by API
   const displayData = isMobile ? purchaseOrders.slice(0, filters.mobileLoadedCount) : purchaseOrders;
@@ -156,7 +194,7 @@ export default function PurchaseOrdersPage({ initialStats: _initialStats, initia
         filters.setMobileLoadedCount(prev => Math.min(prev + 20, purchaseOrders.length));
       }
     };
-    window.addEventListener('scroll', handleScroll);
+    window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, [isMobile, filters.mobileLoadedCount, purchaseOrders.length, filters]);
 
@@ -173,6 +211,7 @@ export default function PurchaseOrdersPage({ initialStats: _initialStats, initia
 
   // Import handler - using hook for DB persistence
   const handleImport = usePurchaseOrderImportHandler({ authEmployeeSystemId: loggedInUser?.systemId });
+  const [isSapoImportOpen, setIsSapoImportOpen] = React.useState(false);
 
   return (
     <div className="space-y-4">
@@ -180,13 +219,16 @@ export default function PurchaseOrdersPage({ initialStats: _initialStats, initia
 
       {!isMobile && (
         <PageToolbar leftActions={
-          <Button variant="outline" size="sm" onClick={() => router.push('/settings/inventory')}>
+          canEditSettings ? <Button variant="outline" size="sm" onClick={() => router.push('/settings/inventory')}>
             <Settings className="h-4 w-4 mr-2" />Cài đặt
-          </Button>
+          </Button> : undefined
         } rightActions={
           <>
             <Button variant="outline" size="sm" onClick={() => importExport.setShowImportDialog(true)}>
               <FileSpreadsheet className="mr-2 h-4 w-4" />Nhập file
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setIsSapoImportOpen(true)}>
+              <FileSpreadsheet className="mr-2 h-4 w-4" />Import Sapo
             </Button>
             <Button variant="outline" size="sm" onClick={() => importExport.setShowExportDialog(true)}>
               <Download className="mr-2 h-4 w-4" />Xuất Excel
@@ -197,35 +239,11 @@ export default function PurchaseOrdersPage({ initialStats: _initialStats, initia
       )}
 
       <PageFilters searchValue={filters.globalFilter} onSearchChange={filters.setGlobalFilter} searchPlaceholder="Tìm kiếm đơn nhập hàng...">
-        <Select value={filters.branchFilter} onValueChange={filters.setBranchFilter}>
-          <SelectTrigger className="h-9 w-full sm:w-45"><SelectValue placeholder="Chi nhánh" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Tất cả chi nhánh</SelectItem>
-            {branches.map(b => <SelectItem key={b.systemId} value={b.systemId}>{b.name}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Select value={filters.statusFilter} onValueChange={filters.setStatusFilter}>
-          <SelectTrigger className="h-9 w-full sm:w-45"><SelectValue placeholder="Trạng thái" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Tất cả trạng thái</SelectItem>
-            <SelectItem value="Đặt hàng">Đặt hàng</SelectItem>
-            <SelectItem value="Đang giao dịch">Đang giao dịch</SelectItem>
-            <SelectItem value="Hoàn thành">Hoàn thành</SelectItem>
-            <SelectItem value="Đã hủy">Đã hủy</SelectItem>
-            <SelectItem value="Kết thúc">Kết thúc</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={filters.paymentStatusFilter} onValueChange={filters.setPaymentStatusFilter}>
-          <SelectTrigger className="h-9 w-full sm:w-45"><SelectValue placeholder="Thanh toán" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Tất cả</SelectItem>
-            <SelectItem value="Chưa thanh toán">Chưa thanh toán</SelectItem>
-            <SelectItem value="Thanh toán một phần">Thanh toán một phần</SelectItem>
-            <SelectItem value="Đã thanh toán">Đã thanh toán</SelectItem>
-          </SelectContent>
-        </Select>
+        <AdvancedFilterPanel filters={filterConfigs} values={panelValues} onApply={handlePanelApply} presets={presets.map(p => ({ ...p, filters: p.filters }))} onSavePreset={(preset) => savePreset(preset.name, panelValues)} onDeletePreset={deletePreset} onUpdatePreset={updatePreset} />
       </PageFilters>
+      <FilterExtras presets={presets} filterConfigs={filterConfigs} values={panelValues} onApply={handlePanelApply} onDeletePreset={deletePreset} />
 
+      <div className={cn(isFetching && !isLoadingPOs && 'opacity-70 transition-opacity')}>
       <ResponsiveDataTable
         columns={columns}
         data={displayData}
@@ -250,18 +268,20 @@ export default function PurchaseOrdersPage({ initialStats: _initialStats, initia
         setColumnOrder={setColumnOrder}
         pinnedColumns={pinnedColumns}
         setPinnedColumns={setPinnedColumns}
+        mobileInfiniteScroll
         isLoading={isLoadingPOs}
       />
+      </div>
 
       {isMobile && (
         <div className="py-6 text-center">
           {filters.mobileLoadedCount < purchaseOrders.length ? (
             <div className="flex items-center justify-center gap-2 text-muted-foreground">
               <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-              <span className="text-body-sm">Đang tải thêm...</span>
+              <span className="text-sm">Đang tải thêm...</span>
             </div>
           ) : purchaseOrders.length > 20 ? (
-            <p className="text-body-sm text-muted-foreground">Đã hiển thị tất cả {purchaseOrders.length} kết quả</p>
+            <p className="text-sm text-muted-foreground">Đã hiển thị tất cả {purchaseOrders.length} kết quả</p>
           ) : null}
         </div>
       )}
@@ -273,6 +293,8 @@ export default function PurchaseOrdersPage({ initialStats: _initialStats, initia
       <SimplePrintOptionsDialog open={handlers.isPrintDialogOpen} onOpenChange={handlers.closePrintDialog} onConfirm={handlers.handlePrintConfirm} selectedCount={handlers.pendingPrintPOs.length} title="In đơn nhập hàng" />
       <PurchaseOrderImportDialog open={importExport.showImportDialog} onOpenChange={importExport.setShowImportDialog} branches={branches.map(b => ({ systemId: b.systemId, name: b.name }))} existingData={purchaseOrders} onImport={handleImport} currentUser={{ name: loggedInUser?.fullName || 'Hệ thống', systemId: loggedInUser?.systemId || asSystemId('SYSTEM') }} />
       <PurchaseOrderExportDialog open={importExport.showExportDialog} onOpenChange={importExport.setShowExportDialog} allData={purchaseOrders} filteredData={purchaseOrders} currentPageData={displayData} selectedData={handlers.selectedOrders} currentUser={{ name: loggedInUser?.fullName || 'Hệ thống', systemId: loggedInUser?.systemId || asSystemId('SYSTEM') }} />
+      <SapoPurchaseOrderImportDialog open={isSapoImportOpen} onOpenChange={setIsSapoImportOpen} existingData={purchaseOrders} onImport={handleImport} currentUser={{ name: loggedInUser?.fullName || 'Hệ thống', systemId: loggedInUser?.systemId || asSystemId('SYSTEM') }} />
+      {isMobile && canCreate && <FAB onClick={() => router.push('/purchase-orders/new')} />}
     </div>
   );
 }

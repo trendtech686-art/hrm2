@@ -1,16 +1,12 @@
 import { prisma } from '@/lib/prisma'
-import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
+import { apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
+import { apiHandler } from '@/lib/api-handler'
+import { logError } from '@/lib/logger'
+import { getUserNameFromDb } from '@/lib/get-user-name'
 
 // POST /api/employees/[systemId]/restore - Restore deleted employee
-export async function POST(
-  _request: Request,
-  { params }: { params: Promise<{ systemId: string }> }
-) {
-  const session = await requireAuth()
-  if (!session) return apiError('Unauthorized', 401)
-
-  try {
-    const { systemId } = await params
+export const POST = apiHandler(async (_request, { session, params }) => {
+    const { systemId } = params
 
     // Check if employee exists and is deleted
     const existing = await prisma.employee.findUnique({
@@ -22,7 +18,11 @@ export async function POST(
     }
 
     if (!existing.isDeleted) {
-      return apiError('Employee is not deleted', 400)
+      return apiError('Nhân viên chưa bị xóa', 400)
+    }
+
+    if (existing.permanentlyDeletedAt) {
+      return apiError('Nhân viên đã được lưu trữ vĩnh viễn, không thể khôi phục', 400)
     }
 
     const employee = await prisma.employee.update({
@@ -38,9 +38,26 @@ export async function POST(
       },
     })
 
+    // Sync: reactivate linked user account
+    await prisma.user.updateMany({
+      where: { employeeId: systemId },
+      data: { isActive: true },
+    })
+
+    // Log activity
+    getUserNameFromDb(session!.user?.id).then(userName =>
+      prisma.activityLog.create({
+        data: {
+          entityType: 'employee',
+          entityId: systemId,
+          action: 'restored',
+          actionType: 'update',
+          note: `Khôi phục nhân viên`,
+          metadata: { userName },
+          createdBy: userName,
+        }
+      })
+    ).catch(e => logError('[ActivityLog] employee restored failed', e))
+
     return apiSuccess(employee)
-  } catch (error) {
-    console.error('Error restoring employee:', error)
-    return apiError('Failed to restore employee', 500)
-  }
-}
+}, { permission: 'edit_employees' })

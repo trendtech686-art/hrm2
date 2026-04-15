@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
+import { logError } from '@/lib/logger'
 
 // GET /api/active-timer?userId=xxx - Get active timer for user
 export async function GET(request: Request) {
@@ -24,7 +25,7 @@ export async function GET(request: Request) {
 
     return apiSuccess(timer)
   } catch (error) {
-    console.error('Error fetching active timer:', error)
+    logError('Error fetching active timer', error)
     return apiError('Failed to fetch active timer', 500)
   }
 }
@@ -60,7 +61,7 @@ export async function POST(request: Request) {
 
     return apiSuccess(timer, 201)
   } catch (error) {
-    console.error('Error creating active timer:', error)
+    logError('Error creating active timer', error)
     return apiError('Failed to create active timer', 500)
   }
 }
@@ -91,7 +92,7 @@ export async function DELETE(request: Request) {
 
     return apiSuccess({ success: true })
   } catch (error) {
-    console.error('Error deleting active timer:', error)
+    logError('Error deleting active timer', error)
     return apiError('Failed to delete active timer', 500)
   }
 }

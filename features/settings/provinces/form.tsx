@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useForm } from "react-hook-form"
 import type { Province } from '@/lib/types/prisma-extended'
-import { useProvinces } from "./hooks/use-administrative-units";
+
 import { Button } from "../../../components/ui/button"
 import {
   Form,
@@ -24,7 +24,6 @@ type ProvinceFormProps = {
 }
 
 export function ProvinceForm({ initialData, onSubmit, onCancel }: ProvinceFormProps) {
-  const { data: _provinces = [] } = useProvinces();
   const form = useForm<ProvinceFormValues>({
     defaultValues: initialData || {
       id: "", // ✅ Empty string = auto-generate

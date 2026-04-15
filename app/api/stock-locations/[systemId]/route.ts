@@ -1,6 +1,8 @@
 import { prisma } from '@/lib/prisma'
 import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
 import { updateStockLocationSchema } from './validation'
+import { logError } from '@/lib/logger'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 interface RouteParams {
   params: Promise<{ systemId: string }>
@@ -40,7 +42,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
 
     return apiSuccess(location)
   } catch (error) {
-    console.error('Error fetching stock location:', error)
+    logError('Error fetching stock location', error)
     return apiError('Failed to fetch stock location', 500)
   }
 }
@@ -68,12 +70,21 @@ export async function PUT(request: Request, { params }: RouteParams) {
       },
     })
 
+    createActivityLog({
+      entityType: 'stock_location',
+      entityId: systemId,
+      action: 'updated',
+      actionType: 'update',
+      metadata: { name: location.name },
+      createdBy: session.user?.employee?.fullName || session.user?.email || 'System',
+    })
+
     return apiSuccess(location)
   } catch (error) {
     if (error instanceof Error && 'code' in error && error.code === 'P2025') {
       return apiError('Kho không tồn tại', 404)
     }
-    console.error('Error updating stock location:', error)
+    logError('Error updating stock location', error)
     return apiError('Failed to update stock location', 500)
   }
 }
@@ -91,12 +102,20 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
       data: { isActive: false },
     })
 
+    createActivityLog({
+      entityType: 'stock_location',
+      entityId: systemId,
+      action: 'deleted',
+      actionType: 'delete',
+      createdBy: session.user?.employee?.fullName || session.user?.email || 'System',
+    })
+
     return apiSuccess({ success: true })
   } catch (error) {
     if (error instanceof Error && 'code' in error && error.code === 'P2025') {
       return apiError('Kho không tồn tại', 404)
     }
-    console.error('Error deleting stock location:', error)
+    logError('Error deleting stock location', error)
     return apiError('Failed to delete stock location', 500)
   }
 }

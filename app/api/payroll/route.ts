@@ -4,6 +4,9 @@ import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePag
 import { createPayrollSchema } from './validation'
 import { generateNextIdsWithTx } from '@/lib/id-system'
 import { generateIdWithPrefix } from '@/lib/id-generator'
+import { logError } from '@/lib/logger'
+import { createBulkNotifications } from '@/lib/notifications'
+import { getUserNameFromDb } from '@/lib/get-user-name'
 
 // Interface for payroll item input
 interface PayrollItemInput {
@@ -125,7 +128,7 @@ export async function GET(request: Request) {
 
     return apiPaginated(transformedPayrolls, { page, limit, total })
   } catch (error) {
-    console.error('Error fetching payroll:', error)
+    logError('Error fetching payroll', error)
     return apiError('Failed to fetch payroll', 500)
   }
 }
@@ -185,9 +188,39 @@ export async function POST(request: Request) {
       });
     });
 
+    // Notify employees included in payroll
+    const employeeIds = payroll.items?.map(item => item.employee?.systemId || '').filter(Boolean) || [];
+    if (employeeIds.length > 0) {
+      createBulkNotifications({
+        type: 'payroll',
+        settingsKey: 'payroll:updated',
+        title: 'Bảng lương mới',
+        message: `Bảng lương ${payroll.id} đã được tạo`,
+        link: `/payroll/${payroll.systemId}`,
+        recipientIds: employeeIds,
+        senderId: session.user?.employeeId,
+        senderName: session.user?.name,
+      }).catch(e => logError('[Payroll] notification failed', e));
+    }
+
+    // Log activity
+    getUserNameFromDb(session.user?.id).then(userName =>
+      prisma.activityLog.create({
+        data: {
+          entityType: 'payroll',
+          entityId: payroll.systemId,
+          action: 'created',
+          actionType: 'create',
+          note: `Tạo bảng lương`,
+          metadata: { userName },
+          createdBy: userName,
+        }
+      })
+    ).catch(e => logError('[ActivityLog] payroll created failed', e))
+
     return apiSuccess(payroll, 201)
   } catch (error) {
-    console.error('Error creating payroll:', error)
+    logError('Error creating payroll', error)
     return apiError('Failed to create payroll', 500)
   }
 }

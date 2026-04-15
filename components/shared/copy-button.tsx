@@ -3,6 +3,7 @@ import { Check, Copy } from 'lucide-react';
 import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
 import { toast } from 'sonner';
+import { logError } from '@/lib/logger'
 
 interface CopyButtonProps {
   value: string | undefined | null;
@@ -40,7 +41,7 @@ export function CopyButton({
       }
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
-      console.error('Failed to copy:', err);
+      logError('Failed to copy', err);
       toast.error('Không thể copy vào clipboard');
     }
   };

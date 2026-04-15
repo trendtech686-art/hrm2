@@ -38,7 +38,7 @@ export async function fetchBrands(params: BrandsParams = {}): Promise<BrandsResp
   const response = await fetch(url);
   
   if (!response.ok) {
-    throw new Error(`Failed to fetch brands: ${response.statusText}`);
+    throw new Error(`Không thể tải danh sách thương hiệu: ${response.statusText}`);
   }
   
   return response.json();
@@ -48,50 +48,10 @@ export async function fetchBrand(systemId: string): Promise<Brand> {
   const response = await fetch(`${BASE_URL}/${systemId}`);
   
   if (!response.ok) {
-    throw new Error(`Failed to fetch brand: ${response.statusText}`);
+    throw new Error(`Không thể tải thương hiệu: ${response.statusText}`);
   }
   
   return response.json();
-}
-
-export async function createBrand(data: Omit<Brand, 'systemId' | 'createdAt' | 'updatedAt'>): Promise<Brand> {
-  const response = await fetch(BASE_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-  
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.message || 'Failed to create brand');
-  }
-  
-  return response.json();
-}
-
-export async function updateBrand(systemId: string, data: Partial<Brand>): Promise<Brand> {
-  const response = await fetch(`${BASE_URL}/${systemId}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-  
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.message || 'Failed to update brand');
-  }
-  
-  return response.json();
-}
-
-export async function deleteBrand(systemId: string): Promise<void> {
-  const response = await fetch(`${BASE_URL}/${systemId}`, {
-    method: 'DELETE',
-  });
-  
-  if (!response.ok) {
-    throw new Error(`Failed to delete brand: ${response.statusText}`);
-  }
 }
 
 /**
@@ -103,28 +63,10 @@ export async function fetchDeletedBrands(): Promise<Brand[]> {
   });
   
   if (!res.ok) {
-    throw new Error(`Failed to fetch deleted brands: ${res.statusText}`);
+    throw new Error(`Không thể tải thương hiệu đã xóa: ${res.statusText}`);
   }
   
   const json = await res.json();
-  return json.data || json;
-}
-
-/**
- * Restore deleted brand
- */
-export async function restoreBrand(systemId: string): Promise<Brand> {
-  const res = await fetch(`${BASE_URL}/${systemId}/restore`, {
-    method: 'POST',
-    credentials: 'include',
-  });
-  
-  const json = await res.json();
-  
-  if (!res.ok) {
-    throw new Error(json.error || json.message || `Failed to restore brand: ${res.statusText}`);
-  }
-  
   return json.data || json;
 }
 
@@ -139,7 +81,7 @@ export async function permanentDeleteBrand(systemId: string): Promise<void> {
   
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.error || errorData.message || `Failed to permanently delete brand: ${res.statusText}`);
+    throw new Error(errorData.error || errorData.message || `Không thể xóa vĩnh viễn thương hiệu: ${res.statusText}`);
   }
 }
 
@@ -157,7 +99,7 @@ async function bulkAction(action: string, systemIds: string[]): Promise<{ update
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || err.message || 'Bulk action failed');
+    throw new Error(err.error || err.message || 'Thao tác hàng loạt thất bại');
   }
   return res.json();
 }

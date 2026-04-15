@@ -37,6 +37,7 @@ import type { ProductCategory, WebsiteSeoData } from './types';
 // SystemId is imported indirectly via ProductCategory type
 import { nanoid } from 'nanoid';
 import { SeoAnalysisPanel } from '../../../components/shared/seo-preview';
+import { logError } from '@/lib/logger'
 
 // Helper to safely access websiteSeo
 function getWebsiteSeo(category?: ProductCategory | null): Record<string, WebsiteSeoData> | undefined {
@@ -212,7 +213,7 @@ export function CategoryDetailForm({
         );
         thumbnailUrl = thumbnailFiles[0]?.url || thumbnailUrl;
       } catch (error) {
-        console.error('Error confirming thumbnail:', error);
+        logError('Error confirming thumbnail', error);
       }
     }
     
@@ -227,7 +228,7 @@ export function CategoryDetailForm({
           { name: data.name }
         );
       } catch (error) {
-        console.error('Error confirming editor images:', error);
+        logError('Error confirming editor images', error);
       }
     }
     

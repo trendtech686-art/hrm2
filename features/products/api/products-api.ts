@@ -53,6 +53,7 @@ export interface CreateProductInput {
   inventoryByBranch?: Record<string, number>;
   committedByBranch?: Record<string, number>;
   inTransitByBranch?: Record<string, number>;
+  inDeliveryByBranch?: Record<string, number>;
   isDeleted?: boolean;
   updatedAt?: string;
 }
@@ -112,6 +113,23 @@ export async function fetchProduct(id: string): Promise<Product> {
   const json = await res.json();
   // API returns { success: true, data: Product }
   return json.data ?? json;
+}
+
+/**
+ * Fetch multiple products by their systemIds in a single request.
+ * Returns all matching products (no pagination — assumes small batch).
+ */
+export async function fetchProductsByIds(systemIds: string[]): Promise<Product[]> {
+  if (systemIds.length === 0) return [];
+  const params = new URLSearchParams({
+    systemIds: systemIds.join(','),
+    page: '1',
+    limit: String(systemIds.length),
+  });
+  const res = await fetch(`${API_BASE}?${params}`, { credentials: 'include' });
+  if (!res.ok) throw new Error(`Failed to fetch products by IDs: ${res.statusText}`);
+  const json = await res.json();
+  return json.data ?? [];
 }
 
 /**

@@ -14,8 +14,15 @@ export const paymentStatusSchema = z.enum([
 
 // Category enum
 export const paymentCategorySchema = z.enum([
+  'purchase',
   'customer_payment',
+  'complaint_refund',
+  'warranty_refund',
+  'sales_return_refund',
+  'employee_advance',
+  'employee_salary',
   'supplier_payment',
+  'operational_expense',
   'expense',
   'salary',
   'other'
@@ -25,26 +32,31 @@ export const paymentCategorySchema = z.enum([
 export const createPaymentSchema = z.object({
   date: z.string().min(1, 'Ngày thanh toán không được để trống'),
   amount: z.number().min(0, 'Số tiền phải >= 0'),
-  recipientTypeSystemId: systemIdSchema,
+  recipientTypeSystemId: systemIdSchema.optional(),
   recipientTypeName: z.string().optional(),
   recipientName: z.string().min(1, 'Tên người nhận không được để trống'),
   recipientSystemId: systemIdSchema.optional(),
   description: z.string().optional(),
-  paymentMethodSystemId: systemIdSchema,
+  paymentMethodSystemId: systemIdSchema.optional(),
   paymentMethodName: z.string().optional(),
-  accountSystemId: systemIdSchema,
+  paymentMethod: z.string().optional(), // Alternative field for method name
+  accountSystemId: systemIdSchema.optional(),
   paymentReceiptTypeSystemId: systemIdSchema.optional(),
   paymentReceiptTypeName: z.string().optional(),
-  branchSystemId: systemIdSchema.refine(v => v.length >= 1, 'Vui lòng chọn chi nhánh'),
+  branchSystemId: systemIdSchema.optional(),
+  branchId: z.string().optional(), // Alternative field for branch
   branchName: z.string().optional(),
   status: paymentStatusSchema.default('completed'),
   category: paymentCategorySchema,
   affectsDebt: z.boolean().default(true),
+  affectsBusinessReport: z.boolean().default(false),
   purchaseOrderSystemId: systemIdSchema.optional(),
   purchaseOrderId: businessIdSchema.optional(),
   orderSystemId: systemIdSchema.optional(),
   orderId: businessIdSchema.optional(),
   originalDocumentId: z.string().optional(),
+  supplierId: z.string().optional(), // For supplier payments
+  createdBy: z.string().optional(),
 });
 
 // Update payment schema

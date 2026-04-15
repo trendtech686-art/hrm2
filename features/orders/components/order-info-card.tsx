@@ -1,7 +1,7 @@
 ﻿import * as React from 'react';
 import { useFormContext } from 'react-hook-form';
-import { useAllEmployees } from '../../employees/hooks/use-all-employees';
-import { useAllBranches } from '../../settings/branches/hooks/use-all-branches';
+import { useEmployeeComboboxSearch } from '../../employees/hooks/use-employee-search';
+import { useAllBranches, type Branch } from '../../settings/branches/hooks/use-all-branches';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { FormField, FormItem, FormLabel, FormControl, FormMessage } from '../../../components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
@@ -9,21 +9,56 @@ import { Combobox } from '../../../components/ui/combobox';
 import { DatePicker } from '../../../components/ui/date-picker';
 import { Input } from '../../../components/ui/input';
 import { Separator } from '../../../components/ui/separator';
+// ⚡ OPTIMIZED: Import hooks only for fallback (when prefetched data not provided)
 import { useSalesChannels } from '../../settings/sales-channels/hooks/use-sales-channels';
 import { usePaymentMethods } from '../../settings/payments/methods/hooks/use-payment-methods';
 
-export function OrderInfoCard({ disabled, isBranchLocked = false, isMetadataOnlyMode = false }: { disabled: boolean; isBranchLocked?: boolean; isMetadataOnlyMode?: boolean }) {
+// ✅ Type for pre-fetched data from parent
+interface OrderInfoCardProps {
+  disabled: boolean;
+  isBranchLocked?: boolean;
+  isMetadataOnlyMode?: boolean;
+  salespersonName?: string;
+  packerName?: string;
+  // ✅ FIX: Pass systemId directly to avoid async issues with getValues()
+  onEmployeeChange?: (field: 'salesperson' | 'packer', systemId: string, name: string) => void;
+  // ⚡ OPTIMIZED: Optional pre-fetched data to avoid duplicate API calls
+  prefetchedBranches?: Branch[];
+  prefetchedPaymentMethods?: Array<{ systemId: string; name: string; isActive?: boolean; isDefault?: boolean | null }>;
+  prefetchedSalesChannels?: Array<{ systemId: string; name: string; isApplied?: boolean; isDefault?: boolean | null }>;
+}
+
+export function OrderInfoCard({ 
+  disabled, 
+  isBranchLocked = false, 
+  isMetadataOnlyMode = false, 
+  salespersonName, 
+  packerName, 
+  onEmployeeChange,
+  prefetchedBranches,
+  prefetchedPaymentMethods,
+  prefetchedSalesChannels,
+}: OrderInfoCardProps) {
     const { control } = useFormContext();
-    const { data: employees } = useAllEmployees();
-    const { data: branches } = useAllBranches();
+    // ⚡ OPTIMIZED: Lazy-load employees on search/scroll (30 per page) instead of loading all
+    const { onSearch: searchEmployees, resolveValue: resolveEmployee } = useEmployeeComboboxSearch();
     
-    // React Query for payment methods and sales channels
-    const { data: pmData } = usePaymentMethods({ isActive: true });
-    const paymentMethods = React.useMemo(() => pmData?.data ?? [], [pmData?.data]);
-    const { data: scData } = useSalesChannels({});
-    const salesChannels = React.useMemo(() => scData?.data ?? [], [scData?.data]);
+    // ⚡ OPTIMIZED: Use prefetched data if available, otherwise fallback to hooks (for standalone usage)
+    const { data: fetchedBranches } = useAllBranches({ enabled: !prefetchedBranches });
+    const branches = prefetchedBranches ?? fetchedBranches;
     
-    const employeeOptions = React.useMemo(() => employees.map(e => ({ value: e.systemId, label: e.fullName })), [employees]);
+    // ⚡ OPTIMIZED: Only call hooks if prefetched data not provided
+    const { data: pmData } = usePaymentMethods({ isActive: true }, { enabled: !prefetchedPaymentMethods });
+    const paymentMethods = React.useMemo(() => 
+      prefetchedPaymentMethods ?? pmData?.data ?? [], 
+      [prefetchedPaymentMethods, pmData?.data]
+    );
+    const { data: scData } = useSalesChannels({}, { enabled: !prefetchedSalesChannels });
+    const salesChannels = React.useMemo(() => 
+      prefetchedSalesChannels ?? scData?.data ?? [], 
+      [prefetchedSalesChannels, scData?.data]
+    );
+    
     const branchOptions = React.useMemo(() => branches.map(b => ({ value: b.systemId, label: b.name })), [branches]);
     const channelOptions = React.useMemo(() => {
       return salesChannels
@@ -48,13 +83,13 @@ export function OrderInfoCard({ disabled, isBranchLocked = false, isMetadataOnly
                   </FormItem>
                 )}/>
                 <FormField control={control} name="salespersonSystemId" render={({ field }) => (
-                  <FormItem><FormLabel>Bán bởi</FormLabel><Combobox options={employeeOptions} value={employeeOptions.find(opt => opt.value === field.value) || null} onChange={option => field.onChange(option ? option.value : '')} placeholder="Chọn nhân viên" disabled={disabled || isMetadataOnlyMode} /></FormItem>
+                  <FormItem><FormLabel>Bán bởi</FormLabel><Combobox onSearch={searchEmployees} value={resolveEmployee(field.value, salespersonName)} onChange={option => { field.onChange(option ? option.value : ''); onEmployeeChange?.('salesperson', option?.value || '', option?.label || ''); }} placeholder="Chọn nhân viên" disabled={disabled || isMetadataOnlyMode} /></FormItem>
                 )}/>
                 <FormField control={control} name="packerId" render={({ field }) => (
-                  <FormItem><FormLabel>Nhân viên đóng gói</FormLabel><Combobox options={employeeOptions} value={employeeOptions.find(opt => opt.value === field.value) || null} onChange={option => field.onChange(option ? option.value : '')} placeholder="Chọn nhân viên đóng gói" disabled={disabled || isMetadataOnlyMode} /><FormMessage /></FormItem>
+                  <FormItem><FormLabel>Nhân viên đóng gói</FormLabel><Combobox onSearch={searchEmployees} value={resolveEmployee(field.value, packerName)} onChange={option => { field.onChange(option ? option.value : ''); onEmployeeChange?.('packer', option?.value || '', option?.label || ''); }} placeholder="Chọn nhân viên đóng gói" disabled={disabled || isMetadataOnlyMode} /><FormMessage /></FormItem>
                 )} />
                 <FormField control={control} name="orderDate" render={({ field }) => (
-                  <FormItem><FormLabel>Ngày bán</FormLabel><FormControl><DatePicker value={field.value} onChange={field.onChange} disabled={disabled || isMetadataOnlyMode} /></FormControl></FormItem>
+                  <FormItem><FormLabel>Ngày bán</FormLabel><FormControl><DatePicker value={field.value} onChange={field.onChange} disabled={disabled} /></FormControl></FormItem>
                 )}/>
                 <FormField control={control} name="source" render={({ field }) => {
                   const showLegacyValue = Boolean(field.value) && !channelOptions.some(option => option.name === field.value);
@@ -107,7 +142,7 @@ export function OrderInfoCard({ disabled, isBranchLocked = false, isMetadataOnly
                       <DatePicker 
                         value={field.value} 
                         onChange={field.onChange} 
-                        disabled={disabled || isMetadataOnlyMode}
+                        disabled={disabled}
                         placeholder="Chọn ngày hẹn giao"
                       />
                     </FormControl>

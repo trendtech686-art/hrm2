@@ -8,6 +8,7 @@ import { SalesManagementSettings } from './sales-management-settings';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../components/ui/card';
 import { useTabActionRegistry } from '../use-tab-action-registry';
 import { SettingsVerticalTabs } from '../../../components/settings/SettingsVerticalTabs';
+import { SettingsHistoryContent } from '../../../components/settings/SettingsHistoryContent';
 
 export function SalesConfigPage() {
   const [activeTab, setActiveTab] = React.useState('sales-management-settings');
@@ -28,6 +29,7 @@ export function SalesConfigPage() {
   );
 
   return (
+  <>
     <SettingsVerticalTabs value={activeTab} onValueChange={setActiveTab} tabs={tabs}>
       <TabsContent value="sales-management-settings" className="mt-0">
         <SalesManagementSettings
@@ -50,5 +52,10 @@ export function SalesConfigPage() {
         </Card>
       </TabsContent>
     </SettingsVerticalTabs>
+
+    <div className="mt-6">
+      <SettingsHistoryContent entityTypes={['sales_management', 'sales_channel']} />
+    </div>
+  </>
   );
 }

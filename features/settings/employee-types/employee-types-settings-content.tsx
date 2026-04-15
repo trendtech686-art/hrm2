@@ -159,7 +159,6 @@ export function EmployeeTypesSettingsContent() {
     selectedIds.forEach(id => {
       remove.mutate(id as SystemId)
     })
-    toast.success(`Đã xóa ${selectedIds.length} loại nhân viên`)
     setRowSelection({})
     setIsBulkDeleteOpen(false)
   }

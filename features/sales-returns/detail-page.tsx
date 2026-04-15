@@ -12,6 +12,7 @@ import { usePrint } from '../../lib/use-print';
 import { 
   convertSalesReturnForPrint,
   mapSalesReturnToPrintData, 
+  mapSalesReturnReturnLineItems,
   createStoreSettingsFromBranch 
 } from '../../lib/print/sales-return-print-helper';
 // ✅ REMOVED: Receipt/Payment print helpers - không cần fetch full data
@@ -29,8 +30,7 @@ import type { BreadcrumbItem } from '../../lib/breadcrumb-system';
 import { SalesReturnWorkflowCard } from './components/sales-return-workflow-card';
 import type { Subtask } from '../../components/shared/subtask-list';
 import { Comments, type Comment as CommentType } from '../../components/Comments';
-import { ActivityHistory } from '../../components/ActivityHistory';
-import { useActivityHistory } from '../../hooks/use-activity-logs';
+import { EntityActivityTable } from '@/components/shared/entity-activity-table';
 import { asSystemId, type SystemId } from '../../lib/id-types';
 import { ReadOnlyProductsTable } from '../../components/shared/read-only-products-table';
 import { useComments } from '../../hooks/use-comments';
@@ -55,9 +55,6 @@ export function SalesReturnDetailPage() {
     const { info: storeInfo } = useStoreInfoData();
     const { employee: authEmployee } = useAuth();
     const [subtasks, setSubtasks] = React.useState<Subtask[]>([]);
-
-    // ✅ Fetch activity history from database
-    const { history: activityHistory } = useActivityHistory('sales_return', salesReturn?.systemId || '', !!salesReturn);
 
     // ✅ Sử dụng useComments hook thay vì localStorage trực tiếp
     const { 
@@ -197,10 +194,31 @@ export function SalesReturnDetailPage() {
             '{line_amount}': formatCurrency(item.totalValue), // Standard fallback
         }));
 
-        print('sales-return', {
-            data: mappedData,
-            lineItems: lineItems
-        });
+        // If exchange items exist, use sales-exchange template with both line item groups
+        const hasExchangeItems = salesReturn.exchangeItems && salesReturn.exchangeItems.length > 0;
+        if (hasExchangeItems) {
+            const returnLineItems = mapSalesReturnReturnLineItems(returnForPrint.returnItems || []);
+            const exchangeLineItems = salesReturn.exchangeItems!.map((item, index) => ({
+                '{line_stt}': (index + 1).toString(),
+                '{line_product_name}': item.productName,
+                '{line_variant_code}': item.productId,
+                '{line_variant}': '',
+                '{line_unit}': 'Cái',
+                '{line_quantity}': item.quantity.toString(),
+                '{line_price}': formatCurrency(item.unitPrice),
+                '{line_amount}': formatCurrency(item.quantity * item.unitPrice),
+            }));
+            print('sales-exchange', {
+                data: mappedData,
+                lineItems: exchangeLineItems,
+                secondaryLineItems: returnLineItems,
+            });
+        } else {
+            print('sales-return', {
+                data: mappedData,
+                lineItems: lineItems
+            });
+        }
     }, [salesReturn, findBranchById, storeInfo, print]);
 
     // ✅ Simplified: Chỉ navigate đến trang receipt/payment để in từ đó
@@ -296,9 +314,9 @@ export function SalesReturnDetailPage() {
             <Card>
                 <CardContent className="p-4">
                     <div className="flex items-center gap-3">
-                        <Badge variant="secondary" className="text-body-sm">Đã hoàn thành</Badge>
+                        <Badge variant="secondary" className="text-sm">Đã hoàn thành</Badge>
                         <Separator orientation="vertical" className="h-6" />
-                        <span className="text-body-sm text-muted-foreground">
+                        <span className="text-sm text-muted-foreground">
                             Ngày tạo: {formatDate(salesReturn.createdAt || salesReturn.returnDate)}
                         </span>
                     </div>
@@ -374,22 +392,22 @@ export function SalesReturnDetailPage() {
                         <CardTitle>Tổng quan tài chính</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                        <div className="flex justify-between items-center text-body-sm">
+                        <div className="flex justify-between items-center text-sm">
                             <span className="text-muted-foreground">Tổng giá trị hàng trả</span>
                             <span className="font-medium">{formatCurrency(salesReturn.totalReturnValue || salesReturn.items?.reduce((sum, i) => sum + (i.totalValue || 0), 0) || 0)}</span>
                         </div>
-                        <div className="flex justify-between items-center text-body-sm">
+                        <div className="flex justify-between items-center text-sm">
                             <span className="text-muted-foreground">Tổng giá trị hàng đổi</span>
                             <span className="font-medium">{formatCurrency(salesReturn.grandTotalNew || salesReturn.exchangeItems?.reduce((sum, i) => sum + ((i.quantity || 0) * (i.unitPrice || 0)), 0) || 0)}</span>
                         </div>
                         {(salesReturn.shippingFeeNew ?? 0) > 0 && (
-                            <div className="flex justify-between items-center text-body-sm">
+                            <div className="flex justify-between items-center text-sm">
                                 <span className="text-muted-foreground">Phí vận chuyển</span>
                                 <span className="font-medium">{formatCurrency(salesReturn.shippingFeeNew)}</span>
                             </div>
                         )}
                         {salesReturn.finalAmount !== 0 && (
-                            <div className="flex justify-between items-center text-body-sm">
+                            <div className="flex justify-between items-center text-sm">
                                 <span className="text-muted-foreground">Chênh lệch</span>
                                 <span className={`font-medium ${salesReturn.finalAmount > 0 ? 'text-red-600' : 'text-green-600'}`}>
                                     {salesReturn.finalAmount > 0 ? '+' : ''}{formatCurrency(salesReturn.finalAmount)}
@@ -418,7 +436,7 @@ export function SalesReturnDetailPage() {
                             if (totalRefunded === 0 && totalPaid === 0 && !hasReceiptVouchers && !hasPaymentVouchers && calculatedDiff === 0) {
                                 return (
                                     <div className="flex justify-between items-center pt-2">
-                                        <span className="text-body-sm font-medium text-muted-foreground">Không phát sinh thanh toán</span>
+                                        <span className="text-sm font-medium text-muted-foreground">Không phát sinh thanh toán</span>
                                         <span className="text-h3 text-muted-foreground">-</span>
                                     </div>
                                 );
@@ -452,7 +470,7 @@ export function SalesReturnDetailPage() {
                         {relatedTransactionInfo && (
                             <>
                                 <Separator />
-                                <div className="flex justify-between items-center text-body-sm">
+                                <div className="flex justify-between items-center text-sm">
                                     <span className="text-muted-foreground">Chứng từ thanh toán</span>
                                     <Link href={`/${relatedTransactionInfo.type === 'receipt' ? 'receipts' : 'payments'}/${relatedTransactionInfo.systemId}`} 
                                         className="text-primary hover:underline font-medium"
@@ -482,7 +500,7 @@ export function SalesReturnDetailPage() {
                         <CardTitle>Lý do trả hàng</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <p className="text-body-sm text-muted-foreground">{salesReturn.reason}</p>
+                        <p className="text-sm text-muted-foreground">{salesReturn.reason}</p>
                     </CardContent>
                 </Card>
             )}
@@ -547,7 +565,7 @@ export function SalesReturnDetailPage() {
                         <CardTitle>Ghi chú</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <p className="text-body-sm text-muted-foreground">{salesReturn.note}</p>
+                        <p className="text-sm text-muted-foreground">{salesReturn.note}</p>
                     </CardContent>
                 </Card>
             )}
@@ -566,13 +584,7 @@ export function SalesReturnDetailPage() {
             />
 
             {/* Activity History */}
-            <ActivityHistory
-                history={activityHistory}
-                title="Lịch sử hoạt động"
-                emptyMessage="Chưa có lịch sử hoạt động"
-                groupByDate
-                maxHeight="400px"
-            />
+            <EntityActivityTable entityType="sales_return" entityId={systemId} />
         </div>
     );
 }

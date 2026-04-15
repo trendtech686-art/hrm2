@@ -8,6 +8,8 @@ import type { SystemId } from "../../../lib/id-types"
 import { GenericImportDialogV2 } from "../../../components/shared/generic-import-dialog-v2";
 import { GenericExportDialogV2 } from "../../../components/shared/generic-export-dialog-v2";
 import { purchaseOrderImportExportConfig } from "../../../lib/import-export/configs/purchase-order.config";
+import { sapoPurchaseOrderImportConfig } from "../../../lib/import-export/configs/purchase-order-sapo.config";
+import type { ImportExportConfig } from "../../../lib/import-export/types";
 
 // Type aliases
 type ImportMode = 'insert-only' | 'update-only' | 'upsert';
@@ -79,6 +81,33 @@ export function PurchaseOrderExportDialog({
       filteredData={filteredData}
       currentPageData={currentPageData}
       selectedData={selectedData}
+      currentUser={currentUser}
+    />
+  );
+}
+
+interface SapoPurchaseOrderImportDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  existingData: PurchaseOrder[];
+  onImport: (data: Partial<PurchaseOrder>[], mode: ImportMode, branchId?: string, onProgress?: (percent: number) => void) => Promise<ImportResultData>;
+  currentUser?: { systemId: SystemId; name: string };
+}
+
+export function SapoPurchaseOrderImportDialog({
+  open,
+  onOpenChange,
+  existingData,
+  onImport,
+  currentUser,
+}: SapoPurchaseOrderImportDialogProps) {
+  return (
+    <GenericImportDialogV2<PurchaseOrder>
+      open={open}
+      onOpenChange={onOpenChange}
+      config={sapoPurchaseOrderImportConfig as unknown as ImportExportConfig<PurchaseOrder>}
+      existingData={existingData}
+      onImport={onImport}
       currentUser={currentUser}
     />
   );

@@ -31,6 +31,7 @@ import { asBusinessId, asSystemId } from '@/lib/id-types';
 import { generateSubEntityId } from '@/lib/id-utils';
 import { TabsContent } from '../../../components/ui/tabs';
 import { SettingsVerticalTabs } from '../../../components/settings/SettingsVerticalTabs';
+import { SettingsHistoryContent } from '../../../components/settings/SettingsHistoryContent';
 import { PenaltyTypesSettingsContent } from '../penalties/penalty-types-settings-content';
 import { PayrollTemplatesSettingsContent } from './payroll-templates-settings-content';
 import { JobTitlesPageContent } from '@/features/settings/job-titles/page-content';
@@ -39,6 +40,7 @@ import { EmployeeTypesSettingsContent } from '@/features/settings/employee-types
 import { LeaveTypesSettingsContent } from './leave-types-settings-content';
 import { SalaryComponentsSettingsContent } from './salary-components-settings-content';
 import { Skeleton } from '../../../components/ui/skeleton';
+import { useAuth } from '@/contexts/auth-context';
 
 const weekDays = [
   { id: 1, label: 'Thứ 2' },
@@ -52,6 +54,16 @@ const weekDays = [
 
 export function EmployeeSettingsPage() {
   const router = useRouter();
+  const { can, isLoading: authLoading } = useAuth();
+  
+  // Permission check - redirect if no access
+  const canEditSettings = can('edit_settings');
+  React.useEffect(() => {
+    if (!authLoading && !canEditSettings) {
+      toast.error('Bạn không có quyền truy cập cài đặt nhân viên');
+      router.replace('/employees');
+    }
+  }, [authLoading, canEditSettings, router]);
   
   // React Query: fetch settings từ API (Prisma database)
   const { data: apiSettings, isLoading, isError } = useEmployeeSettings();
@@ -146,7 +158,7 @@ export function EmployeeSettingsPage() {
   }, [handleSubmit, onSubmit, validateSettings]);
 
   // Header actions thay đổi theo tab - Chức vụ, Phòng ban và Loại nhân viên có UI riêng nên không cần Hủy/Lưu
-  const isIndependentTab = activeTab === 'job-titles' || activeTab === 'departments' || activeTab === 'employee-types';
+  const isIndependentTab = activeTab === 'job-titles' || activeTab === 'departments' || activeTab === 'employee-types' || activeTab === 'history';
   const isSaving = saveMutation.isPending;
   
   const headerActions = React.useMemo(() => {
@@ -392,7 +404,7 @@ export function EmployeeSettingsPage() {
                                 />
                               </TableCell>
                               <TableCell>
-                                <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => {
+                                <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" aria-label="Xóa mức phạt" onClick={() => {
                                   const tiers = form.getValues('latePenaltyTiers')?.filter((_, i) => i !== index) || [];
                                   form.setValue('latePenaltyTiers', tiers);
                                 }}>
@@ -422,7 +434,7 @@ export function EmployeeSettingsPage() {
                         <PlusCircle className="mr-2 h-4 w-4" /> Thêm mức
                       </Button>
                     </div>
-                    <div className="border  border-borderrounded-md">
+                    <div className="border border-border rounded-md overflow-x-auto">
                       <Table>
                         <TableHeader>
                           <TableRow>
@@ -467,7 +479,7 @@ export function EmployeeSettingsPage() {
                                 />
                               </TableCell>
                               <TableCell>
-                                <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => {
+                                <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" aria-label="Xóa mức phạt" onClick={() => {
                                   const tiers = form.getValues('earlyLeavePenaltyTiers')?.filter((_, i) => i !== index) || [];
                                   form.setValue('earlyLeavePenaltyTiers', tiers);
                                 }}>
@@ -599,6 +611,8 @@ export function EmployeeSettingsPage() {
               <DepartmentsSettingsContent />
             </TabsContent>
           </SettingsVerticalTabs>
+
+          <SettingsHistoryContent entityTypes={['department', 'job_title', 'employee_type', 'penalty_type', 'leave_type', 'salary_component', 'employee_settings', 'payroll_template']} />
         </form>
       </Form>
 

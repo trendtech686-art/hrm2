@@ -1,7 +1,9 @@
 model Packaging {
   systemId    String          @id
   id          String          @unique
-  orderId     String
+  orderId     String?
+  warrantyId  String?
+  sourceType  String          @default("ORDER") // ORDER | WARRANTY
   branchId    String
   employeeId  String?
   packDate    DateTime        @default(now())
@@ -68,14 +70,17 @@ model Packaging {
   ghtkWebhookHistory   Json? // Array of webhook events
 
   // In-store pickup info
-  requestorName        String?   // Người yêu cầu lấy hàng
-  requestorId          String?   // Mã người yêu cầu (nếu có)
-  requestorPhone       String?   // SĐT người lấy hàng
+  requestorName  String? // Người yêu cầu lấy hàng
+  requestorId    String? // Mã người yêu cầu (nếu có)
+  requestorPhone String? // SĐT người lấy hàng
 
   // Relations
-  order            Order     @relation(fields: [orderId], references: [systemId])
-  assignedEmployee Employee? @relation(fields: [assignedEmployeeId], references: [systemId])
-  shipment         Shipment?
+  order            Order?            @relation(fields: [orderId], references: [systemId])
+  warranty         SupplierWarranty? @relation(fields: [warrantyId], references: [systemId])
+  assignedEmployee Employee?         @relation(fields: [assignedEmployeeId], references: [systemId])
+  shipment               Shipment?
+  reconciliationItems    ReconciliationSheetItem[]
 
+  @@index([warrantyId])
   @@map("packagings")
 }

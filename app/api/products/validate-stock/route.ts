@@ -6,9 +6,9 @@
  * Reduces memory usage and improves performance significantly
  */
 
-import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { auth } from '@/auth';
+import { apiHandler } from '@/lib/api-handler';
+import { apiSuccess, apiError } from '@/lib/api-utils';
 
 interface StockValidationItem {
   productSystemId: string;
@@ -22,21 +22,12 @@ interface RequestBody {
   existingOrderSystemId?: string;
 }
 
-export async function POST(request: NextRequest) {
-  try {
-    const session = await auth();
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
+export const POST = apiHandler(async (request) => {
     const body: RequestBody = await request.json();
     const { branchSystemId, items, existingOrderSystemId } = body;
 
     if (!branchSystemId || !items || !Array.isArray(items)) {
-      return NextResponse.json(
-        { error: 'Invalid request body' },
-        { status: 400 }
-      );
+      return apiError('Dữ liệu không hợp lệ', 400);
     }
 
     // Get all product systemIds
@@ -115,15 +106,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({
+    return apiSuccess({
       valid: errors.length === 0,
       errors,
     });
-  } catch (error) {
-    console.error('Error validating stock:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
-  }
-}
+})

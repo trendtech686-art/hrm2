@@ -11,11 +11,13 @@
  * Không có staging, không có confirm, không có session.
  */
 
+import NextImage from 'next/image';
 import * as React from 'react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { Button } from './button';
 import { ImagePlus, Trash2, Loader2, Check, FileText, File, Upload } from 'lucide-react';
+import { logError } from '@/lib/logger'
 
 // Helper function to check if URL is an image
 function isImageUrl(url: string, name: string): boolean {
@@ -217,7 +219,7 @@ export function SimpleImageUpload({
         toast.success(`Đã upload ${uploadedImages.length} ${isImageOnly ? 'ảnh' : 'file'}`);
       }
     } catch (error) {
-      console.error('Upload error:', error);
+      logError('Upload error', error);
       toast.error('Lỗi khi upload ảnh');
     } finally {
       setIsUploading(false);
@@ -292,7 +294,7 @@ export function SimpleImageUpload({
         toast.error(`Lỗi xóa ảnh: ${result.message || 'Unknown error'}`);
       }
     } catch (error) {
-      console.error('Delete error:', error);
+      logError('Delete error', error);
       toast.error('Lỗi khi xóa ảnh');
     } finally {
       setIsDeletingId(null);
@@ -320,10 +322,12 @@ export function SimpleImageUpload({
                 className="relative group aspect-square rounded-lg overflow-hidden border bg-muted max-w-50"
               >
                 {isImage ? (
-                  <img
+                  <NextImage
                     src={image.url}
                     alt={image.name}
-                    className="absolute inset-0 w-full h-full object-cover"
+                    fill
+                    sizes="(max-width: 640px) 50vw, 25vw"
+                    className="object-cover"
                   />
                 ) : (
                   <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted">

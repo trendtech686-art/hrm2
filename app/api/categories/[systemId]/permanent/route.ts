@@ -1,11 +1,12 @@
 import { prisma } from '@/lib/prisma'
 import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
+import { logError } from '@/lib/logger'
 
 interface RouteParams {
   params: Promise<{ systemId: string }>
 }
 
-// DELETE /api/categories/[systemId]/permanent - Permanently delete category
+// DELETE /api/categories/[systemId]/permanent - Permanently archive category
 export async function DELETE(_request: Request, { params }: RouteParams) {
   const session = await requireAuth()
   if (!session) return apiError('Unauthorized', 401)
@@ -24,14 +25,22 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
       return apiNotFound('Danh mục')
     }
 
-    // Check if category has children - must delete children first
-    if (category._count.children > 0) {
-      return apiError('Không thể xóa vĩnh viễn danh mục đang có danh mục con. Hãy xóa danh mục con trước.', 400)
+    if (!category.isDeleted) {
+      return apiError('Danh mục chưa được xóa mềm, không thể lưu trữ vĩnh viễn', 400)
     }
 
-    // Use transaction to delete all related data
+    if (category.permanentlyDeletedAt) {
+      return apiError('Danh mục đã được lưu trữ vĩnh viễn', 400)
+    }
+
+    // Check if category has children - must handle children first
+    if (category._count.children > 0) {
+      return apiError('Không thể lưu trữ vĩnh viễn danh mục đang có danh mục con. Hãy xử lý danh mục con trước.', 400)
+    }
+
+    // Archive: strip content data, keep identity for product references
     await prisma.$transaction(async (tx) => {
-      // Delete PKGX category mapping if exists
+      // Delete PKGX category mapping
       await tx.pkgxCategoryMapping.deleteMany({
         where: { hrmCategoryId: systemId },
       })
@@ -41,15 +50,31 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
         where: { categoryId: systemId },
       })
 
-      // Now delete the category
-      await tx.category.delete({
+      // Archive: clear SEO/content data, keep identity
+      await tx.category.update({
         where: { systemId },
+        data: {
+          seoTitle: null,
+          metaDescription: null,
+          seoKeywords: null,
+          shortDescription: null,
+          longDescription: null,
+          ogImage: null,
+          websiteSeo: undefined,
+          description: null,
+          imageUrl: null,
+          thumbnail: null,
+          color: null,
+          icon: null,
+          isActive: false,
+          permanentlyDeletedAt: new Date(),
+        },
       })
     })
 
-    return apiSuccess({ message: 'Đã xóa vĩnh viễn danh mục' })
+    return apiSuccess({ message: 'Đã lưu trữ vĩnh viễn danh mục' })
   } catch (error) {
-    console.error('Error permanently deleting category:', error)
-    return apiError('Failed to permanently delete category', 500)
+    logError('Error permanently archiving category', error)
+    return apiError('Không thể lưu trữ danh mục vĩnh viễn', 500)
   }
 }

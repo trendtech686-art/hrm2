@@ -1,23 +1,27 @@
 import type { Payment } from '../payments/types';
 import type { Receipt } from '../receipts/types';
-import type { PurchaseOrder } from '@/lib/types/prisma-extended';
+import type { PurchaseOrder, PurchaseOrderPayment } from '@/lib/types/prisma-extended';
+
+// Type for payments that can be linked to PO - either embedded or full Payment  
+// Use generics to allow any object with at least an amount field
+type PaymentLike = { amount: number | string } & Record<string, unknown>;
 
 const _SUPPLIER_TARGET_IDS = ['NHACUNGCAP', 'supplier'];
 const _SUPPLIER_TARGET_LABELS = ['Nhà cung cấp'];
 
-export const isPaymentLinkedToPurchaseOrder = (payment: Payment, purchaseOrder: PurchaseOrder): boolean => {
+export const isPaymentLinkedToPurchaseOrder = <T extends PaymentLike>(payment: T, purchaseOrder: PurchaseOrder): boolean => {
   if (!payment || !purchaseOrder) {
     return false;
   }
 
   // Priority 1: Direct link via purchaseOrderSystemId
-  if (payment.purchaseOrderSystemId) {
+  if ('purchaseOrderSystemId' in payment && payment.purchaseOrderSystemId) {
     const match = payment.purchaseOrderSystemId === purchaseOrder.systemId;
     return match;
   }
 
   // Priority 2: Link via purchaseOrderId (which stores systemId in DB)
-  if (payment.purchaseOrderId) {
+  if ('purchaseOrderId' in payment && payment.purchaseOrderId) {
     const match = (
       payment.purchaseOrderId === purchaseOrder.systemId ||
       payment.purchaseOrderId === purchaseOrder.id
@@ -26,7 +30,7 @@ export const isPaymentLinkedToPurchaseOrder = (payment: Payment, purchaseOrder: 
   }
 
   // Priority 3: Link via originalDocumentId
-  if (payment.originalDocumentId) {
+  if ('originalDocumentId' in payment && payment.originalDocumentId) {
     const match = (
       payment.originalDocumentId === purchaseOrder.systemId ||
       payment.originalDocumentId === purchaseOrder.id
@@ -44,7 +48,7 @@ export const isPaymentLinkedToPurchaseOrder = (payment: Payment, purchaseOrder: 
  * Get ALL payments linked to a purchase order (including expenses like shipping fees)
  * Use this for displaying payment history
  */
-export const getPaymentsForPurchaseOrder = (payments: Payment[], purchaseOrder: PurchaseOrder): Payment[] => {
+export const getPaymentsForPurchaseOrder = <T extends PaymentLike>(payments: T[], purchaseOrder: PurchaseOrder): T[] => {
   if (!Array.isArray(payments) || !purchaseOrder) {
     return [];
   }
@@ -56,14 +60,16 @@ export const getPaymentsForPurchaseOrder = (payments: Payment[], purchaseOrder: 
  * Excludes expense payments (shipping fees, other fees paid to 3rd parties)
  * Use this for calculating "Đã trả NCC" (amount paid to supplier)
  */
-export const getSupplierPaymentsForPurchaseOrder = (payments: Payment[], purchaseOrder: PurchaseOrder): Payment[] => {
+export const getSupplierPaymentsForPurchaseOrder = <T extends PaymentLike>(payments: T[], purchaseOrder: PurchaseOrder): T[] => {
   if (!Array.isArray(payments) || !purchaseOrder) {
     return [];
   }
   return payments.filter(payment => {
     if (!isPaymentLinkedToPurchaseOrder(payment, purchaseOrder)) return false;
     // Only include supplier_payment category, exclude expense category
-    return payment.category === 'supplier_payment';
+    // If category is not available (embedded payment), assume it's a supplier payment
+    const category = 'category' in payment ? payment.category : 'supplier_payment';
+    return category === 'supplier_payment' || !category;
   });
 };
 
@@ -71,8 +77,8 @@ export const getSupplierPaymentsForPurchaseOrder = (payments: Payment[], purchas
  * Sum only SUPPLIER payments for calculating debt
  * Excludes expense payments (shipping fees, other fees)
  */
-export const sumPaymentsForPurchaseOrder = (payments: Payment[], purchaseOrder: PurchaseOrder): number => {
-  return getSupplierPaymentsForPurchaseOrder(payments, purchaseOrder).reduce((sum, payment) => sum + (payment.amount || 0), 0);
+export const sumPaymentsForPurchaseOrder = <T extends PaymentLike>(payments: T[], purchaseOrder: PurchaseOrder): number => {
+  return getSupplierPaymentsForPurchaseOrder(payments, purchaseOrder).reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
 };
 
 export const isReceiptLinkedToPurchaseOrder = (receipt: Receipt, purchaseOrder: PurchaseOrder): boolean => {

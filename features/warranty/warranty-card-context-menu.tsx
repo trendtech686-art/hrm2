@@ -16,7 +16,8 @@ interface WarrantyCardContextMenuProps {
   onMarkProcessed: (systemId: string) => void;
   onMarkReturned: (systemId: string) => void;
   onCancel: (systemId: string) => void;
-  onRemind?: (systemId: string) => void;
+  canEdit?: boolean;
+  canCancel?: boolean;
   children: React.ReactNode;
 }
 
@@ -24,8 +25,8 @@ interface WarrantyCardContextMenuProps {
  * Context Menu for Warranty Card - Status-based actions (no icons)
  * 
  * Right-click menu với actions thay đổi theo status:
- * - new: Sửa, Bắt đầu xử lý, Copy link, Nhắc nhở, Hủy
- * - pending: Hoàn thành xử lý, Copy link, Nhắc nhở
+ * - new: Sửa, Bắt đầu xử lý, Copy link, Hủy
+ * - pending: Hoàn thành xử lý, Copy link
  * - processed: Đã trả hàng, Copy link
  * - returned: Copy link
  */
@@ -37,7 +38,8 @@ export function WarrantyCardContextMenu({
   onMarkProcessed,
   onMarkReturned,
   onCancel,
-  onRemind,
+  canEdit = true,
+  canCancel = true,
   children,
 }: WarrantyCardContextMenuProps) {
   const { status } = ticket;
@@ -51,56 +53,60 @@ export function WarrantyCardContextMenu({
         {/* RECEIVED: Mới tạo */}
         {status === 'RECEIVED' && (
           <>
-            <ContextMenuItem onSelect={() => onEdit(ticket.systemId)}>
-              Sửa thông tin
-            </ContextMenuItem>
-            <ContextMenuItem onSelect={() => onStartProcessing(ticket.systemId)}>
-              Bắt đầu xử lý
-            </ContextMenuItem>
+            {canEdit && (
+              <ContextMenuItem onSelect={() => onEdit(ticket.systemId)}>
+                Sửa thông tin
+              </ContextMenuItem>
+            )}
+            {canEdit && (
+              <ContextMenuItem onSelect={() => onStartProcessing(ticket.systemId)}>
+                Bắt đầu xử lý
+              </ContextMenuItem>
+            )}
             <ContextMenuItem onSelect={() => onGetLink(ticket.systemId)}>
               Copy link tracking
             </ContextMenuItem>
-            {onRemind && (
-              <ContextMenuItem onSelect={() => onRemind(ticket.systemId)}>
-                Gửi thông báo nhắc nhở
-              </ContextMenuItem>
+            {canCancel && (
+              <>
+                <ContextMenuSeparator />
+                <ContextMenuItem
+                  onSelect={() => onCancel(ticket.systemId)}
+                  className="text-destructive focus:text-destructive"
+                >
+                  Hủy phiếu
+                </ContextMenuItem>
+              </>
             )}
-            <ContextMenuSeparator />
-            <ContextMenuItem
-              onSelect={() => onCancel(ticket.systemId)}
-              className="text-destructive focus:text-destructive"
-            >
-              Hủy phiếu
-            </ContextMenuItem>
           </>
         )}
 
         {/* PROCESSING: Chưa xử lý */}
         {status === 'PROCESSING' && (
           <>
-            <ContextMenuItem onSelect={() => onEdit(ticket.systemId)}>
-              Sửa thông tin
-            </ContextMenuItem>
-            <ContextMenuItem onSelect={() => onMarkProcessed(ticket.systemId)}>
-              Hoàn thành xử lý
-            </ContextMenuItem>
+            {canEdit && (
+              <ContextMenuItem onSelect={() => onEdit(ticket.systemId)}>
+                Sửa thông tin
+              </ContextMenuItem>
+            )}
+            {canEdit && (
+              <ContextMenuItem onSelect={() => onMarkProcessed(ticket.systemId)}>
+                Hoàn thành xử lý
+              </ContextMenuItem>
+            )}
             <ContextMenuItem onSelect={() => onGetLink(ticket.systemId)}>
               Copy link tracking
             </ContextMenuItem>
-            {onRemind && (
-              <ContextMenuItem onSelect={() => onRemind(ticket.systemId)}>
-                Gửi thông báo nhắc nhở
-              </ContextMenuItem>
-            )}
           </>
         )}
 
         {/* COMPLETED: Đã xử lý */}
         {status === 'COMPLETED' && (
           <>
-            <ContextMenuItem onSelect={() => onMarkReturned(ticket.systemId)}>
-              Đã trả hàng cho khách
-            </ContextMenuItem>
+            {canEdit && (
+              <ContextMenuItem onSelect={() => onMarkReturned(ticket.systemId)}>
+                Đã trả hàng cho khách
+              </ContextMenuItem>
+            )}
             <ContextMenuItem onSelect={() => onGetLink(ticket.systemId)}>
               Copy link tracking
             </ContextMenuItem>

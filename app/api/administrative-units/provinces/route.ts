@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { logError } from '@/lib/logger'
+import { requireAuth } from '@/lib/api-utils'
+import { createActivityLog } from '@/lib/services/activity-log-service'
+import { nanoid } from 'nanoid'
 
-export const dynamic = 'force-dynamic';
+// Reference data — rarely changes, cache aggressively
 
 /**
  * GET /api/administrative-units/provinces
@@ -33,17 +37,62 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       data: provinces,
       count: provinces.length,
     });
+    response.headers.set('Cache-Control', 'private, no-cache');
+    return response;
   } catch (error) {
-    console.error('Failed to fetch provinces:', error instanceof Error ? error.message : error);
-    console.error('Stack:', error instanceof Error ? error.stack : 'no stack');
+    logError('Failed to fetch provinces', error);
     return NextResponse.json(
       { success: false, error: 'Không thể tải danh sách tỉnh thành', details: String(error) },
       { status: 500 }
     );
+  }
+}
+
+/**
+ * POST /api/administrative-units/provinces
+ * Create a new province
+ */
+export async function POST(request: NextRequest) {
+  const session = await requireAuth()
+  if (!session) {
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+  }
+
+  try {
+    const body = await request.json()
+    const { id, name, level = '2-level' } = body
+
+    if (!id || !name) {
+      return NextResponse.json({ success: false, error: 'Mã và tên tỉnh thành là bắt buộc' }, { status: 400 })
+    }
+
+    const province = await prisma.province.create({
+      data: {
+        systemId: nanoid(),
+        id,
+        name,
+        level,
+        createdBy: session.user?.id,
+      },
+    })
+
+    await createActivityLog({
+      entityType: 'province',
+      entityId: province.systemId,
+      action: `Tạo tỉnh/thành "${name}" (${id})`,
+      actionType: 'create',
+      metadata: { userName: session.user?.name },
+      createdBy: session.user?.id,
+    })
+
+    return NextResponse.json({ success: true, data: province })
+  } catch (error) {
+    logError('Failed to create province', error)
+    return NextResponse.json({ success: false, error: 'Không thể tạo tỉnh thành' }, { status: 500 })
   }
 }

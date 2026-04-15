@@ -2,18 +2,21 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { signIn } from 'next-auth/react';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { RadioGroup, RadioGroupItem } from '../../components/ui/radio-group';
+import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { toast } from 'sonner';
 import { ROUTES } from '../../lib/router';
+import { logError } from '@/lib/logger'
 
 // Test accounts (từ seed.ts)
 const TEST_ACCOUNTS = [
-  { email: 'admin@erp.local', password: 'password123', role: 'Admin', name: 'Quản trị viên' },
+  { email: 'nhlpkgx@gmail.com', password: 'password123', role: 'Admin', name: 'Quản trị viên' },
   { email: 'sales@erp.local', password: 'password123', role: 'Sales', name: 'Nhân viên bán hàng' },
 ];
 
@@ -25,6 +28,12 @@ export function LoginPage() {
   const [password, setPassword] = React.useState(TEST_ACCOUNTS[0].password);
   const [isLoading, setIsLoading] = React.useState(false);
 
+  // OTP state
+  const [showOtp, setShowOtp] = React.useState(false);
+  const [otp, setOtp] = React.useState('');
+  const [isVerifying, setIsVerifying] = React.useState(false);
+  const [countdown, setCountdown] = React.useState(0);
+
   // Get the page user was trying to access
   const from = ROUTES.DASHBOARD;
 
@@ -35,6 +44,13 @@ export function LoginPage() {
     setPassword(selectedAccount.password);
   }, [selectedAccountIndex]);
 
+  // Countdown timer
+  React.useEffect(() => {
+    if (countdown <= 0) return;
+    const timer = setTimeout(() => setCountdown(c => c - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [countdown]);
+
   const handleLogin = async () => {
     if (!email || !password) {
       toast.error('Vui lòng nhập email và mật khẩu');
@@ -44,28 +60,91 @@ export function LoginPage() {
     setIsLoading(true);
 
     try {
-      
       const result = await signIn('credentials', {
         email,
         password,
         redirect: false,
       });
       
-      
       if (result?.error) {
         toast.error('Email hoặc mật khẩu không đúng');
-      } else if (result?.ok) {
-        toast.success('Đăng nhập thành công!');
-        // Use window.location for hard redirect to ensure session is refreshed
-        window.location.href = from;
-      } else {
-        toast.error('Đã xảy ra lỗi không xác định');
+        return;
       }
+      
+      if (!result?.ok) {
+        toast.error('Đã xảy ra lỗi không xác định');
+        return;
+      }
+
+      // Check OTP requirement
+      try {
+        const otpRes = await fetch('/api/auth/login-otp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        });
+        const otpData = await otpRes.json();
+
+        if (otpData.required) {
+          setShowOtp(true);
+          setCountdown(60);
+          toast.info('Mã OTP đã được gửi đến email của bạn');
+          return;
+        }
+      } catch {
+        // If OTP check fails, proceed normally
+      }
+
+      // No OTP required - redirect
+      toast.success('Đăng nhập thành công!');
+      window.location.href = from;
     } catch (error) {
-      console.error('[Login] Error:', error);
+      logError('[Login] Error', error);
       toast.error('Đã xảy ra lỗi. Vui lòng thử lại.');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (otp.length !== 6) return;
+
+    setIsVerifying(true);
+    try {
+      const res = await fetch('/api/auth/login-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'verify', email, otp }),
+      });
+      const data = await res.json();
+
+      if (data.verified) {
+        toast.success('Đăng nhập thành công!');
+        window.location.href = from;
+      } else {
+        toast.error(data.error || 'Mã OTP không đúng');
+        setOtp('');
+      }
+    } catch {
+      toast.error('Lỗi xác thực OTP');
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    if (countdown > 0) return;
+    try {
+      await fetch('/api/auth/login-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      setCountdown(60);
+      setOtp('');
+      toast.info('Đã gửi lại mã OTP');
+    } catch {
+      toast.error('Không thể gửi lại mã OTP');
     }
   };
 
@@ -75,103 +154,133 @@ export function LoginPage() {
         <CardHeader>
           <CardTitle size="lg">Đăng nhập</CardTitle>
           <CardDescription>
-            Chọn tài khoản test hoặc nhập thông tin đăng nhập
+            {showOtp
+              ? <>Nhập mã OTP đã gửi đến <strong>{email}</strong></>
+              : 'Chọn tài khoản test hoặc nhập thông tin đăng nhập'}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col gap-6">
-            {/* Test Account Selection */}
-            <div className="grid gap-2">
-              <Label>Tài khoản test</Label>
-              <RadioGroup 
-                value={selectedAccountIndex.toString()} 
-                onValueChange={(value) => setSelectedAccountIndex(parseInt(String(value)))}
-              >
-                {TEST_ACCOUNTS.map((account, index) => (
-                  <div key={account.email} className="flex items-center space-x-2">
-                    <RadioGroupItem value={index.toString()} id={`acc-${index}`} />
-                    <Label htmlFor={`acc-${index}`} className="font-normal cursor-pointer">
-                      {account.role} - {account.name} ({account.email})
-                    </Label>
+            {!showOtp && (
+              <>
+                {/* Test Account Selection */}
+                <div className="grid gap-2">
+                  <Label>Tài khoản test</Label>
+                  <RadioGroup 
+                    value={selectedAccountIndex.toString()} 
+                    onValueChange={(value) => setSelectedAccountIndex(parseInt(String(value)))}
+                  >
+                    {TEST_ACCOUNTS.map((account, index) => (
+                      <div key={account.email} className="flex items-center space-x-2">
+                        <RadioGroupItem value={index.toString()} id={`acc-${index}`} />
+                        <Label htmlFor={`acc-${index}`} className="font-normal cursor-pointer">
+                          {account.role} - {account.name} ({account.email})
+                        </Label>
+                      </div>
+                    ))}
+                  </RadioGroup>
+                </div>
+
+                {/* Email */}
+                <div className="grid gap-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="m@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                  />
+                </div>
+
+                {/* Password */}
+                <div className="grid gap-2">
+                  <div className="flex items-center">
+                    <Label htmlFor="password">Mật khẩu</Label>
+                    <Link
+                      href="/login/forgot-password"
+                      className="ml-auto inline-block text-sm underline-offset-4 hover:underline"
+                    >
+                      Quên mật khẩu?
+                    </Link>
                   </div>
-                ))}
-              </RadioGroup>
-            </div>
+                  <Input 
+                    id="password" 
+                    type="password" 
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleLogin();
+                      }
+                    }}
+                  />
+                </div>
 
-            {/* Email */}
-            <div className="grid gap-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="m@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-
-            {/* Password */}
-            <div className="grid gap-2">
-              <div className="flex items-center">
-                <Label htmlFor="password">Mật khẩu</Label>
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    toast.info('Tính năng quên mật khẩu đang phát triển');
-                  }}
-                  className="ml-auto inline-block text-sm underline-offset-4 hover:underline"
+                {/* Submit Button */}
+                <Button 
+                  className="w-full" 
+                  disabled={isLoading}
+                  onClick={handleLogin}
                 >
-                  Quên mật khẩu?
-                </a>
-              </div>
-              <Input 
-                id="password" 
-                type="password" 
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    handleLogin();
-                  }
-                }}
-              />
-            </div>
+                  {isLoading ? 'Đang đăng nhập...' : 'Đăng nhập'}
+                </Button>
+              </>
+            )}
 
-            {/* Submit Button */}
-            <Button 
-              className="w-full" 
-              disabled={isLoading}
-              onClick={handleLogin}
-            >
-              {isLoading ? 'Đang đăng nhập...' : 'Đăng nhập'}
-            </Button>
+            {showOtp && (
+              <>
+                {/* OTP Input inline */}
+                <div className="space-y-3">
+                  <Label>Mã xác thực OTP</Label>
+                  <div className="flex justify-center">
+                    <InputOTP maxLength={6} value={otp} onChange={setOtp} autoFocus>
+                      <InputOTPGroup>
+                        <InputOTPSlot index={0} />
+                        <InputOTPSlot index={1} />
+                        <InputOTPSlot index={2} />
+                        <InputOTPSlot index={3} />
+                        <InputOTPSlot index={4} />
+                        <InputOTPSlot index={5} />
+                      </InputOTPGroup>
+                    </InputOTP>
+                  </div>
+                </div>
 
-            {/* Google Login */}
-            <Button 
-              type="button"
-              variant="outline" 
-              className="w-full"
-              onClick={() => toast.info('Tính năng đăng nhập với Google đang phát triển')}
-            >
-              Đăng nhập với Google
-            </Button>
-          </div>
+                <Button
+                  className="w-full"
+                  disabled={otp.length !== 6 || isVerifying}
+                  onClick={handleVerifyOtp}
+                >
+                  {isVerifying ? 'Đang xác thực...' : 'Xác nhận OTP'}
+                </Button>
 
-          {/* Sign up link */}
-          <div className="mt-4 text-center text-sm">
-            Chưa có tài khoản?{' '}
-            <a 
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                toast.info('Tính năng đăng ký đang phát triển');
-              }}
-              className="underline underline-offset-4 hover:text-primary"
-            >
-              Đăng ký ngay
-            </a>
+                <div className="flex items-center justify-between text-sm">
+                  <button
+                    type="button"
+                    className="text-muted-foreground hover:underline"
+                    onClick={() => {
+                      setShowOtp(false);
+                      setOtp('');
+                    }}
+                  >
+                    ← Quay lại
+                  </button>
+                  {countdown > 0 ? (
+                    <span className="text-muted-foreground">Gửi lại sau {countdown}s</span>
+                  ) : (
+                    <button
+                      type="button"
+                      className="text-primary hover:underline"
+                      onClick={handleResendOtp}
+                    >
+                      Gửi lại mã OTP
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </CardContent>
       </Card>

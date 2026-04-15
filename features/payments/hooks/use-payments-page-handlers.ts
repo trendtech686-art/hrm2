@@ -11,7 +11,7 @@ import { useAllPayments } from './use-all-payments';
 import { useAllReceipts } from '@/features/receipts/hooks/use-all-receipts';
 import { useAllCashAccounts } from '@/features/cashbook/hooks/use-all-cash-accounts';
 import { useAllBranches } from '@/features/settings/branches/hooks/use-all-branches';
-import { useStoreInfoData } from '@/features/settings/store-info/hooks/use-store-info';
+import { fetchPrintData } from '@/lib/lazy-print-data';
 import { usePrint } from '@/lib/use-print';
 import type { Payment } from '@/lib/types/prisma-extended';
 import type { Receipt } from '@/features/receipts/types';
@@ -23,6 +23,7 @@ import {
   createStoreSettings,
 } from '@/lib/print/payment-print-helper';
 import type { SimplePrintOptionsResult } from '@/components/shared/simple-print-options-dialog';
+import { usePaginationWithGlobalDefault } from '@/features/settings/global/hooks/use-global-settings';
 
 /**
  * Hook for payment page filters
@@ -32,7 +33,7 @@ export function usePaymentFilters() {
   const [sorting, setSorting] = React.useState({ id: 'createdAt', desc: true });
   const [globalFilter, setGlobalFilter] = React.useState('');
   const [debouncedGlobalFilter, setDebouncedGlobalFilter] = React.useState('');
-  const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 20 });
+  const [pagination, setPagination] = usePaginationWithGlobalDefault();
   const [mobileLoadedCount, setMobileLoadedCount] = React.useState(20);
   const [columnOrder, setColumnOrder] = React.useState<string[]>([]);
   const [pinnedColumns, setPinnedColumns] = React.useState<string[]>(['select', 'id']);
@@ -91,7 +92,7 @@ export function usePaymentActions() {
     onError: (error) => toast.error(`Lỗi: ${error.message}`),
   });
   const { data: branches } = useAllBranches();
-  const { info: storeInfo } = useStoreInfoData();
+  // ⚡ OPTIMIZED: storeInfo lazy loaded in print handlers
   const { print, printMultiple } = usePrint();
 
   const [isAlertOpen, setIsAlertOpen] = React.useState(false);
@@ -115,7 +116,8 @@ export function usePaymentActions() {
     router.push(generatePath(ROUTES.FINANCE.PAYMENT_VIEW, { systemId: payment.systemId }));
   }, [router]);
 
-  const handleSinglePrint = React.useCallback((payment: Payment) => {
+  const handleSinglePrint = React.useCallback(async (payment: Payment) => {
+    const { storeInfo } = await fetchPrintData();
     const branch = branches.find(b => b.systemId === payment.branchSystemId);
     const storeSettings = branch 
       ? createStoreSettings(branch)
@@ -126,7 +128,7 @@ export function usePaymentActions() {
       data: mapPaymentToPrintData(paymentData, storeSettings),
       lineItems: [],
     });
-  }, [branches, storeInfo, print]);
+  }, [branches, print]);
 
   const confirmCancel = React.useCallback(() => { 
     if (idToDelete) {
@@ -151,7 +153,8 @@ export function usePaymentActions() {
     setPrintDialogOpen(true);
   }, []);
 
-  const handlePrintConfirm = React.useCallback((options: SimplePrintOptionsResult) => {
+  const handlePrintConfirm = React.useCallback(async (options: SimplePrintOptionsResult) => {
+    const { storeInfo } = await fetchPrintData();
     const printOptionsList = itemsToPrint.map(payment => {
       const branch = options.branchSystemId 
         ? branches.find(b => b.systemId === options.branchSystemId)
@@ -175,7 +178,7 @@ export function usePaymentActions() {
     });
     setItemsToPrint([]);
     setPrintDialogOpen(false);
-  }, [itemsToPrint, branches, storeInfo, printMultiple]);
+  }, [itemsToPrint, branches, printMultiple]);
 
   return {
     isAlertOpen,

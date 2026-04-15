@@ -71,17 +71,20 @@ export function PenaltyFormPage() {
 
   const handleSubmit = (values: Record<string, unknown>) => {
     if (isEdit && penalty) {
-      update.mutate({ systemId: penalty.systemId, data: { ...penalty, ...values } });
-      toast.success('Đã cập nhật phiếu phạt');
+      update.mutate({ systemId: penalty.systemId, data: { ...penalty, ...values } }, {
+        onSuccess: () => toast.success('Đã cập nhật phiếu phạt'),
+      });
     } else {
-      create.mutate(values as Omit<Penalty, 'systemId'>);
-      toast.success('Đã tạo phiếu phạt mới');
+      create.mutate(values as Omit<Penalty, 'systemId'>, {
+        onSuccess: () => toast.success('Đã tạo phiếu phạt mới'),
+      });
     }
   };
 
   const handleDelete = (systemIdToRemove: string) => {
-    remove.mutate(systemIdToRemove);
-    toast.success('Đã xóa phiếu phạt');
+    remove.mutate(systemIdToRemove, {
+      onSuccess: () => toast.success('Đã xóa phiếu phạt'),
+    });
   };
 
   if (isEdit && !penalty) {

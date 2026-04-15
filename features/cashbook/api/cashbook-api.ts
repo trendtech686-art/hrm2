@@ -26,27 +26,6 @@ export interface CashAccountResponse {
   };
 }
 
-export interface CashAccountCreateInput {
-  systemId?: string;
-  id?: string;
-  name: string;
-  type: 'cash' | 'bank';
-  initialBalance?: number;
-  bankAccountNumber?: string;
-  bankBranch?: string;
-  branchSystemId?: string;
-  isActive?: boolean;
-  isDefault?: boolean;
-  bankName?: string;
-  bankCode?: string;
-  accountHolder?: string;
-  minBalance?: number;
-  maxBalance?: number;
-  managedBy?: string;
-}
-
-export interface CashAccountUpdateInput extends Partial<CashAccountCreateInput> {}
-
 const BASE_URL = '/api/cash-accounts';
 
 /**
@@ -75,75 +54,6 @@ export async function fetchCashAccounts(
 }
 
 /**
- * Fetch single cash account by ID
- */
-export async function fetchCashAccountById(
-  systemId: string
-): Promise<CashAccount> {
-  const response = await fetch(`${BASE_URL}/${systemId}`);
-  
-  if (!response.ok) {
-    throw new Error('Failed to fetch cash account');
-  }
-  
-  return response.json();
-}
-
-/**
- * Create new cash account
- */
-export async function createCashAccount(
-  data: CashAccountCreateInput
-): Promise<CashAccount> {
-  const response = await fetch(BASE_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-  
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.error || 'Failed to create cash account');
-  }
-  
-  return response.json();
-}
-
-/**
- * Update cash account
- */
-export async function updateCashAccount(
-  systemId: string,
-  data: CashAccountUpdateInput
-): Promise<CashAccount> {
-  const response = await fetch(`${BASE_URL}/${systemId}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-  
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.error || 'Failed to update cash account');
-  }
-  
-  return response.json();
-}
-
-/**
- * Delete cash account
- */
-export async function deleteCashAccount(systemId: string): Promise<void> {
-  const response = await fetch(`${BASE_URL}/${systemId}`, {
-    method: 'DELETE',
-  });
-  
-  if (!response.ok) {
-    throw new Error('Failed to delete cash account');
-  }
-}
-
-/**
  * Set default cash account
  */
 export async function setDefaultCashAccount(
@@ -156,25 +66,6 @@ export async function setDefaultCashAccount(
   
   if (!response.ok) {
     throw new Error('Failed to set default cash account');
-  }
-  
-  return response.json();
-}
-
-/**
- * Get account balance
- */
-export async function fetchAccountBalance(
-  systemId: string
-): Promise<{
-  systemId: string;
-  currentBalance: number;
-  lastUpdated: string;
-}> {
-  const response = await fetch(`${BASE_URL}/${systemId}/balance`);
-  
-  if (!response.ok) {
-    throw new Error('Failed to fetch account balance');
   }
   
   return response.json();

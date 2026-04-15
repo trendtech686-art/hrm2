@@ -14,6 +14,7 @@ import {
   type PriceAdjustmentFilters,
 } from '../api/price-adjustments-api';
 import type { PriceAdjustmentCreateInput, PriceAdjustmentUpdateInput } from '../types';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 
 // Query keys
 export const priceAdjustmentKeys = {
@@ -63,7 +64,7 @@ export function usePriceAdjustmentMutations(options: MutationCallbacks = {}) {
   const queryClient = useQueryClient();
 
   const invalidateAdjustments = () => {
-    queryClient.invalidateQueries({ queryKey: priceAdjustmentKeys.all });
+    invalidateRelated(queryClient, 'price-adjustments');
   };
 
   const create = useMutation({

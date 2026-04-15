@@ -85,11 +85,12 @@ export type CreateWarrantyInput = z.infer<typeof createWarrantySchema>;
  * Update Warranty Schema
  */
 export const updateWarrantySchema = z.object({
-  description: z.string().max(2000).optional(),
-  internalNote: z.string().max(1000).optional(),
-  assigneeSystemId: z.string().optional(),
-  priority: z.enum(['low', 'normal', 'high', 'urgent']).optional(),
-});
+  description: z.string().max(2000).optional().nullable(),
+  internalNote: z.string().max(1000).optional().nullable(),
+  assigneeSystemId: z.string().optional().nullable(),
+  priority: z.enum(['low', 'normal', 'high', 'urgent']).optional().nullable(),
+  subtasks: z.any().optional().nullable(),
+}).passthrough();
 
 export type UpdateWarrantyInput = z.infer<typeof updateWarrantySchema>;
 

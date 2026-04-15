@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Plus } from "lucide-react";
+import { Plus, Loader2 } from "lucide-react";
 import { asBusinessId, type SystemId } from "@/lib/id-types";
 import { useReceiptTypeMutations } from "./hooks/use-receipt-types";
 import { useAllReceiptTypes } from "./hooks/use-all-receipt-types";
@@ -67,7 +67,6 @@ export function ReceiptTypesPageContent({ isActive, onRegisterActions }: Receipt
     if (isDefault) {
       // Backend sẽ tự động tắt mặc định của các loại khác
       update.mutate({ systemId: item.systemId, data: { isDefault: true } });
-      toast.success(`Đã đặt "${item.name}" làm mặc định`);
     } else {
       // Không cho phép tắt mặc định nếu chỉ còn 1 item
       const activeItems = data.filter(d => d.isActive);
@@ -79,26 +78,22 @@ export function ReceiptTypesPageContent({ isActive, onRegisterActions }: Receipt
       const other = activeItems.find(d => d.systemId !== item.systemId);
       if (other) {
         update.mutate({ systemId: other.systemId, data: { isDefault: true } });
-        toast.success(`Đã chuyển mặc định sang "${other.name}"`);
       }
     }
   }, [data, update]);
 
   const handleToggleStatus = React.useCallback((item: ReceiptType, isActive: boolean) => {
     update.mutate({ systemId: item.systemId, data: { ...item, isActive } });
-    toast.success(isActive ? `Đã kích hoạt "${item.name}"` : `Đã tắt "${item.name}"`);
   }, [update]);
 
   const handleToggleBusinessResult = React.useCallback((item: ReceiptType, isBusinessResult: boolean) => {
     update.mutate({ systemId: item.systemId, data: { ...item, isBusinessResult } });
-    toast.success(isBusinessResult ? `Đã bật hạch toán cho "${item.name}"` : `Đã tắt hạch toán cho "${item.name}"`);
   }, [update]);
   
   const confirmDelete = () => {
     if (idToDelete) {
       const item = data.find(d => d.systemId === idToDelete);
       remove.mutate(idToDelete);
-      toast.success(`Đã xóa "${item?.name}"`);
     }
     setIsAlertOpen(false);
     setIdToDelete(null);
@@ -114,42 +109,35 @@ export function ReceiptTypesPageContent({ isActive, onRegisterActions }: Receipt
     selectedIds.forEach(id => {
       remove.mutate(id as SystemId);
     });
-    toast.success(`Đã xóa ${selectedIds.length} loại phiếu thu`);
     setRowSelection({});
     setIsBulkDeleteOpen(false);
   };
   
   const handleFormSubmit = (values: ReceiptTypeFormValues) => {
-    try {
-      const now = new Date().toISOString();
-      const normalized = {
-        id: asBusinessId(values.id.trim().toUpperCase()),
-        name: values.name.trim(),
-        description: values.description?.trim() || undefined,
-        isBusinessResult: values.isBusinessResult,
-        isActive: values.isActive,
-      } satisfies Omit<ReceiptType, 'systemId' | 'createdAt' | 'color'>;
+    const now = new Date().toISOString();
+    const normalized = {
+      id: asBusinessId(values.id.trim().toUpperCase()),
+      name: values.name.trim(),
+      description: values.description?.trim() || undefined,
+      isBusinessResult: values.isBusinessResult,
+      isActive: values.isActive,
+    } satisfies Omit<ReceiptType, 'systemId' | 'createdAt' | 'color'>;
 
-      if (editingItem) {
-        update.mutate({
-          systemId: editingItem.systemId,
-          data: {
-            ...editingItem,
-            ...normalized,
-          }
-        });
-      } else {
-        create.mutate({
+    if (editingItem) {
+      update.mutate({
+        systemId: editingItem.systemId,
+        data: {
+          ...editingItem,
           ...normalized,
-          createdAt: now,
-        });
-      }
-      setIsFormOpen(false);
-    } catch (error) {
-      toast.error("Có lỗi xảy ra", {
-        description: error instanceof Error ? error.message : "Lỗi không xác định",
+        }
+      });
+    } else {
+      create.mutate({
+        ...normalized,
+        createdAt: now,
       });
     }
+    setIsFormOpen(false);
   };
 
   const columns = React.useMemo(
@@ -206,7 +194,10 @@ export function ReceiptTypesPageContent({ isActive, onRegisterActions }: Receipt
           <ReceiptTypeForm initialData={editingItem} onSubmit={handleFormSubmit} />
           <DialogFooter>
             <Button type="button" variant="outline" className="h-9" onClick={() => setIsFormOpen(false)}>Đóng</Button>
-            <Button type="submit" form="receipt-type-form" className="h-9">Lưu</Button>
+            <Button type="submit" form="receipt-type-form" className="h-9" disabled={create.isPending || update.isPending}>
+              {(create.isPending || update.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Lưu
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -221,7 +212,10 @@ export function ReceiptTypesPageContent({ isActive, onRegisterActions }: Receipt
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Hủy</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete}>Xóa</AlertDialogAction>
+            <AlertDialogAction onClick={confirmDelete} disabled={remove.isPending}>
+              {remove.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Xóa
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -236,7 +230,10 @@ export function ReceiptTypesPageContent({ isActive, onRegisterActions }: Receipt
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Hủy</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmBulkDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Xóa tất cả</AlertDialogAction>
+            <AlertDialogAction onClick={confirmBulkDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={remove.isPending}>
+              {remove.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Xóa tất cả
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

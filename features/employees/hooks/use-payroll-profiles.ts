@@ -4,6 +4,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import {
   fetchPayrollProfiles,
   fetchPayrollProfile,
@@ -107,9 +108,7 @@ interface MutationCallbacks {
 export function usePayrollProfileMutations(options: MutationCallbacks = {}) {
   const queryClient = useQueryClient();
 
-  const invalidateProfiles = () => {
-    queryClient.invalidateQueries({ queryKey: payrollProfileKeys.all });
-  };
+  const invalidateProfiles = () => invalidateRelated(queryClient, 'payroll-profiles');
 
   const upsert = useMutation({
     mutationFn: ({ employeeSystemId, input }: { employeeSystemId: SystemId; input: EmployeePayrollProfileInput }) =>

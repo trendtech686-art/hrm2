@@ -31,63 +31,54 @@ const defaultSalesManagementSettings = {
 // ============================================================================
 const salesChannelsData = [
   {
-    systemId: 'SC_STORE',
     id: 'STORE',
     name: 'Tại quầy',
     isApplied: true,
     isDefault: true,
   },
   {
-    systemId: 'SC_ONLINE',
     id: 'ONLINE',
     name: 'Online',
     isApplied: true,
     isDefault: false,
   },
   {
-    systemId: 'SC_FACEBOOK',
     id: 'FACEBOOK',
     name: 'Facebook',
     isApplied: true,
     isDefault: false,
   },
   {
-    systemId: 'SC_ZALO',
     id: 'ZALO',
     name: 'Zalo',
     isApplied: true,
     isDefault: false,
   },
   {
-    systemId: 'SC_SHOPEE',
     id: 'SHOPEE',
     name: 'Shopee',
     isApplied: true,
     isDefault: false,
   },
   {
-    systemId: 'SC_LAZADA',
     id: 'LAZADA',
     name: 'Lazada',
     isApplied: false,
     isDefault: false,
   },
   {
-    systemId: 'SC_TIKTOK',
     id: 'TIKTOK',
     name: 'TikTok Shop',
     isApplied: false,
     isDefault: false,
   },
   {
-    systemId: 'SC_PHONE',
     id: 'PHONE',
     name: 'Điện thoại',
     isApplied: true,
     isDefault: false,
   },
   {
-    systemId: 'SC_WHOLESALE',
     id: 'WHOLESALE',
     name: 'Bán sỉ',
     isApplied: false,
@@ -145,6 +136,7 @@ async function seedSalesChannels() {
       try {
         await prisma.salesChannel.create({
           data: {
+            systemId: crypto.randomUUID(),
             ...channel,
             createdAt: new Date(),
             updatedAt: new Date(),

@@ -7,7 +7,7 @@ import { Eye, MoreHorizontal } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePenaltiesByEmployee } from '@/features/settings/penalties/hooks/use-all-penalties';
 import { usePrint } from '@/lib/use-print';
-import { useStoreInfoData } from '@/features/settings/store-info/hooks/use-store-info';
+import { fetchPrintData } from '@/lib/lazy-print-data';
 import {
   convertPenaltyForPrint,
   mapPenaltyToPrintData,
@@ -48,18 +48,20 @@ interface PenaltiesTabProps {
 
 export function PenaltiesTab({ employee }: PenaltiesTabProps) {
   const router = useRouter();
-  const { data: employeePenalties } = usePenaltiesByEmployee(employee.systemId);
-  const { info: storeInfo } = useStoreInfoData();
+  const [page, setPage] = React.useState(1);
+  const { data: employeePenalties, pagination } = usePenaltiesByEmployee(employee.systemId, page);
+  // ⚡ OPTIMIZED: storeInfo lazy loaded in print handlers
   const { print, printMultiple } = usePrint();
 
-  const handlePrintSinglePenalty = React.useCallback((row: Penalty) => {
+  const handlePrintSinglePenalty = React.useCallback(async (row: Penalty) => {
+    const { storeInfo } = await fetchPrintData();
     const penaltyStoreSettings = createPenaltyStoreSettings(storeInfo);
     const penaltyForPrint = convertPenaltyForPrint(row, { employee });
     print('penalty', {
       data: mapPenaltyToPrintData(penaltyForPrint, penaltyStoreSettings),
       lineItems: [],
     });
-  }, [employee, storeInfo, print]);
+  }, [employee, print]);
 
   const handleExportSinglePenalty = React.useCallback(async (row: Penalty) => {
     const headers = ['Mã phiếu', 'Lý do', 'Ngày lập', 'Trạng thái', 'Số tiền'];
@@ -113,8 +115,9 @@ export function PenaltiesTab({ employee }: PenaltiesTabProps) {
   ], [handlePrintSinglePenalty, handleExportSinglePenalty, router]);
 
   const penaltyBulkActions = React.useMemo(() => {
-    const handlePrintPenalties = (rows: Penalty[]) => {
+    const handlePrintPenalties = async (rows: Penalty[]) => {
       if (rows.length === 0) { toast.error('Chưa chọn phiếu phạt nào'); return; }
+      const { storeInfo } = await fetchPrintData();
       const penaltyStoreSettings = createPenaltyStoreSettings(storeInfo);
       const printOptionsList = rows.map(row => {
         const penaltyForPrint = convertPenaltyForPrint(row, { employee });
@@ -139,7 +142,7 @@ export function PenaltiesTab({ employee }: PenaltiesTabProps) {
       { label: 'In phiếu phạt', icon: Printer, onSelect: handlePrintPenalties },
       { label: 'Xuất Excel', icon: FileSpreadsheet, onSelect: handleExportExcel },
     ];
-  }, [employee, storeInfo, printMultiple]);
+  }, [employee, printMultiple]);
 
   return (
     <Card>
@@ -155,6 +158,12 @@ export function PenaltiesTab({ employee }: PenaltiesTabProps) {
           onRowClick={(row) => router.push(`/penalties/${row.systemId}`)} 
           showCheckbox
           customBulkActions={penaltyBulkActions}
+          serverPagination={{
+            page,
+            pageSize: pagination.limit,
+            totalItems: pagination.total,
+            onPageChange: setPage,
+          }}
         />
       </CardContent>
     </Card>

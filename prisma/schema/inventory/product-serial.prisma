@@ -1,0 +1,49 @@
+/// Quản lý sản phẩm theo IMEI/Serial Number
+/// Mỗi cá thể sản phẩm có 1 serial number duy nhất, theo dõi từ nhập kho → bán hàng → bảo hành
+model ProductSerial {
+  systemId String @id @default(cuid())
+
+  // Liên kết sản phẩm & chi nhánh
+  productId String
+  branchId  String
+
+  // Serial/IMEI
+  serialNumber String @unique // Mã IMEI hoặc Serial Number (duy nhất toàn hệ thống)
+
+  // Trạng thái vòng đời
+  status SerialStatus @default(IN_STOCK)
+
+  // Truy vết
+  purchaseOrderId String? // Đơn nhập hàng (nguồn gốc)
+  orderId         String? // Đơn bán hàng (khi bán)
+  warrantyId      String? // Phiếu bảo hành (nếu đang bảo hành)
+  customerId      String? // Khách hàng đang sở hữu
+
+  // Thông tin bổ sung
+  supplierName String? // NCC nhập vào
+  costPrice    Decimal? @db.Decimal(15, 2) // Giá nhập thực tế của cá thể này
+  soldPrice    Decimal? @db.Decimal(15, 2) // Giá bán thực tế
+  soldDate     DateTime? // Ngày bán
+  notes        String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([productId])
+  @@index([branchId])
+  @@index([status])
+  @@index([orderId])
+  @@index([purchaseOrderId])
+  @@index([customerId])
+  @@index([productId, branchId, status])
+  @@map("product_serials")
+}
+
+enum SerialStatus {
+  IN_STOCK // Trong kho
+  SOLD // Đã bán
+  IN_WARRANTY // Đang bảo hành
+  RETURNED // Đã trả lại
+  DAMAGED // Hỏng
+  TRANSFERRED // Đã chuyển chi nhánh
+}

@@ -1,4 +1,6 @@
-﻿/**
+﻿'use client'
+
+/**
  * Tasks Dashboard Page
  * Analytics and insights for task management
  */
@@ -132,7 +134,7 @@ export function TasksDashboardPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-h2 font-bold">Dashboard</h1>
-          <p className="text-body-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             Phân tích và báo cáo công việc
           </p>
         </div>
@@ -244,7 +246,7 @@ export function TasksDashboardPage() {
             <div className="space-y-3">
               {workloadByAssignee.slice(0, 5).map(person => (
                 <div key={person.name} className="space-y-1">
-                  <div className="flex items-center justify-between text-body-sm">
+                  <div className="flex items-center justify-between text-sm">
                     <span className="font-medium">{person.name}</span>
                     <span className="text-muted-foreground">
                       {person.total} công việc
@@ -339,7 +341,7 @@ function MetricCard({
       </CardHeader>
       <CardContent>
         <div className="text-h3 font-bold">{value}</div>
-        <p className={cn('text-body-xs', trendColors[trend])}>{description}</p>
+        <p className={cn('text-xs', trendColors[trend])}>{description}</p>
       </CardContent>
     </Card>
   );
@@ -368,7 +370,7 @@ function StatusBar({ label, value, total, color }: StatusBarProps) {
 
   return (
     <div className="space-y-1">
-      <div className="flex items-center justify-between text-body-sm">
+      <div className="flex items-center justify-between text-sm">
         <span>{label}</span>
         <span className="font-medium">
           {value} ({percentage.toFixed(0)}%)
@@ -397,14 +399,14 @@ function RecentTasksTable({ tasks }: { tasks: Task[] }) {
         >
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <span className="text-body-sm font-medium truncate">{task.id}</span>
-              <Badge variant="outline" className="text-body-xs">
+              <span className="text-sm font-medium truncate">{task.id}</span>
+              <Badge variant="outline" className="text-xs">
                 {task.status}
               </Badge>
             </div>
-            <p className="text-body-sm text-muted-foreground truncate">{task.title}</p>
+            <p className="text-sm text-muted-foreground truncate">{task.title}</p>
           </div>
-          <div className="flex items-center gap-2 text-body-xs text-muted-foreground">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <span>{task.assigneeName || 'Chưa gán'}</span>
             {task.dueDate && (
               <span>• {formatDateForDisplay(task.dueDate)}</span>

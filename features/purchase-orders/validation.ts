@@ -13,14 +13,25 @@ export const purchaseOrderStatusSchema = z.enum([
   'partial_received',
   'received',
   'completed',
-  'cancelled'
+  'cancelled',
+  // Also allow Prisma enum values for flexibility
+  'DRAFT',
+  'PENDING',
+  'CONFIRMED',
+  'RECEIVING',
+  'COMPLETED',
+  'CANCELLED',
 ]);
 
 // Payment status enum
 export const poPaymentStatusSchema = z.enum([
   'unpaid',
   'partial_paid',
-  'paid'
+  'paid',
+  // Vietnamese values
+  'Chưa thanh toán',
+  'Thanh toán một phần',
+  'Đã thanh toán',
 ]);
 
 // Purchase order item schema

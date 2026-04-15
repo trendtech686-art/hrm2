@@ -1,5 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { apiError, apiSuccess, requireAuth } from '@/lib/api-utils'
+import { logError } from '@/lib/logger'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 const TYPE = 'receipt-type'
 
@@ -17,9 +19,18 @@ export async function POST(_req: Request, { params }: { params: Promise<{ system
       return tx.settingsData.update({ where: { systemId }, data: { isDefault: true, updatedBy: session.user.id } })
     })
 
+    createActivityLog({
+      entityType: 'receipt_type',
+      entityId: systemId,
+      action: `Cập nhật loại phiếu thu: ${existing.name}: Mặc định`,
+      actionType: 'update',
+      changes: { 'Mặc định': { from: 'Không', to: 'Có' } },
+      createdBy: session.user?.id,
+    }).catch(e => logError('Failed to create activity log', e))
+
     return apiSuccess({ data: updated })
   } catch (error) {
-    console.error('[receipt-types] set-default error:', error)
+    logError('[receipt-types] set-default error', error)
     return apiError('Failed to set default receipt type', 500)
   }
 }

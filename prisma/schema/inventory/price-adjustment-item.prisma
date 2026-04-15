@@ -1,16 +1,16 @@
 model PriceAdjustmentItem {
-  systemId         String          @id
-  adjustmentId     String
-  productSystemId  String
-  productId        String
-  productName      String?
-  productImage     String?
-  oldPrice         Decimal         @default(0) @db.Decimal(18, 4)
-  newPrice         Decimal         @default(0) @db.Decimal(18, 4)
-  adjustmentAmount Decimal         @default(0) @db.Decimal(18, 4)
-  adjustmentPercent Decimal        @default(0) @db.Decimal(10, 2)
-  note             String?
-  priceAdjustment  PriceAdjustment @relation(fields: [adjustmentId], references: [systemId], onDelete: Cascade)
+  systemId          String          @id
+  adjustmentId      String
+  productSystemId   String
+  productId         String
+  productName       String?
+  productImage      String?
+  oldPrice          Decimal         @default(0) @db.Decimal(18, 4)
+  newPrice          Decimal         @default(0) @db.Decimal(18, 4)
+  adjustmentAmount  Decimal         @default(0) @db.Decimal(18, 4)
+  adjustmentPercent Decimal         @default(0) @db.Decimal(10, 2)
+  note              String?
+  priceAdjustment   PriceAdjustment @relation(fields: [adjustmentId], references: [systemId], onDelete: Cascade)
 
   @@map("price_adjustment_items")
 }

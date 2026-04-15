@@ -42,7 +42,7 @@ export function WarrantyWorkflowCard({
     if (!currentTicket.subtasks || currentTicket.subtasks.length === 0) {
       const template = getWorkflowTemplate('warranty');
       if (template.length > 0) {
-        onUpdateTicketRef.current(currentTicket.systemId, { ...currentTicket, subtasks: template });
+        onUpdateTicketRef.current(currentTicket.systemId, { subtasks: template });
       }
     }
   }, [ticket.systemId]); // Only run on mount or when ticket systemId changes
@@ -54,7 +54,7 @@ export function WarrantyWorkflowCard({
         subtask.id === id ? { ...subtask, completed, completedAt: completed ? new Date() : undefined } : subtask
       );
 
-      onUpdateTicket(ticket.systemId, { ...ticket, subtasks: updatedSubtasks });
+      onUpdateTicket(ticket.systemId, { subtasks: updatedSubtasks });
 
       if (toggledSubtask) {
         const action = completed ? 'Hoàn thành bước' : 'Bỏ hoàn thành bước';

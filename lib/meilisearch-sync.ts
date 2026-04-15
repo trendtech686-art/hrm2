@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { getMeiliClient, INDEXES, configureIndexes } from './meilisearch'
-import type { MeiliProduct, MeiliCustomer, MeiliOrder, MeiliEmployee } from './meilisearch'
+import type { MeiliProduct, MeiliCustomer, MeiliOrder, MeiliEmployee, MeiliPkgxProduct } from './meilisearch'
 
 // ===========================================
 // Sync Service: PostgreSQL → Meilisearch
@@ -15,6 +15,10 @@ export async function syncProducts(_options: { fullSync?: boolean } = {}) {
   const client = getMeiliClient()
   const index = client.index<MeiliProduct>(INDEXES.PRODUCTS)
   
+  // Clear stale documents before full sync
+  await index.deleteAllDocuments()
+  // Wait for delete to complete before re-indexing
+  await new Promise(resolve => setTimeout(resolve, 1000))
   
   // Get total count
   const _total = await prisma.product.count({ where: { isDeleted: false } })
@@ -73,6 +77,7 @@ export async function syncProducts(_options: { fullSync?: boolean } = {}) {
         categoryId: p.categories?.[0] || null,
         categoryName: p.categories?.[0] || null,
         costPrice: Number(p.costPrice) || 0,
+        lastPurchasePrice: Number(p.lastPurchasePrice) || 0,
         price: Number(sellingPrice) || 0,
         prices: pricesNumeric, // All prices for different policies
         unit: p.unit || 'Cái',
@@ -104,6 +109,10 @@ export async function syncCustomers() {
   const client = getMeiliClient()
   const index = client.index<MeiliCustomer>(INDEXES.CUSTOMERS)
   
+  // Clear stale documents before full sync
+  await index.deleteAllDocuments()
+  // Wait for delete to complete before re-indexing
+  await new Promise(resolve => setTimeout(resolve, 1000))
   
   const _total = await prisma.customer.count({ where: { isDeleted: false } })
   
@@ -133,7 +142,7 @@ export async function syncCustomers() {
         customerId: c.id,
         name: c.name,
         phone: c.phone,
-        email: c.email,
+        email: null,
         address: addr?.street || null,
         ward: addr?.ward || null,
         district: addr?.district || null,
@@ -259,6 +268,52 @@ export async function syncEmployees() {
 }
 
 /**
+ * Sync all PKGX products from PostgreSQL to Meilisearch
+ */
+export async function syncPkgxProducts() {
+  const client = getMeiliClient()
+  const index = client.index<MeiliPkgxProduct>(INDEXES.PKGX_PRODUCTS)
+  
+  await index.deleteAllDocuments()
+  await new Promise(resolve => setTimeout(resolve, 1000))
+  
+  let synced = 0
+  let cursor: number | undefined
+  
+  while (true) {
+    const products = await prisma.pkgxProduct.findMany({
+      take: BATCH_SIZE,
+      skip: cursor != null ? 1 : 0,
+      cursor: cursor != null ? { id: cursor } : undefined,
+      orderBy: { id: 'asc' },
+    })
+    
+    if (products.length === 0) break
+    
+    const documents: MeiliPkgxProduct[] = products.map(p => ({
+      id: p.id,
+      goodsSn: p.goodsSn,
+      goodsNumber: p.goodsNumber,
+      name: p.name,
+      catId: p.catId,
+      catName: p.catName,
+      brandId: p.brandId,
+      brandName: p.brandName,
+      shopPrice: Number(p.shopPrice) || 0,
+      hrmProductId: p.hrmProductId,
+      syncedAt: p.syncedAt?.getTime() || 0,
+    }))
+    
+    await index.addDocuments(documents, { primaryKey: 'id' })
+    
+    synced += products.length
+    cursor = products[products.length - 1].id
+  }
+  
+  return synced
+}
+
+/**
  * Full sync all indexes
  */
 export async function fullSync() {
@@ -272,6 +327,7 @@ export async function fullSync() {
     customers: await syncCustomers(),
     orders: await syncOrders(),
     employees: await syncEmployees(),
+    pkgxProducts: await syncPkgxProducts(),
   }
   
   
@@ -331,6 +387,7 @@ export async function syncSingleProduct(systemId: string) {
     categoryId: product.categories?.[0] || null,
     categoryName: product.categories?.[0] || null,
     costPrice: Number(product.costPrice) || 0,
+    lastPurchasePrice: Number(product.lastPurchasePrice) || 0,
     price: Number(sellingPrice) || 0,
     prices: pricesNumeric,
     unit: product.unit || 'Cái',
@@ -345,6 +402,76 @@ export async function syncSingleProduct(systemId: string) {
   
   await index.addDocuments([document])
   return document
+}
+
+/**
+ * Batch sync multiple products to Meilisearch (for inventory updates)
+ * Call this after inventory changes to keep Meilisearch in sync
+ */
+export async function syncProductsInventory(productSystemIds: string[]) {
+  if (productSystemIds.length === 0) return []
+  
+  const client = getMeiliClient()
+  const index = client.index<MeiliProduct>(INDEXES.PRODUCTS)
+  
+  const products = await prisma.product.findMany({
+    where: { 
+      systemId: { in: productSystemIds },
+      isDeleted: false 
+    },
+    include: {
+      brand: { select: { name: true } },
+      prices: { select: { pricingPolicyId: true, price: true } },
+      productInventory: { 
+        select: { 
+          onHand: true,
+          branch: { select: { systemId: true, name: true } }
+        } 
+      },
+    },
+  })
+  
+  if (products.length === 0) return []
+  
+  const documents: MeiliProduct[] = products.map(product => {
+    const pricesNumeric: Record<string, number> = {}
+    for (const pp of product.prices) {
+      pricesNumeric[pp.pricingPolicyId] = Number(pp.price) || 0
+    }
+    const sellingPrice = Object.values(pricesNumeric)[0] || 0
+    const totalStock = product.productInventory.reduce((sum, inv) => sum + (inv.onHand || 0), 0)
+    const branchStocks = product.productInventory.map(inv => ({
+      branchId: inv.branch.systemId,
+      branchName: inv.branch.name,
+      onHand: inv.onHand || 0,
+    }))
+    
+    return {
+      id: product.systemId,
+      productId: product.id,
+      name: product.name,
+      barcode: product.barcode,
+      brandId: product.brandId,
+      brandName: product.brand?.name || null,
+      categoryId: product.categories?.[0] || null,
+      categoryName: product.categories?.[0] || null,
+      costPrice: Number(product.costPrice) || 0,
+      lastPurchasePrice: Number(product.lastPurchasePrice) || 0,
+      price: Number(sellingPrice) || 0,
+      prices: pricesNumeric,
+      unit: product.unit || 'Cái',
+      status: product.status,
+      thumbnailImage: product.thumbnailImage,
+      pkgxId: product.pkgxId,
+      totalStock,
+      branchStocks,
+      createdAt: product.createdAt?.getTime() || 0,
+      updatedAt: product.updatedAt?.getTime() || 0,
+    }
+  })
+  
+  await index.addDocuments(documents, { primaryKey: 'id' })
+  return documents
 }
 
 export async function syncSingleCustomer(systemId: string) {
@@ -372,7 +499,7 @@ export async function syncSingleCustomer(systemId: string) {
     customerId: customer.id,
     name: customer.name,
     phone: customer.phone,
-    email: customer.email,
+    email: null,
     address: addr?.street || null,
     ward: addr?.ward || null,
     district: addr?.district || null,

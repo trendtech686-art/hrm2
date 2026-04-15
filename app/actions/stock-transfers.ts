@@ -10,9 +10,11 @@
 import { prisma } from '@/lib/prisma'
 import { revalidatePath } from '@/lib/revalidation'
 import { generateIdWithPrefix } from '@/lib/id-generator'
-import { auth } from '@/auth'
+import { requireActionPermission } from '@/lib/api-utils'
 import type { ActionResult } from '@/types/action-result'
 import { createStockTransferSchema, updateStockTransferSchema } from '@/features/stock-transfers/validation'
+import { logError } from '@/lib/logger'
+import { getSessionUserName } from '@/lib/get-user-name'
 
 // Types from Prisma (auto-inferred)
 type StockTransfer = NonNullable<Awaited<ReturnType<typeof prisma.stockTransfer.findFirst>>>
@@ -60,10 +62,8 @@ export type UpdateStockTransferInput = {
 export async function createStockTransferAction(
   input: CreateStockTransferInput
 ): Promise<ActionResult<StockTransfer & { items: StockTransferItem[] }>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('create_stock_transfers')
+  if (!authResult.success) return authResult
   const validated = createStockTransferSchema.safeParse(input)
   if (!validated.success) {
     return { success: false, error: validated.error.issues[0]?.message || 'Dữ liệu không hợp lệ' }
@@ -118,9 +118,24 @@ export async function createStockTransferAction(
     })
 
     revalidatePath('/stock-transfers')
+
+    // Activity log
+    const userName = getSessionUserName(authResult.session)
+    prisma.activityLog.create({
+      data: {
+        entityType: 'stock_transfer',
+        entityId: result!.systemId,
+        action: `Thêm phiếu chuyển kho: ${result!.systemId}`,
+        actionType: 'create',
+        note: `${input.fromBranchName || input.fromBranchId} → ${input.toBranchName || input.toBranchId} - ${input.items?.length || 0} SP`,
+        metadata: { userName },
+        createdBy: userName,
+      }
+    }).catch(e => logError('[ActivityLog] stock transfer create failed', e))
+
     return { success: true, data: result! }
   } catch (error) {
-    console.error('Error creating stock transfer:', error)
+    logError('Error creating stock transfer', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Không thể tạo phiếu chuyển kho',
@@ -134,10 +149,8 @@ export async function createStockTransferAction(
 export async function updateStockTransferAction(
   input: UpdateStockTransferInput
 ): Promise<ActionResult<StockTransfer>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('edit_stock_transfers')
+  if (!authResult.success) return authResult
   const validated = updateStockTransferSchema.safeParse(input)
   if (!validated.success) {
     return { success: false, error: validated.error.issues[0]?.message || 'Dữ liệu không hợp lệ' }
@@ -157,7 +170,7 @@ export async function updateStockTransferAction(
     if (existing.status !== 'PENDING') {
       return {
         success: false,
-        error: 'Only PENDING transfers can be updated',
+        error: 'Chỉ phiếu ở trạng thái CHỞ mới có thể cập nhật',
       }
     }
 
@@ -175,9 +188,31 @@ export async function updateStockTransferAction(
 
     revalidatePath('/stock-transfers')
     revalidatePath(`/stock-transfers/${systemId}`)
+
+    // Activity log with changes diff
+    const userName = getSessionUserName(authResult.session)
+    const changes: Record<string, { from: unknown; to: unknown }> = {}
+    if (data.note !== undefined && data.note !== existing.note) changes['Ghi chú'] = { from: existing.note, to: data.note }
+    if (data.notes !== undefined && data.notes !== existing.notes) changes['Mô tả'] = { from: existing.notes, to: data.notes }
+    if (data.reason !== undefined && data.reason !== existing.note) changes['Lý do'] = { from: existing.note, to: data.reason }
+    if (Object.keys(changes).length > 0) {
+      const changeFields = Object.keys(changes).join(', ')
+      prisma.activityLog.create({
+        data: {
+          entityType: 'stock_transfer',
+          entityId: systemId,
+          action: `Cập nhật phiếu chuyển kho: ${systemId}: ${changeFields}`,
+          actionType: 'update',
+          changes: JSON.parse(JSON.stringify(changes)),
+          metadata: { userName },
+          createdBy: userName,
+        }
+      }).catch(e => logError('[ActivityLog] stock transfer update failed', e))
+    }
+
     return { success: true, data: transfer }
   } catch (error) {
-    console.error('Error updating stock transfer:', error)
+    logError('Error updating stock transfer', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Không thể cập nhật phiếu chuyển kho',
@@ -191,10 +226,8 @@ export async function updateStockTransferAction(
 export async function deleteStockTransferAction(
   systemId: string
 ): Promise<ActionResult<StockTransfer>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('delete_stock_transfers')
+  if (!authResult.success) return authResult
   try {
     const existing = await prisma.stockTransfer.findUnique({
       where: { systemId },
@@ -208,7 +241,7 @@ export async function deleteStockTransferAction(
     if (existing.status !== 'PENDING') {
       return {
         success: false,
-        error: 'Only PENDING transfers can be deleted',
+        error: 'Chỉ phiếu ở trạng thái CHỞ mới có thể xóa',
       }
     }
 
@@ -221,10 +254,24 @@ export async function deleteStockTransferAction(
       where: { systemId },
     })
 
+    // Activity log
+    const userName = getSessionUserName(authResult.session)
+    prisma.activityLog.create({
+      data: {
+        entityType: 'stock_transfer',
+        entityId: systemId,
+        action: `Xóa phiếu chuyển kho: ${systemId}`,
+        actionType: 'delete',
+        note: `${existing.fromBranchName || existing.fromBranchId} → ${existing.toBranchName || existing.toBranchId}`,
+        metadata: { userName },
+        createdBy: userName,
+      }
+    }).catch(e => logError('[ActivityLog] stock transfer delete failed', e))
+
     revalidatePath('/stock-transfers')
     return { success: true, data: transfer }
   } catch (error) {
-    console.error('Error deleting stock transfer:', error)
+    logError('Error deleting stock transfer', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Không thể xóa phiếu chuyển kho',

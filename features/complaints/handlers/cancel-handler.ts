@@ -3,6 +3,7 @@ import { asSystemId, type SystemId } from '@/lib/id-types';
 import { generateSubEntityId } from '@/lib/id-utils';
 import type { Complaint, ComplaintAction } from '../types';
 import { cancelPaymentsReceiptsAndInventory } from '../utils/cancel-payments-receipts-and-inventory';
+import { logError } from '@/lib/logger'
 
 // User type - chỉ cần systemId và name
 interface User {
@@ -83,7 +84,7 @@ export async function handleCancelComplaint(
     };
     
   } catch (error) {
-    console.error('[CANCEL] Error:', error);
+    logError('[CANCEL] Error', error);
     const errorMsg = error instanceof Error ? error.message : 'Có lỗi xảy ra';
     toast.error(errorMsg);
     return {

@@ -34,7 +34,7 @@ export type ColumnLookups = {
   findCategory?: (id: string) => { name: string; path?: string | null } | undefined;
   findBrand?: (id: string) => { name: string } | undefined;
   findSupplier?: (id: string) => { name: string } | undefined;
-  findEmployee?: (id: string) => { fullName: string } | undefined;
+  findEmployee?: (id: string) => { fullName: string } | undefined; // @deprecated - removed, use createdByName/updatedByName from API response
   pricingPolicies?: Array<{ systemId: string; name: string; type: string; isActive: boolean; isDefault: boolean; profitMargin?: number | null }>;
 };
 
@@ -62,7 +62,6 @@ export const getColumns = (
   const findCategory = lookups?.findCategory;
   const findBrand = lookups?.findBrand;
   const findSupplier = lookups?.findSupplier;
-  const findEmployee = lookups?.findEmployee;
 
   return [
     {
@@ -95,7 +94,19 @@ export const getColumns = (
       id: "id",
       accessorKey: "id",
       header: "Mã SP (SKU)",
-      cell: ({ row }) => <div className="text-body-sm font-medium">{row.id}</div>,
+      cell: ({ row }) => {
+        if (onFieldUpdate) {
+          return (
+            <div onClick={(e) => e.stopPropagation()}>
+              <InlineEditableCell
+                value={row.id || ''}
+                onSave={(newValue) => onFieldUpdate(row, 'id', newValue)}
+              />
+            </div>
+          );
+        }
+        return <div className="text-sm font-medium">{row.id}</div>;
+      },
       meta: { displayName: "Mã SP (SKU)" },
       size: 150,
     },
@@ -103,23 +114,47 @@ export const getColumns = (
       id: "name",
       accessorKey: "name",
       header: "Tên sản phẩm/dịch vụ",
-      cell: ({ row }) => (
-        <div>
-          <div className="text-body-sm font-medium flex items-center gap-2 flex-wrap">
-            {row.name}
-            {row.type === 'combo' && (
-              <Badge variant="secondary" className="text-body-xs">Combo</Badge>
-            )}
-            {row.pkgxId && (
-              <Badge variant="secondary" className="text-body-xs">
-                <Globe className="h-3 w-3" />
-                PKGX
-              </Badge>
-            )}
-            <StockAlertBadge product={row} />
+      cell: ({ row }) => {
+        if (onFieldUpdate) {
+          return (
+            <div onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center gap-2 flex-wrap">
+                <InlineEditableCell
+                  value={row.name || ''}
+                  onSave={(newValue) => onFieldUpdate(row, 'name', newValue)}
+                />
+                {row.type === 'combo' && (
+                  <Badge variant="secondary" className="text-xs">Combo</Badge>
+                )}
+                {row.pkgxId && (
+                  <Badge variant="secondary" className="text-xs">
+                    <Globe className="h-3 w-3" />
+                    PKGX
+                  </Badge>
+                )}
+                <StockAlertBadge product={row} />
+              </div>
+            </div>
+          );
+        }
+        return (
+          <div>
+            <div className="text-sm font-medium flex items-center gap-2 flex-wrap">
+              {row.name}
+              {row.type === 'combo' && (
+                <Badge variant="secondary" className="text-xs">Combo</Badge>
+              )}
+              {row.pkgxId && (
+                <Badge variant="secondary" className="text-xs">
+                  <Globe className="h-3 w-3" />
+                  PKGX
+                </Badge>
+              )}
+              <StockAlertBadge product={row} />
+            </div>
           </div>
-        </div>
-      ),
+        );
+      },
       meta: { displayName: "Tên sản phẩm/dịch vụ" },
     },
     {
@@ -183,19 +218,7 @@ export const getColumns = (
       id: "costPrice",
       accessorKey: "costPrice",
       header: "Giá vốn",
-      cell: ({ row }) => {
-        if (onFieldUpdate) {
-          return (
-            <div onClick={(e) => e.stopPropagation()}>
-              <InlineEditableNumberCell
-                value={row.costPrice || 0}
-                onSave={(newValue) => onFieldUpdate(row, 'costPrice', newValue)}
-              />
-            </div>
-          );
-        }
-        return formatCurrency(row.costPrice);
-      },
+      cell: ({ row }) => formatCurrency(row.costPrice),
       meta: { displayName: "Giá vốn" },
     },
     {
@@ -244,10 +267,10 @@ export const getColumns = (
         return (
           <div className="flex flex-wrap gap-1">
             {row.tags.slice(0, 2).map(tag => (
-              <Badge key={tag} variant="outline" className="text-body-xs">{tag}</Badge>
+              <Badge key={tag} variant="outline" className="text-xs">{tag}</Badge>
             ))}
             {row.tags.length > 2 && (
-              <span className="text-body-xs text-muted-foreground">+{row.tags.length - 2}</span>
+              <span className="text-xs text-muted-foreground">+{row.tags.length - 2}</span>
             )}
           </div>
         );
@@ -265,6 +288,12 @@ export const getColumns = (
       header: "Đang về",
       cell: ({ row }) => Object.values(row.inTransitByBranch || {}).reduce((sum, qty) => sum + qty, 0),
       meta: { displayName: "Đang về" },
+    },
+    {
+      id: "inDelivery",
+      header: "Đang giao",
+      cell: ({ row }) => Object.values(row.inDeliveryByBranch || {}).reduce((sum, qty) => sum + qty, 0),
+      meta: { displayName: "Đang giao" },
     },
     {
       id: "totalSold",
@@ -292,8 +321,7 @@ export const getColumns = (
       header: "Thương hiệu",
       cell: ({ row }) => {
         // Use brandName directly from API response (denormalized for performance)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const brandName = (row as any).brandName;
+        const brandName = (row as Product & { brandName?: string }).brandName;
         if (brandName) return brandName;
         
         // Fallback to store lookup for backward compatibility
@@ -490,6 +518,16 @@ export const getColumns = (
       accessorKey: "weight",
       header: "Khối lượng",
       cell: ({ row }) => {
+        if (onFieldUpdate) {
+          return (
+            <div onClick={(e) => e.stopPropagation()}>
+              <InlineEditableNumberCell
+                value={row.weight ?? 0}
+                onSave={(newValue) => onFieldUpdate(row, 'weight', newValue)}
+              />
+            </div>
+          );
+        }
         if (row.weight === undefined) return '-';
         return `${row.weight} ${row.weightUnit || 'g'}`;
       },
@@ -500,6 +538,18 @@ export const getColumns = (
       accessorKey: "dimensions",
       header: "Kích thước (D×R×C)",
       cell: ({ row }) => {
+        if (onFieldUpdate) {
+          const dims = row.dimensions || { length: 0, width: 0, height: 0 };
+          const currentValue = `${dims.length || 0}×${dims.width || 0}×${dims.height || 0}`;
+          return (
+            <div onClick={(e) => e.stopPropagation()}>
+              <InlineEditableCell
+                value={currentValue}
+                onSave={(newValue) => onFieldUpdate(row, 'dimensions', newValue)}
+              />
+            </div>
+          );
+        }
         if (!row.dimensions) return '-';
         const { length = 0, width = 0, height = 0 } = row.dimensions;
         return `${length}×${width}×${height} cm`;
@@ -695,9 +745,21 @@ export const getColumns = (
     {
       id: "nameVat",
       accessorKey: "nameVat",
-      header: "Tên VAT",
-      cell: ({ row }) => row.nameVat || '-',
-      meta: { displayName: "Tên VAT" },
+      header: "Tên hàng hóa (VAT)",
+      cell: ({ row }) => {
+        if (onFieldUpdate) {
+          return (
+            <div onClick={(e) => e.stopPropagation()}>
+              <InlineEditableCell
+                value={row.nameVat || ''}
+                onSave={(newValue) => onFieldUpdate(row, 'nameVat', newValue)}
+              />
+            </div>
+          );
+        }
+        return row.nameVat || '-';
+      },
+      meta: { displayName: "Tên hàng hóa (VAT)" },
     },
     {
       id: "origin",
@@ -715,6 +777,13 @@ export const getColumns = (
         return <span className="line-clamp-1">{row.usageGuide}</span>;
       },
       meta: { displayName: "HDSD" },
+    },
+    {
+      id: "importerName",
+      accessorKey: "importerName",
+      header: "Tem phụ",
+      cell: ({ row }) => row.importerName || '-',
+      meta: { displayName: "Tem phụ", group: "Tem phụ" },
     },
     {
       id: "sellerNote",
@@ -795,16 +864,6 @@ export const getColumns = (
     // LIFECYCLE - Vòng đời sản phẩm
     // ═══════════════════════════════════════════════════════════════
     {
-      id: "launchedDate",
-      accessorKey: "launchedDate",
-      header: "Ngày ra mắt",
-      cell: ({ row }) => {
-        if (!row.launchedDate) return '-';
-        return formatDateForDisplay(row.launchedDate);
-      },
-      meta: { displayName: "Ngày ra mắt" },
-    },
-    {
       id: "discontinuedDate",
       accessorKey: "discontinuedDate",
       header: "Ngày ngừng KD",
@@ -864,10 +923,7 @@ export const getColumns = (
       accessorKey: "createdBy",
       header: "Người tạo",
       cell: ({ row }) => {
-        const employeeId = row.createdBy;
-        if (!employeeId) return '-';
-        const employee = findEmployee?.(employeeId);
-        return employee ? employee.fullName : '-';
+        return (row as Product & { createdByName?: string }).createdByName || '-';
       },
       meta: { displayName: "Người tạo" },
     },
@@ -876,16 +932,23 @@ export const getColumns = (
       accessorKey: "updatedBy",
       header: "Người cập nhật",
       cell: ({ row }) => {
-        const employeeId = row.updatedBy;
-        if (!employeeId) return '-';
-        const employee = findEmployee?.(employeeId);
-        return employee ? employee.fullName : '-';
+        return (row as Product & { updatedByName?: string }).updatedByName || '-';
       },
       meta: { displayName: "Người cập nhật" },
     },
     // ═══════════════════════════════════════════════════════════════
     // CỘT PKGX - Riêng cho đồng bộ PKGX
     // ═══════════════════════════════════════════════════════════════
+    {
+      id: "pkgxSyncedAt",
+      accessorKey: "pkgxSyncedAt",
+      header: "Đồng bộ PKGX",
+      cell: ({ row }) => {
+        const val = (row as Product & { pkgxSyncedAt?: string }).pkgxSyncedAt;
+        return val ? formatDateTime(val) : '-';
+      },
+      meta: { displayName: "Đồng bộ PKGX" },
+    },
     {
       id: "pkgxActions",
       header: () => <div className="text-center">PKGX</div>,

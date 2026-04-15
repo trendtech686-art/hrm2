@@ -8,6 +8,9 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils';
 import { v4 as uuidv4 } from 'uuid';
+import { logError } from '@/lib/logger'
+import { createNotification } from '@/lib/notifications'
+import { getUserNameFromDb } from '@/lib/get-user-name'
 
 type RouteParams = {
   params: Promise<{ systemId: string }>;
@@ -227,6 +230,35 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return updatedReturn;
     });
 
+    // Notify employee about exchange processed
+    if (result.employeeId && result.employeeId !== session.user?.employeeId) {
+      createNotification({
+        type: 'sales_return',
+        settingsKey: 'sales-return:updated',
+        title: 'Đổi hàng hoàn tất',
+        message: `Phếu trả hàng ${result.id || systemId} đã được đổi hàng`,
+        link: `/sales-returns/${systemId}`,
+        recipientId: result.employeeId,
+        senderId: session.user?.employeeId,
+        senderName: session.user?.name,
+      }).catch(e => logError('[Sales Return Exchange] notification failed', e));
+    }
+
+    // Log activity
+    getUserNameFromDb(session.user?.id).then(userName =>
+      prisma.activityLog.create({
+        data: {
+          entityType: 'sales_return',
+          entityId: systemId,
+          action: 'exchanged',
+          actionType: 'update',
+          note: `Đổi hàng`,
+          metadata: { userName },
+          createdBy: userName,
+        }
+      })
+    ).catch(e => logError('[ActivityLog] sales_return exchanged failed', e))
+
     return apiSuccess({
       ...result,
       exchangeSummary: {
@@ -237,7 +269,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       },
     });
   } catch (error) {
-    console.error('[Sales Returns Exchange API] POST error:', error);
+    logError('[Sales Returns Exchange API] POST error', error);
     if (error instanceof Error) {
       return apiError(error.message, 500);
     }

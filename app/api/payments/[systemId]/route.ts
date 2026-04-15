@@ -1,11 +1,11 @@
 import { prisma } from '@/lib/prisma'
-import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
+import { apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
+import { apiHandler } from '@/lib/api-handler'
 import type { Prisma } from '@/generated/prisma/client'
 import { updateCustomerDebt } from '@/lib/services/customer-debt-service'
-
-interface RouteParams {
-  params: Promise<{ systemId: string }>
-}
+import { logError } from '@/lib/logger'
+import { createNotification } from '@/lib/notifications'
+import { getUserNameFromDb } from '@/lib/get-user-name'
 
 type Decimal = Prisma.Decimal;
 
@@ -17,12 +17,9 @@ function toNumber(val: Decimal | number | null | undefined): number {
 }
 
 // GET /api/payments/[systemId]
-export async function GET(_request: Request, { params }: RouteParams) {
-  const session = await requireAuth()
-  if (!session) return apiError('Unauthorized', 401)
-
+export const GET = apiHandler(async (_request, { session, params }) => {
   try {
-    const { systemId } = await params
+    const { systemId } = params
 
     const [payment, auditLogs] = await Promise.all([
       prisma.payment.findUnique({
@@ -44,7 +41,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
       }),
       prisma.auditLog.findMany({
         where: {
-          entityType: 'Payment',
+          entityType: 'payment',
           entityId: systemId,
         },
         orderBy: { createdAt: 'desc' },
@@ -72,20 +69,27 @@ export async function GET(_request: Request, { params }: RouteParams) {
       })),
     }
 
-    return apiSuccess(transformed)
+    // Resolve creator name
+    let createdByName: string | null = null
+    if (payment.createdBy) {
+      const creator = await prisma.employee.findFirst({
+        where: { OR: [{ systemId: payment.createdBy }, { id: payment.createdBy }] },
+        select: { fullName: true },
+      })
+      createdByName = creator?.fullName || null
+    }
+
+    return apiSuccess({ ...transformed, createdByName })
   } catch (error) {
-    console.error('Error fetching payment:', error)
-    return apiError('Failed to fetch payment', 500)
+    logError('Error fetching payment', error)
+    return apiError('Không thể tải phiếu chi', 500)
   }
-}
+})
 
 // PUT /api/payments/[systemId]
-export async function PUT(request: Request, { params }: RouteParams) {
-  const session = await requireAuth()
-  if (!session) return apiError('Unauthorized', 401)
-
+export const PUT = apiHandler(async (request, { session, params }) => {
   try {
-    const { systemId } = await params
+    const { systemId } = params
     const body = await request.json()
 
     const payment = await prisma.payment.update({
@@ -106,7 +110,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
       const customerSystemId = payment.customerSystemId || payment.recipientSystemId;
       if (customerSystemId) {
         await updateCustomerDebt(customerSystemId).catch(err => {
-          console.error('[Update Payment] Failed to update customer debt:', err);
+          logError('[Update Payment] Failed to update customer debt', err);
         });
       }
     }
@@ -118,23 +122,48 @@ export async function PUT(request: Request, { params }: RouteParams) {
       runningBalance: toNumber(payment.runningBalance),
     };
 
+    // Notify about payment update
+    if (payment.createdBy && payment.createdBy !== session!.user.employeeId) {
+      createNotification({
+        type: 'payment',
+        title: 'Phiếu chi cập nhật',
+        message: `Phiếu chi ${payment.id || systemId} đã được cập nhật`,
+        link: `/payments/${systemId}`,
+        recipientId: payment.createdBy,
+        senderId: session!.user.employeeId,
+        senderName: session!.user.name,
+        settingsKey: 'payment:received',
+      }).catch(e => logError('[Payment Update] notification failed', e));
+    }
+
+    // Log activity
+    getUserNameFromDb(session!.user.id).then(userName =>
+      prisma.activityLog.create({
+        data: {
+          entityType: 'payment',
+          entityId: systemId,
+          action: 'updated',
+          actionType: 'update',
+          note: `Cập nhật phiếu chi`,
+          metadata: { userName },
+          createdBy: userName,
+        }
+      })
+    ).catch(e => logError('[ActivityLog] payment update failed', e))
     return apiSuccess(serialized)
   } catch (error) {
     if (error instanceof Error && 'code' in error && error.code === 'P2025') {
       return apiNotFound('Payment')
     }
-    console.error('Error updating payment:', error)
-    return apiError('Failed to update payment', 500)
+    logError('Error updating payment', error)
+    return apiError('Không thể cập nhật phiếu chi', 500)
   }
-}
+})
 
 // DELETE /api/payments/[systemId]
-export async function DELETE(_request: Request, { params }: RouteParams) {
-  const session = await requireAuth()
-  if (!session) return apiError('Unauthorized', 401)
-
+export const DELETE = apiHandler(async (_request, { session, params }) => {
   try {
-    const { systemId } = await params
+    const { systemId } = params
 
     // Get payment info before deleting to update customer debt
     const payment = await prisma.payment.findUnique({
@@ -144,11 +173,27 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
         customerSystemId: true,
         recipientSystemId: true,
         linkedSalesReturnSystemId: true,
+        originalDocumentId: true,
+        linkedOrderSystemId: true,
+        linkedWarrantySystemId: true,
+        linkedComplaintSystemId: true,
+        purchaseOrderSystemId: true,
+        linkedPayrollBatchSystemId: true,
+        linkedPayslipSystemId: true,
       },
     });
 
     if (!payment) {
       return apiNotFound('Payment')
+    }
+
+    // Chặn xóa phiếu chi tự động sinh từ giao dịch
+    const isAutoGenerated = payment.originalDocumentId || payment.linkedOrderSystemId 
+      || payment.linkedSalesReturnSystemId || payment.linkedWarrantySystemId 
+      || payment.linkedComplaintSystemId || payment.purchaseOrderSystemId
+      || payment.linkedPayrollBatchSystemId || payment.linkedPayslipSystemId;
+    if (isAutoGenerated) {
+      return apiError('Không thể xóa phiếu chi tự động sinh từ giao dịch. Vui lòng hủy phiếu thay vì xóa.', 400)
     }
 
     await prisma.payment.delete({
@@ -160,17 +205,31 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
       const customerSystemId = payment.customerSystemId || payment.recipientSystemId;
       if (customerSystemId) {
         await updateCustomerDebt(customerSystemId).catch(err => {
-          console.error('[Delete Payment] Failed to update customer debt:', err);
+          logError('[Delete Payment] Failed to update customer debt', err);
         });
       }
     }
 
+    // Log activity
+    getUserNameFromDb(session!.user.id).then(userName =>
+      prisma.activityLog.create({
+        data: {
+          entityType: 'payment',
+          entityId: systemId,
+          action: 'deleted',
+          actionType: 'delete',
+          note: `Xóa phiếu chi`,
+          metadata: { userName },
+          createdBy: userName,
+        }
+      })
+    ).catch(e => logError('[ActivityLog] payment delete failed', e))
     return apiSuccess({ success: true })
   } catch (error) {
     if (error instanceof Error && 'code' in error && error.code === 'P2025') {
       return apiNotFound('Payment')
     }
-    console.error('Error deleting payment:', error)
-    return apiError('Failed to delete payment', 500)
+    logError('Error deleting payment', error)
+    return apiError('Không thể xóa phiếu chi', 500)
   }
-}
+})

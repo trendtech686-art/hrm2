@@ -4,6 +4,8 @@ import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils
 import { createSettingSchema, bulkUpdateSettingsSchema } from './validation'
 import { cache, CACHE_TTL } from '@/lib/cache'
 import { generateIdWithPrefix } from '@/lib/id-generator'
+import { logError } from '@/lib/logger'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 // GET /api/settings - Get all settings
 export async function GET(request: Request) {
@@ -41,7 +43,7 @@ export async function GET(request: Request) {
 
     // If single key requested, return just the value
     if (key && settings.length === 1) {
-      cache.set(cacheKey, settings[0], CACHE_TTL.LONG)
+      cache.set(cacheKey, settings[0], CACHE_TTL.LONG * 1000)
       return apiSuccess(settings[0])
     }
 
@@ -55,10 +57,10 @@ export async function GET(request: Request) {
     }, {})
 
     const result = { data: settings, grouped }
-    cache.set(cacheKey, result, CACHE_TTL.LONG) // Cache 30 phút
+    cache.set(cacheKey, result, CACHE_TTL.LONG * 1000) // Cache 30 phút
     return apiSuccess(result)
   } catch (error) {
-    console.error('Error fetching settings:', error)
+    logError('Error fetching settings', error)
     return apiError('Failed to fetch settings', 500)
   }
 }
@@ -75,6 +77,12 @@ export async function POST(request: Request) {
   const body = validation.data
 
   try {
+    // Read old value for change tracking
+    const oldSetting = await prisma.setting.findUnique({
+      where: { key_group: { key: body.key, group: body.group } },
+    })
+    const oldValue = oldSetting?.value
+
     const setting = await prisma.setting.upsert({
       where: {
         key_group: {
@@ -97,12 +105,34 @@ export async function POST(request: Request) {
       },
     })
 
+    // Log activity with diff
+    const isCreate = !oldSetting
+    if (isCreate) {
+      await createActivityLog({
+        entityType: 'settings',
+        entityId: setting.systemId,
+        action: `Tạo cài đặt: ${body.key}`,
+        actionType: 'create',
+        changes: { value: { from: null, to: body.value } },
+        createdBy: session?.user.id ?? '',
+      }).catch(e => logError('[settings] activity log failed', e))
+    } else if (JSON.stringify(oldValue) !== JSON.stringify(body.value)) {
+      await createActivityLog({
+        entityType: 'settings',
+        entityId: setting.systemId,
+        action: `Cập nhật cài đặt: ${body.key}`,
+        actionType: 'update',
+        changes: { value: { from: oldValue, to: body.value } },
+        createdBy: session?.user.id ?? '',
+      }).catch(e => logError('[settings] activity log failed', e))
+    }
+
     // Invalidate settings cache
     cache.deletePattern('^settings:')
     
     return apiSuccess(setting)
   } catch (error) {
-    console.error('Error saving setting:', error)
+    logError('Error saving setting', error)
     return apiError('Failed to save setting', 500)
   }
 }
@@ -130,7 +160,15 @@ export async function PUT(request: Request) {
       updatedBy: string | null;
       group: string;
     }> = [];
+    const changes: Record<string, { from: unknown; to: unknown }> = {};
+
     for (const setting of body.settings as Array<{ key: string; group: string; value?: unknown; description?: string; type?: string; category?: string }>) {
+      // Read old value for diff
+      const oldSetting = await prisma.setting.findUnique({
+        where: { key_group: { key: setting.key, group: setting.group } },
+      })
+      const oldValue = oldSetting?.value
+
       const result = await prisma.setting.upsert({
         where: {
           key_group: {
@@ -153,6 +191,22 @@ export async function PUT(request: Request) {
         },
       });
       results.push(result);
+
+      if (JSON.stringify(oldValue) !== JSON.stringify(setting.value)) {
+        changes[`${setting.group}/${setting.key}`] = { from: oldValue ?? null, to: setting.value ?? null };
+      }
+    }
+
+    // Log bulk update if any changes
+    if (Object.keys(changes).length > 0) {
+      await createActivityLog({
+        entityType: 'settings',
+        entityId: 'bulk-update',
+        action: `Cập nhật hàng loạt cài đặt (${Object.keys(changes).length} mục)`,
+        actionType: 'update',
+        changes,
+        createdBy: session?.user.id ?? '',
+      }).catch(e => logError('[settings] bulk activity log failed', e))
     }
 
     // Invalidate settings cache
@@ -160,7 +214,7 @@ export async function PUT(request: Request) {
 
     return apiSuccess({ data: results })
   } catch (error) {
-    console.error('Error bulk updating settings:', error)
+    logError('Error bulk updating settings', error)
     return apiError('Failed to update settings', 500)
   }
 }

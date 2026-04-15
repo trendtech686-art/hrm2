@@ -22,6 +22,7 @@ import {
   rejectLeaveAction,
   cancelLeaveAction,
 } from '@/app/actions/leaves';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 
 // Query keys factory
 export const leaveKeys = {
@@ -171,7 +172,7 @@ export function useBatchLeaveMutation() {
     mutationFn: (input: import('../api/leaves-api').BatchInput) =>
       import('../api/leaves-api').then(m => m.batchLeaves(input)),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: leaveKeys.all });
+      invalidateRelated(queryClient, 'leaves');
     },
   });
 }
@@ -188,7 +189,7 @@ export function useLeaveMutations(options: MutationCallbacks = {}) {
   const queryClient = useQueryClient();
 
   const invalidateLeaves = () => {
-    queryClient.invalidateQueries({ queryKey: leaveKeys.all });
+    invalidateRelated(queryClient, 'leaves');
   };
 
   const create = useMutation({
@@ -306,20 +307,4 @@ export function useLeaveMutations(options: MutationCallbacks = {}) {
       reject.isPending ||
       cancel.isPending,
   };
-}
-
-/**
- * Hook to fetch pending leave requests (for managers)
- */
-export function usePendingLeaves() {
-  return useLeaves({ status: 'Chờ duyệt' });
-}
-
-/**
- * Hook to fetch employee's own leave requests
- */
-export function useMyLeaves(employeeId: string | undefined) {
-  return useLeaves({
-    employeeId: employeeId || '',
-  });
 }

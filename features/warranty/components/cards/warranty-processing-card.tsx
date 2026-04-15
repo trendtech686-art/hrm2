@@ -24,8 +24,9 @@ interface WarrantyProcessingCardProps {
   linkedOrderSystemId?: string | undefined;
   branchSystemId?: string | undefined;
   branchName?: string | undefined;
-  ticket?: WarrantyTicket | undefined; // Add ticket to get cancelReason
+  ticket?: WarrantyTicket | undefined;
   settlement: WarrantySettlementState;
+  asSection?: boolean;
 }
 
 export function WarrantyProcessingCard({
@@ -37,6 +38,7 @@ export function WarrantyProcessingCard({
   branchName,
   ticket,
   settlement,
+  asSection = false,
 }: WarrantyProcessingCardProps) {
   const { user } = useAuth();
 
@@ -70,6 +72,55 @@ export function WarrantyProcessingCard({
     return null;
   }
 
+  const content = (
+    <div className="space-y-6">
+      {/* Action Buttons - Hiện khi đã xử lý */}
+      {settlementState.canShowActionButtons && (
+        <div className="flex flex-col sm:flex-row gap-3 p-4 bg-muted/50 rounded-lg border">
+          {/* Nút tạo phiếu chi - Hiện khi cần trả tiền khách */}
+          {settlementState.canShowPaymentButton && (
+            <WarrantyPaymentVoucherDialog
+              warrantyId={warrantyId}
+              warrantySystemId={warrantySystemId}
+              customer={customer}
+              defaultAmount={settlementState.remainingAmount}
+              linkedOrderId={linkedOrderSystemId}
+              branchSystemId={branchSystemId}
+              branchName={branchName}
+              existingPayments={[]}
+            />
+          )}
+
+          {/* Nút tạo phiếu thu - Hiện khi cần thu tiền khách */}
+          {settlementState.canShowReceiptButton && (
+            <WarrantyReceiptVoucherDialog
+              warrantyId={warrantyId}
+              warrantySystemId={warrantySystemId}
+              customer={customer}
+              defaultAmount={settlementState.remainingAmount}
+              linkedOrderId={linkedOrderSystemId}
+              branchSystemId={branchSystemId}
+              branchName={branchName}
+              existingReceipts={[]}
+            />
+          )}
+        </div>
+      )}
+
+      {settlementState.hasTransactions && (
+        <WarrantyTransactionGroups
+          groups={transactionGroups}
+          totalPayment={totalPayment}
+          settlementMethods={settlementMethods}
+        />
+      )}
+    </div>
+  );
+
+  if (asSection) {
+    return content;
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -78,48 +129,7 @@ export function WarrantyProcessingCard({
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="space-y-6">
-          {/* Action Buttons - Hiện khi đã xử lý */}
-          {settlementState.canShowActionButtons && (
-            <div className="flex flex-col sm:flex-row gap-3 p-4 bg-muted/50 rounded-lg border">
-              {/* Nút tạo phiếu chi - Hiện khi cần trả tiền khách */}
-              {settlementState.canShowPaymentButton && (
-                <WarrantyPaymentVoucherDialog
-                  warrantyId={warrantyId}
-                  warrantySystemId={warrantySystemId}
-                  customer={customer}
-                  defaultAmount={settlementState.remainingAmount} // Dùng số tiền còn lại
-                  linkedOrderId={linkedOrderSystemId}
-                  branchSystemId={branchSystemId}
-                  branchName={branchName}
-                  existingPayments={[]}
-                />
-              )}
-
-              {/* Nút tạo phiếu thu - Hiện khi cần thu tiền khách */}
-              {settlementState.canShowReceiptButton && (
-                <WarrantyReceiptVoucherDialog
-                  warrantyId={warrantyId}
-                  warrantySystemId={warrantySystemId}
-                  customer={customer}
-                  defaultAmount={settlementState.remainingAmount} // Dùng số tiền còn lại
-                  linkedOrderId={linkedOrderSystemId}
-                  branchSystemId={branchSystemId}
-                  branchName={branchName}
-                  existingReceipts={[]}
-                />
-              )}
-            </div>
-          )}
-
-          {settlementState.hasTransactions && (
-            <WarrantyTransactionGroups
-              groups={transactionGroups}
-              totalPayment={totalPayment}
-              settlementMethods={settlementMethods}
-            />
-          )}
-        </div>
+        {content}
       </CardContent>
     </Card>
   );

@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { useAppearanceStore } from '../features/settings/appearance/store'
+import { useAppearanceStore, loadAppearanceFromDatabase } from '../features/settings/appearance/store'
 import type { CustomThemeConfig } from '../features/settings/appearance/store'
 
 function applyTheme(customThemeConfig: CustomThemeConfig, colorMode: string, fontSize: string) {
@@ -66,6 +66,11 @@ export function ThemeProvider({ children }: React.PropsWithChildren) {
       root.style.setProperty('--font-mono', (font as { mono?: string }).mono || '');
     }
   }, [customThemeConfig, colorMode, fontSize, font]);
+
+  // Load appearance from database on mount (sets isInitialized for auto-sync)
+  React.useEffect(() => {
+    loadAppearanceFromDatabase();
+  }, []);
 
   // Subscribe to store rehydration and apply theme
   React.useEffect(() => {

@@ -7,6 +7,8 @@
  * For React components, use the hooks from './hooks/use-warranty-settings' instead.
  */
 
+import { logError } from '@/lib/logger'
+
 export interface WarrantySettings {
   /** Thời hạn bảo hành mặc định (tháng) - áp dụng cho tất cả SP nếu không cấu hình riêng */
   defaultWarrantyMonths: number;
@@ -33,7 +35,7 @@ export async function fetchWarrantySettingsFromService(): Promise<WarrantySettin
     const result = await response.json();
     return result.data ?? defaultWarrantySettings;
   } catch (error) {
-    console.error('[WarrantySettingsService] Failed to fetch:', error);
+    logError('[WarrantySettingsService] Failed to fetch', error);
     return defaultWarrantySettings;
   }
 }

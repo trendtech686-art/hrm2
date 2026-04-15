@@ -1,6 +1,9 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils';
+import { logError } from '@/lib/logger'
+import { createNotification } from '@/lib/notifications'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 interface RouteParams {
   params: Promise<{ systemId: string }>;
@@ -26,7 +29,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     return apiSuccess(shipments);
   } catch (error) {
-    console.error('Error fetching shipments:', error);
+    logError('Error fetching shipments', error);
     return apiError('Failed to fetch shipments', 500);
   }
 }
@@ -127,11 +130,34 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return updated;
     });
 
+    // Log activity
+    await createActivityLog({
+      entityType: 'order',
+      entityId: systemId,
+      action: `Tạo vận đơn - ${updatedOrder.id || systemId}`,
+      actionType: 'status',
+      createdBy: session.user?.employee?.fullName || session.user?.name || session.user?.id || undefined,
+    }).catch(e => logError('[Shipment] activity log failed', e));
+
+    // Notify salesperson about new shipment
+    if (updatedOrder.salespersonId && updatedOrder.salespersonId !== session.user?.employeeId) {
+      createNotification({
+        type: 'order',
+        settingsKey: 'order:shipment',
+        title: 'Tạo vận đơn mới',
+        message: `Đơn hàng ${updatedOrder.id || systemId} đã tạo vận đơn vận chuyển`,
+        link: `/orders/${systemId}`,
+        recipientId: updatedOrder.salespersonId,
+        senderId: session.user?.employeeId,
+        senderName: session.user?.name,
+      }).catch(e => logError('[Shipment] notification failed', e));
+    }
+
     return apiSuccess(updatedOrder);
   } catch (error) {
-    console.error('Error creating shipment:', error);
+    logError('Error creating shipment', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error('[Shipment API] Error details:', errorMessage);
+    logError('[Shipment API] Error details', errorMessage);
     return apiError(`Failed to create shipment: ${errorMessage}`, 500);
   }
 }

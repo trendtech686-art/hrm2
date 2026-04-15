@@ -3,6 +3,8 @@ import { Prisma } from '@/generated/prisma/client'
 import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
 import { pkgxSettingsSchema } from './validation'
 import { generateIdWithPrefix } from '@/lib/id-generator'
+import { logError } from '@/lib/logger'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 const SETTING_KEY = 'pkgx-settings'
 const SETTING_GROUP = 'integrations'
@@ -26,7 +28,7 @@ export async function GET() {
 
     return apiSuccess({ data: setting.value })
   } catch (error) {
-    console.error('Error fetching pkgx settings:', error)
+    logError('Error fetching pkgx settings', error)
     return apiError('Failed to fetch pkgx settings', 500)
   }
 }
@@ -78,9 +80,30 @@ export async function PUT(request: Request) {
       },
     })
 
+    // Activity log — diff settings changes
+    const existingValue = (existing?.value as Record<string, unknown>) || {}
+    const changes: Record<string, { from: unknown; to: unknown }> = {}
+    for (const key of Object.keys(settings)) {
+      const k = key as keyof typeof settings
+      if (JSON.stringify(existingValue[k]) !== JSON.stringify(settings[k])) {
+        changes[key] = { from: existingValue[k] ?? null, to: settings[k] }
+      }
+    }
+    if (Object.keys(changes).length > 0) {
+      const changeDetail = Object.keys(changes).join(', ')
+      createActivityLog({
+        entityType: 'pkgx_settings',
+        entityId: 'pkgx-settings',
+        action: `Cập nhật cài đặt PKGX: ${changeDetail}`,
+        actionType: 'update',
+        changes,
+        createdBy: session.user?.id ?? '',
+      }).catch(e => logError('pkgx settings activity log failed', e))
+    }
+
     return apiSuccess({ data: setting.value })
   } catch (error) {
-    console.error('Error saving pkgx settings:', error)
+    logError('Error saving pkgx settings', error)
     return apiError('Failed to save pkgx settings', 500)
   }
 }

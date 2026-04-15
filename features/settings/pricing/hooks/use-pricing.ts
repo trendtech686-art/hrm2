@@ -4,6 +4,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import {
   fetchPricingPolicies,
   fetchPricingPolicyById,
@@ -45,13 +46,14 @@ export function usePricingPolicies(filters: PricingPolicyFilters = {}) {
 /**
  * Hook to fetch active pricing policies
  */
-export function useActivePricingPolicies() {
+export function useActivePricingPolicies(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: pricingPolicyKeys.active(),
     queryFn: fetchActivePricingPolicies,
     staleTime: 1000 * 60 * 10,
     gcTime: 10 * 60 * 1000,
     placeholderData: keepPreviousData,
+    enabled: options?.enabled !== false,
   });
 }
 
@@ -92,9 +94,7 @@ interface MutationCallbacks {
 export function usePricingPolicyMutations(options: MutationCallbacks = {}) {
   const queryClient = useQueryClient();
 
-  const invalidatePolicies = () => {
-    queryClient.invalidateQueries({ queryKey: pricingPolicyKeys.all });
-  };
+  const invalidatePolicies = () => invalidateRelated(queryClient, 'pricing-policies');
 
   const create = useMutation({
     mutationFn: (data: PricingPolicyCreateInput) => createPricingPolicy(data),

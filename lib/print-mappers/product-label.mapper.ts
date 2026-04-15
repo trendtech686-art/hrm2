@@ -6,18 +6,19 @@ import {
   formatDate,
   getStoreData,
 } from '@/lib/print-service';
+import { generateBarcodeImage as _generateBarcode, generateQRCodeImage as _generateQR } from './barcode-utils';
 
 const DEFAULT_QR_SIZE = 96;
 const DEFAULT_BARCODE_HEIGHT = 48;
 
 function generateBarcodeImage(value?: string, height: number = DEFAULT_BARCODE_HEIGHT): string {
   if (!value) return '';
-  return `<img src="https://barcodeapi.org/api/128/${encodeURIComponent(value)}" style="height:${height}px" alt="barcode"/>`;
+  return _generateBarcode(value, height);
 }
 
 function generateQRCodeImage(value?: string, size: number = DEFAULT_QR_SIZE): string {
   if (!value) return '';
-  return `<img src="https://quickchart.io/qr?text=${encodeURIComponent(value)}&size=${size}" style="width:${size}px;height:${size}px" alt="qr"/>`;
+  return _generateQR(value, size);
 }
 
 function formatWeight(value?: number, unit?: string): string {

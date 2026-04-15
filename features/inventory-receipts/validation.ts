@@ -4,29 +4,31 @@
 import { z } from 'zod';
 import { systemIdSchema, businessIdSchema } from '@/lib/id-types';
 
-// Item schema
+// Item schema - matches server action fields
 export const inventoryReceiptItemSchema = z.object({
-  productSystemId: systemIdSchema,
-  productId: businessIdSchema.optional(),
-  productName: z.string().min(1, 'Tên sản phẩm không được để trống'),
-  orderedQuantity: z.number().int().min(0).optional(),
-  receivedQuantity: z.number().int().min(1, 'Số lượng nhận phải >= 1'),
-  unitPrice: z.number().min(0, 'Đơn giá phải >= 0'),
+  productId: z.string().min(1, 'Product ID không được để trống'),
+  productSku: z.string().optional(),
+  productName: z.string().optional().default(''), // Allow undefined, default to empty
+  quantity: z.number().int().min(1, 'Số lượng phải >= 1'),
+  unitCost: z.number().min(0, 'Đơn giá phải >= 0').optional(),
+  totalCost: z.number().min(0).optional(),
 });
 
-// Create schema
+// Create schema - matches server action fields
 export const createInventoryReceiptSchema = z.object({
-  purchaseOrderSystemId: systemIdSchema.optional(),
-  purchaseOrderId: businessIdSchema.optional(),
-  supplierSystemId: systemIdSchema,
-  supplierName: z.string().min(1, 'Tên nhà cung cấp không được để trống'),
-  receivedDate: z.string().min(1, 'Ngày nhận không được để trống'),
-  receiverSystemId: systemIdSchema.optional(),
-  receiverName: z.string().optional(),
-  branchSystemId: systemIdSchema.refine(v => v.length >= 1, 'Vui lòng chọn chi nhánh'),
+  type: z.enum(['PURCHASE', 'TRANSFER_IN', 'RETURN', 'ADJUSTMENT', 'OTHER']),
+  branchId: z.string().optional(), // branchSystemId is the main identifier
+  branchSystemId: z.string().min(1, 'Vui lòng chọn chi nhánh'),
   branchName: z.string().optional(),
-  warehouseName: z.string().optional(),
+  supplierSystemId: z.string().optional(),
+  supplierName: z.string().optional(),
+  purchaseOrderSystemId: z.string().optional(),
+  purchaseOrderId: z.string().optional(),
+  referenceType: z.string().optional(),
+  referenceId: z.string().optional(),
+  receiptDate: z.string().optional(),
   notes: z.string().optional(),
+  createdBy: z.string().optional(),
   items: z.array(inventoryReceiptItemSchema).min(1, 'Phải có ít nhất 1 sản phẩm'),
 });
 

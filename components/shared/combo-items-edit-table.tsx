@@ -148,6 +148,8 @@ export interface ComboItemsEditTableProps {
     disabled?: boolean;
     /** Callback khi click preview ảnh */
     onImagePreview?: (imageUrl: string, title: string) => void;
+    /** Whether product data is still loading */
+    isLoadingProducts?: boolean;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -165,6 +167,7 @@ const ComboItemRow = React.memo(({
     getProductTypeName,
     getUnitPrice,
     getAvailableStock,
+    isLoadingProducts,
 }: {
     field: ComboItemField;
     index: number;
@@ -176,6 +179,7 @@ const ComboItemRow = React.memo(({
     getProductTypeName: (product?: Product | null) => string;
     getUnitPrice: (product?: Product | null) => number;
     getAvailableStock: (product?: Product | null) => number;
+    isLoadingProducts?: boolean;
 }) => {
     const { findById: findProductById } = useProductFinder();
     
@@ -216,6 +220,11 @@ const ComboItemRow = React.memo(({
                                 </Link>
                                 {' · '}{getProductTypeName(product)}
                             </p>
+                        </div>
+                    ) : isLoadingProducts ? (
+                        <div className="min-w-0 space-y-1.5">
+                            <div className="h-4 w-40 bg-muted animate-pulse rounded" />
+                            <div className="h-3 w-28 bg-muted animate-pulse rounded" />
                         </div>
                     ) : (
                         <span className="text-muted-foreground italic">Sản phẩm không tồn tại</span>
@@ -284,6 +293,7 @@ export function ComboItemsEditTable({
     fieldName = 'comboItems',
     disabled = false,
     onImagePreview,
+    isLoadingProducts,
 }: ComboItemsEditTableProps) {
     const { findById: findProductById } = useProductFinder();
     const { findById: findProductTypeById } = useProductTypeFinder();
@@ -333,6 +343,7 @@ export function ComboItemsEditTable({
     }, [defaultPricingPolicy]);
 
     // Get available stock (sellable) across all branches
+    // Cho phép giá trị âm (oversold) — theo chuẩn Sapo
     const getAvailableStock = React.useCallback((product?: Product | null) => {
         if (!product) return 0;
         const inventoryByBranch = product.inventoryByBranch || {};
@@ -342,7 +353,7 @@ export function ComboItemsEditTable({
         for (const branch of branches) {
             const onHand = inventoryByBranch[branch.systemId as SystemId] || 0;
             const committed = committedByBranch[branch.systemId as SystemId] || 0;
-            totalSellable += Math.max(0, onHand - committed);
+            totalSellable += onHand - committed;
         }
         return totalSellable;
     }, [branches]);
@@ -393,6 +404,7 @@ export function ComboItemsEditTable({
                                     getProductTypeName={getProductTypeName}
                                     getUnitPrice={getUnitPrice}
                                     getAvailableStock={getAvailableStock}
+                                    isLoadingProducts={isLoadingProducts}
                                 />
                             ))
                         )}

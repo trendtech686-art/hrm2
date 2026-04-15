@@ -5,20 +5,17 @@ import { useRouter, useParams } from 'next/navigation';
 import { useSearchParamsWithSetter } from '@/lib/hooks/use-search-params-setter';
 import { usePurchaseOrderMutations } from './hooks/use-purchase-orders';
 import { usePurchaseOrder } from './hooks/use-purchase-orders';
-import { useAllPurchaseOrders } from './hooks/use-all-purchase-orders';
 import { ROUTES } from '../../lib/router';
 import { useAllBranches } from '../settings/branches/hooks/use-all-branches';
-import { useAllEmployees } from '../employees/hooks/use-all-employees';
+import { useEmployeeFinder } from '../employees/hooks/use-all-employees';
+import { Loader2 } from 'lucide-react';
 import { useAuth } from '../../contexts/auth-context';
-import { useAllProducts, useProductFinder } from '../products/hooks/use-all-products';
-import { useAllSuppliers } from '../suppliers/hooks/use-all-suppliers';
+import { useProductsByIds } from '../products/hooks/use-products';
+import { useSupplier } from '../suppliers/hooks/use-suppliers';
 import { useInventoryReceiptMutations } from '../inventory-receipts/hooks/use-inventory-receipts';
-import { useAllInventoryReceipts } from '../inventory-receipts/hooks/use-all-inventory-receipts';
-import { useStockHistoryMutations } from '../stock-history/hooks/use-stock-history';
 // REMOVED: Voucher store no longer exists
 // import { useVoucherStore } from '../vouchers/store';
 import { useAllPaymentTypes } from '../settings/payments/types/hooks/use-all-payment-types';
-import { useAllCashAccounts } from '../cashbook/hooks/use-all-cash-accounts';
 import { usePaymentMutations } from '../payments/hooks/use-payments';
 import type { Payment } from '../payments/types';
 import { usePageHeader } from '../../contexts/page-header-context';
@@ -42,6 +39,7 @@ import {
 } from './components/order-summary-card';
 import { asBusinessId, asSystemId } from '@/lib/id-types';
 import type { SystemId } from '@/lib/id-types';
+import { logError } from '@/lib/logger'
 
 export function PurchaseOrderFormPage() {
   const { systemId: systemIdParam } = useParams<{ systemId: string }>();
@@ -50,8 +48,22 @@ export function PurchaseOrderFormPage() {
   
   const purchaseOrderSystemId = systemIdParam ? asSystemId(systemIdParam) : null;
   
-  const { data: _allOrders } = useAllPurchaseOrders();
+  // Copy mode: ?copy=systemId
+  const copyFromId = searchParams.get('copy');
+  const copyFromSystemId = copyFromId ? asSystemId(copyFromId) : null;
+  
   const { data: existingOrder } = usePurchaseOrder(purchaseOrderSystemId);
+  const { data: copyFromOrder } = usePurchaseOrder(copyFromSystemId);
+  
+  // Extract product IDs from order being copied or edited to fetch them
+  const orderProductIds = React.useMemo(() => {
+    const order = copyFromOrder || existingOrder;
+    if (!order?.lineItems) return [];
+    return order.lineItems.map(li => li.productSystemId);
+  }, [copyFromOrder, existingOrder]);
+  
+  // Fetch products needed for copy/edit mode
+  const { productsMap, isLoading: isLoadingProducts } = useProductsByIds(orderProductIds);
   
   const { create, update } = usePurchaseOrderMutations({
     // Không redirect trong callback - để handleSave xử lý tuần tự
@@ -70,29 +82,19 @@ export function PurchaseOrderFormPage() {
   }, [update]);
   
   const { data: branches } = useAllBranches();
-  const { data: employees } = useAllEmployees();
+  const { findById: findEmployeeById } = useEmployeeFinder();
   const { employee: authEmployee } = useAuth();
-  const { data: products } = useAllProducts();
-  const { findById: findProductById } = useProductFinder();
-  const { data: suppliers } = useAllSuppliers();
+  // Use useSupplier hook to fetch selected supplier directly (not from useAllSuppliers cache)
+  // This ensures supplier data is available even while useAllSuppliers is still loading
   
-  // Refs để giữ giá trị mới nhất của data (tránh stale closure)
-  const suppliersRef = React.useRef(suppliers);
+  // Ref để giữ giá trị mới nhất của branches (tránh stale closure)
   const branchesRef = React.useRef(branches);
-  const employeesRef = React.useRef(employees);
   React.useEffect(() => {
-    suppliersRef.current = suppliers;
     branchesRef.current = branches;
-    employeesRef.current = employees;
-  }, [suppliers, branches, employees]);
+  }, [branches]);
   
-  const { data: _allReceipts } = useAllInventoryReceipts();
   const { create: createInventoryReceipt } = useInventoryReceiptMutations({
     onCreateSuccess: () => {},
-    onError: (err) => toast.error(err.message)
-  });
-  const { create: _createStockHistory } = useStockHistoryMutations({
-    onSuccess: () => {},
     onError: (err) => toast.error(err.message)
   });
   const { create: createPayment } = usePaymentMutations({
@@ -100,14 +102,8 @@ export function PurchaseOrderFormPage() {
     onError: (err) => toast.error(err.message)
   });
   const { data: paymentTypes } = useAllPaymentTypes();
-  const { accounts: _accounts } = useAllCashAccounts();
 
   const isEditMode = Boolean(purchaseOrderSystemId);
-  
-  // Copy mode: ?copy=systemId
-  const copyFromId = searchParams.get('copy');
-  const copyFromSystemId = copyFromId ? asSystemId(copyFromId) : null;
-  const copyFromOrder = copyFromSystemId ? _allOrders.find(o => o.systemId === copyFromSystemId) : null;
 
   // Kiểm tra nếu đơn đã nhập kho thì không cho sửa (theo chuẩn Sapo)
   React.useEffect(() => {
@@ -123,6 +119,20 @@ export function PurchaseOrderFormPage() {
   const [supplierId, setSupplierId] = React.useState<SystemId | null>(
     existingOrder?.supplierSystemId ? asSystemId(existingOrder.supplierSystemId) : null
   );
+  
+  // Fetch selected supplier directly (instead of from useAllSuppliers cache)
+  const { data: selectedSupplier, isLoading: isLoadingSupplier } = useSupplier(supplierId ?? undefined);
+  
+  // Keep selectedSupplier in ref to avoid stale closure in handleSave
+  const selectedSupplierRef = React.useRef(selectedSupplier);
+  React.useEffect(() => {
+    selectedSupplierRef.current = selectedSupplier;
+  }, [selectedSupplier]);
+  
+  const isLoadingSupplierRef = React.useRef(isLoadingSupplier);
+  React.useEffect(() => {
+    isLoadingSupplierRef.current = isLoadingSupplier;
+  }, [isLoadingSupplier]);
 
   // Wrap setSupplierId to add logging
   const handleSetSupplierId = React.useCallback((id: SystemId | null) => {
@@ -247,10 +257,13 @@ export function PurchaseOrderFormPage() {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [hasUnsavedChanges, isSaving]);
 
-  // Logic copy từ đơn cũ
+  // Logic copy từ đơn cũ - separate supplier/basic info from products
+  const [hasCopiedBasicInfo, setHasCopiedBasicInfo] = React.useState(false);
+  const [hasCopiedProducts, setHasCopiedProducts] = React.useState(false);
+  
+  // Step 1: Copy basic info immediately when order data is available
   React.useEffect(() => {
-    if (copyFromOrder && !isEditMode) {
-      
+    if (copyFromOrder && !isEditMode && !hasCopiedBasicInfo) {
       // Copy supplier
       setSupplierId(asSystemId(copyFromOrder.supplierSystemId));
       
@@ -262,27 +275,6 @@ export function PurchaseOrderFormPage() {
       if (copyFromOrder.deliveryDate) {
         setDeliveryDate(new Date(copyFromOrder.deliveryDate));
       }
-      
-      // Copy line items
-      const copiedItems: ProductLineItem[] = copyFromOrder.lineItems
-        .map(li => {
-          const product = findProductById(asSystemId(li.productSystemId));
-          if (!product) return null;
-          
-          return {
-            product,
-            quantity: li.quantity,
-            unitPrice: li.unitPrice,
-            discount: li.discount || 0,
-            discountType: li.discountType === 'percentage' ? 'percent' as const : 'fixed' as const,
-            tax: li.taxRate || 0,
-            total: li.quantity * li.unitPrice,
-            notes: li.note,
-          } as ProductLineItem;
-        })
-        .filter((item): item is ProductLineItem => item !== null);
-      
-      setItems(copiedItems);
       
       // Copy discount
       if (copyFromOrder.discount) {
@@ -311,12 +303,53 @@ export function PurchaseOrderFormPage() {
       // Copy notes với prefix
       setNotes(`Sao chép từ đơn ${copyFromOrder.id}\n${copyFromOrder.notes || ''}`);
       
-      // Hiện toast thông báo
-      toast('Đã sao chép đơn hàng', {
-        description: `Dữ liệu từ đơn ${copyFromOrder.id} đã được điền sẵn. Vui lòng kiểm tra lại trước khi lưu.`,
-      });
+      setHasCopiedBasicInfo(true);
     }
-  }, [copyFromOrder, isEditMode, findProductById]);
+  }, [copyFromOrder, isEditMode, hasCopiedBasicInfo]);
+  
+  // Step 2: Copy products after they're loaded (only if order has products)
+  React.useEffect(() => {
+    if (copyFromOrder && !isEditMode && hasCopiedBasicInfo && !hasCopiedProducts) {
+      // If no products to copy, mark as done immediately
+      if (!copyFromOrder.lineItems?.length) {
+        setHasCopiedProducts(true);
+        toast('Đã sao chép đơn hàng', {
+          description: `Dữ liệu từ đơn ${copyFromOrder.id} đã được điền sẵn. Vui lòng kiểm tra lại trước khi lưu.`,
+        });
+        return;
+      }
+      
+      // Wait for products to load
+      if (productsMap.size > 0 && !isLoadingProducts) {
+        // Copy line items using productsMap
+        const copiedItems: ProductLineItem[] = copyFromOrder.lineItems
+          .map(li => {
+            const product = productsMap.get(li.productSystemId);
+            if (!product) return null;
+            
+            return {
+              product,
+              quantity: li.quantity,
+              unitPrice: li.unitPrice,
+              discount: li.discount || 0,
+              discountType: li.discountType === 'percentage' ? 'percent' as const : 'fixed' as const,
+              tax: li.taxRate || 0,
+              total: li.quantity * li.unitPrice,
+              notes: li.note,
+            } as ProductLineItem;
+          })
+          .filter((item): item is ProductLineItem => item !== null);
+        
+        setItems(copiedItems);
+        setHasCopiedProducts(true);
+        
+        // Hiện toast thông báo
+        toast('Đã sao chép đơn hàng', {
+          description: `Dữ liệu từ đơn ${copyFromOrder.id} đã được điền sẵn. Vui lòng kiểm tra lại trước khi lưu.`,
+        });
+      }
+    }
+  }, [copyFromOrder, isEditMode, hasCopiedBasicInfo, hasCopiedProducts, productsMap, isLoadingProducts]);
 
   // Generate order ID for new orders
   React.useEffect(() => {
@@ -325,14 +358,13 @@ export function PurchaseOrderFormPage() {
     }
   }, [isEditMode, orderId]);
 
-  // Load existing order items
+  // Load existing order items - wait for products to load
+  const [hasLoadedEditItems, setHasLoadedEditItems] = React.useState(false);
   React.useEffect(() => {
-    if (existingOrder && existingOrder.lineItems) {
+    if (existingOrder && existingOrder.lineItems && !hasLoadedEditItems && productsMap.size > 0 && !isLoadingProducts) {
       const loadedItems: ProductLineItem[] = existingOrder.lineItems
         .map((item) => {
-          const product = products.find(
-            (p) => p.systemId === item.productSystemId
-          );
+          const product = productsMap.get(item.productSystemId);
           if (!product) return null;
           return {
             product,
@@ -344,8 +376,9 @@ export function PurchaseOrderFormPage() {
         })
         .filter((item): item is ProductLineItem => item !== null);
       setItems(loadedItems);
+      setHasLoadedEditItems(true);
     }
-  }, [existingOrder, products]);
+  }, [existingOrder, hasLoadedEditItems, productsMap, isLoadingProducts]);
 
   // Calculate totals
   const subtotal = React.useMemo(
@@ -434,19 +467,29 @@ export function PurchaseOrderFormPage() {
       setIsSaving(true);
 
       try {
-        // Sử dụng refs để lấy giá trị mới nhất (tránh stale closure)
-        const currentSuppliers = suppliersRef.current || [];
+        // Sử dụng finder hooks + ref để lấy giá trị mới nhất (tránh stale closure)
         const currentBranches = branchesRef.current || [];
-        const currentEmployees = employeesRef.current || [];
         
-        const supplier = currentSuppliers.find((s) => s.systemId === currentSupplierId);
+        // Check if supplier is still loading
+        if (isLoadingSupplierRef.current) {
+          toast.info('Đang tải...', {
+            description: 'Đang tải thông tin nhà cung cấp, vui lòng đợi giây lát.',
+          });
+          setIsSaving(false);
+          return;
+        }
+        
+        // Use selectedSupplier from ref (to avoid stale closure)
+        const supplier = selectedSupplierRef.current;
         const branch = currentBranches.find((b) => b.systemId === branchSystemId);
-        const employee = currentEmployees.find((e) => e.systemId === employeeSystemId);
-
-        // Debug logging
+        // Fix: Use authEmployee directly when it matches, to avoid race condition
+        // where employee cache may not be loaded yet
+        const employee = employeeSystemId === authEmployee?.systemId 
+          ? authEmployee 
+          : findEmployeeById(employeeSystemId);
 
         if (!supplier) {
-          console.error('[PO Form] Supplier not found. Available suppliers:', currentSuppliers.map(s => ({ systemId: s.systemId, id: s.id, name: s.name })));
+          logError('[PO Form] Supplier not found', null, { supplierId: currentSupplierId, isLoading: isLoadingSupplierRef.current });
           toast.error('Lỗi', {
             description: 'Không tìm thấy thông tin nhà cung cấp. Vui lòng chọn lại.',
           });
@@ -472,7 +515,8 @@ export function PurchaseOrderFormPage() {
         
         const calculatedShippingFee = currentShippingFees.reduce((sum, fee) => sum + fee.amount, 0);
         const calculatedTax = currentOtherFees.reduce((sum, fee) => sum + fee.amount, 0);
-        const calculatedGrandTotal = calculatedSubtotal - calculatedDiscountAmount;
+        // grandTotal includes shipping + other fees (tax)
+        const calculatedGrandTotal = calculatedSubtotal - calculatedDiscountAmount + calculatedShippingFee + calculatedTax;
 
         
 
@@ -605,6 +649,11 @@ export function PurchaseOrderFormPage() {
         // 1. Tạo phiếu nhập kho và đợi kết quả
         // Note: shippingFee, otherFees, costCalculationMethod are stored in the PurchaseOrder
         // and will be used when calculating inventory costs on the server side
+        
+        // Calculate allocated fees per unit for cost price
+        const totalQuantity = currentItems.reduce((sum, item) => sum + item.quantity, 0);
+        const allocatedFeePerUnit = totalQuantity > 0 ? (totalShippingFee + totalOtherFees) / totalQuantity : 0;
+        
         const receiptData = {
           type: 'PURCHASE' as const,
           branchId: branchSystemId,
@@ -616,19 +665,30 @@ export function PurchaseOrderFormPage() {
           purchaseOrderId: createdOrder.id,
           receiptDate: formatDateCustom(getCurrentDate(), 'yyyy-MM-dd HH:mm'),
           notes: `Nhập kho tự động khi tạo đơn. Chi phí vận chuyển: ${totalShippingFee}, Chi phí khác: ${totalOtherFees}`,
-          createdBy: employee?.systemId,
-          items: currentItems.map(item => ({
-            productId: item.product.systemId, // use systemId as productId
-            productSku: item.product.id || '', // use business id as sku
-            productName: item.product.name,
-            quantity: item.quantity,
-            unitCost: item.unitPrice,
-            totalCost: item.quantity * item.unitPrice,
-          })),
+          createdBy: employee?.fullName || employee?.systemId,
+          receiverName: employee?.fullName || employee?.systemId, // Display as "Nhân viên tạo"
+          receiverSystemId: employee?.systemId, // Who received
+          items: currentItems.map(item => {
+            // Cost price = unit price + allocated fees per unit
+            const costPrice = item.unitPrice + allocatedFeePerUnit;
+            return {
+              productId: item.product.systemId, // use systemId as productId
+              productSku: item.product.id || '', // use business id as sku
+              productName: item.product.name,
+              quantity: item.quantity,
+              unitCost: costPrice, // Include allocated fees in cost price
+              totalCost: item.quantity * costPrice,
+            };
+          }),
         };
 
         // Đợi tạo phiếu nhập kho thành công trước khi update status
-        await createInventoryReceipt.mutateAsync(receiptData);
+        try {
+          await createInventoryReceipt.mutateAsync(receiptData);
+        } catch (receiptError) {
+          logError('[PO Form] Failed to create inventory receipt', receiptError, { receiptData });
+          throw receiptError;
+        }
 
         // Note: Inventory updates and stock history are now handled server-side
         // in the inventory-receipts API, no need to call separately
@@ -669,6 +729,7 @@ export function PurchaseOrderFormPage() {
               status: 'completed' as const,
               category: 'supplier_payment' as const,
               affectsDebt: true,
+              affectsBusinessReport: false,
               // Link to purchase order - use systemId for FK, id for display
               purchaseOrderId: asBusinessId(createdOrder.systemId), // FK reference
               purchaseOrderSystemId: asSystemId(createdOrder.systemId), // Additional linking field
@@ -682,7 +743,7 @@ export function PurchaseOrderFormPage() {
           // Cập nhật payment status
           // Note: payments are stored separately via createPayment.mutateAsync above
           // The paymentStatus field is updated here to reflect the payment state
-          const updatedPaymentStatus = totalPayments >= grandTotal ? 'Đã thanh toán' : 'Thanh toán một phần';
+          const updatedPaymentStatus = totalPayments >= calculatedGrandTotal ? 'Đã thanh toán' : 'Thanh toán một phần';
           update.mutate({
             systemId: createdOrder.systemId,
             data: {
@@ -691,10 +752,11 @@ export function PurchaseOrderFormPage() {
           });
         }
 
-        // Tính tổng số phiếu chi đã tạo (bao gồm thanh toán NCC + phí vận chuyển + chi phí khác)
-        const shippingFeeCount = currentShippingFees.filter(f => f.amount > 0).length;
-        const otherFeeCount = currentOtherFees.filter(f => f.amount > 0).length;
-        const totalVoucherCount = currentPayments.length + shippingFeeCount + otherFeeCount;
+        // NOTE: Phí vận chuyển và chi phí khác chỉ được ghi nhận vào đơn hàng để tính giá vốn.
+        // Phiếu chi sẽ được tạo riêng khi user thực sự thanh toán cho các khoản phí này.
+
+        // Thông báo kết quả
+        const totalVoucherCount = currentPayments.length;
 
         if (totalVoucherCount > 0) {
           toast.success('Hoàn tất', {
@@ -705,17 +767,15 @@ export function PurchaseOrderFormPage() {
             description: `Đã nhập kho ${currentItems.length} sản phẩm`,
           });
         }
-
-        // Note: Chi phí vận chuyển và chi phí khác (trả bên thứ 3) được lưu vào đơn hàng
-        // để tính giá vốn, nhưng KHÔNG tự động tạo phiếu chi.
-        // Phiếu chi sẽ được tạo riêng khi user thực sự thanh toán cho bên thứ 3.
       }
 
       // Chuyển đến trang chi tiết đơn vừa tạo/cập nhật
       router.push(`/purchase-orders/${createdOrder.systemId}`);
     } catch (_error) {
+      const errorMessage = _error instanceof Error ? _error.message : 'Không thể lưu đơn nhập hàng';
+      logError('[PO Form] Save failed', _error);
       toast.error('Lỗi', {
-        description: 'Không thể lưu đơn nhập hàng. Vui lòng thử lại.',
+        description: errorMessage,
       });
     } finally {
       setIsSaving(false);
@@ -765,7 +825,7 @@ export function PurchaseOrderFormPage() {
       className="h-9"
       disabled={isSaving}
     >
-      {isSaving ? "Đang lưu..." : "Tạo & chưa nhập"}
+      {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Đang lưu...</> : "Tạo & chưa nhập"}
     </Button>,
     <Button 
       key="save-receive" 
@@ -775,7 +835,7 @@ export function PurchaseOrderFormPage() {
       className="h-9"
       disabled={isSaving}
     >
-      {isSaving ? "Đang lưu..." : "Tạo & nhập hàng"}
+      {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Đang lưu...</> : "Tạo & nhập hàng"}
     </Button>,
   ];
 
@@ -798,7 +858,7 @@ export function PurchaseOrderFormPage() {
   return (
     <div className="w-full h-full space-y-4 pb-20 lg:pb-4">
       {/* Row 1: Supplier Info (70%) + Order Info (30%) - Mobile: Stack vertical */}
-      <div className="grid grid-cols-1 lg:grid-cols-10 gap-4 h-auto lg:h-85">
+      <div className="grid grid-cols-1 lg:grid-cols-10 gap-4 h-auto lg:h-auto">
         <div className="lg:col-span-7 h-full overflow-hidden order-2 lg:order-1">
           <SupplierSelectionCard value={supplierId ?? undefined} onChange={handleSetSupplierId} />
         </div>
@@ -880,7 +940,7 @@ export function PurchaseOrderFormPage() {
             className="flex-1"
             disabled={isSaving}
           >
-            {isSaving ? "Đang lưu..." : "Lưu"}
+            {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Đang lưu...</> : "Lưu"}
           </Button>
           <Button 
             type="button" 
@@ -888,7 +948,7 @@ export function PurchaseOrderFormPage() {
             className="flex-1"
             disabled={isSaving}
           >
-            {isSaving ? "Đang lưu..." : "Lưu & Nhập"}
+            {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Đang lưu...</> : "Lưu & Nhập"}
           </Button>
         </div>
     </div>

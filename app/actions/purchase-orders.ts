@@ -5,15 +5,78 @@
  */
 
 import { prisma } from '@/lib/prisma'
+import { PurchaseOrderStatus } from '@/generated/prisma/client'
 import { revalidatePath } from '@/lib/revalidation'
-import { generateIdWithPrefix } from '@/lib/id-generator'
-import { auth } from '@/auth'
+import { generateNextIdsWithTx } from '@/lib/id-system'
+import { requireActionPermission } from '@/lib/api-utils'
 import type { ActionResult } from '@/types/action-result'
 import { createPurchaseOrderSchema, updatePurchaseOrderSchema } from '@/features/purchase-orders/validation'
+import { logError } from '@/lib/logger'
+import { getSessionUserName } from '@/lib/get-user-name'
+
+// Map Vietnamese status to Prisma enum
+function mapStatusToPrismaEnum(status?: string): PurchaseOrderStatus | undefined {
+  if (!status) return undefined;
+  
+  const statusMap: Record<string, PurchaseOrderStatus> = {
+    // Vietnamese names
+    'Đặt hàng': 'PENDING',
+    'Đang giao dịch': 'CONFIRMED',
+    'Hoàn thành': 'COMPLETED',
+    'Đã hủy': 'CANCELLED',
+    'Kết thúc': 'COMPLETED',
+    'Đã trả hàng': 'CANCELLED',
+    // Schema enum values (from validation.ts)
+    'draft': 'DRAFT',
+    'pending_approval': 'PENDING',
+    'approved': 'PENDING',
+    'ordered': 'PENDING',
+    'partial_received': 'CONFIRMED',
+    'received': 'CONFIRMED',
+    'completed': 'COMPLETED',
+    'cancelled': 'CANCELLED',
+    // Prisma enum values
+    'DRAFT': 'DRAFT',
+    'PENDING': 'PENDING',
+    'CONFIRMED': 'CONFIRMED',
+    'RECEIVING': 'RECEIVING',
+    'COMPLETED': 'COMPLETED',
+    'CANCELLED': 'CANCELLED',
+  };
+  
+  return statusMap[status];
+}
 
 // Types
 type PurchaseOrder = NonNullable<Awaited<ReturnType<typeof prisma.purchaseOrder.findFirst>>>
 type PurchaseOrderItem = NonNullable<Awaited<ReturnType<typeof prisma.purchaseOrderItem.findFirst>>>
+
+// Helper to serialize Decimal fields for Client Components
+function serializePurchaseOrder<T extends PurchaseOrder>(order: T): T {
+  return {
+    ...order,
+    subtotal: Number(order.subtotal),
+    discount: Number(order.discount),
+    tax: Number(order.tax),
+    total: Number(order.total),
+    paid: Number(order.paid),
+    debt: Number(order.debt),
+    shippingFee: Number(order.shippingFee),
+    grandTotal: Number(order.grandTotal),
+  } as T;
+}
+
+function serializePurchaseOrderWithItems(order: PurchaseOrder & { items: PurchaseOrderItem[] }) {
+  return {
+    ...serializePurchaseOrder(order),
+    items: order.items.map(item => ({
+      ...item,
+      unitPrice: Number(item.unitPrice),
+      discount: Number(item.discount),
+      total: Number(item.total),
+    })),
+  };
+}
 
 export type CreatePurchaseOrderInput = {
   supplierId?: string
@@ -58,6 +121,7 @@ export type UpdatePurchaseOrderInput = {
   branchName?: string
   expectedDate?: string | Date | null
   deliveryDate?: string | Date | null
+  receivedDate?: string | Date | null
   notes?: string
   lineItems?: unknown
   discountType?: string
@@ -78,10 +142,8 @@ export type UpdatePurchaseOrderInput = {
 export async function createPurchaseOrderAction(
   input: CreatePurchaseOrderInput
 ): Promise<ActionResult<PurchaseOrder & { items: PurchaseOrderItem[] }>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('create_purchase_orders')
+  if (!authResult.success) return authResult
 
   const validated = createPurchaseOrderSchema.safeParse(input)
   if (!validated.success) {
@@ -90,7 +152,12 @@ export async function createPurchaseOrderAction(
 
   try {
     const result = await prisma.$transaction(async (tx) => {
-      const systemId = await generateIdWithPrefix('PO', tx)
+      // Generate IDs using unified ID system (queries MAX from actual table)
+      const { systemId, businessId } = await generateNextIdsWithTx(
+        tx,
+        'purchase-orders',
+        undefined // Always auto-generate, don't use input.id
+      );
 
       // Calculate totals from items
       let subtotal = 0
@@ -109,10 +176,20 @@ export async function createPurchaseOrderAction(
       const total = subtotal - discount + tax
       const grandTotal = total + shippingFee
 
+      // Fallback: look up buyer name if not provided but buyerSystemId exists
+      let buyerName = input.buyer
+      if (!buyerName && input.buyerSystemId) {
+        const employee = await tx.employee.findUnique({
+          where: { systemId: input.buyerSystemId },
+          select: { fullName: true },
+        })
+        buyerName = employee?.fullName || ''
+      }
+
       const _purchaseOrder = await tx.purchaseOrder.create({
         data: {
           systemId,
-          id: systemId,
+          id: businessId,
           supplierId: input.supplierId,
           supplierSystemId: input.supplierSystemId,
           supplierName: input.supplierName,
@@ -121,7 +198,7 @@ export async function createPurchaseOrderAction(
           branchName: input.branchName,
           employeeId: input.employeeId,
           buyerSystemId: input.buyerSystemId,
-          buyer: input.buyer,
+          buyer: buyerName,
           orderDate: input.orderDate ? new Date(input.orderDate) : new Date(),
           expectedDate: input.expectedDate ? new Date(input.expectedDate) : null,
           deliveryDate: input.deliveryDate ? new Date(input.deliveryDate) : null,
@@ -155,8 +232,7 @@ export async function createPurchaseOrderAction(
             receivedQty: 0,
             unitPrice: item.unitPrice,
             discount: item.discount ?? 0,
-            tax: item.tax ?? 0,
-            total: (item.quantity * item.unitPrice) - (item.discount ?? 0) + (item.tax ?? 0),
+            total: (item.quantity * item.unitPrice) - (item.discount ?? 0),
           })),
         })
       }
@@ -167,13 +243,47 @@ export async function createPurchaseOrderAction(
       })
     })
 
+    // Convert Decimal fields to plain numbers for Client Components
+    const serializedResult = result ? {
+      ...result,
+      subtotal: Number(result.subtotal),
+      discount: Number(result.discount),
+      tax: Number(result.tax),
+      total: Number(result.total),
+      paid: Number(result.paid),
+      debt: Number(result.debt),
+      shippingFee: Number(result.shippingFee),
+      grandTotal: Number(result.grandTotal),
+      items: result.items.map(item => ({
+        ...item,
+        unitPrice: Number(item.unitPrice),
+        discount: Number(item.discount),
+        total: Number(item.total),
+      })),
+    } : null;
+
     revalidatePath('/purchase-orders')
-    return { success: true, data: result! }
+
+    // Activity log (fire-and-forget)
+    const session = authResult.session!
+    const userName = getSessionUserName(session)
+    prisma.activityLog.create({
+      data: {
+        entityType: 'purchase_order',
+        entityId: serializedResult?.systemId ?? '',
+        action: 'created',
+        actionType: 'create',
+        note: `Tạo đơn đặt hàng nhập: ${serializedResult?.id ?? ''} - NCC: ${input.supplierName ?? 'N/A'}`,
+        createdBy: userName,
+      },
+    }).catch(e => logError('[ActivityLog] purchase_order create failed', e))
+
+    return { success: true, data: serializedResult as unknown as PurchaseOrder & { items: PurchaseOrderItem[] } }
   } catch (error) {
-    console.error('Error creating purchase order:', error)
+    logError('Error creating purchase order', error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Không thể tạo đơn đặt hàng nhập',
+      error: 'Không thể tạo đơn đặt hàng nhập',
     }
   }
 }
@@ -181,10 +291,8 @@ export async function createPurchaseOrderAction(
 export async function updatePurchaseOrderAction(
   input: UpdatePurchaseOrderInput
 ): Promise<ActionResult<PurchaseOrder>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('edit_purchase_orders')
+  if (!authResult.success) return authResult
 
   const validated = updatePurchaseOrderSchema.safeParse(input)
   if (!validated.success) {
@@ -206,7 +314,7 @@ export async function updatePurchaseOrderAction(
     if (existing.status !== 'DRAFT' && !data.status) {
       return {
         success: false,
-        error: 'Only DRAFT orders can be updated',
+        error: 'Chỉ có thể cập nhật đơn ở trạng thái Nháp',
       }
     }
 
@@ -231,8 +339,14 @@ export async function updatePurchaseOrderAction(
     if (data.tax !== undefined) updateData.tax = data.tax
     if (data.shippingFee !== undefined) updateData.shippingFee = data.shippingFee
     if (data.reference !== undefined) updateData.reference = data.reference
-    if (data.status !== undefined) updateData.status = data.status
+    if (data.status !== undefined) {
+      const mappedStatus = mapStatusToPrismaEnum(data.status);
+      if (mappedStatus) updateData.status = mappedStatus;
+    }
     if (data.deliveryStatus !== undefined) updateData.deliveryStatus = data.deliveryStatus
+    if (data.receivedDate !== undefined) {
+      updateData.receivedDate = data.receivedDate ? new Date(data.receivedDate) : null
+    }
     if (data.paymentStatus !== undefined) updateData.paymentStatus = data.paymentStatus
     if (data.updatedBy !== undefined) updateData.updatedBy = data.updatedBy
 
@@ -243,12 +357,12 @@ export async function updatePurchaseOrderAction(
 
     revalidatePath('/purchase-orders')
     revalidatePath(`/purchase-orders/${systemId}`)
-    return { success: true, data: purchaseOrder }
+    return { success: true, data: serializePurchaseOrder(purchaseOrder) }
   } catch (error) {
-    console.error('Error updating purchase order:', error)
+    logError('Error updating purchase order', error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Không thể cập nhật đơn đặt hàng nhập',
+      error: 'Không thể cập nhật đơn đặt hàng nhập',
     }
   }
 }
@@ -256,10 +370,8 @@ export async function updatePurchaseOrderAction(
 export async function deletePurchaseOrderAction(
   systemId: string
 ): Promise<ActionResult<PurchaseOrder>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('delete_purchase_orders')
+  if (!authResult.success) return authResult
 
   try {
     const existing = await prisma.purchaseOrder.findUnique({
@@ -273,7 +385,7 @@ export async function deletePurchaseOrderAction(
     if (existing.status !== 'DRAFT') {
       return {
         success: false,
-        error: 'Only DRAFT orders can be deleted',
+        error: 'Chỉ có thể xóa đơn ở trạng thái Nháp',
       }
     }
 
@@ -286,12 +398,27 @@ export async function deletePurchaseOrderAction(
     })
 
     revalidatePath('/purchase-orders')
-    return { success: true, data: purchaseOrder }
+
+    // Activity log (fire-and-forget)
+    const session3 = authResult.session!
+    const userName3 = getSessionUserName(session3)
+    prisma.activityLog.create({
+      data: {
+        entityType: 'purchase_order',
+        entityId: systemId,
+        action: 'deleted',
+        actionType: 'delete',
+        note: `Xóa đơn đặt hàng nhập: ${existing.id} - NCC: ${existing.supplierName ?? 'N/A'}`,
+        createdBy: userName3,
+      },
+    }).catch(e => logError('[ActivityLog] purchase_order delete failed', e))
+
+    return { success: true, data: serializePurchaseOrder(purchaseOrder) }
   } catch (error) {
-    console.error('Error deleting purchase order:', error)
+    logError('Error deleting purchase order', error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Không thể xóa đơn đặt hàng nhập',
+      error: 'Không thể xóa đơn đặt hàng nhập',
     }
   }
 }
@@ -299,10 +426,8 @@ export async function deletePurchaseOrderAction(
 export async function getPurchaseOrderAction(
   systemId: string
 ): Promise<ActionResult<PurchaseOrder & { items: PurchaseOrderItem[] }>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('view_purchase_orders')
+  if (!authResult.success) return authResult
 
   try {
     const purchaseOrder = await prisma.purchaseOrder.findUnique({
@@ -314,12 +439,12 @@ export async function getPurchaseOrderAction(
       return { success: false, error: 'Không tìm thấy đơn đặt hàng nhập' }
     }
 
-    return { success: true, data: purchaseOrder }
+    return { success: true, data: serializePurchaseOrderWithItems(purchaseOrder) as unknown as PurchaseOrder & { items: PurchaseOrderItem[] } }
   } catch (error) {
-    console.error('Error getting purchase order:', error)
+    logError('Error getting purchase order', error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Không thể lấy đơn đặt hàng nhập',
+      error: 'Không thể lấy đơn đặt hàng nhập',
     }
   }
 }
@@ -328,10 +453,8 @@ export async function confirmPurchaseOrderAction(
   systemId: string,
   confirmedBy?: string
 ): Promise<ActionResult<PurchaseOrder>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('approve_purchase_orders')
+  if (!authResult.success) return authResult
 
   try {
     const existing = await prisma.purchaseOrder.findUnique({
@@ -345,7 +468,7 @@ export async function confirmPurchaseOrderAction(
     if (existing.status !== 'DRAFT') {
       return {
         success: false,
-        error: 'Only DRAFT orders can be confirmed',
+        error: 'Chỉ có thể xác nhận đơn ở trạng thái Nháp',
       }
     }
 
@@ -359,12 +482,27 @@ export async function confirmPurchaseOrderAction(
 
     revalidatePath('/purchase-orders')
     revalidatePath(`/purchase-orders/${systemId}`)
-    return { success: true, data: purchaseOrder }
+
+    // Activity log (fire-and-forget)
+    const session4 = authResult.session!
+    const userName4 = getSessionUserName(session4)
+    prisma.activityLog.create({
+      data: {
+        entityType: 'purchase_order',
+        entityId: systemId,
+        action: 'confirmed',
+        actionType: 'status',
+        note: `Xác nhận đơn đặt hàng nhập: ${existing.id}`,
+        createdBy: userName4,
+      },
+    }).catch(e => logError('[ActivityLog] purchase_order confirm failed', e))
+
+    return { success: true, data: serializePurchaseOrder(purchaseOrder) }
   } catch (error) {
-    console.error('Error confirming purchase order:', error)
+    logError('Error confirming purchase order', error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Không thể xác nhận đơn đặt hàng nhập',
+      error: 'Không thể xác nhận đơn đặt hàng nhập',
     }
   }
 }
@@ -374,10 +512,8 @@ export async function cancelPurchaseOrderAction(
   reason?: string,
   cancelledBy?: string
 ): Promise<ActionResult<PurchaseOrder>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('edit_purchase_orders')
+  if (!authResult.success) return authResult
 
   try {
     const existing = await prisma.purchaseOrder.findUnique({
@@ -391,7 +527,7 @@ export async function cancelPurchaseOrderAction(
     if (existing.status === 'COMPLETED' || existing.status === 'CANCELLED') {
       return {
         success: false,
-        error: 'Cannot cancel completed or already cancelled orders',
+        error: 'Không thể hủy đơn đã hoàn thành hoặc đã hủy',
       }
     }
 
@@ -406,12 +542,27 @@ export async function cancelPurchaseOrderAction(
 
     revalidatePath('/purchase-orders')
     revalidatePath(`/purchase-orders/${systemId}`)
-    return { success: true, data: purchaseOrder }
+
+    // Activity log (fire-and-forget)
+    const session5 = authResult.session!
+    const userName5 = getSessionUserName(session5)
+    prisma.activityLog.create({
+      data: {
+        entityType: 'purchase_order',
+        entityId: systemId,
+        action: 'cancelled',
+        actionType: 'status',
+        note: `Hủy đơn đặt hàng nhập: ${existing.id}${reason ? `. Lý do: ${reason}` : ''}`,
+        createdBy: userName5,
+      },
+    }).catch(e => logError('[ActivityLog] purchase_order cancel failed', e))
+
+    return { success: true, data: serializePurchaseOrder(purchaseOrder) }
   } catch (error) {
-    console.error('Error cancelling purchase order:', error)
+    logError('Error cancelling purchase order', error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Không thể hủy đơn đặt hàng nhập',
+      error: 'Không thể hủy đơn đặt hàng nhập',
     }
   }
 }

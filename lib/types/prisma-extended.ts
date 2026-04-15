@@ -31,7 +31,67 @@ export type ActivityLogEntityType =
   | 'receipt'
   | 'payment'
   | 'leave'
-  | 'penalty';
+  | 'penalty'
+  | 'branch'
+  | 'category'
+  | 'cash_account'
+  | 'cash_transaction'
+  | 'department'
+  | 'employee_type'
+  | 'job_title'
+  | 'unit'
+  | 'penalty_type'
+  | 'stock_location'
+  | 'storage_location'
+  | 'user'
+  | 'comment'
+  | 'workflow_template'
+  | 'promotion'
+  | 'province'
+  | 'district'
+  | 'ward'
+  | 'print_template'
+  | 'appearance'
+  | 'settings'
+  | 'role'
+  | 'store_info'
+  | 'shipping_settings'
+  | 'shipping_partner'
+  | 'shipping_config'
+  | 'sales_management'
+  | 'sales_channel'
+  | 'tax'
+  | 'target_group'
+  | 'brand'
+  | 'product_type'
+  | 'payment_type'
+  | 'receipt_type'
+  | 'complaint_type'
+  | 'website_settings'
+  | 'trendtech_settings'
+  | 'pkgx_settings'
+  | 'customer_group'
+  | 'customer_source'
+  | 'customer_credit_rating'
+  | 'customer_lifecycle_stage'
+  | 'customer_payment_term'
+  | 'customer_sla'
+  | 'customer_settings'
+  | 'payment_method'
+  | 'pricing_policy'
+  | 'supplier_warranty'
+  | 'leave_type'
+  | 'salary_component'
+  | 'importer'
+  | 'settings_data'
+  | 'employee_settings'
+  | 'task_settings'
+  | 'complaint_settings'
+  | 'warranty_settings'
+  | 'inventory_sla_settings'
+  | 'logistics_settings'
+  | 'payroll_template'
+  | 'reconciliation_sheet';
 
 /**
  * ActivityLog - Centralized activity history for all entities
@@ -223,6 +283,7 @@ export type Supplier = {
   phone: string;
   email: string;
   address: string;
+  addressData?: Record<string, unknown> | null;
   website?: string;
   accountManager: string;
   status: SupplierStatus;
@@ -246,19 +307,7 @@ export type Supplier = {
 /**
  * Customer status
  */
-export type CustomerStatus = "Đang giao dịch" | "Ngừng Giao Dịch" | "inactive" | "active";
-
-/**
- * Customer lifecycle stage
- */
-export type CustomerLifecycleStage =
-  | "Khách tiềm năng"
-  | "Khách mới"
-  | "Khách quay lại"
-  | "Khách thân thiết"
-  | "Khách VIP"
-  | "Không hoạt động"
-  | "Mất khách";
+export type CustomerStatus = "Đang giao dịch" | "Ngừng Giao Dịch" | "inactive" | "active" | "ACTIVE" | "INACTIVE";
 
 /**
  * Debt status
@@ -339,6 +388,23 @@ export type CustomerAddress = {
 };
 
 /**
+ * Business Profile for a customer (supports multiple business entities)
+ */
+export type BusinessProfile = {
+  id: string;
+  company: string;
+  taxCode?: string;
+  representative?: string;
+  position?: string;
+  phone?: string;
+  bankName?: string;
+  bankAccount?: string;
+  email?: string;
+  addressId?: string; // Reference to address.id in customer addresses
+  isDefault?: boolean;
+};
+
+/**
  * App-level Customer
  */
 export type Customer = {
@@ -379,15 +445,6 @@ export type Customer = {
   maxDebt?: number;
   type?: string;
   customerGroup?: string;
-  lifecycleStage?: CustomerLifecycleStage;
-  rfmScores?: {
-    recency: 1 | 2 | 3 | 4 | 5;
-    frequency: 1 | 2 | 3 | 4 | 5;
-    monetary: 1 | 2 | 3 | 4 | 5;
-  };
-  segment?: string;
-  healthScore?: number;
-  churnRisk?: 'low' | 'medium' | 'high';
   debtTransactions?: DebtTransaction[];
   debtReminders?: DebtReminder[];
   oldestDebtDueDate?: string;
@@ -396,6 +453,7 @@ export type Customer = {
   source?: string;
   campaign?: string;
   referredBy?: SystemId;
+  referredByName?: string;
   contacts?: Array<{
     id: string;
     name: string;
@@ -407,23 +465,31 @@ export type Customer = {
   paymentTerms?: string;
   creditRating?: string;
   allowCredit?: boolean;
-  defaultDiscount?: number;
-  pricingLevel?: 'Retail' | 'Wholesale' | 'VIP' | 'Partner';
   contract?: {
     number?: string;
     startDate?: string;
     endDate?: string;
     value?: number;
-    status?: 'Active' | 'Expired' | 'Pending' | 'Cancelled';
     fileUrl?: string;
+    status?: string;
     details?: string;
   };
+  defaultDiscount?: number;
+  pricingLevel?: 'Retail' | 'Wholesale' | 'VIP' | 'Partner';
+  businessProfiles?: BusinessProfile[];
   tags?: string[];
   images?: string[];
   social?: {
     facebook?: string;
     linkedin?: string;
     website?: string;
+    instagram?: string;
+    tiktok?: string;
+    youtube?: string;
+    twitter?: string;
+    shopee?: string;
+    lazada?: string;
+    other?: string;
   };
   notes?: string;
   accountManagerId?: SystemId;
@@ -433,7 +499,7 @@ export type Customer = {
   deletedAt?: string | null;
   isDeleted?: boolean;
   createdBy?: SystemId;
-  updatedBy?: SystemId;
+  createdByName?: string;
   totalOrders?: number;
   totalSpent?: number;
   totalProductsBought?: number;
@@ -803,6 +869,9 @@ export type Product = {
   isDeleted?: boolean;
   createdBy?: SystemId;
   updatedBy?: SystemId;
+  createdByName?: string | null;
+  updatedByName?: string | null;
+  pkgxSyncedAt?: string | null;
 };
 
 // ============================================
@@ -870,6 +939,17 @@ export type LineItem = {
   tax?: number;
   taxId?: string;
   note?: string;
+  thumbnailImage?: string; // Product thumbnail for display in exchange/return tables
+  // Embedded product data from API (for cost/type calculations without loading all products)
+  product?: {
+    systemId?: string;
+    id?: string;
+    name?: string;
+    imageUrl?: string | null;
+    costPrice?: number;
+    productTypeSystemId?: string;
+    type?: string;
+  };
 };
 
 /**
@@ -937,11 +1017,27 @@ export type Packaging = {
     action_time: string;
     reason_code?: string;
     reason_text?: string;
+    autoSynced?: boolean;
   }>;
   // In-store pickup info
   requestorName?: string;
   requestorPhone?: string;
   requestorId?: string;
+};
+
+/**
+ * Invoice info snapshot — selected customer business profile for invoice/Excel export
+ */
+export type OrderInvoiceInfo = {
+  company: string;
+  taxCode?: string;
+  representative?: string;
+  position?: string;
+  phone?: string;
+  email?: string;
+  bankName?: string;
+  bankAccount?: string;
+  address?: string; // Resolved full address string
 };
 
 /**
@@ -957,6 +1053,7 @@ export type Order = {
   customerEmail?: string;
   shippingAddress?: string | OrderAddress;
   billingAddress?: string | OrderAddress;
+  invoiceInfo?: OrderInvoiceInfo;
   branchSystemId: SystemId;
   branchName: string;
   salespersonSystemId: SystemId;
@@ -1017,6 +1114,11 @@ export type Order = {
   // Optional included relations from API
   customer?: Customer;
   branch?: { systemId: SystemId; id?: BusinessId; name: string; address?: string; province?: string };
+  // ✅ PERFORMANCE: Warranty ID map for payment history (merged into order API)
+  _warranties?: Array<{ systemId: string; id: string }>;
+  // ✅ PERFORMANCE: Resolved names from settings (merged into order API)
+  _pricingPolicyName?: string | null;
+  _salesChannelName?: string | null;
   subtasks?: Array<{
     id: string;
     title: string;
@@ -1070,8 +1172,15 @@ export type PurchaseOrderPayment = {
   method: string;
   amount: number;
   paymentDate: string;
+  date?: string; // Alias for paymentDate for consistency with Payment type
   reference?: string;
   payerName: string;
+  // Additional fields for consistency with Payment type
+  paymentMethodName?: string;
+  createdBy?: string;
+  createdAt?: string;
+  description?: string;
+  category?: string;
 };
 
 /**
@@ -1081,6 +1190,7 @@ export type PurchaseOrderLineItem = {
   productSystemId: string;
   productId: string;
   productName: string;
+  productTypeSystemId?: string;
   sku?: string;
   unit?: string;
   imageUrl?: string;
@@ -1124,10 +1234,75 @@ export type PurchaseOrder = {
   inventoryReceiptIds?: string[];
   notes?: string;
   reference?: string;
+  receivedDate?: string | null;
   createdAt?: string;
   updatedAt?: string;
   createdBy?: string;
   updatedBy?: string;
+  // ⚡ OPTIMIZED: Embedded data from detail API to eliminate separate API calls
+  branch?: {
+    systemId: string;
+    name: string;
+  };
+  supplier?: {
+    systemId: string;
+    id: string;
+    name: string;
+    phone?: string;
+    email?: string;
+    address?: string;
+    bankAccount?: string;
+    bankName?: string;
+  };
+  inventoryReceipts?: Array<{
+    systemId: string;
+    id: string;
+    type: string;
+    totalValue: number;
+    receivedDate?: string;
+    createdAt?: string;
+    purchaseOrderSystemId?: string;
+    items: Array<{
+      systemId: string;
+      productSystemId?: string;
+      productName: string;
+      productSku: string;
+      quantity: number;
+      unitPrice: number;
+      totalValue: number;
+      receivedQuantity?: number;
+    }>;
+  }>;
+  financialReceipts?: Array<{
+    systemId: string;
+    id: string;
+    amount: number;
+    date?: string;
+    receiptDate?: string;
+    createdAt?: string;
+    status?: string;
+    paymentMethodName?: string;
+    createdBy?: string;
+    description?: string;
+  }>;
+  purchaseReturns?: Array<{
+    systemId: string;
+    id: string;
+    totalReturnValue: number;
+    returnDate?: string;
+    createdAt?: string;
+    status?: string;
+    purchaseOrderSystemId?: string;
+    items: Array<{
+      systemId: string;
+      productSystemId?: string;
+      productName: string;
+      quantity: number;
+      returnQuantity?: number;
+      unitPrice: number;
+      total: number;
+    }>;
+  }>;
 };
 
 // ============================================
@@ -1171,6 +1346,11 @@ export type Shipment = {
   deliveredAt?: string;
   cancelledAt?: string;
   
+  // Recipient Info
+  recipientName?: string;
+  recipientPhone?: string;
+  recipientAddress?: string;
+
   // Physical Properties
   weight?: number;
   dimensions?: string;
@@ -1328,6 +1508,7 @@ export type PurchaseReturnLineItem = {
   returnQuantity: number;         // Số lượng thực tế hoàn trả lần này
   unitPrice: number;              // Đơn giá (lấy từ đơn nhập gốc)
   note?: string | undefined;      // Ghi chú riêng cho sản phẩm này (lý do trả cụ thể)
+  imageUrl?: string | null;       // Hình ảnh sản phẩm (từ API)
 };
 
 /**
@@ -1419,11 +1600,16 @@ export type PaymentStatus = 'completed' | 'cancelled';
 
 export type PaymentCategory = 
   | 'purchase'
+  | 'customer_payment'
   | 'complaint_refund'
   | 'warranty_refund'
-  | 'salary'
-  | 'expense'
+  | 'sales_return_refund'
+  | 'employee_advance'
+  | 'employee_salary'
   | 'supplier_payment'
+  | 'operational_expense'
+  | 'expense'
+  | 'salary'
   | 'other';
 
 export const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
@@ -1433,11 +1619,16 @@ export const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
 
 export const PAYMENT_CATEGORY_LABELS: Record<PaymentCategory, string> = {
   purchase: 'Mua hàng',
+  customer_payment: 'Thanh toán khách hàng',
   complaint_refund: 'Hoàn tiền khiếu nại',
   warranty_refund: 'Hoàn tiền bảo hành',
-  salary: 'Chi lương',
-  expense: 'Chi phí',
+  sales_return_refund: 'Hoàn tiền trả hàng',
+  employee_advance: 'Tạm ứng nhân viên',
+  employee_salary: 'Chi lương nhân viên',
   supplier_payment: 'Thanh toán NCC',
+  operational_expense: 'Chi phí vận hành',
+  expense: 'Chi phí',
+  salary: 'Chi lương',
   other: 'Khác',
 };
 
@@ -1479,7 +1670,9 @@ export type Payment = {
   customerSystemId?: SystemId | undefined;
   customerName?: string | undefined;
   affectsDebt: boolean;
+  affectsBusinessReport: boolean;
   runningBalance?: number | undefined;
+  orderAllocations?: PaymentOrderAllocation[] | undefined;
 };
 
 // ============================================
@@ -1507,9 +1700,12 @@ export type ReceiptStatus = 'completed' | 'cancelled';
 
 export type ReceiptCategory = 
   | 'sale'
+  | 'SALES_REVENUE'
+  | 'service_revenue'
   | 'complaint_penalty'
   | 'warranty_additional'
   | 'customer_payment'
+  | 'deposit_received'
   | 'other';
 
 export const RECEIPT_STATUS_LABELS: Record<ReceiptStatus, string> = {
@@ -1519,15 +1715,24 @@ export const RECEIPT_STATUS_LABELS: Record<ReceiptStatus, string> = {
 
 export const RECEIPT_CATEGORY_LABELS: Record<ReceiptCategory, string> = {
   sale: 'Bán hàng',
+  SALES_REVENUE: 'Doanh thu bán hàng',
+  service_revenue: 'Doanh thu dịch vụ',
   complaint_penalty: 'Phạt nhân viên',
   warranty_additional: 'Thu thêm bảo hành',
   customer_payment: 'Thu tiền khách',
+  deposit_received: 'Thu tiền cọc',
   other: 'Khác',
 };
 
 export type ReceiptOrderAllocation = {
   orderSystemId: SystemId;
   orderId: BusinessId;
+  amount: number;
+};
+
+export type PaymentOrderAllocation = {
+  purchaseOrderSystemId: SystemId;
+  purchaseOrderId: BusinessId;
   amount: number;
 };
 
@@ -1566,6 +1771,7 @@ export type Receipt = {
   customerSystemId?: SystemId | undefined;
   customerName?: string | undefined;
   affectsDebt: boolean;
+  affectsBusinessReport: boolean;
   runningBalance?: number | undefined;
   orderAllocations?: ReceiptOrderAllocation[] | undefined;
 };
@@ -1579,6 +1785,7 @@ export type CashAccount = {
   name: string;
   initialBalance: number;
   type: 'cash' | 'bank';
+  accountType?: string | null;
   bankAccountNumber?: string;
   bankBranch?: string;
   branchSystemId?: SystemId;
@@ -1635,6 +1842,8 @@ export type StockHistoryEntry = {
    */
   newStockLevel: number;
   documentId: BusinessId;
+  /** ✅ Resolved server-side from documentId prefix → entity table lookup */
+  documentSystemId?: string | null;
   branchSystemId: SystemId;
   branch: string;
   createdAt?: string;
@@ -1666,6 +1875,7 @@ export type StockTransferItem = {
   productSystemId: SystemId;
   productId: BusinessId;
   productName: string;
+  productImage?: string;
   quantity: number;
   receivedQuantity?: number;
   note?: string;
@@ -1724,9 +1934,7 @@ export type TaskPriority = typeof TASK_PRIORITIES[number];
 export const TASK_STATUSES = [
   'Chưa bắt đầu',
   'Đang thực hiện',
-  'Đang chờ',
   'Chờ duyệt',
-  'Chờ xử lý',
   'Hoàn thành',
   'Đã hủy'
 ] as const;
@@ -1845,6 +2053,9 @@ export type Task = {
   approvalStatus?: ApprovalStatus;
   approvalHistory?: ApprovalHistory[];
   rejectionReason?: string;
+  blockedBy?: string[];
+  blocks?: string[];
+  boardId?: string;
   createdAt: string;
   updatedAt: string;
   createdBy: SystemId;
@@ -2110,6 +2321,7 @@ export type WarrantyTicket = {
   createdBySystemId?: SystemId;
   createdAt: string;
   updatedAt: string;
+  updatedBy?: string;
   updatedBySystemId?: SystemId;
 };
 
@@ -2545,6 +2757,7 @@ export type Department = {
   name: string;
   managerId?: SystemId | undefined;
   jobTitleIds: string[];
+  isActive?: boolean;
   createdAt?: string;
   updatedAt?: string;
   createdBy?: SystemId;
@@ -2559,6 +2772,7 @@ export type JobTitle = {
   id: BusinessId;
   name: string;
   description?: string;
+  isActive?: boolean;
   createdAt?: string;
   updatedAt?: string;
   createdBy?: SystemId;
@@ -2610,6 +2824,7 @@ export type Tax = {
   rate: number;
   isDefaultSale: boolean;
   isDefaultPurchase: boolean;
+  isDefaultExcelExport: boolean;
   description?: string;
   createdAt?: string;
   updatedAt?: string;
@@ -2654,14 +2869,12 @@ export type PaymentMethod = {
   systemId: SystemId;
   id: BusinessId;
   name: string;
+  type?: string | undefined;
   isDefault: boolean;
   isActive: boolean;
   color?: string | undefined;
   icon?: string | undefined;
   description?: string | undefined;
-  accountNumber?: string | undefined;
-  accountName?: string | undefined;
-  bankName?: string | undefined;
   createdAt?: string;
   updatedAt?: string;
   createdBy?: SystemId;
@@ -3178,6 +3391,7 @@ export type TemplateType =
   | 'inventory-check' 
   | 'stock-transfer'
   | 'sales-return'
+  | 'sales-exchange'
   | 'purchase-order'
   | 'packing'
   | 'quote'
@@ -3194,9 +3408,21 @@ export type TemplateType =
   | 'handover'
   | 'payroll'
   | 'payslip'
-  | 'attendance';
+  | 'attendance'
+  // Extended types
+  | 'supplier-order'
+  | 'return-order'
+  | 'refund-confirmation'
+  | 'packing-guide'
+  | 'sales-summary'
+  | 'warranty-request'
+  | 'packing-request'
+  | 'stock-out'
+  | 'sales-contract'
+  | 'goods-handover-report'
+  | 'customer-mark-label';
 
-export type PaperSize = 'A4' | 'A5' | 'A6' | 'K80' | 'K57' | '50x30';
+export type PaperSize = 'A4' | 'A5' | 'A6' | 'K80' | 'K57' | (string & {});
 
 export interface PrintTemplate {
   id: string;
@@ -3228,15 +3454,26 @@ export const TEMPLATE_TYPES: { value: TemplateType; label: string }[] = [
   { value: 'stock-transfer', label: 'Phiếu chuyển kho' },
   { value: 'inventory-check', label: 'Phiếu kiểm kho' },
   { value: 'cost-adjustment', label: 'Phiếu điều chỉnh giá vốn' },
+  { value: 'price-adjustment', label: 'Phiếu điều chỉnh giá bán' },
   { value: 'receipt', label: 'Phiếu thu' },
   { value: 'payment', label: 'Phiếu chi' },
   { value: 'warranty', label: 'Phiếu bảo hành' },
   { value: 'supplier-return', label: 'Phiếu trả hàng NCC' },
   { value: 'complaint', label: 'Phiếu khiếu nại' },
   { value: 'penalty', label: 'Phiếu phạt' },
+  { value: 'leave', label: 'Đơn nghỉ phép' },
+  { value: 'handover', label: 'Phiếu bàn giao' },
   { value: 'payroll', label: 'Bảng lương' },
   { value: 'payslip', label: 'Phiếu lương' },
   { value: 'attendance', label: 'Bảng chấm công' },
+  // Extended
+  { value: 'supplier-order', label: 'Đơn đặt hàng NCC' },
+  { value: 'return-order', label: 'Phiếu trả hàng' },
+  { value: 'refund-confirmation', label: 'Phiếu xác nhận hoàn tiền' },
+  { value: 'packing-guide', label: 'Hướng dẫn đóng gói' },
+  { value: 'sales-summary', label: 'Báo cáo tổng kết bán hàng' },
+  { value: 'warranty-request', label: 'Phiếu yêu cầu bảo hành' },
+  { value: 'packing-request', label: 'Phiếu yêu cầu đóng gói' },
 ];
 
 export const PAPER_SIZES: { value: PaperSize; label: string }[] = [
@@ -3245,7 +3482,11 @@ export const PAPER_SIZES: { value: PaperSize; label: string }[] = [
   { value: 'A6', label: 'Khổ A6' },
   { value: 'K80', label: 'Khổ K80 (Máy in nhiệt)' },
   { value: 'K57', label: 'Khổ K57 (Máy in nhiệt nhỏ)' },
-  { value: '50x30', label: 'Khổ 50x30mm (Tem phụ)' },
+  { value: '50x30', label: 'Khổ 50×30mm (Tem phụ)' },
+  { value: '50x20', label: 'Khổ 50×20mm' },
+  { value: '40x60', label: 'Khổ 40×60mm' },
+  { value: '100x75', label: 'Khổ 100×75mm' },
+  { value: '100x150', label: 'Khổ 100×150mm' },
 ];
 
 // ============================================
@@ -3924,22 +4165,10 @@ export interface DebtAlert {
   oldestDueDate?: string;
 }
 
-export interface CustomerHealthAlert {
-  systemId: SystemId;
-  customer: Customer;
-  healthScore: number;
-  churnRisk: 'low' | 'medium' | 'high';
-  segment?: string;
-  daysSinceLastPurchase: number;
-  totalOrders: number;
-  totalSpent: number;
-}
-
 export interface CustomerSlaIndexEntry {
   customer: Customer;
   alerts: CustomerSlaAlert[];
   debtAlert?: DebtAlert;
-  healthAlert?: CustomerHealthAlert;
 }
 
 export interface CustomerSlaIndex {
@@ -3947,7 +4176,6 @@ export interface CustomerSlaIndex {
   followUpAlerts: CustomerSlaAlert[];
   reEngagementAlerts: CustomerSlaAlert[];
   debtAlerts: DebtAlert[];
-  healthAlerts: CustomerHealthAlert[];
 }
 
 export interface SlaReportSummary {

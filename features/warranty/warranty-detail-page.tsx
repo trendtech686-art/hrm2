@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useParams } from 'next/navigation';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { Edit2, MessageSquare, Printer, XCircle, Bell, Clock, AlertCircle, Copy } from 'lucide-react';
+import { Edit2, MessageSquare, XCircle, Clock, AlertCircle, Copy } from 'lucide-react';
 // formatDate import removed - not used
 import { cn } from '../../lib/utils';
 import type { WarrantyTicket, WarrantyHistory } from './types';
@@ -12,6 +12,8 @@ import { WARRANTY_STATUS_LABELS, WARRANTY_STATUS_COLORS } from './types';
 import { useWarrantyMutations } from './hooks/use-warranties';
 import { useWarranty } from './hooks/use-warranties';
 import { useAuth } from '../../contexts/auth-context';
+import { useQueryClient } from '@tanstack/react-query';
+import { invalidateRelated } from '../../lib/query-invalidation-map';
 
 // UI Components
 import { Button } from '../../components/ui/button';
@@ -41,9 +43,10 @@ import { WarrantyCancelDialog } from './components/dialogs/warranty-cancel-dialo
 import { WarrantyReopenFromCancelledDialog } from './components/dialogs/warranty-reopen-from-cancelled-dialog';
 import { WarrantyReopenFromReturnedDialog } from './components/dialogs/warranty-reopen-from-returned-dialog';
 import { WarrantyReturnMethodDialog } from './components/dialogs/warranty-return-method-dialog';
-import { WarrantyReminderDialog } from './components/dialogs/warranty-reminder-dialog';
-import { useWarrantyReminders } from './hooks/use-warranty-reminders';
+import { WarrantyUploadProcessedImagesDialog } from './components/dialogs/warranty-upload-processed-images-dialog';
+
 import { useWarrantyTimeTracking } from './hooks/use-warranty-time-tracking';
+import { useWarrantySLATargets } from './hooks/use-warranty-sla-targets';
 import { useWarrantySettlement } from './hooks/use-warranty-settlement';
 import { useReturnMethodDialog } from './hooks/use-return-method-dialog';
 import { useWarrantyActions } from './hooks/use-warranty-actions';
@@ -56,15 +59,7 @@ import { WarrantyHistorySection } from './components/sections/history-section';
 
 import { useOrder } from '../orders/hooks/use-orders';
 import { asSystemId } from '@/lib/id-types';
-import { usePrint } from '../../lib/use-print';
-import { 
-  convertWarrantyForPrint,
-  mapWarrantyToPrintData, 
-  mapWarrantyLineItems, 
-  createStoreSettings 
-} from '../../lib/print/warranty-print-helper';
-import { useBranchFinder } from '../settings/branches/hooks/use-all-branches';
-import { useStoreInfoData } from '../settings/store-info/hooks/use-store-info';
+
 
 const RESPONSE_TEMPLATES = [
   {
@@ -87,7 +82,8 @@ const RESPONSE_TEMPLATES = [
 export function WarrantyDetailPage() {
   const router = useRouter();
   const { systemId = '' } = useParams<{ systemId: string }>();
-  const { user, employee } = useAuth();
+  const { user, employee, isAdmin } = useAuth();
+  const queryClient = useQueryClient();
 
   // ✅ React Query for single ticket
   const { data: ticketFromQuery, isLoading } = useWarranty(systemId);
@@ -147,6 +143,9 @@ export function WarrantyDetailPage() {
   // ⚡ OPTIMIZED: Fetch only the linked order instead of all orders
   const { data: linkedOrder } = useOrder(ticket?.linkedOrderSystemId);
 
+
+
+
   const [showCancelDialog, setShowCancelDialog] = React.useState(false);
   const [showReopenDialog, setShowReopenDialog] = React.useState(false);
   const [showReopenReturnedDialog, setShowReopenReturnedDialog] = React.useState(false);
@@ -154,6 +153,7 @@ export function WarrantyDetailPage() {
   const [previewImages, setPreviewImages] = React.useState<string[]>([]);
   const [previewIndex, setPreviewIndex] = React.useState(0);
   const [showImagePreview, setShowImagePreview] = React.useState(false);
+  const [showUploadProcessedImagesDialog, setShowUploadProcessedImagesDialog] = React.useState(false);
 
   const {
     isOpen: isReturnDialogOpen,
@@ -209,11 +209,12 @@ export function WarrantyDetailPage() {
   });
 
 
-  const timeMetrics = useWarrantyTimeTracking(ticket);
+  const slaTargets = useWarrantySLATargets();
+  const timeMetrics = useWarrantyTimeTracking(ticket, slaTargets);
 
   const slaStatus = React.useMemo(() => {
     if (!ticket) return null;
-    const status = checkWarrantyOverdue(ticket);
+    const status = checkWarrantyOverdue(ticket, slaTargets);
     if (status.isOverdueReturn || status.isOverdueProcessing || status.isOverdueResponse) {
       return { label: 'Quá hạn', color: 'text-destructive' };
     }
@@ -222,40 +223,12 @@ export function WarrantyDetailPage() {
       return { label: 'Sắp hết hạn', color: 'text-orange-500' };
     }
     return { label: 'Đúng hạn', color: 'text-green-600' };
-  }, [ticket]);
+  }, [ticket, slaTargets]);
 
-  const {
-    isReminderModalOpen,
-    openReminderModal,
-    closeReminderModal,
-    selectedTicket,
-    templates,
-    sendReminder,
-  } = useWarrantyReminders();
+
 
   const responseTemplates = React.useMemo(() => RESPONSE_TEMPLATES, []);
   const isReturned = ticket?.status === 'RETURNED';
-
-  const { findById: findBranchById } = useBranchFinder();
-  const { info: storeInfo } = useStoreInfoData();
-  const { print } = usePrint(ticket?.branchSystemId);
-
-  const handlePrint = React.useCallback(() => {
-    if (!ticket) return;
-
-    const branch = ticket.branchSystemId ? findBranchById(ticket.branchSystemId) : undefined;
-    const storeSettings = createStoreSettings(storeInfo);
-    
-    const warrantyForPrint = convertWarrantyForPrint(ticket, {
-      branch,
-      linkedOrderId: linkedOrder?.id,
-    });
-
-    print('warranty', {
-      data: mapWarrantyToPrintData(warrantyForPrint, storeSettings),
-      lineItems: mapWarrantyLineItems(warrantyForPrint.items),
-    });
-  }, [ticket, linkedOrder, storeInfo, print, findBranchById]);
 
   const handleImagePreview = React.useCallback((images: string[], index: number) => {
     setPreviewImages(images);
@@ -263,41 +236,17 @@ export function WarrantyDetailPage() {
     setShowImagePreview(true);
   }, []);
 
+  // Callback khi upload ảnh xử lý xong → tự động chuyển trạng thái Hoàn tất
+  const handleProcessedImagesUploaded = React.useCallback(async () => {
+    invalidateRelated(queryClient, 'warranties');
+    queryClient.invalidateQueries({ queryKey: ['activity-logs'] });
+    // Skip image validation vì ảnh vừa được upload
+    handleStatusChange('COMPLETED', { skipImageValidation: true });
+  }, [handleStatusChange, queryClient]);
+
   // Page header actions - Calculate directly for reactivity
   const actions = React.useMemo(() => {
     const actionButtons: React.ReactElement[] = [];
-
-    // Print button (LEFT SIDE)
-    actionButtons.push(
-      <Button
-        key="print"
-        type="button"
-        size="sm"
-        variant="outline"
-        className="h-9"
-        onClick={handlePrint}
-      >
-        <Printer className="h-4 w-4 mr-2" />
-        In
-      </Button>
-    );
-
-    // Remind button (LEFT SIDE) - available for non-returned and non-cancelled tickets
-    if (ticket && !isReturned && !ticket.cancelledAt) {
-      actionButtons.push(
-        <Button
-          key="remind"
-          type="button"
-          size="sm"
-          variant="outline"
-          className="h-9"
-          onClick={() => openReminderModal(ticket)}
-        >
-          <Bell className="h-4 w-4 mr-2" />
-          Nhắc nhở
-        </Button>
-      );
-    }
 
     // Template button (LEFT SIDE) - available when ticket exists and not cancelled
     if (ticket && !ticket.cancelledAt) {
@@ -320,20 +269,22 @@ export function WarrantyDetailPage() {
     // Show different buttons based on ticket status and cancelledAt flag
     
     if (ticket?.cancelledAt) {
-      // If cancelled, only show "Mở lại" button
-      actionButtons.push(
-        <Button 
-          key="reopen" 
-          size="sm" 
-          variant="outline"
-          className="h-9 text-green-600 hover:text-green-700"
-          onClick={() => setShowReopenDialog(true)}
-        >
-          Mở lại
-        </Button>
-      );
-    } else {
-      // Normal status flow buttons
+      // If cancelled, only show "Mở lại" button (admin only)
+      if (isAdmin) {
+        actionButtons.push(
+          <Button 
+            key="reopen" 
+            size="sm" 
+            variant="outline"
+            className="h-9 text-green-600 hover:text-green-700"
+            onClick={() => setShowReopenDialog(true)}
+          >
+            Mở lại
+          </Button>
+        );
+      }
+    } else if (isAdmin) {
+      // Normal status flow buttons - ADMIN ONLY
       if (ticket?.status === 'RECEIVED') {
         // Show primary "Bắt đầu xử lý" button for RECEIVED status
         actionButtons.push(
@@ -354,12 +305,17 @@ export function WarrantyDetailPage() {
       }
       if (ticket?.status === 'PROCESSING') {
         actionButtons.push(
-          <Button key="to-completed" size="sm" variant="outline" className="h-9" onClick={() => handleStatusChange('COMPLETED')}>
+          <Button key="to-completed" size="sm" variant="outline" className="h-9" onClick={async () => {
+            const result = await handleStatusChange('COMPLETED');
+            if (result === 'needs-images') {
+              setShowUploadProcessedImagesDialog(true);
+            }
+          }}>
             Đánh dấu Hoàn tất
           </Button>
         );
       }
-      if (ticket?.status === 'COMPLETED' || ticket?.status === 'RETURNED') {
+      if (ticket?.status === 'COMPLETED' && !ticket?.completedAt || ticket?.status === 'RETURNED') {
         actionButtons.push(
           <Button 
             key="to-returned" 
@@ -404,8 +360,8 @@ export function WarrantyDetailPage() {
       }
     }
 
-    // Edit button - only show if not returned and not cancelled (RIGHT SIDE)
-    if (!isReturned && !ticket?.cancelledAt) {
+    // Edit button - ADMIN ONLY (RIGHT SIDE)
+    if (!isReturned && !ticket?.cancelledAt && isAdmin) {
       actionButtons.push(
         <Button
           key="edit"
@@ -425,8 +381,8 @@ export function WarrantyDetailPage() {
       );
     }
 
-    // Cancel button - only show if not already cancelled (RIGHT SIDE)
-    if (!ticket?.cancelledAt && ticket?.status !== 'CANCELLED') {
+    // Cancel button - ADMIN ONLY (RIGHT SIDE)
+    if (isAdmin && !ticket?.cancelledAt && ticket?.status !== 'CANCELLED') {
       actionButtons.push(
         <Button
           key="cancel"
@@ -443,18 +399,31 @@ export function WarrantyDetailPage() {
     }
 
     return actionButtons;
-  }, [ticket, systemId, isReturned, router, handleStatusChange, handleCompleteTicket, openReminderModal, isCompletingTicket, handlePrint, openReturnDialog]);
+  }, [ticket, systemId, isReturned, router, handleStatusChange, handleCompleteTicket, isCompletingTicket, openReturnDialog, isAdmin]);
 
   // Page header - title auto-generated from breadcrumb, Badge below title
   const statusBadge = ticket ? (
-    <Badge className={WARRANTY_STATUS_COLORS[ticket.status]}>
-      {WARRANTY_STATUS_LABELS[ticket.status]}
-    </Badge>
+    <div className="flex items-center gap-2">
+      <Badge className={WARRANTY_STATUS_COLORS[ticket.status]}>
+        {WARRANTY_STATUS_LABELS[ticket.status]}
+      </Badge>
+      {!ticket.cancelledAt && isAdmin && (
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-7 gap-1.5"
+          onClick={() => router.push(`/warranty/new?copy=${systemId}`)}
+        >
+          <Copy className="h-3.5 w-3.5" />
+          Sao chép
+        </Button>
+      )}
+    </div>
   ) : undefined;
   
   // SLA Timer & Time Tracking Metrics component
   const _slaMetrics = ticket && !isReturned && timeMetrics && slaStatus ? (
-    <div className="flex items-center gap-4 text-body-sm mt-2">
+    <div className="flex items-center gap-4 text-sm mt-2">
       {/* SLA Status */}
       <div className="flex items-center gap-1.5">
         <Clock className="h-3.5 w-3.5 text-muted-foreground" />
@@ -487,23 +456,8 @@ export function WarrantyDetailPage() {
     </div>
   ) : null;
   
-  // Add Print button to actions array
   const allActions = React.useMemo(() => [
-    <Button
-      key="print"
-      type="button"
-      size="sm"
-      variant="outline"
-      onClick={() => {
-        // Just print without logging history (print action doesn't need tracking)
-        window.print();
-      }}
-      className="h-9"
-    >
-      <Printer className="h-4 w-4 mr-2" />
-      In
-    </Button>,
-    ...actions.filter(a => a.key !== 'print' && a.key !== 'get-link'),
+    ...actions.filter(a => a.key !== 'get-link'),
   ], [actions]);
   
   const headerTitle = ticket ? `Phiếu bảo hành ${ticket.id}` : 'Chi tiết phiếu bảo hành';
@@ -564,7 +518,7 @@ export function WarrantyDetailPage() {
                     <h3 className="font-semibold text-orange-900 dark:text-orange-100 mb-1">
                       Phiếu chưa đầy đủ thông tin
                     </h3>
-                    <p className="text-body-sm text-orange-800 dark:text-orange-200">
+                    <p className="text-sm text-orange-800 dark:text-orange-200">
                       Vui lòng cập nhật <strong>Danh sách sản phẩm bảo hành</strong> để chuyển sang trạng thái "Đang xử lý" và tiếp tục xử lý phiếu.
                     </p>
                   </div>
@@ -607,17 +561,20 @@ export function WarrantyDetailPage() {
                   ticket={ticket}
                   settlement={settlement}
                 />
-
-                <CustomerInfoCard ticket={ticket} />
               </div>
 
-              <WarrantyWorkflowCard
-                ticket={ticket}
-                currentUserName={currentUser.name}
-                onUpdateTicket={update}
-                onUpdateStatus={updateStatus}
-                onAddHistory={addHistory}
-              />
+              {/* Right Column: Customer Info + Workflow */}
+              <div className="space-y-4">
+                <CustomerInfoCard ticket={ticket} />
+
+                <WarrantyWorkflowCard
+                  ticket={ticket}
+                  currentUserName={currentUser.name}
+                  onUpdateTicket={update}
+                  onUpdateStatus={updateStatus}
+                  onAddHistory={addHistory}
+                />
+              </div>
             </div>
 
             {/* ===== ROW 2: Images - 2 columns side by side (50-50) ===== */}
@@ -644,7 +601,7 @@ export function WarrantyDetailPage() {
                 <CardTitle>Danh sách sản phẩm bảo hành</CardTitle>
               </CardHeader>
               <CardContent>
-                <WarrantyProductsDetailTable products={ticket.products || []} ticket={ticket} />
+                <WarrantyProductsDetailTable products={ticket.products || []} />
               </CardContent>
             </Card>
 
@@ -655,9 +612,9 @@ export function WarrantyDetailPage() {
               </CardHeader>
               <CardContent>
                 {ticket.notes ? (
-                  <p className="text-body-sm whitespace-pre-wrap">{ticket.notes}</p>
+                  <p className="text-sm whitespace-pre-wrap">{ticket.notes}</p>
                 ) : (
-                  <p className="text-body-sm text-muted-foreground">Không có ghi chú</p>
+                  <p className="text-sm text-muted-foreground">Không có ghi chú</p>
                 )}
               </CardContent>
             </Card>
@@ -669,7 +626,7 @@ export function WarrantyDetailPage() {
               onAddHistory={addHistory}
             />
 
-            <WarrantyHistorySection ticket={ticket} />
+            <WarrantyHistorySection ticketId={ticket.systemId} />
           </div>
         </ScrollArea>
 
@@ -713,15 +670,6 @@ export function WarrantyDetailPage() {
         ticket={ticket}
       />
 
-      {/* Reminder Modal */}
-      <WarrantyReminderDialog
-        open={isReminderModalOpen}
-        onOpenChange={closeReminderModal}
-        ticket={selectedTicket}
-        templates={templates}
-        onSendReminder={sendReminder}
-      />
-
       {/* XÓA: Không cần Remaining Amount Dialog nữa - xử lý qua phiếu thu/chi */}
 
       {/* Template Dialog */}
@@ -730,43 +678,46 @@ export function WarrantyDetailPage() {
           <DialogHeader>
             <DialogTitle>Mẫu phản hồi bảo hành</DialogTitle>
             <DialogDescription>
-              Chọn mẫu phản hồi để copy nội dung. Sử dụng {'{ticketId}'} để thay mã phiếu tự động.
+              Chọn mẫu phản hồi để copy nội dung. Tên khách hàng và mã phiếu sẽ được thay tự động.
             </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4 mt-4">
-            {responseTemplates.map((template) => (
-              <Card key={template.id} className="hover:shadow-md transition-shadow">
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <CardTitle>{template.name}</CardTitle>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        // Replace placeholders
-                        let content = template.content;
-                        if (ticket) {
-                          content = content.replace(/{ticketId}/g, ticket.id);
-                          content = content.replace(/{customerName}/g, ticket.customerName);
-                          content = content.replace(/{trackingCode}/g, ticket.trackingCode);
-                        }
-                        navigator.clipboard.writeText(content);
-                        toast.success('Đã copy nội dung');
-                      }}
-                    >
-                      <Copy className="h-4 w-4 mr-2" />
-                      Copy
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-body-sm whitespace-pre-wrap bg-muted/50 p-3 rounded-md">
-                    {template.content}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+            {responseTemplates.map((template) => {
+              // Replace placeholders with actual values for both preview and copy
+              const resolvedContent = ticket
+                ? template.content
+                    .replace(/{ticketId}/g, ticket.id)
+                    .replace(/{customerName}/g, ticket.customerName)
+                    .replace(/{trackingCode}/g, ticket.trackingCode || '')
+                : template.content;
+
+              return (
+                <Card key={template.id} className="hover:shadow-md transition-shadow">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between">
+                      <CardTitle>{template.name}</CardTitle>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          navigator.clipboard.writeText(resolvedContent);
+                          toast.success('Đã copy nội dung');
+                        }}
+                      >
+                        <Copy className="h-4 w-4 mr-2" />
+                        Copy
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-sm whitespace-pre-wrap bg-muted/50 p-3 rounded-md">
+                      {resolvedContent}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         </DialogContent>
       </Dialog>
@@ -780,6 +731,17 @@ export function WarrantyDetailPage() {
       />
 
       {/* Order Selection Dialog - TODO: Implement WarrantyOrderSelectionDialog component */}
+
+      {/* Upload Processed Images Dialog */}
+      {ticket && (
+        <WarrantyUploadProcessedImagesDialog
+          open={showUploadProcessedImagesDialog}
+          onOpenChange={setShowUploadProcessedImagesDialog}
+          warrantySystemId={ticket.systemId}
+          existingImages={(ticket.processedImages as string[]) || []}
+          onUploaded={handleProcessedImagesUploaded}
+        />
+      )}
     </div>
   );
 }

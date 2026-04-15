@@ -10,6 +10,7 @@ import type { EmployeeSettings } from '../settings/employees/types';
 import { asBusinessId as _asBusinessId, asSystemId, type SystemId, type BusinessId } from '@/lib/id-types';
 import { toISODate, getDayOfWeek, isValidDate } from '../../lib/date-utils';
 import { getCurrentUserSystemId } from '../../contexts/auth-context';
+import { logError } from '@/lib/logger'
 
 // Penalty type SystemIds (từ data.ts)
 const LATE_ARRIVAL_PENALTY_TYPE = asSystemId('PENTYPE000004'); // Đi làm trễ
@@ -253,7 +254,7 @@ export async function confirmCreatePenalties(
         created++;
       }
     } catch (err) {
-      console.error('[PenaltySync] Failed to create penalty:', err);
+      logError('[PenaltySync] Failed to create penalty', err);
     }
   }
   
@@ -296,7 +297,7 @@ export async function loadExistingPenalties(): Promise<void> {
       status: p.status || '',
     }));
   } catch (err) {
-    console.error('[PenaltySync] Failed to load existing penalties:', err);
+    logError('[PenaltySync] Failed to load existing penalties', err);
   }
 }
 

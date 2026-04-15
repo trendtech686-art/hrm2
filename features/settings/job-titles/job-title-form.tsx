@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form"
 import type { JobTitle } from '@/lib/types/prisma-extended'
 
 import { Button } from "../../../components/ui/button"
+import { Loader2 } from "lucide-react"
 import {
   Form,
   FormControl,
@@ -20,9 +21,10 @@ type JobTitleFormProps = {
   initialData: JobTitle | null
   onSubmit: (values: JobTitleFormValues) => void;
   onCancel: () => void;
+  isPending?: boolean;
 }
 
-export function JobTitleForm({ initialData, onSubmit, onCancel }: JobTitleFormProps) {
+export function JobTitleForm({ initialData, onSubmit, onCancel, isPending }: JobTitleFormProps) {
   const form = useForm<JobTitleFormValues>({
     defaultValues: initialData || {
       id: "", // ✅ Empty string = auto-generate
@@ -100,7 +102,10 @@ export function JobTitleForm({ initialData, onSubmit, onCancel }: JobTitleFormPr
         />
         <div className="flex justify-end space-x-2 pt-4">
             <Button type="button" variant="outline" onClick={onCancel}>Hủy</Button>
-            <Button type="submit">Lưu</Button>
+            <Button type="submit" disabled={isPending}>
+              {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Lưu
+            </Button>
         </div>
       </form>
     </Form>

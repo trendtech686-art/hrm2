@@ -15,8 +15,11 @@ import type { ProductImagesState } from './use-warranty-form-state';
 import type { SimpleImageFile } from './use-product-images-state';
 import { validateWarrantyFormData, validateBranchAndEmployee } from '../utils/warranty-form-validation';
 import { calculateWarrantySummary, extractCustomerAddress } from '../utils/warranty-form-helpers';
-import { createWarranty, updateWarranty } from '../api/warranties-api';
+import { createWarranty, updateWarranty, fetchWarranties } from '../api/warranties-api';
 import { warrantyKeys } from './use-warranties';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
+import { fetchAllPages } from '@/lib/fetch-all-pages';
+import { logError } from '@/lib/logger'
 
 // Type for the ref-based getter function
 type GetProductImagesStateFn = () => {
@@ -37,9 +40,9 @@ type GetImagesStateFn = () => {
 export interface UseWarrantyFormSubmitOptions {
   isEditing: boolean;
   ticket: WarrantyTicket | null;
-  allTickets: WarrantyTicket[];
   branches: Array<{ systemId: string; name: string }>;
   employees: Array<{ systemId: string; fullName: string }>;
+  selectedEmployeeRef?: React.RefObject<{ systemId: string; fullName: string } | null>;
   // Legacy callbacks - no longer used but kept for backward compatibility
   add?: (data: unknown) => WarrantyTicket | undefined;
   update?: (systemId: string, data: unknown) => void;
@@ -72,7 +75,6 @@ export function useWarrantyFormSubmit(options: UseWarrantyFormSubmitOptions) {
   const {
     isEditing,
     ticket,
-    allTickets,
     branches,
     employees,
     receivedPermanentFiles: receivedPermanentFilesFallback,
@@ -89,6 +91,7 @@ export function useWarrantyFormSubmit(options: UseWarrantyFormSubmitOptions) {
     getReceivedImagesStateRef,
     getProcessedImagesStateRef,
     setIsSubmitting,
+    selectedEmployeeRef,
   } = options;
   
   const router = useRouter();
@@ -138,17 +141,27 @@ export function useWarrantyFormSubmit(options: UseWarrantyFormSubmitOptions) {
     
     try {
       // ===== VALIDATION =====
+      // ✅ OPTIMIZED: Fetch allTickets on-demand at submit time instead of eagerly on mount
+      const allTickets = await queryClient.ensureQueryData({
+        queryKey: [...warrantyKeys.all, 'all'],
+        queryFn: () => fetchAllPages((p) => fetchWarranties(p)),
+        staleTime: 2 * 60 * 1000,
+      });
       if (!validateWarrantyFormData(data, isEditing, allTickets)) {
         setIsSubmitting(false);
         return;
       }
 
       // ===== LOOKUP DATA =====
+      // ✅ Read employee ref at submit time to avoid stale closure
+      const currentEmployees = selectedEmployeeRef?.current
+        ? [selectedEmployeeRef.current]
+        : employees;
       const { branch, employee } = validateBranchAndEmployee(
         data.branchSystemId,
         data.employeeSystemId,
         branches,
-        employees
+        currentEmployees
       );
       
       if (!branch || !employee) {
@@ -327,7 +340,7 @@ export function useWarrantyFormSubmit(options: UseWarrantyFormSubmitOptions) {
                 productImages: finalProductImageUrls
               };
             } catch (error) {
-              console.error(`Failed to confirm product ${index} images:`, error);
+              logError(`Failed to confirm product ${index} images`, error);
               toast.error(`Lỗi lưu hình ảnh SP ${index + 1}`, { id: confirmToast });
               return product;
             }
@@ -335,7 +348,7 @@ export function useWarrantyFormSubmit(options: UseWarrantyFormSubmitOptions) {
         );
         
       } catch (confirmError) {
-        console.error('Failed to confirm staging files:', confirmError);
+        logError('Failed to confirm staging files', confirmError);
         setIsSubmitting(false);
         return;
       }
@@ -347,6 +360,7 @@ export function useWarrantyFormSubmit(options: UseWarrantyFormSubmitOptions) {
         branchName: branch.name,
         employeeSystemId: data.employeeSystemId,
         employeeName: employee.fullName,
+        customerId: data.customer?.systemId || undefined,
         customerName: data.customer?.name || '',
         customerPhone: data.customer?.phone || '',
         customerAddress: customerAddress,
@@ -391,16 +405,19 @@ export function useWarrantyFormSubmit(options: UseWarrantyFormSubmitOptions) {
         const shouldTransitionToProcessing = ticket.status === 'RECEIVED' && hasProducts;
         
         if (shouldTransitionToProcessing) {
-          updateData.status = 'PROCESSING';
+          (updateData as Record<string, unknown>).status = 'PROCESSING';
+        } else {
+          // ✅ Preserve existing status during edit — don't reset RETURNED/COMPLETED etc.
+          (updateData as Record<string, unknown>).status = ticket.status;
         }
         
         // DEBUG: Log data before sending to API
         
         // Call API to update
-        const updatedWarranty = await updateWarranty(ticket.systemId, updateData as Partial<WarrantyTicket>);
+        const updatedWarranty = await updateWarranty(ticket.systemId, updateData as unknown as Partial<WarrantyTicket>);
         
         // Invalidate queries to refetch
-        queryClient.invalidateQueries({ queryKey: warrantyKeys.all });
+        invalidateRelated(queryClient, 'warranties');
         
         if (shouldTransitionToProcessing) {
           toast.success('Đã cập nhật phiếu và chuyển sang "Đang xử lý"', {
@@ -422,6 +439,7 @@ export function useWarrantyFormSubmit(options: UseWarrantyFormSubmitOptions) {
           branchName: branch.name,
           employeeSystemId: data.employeeSystemId,
           employeeName: employee.fullName,
+          customerId: data.customer?.systemId || undefined,
           customerName: data.customer?.name || '',
           customerPhone: data.customer?.phone || '',
           customerAddress: customerAddress,
@@ -460,7 +478,7 @@ export function useWarrantyFormSubmit(options: UseWarrantyFormSubmitOptions) {
         const createdWarranty = await createWarranty(createPayload as Partial<WarrantyTicket>);
         
         // Invalidate queries to refetch
-        queryClient.invalidateQueries({ queryKey: warrantyKeys.all });
+        invalidateRelated(queryClient, 'warranties');
         
         toast.success('Đã tạo phiếu bảo hành', { 
           description: `Mã: ${createdWarranty.id} - Khách: ${data.customer?.name}`,
@@ -470,7 +488,7 @@ export function useWarrantyFormSubmit(options: UseWarrantyFormSubmitOptions) {
         router.push(`/warranty/${createdWarranty.systemId}`);
       }
     } catch (error) {
-      console.error('Error saving warranty ticket:', error);
+      logError('Error saving warranty ticket', error);
       
       const errorMessage = error instanceof Error ? error.message : 'Lỗi không xác định';
       
@@ -484,7 +502,6 @@ export function useWarrantyFormSubmit(options: UseWarrantyFormSubmitOptions) {
   }, [
     isEditing,
     ticket,
-    allTickets,
     branches,
     employees,
     // ✅ Use refs instead of state values to avoid stale closures

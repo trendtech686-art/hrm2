@@ -2,7 +2,9 @@
 
 import * as React from "react"
 import { useRouter } from 'next/navigation';
-import { useSuppliers, useDeletedSuppliers, useSupplierMutations, useTrashMutations, useSupplierStats } from "./hooks/use-suppliers"
+import { useQueryClient } from '@tanstack/react-query';
+import { useSuppliers, useSupplierMutations, useTrashMutations, useSupplierStats, supplierKeys } from "./hooks/use-suppliers"
+import { fetchSupplier } from './api/suppliers-api'
 import { useActiveSuppliers } from "./hooks/use-all-suppliers"
 import { getColumns } from "./columns"
 import { ResponsiveDataTable } from "../../components/data-table/responsive-data-table"
@@ -11,19 +13,23 @@ import { PageFilters } from "../../components/layout/page-filters"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../components/ui/alert-dialog"
 import type { Supplier } from '@/lib/types/prisma-extended'
 import { Button } from "../../components/ui/button"
-import { PlusCircle, Trash2, FileSpreadsheet, Download, Users, UserCheck, CreditCard, TrendingUp, Settings } from "lucide-react"
+import { PlusCircle, Trash2, FileSpreadsheet, Download, Settings } from "lucide-react"
 import { usePageHeader } from "../../contexts/page-header-context";
 import { DynamicDataTableColumnCustomizer as DataTableColumnCustomizer } from "../../components/data-table/dynamic-column-customizer";
 import { SupplierCard } from "./supplier-card";
 import { useBreakpoint } from "../../contexts/breakpoint-context";
 import dynamic from 'next/dynamic';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 import { asSystemId, type SystemId } from "@/lib/id-types";
 import { useAllBranches } from "../settings/branches/hooks/use-all-branches";
 import { useAuth } from "../../contexts/auth-context";
-import { useColumnVisibility } from "../../hooks/use-column-visibility";
-import { StatsCard, StatsCardGrid } from "@/components/shared/stats-card"
+import { useColumnLayout } from "../../hooks/use-column-visibility";
+import { StatsBar } from "@/components/shared/stats-bar"
 import { formatCurrency, formatNumber } from "@/lib/format-utils"
+import { usePaginationWithGlobalDefault } from '@/features/settings/global/hooks/use-global-settings';
+import { AdvancedFilterPanel, FilterExtras, type FilterConfig } from '@/components/shared/advanced-filter-panel'
+import { useFilterPresets } from '@/hooks/use-filter-presets'
 
 const SupplierImportDialog = dynamic(() => import("./components/suppliers-import-export-dialogs").then(mod => ({ default: mod.SupplierImportDialog })), { ssr: false });
 const SupplierExportDialog = dynamic(() => import("./components/suppliers-import-export-dialogs").then(mod => ({ default: mod.SupplierExportDialog })), { ssr: false });
@@ -33,20 +39,24 @@ export interface SuppliersPageProps {
   initialStats?: {
     totalSuppliers: number;
     activeSuppliers: number;
-    suppliersWithDebt: number;
-    totalDebtAmount: number;
+    totalDebit: number;
+    totalCredit: number;
+    totalPurchased: number;
+    totalPaid: number;
   };
 }
 
 export function SuppliersPage({ initialStats }: SuppliersPageProps = {}) {
   // Stats from server component
   const { data: stats } = useSupplierStats(initialStats);
+  const queryClient = useQueryClient();
+  const [isFilterPending, startFilterTransition] = React.useTransition();
   
   // Server-side pagination state
   const [searchQuery, setSearchQuery] = React.useState('');
   const [debouncedSearch, setDebouncedSearch] = React.useState('');
   const [sorting, setSorting] = React.useState<{ id: string, desc: boolean }>({ id: 'createdAt', desc: true });
-  const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 10 });
+  const [pagination, setPagination] = usePaginationWithGlobalDefault();
   
   // Debounce search
   React.useEffect(() => {
@@ -55,10 +65,10 @@ export function SuppliersPage({ initialStats }: SuppliersPageProps = {}) {
       setPagination(prev => ({ ...prev, pageIndex: 0 }));
     }, 300);
     return () => clearTimeout(timer);
-  }, [searchQuery]);
+  }, [searchQuery, setPagination]);
   
   // Server-side paginated query
-  const { data: suppliersData, isLoading: isLoadingSuppliers } = useSuppliers({
+  const { data: suppliersData, isLoading: isLoadingSuppliers, isFetching } = useSuppliers({
     page: pagination.pageIndex + 1,
     limit: pagination.pageSize,
     search: debouncedSearch || undefined,
@@ -70,8 +80,7 @@ export function SuppliersPage({ initialStats }: SuppliersPageProps = {}) {
   const totalRows = suppliersData?.pagination?.total ?? 0;
   const pageCount = suppliersData?.pagination?.totalPages ?? 1;
   
-  const { data: deletedSuppliersData } = useDeletedSuppliers();
-  const deletedCount = deletedSuppliersData?.length ?? 0;
+  const deletedCount = stats?.deletedCount ?? 0;
   const { create: createMutation, update: updateMutation, remove: removeMutation } = useSupplierMutations({
     onDeleteSuccess: () => toast.success("Đã chuyển nhà cung cấp vào thùng rác"),
     onUpdateSuccess: () => toast.success("Đã cập nhật nhà cung cấp"),
@@ -80,16 +89,37 @@ export function SuppliersPage({ initialStats }: SuppliersPageProps = {}) {
   const { restore: restoreMutation } = useTrashMutations();
   const [showImportDialog, setShowImportDialog] = React.useState(false), [showExportDialog, setShowExportDialog] = React.useState(false);
   const { data: activeSuppliers } = useActiveSuppliers({ enabled: showImportDialog || showExportDialog });
-  const { data: branches } = useAllBranches();
-  const { employee: currentUser } = useAuth();
+  const { data: branches } = useAllBranches({ enabled: showImportDialog });
+  const {  employee: currentUser, can } = useAuth();
+  const canCreate = can('create_suppliers');
+  const canDelete = can('delete_suppliers');
+  const canEditSettings = can('edit_settings');
   const router = useRouter();
   const { isMobile } = useBreakpoint();
   const [mobileLoadedCount, setMobileLoadedCount] = React.useState(20);
 
+  // Advanced filter panel
+  const { presets, savePreset, deletePreset, updatePreset } = useFilterPresets('suppliers');
+  const filterConfigs: FilterConfig[] = React.useMemo(() => [
+    { id: 'status', label: 'Trạng thái', type: 'multi-select' as const, options: [{ value: 'Đang Giao Dịch', label: 'Đang giao dịch' }, { value: 'Ngừng Giao Dịch', label: 'Tạm ngừng' }] },
+    { id: 'dateRange', label: 'Ngày tạo', type: 'date-range' as const },
+  ], []);
+  const [advancedFilters, setAdvancedFilters] = React.useState<Record<string, unknown>>({});
+  const panelValues = React.useMemo(() => ({
+    status: (advancedFilters.status as string[]) ?? [],
+    dateRange: advancedFilters.dateRange ?? null,
+  }), [advancedFilters]);
+  const handlePanelApply = React.useCallback((v: Record<string, unknown>) => {
+    startFilterTransition(() => {
+      setAdvancedFilters(v);
+      setPagination(prev => ({ ...prev, pageIndex: 0 }));
+    });
+  }, [setPagination]);
+
   const headerActions = React.useMemo(() => [
-    <Button key="trash" variant="outline" size="sm" className="h-9 gap-2" onClick={() => router.push('/suppliers/trash')}><Trash2 className="mr-2 h-4 w-4" />Thùng rác ({deletedCount})</Button>,
-    <Button key="add" size="sm" className="h-9 gap-2" onClick={() => router.push('/suppliers/new')}><PlusCircle className="mr-2 h-4 w-4" />Thêm nhà cung cấp</Button>
-  ], [router, deletedCount]);
+    canDelete && <Button key="trash" variant="outline" size="sm" className="h-9 gap-2" onClick={() => router.push('/suppliers/trash')}><Trash2 className="mr-2 h-4 w-4" />Thùng rác ({deletedCount})</Button>,
+    canCreate && <Button key="add" size="sm" className="h-9 gap-2" onClick={() => router.push('/suppliers/new')}><PlusCircle className="mr-2 h-4 w-4" />Thêm nhà cung cấp</Button>
+  ], [router, deletedCount, canCreate, canDelete]);
 
   usePageHeader({
     title: 'Nhà cung cấp',
@@ -106,31 +136,23 @@ export function SuppliersPage({ initialStats }: SuppliersPageProps = {}) {
     cols.forEach(c => { if (c.id) initial[c.id] = c.id === 'select' || c.id === 'actions' ? true : defaultVisibleColumns.includes(c.id); });
     return initial;
   }, []);
-  const [columnVisibility, setColumnVisibility] = useColumnVisibility('suppliers', defaultColumnVisibility);
-  const [columnOrder, setColumnOrder] = React.useState<string[]>([]), [pinnedColumns, setPinnedColumns] = React.useState<string[]>([]);
+  const [{ visibility: columnVisibility, order: columnOrder, pinned: pinnedColumns }, { setVisibility: setColumnVisibility, setOrder: setColumnOrder, setPinned: setPinnedColumns }] = useColumnLayout('suppliers', { visibility: defaultColumnVisibility, pinned: ['select', 'actions'] });
 
   const handleDelete = React.useCallback((systemId: SystemId) => { setIdToDelete(systemId); setIsAlertOpen(true); }, []);
 
   const handleRestore = React.useCallback((systemId: SystemId) => {
-    const supplier = suppliers.find(s => s.systemId === systemId);
-    restoreMutation.mutate(systemId);
-    if (supplier) toast.success(`Đã khôi phục nhà cung cấp "${supplier.name}"`);
-  }, [suppliers, restoreMutation]);
+    restoreMutation.mutate(systemId, {
+      onSuccess: () => toast.success('Đã khôi phục nhà cung cấp'),
+      onError: (err) => toast.error(err.message || 'Khôi phục thất bại'),
+    });
+  }, [restoreMutation]);
 
   const handleEdit = React.useCallback((supplier: Supplier) => { router.push(`/suppliers/${supplier.systemId}/edit`); }, [router]);
   const columns = React.useMemo(() => getColumns(handleDelete, handleRestore, handleEdit, router), [handleDelete, handleRestore, handleEdit, router]);
 
-  // Initialize column order once
-  React.useEffect(() => {
-    setColumnOrder(columns.map(c => c.id).filter(Boolean) as string[]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const confirmDelete = () => {
     if (idToDelete) {
-      const supplier = suppliers.find(s => s.systemId === idToDelete);
       removeMutation.mutate(idToDelete);
-      if (supplier) toast.success(`Đã chuyển nhà cung cấp "${supplier.name}" vào thùng rác`);
     }
     setIsAlertOpen(false);
     setIdToDelete(null);
@@ -139,13 +161,20 @@ export function SuppliersPage({ initialStats }: SuppliersPageProps = {}) {
   // Server-side pagination: data already sorted/filtered by API
   const allSelectedRows = React.useMemo(() => suppliers.filter(s => rowSelection[s.systemId]), [suppliers, rowSelection]);
   const handleRowClick = (supplier: Supplier) => router.push(`/suppliers/${supplier.systemId}`);
+  const handleRowHover = React.useCallback((supplier: Supplier) => {
+    queryClient.prefetchQuery({
+      queryKey: supplierKeys.detail(supplier.systemId),
+      queryFn: () => fetchSupplier(supplier.systemId),
+      staleTime: 60_000,
+    });
+  }, [queryClient]);
 
   const handleBulkStatusChange = (status: Supplier['status']) => {
     const selectedIds = Object.keys(rowSelection).filter(id => rowSelection[id]);
     if (selectedIds.length === 0) { toast.error('Chưa chọn nhà cung cấp', { description: 'Vui lòng chọn ít nhất một nhà cung cấp' }); return; }
     selectedIds.forEach(id => updateMutation.mutate({ systemId: asSystemId(id), status }));
     setRowSelection({});
-    toast.success(`Đã cập nhật trạng thái ${selectedIds.length} nhà cung cấp`);
+    // Toast handled by onUpdateSuccess callback
   };
 
   const handleBulkDelete = () => {
@@ -153,7 +182,7 @@ export function SuppliersPage({ initialStats }: SuppliersPageProps = {}) {
     if (selectedIds.length === 0) { toast.error('Chưa chọn nhà cung cấp', { description: 'Vui lòng chọn ít nhất một nhà cung cấp' }); return; }
     selectedIds.forEach(id => removeMutation.mutate(asSystemId(id)));
     setRowSelection({});
-    toast.success(`Đã chuyển ${selectedIds.length} nhà cung cấp vào thùng rác`);
+    // Toast handled by onDeleteSuccess callback
   };
 
   React.useEffect(() => { setMobileLoadedCount(20); }, [searchQuery, sorting]);
@@ -165,7 +194,7 @@ export function SuppliersPage({ initialStats }: SuppliersPageProps = {}) {
         setMobileLoadedCount(prev => prev < suppliers.length ? Math.min(prev + 20, suppliers.length) : prev);
       }
     };
-    window.addEventListener('scroll', handleScroll);
+    window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, [isMobile, suppliers.length]);
 
@@ -219,40 +248,22 @@ export function SuppliersPage({ initialStats }: SuppliersPageProps = {}) {
 
   return (
     <div className="space-y-4">
-      {/* Stats Cards - instant display from Server Component */}
-      <StatsCardGrid columns={4} className="mb-2">
-        <StatsCard
-          title="Tổng NCC"
-          value={stats?.totalSuppliers ?? 0}
-          icon={Users}
-          formatValue={(v) => formatNumber(Number(v))}
-        />
-        <StatsCard
-          title="Đang giao dịch"
-          value={stats?.activeSuppliers ?? 0}
-          icon={UserCheck}
-          formatValue={(v) => formatNumber(Number(v))}
-          variant="success"
-        />
-        <StatsCard
-          title="NCC có công nợ"
-          value={stats?.suppliersWithDebt ?? 0}
-          icon={CreditCard}
-          formatValue={(v) => formatNumber(Number(v))}
-          variant={stats?.suppliersWithDebt && stats.suppliersWithDebt > 0 ? 'warning' : 'default'}
-        />
-        <StatsCard
-          title="Tổng công nợ"
-          value={stats?.totalDebtAmount ?? 0}
-          icon={TrendingUp}
-          formatValue={(v) => formatCurrency(Number(v))}
-          variant={stats?.totalDebtAmount && stats.totalDebtAmount > 0 ? 'danger' : 'default'}
-        />
-      </StatsCardGrid>
+      {/* Stats Bar - instant display from Server Component */}
+      <StatsBar
+        className="mb-2"
+        items={[
+          { key: 'total', label: 'Tổng NCC', value: formatNumber(stats?.totalSuppliers ?? 0) },
+          { key: 'active', label: 'Đang giao dịch', value: formatNumber(stats?.activeSuppliers ?? 0) },
+          { key: 'debit', label: 'Tổng Dư Nợ', value: formatCurrency(stats?.totalDebit ?? 0) },
+          { key: 'credit', label: 'Tổng Dư Có', value: formatCurrency(stats?.totalCredit ?? 0) },
+          { key: 'purchased', label: 'Đã nhận', value: formatCurrency(stats?.totalPurchased ?? 0) },
+          { key: 'paid', label: 'Đã trả', value: formatCurrency(stats?.totalPaid ?? 0) },
+        ]}
+      />
 
       {!isMobile && (
         <PageToolbar leftActions={
-          <Button variant="outline" size="sm" onClick={() => router.push('/settings/inventory')}><Settings className="h-4 w-4 mr-2" />Cài đặt</Button>
+          <>{canEditSettings && <Button variant="outline" size="sm" onClick={() => router.push('/settings/inventory')}><Settings className="h-4 w-4 mr-2" />Cài đặt</Button>}</>
         } rightActions={
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={() => setShowImportDialog(true)}><FileSpreadsheet className="mr-2 h-4 w-4" />Nhập file</Button>
@@ -267,18 +278,31 @@ export function SuppliersPage({ initialStats }: SuppliersPageProps = {}) {
           <Button variant="outline" size="sm" onClick={() => setShowExportDialog(true)}><Download className="mr-2 h-4 w-4" />Xuất</Button>
         </div>
       )}
-      <PageFilters searchValue={searchQuery} onSearchChange={setSearchQuery} searchPlaceholder="Tìm kiếm nhà cung cấp..." />
-      <ResponsiveDataTable columns={columns} data={displayData} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowCount={totalRows} rowSelection={rowSelection} setRowSelection={setRowSelection} sorting={sorting} setSorting={setSorting} onRowClick={handleRowClick} allSelectedRows={allSelectedRows} bulkActions={bulkActions} expanded={{}} setExpanded={() => {}} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} isLoading={isLoadingSuppliers}
+      <PageFilters searchValue={searchQuery} onSearchChange={setSearchQuery} searchPlaceholder="Tìm kiếm nhà cung cấp...">
+        <AdvancedFilterPanel
+          filters={filterConfigs}
+          values={panelValues}
+          onApply={handlePanelApply}
+          presets={presets.map(p => ({ ...p, filters: p.filters }))}
+          onSavePreset={(preset) => savePreset(preset.name, panelValues)}
+          onDeletePreset={deletePreset}
+          onUpdatePreset={updatePreset}
+        />
+      </PageFilters>
+      <FilterExtras presets={presets} filterConfigs={filterConfigs} values={panelValues} onApply={handlePanelApply} onDeletePreset={deletePreset} />
+      <div className={cn((isFilterPending || (isFetching && !isLoadingSuppliers)) && 'opacity-60 transition-opacity')}>
+      <ResponsiveDataTable columns={columns} data={displayData} pageCount={pageCount} pagination={pagination} setPagination={setPagination} rowCount={totalRows} rowSelection={rowSelection} setRowSelection={setRowSelection} sorting={sorting} setSorting={setSorting} onRowClick={handleRowClick} onRowHover={handleRowHover} allSelectedRows={allSelectedRows} bulkActions={bulkActions} expanded={{}} setExpanded={() => {}} columnVisibility={columnVisibility} setColumnVisibility={setColumnVisibility} columnOrder={columnOrder} setColumnOrder={setColumnOrder} pinnedColumns={pinnedColumns} setPinnedColumns={setPinnedColumns} isLoading={isLoadingSuppliers}
         renderMobileCard={(supplier) => <SupplierCard supplier={supplier} onEdit={handleEdit} onDelete={handleDelete} onRestore={handleRestore} navigate={router.push} />}
       />
+      </div>
       {isMobile && mobileLoadedCount < suppliers.length && (
         <div className="text-center py-4">
           <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-solid border-current border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]" />
-          <p className="text-body-sm text-muted-foreground mt-2">Đang tải thêm...</p>
+          <p className="text-sm text-muted-foreground mt-2">Đang tải thêm...</p>
         </div>
       )}
       {isMobile && mobileLoadedCount >= suppliers.length && suppliers.length > 20 && (
-        <div className="text-center py-4"><p className="text-body-sm text-muted-foreground">Đã hiển thị tất cả {suppliers.length} kết quả</p></div>
+        <div className="text-center py-4"><p className="text-sm text-muted-foreground">Đã hiển thị tất cả {suppliers.length} kết quả</p></div>
       )}
       <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
         <AlertDialogContent>

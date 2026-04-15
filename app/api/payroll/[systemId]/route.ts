@@ -3,6 +3,9 @@ import { PayrollStatus } from '@/generated/prisma/client'
 import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
 import { updatePayrollSchema } from './validation'
 import { generateIdWithPrefix } from '@/lib/id-generator'
+import { logError } from '@/lib/logger'
+import { createBulkNotifications } from '@/lib/notifications'
+import { getUserNameFromDb } from '@/lib/get-user-name'
 
 interface RouteParams {
   params: Promise<{ systemId: string }>
@@ -35,7 +38,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
       }),
       prisma.auditLog.findMany({
         where: {
-          entityType: 'Payroll',
+          entityType: 'payroll',
           entityId: systemId,
         },
         orderBy: { createdAt: 'desc' },
@@ -148,7 +151,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
 
     return apiSuccess(result)
   } catch (error) {
-    console.error('Error fetching payroll:', error)
+    logError('Error fetching payroll', error)
     return apiError('Failed to fetch payroll', 500)
   }
 }
@@ -198,12 +201,42 @@ export async function PUT(request: Request, { params }: RouteParams) {
       },
     })
 
+    // Notify employees about payroll update
+    const employeeIds = payroll.items?.map(item => item.employee?.systemId || '').filter(Boolean) || [];
+    if (employeeIds.length > 0) {
+      createBulkNotifications({
+        type: 'payroll',
+        settingsKey: 'payroll:updated',
+        title: 'Cập nhật bảng lương',
+        message: `Bảng lương ${payroll.id || systemId} đã được cập nhật`,
+        link: `/payroll/${systemId}`,
+        recipientIds: employeeIds,
+        senderId: session.user?.employeeId,
+        senderName: session.user?.name,
+      }).catch(e => logError('[Payroll Update] notification failed', e));
+    }
+
+    // Log activity
+    getUserNameFromDb(session.user?.id).then(userName =>
+      prisma.activityLog.create({
+        data: {
+          entityType: 'payroll',
+          entityId: systemId,
+          action: 'updated',
+          actionType: 'update',
+          note: `Cập nhật bảng lương`,
+          metadata: { userName },
+          createdBy: userName,
+        }
+      })
+    ).catch(e => logError('[ActivityLog] payroll updated failed', e))
+
     return apiSuccess(payroll)
   } catch (error) {
     if (error instanceof Error && 'code' in error && error.code === 'P2025') {
       return apiError('Bảng lương không tồn tại', 404)
     }
-    console.error('Error updating payroll:', error)
+    logError('Error updating payroll', error)
     return apiError('Failed to update payroll', 500)
   }
 }
@@ -225,12 +258,27 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
       where: { systemId },
     })
 
+    // Log activity
+    getUserNameFromDb(session.user?.id).then(userName =>
+      prisma.activityLog.create({
+        data: {
+          entityType: 'payroll',
+          entityId: systemId,
+          action: 'deleted',
+          actionType: 'delete',
+          note: `Xóa bảng lương`,
+          metadata: { userName },
+          createdBy: userName,
+        }
+      })
+    ).catch(e => logError('[ActivityLog] payroll deleted failed', e))
+
     return apiSuccess({ success: true })
   } catch (error) {
     if (error instanceof Error && 'code' in error && error.code === 'P2025') {
       return apiError('Bảng lương không tồn tại', 404)
     }
-    console.error('Error deleting payroll:', error)
+    logError('Error deleting payroll', error)
     return apiError('Failed to delete payroll', 500)
   }
 }

@@ -16,6 +16,7 @@ export interface StockTransfersParams {
   status?: StockTransferStatus;
   fromBranchId?: string;
   toBranchId?: string;
+  productSystemId?: string;
   createdBy?: string;
   startDate?: string;
   endDate?: string;
@@ -39,6 +40,7 @@ export async function fetchStockTransfers(params: StockTransfersParams = {}): Pr
   if (params.status) searchParams.set('status', params.status);
   if (params.fromBranchId) searchParams.set('fromBranchId', params.fromBranchId);
   if (params.toBranchId) searchParams.set('toBranchId', params.toBranchId);
+  if (params.productSystemId) searchParams.set('productSystemId', params.productSystemId);
   if (params.createdBy) searchParams.set('createdBy', params.createdBy);
   if (params.startDate) searchParams.set('startDate', params.startDate);
   if (params.endDate) searchParams.set('endDate', params.endDate);

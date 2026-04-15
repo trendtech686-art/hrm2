@@ -39,6 +39,7 @@ import {
   ManageDepartmentsDialog,
   ManageJobTitlesDialog,
 } from './components/department-dialogs';
+import { useAuth } from '@/contexts/auth-context';
 
 
 const getInitials = (name: string) => {
@@ -51,6 +52,8 @@ const getInitials = (name: string) => {
 
 
 export function DepartmentsPage() {
+  const { can, isLoading: authLoading } = useAuth();
+  const canEditSettings = can('edit_settings');
   const { data: departments } = useAllDepartments();
   const { update: updateDepartmentMutation } = useDepartmentMutations({});
   const updateDepartment = React.useCallback((systemId: string, data: Partial<Department>) => {
@@ -59,6 +62,13 @@ export function DepartmentsPage() {
   const { data: employees } = useAllEmployees();
   const { update: updateEmployeeMutation } = useEmployeeMutations({});
   const router = useRouter();
+
+  React.useEffect(() => {
+    if (!authLoading && !canEditSettings) {
+      toast.error('Bạn không có quyền truy cập cài đặt phòng ban');
+      router.replace('/employees');
+    }
+  }, [authLoading, canEditSettings, router]);
 
   // Wrapper to match the old store API signature
   const updateEmployee = React.useCallback((systemId: string, data: Partial<Employee>) => {

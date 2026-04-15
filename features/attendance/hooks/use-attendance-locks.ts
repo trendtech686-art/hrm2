@@ -3,6 +3,8 @@
  * Replaces localStorage-based useAttendanceLocalState
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { logError } from '@/lib/logger'
+import { invalidateRelated } from '@/lib/query-invalidation-map'
 
 // API functions
 const API_BASE = '/api/attendance/locks'
@@ -24,7 +26,7 @@ async function lockMonth(monthKey: string): Promise<void> {
   })
   if (!res.ok) {
     const text = await res.text()
-    console.error('Lock month failed:', res.status, text)
+    logError('Lock month failed', null, { status: res.status, text })
     throw new Error(`Failed to lock month: ${res.status}`)
   }
 }
@@ -36,7 +38,7 @@ async function unlockMonth(monthKey: string): Promise<void> {
   })
   if (!res.ok) {
     const text = await res.text()
-    console.error('Unlock month failed:', res.status, text)
+    logError('Unlock month failed', null, { status: res.status, text })
     throw new Error(`Failed to unlock month: ${res.status}`)
   }
 }
@@ -82,7 +84,7 @@ export function useAttendanceLockMutations() {
       if (context?.prev) queryClient.setQueryData(attendanceLockKeys.lockedMonths(), context.prev)
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: attendanceLockKeys.lockedMonths() })
+      invalidateRelated(queryClient, 'attendance-locks')
     },
   })
 
@@ -100,7 +102,7 @@ export function useAttendanceLockMutations() {
       if (context?.prev) queryClient.setQueryData(attendanceLockKeys.lockedMonths(), context.prev)
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: attendanceLockKeys.lockedMonths() })
+      invalidateRelated(queryClient, 'attendance-locks')
     },
   })
 
@@ -128,7 +130,7 @@ export function useAttendanceLockMutations() {
       if (context?.prev) queryClient.setQueryData(attendanceLockKeys.lockedMonths(), context.prev)
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: attendanceLockKeys.lockedMonths() })
+      invalidateRelated(queryClient, 'attendance-locks')
     },
   })
 

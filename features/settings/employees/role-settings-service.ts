@@ -6,6 +6,7 @@
  */
 
 import { DEFAULT_ROLE_PERMISSIONS, type Permission } from '../../employees/permissions';
+import { logError } from '@/lib/logger'
 
 export interface CustomRole {
   id: string;
@@ -26,17 +27,35 @@ const DEFAULT_ROLES: CustomRole[] = [
 
 const API_ENDPOINT = '/api/settings/roles';
 
+/**
+ * Auto-merge new permissions from DEFAULT_ROLE_PERMISSIONS into DB-stored default roles.
+ * When new permissions are added in code (e.g. new feature module), default roles
+ * automatically pick them up without requiring manual reset in Settings.
+ */
+function mergeNewPermissionsForDefaultRoles(roles: CustomRole[]): CustomRole[] {
+  return roles.map(role => {
+    if (!role.isDefault) return role;
+    const defaultPerms = DEFAULT_ROLE_PERMISSIONS[role.id as keyof typeof DEFAULT_ROLE_PERMISSIONS];
+    if (!defaultPerms) return role;
+    const storedSet = new Set(role.permissions);
+    const newPerms = defaultPerms.filter(p => !storedSet.has(p));
+    if (newPerms.length === 0) return role;
+    return { ...role, permissions: [...role.permissions, ...newPerms] };
+  });
+}
+
 export async function fetchRoleSettings(): Promise<CustomRole[]> {
   try {
-    const response = await fetch(API_ENDPOINT);
+    const response = await fetch(API_ENDPOINT, { cache: 'no-store' });
     if (!response.ok) {
       console.warn('[RoleService] API not available, using defaults');
       return DEFAULT_ROLES;
     }
     const result = await response.json();
-    return result.data ?? DEFAULT_ROLES;
+    const roles = result.data ?? DEFAULT_ROLES;
+    return mergeNewPermissionsForDefaultRoles(roles);
   } catch (error) {
-    console.error('[RoleService] Failed to fetch roles:', error);
+    logError('[RoleService] Failed to fetch roles', error);
     return DEFAULT_ROLES;
   }
 }

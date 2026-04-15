@@ -191,12 +191,12 @@ export const ReturnItemRow = React.memo(function ReturnItemRow({
                   {field.productName}
                 </Link>
                 {isCombo && (
-                  <span className="text-body-xs px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground font-semibold">
+                  <span className="text-xs px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground font-semibold">
                     COMBO
                   </span>
                 )}
               </div>
-              <div className="flex items-center gap-1 text-body-xs text-muted-foreground group/info flex-wrap">
+              <div className="flex items-center gap-1 text-xs text-muted-foreground group/info flex-wrap">
                 <span>{getProductTypeLabel(product ?? null)}</span>
                 <span>-</span>
                 <Link
@@ -225,7 +225,7 @@ export const ReturnItemRow = React.memo(function ReturnItemRow({
                     variant="link"
                     size="sm"
                     onClick={() => handleOpenReturnNoteDialog(index)}
-                    className="opacity-0 group-hover/info:opacity-100 transition-opacity h-auto p-0 text-body-xs text-muted-foreground hover:text-foreground"
+                    className="opacity-0 group-hover/info:opacity-100 transition-opacity h-auto p-0 text-xs text-muted-foreground hover:text-foreground"
                   >
                     Thêm ghi chú
                   </Button>
@@ -318,10 +318,10 @@ export const ReturnItemRow = React.memo(function ReturnItemRow({
                     onPreview={handlePreview}
                   />
                   <div>
-                    <p className="text-body-sm font-medium">
+                    <p className="text-sm font-medium">
                       {ci.product?.name || 'Sản phẩm không tồn tại'}
                     </p>
-                    <p className="text-body-xs text-muted-foreground">
+                    <p className="text-xs text-muted-foreground">
                       {ci.product?.id} × {ci.quantity}
                     </p>
                   </div>

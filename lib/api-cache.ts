@@ -49,7 +49,7 @@ export async function withCache<T>(
   handler: () => Promise<NextResponse<T>>,
   options: CacheOptions = {}
 ): Promise<NextResponse<T>> {
-  const { ttl = CACHE_TTL.MEDIUM } = options
+  const { ttl = CACHE_TTL.MEDIUM * 1000 } = options
 
   // Try to get from cache
   const cached = cache.get<CachedResponse>(key)

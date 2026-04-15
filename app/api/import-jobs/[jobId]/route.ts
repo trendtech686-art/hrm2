@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
+import { logError } from '@/lib/logger'
 
 interface Params {
   params: Promise<{ jobId: string }>
@@ -52,7 +53,8 @@ export async function GET(_request: Request, { params }: Params) {
     }
 
     // Parse errors JSON if exists
-    const errors = job.errors ? JSON.parse(job.errors) : []
+    let errors: unknown[] = []
+    try { errors = job.errors ? JSON.parse(job.errors) : [] } catch { errors = [] }
 
     return apiSuccess({
       ...job,
@@ -67,7 +69,7 @@ export async function GET(_request: Request, { params }: Params) {
         : null,
     })
   } catch (error) {
-    console.error('Error getting import job:', error)
+    logError('Error getting import job', error)
     return apiError('Failed to get import job', 500)
   }
 }
@@ -108,7 +110,7 @@ export async function DELETE(_request: Request, { params }: Params) {
 
     return apiSuccess({ message: 'Job cancelled' })
   } catch (error) {
-    console.error('Error cancelling import job:', error)
+    logError('Error cancelling import job', error)
     return apiError('Failed to cancel import job', 500)
   }
 }

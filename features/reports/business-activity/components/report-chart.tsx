@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Report Chart Component
  * 
  * Biểu đồ kết hợp (combo chart) với cột và đường
@@ -29,11 +29,11 @@ import type { ChartType, ChartDataPoint, ComboChartConfig } from '../types';
 
 // Chart colors - using shadcn CSS variables
 const CHART_COLORS = {
-  primary: 'hsl(var(--chart-1))', // Chart color 1
-  secondary: 'hsl(var(--chart-2))', // Chart color 2
-  tertiary: 'hsl(var(--chart-3))', // Chart color 3
-  quaternary: 'hsl(var(--chart-4))', // Chart color 4
-  quinary: 'hsl(var(--chart-5))', // Chart color 5
+  primary: 'var(--chart-1)', // Chart color 1
+  secondary: 'var(--chart-2)', // Chart color 2
+  tertiary: 'var(--chart-3)', // Chart color 3
+  quaternary: 'var(--chart-4)', // Chart color 4
+  quinary: 'var(--chart-5)', // Chart color 5
 };
 
 interface ReportChartProps {
@@ -126,7 +126,8 @@ export function ReportChart({
     value: number;
   }
   
-  const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: TooltipPayloadEntry[]; label?: string }) => {
+  // Custom tooltip - memoized to prevent re-renders
+  const CustomTooltip = React.useCallback(({ active, payload, label }: { active?: boolean; payload?: TooltipPayloadEntry[]; label?: string }) => {
     if (active && payload && payload.length) {
       return (
         <div className="bg-popover border rounded-lg shadow-lg p-3">
@@ -145,11 +146,14 @@ export function ReportChart({
       );
     }
     return null;
-  };
+  }, []);
   
   // Filter config based on selected options
-  const filteredBars = config.bars.filter(b => activeOptions.includes(b.dataKey));
-  const filteredLines = config.lines.filter(l => activeOptions.includes(l.dataKey));
+  const filteredBars = React.useMemo(() => config.bars.filter(b => activeOptions.includes(b.dataKey)), [config.bars, activeOptions]);
+  const filteredLines = React.useMemo(() => config.lines.filter(l => activeOptions.includes(l.dataKey)), [config.lines, activeOptions]);
+  
+  // Hide dots when data is large to improve performance
+  const showDots = data.length <= 31;
   
   const renderChart = () => {
     if (chartType === 'bar') {
@@ -178,6 +182,7 @@ export function ReportChart({
               fill={bar.color}
               radius={[4, 4, 0, 0]}
               stackId={bar.stackId}
+              isAnimationActive={false}
             />
           ))}
         </BarChart>
@@ -210,8 +215,9 @@ export function ReportChart({
               name={item.name}
               stroke={item.color}
               strokeWidth={2}
-              dot={{ r: 4 }}
-              activeDot={{ r: 6 }}
+              dot={showDots ? { r: 3 } : false}
+              activeDot={{ r: 5 }}
+              isAnimationActive={false}
             />
           ))}
         </LineChart>
@@ -245,6 +251,7 @@ export function ReportChart({
               stroke={item.color}
               fill={item.color}
               fillOpacity={0.3}
+              isAnimationActive={false}
             />
           ))}
         </AreaChart>
@@ -287,6 +294,7 @@ export function ReportChart({
             fill={bar.color}
             radius={[4, 4, 0, 0]}
             stackId={bar.stackId}
+            isAnimationActive={false}
           />
         ))}
         {filteredLines.map(line => (
@@ -298,8 +306,9 @@ export function ReportChart({
             name={line.name}
             stroke={line.color}
             strokeWidth={line.strokeWidth || 2}
-            dot={{ r: 4, fill: line.color }}
-            activeDot={{ r: 6 }}
+            dot={showDots ? { r: 3, fill: line.color } : false}
+            activeDot={{ r: 5 }}
+            isAnimationActive={false}
           />
         ))}
       </ComposedChart>
@@ -332,7 +341,7 @@ export function ReportChart({
                   value={activeOptions.length > 0 ? `${activeOptions.length} selected` : 'all'}
                   onValueChange={() => {}}
                 >
-                  <SelectTrigger className="w-[180px] h-8 text-sm">
+                  <SelectTrigger className="w-45 h-8 text-sm">
                     <SelectValue placeholder="Tùy chọn hiển thị">
                       Tùy chọn hiển thị ({activeOptions.length})
                     </SelectValue>
@@ -369,7 +378,7 @@ export function ReportChart({
               {/* Chart type selector */}
               {onChartTypeChange && (
                 <Select value={chartType} onValueChange={(v) => onChartTypeChange(v as ChartType)}>
-                  <SelectTrigger className="w-[220px] h-8 text-sm">
+                  <SelectTrigger className="w-55 h-8 text-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -387,7 +396,7 @@ export function ReportChart({
       
       {!isCollapsed && (
         <CardContent className="pt-4">
-          <ResponsiveContainer width="100%" height={height}>
+          <ResponsiveContainer width="100%" height={height} debounce={150}>
             {renderChart()}
           </ResponsiveContainer>
         </CardContent>

@@ -11,6 +11,7 @@ export interface ComplaintsParams {
   limit?: number;
   search?: string;
   status?: string;
+  priority?: string;
   type?: string;
   assignedTo?: string;
   customerId?: string;
@@ -48,7 +49,10 @@ export async function fetchComplaints(params: ComplaintsParams = {}): Promise<Pa
   });
   
   const res = await fetch(`${API_BASE}?${searchParams}`, { credentials: 'include' });
-  if (!res.ok) throw new Error(`Failed to fetch complaints: ${res.statusText}`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ message: res.statusText }));
+    throw new Error(body?.message || `Lỗi ${res.status}: ${res.statusText}`);
+  }
   return res.json();
 }
 
@@ -56,39 +60,6 @@ export async function fetchComplaint(id: string): Promise<Complaint> {
   const res = await fetch(`${API_BASE}/${id}`, { credentials: 'include' });
   if (!res.ok) throw new Error(`Failed to fetch complaint: ${res.statusText}`);
   return res.json();
-}
-
-export async function createComplaint(data: Partial<Complaint>): Promise<Complaint> {
-  const res = await fetch(API_BASE, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-    body: JSON.stringify(data),
-  });
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({}));
-    throw new Error(error.message || `Failed to create complaint`);
-  }
-  return res.json();
-}
-
-export async function updateComplaint(systemId: string, data: Partial<Complaint>): Promise<Complaint> {
-  const res = await fetch(`${API_BASE}/${systemId}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-    body: JSON.stringify(data),
-  });
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({}));
-    throw new Error(error.message || `Failed to update complaint`);
-  }
-  return res.json();
-}
-
-export async function deleteComplaint(id: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/${id}`, { method: 'DELETE', credentials: 'include' });
-  if (!res.ok) throw new Error(`Failed to delete complaint`);
 }
 
 export async function fetchComplaintStats(): Promise<{

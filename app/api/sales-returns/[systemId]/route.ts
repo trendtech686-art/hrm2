@@ -8,10 +8,13 @@
 
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import type { Prisma } from '@prisma/client';
+import type { Prisma } from '@/generated/prisma/client';
 import { SalesReturnStatus } from '@/generated/prisma/enums';
 import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils';
 import { updateCustomerDebt } from '@/lib/services/customer-debt-service';
+import { logError } from '@/lib/logger'
+import { createNotification } from '@/lib/notifications'
+import { getUserNameFromDb } from '@/lib/get-user-name'
 
 // Helper to serialize Decimal fields for client
 function serializeSalesReturn<T extends { 
@@ -131,8 +134,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     return apiSuccess(transformedSalesReturn);
   } catch (error) {
-    console.error('[Sales Returns API] GET by ID error:', error);
-    return apiError('Failed to fetch sales return', 500);
+    logError('[Sales Returns API] GET by ID error', error);
+    return apiError('Không thể tải phiếu trả hàng', 500);
   }
 }
 
@@ -194,10 +197,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     if (status !== undefined) {
       // Validate status transitions
       if (status === 'APPROVED' && existingReturn.status !== 'PENDING') {
-        return apiError('Can only approve pending returns', 400);
+        return apiError('Chỉ có thể duyệt phiếu trả hàng ở trạng thái chờ xử lý', 400);
       }
       if (status === 'REJECTED' && existingReturn.status !== 'PENDING') {
-        return apiError('Can only reject pending returns', 400);
+        return apiError('Chỉ có thể từ chối phiếu trả hàng ở trạng thái chờ xử lý', 400);
       }
       updateData.status = status as SalesReturnStatus;
     }
@@ -209,7 +212,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     if (refundAmount !== undefined) {
       // Validate refund amount doesn't exceed return total
       if (refundAmount > Number(existingReturn.total)) {
-        return apiError('Refund amount exceeds return total', 400);
+        return apiError('Số tiền hoàn vượt quá tổng giá trị trả hàng', 400);
       }
       updateData.refundAmount = refundAmount;
       updateData.refunded = refundAmount;
@@ -239,17 +242,46 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     // Update customer debt if status changed to APPROVED or REJECTED
     if (status !== undefined && salesReturn.customerSystemId) {
       await updateCustomerDebt(salesReturn.customerSystemId).catch(err => {
-        console.error('[Update SalesReturn] Failed to update customer debt:', err);
+        logError('[Update SalesReturn] Failed to update customer debt', err);
       });
     }
 
+    // Notify employee about sales return status change
+    if (status && salesReturn.employeeId && salesReturn.employeeId !== session.user?.employeeId) {
+      const statusText = status === 'APPROVED' ? 'duyệt' : status === 'REJECTED' ? 'từ chối' : 'cập nhật';
+      createNotification({
+        type: 'sales_return',
+        settingsKey: 'sales-return:updated',
+        title: `Phếu trả hàng được ${statusText}`,
+        message: `Phếu trả hàng ${existingReturn.id || systemId} đã được ${statusText}`,
+        link: `/sales-returns/${systemId}`,
+        recipientId: salesReturn.employeeId,
+        senderId: session.user?.employeeId,
+        senderName: session.user?.name,
+      }).catch(e => logError('[Sales Return PATCH] notification failed', e));
+    }
+
+    // Log activity
+    getUserNameFromDb(session.user?.id).then(userName =>
+      prisma.activityLog.create({
+        data: {
+          entityType: 'sales_return',
+          entityId: systemId,
+          action: 'updated',
+          actionType: 'update',
+          note: `Cập nhật phiếu trả hàng`,
+          metadata: { userName },
+          createdBy: userName,
+        }
+      })
+    ).catch(e => logError('[ActivityLog] sales_return update failed', e))
     return apiSuccess(serializeSalesReturn(salesReturn));
   } catch (error) {
-    console.error('[Sales Returns API] PATCH error:', error);
+    logError('[Sales Returns API] PATCH error', error);
     if (error instanceof Error) {
       return apiError(error.message, 500);
     }
-    return apiError('Failed to update sales return', 500);
+    return apiError('Không thể cập nhật phiếu trả hàng', 500);
   }
 }
 
@@ -308,13 +340,27 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     // Update customer debt after deleting sales return
     if (customerSystemId) {
       await updateCustomerDebt(customerSystemId).catch(err => {
-        console.error('[Delete SalesReturn] Failed to update customer debt:', err);
+        logError('[Delete SalesReturn] Failed to update customer debt', err);
       });
     }
 
+    // Log activity
+    getUserNameFromDb(session.user?.id).then(userName =>
+      prisma.activityLog.create({
+        data: {
+          entityType: 'sales_return',
+          entityId: systemId,
+          action: 'deleted',
+          actionType: 'delete',
+          note: `Xóa phiếu trả hàng`,
+          metadata: { userName },
+          createdBy: userName,
+        }
+      })
+    ).catch(e => logError('[ActivityLog] sales_return delete failed', e))
     return apiSuccess({ success: true });
   } catch (error) {
-    console.error('[Sales Returns API] DELETE error:', error);
-    return apiError('Failed to delete sales return', 500);
+    logError('[Sales Returns API] DELETE error', error);
+    return apiError('Không thể xóa phiếu trả hàng', 500);
   }
 }

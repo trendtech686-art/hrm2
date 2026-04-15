@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { DateTimePicker24h } from '@/components/ui/date-time-picker-24h';
 import { VirtualizedCombobox } from '@/components/ui/virtualized-combobox';
-import { ArrowLeft, Save, FileText, Clock } from 'lucide-react';
+import { ArrowLeft, Save, FileText, Clock, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTasksSettings } from '@/features/settings/tasks/hooks/use-tasks-settings';
 import { asSystemId, asBusinessId } from '@/lib/id-types';
@@ -108,9 +108,13 @@ export function TaskFormPage() {
       form="task-form"
       size="sm"
       className="h-9"
+      disabled={createMutation.isPending || updateMutation.isPending}
     >
-      <Save className="mr-2 h-4 w-4" />
-      {isEdit ? 'Cập nhật' : 'Tạo mới'}
+      {(createMutation.isPending || updateMutation.isPending) ? (
+        <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Đang lưu...</>
+      ) : (
+        <><Save className="mr-2 h-4 w-4" />{isEdit ? 'Cập nhật' : 'Tạo mới'}</>
+      )}
     </Button>
   ], [handleCancel, isEdit]);
 
@@ -174,7 +178,25 @@ export function TaskFormPage() {
     };
 
     if (isEdit && task) {
-      updateMutation.mutate({ systemId: task.systemId, data: { ...task, ...taskData } });
+      // Only send form-managed fields to avoid spreading stale/invalid nested data (e.g. assignees with extra fields)
+      const assignee = employees.find(e => e.systemId === taskData.assigneeId);
+      updateMutation.mutate({ systemId: task.systemId, data: {
+        title: taskData.title,
+        description: taskData.description,
+        assigneeId: taskData.assigneeId,
+        assigneeName: assignee?.fullName || taskData.assigneeName,
+        assignerId: taskData.assignerId,
+        assignerName: taskData.assignerName,
+        priority: taskData.priority,
+        startDate: taskData.startDate,
+        dueDate: taskData.dueDate,
+        estimatedHours: taskData.estimatedHours,
+        requiresEvidence: taskData.requiresEvidence,
+        assignees: task.assignees?.map(a => ({
+          employeeSystemId: a.employeeSystemId,
+          role: a.role,
+        })),
+      } });
     } else {
       createMutation.mutate(taskData as Parameters<typeof createMutation.mutate>[0]);
     }
@@ -240,8 +262,8 @@ export function TaskFormPage() {
                     onClick={() => handleApplyTemplate(template.id)}
                   >
                     <div className="flex flex-col gap-1 w-full">
-                      <span className="font-medium text-body-sm">{template.name}</span>
-                      <span className="text-body-xs text-muted-foreground flex items-center gap-1">
+                      <span className="font-medium text-sm">{template.name}</span>
+                      <span className="text-xs text-muted-foreground flex items-center gap-1">
                         <Clock className="h-3 w-3" />
                         {template.estimatedHours}h
                       </span>
@@ -272,7 +294,7 @@ export function TaskFormPage() {
                   onChange={(e) => setFormData({ ...formData, id: e.target.value.toUpperCase() })}
                   placeholder="Để trống = tự động (CVNB-000001, CVNB-000002...)"
                 />
-                <p className="text-body-xs text-muted-foreground mt-1.5">
+                <p className="text-xs text-muted-foreground mt-1.5">
                   Bỏ trống để hệ thống tự động tạo mã theo thứ tự
                 </p>
               </div>
@@ -418,8 +440,8 @@ export function TaskFormPage() {
             <div className="mt-4 p-3 border rounded-lg bg-blue-50/50 dark:bg-blue-950/20">
               <div className="flex items-center gap-2">
                 <Clock className="h-4 w-4 text-blue-600" />
-                <span className="text-body-sm font-medium">Giờ ước tính:</span>
-                <span className="text-body-sm font-bold text-blue-600">
+                <span className="text-sm font-medium">Giờ ước tính:</span>
+                <span className="text-sm font-bold text-blue-600">
                   {(() => {
                     const start = new Date(formData.startDate);
                     const end = new Date(formData.dueDate);
@@ -454,11 +476,11 @@ export function TaskFormPage() {
               <div className="flex-1">
                 <Label 
                   htmlFor="requiresEvidence" 
-                  className="text-body-sm font-medium cursor-pointer"
+                  className="text-sm font-medium cursor-pointer"
                 >
                   Yêu cầu bằng chứng hoàn thành
                 </Label>
-                <p className="text-body-xs text-muted-foreground mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   Khi bật, người thực hiện phải upload hình ảnh (tối đa 5 ảnh) và ghi chú (tối thiểu 10 ký tự) khi hoàn thành. Admin sẽ phê duyệt hoặc yêu cầu làm lại.
                 </p>
               </div>

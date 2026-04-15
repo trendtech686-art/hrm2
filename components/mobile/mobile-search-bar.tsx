@@ -83,7 +83,7 @@ export function MobileSearchBar({
           size={isMobile ? "default" : "sm"}
           onClick={onFilter}
           className={cn(
-            "flex-shrink-0",
+            "shrink-0",
             isMobile ? "h-12 px-4" : "h-9 px-3"
           )}
           aria-label="Bộ lọc"

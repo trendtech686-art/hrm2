@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
-import { parsePagination } from '@/lib/api-utils';
+import { parsePagination, getSessionFromCookie } from '@/lib/api-utils';
 import { z } from 'zod';
 import { generateNextIds } from '@/lib/id-system';
+import { logError } from '@/lib/logger'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 // Validation schema
 const salesChannelSchema = z.object({
@@ -16,7 +17,7 @@ const salesChannelSchema = z.object({
 // GET /api/settings/sales-channels
 export async function GET(request: NextRequest) {
   try {
-    const session = await auth();
+    const session = await getSessionFromCookie();
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -50,7 +51,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Error fetching sales channels:', error);
+    logError('Error fetching sales channels', error);
     return NextResponse.json(
       { error: 'Failed to fetch sales channels' },
       { status: 500 }
@@ -61,7 +62,7 @@ export async function GET(request: NextRequest) {
 // POST /api/settings/sales-channels
 export async function POST(request: NextRequest) {
   try {
-    const session = await auth();
+    const session = await getSessionFromCookie();
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -91,6 +92,19 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    await createActivityLog({
+      entityType: 'sales_channel',
+      entityId: salesChannel.systemId,
+      action: `Tạo kênh bán hàng: ${validatedData.name}`,
+      actionType: 'create',
+      changes: {
+        'Tên': { from: null, to: validatedData.name },
+        'Áp dụng': { from: null, to: validatedData.isApplied ? 'Có' : 'Không' },
+        'Mặc định': { from: null, to: validatedData.isDefault ? 'Có' : 'Không' },
+      },
+      createdBy: session.user.id,
+    }).catch(e => logError('[sales-channels] activity log failed', e));
+
     return NextResponse.json(salesChannel, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -99,7 +113,7 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    console.error('Error creating sales channel:', error);
+    logError('Error creating sales channel', error);
     return NextResponse.json(
       { error: 'Failed to create sales channel' },
       { status: 500 }

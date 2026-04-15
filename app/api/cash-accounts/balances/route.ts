@@ -12,7 +12,9 @@
 
 import { prisma } from '@/lib/prisma'
 import type { Prisma } from '@/generated/prisma/client'
-import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
+import { apiSuccess, apiError } from '@/lib/api-utils'
+import { apiHandler } from '@/lib/api-handler'
+import { logError } from '@/lib/logger'
 
 type Decimal = Prisma.Decimal
 
@@ -40,10 +42,7 @@ export type AccountBalance = {
   isDefault: boolean
 }
 
-export async function GET(request: Request) {
-  const session = await requireAuth()
-  if (!session) return apiError('Unauthorized', 401)
-
+export const GET = apiHandler(async (request) => {
   try {
     const { searchParams } = new URL(request.url)
     const accountSystemId = searchParams.get('accountSystemId')
@@ -132,7 +131,7 @@ export async function GET(request: Request) {
 
     return apiSuccess({ data: accountBalances })
   } catch (error) {
-    console.error('Error calculating account balances:', error)
-    return apiError('Failed to calculate account balances', 500)
+    logError('Error calculating account balances', error)
+    return apiError('Không thể tính số dư quỹ tiền', 500)
   }
-}
+})

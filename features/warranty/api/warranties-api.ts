@@ -12,6 +12,7 @@ export interface WarrantiesParams {
   search?: string;
   status?: string;
   customerId?: string;
+  productId?: string;
   orderSystemId?: string;
   branchId?: string;
   startDate?: string;
@@ -45,7 +46,10 @@ export async function fetchWarranties(params: WarrantiesParams = {}): Promise<Pa
   });
   
   const res = await fetch(`${API_BASE}?${searchParams}`, { credentials: 'include' });
-  if (!res.ok) throw new Error(`Failed to fetch warranties: ${res.statusText}`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ message: res.statusText }));
+    throw new Error(body?.message || `Lỗi ${res.status}: ${res.statusText}`);
+  }
   return res.json();
 }
 
@@ -83,11 +87,6 @@ export async function updateWarranty(systemId: string, data: Partial<WarrantyTic
   return res.json();
 }
 
-export async function deleteWarranty(id: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/${id}`, { method: 'DELETE', credentials: 'include' });
-  if (!res.ok) throw new Error(`Failed to delete warranty`);
-}
-
 export async function fetchWarrantyStats(): Promise<{
   total: number;
   pending: number;
@@ -99,44 +98,3 @@ export async function fetchWarrantyStats(): Promise<{
   return res.json();
 }
 
-/**
- * Complete warranty and deduct stock
- */
-export async function completeWarranty(
-  systemId: string, 
-  data: { actualCost?: number; completionNotes?: string; technicianId?: string }
-): Promise<WarrantyTicket> {
-  const res = await fetch(`${API_BASE}/${systemId}/complete`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-    body: JSON.stringify(data),
-  });
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({}));
-    throw new Error(error.error || 'Failed to complete warranty');
-  }
-  const result = await res.json();
-  return result.data || result;
-}
-
-/**
- * Cancel warranty and uncommit stock
- */
-export async function cancelWarranty(
-  systemId: string,
-  data: { cancellationReason: string; notes?: string }
-): Promise<WarrantyTicket> {
-  const res = await fetch(`${API_BASE}/${systemId}/cancel`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-    body: JSON.stringify(data),
-  });
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({}));
-    throw new Error(error.error || 'Failed to cancel warranty');
-  }
-  const result = await res.json();
-  return result.data || result;
-}

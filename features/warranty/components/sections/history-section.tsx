@@ -1,24 +1,11 @@
-import { ActivityHistory } from '../../../../components/ActivityHistory';
-import type { WarrantyTicket } from '../../types';
-import { useWarrantyHistory } from '../../hooks/use-warranty-history';
+import { EntityActivityTable } from '@/components/shared/entity-activity-table';
 
 interface WarrantyHistorySectionProps {
-  ticket: WarrantyTicket;
+  ticketId: string;
 }
 
-export function WarrantyHistorySection({ ticket }: WarrantyHistorySectionProps) {
-  const {
-    historyEntries,
-    filterableActions,
-    filterableUsers,
-  } = useWarrantyHistory({ ticket });
-
+export function WarrantyHistorySection({ ticketId }: WarrantyHistorySectionProps) {
   return (
-    <ActivityHistory
-      history={historyEntries}
-      filterableActions={filterableActions}
-      filterableUsers={filterableUsers}
-      groupByDate
-    />
+    <EntityActivityTable entityType="warranty" entityId={ticketId} />
   );
 }

@@ -9,6 +9,8 @@ export { TouchButton, touchButtonVariants } from "./touch-button";
 export { MobileSearchBar } from "./mobile-search-bar";
 export { MobileNavbar } from "./mobile-navbar";
 export { MobileSheet } from "./mobile-sheet";
+export { MobileBottomNav } from "./mobile-bottom-nav";
+export { FAB } from "./fab";
 
 // Loading & Empty States
 export { 

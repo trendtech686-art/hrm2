@@ -3,6 +3,8 @@ import { Prisma } from '@/generated/prisma/client'
 import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
 import { createWikiSchema } from './validation'
 import { generateNextIdsWithTx } from '@/lib/id-system'
+import { logError } from '@/lib/logger'
+import { getUserNameFromDb } from '@/lib/get-user-name'
 
 // GET /api/wiki - List all wiki articles
 export async function GET(request: Request) {
@@ -64,7 +66,7 @@ export async function GET(request: Request) {
 
     return apiPaginated(articles, { page, limit, total })
   } catch (error) {
-    console.error('Error fetching wiki:', error)
+    logError('Error fetching wiki', error)
     return apiError('Failed to fetch wiki', 500)
   }
 }
@@ -113,12 +115,26 @@ export async function POST(request: Request) {
       });
     });
 
+    // Log activity
+    getUserNameFromDb(session.user?.id).then(userName =>
+      prisma.activityLog.create({
+        data: {
+          entityType: 'wiki',
+          entityId: wiki.systemId,
+          action: 'created',
+          actionType: 'create',
+          note: `Tạo bài viết wiki`,
+          metadata: { userName },
+          createdBy: userName,
+        }
+      })
+    ).catch(e => logError('[ActivityLog] wiki create failed', e))
     return apiSuccess(wiki, 201)
   } catch (error) {
     if (error instanceof Error && 'code' in error && error.code === 'P2002') {
       return apiError('Slug đã tồn tại', 400)
     }
-    console.error('Error creating wiki:', error)
+    logError('Error creating wiki', error)
     return apiError('Failed to create wiki', 500)
   }
 }

@@ -12,12 +12,7 @@ import {
   getStoreData,
   StoreSettings
 } from '@/lib/print-service';
-
-// Helper function để tạo barcode image
-function generateBarcodeImage(code: string | undefined, height = 50): string {
-  if (!code) return '';
-  return `<img src="https://barcodeapi.org/api/128/${encodeURIComponent(code)}" style="height:${height}px" alt="barcode"/>`;
-}
+import { generateBarcodeImage } from './barcode-utils';
 
 export interface PaymentForPrint {
   // Thông tin cơ bản

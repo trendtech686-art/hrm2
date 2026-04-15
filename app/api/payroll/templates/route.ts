@@ -3,6 +3,7 @@ import type { Prisma } from '@/generated/prisma/client'
 import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
 import { createPayrollTemplateSchema, bulkUpdatePayrollTemplatesSchema } from './validation'
 import { generateIdWithPrefix } from '@/lib/id-generator'
+import { logError } from '@/lib/logger'
 
 const SETTING_KEY = 'payroll-templates'
 const SETTING_GROUP = 'hrm'
@@ -26,7 +27,7 @@ export async function GET(_request: Request) {
 
     return apiSuccess({ data: setting.value })
   } catch (error) {
-    console.error('Error fetching payroll templates:', error)
+    logError('Error fetching payroll templates', error)
     return apiError('Failed to fetch payroll templates', 500)
   }
 }
@@ -78,7 +79,7 @@ export async function POST(request: Request) {
 
     return apiSuccess({ data: body })
   } catch (error) {
-    console.error('Error creating payroll template:', error)
+    logError('Error creating payroll template', error)
     return apiError('Failed to create payroll template', 500)
   }
 }
@@ -119,7 +120,7 @@ export async function PUT(request: Request) {
 
     return apiSuccess({ data: templates })
   } catch (error) {
-    console.error('Error updating payroll templates:', error)
+    logError('Error updating payroll templates', error)
     return apiError('Failed to update payroll templates', 500)
   }
 }

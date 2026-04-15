@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { apiSuccess, apiError } from '@/lib/api-utils';
+import { logError } from '@/lib/logger'
 
 // GET /api/branding - Get branding info (logo, favicon) - public endpoint
 export async function GET() {
@@ -20,7 +21,7 @@ export async function GET() {
       faviconUrl: (faviconSetting?.value as string) || null,
     });
   } catch (error) {
-    console.error('Error fetching branding:', error);
+    logError('Error fetching branding', error);
     return apiError('Failed to fetch branding', 500);
   }
 }

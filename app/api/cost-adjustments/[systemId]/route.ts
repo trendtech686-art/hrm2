@@ -4,6 +4,8 @@
 
 import { prisma } from '@/lib/prisma'
 import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
+import { logError } from '@/lib/logger'
+import { getUserNameFromDb } from '@/lib/get-user-name'
 
 type RouteParams = {
   params: Promise<{ systemId: string }>;
@@ -37,20 +39,31 @@ function transformCostAdjustment(adjustment: CostAdjustmentRecord | null) {
     // Date field aliases (frontend expects these names)
     createdDate: adjustment.createdDate || adjustment.createdAt,
     // Transform items to frontend field names
-    items: adjustment.items?.map((item: CostAdjustmentItemRecord) => ({
-      ...item,
-      // Map database fields to frontend fields - prefer stored productSystemId
-      productSystemId: item.productSystemId || item.productId,
-      productId: item.productId || item.productSystemId, // business ID for display
-      productName: item.productName || null,
-      productImage: item.productImage || null,
-      oldCostPrice: Number(item.oldCost) || 0,
-      newCostPrice: Number(item.newCost) || 0,
-      adjustmentAmount: Number(item.adjustmentAmount) || (Number(item.newCost || 0) - Number(item.oldCost || 0)),
-      adjustmentPercent: Number(item.adjustmentPercent) || (Number(item.oldCost) > 0 
-        ? ((Number(item.newCost || 0) - Number(item.oldCost || 0)) / Number(item.oldCost) * 100)
-        : 0),
-    })) || [],
+    items: adjustment.items?.map((item: CostAdjustmentItemRecord) => {
+      // Destructure to exclude Decimal fields from spread
+      const { oldCost, newCost, adjustmentAmount, adjustmentPercent, ...rest } = item;
+      const oldCostNum = Number(oldCost) || 0;
+      const newCostNum = Number(newCost) || 0;
+      
+      return {
+        ...rest,
+        // Map database fields to frontend fields - prefer stored productSystemId
+        productSystemId: item.productSystemId || item.productId,
+        productId: item.productId || item.productSystemId, // business ID for display
+        productName: item.productName || null,
+        productImage: item.productImage || null,
+        // Converted numeric fields (not Decimal)
+        oldCost: oldCostNum,
+        newCost: newCostNum,
+        adjustmentAmount: Number(adjustmentAmount) || (newCostNum - oldCostNum),
+        adjustmentPercent: Number(adjustmentPercent) || (oldCostNum > 0 
+          ? ((newCostNum - oldCostNum) / oldCostNum * 100)
+          : 0),
+        // Frontend field aliases
+        oldCostPrice: oldCostNum,
+        newCostPrice: newCostNum,
+      };
+    }) || [],
   };
 }
 
@@ -96,8 +109,8 @@ export async function GET(request: Request, { params }: RouteParams) {
       createdByName,
     } as unknown as CostAdjustmentRecord));
   } catch (error) {
-    console.error('[Cost Adjustments API] GET by ID error:', error);
-    return apiError('Failed to fetch cost adjustment', 500);
+    logError('[Cost Adjustments API] GET by ID error', error);
+    return apiError('Lỗi khi lấy phiếu điều chỉnh giá vốn', 500);
   }
 }
 
@@ -125,10 +138,24 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       },
     });
 
-    return apiSuccess(costAdjustment);
+    // Log activity
+    getUserNameFromDb(session.user?.id).then(userName =>
+      prisma.activityLog.create({
+        data: {
+          entityType: 'cost_adjustment',
+          entityId: systemId,
+          action: 'updated',
+          actionType: 'update',
+          note: `Cập nhật phiếu điều chỉnh giá vốn`,
+          metadata: { userName },
+          createdBy: userName,
+        }
+      })
+    ).catch(e => logError('[ActivityLog] cost_adjustment update failed', e))
+    return apiSuccess(transformCostAdjustment(costAdjustment as unknown as CostAdjustmentRecord));
   } catch (error) {
-    console.error('[Cost Adjustments API] PATCH error:', error);
-    return apiError('Failed to update cost adjustment', 500);
+    logError('[Cost Adjustments API] PATCH error', error);
+    return apiError('Lỗi khi cập nhật phiếu điều chỉnh giá vốn', 500);
   }
 }
 
@@ -148,9 +175,23 @@ export async function DELETE(request: Request, { params }: RouteParams) {
       where: { systemId },
     });
 
+    // Log activity
+    getUserNameFromDb(session.user?.id).then(userName =>
+      prisma.activityLog.create({
+        data: {
+          entityType: 'cost_adjustment',
+          entityId: systemId,
+          action: 'deleted',
+          actionType: 'delete',
+          note: `Xóa phiếu điều chỉnh giá vốn`,
+          metadata: { userName },
+          createdBy: userName,
+        }
+      })
+    ).catch(e => logError('[ActivityLog] cost_adjustment delete failed', e))
     return apiSuccess({ success: true });
   } catch (error) {
-    console.error('[Cost Adjustments API] DELETE error:', error);
-    return apiError('Failed to delete cost adjustment', 500);
+    logError('[Cost Adjustments API] DELETE error', error);
+    return apiError('Lỗi khi xóa phiếu điều chỉnh giá vốn', 500);
   }
 }

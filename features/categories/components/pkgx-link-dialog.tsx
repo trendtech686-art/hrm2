@@ -15,12 +15,13 @@ import type { ProductCategory } from '@/features/settings/inventory/types';
 import type { PkgxCategory } from '@/features/settings/pkgx/types';
 import { getCategories as fetchPkgxCategories } from '@/lib/pkgx/api-service';
 import { 
-  usePkgxSettings, 
+  usePkgxMappings, 
   usePkgxCategoryMutations, 
   usePkgxCategoryMappingMutations,
   usePkgxCategoryMappings 
 } from '@/features/settings/pkgx/hooks/use-pkgx-settings';
 import { asSystemId } from '@/lib/id-types';
+import { logError } from '@/lib/logger'
 
 interface PkgxCategoryLinkDialogProps {
   open: boolean;
@@ -35,7 +36,7 @@ export function PkgxCategoryLinkDialog({
   category,
   onSuccess,
 }: PkgxCategoryLinkDialogProps) {
-  const { data: pkgxSettings } = usePkgxSettings();
+  const { data: pkgxSettings } = usePkgxMappings();
   const cachedPkgxCategories = React.useMemo(() => pkgxSettings?.categories ?? [], [pkgxSettings?.categories]);
   const categoryMappings = usePkgxCategoryMappings();
   const { addCategoryMapping } = usePkgxCategoryMappingMutations();
@@ -68,7 +69,7 @@ export function PkgxCategoryLinkDialog({
         setHasFetched(true);
       }
     } catch (error) {
-      console.error('Failed to load PKGX categories:', error);
+      logError('Failed to load PKGX categories', error);
       toast.error('Không thể tải danh sách danh mục PKGX');
     } finally {
       setIsLoading(false);
@@ -136,7 +137,7 @@ export function PkgxCategoryLinkDialog({
       onSuccess?.(pkgxCatId);
       onOpenChange(false);
     } catch (error) {
-      console.error('[PKGX Category Link Error]', error);
+      logError('[PKGX Category Link Error]', error);
       toast.error('Lỗi khi liên kết danh mục');
     } finally {
       setIsSyncing(false);

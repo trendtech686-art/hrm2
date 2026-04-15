@@ -11,21 +11,42 @@ interface StatusStepperProps {
 }
 
 export function StatusStepper({ order }: StatusStepperProps) {
-    const isPackaged = order.packagings.some(p => p.status === 'Đã đóng gói');
+    // Check packaging statuses (both Vietnamese and English) - cast to string for comparison
+    const isPackaged = order.packagings.some(p => {
+        const statusStr = String(p.status || '');
+        return statusStr === 'Đã đóng gói' || statusStr === 'PACKED' || statusStr === 'COMPLETED';
+    });
+    const packagingConfirmDate = isPackaged 
+        ? order.packagings.find(p => {
+            const statusStr = String(p.status || '');
+            return statusStr === 'Đã đóng gói' || statusStr === 'PACKED' || statusStr === 'COMPLETED';
+        })?.confirmDate 
+        : undefined;
+    
     const steps = [
         { name: 'Đặt hàng', date: order.orderDate },
         { name: 'Duyệt', date: order.approvedDate },
-        { name: 'Đóng gói', date: isPackaged ? order.packagings.find(p=>p.status === 'Đã đóng gói')?.confirmDate : undefined },
+        { name: 'Đóng gói', date: packagingConfirmDate },
         { name: 'Xuất kho', date: order.dispatchedDate },
         { name: 'Hoàn thành', date: order.completedDate }
     ];
 
     // Check for both Vietnamese and English status values
-    const isCompleted = order.status === 'Hoàn thành' || order.status === 'COMPLETED';
+    const statusIsCompleted = order.status === 'Hoàn thành' || order.status === 'COMPLETED';
     const isCancelled = order.status === 'Đã hủy' || order.status === 'CANCELLED';
+    
+    // ✅ FIX: Only consider completed if actually went through workflow
+    // Order is truly completed if: status is COMPLETED AND (dispatched OR delivered)
+    const isActuallyCompleted = statusIsCompleted && (
+        order.dispatchedDate || 
+        order.deliveryStatus === 'Đã giao hàng' || 
+        order.deliveryStatus === 'DELIVERED' ||
+        order.stockOutStatus === 'Xuất kho toàn bộ' ||
+        order.stockOutStatus === 'FULLY_STOCKED_OUT'
+    );
 
     let currentStepIndex = 0; // Default to 'Đặt hàng'
-    if (isCompleted) {
+    if (isActuallyCompleted) {
         currentStepIndex = 5; // All 5 steps (0-4) are completed.
     } else if (order.dispatchedDate || ['Đang giao hàng', 'Đã giao hàng', 'SHIPPING', 'DELIVERED'].includes(order.deliveryStatus)) {
         currentStepIndex = 4; // Current step is 'Hoàn thành' (index 4)
@@ -58,7 +79,7 @@ export function StatusStepper({ order }: StatusStepperProps) {
                     <React.Fragment key={step.name}>
                         <div className="flex flex-col items-center text-center w-24">
                             <div className={cn(
-                                "flex items-center justify-center w-8 h-8 rounded-full border-2 font-semibold text-body-sm",
+                                "flex items-center justify-center w-8 h-8 rounded-full border-2 font-semibold text-sm",
                                 isStepCancelled ? "bg-red-100 border-red-500 text-red-500" :
                                 isStepCompleted ? "bg-primary border-primary text-primary-foreground" :
                                 isStepCurrent ? "border-primary text-primary" :
@@ -66,8 +87,8 @@ export function StatusStepper({ order }: StatusStepperProps) {
                             )}>
                                 {isStepCompleted ? <Icon className="h-4 w-4" /> : index + 1}
                             </div>
-                            <p className={cn("text-body-sm mt-2 font-medium", isStepCompleted || isStepCurrent ? "text-foreground" : "text-foreground")}>{step.name}</p>
-                            <p className="text-body-xs text-foreground mt-1">{step.date ? formatDateTime(step.date) : '-'}</p>
+                            <p className={cn("text-sm mt-2 font-medium", isStepCompleted || isStepCurrent ? "text-foreground" : "text-foreground")}>{step.name}</p>
+                            <p className="text-xs text-foreground mt-1">{step.date ? formatDateTime(step.date) : '-'}</p>
                         </div>
                         {index < steps.length - 1 && (
                             <div className={cn(

@@ -147,7 +147,7 @@ export function BulkProductSelectorDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] sm:max-h-[85vh] flex flex-col p-0">
+      <DialogContent className="max-w-4xl max-h-[90vh] sm:max-h-[85vh] flex flex-col p-0 max-md:p-0">
         <DialogHeader className="px-4 pt-6 pb-4 sm:px-6">
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>

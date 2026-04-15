@@ -3,8 +3,9 @@
  */
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import * as api from '../api/employee-settings-api';
-import type { WorkShift, LeaveType, SalaryComponent } from '@/lib/types/prisma-extended';
+import type { LeaveType, SalaryComponent } from '@/lib/types/prisma-extended';
 
 // Re-export default settings for fallback usage
 export { DEFAULT_EMPLOYEE_SETTINGS } from '../employee-settings-service';
@@ -45,20 +46,8 @@ export function useEmployeeSettingsMutation(opts?: { onSuccess?: () => void; onE
   });
 }
 
-// Work Shifts
-export function useWorkShifts() {
-  return useQuery({ queryKey: employeeSettingsKeys.workShifts(), queryFn: api.fetchWorkShifts, staleTime: 1000 * 60 * 10, gcTime: 10 * 60 * 1000, placeholderData: keepPreviousData });
-}
-
-export function useWorkShiftMutations(opts?: { onSuccess?: () => void }) {
-  const qc = useQueryClient();
-  const invalidate = () => qc.invalidateQueries({ queryKey: employeeSettingsKeys.workShifts() });
-  return {
-    create: useMutation({ mutationFn: api.createWorkShift, onSuccess: () => { invalidate(); opts?.onSuccess?.(); } }),
-    update: useMutation({ mutationFn: ({ systemId, data }: { systemId: string; data: Partial<WorkShift> }) => api.updateWorkShift(systemId, data), onSuccess: () => { invalidate(); opts?.onSuccess?.(); } }),
-    remove: useMutation({ mutationFn: api.deleteWorkShift, onSuccess: () => { invalidate(); opts?.onSuccess?.(); } }),
-  };
-}
+// NOTE: Work Shifts and Insurance Rates are embedded in main settings JSON.
+// They are managed via useEmployeeSettings() / useEmployeeSettingsMutation(), not separate hooks.
 
 // Leave Types
 export function useLeaveTypes() {
@@ -67,7 +56,7 @@ export function useLeaveTypes() {
 
 export function useLeaveTypeMutations(opts?: { onSuccess?: () => void }) {
   const qc = useQueryClient();
-  const invalidate = () => qc.invalidateQueries({ queryKey: employeeSettingsKeys.leaveTypes() });
+  const invalidate = () => invalidateRelated(qc, 'employee-settings');
   return {
     create: useMutation({ mutationFn: api.createLeaveType, onSuccess: () => { invalidate(); opts?.onSuccess?.(); } }),
     update: useMutation({ mutationFn: ({ systemId, data }: { systemId: string; data: Partial<LeaveType> }) => api.updateLeaveType(systemId, data), onSuccess: () => { invalidate(); opts?.onSuccess?.(); } }),
@@ -90,23 +79,10 @@ export function useAllSalaryComponents() {
 
 export function useSalaryComponentMutations(opts?: { onSuccess?: () => void }) {
   const qc = useQueryClient();
-  const invalidate = () => qc.invalidateQueries({ queryKey: employeeSettingsKeys.salaryComponents() });
+  const invalidate = () => invalidateRelated(qc, 'employee-settings');
   return {
     create: useMutation({ mutationFn: api.createSalaryComponent, onSuccess: () => { invalidate(); opts?.onSuccess?.(); } }),
     update: useMutation({ mutationFn: ({ systemId, data }: { systemId: string; data: Partial<SalaryComponent> }) => api.updateSalaryComponent(systemId, data), onSuccess: () => { invalidate(); opts?.onSuccess?.(); } }),
     remove: useMutation({ mutationFn: api.deleteSalaryComponent, onSuccess: () => { invalidate(); opts?.onSuccess?.(); } }),
   };
-}
-
-// Insurance Rates
-export function useInsuranceRates() {
-  return useQuery({ queryKey: employeeSettingsKeys.insuranceRates(), queryFn: api.fetchInsuranceRates, staleTime: 1000 * 60 * 10, gcTime: 10 * 60 * 1000, placeholderData: keepPreviousData });
-}
-
-export function useInsuranceRatesMutation(opts?: { onSuccess?: () => void }) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: api.updateInsuranceRates,
-    onSuccess: () => { qc.invalidateQueries({ queryKey: employeeSettingsKeys.insuranceRates() }); opts?.onSuccess?.(); },
-  });
 }

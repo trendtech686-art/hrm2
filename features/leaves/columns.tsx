@@ -29,7 +29,6 @@ const leaveTypeDisplayNames: Record<string, string> = {
 
 export const getColumns = (
   onDelete: (systemId: SystemId) => void,
-  onEdit: (request: LeaveRequest) => void,
   onStatusChange: (systemId: SystemId, status: LeaveStatus) => void,
   navigate: (path: string) => void,
 ): ColumnDef<LeaveRequest>[] => [
@@ -60,7 +59,7 @@ export const getColumns = (
             className="text-left hover:underline"
         >
             <div className="font-medium">{row.employeeName}</div>
-            <div className="text-body-xs text-muted-foreground">{row.employeeId}</div>
+            <div className="text-xs text-muted-foreground">{row.employeeId}</div>
         </button>
     ),
     meta: { displayName: "Nhân viên" },
@@ -102,7 +101,7 @@ export const getColumns = (
     id: "status",
     accessorKey: "status",
     header: "Trạng thái",
-    cell: ({ row }) => <Badge variant={statusVariants[row.status] as "success" | "warning" | "destructive"} className="text-body-xs">{row.status}</Badge>,
+    cell: ({ row }) => <Badge variant={statusVariants[row.status] as "success" | "warning" | "destructive"} className="text-xs">{row.status}</Badge>,
     meta: { displayName: "Trạng thái" },
   },
   {
@@ -171,20 +170,24 @@ export const getColumns = (
   {
     id: "actions",
     header: () => <div className="text-center">Hành động</div>,
-    cell: ({ row }) => (
-      <div className="text-center">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="h-9 w-10 p-0"><MoreHorizontal className="h-4 w-4" /></Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onSelect={() => onEdit(row)}>Sửa</DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => onStatusChange(row.systemId, 'Đã duyệt')}>Duyệt</DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => onStatusChange(row.systemId, 'Đã từ chối')}>Từ chối</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-    ),
+    cell: ({ row }) => {
+      const isPending = row.status === 'Chờ duyệt';
+      return (
+        <div className="text-center">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="h-9 w-10 p-0"><MoreHorizontal className="h-4 w-4" /></Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={() => navigate(`/leaves/${row.systemId}`)}>Xem chi tiết</DropdownMenuItem>
+              {isPending && <DropdownMenuItem onSelect={() => navigate(`/leaves/${row.systemId}/edit`)}>Sửa</DropdownMenuItem>}
+              {isPending && <DropdownMenuItem onSelect={() => onStatusChange(row.systemId, 'Đã duyệt')}>Duyệt</DropdownMenuItem>}
+              {isPending && <DropdownMenuItem onSelect={() => onStatusChange(row.systemId, 'Đã từ chối')}>Từ chối</DropdownMenuItem>}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      );
+    },
     meta: { displayName: "Hành động", sticky: "right" },
     size: 90,
   },

@@ -27,7 +27,7 @@ import {
 } from '../../../components/ui/alert-dialog';
 import { SimpleSettingsTable } from '../../../components/settings/SimpleSettingsTable';
 import { usePayrollTemplates, usePayrollTemplatesMutations } from './hooks/use-payroll-templates';
-import { useEmployeeSettings } from './hooks/use-employee-settings';
+import { useSalaryComponents } from './hooks/use-employee-settings';
 import { getPayrollTemplateColumns } from './payroll-templates-columns';
 import { toast } from 'sonner';
 import { asSystemId, type SystemId } from '../../../lib/id-types';
@@ -42,11 +42,7 @@ export function PayrollTemplatesSettingsContent() {
     },
   });
 
-  const { data: settings } = useEmployeeSettings();
-  const salaryComponents = React.useMemo(
-    () => settings?.salaryComponents ?? [],
-    [settings?.salaryComponents]
-  );
+  const { data: salaryComponents = [] } = useSalaryComponents();
 
   // Search state
   const [searchQuery, setSearchQuery] = React.useState('');
@@ -321,8 +317,8 @@ export function PayrollTemplatesSettingsContent() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Hủy</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmBulkDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Xóa
+            <AlertDialogAction onClick={confirmBulkDelete} disabled={mutations.remove.isPending} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {mutations.remove.isPending ? 'Đang xóa...' : 'Xóa'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

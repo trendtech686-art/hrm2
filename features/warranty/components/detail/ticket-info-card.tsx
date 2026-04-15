@@ -1,8 +1,10 @@
 ﻿import * as React from 'react';
+import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/ui/card';
 import { Button } from '../../../../components/ui/button';
 import { Copy, Plus } from 'lucide-react';
 import type { WarrantyTicket } from '../../types';
+import type { WarrantyHistory } from '../../../../lib/types/prisma-extended';
 import { formatDateTime } from '../../../../lib/date-utils';
 
 interface TicketInfoCardProps {
@@ -13,6 +15,7 @@ interface TicketInfoCardProps {
   onGenerateTrackingCode: () => void;
   onNavigateEmployee: () => void;
   onNavigateOrder?: (() => void) | undefined;
+  children?: React.ReactNode;
 }
 
 export function TicketInfoCard({
@@ -21,8 +24,9 @@ export function TicketInfoCard({
   publicTrackingUrl,
   onCopyPublicLink,
   onGenerateTrackingCode,
-  onNavigateEmployee,
-  onNavigateOrder,
+  onNavigateEmployee: _onNavigateEmployee,
+  onNavigateOrder: _onNavigateOrder,
+  children,
 }: TicketInfoCardProps) {
   const trackingInfo = React.useMemo(() => {
     if (!ticket.publicTrackingCode) {
@@ -40,6 +44,19 @@ export function TicketInfoCard({
 
   const orderLabel = linkedOrderLabel || 'N/A';
 
+  // Extract who performed key status changes from history
+  const actionPerformers = React.useMemo(() => {
+    const history = (ticket.history as WarrantyHistory[] | null) || [];
+    const result: Record<string, string> = {};
+    for (const entry of history) {
+      if (entry.action?.startsWith('STATUS_CHANGE_')) {
+        const status = entry.action.replace('STATUS_CHANGE_', '');
+        result[status] = entry.performedBy;
+      }
+    }
+    return result;
+  }, [ticket.history]);
+
   return (
     <Card>
       <CardHeader>
@@ -52,7 +69,7 @@ export function TicketInfoCard({
               <div className="flex items-center justify-between gap-3">
                 <div className="flex-1">
                   <div className="text-xs text-muted-foreground mb-1">Link theo dõi công khai</div>
-                  <div className="font-mono text-sm break-all">{trackingInfo.display}</div>
+                  <div className="text-sm break-all">{trackingInfo.display}</div>
                 </div>
 
                 {trackingInfo.hasCode ? (
@@ -82,15 +99,15 @@ export function TicketInfoCard({
           </div>
           <div>
             <p className="text-xs text-muted-foreground">Nhân viên</p>
-            <button onClick={onNavigateEmployee} className="font-medium text-sm text-blue-600 hover:underline cursor-pointer">
+            <Link href={`/employees/${ticket.employeeSystemId}`} className="font-medium text-sm text-blue-600 hover:underline">
               {ticket.employeeName}
-            </button>
+            </Link>
           </div>
 
           {ticket.trackingCode && (
             <div>
               <p className="text-xs text-muted-foreground">Mã vận đơn</p>
-              <p className="font-mono text-sm">{ticket.trackingCode}</p>
+              <p className="text-sm">{ticket.trackingCode}</p>
             </div>
           )}
 
@@ -113,16 +130,16 @@ export function TicketInfoCard({
           {ticket.externalReference && (
             <div>
               <p className="text-xs text-muted-foreground">Mã tham chiếu</p>
-              <p className="font-mono text-sm">{ticket.externalReference}</p>
+              <p className="text-sm">{ticket.externalReference}</p>
             </div>
           )}
 
           {ticket.linkedOrderSystemId && (
             <div>
               <p className="text-xs text-muted-foreground">Trả bảo hành vào đơn hàng</p>
-              <button onClick={onNavigateOrder} className="font-medium text-sm text-green-600 hover:underline cursor-pointer">
+              <Link href={`/orders/${ticket.linkedOrderSystemId}`} className="font-medium text-sm text-green-600 hover:underline">
                 {orderLabel}
-              </button>
+              </Link>
             </div>
           )}
 
@@ -144,6 +161,9 @@ export function TicketInfoCard({
             <div>
               <p className="text-xs text-muted-foreground">Bắt đầu xử lý</p>
               <p className="text-sm">{formatDateTime(ticket.processingStartedAt)}</p>
+              {actionPerformers['PROCESSING'] && (
+                <p className="text-xs text-muted-foreground mt-0.5">bởi {actionPerformers['PROCESSING']}</p>
+              )}
             </div>
           )}
 
@@ -151,6 +171,9 @@ export function TicketInfoCard({
             <div>
               <p className="text-xs text-muted-foreground">Xử lý xong</p>
               <p className="text-sm">{formatDateTime(ticket.processedAt)}</p>
+              {actionPerformers['COMPLETED'] && (
+                <p className="text-xs text-muted-foreground mt-0.5">bởi {actionPerformers['COMPLETED']}</p>
+              )}
             </div>
           )}
 
@@ -158,6 +181,9 @@ export function TicketInfoCard({
             <div>
               <p className="text-xs text-muted-foreground">Đã trả hàng</p>
               <p className="text-sm">{formatDateTime(ticket.returnedAt)}</p>
+              {actionPerformers['RETURNED'] && (
+                <p className="text-xs text-muted-foreground mt-0.5">bởi {actionPerformers['RETURNED']}</p>
+              )}
             </div>
           )}
 
@@ -165,6 +191,9 @@ export function TicketInfoCard({
             <div>
               <p className="text-xs text-muted-foreground">Kết thúc phiếu</p>
               <p className="text-sm text-blue-600">{formatDateTime(ticket.completedAt)}</p>
+              {actionPerformers['COMPLETED'] && (
+                <p className="text-xs text-muted-foreground mt-0.5">bởi {actionPerformers['COMPLETED']}</p>
+              )}
             </div>
           )}
 
@@ -172,12 +201,18 @@ export function TicketInfoCard({
             <div>
               <p className="text-xs text-muted-foreground">Đã hủy</p>
               <p className="text-sm text-red-600">{formatDateTime(ticket.cancelledAt)}</p>
+              {actionPerformers['CANCELLED'] && (
+                <p className="text-xs text-muted-foreground mt-0.5">bởi {actionPerformers['CANCELLED']}</p>
+              )}
             </div>
           )}
 
           <div>
             <p className="text-xs text-muted-foreground">Cập nhật</p>
             <p className="text-sm">{formatDateTime(ticket.updatedAt)}</p>
+            {ticket.updatedBy && (
+              <p className="text-xs text-muted-foreground mt-0.5">bởi {ticket.updatedBy}</p>
+            )}
           </div>
 
           {ticket.createdBy && (
@@ -194,6 +229,7 @@ export function TicketInfoCard({
             </div>
           )}
         </div>
+        {children}
       </CardContent>
     </Card>
   );

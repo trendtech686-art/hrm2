@@ -5,10 +5,11 @@ import jwt from 'jsonwebtoken'
 import { validateBody, apiError } from '@/lib/api-utils'
 import { checkRateLimit } from '@/lib/security-utils'
 import { loginSchema } from './validation'
+import { logError } from '@/lib/logger'
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production'
+const JWT_SECRET = process.env.JWT_SECRET!
 const TOKEN_COOKIE_NAME = 'auth_token'
-const TOKEN_MAX_AGE = 7 * 24 * 60 * 60 // 7 days in seconds
+const TOKEN_MAX_AGE = 24 * 60 * 60 // 1 day in seconds (aligned with NextAuth maxAge)
 
 // POST /api/auth/login - No auth required
 export async function POST(request: Request) {
@@ -63,7 +64,7 @@ export async function POST(request: Request) {
         employeeId: user.employeeId,
       },
       JWT_SECRET,
-      { expiresIn: '7d' }
+      { expiresIn: '1d' }
     )
 
     // Update last login
@@ -82,10 +83,9 @@ export async function POST(request: Request) {
       employee: user.employee,
     }
 
-    // Create response with HTTP-only cookie
+    // Create response with HTTP-only cookie (token not exposed in body)
     const response = NextResponse.json({
       success: true,
-      token, // Still return token for backward compatibility
       user: userData,
     })
 
@@ -102,7 +102,7 @@ export async function POST(request: Request) {
 
     return response
   } catch (error) {
-    console.error('Login error:', error)
+    logError('Login error', error)
     return apiError('Đăng nhập thất bại', 500)
   }
 }

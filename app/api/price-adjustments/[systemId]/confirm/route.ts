@@ -6,6 +6,9 @@
 import { prisma } from '@/lib/prisma'
 import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
 import { PriceAdjustmentStatus } from '@/generated/prisma/client'
+import { logError } from '@/lib/logger'
+import { createNotification } from '@/lib/notifications'
+import { getUserNameFromDb } from '@/lib/get-user-name'
 
 type RouteParams = {
   params: Promise<{ systemId: string }>;
@@ -32,11 +35,11 @@ export async function POST(request: Request, { params }: RouteParams) {
     }
 
     if (priceAdjustment.status === PriceAdjustmentStatus.CONFIRMED) {
-      return apiError('Price adjustment already confirmed', 400);
+      return apiError('Phiếu điều chỉnh giá đã được xác nhận', 400);
     }
 
     if (priceAdjustment.status === PriceAdjustmentStatus.CANCELLED) {
-      return apiError('Cannot confirm cancelled price adjustment', 400);
+      return apiError('Không thể xác nhận phiếu đã bị hủy', 400);
     }
 
     const pricingPolicyId = priceAdjustment.pricingPolicyId;
@@ -112,9 +115,37 @@ export async function POST(request: Request, { params }: RouteParams) {
       updatedProducts: priceAdjustment.items.length,
     };
 
+    // Notify creator about confirmation
+    if (priceAdjustment.createdBySystemId && priceAdjustment.createdBySystemId !== session.user?.employeeId) {
+      createNotification({
+        type: 'price_adjustment',
+        settingsKey: 'price-adjustment:updated',
+        title: 'Điều chỉnh giá đã duyệt',
+        message: `Phiếu điều chỉnh giá ${priceAdjustment.id || systemId} đã được duyệt`,
+        link: `/price-adjustments/${systemId}`,
+        recipientId: priceAdjustment.createdBySystemId,
+        senderId: session.user?.employeeId,
+        senderName: session.user?.name,
+      }).catch(e => logError('[Price Adjustment Confirm] notification failed', e));
+    }
+
+    // Log activity
+    getUserNameFromDb(session.user?.id).then(userName =>
+      prisma.activityLog.create({
+        data: {
+          entityType: 'price_adjustment',
+          entityId: systemId,
+          action: 'confirmed',
+          actionType: 'update',
+          note: `Xác nhận điều chỉnh giá`,
+          metadata: { userName },
+          createdBy: userName,
+        }
+      })
+    ).catch(e => logError('[ActivityLog] price_adjustment confirmed failed', e))
     return apiSuccess(transformedAdjustment);
   } catch (error) {
-    console.error('[Price Adjustments API] Confirm error:', error);
-    return apiError('Failed to confirm price adjustment', 500);
+    logError('[Price Adjustments API] Confirm error', error);
+    return apiError('Lỗi khi xác nhận phiếu điều chỉnh giá', 500);
   }
 }

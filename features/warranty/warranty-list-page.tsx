@@ -3,8 +3,8 @@
 import * as React from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import { Plus, X, LayoutGrid, Table, Settings, Package, Clock, Loader, CheckCircle2 } from 'lucide-react';
-import { cn as _cn } from '../../lib/utils';
+import { Plus, LayoutGrid, Table, Settings, Loader2 } from 'lucide-react';
+import { cn } from '../../lib/utils';
 import { toast } from 'sonner';
 import {
   type ColumnFiltersState,
@@ -17,8 +17,7 @@ import { useColumnLayout } from '../../hooks/use-column-visibility';
 import type { WarrantyTicket, WarrantyStatus } from './types';
 import { useWarranties, useWarrantyMutations, useWarrantyStats, type WarrantyStats } from './hooks/use-warranties';
 import { useAllWarranties } from './hooks/use-all-warranties';
-import { useWarrantyReminders } from './hooks/use-warranty-reminders';
-import { useAllOrders } from '../orders/hooks/use-all-orders';
+
 import { WARRANTY_STATUS_LABELS } from './types';
 import { asSystemId } from '@/lib/id-types';
 import { getColumns } from './columns';
@@ -26,17 +25,15 @@ import { getColumns } from './columns';
 // Dynamic imports for heavy components
 const WarrantyCard = dynamic(() => import('./warranty-card').then(mod => ({ default: mod.WarrantyCard })), { ssr: false });
 const KanbanColumn = dynamic(() => import('./components/warranty-kanban-column').then(mod => ({ default: mod.KanbanColumn })), { ssr: false });
-const WarrantyReminderDialog = dynamic(() => import('./components/dialogs/warranty-reminder-dialog').then(mod => ({ default: mod.WarrantyReminderDialog })), { ssr: false });
 const WarrantyCancelDialog = dynamic(() => import('./components/dialogs/warranty-cancel-dialog').then(mod => ({ default: mod.WarrantyCancelDialog })), { ssr: false });
 
 // UI Components
 import { Button } from '../../components/ui/button';
 import { ResponsiveDataTable } from '../../components/data-table/responsive-data-table';
-import { DataTableFacetedFilter } from '../../components/data-table/data-table-faceted-filter';
 import { DynamicDataTableColumnCustomizer as DataTableColumnCustomizer } from '../../components/data-table/dynamic-column-customizer';
 import { PageFilters } from '../../components/layout/page-filters';
 import { PageToolbar } from '../../components/layout/page-toolbar';
-import { StatsCard, StatsCardGrid } from '../../components/shared/stats-card';
+import { StatsBar } from '../../components/shared/stats-bar';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -51,12 +48,14 @@ import {
 // Hooks & Utils
 import { usePageHeader } from '../../contexts/page-header-context';
 import { useBreakpoint } from '../../contexts/breakpoint-context';
+import { useAuth } from '../../contexts/auth-context';
 import { useWarrantySettings } from '../settings/warranty/hooks/use-warranty-settings';
 import { checkWarrantyOverdue } from './warranty-sla-utils';
+import { useWarrantySLATargets } from './hooks/use-warranty-sla-targets';
 import { ROUTES, generatePath } from '../../lib/router';
 import { usePrint } from '../../lib/use-print';
 import { useAllBranches } from '../settings/branches/hooks/use-all-branches';
-import { useStoreInfoData } from '../settings/store-info/hooks/use-store-info';
+import { fetchPrintData } from '@/lib/lazy-print-data';
 import {
   convertWarrantyForPrint,
   mapWarrantyToPrintData,
@@ -64,6 +63,9 @@ import {
   createStoreSettings
 } from '../../lib/print/warranty-print-helper';
 import { SimplePrintOptionsDialog, SimplePrintOptionsResult } from '../../components/shared/simple-print-options-dialog';
+import { usePaginationWithGlobalDefault } from '@/features/settings/global/hooks/use-global-settings';
+import { AdvancedFilterPanel, FilterExtras, type FilterConfig } from '../../components/shared/advanced-filter-panel';
+import { useFilterPresets } from '../../hooks/use-filter-presets';
 
 /**
  * Trang danh sách phiếu bảo hành - Nâng cấp với VirtualizedDataTable
@@ -85,6 +87,10 @@ export interface WarrantyListPageProps {
 export function WarrantyListPage({ initialStats }: WarrantyListPageProps = {}) {
   const router = useRouter();
   const { isMobile } = useBreakpoint();
+  const { can } = useAuth();
+  const canCreate = can('create_warranty');
+  const canEdit = can('edit_warranty');
+  const canDelete = can('delete_warranty');
   
   // Stats from Server Component (instant, no loading)
   const { data: stats } = useWarrantyStats(initialStats);
@@ -93,8 +99,33 @@ export function WarrantyListPage({ initialStats }: WarrantyListPageProps = {}) {
   const [searchQuery, setSearchQuery] = React.useState('');
   const [debouncedSearch, setDebouncedSearch] = React.useState('');
   const [statusFilter, setStatusFilter] = React.useState<Set<string>>(new Set());
+  const [branchFilter, setBranchFilter] = React.useState('all');
+  const [dateRange, setDateRange] = React.useState<{ from?: string; to?: string } | null>(null);
   const [sorting, setSorting] = React.useState<{ id: string; desc: boolean }>({ id: 'createdAt', desc: true });
-  const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 20 });
+  const [pagination, setPagination] = usePaginationWithGlobalDefault();
+
+  // Advanced filter panel
+  const { presets, savePreset, deletePreset, updatePreset } = useFilterPresets('warranty');
+  const { data: branches } = useAllBranches();
+  const warrantyStatusOpts = React.useMemo(() => [
+    { value: 'incomplete', label: 'Chưa đầy đủ' }, { value: 'pending', label: 'Chưa xử lý' },
+    { value: 'processed', label: 'Đã xử lý' }, { value: 'returned', label: 'Đã trả' },
+  ], []);
+  const filterConfigs: FilterConfig[] = React.useMemo(() => [
+    { id: 'status', label: 'Trạng thái', type: 'multi-select' as const, options: warrantyStatusOpts },
+    { id: 'branch', label: 'Chi nhánh', type: 'select' as const, options: [{ value: 'all', label: 'Tất cả' }, ...branches.map(b => ({ value: b.systemId, label: b.name }))] },
+    { id: 'dateRange', label: 'Ngày tạo', type: 'date-range' as const },
+  ], [warrantyStatusOpts, branches]);
+  const panelValues = React.useMemo(() => ({
+    status: Array.from(statusFilter),
+    branch: branchFilter !== 'all' ? branchFilter : null,
+    dateRange: dateRange,
+  }), [statusFilter, branchFilter, dateRange]);
+  const handlePanelApply = React.useCallback((v: Record<string, unknown>) => {
+    setStatusFilter(new Set((v.status as string[]) ?? []));
+    setBranchFilter((v.branch as string) || 'all');
+    setDateRange((v.dateRange as { from?: string; to?: string } | null) ?? null);
+  }, []);
 
   // Debounce search
   React.useEffect(() => {
@@ -108,18 +139,29 @@ export function WarrantyListPage({ initialStats }: WarrantyListPageProps = {}) {
   // Reset pagination on filter change
   React.useEffect(() => {
     setPagination(prev => ({ ...prev, pageIndex: 0 }));
-  }, [statusFilter]);
+  }, [statusFilter, branchFilter, dateRange]);
 
   // Server-side query
   const statusValue = statusFilter.size === 1 ? Array.from(statusFilter)[0] : undefined;
-  const { data: warrantyData, isLoading: isLoadingWarranties } = useWarranties({
+  const { data: warrantyData, isLoading: isLoadingWarranties, isFetching: isWarrantiesFetching, isError: isWarrantyError, error: warrantyError } = useWarranties({
     page: pagination.pageIndex + 1,
     limit: pagination.pageSize,
     search: debouncedSearch || undefined,
     status: statusValue,
+    branchId: branchFilter !== 'all' ? branchFilter : undefined,
+    startDate: dateRange?.from || undefined,
+    endDate: dateRange?.to || undefined,
     sortBy: sorting.id,
     sortOrder: sorting.desc ? 'desc' : 'asc',
   });
+
+  // Show toast when data fetch fails
+  React.useEffect(() => {
+    if (isWarrantyError && warrantyError) {
+      toast.error(`Lỗi tải danh sách bảo hành: ${warrantyError.message}`);
+    }
+  }, [isWarrantyError, warrantyError]);
+
   const tickets = React.useMemo(() => warrantyData?.data ?? [], [warrantyData?.data]);
   const totalRows = warrantyData?.pagination?.total ?? 0;
   const pageCount = Math.ceil(totalRows / pagination.pageSize);
@@ -131,19 +173,17 @@ export function WarrantyListPage({ initialStats }: WarrantyListPageProps = {}) {
   const { remove: deleteWarrantyMutation, update: updateWarrantyMutation } = useWarrantyMutations({});
   const deleteWarrantyTicket = React.useCallback((id: string | undefined) => id && deleteWarrantyMutation.mutate(id), [deleteWarrantyMutation]);
   
-  // ⚠️ KNOWN ISSUE: This loads all orders to lookup business IDs for display in table
-  // Future improvement: Store linkedOrderId (business ID) in warranty record
-  // or use a separate endpoint to batch-fetch order business IDs
-  const { data: orders } = useAllOrders();
+  // ✅ Order business IDs now come from API include (no need to load ALL orders)
 
   // Load card color settings from DB via React Query
   const { data: warrantySettings } = useWarrantySettings();
   const cardColors = warrantySettings.cardColors;
+  const slaTargets = useWarrantySLATargets();
 
   // Get row style based on overdue/status (same logic as card)
   const getRowStyle = React.useCallback((ticket: WarrantyTicket): React.CSSProperties => {
     // Check if overdue and overdue color is enabled (Priority 1)
-    const overdueStatus = checkWarrantyOverdue(ticket);
+    const overdueStatus = checkWarrantyOverdue(ticket, slaTargets);
     const isOverdue = overdueStatus.isOverdueResponse || 
                       overdueStatus.isOverdueProcessing || 
                       overdueStatus.isOverdueReturn;
@@ -162,7 +202,7 @@ export function WarrantyListPage({ initialStats }: WarrantyListPageProps = {}) {
     }
     
     return {};
-  }, [cardColors]);
+  }, [cardColors, slaTargets]);
 
   // Helper function to parse Tailwind color classes to CSS
   function parseColorClass(colorClass: string): React.CSSProperties {
@@ -266,17 +306,7 @@ export function WarrantyListPage({ initialStats }: WarrantyListPageProps = {}) {
 
   // View mode: kanban or table (moved above to enable lazy-load of allTickets)
 
-  // Reminder system
-  const {
-    isReminderModalOpen,
-    openReminderModal,
-    closeReminderModal,
-    selectedTicket,
-    templates,
-    sendReminder,
-  } = useWarrantyReminders();
-
-  // ==========================================
+  // View mode: kanban or table (moved above to enable lazy-load of allTickets)
   // Handlers
   // ==========================================
   const handleEdit = React.useCallback(
@@ -442,20 +472,13 @@ export function WarrantyListPage({ initialStats }: WarrantyListPageProps = {}) {
     }
   }, []);
 
-  const handleRemind = React.useCallback((systemId: string) => {
-    const ticket = tickets.find(t => t.systemId === asSystemId(systemId));
-    if (ticket) {
-      openReminderModal(ticket);
-    }
-  }, [tickets, openReminderModal]);
-
   // Generate columns
   const columns = React.useMemo(
     () => {
-      const cols = getColumns(handleCancel, handleEdit, router.push, orders); // ✅ Pass orders
+      const cols = getColumns(handleCancel, handleEdit, router.push, slaTargets);
       return cols;
     },
-    [handleCancel, handleEdit, router, orders] // ✅ Add orders dependency
+    [handleCancel, handleEdit, router, slaTargets]
   );
 
   const hasInitializedColumns = React.useRef(false);
@@ -512,9 +535,7 @@ export function WarrantyListPage({ initialStats }: WarrantyListPageProps = {}) {
     link.click();
   }, [selectedTickets]);
 
-  // Print imports
-  const { data: branches } = useAllBranches();
-  const { info: storeInfo } = useStoreInfoData();
+  // Print imports - ⚡ OPTIMIZED: storeInfo lazy loaded
   const { printMultiple } = usePrint();
   const [isPrintDialogOpen, setIsPrintDialogOpen] = React.useState(false);
   const [pendingPrintTickets, setPendingPrintTickets] = React.useState<WarrantyTicket[]>([]);
@@ -528,8 +549,9 @@ export function WarrantyListPage({ initialStats }: WarrantyListPageProps = {}) {
     setIsPrintDialogOpen(true);
   }, [selectedTickets]);
 
-  const handlePrintConfirm = React.useCallback((options: SimplePrintOptionsResult) => {
+  const handlePrintConfirm = React.useCallback(async (options: SimplePrintOptionsResult) => {
     const { branchSystemId, paperSize } = options;
+    const { storeInfo } = await fetchPrintData();
     
     const printOptionsList = pendingPrintTickets.map(ticket => {
       const branch = branchSystemId 
@@ -554,7 +576,7 @@ export function WarrantyListPage({ initialStats }: WarrantyListPageProps = {}) {
     });
     setRowSelection({});
     setPendingPrintTickets([]);
-  }, [pendingPrintTickets, branches, storeInfo, printMultiple]);
+  }, [pendingPrintTickets, branches, printMultiple]);
 
   const handleBulkGetTrackingLink = React.useCallback(() => {
     if (selectedTickets.length === 0) {
@@ -595,11 +617,11 @@ export function WarrantyListPage({ initialStats }: WarrantyListPageProps = {}) {
       label: "Get Link Tracking",
       onSelect: handleBulkGetTrackingLink
     },
-    {
+    ...(canDelete ? [{
       label: "Hủy",
       onSelect: handleBulkCancel
-    }
-  ], [handleBulkPrint, handleBulkGetTrackingLink, handleBulkCancel]);
+    }] : []),
+  ], [handleBulkPrint, handleBulkGetTrackingLink, handleBulkCancel, canDelete]);
 
   // ==========================================
   // Kanban Data (Group by status) - uses allTickets for kanban view
@@ -638,7 +660,7 @@ export function WarrantyListPage({ initialStats }: WarrantyListPageProps = {}) {
         )}
       </Button>,
       // Create button (RIGHT)
-      <Button
+      canCreate && <Button
         key="new"
         onClick={() => router.push('/warranty/new')}
         size="sm"
@@ -647,29 +669,9 @@ export function WarrantyListPage({ initialStats }: WarrantyListPageProps = {}) {
         <Plus className="h-4 w-4 mr-2" />
         Tạo phiếu mới
       </Button>,
-    ],
-    [router, viewMode]
+    ].filter(Boolean),
+    [router, viewMode, canCreate]
   );
-  const _warrantyStats = React.useMemo(() => {
-    return tickets.reduce(
-      (acc, ticket) => {
-        acc.total += 1;
-        if (ticket.status === 'RECEIVED') acc.received += 1;
-        if (ticket.status === 'PROCESSING') acc.processing += 1;
-        if (ticket.status === 'WAITING_PARTS') acc.waitingParts += 1;
-        if (ticket.status === 'COMPLETED') acc.completed += 1;
-        if (ticket.status === 'RETURNED') acc.returned += 1;
-        if (ticket.status === 'CANCELLED') acc.cancelled += 1;
-        const overdue = checkWarrantyOverdue(ticket);
-        if (overdue.isOverdueResponse || overdue.isOverdueProcessing || overdue.isOverdueReturn) {
-          acc.overdue += 1;
-        }
-        return acc;
-      },
-      { total: 0, received: 0, processing: 0, waitingParts: 0, completed: 0, returned: 0, cancelled: 0, overdue: 0 }
-    );
-  }, [tickets]);
-
   usePageHeader({
     title: 'Quản lý bảo hành',
     actions,
@@ -684,6 +686,17 @@ export function WarrantyListPage({ initialStats }: WarrantyListPageProps = {}) {
   // ==========================================
   return (
     <div className="flex flex-col w-full h-full">
+      {/* Stats Bar - instant display from Server Component */}
+      <StatsBar
+        className="mb-4"
+        items={[
+          { key: 'total', label: 'Tổng số phiếu', value: stats?.total ?? 0 },
+          { key: 'pending', label: 'Đang chờ xử lý', value: stats?.pending ?? 0 },
+          { key: 'processed', label: 'Chờ linh kiện', value: stats?.processed ?? 0 },
+          { key: 'completed', label: 'Hoàn thành', value: stats?.completed ?? 0 },
+        ]}
+      />
+
       {/* Toolbar - Import/Export & Column Customizer */}
       {!isMobile && (
         <PageToolbar
@@ -722,64 +735,12 @@ export function WarrantyListPage({ initialStats }: WarrantyListPageProps = {}) {
         onSearchChange={setSearchQuery}
         searchPlaceholder="Tìm theo mã phiếu, tên KH, SĐT, mã vận đơn..."
       >
-        {/* Status Filter */}
-        <DataTableFacetedFilter
-          title="Trạng thái"
-          options={[
-            { label: 'Chưa đầy đủ', value: 'incomplete' },
-            { label: 'Chưa xử lý', value: 'pending' },
-            { label: 'Đã xử lý', value: 'processed' },
-            { label: 'Đã trả', value: 'returned' },
-          ]}
-          selectedValues={statusFilter}
-          onSelectedValuesChange={setStatusFilter}
-        />
-
-        {/* Clear filters */}
-        {(searchQuery || statusFilter.size > 0) && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              setSearchQuery('');
-              setStatusFilter(new Set());
-            }}
-          >
-            <X className="h-4 w-4 mr-2" />
-            Xóa bộ lọc
-          </Button>
-        )}
+        <AdvancedFilterPanel filters={filterConfigs} values={panelValues} onApply={handlePanelApply} presets={presets.map(p => ({ ...p, filters: p.filters }))} onSavePreset={(preset) => savePreset(preset.name, panelValues)} onDeletePreset={deletePreset} onUpdatePreset={updatePreset} />
       </PageFilters>
-
-      {/* Stats Cards - instant display from Server Component */}
-      <StatsCardGrid columns={4} className="my-4">
-        <StatsCard
-          title="Tổng số phiếu"
-          value={stats?.total ?? 0}
-          icon={Package}
-        />
-        <StatsCard
-          title="Đang chờ xử lý"
-          value={stats?.pending ?? 0}
-          icon={Clock}
-          variant="warning"
-        />
-        <StatsCard
-          title="Chờ linh kiện"
-          value={stats?.processed ?? 0}
-          icon={Loader}
-          variant="info"
-        />
-        <StatsCard
-          title="Hoàn thành"
-          value={stats?.completed ?? 0}
-          icon={CheckCircle2}
-          variant="success"
-        />
-      </StatsCardGrid>
+      <FilterExtras presets={presets} filterConfigs={filterConfigs} values={panelValues} onApply={handlePanelApply} onDeletePreset={deletePreset} />
 
       {/* Table - Desktop View */}
-      <div className="w-full py-4">
+      <div className={cn('w-full py-4', isWarrantiesFetching && !isLoadingWarranties && 'opacity-70 transition-opacity')}>
         {viewMode === 'table' ? (
           <ResponsiveDataTable<WarrantyTicket>
             columns={columns}
@@ -827,7 +788,8 @@ export function WarrantyListPage({ initialStats }: WarrantyListPageProps = {}) {
               onMarkProcessed={handleMarkProcessed}
               onMarkReturned={handleMarkReturned}
               onCancel={handleCancel}
-              onRemind={handleRemind}
+              canEdit={canEdit}
+              canCancel={canDelete}
             />
             <KanbanColumn
               status="PROCESSING"
@@ -840,7 +802,8 @@ export function WarrantyListPage({ initialStats }: WarrantyListPageProps = {}) {
               onMarkProcessed={handleMarkProcessed}
               onMarkReturned={handleMarkReturned}
               onCancel={handleCancel}
-              onRemind={handleRemind}
+              canEdit={canEdit}
+              canCancel={canDelete}
             />
             <KanbanColumn
               status="COMPLETED"
@@ -853,7 +816,8 @@ export function WarrantyListPage({ initialStats }: WarrantyListPageProps = {}) {
               onMarkProcessed={handleMarkProcessed}
               onMarkReturned={handleMarkReturned}
               onCancel={handleCancel}
-              onRemind={handleRemind}
+              canEdit={canEdit}
+              canCancel={canDelete}
             />
             <KanbanColumn
               status="RETURNED"
@@ -866,7 +830,8 @@ export function WarrantyListPage({ initialStats }: WarrantyListPageProps = {}) {
               onMarkProcessed={handleMarkProcessed}
               onMarkReturned={handleMarkReturned}
               onCancel={handleCancel}
-              onRemind={handleRemind}
+              canEdit={canEdit}
+              canCancel={canDelete}
             />
             <KanbanColumn
               status="WAITING_PARTS"
@@ -879,7 +844,8 @@ export function WarrantyListPage({ initialStats }: WarrantyListPageProps = {}) {
               onMarkProcessed={handleMarkProcessed}
               onMarkReturned={handleMarkReturned}
               onCancel={handleCancel}
-              onRemind={handleRemind}
+              canEdit={canEdit}
+              canCancel={canDelete}
             />
           </div>
         )}
@@ -891,15 +857,6 @@ export function WarrantyListPage({ initialStats }: WarrantyListPageProps = {}) {
         onOpenChange={handleCancelDialogOpenChange}
         ticket={currentCancelTicket}
         onCancelled={handleCancelSuccess}
-      />
-
-      {/* Reminder Dialog */}
-      <WarrantyReminderDialog
-        open={isReminderModalOpen}
-        onOpenChange={closeReminderModal}
-        ticket={selectedTicket}
-        templates={templates}
-        onSendReminder={sendReminder}
       />
 
       {/* Bulk Delete Confirmation */}
@@ -914,7 +871,9 @@ export function WarrantyListPage({ initialStats }: WarrantyListPageProps = {}) {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Hủy</AlertDialogCancel>
-            <AlertDialogAction onClick={handleBulkDelete}>Xóa</AlertDialogAction>
+            <AlertDialogAction onClick={handleBulkDelete} disabled={deleteWarrantyMutation.isPending}>
+              {deleteWarrantyMutation.isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Đang xóa...</> : 'Xóa'}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

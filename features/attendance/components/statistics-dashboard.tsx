@@ -1,5 +1,5 @@
 ﻿import * as React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
+import { Card, CardContent, CardTitle } from '../../../components/ui/card';
 import { Users, Calendar, AlertTriangle, Clock, TrendingUp, Award } from 'lucide-react';
 import type { AttendanceDataRow } from '../types';
 import { cn } from '../../../lib/utils';
@@ -93,22 +93,20 @@ export function StatisticsDashboard({ data, currentDate: _currentDate }: Statist
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
       {statCards.map((stat, index) => (
         <Card key={index} className="overflow-hidden">
-          <CardHeader className="p-2 pb-1">
-            <div className="flex items-center justify-between">
-              <CardTitle size="sm" className="text-muted-foreground leading-tight">
+          <CardContent className="p-3!">
+            <div className="flex items-center gap-2 mb-1">
+              <div className={cn('p-1.5 rounded-md', stat.bgColor)}>
+                <stat.icon className={cn('h-3.5 w-3.5', stat.color)} />
+              </div>
+              <CardTitle size="sm" className="text-muted-foreground leading-tight truncate">
                 {stat.title}
               </CardTitle>
-              <div className={cn('p-1 rounded-md', stat.bgColor)}>
-                <stat.icon className={cn('h-3 w-3', stat.color)} />
-              </div>
             </div>
-          </CardHeader>
-          <CardContent className="p-2 pt-0">
-            <div className="text-sm font-semibold truncate" title={String(stat.value)}>
+            <div className="text-lg font-bold truncate" title={String(stat.value)}>
               {stat.value}
             </div>
             {stat.subtitle && (
-              <p className="text-[10px] text-muted-foreground">
+              <p className="text-xs text-muted-foreground mt-0.5">
                 {stat.subtitle}
               </p>
             )}

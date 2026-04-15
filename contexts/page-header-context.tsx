@@ -226,8 +226,10 @@ export function usePageHeader(config?: PageHeaderState) {
       const actionsArray = Array.isArray(actions) ? actions : [actions];
       return actionsArray.map(node => {
         if (!React.isValidElement(node)) return extractText(node);
-        const props = node.props as { disabled?: boolean; hidden?: boolean; children?: React.ReactNode };
-        return `${extractText(node)}|${props.disabled}|${props.hidden}|${node.key}`;
+        const props = node.props as { disabled?: boolean; hidden?: boolean; children?: React.ReactNode; onClick?: (...args: unknown[]) => unknown };
+        // Include onClick identity so actions with same text but different handlers get unique fingerprints
+        const onClickId = typeof props.onClick === 'function' ? props.onClick.toString().slice(0, 120) : '';
+        return `${extractText(node)}|${props.disabled}|${props.hidden}|${node.key}|${onClickId}`;
       }).join('||');
     };
 
@@ -249,7 +251,8 @@ export function usePageHeader(config?: PageHeaderState) {
     if (currentConfig) {
       setPageHeader(currentConfig);
     }
-  }, [configFingerprint, setPageHeader]);
+    return () => clearPageHeader();
+  }, [configFingerprint, setPageHeader, clearPageHeader]);
 
   return { setPageHeader, clearPageHeader };
 }

@@ -85,7 +85,7 @@ export const getBatchColumns = (actions: BatchColumnActions): ColumnDef<PayrollB
     header: 'Mã bảng lương',
     cell: ({ row }) => (
       <Link href={ROUTES.PAYROLL.DETAIL.replace(':systemId', row.systemId)}
-        className="font-mono text-body-xs text-primary hover:underline"
+        className="font-mono text-xs text-primary hover:underline"
         onClick={(e) => e.stopPropagation()}
       >
         {row.id}

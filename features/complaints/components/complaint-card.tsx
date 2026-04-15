@@ -2,7 +2,6 @@ import * as React from 'react';
 import { Phone, Package, Calendar, User, Clock, AlertCircle, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { StatusBadge, COMPLAINT_STATUS_MAP } from '@/components/StatusBadge';
-import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { formatDate } from '@/lib/date-utils';
 import { Complaint, complaintStatusLabels as _complaintStatusLabels, complaintTypeLabels, complaintTypeColors } from '../types';
@@ -18,20 +17,26 @@ export function ComplaintCard({ complaint, onClick, employees }: ComplaintCardPr
   const overdueStatus = checkOverdue(complaint);
   const isOverdue = overdueStatus.isOverdueResponse || overdueStatus.isOverdueResolve;
   
-  const statusConfig = {
+  const statusConfig: Record<string, { icon: typeof Clock; color: string }> = {
     pending: { icon: Clock, color: 'text-yellow-600' },
     investigating: { icon: AlertCircle, color: 'text-blue-600' },
     resolved: { icon: CheckCircle2, color: 'text-green-600' },
     rejected: { icon: XCircle, color: 'text-gray-600' },
+    cancelled: { icon: XCircle, color: 'text-red-600' },
+    ended: { icon: CheckCircle2, color: 'text-purple-600' },
   };
   
-  const _StatusIcon = statusConfig[complaint.status].icon;
+  const _StatusIcon = (statusConfig[complaint.status] ?? statusConfig.pending).icon;
   
-  const priorityConfig = {
+  const priorityConfig: Record<string, { label: string; color: string }> = {
     low: { label: 'Thấp', color: 'bg-slate-100 text-slate-800' },
     medium: { label: 'Trung bình', color: 'bg-amber-100 text-amber-800' },
     high: { label: 'Cao', color: 'bg-orange-100 text-orange-800' },
     urgent: { label: 'Khẩn cấp', color: 'bg-red-100 text-red-800' },
+    LOW: { label: 'Thấp', color: 'bg-slate-100 text-slate-800' },
+    MEDIUM: { label: 'Trung bình', color: 'bg-amber-100 text-amber-800' },
+    HIGH: { label: 'Cao', color: 'bg-orange-100 text-orange-800' },
+    CRITICAL: { label: 'Khẩn cấp', color: 'bg-red-100 text-red-800' },
   };
   
   const assignedEmployee = complaint.assignedTo 
@@ -39,10 +44,10 @@ export function ComplaintCard({ complaint, onClick, employees }: ComplaintCardPr
     : null;
 
   return (
-    <Card
+    <div
       onClick={onClick}
       className={cn(
-        "p-4 cursor-pointer transition-all hover:shadow-md",
+        "p-4 rounded-xl border border-border/50 bg-card cursor-pointer active:scale-[0.98] transition-transform touch-manipulation",
         "border-l-4",
         isOverdue && "border-l-red-500 bg-red-50",
         !isOverdue && complaint.priority === 'CRITICAL' && "border-l-red-400 bg-red-50",
@@ -55,12 +60,12 @@ export function ComplaintCard({ complaint, onClick, employees }: ComplaintCardPr
       <div className="flex items-start justify-between mb-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <span className="font-semibold text-body-sm text-primary">{complaint.id}</span>
-            <Badge variant="outline" className={cn("text-body-xs", complaintTypeColors[complaint.type])}>
+            <span className="font-semibold text-sm text-primary">{complaint.id}</span>
+            <Badge variant="outline" className={cn("text-xs", complaintTypeColors[complaint.type])}>
               {complaintTypeLabels[complaint.type]}
             </Badge>
           </div>
-          <div className="flex items-center gap-2 text-body-xs text-muted-foreground">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Package className="h-3.5 w-3.5 shrink-0" />
             <span className="truncate">{complaint.orderCode}</span>
           </div>
@@ -70,7 +75,7 @@ export function ComplaintCard({ complaint, onClick, employees }: ComplaintCardPr
           <StatusBadge status={complaint.status} statusMap={COMPLAINT_STATUS_MAP} />
           
           {isOverdue && (
-            <Badge variant="outline" className="text-body-xs bg-red-100 text-red-800 whitespace-nowrap">
+            <Badge variant="outline" className="text-xs bg-red-100 text-red-800 whitespace-nowrap">
               <AlertTriangle className="h-3 w-3 mr-1" />
               Quá hạn
             </Badge>
@@ -78,32 +83,32 @@ export function ComplaintCard({ complaint, onClick, employees }: ComplaintCardPr
           
           <Badge 
             variant="outline" 
-            className={cn("text-body-xs", priorityConfig[complaint.priority].color, "whitespace-nowrap")}
+            className={cn("text-xs", (priorityConfig[complaint.priority] ?? priorityConfig.LOW).color, "whitespace-nowrap")}
           >
-            {priorityConfig[complaint.priority].label}
+            {(priorityConfig[complaint.priority] ?? priorityConfig.LOW).label}
           </Badge>
         </div>
       </div>
 
       {/* Customer Info */}
-      <div className="space-y-2 mb-3">
-        <div className="flex items-center gap-2 text-body-sm">
+      <div className="space-y-1.5 mb-3">
+        <div className="flex items-center gap-2 text-sm">
           <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
           <span className="font-medium truncate">{complaint.customerName}</span>
         </div>
-        <div className="flex items-center gap-2 text-body-sm text-muted-foreground">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <Phone className="h-3.5 w-3.5 shrink-0" />
           <span>{complaint.customerPhone}</span>
         </div>
       </div>
 
       {/* Description */}
-      <p className="text-body-sm text-muted-foreground line-clamp-2 mb-3">
+      <p className="text-xs text-muted-foreground line-clamp-2 mb-3">
         {complaint.description}
       </p>
 
       {/* Footer */}
-      <div className="flex items-center justify-between text-body-xs text-muted-foreground pt-3 border-t">
+      <div className="flex items-center justify-between text-xs text-muted-foreground mt-3 pt-3 border-t border-border/50">
         <div className="flex items-center gap-1">
           <Calendar className="h-3.5 w-3.5" />
           <span>{formatDate(complaint.createdAt)}</span>
@@ -112,12 +117,12 @@ export function ComplaintCard({ complaint, onClick, employees }: ComplaintCardPr
         {assignedEmployee ? (
           <div className="flex items-center gap-1">
             <User className="h-3.5 w-3.5" />
-            <span className="truncate max-w-[120px]">{assignedEmployee.fullName}</span>
+            <span className="truncate max-w-30">{assignedEmployee.fullName}</span>
           </div>
         ) : (
           <span className="text-muted-foreground">Chưa phân công</span>
         )}
       </div>
-    </Card>
+    </div>
   );
 }

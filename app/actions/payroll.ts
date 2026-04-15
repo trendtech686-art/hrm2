@@ -7,9 +7,10 @@
 import { prisma } from '@/lib/prisma'
 import { revalidatePath } from '@/lib/revalidation'
 import { generateIdWithPrefix } from '@/lib/id-generator'
-import { auth } from '@/auth'
+import { requireActionPermission, serializeDecimals } from '@/lib/api-utils'
 import type { ActionResult } from '@/types/action-result'
 import { createPayrollSchema, updatePayrollSchema } from '@/features/payroll/validation'
+import { logError } from '@/lib/logger'
 
 // Types
 type Payroll = NonNullable<Awaited<ReturnType<typeof prisma.payroll.findFirst>>>
@@ -58,10 +59,8 @@ export type UpdatePayrollInput = {
 export async function createPayrollAction(
   input: CreatePayrollInput
 ): Promise<ActionResult<Payroll & { items: PayrollItem[] }>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('create_payroll')
+  if (!authResult.success) return authResult
   const validated = createPayrollSchema.safeParse(input)
   if (!validated.success) {
     return { success: false, error: validated.error.issues[0]?.message || 'Dữ liệu không hợp lệ' }
@@ -147,9 +146,9 @@ export async function createPayrollAction(
     })
 
     revalidatePath('/payroll')
-    return { success: true, data: result! }
+    return { success: true, data: serializeDecimals(result!) }
   } catch (error) {
-    console.error('Error creating payroll:', error)
+    logError('Error creating payroll', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Không thể tạo bảng lương',
@@ -160,10 +159,8 @@ export async function createPayrollAction(
 export async function updatePayrollAction(
   input: UpdatePayrollInput
 ): Promise<ActionResult<Payroll>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('create_payroll')
+  if (!authResult.success) return authResult
   const validated = updatePayrollSchema.safeParse(input)
   if (!validated.success) {
     return { success: false, error: validated.error.issues[0]?.message || 'Dữ liệu không hợp lệ' }
@@ -202,9 +199,9 @@ export async function updatePayrollAction(
 
     revalidatePath('/payroll')
     revalidatePath(`/payroll/${systemId}`)
-    return { success: true, data: payroll }
+    return { success: true, data: serializeDecimals(payroll) }
   } catch (error) {
-    console.error('Error updating payroll:', error)
+    logError('Error updating payroll', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Không thể cập nhật bảng lương',
@@ -215,10 +212,8 @@ export async function updatePayrollAction(
 export async function deletePayrollAction(
   systemId: string
 ): Promise<ActionResult<Payroll>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('create_payroll')
+  if (!authResult.success) return authResult
   try {
     const existing = await prisma.payroll.findUnique({
       where: { systemId },
@@ -246,9 +241,9 @@ export async function deletePayrollAction(
     })
 
     revalidatePath('/payroll')
-    return { success: true, data: payroll }
+    return { success: true, data: serializeDecimals(payroll) }
   } catch (error) {
-    console.error('Error deleting payroll:', error)
+    logError('Error deleting payroll', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Không thể xóa bảng lương',
@@ -259,10 +254,8 @@ export async function deletePayrollAction(
 export async function getPayrollAction(
   systemId: string
 ): Promise<ActionResult<Payroll & { items: PayrollItem[] }>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('view_payroll')
+  if (!authResult.success) return authResult
   try {
     const payroll = await prisma.payroll.findUnique({
       where: { systemId },
@@ -273,9 +266,9 @@ export async function getPayrollAction(
       return { success: false, error: 'Không tìm thấy bảng lương' }
     }
 
-    return { success: true, data: payroll }
+    return { success: true, data: serializeDecimals(payroll) }
   } catch (error) {
-    console.error('Error getting payroll:', error)
+    logError('Error getting payroll', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Không thể lấy bảng lương',
@@ -287,10 +280,8 @@ export async function processPayrollAction(
   systemId: string,
   processedBy?: string
 ): Promise<ActionResult<Payroll>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('approve_payroll')
+  if (!authResult.success) return authResult
   try {
     const existing = await prisma.payroll.findUnique({
       where: { systemId },
@@ -318,9 +309,9 @@ export async function processPayrollAction(
 
     revalidatePath('/payroll')
     revalidatePath(`/payroll/${systemId}`)
-    return { success: true, data: payroll }
+    return { success: true, data: serializeDecimals(payroll) }
   } catch (error) {
-    console.error('Error processing payroll:', error)
+    logError('Error processing payroll', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Không thể xử lý bảng lương',
@@ -332,10 +323,8 @@ export async function markPayrollPaidAction(
   systemId: string,
   paidBy?: string
 ): Promise<ActionResult<Payroll>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('approve_payroll')
+  if (!authResult.success) return authResult
   try {
     const existing = await prisma.payroll.findUnique({
       where: { systemId },
@@ -363,9 +352,9 @@ export async function markPayrollPaidAction(
 
     revalidatePath('/payroll')
     revalidatePath(`/payroll/${systemId}`)
-    return { success: true, data: payroll }
+    return { success: true, data: serializeDecimals(payroll) }
   } catch (error) {
-    console.error('Error marking payroll as paid:', error)
+    logError('Error marking payroll as paid', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Không thể thanh toán bảng lương',

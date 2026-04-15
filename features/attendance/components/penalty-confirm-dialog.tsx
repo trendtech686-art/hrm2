@@ -18,7 +18,7 @@ interface PenaltyConfirmDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   penalties: PenaltyPreviewItem[];
-  onConfirm: (selectedPenalties: Omit<Penalty, 'systemId'>[]) => void;
+  onConfirm: (selectedPenalties: Omit<Penalty, 'systemId'>[]) => void | Promise<void>;
   onSkip: () => void;
 }
 

@@ -4,6 +4,7 @@ import * as React from 'react';
 import { TabsContent } from '../../../components/ui/tabs';
 import { Globe } from 'lucide-react';
 import { SettingsVerticalTabs } from '../../../components/settings/SettingsVerticalTabs';
+import { SettingsHistoryContent } from '../../../components/settings/SettingsHistoryContent';
 import { useSettingsPageHeader } from '../use-settings-page-header';
 import {
   GeneralConfigTab,
@@ -12,7 +13,6 @@ import {
   PriceMappingTab,
   ProductMappingTab,
   SyncSettingsTab,
-  LogTab,
 } from './components';
 
 const PKGX_TABS = [
@@ -22,7 +22,6 @@ const PKGX_TABS = [
   { value: 'price-mapping', label: 'Mapping giá' },
   { value: 'product-mapping', label: 'Sản phẩm đã liên kết' },
   { value: 'sync', label: 'Auto Sync' },
-  { value: 'logs', label: 'Logs' },
 ];
 
 export function PkgxSettingsPage() {
@@ -37,6 +36,7 @@ export function PkgxSettingsPage() {
   });
 
   return (
+    <>
     <SettingsVerticalTabs
       value={activeTab}
       onValueChange={setActiveTab}
@@ -47,28 +47,29 @@ export function PkgxSettingsPage() {
       </TabsContent>
 
       <TabsContent value="category-mapping" className="mt-0">
-        <CategoryMappingTab />
+        {activeTab === 'category-mapping' && <CategoryMappingTab />}
       </TabsContent>
 
       <TabsContent value="brand-mapping" className="mt-0">
-        <BrandMappingTab />
+        {activeTab === 'brand-mapping' && <BrandMappingTab />}
       </TabsContent>
 
       <TabsContent value="price-mapping" className="mt-0">
-        <PriceMappingTab />
+        {activeTab === 'price-mapping' && <PriceMappingTab />}
       </TabsContent>
 
       <TabsContent value="product-mapping" className="mt-0">
-        <ProductMappingTab />
+        {activeTab === 'product-mapping' && <ProductMappingTab />}
       </TabsContent>
 
       <TabsContent value="sync" className="mt-0">
-        <SyncSettingsTab />
-      </TabsContent>
-
-      <TabsContent value="logs" className="mt-0">
-        <LogTab />
+        {activeTab === 'sync' && <SyncSettingsTab />}
       </TabsContent>
     </SettingsVerticalTabs>
+
+    <div className="mt-6">
+      <SettingsHistoryContent entityTypes={['pkgx_settings']} />
+    </div>
+  </>
   );
 }

@@ -1,7 +1,7 @@
-'use server'
+﻿'use server'
 
 /**
- * Server Actions for Receipt Management (Phiếu Thu)
+ * Server Actions for Receipt Management (Phiáº¿u Thu)
  * 
  * These are server-side functions that can be called directly from Client Components.
  * They use Prisma transactions for atomic operations.
@@ -11,11 +11,14 @@
 
 import { prisma } from '@/lib/prisma'
 import type { Prisma } from '@prisma/client'
-import { auth } from '@/auth'
+import { requireActionPermission } from '@/lib/api-utils'
 import { revalidatePath } from '@/lib/revalidation'
-import { generateIdWithPrefix } from '@/lib/id-generator'
+import { generateNextIdsWithTx } from '@/lib/id-system'
 import type { ActionResult } from '@/types/action-result'
 import { createReceiptSchema, updateReceiptSchema } from '@/features/receipts/validation'
+import { logError } from '@/lib/logger'
+import { updateCustomerDebt } from '@/lib/services/customer-debt-service'
+import { getSessionUserName } from '@/lib/get-user-name'
 
 // ====================================
 // HELPERS
@@ -35,11 +38,13 @@ function serializeReceipt<T extends { amount?: Prisma.Decimal | number | null; r
 // ====================================
 
 export type ReceiptCategory = 
-  | 'SALES_REVENUE'
+  | 'sale'
   | 'service_revenue'
   | 'complaint_penalty'
   | 'warranty_additional'
+  | 'customer_payment'
   | 'deposit_received'
+  | 'SALES_REVENUE'
   | 'other'
 
 export type CreateReceiptInput = {
@@ -66,6 +71,13 @@ export type CreateReceiptInput = {
   linkedWarrantySystemId?: string
   linkedComplaintSystemId?: string
   voucherDate?: Date
+  // Receipt type (loáº¡i phiáº¿u thu)
+  paymentReceiptTypeSystemId?: string
+  paymentReceiptTypeName?: string
+  // Debt tracking
+  affectsDebt?: boolean
+  // Order allocations (for "Thanh toÃ¡n theo Ä‘Æ¡n hÃ ng")
+  orderAllocations?: { orderSystemId: string; orderId: string; amount: number }[]
 }
 
 export type UpdateReceiptInput = {
@@ -107,48 +119,48 @@ export type CreateOrderReceiptInput = {
 // ====================================
 
 /**
- * Create a new receipt voucher (phiếu thu)
+ * Create a new receipt voucher (phiáº¿u thu)
  */
 export async function createReceiptAction(
   input: CreateReceiptInput
 ): Promise<ActionResult> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Không có quyền truy cập' }
-  }
+  const authResult = await requireActionPermission('create_receipts')
+  if (!authResult.success) return authResult
+  const { session } = authResult
 
   const validated = createReceiptSchema.safeParse(input)
   if (!validated.success) {
-    return { success: false, error: validated.error.issues[0]?.message || 'Dữ liệu không hợp lệ' }
+    return { success: false, error: validated.error.issues[0]?.message || 'Dá»¯ liá»‡u khÃ´ng há»£p lá»‡' }
   }
 
   const { amount, category, branchId } = input
 
   if (!amount || amount <= 0) {
-    return { success: false, error: 'Số tiền phải lớn hơn 0' }
+    return { success: false, error: 'Sá»‘ tiá»n pháº£i lá»›n hÆ¡n 0' }
   }
 
   if (!category) {
-    return { success: false, error: 'Vui lòng chọn loại thu' }
+    return { success: false, error: 'Vui lÃ²ng chá»n loáº¡i thu' }
   }
 
   if (!branchId) {
-    return { success: false, error: 'Vui lòng chọn chi nhánh' }
+    return { success: false, error: 'Vui lÃ²ng chá»n chi nhÃ¡nh' }
   }
 
   try {
+    const userName = getSessionUserName(session)
+
     const result = await prisma.$transaction(async (tx) => {
       const now = new Date()
-      const userName = session.user?.name || session.user?.email || 'Unknown'
 
-      // Generate system ID using ID generator
-      const systemId = await generateIdWithPrefix('PT', tx)
+      // Generate receipt IDs using unified ID system
+      const { systemId, businessId } = await generateNextIdsWithTx(tx, 'receipts')
 
       // Create receipt
       const receipt = await tx.receipt.create({
         data: {
           systemId,
-          id: systemId, // Use same value for id
+          id: businessId,
           type: 'OTHER_INCOME',
           amount,
           description: input.description || '',
@@ -172,12 +184,83 @@ export async function createReceiptAction(
           linkedSalesReturnSystemId: input.linkedSalesReturnSystemId || null,
           linkedWarrantySystemId: input.linkedWarrantySystemId || null,
           linkedComplaintSystemId: input.linkedComplaintSystemId || null,
+          // Receipt type (loáº¡i phiáº¿u thu)
+          paymentReceiptTypeSystemId: input.paymentReceiptTypeSystemId || null,
+          paymentReceiptTypeName: input.paymentReceiptTypeName || null,
+          // Debt tracking - default true for customer receipts
+          affectsDebt: input.affectsDebt ?? true,
+          // Order allocations JSON
+          orderAllocations: input.orderAllocations && input.orderAllocations.length > 0
+            ? input.orderAllocations
+            : undefined,
           receiptDate: input.voucherDate || now,
           createdAt: now,
           updatedAt: now,
           createdBy: userName,
         },
       })
+
+      // Process order allocations â€” update each order's paidAmount & paymentStatus
+      if (input.orderAllocations && input.orderAllocations.length > 0) {
+        for (const alloc of input.orderAllocations) {
+          // Increment order paidAmount
+          const updatedOrder = await tx.order.update({
+            where: { systemId: alloc.orderSystemId },
+            data: {
+              paidAmount: { increment: alloc.amount },
+              updatedAt: now,
+            },
+          })
+
+          // Create OrderPayment record
+          await tx.orderPayment.create({
+            data: {
+              id: `${businessId}-${alloc.orderId}`,
+              orderId: alloc.orderSystemId,
+              amount: alloc.amount,
+              method: input.paymentMethodName || 'Tiá»n máº·t',
+              description: input.description || null,
+              createdBy: userName,
+              linkedReceiptSystemId: systemId,
+            },
+          })
+
+          // Update paymentStatus based on new paidAmount vs grandTotal
+          const newPaidAmount = Number(updatedOrder.paidAmount)
+          const grandTotal = Number(updatedOrder.grandTotal)
+          const linkedReturnValue = updatedOrder.linkedSalesReturnValue ? Number(updatedOrder.linkedSalesReturnValue) : 0
+          const effectivePaid = newPaidAmount + linkedReturnValue
+          let newPaymentStatus: 'UNPAID' | 'PARTIAL' | 'PAID'
+          if (effectivePaid >= grandTotal && grandTotal > 0) {
+            newPaymentStatus = 'PAID'
+          } else if (effectivePaid > 0) {
+            newPaymentStatus = 'PARTIAL'
+          } else {
+            newPaymentStatus = 'UNPAID'
+          }
+          // Check if order should be auto-completed
+          // Order is complete when: fully paid AND (delivered OR fully stocked out)
+          const isDelivered = updatedOrder.status === 'DELIVERED' || 
+                              updatedOrder.deliveryStatus === 'DELIVERED' ||
+                              updatedOrder.stockOutStatus === 'FULLY_STOCKED_OUT'
+          const shouldComplete = isDelivered && newPaymentStatus === 'PAID' && updatedOrder.status !== 'COMPLETED'
+
+          const statusUpdate: Record<string, unknown> = {}
+          if (updatedOrder.paymentStatus !== newPaymentStatus) {
+            statusUpdate.paymentStatus = newPaymentStatus
+          }
+          if (shouldComplete) {
+            statusUpdate.status = 'COMPLETED'
+            statusUpdate.completedDate = new Date()
+          }
+          if (Object.keys(statusUpdate).length > 0) {
+            await tx.order.update({
+              where: { systemId: alloc.orderSystemId },
+              data: statusUpdate,
+            })
+          }
+        }
+      }
 
       return receipt
     })
@@ -193,14 +276,42 @@ export async function createReceiptAction(
     if (input.linkedSalesReturnSystemId) {
       revalidatePath(`/sales-returns/${input.linkedSalesReturnSystemId}`)
     }
+    // Revalidate allocated orders
+    if (input.orderAllocations) {
+      for (const alloc of input.orderAllocations) {
+        revalidatePath(`/orders/${alloc.orderSystemId}`)
+      }
+    }
+
+    // Update customer debt if receipt affects debt
+    if (input.affectsDebt !== false) {
+      const customerSystemId = input.customerSystemId || input.payerSystemId
+      if (customerSystemId) {
+        await updateCustomerDebt(customerSystemId).catch(err => {
+          logError('[createReceiptAction] Failed to update customer debt', err)
+        })
+      }
+    }
+
+    // Activity log (fire-and-forget)
+    prisma.activityLog.create({
+      data: {
+        entityType: 'receipt',
+        entityId: result.systemId,
+        action: 'created',
+        actionType: 'create',
+        note: `Thêm phiếu thu: ${result.id} - ${input.payerName || input.customerName || ''} - ${Number(result.amount).toLocaleString('vi-VN')}đ`,
+        createdBy: userName,
+      },
+    }).catch(e => logError('[ActivityLog] receipt created failed', e))
 
     return {
       success: true,
       data: serializeReceipt(result),
     }
   } catch (error) {
-    console.error('createReceiptAction error:', error)
-    return { success: false, error: 'Không thể tạo phiếu thu' }
+    logError('createReceiptAction error', error)
+    return { success: false, error: 'KhÃ´ng thá»ƒ táº¡o phiáº¿u thu' }
   }
 }
 
@@ -214,19 +325,19 @@ export async function createReceiptAction(
 export async function updateReceiptAction(
   input: UpdateReceiptInput
 ): Promise<ActionResult> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Không có quyền truy cập' }
-  }
+  const authResult = await requireActionPermission('edit_receipts')
+  if (!authResult.success) return authResult
 
   const validated = updateReceiptSchema.safeParse(input)
   if (!validated.success) {
-    return { success: false, error: validated.error.issues[0]?.message || 'Dữ liệu không hợp lệ' }
+    return { success: false, error: validated.error.issues[0]?.message || 'Dá»¯ liá»‡u khÃ´ng há»£p lá»‡' }
   }
 
   const { systemId, ...updateData } = input
 
   try {
+    const userName = getSessionUserName(authResult.session)
+
     const result = await prisma.$transaction(async (tx) => {
       // Find existing receipt
       const existingReceipt = await tx.receipt.findUnique({
@@ -248,6 +359,14 @@ export async function updateReceiptAction(
         updatedAt: now,
       }
       
+      // Field labels for activity log
+      const fieldLabels: Record<string, string> = {
+        amount: 'Số tiền', description: 'Mô tả', category: 'Danh mục',
+        paymentMethodName: 'Phương thức TT', branchName: 'Chi nhánh',
+        payerName: 'Người nộp', voucherDate: 'Ngày chứng từ',
+      }
+      const changes: Record<string, { from: unknown; to: unknown }> = {}
+
       if (updateData.amount !== undefined) dataToUpdate.amount = updateData.amount
       if (updateData.description !== undefined) dataToUpdate.description = updateData.description
       if (updateData.category !== undefined) dataToUpdate.category = updateData.category
@@ -262,36 +381,77 @@ export async function updateReceiptAction(
       if (updateData.payerSystemId !== undefined) dataToUpdate.payerSystemId = updateData.payerSystemId
       if (updateData.voucherDate !== undefined) dataToUpdate.receiptDate = updateData.voucherDate
 
+      // Track changes diff
+      const trackFields: Record<string, string> = {
+        amount: 'amount', description: 'description', category: 'category',
+        paymentMethodName: 'paymentMethodName', branchName: 'branchName',
+        payerName: 'payerName',
+      }
+      for (const [inputKey, dbKey] of Object.entries(trackFields)) {
+        if (updateData[inputKey as keyof typeof updateData] !== undefined) {
+          const oldVal = (existingReceipt as Record<string, unknown>)[dbKey]
+          const newVal = updateData[inputKey as keyof typeof updateData]
+          if (String(oldVal ?? '') !== String(newVal ?? '')) {
+            const label = fieldLabels[inputKey] || inputKey
+            changes[label] = { from: oldVal ?? '', to: newVal ?? '' }
+          }
+        }
+      }
+
       // Update receipt
       const receipt = await tx.receipt.update({
         where: { systemId },
         data: dataToUpdate,
       })
 
-      return receipt
+      return { receipt, changes }
     })
 
     // Revalidate cache
     revalidatePath(`/receipts/${systemId}`)
     revalidatePath('/receipts')
 
+    // Update customer debt after update
+    const customerSystemId = result.receipt.customerSystemId || result.receipt.payerSystemId
+    if (customerSystemId) {
+      await updateCustomerDebt(customerSystemId).catch(err => {
+        logError('[updateReceiptAction] Failed to update customer debt', err)
+      })
+    }
+
+    // Activity log (fire-and-forget)
+    if (Object.keys(result.changes).length > 0) {
+      const changedFields = Object.keys(result.changes).join(', ')
+      prisma.activityLog.create({
+        data: {
+          entityType: 'receipt',
+          entityId: systemId,
+          action: 'updated',
+          actionType: 'update',
+          note: `Cập nhật phiếu thu: ${result.receipt.id}: ${changedFields}`,
+          changes: result.changes as import('@prisma/client').Prisma.InputJsonValue,
+          createdBy: userName,
+        },
+      }).catch(e => logError('[ActivityLog] receipt updated failed', e))
+    }
+
     return {
       success: true,
-      data: serializeReceipt(result),
+      data: serializeReceipt(result.receipt),
     }
   } catch (error) {
-    console.error('updateReceiptAction error:', error)
+    logError('updateReceiptAction error', error)
 
     if (error instanceof Error) {
       if (error.message === 'RECEIPT_NOT_FOUND') {
-        return { success: false, error: 'Phiếu thu không tồn tại' }
+        return { success: false, error: 'Phiáº¿u thu khÃ´ng tá»“n táº¡i' }
       }
       if (error.message === 'RECEIPT_CANCELLED') {
-        return { success: false, error: 'Phiếu thu đã bị hủy, không thể cập nhật' }
+        return { success: false, error: 'Phiáº¿u thu Ä‘Ã£ bá»‹ há»§y, khÃ´ng thá»ƒ cáº­p nháº­t' }
       }
     }
 
-    return { success: false, error: 'Không thể cập nhật phiếu thu' }
+    return { success: false, error: 'KhÃ´ng thá»ƒ cáº­p nháº­t phiáº¿u thu' }
   }
 }
 
@@ -305,14 +465,14 @@ export async function updateReceiptAction(
 export async function cancelReceiptAction(
   input: CancelReceiptInput
 ): Promise<ActionResult> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Không có quyền truy cập' }
-  }
+  const authResult = await requireActionPermission('edit_receipts')
+  if (!authResult.success) return authResult
 
   const { systemId, reason } = input
 
   try {
+    const userName = getSessionUserName(authResult.session)
+
     const result = await prisma.$transaction(async (tx) => {
       // Find existing receipt
       const existingReceipt = await tx.receipt.findUnique({
@@ -336,7 +496,7 @@ export async function cancelReceiptAction(
           status: 'cancelled',
           cancelledAt: now,
           description: reason 
-            ? `[HỦY] ${reason}${existingReceipt.description ? ` | Gốc: ${existingReceipt.description}` : ''}`
+            ? `[Há»¦Y] ${reason}${existingReceipt.description ? ` | Gá»‘c: ${existingReceipt.description}` : ''}`
             : existingReceipt.description,
           updatedAt: now,
         },
@@ -349,23 +509,45 @@ export async function cancelReceiptAction(
     revalidatePath(`/receipts/${systemId}`)
     revalidatePath('/receipts')
 
+    // Update customer debt after cancellation
+    const customerSystemId = result.customerSystemId || result.payerSystemId
+    if (customerSystemId) {
+      await updateCustomerDebt(customerSystemId).catch(err => {
+        logError('[cancelReceiptAction] Failed to update customer debt', err)
+      })
+    }
+
+    // Activity log (fire-and-forget)
+    prisma.activityLog.create({
+      data: {
+        entityType: 'receipt',
+        entityId: systemId,
+        action: 'cancelled',
+        actionType: 'status',
+        note: `Hủy phiếu thu: ${result.id}${reason ? `: ${reason}` : ''}`,
+        changes: { 'Trạng thái': { from: 'Hoàn thành', to: 'Đã hủy' } },
+        metadata: reason ? { reason } : undefined,
+        createdBy: userName,
+      },
+    }).catch(e => logError('[ActivityLog] receipt cancelled failed', e))
+
     return {
       success: true,
       data: serializeReceipt(result),
     }
   } catch (error) {
-    console.error('cancelReceiptAction error:', error)
+    logError('cancelReceiptAction error', error)
 
     if (error instanceof Error) {
       if (error.message === 'RECEIPT_NOT_FOUND') {
-        return { success: false, error: 'Phiếu thu không tồn tại' }
+        return { success: false, error: 'Phiáº¿u thu khÃ´ng tá»“n táº¡i' }
       }
       if (error.message === 'ALREADY_CANCELLED') {
-        return { success: false, error: 'Phiếu thu đã bị hủy' }
+        return { success: false, error: 'Phiáº¿u thu Ä‘Ã£ bá»‹ há»§y' }
       }
     }
 
-    return { success: false, error: 'Không thể hủy phiếu thu' }
+    return { success: false, error: 'KhÃ´ng thá»ƒ há»§y phiáº¿u thu' }
   }
 }
 
@@ -379,14 +561,20 @@ export async function cancelReceiptAction(
 export async function deleteReceiptAction(
   input: DeleteReceiptInput
 ): Promise<ActionResult> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Không có quyền truy cập' }
-  }
+  const authResult = await requireActionPermission('delete_receipts')
+  if (!authResult.success) return authResult
 
   const { systemId } = input
 
   try {
+    const userName = getSessionUserName(authResult.session)
+
+    // Fetch receipt before deletion to get info for debt update + activity log
+    const receiptForDebt = await prisma.receipt.findUnique({
+      where: { systemId },
+      select: { id: true, customerSystemId: true, payerSystemId: true, payerName: true, affectsDebt: true, amount: true },
+    })
+
     const result = await prisma.$transaction(async (tx) => {
       // Find existing receipt
       const existingReceipt = await tx.receipt.findUnique({
@@ -408,20 +596,42 @@ export async function deleteReceiptAction(
     // Revalidate cache
     revalidatePath('/receipts')
 
+    // Update customer debt after deletion
+    if (receiptForDebt?.affectsDebt) {
+      const customerSystemId = receiptForDebt.customerSystemId || receiptForDebt.payerSystemId
+      if (customerSystemId) {
+        await updateCustomerDebt(customerSystemId).catch(err => {
+          logError('[deleteReceiptAction] Failed to update customer debt', err)
+        })
+      }
+    }
+
+    // Activity log (fire-and-forget)
+    prisma.activityLog.create({
+      data: {
+        entityType: 'receipt',
+        entityId: systemId,
+        action: 'deleted',
+        actionType: 'delete',
+        note: `Xóa phiếu thu: ${receiptForDebt?.id || systemId}${receiptForDebt?.payerName ? ` - ${receiptForDebt.payerName}` : ''}`,
+        createdBy: userName,
+      },
+    }).catch(e => logError('[ActivityLog] receipt deleted failed', e))
+
     return {
       success: true,
       data: result,
     }
   } catch (error) {
-    console.error('deleteReceiptAction error:', error)
+    logError('deleteReceiptAction error', error)
 
     if (error instanceof Error) {
       if (error.message === 'RECEIPT_NOT_FOUND') {
-        return { success: false, error: 'Phiếu thu không tồn tại' }
+        return { success: false, error: 'Phiáº¿u thu khÃ´ng tá»“n táº¡i' }
       }
     }
 
-    return { success: false, error: 'Không thể xóa phiếu thu' }
+    return { success: false, error: 'KhÃ´ng thá»ƒ xÃ³a phiáº¿u thu' }
   }
 }
 
@@ -436,10 +646,8 @@ export async function batchCancelReceiptsAction(input: {
   systemIds: string[]
   reason: string
 }): Promise<ActionResult> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Không có quyền truy cập' }
-  }
+  const authResult = await requireActionPermission('edit_receipts')
+  if (!authResult.success) return authResult
 
   const { systemIds, reason } = input
 
@@ -464,7 +672,7 @@ export async function batchCancelReceiptsAction(input: {
             data: {
               status: 'cancelled',
               cancelledAt: now,
-              description: `[HỦY] ${reason}${receipt.description ? ` | Gốc: ${receipt.description}` : ''}`,
+              description: `[Há»¦Y] ${reason}${receipt.description ? ` | Gá»‘c: ${receipt.description}` : ''}`,
               updatedAt: now,
             },
           })
@@ -483,8 +691,8 @@ export async function batchCancelReceiptsAction(input: {
       data: result,
     }
   } catch (error) {
-    console.error('batchCancelReceiptsAction error:', error)
-    return { success: false, error: 'Không thể hủy các phiếu thu' }
+    logError('batchCancelReceiptsAction error', error)
+    return { success: false, error: 'KhÃ´ng thá»ƒ há»§y cÃ¡c phiáº¿u thu' }
   }
 }
 
@@ -499,15 +707,14 @@ export async function batchCancelReceiptsAction(input: {
 export async function createOrderReceiptAction(
   input: CreateOrderReceiptInput
 ): Promise<ActionResult> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Không có quyền truy cập' }
-  }
+  const authResult = await requireActionPermission('create_receipts')
+  if (!authResult.success) return authResult
+  const { session } = authResult
 
   const { orderSystemId, amount, paymentMethodSystemId, paymentMethodName, note } = input
 
   if (!amount || amount <= 0) {
-    return { success: false, error: 'Số tiền phải lớn hơn 0' }
+    return { success: false, error: 'Sá»‘ tiá»n pháº£i lá»›n hÆ¡n 0' }
   }
 
   try {
@@ -529,28 +736,40 @@ export async function createOrderReceiptAction(
       const now = new Date()
       const userName = session.user?.name || session.user?.email || 'Unknown'
 
-      // Generate system ID
-      const systemId = await generateIdWithPrefix('PT', tx)
+      // Generate receipt IDs using unified ID system
+      const { systemId, businessId } = await generateNextIdsWithTx(tx, 'receipts')
 
       // Create receipt
       const receipt = await tx.receipt.create({
         data: {
           systemId,
-          id: systemId,
+          id: businessId,
           type: 'CUSTOMER_PAYMENT',
           amount,
-          description: note || `Thu tiền đơn hàng ${orderSystemId}`,
+          description: note || `Thu tiá»n Ä‘Æ¡n hÃ ng ${order.id}`,
           category: 'SALES_REVENUE',
-          paymentMethodSystemId: paymentMethodSystemId || null,
-          paymentMethodName: paymentMethodName || null,
           status: 'completed',
           branchId: order.branchId,
-          payerTypeName: 'customer', // Use payerTypeName instead of payerType
+          // Payer info
+          payerTypeName: 'KhÃ¡ch hÃ ng',
           payerTypeSystemId: order.customerId || null,
           payerName: order.customer?.name || null,
+          payerSystemId: order.customerId || null,
+          // Customer info
           customerSystemId: order.customer?.systemId || null,
           customerName: order.customer?.name || null,
+          // Payment method
+          paymentMethodSystemId: paymentMethodSystemId || null,
+          paymentMethodName: paymentMethodName || null,
+          // Receipt type
+          paymentReceiptTypeName: 'Thu tá»« khÃ¡ch hÃ ng',
+          // Branch info
+          branchSystemId: order.branchId,
+          branchName: order.branchName,
+          // Link to order
           linkedOrderSystemId: orderSystemId,
+          originalDocumentId: order.id,
+          // Dates
           receiptDate: now,
           createdAt: now,
           updatedAt: now,
@@ -559,13 +778,61 @@ export async function createOrderReceiptAction(
       })
 
       // Update order paidAmount
-      await tx.order.update({
+      const updatedOrder = await tx.order.update({
         where: { systemId: orderSystemId },
         data: {
           paidAmount: { increment: amount },
           updatedAt: now,
         },
       })
+
+      // âœ… Create OrderPayment record (so order.payments relation stays in sync)
+      await tx.orderPayment.create({
+        data: {
+          id: businessId,
+          orderId: orderSystemId,
+          amount,
+          method: paymentMethodName || 'Tiá»n máº·t',
+          description: note || null,
+          createdBy: userName,
+          linkedReceiptSystemId: systemId,
+        },
+      })
+
+      // âœ… Update paymentStatus based on new paidAmount vs grandTotal
+      const newPaidAmount = Number(updatedOrder.paidAmount)
+      const grandTotal = Number(updatedOrder.grandTotal)
+      const linkedReturnValue = updatedOrder.linkedSalesReturnValue ? Number(updatedOrder.linkedSalesReturnValue) : 0
+      const effectivePaid = newPaidAmount + linkedReturnValue
+      let newPaymentStatus: 'UNPAID' | 'PARTIAL' | 'PAID'
+      if (effectivePaid >= grandTotal && grandTotal > 0) {
+        newPaymentStatus = 'PAID'
+      } else if (effectivePaid > 0) {
+        newPaymentStatus = 'PARTIAL'
+      } else {
+        newPaymentStatus = 'UNPAID'
+      }
+      // Check if order should be auto-completed
+      // Order is complete when: fully paid AND (delivered OR fully stocked out)
+      const isDelivered = updatedOrder.status === 'DELIVERED' || 
+                          updatedOrder.deliveryStatus === 'DELIVERED' ||
+                          updatedOrder.stockOutStatus === 'FULLY_STOCKED_OUT'
+      const shouldComplete = isDelivered && newPaymentStatus === 'PAID' && updatedOrder.status !== 'COMPLETED'
+
+      const statusUpdate: Record<string, unknown> = {}
+      if (updatedOrder.paymentStatus !== newPaymentStatus) {
+        statusUpdate.paymentStatus = newPaymentStatus
+      }
+      if (shouldComplete) {
+        statusUpdate.status = 'COMPLETED'
+        statusUpdate.completedDate = new Date()
+      }
+      if (Object.keys(statusUpdate).length > 0) {
+        await tx.order.update({
+          where: { systemId: orderSystemId },
+          data: statusUpdate,
+        })
+      }
 
       return receipt
     })
@@ -574,22 +841,33 @@ export async function createOrderReceiptAction(
     revalidatePath('/receipts')
     revalidatePath(`/orders/${orderSystemId}`)
 
+    // Update customer debt
+    const order = await prisma.order.findUnique({
+      where: { systemId: orderSystemId },
+      select: { customerId: true },
+    })
+    if (order?.customerId) {
+      await updateCustomerDebt(order.customerId).catch(err => {
+        logError('[createOrderReceiptAction] Failed to update customer debt', err)
+      })
+    }
+
     return {
       success: true,
       data: result,
     }
   } catch (error) {
-    console.error('createOrderReceiptAction error:', error)
+    logError('createOrderReceiptAction error', error)
 
     if (error instanceof Error) {
       if (error.message === 'ORDER_NOT_FOUND') {
-        return { success: false, error: 'Đơn hàng không tồn tại' }
+        return { success: false, error: 'ÄÆ¡n hÃ ng khÃ´ng tá»“n táº¡i' }
       }
       if (error.message === 'ORDER_NO_BRANCH') {
-        return { success: false, error: 'Đơn hàng chưa có chi nhánh' }
+        return { success: false, error: 'ÄÆ¡n hÃ ng chÆ°a cÃ³ chi nhÃ¡nh' }
       }
     }
 
-    return { success: false, error: 'Không thể tạo phiếu thu' }
+    return { success: false, error: 'KhÃ´ng thá»ƒ táº¡o phiáº¿u thu' }
   }
 }

@@ -9,9 +9,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { generateSubEntityId } from '@/lib/id-utils';
+import { logError } from '@/lib/logger'
+import { checkRateLimit } from '@/lib/security-utils'
 
 export async function POST(request: NextRequest) {
   try {
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+    const rateLimit = checkRateLimit(`public-warranty-comment:${ip}`, 10, 60_000)
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many requests. Please try again later.' },
+        { status: 429, headers: { 'Retry-After': String(Math.ceil((rateLimit.resetTime - Date.now()) / 1000)) } }
+      )
+    }
+
     const body = await request.json();
     const { trackingCode, content } = body as { trackingCode?: string; content?: string };
 
@@ -110,7 +121,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('[PUBLIC-WARRANTY-COMMENT] Error:', error);
+    logError('[PUBLIC-WARRANTY-COMMENT] Error', error);
     return NextResponse.json(
       { error: 'Đã xảy ra lỗi khi gửi bình luận' },
       { status: 500 }

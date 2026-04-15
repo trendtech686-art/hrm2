@@ -1,24 +1,38 @@
 import { prisma } from '@/lib/prisma'
-import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
+import { apiHandler } from '@/lib/api-handler'
+import { apiSuccess } from '@/lib/api-utils'
 
-// GET /api/products/deleted - Get all soft-deleted products
-export async function GET() {
-  const session = await requireAuth()
-  if (!session) return apiError('Unauthorized', 401)
-
-  try {
+// GET /api/products/deleted - Get all soft-deleted products (excluding permanently archived)
+export const GET = apiHandler(async () => {
     const deletedProducts = await prisma.product.findMany({
-      where: { isDeleted: true },
+      where: {
+        isDeleted: true,
+        permanentlyDeletedAt: null,
+      },
       orderBy: { deletedAt: 'desc' },
-      include: {
-        productCategories: true,
-        brand: true,
+      select: {
+        systemId: true,
+        id: true,
+        name: true,
+        shortDescription: true,
+        thumbnailImage: true,
+        type: true,
+        status: true,
+        costPrice: true,
+        totalInventory: true,
+        isDeleted: true,
+        deletedAt: true,
+        categorySystemIds: true,
+        brandId: true,
+        brand: { select: { systemId: true, name: true } },
+        productCategories: {
+          select: {
+            categoryId: true,
+            category: { select: { systemId: true, name: true } },
+          },
+        },
       },
     })
 
     return apiSuccess(deletedProducts)
-  } catch (error) {
-    console.error('Error fetching deleted products:', error)
-    return apiError('Failed to fetch deleted products', 500)
-  }
-}
+})

@@ -5,6 +5,7 @@ import type { Complaint } from '../types';
 import { cancelPaymentsReceiptsAndInventory } from '../utils/cancel-payments-receipts-and-inventory';
 import { handleReopenAfterCancelled } from './reopen-after-cancelled-handler';
 import { handleReopenAfterResolved } from './reopen-after-resolved-handler';
+import { logError } from '@/lib/logger'
 
 // User type - chỉ cần systemId và name
 interface User {
@@ -26,7 +27,7 @@ interface User {
 export async function handleReopenComplaint(
   complaint: Complaint,
   currentUser: User,
-  updateComplaint: (systemId: SystemId, updates: Partial<Complaint>) => Promise<void> | void
+  updateComplaint: (systemId: string, updates: Partial<Complaint>) => Promise<void> | void
 ): Promise<{ success: boolean; message: string }> {
   try {
     
@@ -95,7 +96,7 @@ export async function handleReopenComplaint(
     };
     
   } catch (error) {
-    console.error('[REOPEN] Error:', error);
+    logError('[REOPEN] Error', error);
     const errorMsg = error instanceof Error ? error.message : 'Có lỗi xảy ra';
     toast.error(errorMsg);
     return {

@@ -9,17 +9,19 @@ import { prisma } from '@/lib/prisma'
 import { v4 as uuidv4 } from 'uuid'
 import sharp from 'sharp'
 import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
+import { logError } from '@/lib/logger'
 import {
   parseFormData,
   validateFileType,
   validateFileSize,
   generateFileHash,
+  sanitizeFileName,
   saveFileToDisk,
   getPublicUrl,
   ALLOWED_IMAGE_TYPES,
-  MAX_FILE_SIZE,
   EntityType,
 } from '@/lib/upload-utils'
+import { getFileSizeLimits, getMaxFileSizeBytes } from '@/lib/file-size-limits'
 
 // Image sizes for thumbnails
 const IMAGE_SIZES = {
@@ -46,8 +48,10 @@ export async function POST(request: NextRequest) {
     }
     
     // Validate file size
-    if (!validateFileSize(file.size, MAX_FILE_SIZE.image)) {
-      return apiError(`Ảnh quá lớn. Tối đa ${MAX_FILE_SIZE.image / (1024 * 1024)}MB`, 400)
+    const fileSizeLimits = await getFileSizeLimits()
+    const maxFileSizes = getMaxFileSizeBytes(fileSizeLimits)
+    if (!validateFileSize(file.size, maxFileSizes.image)) {
+      return apiError(`Ảnh quá lớn. Tối đa ${fileSizeLimits.imageMb}MB`, 400)
     }
     
     // Get entity info
@@ -81,9 +85,10 @@ export async function POST(request: NextRequest) {
     
     buffer = await sharpInstance.toBuffer()
     
-    // Generate filename
+    // Generate filename (sanitize baseName to prevent path traversal)
     const ext = outputFormat === 'webp' ? '.webp' : '.svg'
-    const baseName = file.name.replace(/\.[^/.]+$/, '')
+    const sanitized = sanitizeFileName(file.name)
+    const baseName = sanitized.replace(/\.[^/.]+$/, '')
     const timestamp = Date.now()
     const fileName = `${timestamp}-${baseName}${ext}`
     const _fileHash = generateFileHash(buffer)
@@ -149,7 +154,7 @@ export async function POST(request: NextRequest) {
     }, 201)
     
   } catch (error) {
-    console.error('Image upload error:', error)
+    logError('Image upload error', error)
     return apiError('Lỗi khi upload ảnh', 500)
   }
 }

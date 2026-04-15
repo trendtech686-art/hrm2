@@ -11,6 +11,7 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import type { Prisma } from '@/generated/prisma/client';
 import { requireAuth, apiPaginated, apiError, parsePagination } from '@/lib/api-utils';
+import { logError } from '@/lib/logger'
 import {
   packagingStatusLabels,
   printStatusLabels,
@@ -82,10 +83,10 @@ export async function GET(request: NextRequest) {
     const data = rawData.map(pkg => ({
       systemId: pkg.systemId,
       id: pkg.id,
-      orderId: pkg.order.id,
-      orderSystemId: pkg.order.systemId,
-      customerName: pkg.order.customerName || '',
-      branchName: pkg.order.branchName || '',
+      orderId: pkg.order?.id || '',
+      orderSystemId: pkg.order?.systemId || '',
+      customerName: pkg.order?.customerName || '',
+      branchName: pkg.order?.branchName || '',
       requestDate: pkg.requestDate?.toISOString() || '',
       confirmDate: pkg.confirmDate?.toISOString() || undefined,
       cancelDate: pkg.cancelDate?.toISOString() || undefined,
@@ -100,7 +101,7 @@ export async function GET(request: NextRequest) {
 
     return apiPaginated(data, { page, limit, total });
   } catch (error) {
-    console.error('Error fetching packaging slips:', error);
-    return apiError('Failed to fetch packaging slips', 500);
+    logError('Error fetching packaging slips', error);
+    return apiError('Không thể tải danh sách đóng gói', 500);
   }
 }

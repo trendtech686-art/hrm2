@@ -7,14 +7,26 @@
 import { prisma } from '@/lib/prisma'
 import { revalidatePath } from '@/lib/revalidation'
 import { generateIdWithPrefix } from '@/lib/id-generator'
-import { auth } from '@/auth'
+import { requireActionPermission } from '@/lib/api-utils'
 import type { ActionResult } from '@/types/action-result'
 import { createCashAccountSchema, updateCashAccountSchema } from '@/features/cashbook/validation'
+import { logError } from '@/lib/logger'
 
 // Types
 type CashAccount = NonNullable<Awaited<ReturnType<typeof prisma.cashAccount.findFirst>>>
 
+function serializeCashAccount(acc: CashAccount): CashAccount {
+  return {
+    ...acc,
+    balance: Number(acc.balance) || 0,
+    initialBalance: Number(acc.initialBalance) || 0,
+    minBalance: acc.minBalance != null ? Number(acc.minBalance) : null,
+    maxBalance: acc.maxBalance != null ? Number(acc.maxBalance) : null,
+  } as unknown as CashAccount
+}
+
 export type CreateCashAccountInput = {
+  id?: string
   name: string
   type: string
   branchId?: string
@@ -25,6 +37,7 @@ export type CreateCashAccountInput = {
   bankBranch?: string
   bankCode?: string
   accountHolder?: string
+  accountType?: string
   initialBalance?: number
   minBalance?: number
   maxBalance?: number
@@ -36,6 +49,7 @@ export type CreateCashAccountInput = {
 
 export type UpdateCashAccountInput = {
   systemId: string
+  id?: string
   name?: string
   type?: string
   branchId?: string
@@ -46,6 +60,7 @@ export type UpdateCashAccountInput = {
   bankBranch?: string
   bankCode?: string
   accountHolder?: string
+  accountType?: string
   balance?: number
   initialBalance?: number
   minBalance?: number
@@ -63,10 +78,8 @@ export type UpdateCashAccountInput = {
 export async function createCashAccountAction(
   input: CreateCashAccountInput
 ): Promise<ActionResult<CashAccount>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('create_vouchers')
+  if (!authResult.success) return authResult
 
   const validated = createCashAccountSchema.safeParse(input)
   if (!validated.success) {
@@ -79,10 +92,10 @@ export async function createCashAccountAction(
     const cashAccount = await prisma.cashAccount.create({
       data: {
         systemId,
-        id: systemId,
+        id: input.id || systemId,
         name: input.name,
-        type: input.type as CashAccount['type'],
-        branchId: input.branchId,
+        type: (input.type?.toUpperCase() || 'CASH') as CashAccount['type'],
+        branchId: input.branchSystemId || input.branchId,
         branchSystemId: input.branchSystemId,
         accountNumber: input.accountNumber,
         bankName: input.bankName,
@@ -98,14 +111,15 @@ export async function createCashAccountAction(
         isDefault: input.isDefault ?? false,
         managedBy: input.managedBy,
         createdBy: input.createdBy,
+        accountType: input.accountType,
       },
     })
 
     revalidatePath('/cashbook')
     revalidatePath('/cash-accounts')
-    return { success: true, data: cashAccount }
+    return { success: true, data: serializeCashAccount(cashAccount) }
   } catch (error) {
-    console.error('Error creating cash account:', error)
+    logError('Error creating cash account', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Không thể tạo giao dịch sổ quỹ',
@@ -116,10 +130,8 @@ export async function createCashAccountAction(
 export async function updateCashAccountAction(
   input: UpdateCashAccountInput
 ): Promise<ActionResult<CashAccount>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('edit_vouchers')
+  if (!authResult.success) return authResult
 
   const validated = updateCashAccountSchema.safeParse(input)
   if (!validated.success) {
@@ -139,10 +151,15 @@ export async function updateCashAccountAction(
 
     const updateData: Record<string, unknown> = {}
     
+    if (data.id !== undefined) updateData.id = data.id
     if (data.name !== undefined) updateData.name = data.name
-    if (data.type !== undefined) updateData.type = data.type
-    if (data.branchId !== undefined) updateData.branchId = data.branchId
-    if (data.branchSystemId !== undefined) updateData.branchSystemId = data.branchSystemId
+    if (data.type !== undefined) updateData.type = data.type.toUpperCase()
+    if (data.branchSystemId !== undefined) {
+      updateData.branchId = data.branchSystemId
+      updateData.branchSystemId = data.branchSystemId
+    } else if (data.branchId !== undefined) {
+      updateData.branchId = data.branchId
+    }
     if (data.accountNumber !== undefined) updateData.accountNumber = data.accountNumber
     if (data.bankName !== undefined) updateData.bankName = data.bankName
     if (data.bankAccountNumber !== undefined) updateData.bankAccountNumber = data.bankAccountNumber
@@ -157,6 +174,7 @@ export async function updateCashAccountAction(
     if (data.isDefault !== undefined) updateData.isDefault = data.isDefault
     if (data.managedBy !== undefined) updateData.managedBy = data.managedBy
     if (data.updatedBy !== undefined) updateData.updatedBy = data.updatedBy
+    if (data.accountType !== undefined) updateData.accountType = data.accountType
 
     const cashAccount = await prisma.cashAccount.update({
       where: { systemId },
@@ -166,9 +184,9 @@ export async function updateCashAccountAction(
     revalidatePath('/cashbook')
     revalidatePath('/cash-accounts')
     revalidatePath(`/cash-accounts/${systemId}`)
-    return { success: true, data: cashAccount }
+    return { success: true, data: serializeCashAccount(cashAccount) }
   } catch (error) {
-    console.error('Error updating cash account:', error)
+    logError('Error updating cash account', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Không thể cập nhật giao dịch sổ quỹ',
@@ -179,10 +197,8 @@ export async function updateCashAccountAction(
 export async function deleteCashAccountAction(
   systemId: string
 ): Promise<ActionResult<CashAccount>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('delete_vouchers')
+  if (!authResult.success) return authResult
   try {
     const existing = await prisma.cashAccount.findUnique({
       where: { systemId },
@@ -209,9 +225,9 @@ export async function deleteCashAccountAction(
 
     revalidatePath('/cashbook')
     revalidatePath('/cash-accounts')
-    return { success: true, data: cashAccount }
+    return { success: true, data: serializeCashAccount(cashAccount) }
   } catch (error) {
-    console.error('Error deleting cash account:', error)
+    logError('Error deleting cash account', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Không thể xóa giao dịch sổ quỹ',
@@ -222,10 +238,8 @@ export async function deleteCashAccountAction(
 export async function getCashAccountAction(
   systemId: string
 ): Promise<ActionResult<CashAccount>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('view_vouchers')
+  if (!authResult.success) return authResult
   try {
     const cashAccount = await prisma.cashAccount.findUnique({
       where: { systemId },
@@ -235,9 +249,9 @@ export async function getCashAccountAction(
       return { success: false, error: 'Không tìm thấy giao dịch sổ quỹ' }
     }
 
-    return { success: true, data: cashAccount }
+    return { success: true, data: serializeCashAccount(cashAccount) }
   } catch (error) {
-    console.error('Error getting cash account:', error)
+    logError('Error getting cash account', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Không thể lấy thông tin sổ quỹ',
@@ -250,10 +264,8 @@ export async function updateCashAccountBalanceAction(
   amount: number,
   operation: 'add' | 'subtract'
 ): Promise<ActionResult<CashAccount>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('edit_vouchers')
+  if (!authResult.success) return authResult
   try {
     const cashAccount = await prisma.cashAccount.findUnique({
       where: { systemId },
@@ -283,9 +295,9 @@ export async function updateCashAccountBalanceAction(
     revalidatePath('/cashbook')
     revalidatePath('/cash-accounts')
     revalidatePath(`/cash-accounts/${systemId}`)
-    return { success: true, data: updated }
+    return { success: true, data: serializeCashAccount(updated) }
   } catch (error) {
-    console.error('Error updating cash account balance:', error)
+    logError('Error updating cash account balance', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Không thể cập nhật số dư sổ quỹ',
@@ -296,10 +308,8 @@ export async function updateCashAccountBalanceAction(
 export async function setDefaultCashAccountAction(
   systemId: string
 ): Promise<ActionResult<CashAccount>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('edit_vouchers')
+  if (!authResult.success) return authResult
   try {
     // Remove default from all other accounts
     await prisma.cashAccount.updateMany({
@@ -315,9 +325,9 @@ export async function setDefaultCashAccountAction(
 
     revalidatePath('/cashbook')
     revalidatePath('/cash-accounts')
-    return { success: true, data: cashAccount }
+    return { success: true, data: serializeCashAccount(cashAccount) }
   } catch (error) {
-    console.error('Error setting default cash account:', error)
+    logError('Error setting default cash account', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Không thể đặt tài khoản quỹ mặc định',

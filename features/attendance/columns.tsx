@@ -34,7 +34,7 @@ export const getColumns = (
           "text-center w-full rounded-sm py-1 relative",
           isWeekend && "text-muted-foreground"
         )}>
-          <div className="text-body-xs font-medium">{formatDateCustom(date, 'EEE')}</div>
+          <div className="text-xs font-medium">{formatDateCustom(date, 'EEE')}</div>
           <div className="font-semibold">{day}</div>
           {isToday && <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 h-1 w-1 rounded-full bg-primary" />}
         </div>
@@ -110,7 +110,7 @@ export const getColumns = (
       cell: ({ row }) => (
         <div>
           <div className="font-medium">{row.fullName}</div>
-          <div className="text-body-xs text-muted-foreground">{row.employeeId}</div>
+          <div className="text-xs text-muted-foreground">{row.employeeId}</div>
         </div>
       ),
       size: 200,
@@ -122,7 +122,7 @@ export const getColumns = (
       header: () => <div className="text-center">Tổng kết</div>,
       cell: ({ row }) => {
         return (
-          <div className="text-body-xs whitespace-nowrap p-1 text-left">
+          <div className="text-xs whitespace-nowrap p-1 text-left">
             <div>
               <span>Công: <span className="font-semibold">{row.workDays}</span>, </span>
               <span>Phép: <span className="font-semibold">{row.leaveDays}</span>, </span>

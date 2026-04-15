@@ -21,7 +21,7 @@ interface DataTablePaginationProps {
   canNextPage: boolean;
 }
 
-export function DataTablePagination({
+export const DataTablePagination = React.memo(function DataTablePagination({
   pageIndex,
   pageSize,
   pageCount,
@@ -85,12 +85,16 @@ export function DataTablePagination({
         <div className="flex items-center space-x-2">
           <p className="text-sm font-medium">Số dòng mỗi trang</p>
           <Select
-            value={`${pageSize}`}
+            key={pageSize}
+            defaultValue={`${pageSize}`}
             onValueChange={(value) => {
-              setPageSize(Number(value))
+              const numValue = Number(value)
+              if (numValue !== pageSize) {
+                setPageSize(numValue)
+              }
             }}
           >
-            <SelectTrigger className="w-[70px]">
+            <SelectTrigger className="w-17.5">
               <SelectValue placeholder={`${pageSize}`} />
             </SelectTrigger>
             <SelectContent>
@@ -149,4 +153,4 @@ export function DataTablePagination({
       </div>
     </div>
   )
-}
+})

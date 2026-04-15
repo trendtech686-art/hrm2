@@ -1,8 +1,9 @@
 import * as React from 'react';
 import { useFormContext } from 'react-hook-form';
-import { Plus, Edit2, MoreHorizontal } from 'lucide-react';
+import { Plus, Edit2, MoreHorizontal, Building2 } from 'lucide-react';
 import { randomUUID } from 'crypto';
 import type { Customer, CustomerAddress } from '../../customers/types';
+import type { BusinessProfile, OrderInvoiceInfo } from '@/lib/types/prisma-extended';
 import { asSystemId } from '@/lib/id-types';
 import { Button } from '../../../components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../../../components/ui/dialog';
@@ -80,9 +81,26 @@ export function CustomerAddressSelector({
     const [isAddressFormOpen, setIsAddressFormOpen] = React.useState(false);
     const [deletingAddressId, setDeletingAddressId] = React.useState<string | null>(null);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false);
+    
+    // Business profile selector state
+    const [isBusinessDialogOpen, setIsBusinessDialogOpen] = React.useState(false);
+    const [selectedBusinessProfileId, setSelectedBusinessProfileId] = React.useState<string>('');
 
     // Memoize addresses to prevent new array reference on each render
     const addresses = React.useMemo(() => currentCustomer?.addresses || [], [currentCustomer?.addresses]);
+    
+    // Business profiles from customer
+    const businessProfiles = React.useMemo(() => {
+        const raw = (currentCustomer as Customer & { businessProfiles?: BusinessProfile[] })?.businessProfiles;
+        return Array.isArray(raw) ? raw : [];
+    }, [currentCustomer]);
+
+    // Helper: resolve addressId to formatted address string
+    const resolveProfileAddress = React.useCallback((profile: BusinessProfile): string => {
+        if (!profile.addressId) return '';
+        const addr = addresses.find(a => a.id === profile.addressId);
+        return addr ? formatAddress(addr) : '';
+    }, [addresses]);
 
     React.useEffect(() => {
         if (addresses.length > 0) {
@@ -127,17 +145,22 @@ export function CustomerAddressSelector({
         if (onOpenBillingDialog) {
             onOpenBillingDialog();
         } else {
-            // Handle internally
-            setInternalAddressType('billing');
-            const defaultAddr = addresses.find(a => a.isDefaultBilling);
-            setSelectedAddressId(defaultAddr?.id || '');
-            setIsDialogOpen(true);
+            // Open business profile selector for invoice info
+            const currentInvoice = watch('invoiceInfo') as OrderInvoiceInfo | undefined;
+            // Pre-select the matching business profile
+            if (currentInvoice) {
+                const match = businessProfiles.find(p => p.company === currentInvoice.company && p.taxCode === currentInvoice.taxCode);
+                setSelectedBusinessProfileId(match?.id || '');
+            } else if (businessProfiles.length > 0) {
+                setSelectedBusinessProfileId(businessProfiles[0].id);
+            }
+            setIsBusinessDialogOpen(true);
         }
     };
 
-    const handleSelectAddress = (addressId: string) => {
+    const handleSelectAddress = (addressId: string | number) => {
         // ✅ Just update selected ID, don't update form yet (wait for "Xác nhận" button)
-        setSelectedAddressId(addressId);
+        setSelectedAddressId(String(addressId));
     };
 
     const handleConfirmAddress = () => {
@@ -149,6 +172,61 @@ export function CustomerAddressSelector({
             setValue(fieldName, selected);
             setIsDialogOpen(false);
         }
+    };
+
+    const handleConfirmBusinessProfile = () => {
+        const profile = businessProfiles.find(p => p.id === selectedBusinessProfileId);
+        if (profile) {
+            const invoiceInfo: OrderInvoiceInfo = {
+                company: profile.company,
+                taxCode: profile.taxCode,
+                representative: profile.representative,
+                position: profile.position,
+                phone: profile.phone,
+                email: profile.email,
+                bankName: profile.bankName,
+                bankAccount: profile.bankAccount,
+                address: resolveProfileAddress(profile),
+            };
+            setValue('invoiceInfo', invoiceInfo, { shouldDirty: true });
+            setIsBusinessDialogOpen(false);
+        }
+    };
+
+    const handleSetDefaultProfile = (profileId: string) => {
+        if (!currentCustomer) return;
+        const updatedProfiles = businessProfiles.map(p => ({
+            ...p,
+            isDefault: p.id === profileId,
+        }));
+        updateCustomer.mutate({
+            systemId: asSystemId(currentCustomer.systemId),
+            businessProfiles: updatedProfiles,
+        });
+        const updatedCustomer = {
+            ...currentCustomer,
+            businessProfiles: updatedProfiles,
+        };
+        setValue('customer', updatedCustomer);
+        toast.success('Đã đặt làm mặc định');
+    };
+
+    const handleDeleteProfile = (profileId: string) => {
+        if (!currentCustomer) return;
+        const updatedProfiles = businessProfiles.filter(p => p.id !== profileId);
+        updateCustomer.mutate({
+            systemId: asSystemId(currentCustomer.systemId),
+            businessProfiles: updatedProfiles,
+        });
+        const updatedCustomer = {
+            ...currentCustomer,
+            businessProfiles: updatedProfiles,
+        };
+        setValue('customer', updatedCustomer);
+        if (selectedBusinessProfileId === profileId) {
+            setSelectedBusinessProfileId(updatedProfiles[0]?.id || '');
+        }
+        toast.success('Đã xóa thông tin doanh nghiệp');
     };
 
     const handleAddNew = () => {
@@ -379,16 +457,26 @@ export function CustomerAddressSelector({
                         </div>
                     </div>
 
-                    {/* Billing Address Card */}
+                    {/* Billing / Invoice Info Card — shows selected business profile */}
                     <div className="border border-border rounded-md p-2.5">
                         <div className="flex items-center justify-between gap-2">
                             <div className="flex-1 min-w-0">
-                                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Địa chỉ nhận hóa đơn</span>
-                                <p className="text-sm truncate mt-0.5">
-                                    {displayedBillingAddr ? formatAddress(displayedBillingAddr) : 'Chưa có địa chỉ'}
-                                </p>
+                                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Thông tin xuất hóa đơn</span>
+                                {(() => {
+                                    const invoiceInfo = watch('invoiceInfo') as OrderInvoiceInfo | undefined;
+                                    if (invoiceInfo?.company) {
+                                        return (
+                                            <div className="mt-0.5 space-y-0">
+                                                <p className="text-sm font-medium truncate">{invoiceInfo.company}</p>
+                                                {invoiceInfo.taxCode && <p className="text-xs text-muted-foreground">MST: {invoiceInfo.taxCode}</p>}
+                                                {invoiceInfo.address && <p className="text-xs text-muted-foreground truncate">{invoiceInfo.address}</p>}
+                                            </div>
+                                        );
+                                    }
+                                    return <p className="text-sm text-muted-foreground mt-0.5">Chưa chọn thông tin doanh nghiệp</p>;
+                                })()}
                             </div>
-                            {!disabled && (
+                            {!disabled && businessProfiles.length > 0 && (
                                 <Button 
                                     variant="ghost" 
                                     size="sm"
@@ -421,7 +509,6 @@ export function CustomerAddressSelector({
                                         <th className="h-11 px-3 text-left text-xs font-semibold text-foreground w-10"></th>
                                         <th className="h-11 px-3 text-left text-xs font-semibold text-foreground">Địa chỉ</th>
                                         <th className="h-11 px-3 text-center text-xs font-semibold text-foreground w-24">Giao hàng</th>
-                                        <th className="h-11 px-3 text-center text-xs font-semibold text-foreground w-24">Hóa đơn</th>
                                         <th className="h-11 px-3 text-center text-xs font-semibold text-foreground w-20">Cấp</th>
                                         <th className="h-11 px-3 text-right text-xs font-semibold text-foreground w-12"></th>
                                     </tr>
@@ -448,14 +535,6 @@ export function CustomerAddressSelector({
                                                     <Switch
                                                         checked={address.isDefaultShipping}
                                                         onCheckedChange={() => handleSetDefault(address.id, 'shipping')}
-                                                    />
-                                                </div>
-                                            </td>
-                                            <td className="p-3 text-center" onClick={(e) => e.stopPropagation()}>
-                                                <div className="flex justify-center">
-                                                    <Switch
-                                                        checked={address.isDefaultBilling}
-                                                        onCheckedChange={() => handleSetDefault(address.id, 'billing')}
                                                     />
                                                 </div>
                                             </td>
@@ -575,6 +654,123 @@ export function CustomerAddressSelector({
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+
+            {/* Business Profile Selector Dialog */}
+            <Dialog open={isBusinessDialogOpen} onOpenChange={setIsBusinessDialogOpen}>
+                <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle>Chọn thông tin xuất hóa đơn</DialogTitle>
+                        <DialogDescription>
+                            Chọn thông tin doanh nghiệp của khách hàng để xuất hóa đơn.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-4 py-4">
+                        {businessProfiles.length === 0 ? (
+                            <div className="text-center py-8 text-muted-foreground">
+                                <Building2 className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                                <p className="text-sm">Khách hàng chưa có thông tin doanh nghiệp.</p>
+                                <p className="text-xs mt-1">Vui lòng thêm ở tab &ldquo;Thông tin doanh nghiệp&rdquo; trong trang khách hàng.</p>
+                            </div>
+                        ) : (
+                            <div className="border border-border rounded-lg overflow-hidden">
+                                <table className="w-full">
+                                    <thead>
+                                        <tr className="border-b border-border bg-muted">
+                                            <th className="h-11 px-3 text-left text-xs font-semibold text-foreground w-10"></th>
+                                            <th className="h-11 px-3 text-left text-xs font-semibold text-foreground">Thông tin</th>
+                                            <th className="h-11 px-3 text-center text-xs font-semibold text-foreground w-24">Mặc định</th>
+                                            <th className="h-11 px-3 text-right text-xs font-semibold text-foreground w-12"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {businessProfiles.map((profile) => {
+                                            const profileAddress = resolveProfileAddress(profile);
+                                            return (
+                                                <tr
+                                                    key={profile.id}
+                                                    className={`border-b border-border last:border-0 hover:bg-accent cursor-pointer transition-colors ${selectedBusinessProfileId === profile.id ? 'bg-accent' : ''}`}
+                                                    onClick={() => setSelectedBusinessProfileId(profile.id)}
+                                                >
+                                                    <td className="p-3">
+                                                        <RadioGroup value={selectedBusinessProfileId} onValueChange={(v) => setSelectedBusinessProfileId(String(v))}>
+                                                            <RadioGroupItem value={profile.id} id={`bp-${profile.id}`} />
+                                                        </RadioGroup>
+                                                    </td>
+                                                    <td className="p-3">
+                                                        <label htmlFor={`bp-${profile.id}`} className="cursor-pointer">
+                                                            <p className="text-sm font-medium">{profile.company}</p>
+                                                            {profile.taxCode && <p className="text-xs text-muted-foreground">MST: {profile.taxCode}</p>}
+                                                            {profile.representative && (
+                                                                <p className="text-xs text-muted-foreground">
+                                                                    Đại diện: {profile.representative}{profile.position ? ` - ${profile.position}` : ''}
+                                                                </p>
+                                                            )}
+                                                            {profileAddress && <p className="text-xs text-muted-foreground truncate max-w-sm">{profileAddress}</p>}
+                                                            {(profile.phone || profile.email) && (
+                                                                <p className="text-xs text-muted-foreground">
+                                                                    {[profile.phone, profile.email].filter(Boolean).join(' • ')}
+                                                                </p>
+                                                            )}
+                                                        </label>
+                                                    </td>
+                                                    <td className="p-3 text-center" onClick={(e) => e.stopPropagation()}>
+                                                        <div className="flex justify-center">
+                                                            <Switch
+                                                                checked={profile.isDefault === true}
+                                                                onCheckedChange={() => handleSetDefaultProfile(profile.id)}
+                                                            />
+                                                        </div>
+                                                    </td>
+                                                    <td className="p-3 text-right" onClick={(e) => e.stopPropagation()}>
+                                                        <DropdownMenu>
+                                                            <DropdownMenuTrigger asChild>
+                                                                <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                                                    <MoreHorizontal className="h-4 w-4" />
+                                                                    <span className="sr-only">Mở menu</span>
+                                                                </Button>
+                                                            </DropdownMenuTrigger>
+                                                            <DropdownMenuContent align="end" className="w-45">
+                                                                <DropdownMenuItem onClick={() => handleDeleteProfile(profile.id)}>
+                                                                    Xóa
+                                                                </DropdownMenuItem>
+                                                            </DropdownMenuContent>
+                                                        </DropdownMenu>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+
+                        <Button
+                            type="button"
+                            variant="outline"
+                            className="w-full"
+                            onClick={() => {
+                                // Navigate to customer edit page to add business profiles
+                                if (currentCustomer?.systemId) {
+                                    window.open(`/customers/${currentCustomer.systemId}/edit`, '_blank');
+                                }
+                            }}
+                        >
+                            <Plus className="h-4 w-4 mr-2" />
+                            Thêm thông tin doanh nghiệp
+                        </Button>
+                    </div>
+
+                    <DialogFooter className="flex-col-reverse sm:flex-row gap-2">
+                        <Button variant="outline" onClick={() => setIsBusinessDialogOpen(false)} className="w-full sm:w-auto">
+                            Hủy
+                        </Button>
+                        <Button onClick={handleConfirmBusinessProfile} disabled={!selectedBusinessProfileId || businessProfiles.length === 0} className="w-full sm:w-auto">
+                            Xác nhận
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </>
     );
 }

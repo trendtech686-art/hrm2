@@ -39,7 +39,7 @@ function ReportsPageLoading() {
               <Skeleton className="h-4 w-48" />
             </CardHeader>
             <CardContent>
-              <Skeleton className="h-[300px] w-full" />
+              <Skeleton className="h-75 w-full" />
             </CardContent>
           </Card>
         ))}

@@ -1,70 +1,30 @@
 import { prisma } from '@/lib/prisma'
-import type { Prisma } from '@prisma/client'
-import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
+import { Prisma } from '@/generated/prisma/client'
+import { apiHandler } from '@/lib/api-handler'
+import { validateBody, apiSuccess, apiError } from '@/lib/api-utils'
 import { updateSupplierSchema } from './validation'
-
-// Helper to serialize Decimal fields for client
-function serializeSupplier<T extends { 
-  totalPurchased?: Prisma.Decimal | number | null;
-  totalDebt?: Prisma.Decimal | number | null;
-  currentDebt?: Prisma.Decimal | number | null;
-  purchaseOrders?: { subtotal?: Prisma.Decimal | number | null; discount?: Prisma.Decimal | number | null; tax?: Prisma.Decimal | number | null; total?: Prisma.Decimal | number | null; paid?: Prisma.Decimal | number | null; debt?: Prisma.Decimal | number | null }[];
-}>(supplier: T) {
-  return {
-    ...supplier,
-    totalPurchased: supplier.totalPurchased !== null && supplier.totalPurchased !== undefined ? Number(supplier.totalPurchased) : 0,
-    totalDebt: supplier.totalDebt !== null && supplier.totalDebt !== undefined ? Number(supplier.totalDebt) : 0,
-    currentDebt: supplier.currentDebt !== null && supplier.currentDebt !== undefined ? Number(supplier.currentDebt) : null,
-    purchaseOrders: supplier.purchaseOrders?.map(po => ({
-      ...po,
-      subtotal: po.subtotal !== null && po.subtotal !== undefined ? Number(po.subtotal) : 0,
-      discount: po.discount !== null && po.discount !== undefined ? Number(po.discount) : 0,
-      tax: po.tax !== null && po.tax !== undefined ? Number(po.tax) : 0,
-      total: po.total !== null && po.total !== undefined ? Number(po.total) : 0,
-      paid: po.paid !== null && po.paid !== undefined ? Number(po.paid) : 0,
-      debt: po.debt !== null && po.debt !== undefined ? Number(po.debt) : 0,
-    })),
-  };
-}
-
-interface RouteParams {
-  params: Promise<{ systemId: string }>
-}
+import { serializeSupplier } from '../serialize'
+import { logError } from '@/lib/logger'
+import { getUserNameFromDb } from '@/lib/get-user-name'
 
 // GET /api/suppliers/[systemId]
-export async function GET(_request: Request, { params }: RouteParams) {
-  const session = await requireAuth()
-  if (!session) return apiError('Unauthorized', 401)
+export const GET = apiHandler(async (_request, { params }) => {
+  const { systemId } = params
 
-  try {
-    const { systemId } = await params
+  const supplier = await prisma.supplier.findUnique({
+    where: { systemId },
+  })
 
-    const supplier = await prisma.supplier.findUnique({
-      where: { systemId },
-      include: {
-        purchaseOrders: {
-          take: 10,
-          orderBy: { createdAt: 'desc' },
-        },
-        _count: { select: { purchaseOrders: true } },
-      },
-    })
-
-    if (!supplier) {
-      return apiError('Nhà cung cấp không tồn tại', 404)
-    }
-
-    return apiSuccess(serializeSupplier(supplier))
-  } catch (error) {
-    console.error('Error fetching supplier:', error)
-    return apiError('Failed to fetch supplier', 500)
+  if (!supplier) {
+    return apiError('Nhà cung cấp không tồn tại', 404)
   }
-}
+
+  return apiSuccess(serializeSupplier(supplier))
+})
 
 // PUT /api/suppliers/[systemId]
-export async function PUT(request: Request, { params }: RouteParams) {
-  const session = await requireAuth()
-  if (!session) return apiError('Unauthorized', 401)
+export const PUT = apiHandler(async (request, { session, params }) => {
+  const { systemId } = params
 
   const validation = await validateBody(request, updateSupplierSchema)
   if (!validation.success) {
@@ -73,7 +33,9 @@ export async function PUT(request: Request, { params }: RouteParams) {
   const body = validation.data
 
   try {
-    const { systemId } = await params
+    // Fetch existing for changes diff
+    const existing = await prisma.supplier.findUnique({ where: { systemId } })
+    if (!existing) return apiError('Nhà cung cấp không tồn tại', 404)
 
     const supplier = await prisma.supplier.update({
       where: { systemId },
@@ -84,6 +46,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
         ...(body.phone !== undefined && { phone: body.phone || '' }),
         ...(body.email !== undefined && { email: body.email || '' }),
         ...(body.address !== undefined && { address: body.address || '' }),
+        ...(body.addressData !== undefined && { addressData: (body.addressData ?? Prisma.JsonNull) as Prisma.InputJsonValue }),
         ...(body.taxCode !== undefined && { taxCode: body.taxCode || '' }),
         ...(body.bankAccount !== undefined && { bankAccount: body.bankAccount || '' }),
         ...(body.bankName !== undefined && { bankName: body.bankName || '' }),
@@ -91,43 +54,93 @@ export async function PUT(request: Request, { params }: RouteParams) {
         ...(body.accountManager !== undefined && { accountManager: body.accountManager || '' }),
         ...(body.notes !== undefined && { notes: body.notes || '' }),
         ...(body.status !== undefined && { status: body.status || 'Đang Giao Dịch' }),
-      },
+      } satisfies Prisma.SupplierUpdateInput,
     })
+
+    // Activity log with changes diff (fire-and-forget)
+    const fieldLabels: Record<string, string> = {
+      name: 'Tên', taxCode: 'Mã số thuế', phone: 'Điện thoại', email: 'Email',
+      address: 'Địa chỉ', website: 'Website', accountManager: 'Quản lý',
+      bankAccount: 'Tài khoản NH', bankName: 'Ngân hàng', contactPerson: 'Người liên hệ',
+      notes: 'Ghi chú', status: 'Trạng thái',
+    }
+    const changes: Record<string, { from: unknown; to: unknown }> = {}
+    for (const key of Object.keys(fieldLabels)) {
+      if (body[key as keyof typeof body] !== undefined) {
+        const oldVal = (existing as Record<string, unknown>)[key]
+        const newVal = body[key as keyof typeof body]
+        if (String(oldVal ?? '') !== String(newVal ?? '')) {
+          changes[fieldLabels[key]] = { from: oldVal ?? '', to: newVal ?? '' }
+        }
+      }
+    }
+    if (Object.keys(changes).length > 0) {
+      getUserNameFromDb(session!.user?.id).then(userName =>
+        prisma.activityLog.create({
+          data: {
+            entityType: 'supplier',
+            entityId: systemId,
+            action: 'updated',
+            actionType: 'update',
+            note: `Cập nhật nhà cung cấp: ${existing.name}: ${Object.keys(changes).join(', ')}`,
+            changes: changes as Prisma.InputJsonValue,
+            createdBy: userName,
+          },
+        })
+      ).catch(e => logError('[ActivityLog] supplier updated failed', e))
+    }
 
     return apiSuccess(serializeSupplier(supplier))
   } catch (error) {
-    if (error instanceof Error && 'code' in error && error.code === 'P2025') {
+    if (error instanceof Error && 'code' in error && (error as { code?: string }).code === 'P2025') {
       return apiError('Nhà cung cấp không tồn tại', 404)
     }
-    console.error('Error updating supplier:', error)
-    return apiError('Failed to update supplier', 500)
+    logError('Error updating supplier', error)
+    return apiError('Lỗi khi cập nhật nhà cung cấp', 500)
   }
-}
+})
 
 // PATCH /api/suppliers/[systemId] - same as PUT
-export async function PATCH(request: Request, { params }: RouteParams) {
-  return PUT(request, { params })
-}
+export const PATCH = PUT
 
 // DELETE /api/suppliers/[systemId]
-export async function DELETE(_request: Request, { params }: RouteParams) {
-  const session = await requireAuth()
-  if (!session) return apiError('Unauthorized', 401)
+export const DELETE = apiHandler(async (_request, { session, params }) => {
+  const { systemId } = params
 
   try {
-    const { systemId } = await params
+    const existing = await prisma.supplier.findUnique({
+      where: { systemId },
+      select: { name: true, id: true },
+    })
 
     await prisma.supplier.update({
       where: { systemId },
-      data: { isDeleted: true },
+      data: {
+        isDeleted: true,
+        deletedAt: new Date(),
+      },
     })
+
+    // Log activity (fire-and-forget)
+    getUserNameFromDb(session!.user?.id).then(userName =>
+      prisma.activityLog.create({
+        data: {
+          entityType: 'supplier',
+          entityId: systemId,
+          action: 'deleted',
+          actionType: 'delete',
+          note: `Xóa nhà cung cấp: ${existing?.name || systemId} (${existing?.id || systemId})`,
+          createdBy: userName,
+        }
+      })
+    ).catch(e => logError('[ActivityLog] supplier deleted failed', e))
 
     return apiSuccess({ success: true })
   } catch (error) {
-    if (error instanceof Error && 'code' in error && error.code === 'P2025') {
+    if (error instanceof Error && 'code' in error && (error as { code?: string }).code === 'P2025') {
       return apiError('Nhà cung cấp không tồn tại', 404)
     }
-    console.error('Error deleting supplier:', error)
-    return apiError('Failed to delete supplier', 500)
+    logError('Error deleting supplier', error)
+    return apiError('Lỗi khi xóa nhà cung cấp', 500)
   }
-}
+})

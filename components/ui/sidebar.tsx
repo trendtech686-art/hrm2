@@ -12,7 +12,7 @@ const Sidebar = React.forwardRef<
     <aside
       ref={ref}
       className={cn(
-        "fixed inset-y-0 left-0 z-40 flex-shrink-0 bg-card flex flex-col border-r border-border shadow-sm transition-all duration-300 ease-in-out lg:translate-x-0 overflow-x-hidden",
+        "fixed inset-y-0 left-0 z-40 flex-shrink-0 bg-card flex flex-col border-r border-border shadow-sm transition-[transform,width] duration-300 ease-in-out lg:translate-x-0 overflow-x-hidden",
         isSidebarCollapsed ? "w-16" : "w-64",
         isSidebarOpen ? "translate-x-0" : "-translate-x-full",
         className

@@ -5,9 +5,8 @@ export function useProductsQuery(params: ProductQueryParams): UseQueryResult<Pro
   return useQuery<ProductQueryResult, Error>({
     queryKey: ['products', params],
     queryFn: () => fetchProductsPage(params),
-    staleTime: 60_000, // 1 minute - longer cache for better performance
-    gcTime: 5 * 60_000, // 5 minutes garbage collection
-    placeholderData: keepPreviousData, // Keep previous data while fetching new data (no skeleton)
-    refetchOnWindowFocus: false, // Don't refetch on window focus for better performance
+    staleTime: 60_000,
+    gcTime: 5 * 60_000,
+    placeholderData: keepPreviousData,
   });
 }

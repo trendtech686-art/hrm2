@@ -2,6 +2,7 @@
 import type { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import { formatDate, parseDate, getCurrentDate, getDaysDiff } from '@/lib/date-utils';
 import type { Employee } from '@/lib/types/prisma-extended'
+import type { SystemId } from '@/lib/id-types'
 import type { Branch } from "../settings/branches/types";
 import { Checkbox } from "../../components/ui/checkbox"
 import { DataTableColumnHeader } from "../../components/data-table/data-table-column-header"
@@ -13,8 +14,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../../
 
 export const getColumns = (
   router: AppRouterInstance,
-  onRestore: (systemId: string) => void,
-  onPermanentDelete: (systemId: string) => void,
+  onRestore: (systemId: SystemId) => void,
+  onPermanentDelete: (systemId: SystemId) => void,
   _branches: Branch[]
 ): ColumnDef<Employee>[] => [
   {
@@ -152,9 +153,9 @@ export const getColumns = (
       const daysAgo = getDaysDiff(currentDate, deleted);
       
       return (
-        <div className="text-body-sm">
+        <div className="text-sm">
           <div>{formatDate(deletedAt)}</div>
-          <div className="text-body-xs text-muted-foreground">
+          <div className="text-xs text-muted-foreground">
             {daysAgo === 0 ? 'Hôm nay' : `${daysAgo} ngày trước`}
           </div>
         </div>

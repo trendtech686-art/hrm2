@@ -1,4 +1,4 @@
-// ═══════════════════════════════════════════════════════════════
+﻿// ═══════════════════════════════════════════════════════════════
 // FILE UPLOAD API - Using Next.js API Routes with Staging Support
 // ═══════════════════════════════════════════════════════════════
 // Full staging workflow:
@@ -9,6 +9,7 @@
 // ═══════════════════════════════════════════════════════════════
 
 import { generateSubEntityId } from '@/lib/id-utils';
+import { logError } from '@/lib/logger'
 
 // ═══════════════════════════════════════════════════════════════
 // TYPES
@@ -235,7 +236,7 @@ export class FileUploadAPI {
       const result: ConfirmResponse = await response.json();
 
       if (!result.success) {
-        console.error('[FileUploadAPI] confirmStagingFiles failed:', result.message);
+        logError('[FileUploadAPI] confirmStagingFiles failed', null, { message: result.message });
         return [];
       }
 
@@ -264,7 +265,7 @@ export class FileUploadAPI {
         metadata: metadata || {},
       }));
     } catch (error) {
-      console.error('[FileUploadAPI] confirmStagingFiles error:', error);
+      logError('[FileUploadAPI] confirmStagingFiles error', error);
       return [];
     }
   }
@@ -291,7 +292,7 @@ export class FileUploadAPI {
       const result: ConfirmResponse = await response.json();
 
       if (!result.success) {
-        console.error('[FileUploadAPI] confirmFilesByIds failed:', result.message);
+        logError('[FileUploadAPI] confirmFilesByIds failed', null, { message: result.message });
         return [];
       }
 
@@ -316,7 +317,7 @@ export class FileUploadAPI {
         metadata: {},
       }));
     } catch (error) {
-      console.error('[FileUploadAPI] confirmFilesByIds error:', error);
+      logError('[FileUploadAPI] confirmFilesByIds error', error);
       return [];
     }
   }
@@ -334,10 +335,10 @@ export class FileUploadAPI {
       const result = await response.json();
 
       if (!result.success) {
-        console.error('[FileUploadAPI] cancelStagingFiles failed:', result.message);
+        logError('[FileUploadAPI] cancelStagingFiles failed', null, { message: result.message });
       }
     } catch (error) {
-      console.error('[FileUploadAPI] cancelStagingFiles error:', error);
+      logError('[FileUploadAPI] cancelStagingFiles error', error);
     }
   }
 
@@ -380,6 +381,72 @@ export class FileUploadAPI {
     } catch (_error) {
       return [];
     }
+  }
+
+  /**
+   * Batch get files for multiple entities at once
+   * Returns a Map of entityId -> ServerFile[]
+   */
+  static async getBatchFiles(
+    entityIds: string[],
+    entityType?: string
+  ): Promise<Map<string, ServerFile[]>> {
+    const resultMap = new Map<string, ServerFile[]>();
+    
+    if (!entityIds.length) return resultMap;
+    
+    // Initialize all IDs with empty arrays
+    entityIds.forEach(id => resultMap.set(id, []));
+    
+    try {
+      const params = new URLSearchParams();
+      params.append('entityIds', entityIds.join(','));
+      if (entityType) params.append('entityType', entityType);
+
+      const response = await fetch(`/api/upload?${params}`);
+      const result = await response.json();
+
+      if (!result.success || !result.data) {
+        return resultMap;
+      }
+
+      // Group files by entityId
+      for (const file of result.data) {
+        const id = file.entityId;
+        if (!id) continue;
+        
+        const serverFile: ServerFile = {
+          id: file?.id || '',
+          employeeId: id,
+          documentType: file?.documentType || entityType || '',
+          documentName: file?.documentName || '',
+          name: file?.originalName || '',
+          originalName: file?.originalName || '',
+          slug: file?.fileName || '',
+          filename: file?.fileName || '',
+          size: file?.fileSize || 0,
+          type: file?.mimeType || '',
+          url: file?.url || '',
+          uploadedAt: file?.createdAt || '',
+          metadata: {},
+        };
+        
+        const existing = resultMap.get(id) || [];
+        existing.push(serverFile);
+        resultMap.set(id, existing);
+      }
+      
+      return resultMap;
+    } catch (_error) {
+      return resultMap;
+    }
+  }
+
+  /**
+   * Batch get product files for multiple products at once
+   */
+  static async getBatchProductFiles(productIds: string[]): Promise<Map<string, ServerFile[]>> {
+    return this.getBatchFiles(productIds, 'products');
   }
 
   /**

@@ -1,5 +1,6 @@
 /**
  * Script to sync totalInventory, totalCommitted, totalAvailable for all products
+ * Reads from productInventory table (source of truth), updates product computed columns
  * Run this periodically or after bulk inventory updates
  * 
  * Usage: npx tsx scripts/sync-product-inventory-totals.ts
@@ -9,44 +10,41 @@ import 'dotenv/config';
 import { prisma } from '../lib/prisma.js';
 
 async function syncProductInventoryTotals() {
-  console.log('🔄 Syncing product inventory totals...\n');
+  console.log('🔄 Syncing product inventory totals from productInventory table...\n');
 
   try {
-    // Get all products with inventory data
-    const products = await prisma.product.findMany({
-      where: { isDeleted: false },
-      select: {
-        systemId: true,
-        inventoryByBranch: true,
-        committedByBranch: true,
-      },
-    });
+    // Aggregate from productInventory table (source of truth)
+    const aggregated = await prisma.$queryRawUnsafe<Array<{
+      productId: string;
+      totalOnHand: number;
+      totalCommitted: number;
+      totalInTransit: number;
+    }>>(`
+      SELECT 
+        "productId",
+        COALESCE(SUM("onHand"), 0)::int as "totalOnHand",
+        COALESCE(SUM("committed"), 0)::int as "totalCommitted",
+        COALESCE(SUM("inTransit"), 0)::int as "totalInTransit"
+      FROM product_inventory
+      GROUP BY "productId"
+    `);
 
-    console.log(`📦 Found ${products.length} products to sync\n`);
+    console.log(`📦 Found ${aggregated.length} products with inventory records\n`);
 
     let updated = 0;
     const batchSize = 100;
 
-    for (let i = 0; i < products.length; i += batchSize) {
-      const batch = products.slice(i, i + batchSize);
+    for (let i = 0; i < aggregated.length; i += batchSize) {
+      const batch = aggregated.slice(i, i + batchSize);
       
       await Promise.all(
-        batch.map(async (product) => {
-          const inv = product.inventoryByBranch as Record<string, number> | null;
-          const committed = product.committedByBranch as Record<string, number> | null;
-
-          const totalInventory = inv
-            ? Object.values(inv).reduce((sum, qty) => sum + (qty || 0), 0)
-            : 0;
-
-          const totalCommitted = committed
-            ? Object.values(committed).reduce((sum, qty) => sum + (qty || 0), 0)
-            : 0;
-
+        batch.map(async (row) => {
+          const totalInventory = row.totalOnHand;
+          const totalCommitted = row.totalCommitted;
           const totalAvailable = Math.max(0, totalInventory - totalCommitted);
 
           await prisma.product.update({
-            where: { systemId: product.systemId },
+            where: { systemId: row.productId },
             data: {
               totalInventory,
               totalCommitted,
@@ -59,7 +57,7 @@ async function syncProductInventoryTotals() {
         })
       );
 
-      console.log(`  ✅ Processed ${Math.min(i + batchSize, products.length)}/${products.length} products`);
+      console.log(`  ✅ Processed ${Math.min(i + batchSize, aggregated.length)}/${aggregated.length} products`);
     }
 
     console.log(`\n🎉 Done! Updated ${updated} products.`);

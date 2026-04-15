@@ -9,8 +9,9 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { ExternalLink, Loader2, Globe, Search, AlignLeft } from 'lucide-react';
 import { getBrandById } from '@/lib/pkgx/api-service';
-import { usePkgxSettings } from '@/features/settings/pkgx/hooks/use-pkgx-settings';
+import { usePkgxMappings } from '@/features/settings/pkgx/hooks/use-pkgx-settings';
 import type { Brand } from '@/features/settings/inventory/types';
+import { sanitizeHtml } from '@/lib/sanitize';
 
 type PkgxBrandData = {
   brand_id: number;
@@ -34,7 +35,7 @@ type Props = {
 };
 
 export function PkgxBrandDetailDialog({ open, onOpenChange, brand, pkgxBrandId }: Props) {
-  const { data: pkgxSettings } = usePkgxSettings();
+  const { data: pkgxSettings } = usePkgxMappings();
   const [loading, setLoading] = React.useState(false);
   const [pkgxData, setPkgxData] = React.useState<PkgxBrandData | null>(null);
   const [error, setError] = React.useState<string | null>(null);
@@ -165,7 +166,7 @@ export function PkgxBrandDetailDialog({ open, onOpenChange, brand, pkgxBrandId }
                     <p className="text-xs text-muted-foreground">Mô tả ngắn (Short Desc)</p>
                     <div 
                       className="text-sm prose prose-sm max-w-none"
-                      dangerouslySetInnerHTML={{ __html: pkgxData.short_desc || '<span class="text-muted-foreground italic">Chưa có</span>' }}
+                      dangerouslySetInnerHTML={{ __html: sanitizeHtml(pkgxData.short_desc || '<span class="text-muted-foreground italic">Chưa có</span>') }}
                     />
                   </div>
                   <Separator />
@@ -173,7 +174,7 @@ export function PkgxBrandDetailDialog({ open, onOpenChange, brand, pkgxBrandId }
                     <p className="text-xs text-muted-foreground">Mô tả dài (Long Desc)</p>
                     <div 
                       className="text-sm prose prose-sm max-w-none max-h-40 overflow-y-auto"
-                      dangerouslySetInnerHTML={{ __html: pkgxData.long_desc || '<span class="text-muted-foreground italic">Chưa có</span>' }}
+                      dangerouslySetInnerHTML={{ __html: sanitizeHtml(pkgxData.long_desc || '<span class="text-muted-foreground italic">Chưa có</span>') }}
                     />
                   </div>
                 </div>

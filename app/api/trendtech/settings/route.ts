@@ -7,6 +7,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, apiError } from '@/lib/api-utils';
+import { logError } from '@/lib/logger'
+import { cache } from '@/lib/cache'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 const SETTINGS_KEY = 'settings';
 const SETTINGS_GROUP = 'trendtech';
@@ -21,7 +24,7 @@ export async function GET() {
     });
     return NextResponse.json({ success: true, data: setting?.value || {} });
   } catch (error) {
-    console.error('[API] Error fetching Trendtech settings:', error);
+    logError('[API] Error fetching Trendtech settings', error);
     return NextResponse.json(
       { success: false, error: 'Failed to fetch settings' },
       { status: 500 }
@@ -50,6 +53,7 @@ export async function PATCH(request: NextRequest) {
     });
 
     const currentValue = (existingSetting?.value as Record<string, unknown>) || {};
+    const oldSectionValue = currentValue[section];
     const updatedValue = { ...currentValue, [section]: data };
 
     // Update specific section
@@ -72,9 +76,24 @@ export async function PATCH(request: NextRequest) {
       },
     });
 
+    // Log changes
+    if (JSON.stringify(oldSectionValue) !== JSON.stringify(data)) {
+      createActivityLog({
+        entityType: 'trendtech_settings',
+        entityId: 'trendtech-settings',
+        action: `Cập nhật cài đặt Trendtech: ${section}`,
+        actionType: 'update',
+        changes: { [section]: { from: oldSectionValue ?? null, to: data } },
+        createdBy: session?.user.id ?? '',
+      }).catch(e => logError('[trendtech/settings] activity log failed', e));
+    }
+
+    // Invalidate server-side settings cache
+    cache.deletePattern('^settings:');
+
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('[API] Error updating Trendtech settings:', error);
+    logError('[API] Error updating Trendtech settings', error);
     return NextResponse.json(
       { success: false, error: 'Failed to update settings' },
       { status: 500 }

@@ -28,6 +28,7 @@ export function PaymentMethodsPageContent({ isActive, onRegisterActions }: Props
   // === STATE ===
   const [isFormOpen, setIsFormOpen] = React.useState(false);
   const [editingItem, setEditingItem] = React.useState<PaymentMethod | null>(null);
+  const formRef = React.useRef<HTMLFormElement>(null);
   const [isAlertOpen, setIsAlertOpen] = React.useState(false);
   const [idToDelete, setIdToDelete] = React.useState<SystemId | null>(null);
   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
@@ -120,17 +121,13 @@ export function PaymentMethodsPageContent({ isActive, onRegisterActions }: Props
       id: asBusinessId(values.id?.trim().toUpperCase() || values.name.trim().toUpperCase().replace(/\s+/g, "_")),
       name: values.name.trim(),
       isActive: values.isActive,
-      isDefault: false,
       description: values.description?.trim() || undefined,
-      accountNumber: values.accountNumber?.trim() || undefined,
-      accountName: values.accountName?.trim() || undefined,
-      bankName: values.bankName?.trim() || undefined,
     };
 
     if (editingItem) {
       update.mutate({ systemId: editingItem.systemId, data: payload });
     } else {
-      create.mutate(payload);
+      create.mutate({ ...payload, isDefault: false });
     }
     setIsFormOpen(false);
   };
@@ -178,7 +175,7 @@ export function PaymentMethodsPageContent({ isActive, onRegisterActions }: Props
           <DialogHeader>
             <DialogTitle>{editingItem ? "Cập nhật" : "Thêm mới"}</DialogTitle>
           </DialogHeader>
-          <PaymentMethodForm initialData={editingItem} onSubmit={handleFormSubmit} />
+          <PaymentMethodForm initialData={editingItem} onSubmit={handleFormSubmit} formRef={formRef} />
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsFormOpen(false)}>
               Đóng

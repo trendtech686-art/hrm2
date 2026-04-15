@@ -6,6 +6,7 @@ model Tax {
   description       String?
   isDefaultSale     Boolean   @default(false)
   isDefaultPurchase Boolean   @default(false)
+  isDefaultExcelExport Boolean @default(false)
   isActive          Boolean   @default(true)
   isDeleted         Boolean   @default(false)
   deletedAt         DateTime?

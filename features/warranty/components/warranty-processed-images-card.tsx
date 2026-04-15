@@ -68,7 +68,7 @@ export function WarrantyProcessedImagesCard({
         {/* New staging files upload section */}
         <div className="space-y-2">
           {isEditing && permanentFiles.length > 0 && (
-            <div className="flex items-center gap-2 text-body-xs font-medium text-amber-700 bg-amber-50 px-2 py-1 rounded">
+            <div className="flex items-center gap-2 text-xs font-medium text-amber-700 bg-amber-50 px-2 py-1 rounded">
               <span>📤</span>
               <span>Thêm file mới (tạm thời)</span>
             </div>

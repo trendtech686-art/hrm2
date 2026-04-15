@@ -12,6 +12,7 @@
 
 import type { Complaint } from '../types';
 import type { SystemId, BusinessId } from '@/lib/id-types';
+import { logError } from '@/lib/logger'
 
 export interface ReversalResult {
   cancelledPaymentsReceipts: string[]; // Danh sách phiếu đã hủy (display messages)
@@ -64,7 +65,7 @@ export async function cancelPaymentsReceiptsAndInventoryChecks(
     const { cancelPaymentAction } = await import('@/app/actions/payments');
     const { cancelReceiptAction } = await import('@/app/actions/receipts');
     const { forceCancelInventoryCheckAction } = await import('@/app/actions/inventory-checks');
-    const { cancelPenalty } = await import('@/app/actions/settings/penalties');
+    const { updatePenalty } = await import('@/features/settings/penalties/api/penalties-api');
 
     // ============================================
     // STEP 2: TÌM PHIẾU LIÊN QUAN
@@ -172,9 +173,11 @@ export async function cancelPaymentsReceiptsAndInventoryChecks(
     if (penaltySystemIds.length > 0) {
       const cancelledIds: SystemId[] = [];
       for (const penaltyId of penaltySystemIds) {
-        const cancelResult = await cancelPenalty(penaltyId, reason);
-        if (cancelResult.success) {
+        try {
+          await updatePenalty(penaltyId as string, { status: 'Đã hủy' });
           cancelledIds.push(penaltyId);
+        } catch {
+          // Penalty cancellation failed, skip
         }
       }
       if (cancelledIds.length > 0) {
@@ -185,7 +188,7 @@ export async function cancelPaymentsReceiptsAndInventoryChecks(
     return result;
     
   } catch (error) {
-    console.error('❌ [COMPLAINT REVERSAL] Error:', error);
+    logError('❌ [COMPLAINT REVERSAL] Error', error);
     throw error;
   }
 }

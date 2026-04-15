@@ -1,5 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { apiError, apiSuccess, requireAuth, parsePagination } from '@/lib/api-utils'
+import { logError } from '@/lib/logger'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 const TYPE = 'receipt-type'
 
@@ -49,7 +51,7 @@ export async function GET(request: Request) {
     const data = rows.map(r => mapRecord(r as unknown as SettingsDataRecord))
     return apiSuccess({ data, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } })
   } catch (error) {
-    console.error('[receipt-types] GET error:', error)
+    logError('[receipt-types] GET error', error)
     return apiError('Failed to fetch receipt types', 500)
   }
 }
@@ -77,9 +79,17 @@ export async function POST(request: Request) {
       },
     })
 
+    createActivityLog({
+      entityType: 'receipt_type',
+      entityId: created.systemId,
+      action: `Thêm loại phiếu thu: ${name}`,
+      actionType: 'create',
+      createdBy: session.user?.id,
+    }).catch(e => logError('[receipt-types] activity log failed', e))
+
     return apiSuccess({ data: mapRecord(created as unknown as SettingsDataRecord) }, 201)
   } catch (error: unknown) {
-    console.error('[receipt-types] POST error:', error)
+    logError('[receipt-types] POST error', error)
     const errorMessage = error instanceof Error ? error.message : undefined;
     return apiError('Failed to create receipt type', 500, errorMessage)
   }

@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { Save, X, Globe } from 'lucide-react';
+import { Save, X, Globe, Loader2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -39,6 +39,7 @@ import { usePageHeader } from '@/contexts/page-header-context';
 import { slugify } from '@/lib/utils';
 import { CharacterCounter } from '@/components/shared/character-counter';
 import { SeoScoreDisplay } from '@/components/shared/seo-score-display';
+import { logError } from '@/lib/logger'
 
 // Schema
 const websiteSeoSchema = z.object({
@@ -67,7 +68,7 @@ type CategoryFormValues = z.infer<typeof categoryFormSchema>;
 export function CategoryNewPage() {
   const router = useRouter();
   const { data = [] } = useAllCategories();
-  const { create } = useCategoryMutations({
+  const { create, isCreating } = useCategoryMutations({
     onCreateSuccess: (category) => {
       toast.success('Đã tạo danh mục mới');
       router.push(`/categories/${category.systemId}`);
@@ -142,7 +143,7 @@ export function CategoryNewPage() {
         );
         imageUrl = imageFiles[0]?.url || '';
       } catch (error) {
-        console.error('Error confirming image:', error);
+        logError('Error confirming image', error);
       }
     }
     
@@ -179,11 +180,11 @@ export function CategoryNewPage() {
       <X className="mr-2 h-4 w-4" />
       Hủy
     </Button>,
-    <Button key="save" size="sm" className="h-9" onClick={form.handleSubmit(handleSubmit)}>
-      <Save className="mr-2 h-4 w-4" />
-      Lưu
+    <Button key="save" size="sm" className="h-9" onClick={form.handleSubmit(handleSubmit)} disabled={isCreating}>
+      {isCreating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+      {isCreating ? 'Đang lưu...' : 'Lưu'}
     </Button>
-  ], [router, form, handleSubmit]);
+  ], [router, form, handleSubmit, isCreating]);
 
   usePageHeader({
     actions: headerActions,

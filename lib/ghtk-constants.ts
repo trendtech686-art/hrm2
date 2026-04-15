@@ -37,7 +37,7 @@ export const GHTK_STATUS_MAP: Record<GHTKStatusId, GHTKStatusMapping> = {
   '-1': {
     statusId: -1,
     statusText: 'Hủy đơn hàng',
-    deliveryStatus: 'Chờ giao lại',
+    deliveryStatus: 'Đã hủy',
     description: 'Đơn hàng đã bị hủy',
     canCancel: false,
     shouldUpdateStock: true,
@@ -141,7 +141,7 @@ export const GHTK_STATUS_MAP: Record<GHTKStatusId, GHTKStatusMapping> = {
   '11': {
     statusId: 11,
     statusText: 'Đã đối soát công nợ trả hàng',
-    deliveryStatus: 'Chờ giao lại',
+    deliveryStatus: 'Đã hủy',
     description: 'Đã đối soát tiền trả hàng',
     canCancel: false,
     shouldUpdateStock: false,
@@ -159,7 +159,7 @@ export const GHTK_STATUS_MAP: Record<GHTKStatusId, GHTKStatusMapping> = {
   '13': {
     statusId: 13,
     statusText: 'Đơn hàng bồi hoàn',
-    deliveryStatus: 'Chờ giao lại',
+    deliveryStatus: 'Đã hủy',
     description: 'Đơn hàng bị mất/hỏng, đang xử lý bồi hoàn',
     canCancel: false,
     shouldUpdateStock: true,
@@ -179,7 +179,7 @@ export const GHTK_STATUS_MAP: Record<GHTKStatusId, GHTKStatusMapping> = {
   '21': {
     statusId: 21,
     statusText: 'Đã trả hàng (COD đã trả xong hàng)',
-    deliveryStatus: 'Chờ giao lại',
+    deliveryStatus: 'Đã hủy',
     description: 'Đã trả hàng về cho người gửi',
     canCancel: false,
     shouldUpdateStock: false,

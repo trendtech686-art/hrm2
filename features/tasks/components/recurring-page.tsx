@@ -1,10 +1,8 @@
 ﻿'use client'
 
 import * as React from 'react';
-import { useRouter } from 'next/navigation';
 import { useAllRecurringTasks } from '../hooks/use-all-recurring-tasks';
 import { useRecurringTaskMutations } from '../hooks/use-recurring-tasks';
-import { useTasks, useTaskMutations } from '../hooks/use-tasks';
 import { useAllEmployees } from '@/features/employees/hooks/use-all-employees';
 import { usePageHeader } from '@/contexts/page-header-context';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -51,23 +49,12 @@ const frequencyLabels: Record<RecurrenceFrequency, string> = {
 };
 
 export function RecurringTasksPage() {
-  const _router = useRouter();
-  const { data: recurringTasks, getActive: _getActive, getPaused: _getPaused, stats: _stats } = useAllRecurringTasks();
-  const { create: createRecurring, update: updateRecurring, remove: _removeRecurring, togglePause: _togglePause, process: _processRecurring } = useRecurringTaskMutations({
+  const { data: recurringTasks } = useAllRecurringTasks();
+  const { create: createRecurring, update: updateRecurring, process: processRecurring } = useRecurringTaskMutations({
     onSuccess: () => toast.success('Đã cập nhật'),
     onError: (error) => toast.error(error.message),
   });
-  const { data: tasksData } = useTasks();
-  const _tasks = tasksData?.data ?? [];
   const { data: employees } = useAllEmployees();
-  const { create: _createTaskMutation } = useTaskMutations({
-    onSuccess: () => {
-      toast.success('Đã tạo công việc lặp lại');
-    },
-    onError: (error) => {
-      toast.error('Lỗi', { description: error.message });
-    }
-  });
 
   const [showCreateDialog, setShowCreateDialog] = React.useState(false);
   const [formData, setFormData] = React.useState({
@@ -84,8 +71,14 @@ export function RecurringTasksPage() {
   });
 
   const handleProcessRecurring = () => {
-    // Note: recurringStore.processRecurringTasks needs migration to React Query
-    toast.info('Xử lý công việc lặp lại');
+    processRecurring.mutate(undefined, {
+      onSuccess: (data) => {
+        toast.success(`Đã tạo ${data.created} công việc mới`);
+      },
+      onError: (error) => {
+        toast.error(error.message);
+      },
+    });
   };
 
   usePageHeader({
@@ -107,6 +100,22 @@ export function RecurringTasksPage() {
 
   const activeTasks = recurringTasks?.filter(t => t.isActive && !t.isPaused) ?? [];
   const pausedTasks = recurringTasks?.filter(t => t.isActive && t.isPaused) ?? [];
+
+  // Calculate tasks due to create today
+  const tasksToCreateToday = React.useMemo(() => {
+    if (!recurringTasks) return 0;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return recurringTasks.filter(rt => {
+      if (!rt.isActive || rt.isPaused) return false;
+      const nextDate = rt.nextOccurrenceDate ? new Date(rt.nextOccurrenceDate) : null;
+      if (!nextDate) return false;
+      const createDate = new Date(nextDate);
+      createDate.setDate(createDate.getDate() - (rt.createDaysBefore || 0));
+      createDate.setHours(0, 0, 0, 0);
+      return createDate.getTime() <= today.getTime();
+    }).length;
+  }, [recurringTasks]);
 
   const handleCreateRecurring = () => {
     if (!formData.title.trim()) {
@@ -214,7 +223,7 @@ export function RecurringTasksPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {0} {/* Note: getTasksToCreateToday needs implementation */}
+              {tasksToCreateToday}
             </div>
           </CardContent>
         </Card>
@@ -341,7 +350,7 @@ export function RecurringTasksPage() {
             </div>
 
             <div className="border-t pt-4">
-              <h3 className="font-semibold mb-4">Lịch lặp lại</h3>
+              <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider md:text-base md:font-semibold md:text-foreground md:normal-case md:tracking-normal mb-4">Lịch lặp lại</h3>
               
               <div className="grid grid-cols-2 gap-4">
                 <div>

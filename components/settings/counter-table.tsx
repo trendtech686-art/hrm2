@@ -45,13 +45,13 @@ export function CounterTable({ data, onViewDetails }: CounterTableProps) {
             <TableHead>
               <div className="flex flex-col">
                 <span className="font-semibold">SystemId Prefix</span>
-                <span className="text-[10px] text-muted-foreground font-normal">(English - Query)</span>
+                <span className="text-xs text-muted-foreground font-normal">(English - Query)</span>
               </div>
             </TableHead>
             <TableHead>
               <div className="flex flex-col">
                 <span className="font-semibold">Business ID Prefix</span>
-                <span className="text-[10px] text-muted-foreground font-normal">(Tiếng Việt - Display)</span>
+                <span className="text-xs text-muted-foreground font-normal">(Tiếng Việt - Display)</span>
               </div>
             </TableHead>
             <TableHead className="text-right">Counter</TableHead>
@@ -59,13 +59,13 @@ export function CounterTable({ data, onViewDetails }: CounterTableProps) {
             <TableHead>
               <div className="flex flex-col">
                 <span className="font-semibold">Next SystemId</span>
-                <span className="text-[10px] text-muted-foreground font-normal">(Query key)</span>
+                <span className="text-xs text-muted-foreground font-normal">(Query key)</span>
               </div>
             </TableHead>
             <TableHead>
               <div className="flex flex-col">
                 <span className="font-semibold">Next Business ID</span>
-                <span className="text-[10px] text-muted-foreground font-normal">(Display)</span>
+                <span className="text-xs text-muted-foreground font-normal">(Display)</span>
               </div>
             </TableHead>
             <TableHead>Last Created</TableHead>

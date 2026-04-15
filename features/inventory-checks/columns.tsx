@@ -22,7 +22,8 @@ export const getColumns = (
   onBalance: (item: InventoryCheck) => void,
   router: AppRouterInstance,
   onPrint?: (item: InventoryCheck) => void,
-  findEmployeeById?: (id: SystemId) => { fullName?: string } | undefined,
+  /** @deprecated Employee names now come from API data (createdByName) */
+  _findEmployeeById?: (id: SystemId) => { fullName?: string } | undefined,
 ) : ColumnDef<InventoryCheck>[] => [
   // 1 - Select
   {
@@ -110,8 +111,7 @@ export const getColumns = (
     header: 'Người tạo',
     cell: ({ row }) => {
       if (!row.createdBy) return '-';
-      const employee = findEmployeeById?.(row.createdBy as SystemId);
-      return employee?.fullName || row.createdBy;
+      return (row as unknown as Record<string, unknown>).createdByName as string || row.createdBy;
     },
     meta: { displayName: 'Người tạo' },
   },

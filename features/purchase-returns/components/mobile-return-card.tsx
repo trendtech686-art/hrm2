@@ -3,7 +3,6 @@
 import * as React from 'react';
 import { PackageX, Building2, User, FileText } from 'lucide-react';
 import { formatDateCustom, parseDate } from '../../../lib/date-utils';
-import { Card, CardContent } from '../../../components/ui/card';
 import { Avatar, AvatarFallback } from '../../../components/ui/avatar';
 import type { PurchaseReturn } from '@/lib/types/prisma-extended';
 
@@ -21,61 +20,58 @@ export function MobileReturnCard({ purchaseReturn, onClick }: MobileReturnCardPr
   const totalQty = purchaseReturn.items.reduce((sum, item) => sum + item.returnQuantity, 0);
   
   return (
-    <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => onClick(purchaseReturn)}>
-      <CardContent className="p-4">
-        <div className="flex items-start gap-3">
-          <Avatar className="h-12 w-12 flex-shrink-0">
-            <AvatarFallback className="bg-orange-100 text-orange-600 font-semibold text-body-sm">
-              <PackageX className="h-6 w-6" />
-            </AvatarFallback>
-          </Avatar>
+    <div 
+      className="rounded-xl border border-border/50 bg-card p-4 active:scale-[0.98] transition-transform touch-manipulation cursor-pointer"
+      onClick={() => onClick(purchaseReturn)}
+    >
+      <div className="flex items-start gap-3">
+        <Avatar className="h-10 w-10 shrink-0">
+          <AvatarFallback className="bg-orange-100 text-orange-600">
+            <PackageX className="h-5 w-5" />
+          </AvatarFallback>
+        </Avatar>
 
-          <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between mb-1">
-              <div className="flex-1">
-                <h3 className="text-body-sm font-semibold">{purchaseReturn.id}</h3>
-                <p className="text-body-xs text-muted-foreground">
-                  {formatDateCustom(parseDate(purchaseReturn.returnDate)!, 'dd/MM/yyyy')}
-                </p>
-              </div>
+        <div className="flex-1 min-w-0">
+          <h3 className="text-sm font-semibold">{purchaseReturn.id}</h3>
+          <p className="text-xs text-muted-foreground">
+            {formatDateCustom(parseDate(purchaseReturn.returnDate)!, 'dd/MM/yyyy')}
+          </p>
+
+          <div className="space-y-1 mt-2">
+            <div className="flex items-center text-xs text-muted-foreground">
+              <User className="h-3 w-3 mr-1.5 shrink-0" />
+              <span className="truncate">{purchaseReturn.supplierName}</span>
             </div>
-
-            <div className="space-y-1.5 mt-2">
-              <div className="flex items-center text-body-xs text-muted-foreground">
-                <User className="h-3 w-3 mr-1.5 flex-shrink-0" />
-                <span className="truncate">{purchaseReturn.supplierName}</span>
-              </div>
-              <div className="flex items-center text-body-xs text-muted-foreground">
-                <Building2 className="h-3 w-3 mr-1.5 flex-shrink-0" />
-                <span className="truncate">{purchaseReturn.branchName}</span>
-              </div>
-              <div className="flex items-center text-body-xs text-muted-foreground">
-                <FileText className="h-3 w-3 mr-1.5 flex-shrink-0" />
-                <span className="truncate">ĐH: {purchaseReturn.purchaseOrderId}</span>
-              </div>
+            <div className="flex items-center text-xs text-muted-foreground">
+              <Building2 className="h-3 w-3 mr-1.5 shrink-0" />
+              <span className="truncate">{purchaseReturn.branchName}</span>
             </div>
-
-            <div className="flex items-center justify-between mt-3 pt-2 border-t">
-              <div className="text-body-xs">
-                <span className="text-muted-foreground">SL: </span>
-                <span className="font-semibold">{totalQty}</span>
-              </div>
-              <div className="text-body-xs">
-                <span className="text-orange-600 font-semibold">
-                  {formatCurrency(purchaseReturn.totalReturnValue)}
-                </span>
-              </div>
-              {purchaseReturn.refundAmount > 0 && (
-                <div className="text-body-xs">
-                  <span className="text-green-600 font-semibold">
-                    Hoàn: {formatCurrency(purchaseReturn.refundAmount)}
-                  </span>
-                </div>
-              )}
+            <div className="flex items-center text-xs text-muted-foreground">
+              <FileText className="h-3 w-3 mr-1.5 shrink-0" />
+              <span className="truncate">ĐH: {purchaseReturn.purchaseOrderId}</span>
             </div>
           </div>
+
+          <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/50">
+            <div className="text-xs">
+              <span className="text-muted-foreground">SL: </span>
+              <span className="font-semibold">{totalQty}</span>
+            </div>
+            <div className="text-xs">
+              <span className="text-orange-600 font-semibold">
+                {formatCurrency(purchaseReturn.totalReturnValue)}
+              </span>
+            </div>
+            {purchaseReturn.refundAmount > 0 && (
+              <div className="text-xs">
+                <span className="text-green-600 font-semibold">
+                  Hoàn: {formatCurrency(purchaseReturn.refundAmount)}
+                </span>
+              </div>
+            )}
+          </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

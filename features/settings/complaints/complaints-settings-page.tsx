@@ -14,6 +14,7 @@ import { TailwindColorPicker } from '../../../components/ui/tailwind-color-picke
 import { cn } from '../../../lib/utils';
 import { SettingsActionButton } from '../../../components/settings/SettingsActionButton';
 import { SettingsVerticalTabs } from '../../../components/settings/SettingsVerticalTabs';
+import { SettingsHistoryContent } from '../../../components/settings/SettingsHistoryContent';
 import { 
   Select,
   SelectContent,
@@ -30,12 +31,10 @@ import {
   TableRow,
 } from '../../../components/ui/table';
 import { 
-  AlertCircle,
-  Bell,
-  Clock,
   MoreHorizontal,
   Plus,
   Save,
+  Loader2,
 } from 'lucide-react';
 import {
   Dialog,
@@ -63,18 +62,14 @@ import {
   type CardColorSettings,
   type SLASettings,
   type ResponseTemplate,
-  type NotificationSettings,
   type PublicTrackingSettings,
-  type ReminderSettings,
   type ComplaintType,
   SLA_PRIORITY_CONFIGS,
   validateTailwindClasses,
   clone,
   defaultSLA,
   defaultTemplates,
-  defaultNotifications,
   defaultPublicTracking,
-  defaultReminders,
   defaultCardColors,
   defaultComplaintTypes,
 } from './types';
@@ -99,9 +94,7 @@ export function ComplaintsSettingsPage() {
   // Get stored values from React Query
   const storedSla = settings.sla;
   const storedTemplates = settings.templates as ResponseTemplate[];
-  const storedNotifications = settings.notifications;
   const storedPublicTracking = settings.publicTracking;
-  const storedReminders = settings.reminders;
   const storedCardColors = settings.cardColors;
   const storedComplaintTypes = settings.complaintTypes;
 
@@ -113,14 +106,8 @@ export function ComplaintsSettingsPage() {
   const [editingTemplate, setEditingTemplate] = React.useState<ResponseTemplate | null>(null);
   const [isAddingTemplate, setIsAddingTemplate] = React.useState(false);
 
-  // Notifications State
-  const [notifications, setNotifications] = React.useState<NotificationSettings>(storedNotifications);
-
   // Public Tracking State
   const [publicTracking, setPublicTracking] = React.useState<PublicTrackingSettings>(storedPublicTracking);
-
-  // Reminders State
-  const [reminders, setReminders] = React.useState<ReminderSettings>(storedReminders);
 
   // Card Colors State
   const [cardColors, setCardColors] = React.useState<CardColorSettings>(storedCardColors);
@@ -145,16 +132,8 @@ export function ComplaintsSettingsPage() {
   }, [storedTemplates]);
 
   React.useEffect(() => {
-    setNotifications(storedNotifications);
-  }, [storedNotifications]);
-
-  React.useEffect(() => {
     setPublicTracking(storedPublicTracking);
   }, [storedPublicTracking]);
-
-  React.useEffect(() => {
-    setReminders(storedReminders);
-  }, [storedReminders]);
 
   React.useEffect(() => {
     setCardColors(storedCardColors);
@@ -282,10 +261,12 @@ export function ComplaintsSettingsPage() {
     }
 
     setTemplates(updatedTemplates);
-    updateSection.mutate({ type: 'templates', data: updatedTemplates });
-    
-    toast.success(isAddingTemplate ? 'Đã thêm mẫu' : 'Đã cập nhật mẫu', {
-      description: `Mẫu "${editingTemplate.name}" đã được lưu thành công.`,
+    updateSection.mutate({ type: 'templates', data: updatedTemplates }, {
+      onSuccess: () => {
+        toast.success(isAddingTemplate ? 'Đã thêm mẫu' : 'Đã cập nhật mẫu', {
+          description: `Mẫu "${editingTemplate.name}" đã được lưu thành công.`,
+        });
+      },
     });
 
     setEditingTemplate(null);
@@ -297,10 +278,12 @@ export function ComplaintsSettingsPage() {
     if (!deleteTemplateId) return;
     const updatedTemplates = templates.filter(t => t.id !== deleteTemplateId);
     setTemplates(updatedTemplates);
-    updateSection.mutate({ type: 'templates', data: updatedTemplates });
-    
-    toast.success('Đã xóa mẫu', {
-      description: 'Mẫu phản hồi đã được xóa thành công.',
+    updateSection.mutate({ type: 'templates', data: updatedTemplates }, {
+      onSuccess: () => {
+        toast.success('Đã xóa mẫu', {
+          description: 'Mẫu phản hồi đã được xóa thành công.',
+        });
+      },
     });
     setDeleteTemplateId(null);
   };
@@ -321,33 +304,6 @@ export function ComplaintsSettingsPage() {
   };
 
   // ============================================
-  // NOTIFICATION HANDLERS
-  // ============================================
-
-  const handleNotificationChange = (key: keyof NotificationSettings) => {
-    setNotifications(prev => ({
-      ...prev,
-      [key]: !prev[key],
-    }));
-  };
-
-  const handleSaveNotifications = () => {
-    updateSection.mutate({ type: 'notifications', data: notifications });
-    toast.success('Đã lưu cài đặt thông báo', {
-      description: 'Các tùy chọn thông báo đã được cập nhật thành công.',
-    });
-  };
-
-  const _handleResetNotifications = () => {
-    const defaults = clone(defaultNotifications);
-    setNotifications(defaults);
-    updateSection.mutate({ type: 'notifications', data: defaults });
-    toast.info('Đã khôi phục cài đặt mặc định', {
-      description: 'Cài đặt thông báo đã được reset về giá trị mặc định của hệ thống.',
-    });
-  };
-
-  // ============================================
   // PUBLIC TRACKING HANDLERS
   // ============================================
 
@@ -359,9 +315,12 @@ export function ComplaintsSettingsPage() {
   };
 
   const handleSavePublicTracking = async () => {
-    updateSection.mutate({ type: 'tracking', data: publicTracking });
-    toast.success('Đã lưu cài đặt tracking công khai', {
-      description: 'Các tùy chọn liên kết công khai đã được cập nhật thành công.',
+    updateSection.mutate({ type: 'tracking', data: publicTracking }, {
+      onSuccess: () => {
+        toast.success('Đã lưu cài đặt tracking công khai', {
+          description: 'Các tùy chọn liên kết công khai đã được cập nhật thành công.',
+        });
+      },
     });
   };
 
@@ -371,33 +330,6 @@ export function ComplaintsSettingsPage() {
     updateSection.mutate({ type: 'tracking', data: defaults });
     toast.info('Đã khôi phục cài đặt mặc định', {
       description: 'Cài đặt tracking công khai đã được reset về giá trị mặc định của hệ thống.',
-    });
-  };
-
-  // ============================================
-  // REMINDERS HANDLERS
-  // ============================================
-
-  const handleReminderChange = (field: keyof ReminderSettings, value: boolean | number) => {
-    setReminders(prev => ({
-      ...prev,
-      [field]: value,
-    }));
-  };
-
-  const handleSaveReminders = () => {
-    updateSection.mutate({ type: 'reminders', data: reminders });
-    toast.success('Đã lưu cài đặt nhắc nhở', {
-      description: 'Các tùy chọn nhắc nhở khiếu nại đã được cập nhật thành công.',
-    });
-  };
-
-  const _handleResetReminders = () => {
-    const defaults = clone(defaultReminders);
-    setReminders(defaults);
-    updateSection.mutate({ type: 'reminders', data: defaults });
-    toast.info('Đã khôi phục cài đặt mặc định', {
-      description: 'Cài đặt nhắc nhở đã được reset về giá trị mặc định của hệ thống.',
     });
   };
 
@@ -495,9 +427,12 @@ export function ComplaintsSettingsPage() {
       return;
     }
 
-    updateSection.mutate({ type: 'cardColors', data: cardColors });
-    toast.success('Đã lưu cài đặt màu card', {
-      description: 'Màu sắc hiển thị card đã được cập nhật thành công.',
+    updateSection.mutate({ type: 'cardColors', data: cardColors }, {
+      onSuccess: () => {
+        toast.success('Đã lưu cài đặt màu card', {
+          description: 'Màu sắc hiển thị card đã được cập nhật thành công.',
+        });
+      },
     });
   };
 
@@ -546,8 +481,11 @@ export function ComplaintsSettingsPage() {
       : complaintTypes.map(t => (t.id === editingType.id ? editingType : t));
 
     setComplaintTypes(nextTypes);
-    updateSection.mutate({ type: 'complaintTypes', data: nextTypes });
-    toast.success(isAddingType ? 'Đã thêm loại khiếu nại mới' : 'Đã cập nhật loại khiếu nại');
+    updateSection.mutate({ type: 'complaintTypes', data: nextTypes }, {
+      onSuccess: () => {
+        toast.success(isAddingType ? 'Đã thêm loại khiếu nại mới' : 'Đã cập nhật loại khiếu nại');
+      },
+    });
 
     setEditingType(null);
     setIsAddingType(false);
@@ -558,8 +496,11 @@ export function ComplaintsSettingsPage() {
     if (!deleteTypeId) return;
     const updated = complaintTypes.filter(t => t.id !== deleteTypeId);
     setComplaintTypes(updated);
-    updateSection.mutate({ type: 'complaintTypes', data: updated });
-    toast.success('Đã xóa loại khiếu nại');
+    updateSection.mutate({ type: 'complaintTypes', data: updated }, {
+      onSuccess: () => {
+        toast.success('Đã xóa loại khiếu nại');
+      },
+    });
     setDeleteTypeId(null);
   };
 
@@ -568,8 +509,11 @@ export function ComplaintsSettingsPage() {
       t.id === id ? { ...t, isActive: !t.isActive } : t
     );
     setComplaintTypes(updated);
-    updateSection.mutate({ type: 'complaintTypes', data: updated });
-    toast.success('Đã cập nhật trạng thái');
+    updateSection.mutate({ type: 'complaintTypes', data: updated }, {
+      onSuccess: () => {
+        toast.success('Đã cập nhật trạng thái');
+      },
+    });
   };
 
   const _handleResetTypes = () => {
@@ -590,7 +534,6 @@ export function ComplaintsSettingsPage() {
     addType: handleAddType,
     saveCardColors: handleSaveCardColors,
     addTemplate: handleAddTemplate,
-    saveNotifications: () => { handleSaveNotifications(); handleSaveReminders(); },
     savePublicTracking: handleSavePublicTracking,
   });
   handlersRef.current = {
@@ -598,7 +541,6 @@ export function ComplaintsSettingsPage() {
     addType: handleAddType,
     saveCardColors: handleSaveCardColors,
     addTemplate: handleAddTemplate,
-    saveNotifications: () => { handleSaveNotifications(); handleSaveReminders(); },
     savePublicTracking: handleSavePublicTracking,
   };
 
@@ -607,48 +549,41 @@ export function ComplaintsSettingsPage() {
     switch (activeTab) {
       case 'sla':
         setHeaderActions([
-          <SettingsActionButton key="save" onClick={() => handlersRef.current.saveSLA()}>
-            <Save className="h-4 w-4" /> Lưu cài đặt
+          <SettingsActionButton key="save-sla" onClick={() => handlersRef.current.saveSLA()} disabled={updateSection.isPending}>
+            {updateSection.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Lưu cài đặt
           </SettingsActionButton>,
         ]);
         break;
       case 'complaint-types':
         setHeaderActions([
-          <SettingsActionButton key="add" onClick={() => handlersRef.current.addType()}>
+          <SettingsActionButton key="add-type" onClick={() => handlersRef.current.addType()}>
             <Plus className="h-4 w-4" /> Thêm loại mới
           </SettingsActionButton>,
         ]);
         break;
       case 'card-colors':
         setHeaderActions([
-          <SettingsActionButton key="save" onClick={() => handlersRef.current.saveCardColors()}>
-            <Save className="h-4 w-4" /> Lưu cài đặt
+          <SettingsActionButton key="save-card-colors" onClick={() => handlersRef.current.saveCardColors()} disabled={updateSection.isPending}>
+            {updateSection.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Lưu cài đặt
           </SettingsActionButton>,
         ]);
         break;
       case 'templates':
         setHeaderActions([
-          <SettingsActionButton key="add" onClick={() => handlersRef.current.addTemplate()}>
+          <SettingsActionButton key="add-template" onClick={() => handlersRef.current.addTemplate()}>
             <Plus className="h-4 w-4" /> Thêm mẫu
-          </SettingsActionButton>,
-        ]);
-        break;
-      case 'notifications':
-        setHeaderActions([
-          <SettingsActionButton key="save" onClick={() => handlersRef.current.saveNotifications()}>
-            <Save className="h-4 w-4" /> Lưu cài đặt
           </SettingsActionButton>,
         ]);
         break;
       case 'public-tracking':
         setHeaderActions([
-          <SettingsActionButton key="save" onClick={() => handlersRef.current.savePublicTracking()}>
-            <Save className="h-4 w-4" /> Lưu cài đặt
+          <SettingsActionButton key="save-tracking" onClick={() => handlersRef.current.savePublicTracking()} disabled={updateSection.isPending}>
+            {updateSection.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Lưu cài đặt
           </SettingsActionButton>,
         ]);
         break;
     }
-  }, [activeTab, setHeaderActions]);
+  }, [activeTab, setHeaderActions, updateSection.isPending]);
 
   const tabs = React.useMemo(
     () => [
@@ -656,7 +591,6 @@ export function ComplaintsSettingsPage() {
       { value: 'complaint-types', label: 'Loại KN' },
       { value: 'card-colors', label: 'Màu card' },
       { value: 'templates', label: 'Mẫu phản hồi' },
-      { value: 'notifications', label: 'Thông báo' },
       { value: 'public-tracking', label: 'Tracking' },
     ],
     [],
@@ -732,7 +666,7 @@ export function ComplaintsSettingsPage() {
             <CardContent className="space-y-6">
 
               {/* Types Table */}
-              <div className="border rounded-lg">
+              <div className="border rounded-lg overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -767,7 +701,7 @@ export function ComplaintsSettingsPage() {
                           <TableCell className="text-right">
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Thao tác">
                                   <MoreHorizontal className="h-4 w-4" />
                                 </Button>
                               </DropdownMenuTrigger>
@@ -858,8 +792,8 @@ export function ComplaintsSettingsPage() {
                 }}>
                   Hủy
                 </Button>
-                <Button onClick={handleSaveType}>
-                  <Save className="h-4 w-4 mr-2" />
+                <Button onClick={handleSaveType} disabled={updateSection.isPending}>
+                  {updateSection.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
                   {isAddingType ? 'Thêm loại' : 'Lưu thay đổi'}
                 </Button>
               </DialogFooter>
@@ -1058,6 +992,7 @@ export function ComplaintsSettingsPage() {
                   Chưa có mẫu phản hồi nào. Nhấn "Thêm mẫu" để tạo mẫu mới.
                 </div>
               ) : (
+                <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -1104,6 +1039,7 @@ export function ComplaintsSettingsPage() {
                     ))}
                   </TableBody>
                 </Table>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -1179,8 +1115,8 @@ export function ComplaintsSettingsPage() {
                 <Button variant="outline" onClick={handleCancelEdit}>
                   Hủy
                 </Button>
-                <Button onClick={handleSaveTemplate}>
-                  <Save className="h-4 w-4 mr-2" />
+                <Button onClick={handleSaveTemplate} disabled={updateSection.isPending}>
+                  {updateSection.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
                   {isAddingTemplate ? 'Thêm mẫu' : 'Lưu thay đổi'}
                 </Button>
               </DialogFooter>
@@ -1198,192 +1134,6 @@ export function ComplaintsSettingsPage() {
             variant="destructive"
             onConfirm={handleConfirmDeleteTemplate}
           />
-        </TabsContent>
-
-        {/* ============================================ */}
-        {/* TAB 3: NOTIFICATIONS */}
-        {/* ============================================ */}
-        <TabsContent value="notifications" className="mt-0 space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Cài đặt thông báo</CardTitle>
-              <CardDescription>
-                Quản lý thông báo qua email, SMS và in-app cho các sự kiện khiếu nại
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <SettingsFormSection
-                title="Thông báo Email"
-                description="Gửi mail tới nhân viên phụ trách và người tạo khiếu nại."
-                badge={<Bell className="h-4 w-4 text-muted-foreground" />}
-                contentClassName="space-y-3"
-              >
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="email-create" className="cursor-pointer">
-                      Khi khiếu nại mới được tạo
-                    </Label>
-                    <Switch
-                      id="email-create"
-                      checked={notifications.emailOnCreate}
-                      onCheckedChange={() => handleNotificationChange('emailOnCreate')}
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="email-assign" className="cursor-pointer">
-                      Khi được phân công xử lý
-                    </Label>
-                    <Switch
-                      id="email-assign"
-                      checked={notifications.emailOnAssign}
-                      onCheckedChange={() => handleNotificationChange('emailOnAssign')}
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="email-verified" className="cursor-pointer">
-                      Khi khiếu nại được xác minh
-                    </Label>
-                    <Switch
-                      id="email-verified"
-                      checked={notifications.emailOnVerified}
-                      onCheckedChange={() => handleNotificationChange('emailOnVerified')}
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="email-resolved" className="cursor-pointer">
-                      Khi khiếu nại được giải quyết
-                    </Label>
-                    <Switch
-                      id="email-resolved"
-                      checked={notifications.emailOnResolved}
-                      onCheckedChange={() => handleNotificationChange('emailOnResolved')}
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="email-overdue" className="cursor-pointer">
-                      Khi khiếu nại quá hạn SLA
-                    </Label>
-                    <Switch
-                      id="email-overdue"
-                      checked={notifications.emailOnOverdue}
-                      onCheckedChange={() => handleNotificationChange('emailOnOverdue')}
-                    />
-                  </div>
-                </div>
-              </SettingsFormSection>
-
-              <SettingsFormSection
-                title="Thông báo SMS"
-                description="Dùng cho các cảnh báo quan trọng, tránh gửi quá nhiều."
-                badge={<AlertCircle className="h-4 w-4 text-muted-foreground" />}
-              >
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="sms-overdue" className="cursor-pointer">
-                    Cảnh báo quá hạn SLA
-                  </Label>
-                  <Switch
-                    id="sms-overdue"
-                    checked={notifications.smsOnOverdue}
-                    onCheckedChange={() => handleNotificationChange('smsOnOverdue')}
-                  />
-                </div>
-              </SettingsFormSection>
-
-              <SettingsFormSection
-                title="Thông báo trong ứng dụng"
-                description="Hiển thị tại biểu tượng chuông của HRM giúp đội xử lý không bỏ sót."
-                badge={<Bell className="h-4 w-4 text-muted-foreground" />}
-              >
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="inapp" className="cursor-pointer">
-                    Bật thông báo in-app (bell icon)
-                  </Label>
-                  <Switch
-                    id="inapp"
-                    checked={notifications.inAppNotifications}
-                    onCheckedChange={() => handleNotificationChange('inAppNotifications')}
-                  />
-                </div>
-              </SettingsFormSection>
-
-              <SettingsFormSection
-                title="Nhắc nhở tự động"
-                description="Gửi cảnh báo nếu ticket không được cập nhật trong thời gian quy định."
-                badge={<Clock className="h-4 w-4 text-muted-foreground" />}
-              >
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-1">
-                      <Label htmlFor="reminders-enabled" className="cursor-pointer">
-                        Bật tính năng nhắc nhở tự động
-                      </Label>
-                      <p className="text-sm text-muted-foreground">
-                        Tự động gửi thông báo khi khiếu nại bị bỏ quên
-                      </p>
-                    </div>
-                    <Switch
-                      id="reminders-enabled"
-                      checked={reminders.enabled}
-                      onCheckedChange={(checked) => handleReminderChange('enabled', checked)}
-                    />
-                  </div>
-
-                  {reminders.enabled && (
-                    <div className="space-y-4">
-                      <SettingsFormGrid columns={3} className="items-start">
-                        <div className="space-y-2">
-                          <Label htmlFor="first-reminder">Nhắc nhở lần 1 (giờ)</Label>
-                          <Input
-                            id="first-reminder"
-                            type="number"
-                            min="1"
-                            value={reminders.firstReminderHours}
-                            onChange={(e) => handleReminderChange('firstReminderHours', parseInt(e.target.value) || 1)}
-                          />
-                          <p className="text-xs text-muted-foreground">Mặc định: 4 giờ</p>
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="second-reminder">Nhắc nhở lần 2 (giờ)</Label>
-                          <Input
-                            id="second-reminder"
-                            type="number"
-                            min="1"
-                            value={reminders.secondReminderHours}
-                            onChange={(e) => handleReminderChange('secondReminderHours', parseInt(e.target.value) || 1)}
-                          />
-                          <p className="text-xs text-muted-foreground">Mặc định: 8 giờ</p>
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="escalation" className="flex items-center gap-1">
-                            <AlertCircle className="h-3 w-3 text-destructive" />
-                            Báo động leo thang (giờ)
-                          </Label>
-                          <Input
-                            id="escalation"
-                            type="number"
-                            min="1"
-                            value={reminders.escalationHours}
-                            onChange={(e) => handleReminderChange('escalationHours', parseInt(e.target.value) || 1)}
-                          />
-                          <p className="text-xs text-muted-foreground">Mặc định: 24 giờ</p>
-                        </div>
-                      </SettingsFormGrid>
-
-                      <div className="text-xs text-muted-foreground space-y-1 bg-muted/50 p-3 rounded">
-                        <p>• Áp dụng cho trạng thái Pending/Investigating.</p>
-                        <p>• Thời gian tính từ hành động gần nhất.</p>
-                        <p>• Gửi cho người phụ trách và người tạo ticket.</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </SettingsFormSection>
-            </CardContent>
-          </Card>
         </TabsContent>
 
         {/* ============================================ */}
@@ -1553,6 +1303,10 @@ export function ComplaintsSettingsPage() {
           </Card>
         </TabsContent>
         </SettingsVerticalTabs>
+
+        <div className="mt-6">
+          <SettingsHistoryContent entityTypes={['complaint_settings', 'complaint_type']} />
+        </div>
       </div>
   );
 }

@@ -39,6 +39,7 @@ import { TemplateCard } from './template-card';
 import { toast } from 'sonner';
 import { asSystemId, type SystemId } from '../../lib/id-types';
 import type { PayrollTemplate } from '../../lib/payroll-types';
+import { useAuth } from '@/contexts/auth-context';
 
 export function PayrollTemplatePage() {
   const templates = useAllPayrollTemplates();
@@ -57,6 +58,9 @@ export function PayrollTemplatePage() {
     [employeeSettings?.salaryComponents]
   );
   const { isMobile } = useBreakpoint();
+  const { can } = useAuth();
+  const canCreate = can('create_payroll');
+  const canApprove = can('approve_payroll');
 
   // Search & Filter states
   const [searchQuery, setSearchQuery] = React.useState('');
@@ -283,7 +287,7 @@ export function PayrollTemplatePage() {
       }
     };
 
-    window.addEventListener('scroll', handleScroll);
+    window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, [isMobile, mobileLoadedCount, filteredData.length]);
 
@@ -303,7 +307,7 @@ export function PayrollTemplatePage() {
   // Header actions
   const headerActions = React.useMemo(
     () => [
-      <Button
+      canApprove && <Button
         key="reset"
         variant="outline"
         className="h-9"
@@ -313,7 +317,7 @@ export function PayrollTemplatePage() {
         <RotateCcw className="mr-2 h-4 w-4" />
         Khôi phục mặc định
       </Button>,
-      <Button
+      canCreate && <Button
         key="new"
         className="h-9"
         size="sm"
@@ -322,8 +326,8 @@ export function PayrollTemplatePage() {
         <Plus className="mr-2 h-4 w-4" />
         Thêm mẫu
       </Button>,
-    ],
-    [handleOpenCreateDialog]
+    ].filter(Boolean),
+    [handleOpenCreateDialog, canCreate, canApprove]
   );
 
   usePageHeader({
@@ -416,7 +420,7 @@ export function PayrollTemplatePage() {
 
       {/* Results summary */}
       {(searchQuery || isDefaultFilter.size > 0) && (
-        <p className="text-body-sm text-muted-foreground">
+        <p className="text-sm text-muted-foreground">
           Tìm thấy {filteredData.length} / {templates.length} mẫu
         </p>
       )}
@@ -449,9 +453,9 @@ export function PayrollTemplatePage() {
       {isMobile && (
         <div className="py-6 text-center">
           {mobileLoadedCount < filteredData.length ? (
-            <p className="text-body-sm text-muted-foreground">Đang tải thêm...</p>
+            <p className="text-sm text-muted-foreground">Đang tải thêm...</p>
           ) : filteredData.length > 0 ? (
-            <p className="text-body-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               Đã hiển thị tất cả {filteredData.length} mẫu
             </p>
           ) : null}
@@ -500,7 +504,7 @@ export function PayrollTemplatePage() {
                     return (
                       <label
                         key={component.systemId}
-                        className="flex cursor-pointer items-center gap-3 text-body-sm"
+                        className="flex cursor-pointer items-center gap-3 text-sm"
                       >
                         <Checkbox
                           checked={checked}
@@ -527,7 +531,7 @@ export function PayrollTemplatePage() {
                                   : 'Đóng góp'}
                             </Badge>
                           </div>
-                          <p className="text-body-xs text-muted-foreground">
+                          <p className="text-xs text-muted-foreground">
                             {component.type === 'fixed' ? 'Cố định' : component.formula ?? 'Theo công thức'}
                           </p>
                         </div>
@@ -535,14 +539,14 @@ export function PayrollTemplatePage() {
                     );
                   })}
                 {salaryComponents.filter((c) => c.isActive !== false).length === 0 && (
-                  <p className="text-body-sm text-muted-foreground">
+                  <p className="text-sm text-muted-foreground">
                     Chưa có thành phần lương trong Cài đặt &gt; Nhân viên.
                   </p>
                 )}
               </div>
             </div>
 
-            <label className="flex cursor-pointer items-center gap-3 text-body-sm font-medium">
+            <label className="flex cursor-pointer items-center gap-3 text-sm font-medium">
               <Checkbox
                 checked={formState.isDefault}
                 onCheckedChange={(checked) =>
@@ -615,7 +619,7 @@ export function PayrollTemplatePage() {
         <CardHeader>
           <CardTitle>Ghi chú triển khai</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3 text-body-sm text-muted-foreground">
+        <CardContent className="space-y-3 text-sm text-muted-foreground">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="h-4 w-4 text-emerald-500" />
             Mỗi mẫu sẽ đồng bộ với wizard chạy lương trong các bước tiếp theo.

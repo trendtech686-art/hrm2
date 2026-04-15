@@ -1,4 +1,5 @@
 import * as React from 'react';
+import Image from 'next/image';
 import { cn } from '../../lib/utils';
 
 interface ProgressiveImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
@@ -7,12 +8,35 @@ interface ProgressiveImageProps extends React.ImgHTMLAttributes<HTMLImageElement
   alt: string;
   className?: string;
   showSpinner?: boolean;
+  /**
+   * Sizes hint cho next/image responsive optimization
+   */
+  sizes?: string;
 }
 
 /**
- * Progressive image viewer that is safe under React StrictMode.
- * Renders the real `<img>` immediately and fades it in once loaded,
- * optionally showing a placeholder/spinner while loading.
+ * Check if URL can be optimized by next/image
+ */
+function isOptimizableUrl(src: string): boolean {
+  if (src.startsWith('/uploads/') || src.startsWith('/api/')) return true;
+  if (src.startsWith('data:') || src.startsWith('blob:')) return false;
+  try {
+    const url = new URL(src);
+    return url.hostname === 'localhost'
+      || url.hostname === 'phukiengiaxuong.com.vn'
+      || url.hostname === 'img.vietqr.io';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Progressive image viewer — uses next/image for automatic optimization
+ * (WebP/AVIF, responsive sizing, CDN caching) when the URL is optimizable,
+ * with transparent fallback to native <img> for blob:/data:/external URLs.
+ *
+ * Safe under React StrictMode. Fades in once loaded, optionally
+ * showing a placeholder/spinner while loading.
  */
 export const ProgressiveImage: React.FC<ProgressiveImageProps> = ({
   src,
@@ -20,12 +44,19 @@ export const ProgressiveImage: React.FC<ProgressiveImageProps> = ({
   alt,
   className,
   showSpinner = true,
+  sizes = '(max-width: 768px) 100vw, 50vw',
   onLoad,
   onError,
   ...imgProps
 }) => {
   const [loaded, setLoaded] = React.useState(false);
   const [errored, setErrored] = React.useState(false);
+
+  // Reset states when src changes
+  React.useEffect(() => {
+    setLoaded(false);
+    setErrored(false);
+  }, [src]);
 
   const handleLoad = React.useCallback<React.ReactEventHandler<HTMLImageElement>>((event) => {
     setLoaded(true);
@@ -39,9 +70,18 @@ export const ProgressiveImage: React.FC<ProgressiveImageProps> = ({
   }, [onError]);
 
   const hasValidSrc = Boolean(src && src.trim());
+  const useNextImage = hasValidSrc && !errored && isOptimizableUrl(src);
+
+  // /api/files/ URLs require auth cookies — Next.js Image optimization fetches
+  // server-side without cookies, causing 401. Use unoptimized for these.
+  const skipOptimization = src.startsWith('/api/files/');
+
+  // Strip HTML-only attributes that next/image doesn't accept
+  const { width: _w, height: _h, style: _s, crossOrigin: _co, loading: _l, decoding: _d, srcSet: _ss, ...restImgProps } = imgProps;
 
   return (
     <div className={cn('relative overflow-hidden bg-muted/20', className)}>
+      {/* Placeholder / spinner while loading */}
       {!loaded && !errored && (
         <>
           {placeholder ? (
@@ -59,7 +99,25 @@ export const ProgressiveImage: React.FC<ProgressiveImageProps> = ({
         </>
       )}
 
-      {hasValidSrc && !errored ? (
+      {useNextImage ? (
+        <Image
+          src={src}
+          alt={alt}
+          fill
+          sizes={sizes}
+          quality={75}
+          unoptimized={skipOptimization}
+          className={cn(
+            'object-cover transition-opacity duration-300',
+            loaded ? 'opacity-100' : 'opacity-0'
+          )}
+          onLoad={() => {
+            setLoaded(true);
+            setErrored(false);
+          }}
+          onError={() => setErrored(true)}
+        />
+      ) : hasValidSrc && !errored ? (
         <img
           src={src}
           alt={alt}
@@ -71,7 +129,7 @@ export const ProgressiveImage: React.FC<ProgressiveImageProps> = ({
             'w-full h-full object-cover transition-opacity duration-300',
             loaded ? 'opacity-100' : 'opacity-0'
           )}
-          {...imgProps}
+          {...restImgProps}
         />
       ) : (
         <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/60">

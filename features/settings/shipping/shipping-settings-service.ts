@@ -9,6 +9,7 @@
 
 import type { ShippingSettings } from './types';
 import { fetchShippingSettings } from './api/shipping-settings-api';
+import { logError } from '@/lib/logger'
 
 // Default settings (fallback when API fails or no data in DB)
 const DEFAULT_SETTINGS: ShippingSettings = {
@@ -53,7 +54,7 @@ export async function getShippingSettings(): Promise<ShippingSettings> {
     }
     return DEFAULT_SETTINGS;
   } catch (error) {
-    console.error('[ShippingSettingsService] Failed to fetch settings:', error);
+    logError('[ShippingSettingsService] Failed to fetch settings', error);
     // Return cached data even if expired, or default settings
     return settingsCache ?? DEFAULT_SETTINGS;
   }

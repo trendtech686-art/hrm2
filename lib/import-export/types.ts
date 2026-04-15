@@ -107,6 +107,7 @@ export interface FieldConfig<T = unknown> {
   
   // Visibility
   hidden?: boolean;              // Hide from UI/export but still process
+  exportOnly?: boolean;          // Only for export — skip validation & transform during import
   
   // Export options
   exportable?: boolean;          // Default true
@@ -182,6 +183,10 @@ export interface ImportExportConfig<T> {
   headerRowIndex?: number;       // 0-indexed
   dataStartRowIndex?: number;
   
+  // Custom file parser (cho large files hoặc format đặc biệt)
+  // Return parsed rows as Record<string, unknown>[]
+  parseFile?: (file: File) => Promise<Record<string, unknown>[]>;
+  
   // Employee mapping (cho attendance)
   requireEmployeeMapping?: boolean;
   mappingField?: keyof T;        // Field dùng để mapping (vd: 'employeeName')
@@ -194,8 +199,23 @@ export interface ImportExportConfig<T> {
   // Pre-process all rows before validation (useful for multi-row grouping, fill-down logic)
   preProcessRows?: (rows: unknown[]) => unknown[];
   
-  beforeImport?: (data: T[]) => Promise<T[]> | T[];
+  beforeImport?: (data: T[], context?: Record<string, unknown>) => Promise<T[]> | T[];
   afterImport?: (results: ImportResult<T>) => void;
+  
+  // Custom import options (checkboxes shown in upload step)
+  importOptions?: Array<{
+    key: string;
+    label: string;
+    description?: string;
+    defaultValue: boolean;
+  }>;
+  
+  // Preview stats callback - compute custom stats from preview data
+  // Returns key-value pairs to display in alert section
+  computePreviewStats?: (rows: Record<string, unknown>[], options?: Record<string, boolean>, storeContext?: Record<string, unknown>) => {
+    stats: Array<{ label: string; value: string | number; variant?: 'default' | 'info' | 'warning' | 'success' }>;
+    warnings?: string[];
+  };
   
   // Pre-transform raw row (normalize rawData trước khi transform)
   // Dùng để merge/alias các cột từ template mới
@@ -204,11 +224,11 @@ export interface ImportExportConfig<T> {
   // Post-transform row (sau khi transform field values)
   // Dùng để enrich data, lookup IDs, etc.
   // Params: row, index, branchSystemId or context (for payment/receipt configs)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  postTransformRow?: (row: Partial<T>, index?: number, branchSystemIdOrContext?: any) => Partial<T>;
+  postTransformRow?: (row: Partial<T>, index?: number, branchSystemIdOrContext?: string | Record<string, unknown>) => Partial<T>;
   
   // Max rows
   maxRows?: number;              // Default: 1000
+  maxFileSize?: number;          // Default: 10MB (bytes)
 }
 
 // ============================================

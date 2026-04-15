@@ -229,16 +229,16 @@ export function RolesSettingsContent() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="border rounded-lg">
+          <div className="border rounded-lg overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[50px]">STT</TableHead>
+                  <TableHead className="w-13">STT</TableHead>
                   <TableHead>Tên vai trò</TableHead>
                   <TableHead>Mô tả</TableHead>
-                  <TableHead className="w-[100px]">Loại</TableHead>
-                  <TableHead className="w-[100px]">Trạng thái</TableHead>
-                  <TableHead className="w-[80px] text-right">Thao tác</TableHead>
+                  <TableHead className="w-25">Loại</TableHead>
+                  <TableHead className="w-25">Trạng thái</TableHead>
+                  <TableHead className="w-20 text-right">Thao tác</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -278,7 +278,7 @@ export function RolesSettingsContent() {
                       <TableCell className="text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Thao tác">
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>

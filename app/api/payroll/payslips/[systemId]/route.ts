@@ -2,6 +2,8 @@ import { prisma } from '@/lib/prisma'
 import { requireAuth, apiSuccess, apiError, validateBody } from '@/lib/api-utils'
 import type { NextRequest } from 'next/server'
 import { z } from 'zod'
+import { logError } from '@/lib/logger'
+import { createNotification } from '@/lib/notifications'
 
 interface RouteParams {
   params: Promise<{ systemId: string }>
@@ -93,7 +95,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     return apiSuccess(payslip)
   } catch (error) {
-    console.error('[API] Error fetching payslip:', error)
+    logError('[API] Error fetching payslip', error)
     return apiError('Failed to fetch payslip', 500)
   }
 }
@@ -131,6 +133,20 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       },
     })
 
+    // Notify employee about payslip update
+    if (item.employeeId && item.employeeId !== session.user?.employeeId) {
+      createNotification({
+        type: 'payroll',
+        settingsKey: 'payroll:updated',
+        title: 'Phiếu lương cập nhật',
+        message: `Phiếu lương của bạn đã được cập nhật`,
+        link: `/payroll/payslips/${systemId}`,
+        recipientId: item.employeeId,
+        senderId: session.user?.employeeId,
+        senderName: session.user?.name,
+      }).catch(e => logError('[Payslip Update] notification failed', e));
+    }
+
     return apiSuccess({
       systemId: item.systemId,
       id: item.systemId,
@@ -139,7 +155,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       netSalary: Number(item.netSalary),
     })
   } catch (error) {
-    console.error('[API] Error updating payslip:', error)
+    logError('[API] Error updating payslip', error)
     return apiError('Failed to update payslip', 500)
   }
 }
@@ -158,7 +174,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     return apiSuccess({ success: true })
   } catch (error) {
-    console.error('[API] Error deleting payslip:', error)
+    logError('[API] Error deleting payslip', error)
     return apiError('Failed to delete payslip', 500)
   }
 }

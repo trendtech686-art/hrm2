@@ -20,19 +20,22 @@ import { prisma } from '@/lib/prisma'
 import { v4 as uuidv4 } from 'uuid'
 import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
 import { checkRateLimit } from '@/lib/security-utils'
+import { logError } from '@/lib/logger'
 import {
   parseFormData,
   validateFileType,
   validateFileSize,
+  validateExtension,
   generateFileName,
   generateFileHash,
   saveFileToDisk,
   getPublicUrl,
   ALLOWED_IMAGE_TYPES,
   ALLOWED_ALL_TYPES,
-  MAX_FILE_SIZE,
+  ALLOWED_EXTENSIONS,
   EntityType,
 } from '@/lib/upload-utils'
+import { getFileSizeLimits, getMaxFileSizeBytes } from '@/lib/file-size-limits'
 
 // Route Segment Config - App Router uses these exports instead of config object
 export const runtime = 'nodejs'
@@ -68,14 +71,22 @@ export async function POST(request: NextRequest) {
     const requestedStatus = fields.status === 'staging' ? 'staging' : 'permanent'
     const sessionId = fields.sessionId || null
     
-    // Validate file type
+    // Validate file type (MIME + extension)
     const allowedTypes = isImage ? ALLOWED_IMAGE_TYPES : ALLOWED_ALL_TYPES
     if (!validateFileType(file.type, allowedTypes)) {
       return apiError(`Loại file không được hỗ trợ: ${file.type}`, 400)
     }
     
+    // Validate file extension matches allowed list (defense-in-depth against MIME spoofing)
+    const allowedExts = isImage ? ALLOWED_EXTENSIONS.IMAGE : ALLOWED_EXTENSIONS.ALL
+    if (!validateExtension(file.name, allowedExts)) {
+      return apiError(`Phần mở rộng file không được hỗ trợ`, 400)
+    }
+    
     // Validate file size
-    const maxSize = isImage ? MAX_FILE_SIZE.image : MAX_FILE_SIZE.default
+    const fileSizeLimits = await getFileSizeLimits()
+    const maxFileSizes = getMaxFileSizeBytes(fileSizeLimits)
+    const maxSize = isImage ? maxFileSizes.image : maxFileSizes.default
     if (!validateFileSize(file.size, maxSize)) {
       const maxMB = maxSize / (1024 * 1024)
       return apiError(`File quá lớn. Tối đa ${maxMB}MB`, 400)
@@ -139,12 +150,13 @@ export async function POST(request: NextRequest) {
     }, 201)
     
   } catch (error) {
-    console.error('Upload error:', error)
+    logError('Upload error', error)
     return apiError('Lỗi khi upload file', 500)
   }
 }
 
 // GET /api/upload - Get upload info (only permanent files by default)
+// Supports batch fetching with comma-separated entityIds
 export async function GET(request: NextRequest) {
   const session = await requireAuth()
   if (!session) return apiError('Unauthorized', 401)
@@ -152,6 +164,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const entityType = searchParams.get('entityType')
   const entityId = searchParams.get('entityId')
+  const entityIds = searchParams.get('entityIds') // Batch support: comma-separated IDs
   const includeStaging = searchParams.get('includeStaging') === 'true'
   const sessionId = searchParams.get('sessionId')
   
@@ -161,7 +174,14 @@ export async function GET(request: NextRequest) {
     if (entityType) {
       where.entityType = entityType
     }
-    if (entityId) {
+    
+    // Support batch fetching with multiple entityIds
+    if (entityIds) {
+      const ids = entityIds.split(',').map(id => id.trim()).filter(Boolean)
+      if (ids.length > 0) {
+        where.entityId = { in: ids }
+      }
+    } else if (entityId) {
       where.entityId = entityId
     }
     
@@ -177,7 +197,7 @@ export async function GET(request: NextRequest) {
     const files = await prisma.file.findMany({
       where,
       orderBy: { uploadedAt: 'desc' },
-      take: 100,
+      take: 500, // Increased for batch requests
     })
     
     return apiSuccess({
@@ -208,7 +228,7 @@ export async function GET(request: NextRequest) {
     })
     
   } catch (error) {
-    console.error('Get files error:', error)
+    logError('Get files error', error)
     return apiError('Lỗi khi lấy danh sách file', 500)
   }
 }

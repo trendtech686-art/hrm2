@@ -2,6 +2,7 @@ import { getMeiliClient, INDEXES, healthCheck } from '@/lib/meilisearch'
 import type { MeiliCustomer } from '@/lib/meilisearch'
 import { requireAuth, apiError } from '@/lib/api-utils'
 import { NextResponse } from 'next/server'
+import { logError } from '@/lib/logger'
 
 /**
  * MEILISEARCH CUSTOMER SEARCH API
@@ -99,7 +100,7 @@ export async function GET(request: Request) {
       },
     })
   } catch (error) {
-    console.error('Meilisearch customer search error:', error)
+    logError('Meilisearch customer search error', error)
     return apiError('Search failed', 500)
   }
 }

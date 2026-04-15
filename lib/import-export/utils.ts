@@ -65,7 +65,7 @@ export function previewImportData<T>(
 
     // 2. Validate từng field theo config
     for (const field of config.fields) {
-      if (field.hidden) continue; // Skip hidden fields
+      if (field.hidden || field.exportOnly) continue; // Skip hidden/export-only fields
       
       const value = transformedData[field.key as keyof typeof transformedData];
       const fieldErrors = validateField(value, field, transformedData);
@@ -144,7 +144,7 @@ export function previewImportData<T>(
 
     rows.push({
       rowNumber: index + 2, // Excel row (header = row 1)
-      rawData,
+      rawData: normalizedRawData,
       transformedData: rowErrors.length > 0 ? null : transformedData as Partial<T>,
       status,
       errors: rowErrors,
@@ -304,6 +304,8 @@ export function transformImportRow<T>(
   const result: Record<string, unknown> = {};
 
   for (const field of fields) {
+    if (field.exportOnly) continue; // Skip export-only fields during import
+
     const key = field.key as string;
     let value = row[field.label] ?? row[key]; // Try label first, then key
 

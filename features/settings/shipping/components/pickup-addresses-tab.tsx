@@ -33,6 +33,7 @@ import type { PartnerAccount, PickupAddress } from '@/lib/types/shipping-config'
 import { useAllBranches } from '@/features/settings/branches/hooks/use-all-branches';
 import { toast } from 'sonner';
 import { getBaseUrl } from '@/lib/api-config';
+import { logError } from '@/lib/logger'
 
 interface PickupAddressesTabProps {
   partnerCode: string;
@@ -158,7 +159,7 @@ export function PickupAddressesTab({
         throw new Error(data.message || 'Không thể tải danh sách kho');
       }
     } catch (error) {
-      console.error('Failed to load warehouses:', error);
+      logError('Failed to load warehouses', error);
       toast.error('Lỗi', { description: 'Không thể tải danh sách kho từ GHTK' });
     } finally {
       setLoadingWarehouses(false);

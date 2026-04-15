@@ -8,8 +8,9 @@
 import { NextRequest } from 'next/server';
 import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils';
 import { calculateFeeSchema } from './validation';
-
-const GHTK_API_BASE = 'https://services.giaohangtietkiem.vn';
+import { logError } from '@/lib/logger'
+import { fetchWithTimeout } from '@/lib/fetch-utils'
+import { GHTK_API_BASE } from '@/lib/ghtk-sync'
 
 export async function POST(request: NextRequest) {
   const session = await requireAuth();
@@ -31,14 +32,8 @@ export async function POST(request: NextRequest) {
       return apiError('API Token is required', 400);
     }
 
-    // ✅ Weight should already be in GRAMS from frontend
-    // Validate weight (GHTK max is around 30kg = 30000g)
-    if (params.weight !== undefined) {
-      
-      if (params.weight > 30000) {
-        return apiError('Weight exceeds maximum limit', 400);
-      }
-    }
+    // ✅ Weight is in GRAMS from frontend - let GHTK API validate limits
+    // BBS supports heavy items, no client-side limit needed
 
     // ❌ IMPORTANT: Remove 'tags' parameter - GHTK calculate fee API does NOT support it
     // Tags are only for order creation, not fee calculation
@@ -62,7 +57,7 @@ export async function POST(request: NextRequest) {
     });
 
 
-    const response = await fetch(url.toString(), {
+    const response = await fetchWithTimeout(url.toString(), {
       method: 'GET',
       headers: {
         'Token': apiToken,
@@ -80,7 +75,7 @@ export async function POST(request: NextRequest) {
       data = JSON.parse(responseText);
     } catch {
       // GHTK returned HTML error page
-      console.error(`[GHTK-${requestId}] ❌ GHTK returned HTML error:`, {
+      logError(`[GHTK-${requestId}] GHTK returned HTML error`, null, {
         status: response.status,
         statusText: response.statusText,
         htmlPreview: responseText.substring(0, 500)
@@ -99,7 +94,7 @@ export async function POST(request: NextRequest) {
         // Warning suppressed (console removed)
       }
     } else if (!data.success) {
-      console.error(`[GHTK-${requestId}] ❌ Tính phí thất bại:`, {
+      logError(`[GHTK-${requestId}] Tính phí thất bại`, null, {
         message: data.message,
         errorCode: data.error_code,
       });
@@ -108,7 +103,7 @@ export async function POST(request: NextRequest) {
     return apiSuccess(data);
   } catch (error) {
     const duration = Date.now() - startTime;
-    console.error(`[GHTK-${requestId}] ❌ Calculate fee error (${duration}ms):`, error);
+    logError(`[GHTK-${requestId}] ❌ Calculate fee error (${duration}ms)`, error);
     return apiError(error instanceof Error ? error.message : 'Unknown error', 500);
   }
 }

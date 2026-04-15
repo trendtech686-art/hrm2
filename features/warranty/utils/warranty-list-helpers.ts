@@ -1,5 +1,5 @@
 import type { WarrantyTicket } from '../types';
-import { checkWarrantyOverdue } from '../warranty-sla-utils';
+import { checkWarrantyOverdue, type WarrantySLATargets } from '../warranty-sla-utils';
 import type { CardColorSettings } from '../../settings/warranty/hooks/use-warranty-settings';
 
 /**
@@ -37,10 +37,11 @@ export function parseColorClass(colorClass: string): React.CSSProperties {
  */
 export function getWarrantyRowStyle(
   ticket: WarrantyTicket,
-  cardColors: CardColorSettings
+  cardColors: CardColorSettings,
+  slaTargets?: WarrantySLATargets,
 ): React.CSSProperties {
   // Check if overdue and overdue color is enabled (Priority 1)
-  const overdueStatus = checkWarrantyOverdue(ticket);
+  const overdueStatus = checkWarrantyOverdue(ticket, slaTargets);
   const isOverdue = overdueStatus.isOverdueResponse || 
                     overdueStatus.isOverdueProcessing || 
                     overdueStatus.isOverdueReturn;
@@ -64,7 +65,7 @@ export function getWarrantyRowStyle(
 /**
  * Calculate warranty statistics
  */
-export function calculateWarrantyStats(tickets: WarrantyTicket[]) {
+export function calculateWarrantyStats(tickets: WarrantyTicket[], slaTargets?: WarrantySLATargets) {
   return tickets.reduce(
     (acc, ticket) => {
       acc.total += 1;
@@ -74,7 +75,7 @@ export function calculateWarrantyStats(tickets: WarrantyTicket[]) {
       if (ticket.status === 'COMPLETED') acc.completed += 1;
       if (ticket.status === 'RETURNED') acc.returned += 1;
       if (ticket.status === 'CANCELLED') acc.cancelled += 1;
-      const overdue = checkWarrantyOverdue(ticket);
+      const overdue = checkWarrantyOverdue(ticket, slaTargets);
       if (overdue.isOverdueResponse || overdue.isOverdueProcessing || overdue.isOverdueReturn) {
         acc.overdue += 1;
       }

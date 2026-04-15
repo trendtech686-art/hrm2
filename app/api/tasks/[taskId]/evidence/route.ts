@@ -5,11 +5,13 @@
  * Upload evidence files for tasks
  */
 
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { saveUploadedFile, validateFile, ALLOWED_EXTENSIONS, MAX_FILE_SIZE } from '@/lib/upload-utils';
+import { saveUploadedFile, validateFile, ALLOWED_EXTENSIONS } from '@/lib/upload-utils';
+import { getFileSizeLimits, getMaxFileSizeBytes } from '@/lib/file-size-limits';
 import { v4 as uuidv4 } from 'uuid';
-import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils';
+import { requirePermission, apiSuccess, apiError } from '@/lib/api-utils';
+import { logError } from '@/lib/logger'
 
 type Props = {
   params: Promise<{ taskId: string }>;
@@ -19,8 +21,8 @@ export async function POST(
   request: NextRequest,
   { params }: Props
 ) {
-  const session = await requireAuth()
-  if (!session) return apiError('Unauthorized', 401)
+  const result = await requirePermission('edit_tasks')
+  if (result instanceof NextResponse) return result
 
   try {
     const { taskId } = await params;
@@ -47,11 +49,14 @@ export async function POST(
       uploadedAt: string;
     }> = [];
 
+    const fileSizeLimits = await getFileSizeLimits()
+    const maxFileSizes = getMaxFileSizeBytes(fileSizeLimits)
+
     for (const file of files) {
       // Validate file
       const validation = validateFile(file, {
         allowedExtensions: ALLOWED_EXTENSIONS.ALL,
-        maxSize: MAX_FILE_SIZE.GENERAL,
+        maxSize: maxFileSizes.GENERAL,
       });
 
       if (!validation.valid) {
@@ -74,7 +79,7 @@ export async function POST(
       await prisma.file.create({
         data: {
           systemId: fileId,
-          entityType: 'Task',
+          entityType: 'task',
           entityId: taskId,
           originalName: file.name,
           filename: savedFile.filename,
@@ -105,7 +110,7 @@ export async function POST(
       files: uploadedFiles,
     });
   } catch (error) {
-    console.error('❌ Task evidence upload error:', error);
+    logError('❌ Task evidence upload error', error);
     return apiError('Lỗi server khi upload file', 500);
   }
 }
@@ -114,15 +119,15 @@ export async function GET(
   request: NextRequest,
   { params }: Props
 ) {
-  const session = await requireAuth()
-  if (!session) return apiError('Unauthorized', 401)
+  const result = await requirePermission('view_tasks')
+  if (result instanceof NextResponse) return result
 
   try {
     const { taskId } = await params;
 
     const files = await prisma.file.findMany({
       where: {
-        entityType: 'Task',
+        entityType: 'task',
         entityId: taskId,
         documentType: 'evidence',
       },
@@ -143,7 +148,7 @@ export async function GET(
       })),
     });
   } catch (error) {
-    console.error('❌ Get task evidence error:', error);
+    logError('❌ Get task evidence error', error);
     return apiError('Lỗi server khi lấy danh sách file', 500);
   }
 }

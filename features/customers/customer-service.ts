@@ -15,7 +15,7 @@ export interface CustomerQueryParams {
   typeFilter: string;
   dateRange?: [string | undefined, string | undefined] | undefined;
   showDeleted: boolean;
-  debtFilter: 'all' | 'totalOverdue' | 'overdue' | 'dueSoon' | 'hasDebt';
+  debtFilter: 'all' | 'totalOverdue' | 'overdue' | 'dueSoon' | 'hasDebt' | 'noDebt' | 'customerOwes' | 'weOwe';
   pagination: { pageIndex: number; pageSize: number };
   sorting: { id: CustomerSortKey; desc: boolean };
 }
@@ -101,8 +101,8 @@ function applyFilters(customers: Customer[], params: CustomerQueryParams): Pipel
         });
       });
     } else if (debtFilter === 'hasDebt') {
-      // Filter customers with any debt
-      dataset = dataset.filter(customer => (customer.currentDebt || 0) > 0);
+      // Filter customers with any debt (non-zero, including negative)
+      dataset = dataset.filter(customer => (customer.currentDebt || 0) !== 0);
     }
   }
 

@@ -111,41 +111,42 @@ model PkgxPriceMapping {
 
 /// Sản phẩm từ website PKGX (cache để mapping và hiển thị)
 model PkgxProduct {
-  id                Int      @id // goods_id từ PKGX
-  goodsSn           String?  // Mã SKU (goods_sn từ PKGX)
-  goodsNumber       String?  // Mã sản phẩm (goods_number/SKU)
-  name              String   // Tên sản phẩm (goods_name)
-  catId             Int?     // Category ID
-  catName           String?  // Tên danh mục (cache)
-  brandId           Int?     // Brand ID
-  brandName         String?  // Tên thương hiệu (cache)
-  shopPrice         Decimal? @db.Decimal(15, 2) // Giá bán
-  marketPrice       Decimal? @db.Decimal(15, 2) // Giá thị trường
-  partnerPrice      Decimal? @db.Decimal(15, 2) // Giá đối tác
-  acePrice          Decimal? @db.Decimal(15, 2) // Giá Ace
-  dealPrice         Decimal? @db.Decimal(15, 2) // Giá deal
-  goodsNumber2      String?  // Mã sản phẩm phụ
-  goodsWeight       Decimal? @db.Decimal(10, 2) // Khối lượng
-  goodsQuantity     Int?     @default(0) // Số lượng tồn
-  warnNumber        Int?     @default(0) // Số lượng cảnh báo
-  goodsThumb        String?  // Ảnh thumbnail URL
-  originalImg       String?  // Ảnh gốc URL
-  goodsBrief        String?  @db.Text // Mô tả ngắn
-  goodsDesc         String?  @db.Text // Mô tả chi tiết
-  isBest            Int?     @default(0) // Nổi bật
-  isNew             Int?     @default(0) // Mới
-  isHot             Int?     @default(0) // Bán chạy
-  isHome            Int?     @default(0) // Hiện trang chủ
-  isOnsale          Int?     @default(0) // Đang giảm giá
-  isReal            Int?     @default(1) // Có thật
-  keywords          String?  // SEO keywords
-  ktitle            String?  // SEO title
-  goodsAlias        String?  // Slug/alias
-  lastUpdate        Int?     // Unix timestamp cập nhật từ PKGX
-  hrmProductId      String?  // Product systemId đã mapping trong HRM (nếu có)
-  syncedAt          DateTime @default(now()) // Lần sync cuối từ PKGX
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id            Int      @id // goods_id từ PKGX
+  goodsSn       String? // Mã SKU (goods_sn từ PKGX)
+  goodsNumber   String? // Mã sản phẩm (goods_number/SKU)
+  name          String // Tên sản phẩm (goods_name)
+  catId         Int? // Category ID
+  catName       String? // Tên danh mục (cache)
+  brandId       Int? // Brand ID
+  brandName     String? // Tên thương hiệu (cache)
+  shopPrice     Decimal? @db.Decimal(15, 2) // Giá bán
+  marketPrice   Decimal? @db.Decimal(15, 2) // Giá thị trường
+  partnerPrice  Decimal? @db.Decimal(15, 2) // Giá đối tác
+  acePrice      Decimal? @db.Decimal(15, 2) // Giá Ace
+  dealPrice     Decimal? @db.Decimal(15, 2) // Giá deal
+  goodsNumber2  String? // Mã sản phẩm phụ
+  goodsWeight   Decimal? @db.Decimal(10, 2) // Khối lượng
+  goodsQuantity Int?     @default(0) // Số lượng tồn
+  warnNumber    Int?     @default(0) // Số lượng cảnh báo
+  goodsThumb    String? // Ảnh thumbnail URL
+  originalImg   String? // Ảnh gốc URL
+  goodsBrief    String?  @db.Text // Mô tả ngắn
+  goodsDesc     String?  @db.Text // Mô tả chi tiết
+  isBest        Int?     @default(0) // Nổi bật
+  isNew         Int?     @default(0) // Mới
+  isHot         Int?     @default(0) // Bán chạy
+  isHome        Int?     @default(0) // Hiện trang chủ
+  isOnsale      Int?     @default(0) // Đang giảm giá
+  isReal        Int?     @default(1) // Có thật
+  keywords      String? // SEO keywords
+  ktitle        String? // SEO title
+  goodsAlias    String? // Slug/alias
+  addTime       Int? // Unix timestamp khởi tạo từ PKGX
+  lastUpdate    Int? // Unix timestamp cập nhật từ PKGX
+  hrmProductId  String? // Product systemId đã mapping trong HRM (nếu có)
+  syncedAt      DateTime @default(now()) // Lần sync cuối từ PKGX
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   @@index([goodsNumber])
   @@index([goodsSn])
@@ -168,7 +169,7 @@ model PkgxSyncLog {
   details      Json? // Chi tiết sync (items synced, errors, etc.)
   syncedAt     DateTime @default(now())
   syncedBy     String?
-  syncedByName String?  // Tên người thực hiện sync
+  syncedByName String? // Tên người thực hiện sync
 
   @@map("pkgx_sync_logs")
 }

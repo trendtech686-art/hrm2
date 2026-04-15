@@ -5,6 +5,7 @@
  */
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import {
   createShipment,
   syncShipmentStatus,
@@ -17,6 +18,8 @@ import {
 import {
   cancelOrderAction,
   bulkCancelOrderAction,
+  bulkApproveOrderAction,
+  bulkPaymentOrderAction,
   updateOrderStatusAction,
   addOrderPaymentAction,
   createPackagingAction,
@@ -25,11 +28,14 @@ import {
   processInStorePickupAction,
   confirmInStorePickupAction,
   dispatchOrderAction,
+  startShippingAction,
   completeDeliveryAction,
   failDeliveryAction,
   cancelDeliveryAction,
   type CancelOrderInput,
   type BulkCancelOrderInput,
+  type BulkApproveOrderInput,
+  type BulkPaymentOrderInput,
   type UpdateOrderStatusInput,
   type AddOrderPaymentInput,
   type CreatePackagingInput,
@@ -37,13 +43,12 @@ import {
   type CancelPackagingInput,
   type ProcessInStorePickupInput,
   type DispatchInput,
+  type StartShippingInput,
   type CompleteDeliveryInput,
   type FailDeliveryInput,
   type CancelDeliveryInput,
 } from '@/app/actions/orders';
 import { orderKeys } from './use-orders';
-import { shipmentKeys } from '@/features/shipments/hooks/use-shipments';
-import { productKeys } from '@/features/products/hooks/use-products';
 
 interface UseOrderActionsOptions {
   onSuccess?: () => void;
@@ -52,10 +57,14 @@ interface UseOrderActionsOptions {
 
 export function useOrderActions(options: UseOrderActionsOptions = {}) {
   const queryClient = useQueryClient();
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: orderKeys.all });
-  const invalidateShipments = () => queryClient.invalidateQueries({ queryKey: shipmentKeys.all });
-  // Invalidate products when stock changes (dispatch, complete delivery, etc.)
-  const invalidateProducts = () => queryClient.invalidateQueries({ queryKey: productKeys.all });
+  const invalidate = () => {
+    invalidateRelated(queryClient, 'orders');
+  };
+  // Force refetch the single order detail to get fresh data immediately
+  const refetchOrder = (systemId: string) => {
+    queryClient.invalidateQueries({ queryKey: orderKeys.detail(systemId) });
+    queryClient.refetchQueries({ queryKey: orderKeys.detail(systemId) });
+  };
 
   // ============================================
   // ORDER LIFECYCLE (Server Actions)
@@ -69,7 +78,7 @@ export function useOrderActions(options: UseOrderActionsOptions = {}) {
       }
       return result.data;
     },
-    onSuccess: () => { invalidate(); invalidateProducts(); options.onSuccess?.(); },
+    onSuccess: () => { invalidate(); options.onSuccess?.(); },
     onError: options.onError,
   });
 
@@ -81,7 +90,31 @@ export function useOrderActions(options: UseOrderActionsOptions = {}) {
       }
       return result.data;
     },
-    onSuccess: () => { invalidate(); invalidateProducts(); options.onSuccess?.(); },
+    onSuccess: () => { invalidate(); options.onSuccess?.(); },
+    onError: options.onError,
+  });
+
+  const bulkApprove = useMutation({
+    mutationFn: async (input: BulkApproveOrderInput) => {
+      const result = await bulkApproveOrderAction(input);
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to bulk approve orders');
+      }
+      return result.data;
+    },
+    onSuccess: () => { invalidate(); options.onSuccess?.(); },
+    onError: options.onError,
+  });
+
+  const bulkPayment = useMutation({
+    mutationFn: async (input: BulkPaymentOrderInput) => {
+      const result = await bulkPaymentOrderAction(input);
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to bulk pay orders');
+      }
+      return result.data;
+    },
+    onSuccess: () => { invalidate(); options.onSuccess?.(); },
     onError: options.onError,
   });
 
@@ -91,9 +124,13 @@ export function useOrderActions(options: UseOrderActionsOptions = {}) {
       if (!result.success) {
         throw new Error(result.error || 'Failed to add payment');
       }
-      return result.data;
+      return { data: result.data, systemId: input.systemId };
     },
-    onSuccess: () => { invalidate(); options.onSuccess?.(); },
+    onSuccess: (result) => { 
+      invalidate(); 
+      refetchOrder(result.systemId); 
+      options.onSuccess?.(); 
+    },
     onError: options.onError,
   });
 
@@ -161,7 +198,7 @@ export function useOrderActions(options: UseOrderActionsOptions = {}) {
       }
       return result.data;
     },
-    onSuccess: () => { invalidate(); invalidateShipments(); options.onSuccess?.(); },
+    onSuccess: () => { invalidate(); options.onSuccess?.(); },
     onError: options.onError,
   });
 
@@ -171,9 +208,13 @@ export function useOrderActions(options: UseOrderActionsOptions = {}) {
       if (!result.success) {
         throw new Error(result.error || 'Failed to confirm in-store pickup');
       }
-      return result.data;
+      return { data: result.data, systemId: input.systemId };
     },
-    onSuccess: () => { invalidate(); invalidateShipments(); invalidateProducts(); options.onSuccess?.(); },
+    onSuccess: (result) => { 
+      invalidate(); 
+      refetchOrder(result.systemId); 
+      options.onSuccess?.(); 
+    },
     onError: options.onError,
   });
 
@@ -187,9 +228,21 @@ export function useOrderActions(options: UseOrderActionsOptions = {}) {
       if (!result.success) {
         throw new Error(result.error || 'Failed to dispatch from warehouse');
       }
-      return result.data;
+      return { data: result.data, systemId: input.systemId };
     },
-    onSuccess: () => { invalidate(); invalidateProducts(); options.onSuccess?.(); },
+    onSuccess: (result) => { invalidate(); refetchOrder(result.systemId); options.onSuccess?.(); },
+    onError: options.onError,
+  });
+
+  const startShipping = useMutation({
+    mutationFn: async (input: StartShippingInput) => {
+      const result = await startShippingAction(input);
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to start shipping');
+      }
+      return { data: result.data, systemId: input.systemId };
+    },
+    onSuccess: (result) => { invalidate(); refetchOrder(result.systemId); options.onSuccess?.(); },
     onError: options.onError,
   });
 
@@ -199,9 +252,13 @@ export function useOrderActions(options: UseOrderActionsOptions = {}) {
       if (!result.success) {
         throw new Error(result.error || 'Failed to complete delivery');
       }
-      return result.data;
+      return { data: result.data, systemId: input.systemId };
     },
-    onSuccess: () => { invalidate(); invalidateProducts(); options.onSuccess?.(); },
+    onSuccess: (result) => { 
+      invalidate(); 
+      refetchOrder(result.systemId); 
+      options.onSuccess?.(); 
+    },
     onError: options.onError,
   });
 
@@ -213,7 +270,7 @@ export function useOrderActions(options: UseOrderActionsOptions = {}) {
       }
       return result.data;
     },
-    onSuccess: () => { invalidate(); invalidateProducts(); options.onSuccess?.(); },
+    onSuccess: () => { invalidate(); options.onSuccess?.(); },
     onError: options.onError,
   });
 
@@ -225,7 +282,7 @@ export function useOrderActions(options: UseOrderActionsOptions = {}) {
       }
       return result.data;
     },
-    onSuccess: () => { invalidate(); invalidateProducts(); options.onSuccess?.(); },
+    onSuccess: () => { invalidate(); options.onSuccess?.(); },
     onError: options.onError,
   });
 
@@ -292,6 +349,8 @@ export function useOrderActions(options: UseOrderActionsOptions = {}) {
     // Order lifecycle
     cancel,
     bulkCancel,
+    bulkApprove,
+    bulkPayment,
     addPayment,
     updateStatus,
     
@@ -306,6 +365,7 @@ export function useOrderActions(options: UseOrderActionsOptions = {}) {
     
     // Delivery - Warehouse/Courier
     dispatch,
+    startShipping,
     complete,
     fail,
     cancelDelivery: cancelDeliveryMutation,
@@ -324,7 +384,7 @@ export function useOrderActions(options: UseOrderActionsOptions = {}) {
     syncGhtk,
     
     // Loading states
-    isLoading: cancel.isPending || bulkCancel.isPending || addPayment.isPending || updateStatus.isPending || 
+    isLoading: cancel.isPending || bulkCancel.isPending || bulkApprove.isPending || bulkPayment.isPending || addPayment.isPending || updateStatus.isPending || 
                requestPackaging.isPending || confirmPacking.isPending || cancelPacking.isPending ||
                selectInStorePickup.isPending || confirmPickup.isPending ||
                dispatch.isPending || complete.isPending || fail.isPending || cancelDeliveryMutation.isPending ||

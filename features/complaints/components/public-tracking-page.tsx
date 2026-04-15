@@ -1,7 +1,7 @@
 ﻿'use client'
 
 import * as React from 'react';
-import { useParams } from 'next/navigation';
+import Image from 'next/image';
 import { Package, Clock, CheckCircle, XCircle, MessageSquare, User, AlertCircle, Image as ImageIcon, ExternalLink, Receipt, DollarSign, AlertTriangle, ArrowRight } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { StatusBadge, COMPLAINT_STATUS_MAP } from '@/components/StatusBadge';
@@ -16,7 +16,8 @@ const ImagePreviewDialog = React.lazy(() =>
     default: module.ImagePreviewDialog
   }))
 );
-import { SlaTimer, COMPLAINT_SLA_CONFIGS } from '@/components/SlaTimer';
+import { SlaTimer } from '@/components/SlaTimer';
+import { defaultSLA } from '@/features/settings/complaints/types';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { asSystemId } from '@/lib/id-types';
@@ -38,8 +39,7 @@ import { useQueryClient } from '@tanstack/react-query';
  * Public Complaint Tracking Page
  * Allows customers to track their complaint progress without login
  */
-export function PublicComplaintTrackingPage() {
-  const { complaintId } = useParams<{ complaintId: string }>();
+export function PublicComplaintTrackingPage({ complaintId }: { complaintId: string }) {
   const queryClient = useQueryClient();
   
   // Use public API hook (no authentication required)
@@ -61,9 +61,6 @@ export function PublicComplaintTrackingPage() {
   const [previewImages, setPreviewImages] = React.useState<string[]>([]);
   const [previewIndex, setPreviewIndex] = React.useState(0);
   const [imageLoadingStates, setImageLoadingStates] = React.useState<Record<string, boolean>>({});
-
-  // Current user (customer in tracking page)
-  const _currentUser = { systemId: 'CUSTOMER', name: 'Khách hàng' };
 
   // Compensation data (no longer in public API, set to null)
   const compensationPayment: PublicCompensationItem | null = null;
@@ -127,7 +124,6 @@ export function PublicComplaintTrackingPage() {
   
   const handleImageError = React.useCallback((imageId: string) => {
     setImageLoadingStates(prev => ({ ...prev, [imageId]: false }));
-    toast.error('Không thể tải hình ảnh');
   }, []);
 
   // Comment handlers - use public API
@@ -149,31 +145,6 @@ export function PublicComplaintTrackingPage() {
 
   const handleDeleteComment = React.useCallback((_commentId: string) => {
     // Not supported in public tracking
-  }, []);
-
-  const _handleReplyComment = React.useCallback((_parentId: string, _content: string, _contentText: string, _attachments: string[], _mentions: string[]) => {
-    // Not supported in public tracking
-  }, []);
-
-  const _handleCommentImageUpload = React.useCallback(async (file: File): Promise<string> => {
-    try {
-      const formData = new FormData();
-      formData.append('image', file);
-
-      const serverUrl = (import.meta as ImportMeta & { env: Record<string, string> }).env.VITE_SERVER_URL || 'http://localhost:3001';
-      const response = await fetch(`${serverUrl}/api/comments/upload-image`, {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) throw new Error('Upload failed');
-      
-      const data = await response.json();
-      return data.url;
-    } catch (error) {
-      console.error('Error uploading image:', error);
-      throw error;
-    }
   }, []);
 
   // Handle image preview - must be called before any early returns (React hooks rules)
@@ -250,7 +221,7 @@ export function PublicComplaintTrackingPage() {
     <div className="min-h-screen bg-background">
       {/* Header với branding */}
       <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
-        <div className="container flex h-14 max-w-screen-2xl items-center px-4 sm:px-6">
+        <div className="mx-auto flex h-14 w-full max-w-7xl items-center px-4 sm:px-6">
           <div className="flex flex-1 items-center justify-between gap-2">
             {/* Logo + Company Name */}
             <div className="flex items-center gap-2">
@@ -259,13 +230,13 @@ export function PublicComplaintTrackingPage() {
               </div>
               <div>
                 <p className="text-xs sm:text-sm font-medium leading-none">{companyName}</p>
-                <p className="text-[10px] sm:text-xs text-muted-foreground hidden xs:block">Hệ thống theo dõi khiếu nại</p>
+                <p className="text-xs text-muted-foreground hidden xs:block">Hệ thống theo dõi khiếu nại</p>
               </div>
             </div>
             
             {/* Tracking Code */}
             <div className="text-right">
-              <p className="text-[10px] sm:text-xs text-muted-foreground">Mã tra cứu</p>
+              <p className="text-xs text-muted-foreground">Mã tra cứu</p>
               <p className="font-mono text-xs sm:text-sm font-semibold">{complaint.publicTrackingCode || complaint.id}</p>
             </div>
           </div>
@@ -273,7 +244,7 @@ export function PublicComplaintTrackingPage() {
       </header>
 
       {/* Main Content */}
-      <div className="container max-w-screen-2xl px-4 sm:px-6 py-4 sm:py-6 lg:py-8">
+      <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 py-4 sm:py-6 lg:py-8">
         <div className="space-y-4 sm:space-y-6">
         
         {/* Complaint Title */}
@@ -317,16 +288,15 @@ export function PublicComplaintTrackingPage() {
               
               {/* SLA Timer - Chỉ hiển thị khi đang investigating */}
               {complaint.status === 'investigating' && (
-                <div className="flex items-center justify-between gap-4 rounded-lg border border-orange-200 bg-orange-50 p-4 dark:border-orange-900 dark:bg-orange-950/20">
+                <div className="flex items-center justify-between gap-4 rounded-xl border border-orange-200 bg-orange-50 p-4 dark:border-orange-900 dark:bg-orange-950/20">
                   <div className="space-y-1">
                     <p className="text-sm font-medium">Dự kiến hoàn tất trong</p>
                     <p className="text-xs text-muted-foreground">Cam kết xử lý trong 24 giờ</p>
                   </div>
                   <SlaTimer
                     startTime={complaint.createdAt}
-                    targetMinutes={COMPLAINT_SLA_CONFIGS.resolution.targetMinutes}
+                    targetMinutes={defaultSLA.MEDIUM.resolveTime * 60}
                     isCompleted={false}
-                    thresholds={COMPLAINT_SLA_CONFIGS.resolution.thresholds}
                   />
                 </div>
               )}
@@ -599,11 +569,13 @@ export function PublicComplaintTrackingPage() {
                                 {imageLoadingStates[`${action.id}-${i}`] !== false && (
                                   <Skeleton className="absolute inset-0" />
                                 )}
-                                <img
+                                <Image
                                   src={url}
                                   alt={`Ảnh ${i + 1}`}
-                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                                  loading="lazy"
+                                  fill
+                                  sizes="80px"
+                                  unoptimized
+                                  className="object-cover group-hover:scale-105 transition-transform"
                                   onLoad={() => handleImageLoad(`${action.id}-${i}`)}
                                   onError={() => handleImageError(`${action.id}-${i}`)}
                                 />
@@ -668,12 +640,14 @@ export function PublicComplaintTrackingPage() {
                       <div key={idx} className="border rounded-lg p-3 space-y-2 bg-card">
                         <div className="flex items-start gap-3">
                           {item.productImage && (
-                            <div className="h-12 w-12 shrink-0 rounded-md overflow-hidden border bg-muted">
-                              <img
+                            <div className="relative h-12 w-12 shrink-0 rounded-md overflow-hidden border bg-muted">
+                              <Image
                                 src={item.productImage}
                                 alt={item.productName}
-                                className="h-full w-full object-cover"
-                                loading="lazy"
+                                fill
+                                sizes="48px"
+                                unoptimized
+                                className="object-cover"
                               />
                             </div>
                           )}
@@ -796,12 +770,14 @@ export function PublicComplaintTrackingPage() {
                             <td className="p-2">
                               <div className="flex items-center gap-2">
                                 {item.productImage && (
-                                  <div className="h-10 w-10 shrink-0 rounded-md overflow-hidden border bg-muted">
-                                    <img
+                                  <div className="relative h-10 w-10 shrink-0 rounded-md overflow-hidden border bg-muted">
+                                    <Image
                                       src={item.productImage}
                                       alt={item.productName}
-                                      className="h-full w-full object-cover"
-                                      loading="lazy"
+                                      fill
+                                      sizes="40px"
+                                      unoptimized
+                                      className="object-cover"
                                     />
                                   </div>
                                 )}
@@ -880,7 +856,7 @@ export function PublicComplaintTrackingPage() {
                     if (totalExcessQty === 0) return null;
                     
                     return (
-                      <div className="space-y-2 p-4 rounded-lg border bg-muted/50">
+                      <div className="space-y-2 p-4 rounded-xl border border-border/50 bg-muted/50">
                         <p className="text-xs font-medium text-muted-foreground uppercase">Thừa</p>
                         <p className="text-2xl font-bold">{totalExcessQty}</p>
                         <p className="text-sm font-medium text-muted-foreground">
@@ -903,7 +879,7 @@ export function PublicComplaintTrackingPage() {
                     if (totalMissingQty === 0) return null;
                     
                     return (
-                      <div className="space-y-2 p-4 rounded-lg border bg-muted/50">
+                      <div className="space-y-2 p-4 rounded-xl border border-border/50 bg-muted/50">
                         <p className="text-xs font-medium text-muted-foreground uppercase">Thiếu</p>
                         <p className="text-2xl font-bold">{totalMissingQty}</p>
                         <p className="text-sm font-medium text-muted-foreground">
@@ -926,7 +902,7 @@ export function PublicComplaintTrackingPage() {
                     if (totalDefectiveQty === 0) return null;
                     
                     return (
-                      <div className="space-y-2 p-4 rounded-lg border bg-muted/50">
+                      <div className="space-y-2 p-4 rounded-xl border border-border/50 bg-muted/50">
                         <p className="text-xs font-medium text-muted-foreground uppercase">Hỏng</p>
                         <p className="text-2xl font-bold">{totalDefectiveQty}</p>
                         <p className="text-sm font-medium text-muted-foreground">
@@ -943,7 +919,7 @@ export function PublicComplaintTrackingPage() {
                     if (otherItems.length === 0) return null;
                     
                     return (
-                      <div className="space-y-2 p-4 rounded-lg border bg-muted/50">
+                      <div className="space-y-2 p-4 rounded-xl border border-border/50 bg-muted/50">
                         <p className="text-xs font-medium text-muted-foreground uppercase">Khác</p>
                         <p className="text-2xl font-bold">{otherItems.length}</p>
                         <p className="text-sm font-medium text-muted-foreground">
@@ -969,7 +945,7 @@ export function PublicComplaintTrackingPage() {
             </CardHeader>
             <CardContent className="space-y-3 sm:space-y-4 px-3 sm:px-4 md:px-6 pb-3 sm:pb-4 md:pb-6">
               {compensationData.payment && (
-                <div className="p-3 sm:p-4 rounded-lg border bg-muted/50">
+                <div className="p-3 sm:p-4 rounded-xl border border-border/50 bg-muted/50">
                   <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-2 sm:gap-3 mb-2 sm:mb-3">
                     <div>
                       <div className="font-medium text-sm sm:text-base flex items-center gap-1.5 sm:gap-2">
@@ -988,7 +964,7 @@ export function PublicComplaintTrackingPage() {
                       {compensationData.payment.description}
                     </div>
                   )}
-                  <div className="text-[10px] sm:text-xs text-muted-foreground mt-1.5 sm:mt-2">
+                  <div className="text-xs text-muted-foreground mt-1.5 sm:mt-2">
                     Ngày tạo: {new Date(compensationData.payment.createdAt).toLocaleDateString('vi-VN', {
                       year: 'numeric',
                       month: '2-digit',
@@ -1001,7 +977,7 @@ export function PublicComplaintTrackingPage() {
               )}
 
               {compensationData.receipt && (
-                <div className="p-4 rounded-lg border bg-muted/50">
+                <div className="p-4 rounded-xl border border-border/50 bg-muted/50">
                   <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3 mb-3">
                     <div>
                       <div className="font-medium flex items-center gap-2">
@@ -1061,11 +1037,13 @@ export function PublicComplaintTrackingPage() {
                         {imageLoadingStates[imageId] !== false && (
                           <Skeleton className="absolute inset-0" />
                         )}
-                        <img
+                        <Image
                           src={image.url}
                           alt="Ảnh từ khách hàng"
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                          loading="lazy"
+                          fill
+                          sizes="(max-width: 640px) 50vw, 25vw"
+                          unoptimized
+                          className="object-cover group-hover:scale-105 transition-transform"
                           onLoad={() => handleImageLoad(imageId)}
                           onError={() => handleImageError(imageId)}
                         />
@@ -1104,11 +1082,13 @@ export function PublicComplaintTrackingPage() {
                       {imageLoadingStates[imageId] !== false && (
                         <Skeleton className="absolute inset-0" />
                       )}
-                      <img
+                      <Image
                         src={image.url}
                         alt="Ảnh kiểm tra từ nhân viên"
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                        loading="lazy"
+                        fill
+                        sizes="(max-width: 640px) 50vw, 25vw"
+                        unoptimized
+                        className="object-cover group-hover:scale-105 transition-transform"
                         onLoad={() => handleImageLoad(imageId)}
                         onError={() => handleImageError(imageId)}
                       />
@@ -1175,9 +1155,8 @@ export function PublicComplaintTrackingPage() {
                       ) : (
                         <a
                           href={trimmedLink}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-2 p-3 rounded-lg border hover:bg-muted transition-colors group"
+                          target="_blank" rel="noopener noreferrer"
+                          className="flex items-center gap-2 p-3 rounded-xl border border-border/50 hover:bg-muted transition-colors group"
                         >
                           <ExternalLink className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
                           <span className="text-sm font-mono truncate flex-1">{trimmedLink}</span>
@@ -1237,7 +1216,7 @@ export function PublicComplaintTrackingPage() {
           <p className="text-xs sm:text-sm text-muted-foreground">
             Có thắc mắc? Liên hệ hotline: <a href={`tel:${hotline}`} className="font-semibold transition-colors hover:text-primary">{hotline}</a>
           </p>
-          <p className="text-[10px] sm:text-xs text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             © {new Date().getFullYear()} {companyName}. Mã khiếu nại: <span className="font-mono">{complaint.id}</span>
           </p>
         </footer>

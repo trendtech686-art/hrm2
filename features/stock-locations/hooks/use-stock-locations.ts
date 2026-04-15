@@ -15,6 +15,7 @@ import {
   type StockLocationCreateInput,
   type StockLocationUpdateInput,
 } from '../api/stock-locations-api';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 
 // Query keys factory
 export const stockLocationKeys = {
@@ -77,7 +78,7 @@ export function useStockLocationMutations(options: MutationCallbacks = {}) {
   const queryClient = useQueryClient();
 
   const invalidateLocations = () => {
-    queryClient.invalidateQueries({ queryKey: stockLocationKeys.all });
+    invalidateRelated(queryClient, 'stock-locations');
   };
 
   const create = useMutation({

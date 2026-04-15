@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma'
 import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
 import { v4 as uuidv4 } from 'uuid'
 import { createCategoryMappingSchema } from './validation'
+import { logError } from '@/lib/logger'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 // GET /api/settings/pkgx/category-mappings - List all category mappings
 export async function GET(_request: NextRequest) {
@@ -23,7 +25,7 @@ export async function GET(_request: NextRequest) {
       total: mappings.length,
     })
   } catch (error) {
-    console.error('Error fetching category mappings:', error)
+    logError('Error fetching category mappings', error)
     return apiError('Failed to fetch category mappings', 500)
   }
 }
@@ -69,9 +71,17 @@ export async function POST(request: NextRequest) {
       },
     })
 
+    createActivityLog({
+      entityType: 'pkgx_settings',
+      entityId: mapping.systemId,
+      action: `Thêm mapping danh mục: ${hrmCategoryName || ''} ↔ ${pkgxCategoryName || ''}`,
+      actionType: 'create',
+      createdBy: session.user?.id ?? '',
+    }).catch(e => logError('category-mapping activity log failed', e))
+
     return apiSuccess({ data: mapping }, 201)
   } catch (error) {
-    console.error('Error creating category mapping:', error)
+    logError('Error creating category mapping', error)
     return apiError('Failed to create category mapping', 500)
   }
 }
@@ -90,15 +100,30 @@ export async function DELETE(request: NextRequest) {
       return apiError('systemId or hrmCategoryId is required', 400)
     }
 
+    // Read before delete for logging
+    const existing = await prisma.pkgxCategoryMapping.findFirst({
+      where: systemId ? { systemId } : { hrmCategoryId: hrmCategoryId! },
+    })
+
     const deleted = await prisma.pkgxCategoryMapping.deleteMany({
       where: systemId 
         ? { systemId }
         : { hrmCategoryId: hrmCategoryId! },
     })
 
+    if (existing) {
+      createActivityLog({
+        entityType: 'pkgx_settings',
+        entityId: existing.systemId,
+        action: `Xóa mapping danh mục: ${existing.hrmCategoryName} ↔ ${existing.pkgxCategoryName}`,
+        actionType: 'delete',
+        createdBy: session.user?.id ?? '',
+      }).catch(e => logError('category-mapping delete activity log failed', e))
+    }
+
     return apiSuccess({ deleted: deleted.count })
   } catch (error) {
-    console.error('Error deleting category mapping:', error)
+    logError('Error deleting category mapping', error)
     return apiError('Failed to delete category mapping', 500)
   }
 }

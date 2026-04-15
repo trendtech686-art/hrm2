@@ -4,6 +4,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import {
   fetchProvinces,
   fetchProvinceById,
@@ -157,9 +158,7 @@ interface UseProvinceMutationsOptions {
 export function useProvinceMutations(options: UseProvinceMutationsOptions = {}) {
   const queryClient = useQueryClient();
 
-  const invalidateAll = () => {
-    queryClient.invalidateQueries({ queryKey: locationKeys.provinces() });
-  };
+  const invalidateAll = () => invalidateRelated(queryClient, 'locations');
 
   const add = useMutation({
     mutationFn: (data: Omit<Province, 'systemId'>) => createProvince(data),
@@ -202,9 +201,7 @@ interface UseDistrictMutationsOptions {
 export function useDistrictMutations(options: UseDistrictMutationsOptions = {}) {
   const queryClient = useQueryClient();
 
-  const invalidateAll = () => {
-    queryClient.invalidateQueries({ queryKey: locationKeys.districts() });
-  };
+  const invalidateAll = () => invalidateRelated(queryClient, 'locations');
 
   const add = useMutation({
     mutationFn: (data: Omit<District, 'systemId'>) => createDistrict(data),
@@ -247,9 +244,7 @@ interface UseWardMutationsOptions {
 export function useWardMutations(options: UseWardMutationsOptions = {}) {
   const queryClient = useQueryClient();
 
-  const invalidateAll = () => {
-    queryClient.invalidateQueries({ queryKey: locationKeys.wards() });
-  };
+  const invalidateAll = () => invalidateRelated(queryClient, 'locations');
 
   const add = useMutation({
     mutationFn: (data: Omit<Ward, 'systemId'>) => createWard(data),
@@ -290,7 +285,7 @@ export function useAdministrativeImportMutation(options: UseProvinceMutationsOpt
   return useMutation({
     mutationFn: (payload: AdministrativeImportPayload) => importAdministrativeUnits(payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: locationKeys.all });
+      invalidateRelated(queryClient, 'locations');
       options.onSuccess?.();
     },
     onError: options.onError,

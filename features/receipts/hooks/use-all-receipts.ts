@@ -63,10 +63,11 @@ export function useAllReceipts(options: UseAllReceiptsOptions = {}) {
 }
 
 /**
- * Finder hook for looking up receipts by systemId
+ * Finder hook for looking up receipts by systemId.
+ * Cache-only: subscribes to the query cache but NEVER triggers a fetch.
  */
 export function useReceiptFinder() {
-  const { data: receipts = [] } = useAllReceipts();
+  const { data: receipts = [] } = useAllReceipts({ enabled: false });
   
   const findById = React.useCallback((systemId: string): Receipt | undefined => {
     return receipts.find(r => r.systemId === systemId);

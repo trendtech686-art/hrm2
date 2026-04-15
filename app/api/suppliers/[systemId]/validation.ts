@@ -7,6 +7,7 @@ export const updateSupplierSchema = z.object({
   phone: z.string().optional().nullable(),
   email: z.string().email().optional().nullable().or(z.literal('')),
   address: z.string().optional().nullable(),
+  addressData: z.record(z.string(), z.unknown()).optional().nullable(),
   taxCode: z.string().optional().nullable(),
   bankAccount: z.string().optional().nullable(),
   bankName: z.string().optional().nullable(),

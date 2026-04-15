@@ -16,6 +16,7 @@ import { cn } from '../../lib/utils';
 import { Checkbox } from '../ui/checkbox';
 import { ScrollArea } from '../ui/scroll-area';
 import { Badge } from '../ui/badge';
+import { logError } from '@/lib/logger'
 
 export type ImportConfig<TData> = {
   importer: (data: Omit<TData, 'id'>[]) => void;
@@ -98,7 +99,7 @@ export function DataTableImportDialog<TData>({ children, config }: DataTableImpo
         setSelectedRows(new Set(previews.map(p => p.id)));
         setStep('preview');
       } catch (error) {
-        console.error("Error parsing Excel file:", error);
+        logError('Error parsing Excel file', error);
         toast.error("Đã có lỗi xảy ra khi đọc file. Vui lòng kiểm tra định dạng file và thử lại.");
       }
     };

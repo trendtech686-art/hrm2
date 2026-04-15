@@ -8,11 +8,13 @@
  */
 
 import { prisma } from '@/lib/prisma'
-import { auth } from '@/auth'
+import { requireActionPermission, serializeDecimals } from '@/lib/api-utils'
 import { revalidatePath } from '@/lib/revalidation'
 import { generateIdWithPrefix } from '@/lib/id-generator'
 import type { ActionResult } from '@/types/action-result'
 import { createShipmentSchema, updateShipmentSchema } from '@/features/shipments/validation'
+import { logError } from '@/lib/logger'
+import { getSessionUserName } from '@/lib/get-user-name'
 
 // ====================================
 // TYPES
@@ -59,10 +61,9 @@ export type DeleteShipmentInput = {
 export async function createShipmentAction(
   input: CreateShipmentInput
 ): Promise<ActionResult> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Không có quyền truy cập' }
-  }
+  const authResult = await requireActionPermission('create_shipments')
+  if (!authResult.success) return authResult
+  const { session } = authResult
 
   const validated = createShipmentSchema.safeParse(input)
   if (!validated.success) {
@@ -108,9 +109,21 @@ export async function createShipmentAction(
     revalidatePath('/shipments')
     revalidatePath(`/orders/${input.orderSystemId}`)
 
-    return { success: true, data: result }
+    const logUserName = getSessionUserName(session)
+    prisma.activityLog.create({
+      data: {
+        entityType: 'shipment',
+        entityId: result.systemId,
+        action: `Tạo vận đơn: ${result.systemId}`,
+        actionType: 'create',
+        metadata: { userName: logUserName, orderId: input.orderSystemId },
+        createdBy: logUserName,
+      }
+    }).catch(e => logError('[ActivityLog] shipment create failed', e))
+
+    return { success: true, data: serializeDecimals(result) }
   } catch (error) {
-    console.error('createShipmentAction error:', error)
+    logError('createShipmentAction error', error)
     return { success: false, error: 'Không thể tạo vận đơn' }
   }
 }
@@ -122,10 +135,9 @@ export async function createShipmentAction(
 export async function updateShipmentAction(
   input: UpdateShipmentInput
 ): Promise<ActionResult> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Không có quyền truy cập' }
-  }
+  const authResult = await requireActionPermission('edit_shipments')
+  if (!authResult.success) return authResult
+  const { session } = authResult
 
   const validated = updateShipmentSchema.safeParse(input)
   if (!validated.success) {
@@ -179,9 +191,21 @@ export async function updateShipmentAction(
     revalidatePath('/shipments')
     revalidatePath(`/shipments/${systemId}`)
 
-    return { success: true, data: result }
+    const logUserName = getSessionUserName(session)
+    prisma.activityLog.create({
+      data: {
+        entityType: 'shipment',
+        entityId: systemId,
+        action: `Cập nhật vận đơn: ${systemId}`,
+        actionType: 'update',
+        metadata: { userName: logUserName },
+        createdBy: logUserName,
+      }
+    }).catch(e => logError('[ActivityLog] shipment update failed', e))
+
+    return { success: true, data: serializeDecimals(result) }
   } catch (error) {
-    console.error('updateShipmentAction error:', error)
+    logError('updateShipmentAction error', error)
     const message = error instanceof Error ? error.message : 'Không thể cập nhật vận đơn'
     return { success: false, error: message }
   }
@@ -194,10 +218,9 @@ export async function updateShipmentAction(
 export async function deleteShipmentAction(
   input: DeleteShipmentInput
 ): Promise<ActionResult> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Không có quyền truy cập' }
-  }
+  const authResult = await requireActionPermission('delete_shipments')
+  if (!authResult.success) return authResult
+  const { session } = authResult
 
   const { systemId } = input
 
@@ -212,9 +235,21 @@ export async function deleteShipmentAction(
 
     revalidatePath('/shipments')
 
+    const logUserName = getSessionUserName(session)
+    prisma.activityLog.create({
+      data: {
+        entityType: 'shipment',
+        entityId: systemId,
+        action: `Xóa vận đơn: ${systemId}`,
+        actionType: 'delete',
+        metadata: { userName: logUserName },
+        createdBy: logUserName,
+      }
+    }).catch(e => logError('[ActivityLog] shipment delete failed', e))
+
     return { success: true }
   } catch (error) {
-    console.error('deleteShipmentAction error:', error)
+    logError('deleteShipmentAction error', error)
     const message = error instanceof Error ? error.message : 'Không thể xóa vận đơn'
     return { success: false, error: message }
   }

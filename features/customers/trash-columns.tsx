@@ -2,6 +2,7 @@ import * as React from "react";
 import type { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import { formatDate, parseDate, getCurrentDate, getDaysDiff } from '@/lib/date-utils';
 import type { Customer } from '@/lib/types/prisma-extended'
+import type { SystemId } from '@/lib/id-types';
 import { Checkbox } from "../../components/ui/checkbox"
 import { DataTableColumnHeader } from "../../components/data-table/data-table-column-header"
 import { Badge } from "../../components/ui/badge"
@@ -13,8 +14,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../../
 
 export const getColumns = (
   router: AppRouterInstance,
-  onRestore: (systemId: string) => void,
-  onPermanentDelete: (systemId: string) => void
+  onRestore: (systemId: SystemId) => void,
+  onPermanentDelete: (systemId: SystemId) => void
 ): ColumnDef<Customer>[] => [
   {
     id: "select",
@@ -69,7 +70,7 @@ export const getColumns = (
        />
     ),
     cell: ({ row }) => (
-      <div className="max-w-[200px] truncate" title={row.name}>
+      <div className="max-w-50 truncate" title={row.name}>
         {row.name}
       </div>
     ),
@@ -217,7 +218,7 @@ export const getColumns = (
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Xóa vĩnh viễn</TooltipContent>
+              <TooltipContent>Lưu trữ vĩnh viễn</TooltipContent>
             </Tooltip>
           </TooltipProvider>
         </div>

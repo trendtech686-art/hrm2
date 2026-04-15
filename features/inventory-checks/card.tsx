@@ -27,18 +27,18 @@ export function InventoryCheckCard({ item, onEdit, onBalance }: CardProps) {
     : 'destructive';
   
   return (
-    <div className="p-4 bg-white rounded shadow-sm">
+    <div className="rounded-xl border border-border/50 bg-card p-4 active:scale-[0.98] transition-transform touch-manipulation">
       <div className="flex items-start justify-between">
         <div>
-          <div className="font-medium">{item.id}</div>
-          <div className="text-body-sm text-muted-foreground">{item.branchName} • {item.createdAt ? formatDateCustom(new Date(item.createdAt), 'dd/MM/yyyy') : ''}</div>
+          <div className="text-sm font-medium">{item.id}</div>
+          <div className="text-xs text-muted-foreground">{item.branchName} • {item.createdAt ? formatDateCustom(new Date(item.createdAt), 'dd/MM/yyyy') : ''}</div>
         </div>
         <div>
           <Badge variant={statusVariant}>{statusLabel}</Badge>
         </div>
       </div>
 
-      <div className="mt-2 text-body-sm text-muted-foreground">
+      <div className="mt-2 text-sm text-muted-foreground">
         {preview}
         {item.items && item.items.length > 2 ? ` +${item.items.length - 2} khác` : ''}
       </div>

@@ -9,14 +9,15 @@ import { ROUTES } from '../../lib/router';
 import { formatDateTime, formatDateCustom, parseDate, getCurrentDate, getDaysDiff, toISODate } from '@/lib/date-utils';
 import { usePurchaseOrder } from './hooks/use-purchase-orders';
 import { usePurchaseOrderMutations } from './hooks/use-purchase-orders';
-import { useAllPurchaseOrders } from './hooks/use-all-purchase-orders';
 import { useSupplierFinder } from '../suppliers/hooks/use-all-suppliers';
+import { useSupplierStats } from '../suppliers/hooks/use-supplier-stats';
+import { SupplierStatsSection } from '../suppliers/components/supplier-stats-section';
 import { usePurchaseOrderPayments, usePurchaseOrderInventoryReceipts, usePurchaseOrderReceipts } from './hooks/use-po-related-data';
 import { usePageHeader } from '../../contexts/page-header-context';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '../../components/ui/table';
-import { Users, FileWarning, Package, Truck, CheckCircle2, Edit, Printer, Undo2, Trash2, AlertCircle } from 'lucide-react';
+import { Users, FileWarning, Package, Truck, CheckCircle2, Edit, Printer, Undo2, Trash2, AlertCircle, MoreHorizontal } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useInventoryReceiptMutations } from '../inventory-receipts/hooks/use-inventory-receipts';
 import { useProductFinder } from '../products/hooks/use-all-products';
@@ -27,10 +28,7 @@ import { DetailField } from '../../components/ui/detail-field';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import type { InventoryReceipt } from '@/lib/types/prisma-extended';
 // ✅ Heavy components - lazy loaded
-const ActivityHistory = dynamic(
-  () => import('../../components/ActivityHistory').then(m => ({ default: m.ActivityHistory })),
-  { ssr: false }
-);
+import { EntityActivityTable } from '@/components/shared/entity-activity-table';
 const Comments = dynamic(
   () => import('../../components/Comments').then(m => ({ default: m.Comments })),
   { ssr: false }
@@ -41,6 +39,13 @@ import { usePurchaseReturnsByPO } from '../purchase-returns/hooks/use-purchase-r
 import type { PurchaseReturn, PurchaseReturnLineItem } from '../purchase-returns/types';
 import { Badge } from '../../components/ui/badge';
 import { useAuth } from '../../contexts/auth-context';
+import { useBreakpoint } from '@/contexts/breakpoint-context';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../../components/ui/dropdown-menu';
 import type { PurchaseOrder, PurchaseOrderPaymentStatus as PaymentStatus, Payment } from '@/lib/types/prisma-extended';
 import { getPaymentsForPurchaseOrder, getReceiptsForPurchaseOrder, sumPaymentsForPurchaseOrder } from './payment-utils';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../../components/ui/alert-dialog';
@@ -109,7 +114,9 @@ export function PurchaseOrderDetailPage() {
   // All hooks must be called before any early returns (React hooks rules)
   // Move all hook calls here before the conditional return
   const { findById: findSupplierById } = useSupplierFinder();
-  const { data: allPurchaseOrders } = useAllPurchaseOrders();
+  
+  // ✅ Use server-calculated supplier stats instead of computing locally
+  const { data: supplierStats } = useSupplierStats(purchaseOrder?.supplierSystemId);
   
   // ⚡ PERFORMANCE: Only fetch data for this specific PO
   const { data: poPayments, refetch: refetchPayments } = usePurchaseOrderPayments(systemId);
@@ -126,14 +133,8 @@ export function PurchaseOrderDetailPage() {
   const queryClient = useQueryClient();
   const { create: createInventoryReceipt } = useInventoryReceiptMutations({
     onCreateSuccess: () => {
-      // Invalidate all related queries to refresh UI
-      queryClient.invalidateQueries({ queryKey: ['purchase-orders'] });
-      queryClient.invalidateQueries({ queryKey: ['inventory-receipts'] });
-      queryClient.invalidateQueries({ queryKey: ['products'] });
-      queryClient.invalidateQueries({ queryKey: ['stock-history'] });
-      
-      // Auto-complete check will be done after queries are invalidated
-      // The status update is handled in handleConfirmReceive callback
+      // Hook already calls invalidateRelated(qc, 'inventory-receipts')
+      // which covers: products, price-history, suppliers, purchase-orders, stock-history
     },
     onError: (err) => toast.error(err.message)
   });
@@ -158,19 +159,7 @@ export function PurchaseOrderDetailPage() {
       toast.success(`Đã tạo phiếu chi ${payment.id} - ${formatCurrency(Number(payment.amount))}`);
       setIsPaymentConfirmationOpen(false);
       
-      // ✅ Invalidate ALL payment-related queries first
-      await Promise.all([
-        queryClient.invalidateQueries({ 
-          queryKey: ['payments'],
-          refetchType: 'all',
-        }),
-        queryClient.invalidateQueries({ 
-          queryKey: ['purchase-orders'],
-          refetchType: 'all',
-        }),
-      ]);
-      
-      // ✅ Then force refetch payments to get fresh data - use result directly to avoid stale closure
+      // ✅ Force refetch payments to get fresh data
       const refetchResult = await refetchPayments();
       const freshPayments = refetchResult.data || [];
       
@@ -198,17 +187,26 @@ export function PurchaseOrderDetailPage() {
           newPaymentStatus = 'Chưa thanh toán';
         }
         
-        // Update PO if status changed
+        // Update PO if status changed — await to ensure DB writes before refetch
         if (newPaymentStatus !== purchaseOrder.paymentStatus || newStatus !== purchaseOrder.status) {
-          updatePO.mutate({ 
-            systemId: purchaseOrder.systemId, 
-            data: { 
-              status: newStatus,
-              paymentStatus: newPaymentStatus,
-              // Note: paid is a calculated field from payments, not stored directly
-            } 
-          });
+          try {
+            await updatePO.mutateAsync({ 
+              systemId: purchaseOrder.systemId, 
+              data: { 
+                status: newStatus,
+                paymentStatus: newPaymentStatus,
+              } 
+            });
+          } catch {
+            // Silently continue — auto-complete useEffect will handle as fallback
+          }
         }
+        
+        // ✅ Final invalidation to ensure UI reflects all changes
+        await queryClient.invalidateQueries({ 
+          queryKey: ['purchase-orders'],
+          refetchType: 'all',
+        });
       }
     },
     onError: (err) => {
@@ -217,7 +215,8 @@ export function PurchaseOrderDetailPage() {
       console.error('[Payment] Error creating payment:', err);
     }
   });
-  const { employee: authEmployee } = useAuth();
+  const { employee: authEmployee, can, isAdmin } = useAuth();
+  const { isMobile } = useBreakpoint();
   const currentUserSystemId = asSystemId(authEmployee?.systemId ?? 'SYSTEM');
   const currentUserName = authEmployee?.fullName ?? 'Hệ thống';
   const { findById: findProductTypeById } = useProductTypeFinder();
@@ -617,7 +616,7 @@ export function PurchaseOrderDetailPage() {
     const _isCompleted = purchaseOrder.status === 'Hoàn thành';
     
     // Theo chuẩn Sapo: Chỉ cho phép sửa/hủy đơn CHƯA nhập kho
-    const canEdit = !isTerminalStatus && purchaseOrder.deliveryStatus === 'Chưa nhập';
+    const canEdit = !isTerminalStatus && purchaseOrder.deliveryStatus === 'Chưa nhập' && (isAdmin || can('edit_purchase_orders'));
     const canCancel = !isTerminalStatus && purchaseOrder.deliveryStatus === 'Chưa nhập';
 
     // Nhóm nút bên trái (In đơn) - Sao chép đã chuyển sang gần badge
@@ -669,7 +668,53 @@ export function PurchaseOrderDetailPage() {
     }
 
     return actionButtons;
-  }, [router, purchaseOrder, canBeFinished, canReturn, finishOrder, currentUserSystemId, currentUserName, handleCancelRequest, handlePrint]);
+  }, [router, purchaseOrder, canBeFinished, canReturn, finishOrder, currentUserSystemId, currentUserName, handleCancelRequest, handlePrint, can, isAdmin]);
+
+  const mobileHeaderActions = React.useMemo(() => {
+    if (!isMobile || !purchaseOrder) return [];
+    const isTerminalStatus = purchaseOrder.status === 'Kết thúc' || purchaseOrder.status === 'Đã hủy';
+    const canEdit = !isTerminalStatus && purchaseOrder.deliveryStatus === 'Chưa nhập' && (isAdmin || can('edit_purchase_orders'));
+    const canCancelOrder = !isTerminalStatus && purchaseOrder.deliveryStatus === 'Chưa nhập';
+    return [
+      <DropdownMenu key="mobile-actions">
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="sm" className="h-9">
+            <MoreHorizontal className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={handlePrint}>
+            <Printer className="mr-2 h-4 w-4" />
+            In đơn
+          </DropdownMenuItem>
+          {!isTerminalStatus && canBeFinished && (
+            <DropdownMenuItem onClick={() => finishOrder(purchaseOrder.systemId, currentUserSystemId, currentUserName)}>
+              <CheckCircle2 className="mr-2 h-4 w-4" />
+              Hoàn tất
+            </DropdownMenuItem>
+          )}
+          {canEdit && (
+            <DropdownMenuItem onClick={() => router.push(`${ROUTES.PROCUREMENT.PURCHASE_ORDERS}/${purchaseOrder.systemId}/edit`)}>
+              <Edit className="mr-2 h-4 w-4" />
+              Sửa
+            </DropdownMenuItem>
+          )}
+          {canReturn && (
+            <DropdownMenuItem onClick={() => router.push(`${ROUTES.PROCUREMENT.PURCHASE_ORDERS}/${purchaseOrder.systemId}/return`)}>
+              <Undo2 className="mr-2 h-4 w-4" />
+              Hoàn trả
+            </DropdownMenuItem>
+          )}
+          {canCancelOrder && (
+            <DropdownMenuItem onClick={() => handleCancelRequest(purchaseOrder)} className="text-destructive">
+              <Trash2 className="mr-2 h-4 w-4" />
+              Hủy đơn
+            </DropdownMenuItem>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>,
+    ];
+  }, [isMobile, purchaseOrder, canBeFinished, canReturn, isAdmin, can, finishOrder, currentUserSystemId, currentUserName, handleCancelRequest, handlePrint, router]);
 
   // Badge with copy button next to it
   const badgeWithCopy = React.useMemo(() => {
@@ -698,7 +743,7 @@ export function PurchaseOrderDetailPage() {
   }, [purchaseOrder, statusBadgeVariant, router]);
 
   usePageHeader({ 
-    actions,
+    actions: isMobile ? mobileHeaderActions : actions,
     title: purchaseOrder?.id ? `Đơn nhập hàng ${purchaseOrder.id}` : 'Chi tiết đơn nhập hàng',
     badge: badgeWithCopy,
     breadcrumb: [
@@ -805,32 +850,6 @@ export function PurchaseOrderDetailPage() {
       print(isPayment ? 'payment' : 'receipt', { data: printData });
   }, [purchaseOrder, supplier, findBranchById, storeInfo, print, findEmployeeById, employees]);
 
-  const supplierPurchaseOrders = React.useMemo(() => {
-    if (!supplier) return [];
-    // Filter by supplier.systemId, check both supplierSystemId and supplierId
-    return allPurchaseOrders.filter(po => {
-      const poSupplierId = po.supplierSystemId || (po as unknown as { supplierId?: string })?.supplierId;
-      return poSupplierId === supplier.systemId;
-    });
-  }, [supplier, allPurchaseOrders]);
-
-  const { calculatedDebt, totalReturnValueForSupplier } = React.useMemo(() => {
-    if (!supplier) return { calculatedDebt: 0, totalReturnValueForSupplier: 0 };
-    
-    const supplierReturns = allPurchaseReturns.filter(pr => pr.supplierSystemId === supplier.systemId);
-    const totalReturnValue = supplierReturns.reduce((sum, pr) => sum + pr.totalReturnValue, 0);
-
-    const totalPurchases = supplierPurchaseOrders.reduce((sum, po) => sum + po.grandTotal, 0);
-    const totalPayments = supplierPurchaseOrders.reduce(
-      (sum, po) => sum + sumPaymentsForPurchaseOrder(allPayments, po),
-      0
-    );
-    
-    // Debt calculation should factor in returns
-    const calculatedDebt = totalPurchases - totalPayments - totalReturnValue;
-      
-    return { calculatedDebt, totalReturnValueForSupplier: totalReturnValue };
-  }, [supplier, supplierPurchaseOrders, allPayments, allPurchaseReturns]);
   
     const { totalPaidOnThisOrder, financialHistory } = React.useMemo(() => {
     if (!purchaseOrder) return { totalPaidOnThisOrder: 0, financialHistory: [] };
@@ -893,7 +912,7 @@ export function PurchaseOrderDetailPage() {
       <div className="p-8">
         <div className="max-w-2xl mx-auto text-center">
           <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4" />
-          <p className="text-body-sm text-muted-foreground">Đang tải dữ liệu...</p>
+          <p className="text-sm text-muted-foreground">Đang tải dữ liệu...</p>
         </div>
       </div>
     );
@@ -905,7 +924,7 @@ export function PurchaseOrderDetailPage() {
       <div className="p-8">
         <div className="max-w-2xl mx-auto text-center">
           <h2 className="text-h2 mb-4">Không tìm thấy đơn hàng</h2>
-          <p className="text-body-sm text-muted-foreground mb-6">Đơn hàng với mã {systemId} không tồn tại hoặc đã bị xóa.</p>
+          <p className="text-sm text-muted-foreground mb-6">Đơn hàng với mã {systemId} không tồn tại hoặc đã bị xóa.</p>
           <Button onClick={() => router.push('/purchase-orders')}>
             Quay lại danh sách
           </Button>
@@ -1001,7 +1020,8 @@ export function PurchaseOrderDetailPage() {
         const isFullyPaid = totalPaid >= purchaseOrder.grandTotal;
         
         const updateData: Partial<PurchaseOrder> = { 
-          deliveryStatus: newDeliveryStatus 
+          deliveryStatus: newDeliveryStatus,
+          receivedDate: new Date().toISOString(),
         };
         
         // Auto-complete if fully received AND fully paid
@@ -1081,7 +1101,7 @@ export function PurchaseOrderDetailPage() {
                 <AlertCircle className="h-5 w-5" />
                 <p className="font-medium">Đơn hàng chưa có sản phẩm hoặc tổng tiền bằng 0</p>
               </div>
-              <p className="mt-2 text-body-sm text-amber-700 dark:text-amber-400">
+              <p className="mt-2 text-sm text-amber-700 dark:text-amber-400">
                 Vui lòng kiểm tra lại danh sách sản phẩm trong đơn hàng.
               </p>
             </div>
@@ -1246,68 +1266,60 @@ export function PurchaseOrderDetailPage() {
 
   return (
       <div className="space-y-6">
-          <StatusTimeline status={purchaseOrder.status} deliveryStatus={purchaseOrder.deliveryStatus} orderDate={purchaseOrder.orderDate} />
+          <StatusTimeline
+            status={purchaseOrder.status}
+            deliveryStatus={purchaseOrder.deliveryStatus}
+            orderDate={purchaseOrder.orderDate}
+            receivedDate={purchaseOrder.receivedDate ?? poReceipts[0]?.receivedDate ?? poReceipts[0]?.createdAt ?? null}
+            completedDate={purchaseOrder.status === 'Hoàn thành' || purchaseOrder.status === 'Kết thúc' ? purchaseOrder.updatedAt : null}
+          />
 
           {/* Thông tin NCC và Đơn hàng */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2">
-                  <Card className="h-75">
+                  <Card>
                       <CardHeader>
                         <div className="flex items-center gap-2">
                           <Users className="h-5 w-5 text-muted-foreground" />
                           <CardTitle size="lg">Thông tin nhà cung cấp</CardTitle>
                         </div>
                       </CardHeader>
-                      <CardContent className="overflow-y-auto" style={{maxHeight: 'calc(300px - 80px)'}}>
-                        <div className="space-y-4">
+                      <CardContent className="overflow-y-auto" style={{maxHeight: 'calc(400px - 80px)'}}>
+                        <div className="space-y-3">
                           <div className="flex items-start gap-3">
                             <div className="flex-1">
-                              <p className="font-semibold text-h3 text-primary cursor-pointer hover:underline" onClick={handleSupplierClick}>
+                              <p className="font-semibold text-h3 text-primary cursor-pointer hover:underline" role="button" tabIndex={0} onClick={handleSupplierClick} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleSupplierClick(); }}>
                                 {purchaseOrder.supplierName}
                               </p>
-                              <div className="mt-2 space-y-1 text-body-sm text-muted-foreground">
-                                <p>Địa chỉ: {supplier?.address || '-'}</p>
+                              {supplierStats?.supplier?.phone && (
+                                <p className="text-sm text-muted-foreground">{supplierStats.supplier.phone}</p>
+                              )}
+                              <div className="mt-1 space-y-1 text-sm text-muted-foreground">
+                                <p>Địa chỉ: {supplierStats?.supplier?.address || supplier?.address || '-'}</p>
                               </div>
                             </div>
                           </div>
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-3 bg-muted/30 rounded-lg">
-                            <div className="space-y-1">
-                              <p className="text-body-xs text-muted-foreground">Nợ hiện tại</p>
-                              <p className="text-body-sm font-semibold text-destructive">
-                                {formatCurrency(calculatedDebt)}
-                              </p>
-                            </div>
-                            <div className="space-y-1">
-                              <p className="text-body-xs text-muted-foreground">Tổng đơn nhập</p>
-                              <p className="text-body-sm font-semibold">
-                                {formatCurrency(supplierPurchaseOrders.reduce((sum, po) => sum + po.grandTotal, 0))}
-                              </p>
-                            </div>
-                            <div className="space-y-1">
-                              <p className="text-body-xs text-muted-foreground">Trả hàng</p>
-                              <p className="text-body-sm font-semibold text-orange-600">
-                                {formatCurrency(totalReturnValueForSupplier)}
-                              </p>
-                            </div>
-                          </div>
+                          {supplierStats && (
+                            <SupplierStatsSection stats={supplierStats} />
+                          )}
                         </div>
                       </CardContent>
                   </Card>
               </div>
 
               <div className="lg:col-span-1">
-                  <Card className="h-75 flex flex-col">
+                  <Card className="flex flex-col">
                       <CardHeader>
                         <CardTitle size="lg">Thông tin đơn nhập hàng</CardTitle>
                       </CardHeader>
-                      <CardContent className="flex-1 overflow-y-auto text-body-sm space-y-3">
+                      <CardContent className="flex-1 overflow-y-auto text-sm space-y-3">
                           <DetailField label="Chi nhánh" value={resolvedBranchName} />
                           <DetailField label="Chính sách giá" value="Giá nhập" />
                           <DetailField label="Nhân viên phụ trách" value={resolvedBuyerName} />
                           <DetailField label="Ngày đặt" value={formatDateCustom(parseDate(purchaseOrder.orderDate) || getCurrentDate(), 'dd/MM/yyyy')} />
                           <DetailField label="Ngày giao" value={formatDateCustom(parseDate(purchaseOrder.deliveryDate ?? '') || getCurrentDate(), 'dd/MM/yyyy')} />
                           <DetailField label="Tham chiếu" value={purchaseOrder.reference || '-'} />
-                          <Button variant="link" className="p-0 h-auto text-body-sm" onClick={handleSupplierClick}>Xem lịch sử đơn nhập hàng</Button>
+                          <Button variant="link" className="p-0 h-auto text-sm" onClick={handleSupplierClick}>Xem lịch sử đơn nhập hàng</Button>
                       </CardContent>
                   </Card>
               </div>
@@ -1367,17 +1379,18 @@ export function PurchaseOrderDetailPage() {
                                           productSystemId={item.productSystemId}
                                           product={product}
                                           productName={item.productName}
+                                          itemThumbnailImage={item.imageUrl}
                                           onPreview={(url, title) => setPreviewImage({ url, title })}
                                         />
                                       </TableCell>
                                       <TableCell>
                                         <div className="flex flex-col gap-1">
                                           <Link href={`/products/${item.productSystemId}`} 
-                                            className="text-body-sm font-medium text-primary hover:underline"
+                                            className="text-sm font-medium text-primary hover:underline"
                                           >
                                             {item.productName}
                                           </Link>
-                                          <div className="flex items-center gap-1 text-body-xs text-muted-foreground">
+                                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
                                             <Link href={`/products/${item.productSystemId}`} 
                                               className="text-primary hover:underline"
                                             >
@@ -1385,11 +1398,11 @@ export function PurchaseOrderDetailPage() {
                                             </Link>
                                           </div>
                                           {item.note && (
-                                            <p className="text-body-xs text-muted-foreground italic">• {item.note}</p>
+                                            <p className="text-xs text-muted-foreground italic">• {item.note}</p>
                                           )}
                                         </div>
                                       </TableCell>
-                                      <TableCell className="text-body-sm text-muted-foreground">{productTypeName}</TableCell>
+                                      <TableCell className="text-sm text-muted-foreground">{productTypeName}</TableCell>
                                       <TableCell>{item.unit || '-'}</TableCell>
                                       <TableCell className="text-center">{item.quantity}</TableCell>
                                       <TableCell className="text-right">{formatCurrency(item.unitPrice)}</TableCell>
@@ -1398,7 +1411,7 @@ export function PurchaseOrderDetailPage() {
                                       <TableCell className="text-right">
                                         {item.discountType === 'percentage' ? `${item.discount || 0}%` : formatCurrency(item.discount || 0)}
                                       </TableCell>
-                                      <TableCell className="text-body-sm font-semibold text-right">{formatCurrency(lineTotal)}</TableCell>
+                                      <TableCell className="text-sm font-semibold text-right">{formatCurrency(lineTotal)}</TableCell>
                                   </TableRow>
                               )})}
                           </TableBody>
@@ -1409,7 +1422,7 @@ export function PurchaseOrderDetailPage() {
                                     {(purchaseOrder.lineItems || []).reduce((sum, item) => sum + item.quantity, 0)}
                                   </TableCell>
                                   <TableCell colSpan={4} />
-                                  <TableCell className="text-body-sm font-bold text-right">
+                                  <TableCell className="text-sm font-bold text-right">
                                     {formatCurrency(
                                       (purchaseOrder.lineItems || []).reduce((sum, item) => {
                                         const lineGross = item.quantity * item.unitPrice;
@@ -1442,11 +1455,12 @@ export function PurchaseOrderDetailPage() {
                                     Chiết khấu {purchaseOrder.discountType === 'percentage' && (purchaseOrder.discount ?? 0) > 0 ? `(${purchaseOrder.discount}%)` : ''}
                                   </TableCell>
                                   <TableCell className="text-right text-red-600">
-                                    -{formatCurrency(
-                                      purchaseOrder.discountType === 'percentage'
+                                    {(() => {
+                                      const discountValue = purchaseOrder.discountType === 'percentage'
                                         ? ((purchaseOrder.subtotal || 0) * (purchaseOrder.discount ?? 0) / 100)
-                                        : (purchaseOrder.discount ?? 0)
-                                    )}
+                                        : (purchaseOrder.discount ?? 0);
+                                      return discountValue > 0 ? `-${formatCurrency(discountValue)}` : formatCurrency(0);
+                                    })()}
                                   </TableCell>
                               </TableRow>
 
@@ -1501,12 +1515,7 @@ export function PurchaseOrderDetailPage() {
           />
 
           {/* Activity History */}
-          <ActivityHistory 
-            history={[]} // TODO: Fetch from ActivityLog table
-            title="Lịch sử thao tác"
-            emptyMessage="Chưa có lịch sử thay đổi"
-            showMetadata
-          />
+          <EntityActivityTable entityType="purchase_order" entityId={systemId} />
 
            <PaymentConfirmationDialog
               isOpen={isPaymentConfirmationOpen}

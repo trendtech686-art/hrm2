@@ -157,7 +157,7 @@ export function ComboItemsCard({
                           </div>
                         </div>
                       ) : (
-                        <div className="w-10 h-10 rounded-md border bg-muted shrink-0 flex items-center justify-center text-muted-foreground text-body-xs">
+                        <div className="w-10 h-10 rounded-md border bg-muted shrink-0 flex items-center justify-center text-muted-foreground text-xs">
                           N/A
                         </div>
                       )}
@@ -169,12 +169,12 @@ export function ComboItemsCard({
                           >
                             {item.product.name}
                           </Link>
-                          <p className="text-body-xs text-muted-foreground truncate">
+                          <p className="text-xs text-muted-foreground truncate">
                             {item.product.id} · {getTypeLabel(item.product.type)}
                           </p>
                         </div>
                       ) : (
-                        <span className="text-muted-foreground italic text-body-sm">Sản phẩm không tồn tại</span>
+                        <span className="text-muted-foreground italic text-sm">Sản phẩm không tồn tại</span>
                       )}
                     </div>
                   </TableCell>
@@ -182,14 +182,14 @@ export function ComboItemsCard({
                   <TableCell className="text-right">
                     <div>
                       <p>{formatCurrency(item.unitPrice)}</p>
-                      <p className="text-body-xs text-muted-foreground">Vốn: {formatCurrency(item.costPrice)}</p>
+                      <p className="text-xs text-muted-foreground">Vốn: {formatCurrency(item.costPrice)}</p>
                     </div>
                   </TableCell>
                   <TableCell className="text-right">{formatCurrency(item.lineTotal)}</TableCell>
                 </TableRow>
               ))}
               <TableRow className="bg-muted/50">
-                <TableCell colSpan={3} className="text-right text-body-sm text-muted-foreground">Tổng giá gốc:</TableCell>
+                <TableCell colSpan={3} className="text-right text-sm text-muted-foreground">Tổng giá gốc:</TableCell>
                 <TableCell className="text-right font-semibold">{formatCurrency(totalOriginalPrice)}</TableCell>
               </TableRow>
             </TableBody>
@@ -199,21 +199,21 @@ export function ComboItemsCard({
         {/* Pricing Summary */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-2">
           <div>
-            <p className="text-body-sm text-muted-foreground mb-1">Cách tính giá</p>
+            <p className="text-sm text-muted-foreground mb-1">Cách tính giá</p>
             <p className="font-medium">{getPricingTypeLabel()}</p>
           </div>
           <div>
-            <p className="text-body-sm text-muted-foreground mb-1">Giá combo</p>
+            <p className="text-sm text-muted-foreground mb-1">Giá combo</p>
             <p className="text-h3 text-primary">{formatCurrency(comboPrice)}</p>
           </div>
           <div>
-            <p className="text-body-sm text-muted-foreground mb-1">Tiết kiệm</p>
+            <p className="text-sm text-muted-foreground mb-1">Tiết kiệm</p>
             <p className="font-medium">
               {savings > 0 ? (
                 <>
                   <span className="text-green-600">{formatCurrency(savings)}</span>
                   {totalOriginalPrice > 0 && (
-                    <span className="text-body-xs ml-1 text-muted-foreground">
+                    <span className="text-xs ml-1 text-muted-foreground">
                       ({Math.round((savings / totalOriginalPrice) * 100)}%)
                     </span>
                   )}
@@ -224,7 +224,7 @@ export function ComboItemsCard({
             </p>
           </div>
           <div>
-            <p className="text-body-sm text-muted-foreground mb-1">Giá vốn combo</p>
+            <p className="text-sm text-muted-foreground mb-1">Giá vốn combo</p>
             <p className="font-medium">{formatCurrency(totalCostPrice)}</p>
           </div>
         </div>
@@ -280,7 +280,7 @@ export function ComboLowStockWarning({ product, allProducts }: ComboLowStockWarn
       <AlertTriangle className={`h-4 w-4 mt-0.5 shrink-0 ${
         isCritical ? 'text-red-600' : 'text-amber-600'
       }`} />
-      <div className="text-body-sm">
+      <div className="text-sm">
         {isCritical ? (
           <>
             <p className="font-medium text-red-700 dark:text-red-400">

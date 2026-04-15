@@ -1,14 +1,14 @@
 // Attendance Lock - Store locked months for payroll processing
 model AttendanceLock {
-  systemId    String   @id @default(cuid())
-  monthKey    String   @unique // Format: "YYYY-MM"
-  isLocked    Boolean  @default(true)
-  lockedAt    DateTime @default(now())
-  lockedBy    String?  // Employee systemId who locked
-  unlockedAt  DateTime?
-  unlockedBy  String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  systemId   String    @id @default(cuid())
+  monthKey   String    @unique // Format: "YYYY-MM"
+  isLocked   Boolean   @default(true)
+  lockedAt   DateTime  @default(now())
+  lockedBy   String? // Employee systemId who locked
+  unlockedAt DateTime?
+  unlockedBy String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
   @@index([monthKey])
   @@map("attendance_locks")

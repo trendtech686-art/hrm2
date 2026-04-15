@@ -41,9 +41,9 @@ export function useOrderDetailActions(options: UseOrderDetailActionsOptions = {}
           restockItems: opts?.restock ?? true,
         });
 
-        toast.success('ÄÃ£ há»§y Ä‘Æ¡n hÃ ng');
+        toast.success('Đã hủy đơn hàng');
       } catch (error) {
-        toast.error('Lá»—i khi há»§y Ä‘Æ¡n hÃ ng');
+        toast.error('Lỗi khi hủy đơn hàng');
         throw error;
       }
     },
@@ -60,9 +60,9 @@ export function useOrderDetailActions(options: UseOrderDetailActionsOptions = {}
           note: paymentData.note,
         });
 
-        toast.success('ÄÃ£ thÃªm thanh toÃ¡n');
+        toast.success('Đã thêm thanh toán');
       } catch (error) {
-        toast.error('Lá»—i khi thÃªm thanh toÃ¡n');
+        toast.error('Lỗi khi thêm thanh toán');
         throw error;
       }
     },
@@ -81,9 +81,9 @@ export function useOrderDetailActions(options: UseOrderDetailActionsOptions = {}
           assignedEmployeeId: assignedEmployeeId ? String(assignedEmployeeId) : undefined,
         });
 
-        toast.success('ÄÃ£ táº¡o yÃªu cáº§u Ä‘Ã³ng gÃ³i');
+        toast.success('Đã tạo yêu cầu đóng gói');
       } catch (error) {
-        toast.error('Lá»—i khi táº¡o yÃªu cáº§u Ä‘Ã³ng gÃ³i');
+        toast.error('Lỗi khi tạo yêu cầu đóng gói');
         throw error;
       }
     },
@@ -98,9 +98,9 @@ export function useOrderDetailActions(options: UseOrderDetailActionsOptions = {}
           packagingId: String(packagingSystemId),
         });
 
-        toast.success('XÃ¡c nháº­n Ä‘Ã³ng gÃ³i thÃ nh cÃ´ng');
+        toast.success('Xác nhận đóng gói thành công');
       } catch (error) {
-        toast.error('Lá»—i khi xÃ¡c nháº­n Ä‘Ã³ng gÃ³i');
+        toast.error('Lỗi khi xác nhận đóng gói');
         throw error;
       }
     },
@@ -116,9 +116,9 @@ export function useOrderDetailActions(options: UseOrderDetailActionsOptions = {}
           reason: reason || '',
         });
 
-        toast.success('Há»§y yÃªu cáº§u Ä‘Ã³ng gÃ³i thÃ nh cÃ´ng');
+        toast.success('Hủy yêu cầu đóng gói thành công');
       } catch (error) {
-        toast.error('Lá»—i khi há»§y yÃªu cáº§u Ä‘Ã³ng gÃ³i');
+        toast.error('Lỗi khi hủy yêu cầu đóng gói');
         throw error;
       }
     },
@@ -137,9 +137,9 @@ export function useOrderDetailActions(options: UseOrderDetailActionsOptions = {}
           packagingId: String(packagingSystemId),
         });
 
-        toast.success('ÄÃ£ chuyá»ƒn sang nháº­n táº¡i cá»­a hÃ ng');
+        toast.success('Đã chuyển sang nhận tại cửa hàng');
       } catch (error) {
-        toast.error('Lá»—i khi xá»­ lÃ½');
+        toast.error('Lỗi khi xử lý');
         throw error;
       }
     },
@@ -154,9 +154,9 @@ export function useOrderDetailActions(options: UseOrderDetailActionsOptions = {}
           packagingId: String(packagingSystemId),
         });
 
-        toast.success('XÃ¡c nháº­n khÃ¡ch Ä‘Ã£ nháº­n hÃ ng');
+        toast.success('Xác nhận khách đã nhận hàng');
       } catch (error) {
-        toast.error('Lá»—i khi xÃ¡c nháº­n');
+        toast.error('Lỗi khi xác nhận');
         throw error;
       }
     },
@@ -171,9 +171,9 @@ export function useOrderDetailActions(options: UseOrderDetailActionsOptions = {}
           packagingId: String(packagingSystemId),
         });
 
-        toast.success('Xuáº¥t kho thÃ nh cÃ´ng');
+        toast.success('Xuất kho thành công');
       } catch (error) {
-        toast.error('Lá»—i khi xuáº¥t kho');
+        toast.error('Lỗi khi xuất kho');
         throw error;
       }
     },
@@ -188,9 +188,9 @@ export function useOrderDetailActions(options: UseOrderDetailActionsOptions = {}
           packagingId: String(packagingSystemId),
         });
 
-        toast.success('Giao hÃ ng thÃ nh cÃ´ng');
+        toast.success('Giao hàng thành công');
       } catch (error) {
-        toast.error('Lá»—i khi cáº­p nháº­t tráº¡ng thÃ¡i giao hÃ ng');
+        toast.error('Lỗi khi cập nhật trạng thái giao hàng');
         throw error;
       }
     },
@@ -206,9 +206,9 @@ export function useOrderDetailActions(options: UseOrderDetailActionsOptions = {}
           reason: reason || '',
         });
 
-        toast.success('ÄÃ£ Ä‘Ã¡nh dáº¥u giao hÃ ng tháº¥t báº¡i');
+        toast.success('Đã đánh dấu giao hàng thất bại');
       } catch (error) {
-        toast.error('Lá»—i khi cáº­p nháº­t tráº¡ng thÃ¡i');
+        toast.error('Lỗi khi cập nhật trạng thái');
         throw error;
       }
     },
@@ -225,9 +225,9 @@ export function useOrderDetailActions(options: UseOrderDetailActionsOptions = {}
           restockItems,
         });
 
-        toast.success('Há»§y giao hÃ ng thÃ nh cÃ´ng');
+        toast.success('Hủy giao hàng thành công');
       } catch (error) {
-        toast.error('Lá»—i khi há»§y giao hÃ ng');
+        toast.error('Lỗi khi hủy giao hàng');
         throw error;
       }
     },
@@ -251,9 +251,9 @@ export function useOrderDetailActions(options: UseOrderDetailActionsOptions = {}
           packagingId,
         });
 
-        toast.success('ÄÃ£ táº¡o váº­n Ä‘Æ¡n');
+        toast.success('Đã tạo vận đơn');
       } catch (error) {
-        toast.error('Lá»—i khi táº¡o váº­n Ä‘Æ¡n');
+        toast.error('Lỗi khi tạo vận đơn');
         throw error;
       }
     },
@@ -273,11 +273,11 @@ export function useOrderDetailActions(options: UseOrderDetailActionsOptions = {}
           trackingCode,
         });
 
-        toast.success('ÄÃ£ há»§y váº­n Ä‘Æ¡n GHTK');
+        toast.success('Đã hủy vận đơn GHTK');
         return { success: true };
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown error';
-        toast.error(`Lá»—i khi há»§y váº­n Ä‘Æ¡n GHTK: ${message}`);
+        toast.error(`Lỗi khi hủy vận đơn GHTK: ${message}`);
         return { success: false, message };
       }
     },
@@ -292,11 +292,11 @@ export function useOrderDetailActions(options: UseOrderDetailActionsOptions = {}
           packagingId: String(packagingSystemId),
         });
 
-        toast.success('Äá»“ng bá»™ váº­n Ä‘Æ¡n GHTK thÃ nh cÃ´ng');
+        toast.success('Đồng bộ vận đơn GHTK thành công');
         return { success: true };
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown error';
-        toast.error(`Lá»—i khi Ä‘á»“ng bá»™: ${message}`);
+        toast.error(`Lỗi khi đồng bộ: ${message}`);
         return { success: false, message };
       }
     },
@@ -307,6 +307,8 @@ export function useOrderDetailActions(options: UseOrderDetailActionsOptions = {}
     // Order lifecycle
     cancelOrder,
     bulkCancelOrders: actions.bulkCancel.mutateAsync,
+    bulkApproveOrders: actions.bulkApprove.mutateAsync,
+    bulkPayOrders: actions.bulkPayment.mutateAsync,
     addPayment,
 
     // Packaging

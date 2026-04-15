@@ -12,9 +12,10 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox as _Checkbox } from "@/components/ui/checkbox";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, Loader2 } from "lucide-react";
 import type { Complaint } from "../types";
 import type { SystemId } from "@/lib/id-types";
+import { logError } from '@/lib/logger'
 
 interface ConfirmCorrectDialogProps {
   open: boolean;
@@ -68,7 +69,7 @@ export function ConfirmCorrectDialog({
       await onConfirm(note, qtyByProductSystemId);
       handleClose();
     } catch (error) {
-      console.error('[CONFIRM-CORRECT-DIALOG] Submit error:', error);
+      logError('[CONFIRM-CORRECT-DIALOG] Submit error', error);
     } finally {
       setIsSubmitting(false);
     }
@@ -204,7 +205,7 @@ export function ConfirmCorrectDialog({
             Hủy
           </Button>
           <Button className="h-9" onClick={handleSubmit} disabled={isSubmitting}>
-            {isSubmitting ? "Đang xử lý..." : "Xác nhận"}
+            {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Đang xử lý...</> : "Xác nhận"}
           </Button>
         </DialogFooter>
       </DialogContent>

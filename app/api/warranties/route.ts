@@ -4,11 +4,15 @@ import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePag
 import { createWarrantySchema } from './validation'
 import { generateNextIdsWithTx } from '@/lib/id-system'
 import { generateSubEntityId } from '@/lib/id-utils'
+import { logError } from '@/lib/logger'
+import { createNotification } from '@/lib/notifications'
+import { notifyWarrantyCreated } from '@/lib/warranty-notifications'
+import { getUserNameFromDb } from '@/lib/get-user-name'
 
 // GET /api/warranties - List all warranties with filtering and pagination
 export async function GET(request: Request) {
   const session = await requireAuth()
-  if (!session) return apiError('Unauthorized', 401)
+  if (!session) return apiError('Chưa được xác thực', 401)
 
   try {
     const { searchParams } = new URL(request.url)
@@ -51,7 +55,13 @@ export async function GET(request: Request) {
     }
 
     if (orderSystemId) {
-      where.orderId = orderSystemId
+      if (!where.AND) where.AND = [];
+      (where.AND as Prisma.WarrantyWhereInput[]).push({
+        OR: [
+          { orderId: orderSystemId },
+          { linkedOrderSystemId: orderSystemId },
+        ],
+      });
     }
 
     if (branchId) {
@@ -84,6 +94,9 @@ export async function GET(request: Request) {
           customers: {
             select: { systemId: true, id: true, name: true, phone: true },
           },
+          order: {
+            select: { systemId: true, id: true },
+          },
         },
       }),
       prisma.warranty.count({ where }),
@@ -91,8 +104,8 @@ export async function GET(request: Request) {
 
     return apiPaginated(warranties, { page, limit, total })
   } catch (error) {
-    console.error('Error fetching warranties:', error)
-    return apiError('Failed to fetch warranties', 500)
+    logError('Error fetching warranties', error)
+    return apiError('Không thể tải danh sách bảo hành', 500)
   }
 }
 
@@ -113,7 +126,7 @@ export async function GET(request: Request) {
  */
 export async function POST(request: Request) {
   const session = await requireAuth()
-  if (!session) return apiError('Unauthorized', 401)
+  if (!session) return apiError('Chưa được xác thực', 401)
 
   const result = await validateBody(request, createWarrantySchema)
   if (!result.success) return apiError(result.error, 400)
@@ -277,14 +290,53 @@ export async function POST(request: Request) {
       return newWarranty
     })
 
+    // Notify assigned employee (non-blocking)
+    const assignedEmployeeId = warranty.employeeSystemId;
+    const currentUserEmployeeId = session.user?.employeeId;
+    if (assignedEmployeeId && assignedEmployeeId !== currentUserEmployeeId) {
+      createNotification({
+        type: 'warranty',
+        title: 'Phiếu bảo hành mới',
+        message: `Bạn được giao phiếu bảo hành "${warranty.title}" (${warranty.id})`,
+        link: `/warranty/${warranty.systemId}`,
+        recipientId: assignedEmployeeId,
+        senderId: currentUserEmployeeId || undefined,
+        senderName: session.user?.name || undefined,
+        settingsKey: 'warranty:created',
+      }).catch(e => logError('[Warranty] Creation notification failed', e));
+
+      // Send email notification (non-blocking)
+      notifyWarrantyCreated({
+        systemId: warranty.systemId,
+        title: warranty.title,
+        id: warranty.id,
+        assigneeId: assignedEmployeeId,
+        creatorName: session.user?.name,
+      }).catch(e => logError('[Warranty] Creation email failed', e));
+    }
+
+    // Log activity
+    getUserNameFromDb(session.user?.id).then(userName =>
+      prisma.activityLog.create({
+        data: {
+          entityType: 'warranty',
+          entityId: warranty.systemId,
+          action: 'created',
+          actionType: 'create',
+          note: `Tạo phiếu bảo hành`,
+          metadata: { userName },
+          createdBy: userName,
+        }
+      })
+    ).catch(e => logError('[ActivityLog] warranty create failed', e))
     return apiSuccess(warranty, 201)
   } catch (error) {
-    console.error('Error creating warranty:', error)
+    logError('Error creating warranty', error)
     
     if (error instanceof Error && error.message === 'INSUFFICIENT_STOCK') {
       return apiError('Không đủ hàng trong kho để cam kết cho bảo hành', 400)
     }
     
-    return apiError('Failed to create warranty', 500)
+    return apiError('Không thể tạo phiếu bảo hành', 500)
   }
 }

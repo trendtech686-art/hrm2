@@ -52,17 +52,25 @@ export function usePurchaseReturnFinder() {
 }
 
 /**
- * Returns purchase returns filtered by supplier
+ * Fetch purchase returns for a specific purchase order (server-side filtered)
+ * Replaces useAllPurchaseReturns() + .filter(pr => pr.purchaseOrderSystemId === poSystemId)
  */
-export function usePurchaseReturnsBySupplier(supplierSystemId: SystemId | string | undefined) {
-  const { data, isLoading } = useAllPurchaseReturns();
+export function usePurchaseReturnsByPO(poSystemId: string | undefined) {
+  const query = useQuery({
+    queryKey: [...purchaseReturnKeys.all, 'byPO', poSystemId],
+    queryFn: async () => {
+      const res = await fetchPurchaseReturns({ purchaseOrderId: poSystemId! });
+      return res.data;
+    },
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    enabled: !!poSystemId,
+  });
   
-  const filtered = React.useMemo(
-    () => supplierSystemId 
-      ? data.filter(pr => pr.supplierSystemId === supplierSystemId)
-      : [],
-    [data, supplierSystemId]
-  );
-  
-  return { data: filtered, isLoading };
+  return {
+    data: query.data || [],
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
+  };
 }

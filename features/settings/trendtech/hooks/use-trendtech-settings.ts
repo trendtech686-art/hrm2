@@ -6,6 +6,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useCallback } from 'react';
 import { toast } from 'sonner';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import type { 
   TrendtechSettings, 
   TrendtechCategory, 
@@ -15,10 +16,8 @@ import type {
   TrendtechPriceMapping,
   TrendtechSyncSettings,
   TrendtechSyncResult,
-  TrendtechSyncLog,
   TrendtechProduct,
 } from '@/lib/trendtech/types';
-import { generateSubEntityId } from '@/lib/id-utils';
 import type { SystemId } from '@/lib/id-types';
 import { DEFAULT_TRENDTECH_SETTINGS } from '@/lib/trendtech/types';
 
@@ -143,11 +142,6 @@ export function useTrendtechProducts() {
   );
 }
 
-export function useTrendtechLogs() {
-  const { data: settings } = useTrendtechSettings();
-  return useMemo(() => settings?.logs ?? [], [settings?.logs]);
-}
-
 // ========================================
 // Mutation Hooks
 // ========================================
@@ -160,7 +154,7 @@ export function useTrendtechConfigMutations(options?: { onSuccess?: () => void }
       await updateTrendtechSection('apiUrl', url);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: trendtechKeys.settings() });
+      invalidateRelated(queryClient, 'trendtech');
       options?.onSuccess?.();
     },
     onError: (error: Error) => {
@@ -173,7 +167,7 @@ export function useTrendtechConfigMutations(options?: { onSuccess?: () => void }
       await updateTrendtechSection('apiKey', key);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: trendtechKeys.settings() });
+      invalidateRelated(queryClient, 'trendtech');
       options?.onSuccess?.();
     },
     onError: (error: Error) => {
@@ -186,7 +180,7 @@ export function useTrendtechConfigMutations(options?: { onSuccess?: () => void }
       await updateTrendtechSection('enabled', enabled);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: trendtechKeys.settings() });
+      invalidateRelated(queryClient, 'trendtech');
       toast.success('Integration status updated');
       options?.onSuccess?.();
     },
@@ -203,7 +197,7 @@ export function useTrendtechConfigMutations(options?: { onSuccess?: () => void }
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: trendtechKeys.settings() });
+      invalidateRelated(queryClient, 'trendtech');
     },
   });
 
@@ -218,7 +212,7 @@ export function useTrendtechCategoryMutations(options?: { onSuccess?: () => void
       await updateTrendtechSection('categories', categories);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: trendtechKeys.settings() });
+      invalidateRelated(queryClient, 'trendtech');
       options?.onSuccess?.();
     },
   });
@@ -230,7 +224,7 @@ export function useTrendtechCategoryMutations(options?: { onSuccess?: () => void
       await updateTrendtechSection('categories', categories);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: trendtechKeys.settings() });
+      invalidateRelated(queryClient, 'trendtech');
       toast.success('Category added');
       options?.onSuccess?.();
     },
@@ -245,7 +239,7 @@ export function useTrendtechCategoryMutations(options?: { onSuccess?: () => void
       await updateTrendtechSection('categories', categories);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: trendtechKeys.settings() });
+      invalidateRelated(queryClient, 'trendtech');
       toast.success('Category updated');
       options?.onSuccess?.();
     },
@@ -258,7 +252,7 @@ export function useTrendtechCategoryMutations(options?: { onSuccess?: () => void
       await updateTrendtechSection('categories', categories);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: trendtechKeys.settings() });
+      invalidateRelated(queryClient, 'trendtech');
       toast.success('Category deleted');
       options?.onSuccess?.();
     },
@@ -275,7 +269,7 @@ export function useTrendtechBrandMutations(options?: { onSuccess?: () => void })
       await updateTrendtechSection('brands', brands);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: trendtechKeys.settings() });
+      invalidateRelated(queryClient, 'trendtech');
       options?.onSuccess?.();
     },
   });
@@ -287,7 +281,7 @@ export function useTrendtechBrandMutations(options?: { onSuccess?: () => void })
       await updateTrendtechSection('brands', brands);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: trendtechKeys.settings() });
+      invalidateRelated(queryClient, 'trendtech');
       toast.success('Brand added');
       options?.onSuccess?.();
     },
@@ -302,7 +296,7 @@ export function useTrendtechBrandMutations(options?: { onSuccess?: () => void })
       await updateTrendtechSection('brands', brands);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: trendtechKeys.settings() });
+      invalidateRelated(queryClient, 'trendtech');
       toast.success('Brand updated');
       options?.onSuccess?.();
     },
@@ -315,7 +309,7 @@ export function useTrendtechBrandMutations(options?: { onSuccess?: () => void })
       await updateTrendtechSection('brands', brands);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: trendtechKeys.settings() });
+      invalidateRelated(queryClient, 'trendtech');
       toast.success('Brand deleted');
       options?.onSuccess?.();
     },
@@ -334,7 +328,7 @@ export function useTrendtechPriceMappingMutations(options?: { onSuccess?: () => 
       await updateTrendtechSection('priceMapping', priceMapping);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: trendtechKeys.settings() });
+      invalidateRelated(queryClient, 'trendtech');
       toast.success('Price mapping updated');
       options?.onSuccess?.();
     },
@@ -353,7 +347,7 @@ export function useTrendtechCategoryMappingMutations(options?: { onSuccess?: () 
       await updateTrendtechSection('categoryMappings', mappings);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: trendtechKeys.settings() });
+      invalidateRelated(queryClient, 'trendtech');
       toast.success('Mapping added');
       options?.onSuccess?.();
     },
@@ -368,7 +362,7 @@ export function useTrendtechCategoryMappingMutations(options?: { onSuccess?: () 
       await updateTrendtechSection('categoryMappings', mappings);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: trendtechKeys.settings() });
+      invalidateRelated(queryClient, 'trendtech');
       toast.success('Mapping updated');
       options?.onSuccess?.();
     },
@@ -381,7 +375,7 @@ export function useTrendtechCategoryMappingMutations(options?: { onSuccess?: () 
       await updateTrendtechSection('categoryMappings', mappings);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: trendtechKeys.settings() });
+      invalidateRelated(queryClient, 'trendtech');
       toast.success('Mapping deleted');
       options?.onSuccess?.();
     },
@@ -400,7 +394,7 @@ export function useTrendtechBrandMappingMutations(options?: { onSuccess?: () => 
       await updateTrendtechSection('brandMappings', mappings);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: trendtechKeys.settings() });
+      invalidateRelated(queryClient, 'trendtech');
       toast.success('Mapping added');
       options?.onSuccess?.();
     },
@@ -415,7 +409,7 @@ export function useTrendtechBrandMappingMutations(options?: { onSuccess?: () => 
       await updateTrendtechSection('brandMappings', mappings);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: trendtechKeys.settings() });
+      invalidateRelated(queryClient, 'trendtech');
       toast.success('Mapping updated');
       options?.onSuccess?.();
     },
@@ -428,7 +422,7 @@ export function useTrendtechBrandMappingMutations(options?: { onSuccess?: () => 
       await updateTrendtechSection('brandMappings', mappings);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: trendtechKeys.settings() });
+      invalidateRelated(queryClient, 'trendtech');
       toast.success('Mapping deleted');
       options?.onSuccess?.();
     },
@@ -447,7 +441,7 @@ export function useTrendtechSyncSettingsMutations(options?: { onSuccess?: () => 
       await updateTrendtechSection('syncSettings', syncSettings);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: trendtechKeys.settings() });
+      invalidateRelated(queryClient, 'trendtech');
       options?.onSuccess?.();
     },
   });
@@ -463,7 +457,7 @@ export function useTrendtechSyncStatusMutations() {
       await updateTrendtechSection('lastSyncAt', timestamp);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: trendtechKeys.settings() });
+      invalidateRelated(queryClient, 'trendtech');
     },
   });
 
@@ -472,7 +466,7 @@ export function useTrendtechSyncStatusMutations() {
       await updateTrendtechSection('lastSyncResult', result);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: trendtechKeys.settings() });
+      invalidateRelated(queryClient, 'trendtech');
     },
   });
 
@@ -480,35 +474,8 @@ export function useTrendtechSyncStatusMutations() {
 }
 
 export function useTrendtechLogMutations() {
-  const queryClient = useQueryClient();
-
-  const addLog = useMutation({
-    mutationFn: async (log: Omit<TrendtechSyncLog, 'id' | 'timestamp'>) => {
-      const { data: settings } = queryClient.getQueryData(trendtechKeys.settings()) as { data: TrendtechSettings };
-      const newLog: TrendtechSyncLog = {
-        ...log,
-        id: generateSubEntityId('ID'),
-        timestamp: new Date().toISOString(),
-      };
-      const logs = [...(settings?.logs ?? []), newLog];
-      await updateTrendtechSection('logs', logs);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: trendtechKeys.settings() });
-    },
-  });
-
-  const clearLogs = useMutation({
-    mutationFn: async () => {
-      await updateTrendtechSection('logs', []);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: trendtechKeys.settings() });
-      toast.success('Logs cleared');
-    },
-  });
-
-  return { addLog, clearLogs };
+  const noop = useMutation<void, Error, unknown>({ mutationFn: async () => {} });
+  return { addLog: noop, clearLogs: noop };
 }
 
 export function useTrendtechProductsMutations() {
@@ -520,7 +487,7 @@ export function useTrendtechProductsMutations() {
       await updateTrendtechSection('trendtechProductsLastFetch', new Date().toISOString());
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: trendtechKeys.settings() });
+      invalidateRelated(queryClient, 'trendtech');
     },
   });
 
@@ -529,7 +496,7 @@ export function useTrendtechProductsMutations() {
       await updateTrendtechSection('trendtechProducts', []);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: trendtechKeys.settings() });
+      invalidateRelated(queryClient, 'trendtech');
     },
   });
 

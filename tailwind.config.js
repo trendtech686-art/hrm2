@@ -1,7 +1,7 @@
-// This file is not directly used by the browser in the current setup,
-// but it represents the standard configuration for a Tailwind CSS project
-// with shadcn/ui. The configuration object from this file is embedded
-// in index.html to be used by the Tailwind Play CDN.
+// NOTE: This file is NOT used at build time by Tailwind CSS v4.
+// Tailwind v4 reads config from CSS (@theme in globals.css).
+// This file is only kept for shadcn/ui CLI compatibility (components.json references it).
+// It may be safely removed once shadcn/ui CLI supports Tailwind v4 CSS-only config.
 
 /** @type {import('tailwindcss').Config} */
 const config = {

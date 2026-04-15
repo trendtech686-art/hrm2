@@ -4,7 +4,6 @@ import { formatDateCustom, parseDate, getCurrentDate } from '@/lib/date-utils';
 import { Button } from '@/components/ui/button';
 import { Banknote, Truck, Printer, ChevronRight, ChevronDown } from 'lucide-react';
 import { DetailField } from '@/components/ui/detail-field';
-import { useAllEmployees, useEmployeeFinder } from '../../employees/hooks/use-all-employees';
 import type { PaymentCategory } from '@/lib/types/prisma-extended';
 
 interface PaymentItemProps {
@@ -29,62 +28,64 @@ const formatCurrency = (value?: number) => {
 
 export function PurchaseOrderPaymentItem({ item, onPrint }: PaymentItemProps) {
     const [isExpanded, setIsExpanded] = React.useState(false);
-    const { findById: findEmployeeById } = useEmployeeFinder();
-    const { data: employees } = useAllEmployees();
 
-    const creator = React.useMemo(() => {
-        const bySystemId = findEmployeeById(item.creator);
-        if (bySystemId) return bySystemId;
-        return employees.find(e => e.id === (item.creator as unknown as string));
-    }, [findEmployeeById, employees, item.creator]);
+    // Use createdByName from API data, fall back to raw creator ID
+    const creatorName = (item as unknown as Record<string, unknown>).createdByName as string || item.creator;
+    const creatorSystemId = (item as unknown as Record<string, unknown>).creatorSystemId as string || item.creator;
 
-    // Determine if this is an expense (shipping/other fee) vs supplier payment
-    const isExpense = item.category === 'expense';
+    // Determine item type: payment, expense, or refund
+    const isRefund = item.type === 'refund';
+    const isExpense = !isRefund && item.category === 'expense';
     const IconComponent = isExpense ? Truck : Banknote;
-    const iconColor = isExpense ? 'text-orange-500' : 'text-green-500';
-    const amountColor = isExpense ? 'text-orange-600' : 'text-green-600';
+    const iconColor = isRefund ? 'text-blue-500' : isExpense ? 'text-orange-500' : 'text-green-500';
+    const amountColor = isRefund ? 'text-blue-600' : isExpense ? 'text-orange-600' : 'text-green-600';
     
     // Parse expense type from description
-    const getExpenseLabel = () => {
+    const getLabel = () => {
+      if (isRefund) return 'Phiếu thu NCC hoàn tiền';
       if (!isExpense) return 'Thanh toán NCC';
       const desc = item.description?.toLowerCase() || '';
       if (desc.includes('vận chuyển') || desc.includes('shipping')) return 'Phí vận chuyển';
       if (desc.includes('chi phí khác')) return 'Chi phí khác';
       return 'Chi phí';
     };
-    const categoryLabel = getExpenseLabel();
+    const categoryLabel = getLabel();
 
     return (
         <div className="border rounded-md bg-background text-sm">
-             <div className="flex items-center p-3 cursor-pointer" onClick={() => setIsExpanded(!isExpanded)}>
-                <IconComponent className={`h-4 w-4 ${iconColor} mr-3 shrink-0`} />
-                <Link href={item.type === 'payment' ? `/payments/${item.systemId}` : `/receipts/${item.systemId}`}
-                  className="font-semibold font-mono text-primary hover:underline"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {item.id}
-                </Link>
-                {isExpense && (
-                  <span className="ml-2 text-xs text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded">{categoryLabel}</span>
-                )}
-                <div className="grow text-right text-muted-foreground px-4">
-                  {formatDateCustom(parseDate(item.date) || getCurrentDate(), "dd/MM/yyyy")}
+             <div className="flex flex-col md:flex-row md:items-center p-3 cursor-pointer gap-1 md:gap-0" onClick={() => setIsExpanded(!isExpanded)}>
+                <div className="flex items-center min-w-0">
+                    <IconComponent className={`h-4 w-4 ${iconColor} mr-3 shrink-0`} />
+                    <Link href={item.type === 'payment' ? `/payments/${item.systemId}` : `/receipts/${item.systemId}`}
+                      className="font-semibold font-mono text-primary hover:underline"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {item.id}
+                    </Link>
+                    {(isExpense || isRefund) && (
+                      <span className={`ml-2 text-xs px-1.5 py-0.5 rounded ${isRefund ? 'text-blue-600 bg-blue-50' : 'text-orange-600 bg-orange-50'}`}>{categoryLabel}</span>
+                    )}
                 </div>
-                <div className={`w-28 text-right font-semibold ${amountColor}`}>
-                  +{formatCurrency(item.amount)}
+                <div className="flex items-center ml-7 md:ml-0 md:grow">
+                    <div className="text-muted-foreground md:grow md:text-right md:px-4">
+                      {formatDateCustom(parseDate(item.date) || getCurrentDate(), "dd/MM/yyyy")}
+                    </div>
+                    <div className={`ml-auto md:ml-0 md:w-28 text-right font-semibold ${amountColor}`}>
+                      +{formatCurrency(item.amount)}
+                    </div>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-8 w-8 ml-2 shrink-0" 
+                      title="In phiếu"
+                      onClick={(e) => onPrint(e, item)}
+                    >
+                      <Printer className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 ml-2 shrink-0">
+                        {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                    </Button>
                 </div>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="h-8 w-8 ml-2 shrink-0" 
-                  title="In phiếu"
-                  onClick={(e) => onPrint(e, item)}
-                >
-                  <Printer className="h-4 w-4" />
-                </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8 ml-2 shrink-0">
-                    {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                </Button>
             </div>
             
             {isExpanded && (
@@ -95,9 +96,9 @@ export function PurchaseOrderPaymentItem({ item, onPrint }: PaymentItemProps) {
                         <DetailField 
                             label="Người tạo" 
                             className="py-1 border-0"
-                            value={creator ? (
-                                <Link href={`/employees/${creator.systemId}`} className="text-primary hover:underline">
-                                    {creator.fullName}
+                            value={creatorSystemId ? (
+                                <Link href={`/employees/${creatorSystemId}`} className="text-primary hover:underline">
+                                    {creatorName}
                                 </Link>
                             ) : item.creator}
                         />

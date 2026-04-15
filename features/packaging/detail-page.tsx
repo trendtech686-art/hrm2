@@ -29,8 +29,7 @@ import { useAuth } from '../../contexts/auth-context';
 import { ReadOnlyProductsTable } from '../../components/shared/read-only-products-table';
 import { Comments } from '../../components/Comments';
 import { useComments } from '@/hooks/use-comments';
-import { ActivityHistory } from '../../components/ActivityHistory';
-import { useActivityHistory } from '../../hooks/use-activity-logs';
+import { EntityActivityTable } from '@/components/shared/entity-activity-table';
 import { asSystemId, type SystemId } from '../../lib/id-types';
 import { Skeleton } from '../../components/ui/skeleton';
 
@@ -145,8 +144,6 @@ export function PackagingDetailPage() {
   const order = packagingData?.order;
   const customer = packagingData?.customer;
 
-  // Activity history for packaging
-  const { history: activityHistory } = useActivityHistory('packaging', packaging?.systemId || '', !!packaging);
 
   // Comments from database
   const { 
@@ -514,6 +511,7 @@ export function PackagingDetailPage() {
             shippingFee: order.shippingFee,
             grandTotal: order.grandTotal,
           }}
+          externalProductsMap={new Map()}
         />
 
         {/* Comments */}
@@ -530,13 +528,7 @@ export function PackagingDetailPage() {
         />
 
         {/* Activity History */}
-        <ActivityHistory
-          history={activityHistory}
-          title="Lịch sử hoạt động"
-          emptyMessage="Chưa có lịch sử hoạt động"
-          groupByDate
-          maxHeight="400px"
-        />
+        <EntityActivityTable entityType="packaging" entityId={packaging.systemId} />
       </div>
 
       <CancelPackagingDialog

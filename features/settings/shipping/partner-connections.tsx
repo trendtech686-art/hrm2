@@ -37,6 +37,7 @@ import type { PartnerAccount } from '@/lib/types/shipping-config';
 import type { RegisterTabActions } from '../use-tab-action-registry';
 import type { ColumnDef } from '@/components/data-table/types';
 import { toast } from 'sonner';
+import { logError } from '@/lib/logger'
 
 type PartnerConnectionsPageContentProps = {
   isActive: boolean;
@@ -50,12 +51,9 @@ const PARTNER_INFO: Record<ShippingPartner, { name: string; description: string 
   'VTP': { name: 'Viettel Post', description: 'Dịch vụ vận chuyển Viettel.' },
   'J&T': { name: 'J&T Express', description: 'Giao nhận hàng hóa nhanh chóng.' },
   'SPX': { name: 'SPX Express', description: 'Vận chuyển Shopee.' },
-  'VNPOST': { name: 'Vietnam Post', description: 'Bưu chính quốc gia.' },
-  'NINJA_VAN': { name: 'Ninja Van', description: 'Giao hàng Đông Nam Á.' },
-  'AHAMOVE': { name: 'Ahamove', description: 'Giao hàng nội thành.' },
 };
 
-const PARTNER_CODES: ShippingPartner[] = ['GHN', 'GHTK', 'VTP', 'J&T', 'SPX', 'VNPOST', 'NINJA_VAN', 'AHAMOVE'];
+const PARTNER_CODES: ShippingPartner[] = ['GHN', 'GHTK', 'VTP', 'J&T', 'SPX'];
 
 // Extended type for table display
 type AccountRow = PartnerAccount & {
@@ -82,7 +80,7 @@ export const PartnerConnectionsPageContent: React.FC<PartnerConnectionsPageConte
   }, []);
 
   const refreshConfig = React.useCallback(async () => {
-    const config = await loadShippingConfigAsync();
+    const config = await loadShippingConfigAsync(true);
     setShippingConfig(config);
   }, []);
 
@@ -116,31 +114,31 @@ export const PartnerConnectionsPageContent: React.FC<PartnerConnectionsPageConte
     setDialogOpen(true);
   }, []);
 
-  const handleToggleActive = React.useCallback((row: AccountRow, value: boolean) => {
+  const handleToggleActive = React.useCallback(async (row: AccountRow, value: boolean) => {
     try {
       const config = loadShippingConfig();
       const account = config.partners[row.partnerCode]?.accounts.find(a => a.id === row.id);
       if (account) {
         const newConfig = updatePartnerAccount(config, row.partnerCode, row.id, { ...account, active: value });
-        saveShippingConfig(newConfig);
-        refreshConfig();
+        await saveShippingConfig(newConfig);
+        await refreshConfig();
         toast.success(value ? 'Đã bật tài khoản' : 'Đã tắt tài khoản');
       }
     } catch (error) {
-      console.error('Failed to toggle account:', error);
+      logError('Failed to toggle account', error);
       toast.error('Không thể thay đổi trạng thái');
     }
   }, [refreshConfig]);
 
-  const handleSetDefault = React.useCallback((row: AccountRow) => {
+  const handleSetDefault = React.useCallback(async (row: AccountRow) => {
     try {
       const config = loadShippingConfig();
       const newConfig = setDefaultAccount(config, row.partnerCode, row.id);
-      saveShippingConfig(newConfig);
-      refreshConfig();
+      await saveShippingConfig(newConfig);
+      await refreshConfig();
       toast.success('Đã đặt làm mặc định');
     } catch (error) {
-      console.error('Failed to set default:', error);
+      logError('Failed to set default', error);
       toast.error('Không thể đặt mặc định');
     }
   }, [refreshConfig]);
@@ -150,16 +148,16 @@ export const PartnerConnectionsPageContent: React.FC<PartnerConnectionsPageConte
     setDeleteDialogOpen(true);
   }, []);
 
-  const confirmDelete = React.useCallback(() => {
+  const confirmDelete = React.useCallback(async () => {
     if (!accountToDelete) return;
     try {
       const config = loadShippingConfig();
       const newConfig = deletePartnerAccount(config, accountToDelete.partnerCode, accountToDelete.id);
-      saveShippingConfig(newConfig);
-      refreshConfig();
+      await saveShippingConfig(newConfig);
+      await refreshConfig();
       toast.success('Đã xóa tài khoản');
     } catch (error) {
-      console.error('Failed to delete account:', error);
+      logError('Failed to delete account', error);
       toast.error('Không thể xóa tài khoản');
     }
     setDeleteDialogOpen(false);

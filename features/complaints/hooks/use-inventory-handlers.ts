@@ -10,6 +10,7 @@ import { asSystemId, asBusinessId, type SystemId, type BusinessId } from '@/lib/
 import { generateSubEntityId } from '@/lib/id-utils';
 import type { Order } from '../../orders/types';
 import type { Employee } from '../../employees/types';
+import { logError } from '@/lib/logger'
 
 interface UseInventoryHandlersProps {
   complaint: Complaint | null;
@@ -179,7 +180,7 @@ export function useInventoryHandlers({
       // Don't navigate - keep user on complaint page
       // User can click the link in compensation section to view inventory check
     } catch (error) {
-      console.error('Inventory adjustment error:', error);
+      logError('Inventory adjustment error', error);
       toast.error("Lỗi khi tạo phiếu kiểm kê: " + (error as Error).message);
     }
   }, [complaint, currentUser, updateComplaint, relatedOrder, employee]);

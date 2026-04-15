@@ -3,10 +3,11 @@ import { useFormContext, useWatch } from 'react-hook-form';
 import { Users2, PlusCircle, X, Copy } from 'lucide-react';
 import Link from 'next/link';
 import type { Customer } from '../../customers/types';
+import type { BusinessProfile, OrderInvoiceInfo } from '@/lib/types/prisma-extended';
 import { useCustomerMutations, useCustomer } from '../../customers/hooks/use-customers';
 import { useInfiniteMeiliCustomerSearch } from '@/hooks/use-meilisearch';
-// ⚡ PERFORMANCE: Use customer-specific hooks instead of loading ALL data
-import { useCustomerOrders, useCustomerWarranties, useCustomerComplaints } from '../../customers/hooks/use-customer-related-data';
+// ⚡ PERFORMANCE: Single stats API call instead of loading ALL orders/warranties/complaints
+import { useCustomerStats } from '../../customers/hooks/use-customer-stats';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../../components/ui/dialog';
@@ -15,10 +16,8 @@ import { CustomerForm, type CustomerFormSubmitPayload } from '../../customers/cu
 import { CustomerAddressSelector } from './customer-address-selector';
 import { Badge } from '../../../components/ui/badge';
 import { toast } from 'sonner';
-import { useCustomerGroups } from '../../settings/customers/hooks/use-customer-settings';
-import { asSystemId } from '@/lib/id-types';
+// ✅ REMOVED: useCustomerGroups — now resolved server-side in stats API
 import { formatDate } from '@/lib/date-utils';
-import { useEmployeeFinder } from '../../employees/hooks/use-all-employees';
 
 const formatCurrency = (value?: number | unknown) => {
     // Handle Prisma Decimal objects (they have toNumber() method or toString())
@@ -78,9 +77,12 @@ export function CustomerSelector({ disabled }: { disabled: boolean }) {
     const [isFormOpen, setIsFormOpen] = React.useState(false);
     const [searchQuery, setSearchQuery] = React.useState('');
     const [selectedCustomerId, setSelectedCustomerId] = React.useState<string | null>(null);
+    // ⚡ Track if user has interacted with combobox
+    const [hasInteracted, setHasInteracted] = React.useState(false);
     
     // ✅ Use Meilisearch for fast search (< 50ms) - shows 30 default results when empty
     // ✅ Infinite scroll support - load more on scroll
+    // ⚡ OPTIMIZED: Only fetch when user interacts or types (lazy load)
     const {
         data: searchData,
         isLoading: isLoadingSearch,
@@ -90,6 +92,7 @@ export function CustomerSelector({ disabled }: { disabled: boolean }) {
     } = useInfiniteMeiliCustomerSearch({ 
         query: searchQuery,
         debounceMs: 150,
+        enabled: hasInteracted,
     });
     
     // ✅ Fetch full customer data when selected (for addresses, debt, etc.)
@@ -101,21 +104,18 @@ export function CustomerSelector({ disabled }: { disabled: boolean }) {
     }, [searchData]);
     
     const { create: createCustomer } = useCustomerMutations({});
-    const { data: customerGroupsData } = useCustomerGroups();
-    const customerGroups = React.useMemo(() => customerGroupsData || [], [customerGroupsData]);
-    const { findById: findEmployeeById } = useEmployeeFinder();
 
     // ✅ PHASE 2: Convert watch to useWatch
     const selectedCustomer = useWatch({ control, name: 'customer' });
 
-    // ⚡ PERFORMANCE: Use customer-specific hooks instead of loading ALL data
-    const { data: customerOrders } = useCustomerOrders(selectedCustomer?.systemId);
-    const { data: warranties } = useCustomerWarranties(selectedCustomer?.systemId);
-    const { data: complaints } = useCustomerComplaints(selectedCustomer?.systemId);
+    // ⚡ PERFORMANCE: Single stats API call instead of loading ALL orders/warranties/complaints
+    const { data: customerStats } = useCustomerStats(selectedCustomer?.systemId);
     
     // ✅ Update form when full customer data is loaded
     React.useEffect(() => {
         if (fullCustomerData && selectedCustomerId) {
+            // Guard against stale/cached data from a previous query
+            if (fullCustomerData.systemId !== selectedCustomerId) return;
             setValue('customer', fullCustomerData, { shouldValidate: true, shouldDirty: true });
             
             // ✅ Auto-load default addresses when selecting customer
@@ -129,6 +129,28 @@ export function CustomerSelector({ disabled }: { disabled: boolean }) {
                 if (defaultBilling) {
                     setValue('billingAddress', defaultBilling, { shouldDirty: true });
                 }
+            }
+            
+            // ✅ Auto-set invoiceInfo from first business profile (if available)
+            const profiles = (fullCustomerData as Customer & { businessProfiles?: BusinessProfile[] }).businessProfiles;
+            if (Array.isArray(profiles) && profiles.length > 0) {
+                const first = profiles[0];
+                const addr = first.addressId && fullCustomerData.addresses
+                    ? fullCustomerData.addresses.find(a => a.id === first.addressId)
+                    : null;
+                const addressParts = addr ? [addr.street, addr.ward, addr.district, addr.province].filter(Boolean) : [];
+                const invoiceInfo: OrderInvoiceInfo = {
+                    company: first.company,
+                    taxCode: first.taxCode,
+                    representative: first.representative,
+                    position: first.position,
+                    phone: first.phone,
+                    email: first.email,
+                    bankName: first.bankName,
+                    bankAccount: first.bankAccount,
+                    address: addressParts.join(', ') || undefined,
+                };
+                setValue('invoiceInfo', invoiceInfo, { shouldDirty: true });
             }
             // Clear after setting
             setSelectedCustomerId(null);
@@ -161,6 +183,7 @@ export function CustomerSelector({ disabled }: { disabled: boolean }) {
             setValue('customer', null, { shouldValidate: true, shouldDirty: true });
             setValue('shippingAddress', null);
             setValue('billingAddress', null);
+            setValue('invoiceInfo', null);
         }
     };
 
@@ -170,17 +193,7 @@ export function CustomerSelector({ disabled }: { disabled: boolean }) {
         toast.success(`Đã sao chép ${label}`);
     }, []);
 
-    // ⚡ OPTIMIZED: customerOrders now comes from useCustomerOrders hook - already filtered by API
-
-    // Orders that create debt: status='Hoàn thành' OR deliveryStatus='Đã giao hàng' OR stockOutStatus='Xuất kho toàn bộ'
-    const deliveredCustomerOrders = React.useMemo(() => {
-        return customerOrders.filter(order => 
-            order.status !== 'Đã hủy' &&
-            (order.status === 'Hoàn thành' || 
-             order.deliveryStatus === 'Đã giao hàng' || 
-             order.stockOutStatus === 'Xuất kho toàn bộ')
-        );
-    }, [customerOrders]);
+    // ⚡ PERFORMANCE: Stats come from server-side aggregation — no client-side filtering needed
 
     const customerOrderStats = React.useMemo(() => {
         if (!selectedCustomer) {
@@ -192,27 +205,14 @@ export function CustomerSelector({ disabled }: { disabled: boolean }) {
         }
 
         // ✅ ALWAYS use totalSpent from database - it's the source of truth
-        // Don't recalculate from orders as useAllOrders() may not have all orders
-        // Convert to Number since Prisma Decimal comes as string in JSON
         const totalSpent = Number(selectedCustomer.totalSpent) || 0;
 
-        // Use orders from current session for order count breakdown only
-        const totalOrders = customerOrders.length || (selectedCustomer.totalOrders ?? 0);
-
-        const recencySource = deliveredCustomerOrders.length ? deliveredCustomerOrders : customerOrders;
-        let latestDate: string | null = null;
-        recencySource.forEach(order => {
-            if (!latestDate || new Date(order.orderDate) > new Date(latestDate)) {
-                latestDate = order.orderDate;
-            }
-        });
-
         return {
-            totalOrders,
+            totalOrders: customerStats.orders.total || (selectedCustomer.totalOrders ?? 0),
             totalSpent,
-            lastOrderDate: latestDate ?? selectedCustomer.lastPurchaseDate ?? null,
+            lastOrderDate: customerStats.orders.lastOrderDate ?? selectedCustomer.lastPurchaseDate ?? null,
         };
-    }, [selectedCustomer, customerOrders, deliveredCustomerOrders]);
+    }, [selectedCustomer, customerStats]);
 
     // ✅ Lấy công nợ trực tiếp từ customer - đã được tính sẵn trong DB
     const customerDebtBalance = React.useMemo(() => {
@@ -220,27 +220,19 @@ export function CustomerSelector({ disabled }: { disabled: boolean }) {
         return Number(selectedCustomer.currentDebt) || 0;
     }, [selectedCustomer]);
 
-    // ⚡ OPTIMIZED: warranties now comes from useCustomerWarranties hook - already filtered by API
-    const customerWarrantyCount = warranties.length;
+    // ⚡ Stats from server-side aggregation
+    const customerWarrantyCount = customerStats.warranties.total;
+    const activeWarrantyCount = customerStats.warranties.active;
 
-    const activeWarrantyCount = React.useMemo(() => {
-        return warranties.filter(ticket => !['returned', 'completed', 'cancelled'].includes(ticket.status)).length;
-    }, [warranties]);
+    const customerComplaintCount = customerStats.complaints.total;
+    const activeComplaintCount = customerStats.complaints.active;
 
-    // ⚡ OPTIMIZED: complaints now comes from useCustomerComplaints hook - already filtered by API
-    const customerComplaintCount = complaints.length;
-
-    const activeComplaintCount = React.useMemo(() => {
-        return complaints.filter(complaint => complaint.status === 'pending' || complaint.status === 'investigating').length;
-    }, [complaints]);
-
-    const orderBreakdown = React.useMemo(() => {
-        const pending = customerOrders.filter(o => o.status === 'Đặt hàng').length;
-        const inProgress = customerOrders.filter(o => o.status === 'Đang giao dịch').length;
-        const completed = customerOrders.filter(o => o.status === 'Hoàn thành').length;
-        const cancelled = customerOrders.filter(o => o.status === 'Đã hủy').length;
-        return { pending, inProgress, completed, cancelled };
-    }, [customerOrders]);
+    const orderBreakdown = React.useMemo(() => ({
+        pending: customerStats.orders.pending,
+        inProgress: customerStats.orders.inProgress,
+        completed: customerStats.orders.completed,
+        cancelled: customerStats.orders.cancelled,
+    }), [customerStats]);
 
     const slaDisplay = React.useMemo(() => {
         // SLA removed - use comments instead
@@ -251,20 +243,13 @@ export function CustomerSelector({ disabled }: { disabled: boolean }) {
         };
     }, []);
 
-    const getGroupName = React.useCallback((id?: string) => {
-        if (!id) return undefined;
-        // ✅ FIX: Search by both systemId AND id (business ID) since customer form stores the business id
-        return (customerGroups.find(g => g.systemId === id) || customerGroups.find(g => g.id === id))?.name;
-    }, [customerGroups]);
+    // ✅ Customer group name resolved server-side in stats API
+    const customerGroupName = customerStats.customerGroupName;
 
     const getEmployeeName = React.useCallback((id?: string) => {
         if (!id) return undefined;
-        try {
-            return findEmployeeById(asSystemId(id))?.fullName;
-        } catch (_error) {
-            return undefined;
-        }
-    }, [findEmployeeById]);
+        return undefined; // accountManagerName is used directly from customer data
+    }, []);
 
     const customerBaseInfo = React.useMemo(() => {
         if (!selectedCustomer) return [];
@@ -272,8 +257,8 @@ export function CustomerSelector({ disabled }: { disabled: boolean }) {
         // Debug log to check actual values
         
         return [
-            { label: 'Nhóm KH', value: getGroupName(selectedCustomer.customerGroup) || '---' },
-            { label: 'NV phụ trách', value: getEmployeeName(selectedCustomer.accountManagerId) || '---' },
+            { label: 'Nhóm KH', value: customerGroupName || '---' },
+            { label: 'NV phụ trách', value: selectedCustomer.accountManagerName || getEmployeeName(selectedCustomer.accountManagerId) || '---' },
             { label: 'Công nợ/Hạn mức', value: `${formatCurrency(customerDebtBalance)}/${formatCurrency(selectedCustomer.maxDebt)}`, tone: customerDebtBalance < 0 ? 'destructive' as const : undefined },
             { label: 'Tổng chi tiêu', value: formatCurrency(customerOrderStats.totalSpent) },
             { 
@@ -282,7 +267,7 @@ export function CustomerSelector({ disabled }: { disabled: boolean }) {
                 subValue: `${orderBreakdown.pending} đặt hàng, ${orderBreakdown.inProgress} đang giao dịch, ${orderBreakdown.completed} hoàn thành, ${orderBreakdown.cancelled} đã hủy`
             },
         ];
-    }, [selectedCustomer, getGroupName, getEmployeeName, customerDebtBalance, customerOrderStats.totalSpent, customerOrderStats.totalOrders, orderBreakdown]);
+    }, [selectedCustomer, customerGroupName, getEmployeeName, customerDebtBalance, customerOrderStats.totalSpent, customerOrderStats.totalOrders, orderBreakdown]);
 
     const customerMetrics = React.useMemo(() => {
         if (!selectedCustomer) return [];
@@ -299,8 +284,8 @@ export function CustomerSelector({ disabled }: { disabled: boolean }) {
         // Bảo hành
         metrics.push({
             key: 'warranty',
-            label: 'Tổng số lần bảo hành',
-            value: formatNumber(customerWarrantyCount),
+            label: 'Bảo hành (đã trả/tổng)',
+            value: customerWarrantyCount > 0 ? `${customerWarrantyCount - activeWarrantyCount}/${customerWarrantyCount}` : '0',
             badge: activeWarrantyCount > 0 ? { label: `${activeWarrantyCount} chưa trả`, tone: 'warning' } : undefined,
             link: customerWarrantyCount > 0 ? `/warranty?customer=${encodeURIComponent(selectedCustomer.systemId)}` : undefined,
         });
@@ -308,8 +293,8 @@ export function CustomerSelector({ disabled }: { disabled: boolean }) {
         // Khiếu nại
         metrics.push({
             key: 'complaints',
-            label: 'Tổng số lần khiếu nại',
-            value: formatNumber(customerComplaintCount),
+            label: 'Khiếu nại (đã xử lý/tổng)',
+            value: customerComplaintCount > 0 ? `${customerComplaintCount - activeComplaintCount}/${customerComplaintCount}` : '0',
             badge: activeComplaintCount > 0 ? { label: `${activeComplaintCount} chưa xử lý`, tone: 'destructive' } : undefined,
             link: customerComplaintCount > 0 ? `/complaints?customer=${encodeURIComponent(selectedCustomer.systemId)}` : undefined,
         });
@@ -366,7 +351,7 @@ export function CustomerSelector({ disabled }: { disabled: boolean }) {
                                         {selectedCustomer.tags && selectedCustomer.tags.length > 0 && (
                                             <div className="flex flex-wrap gap-1">
                                                 {selectedCustomer.tags.slice(0, 3).map((tag, idx) => (
-                                                    <Badge key={idx} variant="secondary" className="text-[10px] px-1.5 py-0">{tag}</Badge>
+                                                    <Badge key={idx} variant="secondary" className="text-xs px-1.5 py-0">{tag}</Badge>
                                                 ))}
                                             </div>
                                         )}
@@ -425,7 +410,7 @@ export function CustomerSelector({ disabled }: { disabled: boolean }) {
                                             <span className="text-muted-foreground">{row.label}:</span>
                                             <div className="text-right">
                                                 <span className={`font-medium ${row.tone ? getToneClass(row.tone) : 'text-foreground'}`}>{row.value}</span>
-                                                {row.subValue && <p className="text-[10px] text-muted-foreground">{row.subValue}</p>}
+                                                {row.subValue && <p className="text-xs text-muted-foreground">{row.subValue}</p>}
                                             </div>
                                         </div>
                                     ))}
@@ -437,7 +422,7 @@ export function CustomerSelector({ disabled }: { disabled: boolean }) {
                                                     <Link href={metric.link} className="inline-flex items-center gap-1">
                                                         <span className={`font-medium ${getToneClass(metric.tone)}`}>{metric.value}</span>
                                                         {metric.badge && (
-                                                            <Badge variant="secondary" className={`text-[10px] px-1 py-0 ${getBadgeToneClass(metric.badge.tone)}`}>
+                                                            <Badge variant="secondary" className={`text-xs px-1 py-0 ${getBadgeToneClass(metric.badge.tone)}`}>
                                                                 {metric.badge.label}
                                                             </Badge>
                                                         )}
@@ -447,12 +432,12 @@ export function CustomerSelector({ disabled }: { disabled: boolean }) {
                                                         <div className="flex items-center gap-1 justify-end">
                                                             <span className={`font-medium ${getToneClass(metric.tone)}`}>{metric.value}</span>
                                                             {metric.badge && (
-                                                                <Badge variant="secondary" className={`text-[10px] px-1 py-0 ${getBadgeToneClass(metric.badge.tone)}`}>
+                                                                <Badge variant="secondary" className={`text-xs px-1 py-0 ${getBadgeToneClass(metric.badge.tone)}`}>
                                                                     {metric.badge.label}
                                                                 </Badge>
                                                             )}
                                                         </div>
-                                                        {metric.subValue && <p className="text-[10px] text-muted-foreground">{metric.subValue}</p>}
+                                                        {metric.subValue && <p className="text-xs text-muted-foreground">{metric.subValue}</p>}
                                                     </div>
                                                 )}
                                             </div>
@@ -468,10 +453,11 @@ export function CustomerSelector({ disabled }: { disabled: boolean }) {
                               value={null}
                               onChange={(option) => handleSelect(option)}
                               onSearchChange={setSearchQuery}
+                              onOpenChange={(open) => { if (open) setHasInteracted(true); }}
                               isLoading={isLoadingSearch}
                               placeholder="Tìm theo tên, SĐT, mã khách hàng... (F4)"
                               searchPlaceholder="Tìm kiếm..."
-                              emptyPlaceholder="Không tìm thấy khách hàng."
+                              emptyPlaceholder={hasInteracted ? "Không tìm thấy khách hàng." : "Nhập để tìm kiếm..."}
                               disabled={disabled}
                               onLoadMore={() => fetchNextPage()}
                               hasMore={hasNextPage}

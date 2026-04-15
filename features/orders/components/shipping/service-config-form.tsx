@@ -11,7 +11,7 @@ import { CurrencyInput } from '@/components/ui/currency-input';
 import { Checkbox } from '@/components/ui/checkbox'; // ✅ Keep for GHN form
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from '@/components/ui/command';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -26,9 +26,12 @@ import { toast } from 'sonner'; // ✅ Import toast
 import { AddressFormDialog } from '@/features/customers/components/address-form-dialog'; // ✅ Reuse existing component
 import type { ShippingService, SelectedShippingConfig, ShippingAddress } from './types';
 import type { CustomerAddress } from '@/features/customers/types';
+import { logError } from '@/lib/logger'
 
 interface ServiceConfigFormProps {
   service: ShippingService;
+  availableServices?: ShippingService[] | undefined; // ✅ All services from same partner
+  onServiceChange?: ((service: ShippingService) => void) | undefined; // ✅ Callback to switch service
   config?: Partial<SelectedShippingConfig['options']> | undefined;
   onConfigChange: (config: Partial<SelectedShippingConfig['options']>) => void;
   grandTotal?: number | undefined; // ✅ Add grandTotal prop
@@ -73,9 +76,9 @@ function getSpecificAddressCacheKey(province: string, district: string, ward: st
 
 type ShippingOptions = NonNullable<SelectedShippingConfig['options']>;
 
-export function ServiceConfigForm({ service, config = {}, onConfigChange, grandTotal: _grandTotal = 0, customerAddress }: ServiceConfigFormProps) {
+export function ServiceConfigForm({ service, availableServices, onServiceChange, config = {}, onConfigChange, grandTotal: _grandTotal = 0, customerAddress }: ServiceConfigFormProps) {
   // ✅ Get global shipping config
-  const { globalConfig: _globalConfig, getDefaultShippingOptions: _getDefaultShippingOptions, getDimensions: _getDimensions, deliveryRequirement, defaultNote } = useGlobalShippingConfig();
+  const { deliveryRequirement, defaultNote } = useGlobalShippingConfig();
   
   // ✅ Initialize options with global config defaults
   const [options, setOptions] = React.useState<Partial<ShippingOptions>>(() => {
@@ -269,7 +272,7 @@ export function ServiceConfigForm({ service, config = {}, onConfigChange, grandT
         throw new Error('Không thể kết nối server API. Vui lòng chạy: cd server && npm run dev');
       }
     } catch (error) {
-      console.error('❌ [ServiceConfigForm] Error loading pick addresses:', error);
+      logError('❌ [ServiceConfigForm] Error loading pick addresses', error);
       
       // ✅ Set error message for display
       setAddressError(error instanceof Error ? error.message : 'Không thể tải danh sách kho');
@@ -407,7 +410,7 @@ export function ServiceConfigForm({ service, config = {}, onConfigChange, grandT
         throw new Error('Không thể kết nối server API');
       }
     } catch (error) {
-      console.error('❌ [ServiceConfigForm] Error loading specific addresses:', error);
+      logError('❌ [ServiceConfigForm] Error loading specific addresses', error);
       setSpecificAddressError(error instanceof Error ? error.message : 'Không thể tải địa chỉ');
       setSpecificAddresses([]);
     } finally {
@@ -525,16 +528,24 @@ export function ServiceConfigForm({ service, config = {}, onConfigChange, grandT
             <Label>Gói dịch vụ</Label>
             <Select
               value={service.serviceId}
-              onValueChange={(_value) => {
-                // Allow changing service package if needed
+              onValueChange={(value) => {
+                if (onServiceChange && availableServices) {
+                  const newService = availableServices.find(s => s.serviceId === value);
+                  if (newService) onServiceChange(newService);
+                }
               }}
             >
               <SelectTrigger>
                 <SelectValue placeholder={service.serviceName} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={service.serviceId}>{service.serviceName}</SelectItem>
-                {/* Add more service options if available */}
+                {availableServices && availableServices.length > 0 ? (
+                  availableServices.map(s => (
+                    <SelectItem key={s.serviceId} value={s.serviceId}>{s.serviceName}</SelectItem>
+                  ))
+                ) : (
+                  <SelectItem value={service.serviceId}>{service.serviceName}</SelectItem>
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -576,40 +587,42 @@ export function ServiceConfigForm({ service, config = {}, onConfigChange, grandT
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-100 p-0">
+              <PopoverContent className="w-100 p-0 !z-[9999]">
                 <Command>
                   <CommandInput placeholder="Tìm kho..." />
-                  <CommandEmpty>
-                    {pickAddresses.length === 0 
-                      ? "Chưa có kho hàng nào. Vui lòng thêm địa chỉ lấy hàng trong cấu hình GHTK."
-                      : "Không tìm thấy kho nào."
-                    }
-                  </CommandEmpty>
-                  <CommandGroup>
-                    {pickAddresses.map((addr) => (
-                      <CommandItem
-                        key={addr.id}
-                        value={addr.id}
-                        onSelect={(currentValue) => {
-                          handleInputChange('pickAddressId', currentValue);
-                          setOpenPickAddress(false);
-                        }}
-                      >
-                        <Check
-                          className={cn(
-                            "mr-2 h-4 w-4",
-                            options.pickAddressId === addr.id ? "opacity-100" : "opacity-0"
-                          )}
-                        />
-                        <div className="flex flex-col">
-                          <span className="font-medium">{addr.name}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {addr.tel} {addr.tel && addr.address ? '- ' : ''}{addr.address}
-                          </span>
-                        </div>
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
+                  <CommandList>
+                    <CommandEmpty>
+                      {pickAddresses.length === 0 
+                        ? "Chưa có kho hàng nào. Vui lòng thêm địa chỉ lấy hàng trong cấu hình GHTK."
+                        : "Không tìm thấy kho nào."
+                      }
+                    </CommandEmpty>
+                    <CommandGroup>
+                      {pickAddresses.map((addr) => (
+                        <CommandItem
+                          key={addr.id}
+                          value={`${addr.name} ${addr.address}`}
+                          onSelect={() => {
+                            handleInputChange('pickAddressId', addr.id);
+                            setOpenPickAddress(false);
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              options.pickAddressId === addr.id ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                          <div className="flex flex-col">
+                            <span className="font-medium">{addr.name}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {addr.tel} {addr.tel && addr.address ? '- ' : ''}{addr.address}
+                            </span>
+                          </div>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
                 </Command>
               </PopoverContent>
             </Popover>
@@ -638,12 +651,13 @@ export function ServiceConfigForm({ service, config = {}, onConfigChange, grandT
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-100 p-0" align="start">
+              <PopoverContent className="w-100 p-0 !z-[9999]" align="start">
                 <Command>
-                  <CommandGroup>
-                    <CommandItem
-                      value="same"
-                      onSelect={() => {
+                  <CommandList>
+                    <CommandGroup>
+                      <CommandItem
+                        value="same"
+                        onSelect={() => {
                         handleInputChange('useReturnAddress', 0);
                         // Clear return address data
                         handleInputChange('returnName', '');
@@ -727,8 +741,9 @@ export function ServiceConfigForm({ service, config = {}, onConfigChange, grandT
                           Địa chỉ khác
                         </>
                       )}
-                    </CommandItem>
-                  </CommandGroup>
+                      </CommandItem>
+                    </CommandGroup>
+                  </CommandList>
                 </Command>
               </PopoverContent>
             </Popover>
@@ -774,16 +789,17 @@ export function ServiceConfigForm({ service, config = {}, onConfigChange, grandT
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-100 p-0">
+              <PopoverContent className="w-100 p-0 !z-[9999]">
                 <Command>
                   <CommandInput placeholder="Tìm địa chỉ..." />
-                  <CommandEmpty>
-                    {specificAddresses.length === 0 
-                      ? "Chưa có địa chỉ nào."
-                      : "Không tìm thấy địa chỉ nào."
-                    }
-                  </CommandEmpty>
-                  <CommandGroup className="max-h-50 overflow-auto">
+                  <CommandList>
+                    <CommandEmpty>
+                      {specificAddresses.length === 0 
+                        ? "Chưa có địa chỉ nào."
+                        : "Không tìm thấy địa chỉ nào."
+                      }
+                    </CommandEmpty>
+                    <CommandGroup className="max-h-50 overflow-auto">
                     {specificAddresses.map((addr) => (
                       <CommandItem
                         key={addr.id}
@@ -803,7 +819,8 @@ export function ServiceConfigForm({ service, config = {}, onConfigChange, grandT
                         <span className="text-sm">{addr.name}</span>
                       </CommandItem>
                     ))}
-                  </CommandGroup>
+                    </CommandGroup>
+                  </CommandList>
                 </Command>
               </PopoverContent>
             </Popover>
@@ -828,7 +845,7 @@ export function ServiceConfigForm({ service, config = {}, onConfigChange, grandT
                   {pickDate ? format(pickDate, "dd/MM/yyyy", { locale: vi }) : "Chọn ngày"}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
+              <PopoverContent className="w-auto p-0 !z-[9999]">
                 <Calendar
                   mode="single"
                   selected={pickDate}
@@ -864,7 +881,7 @@ export function ServiceConfigForm({ service, config = {}, onConfigChange, grandT
                   {deliverDate ? format(deliverDate, "dd/MM/yyyy", { locale: vi }) : "Chọn ngày"}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
+              <PopoverContent className="w-auto p-0 !z-[9999]">
                 <Calendar
                   mode="single"
                   selected={deliverDate}

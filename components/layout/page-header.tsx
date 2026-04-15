@@ -1,7 +1,12 @@
 import * as React from 'react';
-import { ArrowLeft, ExternalLink } from 'lucide-react';
+import { ArrowLeft, ExternalLink, MoreHorizontal } from 'lucide-react';
 import { Button } from '../ui/button';
-import { useMediaQuery } from '../../lib/use-media-query';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../ui/dropdown-menu';
 import { usePageHeaderState } from '../../contexts/page-header-context';
 
 /**
@@ -13,7 +18,6 @@ import { usePageHeaderState } from '../../contexts/page-header-context';
  */
 export function PageHeader() {
   const pageHeader = usePageHeaderState();
-  const isDesktop = useMediaQuery('(min-width: 768px)');
 
   const {
     title,
@@ -37,7 +41,7 @@ export function PageHeader() {
           asChild
           className="h-9 gap-2 text-muted-foreground"
         >
-          <a href={docLink.href} target="_blank" rel="noreferrer">
+          <a href={docLink.href} target="_blank" rel="noopener noreferrer">
             <ExternalLink className="h-4 w-4" />
             {docLink.label ?? 'Tài liệu' }
           </a>
@@ -62,9 +66,10 @@ export function PageHeader() {
   }
 
   return (
-    <div className="sticky top-16 z-20 bg-background border-b border-border">
-      {!isDesktop && (
-        <div className="flex flex-col gap-2 px-4 py-2">
+    <div className="sticky top-0 md:top-16 z-20 bg-background border-b border-border -mx-4 md:-mx-6">
+      {/* Mobile layout — outer wrapper handles visibility only */}
+      <div className="md:hidden">
+        <div className="flex flex-col gap-1.5 px-4 py-2">
           <div className="flex items-center gap-3">
             {showBackButton && onBack && (
               <Button
@@ -79,34 +84,35 @@ export function PageHeader() {
             )}
             
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                {title && (
-                  <h1 className="text-lg font-semibold tracking-tight truncate">
-                    {title}
-                  </h1>
-                )}
-                {badge}
-              </div>
+              <h1 className="text-sm font-semibold tracking-tight line-clamp-2">
+                {title}
+              </h1>
+              {badge && (
+                <div className="mt-1">
+                  {badge}
+                </div>
+              )}
               {subtitle && (
                 <p className="mt-1 text-sm text-muted-foreground line-clamp-2">
                   {subtitle}
                 </p>
               )}
             </div>
+
+            {actions.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5 justify-end">
+                {actions.map((action, index) => (
+                  <React.Fragment key={index}>{action}</React.Fragment>
+                ))}
+              </div>
+            )}
           </div>
-
-          {actions.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {actions.map((action, index) => (
-                <React.Fragment key={index}>{action}</React.Fragment>
-              ))}
-            </div>
-          )}
         </div>
-      )}
+      </div>
 
-      {isDesktop && (
-        <div className="px-6 py-3">
+      {/* Desktop layout — outer wrapper handles visibility only */}
+      <div className="hidden md:block">
+        <div className="px-6 py-1.5">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3 min-w-0 flex-1">
               {showBackButton && onBack && (
@@ -124,7 +130,7 @@ export function PageHeader() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-3">
                   {title && (
-                    <h1 className="text-2xl font-semibold tracking-tight truncate">
+                    <h1 className="text-lg font-semibold tracking-tight truncate">
                       {title}
                     </h1>
                   )}
@@ -147,7 +153,7 @@ export function PageHeader() {
             )}
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -157,11 +163,10 @@ export function PageHeader() {
  * Loading state for page header
  */
 export function PageHeaderSkeleton() {
-  const isDesktop = useMediaQuery('(min-width: 768px)');
-
   return (
     <div className="border-b border-border">
-      {!isDesktop && (
+      {/* Mobile skeleton */}
+      <div className="md:hidden">
         <div className="flex flex-col gap-3 py-3">
           <div className="flex items-center gap-3">
             <div className="h-9 w-9 bg-muted animate-pulse rounded-md" />
@@ -171,9 +176,10 @@ export function PageHeaderSkeleton() {
             </div>
           </div>
         </div>
-      )}
+      </div>
       
-      {isDesktop && (
+      {/* Desktop skeleton */}
+      <div className="hidden md:block">
         <div className="flex flex-col gap-3 py-4">
           <div className="flex items-center gap-2">
             <div className="h-4 w-16 bg-muted animate-pulse rounded" />
@@ -185,7 +191,7 @@ export function PageHeaderSkeleton() {
             <div className="h-9 w-24 bg-muted animate-pulse rounded" />
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }

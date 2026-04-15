@@ -17,6 +17,7 @@ export const MOBILE_LIST_HEIGHT = 520;
 
 export interface UseTableStateHandlersParams {
   updateTableState: (updater: (prev: ProductQueryParams) => ProductQueryParams) => void;
+  startFilterTransition?: (callback: () => void) => void;
 }
 
 export interface TableStateHandlers {
@@ -44,7 +45,18 @@ function resolveStateAction<T>(current: T, action: React.SetStateAction<T>): T {
 // Hook
 // ═══════════════════════════════════════════════════════════════
 
-export function useTableStateHandlers({ updateTableState }: UseTableStateHandlersParams): TableStateHandlers {
+export function useTableStateHandlers({ updateTableState, startFilterTransition }: UseTableStateHandlersParams): TableStateHandlers {
+  const wrap = React.useCallback(
+    (fn: () => void) => {
+      if (startFilterTransition) {
+        startFilterTransition(fn);
+      } else {
+        fn();
+      }
+    },
+    [startFilterTransition]
+  );
+
   const handleSearchChange = React.useCallback(
     (value: string) => {
       updateTableState((prev) => ({
@@ -58,79 +70,79 @@ export function useTableStateHandlers({ updateTableState }: UseTableStateHandler
 
   const handleStatusFilterChange = React.useCallback(
     (value: string) => {
-      updateTableState((prev) => ({
+      wrap(() => updateTableState((prev) => ({
         ...prev,
         statusFilter: value as ProductQueryParams['statusFilter'],
         pagination: { ...prev.pagination, pageIndex: 0 },
-      }));
+      })));
     },
-    [updateTableState]
+    [updateTableState, wrap]
   );
 
   const handleTypeFilterChange = React.useCallback(
     (value: string) => {
-      updateTableState((prev) => ({
+      wrap(() => updateTableState((prev) => ({
         ...prev,
         typeFilter: value as ProductQueryParams['typeFilter'],
         pagination: { ...prev.pagination, pageIndex: 0 },
-      }));
+      })));
     },
-    [updateTableState]
+    [updateTableState, wrap]
   );
 
   const handleCategoryFilterChange = React.useCallback(
     (value: string) => {
-      updateTableState((prev) => ({
+      wrap(() => updateTableState((prev) => ({
         ...prev,
         categoryFilter: value,
         pagination: { ...prev.pagination, pageIndex: 0 },
-      }));
+      })));
     },
-    [updateTableState]
+    [updateTableState, wrap]
   );
 
   const handleComboFilterChange = React.useCallback(
     (value: string) => {
-      updateTableState((prev) => ({
+      wrap(() => updateTableState((prev) => ({
         ...prev,
         comboFilter: value as ProductQueryParams['comboFilter'],
         pagination: { ...prev.pagination, pageIndex: 0 },
-      }));
+      })));
     },
-    [updateTableState]
+    [updateTableState, wrap]
   );
 
   const handleStockLevelFilterChange = React.useCallback(
     (value: string) => {
-      updateTableState((prev) => ({
+      wrap(() => updateTableState((prev) => ({
         ...prev,
         stockLevelFilter: value as ProductQueryParams['stockLevelFilter'],
         pagination: { ...prev.pagination, pageIndex: 0 },
-      }));
+      })));
     },
-    [updateTableState]
+    [updateTableState, wrap]
   );
 
   const handlePkgxFilterChange = React.useCallback(
     (value: string) => {
-      updateTableState((prev) => ({
+      wrap(() => updateTableState((prev) => ({
         ...prev,
         pkgxFilter: value as ProductQueryParams['pkgxFilter'],
         pagination: { ...prev.pagination, pageIndex: 0 },
-      }));
+      })));
     },
-    [updateTableState]
+    [updateTableState, wrap]
   );
 
   const handleDateRangeChange = React.useCallback(
     (value: [string | undefined, string | undefined] | undefined) => {
-      updateTableState((prev) => ({
+      wrap(() => updateTableState((prev) => ({
         ...prev,
         dateRange: value,
         pagination: { ...prev.pagination, pageIndex: 0 },
-      }));
+      })));
     },
-    [updateTableState]
+    [updateTableState, wrap]
   );
 
   const handlePaginationChange = React.useCallback(

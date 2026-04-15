@@ -25,7 +25,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { DetailField } from '@/components/ui/detail-field';
-import { ActivityHistory, type HistoryEntry } from '@/components/ActivityHistory';
+import { EntityActivityTable } from '@/components/shared/entity-activity-table';
 import { ImagePreviewDialog } from '@/components/ui/image-preview-dialog';
 import { OptimizedImage } from '@/components/ui/optimized-image';
 import { 
@@ -78,82 +78,6 @@ const getStatusLabel = (status: StockTransferStatus | string): string => {
   }
 };
 
-// Build history entries from transfer data
-function buildHistoryEntries(transfer: StockTransfer): HistoryEntry[] {
-  const entries: HistoryEntry[] = [];
-  
-  // Created entry
-  if (transfer.createdDate) {
-    entries.push({
-      id: `${transfer.systemId}-created`,
-      action: 'created',
-      timestamp: new Date(transfer.createdDate),
-      user: {
-        systemId: transfer.createdBy || '',
-        name: transfer.createdByName,
-      },
-      description: `Tạo phiếu chuyển kho với ${transfer.items.length} sản phẩm`,
-    });
-  }
-  
-  // Transferred entry
-  if (transfer.transferredDate) {
-    entries.push({
-      id: `${transfer.systemId}-transferred`,
-      action: 'status_changed',
-      timestamp: new Date(transfer.transferredDate),
-      user: {
-        systemId: transfer.transferredBySystemId || '',
-        name: transfer.transferredByName || '',
-      },
-      description: 'Xác nhận xuất kho, đang chuyển hàng',
-      metadata: {
-        oldValue: 'Chờ chuyển',
-        newValue: 'Đang chuyển',
-        field: 'Trạng thái',
-      },
-    });
-  }
-  
-  // Received entry
-  if (transfer.receivedDate) {
-    entries.push({
-      id: `${transfer.systemId}-received`,
-      action: 'status_changed',
-      timestamp: new Date(transfer.receivedDate),
-      user: {
-        systemId: transfer.receivedBySystemId || '',
-        name: transfer.receivedByName || '',
-      },
-      description: 'Xác nhận nhận hàng hoàn thành',
-      metadata: {
-        oldValue: 'Đang chuyển',
-        newValue: 'Hoàn thành',
-        field: 'Trạng thái',
-      },
-    });
-  }
-  
-  // Cancelled entry
-  if (transfer.cancelledDate) {
-    entries.push({
-      id: `${transfer.systemId}-cancelled`,
-      action: 'cancelled',
-      timestamp: new Date(transfer.cancelledDate),
-      user: {
-        systemId: transfer.cancelledBySystemId || '',
-        name: transfer.cancelledByName || '',
-      },
-      description: transfer.cancelReason 
-        ? `Hủy phiếu: ${transfer.cancelReason}`
-        : 'Hủy phiếu chuyển kho',
-    });
-  }
-  
-  // Sort by timestamp descending (newest first)
-  return entries.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
-}
-
 export function StockTransferDetailPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const router = useRouter();
@@ -193,7 +117,7 @@ export function StockTransferDetailPage() {
   const { findById: findProductById } = useProductFinder();
   const { findById: findProductTypeById } = useProductTypeFinder();
   const { findById: findEmployeeById } = useEmployeeFinder();
-  const { user } = useAuth();
+  const { user, can, isAdmin } = useAuth();
   const { setPageHeader, clearPageHeader } = usePageHeader();
 
   const [confirmTransferOpen, setConfirmTransferOpen] = React.useState(false);
@@ -282,7 +206,7 @@ export function StockTransferDetailPage() {
     const status = transferData.status?.toLowerCase();
     
     // Determine if can edit: pending/transferring = limited, completed = very limited
-    const canEdit = status !== 'cancelled' && status !== 'completed';
+    const canEdit = status !== 'cancelled' && status !== 'completed' && (isAdmin || can('edit_stock_transfers'));
 
     return (
       <div className="flex items-center gap-2">
@@ -442,14 +366,14 @@ export function StockTransferDetailPage() {
             <Separator />
             <div className="space-y-3">
               <div className="p-3 bg-muted/50 rounded-lg">
-                <p className="text-body-xs text-muted-foreground mb-1">Chi nhánh chuyển</p>
+                <p className="text-xs text-muted-foreground mb-1">Chi nhánh chuyển</p>
                 <p className="font-medium">{transferData.fromBranchName}</p>
               </div>
               <div className="flex justify-center">
                 <ArrowRight className="h-4 w-4 text-muted-foreground" />
               </div>
               <div className="p-3 bg-muted/50 rounded-lg">
-                <p className="text-body-xs text-muted-foreground mb-1">Chi nhánh nhận</p>
+                <p className="text-xs text-muted-foreground mb-1">Chi nhánh nhận</p>
                 <p className="font-medium">{transferData.toBranchName}</p>
               </div>
             </div>
@@ -605,9 +529,9 @@ export function StockTransferDetailPage() {
                             >
                               {item.productName}
                             </Link>
-                            <p className="text-body-sm text-muted-foreground">{item.productId}</p>
+                            <p className="text-sm text-muted-foreground">{item.productId}</p>
                           </TableCell>
-                          <TableCell className="text-body-sm text-muted-foreground">{productTypeName}</TableCell>
+                          <TableCell className="text-sm text-muted-foreground">{productTypeName}</TableCell>
                           <TableCell className="text-center font-medium">{item.quantity}</TableCell>
                           {transferData.status === 'completed' && (
                             <TableCell className="text-center font-medium">
@@ -644,9 +568,9 @@ export function StockTransferDetailPage() {
               
               <div className="flex justify-end">
                 <div className="text-right space-y-1">
-                  <p className="text-body-sm text-muted-foreground">Tổng số lượng chuyển: {totalQuantity}</p>
+                  <p className="text-sm text-muted-foreground">Tổng số lượng chuyển: {totalQuantity}</p>
                   {transferData.status === 'completed' && totalReceived !== totalQuantity && (
-                    <p className="text-body-sm text-muted-foreground">
+                    <p className="text-sm text-muted-foreground">
                       Đã nhận: {totalReceived}
                     </p>
                   )}
@@ -670,11 +594,7 @@ export function StockTransferDetailPage() {
       />
 
       {/* Activity History - Full Width */}
-      <ActivityHistory
-        history={buildHistoryEntries(transferData)}
-        title="Lịch sử hoạt động"
-        emptyMessage="Chưa có hoạt động"
-      />
+      <EntityActivityTable entityType="stock_transfer" entityId={systemId} />
 
       {/* Confirm Transfer Dialog */}
       <AlertDialog open={confirmTransferOpen} onOpenChange={setConfirmTransferOpen}>

@@ -3,9 +3,8 @@
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useSearchParamsWithSetter } from '@/lib/hooks/use-search-params-setter';
-import { useQueryClient } from '@tanstack/react-query';
 import { useProductMutations } from './hooks/use-products';
-import { ProductFormComplete, type ProductFormCompleteValues } from './product-form-complete';
+import { ProductFormComplete, type ProductFormCompleteValues, type ProductFormCompleteHandle } from './product-form-complete';
 import {
   Card,
   CardContent,
@@ -16,25 +15,29 @@ import { usePageHeader } from '../../contexts/page-header-context';
 import { useAllBranches } from '../settings/branches/hooks/use-all-branches';
 import { useAuth } from '../../contexts/auth-context';
 import { toast } from 'sonner';
+import { Loader2 } from 'lucide-react';
 import { asSystemId, asBusinessId, type SystemId } from '@/lib/id-types';
 import { useProduct } from './hooks/use-products';
-import { useAllProducts } from './hooks/use-all-products';
 import { Skeleton } from '../../components/ui/skeleton';
 import { FileUploadAPI } from '@/lib/file-upload-api';
+import { logError } from '@/lib/logger'
 
 export function ProductFormPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const [searchParams] = useSearchParamsWithSetter();
   const router = useRouter();
-  const queryClient = useQueryClient();
-  const { create: createMutation, update: updateMutation } = useProductMutations({});
-  const { data: _allProducts = [] } = useAllProducts();
+  const { create: createMutation, update: updateMutation, isCreating, isUpdating } = useProductMutations({});
   const { data: branches } = useAllBranches();
   const { employee: authEmployee } = useAuth();
   const currentUserSystemId = authEmployee?.systemId ?? asSystemId('SYSTEM');
   const _currentUserName = authEmployee?.fullName ?? 'Hệ thống';
 
   const isEditing = !!systemId;
+  
+  // Ref to call form submit imperatively
+  const formRef = React.useRef<ProductFormCompleteHandle>(null);
+  const [isSaving, setIsSaving] = React.useState(false);
+  const isBusy = isSaving || isCreating || isUpdating;
   
   // ✅ Use React Query to fetch product data from API, not Zustand store
   const { data: product, isLoading: isLoadingProduct } = useProduct(isEditing ? systemId : undefined);
@@ -58,14 +61,16 @@ export function ProductFormPage() {
     </Button>,
     <Button 
       key="submit"
-      type="submit" 
-      form="product-form-complete"
+      type="button"
       size="sm"
       className="h-9"
+      disabled={isBusy}
+      onClick={() => formRef.current?.submit()}
     >
-      {isEditing ? 'Cập nhật' : 'Tạo mới'}
+      {isBusy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+      {isBusy ? 'Đang lưu...' : isEditing ? 'Cập nhật' : 'Tạo mới'}
     </Button>
-  ], [handleCancel, isEditing]);
+  ], [handleCancel, isEditing, isBusy]);
 
   const fallbackBreadcrumb = React.useMemo(() => (
     product ? [
@@ -99,16 +104,165 @@ export function ProductFormPage() {
   
   const handleSubmit = async (values: ProductFormCompleteValues): Promise<Product> => {
     const { title, seoDescription, ...productData } = values;
+    setIsSaving(true);
     
-    
-    if (product) {
-      // Edit mode - update existing product
+    try {
+      if (product) {
+      // Edit mode - check if there are actual changes
+      const hasChanges = () => {
+        // Compare key fields that can be edited
+        // Note: Form uses brandSystemId but API returns brandId
+        const fieldMappings: Array<{ form: string; api: string }> = [
+          { form: 'id', api: 'id' },
+          { form: 'name', api: 'name' },
+          { form: 'description', api: 'description' },
+          { form: 'shortDescription', api: 'shortDescription' },
+          { form: 'costPrice', api: 'costPrice' },
+          { form: 'lastPurchasePrice', api: 'lastPurchasePrice' },
+          { form: 'unit', api: 'unit' },
+          { form: 'brandSystemId', api: 'brandId' },
+          { form: 'categorySystemIds', api: 'categorySystemIds' },
+          { form: 'tags', api: 'tags' },
+          { form: 'isPublished', api: 'isPublished' },
+          { form: 'isFeatured', api: 'isFeatured' },
+          { form: 'warrantyPeriodMonths', api: 'warrantyPeriodMonths' },
+          { form: 'weight', api: 'weight' },
+          { form: 'weightUnit', api: 'weightUnit' },
+          { form: 'barcode', api: 'barcode' },
+          { form: 'slug', api: 'slug' },
+          { form: 'thumbnailImage', api: 'thumbnailImage' },
+          { form: 'galleryImages', api: 'galleryImages' },
+          { form: 'videoLinks', api: 'videoLinks' },
+          { form: 'primarySupplierSystemId', api: 'primarySupplierId' },
+          { form: 'isStockTracked', api: 'isStockTracked' },
+          { form: 'reorderLevel', api: 'reorderLevel' },
+          { form: 'safetyStock', api: 'safetyStock' },
+          { form: 'maxStock', api: 'maxStock' },
+          { form: 'status', api: 'status' },
+          // E-commerce display flags
+          { form: 'sortOrder', api: 'sortOrder' },
+          { form: 'isOnSale', api: 'isOnSale' },
+          { form: 'isBestSeller', api: 'isBestSeller' },
+          { form: 'isNewArrival', api: 'isNewArrival' },
+          { form: 'publishedAt', api: 'publishedAt' },
+          { form: 'launchedDate', api: 'launchedDate' },
+          { form: 'discontinuedDate', api: 'discontinuedDate' },
+          // Product type and category
+          { form: 'type', api: 'type' },
+          { form: 'productTypeSystemId', api: 'productTypeSystemId' },
+          { form: 'storageLocationSystemId', api: 'storageLocationSystemId' },
+          // Additional fields
+          { form: 'dimensions', api: 'dimensions' },
+          { form: 'seoPkgx', api: 'seoPkgx' },
+          { form: 'seoTrendtech', api: 'seoTrendtech' },
+          { form: 'warehouseLocation', api: 'warehouseLocation' },
+          { form: 'subCategory', api: 'subCategory' },
+          { form: 'subCategories', api: 'subCategories' },
+          // Internal notes field
+          { form: 'sellerNote', api: 'sellerNote' },
+          // SEO fields
+          { form: 'seoKeywords', api: 'seoKeywords' },
+          // Label/Tem phụ fields
+          { form: 'nameVat', api: 'nameVat' },
+          { form: 'origin', api: 'origin' },
+          { form: 'importerName', api: 'importerName' },
+          { form: 'importerAddress', api: 'importerAddress' },
+          { form: 'usageGuide', api: 'usageGuide' },
+          // Combo fields
+          { form: 'comboItems', api: 'comboItems' },
+          { form: 'comboPricingType', api: 'comboPricingType' },
+          { form: 'comboDiscount', api: 'comboDiscount' },
+        ];
+        
+        // Helper to normalize values for comparison
+        const normalize = (val: unknown, fieldName?: string): string => {
+          if (val === null || val === undefined) return '';
+          if (Array.isArray(val)) return JSON.stringify(val.sort());
+          // Handle Prisma Decimal type
+          if (typeof val === 'object' && val !== null && 'toNumber' in val) {
+            return String((val as { toNumber: () => number }).toNumber());
+          }
+          // Handle Date objects
+          if (val instanceof Date) {
+            return val.toISOString().split('T')[0];
+          }
+          // Handle date strings (convert to YYYY-MM-DD)
+          if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}(T|$)/.test(val)) {
+            return val.split('T')[0];
+          }
+          // Handle type field case-insensitively
+          if (fieldName === 'type' && typeof val === 'string') {
+            return val.toUpperCase();
+          }
+          // Handle status field case-insensitively  
+          if (fieldName === 'status' && typeof val === 'string') {
+            return val.toUpperCase();
+          }
+          // Handle weightUnit case-insensitively (form: g/kg, db: GRAM/KILOGRAM)
+          if (fieldName === 'weightUnit' && typeof val === 'string') {
+            const v = val.toUpperCase();
+            if (v === 'G') return 'GRAM';
+            if (v === 'KG') return 'KILOGRAM';
+            return v;
+          }
+          // Handle objects (like dimensions, seoPkgx, etc.)
+          if (typeof val === 'object' && val !== null) {
+            return JSON.stringify(val);
+          }
+          return String(val);
+        };
+        
+        for (const { form, api } of fieldMappings) {
+          const oldVal = (product as Record<string, unknown>)[api];
+          const newVal = (productData as Record<string, unknown>)[form];
+          
+          if (normalize(oldVal, form) !== normalize(newVal, form)) {
+            return true;
+          }
+        }
+        
+        // Check title (ktitle)
+        if (normalize(product.ktitle) !== normalize(title)) {
+          return true;
+        }
+        // Check seoDescription
+        if (normalize(product.seoDescription) !== normalize(seoDescription)) {
+          return true;
+        }
+        
+        // Check prices changes
+        const formPrices = productData.prices || {};
+        const existingPrices: Record<string, number> = {};
+        const apiPrices = (product as unknown as { prices?: Array<{ pricingPolicyId: string; price: number | string }> }).prices;
+        if (Array.isArray(apiPrices)) {
+          apiPrices.forEach((p) => {
+            existingPrices[p.pricingPolicyId] = typeof p.price === 'string' ? parseFloat(p.price) : p.price;
+          });
+        }
+        const allPolicyIds = new Set([...Object.keys(formPrices), ...Object.keys(existingPrices)]);
+        for (const policyId of allPolicyIds) {
+          if ((formPrices[policyId] ?? 0) !== (existingPrices[policyId] ?? 0)) {
+            return true;
+          }
+        }
+        
+        return false;
+      };
+      
+      if (!hasChanges()) {
+        toast.info('Không có thay đổi nào');
+        return product as Product;
+      }
+      
+      // Update existing product
       const updatedProduct = {
         ...productData,
         ktitle: title, // Map title -> ktitle
         seoDescription: seoDescription, // Map seoDescription
         id: asBusinessId(productData.id),
-        primarySupplierSystemId: productData.primarySupplierSystemId ? asSystemId(productData.primarySupplierSystemId) : undefined,
+        // Map form field names to API field names
+        brandId: productData.brandSystemId,
+        primarySupplierId: productData.primarySupplierSystemId ? asSystemId(productData.primarySupplierSystemId) : undefined,
         updatedAt: new Date().toISOString(),
         updatedBy: currentUserSystemId,
       };
@@ -122,22 +276,20 @@ export function ProductFormPage() {
       // Chỉ cần sync thumbnailImage từ File table vào Product
       await syncThumbnailFromFileTable(product.systemId);
       
-      // Invalidate product query trước khi redirect để đảm bảo detail page load data mới
-      await queryClient.invalidateQueries({ queryKey: ['product', product.systemId] });
-      await queryClient.invalidateQueries({ queryKey: ['products'] });
+      // invalidateRelated already called by updateMutation.onSuccess — no inline calls needed
       
       toast.success('Đã cập nhật sản phẩm thành công');
       router.push(`/products/${product.systemId}`);
       return { ...product, ...updatedProduct } as Product;
     } else {
       // Create mode - add new product
-      const _defaultBranch = branches.find(b => b.isDefault);
+      const _defaultBranch = branches?.find(b => b.isDefault);
       
       // Use inventoryByBranch from form if provided, otherwise initialize with 0 for all branches
       const formInventory = productData.inventoryByBranch || {};
       const inventoryByBranch: Record<SystemId, number> = {};
       
-      branches.forEach(branch => {
+      (branches ?? []).forEach(branch => {
         // Use form value if provided, otherwise default to 0
         inventoryByBranch[branch.systemId] = formInventory[branch.systemId] ?? 0;
       });
@@ -174,6 +326,14 @@ export function ProductFormPage() {
       toast.success('Đã thêm sản phẩm thành công');
       router.push(`/products/${newProduct.systemId}`);
       return newProduct;
+      }
+    } catch (error) {
+      console.error('[ProductForm] Error saving product:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Không thể lưu sản phẩm';
+      toast.error(`Lỗi: ${errorMessage}`);
+      throw error;
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -202,7 +362,7 @@ export function ProductFormPage() {
         } as Parameters<typeof updateMutation.mutateAsync>[0]);
       }
     } catch (e) {
-      console.error('Failed to sync thumbnail from file table:', e);
+      logError('Failed to sync thumbnail from file table', e);
     }
   };
 
@@ -217,6 +377,7 @@ export function ProductFormPage() {
           </div>
         ) : (
           <ProductFormComplete 
+            ref={formRef}
             initialData={product ?? null} 
             onSubmit={handleSubmit}
             onCancel={handleCancel}

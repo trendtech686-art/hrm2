@@ -7,6 +7,8 @@
 
 import { prisma } from '@/lib/prisma'
 import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
+import { logError } from '@/lib/logger'
+import { getUserNameFromDb } from '@/lib/get-user-name'
 
 type RouteParams = {
   params: Promise<{ systemId: string }>;
@@ -20,12 +22,23 @@ export async function GET(request: Request, { params }: RouteParams) {
   try {
     const { systemId } = await params;
 
-    const adjustment = await prisma.priceAdjustment.findUnique({
+    // Try to find by systemId first, then by business id
+    let adjustment = await prisma.priceAdjustment.findUnique({
       where: { systemId },
       include: {
         items: true,
       },
     });
+
+    // If not found by systemId, try by business id
+    if (!adjustment) {
+      adjustment = await prisma.priceAdjustment.findUnique({
+        where: { id: systemId },
+        include: {
+          items: true,
+        },
+      });
+    }
 
     if (!adjustment) {
       return apiNotFound('Price adjustment');
@@ -45,8 +58,8 @@ export async function GET(request: Request, { params }: RouteParams) {
 
     return apiSuccess(transformedAdjustment);
   } catch (error) {
-    console.error('[Price Adjustments API] Get error:', error);
-    return apiError('Failed to fetch price adjustment', 500);
+    logError('[Price Adjustments API] Get error', error);
+    return apiError('Lỗi khi lấy phiếu điều chỉnh giá', 500);
   }
 }
 
@@ -70,7 +83,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
 
     // Only allow updates to DRAFT adjustments
     if (existing.status !== 'DRAFT') {
-      return apiError('Cannot update non-draft price adjustment', 400);
+      return apiError('Chỉ có thể cập nhật phiếu ở trạng thái Nháp', 400);
     }
 
     const adjustment = await prisma.priceAdjustment.update({
@@ -100,8 +113,8 @@ export async function PATCH(request: Request, { params }: RouteParams) {
 
     return apiSuccess(transformedAdjustment);
   } catch (error) {
-    console.error('[Price Adjustments API] Update error:', error);
-    return apiError('Failed to update price adjustment', 500);
+    logError('[Price Adjustments API] Update error', error);
+    return apiError('Lỗi khi cập nhật phiếu điều chỉnh giá', 500);
   }
 }
 
@@ -124,16 +137,30 @@ export async function DELETE(request: Request, { params }: RouteParams) {
 
     // Only allow deletion of DRAFT adjustments
     if (existing.status !== 'DRAFT') {
-      return apiError('Cannot delete non-draft price adjustment', 400);
+      return apiError('Chỉ có thể xóa phiếu ở trạng thái Nháp', 400);
     }
 
     await prisma.priceAdjustment.delete({
       where: { systemId },
     });
 
+    // Log activity
+    getUserNameFromDb(session.user?.id).then(userName =>
+      prisma.activityLog.create({
+        data: {
+          entityType: 'price_adjustment',
+          entityId: systemId,
+          action: 'deleted',
+          actionType: 'delete',
+          note: `Xóa phiếu điều chỉnh giá`,
+          metadata: { userName },
+          createdBy: userName,
+        }
+      })
+    ).catch(e => logError('[ActivityLog] price_adjustment delete failed', e))
     return apiSuccess({ deleted: true });
   } catch (error) {
-    console.error('[Price Adjustments API] Delete error:', error);
-    return apiError('Failed to delete price adjustment', 500);
+    logError('[Price Adjustments API] Delete error', error);
+    return apiError('Lỗi khi xóa phiếu điều chỉnh giá', 500);
   }
 }

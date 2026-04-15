@@ -1,0 +1,19 @@
+model Promotion {
+  systemId       String        @id @default(cuid())
+  id             String        @unique // Business ID: e.g., "GIAM50K"
+  code           String        @unique // Mã giảm giá (uppercase)
+  description    String?       // Mô tả khuyến mãi
+  discountType   DiscountType  @default(FIXED) // PERCENTAGE hoặc FIXED
+  discountValue  Decimal       @db.Decimal(15, 2) // Giá trị giảm (số tiền hoặc %)
+  minOrderAmount Decimal?      @db.Decimal(15, 2) // Giá trị đơn tối thiểu
+  maxDiscount    Decimal?      @db.Decimal(15, 2) // Giảm tối đa (cho PERCENTAGE)
+  startDate      DateTime?     // Ngày bắt đầu
+  endDate        DateTime?     // Ngày kết thúc
+  usageLimit     Int?          // Giới hạn số lần sử dụng
+  usageCount     Int           @default(0) // Số lần đã dùng
+  isActive       Boolean       @default(true)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@map("promotions")
+}

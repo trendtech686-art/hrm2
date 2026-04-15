@@ -92,6 +92,11 @@ export function ImportExportLogsPage() {
     title: 'Lịch sử nhập xuất',
   });
 
+  return <ImportExportLogsContent />;
+}
+
+export function ImportExportLogsContent() {
+
   const [searchTerm, setSearchTerm] = React.useState('');
   const [typeFilter, setTypeFilter] = React.useState<LogType>('all');
   const [statusFilter, setStatusFilter] = React.useState<LogStatus>('all');

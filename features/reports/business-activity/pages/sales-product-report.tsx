@@ -1,4 +1,6 @@
-﻿/**
+﻿'use client'
+
+/**
  * Sales Product Report Page
  * 
  * Báo cáo bán hàng theo sản phẩm
@@ -18,10 +20,19 @@ import { ResponsiveDataTable } from '@/components/data-table/responsive-data-tab
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Select as UiSelect,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import type { ColumnDef } from '@/components/data-table/types';
 import type { ReportDateRange, SalesProductReportRow, ChartType } from '../types';
 import type { SystemId } from '@/lib/id-types';
 import { Package, DollarSign, TrendingUp, Filter, ShoppingCart } from 'lucide-react';
+import { ProductImage } from '@/features/products/components/product-image';
 
 const getDefaultDateRange = (): ReportDateRange => ({
   from: format(startOfMonth(subMonths(new Date(), 1)), 'yyyy-MM-dd'),
@@ -38,9 +49,16 @@ const getColumns = (): ColumnDef<SalesProductReportRow & { systemId: string; _is
     cell: ({ row }) => (
       <div className={row._isSummary ? 'font-semibold' : ''}>
         {row._isSummary ? 'Tổng' : (
-          <div>
-            <div className="font-medium">{row.productName}</div>
-            {row.sku && <div className="text-xs text-muted-foreground">{row.sku}</div>}
+          <div className="flex items-center gap-2">
+            <ProductImage
+              productSystemId={row.productSystemId}
+              productData={{ thumbnailImage: row.thumbnailImage ?? undefined }}
+              size="sm"
+            />
+            <div className="min-w-0">
+              <div className="font-medium truncate">{row.productName}</div>
+              {row.sku && <div className="text-xs text-muted-foreground">{row.sku}</div>}
+            </div>
           </div>
         )}
       </div>
@@ -121,10 +139,10 @@ const getColumns = (): ColumnDef<SalesProductReportRow & { systemId: string; _is
 ];
 
 const DISPLAY_OPTIONS = [
-  { key: 'revenue', label: 'Doanh thu', color: 'hsl(var(--chart-1))', type: 'bar' as const },
-  { key: 'grossProfit', label: 'Lợi nhuận gộp', color: 'hsl(var(--chart-2))', type: 'line' as const },
-  { key: 'quantitySold', label: 'SL bán', color: 'hsl(var(--chart-3))', type: 'bar' as const },
-  { key: 'netQuantity', label: 'SL thực', color: 'hsl(var(--chart-5))', type: 'line' as const },
+  { key: 'revenue', label: 'Doanh thu', color: 'var(--chart-1)', type: 'bar' as const },
+  { key: 'grossProfit', label: 'Lợi nhuận gộp', color: 'var(--chart-2)', type: 'line' as const },
+  { key: 'quantitySold', label: 'SL bán', color: 'var(--chart-3)', type: 'bar' as const },
+  { key: 'netQuantity', label: 'SL thực', color: 'var(--chart-5)', type: 'line' as const },
 ];
 
 export function SalesProductReportPage() {
@@ -136,8 +154,43 @@ export function SalesProductReportPage() {
   const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>({});
   const [columnOrder, setColumnOrder] = React.useState<string[]>([]);
   const [pinnedColumns, setPinnedColumns] = React.useState<string[]>([]);
+  const [productFilter, setProductFilter] = React.useState('');
+  const [categoryFilter, setCategoryFilter] = React.useState('__all__');
+  const [showFilters, setShowFilters] = React.useState(false);
   
   const { data, summary } = useSalesProductReport(dateRange);
+  
+  // Unique categories from data
+  const categories = React.useMemo(() => {
+    const set = new Set<string>();
+    data.forEach(r => { if (r.categoryName) set.add(r.categoryName); });
+    return Array.from(set).sort();
+  }, [data]);
+  
+  // Filter data
+  const filteredData = React.useMemo(() => {
+    let result = data;
+    if (productFilter) {
+      const q = productFilter.toLowerCase();
+      result = result.filter(r =>
+        r.productName.toLowerCase().includes(q) ||
+        (r.sku && r.sku.toLowerCase().includes(q)) ||
+        (r.productCode && r.productCode.toLowerCase().includes(q))
+      );
+    }
+    if (categoryFilter !== '__all__') {
+      result = result.filter(r => (r.categoryName || '-') === categoryFilter);
+    }
+    return result;
+  }, [data, productFilter, categoryFilter]);
+  
+  // Filtered summary
+  const filteredSummary = React.useMemo(() => ({
+    productAmount: filteredData.reduce((sum, r) => sum + r.productAmount, 0),
+    returnAmount: filteredData.reduce((sum, r) => sum + r.returnAmount, 0),
+    revenue: filteredData.reduce((sum, r) => sum + r.revenue, 0),
+    grossProfit: filteredData.reduce((sum, r) => sum + r.grossProfit, 0),
+  }), [filteredData]);
   
   const tableData = React.useMemo(() => {
     const summaryRow: SalesProductReportRow & { systemId: SystemId; _isSummary: boolean } = {
@@ -147,24 +200,24 @@ export function SalesProductReportPage() {
       sku: '',
       categoryName: '',
       brandName: '',
-      quantitySold: data.reduce((sum, r) => sum + r.quantitySold, 0),
-      quantityReturned: data.reduce((sum, r) => sum + r.quantityReturned, 0),
-      netQuantity: data.reduce((sum, r) => sum + r.netQuantity, 0),
-      productAmount: summary.productAmount,
-      returnAmount: summary.returnAmount,
-      revenue: summary.revenue,
-      grossProfit: summary.grossProfit,
+      quantitySold: filteredData.reduce((sum, r) => sum + r.quantitySold, 0),
+      quantityReturned: filteredData.reduce((sum, r) => sum + r.quantityReturned, 0),
+      netQuantity: filteredData.reduce((sum, r) => sum + r.netQuantity, 0),
+      productAmount: filteredSummary.productAmount,
+      returnAmount: filteredSummary.returnAmount,
+      revenue: filteredSummary.revenue,
+      grossProfit: filteredSummary.grossProfit,
       averagePrice: 0,
       systemId: '__summary__' as SystemId,
       _isSummary: true,
     };
     
-    return [summaryRow, ...data.map(row => ({
+    return [summaryRow, ...filteredData.map(row => ({
       ...row,
       systemId: row.productSystemId,
       _isSummary: false,
     }))];
-  }, [data, summary]);
+  }, [filteredData, filteredSummary]);
   
   const sortedData = React.useMemo(() => {
     const sorted = [...tableData];
@@ -191,7 +244,12 @@ export function SalesProductReportPage() {
     return [summaryRow, ...dataRows.slice(start, start + pagination.pageSize)];
   }, [sortedData, pagination]);
   
-  const pageCount = Math.ceil(data.length / pagination.pageSize);
+  const pageCount = Math.ceil(filteredData.length / pagination.pageSize);
+  
+  // Reset page khi filter thay đổi
+  React.useEffect(() => {
+    setPagination(prev => ({ ...prev, pageIndex: 0 }));
+  }, [productFilter, categoryFilter]);
   
   const chartData = React.useMemo(() => {
     return data.slice(0, 10).map(row => ({
@@ -306,17 +364,56 @@ export function SalesProductReportPage() {
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle>Chi tiết theo sản phẩm</CardTitle>
-            <Button variant="outline" size="sm">
+            <Button
+              variant={showFilters ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setShowFilters(!showFilters)}
+            >
               <Filter className="h-4 w-4 mr-2" />
-              Lọc ({data.length})
+              Lọc ({filteredData.length})
             </Button>
           </div>
+          {showFilters && (
+            <div className="flex flex-wrap items-center gap-3 mt-3 pt-3 border-t">
+              <div className="flex-1 min-w-50 max-w-75">
+                <Input
+                  placeholder="Tìm sản phẩm, mã SP..."
+                  value={productFilter}
+                  onChange={(e) => setProductFilter(e.target.value)}
+                  className="h-8 text-sm"
+                />
+              </div>
+              <div className="w-45">
+                <UiSelect value={categoryFilter} onValueChange={setCategoryFilter}>
+                  <SelectTrigger className="h-8 text-sm">
+                    <SelectValue placeholder="Tất cả danh mục" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__all__">Tất cả danh mục</SelectItem>
+                    {categories.map((cat) => (
+                      <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </UiSelect>
+              </div>
+              {(productFilter || categoryFilter !== '__all__') && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 text-xs"
+                  onClick={() => { setProductFilter(''); setCategoryFilter('__all__'); }}
+                >
+                  Xóa lọc
+                </Button>
+              )}
+            </div>
+          )}
         </CardHeader>
         <CardContent className="p-0">
           <ResponsiveDataTable
             columns={columns}
             data={paginatedData}
-            rowCount={data.length + 1}
+            rowCount={filteredData.length + 1}
             pageCount={pageCount}
             pagination={pagination}
             setPagination={setPagination}

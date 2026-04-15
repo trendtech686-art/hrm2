@@ -12,7 +12,6 @@ import type { Product } from '../types';
 import { useProduct } from '../../../hooks/api/use-products';
 import { useInfiniteMeiliProductSearch } from '../../../hooks/use-meilisearch';
 import { useImageStore } from '../image-store';
-import { FileUploadAPI } from '../../../lib/file-upload-api';
 import { LazyImage } from '../../../components/ui/lazy-image';
 import { VirtualizedCombobox, type ComboboxOption } from '../../../components/ui/virtualized-combobox';
 
@@ -98,7 +97,6 @@ export function ComboProductSearch({
         const searchProduct = searchProducts.find(p => p.systemId === productSystemId);
         const permanentImages = useImageStore(state => state.permanentImages[productSystemId]);
         const lastFetched = useImageStore(state => state.permanentMeta[productSystemId]?.lastFetched);
-        const updatePermanentImages = useImageStore(state => state.updatePermanentImages);
 
         const storeThumbnail = permanentImages?.thumbnail?.[0]?.url;
         const storeGallery = permanentImages?.gallery?.[0]?.url;
@@ -107,23 +105,14 @@ export function ComboProductSearch({
             || storeGallery
             || searchProduct?.thumbnailImage;
 
+        // ✅ Batch fetch image if missing
         React.useEffect(() => {
             if (!lastFetched && productSystemId) {
-                FileUploadAPI.getProductFiles(productSystemId)
-                    .then(files => {
-                        const mapFile = (f: { id: string; name: string; originalName: string; slug: string; filename: string; size: number; type: string; url: string; uploadedAt: string; metadata: string | Record<string, unknown> }) => ({
-                            id: f.id, sessionId: '', name: f.name, originalName: f.originalName,
-                            slug: f.slug, filename: f.filename, size: f.size, type: f.type, url: f.url,
-                            status: 'permanent' as const, uploadedAt: f.uploadedAt, metadata: typeof f.metadata === 'string' ? f.metadata : JSON.stringify(f.metadata)
-                        });
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        updatePermanentImages(productSystemId, 'thumbnail', (files.filter(f => f.documentName === 'thumbnail') as any[]).map(mapFile));
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        updatePermanentImages(productSystemId, 'gallery', (files.filter(f => f.documentName === 'gallery') as any[]).map(mapFile));
-                    })
-                    .catch(() => {});
+                import('@/features/products/image-store').then(({ queueProductImageFetch }) => {
+                    queueProductImageFetch(productSystemId);
+                });
             }
-        }, [productSystemId, lastFetched, updatePermanentImages]);
+        }, [productSystemId, lastFetched]);
 
         if (displayImage) {
             return (
@@ -146,11 +135,11 @@ export function ComboProductSearch({
             <div className="flex items-center gap-3 w-full py-1">
                 <ProductOptionThumbnail productSystemId={option.value} />
                 <div className="flex-1 min-w-0">
-                    <p className="text-body-sm font-medium truncate">{option.label}</p>
-                    <p className="text-body-xs text-muted-foreground">{option.subtitle}</p>
+                    <p className="text-sm font-medium truncate">{option.label}</p>
+                    <p className="text-xs text-muted-foreground">{option.subtitle}</p>
                 </div>
                 <div className="text-right shrink-0">
-                    <p className="text-body-sm font-medium">{formatCurrency(metadata?.costPrice)}</p>
+                    <p className="text-sm font-medium">{formatCurrency(metadata?.costPrice)}</p>
                 </div>
             </div>
         );

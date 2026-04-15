@@ -134,14 +134,14 @@ function TreeNode({
 
           {/* Level Badge */}
           {level > 0 && (
-            <Badge variant="outline" className="h-4 text-[10px] px-1">
+            <Badge variant="outline" className="h-4 text-xs px-1">
               L{level + 1}
             </Badge>
           )}
 
           {/* Status */}
           {!category.isActive && (
-            <Badge variant="secondary" className="h-4 text-[10px] px-1">
+            <Badge variant="secondary" className="h-4 text-xs px-1">
               Ẩn
             </Badge>
           )}

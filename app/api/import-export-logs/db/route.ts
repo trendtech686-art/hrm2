@@ -6,6 +6,7 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, apiSuccess, apiError, parsePagination } from '@/lib/api-utils';
+import { logError } from '@/lib/logger'
 
 // GET /api/import-export-logs/db?type=import&entityType=products&limit=500
 export async function GET(request: NextRequest) {
@@ -39,7 +40,7 @@ export async function GET(request: NextRequest) {
       total,
     });
   } catch (error) {
-    console.error('[API] Import/Export logs DB fetch error:', error);
+    logError('[API] Import/Export logs DB fetch error', error);
     return apiError('Failed to fetch logs', 500);
   }
 }

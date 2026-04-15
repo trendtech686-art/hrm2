@@ -5,8 +5,13 @@
 
 import { NextResponse } from 'next/server';
 import { getShipmentStats } from '@/lib/data/shipments';
+import { requireAuth, apiError } from '@/lib/api-utils'
+import { logError } from '@/lib/logger'
 
 export async function GET(request: Request) {
+  const session = await requireAuth()
+  if (!session) return apiError('Unauthorized', 401)
+
   try {
     const { searchParams } = new URL(request.url);
     const branchId = searchParams.get('branchId') || undefined;
@@ -15,9 +20,9 @@ export async function GET(request: Request) {
     
     return NextResponse.json(stats);
   } catch (error) {
-    console.error('Error fetching shipment stats:', error);
+    logError('Error fetching shipment stats', error);
     return NextResponse.json(
-      { error: 'Failed to fetch shipment stats' },
+      { error: 'Không thể tải thống kê vận đơn' },
       { status: 500 }
     );
   }

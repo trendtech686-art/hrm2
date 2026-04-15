@@ -1,8 +1,10 @@
 import * as React from 'react';
+import NextImage from 'next/image';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './dialog';
 import { Button } from './button';
 import { ChevronLeft, ChevronRight, X, ZoomIn, ZoomOut, Download, RotateCw, Maximize2 } from 'lucide-react';
 import { Spinner } from './spinner';
+import { logError } from '@/lib/logger'
 
 interface ImagePreviewDialogProps {
   images: string[];
@@ -225,7 +227,7 @@ export function ImagePreviewDialog({
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
     } catch (error) {
-      console.error('Download failed:', error);
+      logError('Download failed', error);
     }
   };
 
@@ -355,7 +357,7 @@ export function ImagePreviewDialog({
                   setPosition({ x: 0, y: 0 });
                   setIsImageLoading(true);
                 }}
-                className={`shrink-0 w-12 h-12 sm:w-16 sm:h-16 rounded border-2 border-border overflow-hidden transition-all ${
+                className={`relative shrink-0 w-12 h-12 sm:w-16 sm:h-16 rounded border-2 border-border overflow-hidden transition-all ${
                   idx === currentIndex ? 'border-primary ring-2 ring-primary/20' : 'hover:border-gray-400'
                 }`}
               >

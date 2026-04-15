@@ -201,7 +201,7 @@ export const SalesReturnSummary = React.memo(function SalesReturnSummary() {
         className="grid grid-cols-12 gap-2 items-start p-3 border rounded-lg"
       >
         <div className="col-span-4">
-          <Label className="text-body-xs mb-1 block">Phương thức</Label>
+          <Label className="text-xs mb-1 block">Phương thức</Label>
           <Controller
             control={control}
             name={`refunds.${index}.method`}
@@ -239,7 +239,7 @@ export const SalesReturnSummary = React.memo(function SalesReturnSummary() {
           />
         </div>
         <div className="col-span-3">
-          <Label className="text-body-xs mb-1 block">Tài khoản</Label>
+          <Label className="text-xs mb-1 block">Tài khoản</Label>
           <Controller
             control={control}
             name={`refunds.${index}.accountSystemId`}
@@ -260,7 +260,7 @@ export const SalesReturnSummary = React.memo(function SalesReturnSummary() {
           />
         </div>
         <div className="col-span-4">
-          <Label className="text-body-xs mb-1 block">Số tiền</Label>
+          <Label className="text-xs mb-1 block">Số tiền</Label>
           <Controller
             control={control}
             name={`refunds.${index}.amount`}
@@ -316,7 +316,7 @@ export const SalesReturnSummary = React.memo(function SalesReturnSummary() {
         className="grid grid-cols-12 gap-2 items-start p-3 border rounded-lg"
       >
         <div className="col-span-4">
-          <Label className="text-body-xs mb-1 block">Phương thức</Label>
+          <Label className="text-xs mb-1 block">Phương thức</Label>
           <Controller
             control={control}
             name={`payments.${index}.method`}
@@ -354,7 +354,7 @@ export const SalesReturnSummary = React.memo(function SalesReturnSummary() {
           />
         </div>
         <div className="col-span-3">
-          <Label className="text-body-xs mb-1 block">Tài khoản</Label>
+          <Label className="text-xs mb-1 block">Tài khoản</Label>
           <Controller
             control={control}
             name={`payments.${index}.accountSystemId`}
@@ -375,7 +375,7 @@ export const SalesReturnSummary = React.memo(function SalesReturnSummary() {
           />
         </div>
         <div className="col-span-4">
-          <Label className="text-body-xs mb-1 block">Số tiền</Label>
+          <Label className="text-xs mb-1 block">Số tiền</Label>
           <Controller
             control={control}
             name={`payments.${index}.amount`}
@@ -474,14 +474,14 @@ export const SalesReturnSummary = React.memo(function SalesReturnSummary() {
               <CardTitle>Thanh toán</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="flex justify-between text-body-sm">
+              <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">
                   Tổng tiền ({watchedExchangeItems.length} sản phẩm)
                 </span>
                 <span>{formatCurrency(subtotalExchangeValue)}</span>
               </div>
 
-              <div className="flex justify-between items-center text-body-sm">
+              <div className="flex justify-between items-center text-sm">
                 <div className="flex items-center gap-2">
                   <span className="text-muted-foreground">Phí giao hàng (F7)</span>
                   <Button
@@ -512,7 +512,7 @@ export const SalesReturnSummary = React.memo(function SalesReturnSummary() {
                 />
               </div>
 
-              <div className="flex justify-between items-center text-body-sm">
+              <div className="flex justify-between items-center text-sm">
                 <span className="text-muted-foreground">Chiết khấu toàn đơn</span>
                 <div className="flex items-center gap-1">
                   <Controller
@@ -570,7 +570,7 @@ export const SalesReturnSummary = React.memo(function SalesReturnSummary() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-2 text-body-sm">
+          <div className="space-y-2 text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Cần hoàn tiền trả hàng</span>
               <span className="font-medium">{formatCurrency(totalReturnValue)}</span>
@@ -595,13 +595,13 @@ export const SalesReturnSummary = React.memo(function SalesReturnSummary() {
                   </span>
                 </div>
                 {maxRefundableAmount < Math.abs(finalAmount) && (
-                  <div className="text-body-xs text-muted-foreground">
+                  <div className="text-xs text-muted-foreground">
                     (Khách đã thanh toán: {formatCurrency(totalPaidOnOriginalOrder)} -
                     Chỉ hoàn tối đa số tiền đã thu)
                   </div>
                 )}
                 {maxRefundableAmount === 0 && (
-                  <div className="text-body-xs text-blue-600 bg-blue-50 p-2 rounded">
+                  <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded">
                     ✓ Khách chưa thanh toán đơn hàng gốc, không cần hoàn tiền. Chỉ cần
                     nhận lại hàng.
                   </div>
@@ -632,7 +632,7 @@ export const SalesReturnSummary = React.memo(function SalesReturnSummary() {
           {finalAmount < 0 && maxRefundableAmount > 0 && (
             <div className="space-y-4 pt-4 border-t">
               <div className="flex items-center justify-between">
-                <span className="text-body-sm font-medium">Đã hoàn tiền</span>
+                <span className="text-sm font-medium">Đã hoàn tiền</span>
                 <Button
                   type="button"
                   size="sm"
@@ -668,7 +668,7 @@ export const SalesReturnSummary = React.memo(function SalesReturnSummary() {
                   {watchedRefunds.map((refund, index) =>
                     renderRefundMethodRow(refund, index)
                   )}
-                  <div className="flex justify-between pt-2 border-t text-body-sm">
+                  <div className="flex justify-between pt-2 border-t text-sm">
                     <span className="font-medium">Tổng đã hoàn:</span>
                     <span className="font-semibold">
                       {formatCurrency(
@@ -681,7 +681,7 @@ export const SalesReturnSummary = React.memo(function SalesReturnSummary() {
                   </div>
                 </div>
               ) : (
-                <p className="text-body-sm text-muted-foreground text-center py-4">
+                <p className="text-sm text-muted-foreground text-center py-4">
                   Chưa có phương thức hoàn tiền. Nhấn "Thêm phương thức" để bắt đầu.
                 </p>
               )}
@@ -689,7 +689,7 @@ export const SalesReturnSummary = React.memo(function SalesReturnSummary() {
               <Separator />
 
               <div className="flex justify-between items-center">
-                <span className="text-body-sm font-medium">Đã hoàn tiền</span>
+                <span className="text-sm font-medium">Đã hoàn tiền</span>
                 <span className="text-h4 font-semibold">
                   {formatCurrency(
                     (watchedRefunds || []).reduce((sum, r) => sum + (r.amount || 0), 0)
@@ -698,7 +698,7 @@ export const SalesReturnSummary = React.memo(function SalesReturnSummary() {
               </div>
 
               <div className="flex justify-between items-center">
-                <span className="text-body-sm font-medium">Còn phải hoàn trả khách</span>
+                <span className="text-sm font-medium">Còn phải hoàn trả khách</span>
                 <span className="text-h3 font-bold text-green-600">
                   {formatCurrency(
                     Math.min(Math.abs(finalAmount), maxRefundableAmount) -
@@ -713,7 +713,7 @@ export const SalesReturnSummary = React.memo(function SalesReturnSummary() {
           {finalAmount > 0 && (
             <div className="space-y-4 pt-4 border-t">
               <div className="flex items-center justify-between">
-                <span className="text-body-sm font-medium">Đã thanh toán</span>
+                <span className="text-sm font-medium">Đã thanh toán</span>
                 <Button
                   type="button"
                   size="sm"
@@ -745,7 +745,7 @@ export const SalesReturnSummary = React.memo(function SalesReturnSummary() {
                   {watchedPayments.map((payment, index) =>
                     renderPaymentMethodRow(payment, index)
                   )}
-                  <div className="flex justify-between pt-2 border-t text-body-sm">
+                  <div className="flex justify-between pt-2 border-t text-sm">
                     <span className="font-medium">Tổng đã thanh toán:</span>
                     <span className="font-semibold">
                       {formatCurrency(
@@ -758,7 +758,7 @@ export const SalesReturnSummary = React.memo(function SalesReturnSummary() {
                   </div>
                 </div>
               ) : (
-                <p className="text-body-sm text-muted-foreground text-center py-4">
+                <p className="text-sm text-muted-foreground text-center py-4">
                   Chưa có phương thức thanh toán. Nhấn "Thêm phương thức" để bắt đầu.
                 </p>
               )}
@@ -766,7 +766,7 @@ export const SalesReturnSummary = React.memo(function SalesReturnSummary() {
               <Separator />
 
               <div className="flex justify-between items-center">
-                <span className="text-body-sm font-medium">Đã thanh toán</span>
+                <span className="text-sm font-medium">Đã thanh toán</span>
                 <span className="text-h4 font-semibold">
                   {formatCurrency(
                     (watchedPayments || []).reduce((sum, p) => sum + (p.amount || 0), 0)
@@ -775,7 +775,7 @@ export const SalesReturnSummary = React.memo(function SalesReturnSummary() {
               </div>
 
               <div className="flex justify-between items-center">
-                <span className="text-body-sm font-medium">Khách còn phải trả</span>
+                <span className="text-sm font-medium">Khách còn phải trả</span>
                 <span className="text-h3 font-bold text-amber-600">
                   {formatCurrency(
                     Math.abs(finalAmount) -

@@ -4,10 +4,11 @@ import type { CostAdjustment } from "@/lib/types/prisma-extended";
 import type { SystemId } from "@/lib/id-types";
 import { asSystemId } from "@/lib/id-types";
 import { useQueryClient } from '@tanstack/react-query';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import * as React from "react";
 import { fetchCostAdjustments } from '../api/cost-adjustments-api';
-import { fetchAllPages } from '@/lib/fetch-all-pages';
 import { costAdjustmentKeys } from "./use-cost-adjustments";
+import { logError } from '@/lib/logger'
 
 // ═══════════════════════════════════════════════════════════════
 // Types
@@ -72,7 +73,8 @@ async function executeImport(
 
   try {
     // Fetch ALL existing cost adjustments to check for duplicates
-    const existingAdjustments = await fetchAllPages((p) => fetchCostAdjustments(p));
+    const existingRes = await fetchCostAdjustments();
+    const existingAdjustments = existingRes.data;
 
     for (let i = 0; i < data.length; i++) {
       const item = data[i];
@@ -134,7 +136,7 @@ async function executeImport(
 
     return results;
   } catch (error) {
-    console.error('[CostAdjustments Importer] Lỗi nhập phiếu điều chỉnh giá vốn', error);
+    logError('[CostAdjustments Importer] Lỗi nhập phiếu điều chỉnh giá vốn', error);
     throw error;
   }
 }
@@ -160,7 +162,7 @@ export function useCostAdjustmentImportHandler({
       
       // Invalidate query cache to refresh list
       if (results.success > 0) {
-        queryClient.invalidateQueries({ queryKey: costAdjustmentKeys.all });
+        invalidateRelated(queryClient, 'cost-adjustments');
       }
       
       return results;

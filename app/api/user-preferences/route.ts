@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma'
 import { Prisma } from '@/generated/prisma/client'
 import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
 import { createUserPreferenceSchema, bulkUpdatePreferencesSchema } from './validation'
+import { logError } from '@/lib/logger'
 
 // GET /api/user-preferences?userId=xxx or ?userId=xxx&key=xxx
 export async function GET(request: Request) {
@@ -47,7 +48,7 @@ export async function GET(request: Request) {
 
     return apiSuccess({ data: preferences, map: prefMap })
   } catch (error) {
-    console.error('Error fetching user preferences:', error)
+    logError('Error fetching user preferences', error)
     return apiError('Failed to fetch user preferences', 500)
   }
 }
@@ -62,6 +63,13 @@ export async function POST(request: Request) {
     return apiError(validation.error, 400)
   }
   const body = validation.data
+
+  // Guard against oversized payloads (max 1MB for value)
+  const valueSize = body.value !== undefined ? JSON.stringify(body.value).length : 0
+  if (valueSize > 1_000_000) {
+    logError(`User preference value too large: ${body.key} = ${valueSize} bytes`, null)
+    return apiError('Giá trị preference vượt quá giới hạn 1MB', 413)
+  }
 
   try {
     // Build update/create data — only include defined fields to avoid Prisma errors
@@ -87,7 +95,7 @@ export async function POST(request: Request) {
 
     return apiSuccess(preference)
   } catch (error) {
-    console.error('Error saving user preference:', error, error instanceof Error ? error.stack : '')
+    logError('Error saving user preference', error)
     return apiError('Failed to save user preference', 500)
   }
 }
@@ -130,7 +138,7 @@ export async function PUT(request: Request) {
 
     return apiSuccess({ success: true, count: results.length })
   } catch (error) {
-    console.error('Error bulk updating preferences:', error)
+    logError('Error bulk updating preferences', error)
     return apiError('Failed to bulk update preferences', 500)
   }
 }
@@ -170,7 +178,7 @@ export async function DELETE(request: Request) {
 
     return apiSuccess({ success: true })
   } catch (error) {
-    console.error('Error deleting user preference:', error)
+    logError('Error deleting user preference', error)
     return apiError('Failed to delete user preference', 500)
   }
 }

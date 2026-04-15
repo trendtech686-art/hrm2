@@ -1,5 +1,8 @@
 import { prisma } from '@/lib/prisma'
 import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
+import { logError } from '@/lib/logger'
+import { createNotification } from '@/lib/notifications'
+import { getUserNameFromDb } from '@/lib/get-user-name'
 
 interface RouteParams {
   params: Promise<{ systemId: string }>
@@ -82,7 +85,7 @@ export async function POST(request: Request, { params }: RouteParams) {
       await tx.auditLog.create({
         data: {
           systemId: `LOG${String(auditLogCounter).padStart(10, '0')}`,
-          entityType: 'Payroll',
+          entityType: 'payroll',
           entityId: systemId,
           action: 'cancel',
           userId: session.user?.email || 'system',
@@ -106,13 +109,48 @@ export async function POST(request: Request, { params }: RouteParams) {
       }
     })
 
+    // Notify payroll creator about cancellation
+    if (payroll.createdBy && payroll.createdBy !== session.user?.email) {
+      const creatorEmployee = await prisma.employee.findFirst({
+        where: { OR: [{ systemId: payroll.createdBy }, { id: payroll.createdBy }] },
+        select: { systemId: true },
+      });
+      if (creatorEmployee) {
+        createNotification({
+          type: 'payroll',
+          settingsKey: 'payroll:updated',
+          title: 'Bảng lương bị hủy',
+          message: `Bảng lương ${payroll.id} đã bị hủy${reason ? `: ${reason}` : ''}`,
+          link: `/payroll`,
+          recipientId: creatorEmployee.systemId,
+          senderId: session.user?.employeeId,
+          senderName: session.user?.name,
+        }).catch(e => logError('[Payroll Cancel] notification failed', e));
+      }
+    }
+
+    // Log activity
+    getUserNameFromDb(session.user?.id).then(userName =>
+      prisma.activityLog.create({
+        data: {
+          entityType: 'payroll',
+          entityId: systemId,
+          action: 'cancelled',
+          actionType: 'update',
+          note: `Hủy bảng lương`,
+          metadata: { userName },
+          createdBy: userName,
+        }
+      })
+    ).catch(e => logError('[ActivityLog] payroll cancelled failed', e))
+
     return apiSuccess({
       message: `Đã hủy bảng lương ${payroll.id}`,
       cancelledPayments: result.cancelledPaymentsCount,
       rolledBackPenalties: result.rolledBackPenaltiesCount,
     })
   } catch (error) {
-    console.error('Error cancelling payroll:', error)
+    logError('Error cancelling payroll', error)
     return apiError(
       error instanceof Error ? error.message : 'Failed to cancel batch',
       500

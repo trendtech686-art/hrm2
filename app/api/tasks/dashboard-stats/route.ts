@@ -4,14 +4,15 @@
  * No client-side data loading needed for metrics.
  */
 
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@/generated/prisma/client';
-import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils';
+import { requirePermission, apiSuccess, apiError } from '@/lib/api-utils';
+import { logError } from '@/lib/logger'
 
 export async function GET(request: NextRequest) {
-  const session = await requireAuth();
-  if (!session) return apiError('Unauthorized', 401);
+  const result = await requirePermission('view_tasks');
+  if (result instanceof NextResponse) return result;
 
   const { searchParams } = new URL(request.url);
   const createdFrom = searchParams.get('createdFrom');
@@ -175,7 +176,7 @@ export async function GET(request: NextRequest) {
       byAssignee,
     });
   } catch (error) {
-    console.error('[Tasks Dashboard Stats] GET error:', error);
+    logError('[Tasks Dashboard Stats] GET error', error);
     return apiError('Không thể tải thống kê công việc', 500);
   }
 }

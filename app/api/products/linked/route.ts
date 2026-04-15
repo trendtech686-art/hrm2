@@ -1,11 +1,13 @@
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@/generated/prisma/client'
-import { requireAuth, apiError } from '@/lib/api-utils'
+import { apiHandler } from '@/lib/api-handler'
 import { NextResponse } from 'next/server'
+import { serializeDecimals } from '@/lib/api-utils'
 
 /**
  * Products Linked API
  * Returns products that are linked to PKGX (have pkgxId)
+ * Includes PKGX product data via server-side JOIN to avoid client needing full cache
  * 
  * GET /api/products/linked?page=1&limit=20&search=...
  */
@@ -20,7 +22,7 @@ const LINKED_PRODUCT_SELECT = {
   status: true,
   pkgxId: true,
   brandId: true,
-  categorySystemIds: true, // Fixed: was categorySystemId (singular)
+  categorySystemIds: true,
   inventoryByBranch: true,
   description: true,
   shortDescription: true,
@@ -32,11 +34,7 @@ const LINKED_PRODUCT_SELECT = {
   updatedAt: true,
 } as const
 
-export async function GET(request: Request) {
-  const session = await requireAuth()
-  if (!session) return apiError('Unauthorized', 401)
-
-  try {
+export const GET = apiHandler(async (request, _ctx) => {
     const { searchParams } = new URL(request.url)
     const page = parseInt(searchParams.get('page') || '1', 10)
     const limit = Math.min(parseInt(searchParams.get('limit') || '20', 10), 100)
@@ -70,8 +68,24 @@ export async function GET(request: Request) {
       take: limit,
     })
 
+    // Enrich with PKGX product data (server-side JOIN)
+    const pkgxIds = products.map(p => p.pkgxId).filter((id): id is number => id !== null)
+    let pkgxMap = new Map<number, Record<string, unknown>>()
+    
+    if (pkgxIds.length > 0) {
+      const pkgxProducts = await prisma.pkgxProduct.findMany({
+        where: { id: { in: pkgxIds } },
+      })
+      pkgxMap = new Map(pkgxProducts.map(p => [p.id, serializeDecimals(p) as Record<string, unknown>]))
+    }
+
+    const enrichedProducts = products.map(p => ({
+      ...p,
+      pkgxProduct: p.pkgxId ? pkgxMap.get(p.pkgxId) || null : null,
+    }))
+
     return NextResponse.json({
-      data: products,
+      data: enrichedProducts,
       pagination: {
         page,
         limit,
@@ -79,8 +93,4 @@ export async function GET(request: Request) {
         totalPages: Math.ceil(total / limit),
       },
     })
-  } catch (error) {
-    console.error('Products linked error:', error)
-    return apiError('Failed to fetch linked products', 500)
-  }
-}
+})

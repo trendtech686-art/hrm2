@@ -9,14 +9,18 @@
 import { NextRequest } from 'next/server';
 import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils';
 import { submitOrderSchema } from './validation';
-
-const GHTK_API_BASE = 'https://services.giaohangtietkiem.vn';
+import { logError } from '@/lib/logger'
+import { fetchWithTimeout } from '@/lib/fetch-utils'
+import { GHTK_API_BASE } from '@/lib/ghtk-sync'
 
 interface Product {
   name: string;
   weight: number;
   quantity: number;
   product_code?: string;
+  height?: number;
+  width?: number;
+  length?: number;
 }
 
 export async function POST(request: NextRequest) {
@@ -89,6 +93,9 @@ export async function POST(request: NextRequest) {
         note: orderParams.note || '',
         total_weight: totalWeightKg,
         total_box: orderParams.total_box,
+        ...(orderParams.height ? { height: orderParams.height } : {}),
+        ...(orderParams.width ? { width: orderParams.width } : {}),
+        ...(orderParams.length ? { length: orderParams.length } : {}),
         transport: orderParams.transport || 'road',
         pick_option: orderParams.pick_option || 'post',
         pick_session: orderParams.pick_session || 0,
@@ -125,7 +132,7 @@ export async function POST(request: NextRequest) {
     };
 
 
-    const response = await fetch(`${GHTK_API_BASE}/services/shipment/order/?ver=1.5`, {
+    const response = await fetchWithTimeout(`${GHTK_API_BASE}/services/shipment/order/?ver=1.5`, {
       method: 'POST',
       headers: {
         'Token': apiToken,
@@ -144,7 +151,7 @@ export async function POST(request: NextRequest) {
     try {
       data = JSON.parse(responseText);
     } catch {
-      console.error(`[GHTK-SUBMIT-${requestId}] ❌ JSON parse error:`, {
+      logError(`[GHTK-SUBMIT-${requestId}] JSON parse error`, null, {
         responsePreview: responseText.substring(0, 500)
       });
       
@@ -153,7 +160,7 @@ export async function POST(request: NextRequest) {
     
     // ✅ If GHTK returns success: false, return error with message
     if (data.success === false) {
-      console.error(`[GHTK-SUBMIT-${requestId}] ❌ GHTK API error:`, data.message);
+      logError(`[GHTK-SUBMIT-${requestId}] GHTK API error`, null, { message: data.message });
       return apiError(data.message || 'GHTK API error', 400);
     }
     
@@ -164,7 +171,7 @@ export async function POST(request: NextRequest) {
     
   } catch (error) {
     const duration = Date.now() - startTime;
-    console.error(`[GHTK-SUBMIT-${requestId}] ❌ Submit order error (${duration}ms):`, error);
+    logError(`[GHTK-SUBMIT-${requestId}] ❌ Submit order error (${duration}ms)`, error);
     
     return apiError(error instanceof Error ? error.message : 'Unknown error', 500);
   }

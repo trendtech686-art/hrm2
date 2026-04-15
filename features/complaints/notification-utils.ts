@@ -1,36 +1,15 @@
 import { toast } from "sonner";
+import type { ComplaintNotificationSettings } from '@/features/settings/notifications/types';
 
-// Storage key
-const _STORAGE_KEY = 'complaints-notification-settings';
-
-// Default notification settings
-const defaultNotifications = {
+// Default notification settings (hardcoded — server settings are in features/settings/notifications/types.ts)
+const defaultNotifications: ComplaintNotificationSettings = {
   emailOnCreate: true,
   emailOnAssign: true,
   emailOnVerified: false,
   emailOnResolved: true,
   emailOnOverdue: true,
-  smsOnOverdue: false,
   inAppNotifications: true,
 };
-
-interface NotificationSettings {
-  emailOnCreate: boolean;
-  emailOnAssign: boolean;
-  emailOnVerified: boolean;
-  emailOnResolved: boolean;
-  emailOnOverdue: boolean;
-  smsOnOverdue: boolean;
-  inAppNotifications: boolean;
-}
-
-/**
- * Load notification settings - deprecated, use useComplaintsNotificationSettings hook
- * @deprecated Use useComplaintsNotificationSettings hook from hooks/use-sla-notification-settings.ts
- */
-function loadNotificationSettings(): NotificationSettings {
-  return defaultNotifications;
-}
 
 /**
  * Show toast notification based on settings
@@ -40,37 +19,25 @@ export function showNotification(
   message: string,
   options?: { id?: string | number; description?: string }
 ) {
-  const settings = loadNotificationSettings();
-  
-  // Always show if inAppNotifications is enabled
-  if (settings.inAppNotifications) {
-    switch (type) {
-      case 'success':
-        toast.success(message, options);
-        break;
-      case 'error':
-        toast.error(message, options);
-        break;
-      case 'info':
-        toast.info(message, options);
-        break;
-    }
+  // Always show — inAppNotifications defaults to true
+  switch (type) {
+    case 'success':
+      toast.success(message, options);
+      break;
+    case 'error':
+      toast.error(message, options);
+      break;
+    case 'info':
+      toast.info(message, options);
+      break;
   }
-}
-
-/**
- * Show loading toast (always shown regardless of settings)
- */
-export function showLoading(message: string) {
-  return toast.loading(message);
 }
 
 /**
  * Check if a specific notification event is enabled
  */
-export function isNotificationEnabled(event: keyof NotificationSettings): boolean {
-  const settings = loadNotificationSettings();
-  return settings[event] || false;
+function isNotificationEnabled(event: keyof ComplaintNotificationSettings): boolean {
+  return defaultNotifications[event] || false;
 }
 
 /**
@@ -108,11 +75,6 @@ export const complaintNotifications = {
   onOverdue: (message: string) => {
     if (isNotificationEnabled('emailOnOverdue')) {
       showNotification('error', message, { description: 'Vui lòng xử lý nhanh' });
-      // TODO: Send email notification here
-    }
-    
-    if (isNotificationEnabled('smsOnOverdue')) {
-      // TODO: Send SMS notification here
     }
   },
 };

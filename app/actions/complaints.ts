@@ -11,9 +11,13 @@ import { Prisma } from '@/generated/prisma/client'
 import { revalidatePath } from '@/lib/revalidation'
 import { generateIdWithPrefix } from '@/lib/id-generator'
 import { generateSubEntityId } from '@/lib/id-utils'
-import { auth } from '@/auth'
+import { requireActionPermission } from '@/lib/api-utils'
 import type { ActionResult } from '@/types/action-result'
 import { createComplaintSchema, updateComplaintSchema } from '@/features/complaints/validation'
+import { logError } from '@/lib/logger'
+import { createNotification } from '@/lib/notifications'
+import { getSessionUserName } from '@/lib/get-user-name'
+import { notifyComplaintAssigned, notifyComplaintStatusChanged, notifyComplaintCreated } from '@/lib/complaint-notifications'
 
 // Complaint type from Prisma (auto-inferred)
 type Complaint = Awaited<ReturnType<typeof prisma.complaint.findFirst>>
@@ -164,10 +168,8 @@ function serializeComplaint(complaint: NonNullable<Complaint>) {
 export async function createComplaintAction(
   input: CreateComplaintInput
 ): Promise<ActionResult<Complaint>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('create_complaints')
+  if (!authResult.success) return authResult
 
   const validated = createComplaintSchema.safeParse(input)
   if (!validated.success) {
@@ -190,8 +192,8 @@ export async function createComplaintAction(
         data: {
           systemId,
           id: systemId,
-          orderId: input.orderId || input.orderSystemId,
-          customerId: input.customerId || input.customerSystemId,
+          orderId: input.orderId || input.orderSystemId || null,
+          customerId: input.customerId || input.customerSystemId || null,
           customerName: input.customerName,
           customerPhone: input.customerPhone,
           type: input.type,
@@ -201,8 +203,8 @@ export async function createComplaintAction(
           branchId: input.branchId,
           branchSystemId: input.branchSystemId,
           branchName: input.branchName,
-          assigneeId: input.assigneeId || input.assignedTo,
-          assigneeName: input.assigneeName,
+          assigneeId: input.assigneeId || input.assignedTo || undefined,
+          assigneeName: input.assigneeName || undefined,
           assignedAt: input.assignedAt ? new Date(input.assignedAt as string) : undefined,
           status: 'OPEN',
           publicTrackingCode: trackingCode,
@@ -224,9 +226,40 @@ export async function createComplaintAction(
     })
 
     revalidatePath('/complaints')
+
+    // Activity log — Việt hóa type
+    const createTypeLabels: Record<string, string> = {
+      'wrong-product': 'Sai hàng', 'missing-items': 'Thiếu hàng',
+      'wrong-packaging': 'Đóng gói sai', 'warehouse-defect': 'Lỗi kho',
+      'product-condition': 'Tình trạng SP',
+    }
+    const userName = getSessionUserName(authResult.session)
+    prisma.activityLog.create({
+      data: {
+        entityType: 'complaint',
+        entityId: result.systemId,
+        action: `Tạo khiếu nại: ${result.id || result.systemId}`,
+        actionType: 'create',
+        note: `Loại: ${createTypeLabels[input.type] || input.type} | Khách: ${input.customerName || 'N/A'}`,
+        metadata: { userName },
+        createdBy: userName,
+      }
+    }).catch(e => logError('[ActivityLog] complaint create failed', e))
+
+    // ✅ Email notification for assigned complaint
+    if (result.assigneeId) {
+      notifyComplaintCreated({
+        systemId: result.systemId,
+        title: result.title || result.systemId,
+        id: result.id || result.systemId,
+        assigneeId: result.assigneeId,
+        creatorName: getSessionUserName(authResult.session),
+      }).catch(e => logError('[Complaints createAction] email failed', e))
+    }
+
     return { success: true, data: serializeComplaint(result) }
   } catch (error) {
-    console.error('Error creating complaint:', error)
+    logError('Error creating complaint', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Không thể tạo khiếu nại',
@@ -240,10 +273,8 @@ export async function createComplaintAction(
 export async function updateComplaintAction(
   input: UpdateComplaintInput
 ): Promise<ActionResult<Complaint>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('edit_complaints')
+  if (!authResult.success) return authResult
 
   const validated = updateComplaintSchema.safeParse(input)
   if (!validated.success) {
@@ -308,11 +339,114 @@ export async function updateComplaintAction(
       data: updateData,
     })
 
+    // ✅ Notify assignee on status/assignment change
+    const newAssignee = updateData.assigneeId as string | undefined
+    if (newAssignee && newAssignee !== existing.assigneeId && newAssignee !== authResult.session.user?.employeeId) {
+      createNotification({
+        type: 'complaint',
+        title: 'Giao khiếu nại',
+        message: `Bạn được giao xử lý khiếu nại ${existing.id || systemId}`,
+        link: `/complaint-tracking/${systemId}`,
+        recipientId: newAssignee,
+        senderId: authResult.session.user?.employeeId,
+        senderName: authResult.session.user?.name,
+        settingsKey: 'complaint:assigned',
+      }).catch(e => logError('[Complaints updateAction] assignee notification failed', e))
+
+      // ✅ Email notification for assignment
+      notifyComplaintAssigned({
+        systemId,
+        title: existing.title || systemId,
+        id: existing.id || systemId,
+        assigneeId: newAssignee,
+        assignerName: authResult.session.user?.name || null,
+      }).catch(e => logError('[Complaints updateAction] assignee email failed', e))
+    } else if (updateData.status && updateData.status !== existing.status && existing.assigneeId && existing.assigneeId !== authResult.session.user?.employeeId) {
+      createNotification({
+        type: 'complaint',
+        title: 'Cập nhật khiếu nại',
+        message: `Khiếu nại ${existing.id || systemId} đã chuyển trạng thái`,
+        link: `/complaint-tracking/${systemId}`,
+        recipientId: existing.assigneeId,
+        senderId: authResult.session.user?.employeeId,
+        senderName: authResult.session.user?.name,
+        settingsKey: 'complaint:status',
+      }).catch(e => logError('[Complaints updateAction] status notification failed', e))
+
+      // ✅ Email notification for status change
+      notifyComplaintStatusChanged({
+        systemId,
+        title: existing.title || systemId,
+        id: existing.id || systemId,
+        assigneeId: existing.assigneeId,
+        creatorId: existing.createdBy || null,
+        status: updateData.status as string,
+        oldStatus: existing.status,
+      }).catch(e => logError('[Complaints updateAction] status email failed', e))
+    }
+
     revalidatePath('/complaints')
     revalidatePath(`/complaints/${systemId}`)
+
+    // Activity log — ghi chi tiết các trường thay đổi
+    const changedFields: string[] = []
+    // Việt hóa type mapping
+    const typeLabelsMap: Record<string, string> = {
+      'wrong-product': 'Sai hàng', 'missing-items': 'Thiếu hàng',
+      'wrong-packaging': 'Đóng gói sai', 'warehouse-defect': 'Lỗi kho',
+      'product-condition': 'Tình trạng SP',
+    }
+    const priorityLabelsMap: Record<string, string> = {
+      LOW: 'Thấp', MEDIUM: 'Trung bình', HIGH: 'Cao', CRITICAL: 'Khẩn cấp',
+    }
+    const statusLabelsMap: Record<string, string> = {
+      pending: 'Chờ xử lý', investigating: 'Đang kiểm tra', resolved: 'Đã giải quyết',
+      cancelled: 'Đã hủy', ended: 'Kết thúc',
+      OPEN: 'Chờ xử lý', IN_PROGRESS: 'Đang kiểm tra', RESOLVED: 'Đã giải quyết', CLOSED: 'Kết thúc',
+    }
+    if (data.type !== undefined && data.type !== existing.type) {
+      changedFields.push(`loại: ${typeLabelsMap[data.type] || data.type}`)
+    }
+    if (data.status !== undefined) {
+      changedFields.push(`trạng thái → ${statusLabelsMap[data.status] || data.status}`)
+    }
+    if (data.priority !== undefined && data.priority !== existing.priority) {
+      changedFields.push(`ưu tiên → ${priorityLabelsMap[data.priority] || data.priority}`)
+    }
+    if (data.assigneeId !== undefined && data.assigneeId !== existing.assigneeId) {
+      changedFields.push(`người xử lý → ${data.assigneeName || data.assigneeId || 'Chưa giao'}`)
+    }
+    if (data.resolution !== undefined) changedFields.push(`kết quả xử lý`)
+    if (data.subject !== undefined || data.title !== undefined) changedFields.push('tiêu đề')
+    if (data.description !== undefined) changedFields.push('mô tả')
+    if (data.images !== undefined) changedFields.push('hình ảnh khách hàng')
+    if (data.employeeImages !== undefined) changedFields.push('hình ảnh nhân viên')
+    if (data.affectedProducts !== undefined) changedFields.push('sản phẩm bị ảnh hưởng')
+    if (data.verification !== undefined && data.verification !== null) {
+      const verifyLabels: Record<string, string> = {
+        'verified-correct': 'Lỗi thật', 'verified-incorrect': 'Không lỗi', 'pending-verification': 'Chờ xác minh',
+      }
+      changedFields.push(`xác minh → ${verifyLabels[data.verification] || data.verification}`)
+    }
+    if (data.timeline !== undefined) changedFields.push('quy trình xử lý')
+    if (data.orderCode !== undefined) changedFields.push('mã đơn hàng')
+    if (data.orderValue !== undefined) changedFields.push('giá trị đơn hàng')
+    const userName = getSessionUserName(authResult.session)
+    prisma.activityLog.create({
+      data: {
+        entityType: 'complaint',
+        entityId: systemId,
+        action: `Cập nhật khiếu nại: ${existing.id || systemId}`,
+        actionType: 'update',
+        note: changedFields.length > 0 ? changedFields.join(', ') : 'Cập nhật thông tin',
+        metadata: { userName },
+        createdBy: userName,
+      }
+    }).catch(e => logError('[ActivityLog] complaint update failed', e))
+
     return { success: true, data: serializeComplaint(complaint) }
   } catch (error) {
-    console.error('Error updating complaint:', error)
+    logError('Error updating complaint', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Không thể cập nhật khiếu nại',
@@ -326,10 +460,8 @@ export async function updateComplaintAction(
 export async function deleteComplaintAction(
   systemId: string
 ): Promise<ActionResult<Complaint>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('edit_complaints')
+  if (!authResult.success) return authResult
 
   try {
     const existing = await prisma.complaint.findUnique({
@@ -345,9 +477,24 @@ export async function deleteComplaintAction(
     })
 
     revalidatePath('/complaints')
+
+    // Activity log
+    const userName = getSessionUserName(authResult.session)
+    prisma.activityLog.create({
+      data: {
+        entityType: 'complaint',
+        entityId: systemId,
+        action: `Xóa khiếu nại: ${existing.id || systemId}`,
+        actionType: 'delete',
+        note: `Loại: ${existing.type} | Khách: ${existing.customerName || 'N/A'}`,
+        metadata: { userName },
+        createdBy: userName,
+      }
+    }).catch(e => logError('[ActivityLog] complaint delete failed', e))
+
     return { success: true, data: serializeComplaint(complaint) }
   } catch (error) {
-    console.error('Error deleting complaint:', error)
+    logError('Error deleting complaint', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Không thể xóa khiếu nại',
@@ -363,10 +510,8 @@ export async function resolveComplaintAction(
   resolution: string,
   resolvedBy?: string
 ): Promise<ActionResult<Complaint>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('resolve_complaints')
+  if (!authResult.success) return authResult
 
   try {
     const existing = await prisma.complaint.findUnique({
@@ -389,9 +534,35 @@ export async function resolveComplaintAction(
 
     revalidatePath('/complaints')
     revalidatePath(`/complaints/${systemId}`)
+
+    // Activity log
+    const userName = getSessionUserName(authResult.session)
+    prisma.activityLog.create({
+      data: {
+        entityType: 'complaint',
+        entityId: systemId,
+        action: `Giải quyết khiếu nại: ${existing.id || systemId}`,
+        actionType: 'update',
+        note: `Kết quả: ${resolution.substring(0, 100)}`,
+        metadata: { userName },
+        createdBy: userName,
+      }
+    }).catch(e => logError('[ActivityLog] complaint resolve failed', e))
+
+    // ✅ Email notification for resolution
+    notifyComplaintStatusChanged({
+      systemId,
+      title: existing.title || systemId,
+      id: existing.id || systemId,
+      assigneeId: existing.assigneeId || null,
+      creatorId: existing.createdBy || null,
+      status: 'RESOLVED',
+      oldStatus: existing.status,
+    }).catch(e => logError('[Complaints resolveAction] email failed', e))
+
     return { success: true, data: serializeComplaint(complaint) }
   } catch (error) {
-    console.error('Error resolving complaint:', error)
+    logError('Error resolving complaint', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Không thể giải quyết khiếu nại',
@@ -406,10 +577,8 @@ export async function closeComplaintAction(
   systemId: string,
   closedBy?: string
 ): Promise<ActionResult<Complaint>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('edit_complaints')
+  if (!authResult.success) return authResult
 
   try {
     const existing = await prisma.complaint.findUnique({
@@ -429,11 +598,51 @@ export async function closeComplaintAction(
       },
     })
 
+    // ✅ Notify assignee that complaint was closed
+    if (existing.assigneeId && existing.assigneeId !== authResult.session.user?.employeeId) {
+      createNotification({
+        type: 'complaint',
+        title: 'Đóng khiếu nại',
+        message: `Khiếu nại ${existing.id || systemId} đã được đóng`,
+        link: `/complaint-tracking/${systemId}`,
+        recipientId: existing.assigneeId,
+        senderId: authResult.session.user?.employeeId,
+        senderName: authResult.session.user?.name,
+        settingsKey: 'complaint:status',
+      }).catch(e => logError('[Complaints closeAction] notification failed', e))
+
+      // ✅ Email notification
+      notifyComplaintStatusChanged({
+        systemId,
+        title: existing.title || systemId,
+        id: existing.id || systemId,
+        assigneeId: existing.assigneeId,
+        creatorId: existing.createdBy || null,
+        status: 'CLOSED',
+        oldStatus: existing.status,
+      }).catch(e => logError('[Complaints closeAction] email failed', e))
+    }
+
     revalidatePath('/complaints')
     revalidatePath(`/complaints/${systemId}`)
+
+    // Activity log
+    const userName = getSessionUserName(authResult.session)
+    prisma.activityLog.create({
+      data: {
+        entityType: 'complaint',
+        entityId: systemId,
+        action: `Đóng khiếu nại: ${existing.id || systemId}`,
+        actionType: 'update',
+        note: `Đóng bởi ${closedBy || userName}`,
+        metadata: { userName },
+        createdBy: userName,
+      }
+    }).catch(e => logError('[ActivityLog] complaint close failed', e))
+
     return { success: true, data: serializeComplaint(complaint) }
   } catch (error) {
-    console.error('Error closing complaint:', error)
+    logError('Error closing complaint', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Không thể đóng khiếu nại',

@@ -8,9 +8,6 @@ import { startOfMonth, endOfMonth, parse, differenceInMilliseconds } from 'date-
 import { usePageHeader } from '../../contexts/page-header-context';
 import { useAllCashbookData } from './hooks/use-all-cashbook-data';
 import { useAllBranches } from '../settings/branches/hooks/use-all-branches';
-import { useAllCustomers } from '../customers/hooks/use-all-customers';
-import { useAllReceiptTypes } from '../settings/receipt-types/hooks/use-all-receipt-types';
-import { useAllPaymentTypes } from '../settings/payments/types/hooks/use-all-payment-types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { DataTableDateFilter } from '../../components/data-table/data-table-date-filter';
@@ -61,9 +58,7 @@ export function CashbookReportsPage() {
   }, [cashbookData?.transactions]);
 
   const { data: branches } = useAllBranches();
-  const { data: _customers = [] } = useAllCustomers();
-  const { data: _receiptTypes } = useAllReceiptTypes();
-  const { data: _paymentTypes } = useAllPaymentTypes();
+  // Removed dead code: _customers, _receiptTypes, _paymentTypes were loaded but never used
   
   // Data already filtered from server, no need for client-side filter
   const filteredVouchers = vouchers;

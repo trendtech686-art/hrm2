@@ -1,17 +1,14 @@
 import { prisma } from '@/lib/prisma'
-import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
-
-interface RouteParams {
-  params: Promise<{ systemId: string }>
-}
+import { apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
+import { apiHandler } from '@/lib/api-handler'
+import { logError } from '@/lib/logger'
+import { createActivityLog } from '@/lib/services/activity-log-service'
+import { getUserNameFromDb } from '@/lib/get-user-name'
 
 // GET /api/cash-accounts/[systemId]?transactionsLimit=20
-export async function GET(request: Request, { params }: RouteParams) {
-  const session = await requireAuth()
-  if (!session) return apiError('Unauthorized', 401)
-
+export const GET = apiHandler(async (request, { params }) => {
   try {
-    const { systemId } = await params
+    const { systemId } = params
     const url = new URL(request.url)
     const transactionsLimit = Math.min(10000, Math.max(1, parseInt(url.searchParams.get('transactionsLimit') || '20', 10)))
 
@@ -40,21 +37,22 @@ export async function GET(request: Request, { params }: RouteParams) {
       maxBalance: account.maxBalance ? Number(account.maxBalance) : undefined,
     })
   } catch (error) {
-    console.error('Error fetching cash account:', error)
-    return apiError('Failed to fetch cash account', 500)
+    logError('Error fetching cash account', error)
+    return apiError('Không thể tải thông tin quỹ tiền', 500)
   }
-}
+})
 
 // PUT /api/cash-accounts/[systemId]
-export async function PUT(request: Request, { params }: RouteParams) {
-  const session = await requireAuth()
-  if (!session) return apiError('Unauthorized', 401)
-
+export const PUT = apiHandler(async (request, { session, params }) => {
   try {
-    const { systemId } = await params
+    const { systemId } = params
     const body = await request.json()
 
-    const cashType = (body.type?.toUpperCase() === 'BANK' ? 'BANK' : 'CASH') as import('@/generated/prisma/client').CashAccountType
+    const existing = await prisma.cashAccount.findUnique({ where: { systemId } })
+    if (!existing) return apiNotFound('Quỹ tiền')
+
+    const typeUpper = body.type?.toUpperCase();
+    const cashType = (typeUpper === 'BANK' ? 'BANK' : typeUpper === 'WALLET' ? 'WALLET' : 'CASH') as import('@/generated/prisma/client').CashAccountType
 
     const account = await prisma.cashAccount.update({
       where: { systemId },
@@ -70,10 +68,34 @@ export async function PUT(request: Request, { params }: RouteParams) {
         branchId: body.branchSystemId,
         minBalance: body.minBalance,
         maxBalance: body.maxBalance,
+        accountType: body.accountType,
         isActive: body.isActive,
         isDefault: body.isDefault,
       },
     })
+
+    const changes: Record<string, { from: unknown; to: unknown }> = {}
+    if (body.name !== undefined && body.name !== existing.name) changes['Tên'] = { from: existing.name, to: body.name }
+    if (body.type !== undefined && body.type?.toUpperCase() !== existing.type) changes['Loại'] = { from: existing.type, to: cashType }
+    if (body.bankName !== undefined && body.bankName !== existing.bankName) changes['Ngân hàng'] = { from: existing.bankName, to: body.bankName }
+    if (body.bankAccountNumber !== undefined && body.bankAccountNumber !== existing.bankAccountNumber) changes['Số TK'] = { from: existing.bankAccountNumber, to: body.bankAccountNumber }
+    if (body.accountHolder !== undefined && body.accountHolder !== existing.accountHolder) changes['Chủ TK'] = { from: existing.accountHolder, to: body.accountHolder }
+    if (body.isActive !== undefined && body.isActive !== existing.isActive) changes['Trạng thái'] = { from: existing.isActive ? 'Hoạt động' : 'Ngừng', to: body.isActive ? 'Hoạt động' : 'Ngừng' }
+    if (body.isDefault !== undefined && body.isDefault !== existing.isDefault) changes['Mặc định'] = { from: existing.isDefault ? 'Có' : 'Không', to: body.isDefault ? 'Có' : 'Không' }
+
+    if (Object.keys(changes).length > 0) {
+      const changeDetail = Object.keys(changes).join(', ')
+      getUserNameFromDb(session!.user.id).then(userName =>
+        createActivityLog({
+          entityType: 'cash_account',
+          entityId: systemId,
+          action: `Cập nhật tài khoản quỹ: ${existing.name}: ${changeDetail}`,
+          actionType: 'update',
+          changes,
+          createdBy: userName,
+        })
+      ).catch(e => logError('Failed to create activity log', e))
+    }
 
     // Map to frontend format
     return apiSuccess({
@@ -89,33 +111,58 @@ export async function PUT(request: Request, { params }: RouteParams) {
     if (error instanceof Error && 'code' in error && error.code === 'P2025') {
       return apiNotFound('Quỹ tiền')
     }
-    console.error('Error updating cash account:', error)
-    return apiError('Failed to update cash account', 500)
+    logError('Error updating cash account', error)
+    return apiError('Không thể cập nhật quỹ tiền', 500)
   }
-}
+})
 
 // PATCH /api/cash-accounts/[systemId] - same as PUT
 export { PUT as PATCH }
 
 // DELETE /api/cash-accounts/[systemId]
-export async function DELETE(_request: Request, { params }: RouteParams) {
-  const session = await requireAuth()
-  if (!session) return apiError('Unauthorized', 401)
-
+export const DELETE = apiHandler(async (_request, { session, params }) => {
   try {
-    const { systemId } = await params
+    const { systemId } = params
 
-    await prisma.cashAccount.update({
+    // Check if account exists
+    const account = await prisma.cashAccount.findUnique({
       where: { systemId },
-      data: { isActive: false },
     })
+
+    if (!account) {
+      return apiNotFound('Quỹ tiền')
+    }
+
+    // Check if account has transactions
+    const transactionCount = await prisma.cashTransaction.count({
+      where: { accountId: systemId },
+    })
+
+    if (transactionCount > 0) {
+      return apiError('Không thể xóa quỹ tiền có giao dịch. Vui lòng tắt trạng thái thay vì xóa.', 400)
+    }
+
+    // Delete the account
+    await prisma.cashAccount.delete({
+      where: { systemId },
+    })
+
+    getUserNameFromDb(session!.user.id).then(userName =>
+      createActivityLog({
+        entityType: 'cash_account',
+        entityId: systemId,
+        action: `Xóa tài khoản quỹ: ${account.name}`,
+        actionType: 'delete',
+        createdBy: userName,
+      })
+    ).catch(e => logError('Failed to create activity log', e))
 
     return apiSuccess({ success: true })
   } catch (error) {
     if (error instanceof Error && 'code' in error && error.code === 'P2025') {
       return apiNotFound('Quỹ tiền')
     }
-    console.error('Error deleting cash account:', error)
-    return apiError('Failed to delete cash account', 500)
+    logError('Error deleting cash account', error)
+    return apiError('Không thể xóa quỹ tiền', 500)
   }
-}
+})

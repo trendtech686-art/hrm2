@@ -24,7 +24,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { ProductSelectionDialog } from '../shared/product-selection-dialog';
 import { UnifiedProductSearch } from '../../components/shared/unified-product-search';
-import { Plus, X, Save, Trash2, Package, Settings2 } from 'lucide-react';
+import { Plus, X, Save, Trash2, Package, Settings2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { asSystemId } from '../../lib/id-types';
 import type { Product } from '@/lib/types/prisma-extended';
@@ -379,7 +379,7 @@ export function PriceAdjustmentFormPage({ systemId }: PriceAdjustmentFormPagePro
         disabled={isSubmitting || fields.length === 0 || !watchPricingPolicyId}
         onClick={handleSubmitClick}
       >
-        <Save className="mr-2 h-4 w-4" />
+        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
         {isSubmitting ? 'Đang lưu...' : (isEditMode ? 'Cập nhật' : 'Tạo phiếu')}
       </Button>
     </div>
@@ -636,7 +636,7 @@ export function PriceAdjustmentFormPage({ systemId }: PriceAdjustmentFormPagePro
                                   <Link href={productHref} className="text-primary hover:underline font-medium">
                                     {field.productName}
                                   </Link>
-                                  <span className="text-body-sm text-muted-foreground">
+                                  <span className="text-sm text-muted-foreground">
                                     {field.productId}
                                   </span>
                                 </div>

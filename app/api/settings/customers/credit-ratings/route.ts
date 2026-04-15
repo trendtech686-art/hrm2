@@ -4,6 +4,8 @@ import { Prisma } from '@/generated/prisma/client';
 import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils';
 import { createCreditRatingSchema } from './validation';
 import { generateIdWithPrefix } from '@/lib/id-generator';
+import { logError } from '@/lib/logger'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 const TYPE = 'credit-rating';
 
@@ -37,7 +39,7 @@ export async function GET() {
 
     return apiSuccess(transformed);
   } catch (error) {
-    console.error('[Credit Ratings API] GET error:', error);
+    logError('[Credit Ratings API] GET error', error);
     return apiError('Failed to fetch credit ratings', 500);
   }
 }
@@ -69,6 +71,14 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    createActivityLog({
+      entityType: 'customer_credit_rating',
+      entityId: setting.systemId,
+      action: `Thêm xếp hạng tín dụng: ${name}`,
+      actionType: 'create',
+      createdBy: session.user?.id,
+    }).catch(e => logError('Failed to create activity log', e))
+
     return apiSuccess({
       systemId: setting.systemId,
       id: setting.id,
@@ -84,7 +94,7 @@ export async function POST(request: NextRequest) {
       ...(setting.metadata as Record<string, unknown> || {}),
     }, 201);
   } catch (error) {
-    console.error('[Credit Ratings API] POST error:', error);
+    logError('[Credit Ratings API] POST error', error);
     return apiError('Failed to create credit rating', 500);
   }
 }

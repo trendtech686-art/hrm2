@@ -4,11 +4,13 @@ import type { JobTitle } from '@/lib/types/prisma-extended'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../../components/ui/dropdown-menu";
 import { Button } from "../../../components/ui/button";
 import { MoreHorizontal } from "lucide-react";
+import { Switch } from "../../../components/ui/switch";
 import type { ColumnDef } from '../../../components/data-table/types';
 
 export const getColumns = (
   onDelete: (systemId: string) => void,
-  onEdit: (jobTitle: JobTitle) => void
+  onEdit: (jobTitle: JobTitle) => void,
+  onToggleActive?: (jobTitle: JobTitle) => void
 ): ColumnDef<JobTitle>[] => [
   {
     id: "id",
@@ -30,6 +32,18 @@ export const getColumns = (
     header: "Mô tả",
     cell: ({ row }) => <span>{row.description}</span>,
     meta: { displayName: "Mô tả" },
+  },
+  {
+    id: "isActive",
+    header: "Trạng thái",
+    cell: ({ row }) => (
+      <Switch 
+        checked={row.isActive !== false}
+        onCheckedChange={() => onToggleActive?.(row)}
+      />
+    ),
+    meta: { displayName: "Trạng thái" },
+    size: 100,
   },
    {
     id: "actions",

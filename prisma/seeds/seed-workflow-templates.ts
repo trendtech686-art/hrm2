@@ -26,7 +26,7 @@ export async function seedWorkflowTemplates() {
         value: [
           // Complaints workflows
           {
-            systemId: 'WF-COMPL-001',
+            systemId: crypto.randomUUID(),
             id: 'complaints-standard',
             name: 'complaints',
             label: 'Quy trình khiếu nại tiêu chuẩn',
@@ -45,7 +45,7 @@ export async function seedWorkflowTemplates() {
             updatedAt: new Date().toISOString(),
           },
           {
-            systemId: 'WF-COMPL-002',
+            systemId: crypto.randomUUID(),
             id: 'complaints-urgent',
             name: 'complaints',
             label: 'Quy trình khiếu nại khẩn cấp',
@@ -63,7 +63,7 @@ export async function seedWorkflowTemplates() {
           },
           // Warranty workflows
           {
-            systemId: 'WF-WARR-001',
+            systemId: crypto.randomUUID(),
             id: 'warranty-standard',
             name: 'warranty',
             label: 'Quy trình bảo hành tiêu chuẩn',
@@ -83,7 +83,7 @@ export async function seedWorkflowTemplates() {
             updatedAt: new Date().toISOString(),
           },
           {
-            systemId: 'WF-WARR-002',
+            systemId: crypto.randomUUID(),
             id: 'warranty-reject',
             name: 'warranty',
             label: 'Quy trình từ chối bảo hành',
@@ -102,7 +102,7 @@ export async function seedWorkflowTemplates() {
           },
           // Order workflows
           {
-            systemId: 'WF-ORD-001',
+            systemId: crypto.randomUUID(),
             id: 'orders-standard',
             name: 'orders',
             label: 'Quy trình xử lý đơn hàng',
@@ -122,7 +122,7 @@ export async function seedWorkflowTemplates() {
           },
           // Sales return workflows
           {
-            systemId: 'WF-RET-001',
+            systemId: crypto.randomUUID(),
             id: 'sales-returns-standard',
             name: 'sales-returns',
             label: 'Quy trình đổi trả hàng',
@@ -142,7 +142,7 @@ export async function seedWorkflowTemplates() {
           },
           // Stock transfer workflows
           {
-            systemId: 'WF-STK-001',
+            systemId: crypto.randomUUID(),
             id: 'stock-transfers-standard',
             name: 'stock-transfers',
             label: 'Quy trình chuyển kho',
@@ -162,7 +162,7 @@ export async function seedWorkflowTemplates() {
           },
           // Inventory check workflows
           {
-            systemId: 'WF-INV-001',
+            systemId: crypto.randomUUID(),
             id: 'inventory-checks-standard',
             name: 'inventory-checks',
             label: 'Quy trình kiểm kho',
@@ -183,7 +183,7 @@ export async function seedWorkflowTemplates() {
           },
           // Purchase return workflows
           {
-            systemId: 'WF-PRET-001',
+            systemId: crypto.randomUUID(),
             id: 'purchase-returns-standard',
             name: 'purchase-returns',
             label: 'Quy trình trả hàng NCC',

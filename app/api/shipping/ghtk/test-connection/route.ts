@@ -7,8 +7,9 @@
 
 import { NextRequest } from 'next/server';
 import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils';
-
-const GHTK_API_BASE = 'https://services.giaohangtietkiem.vn';
+import { logError } from '@/lib/logger'
+import { fetchWithTimeout } from '@/lib/fetch-utils'
+import { GHTK_API_BASE } from '@/lib/ghtk-sync'
 
 export async function GET(request: NextRequest) {
   const session = await requireAuth();
@@ -29,7 +30,7 @@ export async function GET(request: NextRequest) {
 
 
     // Test với endpoint đơn giản nhất - list pick addresses
-    const response = await fetch(`${GHTK_API_BASE}/services/shipment/list_pick_add`, {
+    const response = await fetchWithTimeout(`${GHTK_API_BASE}/services/shipment/list_pick_add`, {
       method: 'GET',
       headers: {
         'Token': apiToken,
@@ -58,7 +59,7 @@ export async function GET(request: NextRequest) {
     }
   } catch (error) {
     const duration = Date.now() - startTime;
-    console.error(`[GHTK-TEST-${requestId}] ❌ Connection test error (${duration}ms):`, error);
+    logError(`[GHTK-TEST-${requestId}] ❌ Connection test error (${duration}ms)`, error);
     return apiError('Lỗi kết nối: ' + (error instanceof Error ? error.message : 'Unknown error'), 500);
   }
 }

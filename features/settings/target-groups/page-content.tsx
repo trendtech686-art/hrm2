@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Plus } from "lucide-react";
+import { Plus, Loader2 } from "lucide-react";
 import { useTargetGroupMutations } from "./hooks/use-target-groups";
 import { useAllTargetGroups } from "./hooks/use-all-target-groups";
 import type { TargetGroup } from '@/lib/types/prisma-extended';
@@ -47,8 +47,9 @@ export function TargetGroupsPageContent({ isActive, onRegisterActions }: TargetG
   const handleToggleDefault = React.useCallback((item: TargetGroup, isDefault: boolean) => {
     if (isDefault) {
       // Backend sẽ tự động tắt mặc định của các nhóm khác
-      update.mutate({ systemId: item.systemId, data: { isDefault: true } });
-      toast.success(`Đã đặt "${item.name}" làm mặc định`);
+      update.mutate({ systemId: item.systemId, data: { isDefault: true } }, {
+        onSuccess: () => toast.success(`Đã đặt "${item.name}" làm mặc định`),
+      });
     } else {
       // Không cho phép tắt mặc định nếu chỉ còn 1 item
       const activeItems = data.filter(d => d.isActive !== false);
@@ -59,15 +60,17 @@ export function TargetGroupsPageContent({ isActive, onRegisterActions }: TargetG
       // Chuyển mặc định sang item active khác
       const other = activeItems.find(d => d.systemId !== item.systemId);
       if (other) {
-        update.mutate({ systemId: other.systemId, data: { isDefault: true } });
-        toast.success(`Đã chuyển mặc định sang "${other.name}"`);
+        update.mutate({ systemId: other.systemId, data: { isDefault: true } }, {
+          onSuccess: () => toast.success(`Đã chuyển mặc định sang "${other.name}"`),
+        });
       }
     }
   }, [data, update]);
 
   const handleToggleStatus = React.useCallback((item: TargetGroup, isActive: boolean) => {
-    update.mutate({ systemId: item.systemId, data: { isActive } });
-    toast.success(isActive ? "Đã kích hoạt" : "Đã ngừng hoạt động");
+    update.mutate({ systemId: item.systemId, data: { isActive } }, {
+      onSuccess: () => toast.success(isActive ? "Đã kích hoạt" : "Đã ngừng hoạt động"),
+    });
   }, [update]);
   
   const confirmDelete = () => {
@@ -180,7 +183,10 @@ export function TargetGroupsPageContent({ isActive, onRegisterActions }: TargetG
           <TargetGroupForm initialData={editingItem} onSubmit={handleFormSubmit} />
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setIsFormOpen(false)}>Hủy</Button>
-            <Button type="submit" form="target-group-form">Lưu</Button>
+            <Button type="submit" form="target-group-form" disabled={create.isPending || update.isPending}>
+              {(create.isPending || update.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Lưu
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -195,7 +201,10 @@ export function TargetGroupsPageContent({ isActive, onRegisterActions }: TargetG
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Hủy</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete}>Xóa</AlertDialogAction>
+            <AlertDialogAction onClick={confirmDelete} disabled={remove.isPending}>
+              {remove.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Xóa
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -210,7 +219,10 @@ export function TargetGroupsPageContent({ isActive, onRegisterActions }: TargetG
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Hủy</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmBulkDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Xóa tất cả</AlertDialogAction>
+            <AlertDialogAction onClick={confirmBulkDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={remove.isPending}>
+              {remove.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Xóa tất cả
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

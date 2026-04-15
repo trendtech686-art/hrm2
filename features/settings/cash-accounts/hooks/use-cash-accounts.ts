@@ -5,6 +5,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import { fetchAllPages } from '@/lib/fetch-all-pages';
 import {
   fetchCashAccounts,
@@ -57,7 +58,7 @@ export function useCashAccountMutations(options: UseCashAccountMutationsOptions 
   const create = useMutation({
     mutationFn: createCashAccount,
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: cashAccountKeys.all });
+      invalidateRelated(queryClient, 'cash-accounts');
       options.onCreateSuccess?.(data);
     },
     onError: options.onError,
@@ -66,9 +67,8 @@ export function useCashAccountMutations(options: UseCashAccountMutationsOptions 
   const update = useMutation({
     mutationFn: ({ systemId, data }: { systemId: string; data: Partial<CashAccount> }) => 
       updateCashAccount(systemId, data),
-    onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: cashAccountKeys.detail(variables.systemId) });
-      queryClient.invalidateQueries({ queryKey: cashAccountKeys.lists() });
+    onSuccess: (data) => {
+      invalidateRelated(queryClient, 'cash-accounts');
       options.onUpdateSuccess?.(data);
     },
     onError: options.onError,
@@ -77,7 +77,7 @@ export function useCashAccountMutations(options: UseCashAccountMutationsOptions 
   const remove = useMutation({
     mutationFn: deleteCashAccount,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: cashAccountKeys.all });
+      invalidateRelated(queryClient, 'cash-accounts');
       options.onDeleteSuccess?.();
     },
     onError: options.onError,

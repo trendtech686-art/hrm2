@@ -18,10 +18,13 @@
  * - Trạng thái xuất kho → stockOutStatus
  */
 
-import type { Order, LineItem, OrderAddress, OrderMainStatus, OrderPaymentStatus, OrderDeliveryStatus, OrderPrintStatus, OrderStockOutStatus, OrderReturnStatus, OrderDeliveryMethod, PackagingStatus } from '@/lib/types/prisma-extended';
+import type { Order, LineItem, OrderAddress, OrderMainStatus, OrderPaymentStatus, OrderDeliveryStatus, OrderPrintStatus, OrderStockOutStatus, OrderReturnStatus, OrderDeliveryMethod, PackagingStatus, OrderPayment, Packaging } from '@/lib/types/prisma-extended';
 import type { ImportExportConfig, FieldConfig } from '@/lib/import-export/types';
 import type { Customer, Product, Branch, Employee } from '@/lib/types/prisma-extended';
+import type { SystemId } from '@/lib/id-types';
 import { asBusinessId, asSystemId } from '@/lib/id-types';
+import { parseSapoExcelFile } from '@/lib/import-export/sapo-excel-parser';
+// Auto-create customers/products is handled server-side in ORDER API
 
 // ============================================
 // SAPO COLUMN MAPPING
@@ -168,7 +171,9 @@ const SAPO_DELIVERY_STATUS_MAP: Record<string, OrderDeliveryStatus> = {
   'Chờ đóng gói': 'Chờ đóng gói',
   'Đang giao hàng': 'Đang giao hàng',
   'Đã giao hàng': 'Đã giao hàng',
-  'Giao hàng thất bại': 'Chờ giao lại', // Map thất bại sang chờ giao lại
+  'Giao hàng thất bại': 'Chờ giao lại',
+  'Đã hủy-đã nhận': 'Đã giao hàng',
+  'Đã nhận hàng': 'Đã giao hàng',
 };
 
 const SAPO_RETURN_STATUS_MAP: Record<string, OrderReturnStatus> = {
@@ -497,6 +502,38 @@ export const sapoOrderFields: FieldConfig<SapoOrderImportRow>[] = [
     example: 'Giao hàng tiết kiệm',
     group: 'Giao hàng',
   },
+  // ── Hidden fields: processed by transformImportRow but not shown in preview UI ──
+  // These are needed by beforeImport to build complete Order objects
+  { key: 'paymentStatus', label: 'Trạng thái thanh toán', type: 'string', hidden: true },
+  { key: 'packagingStatus', label: 'Trạng thái đóng gói', type: 'string', hidden: true },
+  { key: 'stockOutStatus', label: 'Trạng thái xuất kho', type: 'string', hidden: true },
+  { key: 'returnStatus', label: 'Trạng thái trả hàng', type: 'string', hidden: true },
+  { key: 'packageStatus', label: 'Tình trạng gói hàng', type: 'string', hidden: true },
+  { key: 'completedDate', label: 'Ngày hoàn thành', type: 'string', hidden: true },
+  { key: 'approvedDate', label: 'Ngày duyệt đơn', type: 'string', hidden: true },
+  { key: 'cancelDate', label: 'Ngày hủy đơn', type: 'string', hidden: true },
+  { key: 'expectedDeliveryDate', label: 'Ngày hẹn giao', type: 'string', hidden: true },
+  { key: 'shippingFee', label: 'Phí vận chuyển', type: 'number', hidden: true },
+  { key: 'orderDiscountAmount', label: 'CK đơn hàng(VNĐ)', type: 'number', hidden: true },
+  { key: 'codAmount', label: 'Tiền thu hộ', type: 'number', hidden: true },
+  { key: 'notes', label: 'Ghi chú', type: 'string', hidden: true },
+  { key: 'tags', label: 'Tag', type: 'string', hidden: true },
+  { key: 'shippingStreet', label: 'Địa chỉ giao hàng', type: 'string', hidden: true },
+  { key: 'shippingWard', label: 'Phường xã', type: 'string', hidden: true },
+  { key: 'shippingDistrict', label: 'Quận huyện', type: 'string', hidden: true },
+  { key: 'shippingProvince', label: 'Tỉnh thành', type: 'string', hidden: true },
+  { key: 'recipientName', label: 'Người nhận hàng', type: 'string', hidden: true },
+  { key: 'recipientPhone', label: 'Số điện thoại', type: 'string', hidden: true },
+  { key: 'packageId', label: 'Mã gói hàng', type: 'string', hidden: true },
+  { key: 'packagingDate', label: 'Ngày đóng gói', type: 'string', hidden: true },
+  { key: 'packagerName', label: 'Nhân viên đóng gói', type: 'string', hidden: true },
+  { key: 'createdByName', label: 'Nhân viên tạo đơn', type: 'string', hidden: true },
+  { key: 'barcode', label: 'Mã barcode', type: 'string', hidden: true },
+  { key: 'lineDiscountAmount', label: 'CK sản phẩm(VNĐ)', type: 'number', hidden: true },
+  { key: 'productNote', label: 'Ghi chú sản phẩm', type: 'string', hidden: true },
+  { key: 'stockOutDate', label: 'Ngày xuất kho', type: 'string', hidden: true },
+  { key: 'stockOutByName', label: 'Nhân viên xuất kho', type: 'string', hidden: true },
+  { key: 'carrierFee', label: 'Phí trả đối tác', type: 'number', hidden: true },
 ];
 
 // ============================================
@@ -512,14 +549,88 @@ export const sapoOrderImportConfig: ImportExportConfig<Order> = {
   templateFileName: 'Mau_Sapo_Don_Hang.xlsx',
   sheetName: 'Sheet0',
   
+  // Custom parser: ExcelJS streaming for large Sapo files (45MB+, 100K+ rows)
+  parseFile: parseSapoExcelFile,
+  maxFileSize: 50 * 1024 * 1024, // 50MB - Sapo export files are large
+  
   // Import settings
   upsertKey: 'id',
   allowUpdate: false,  // Chỉ thêm mới
   allowInsert: true,
   
   requirePreview: true,
-  maxRows: 5000,  // Sapo export có thể lớn
+  maxRows: 200000,  // Sapo export có thể có 100K+ dòng (sẽ gộp thành orders ít hơn nhiều)
   maxErrorsAllowed: 0,
+  
+  // Import options - checkboxes hiển thị trong dialog
+  importOptions: [
+    {
+      key: 'autoCreateCustomer',
+      label: 'Tự động tạo khách hàng mới',
+      description: 'Nếu mã KH/tên KH không tìm thấy trong hệ thống, tự động tạo khách hàng mới',
+      defaultValue: true,
+    },
+    {
+      key: 'autoCreateProduct',
+      label: 'Tự động tạo sản phẩm mới',
+      description: 'Nếu mã hàng/tên hàng không tìm thấy trong hệ thống, tự động tạo sản phẩm mới',
+      defaultValue: true,
+    },
+  ],
+  
+  // Preview stats - hiển thị số đơn hàng, KH mới, SP mới
+  computePreviewStats: (rawRows, _options, storeContext) => {
+    const ctx = (storeContext || {}) as {
+      customerStore?: { data: Customer[] };
+      productStore?: { data: Product[] };
+    }
+    const existingCustomers = ctx.customerStore?.data || []
+    const existingProducts = ctx.productStore?.data || []
+    
+    // Count unique order IDs
+    const orderIds = new Set<string>()
+    const uniqueCustomerKeys = new Set<string>()
+    const uniqueProductKeys = new Set<string>()
+    
+    for (const row of rawRows) {
+      const orderId = String(row.orderId || '').trim()
+      if (orderId) orderIds.add(orderId)
+      
+      const customerId = String(row.customerId || '').trim()
+      const customerName = String(row.customerName || '').trim()
+      const customerKey = customerId || customerName
+      if (customerKey) uniqueCustomerKeys.add(customerKey)
+      
+      const productId = String(row.productId || '').trim()
+      const productName = String(row.productName || '').trim()
+      const productKey = productId || productName
+      if (productKey) uniqueProductKeys.add(productKey)
+    }
+    
+    // Count how many are new (not in existing data)
+    let newCustomerCount = 0
+    for (const key of uniqueCustomerKeys) {
+      if (!findCustomer(key, existingCustomers)) newCustomerCount++
+    }
+    let newProductCount = 0
+    for (const key of uniqueProductKeys) {
+      if (!findProduct(key, existingProducts)) newProductCount++
+    }
+    
+    return {
+      stats: [
+        { label: '📦 Số đơn hàng (sau gộp)', value: orderIds.size, variant: 'info' as const },
+        { label: '📋 Tổng dòng sản phẩm', value: rawRows.length, variant: 'default' as const },
+        { label: '👤 Khách hàng trong file', value: uniqueCustomerKeys.size, variant: 'default' as const },
+        { label: '👤 KH mới (chưa có trong hệ thống)', value: newCustomerCount, variant: newCustomerCount > 0 ? 'warning' as const : 'success' as const },
+        { label: '🏷️ Sản phẩm trong file', value: uniqueProductKeys.size, variant: 'default' as const },
+        { label: '🏷️ SP mới (chưa có trong hệ thống)', value: newProductCount, variant: newProductCount > 0 ? 'warning' as const : 'success' as const },
+      ],
+      warnings: rawRows.length > 100000 
+        ? ['File rất lớn (100K+ dòng). Quá trình import có thể mất vài phút.'] 
+        : undefined,
+    }
+  },
   
   // Pre-transform: Map Sapo column names to internal keys
   preTransformRawRow: (rawRow) => {
@@ -572,14 +683,21 @@ export const sapoOrderImportConfig: ImportExportConfig<Order> = {
   },
   
   // Transform: Group rows by orderId and build Order objects
-  beforeImport: async (data: Order[], context?: { storeContext?: { customerStore?: { data: Customer[] }; productStore?: { data: Product[] }; branchStore?: { data: Branch[] }; employeeStore?: { data: Employee[] } } }) => {
+  beforeImport: async (data: Order[], context?: Record<string, unknown>) => {
+    const storeContext = (context?.storeContext || {}) as { 
+      customerStore?: { data: Customer[] }; 
+      productStore?: { data: Product[] }; 
+      branchStore?: { data: Branch[] }; 
+      employeeStore?: { data: Employee[] } 
+    }
+    const currentUser = context?.currentUser as { systemId: SystemId; name: string } | undefined
     const importRows = data as unknown as SapoOrderImportRow[];
     
-    // Get data from storeContext
-    const customers = context?.storeContext?.customerStore?.data || [];
-    const products = context?.storeContext?.productStore?.data || [];
-    const branches = context?.storeContext?.branchStore?.data || [];
-    const employees = context?.storeContext?.employeeStore?.data || [];
+    // Get data from storeContext (read-only lookup, no HTTP calls here)
+    const customers = storeContext.customerStore?.data || [];
+    const products = storeContext.productStore?.data || [];
+    const branches = storeContext.branchStore?.data || [];
+    const employees = storeContext.employeeStore?.data || [];
     
     // Group rows by orderId
     const orderMap = new Map<string, SapoOrderImportRow[]>();
@@ -604,14 +722,24 @@ export const sapoOrderImportConfig: ImportExportConfig<Order> = {
       
       const firstRow = rows[0];
       
-      // Lookup customer
+      // Lookup customer from existing data only (no HTTP calls - ORDER API handles auto-create)
       const customer = findCustomer(firstRow.customerId || '', customers) || findCustomer(firstRow.customerName || '', customers);
       
       // Lookup branch
       const branch = findBranch(firstRow.branchName || '', branches) || defaultBranch;
       
-      // Lookup salesperson
-      const salesperson = findEmployee(firstRow.salesperson || '', employees) || findEmployee(firstRow.createdByName || '', employees);
+      // Lookup salesperson - fallback to currentUser or first employee
+      const salesperson = findEmployee(firstRow.salesperson || '', employees) 
+        || findEmployee(firstRow.createdByName || '', employees);
+      const salespersonSystemId = salesperson?.systemId 
+        || currentUser?.systemId 
+        || employees[0]?.systemId 
+        || asSystemId('SYSTEM');
+      const salespersonName = salesperson?.fullName 
+        || currentUser?.name 
+        || employees[0]?.fullName 
+        || firstRow.salesperson 
+        || 'N/A';
       
       // Build line items
       const lineItems: LineItem[] = [];
@@ -619,6 +747,7 @@ export const sapoOrderImportConfig: ImportExportConfig<Order> = {
         // Skip if no product info
         if (!row.productId && !row.productName) continue;
         
+        // Lookup product from existing data only (no HTTP calls - ORDER API handles auto-create)
         const product = findProduct(row.productId || '', products) || findProduct(row.barcode || '', products);
         
         const quantity = Math.max(1, Math.floor(Number(row.quantity) || 1));
@@ -680,6 +809,25 @@ export const sapoOrderImportConfig: ImportExportConfig<Order> = {
         deliveryStatus = 'Đang giao hàng';
       }
       
+      // Build packaging record from Sapo data
+      const deliveryMethod = (firstRow.carrier ? 'Dịch vụ giao hàng' : 'Nhận tại cửa hàng') as OrderDeliveryMethod;
+      // Check against original Sapo value (not mapped) since SAPO_PACKAGING_STATUS_MAP maps "Chưa đóng gói" → "Chờ đóng gói"
+      const sapoPackagingRaw = (firstRow.packagingStatus || '').trim();
+      const hasPackagingData = (sapoPackagingRaw !== '' && sapoPackagingRaw !== 'Chưa đóng gói') || !!firstRow.packageId || !!firstRow.trackingCode;
+      const packagingRecord = hasPackagingData ? {
+        status: packagingStatus,
+        deliveryStatus: deliveryStatus,
+        deliveryMethod: deliveryMethod,
+        carrier: firstRow.carrier || undefined,
+        trackingCode: firstRow.trackingCode || undefined,
+        codAmount: Number(firstRow.codAmount) || 0,
+        reconciliationStatus: (paidAmount >= grandTotal && paidAmount > 0) ? 'Đã đối soát' : undefined,
+        requestDate: parseSapoDate(firstRow.packagingDate) || parseSapoDate(firstRow.orderDate) || now,
+        confirmDate: packagingStatus === 'Đã đóng gói' ? (parseSapoDate(firstRow.packagingDate) || now) : undefined,
+        deliveredDate: deliveryStatus === 'Đã giao hàng' ? (parseSapoDate(firstRow.completedDate) || now) : undefined,
+        assignedEmployeeName: firstRow.packagerName || currentUser?.name || salespersonName,
+      } : null;
+
       // Build Order object
       const order: Order = {
         systemId: asSystemId(''), // Will be generated
@@ -688,18 +836,23 @@ export const sapoOrderImportConfig: ImportExportConfig<Order> = {
         // Customer info
         customerSystemId: customer?.systemId || asSystemId(''),
         customerName: customer?.name || firstRow.customerName || 'Khách lẻ',
+        customerPhone: firstRow.customerPhone,
         
         // Branch & Staff
         branchSystemId: branch?.systemId || asSystemId(''),
         branchName: branch?.name || firstRow.branchName || '',
-        salesperson: salesperson?.fullName || firstRow.salesperson || '',
-        salespersonSystemId: salesperson?.systemId || asSystemId(''),
+        salesperson: salespersonName,
+        salespersonSystemId: salespersonSystemId,
         
         // Dates
         orderDate: parseSapoDate(firstRow.orderDate) || now,
+        approvedDate: parseSapoDate(firstRow.approvedDate),
+        expectedDeliveryDate: parseSapoDate(firstRow.expectedDeliveryDate),
         completedDate: parseSapoDate(firstRow.completedDate),
+        cancelledDate: parseSapoDate(firstRow.cancelDate),
+        dispatchedDate: parseSapoDate(firstRow.stockOutDate),
         createdAt: parseSapoDate(firstRow.orderDate) || now,
-        createdBy: salesperson?.systemId || asSystemId('SYSTEM'),
+        createdBy: salespersonSystemId,
         updatedAt: now,
         updatedBy: asSystemId('SYSTEM'),
         
@@ -724,7 +877,7 @@ export const sapoOrderImportConfig: ImportExportConfig<Order> = {
         returnStatus,
         
         // Shipping
-        deliveryMethod: (firstRow.carrier ? 'Dịch vụ giao hàng' : 'Nhận tại cửa hàng') as OrderDeliveryMethod,
+        deliveryMethod,
         shippingAddress,
         
         // Other
@@ -732,12 +885,20 @@ export const sapoOrderImportConfig: ImportExportConfig<Order> = {
         notes: firstRow.notes,
         tags: firstRow.tags?.split(',').map(t => t.trim()).filter(Boolean),
         
-        // Initialize arrays - không tạo packagings vì cấu trúc phức tạp
-        payments: [],
-        packagings: [],
+        // Packaging from Sapo data
+        payments: paidAmount > 0 ? [{
+          method: 'Tiền mặt',
+          amount: paidAmount,
+          date: parseSapoDate(firstRow.orderDate) || now,
+          description: 'Thanh toán từ Sapo',
+        }] as unknown as OrderPayment[] : [],
+        packagings: packagingRecord ? [packagingRecord] as unknown as Packaging[] : [],
       };
       
-      orders.push(order);
+      // Add discount field for API compatibility (API expects 'discount', not 'orderDiscount')
+      const orderWithExtra = Object.assign(order, { discount: orderDiscount });
+      
+      orders.push(orderWithExtra);
     }
     
     return orders;

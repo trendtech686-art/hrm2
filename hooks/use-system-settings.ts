@@ -1,15 +1,7 @@
 /**
  * useSystemSettings - React Query Hook for System Settings
  * 
- * Replaces localStorage storage for:
- * - general-settings
- * - security-settings  
- * - media-settings
- * - integration-settings
- * 
- * All stored via /api/user-preferences endpoint with category 'system-settings'
- * 
- * @see docs/LOCALSTORAGE-TO-DATABASE-MIGRATION.md
+ * Stores general-settings via /api/user-preferences endpoint with category 'system-settings'
  */
 
 import { useCallback } from 'react';
@@ -55,62 +47,6 @@ export interface GeneralSettings {
   language: string;
 }
 
-export interface SecuritySettings {
-  enableTwoFactor: boolean;
-  sessionTimeout: number;
-  maxLoginAttempts: number;
-  lockoutDuration: number;
-  requireStrongPassword: boolean;
-  minPasswordLength: number;
-  requireUppercase: boolean;
-  requireNumbers: boolean;
-  requireSpecialChars: boolean;
-  passwordExpiryDays: number;
-  enableAuditLog: boolean;
-  enableIpWhitelist: boolean;
-  ipWhitelist: string[];
-}
-
-export interface MediaSettings {
-  maxUploadSize: number;
-  allowedImageTypes: string[];
-  allowedDocumentTypes: string[];
-  imageCompressionQuality: number;
-  enableWatermark: boolean;
-  watermarkText: string;
-  watermarkPosition: string;
-  generateThumbnails: boolean;
-  thumbnailSize: number;
-  storagePath: string;
-}
-
-export interface IntegrationSettings {
-  // Email SMTP
-  smtpEnabled: boolean;
-  smtpHost: string;
-  smtpPort: number;
-  smtpSecure: boolean;
-  smtpUser: string;
-  smtpPassword: string;
-  smtpFromName: string;
-  smtpFromEmail: string;
-  // SMS
-  smsEnabled: boolean;
-  smsProvider: string;
-  smsApiKey: string;
-  smsApiSecret: string;
-  smsSenderName: string;
-  // Webhook
-  webhookEnabled: boolean;
-  webhookUrl: string;
-  webhookSecret: string;
-  webhookEvents: string[];
-}
-
-// ============================================================================
-// Defaults
-// ============================================================================
-
 export const DEFAULT_GENERAL_SETTINGS: GeneralSettings = {
   companyName: '',
   companyAddress: '',
@@ -131,55 +67,6 @@ export const DEFAULT_GENERAL_SETTINGS: GeneralSettings = {
   thousandSeparator: '.',
   decimalSeparator: ',',
   language: 'vi',
-};
-
-export const DEFAULT_SECURITY_SETTINGS: SecuritySettings = {
-  enableTwoFactor: false,
-  sessionTimeout: 60,
-  maxLoginAttempts: 5,
-  lockoutDuration: 15,
-  requireStrongPassword: true,
-  minPasswordLength: 8,
-  requireUppercase: true,
-  requireNumbers: true,
-  requireSpecialChars: false,
-  passwordExpiryDays: 90,
-  enableAuditLog: true,
-  enableIpWhitelist: false,
-  ipWhitelist: [],
-};
-
-export const DEFAULT_MEDIA_SETTINGS: MediaSettings = {
-  maxUploadSize: 10,
-  allowedImageTypes: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
-  allowedDocumentTypes: ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
-  imageCompressionQuality: 80,
-  enableWatermark: false,
-  watermarkText: '',
-  watermarkPosition: 'bottom-right',
-  generateThumbnails: true,
-  thumbnailSize: 200,
-  storagePath: 'uploads',
-};
-
-export const DEFAULT_INTEGRATION_SETTINGS: IntegrationSettings = {
-  smtpEnabled: false,
-  smtpHost: '',
-  smtpPort: 587,
-  smtpSecure: true,
-  smtpUser: '',
-  smtpPassword: '',
-  smtpFromName: '',
-  smtpFromEmail: '',
-  smsEnabled: false,
-  smsProvider: 'twilio',
-  smsApiKey: '',
-  smsApiSecret: '',
-  smsSenderName: '',
-  webhookEnabled: false,
-  webhookUrl: '',
-  webhookSecret: '',
-  webhookEvents: [],
 };
 
 // ============================================================================
@@ -295,74 +182,3 @@ export const useGeneralSettings = createSystemSettingsHook<GeneralSettings>(
   'general-settings',
   DEFAULT_GENERAL_SETTINGS
 );
-
-export const useSecuritySettings = createSystemSettingsHook<SecuritySettings>(
-  'security-settings',
-  DEFAULT_SECURITY_SETTINGS
-);
-
-export const useMediaSettings = createSystemSettingsHook<MediaSettings>(
-  'media-settings',
-  DEFAULT_MEDIA_SETTINGS
-);
-
-export const useIntegrationSettings = createSystemSettingsHook<IntegrationSettings>(
-  'integration-settings',
-  DEFAULT_INTEGRATION_SETTINGS
-);
-
-// ============================================================================
-// Deprecated Functions - For backward compatibility
-// ============================================================================
-
-/**
- * @deprecated Use useGeneralSettings() hook instead
- */
-export function loadGeneralSettings(): GeneralSettings {
-  return DEFAULT_GENERAL_SETTINGS;
-}
-
-/**
- * @deprecated Use useGeneralSettings().setSettings() instead
- */
-export function saveGeneralSettings(_settings: GeneralSettings): void {
-}
-
-/**
- * @deprecated Use useSecuritySettings() hook instead
- */
-export function loadSecuritySettings(): SecuritySettings {
-  return DEFAULT_SECURITY_SETTINGS;
-}
-
-/**
- * @deprecated Use useSecuritySettings().setSettings() instead
- */
-export function saveSecuritySettings(_settings: SecuritySettings): void {
-}
-
-/**
- * @deprecated Use useMediaSettings() hook instead
- */
-export function loadMediaSettings(): MediaSettings {
-  return DEFAULT_MEDIA_SETTINGS;
-}
-
-/**
- * @deprecated Use useMediaSettings().setSettings() instead
- */
-export function saveMediaSettings(_settings: MediaSettings): void {
-}
-
-/**
- * @deprecated Use useIntegrationSettings() hook instead
- */
-export function loadIntegrationSettings(): IntegrationSettings {
-  return DEFAULT_INTEGRATION_SETTINGS;
-}
-
-/**
- * @deprecated Use useIntegrationSettings().setSettings() instead
- */
-export function saveIntegrationSettings(_settings: IntegrationSettings): void {
-}

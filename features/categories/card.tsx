@@ -1,6 +1,5 @@
 import * as React from "react";
 import type { ProductCategory } from '../settings/inventory/types';
-import { Card, CardContent, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Switch } from "@/components/ui/switch";
@@ -37,9 +36,9 @@ const calculateSeoScore = (category: ProductCategory, website: 'pkgx' | 'trendte
 
 const getSeoStatusBadge = (score: number, website: string) => {
   const color = website === 'pkgx' ? 'text-red-500' : 'text-blue-500';
-  if (score >= 80) return <Badge variant="outline" className="text-green-600 text-[10px]"><span className={color}>●</span> {score}%</Badge>;
-  if (score >= 50) return <Badge variant="outline" className="text-yellow-600 text-[10px]"><span className={color}>●</span> {score}%</Badge>;
-  if (score > 0) return <Badge variant="outline" className="text-red-600 text-[10px]"><span className={color}>●</span> {score}%</Badge>;
+  if (score >= 80) return <Badge variant="outline" className="text-green-600 text-xs"><span className={color}>●</span> {score}%</Badge>;
+  if (score >= 50) return <Badge variant="outline" className="text-yellow-600 text-xs"><span className={color}>●</span> {score}%</Badge>;
+  if (score > 0) return <Badge variant="outline" className="text-red-600 text-xs"><span className={color}>●</span> {score}%</Badge>;
   return null;
 };
 
@@ -65,16 +64,15 @@ export const MobileCategoryCard = ({
   const trendtechScore = calculateSeoScore(category, 'trendtech');
 
   return (
-    <Card 
-      className="hover:shadow-md transition-shadow cursor-pointer"
+    <div 
+      className="rounded-xl border border-border/50 bg-card p-4 active:scale-[0.98] transition-transform touch-manipulation cursor-pointer"
       onClick={() => handleRowClick(category)}
     >
-      <CardContent className="p-4">
         {/* Header: Image + Name + Switch + Menu */}
-        <div className="flex items-start justify-between gap-3 mb-3">
+        <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3 flex-1 min-w-0">
             {/* Thumbnail */}
-            <Avatar className="h-12 w-12 rounded-md flex-shrink-0">
+            <Avatar className="h-12 w-12 rounded-md shrink-0">
               {category.thumbnailImage ? (
                 <AvatarImage src={category.thumbnailImage} alt={category.name} className="object-cover" />
               ) : null}
@@ -85,7 +83,7 @@ export const MobileCategoryCard = ({
             
             <div className="flex flex-col min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <CardTitle className="font-semibold text-sm truncate">{category.name}</CardTitle>
+                <span className="font-semibold text-sm truncate">{category.name}</span>
               </div>
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <span className="font-mono">{category.id}</span>
@@ -116,7 +114,7 @@ export const MobileCategoryCard = ({
                 <TouchButton
                   variant="ghost"
                   size="sm"
-                  className="h-9 w-10 p-0 flex-shrink-0"
+                  className="h-8 w-8 p-0 -mr-2 -mt-1 shrink-0"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <MoreHorizontal className="h-4 w-4" />
@@ -153,7 +151,7 @@ export const MobileCategoryCard = ({
 
         {/* Footer: SEO Status */}
         {(pkgxScore > 0 || trendtechScore > 0) && (
-          <div className="flex items-center gap-2 mt-2 pt-2 border-t">
+          <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border/50">
             <span className="text-xs text-muted-foreground">SEO:</span>
             {getSeoStatusBadge(pkgxScore, 'pkgx')}
             {getSeoStatusBadge(trendtechScore, 'trendtech')}
@@ -161,10 +159,9 @@ export const MobileCategoryCard = ({
         )}
 
         {/* Created date */}
-        <div className="text-[10px] text-muted-foreground mt-2">
+        <div className="text-xs text-muted-foreground mt-2">
           Tạo: {formatDate(category.createdAt)}
         </div>
-      </CardContent>
-    </Card>
+    </div>
   );
 };

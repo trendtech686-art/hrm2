@@ -6,6 +6,7 @@ import type { LeaveRequest } from "@/lib/types/prisma-extended";
 import { useAllEmployees } from "@/features/employees/hooks/use-all-employees";
 // ✅ REMOVED: import { generateNextId } - use id: '' instead
 import { Button } from "@/components/ui/button";
+import { Loader2 } from 'lucide-react';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -21,6 +22,7 @@ type LeaveFormProps = {
   initialData?: LeaveRequest | null;
   onSubmit: (values: Omit<LeaveRequest, 'systemId'>) => void;
   onCancel: () => void;
+  isSubmitting?: boolean;
 };
 
 const FALLBACK_LEAVE_TYPES = [
@@ -51,7 +53,7 @@ const calculateBusinessDays = (start?: Date, end?: Date): number => {
 }
 
 
-export function LeaveForm({ initialData, onSubmit, onCancel }: LeaveFormProps) {
+export function LeaveForm({ initialData, onSubmit, onCancel, isSubmitting }: LeaveFormProps) {
   const { data: employees } = useAllEmployees();
   const { data: settings } = useEmployeeSettings();
   
@@ -243,7 +245,7 @@ export function LeaveForm({ initialData, onSubmit, onCancel }: LeaveFormProps) {
           </FormItem>
         )} />
         {selectedLeaveType?.meta && (
-          <p className="text-body-xs text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             {selectedLeaveType.meta.isPaid === false ? 'Không tính lương' : 'Được tính lương'}
             {selectedLeaveType.meta.requiresAttachment ? ' · Yêu cầu đính kèm minh chứng' : ''}
           </p>
@@ -252,19 +254,26 @@ export function LeaveForm({ initialData, onSubmit, onCancel }: LeaveFormProps) {
             <FormField control={control} name="startDate" render={({ field }) => (
                 <FormItem>
                     <FormLabel>Từ ngày</FormLabel>
-                    <FormControl><DatePicker value={field.value} onChange={field.onChange} /></FormControl>
+                    <FormControl><DatePicker value={field.value} onChange={(d) => {
+                      field.onChange(d);
+                      // If endDate is before the new startDate, reset endDate to startDate
+                      const currentEnd = form.getValues('endDate');
+                      if (d && currentEnd && currentEnd < d) {
+                        form.setValue('endDate', d);
+                      }
+                    }} /></FormControl>
                     <FormMessage />
                 </FormItem>
             )} />
             <FormField control={control} name="endDate" render={({ field }) => (
                 <FormItem>
                     <FormLabel>Đến ngày</FormLabel>
-                    <FormControl><DatePicker value={field.value} onChange={field.onChange} /></FormControl>
+                    <FormControl><DatePicker value={field.value} onChange={field.onChange} fromDate={startDate} /></FormControl>
                     <FormMessage />
                 </FormItem>
             )} />
         </div>
-         <div className="text-body-sm font-medium text-muted-foreground">Tổng số ngày nghỉ (không tính T7, CN): <span className="text-foreground">{numberOfDays}</span></div>
+         <div className="text-sm font-medium text-muted-foreground">Tổng số ngày nghỉ (không tính T7, CN): <span className="text-foreground">{numberOfDays}</span></div>
          <FormField control={control} name="reason" render={({ field }) => (
             <FormItem>
                 <FormLabel>Lý do</FormLabel>
@@ -275,7 +284,10 @@ export function LeaveForm({ initialData, onSubmit, onCancel }: LeaveFormProps) {
 
         <div className="flex justify-end space-x-2 pt-4">
             <Button type="button" variant="outline" onClick={onCancel} className="h-9">Hủy</Button>
-            <Button type="submit" className="h-9">Lưu</Button>
+            <Button type="submit" className="h-9" disabled={isSubmitting}>
+              {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              {isSubmitting ? 'Đang lưu...' : 'Lưu'}
+            </Button>
         </div>
       </form>
     </Form>

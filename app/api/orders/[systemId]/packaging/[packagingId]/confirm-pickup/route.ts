@@ -1,5 +1,8 @@
 import { prisma } from '@/lib/prisma';
 import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils';
+import { logError } from '@/lib/logger'
+import { createNotification } from '@/lib/notifications'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 interface RouteParams {
   params: Promise<{ systemId: string; packagingId: string }>;
@@ -27,7 +30,12 @@ export async function POST(_request: Request, { params }: RouteParams) {
       return apiError('Packaging does not belong to this order', 400);
     }
 
-    if (packaging.order.status !== 'READY_FOR_PICKUP') {
+    if (!packaging.order) {
+      return apiError('Packaging không thuộc đơn hàng nào', 400);
+    }
+    const order = packaging.order;
+
+    if (order.status !== 'READY_FOR_PICKUP') {
       return apiError('Order must be ready for pickup', 400);
     }
 
@@ -64,9 +72,9 @@ export async function POST(_request: Request, { params }: RouteParams) {
         .reduce((sum, r) => sum + Number(r.amount || 0), 0);
       
       const totalPaid = totalPaidFromPayments + totalPaidFromReceipts;
-      const grandTotal = Number(packaging.order.grandTotal || 0);
+      const grandTotal = Number(order.grandTotal || 0);
       // ✅ For exchange orders, subtract linkedSalesReturnValue from grandTotal
-      const linkedReturnValue = Number(packaging.order.linkedSalesReturnValue || 0);
+      const linkedReturnValue = Number(order.linkedSalesReturnValue || 0);
       const netGrandTotal = Math.max(0, grandTotal - linkedReturnValue);
       const isFullyPaid = totalPaid >= netGrandTotal;
       
@@ -160,9 +168,32 @@ export async function POST(_request: Request, { params }: RouteParams) {
       return updated;
     });
 
+    // Log activity
+    await createActivityLog({
+      entityType: 'order',
+      entityId: systemId,
+      action: `Xác nhận khách nhận hàng - ${updatedOrder.id || systemId}`,
+      actionType: 'status',
+      createdBy: session.user?.employee?.fullName || session.user?.name || session.user?.id || undefined,
+    }).catch(e => logError('[Confirm Pickup] activity log failed', e));
+
+    // Notify salesperson about pickup confirmed
+    if (updatedOrder.salespersonId && updatedOrder.salespersonId !== session.user?.employeeId) {
+      createNotification({
+        type: 'order',
+        title: 'Khách đã nhận hàng',
+        message: `Đơn hàng ${updatedOrder.id || systemId} - khách đã nhận hàng tại cửa hàng`,
+        link: `/orders/${systemId}`,
+        recipientId: updatedOrder.salespersonId,
+        senderId: session.user?.employeeId,
+        senderName: session.user?.name,
+        settingsKey: 'order:delivery',
+      }).catch(e => logError('[Confirm Pickup] notification failed', e));
+    }
+
     return apiSuccess(updatedOrder);
   } catch (error) {
-    console.error('Error confirming pickup:', error);
+    logError('Error confirming pickup', error);
     return apiError('Failed to confirm pickup', 500);
   }
 }

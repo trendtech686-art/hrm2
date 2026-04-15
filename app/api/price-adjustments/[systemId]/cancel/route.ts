@@ -5,6 +5,9 @@
 import { prisma } from '@/lib/prisma'
 import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
 import { PriceAdjustmentStatus } from '@/generated/prisma/client'
+import { logError } from '@/lib/logger'
+import { createNotification } from '@/lib/notifications'
+import { getUserNameFromDb } from '@/lib/get-user-name'
 
 type RouteParams = {
   params: Promise<{ systemId: string }>;
@@ -28,11 +31,11 @@ export async function POST(request: Request, { params }: RouteParams) {
     }
 
     if (priceAdjustment.status === PriceAdjustmentStatus.CONFIRMED) {
-      return apiError('Cannot cancel confirmed price adjustment', 400);
+      return apiError('Không thể hủy phiếu đã được xác nhận', 400);
     }
 
     if (priceAdjustment.status === PriceAdjustmentStatus.CANCELLED) {
-      return apiError('Price adjustment already cancelled', 400);
+      return apiError('Phiếu điều chỉnh giá đã bị hủy', 400);
     }
 
     // Get cancel info from request body
@@ -78,9 +81,37 @@ export async function POST(request: Request, { params }: RouteParams) {
       })),
     };
 
+    // Notify creator about cancellation
+    if (updatedAdjustment.createdBySystemId && updatedAdjustment.createdBySystemId !== session.user?.employeeId) {
+      createNotification({
+        type: 'price_adjustment',
+        settingsKey: 'price-adjustment:updated',
+        title: 'Điều chỉnh giá bị hủy',
+        message: `Phiếu điều chỉnh giá ${updatedAdjustment.id || systemId} đã bị hủy${cancelReason ? `: ${cancelReason}` : ''}`,
+        link: `/price-adjustments/${systemId}`,
+        recipientId: updatedAdjustment.createdBySystemId,
+        senderId: session.user?.employeeId,
+        senderName: session.user?.name,
+      }).catch(e => logError('[Price Adjustment Cancel] notification failed', e));
+    }
+
+    // Log activity
+    getUserNameFromDb(session.user?.id).then(userName =>
+      prisma.activityLog.create({
+        data: {
+          entityType: 'price_adjustment',
+          entityId: systemId,
+          action: 'cancelled',
+          actionType: 'update',
+          note: `Hủy phiếu điều chỉnh giá`,
+          metadata: { userName },
+          createdBy: userName,
+        }
+      })
+    ).catch(e => logError('[ActivityLog] price_adjustment cancelled failed', e))
     return apiSuccess(transformedAdjustment);
   } catch (error) {
-    console.error('[Price Adjustments API] Cancel error:', error);
-    return apiError('Failed to cancel price adjustment', 500);
+    logError('[Price Adjustments API] Cancel error', error);
+    return apiError('Lỗi khi hủy phiếu điều chỉnh giá', 500);
   }
 }

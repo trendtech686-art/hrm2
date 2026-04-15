@@ -74,7 +74,7 @@ async function seedProvinces2Level() {
   
   const provincesData = extractProvinces2Level();
   const provinces = provincesData.map(p => ({
-    systemId: `P2_${String(p.id)}`,
+    systemId: crypto.randomUUID(),
     id: String(p.id),
     name: p.name,
     level: '2-level',
@@ -83,7 +83,7 @@ async function seedProvinces2Level() {
 
   for (const province of provinces) {
     await prisma.province.upsert({
-      where: { systemId: province.systemId },
+      where: { id_level: { id: province.id, level: province.level } },
       update: { name: province.name },
       create: province,
     });
@@ -104,7 +104,7 @@ async function seedWards2Level() {
   const provinceIds = new Set(existingProvinces.map(p => p.id));
   
   const wards = WARDS_2LEVEL_DATA.map(w => ({
-    systemId: `W2_${String(w.id)}`,
+    systemId: crypto.randomUUID(),
     id: String(w.id),
     name: w.name,
     provinceId: String(w.provinceId),
@@ -147,7 +147,7 @@ async function seedProvinces3Level() {
   
   const provincesData = extractProvinces3Level();
   const provinces = provincesData.map(p => ({
-    systemId: `P3_${String(p.id)}`,
+    systemId: crypto.randomUUID(),
     id: String(p.id),
     name: p.name,
     level: '3-level',
@@ -156,7 +156,7 @@ async function seedProvinces3Level() {
 
   for (const province of provinces) {
     await prisma.province.upsert({
-      where: { systemId: province.systemId },
+      where: { id_level: { id: province.id, level: province.level } },
       update: { name: province.name },
       create: province,
     });
@@ -171,7 +171,7 @@ async function seedDistricts3Level() {
   
   const districtsData = extractDistricts3Level();
   const districts = districtsData.map(d => ({
-    systemId: `D3_${String(d.id)}`,
+    systemId: crypto.randomUUID(),
     id: d.id,
     name: d.name,
     provinceId: String(d.provinceId),
@@ -205,7 +205,7 @@ async function seedWards3Level() {
   const provinceIds = new Set(existingProvinces.map(p => p.id));
   
   const wards = WARDS_3LEVEL_DATA.map(w => ({
-    systemId: `W3_${String(w.id)}`,
+    systemId: crypto.randomUUID(),
     id: String(w.id),
     name: w.name,
     provinceId: String(w.provinceId),

@@ -119,7 +119,7 @@ export function BulkEditDialog({ isOpen, onOpenChange, selectedCells, onSave }: 
         </DialogHeader>
 
         <div className="max-h-40 overflow-y-auto border rounded-lg p-3 bg-muted/30">
-          <div className="space-y-2 text-body-sm">
+          <div className="space-y-2 text-sm">
             {Object.entries(groupedByEmployee).map(([systemId, info]) => (
               <div key={systemId} className="flex items-start gap-2">
                 <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />

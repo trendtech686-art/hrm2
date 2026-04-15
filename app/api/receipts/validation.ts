@@ -36,11 +36,15 @@ export const createReceiptSchema = z.object({
   accountSystemId: z.string().optional(),
   paymentReceiptTypeSystemId: z.string().optional(),
   paymentReceiptTypeName: z.string().optional(),
+  // Purchase order link (for supplier refund receipts)
+  purchaseOrderSystemId: z.string().optional(),
+  purchaseOrderId: z.string().optional(),
   // Common fields
   date: z.string().optional(),
   amount: z.number().min(0, 'Số tiền phải >= 0'),
   description: z.string().optional(),
   affectsDebt: z.boolean().optional(),
+  affectsBusinessReport: z.boolean().optional(),
   status: z.string().optional(),
   category: z.string().optional(),
   createdBy: z.string().optional(),

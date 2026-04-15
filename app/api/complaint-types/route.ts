@@ -3,6 +3,8 @@ import { Prisma } from '@/generated/prisma/client'
 import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
 import { createComplaintTypeSchema } from './validation'
 import { generateNextIds } from '@/lib/id-system'
+import { logError } from '@/lib/logger'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 // GET /api/complaint-types - List all complaint types
 export async function GET(request: Request) {
@@ -46,7 +48,7 @@ export async function GET(request: Request) {
 
     return apiPaginated(complaintTypes, { page, limit, total })
   } catch (error) {
-    console.error('Error fetching complaint types:', error)
+    logError('Error fetching complaint types', error)
     return apiError('Failed to fetch complaint types', 500)
   }
 }
@@ -87,12 +89,26 @@ export async function POST(request: Request) {
       },
     })
 
+    await createActivityLog({
+      entityType: 'complaint_type',
+      entityId: complaintType.systemId,
+      action: `Tạo loại khiếu nại: ${body.name}`,
+      actionType: 'create',
+      changes: {
+        name: { from: null, to: body.name },
+        ...(body.description ? { description: { from: null, to: body.description } } : {}),
+        ...(body.color ? { color: { from: null, to: body.color } } : {}),
+      },
+      metadata: { userName: session.user.name || session.user.email },
+      createdBy: session.user.id,
+    }).catch(e => logError('[complaint-types] activity log failed', e))
+
     return apiSuccess(complaintType, 201)
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
       return apiError('Mã loại khiếu nại đã tồn tại', 400)
     }
-    console.error('Error creating complaint type:', error)
+    logError('Error creating complaint type', error)
     return apiError('Failed to create complaint type', 500)
   }
 }

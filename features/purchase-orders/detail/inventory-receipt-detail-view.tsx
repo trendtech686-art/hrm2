@@ -3,66 +3,118 @@ import Link from 'next/link';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '../../../components/ui/table';
 import { formatCurrency } from '../../../lib/print-mappers/types';
 import type { InventoryReceipt } from '../../inventory-receipts/types';
+import { Package, Eye } from 'lucide-react';
+import { OptimizedImage } from '../../../components/ui/optimized-image';
+import { ImagePreviewDialog } from '../../../components/ui/image-preview-dialog';
 
 interface InventoryReceiptDetailViewProps {
   receipt: InventoryReceipt;
 }
 
 export function InventoryReceiptDetailView({ receipt }: InventoryReceiptDetailViewProps) {
+  const [previewImage, setPreviewImage] = React.useState<{ url: string; title: string } | null>(null);
   const totalQuantity = receipt.items.reduce((sum, item) => sum + Number(item.receivedQuantity), 0);
-  const totalValue = receipt.items.reduce((sum, item) => sum + (Number(item.receivedQuantity) * Number(item.unitPrice)), 0);
+  // totalValue uses unitCost (includes allocated fees) not unitPrice
+  const totalValue = receipt.items.reduce((sum, item) => {
+    const cost = Number((item as unknown as { unitCost?: number }).unitCost || item.unitPrice || 0);
+    return sum + (Number(item.receivedQuantity) * cost);
+  }, 0);
 
   return (
     <div className="p-6 bg-slate-100 dark:bg-slate-800/20">
-      <div className="space-y-1 text-body-sm mb-6">
-        <h3 className="text-h3">Thông tin phiếu nhập kho</h3>
+      <div className="space-y-1 text-sm mb-6">
+        <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider md:text-h3 md:text-foreground md:normal-case md:tracking-normal">Thông tin phiếu nhập kho</h3>
         <p className="text-muted-foreground">Người nhập: {receipt.receiverName}</p>
         <p className="text-muted-foreground">Ghi chú: {receipt.notes || '-'}</p>
       </div>
 
       <div className="space-y-2">
-        <h3 className="text-h3">Sản phẩm đã nhập</h3>
-        <div className="border rounded-md bg-card">
+        <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider md:text-h3 md:text-foreground md:normal-case md:tracking-normal">Sản phẩm đã nhập</h3>
+        <div className="border rounded-md bg-card overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Mã SP</TableHead>
+                <TableHead className="w-12 text-center">STT</TableHead>
+                <TableHead className="w-14">Ảnh</TableHead>
                 <TableHead>Tên sản phẩm</TableHead>
                 <TableHead className="text-center">SL đặt</TableHead>
                 <TableHead className="text-center">SL thực nhập</TableHead>
                 <TableHead className="text-right">Đơn giá</TableHead>
+                <TableHead className="text-right">Giá vốn</TableHead>
                 <TableHead className="text-right">Thành tiền</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {receipt.items.map(item => (
-                <TableRow key={item.productSystemId}>
-                  <TableCell>
-                    <Link href={`/products/${item.productSystemId}`}
-                      className="text-body-sm font-medium text-primary hover:underline"
-                    >
-                      {item.productId}
-                    </Link>
+              {receipt.items.map((item, index) => {
+                const unitCost = Number((item as unknown as { unitCost?: number }).unitCost || item.unitPrice || 0);
+                const imageUrl = (item as unknown as { imageUrl?: string }).imageUrl;
+                return (
+                <TableRow key={`${item.productSystemId}-${index}`}>
+                  <TableCell className="text-center text-muted-foreground">
+                    {index + 1}
                   </TableCell>
-                  <TableCell>{item.productName}</TableCell>
+                  <TableCell>
+                    {imageUrl ? (
+                      <button 
+                        type="button"
+                        className="group/imagePreview relative w-10 h-10 rounded border overflow-hidden bg-muted cursor-pointer"
+                        onClick={() => setPreviewImage({ url: imageUrl, title: item.productName })}
+                      >
+                        <OptimizedImage 
+                          src={imageUrl} 
+                          alt={item.productName}
+                          width={40}
+                          height={40}
+                          className="w-full h-full object-cover transition-all group-hover/imagePreview:brightness-75"
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/imagePreview:opacity-100 transition-opacity">
+                          <Eye className="w-4 h-4 text-white drop-shadow-md" />
+                        </div>
+                      </button>
+                    ) : (
+                      <div className="w-10 h-10 bg-muted rounded flex items-center justify-center">
+                        <Package className="w-5 h-5 text-muted-foreground" />
+                      </div>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-sm font-medium">{item.productName}</span>
+                      <Link href={`/products/${item.productSystemId}`}
+                        className="text-xs text-primary hover:underline"
+                      >
+                        {item.productId}
+                      </Link>
+                    </div>
+                  </TableCell>
                   <TableCell className="text-center">{item.orderedQuantity}</TableCell>
-                  <TableCell className="text-body-sm font-semibold text-center">{item.receivedQuantity}</TableCell>
+                  <TableCell className="text-sm font-semibold text-center">{item.receivedQuantity}</TableCell>
                   <TableCell className="text-right">{formatCurrency(item.unitPrice)}</TableCell>
-                  <TableCell className="text-body-sm font-semibold text-right">{formatCurrency(item.receivedQuantity * item.unitPrice)}</TableCell>
+                  <TableCell className="text-right text-primary font-medium">{formatCurrency(unitCost)}</TableCell>
+                  <TableCell className="text-sm font-semibold text-right">{formatCurrency(Number(item.receivedQuantity) * unitCost)}</TableCell>
                 </TableRow>
-              ))}
+              );})}
             </TableBody>
             <TableFooter>
               <TableRow>
-                <TableCell colSpan={3} className="text-body-sm font-bold text-right">Tổng cộng</TableCell>
-                <TableCell className="text-body-sm font-bold text-center">{totalQuantity}</TableCell>
+                <TableCell colSpan={4} className="text-sm font-bold text-right">Tổng cộng</TableCell>
+                <TableCell className="text-sm font-bold text-center">{totalQuantity}</TableCell>
                 <TableCell />
-                <TableCell className="text-body-sm font-bold text-right">{formatCurrency(totalValue)}</TableCell>
+                <TableCell />
+                <TableCell className="text-sm font-bold text-right">{formatCurrency(totalValue)}</TableCell>
               </TableRow>
             </TableFooter>
           </Table>
         </div>
       </div>
+      
+      {/* Image Preview Dialog */}
+      <ImagePreviewDialog
+        open={!!previewImage}
+        onOpenChange={(open) => !open && setPreviewImage(null)}
+        images={previewImage ? [previewImage.url] : []}
+        title={previewImage?.title || 'Xem ảnh'}
+      />
     </div>
   );
 }

@@ -3,12 +3,13 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { Plus, XCircle, CheckCircle, Printer, Settings } from 'lucide-react';
+import { Plus, XCircle, CheckCircle, Printer, Settings, Loader2 } from 'lucide-react';
 
 import { usePriceAdjustments, usePriceAdjustmentMutations } from './hooks/use-price-adjustments';
 import { useAllPricingPolicies } from '../settings/pricing/hooks/use-all-pricing-policies';
 import { getColumns } from './columns';
 import { ROUTES } from '@/lib/router';
+import { cn } from '@/lib/utils';
 import { usePageHeader } from '@/contexts/page-header-context';
 import { useAuth } from '@/contexts/auth-context';
 import { useColumnLayout } from '@/hooks/use-column-visibility';
@@ -16,11 +17,12 @@ import { useMediaQuery } from '@/lib/use-media-query';
 import type { PriceAdjustment } from './types';
 
 import { ResponsiveDataTable } from '@/components/data-table/responsive-data-table';
-import { DataTableFacetedFilter } from '@/components/data-table/data-table-faceted-filter';
 import { DynamicDataTableColumnCustomizer as DataTableColumnCustomizer } from '@/components/data-table/dynamic-column-customizer';
 import { Button } from '@/components/ui/button';
 import { PageToolbar } from '@/components/layout/page-toolbar';
 import { PageFilters } from '@/components/layout/page-filters';
+import { AdvancedFilterPanel, FilterExtras, type FilterConfig } from '@/components/shared/advanced-filter-panel';
+import { useFilterPresets } from '@/hooks/use-filter-presets';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -81,9 +83,15 @@ export function PriceAdjustmentListPage() {
     onSuccess: () => toast.success('Cập nhật thành công'),
     onError: (error) => toast.error(error.message),
   });
-  const { employee } = useAuth();
+  const {  employee, can } = useAuth();
+  const canCreate = can('edit_products');
+  const canApprove = can('edit_products');
+  const canEditSettings = can('edit_settings');
   const isMobile = !useMediaQuery("(min-width: 768px)");
   const { data: pricingPolicies } = useAllPricingPolicies();
+
+  // Filter presets
+  const { presets, savePreset, deletePreset, updatePreset } = useFilterPresets('price-adjustments');
 
   const [confirmDialogState, setConfirmDialogState] = React.useState<{ type: 'bulk-cancel' | 'bulk-confirm'; items: PriceAdjustment[] } | null>(null);
   const [isConfirmLoading, setIsConfirmLoading] = React.useState(false);
@@ -93,20 +101,19 @@ export function PriceAdjustmentListPage() {
   const [debouncedGlobalFilter, setDebouncedGlobalFilter] = React.useState('');
   const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 40 });
   const [expanded, setExpanded] = React.useState<Record<string, boolean>>({});
-  const [statusFilter, setStatusFilter] = React.useState<Set<string>>(new Set());
-  const [policyFilter, setPolicyFilter] = React.useState<Set<string>>(new Set());
+  const [advancedFilters, setAdvancedFilters] = React.useState<Record<string, unknown>>({});
 
   // Server-side pagination
   const serverFilters = React.useMemo(() => ({
     page: pagination.pageIndex + 1,
     limit: pagination.pageSize,
     search: debouncedGlobalFilter || undefined,
-    status: statusFilter.size === 1 ? [...statusFilter][0] : undefined,
-    pricingPolicyId: policyFilter.size === 1 ? [...policyFilter][0] : undefined,
+    status: (advancedFilters.status as string) || undefined,
+    pricingPolicyId: (advancedFilters.pricingPolicy as string) || undefined,
     sortBy: sorting.id || 'createdAt',
     sortOrder: sorting.desc ? 'desc' as const : 'asc' as const,
-  }), [pagination.pageIndex, pagination.pageSize, debouncedGlobalFilter, statusFilter, policyFilter, sorting]);
-  const { data: response, isLoading } = usePriceAdjustments(serverFilters);
+  }), [pagination.pageIndex, pagination.pageSize, debouncedGlobalFilter, advancedFilters, sorting]);
+  const { data: response, isLoading, isFetching } = usePriceAdjustments(serverFilters);
   const tableData = React.useMemo(() => (response?.data ?? []) as PriceAdjustment[], [response]);
   const serverTotal = response?.pagination?.total ?? 0;
   const serverPageCount = response?.pagination?.totalPages ?? 0;
@@ -123,10 +130,10 @@ export function PriceAdjustmentListPage() {
   const columns = React.useMemo(() => getColumns(router.push, handleSinglePrint), [router, handleSinglePrint]);
 
   const headerActions = React.useMemo(() => [
-    <Button key="add" className="h-9" onClick={() => router.push('/price-adjustments/new')}>
+    canCreate && <Button key="add" className="h-9" onClick={() => router.push('/price-adjustments/new')}>
       <Plus className="mr-2 h-4 w-4" />Tạo phiếu
     </Button>
-  ], [router]);
+  ], [router, canCreate]);
   
   usePageHeader({ 
     title: 'Danh sách điều chỉnh giá bán', 
@@ -162,7 +169,7 @@ export function PriceAdjustmentListPage() {
     toast.success('Đã khôi phục bố cục mặc định'); 
   }, [buildDefaultVisibility, buildDefaultOrder, setColumnVisibility, setColumnOrder, setPinnedColumns]);
 
-  React.useEffect(() => { setPagination(p => ({ ...p, pageIndex: 0 })); }, [debouncedGlobalFilter, statusFilter, policyFilter]);
+  React.useEffect(() => { setPagination(p => ({ ...p, pageIndex: 0 })); }, [debouncedGlobalFilter, advancedFilters]);
 
   const allSelectedRows = React.useMemo(() => tableData.filter(a => rowSelection[a.systemId]), [tableData, rowSelection]);
 
@@ -234,6 +241,24 @@ export function PriceAdjustmentListPage() {
     pricingPolicies.filter(p => p.type === 'Bán hàng').map(p => ({ value: p.systemId, label: p.name })),
     [pricingPolicies]
   );
+
+  // Advanced filter configs
+  const filterConfigs: FilterConfig[] = React.useMemo(() => [
+    { id: 'status', label: 'Trạng thái', type: 'select' as const, options: statusOptions },
+    ...(policyOptions.length > 0 ? [{ id: 'pricingPolicy', label: 'Bảng giá', type: 'select' as const, options: policyOptions }] : []),
+    { id: 'dateRange', label: 'Ngày tạo', type: 'date-range' as const },
+  ], [statusOptions, policyOptions]);
+
+  const panelValues = React.useMemo(() => ({
+    status: advancedFilters.status ?? null,
+    pricingPolicy: advancedFilters.pricingPolicy ?? null,
+    dateRange: advancedFilters.dateRange ?? null,
+  }), [advancedFilters]);
+
+  const handlePanelApply = React.useCallback((v: Record<string, unknown>) => {
+    setAdvancedFilters(v);
+    setPagination(prev => ({ ...prev, pageIndex: 0 }));
+  }, []);
   
   const handleRowClick = (r: PriceAdjustment) => router.push(`/price-adjustments/${r.systemId}`);
   const handleConfirmCard = React.useCallback((id: string) => { 
@@ -250,9 +275,9 @@ export function PriceAdjustmentListPage() {
       {!isMobile && (
         <PageToolbar 
           leftActions={
-            <Button variant="outline" size="sm" onClick={() => router.push('/settings/pricing')}>
+            <>{canEditSettings && <Button variant="outline" size="sm" onClick={() => router.push('/settings/pricing')}>
               <Settings className="h-4 w-4 mr-2" />Cài đặt
-            </Button>
+            </Button>}</>
           }
           rightActions={
             <DataTableColumnCustomizer 
@@ -273,22 +298,18 @@ export function PriceAdjustmentListPage() {
         onSearchChange={setGlobalFilter} 
         searchPlaceholder="Tìm kiếm phiếu điều chỉnh..."
       >
-        <DataTableFacetedFilter 
-          title="Trạng thái" 
-          options={statusOptions} 
-          selectedValues={statusFilter} 
-          onSelectedValuesChange={setStatusFilter} 
+        <AdvancedFilterPanel
+          filters={filterConfigs}
+          values={panelValues}
+          onApply={handlePanelApply}
+          presets={presets.map(p => ({ ...p, filters: p.filters }))}
+          onSavePreset={(preset) => savePreset(preset.name, panelValues)}
+          onDeletePreset={deletePreset}
+          onUpdatePreset={updatePreset}
         />
-        {policyOptions.length > 0 && (
-          <DataTableFacetedFilter 
-            title="Bảng giá" 
-            options={policyOptions} 
-            selectedValues={policyFilter} 
-            onSelectedValuesChange={setPolicyFilter} 
-          />
-        )}
       </PageFilters>
-      <div className="w-full py-4">
+      <FilterExtras presets={presets} filterConfigs={filterConfigs} values={panelValues} onApply={handlePanelApply} onDeletePreset={deletePreset} />
+      <div className={cn('w-full py-4', isFetching && !isLoading && 'opacity-70 transition-opacity')}>
         <ResponsiveDataTable 
           columns={columns} 
           data={tableData} 
@@ -331,6 +352,7 @@ export function PriceAdjustmentListPage() {
           <AlertDialogFooter>
             <AlertDialogCancel className="h-9" disabled={isConfirmLoading}>Đóng</AlertDialogCancel>
             <AlertDialogAction className="h-9" disabled={isConfirmLoading} onClick={handleConfirmDialogAction}>
+              {isConfirmLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {isConfirmLoading ? 'Đang xử lý...' : confirmDialogCopy?.confirmLabel}
             </AlertDialogAction>
           </AlertDialogFooter>

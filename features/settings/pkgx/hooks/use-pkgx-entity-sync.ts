@@ -239,7 +239,7 @@ export function usePkgxEntitySync(options: UsePkgxEntitySyncOptions) {
   const { entityType, onLog, getPkgxCatIdByHrmCategory, getPkgxBrandIdByHrmBrand } = options;
   
   // Get fresh settings for API calls
-  const { data: _pkgxSettings, refetch: refetchSettings } = usePkgxSettings();
+  const { refetch: refetchSettings } = usePkgxSettings();
   
   const [isSyncing, setIsSyncing] = React.useState(false);
   const [confirmAction, setConfirmAction] = React.useState<ConfirmActionState>({

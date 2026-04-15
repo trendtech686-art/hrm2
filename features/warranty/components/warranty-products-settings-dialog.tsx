@@ -58,9 +58,9 @@ export function WarrantyProductsSettingsDialog({
         <div className="py-4">
           <div className="space-y-6">
             <div className="space-y-3">
-              <Label className="text-body-sm font-medium">Chiết khấu mặc định theo:</Label>
+              <Label className="text-sm font-medium">Chiết khấu mặc định theo:</Label>
               <div className="flex items-center gap-3">
-                <span className="text-body-sm text-muted-foreground">Giá trị</span>
+                <span className="text-sm text-muted-foreground">Giá trị</span>
                 <Switch
                   id="discount-type"
                   checked={localSettings.discountDefaultType === 'percent'}
@@ -71,18 +71,18 @@ export function WarrantyProductsSettingsDialog({
                     }))
                   }
                 />
-                <span className="text-body-sm text-muted-foreground">%</span>
+                <span className="text-sm text-muted-foreground">%</span>
               </div>
             </div>
 
             <div className="space-y-3">
-              <Label className="text-body-sm font-medium">Thứ tự hiển thị hàng hóa:</Label>
+              <Label className="text-sm font-medium">Thứ tự hiển thị hàng hóa:</Label>
               <RadioGroup
                 value={localSettings.productInsertPosition}
-                onValueChange={(value: 'top' | 'bottom') => 
+                onValueChange={(value) => 
                   setLocalSettings(prev => ({
                     ...prev,
-                    productInsertPosition: value,
+                    productInsertPosition: value as 'top' | 'bottom',
                   }))
                 }
               >

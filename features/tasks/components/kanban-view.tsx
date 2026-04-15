@@ -12,26 +12,22 @@ import { AssigneeAvatarGroup } from './AssigneeAvatarGroup';
 import { useTasksSettings } from '@/features/settings/tasks/hooks/use-tasks-settings';
 import { cn } from '@/lib/utils';
 import { formatDate } from '@/lib/date-utils';
-import { Clock, AlertCircle, Play, FileCheck, CheckCircle2, XCircle, Pause, GripVertical } from 'lucide-react';
+import { Clock, AlertCircle, Play, FileCheck, CheckCircle2, XCircle, GripVertical } from 'lucide-react';
 import type { Task, TaskStatus, TaskPriority } from '../types';
 import { toast } from 'sonner';
 
 const taskStatusColumns: TaskStatus[] = [
   'Chưa bắt đầu',
   'Đang thực hiện',
-  'Đang chờ',
   'Chờ duyệt',
-  'Chờ xử lý',
   'Hoàn thành',
   'Đã hủy'
 ];
 
-const statusIcons: Record<TaskStatus, React.ElementType> = {
+const statusIcons: Partial<Record<TaskStatus, React.ElementType>> = {
   'Chưa bắt đầu': Clock,
   'Đang thực hiện': Play,
-  'Đang chờ': Pause,
   'Chờ duyệt': FileCheck,
-  'Chờ xử lý': AlertCircle,
   'Hoàn thành': CheckCircle2,
   'Đã hủy': XCircle,
 };
@@ -239,7 +235,7 @@ function KanbanColumn({
     data: { type: 'column', status },
   });
   
-  const StatusIcon = statusIcons[status];
+  const StatusIcon = statusIcons[status] || Clock;
   
   // Filter tasks based on local search
   const filteredTasks = React.useMemo(() => {
@@ -356,18 +352,24 @@ export function TaskKanbanView({
 
   // Group tasks by status
   const tasksByStatus = React.useMemo(() => {
-    const grouped: Record<TaskStatus, Task[]> = {
+    const grouped: Partial<Record<TaskStatus, Task[]>> = {
       'Chưa bắt đầu': [],
       'Đang thực hiện': [],
-      'Đang chờ': [],
       'Chờ duyệt': [],
-      'Chờ xử lý': [],
       'Hoàn thành': [],
       'Đã hủy': [],
     };
     
     tasks.forEach(task => {
-      grouped[task.status].push(task);
+      // Tasks with approvalStatus=pending go to 'Chờ duyệt' column
+      if (task.approvalStatus === 'pending') {
+        grouped['Chờ duyệt']!.push(task);
+      } else if (grouped[task.status]) {
+        grouped[task.status]!.push(task);
+      } else {
+        // Fallback: unknown statuses go to first column
+        grouped['Chưa bắt đầu']!.push(task);
+      }
     });
     
     return grouped;
@@ -424,7 +426,7 @@ export function TaskKanbanView({
           <KanbanColumn
             key={status}
             status={status}
-            tasks={tasksByStatus[status]}
+            tasks={tasksByStatus[status] || []}
             onTaskClick={onTaskClick}
             employees={employees}
           />

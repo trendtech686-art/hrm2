@@ -45,7 +45,7 @@ export const getColumns = (onPrint: (purchaseReturn: PurchaseReturn) => void): C
     header: 'Mã phiếu trả',
     cell: ({ row }) => (
       <button 
-        className="text-body-sm font-medium text-primary hover:underline"
+        className="text-sm font-medium text-primary hover:underline"
         onClick={(e) => {
           e.stopPropagation();
           // Navigate is handled by onRowClick
@@ -95,8 +95,8 @@ export const getColumns = (onPrint: (purchaseReturn: PurchaseReturn) => void): C
     id: 'totalQuantity',
     header: 'Tổng SL',
     cell: ({ row }) => {
-      const total = row.items.reduce((sum, item) => sum + item.returnQuantity, 0);
-      return <span className="text-body-sm font-medium">{total}</span>;
+      const total = row.items.reduce((sum, item) => sum + (item.returnQuantity || 0), 0);
+      return <span className="text-sm font-medium">{total}</span>;
     },
     meta: { displayName: 'Tổng SL' },
     size: 100,
@@ -106,7 +106,7 @@ export const getColumns = (onPrint: (purchaseReturn: PurchaseReturn) => void): C
     accessorKey: 'totalReturnValue',
     header: 'Giá trị trả',
     cell: ({ row }) => (
-      <span className="text-body-sm font-semibold text-orange-600">
+      <span className="text-sm font-semibold text-orange-600">
         {formatCurrency(row.totalReturnValue)}
       </span>
     ),
@@ -118,7 +118,7 @@ export const getColumns = (onPrint: (purchaseReturn: PurchaseReturn) => void): C
     accessorKey: 'refundAmount',
     header: 'Tiền hoàn',
     cell: ({ row }) => (
-      <span className="text-body-sm font-semibold text-green-600">
+      <span className="text-sm font-semibold text-green-600">
         {formatCurrency(row.refundAmount)}
       </span>
     ),
@@ -138,7 +138,7 @@ export const getColumns = (onPrint: (purchaseReturn: PurchaseReturn) => void): C
     accessorKey: 'reason',
     header: 'Lý do',
     cell: ({ row }) => (
-      <span className="text-body-xs max-w-xs line-clamp-2">
+      <span className="text-xs max-w-xs line-clamp-2">
         {row.reason || '-'}
       </span>
     ),
@@ -157,7 +157,7 @@ export const getColumns = (onPrint: (purchaseReturn: PurchaseReturn) => void): C
     id: 'itemsCount',
     header: 'Số mặt hàng',
     cell: ({ row }) => (
-      <span className="text-body-sm font-medium">{row.items.length}</span>
+      <span className="text-sm font-medium">{row.items.length}</span>
     ),
     meta: { displayName: 'Số mặt hàng' },
     size: 120,
@@ -169,7 +169,7 @@ export const getColumns = (onPrint: (purchaseReturn: PurchaseReturn) => void): C
       const firstProduct = row.items[0]?.productName || '';
       const remaining = row.items.length - 1;
       return (
-        <span className="text-body-xs">
+        <span className="text-xs">
           {firstProduct}
           {remaining > 0 && ` +${remaining}`}
         </span>

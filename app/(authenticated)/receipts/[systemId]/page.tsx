@@ -1,11 +1,17 @@
 import type { Metadata } from 'next'
 import { ReceiptDetailPage } from '@/features/receipts/detail-page'
 
-export const metadata: Metadata = {
-  title: 'Chi tiết phiếu thu',
-  description: 'Xem thông tin phiếu thu',
+type Props = { params: Promise<{ systemId: string }> }
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { systemId } = await params
+  return {
+    title: `Phiếu thu ${systemId}`,
+    description: 'Xem thông tin phiếu thu',
+  }
 }
 
-export default function Page() {
-  return <ReceiptDetailPage />
+export default async function Page({ params }: Props) {
+  const { systemId } = await params
+  return <ReceiptDetailPage systemId={systemId} />
 }

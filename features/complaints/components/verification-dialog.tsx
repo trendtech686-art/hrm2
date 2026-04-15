@@ -12,10 +12,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { NewDocumentsUpload } from "@/components/ui/new-documents-upload";
 import type { StagingFile } from "@/lib/file-upload-api";
-import { CheckCircle as _CheckCircle, XCircle, Upload as _Upload, MessageSquare as _MessageSquare, AlertCircle as _AlertCircle, Info as _Info } from "lucide-react";
+import { CheckCircle as _CheckCircle, XCircle, Upload as _Upload, MessageSquare as _MessageSquare, AlertCircle as _AlertCircle, Info as _Info, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import type { Complaint } from "../types";
 import type { SystemId } from "@/lib/id-types";
+import { logError } from '@/lib/logger'
 
 interface VerificationDialogProps {
   open: boolean;
@@ -85,7 +86,7 @@ export function VerificationDialog({
         await onSubmitIncorrect(evidenceStagingFiles, videoLinks, evidenceNote);
         onOpenChange(false);
       } catch (error) {
-        console.error('[VERIFICATION-DIALOG] Submit error:', error);
+        logError('[VERIFICATION-DIALOG] Submit error', error);
         toast.error("Có lỗi xảy ra khi lưu bằng chứng");
       } finally {
         setIsSubmitting(false);
@@ -153,7 +154,7 @@ export function VerificationDialog({
             Hủy
           </Button>
           <Button onClick={handleSubmit} disabled={isSubmitting}>
-            {isSubmitting ? "Đang lưu..." : "Lưu bằng chứng"}
+            {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Đang lưu...</> : "Lưu bằng chứng"}
           </Button>
         </DialogFooter>
       </DialogContent>

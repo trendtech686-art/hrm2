@@ -4,9 +4,11 @@ import type { Product } from "@/lib/types/prisma-extended";
 import type { SystemId } from "@/lib/id-types";
 import { asSystemId } from "@/lib/id-types";
 import { useQueryClient } from '@tanstack/react-query';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import * as React from "react";
 import { createProduct, updateProduct, fetchProducts } from "../api/products-api";
 import { fetchAllPages } from '@/lib/fetch-all-pages';
+import { logError } from '@/lib/logger'
 
 // ═══════════════════════════════════════════════════════════════
 // Types
@@ -110,7 +112,7 @@ async function executeImport(
 
     return results;
   } catch (error) {
-    console.error('[Products Importer] Lỗi nhập sản phẩm', error);
+    logError('[Products Importer] Lỗi nhập sản phẩm', error);
     throw error;
   }
 }
@@ -136,7 +138,7 @@ export function useProductImportHandler({
       
       // Invalidate query cache để refresh danh sách sản phẩm
       if (results.success > 0) {
-        queryClient.invalidateQueries({ queryKey: ['products'] });
+        invalidateRelated(queryClient, 'products');
       }
       
       return results;

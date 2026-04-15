@@ -4,6 +4,8 @@ import { requireAuth, apiSuccess, apiPaginated, apiError, parsePagination } from
 import { generateNextIds } from '@/lib/id-system'
 import type { EntityType } from '@/lib/id-system'
 import { cache, CACHE_TTL } from '@/lib/cache'
+import { logError } from '@/lib/logger'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 // Helper: compute path + level from parent
 async function computePathAndLevel(name: string, parentId?: string | null) {
@@ -76,7 +78,7 @@ export async function GET(request: Request) {
         },
       })
       const result = { data: categories }
-      cache.set(cacheKey, result, CACHE_TTL.LONG)
+      cache.set(cacheKey, result, CACHE_TTL.LONG * 1000)
       return apiSuccess(result)
     }
 
@@ -94,7 +96,7 @@ export async function GET(request: Request) {
         },
       })
       const result = { data: categories }
-      cache.set(cacheKey, result, CACHE_TTL.LONG)
+      cache.set(cacheKey, result, CACHE_TTL.LONG * 1000)
       return apiSuccess(result)
     }
 
@@ -114,8 +116,8 @@ export async function GET(request: Request) {
 
     return apiPaginated(categories, { page, limit, total })
   } catch (error) {
-    console.error('Error fetching categories:', error)
-    return apiError('Failed to fetch categories', 500)
+    logError('Error fetching categories', error)
+    return apiError('Không thể tải danh sách danh mục', 500)
   }
 }
 
@@ -179,12 +181,20 @@ export async function POST(request: Request) {
     // Invalidate categories cache
     cache.deletePattern('^categories:')
 
+    createActivityLog({
+      entityType: 'category',
+      entityId: category.systemId,
+      action: `Thêm danh mục: ${category.name}`,
+      actionType: 'create',
+      createdBy: session.user?.id,
+    }).catch(e => logError('Failed to create activity log', e))
+
     return apiSuccess(category, 201)
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
       return apiError('Mã danh mục đã tồn tại', 400)
     }
-    console.error('Error creating category:', error)
-    return apiError('Failed to create category', 500)
+    logError('Error creating category', error)
+    return apiError('Không thể tạo danh mục', 500)
   }
 }

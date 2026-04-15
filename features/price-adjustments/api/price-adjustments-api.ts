@@ -95,6 +95,7 @@ export async function createPriceAdjustment(
     reason: data.reason,
     description: data.note,
     createdBy: data.createdBy,
+    createdByName: data.createdByName,
     items: data.items?.map(item => ({
       productId: item.productId,
       productSystemId: item.productSystemId,
@@ -150,9 +151,9 @@ export async function deletePriceAdjustment(systemId: string): Promise<void> {
 export async function confirmPriceAdjustment(
   systemId: string,
   confirmedBy?: string,
-  _confirmedByName?: string
+  confirmedByName?: string
 ): Promise<PriceAdjustment> {
-  const result = await confirmPriceAdjustmentAction(systemId, confirmedBy || '');
+  const result = await confirmPriceAdjustmentAction(systemId, confirmedBy || '', confirmedByName);
   if (!result.success) {
     throw new Error(result.error || 'Failed to confirm price adjustment');
   }

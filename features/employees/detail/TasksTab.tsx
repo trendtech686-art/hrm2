@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
 import { FileSpreadsheet } from 'lucide-react';
 import { Eye, MoreHorizontal } from 'lucide-react';
 import { toast } from 'sonner';
@@ -26,7 +27,8 @@ interface TasksTabProps {
 
 export function TasksTab({ employee }: TasksTabProps) {
   const router = useRouter();
-  const { data: serverTasks } = useTasksByEmployee(employee.systemId);
+  const [page, setPage] = React.useState(1);
+  const { data: serverTasks, pagination } = useTasksByEmployee(employee.systemId, page);
 
   const employeeTasks: TaskRow[] = React.useMemo(() => {
     return serverTasks.map(task => ({
@@ -37,7 +39,7 @@ export function TasksTab({ employee }: TasksTabProps) {
       statusVariant: (
         task.status === 'Hoàn thành' ? 'success' :
         task.status === 'Đang thực hiện' ? 'default' :
-        task.status === 'Đang chờ' ? 'warning' :
+        task.status === 'Chờ duyệt' ? 'warning' :
         task.status === 'Đã hủy' ? 'destructive' : 'secondary'
       ) as TaskRow['statusVariant'],
       statusName: task.status,
@@ -125,6 +127,12 @@ export function TasksTab({ employee }: TasksTabProps) {
           onRowClick={(row) => router.push(row.link)} 
           showCheckbox
           customBulkActions={taskBulkActions}
+          serverPagination={{
+            page,
+            pageSize: pagination.limit,
+            totalItems: pagination.total,
+            onPageChange: setPage,
+          }}
         />
       </CardContent>
     </Card>
@@ -132,13 +140,23 @@ export function TasksTab({ employee }: TasksTabProps) {
 }
 
 /**
- * Get task count and active count for stats display
+ * Lightweight task stats — calls /api/tasks/stats?userId=X instead of fetching all tasks.
+ * Used in the stats card on the employee detail page.
  */
 export function useTaskStats(employeeSystemId: string | undefined) {
-  const { data: serverTasks } = useTasksByEmployee(employeeSystemId);
-  
+  const { data } = useQuery({
+    queryKey: ['task-stats', employeeSystemId],
+    queryFn: async () => {
+      const res = await fetch(`/api/tasks/stats?userId=${encodeURIComponent(employeeSystemId!)}`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch task stats');
+      return res.json() as Promise<{ todo: number; inProgress: number; completed: number; overdue: number }>;
+    },
+    enabled: !!employeeSystemId,
+    staleTime: 1000 * 60,
+  });
+
   return React.useMemo(() => ({
-    total: serverTasks.length,
-    active: serverTasks.filter(t => t.status !== 'Hoàn thành').length,
-  }), [serverTasks]);
+    total: (data?.todo ?? 0) + (data?.inProgress ?? 0) + (data?.completed ?? 0),
+    active: (data?.todo ?? 0) + (data?.inProgress ?? 0),
+  }), [data]);
 }

@@ -4,6 +4,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import type { ProductSlaSettings } from '../types';
 import { defaultSlaSettings, updateSlaSettingsCache, invalidateSlaSettingsCache } from '../sla-settings-service';
 
@@ -74,7 +75,7 @@ export function useSlaSettingsMutations(options: MutationCallbacks = {}) {
 
   const invalidateSettings = () => {
     invalidateSlaSettingsCache();
-    queryClient.invalidateQueries({ queryKey: slaSettingsKeys.all });
+    invalidateRelated(queryClient, 'sla-settings');
   };
 
   const update = useMutation({

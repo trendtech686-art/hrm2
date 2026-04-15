@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server'
 import type { Prisma } from '@/generated/prisma/client'
 import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
 import { updatePayrollTemplateSchema } from '../validation'
+import { logError } from '@/lib/logger'
 
 const SETTING_KEY = 'payroll-templates'
 const SETTING_GROUP = 'hrm'
@@ -38,7 +39,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     return apiSuccess({ data: template })
   } catch (error) {
-    console.error('Error fetching payroll template:', error)
+    logError('Error fetching payroll template', error)
     return apiError('Failed to fetch payroll template', 500)
   }
 }
@@ -88,7 +89,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     return apiSuccess({ data: templates[existingIndex] })
   } catch (error) {
-    console.error('Error updating payroll template:', error)
+    logError('Error updating payroll template', error)
     return apiError('Failed to update payroll template', 500)
   }
 }
@@ -126,7 +127,7 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
 
     return apiSuccess({ success: true })
   } catch (error) {
-    console.error('Error deleting payroll template:', error)
+    logError('Error deleting payroll template', error)
     return apiError('Failed to delete payroll template', 500)
   }
 }

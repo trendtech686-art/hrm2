@@ -12,9 +12,9 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth, apiError } from '@/lib/api-utils';
-import { loadGHTKConfig } from '@/lib/ghtk-sync';
-
-const GHTK_API_BASE = 'https://services.giaohangtietkiem.vn';
+import { loadGHTKConfig, GHTK_API_BASE } from '@/lib/ghtk-sync';
+import { logError } from '@/lib/logger'
+import { fetchWithTimeout } from '@/lib/fetch-utils'
 
 type Props = {
   params: Promise<{ trackingCode: string }>;
@@ -49,7 +49,7 @@ export async function GET(
     ghtkUrl.searchParams.set('page_size', pageSize);
 
 
-    const response = await fetch(ghtkUrl.toString(), {
+    const response = await fetchWithTimeout(ghtkUrl.toString(), {
       method: 'GET',
       headers: {
         'Token': apiToken,
@@ -76,12 +76,12 @@ export async function GET(
     } else {
       // ❌ Error - GHTK returns JSON error
       const errorData = await response.json();
-      console.error(`[GHTK-LABEL-${requestId}] ❌ Error from GHTK:`, errorData);
+      logError(`[GHTK-LABEL-${requestId}] ❌ Error from GHTK`, errorData);
       
       return apiError(errorData.message || 'Failed to get label from GHTK', response.status);
     }
   } catch (error) {
-    console.error(`[GHTK-LABEL-${requestId}] Print label error:`, error);
+    logError(`[GHTK-LABEL-${requestId}] Print label error`, error);
     return apiError(error instanceof Error ? error.message : 'Unknown error', 500);
   }
 }

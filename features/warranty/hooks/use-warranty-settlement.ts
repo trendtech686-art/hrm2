@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useWarrantyFinder } from './use-all-warranties';
+import { useWarranty } from './use-warranties';
 import { useWarrantyPayments, useWarrantyReceipts } from './use-warranty-financial-data';
 import { calculateWarrantyProcessingState } from '../components/logic/processing';
 import { calculateWarrantySettlementTotal } from '../utils/payment-calculations';
@@ -31,23 +31,19 @@ export function useWarrantySettlement(
   warrantySystemId?: string | null,
   options?: WarrantySettlementOptions,
 ): WarrantySettlementState {
-  const { findById } = useWarrantyFinder();
+  const overrideTicket = options?.ticket ?? null;
+  // ⚡ OPTIMIZED: Skip useWarranty() when ticket already provided by parent (avoids redundant hook subscription)
+  const { data: warrantyData } = useWarranty(overrideTicket ? undefined : warrantySystemId);
   // ⚡ PERFORMANCE: Only fetch data for this specific warranty
   const { data: payments } = useWarrantyPayments(warrantySystemId);
   const { data: receipts } = useWarrantyReceipts(warrantySystemId);
-  const overrideTicket = options?.ticket ?? null;
-  const normalizedWarrantySystemId = React.useMemo(
-    () => (warrantySystemId ? asSystemId(warrantySystemId) : undefined),
-    [warrantySystemId],
-  );
 
   const ticket = React.useMemo(() => {
     if (overrideTicket) {
       return overrideTicket;
     }
-    if (!normalizedWarrantySystemId) return null;
-    return findById(normalizedWarrantySystemId) || null;
-  }, [findById, normalizedWarrantySystemId, overrideTicket]);
+    return warrantyData ?? null;
+  }, [warrantyData, overrideTicket]);
 
   const fallbackTotalPayment = React.useMemo(() => calculateWarrantySettlementTotal(ticket), [ticket]);
   const settlementSnapshot = ticket?.settlement ?? null;

@@ -47,6 +47,7 @@ import {
   Plus,
   Save,
   MoreHorizontal,
+  Loader2,
 } from 'lucide-react';
 import { SimpleSettingsTable } from '../../../components/settings/SimpleSettingsTable';
 import type { ColumnDef } from '../../../components/data-table/types';
@@ -56,6 +57,7 @@ import { useSettingsPageHeader } from '../use-settings-page-header';
 import type { TaskPriority } from '../../tasks/types';
 import { SettingsActionButton } from '../../../components/settings/SettingsActionButton';
 import { SettingsVerticalTabs } from '../../../components/settings/SettingsVerticalTabs';
+import { SettingsHistoryContent } from '../../../components/settings/SettingsHistoryContent';
 import { useTabActionRegistry } from '../use-tab-action-registry';
 
 // Import from extracted files
@@ -63,15 +65,11 @@ import {
   type CardColorSettings,
   type SLASettings,
   type TaskTemplate,
-  type NotificationSettings,
-  type ReminderSettings,
   type EvidenceSettings,
   type TaskType,
   type StatusColorKey,
   type PriorityColorKey,
   defaultSLA,
-  defaultReminders,
-  defaultNotifications,
   defaultCardColors,
   defaultEvidence,
   defaultTaskTypes,
@@ -92,14 +90,12 @@ export type { CardColorSettings, TaskTemplate, EvidenceSettings, TaskType } from
 
 export function TasksSettingsPage() {
   // Fetch settings from React Query
-  const { data: settings, isLoading: _isLoadingSettings } = useTasksSettings();
+  const { data: settings } = useTasksSettings();
   const { updateSection } = useTasksSettingsMutations();
 
   // Get stored values from React Query
   const storedSla = settings.sla;
   const storedTemplates = settings.templates;
-  const storedNotifications = settings.notifications;
-  const storedReminders = settings.reminders;
   const storedCardColors = settings.cardColors;
   const storedTaskTypes = settings.taskTypes;
   const storedEvidence = settings.evidence;
@@ -110,10 +106,6 @@ export function TasksSettingsPage() {
   const [templates, setTemplates] = React.useState<TaskTemplate[]>(storedTemplates);
   const [editingTemplate, setEditingTemplate] = React.useState<TaskTemplate | null>(null);
   const [isAddingTemplate, setIsAddingTemplate] = React.useState(false);
-
-  const [notifications, setNotifications] = React.useState<NotificationSettings>(storedNotifications);
-
-  const [reminders, setReminders] = React.useState<ReminderSettings>(storedReminders);
 
   const [cardColors, setCardColors] = React.useState<CardColorSettings>(storedCardColors);
 
@@ -139,14 +131,6 @@ export function TasksSettingsPage() {
   React.useEffect(() => {
     setTemplates(storedTemplates);
   }, [storedTemplates]);
-
-  React.useEffect(() => {
-    setNotifications(storedNotifications);
-  }, [storedNotifications]);
-
-  React.useEffect(() => {
-    setReminders(storedReminders);
-  }, [storedReminders]);
 
   React.useEffect(() => {
     setCardColors(storedCardColors);
@@ -334,7 +318,9 @@ export function TasksSettingsPage() {
       t.id === id ? { ...t, isActive: !t.isActive } : t
     );
     setTaskTypes(updated);
-    updateSection.mutate({ type: 'taskTypes', data: updated });
+    updateSection.mutate({ type: 'taskTypes', data: updated }, {
+      onSuccess: () => toast.success('Đã cập nhật trạng thái'),
+    });
   };
 
   const _handleResetTypes = () => {
@@ -400,54 +386,6 @@ export function TasksSettingsPage() {
   };
 
   // (Card colors useEffect moved to single handlersRef effect below)
-
-  // ============================================
-  // NOTIFICATION & REMINDER HANDLERS
-  // ============================================
-
-  const handleNotificationChange = (key: keyof NotificationSettings) => {
-    setNotifications(prev => ({
-      ...prev,
-      [key]: !prev[key],
-    }));
-  };
-
-  const handleSaveNotifications = () => {
-    updateSection.mutate({ type: 'notifications', data: notifications }, {
-      onSuccess: () => toast.success('Đã lưu cài đặt thông báo'),
-    });
-  };
-
-  const _handleResetNotifications = () => {
-    const defaults = clone(defaultNotifications);
-    setNotifications(defaults);
-    updateSection.mutate({ type: 'notifications', data: defaults }, {
-      onSuccess: () => toast.info('Đã khôi phục cài đặt mặc định'),
-    });
-  };
-
-  const handleReminderChange = (field: keyof ReminderSettings, value: boolean | number) => {
-    setReminders(prev => ({
-      ...prev,
-      [field]: value,
-    }));
-  };
-
-  const handleSaveReminders = () => {
-    updateSection.mutate({ type: 'reminders', data: reminders }, {
-      onSuccess: () => toast.success('Đã lưu cài đặt nhắc nhở'),
-    });
-  };
-
-  const _handleResetReminders = () => {
-    const defaults = clone(defaultReminders);
-    setReminders(defaults);
-    updateSection.mutate({ type: 'reminders', data: defaults }, {
-      onSuccess: () => toast.info('Đã khôi phục cài đặt mặc định'),
-    });
-  };
-
-  // (Notifications useEffect moved to single handlersRef effect below)
 
   // ============================================
   // TEMPLATE HANDLERS
@@ -568,7 +506,7 @@ export function TasksSettingsPage() {
       cell: ({ row }) => (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8">
+            <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Thao tác">
               <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
@@ -617,7 +555,7 @@ export function TasksSettingsPage() {
       cell: ({ row }) => (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8">
+            <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Thao tác">
               <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
@@ -643,7 +581,6 @@ export function TasksSettingsPage() {
     saveEvidence: handleSaveEvidence,
     addType: handleAddType,
     saveCardColors: handleSaveCardColors,
-    saveNotifications: () => { handleSaveNotifications(); handleSaveReminders(); },
     addTemplate: handleAddTemplate,
   });
   handlersRef.current = {
@@ -651,7 +588,6 @@ export function TasksSettingsPage() {
     saveEvidence: handleSaveEvidence,
     addType: handleAddType,
     saveCardColors: handleSaveCardColors,
-    saveNotifications: () => { handleSaveNotifications(); handleSaveReminders(); },
     addTemplate: handleAddTemplate,
   };
 
@@ -659,15 +595,15 @@ export function TasksSettingsPage() {
     switch (activeTab) {
       case 'sla':
         setHeaderActions([
-          <SettingsActionButton key="save-sla" onClick={() => handlersRef.current.saveSLA()}>
-            <Save className="h-4 w-4" /> Lưu cài đặt
+          <SettingsActionButton key="save-sla" onClick={() => handlersRef.current.saveSLA()} disabled={updateSection.isPending}>
+            {updateSection.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Lưu cài đặt
           </SettingsActionButton>,
         ]);
         break;
       case 'evidence':
         setHeaderActions([
-          <SettingsActionButton key="save-evidence" onClick={() => handlersRef.current.saveEvidence()}>
-            <Save className="h-4 w-4" /> Lưu cài đặt
+          <SettingsActionButton key="save-evidence" onClick={() => handlersRef.current.saveEvidence()} disabled={updateSection.isPending}>
+            {updateSection.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Lưu cài đặt
           </SettingsActionButton>,
         ]);
         break;
@@ -680,15 +616,8 @@ export function TasksSettingsPage() {
         break;
       case 'card-colors':
         setHeaderActions([
-          <SettingsActionButton key="save-card-colors" onClick={() => handlersRef.current.saveCardColors()}>
-            <Save className="h-4 w-4" /> Lưu cài đặt
-          </SettingsActionButton>,
-        ]);
-        break;
-      case 'notifications':
-        setHeaderActions([
-          <SettingsActionButton key="save-notifications" onClick={() => handlersRef.current.saveNotifications()}>
-            <Save className="h-4 w-4" /> Lưu cài đặt
+          <SettingsActionButton key="save-card-colors" onClick={() => handlersRef.current.saveCardColors()} disabled={updateSection.isPending}>
+            {updateSection.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Lưu cài đặt
           </SettingsActionButton>,
         ]);
         break;
@@ -700,7 +629,7 @@ export function TasksSettingsPage() {
         ]);
         break;
     }
-  }, [activeTab, setHeaderActions]);
+  }, [activeTab, setHeaderActions, updateSection.isPending]);
 
   const tabs = React.useMemo(
     () => [
@@ -709,7 +638,6 @@ export function TasksSettingsPage() {
       { value: 'evidence', label: 'Bằng chứng' },
       { value: 'card-colors', label: 'Màu card' },
       { value: 'templates', label: 'Mẫu CV' },
-      { value: 'notifications', label: 'Thông báo' },
     ],
     [],
   );
@@ -719,6 +647,7 @@ export function TasksSettingsPage() {
   // ============================================
 
   return (
+    <>
     <SettingsVerticalTabs value={activeTab} onValueChange={setActiveTab} tabs={tabs}>
       {/* TAB 1: SLA SETTINGS */}
       <TabsContent value="sla" className="mt-0 space-y-4">
@@ -749,7 +678,7 @@ export function TasksSettingsPage() {
                         id={`sla-${key}-response`}
                         type="number"
                         className="h-9"
-                        value={sla[key].responseTime}
+                        value={sla[key]?.responseTime ?? 0}
                         onChange={(e) => handleSLAChange(key, 'responseTime', e.target.value)}
                         min="0"
                       />
@@ -760,7 +689,7 @@ export function TasksSettingsPage() {
                         id={`sla-${key}-complete`}
                         type="number"
                         className="h-9"
-                        value={sla[key].completeTime}
+                        value={sla[key]?.completeTime ?? 0}
                         onChange={(e) => handleSLAChange(key, 'completeTime', e.target.value)}
                         min="0"
                       />
@@ -858,8 +787,8 @@ export function TasksSettingsPage() {
             >
               Hủy
             </Button>
-            <Button onClick={handleSaveType}>
-              <Save className="h-4 w-4 mr-2" />
+            <Button onClick={handleSaveType} disabled={updateSection.isPending}>
+              {updateSection.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
               {isAddingType ? 'Thêm loại' : 'Lưu thay đổi'}
             </Button>
           </DialogFooter>
@@ -1046,7 +975,7 @@ export function TasksSettingsPage() {
                       <div key={key} className="space-y-2">
                         <TailwindColorPicker
                           label={`Màu cho trạng thái "${label}"`}
-                          value={cardColors.statusColors[key]}
+                          value={cardColors.statusColors[key] || ''}
                           onChange={(value) => handleStatusColorChange(key, value)}
                           placeholder="bg-blue-50 border-blue-200"
                         />
@@ -1067,7 +996,7 @@ export function TasksSettingsPage() {
                       <div key={key} className="space-y-2">
                         <TailwindColorPicker
                           label={`Màu cho ${label}`}
-                          value={cardColors.priorityColors[key]}
+                          value={cardColors.priorityColors[key] || ''}
                           onChange={(value) => handlePriorityColorChange(key, value)}
                           placeholder="bg-amber-50 border-amber-200"
                         />
@@ -1223,8 +1152,8 @@ export function TasksSettingsPage() {
             }}>
               Hủy
             </Button>
-            <Button onClick={handleSaveTemplate}>
-              <Save className="h-4 w-4 mr-2" />
+            <Button onClick={handleSaveTemplate} disabled={updateSection.isPending}>
+              {updateSection.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
               Lưu
             </Button>
           </DialogFooter>
@@ -1252,169 +1181,11 @@ export function TasksSettingsPage() {
         </AlertDialogContent>
       </AlertDialog>
       </TabsContent>
-
-      {/* TAB 6: NOTIFICATIONS & REMINDERS */}
-      <TabsContent value="notifications" className="mt-0 space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle size="lg">Cài đặt thông báo & nhắc nhở</CardTitle>
-              <CardDescription>
-                Quản lý thông báo và nhắc nhở tự động cho công việc
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <SettingsFormSection
-                title="Thông báo Email"
-                description="Gửi cập nhật tới người phụ trách và quản lý theo từng giai đoạn."
-                contentClassName="space-y-3"
-              >
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="email-create" className="cursor-pointer">
-                    Khi công việc mới được tạo
-                  </Label>
-                  <Switch
-                    id="email-create"
-                    checked={notifications.emailOnCreate}
-                    onCheckedChange={() => handleNotificationChange('emailOnCreate')}
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="email-assign" className="cursor-pointer">
-                    Khi được phân công
-                  </Label>
-                  <Switch
-                    id="email-assign"
-                    checked={notifications.emailOnAssign}
-                    onCheckedChange={() => handleNotificationChange('emailOnAssign')}
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="email-complete" className="cursor-pointer">
-                    Khi công việc hoàn thành
-                  </Label>
-                  <Switch
-                    id="email-complete"
-                    checked={notifications.emailOnComplete}
-                    onCheckedChange={() => handleNotificationChange('emailOnComplete')}
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="email-overdue" className="cursor-pointer">
-                    Khi công việc quá hạn
-                  </Label>
-                  <Switch
-                    id="email-overdue"
-                    checked={notifications.emailOnOverdue}
-                    onCheckedChange={() => handleNotificationChange('emailOnOverdue')}
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="email-approval" className="cursor-pointer">
-                    Khi có bằng chứng chờ duyệt
-                  </Label>
-                  <Switch
-                    id="email-approval"
-                    checked={notifications.emailOnApprovalPending}
-                    onCheckedChange={() => handleNotificationChange('emailOnApprovalPending')}
-                  />
-                </div>
-              </SettingsFormSection>
-
-              <SettingsFormSection
-                title="Thông báo trong ứng dụng"
-                description="Hiển thị trong hệ thống dành cho quản lý task."
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label htmlFor="inapp" className="cursor-pointer">Bật thông báo in-app</Label>
-                    <p className="text-xs text-muted-foreground">Áp dụng cho desktop và mobile app.</p>
-                  </div>
-                  <Switch
-                    id="inapp"
-                    checked={notifications.inAppNotifications}
-                    onCheckedChange={() => handleNotificationChange('inAppNotifications')}
-                  />
-                </div>
-              </SettingsFormSection>
-
-              <SettingsFormSection
-                title="Cảnh báo SMS"
-                description="Chỉ nên bật cho sự kiện quan trọng để tránh spam."
-              >
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="sms-overdue" className="cursor-pointer">
-                    Gửi SMS khi task quá hạn
-                  </Label>
-                  <Switch
-                    id="sms-overdue"
-                    checked={notifications.smsOnOverdue}
-                    onCheckedChange={() => handleNotificationChange('smsOnOverdue')}
-                  />
-                </div>
-              </SettingsFormSection>
-
-              <SettingsFormSection
-                title="Nhắc nhở & leo thang"
-                description="Tự động đôn đốc task lâu không cập nhật."
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label htmlFor="reminders-enabled" className="cursor-pointer">
-                      Bật nhắc nhở thông minh
-                    </Label>
-                    <p className="text-xs text-muted-foreground">Gửi email/in-app tới assignee nếu task đứng yên.</p>
-                  </div>
-                  <Switch
-                    id="reminders-enabled"
-                    checked={reminders.enabled}
-                    onCheckedChange={(checked) => handleReminderChange('enabled', checked)}
-                  />
-                </div>
-
-                {reminders.enabled && (
-                  <SettingsFormGrid className="pt-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="first-reminder">Nhắc nhở lần 1 (giờ)</Label>
-                      <Input
-                        id="first-reminder"
-                        type="number"
-                        className="h-9"
-                        min="1"
-                        value={reminders.firstReminderHours}
-                        onChange={(e) => handleReminderChange('firstReminderHours', parseInt(e.target.value) || 1)}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="second-reminder">Nhắc nhở lần 2 (giờ)</Label>
-                      <Input
-                        id="second-reminder"
-                        type="number"
-                        className="h-9"
-                        min="1"
-                        value={reminders.secondReminderHours}
-                        onChange={(e) => handleReminderChange('secondReminderHours', parseInt(e.target.value) || 1)}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="escalation">
-                        Báo động leo thang (giờ)
-                      </Label>
-                      <Input
-                        id="escalation"
-                        type="number"
-                        className="h-9"
-                        min="1"
-                        value={reminders.escalationHours}
-                        onChange={(e) => handleReminderChange('escalationHours', parseInt(e.target.value) || 1)}
-                      />
-                    </div>
-                  </SettingsFormGrid>
-                )}
-              </SettingsFormSection>
-
-            </CardContent>
-          </Card>
-      </TabsContent>
     </SettingsVerticalTabs>
+
+    <div className="mt-6">
+      <SettingsHistoryContent entityTypes={['task_settings']} />
+    </div>
+    </>
   );
 }

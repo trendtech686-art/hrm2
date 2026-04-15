@@ -14,7 +14,7 @@ import { Switch } from "../../../components/ui/switch";
 import { Textarea } from "../../../components/ui/textarea";
 import { toast } from 'sonner';
 import { SettingsActionButton } from "../../../components/settings/SettingsActionButton";
-import { PlusCircle, Percent } from "lucide-react";
+import { PlusCircle, Percent, Loader2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "../../../components/ui/form";
 import { NumberInput } from "../../../components/ui/number-input";
@@ -36,7 +36,7 @@ type TaxFormValues = {
 export function TaxContent({ isActive, onRegisterActions }: TaxContentProps) {
     const { data: allTaxData } = useAllTaxes();
     const data = React.useMemo(() => allTaxData ?? [], [allTaxData]);
-    const { create, update, remove, setDefaultSale, setDefaultPurchase } = useTaxMutations({
+    const { create, update, remove, setDefaultSale, setDefaultPurchase, setDefaultExcelExport } = useTaxMutations({
         onSuccess: () => {},
         onError: (err) => toast.error(err.message)
     });
@@ -188,6 +188,14 @@ export function TaxContent({ isActive, onRegisterActions }: TaxContentProps) {
         });
     }, [data, setDefaultPurchase]);
 
+    const handleSetDefaultExcelExport = React.useCallback((systemId: SystemId) => {
+        const tax = data.find(t => t.systemId === systemId);
+        setDefaultExcelExport.mutate(systemId, {
+            onSuccess: () => tax && toast.success(`Đã đặt "${tax.name}" làm thuế mặc định xuất Excel`),
+            onError: (err) => toast.error(err.message)
+        });
+    }, [data, setDefaultExcelExport]);
+
     return (
         <>
             <p className="text-sm text-muted-foreground mb-4">
@@ -200,6 +208,7 @@ export function TaxContent({ isActive, onRegisterActions }: TaxContentProps) {
                 onDelete={handleDeleteRequest}
                 onSetDefaultSale={handleSetDefaultSale}
                 onSetDefaultPurchase={handleSetDefaultPurchase}
+                onSetDefaultExcelExport={handleSetDefaultExcelExport}
             />
 
             <Dialog open={isFormOpen} onOpenChange={(open) => {
@@ -350,7 +359,9 @@ export function TaxContent({ isActive, onRegisterActions }: TaxContentProps) {
                                 variant="destructive" 
                                 onClick={() => handleDeleteRequest(editingTax.systemId)}
                                 className="sm:mr-auto h-9"
+                                disabled={remove.isPending}
                             >
+                                {remove.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                 Xóa
                             </Button>
                         )}
@@ -358,7 +369,8 @@ export function TaxContent({ isActive, onRegisterActions }: TaxContentProps) {
                             <Button type="button" variant="outline" onClick={() => setIsFormOpen(false)} className="h-9">
                                 Thoát
                             </Button>
-                            <Button type="submit" form="tax-form" className="h-9">
+                            <Button type="submit" form="tax-form" className="h-9" disabled={create.isPending || update.isPending}>
+                                {(create.isPending || update.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                 Xác nhận
                             </Button>
                         </div>
@@ -376,7 +388,10 @@ export function TaxContent({ isActive, onRegisterActions }: TaxContentProps) {
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel className="h-9">Hủy</AlertDialogCancel>
-                        <AlertDialogAction onClick={confirmDelete} className="h-9">Xóa</AlertDialogAction>
+                        <AlertDialogAction onClick={confirmDelete} className="h-9" disabled={remove.isPending}>
+                            {remove.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            Xóa
+                        </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>

@@ -3,19 +3,17 @@
  */
 
 import { prisma } from '@/lib/prisma'
-import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
-
-type RouteParams = {
-  params: Promise<{ systemId: string }>;
-};
+import { apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
+import { apiHandler } from '@/lib/api-handler'
+import { logError } from '@/lib/logger'
+import { syncProductsInventory } from '@/lib/meilisearch-sync'
+import { createNotification } from '@/lib/notifications'
+import { getUserNameFromDb } from '@/lib/get-user-name'
 
 // GET - Get single inventory receipt
-export async function GET(request: Request, { params }: RouteParams) {
-  const session = await requireAuth()
-  if (!session) return apiError('Unauthorized', 401)
-
+export const GET = apiHandler(async (request, { session: _session, params }) => {
   try {
-    const { systemId } = await params;
+    const { systemId } = params;
 
     const inventoryReceipt = await prisma.inventoryReceipt.findUnique({
       where: { systemId },
@@ -65,10 +63,19 @@ export async function GET(request: Request, { params }: RouteParams) {
     const products = productIds.length > 0 
       ? await prisma.product.findMany({
           where: { systemId: { in: productIds } },
-          select: { systemId: true, id: true, name: true, thumbnailImage: true, galleryImages: true },
+          select: { systemId: true, id: true, name: true, thumbnailImage: true, galleryImages: true, costPrice: true },
         })
       : [];
     const productMap = new Map(products.map(p => [p.systemId, p]));
+
+    // Lookup supplier for print (id, phone, email)
+    let supplier: { systemId: string; id: string; name: string; phone: string | null; email: string | null } | null = null;
+    if (inventoryReceipt.supplierSystemId) {
+      supplier = await prisma.supplier.findUnique({
+        where: { systemId: inventoryReceipt.supplierSystemId },
+        select: { systemId: true, id: true, name: true, phone: true, email: true },
+      });
+    }
 
     // ✅ Transform data to match frontend expected format
     const transformedData = {
@@ -90,6 +97,8 @@ export async function GET(request: Request, { params }: RouteParams) {
           productId: item.productSku || product?.id || item.productId, // Use SKU for display
           productName: item.productName || product?.name || '',
           productImages: product?.galleryImages || (product?.thumbnailImage ? [product.thumbnailImage] : []),
+          thumbnailImage: product?.thumbnailImage || null,
+          costPrice: product?.costPrice ? Number(product.costPrice) : 0,
           receivedQuantity: item.quantity,
           orderedQuantity: item.quantity,
           unitPrice: Number(item.unitCost) || 0,
@@ -97,22 +106,21 @@ export async function GET(request: Request, { params }: RouteParams) {
           totalCost: Number(item.totalCost) || 0,
         };
       }),
+      // ✅ Phase A4: Include supplier data so frontend doesn't need useSupplierFinder
+      supplier: supplier || undefined,
     };
 
     return apiSuccess(transformedData);
   } catch (error) {
-    console.error('[Inventory Receipts API] GET by ID error:', error);
-    return apiError('Failed to fetch inventory receipt', 500);
+    logError('[Inventory Receipts API] GET by ID error', error);
+    return apiError('Không thể tải phiếu nhập kho', 500);
   }
-}
+})
 
 // PATCH - Update inventory receipt
-export async function PATCH(request: Request, { params }: RouteParams) {
-  const session = await requireAuth();
-  if (!session) return apiError('Unauthorized', 401);
-
+export const PATCH = apiHandler(async (request, { session, params }) => {
   try {
-    const { systemId } = await params;
+    const { systemId } = params;
     const body = await request.json();
 
     const { status, notes, updatedBy } = body;
@@ -130,45 +138,131 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       },
     });
 
+    // Notify employee about receipt update
+    if (inventoryReceipt.employeeId && inventoryReceipt.employeeId !== session!.user?.employeeId) {
+      createNotification({
+        type: 'inventory_receipt',
+        settingsKey: 'inventory-receipt:updated',
+        title: 'Phiếu nhập kho cập nhật',
+        message: `Phiếu nhập kho ${inventoryReceipt.id || systemId} đã được cập nhật${status ? ` - ${status}` : ''}`,
+        link: `/inventory-receipts/${systemId}`,
+        recipientId: inventoryReceipt.employeeId,
+        senderId: session!.user?.employeeId,
+        senderName: session!.user?.name,
+      }).catch(e => logError('[Inventory Receipt PATCH] notification failed', e));
+    }
+
+    // Log activity
+    getUserNameFromDb(session!.user?.id).then(userName =>
+      prisma.activityLog.create({
+        data: {
+          entityType: 'inventory_receipt',
+          entityId: systemId,
+          action: 'updated',
+          actionType: 'update',
+          note: `Cập nhật phiếu nhập kho`,
+          metadata: { userName },
+          createdBy: userName,
+        }
+      })
+    ).catch(e => logError('[ActivityLog] inventory_receipt update failed', e))
     return apiSuccess(inventoryReceipt);
   } catch (error) {
-    console.error('[Inventory Receipts API] PATCH error:', error);
-    return apiError('Failed to update inventory receipt', 500);
+    logError('[Inventory Receipts API] PATCH error', error);
+    return apiError('Không thể cập nhật phiếu nhập kho', 500);
   }
-}
+})
 
 // DELETE - Delete inventory receipt
-export async function DELETE(request: Request, { params }: RouteParams) {
-  const session = await requireAuth();
-  if (!session) return apiError('Unauthorized', 401);
-
+export const DELETE = apiHandler(async (request, { session, params }) => {
   try {
-    const { systemId } = await params;
+    const { systemId } = params;
     const body = await request.json().catch(() => ({}));
     const hard = body.hard === true;
 
-    if (hard) {
-      await prisma.inventoryReceiptItem.deleteMany({
-        where: { receiptId: systemId },
-      });
-      
-      await prisma.inventoryReceipt.delete({
-        where: { systemId },
-      });
-    } else {
-      // Soft delete not supported in schema, use hard delete
-      await prisma.inventoryReceiptItem.deleteMany({
-        where: { receiptId: systemId },
-      });
-      
-      await prisma.inventoryReceipt.delete({
-        where: { systemId },
-      });
+    // Get the receipt with items first to revert stock and supplier debt
+    const receipt = await prisma.inventoryReceipt.findUnique({
+      where: { systemId },
+      include: { items: true },
+    });
+
+    if (!receipt) {
+      return apiNotFound('Inventory receipt');
     }
 
+    await prisma.$transaction(async (tx) => {
+      // ✅ Revert ProductInventory stock for each item
+      if (receipt.branchId && receipt.status === 'CONFIRMED') {
+        for (const item of receipt.items) {
+          if (item.productId) {
+            await tx.productInventory.update({
+              where: {
+                productId_branchId: {
+                  productId: item.productId,
+                  branchId: receipt.branchId,
+                },
+              },
+              data: {
+                onHand: { decrement: item.quantity },
+                updatedAt: new Date(),
+              },
+            });
+          }
+        }
+
+        // ✅ Revert supplier debt
+        if (receipt.supplierSystemId) {
+          const totalAmount = receipt.items.reduce(
+            (sum, item) => sum + Number(item.totalCost || 0),
+            0
+          );
+          if (totalAmount > 0) {
+            await tx.supplier.update({
+              where: { systemId: receipt.supplierSystemId },
+              data: {
+                currentDebt: { decrement: totalAmount },
+              },
+            });
+          }
+        }
+      }
+
+      // Delete items first
+      await tx.inventoryReceiptItem.deleteMany({
+        where: { receiptId: systemId },
+      });
+
+      // Delete the receipt
+      await tx.inventoryReceipt.delete({
+        where: { systemId },
+      });
+    });
+
+    // ✅ Sync affected products to Meilisearch for real-time inventory data
+    if (receipt.status === 'CONFIRMED' && receipt.items.length > 0) {
+      const productSystemIds = receipt.items.map(item => item.productId).filter(Boolean) as string[];
+      syncProductsInventory(productSystemIds).catch(err => 
+        logError('[Inventory Receipts API] Meilisearch sync failed', err)
+      );
+    }
+
+    // Log activity
+    getUserNameFromDb(session!.user?.id).then(userName =>
+      prisma.activityLog.create({
+        data: {
+          entityType: 'inventory_receipt',
+          entityId: systemId,
+          action: 'deleted',
+          actionType: 'delete',
+          note: `Xóa phiếu nhập kho`,
+          metadata: { userName },
+          createdBy: userName,
+        }
+      })
+    ).catch(e => logError('[ActivityLog] inventory_receipt delete failed', e))
     return apiSuccess({ success: true });
   } catch (error) {
-    console.error('[Inventory Receipts API] DELETE error:', error);
-    return apiError('Failed to delete inventory receipt', 500);
+    logError('[Inventory Receipts API] DELETE error', error);
+    return apiError('Không thể xóa phiếu nhập kho', 500);
   }
-}
+})

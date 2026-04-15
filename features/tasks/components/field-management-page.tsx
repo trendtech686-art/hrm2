@@ -1,4 +1,6 @@
-﻿import { useState } from 'react';
+﻿'use client'
+
+import { useState } from 'react';
 import { generateSubEntityId } from '@/lib/id-utils';
 import { Plus, Edit, Trash2, Copy, Eye, EyeOff, GripVertical } from 'lucide-react';
 import { useAllCustomFields } from '../hooks/use-all-custom-fields';

@@ -7,6 +7,9 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils';
+import { logError } from '@/lib/logger'
+import { createNotification } from '@/lib/notifications'
+import { getUserNameFromDb } from '@/lib/get-user-name'
 
 type RouteParams = {
   params: Promise<{ systemId: string }>;
@@ -125,9 +128,37 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return updated;
     });
 
+    // Notify employee about return received
+    if (updatedReturn.employeeId && updatedReturn.employeeId !== session.user?.employeeId) {
+      createNotification({
+        type: 'sales_return',
+        settingsKey: 'sales-return:updated',
+        title: 'Phếu trả hàng đã nhận',
+        message: `Phếu trả hàng ${updatedReturn.id || systemId} đã được nhận hàng`,
+        link: `/sales-returns/${systemId}`,
+        recipientId: updatedReturn.employeeId,
+        senderId: session.user?.employeeId,
+        senderName: session.user?.name,
+      }).catch(e => logError('[Sales Return Receive] notification failed', e));
+    }
+
+    // Log activity
+    getUserNameFromDb(session.user?.id).then(userName =>
+      prisma.activityLog.create({
+        data: {
+          entityType: 'sales_return',
+          entityId: systemId,
+          action: 'received',
+          actionType: 'update',
+          note: `Nhận hàng trả`,
+          metadata: { userName },
+          createdBy: userName,
+        }
+      })
+    ).catch(e => logError('[ActivityLog] sales_return received failed', e))
     return apiSuccess(updatedReturn);
   } catch (error) {
-    console.error('[Sales Returns Receive API] POST error:', error);
+    logError('[Sales Returns Receive API] POST error', error);
     if (error instanceof Error) {
       return apiError(error.message, 500);
     }

@@ -5,6 +5,7 @@
 
 import * as React from 'react';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import { 
   type SalesManagementSettingsValues, 
   defaultSalesSettings, 
@@ -40,7 +41,8 @@ async function updateSalesSettingsApi(data: Partial<SalesManagementSettingsValue
     const error = await response.json().catch(() => ({}));
     throw new Error(error.error || 'Failed to update sales settings');
   }
-  return response.json();
+  const result = await response.json();
+  return result.data ?? result;
 }
 
 async function resetSalesSettingsApi(): Promise<SalesManagementSettingsValues> {
@@ -50,7 +52,8 @@ async function resetSalesSettingsApi(): Promise<SalesManagementSettingsValues> {
   if (!response.ok) {
     throw new Error('Failed to reset sales settings');
   }
-  return response.json();
+  const result = await response.json();
+  return result.data ?? result;
 }
 
 /**
@@ -79,7 +82,7 @@ export function useSalesSettingsMutations(options: MutationCallbacks = {}) {
 
   const invalidateSettings = () => {
     invalidateSalesSettingsCache();
-    queryClient.invalidateQueries({ queryKey: salesSettingsKeys.all });
+    invalidateRelated(queryClient, 'sales-management-settings');
   };
 
   const update = useMutation({
@@ -147,7 +150,7 @@ export function useSalesManagementSettingsData() {
       const result = await updateSalesSettingsApi(localSettingsRef.current);
       updateSalesSettingsCache(result);
       invalidateSalesSettingsCache();
-      queryClient.invalidateQueries({ queryKey: salesSettingsKeys.all });
+      invalidateRelated(queryClient, 'sales-management-settings');
       setIsSaving(false);
       return { success: true };
     } catch (error) {

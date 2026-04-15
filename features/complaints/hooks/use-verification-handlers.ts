@@ -12,6 +12,7 @@ import type { Complaint, ComplaintAction } from '../types';
 import type { ComplaintPermissions } from './use-complaint-permissions';
 import { complaintNotifications } from '../notification-utils';
 import { handleVerifyIncorrect } from '../handlers/verify-incorrect-handler';
+import { logError } from '@/lib/logger'
 
 interface UseVerificationHandlersProps {
   complaint: Complaint | null;
@@ -54,7 +55,7 @@ export function useVerificationHandlers({
       toast.success("Đã xác nhận khiếu nại đúng");
       complaintNotifications.onVerified("Đã xác nhận khiếu nại đúng");
     } catch (error) {
-      console.error('Error verifying complaint:', error);
+      logError('Error verifying complaint', error);
       toast.error('Lỗi khi xác nhận khiếu nại');
     }
   }, [complaint, currentUser, updateComplaint]);
@@ -165,7 +166,7 @@ export function useVerificationHandlers({
         complaintNotifications.onVerified("Đã xác nhận khiếu nại SAI");
       }
     } catch (error) {
-      console.error('Error submitting evidence:', error);
+      logError('Error submitting evidence', error);
       toast.error('Lỗi khi upload bằng chứng');
     }
   }, [complaint, updateComplaint, currentUser]);

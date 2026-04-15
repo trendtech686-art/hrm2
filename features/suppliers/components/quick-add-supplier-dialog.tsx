@@ -37,7 +37,7 @@ export function QuickAddSupplierDialog({
     },
     onError: (err) => toast.error(err.message)
   });
-  const { data: provinces = [] } = useProvinces();
+  const { data: provinces = [] } = useProvinces({ enabled: open });
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   // Form state

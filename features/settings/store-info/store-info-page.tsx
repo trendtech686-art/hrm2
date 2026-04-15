@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import * as React from 'react';
-import { PlusCircle, MoreHorizontal, Edit, Trash2, ShieldCheck, Phone, MapPin, User } from 'lucide-react';
+import { PlusCircle, MoreHorizontal, Edit, Trash2, ShieldCheck, Phone, MapPin, User, Loader2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { formatDateTimeForDisplay } from '@/lib/date-utils';
 import { z } from 'zod';
@@ -27,6 +27,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '../../../components/ui/input';
 import { Textarea } from '../../../components/ui/textarea';
 import { Separator } from '../../../components/ui/separator';
+import { SettingsHistoryContent } from '../../../components/settings/SettingsHistoryContent';
 // Select components removed - not currently used
 import { VirtualizedCombobox, type ComboboxOption } from '../../../components/ui/virtualized-combobox';
 import { toast } from 'sonner';
@@ -89,7 +90,7 @@ export function StoreInfoPage() {
     const { employee: authEmployee } = useAuth();
     
     // Use React Query for store info (persisted to database)
-    const { data: info, isLoading: _isLoadingInfo } = useStoreInfo();
+    const { data: info } = useStoreInfo();
     const { update: updateMutation } = useStoreInfoMutations({
         onSuccess: () => {
             toast.success('Đã lưu thông tin chung', {
@@ -104,13 +105,9 @@ export function StoreInfoPage() {
     });
     
     // Administrative units (2-level: Province -> Ward)
-    const { data: allProvinces = [] } = useProvinces();
+    const { data: provinces = [] } = useProvinces();
     const [selectedProvinceId, setSelectedProvinceId] = React.useState<string | undefined>(undefined);
     const { data: wards = [] } = useWards2Level(selectedProvinceId);
-    
-    // Filter only 2-level provinces (exclude 3-level duplicates)
-    const provinces = React.useMemo(() => 
-        allProvinces.filter(p => p.level === '2-level'), [allProvinces]);
     
     // Memoize combobox options for provinces and wards
     // Use systemId as value (guaranteed unique) instead of business id
@@ -227,6 +224,7 @@ export function StoreInfoPage() {
     };
 
     return (
+        <>
         <div className="space-y-8">
             <Card>
                 <CardHeader>
@@ -526,6 +524,7 @@ export function StoreInfoPage() {
 
                             <div className="flex flex-wrap items-center justify-end gap-3 pt-2">
                                 <Button type="submit" className="h-9" disabled={form.formState.isSubmitting}>
+                                    {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                     Lưu thông tin
                                 </Button>
                             </div>
@@ -563,9 +562,9 @@ export function StoreInfoPage() {
                                     </DropdownMenuContent>
                                 </DropdownMenu>
                              </CardHeader>
-                             <CardContent className="text-sm text-muted-foreground space-y-2 flex-grow">
+                             <CardContent className="text-sm text-muted-foreground space-y-2 grow">
                                 <div className="flex items-start">
-                                    <MapPin className="mr-2 h-4 w-4 flex-shrink-0 mt-0.5" />
+                                    <MapPin className="mr-2 h-4 w-4 shrink-0 mt-0.5" />
                                     <div className="flex-1">
                                         {branch.address && <div>{branch.address}</div>}
                                         {branch.ward && <div>{branch.ward}</div>}
@@ -574,8 +573,8 @@ export function StoreInfoPage() {
                                         {!branch.province && !branch.ward && <span>{branch.address}</span>}
                                     </div>
                                 </div>
-                                <div className="flex items-center"><Phone className="mr-2 h-4 w-4 flex-shrink-0" /><span>{branch.phone}</span></div>
-                                <div className="flex items-center"><User className="mr-2 h-4 w-4 flex-shrink-0" /><span>Quản lý: {getManagerName(branch.managerId)}</span></div>
+                                <div className="flex items-center"><Phone className="mr-2 h-4 w-4 shrink-0" /><span>{branch.phone}</span></div>
+                                <div className="flex items-center"><User className="mr-2 h-4 w-4 shrink-0" /><span>Quản lý: {getManagerName(branch.managerId)}</span></div>
                              </CardContent>
                              {branch.isDefault && (
                                 <CardFooter className="pt-4">
@@ -597,6 +596,7 @@ export function StoreInfoPage() {
                             initialData={editingBranch}
                             onSubmit={handleFormSubmit}
                             onCancel={() => setIsFormOpen(false)}
+                            isPending={addBranchMutation.isPending || updateBranchMutation.isPending}
                         />
                     )}
                 </DialogContent>
@@ -615,5 +615,7 @@ export function StoreInfoPage() {
                 </AlertDialogContent>
             </AlertDialog>
         </div>
+        <SettingsHistoryContent entityTypes={['branch', 'store_info']} />
+        </>
     );
 }

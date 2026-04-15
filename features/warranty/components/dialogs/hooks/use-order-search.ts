@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { searchOrders, type OrderSearchResult } from '../../../../orders/order-search-api';
 import type { Order } from '../../../../orders/types';
+import { logError } from '@/lib/logger'
 
 interface UseOrderSearchOptions {
   orders: Order[];
@@ -60,7 +61,7 @@ export function useOrderSearch({ orders, initialOrderId }: UseOrderSearchOptions
         
         setOrderSearchResults(resultsWithRemaining);
       } catch (error) {
-        console.error('Order search error:', error);
+        logError('Order search error', error);
         setOrderSearchResults([]);
       } finally {
         setIsSearchingOrders(false);

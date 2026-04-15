@@ -60,7 +60,7 @@ function PayrollStepper({ currentStep }: { currentStep: number }) {
             <div className="flex flex-col items-center text-center w-28">
               <div
                 className={cn(
-                  'flex items-center justify-center w-8 h-8 rounded-full border-2 font-semibold text-body-sm',
+                  'flex items-center justify-center w-8 h-8 rounded-full border-2 font-semibold text-sm',
                   isCompleted
                     ? 'bg-primary border-primary text-primary-foreground'
                     : isCurrent
@@ -72,13 +72,13 @@ function PayrollStepper({ currentStep }: { currentStep: number }) {
               </div>
               <p
                 className={cn(
-                  'text-body-sm mt-2 font-medium',
+                  'text-sm mt-2 font-medium',
                   isCompleted || isCurrent ? 'text-foreground' : 'text-muted-foreground'
                 )}
               >
                 {step.name}
               </p>
-              <p className="text-body-xs text-muted-foreground mt-1">{step.description}</p>
+              <p className="text-xs text-muted-foreground mt-1">{step.description}</p>
             </div>
             {index < STEPS.length - 1 && (
               <div

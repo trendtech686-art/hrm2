@@ -18,13 +18,14 @@ import {
 import { Textarea } from '../../../../components/ui/textarea';
 import type { WarrantyTicket, WarrantyHistory } from '../../types';
 import { useWarrantyMutations } from '../../hooks/use-warranties';
-import { useWarrantyFinder } from '../../hooks/use-all-warranties';
+import { useWarranty } from '../../hooks/use-warranties';
 import { useAllProducts } from '../../../products/hooks/use-all-products';
 import { useProductMutations } from '../../../products/hooks/use-products';
 import { useAuth } from '../../../../contexts/auth-context';
 import { toISODateTime, getCurrentDate } from '../../../../lib/date-utils';
 import { asSystemId, type SystemId } from '../../../../lib/id-types';
 import { getMaxSystemIdCounter } from '../../../../lib/id-utils';
+import { logError } from '@/lib/logger'
 
 interface WarrantyReopenFromCancelledDialogProps {
   open: boolean;
@@ -49,8 +50,9 @@ export function WarrantyReopenFromCancelledDialog({ open, onOpenChange, ticket }
     onError: (err) => toast.error(err.message)
   });
   const { update: updateProduct } = useProductMutations();
-  const { findById } = useWarrantyFinder();
-  const { data: products } = useAllProducts();
+  // ✅ Phase 14: useWarranty(id) single-item thay vì useWarrantyFinder (ALL warranties)
+  const { data: latestTicketData } = useWarranty(open ? ticket?.systemId : null);
+  const { data: products } = useAllProducts({ enabled: open });
 
   const handleReopen = React.useCallback(() => {
     if (!ticket || !reopenReason.trim()) {
@@ -105,8 +107,8 @@ export function WarrantyReopenFromCancelledDialog({ open, onOpenChange, ticket }
         ? ` (Đã giữ lại ${replacedProducts.length} sản phẩm)` 
         : '';
       
-      // ✅ Get latest ticket from store to avoid stale history
-      const latestTicket = findById(ticket.systemId);
+      // ✅ Get latest ticket from React Query single-item cache
+      const latestTicket = latestTicketData;
       if (!latestTicket) {
         toast.error('Không tìm thấy phiếu');
         return;
@@ -137,10 +139,10 @@ export function WarrantyReopenFromCancelledDialog({ open, onOpenChange, ticket }
       setReopenReason('');
       toast.success('Đã mở lại phiếu bảo hành');
     } catch (error) {
-      console.error('Failed to reopen ticket:', error);
+      logError('Failed to reopen ticket', error);
       toast.error('Không thể mở lại phiếu');
     }
-  }, [ticket, reopenReason, update, performerName, performerSystemId, findById, onOpenChange, products, updateProduct]);
+  }, [ticket, reopenReason, update, performerName, performerSystemId, latestTicketData, onOpenChange, products, updateProduct]);
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>

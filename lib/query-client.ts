@@ -1,18 +1,43 @@
-/**
+﻿/**
  * React Query Configuration
  * Centralized configuration for @tanstack/react-query
  */
 
-import { QueryClient } from '@tanstack/react-query';
+import { QueryClient, MutationCache, isServer } from '@tanstack/react-query';
+import { logError } from '@/lib/logger'
+
+/**
+ * Standard staleTime values per MODULE-QUALITY-CRITERIA
+ * Use these constants in all useQuery hooks for consistency
+ */
+export const STALE_TIME = {
+  /** List/table queries — 30 seconds */
+  LIST: 30_000,
+  /** Detail/single-item queries — 60 seconds */
+  DETAIL: 60_000,
+  /** Settings/config data that rarely changes — 5 minutes */
+  SETTINGS: 5 * 60 * 1000,
+  /** Reference data (units, receipt types, etc.) — 10 minutes */
+  REFERENCE: 10 * 60 * 1000,
+  /** Near-static data (admin units, store info) — 30 minutes */
+  STATIC: 30 * 60 * 1000,
+} as const;
 
 /**
  * Global Query Client Configuration
+ * Use makeQueryClient() to create per-component-tree instances (avoids SSR cross-request leaks).
  */
-export const queryClient = new QueryClient({
+export function makeQueryClient() {
+  const qc = new QueryClient({
+  mutationCache: new MutationCache({
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['activity-logs'] })
+    },
+  }),
   defaultOptions: {
     queries: {
-      // Stale time: 5 minutes
-      staleTime: 5 * 60 * 1000,
+      // Default staleTime: 30s (list standard). Override per-hook for detail/settings.
+      staleTime: STALE_TIME.LIST,
       
       // Cache time: 10 minutes
       gcTime: 10 * 60 * 1000,
@@ -36,13 +61,39 @@ export const queryClient = new QueryClient({
       // Retry failed mutations 1 time
       retry: 1,
       
-      // Show error notifications
+      // Report mutation errors to Sentry in production
       onError: (error) => {
-        console.error('Mutation error:', error);
+        if (process.env.NODE_ENV === 'production') {
+          import('@sentry/nextjs').then(Sentry => Sentry.captureException(error))
+        } else {
+          logError('Mutation error', error);
+        }
       },
     },
   },
-});
+})
+  return qc
+}
+
+/**
+ * Singleton pattern for QueryClient (TanStack v5 recommended for Next.js App Router).
+ *
+ * - Server: always create a NEW QueryClient per request → prevents data leaking between users.
+ * - Browser: reuse ONE instance → prevents React from re-creating on Suspense resume.
+ *
+ * @see https://tanstack.com/query/v5/docs/framework/react/guides/advanced-ssr
+ */
+let browserQueryClient: QueryClient | undefined
+
+export function getQueryClient() {
+  if (isServer) {
+    return makeQueryClient()
+  }
+  if (!browserQueryClient) {
+    browserQueryClient = makeQueryClient()
+  }
+  return browserQueryClient
+}
 
 /**
  * Query Keys Factory

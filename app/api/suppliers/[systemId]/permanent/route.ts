@@ -1,71 +1,74 @@
 import { prisma } from '@/lib/prisma'
-import { Prisma } from '@/generated/prisma/client'
-import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
+import { apiHandler } from '@/lib/api-handler'
+import { apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
+import { logError } from '@/lib/logger'
+import { getUserNameFromDb } from '@/lib/get-user-name'
 
-// DELETE /api/suppliers/[systemId]/permanent - Permanently delete supplier
-export async function DELETE(
-  _request: Request,
-  { params }: { params: Promise<{ systemId: string }> }
-) {
-  const session = await requireAuth()
-  if (!session) return apiError('Unauthorized', 401)
+/**
+ * DELETE /api/suppliers/[systemId]/permanent - Lưu trữ vĩnh viễn nhà cung cấp
+ *
+ * KHÔNG xóa cứng (hard-delete) record khỏi DB.
+ * Thay vào đó:
+ * 1. Xóa thông tin nhạy cảm — banking, notes, contact details
+ * 2. Giữ lại: systemId, id, name, taxCode, status
+ *    → Phiếu nhập, phiếu chi, đơn mua vẫn hiển thị đúng tên NCC.
+ * 3. Set permanentlyDeletedAt — để phân biệt "thùng rác" vs "đã lưu trữ".
+ *
+ * Lý do: Supplier có FK từ PurchaseOrder, Payment, PurchaseReturn, InventoryReceipt.
+ * Hard-delete gỡ liên kết và mất thông tin trên tất cả dữ liệu liên quan.
+ */
+export const DELETE = apiHandler(async (_request, { session, params }) => {
+  const { systemId } = params
 
-  try {
-    const { systemId } = await params
+  const existing = await prisma.supplier.findUnique({
+    where: { systemId },
+  })
 
-    // Check if supplier exists
-    const existing = await prisma.supplier.findUnique({
-      where: { systemId },
-    })
-
-    if (!existing) {
-      return apiNotFound('Supplier')
-    }
-
-    // Delete supplier and handle related records
-    // Related records will have supplierId set to null - preserves historical data
-    await prisma.$transaction(async (tx) => {
-      // Set supplierId = null on related records (preserve historical data)
-      await tx.purchaseOrder.updateMany({ 
-        where: { supplierId: systemId }, 
-        data: { supplierId: undefined } 
-      }).catch(() => {});
-      
-      await tx.purchaseReturn.updateMany({ 
-        where: { supplierId: systemId }, 
-        data: { supplierId: undefined } 
-      }).catch(() => {});
-      
-      await tx.inventoryReceipt.updateMany({ 
-        where: { supplierSystemId: systemId }, 
-        data: { supplierSystemId: undefined } 
-      }).catch(() => {});
-      
-      await tx.payment.updateMany({ 
-        where: { supplierId: systemId }, 
-        data: { supplierId: null } 
-      }).catch(() => {});
-      
-      // Update products that have this as primary supplier
-      await tx.product.updateMany({ 
-        where: { primarySupplierId: systemId }, 
-        data: { primarySupplierId: null } 
-      }).catch(() => {});
-      
-      // Finally delete the supplier
-      await tx.supplier.delete({ where: { systemId } });
-    });
-
-    return apiSuccess({ success: true, systemId })
-  } catch (error) {
-    console.error('Error permanently deleting supplier:', error)
-    
-    if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      if (error.code === 'P2003') {
-        return apiError('Không thể xóa nhà cung cấp vì có dữ liệu liên quan. Vui lòng giữ trong thùng rác.', 400)
-      }
-    }
-    
-    return apiError('Failed to permanently delete supplier', 500)
+  if (!existing) {
+    return apiNotFound('Supplier')
   }
-}
+
+  if (!existing.isDeleted) {
+    return apiError('Nhà cung cấp phải ở trong thùng rác trước khi lưu trữ vĩnh viễn', 400)
+  }
+
+  if (existing.permanentlyDeletedAt) {
+    return apiError('Nhà cung cấp đã được lưu trữ vĩnh viễn', 400)
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.supplier.update({
+      where: { systemId },
+      data: {
+        permanentlyDeletedAt: new Date(),
+        phone: null,
+        email: null,
+        address: null,
+        contactPerson: null,
+        website: null,
+        bankAccount: null,
+        bankName: null,
+        notes: null,
+        accountManager: null,
+        currentDebt: 0,
+        totalDebt: 0,
+      },
+    });
+  });
+
+  // Activity log (fire-and-forget)
+  getUserNameFromDb(session!.user?.id).then(userName =>
+    prisma.activityLog.create({
+      data: {
+        entityType: 'supplier',
+        entityId: systemId,
+        action: 'permanently_archived',
+        actionType: 'delete',
+        note: `Lưu trữ vĩnh viễn nhà cung cấp: ${existing.name} (${existing.id})`,
+        createdBy: userName,
+      },
+    })
+  ).catch(e => logError('[ActivityLog] supplier permanent archive failed', e))
+
+  return apiSuccess({ success: true, systemId })
+})

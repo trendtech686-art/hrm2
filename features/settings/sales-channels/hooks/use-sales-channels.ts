@@ -3,6 +3,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import {
   fetchSalesChannels,
   fetchSalesChannelById,
@@ -25,13 +26,14 @@ export const salesChannelKeys = {
   applied: () => [...salesChannelKeys.all, 'applied'] as const,
 };
 
-export function useSalesChannels(filters: SalesChannelFilters = {}) {
+export function useSalesChannels(filters: SalesChannelFilters = {}, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: salesChannelKeys.list(filters),
     queryFn: () => fetchSalesChannels(filters),
     staleTime: 1000 * 60 * 10,
     gcTime: 10 * 60 * 1000,
     placeholderData: keepPreviousData,
+    enabled: options?.enabled ?? true,
   });
 }
 
@@ -62,7 +64,7 @@ interface MutationCallbacks {
 
 export function useSalesChannelMutations(options: MutationCallbacks = {}) {
   const queryClient = useQueryClient();
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: salesChannelKeys.all });
+  const invalidate = () => invalidateRelated(queryClient, 'sales-channels');
 
   const create = useMutation({
     mutationFn: (data: SalesChannelCreateInput) => createSalesChannel(data),

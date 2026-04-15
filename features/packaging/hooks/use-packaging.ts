@@ -5,6 +5,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import * as api from '../api/packaging-api';
 import type { PackagingFilters } from '../api/packaging-api';
 import {
@@ -43,13 +44,13 @@ export function usePackagingById(systemId: string | undefined) {
 
 export function usePackagingMutations(opts?: { onSuccess?: () => void }) {
   const qc = useQueryClient();
-  const invalidate = () => qc.invalidateQueries({ queryKey: packagingKeys.all });
+  const invalidate = () => invalidateRelated(qc, 'packaging');
   
   return {
     confirm: useMutation({ 
       mutationFn: async (systemId: string) => {
         const result = await completePackagingAction(systemId, '');
-        if (!result.success) throw new Error(result.error || 'Failed to confirm packaging');
+        if (!result.success) throw new Error(result.error || 'Không thể xác nhận đóng gói');
         return result.data!;
       }, 
       onSuccess: () => { invalidate(); opts?.onSuccess?.(); } 
@@ -57,7 +58,7 @@ export function usePackagingMutations(opts?: { onSuccess?: () => void }) {
     cancel: useMutation({ 
       mutationFn: async ({ systemId, reason }: { systemId: string; reason: string }) => {
         const result = await cancelPackagingAction(systemId, '', reason);
-        if (!result.success) throw new Error(result.error || 'Failed to cancel packaging');
+        if (!result.success) throw new Error(result.error || 'Không thể hủy đóng gói');
         return result.data!;
       }, 
       onSuccess: () => { invalidate(); opts?.onSuccess?.(); } 
@@ -65,7 +66,7 @@ export function usePackagingMutations(opts?: { onSuccess?: () => void }) {
     assign: useMutation({ 
       mutationFn: async ({ systemId, employeeSystemId }: { systemId: string; employeeSystemId: string }) => {
         const result = await updatePackagingAction({ systemId, assignedEmployeeId: employeeSystemId });
-        if (!result.success) throw new Error(result.error || 'Failed to assign packaging');
+        if (!result.success) throw new Error(result.error || 'Không thể phân công đóng gói');
         return result.data!;
       }, 
       onSuccess: () => { invalidate(); opts?.onSuccess?.(); } 
@@ -73,7 +74,7 @@ export function usePackagingMutations(opts?: { onSuccess?: () => void }) {
     print: useMutation({ 
       mutationFn: async (systemId: string) => {
         const result = await markAsPrintedAction(systemId);
-        if (!result.success) throw new Error(result.error || 'Failed to mark as printed');
+        if (!result.success) throw new Error(result.error || 'Không thể đánh dấu đã in');
         return result.data!;
       }, 
       onSuccess: opts?.onSuccess 

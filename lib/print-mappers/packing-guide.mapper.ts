@@ -12,6 +12,7 @@ import {
   getStoreData,
   StoreSettings
 } from '@/lib/print-service';
+import { generateQRCodeImage } from './barcode-utils';
 
 export interface PackingGuideForPrint {
   // Thông tin cơ bản
@@ -118,7 +119,7 @@ export function mapPackingGuideLineItems(items: PackingGuideForPrint['items']): 
     '{bin_location}': item.binLocation || '',
     '{line_image}': item.image || '',
     '{line_variant_qrcode}': item.variantQrCode 
-      ? `https://quickchart.io/qr?text=${encodeURIComponent(item.variantQrCode)}&size=100`
+      ? generateQRCodeImage(item.variantQrCode, 100)
       : '',
     '{composite_details}': item.compositeDetails || '',
     '{line_product_description}': item.productDescription || '',

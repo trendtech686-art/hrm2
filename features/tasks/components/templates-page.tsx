@@ -328,11 +328,11 @@ export function TaskTemplatesPage() {
                       </div>
                       <div className="flex items-center gap-1">
                         <Users className="h-3 w-3" />
-                        <span>{template.assigneeRoles.length} roles</span>
+                        <span>{(template.assigneeRoles as unknown[] | null)?.length ?? 0} roles</span>
                       </div>
                       <div className="flex items-center gap-1">
                         <CheckCircle2 className="h-3 w-3" />
-                        <span>{template.subtasks.length} steps</span>
+                        <span>{(template.subtasks as unknown[] | null)?.length ?? 0} steps</span>
                       </div>
                     </div>
 
@@ -421,9 +421,9 @@ export function TaskTemplatesPage() {
                   showRoles={true}
                 />
               </div>
-              {selectedTemplate && selectedTemplate.assigneeRoles.length > 0 && (
+              {selectedTemplate && selectedTemplate.assigneeRoles && (selectedTemplate.assigneeRoles as Array<{role: string; description: string}>).length > 0 && (
                 <p className="text-xs text-muted-foreground mt-2">
-                  Gợi ý vai trò: {selectedTemplate.assigneeRoles.map(r => r.description).join(', ')}
+                  Gợi ý vai trò: {(selectedTemplate.assigneeRoles as Array<{role: string; description: string}>).map(r => r.description).join(', ')}
                 </p>
               )}
             </div>
@@ -433,7 +433,7 @@ export function TaskTemplatesPage() {
               <div className="rounded-lg border bg-muted/50 p-4">
                 <p className="text-sm font-medium mb-2">Mẫu bao gồm:</p>
                 <ul className="text-sm text-muted-foreground space-y-1">
-                  <li>✓ {selectedTemplate.subtasks.length} công việc con</li>
+                  <li>✓ {(selectedTemplate.subtasks as unknown[] | null)?.length ?? 0} công việc con</li>
                   <li>✓ Ước tính: {selectedTemplate.estimatedHours} giờ</li>
                   <li>✓ Độ ưu tiên: {selectedTemplate.priority}</li>
                   {selectedTemplate.checklistItems && selectedTemplate.checklistItems.length > 0 && (

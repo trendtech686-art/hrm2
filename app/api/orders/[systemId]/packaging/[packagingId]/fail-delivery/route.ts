@@ -1,5 +1,8 @@
 import { prisma } from '@/lib/prisma';
 import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils';
+import { logError } from '@/lib/logger'
+import { createNotification } from '@/lib/notifications'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 interface RouteParams {
   params: Promise<{ systemId: string; packagingId: string }>;
@@ -65,9 +68,32 @@ export async function POST(request: Request, { params }: RouteParams) {
       return updated;
     });
 
+    // Log activity
+    await createActivityLog({
+      entityType: 'order',
+      entityId: systemId,
+      action: `Giao hàng thất bại - ${updatedOrder.id || systemId}${reason ? ` - Lý do: ${reason}` : ''}`,
+      actionType: 'status',
+      createdBy: session.user?.employee?.fullName || session.user?.name || session.user?.id || undefined,
+    }).catch(e => logError('[Fail Delivery] activity log failed', e));
+
+    // Notify salesperson about failed delivery
+    if (updatedOrder.salespersonId && updatedOrder.salespersonId !== session.user?.employeeId) {
+      createNotification({
+        type: 'order',
+        settingsKey: 'order:delivery',
+        title: 'Giao hàng thất bại',
+        message: `Đơn hàng ${updatedOrder.id || systemId} giao thất bại${reason ? `: ${reason}` : ''}`,
+        link: `/orders/${systemId}`,
+        recipientId: updatedOrder.salespersonId,
+        senderId: session.user?.employeeId,
+        senderName: session.user?.name,
+      }).catch(e => logError('[Fail Delivery] notification failed', e));
+    }
+
     return apiSuccess(updatedOrder);
   } catch (error) {
-    console.error('Error marking delivery as failed:', error);
+    logError('Error marking delivery as failed', error);
     return apiError('Failed to update delivery status', 500);
   }
 }

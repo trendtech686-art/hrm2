@@ -4,11 +4,10 @@
 import { z } from 'zod';
 import { businessIdSchema, systemIdSchema, SystemId, BusinessId } from '@/lib/id-types';
 
-// Supplier status enum
+// Supplier status enum - matches database values
 export const supplierStatusSchema = z.enum([
-  'active',
-  'inactive',
-  'blocked'
+  'Đang Giao Dịch',
+  'Ngừng Giao Dịch',
 ]);
 
 // Supplier type enum
@@ -65,6 +64,7 @@ export const createSupplierSchema = z.object({
   
   // Address
   address: z.string().optional(),
+  addressData: z.record(z.string(), z.unknown()).nullable().optional(),
   province: z.string().optional(),
   district: z.string().optional(),
   ward: z.string().optional(),

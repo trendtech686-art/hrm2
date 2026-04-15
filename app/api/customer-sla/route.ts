@@ -6,6 +6,7 @@
 import type { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
+import { logError } from '@/lib/logger'
 
 const GROUP = 'customer-sla'
 
@@ -40,7 +41,7 @@ export async function GET(request: NextRequest) {
 
     return apiSuccess(setting!.value)
   } catch (error) {
-    console.error('[CUSTOMER-SLA] GET error:', error)
+    logError('[CUSTOMER-SLA] GET error', error)
     return apiError('Internal server error', 500)
   }
 }
@@ -82,7 +83,7 @@ export async function POST(request: NextRequest) {
 
     return apiSuccess({ success: true })
   } catch (error) {
-    console.error('[CUSTOMER-SLA] POST error:', error)
+    logError('[CUSTOMER-SLA] POST error', error)
     return apiError('Internal server error', 500)
   }
 }

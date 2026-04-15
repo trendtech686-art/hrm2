@@ -35,7 +35,7 @@ export function MobileCardSkeleton({
           <CardContent className="p-4">
             <div className="flex items-start space-x-3">
               {/* Avatar skeleton */}
-              <Skeleton className="h-12 w-12 rounded-full flex-shrink-0" />
+              <Skeleton className="h-12 w-12 rounded-full shrink-0" />
               
               {/* Content skeleton */}
               <div className="flex-1 space-y-2">

@@ -2,7 +2,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { Button } from "../../../components/ui/button";
 import { Label } from "../../../components/ui/label";
-import { ComplaintVerificationHistory } from "./complaint-verification-history";
 import type { Complaint } from '../types';
 
 interface Props {
@@ -16,33 +15,29 @@ export const ComplaintProcessingCard: React.FC<Props> = React.memo(({
   onProcessCompensation,
   onProcessInventory
 }) => {
-  // Check if there's any compensation/inventory history (even if cancelled)
-  const extendedComplaint = complaint as unknown as {
-    compensationMetadata?: unknown;
-    evidenceVideoLinks?: string[];
-  };
-  const hasCompensationHistory = extendedComplaint.compensationMetadata || (complaint.cancelledPaymentsReceipts?.length ?? 0) > 0;
-  const hasInventoryHistory = complaint.inventoryAdjustment || (complaint.inventoryHistory?.length ?? 0) > 0;
-  
-  // Check if there's a verified-correct action in timeline - ✅ Add null check
-  const hasVerifiedCorrect = complaint.timeline?.some(a => a.actionType === 'verified-correct') ?? false;
-  
-  // Check if CURRENTLY verified-incorrect
-  const _isCurrentlyIncorrect = complaint.verification === 'verified-incorrect';
-  
-  // LOGIC MOI: Hien accordion bu tru NEU:
-  // - Da co history (compensationMetadata hoac inventoryAdjustment)
-  // - Hoac timeline co verified-correct (da tung xac nhan dung)
-  const _shouldShowCompensationAccordion = hasVerifiedCorrect || hasCompensationHistory || hasInventoryHistory;
-  
-  // Only show if there's any processing info OR if has been verified correct before (even if reopened)
-  if (!complaint.investigationNote && 
-      !complaint.proposedSolution && 
-      !complaint.resolution &&
-      !hasVerifiedCorrect &&
-      !hasCompensationHistory &&
-      !hasInventoryHistory &&
-      !extendedComplaint.evidenceVideoLinks) {
+  // Hide when complaint is ended/resolved/cancelled
+  if (complaint.status === 'resolved' || complaint.status === 'ended' || complaint.status === 'cancelled') {
+    return null;
+  }
+
+  // Check if there are unprocessed action buttons to show
+  let hasUnprocessedButtons = false;
+  if (complaint.verification === 'verified-correct') {
+    const lastVerifiedCorrect = [...(complaint.timeline || [])]
+      .reverse()
+      .find(a => a.actionType === 'verified-correct');
+    if (lastVerifiedCorrect) {
+      const actionMetadata = lastVerifiedCorrect.metadata as { paymentSystemId?: string; receiptSystemId?: string; inventoryCheckSystemId?: string; penaltySystemIds?: string[] } | undefined;
+      const hasPaymentOrReceipt = actionMetadata?.paymentSystemId || actionMetadata?.receiptSystemId || ((actionMetadata?.penaltySystemIds?.length ?? 0) > 0);
+      const hasInventoryCheck = actionMetadata?.inventoryCheckSystemId;
+      hasUnprocessedButtons = !hasPaymentOrReceipt || !hasInventoryCheck;
+    }
+  }
+
+  const hasNotes = !!complaint.investigationNote || !!complaint.proposedSolution;
+
+  // Only show if there are unprocessed buttons OR notes to display
+  if (!hasUnprocessedButtons && !hasNotes) {
     return null;
   }
 
@@ -56,23 +51,17 @@ export const ComplaintProcessingCard: React.FC<Props> = React.memo(({
       <CardContent>
         <div className="space-y-6">
           {/* Action Buttons - Show ONLY if complaint is currently verified-correct AND not processed yet */}
-          {complaint.verification === 'verified-correct' && (() => {
-              // Get LAST verified-correct action from timeline
-              const lastVerifiedCorrect = [...(complaint.timeline || [])]
-                .reverse()
-                .find(a => a.actionType === 'verified-correct');
-              
-              if (!lastVerifiedCorrect) return null; // No verified-correct action yet
-              
-              // Check if this action has metadata (already processed)
-              const actionMetadata = lastVerifiedCorrect.metadata as { paymentSystemId?: string; receiptSystemId?: string; inventoryCheckSystemId?: string; penaltySystemIds?: string[] } | undefined;
-              const hasPaymentOrReceipt = actionMetadata?.paymentSystemId || actionMetadata?.receiptSystemId || ((actionMetadata?.penaltySystemIds?.length ?? 0) > 0);
-              const hasInventoryCheck = actionMetadata?.inventoryCheckSystemId;
-              
-              // Show buttons if NOT yet processed
-              if (!hasPaymentOrReceipt || !hasInventoryCheck) {
+          {hasUnprocessedButtons && (
+            <div className="flex flex-col sm:flex-row gap-3 p-4 bg-muted/50 rounded-xl border border-border/50">
+              {complaint.verification === 'verified-correct' && (() => {
+                const lastVerifiedCorrect = [...(complaint.timeline || [])]
+                  .reverse()
+                  .find(a => a.actionType === 'verified-correct');
+                const actionMetadata = lastVerifiedCorrect?.metadata as { paymentSystemId?: string; receiptSystemId?: string; inventoryCheckSystemId?: string; penaltySystemIds?: string[] } | undefined;
+                const hasPaymentOrReceipt = actionMetadata?.paymentSystemId || actionMetadata?.receiptSystemId || ((actionMetadata?.penaltySystemIds?.length ?? 0) > 0);
+                const hasInventoryCheck = actionMetadata?.inventoryCheckSystemId;
                 return (
-                  <div className="flex flex-col sm:flex-row gap-3 p-4 bg-muted/50 rounded-lg border">
+                  <>
                     {!hasPaymentOrReceipt && (
                       <Button
                         onClick={onProcessCompensation}
@@ -93,11 +82,11 @@ export const ComplaintProcessingCard: React.FC<Props> = React.memo(({
                         Xử lý tồn kho
                       </Button>
                     )}
-                  </div>
+                  </>
                 );
-              }
-              return null;
-            })()}
+              })()}
+            </div>
+          )}
 
             {/* Investigation note */}
             {complaint.investigationNote && (
@@ -119,11 +108,6 @@ export const ComplaintProcessingCard: React.FC<Props> = React.memo(({
               </div>
             )}
           </div>
-
-          {/* Right column: All verification accordions */}
-          <div className="space-y-6">
-            <ComplaintVerificationHistory complaint={complaint} />
-        </div>
       </CardContent>
     </Card>
   );

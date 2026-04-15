@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { apiSuccess, apiError } from '@/lib/api-utils'
+import { logError } from '@/lib/logger'
 
 // Health check endpoint - No auth required
 export async function GET() {
@@ -13,7 +14,7 @@ export async function GET() {
       timestamp: new Date().toISOString(),
     })
   } catch (error) {
-    console.error('Health check failed:', error)
+    logError('Health check failed', error)
     return apiError(error instanceof Error ? error.message : 'Unknown error', 503)
   }
 }

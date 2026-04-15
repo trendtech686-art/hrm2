@@ -1,0 +1,97 @@
+model SupplierWarranty {
+  systemId    String                  @id
+  id          String                  @unique // BHCC000001
+
+  // Supplier
+  supplierSystemId String
+  supplierName     String
+
+  // Branch
+  branchSystemId String?
+  branchName     String?
+
+  // Shipping
+  trackingNumber String?  // Mã vận đơn
+  sentDate       DateTime? // Ngày gửi
+  deliveryMethod String?  // deliver-later, shipping-partner, external, in-store
+
+  // Status
+  status SupplierWarrantyStatus @default(DRAFT)
+
+  // Workflow subtasks
+  subtasks Json? // Array of workflow subtasks
+
+  // People
+  createdBySystemId  String?
+  createdByName      String?
+  assignedToSystemId String?  // Người phụ trách
+  assignedToName     String?
+  approvedBySystemId String?  // Người duyệt
+  approvedByName     String?
+  confirmedBySystemId String? // Người xác nhận
+  confirmedByName     String?
+
+  // Financial summary (after confirmation)
+  totalWarrantyCost  Decimal @default(0) @db.Decimal(15, 2) // Tổng tiền NCC hoàn/trừ cho SP được BH
+  totalReturnedItems Int     @default(0) // Tổng SL SP không được BH trả lại
+
+  // Notes
+  reason       String? // Lý do gửi BH
+  notes        String?
+  confirmNotes String? // Ghi chú kết quả xác nhận
+
+  // Timestamps
+  approvedAt  DateTime?
+  packedAt    DateTime?
+  exportedAt  DateTime?
+  deliveredAt DateTime?
+  confirmedAt DateTime?
+  completedAt DateTime?
+  cancelledAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Soft delete
+  isDeleted Boolean @default(false)
+
+  // === RELATIONS ===
+  items      SupplierWarrantyItem[]
+  packagings Packaging[]
+  shipments  Shipment[]
+  supplier   Supplier?              @relation(fields: [supplierSystemId], references: [systemId])
+
+  @@index([supplierSystemId])
+  @@index([status])
+  @@map("supplier_warranties")
+}
+
+model SupplierWarrantyItem {
+  systemId   String @id
+  warrantyId String
+
+  // Product
+  productSystemId String?
+  productId       String  // SKU / Business ID
+  productName     String
+  productImage    String?
+
+  // Quantities
+  sentQuantity     Int // SL gửi BH
+  approvedQuantity Int @default(0) // SL được BH
+  returnedQuantity Int @default(0) // SL không được BH, trả lại
+
+  // Financial
+  unitPrice    Decimal @default(0) @db.Decimal(15, 2)
+  warrantyCost Decimal @default(0) @db.Decimal(15, 2) // Tiền NCC trả cho SP được BH
+
+  // Notes
+  itemNote       String? // Ghi chú
+  warrantyResult String? // Kết quả BH
+
+  // Relation
+  warranty SupplierWarranty @relation(fields: [warrantyId], references: [systemId], onDelete: Cascade)
+
+  @@map("supplier_warranty_items")
+}
+
+

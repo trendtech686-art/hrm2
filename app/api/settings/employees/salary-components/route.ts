@@ -1,16 +1,17 @@
 import { prisma } from '@/lib/prisma'
 import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
 import { NextRequest } from 'next/server'
+import { logError } from '@/lib/logger'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 // Salary component types in SettingsData
+// Note: Reference data (minimum_wage, base_salary, insurance_rate, tax_bracket, holiday)
+// are stored with 'ref_' prefix to avoid appearing here.
 const SALARY_COMPONENT_TYPES = [
   'salary_component',    // Main type
   'earning',             // Thu nhập
   'deduction',           // Khấu trừ  
-  'allowance',           // Phụ cấp
   'contribution',        // Đóng góp
-  'minimum_wage',        // Lương tối thiểu
-  'base_salary',         // Lương cơ sở
 ];
 
 // GET /api/settings/employees/salary-components - Get all salary components
@@ -53,7 +54,7 @@ export async function GET() {
 
     return apiSuccess(transformed)
   } catch (error) {
-    console.error('Error fetching salary components:', error)
+    logError('Error fetching salary components', error)
     return apiError('Failed to fetch salary components', 500)
   }
 }
@@ -94,6 +95,19 @@ export async function POST(request: NextRequest) {
       },
     })
 
+    await createActivityLog({
+      entityType: 'salary_component',
+      entityId: component.systemId,
+      action: `Thêm thành phần lương: ${component.name}`,
+      actionType: 'create',
+      changes: {
+        name: { from: null, to: component.name },
+        ...(body.category ? { category: { from: null, to: body.category } } : {}),
+        ...(body.amount ? { amount: { from: null, to: body.amount } } : {}),
+      },
+      createdBy: session.user?.id,
+    }).catch(e => logError('[salary-components] activity log failed', e))
+
     const metadata = (component.metadata as Record<string, unknown>) ?? {}
     return apiSuccess({
       systemId: component.systemId,
@@ -113,7 +127,7 @@ export async function POST(request: NextRequest) {
       updatedAt: component.updatedAt,
     })
   } catch (error) {
-    console.error('Error creating salary component:', error)
+    logError('Error creating salary component', error)
     return apiError('Failed to create salary component', 500)
   }
 }

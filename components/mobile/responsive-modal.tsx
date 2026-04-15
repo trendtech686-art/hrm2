@@ -33,7 +33,7 @@ export function ResponsiveModal({
     return (
       <Dialog {...(open !== undefined ? { open } : {})} {...(onOpenChange !== undefined ? { onOpenChange } : {})}>
         <DialogTrigger asChild>{trigger}</DialogTrigger>
-        <DialogContent className={cn("sm:max-w-[425px]", className)}>
+        <DialogContent className={cn("sm:max-w-106", className)}>
           {(title || description) && (
             <DialogHeader>
               {title && <DialogTitle>{title}</DialogTitle>}

@@ -245,7 +245,7 @@ export const purchaseOrderImportExportConfig: ImportExportConfig<PurchaseOrder> 
     let lastOrderDate = '';
     let lastBuyer = '';
     
-    return rows.map((row: Record<string, unknown>) => {
+    return (rows as Record<string, unknown>[]).map((row) => {
       if (row.purchaseOrderId) {
         lastOrderId = String(row.purchaseOrderId);
         lastSupplier = String(row.supplierIdOrName || '');

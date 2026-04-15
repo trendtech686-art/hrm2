@@ -1,4 +1,4 @@
-/**
+﻿/**
  * API Utilities - Auth & Validation Middleware
  * 
  * Provides standardized authentication and validation for all API routes.
@@ -22,8 +22,11 @@
  */
 
 import { NextResponse } from 'next/server'
-import { auth } from '@/auth'
+import { cookies } from 'next/headers'
+import { decode } from 'next-auth/jwt'
 import { z } from 'zod'
+import { logError } from '@/lib/logger'
+import { hasPermission, hasAllPermissions, normalizeRole, type Permission } from '@/features/employees/permissions'
 
 // ============================================
 // DECIMAL SERIALIZATION HELPER
@@ -62,6 +65,60 @@ export function serializeDecimals<T>(obj: T): T {
   }
   
   return obj;
+}
+
+// ============================================
+// SESSION FROM COOKIE (Next.js 16 workaround)
+// ============================================
+
+/**
+ * Get session by reading the JWT cookie directly and decoding it.
+ * 
+ * Workaround for next-auth v5 `auth()` not working in Next.js 16
+ * server actions and route handlers. The `auth()` function uses
+ * `headers()` → `createActionURL()` → `Auth()` which breaks in
+ * Next.js 16's async context.
+ * 
+ * @see https://github.com/nextauthjs/next-auth/issues/13388
+ */
+export async function getSessionFromCookie(): Promise<ApiSession | null> {
+  try {
+    const cookieStore = await cookies()
+
+    // Try non-secure cookie first (HTTP / localhost), then secure (HTTPS)
+    const tokenCookie =
+      cookieStore.get('authjs.session-token') ??
+      cookieStore.get('__Secure-authjs.session-token')
+
+    if (!tokenCookie?.value) {
+      return null
+    }
+
+    // Salt must match cookie name for decryption
+    const decoded = await decode({
+      token: tokenCookie.value,
+      secret: process.env.AUTH_SECRET!,
+      salt: tokenCookie.name,
+    })
+
+    if (!decoded) return null
+
+    // Map decoded JWT token fields to our session shape.
+    // Fields come from the `jwt` callback in auth.config.ts.
+    return {
+      user: {
+        id: (decoded.id ?? decoded.sub) as string,
+        email: decoded.email as string,
+        name: decoded.name as string,
+        role: decoded.role as string,
+        employeeId: decoded.employeeId as string | undefined,
+        employee: decoded.employee as ApiSession['user']['employee'],
+      }
+    }
+  } catch (error) {
+    logError('[getSessionFromCookie] JWT decode error', error)
+    return null
+  }
 }
 
 // ============================================
@@ -112,6 +169,8 @@ export interface PaginationParams {
   page: number
   limit: number
   skip: number
+  /** When true, limit/skip are set to fetch all records in a single query */
+  noPagination?: boolean
 }
 
 // ============================================
@@ -122,19 +181,22 @@ export interface PaginationParams {
  * Require authentication for API routes
  * Returns session if authenticated, null otherwise
  * 
+ * Uses direct cookie JWT decode as workaround for Next.js 16 + next-auth v5 issue.
+ * @see https://github.com/nextauthjs/next-auth/issues/13388
+ * 
  * @example
  * const session = await requireAuth()
  * if (!session) return apiError('Unauthorized', 401)
  */
 export async function requireAuth(): Promise<ApiSession | null> {
   try {
-    const session = await auth()
+    const session = await getSessionFromCookie()
     if (!session?.user) {
       return null
     }
-    return session as ApiSession
+    return session
   } catch (error) {
-    console.error('Auth check error:', error)
+    logError('Auth check error', error)
     return null
   }
 }
@@ -144,11 +206,122 @@ export async function requireAuth(): Promise<ApiSession | null> {
  */
 export async function optionalAuth(): Promise<ApiSession | null> {
   try {
-    const session = await auth()
+    const session = await getSessionFromCookie()
     return session?.user ? (session as ApiSession) : null
   } catch {
     return null
   }
+}
+
+// ============================================
+// PERMISSION MIDDLEWARE
+// ============================================
+
+/**
+ * Require authentication AND a specific permission.
+ * Returns session if authorized, or a 403 NextResponse if not.
+ * 
+ * @example
+ * const result = await requirePermission('create_tasks')
+ * if (result instanceof NextResponse) return result  // 401 or 403
+ * const session = result  // ApiSession
+ */
+export async function requirePermission(
+  permission: Permission
+): Promise<ApiSession | NextResponse> {
+  const session = await requireAuth()
+  if (!session) {
+    return NextResponse.json(
+      { success: false, error: 'Unauthorized', message: 'Chưa đăng nhập' },
+      { status: 401 }
+    )
+  }
+
+  const role = session.user.role
+  if (!hasPermission(role, permission)) {
+    return NextResponse.json(
+      { success: false, error: 'Forbidden', message: 'Bạn không có quyền thực hiện thao tác này' },
+      { status: 403 }
+    )
+  }
+
+  return session
+}
+
+/**
+ * Require authentication AND all of the specified permissions.
+ * Use for operations that need multiple permissions (e.g., edit + approve).
+ */
+export async function requireAllPermissions(
+  permissions: Permission[]
+): Promise<ApiSession | NextResponse> {
+  const session = await requireAuth()
+  if (!session) {
+    return NextResponse.json(
+      { success: false, error: 'Unauthorized', message: 'Chưa đăng nhập' },
+      { status: 401 }
+    )
+  }
+
+  if (!hasAllPermissions(session.user.role, permissions)) {
+    return NextResponse.json(
+      { success: false, error: 'Forbidden', message: 'Bạn không có quyền thực hiện thao tác này' },
+      { status: 403 }
+    )
+  }
+
+  return session
+}
+
+/**
+ * Check permission in server actions (returns error result instead of NextResponse).
+ * 
+ * Uses direct cookie JWT decode as workaround for Next.js 16 + next-auth v5 issue.
+ * @see https://github.com/nextauthjs/next-auth/issues/13388
+ * 
+ * @example
+ * const authResult = await requireActionPermission('create_tasks')
+ * if (!authResult.success) return authResult
+ * const { session } = authResult
+ */
+export async function requireActionPermission(
+  permission: Permission
+): Promise<
+  | { success: true; session: ApiSession }
+  | { success: false; error: string }
+> {
+  try {
+    const session = await getSessionFromCookie()
+    if (!session?.user) {
+      return { success: false, error: 'Phiên đăng nhập hết hạn. Vui lòng tải lại trang (F5) hoặc đăng nhập lại.' }
+    }
+
+    const role = session.user.role
+    if (!hasPermission(role, permission)) {
+      return { success: false, error: 'Bạn không có quyền thực hiện thao tác này' }
+    }
+
+    return { success: true, session }
+  } catch (error) {
+    logError('Permission check error', error)
+    return { success: false, error: 'Lỗi kiểm tra quyền hạn' }
+  }
+}
+
+/**
+ * Helper: check if session user is admin
+ */
+export function isAdmin(session: ApiSession): boolean {
+  const role = normalizeRole(session.user.role)
+  return role === 'Admin'
+}
+
+/**
+ * Helper: check if session user is admin or manager
+ */
+export function isAdminOrManager(session: ApiSession): boolean {
+  const role = normalizeRole(session.user.role)
+  return role === 'Admin' || role === 'Manager'
 }
 
 // ============================================
@@ -178,7 +351,7 @@ export async function validateBody<T>(
         data,
       }
     } catch (parseError) {
-      console.error('[validateBody] Parse error:', parseError)
+      logError('[validateBody] Parse error', parseError)
       if (parseError instanceof z.ZodError) {
         const errorMessages = parseError.issues
           .map(issue => `${issue.path.join('.')}: ${issue.message}`)
@@ -192,7 +365,7 @@ export async function validateBody<T>(
       throw parseError
     }
   } catch (error) {
-    console.error('[validateBody] JSON parse error:', error)
+    logError('[validateBody] JSON parse error', error)
     return {
       success: false,
       error: 'Invalid JSON body',
@@ -273,11 +446,12 @@ export function apiPaginated<T>(
     total: number
   }
 ): NextResponse {
+  const effectiveLimit = pagination.limit > 0 ? pagination.limit : data.length || 1
   return NextResponse.json({
     data: serializeDecimals(data),
     pagination: {
       ...pagination,
-      totalPages: Math.ceil(pagination.total / pagination.limit),
+      totalPages: Math.ceil(pagination.total / effectiveLimit),
     },
   })
 }
@@ -316,9 +490,15 @@ export function apiNotFound(resource = 'Resource'): NextResponse {
  * Parse pagination from query params
  */
 export function parsePagination(searchParams: URLSearchParams): PaginationParams {
+  const rawLimit = parseInt(searchParams.get('limit') || '100')
+  
+  // limit=0 means "fetch all records" (no pagination)
+  if (rawLimit === 0) {
+    return { page: 1, limit: 100000, skip: 0, noPagination: true }
+  }
+  
   const page = Math.max(1, parseInt(searchParams.get('page') || '1'))
-  // Tăng limit max lên 10000 để hỗ trợ load tất cả sản phẩm
-  const limit = Math.min(10000, Math.max(1, parseInt(searchParams.get('limit') || '100')))
+  const limit = Math.min(10000, Math.max(1, rawLimit))
   const skip = (page - 1) * limit
   
   return { page, limit, skip }

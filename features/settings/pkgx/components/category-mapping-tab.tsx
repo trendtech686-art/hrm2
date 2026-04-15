@@ -28,6 +28,8 @@ import { PkgxMappingDialog } from '../../../../components/shared/pkgx-mapping-di
 import { PkgxSyncConfirmDialog } from './pkgx-sync-confirm-dialog';
 import { asSystemId } from '@/lib/id-types';
 import { generateSubEntityId } from '@/lib/id-utils';
+import { logError } from '@/lib/logger'
+import { sanitizeHtml } from '@/lib/sanitize'
 
 // Extended type for PKGX categories table
 interface PkgxCategoryRow extends PkgxCategory {
@@ -157,11 +159,6 @@ export function CategoryMappingTab() {
   const allSelectedPkgxRows = React.useMemo(() => 
     paginatedPkgxData.filter(p => rowSelection[p.systemId]),
   [paginatedPkgxData, rowSelection]);
-  
-  // Get selected PKGX categories that are NOT mapped (for bulk mapping)
-  const _selectedUnmappedCategories = React.useMemo(() => 
-    allSelectedPkgxRows.filter(c => !c.mappedToHrm),
-  [allSelectedPkgxRows]);
   
   // Get selected PKGX categories that ARE mapped (for bulk unlink)
   const selectedMappedCategories = React.useMemo(() => 
@@ -533,7 +530,7 @@ export function CategoryMappingTab() {
       });
       
       if (!mappingResponse.ok) {
-        console.error('Mapping error:', await mappingResponse.text());
+        logError('Mapping error', await mappingResponse.text());
       }
       
       // Invalidate queries
@@ -775,29 +772,46 @@ export function CategoryMappingTab() {
     }
   };
   
-  // Import categories from PKGX to HRM and auto-mapping
+  // Import categories from PKGX to HRM and auto-mapping — Batch mode
   const handleImportAndMap = async () => {
     if (!settings) {
       toast.error('Không thể tải cấu hình PKGX');
       return;
     }
     
-    // Lấy toàn bộ danh mục PKGX (cả đã mapping và chưa) để có thể cập nhật dữ liệu SEO/mô tả
     const allPkgxCategories = settings.categories;
     
     setIsImporting(true);
     setIsPaused(false);
     pauseRef.current = false;
-    setImportProgress({ current: 0, total: allPkgxCategories.length, currentName: '' });
+    setImportProgress({ current: 0, total: allPkgxCategories.length, currentName: 'Đang chuẩn bị...' });
+    
+    // Create import job in DB
+    let jobId: string | null = null;
+    try {
+      const jobRes = await fetch('/api/pkgx-import-jobs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ entityType: 'categories', totalRecords: allPkgxCategories.length }),
+      });
+      if (jobRes.ok) {
+        const jobData = await jobRes.json();
+        jobId = jobData.jobId || null;
+      }
+    } catch {
+      /* non-blocking */
+    }
+    
     let successCount = 0;
     let errorCount = 0;
     const errorMessages: string[] = [];
-    const REFRESH_BATCH_SIZE = 3; // Refresh UI sau mỗi 3 category
+    const startTime = Date.now();
     
     // Build a map of PKGX ID to created HRM systemId for parent-child linking
     const pkgxToHrmMap = new Map<number, string>();
     
-    // Also map existing categories
+    // Map existing categories
     hrmCategories.forEach(c => {
       const mapping = settings.categoryMappings.find(m => (m.hrmCategoryId || m.hrmCategorySystemId) === c.systemId);
       if (mapping) {
@@ -805,230 +819,238 @@ export function CategoryMappingTab() {
       }
     });
     
-    // Sort by parentId to process parents first (null parents first)
+    // Sort by parentId to process parents first
     const sortedCategories = [...allPkgxCategories].sort((a, b) => {
       if (a.parentId === null && b.parentId !== null) return -1;
       if (a.parentId !== null && b.parentId === null) return 1;
       return 0;
     });
     
+    // Helper to sanitize string
+    const sanitize = (str: string | undefined | null): string | undefined => {
+      if (!str) return undefined;
+      return str.replace(/\0/g, '').trim() || undefined;
+    };
+    const toSlug = (value: string | undefined | null): string | undefined => {
+      const cleaned = sanitize(value);
+      if (!cleaned) return undefined;
+      return (
+        cleaned.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+      ) || undefined;
+    };
+    
+    // Transform all categories to payloads
+    type PkgxCatExtended = (typeof sortedCategories)[number] & Record<string, unknown>;
+    const allPayloads = sortedCategories.map(pkgxCat => {
+      const existingMapping = findMapping(pkgxCat.id);
+      const pkgxCatExt = pkgxCat as PkgxCatExtended;
+      const shortDesc = sanitize(pkgxCat.cat_desc ?? pkgxCatExt.catDesc as string | undefined);
+      const longDesc = sanitize(pkgxCat.long_desc ?? pkgxCatExt.longDesc as string | undefined);
+      const keywords = sanitize(pkgxCat.keywords ?? pkgxCatExt.keywords as string | undefined);
+      const seoTitle = sanitize(pkgxCat.meta_title ?? pkgxCatExt.metaTitle as string | undefined ?? pkgxCatExt.cat_title as string | undefined ?? pkgxCatExt.catTitle as string | undefined);
+      const metaDesc = sanitize(pkgxCat.meta_desc ?? pkgxCatExt.metaDesc as string | undefined);
+      const slug = sanitize(pkgxCat.cat_alias ?? pkgxCatExt.catAlias as string | undefined) || toSlug(pkgxCat.name);
+      
+      const pkgxSeo: Record<string, string> = {};
+      if (seoTitle) pkgxSeo.seoTitle = seoTitle;
+      if (metaDesc) pkgxSeo.metaDescription = metaDesc;
+      if (keywords) pkgxSeo.seoKeywords = keywords;
+      if (shortDesc) pkgxSeo.shortDescription = shortDesc;
+      if (longDesc) pkgxSeo.longDescription = longDesc;
+      if (slug) pkgxSeo.slug = slug;
+      
+      return {
+        pkgxId: pkgxCat.id,
+        name: pkgxCat.name,
+        parentPkgxId: pkgxCat.parentId,
+        sortOrder: Number(pkgxCat.sortOrder) || 0,
+        shortDescription: shortDesc,
+        longDescription: longDesc,
+        seoTitle,
+        metaDescription: metaDesc,
+        seoKeywords: keywords,
+        slug,
+        websiteSeo: Object.keys(pkgxSeo).length > 0 ? { pkgx: pkgxSeo } : undefined,
+        existingMappingHrmId: existingMapping
+          ? (existingMapping.hrmCategoryId || existingMapping.hrmCategorySystemId || null)
+          : null,
+      };
+    });
+    
+    // Categories must be processed level-by-level (parents first) for parent-child linking
+    // Split into: root categories (no parent) and child categories
+    const rootPayloads = allPayloads.filter(p => !p.parentPkgxId);
+    const childPayloads = allPayloads.filter(p => p.parentPkgxId);
+    
+    // Process batches and send to API
+    const BATCH_SIZE = 30;
+    let processedCount = 0;
+    
+    const sendBatch = async (batch: typeof allPayloads): Promise<void> => {
+      while (pauseRef.current) {
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+      
+      // Resolve hrmParentId from pkgxToHrmMap
+      const resolvedBatch = batch.map(item => ({
+        ...item,
+        hrmParentId: item.parentPkgxId ? (pkgxToHrmMap.get(item.parentPkgxId) || null) : null,
+      }));
+      
+      try {
+        const response = await fetch('/api/categories/bulk-import', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ categories: resolvedBatch }),
+        });
+        
+        if (!response.ok) {
+          const text = await response.text();
+          let msg = `HTTP ${response.status}`;
+          try { const d = JSON.parse(text); msg = d?.message || d?.error || msg; } catch { /* parse error, use default msg */ }
+          throw new Error(msg);
+        }
+        
+        const result = await response.json();
+        const data = result.data ?? result;
+        
+        successCount += data.success || 0;
+        errorCount += data.errors || 0;
+        processedCount += batch.length;
+        
+        // Update pkgxToHrmMap with new systemIds for child resolution
+        if (data.results) {
+          for (const r of data.results) {
+            if (r.success && r.systemId) {
+              pkgxToHrmMap.set(r.pkgxId, r.systemId);
+            }
+            if (!r.success && r.error) {
+              const name = batch.find(b => b.pkgxId === r.pkgxId)?.name || `PKGX#${r.pkgxId}`;
+              errorMessages.push(`${name}: ${r.error}`);
+            }
+          }
+        }
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : 'Lỗi không xác định';
+        logError(`[Bulk Category] Batch failed (${batch.length})`, error);
+        errorCount += batch.length;
+        processedCount += batch.length;
+        errorMessages.push(`Batch ${batch.length} danh mục: ${msg}`);
+      }
+      
+      const elapsed = (Date.now() - startTime) / 1000;
+      const speed = processedCount > 0 ? (processedCount / elapsed).toFixed(1) : '0';
+      setImportProgress({
+        current: processedCount,
+        total: allPkgxCategories.length,
+        currentName: `${speed} DM/giây • ${successCount} OK, ${errorCount} lỗi`,
+      });
+    };
+    
     try {
-      // Process one at a time for proper parent-child linking
-      for (let i = 0; i < sortedCategories.length; i++) {
-        // Check for pause
+      // Step 1: Process root categories first
+      const rootBatches: typeof allPayloads[] = [];
+      for (let i = 0; i < rootPayloads.length; i += BATCH_SIZE) {
+        rootBatches.push(rootPayloads.slice(i, i + BATCH_SIZE));
+      }
+      
+      for (const batch of rootBatches) {
         while (pauseRef.current) {
           await new Promise(resolve => setTimeout(resolve, 200));
         }
+        await sendBatch(batch);
+      }
+      
+      // Step 2: Process child categories (sequential to ensure parent IDs resolved)
+      const childBatches: typeof allPayloads[] = [];
+      for (let i = 0; i < childPayloads.length; i += BATCH_SIZE) {
+        childBatches.push(childPayloads.slice(i, i + BATCH_SIZE));
+      }
+      
+      for (const batch of childBatches) {
+        while (pauseRef.current) {
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
+        await sendBatch(batch);
         
-        const pkgxCat = sortedCategories[i];
-        setImportProgress({ current: i + 1, total: sortedCategories.length, currentName: pkgxCat.name });
-        
-        try {
-          const existingMapping = findMapping(pkgxCat.id);
-
-          // Find parent HRM systemId if PKGX category has parent
-          let hrmParentId: string | undefined;
-          if (pkgxCat.parentId) {
-            hrmParentId = pkgxToHrmMap.get(pkgxCat.parentId);
-          }
-        
-          // Build category data - only include defined values
-          const categoryData: Record<string, unknown> = {
-            // id chỉ dùng khi tạo mới
-            ...(existingMapping ? {} : { id: `PKGX-${pkgxCat.id}` }),
-            name: pkgxCat.name,
-            sortOrder: Number(pkgxCat.sortOrder) || 0,
-          };
-          
-          // Helper to sanitize string (remove invalid characters)
-          const sanitize = (str: string | undefined | null): string | undefined => {
-            if (!str) return undefined;
-            // Remove null bytes and other problematic characters
-            return str.replace(/\0/g, '').trim() || undefined;
-          };
-          const toSlug = (value: string | undefined | null): string | undefined => {
-            const cleaned = sanitize(value);
-            if (!cleaned) return undefined;
-            return (
-              cleaned
-                .normalize('NFD')
-                .replace(/[\u0300-\u036f]/g, '')
-                .toLowerCase()
-                .replace(/[^a-z0-9]+/g, '-')
-                .replace(/^-+|-+$/g, '')
-            ) || undefined;
-          };
-          
-          // Add optional fields only if they have values
-          if (hrmParentId) categoryData.parentId = hrmParentId;
-          
-          // Support both snake_case (API) and camelCase (cached DB) PKGX fields
-          // NOTE: Không fallback về name - name và title là 2 trường hoàn toàn khác nhau
-          type PkgxCatExtended = typeof pkgxCat & Record<string, unknown>;
-          const pkgxCatExt = pkgxCat as PkgxCatExtended;
-          const shortDesc = sanitize(pkgxCat.cat_desc ?? pkgxCatExt.catDesc as string | undefined);
-          const longDesc = sanitize(pkgxCat.long_desc ?? pkgxCatExt.longDesc as string | undefined);
-          const keywords = sanitize(pkgxCat.keywords ?? pkgxCatExt.keywords as string | undefined);
-          const seoTitle = sanitize(pkgxCat.meta_title ?? pkgxCatExt.metaTitle as string | undefined ?? pkgxCatExt.cat_title as string | undefined ?? pkgxCatExt.catTitle as string | undefined);
-          const metaDesc = sanitize(pkgxCat.meta_desc ?? pkgxCatExt.metaDesc as string | undefined);
-          const slug = sanitize(pkgxCat.cat_alias ?? pkgxCatExt.catAlias as string | undefined) || toSlug(pkgxCat.name);
-          
-          if (shortDesc) categoryData.shortDescription = shortDesc;
-          if (longDesc) categoryData.longDescription = longDesc;
-          if (keywords) categoryData.seoKeywords = keywords;
-          if (seoTitle) categoryData.seoTitle = seoTitle;
-          if (metaDesc) categoryData.metaDescription = metaDesc;
-          if (slug) categoryData.slug = slug;
-          
-          // Build websiteSeo.pkgx - only include non-empty values
-          const pkgxSeo: Record<string, string> = {};
-          if (seoTitle) pkgxSeo.seoTitle = seoTitle;
-          if (metaDesc) pkgxSeo.metaDescription = metaDesc;
-          if (keywords) pkgxSeo.seoKeywords = keywords;
-          if (shortDesc) pkgxSeo.shortDescription = shortDesc;
-          if (longDesc) pkgxSeo.longDescription = longDesc;
-          if (slug) pkgxSeo.slug = slug;
-          
-          if (Object.keys(pkgxSeo).length > 0) {
-            categoryData.websiteSeo = { pkgx: pkgxSeo };
-          }
-          
-          // Decide create or update
-          let newCategory;
-          if (!existingMapping) {
-            // Create HRM category via API
-            let bodyStr: string;
-            try {
-              bodyStr = JSON.stringify(categoryData);
-            } catch (jsonError) {
-              console.error(`[Import Category] JSON stringify error for "${pkgxCat.name}":`, jsonError, categoryData);
-              throw new Error('Không thể serialize dữ liệu');
-            }
-            
-            const response = await fetch('/api/categories', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: bodyStr,
-            });
-            
-            
-            if (!response.ok) {
-              const responseText = await response.text();
-              let errorMessage = `HTTP ${response.status}`;
-              try {
-                const errorData = JSON.parse(responseText);
-                errorMessage = errorData?.message || errorData?.error || response.statusText;
-              } catch {
-                errorMessage = responseText || response.statusText;
-              }
-              throw new Error(errorMessage);
-            }
-            
-            // Parse response - handle potential JSON parse errors
-            try {
-              const resultText = await response.text();
-              const result = JSON.parse(resultText);
-              newCategory = result.data || result;
-            } catch (parseError) {
-              console.error(`[Import Category] Response parse error for "${pkgxCat.name}":`, parseError);
-              throw new Error('Không thể đọc response từ server');
-            }
-            
-            // Store mapping for child categories
-            pkgxToHrmMap.set(pkgxCat.id, newCategory.systemId);
-            
-            // Create mapping directly via fast API endpoint (instead of slow mutation)
-            const mappingData = {
-              hrmCategoryId: newCategory.systemId,
-              hrmCategoryName: newCategory.name,
-              pkgxCategoryId: Number(pkgxCat.id),
-              pkgxCategoryName: pkgxCat.name,
-            };
-            
-            const mappingResponse = await fetch('/api/settings/pkgx/category-mappings', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(mappingData),
-            });
-            
-            if (!mappingResponse.ok) {
-              const mappingError = await mappingResponse.text();
-              console.error(`[Import Category] Mapping error for "${pkgxCat.name}":`, mappingError);
-              // Category created but mapping failed - still count as partial success
-            }
-          } else {
-            // Update existing HRM category with latest PKGX data
-            const hrmSystemId = (existingMapping.hrmCategoryId || existingMapping.hrmCategorySystemId || '') as string;
-            // Chỉ serialize dữ liệu không rỗng
-            let bodyStr: string;
-            try {
-              bodyStr = JSON.stringify(categoryData);
-            } catch (jsonError) {
-              console.error(`[Import Category] JSON stringify error (update) for "${pkgxCat.name}":`, jsonError, categoryData);
-              throw new Error('Không thể serialize dữ liệu');
-            }
-            const response = await fetch(`/api/categories/${hrmSystemId}`, {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: bodyStr,
-            });
-            if (!response.ok) {
-              const responseText = await response.text();
-              console.error(`[Import Category] Update error for "${pkgxCat.name}":`, responseText);
-              let errorMessage = `HTTP ${response.status}`;
-              try {
-                const errorData = JSON.parse(responseText);
-                errorMessage = errorData?.message || errorData?.error || response.statusText;
-              } catch {
-                errorMessage = responseText || response.statusText;
-              }
-              throw new Error(errorMessage);
-            }
-            // Keep map for children
-            pkgxToHrmMap.set(pkgxCat.id, hrmSystemId);
-            newCategory = { systemId: hrmSystemId };
-          }
-          
-          successCount++;
-          
-          // Refresh UI sau mỗi batch để user thấy data realtime
-          if (successCount % REFRESH_BATCH_SIZE === 0) {
-            await queryClient.invalidateQueries({ queryKey: categoryKeys.all });
-            await queryClient.invalidateQueries({ queryKey: ['pkgx', 'settings'] });
-          }
-        } catch (error) {
-          const errorMsg = error instanceof Error ? error.message : 'Lỗi không xác định';
-          console.error(`Error importing category ${pkgxCat.name}:`, errorMsg);
-          errorMessages.push(`${pkgxCat.name}: ${errorMsg}`);
-          errorCount++;
+        // Update job progress
+        if (jobId) {
+          fetch(`/api/pkgx-import-jobs/${jobId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+              processedRecords: processedCount,
+              successCount,
+              errorCount,
+              insertedCount: successCount,
+            }),
+          }).catch(err => console.error('[Import Job] Progress update failed:', err));
         }
       }
       
-      // Invalidate all queries to refresh UI
-      await queryClient.invalidateQueries({ queryKey: categoryKeys.all });
-      await queryClient.invalidateQueries({ queryKey: ['pkgx', 'settings'] });
+      // Final refresh
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: categoryKeys.all }),
+        queryClient.invalidateQueries({ queryKey: ['pkgx', 'settings'] }),
+      ]);
       
-      addLog.mutate({
-        action: 'sync_categories',
-        status: errorCount > 0 ? 'partial' : 'success',
-        message: `Import xong: ${successCount} thành công, ${errorCount} lỗi`,
-      });
+      const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+      
+      // Finalize job in DB
+      if (jobId) {
+        const finalStatus = errorCount === 0 ? 'completed' : successCount > 0 ? 'partial' : 'failed';
+        try {
+          await fetch(`/api/pkgx-import-jobs/${jobId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+              status: finalStatus,
+              processedRecords: processedCount,
+              successCount,
+              errorCount,
+              insertedCount: successCount,
+              errors: errorMessages.length > 0 ? JSON.stringify(errorMessages.slice(0, 100)) : undefined,
+              notes: `Import ${successCount} DM thành công, ${errorCount} lỗi trong ${elapsed}s`,
+            }),
+          });
+        } catch (err) {
+          console.error('[Import Job] Finalize failed:', err);
+        }
+      }
+      queryClient.invalidateQueries({ queryKey: ['import-export-logs-db'] });
       
       if (successCount > 0) {
-        toast.success(`Đã import & mapping ${successCount} danh mục từ PKGX`);
+        toast.success(`Đã import ${successCount} danh mục từ PKGX (${elapsed}s)`);
       }
       if (errorCount > 0) {
         const errorSummary = errorMessages.slice(0, 3).join('\n');
         const moreCount = errorMessages.length > 3 ? `\n...và ${errorMessages.length - 3} lỗi khác` : '';
-        toast.error(`${errorCount} danh mục import thất bại:\n${errorSummary}${moreCount}`, { duration: 8000 });
+        toast.error(`${errorCount} danh mục lỗi:\n${errorSummary}${moreCount}`, { duration: 8000 });
       }
     } catch (error) {
       toast.error('Lỗi khi import danh mục');
-      addLog.mutate({
-        action: 'sync_categories',
-        status: 'error',
-        message: error instanceof Error ? error.message : 'Lỗi khi import danh mục',
-      });
+      if (jobId) {
+        try {
+          await fetch(`/api/pkgx-import-jobs/${jobId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+              status: 'failed',
+              processedRecords: processedCount,
+              successCount,
+              errorCount,
+              errors: JSON.stringify([error instanceof Error ? error.message : 'Lỗi không xác định']),
+            }),
+          });
+        } catch (err) {
+          console.error('[Import Job] Failed to mark job as failed:', err);
+        }
+      }
     } finally {
       setIsImporting(false);
       setIsPaused(false);
@@ -1349,7 +1371,7 @@ export function CategoryMappingTab() {
                   {selectedCategoryForDetail.cat_desc ? (
                     <div 
                       className="p-3 border rounded text-sm max-h-40 overflow-y-auto bg-muted/30"
-                      dangerouslySetInnerHTML={{ __html: selectedCategoryForDetail.cat_desc }}
+                      dangerouslySetInnerHTML={{ __html: sanitizeHtml(selectedCategoryForDetail.cat_desc) }}
                     />
                   ) : (
                     <div className="p-2 border rounded text-sm text-muted-foreground">Chưa có mô tả</div>

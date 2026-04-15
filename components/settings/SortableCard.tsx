@@ -36,7 +36,7 @@ export const SortableCard = React.forwardRef<HTMLDivElement, SortableCardProps>(
         className={cn(
           'group relative rounded-2xl border bg-card/95 p-3 shadow-sm transition-all',
           muted && 'bg-muted/40',
-          isDragging && 'border-primary/40 bg-primary/5 ring-2 ring-primary/30 scale-[0.99] opacity-80',
+          isDragging && 'border-primary/40 bg-primary/5 ring-2 ring-primary/30 scale-[0.98] opacity-80',
           className,
         )}
         {...props}

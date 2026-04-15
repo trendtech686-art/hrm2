@@ -2,6 +2,9 @@ import { prisma } from '@/lib/prisma'
 import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils'
 import { generateNextIdsWithTx } from '@/lib/id-system'
 import { SalesReturnStatus, DeliveryStatus, OrderStatus, StockOutStatus, PaymentStatus } from '@/generated/prisma/client'
+import { logError } from '@/lib/logger'
+import { createNotification } from '@/lib/notifications'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 interface RouteParams {
   params: Promise<{ systemId: string }>;
@@ -28,7 +31,7 @@ export async function GET(request: Request, { params }: RouteParams) {
 
     return apiSuccess(serialized);
   } catch (error) {
-    console.error('Error fetching payments:', error);
+    logError('Error fetching payments', error);
     return apiError('Failed to fetch payments', 500);
   }
 }
@@ -173,6 +176,7 @@ export async function POST(request: Request, { params }: RouteParams) {
       
       // Determine if order should be marked as COMPLETED
       // Order is complete when: fully paid AND (delivered OR fully stocked out)
+      // NOT PROCESSING - that just means order is being handled, not delivered
       const isDelivered = order.deliveryStatus === DeliveryStatus.DELIVERED ||
                           order.status === OrderStatus.DELIVERED ||
                           order.stockOutStatus === StockOutStatus.FULLY_STOCKED_OUT;
@@ -202,9 +206,32 @@ export async function POST(request: Request, { params }: RouteParams) {
       return updated;
     });
 
+    // Log activity
+    await createActivityLog({
+      entityType: 'order',
+      entityId: systemId,
+      action: `Thêm thanh toán ${amount.toLocaleString('vi-VN')}đ - ${updatedOrder.id || systemId}`,
+      actionType: 'update',
+      createdBy: session.user?.employee?.fullName || session.user?.name || session.user?.id || undefined,
+    }).catch(e => logError('[Order Payment] activity log failed', e));
+
+    // Notify salesperson about payment received
+    if (updatedOrder.salespersonId && updatedOrder.salespersonId !== session.user?.employeeId) {
+      createNotification({
+        type: 'order',
+        settingsKey: 'payment:received',
+        title: 'Thanh toán đơn hàng',
+        message: `Đơn hàng ${updatedOrder.id || systemId} vừa nhận thanh toán ${amount.toLocaleString('vi-VN')}đ`,
+        link: `/orders/${systemId}`,
+        recipientId: updatedOrder.salespersonId,
+        senderId: session.user?.employeeId,
+        senderName: session.user?.name,
+      }).catch(e => logError('[Order Payment] notification failed', e));
+    }
+
     return apiSuccess(updatedOrder);
   } catch (error) {
-    console.error('Error adding payment:', error);
+    logError('Error adding payment', error);
     return apiError('Failed to add payment', 500);
   }
 }

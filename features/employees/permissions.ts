@@ -1,6 +1,23 @@
 import type { EmployeeRole } from './roles';
 
 /**
+ * Normalize DB role strings (ADMIN, MANAGER, STAFF) to EmployeeRole (Admin, Manager, Sales, Warehouse).
+ * Falls back to 'Sales' (basic permissions) for unknown roles.
+ */
+export function normalizeRole(role: string | undefined | null): EmployeeRole {
+  if (!role) return 'Sales';
+  const upper = role.toUpperCase();
+  switch (upper) {
+    case 'ADMIN':     return 'Admin';
+    case 'MANAGER':   return 'Manager';
+    case 'WAREHOUSE':  return 'Warehouse';
+    case 'SALES':     return 'Sales';
+    case 'STAFF':     return 'Sales';  // STAFF maps to Sales (basic permissions)
+    default:          return 'Sales';
+  }
+}
+
+/**
  * Permission types for role-based access control
  */
 export type Permission =
@@ -21,13 +38,18 @@ export type Permission =
   | 'create_products'
   | 'edit_products'
   | 'delete_products'
+  | 'view_brands'
+  | 'view_categories'
   
   // Order Management
   | 'view_orders'
+  | 'view_own_orders'
   | 'create_orders'
   | 'edit_orders'
   | 'delete_orders'
   | 'approve_orders'
+  | 'cancel_orders'
+  | 'pay_orders'
   
   // Inventory Management
   | 'view_inventory'
@@ -42,6 +64,16 @@ export type Permission =
   | 'edit_vouchers'
   | 'delete_vouchers'
   | 'approve_vouchers'
+  // Receipts (phiếu thu)
+  | 'view_receipts'
+  | 'create_receipts'
+  | 'edit_receipts'
+  | 'delete_receipts'
+  // Payments (phiếu chi)
+  | 'view_payments'
+  | 'create_payments'
+  | 'edit_payments'
+  | 'delete_payments'
   
   // Reports
   | 'view_reports'
@@ -95,9 +127,11 @@ export type Permission =
 
   // Tasks
   | 'view_tasks'
+  | 'manage_tasks'
   | 'create_tasks'
   | 'edit_tasks'
   | 'delete_tasks'
+  | 'approve_tasks'
 
   // Wiki
   | 'view_wiki'
@@ -124,6 +158,13 @@ export type Permission =
   | 'edit_purchase_returns'
   | 'delete_purchase_returns'
   | 'approve_purchase_returns'
+
+  // Supplier Warranty (BH Nhà cung cấp)
+  | 'view_supplier_warranty'
+  | 'create_supplier_warranty'
+  | 'edit_supplier_warranty'
+  | 'delete_supplier_warranty'
+  | 'confirm_supplier_warranty'
 
   // Inventory Checks (Kiểm kho)
   | 'view_inventory_checks'
@@ -249,16 +290,21 @@ export const PERMISSION_GROUPS = {
       'create_products',
       'edit_products',
       'delete_products',
+      'view_brands',
+      'view_categories',
     ] as Permission[],
   },
   orders: {
     label: 'Đơn hàng',
     permissions: [
       'view_orders',
+      'view_own_orders',
       'create_orders',
       'edit_orders',
       'delete_orders',
       'approve_orders',
+      'cancel_orders',
+      'pay_orders',
     ] as Permission[],
   },
   purchase_orders: {
@@ -291,7 +337,7 @@ export const PERMISSION_GROUPS = {
     ] as Permission[],
   },
   financial: {
-    label: 'Tài chính',
+    label: 'Tài chính (chung)',
     permissions: [
       'view_vouchers',
       'create_vouchers',
@@ -300,13 +346,33 @@ export const PERMISSION_GROUPS = {
       'approve_vouchers',
     ] as Permission[],
   },
+  receipts: {
+    label: 'Phiếu thu',
+    permissions: [
+      'view_receipts',
+      'create_receipts',
+      'edit_receipts',
+      'delete_receipts',
+    ] as Permission[],
+  },
+  payments: {
+    label: 'Phiếu chi',
+    permissions: [
+      'view_payments',
+      'create_payments',
+      'edit_payments',
+      'delete_payments',
+    ] as Permission[],
+  },
   tasks: {
     label: 'Công việc',
     permissions: [
       'view_tasks',
+      'manage_tasks',
       'create_tasks',
       'edit_tasks',
       'delete_tasks',
+      'approve_tasks',
     ] as Permission[],
   },
   wiki: {
@@ -361,6 +427,16 @@ export const PERMISSION_GROUPS = {
       'edit_purchase_returns',
       'delete_purchase_returns',
       'approve_purchase_returns',
+    ] as Permission[],
+  },
+  supplier_warranty: {
+    label: 'BH Nhà cung cấp',
+    permissions: [
+      'view_supplier_warranty',
+      'create_supplier_warranty',
+      'edit_supplier_warranty',
+      'delete_supplier_warranty',
+      'confirm_supplier_warranty',
     ] as Permission[],
   },
   inventory_checks: {
@@ -501,13 +577,18 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   create_products: 'Thêm sản phẩm',
   edit_products: 'Sửa sản phẩm',
   delete_products: 'Xóa sản phẩm',
+  view_brands: 'Xem thương hiệu',
+  view_categories: 'Xem danh mục sản phẩm',
   
   // Orders
-  view_orders: 'Xem đơn hàng',
+  view_orders: 'Xem tất cả đơn hàng',
+  view_own_orders: 'Xem đơn hàng được phụ trách',
   create_orders: 'Tạo đơn hàng',
   edit_orders: 'Sửa đơn hàng',
   delete_orders: 'Xóa đơn hàng',
   approve_orders: 'Duyệt đơn hàng',
+  cancel_orders: 'Hủy đơn hàng',
+  pay_orders: 'Thanh toán đơn hàng',
   
   // Purchase Orders
   view_purchase_orders: 'Xem đơn mua',
@@ -535,12 +616,24 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   edit_vouchers: 'Sửa phiếu thu chi',
   delete_vouchers: 'Xóa phiếu thu chi',
   approve_vouchers: 'Duyệt phiếu thu chi',
+  // Receipts
+  view_receipts: 'Xem phiếu thu',
+  create_receipts: 'Tạo phiếu thu',
+  edit_receipts: 'Sửa phiếu thu',
+  delete_receipts: 'Xóa phiếu thu',
+  // Payments
+  view_payments: 'Xem phiếu chi',
+  create_payments: 'Tạo phiếu chi',
+  edit_payments: 'Sửa phiếu chi',
+  delete_payments: 'Xóa phiếu chi',
   
   // Tasks
   view_tasks: 'Xem công việc',
+  manage_tasks: 'Quản lý công việc',
   create_tasks: 'Tạo công việc',
   edit_tasks: 'Sửa công việc',
   delete_tasks: 'Xóa công việc',
+  approve_tasks: 'Duyệt công việc',
 
   // Wiki
   view_wiki: 'Xem tài liệu',
@@ -577,6 +670,13 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   edit_purchase_returns: 'Sửa phiếu trả hàng mua',
   delete_purchase_returns: 'Xóa phiếu trả hàng mua',
   approve_purchase_returns: 'Duyệt trả hàng mua',
+
+  // Supplier Warranty
+  view_supplier_warranty: 'Xem BH nhà cung cấp',
+  create_supplier_warranty: 'Tạo phiếu BH NCC',
+  edit_supplier_warranty: 'Sửa phiếu BH NCC',
+  delete_supplier_warranty: 'Xóa phiếu BH NCC',
+  confirm_supplier_warranty: 'Xác nhận BH NCC',
 
   // Inventory Checks
   view_inventory_checks: 'Xem phiếu kiểm kho',
@@ -650,13 +750,15 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<EmployeeRole, Permission[]> = {
     'view_customers', 'create_customers', 'edit_customers', 'delete_customers',
     'view_complaints', 'create_complaints', 'edit_complaints', 'resolve_complaints',
     'view_suppliers', 'create_suppliers', 'edit_suppliers', 'delete_suppliers',
-    'view_products', 'create_products', 'edit_products', 'delete_products',
-    'view_orders', 'create_orders', 'edit_orders', 'delete_orders', 'approve_orders',
+    'view_products', 'create_products', 'edit_products', 'delete_products', 'view_brands', 'view_categories',
+    'view_orders', 'view_own_orders', 'create_orders', 'edit_orders', 'delete_orders', 'approve_orders', 'cancel_orders', 'pay_orders',
     'view_purchase_orders', 'create_purchase_orders', 'edit_purchase_orders', 'delete_purchase_orders', 'approve_purchase_orders',
     'view_inventory', 'create_inventory', 'edit_inventory', 'delete_inventory', 'approve_inventory',
     'view_warranty', 'create_warranty', 'edit_warranty', 'delete_warranty',
     'view_vouchers', 'create_vouchers', 'edit_vouchers', 'delete_vouchers', 'approve_vouchers',
-    'view_tasks', 'create_tasks', 'edit_tasks', 'delete_tasks',
+    'view_receipts', 'create_receipts', 'edit_receipts', 'delete_receipts',
+    'view_payments', 'create_payments', 'edit_payments', 'delete_payments',
+    'view_tasks', 'manage_tasks', 'create_tasks', 'edit_tasks', 'delete_tasks', 'approve_tasks',
     'view_wiki', 'create_wiki', 'edit_wiki', 'delete_wiki',
     'view_reports', 'export_reports',
     'view_settings', 'edit_settings', 'manage_roles', 'manage_permissions',
@@ -664,6 +766,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<EmployeeRole, Permission[]> = {
     'view_shipments', 'create_shipments', 'edit_shipments', 'delete_shipments',
     'view_sales_returns', 'create_sales_returns', 'edit_sales_returns', 'delete_sales_returns', 'approve_sales_returns',
     'view_purchase_returns', 'create_purchase_returns', 'edit_purchase_returns', 'delete_purchase_returns', 'approve_purchase_returns',
+    'view_supplier_warranty', 'create_supplier_warranty', 'edit_supplier_warranty', 'delete_supplier_warranty', 'confirm_supplier_warranty',
     'view_inventory_checks', 'create_inventory_checks', 'edit_inventory_checks', 'delete_inventory_checks', 'approve_inventory_checks',
     'view_stock_transfers', 'create_stock_transfers', 'edit_stock_transfers', 'delete_stock_transfers', 'approve_stock_transfers',
     'view_stock_locations', 'create_stock_locations', 'edit_stock_locations', 'delete_stock_locations',
@@ -685,13 +788,15 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<EmployeeRole, Permission[]> = {
     'view_customers', 'create_customers', 'edit_customers', 'delete_customers',
     'view_complaints', 'resolve_complaints',
     'view_suppliers', 'create_suppliers', 'edit_suppliers',
-    'view_products', 'create_products', 'edit_products', 'delete_products',
-    'view_orders', 'create_orders', 'edit_orders', 'approve_orders',
+    'view_products', 'create_products', 'edit_products', 'delete_products', 'view_brands', 'view_categories',
+    'view_orders', 'view_own_orders', 'create_orders', 'edit_orders', 'approve_orders', 'cancel_orders', 'pay_orders',
     'view_purchase_orders', 'create_purchase_orders', 'edit_purchase_orders', 'approve_purchase_orders',
     'view_inventory', 'create_inventory', 'edit_inventory', 'approve_inventory',
     'view_warranty', 'create_warranty', 'edit_warranty',
     'view_vouchers', 'create_vouchers', 'edit_vouchers', 'approve_vouchers',
-    'view_tasks', 'create_tasks', 'edit_tasks', 'delete_tasks',
+    'view_receipts', 'create_receipts', 'edit_receipts',
+    'view_payments', 'create_payments', 'edit_payments',
+    'view_tasks', 'manage_tasks', 'create_tasks', 'edit_tasks', 'delete_tasks', 'approve_tasks',
     'view_wiki', 'create_wiki', 'edit_wiki',
     'view_reports', 'export_reports',
     'view_settings',
@@ -699,6 +804,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<EmployeeRole, Permission[]> = {
     'view_shipments', 'create_shipments', 'edit_shipments',
     'view_sales_returns', 'create_sales_returns', 'edit_sales_returns', 'approve_sales_returns',
     'view_purchase_returns', 'create_purchase_returns', 'edit_purchase_returns', 'approve_purchase_returns',
+    'view_supplier_warranty', 'create_supplier_warranty', 'edit_supplier_warranty', 'confirm_supplier_warranty',
     'view_inventory_checks', 'create_inventory_checks', 'edit_inventory_checks', 'approve_inventory_checks',
     'view_stock_transfers', 'create_stock_transfers', 'edit_stock_transfers', 'approve_stock_transfers',
     'view_stock_locations', 'create_stock_locations', 'edit_stock_locations',
@@ -715,17 +821,16 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<EmployeeRole, Permission[]> = {
     // Focus on customers and orders
     'view_customers', 'create_customers', 'edit_customers',
     'view_complaints', 'create_complaints',
-    'view_products',
-    'view_orders', 'create_orders', 'edit_orders',
+    'view_products', 'view_brands', 'view_categories',
+    'view_own_orders', 'create_orders', 'edit_orders', 'pay_orders',
     'view_warranty', 'create_warranty',
-    'view_tasks', 'create_tasks', 'edit_tasks',
+    'view_tasks',
     'view_wiki',
     'view_reports',
     // New permissions for Sales
     'view_shipments', 'create_shipments',
     'view_sales_returns', 'create_sales_returns',
     'view_packaging', 'create_packaging',
-    'view_dashboard', 'view_dashboard_sales',
   ],
   
   Warehouse: [
@@ -735,30 +840,50 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<EmployeeRole, Permission[]> = {
     'view_purchase_orders',
     'view_inventory', 'create_inventory', 'edit_inventory',
     'view_suppliers',
-    'view_tasks', 'create_tasks', 'edit_tasks',
+    'view_tasks',
     'view_wiki',
     // New permissions for Warehouse
     'view_shipments', 'create_shipments', 'edit_shipments',
     'view_purchase_returns', 'create_purchase_returns',
+    'view_supplier_warranty',
     'view_inventory_checks', 'create_inventory_checks', 'edit_inventory_checks',
     'view_stock_transfers', 'create_stock_transfers', 'edit_stock_transfers',
     'view_stock_locations',
     'view_packaging', 'create_packaging', 'edit_packaging',
-    'view_dashboard', 'view_dashboard_inventory',
+    // Warranty & Complaints — warehouse handles these
+    'view_warranty', 'view_complaints',
   ],
 };
 
 /**
- * Check if a role has a specific permission
+ * Check if a role has a specific permission.
+ * Accepts both EmployeeRole ('Admin') and DB role strings ('ADMIN').
  */
-export function hasPermission(role: EmployeeRole, permission: Permission, customPermissions?: Permission[]): boolean {
-  const permissions = customPermissions || DEFAULT_ROLE_PERMISSIONS[role];
-  return permissions.includes(permission);
+export function hasPermission(role: string | EmployeeRole, permission: Permission, customPermissions?: Permission[]): boolean {
+  const normalizedRole = normalizeRole(role);
+  const permissions = customPermissions || DEFAULT_ROLE_PERMISSIONS[normalizedRole];
+  return permissions?.includes(permission) ?? false;
+}
+
+/**
+ * Check if a role has ALL of the specified permissions
+ */
+export function hasAllPermissions(role: string | EmployeeRole, permissions: Permission[]): boolean {
+  return permissions.every(p => hasPermission(role, p));
+}
+
+/**
+ * Check if a role has ANY of the specified permissions
+ */
+export function hasAnyPermission(role: string | EmployeeRole, permissions: Permission[]): boolean {
+  return permissions.some(p => hasPermission(role, p));
 }
 
 /**
  * Get all permissions for a role
  */
-export function getRolePermissions(role: EmployeeRole, customPermissions?: Permission[]): Permission[] {
-  return customPermissions || DEFAULT_ROLE_PERMISSIONS[role];
+export function getRolePermissions(role: string | EmployeeRole, customPermissions?: Permission[]): Permission[] {
+  if (customPermissions) return customPermissions;
+  const normalizedRole = normalizeRole(role);
+  return DEFAULT_ROLE_PERMISSIONS[normalizedRole] || [];
 }

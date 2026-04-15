@@ -7,11 +7,12 @@ import { cn } from '../../lib/utils';
  * để luôn tuân thủ chiều cao h-9 và padding đồng nhất.
  */
 export const SettingsActionButton = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, size, children, ...props }, ref) => {
+  ({ className, size, debounceMs = 0, children, ...props }, ref) => {
     return (
       <Button
         ref={ref}
         size={size ?? 'sm'}
+        debounceMs={debounceMs}
         className={cn('h-9 px-4 font-medium gap-2', className)}
         {...props}
       >

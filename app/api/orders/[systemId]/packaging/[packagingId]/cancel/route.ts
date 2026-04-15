@@ -1,5 +1,8 @@
 import { prisma } from '@/lib/prisma';
 import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils';
+import { logError } from '@/lib/logger'
+import { createNotification } from '@/lib/notifications'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 interface RouteParams {
   params: Promise<{ systemId: string; packagingId: string }>;
@@ -75,9 +78,32 @@ export async function POST(request: Request, { params }: RouteParams) {
       return updated;
     });
 
+    // Log activity
+    await createActivityLog({
+      entityType: 'order',
+      entityId: systemId,
+      action: `Hủy yêu cầu đóng gói - ${updatedOrder.id || systemId}${reason ? ` - Lý do: ${reason}` : ''}`,
+      actionType: 'status',
+      createdBy: session.user?.employee?.fullName || session.user?.name || session.user?.id || undefined,
+    }).catch(e => logError('[Cancel Packaging] activity log failed', e));
+
+    // Notify assigned packer about packaging cancellation
+    if (packaging.assignedEmployeeId && packaging.assignedEmployeeId !== session.user?.employeeId) {
+      createNotification({
+        type: 'order',
+        settingsKey: 'order:packaging',
+        title: 'Hủy đóng gói',
+        message: `Phiếu đóng gói đơn hàng ${updatedOrder.id || systemId} đã bị hủy${reason ? `: ${reason}` : ''}`,
+        link: `/orders/${systemId}`,
+        recipientId: packaging.assignedEmployeeId,
+        senderId: session.user?.employeeId,
+        senderName: session.user?.name,
+      }).catch(e => logError('[Cancel Packaging] notification failed', e));
+    }
+
     return apiSuccess(updatedOrder);
   } catch (error) {
-    console.error('Error cancelling packaging:', error);
+    logError('Error cancelling packaging', error);
     return apiError('Failed to cancel packaging', 500);
   }
 }

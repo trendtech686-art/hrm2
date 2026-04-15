@@ -17,6 +17,7 @@ export interface InventoryReceiptsParams {
   purchaseOrderId?: string;
   branchId?: string;
   receiverId?: string;
+  productSystemId?: string;
   startDate?: string;
   endDate?: string;
   sortBy?: string;
@@ -43,6 +44,7 @@ export async function fetchInventoryReceipts(params: InventoryReceiptsParams = {
   if (params.purchaseOrderId) searchParams.set('purchaseOrderId', params.purchaseOrderId);
   if (params.branchId) searchParams.set('branchId', params.branchId);
   if (params.receiverId) searchParams.set('receiverId', params.receiverId);
+  if (params.productSystemId) searchParams.set('productSystemId', params.productSystemId);
   if (params.startDate) searchParams.set('startDate', params.startDate);
   if (params.endDate) searchParams.set('endDate', params.endDate);
   if (params.sortBy) searchParams.set('sortBy', params.sortBy);

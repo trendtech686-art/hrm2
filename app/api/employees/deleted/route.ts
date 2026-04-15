@@ -1,27 +1,21 @@
 import { prisma } from '@/lib/prisma'
-import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
+import { apiSuccess } from '@/lib/api-utils'
+import { apiHandler } from '@/lib/api-handler'
 
-// GET /api/employees/deleted - List all deleted employees
-export async function GET() {
-  const session = await requireAuth()
-  if (!session) return apiError('Unauthorized', 401)
+// GET /api/employees/deleted - List employees in trash (excludes permanently archived)
+export const GET = apiHandler(async () => {
+  const employees = await prisma.employee.findMany({
+    where: {
+      isDeleted: true,
+      permanentlyDeletedAt: null, // Chỉ hiện thùng rác, không hiện đã lưu trữ vĩnh viễn
+    },
+    orderBy: { deletedAt: 'desc' },
+    include: {
+      department: true,
+      branch: true,
+      jobTitle: true,
+    },
+  })
 
-  try {
-    const employees = await prisma.employee.findMany({
-      where: {
-        isDeleted: true,
-      },
-      orderBy: { deletedAt: 'desc' },
-      include: {
-        department: true,
-        branch: true,
-        jobTitle: true,
-      },
-    })
-
-    return apiSuccess(employees)
-  } catch (error) {
-    console.error('Error fetching deleted employees:', error)
-    return apiError('Failed to fetch deleted employees', 500)
-  }
-}
+  return apiSuccess(employees)
+})

@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth}from '@/lib/api-utils';
+import { logError } from '@/lib/logger'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 // GET /api/pkgx/price-mappings - Get all price mappings
 export async function GET() {
@@ -40,7 +42,7 @@ export async function GET() {
 
     return NextResponse.json({ success: true, data: enrichedMappings });
   } catch (error) {
-    console.error('Error fetching price mappings:', error);
+    logError('Error fetching price mappings', error);
     return NextResponse.json({ success: false, error: 'Failed to fetch price mappings' }, { status: 500 });
   }
 }
@@ -103,9 +105,30 @@ export async function PATCH(request: Request) {
       orderBy: { priceType: 'asc' },
     });
 
+    // Activity log for price mapping changes
+    const priceTypeLabels: Record<string, string> = {
+      shopPrice: 'Giá bán',
+      marketPrice: 'Giá thị trường',
+      partnerPrice: 'Giá đại lý',
+      acePrice: 'Giá ACE',
+      dealPrice: 'Giá deal',
+    }
+    const changedFields = Object.keys(body)
+      .filter(f => fieldToPriceType[f])
+      .map(f => priceTypeLabels[f] || f)
+    if (changedFields.length > 0) {
+      createActivityLog({
+        entityType: 'pkgx_settings',
+        entityId: 'pkgx-price-mappings',
+        action: `Cập nhật mapping giá PKGX: ${changedFields.join(', ')}`,
+        actionType: 'update',
+        createdBy: session.user?.id ?? '',
+      }).catch(e => logError('price-mapping activity log failed', e))
+    }
+
     return NextResponse.json({ success: true, data: mappings });
   } catch (error) {
-    console.error('Error updating price mappings:', error);
+    logError('Error updating price mappings', error);
     return NextResponse.json({ success: false, error: 'Failed to update price mappings' }, { status: 500 });
   }
 }

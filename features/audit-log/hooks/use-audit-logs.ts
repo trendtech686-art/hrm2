@@ -4,6 +4,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import {
   fetchAuditLogs,
   fetchEntityAuditLogs,
@@ -79,9 +80,7 @@ interface MutationCallbacks {
 export function useAuditLogMutations(options: MutationCallbacks = {}) {
   const queryClient = useQueryClient();
 
-  const invalidateLogs = () => {
-    queryClient.invalidateQueries({ queryKey: auditLogKeys.all });
-  };
+  const invalidateLogs = () => invalidateRelated(queryClient, 'audit-logs');
 
   const create = useMutation({
     mutationFn: (data: AuditLogCreateInput) => createAuditLog(data),

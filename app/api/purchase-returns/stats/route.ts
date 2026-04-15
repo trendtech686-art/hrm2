@@ -11,17 +11,15 @@
  * - Recent activity
  */
 
-import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import type { Prisma } from '@/generated/prisma/client';
-import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils';
+import { apiSuccess, apiError } from '@/lib/api-utils';
+import { apiHandler } from '@/lib/api-handler';
 import { PurchaseReturnStatus } from '@/generated/prisma/client';
+import { logError } from '@/lib/logger'
 
 // GET - Purchase return statistics
-export async function GET(request: NextRequest) {
-  const session = await requireAuth();
-  if (!session) return apiError('Unauthorized', 401);
-
+export const GET = apiHandler(async (request) => {
   try {
     const searchParams = request.nextUrl.searchParams;
     const startDate = searchParams.get('startDate');
@@ -104,7 +102,7 @@ export async function GET(request: NextRequest) {
 
     return apiSuccess(stats);
   } catch (error) {
-    console.error('[Purchase Returns Stats API] GET error:', error);
-    return apiError('Failed to fetch purchase return stats', 500);
+    logError('[Purchase Returns Stats API] GET error', error);
+    return apiError('Không thể tải thống kê trả hàng nhập', 500);
   }
-}
+})

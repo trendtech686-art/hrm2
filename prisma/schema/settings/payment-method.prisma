@@ -7,10 +7,6 @@ model PaymentMethod {
   isActive      Boolean  @default(true)
   color         String? // e.g., '#10b981'
   icon          String? // e.g., 'Wallet', 'CreditCard'
-  // Bank account info (for transfer methods)
-  accountNumber String? // Số tài khoản
-  accountName   String? // Tên chủ tài khoản
-  bankName      String? // Tên ngân hàng
   code          String?  @default("UNKNOWN") @db.VarChar(50)
   type          String?  @default("other") @db.VarChar(50)
   createdAt     DateTime @default(now())

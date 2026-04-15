@@ -34,7 +34,8 @@ export function useAllRecurringTasks() {
     return data.filter(rt => {
       if (!rt.isActive || rt.isPaused) return false;
       
-      const pattern = rt.pattern as unknown as RecurrencePattern;
+      const pattern = (rt.recurrencePattern || rt.pattern) as unknown as RecurrencePattern;
+      if (!pattern) return false;
       const nextOccurrence = calculateNextOccurrence(pattern, now);
       if (!nextOccurrence) return false;
       
@@ -46,7 +47,8 @@ export function useAllRecurringTasks() {
   const getByFrequency = React.useCallback((frequency: RecurrenceFrequency) => {
     return data.filter(rt => {
       if (!rt.isActive) return false;
-      const pattern = rt.pattern as unknown as RecurrencePattern;
+      const pattern = (rt.recurrencePattern || rt.pattern) as unknown as RecurrencePattern;
+      if (!pattern) return false;
       return pattern.frequency === frequency;
     });
   }, [data]);
@@ -95,11 +97,11 @@ export function useRecurringTaskOptions() {
     return data
       .filter(rt => rt.isActive && !rt.isPaused)
       .map(rt => {
-        const pattern = rt.pattern as unknown as RecurrencePattern;
+        const pattern = (rt.recurrencePattern || rt.pattern) as unknown as RecurrencePattern;
         return {
           value: rt.systemId,
           label: rt.title,
-          frequency: pattern.frequency,
+          frequency: pattern?.frequency,
         };
       });
   }, [data]);

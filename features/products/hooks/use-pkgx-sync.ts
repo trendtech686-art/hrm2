@@ -6,12 +6,13 @@ import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Product } from '../types';
 import { updateProduct, updateMemberPrice, uploadImageSmart, processHtmlImagesForPkgx, createProduct as createPkgxProduct } from '@/lib/pkgx/api-service';
-import { usePkgxSettings } from '@/features/settings/pkgx/hooks/use-pkgx-settings';
+import { usePkgxMappings } from '@/features/settings/pkgx/hooks/use-pkgx-settings';
 import { useImageStore } from '../image-store';
 import { fetchProduct, updateProduct as updateHrmProduct } from '../api/products-api';
 import { productKeys } from './use-products';
 import { useBrandFinder } from '@/features/brands/hooks/use-all-brands';
 import { useAllPricingPolicies } from '@/features/settings/pricing/hooks/use-all-pricing-policies';
+import { logError } from '@/lib/logger'
 
 /**
  * Fetch fresh product data with prices if prices are empty
@@ -59,6 +60,9 @@ type PkgxLogEntry = {
 
 type UsePkgxSyncOptions = {
   addPkgxLog?: (entry: PkgxLogEntry) => void;
+  // Optional overrides to avoid duplicate API calls when page already has this data
+  brandFinder?: (id: string) => { systemId: string; name: string } | undefined;
+  pricingPolicies?: Array<{ systemId: string; name: string; type: string; isActive: boolean; isDefault: boolean }>;
 };
 
 // Type for imported data from PKGX
@@ -87,10 +91,15 @@ export type PkgxImportedData = {
  */
 export function usePkgxSync(options?: UsePkgxSyncOptions) {
   const addPkgxLog = React.useMemo(() => options?.addPkgxLog ?? (() => {}), [options?.addPkgxLog]);
-  const { data: pkgxSettings, isLoading: isPkgxSettingsLoading } = usePkgxSettings();
+  const { data: pkgxSettings, isLoading: isPkgxSettingsLoading } = usePkgxMappings();
   const queryClient = useQueryClient();
-  const { findById: findBrandById } = useBrandFinder();
-  const { data: pricingPolicies } = useAllPricingPolicies();
+  // Use provided overrides or fall back to hooks (disabled when overrides exist to avoid duplicate API calls)
+  const hasExternalBrands = !!options?.brandFinder;
+  const hasExternalPricing = !!options?.pricingPolicies;
+  const { findById: hookBrandFinder } = useBrandFinder({ enabled: !hasExternalBrands });
+  const { data: hookPricingPolicies } = useAllPricingPolicies({ enabled: !hasExternalPricing });
+  const findBrandById = options?.brandFinder ?? hookBrandFinder;
+  const pricingPolicies = options?.pricingPolicies ?? hookPricingPolicies;
   const defaultSellingPolicy = React.useMemo(() => pricingPolicies.find(p => p.type === 'Bán hàng' && p.isDefault), [pricingPolicies]);
 
   // ═══════════════════════════════════════════════════════════════
@@ -647,7 +656,7 @@ export function usePkgxSync(options?: UsePkgxSyncOptions) {
           // Trả về đường dẫn original_img
           return uploadResult.data.data?.original_img || null;
         } catch (err) {
-          console.error(`Lỗi upload ảnh ${imageUrl}:`, err);
+          logError(`Lỗi upload ảnh ${imageUrl}`, err);
           return null;
         }
       };
@@ -823,7 +832,7 @@ export function usePkgxSync(options?: UsePkgxSyncOptions) {
             return uploadResult.data.data.original_img;
           }
           
-          console.error(`Lỗi upload ảnh ${suffix}:`, uploadResult.error);
+          logError(`Lỗi upload ảnh ${suffix}`, uploadResult.error);
           return undefined;
         }
         
@@ -839,7 +848,7 @@ export function usePkgxSync(options?: UsePkgxSyncOptions) {
           return uploadResult.data.data.original_img;
         }
         
-        console.error(`Lỗi upload ảnh ${suffix}:`, uploadResult.error);
+        logError(`Lỗi upload ảnh ${suffix}`, uploadResult.error);
         return undefined;
       };
       

@@ -2,6 +2,8 @@ import { prisma } from '@/lib/prisma'
 import { AttendanceStatus } from '@/generated/prisma/client'
 import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
 import { generateNextIds } from '@/lib/id-system'
+import { logError } from '@/lib/logger'
+import { getUserNameFromDb } from '@/lib/get-user-name'
 
 interface AttendanceDayRecord {
   status: string;
@@ -99,9 +101,24 @@ export async function PATCH(request: Request) {
     // Execute all upserts in a single transaction (atomic + batched)
     await prisma.$transaction(operations)
 
+    // Log activity
+    getUserNameFromDb(session.user?.id).then(userName =>
+      prisma.activityLog.create({
+        data: {
+          entityType: 'attendance',
+          entityId: 'bulk',
+          action: 'bulk_updated',
+          actionType: 'update',
+          note: `Cập nhật chấm công hàng loạt`,
+          metadata: { userName },
+          createdBy: userName,
+        }
+      })
+    ).catch(e => logError('[ActivityLog] attendance bulk_updated failed', e))
+
     return apiSuccess({ success: records.length, failed: 0 })
   } catch (error) {
-    console.error('Error in bulk attendance PATCH:', error)
+    logError('Error in bulk attendance PATCH', error)
     return apiError('Failed to bulk update attendance', 500)
   }
 }

@@ -1,12 +1,11 @@
 'use client'
 
 import * as React from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import type { ReceiptInput } from './types';
-import { useAllReceipts, useReceiptFinder } from './hooks/use-all-receipts';
-import { useReceiptMutations } from './hooks/use-receipts';
+import { useReceipt, useReceiptMutations } from './hooks/use-receipts';
 import { ReceiptForm, type ReceiptFormValues } from './receipt-form';
-import { useAllCashAccounts } from '../cashbook/hooks/use-all-cash-accounts';
+import type { ReceiptFormOptions } from '@/lib/data/payment-form-options';
 import { usePageHeader } from '@/contexts/page-header-context';
 import { ROUTES, generatePath } from '@/lib/router';
 import { asBusinessId, asSystemId, type SystemId } from '@/lib/id-types';
@@ -15,12 +14,17 @@ import { useAuth } from '@/contexts/auth-context';
 
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Loader2 } from 'lucide-react';
+import { logError } from '@/lib/logger'
 
 type ReceiptUpsertPayload = Omit<ReceiptInput, 'createdAt'>;
 
-export function ReceiptFormPage() {
-  const { systemId, id } = useParams<{ systemId?: string; id?: string }>();
+interface ReceiptFormPageProps {
+  systemId?: string;
+  initialOptions?: ReceiptFormOptions;
+}
+
+export function ReceiptFormPage({ systemId, initialOptions }: ReceiptFormPageProps = {}) {
   const router = useRouter();
   const { create, update } = useReceiptMutations({
     onCreateSuccess: (newReceipt) => {
@@ -33,36 +37,33 @@ export function ReceiptFormPage() {
     },
     onError: (error) => {
       toast.error(error.message || "Lưu phiếu thu thất bại");
-      console.error("Error saving receipt:", error);
+      logError('Error saving receipt', error);
     }
   });
-  const { data } = useAllReceipts();
-  const { findById } = useReceiptFinder();
-  const { accounts: _accounts } = useAllCashAccounts();
+  // ✅ Phase 14: useReceipt(systemId) single-item API thay vì useAllReceipts + useReceiptFinder
+  const { data: receipt } = useReceipt(systemId);
   const { employee: currentEmployee } = useAuth();
-
-  const resolvedSystemId = React.useMemo(() => {
-    if (systemId) {
-      return asSystemId(systemId);
-    }
-    if (id) {
-      const businessId = asBusinessId(id);
-      const target = data.find((item) => item.id === businessId);
-      return target?.systemId;
-    }
-    return undefined;
-  }, [systemId, id, data]);
-
-  const isEditing = Boolean(resolvedSystemId);
-  const receipt = React.useMemo(
-    () => (resolvedSystemId ? findById(resolvedSystemId) : null),
-    [resolvedSystemId, findById]
-  );
+  const isEditing = Boolean(systemId);
 
   const currentUserSystemId = React.useMemo(
     () => currentEmployee?.systemId ?? asSystemId('SYSTEM'),
     [currentEmployee]
   );
+  
+  // ✅ Form ref for programmatic submission
+  const formRef = React.useRef<HTMLFormElement>(null);
+  
+  const handleSaveClick = React.useCallback(() => {
+    console.log('🔵 Receipt Save button clicked');
+    if (formRef.current) {
+      console.log('📝 Triggering receipt form submit via requestSubmit');
+      formRef.current.requestSubmit();
+    } else {
+      console.error('❌ Receipt Form ref not found!');
+    }
+  }, []);
+  
+  const isSaving = create.isPending || update.isPending;
   
   // ✅ Header Actions
   const headerActions = React.useMemo(() => [
@@ -79,14 +80,15 @@ export function ReceiptFormPage() {
     </Button>,
     <Button
       key="save"
-      type="submit"
-      form="receipt-form"
+      type="button"
       size="sm"
       className="h-9"
+      disabled={isSaving}
+      onClick={handleSaveClick}
     >
-      Lưu
+      {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Đang lưu...</> : 'Lưu'}
     </Button>
-  ], [router]);
+  ], [router, handleSaveClick, isSaving]);
 
   const headerTitle = isEditing
     ? `Chỉnh sửa phiếu thu ${receipt?.id ?? ''}`.trim()
@@ -121,6 +123,7 @@ export function ReceiptFormPage() {
       accountSystemId,
       paymentReceiptTypeSystemId,
       branchSystemId,
+      orderAllocations,
       ...rest
     } = values;
 
@@ -133,6 +136,11 @@ export function ReceiptFormPage() {
       paymentReceiptTypeSystemId: asSystemId(paymentReceiptTypeSystemId),
       branchSystemId: asSystemId(branchSystemId),
       createdBy,
+      orderAllocations: orderAllocations?.map(a => ({
+        orderSystemId: asSystemId(a.orderSystemId),
+        orderId: asBusinessId(a.orderId),
+        amount: a.amount,
+      })),
     };
 
     if (id) {
@@ -142,16 +150,36 @@ export function ReceiptFormPage() {
     return base;
   };
 
+  // Map targetGroup (payerType) to category enum for Zod validation
+  // ServerReceiptCategory: 'SALES_REVENUE' | 'service_revenue' | 'complaint_penalty' | 'warranty_additional' | 'deposit_received' | 'other'
+  const getCategoryFromPayerType = (payerTypeName?: string) => {
+    const name = payerTypeName?.toLowerCase() || '';
+    if (name.includes('khách hàng') || name.includes('customer')) return 'sale' as const;
+    if (name.includes('dịch vụ') || name.includes('service')) return 'sale' as const;
+    if (name.includes('bảo hành') || name.includes('warranty')) return 'warranty_additional' as const;
+    if (name.includes('cọc') || name.includes('deposit')) return 'customer_payment' as const;
+    if (name.includes('phạt') || name.includes('penalty')) return 'complaint_penalty' as const;
+    return 'other' as const;
+  };
+
   const handleFormSubmit = (values: ReceiptFormValues) => {
+    console.log('✅ ReceiptFormPage handleFormSubmit called with values:', values);
+    
+    // Determine category from payer type name
+    const category = getCategoryFromPayerType(values.payerTypeName);
+    
     if (receipt) {
+      console.log('Updating receipt...');
       update.mutate({
         systemId: receipt.systemId,
-        data: { ...receipt, ...normalizeValues(values, receipt.createdBy) }
+        data: { ...receipt, ...normalizeValues(values, receipt.createdBy), category }
       });
     } else {
+      console.log('Creating receipt with category:', category);
       const normalized = normalizeValues(values, currentUserSystemId);
       create.mutate({
         ...normalized,
+        category,
         createdAt: new Date().toISOString(),
       } as ReceiptInput);
     }
@@ -160,7 +188,13 @@ export function ReceiptFormPage() {
   return (
     <Card>
       <CardContent className="pt-6">
-        <ReceiptForm initialData={receipt ?? null} onSubmit={handleFormSubmit} isEditing={isEditing} />
+        <ReceiptForm 
+          ref={formRef}
+          initialData={receipt ?? null} 
+          onSubmit={handleFormSubmit} 
+          isEditing={isEditing} 
+          initialOptions={initialOptions} 
+        />
       </CardContent>
     </Card>
   );

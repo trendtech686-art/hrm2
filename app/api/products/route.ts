@@ -1,115 +1,40 @@
 import { prisma } from '@/lib/prisma'
 import { Prisma, ProductStatus, ProductType } from '@/generated/prisma/client'
-import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
+import { apiHandler } from '@/lib/api-handler'
+import { validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
 import { createProductSchema } from './validation'
+import { transformProduct } from './transform'
 import { generateNextIdsWithTx } from '@/lib/id-system'
+import { logError } from '@/lib/logger'
+import { getSessionUserName } from '@/lib/get-user-name'
 
 // Route segment config - force dynamic since we use auth and query params
 export const dynamic = 'force-dynamic'
 
-// Transform Prisma Product to frontend-compatible format
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function transformProduct(product: any): any {
-  if (!product) return product;
-  
-  const result = { ...product };
-  
-  // ✅ Ensure thumbnailImage is populated (fallback to imageUrl)
-  if (!result.thumbnailImage && product.imageUrl) {
-    result.thumbnailImage = product.imageUrl;
-  }
-  
-  // Convert Decimal fields to numbers
-  if (product.costPrice != null) {
-    result.costPrice = Number(product.costPrice);
-  }
-  if (product.lastPurchasePrice != null) {
-    result.lastPurchasePrice = Number(product.lastPurchasePrice);
-  }
-  if (product.weight != null) {
-    result.weight = Number(product.weight);
-  }
-  if (product.sellingPrice != null) {
-    result.sellingPrice = Number(product.sellingPrice);
-  }
-  if (product.comboDiscount != null) {
-    result.comboDiscount = Number(product.comboDiscount);
-  }
-  
-  // Convert Date fields to ISO string for consistent frontend handling
-  if (product.lastPurchaseDate != null) {
-    result.lastPurchaseDate = product.lastPurchaseDate instanceof Date 
-      ? product.lastPurchaseDate.toISOString() 
-      : product.lastPurchaseDate;
-  }
-  
-  // Transform productInventory array to inventoryByBranch Record
-  // ProductInventory has: productId, branchId (as branchSystemId after include), onHand, committed, inTransit, inDelivery
-  if (Array.isArray(product.productInventory)) {
-    const inventoryByBranch: Record<string, number> = {};
-    const committedByBranch: Record<string, number> = {};
-    const inTransitByBranch: Record<string, number> = {};
-    const inDeliveryByBranch: Record<string, number> = {};
-    let totalInventory = 0;
-    for (const inv of product.productInventory) {
-      const branchId = inv.branchId || inv.branchSystemId;
-      const onHand = Number(inv.onHand || inv.quantity || 0);
-      if (branchId) {
-        inventoryByBranch[branchId] = onHand;
-        committedByBranch[branchId] = Number(inv.committed || 0);
-        inTransitByBranch[branchId] = Number(inv.inTransit || 0);
-        inDeliveryByBranch[branchId] = Number(inv.inDelivery || 0);
-      }
-      totalInventory += onHand;
-    }
-    result.inventoryByBranch = inventoryByBranch;
-    result.committedByBranch = committedByBranch;
-    result.inTransitByBranch = inTransitByBranch;
-    result.inDeliveryByBranch = inDeliveryByBranch;
-    result.totalInventory = totalInventory;
-  }
-  
-  // Transform prices from array to Record<policySystemId, number>
-  const pricesArray = product.prices;
-  if (Array.isArray(pricesArray)) {
-    const pricesRecord: Record<string, number> = {};
-    for (const pp of pricesArray) {
-      if (pp.pricingPolicyId && pp.price != null) {
-        pricesRecord[pp.pricingPolicyId] = Number(pp.price);
-      }
-    }
-    result.prices = pricesRecord;
-  }
-  
-  // Map brandId to brandSystemId (frontend expects brandSystemId)
-  if (product.brandId) {
-    result.brandSystemId = product.brandId;
-  }
-  
-  // Map productCategories to categorySystemId (first one) and categorySystemIds
-  if (Array.isArray(product.productCategories) && product.productCategories.length > 0) {
-    result.categorySystemId = product.productCategories[0].categoryId;
-    result.categorySystemIds = product.productCategories.map((pc: { categoryId: string }) => pc.categoryId);
-  }
-  
-  return result;
-}
-
 // GET /api/products - List all products
-export async function GET(request: Request) {
-  const session = await requireAuth()
-  if (!session) return apiError('Unauthorized', 401)
-
-  try {
+export const GET = apiHandler(async (request) => {
     const { searchParams } = new URL(request.url)
     const { page, limit, skip } = parsePagination(searchParams)
     const search = searchParams.get('search') || ''
     const status = searchParams.get('status')
     const brandId = searchParams.get('brandId')
     const categoryId = searchParams.get('categoryId')
+    const systemIds = searchParams.get('systemIds') // comma-separated systemIds for batch lookup
 
     const where: Prisma.ProductWhereInput = {
       isDeleted: false,
+    }
+
+    // Batch lookup by systemIds (skip other filters when used)
+    // ✅ FIX: Also lookup by id (SKU) to handle legacy data where productSystemId contains SKU
+    if (systemIds) {
+      const ids = systemIds.split(',').filter(Boolean)
+      if (ids.length > 0) {
+        where.OR = [
+          { systemId: { in: ids } },
+          { id: { in: ids } }, // Also match by SKU/business ID
+        ]
+      }
     }
 
     if (search) {
@@ -161,18 +86,28 @@ export async function GET(request: Request) {
     // Transform to frontend-compatible format
     const transformedProducts = products.map(transformProduct);
 
-    return apiPaginated(transformedProducts, { page, limit, total })
-  } catch (error) {
-    console.error('Error fetching products:', error)
-    return apiError('Failed to fetch products', 500)
-  }
-}
+    // Batch resolve employee names for createdBy/updatedBy
+    const employeeIds = [...new Set(
+      products.flatMap(p => [p.createdBy, p.updatedBy]).filter(Boolean) as string[]
+    )]
+    const employees = employeeIds.length > 0
+      ? await prisma.employee.findMany({
+          where: { systemId: { in: employeeIds } },
+          select: { systemId: true, fullName: true },
+        })
+      : []
+    const empMap = new Map(employees.map(e => [e.systemId, e.fullName]))
+    const withNames = transformedProducts.map((p: Record<string, unknown>) => ({
+      ...p,
+      createdByName: empMap.get(p.createdBy as string) || null,
+      updatedByName: empMap.get(p.updatedBy as string) || null,
+    }))
+
+    return apiPaginated(withNames, { page, limit, total })
+})
 
 // POST /api/products - Create new product
-export async function POST(request: Request) {
-  const session = await requireAuth()
-  if (!session) return apiError('Unauthorized', 401)
-
+export const POST = apiHandler(async (request, { session }) => {
   const result = await validateBody(request, createProductSchema)
   if (!result.success) return apiError(result.error, 400)
 
@@ -301,7 +236,7 @@ export async function POST(request: Request) {
       publishedAt: body.publishedAt ? new Date(body.publishedAt) : undefined,
       status: (body.status || 'ACTIVE') as ProductStatus,
       // Set createdBy from body or session employee
-      createdBy: body.createdBy || (session.user as { employeeId?: string })?.employeeId || null,
+      createdBy: body.createdBy || (session!.user as { employeeId?: string })?.employeeId || null,
       pkgxId: body.pkgxId,
       // Tem phụ fields
       nameVat: body.nameVat,
@@ -462,7 +397,7 @@ export async function POST(request: Request) {
       // session.user.id is the user.systemId (not employee!)
       
       // Try multiple sources for employee info
-      const sessionUser = session.user as { 
+      const sessionUser = session!.user as { 
         employeeId?: string; 
         employee?: { systemId?: string; fullName?: string } 
       };
@@ -543,10 +478,24 @@ export async function POST(request: Request) {
       }
     }
 
+    // Fire-and-forget activity log
+    prisma.activityLog.create({
+      data: {
+        entityType: 'product',
+        entityId: product.systemId,
+        action: isUpdate ? 'updated' : 'created',
+        actionType: isUpdate ? 'update' : 'create',
+        metadata: {
+          productId: product.id,
+          productName: product.name,
+          isUpdate,
+        },
+        createdBy: getSessionUserName(session),
+      },
+    }).catch(e => logError('Activity log failed', e))
+
     return apiSuccess(product, isUpdate ? 200 : 201)
   } catch (error) {
-    console.error('Error creating/updating product:', error)
-    
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
       // Race condition: product was created by another request between check and create
       // Try to find and return the existing product instead of failing
@@ -571,11 +520,9 @@ export async function POST(request: Request) {
         return apiSuccess(existingProd, 200);
       }
       
-      return apiError('Product ID or slug already exists', 400)
+      return apiError('Mã sản phẩm hoặc slug đã tồn tại', 400)
     }
 
-    // Return more detailed error message
-    const errorMessage = error instanceof Error ? error.message : 'Failed to create/update product';
-    return apiError(`Failed to create/update product: ${errorMessage}`, 500)
+    throw error
   }
-}
+}, { permission: 'create_products', rateLimit: { max: 500, windowMs: 60_000 } })

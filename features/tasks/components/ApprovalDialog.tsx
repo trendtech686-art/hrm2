@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { OptimizedImage } from '@/components/ui/optimized-image';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -9,6 +10,7 @@ import type { Task } from '../types';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { EvidenceViewer } from './EvidenceViewer';
+import { logError } from '@/lib/logger'
 
 interface ApprovalDialogProps {
   task: Task;
@@ -35,7 +37,7 @@ export function ApprovalDialog({ task, open, onClose, onApprove, onReject }: App
       resetAndClose();
     } catch (err) {
       setError('Có lỗi khi phê duyệt. Vui lòng thử lại.');
-      console.error(err);
+      logError('Error approving task', err);
     } finally {
       setIsSubmitting(false);
     }
@@ -54,7 +56,7 @@ export function ApprovalDialog({ task, open, onClose, onApprove, onReject }: App
       resetAndClose();
     } catch (err) {
       setError('Có lỗi khi từ chối. Vui lòng thử lại.');
-      console.error(err);
+      logError('Error rejecting task', err);
     } finally {
       setIsSubmitting(false);
     }
@@ -87,9 +89,9 @@ export function ApprovalDialog({ task, open, onClose, onApprove, onReject }: App
             <div className="p-4 bg-muted rounded-lg">
               <h4 className="font-semibold mb-2">{task.title}</h4>
               {task.description && (
-                <p className="text-body-sm text-muted-foreground mb-3">{task.description}</p>
+                <p className="text-sm text-muted-foreground mb-3">{task.description}</p>
               )}
-              <div className="flex flex-wrap gap-3 text-body-sm text-muted-foreground">
+              <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
                 <div className="flex items-center gap-1">
                   <User className="h-4 w-4" />
                   <span>Người làm: {evidence.submittedByName}</span>
@@ -122,16 +124,18 @@ export function ApprovalDialog({ task, open, onClose, onApprove, onReject }: App
                 {evidence.images.slice(0, 5).map((imageUrl, index) => (
                   <div
                     key={index}
-                    className="relative aspect-square cursor-pointer"
+                    className="relative aspect-square cursor-pointer overflow-hidden rounded border hover:opacity-80 transition-opacity"
                     onClick={() => setShowEvidenceViewer(true)}
                   >
-                    <img
+                    <OptimizedImage
                       src={imageUrl}
-                      alt={`Evidence ${index + 1}`}
-                      className="w-full h-full object-cover rounded border hover:opacity-80 transition-opacity"
+                      alt={`Bằng chứng ${index + 1}`}
+                      fill
+                      sizes="(max-width: 768px) 33vw, 20vw"
+                      className="object-cover"
                     />
                     {index === 4 && evidence.images.length > 5 && (
-                      <div className="absolute inset-0 bg-black/50 rounded flex items-center justify-center text-white text-body-sm font-medium">
+                      <div className="absolute inset-0 bg-black/50 rounded flex items-center justify-center text-white text-sm font-medium">
                         +{evidence.images.length - 5}
                       </div>
                     )}
@@ -141,8 +145,8 @@ export function ApprovalDialog({ task, open, onClose, onApprove, onReject }: App
 
               {/* Note */}
               <div className="p-3 bg-muted/50 rounded border">
-                <p className="text-body-sm font-medium mb-1">Mô tả:</p>
-                <p className="text-body-sm whitespace-pre-wrap">{evidence.note}</p>
+                <p className="text-sm font-medium mb-1">Mô tả:</p>
+                <p className="text-sm whitespace-pre-wrap">{evidence.note}</p>
               </div>
             </div>
 
@@ -154,7 +158,7 @@ export function ApprovalDialog({ task, open, onClose, onApprove, onReject }: App
                   {task.approvalHistory.map((history) => (
                     <div
                       key={history.id}
-                      className="p-3 border rounded-lg text-body-sm"
+                      className="p-3 border rounded-lg text-sm"
                     >
                       <div className="flex items-center justify-between mb-1">
                         <span className="font-medium">{history.reviewedByName}</span>
@@ -209,7 +213,7 @@ export function ApprovalDialog({ task, open, onClose, onApprove, onReject }: App
               <div className="space-y-3 p-4 border-2 border-red-200 rounded-lg bg-red-50">
                 <Label htmlFor="rejection-reason">
                   Lý do yêu cầu làm lại <span className="text-red-500">*</span>
-                  <span className="text-body-xs text-muted-foreground ml-2">
+                  <span className="text-xs text-muted-foreground ml-2">
                     (Tối thiểu 10 ký tự)
                   </span>
                 </Label>
@@ -221,7 +225,7 @@ export function ApprovalDialog({ task, open, onClose, onApprove, onReject }: App
                   rows={4}
                   disabled={isSubmitting}
                 />
-                <div className="text-body-xs text-muted-foreground">
+                <div className="text-xs text-muted-foreground">
                   {rejectionReason.length < 10 
                     ? `Còn ${10 - rejectionReason.length} ký tự nữa`
                     : `✓ ${rejectionReason.length} ký tự`}

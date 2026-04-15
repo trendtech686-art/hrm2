@@ -1068,7 +1068,7 @@ async function seedJobTitles() {
     
     await prisma.jobTitle.create({
       data: {
-        systemId: `job_${title.id.toLowerCase()}_${crypto.randomUUID().slice(0, 8)}`,
+        systemId: crypto.randomUUID(),
         id: title.id,
         name: title.name,
         description: title.description,
@@ -1095,7 +1095,7 @@ async function seedDepartments() {
     
     await prisma.department.create({
       data: {
-        systemId: `dept_${dept.id.toLowerCase()}_${crypto.randomUUID().slice(0, 8)}`,
+        systemId: crypto.randomUUID(),
         id: dept.id,
         name: dept.name,
         description: dept.description,
@@ -1122,7 +1122,7 @@ async function seedEmployeeTypes() {
     
     await prisma.employeeTypeSetting.create({
       data: {
-        systemId: `emptype_${type.id.toLowerCase()}_${crypto.randomUUID().slice(0, 8)}`,
+        systemId: crypto.randomUUID(),
         id: type.id,
         name: type.name,
         description: type.description,
@@ -1152,7 +1152,7 @@ async function seedPenaltyTypes() {
     
     await prisma.penaltyTypeSetting.create({
       data: {
-        systemId: `penalty_${penalty.id.toLowerCase()}_${crypto.randomUUID().slice(0, 8)}`,
+        systemId: crypto.randomUUID(),
         id: penalty.id,
         name: penalty.name,
         description: penalty.description,
@@ -1238,9 +1238,14 @@ async function seedInsuranceTaxSettings() {
   let created = 0;
   let skipped = 0;
   
+  // These are reference data, not salary components. Prefix type with 'ref_'
+  const REFERENCE_TYPES = ['insurance_rate', 'tax_deduction', 'tax_bracket'];
+  
   for (const setting of insuranceTaxSettings) {
-    const existing = await prisma.settingsData.findUnique({ 
-      where: { id_type: { id: setting.id, type: setting.type } } 
+    const storedType = REFERENCE_TYPES.includes(setting.type) ? `ref_${setting.type}` : setting.type;
+    
+    const existing = await prisma.settingsData.findFirst({ 
+      where: { id: setting.id } 
     });
     if (existing) {
       skipped++;
@@ -1252,7 +1257,7 @@ async function seedInsuranceTaxSettings() {
         id: setting.id,
         name: setting.name,
         description: setting.description,
-        type: setting.type,
+        type: storedType,
         metadata: setting.metadata,
         isDefault: setting.isDefault || false,
         isActive: true,
@@ -1270,9 +1275,16 @@ async function seedSalaryBenefitSettings() {
   let created = 0;
   let skipped = 0;
   
+  // These are reference data (min wage, base salary, insurance rates, tax brackets, holidays)
+  // NOT salary components for payroll templates. Prefix type with 'ref_' to avoid
+  // them appearing in salary components API which filters by type.
+  const REFERENCE_TYPES = ['minimum_wage', 'base_salary', 'allowance', 'insurance_rate', 'tax_deduction', 'tax_bracket', 'holiday'];
+  
   for (const setting of salaryBenefitSettings) {
-    const existing = await prisma.settingsData.findUnique({ 
-      where: { id_type: { id: setting.id, type: setting.type } } 
+    const storedType = REFERENCE_TYPES.includes(setting.type) ? `ref_${setting.type}` : setting.type;
+    
+    const existing = await prisma.settingsData.findFirst({ 
+      where: { id: setting.id } 
     });
     if (existing) {
       skipped++;
@@ -1284,7 +1296,7 @@ async function seedSalaryBenefitSettings() {
         id: setting.id,
         name: setting.name,
         description: setting.description,
-        type: setting.type,
+        type: storedType,
         metadata: setting.metadata,
         isDefault: setting.isDefault || false,
         isActive: true,
@@ -1312,21 +1324,43 @@ async function seedSalaryTemplates() {
     return;
   }
   
+  // Lookup actual salary component systemIds from DB
+  // Components are stored in SettingsData with types: earning, deduction, contribution
+  const dbComponents = await prisma.settingsData.findMany({
+    where: { type: { in: ['earning', 'deduction', 'contribution', 'salary_component'] }, isDeleted: false },
+    select: { systemId: true, name: true },
+  });
+  
+  // Build name → systemId map for lookup
+  const nameToSystemId = new Map(dbComponents.map(c => [c.name, c.systemId]));
+  
   // Transform salaryTemplates to PayrollTemplate format
-  const templates = salaryTemplates.map((t, index) => ({
-    systemId: `PAYTPL${String(index + 1).padStart(6, '0')}`,
-    id: t.id,
-    name: t.name,
-    description: t.description,
-    componentSystemIds: (t.metadata?.components || []).map((c: { id: string }) => c.id),
-    isDefault: t.isDefault || false,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  }));
+  const templates = salaryTemplates.map((t, index) => {
+    const components = t.metadata?.components || [];
+    const componentSystemIds = components
+      .map((c: { id: string; name: string }) => nameToSystemId.get(c.name))
+      .filter((id: string | undefined): id is string => !!id);
+    
+    if (componentSystemIds.length < components.length) {
+      const missing = components.filter((c: { name: string }) => !nameToSystemId.has(c.name));
+      console.log(`   ⚠️  ${t.id}: ${missing.length} components not found in DB: ${missing.map((c: { name: string }) => c.name).join(', ')}`);
+    }
+    
+    return {
+      systemId: crypto.randomUUID(),
+      id: t.id,
+      name: t.name,
+      description: t.description,
+      componentSystemIds,
+      isDefault: t.isDefault || false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+  });
   
   await prisma.setting.create({
     data: {
-      systemId: `SET_PAYTPL_${crypto.randomUUID().slice(0, 8).toUpperCase()}`,
+      systemId: crypto.randomUUID(),
       key: SETTING_KEY,
       group: SETTING_GROUP,
       type: 'json',

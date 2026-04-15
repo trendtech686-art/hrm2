@@ -21,6 +21,17 @@ export async function register() {
 
   // Only run on server
   if (process.env.NEXT_RUNTIME === 'nodejs') {
+    // Validate environment variables — fail fast if misconfigured
+    try {
+      const { validateEnv } = await import('@/lib/env')
+      validateEnv()
+      // eslint-disable-next-line no-console
+      console.log('[Instrumentation] ✅ Environment variables validated')
+    } catch (error) {
+      console.error('[Instrumentation] ❌ Environment validation failed:', error)
+      // Don't throw — let the server start but log the error prominently
+    }
+
     // eslint-disable-next-line no-console
     console.log('[Instrumentation] 🚀 Server starting...')
     

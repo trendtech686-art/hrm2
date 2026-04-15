@@ -9,13 +9,14 @@
 
 import { prisma } from '@/lib/prisma'
 import { revalidatePath } from '@/lib/revalidation'
-import { auth } from '@/auth'
+import { requireActionPermission, serializeDecimals } from '@/lib/api-utils'
 import type { ActionResult } from '@/types/action-result'
 import { updateSalesReturnSchema } from '@/features/sales-returns/validation'
+import { logError } from '@/lib/logger'
+import { getSessionUserName } from '@/lib/get-user-name'
 
 // Types from Prisma (auto-inferred)
 type SalesReturn = NonNullable<Awaited<ReturnType<typeof prisma.salesReturn.findFirst>>>
-type SalesReturnItem = NonNullable<Awaited<ReturnType<typeof prisma.salesReturnItem.findFirst>>>
 
 // ====================================
 // TYPES
@@ -35,45 +36,14 @@ export type UpdateSalesReturnInput = {
 // ====================================
 
 /**
- * Get a sales return by systemId
- */
-export async function getSalesReturnAction(
-  systemId: string
-): Promise<ActionResult<SalesReturn & { items: SalesReturnItem[] }>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
-  try {
-    const salesReturn = await prisma.salesReturn.findUnique({
-      where: { systemId },
-      include: { items: true },
-    })
-
-    if (!salesReturn) {
-      return { success: false, error: 'Không tìm thấy phiếu trả hàng bán' }
-    }
-
-    return { success: true, data: salesReturn }
-  } catch (error) {
-    console.error('Error getting sales return:', error)
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Không thể tải phiếu trả hàng bán',
-    }
-  }
-}
-
-/**
  * Update a sales return (basic fields only)
  */
 export async function updateSalesReturnAction(
   input: UpdateSalesReturnInput
 ): Promise<ActionResult<SalesReturn>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('edit_sales_returns')
+  if (!authResult.success) return authResult
+  const { session } = authResult
 
   const validated = updateSalesReturnSchema.safeParse(input)
   if (!validated.success) {
@@ -105,9 +75,22 @@ export async function updateSalesReturnAction(
 
     revalidatePath('/sales-returns')
     revalidatePath(`/sales-returns/${systemId}`)
-    return { success: true, data: salesReturn }
+
+    const logUserName = getSessionUserName(session)
+    prisma.activityLog.create({
+      data: {
+        entityType: 'sales_return',
+        entityId: systemId,
+        action: `Cập nhật phiếu trả hàng: ${systemId}`,
+        actionType: 'update',
+        metadata: { userName: logUserName },
+        createdBy: logUserName,
+      }
+    }).catch(e => logError('[ActivityLog] sales-return update failed', e))
+
+    return { success: true, data: serializeDecimals(salesReturn) }
   } catch (error) {
-    console.error('Error updating sales return:', error)
+    logError('Error updating sales return', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Không thể cập nhật phiếu trả hàng bán',
@@ -121,10 +104,9 @@ export async function updateSalesReturnAction(
 export async function deleteSalesReturnAction(
   systemId: string
 ): Promise<ActionResult<SalesReturn>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('delete_sales_returns')
+  if (!authResult.success) return authResult
+  const { session } = authResult
   try {
     const existing = await prisma.salesReturn.findUnique({
       where: { systemId },
@@ -138,7 +120,7 @@ export async function deleteSalesReturnAction(
     if (existing.status !== 'PENDING') {
       return {
         success: false,
-        error: 'Only PENDING sales returns can be deleted',
+        error: 'Chỉ có thể xóa phiếu trả hàng ở trạng thái chờ xử lý',
       }
     }
 
@@ -153,9 +135,22 @@ export async function deleteSalesReturnAction(
     })
 
     revalidatePath('/sales-returns')
-    return { success: true, data: salesReturn }
+
+    const logUserName = getSessionUserName(session)
+    prisma.activityLog.create({
+      data: {
+        entityType: 'sales_return',
+        entityId: systemId,
+        action: `Xóa phiếu trả hàng: ${systemId}`,
+        actionType: 'delete',
+        metadata: { userName: logUserName },
+        createdBy: logUserName,
+      }
+    }).catch(e => logError('[ActivityLog] sales-return delete failed', e))
+
+    return { success: true, data: serializeDecimals(salesReturn) }
   } catch (error) {
-    console.error('Error deleting sales return:', error)
+    logError('Error deleting sales return', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Không thể xóa phiếu trả hàng bán',

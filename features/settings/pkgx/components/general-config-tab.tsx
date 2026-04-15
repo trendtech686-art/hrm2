@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import { usePkgxSettings, usePkgxConfigMutations, usePkgxSyncSettingsMutations, usePkgxLogMutations } from '../hooks/use-pkgx-settings';
 import { useAllBranches } from '../../branches/hooks/use-all-branches';
 import { PKGX_API_CONFIG } from '../constants';
+import { logError } from '@/lib/logger'
 
 export function GeneralConfigTab() {
   const { data: settings } = usePkgxSettings();
@@ -32,7 +33,10 @@ export function GeneralConfigTab() {
   }, [settings]);
   
   const handleSaveConfig = () => {
-    setApiUrl.mutate(localApiUrl);
+    setApiUrl.mutate(localApiUrl, {
+      onSuccess: () => toast.success('Đã lưu cấu hình API'),
+      onError: () => toast.error('Lỗi khi lưu cấu hình'),
+    });
     setApiKey.mutate(localApiKey);
     addLog.mutate({
       action: 'save_config',
@@ -40,7 +44,6 @@ export function GeneralConfigTab() {
       message: 'Đã lưu cấu hình API',
       details: { url: localApiUrl },
     });
-    toast.success('Đã lưu cấu hình API');
   };
   
   const handleTestConnection = async () => {
@@ -55,7 +58,7 @@ export function GeneralConfigTab() {
     try {
       // Step 1: Ping server (không cần API key) để kiểm tra server hoạt động
       const pingUrl = `${localApiUrl}?action=ping`;
-      const pingResponse = await fetch(pingUrl, {
+      const pingResponse = await fetch(`/api/pkgx/proxy?url=${encodeURIComponent(pingUrl)}`, {
         method: 'GET',
       });
       
@@ -95,7 +98,7 @@ export function GeneralConfigTab() {
       // Step 2: Test với API key
       const testUrl = `${localApiUrl}?action=test`;
       const testStartTime = Date.now();
-      const response = await fetch(testUrl, {
+      const response = await fetch(`/api/pkgx/proxy?url=${encodeURIComponent(testUrl)}`, {
         method: 'GET',
         headers: {
           'X-API-KEY': localApiKey,
@@ -112,7 +115,7 @@ export function GeneralConfigTab() {
       } catch (_parseError) {
         // PHP trả về HTML error thay vì JSON
         const errorPreview = responseText.substring(0, 200);
-        console.error('Invalid JSON response:', errorPreview);
+        logError('Invalid JSON response', errorPreview);
         throw new Error(`Server trả về lỗi PHP. Kiểm tra file API trên server.`);
       }
       

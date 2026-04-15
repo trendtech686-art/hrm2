@@ -4,7 +4,7 @@
  */
 
 import * as React from 'react';
-import { loadShippingConfig } from '@/lib/utils/shipping-config-migration';
+import { loadShippingConfig, loadShippingConfigAsync } from '@/lib/utils/shipping-config-migration';
 import type { GlobalShippingConfig, DeliveryRequirement } from '@/lib/types/shipping-config';
 
 /**
@@ -69,10 +69,18 @@ export function useGlobalShippingConfig() {
     return config.global;
   });
 
+  // ✅ Load from DB on mount to get fresh settings (including productSendMode)
+  React.useEffect(() => {
+    loadShippingConfigAsync().then(config => {
+      setGlobalConfig(config.global);
+    });
+  }, []);
+
   // Reload config when needed
   const reload = React.useCallback(() => {
-    const config = loadShippingConfig();
-    setGlobalConfig(config.global);
+    loadShippingConfigAsync(true).then(config => {
+      setGlobalConfig(config.global);
+    });
   }, []);
 
   // Get default shipping options based on global config

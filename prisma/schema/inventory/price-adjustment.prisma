@@ -3,8 +3,8 @@ model PriceAdjustment {
   id                  String                @unique
   branchId            String
   employeeId          String?
-  pricingPolicyId     String                // Bảng giá được điều chỉnh
-  pricingPolicyName   String?               // Tên bảng giá
+  pricingPolicyId     String // Bảng giá được điều chỉnh
+  pricingPolicyName   String? // Tên bảng giá
   adjustmentDate      DateTime              @default(now())
   status              PriceAdjustmentStatus @default(DRAFT)
   type                String                @default("manual") // 'manual' | 'import' | 'batch'

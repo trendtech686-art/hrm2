@@ -12,20 +12,30 @@ import { productTypeKeys } from './use-product-types';
 import type { ProductTypeSettings } from '@/lib/types/prisma-extended';
 import type { SystemId } from '@/lib/id-types';
 
+const EMPTY_TYPES: ProductTypeSettings[] = [];
+
+interface UseAllProductTypesOptions {
+  enabled?: boolean;
+}
+
 /**
  * Returns all product types as a flat array
  * Auto-pagination: no hardcoded limit cap (MODULE-QUALITY-CRITERIA §1.3)
  */
-export function useAllProductTypes() {
+export function useAllProductTypes(options: UseAllProductTypesOptions = {}) {
+  const { enabled = true } = options;
   const query = useQuery({
     queryKey: [...productTypeKeys.all, 'all'],
     queryFn: () => fetchAllPages((p) => fetchProductTypes(p)),
     staleTime: 10 * 60 * 1000,
     gcTime: 60 * 60 * 1000,
+    enabled,
   });
   
+  const data = React.useMemo(() => (query.data ?? EMPTY_TYPES) as ProductTypeSettings[], [query.data]);
+  
   return {
-    data: (query.data || []) as ProductTypeSettings[],
+    data,
     isLoading: query.isLoading,
     isError: query.isError,
     error: query.error,
@@ -36,8 +46,8 @@ export function useAllProductTypes() {
  * Returns only active product types
  * Replaces legacy getActive() method
  */
-export function useActiveProductTypes() {
-  const { data, isLoading, isError, error } = useAllProductTypes();
+export function useActiveProductTypes(options: UseAllProductTypesOptions = {}) {
+  const { data, isLoading, isError, error } = useAllProductTypes(options);
   
   const activeTypes = React.useMemo(
     () => data.filter(pt => !pt.isDeleted && pt.isActive !== false),
@@ -75,15 +85,11 @@ export function useDefaultProductType() {
 }
 
 /**
- * Helper hook to find a product type by ID from cached data
- * Replaces legacy findById() method
- * 
- * Usage:
- *   const { findById } = useProductTypeFinder();
- *   const productType = findById(someSystemId);
+ * Helper hook to find a product type by ID from cached data.
+ * Cache-only: subscribes to the query cache but NEVER triggers a fetch.
  */
 export function useProductTypeFinder() {
-  const { data } = useAllProductTypes();
+  const { data } = useAllProductTypes({ enabled: false });
   
   const findById = React.useCallback(
     (systemId: SystemId | string | undefined): ProductTypeSettings | undefined => {

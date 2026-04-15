@@ -24,6 +24,7 @@ import {
   type CancelReceiptInput,
   type ReceiptCategory,
 } from '@/app/actions/receipts';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import type { Receipt } from '@/lib/types/prisma-extended';
 
 // Re-export for backwards compatibility
@@ -60,6 +61,10 @@ function toCreateReceiptInput(data: CreateReceiptInput | Partial<Receipt>): Crea
     linkedSalesReturnSystemId: d.linkedSalesReturnSystemId as string | undefined,
     linkedWarrantySystemId: d.linkedWarrantySystemId as string | undefined,
     linkedComplaintSystemId: d.linkedComplaintSystemId as string | undefined,
+    paymentReceiptTypeSystemId: d.paymentReceiptTypeSystemId as string | undefined,
+    paymentReceiptTypeName: d.paymentReceiptTypeName as string | undefined,
+    affectsDebt: d.affectsDebt as boolean | undefined,
+    orderAllocations: d.orderAllocations as CreateReceiptInput['orderAllocations'],
   };
 }
 
@@ -153,6 +158,8 @@ export function useReceipt(id: string | null | undefined, initialData?: Receipt)
     enabled: !!id,
     staleTime: initialData ? 60_000 : 30_000,
     gcTime: 10 * 60 * 1000,
+    // ✅ Always refetch on mount to ensure fresh data
+    refetchOnMount: 'always',
   });
 }
 
@@ -178,8 +185,7 @@ export function useReceiptMutations(options: UseReceiptMutationsOptions = {}) {
       return result.data as Receipt;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: receiptKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: receiptKeys.stats() });
+      invalidateRelated(queryClient, 'receipts');
       options.onCreateSuccess?.(data);
     },
     onError: options.onError,
@@ -195,11 +201,8 @@ export function useReceiptMutations(options: UseReceiptMutationsOptions = {}) {
       }
       return result.data as Receipt;
     },
-    onSuccess: (data, variables) => {
-      const systemId = 'data' in variables ? variables.systemId : variables.systemId;
-      queryClient.invalidateQueries({ queryKey: receiptKeys.detail(systemId) });
-      queryClient.invalidateQueries({ queryKey: receiptKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: receiptKeys.stats() });
+    onSuccess: (data) => {
+      invalidateRelated(queryClient, 'receipts');
       options.onUpdateSuccess?.(data);
     },
     onError: options.onError,
@@ -214,7 +217,7 @@ export function useReceiptMutations(options: UseReceiptMutationsOptions = {}) {
       return result.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: receiptKeys.all });
+      invalidateRelated(queryClient, 'receipts');
       options.onDeleteSuccess?.();
     },
     onError: options.onError,
@@ -228,10 +231,8 @@ export function useReceiptMutations(options: UseReceiptMutationsOptions = {}) {
       }
       return result.data as Receipt;
     },
-    onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: receiptKeys.detail(variables.systemId) });
-      queryClient.invalidateQueries({ queryKey: receiptKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: receiptKeys.stats() });
+    onSuccess: (data) => {
+      invalidateRelated(queryClient, 'receipts');
       options.onCancelSuccess?.(data);
     },
     onError: options.onError,

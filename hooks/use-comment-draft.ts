@@ -13,6 +13,8 @@ export function useCommentDraft(entityType: string, entityId: string, enabled: b
   const [isLoading, setIsLoading] = useState(true);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isMountedRef = useRef(true);
+  // ✅ Prevent strict mode double-fire (load runs once, skip second mount)
+  const hasLoadedRef = useRef(false);
   
   const draftKey = `comment-draft-${entityType}-${entityId}`;
   
@@ -24,6 +26,13 @@ export function useCommentDraft(entityType: string, entityId: string, enabled: b
       setIsLoading(false);
       return;
     }
+
+    // Skip if already loaded (strict mode re-mount)
+    if (hasLoadedRef.current) {
+      setIsLoading(false);
+      return;
+    }
+    hasLoadedRef.current = true;
     
     const loadDraft = async () => {
       try {

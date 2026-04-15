@@ -64,8 +64,8 @@ export function PurchaseReturnWorkflowCard({
         </CardHeader>
         <CardContent>
           <div className="text-center py-4 text-muted-foreground">
-            <p className="text-body-sm">Chưa cấu hình quy trình</p>
-            <p className="text-body-xs mt-1">
+            <p className="text-sm">Chưa cấu hình quy trình</p>
+            <p className="text-xs mt-1">
               Vào <Link href="/settings/workflow-templates" className="text-primary hover:underline">Cài đặt → Quy trình</Link> để thiết lập
             </p>
           </div>

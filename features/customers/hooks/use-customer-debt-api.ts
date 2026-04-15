@@ -1,10 +1,83 @@
 /**
- * Hook for fetching customer debt from server-side API
- * Uses the optimized /api/customer-debt endpoint
+ * Server-side customer debt computation hooks
+ * 
+ * Replaces client-side useCustomersWithComputedDebt() which loaded ALL orders + ALL receipts + ALL payments.
+ * Uses /api/customers/debt endpoint for full debt with debtTransactions.
+ * Uses /api/customer-debt endpoint for simple currentDebt numbers.
+ * 
+ * ⚡ PERFORMANCE: Single API call instead of 3 separate useAll* hooks
  */
 
+import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
+import type { Customer, DebtTransaction } from '@/lib/types/prisma-extended'
 import type { SystemId } from '@/lib/id-types'
+
+// ============================================
+// NEW: Full debt computation API (/api/customers/debt)
+// Returns currentDebt + debtTransactions per customer
+// ============================================
+
+export type ComputedDebtInfo = {
+  currentDebt: number
+  debtTransactions: DebtTransaction[]
+}
+
+type DebtApiResponse = {
+  success: boolean
+  data: Record<string, ComputedDebtInfo>
+}
+
+async function fetchAllCustomersDebtFull(): Promise<Record<string, ComputedDebtInfo>> {
+  const res = await fetch('/api/customers/debt')
+  if (!res.ok) throw new Error('Failed to fetch customer debt')
+  const json: DebtApiResponse = await res.json()
+  return json.data ?? {}
+}
+
+/**
+ * Hook to fetch all customers' debt computed server-side (full: currentDebt + debtTransactions)
+ */
+export function useAllCustomersDebtFull() {
+  return useQuery({
+    queryKey: ['customers', 'debt', 'full'],
+    queryFn: fetchAllCustomersDebtFull,
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    gcTime: 5 * 60 * 1000,
+  })
+}
+
+/**
+ * Hook that enriches customers array with server-computed debt (currentDebt + debtTransactions)
+ * Drop-in replacement for useCustomersWithComputedDebt()
+ */
+export function useCustomersWithServerDebt(customers: Customer[]): {
+  data: Customer[]
+  isLoading: boolean
+} {
+  const { data: debtMap, isLoading } = useAllCustomersDebtFull()
+
+  const enrichedCustomers = React.useMemo(() => 
+    customers.map(customer => {
+      const debtInfo = debtMap?.[customer.systemId]
+      if (debtInfo) {
+        return {
+          ...customer,
+          currentDebt: debtInfo.currentDebt,
+          debtTransactions: debtInfo.debtTransactions,
+        }
+      }
+      return customer
+    }),
+    [customers, debtMap]
+  )
+
+  return { data: enrichedCustomers, isLoading }
+}
+
+// ============================================
+// LEGACY: Simple debt number API (/api/customer-debt)
+// ============================================
 
 export type CustomerDebtInfo = {
   systemId: string
@@ -29,9 +102,6 @@ export type SingleCustomerDebtResponse = {
   debt: number
 }
 
-/**
- * Fetch customer debt from API
- */
 async function fetchCustomerDebt(params: {
   customerSystemId?: string
   page?: number
@@ -62,7 +132,7 @@ export function useCustomerDebt(customerSystemId: SystemId | null | undefined) {
       return response.debt
     },
     enabled: !!customerSystemId,
-    staleTime: 30 * 1000, // 30 seconds
+    staleTime: 30 * 1000,
   })
 }
 
@@ -78,6 +148,6 @@ export function useAllCustomersDebt(options: { page?: number; limit?: number } =
       const response = await fetchCustomerDebt({ page, limit }) as CustomerDebtResponse
       return response
     },
-    staleTime: 30 * 1000, // 30 seconds
+    staleTime: 30 * 1000,
   })
 }

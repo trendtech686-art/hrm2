@@ -7,13 +7,12 @@
 import * as React from 'react';
 import { format, parseISO, startOfWeek, startOfQuarter, startOfYear, eachDayOfInterval, eachWeekOfInterval, eachMonthOfInterval, isWithinInterval } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { useAllOrders } from '@/features/orders/hooks/use-all-orders';
 import { useProductFinder } from '@/features/products/hooks/use-all-products';
 import { useAllEmployees } from '@/features/employees/hooks/use-all-employees';
 import { useAllBranches } from '@/features/settings/branches/hooks/use-all-branches';
 import { useAllCustomers } from '@/features/customers/hooks/use-all-customers';
-import { useAllSalesReturns } from '@/features/sales-returns/hooks/use-all-sales-returns';
 import { useBrandFinder } from '@/features/brands/hooks/use-all-brands';
+import { useCompletedOrdersByDateRange, useSalesReturnsByDateRange } from './use-report-data';
 import type { 
   ReportDateRange, 
   TimeGrouping,
@@ -22,6 +21,9 @@ import type {
   SalesProductReportRow,
   SalesBranchReportRow,
   SalesCustomerReportRow,
+  SalesSourceReportRow,
+  SalesCustomerGroupReportRow,
+  SalesTaxReportRow,
   SalesReportSummary,
 } from '../types';
 import type { SystemId } from '@/lib/id-types';
@@ -115,9 +117,9 @@ export function useSalesTimeReport(
     sourceIds?: string[];
   }
 ) {
-  const { data: orders } = useAllOrders();
+  const { data: orders = [] } = useCompletedOrdersByDateRange(dateRange);
   const { findById: findProductById } = useProductFinder();
-  const { data: returns } = useAllSalesReturns();
+  const { data: returns = [] } = useSalesReturnsByDateRange(dateRange);
   
   return React.useMemo(() => {
     const start = parseISO(dateRange.from);
@@ -241,10 +243,9 @@ export function useSalesEmployeeReport(
     branchIds?: SystemId[];
   }
 ) {
-  const { data: orders } = useAllOrders();
+  const { data: orders = [] } = useCompletedOrdersByDateRange(dateRange);
   const { data: employees } = useAllEmployees();
   const { findById: findProductById } = useProductFinder();
-  const { data: _returns } = useAllSalesReturns();
   
   return React.useMemo(() => {
     const start = parseISO(dateRange.from);
@@ -316,7 +317,7 @@ export function useSalesProductReport(
     categoryIds?: SystemId[];
   }
 ) {
-  const { data: orders } = useAllOrders();
+  const { data: orders = [] } = useCompletedOrdersByDateRange(dateRange);
   const { findById: findProductById } = useProductFinder();
   const { findById: findBrandById } = useBrandFinder();
   
@@ -355,6 +356,7 @@ export function useSalesProductReport(
             sku: product?.id,
             categoryName: product?.categories?.[0],
             brandName: product?.brandSystemId ? findBrandById(product.brandSystemId)?.name : undefined,
+            thumbnailImage: product?.thumbnailImage,
             quantitySold: 0,
             quantityReturned: 0,
             netQuantity: 0,
@@ -401,7 +403,7 @@ export function useSalesProductReport(
 
 // Hook: Báo cáo bán hàng theo chi nhánh
 export function useSalesBranchReport(dateRange: ReportDateRange) {
-  const { data: orders } = useAllOrders();
+  const { data: orders = [] } = useCompletedOrdersByDateRange(dateRange);
   const { data: branches } = useAllBranches();
   const { findById: findProductById } = useProductFinder();
   
@@ -488,7 +490,7 @@ export function useSalesCustomerReport(
     customerGroupIds?: string[];
   }
 ) {
-  const { data: orders } = useAllOrders();
+  const { data: orders = [] } = useCompletedOrdersByDateRange(dateRange);
   const { data: customers = [] } = useAllCustomers();
   const { findById: findProductById } = useProductFinder();
   
@@ -569,10 +571,264 @@ export function useSalesCustomerReport(
   }, [orders, customers, dateRange, filters, findProductById]);
 }
 
+// Hook: Báo cáo bán hàng theo nguồn
+export function useSalesSourceReport(
+  dateRange: ReportDateRange,
+  filters?: {
+    branchIds?: SystemId[];
+  }
+) {
+  const { data: orders = [] } = useCompletedOrdersByDateRange(dateRange);
+  const { findById: findProductById } = useProductFinder();
+
+  return React.useMemo(() => {
+    const start = parseISO(dateRange.from);
+    const end = parseISO(dateRange.to);
+
+    const filteredOrders = orders.filter(order => {
+      if (order.status !== 'Hoàn thành') return false;
+      const orderDate = order.orderDate ? parseISO(order.orderDate) : null;
+      if (!orderDate || !isWithinInterval(orderDate, { start, end })) return false;
+      if (filters?.branchIds?.length && !filters.branchIds.includes(order.branchSystemId as SystemId)) return false;
+      return true;
+    });
+
+    const sourceMap = new Map<string, SalesSourceReportRow>();
+    const customersBySource = new Map<string, Set<string>>();
+
+    filteredOrders.forEach(order => {
+      const sourceId = order.source || 'direct';
+      const sourceName = order.source || 'Trực tiếp';
+
+      if (!sourceMap.has(sourceId)) {
+        sourceMap.set(sourceId, {
+          sourceId,
+          sourceName,
+          orderCount: 0,
+          customerCount: 0,
+          productAmount: 0,
+          revenue: 0,
+          grossProfit: 0,
+        });
+        customersBySource.set(sourceId, new Set());
+      }
+
+      const row = sourceMap.get(sourceId)!;
+      const customers = customersBySource.get(sourceId)!;
+
+      const costOfGoods = order.lineItems.reduce((sum, item) => {
+        const product = findProductById(item.productSystemId);
+        return sum + ((product?.costPrice || 0) * item.quantity);
+      }, 0);
+
+      row.orderCount += 1;
+      row.productAmount += order.subtotal || 0;
+      row.grossProfit += (order.subtotal || 0) - costOfGoods;
+
+      if (order.customerSystemId) {
+        customers.add(order.customerSystemId);
+      }
+    });
+
+    sourceMap.forEach((row, sourceId) => {
+      row.customerCount = customersBySource.get(sourceId)?.size || 0;
+      row.revenue = row.productAmount;
+    });
+
+    const data = Array.from(sourceMap.values()).sort((a, b) => b.revenue - a.revenue);
+
+    const summary: SalesReportSummary = {
+      orderCount: data.reduce((sum, r) => sum + r.orderCount, 0),
+      productAmount: data.reduce((sum, r) => sum + r.productAmount, 0),
+      returnAmount: 0,
+      taxAmount: 0,
+      shippingFee: 0,
+      revenue: data.reduce((sum, r) => sum + r.revenue, 0),
+      grossProfit: data.reduce((sum, r) => sum + r.grossProfit, 0),
+    };
+
+    return { data, summary };
+  }, [orders, dateRange, filters, findProductById]);
+}
+
+// Hook: Báo cáo bán hàng theo nhóm khách hàng
+export function useSalesCustomerGroupReport(
+  dateRange: ReportDateRange,
+  filters?: {
+    branchIds?: SystemId[];
+  }
+) {
+  const { data: orders = [] } = useCompletedOrdersByDateRange(dateRange);
+  const { data: customers = [] } = useAllCustomers();
+  const { findById: findProductById } = useProductFinder();
+
+  return React.useMemo(() => {
+    const start = parseISO(dateRange.from);
+    const end = parseISO(dateRange.to);
+
+    const filteredOrders = orders.filter(order => {
+      if (order.status !== 'Hoàn thành') return false;
+      const orderDate = order.orderDate ? parseISO(order.orderDate) : null;
+      if (!orderDate || !isWithinInterval(orderDate, { start, end })) return false;
+      if (filters?.branchIds?.length && !filters.branchIds.includes(order.branchSystemId as SystemId)) return false;
+      return true;
+    });
+
+    const groupMap = new Map<string, SalesCustomerGroupReportRow>();
+    const customersByGroup = new Map<string, Set<string>>();
+
+    filteredOrders.forEach(order => {
+      const customer = customers.find(c => c.systemId === order.customerSystemId);
+      const groupId = customer?.customerGroup || 'unknown';
+      const groupName = customer?.customerGroup || 'Không phân nhóm';
+
+      if (!groupMap.has(groupId)) {
+        groupMap.set(groupId, {
+          groupId,
+          groupName,
+          customerCount: 0,
+          orderCount: 0,
+          productAmount: 0,
+          returnAmount: 0,
+          revenue: 0,
+          grossProfit: 0,
+          averageOrderValue: 0,
+        });
+        customersByGroup.set(groupId, new Set());
+      }
+
+      const row = groupMap.get(groupId)!;
+      const custSet = customersByGroup.get(groupId)!;
+
+      const costOfGoods = order.lineItems.reduce((sum, item) => {
+        const product = findProductById(item.productSystemId);
+        return sum + ((product?.costPrice || 0) * item.quantity);
+      }, 0);
+
+      row.orderCount += 1;
+      row.productAmount += order.subtotal || 0;
+      row.grossProfit += (order.subtotal || 0) - costOfGoods;
+
+      if (order.customerSystemId) {
+        custSet.add(order.customerSystemId);
+      }
+    });
+
+    groupMap.forEach((row, groupId) => {
+      row.customerCount = customersByGroup.get(groupId)?.size || 0;
+      row.revenue = row.productAmount - row.returnAmount;
+      row.averageOrderValue = row.orderCount > 0 ? row.revenue / row.orderCount : 0;
+    });
+
+    const data = Array.from(groupMap.values()).sort((a, b) => b.revenue - a.revenue);
+
+    const summary: SalesReportSummary = {
+      orderCount: data.reduce((sum, r) => sum + r.orderCount, 0),
+      productAmount: data.reduce((sum, r) => sum + r.productAmount, 0),
+      returnAmount: data.reduce((sum, r) => sum + r.returnAmount, 0),
+      taxAmount: 0,
+      shippingFee: 0,
+      revenue: data.reduce((sum, r) => sum + r.revenue, 0),
+      grossProfit: data.reduce((sum, r) => sum + r.grossProfit, 0),
+    };
+
+    return { data, summary };
+  }, [orders, customers, dateRange, filters, findProductById]);
+}
+
+// Hook: Báo cáo bán hàng theo thuế
+export function useSalesTaxReport(
+  dateRange: ReportDateRange,
+  _filters?: {
+    branchIds?: SystemId[];
+  }
+) {
+  const { data: orders = [] } = useCompletedOrdersByDateRange(dateRange);
+  const { findById: findProductById } = useProductFinder();
+
+  return React.useMemo(() => {
+    const start = parseISO(dateRange.from);
+    const end = parseISO(dateRange.to);
+
+    const filteredOrders = orders.filter(order => {
+      if (order.status !== 'Hoàn thành') return false;
+      const orderDate = order.orderDate ? parseISO(order.orderDate) : null;
+      if (!orderDate || !isWithinInterval(orderDate, { start, end })) return false;
+      if (_filters?.branchIds?.length && !_filters.branchIds.includes(order.branchSystemId as SystemId)) return false;
+      return true;
+    });
+
+    // Group by tax amount ratio
+    // We infer tax rate from order.tax / order.subtotal
+    const taxMap = new Map<number, SalesTaxReportRow>();
+
+    filteredOrders.forEach(order => {
+      const subtotal = order.subtotal || 0;
+      const tax = order.tax || 0;
+      
+      // Calculate effective tax rate (round to nearest common rate)
+      let taxRate = 0;
+      if (subtotal > 0 && tax > 0) {
+        const rawRate = (tax / subtotal) * 100;
+        // Snap to common Vietnamese tax rates: 0, 5, 8, 10
+        if (rawRate < 2.5) taxRate = 0;
+        else if (rawRate < 6.5) taxRate = 5;
+        else if (rawRate < 9) taxRate = 8;
+        else taxRate = 10;
+      }
+
+      if (!taxMap.has(taxRate)) {
+        taxMap.set(taxRate, {
+          taxRate,
+          taxRateLabel: `${taxRate}%`,
+          orderCount: 0,
+          productAmount: 0,
+          taxAmount: 0,
+          revenue: 0,
+          grossProfit: 0,
+        });
+      }
+
+      const row = taxMap.get(taxRate)!;
+
+      const costOfGoods = order.lineItems.reduce((sum, item) => {
+        const product = findProductById(item.productSystemId);
+        return sum + ((product?.costPrice || 0) * item.quantity);
+      }, 0);
+
+      row.orderCount += 1;
+      row.productAmount += subtotal;
+      row.taxAmount += tax;
+      row.grossProfit += subtotal - costOfGoods;
+    });
+
+    taxMap.forEach(row => {
+      row.revenue = row.productAmount + row.taxAmount;
+    });
+
+    const data = Array.from(taxMap.values()).sort((a, b) => a.taxRate - b.taxRate);
+
+    const summary: SalesReportSummary = {
+      orderCount: data.reduce((sum, r) => sum + r.orderCount, 0),
+      productAmount: data.reduce((sum, r) => sum + r.productAmount, 0),
+      returnAmount: 0,
+      taxAmount: data.reduce((sum, r) => sum + r.taxAmount, 0),
+      shippingFee: 0,
+      revenue: data.reduce((sum, r) => sum + r.revenue, 0),
+      grossProfit: data.reduce((sum, r) => sum + r.grossProfit, 0),
+    };
+
+    return { data, summary };
+  }, [orders, dateRange, _filters, findProductById]);
+}
+
 export default {
   useSalesTimeReport,
   useSalesEmployeeReport,
   useSalesProductReport,
   useSalesBranchReport,
   useSalesCustomerReport,
+  useSalesSourceReport,
+  useSalesCustomerGroupReport,
+  useSalesTaxReport,
 };

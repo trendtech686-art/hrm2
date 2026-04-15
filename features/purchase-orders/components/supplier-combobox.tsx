@@ -21,8 +21,18 @@ export function SupplierCombobox({
   placeholder = "Chọn nhà cung cấp...",
   className: _className,
 }: SupplierComboboxProps) {
-  const { data: activeSuppliers } = useActiveSuppliers();
+  // Lazy load: only fetch when combobox opens OR when we have a value to display
+  const [hasOpened, setHasOpened] = React.useState(false);
+  const shouldLoad = hasOpened || !!value;
+  
+  const { data: activeSuppliers, isLoading } = useActiveSuppliers({ enabled: shouldLoad });
   const [showAddDialog, setShowAddDialog] = React.useState(false);
+
+  const handleOpenChange = React.useCallback((open: boolean) => {
+    if (open && !hasOpened) {
+      setHasOpened(true);
+    }
+  }, [hasOpened]);
 
   // Find selected supplier
   const selectedSupplier = React.useMemo(
@@ -87,6 +97,8 @@ export function SupplierCombobox({
         searchPlaceholder="Tìm kiếm nhà cung cấp..."
         emptyPlaceholder="Không tìm thấy nhà cung cấp"
         estimatedItemHeight={56}
+        isLoading={isLoading}
+        onOpenChange={handleOpenChange}
         renderOption={(option, isSelected) => {
           // Special render for "Add new" button
           if (option.value === ADD_NEW_VALUE) {
@@ -101,7 +113,7 @@ export function SupplierCombobox({
           // Normal supplier render
           return (
             <div className="flex items-center gap-2 flex-1 min-w-0">
-              <Avatar className="h-8 w-8 flex-shrink-0">
+              <Avatar className="h-8 w-8 shrink-0">
                 <AvatarFallback className="text-xs">
                   {getInitials(option.label)}
                 </AvatarFallback>
@@ -115,7 +127,7 @@ export function SupplierCombobox({
                 )}
               </div>
               {isSelected && (
-                <svg className="h-4 w-4 ml-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <svg className="h-4 w-4 ml-2 shrink-0" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                 </svg>
               )}
@@ -124,11 +136,13 @@ export function SupplierCombobox({
         }}
       />
 
-      <QuickAddSupplierDialog
-        open={showAddDialog}
-        onOpenChange={setShowAddDialog}
-        onSuccess={handleAddSuccess}
-      />
+      {showAddDialog && (
+        <QuickAddSupplierDialog
+          open={showAddDialog}
+          onOpenChange={setShowAddDialog}
+          onSuccess={handleAddSuccess}
+        />
+      )}
     </>
   );
 }

@@ -15,6 +15,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar"
 import { getApiUrl } from "../../lib/api-config"
 import type { Employee } from '@/lib/types/prisma-extended'
 import type { SystemId } from '@/lib/id-types';
+import { logError } from '@/lib/logger'
 
 export function EmployeeTrashPage() {
   const { data: deletedEmployees = [], isLoading } = useDeletedEmployees();
@@ -54,7 +55,7 @@ export function EmployeeTrashPage() {
       
       return await response.json();
     } catch (error) {
-      console.error('Error deleting employee files:', error);
+      logError('Error deleting employee files', error);
       throw error;
     }
   }
@@ -77,7 +78,9 @@ export function EmployeeTrashPage() {
     // Delete from database
     permanentDelete.mutate(systemId, {
       onSuccess: async () => {
-        toast.success("Đã xóa vĩnh viễn nhân viên");
+        toast.success("Đã lưu trữ vĩnh viễn nhân viên", {
+          description: "Thông tin cá nhân đã được xóa. Tên nhân viên vẫn hiển thị trong đơn hàng, công việc.",
+        });
         
         // Try to delete files (optional, non-blocking)
         if (employee) {
@@ -89,7 +92,7 @@ export function EmployeeTrashPage() {
         }
       },
       onError: (error) => {
-        toast.error(error.message || "Có lỗi khi xóa nhân viên");
+        toast.error(error.message || "Có lỗi khi lưu trữ nhân viên");
       }
     });
   }, [deletedEmployees, permanentDelete]);
@@ -108,32 +111,28 @@ export function EmployeeTrashPage() {
 
   // Custom mobile card for employees
   const renderMobileCard = (employee: Employee) => (
-    <Card className="hover:shadow-md transition-shadow">
-      <CardContent className="pt-6">
-        <div className="space-y-3">
-          <div className="flex items-start gap-3">
-            <Avatar className="h-12 w-12">
-              {employee.avatarUrl && <AvatarImage src={employee.avatarUrl} alt={employee.fullName} />}
-              <AvatarFallback>{getInitials(employee.fullName)}</AvatarFallback>
-            </Avatar>
-            <div className="flex-1 min-w-0">
-              <h3 className="font-semibold truncate">{employee.fullName}</h3>
-              <p className="text-body-sm text-muted-foreground">{employee.id}</p>
-              <div className="text-body-sm text-muted-foreground mt-1">
-                {typeof employee.department === 'object' ? (employee.department as { name?: string })?.name : employee.department}
-                {' • '}
-                {typeof employee.jobTitle === 'object' ? (employee.jobTitle as { name?: string })?.name : employee.jobTitle}
-              </div>
-            </div>
+    <div className="rounded-xl border border-border/50 bg-card p-4">
+      <div className="flex items-start gap-3">
+        <Avatar className="h-11 w-11">
+          {employee.avatarUrl && <AvatarImage src={employee.avatarUrl} alt={employee.fullName} />}
+          <AvatarFallback>{getInitials(employee.fullName)}</AvatarFallback>
+        </Avatar>
+        <div className="flex-1 min-w-0">
+          <h3 className="font-semibold text-sm truncate">{employee.fullName}</h3>
+          <p className="text-xs text-muted-foreground">{employee.id}</p>
+          <div className="text-xs text-muted-foreground mt-0.5">
+            {typeof employee.department === 'object' ? (employee.department as { name?: string })?.name : employee.department}
+            {' • '}
+            {typeof employee.jobTitle === 'object' ? (employee.jobTitle as { name?: string })?.name : employee.jobTitle}
           </div>
-          {employee.deletedAt && (
-            <div className="text-body-xs text-muted-foreground">
-              Xóa: {formatDateCustom(new Date(employee.deletedAt), 'dd/MM/yyyy HH:mm')}
-            </div>
-          )}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+      {employee.deletedAt && (
+        <div className="text-xs text-muted-foreground mt-2 pt-2 border-t border-border/50">
+          Xóa: {formatDateCustom(new Date(employee.deletedAt), 'dd/MM/yyyy HH:mm')}
+        </div>
+      )}
+    </div>
   );
 
   if (isLoading) {

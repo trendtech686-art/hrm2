@@ -57,6 +57,13 @@ model Task {
   approvalHistory    Json? // Array of ApprovalHistory
   rejectionReason    String? // Latest rejection reason
 
+  // Task dependencies
+  blockedBy String[] // systemIds of tasks that block this task
+  blocks    String[] // systemIds of tasks that this task blocks
+
+  // Board/Project grouping
+  boardId String? // systemId of TaskBoard
+
   // Audit
   createdBy String?
   updatedBy String?

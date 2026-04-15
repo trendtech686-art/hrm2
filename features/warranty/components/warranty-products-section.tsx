@@ -207,7 +207,7 @@ export function WarrantyProductsSection({
               onCheckedChange={setEnableSplitLine}
               disabled={disabled}
             />
-            <Label htmlFor="split-line" className="text-body-sm font-normal cursor-pointer">
+            <Label htmlFor="split-line" className="text-sm font-normal cursor-pointer">
               Tách dòng
             </Label>
           </div>
@@ -253,15 +253,15 @@ export function WarrantyProductsSection({
         {fields.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center border-2 border-dashed rounded-lg">
             <PackageOpen className="h-12 w-12 text-muted-foreground mb-4" />
-            <p className="text-body-sm text-muted-foreground">Chưa có sản phẩm nào</p>
-            <p className="text-body-xs text-muted-foreground mt-1">
+            <p className="text-sm text-muted-foreground">Chưa có sản phẩm nào</p>
+            <p className="text-xs text-muted-foreground mt-1">
               Sử dụng ô tìm kiếm bên trên để thêm sản phẩm
             </p>
           </div>
         ) : (
           <div className="space-y-4">
             <div className="border rounded-lg overflow-x-auto">
-              <Table className="w-full min-w-250">
+              <Table className="w-full">
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-12 text-center">STT</TableHead>

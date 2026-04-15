@@ -82,11 +82,11 @@ export class MentionCombobox {
           >
             ${
               item.avatar 
-                ? `<img src="${item.avatar}" alt="${item.label}" class="w-9 h-9 rounded-full object-cover flex-shrink-0 border border-border" />` 
-                : `<div class="w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-semibold flex-shrink-0 border border-primary/20">${avatarInitial}</div>`
+                ? `<img src="${item.avatar}" alt="${item.label}" class="w-9 h-9 rounded-full object-cover shrink-0 border border-border" />` 
+                : `<div class="w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-semibold shrink-0 border border-primary/20">${avatarInitial}</div>`
             }
             <span class="font-medium truncate flex-1 text-left">${item.label}</span>
-            ${isSelected ? '<svg class="h-4 w-4 text-primary flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>' : ''}
+            ${isSelected ? '<svg class="h-4 w-4 text-primary shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>' : ''}
           </button>
         `;
       })
@@ -131,7 +131,7 @@ export class MentionCombobox {
         // Add checkmark
         const hasCheck = btn.querySelector('svg');
         if (!hasCheck) {
-          btn.innerHTML = btn.innerHTML + '<svg class="h-4 w-4 text-primary flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>';
+          btn.innerHTML = btn.innerHTML + '<svg class="h-4 w-4 text-primary shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>';
         }
       } else {
         btn.classList.remove('bg-accent', 'text-accent-foreground');

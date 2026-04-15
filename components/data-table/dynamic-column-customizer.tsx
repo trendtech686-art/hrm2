@@ -21,11 +21,11 @@ interface DataTableColumnCustomizerProps<TData> {
   children?: React.ReactNode;
   columns: ColumnDef<TData>[];
   columnVisibility: Record<string, boolean>;
-  setColumnVisibility: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
+  setColumnVisibility: React.Dispatch<React.SetStateAction<Record<string, boolean>>> | ((value: Record<string, boolean>) => void);
   columnOrder: string[];
-  setColumnOrder: React.Dispatch<React.SetStateAction<string[]>>;
+  setColumnOrder: React.Dispatch<React.SetStateAction<string[]>> | ((value: string[]) => void);
   pinnedColumns: string[];
-  setPinnedColumns: React.Dispatch<React.SetStateAction<string[]>>;
+  setPinnedColumns: React.Dispatch<React.SetStateAction<string[]>> | ((value: string[]) => void);
   onResetToDefault?: () => void;
 }
 

@@ -5,20 +5,20 @@ import { useParams, usePathname } from 'next/navigation';
 import { useRouter } from 'next/navigation';
 import { useForm, FormProvider } from 'react-hook-form';
 import { toast } from 'sonner';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Loader2 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 
 // Contexts
 import { usePageHeader } from '../../contexts/page-header-context';
 import { useAuth } from '../../contexts/auth-context';
-import { asSystemId } from '../../lib/id-types';
 import { generateSubEntityId } from '@/lib/id-utils';
 
 // Types & Store
 import type { WarrantyFormValues, WarrantyTicket } from './types';
 import { useWarranty, warrantyKeys } from './hooks/use-warranties';
-import { useWarrantyFinder, useAllWarranties } from './hooks/use-all-warranties';
-import { createWarranty, updateWarranty } from './api/warranties-api';
+import { createWarranty, updateWarranty, fetchWarranties } from './api/warranties-api';
+import { fetchAllPages } from '@/lib/fetch-all-pages';
 
 // UI Components
 import { Button } from '../../components/ui/button';
@@ -44,7 +44,7 @@ import { getCurrentDate, toISODateTime } from '../../lib/date-utils';
 
 // Stores for lookup
 import { useAllBranches } from '../settings/branches/hooks/use-all-branches';
-import { useAllEmployees } from '../employees/hooks/use-all-employees';
+import { logError } from '@/lib/logger'
 
 /**
  * Trang tạo/sửa phiếu bảo hành
@@ -65,24 +65,24 @@ export function WarrantyFormPage() {
   // Check if this is "update mode" (limited editing for incomplete status)
   const isUpdateMode = pathname.includes('/update');
   
-  const { findById } = useWarrantyFinder();
-  const { data: allTickets } = useAllWarranties();
   const { data: branches } = useAllBranches();
-  const { data: employees } = useAllEmployees();
+  // ⚡ OPTIMIZED: Track selected employee via ref instead of loading all employees
+  const selectedEmployeeRef = React.useRef<{ systemId: string; fullName: string } | null>(null);
 
   // ✅ React Query for single ticket
   const { data: ticketFromQuery, isLoading } = useWarranty(systemId);
 
   const isEditing = !!systemId;
-  const ticketSystemId = React.useMemo(() => (systemId ? asSystemId(systemId) : null), [systemId]);
   
-  // ✅ Ưu tiên React Query, fallback to store
-  const ticket = React.useMemo(() => {
-    if (ticketSystemId) {
-      return ticketFromQuery || findById(ticketSystemId) || null;
+  // ✅ Phase 14: Đã xóa useWarrantyFinder fallback, useWarranty(systemId) là nguồn duy nhất
+  const ticket = ticketFromQuery ?? null;
+
+  // Initialize employee ref from ticket data when editing
+  React.useEffect(() => {
+    if (ticket?.employeeSystemId && ticket?.employeeName) {
+      selectedEmployeeRef.current = { systemId: ticket.employeeSystemId, fullName: ticket.employeeName };
     }
-    return null;
-  }, [ticketSystemId, ticketFromQuery, findById]);
+  }, [ticket]);
 
   // Prevent editing if ticket is returned (đã trả hàng cho khách)
   const isReadOnly = React.useMemo(() => {
@@ -191,7 +191,13 @@ export function WarrantyFormPage() {
     
     try {
       // ===== VALIDATION =====
-      if (!validateWarrantyFormData(data, isEditing, allTickets || [])) {
+      // ✅ OPTIMIZED: Fetch allTickets on-demand at submit time instead of eagerly on mount
+      const allTickets = await queryClient.ensureQueryData({
+        queryKey: [...warrantyKeys.all, 'all'],
+        queryFn: () => fetchAllPages((p) => fetchWarranties(p)),
+        staleTime: 2 * 60 * 1000,
+      });
+      if (!validateWarrantyFormData(data, isEditing, allTickets)) {
         setIsSubmitting(false);
         return;
       }
@@ -201,7 +207,7 @@ export function WarrantyFormPage() {
         data.branchSystemId,
         data.employeeSystemId,
         branches || [],
-        employees || []
+        selectedEmployeeRef.current ? [selectedEmployeeRef.current] : []
       );
       
       if (!branch || !employee) {
@@ -257,7 +263,7 @@ export function WarrantyFormPage() {
         await updateWarranty(ticket.systemId, updateData as Partial<WarrantyTicket>);
         
         // Invalidate queries
-        queryClient.invalidateQueries({ queryKey: warrantyKeys.all });
+        invalidateRelated(queryClient, 'warranties');
         
         toast.success('Đã cập nhật phiếu bảo hành', {
           description: `Mã: ${ticket.id}`,
@@ -269,7 +275,7 @@ export function WarrantyFormPage() {
         const createdWarranty = await createWarranty(ticketData as Partial<WarrantyTicket>);
         
         // Invalidate queries
-        queryClient.invalidateQueries({ queryKey: warrantyKeys.all });
+        invalidateRelated(queryClient, 'warranties');
         
         toast.success('Đã tạo phiếu bảo hành', { 
           description: `Mã: ${createdWarranty.id} - Khách: ${data.customer?.name}`,
@@ -278,7 +284,7 @@ export function WarrantyFormPage() {
         router.push(`/warranty/${createdWarranty.systemId}`);
       }
     } catch (error) {
-      console.error('Error saving warranty ticket:', error);
+      logError('Error saving warranty ticket', error);
       const errorMessage = error instanceof Error ? error.message : 'Lỗi không xác định';
       toast.error('Lỗi lưu phiếu bảo hành', { 
         description: errorMessage,
@@ -289,9 +295,8 @@ export function WarrantyFormPage() {
   }, [
     isEditing,
     ticket,
-    allTickets,
     branches,
-    employees,
+    selectedEmployeeRef,
     receivedImages,
     processedImages,
     user,
@@ -328,7 +333,7 @@ export function WarrantyFormPage() {
       size="sm"
       className="h-9"
     >
-      {isSubmitting ? 'Đang lưu...' : (isEditing ? 'Lưu thay đổi' : 'Tạo phiếu')}
+      {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Đang lưu...</> : (isEditing ? 'Lưu thay đổi' : 'Tạo phiếu')}
     </Button>,
   ], [router, isReadOnly, isSubmitting, isEditing, handleSubmitClick]);
 
@@ -365,7 +370,7 @@ export function WarrantyFormPage() {
             {isReadOnly && (
               <Card className="border-amber-200 bg-amber-50">
                 <CardContent className="pt-6">
-                  <p className="text-body-sm text-amber-800">
+                  <p className="text-sm text-amber-800">
                     <strong>Lưu ý:</strong> Phiếu đã xử lý/trả hàng. Không thể chỉnh sửa.
                   </p>
                 </CardContent>
@@ -376,7 +381,7 @@ export function WarrantyFormPage() {
             {isUpdateMode && (
               <Card className="border-blue-200 bg-blue-50">
                 <CardContent className="pt-6">
-                  <p className="text-body-sm text-blue-800">
+                  <p className="text-sm text-blue-800">
                     <strong>Chế độ cập nhật thông tin:</strong> Chỉ có thể thêm/sửa sản phẩm bảo hành và ghi chú. Các thông tin khác đã bị khóa.
                   </p>
                 </CardContent>
@@ -389,7 +394,14 @@ export function WarrantyFormPage() {
                 <CustomerSelector disabled={isReadOnly || isUpdateMode} />
               </div>
               <div className="w-full md:w-[30%]">
-                <WarrantyFormInfoCard disabled={isReadOnly || isUpdateMode} />
+                <WarrantyFormInfoCard
+                  disabled={isReadOnly || isUpdateMode}
+                  employeeName={ticket?.employeeName}
+                  onEmployeeChange={(name) => {
+                    const systemId = form.getValues('employeeSystemId');
+                    selectedEmployeeRef.current = systemId ? { systemId, fullName: name } : null;
+                  }}
+                />
               </div>
             </div>
 
@@ -448,7 +460,7 @@ export function WarrantyFormPage() {
                 disabled={isReadOnly || isSubmitting}
                 size="sm"
               >
-                {isSubmitting ? 'Đang lưu...' : (isEditing ? 'Lưu thay đổi' : 'Tạo phiếu')}
+                {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Đang lưu...</> : (isEditing ? 'Lưu thay đổi' : 'Tạo phiếu')}
               </Button>
             </div>
           </div>

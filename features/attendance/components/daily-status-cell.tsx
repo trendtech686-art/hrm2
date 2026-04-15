@@ -30,7 +30,7 @@ export const DailyStatusCell: React.FC<{ record: DailyRecord }> = ({ record }) =
 
   const content = (
     <div className={cn(
-      "flex items-center justify-center w-6 h-6 rounded-full font-semibold text-body-xs",
+      "flex items-center justify-center w-6 h-6 rounded-full font-semibold text-xs",
       styleInfo.className
     )}>
       {styleInfo.symbol}

@@ -3,22 +3,23 @@
  * Returns complaint statistics
  */
 
-import { NextResponse } from 'next/server';
 import { getComplaintStats } from '@/lib/data/complaints';
+import { requireAuth, apiError, apiSuccess } from '@/lib/api-utils'
+import { logError } from '@/lib/logger'
 
 export async function GET(request: Request) {
+  const session = await requireAuth()
+  if (!session) return apiError('Chưa được xác thực', 401)
+
   try {
     const { searchParams } = new URL(request.url);
     const branchId = searchParams.get('branchId') || undefined;
     
     const stats = await getComplaintStats(branchId);
     
-    return NextResponse.json(stats);
+    return apiSuccess(stats);
   } catch (error) {
-    console.error('Error fetching complaint stats:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch complaint stats' },
-      { status: 500 }
-    );
+    logError('Error fetching complaint stats', error);
+    return apiError('Không thể tải thống kê khiếu nại', 500);
   }
 }

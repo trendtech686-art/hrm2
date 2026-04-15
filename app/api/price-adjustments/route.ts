@@ -9,8 +9,9 @@ import { requireAuth, apiSuccess, apiError, apiPaginated } from '@/lib/api-utils
 import { generateNextIds } from '@/lib/id-system'
 import { Prisma } from '@/generated/prisma/client'
 import { generateIdWithPrefix } from '@/lib/id-generator'
-
-// GET - List price adjustments
+import { logError } from '@/lib/logger'
+import { createNotification } from '@/lib/notifications'
+import { getUserNameFromDb } from '@/lib/get-user-name'
 export async function GET(request: Request) {
   const session = await requireAuth()
   if (!session) return apiError('Unauthorized', 401)
@@ -70,8 +71,8 @@ export async function GET(request: Request) {
 
     return apiPaginated(transformedData, { page, limit, total })
   } catch (error) {
-    console.error('[Price Adjustments API] List error:', error)
-    return apiError('Failed to fetch price adjustments', 500)
+    logError('[Price Adjustments API] List error', error)
+    return apiError('Lỗi khi lấy danh sách điều chỉnh giá', 500)
   }
 }
 
@@ -96,11 +97,11 @@ export async function POST(request: Request) {
     } = body
 
     if (!pricingPolicyId) {
-      return apiError('Pricing policy ID is required', 400)
+      return apiError('Mã chính sách giá là bắt buộc', 400)
     }
 
     if (!items || !Array.isArray(items) || items.length === 0) {
-      return apiError('Items are required', 400)
+      return apiError('Danh sách sản phẩm là bắt buộc', 400)
     }
 
     // Generate IDs using unified ID system
@@ -177,9 +178,37 @@ export async function POST(request: Request) {
       })),
     }
 
+    // Notify creator if different from session user
+    if (adjustment.createdBySystemId && adjustment.createdBySystemId !== session.user?.employeeId) {
+      createNotification({
+        type: 'price_adjustment',
+        settingsKey: 'price-adjustment:updated',
+        title: 'Phiếu điều chỉnh giá mới',
+        message: `Phiếu điều chỉnh giá ${adjustment.id || adjustment.systemId} đã được tạo`,
+        link: `/price-adjustments/${adjustment.systemId}`,
+        recipientId: adjustment.createdBySystemId,
+        senderId: session.user?.employeeId,
+        senderName: session.user?.name,
+      }).catch(e => logError('[Price Adjustment] notification failed', e));
+    }
+
+    // Log activity
+    getUserNameFromDb(session.user?.id).then(userName =>
+      prisma.activityLog.create({
+        data: {
+          entityType: 'price_adjustment',
+          entityId: transformedAdjustment.systemId,
+          action: 'created',
+          actionType: 'create',
+          note: `Tạo phiếu điều chỉnh giá`,
+          metadata: { userName },
+          createdBy: userName,
+        }
+      })
+    ).catch(e => logError('[ActivityLog] price_adjustment create failed', e))
     return apiSuccess(transformedAdjustment, 201)
   } catch (error) {
-    console.error('[Price Adjustments API] Create error:', error)
-    return apiError('Failed to create price adjustment', 500)
+    logError('[Price Adjustments API] Create error', error)
+    return apiError('Lỗi khi tạo phiếu điều chỉnh giá', 500)
   }
 }

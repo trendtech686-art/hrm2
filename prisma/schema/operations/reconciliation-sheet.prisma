@@ -1,0 +1,79 @@
+model ReconciliationSheet {
+  systemId  String @id
+  id        String @unique
+
+  carrier      String  // Đối tác vận chuyển (GHTK, GHN, etc.)
+  branchId     String? // Chi nhánh
+  status       ReconciliationSheetStatus @default(DRAFT)
+
+  // Totals (auto-calculated)
+  totalCodSystem     Decimal @default(0) @db.Decimal(15, 2) // Tổng COD hệ thống
+  totalCodPartner    Decimal @default(0) @db.Decimal(15, 2) // Tổng COD đối tác
+  totalFeeSystem     Decimal @default(0) @db.Decimal(15, 2) // Tổng phí GH hệ thống
+  totalFeePartner    Decimal @default(0) @db.Decimal(15, 2) // Tổng phí GH đối tác
+  codDifference      Decimal @default(0) @db.Decimal(15, 2) // Chênh lệch COD
+  feeDifference      Decimal @default(0) @db.Decimal(15, 2) // Chênh lệch phí GH
+
+  note      String?
+  tags      String[] @default([])
+
+  // Metadata
+  createdBy     String?
+  createdByName String?
+  updatedBy     String?
+  confirmedAt   DateTime?
+  confirmedBy   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  items  ReconciliationSheetItem[]
+  branch Branch? @relation(fields: [branchId], references: [systemId])
+
+  @@index([carrier])
+  @@index([status])
+  @@index([createdAt])
+  @@map("reconciliation_sheets")
+}
+
+model ReconciliationSheetItem {
+  systemId String @id @default(uuid())
+  sheetId  String
+
+  packagingId  String // Packaging systemId
+  trackingCode String // Mã vận đơn
+  orderId      String // Mã đơn hàng (business ID)
+  orderSystemId String // Order systemId
+  customerName String?
+
+  // COD comparison
+  codSystem    Decimal @default(0) @db.Decimal(15, 2) // COD hệ thống
+  codPartner   Decimal @default(0) @db.Decimal(15, 2) // COD đối tác (nhập tay)
+  codDifference Decimal @default(0) @db.Decimal(15, 2) // Chênh lệch
+
+  // Shipping fee comparison
+  feeSystem    Decimal @default(0) @db.Decimal(15, 2) // Phí GH hệ thống
+  feePartner   Decimal @default(0) @db.Decimal(15, 2) // Phí GH đối tác (nhập tay)
+  feeDifference Decimal @default(0) @db.Decimal(15, 2) // Chênh lệch
+
+  note String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  sheet     ReconciliationSheet @relation(fields: [sheetId], references: [systemId], onDelete: Cascade)
+  packaging Packaging           @relation(fields: [packagingId], references: [systemId])
+  order     Order               @relation(fields: [orderSystemId], references: [systemId])
+
+  @@unique([sheetId, packagingId])
+  @@index([sheetId])
+  @@index([packagingId])
+  @@map("reconciliation_sheet_items")
+}
+
+enum ReconciliationSheetStatus {
+  DRAFT      // Nháp
+  CONFIRMED  // Đã xác nhận
+  CANCELLED  // Đã hủy
+}

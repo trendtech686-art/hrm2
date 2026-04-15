@@ -1,19 +1,17 @@
 import * as React from 'react';
-import { Check, ChevronsUpDown, Loader2 } from 'lucide-react';
-import { useVirtualizer } from '@tanstack/react-virtual';
+import { Check, ChevronsUpDown, Loader2, Search } from 'lucide-react';
 import { useDebounce } from '../../hooks/use-debounce';
 import { cn } from '../../lib/utils';
 import { removeVietnameseAccents } from '../../lib/filename-utils';
 import { Button } from './button';
-import { Command, CommandInput, CommandEmpty } from './command';
 import { Popover, PopoverContent, PopoverTrigger } from './popover';
 
 export type ComboboxOption = {
   value: string;
   label: string;
-  subtitle?: string | undefined; // For additional info like ID, phone
-  acText?: string | undefined; // Accent-stripped text for resilient search
-  metadata?: unknown | undefined; // Optional metadata for custom rendering
+  subtitle?: string | undefined;
+  acText?: string | undefined;
+  metadata?: unknown | undefined;
 };
 
 type VirtualizedComboboxProps = {
@@ -25,16 +23,16 @@ type VirtualizedComboboxProps = {
   emptyPlaceholder?: string;
   disabled?: boolean;
   isLoading?: boolean;
-  onSearchChange?: (search: string) => void; // For server-side filtering
+  onSearchChange?: (search: string) => void;
+  onOpenChange?: (open: boolean) => void;
   renderOption?: (option: ComboboxOption, isSelected: boolean) => React.ReactNode;
-  renderHeader?: () => React.ReactNode; // Custom header (e.g., "Add new" button)
-  estimatedItemHeight?: number; // Estimated height for better performance
+  renderHeader?: () => React.ReactNode;
+  estimatedItemHeight?: number;
   maxHeight?: number;
-  minSearchLength?: number; // Minimum chars before showing results
-  // ✅ Infinite scroll support
-  onLoadMore?: () => void; // Called when scrolled near bottom
-  hasMore?: boolean; // Whether more items can be loaded
-  isLoadingMore?: boolean; // Loading indicator for infinite scroll
+  minSearchLength?: number;
+  onLoadMore?: () => void;
+  hasMore?: boolean;
+  isLoadingMore?: boolean;
 };
 
 const defaultRenderOption = (option: ComboboxOption, isSelected: boolean) => (
@@ -66,9 +64,10 @@ export function VirtualizedCombobox({
   disabled = false,
   isLoading = false,
   onSearchChange,
+  onOpenChange,
   renderOption = defaultRenderOption,
   renderHeader,
-  estimatedItemHeight = 48,
+  estimatedItemHeight: _estimatedItemHeight = 48,
   maxHeight = 320,
   minSearchLength = 0,
   onLoadMore,
@@ -78,37 +77,46 @@ export function VirtualizedCombobox({
   const [open, setOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState('');
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
-  
-  const parentRef = React.useRef<HTMLDivElement>(null);
+
+  const scrollRef = React.useRef<HTMLDivElement>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
   const triggerRef = React.useRef<HTMLButtonElement>(null);
-  const [triggerWidth, setTriggerWidth] = React.useState<number>(0);
+  const [triggerWidth, setTriggerWidth] = React.useState(0);
 
-  // Measure trigger width when opening
+  const handleOpenChange = React.useCallback((newOpen: boolean) => {
+    setOpen(newOpen);
+    onOpenChange?.(newOpen);
+    if (!newOpen) setSearchQuery('');
+  }, [onOpenChange]);
+
   React.useEffect(() => {
     if (open && triggerRef.current) {
       setTriggerWidth(triggerRef.current.offsetWidth);
     }
   }, [open]);
 
-  // Client-side filtering (if no server-side handler)
+  React.useEffect(() => {
+    if (open) {
+      if (scrollRef.current) scrollRef.current.scrollTop = 0;
+      setTimeout(() => inputRef.current?.focus(), 50);
+    }
+  }, [open]);
+
   const filteredOptions = React.useMemo(() => {
-    if (onSearchChange) return options; // Server handles filtering
-    
-    // Use immediate search for instant filtering (no debounce lag)
+    if (onSearchChange) return options;
     const query = searchQuery.toLowerCase();
     if (!query) return options;
-    
-    // Also create accent-stripped query for Vietnamese search
     const queryNoAccent = removeVietnameseAccents(query).toLowerCase();
-    
     return options.filter(option => {
-      const subtitleMatch = option.subtitle?.toLowerCase().includes(query);
-      // Check acText with both original query and accent-stripped query
-      const acTextMatch = option.acText?.toLowerCase().includes(query) || 
-                          option.acText?.toLowerCase().includes(queryNoAccent);
+      const labelLower = option.label.toLowerCase();
+      const labelNoAccent = removeVietnameseAccents(labelLower);
+      const subtitleMatch = option.subtitle?.toLowerCase().includes(query) ||
+        (option.subtitle ? removeVietnameseAccents(option.subtitle.toLowerCase()).includes(queryNoAccent) : false);
+      const acTextMatch = option.acText?.toLowerCase().includes(query) ||
+        option.acText?.toLowerCase().includes(queryNoAccent);
       return (
-        option.label.toLowerCase().includes(query) ||
+        labelLower.includes(query) ||
+        labelNoAccent.includes(queryNoAccent) ||
         option.value.toLowerCase().includes(query) ||
         subtitleMatch ||
         acTextMatch
@@ -116,71 +124,29 @@ export function VirtualizedCombobox({
     });
   }, [options, searchQuery, onSearchChange]);
 
-  // Show results: if minSearchLength > 0, check debounced search
-  // if minSearchLength = 0, always show (use current search, not debounced)
-  const shouldShowResults = minSearchLength > 0 
+  const shouldShowResults = minSearchLength > 0
     ? debouncedSearchQuery.length >= minSearchLength
     : true;
-  
   const displayOptions = shouldShowResults ? filteredOptions : [];
 
-  // Tanstack Virtual for 10K+ items performance
-  const virtualizer = useVirtualizer({
-    count: displayOptions.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => estimatedItemHeight,
-    overscan: 5, // Render 5 extra items outside viewport
-  });
-
-  // Call server-side search handler
   React.useEffect(() => {
-    if (onSearchChange) {
-      onSearchChange(debouncedSearchQuery);
-    }
+    if (onSearchChange) onSearchChange(debouncedSearchQuery);
   }, [debouncedSearchQuery, onSearchChange]);
 
-  // ✅ Infinite scroll - load more when near bottom
   const handleScroll = React.useCallback((e: React.UIEvent<HTMLDivElement>) => {
-    const target = e.currentTarget;
-    const scrollBottom = target.scrollHeight - target.scrollTop - target.clientHeight;
-    // Load more when within 100px of bottom
-    if (scrollBottom < 100 && hasMore && !isLoadingMore && onLoadMore) {
-      onLoadMore();
+    const el = e.currentTarget;
+    if (el.scrollHeight - el.scrollTop - el.clientHeight < 100) {
+      if (hasMore && !isLoadingMore && onLoadMore) onLoadMore();
     }
   }, [hasMore, isLoadingMore, onLoadMore]);
 
-  // Reset scroll and force virtualizer measure when popup opens
-  React.useEffect(() => {
-    if (open) {
-      if (parentRef.current) {
-        parentRef.current.scrollTop = 0;
-      }
-      // Force virtualizer to measure after a tick
-      // Use startTransition to avoid flushSync warning
-      requestAnimationFrame(() => {
-        React.startTransition(() => {
-          virtualizer.measure();
-        });
-      });
-      // Auto focus vào input khi mở popup
-      setTimeout(() => {
-        inputRef.current?.focus();
-      }, 50);
-    }
-  }, [open, virtualizer]);
-
-  const handleSelect = (option: ComboboxOption) => {
+  const handleSelect = React.useCallback((option: ComboboxOption) => {
     onChange(option.value === value?.value ? null : option);
-    setOpen(false);
-    setSearchQuery('');
-  };
-
-  const handleSearchChange = (newValue: string) => {
-    setSearchQuery(newValue);
-  };
+    handleOpenChange(false);
+  }, [onChange, value?.value, handleOpenChange]);
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <Button
           ref={triggerRef}
@@ -194,135 +160,92 @@ export function VirtualizedCombobox({
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent 
-        className="p-0" 
+      <PopoverContent
+        className="p-0"
         style={{ width: triggerWidth > 0 ? `${triggerWidth}px` : undefined }}
         align="start"
         side="bottom"
         sideOffset={4}
-        onOpenAutoFocus={(e) => {
-          e.preventDefault(); // Prevent default radix behavior
-          // Focus will be handled by useEffect
-        }}
+        onOpenAutoFocus={(e) => e.preventDefault()}
+        onFocusOutside={(e) => e.preventDefault()}
       >
-        <Command shouldFilter={false}>
-          <CommandInput
+        <div className="flex items-center border-b border-border px-3">
+          <Search className="h-4 w-4 shrink-0 opacity-50" />
+          <input
             ref={inputRef}
+            className="flex h-9 w-full bg-transparent py-3 pl-2 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
             placeholder={searchPlaceholder}
             value={searchQuery}
-            onValueChange={handleSearchChange}
+            onChange={(e) => setSearchQuery(e.target.value)}
           />
-          
-          {/* ✅ Custom header (e.g., "Add new" button) */}
-          {renderHeader && renderHeader()}
-          
-          {isLoading ? (
-            <div className="py-6 text-center">
-              <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
-              <p className="text-sm text-muted-foreground mt-2">Đang tải...</p>
-            </div>
-          ) : !shouldShowResults && minSearchLength > 0 ? (
-            <div className="py-6 text-center text-sm text-muted-foreground">
-              Nhập ít nhất {minSearchLength} ký tự để tìm kiếm
-            </div>
-          ) : displayOptions.length === 0 ? (
-            <CommandEmpty>{emptyPlaceholder}</CommandEmpty>
-          ) : (
-            <div 
-              ref={parentRef}
-              className="overflow-y-auto overflow-x-hidden scrollbar-thin"
-              style={{ 
-                maxHeight: `${maxHeight}px`,
-                overscrollBehavior: 'contain',
-                WebkitOverflowScrolling: 'touch',
-              }}
-              onWheel={(e) => {
-                e.stopPropagation();
-              }}
-              onScroll={handleScroll}
-            >
-              {/* Total height placeholder for scroll */}
-              <div
-                style={{
-                  height: `${virtualizer.getTotalSize()}px`,
-                  width: '100%',
-                  position: 'relative',
-                  minHeight: displayOptions.length > 0 ? `${estimatedItemHeight}px` : '0px',
-                }}
-              >
-                {/* Only render visible items */}
-                {virtualizer.getVirtualItems().length > 0 ? (
-                  virtualizer.getVirtualItems().map((virtualItem) => {
-                    const option = displayOptions[virtualItem.index];
-                    const isSelected = value?.value === option.value;
-                    
-                    return (
-                      <div
-                        key={virtualItem.key}
-                        data-index={virtualItem.index}
-                        ref={virtualizer.measureElement}
-                        className={cn(
-                          "absolute top-0 left-0 w-full",
-                          "flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none",
-                          "hover:bg-accent hover:text-accent-foreground",
-                          "data-disabled:pointer-events-none data-disabled:opacity-50",
-                          isSelected && "bg-accent"
-                        )}
-                        style={{
-                          transform: `translateY(${virtualItem.start}px)`,
-                        }}
-                        onClick={() => handleSelect(option)}
-                      >
-                        {renderOption(option, isSelected)}
-                      </div>
-                    );
-                  })
-                ) : (
-                  /* Fallback: render first few items without virtualization */
-                  displayOptions.slice(0, 10).map((option, _index) => {
-                    const isSelected = value?.value === option.value;
-                    return (
-                      <div
-                        key={option.value}
-                        className={cn(
-                          "flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none",
-                          "hover:bg-accent hover:text-accent-foreground",
-                          isSelected && "bg-accent"
-                        )}
-                        style={{ height: `${estimatedItemHeight}px` }}
-                        onClick={() => handleSelect(option)}
-                      >
-                        {renderOption(option, isSelected)}
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-              
-              {/* ✅ Infinite scroll loading indicator */}
-              {isLoadingMore && (
-                <div className="py-2 text-center">
-                  <Loader2 className="h-4 w-4 animate-spin mx-auto text-muted-foreground" />
+        </div>
+
+        {renderHeader?.()}
+
+        {isLoading ? (
+          <div className="py-6 text-center">
+            <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+            <p className="text-sm text-muted-foreground mt-2">Đang tải...</p>
+          </div>
+        ) : !shouldShowResults && minSearchLength > 0 ? (
+          <div className="py-6 text-center text-sm text-muted-foreground">
+            Nhập ít nhất {minSearchLength} ký tự để tìm kiếm
+          </div>
+        ) : displayOptions.length === 0 ? (
+          <div className="py-6 text-center text-sm text-muted-foreground">
+            {emptyPlaceholder}
+          </div>
+        ) : (
+          <div
+            ref={scrollRef}
+            className="overflow-y-auto overflow-x-hidden scrollbar-thin"
+            style={{
+              maxHeight: `${maxHeight}px`,
+              overscrollBehavior: 'contain',
+            }}
+            onWheel={(e) => e.stopPropagation()}
+            onScroll={handleScroll}
+          >
+            {displayOptions.map((option) => {
+              const isSelected = value?.value === option.value;
+              return (
+                <div
+                  key={option.value}
+                  role="option"
+                  aria-selected={isSelected}
+                  className={cn(
+                    'flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none',
+                    'hover:bg-accent hover:text-accent-foreground',
+                    isSelected && 'bg-accent'
+                  )}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleSelect(option);
+                  }}
+                >
+                  {renderOption(option, isSelected)}
                 </div>
-              )}
-            </div>
-          )}
-          
-          {/* Show count info */}
-          {displayOptions.length > 0 && (
-            <div className="border-t border-border px-2 py-1.5 text-xs text-muted-foreground flex items-center justify-between">
-              <span>
-                {displayOptions.length === options.length 
-                  ? `${displayOptions.length} kết quả`
-                  : `${displayOptions.length} / ${options.length} kết quả`
-                }
-              </span>
-              {hasMore && (
-                <span className="text-primary">Cuộn để tải thêm</span>
-              )}
-            </div>
-          )}
-        </Command>
+              );
+            })}
+            {isLoadingMore && (
+              <div className="py-2 text-center">
+                <Loader2 className="h-4 w-4 animate-spin mx-auto text-muted-foreground" />
+              </div>
+            )}
+          </div>
+        )}
+
+        {displayOptions.length > 0 && (
+          <div className="border-t border-border px-2 py-1.5 text-xs text-muted-foreground flex items-center justify-between">
+            <span>
+              {displayOptions.length === options.length
+                ? `${displayOptions.length} kết quả`
+                : `${displayOptions.length} / ${options.length} kết quả`}
+            </span>
+            {hasMore && <span className="text-primary">Cuộn để tải thêm</span>}
+          </div>
+        )}
       </PopoverContent>
     </Popover>
   );

@@ -1,6 +1,8 @@
 import { prisma } from '@/lib/prisma'
 import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
 import { generateIdWithPrefix } from '@/lib/id-generator'
+import { logError } from '@/lib/logger'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 interface ShipmentReconciliation {
   systemId: string;
@@ -21,17 +23,18 @@ export async function POST(request: Request) {
       return apiError('Shipments array is required', 400);
     }
 
+    const userName = session.user?.employee?.fullName || session.user?.name || 'Hệ thống';
+
     // Transaction: reconcile all shipments
     const result = await prisma.$transaction(async (tx) => {
       const updatedOrders: { systemId: string }[] = [];
 
       for (const shipment of shipments) {
-        // Update shipment as reconciled
-        await tx.shipment.update({
+        // Update packaging as reconciled
+        await tx.packaging.update({
           where: { systemId: shipment.systemId },
           data: {
             reconciliationStatus: 'Đã đối soát',
-            codAmount: shipment.codAmount,
           },
         });
 
@@ -54,8 +57,8 @@ export async function POST(request: Request) {
               orderId: order.systemId,
               amount: shipment.codAmount,
               method: 'COD',
-              description: 'COD reconciliation',
-              createdBy: 'system',
+              description: `Đối soát COD - Tiền thu hộ`,
+              createdBy: session.user?.id || 'system',
             },
           });
 
@@ -75,9 +78,23 @@ export async function POST(request: Request) {
       return updatedOrders;
     });
 
-    return apiSuccess({ success: true, updatedOrders: result });
+    // Log activity for each order
+    for (const shipment of shipments) {
+      await createActivityLog({
+        entityType: 'order',
+        entityId: shipment.orderSystemId,
+        action: `Đối soát COD - ${new Intl.NumberFormat('vi-VN').format(shipment.codAmount)}đ`,
+        actionType: 'status',
+        metadata: { userName },
+      }).catch(e => logError('[COD Reconciliation] activity log failed', e));
+    }
+
+    return apiSuccess({
+      receiptsCreated: result.length,
+      ordersUpdated: result.length,
+    });
   } catch (error) {
-    console.error('Error reconciling COD:', error);
+    logError('Error reconciling COD', error);
     return apiError('Failed to reconcile COD', 500);
   }
 }

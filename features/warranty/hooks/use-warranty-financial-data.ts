@@ -7,7 +7,6 @@
 
 import * as React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { fetchAllPages } from '@/lib/fetch-all-pages';
 import { fetchReceipts } from '@/features/receipts/api/receipts-api';
 import { fetchPayments } from '@/features/payments/api/payments-api';
 import type { Receipt, Payment } from '@/lib/types/prisma-extended';
@@ -22,10 +21,10 @@ const EMPTY_PAYMENTS: Payment[] = [];
 export function useWarrantyReceipts(warrantySystemId: string | undefined | null) {
   const query = useQuery({
     queryKey: ['receipts', 'warranty', warrantySystemId],
-    queryFn: () => fetchAllPages((p) => fetchReceipts({ 
-      ...p,
-      linkedWarrantySystemId: warrantySystemId!,
-    })),
+    queryFn: async () => {
+      const res = await fetchReceipts({ linkedWarrantySystemId: warrantySystemId! });
+      return res.data;
+    },
     enabled: !!warrantySystemId,
     staleTime: 30_000,
     gcTime: 5 * 60 * 1000,
@@ -49,10 +48,10 @@ export function useWarrantyReceipts(warrantySystemId: string | undefined | null)
 export function useWarrantyPayments(warrantySystemId: string | undefined | null) {
   const query = useQuery({
     queryKey: ['payments', 'warranty', warrantySystemId],
-    queryFn: () => fetchAllPages((p) => fetchPayments({ 
-      ...p,
-      linkedWarrantySystemId: warrantySystemId!,
-    })),
+    queryFn: async () => {
+      const res = await fetchPayments({ linkedWarrantySystemId: warrantySystemId! });
+      return res.data;
+    },
     enabled: !!warrantySystemId,
     staleTime: 30_000,
     gcTime: 5 * 60 * 1000,

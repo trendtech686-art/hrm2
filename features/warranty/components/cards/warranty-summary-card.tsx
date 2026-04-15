@@ -103,10 +103,10 @@ export const WarrantySummaryCard = React.memo(function WarrantySummaryCard({
       ? 'Cần thu thêm'
       : 'Không phát sinh thanh toán';
   const totalClass = settlementIsRefund
-    ? 'text-body-md font-bold text-red-600'
+    ? 'text-base font-bold text-red-600'
     : settlementIsCollect
-      ? 'text-body-md font-bold text-emerald-600'
-      : 'text-body-md font-bold';
+      ? 'text-base font-bold text-emerald-600'
+      : 'text-base font-bold';
 
   return (
     <Card>
@@ -116,8 +116,8 @@ export const WarrantySummaryCard = React.memo(function WarrantySummaryCard({
       <CardContent className="space-y-2.5">
         {/* Tổng giá trị bảo hành */}
         <div className="flex items-center justify-between">
-          <span className="text-body-sm text-muted-foreground">Tổng giá trị bảo hành</span>
-          <span className="font-bold text-body-md">
+          <span className="text-sm text-muted-foreground">Tổng giá trị bảo hành</span>
+          <span className="font-bold text-base">
             {currencyFormatter.format(summary.totalValue)} đ
           </span>
         </div>
@@ -128,7 +128,7 @@ export const WarrantySummaryCard = React.memo(function WarrantySummaryCard({
         {summary.returnedQty > 0 && (
           <>
             <div className="flex items-center justify-between">
-              <span className="text-body-sm text-muted-foreground">Tổng giá trị trả lại</span>
+              <span className="text-sm text-muted-foreground">Tổng giá trị trả lại</span>
               <span className="font-semibold">
                 {currencyFormatter.format(summary.returnedValue)} đ
               </span>
@@ -141,7 +141,7 @@ export const WarrantySummaryCard = React.memo(function WarrantySummaryCard({
         {summary.replacedQty > 0 && (
           <>
             <div className="flex items-center justify-between">
-              <span className="text-body-sm text-muted-foreground">Tổng giá trị đổi mới</span>
+              <span className="text-sm text-muted-foreground">Tổng giá trị đổi mới</span>
               <span className="font-semibold">
                 {currencyFormatter.format(summary.replacedValue)} đ
               </span>
@@ -152,7 +152,7 @@ export const WarrantySummaryCard = React.memo(function WarrantySummaryCard({
 
         {/* Tổng hàng trừ */}
         <div className="flex items-center justify-between">
-          <span className="text-body-sm text-muted-foreground">Tổng hàng trừ</span>
+          <span className="text-sm text-muted-foreground">Tổng hàng trừ</span>
           <span className="font-semibold">
             {currencyFormatter.format(summary.outOfStockValue)} đ
           </span>
@@ -164,7 +164,7 @@ export const WarrantySummaryCard = React.memo(function WarrantySummaryCard({
         {shippingFee > 0 && (
           <>
             <div className="flex items-center justify-between">
-              <span className="text-body-sm text-muted-foreground">Phí ship gửi về</span>
+              <span className="text-sm text-muted-foreground">Phí ship gửi về</span>
               <span className="font-semibold">
                 {currencyFormatter.format(shippingFee)} đ
               </span>
@@ -175,14 +175,14 @@ export const WarrantySummaryCard = React.memo(function WarrantySummaryCard({
 
         {/* Tổng cần bù trừ */}
         <div className="flex items-center justify-between">
-          <span className="text-body-sm font-semibold">{totalLabel}</span>
+          <span className="text-sm font-semibold">{totalLabel}</span>
           <span className={totalClass}>
             {currencyFormatter.format(totalSettlementAbsolute)} đ
           </span>
         </div>
 
         {totalSettlementAbsolute > 0 && (
-          <div className="space-y-1.5 text-body-sm">
+          <div className="space-y-1.5 text-sm">
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">{resolvedLabel}</span>
               <span className="font-semibold">
@@ -204,7 +204,7 @@ export const WarrantySummaryCard = React.memo(function WarrantySummaryCard({
 
         {settlementMethods.length > 0 && (
           <div className="space-y-2.5">
-            <span className="text-body-sm font-semibold">Phương thức bù trừ</span>
+            <span className="text-sm font-semibold">Phương thức bù trừ</span>
             <div className="space-y-2">
               {settlementMethods.map(method => {
                 const typeLabel = SETTLEMENT_TYPE_LABELS[method.type];
@@ -222,25 +222,25 @@ export const WarrantySummaryCard = React.memo(function WarrantySummaryCard({
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex flex-wrap items-center gap-2">
-                        <Badge variant="outline" className="text-body-xs">
+                        <Badge variant="outline" className="text-xs">
                           {typeLabel}
                         </Badge>
-                        <Badge variant={statusVariant} className="text-body-xs">
+                        <Badge variant={statusVariant} className="text-xs">
                           {statusLabel}
                         </Badge>
                       </div>
-                      <span className={`text-body-sm font-semibold ${settlementIsRefund ? 'text-destructive' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                      <span className={`text-sm font-semibold ${settlementIsRefund ? 'text-destructive' : 'text-emerald-600 dark:text-emerald-400'}`}>
                         {currencyFormatter.format(method.amount)} đ
                       </span>
                     </div>
 
                     {method.notes && (
-                      <p className="mt-1 text-body-xs text-muted-foreground">
+                      <p className="mt-1 text-xs text-muted-foreground">
                         {method.notes}
                       </p>
                     )}
 
-                    <div className="mt-2 flex flex-wrap gap-3 text-body-xs text-muted-foreground">
+                    <div className="mt-2 flex flex-wrap gap-3 text-xs text-muted-foreground">
                       {method.paymentVoucherId && (
                         <Link href={`/payments/${method.paymentVoucherId}`}
                           className="text-primary hover:underline"
@@ -267,26 +267,26 @@ export const WarrantySummaryCard = React.memo(function WarrantySummaryCard({
 
         {/* Tổng số lượng */}
         <div className="flex items-center justify-between">
-          <span className="text-body-sm text-muted-foreground">Tổng số lượng</span>
+          <span className="text-sm text-muted-foreground">Tổng số lượng</span>
           <span className="font-semibold">{summary.totalQuantity}</span>
         </div>
 
         {/* Số lượng đổi mới */}
         <div className="flex items-center justify-between pl-4">
-          <span className="text-body-xs text-muted-foreground">↳ Đổi mới</span>
-          <span className="text-body-xs">{summary.replacedQty}</span>
+          <span className="text-xs text-muted-foreground">↳ Đổi mới</span>
+          <span className="text-xs">{summary.replacedQty}</span>
         </div>
 
         {/* Số lượng trả lại */}
         <div className="flex items-center justify-between pl-4">
-          <span className="text-body-xs text-muted-foreground">↳ Trả lại</span>
-          <span className="text-body-xs">{summary.returnedQty}</span>
+          <span className="text-xs text-muted-foreground">↳ Trả lại</span>
+          <span className="text-xs">{summary.returnedQty}</span>
         </div>
 
         {/* Số lượng hết hàng */}
         <div className="flex items-center justify-between pl-4">
-          <span className="text-body-xs text-muted-foreground">↳ Hết hàng</span>
-          <span className="text-body-xs">{summary.outOfStockQty}</span>
+          <span className="text-xs text-muted-foreground">↳ Hết hàng</span>
+          <span className="text-xs">{summary.outOfStockQty}</span>
         </div>
       </CardContent>
     </Card>

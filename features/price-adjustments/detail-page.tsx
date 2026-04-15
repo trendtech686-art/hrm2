@@ -15,7 +15,7 @@ import { Badge } from '../../components/ui/badge';
 import { Separator } from '../../components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { DetailField } from '../../components/ui/detail-field';
-import { ActivityHistory, type HistoryEntry } from '../../components/ActivityHistory';
+import { EntityActivityTable } from '@/components/shared/entity-activity-table';
 import { ImagePreviewDialog } from '../../components/ui/image-preview-dialog';
 import { 
   AlertDialog, 
@@ -30,7 +30,7 @@ import {
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 import { Textarea } from '../../components/ui/textarea';
 import { Label } from '../../components/ui/label';
-import { CheckCircle, XCircle, Printer, Pencil, TrendingUp, TrendingDown, ArrowRight, Copy, ChevronLeft, ChevronRight } from 'lucide-react';
+import { CheckCircle, XCircle, Printer, Pencil, TrendingUp, TrendingDown, ArrowRight, Copy, ChevronLeft, ChevronRight, Loader2, MoreHorizontal } from 'lucide-react';
 import { ProductThumbnailCell } from '../../components/shared/read-only-products-table';
 import { toast } from 'sonner';
 import { formatDateTime } from '@/lib/date-utils';
@@ -47,6 +47,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { useProductFinder } from '../products/hooks/use-all-products';
 import { useEmployeeFinder } from '../employees/hooks/use-all-employees';
 import { asSystemId } from '../../lib/id-types';
+import { useBreakpoint } from '@/contexts/breakpoint-context';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../../components/ui/dropdown-menu';
 
 const formatCurrency = (value: number | undefined | null) => {
   if (value == null || isNaN(value)) return '0 đ';
@@ -73,63 +80,6 @@ const getStatusLabel = (status: PriceAdjustmentStatus): string => {
   return labels[s] || status;
 };
 
-// Build history entries from adjustment data
-function buildHistoryEntries(adjustment: PriceAdjustment): HistoryEntry[] {
-  const entries: HistoryEntry[] = [];
-  
-  // Created entry
-  if (adjustment.createdAt) {
-    entries.push({
-      id: `${adjustment.systemId}-created`,
-      action: 'created',
-      timestamp: new Date(adjustment.createdAt),
-      user: {
-        systemId: adjustment.createdBy || '',
-        name: adjustment.createdByName ?? '',
-      },
-      description: `Tạo phiếu điều chỉnh giá bán với ${adjustment.items?.length || 0} sản phẩm`,
-    });
-  }
-  
-  // Confirmed entry
-  if (adjustment.confirmedDate) {
-    entries.push({
-      id: `${adjustment.systemId}-confirmed`,
-      action: 'status_changed',
-      timestamp: new Date(adjustment.confirmedDate),
-      user: {
-        systemId: adjustment.confirmedBy || '',
-        name: adjustment.confirmedByName || '',
-      },
-      description: `Xác nhận phiếu điều chỉnh giá bán`,
-      metadata: {
-        oldValue: 'Nháp',
-        newValue: 'Đã xác nhận',
-        field: 'Trạng thái',
-      },
-    });
-  }
-  
-  // Cancelled entry  
-  if (adjustment.cancelledDate) {
-    entries.push({
-      id: `${adjustment.systemId}-cancelled`,
-      action: 'cancelled',
-      timestamp: new Date(adjustment.cancelledDate),
-      user: {
-        systemId: adjustment.cancelledBy || '',
-        name: adjustment.cancelledByName || '',
-      },
-      description: adjustment.cancelReason 
-        ? `Hủy phiếu: ${adjustment.cancelReason}`
-        : 'Hủy phiếu điều chỉnh giá bán',
-    });
-  }
-  
-  // Sort by timestamp descending (newest first)
-  return entries.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
-}
-
 // Items per page options
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 
@@ -137,7 +87,8 @@ export function PriceAdjustmentDetailPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const router = useRouter();
   const { setPageHeader, clearPageHeader } = usePageHeader();
-  const { user } = useAuth();
+  const { user, can, isAdmin } = useAuth();
+  const { isMobile } = useBreakpoint();
   const { findById: findEmployeeById } = useEmployeeFinder();
   const { findById: findProductById } = useProductFinder();
   const { data: adjustment, isLoading } = usePriceAdjustment(systemId);
@@ -291,7 +242,7 @@ export function PriceAdjustmentDetailPage() {
           Sao chép
         </Button>
         
-        {isDraft && (
+        {isDraft && (isAdmin || can('edit_products')) && (
           <>
             <Button 
               variant="outline" 
@@ -322,6 +273,46 @@ export function PriceAdjustmentDetailPage() {
       </div>
     );
   }, [adjustment, handlePrint, handleCopy, router, systemId]);
+
+  const mobileHeaderActions = React.useMemo(() => {
+    if (!isMobile || !adjustment) return null;
+    const isDraft = adjustment.status?.toLowerCase() === 'draft';
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="sm" className="h-9">
+            <MoreHorizontal className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={handlePrint}>
+            <Printer className="mr-2 h-4 w-4" />
+            In phiếu
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={handleCopy}>
+            <Copy className="mr-2 h-4 w-4" />
+            Sao chép
+          </DropdownMenuItem>
+          {isDraft && (isAdmin || can('edit_products')) && (
+            <>
+              <DropdownMenuItem onClick={() => router.push(`/price-adjustments/${systemId}/edit`)}>
+                <Pencil className="mr-2 h-4 w-4" />
+                Sửa
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setConfirmDialogOpen(true)}>
+                <CheckCircle className="mr-2 h-4 w-4" />
+                Xác nhận
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setCancelDialogOpen(true)} className="text-destructive">
+                <XCircle className="mr-2 h-4 w-4" />
+                Hủy phiếu
+              </DropdownMenuItem>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  }, [isMobile, adjustment, handlePrint, handleCopy, router, systemId, isAdmin, can]);
   
   const breadcrumb = React.useMemo(() => {
     if (!adjustment) return [];
@@ -339,7 +330,7 @@ export function PriceAdjustmentDetailPage() {
         breadcrumb,
         showBackButton: true,
         backPath: '/price-adjustments',
-        actions: headerActions,
+        actions: isMobile ? mobileHeaderActions : headerActions,
         badge: (
           <Badge variant={getStatusVariant(adjustment.status)}>
             {getStatusLabel(adjustment.status)}
@@ -348,7 +339,7 @@ export function PriceAdjustmentDetailPage() {
       });
     }
     return () => clearPageHeader();
-  }, [adjustment, setPageHeader, clearPageHeader, breadcrumb, headerActions]);
+  }, [adjustment, setPageHeader, clearPageHeader, breadcrumb, headerActions, isMobile, mobileHeaderActions]);
   
   // Loading state
   if (isLoading) {
@@ -520,7 +511,7 @@ export function PriceAdjustmentDetailPage() {
                               <span className="font-medium">{displayName}</span>
                             )}
                             {displayId && (
-                              <div className="text-body-xs text-muted-foreground">
+                              <div className="text-xs text-muted-foreground">
                                 {displayId}
                               </div>
                             )}
@@ -629,11 +620,7 @@ export function PriceAdjustmentDetailPage() {
       />
 
       {/* Activity History - Full Width */}
-      <ActivityHistory
-        history={buildHistoryEntries(adjustment)}
-        title="Lịch sử hoạt động"
-        emptyMessage="Chưa có hoạt động"
-      />
+      <EntityActivityTable entityType="price_adjustment" entityId={systemId} />
 
       {/* Confirm Dialog */}
       <AlertDialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
@@ -647,7 +634,8 @@ export function PriceAdjustmentDetailPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Hủy</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirm}>
+            <AlertDialogAction onClick={handleConfirm} disabled={confirm.isPending}>
+              {confirm.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Xác nhận
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -678,7 +666,8 @@ export function PriceAdjustmentDetailPage() {
             <Button variant="outline" className="h-9" onClick={() => setCancelDialogOpen(false)}>
               Đóng
             </Button>
-            <Button variant="destructive" className="h-9" onClick={handleCancel}>
+            <Button variant="destructive" className="h-9" onClick={handleCancel} disabled={cancel.isPending}>
+              {cancel.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Hủy phiếu
             </Button>
           </DialogFooter>

@@ -22,6 +22,7 @@ export const createCashAccountSchema = z.object({
   branchSystemId: z.string().optional(),
   minBalance: z.number().optional(),
   maxBalance: z.number().optional(),
+  accountType: z.string().optional(),
   isActive: z.boolean().optional().default(true),
   isDefault: z.boolean().optional().default(false),
 })

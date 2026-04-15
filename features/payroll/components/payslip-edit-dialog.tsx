@@ -15,7 +15,7 @@ import { Alert, AlertDescription } from '../../../components/ui/alert';
 import { ScrollArea } from '../../../components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs';
 import { Card, CardContent } from '../../../components/ui/card';
-import { AlertTriangle, Calculator, Save, X, TrendingUp, TrendingDown, Wallet } from 'lucide-react';
+import { AlertTriangle, Calculator, Save, X, TrendingUp, TrendingDown, Wallet, Loader2 } from 'lucide-react';
 import type { Payslip, PayrollComponentEntry, PayrollTotals } from '../../../lib/payroll-types';
 import type { SystemId } from '../../../lib/id-types';
 
@@ -31,6 +31,7 @@ type PayslipEditDialogProps = {
   isLocked: boolean;
   onSave: (updates: PayslipUpdatePayload) => void;
   onRecalculate?: () => void;
+  isSaving?: boolean;
 };
 
 export type PayslipUpdatePayload = {
@@ -122,6 +123,7 @@ export function PayslipEditDialog({
   isLocked,
   onSave,
   onRecalculate,
+  isSaving,
 }: PayslipEditDialogProps) {
   // Initialize edit state from payslip
   const [editState, setEditState] = React.useState<ComponentEditState[]>([]);
@@ -406,11 +408,11 @@ export function PayslipEditDialog({
           <Button
             type="button"
             onClick={handleSave}
-            disabled={isLocked || !hasChanges}
+            disabled={isLocked || !hasChanges || isSaving}
             className="gap-2"
           >
-            <Save className="h-4 w-4" />
-            Lưu thay đổi
+            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            {isSaving ? 'Đang lưu...' : 'Lưu thay đổi'}
           </Button>
         </DialogFooter>
       </DialogContent>

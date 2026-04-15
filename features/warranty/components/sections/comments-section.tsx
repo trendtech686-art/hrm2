@@ -1,8 +1,7 @@
 import { Comments } from '../../../../components/Comments';
 import type { WarrantyTicket } from '../../types';
 import { useWarrantyComments } from '../../hooks/use-warranty-comments';
-import { useAllEmployees } from '../../../employees/hooks/use-all-employees';
-import * as React from 'react';
+import { useEmployeeFetchMentions } from '../../../employees/hooks/use-employee-search';
 
 import type { SystemId } from '@/lib/id-types';
 
@@ -24,18 +23,8 @@ export function WarrantyCommentsSection({
   onUpdateTicket,
   onAddHistory,
 }: WarrantyCommentsSectionProps) {
-  const { data: employees } = useAllEmployees();
-
-  // Get all employees for @mention in comments
-  const employeeMentions = React.useMemo(() => {
-    return employees
-      .filter(e => !e.isDeleted)
-      .map(e => ({
-        id: e.systemId,
-        label: e.fullName,
-        avatar: e.avatarUrl,
-      }));
-  }, [employees]);
+  // ⚡ OPTIMIZED: Lazy-load employee mentions on @ trigger instead of loading all employees
+  const fetchMentions = useEmployeeFetchMentions();
 
   const {
     comments,
@@ -59,7 +48,7 @@ export function WarrantyCommentsSection({
       onDeleteComment={handleDeleteComment}
       currentUser={currentUser}
       title="Bình luận"
-      mentions={employeeMentions}
+      fetchMentions={fetchMentions}
     />
   );
 }

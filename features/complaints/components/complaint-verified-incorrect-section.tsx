@@ -110,8 +110,7 @@ export const ComplaintVerifiedIncorrectSection: React.FC<Props> = ({ complaint, 
                     <a
                       key={idx}
                       href={link}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                      target="_blank" rel="noopener noreferrer"
                       className="flex items-center gap-1 text-primary hover:underline break-all"
                     >
                       <ExternalLink className="h-3 w-3 shrink-0" />

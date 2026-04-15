@@ -51,7 +51,7 @@ export function StockHistoryTab({
 
   return (
     <Card>
-      <CardContent className="p-0">
+      <CardContent className="p-0 overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -73,9 +73,12 @@ export function StockHistoryTab({
                 ? (data as InventoryReceipt).items.reduce((sum, i) => sum + Number(i.receivedQuantity || 0), 0)
                 : (data as PurchaseReturn).items.reduce((sum, i) => sum + Number(i.returnQuantity || 0), 0);
               
-              // Tính tổng giá trị
+              // Tính tổng giá trị - use unitCost (includes fees) for receipts
               const totalValue = isReceipt
-                ? (data as InventoryReceipt).items.reduce((sum, i) => sum + Number(i.receivedQuantity || 0) * Number(i.unitPrice || 0), 0)
+                ? (data as InventoryReceipt).items.reduce((sum, i) => {
+                    const cost = Number((i as unknown as { unitCost?: number }).unitCost || i.unitPrice || 0);
+                    return sum + Number(i.receivedQuantity || 0) * cost;
+                  }, 0)
                 : (data as PurchaseReturn).items.reduce((sum, i) => sum + Number(i.returnQuantity || 0) * Number(i.unitPrice || 0), 0);
 
               return (
@@ -88,7 +91,7 @@ export function StockHistoryTab({
                     </TableCell>
                     <TableCell className="font-medium">
                       <Link href={isReceipt ? `/inventory-receipts/${data.systemId}` : `/purchase-returns/${data.systemId}`}
-                        className="text-body-sm font-medium text-primary hover:underline"
+                        className="text-sm font-medium text-primary hover:underline"
                         onClick={(e) => e.stopPropagation()}
                       >
                         {data.id}
@@ -100,8 +103,8 @@ export function StockHistoryTab({
                         : <Badge variant="destructive" className="bg-red-100 text-red-700">Xuất trả NCC</Badge>
                       }
                     </TableCell>
-                    {/* FIX: Use type guard `isReceipt` to access correct properties */}
-                    <TableCell>{formatDateCustom(parseDate(isReceipt ? (data as InventoryReceipt).receivedDate : (data as PurchaseReturn).returnDate) || getCurrentDate(), 'dd/MM/yyyy HH:mm')}</TableCell>
+                    {/* FIX: Use createdAt for actual time, fallback to receivedDate/returnDate */}
+                    <TableCell>{formatDateCustom(parseDate((data as { createdAt?: string }).createdAt || (isReceipt ? (data as InventoryReceipt).receivedDate : (data as PurchaseReturn).returnDate)) || getCurrentDate(), 'dd/MM/yyyy HH:mm')}</TableCell>
                     <TableCell>{isReceipt ? (data as InventoryReceipt).receiverName : (data as PurchaseReturn).creatorName}</TableCell>
                     <TableCell className="text-center">{totalQty}</TableCell>
                     <TableCell className="text-right">{formatCurrency(totalValue)}</TableCell>

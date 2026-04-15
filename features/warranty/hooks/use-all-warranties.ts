@@ -3,13 +3,10 @@
  * Auto-pagination: no hardcoded limit cap (MODULE-QUALITY-CRITERIA §1.3)
  */
 
-import { useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { fetchAllPages } from '@/lib/fetch-all-pages';
 import { fetchWarranties } from '../api/warranties-api';
 import { warrantyKeys } from './use-warranties';
-import type { WarrantyTicket } from '@/lib/types/prisma-extended';
-import type { SystemId } from '@/lib/id-types';
 
 export function useAllWarranties(options?: { enabled?: boolean }) {
   const query = useQuery({
@@ -26,18 +23,4 @@ export function useAllWarranties(options?: { enabled?: boolean }) {
     isError: query.isError,
     error: query.error,
   };
-}
-
-/**
- * Hook providing a findById function for warranties
- */
-export function useWarrantyFinder() {
-  const { data, isLoading } = useAllWarranties();
-  
-  const findById = useCallback((systemId: SystemId | string): WarrantyTicket | undefined => {
-    if (!systemId) return undefined;
-    return data.find(w => w.systemId === systemId);
-  }, [data]);
-  
-  return { findById, isLoading };
 }

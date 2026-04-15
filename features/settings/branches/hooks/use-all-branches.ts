@@ -15,6 +15,9 @@ import { branchKeys } from './use-branches';
 import type { Branch } from '@/lib/types/prisma-extended';
 import type { SystemId } from '@/lib/id-types';
 
+// ✅ Re-export Branch type for consumers
+export type { Branch } from '@/lib/types/prisma-extended';
+
 // ✅ Stable empty array to prevent re-renders
 const EMPTY_BRANCHES: Branch[] = [];
 
@@ -22,7 +25,7 @@ const EMPTY_BRANCHES: Branch[] = [];
  * Returns all branches as a flat array
  * Compatible with legacy store pattern: { data: branches }
  */
-export function useAllBranches(): {
+export function useAllBranches(options?: { enabled?: boolean }): {
   data: Branch[];
   isLoading: boolean;
   isError: boolean;
@@ -31,6 +34,7 @@ export function useAllBranches(): {
   const query = useQuery({
     queryKey: [...branchKeys.all, 'all'],
     queryFn: () => fetchAllPages((p) => fetchBranches(p)),
+    enabled: options?.enabled !== false,
     staleTime: 10 * 60 * 1000,
     gcTime: 60 * 60 * 1000,
   });
@@ -74,9 +78,11 @@ export function useDefaultBranch() {
 /**
  * Helper hook to find a branch by ID from cached data
  * Replaces legacy findById() method
+ * 
+ * @param options.enabled - Whether to fetch data (default: true)
  */
-export function useBranchFinder() {
-  const { data } = useAllBranches();
+export function useBranchFinder(options?: { enabled?: boolean }) {
+  const { data, isLoading } = useAllBranches(options);
   
   const findById = React.useCallback(
     (systemId: SystemId | string | undefined) => {
@@ -86,5 +92,5 @@ export function useBranchFinder() {
     [data]
   );
   
-  return { findById };
+  return { findById, isLoading };
 }

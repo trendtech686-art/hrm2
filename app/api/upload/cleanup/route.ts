@@ -11,6 +11,7 @@ import fs from 'fs/promises'
 import path from 'path'
 import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
 import { cleanupStagingSchema } from './validation'
+import { logError } from '@/lib/logger'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -87,7 +88,7 @@ export async function POST(request: NextRequest) {
     })
     
   } catch (error) {
-    console.error('Cleanup staging files error:', error)
+    logError('Cleanup staging files error', error)
     return apiError('Lỗi khi dọn dẹp file staging', 500)
   }
 }
@@ -160,7 +161,7 @@ export async function GET(request: NextRequest) {
     })
     
   } catch (error) {
-    console.error('Get cleanup stats error:', error)
+    logError('Get cleanup stats error', error)
     return apiError('Lỗi khi lấy thông tin cleanup', 500)
   }
 }

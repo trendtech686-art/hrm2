@@ -10,7 +10,7 @@
 import * as React from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useForm, useFieldArray, useWatch } from 'react-hook-form';
-import { CreditCard } from 'lucide-react';
+import { CreditCard, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
 import { usePageHeader } from '../../contexts/page-header-context';
@@ -374,6 +374,7 @@ export function PurchaseReturnForOrderPage() {
       onClick={handleSubmit(onSubmit)} 
       disabled={!hasReturnItems || create.isPending}
     >
+      {create.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
       Hoàn trả
     </Button>
   ) : null;
@@ -400,7 +401,7 @@ export function PurchaseReturnForOrderPage() {
       <div className="p-8">
         <div className="max-w-2xl mx-auto text-center">
           <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4" />
-          <p className="text-body-sm text-muted-foreground">Đang tải dữ liệu...</p>
+          <p className="text-sm text-muted-foreground">Đang tải dữ liệu...</p>
         </div>
       </div>
     );
@@ -412,7 +413,7 @@ export function PurchaseReturnForOrderPage() {
       <div className="p-8">
         <div className="max-w-2xl mx-auto text-center">
           <h2 className="text-h2 mb-4">Không tìm thấy đơn hàng</h2>
-          <p className="text-body-sm text-muted-foreground mb-6">
+          <p className="text-sm text-muted-foreground mb-6">
             Đơn hàng với mã {systemId} không tồn tại hoặc đã bị xóa.
           </p>
           <Button onClick={() => router.push(ROUTES.PROCUREMENT.PURCHASE_ORDERS)}>
@@ -429,7 +430,7 @@ export function PurchaseReturnForOrderPage() {
       <div className="p-8">
         <div className="max-w-2xl mx-auto text-center">
           <h2 className="text-h2 mb-4">Không thể tạo phiếu trả</h2>
-          <p className="text-body-sm text-muted-foreground mb-6">
+          <p className="text-sm text-muted-foreground mb-6">
             Đơn nhập hàng này chưa được nhập kho. Vui lòng nhập kho trước khi hoàn trả.
           </p>
           <Button onClick={() => router.push(`${ROUTES.PROCUREMENT.PURCHASE_ORDERS}/${systemId}`)}>

@@ -4,6 +4,8 @@ import { Prisma } from '@/generated/prisma/client';
 import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils';
 import { createCustomerSettingSchema } from './validation';
 import { generateIdWithPrefix } from '@/lib/id-generator';
+import { logError } from '@/lib/logger'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 // Valid customer setting types
 const VALID_TYPES = [
@@ -59,7 +61,7 @@ export async function GET(request: NextRequest) {
 
     return apiSuccess(transformed);
   } catch (error) {
-    console.error('[Customer Settings API] GET error:', error);
+    logError('[Customer Settings API] GET error', error);
     return apiError('Failed to fetch customer settings', 500);
   }
 }
@@ -105,6 +107,14 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    createActivityLog({
+      entityType: 'customer_settings',
+      entityId: created.systemId,
+      action: `Thêm cài đặt khách hàng: ${name}`,
+      actionType: 'create',
+      createdBy: session.user?.id,
+    }).catch(e => logError('Failed to create activity log', e))
+
     return apiSuccess({
       systemId: created.systemId,
       id: created.id,
@@ -122,7 +132,7 @@ export async function POST(request: NextRequest) {
       ...(created.metadata as Record<string, unknown> || {}),
     });
   } catch (error) {
-    console.error('[Customer Settings API] POST error:', error);
+    logError('[Customer Settings API] POST error', error);
     
     // Handle unique constraint violation
     if (error instanceof Error && 'code' in error && error.code === 'P2002') {

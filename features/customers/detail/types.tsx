@@ -17,6 +17,7 @@ import type { ColumnDef } from '../../../components/data-table/types';
 import type { Order } from '../../orders/types';
 import type { WarrantyTicket } from '../../warranty/types';
 import type { Complaint } from '../../complaints/types';
+import type { SalesReturn } from '@/lib/types/prisma-extended';
 import { WARRANTY_STATUS_LABELS, WARRANTY_STATUS_COLORS } from '../../warranty/types';
 import { complaintStatusLabels, complaintStatusColors, complaintTypeLabels } from '../../complaints/types';
 import { getWarrantyStatusBadge } from '../../warranty/utils/warranty-checker';
@@ -435,7 +436,7 @@ export const debtColumns: ColumnDef<DebtTransaction>[] = [
         return (
           <span className="flex items-center gap-1">
             <span>{row.description}</span>
-            <Badge variant="outline" className="text-[10px] px-1 py-0">Khiếu nại</Badge>
+            <Badge variant="outline" className="text-xs px-1 py-0">Khiếu nại</Badge>
           </span>
         );
       }
@@ -448,15 +449,26 @@ export const debtColumns: ColumnDef<DebtTransaction>[] = [
     accessorKey: 'change', 
     header: 'Giá trị thay đổi', 
     cell: ({ row }) => {
-      // Hiển thị displayAmount nếu có (cho phiếu chi hoàn tiền từ trả hàng/khiếu nại)
-      const displayValue = row.displayAmount !== undefined ? row.displayAmount : row.change;
       const isRefundFromReturn = row.type === 'payment' && row.displayAmount !== undefined;
       const isRefundFromComplaint = row.type === 'complaint-payment';
       
-      // Positive = khách nợ thêm (đơn hàng) → màu đỏ (nợ tăng)
-      // Negative = khách trả nợ (thanh toán) → màu xanh lá (nợ giảm)
-      const isDebtIncrease = displayValue > 0;
-      const prefix = isDebtIncrease ? '+' : '';
+      // Phiếu thu (PT) và Phiếu chi (PC) hiển thị dương (+)
+      // Đơn hàng (DH) hiển thị dương (+), Trả hàng (TH) hiển thị âm (-)
+      let displayValue: number;
+      if (row.type === 'receipt' || row.type === 'payment' || row.type === 'complaint-payment') {
+        // Thu/Chi = + (giá trị tuyệt đối)
+        const rawValue = row.displayAmount !== undefined ? row.displayAmount : row.change;
+        displayValue = Math.abs(rawValue);
+      } else if (row.displayAmount !== undefined) {
+        displayValue = row.displayAmount;
+      } else {
+        displayValue = row.change;
+      }
+      
+      // Đỏ = đơn hàng (tăng công nợ)
+      // Xanh = thu/chi/trả hàng (giảm công nợ)
+      const isDebtIncrease = row.type === 'order';
+      const prefix = displayValue > 0 ? '+' : '';
       
       return (
         <span className={isDebtIncrease ? 'text-red-600' : 'text-green-600'}>
@@ -536,6 +548,27 @@ export const createOrderColumnsWithReturns = (): ColumnDef<OrderWithReturns>[] =
     meta: { displayName: 'Ngày đặt' } 
   },
   { 
+    id: 'approvedDate', 
+    accessorKey: 'approvedDate', 
+    header: 'Ngày duyệt', 
+    cell: ({ row }) => row.approvedDate ? formatDateUtil(row.approvedDate) : '—', 
+    meta: { displayName: 'Ngày duyệt' } 
+  },
+  { 
+    id: 'dispatchedDate', 
+    accessorKey: 'dispatchedDate', 
+    header: 'Ngày xuất kho', 
+    cell: ({ row }) => row.dispatchedDate ? formatDateUtil(row.dispatchedDate) : '—', 
+    meta: { displayName: 'Ngày xuất kho' } 
+  },
+  { 
+    id: 'completedDate', 
+    accessorKey: 'completedDate', 
+    header: 'Ngày giao', 
+    cell: ({ row }) => row.completedDate ? formatDateUtil(row.completedDate) : '—', 
+    meta: { displayName: 'Ngày giao' } 
+  },
+  { 
     id: 'status', 
     accessorKey: 'status', 
     header: 'Trạng thái', 
@@ -549,11 +582,109 @@ export const createOrderColumnsWithReturns = (): ColumnDef<OrderWithReturns>[] =
     meta: { displayName: 'Trạng thái' } 
   },
   { 
+    id: 'paymentStatus', 
+    accessorKey: 'paymentStatus', 
+    header: 'TT Thanh toán', 
+    cell: ({ row }) => {
+      const variants: Record<string, "success" | "warning" | "secondary"> = {
+        'Thanh toán toàn bộ': 'success', 'PAID': 'success',
+        'Thanh toán 1 phần': 'warning', 'PARTIAL': 'warning',
+        'Chưa thanh toán': 'secondary', 'UNPAID': 'secondary',
+      };
+      return <Badge variant={variants[row.paymentStatus] || 'secondary'}>{row.paymentStatus}</Badge>;
+    }, 
+    meta: { displayName: 'TT Thanh toán' } 
+  },
+  { 
+    id: 'stockOutStatus', 
+    accessorKey: 'stockOutStatus', 
+    header: 'TT Xuất kho', 
+    cell: ({ row }) => {
+      const variants: Record<string, "success" | "warning" | "secondary"> = {
+        'Xuất kho toàn bộ': 'success', 'FULLY_STOCKED_OUT': 'success',
+        'Xuất kho một phần': 'warning', 'PARTIALLY_STOCKED_OUT': 'warning',
+        'Chưa xuất kho': 'secondary', 'NOT_STOCKED_OUT': 'secondary',
+      };
+      return <Badge variant={variants[row.stockOutStatus] || 'secondary'}>{row.stockOutStatus}</Badge>;
+    }, 
+    meta: { displayName: 'TT Xuất kho' } 
+  },
+  { 
+    id: 'deliveryStatus', 
+    accessorKey: 'deliveryStatus', 
+    header: 'TT Giao hàng', 
+    cell: ({ row }) => {
+      const variants: Record<string, "success" | "warning" | "secondary" | "destructive"> = {
+        'Đã giao hàng': 'success', 'DELIVERED': 'success',
+        'Đang giao hàng': 'warning', 'SHIPPING': 'warning',
+        'Chờ giao lại': 'destructive', 'RESCHEDULED': 'destructive',
+        'Chờ đóng gói': 'secondary', 'Đã đóng gói': 'secondary', 'Chờ lấy hàng': 'secondary',
+      };
+      return <Badge variant={variants[row.deliveryStatus] || 'secondary'}>{row.deliveryStatus}</Badge>;
+    }, 
+    meta: { displayName: 'TT Giao hàng' } 
+  },
+  { 
+    id: 'packagingStatus', 
+    header: 'TT Đóng gói', 
+    cell: ({ row }) => {
+      if (!row.packagings || row.packagings.length === 0) {
+        return <Badge variant="secondary">Chưa đóng gói</Badge>;
+      }
+      const allPacked = row.packagings.every(p => p.status === 'Đã đóng gói' || p.status === 'PACKED');
+      return <Badge variant={allPacked ? 'success' : 'warning'}>{allPacked ? 'Đã đóng gói' : 'Đang đóng gói'}</Badge>;
+    }, 
+    meta: { displayName: 'TT Đóng gói' } 
+  },
+  { 
     id: 'grandTotal', 
     accessorKey: 'grandTotal', 
     header: 'Tổng tiền', 
     cell: ({ row }) => formatCurrency(row.grandTotal), 
     meta: { displayName: 'Tổng tiền' } 
+  },
+  { 
+    id: 'paidAmount', 
+    accessorKey: 'paidAmount', 
+    header: 'Đã thanh toán', 
+    cell: ({ row }) => formatCurrency(row.paidAmount), 
+    meta: { displayName: 'Đã thanh toán' } 
+  },
+  { 
+    id: 'remaining', 
+    header: 'Còn lại', 
+    cell: ({ row }) => {
+      const remaining = row.grandTotal - row.paidAmount;
+      return <span className={remaining > 0 ? 'text-red-600' : ''}>{formatCurrency(remaining)}</span>;
+    }, 
+    meta: { displayName: 'Còn lại' } 
+  },
+  { 
+    id: 'codAmount', 
+    accessorKey: 'codAmount', 
+    header: 'Thu hộ COD', 
+    cell: ({ row }) => row.codAmount ? formatCurrency(row.codAmount) : '—', 
+    meta: { displayName: 'Thu hộ COD' } 
+  },
+  { 
+    id: 'createdByName', 
+    accessorKey: 'createdByName', 
+    header: 'Người tạo', 
+    cell: ({ row }) => row.createdByName || '—', 
+    meta: { displayName: 'Người tạo' } 
+  },
+  { 
+    id: 'salesperson', 
+    accessorKey: 'salesperson', 
+    header: 'NV được gán', 
+    cell: ({ row }) => row.salesperson || '—', 
+    meta: { displayName: 'NV được gán' } 
+  },
+  { 
+    id: 'trackingCode', 
+    header: 'Mã vận đơn', 
+    cell: ({ row }) => row.shippingInfo?.trackingCode || '—', 
+    meta: { displayName: 'Mã vận đơn' } 
   },
   { 
     id: 'returns', 
@@ -605,5 +736,193 @@ export const createOrderColumnsWithReturns = (): ColumnDef<OrderWithReturns>[] =
       </DropdownMenu>
     ), 
     meta: { displayName: 'Hành động', excludeFromExport: true } 
+  },
+];
+
+
+// ============================================
+// Address Columns for RelatedDataTable
+// ============================================
+
+export type AddressRow = {
+  id: string;
+  systemId: string; // RelatedDataTable requires systemId
+  street: string;
+  province: string;
+  district: string;
+  ward: string;
+  inputLevel?: string;
+  contactName?: string;
+  contactPhone?: string;
+  isDefaultShipping: boolean;
+};
+
+export const addressColumns: ColumnDef<AddressRow>[] = [
+  {
+    id: 'street',
+    accessorKey: 'street',
+    header: 'Địa chỉ',
+    cell: ({ row }) => <span className="font-medium">{row.street}</span>,
+    meta: { displayName: 'Địa chỉ' },
+  },
+  {
+    id: 'province',
+    accessorKey: 'province',
+    header: 'Tỉnh/TP',
+    cell: ({ row }) => <span>{row.province}</span>,
+    meta: { displayName: 'Tỉnh/TP' },
+  },
+  {
+    id: 'district',
+    accessorKey: 'district',
+    header: 'Quận/Huyện',
+    cell: ({ row }) => <span>{row.district}</span>,
+    meta: { displayName: 'Quận/Huyện' },
+  },
+  {
+    id: 'ward',
+    accessorKey: 'ward',
+    header: 'Phường/Xã',
+    cell: ({ row }) => <span>{row.ward}</span>,
+    meta: { displayName: 'Phường/Xã' },
+  },
+  {
+    id: 'inputLevel',
+    accessorKey: 'inputLevel',
+    header: 'Loại',
+    cell: ({ row }) => (
+      <Badge variant={row.inputLevel === '2-level' ? 'secondary' : 'default'}>
+        {row.inputLevel === '2-level' ? '2 cấp' : '3 cấp'}
+      </Badge>
+    ),
+    meta: { displayName: 'Loại' },
+  },
+  {
+    id: 'contactName',
+    accessorKey: 'contactName',
+    header: 'Liên hệ',
+    cell: ({ row }) => row.contactName || '—',
+    meta: { displayName: 'Liên hệ' },
+  },
+  {
+    id: 'contactPhone',
+    accessorKey: 'contactPhone',
+    header: 'SĐT',
+    cell: ({ row }) => row.contactPhone || '—',
+    meta: { displayName: 'SĐT' },
+  },
+  {
+    id: 'isDefaultShipping',
+    accessorKey: 'isDefaultShipping',
+    header: 'MĐ GH',
+    cell: ({ row }) => (
+      <Badge variant={row.isDefaultShipping ? 'default' : 'secondary'}>
+        {row.isDefaultShipping ? 'Mặc định' : '—'}
+      </Badge>
+    ),
+    meta: { displayName: 'MĐ Giao hàng' },
+  },
+];
+
+// ============================================
+// Sales Return Columns for RelatedDataTable
+// ============================================
+
+export const salesReturnColumns: ColumnDef<SalesReturn>[] = [
+  {
+    id: 'id',
+    accessorKey: 'id',
+    header: 'Mã phiếu trả',
+    cell: ({ row }) => (
+      <Link href={`/returns/${row.systemId}`} className="font-medium text-primary hover:underline">
+        {row.id}
+      </Link>
+    ),
+    meta: { displayName: 'Mã phiếu trả' },
+  },
+  {
+    id: 'orderId',
+    accessorKey: 'orderId',
+    header: 'Mã ĐH gốc',
+    cell: ({ row }) => (
+      <Link href={`/orders/${row.orderSystemId}`} className="text-primary hover:underline">
+        {row.orderId}
+      </Link>
+    ),
+    meta: { displayName: 'Mã ĐH gốc' },
+  },
+  {
+    id: 'returnDate',
+    accessorKey: 'returnDate',
+    header: 'Ngày trả',
+    cell: ({ row }) => formatDateUtil(row.returnDate),
+    meta: { displayName: 'Ngày trả' },
+  },
+  {
+    id: 'totalReturnValue',
+    accessorKey: 'totalReturnValue',
+    header: 'Giá trị trả',
+    cell: ({ row }) => <span className="font-medium">{formatCurrency(row.totalReturnValue)}</span>,
+    meta: { displayName: 'Giá trị trả' },
+  },
+  {
+    id: 'reason',
+    accessorKey: 'reason',
+    header: 'Lý do',
+    cell: ({ row }) => row.reason || '—',
+    meta: { displayName: 'Lý do' },
+  },
+  {
+    id: 'isReceived',
+    accessorKey: 'isReceived',
+    header: 'Đã nhận hàng',
+    cell: ({ row }) => (
+      <Badge variant={row.isReceived ? 'success' : 'secondary'}>
+        {row.isReceived ? 'Đã nhận' : 'Chưa nhận'}
+      </Badge>
+    ),
+    meta: { displayName: 'Đã nhận hàng' },
+  },
+  {
+    id: 'creatorName',
+    accessorKey: 'creatorName',
+    header: 'Người tạo',
+    cell: ({ row }) => row.creatorName || '—',
+    meta: { displayName: 'Người tạo' },
+  },
+  {
+    id: 'createdAt',
+    accessorKey: 'createdAt',
+    header: 'Ngày tạo',
+    cell: ({ row }) => formatDateUtil(row.createdAt),
+    meta: { displayName: 'Ngày tạo' },
+  },
+  {
+    id: 'actions',
+    header: 'Hành động',
+    cell: ({ row }) => (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" className="h-8 w-8">
+            <MoreHorizontal className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem asChild>
+            <Link href={`/returns/${row.systemId}`}>
+              <Eye className="mr-2 h-4 w-4" />
+              Xem chi tiết
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link href={`/orders/${row.orderSystemId}`}>
+              <ExternalLink className="mr-2 h-4 w-4" />
+              Xem đơn hàng gốc
+            </Link>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    ),
+    meta: { displayName: 'Hành động', excludeFromExport: true },
   },
 ];

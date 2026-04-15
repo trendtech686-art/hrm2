@@ -12,22 +12,17 @@
  * This endpoint is for marking the administrative/financial processing as complete.
  */
 
-import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils';
+import { apiSuccess, apiError, apiNotFound } from '@/lib/api-utils';
+import { apiHandler } from '@/lib/api-handler';
 import { PurchaseReturnStatus } from '@/generated/prisma/client';
-
-type RouteParams = {
-  params: Promise<{ systemId: string }>;
-};
+import { logError } from '@/lib/logger'
+import { createNotification } from '@/lib/notifications'
 
 // POST - Process approved purchase return
-export async function POST(request: NextRequest, { params }: RouteParams) {
-  const session = await requireAuth();
-  if (!session) return apiError('Unauthorized', 401);
-
+export const POST = apiHandler(async (request, { session, params }) => {
   try {
-    const { systemId } = await params;
+    const { systemId } = params;
 
     // Get existing return
     const existingReturn = await prisma.purchaseReturn.findUnique({
@@ -57,9 +52,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           action: 'processed',
           actionType: 'status',
           changes: { status: { from: 'APPROVED', to: 'COMPLETED' } },
-          note: 'Purchase return processing completed',
-          createdBy: session.user?.id || null,
-          metadata: { userName: session.user?.name || 'System' },
+          note: 'Hoàn tất xử lý phiếu trả hàng',
+          createdBy: session!.user?.employee?.fullName || session!.user?.name || session!.user?.id || null,
+          metadata: { userName: session!.user?.name || 'System' },
         },
       });
 
@@ -68,7 +63,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         data: {
           status: PurchaseReturnStatus.COMPLETED,
           updatedAt: new Date(),
-          updatedBy: session.user?.id || null,
+          updatedBy: session!.user?.id || null,
         },
         include: {
           items: true,
@@ -79,12 +74,37 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return updated;
     });
 
-    return apiSuccess(purchaseReturn);
-  } catch (error) {
-    console.error('[Purchase Returns Process API] POST error:', error);
-    if (error instanceof Error) {
-      return apiError(error.message, 500);
+    // Convert Decimal fields to numbers for serialization
+    const serializable = {
+      ...purchaseReturn,
+      subtotal: Number(purchaseReturn.subtotal),
+      total: Number(purchaseReturn.total),
+      totalReturnValue: Number(purchaseReturn.totalReturnValue),
+      refundAmount: Number(purchaseReturn.refundAmount),
+      items: purchaseReturn.items?.map((item: { unitPrice?: unknown; total?: unknown }) => ({
+        ...item,
+        unitPrice: Number(item.unitPrice ?? 0),
+        total: Number(item.total ?? 0),
+      })),
+    };
+
+    // Notify creator about processing complete
+    if (purchaseReturn.createdBy && purchaseReturn.createdBy !== session!.user?.employeeId) {
+      createNotification({
+        type: 'purchase_return',
+        settingsKey: 'purchase-return:updated',
+        title: 'Phếu trả hàng hoàn tất',
+        message: `Phếu trả hàng ${purchaseReturn.id || systemId} đã được xử lý xong`,
+        link: `/purchase-returns/${systemId}`,
+        recipientId: purchaseReturn.createdBy,
+        senderId: session!.user?.employeeId,
+        senderName: session!.user?.name,
+      }).catch(e => logError('[Purchase Return Process] notification failed', e));
     }
-    return apiError('Failed to process purchase return', 500);
+
+    return apiSuccess(serializable);
+  } catch (error) {
+    logError('[Purchase Returns Process API] POST error', error);
+    return apiError('Không thể xử lý phiếu trả hàng nhập', 500);
   }
-}
+})

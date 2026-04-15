@@ -10,12 +10,14 @@ const nextConfig: NextConfig = {
   // Cho phép import từ các folder bên ngoài src/app
   transpilePackages: [],
   
+  // Disable Next.js version disclosure
+  poweredByHeader: false,
+
   // React Strict Mode - enabled to catch potential issues
   reactStrictMode: true,
   
-  // Output standalone cho Docker deployment
-  // Note: Tạm tắt standalone vì Turbopack có bug với symlink trên Windows
-  // output: 'standalone',
+  // Output standalone cho Docker deployment (Linux CI/Docker không bị Windows symlink bug)
+  output: process.env.CI || process.env.DOCKER ? 'standalone' : undefined,
   
   // Server external packages - Prisma 7 với driver adapter cần opt-out bundling
   serverExternalPackages: [
@@ -41,6 +43,18 @@ const nextConfig: NextConfig = {
       'date-fns',
       'zod',
       'sonner',
+      'framer-motion',
+      // Heavy packages - tree-shake unused exports
+      '@fullcalendar/react',
+      '@fullcalendar/core',
+      '@fullcalendar/daygrid',
+      '@fullcalendar/timegrid',
+      '@fullcalendar/interaction',
+      '@fullcalendar/list',
+      'reactflow',
+      'jspdf',
+      '@tiptap/react',
+      '@tiptap/starter-kit',
       // Internal barrels - giúp tree-shake tốt hơn
       '@/hooks/api',
       '@/lib/print-mappers',
@@ -73,9 +87,9 @@ const nextConfig: NextConfig = {
     ],
     // Bật cache persistent cho Turbopack trong dev mode
     turbopackFileSystemCacheForDev: true,
-    // Tăng body size limit cho Server Actions (upload file lớn lên đến 50MB)
+    // Body size limit cho Server Actions (file lớn nên dùng /api/upload route)
     serverActions: {
-      bodySizeLimit: '50mb',
+      bodySizeLimit: '5mb',
     },
   },
 
@@ -104,7 +118,7 @@ const nextConfig: NextConfig = {
           },
           {
             key: 'Permissions-Policy',
-            value: 'camera=(), microphone=(), geolocation=(), interest-cohort=()',
+            value: 'camera=(), microphone=(), geolocation=(), browsing-topics=(), payment=(), usb=(), serial=(), bluetooth=(), hid=()',
           },
           {
             key: 'Strict-Transport-Security',
@@ -115,12 +129,15 @@ const nextConfig: NextConfig = {
             value: '1; mode=block',
           },
           {
-            // Content Security Policy (Report-Only mode for safe rollout)
-            // Monitor violations before enforcing. Switch to 'Content-Security-Policy' when stable.
-            key: 'Content-Security-Policy-Report-Only',
+            // Content Security Policy - Enforced
+            // Protects against XSS, clickjacking, and other injection attacks
+            // Production: no unsafe-eval; Dev: allow unsafe-eval for React DevTools/HMR
+            key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+              process.env.NODE_ENV === 'production'
+                ? "script-src 'self' 'unsafe-inline'"
+                : "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: blob: https://phukiengiaxuong.com.vn https://img.vietqr.io",
               "font-src 'self'",
@@ -137,6 +154,7 @@ const nextConfig: NextConfig = {
 
   // Images config
   images: {
+    formats: ['image/avif', 'image/webp'],
     remotePatterns: [
       {
         protocol: 'http',

@@ -16,6 +16,7 @@ import {
   getStoreData,
   StoreSettings
 } from '@/lib/print-service';
+import { generateBarcodeImage } from './barcode-utils';
 
 // Helper function for hiding phone middle digits
 function hidePhoneMiddle(phone: string | undefined | null): string {
@@ -193,7 +194,7 @@ export function mapQuoteToPrintData(quote: QuoteForPrint, storeSettings: StoreSe
     // === THÔNG TIN ĐƠN HÀNG ===
     '{order_code}': quote.code,
     '{order_qr_code}': '', // Will be generated if needed
-    '{bar_code(code)}': `<img src="https://barcodeapi.org/api/128/${encodeURIComponent(quote.code)}" style="height:40px"/>`,
+    '{bar_code(code)}': generateBarcodeImage(quote.code, 40),
     '{created_on}': formatDate(quote.createdAt),
     '{created_on_time}': formatTime(quote.createdAt),
     '{created_on_text}': formatDateText(quote.createdAt),
@@ -217,7 +218,7 @@ export function mapQuoteToPrintData(quote: QuoteForPrint, storeSettings: StoreSe
     '{channel}': quote.channel || '',
     '{reference}': quote.reference || '',
     '{tag}': quote.tags?.join(', ') || '',
-    '{bar_code(reference_number)}': quote.reference ? `<img src="https://barcodeapi.org/api/128/${encodeURIComponent(quote.reference)}" style="height:40px"/>` : '',
+    '{bar_code(reference_number)}': quote.reference ? generateBarcodeImage(quote.reference, 40) : '',
     
     // === GIAO HÀNG ===
     '{expected_delivery_type}': quote.expectedDeliveryType || '',
@@ -318,7 +319,7 @@ export function mapQuoteLineItems(items: QuoteForPrint['items']): PrintLineItem[
     '{line_variant}': item.variantName || '',
     '{line_variant_code}': item.variantCode || '',
     '{line_variant_barcode}': item.barcode || '',
-    '{line_variant_barcode_image}': item.barcode ? `<img src="https://barcodeapi.org/api/128/${item.barcode}" style="height:30px"/>` : '',
+    '{line_variant_barcode_image}': item.barcode ? generateBarcodeImage(item.barcode, 30) : '',
     '{line_variant_options}': item.variantOptions || '',
     '{line_image}': item.imageUrl ? `<img src="${item.imageUrl}" style="max-width:50px;max-height:50px"/>` : '',
     '{line_unit}': item.unit || 'Cái',

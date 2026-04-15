@@ -29,12 +29,12 @@ import type { Importer } from "./types";
 
 const importerFormSchema = z.object({
   id: z.string()
-    .min(1, "Mã đơn vị là bắt buộc")
-    .max(50, "Mã đơn vị không được quá 50 ký tự")
+    .min(1, "Mã công ty là bắt buộc")
+    .max(50, "Mã công ty không được quá 50 ký tự")
     .regex(/^[A-Z0-9-_]+$/, "Mã chỉ được chứa chữ in hoa, số, gạch ngang và gạch dưới"),
   name: z.string()
-    .min(1, "Tên đơn vị là bắt buộc")
-    .max(200, "Tên đơn vị không được quá 200 ký tự"),
+    .min(1, "Tên công ty là bắt buộc")
+    .max(200, "Tên công ty không được quá 200 ký tự"),
   address: z.string().max(500, "Địa chỉ không được quá 500 ký tự").optional(),
   origin: z.string().max(100, "Xuất xứ không được quá 100 ký tự").optional(),
   phone: z.string().max(20, "Số điện thoại không được quá 20 ký tự").optional(),
@@ -115,7 +115,7 @@ export function ImporterFormDialog({
     if (!initialData && existingIds.includes(values.id)) {
       form.setError("id", {
         type: "manual",
-        message: "Mã đơn vị đã tồn tại",
+        message: "Mã công ty đã tồn tại",
       });
       return;
     }
@@ -123,7 +123,7 @@ export function ImporterFormDialog({
     if (initialData && initialData.id !== values.id && existingIds.includes(values.id)) {
       form.setError("id", {
         type: "manual",
-        message: "Mã đơn vị đã tồn tại",
+        message: "Mã công ty đã tồn tại",
       });
       return;
     }
@@ -136,12 +136,12 @@ export function ImporterFormDialog({
       <DialogContent className="sm:max-w-150 max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {initialData ? "Chỉnh sửa đơn vị nhập khẩu" : "Thêm đơn vị nhập khẩu mới"}
+            {initialData ? "Chỉnh sửa công ty xuất nhập khẩu" : "Thêm công ty xuất nhập khẩu mới"}
           </DialogTitle>
           <DialogDescription>
             {initialData
-              ? "Cập nhật thông tin đơn vị nhập khẩu"
-              : "Điền thông tin để thêm đơn vị nhập khẩu mới"}
+              ? "Cập nhật thông tin công ty xuất nhập khẩu"
+              : "Điền thông tin để thêm công ty xuất nhập khẩu mới"}
           </DialogDescription>
         </DialogHeader>
 
@@ -153,7 +153,7 @@ export function ImporterFormDialog({
                 name="id"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Mã đơn vị *</FormLabel>
+                    <FormLabel>Mã công ty *</FormLabel>
                     <FormControl>
                       <Input
                         placeholder="VD: NK001"
@@ -190,7 +190,7 @@ export function ImporterFormDialog({
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Tên đơn vị *</FormLabel>
+                  <FormLabel>Tên công ty *</FormLabel>
                   <FormControl>
                     <Input placeholder="VD: CÔNG TY TNHH XNK ABC" {...field} />
                   </FormControl>
@@ -207,7 +207,7 @@ export function ImporterFormDialog({
                   <FormLabel>Địa chỉ</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder="Địa chỉ đầy đủ của đơn vị nhập khẩu"
+                      placeholder="Địa chỉ đầy đủ của công ty"
                       className="resize-none"
                       rows={2}
                       {...field}

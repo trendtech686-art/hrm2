@@ -8,7 +8,7 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { Calendar, Users, Wallet, MoreHorizontal, Eye, Lock, Unlock, Trash2 } from 'lucide-react';
-import { Card, CardContent } from '../../../components/ui/card';
+
 import { Button } from '../../../components/ui/button';
 import { TouchButton } from '../../../components/mobile/touch-button';
 import {
@@ -59,16 +59,15 @@ export function BatchMobileCard({ batch, onDelete, onLock, onUnlock }: BatchMobi
   };
 
   return (
-    <Card 
-      className="cursor-pointer hover:bg-accent/50 transition-colors"
+    <div
+      className="rounded-xl border border-border/50 bg-card p-4 active:scale-[0.98] transition-transform touch-manipulation cursor-pointer"
       onClick={handleCardClick}
     >
-      <CardContent className="p-4">
         {/* Header: ID + Status + Actions */}
         <div className="flex items-start justify-between gap-2 mb-3">
           <div className="flex-1 min-w-0">
-            <p className="font-mono text-body-xs text-muted-foreground">{batch.id}</p>
-            <p className="font-medium text-body-sm truncate">{batch.title}</p>
+            <p className="font-mono text-xs text-muted-foreground">{batch.id}</p>
+            <p className="font-medium text-sm truncate">{batch.title}</p>
           </div>
           <div className="flex items-center gap-2">
             <PayrollStatusBadge status={batch.status} />
@@ -137,7 +136,7 @@ export function BatchMobileCard({ batch, onDelete, onLock, onUnlock }: BatchMobi
         </div>
 
         {/* Info rows */}
-        <div className="space-y-2 text-body-xs">
+        <div className="space-y-2 text-xs">
           <div className="flex items-center gap-2 text-muted-foreground">
             <Calendar className="h-3.5 w-3.5" />
             <span>{formatMonthKey(batch.referenceAttendanceMonthKeys[0])}</span>
@@ -151,10 +150,10 @@ export function BatchMobileCard({ batch, onDelete, onLock, onUnlock }: BatchMobi
         </div>
 
         {/* Financial summary */}
-        <div className="mt-3 pt-3 border-t flex items-center justify-between">
+        <div className="mt-3 pt-3 border-t border-border/50 flex items-center justify-between">
           <div className="flex items-center gap-2 text-muted-foreground">
             <Wallet className="h-4 w-4" />
-            <span className="text-body-xs">Thực lĩnh:</span>
+            <span className="text-xs">Thực lĩnh:</span>
           </div>
           <span className="font-semibold text-primary">
             {formatCurrency(batch.totalNet)}
@@ -166,7 +165,7 @@ export function BatchMobileCard({ batch, onDelete, onLock, onUnlock }: BatchMobi
           <TouchButton
             variant="outline"
             size="sm"
-            className="flex-1 h-8 text-body-xs"
+            className="flex-1 h-8 text-xs"
             onClick={(e) => {
               e.stopPropagation();
               handleCardClick();
@@ -176,7 +175,6 @@ export function BatchMobileCard({ batch, onDelete, onLock, onUnlock }: BatchMobi
             Chi tiết
           </TouchButton>
         </div>
-      </CardContent>
-    </Card>
+    </div>
   );
 }

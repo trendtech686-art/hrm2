@@ -1,5 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { requireAuth, apiError, apiSuccess, parsePagination } from '@/lib/api-utils'
+import { logError } from '@/lib/logger'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 // GET /api/units - list units with optional filters
 export async function GET(request: Request) {
@@ -38,7 +40,7 @@ export async function GET(request: Request) {
 
     return apiSuccess({ data, total, page, pageSize: limit })
   } catch (error) {
-    console.error('Error fetching units:', error)
+    logError('Error fetching units', error)
     return apiError('Failed to fetch units', 500)
   }
 }
@@ -68,9 +70,18 @@ export async function POST(request: Request) {
       },
     })
 
+    createActivityLog({
+      entityType: 'unit',
+      entityId: created.systemId,
+      action: 'created',
+      actionType: 'create',
+      metadata: { name, businessId: id },
+      createdBy: session.user?.employee?.fullName || session.user?.email || 'System',
+    })
+
     return apiSuccess(created, 201)
   } catch (error) {
-    console.error('Error creating unit:', error)
+    logError('Error creating unit', error)
     return apiError('Failed to create unit', 500)
   }
 }

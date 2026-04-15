@@ -1,5 +1,8 @@
 import { prisma } from '@/lib/prisma';
 import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils';
+import { logError } from '@/lib/logger'
+import { createNotification } from '@/lib/notifications'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 interface RouteParams {
   params: Promise<{ systemId: string; packagingId: string }>;
@@ -39,6 +42,10 @@ export async function POST(request: Request, { params }: RouteParams) {
       return apiError('Packaging does not belong to this order', 400);
     }
 
+    if (!packaging.order) {
+      return apiError('Packaging không thuộc đơn hàng nào', 400);
+    }
+
     if (!packaging.confirmDate) {
       return apiError('Đóng gói phải được xác nhận trước', 400);
     }
@@ -63,16 +70,13 @@ export async function POST(request: Request, { params }: RouteParams) {
     // Transaction: Only update delivery method and order status
     // Stock dispatch will happen in confirm step
     const updatedOrder = await prisma.$transaction(async (tx) => {
-      // ✅ Auto-generate tracking code for in-store pickup
-      const trackingCode = `INSTORE-${packaging.id}`;
-      
       // 1. Update packaging - set delivery method to IN_STORE_PICKUP
+      // ✅ Tracking code is generated in confirm step (after dispatch), not here
       await tx.packaging.update({
         where: { systemId: packagingId },
         data: {
           deliveryMethod: 'IN_STORE_PICKUP',
           deliveryStatus: 'PACKED', // Keep as packed, will be DELIVERED in confirm step
-          trackingCode: trackingCode, // ✅ Add tracking code
           // ✅ requestingEmployee = người bấm nút "Khách nhận tại cửa hàng"
           requestingEmployeeId: requestingEmployeeId,
           requestingEmployeeName: requestingEmployeeName,
@@ -107,9 +111,32 @@ export async function POST(request: Request, { params }: RouteParams) {
       return updated;
     });
 
+    // Log activity
+    await createActivityLog({
+      entityType: 'order',
+      entityId: systemId,
+      action: `Chuyển sang nhận tại cửa hàng - ${updatedOrder.id || systemId}`,
+      actionType: 'status',
+      createdBy: session.user?.employee?.fullName || session.user?.name || session.user?.id || undefined,
+    }).catch(e => logError('[In-Store Pickup] activity log failed', e));
+
+    // Notify salesperson about in-store pickup
+    if (updatedOrder.salespersonId && updatedOrder.salespersonId !== session.user?.employeeId) {
+      createNotification({
+        type: 'order',
+        settingsKey: 'order:delivery',
+        title: 'Khách nhận tại cửa hàng',
+        message: `Đơn hàng ${updatedOrder.id || systemId} đã chuyển sang nhận tại cửa hàng`,
+        link: `/orders/${systemId}`,
+        recipientId: updatedOrder.salespersonId,
+        senderId: session.user?.employeeId,
+        senderName: session.user?.name,
+      }).catch(e => logError('[In-Store Pickup] notification failed', e));
+    }
+
     return apiSuccess(updatedOrder);
   } catch (error) {
-    console.error('Error setting in-store pickup:', error);
+    logError('Error setting in-store pickup', error);
     const errorMessage = error instanceof Error 
       ? error.message 
       : 'Failed to set in-store pickup';

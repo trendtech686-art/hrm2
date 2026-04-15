@@ -5,6 +5,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
+import { logError } from '@/lib/logger'
 
 const API_BASE = '/api/settings'
 
@@ -41,7 +42,7 @@ export function useSettingsStorage<T extends Record<string, unknown>>(
           }
         }
       } catch (error) {
-        console.error(`Error loading settings for ${storageKey}:`, error)
+        logError(`Error loading settings for ${storageKey}`, error)
       } finally {
         setIsLoading(false)
       }
@@ -68,7 +69,7 @@ export function useSettingsStorage<T extends Record<string, unknown>>(
         body: JSON.stringify({ settings: settingsArray }),
       })
     } catch (error) {
-      console.error(`Error saving settings for ${storageKey}:`, error)
+      logError(`Error saving settings for ${storageKey}`, error)
       throw error
     } finally {
       setIsSaving(false)
@@ -100,7 +101,7 @@ export function useSettingValue<T>(
           }
         }
       } catch (error) {
-        console.error(`Error loading setting ${key}:`, error)
+        logError(`Error loading setting ${key}`, error)
       } finally {
         setIsLoading(false)
       }
@@ -117,7 +118,7 @@ export function useSettingValue<T>(
         body: JSON.stringify({ key, group, value: newValue }),
       })
     } catch (error) {
-      console.error(`Error saving setting ${key}:`, error)
+      logError(`Error saving setting ${key}`, error)
     }
   }, [key, group])
 

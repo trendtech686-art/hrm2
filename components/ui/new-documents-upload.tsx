@@ -1,12 +1,15 @@
 import * as React from 'react';
+import Image from 'next/image';
 import { useDropzone, FileRejection, FileError } from 'react-dropzone';
 import { toast } from 'sonner';
-import { Upload, X, Eye, AlertCircle, File as FileIcon } from 'lucide-react';
+import { Upload, X, Eye, AlertCircle, File as FileIcon, Download, ClipboardPaste } from 'lucide-react';
 import { Button } from './button';
 import { Card } from './card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from './dialog';
 import { cn } from '../../lib/utils';
 import { FileUploadAPI, type StagingFile } from '../../lib/file-upload-api';
 import { ImagePreviewDialog } from './image-preview-dialog';
+import { logError } from '@/lib/logger'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -119,6 +122,59 @@ const compressImage = (file: File, quality: number = 0.75): Promise<File> => {
   });
 };
 
+/**
+ * Image component with React-state retry (replaces DOM mutation pattern).
+ * Uses next/image for /uploads/ and /api/ URLs, falls back to <img> for blob:/data:.
+ */
+function RetryImage({ src, alt }: { src: string; alt: string }) {
+  const [retryCount, setRetryCount] = React.useState(0);
+  const computedSrc = React.useMemo(() => {
+    if (retryCount === 0) return src;
+    const separator = src.includes('?') ? '&' : '?';
+    return `${src}${separator}retry=${Date.now()}-${retryCount}`;
+  }, [src, retryCount]);
+
+  const handleError = React.useCallback(() => {
+    if (retryCount >= 4) return;
+    const delay = (retryCount + 1) * 400;
+    setTimeout(() => setRetryCount(prev => prev + 1), delay);
+  }, [retryCount]);
+
+  const handleLoad = React.useCallback(() => {
+    setRetryCount(0);
+  }, []);
+
+  const isOptimizable = src.startsWith('/uploads/') || src.startsWith('/api/');
+
+  if (isOptimizable) {
+    return (
+      <Image
+        key={retryCount}
+        src={src}
+        alt={alt}
+        fill
+        sizes="(max-width: 640px) 33vw, 150px"
+        quality={75}
+        className="object-cover"
+        onLoad={handleLoad}
+        onError={handleError}
+        unoptimized
+      />
+    );
+  }
+
+  return (
+    <img
+      src={computedSrc}
+      alt={alt}
+      className="h-full w-full object-cover"
+      loading="eager"
+      onLoad={handleLoad}
+      onError={handleError}
+    />
+  );
+}
+
 export function NewDocumentsUpload({
   accept = { 
     'image/*': ['.png', '.jpg', '.jpeg', '.webp', '.gif'], 
@@ -181,7 +237,7 @@ export function NewDocumentsUpload({
               // Generate accept message from accept prop
               const acceptedTypes = accept 
                 ? Object.values(accept).flat().join(', ').toUpperCase()
-                : 'PDF, PNG, JPG';
+                : 'PDF, DOC, DOCX, XLS, XLSX, PNG, JPG';
               toast.error(`File "${file.name}" không đúng định dạng`, {
                 description: `Chỉ chấp nhận: ${acceptedTypes}`
               });
@@ -302,7 +358,7 @@ export function NewDocumentsUpload({
         id: uploadToastId
       });
     } catch (error) {
-      console.error('Upload failed:', error);
+      logError('Upload failed', error);
       toast.error('❌ Lỗi khi tải file', {
         description: error instanceof Error ? error.message : 'Vui lòng thử lại',
         id: uploadToastId
@@ -318,7 +374,83 @@ export function NewDocumentsUpload({
     maxSize,
     // Remove maxFiles from dropzone - we'll handle it manually in onDrop
     disabled: disabled || files.length >= maxFiles || isUploading,
+    // Ensure mobile camera works properly
+    useFsAccessApi: false,
   });
+
+  // Ctrl+V paste support — dedicated handler for the paste button
+  const containerRef = React.useRef<HTMLDivElement>(null);
+
+  const handlePasteFromClipboard = React.useCallback(async () => {
+    if (disabled || isUploading) return;
+
+    try {
+      const clipboardItems = await navigator.clipboard.read();
+      const pastedFiles: File[] = [];
+
+      for (const item of clipboardItems) {
+        for (const type of item.types) {
+          if (type.startsWith('image/')) {
+            const blob = await item.getType(type);
+            const ext = type.split('/')[1] || 'png';
+            const file = new File([blob], `pasted-image-${Date.now()}.${ext}`, { type });
+            pastedFiles.push(file);
+          }
+        }
+      }
+
+      if (pastedFiles.length > 0) {
+        onDrop(pastedFiles, []);
+      } else {
+        toast.info('Không tìm thấy ảnh trong clipboard', {
+          description: 'Hãy copy ảnh trước rồi bấm nút này'
+        });
+      }
+    } catch {
+      // Clipboard API not available or denied - fallback to paste event
+      toast.error('Không thể đọc clipboard', {
+        description: 'Trình duyệt không cho phép. Hãy thử kéo thả ảnh.'
+      });
+    }
+  }, [disabled, isUploading, onDrop]);
+
+  // Also support Ctrl+V when focus is on the container (not in an input)
+  React.useEffect(() => {
+    if (disabled || isUploading) return;
+
+    const handlePaste = (e: ClipboardEvent) => {
+      // Skip if user is typing in an input/textarea/contenteditable
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
+      // Only handle if the container is focused or contains the active element
+      if (!containerRef.current?.contains(document.activeElement) && document.activeElement !== containerRef.current) return;
+
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      const pastedFiles: File[] = [];
+      for (const item of Array.from(items)) {
+        if (item.kind === 'file') {
+          const file = item.getAsFile();
+          if (file) pastedFiles.push(file);
+        }
+      }
+
+      if (pastedFiles.length > 0) {
+        e.preventDefault();
+        onDrop(pastedFiles, []);
+      }
+    };
+
+    document.addEventListener('paste', handlePaste);
+    return () => document.removeEventListener('paste', handlePaste);
+  }, [disabled, isUploading, onDrop]);
+
+  // Check if accept includes images (show paste button only for image uploads)
+  const acceptsImages = React.useMemo(() => {
+    if (!accept) return true;
+    return Object.keys(accept).some(k => k.startsWith('image'));
+  }, [accept]);
 
   const removeFile = React.useCallback(async (fileId: string) => {
     const fileToRemove = files.find(f => f.id === fileId);
@@ -356,7 +488,7 @@ export function NewDocumentsUpload({
         id: deleteToastId
       });
     } catch (error) {
-      console.error('Failed to delete:', error);
+      logError('Failed to delete', error);
       toast.error('❌ Không thể xóa file', {
         id: deleteToastId
       });
@@ -392,22 +524,27 @@ export function NewDocumentsUpload({
     [files]
   );
 
-  const handlePreview = (file: StagingFile) => {
-    if (file.type === 'application/pdf') {
-      window.open(getPreviewUrl(file), '_blank');
-      return;
-    }
+  // Non-image preview state
+  const [nonImagePreviewFile, setNonImagePreviewFile] = React.useState<StagingFile | null>(null);
 
-    // Find the index of this file in imageFiles
-    const index = imageFiles.findIndex(f => f.id === file.id);
-    if (index >= 0) {
-      setPreviewIndex(index);
-      setPreviewOpen(true);
+  const handlePreview = (file: StagingFile) => {
+    const isImage = file.type && typeof file.type === 'string' && file.type.startsWith('image/');
+    
+    if (isImage) {
+      // Find the index of this file in imageFiles
+      const index = imageFiles.findIndex(f => f.id === file.id);
+      if (index >= 0) {
+        setPreviewIndex(index);
+        setPreviewOpen(true);
+      }
+    } else {
+      // Use dialog for PDFs, office docs, etc.
+      setNonImagePreviewFile(file);
     }
   };
 
   return (
-    <div className={cn(compact ? 'space-y-2' : 'space-y-4', className)}>
+    <div ref={containerRef} className={cn(compact ? 'space-y-2' : 'space-y-4', className)}>
       {files.length < maxFiles && (
         <div
           {...getRootProps()}
@@ -470,8 +607,8 @@ export function NewDocumentsUpload({
                     <AlertCircle className="h-4 w-4 text-destructive" />
                     <p className="text-xs font-medium text-destructive">File không hợp lệ</p>
                   </div>
-                  <div className="text-[10px] text-destructive/80">
-                    <p>Chỉ chấp nhận: {accept ? Object.values(accept).flat().join(', ').toUpperCase() : 'PDF, PNG, JPG'} (max {formatFileSize(maxSize)})</p>
+                  <div className="text-xs text-destructive/80">
+                    <p>Chỉ chấp nhận: {accept ? Object.values(accept).flat().join(', ').toUpperCase() : 'PDF, DOC, DOCX, XLS, XLSX, PNG, JPG'} (max {formatFileSize(maxSize)})</p>
                   </div>
                 </div>
               ) : files.length >= maxFiles ? (
@@ -487,9 +624,9 @@ export function NewDocumentsUpload({
               ) : (
                 <div className="space-y-1">
                   <p className="text-sm font-semibold">Kéo thả hoặc click để chọn</p>
-                  <p className="text-xs text-muted-foreground">PDF, PNG, JPG (max {formatFileSize(maxSize)})</p>
+                  <p className="text-xs text-muted-foreground">PDF, DOC, XLS, PNG, JPG (max {formatFileSize(maxSize)})</p>
                   <div className="flex items-center justify-center gap-1 pt-1">
-                    <div className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                    <div className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                       files.length >= maxFiles 
                         ? 'bg-red-100 text-red-700' 
                         : files.length >= maxFiles * 0.8 
@@ -504,7 +641,7 @@ export function NewDocumentsUpload({
                       } {files.length}/{maxFiles}
                     </div>
                     {files.length > 0 && (
-                      <div className="px-2 py-0.5 bg-purple-50 text-purple-600 rounded-full text-[10px] font-medium">
+                      <div className="px-2 py-0.5 bg-purple-50 text-purple-600 rounded-full text-xs font-medium">
                         {formatFileSize(files.reduce((sum, f) => sum + f.size, 0))}/{formatFileSize(maxTotalSize)}
                       </div>
                     )}
@@ -514,6 +651,21 @@ export function NewDocumentsUpload({
             </>
           )}
         </div>
+      )}
+
+      {/* Paste button — separate from dropzone so click doesn't open file picker */}
+      {acceptsImages && files.length < maxFiles && !disabled && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="w-full text-xs gap-1.5"
+          onClick={handlePasteFromClipboard}
+          disabled={isUploading}
+        >
+          <ClipboardPaste className="h-3.5 w-3.5" />
+          Dán ảnh từ clipboard (Ctrl+V)
+        </Button>
       )}
 
       {files.length >= maxFiles && (
@@ -538,21 +690,6 @@ export function NewDocumentsUpload({
             // Check if this is a permanent file (existing file with empty sessionId)
             const isPermanent = !file.sessionId || file.sessionId === '';
 
-            const handleImageRetry = (event: React.SyntheticEvent<HTMLImageElement>) => {
-              const img = event.currentTarget;
-              const attempts = Number(img.dataset.retryCount || '0');
-              if (attempts >= 4) {
-                return;
-              }
-              const nextAttempts = attempts + 1;
-              img.dataset.retryCount = String(nextAttempts);
-              const delay = nextAttempts * 400;
-              setTimeout(() => {
-                const separator = previewUrl.includes('?') ? '&' : '?';
-                img.src = `${previewUrl}${separator}retry=${Date.now()}-${nextAttempts}`;
-              }, delay);
-            };
-
             return (
               <Card key={file.id} className={`group p-1.5 transition-all duration-200 hover:shadow-md relative ${
                 isPermanent ? 'border-green-200 bg-green-50/50' : 'border-amber-200 bg-amber-50/50'
@@ -560,20 +697,11 @@ export function NewDocumentsUpload({
                 <div className="space-y-1.5">
                   {isImage ? (
                     <div className="aspect-square rounded overflow-hidden bg-muted relative">
-                      <img
-                        src={previewUrl}
-                        alt={file.name || file.originalName}
-                        className="h-full w-full object-cover"
-                        loading="eager"
-                        onLoad={(e) => {
-                          e.currentTarget.dataset.retryCount = '0';
-                        }}
-                        onError={handleImageRetry}
-                      />
+                      <RetryImage src={previewUrl} alt={file.name || file.originalName} />
                       
                       {/* Status badge */}
                       {isPermanent && (
-                        <div className="absolute top-1 left-1 bg-green-600 text-white text-[8px] px-1.5 py-0.5 rounded-full font-medium flex items-center gap-0.5">
+                        <div className="absolute top-1 left-1 bg-green-600 text-white text-xs px-1.5 py-0.5 rounded-full font-medium flex items-center gap-0.5">
                           <span>✓</span>
                           <span>Đã lưu vĩnh viễn</span>
                         </div>
@@ -632,8 +760,8 @@ export function NewDocumentsUpload({
                   )}
 
                   <div className="space-y-1">
-                    <p className="text-[10px] font-medium truncate">{file.name || file.originalName}</p>
-                    <div className="flex items-center gap-1 text-[9px]">
+                    <p className="text-xs font-medium truncate">{file.name || file.originalName}</p>
+                    <div className="flex items-center gap-1 text-xs">
                       {file.size > 0 ? (
                         <>
                           <span className={isPermanent ? 'text-green-700 font-medium' : 'text-muted-foreground'}>
@@ -691,6 +819,81 @@ export function NewDocumentsUpload({
         onOpenChange={setPreviewOpen}
         title="Xem ảnh"
       />
+
+      {/* Non-image File Preview Dialog */}
+      <Dialog open={!!nonImagePreviewFile} onOpenChange={(open) => { if (!open) setNonImagePreviewFile(null); }}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <div className="flex items-center justify-between">
+              <DialogTitle className="text-lg">
+                {nonImagePreviewFile?.originalName || nonImagePreviewFile?.name || 'Xem trước tài liệu'}
+              </DialogTitle>
+              {nonImagePreviewFile && (
+                <Button variant="outline" size="sm" onClick={() => {
+                  const link = document.createElement('a');
+                  link.href = getPreviewUrl(nonImagePreviewFile);
+                  link.download = nonImagePreviewFile.originalName || nonImagePreviewFile.name;
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                }}>
+                  <Download className="mr-2 h-4 w-4" />
+                  Tải xuống
+                </Button>
+              )}
+            </div>
+          </DialogHeader>
+          {nonImagePreviewFile && (() => {
+            const ext = (nonImagePreviewFile.originalName || nonImagePreviewFile.name || '').split('.').pop()?.toLowerCase();
+            const isPdf = nonImagePreviewFile.type === 'application/pdf' || ext === 'pdf';
+            const isOffice = ['xlsx', 'xls', 'csv', 'doc', 'docx', 'ppt', 'pptx'].includes(ext || '');
+            const fileUrl = getPreviewUrl(nonImagePreviewFile);
+            
+            if (isPdf) {
+              return (
+                <div className="w-full h-[75vh] border border-border rounded-lg overflow-hidden bg-gray-50 mt-2">
+                  <iframe src={fileUrl} className="w-full h-full" title={nonImagePreviewFile.name} />
+                </div>
+              );
+            }
+            if (isOffice) {
+              // Office Online can't access localhost URLs
+              const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+              if (isLocalhost) {
+                const fileTypeName = ext === 'xlsx' || ext === 'xls' ? 'Excel' : 
+                                    ext === 'doc' || ext === 'docx' ? 'Word' : 
+                                    ext === 'ppt' || ext === 'pptx' ? 'PowerPoint' : 'Office';
+                return (
+                  <div className="w-full h-64 flex flex-col items-center justify-center gap-4 bg-muted/30 rounded-lg border-2 border-dashed border-border mt-2">
+                    <FileIcon className="h-12 w-12 text-muted-foreground" />
+                    <div className="text-center">
+                      <p className="text-sm font-medium">{nonImagePreviewFile.originalName || nonImagePreviewFile.name}</p>
+                      <p className="text-xs text-muted-foreground mt-2">File {fileTypeName} không thể xem trước trên môi trường localhost.</p>
+                      <p className="text-xs text-muted-foreground">Vui lòng tải xuống để xem nội dung.</p>
+                    </div>
+                  </div>
+                );
+              }
+              return (
+                <div className="w-full h-[75vh] border border-border rounded-lg overflow-hidden mt-2">
+                  <iframe
+                    src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(window.location.origin + fileUrl)}`}
+                    className="w-full h-full"
+                    title={nonImagePreviewFile.name}
+                  />
+                </div>
+              );
+            }
+            return (
+              <div className="w-full h-64 flex flex-col items-center justify-center gap-4 bg-muted/30 rounded-lg border-2 border-dashed border-border mt-2">
+                <FileIcon className="h-12 w-12 text-muted-foreground" />
+                <p className="text-sm font-medium">{nonImagePreviewFile.originalName || nonImagePreviewFile.name}</p>
+                <p className="text-xs text-muted-foreground">Không thể xem trước loại file này</p>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

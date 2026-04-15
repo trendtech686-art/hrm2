@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import type { Subtask } from '@/components/shared/subtask-list'
 import { nanoid } from 'nanoid'
+import { logError } from '@/lib/logger'
 
 export interface WorkflowTemplate {
   systemId: string
@@ -174,28 +175,38 @@ interface ApiTemplate {
   label?: string;
   description?: string;
   isDefault?: boolean;
-  createdAt: string;
-  updatedAt: string;
-  subtasks: ApiSubtask[];
+  createdAt?: string;
+  updatedAt?: string;
+  subtasks?: ApiSubtask[];
+  steps?: ApiSubtask[]; // Legacy field name
+}
+
+function safeDate(value: string | undefined | null): Date {
+  if (!value) return new Date()
+  const d = new Date(value)
+  return isNaN(d.getTime()) ? new Date() : d
 }
 
 // Parse templates from API response
 function parseTemplates(data: ApiTemplate[]): WorkflowTemplate[] {
-  return data.map((t: ApiTemplate) => ({
-    systemId: t.systemId || t.id || '',
-    id: t.id || t.systemId || '',
-    name: t.name,
-    label: t.label || t.name,
-    description: t.description || '',
-    isDefault: t.isDefault ?? false,
-    createdAt: new Date(t.createdAt),
-    updatedAt: new Date(t.updatedAt),
-    subtasks: t.subtasks.map((s: ApiSubtask) => ({
-      ...s,
-      createdAt: new Date(s.createdAt),
-      completedAt: s.completedAt ? new Date(s.completedAt) : undefined,
-    })),
-  }))
+  return data.map((t: ApiTemplate) => {
+    const rawSubtasks = t.subtasks ?? t.steps ?? []
+    return {
+      systemId: t.systemId || t.id || '',
+      id: t.id || t.systemId || '',
+      name: t.name,
+      label: t.label || t.name,
+      description: t.description || '',
+      isDefault: t.isDefault ?? false,
+      createdAt: safeDate(t.createdAt),
+      updatedAt: safeDate(t.updatedAt),
+      subtasks: rawSubtasks.map((s: ApiSubtask) => ({
+        ...s,
+        createdAt: safeDate(s.createdAt),
+        completedAt: s.completedAt ? new Date(s.completedAt) : undefined,
+      })),
+    }
+  })
 }
 
 // In-memory cache for templates (shared across components)
@@ -228,7 +239,7 @@ export async function fetchWorkflowTemplates(): Promise<WorkflowTemplate[]> {
         }
       }
     } catch (error) {
-      console.error('Failed to fetch workflow templates from API:', error)
+      logError('Failed to fetch workflow templates from API', error)
     }
 
     // Return default templates if API fails
@@ -329,9 +340,12 @@ export function useWorkflowTemplates() {
     }
   }, [])
 
-  // Save templates to database
-  const saveTemplates = useCallback(async (newTemplates: WorkflowTemplate[]) => {
-    if (isSavingRef.current) return
+  // Save templates to database - returns true on success, false on failure
+  const saveTemplates = useCallback(async (newTemplates: WorkflowTemplate[]): Promise<boolean> => {
+    if (isSavingRef.current) {
+      console.warn('[workflow-templates] Save skipped: already saving')
+      return false
+    }
 
     isSavingRef.current = true
     setTemplates(newTemplates)
@@ -344,7 +358,10 @@ export function useWorkflowTemplates() {
       })
 
       if (!res.ok) {
-        throw new Error('Failed to save templates')
+        const errBody = await res.json().catch(() => null)
+        const msg = errBody?.message || errBody?.error || `Failed to save templates (${res.status})`
+        console.error('[workflow-templates] API error:', res.status, msg)
+        throw new Error(msg)
       }
 
       // Clear cache so next fetch gets fresh data
@@ -352,9 +369,11 @@ export function useWorkflowTemplates() {
       templatesCache = newTemplates
 
       setError(null)
+      return true
     } catch (err) {
-      console.error('Error saving templates:', err)
-      setError('Failed to save templates')
+      logError('Error saving templates', err)
+      setError(err instanceof Error ? err.message : 'Failed to save templates')
+      return false
     } finally {
       isSavingRef.current = false
     }

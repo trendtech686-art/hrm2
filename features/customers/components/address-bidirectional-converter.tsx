@@ -24,6 +24,7 @@ import { findAllNewWards } from '@/features/settings/provinces/ward-old-to-new-m
 import { useWards2Level } from '@/features/settings/provinces/hooks/use-administrative-units';
 import type { EnhancedCustomerAddress } from '../types/enhanced-address';
 import type { WardMapping } from '@/features/settings/provinces/ward-old-to-new-mapping';
+import { logError } from '@/lib/logger'
 
 type AddressBidirectionalConverterProps = {
   address: EnhancedCustomerAddress;
@@ -92,7 +93,7 @@ export function AddressBidirectionalConverter({
     const foundWard = wards2Level.find(w => w.name === newWard);
     
     if (!foundWard) {
-      console.error('❌ Ward not found:', {
+      logError('Ward not found', null, {
         wardName: newWard,
         available2LevelWards: wards2Level.map(w => w.name),
       });
@@ -114,7 +115,7 @@ export function AddressBidirectionalConverter({
     const newAddress: EnhancedCustomerAddress = {
       ...address,
       id: crypto.randomUUID(),
-      label: `${address.label} (2 cấp)`,
+      label: `${address.street || address.label} (2 cấp)`,
       inputLevel: '2-level',
       district: '',
       districtId: 0,
@@ -154,7 +155,7 @@ export function AddressBidirectionalConverter({
                 <span className="text-xs sm:text-sm">Địa chỉ 3 cấp</span>
               </div>
               <div className="bg-muted p-3 sm:p-4 rounded-lg text-sm space-y-1.5">
-                <div className="font-medium">{address.label}</div>
+                <div className="font-medium">{address.street || address.label}</div>
                 <div className="text-muted-foreground text-xs sm:text-sm">{address.street}</div>
                 <div className="text-xs sm:text-sm">{address.ward}</div>
                 <div className="text-xs sm:text-sm">{address.district}</div>
@@ -174,7 +175,7 @@ export function AddressBidirectionalConverter({
                     <span className="text-xs sm:text-sm">Địa chỉ 2 cấp</span>
                   </div>
                   <div className={`p-3 sm:p-4 rounded-lg text-sm space-y-1.5 ${hasMapping ? 'bg-green-50 border border-green-200' : 'bg-orange-50 border border-orange-200'}`}>
-                    <div className="font-medium">{address.label} (2 cấp)</div>
+                    <div className="font-medium">{address.street || address.label} (2 cấp)</div>
                     <div className="text-muted-foreground text-xs sm:text-sm">{address.street}</div>
                     {hasMapping ? (
                       <>

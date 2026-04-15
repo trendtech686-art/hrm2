@@ -16,24 +16,48 @@ type SwitchProps = Omit<
 const Switch = React.forwardRef<
   React.ElementRef<typeof SwitchPrimitives.Root>,
   SwitchProps
->(({ className, checked, defaultChecked, ...props }, ref) => (
-  <SwitchPrimitives.Root
-    className={cn(
-      "peer inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-primary data-[state=unchecked]:bg-input",
-      className
-    )}
-    {...props}
-    {...(checked !== undefined ? { checked } : {})}
-    {...(defaultChecked !== undefined ? { defaultChecked } : {})}
-    ref={ref}
-  >
-    <SwitchPrimitives.Thumb
+>(({ className, checked, defaultChecked, onCheckedChange, ...props }, ref) => {
+  const isControlled = checked !== undefined
+
+  // Ref guard: Radix useControllableState in React 19 can fire onCheckedChange
+  // during render phase with the current value → causes infinite re-render loop.
+  // Track last known value and only forward genuinely new values to parent.
+  const lastValueRef = React.useRef(checked ?? defaultChecked ?? false)
+
+  // Sync ref with controlled prop during render (before Radix can fire)
+  if (isControlled) {
+    lastValueRef.current = checked
+  }
+
+  const handleCheckedChange = React.useCallback(
+    (value: boolean) => {
+      if (value === lastValueRef.current) return
+      lastValueRef.current = value
+      onCheckedChange?.(value)
+    },
+    [onCheckedChange]
+  )
+
+  return (
+    <SwitchPrimitives.Root
       className={cn(
-        "pointer-events-none block h-5 w-5 rounded-full bg-background shadow-lg ring-0 transition-transform data-[state=checked]:translate-x-5 data-[state=unchecked]:translate-x-0"
+        "peer inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-primary data-[state=unchecked]:bg-input",
+        className
       )}
-    />
-  </SwitchPrimitives.Root>
-))
+      {...props}
+      {...(isControlled ? { checked } : {})}
+      {...(defaultChecked !== undefined ? { defaultChecked } : {})}
+      onCheckedChange={handleCheckedChange}
+      ref={ref}
+    >
+      <SwitchPrimitives.Thumb
+        className={cn(
+          "pointer-events-none block h-5 w-5 rounded-full bg-background shadow-lg ring-0 transition-transform data-[state=checked]:translate-x-5 data-[state=unchecked]:translate-x-0"
+        )}
+      />
+    </SwitchPrimitives.Root>
+  )
+})
 Switch.displayName = SwitchPrimitives.Root.displayName
 
 export { Switch }

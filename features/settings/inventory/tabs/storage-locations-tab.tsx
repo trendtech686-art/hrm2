@@ -39,15 +39,16 @@ export function StorageLocationsTabContent({ isActive, onRegisterActions }: TabC
 
   const handleToggleDefault = React.useCallback((loc: StorageLocation) => {
     data.forEach(l => { if (l.isDefault && l.systemId !== loc.systemId && !l.isDeleted) update.mutate({ systemId: l.systemId, data: { isDefault: false } }); });
-    update.mutate({ systemId: loc.systemId, data: { isDefault: !loc.isDefault } });
-    toast.success(loc.isDefault ? 'Đã bỏ mặc định' : 'Đã đặt làm mặc định');
+    update.mutate({ systemId: loc.systemId, data: { isDefault: !loc.isDefault } }, {
+      onSuccess: () => toast.success(loc.isDefault ? 'Đã bỏ mặc định' : 'Đã đặt làm mặc định'),
+    });
   }, [data, update]);
 
   const handleToggleActive = React.useCallback((loc: StorageLocation) => { const na = !loc.isActive; update.mutate({ systemId: loc.systemId, data: { isActive: na } }, { onSuccess: () => toast.success(na ? 'Đã kích hoạt' : 'Đã tắt'), onError: (err) => toast.error(err.message) }); }, [update]);
   const confirmDelete = () => { if (idToDelete) { remove.mutate(idToDelete, { onSuccess: () => toast.success('Đã xóa điểm lưu kho'), onError: (err) => toast.error(err.message) }); } setIsAlertOpen(false); setIdToDelete(null); };
 
   const handleBulkDelete = React.useCallback((selectedItems: { systemId: string }[]) => { if (selectedItems.length === 0) return; setIsBulkDeleteOpen(true); }, []);
-  const confirmBulkDelete = () => { const selectedIds = Object.keys(rowSelection); selectedIds.forEach(id => { remove.mutate(id as SystemId); }); toast.success(`Đã xóa ${selectedIds.length} điểm lưu kho`); setRowSelection({}); setIsBulkDeleteOpen(false); };
+  const confirmBulkDelete = () => { const selectedIds = Object.keys(rowSelection); const count = selectedIds.length; selectedIds.forEach((id, i) => { remove.mutate(id as SystemId, i === count - 1 ? { onSuccess: () => toast.success(`Đã xóa ${count} điểm lưu kho`) } : undefined); }); setRowSelection({}); setIsBulkDeleteOpen(false); };
 
   const handleFormSubmit = (values: StorageLocationFormValues) => {
     const payload = { ...values, id: asBusinessId(values.id), isActive: values.isActive ?? true };

@@ -225,7 +225,7 @@ export const createEmploymentStatusColumn = (): ColumnDef<Employee> => ({
     const displayStatus = statusMap[status] || status;
     const variant = displayStatus === "Đang làm việc" ? "default" :
                     displayStatus === "Tạm nghỉ" ? "secondary" : "destructive";
-    return <Badge variant={variant} className="text-body-xs">{displayStatus}</Badge>;
+    return <Badge variant={variant} className="text-xs">{displayStatus}</Badge>;
   },
   meta: {
     displayName: "Trạng thái",

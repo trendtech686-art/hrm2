@@ -22,10 +22,10 @@ const buttonVariants = cva(
         link: "text-primary underline-offset-4 hover:underline",
       },
       size: {
-        default: "h-9 px-4 py-2",
+        default: "h-10 px-4 py-2 md:h-9",
         sm: "h-9 rounded-md px-3",
         lg: "h-11 rounded-md px-8",
-        icon: "h-9 w-10",
+        icon: "h-10 w-10 md:h-9",
       },
     },
     defaultVariants: {
@@ -40,77 +40,62 @@ export interface ButtonProps
     VariantProps<typeof buttonVariants> {
   asChild?: boolean
   /**
-   * Prevent double-click by disabling button after first click
-   * Useful for form submissions and async actions
-   * @default false
+   * Debounce interval in ms to prevent double-click. Set to 0 to disable.
+   * @default 700
    */
-  preventDoubleClick?: boolean
+  debounceMs?: number
   /**
-   * Text to show when button is in loading state (after click when preventDoubleClick is true)
+   * Text to show when button is in loading state
    */
   loadingText?: string
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild: _asChild = false, preventDoubleClick, loadingText, onClick, disabled, children, type, ...props }, ref) => {
+  ({ className, variant, size, asChild: _asChild = false, debounceMs = 1500, loadingText: _loadingText, onClick, disabled, children, type, ...props }, ref) => {
     const Comp = _asChild ? Slot : "button"
-    const [isClicked, setIsClicked] = React.useState(false)
-    const isClickedRef = React.useRef(false)
+    const lockRef = React.useRef(false)
+    const [isLocked, setIsLocked] = React.useState(false)
     
-    // Auto-enable double click prevention for submit buttons or buttons with onClick
-    // Can be explicitly disabled with preventDoubleClick={false}
-    const shouldPreventDoubleClick = preventDoubleClick ?? (type === 'submit' || !!onClick)
-    
-    // Reset click state when disabled prop changes (e.g., after async operation completes)
+    // Auto-unlock after debounce period
     React.useEffect(() => {
-      if (!disabled && isClicked) {
-        setIsClicked(false)
-        isClickedRef.current = false
-      }
-    }, [disabled, isClicked])
-    
-    // Auto-reset after 5 seconds as failsafe (in case disabled never changes)
-    React.useEffect(() => {
-      if (isClicked) {
+      if (isLocked && debounceMs > 0) {
         const timer = setTimeout(() => {
-          setIsClicked(false)
-          isClickedRef.current = false
-        }, 5000)
+          lockRef.current = false
+          setIsLocked(false)
+        }, debounceMs)
         return () => clearTimeout(timer)
       }
-    }, [isClicked])
+    }, [isLocked, debounceMs])
     
     const handleClick = React.useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
-      if (shouldPreventDoubleClick) {
-        // Use ref for immediate sync check
-        if (isClickedRef.current) {
-          e.preventDefault()
-          e.stopPropagation()
-          return
-        }
-        isClickedRef.current = true
-        setIsClicked(true)
+      if (!onClick) return
+      // Ref = sync guard — blocks second click instantly in same JS frame
+      if (debounceMs > 0 && lockRef.current) {
+        e.preventDefault()
+        e.stopPropagation()
+        return
       }
-      onClick?.(e)
-    }, [shouldPreventDoubleClick, onClick])
-    
-    const isDisabled = disabled || (shouldPreventDoubleClick && isClicked)
-    const displayChildren = shouldPreventDoubleClick && isClicked && loadingText ? loadingText : children
+      if (debounceMs > 0) {
+        lockRef.current = true
+        setIsLocked(true) // triggers re-render with pointer-events-none
+      }
+      onClick(e)
+    }, [onClick, debounceMs])
     
     return (
       <Comp
         className={cn(
           buttonVariants({ variant, size, className }),
-          shouldPreventDoubleClick && isClicked && "pointer-events-none"
+          isLocked && "pointer-events-none"
         )}
         ref={ref}
         type={type}
-        disabled={isDisabled}
-        aria-disabled={isDisabled}
-        onClick={handleClick}
+        disabled={disabled}
+        aria-disabled={disabled}
+        onClick={onClick ? handleClick : undefined}
         {...props}
       >
-        {displayChildren}
+        {children}
       </Comp>
     )
   }

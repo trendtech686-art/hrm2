@@ -6,34 +6,34 @@
 // - newStockLevel = giá trị DERIVED, được tính từ running sum của quantityChange
 //   API GET tính toán giá trị này thay vì đọc từ DB để đảm bảo nhất quán
 model StockHistory {
-  systemId        String   @id @default(cuid())
-  productId       String
-  branchId        String
-  
+  systemId  String @id @default(cuid())
+  productId String
+  branchId  String
+
   // Thông tin thay đổi
-  action          String   // Khởi tạo sản phẩm, Nhập hàng vào kho, Xuất kho giao hàng, Kiểm kho, etc.
-  source          String?  // Import & Mapping, Phiếu nhập kho, Đơn hàng, Kiểm kho, etc.
-  quantityChange  Int      @default(0)  // Số lượng thay đổi (+/-) - SOURCE OF TRUTH cho lịch sử
-  newStockLevel   Int      @default(0)  // DEPRECATED: Không sử dụng trực tiếp - API tính từ quantityChange
-  
+  action         String // Khởi tạo sản phẩm, Nhập hàng vào kho, Xuất kho giao hàng, Kiểm kho, etc.
+  source         String? // Import & Mapping, Phiếu nhập kho, Đơn hàng, Kiểm kho, etc.
+  quantityChange Int     @default(0) // Số lượng thay đổi (+/-) - SOURCE OF TRUTH cho lịch sử
+  newStockLevel  Int     @default(0) // DEPRECATED: Không sử dụng trực tiếp - API tính từ quantityChange
+
   // Chứng từ liên quan
-  documentId      String?  // Mã chứng từ (PON00001, SON00001, etc.)
-  documentType    String?  // purchase_order, sales_order, inventory_check, etc.
-  
+  documentId   String? // Mã chứng từ (PON00001, SON00001, etc.)
+  documentType String? // purchase_order, sales_order, inventory_check, etc.
+
   // Thông tin người thực hiện
-  employeeId      String?
-  employeeName    String?
-  
+  employeeId   String?
+  employeeName String?
+
   // Ghi chú
-  note            String?
-  
+  note String?
+
   // Timestamps
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   // Relations
-  product         Product  @relation(fields: [productId], references: [systemId], onDelete: Cascade)
-  branch          Branch   @relation(fields: [branchId], references: [systemId])
+  product Product @relation(fields: [productId], references: [systemId], onDelete: Cascade)
+  branch  Branch  @relation(fields: [branchId], references: [systemId])
 
   @@index([productId])
   @@index([branchId])

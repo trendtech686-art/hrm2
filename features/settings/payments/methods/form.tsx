@@ -14,9 +14,6 @@ const formSchema = z.object({
   name: z.string().min(1, "Tên hình thức là bắt buộc").max(100, "Tên không được vượt quá 100 ký tự"),
   isActive: z.boolean(),
   description: z.string().optional(),
-  accountNumber: z.string().optional(),
-  accountName: z.string().optional(),
-  bankName: z.string().optional(),
 });
 
 export type PaymentMethodFormValues = z.infer<typeof formSchema>;
@@ -24,9 +21,10 @@ export type PaymentMethodFormValues = z.infer<typeof formSchema>;
 type FormProps = {
   initialData?: PaymentMethod | null;
   onSubmit: (values: PaymentMethodFormValues) => void;
+  formRef?: React.RefObject<HTMLFormElement | null>;
 };
 
-export function PaymentMethodForm({ initialData, onSubmit }: FormProps) {
+export function PaymentMethodForm({ initialData, onSubmit, formRef }: FormProps) {
   const form = useForm<PaymentMethodFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: initialData
@@ -35,18 +33,12 @@ export function PaymentMethodForm({ initialData, onSubmit }: FormProps) {
           name: initialData.name,
           isActive: initialData.isActive,
           description: initialData.description ?? '',
-          accountNumber: initialData.accountNumber ?? '',
-          accountName: initialData.accountName ?? '',
-          bankName: initialData.bankName ?? '',
         }
       : {
           id: '',
           name: '',
           isActive: true,
           description: '',
-          accountNumber: '',
-          accountName: '',
-          bankName: '',
         },
   });
 
@@ -58,9 +50,6 @@ export function PaymentMethodForm({ initialData, onSubmit }: FormProps) {
         name: initialData.name,
         isActive: initialData.isActive,
         description: initialData.description ?? '',
-        accountNumber: initialData.accountNumber ?? '',
-        accountName: initialData.accountName ?? '',
-        bankName: initialData.bankName ?? '',
       });
     } else {
       form.reset({
@@ -68,16 +57,13 @@ export function PaymentMethodForm({ initialData, onSubmit }: FormProps) {
         name: '',
         isActive: true,
         description: '',
-        accountNumber: '',
-        accountName: '',
-        bankName: '',
       });
     }
   }, [initialData, form]);
 
   return (
     <Form {...form}>
-      <form id="payment-method-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
+      <form ref={formRef} id="payment-method-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
         <div className="grid grid-cols-2 gap-4">
           <FormField control={form.control} name="name" render={({ field }) => (
             <FormItem><FormLabel>Tên hình thức thanh toán <span className="text-destructive">*</span></FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
@@ -86,25 +72,10 @@ export function PaymentMethodForm({ initialData, onSubmit }: FormProps) {
             <FormItem><FormLabel>Mã <span className="text-destructive">*</span></FormLabel><FormControl><Input {...field} value={field.value ?? ''} className="uppercase" onChange={(e) => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>
           )} />
         </div>
-        
-        <FormField control={form.control} name="description" render={({ field }) => (
-          <FormItem><FormLabel>Mô tả</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
-        )} />
-        
-        {/* Bank account fields (for transfer methods) */}
-        <div className="space-y-4 p-4 border rounded-lg bg-muted/50">
-          <p className="text-sm font-medium text-muted-foreground">Thông tin tài khoản (dành cho chuyển khoản)</p>
-          
-          <FormField control={form.control} name="accountNumber" render={({ field }) => (
-            <FormItem><FormLabel>Số tài khoản</FormLabel><FormControl><Input {...field} value={field.value ?? ''} placeholder="VD: 1234567890" /></FormControl><FormMessage /></FormItem>
-          )} />
-          
-          <FormField control={form.control} name="accountName" render={({ field }) => (
-            <FormItem><FormLabel>Tên chủ tài khoản</FormLabel><FormControl><Input {...field} value={field.value ?? ''} placeholder="VD: NGUYEN VAN A" /></FormControl><FormMessage /></FormItem>
-          )} />
-          
-          <FormField control={form.control} name="bankName" render={({ field }) => (
-            <FormItem><FormLabel>Tên ngân hàng</FormLabel><FormControl><Input {...field} value={field.value ?? ''} placeholder="VD: Vietcombank - CN HCM" /></FormControl><FormMessage /></FormItem>
+
+        <div className="grid grid-cols-2 gap-4">
+          <FormField control={form.control} name="description" render={({ field }) => (
+            <FormItem><FormLabel>Mô tả</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
           )} />
         </div>
         

@@ -4,7 +4,8 @@ import { Card, CardContent } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
 import { Switch } from '../../components/ui/switch';
 import { Checkbox } from '../../components/ui/checkbox';
-import { MapPin as _MapPin, Plus, Edit as _Edit, Trash2, Check as _Check, ArrowLeftRight as _ArrowLeftRight, X as _X, MoreHorizontal, Eye as _Eye, ChevronLeft, ChevronRight } from 'lucide-react';
+import { MapPin as _MapPin, Plus, Edit as _Edit, Trash2, Check as _Check, ArrowLeftRight as _ArrowLeftRight, X as _X, MoreHorizontal, Eye as _Eye } from 'lucide-react';
+import { DataTablePagination } from '../../components/data-table/data-table-pagination';
 import {
   Table,
   TableBody,
@@ -37,8 +38,6 @@ import type { EnhancedCustomerAddress } from './types/enhanced-address';
 // Use EnhancedCustomerAddress as CustomerAddress
 export type CustomerAddress = EnhancedCustomerAddress;
 
-const PAGE_SIZE = 5;
-
 interface CustomerAddressesProps {
   addresses: CustomerAddress[];
   onUpdate?: (addresses: CustomerAddress[]) => void;
@@ -55,9 +54,10 @@ export function CustomerAddresses({ addresses = [], onUpdate, readonly = false }
   const [editingAddress, setEditingAddress] = React.useState<CustomerAddress | null>(null);
   
   // Pagination
-  const [currentPage, setCurrentPage] = React.useState(1);
-  const totalPages = Math.ceil(addresses.length / PAGE_SIZE);
-  const paginatedAddresses = addresses.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const [pageIndex, setPageIndex] = React.useState(0);
+  const [pageSize, setPageSize] = React.useState(20);
+  const totalPages = Math.ceil(addresses.length / pageSize);
+  const paginatedAddresses = addresses.slice(pageIndex * pageSize, (pageIndex + 1) * pageSize);
   
   // Checkbox selection
   const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());
@@ -163,25 +163,11 @@ export function CustomerAddresses({ addresses = [], onUpdate, readonly = false }
       });
     }
 
-    // If setting as default billing, unset other billing defaults
-    if (addressData.isDefaultBilling) {
-      newAddresses = newAddresses.map(addr => {
-        if (addr.id !== savedAddressId) {
-          return { ...addr, isDefaultBilling: false };
-        }
-        return addr;
-      });
-    }
-
     onUpdate?.(newAddresses);
-    
-    const types: string[] = [];
-    if (addressData.isDefaultShipping) types.push('Mặc định giao hàng');
-    if (addressData.isDefaultBilling) types.push('Mặc định hóa đơn');
     
     toast.success(
       editingAddress ? 'Đã cập nhật địa chỉ' : 'Đã thêm địa chỉ mới',
-      { description: types.length > 0 ? `${types.join(', ')}` : undefined }
+      { description: addressData.isDefaultShipping ? 'Mặc định giao hàng' : undefined }
     );
   };
 
@@ -193,31 +179,18 @@ export function CustomerAddresses({ addresses = [], onUpdate, readonly = false }
     setIsDeleteDialogOpen(true);
   };
 
-  const handleSetDefault = (id: string, type: 'shipping' | 'billing') => {
+  const handleSetDefault = (id: string, type: 'shipping') => {
     const address = addresses.find(addr => addr.id === id);
     if (!address) return;
 
-    const updatedAddresses = addresses.map(addr => {
-      if (type === 'shipping') {
-        // Unset all other shipping defaults, set this one
-        return {
-          ...addr,
-          isDefaultShipping: addr.id === id,
-        };
-      } else if (type === 'billing') {
-        // Unset all other billing defaults, set this one
-        return {
-          ...addr,
-          isDefaultBilling: addr.id === id,
-        };
-      }
-      return addr;
-    });
+    const updatedAddresses = addresses.map(addr => ({
+      ...addr,
+      isDefaultShipping: addr.id === id,
+    }));
     
     onUpdate?.(updatedAddresses);
     
-    const typeLabel = type === 'shipping' ? 'giao hàng' : 'hóa đơn';
-    toast.success(`Đã đặt làm địa chỉ mặc định ${typeLabel}`);
+    toast.success('Đã đặt làm địa chỉ mặc định giao hàng');
   };
 
   const confirmDelete = () => {
@@ -239,7 +212,7 @@ export function CustomerAddresses({ addresses = [], onUpdate, readonly = false }
     <div className="space-y-4 p-4 rounded-md">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <h3 className="text-base font-medium">Quản lý địa chỉ</h3>
+          <h3 className="text-sm font-medium">Quản lý địa chỉ</h3>
           {!readonly && selectedIds.size > 0 && (
             <Button 
               type="button" 
@@ -268,7 +241,7 @@ export function CustomerAddresses({ addresses = [], onUpdate, readonly = false }
         </Card>
       ) : (
         <div className="space-y-2">
-          <div className="rounded-md border border-border ">
+          <div className="rounded-md border border-border overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -282,7 +255,6 @@ export function CustomerAddresses({ addresses = [], onUpdate, readonly = false }
                       />
                     </TableHead>
                   )}
-                  <TableHead>Tên địa chỉ</TableHead>
                   <TableHead>Địa chỉ</TableHead>
                   <TableHead>Tỉnh/TP</TableHead>
                   <TableHead>Quận/Huyện</TableHead>
@@ -291,7 +263,6 @@ export function CustomerAddresses({ addresses = [], onUpdate, readonly = false }
                   <TableHead>Liên hệ</TableHead>
                   <TableHead>SĐT</TableHead>
                   <TableHead className="text-center">MĐ GH</TableHead>
-                  <TableHead className="text-center">MĐ HĐ</TableHead>
                   {!readonly && <TableHead className="w-12"></TableHead>}
               </TableRow>
             </TableHeader>
@@ -307,12 +278,11 @@ export function CustomerAddresses({ addresses = [], onUpdate, readonly = false }
                       <Checkbox 
                         checked={selectedIds.has(address.id)}
                         onCheckedChange={(checked) => handleSelectOne(address.id, !!checked)}
-                        aria-label={`Chọn địa chỉ ${address.label}`}
+                        aria-label={`Chọn địa chỉ ${address.street}`}
                       />
                     </TableCell>
                   )}
-                  <TableCell className="font-medium">{address.label}</TableCell>
-                  <TableCell>{address.street}</TableCell>
+                  <TableCell className="font-medium">{address.street}</TableCell>
                   <TableCell>{address.province}</TableCell>
                   <TableCell>{address.district || '—'}</TableCell>
                   <TableCell>{address.ward || '—'}</TableCell>
@@ -327,13 +297,6 @@ export function CustomerAddresses({ addresses = [], onUpdate, readonly = false }
                     <Switch 
                       checked={address.isDefaultShipping} 
                       onCheckedChange={readonly ? undefined : () => handleSetDefault(address.id, 'shipping')}
-                      disabled={readonly}
-                    />
-                  </TableCell>
-                  <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
-                    <Switch 
-                      checked={address.isDefaultBilling} 
-                      onCheckedChange={readonly ? undefined : () => handleSetDefault(address.id, 'billing')}
                       disabled={readonly}
                     />
                   </TableCell>
@@ -371,37 +334,19 @@ export function CustomerAddresses({ addresses = [], onUpdate, readonly = false }
           </Table>
           </div>
           
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between px-2 py-2">
-              <div className="text-sm text-muted-foreground">
-                Hiển thị {(currentPage - 1) * PAGE_SIZE + 1} - {Math.min(currentPage * PAGE_SIZE, addresses.length)} / {addresses.length} địa chỉ
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <span className="text-sm">
-                  Trang {currentPage} / {totalPages}
-                </span>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          )}
+          <div className="border-t border-border px-6 py-3">
+            <DataTablePagination
+              pageIndex={pageIndex}
+              pageSize={pageSize}
+              pageCount={totalPages}
+              setPageIndex={setPageIndex}
+              setPageSize={(size) => { setPageSize(size); setPageIndex(0); }}
+              canPreviousPage={pageIndex > 0}
+              canNextPage={pageIndex < totalPages - 1}
+              rowCount={addresses.length}
+              selectedRowCount={selectedIds.size}
+            />
+          </div>
         </div>
       )}
 
@@ -436,7 +381,7 @@ export function CustomerAddresses({ addresses = [], onUpdate, readonly = false }
           {deletingAddress && (
             <div className="py-4 space-y-2">
               <div className="p-3 bg-muted rounded-md">
-                <p className="font-medium text-sm">{deletingAddress.label}</p>
+                <p className="font-medium text-sm">{deletingAddress.street}</p>
                 <p className="text-sm text-muted-foreground mt-1">
                   {formatFullAddress(deletingAddress)}
                 </p>

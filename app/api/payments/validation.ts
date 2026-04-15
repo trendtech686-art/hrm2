@@ -43,6 +43,7 @@ export const createPaymentSchema = z.object({
   status: z.string().optional(),
   category: z.string().optional(),
   affectsDebt: z.boolean().optional(),
+  affectsBusinessReport: z.boolean().optional(),
   linkedPayrollBatchSystemId: z.string().optional(),
   linkedPayslipSystemId: z.string().optional(),
 })

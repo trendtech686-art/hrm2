@@ -2,7 +2,6 @@
  * Zod validation schemas for receipts module
  */
 import { z } from 'zod';
-import { systemIdSchema, businessIdSchema } from '@/lib/id-types';
 
 // Status enum
 export const receiptStatusSchema = z.enum([
@@ -12,7 +11,19 @@ export const receiptStatusSchema = z.enum([
   'refunded'
 ]);
 
-// Category enum
+// Category enum for server action
+export const serverReceiptCategorySchema = z.enum([
+  'sale',
+  'SALES_REVENUE',
+  'service_revenue',
+  'complaint_penalty',
+  'warranty_additional',
+  'customer_payment',
+  'deposit_received',
+  'other'
+]);
+
+// Category enum for form (legacy)
 export const receiptCategorySchema = z.enum([
   'sales',
   'service',
@@ -21,28 +32,31 @@ export const receiptCategorySchema = z.enum([
   'other'
 ]);
 
-// Create receipt schema
+// Create receipt schema - matches CreateReceiptInput in app/actions/receipts.ts
 export const createReceiptSchema = z.object({
-  date: z.string().min(1, 'Ngày thu không được để trống'),
   amount: z.number().min(0, 'Số tiền phải >= 0'),
-  payerTypeSystemId: systemIdSchema,
-  payerTypeName: z.string().optional(),
-  payerName: z.string().min(1, 'Tên người nộp không được để trống'),
-  payerSystemId: systemIdSchema.optional(),
   description: z.string().optional(),
-  paymentMethodSystemId: systemIdSchema,
+  category: serverReceiptCategorySchema,
+  paymentMethodSystemId: z.string().optional(),
   paymentMethodName: z.string().optional(),
-  accountSystemId: systemIdSchema,
-  receiptTypeSystemId: systemIdSchema.optional(),
-  receiptTypeName: z.string().optional(),
-  branchSystemId: systemIdSchema.refine(v => v.length >= 1, 'Vui lòng chọn chi nhánh'),
+  branchId: z.string().min(1, 'Vui lòng chọn chi nhánh'),
+  branchSystemId: z.string().optional(),
   branchName: z.string().optional(),
-  status: receiptStatusSchema.default('completed'),
-  category: receiptCategorySchema,
-  affectsDebt: z.boolean().default(true),
-  orderSystemId: systemIdSchema.optional(),
-  orderId: businessIdSchema.optional(),
-  originalDocumentId: z.string().optional(),
+  accountId: z.string().optional(),
+  accountSystemId: z.string().optional(),
+  payerType: z.string().optional(),
+  payerTypeSystemId: z.string().optional(),
+  payerName: z.string().optional(),
+  payerSystemId: z.string().optional(),
+  payerPhone: z.string().optional(),
+  customerId: z.string().optional(),
+  customerSystemId: z.string().optional(),
+  customerName: z.string().optional(),
+  linkedOrderSystemId: z.string().optional(),
+  linkedSalesReturnSystemId: z.string().optional(),
+  linkedWarrantySystemId: z.string().optional(),
+  linkedComplaintSystemId: z.string().optional(),
+  voucherDate: z.date().optional(),
 });
 
 // Update receipt schema

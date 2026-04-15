@@ -18,7 +18,7 @@ import {
 import { Textarea } from '../../../../components/ui/textarea';
 import type { WarrantyTicket } from '../../types';
 import { useWarrantyMutations } from '../../hooks/use-warranties';
-import { useAuth } from '../../../../contexts/auth-context';
+import { logError } from '@/lib/logger'
 
 interface WarrantyReopenFromReturnedDialogProps {
   open: boolean;
@@ -28,7 +28,6 @@ interface WarrantyReopenFromReturnedDialogProps {
 
 export function WarrantyReopenFromReturnedDialog({ open, onOpenChange, ticket }: WarrantyReopenFromReturnedDialogProps) {
   const [reopenReason, setReopenReason] = React.useState('');
-  const { user: _currentUser } = useAuth();
   const { update } = useWarrantyMutations({
     onUpdateSuccess: () => toast.success('Đã mở lại phiếu bảo hành'),
     onError: (err) => toast.error(err.message)
@@ -72,7 +71,7 @@ export function WarrantyReopenFromReturnedDialog({ open, onOpenChange, ticket }:
           : undefined
       });
     } catch (error) {
-      console.error('Failed to reopen ticket:', error);
+      logError('Failed to reopen ticket', error);
       toast.error('Không thể mở lại phiếu');
     }
   }, [ticket, reopenReason, update, onOpenChange]);

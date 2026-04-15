@@ -1,5 +1,6 @@
-// File Storage System - Lưu file vật lý thay vì localStorage
+﻿// File Storage System - Lưu file vật lý thay vì localStorage
 import { toast } from "sonner";
+import { logError } from '@/lib/logger'
 
 export type StoredFile = {
   id: string;
@@ -61,7 +62,7 @@ export class FileStorageManager {
       
       return storedFile;
     } catch (error) {
-      console.error('Upload failed:', error);
+      logError('Upload failed', error);
       toast.error('Lỗi khi upload file', {
         description: error instanceof Error ? error.message : 'Lỗi không xác định'
       });
@@ -85,7 +86,7 @@ export class FileStorageManager {
       // Gọi API xóa file trên server
       return true;
     } catch (error) {
-      console.error('Delete failed:', error);
+      logError('Delete failed', error);
       return false;
     }
   }

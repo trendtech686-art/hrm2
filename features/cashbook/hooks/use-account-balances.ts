@@ -4,7 +4,6 @@
  */
 
 import { useQuery } from '@tanstack/react-query'
-import type { SystemId } from '@/lib/id-types'
 
 export type AccountBalance = {
   systemId: string
@@ -43,7 +42,8 @@ async function fetchAccountBalances(params: {
     throw new Error('Failed to fetch account balances')
   }
   const json = await response.json()
-  return json.data.data
+  // API returns { data: AccountBalance[] }
+  return json.data || []
 }
 
 /**
@@ -59,18 +59,4 @@ export function useAccountBalances(options: { branchId?: string } = {}) {
   })
 }
 
-/**
- * Hook to get balance for a single account (server-side calculated)
- */
-export function useAccountBalance(accountSystemId: SystemId | null | undefined) {
-  return useQuery({
-    queryKey: ['cash-account-balance', accountSystemId],
-    queryFn: async () => {
-      if (!accountSystemId) return null
-      const balances = await fetchAccountBalances({ accountSystemId })
-      return balances[0] || null
-    },
-    enabled: !!accountSystemId,
-    staleTime: 30 * 1000, // 30 seconds
-  })
-}
+

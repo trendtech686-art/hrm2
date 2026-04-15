@@ -14,8 +14,7 @@ import { PlusCircle } from "lucide-react";
 
 interface DataPageLayoutProps<T extends { systemId: string }> {
   // Data & Columns
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  columns: any[];
+  columns: ColumnDef<T>[];
   data: T[];
   allData: T[];
   filteredData: T[];
@@ -23,7 +22,7 @@ interface DataPageLayoutProps<T extends { systemId: string }> {
   // Pagination
   pageCount: number;
   pagination: { pageIndex: number; pageSize: number };
-  setPagination: (pagination: { pageIndex: number; pageSize: number }) => void;
+  setPagination: (updater: React.SetStateAction<{ pageIndex: number; pageSize: number }>) => void;
   
   // Search & Filters
   globalFilter: string;
@@ -32,7 +31,7 @@ interface DataPageLayoutProps<T extends { systemId: string }> {
   
   // Selection & Actions
   rowSelection: Record<string, boolean>;
-  setRowSelection: (selection: Record<string, boolean>) => void;
+  setRowSelection: (updater: React.SetStateAction<Record<string, boolean>>) => void;
   bulkActions?: Array<{
     label: string;
     onSelect: (selectedRows: T[]) => void;
@@ -42,17 +41,17 @@ interface DataPageLayoutProps<T extends { systemId: string }> {
   
   // Sorting & Expansion
   sorting: { id: string; desc: boolean };
-  setSorting: (sorting: { id: string; desc: boolean }) => void;
+  setSorting: (updater: React.SetStateAction<{ id: string; desc: boolean }>) => void;
   expanded: Record<string, boolean>;
-  setExpanded: (expanded: Record<string, boolean>) => void;
+  setExpanded: (updater: React.SetStateAction<Record<string, boolean>>) => void;
   
   // Column Management
   columnVisibility: Record<string, boolean>;
-  setColumnVisibility: (visibility: Record<string, boolean>) => void;
+  setColumnVisibility: React.Dispatch<React.SetStateAction<Record<string, boolean>>> | ((value: Record<string, boolean>) => void);
   columnOrder: string[];
-  setColumnOrder: (order: string[]) => void;
+  setColumnOrder: React.Dispatch<React.SetStateAction<string[]>> | ((value: string[]) => void);
   pinnedColumns: string[];
-  setPinnedColumns: (pinned: string[]) => void;
+  setPinnedColumns: React.Dispatch<React.SetStateAction<string[]>> | ((value: string[]) => void);
   
   // Callbacks
   onRowClick?: (item: T) => void;
@@ -64,8 +63,7 @@ interface DataPageLayoutProps<T extends { systemId: string }> {
   // Export/Import Configs
   exportConfig?: {
     fileName: string;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    columns: any[];
+    columns: ColumnDef<T>[];
   };
   importConfig?: {
     importer: (data: unknown[]) => void;
@@ -122,7 +120,7 @@ export function DataPageLayout<T extends { systemId: string }>({
   return (
     <div className="flex flex-col w-full h-full">
       <div className="flex flex-col gap-4">
-        <div className="flex-shrink-0 space-y-4">
+        <div className="shrink-0 space-y-4">
           {/* Header Actions */}
           {isMobile ? (
             <div className="space-y-3">
@@ -257,7 +255,7 @@ export function DataPageLayout<T extends { systemId: string }>({
             <ResponsiveDataTable
               columns={columns as ColumnDef<{ systemId: string }>[]}
               data={data as { systemId: string }[]}
-              renderMobileCard={renderMobileCard as (item: { systemId: string }, index: number) => React.ReactNode}
+              renderMobileCard={renderMobileCard as unknown as (item: { systemId: string }, index: number) => React.ReactNode}
               pageCount={pageCount}
               pagination={pagination}
               setPagination={setPagination}

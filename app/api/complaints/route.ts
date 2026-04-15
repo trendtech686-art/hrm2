@@ -4,11 +4,15 @@ import { ComplaintStatus, ComplaintPriority } from '@/generated/prisma/client'
 import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
 import { createComplaintSchema } from './validation'
 import { generateNextIdsWithTx } from '@/lib/id-system'
+import { logError } from '@/lib/logger'
+import { createNotification } from '@/lib/notifications'
+import { notifyComplaintCreated } from '@/lib/complaint-notifications'
+import { getUserNameFromDb } from '@/lib/get-user-name'
 
 // GET /api/complaints - List all complaints
 export async function GET(request: Request) {
   const session = await requireAuth()
-  if (!session) return apiError('Unauthorized', 401)
+  if (!session) return apiError('Chưa được xác thực', 401)
 
   try {
     const { searchParams } = new URL(request.url)
@@ -105,9 +109,21 @@ export async function GET(request: Request) {
     ])
 
     // ⭐ Map DB fields to TypeScript types + serialize Decimal
+    // Resolve assignee names
+    const assigneeIds = [...new Set(complaints.map(c => c.assigneeId).filter(Boolean) as string[])]
+    const assigneeMap = new Map<string, string>()
+    if (assigneeIds.length > 0) {
+      const employees = await prisma.employee.findMany({
+        where: { systemId: { in: assigneeIds } },
+        select: { systemId: true, fullName: true },
+      })
+      employees.forEach(e => assigneeMap.set(e.systemId, e.fullName))
+    }
+
     const mappedComplaints = complaints.map(c => ({
       ...c,
       assignedTo: c.assigneeId, // Map assigneeId -> assignedTo for frontend
+      assignedToName: c.assigneeId ? assigneeMap.get(c.assigneeId) || null : null,
       orderSystemId: c.orderId,
       customerSystemId: c.customerId,
       orderValue: c.orderValue ? Number(c.orderValue) : null, // ✅ Serialize Decimal
@@ -116,15 +132,15 @@ export async function GET(request: Request) {
 
     return apiPaginated(mappedComplaints, { page, limit, total })
   } catch (error) {
-    console.error('Error fetching complaints:', error)
-    return apiError('Failed to fetch complaints', 500)
+    logError('Error fetching complaints', error)
+    return apiError('Không thể tải danh sách khiếu nại', 500)
   }
 }
 
 // POST /api/complaints - Create new complaint
 export async function POST(request: Request) {
   const session = await requireAuth()
-  if (!session) return apiError('Unauthorized', 401)
+  if (!session) return apiError('Chưa được xác thực', 401)
 
   const result = await validateBody(request, createComplaintSchema)
   if (!result.success) return apiError(result.error, 400)
@@ -159,9 +175,48 @@ export async function POST(request: Request) {
       });
     });
 
+    // Notify assigned employee (non-blocking)
+    const assignedEmployeeId = complaint.assigneeId;
+    const currentUserEmployeeId = session.user?.employeeId;
+    if (assignedEmployeeId && assignedEmployeeId !== currentUserEmployeeId) {
+      createNotification({
+        type: 'complaint',
+        title: 'Khiếu nại mới',
+        message: `Bạn được giao khiếu nại "${complaint.title}" (${complaint.id})`,
+        link: `/complaints/${complaint.systemId}`,
+        recipientId: assignedEmployeeId,
+        senderId: currentUserEmployeeId || undefined,
+        senderName: session.user?.name || undefined,
+        settingsKey: 'complaint:created',
+      }).catch(e => logError('[Complaint] Creation notification failed', e));
+
+      // Send email notification (non-blocking)
+      notifyComplaintCreated({
+        systemId: complaint.systemId,
+        title: complaint.title,
+        id: complaint.id,
+        assigneeId: assignedEmployeeId,
+        creatorName: session.user?.name,
+      }).catch(e => logError('[Complaint] Creation email failed', e));
+    }
+
+    // Log activity
+    getUserNameFromDb(session.user?.id).then(userName =>
+      prisma.activityLog.create({
+        data: {
+          entityType: 'complaint',
+          entityId: complaint.systemId,
+          action: 'created',
+          actionType: 'create',
+          note: `Tạo khiếu nại`,
+          metadata: { userName },
+          createdBy: userName,
+        }
+      })
+    ).catch(e => logError('[ActivityLog] complaint create failed', e))
     return apiSuccess(complaint, 201)
   } catch (error) {
-    console.error('Error creating complaint:', error)
-    return apiError('Failed to create complaint', 500)
+    logError('Error creating complaint', error)
+    return apiError('Không thể tạo khiếu nại', 500)
   }
 }

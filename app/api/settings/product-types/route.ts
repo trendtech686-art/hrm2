@@ -1,5 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { requireAuth, apiError, apiSuccess, parsePagination } from '@/lib/api-utils'
+import { logError } from '@/lib/logger'
+import { createActivityLog } from '@/lib/services/activity-log-service'
 
 const TYPE = 'product-type'
 
@@ -32,7 +34,7 @@ export async function GET(request: Request) {
 
     return apiSuccess({ data, pagination: { total, page, limit, totalPages: Math.ceil(total / limit) } })
   } catch (error) {
-    console.error('[product-types] GET error:', error)
+    logError('[product-types] GET error', error)
     return apiError('Failed to fetch product types', 500)
   }
 }
@@ -60,9 +62,17 @@ export async function POST(request: Request) {
       },
     })
 
+    await createActivityLog({
+      entityType: 'product_type',
+      entityId: created.systemId,
+      action: `Thêm loại sản phẩm: ${name}`,
+      actionType: 'create',
+      createdBy: session.user.id,
+    }).catch(e => logError('[product-types] activity log failed', e))
+
     return apiSuccess({ data: created }, 201)
   } catch (error) {
-    console.error('[product-types] POST error:', error)
+    logError('[product-types] POST error', error)
     return apiError('Failed to create product type', 500)
   }
 }

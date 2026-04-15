@@ -48,7 +48,7 @@ export function TrackingLoadingState() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-body-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             Vui lòng chờ trong giây lát.
           </p>
         </CardContent>
@@ -102,7 +102,7 @@ export function TrackingNotFoundState({ trackingCode }: TrackingStateProps) {
               : 'Phiếu bảo hành không tồn tại hoặc đã bị xóa. Vui lòng kiểm tra lại mã phiếu.'}
           </p>
           {!isMissingCode && trackingCode && (
-            <p className="text-body-sm text-muted-foreground mt-4">
+            <p className="text-sm text-muted-foreground mt-4">
               Mã phiếu: <span className="font-mono font-semibold">{trackingCode}</span>
             </p>
           )}

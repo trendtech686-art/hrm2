@@ -2,9 +2,10 @@
 
 import prisma from '@/lib/prisma';
 import { revalidatePath } from '@/lib/revalidation';
-import { auth } from '@/auth';
+import { requireActionPermission } from '@/lib/api-utils';
 import type { ActionResult } from '@/types/action-result';
-
+import { logError } from '@/lib/logger'
+import { getSessionUserName } from '@/lib/get-user-name'
 type Packaging = NonNullable<Awaited<ReturnType<typeof prisma.packaging.findFirst>>>;
 
 export interface ReconciliationFilters {
@@ -22,7 +23,7 @@ export interface ReconciliationFilters {
 export interface ReconciliationItem {
   systemId: string;
   id: string;
-  orderId: string;
+  orderId: string | null;
   branchId: string;
   trackingCode: string | null;
   carrier: string | null;
@@ -58,10 +59,8 @@ export interface PaginatedReconciliation {
 export async function getReconciliationItems(
   filters: ReconciliationFilters = {}
 ): Promise<ActionResult<PaginatedReconciliation>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('view_reconciliation')
+  if (!authResult.success) return authResult
   try {
     const {
       page = 1,
@@ -156,7 +155,7 @@ export async function getReconciliationItems(
       },
     };
   } catch (error) {
-    console.error('Failed to fetch reconciliation items:', error);
+    logError('Failed to fetch reconciliation items', error);
     return { success: false, error: 'Không thể tải dữ liệu đối soát' };
   }
 }
@@ -168,10 +167,9 @@ export async function markAsReconciled(
   systemId: string,
   data?: { notes?: string; reconciledBy?: string }
 ): Promise<ActionResult<Packaging>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('create_reconciliation')
+  if (!authResult.success) return authResult
+  const { session } = authResult
   try {
     const packaging = await prisma.packaging.findUnique({
       where: { systemId },
@@ -198,9 +196,22 @@ export async function markAsReconciled(
     });
 
     revalidatePath('/reconciliation');
+
+    const logUserName = getSessionUserName(session)
+    prisma.activityLog.create({
+      data: {
+        entityType: 'reconciliation',
+        entityId: systemId,
+        action: `Đối soát đơn hàng: ${systemId}`,
+        actionType: 'update',
+        metadata: { userName: logUserName },
+        createdBy: logUserName,
+      }
+    }).catch(e => logError('[ActivityLog] reconciliation mark failed', e))
+
     return { success: true, data: updated };
   } catch (error) {
-    console.error('Failed to mark as reconciled:', error);
+    logError('Failed to mark as reconciled', error);
     return { success: false, error: 'Không thể cập nhật trạng thái đối soát' };
   }
 }
@@ -212,10 +223,9 @@ export async function bulkMarkAsReconciled(
   systemIds: string[],
   _reconciledBy?: string
 ): Promise<ActionResult<{ count: number }>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('create_reconciliation')
+  if (!authResult.success) return authResult
+  const { session } = authResult
   try {
     const result = await prisma.packaging.updateMany({
       where: {
@@ -228,9 +238,22 @@ export async function bulkMarkAsReconciled(
     });
 
     revalidatePath('/reconciliation');
+
+    const logUserName = getSessionUserName(session)
+    prisma.activityLog.create({
+      data: {
+        entityType: 'reconciliation',
+        entityId: systemIds.join(','),
+        action: `Đối soát hàng loạt: ${result.count} đơn`,
+        actionType: 'update',
+        metadata: { userName: logUserName, count: result.count },
+        createdBy: logUserName,
+      }
+    }).catch(e => logError('[ActivityLog] reconciliation bulk mark failed', e))
+
     return { success: true, data: { count: result.count } };
   } catch (error) {
-    console.error('Failed to bulk mark as reconciled:', error);
+    logError('Failed to bulk mark as reconciled', error);
     return { success: false, error: 'Không thể cập nhật hàng loạt' };
   }
 }
@@ -241,10 +264,9 @@ export async function bulkMarkAsReconciled(
 export async function resetReconciliationStatus(
   systemId: string
 ): Promise<ActionResult<Packaging>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('create_reconciliation')
+  if (!authResult.success) return authResult
+  const { session } = authResult
   try {
     const updated = await prisma.packaging.update({
       where: { systemId },
@@ -254,9 +276,22 @@ export async function resetReconciliationStatus(
     });
 
     revalidatePath('/reconciliation');
+
+    const logUserName = getSessionUserName(session)
+    prisma.activityLog.create({
+      data: {
+        entityType: 'reconciliation',
+        entityId: systemId,
+        action: `Đặt lại trạng thái đối soát: ${systemId}`,
+        actionType: 'update',
+        metadata: { userName: logUserName },
+        createdBy: logUserName,
+      }
+    }).catch(e => logError('[ActivityLog] reconciliation reset failed', e))
+
     return { success: true, data: updated };
   } catch (error) {
-    console.error('Failed to reset reconciliation status:', error);
+    logError('Failed to reset reconciliation status', error);
     return { success: false, error: 'Không thể đặt lại trạng thái' };
   }
 }
@@ -268,10 +303,9 @@ export async function updateCodAmount(
   systemId: string,
   codAmount: number
 ): Promise<ActionResult<Packaging>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('create_reconciliation')
+  if (!authResult.success) return authResult
+  const { session } = authResult
   try {
     const updated = await prisma.packaging.update({
       where: { systemId },
@@ -279,9 +313,22 @@ export async function updateCodAmount(
     });
 
     revalidatePath('/reconciliation');
+
+    const logUserName = getSessionUserName(session)
+    prisma.activityLog.create({
+      data: {
+        entityType: 'reconciliation',
+        entityId: systemId,
+        action: `Cập nhật tiền COD: ${systemId}`,
+        actionType: 'update',
+        metadata: { userName: logUserName, codAmount },
+        createdBy: logUserName,
+      }
+    }).catch(e => logError('[ActivityLog] reconciliation updateCod failed', e))
+
     return { success: true, data: updated };
   } catch (error) {
-    console.error('Failed to update COD amount:', error);
+    logError('Failed to update COD amount', error);
     return { success: false, error: 'Không thể cập nhật tiền COD' };
   }
 }
@@ -293,10 +340,9 @@ export async function updateShippingFee(
   systemId: string,
   shippingFeeToPartner: number
 ): Promise<ActionResult<Packaging>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('create_reconciliation')
+  if (!authResult.success) return authResult
+  const { session } = authResult
   try {
     const updated = await prisma.packaging.update({
       where: { systemId },
@@ -304,9 +350,22 @@ export async function updateShippingFee(
     });
 
     revalidatePath('/reconciliation');
+
+    const logUserName = getSessionUserName(session)
+    prisma.activityLog.create({
+      data: {
+        entityType: 'reconciliation',
+        entityId: systemId,
+        action: `Cập nhật phí vận chuyển: ${systemId}`,
+        actionType: 'update',
+        metadata: { userName: logUserName, shippingFeeToPartner },
+        createdBy: logUserName,
+      }
+    }).catch(e => logError('[ActivityLog] reconciliation updateFee failed', e))
+
     return { success: true, data: updated };
   } catch (error) {
-    console.error('Failed to update shipping fee:', error);
+    logError('Failed to update shipping fee', error);
     return { success: false, error: 'Không thể cập nhật phí vận chuyển' };
   }
 }
@@ -324,10 +383,8 @@ export async function getReconciliationByCarrier(
   totalCod: number;
   totalFee: number;
 }>>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('view_reconciliation')
+  if (!authResult.success) return authResult
   try {
     const where: Record<string, unknown> = {
       trackingCode: { not: null },
@@ -384,7 +441,7 @@ export async function getReconciliationByCarrier(
 
     return { success: true, data: result };
   } catch (error) {
-    console.error('Failed to get reconciliation by carrier:', error);
+    logError('Failed to get reconciliation by carrier', error);
     return { success: false, error: 'Không thể tải thống kê theo hãng vận chuyển' };
   }
 }
@@ -393,10 +450,8 @@ export async function getReconciliationByCarrier(
  * Get available carriers
  */
 export async function getCarriers(): Promise<ActionResult<string[]>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('view_reconciliation')
+  if (!authResult.success) return authResult
   try {
     const carriers = await prisma.packaging.findMany({
       where: { carrier: { not: null } },
@@ -406,7 +461,7 @@ export async function getCarriers(): Promise<ActionResult<string[]>> {
 
     return { success: true, data: carriers.map((c) => c.carrier!).filter(Boolean) };
   } catch (error) {
-    console.error('Failed to get carriers:', error);
+    logError('Failed to get carriers', error);
     return { success: false, error: 'Không thể tải danh sách hãng vận chuyển' };
   }
 }

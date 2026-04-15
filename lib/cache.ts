@@ -182,13 +182,14 @@ export const cache = new MemoryCache()
 // Export class for custom instances
 export { MemoryCache }
 
-// Common cache TTL constants (in milliseconds for memory cache)
+// Common cache TTL constants (in seconds - matches unstable_cache revalidate)
+// NOTE: MemoryCache.set() expects milliseconds, use CACHE_TTL.X * 1000
 export const CACHE_TTL = {
-  SHORT: 30 * 1000,        // 30 seconds
-  MEDIUM: 5 * 60 * 1000,   // 5 minutes
-  LONG: 30 * 60 * 1000,    // 30 minutes
-  HOUR: 60 * 60 * 1000,    // 1 hour
-  DAY: 24 * 60 * 60 * 1000 // 24 hours
+  SHORT: 30,              // 30 seconds
+  MEDIUM: 5 * 60,         // 5 minutes
+  LONG: 30 * 60,          // 30 minutes
+  HOUR: 60 * 60,          // 1 hour
+  DAY: 24 * 60 * 60       // 24 hours
 } as const
 
 // Cache tags for invalidation (used with unstable_cache)

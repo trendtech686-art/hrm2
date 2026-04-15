@@ -5,6 +5,8 @@
 
 import { prisma } from '@/lib/prisma';
 import { requireAuth, apiError, apiSuccess } from '@/lib/api-utils';
+import { logError } from '@/lib/logger'
+import { cache } from '@/lib/cache'
 
 const STORE_INFO_KEY = 'store-info';
 const STORE_INFO_GROUP = 'store';
@@ -44,6 +46,7 @@ export async function POST() {
       },
     });
 
+    cache.deletePattern('^settings:')
     return apiSuccess({
       ...defaultStoreInfo,
       updatedAt: null,
@@ -51,7 +54,7 @@ export async function POST() {
       updatedByName: null,
     });
   } catch (error) {
-    console.error('Error resetting store info:', error);
+    logError('Error resetting store info', error);
     return apiError('Failed to reset store info', 500);
   }
 }

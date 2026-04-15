@@ -18,13 +18,27 @@ const formatCurrency = (value?: number) => {
     return new Intl.NumberFormat('vi-VN').format(value);
 };
 
-export function OrderSummary({ disabled }: { disabled: boolean }) {
+// ⚡ OPTIMIZED: Accept prefetched data to avoid duplicate API calls
+interface OrderSummaryProps {
+    disabled: boolean;
+    prefetchedPaymentMethods?: Array<{ systemId: string; name: string; isActive?: boolean; isDefault?: boolean | null }>;
+    prefetchedShippingPartners?: Array<{ systemId: string; name: string; isActive?: boolean }>;
+}
+
+export function OrderSummary({ 
+    disabled,
+    prefetchedPaymentMethods,
+    prefetchedShippingPartners,
+}: OrderSummaryProps) {
     const { control, setValue } = useFormContext();
     const { subtotal, shippingFee, grandTotal, payments = [], orderDiscount, orderDiscountType, voucherAmount, deliveryMethod, shippingPartnerId, customer, weight, serviceFees = [] } = useWatch({ control });
 
     const { fields, append, remove } = useFieldArray({ control, name: 'payments' });
-    const { data: paymentMethodsData } = useAllPaymentMethods();
-    const { data: partners } = useAllShippingPartners();
+    // ⚡ OPTIMIZED: Use prefetched data if available, otherwise fallback to hooks
+    const { data: fetchedPaymentMethods } = useAllPaymentMethods({ enabled: !prefetchedPaymentMethods });
+    const { data: fetchedPartners } = useAllShippingPartners({ enabled: !prefetchedShippingPartners });
+    const paymentMethodsData = prefetchedPaymentMethods ?? fetchedPaymentMethods;
+    const partners = prefetchedShippingPartners ?? fetchedPartners;
     const defaultPaymentMethod = React.useMemo(() => paymentMethodsData.find(pm => pm.isDefault)?.name || 'Tiền mặt', [paymentMethodsData]);
     
     // ✅ PHASE 2: Use useWatch for lineItems count instead of calling it in render
@@ -119,7 +133,7 @@ export function OrderSummary({ disabled }: { disabled: boolean }) {
           <div className="flex items-center justify-between py-1"><span className="text-muted-foreground">Tổng tiền ({lineItems.length} sản phẩm)</span><span className="font-medium text-foreground">{formatCurrency(subtotal)}</span></div>
           <div className="flex items-center justify-between py-1">
             <span className="text-sm text-primary hover:underline cursor-pointer">Phí giao hàng (F7)</span>
-            <div className="w-full max-w-[280px]">
+            <div className="w-full max-w-70">
               <CurrencyInput 
                 value={localShippingFee} 
                 onChange={(value) => setLocalShippingFee(value as number)} 
@@ -142,7 +156,7 @@ export function OrderSummary({ disabled }: { disabled: boolean }) {
                 name="orderDiscountType" 
                 render={({ field }) => (
                   <Select onValueChange={field.onChange} value={field.value} disabled={disabled}>
-                    <SelectTrigger className="h-8 w-[60px]"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-8 w-15"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="fixed">đ</SelectItem>
                       <SelectItem value="percentage">%</SelectItem>
@@ -151,7 +165,7 @@ export function OrderSummary({ disabled }: { disabled: boolean }) {
                 )} 
               />
             </div>
-            <div className="w-full max-w-[280px]">
+            <div className="w-full max-w-70">
               {orderDiscountType === 'percentage' ? (
                 <div className="relative">
                   <NumberInput 
@@ -216,9 +230,9 @@ export function OrderSummary({ disabled }: { disabled: boolean }) {
             </>
           )}
            
-          <Separator className="!my-2" />
+          <Separator className="my-2!" />
           <div className="flex items-center justify-between text-base font-semibold py-1"><span className="text-foreground">Khách phải trả</span><span>{formatCurrency(grandTotal)}</span></div>
-          <Separator className="!my-2" />
+          <Separator className="my-2!" />
           
           {/* Payment Section with Table */}
           <div className="space-y-3">
@@ -243,14 +257,14 @@ export function OrderSummary({ disabled }: { disabled: boolean }) {
                 Chưa có thanh toán nào
               </p>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-2 overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[40px] text-xs">STT</TableHead>
+                      <TableHead className="w-10 text-xs">STT</TableHead>
                       <TableHead className="text-xs">Hình thức</TableHead>
                       <TableHead className="text-xs">Số tiền</TableHead>
-                      <TableHead className="w-[40px]"></TableHead>
+                      <TableHead className="w-10"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -302,7 +316,7 @@ export function OrderSummary({ disabled }: { disabled: boolean }) {
             )}
           </div>
           
-          <Separator className="!my-2" />
+          <Separator className="my-2!" />
           
           {/* Tóm tắt thanh toán */}
           {fields.length > 0 && (
@@ -315,7 +329,7 @@ export function OrderSummary({ disabled }: { disabled: boolean }) {
                 <span className="text-sm text-muted-foreground">Đã thanh toán:</span>
                 <span className="font-medium text-green-600">{formatCurrency(totalPaid)}</span>
               </div>
-              <Separator className="!my-1" />
+              <Separator className="my-1!" />
               <div className="flex items-center justify-between py-1 bg-muted/50 px-2 rounded">
                 <span className="text-base font-bold">Còn phải trả:</span>
                 <span className={`text-lg font-bold ${amountRemaining > 0 ? 'text-destructive' : amountRemaining < 0 ? 'text-amber-600' : 'text-green-600'}`}>

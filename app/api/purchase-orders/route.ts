@@ -1,9 +1,13 @@
 import { prisma } from '@/lib/prisma'
 import { Prisma, PurchaseOrderStatus } from '@/generated/prisma/client'
-import { requireAuth, validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
+import { validateBody, apiSuccess, apiPaginated, apiError, parsePagination } from '@/lib/api-utils'
+import { apiHandler } from '@/lib/api-handler'
 import { createPurchaseOrderSchema } from './validation'
 import { generateNextIdsWithTx } from '@/lib/id-system'
 import { generateIdWithPrefix } from '@/lib/id-generator'
+import { logError } from '@/lib/logger'
+import { createNotification } from '@/lib/notifications'
+import { getUserNameFromDb } from '@/lib/get-user-name'
 
 // Interface for purchase order item input
 interface PurchaseOrderItemInput {
@@ -51,11 +55,25 @@ function mapPrismaStatusToVietnamese(status: PurchaseOrderStatus): string {
   return statusMap[status] || 'Đặt hàng';
 }
 
-// GET /api/purchase-orders - List all purchase orders
-export async function GET(request: Request) {
-  const session = await requireAuth()
-  if (!session) return apiError('Unauthorized', 401)
+// Map paymentStatus to Vietnamese for display (handles legacy English values)
+function mapPaymentStatusToVietnamese(status: string | null | undefined): string {
+  if (!status) return 'Chưa thanh toán';
+  const normalizedStatus = status.toLowerCase().trim();
+  const statusMap: Record<string, string> = {
+    'paid': 'Đã thanh toán',
+    'unpaid': 'Chưa thanh toán',
+    'partial': 'Thanh toán một phần',
+    'partially_paid': 'Thanh toán một phần',
+    // Vietnamese values pass through
+    'đã thanh toán': 'Đã thanh toán',
+    'chưa thanh toán': 'Chưa thanh toán',
+    'thanh toán một phần': 'Thanh toán một phần',
+  };
+  return statusMap[normalizedStatus] || status;
+}
 
+// GET /api/purchase-orders - List all purchase orders
+export const GET = apiHandler(async (request) => {
   try {
     const { searchParams } = new URL(request.url)
     const { page, limit, skip } = parsePagination(searchParams)
@@ -131,11 +149,12 @@ export async function GET(request: Request) {
       creatorSystemId: order.creatorSystemId || '',
       creatorName: order.creatorName || '',
       orderDate: order.orderDate?.toISOString() || null,
+      receivedDate: order.receivedDate?.toISOString() || null,
       deliveryDate: order.expectedDate?.toISOString() || order.deliveryDate?.toISOString() || null,
       // Map Prisma status to frontend status
       status: mapPrismaStatusToVietnamese(order.status),
       deliveryStatus: order.deliveryStatus || 'Chưa nhập',
-      paymentStatus: order.paymentStatus || 'Chưa thanh toán',
+      paymentStatus: mapPaymentStatusToVietnamese(order.paymentStatus),
       returnStatus: order.returnStatus || 'Chưa hoàn trả',
       refundStatus: order.refundStatus || 'Chưa hoàn tiền',
       // Transform items to lineItems
@@ -170,16 +189,13 @@ export async function GET(request: Request) {
 
     return apiPaginated(transformedOrders, { page, limit, total })
   } catch (error) {
-    console.error('Error fetching purchase orders:', error)
-    return apiError('Failed to fetch purchase orders', 500)
+    logError('Error fetching purchase orders', error)
+    return apiError('Không thể tải danh sách đơn mua hàng', 500)
   }
-}
+})
 
 // POST /api/purchase-orders - Create new purchase order
-export async function POST(request: Request) {
-  const session = await requireAuth()
-  if (!session) return apiError('Unauthorized', 401)
-
+export const POST = apiHandler(async (request, { session }) => {
   const result = await validateBody(request, createPurchaseOrderSchema)
   if (!result.success) return apiError(result.error, 400)
 
@@ -229,7 +245,7 @@ export async function POST(request: Request) {
         }
       }
 
-      return tx.purchaseOrder.create({
+      const created = await tx.purchaseOrder.create({
         data: {
           systemId,
           id: businessId,
@@ -273,13 +289,54 @@ export async function POST(request: Request) {
           },
         },
       });
+
+      // G1: Update inTransit for active PO
+      const IN_TRANSIT_STATUSES = ['PENDING', 'CONFIRMED', 'RECEIVING'];
+      if (IN_TRANSIT_STATUSES.includes(created.status) && body.branchSystemId && itemsData.length > 0) {
+        for (const item of itemsData) {
+          await tx.productInventory.upsert({
+            where: { productId_branchId: { productId: item.productId, branchId: body.branchSystemId } },
+            update: { inTransit: { increment: item.quantity } },
+            create: { productId: item.productId, branchId: body.branchSystemId, onHand: 0, committed: 0, inTransit: item.quantity, inDelivery: 0 },
+          });
+        }
+      }
+
+      return created;
     });
+
+    // ✅ Notify buyer about new purchase order
+    if (body.buyerSystemId && body.buyerSystemId !== session!.user?.employeeId) {
+      createNotification({
+        type: 'purchase_order',
+        settingsKey: 'purchase-order:updated',
+        title: 'Đơn mua hàng mới',
+        message: `Bạn được giao đơn mua hàng ${order.id || order.systemId} - NCC: ${body.supplierName || ''}`,
+        link: `/purchase-orders/${order.systemId}`,
+        recipientId: body.buyerSystemId,
+        senderId: session!.user?.employeeId,
+        senderName: session!.user?.name,
+      }).catch(e => logError('[Purchase Orders POST] notification failed', e))
+    }
+
+    // Log activity
+    getUserNameFromDb(session!.user?.id).then(userName =>
+      prisma.activityLog.create({
+        data: {
+          entityType: 'purchase_order',
+          entityId: order.systemId,
+          action: 'created',
+          actionType: 'create',
+          note: `Tạo đơn đặt hàng`,
+          metadata: { userName },
+          createdBy: userName,
+        }
+      })
+    ).catch(e => logError('[ActivityLog] purchase_order created failed', e))
 
     return apiSuccess(order, 201)
   } catch (error) {
-    console.error('Error creating purchase order:', error)
-    // Return more detailed error for debugging
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-    return apiError(`Failed to create purchase order: ${errorMessage}`, 500)
+    logError('Error creating purchase order', error)
+    return apiError('Không thể tạo đơn mua hàng', 500)
   }
-}
+})

@@ -6,10 +6,13 @@
 
 import { prisma } from '@/lib/prisma'
 import { revalidatePath } from '@/lib/revalidation'
-import { generateIdWithPrefix } from '@/lib/id-generator'
-import { auth } from '@/auth'
+import { generateNextIdsWithTx } from '@/lib/id-system'
+import { requireActionPermission, serializeDecimals } from '@/lib/api-utils'
 import type { ActionResult } from '@/types/action-result'
 import { createInventoryReceiptSchema, updateInventoryReceiptSchema, inventoryReceiptItemSchema } from '@/features/inventory-receipts/validation'
+import { logError } from '@/lib/logger'
+import { getSessionUserName } from '@/lib/get-user-name'
+import type { Prisma } from '@/generated/prisma/client'
 
 // Types
 type InventoryReceipt = NonNullable<Awaited<ReturnType<typeof prisma.inventoryReceipt.findFirst>>>
@@ -29,6 +32,8 @@ export type CreateInventoryReceiptInput = {
   receiptDate?: string | Date
   notes?: string
   createdBy?: string
+  receiverName?: string      // Who received the goods
+  receiverSystemId?: string  // Receiver's systemId
   items?: CreateInventoryReceiptItemInput[]
 }
 
@@ -55,10 +60,9 @@ export type UpdateInventoryReceiptInput = {
 export async function createInventoryReceiptAction(
   input: CreateInventoryReceiptInput
 ): Promise<ActionResult<InventoryReceipt>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('create_inventory')
+  if (!authResult.success) return authResult
+  const { session } = authResult
 
   const validated = createInventoryReceiptSchema.safeParse(input)
   if (!validated.success) {
@@ -66,47 +70,184 @@ export async function createInventoryReceiptAction(
   }
 
   try {
-    const systemId = await generateIdWithPrefix('NK', prisma)
+    const branchId = input.branchId || input.branchSystemId || '';
+    const createdByName = input.createdBy || session.user?.name || session.user?.email || 'Unknown';
+    // receiverName: who received the goods, fallback to createdByName
+    const receiverName = input.receiverName || createdByName;
+    
+    const result = await prisma.$transaction(async (tx) => {
+      // Generate IDs using unified ID system (queries MAX from actual table)
+      const { systemId, businessId } = await generateNextIdsWithTx(
+        tx,
+        'inventory-receipts',
+        undefined
+      );
 
-    const inventoryReceipt = await prisma.inventoryReceipt.create({
+      const inventoryReceipt = await tx.inventoryReceipt.create({
+        data: {
+          systemId,
+          id: businessId,
+          type: input.type,
+          branchId: branchId,
+          branchSystemId: input.branchSystemId,
+          branchName: input.branchName,
+          supplierSystemId: input.supplierSystemId,
+          supplierName: input.supplierName,
+          purchaseOrderId: input.purchaseOrderId,
+          purchaseOrderSystemId: input.purchaseOrderSystemId,
+          referenceType: input.referenceType,
+          referenceId: input.referenceId,
+          receiptDate: input.receiptDate ? new Date(input.receiptDate) : new Date(),
+          receivedDate: input.receiptDate ? new Date(input.receiptDate) : new Date(),
+          notes: input.notes,
+          status: 'CONFIRMED', // Use CONFIRMED as the receipt is complete
+          createdBy: createdByName,
+          receiverName: receiverName,
+          receiverSystemId: input.receiverSystemId,
+          items: input.items?.length ? {
+            create: input.items.map((item) => ({
+              productId: item.productId,
+              productSku: item.productSku || '',
+              productName: item.productName || '',
+              quantity: item.quantity,
+              unitCost: item.unitCost ?? 0,
+              totalCost: item.totalCost ?? (item.quantity * (item.unitCost ?? 0)),
+            })),
+          } : undefined,
+        },
+        include: { items: true },
+      });
+
+      // Process stock updates for each item
+      if (input.items?.length && branchId) {
+        for (const item of input.items) {
+          const productSystemId = item.productId;
+          const quantity = item.quantity;
+          const unitCost = item.unitCost ?? 0;
+          
+          // Get current inventory
+          const inventory = await tx.productInventory.findUnique({
+            where: {
+              productId_branchId: {
+                productId: productSystemId,
+                branchId: branchId,
+              },
+            },
+          });
+
+          const oldStock = inventory?.onHand || 0;
+          const newStock = oldStock + quantity;
+
+          // Update ProductInventory
+          await tx.productInventory.upsert({
+            where: {
+              productId_branchId: {
+                productId: productSystemId,
+                branchId: branchId,
+              },
+            },
+            update: {
+              onHand: { increment: quantity },
+              updatedAt: new Date(),
+            },
+            create: {
+              productId: productSystemId,
+              branchId: branchId,
+              onHand: quantity,
+              committed: 0,
+              inTransit: 0,
+              inDelivery: 0,
+            },
+          });
+
+          // Create StockHistory
+          await tx.stockHistory.create({
+            data: {
+              productId: productSystemId,
+              branchId: branchId,
+              action: 'Nhập kho',
+              source: 'Phiếu nhập kho',
+              quantityChange: quantity,
+              newStockLevel: newStock,
+              documentId: businessId,
+              documentType: 'inventory_receipt',
+              employeeName: createdByName,
+              note: `Nhập kho từ đơn hàng ${input.purchaseOrderId || ''}`,
+            },
+          });
+
+          // Update Product costPrice and lastPurchasePrice
+          if (unitCost > 0) {
+            await tx.product.update({
+              where: { systemId: productSystemId },
+              data: {
+                lastPurchasePrice: unitCost,
+                lastPurchaseDate: new Date(),
+                costPrice: unitCost, // Update cost price to latest purchase price
+              },
+            });
+          } else {
+            // Just update lastPurchaseDate
+            await tx.product.update({
+              where: { systemId: productSystemId },
+              data: {
+                lastPurchaseDate: new Date(),
+              },
+            });
+          }
+        }
+      }
+
+      // ✅ Update supplier debt when receiving goods from a supplier
+      // Nhập hàng = tăng công nợ phải trả nhà cung cấp
+      if (input.supplierSystemId) {
+        const totalAmount = input.items?.reduce(
+          (sum, item) => sum + (item.totalCost ?? item.quantity * (item.unitCost ?? 0)),
+          0
+        ) || 0;
+        
+        if (totalAmount > 0) {
+          await tx.supplier.update({
+            where: { systemId: input.supplierSystemId },
+            data: {
+              currentDebt: { increment: totalAmount },
+            },
+          });
+        }
+      }
+
+      return inventoryReceipt;
+    });
+
+    // Serialize Decimal fields to plain numbers for Client Components
+    const serializedResult = {
+      ...result,
+      items: result.items.map(item => ({
+        ...item,
+        unitCost: Number(item.unitCost),
+        totalCost: Number(item.totalCost),
+      })),
+    };
+
+    const userName = await getSessionUserName(session)
+    prisma.activityLog.create({
       data: {
-        systemId,
-        id: systemId,
-        type: input.type,
-        branchId: input.branchId,
-        branchSystemId: input.branchSystemId,
-        branchName: input.branchName,
-        supplierSystemId: input.supplierSystemId,
-        supplierName: input.supplierName,
-        purchaseOrderId: input.purchaseOrderId,
-        purchaseOrderSystemId: input.purchaseOrderSystemId,
-        referenceType: input.referenceType,
-        referenceId: input.referenceId,
-        receiptDate: input.receiptDate ? new Date(input.receiptDate) : new Date(),
-        notes: input.notes,
-        status: 'DRAFT',
-        createdBy: input.createdBy,
-        items: input.items?.length ? {
-          create: input.items.map((item) => ({
-            productId: item.productId,
-            productSku: item.productSku || '',
-            productName: item.productName || '',
-            quantity: item.quantity,
-            unitCost: item.unitCost ?? 0,
-            totalCost: item.totalCost ?? (item.quantity * (item.unitCost ?? 0)),
-          })),
-        } : undefined,
+        entityType: 'InventoryReceipt',
+        entityId: result.systemId,
+        action: 'CREATE',
+        note: `Tạo phiếu nhập kho ${result.id}`,
+        changes: { type: result.type, branchId: result.branchId, supplierSystemId: result.supplierSystemId } as unknown as Prisma.InputJsonValue,
+        createdBy: userName,
       },
-      include: { items: true },
-    })
+    }).catch(e => logError('Activity log failed', e))
 
     revalidatePath('/inventory-receipts')
-    return { success: true, data: inventoryReceipt }
+    return { success: true, data: serializedResult as unknown as typeof result }
   } catch (error) {
-    console.error('Error creating inventory receipt:', error)
+    logError('Error creating inventory receipt', error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Không thể tạo phiếu nhập kho',
+      error: 'Không thể tạo phiếu nhập kho',
     }
   }
 }
@@ -114,10 +255,9 @@ export async function createInventoryReceiptAction(
 export async function updateInventoryReceiptAction(
   input: UpdateInventoryReceiptInput
 ): Promise<ActionResult<InventoryReceipt>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('edit_inventory')
+  if (!authResult.success) return authResult
+  const session = authResult.session!
 
   const validated = updateInventoryReceiptSchema.safeParse(input)
   if (!validated.success) {
@@ -138,7 +278,7 @@ export async function updateInventoryReceiptAction(
     if (existing.status !== 'DRAFT') {
       return {
         success: false,
-        error: 'Only DRAFT inventory receipts can be updated',
+        error: 'Chỉ có thể cập nhật phiếu nhập kho ở trạng thái Nháp',
       }
     }
 
@@ -154,14 +294,26 @@ export async function updateInventoryReceiptAction(
       include: { items: true },
     })
 
+    const userName = await getSessionUserName(session)
+    prisma.activityLog.create({
+      data: {
+        entityType: 'InventoryReceipt',
+        entityId: systemId,
+        action: 'UPDATE',
+        note: `Cập nhật phiếu nhập kho ${existing.id}`,
+        changes: data as unknown as Prisma.InputJsonValue,
+        createdBy: userName,
+      },
+    }).catch(e => logError('Activity log failed', e))
+
     revalidatePath('/inventory-receipts')
     revalidatePath(`/inventory-receipts/${systemId}`)
-    return { success: true, data: inventoryReceipt }
+    return { success: true, data: serializeDecimals(inventoryReceipt) }
   } catch (error) {
-    console.error('Error updating inventory receipt:', error)
+    logError('Error updating inventory receipt', error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Không thể cập nhật phiếu nhập kho',
+      error: 'Không thể cập nhật phiếu nhập kho',
     }
   }
 }
@@ -169,10 +321,9 @@ export async function updateInventoryReceiptAction(
 export async function deleteInventoryReceiptAction(
   systemId: string
 ): Promise<ActionResult<InventoryReceipt>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('delete_inventory')
+  if (!authResult.success) return authResult
+  const session = authResult.session!
   try {
     const existing = await prisma.inventoryReceipt.findUnique({
       where: { systemId },
@@ -185,7 +336,7 @@ export async function deleteInventoryReceiptAction(
     if (existing.status !== 'DRAFT') {
       return {
         success: false,
-        error: 'Only DRAFT inventory receipts can be deleted',
+        error: 'Chỉ có thể xóa phiếu nhập kho ở trạng thái Nháp',
       }
     }
 
@@ -198,13 +349,24 @@ export async function deleteInventoryReceiptAction(
       where: { systemId },
     })
 
+    const userName = await getSessionUserName(session)
+    prisma.activityLog.create({
+      data: {
+        entityType: 'InventoryReceipt',
+        entityId: systemId,
+        action: 'DELETE',
+        note: `Xóa phiếu nhập kho ${existing.id}`,
+        createdBy: userName,
+      },
+    }).catch(e => logError('Activity log failed', e))
+
     revalidatePath('/inventory-receipts')
-    return { success: true, data: inventoryReceipt }
+    return { success: true, data: serializeDecimals(inventoryReceipt) }
   } catch (error) {
-    console.error('Error deleting inventory receipt:', error)
+    logError('Error deleting inventory receipt', error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Không thể xóa phiếu nhập kho',
+      error: 'Không thể xóa phiếu nhập kho',
     }
   }
 }
@@ -212,10 +374,8 @@ export async function deleteInventoryReceiptAction(
 export async function getInventoryReceiptAction(
   systemId: string
 ): Promise<ActionResult<InventoryReceipt>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('view_inventory')
+  if (!authResult.success) return authResult
   try {
     const inventoryReceipt = await prisma.inventoryReceipt.findUnique({
       where: { systemId },
@@ -228,12 +388,12 @@ export async function getInventoryReceiptAction(
       return { success: false, error: 'Không tìm thấy phiếu nhập kho' }
     }
 
-    return { success: true, data: inventoryReceipt }
+    return { success: true, data: serializeDecimals(inventoryReceipt) }
   } catch (error) {
-    console.error('Error getting inventory receipt:', error)
+    logError('Error getting inventory receipt', error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Không tìm thấy phiếu nhập kho',
+      error: 'Không tìm thấy phiếu nhập kho',
     }
   }
 }
@@ -242,10 +402,8 @@ export async function addInventoryReceiptItemAction(
   inventoryReceiptId: string,
   item: CreateInventoryReceiptItemInput
 ): Promise<ActionResult<InventoryReceiptItem>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('edit_inventory')
+  if (!authResult.success) return authResult
 
   const validated = inventoryReceiptItemSchema.safeParse(item)
   if (!validated.success) {
@@ -265,7 +423,7 @@ export async function addInventoryReceiptItemAction(
     if (inventoryReceipt.status !== 'DRAFT') {
       return {
         success: false,
-        error: 'Only DRAFT inventory receipts can have items added',
+        error: 'Chỉ có thể thêm mục vào phiếu nhập kho ở trạng thái Nháp',
       }
     }
 
@@ -283,12 +441,12 @@ export async function addInventoryReceiptItemAction(
 
     revalidatePath('/inventory-receipts')
     revalidatePath(`/inventory-receipts/${inventoryReceiptId}`)
-    return { success: true, data: newItem }
+    return { success: true, data: serializeDecimals(newItem) }
   } catch (error) {
-    console.error('Error adding inventory receipt item:', error)
+    logError('Error adding inventory receipt item', error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Không thể thêm mục vào phiếu nhập kho',
+      error: 'Không thể thêm mục vào phiếu nhập kho',
     }
   }
 }
@@ -297,10 +455,8 @@ export async function updateInventoryReceiptItemAction(
   itemId: string,
   data: Partial<CreateInventoryReceiptItemInput>
 ): Promise<ActionResult<InventoryReceiptItem>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('edit_inventory')
+  if (!authResult.success) return authResult
 
   const validated = inventoryReceiptItemSchema.partial().safeParse(data)
   if (!validated.success) {
@@ -320,7 +476,7 @@ export async function updateInventoryReceiptItemAction(
     if (item.inventoryReceipt.status !== 'DRAFT') {
       return {
         success: false,
-        error: 'Only items in DRAFT inventory receipts can be updated',
+        error: 'Chỉ có thể cập nhật mục phiếu nhập kho ở trạng thái Nháp',
       }
     }
 
@@ -341,12 +497,12 @@ export async function updateInventoryReceiptItemAction(
 
     revalidatePath('/inventory-receipts')
     revalidatePath(`/inventory-receipts/${item.receiptId}`)
-    return { success: true, data: updatedItem }
+    return { success: true, data: serializeDecimals(updatedItem) }
   } catch (error) {
-    console.error('Error updating inventory receipt item:', error)
+    logError('Error updating inventory receipt item', error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Không thể cập nhật mục phiếu nhập kho',
+      error: 'Không thể cập nhật mục phiếu nhập kho',
     }
   }
 }
@@ -354,10 +510,8 @@ export async function updateInventoryReceiptItemAction(
 export async function removeInventoryReceiptItemAction(
   itemId: string
 ): Promise<ActionResult<InventoryReceiptItem>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('edit_inventory')
+  if (!authResult.success) return authResult
   try {
     const item = await prisma.inventoryReceiptItem.findUnique({
       where: { systemId: itemId },
@@ -371,7 +525,7 @@ export async function removeInventoryReceiptItemAction(
     if (item.inventoryReceipt.status !== 'DRAFT') {
       return {
         success: false,
-        error: 'Only items in DRAFT inventory receipts can be removed',
+        error: 'Chỉ có thể xóa mục phiếu nhập kho ở trạng thái Nháp',
       }
     }
 
@@ -381,12 +535,12 @@ export async function removeInventoryReceiptItemAction(
 
     revalidatePath('/inventory-receipts')
     revalidatePath(`/inventory-receipts/${item.receiptId}`)
-    return { success: true, data: deletedItem }
+    return { success: true, data: serializeDecimals(deletedItem) }
   } catch (error) {
-    console.error('Error removing inventory receipt item:', error)
+    logError('Error removing inventory receipt item', error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Không thể xóa mục phiếu nhập kho',
+      error: 'Không thể xóa mục phiếu nhập kho',
     }
   }
 }
@@ -395,10 +549,9 @@ export async function confirmInventoryReceiptAction(
   systemId: string,
   _confirmedBy: string
 ): Promise<ActionResult<InventoryReceipt>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('approve_inventory')
+  if (!authResult.success) return authResult
+  const session = authResult.session!
   try {
     const existing = await prisma.inventoryReceipt.findUnique({
       where: { systemId },
@@ -412,14 +565,14 @@ export async function confirmInventoryReceiptAction(
     if (existing.status !== 'DRAFT') {
       return {
         success: false,
-        error: 'Only DRAFT inventory receipts can be confirmed',
+        error: 'Chỉ có thể xác nhận phiếu nhập kho ở trạng thái Nháp',
       }
     }
 
     if (!existing.items.length) {
       return {
         success: false,
-        error: 'Inventory receipt must have at least one item',
+        error: 'Phiếu nhập kho phải có ít nhất một mục',
       }
     }
 
@@ -464,15 +617,43 @@ export async function confirmInventoryReceiptAction(
       include: { items: true },
     })
 
+    // Sync: increment supplier debt when confirming DRAFT receipt
+    if (existing.supplierSystemId) {
+      const totalAmount = existing.items.reduce(
+        (sum: number, item: { quantity: unknown; unitCost: unknown; totalCost: unknown }) =>
+          sum + (Number(item.totalCost) || Number(item.quantity) * Number(item.unitCost) || 0),
+        0
+      )
+      if (totalAmount > 0) {
+        await prisma.supplier.update({
+          where: { systemId: existing.supplierSystemId },
+          data: {
+            currentDebt: { increment: totalAmount },
+          },
+        })
+      }
+    }
+
+    const userName = await getSessionUserName(session)
+    prisma.activityLog.create({
+      data: {
+        entityType: 'InventoryReceipt',
+        entityId: systemId,
+        action: 'CONFIRM',
+        note: `Xác nhận phiếu nhập kho ${existing.id}`,
+        createdBy: userName,
+      },
+    }).catch(e => logError('Activity log failed', e))
+
     revalidatePath('/inventory-receipts')
     revalidatePath(`/inventory-receipts/${systemId}`)
     revalidatePath('/products')
-    return { success: true, data: inventoryReceipt }
+    return { success: true, data: serializeDecimals(inventoryReceipt) }
   } catch (error) {
-    console.error('Error confirming inventory receipt:', error)
+    logError('Error confirming inventory receipt', error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Không thể xác nhận phiếu nhập kho',
+      error: 'Không thể xác nhận phiếu nhập kho',
     }
   }
 }
@@ -480,10 +661,9 @@ export async function confirmInventoryReceiptAction(
 export async function cancelInventoryReceiptAction(
   systemId: string
 ): Promise<ActionResult<InventoryReceipt>> {
-  const session = await auth()
-  if (!session?.user) {
-    return { success: false, error: 'Chưa đăng nhập' }
-  }
+  const authResult = await requireActionPermission('edit_inventory')
+  if (!authResult.success) return authResult
+  const session = authResult.session!
   try {
     const existing = await prisma.inventoryReceipt.findUnique({
       where: { systemId },
@@ -496,7 +676,7 @@ export async function cancelInventoryReceiptAction(
     if (existing.status !== 'DRAFT') {
       return {
         success: false,
-        error: 'Only DRAFT inventory receipts can be cancelled',
+        error: 'Chỉ có thể hủy phiếu nhập kho ở trạng thái Nháp',
       }
     }
 
@@ -505,14 +685,25 @@ export async function cancelInventoryReceiptAction(
       data: { status: 'CANCELLED' },
     })
 
+    const userName = await getSessionUserName(session)
+    prisma.activityLog.create({
+      data: {
+        entityType: 'InventoryReceipt',
+        entityId: systemId,
+        action: 'CANCEL',
+        note: `Hủy phiếu nhập kho ${existing.id}`,
+        createdBy: userName,
+      },
+    }).catch(e => logError('Activity log failed', e))
+
     revalidatePath('/inventory-receipts')
     revalidatePath(`/inventory-receipts/${systemId}`)
-    return { success: true, data: inventoryReceipt }
+    return { success: true, data: serializeDecimals(inventoryReceipt) }
   } catch (error) {
-    console.error('Error cancelling inventory receipt:', error)
+    logError('Error cancelling inventory receipt', error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Không thể hủy phiếu nhập kho',
+      error: 'Không thể hủy phiếu nhập kho',
     }
   }
 }

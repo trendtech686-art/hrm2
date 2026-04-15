@@ -12,8 +12,37 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { Package } from "lucide-react";
+import { OptimizedImage } from "@/components/ui/optimized-image";
+import { useProductImage } from "@/features/products/components/product-image";
+import { useProductsByIds } from "@/features/products/hooks/use-products";
 import type { Complaint } from "../types";
 import type { SystemId } from "@/lib/id-types";
+
+/** Row component — uses useProductImage hook per product */
+function ProductCell({ item, product }: {
+  item: { productSystemId: string; productId: string; productName: string };
+  product?: { id?: string; thumbnailImage?: string; galleryImages?: string[]; images?: string[] } | null;
+}) {
+  const imageUrl = useProductImage(item.productSystemId, product);
+  // Show real SKU from product DB, falling back to item.productId
+  const displaySku = product?.id || item.productId;
+  return (
+    <div className="flex items-center gap-2.5">
+      <div className="w-10 h-9 shrink-0 rounded-md overflow-hidden border border-muted bg-muted/30 flex items-center justify-center">
+        {imageUrl ? (
+          <OptimizedImage src={imageUrl} alt={item.productName} className="w-full h-full object-cover" width={40} height={36} />
+        ) : (
+          <Package className="h-4 w-4 text-muted-foreground" />
+        )}
+      </div>
+      <div>
+        <div className="font-medium">{item.productName}</div>
+        <div className="text-xs text-muted-foreground">{displaySku}</div>
+      </div>
+    </div>
+  );
+}
 
 interface InventoryDialogProps {
   open: boolean;
@@ -30,6 +59,13 @@ export function InventoryDialog({
 }: InventoryDialogProps) {
   const [inventoryAdjustments, setInventoryAdjustments] = React.useState<Record<SystemId, number>>({});
   const [reason, setReason] = React.useState("");
+
+  // Batch-fetch product data (image + real SKU) for all affected products
+  const productSystemIds = React.useMemo(
+    () => (complaint?.affectedProducts || []).map(p => p.productSystemId).filter(Boolean),
+    [complaint?.affectedProducts]
+  );
+  const { productsMap } = useProductsByIds(productSystemIds);
 
   // Initialize adjustments khi mở dialog - use unique key (productSystemId_index) to avoid conflicts
   React.useEffect(() => {
@@ -126,8 +162,7 @@ export function InventoryDialog({
                       return (
                         <tr key={itemKey} className="hover:bg-muted/30 transition-colors">
                           <td className="p-3">
-                            <div className="font-medium">{item.productName}</div>
-                            <div className="text-xs text-muted-foreground">{item.productId}</div>
+                            <ProductCell item={item} product={productsMap.get(item.productSystemId)} />
                           </td>
                           <td className="p-3 text-center">
                             <span className="text-xs px-2 py-1 rounded-md bg-muted">

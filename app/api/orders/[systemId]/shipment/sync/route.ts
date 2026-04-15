@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils';
+import { logError } from '@/lib/logger'
 
 interface RouteParams {
   params: Promise<{ systemId: string }>;
@@ -59,7 +60,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     return apiSuccess(updatedOrder);
   } catch (error) {
-    console.error('Error syncing shipment:', error);
+    logError('Error syncing shipment', error);
     return apiError('Failed to sync shipment', 500);
   }
 }

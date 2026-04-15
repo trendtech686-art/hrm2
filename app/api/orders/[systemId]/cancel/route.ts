@@ -2,6 +2,10 @@ import { prisma } from '@/lib/prisma';
 import { OrderStatus } from '@/generated/prisma/client';
 import { requireAuth, apiSuccess, apiError, apiNotFound } from '@/lib/api-utils';
 import { updateCustomerDebt } from '@/lib/services/customer-debt-service';
+import { logError } from '@/lib/logger'
+import { createNotification } from '@/lib/notifications'
+import { getUserNameFromDb } from '@/lib/get-user-name'
+import { resolveStockItems } from '@/lib/inventory/combo-stock-helper'
 
 interface RouteParams {
   params: Promise<{ systemId: string }>;
@@ -83,56 +87,72 @@ export async function POST(request: Request, { params }: RouteParams) {
         },
       });
 
-      // ✅ Update ProductInventory - decrease committed
-      // This releases the reserved stock when order is cancelled
+      // ✅ Update ProductInventory based on order's actual dispatch status
+      // For combo products, resolve to child components
       const branchId = order.branchId;
+      const wasNotDispatched = !order.stockOutStatus || order.stockOutStatus === 'NOT_STOCKED_OUT';
+
       if (branchId && order.lineItems.length > 0) {
-        for (const item of order.lineItems) {
-          const productId = item.productId;
-          if (!productId) continue;
-          
+        const stockItems = await resolveStockItems(tx, order.lineItems)
+        for (const stockItem of stockItems) {
           const inventory = await tx.productInventory.findUnique({
             where: {
-              productId_branchId: { productId, branchId },
+              productId_branchId: { productId: stockItem.productId, branchId },
             },
           });
           
           if (inventory) {
-            // Decrease committed (release reserved stock)
-            // If order was already dispatched (inDelivery > 0), also return to onHand
-            const wasDispatched = restockItems; // Use restockItems flag to indicate dispatch status
-            const newOnHand = wasDispatched ? inventory.onHand + item.quantity : inventory.onHand;
-            
-            await tx.productInventory.update({
-              where: {
-                productId_branchId: { productId, branchId },
-              },
-              data: {
-                committed: { decrement: Math.min(inventory.committed, item.quantity) },
-                // If restocking, also add back to onHand (item was dispatched but returned)
-                ...(wasDispatched ? {
-                  onHand: { increment: item.quantity },
-                  inDelivery: { decrement: Math.min(inventory.inDelivery, item.quantity) },
-                } : {}),
-                updatedAt: new Date(),
-              },
-            });
-            
-            // ✅ Create stock history record
-            if (wasDispatched) {
+            if (wasNotDispatched) {
+              // Order was NOT dispatched - only release committed reservation
+              await tx.productInventory.update({
+                where: {
+                  productId_branchId: { productId: stockItem.productId, branchId },
+                },
+                data: {
+                  committed: { decrement: Math.min(inventory.committed, stockItem.quantity) },
+                  updatedAt: new Date(),
+                },
+              });
+            } else if (restockItems) {
+              // Order WAS dispatched and user wants to return items to stock
+              const newOnHand = inventory.onHand + stockItem.quantity;
+              
+              await tx.productInventory.update({
+                where: {
+                  productId_branchId: { productId: stockItem.productId, branchId },
+                },
+                data: {
+                  onHand: { increment: stockItem.quantity },
+                  inDelivery: { decrement: Math.min(inventory.inDelivery, stockItem.quantity) },
+                  updatedAt: new Date(),
+                },
+              });
+              
+              // ✅ Create stock history record for restock
               await tx.stockHistory.create({
                 data: {
-                  productId,
+                  productId: stockItem.productId,
                   branchId,
                   action: 'Nhập kho hủy đơn',
                   source: 'Đơn hàng',
-                  quantityChange: item.quantity,
+                  quantityChange: stockItem.quantity,
                   newStockLevel: newOnHand,
                   documentId: order.id,
                   documentType: 'order',
                   employeeId: session.user?.id,
                   employeeName: session.user?.name || undefined,
-                  note: `Nhập lại kho do hủy đơn hàng - ${item.productName || productId}`,
+                  note: `Nhập lại kho do hủy đơn hàng - ${stockItem.productName}`,
+                },
+              });
+            } else {
+              // Order WAS dispatched but don't restock - just clear inDelivery (write off)
+              await tx.productInventory.update({
+                where: {
+                  productId_branchId: { productId: stockItem.productId, branchId },
+                },
+                data: {
+                  inDelivery: { decrement: Math.min(inventory.inDelivery, stockItem.quantity) },
+                  updatedAt: new Date(),
                 },
               });
             }
@@ -148,13 +168,42 @@ export async function POST(request: Request, { params }: RouteParams) {
     const customerSysId = updatedOrder.customer?.systemId || updatedOrder.customerId;
     if (customerSysId) {
       await updateCustomerDebt(customerSysId).catch(err => {
-        console.error('[Cancel Order] Failed to update customer debt:', err);
+        logError('[Cancel Order] Failed to update customer debt', err);
       });
     }
 
+    // Notify salesperson about order cancellation
+    if (order.salespersonId) {
+      createNotification({
+        type: 'order',
+        settingsKey: 'order:cancelled',
+        title: 'Đơn hàng bị hủy',
+        message: `Đơn hàng ${order.id} đã bị hủy${reason ? `: ${reason}` : ''}`,
+        link: `/orders/${systemId}`,
+        recipientId: order.salespersonId,
+        senderId: session.user?.employeeId,
+        senderName: session.user?.name,
+      }).catch(e => logError('[Cancel Order] notification failed', e));
+    }
+
+    // ✅ Log activity
+    const userName = await getUserNameFromDb(session.user?.id);
+    await prisma.activityLog.create({
+      data: {
+        entityType: 'order',
+        entityId: systemId,
+        action: 'cancelled',
+        actionType: 'status',
+        changes: { status: { from: order.status, to: 'CANCELLED' } },
+        note: `Hủy đơn hàng ${order.id}${reason ? `: ${reason}` : ''}`,
+        metadata: { userName, orderId: order.id, reason },
+        createdBy: userName,
+      }
+    }).catch(e => logError('[Cancel Order] activity log failed', e))
+
     return apiSuccess(updatedOrder);
   } catch (error) {
-    console.error('Error cancelling order:', error);
+    logError('Error cancelling order', error);
     return apiError('Failed to cancel order', 500);
   }
 }

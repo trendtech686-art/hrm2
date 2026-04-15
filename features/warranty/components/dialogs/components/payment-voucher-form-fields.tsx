@@ -24,9 +24,9 @@ interface PaymentVoucherFormFieldsProps {
   onOrderSelect: (value: string) => void;
   actualRemainingAmount: number;
   maxAmount: number;
-  orderRemainingAmount: number;
-  mixedOrderAmount?: number;
-  mixedCashAmount?: number;
+  needsCashSupplement?: boolean;
+  autoOrderAmount?: number;
+  autoCashAmount?: number;
   selectedOrder?: { id: string; grandTotal: number; paidAmount?: number } | null;
 }
 
@@ -46,43 +46,42 @@ export function PaymentVoucherFormFields({
   onOrderSelect,
   actualRemainingAmount,
   maxAmount,
-  orderRemainingAmount,
-  mixedOrderAmount,
-  mixedCashAmount,
+  needsCashSupplement = false,
+  autoOrderAmount = 0,
+  autoCashAmount = 0,
   selectedOrder,
 }: PaymentVoucherFormFieldsProps) {
   return (
     <>
-      {/* Settlement Type */}
+      {/* Settlement Type - 2 options only */}
       <div className="space-y-2">
         <Label htmlFor="settlementType">Phương thức *</Label>
         <Controller
           name="settlementType"
           control={control}
           render={({ field }) => (
-            <Select value={field.value} onValueChange={field.onChange}>
+            <Select value={field.value === 'mixed' ? 'order_deduction' : field.value} onValueChange={field.onChange}>
               <SelectTrigger id="settlementType">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="direct_payment">Trả tiền trực tiếp</SelectItem>
                 <SelectItem value="order_deduction">Trừ vào đơn hàng</SelectItem>
-                <SelectItem value="mixed">Bù trừ đơn + Chi tiền</SelectItem>
               </SelectContent>
             </Select>
           )}
         />
       </div>
 
-      {/* Payment Method & Account - Show for direct payment and mixed */}
-      {(settlementType === 'direct_payment' || settlementType === 'mixed') && (
+      {/* Payment Method & Account - Show for: direct_payment OR order_deduction when order doesn't have enough */}
+      {(settlementType === 'direct_payment' || needsCashSupplement) && (
         <>
           <div className="space-y-2">
             <Label htmlFor="paymentMethodSystemId">Hình thức thanh toán *</Label>
             <Controller
               name="paymentMethodSystemId"
               control={control}
-              rules={{ required: settlementType === 'direct_payment' || settlementType === 'mixed' }}
+              rules={{ required: settlementType === 'direct_payment' || needsCashSupplement }}
               render={({ field }) => (
                 <Select value={field.value} onValueChange={field.onChange}>
                   <SelectTrigger id="paymentMethodSystemId">
@@ -91,18 +90,18 @@ export function PaymentVoucherFormFields({
                   <SelectContent>
                     {paymentMethods.filter(m => m.isActive).map((method) => (
                       <SelectItem key={method.systemId} value={method.systemId}>
-                        <div className="flex items-center gap-2">
-                          <span>{method.name}</span>
-                        </div>
+                        {method.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               )}
             />
-            <p className="text-xs text-muted-foreground">
-              Chọn hình thức thanh toán phù hợp từ cài đặt hệ thống
-            </p>
+            {needsCashSupplement && (
+              <p className="text-xs text-muted-foreground">
+                Chọn hình thức thanh toán cho phần chi trực tiếp
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -110,7 +109,7 @@ export function PaymentVoucherFormFields({
             <Controller
               name="accountSystemId"
               control={control}
-              rules={{ required: settlementType === 'direct_payment' || settlementType === 'mixed' }}
+              rules={{ required: settlementType === 'direct_payment' || needsCashSupplement }}
               render={({ field }) => (
                 <Select value={field.value} onValueChange={field.onChange}>
                   <SelectTrigger id="accountSystemId">
@@ -124,9 +123,7 @@ export function PaymentVoucherFormFields({
                     ) : (
                       filteredAccounts.map((account) => (
                         <SelectItem key={account.systemId} value={account.systemId}>
-                          <div className="flex items-center gap-2">
-                            <span>{account.name}</span>
-                          </div>
+                          {account.name}
                         </SelectItem>
                       ))
                     )}
@@ -143,8 +140,8 @@ export function PaymentVoucherFormFields({
         </>
       )}
 
-      {/* Order Selection - Show for order deduction and mixed */}
-      {(settlementType === 'order_deduction' || settlementType === 'mixed') && (
+      {/* Order Selection - Show for order_deduction */}
+      {settlementType === 'order_deduction' && (
         <div className="space-y-2">
           <Label htmlFor="selectedOrderId">Chọn đơn hàng *</Label>
           <div className="text-xs text-muted-foreground mb-2">
@@ -161,17 +158,38 @@ export function PaymentVoucherFormFields({
             isLoading={isSearchingOrders}
             minSearchLength={0}
             estimatedItemHeight={56}
-            maxHeight={400}
+            maxHeight={280}
           />
           <p className="text-xs text-muted-foreground">
-            Chỉ hiển thị đơn hàng <strong>chưa xuất kho</strong> và <strong>còn số dư có thể trừ</strong>.
+            Chỉ hiển thị đơn hàng <strong>chưa thanh toán</strong> và <strong>còn số dư có thể trừ</strong>.
           </p>
+        </div>
+      )}
+
+      {/* Insufficient order balance — auto mixed breakdown */}
+      {needsCashSupplement && selectedOrder && (
+        <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
+          <div className="flex items-center gap-2 text-sm font-medium text-amber-900">
+            Đơn {selectedOrder.id} không đủ số dư — hệ thống tự phân bổ
+          </div>
+          <div className="grid gap-2 md:grid-cols-2 text-sm">
+            <div className="rounded-md border bg-white px-3 py-2">
+              <div className="text-xs text-muted-foreground">Trừ vào đơn {selectedOrder.id}</div>
+              <div className="font-semibold">{autoOrderAmount.toLocaleString('vi-VN')} đ</div>
+            </div>
+            <div className="rounded-md border bg-white px-3 py-2">
+              <div className="text-xs text-muted-foreground">Chi trực tiếp cho khách</div>
+              <div className="font-semibold text-red-600">{autoCashAmount.toLocaleString('vi-VN')} đ</div>
+            </div>
+          </div>
         </div>
       )}
 
       {/* Amount Input */}
       <div className="space-y-2">
-        <Label htmlFor="amount">Số tiền *</Label>
+        <Label htmlFor="amount">
+          {needsCashSupplement ? 'Số tiền chi trực tiếp *' : 'Số tiền *'}
+        </Label>
         <Controller
           name="amount"
           control={control}
@@ -188,95 +206,19 @@ export function PaymentVoucherFormFields({
               <CurrencyInput
                 value={field.value}
                 onChange={field.onChange}
-                disabled={settlementType === 'mixed'}
+                disabled={needsCashSupplement}
                 placeholder="0"
               />
               {fieldState.error && (
                 <p className="text-xs text-destructive">{fieldState.error.message}</p>
               )}
               <p className="text-xs text-muted-foreground">
-                {settlementType === 'order_deduction' && selectedOrder ? (
-                  <>
-                    Số tiền tối đa: {maxAmount.toLocaleString('vi-VN')} đ
-                    {(selectedOrder.paidAmount || 0) > 0 && (
-                      <span className="text-blue-600 font-medium">
-                        {' '}(Đã trừ: {(selectedOrder.paidAmount || 0).toLocaleString('vi-VN')} đ / {selectedOrder.grandTotal.toLocaleString('vi-VN')} đ)
-                      </span>
-                    )}
-                  </>
-                ) : settlementType === 'mixed' ? (
-                  `Tiền mặt cần chi: ${(mixedCashAmount || 0).toLocaleString('vi-VN')} đ (tự động từ phần bù trừ)`
-                ) : (
-                  `Số tiền tối đa: ${actualRemainingAmount.toLocaleString('vi-VN')} đ`
-                )}
+                Số tiền tối đa: {maxAmount.toLocaleString('vi-VN')} đ
               </p>
             </div>
           )}
         />
       </div>
-
-      {/* Mixed Settlement Allocation */}
-      {settlementType === 'mixed' && (
-        <MixedSettlementFields
-          control={control}
-          actualRemainingAmount={actualRemainingAmount}
-          orderRemainingAmount={orderRemainingAmount}
-          mixedOrderAmount={mixedOrderAmount}
-          mixedCashAmount={mixedCashAmount}
-        />
-      )}
     </>
-  );
-}
-
-interface MixedSettlementFieldsProps {
-  control: Control<PaymentVoucherFormValues>;
-  actualRemainingAmount: number;
-  orderRemainingAmount: number;
-  mixedOrderAmount?: number;
-  mixedCashAmount?: number;
-}
-
-function MixedSettlementFields({
-  control,
-  actualRemainingAmount,
-  orderRemainingAmount,
-  mixedCashAmount,
-}: MixedSettlementFieldsProps) {
-  return (
-    <div className="space-y-3 rounded-lg border p-3 bg-muted/40">
-      <div className="text-sm font-medium">Phân bổ bù trừ</div>
-      <div className="text-xs text-muted-foreground">
-        Tổng cần hoàn: <strong>{actualRemainingAmount.toLocaleString('vi-VN')} đ</strong>. 
-        Điều chỉnh số tiền trừ vào đơn, phần còn lại sẽ chi trực tiếp.
-      </div>
-      <div className="grid gap-3 md:grid-cols-2">
-        <div className="space-y-1">
-          <Label>Trừ vào đơn</Label>
-          <Controller
-            name="mixedOrderAmount"
-            control={control}
-            render={({ field }) => (
-              <CurrencyInput
-                value={field.value || 0}
-                onChange={field.onChange}
-                max={orderRemainingAmount}
-                min={0}
-              />
-            )}
-          />
-          <p className="text-xs text-muted-foreground">
-            Tối đa: {orderRemainingAmount.toLocaleString('vi-VN')} đ
-          </p>
-        </div>
-        <div className="space-y-1">
-          <Label>Chi trực tiếp</Label>
-          <div className="rounded-md border bg-background px-3 py-2 text-right font-semibold">
-            {(mixedCashAmount || 0).toLocaleString('vi-VN')} đ
-          </div>
-          <p className="text-xs text-muted-foreground">Tự động tính = Tổng cần hoàn - Trừ vào đơn</p>
-        </div>
-      </div>
-    </div>
   );
 }

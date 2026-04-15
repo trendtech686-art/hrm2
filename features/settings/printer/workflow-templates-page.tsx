@@ -21,6 +21,7 @@ import { Button } from '../../../components/ui/button';
 import { SubtaskList, type Subtask } from '../../../components/shared/subtask-list';
 import { toast } from 'sonner';
 import { nanoid } from 'nanoid';
+import { useQueryClient } from '@tanstack/react-query';
 import { 
   useWorkflowTemplates,
   getWorkflowTemplateSubtasks,
@@ -65,6 +66,7 @@ import { VirtualizedDataTable } from '../../../components/data-table/virtualized
 import type { ColumnDef } from '../../../components/data-table/types';
 import { ConfirmDialog } from '../../../components/ui/confirm-dialog';
 import { Separator } from '../../../components/ui/separator';
+import { SettingsHistoryContent } from '../../../components/settings/SettingsHistoryContent';
 
 // ============================================================================
 // Types & Constants
@@ -89,6 +91,7 @@ const WORKFLOW_TYPES = [
   { value: 'orders', label: 'Đơn hàng' },
   { value: 'sales-returns', label: 'Đổi trả hàng' },
   { value: 'purchase-returns', label: 'Trả hàng NCC' },
+  { value: 'supplier-warranty', label: 'BH Nhà cung cấp' },
   { value: 'stock-transfers', label: 'Chuyển kho' },
   { value: 'inventory-checks', label: 'Kiểm kho' },
 ] as const;
@@ -367,7 +370,7 @@ function createColumns(
       cell: ({ row }) => (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8">
+            <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Thao tác">
               <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
@@ -468,7 +471,9 @@ export function WorkflowTemplatesPage() {
     setIsDialogOpen(true);
   }, []);
 
-  const handleSave = () => {
+  const queryClient = useQueryClient();
+
+  const handleSave = async () => {
     // Validation
     if (!formName || !formLabel || formSubtasks.length === 0) {
       toast.error('Vui lòng điền đầy đủ thông tin');
@@ -476,41 +481,53 @@ export function WorkflowTemplatesPage() {
     }
 
     const now = new Date();
+    let success = false;
 
-    if (editingTemplate) {
-      // Update existing
-      const newTemplates = templates.map(t =>
-        t.systemId === editingTemplate.systemId
-          ? {
-              ...t,
-              name: formName,
-              label: formLabel,
-              description: formDescription,
-              subtasks: formSubtasks,
-              updatedAt: now,
-            }
-          : t
-      );
-      setTemplates(newTemplates);
-      toast.success('Đã cập nhật quy trình');
-    } else {
-      // Create new - check if this is the first template for this function
-      const existingForFunction = templates.filter(t => t.name === formName);
-      const isFirstForFunction = existingForFunction.length === 0;
-      
-      const newTemplate: WorkflowTemplate = {
-        systemId: nanoid(),
-        id: nanoid(),
-        name: formName,
-        label: formLabel,
-        description: formDescription,
-        subtasks: formSubtasks,
-        isDefault: isFirstForFunction, // Auto set as default if first
-        createdAt: now,
-        updatedAt: now,
-      };
-      setTemplates([...templates, newTemplate]);
-      toast.success('Đã tạo quy trình mới');
+    try {
+      if (editingTemplate) {
+        // Update existing
+        const newTemplates = templates.map(t =>
+          t.systemId === editingTemplate.systemId
+            ? {
+                ...t,
+                name: formName,
+                label: formLabel,
+                description: formDescription,
+                subtasks: formSubtasks,
+                updatedAt: now,
+              }
+            : t
+        );
+        success = await setTemplates(newTemplates);
+        if (success) toast.success('Đã cập nhật quy trình');
+        else toast.error('Lưu quy trình thất bại');
+      } else {
+        // Create new - check if this is the first template for this function
+        const existingForFunction = templates.filter(t => t.name === formName);
+        const isFirstForFunction = existingForFunction.length === 0;
+        
+        const newTemplate: WorkflowTemplate = {
+          systemId: nanoid(),
+          id: nanoid(),
+          name: formName,
+          label: formLabel,
+          description: formDescription,
+          subtasks: formSubtasks,
+          isDefault: isFirstForFunction, // Auto set as default if first
+          createdAt: now,
+          updatedAt: now,
+        };
+        success = await setTemplates([...templates, newTemplate]);
+        if (success) toast.success('Đã tạo quy trình mới');
+        else toast.error('Tạo quy trình thất bại');
+      }
+
+      if (success) {
+        queryClient.invalidateQueries({ queryKey: ['activity-logs'] });
+      }
+    } catch (err) {
+      console.error('[workflow-templates] handleSave error:', err);
+      toast.error('Có lỗi xảy ra khi lưu');
     }
 
     setIsDialogOpen(false);
@@ -520,7 +537,7 @@ export function WorkflowTemplatesPage() {
     setDeleteTargetId(templateId);
   }, []);
 
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
     if (!deleteTargetId) return;
 
     const templateToDelete = templates.find(t => t.systemId === deleteTargetId);
@@ -540,8 +557,11 @@ export function WorkflowTemplatesPage() {
       }
     }
     
-    setTemplates(newTemplates);
-    toast.success('Đã xóa quy trình');
+    const success = await setTemplates(newTemplates);
+    if (success) {
+      toast.success('Đã xóa quy trình');
+      queryClient.invalidateQueries({ queryKey: ['activity-logs'] });
+    }
     setDeleteTargetId(null);
   };
 
@@ -549,7 +569,7 @@ export function WorkflowTemplatesPage() {
     setShowBulkDeleteDialog(true);
   };
 
-  const handleBulkDeleteConfirm = () => {
+  const handleBulkDeleteConfirm = async () => {
     const idsToDelete = Object.keys(rowSelection);
     
     let newTemplates = templates.filter(t => !idsToDelete.includes(t.systemId));
@@ -567,13 +587,16 @@ export function WorkflowTemplatesPage() {
       }
     });
     
-    setTemplates(newTemplates);
+    const success = await setTemplates(newTemplates);
+    if (success) {
+      toast.success(`Đã xóa ${idsToDelete.length} quy trình`);
+      queryClient.invalidateQueries({ queryKey: ['activity-logs'] });
+    }
     setRowSelection({});
     setShowBulkDeleteDialog(false);
-    toast.success(`Đã xóa ${idsToDelete.length} quy trình`);
   };
 
-  const handleToggleDefault = React.useCallback((template: WorkflowTemplate, checked: boolean) => {
+  const handleToggleDefault = React.useCallback(async (template: WorkflowTemplate, checked: boolean) => {
     let newTemplates: WorkflowTemplate[];
     
     if (checked) {
@@ -610,8 +633,14 @@ export function WorkflowTemplatesPage() {
       }
     }
     
-    setTemplates(newTemplates);
-  }, [templates, setTemplates]);
+    const success = await setTemplates(newTemplates);
+    if (success) {
+      toast.success('Đã thay đổi mặc định');
+      queryClient.invalidateQueries({ queryKey: ['activity-logs'] });
+    } else {
+      toast.error('Lưu thay đổi thất bại');
+    }
+  }, [templates, setTemplates, queryClient]);
 
   const columns = React.useMemo(
     () => createColumns(handleEdit, handleDeleteClick, handleToggleDefault),
@@ -627,6 +656,7 @@ export function WorkflowTemplatesPage() {
 
   return (
     <div className="space-y-6">
+      <div className="space-y-6">
       {/* Templates Table */}
       <Card>
         <CardHeader>
@@ -837,6 +867,10 @@ export function WorkflowTemplatesPage() {
         variant="destructive"
         onConfirm={handleBulkDeleteConfirm}
       />
+    </div>
+      <div className="mt-6">
+        <SettingsHistoryContent entityTypes={['workflow_template']} />
+      </div>
     </div>
   );
 }

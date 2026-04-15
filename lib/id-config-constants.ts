@@ -26,13 +26,13 @@ export type EntityType =
   // Sales & Fulfillment
   | 'orders' | 'sales-returns' | 'sales-channels' | 'shipments' | 'other-targets'
   // Purchasing
-  | 'purchase-orders' | 'purchase-returns'
+  | 'purchase-orders' | 'purchase-returns' | 'supplier-warranty'
   // Finance
   | 'receipts' | 'payments' | 'voucher-receipt' | 'voucher-payment'
   | 'cashbook' | 'reconciliation' | 'receipt-types' | 'payment-types'
   | 'cash-accounts' | 'payment-methods' | 'pricing-settings' | 'taxes'
   // Service & Workflow
-  | 'warranty' | 'complaints' | 'internal-tasks' | 'task-templates' | 'custom-fields' | 'wiki'
+  | 'warranty' | 'complaints' | 'internal-tasks' | 'recurring-tasks' | 'task-templates' | 'task-boards' | 'custom-fields' | 'wiki'
   // Settings
   | 'provinces' | 'districts' | 'wards' | 'target-groups'
   | 'employee-types' | 'employee-statuses' | 'contract-types'
@@ -129,6 +129,7 @@ export const ID_CONFIG: Record<EntityType, EntityConfig> = {
   // ========================================
   'purchase-orders': { prefix: 'PO', systemIdPrefix: 'PURCHASE', digitCount: 6, displayName: 'Đơn mua hàng', category: 'purchasing' },
   'purchase-returns': { prefix: 'TM', systemIdPrefix: 'PRETURN', digitCount: 6, displayName: 'Trả hàng NCC', category: 'purchasing' },
+  'supplier-warranty': { prefix: 'BHCC', systemIdPrefix: 'SWARRANTY', digitCount: 6, displayName: 'BH Nhà cung cấp', category: 'purchasing' },
 
   // ========================================
   // FINANCE
@@ -152,7 +153,9 @@ export const ID_CONFIG: Record<EntityType, EntityConfig> = {
   'warranty': { prefix: 'BH', systemIdPrefix: 'WARRANTY', digitCount: 6, displayName: 'Bảo hành', category: 'service' },
   'complaints': { prefix: 'PKN', systemIdPrefix: 'COMPLAINT', digitCount: 6, displayName: 'Khiếu nại', category: 'service' },
   'internal-tasks': { prefix: 'CVNB', systemIdPrefix: 'TASK', digitCount: 6, displayName: 'Công việc nội bộ', category: 'system', allowCustomId: true },
+  'recurring-tasks': { prefix: 'RT', systemIdPrefix: 'RT', digitCount: 6, displayName: 'Công việc lặp lại', category: 'system' },
   'task-templates': { prefix: 'TMPL', systemIdPrefix: 'TMPL', digitCount: 6, displayName: 'Mẫu công việc', category: 'system' },
+  'task-boards': { prefix: 'BOARD', systemIdPrefix: 'BOARD', digitCount: 6, displayName: 'Bảng công việc', category: 'system' },
   'custom-fields': { prefix: 'FIELD', systemIdPrefix: 'FIELD', digitCount: 6, displayName: 'Trường tùy chỉnh', category: 'settings' },
   'wiki': { prefix: 'TL', systemIdPrefix: 'WIKI', digitCount: 6, displayName: 'Tài liệu', category: 'system' },
 

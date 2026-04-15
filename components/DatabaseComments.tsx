@@ -9,6 +9,7 @@ import * as React from 'react'
 import { Comments, type Comment as CommentType } from './Comments'
 import { useAuth } from '@/contexts/auth-context'
 import { asSystemId, type SystemId } from '@/lib/id-types'
+import { logError } from '@/lib/logger'
 
 interface DatabaseCommentsProps {
   entityType: string  // e.g., 'supplier', 'stock_transfer', 'leave'
@@ -56,7 +57,7 @@ export function DatabaseComments({ entityType, entityId, className }: DatabaseCo
           }
         }
       } catch (error) {
-        console.error(`Error loading comments for ${entityType}/${entityId}:`, error)
+        logError(`Error loading comments for ${entityType}/${entityId}`, error)
       } finally {
         setIsLoading(false)
       }
@@ -115,7 +116,7 @@ export function DatabaseComments({ entityType, entityId, className }: DatabaseCo
         ))
       }
     } catch (error) {
-      console.error('Error saving comment:', error)
+      logError('Error saving comment', error)
     }
   }, [entityType, entityId, user, employee])
 
@@ -140,7 +141,7 @@ export function DatabaseComments({ entityType, entityId, className }: DatabaseCo
         method: 'DELETE',
       })
     } catch (error) {
-      console.error('Error deleting comment:', error)
+      logError('Error deleting comment', error)
     }
   }, [])
 

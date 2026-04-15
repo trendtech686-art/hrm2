@@ -6,7 +6,8 @@
  */
 
 import { prisma } from '@/lib/prisma'
-import { requireAuth, validateBody, apiSuccess, apiError } from '@/lib/api-utils'
+import { apiHandler } from '@/lib/api-handler'
+import { validateBody, apiSuccess, apiError } from '@/lib/api-utils'
 import { z } from 'zod'
 import { generateIdWithPrefix } from '@/lib/id-generator'
 
@@ -20,21 +21,13 @@ const updateInventorySchema = z.object({
   userName: z.string().optional(),
 })
 
-interface RouteParams {
-  params: Promise<{ systemId: string }>
-}
-
-export async function PATCH(request: Request, { params }: RouteParams) {
-  const session = await requireAuth()
-  if (!session) return apiError('Unauthorized', 401)
-
+export const PATCH = apiHandler(async (request, { params }) => {
   const validation = await validateBody(request, updateInventorySchema)
   if (!validation.success) {
     return apiError(validation.error, 400)
   }
   const { branchSystemId, quantityChange, reason, source, referenceId, userId, userName } = validation.data
 
-  try {
     const { systemId: productSystemId } = await params
 
     // Fetch product to check if it exists
@@ -147,8 +140,4 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     })
 
     return apiSuccess(result)
-  } catch (error) {
-    console.error('Error updating product inventory:', error)
-    return apiError('Failed to update inventory', 500)
-  }
-}
+}, { permission: 'edit_inventory' })

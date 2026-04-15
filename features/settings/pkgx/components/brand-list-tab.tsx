@@ -51,23 +51,26 @@ export function BrandListTab() {
     }
 
     if (editingBrand) {
-      updateBrand.mutate({ id: editingBrand.id, updates: { id, name: formData.name.trim() } });
-      toast.success('Đã cập nhật thương hiệu');
+      updateBrand.mutate({ id: editingBrand.id, updates: { id, name: formData.name.trim() } }, {
+        onSuccess: () => toast.success('Đã cập nhật thương hiệu'),
+      });
     } else {
       if ((settings?.brands ?? []).some((b) => b.id === id)) {
         toast.error('ID thương hiệu đã tồn tại');
         return;
       }
-      addBrand.mutate({ id, name: formData.name.trim() });
-      toast.success('Đã thêm thương hiệu mới');
+      addBrand.mutate({ id, name: formData.name.trim() }, {
+        onSuccess: () => toast.success('Đã thêm thương hiệu mới'),
+      });
     }
     setIsDialogOpen(false);
   };
 
   const handleDelete = (brand: PkgxBrand) => {
     if (confirm(`Xóa thương hiệu "${brand.name}" (ID: ${brand.id})?`)) {
-      deleteBrand.mutate(brand.id);
-      toast.success('Đã xóa thương hiệu');
+      deleteBrand.mutate(brand.id, {
+        onSuccess: () => toast.success('Đã xóa thương hiệu'),
+      });
     }
   };
 
@@ -105,10 +108,10 @@ export function BrandListTab() {
                   <TableCell>{brand.id}</TableCell>
                   <TableCell>{brand.name}</TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="icon" onClick={() => handleOpenEdit(brand)}>
+                    <Button variant="ghost" size="icon" aria-label="Chỉnh sửa" onClick={() => handleOpenEdit(brand)}>
                       <Pencil className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={() => handleDelete(brand)}>
+                    <Button variant="ghost" size="icon" aria-label="Xóa" onClick={() => handleDelete(brand)}>
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                   </TableCell>

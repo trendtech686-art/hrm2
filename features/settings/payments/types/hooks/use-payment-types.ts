@@ -3,6 +3,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import {
   fetchPaymentTypes,
   fetchPaymentTypeById,
@@ -62,7 +63,7 @@ interface MutationCallbacks {
 
 export function usePaymentTypeMutations(options: MutationCallbacks = {}) {
   const queryClient = useQueryClient();
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: paymentTypeKeys.all });
+  const invalidate = () => invalidateRelated(queryClient, 'payment-types');
 
   const create = useMutation({
     mutationFn: (data: PaymentTypeCreateInput) => createPaymentType(data),

@@ -5,6 +5,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { invalidateRelated } from '@/lib/query-invalidation-map';
 import {
   fetchBranches,
   fetchBranch,
@@ -58,7 +59,7 @@ export function useBranchMutations(options: UseBranchMutationsOptions = {}) {
   const create = useMutation({
     mutationFn: createBranch,
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: branchKeys.all });
+      invalidateRelated(queryClient, 'branches');
       options.onCreateSuccess?.(data);
     },
     onError: options.onError,
@@ -67,9 +68,8 @@ export function useBranchMutations(options: UseBranchMutationsOptions = {}) {
   const update = useMutation({
     mutationFn: ({ systemId, data }: { systemId: string; data: Partial<Branch> }) => 
       updateBranch(systemId, data),
-    onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: branchKeys.detail(variables.systemId) });
-      queryClient.invalidateQueries({ queryKey: branchKeys.lists() });
+    onSuccess: (data) => {
+      invalidateRelated(queryClient, 'branches');
       options.onUpdateSuccess?.(data);
     },
     onError: options.onError,
@@ -78,7 +78,7 @@ export function useBranchMutations(options: UseBranchMutationsOptions = {}) {
   const remove = useMutation({
     mutationFn: deleteBranch,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: branchKeys.all });
+      invalidateRelated(queryClient, 'branches');
       options.onDeleteSuccess?.();
     },
     onError: options.onError,
@@ -87,7 +87,7 @@ export function useBranchMutations(options: UseBranchMutationsOptions = {}) {
   const makeDefault = useMutation({
     mutationFn: setDefaultBranch,
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: branchKeys.all });
+      invalidateRelated(queryClient, 'branches');
       options.onSetDefaultSuccess?.(data);
     },
     onError: options.onError,
