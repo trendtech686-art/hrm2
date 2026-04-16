@@ -283,7 +283,7 @@ export const GET = apiHandler(async (
       let creditAmount = 0
       let displayAmount: number | undefined = undefined
       let type: DebtTransaction['type'] = 'payment'
-      let originalSystemId = payment.systemId
+      const originalSystemId = payment.systemId
 
       if (isRefundFromReturn) {
         // ✅ Refund from sales return - TĂNG công nợ (từ âm về 0)

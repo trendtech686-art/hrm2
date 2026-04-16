@@ -76,7 +76,7 @@ export type CreateReceiptInput = {
   paymentReceiptTypeName?: string
   // Debt tracking
   affectsDebt?: boolean
-  // Order allocations (for "Thanh toÃ¡n theo Ä‘Æ¡n hÃ ng")
+  // Order allocations (for "Thanh toán theo đơn hàng")
   orderAllocations?: { orderSystemId: string; orderId: string; amount: number }[]
 }
 
@@ -746,7 +746,7 @@ export async function createOrderReceiptAction(
           id: businessId,
           type: 'CUSTOMER_PAYMENT',
           amount,
-          description: note || `Thu tiá»n Ä‘Æ¡n hÃ ng ${order.id}`,
+          description: note || `Thu tiền đơn hàng ${order.id}`,
           category: 'SALES_REVENUE',
           status: 'completed',
           branchId: order.branchId,

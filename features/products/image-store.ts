@@ -148,7 +148,7 @@ export const useImageStore = create<ImageState>((set, get) => ({
 // ============================================
 
 // Pending IDs waiting to be fetched
-let pendingProductIds: Set<string> = new Set();
+const pendingProductIds: Set<string> = new Set();
 let batchFetchTimeout: NodeJS.Timeout | null = null;
 let batchFetchPromise: Promise<void> | null = null;
 
