@@ -228,9 +228,14 @@ async function main() {
   console.log(`   ID range: CVNB${pad(counter - sampleTasks.length)} → CVNB${pad(counter - 1)}`);
 }
 
-main()
-  .catch(e => {
-    console.error('❌ Error seeding tasks:', e);
-    process.exit(1);
-  })
-  .finally(() => prisma.$disconnect());
+// Only run when executed directly, NOT when imported
+import { pathToFileURL } from 'url';
+const isMainModule = import.meta.url === pathToFileURL(process.argv[1]).href;
+if (isMainModule) {
+  main()
+    .catch(e => {
+      console.error('❌ Error seeding tasks:', e);
+      process.exit(1);
+    })
+    .finally(() => prisma.$disconnect());
+}

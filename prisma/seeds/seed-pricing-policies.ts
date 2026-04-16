@@ -140,12 +140,16 @@ export async function seedPricingPolicies() {
   }
 }
 
-// Always run when executed directly
-seedPricingPolicies()
-  .catch((e) => {
-    console.error('❌ Seed error:', e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+// Only run when executed directly, NOT when imported
+import { pathToFileURL } from 'url';
+const isMainModule = import.meta.url === pathToFileURL(process.argv[1]).href;
+if (isMainModule) {
+  seedPricingPolicies()
+    .catch((e) => {
+      console.error('❌ Seed error:', e);
+      process.exit(1);
+    })
+    .finally(async () => {
+      await prisma.$disconnect();
+    });
+}

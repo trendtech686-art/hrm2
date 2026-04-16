@@ -180,6 +180,11 @@ export async function seedUsers() {
   await main();
 }
 
-main()
-  .catch(console.error)
-  .finally(() => prisma.$disconnect());
+// Only run when executed directly, NOT when imported
+import { pathToFileURL } from 'url';
+const isMainModule = import.meta.url === pathToFileURL(process.argv[1]).href;
+if (isMainModule) {
+  main()
+    .catch(console.error)
+    .finally(() => prisma.$disconnect());
+}
