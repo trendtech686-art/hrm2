@@ -87,53 +87,41 @@ async function main() {
   console.log('👤 Creating/updating employees...');
 
   for (const emp of EMPLOYEES) {
-    // Handle case: old seed created employee with different id but same workEmail
-    // e.g. old NV001 → new NV000001, both with same workEmail
-    const existingByEmail = await prisma.employee.findUnique({ where: { workEmail: emp.workEmail } });
+    // Step 1: Resolve id conflict — if another employee has our target id but different email
     const existingById = await prisma.employee.findUnique({ where: { id: emp.id } });
-
-    if (existingByEmail && existingByEmail.id !== emp.id) {
-      // Old employee exists with different id — update it to new id
-      await prisma.employee.update({
-        where: { workEmail: emp.workEmail },
-        data: {
-          id: emp.id,
-          fullName: emp.fullName,
-          phone: emp.phone,
-          role: emp.role,
-        },
-      });
-      console.log(`   ✅ Employee migrated: ${existingByEmail.id} → ${emp.id} (${emp.fullName}) — ${emp.role}`);
-    } else if (existingById) {
-      // Employee exists with correct id — just update
+    if (existingById && existingById.workEmail !== emp.workEmail) {
+      // Stale record occupying our target id — reassign it to avoid conflict
+      const tempId = `OLD_${emp.id}_${Date.now()}`;
       await prisma.employee.update({
         where: { id: emp.id },
-        data: {
-          fullName: emp.fullName,
-          workEmail: emp.workEmail,
-          phone: emp.phone,
-          role: emp.role,
-        },
+        data: { id: tempId },
       });
-      console.log(`   ✅ Employee updated: ${emp.fullName} (${emp.id}) — ${emp.role}`);
-    } else {
-      // Employee doesn't exist — create new
-      await prisma.employee.create({
-        data: {
-          systemId: emp.systemId,
-          id: emp.id,
-          fullName: emp.fullName,
-          workEmail: emp.workEmail,
-          phone: emp.phone,
-          gender: emp.gender,
-          employeeType: emp.employeeType,
-          employmentStatus: emp.employmentStatus,
-          role: emp.role,
-          createdBy: 'SYSTEM',
-        },
-      });
-      console.log(`   ✅ Employee created: ${emp.fullName} (${emp.id}) — ${emp.role}`);
+      console.log(`   ⚠️ Reassigned stale employee: ${emp.id} → ${tempId}`);
     }
+
+    // Step 2: Upsert by workEmail — safe now since no id conflict
+    await prisma.employee.upsert({
+      where: { workEmail: emp.workEmail },
+      update: {
+        id: emp.id,
+        fullName: emp.fullName,
+        phone: emp.phone,
+        role: emp.role,
+      },
+      create: {
+        systemId: emp.systemId,
+        id: emp.id,
+        fullName: emp.fullName,
+        workEmail: emp.workEmail,
+        phone: emp.phone,
+        gender: emp.gender,
+        employeeType: emp.employeeType,
+        employmentStatus: emp.employmentStatus,
+        role: emp.role,
+        createdBy: 'SYSTEM',
+      },
+    });
+    console.log(`   ✅ Employee: ${emp.fullName} (${emp.id}) — ${emp.role}`);
   }
 
   // ========================================
