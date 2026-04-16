@@ -97,15 +97,16 @@ const slaSettings = [
 async function seedByType(typeName: string, typeLabel: string, items: Array<{ id: string; name: string; description?: string; isDefault?: boolean; orderIndex?: number; metadata?: Record<string, unknown> }>) {
   console.log(`\n📦 Seeding ${typeLabel}...`);
   
-  const existing = await prisma.customerSetting.count({ where: { type: typeName, isDeleted: false } });
-  if (existing > 0) {
-    console.log(`  ⏭️  ${existing} ${typeLabel} already exist, skipping...`);
-    return;
-  }
-  
   for (const item of items) {
-    await prisma.customerSetting.create({
-      data: {
+    await prisma.customerSetting.upsert({
+      where: { id_type: { id: item.id, type: typeName } },
+      update: {
+        name: item.name,
+        description: item.description,
+        orderIndex: item.orderIndex ?? 0,
+        metadata: (item.metadata ?? {}) as Prisma.InputJsonValue,
+      },
+      create: {
         id: item.id,
         name: item.name,
         type: typeName,
@@ -116,9 +117,8 @@ async function seedByType(typeName: string, typeLabel: string, items: Array<{ id
         metadata: (item.metadata ?? {}) as Prisma.InputJsonValue,
       },
     });
-    console.log(`  ✅ Created: ${item.name}`);
   }
-  console.log(`  📊 Created ${items.length} ${typeLabel}`);
+  console.log(`  ✅ Upserted: ${items.length} ${typeLabel}`);
 }
 
 // ============================================================================

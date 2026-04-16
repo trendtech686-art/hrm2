@@ -94,17 +94,10 @@ async function seedSalesManagementSettings() {
   console.log('\n📦 Seeding Sales Management Settings...');
   
   try {
-    const existing = await prisma.setting.findFirst({
-      where: { key: SALES_MANAGEMENT_SETTINGS_KEY },
-    });
-
-    if (existing) {
-      console.log('  ⏭️  Sales management settings already exist, skipping...');
-      return;
-    }
-
-    await prisma.setting.create({
-      data: {
+    await prisma.setting.upsert({
+      where: { key_group: { key: SALES_MANAGEMENT_SETTINGS_KEY, group: SALES_MANAGEMENT_SETTINGS_GROUP } },
+      update: { value: defaultSalesManagementSettings },
+      create: {
         key: SALES_MANAGEMENT_SETTINGS_KEY,
         group: SALES_MANAGEMENT_SETTINGS_GROUP,
         type: 'json',
@@ -113,7 +106,7 @@ async function seedSalesManagementSettings() {
       },
     });
 
-    console.log('  ✅ Created sales management settings');
+    console.log('  ✅ Upserted sales management settings');
   } catch (error) {
     console.error('  ❌ Error seeding sales management settings:', error);
     throw error;
@@ -124,32 +117,24 @@ async function seedSalesChannels() {
   console.log('\n🛒 Seeding Sales Channels...');
   
   try {
-    const existingCount = await prisma.salesChannel.count();
-    
-    if (existingCount > 0) {
-      console.log(`  ⏭️  ${existingCount} sales channels already exist, skipping...`);
-      return;
-    }
-
-    let created = 0;
     for (const channel of salesChannelsData) {
-      try {
-        await prisma.salesChannel.create({
-          data: {
-            systemId: crypto.randomUUID(),
-            ...channel,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          },
-        });
-        created++;
-        console.log(`  ✅ Created: ${channel.name}`);
-      } catch (error) {
-        console.error(`  ❌ Failed to create ${channel.name}:`, error);
-      }
+      await prisma.salesChannel.upsert({
+        where: { id: channel.id },
+        update: {
+          name: channel.name,
+          isApplied: channel.isApplied,
+          isDefault: channel.isDefault,
+        },
+        create: {
+          systemId: crypto.randomUUID(),
+          ...channel,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      });
     }
 
-    console.log(`  📊 Created ${created} sales channels`);
+    console.log(`  ✅ Upserted: ${salesChannelsData.length} sales channels`);
   } catch (error) {
     console.error('  ❌ Error seeding sales channels:', error);
     throw error;

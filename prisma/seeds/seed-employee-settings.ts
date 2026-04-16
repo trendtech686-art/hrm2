@@ -1056,72 +1056,55 @@ const salaryTemplates = [
 async function seedJobTitles() {
   console.log('📋 Seeding Job Titles (Chức vụ)...');
   
-  let created = 0;
-  let skipped = 0;
-  
   for (const title of jobTitles) {
-    const existing = await prisma.jobTitle.findUnique({ where: { id: title.id } });
-    if (existing) {
-      skipped++;
-      continue;
-    }
-    
-    await prisma.jobTitle.create({
-      data: {
+    await prisma.jobTitle.upsert({
+      where: { id: title.id },
+      update: { name: title.name, description: title.description },
+      create: {
         systemId: crypto.randomUUID(),
         id: title.id,
         name: title.name,
         description: title.description,
       },
     });
-    created++;
   }
   
-  console.log(`   ✅ Created: ${created} | Skipped: ${skipped}`);
+  console.log(`   ✅ Upserted: ${jobTitles.length} job titles`);
 }
 
 async function seedDepartments() {
   console.log('🏢 Seeding Departments (Phòng ban)...');
   
-  let created = 0;
-  let skipped = 0;
-  
   for (const dept of departments) {
-    const existing = await prisma.department.findUnique({ where: { id: dept.id } });
-    if (existing) {
-      skipped++;
-      continue;
-    }
-    
-    await prisma.department.create({
-      data: {
+    await prisma.department.upsert({
+      where: { id: dept.id },
+      update: { name: dept.name, description: dept.description },
+      create: {
         systemId: crypto.randomUUID(),
         id: dept.id,
         name: dept.name,
         description: dept.description,
       },
     });
-    created++;
   }
   
-  console.log(`   ✅ Created: ${created} | Skipped: ${skipped}`);
+  console.log(`   ✅ Upserted: ${departments.length} departments`);
 }
 
 async function seedEmployeeTypes() {
   console.log('👤 Seeding Employee Types (Loại nhân viên)...');
   
-  let created = 0;
-  let skipped = 0;
-  
   for (const type of employeeTypes) {
-    const existing = await prisma.employeeTypeSetting.findUnique({ where: { id: type.id } });
-    if (existing) {
-      skipped++;
-      continue;
-    }
-    
-    await prisma.employeeTypeSetting.create({
-      data: {
+    await prisma.employeeTypeSetting.upsert({
+      where: { id: type.id },
+      update: {
+        name: type.name,
+        description: type.description,
+        color: type.color,
+        isDefault: type.isDefault,
+        sortOrder: type.sortOrder,
+      },
+      create: {
         systemId: crypto.randomUUID(),
         id: type.id,
         name: type.name,
@@ -1131,27 +1114,25 @@ async function seedEmployeeTypes() {
         sortOrder: type.sortOrder,
       },
     });
-    created++;
   }
   
-  console.log(`   ✅ Created: ${created} | Skipped: ${skipped}`);
+  console.log(`   ✅ Upserted: ${employeeTypes.length} employee types`);
 }
 
 async function seedPenaltyTypes() {
   console.log('⚠️ Seeding Penalty Types (Loại phạt)...');
   
-  let created = 0;
-  let skipped = 0;
-  
   for (const penalty of penaltyTypes) {
-    const existing = await prisma.penaltyTypeSetting.findUnique({ where: { id: penalty.id } });
-    if (existing) {
-      skipped++;
-      continue;
-    }
-    
-    await prisma.penaltyTypeSetting.create({
-      data: {
+    await prisma.penaltyTypeSetting.upsert({
+      where: { id: penalty.id },
+      update: {
+        name: penalty.name,
+        description: penalty.description,
+        defaultAmount: penalty.defaultAmount,
+        category: penalty.category,
+        sortOrder: penalty.sortOrder,
+      },
+      create: {
         systemId: crypto.randomUUID(),
         id: penalty.id,
         name: penalty.name,
@@ -1162,29 +1143,19 @@ async function seedPenaltyTypes() {
         isActive: true,
       },
     });
-    created++;
   }
   
-  console.log(`   ✅ Created: ${created} | Skipped: ${skipped}`);
+  console.log(`   ✅ Upserted: ${penaltyTypes.length} penalty types`);
 }
 
 async function seedLeaveTypes() {
   console.log('🏖️ Seeding Leave Types (Loại nghỉ phép)...');
   
-  let created = 0;
-  let skipped = 0;
-  
   for (const leave of leaveTypes) {
-    const existing = await prisma.settingsData.findUnique({ 
-      where: { id_type: { id: leave.id, type: leave.type } } 
-    });
-    if (existing) {
-      skipped++;
-      continue;
-    }
-    
-    await prisma.settingsData.create({
-      data: {
+    await prisma.settingsData.upsert({
+      where: { id_type: { id: leave.id, type: leave.type } },
+      update: { name: leave.name, description: leave.description, metadata: leave.metadata },
+      create: {
         id: leave.id,
         name: leave.name,
         description: leave.description,
@@ -1194,29 +1165,19 @@ async function seedLeaveTypes() {
         isActive: true,
       },
     });
-    created++;
   }
   
-  console.log(`   ✅ Created: ${created} | Skipped: ${skipped}`);
+  console.log(`   ✅ Upserted: ${leaveTypes.length} leave types`);
 }
 
 async function seedAttendanceSettings() {
   console.log('⏰ Seeding Attendance Settings (Chấm công & Thời gian)...');
   
-  let created = 0;
-  let skipped = 0;
-  
   for (const setting of attendanceSettings) {
-    const existing = await prisma.settingsData.findUnique({ 
-      where: { id_type: { id: setting.id, type: setting.type } } 
-    });
-    if (existing) {
-      skipped++;
-      continue;
-    }
-    
-    await prisma.settingsData.create({
-      data: {
+    await prisma.settingsData.upsert({
+      where: { id_type: { id: setting.id, type: setting.type } },
+      update: { name: setting.name, description: setting.description, metadata: setting.metadata },
+      create: {
         id: setting.id,
         name: setting.name,
         description: setting.description,
@@ -1226,17 +1187,13 @@ async function seedAttendanceSettings() {
         isActive: true,
       },
     });
-    created++;
   }
   
-  console.log(`   ✅ Created: ${created} | Skipped: ${skipped}`);
+  console.log(`   ✅ Upserted: ${attendanceSettings.length} attendance settings`);
 }
 
 async function seedInsuranceTaxSettings() {
   console.log('🏦 Seeding Insurance & Tax Settings (Bảo hiểm & Thuế)...');
-  
-  let created = 0;
-  let skipped = 0;
   
   // These are reference data, not salary components. Prefix type with 'ref_'
   const REFERENCE_TYPES = ['insurance_rate', 'tax_deduction', 'tax_bracket'];
@@ -1244,16 +1201,10 @@ async function seedInsuranceTaxSettings() {
   for (const setting of insuranceTaxSettings) {
     const storedType = REFERENCE_TYPES.includes(setting.type) ? `ref_${setting.type}` : setting.type;
     
-    const existing = await prisma.settingsData.findFirst({ 
-      where: { id: setting.id } 
-    });
-    if (existing) {
-      skipped++;
-      continue;
-    }
-    
-    await prisma.settingsData.create({
-      data: {
+    await prisma.settingsData.upsert({
+      where: { id_type: { id: setting.id, type: storedType } },
+      update: { name: setting.name, description: setting.description, metadata: setting.metadata },
+      create: {
         id: setting.id,
         name: setting.name,
         description: setting.description,
@@ -1263,17 +1214,13 @@ async function seedInsuranceTaxSettings() {
         isActive: true,
       },
     });
-    created++;
   }
   
-  console.log(`   ✅ Created: ${created} | Skipped: ${skipped}`);
+  console.log(`   ✅ Upserted: ${insuranceTaxSettings.length} insurance/tax settings`);
 }
 
 async function seedSalaryBenefitSettings() {
   console.log('💰 Seeding Salary & Benefits (Lương & Phúc lợi)...');
-  
-  let created = 0;
-  let skipped = 0;
   
   // These are reference data (min wage, base salary, insurance rates, tax brackets, holidays)
   // NOT salary components for payroll templates. Prefix type with 'ref_' to avoid
@@ -1283,16 +1230,10 @@ async function seedSalaryBenefitSettings() {
   for (const setting of salaryBenefitSettings) {
     const storedType = REFERENCE_TYPES.includes(setting.type) ? `ref_${setting.type}` : setting.type;
     
-    const existing = await prisma.settingsData.findFirst({ 
-      where: { id: setting.id } 
-    });
-    if (existing) {
-      skipped++;
-      continue;
-    }
-    
-    await prisma.settingsData.create({
-      data: {
+    await prisma.settingsData.upsert({
+      where: { id_type: { id: setting.id, type: storedType } },
+      update: { name: setting.name, description: setting.description, metadata: setting.metadata },
+      create: {
         id: setting.id,
         name: setting.name,
         description: setting.description,
@@ -1302,10 +1243,9 @@ async function seedSalaryBenefitSettings() {
         isActive: true,
       },
     });
-    created++;
   }
   
-  console.log(`   ✅ Created: ${created} | Skipped: ${skipped}`);
+  console.log(`   ✅ Upserted: ${salaryBenefitSettings.length} salary/benefit settings`);
 }
 
 async function seedSalaryTemplates() {
@@ -1314,16 +1254,7 @@ async function seedSalaryTemplates() {
   // Payroll templates are stored in Setting table, not SettingsData
   const SETTING_KEY = 'payroll-templates';
   const SETTING_GROUP = 'hrm';
-  
-  const existing = await prisma.setting.findFirst({
-    where: { key: SETTING_KEY, group: SETTING_GROUP },
-  });
-  
-  if (existing) {
-    console.log(`   ⏭️  Skipped: Payroll templates already exist`);
-    return;
-  }
-  
+
   // Lookup actual salary component systemIds from DB
   // Components are stored in SettingsData with types: earning, deduction, contribution
   const dbComponents = await prisma.settingsData.findMany({
@@ -1358,8 +1289,13 @@ async function seedSalaryTemplates() {
     };
   });
   
-  await prisma.setting.create({
-    data: {
+  await prisma.setting.upsert({
+    where: { key_group: { key: SETTING_KEY, group: SETTING_GROUP } },
+    update: {
+      value: templates,
+      description: 'Payroll templates configuration',
+    },
+    create: {
       systemId: crypto.randomUUID(),
       key: SETTING_KEY,
       group: SETTING_GROUP,
@@ -1370,7 +1306,7 @@ async function seedSalaryTemplates() {
     },
   });
   
-  console.log(`   ✅ Created: ${templates.length} payroll templates`);
+  console.log(`   ✅ Upserted: ${templates.length} payroll templates`);
 }
 
 // ============================================================================
