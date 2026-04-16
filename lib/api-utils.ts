@@ -116,6 +116,11 @@ export async function getSessionFromCookie(): Promise<ApiSession | null> {
       }
     }
   } catch (error) {
+    // Re-throw Next.js internal errors (DYNAMIC_SERVER_USAGE, NEXT_REDIRECT, etc.)
+    // so the framework can properly detect dynamic routes during static generation
+    if (error && typeof error === 'object' && 'digest' in error) {
+      throw error
+    }
     logError('[getSessionFromCookie] JWT decode error', error)
     return null
   }

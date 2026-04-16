@@ -399,7 +399,7 @@ export async function updatePaymentAction(
           action: 'updated',
           actionType: 'update',
           note: `Cập nhật phiếu chi: ${result.payment.id}: ${changedFields}`,
-          changes: result.changes as import('@prisma/client').Prisma.InputJsonValue,
+          changes: result.changes as Prisma.InputJsonValue,
           createdBy: userName,
         },
       }).catch(e => logError('[ActivityLog] payment updated failed', e))

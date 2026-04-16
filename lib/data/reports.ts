@@ -7,7 +7,7 @@
 
 import { unstable_cache } from 'next/cache';
 import { prisma } from '@/lib/prisma';
-import { Prisma } from '@prisma/client';
+import { Prisma } from '@/generated/prisma/client';
 import { CACHE_TTL, CACHE_TAGS } from '@/lib/cache';
 
 // ==================== TYPES ====================

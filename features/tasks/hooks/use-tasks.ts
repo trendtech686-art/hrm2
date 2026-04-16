@@ -26,7 +26,7 @@ import {
   type UpdateTaskInput,
 } from '@/app/actions/tasks';
 import type { TaskStatus } from '@/lib/types/prisma-extended';
-import type { Task } from '@prisma/client';
+import type { Task } from '@/generated/prisma/client';
 
 // Helper to convert legacy update format to flat format
 function toUpdateTaskInput(input: UpdateTaskInput | { systemId: string; data: TaskUpdateInput }): UpdateTaskInput {
@@ -222,7 +222,7 @@ export function useTaskMutations(options: MutationCallbacks = {}) {
 
   const changeStatus = useMutation({
     mutationFn: async ({ systemId, status }: { systemId: string; status: TaskStatus }) => {
-      const result = await updateTaskStatusAction(systemId, status as unknown as import('@prisma/client').TaskStatus);
+      const result = await updateTaskStatusAction(systemId, status as unknown as import('@/generated/prisma/client').TaskStatus);
       if (!result.success) {
         throw new Error(result.error || 'Không thể cập nhật trạng thái');
       }

@@ -4,6 +4,9 @@ import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import { preloadSettings } from '@/lib/data/settings'
 
+// All authenticated pages require cookies/session — never prerender
+export const dynamic = 'force-dynamic'
+
 export const metadata: Metadata = {
   title: {
     template: '%s | ERP',

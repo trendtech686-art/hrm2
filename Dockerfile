@@ -8,7 +8,9 @@ WORKDIR /app
 RUN apk add --no-cache libc6-compat
 
 COPY package.json package-lock.json ./
-RUN npm ci --ignore-scripts
+COPY prisma ./prisma
+COPY prisma.config.ts ./
+RUN npm ci --maxsockets=5 || npm ci --maxsockets=3
 
 # ============================================
 # Stage 2 — Build
@@ -20,13 +22,17 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Generate Prisma Client
-RUN npx prisma generate
+# Generate Prisma Client vào generated/prisma/ + tạo stub cho .prisma/client/default
+RUN npx prisma generate && \
+    mkdir -p node_modules/.prisma/client && \
+    echo 'module.exports = {}' > node_modules/.prisma/client/default.js
 
 # Build Next.js (standalone mode)
+# DATABASE_URL dummy để Next.js collect page data không crash (runtime sẽ dùng env thật)
 ENV DOCKER=true
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN npm run build
+ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy?schema=public"
+RUN NODE_OPTIONS='--max-old-space-size=3072' npx next build --webpack
 
 # ============================================
 # Stage 3 — Production Runner
@@ -50,9 +56,20 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
 COPY --from=builder /app/generated ./generated
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
-COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
+COPY --from=builder /app/package.json ./package.json
+
+# Copy full node_modules for prisma CLI, seed scripts (tsx, dotenv, pg, bcryptjs...)
+# standalone output already has its own minimal node_modules merged
+COPY --from=builder /app/node_modules ./node_modules
+
+# Seed scripts reference features/ for data imports
+COPY --from=builder /app/features ./features
+
+# tsconfig.json needed for path alias resolution (@/lib/...) in seed scripts
+COPY --from=builder /app/tsconfig.json ./tsconfig.json
+
+# lib/ needed for seed data imports (id-types, seed-audit)
+COPY --from=builder /app/lib ./lib
 
 # Create uploads directory
 RUN mkdir -p uploads && chown nextjs:nodejs uploads

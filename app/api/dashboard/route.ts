@@ -10,7 +10,7 @@
  * - chartDays: số ngày chart (default: 7)
  */
 
-import { Prisma } from '@prisma/client'
+import { Prisma } from '@/generated/prisma/client'
 import { prisma } from '@/lib/prisma'
 import { requireAuth, apiSuccess, apiError } from '@/lib/api-utils'
 import { logError } from '@/lib/logger'

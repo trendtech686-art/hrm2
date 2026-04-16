@@ -1,10 +1,10 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
-import { Prisma } from '@prisma/client';
+import { Prisma } from '@/generated/prisma/client';
 import { revalidatePath } from '@/lib/revalidation';
 import { generateIdWithPrefix } from '@/lib/id-generator';
-import type { Task, TaskStatus, TaskPriority } from '@prisma/client';
+import type { Task, TaskStatus, TaskPriority } from '@/generated/prisma/client';
 import type { ActionResult } from '@/types/action-result';
 import { createTaskSchema, updateTaskSchema } from '@/features/tasks/validation';
 import { logError } from '@/lib/logger'

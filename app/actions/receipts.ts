@@ -10,7 +10,7 @@
  */
 
 import { prisma } from '@/lib/prisma'
-import type { Prisma } from '@prisma/client'
+import type { Prisma } from '@/generated/prisma/client'
 import { requireActionPermission } from '@/lib/api-utils'
 import { revalidatePath } from '@/lib/revalidation'
 import { generateNextIdsWithTx } from '@/lib/id-system'
@@ -429,7 +429,7 @@ export async function updateReceiptAction(
           action: 'updated',
           actionType: 'update',
           note: `Cập nhật phiếu thu: ${result.receipt.id}: ${changedFields}`,
-          changes: result.changes as import('@prisma/client').Prisma.InputJsonValue,
+          changes: result.changes as import('@/generated/prisma/client').Prisma.InputJsonValue,
           createdBy: userName,
         },
       }).catch(e => logError('[ActivityLog] receipt updated failed', e))

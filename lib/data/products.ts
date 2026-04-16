@@ -9,7 +9,7 @@ import { unstable_cache } from 'next/cache';
 import { cache } from 'react';
 import { prisma } from '@/lib/prisma';
 import { CACHE_TTL, CACHE_TAGS } from '@/lib/cache';
-import type { ProductStatus, ProductType } from '@prisma/client';
+import type { ProductStatus, ProductType } from '@/generated/prisma/client';
 
 // Types
 export interface ProductFilters {

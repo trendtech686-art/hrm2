@@ -5,7 +5,7 @@
 
 import { prisma } from '@/lib/prisma';
 import { getGHTKStatusInfo, getGHTKReasonText } from '@/lib/ghtk-constants';
-import { DeliveryStatus, Prisma } from '@prisma/client';
+import { DeliveryStatus, Prisma } from '@/generated/prisma/client';
 import { logError } from '@/lib/logger'
 import { fetchWithTimeout } from '@/lib/fetch-utils'
 import { createActivityLog } from '@/lib/services/activity-log-service'

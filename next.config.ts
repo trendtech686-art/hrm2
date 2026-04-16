@@ -1,4 +1,5 @@
 import type { NextConfig } from 'next'
+import path from 'node:path'
 import { withSentryConfig } from '@sentry/nextjs'
 import bundleAnalyzer from '@next/bundle-analyzer'
 
@@ -7,8 +8,8 @@ const withBundleAnalyzer = bundleAnalyzer({
 })
 
 const nextConfig: NextConfig = {
-  // Cho phép import từ các folder bên ngoài src/app
-  transpilePackages: [],
+  // KHÔNG transpile @prisma/client — nó đã là compiled JS, chỉ cần externalize
+  // transpilePackages: [],
   
   // Disable Next.js version disclosure
   poweredByHeader: false,
@@ -18,6 +19,9 @@ const nextConfig: NextConfig = {
   
   // Output standalone cho Docker deployment (Linux CI/Docker không bị Windows symlink bug)
   output: process.env.CI || process.env.DOCKER ? 'standalone' : undefined,
+
+  // Skip TS check khi build (đã check local trước khi push, tránh OOM trên VPS)
+  typescript: { ignoreBuildErrors: true },
   
   // Server external packages - Prisma 7 với driver adapter cần opt-out bundling
   serverExternalPackages: [
@@ -150,6 +154,18 @@ const nextConfig: NextConfig = {
         ],
       },
     ]
+  },
+
+  // Webpack config — resolve .prisma/client/default cho Prisma 7 custom output
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        '.prisma/client/default': path.resolve(process.cwd(), 'generated/prisma/client'),
+        '.prisma/client': path.resolve(process.cwd(), 'generated/prisma'),
+      }
+    }
+    return config
   },
 
   // Images config

@@ -8,6 +8,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import type { Prisma } from '@/generated/prisma/client';
 import { generateSubEntityId } from '@/lib/id-utils';
 import { logError } from '@/lib/logger'
 import { checkRateLimit } from '@/lib/security-utils'
@@ -106,7 +107,7 @@ export async function POST(request: NextRequest) {
     await prisma.warranty.update({
       where: { systemId: warranty.systemId },
       data: {
-        comments: [...existingComments, newComment] as unknown as import('@prisma/client').Prisma.InputJsonValue,
+        comments: [...existingComments, newComment] as unknown as Prisma.InputJsonValue,
         updatedAt: new Date().toISOString(),
       },
     });

@@ -5,7 +5,7 @@
  */
 
 import { prisma } from '@/lib/prisma'
-import { Prisma } from '@prisma/client'
+import { Prisma } from '@/generated/prisma/client'
 import { revalidatePath } from '@/lib/revalidation'
 import { generateIdWithPrefix } from '@/lib/id-generator'
 import { requireActionPermission } from '@/lib/api-utils'
