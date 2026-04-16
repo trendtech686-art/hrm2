@@ -1,7 +1,7 @@
 /**
  * Seed Users and Employees
- * - 2 users: admin@erp.local (ADMIN), sales@erp.local (STAFF)
- * - 2 employees linked to users
+ * Dữ liệu lấy từ DB gốc (production).
+ * SystemId cố định để seed idempotent.
  * 
  * Run: npx tsx prisma/seeds/seed-users.ts
  */
@@ -19,6 +19,63 @@ const prisma = new PrismaClient({ adapter });
 
 const DEFAULT_PASSWORD = 'password123';
 
+// Dữ liệu từ DB gốc — systemId cố định
+const EMPLOYEES = [
+  {
+    systemId: 'NV000001',
+    id: 'NV000001',
+    fullName: 'Nguyễn Hải Lăng',
+    workEmail: 'nhlpkgx@gmail.com',
+    phone: '0981239686',
+    gender: 'MALE' as const,
+    role: 'Admin',
+    employeeType: 'FULLTIME' as const,
+    employmentStatus: 'ACTIVE' as const,
+  },
+  {
+    systemId: 'NV000002',
+    id: 'NV000002',
+    fullName: 'Nguyễn Thị Ngọc Lan',
+    workEmail: 'lanbenho9397@gmail.com',
+    phone: '0971569398',
+    gender: 'FEMALE' as const,
+    role: 'Admin',
+    employeeType: 'FULLTIME' as const,
+    employmentStatus: 'ACTIVE' as const,
+  },
+  {
+    systemId: 'NV000003',
+    id: 'NV000003',
+    fullName: 'Dũng',
+    workEmail: 'dung@gmail.com',
+    phone: '0335282209',
+    gender: 'MALE' as const,
+    role: 'Warehouse',
+    employeeType: 'FULLTIME' as const,
+    employmentStatus: 'ACTIVE' as const,
+  },
+  {
+    systemId: 'NV000004',
+    id: 'NV000004',
+    fullName: 'Hoàng Anh',
+    workEmail: 'hoanganh@gmail.com',
+    phone: '0976845297',
+    gender: 'MALE' as const,
+    role: 'Warehouse',
+    employeeType: 'FULLTIME' as const,
+    employmentStatus: 'ACTIVE' as const,
+  },
+];
+
+const USERS = [
+  {
+    systemId: '606cb5bf-7956-473a-870a-f976dd65a6d5',
+    email: 'nhlpkgx@gmail.com',
+    role: 'ADMIN' as const,
+    employeeSystemId: 'NV000001',
+  },
+];
+
 async function main() {
   console.log('🚀 Seeding Users and Employees...\n');
 
@@ -29,82 +86,54 @@ async function main() {
   // ========================================
   console.log('👤 Creating/updating employees...');
 
-  const adminEmployee = await prisma.employee.upsert({
-    where: { workEmail: 'nhlpkgx@gmail.com' },
-    update: {},
-    create: {
-      systemId: crypto.randomUUID(),
-      id: 'NV001',
-      fullName: 'Quản trị viên',
-      workEmail: 'nhlpkgx@gmail.com',
-      phone: '0901234567',
-      gender: 'MALE',
-      employeeType: 'FULLTIME',
-      employmentStatus: 'ACTIVE',
-      startDate: new Date('2024-01-01'),
-      baseSalary: 20000000,
-      createdBy: 'SYSTEM',
-    },
-  });
-  console.log(`   ✅ Admin employee: ${adminEmployee.fullName} (${adminEmployee.id})`);
-
-  const salesEmployee = await prisma.employee.upsert({
-    where: { id: 'NV002' },
-    update: {},
-    create: {
-      systemId: crypto.randomUUID(),
-      id: 'NV002',
-      fullName: 'Nhân viên bán hàng',
-      workEmail: 'sales@erp.local',
-      phone: '0901234568',
-      gender: 'FEMALE',
-      employeeType: 'FULLTIME',
-      employmentStatus: 'ACTIVE',
-      startDate: new Date('2024-01-15'),
-      baseSalary: 12000000,
-      createdBy: 'SYSTEM',
-    },
-  });
-  console.log(`   ✅ Sales employee: ${salesEmployee.fullName} (${salesEmployee.id})`);
+  for (const emp of EMPLOYEES) {
+    const result = await prisma.employee.upsert({
+      where: { id: emp.id },
+      update: { 
+        fullName: emp.fullName,
+        workEmail: emp.workEmail,
+        phone: emp.phone,
+        role: emp.role,
+      },
+      create: {
+        systemId: emp.systemId,
+        id: emp.id,
+        fullName: emp.fullName,
+        workEmail: emp.workEmail,
+        phone: emp.phone,
+        gender: emp.gender,
+        employeeType: emp.employeeType,
+        employmentStatus: emp.employmentStatus,
+        role: emp.role,
+        createdBy: 'SYSTEM',
+      },
+    });
+    console.log(`   ✅ Employee: ${result.fullName} (${result.id}) — ${emp.role}`);
+  }
 
   // ========================================
   // USERS
   // ========================================
-  console.log('\n🔐 Creating users...');
+  console.log('\n🔐 Creating/updating users...');
 
-  const adminUser = await prisma.user.upsert({
-    where: { email: 'nhlpkgx@gmail.com' },
-    update: {
-      password: hashedPassword,
-      employeeId: adminEmployee.systemId,
-    },
-    create: {
-      systemId: crypto.randomUUID(),
-      email: 'nhlpkgx@gmail.com',
-      password: hashedPassword,
-      role: 'ADMIN',
-      isActive: true,
-      employeeId: adminEmployee.systemId,
-    },
-  });
-  console.log(`   ✅ Admin user: ${adminUser.email} (role: ${adminUser.role})`);
-
-  const salesUser = await prisma.user.upsert({
-    where: { email: 'sales@erp.local' },
-    update: {
-      password: hashedPassword,
-      employeeId: salesEmployee.systemId,
-    },
-    create: {
-      systemId: crypto.randomUUID(),
-      email: 'sales@erp.local',
-      password: hashedPassword,
-      role: 'STAFF',
-      isActive: true,
-      employeeId: salesEmployee.systemId,
-    },
-  });
-  console.log(`   ✅ Sales user: ${salesUser.email} (role: ${salesUser.role})`);
+  for (const usr of USERS) {
+    const result = await prisma.user.upsert({
+      where: { email: usr.email },
+      update: {
+        password: hashedPassword,
+        employeeId: usr.employeeSystemId,
+      },
+      create: {
+        systemId: usr.systemId,
+        email: usr.email,
+        password: hashedPassword,
+        role: usr.role,
+        isActive: true,
+        employeeId: usr.employeeSystemId,
+      },
+    });
+    console.log(`   ✅ User: ${result.email} (role: ${result.role})`);
+  }
 
   // ========================================
   // SUMMARY
@@ -112,12 +141,18 @@ async function main() {
   console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log('🎉 SEED COMPLETED');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log('Users:');
-  console.log(`   • nhlpkgx@gmail.com / ${DEFAULT_PASSWORD} (ADMIN)`);
-  console.log(`   • sales@erp.local / ${DEFAULT_PASSWORD} (STAFF)`);
   console.log('Employees:');
-  console.log(`   • NV001 - Quản trị viên`);
-  console.log(`   • NV002 - Nhân viên bán hàng`);
+  for (const emp of EMPLOYEES) {
+    console.log(`   • ${emp.id} - ${emp.fullName} (${emp.role})`);
+  }
+  console.log('Users:');
+  for (const usr of USERS) {
+    console.log(`   • ${usr.email} / ${DEFAULT_PASSWORD} (${usr.role})`);
+  }
+}
+
+export async function seedUsers() {
+  await main();
 }
 
 main()

@@ -8,24 +8,16 @@ import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
-import { RadioGroup, RadioGroupItem } from '../../components/ui/radio-group';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { toast } from 'sonner';
 import { ROUTES } from '../../lib/router';
 import { logError } from '@/lib/logger'
 
-// Test accounts (từ seed.ts)
-const TEST_ACCOUNTS = [
-  { email: 'nhlpkgx@gmail.com', password: 'password123', role: 'Admin', name: 'Quản trị viên' },
-  { email: 'sales@erp.local', password: 'password123', role: 'Sales', name: 'Nhân viên bán hàng' },
-];
-
 export function LoginPage() {
   const _router = useRouter();
   
-  const [selectedAccountIndex, setSelectedAccountIndex] = React.useState(0);
-  const [email, setEmail] = React.useState(TEST_ACCOUNTS[0].email);
-  const [password, setPassword] = React.useState(TEST_ACCOUNTS[0].password);
+  const [email, setEmail] = React.useState('');
+  const [password, setPassword] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
 
   // OTP state
@@ -36,13 +28,6 @@ export function LoginPage() {
 
   // Get the page user was trying to access
   const from = ROUTES.DASHBOARD;
-
-  // Auto-fill when account selection changes
-  React.useEffect(() => {
-    const selectedAccount = TEST_ACCOUNTS[selectedAccountIndex];
-    setEmail(selectedAccount.email);
-    setPassword(selectedAccount.password);
-  }, [selectedAccountIndex]);
 
   // Countdown timer
   React.useEffect(() => {
@@ -156,31 +141,13 @@ export function LoginPage() {
           <CardDescription>
             {showOtp
               ? <>Nhập mã OTP đã gửi đến <strong>{email}</strong></>
-              : 'Chọn tài khoản test hoặc nhập thông tin đăng nhập'}
+              : 'Nhập email và mật khẩu để đăng nhập'}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col gap-6">
             {!showOtp && (
               <>
-                {/* Test Account Selection */}
-                <div className="grid gap-2">
-                  <Label>Tài khoản test</Label>
-                  <RadioGroup 
-                    value={selectedAccountIndex.toString()} 
-                    onValueChange={(value) => setSelectedAccountIndex(parseInt(String(value)))}
-                  >
-                    {TEST_ACCOUNTS.map((account, index) => (
-                      <div key={account.email} className="flex items-center space-x-2">
-                        <RadioGroupItem value={index.toString()} id={`acc-${index}`} />
-                        <Label htmlFor={`acc-${index}`} className="font-normal cursor-pointer">
-                          {account.role} - {account.name} ({account.email})
-                        </Label>
-                      </div>
-                    ))}
-                  </RadioGroup>
-                </div>
-
                 {/* Email */}
                 <div className="grid gap-2">
                   <Label htmlFor="email">Email</Label>

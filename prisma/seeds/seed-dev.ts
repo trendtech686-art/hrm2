@@ -25,89 +25,7 @@ const prisma = new PrismaClient({ adapter });
 // Individual seed functions
 import { seedAllSettings } from './seed-all-settings';
 import { seedAdminUnits } from './seed-admin-units-v2';
-
-// Import user seed function inline (to avoid running on import)
-import bcrypt from 'bcryptjs';
-
-const DEFAULT_PASSWORD = 'password123';
-
-async function seedUsersAndEmployees() {
-  console.log('👤 Seeding Users & Employees...');
-  
-  const hashedPassword = await bcrypt.hash(DEFAULT_PASSWORD, 10);
-
-  // Admin Employee
-  const adminEmployee = await prisma.employee.upsert({
-    where: { id: 'NV001' },
-    update: {},
-    create: {
-      systemId: crypto.randomUUID(),
-      id: 'NV001',
-      fullName: 'Quản trị viên',
-      workEmail: 'admin@erp.local',
-      phone: '0901234567',
-      gender: 'MALE',
-      employeeType: 'FULLTIME',
-      employmentStatus: 'ACTIVE',
-      startDate: new Date('2024-01-01'),
-      baseSalary: 20000000,
-      createdBy: 'SYSTEM',
-    },
-  });
-  console.log(`   ✓ Admin employee: ${adminEmployee.fullName}`);
-
-  // Sales Employee
-  const salesEmployee = await prisma.employee.upsert({
-    where: { id: 'NV002' },
-    update: {},
-    create: {
-      systemId: crypto.randomUUID(),
-      id: 'NV002',
-      fullName: 'Nhân viên bán hàng',
-      workEmail: 'sales@erp.local',
-      phone: '0901234568',
-      gender: 'FEMALE',
-      employeeType: 'FULLTIME',
-      employmentStatus: 'ACTIVE',
-      startDate: new Date('2024-01-15'),
-      baseSalary: 12000000,
-      createdBy: 'SYSTEM',
-    },
-  });
-  console.log(`   ✓ Sales employee: ${salesEmployee.fullName}`);
-
-  // Admin User
-  await prisma.user.upsert({
-    where: { email: 'admin@erp.local' },
-    update: { password: hashedPassword, employeeId: adminEmployee.systemId },
-    create: {
-      systemId: crypto.randomUUID(),
-      email: 'admin@erp.local',
-      password: hashedPassword,
-      role: 'ADMIN',
-      isActive: true,
-      employeeId: adminEmployee.systemId,
-    },
-  });
-  console.log(`   ✓ Admin user: admin@erp.local`);
-
-  // Sales User
-  await prisma.user.upsert({
-    where: { email: 'sales@erp.local' },
-    update: { password: hashedPassword, employeeId: salesEmployee.systemId },
-    create: {
-      systemId: crypto.randomUUID(),
-      email: 'sales@erp.local',
-      password: hashedPassword,
-      role: 'STAFF',
-      isActive: true,
-      employeeId: salesEmployee.systemId,
-    },
-  });
-  console.log(`   ✓ Sales user: sales@erp.local`);
-
-  console.log('✅ Users & Employees seeded!');
-}
+import { seedUsers } from './seed-users';
 
 async function seedBranches() {
   console.log('🏢 Seeding Branches...');
@@ -165,7 +83,7 @@ async function main() {
     console.log('┌──────────────────────────────────────────────────────────┐');
     console.log('│ STEP 1: USERS & EMPLOYEES                                │');
     console.log('└──────────────────────────────────────────────────────────┘');
-    await seedUsersAndEmployees();
+    await seedUsers();
     console.log('');
 
     // 2. Branches
@@ -202,8 +120,7 @@ async function main() {
     console.log('╚═══════════════════════════════════════════════════════════╝');
     console.log('');
     console.log('🔐 Login credentials:');
-    console.log(`   • admin@erp.local / ${DEFAULT_PASSWORD} (ADMIN)`);
-    console.log(`   • sales@erp.local / ${DEFAULT_PASSWORD} (STAFF)`);
+    console.log(`   • nhlpkgx@gmail.com / password123 (ADMIN)`);
     console.log('');
 
   } catch (error) {

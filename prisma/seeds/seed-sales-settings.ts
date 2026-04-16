@@ -160,7 +160,7 @@ async function seedSalesChannels() {
 // MAIN
 // ============================================================================
 
-async function main() {
+export async function seedSalesSettings() {
   console.log('🌱 Starting Sales Settings Seeding...');
   console.log('=====================================');
 
@@ -173,13 +173,16 @@ async function main() {
   } catch (error) {
     console.error('\n❌ Seeding failed:', error);
     throw error;
-  } finally {
-    await prisma.$disconnect();
   }
 }
 
-main()
-  .catch((e) => {
-    console.error(e);
-    process.exit(1);
-  });
+// Run if executed directly
+import { pathToFileURL } from 'url';
+const isMainModule = import.meta.url === pathToFileURL(process.argv[1]).href;
+if (isMainModule) {
+  seedSalesSettings()
+    .catch((e) => {
+      console.error(e);
+      process.exit(1);
+    });
+}
