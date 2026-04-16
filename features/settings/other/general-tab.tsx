@@ -84,8 +84,8 @@ export function GeneralTabContent({ isActive, onRegisterActions }: TabContentPro
       
       if (result.success) {
         const urlKey = type === 'logo' ? 'logoUrl' : 'faviconUrl';
-        handleChange(urlKey, result.data.file.url);
-        toast.success(result.data.message);
+        handleChange(urlKey, result.file.url);
+        toast.success(result.message);
       } else {
         toast.error(result.error || 'Upload thất bại');
       }
@@ -108,7 +108,7 @@ export function GeneralTabContent({ isActive, onRegisterActions }: TabContentPro
       if (result.success) {
         const urlKey = type === 'logo' ? 'logoUrl' : 'faviconUrl';
         handleChange(urlKey, '');
-        toast.success(result.data?.message || 'Xóa thành công');
+        toast.success(result.message || 'Xóa thành công');
       } else {
         toast.error(result.error || 'Xóa thất bại');
       }

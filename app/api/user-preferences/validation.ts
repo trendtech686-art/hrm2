@@ -12,7 +12,7 @@ export const listUserPreferencesSchema = z.object({
 
 // Create/update preference schema
 export const createUserPreferenceSchema = z.object({
-  userId: z.string().min(1, 'userId là bắt buộc'),
+  userId: z.string().min(1).optional(),
   key: z.string().min(1, 'key là bắt buộc'),
   value: z.any().optional(),
   category: z.string().optional(),

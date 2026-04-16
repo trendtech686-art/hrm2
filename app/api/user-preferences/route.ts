@@ -64,6 +64,12 @@ export async function POST(request: Request) {
   }
   const body = validation.data
 
+  // Resolve userId: from body or fallback to session user
+  const userId = body.userId || session.user?.id
+  if (!userId) {
+    return apiError('userId là bắt buộc', 400)
+  }
+
   // Guard against oversized payloads (max 1MB for value)
   const valueSize = body.value !== undefined ? JSON.stringify(body.value).length : 0
   if (valueSize > 1_000_000) {
@@ -80,13 +86,13 @@ export async function POST(request: Request) {
     const preference = await prisma.userPreference.upsert({
       where: {
         userId_key: {
-          userId: body.userId,
+          userId,
           key: body.key,
         },
       },
       update: updateData,
       create: {
-        userId: body.userId,
+        userId,
         key: body.key,
         value: body.value ?? {},
         category: body.category ?? null,
