@@ -39,7 +39,12 @@ export async function GET() {
       return apiSuccess({ data: null })
     }
 
-    return apiSuccess({ data: setting.value })
+    // Handle both formats: array (from PUT) or { roles: [...] } (from seed)
+    const rawValue = setting.value;
+    const roles = Array.isArray(rawValue)
+      ? rawValue
+      : (rawValue as Record<string, unknown>)?.roles ?? null;
+    return apiSuccess({ data: roles })
   } catch (error) {
     logError('Error fetching role settings', error)
     return apiError('Failed to fetch role settings', 500)
@@ -69,7 +74,12 @@ export async function PUT(request: Request) {
     const existingSetting = await prisma.setting.findFirst({
       where: { key: SETTING_KEY, group: SETTING_GROUP },
     })
-    const existingRoles = (existingSetting?.value as unknown as Array<{ id: string; systemId: string; name: string; description: string; permissions: string[]; isDefault: boolean }>) ?? []
+    const rawExisting = existingSetting?.value
+    const existingRoles = (
+      Array.isArray(rawExisting)
+        ? rawExisting
+        : (rawExisting as Record<string, unknown>)?.roles ?? []
+    ) as Array<{ id: string; systemId: string; name: string; description: string; permissions: string[]; isDefault: boolean }>
 
     const setting = await prisma.setting.upsert({
       where: {
@@ -79,7 +89,7 @@ export async function PUT(request: Request) {
         },
       },
       update: {
-        value: roles as unknown as Prisma.InputJsonValue,
+        value: { roles } as unknown as Prisma.InputJsonValue,
         updatedAt: new Date(),
       },
       create: {
@@ -88,7 +98,7 @@ export async function PUT(request: Request) {
         group: SETTING_GROUP,
         type: 'json',
         category: 'hrm',
-        value: roles as unknown as Prisma.InputJsonValue,
+        value: { roles } as unknown as Prisma.InputJsonValue,
         description: 'Role permissions settings',
       },
     })
@@ -172,7 +182,11 @@ export async function PUT(request: Request) {
 
     await Promise.all(logPromises)
 
-    return apiSuccess({ data: setting.value })
+    // Extract roles array from saved value
+    const savedRoles = Array.isArray(setting.value)
+      ? setting.value
+      : (setting.value as Record<string, unknown>)?.roles ?? roles;
+    return apiSuccess({ data: savedRoles })
   } catch (error) {
     logError('Error saving role settings', error)
     return apiError('Failed to save role settings', 500)
