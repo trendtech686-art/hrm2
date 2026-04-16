@@ -72,7 +72,7 @@ const USERS = [
     systemId: '606cb5bf-7956-473a-870a-f976dd65a6d5',
     email: 'nhlpkgx@gmail.com',
     role: 'ADMIN' as const,
-    employeeSystemId: 'NV000001',
+    employeeId: 'NV000001', // Business ID — actual systemId resolved at runtime
   },
 ];
 
@@ -85,6 +85,9 @@ async function main() {
   // EMPLOYEES
   // ========================================
   console.log('👤 Creating/updating employees...');
+
+  // Map business-id → actual systemId (for FK reference in User)
+  const employeeSystemIdMap = new Map<string, string>();
 
   for (const emp of EMPLOYEES) {
     // Step 1: Resolve id conflict — if another employee has our target id but different email
@@ -100,7 +103,7 @@ async function main() {
     }
 
     // Step 2: Upsert by workEmail — safe now since no id conflict
-    await prisma.employee.upsert({
+    const result = await prisma.employee.upsert({
       where: { workEmail: emp.workEmail },
       update: {
         id: emp.id,
@@ -121,6 +124,9 @@ async function main() {
         createdBy: 'SYSTEM',
       },
     });
+
+    // Store actual systemId for User FK reference
+    employeeSystemIdMap.set(emp.id, result.systemId);
     console.log(`   ✅ Employee: ${emp.fullName} (${emp.id}) — ${emp.role}`);
   }
 
@@ -130,11 +136,18 @@ async function main() {
   console.log('\n🔐 Creating/updating users...');
 
   for (const usr of USERS) {
+    // Resolve actual Employee.systemId from DB (may differ from seed data if employee pre-existed)
+    const actualEmployeeSystemId = employeeSystemIdMap.get(usr.employeeId);
+    if (!actualEmployeeSystemId) {
+      console.error(`   ❌ Employee ${usr.employeeId} not found — skipping user ${usr.email}`);
+      continue;
+    }
+
     const result = await prisma.user.upsert({
       where: { email: usr.email },
       update: {
         password: hashedPassword,
-        employeeId: usr.employeeSystemId,
+        employeeId: actualEmployeeSystemId,
       },
       create: {
         systemId: usr.systemId,
@@ -142,7 +155,7 @@ async function main() {
         password: hashedPassword,
         role: usr.role,
         isActive: true,
-        employeeId: usr.employeeSystemId,
+        employeeId: actualEmployeeSystemId,
       },
     });
     console.log(`   ✅ User: ${result.email} (role: ${result.role})`);
