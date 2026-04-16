@@ -83,9 +83,10 @@ export function convertOrderForPrint(
       name: order.customerName,
       phone: order.customerPhone || '',
       email: order.customerEmail || '',
+      address: '',
     },
-    billingAddress: billingAddr,
-    shippingAddress: shippingAddr,
+    billingAddress: billingAddr || customerAddressString,
+    shippingAddress: shippingAddr || billingAddr || customerAddressString,
     items: order.lineItems.map(item => {
       const lineDiscount = item.discountType === 'percentage'
         ? item.unitPrice * item.quantity * item.discount / 100

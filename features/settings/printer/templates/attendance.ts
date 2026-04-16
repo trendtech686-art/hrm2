@@ -169,7 +169,7 @@ export const ATTENDANCE_TEMPLATE = `<!DOCTYPE html>
   <div class="employee-page">
     <!-- Header -->
     <div class="header">
-      <img src="{store_logo}" class="store-logo" onerror="this.style.display='none'">
+      <div class="store-logo-container">{store_logo}</div>
       <div class="store-info-container">
         <div class="store-name">{store_name}</div>
         <div class="store-info">{store_address} | ĐT: {store_phone_number}</div>

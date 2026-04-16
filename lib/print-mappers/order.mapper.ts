@@ -280,7 +280,7 @@ export function mapOrderToPrintData(order: OrderForPrint, storeSettings: StoreSe
     
     // === ĐỊA CHỈ ===
     '{billing_address}': order.billingAddress || order.customer?.address || '',
-    '{shipping_address}': order.shippingAddress || '',
+    '{shipping_address}': order.shippingAddress || order.billingAddress || order.customer?.address || '',
     '{shipping_address:full_name}': order.recipient?.name || order.customer?.name || '',
     '{shipping_address:phone_number}': order.recipient?.phone || order.customer?.phone || '',
     '{shipping_address:phone_number_hide}': hidePhoneMiddle(order.recipient?.phone || order.customer?.phone),

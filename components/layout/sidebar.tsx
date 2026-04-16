@@ -33,6 +33,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { useAuth } from '../../contexts/auth-context';
 import { useUiStore } from '../../lib/ui-store';
 import { useRoleSettings } from '../../features/settings/employees/hooks/use-role-settings';
+import { useBranding } from '../../hooks/use-branding';
 import type { Permission } from '../../features/employees/permissions';
 
 type NavLinkInfo = {
@@ -190,6 +191,7 @@ export function Sidebar() {
   const loggedInUser = authEmployee;
     const { isSidebarCollapsed, toggleSidebarCollapse: _toggleSidebarCollapse } = useUiStore();
     const { data: customRoles } = useRoleSettings();
+    const { logoUrl } = useBranding();
 
     const filteredMenuGroups = React.useMemo(() => {
     const userRole = loggedInUser?.role || 'Sales';
@@ -216,8 +218,12 @@ export function Sidebar() {
         <SidebarPrimitive>
             <SidebarHeader>
                 <Link href="/" className="flex items-center gap-2 font-semibold text-lg overflow-hidden">
-                    <Command className="h-6 w-6 shrink-0" />
-                    {!isSidebarCollapsed && <span className="truncate">ACME ERP</span>}
+                    {logoUrl ? (
+                      <img src={logoUrl} alt="Logo" className="h-6 shrink-0 object-contain" />
+                    ) : (
+                      <Command className="h-6 w-6 shrink-0" />
+                    )}
+                    {!isSidebarCollapsed && !logoUrl && <span className="truncate">ACME ERP</span>}
                 </Link>
             </SidebarHeader>
 
